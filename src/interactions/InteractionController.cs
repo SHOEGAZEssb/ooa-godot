@@ -11,7 +11,7 @@ public sealed class InteractionController
     private readonly DialogueBox _dialogue;
     private readonly Func<Vector2, Vector2> _worldToScreen;
 
-    public bool DialogueOpen => _dialogue.IsOpen;
+    public bool DialogueOpen => _dialogue.BlocksPlayerInput;
 
     public InteractionController(
         RoomSession rooms,

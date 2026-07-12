@@ -473,11 +473,54 @@ public partial class GameRoot
     private void ValidateSigns()
     {
         WarpToSignTest();
+        if (_dialogue.VisibleLinesPerPage != 2 || _dialogue.TextLineSpacing != 16)
+            throw new InvalidOperationException(
+                "The textbox does not use the original two 8x16 text rows.");
         if (_currentRoom.GetMetatile(new Vector2(88, 58)) != 0xf2)
             throw new InvalidOperationException("Expected sign metatile $f2 in room 2a at $35.");
         if (!TryInteract(_player) || !_dialogue.IsOpen)
             throw new InvalidOperationException("The room 2a test sign did not open its dialogue.");
-        GD.Print("Validated sign $35 in room 2a and opened TX_2e01.");
+
+        bool arrowBefore = _dialogue.ArrowVisible;
+        _dialogue.AdvanceArrowClockForValidation(16.0 / 60.0);
+        if (_dialogue.ArrowVisible == arrowBefore)
+            throw new InvalidOperationException("The textbox arrow did not toggle after 16 original-engine frames.");
+        _dialogue.AdvanceArrowClockForValidation(16.0 / 60.0);
+        if (_dialogue.ArrowVisible != arrowBefore)
+            throw new InvalidOperationException("The textbox arrow did not complete its 32-frame blink cycle.");
+
+        _dialogue.ShowMessage("First.\nSecond.\nThird.\nFourth.", _player.Position.Y);
+        _dialogue.AdvanceOrClose();
+        if (!_dialogue.IsScrollingText ||
+            !Mathf.IsEqualApprox(_dialogue.TextScrollOffset, 8.0f))
+        {
+            throw new InvalidOperationException(
+                "The button frame did not perform standardTextStateb's first 8px shift.");
+        }
+        _dialogue.AdvanceTextScrollForValidation(1.0 / 60.0);
+        if (!_dialogue.IsScrollingText ||
+            !Mathf.IsEqualApprox(_dialogue.TextScrollOffset, 8.0f))
+        {
+            throw new InvalidOperationException(
+                "The standard textbox DMA state did not hold the first 8px shift for one frame.");
+        }
+        _dialogue.AdvanceTextScrollForValidation(1.0 / 60.0);
+        if (!Mathf.IsEqualApprox(_dialogue.TextScrollOffset, 16.0f))
+            throw new InvalidOperationException("standardTextState7 did not perform the second 8px shift.");
+        _dialogue.AdvanceTextScrollForValidation(5.0 / 60.0);
+        if (_dialogue.IsScrollingText || !Mathf.IsZeroApprox(_dialogue.TextScrollOffset))
+            throw new InvalidOperationException(
+                "The two discrete tile-row scroll sequences did not finish in seven frames.");
+
+        _dialogue.ShowMessage("Last line.", _player.Position.Y);
+        _dialogue.AdvanceOrClose();
+        if (_dialogue.IsOpen || !_dialogue.BlocksPlayerInput)
+            throw new InvalidOperationException("Closing the final textbox did not consume its button press.");
+        _player._PhysicsProcess(1.0 / 60.0);
+        if (_dialogue.IsOpen)
+            throw new InvalidOperationException("The final textbox press immediately restarted the interaction.");
+
+        GD.Print("Validated dialogue spacing, discrete tile-row text scroll, 32-frame arrow blink, and final-page input consumption.");
     }
 
     private void ValidateNpcs()
