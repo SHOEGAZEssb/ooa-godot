@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -12,8 +13,10 @@ public partial class GameRoot : Node2D
     private Hud _hud = null!;
     private Label _roomDebug = null!;
     private SignDatabase _signs = null!;
+    private NpcDatabase _npcs = null!;
     private WarpDatabase _warps = null!;
     private DialogueBox _dialogue = null!;
+    private readonly List<NpcCharacter> _npcNodes = new();
     private double _animationTicks;
     private int _activeGroup;
     private bool _scrollTransitionActive;
@@ -41,6 +44,7 @@ public partial class GameRoot : Node2D
     {
         _world = new OracleWorldData();
         _signs = new SignDatabase();
+        _npcs = new NpcDatabase();
         _warps = new WarpDatabase();
         _activeGroup = GetStartingGroup();
         if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-world"))
@@ -50,6 +54,7 @@ public partial class GameRoot : Node2D
         _roomView = new RoomView { Name = "RoomView", ZIndex = 0 };
         AddChild(_roomView);
         _roomView.SetRoom(_currentRoom.Texture);
+        RefreshRoomObjects();
 
         _player = new Player { Name = "Link", ZIndex = 10 };
         AddChild(_player);
@@ -82,6 +87,8 @@ public partial class GameRoot : Node2D
             CallDeferred(MethodName.ValidateSymmetryTransition);
         if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-signs"))
             CallDeferred(MethodName.ValidateSigns);
+        if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-npcs"))
+            CallDeferred(MethodName.ValidateNpcs);
         if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-animations"))
             CallDeferred(MethodName.ValidateAnimations);
         if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-sword-bush"))
@@ -157,6 +164,16 @@ public partial class GameRoot : Node2D
 
     public bool TryInteract(Player player)
     {
+        foreach (NpcCharacter npc in _npcNodes)
+        {
+            if (!npc.CanTalkTo(player))
+                continue;
+
+            npc.FaceToward(player.Position);
+            _dialogue.ShowMessage(npc.Message, player.Position.Y);
+            return true;
+        }
+
         Vector2 signPoint = player.Position + (Vector2)player.FacingVector * 8.0f;
         if (_currentRoom.GetMetatile(signPoint) != 0xf2)
             return false;
@@ -196,6 +213,17 @@ public partial class GameRoot : Node2D
             }
 
             if (_currentRoom.IsSolid(sample))
+                return true;
+        }
+
+        return NpcBlocksLinkCenter(playerPosition);
+    }
+
+    private bool NpcBlocksLinkCenter(Vector2 linkCenter)
+    {
+        foreach (NpcCharacter npc in _npcNodes)
+        {
+            if (npc.BlocksLinkCenter(linkCenter))
                 return true;
         }
         return false;
@@ -331,6 +359,7 @@ public partial class GameRoot : Node2D
         if (direction == Vector2I.Right) start.X = source.Width - 6;
 
         _scrollTransitionActive = true;
+        ClearRoomObjects();
         _scrollTransitionDirection = direction;
         _scrollTransitionLinkStart = start;
         _scrollTransitionDistance = direction.X != 0 ? source.Width : source.Height;
@@ -372,6 +401,7 @@ public partial class GameRoot : Node2D
         _scrollTransitionActive = false;
         _roomView.FinishTransition();
         _player.FinishScrollingTransition(linkPosition + _scrollTransitionFinishOffset);
+        RefreshRoomObjects();
     }
 
     private bool HasNeighborFor(Vector2 point)
@@ -393,6 +423,7 @@ public partial class GameRoot : Node2D
         _activeGroup = warp.DestinationGroup;
         _currentRoom = _world.LoadRoom(_activeGroup, warp.DestinationRoom);
         _roomView.SetRoom(_currentRoom.Texture);
+        RefreshRoomObjects();
 
         Vector2 spawn;
         if (warp.DestinationTransition == 3 && (warp.DestinationPosition & 0xf0) == 0xf0)
@@ -490,6 +521,32 @@ public partial class GameRoot : Node2D
         _deactivatedWarpPosition = -1;
     }
 
+    private void RefreshRoomObjects()
+    {
+        ClearRoomObjects();
+        foreach (NpcDatabase.NpcRecord record in _npcs.GetRoomNpcs(_activeGroup, _currentRoom.Id))
+        {
+            var npc = new NpcCharacter
+            {
+                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+                ZIndex = 9
+            };
+            npc.Initialize(record);
+            _npcNodes.Add(npc);
+            AddChild(npc);
+        }
+    }
+
+    private void ClearRoomObjects()
+    {
+        foreach (NpcCharacter npc in _npcNodes)
+        {
+            RemoveChild(npc);
+            npc.QueueFree();
+        }
+        _npcNodes.Clear();
+    }
+
     private bool TryGetNeighborId(Vector2I direction, out int id)
     {
         int x = _currentRoom.Id & 0x0f;
@@ -533,6 +590,7 @@ public partial class GameRoot : Node2D
         ClearDeactivatedWarp();
         _currentRoom = _world.LoadRoom(_activeGroup, 0x2a);
         _roomView.SetRoom(_currentRoom.Texture);
+        RefreshRoomObjects();
         _player.WarpTo(new Vector2(5 * OracleRoomData.MetatileSize + 8, 70));
         _player.Face(Vector2I.Up);
         _hud.Refresh();
@@ -546,6 +604,7 @@ public partial class GameRoot : Node2D
         int targetRoom = _currentRoom.Id == 0xb8 ? 0x03 : 0xb8;
         _currentRoom = _world.LoadRoom(_activeGroup, targetRoom);
         _roomView.SetRoom(_currentRoom.Texture);
+        RefreshRoomObjects();
         _player.WarpTo(FindSpawn());
         _player.Face(Vector2I.Down);
         _hud.Refresh();
@@ -560,6 +619,7 @@ public partial class GameRoot : Node2D
         Vector2 bushPoint = new(1 * OracleRoomData.MetatileSize + 8, 3 * OracleRoomData.MetatileSize + 8);
         _currentRoom.ReplaceMetatile(bushPoint, 0x3a, 0xc5, (long)_animationTicks);
         _roomView.SetRoom(_currentRoom.Texture);
+        RefreshRoomObjects();
         _player.WarpTo(new Vector2(bushPoint.X, 70));
         _player.Face(Vector2I.Up);
         _hud.Refresh();
@@ -572,7 +632,21 @@ public partial class GameRoot : Node2D
         ClearDeactivatedWarp();
         _currentRoom = _world.LoadRoom(_activeGroup, 0x47);
         _roomView.SetRoom(_currentRoom.Texture);
+        RefreshRoomObjects();
         _player.WarpTo(new Vector2(5 * OracleRoomData.MetatileSize + 8, 54));
+        _player.Face(Vector2I.Up);
+        _hud.Refresh();
+    }
+
+    private void WarpToNpcTest()
+    {
+        _dialogue.Close();
+        _activeGroup = 0;
+        ClearDeactivatedWarp();
+        _currentRoom = _world.LoadRoom(_activeGroup, 0x48);
+        _roomView.SetRoom(_currentRoom.Texture);
+        RefreshRoomObjects();
+        _player.WarpTo(new Vector2(0x38, 0x58));
         _player.Face(Vector2I.Up);
         _hud.Refresh();
     }
@@ -968,6 +1042,51 @@ public partial class GameRoot : Node2D
         if (!TryInteract(_player) || !_dialogue.IsOpen)
             throw new InvalidOperationException("The room 2a test sign did not open its dialogue.");
         GD.Print("Validated sign $35 in room 2a and opened TX_2e01.");
+    }
+
+    private void ValidateNpcs()
+    {
+        WarpToNpcTest();
+        if (_npcNodes.Count != 1)
+            throw new InvalidOperationException($"Expected one test NPC in room 0:48, got {_npcNodes.Count}.");
+        if (_npcNodes[0].TextId != 0x1420)
+            throw new InvalidOperationException($"Expected room 0:48 villager to resolve TX_1420, got TX_{_npcNodes[0].TextId:x4}.");
+        if (_npcNodes[0].Position != new Vector2(0x38, 0x48) ||
+            _npcNodes[0].SpriteBounds.GetCenter() != _npcNodes[0].Position)
+        {
+            throw new InvalidOperationException("The room 0:48 villager sprite is not centered on its object tile.");
+        }
+        if (_npcNodes[0].ObjectCollisionBounds.Size != new Vector2(12.0f, 12.0f) ||
+            _npcNodes[0].ObjectCollisionBounds.GetCenter() != _npcNodes[0].Position)
+        {
+            throw new InvalidOperationException("The room 0:48 villager object hitbox does not match the original $06/$06 collision radii.");
+        }
+        if (_npcNodes[0].LinkBlockingBounds.Size != new Vector2(24.0f, 24.0f) ||
+            _npcNodes[0].LinkBlockingBounds.GetCenter() != _npcNodes[0].Position)
+        {
+            throw new InvalidOperationException("The room 0:48 villager does not combine NPC and Link $06 radii into a 24px blocking region.");
+        }
+        if (!_npcNodes[0].BlocksLinkCenter(_npcNodes[0].Position) ||
+            _npcNodes[0].BlocksLinkCenter(_npcNodes[0].Position + new Vector2(0.0f, 12.0f)))
+        {
+            throw new InvalidOperationException("The room 0:48 villager's strict radius collision boundary is not centered correctly.");
+        }
+        if (!Collides(_npcNodes[0].Position + new Vector2(0.0f, 11.9f)) ||
+            Collides(_npcNodes[0].Position + new Vector2(0.0f, 12.1f)))
+        {
+            throw new InvalidOperationException("The room 0:48 villager did not stop Link at the original bottom collision radius.");
+        }
+        if (!TryInteract(_player) || !_dialogue.IsOpen)
+            throw new InvalidOperationException("The room 0:48 villager did not open dialogue.");
+        if (_npcNodes[0].CurrentFrameColumn != _npcNodes[0].Record.FrameBase)
+            throw new InvalidOperationException("The room 0:48 villager did not face down toward Link after talking.");
+        _npcNodes[0].FaceToward(_npcNodes[0].Position + Vector2.Left);
+        if (_npcNodes[0].CurrentFrameColumn != _npcNodes[0].Record.FrameBase + 2)
+            throw new InvalidOperationException("The room 0:48 villager's left-facing frame is not mapped correctly.");
+        _npcNodes[0].FaceToward(_npcNodes[0].Position + Vector2.Right);
+        if (_npcNodes[0].CurrentFrameColumn != _npcNodes[0].Record.FrameBase + 3)
+            throw new InvalidOperationException("The room 0:48 villager's right-facing frame is not mapped correctly.");
+        GD.Print("Validated talkable male villager in room 0:48 and opened TX_1420.");
     }
 
     private static int GetStartingRoom()

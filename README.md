@@ -30,6 +30,8 @@ The gameplay HUD is reconstructed from the original HUD tilemap, flags, palette,
 
 Signs now use the original `$f2` metatile interaction and the complete 42-entry `signText.s` lookup table. Their dialogue uses the original `gfx_font`, textbox dimensions, placement rules, palette, directional glyphs, and blinking continue marker. Press **A or B** (Z/K or X/J; either gamepad face button) to advance pages or close the final page. Press **T** at any time to warp directly below the Rolling Ridge/Lynna City test sign in present-overworld room `2a`.
 
+The first NPC object slice is in place: room `0:48` now spawns the original male villager interaction `$3a/$03` from `group0Map48ObjectData`, draws him from `spr_syrup_teenager`, blocks Link using the original generic-NPC `$06/$06` collision radii combined with Link's own `$06/$06` radii, faces him toward Link when talked to, and opens the resolved `TX_1420` generic NPC text with the existing textbox.
+
 Animated background tiles are driven by the original 22 tileset animation groups, 74 independent tracks, 112 graphics-transfer headers, frame durations, and all three Ages animation sheets. This covers overworld water/flowers, waterfalls, whirlpools, currents, pollution, seaweed, lava, and dungeon animation. Press **Y** to toggle between a water-heavy test room (`b8`) and the lava room (`03`).
 
 The level-1 sword uses Link's original animation-mode `$22` poses, the original `spr_swords` weapon cells and OAM compositions, `swordArcData` positions/collision radii, and the frame-accurate bush-breaking event. Standard overworld bushes (`$c5`) are replaced by ground (`$3a`) and immediately stop colliding. Press **B** to warp below a bush in room `69`, then swing with the normal A-button control (Z/K or gamepad A).
@@ -44,5 +46,5 @@ For room-rendering development, hexadecimal group and room values can be selecte
 
 1. Port further room objects and interactions from `data/ages/*Room.s` and `objects/ages`.
 2. Refine terrain with full swim/diving item checks, ledge screen transitions, terrain-specific Link animations, and the original low-health/death handling.
-3. Add inventory/items, enemies, dialogue, save data, and the present/past world state.
+3. Expand the NPC/object system, then add inventory/items, enemies, save data, and the present/past world state.
 4. Translate music and sound-effect sequencing into Godot audio streams.

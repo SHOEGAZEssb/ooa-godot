@@ -148,6 +148,7 @@ Copy-GeneratedFile "rooms\ages\roomPacksPresent.bin" "groups\roomPacksPresent.bi
 Copy-GeneratedFile "rooms\ages\roomPacksPast.bin" "groups\roomPacksPast.bin"
 Copy-GeneratedFile "gfx\common\spr_link.png" "gfx\spr_link.png"
 Copy-GeneratedFile "gfx\common\spr_swords.png" "gfx\spr_swords.png"
+Copy-GeneratedFile "gfx_compressible\ages\spr_syrup_teenager.png" "gfx\spr_syrup_teenager.png"
 Copy-GeneratedFile "gfx_compressible\common\gfx_hud.png" "gfx\gfx_hud.png"
 Copy-GeneratedFile "gfx\common\spr_item_icons_2.png" "gfx\spr_item_icons_2.png"
 Copy-GeneratedFile "gfx\common\gfx_partial_hearts.png" "gfx\gfx_partial_hearts.png"
@@ -208,6 +209,34 @@ if ($signRows.Count -ne 43) {
 $signPath = Join-Path $destination "objects\signs.tsv"
 New-Item -ItemType Directory -Force -Path (Split-Path $signPath -Parent) | Out-Null
 [IO.File]::WriteAllLines($signPath, $signRows, [Text.UTF8Encoding]::new($false))
+
+# First NPC slice: preserve the original male villager placed by
+# group0Map48ObjectData (`obj_Interaction $3a $03 $48 $38`) and resolve its
+# generic script text (`villagerSubid03Script_befored3 -> TX_1420`).
+$npcTextMatch = [regex]::Match(
+    $textYaml,
+    '(?ms)^  - name: TX_1420\r?\n    index: 0x20\r?\n    text: \|-\r?\n(?<body>(?:      [^\r\n]*(?:\r?\n|\z))+)'
+)
+if (-not $npcTextMatch.Success) {
+    throw "Could not resolve villager text TX_1420."
+}
+$npcLines = $npcTextMatch.Groups['body'].Value -split '\r?\n' | ForEach-Object {
+    if ($_.Length -ge 6) { $_.Substring(6) } else { '' }
+}
+while ($npcLines.Count -gt 0 -and $npcLines[-1] -eq '') {
+    $npcLines = $npcLines[0..($npcLines.Count - 2)]
+}
+$npcText = $npcLines -join "`n"
+$npcText = $npcText.Replace('\left', [string][char]0x2190)
+$npcText = $npcText.Replace('\right', [string][char]0x2192)
+$npcText = $npcText.Replace('\up', [string][char]0x2191)
+$npcText = $npcText.Replace('\down', [string][char]0x2193)
+$npcText = [regex]::Replace($npcText, '\\(?:stop|pos\([^)]*\)|col\([^)]*\))', '')
+$npcRows = [Collections.Generic.List[string]]::new()
+$npcRows.Add("# group`troom`tid`tsubid`ty`tx`ttext-id`tsprite`tframe-base`tutf8-base64")
+$npcRows.Add("0`t48`t3a`t03`t48`t38`t1420`tspr_syrup_teenager`t4`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($npcText)))")
+$npcPath = Join-Path $destination "objects\npcs.tsv"
+[IO.File]::WriteAllLines($npcPath, $npcRows, [Text.UTF8Encoding]::new($false))
 
 # Resolve warp source indices to their destination records. A source position
 # of '*' is a standard whole-room tile warp; nonzero edge masks are the four
@@ -399,4 +428,4 @@ if ($importedRoomCount -ne 1536) {
 }
 
 Write-Host "Validated clean US ROM: $hash"
-Write-Host "Imported $($tilesets.Count) tilesets, 1536 rooms, 42 signs, 529 warps, and 22 animation groups into $destination"
+Write-Host "Imported $($tilesets.Count) tilesets, 1536 rooms, 42 signs, 1 NPC, 529 warps, and 22 animation groups into $destination"
