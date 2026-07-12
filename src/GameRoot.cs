@@ -1,0 +1,1053 @@
+using Godot;
+using System;
+
+namespace oracleofages;
+
+public partial class GameRoot : Node2D
+{
+    private OracleWorldData _world = null!;
+    private OracleRoomData _currentRoom = null!;
+    private RoomView _roomView = null!;
+    private Player _player = null!;
+    private Hud _hud = null!;
+    private Label _roomDebug = null!;
+    private SignDatabase _signs = null!;
+    private WarpDatabase _warps = null!;
+    private DialogueBox _dialogue = null!;
+    private double _animationTicks;
+    private int _activeGroup;
+    private bool _scrollTransitionActive;
+    private Vector2I _scrollTransitionDirection;
+    private Vector2 _scrollTransitionLinkStart;
+    private Vector2 _scrollTransitionLinkStep;
+    private Vector2 _scrollTransitionFinishOffset;
+    private float _scrollTransitionDistance;
+    private float _scrollTransitionFrame;
+    private int _scrollTransitionFrames;
+    private int _deactivatedWarpGroup = -1;
+    private int _deactivatedWarpRoom = -1;
+    private int _deactivatedWarpPosition = -1;
+
+    public bool IsTransitioning => _scrollTransitionActive || _roomView.IsTransitioning;
+    public bool DialogueOpen => _dialogue.IsOpen;
+
+    public readonly record struct ActiveTerrainInfo(
+        OracleRoomData.TerrainInfo Terrain,
+        Vector2 SamplePoint,
+        Vector2 TileCenter,
+        int PackedPosition);
+
+    public override void _Ready()
+    {
+        _world = new OracleWorldData();
+        _signs = new SignDatabase();
+        _warps = new WarpDatabase();
+        _activeGroup = GetStartingGroup();
+        if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-world"))
+            _world.ValidateRepresentativeRooms();
+        _currentRoom = _world.LoadRoom(_activeGroup, GetStartingRoom());
+
+        _roomView = new RoomView { Name = "RoomView", ZIndex = 0 };
+        AddChild(_roomView);
+        _roomView.SetRoom(_currentRoom.Texture);
+
+        _player = new Player { Name = "Link", ZIndex = 10 };
+        AddChild(_player);
+        _player.Initialize(this, FindSpawn());
+        _player.HealthChanged += SyncHudToPlayer;
+
+        _hud = new Hud { Name = "Hud", Position = new Vector2(0, 128), ZIndex = 20 };
+        AddChild(_hud);
+        SyncHudToPlayer();
+
+        _dialogue = new DialogueBox { Name = "Dialogue", ZIndex = 30, Visible = false };
+        AddChild(_dialogue);
+
+        _roomDebug = new Label
+        {
+            Name = "RoomDebug",
+            Position = new Vector2(2, 0),
+            ZIndex = 100,
+            MouseFilter = Control.MouseFilterEnum.Ignore
+        };
+        _roomDebug.AddThemeFontSizeOverride("font_size", 8);
+        _roomDebug.AddThemeColorOverride("font_color", Color.Color8(255, 248, 207));
+        _roomDebug.AddThemeColorOverride("font_outline_color", Color.Color8(20, 24, 20));
+        _roomDebug.AddThemeConstantOverride("outline_size", 1);
+        AddChild(_roomDebug);
+
+        if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-transition"))
+            CallDeferred(MethodName.ValidateStartupTransition);
+        if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-symmetry-transition"))
+            CallDeferred(MethodName.ValidateSymmetryTransition);
+        if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-signs"))
+            CallDeferred(MethodName.ValidateSigns);
+        if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-animations"))
+            CallDeferred(MethodName.ValidateAnimations);
+        if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-sword-bush"))
+            CallDeferred(MethodName.ValidateSwordBush);
+        if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-house-warp"))
+            CallDeferred(MethodName.ValidateHouseWarp);
+        if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-terrain"))
+            CallDeferred(MethodName.ValidateTerrain);
+        if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-health"))
+            CallDeferred(MethodName.ValidateHealth);
+    }
+
+    public override void _Process(double delta)
+    {
+        UpdateScrollingTransition(delta);
+        string roomText = $"{_activeGroup:x1}:{_currentRoom.Id:x2}";
+        if (_roomDebug.Text != roomText)
+            _roomDebug.Text = roomText;
+        _animationTicks += delta * 60.0;
+        if (_currentRoom.UpdateAnimation((long)_animationTicks))
+            _roomView.QueueRedraw();
+        if (Input.IsActionJustPressed("debug_sign"))
+            WarpToSignTest();
+        if (Input.IsActionJustPressed("debug_animation"))
+            WarpToAnimationTest();
+        if (Input.IsActionJustPressed("debug_bush"))
+            WarpToBushTest();
+        if (Input.IsActionJustPressed("debug_house"))
+            WarpToHouseTest();
+    }
+
+    private void SyncHudToPlayer()
+    {
+        if (_hud == null || _player == null)
+            return;
+
+        if (_hud.HealthQuarters == _player.HealthQuarters &&
+            _hud.MaxHealthQuarters == _player.MaxHealthQuarters)
+            return;
+
+        _hud.HealthQuarters = _player.HealthQuarters;
+        _hud.MaxHealthQuarters = _player.MaxHealthQuarters;
+        _hud.Refresh();
+    }
+
+    public bool ApplySwordHit(Player player, Rect2 hitbox)
+    {
+        Vector2 offset = player.FacingVector == Vector2I.Up ? new Vector2(0, -14)
+            : player.FacingVector == Vector2I.Right ? new Vector2(13, 0)
+            : player.FacingVector == Vector2I.Down ? new Vector2(0, 13)
+            : new Vector2(-14, 0);
+        Vector2 point = player.Position + offset;
+        int tileX = Mathf.FloorToInt(point.X / OracleRoomData.MetatileSize);
+        int tileY = Mathf.FloorToInt(point.Y / OracleRoomData.MetatileSize);
+        Rect2 tileBounds = new(
+            tileX * OracleRoomData.MetatileSize,
+            tileY * OracleRoomData.MetatileSize,
+            OracleRoomData.MetatileSize,
+            OracleRoomData.MetatileSize);
+        if (!hitbox.Intersects(tileBounds) ||
+            !_currentRoom.ReplaceMetatile(point, 0xc5, 0x3a, (long)_animationTicks))
+            return false;
+
+        var effect = new BushCutEffect
+        {
+            Position = tileBounds.GetCenter(),
+            ZIndex = 12
+        };
+        AddChild(effect);
+        _roomView.QueueRedraw();
+        return true;
+    }
+
+    public bool TryInteract(Player player)
+    {
+        Vector2 signPoint = player.Position + (Vector2)player.FacingVector * 8.0f;
+        if (_currentRoom.GetMetatile(signPoint) != 0xf2)
+            return false;
+
+        // The original accepts A beside a sign from any side, but only reveals
+        // its message when Link is below it and facing up.
+        string message;
+        if (player.FacingVector != Vector2I.Up)
+        {
+            message = "You can't read it\nfrom this side!"; // TX_510e
+        }
+        else if (!_signs.TryGetMessage(
+            _activeGroup, _currentRoom.Id, _currentRoom.GetPackedPosition(signPoint), out message!))
+        {
+            message = "Nothing is written\nhere."; // TX_0901 fallback
+        }
+
+        _dialogue.ShowMessage(message, player.Position.Y);
+        return true;
+    }
+
+    public bool Collides(Vector2 playerPosition)
+    {
+        foreach (Vector2 offset in new[]
+        {
+            new Vector2(-5, -2), new Vector2(5, -2),
+            new Vector2(-5, 5), new Vector2(5, 5)
+        })
+        {
+            Vector2 sample = playerPosition + offset;
+            if (sample.X < 0 || sample.X >= _currentRoom.Width ||
+                sample.Y < 0 || sample.Y >= _currentRoom.Height)
+            {
+                if (!HasNeighborFor(sample))
+                    return true;
+                continue;
+            }
+
+            if (_currentRoom.IsSolid(sample))
+                return true;
+        }
+        return false;
+    }
+
+    public OracleRoomData.TerrainInfo GetTerrainInfo(Vector2 playerPosition)
+    {
+        return _currentRoom.GetTerrainInfo(playerPosition + new Vector2(0, 5));
+    }
+
+    public ActiveTerrainInfo GetActiveTerrain(Vector2 playerPosition)
+    {
+        Vector2 sample = playerPosition + new Vector2(0, 5);
+        int tileX = Mathf.FloorToInt(sample.X / OracleRoomData.MetatileSize);
+        int tileY = Mathf.FloorToInt(sample.Y / OracleRoomData.MetatileSize);
+        Vector2 center = new(
+            tileX * OracleRoomData.MetatileSize + 8,
+            tileY * OracleRoomData.MetatileSize + 8);
+        return new ActiveTerrainInfo(
+            _currentRoom.GetTerrainInfo(sample),
+            sample,
+            center,
+            (tileY << 4) | tileX);
+    }
+
+    public Vector2 GetTerrainPush(Vector2 playerPosition)
+    {
+        OracleRoomData.TerrainType terrain = GetTerrainInfo(playerPosition).Type;
+        const float pushSpeed = 32.0f;
+        return terrain switch
+        {
+            OracleRoomData.TerrainType.UpCurrent or OracleRoomData.TerrainType.UpConveyor => new Vector2(0, -pushSpeed),
+            OracleRoomData.TerrainType.RightCurrent or OracleRoomData.TerrainType.RightConveyor => new Vector2(pushSpeed, 0),
+            OracleRoomData.TerrainType.DownCurrent or OracleRoomData.TerrainType.DownConveyor => new Vector2(0, pushSpeed),
+            OracleRoomData.TerrainType.LeftCurrent or OracleRoomData.TerrainType.LeftConveyor => new Vector2(-pushSpeed, 0),
+            _ => Vector2.Zero
+        };
+    }
+
+    public bool TryStartLedgeHop(Player player, Vector2 from, Vector2 attemptedMovement)
+    {
+        Vector2I direction;
+        if (Mathf.Abs(attemptedMovement.X) > Mathf.Abs(attemptedMovement.Y))
+            direction = attemptedMovement.X > 0 ? Vector2I.Right : Vector2I.Left;
+        else
+            direction = attemptedMovement.Y > 0 ? Vector2I.Down : Vector2I.Up;
+
+        if (player.FacingVector != direction)
+            return false;
+
+        Vector2 ledgePoint = from + (Vector2)direction * 12.0f;
+        if (!IsCliffTile(_currentRoom.GetMetatile(ledgePoint), direction))
+            return false;
+
+        Vector2 landing = from + (Vector2)direction * (OracleRoomData.MetatileSize * 2);
+        if (landing.X < 0 || landing.X >= _currentRoom.Width ||
+            landing.Y < 0 || landing.Y >= _currentRoom.Height ||
+            Collides(landing))
+            return false;
+
+        player.StartLedgeHop(landing);
+        return true;
+    }
+
+    public void SpawnTerrainEffect(Vector2 position, OracleRoomData.HazardType hazard)
+    {
+        var effect = new TerrainEffect
+        {
+            Position = position,
+            ZIndex = 11
+        };
+        effect.Initialize(hazard);
+        AddChild(effect);
+    }
+
+    public bool CheckTileWarp(Player player)
+    {
+        int position = _currentRoom.GetPackedPosition(player.Position);
+        if (_deactivatedWarpGroup == _activeGroup &&
+            _deactivatedWarpRoom == _currentRoom.Id &&
+            _deactivatedWarpPosition == position)
+            return false;
+
+        if (_deactivatedWarpGroup >= 0)
+            ClearDeactivatedWarp();
+
+        byte tile = _currentRoom.GetMetatile(player.Position);
+        if (!_warps.TryGetTileWarp(_activeGroup, _currentRoom.Id, position, tile, out WarpDatabase.Warp warp))
+            return false;
+
+        ApplyWarp(player, warp);
+        return true;
+    }
+
+    public void CheckRoomExit(Player player)
+    {
+        if (IsTransitioning)
+            return;
+
+        Vector2 position = player.Position;
+        Vector2I direction = position.Y <= 5 ? Vector2I.Up
+            : position.Y > _currentRoom.Height - 7 ? Vector2I.Down
+            : position.X <= 5 ? Vector2I.Left
+            : position.X > _currentRoom.Width - 6 ? Vector2I.Right
+            : Vector2I.Zero;
+
+        if (direction == Vector2I.Zero)
+            return;
+
+        if (_warps.TryGetEdgeWarp(
+            _activeGroup, _currentRoom.Id, direction, position,
+            new Vector2(_currentRoom.Width, _currentRoom.Height), out WarpDatabase.Warp warp))
+        {
+            ApplyWarp(player, warp);
+            return;
+        }
+
+        if (!TryGetNeighborId(direction, out int targetId) || !_world.HasRoom(_activeGroup, targetId))
+            return;
+
+        BeginScrollingTransition(player, direction, targetId);
+        _hud.Refresh();
+    }
+
+    private void BeginScrollingTransition(Player player, Vector2I direction, int targetId)
+    {
+        OracleRoomData source = _currentRoom;
+        OracleRoomData target = _world.LoadRoom(_activeGroup, targetId);
+        Vector2 start = player.Position;
+        if (direction == Vector2I.Up) start.Y = 6;
+        if (direction == Vector2I.Down) start.Y = source.Height - 7;
+        if (direction == Vector2I.Left) start.X = 6;
+        if (direction == Vector2I.Right) start.X = source.Width - 6;
+
+        _scrollTransitionActive = true;
+        _scrollTransitionDirection = direction;
+        _scrollTransitionLinkStart = start;
+        _scrollTransitionDistance = direction.X != 0 ? source.Width : source.Height;
+        _scrollTransitionFrame = 0.0f;
+        _scrollTransitionFrames = Mathf.Max(1, Mathf.RoundToInt(_scrollTransitionDistance / 4.0f));
+        _scrollTransitionLinkStep = direction == Vector2I.Up ? new Vector2(0.0f, -0.5f)
+            : direction == Vector2I.Right ? new Vector2(0.375f, 0.0f)
+            : direction == Vector2I.Down ? new Vector2(0.0f, 0.5f)
+            : new Vector2(-0.375f, 0.0f);
+        _scrollTransitionFinishOffset = direction == Vector2I.Up ? new Vector2(0.0f, source.Height)
+            : direction == Vector2I.Right ? new Vector2(-source.Width, 0.0f)
+            : direction == Vector2I.Down ? new Vector2(0.0f, -source.Height)
+            : new Vector2(source.Width, 0.0f);
+
+        _currentRoom = target;
+        _roomView.StartScreenTransition(target.Texture, direction, _scrollTransitionDistance);
+        player.BeginScrollingTransition(start, direction);
+    }
+
+    private void UpdateScrollingTransition(double delta)
+    {
+        if (!_scrollTransitionActive)
+            return;
+
+        _scrollTransitionFrame = Mathf.Min(
+            _scrollTransitionFrames,
+            _scrollTransitionFrame + (float)delta * 60.0f);
+        Vector2 linkPosition = _scrollTransitionLinkStart + _scrollTransitionLinkStep * _scrollTransitionFrame;
+        float scrollPixels = Mathf.Min(Mathf.Floor(_scrollTransitionFrame) * 4.0f, _scrollTransitionDistance);
+        Vector2 screenScroll = new(
+            _scrollTransitionDirection.X * scrollPixels,
+            _scrollTransitionDirection.Y * scrollPixels);
+        _roomView.SetTransitionFrame(_scrollTransitionFrame);
+        _player.SetScrollingTransitionPosition(linkPosition, screenScroll);
+
+        if (_scrollTransitionFrame < _scrollTransitionFrames)
+            return;
+
+        _scrollTransitionActive = false;
+        _roomView.FinishTransition();
+        _player.FinishScrollingTransition(linkPosition + _scrollTransitionFinishOffset);
+    }
+
+    private bool HasNeighborFor(Vector2 point)
+    {
+        Vector2I direction = point.X < 0 ? Vector2I.Left
+            : point.X >= _currentRoom.Width ? Vector2I.Right
+            : point.Y < 0 ? Vector2I.Up
+            : Vector2I.Down;
+        return _warps.HasEdgeWarp(_activeGroup, _currentRoom.Id, direction) ||
+            (TryGetNeighborId(direction, out int id) && _world.HasRoom(_activeGroup, id));
+    }
+
+    private void ApplyWarp(Player player, WarpDatabase.Warp warp)
+    {
+        if (!_world.HasRoom(warp.DestinationGroup, warp.DestinationRoom))
+            return;
+
+        _dialogue.Close();
+        _activeGroup = warp.DestinationGroup;
+        _currentRoom = _world.LoadRoom(_activeGroup, warp.DestinationRoom);
+        _roomView.SetRoom(_currentRoom.Texture);
+
+        Vector2 spawn;
+        if (warp.DestinationTransition == 3 && (warp.DestinationPosition & 0xf0) == 0xf0)
+        {
+            float x = (warp.DestinationPosition & 0x0f) == 0x0f
+                ? _currentRoom.Width / 2.0f
+                : (warp.DestinationPosition & 0x0f) * OracleRoomData.MetatileSize + 8;
+            if (warp.DestinationParameter == 9)
+            {
+                spawn = new Vector2(x, _currentRoom.Height - 6);
+                player.Face(Vector2I.Up);
+            }
+            else
+            {
+                spawn = new Vector2(x, 6);
+                player.Face(Vector2I.Down);
+            }
+            ClearDeactivatedWarp();
+        }
+        else
+        {
+            int tileX = warp.DestinationPosition & 0x0f;
+            int tileY = (warp.DestinationPosition >> 4) & 0x0f;
+            spawn = new Vector2(
+                tileX * OracleRoomData.MetatileSize + 8,
+                tileY * OracleRoomData.MetatileSize + 8);
+            byte destinationTile = _currentRoom.GetMetatile(spawn);
+            if (ShouldStepOutFromExteriorEntrance(warp, destinationTile, tileX, tileY))
+            {
+                spawn.Y += OracleRoomData.MetatileSize;
+                ClearDeactivatedWarp();
+                player.Face(Vector2I.Down);
+            }
+            else
+            {
+                _deactivatedWarpGroup = _activeGroup;
+                _deactivatedWarpRoom = _currentRoom.Id;
+                _deactivatedWarpPosition = warp.DestinationPosition;
+                FaceForDestinationTile(player, destinationTile);
+            }
+        }
+
+        player.WarpTo(spawn);
+        _hud.Refresh();
+    }
+
+    private static void FaceForDestinationTile(Player player, byte tile)
+    {
+        if (tile == 0x36)
+            player.Face(Vector2I.Up);
+        else if (tile == 0x44)
+            player.Face(Vector2I.Left);
+        else if (tile == 0x45)
+            player.Face(Vector2I.Right);
+    }
+
+    private bool ShouldStepOutFromExteriorEntrance(
+        WarpDatabase.Warp warp,
+        byte destinationTile,
+        int tileX,
+        int tileY)
+    {
+        if (warp.SourceTransition != 3 || _activeGroup is not (0 or 1) ||
+            !IsOverworldWarpTile(destinationTile))
+            return false;
+
+        Vector2 steppedOut = new(
+            tileX * OracleRoomData.MetatileSize + 8,
+            (tileY + 1) * OracleRoomData.MetatileSize + 8);
+        return steppedOut.Y < _currentRoom.Height && !Collides(steppedOut);
+    }
+
+    private static bool IsOverworldWarpTile(byte tile)
+    {
+        return tile is 0xdc or 0xdd or 0xde or 0xdf or 0xed or 0xee or 0xef;
+    }
+
+    private static bool IsCliffTile(byte tile, Vector2I direction)
+    {
+        if (direction == Vector2I.Down && tile is 0x05 or 0x06 or 0x07 or 0x64 or 0xff or 0xb0 or 0xc1)
+            return true;
+        if (direction == Vector2I.Left && tile is 0x0a or 0xb1 or 0xc2)
+            return true;
+        if (direction == Vector2I.Up && tile is 0xb2 or 0xc3)
+            return true;
+        if (direction == Vector2I.Right && tile is 0x0b or 0xb3 or 0xc4)
+            return true;
+        return false;
+    }
+
+    private void ClearDeactivatedWarp()
+    {
+        _deactivatedWarpGroup = -1;
+        _deactivatedWarpRoom = -1;
+        _deactivatedWarpPosition = -1;
+    }
+
+    private bool TryGetNeighborId(Vector2I direction, out int id)
+    {
+        int x = _currentRoom.Id & 0x0f;
+        int y = (_currentRoom.Id >> 4) & 0x0f;
+        x += direction.X;
+        y += direction.Y;
+        if (x < 0 || x > 15 || y < 0 || y > 15)
+        {
+            id = -1;
+            return false;
+        }
+        id = (y << 4) | x;
+        return true;
+    }
+
+    private Vector2 FindSpawn()
+    {
+        Vector2 center = new(80, 64);
+        Vector2 best = center;
+        float bestDistance = float.MaxValue;
+        for (int y = 0; y < 8; y++)
+        for (int x = 0; x < 10; x++)
+        {
+            Vector2 candidate = new(x * 16 + 8, y * 16 + 8);
+            if (Collides(candidate))
+                continue;
+            float distance = candidate.DistanceSquaredTo(center);
+            if (distance < bestDistance)
+            {
+                best = candidate;
+                bestDistance = distance;
+            }
+        }
+        return best;
+    }
+
+    private void WarpToSignTest()
+    {
+        _dialogue.Close();
+        _activeGroup = 0;
+        ClearDeactivatedWarp();
+        _currentRoom = _world.LoadRoom(_activeGroup, 0x2a);
+        _roomView.SetRoom(_currentRoom.Texture);
+        _player.WarpTo(new Vector2(5 * OracleRoomData.MetatileSize + 8, 70));
+        _player.Face(Vector2I.Up);
+        _hud.Refresh();
+    }
+
+    private void WarpToAnimationTest()
+    {
+        _dialogue.Close();
+        _activeGroup = 0;
+        ClearDeactivatedWarp();
+        int targetRoom = _currentRoom.Id == 0xb8 ? 0x03 : 0xb8;
+        _currentRoom = _world.LoadRoom(_activeGroup, targetRoom);
+        _roomView.SetRoom(_currentRoom.Texture);
+        _player.WarpTo(FindSpawn());
+        _player.Face(Vector2I.Down);
+        _hud.Refresh();
+    }
+
+    private void WarpToBushTest()
+    {
+        _dialogue.Close();
+        _activeGroup = 0;
+        ClearDeactivatedWarp();
+        _currentRoom = _world.LoadRoom(_activeGroup, 0x69);
+        Vector2 bushPoint = new(1 * OracleRoomData.MetatileSize + 8, 3 * OracleRoomData.MetatileSize + 8);
+        _currentRoom.ReplaceMetatile(bushPoint, 0x3a, 0xc5, (long)_animationTicks);
+        _roomView.SetRoom(_currentRoom.Texture);
+        _player.WarpTo(new Vector2(bushPoint.X, 70));
+        _player.Face(Vector2I.Up);
+        _hud.Refresh();
+    }
+
+    private void WarpToHouseTest()
+    {
+        _dialogue.Close();
+        _activeGroup = 0;
+        ClearDeactivatedWarp();
+        _currentRoom = _world.LoadRoom(_activeGroup, 0x47);
+        _roomView.SetRoom(_currentRoom.Texture);
+        _player.WarpTo(new Vector2(5 * OracleRoomData.MetatileSize + 8, 54));
+        _player.Face(Vector2I.Up);
+        _hud.Refresh();
+    }
+
+    private void ValidateHouseWarp()
+    {
+        WarpToHouseTest();
+        for (float y = 54; y >= 47; y--)
+        {
+            if (Collides(new Vector2(88, y)))
+                throw new InvalidOperationException($"The path into exterior door $25 is blocked at y={y}.");
+        }
+        _player.WarpTo(new Vector2(88, 47));
+        if (!CheckTileWarp(_player) || _activeGroup != 2 || _currentRoom.Id != 0xea)
+            throw new InvalidOperationException(
+                $"Expected exterior 0:47/$25 to enter house 2:ea, got {_activeGroup}:{_currentRoom.Id:x2}.");
+
+        for (float y = _player.Position.Y; y <= _currentRoom.Height + 2; y++)
+        {
+            if (Collides(new Vector2(_currentRoom.Width / 2.0f, y)))
+                throw new InvalidOperationException($"The house's bottom exit is blocked at y={y}.");
+        }
+        _player.WarpTo(new Vector2(_currentRoom.Width / 2.0f, _currentRoom.Height + 2));
+        CheckRoomExit(_player);
+        if (_activeGroup != 0 || _currentRoom.Id != 0x47 ||
+            _currentRoom.GetPackedPosition(_player.Position) != 0x35)
+            throw new InvalidOperationException(
+                $"Expected house 2:ea bottom exit to step out below 0:47/$25, got " +
+                $"{_activeGroup}:{_currentRoom.Id:x2}/${_currentRoom.GetPackedPosition(_player.Position):x2}.");
+        if (Collides(_player.Position + Vector2.Down))
+            throw new InvalidOperationException("The exterior landing spot below 0:47/$25 is blocked.");
+
+        _activeGroup = 2;
+        ClearDeactivatedWarp();
+        _currentRoom = _world.LoadRoom(_activeGroup, 0xeb);
+        _roomView.SetRoom(_currentRoom.Texture);
+        _player.WarpTo(new Vector2(-2, _currentRoom.Height / 2.0f));
+        CheckRoomExit(_player);
+        if (_activeGroup != 2 || _currentRoom.Id != 0xea)
+            throw new InvalidOperationException(
+                $"Expected room 2:eb left edge to scroll to 2:ea, got {_activeGroup}:{_currentRoom.Id:x2}.");
+        ValidateLinkScrollsForOneTransitionFrame();
+        FinishActiveScrollingTransitionForValidation();
+        if (_currentRoom.GetPackedPosition(_player.Position) != 0x49)
+            throw new InvalidOperationException(
+                $"Expected Link to finish 2:eb -> 2:ea near the right edge, got " +
+                $"${_currentRoom.GetPackedPosition(_player.Position):x2}.");
+
+        GD.Print("Validated house exit placement and 2:eb -> 2:ea left screen transition.");
+    }
+
+    private void ValidateSwordBush()
+    {
+        WarpToBushTest();
+        Vector2 bushPoint = new(24, 56);
+        if (_currentRoom.GetMetatile(bushPoint) != 0xc5)
+            throw new InvalidOperationException("Expected overworld bush $c5 in room 69 at $31.");
+        _player.StartSwordAttack();
+        _player._Process(7.0 / 60.0);
+        if (_currentRoom.GetMetatile(bushPoint) != 0x3a)
+            throw new InvalidOperationException("The level-1 sword did not replace bush $c5 with ground $3a.");
+        if (_currentRoom.IsSolid(bushPoint))
+            throw new InvalidOperationException("The cut bush's replacement tile remained solid.");
+        GD.Print("Validated level-1 sword hit and bush substitution c5 -> 3a in room 69.");
+    }
+
+    private void ValidateTerrain()
+    {
+        _dialogue.Close();
+        _player.RefillHealth();
+        _activeGroup = 0;
+        ClearDeactivatedWarp();
+
+        _currentRoom = _world.LoadRoom(_activeGroup, 0xb8);
+        _roomView.SetRoom(_currentRoom.Texture);
+        Vector2 waterSafe = new(40, 8);
+        _player.WarpTo(waterSafe);
+        _player.WarpTo(new Vector2(8, 8), recordSafe: false);
+        if (GetTerrainInfo(_player.Position).Hazard != OracleRoomData.HazardType.Water)
+            throw new InvalidOperationException("Expected room b8/$00 to be water terrain.");
+        _player._PhysicsProcess(1.0 / 60.0);
+        if (_player.Visible)
+            throw new InvalidOperationException("Water terrain did not trigger Link's respawn state.");
+        _player._PhysicsProcess(0.5);
+        if (!_player.Visible || _player.Position.DistanceSquaredTo(waterSafe) > 1.0f)
+            throw new InvalidOperationException("Water terrain did not return Link to the last safe tile.");
+
+        _currentRoom = _world.LoadRoom(_activeGroup, 0x03);
+        _roomView.SetRoom(_currentRoom.Texture);
+        Vector2 lavaSafe = new(56, 8);
+        _player.WarpTo(lavaSafe);
+        _player.WarpTo(new Vector2(8, 24), recordSafe: false);
+        if (GetTerrainInfo(_player.Position).Hazard != OracleRoomData.HazardType.Lava)
+            throw new InvalidOperationException("Expected room 03/$10 to be lava terrain.");
+        _player._PhysicsProcess(1.0 / 60.0);
+        if (_player.Visible)
+            throw new InvalidOperationException("Lava terrain did not trigger Link's respawn state.");
+        _player._PhysicsProcess(0.5);
+        if (!_player.Visible || _player.Position.DistanceSquaredTo(lavaSafe) > 1.0f)
+            throw new InvalidOperationException("Lava terrain did not return Link to the last safe tile.");
+
+        if (!TryFindTerrainSample(
+            OracleRoomData.HazardType.Hole,
+            out int holeGroup,
+            out int holeRoom,
+            out Vector2 holeCenter,
+            out Vector2 holeSafe))
+        {
+            throw new InvalidOperationException("Could not find a testable hole terrain tile.");
+        }
+
+        _player.RefillHealth();
+        _activeGroup = holeGroup;
+        ClearDeactivatedWarp();
+        _currentRoom = _world.LoadRoom(_activeGroup, holeRoom);
+        _roomView.SetRoom(_currentRoom.Texture);
+        _player.WarpTo(holeSafe);
+        Vector2 offCenterHoleEntry = holeCenter + new Vector2(3, -2);
+        int beforeHoleHealth = _player.HealthQuarters;
+        _player.WarpTo(offCenterHoleEntry, recordSafe: false);
+        Vector2 expectedHoleCenter = GetActiveTerrain(_player.Position).TileCenter;
+        _player._PhysicsProcess(1.0 / 60.0);
+        if (!_player.IsFallingInHole)
+            throw new InvalidOperationException(
+                $"Room {holeGroup:x1}:{holeRoom:x2} hole terrain did not start Link's fall animation.");
+        if (_player.Position.DistanceSquaredTo(expectedHoleCenter) > 1.0f)
+            throw new InvalidOperationException("Falling into a hole did not center Link on the hole tile.");
+        if (_player.HealthQuarters != beforeHoleHealth)
+            throw new InvalidOperationException("Hole damage was applied before the falling animation finished.");
+
+        for (int i = 0; i < 42; i++)
+            _player._PhysicsProcess(1.0 / 60.0);
+        if (_player.IsFallingInHole)
+            throw new InvalidOperationException("The falling-in-hole animation did not finish.");
+        if (!_player.Visible || _player.Position.DistanceSquaredTo(holeSafe) > 1.0f)
+            throw new InvalidOperationException("Hole terrain did not return Link to the last safe tile.");
+        if (_player.HealthQuarters != beforeHoleHealth - 2)
+            throw new InvalidOperationException("Hole terrain did not apply half-heart damage after respawn.");
+
+        ValidateRoom01HoleBoundaryCase();
+
+        _activeGroup = 0;
+        _currentRoom = _world.LoadRoom(_activeGroup, 0x11);
+        _roomView.SetRoom(_currentRoom.Texture);
+        Vector2 ledgeStart = new(24, 56);
+        _player.WarpTo(ledgeStart);
+        _player.Face(Vector2I.Down);
+        if (!TryStartLedgeHop(_player, _player.Position, Vector2.Down))
+            throw new InvalidOperationException("Room 11's south cliff did not start a ledge hop.");
+        for (int i = 0; i < 30; i++)
+            _player._PhysicsProcess(1.0 / 60.0);
+        if (_player.Position.Y <= ledgeStart.Y + OracleRoomData.MetatileSize)
+            throw new InvalidOperationException("The ledge hop did not carry Link down across the cliff.");
+
+        GD.Print("Validated terrain hazards, hole fall animation/respawn, and south-facing ledge hop.");
+    }
+
+    private void ValidateRoom01HoleBoundaryCase()
+    {
+        _activeGroup = 0;
+        ClearDeactivatedWarp();
+        _currentRoom = _world.LoadRoom(_activeGroup, 0x01);
+        _roomView.SetRoom(_currentRoom.Texture);
+
+        if (!TryFindHoleWithSafeNeighbor(_currentRoom, out Vector2 holeCenter, out Vector2 safePosition))
+            throw new InvalidOperationException("Room 0:01 did not have a testable hole with a safe neighbor.");
+
+        _player.RefillHealth();
+        _player.WarpTo(safePosition);
+        int beforeHealth = _player.HealthQuarters;
+
+        float tileTop = Mathf.FloorToInt(holeCenter.Y / OracleRoomData.MetatileSize) *
+            OracleRoomData.MetatileSize;
+        Vector2 boundaryEntry = new(holeCenter.X, tileTop - 5.0f + 0.6f);
+        _player.WarpTo(boundaryEntry, recordSafe: false);
+        Vector2 expectedCenter = GetActiveTerrain(_player.Position).TileCenter;
+        if (expectedCenter.DistanceSquaredTo(holeCenter) > 1.0f)
+            throw new InvalidOperationException("Room 0:01 boundary setup did not sample the hole tile.");
+
+        _player._PhysicsProcess(1.0 / 60.0);
+        if (!_player.IsFallingInHole || _player.Position.DistanceSquaredTo(holeCenter) > 1.0f)
+            throw new InvalidOperationException(
+                "Room 0:01 boundary hole entry did not center the fall animation on the sampled hole.");
+
+        for (int i = 0; i < 42; i++)
+            _player._PhysicsProcess(1.0 / 60.0);
+        if (_player.IsFallingInHole)
+            throw new InvalidOperationException("Room 0:01 boundary hole fall did not complete.");
+        if (_player.Position.DistanceSquaredTo(safePosition) > 1.0f)
+            throw new InvalidOperationException("Room 0:01 hole respawn did not return to the room entry anchor.");
+        if (_player.HealthQuarters != beforeHealth - 2)
+            throw new InvalidOperationException("Room 0:01 hole fall did not apply half-heart damage.");
+    }
+
+    private static bool TryFindHoleWithSafeNeighbor(
+        OracleRoomData room,
+        out Vector2 holeCenter,
+        out Vector2 safePosition)
+    {
+        for (int tileY = 1; tileY < room.HeightInTiles; tileY++)
+        for (int tileX = 0; tileX < room.WidthInTiles; tileX++)
+        {
+            Vector2 center = new(
+                tileX * OracleRoomData.MetatileSize + 8,
+                tileY * OracleRoomData.MetatileSize + 8);
+            OracleRoomData.TerrainInfo terrain = room.GetTerrainInfo(center);
+            if (terrain.Hazard != OracleRoomData.HazardType.Hole)
+                continue;
+
+            foreach (Vector2I direction in new[] { Vector2I.Left, Vector2I.Right, Vector2I.Up, Vector2I.Down })
+            {
+                Vector2 candidate = center + (Vector2)direction * OracleRoomData.MetatileSize;
+                if (candidate.X < 0 || candidate.X >= room.Width ||
+                    candidate.Y < 0 || candidate.Y >= room.Height)
+                {
+                    continue;
+                }
+
+                OracleRoomData.TerrainInfo safeTerrain = room.GetTerrainInfo(candidate);
+                if (safeTerrain.Hazard == OracleRoomData.HazardType.None &&
+                    !RoomCollides(room, candidate))
+                {
+                    holeCenter = center;
+                    safePosition = candidate;
+                    return true;
+                }
+            }
+        }
+
+        holeCenter = Vector2.Zero;
+        safePosition = Vector2.Zero;
+        return false;
+    }
+
+    private bool TryFindTerrainSample(
+        OracleRoomData.HazardType hazard,
+        out int group,
+        out int room,
+        out Vector2 hazardCenter,
+        out Vector2 safePosition)
+    {
+        for (int candidateGroup = 0; candidateGroup <= 5; candidateGroup++)
+        for (int candidateRoom = 0; candidateRoom <= 0xff; candidateRoom++)
+        {
+            if (!_world.HasRoom(candidateGroup, candidateRoom))
+                continue;
+
+            OracleRoomData data = _world.LoadRoom(candidateGroup, candidateRoom);
+            Vector2? safe = null;
+            Vector2? target = null;
+
+            for (int tileY = 0; tileY < data.HeightInTiles; tileY++)
+            for (int tileX = 0; tileX < data.WidthInTiles; tileX++)
+            {
+                Vector2 center = new(
+                    tileX * OracleRoomData.MetatileSize + 8,
+                    tileY * OracleRoomData.MetatileSize + 8);
+                OracleRoomData.TerrainInfo terrain = data.GetTerrainInfo(center);
+
+                if (terrain.Hazard == OracleRoomData.HazardType.None &&
+                    safe == null &&
+                    !RoomCollides(data, center))
+                {
+                    safe = center;
+                }
+                if (terrain.Hazard == hazard &&
+                    terrain.Type == OracleRoomData.TerrainType.Hole &&
+                    !RoomCollides(data, center))
+                {
+                    target = center;
+                }
+            }
+
+            if (safe != null && target != null)
+            {
+                group = candidateGroup;
+                room = candidateRoom;
+                hazardCenter = target.Value;
+                safePosition = safe.Value;
+                return true;
+            }
+        }
+
+        group = -1;
+        room = -1;
+        hazardCenter = Vector2.Zero;
+        safePosition = Vector2.Zero;
+        return false;
+    }
+
+    private static bool RoomCollides(OracleRoomData room, Vector2 playerPosition)
+    {
+        foreach (Vector2 offset in new[]
+        {
+            new Vector2(-5, -2), new Vector2(5, -2),
+            new Vector2(-5, 5), new Vector2(5, 5)
+        })
+        {
+            Vector2 sample = playerPosition + offset;
+            if (sample.X < 0 || sample.X >= room.Width ||
+                sample.Y < 0 || sample.Y >= room.Height ||
+                room.IsSolid(sample))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void ValidateHealth()
+    {
+        _dialogue.Close();
+        _player.RefillHealth();
+        SyncHudToPlayer();
+
+        if (_player.HealthQuarters != 12 || _hud.HealthQuarters != 12 ||
+            _hud.MaxHealthQuarters != _player.MaxHealthQuarters)
+            throw new InvalidOperationException("Expected Link and the HUD to start with three full hearts.");
+
+        _player.ApplyDamage(1);
+        if (_player.HealthQuarters != 11 || _hud.HealthQuarters != 11)
+            throw new InvalidOperationException("Direct quarter-heart damage did not synchronize to the HUD.");
+
+        _player.Heal(1);
+        if (_player.HealthQuarters != 12 || _hud.HealthQuarters != 12)
+            throw new InvalidOperationException("Direct quarter-heart healing did not synchronize to the HUD.");
+
+        _activeGroup = 0;
+        ClearDeactivatedWarp();
+        _currentRoom = _world.LoadRoom(_activeGroup, 0x03);
+        _roomView.SetRoom(_currentRoom.Texture);
+        Vector2 safe = new(56, 8);
+        _player.WarpTo(safe);
+        _player.WarpTo(new Vector2(8, 24), recordSafe: false);
+
+        _player._PhysicsProcess(1.0 / 60.0);
+        if (_player.HealthQuarters != 10 || _hud.HealthQuarters != 10)
+            throw new InvalidOperationException(
+                "Lava hazard did not apply half-heart damage and update the HUD.");
+        if (_player.Visible)
+            throw new InvalidOperationException("Lava hazard did not trigger Link's respawn state.");
+
+        _player._PhysicsProcess(0.5);
+        if (!_player.Visible || _player.Position.DistanceSquaredTo(safe) > 1.0f)
+            throw new InvalidOperationException("Lava hazard did not return Link to the last safe tile.");
+
+        GD.Print("Validated quarter-heart health, HUD synchronization, and half-heart terrain damage.");
+    }
+
+    private void ValidateAnimations()
+    {
+        OracleRoomData water = _world.LoadRoom(0, 0xb8);
+        ulong waterStart = water.GetAnimationChecksum(0);
+        bool waterChanged = false;
+        for (int tick = 1; tick <= 120 && !waterChanged; tick++)
+            waterChanged = water.GetAnimationChecksum(tick) != waterStart;
+
+        OracleRoomData lava = _world.LoadRoom(0, 0x03);
+        ulong lavaStart = lava.GetAnimationChecksum(0);
+        bool lavaChanged = false;
+        for (int tick = 1; tick <= 60 && !lavaChanged; tick++)
+            lavaChanged = lava.GetAnimationChecksum(tick) != lavaStart;
+
+        if (!waterChanged || !lavaChanged)
+            throw new InvalidOperationException(
+                $"Expected animated water and lava frames; water={waterChanged}, lava={lavaChanged}.");
+        GD.Print("Validated disassembly-driven water animation in room b8 and lava animation in room 03.");
+    }
+
+    private void ValidateSigns()
+    {
+        WarpToSignTest();
+        if (_currentRoom.GetMetatile(new Vector2(88, 58)) != 0xf2)
+            throw new InvalidOperationException("Expected sign metatile $f2 in room 2a at $35.");
+        if (!TryInteract(_player) || !_dialogue.IsOpen)
+            throw new InvalidOperationException("The room 2a test sign did not open its dialogue.");
+        GD.Print("Validated sign $35 in room 2a and opened TX_2e01.");
+    }
+
+    private static int GetStartingRoom()
+    {
+        foreach (string argument in OS.GetCmdlineUserArgs())
+        {
+            if (!argument.StartsWith("--room=", StringComparison.OrdinalIgnoreCase))
+                continue;
+            string value = argument[7..].Replace("0x", "", StringComparison.OrdinalIgnoreCase);
+            if (int.TryParse(value, System.Globalization.NumberStyles.HexNumber, null, out int room)
+                && room is >= 0 and <= 0xff)
+                return room;
+        }
+        return 0x11;
+    }
+
+    private static int GetStartingGroup()
+    {
+        foreach (string argument in OS.GetCmdlineUserArgs())
+        {
+            if (!argument.StartsWith("--group=", StringComparison.OrdinalIgnoreCase))
+                continue;
+            string value = argument[8..].Replace("0x", "", StringComparison.OrdinalIgnoreCase);
+            if (int.TryParse(value, System.Globalization.NumberStyles.HexNumber, null, out int group)
+                && group is >= 0 and <= 5)
+                return group;
+        }
+        return 0;
+    }
+
+    private void ValidateStartupTransition()
+    {
+        if (_currentRoom.Id != 0x11)
+            throw new InvalidOperationException("The transition validation expects startup room 11.");
+
+        // Room 11's top staircase is metatile $d0 at column 4. This position
+        // crosses the same collision samples and room-exit code as player input.
+        Vector2 exitPosition = new(4 * OracleRoomData.MetatileSize + 8, -2);
+        for (float y = _player.Position.Y; y >= exitPosition.Y; y -= 2)
+        {
+            if (Collides(new Vector2(exitPosition.X, y)))
+                throw new InvalidOperationException(
+                    $"Room 11's path to the top staircase is blocked at y={y}.");
+        }
+
+        _player.WarpTo(exitPosition);
+        CheckRoomExit(_player);
+        if (_currentRoom.Id != 0x01)
+            throw new InvalidOperationException(
+                $"Expected room 01 after the startup transition, got {_currentRoom.Id:x2}.");
+        ValidateLinkScrollsForOneTransitionFrame();
+        FinishActiveScrollingTransitionForValidation();
+        if (_currentRoom.GetPackedPosition(_player.Position) != 0x74)
+            throw new InvalidOperationException(
+                $"Expected Link to finish the 11 -> 01 transition near $74, got " +
+                $"${_currentRoom.GetPackedPosition(_player.Position):x2}.");
+        GD.Print("Validated original-style transition 11 -> 01 through staircase collision $18.");
+    }
+
+    private void ValidateSymmetryTransition()
+    {
+        if (_currentRoom.Id != 0x22)
+            throw new InvalidOperationException("The Symmetry transition validation expects room 22.");
+
+        int oldTileset = _currentRoom.TilesetId;
+        Vector2 exitPosition = new(3 * OracleRoomData.MetatileSize + 8, -2);
+        if (Collides(exitPosition))
+            throw new InvalidOperationException("Room 22's north staircase is blocked.");
+
+        _player.WarpTo(exitPosition);
+        CheckRoomExit(_player);
+        if (_currentRoom.Id != 0x12 || _currentRoom.TilesetId == oldTileset)
+            throw new InvalidOperationException(
+                $"Expected room 12 / a new tileset, got {_currentRoom.Id:x2} / {_currentRoom.TilesetId:x2}.");
+        ValidateLinkScrollsForOneTransitionFrame();
+        FinishActiveScrollingTransitionForValidation();
+        GD.Print($"Validated cross-tileset transition 22 ({oldTileset:x2}) -> " +
+            $"12 ({_currentRoom.TilesetId:x2}).");
+    }
+
+    private void ValidateLinkScrollsForOneTransitionFrame()
+    {
+        if (!IsTransitioning)
+            return;
+
+        Vector2 position = _player.Position;
+        UpdateScrollingTransition(1.0 / 60.0);
+        Vector2 moved = _player.Position - position;
+        Vector2 scrollDirection = -(Vector2)_scrollTransitionDirection;
+        if (moved.Dot(scrollDirection) <= 0.0f)
+            throw new InvalidOperationException("Link did not scroll with the screen transition.");
+    }
+
+    private void FinishActiveScrollingTransitionForValidation()
+    {
+        for (int i = 0; i < 80 && IsTransitioning; i++)
+            UpdateScrollingTransition(1.0 / 60.0);
+        if (IsTransitioning)
+            throw new InvalidOperationException("Scrolling transition did not finish within 80 frames.");
+    }
+}

@@ -1,0 +1,705 @@
+using Godot;
+using System;
+
+namespace oracleofages;
+
+public partial class Player : Node2D
+{
+    private enum Facing { Up, Right, Down, Left }
+
+    private const float Speed = 58.0f;
+    private const float AttackDuration = 17.0f / 60.0f;
+    private const float SwordBreakTime = 6.0f / 60.0f;
+    private const float FallInHoleAnimationDuration = 36.0f / 60.0f;
+    private const float FallInHoleInvisibleDuration = 2.0f / 60.0f;
+    private const float HazardRecoveryDuration = 16.0f / 60.0f;
+    private const int StartingHealthQuarters = 12;
+    private const int TerrainHazardDamageQuarters = 2;
+    private GameRoot _world = null!;
+    private Texture2D _texture = null!;
+    private Texture2D _attackTexture = null!;
+    private Texture2D _swordTexture = null!;
+    private Texture2D _fallInHoleTexture = null!;
+    private Vector2 _precisePosition;
+    private Vector2 _lastSafePosition;
+    private Vector2 _ledgeStart;
+    private Vector2 _ledgeEnd;
+    private Facing _facing = Facing.Down;
+    private float _walkTime;
+    private float _attackTime;
+    private float _hazardRespawnTime;
+    private float _hazardRecoveryTime;
+    private float _fallInHoleTime;
+    private float _fallInHoleInvisibleTime;
+    private float _ledgeHopTime;
+    private int _healthQuarters = StartingHealthQuarters;
+    private bool _attackHitApplied;
+    private bool _walking;
+    private bool _ledgeHopping;
+    private bool _fallingInHole;
+    private bool _fallInHoleRespawning;
+
+    public event Action? HealthChanged;
+
+    public int HealthQuarters => _healthQuarters;
+    public int MaxHealthQuarters { get; private set; } = StartingHealthQuarters;
+    public bool IsFallingInHole => _fallingInHole;
+
+    public Vector2I FacingVector => _facing switch
+    {
+        Facing.Up => Vector2I.Up,
+        Facing.Right => Vector2I.Right,
+        Facing.Down => Vector2I.Down,
+        _ => Vector2I.Left
+    };
+    public bool IsAttacking => _attackTime > 0.0f;
+
+    public void Initialize(GameRoot world, Vector2 spawn)
+    {
+        _world = world;
+        _texture = BuildLinkTexture();
+        _attackTexture = BuildAttackLinkTexture();
+        _swordTexture = BuildSwordTexture();
+        _fallInHoleTexture = BuildFallInHoleTexture();
+        _precisePosition = spawn;
+        _lastSafePosition = spawn;
+        Position = spawn.Round();
+        QueueRedraw();
+    }
+
+    public void WarpTo(Vector2 position, bool recordSafe = true)
+    {
+        _hazardRespawnTime = 0.0f;
+        _hazardRecoveryTime = 0.0f;
+        _fallInHoleTime = 0.0f;
+        _fallInHoleInvisibleTime = 0.0f;
+        _fallingInHole = false;
+        _fallInHoleRespawning = false;
+        _precisePosition = position;
+        if (recordSafe)
+            _lastSafePosition = position;
+        Position = position.Round();
+        Visible = true;
+        QueueRedraw();
+    }
+
+    public void BeginScrollingTransition(Vector2 position, Vector2I direction)
+    {
+        _precisePosition = position;
+        Position = position.Round();
+        Face(direction);
+        _walking = false;
+        _attackTime = 0.0f;
+        QueueRedraw();
+    }
+
+    public void SetScrollingTransitionPosition(Vector2 logicalPosition, Vector2 screenScroll)
+    {
+        _precisePosition = logicalPosition;
+        Position = (logicalPosition - screenScroll).Round();
+        QueueRedraw();
+    }
+
+    public void FinishScrollingTransition(Vector2 position)
+    {
+        WarpTo(position);
+        _walking = false;
+        QueueRedraw();
+    }
+
+    public void TriggerHazard(GameRoot.ActiveTerrainInfo activeTerrain)
+    {
+        OracleRoomData.HazardType hazard = activeTerrain.Terrain.Hazard;
+        if (_hazardRespawnTime > 0.0f)
+            return;
+        if (_fallingInHole)
+            return;
+
+        if (hazard == OracleRoomData.HazardType.Hole)
+        {
+            StartFallInHole(activeTerrain.TileCenter);
+            return;
+        }
+
+        ApplyDamage(GetTerrainHazardDamageQuarters(hazard));
+        _hazardRespawnTime = 0.48f;
+        _walking = false;
+        _attackTime = 0.0f;
+        Visible = false;
+        _world.SpawnTerrainEffect(Position, hazard);
+    }
+
+    public bool ApplyDamage(int quarters)
+    {
+        if (quarters <= 0 || _healthQuarters <= 0)
+            return false;
+
+        int previous = _healthQuarters;
+        _healthQuarters = Mathf.Max(0, _healthQuarters - quarters);
+        if (_healthQuarters == previous)
+            return false;
+
+        HealthChanged?.Invoke();
+        return true;
+    }
+
+    public bool Heal(int quarters)
+    {
+        if (quarters <= 0)
+            return false;
+
+        int previous = _healthQuarters;
+        _healthQuarters = Mathf.Min(MaxHealthQuarters, _healthQuarters + quarters);
+        if (_healthQuarters == previous)
+            return false;
+
+        HealthChanged?.Invoke();
+        return true;
+    }
+
+    public void RefillHealth()
+    {
+        if (_healthQuarters == MaxHealthQuarters)
+            return;
+
+        _healthQuarters = MaxHealthQuarters;
+        HealthChanged?.Invoke();
+    }
+
+    public void StartLedgeHop(Vector2 destination)
+    {
+        _ledgeStart = _precisePosition;
+        _ledgeEnd = destination;
+        _ledgeHopTime = 0.0f;
+        _ledgeHopping = true;
+        _walking = false;
+        _attackTime = 0.0f;
+        QueueRedraw();
+    }
+
+    public override void _PhysicsProcess(double delta)
+    {
+        if (_fallingInHole)
+        {
+            UpdateFallInHole((float)delta);
+            return;
+        }
+
+        if (_hazardRespawnTime > 0.0f)
+        {
+            _hazardRespawnTime -= (float)delta;
+            if (_hazardRespawnTime <= 0.0f)
+            {
+                WarpTo(_lastSafePosition);
+                _hazardRecoveryTime = HazardRecoveryDuration;
+            }
+            return;
+        }
+
+        if (_hazardRecoveryTime > 0.0f)
+        {
+            _hazardRecoveryTime = Mathf.Max(0.0f, _hazardRecoveryTime - (float)delta);
+            _walking = false;
+            _attackTime = 0.0f;
+            QueueRedraw();
+            return;
+        }
+
+        if (_ledgeHopping)
+        {
+            UpdateLedgeHop((float)delta);
+            return;
+        }
+
+        if (_world.IsTransitioning)
+            return;
+
+        if (_world.DialogueOpen)
+        {
+            _walking = false;
+            _attackTime = 0.0f;
+            QueueRedraw();
+            return;
+        }
+
+        if (Input.IsActionJustPressed("attack") && _attackTime <= 0.0f)
+        {
+            if (_world.TryInteract(this))
+                return;
+            StartSwordAttack();
+        }
+
+        Vector2 input = Input.GetVector("move_left", "move_right", "move_up", "move_down");
+        _walking = input.LengthSquared() > 0.01f && _attackTime <= 0.0f;
+        if (_walking)
+        {
+            UpdateFacing(input);
+            Vector2 movement = input * Speed * GetTerrainSpeedMultiplier() * (float)delta;
+            TryMove(new Vector2(movement.X, 0));
+            TryMove(new Vector2(0, movement.Y));
+            _walkTime += (float)delta;
+        }
+
+        Vector2 terrainPush = _world.GetTerrainPush(Position) * (float)delta;
+        if (terrainPush != Vector2.Zero)
+        {
+            TryMove(new Vector2(terrainPush.X, 0));
+            TryMove(new Vector2(0, terrainPush.Y));
+        }
+
+        Position = _precisePosition.Round();
+        if (!_world.CheckTileWarp(this))
+            _world.CheckRoomExit(this);
+        if (!_world.IsTransitioning)
+            ApplyTerrainAtFeet();
+        QueueRedraw();
+    }
+
+    public override void _Process(double delta)
+    {
+        if (_fallingInHole || _hazardRespawnTime > 0.0f || _hazardRecoveryTime > 0.0f)
+        {
+            _attackTime = 0.0f;
+            return;
+        }
+
+        if (_attackTime > 0.0f)
+        {
+            _attackTime = Mathf.Max(0.0f, _attackTime - (float)delta);
+            float elapsed = AttackDuration - _attackTime;
+            if (!_attackHitApplied && elapsed >= SwordBreakTime)
+            {
+                _attackHitApplied = true;
+                _world.ApplySwordHit(this, GetSwordHitbox());
+            }
+            QueueRedraw();
+        }
+    }
+
+    public override void _Draw()
+    {
+        if (_fallingInHole && !_fallInHoleRespawning)
+        {
+            int frame = GetFallInHoleFrame();
+            DrawTextureRectRegion(
+                _fallInHoleTexture,
+                new Rect2(-8, -12, 16, 16),
+                new Rect2(frame * 16, 0, 16, 16));
+        }
+        else if (IsAttacking)
+        {
+            int phase = GetAttackPhase();
+            int texturePhase = phase == 3 ? 1 : phase;
+            Vector2 poseOffset = phase == 2 ? AttackPoseOffsets[(int)_facing] : Vector2.Zero;
+            DrawTextureRectRegion(
+                _attackTexture,
+                new Rect2(new Vector2(-8, -12) + poseOffset, new Vector2(16, 16)),
+                new Rect2(texturePhase * 16, (int)_facing * 16, 16, 16));
+            DrawSword(phase);
+        }
+        else
+        {
+            int frame = _walking && ((int)(_walkTime / 0.10f) & 1) == 1 ? 1 : 0;
+            Rect2 source = GetFrame(_facing, frame);
+            DrawTextureRectRegion(_texture, new Rect2(-8, -12, 16, 16), source);
+        }
+    }
+
+    private void TryMove(Vector2 movement)
+    {
+        if (movement == Vector2.Zero)
+            return;
+
+        Vector2 proposed = _precisePosition + movement;
+        if (!_world.Collides(proposed))
+        {
+            _precisePosition = proposed;
+            return;
+        }
+
+        if (_attackTime <= 0.0f && _world.TryStartLedgeHop(this, _precisePosition, movement))
+            return;
+    }
+
+    private void UpdateFacing(Vector2 input)
+    {
+        if (Mathf.Abs(input.X) > Mathf.Abs(input.Y))
+            _facing = input.X > 0 ? Facing.Right : Facing.Left;
+        else
+            _facing = input.Y > 0 ? Facing.Down : Facing.Up;
+    }
+
+    public void Face(Vector2I direction)
+    {
+        _facing = direction == Vector2I.Up ? Facing.Up
+            : direction == Vector2I.Right ? Facing.Right
+            : direction == Vector2I.Down ? Facing.Down
+            : Facing.Left;
+        QueueRedraw();
+    }
+
+    private float GetTerrainSpeedMultiplier()
+    {
+        OracleRoomData.TerrainType terrain = _world.GetActiveTerrain(Position).Terrain.Type;
+        return terrain switch
+        {
+            OracleRoomData.TerrainType.Grass or OracleRoomData.TerrainType.Puddle => 0.75f,
+            OracleRoomData.TerrainType.Stairs or OracleRoomData.TerrainType.Vines => 0.5f,
+            _ => 1.0f
+        };
+    }
+
+    private void ApplyTerrainAtFeet()
+    {
+        GameRoot.ActiveTerrainInfo activeTerrain = _world.GetActiveTerrain(Position);
+        OracleRoomData.TerrainInfo terrain = activeTerrain.Terrain;
+        if (terrain.Hazard != OracleRoomData.HazardType.None)
+        {
+            TriggerHazard(activeTerrain);
+            return;
+        }
+    }
+
+    private void StartFallInHole(Vector2 holeCenter)
+    {
+        _fallingInHole = true;
+        _fallInHoleRespawning = false;
+        _fallInHoleTime = 0.0f;
+        _fallInHoleInvisibleTime = FallInHoleInvisibleDuration;
+        _walking = false;
+        _attackTime = 0.0f;
+        _attackHitApplied = false;
+
+        // The active hazard tile is selected by the same +5px sample used by
+        // objectGetRelativeTile($0500). Carry its center through explicitly so
+        // rounded-vs-precise coordinates cannot recenter Link on a neighboring
+        // solid tile at tile boundaries.
+        _precisePosition = holeCenter;
+        Position = _precisePosition.Round();
+        Visible = true;
+        QueueRedraw();
+    }
+
+    private static int GetTerrainHazardDamageQuarters(OracleRoomData.HazardType hazard)
+    {
+        // The original LINK_STATE_RESPAWNING path applies damageToApply=$fc
+        // after Link reappears; linkApplyDamage consumes that as two
+        // quarter-hearts, ie. a half-heart.
+        return hazard == OracleRoomData.HazardType.None ? 0 : TerrainHazardDamageQuarters;
+    }
+
+    private void UpdateFallInHole(float delta)
+    {
+        if (!_fallInHoleRespawning)
+        {
+            _fallInHoleTime += delta;
+            if (_fallInHoleTime >= FallInHoleAnimationDuration)
+            {
+                _fallInHoleRespawning = true;
+                _fallInHoleInvisibleTime = FallInHoleInvisibleDuration;
+                Visible = false;
+            }
+            QueueRedraw();
+            return;
+        }
+
+        _fallInHoleInvisibleTime -= delta;
+        if (_fallInHoleInvisibleTime > 0.0f)
+            return;
+
+        ApplyDamage(GetTerrainHazardDamageQuarters(OracleRoomData.HazardType.Hole));
+        WarpTo(_lastSafePosition);
+        _hazardRecoveryTime = HazardRecoveryDuration;
+        _walking = false;
+        _attackTime = 0.0f;
+        QueueRedraw();
+    }
+
+    private int GetFallInHoleFrame()
+    {
+        float frames = _fallInHoleTime * 60.0f;
+        if (frames < 16.0f)
+            return 0;
+        if (frames < 26.0f)
+            return 1;
+        return 2;
+    }
+
+    private void UpdateLedgeHop(float delta)
+    {
+        _ledgeHopTime += delta;
+        float t = Mathf.Min(_ledgeHopTime / 0.32f, 1.0f);
+        float eased = t * t * (3.0f - 2.0f * t);
+        _precisePosition = _ledgeStart.Lerp(_ledgeEnd, eased);
+        Position = _precisePosition.Round();
+        if (t >= 1.0f)
+        {
+            _ledgeHopping = false;
+            ApplyTerrainAtFeet();
+        }
+        QueueRedraw();
+    }
+
+    private static Rect2 GetFrame(Facing facing, int frame)
+    {
+        return new Rect2(frame * 16, (int)facing * 16, 16, 16);
+    }
+
+    public Rect2 GetSwordHitbox()
+    {
+        if (!IsAttacking)
+            return new Rect2(Position, Vector2.Zero);
+        SwordArc arc = SwordArcs[GetSwordArcIndex(GetAttackPhase())];
+        Vector2 center = Position + new Vector2(arc.OffsetX, arc.OffsetY);
+        return new Rect2(
+            center - new Vector2(arc.RadiusX, arc.RadiusY),
+            new Vector2(arc.RadiusX * 2, arc.RadiusY * 2));
+    }
+
+    public void StartSwordAttack()
+    {
+        if (IsAttacking)
+            return;
+        _attackTime = AttackDuration;
+        _attackHitApplied = false;
+        _walking = false;
+        QueueRedraw();
+    }
+
+    private void DrawSword(int phase)
+    {
+        int arcIndex = GetSwordArcIndex(phase);
+        SwordArc arc = SwordArcs[arcIndex];
+        int animation = SwordAnimationIndices[(int)_facing, phase];
+        // swordArcData is relative to Link's object Y. Our Link texture is
+        // anchored four pixels above the standard OAM origin (-12 vs -8), so
+        // apply the same visual correction to the weapon. Collision remains
+        // in the original object coordinate space.
+        Vector2 itemPosition = new Vector2(arc.OffsetX, arc.OffsetY) + SwordVisualOriginOffset;
+        DrawTextureRectRegion(
+            _swordTexture,
+            new Rect2(itemPosition - new Vector2(16, 16), new Vector2(32, 32)),
+            new Rect2(animation * 32, 0, 32, 32));
+    }
+
+    private int GetAttackPhase()
+    {
+        float elapsed = AttackDuration - _attackTime;
+        return elapsed < 3.0f / 60.0f ? 0
+            : elapsed < 6.0f / 60.0f ? 1
+            : elapsed < 14.0f / 60.0f ? 2
+            : 3;
+    }
+
+    private int GetSwordArcIndex(int phase)
+    {
+        return (int)_facing + phase * 4;
+    }
+
+    private static Texture2D BuildLinkTexture()
+    {
+        Texture2D sourceTexture = GD.Load<Texture2D>("res://assets/oracle/gfx/spr_link.png");
+        Image source = sourceTexture.GetImage();
+        Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
+
+        // LINK_ANIM_MODE_WALK uses base gfx indices $54 and $80, then adds
+        // direction (UP, RIGHT, DOWN, LEFT). These resolve to the offsets and
+        // OAM compositions below in specialObjectAnimationData.s. Up/down
+        // alternate a mirrored composition of the same source tiles; they are
+        // not neighboring 16x16 crops.
+        WriteWalkFrame(output, source, Facing.Up, 0, 0x0000, false); // gfx $54, OAM $00
+        WriteWalkFrame(output, source, Facing.Up, 1, 0x0000, true);  // gfx $80, OAM $01
+        WriteWalkFrame(output, source, Facing.Right, 0, 0x0080, true); // gfx $55
+        WriteWalkFrame(output, source, Facing.Right, 1, 0x00c0, true); // gfx $81
+        WriteWalkFrame(output, source, Facing.Down, 0, 0x0200, false); // gfx $56
+        WriteWalkFrame(output, source, Facing.Down, 1, 0x0200, true);  // gfx $82
+        WriteWalkFrame(output, source, Facing.Left, 0, 0x0080, false); // gfx $57
+        WriteWalkFrame(output, source, Facing.Left, 1, 0x00c0, false); // gfx $83
+
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private static Texture2D BuildAttackLinkTexture()
+    {
+        Texture2D sourceTexture = GD.Load<Texture2D>("res://assets/oracle/gfx/spr_link.png");
+        Image source = sourceTexture.GetImage();
+        Image output = Image.CreateEmpty(48, 64, false, Image.Format.Rgba8);
+        int[,] offsets =
+        {
+            { 0x1000, 0x1040, 0x1040 },
+            { 0x1100, 0x02c0, 0x02c0 },
+            { 0x1080, 0x10c0, 0x10c0 },
+            { 0x1100, 0x02c0, 0x02c0 }
+        };
+        bool[] mirrored = { false, true, false, false };
+        for (int facing = 0; facing < 4; facing++)
+        for (int phase = 0; phase < 3; phase++)
+        {
+            WriteLinkFrame(
+                output, source, phase * 16, facing * 16,
+                offsets[facing, phase], mirrored[facing]);
+        }
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private static Texture2D BuildSwordTexture()
+    {
+        Texture2D sourceTexture = GD.Load<Texture2D>("res://assets/oracle/gfx/spr_swords.png");
+        Image source = sourceTexture.GetImage();
+        Image output = Image.CreateEmpty(8 * 32, 32, false, Image.Format.Rgba8);
+
+        for (int animation = 0; animation < SwordOam.Length; animation++)
+        foreach (SwordPart part in SwordOam[animation])
+        {
+            int sourceX = (part.Tile / 2) * 8;
+            int destinationX = animation * 32 + part.X + 8;
+            int destinationY = part.Y;
+            for (int y = 0; y < 16; y++)
+            for (int x = 0; x < 8; x++)
+            {
+                int readX = sourceX + (part.FlipX ? 7 - x : x);
+                int readY = part.FlipY ? 15 - y : y;
+                Color pixel = RecolorSwordPixel(source.GetPixel(readX, readY));
+                if (pixel.A > 0.0f)
+                    output.SetPixel(destinationX + x, destinationY + y, pixel);
+            }
+        }
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private static Texture2D BuildFallInHoleTexture()
+    {
+        Texture2D sourceTexture = GD.Load<Texture2D>("res://assets/oracle/gfx/spr_link.png");
+        Image source = sourceTexture.GetImage();
+        Image output = Image.CreateEmpty(48, 16, false, Image.Format.Rgba8);
+
+        // LINK_ANIM_MODE_FALLINHOLE (mode $0d) uses frames $08, $09,
+        // and $0a. In Ages' specialObjectAnimationData.s these resolve to:
+        //   $08: OAM $00, spr_link+$0100, 4 tiles, duration $10
+        //   $09: OAM $06, spr_link+$0140, 2 tiles, duration $0a
+        //   $0a: OAM $06, spr_link+$0160, 2 tiles, duration $0a
+        WriteLinkFrame(output, source, 0, 0, 0x0100, false);
+        WriteCenteredSingleLinkCell(output, source, 16, 0, 0x0140);
+        WriteCenteredSingleLinkCell(output, source, 32, 0, 0x0160);
+
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private static void WriteWalkFrame(
+        Image output,
+        Image source,
+        Facing facing,
+        int frame,
+        int byteOffset,
+        bool mirroredOam)
+    {
+        // spr_link.png is interleaved as 8x16 cells (32 bytes each). OAM $00
+        // draws cells 0/1 normally; OAM $01 swaps them and flips both on X.
+        WriteLinkFrame(output, source, frame * 16, (int)facing * 16, byteOffset, mirroredOam);
+    }
+
+    private static void WriteLinkFrame(
+        Image output,
+        Image source,
+        int destinationX,
+        int destinationY,
+        int byteOffset,
+        bool mirroredOam)
+    {
+        int firstCell = byteOffset / 32;
+
+        for (int destinationPart = 0; destinationPart < 2; destinationPart++)
+        {
+            int sourcePart = mirroredOam ? 1 - destinationPart : destinationPart;
+            int cell = firstCell + sourcePart;
+            int cellX = (cell % 16) * 8;
+            int cellY = (cell / 16) * 16;
+
+            for (int y = 0; y < 16; y++)
+            for (int x = 0; x < 8; x++)
+            {
+                int sourceX = cellX + (mirroredOam ? 7 - x : x);
+                Color sourceColor = source.GetPixel(sourceX, cellY + y);
+                output.SetPixel(
+                    destinationX + destinationPart * 8 + x,
+                    destinationY + y,
+                    RecolorLinkPixel(sourceColor));
+            }
+        }
+    }
+
+    private static void WriteCenteredSingleLinkCell(
+        Image output,
+        Image source,
+        int destinationX,
+        int destinationY,
+        int byteOffset)
+    {
+        int cell = byteOffset / 32;
+        int cellX = (cell % 16) * 8;
+        int cellY = (cell / 16) * 16;
+
+        for (int y = 0; y < 16; y++)
+        for (int x = 0; x < 8; x++)
+        {
+            Color sourceColor = source.GetPixel(cellX + x, cellY + y);
+            output.SetPixel(destinationX + 4 + x, destinationY + y, RecolorLinkPixel(sourceColor));
+        }
+    }
+
+    private static Color RecolorLinkPixel(Color source)
+    {
+        float value = source.R;
+        return value < 0.1f ? Colors.Transparent
+            : value < 0.5f ? Color.Color8(25, 47, 43)
+            : value < 0.9f ? Color.Color8(73, 145, 77)
+            : Color.Color8(244, 207, 120);
+    }
+
+    private static Color RecolorSwordPixel(Color source)
+    {
+        float value = source.R;
+        return value < 0.1f ? Colors.Transparent
+            : value < 0.5f ? Colors.Black
+            : value < 0.9f ? Color.Color8(16, 173, 66)
+            : Color.Color8(255, 214, 140);
+    }
+
+    private readonly record struct SwordArc(int RadiusY, int RadiusX, int OffsetY, int OffsetX);
+    private readonly record struct SwordPart(int Y, int X, int Tile, bool FlipX = false, bool FlipY = false);
+
+    private static readonly Vector2[] AttackPoseOffsets =
+    {
+        new(0, -3), new(3, 0), new(0, 3), new(-3, 0)
+    };
+
+    private static readonly Vector2 SwordVisualOriginOffset = new(0, -4);
+
+    private static readonly int[,] SwordAnimationIndices =
+    {
+        { 2, 1, 0, 0 },
+        { 0, 1, 2, 2 },
+        { 6, 5, 4, 4 },
+        { 0, 7, 6, 6 }
+    };
+
+    private static readonly SwordArc[] SwordArcs =
+    {
+        new(9, 6, -2, 16), new(6, 9, -14, 0), new(9, 6, 0, -15), new(6, 9, -14, 0),
+        new(7, 7, -11, 13), new(7, 7, -11, 13), new(7, 7, 17, -13), new(7, 7, -11, -13),
+        new(9, 6, -17, -4), new(6, 9, 2, 19), new(9, 6, 21, 3), new(6, 9, 2, -19),
+        new(9, 6, -10, -4), new(4, 9, 2, 12), new(9, 6, 16, 3), new(6, 9, 2, -12)
+    };
+
+    private static readonly SwordPart[][] SwordOam =
+    {
+        new[] { new SwordPart(8, 4, 4) },
+        new[] { new SwordPart(8, 0, 8, true), new SwordPart(8, 8, 6, true) },
+        new[] { new SwordPart(8, 0, 2, true), new SwordPart(8, 8, 0, true) },
+        new[] { new SwordPart(8, 0, 8, true, true), new SwordPart(8, 8, 6, true, true) },
+        new[] { new SwordPart(8, 4, 4, false, true) },
+        new[] { new SwordPart(8, 0, 6, false, true), new SwordPart(8, 8, 8, false, true) },
+        new[] { new SwordPart(8, 0, 0), new SwordPart(8, 8, 2) },
+        new[] { new SwordPart(8, 0, 6), new SwordPart(8, 8, 8) }
+    };
+}
