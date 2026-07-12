@@ -42,6 +42,17 @@ Terrain now uses the original Ages tile-type and hazard tables for Link-facing b
 
 For room-rendering development, hexadecimal group and room values can be selected after Godot's `--` separator, for example `-- --group=2 --room=ea`.
 
+## Runtime architecture
+
+`GameRoot` is limited to scene composition, lifecycle updates, HUD synchronization, and validation forwarding. Gameplay ownership is split by responsibility:
+
+- `RoomSession` owns the active group/room and resolves overworld or dungeon neighbors.
+- `RoomTransitionController` owns warps, scrolling, fades, destination placement, and the room camera.
+- `RoomEntityManager` and `InteractionController` own NPC lifetime, blocking, signs, and dialogue.
+- `RoomCollision`, `TerrainController`, and `CombatController` own collision, terrain behavior, and weapon effects.
+- `PlayerWorld` implements the narrow `IPlayerWorld` API consumed by `Player`.
+- Development launch options and test-room warps live under `src/debug`; headless regression scenarios live under `src/validation`.
+
 ## Next implementation slices
 
 1. Port further room objects and interactions from `data/ages/*Room.s` and `objects/ages`.

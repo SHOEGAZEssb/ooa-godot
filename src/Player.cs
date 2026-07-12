@@ -15,7 +15,7 @@ public partial class Player : Node2D
     private const float HazardRecoveryDuration = 16.0f / 60.0f;
     private const int StartingHealthQuarters = 12;
     private const int TerrainHazardDamageQuarters = 2;
-    private GameRoot _world = null!;
+    private IPlayerWorld _world = null!;
     private Texture2D _texture = null!;
     private Texture2D _attackTexture = null!;
     private Texture2D _swordTexture = null!;
@@ -59,7 +59,7 @@ public partial class Player : Node2D
     };
     public bool IsAttacking => _attackTime > 0.0f;
 
-    public void Initialize(GameRoot world, Vector2 spawn)
+    public void Initialize(IPlayerWorld world, Vector2 spawn)
     {
         _world = world;
         _texture = BuildLinkTexture();
@@ -147,7 +147,7 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
-    public void TriggerHazard(GameRoot.ActiveTerrainInfo activeTerrain)
+    public void TriggerHazard(ActiveTerrainInfo activeTerrain)
     {
         OracleRoomData.HazardType hazard = activeTerrain.Terrain.Hazard;
         if (_hazardRespawnTime > 0.0f)
@@ -395,7 +395,7 @@ public partial class Player : Node2D
 
     private void ApplyTerrainAtFeet()
     {
-        GameRoot.ActiveTerrainInfo activeTerrain = _world.GetActiveTerrain(Position);
+        ActiveTerrainInfo activeTerrain = _world.GetActiveTerrain(Position);
         OracleRoomData.TerrainInfo terrain = activeTerrain.Terrain;
         if (terrain.Hazard != OracleRoomData.HazardType.None)
         {
@@ -410,7 +410,7 @@ public partial class Player : Node2D
         }
     }
 
-    private void StartPullIntoHole(GameRoot.ActiveTerrainInfo activeTerrain)
+    private void StartPullIntoHole(ActiveTerrainInfo activeTerrain)
     {
         _pullingIntoHole = true;
         _holePullCenter = activeTerrain.TileCenter;
@@ -424,7 +424,7 @@ public partial class Player : Node2D
 
     private bool UpdatePullIntoHole()
     {
-        GameRoot.ActiveTerrainInfo activeTerrain = _world.GetActiveTerrain(Position);
+        ActiveTerrainInfo activeTerrain = _world.GetActiveTerrain(Position);
         if (activeTerrain.Terrain.Hazard == OracleRoomData.HazardType.Hole)
         {
             if (activeTerrain.PackedPosition != _holePullPackedPosition)
