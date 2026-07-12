@@ -10,7 +10,7 @@ namespace oracleofages;
 /// </summary>
 public sealed class OracleWorldData
 {
-    private const int TilesetRecordSize = 5;
+    private const int TilesetRecordSize = 6;
 
     private readonly byte[] _tilesetMetadata;
     private readonly Dictionary<int, byte[]> _groupTilesets = new();
@@ -102,6 +102,13 @@ public sealed class OracleWorldData
             _groupTilesets.Add(group, roomTilesets);
         }
         return roomTilesets[room] & 0x7f;
+    }
+
+    public int GetDungeonIndex(int group, int room)
+    {
+        int tileset = GetTilesetId(group, room);
+        int dungeon = _tilesetMetadata[tileset * TilesetRecordSize + 5];
+        return dungeon == 0xff ? -1 : dungeon;
     }
 
     public void ValidateRepresentativeRooms()

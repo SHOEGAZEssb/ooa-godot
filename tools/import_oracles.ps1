@@ -53,7 +53,7 @@ function Copy-GeneratedFile([string]$relativeSource, [string]$relativeDestinatio
 # retained in metadata for provenance, but expanded mappings use tileset IDs.
 $tilesetSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\tilesets.s")
 $tilesetPattern = '(?ms);\s*0x(?<id>[0-9a-f]{2})\s*\r?\n' +
-    '\s*\.db[^\r\n]+\r?\n' +
+    '\s*\.db\s+\$(?<properties>[0-9a-f]{2}),\s*\$(?<flags>[0-9a-f]{2})[^\r\n]*\r?\n' +
     '\s*\.db[^\r\n]+\r?\n' +
     '\s*\.db[^\r\n]+\r?\n' +
     '\s*\.db\s+(?<palette>[A-Za-z0-9_]+)[^\r\n]*\r?\n' +
@@ -83,7 +83,7 @@ foreach ($block in $paletteBlocks) {
 }
 
 $paletteDataSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\paletteData.s")
-$metadata = [byte[]]::new(128 * 5)
+$metadata = [byte[]]::new(128 * 6)
 $usedTilesets = [Collections.Generic.HashSet[int]]::new()
 
 foreach ($tileset in $tilesets) {
@@ -91,17 +91,24 @@ foreach ($tileset in $tilesets) {
     $layout = [Convert]::ToInt32($tileset.Groups['layout'].Value, 16)
     $layoutGroup = [Convert]::ToInt32($tileset.Groups['group'].Value, 16)
     $animation = [Convert]::ToInt32($tileset.Groups['animation'].Value, 16)
+    $properties = [Convert]::ToInt32($tileset.Groups['properties'].Value, 16)
+    $flags = [Convert]::ToInt32($tileset.Groups['flags'].Value, 16)
     $paletteSymbol = $tileset.Groups['palette'].Value
     if (-not $paletteHeaders.ContainsKey($paletteSymbol)) {
         throw "Could not resolve background palette for tileset $($id.ToString('x2')) ($paletteSymbol)."
     }
 
     $paletteHeader = $paletteHeaders[$paletteSymbol]
-    $metadata[$id * 5] = [byte]$layout
-    $metadata[$id * 5 + 1] = [byte]$layoutGroup
-    $metadata[$id * 5 + 2] = [byte]$paletteHeader.Id
-    $metadata[$id * 5 + 3] = 1
-    $metadata[$id * 5 + 4] = [byte]$animation
+    $metadata[$id * 6] = [byte]$layout
+    $metadata[$id * 6 + 1] = [byte]$layoutGroup
+    $metadata[$id * 6 + 2] = [byte]$paletteHeader.Id
+    $metadata[$id * 6 + 3] = 1
+    $metadata[$id * 6 + 4] = [byte]$animation
+    $metadata[$id * 6 + 5] = if (($flags -band 0x08) -ne 0) {
+        [byte]($properties -band 0x0f)
+    } else {
+        [byte]0xff
+    }
     [void]$usedTilesets.Add($id)
 
     $label = $paletteHeader.Label
@@ -683,6 +690,50 @@ if ($warpRows.Count -ne 530) {
 }
 $warpPath = Join-Path $destination "objects\warps.tsv"
 [IO.File]::WriteAllLines($warpPath, $warpRows, [Text.UTF8Encoding]::new($false))
+
+# Dungeon rooms occupy arbitrary cells in one or more 8x8 floor maps. Screen
+# transitions use these cells rather than the overworld's hexadecimal room
+# coordinates (for example, dungeon00 room $03 is directly above room $04).
+$dungeonLayoutSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\dungeonLayouts.s")
+$dungeonBlocks = [regex]::Matches(
+    $dungeonLayoutSource,
+    '(?ms)^dungeon(?<index>[0-9a-f]{2})Layout:\s*(?<body>.*?)(?=^dungeon[0-9a-f]{2}Layout:|\z)')
+$dungeonRows = [Collections.Generic.List[string]]::new()
+$dungeonRows.Add("# dungeon`troom`tdirection`tneighbor")
+foreach ($block in $dungeonBlocks) {
+    $dungeon = [Convert]::ToInt32($block.Groups['index'].Value, 16)
+    $cells = [Collections.Generic.List[int]]::new()
+    foreach ($dataLine in [regex]::Matches($block.Groups['body'].Value, '(?m)^\s*\.db\s+(?<values>[^;\r\n]+)')) {
+        foreach ($value in [regex]::Matches($dataLine.Groups['values'].Value, '\$(?<value>[0-9a-f]{2})')) {
+            $cells.Add([Convert]::ToInt32($value.Groups['value'].Value, 16))
+        }
+    }
+    if (($cells.Count % 64) -ne 0) {
+        throw "Dungeon $($dungeon.ToString('x2')) layout has $($cells.Count) cells; expected complete 8x8 floors."
+    }
+    for ($cell = 0; $cell -lt $cells.Count; $cell++) {
+        $room = $cells[$cell]
+        if ($room -eq 0) { continue }
+        $floorCell = $cell % 64
+        $x = $floorCell % 8
+        $y = [Math]::Floor($floorCell / 8)
+        foreach ($edge in @(
+            @{ Name = 'up'; Dx = 0; Dy = -1 },
+            @{ Name = 'right'; Dx = 1; Dy = 0 },
+            @{ Name = 'down'; Dx = 0; Dy = 1 },
+            @{ Name = 'left'; Dx = -1; Dy = 0 })) {
+            $nx = $x + $edge.Dx
+            $ny = $y + $edge.Dy
+            if ($nx -lt 0 -or $nx -ge 8 -or $ny -lt 0 -or $ny -ge 8) { continue }
+            $neighbor = $cells[$cell - $floorCell + $ny * 8 + $nx]
+            if ($neighbor -eq 0) { continue }
+            $dungeonRows.Add(
+                "$dungeon`t$($room.ToString('x2'))`t$($edge.Name)`t$($neighbor.ToString('x2'))")
+        }
+    }
+}
+$dungeonPath = Join-Path $destination "objects\dungeon_adjacency.tsv"
+[IO.File]::WriteAllLines($dungeonPath, $dungeonRows, [Text.UTF8Encoding]::new($false))
 
 # Expand the animation engine's three linked tables into address-independent
 # records. Destinations are converted from VRAM addresses to the same signed

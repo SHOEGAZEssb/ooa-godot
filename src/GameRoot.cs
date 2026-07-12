@@ -15,12 +15,15 @@ public partial class GameRoot : Node2D
     private OracleRoomData _currentRoom = null!;
     private RoomView _roomView = null!;
     private Player _player = null!;
+    private Camera2D _roomCamera = null!;
+    private CanvasLayer _uiLayer = null!;
     private Hud _hud = null!;
     private Label _roomDebug = null!;
     private ColorRect _warpFade = null!;
     private SignDatabase _signs = null!;
     private NpcDatabase _npcs = null!;
     private WarpDatabase _warps = null!;
+    private DungeonMapDatabase _dungeonMaps = null!;
     private DialogueBox _dialogue = null!;
     private readonly List<NpcCharacter> _npcNodes = new();
     private double _animationTicks;
@@ -59,6 +62,7 @@ public partial class GameRoot : Node2D
         _signs = new SignDatabase();
         _npcs = new NpcDatabase();
         _warps = new WarpDatabase();
+        _dungeonMaps = new DungeonMapDatabase();
         _activeGroup = GetStartingGroup();
         if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-world"))
             _world.ValidateRepresentativeRooms();
@@ -74,8 +78,22 @@ public partial class GameRoot : Node2D
         _player.Initialize(this, FindSpawn());
         _player.HealthChanged += SyncHudToPlayer;
 
+        _roomCamera = new Camera2D
+        {
+            Name = "RoomCamera",
+            Enabled = true,
+            PositionSmoothingEnabled = false
+        };
+        AddChild(_roomCamera);
+        UpdateRoomCamera();
+
+        // The original status bar and textbox use the window, not room,
+        // coordinates. Keep them outside the large-room camera transform.
+        _uiLayer = new CanvasLayer { Name = "Interface", Layer = 10 };
+        AddChild(_uiLayer);
+
         _hud = new Hud { Name = "Hud", Position = new Vector2(0, 128), ZIndex = 20 };
-        AddChild(_hud);
+        _uiLayer.AddChild(_hud);
         SyncHudToPlayer();
 
         // Room palette fades do not affect the status bar in the original engine.
@@ -87,10 +105,10 @@ public partial class GameRoot : Node2D
             ZIndex = 15,
             MouseFilter = Control.MouseFilterEnum.Ignore
         };
-        AddChild(_warpFade);
+        _uiLayer.AddChild(_warpFade);
 
         _dialogue = new DialogueBox { Name = "Dialogue", ZIndex = 30, Visible = false };
-        AddChild(_dialogue);
+        _uiLayer.AddChild(_dialogue);
 
         _roomDebug = new Label
         {
@@ -103,7 +121,7 @@ public partial class GameRoot : Node2D
         _roomDebug.AddThemeColorOverride("font_color", Color.Color8(255, 248, 207));
         _roomDebug.AddThemeColorOverride("font_outline_color", Color.Color8(20, 24, 20));
         _roomDebug.AddThemeConstantOverride("outline_size", 1);
-        AddChild(_roomDebug);
+        _uiLayer.AddChild(_roomDebug);
 
         if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-transition"))
             CallDeferred(MethodName.ValidateStartupTransition);
@@ -119,6 +137,8 @@ public partial class GameRoot : Node2D
             CallDeferred(MethodName.ValidateSwordBush);
         if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-house-warp"))
             CallDeferred(MethodName.ValidateHouseWarp);
+        if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-cave-warps"))
+            CallDeferred(MethodName.ValidateCaveWarps);
         if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-terrain"))
             CallDeferred(MethodName.ValidateTerrain);
         if (Array.Exists(OS.GetCmdlineUserArgs(), argument => argument == "--validate-health"))
@@ -129,6 +149,7 @@ public partial class GameRoot : Node2D
     {
         UpdateRoomWarpTransition(delta);
         UpdateScrollingTransition(delta);
+        UpdateRoomCamera();
         string roomText = $"{_activeGroup:x1}:{_currentRoom.Id:x2}";
         if (_roomDebug.Text != roomText)
             _roomDebug.Text = roomText;
@@ -200,7 +221,7 @@ public partial class GameRoot : Node2D
                 continue;
 
             npc.FaceToward(player.Position);
-            _dialogue.ShowMessage(npc.Message, player.Position.Y);
+            _dialogue.ShowMessage(npc.Message, WorldToScreen(player.Position).Y);
             return true;
         }
 
@@ -221,7 +242,7 @@ public partial class GameRoot : Node2D
             message = "Nothing is written\nhere."; // TX_0901 fallback
         }
 
-        _dialogue.ShowMessage(message, player.Position.Y);
+        _dialogue.ShowMessage(message, WorldToScreen(player.Position).Y);
         return true;
     }
 
@@ -382,6 +403,8 @@ public partial class GameRoot : Node2D
     {
         OracleRoomData source = _currentRoom;
         OracleRoomData target = _world.LoadRoom(_activeGroup, targetId);
+        UpdateRoomCamera();
+        Vector2 sourceCameraOrigin = GetCurrentCameraOrigin();
         Vector2 start = player.Position;
         if (direction == Vector2I.Up) start.Y = 6;
         if (direction == Vector2I.Down) start.Y = source.Height - 7;
@@ -392,7 +415,9 @@ public partial class GameRoot : Node2D
         ClearRoomObjects();
         _scrollTransitionDirection = direction;
         _scrollTransitionLinkStart = start;
-        _scrollTransitionDistance = direction.X != 0 ? source.Width : source.Height;
+        _scrollTransitionDistance = direction.X != 0
+            ? OracleRoomData.ViewportWidth
+            : OracleRoomData.ViewportHeight;
         _scrollTransitionFrame = 0.0f;
         _scrollTransitionFrames = Mathf.Max(1, Mathf.RoundToInt(_scrollTransitionDistance / 4.0f));
         _scrollTransitionLinkStep = direction == Vector2I.Up ? new Vector2(0.0f, -0.5f)
@@ -404,8 +429,14 @@ public partial class GameRoot : Node2D
             : direction == Vector2I.Down ? new Vector2(0.0f, -source.Height)
             : new Vector2(source.Width, 0.0f);
 
+        Vector2 transitionEnd = start + _scrollTransitionLinkStep * _scrollTransitionFrames +
+            _scrollTransitionFinishOffset;
+        Vector2 destinationCameraOrigin = GetRoomCameraOrigin(target, transitionEnd);
+
         _currentRoom = target;
-        _roomView.StartScreenTransition(target.Texture, direction, _scrollTransitionDistance);
+        _roomView.StartScreenTransition(
+            target.Texture, direction, _scrollTransitionDistance,
+            sourceCameraOrigin, destinationCameraOrigin);
         player.BeginScrollingTransition(start, direction);
     }
 
@@ -432,6 +463,7 @@ public partial class GameRoot : Node2D
         _roomView.FinishTransition();
         _player.FinishScrollingTransition(linkPosition + _scrollTransitionFinishOffset);
         RefreshRoomObjects();
+        UpdateRoomCamera();
     }
 
     private bool HasNeighborFor(Vector2 point)
@@ -545,8 +577,9 @@ public partial class GameRoot : Node2D
                 : Vector2I.Up;
             if (warp.DestinationPosition == 0xff)
             {
+                float middleX = _activeGroup >= 4 ? 0x78 : 0x50;
                 spawn = new Vector2(
-                    _currentRoom.Width / 2.0f,
+                    middleX,
                     direction == Vector2I.Up ? _currentRoom.Height : -16.0f);
             }
             else if ((warp.DestinationPosition & 0xf0) == 0xf0)
@@ -596,6 +629,7 @@ public partial class GameRoot : Node2D
 
         _roomWarpPhase = RoomWarpPhase.FadeIn;
         _roomWarpFrame = 0.0f;
+        UpdateRoomCamera();
         _hud.Refresh();
     }
 
@@ -614,6 +648,43 @@ public partial class GameRoot : Node2D
     private void SetRoomWarpFade(float alpha)
     {
         _warpFade.Color = new Color(1, 1, 1, Mathf.Clamp(alpha, 0.0f, 1.0f));
+    }
+
+    private void UpdateRoomCamera()
+    {
+        if (_roomCamera == null || _player == null || _currentRoom == null)
+            return;
+        if (_scrollTransitionActive)
+            return;
+
+        Vector2 origin = GetRoomCameraOrigin(_currentRoom, _player.Position);
+
+        // Camera2D anchors to the full 160x144 viewport. Adding its centre
+        // preserves (0,0) as the playfield origin while the HUD masks y=128+.
+        _roomCamera.Position = origin + new Vector2(
+            OracleRoomData.ViewportWidth / 2.0f,
+            144.0f / 2.0f);
+    }
+
+    private static Vector2 GetRoomCameraOrigin(OracleRoomData room, Vector2 playerPosition)
+    {
+        float maxX = Mathf.Max(0.0f, room.Width - OracleRoomData.ViewportWidth);
+        float maxY = Mathf.Max(0.0f, room.Height - OracleRoomData.ViewportHeight);
+        return new Vector2(
+            Mathf.Clamp(playerPosition.X - OracleRoomData.ViewportWidth / 2.0f, 0.0f, maxX),
+            Mathf.Clamp(playerPosition.Y - OracleRoomData.ViewportHeight / 2.0f, 0.0f, maxY));
+    }
+
+    private Vector2 GetCurrentCameraOrigin()
+    {
+        return _roomCamera.Position - new Vector2(
+            OracleRoomData.ViewportWidth / 2.0f,
+            144.0f / 2.0f);
+    }
+
+    private Vector2 WorldToScreen(Vector2 worldPosition)
+    {
+        return worldPosition - GetCurrentCameraOrigin();
     }
 
     private static void FaceForDestinationTile(Player player, byte tile)
@@ -695,6 +766,10 @@ public partial class GameRoot : Node2D
 
     private bool TryGetNeighborId(Vector2I direction, out int id)
     {
+        int dungeon = _world.GetDungeonIndex(_activeGroup, _currentRoom.Id);
+        if (dungeon >= 0)
+            return _dungeonMaps.TryGetNeighbor(dungeon, _currentRoom.Id, direction, out id);
+
         int x = _currentRoom.Id & 0x0f;
         int y = (_currentRoom.Id >> 4) & 0x0f;
         x += direction.X;
@@ -856,6 +931,74 @@ public partial class GameRoot : Node2D
                 $"${_currentRoom.GetPackedPosition(_player.Position):x2}.");
 
         GD.Print("Validated original house entry/exit fades, scripted walks, and 2:eb -> 2:ea screen transition.");
+    }
+
+    private void ValidateCaveWarps()
+    {
+        ValidateLargeRoomCaveWarp(0x21, 0x04);
+        ValidateLargeDungeonTopTransition();
+        ValidateLargeRoomCaveWarp(0x28, 0xce);
+        GD.Print("Validated 0:48 cave entries and dungeon00 room 4:04 -> 4:03 top transition.");
+    }
+
+    private void ValidateLargeDungeonTopTransition()
+    {
+        float exitX = -1.0f;
+        for (float x = 8.0f; x < _currentRoom.Width; x++)
+        {
+            if (!Collides(new Vector2(x, -2.0f)))
+            {
+                exitX = x;
+                break;
+            }
+        }
+        if (exitX < 0.0f)
+            throw new InvalidOperationException("Could not find 4:04's open northern dungeon exit.");
+
+        _player.WarpTo(new Vector2(exitX, -2.0f));
+        CheckRoomExit(_player);
+        if (_activeGroup != 4 || _currentRoom.Id != 0x03 || !_scrollTransitionActive)
+            throw new InvalidOperationException(
+                $"Expected dungeon00 room 4:04 north to lead to 4:03, got {_activeGroup}:{_currentRoom.Id:x2}.");
+        if (_scrollTransitionFrames != 32 || !Mathf.IsEqualApprox(_scrollTransitionDistance, 128.0f))
+            throw new InvalidOperationException("Large-room vertical scrolling did not use the 128px playfield distance.");
+
+        FinishActiveScrollingTransitionForValidation();
+        if (Mathf.Abs(WorldToScreen(_player.Position).Y - 118.0f) > 0.01f)
+            throw new InvalidOperationException("Link did not finish 4:04 -> 4:03 at the lower playfield edge.");
+    }
+
+    private void ValidateLargeRoomCaveWarp(int sourcePosition, int destinationRoom)
+    {
+        WarpToNpcTest();
+        int tileX = sourcePosition & 0x0f;
+        int tileY = (sourcePosition >> 4) & 0x0f;
+        _player.WarpTo(new Vector2(
+            tileX * OracleRoomData.MetatileSize + 8,
+            tileY * OracleRoomData.MetatileSize + 8));
+        if (!CheckTileWarp(_player) || _activeGroup != 4 || _currentRoom.Id != destinationRoom)
+            throw new InvalidOperationException(
+                $"Expected 0:48/${sourcePosition:x2} to enter 4:{destinationRoom:x2}, got " +
+                $"{_activeGroup}:{_currentRoom.Id:x2}.");
+        if (_currentRoom.Width != 256 || _currentRoom.Height != 176)
+            throw new InvalidOperationException(
+                $"Expected 4:{destinationRoom:x2} to use the original 256x176 large-room dimensions.");
+        if (_player.Position != new Vector2(0x78, 0xb0))
+            throw new InvalidOperationException(
+                $"Expected the original large-room entry coordinate $b0/$78, got {_player.Position}.");
+
+        UpdateRoomCamera();
+        if (WorldToScreen(_player.Position).DistanceSquaredTo(new Vector2(80, 128)) > 0.01f)
+            throw new InvalidOperationException(
+                $"Link did not begin the 4:{destinationRoom:x2} cave entry at screen position (80,128).");
+        UpdateRoomWarpTransition(WarpEnterFrames / 60.0);
+        UpdateRoomCamera();
+        if (WorldToScreen(_player.Position).DistanceSquaredTo(new Vector2(80, 100)) > 0.01f)
+            throw new InvalidOperationException(
+                $"Link did not finish the 28-frame 4:{destinationRoom:x2} cave entry at screen position (80,100).");
+        UpdateRoomWarpTransition((WarpFadeFrames - WarpEnterFrames) / 60.0);
+        if (IsTransitioning)
+            throw new InvalidOperationException($"The 4:{destinationRoom:x2} cave fade did not finish.");
     }
 
     private void ValidateSwordBush()

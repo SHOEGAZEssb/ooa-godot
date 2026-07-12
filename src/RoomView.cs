@@ -7,6 +7,7 @@ public partial class RoomView : Node2D
     private Texture2D? _current;
     private Texture2D? _previous;
     private Vector2I _direction;
+    private Vector2 _transitionTextureOffset;
     private float _transitionDistance;
     private float _transitionFrame;
     private int _transitionFrames;
@@ -21,12 +22,18 @@ public partial class RoomView : Node2D
         QueueRedraw();
     }
 
-    public void StartScreenTransition(Texture2D texture, Vector2I direction, float distance)
+    public void StartScreenTransition(
+        Texture2D texture,
+        Vector2I direction,
+        float distance,
+        Vector2 sourceCameraOrigin,
+        Vector2 destinationCameraOrigin)
     {
         _previous = _current;
         _current = texture;
         _direction = direction;
         _transitionDistance = distance;
+        _transitionTextureOffset = sourceCameraOrigin - destinationCameraOrigin;
         _transitionFrame = 0.0f;
         _transitionFrames = Mathf.Max(1, Mathf.RoundToInt(distance / 4.0f));
         QueueRedraw();
@@ -65,6 +72,6 @@ public partial class RoomView : Node2D
             _direction.X * _transitionDistance,
             _direction.Y * _transitionDistance);
         DrawTexture(_previous, -scroll);
-        DrawTexture(_current, distance - scroll);
+        DrawTexture(_current, _transitionTextureOffset + distance - scroll);
     }
 }
