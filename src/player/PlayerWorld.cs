@@ -30,6 +30,8 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool ApplySwordHit(Player player, Rect2 hitbox) => _combat.ApplySwordHit(player, hitbox);
     public bool TryInteract(Player player) => _interactions.TryInteract(player);
     public bool Collides(Vector2 position) => _collision.Collides(position);
+    public Vector2 ResolveMovement(Vector2 position, Vector2 movement, bool allowWallSlide) =>
+        _collision.ResolveMovement(position, movement, allowWallSlide);
     public ActiveTerrainInfo GetActiveTerrain(Vector2 position) => _terrain.GetActiveTerrain(position);
     public Vector2 GetTerrainPush(Vector2 position) => _terrain.GetTerrainPush(position);
     public bool TryStartLedgeHop(Player player, Vector2 from, Vector2 movement) =>

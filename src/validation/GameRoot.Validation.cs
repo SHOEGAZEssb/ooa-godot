@@ -233,7 +233,46 @@ public partial class GameRoot
         if (_player.Position.Y <= ledgeStart.Y + OracleRoomData.MetatileSize)
             throw new InvalidOperationException("The ledge hop did not carry Link down across the cliff.");
 
-        GD.Print("Validated terrain hazards, hole fall animation/respawn, and south-facing ledge hop.");
+        ValidateRoom56TileEdgeSlide();
+
+        GD.Print("Validated terrain hazards, hole fall/respawn, ledge hop, and original tile-edge sliding.");
+    }
+
+    private void ValidateRoom56TileEdgeSlide()
+    {
+        _activeGroup = 0;
+        _currentRoom = _world.LoadRoom(_activeGroup, 0x56);
+        _roomView.SetRoom(_currentRoom.Texture);
+        RefreshRoomObjects();
+
+        // The left end of bridge metatiles $1d/$1e starts at x=$30. These two
+        // positions reproduce approaching its upper and lower rails from the
+        // west, including the lower corner shown in the reported stuck case.
+        ValidateBridgeSlidePath(new Vector2(44, 62), expectUp: true);
+        ValidateBridgeSlidePath(new Vector2(44, 92), expectUp: false);
+    }
+
+    private void ValidateBridgeSlidePath(Vector2 start, bool expectUp)
+    {
+        Vector2 position = start;
+        bool deflected = false;
+        for (int frame = 0; frame < 16; frame++)
+        {
+            Vector2 resolved = _collision.ResolveMovement(
+                position, Vector2.Right, allowWallSlide: true);
+            if (resolved == Vector2.Zero)
+                throw new InvalidOperationException(
+                    $"Room 0:56 bridge slide became stuck at {position}.");
+            deflected |= expectUp ? resolved.Y < 0.0f : resolved.Y > 0.0f;
+            position += resolved;
+        }
+
+        Vector2 expected = start + new Vector2(12.0f, expectUp ? -4.0f : 4.0f);
+        if (!deflected || position.DistanceSquaredTo(expected) > 0.01f)
+            throw new InvalidOperationException(
+                $"Room 0:56 bridge did not apply the symmetric four-frame " +
+                $"{(expectUp ? "upward" : "downward")} deflection; " +
+                $"start={start}, expected={expected}, end={position}.");
     }
 
     private void ValidateRoom01HoleBoundaryCase()

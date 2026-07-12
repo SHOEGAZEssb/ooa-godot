@@ -7,7 +7,8 @@ public partial class Player : Node2D
 {
     private enum Facing { Up, Right, Down, Left }
 
-    private const float Speed = 58.0f;
+    private const float Speed = 60.0f;
+    private static readonly Vector2 NormalSpriteOrigin = new(-8, -8);
     private const float AttackDuration = 17.0f / 60.0f;
     private const float SwordBreakTime = 6.0f / 60.0f;
     private const float FallInHoleAnimationDuration = 36.0f / 60.0f;
@@ -278,16 +279,14 @@ public partial class Player : Node2D
         {
             UpdateFacing(input);
             Vector2 movement = input * Speed * GetTerrainSpeedMultiplier() * (float)delta;
-            TryMove(new Vector2(movement.X, 0));
-            TryMove(new Vector2(0, movement.Y));
+            TryMove(movement, allowWallSlide: true);
             _walkTime += (float)delta;
         }
 
         Vector2 terrainPush = _world.GetTerrainPush(Position) * (float)delta;
         if (terrainPush != Vector2.Zero)
         {
-            TryMove(new Vector2(terrainPush.X, 0));
-            TryMove(new Vector2(0, terrainPush.Y));
+            TryMove(terrainPush, allowWallSlide: false);
         }
 
         Position = _precisePosition.Round();
@@ -327,7 +326,7 @@ public partial class Player : Node2D
             int frame = GetFallInHoleFrame();
             DrawTextureRectRegion(
                 _fallInHoleTexture,
-                new Rect2(-8, -12, 16, 16),
+                new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(frame * 16, 0, 16, 16));
         }
         else if (IsAttacking)
@@ -345,19 +344,22 @@ public partial class Player : Node2D
         {
             int frame = _walking && ((int)(_walkTime / 0.10f) & 1) == 1 ? 1 : 0;
             Rect2 source = GetFrame(_facing, frame);
-            DrawTextureRectRegion(_texture, new Rect2(-8, -12, 16, 16), source);
+            DrawTextureRectRegion(
+                _texture,
+                new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
+                source);
         }
     }
 
-    private void TryMove(Vector2 movement)
+    private void TryMove(Vector2 movement, bool allowWallSlide = false)
     {
         if (movement == Vector2.Zero)
             return;
 
-        Vector2 proposed = _precisePosition + movement;
-        if (!_world.Collides(proposed))
+        Vector2 resolved = _world.ResolveMovement(_precisePosition, movement, allowWallSlide);
+        if (resolved != Vector2.Zero)
         {
-            _precisePosition = proposed;
+            _precisePosition += resolved;
             return;
         }
 

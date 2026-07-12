@@ -9,6 +9,11 @@ public sealed class RoomCollision
     {
         new(-5, -2), new(5, -2), new(-5, 5), new(5, 5)
     };
+    private static readonly Vector2[] AdjacentWallSamples =
+    {
+        new(-3, -3), new(2, -3), new(-3, 7), new(2, 7),
+        new(-5, 0), new(-5, 5), new(4, 0), new(4, 5)
+    };
 
     private readonly RoomSession _rooms;
     private readonly RoomEntityManager _entities;
@@ -40,5 +45,133 @@ public sealed class RoomCollision
                 return true;
         }
         return _entities.BlocksLink(playerPosition);
+    }
+
+    public Vector2 ResolveMovement(Vector2 playerPosition, Vector2 movement, bool allowWallSlide)
+    {
+        if (movement == Vector2.Zero)
+            return movement;
+
+        int angle = GetMovementAngle(movement);
+        int walls = CalculateAdjacentWallsBitset(playerPosition);
+        if (allowWallSlide && TryAdjustCardinalAngle(angle, walls, out int adjustedAngle))
+        {
+            angle = adjustedAngle;
+            movement = DirectionForAngle(angle) * movement.Length();
+            walls = 0; // specialObjectUpdatePositionGivenVelocity clears e.
+        }
+
+        int relevantWalls = walls & BitsToCheck(angle);
+        Vector2 resolved = movement;
+        if ((relevantWalls & 0xf0) != 0)
+            resolved.Y = 0.0f;
+        if ((relevantWalls & 0x0f) != 0)
+            resolved.X = 0.0f;
+        if (resolved == Vector2.Zero || !CanApplyMovement(playerPosition + resolved))
+            return Vector2.Zero;
+        return resolved;
+    }
+
+    private static int GetMovementAngle(Vector2 movement)
+    {
+        int horizontal = Mathf.Sign(movement.X);
+        int vertical = Mathf.Sign(movement.Y);
+        if (vertical < 0) return horizontal < 0 ? 28 : horizontal > 0 ? 4 : 0;
+        if (vertical > 0) return horizontal < 0 ? 20 : horizontal > 0 ? 12 : 16;
+        return horizontal < 0 ? 24 : 8;
+    }
+
+    private static Vector2 DirectionForAngle(int angle)
+    {
+        return angle switch
+        {
+            0 => Vector2.Up,
+            8 => Vector2.Right,
+            16 => Vector2.Down,
+            24 => Vector2.Left,
+            _ => Vector2.Zero
+        };
+    }
+
+    private static int BitsToCheck(int angle)
+    {
+        return angle switch
+        {
+            0 => 0xcf,
+            4 => 0xc3,
+            8 => 0xf3,
+            12 => 0x33,
+            16 => 0x3f,
+            20 => 0x3c,
+            24 => 0xfc,
+            28 => 0xcc,
+            _ => 0xff
+        };
+    }
+
+    private static bool TryAdjustCardinalAngle(int angle, int walls, out int adjustedAngle)
+    {
+        adjustedAngle = angle;
+        switch (angle)
+        {
+            case 0:
+                if ((walls & 0xc3) == 0x80) adjustedAngle = 8;
+                else if ((walls & 0xcc) == 0x40) adjustedAngle = 24;
+                else return false;
+                return true;
+            case 8:
+                if ((walls & 0xc3) == 0x01) adjustedAngle = 0;
+                else if ((walls & 0x33) == 0x02) adjustedAngle = 16;
+                else return false;
+                return true;
+            case 16:
+                if ((walls & 0x33) == 0x20) adjustedAngle = 8;
+                else if ((walls & 0x3c) == 0x10) adjustedAngle = 24;
+                else return false;
+                return true;
+            case 24:
+                if ((walls & 0xcc) == 0x04) adjustedAngle = 0;
+                else if ((walls & 0x3c) == 0x08) adjustedAngle = 16;
+                else return false;
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private int CalculateAdjacentWallsBitset(Vector2 playerPosition)
+    {
+        int walls = 0;
+        foreach (Vector2 offset in AdjacentWallSamples)
+        {
+            walls <<= 1;
+            if (TileBlocksPoint(playerPosition + offset))
+                walls |= 1;
+        }
+
+        // Ages normalizes these two asymmetric patterns after calculating the
+        // bitset (specialObjectUpdateAdjacentWallsBitset@data).
+        return walls switch
+        {
+            0xdb => 0xc3,
+            0xee => 0xcc,
+            _ => walls
+        };
+    }
+
+    private bool CanApplyMovement(Vector2 position)
+    {
+        OracleRoomData room = _rooms.CurrentRoom;
+        return position.X >= 0 && position.X < room.Width &&
+            position.Y >= 0 && position.Y < room.Height &&
+            !_entities.BlocksLink(position);
+    }
+
+    private bool TileBlocksPoint(Vector2 point)
+    {
+        OracleRoomData room = _rooms.CurrentRoom;
+        if (point.X < 0 || point.X >= room.Width || point.Y < 0 || point.Y >= room.Height)
+            return !_hasNeighborFor(point);
+        return room.IsSolid(point);
     }
 }
