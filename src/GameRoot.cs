@@ -1047,45 +1047,47 @@ public partial class GameRoot : Node2D
     private void ValidateNpcs()
     {
         WarpToNpcTest();
-        if (_npcNodes.Count != 1)
-            throw new InvalidOperationException($"Expected one test NPC in room 0:48, got {_npcNodes.Count}.");
-        if (_npcNodes[0].TextId != 0x1420)
-            throw new InvalidOperationException($"Expected room 0:48 villager to resolve TX_1420, got TX_{_npcNodes[0].TextId:x4}.");
-        if (_npcNodes[0].Position != new Vector2(0x38, 0x48) ||
-            _npcNodes[0].SpriteBounds.GetCenter() != _npcNodes[0].Position)
+        NpcCharacter? villager = _npcNodes.Find(npc => npc.Record.Id == 0x3a && npc.Record.SubId == 0x03);
+        if (villager is null)
+            throw new InvalidOperationException($"Expected the room 0:48 villager among {_npcNodes.Count} extracted NPCs.");
+        if (villager.TextId != 0x1420)
+            throw new InvalidOperationException($"Expected room 0:48 villager to resolve TX_1420, got TX_{villager.TextId:x4}.");
+        if (villager.Position != new Vector2(0x38, 0x48) ||
+            villager.SpriteBounds.GetCenter() != villager.Position)
         {
             throw new InvalidOperationException("The room 0:48 villager sprite is not centered on its object tile.");
         }
-        if (_npcNodes[0].ObjectCollisionBounds.Size != new Vector2(12.0f, 12.0f) ||
-            _npcNodes[0].ObjectCollisionBounds.GetCenter() != _npcNodes[0].Position)
+        if (villager.ObjectCollisionBounds.Size != new Vector2(12.0f, 12.0f) ||
+            villager.ObjectCollisionBounds.GetCenter() != villager.Position)
         {
             throw new InvalidOperationException("The room 0:48 villager object hitbox does not match the original $06/$06 collision radii.");
         }
-        if (_npcNodes[0].LinkBlockingBounds.Size != new Vector2(24.0f, 24.0f) ||
-            _npcNodes[0].LinkBlockingBounds.GetCenter() != _npcNodes[0].Position)
+        if (villager.LinkBlockingBounds.Size != new Vector2(24.0f, 24.0f) ||
+            villager.LinkBlockingBounds.GetCenter() != villager.Position)
         {
             throw new InvalidOperationException("The room 0:48 villager does not combine NPC and Link $06 radii into a 24px blocking region.");
         }
-        if (!_npcNodes[0].BlocksLinkCenter(_npcNodes[0].Position) ||
-            _npcNodes[0].BlocksLinkCenter(_npcNodes[0].Position + new Vector2(0.0f, 12.0f)))
+        if (!villager.BlocksLinkCenter(villager.Position) ||
+            villager.BlocksLinkCenter(villager.Position + new Vector2(0.0f, 12.0f)))
         {
             throw new InvalidOperationException("The room 0:48 villager's strict radius collision boundary is not centered correctly.");
         }
-        if (!Collides(_npcNodes[0].Position + new Vector2(0.0f, 11.9f)) ||
-            Collides(_npcNodes[0].Position + new Vector2(0.0f, 12.1f)))
+        if (!Collides(villager.Position + new Vector2(0.0f, 11.9f)) ||
+            Collides(villager.Position + new Vector2(0.0f, 12.1f)))
         {
             throw new InvalidOperationException("The room 0:48 villager did not stop Link at the original bottom collision radius.");
         }
         if (!TryInteract(_player) || !_dialogue.IsOpen)
             throw new InvalidOperationException("The room 0:48 villager did not open dialogue.");
-        if (_npcNodes[0].CurrentFrameColumn != _npcNodes[0].Record.FrameBase)
+        int frameBase = villager.Record.TileBase / 4;
+        if (villager.CurrentFrameColumn != frameBase)
             throw new InvalidOperationException("The room 0:48 villager did not face down toward Link after talking.");
-        _npcNodes[0].FaceToward(_npcNodes[0].Position + Vector2.Left);
-        if (_npcNodes[0].CurrentFrameColumn != _npcNodes[0].Record.FrameBase + 2)
+        villager.FaceToward(villager.Position + Vector2.Left);
+        if (villager.CurrentFrameColumn != frameBase + 2)
             throw new InvalidOperationException("The room 0:48 villager's left-facing frame is not mapped correctly.");
-        _npcNodes[0].FaceToward(_npcNodes[0].Position + Vector2.Right);
-        if (_npcNodes[0].CurrentFrameColumn != _npcNodes[0].Record.FrameBase + 3)
-            throw new InvalidOperationException("The room 0:48 villager's right-facing frame is not mapped correctly.");
+        villager.FaceToward(villager.Position + Vector2.Right);
+        if (villager.CurrentFrameColumn != frameBase + 2)
+            throw new InvalidOperationException("The room 0:48 villager's right-facing OAM is not using the mirrored side frame.");
         GD.Print("Validated talkable male villager in room 0:48 and opened TX_1420.");
     }
 

@@ -210,31 +210,382 @@ $signPath = Join-Path $destination "objects\signs.tsv"
 New-Item -ItemType Directory -Force -Path (Split-Path $signPath -Parent) | Out-Null
 [IO.File]::WriteAllLines($signPath, $signRows, [Text.UTF8Encoding]::new($false))
 
-# First NPC slice: preserve the original male villager placed by
-# group0Map48ObjectData (`obj_Interaction $3a $03 $48 $38`) and resolve its
-# generic script text (`villagerSubid03Script_befored3 -> TX_1420`).
-$npcTextMatch = [regex]::Match(
+# NPC extraction. Interaction objects are split between the room object table,
+# interactionData.s (graphics), and the script/text tables. Keep the list of
+# character interaction codes here: other interaction codes are scenery,
+# triggers, enemies, or cutscene-only helpers even when they have text.
+$npcInteractionIds = [Collections.Generic.HashSet[int]]::new()
+foreach ($id in @(
+    0x10, 0x28, 0x29, 0x2a, 0x2e, 0x30, 0x31, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d,
+    0x3f, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x48, 0x49,
+    0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50, 0x51, 0x52, 0x53, 0x54,
+    0x55, 0x57, 0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d, 0x5f, 0x65, 0x66, 0x68,
+    0x69, 0x6a, 0x6d, 0x72, 0x83, 0x87, 0x88, 0x89, 0x8b, 0x94, 0x9a,
+    0x9c, 0x9d, 0xab, 0xad, 0xba, 0xbf, 0xc3, 0xc4, 0xc8, 0xca,
+    0xcb, 0xcc, 0xcd, 0xce, 0xd5, 0xd6, 0xe3
+)) { [void]$npcInteractionIds.Add($id) }
+
+function Normalize-NpcText([string]$text) {
+    $text = $text.Replace('\left', [string][char]0x2190)
+    $text = $text.Replace('\right', [string][char]0x2192)
+    $text = $text.Replace('\up', [string][char]0x2191)
+    $text = $text.Replace('\down', [string][char]0x2193)
+    return [regex]::Replace($text, '\\(?:stop|pos\([^)]*\)|col\([^)]*\))', '')
+}
+
+# Resolve all text blocks once. This also handles the low-index generic-NPC
+# commands, whose source still spells the complete TX_XXXX symbol.
+$allTexts = @{}
+$allTextMatches = [regex]::Matches(
     $textYaml,
-    '(?ms)^  - name: TX_1420\r?\n    index: 0x20\r?\n    text: \|-\r?\n(?<body>(?:      [^\r\n]*(?:\r?\n|\z))+)'
+    '(?ms)^  - name: TX_(?<id>[0-9a-f]{4})\r?\n    index: 0x[0-9a-f]{2}\r?\n    text: \|-\r?\n(?<body>(?:      [^\r\n]*(?:\r?\n|\z))+)'
 )
-if (-not $npcTextMatch.Success) {
-    throw "Could not resolve villager text TX_1420."
+foreach ($match in $allTextMatches) {
+    $lines = $match.Groups['body'].Value -split '\r?\n' | ForEach-Object {
+        if ($_.Length -ge 6) { $_.Substring(6) } else { '' }
+    }
+    while ($lines.Count -gt 0 -and $lines[-1] -eq '') {
+        $lines = $lines[0..($lines.Count - 2)]
+    }
+    $allTexts[[Convert]::ToInt32($match.Groups['id'].Value, 16)] = Normalize-NpcText ($lines -join "`n")
 }
-$npcLines = $npcTextMatch.Groups['body'].Value -split '\r?\n' | ForEach-Object {
-    if ($_.Length -ge 6) { $_.Substring(6) } else { '' }
+
+# Resolve the first dialogue command reached by a script label, following the
+# common scriptjump indirection used by generic NPCs.
+$scriptSources = @(
+    (Join-Path $Disassembly "scripts\ages\scripts.s"),
+    (Join-Path $Disassembly "scripts\ages\scriptHelper.s")
+)
+$scriptBodies = @{}
+foreach ($scriptSourcePath in $scriptSources) {
+    $scriptSource = Get-Content -Raw $scriptSourcePath
+    foreach ($labelMatch in [regex]::Matches($scriptSource, '(?ms)^(?<label>[A-Za-z0-9_@]+):\r?\n(?<body>.*?)(?=^[A-Za-z0-9_@]+:|\z)')) {
+        $scriptBodies[$labelMatch.Groups['label'].Value] = $labelMatch.Groups['body'].Value
+    }
 }
-while ($npcLines.Count -gt 0 -and $npcLines[-1] -eq '') {
-    $npcLines = $npcLines[0..($npcLines.Count - 2)]
+$scriptTextCache = @{}
+function Resolve-ScriptTextId([string]$label, [Collections.Generic.HashSet[string]]$visited) {
+    if ($scriptTextCache.ContainsKey($label)) { return $scriptTextCache[$label] }
+    if ($visited.Contains($label) -or -not $scriptBodies.ContainsKey($label)) { return -1 }
+    [void]$visited.Add($label)
+    $body = $scriptBodies[$label]
+    $textMatch = [regex]::Match($body, '(?:rungenericnpc|rungenericnpclowindex|showtext|showtextlowindex|settextid)\s+(?:<)?TX_(?<id>[0-9a-f]{4})')
+    if ($textMatch.Success) {
+        $value = [Convert]::ToInt32($textMatch.Groups['id'].Value, 16)
+        $scriptTextCache[$label] = $value
+        return $value
+    }
+    $jumpMatch = [regex]::Match($body, 'scriptjump\s+(?:mainScripts\.)?(?<label>[A-Za-z0-9_@]+)')
+    if ($jumpMatch.Success) {
+        $value = Resolve-ScriptTextId $jumpMatch.Groups['label'].Value $visited
+        $scriptTextCache[$label] = $value
+        return $value
+    }
+    $scriptTextCache[$label] = -1
+    return -1
 }
-$npcText = $npcLines -join "`n"
-$npcText = $npcText.Replace('\left', [string][char]0x2190)
-$npcText = $npcText.Replace('\right', [string][char]0x2192)
-$npcText = $npcText.Replace('\up', [string][char]0x2191)
-$npcText = $npcText.Replace('\down', [string][char]0x2193)
-$npcText = [regex]::Replace($npcText, '\\(?:stop|pos\([^)]*\)|col\([^)]*\))', '')
+
+# Map interaction subids to the first script entry in each original script
+# table. This preserves the important subid-specific dialogue without trying
+# to evaluate story-state branches during import.
+$npcTextBySubid = @{}
+$npcFacingIds = [Collections.Generic.HashSet[int]]::new()
+$npcInteractionSourcePaths = @()
+$npcInteractionSourcePaths += Get-ChildItem (Join-Path $Disassembly "object_code\ages\interactions") -File -Filter '*.s'
+$npcInteractionSourcePaths += Get-ChildItem (Join-Path $Disassembly "object_code\common\interactions") -File -Filter '*.s'
+foreach ($interactionSourcePath in $npcInteractionSourcePaths) {
+    $interactionSource = Get-Content -Raw $interactionSourcePath.FullName
+    $codeMatch = [regex]::Match($interactionSource, '(?m)^interactionCode(?<id>[0-9a-f]{2}):')
+    if (-not $codeMatch.Success) { continue }
+    $interactionId = [Convert]::ToInt32($codeMatch.Groups['id'].Value, 16)
+    if (-not $npcInteractionIds.Contains($interactionId)) { continue }
+    if ($interactionSource -match 'npcFaceLinkAndAnimate') { [void]$npcFacingIds.Add($interactionId) }
+    $tableName = ''
+    $tableIndex = 0
+    foreach ($line in ($interactionSource -split '\r?\n')) {
+        if ($line -match '^@(?<table>[A-Za-z0-9_]+ScriptTable):') {
+            $tableName = $Matches['table']
+            $tableIndex = 0
+            continue
+        }
+        if (-not $tableName) { continue }
+        if ($line -match '^[^\t ;@].*:') { $tableName = ''; continue }
+        if ($line -notmatch '^\s*\.dw\s+mainScripts\.(?<label>[A-Za-z0-9_@]+)') { continue }
+        $textId = Resolve-ScriptTextId $Matches['label'] ([Collections.Generic.HashSet[string]]::new())
+        if ($textId -ge 0) {
+            $subids = @()
+            if ($tableName -match '^subid(?<a>[0-9a-f])And(?<b>[0-9a-f])') {
+                $subids = @([Convert]::ToInt32($Matches['a'], 16), [Convert]::ToInt32($Matches['b'], 16))
+            } elseif ($tableName -match '^subid(?<a>[0-9a-f])(?<b>[0-9a-f])') {
+                $subids = @([Convert]::ToInt32("$($Matches['a'])$($Matches['b'])", 16))
+            } elseif ($tableName -eq 'scriptTable') {
+                $subids = @($tableIndex)
+            }
+            foreach ($subid in $subids) {
+                $key = "$interactionId`:$subid"
+                if (-not $npcTextBySubid.ContainsKey($key)) { $npcTextBySubid[$key] = $textId }
+            }
+        }
+        $tableIndex++
+    }
+    # Some interactions select scripts in assembly rather than through a .dw
+    # table. Only accept references whose labels identify their subid; never
+    # assign an unrelated "first text" to every instance of the interaction.
+    foreach ($scriptReference in [regex]::Matches($interactionSource, 'mainScripts\.(?<label>[A-Za-z0-9_@]+)')) {
+        $label = $scriptReference.Groups['label'].Value
+        $textId = Resolve-ScriptTextId $label ([Collections.Generic.HashSet[string]]::new())
+        if ($textId -lt 0) { continue }
+        $subids = @()
+        if ($label -match '(?i)Subid(?<a>[0-9a-f])And(?<b>[0-9a-f])') {
+            $subids = @([Convert]::ToInt32($Matches['a'], 16), [Convert]::ToInt32($Matches['b'], 16))
+        } elseif ($label -match '(?i)Subid(?<subid>[0-9a-f]{2})') {
+            $subids = @([Convert]::ToInt32($Matches['subid'], 16))
+        } elseif ($label -match '(?i)Script(?<subid>[0-9a-f]{2})(?:_|$)') {
+            $subids = @([Convert]::ToInt32($Matches['subid'], 16))
+        }
+        foreach ($subid in $subids) {
+            $key = "$interactionId`:$subid"
+            if (-not $npcTextBySubid.ContainsKey($key)) { $npcTextBySubid[$key] = $textId }
+        }
+    }
+}
+
+# Parse the interaction graphics table, including pointer-backed subid data.
+$interactionDataSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\interactionData.s")
+$interactionGraphics = @{}
+$interactionPointers = @{}
+foreach ($match in [regex]::Matches($interactionDataSource, '(?m)^\s*/\* \$(?<id>[0-9a-f]{2}) \*/ m_InteractionData\s+(?<gfx>\$[0-9a-f]{2}|[A-Za-z0-9_]+)(?:\s+(?<base>\$[0-9a-f]{2})\s+(?<flags>\$[0-9a-f]{2}))?')) {
+    $id = [Convert]::ToInt32($match.Groups['id'].Value, 16)
+    if ($match.Groups['gfx'].Value.StartsWith('$')) {
+        $interactionGraphics["$id`:0"] = @{
+            Gfx = [Convert]::ToInt32($match.Groups['gfx'].Value.Substring(1), 16)
+            TileBase = [Convert]::ToInt32($match.Groups['base'].Value.Substring(1), 16)
+            Palette = ([Convert]::ToInt32($match.Groups['flags'].Value.Substring(1), 16) -shr 4) -band 7
+            DefaultAnimation = [Convert]::ToInt32($match.Groups['flags'].Value.Substring(1), 16) -band 15
+        }
+    } else { $interactionPointers[$id] = $match.Groups['gfx'].Value }
+}
+foreach ($block in [regex]::Matches($interactionDataSource, '(?ms)^interaction(?<id>[0-9a-f]{2})SubidData:\r?\n(?<body>.*?)(?=^interaction[0-9a-f]{2}SubidData:|\z)')) {
+    $id = [Convert]::ToInt32($block.Groups['id'].Value, 16)
+    $subid = 0
+    foreach ($entry in [regex]::Matches($block.Groups['body'].Value, 'm_InteractionSubidData\s+\$(?<gfx>[0-9a-f]{2})\s+\$(?<base>[0-9a-f]{2})\s+\$(?<flags>[0-9a-f]{2})')) {
+        $flags = [Convert]::ToInt32($entry.Groups['flags'].Value, 16)
+        $interactionGraphics["$id`:$subid"] = @{
+            Gfx = [Convert]::ToInt32($entry.Groups['gfx'].Value, 16)
+            TileBase = [Convert]::ToInt32($entry.Groups['base'].Value, 16)
+            Palette = ($flags -shr 4) -band 7
+            DefaultAnimation = $flags -band 15
+        }
+        $subid++
+    }
+}
+# Repeat the subid pass with alias awareness. The source intentionally stacks
+# labels such as interaction6dSubidData / interaction6eSubidData over one
+# shared sequence; treating each label as an independent regex block drops the
+# first interaction entirely.
+$subidAliases = [Collections.Generic.List[int]]::new()
+$subidEntries = [Collections.Generic.List[object]]::new()
+function Complete-InteractionSubidAliases {
+    if ($script:subidEntries.Count -eq 0) { return }
+    foreach ($aliasId in $script:subidAliases) {
+        for ($index = 0; $index -lt $script:subidEntries.Count; $index++) {
+            $entry = $script:subidEntries[$index]
+            $script:interactionGraphics["$aliasId`:$index"] = $entry
+        }
+    }
+    $script:subidAliases.Clear()
+    $script:subidEntries.Clear()
+}
+foreach ($line in ($interactionDataSource -split '\r?\n')) {
+    if ($line -match '^interaction(?<id>[0-9a-f]{2})SubidData:') {
+        if ($subidEntries.Count -gt 0) { Complete-InteractionSubidAliases }
+        $subidAliases.Add([Convert]::ToInt32($Matches['id'], 16))
+        continue
+    }
+    if ($subidAliases.Count -eq 0) { continue }
+    if ($line -match 'm_InteractionSubidData\s+\$(?<gfx>[0-9a-f]{2})\s+\$(?<base>[0-9a-f]{2})\s+\$(?<flags>[0-9a-f]{2})') {
+        $flags = [Convert]::ToInt32($Matches['flags'], 16)
+        $subidEntries.Add(@{
+            Gfx = [Convert]::ToInt32($Matches['gfx'], 16)
+            TileBase = [Convert]::ToInt32($Matches['base'], 16)
+            Palette = ($flags -shr 4) -band 7
+            DefaultAnimation = $flags -band 15
+        })
+        continue
+    }
+    if ($line -match '^[A-Za-z0-9_@]+:') {
+        Complete-InteractionSubidAliases
+        $subidAliases.Clear()
+    }
+}
+Complete-InteractionSubidAliases
+$gfxNames = @{}
+foreach ($line in Get-Content (Join-Path $Disassembly "data\ages\objectGfxHeaders.s")) {
+    if ($line -match '/\* \$(?<id>[0-9a-f]{2}) \*/ m_ObjectGfxHeader (?<name>[A-Za-z0-9_]+)') {
+        $gfxNames[[Convert]::ToInt32($Matches['id'], 16)] = $Matches['name']
+    }
+}
+
+# Resolve animation indices through the original pointer tables. Animation
+# frame byte 1 is a byte offset into the interaction's OAM pointer table (the
+# engine adds it directly before reading a word), not a sprite-sheet column.
+$interactionAnimationSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\interactionAnimations.s")
+function Read-NpcDwTables([string]$source, [string]$tableLabelPattern, [string]$entryPattern) {
+    $result = @{}
+    $aliases = [Collections.Generic.List[string]]::new()
+    $entries = [Collections.Generic.List[string]]::new()
+    foreach ($line in ($source -split '\r?\n')) {
+        $labelMatch = [regex]::Match($line, "^(?<label>$tableLabelPattern):")
+        if ($labelMatch.Success) {
+            if ($entries.Count -gt 0) {
+                foreach ($alias in $aliases) { $result[$alias] = @($entries) }
+                $aliases.Clear()
+                $entries.Clear()
+            }
+            $aliases.Add($labelMatch.Groups['label'].Value)
+            continue
+        }
+        if ($aliases.Count -eq 0) { continue }
+        $entryMatch = [regex]::Match($line, "^\s*\.dw\s+(?<entry>$entryPattern)")
+        if ($entryMatch.Success) {
+            $entries.Add($entryMatch.Groups['entry'].Value)
+            continue
+        }
+        if ($line -match '^[A-Za-z0-9_@]+:') {
+            if ($entries.Count -gt 0) {
+                foreach ($alias in $aliases) { $result[$alias] = @($entries) }
+            }
+            $aliases.Clear()
+            $entries.Clear()
+        }
+    }
+    if ($entries.Count -gt 0) {
+        foreach ($alias in $aliases) { $result[$alias] = @($entries) }
+    }
+    return $result
+}
+
+$npcAnimationTables = Read-NpcDwTables $interactionAnimationSource 'interaction[0-9a-f]{2}Animations' 'interactionAnimation[0-9a-f]+'
+$npcOamPointerTables = Read-NpcDwTables $interactionAnimationSource 'interaction[0-9a-f]{2}OamDataPointers' 'interactionOamData[0-9a-f]+'
+$npcAnimationFirstFrames = @{}
+foreach ($animation in [regex]::Matches($interactionAnimationSource, '(?ms)^(?<label>interactionAnimation[0-9a-f]+):\r?\n(?<body>.*?)(?=^interactionAnimation[0-9a-f]+:|\z)')) {
+    $frame = [regex]::Match($animation.Groups['body'].Value, '\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<frame>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})')
+    if ($frame.Success) {
+        $npcAnimationFirstFrames[$animation.Groups['label'].Value] = [Convert]::ToInt32($frame.Groups['frame'].Value, 16)
+    }
+}
+
+$npcOamBlocks = @{}
+$interactionOamSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\interactionOamData.s")
+foreach ($oam in [regex]::Matches($interactionOamSource, '(?ms)^(?<label>interactionOamData[0-9a-f]+):[^\r\n]*\r?\n(?<body>.*?)(?=^interactionOamData[0-9a-f]+:|\z)')) {
+    $dataLines = [regex]::Matches($oam.Groups['body'].Value, '(?m)^\s*\.db\s+(?<bytes>[^;\r\n]+)')
+    if ($dataLines.Count -eq 0) { continue }
+    $countMatch = [regex]::Match($dataLines[0].Groups['bytes'].Value, '\$(?<count>[0-9a-f]{2})')
+    if (-not $countMatch.Success) { continue }
+    $count = [Convert]::ToInt32($countMatch.Groups['count'].Value, 16)
+    $blocks = [Collections.Generic.List[string]]::new()
+    for ($index = 1; $index -le $count -and $index -lt $dataLines.Count; $index++) {
+        $values = [regex]::Matches($dataLines[$index].Groups['bytes'].Value, '\$(?<value>[0-9a-f]{2})')
+        if ($values.Count -lt 4) { continue }
+        $blocks.Add(($values | Select-Object -First 4 | ForEach-Object {
+            [Convert]::ToInt32($_.Groups['value'].Value, 16)
+        }) -join ',')
+    }
+    $npcOamBlocks[$oam.Groups['label'].Value] = $blocks -join ';'
+}
+
+function Resolve-NpcOam([int]$interactionId, [int]$animationIndex) {
+    $hex = $interactionId.ToString('x2')
+    $animationKey = "interaction${hex}Animations"
+    $pointerKey = "interaction${hex}OamDataPointers"
+    if (-not $npcAnimationTables.ContainsKey($animationKey) -or -not $npcOamPointerTables.ContainsKey($pointerKey)) { return '' }
+    $animations = $npcAnimationTables[$animationKey]
+    if ($animationIndex -lt 0 -or $animationIndex -ge $animations.Count) { return '' }
+    $animationLabel = $animations[$animationIndex]
+    if (-not $npcAnimationFirstFrames.ContainsKey($animationLabel)) { return '' }
+    $pointerIndex = [int]($npcAnimationFirstFrames[$animationLabel] / 2)
+    $pointers = $npcOamPointerTables[$pointerKey]
+    if ($pointerIndex -lt 0 -or $pointerIndex -ge $pointers.Count) { return '' }
+    $oamLabel = $pointers[$pointerIndex]
+    if (-not $npcOamBlocks.ContainsKey($oamLabel)) { return '' }
+    return $npcOamBlocks[$oamLabel]
+}
+
+# Room object data is grouped by room label. Only positioned interaction
+# objects are emitted; state-only two-byte interaction records cannot spawn a
+# visible room NPC without a position and are intentionally left to the later
+# object-system slice.
 $npcRows = [Collections.Generic.List[string]]::new()
-$npcRows.Add("# group`troom`tid`tsubid`ty`tx`ttext-id`tsprite`tframe-base`tutf8-base64")
-$npcRows.Add("0`t48`t3a`t03`t48`t38`t1420`tspr_syrup_teenager`t4`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($npcText)))")
+$npcRows.Add("# group`troom`tid`tsubid`ty`tx`tvar03`ttext-id`tsprite`ttile-base`tpalette`tdefault-animation`tcan-face`tup-oam`tright-oam`tdown-oam`tleft-oam`tutf8-base64")
+$mainObjectLines = Get-Content (Join-Path $Disassembly "objects\ages\mainData.s")
+$currentGroup = -1
+$currentRoom = -1
+$npcSpriteNames = [Collections.Generic.HashSet[string]]::new()
+foreach ($line in $mainObjectLines) {
+    if ($line -match '^group(?<group>[0-7])Map(?<room>[0-9a-f]{2})ObjectData:') {
+        $currentGroup = [Convert]::ToInt32($Matches['group'], 10)
+        $currentRoom = [Convert]::ToInt32($Matches['room'], 16)
+        continue
+    }
+    if ($currentGroup -lt 0 -or $line -notmatch 'obj_Interaction\s+\$(?<id>[0-9a-f]{2})\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})(?:\s+\$(?<var03>[0-9a-f]{2}))?') { continue }
+    $id = [Convert]::ToInt32($Matches['id'], 16)
+    if (-not $npcInteractionIds.Contains($id)) { continue }
+    $subid = [Convert]::ToInt32($Matches['subid'], 16)
+    # INTERAC_SHOOTING_GALLERY subids 0-2 are the human, goron, and elder
+    # attendants; subid 3 is the invisible minigame controller.
+    if ($id -eq 0x30 -and $subid -eq 0x03) { continue }
+    $y = $Matches['y']
+    $x = $Matches['x']
+    $var03 = if ($Matches['var03']) { $Matches['var03'] } else { '00' }
+    $graphic = $interactionGraphics["$id`:$subid"]
+    if ($null -eq $graphic) { $graphic = $interactionGraphics["$id`:0"] }
+    if ($null -eq $graphic -or -not $gfxNames.ContainsKey($graphic.Gfx)) { continue }
+    $spriteName = $gfxNames[$graphic.Gfx]
+    [void]$npcSpriteNames.Add($spriteName)
+    $textId = if ($npcTextBySubid.ContainsKey("$id`:$subid")) { $npcTextBySubid["$id`:$subid"] } else { 0 }
+    $message = if ($allTexts.ContainsKey($textId)) { $allTexts[$textId] } else { '' }
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message))
+    $canFace = $npcFacingIds.Contains($id) -and $graphic.DefaultAnimation -ge 2
+    $downOam = Resolve-NpcOam $id $graphic.DefaultAnimation
+    if ($canFace) {
+        $upOam = Resolve-NpcOam $id ($graphic.DefaultAnimation - 2)
+        $rightOam = Resolve-NpcOam $id ($graphic.DefaultAnimation - 1)
+        $leftOam = Resolve-NpcOam $id ($graphic.DefaultAnimation + 1)
+    } else {
+        $upOam = $downOam
+        $rightOam = $downOam
+        $leftOam = $downOam
+    }
+    if (-not $upOam) { $upOam = $downOam }
+    if (-not $rightOam) { $rightOam = $downOam }
+    if (-not $leftOam) { $leftOam = $downOam }
+    $npcRows.Add("$currentGroup`t$($currentRoom.ToString('x2'))`t$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$y`t$x`t$var03`t$($textId.ToString('x4'))`t$spriteName`t$($graphic.TileBase)`t$($graphic.Palette)`t$($graphic.DefaultAnimation)`t$([int]$canFace)`t$upOam`t$rightOam`t$downOam`t$leftOam`t$encoded")
+}
+if ($npcRows.Count -ne 378) {
+    throw "Expected 377 positioned NPC/character records from Ages mainData.s, parsed $($npcRows.Count - 1)."
+}
+$villagerRow = $npcRows | Where-Object { $_ -match '^0\t48\t3a\t03\t' } | Select-Object -First 1
+if (-not $villagerRow) { throw "The canonical room 0:48 villager record was not extracted." }
+$villagerColumns = $villagerRow -split "`t"
+if ($villagerColumns[7] -ne '1420' -or $villagerColumns[9] -ne '16' -or
+    $villagerColumns[10] -ne '1' -or $villagerColumns[11] -ne '2' -or
+    $villagerColumns[13] -ne '8,0,4,0;8,8,6,0' -or
+    $villagerColumns[14] -ne '8,0,10,32;8,8,8,32' -or
+    $villagerColumns[15] -ne '8,0,0,0;8,8,2,0' -or
+    $villagerColumns[16] -ne '8,0,8,0;8,8,10,0') {
+    throw "The room 0:48 villager no longer matches interaction3a animation/OAM data."
+}
+
+# Copy every sprite sheet referenced by the extracted NPC records. The source
+# keeps common and Ages graphics in separate directories, so search both.
+foreach ($spriteName in $npcSpriteNames) {
+    $sourceSprite = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
+        ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Filter "$spriteName.png" } |
+        Select-Object -First 1
+    if ($null -eq $sourceSprite) { throw "NPC sprite not found in disassembly: $spriteName.png" }
+    $targetSprite = Join-Path $destination "gfx\$spriteName.png"
+    Copy-Item -LiteralPath $sourceSprite.FullName -Destination $targetSprite -Force
+}
 $npcPath = Join-Path $destination "objects\npcs.tsv"
 [IO.File]::WriteAllLines($npcPath, $npcRows, [Text.UTF8Encoding]::new($false))
 
@@ -428,4 +779,4 @@ if ($importedRoomCount -ne 1536) {
 }
 
 Write-Host "Validated clean US ROM: $hash"
-Write-Host "Imported $($tilesets.Count) tilesets, 1536 rooms, 42 signs, 1 NPC, 529 warps, and 22 animation groups into $destination"
+Write-Host "Imported $($tilesets.Count) tilesets, 1536 rooms, 42 signs, $($npcRows.Count - 1) NPCs, 529 warps, and 22 animation groups into $destination"

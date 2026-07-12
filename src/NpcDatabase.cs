@@ -19,7 +19,7 @@ public sealed class NpcDatabase
                 continue;
 
             string[] columns = line.Split('\t');
-            if (columns.Length != 10)
+            if (columns.Length != 18)
                 throw new InvalidOperationException($"Malformed NPC data row: {line}");
 
             int group = int.Parse(columns[0]);
@@ -32,9 +32,17 @@ public sealed class NpcDatabase
                 Convert.ToInt32(columns[4], 16),
                 Convert.ToInt32(columns[5], 16),
                 Convert.ToInt32(columns[6], 16),
-                columns[7],
-                int.Parse(columns[8]),
-                Encoding.UTF8.GetString(Convert.FromBase64String(columns[9])));
+                Convert.ToInt32(columns[7], 16),
+                columns[8],
+                int.Parse(columns[9]),
+                int.Parse(columns[10]),
+                int.Parse(columns[11]),
+                columns[12] == "1",
+                columns[13],
+                columns[14],
+                columns[15],
+                columns[16],
+                Encoding.UTF8.GetString(Convert.FromBase64String(columns[17])));
 
             int key = MakeKey(group, room);
             if (!_byRoom.TryGetValue(key, out List<NpcRecord>? records))
@@ -65,8 +73,16 @@ public sealed class NpcDatabase
         int SubId,
         int Y,
         int X,
+        int Var03,
         int TextId,
         string SpriteName,
-        int FrameBase,
+        int TileBase,
+        int Palette,
+        int DefaultAnimation,
+        bool CanFace,
+        string UpOam,
+        string RightOam,
+        string DownOam,
+        string LeftOam,
         string Message);
 }
