@@ -115,6 +115,38 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
+    public void BeginRoomWarpTransition()
+    {
+        _walking = false;
+        _attackTime = 0.0f;
+        _attackHitApplied = false;
+        QueueRedraw();
+    }
+
+    public void BeginRoomWarpWalk(Vector2 position, Vector2I direction)
+    {
+        WarpTo(position, recordSafe: false);
+        Face(direction);
+        _walking = true;
+        QueueRedraw();
+    }
+
+    public void SetRoomWarpWalkPosition(Vector2 position, double delta)
+    {
+        _precisePosition = position;
+        Position = position.Round();
+        _walking = true;
+        _walkTime += (float)delta;
+        QueueRedraw();
+    }
+
+    public void FinishRoomWarpTransition(Vector2 position)
+    {
+        WarpTo(position);
+        _walking = false;
+        QueueRedraw();
+    }
+
     public void TriggerHazard(GameRoot.ActiveTerrainInfo activeTerrain)
     {
         OracleRoomData.HazardType hazard = activeTerrain.Terrain.Hazard;

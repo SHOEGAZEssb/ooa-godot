@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -7,8 +8,16 @@ public partial class NpcCharacter : Node2D
 {
     private enum Facing { Up, Right, Down, Left }
 
-    private readonly Texture2D[] _facingTextures = new Texture2D[4];
+    private sealed record AnimationFrame(Texture2D Texture, int Duration);
+
+    private readonly List<AnimationFrame>[] _facingAnimations =
+    {
+        new(), new(), new(), new()
+    };
     private Facing _facing = Facing.Down;
+    private int _animationFrame;
+    private double _animationTicks;
+    private double _faceCooldownFrames;
 
     public NpcDatabase.NpcRecord Record { get; private set; }
     public string Message => Record.Message;
@@ -18,6 +27,14 @@ public partial class NpcCharacter : Node2D
     public const float LinkBlockingRadius = CollisionRadius + LinkCollisionRadius;
     public Rect2 SpriteBounds => new(Position + new Vector2(-8, -8), new Vector2(16, 16));
     public int CurrentFrameColumn => GetFrameColumn();
+    public int CurrentAnimationFrame => _animationFrame;
+    public Vector2I FacingVector => _facing switch
+    {
+        Facing.Up => Vector2I.Up,
+        Facing.Right => Vector2I.Right,
+        Facing.Left => Vector2I.Left,
+        _ => Vector2I.Down
+    };
 
     public Rect2 BodyBounds => ObjectCollisionBounds;
     public Rect2 ObjectCollisionBounds => new(
@@ -34,10 +51,10 @@ public partial class NpcCharacter : Node2D
         byte[] bytes = FileAccess.GetFileAsBytes($"res://assets/oracle/gfx/{record.SpriteName}.png");
         Image image = new();
         image.LoadPngFromBuffer(bytes);
-        _facingTextures[(int)Facing.Up] = BuildFacingTexture(image, record.UpOam, record.TileBase, record.Palette);
-        _facingTextures[(int)Facing.Right] = BuildFacingTexture(image, record.RightOam, record.TileBase, record.Palette);
-        _facingTextures[(int)Facing.Down] = BuildFacingTexture(image, record.DownOam, record.TileBase, record.Palette);
-        _facingTextures[(int)Facing.Left] = BuildFacingTexture(image, record.LeftOam, record.TileBase, record.Palette);
+        _facingAnimations[(int)Facing.Up].AddRange(BuildAnimation(image, record.UpAnimation, record.TileBase, record.Palette));
+        _facingAnimations[(int)Facing.Right].AddRange(BuildAnimation(image, record.RightAnimation, record.TileBase, record.Palette));
+        _facingAnimations[(int)Facing.Down].AddRange(BuildAnimation(image, record.DownAnimation, record.TileBase, record.Palette));
+        _facingAnimations[(int)Facing.Left].AddRange(BuildAnimation(image, record.LeftAnimation, record.TileBase, record.Palette));
         Position = new Vector2(record.X, record.Y);
         QueueRedraw();
     }
@@ -61,17 +78,67 @@ public partial class NpcCharacter : Node2D
     {
         if (!Record.CanFace)
             return;
-        Vector2 delta = target - Position;
-        if (Mathf.Abs(delta.X) > Mathf.Abs(delta.Y))
-            _facing = delta.X > 0 ? Facing.Right : Facing.Left;
-        else
-            _facing = delta.Y > 0 ? Facing.Down : Facing.Up;
-        QueueRedraw();
+        SetFacing(GetFacingToward(target));
+    }
+
+    public void UpdateNpc(double delta, Vector2 linkPosition)
+    {
+        AdvanceAnimation(delta);
+        if (!Record.CanFace)
+            return;
+
+        _faceCooldownFrames = Math.Max(0.0, _faceCooldownFrames - delta * 60.0);
+        if (_faceCooldownFrames > 0.0)
+            return;
+
+        Vector2 difference = linkPosition - Position;
+        Facing desired = Mathf.Abs(difference.X) + Mathf.Abs(difference.Y) < 0x28
+            ? GetFacingToward(linkPosition)
+            : Facing.Down;
+        if (desired == _facing)
+            return;
+
+        SetFacing(desired);
+        _faceCooldownFrames = 30.0;
     }
 
     public override void _Draw()
     {
-        DrawTexture(_facingTextures[(int)_facing], new Vector2(-16, -16));
+        List<AnimationFrame> animation = _facingAnimations[(int)_facing];
+        if (animation.Count > 0)
+            DrawTexture(animation[_animationFrame % animation.Count].Texture, new Vector2(-16, -16));
+    }
+
+    private void AdvanceAnimation(double delta)
+    {
+        List<AnimationFrame> animation = _facingAnimations[(int)_facing];
+        if (animation.Count <= 1)
+            return;
+        _animationTicks += delta * 60.0;
+        while (_animationTicks >= animation[_animationFrame].Duration)
+        {
+            _animationTicks -= animation[_animationFrame].Duration;
+            _animationFrame = (_animationFrame + 1) % animation.Count;
+            QueueRedraw();
+        }
+    }
+
+    private Facing GetFacingToward(Vector2 target)
+    {
+        Vector2 delta = target - Position;
+        if (Mathf.Abs(delta.X) > Mathf.Abs(delta.Y))
+            return delta.X > 0 ? Facing.Right : Facing.Left;
+        return delta.Y > 0 ? Facing.Down : Facing.Up;
+    }
+
+    private void SetFacing(Facing facing)
+    {
+        if (_facing == facing)
+            return;
+        _facing = facing;
+        _animationFrame = 0;
+        _animationTicks = 0.0;
+        QueueRedraw();
     }
 
     private int GetFrameColumn()
@@ -84,6 +151,19 @@ public partial class NpcCharacter : Node2D
             Facing.Left => 2,
             _ => 0
         };
+    }
+
+    private static IEnumerable<AnimationFrame> BuildAnimation(Image source, string encodedAnimation, int tileBase, int basePalette)
+    {
+        foreach (string encodedFrame in encodedAnimation.Split('|', StringSplitOptions.RemoveEmptyEntries))
+        {
+            int separator = encodedFrame.IndexOf('@');
+            if (separator < 0 || !int.TryParse(encodedFrame[..separator], out int duration))
+                continue;
+            yield return new AnimationFrame(
+                BuildFacingTexture(source, encodedFrame[(separator + 1)..], tileBase, basePalette),
+                Math.Max(1, duration));
+        }
     }
 
     private static Texture2D BuildFacingTexture(Image source, string encodedOam, int tileBase, int basePalette)

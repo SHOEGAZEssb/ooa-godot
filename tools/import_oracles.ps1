@@ -467,11 +467,17 @@ function Read-NpcDwTables([string]$source, [string]$tableLabelPattern, [string]$
 
 $npcAnimationTables = Read-NpcDwTables $interactionAnimationSource 'interaction[0-9a-f]{2}Animations' 'interactionAnimation[0-9a-f]+'
 $npcOamPointerTables = Read-NpcDwTables $interactionAnimationSource 'interaction[0-9a-f]{2}OamDataPointers' 'interactionOamData[0-9a-f]+'
-$npcAnimationFirstFrames = @{}
+$npcAnimationFrames = @{}
 foreach ($animation in [regex]::Matches($interactionAnimationSource, '(?ms)^(?<label>interactionAnimation[0-9a-f]+):\r?\n(?<body>.*?)(?=^interactionAnimation[0-9a-f]+:|\z)')) {
-    $frame = [regex]::Match($animation.Groups['body'].Value, '\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<frame>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})')
-    if ($frame.Success) {
-        $npcAnimationFirstFrames[$animation.Groups['label'].Value] = [Convert]::ToInt32($frame.Groups['frame'].Value, 16)
+    $frames = [Collections.Generic.List[object]]::new()
+    foreach ($frame in [regex]::Matches($animation.Groups['body'].Value, '\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<frame>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})')) {
+        $frames.Add(@{
+            Duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
+            PointerOffset = [Convert]::ToInt32($frame.Groups['frame'].Value, 16)
+        })
+    }
+    if ($frames.Count -gt 0) {
+        $npcAnimationFrames[$animation.Groups['label'].Value] = @($frames)
     }
 }
 
@@ -494,7 +500,7 @@ foreach ($oam in [regex]::Matches($interactionOamSource, '(?ms)^(?<label>interac
     $npcOamBlocks[$oam.Groups['label'].Value] = $blocks -join ';'
 }
 
-function Resolve-NpcOam([int]$interactionId, [int]$animationIndex) {
+function Resolve-NpcAnimation([int]$interactionId, [int]$animationIndex) {
     $hex = $interactionId.ToString('x2')
     $animationKey = "interaction${hex}Animations"
     $pointerKey = "interaction${hex}OamDataPointers"
@@ -502,13 +508,17 @@ function Resolve-NpcOam([int]$interactionId, [int]$animationIndex) {
     $animations = $npcAnimationTables[$animationKey]
     if ($animationIndex -lt 0 -or $animationIndex -ge $animations.Count) { return '' }
     $animationLabel = $animations[$animationIndex]
-    if (-not $npcAnimationFirstFrames.ContainsKey($animationLabel)) { return '' }
-    $pointerIndex = [int]($npcAnimationFirstFrames[$animationLabel] / 2)
+    if (-not $npcAnimationFrames.ContainsKey($animationLabel)) { return '' }
     $pointers = $npcOamPointerTables[$pointerKey]
-    if ($pointerIndex -lt 0 -or $pointerIndex -ge $pointers.Count) { return '' }
-    $oamLabel = $pointers[$pointerIndex]
-    if (-not $npcOamBlocks.ContainsKey($oamLabel)) { return '' }
-    return $npcOamBlocks[$oamLabel]
+    $resolvedFrames = [Collections.Generic.List[string]]::new()
+    foreach ($frame in $npcAnimationFrames[$animationLabel]) {
+        $pointerIndex = [int]($frame.PointerOffset / 2)
+        if ($pointerIndex -lt 0 -or $pointerIndex -ge $pointers.Count) { continue }
+        $oamLabel = $pointers[$pointerIndex]
+        $oam = if ($npcOamBlocks.ContainsKey($oamLabel)) { $npcOamBlocks[$oamLabel] } else { '' }
+        $resolvedFrames.Add("$($frame.Duration)@$oam")
+    }
+    return $resolvedFrames -join '|'
 }
 
 # Room object data is grouped by room label. Only positioned interaction
@@ -516,7 +526,7 @@ function Resolve-NpcOam([int]$interactionId, [int]$animationIndex) {
 # visible room NPC without a position and are intentionally left to the later
 # object-system slice.
 $npcRows = [Collections.Generic.List[string]]::new()
-$npcRows.Add("# group`troom`tid`tsubid`ty`tx`tvar03`ttext-id`tsprite`ttile-base`tpalette`tdefault-animation`tcan-face`tup-oam`tright-oam`tdown-oam`tleft-oam`tutf8-base64")
+$npcRows.Add("# group`troom`tid`tsubid`ty`tx`tvar03`ttext-id`tsprite`ttile-base`tpalette`tdefault-animation`tcan-face`tup-animation`tright-animation`tdown-animation`tleft-animation`tutf8-base64")
 $mainObjectLines = Get-Content (Join-Path $Disassembly "objects\ages\mainData.s")
 $currentGroup = -1
 $currentRoom = -1
@@ -545,12 +555,16 @@ foreach ($line in $mainObjectLines) {
     $textId = if ($npcTextBySubid.ContainsKey("$id`:$subid")) { $npcTextBySubid["$id`:$subid"] } else { 0 }
     $message = if ($allTexts.ContainsKey($textId)) { $allTexts[$textId] } else { '' }
     $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message))
-    $canFace = $npcFacingIds.Contains($id) -and $graphic.DefaultAnimation -ge 2
-    $downOam = Resolve-NpcOam $id $graphic.DefaultAnimation
+    # Only enable autonomous facing for interactions whose talk script is
+    # currently resolved. Many IDs reuse the same code for both ordinary NPC
+    # and cutscene subids; applying the helper to the whole ID makes actors in
+    # scripted scenes turn toward Link when the original subid would not.
+    $canFace = $textId -ne 0 -and $npcFacingIds.Contains($id) -and $graphic.DefaultAnimation -ge 2
+    $downOam = Resolve-NpcAnimation $id $graphic.DefaultAnimation
     if ($canFace) {
-        $upOam = Resolve-NpcOam $id ($graphic.DefaultAnimation - 2)
-        $rightOam = Resolve-NpcOam $id ($graphic.DefaultAnimation - 1)
-        $leftOam = Resolve-NpcOam $id ($graphic.DefaultAnimation + 1)
+        $upOam = Resolve-NpcAnimation $id ($graphic.DefaultAnimation - 2)
+        $rightOam = Resolve-NpcAnimation $id ($graphic.DefaultAnimation - 1)
+        $leftOam = Resolve-NpcAnimation $id ($graphic.DefaultAnimation + 1)
     } else {
         $upOam = $downOam
         $rightOam = $downOam
@@ -569,10 +583,10 @@ if (-not $villagerRow) { throw "The canonical room 0:48 villager record was not 
 $villagerColumns = $villagerRow -split "`t"
 if ($villagerColumns[7] -ne '1420' -or $villagerColumns[9] -ne '16' -or
     $villagerColumns[10] -ne '1' -or $villagerColumns[11] -ne '2' -or
-    $villagerColumns[13] -ne '8,0,4,0;8,8,6,0' -or
-    $villagerColumns[14] -ne '8,0,10,32;8,8,8,32' -or
-    $villagerColumns[15] -ne '8,0,0,0;8,8,2,0' -or
-    $villagerColumns[16] -ne '8,0,8,0;8,8,10,0') {
+    $villagerColumns[13] -ne '16@8,0,4,0;8,8,6,0|16@8,0,6,32;8,8,4,32' -or
+    $villagerColumns[14] -ne '16@8,0,10,32;8,8,8,32|16@8,0,14,32;8,8,12,32' -or
+    $villagerColumns[15] -ne '16@8,0,0,0;8,8,2,0|16@8,0,2,32;8,8,0,32' -or
+    $villagerColumns[16] -ne '16@8,0,8,0;8,8,10,0|16@8,0,12,0;8,8,14,0') {
     throw "The room 0:48 villager no longer matches interaction3a animation/OAM data."
 }
 

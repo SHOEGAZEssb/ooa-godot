@@ -80,9 +80,9 @@ public sealed class NpcDatabase
         int Palette,
         int DefaultAnimation,
         bool CanFace,
-        string UpOam,
-        string RightOam,
-        string DownOam,
-        string LeftOam,
+        string UpAnimation,
+        string RightAnimation,
+        string DownAnimation,
+        string LeftAnimation,
         string Message);
 }

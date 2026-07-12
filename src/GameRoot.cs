@@ -6,12 +6,18 @@ namespace oracleofages;
 
 public partial class GameRoot : Node2D
 {
+    private enum RoomWarpPhase { None, FadeOut, LeaveScreen, FadeIn }
+
+    private const float WarpFadeFrames = 32.0f;
+    private const float WarpLeaveFrames = 16.0f;
+    private const float WarpEnterFrames = 28.0f;
     private OracleWorldData _world = null!;
     private OracleRoomData _currentRoom = null!;
     private RoomView _roomView = null!;
     private Player _player = null!;
     private Hud _hud = null!;
     private Label _roomDebug = null!;
+    private ColorRect _warpFade = null!;
     private SignDatabase _signs = null!;
     private NpcDatabase _npcs = null!;
     private WarpDatabase _warps = null!;
@@ -30,8 +36,15 @@ public partial class GameRoot : Node2D
     private int _deactivatedWarpGroup = -1;
     private int _deactivatedWarpRoom = -1;
     private int _deactivatedWarpPosition = -1;
+    private bool _roomWarpTransitionActive;
+    private RoomWarpPhase _roomWarpPhase;
+    private WarpDatabase.Warp _pendingWarp;
+    private float _roomWarpFrame;
+    private Vector2 _roomWarpWalkStart;
+    private Vector2 _roomWarpWalkEnd;
+    private bool _roomWarpDestinationWalk;
 
-    public bool IsTransitioning => _scrollTransitionActive || _roomView.IsTransitioning;
+    public bool IsTransitioning => _roomWarpTransitionActive || _scrollTransitionActive || _roomView.IsTransitioning;
     public bool DialogueOpen => _dialogue.IsOpen;
 
     public readonly record struct ActiveTerrainInfo(
@@ -64,6 +77,17 @@ public partial class GameRoot : Node2D
         _hud = new Hud { Name = "Hud", Position = new Vector2(0, 128), ZIndex = 20 };
         AddChild(_hud);
         SyncHudToPlayer();
+
+        // Room palette fades do not affect the status bar in the original engine.
+        _warpFade = new ColorRect
+        {
+            Name = "RoomWarpFade",
+            Size = new Vector2(OracleRoomData.ViewportWidth, OracleRoomData.ViewportHeight),
+            Color = new Color(1, 1, 1, 0),
+            ZIndex = 15,
+            MouseFilter = Control.MouseFilterEnum.Ignore
+        };
+        AddChild(_warpFade);
 
         _dialogue = new DialogueBox { Name = "Dialogue", ZIndex = 30, Visible = false };
         AddChild(_dialogue);
@@ -103,6 +127,7 @@ public partial class GameRoot : Node2D
 
     public override void _Process(double delta)
     {
+        UpdateRoomWarpTransition(delta);
         UpdateScrollingTransition(delta);
         string roomText = $"{_activeGroup:x1}:{_currentRoom.Id:x2}";
         if (_roomDebug.Text != roomText)
@@ -110,6 +135,11 @@ public partial class GameRoot : Node2D
         _animationTicks += delta * 60.0;
         if (_currentRoom.UpdateAnimation((long)_animationTicks))
             _roomView.QueueRedraw();
+        if (_player != null)
+        {
+            foreach (NpcCharacter npc in _npcNodes)
+                npc.UpdateNpc(delta, _player.Position);
+        }
         if (Input.IsActionJustPressed("debug_sign"))
             WarpToSignTest();
         if (Input.IsActionJustPressed("debug_animation"))
@@ -416,31 +446,128 @@ public partial class GameRoot : Node2D
 
     private void ApplyWarp(Player player, WarpDatabase.Warp warp)
     {
-        if (!_world.HasRoom(warp.DestinationGroup, warp.DestinationRoom))
+        if (_roomWarpTransitionActive || !_world.HasRoom(warp.DestinationGroup, warp.DestinationRoom))
             return;
 
         _dialogue.Close();
+        _pendingWarp = warp;
+        _roomWarpTransitionActive = true;
+        _roomWarpFrame = 0.0f;
+        _roomWarpDestinationWalk = false;
+        player.BeginRoomWarpTransition();
+
+        switch (warp.SourceTransition)
+        {
+            case 2: // TRANSITION_SRC_FADEOUT
+                _roomWarpPhase = RoomWarpPhase.FadeOut;
+                SetRoomWarpFade(0.0f);
+                break;
+            case 3: // TRANSITION_SRC_LEAVESCREEN
+                _roomWarpPhase = RoomWarpPhase.LeaveScreen;
+                _roomWarpWalkStart = player.Position;
+                _roomWarpWalkEnd = player.Position + (Vector2)player.FacingVector * WarpLeaveFrames;
+                player.BeginRoomWarpWalk(player.Position, player.FacingVector);
+                break;
+            case 4: // TRANSITION_SRC_INSTANT: immediately make the room white
+                SetRoomWarpFade(1.0f);
+                LoadRoomWarpDestination();
+                break;
+            default:
+                SetRoomWarpFade(1.0f);
+                LoadRoomWarpDestination();
+                break;
+        }
+    }
+
+    private void UpdateRoomWarpTransition(double delta)
+    {
+        if (!_roomWarpTransitionActive)
+            return;
+
+        _roomWarpFrame += (float)delta * 60.0f;
+        switch (_roomWarpPhase)
+        {
+            case RoomWarpPhase.FadeOut:
+                SetRoomWarpFade(_roomWarpFrame / WarpFadeFrames);
+                if (_roomWarpFrame >= WarpFadeFrames)
+                {
+                    SetRoomWarpFade(1.0f);
+                    LoadRoomWarpDestination();
+                }
+                break;
+
+            case RoomWarpPhase.LeaveScreen:
+            {
+                float frame = Mathf.Min(_roomWarpFrame, WarpLeaveFrames);
+                Vector2 position = _roomWarpWalkStart.Lerp(
+                    _roomWarpWalkEnd, frame / WarpLeaveFrames);
+                _player.SetRoomWarpWalkPosition(position, delta);
+                if (_roomWarpFrame >= WarpLeaveFrames)
+                {
+                    SetRoomWarpFade(1.0f);
+                    LoadRoomWarpDestination();
+                }
+                break;
+            }
+
+            case RoomWarpPhase.FadeIn:
+            {
+                if (_roomWarpDestinationWalk)
+                {
+                    float frame = Mathf.Min(_roomWarpFrame, WarpEnterFrames);
+                    Vector2 position = _roomWarpWalkStart.Lerp(
+                        _roomWarpWalkEnd, frame / WarpEnterFrames);
+                    _player.SetRoomWarpWalkPosition(position, delta);
+                }
+                SetRoomWarpFade(1.0f - _roomWarpFrame / WarpFadeFrames);
+                if (_roomWarpFrame >= WarpFadeFrames)
+                    FinishRoomWarpTransition();
+                break;
+            }
+        }
+    }
+
+    private void LoadRoomWarpDestination()
+    {
+        WarpDatabase.Warp warp = _pendingWarp;
         _activeGroup = warp.DestinationGroup;
         _currentRoom = _world.LoadRoom(_activeGroup, warp.DestinationRoom);
         _roomView.SetRoom(_currentRoom.Texture);
         RefreshRoomObjects();
 
         Vector2 spawn;
-        if (warp.DestinationTransition == 3 && (warp.DestinationPosition & 0xf0) == 0xf0)
+        if (warp.DestinationTransition == 3)
         {
-            float x = (warp.DestinationPosition & 0x0f) == 0x0f
-                ? _currentRoom.Width / 2.0f
-                : (warp.DestinationPosition & 0x0f) * OracleRoomData.MetatileSize + 8;
-            if (warp.DestinationParameter == 9)
+            // Bit 2 of the destination parameter becomes bit 6 of
+            // wWarpTransition and selects down rather than up.
+            Vector2I direction = (warp.DestinationParameter & 0x04) != 0
+                ? Vector2I.Down
+                : Vector2I.Up;
+            if (warp.DestinationPosition == 0xff)
             {
-                spawn = new Vector2(x, _currentRoom.Height - 6);
-                player.Face(Vector2I.Up);
+                spawn = new Vector2(
+                    _currentRoom.Width / 2.0f,
+                    direction == Vector2I.Up ? _currentRoom.Height : -16.0f);
+            }
+            else if ((warp.DestinationPosition & 0xf0) == 0xf0)
+            {
+                float x = (warp.DestinationPosition & 0x0f) * OracleRoomData.MetatileSize;
+                if (_activeGroup >= 4)
+                    x += 8.0f;
+                spawn = new Vector2(x, direction == Vector2I.Up ? _currentRoom.Height : -16.0f);
             }
             else
             {
-                spawn = new Vector2(x, 6);
-                player.Face(Vector2I.Down);
+                int tileX = warp.DestinationPosition & 0x0f;
+                int tileY = (warp.DestinationPosition >> 4) & 0x0f;
+                spawn = new Vector2(
+                    tileX * OracleRoomData.MetatileSize + 8,
+                    tileY * OracleRoomData.MetatileSize + 8);
             }
+            _roomWarpWalkStart = spawn;
+            _roomWarpWalkEnd = spawn + (Vector2)direction * WarpEnterFrames;
+            _roomWarpDestinationWalk = true;
+            _player.BeginRoomWarpWalk(spawn, direction);
             ClearDeactivatedWarp();
         }
         else
@@ -455,19 +582,38 @@ public partial class GameRoot : Node2D
             {
                 spawn.Y += OracleRoomData.MetatileSize;
                 ClearDeactivatedWarp();
-                player.Face(Vector2I.Down);
+                _player.Face(Vector2I.Down);
             }
             else
             {
                 _deactivatedWarpGroup = _activeGroup;
                 _deactivatedWarpRoom = _currentRoom.Id;
                 _deactivatedWarpPosition = warp.DestinationPosition;
-                FaceForDestinationTile(player, destinationTile);
+                FaceForDestinationTile(_player, destinationTile);
             }
+            _player.WarpTo(spawn);
         }
 
-        player.WarpTo(spawn);
+        _roomWarpPhase = RoomWarpPhase.FadeIn;
+        _roomWarpFrame = 0.0f;
         _hud.Refresh();
+    }
+
+    private void FinishRoomWarpTransition()
+    {
+        if (_roomWarpDestinationWalk)
+            _player.FinishRoomWarpTransition(_roomWarpWalkEnd);
+        else
+            _player.FinishRoomWarpTransition(_player.Position);
+        _roomWarpDestinationWalk = false;
+        _roomWarpTransitionActive = false;
+        _roomWarpPhase = RoomWarpPhase.None;
+        SetRoomWarpFade(0.0f);
+    }
+
+    private void SetRoomWarpFade(float alpha)
+    {
+        _warpFade.Color = new Color(1, 1, 1, Mathf.Clamp(alpha, 0.0f, 1.0f));
     }
 
     private static void FaceForDestinationTile(Player player, byte tile)
@@ -663,6 +809,14 @@ public partial class GameRoot : Node2D
         if (!CheckTileWarp(_player) || _activeGroup != 2 || _currentRoom.Id != 0xea)
             throw new InvalidOperationException(
                 $"Expected exterior 0:47/$25 to enter house 2:ea, got {_activeGroup}:{_currentRoom.Id:x2}.");
+        if (!IsTransitioning || !Mathf.IsEqualApprox(_player.Position.Y, _currentRoom.Height))
+            throw new InvalidOperationException("House entry did not begin at the bottom edge of the interior.");
+        UpdateRoomWarpTransition(WarpEnterFrames / 60.0);
+        if (!IsTransitioning || !Mathf.IsEqualApprox(_player.Position.Y, _currentRoom.Height - WarpEnterFrames))
+            throw new InvalidOperationException("Link did not perform the 28-frame interior entry walk.");
+        UpdateRoomWarpTransition((WarpFadeFrames - WarpEnterFrames) / 60.0);
+        if (IsTransitioning)
+            throw new InvalidOperationException("The 32-frame room fade did not finish after entering the house.");
 
         for (float y = _player.Position.Y; y <= _currentRoom.Height + 2; y++)
         {
@@ -671,6 +825,12 @@ public partial class GameRoot : Node2D
         }
         _player.WarpTo(new Vector2(_currentRoom.Width / 2.0f, _currentRoom.Height + 2));
         CheckRoomExit(_player);
+        if (!IsTransitioning || _activeGroup != 2 || _currentRoom.Id != 0xea)
+            throw new InvalidOperationException("The house exit did not begin with its scripted walk offscreen.");
+        UpdateRoomWarpTransition(WarpLeaveFrames / 60.0);
+        if (_activeGroup != 0 || _currentRoom.Id != 0x47 || !IsTransitioning)
+            throw new InvalidOperationException("The exterior was not loaded after the 16-frame exit walk.");
+        UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
         if (_activeGroup != 0 || _currentRoom.Id != 0x47 ||
             _currentRoom.GetPackedPosition(_player.Position) != 0x35)
             throw new InvalidOperationException(
@@ -695,7 +855,7 @@ public partial class GameRoot : Node2D
                 $"Expected Link to finish 2:eb -> 2:ea near the right edge, got " +
                 $"${_currentRoom.GetPackedPosition(_player.Position):x2}.");
 
-        GD.Print("Validated house exit placement and 2:eb -> 2:ea left screen transition.");
+        GD.Print("Validated original house entry/exit fades, scripted walks, and 2:eb -> 2:ea screen transition.");
     }
 
     private void ValidateSwordBush()
@@ -1082,13 +1242,22 @@ public partial class GameRoot : Node2D
         int frameBase = villager.Record.TileBase / 4;
         if (villager.CurrentFrameColumn != frameBase)
             throw new InvalidOperationException("The room 0:48 villager did not face down toward Link after talking.");
-        villager.FaceToward(villager.Position + Vector2.Left);
-        if (villager.CurrentFrameColumn != frameBase + 2)
-            throw new InvalidOperationException("The room 0:48 villager's left-facing frame is not mapped correctly.");
-        villager.FaceToward(villager.Position + Vector2.Right);
-        if (villager.CurrentFrameColumn != frameBase + 2)
-            throw new InvalidOperationException("The room 0:48 villager's right-facing OAM is not using the mirrored side frame.");
-        GD.Print("Validated talkable male villager in room 0:48 and opened TX_1420.");
+        villager.UpdateNpc(16.0 / 60.0, _player.Position);
+        if (villager.CurrentAnimationFrame != 1)
+            throw new InvalidOperationException("The room 0:48 villager did not advance its original 16-frame idle animation.");
+        villager.UpdateNpc(1.0 / 60.0, villager.Position + Vector2.Left * 20.0f);
+        if (villager.FacingVector != Vector2I.Left || villager.CurrentAnimationFrame != 0)
+            throw new InvalidOperationException("The room 0:48 villager did not face nearby Link and reset its animation.");
+        villager.UpdateNpc(1.0 / 60.0, villager.Position + Vector2.Right * 20.0f);
+        if (villager.FacingVector != Vector2I.Left)
+            throw new InvalidOperationException("The NPC facing cooldown did not preserve the current direction.");
+        villager.UpdateNpc(30.0 / 60.0, villager.Position + Vector2.Right * 20.0f);
+        if (villager.FacingVector != Vector2I.Right || villager.CurrentFrameColumn != frameBase + 2)
+            throw new InvalidOperationException("The villager did not use the mirrored side OAM after the 30-frame facing delay.");
+        villager.UpdateNpc(30.0 / 60.0, villager.Position + Vector2.Right * 80.0f);
+        if (villager.FacingVector != Vector2I.Down)
+            throw new InvalidOperationException("The villager did not return to facing down when Link left the $28 awareness radius.");
+        GD.Print("Validated villager idle animation, $28 Link awareness, 30-frame facing delay, and TX_1420 dialogue.");
     }
 
     private static int GetStartingRoom()
