@@ -695,18 +695,14 @@ public partial class GameRoot : Node2D
         _player.WarpTo(offCenterHoleEntry, recordSafe: false);
         Vector2 expectedHoleCenter = GetActiveTerrain(_player.Position).TileCenter;
         _player._PhysicsProcess(1.0 / 60.0);
-        if (!_player.IsFallingInHole)
+        if (!_player.IsPullingIntoHole && !_player.IsFallingInHole)
             throw new InvalidOperationException(
-                $"Room {holeGroup:x1}:{holeRoom:x2} hole terrain did not start Link's fall animation.");
-        if (_player.Position.DistanceSquaredTo(expectedHoleCenter) > 1.0f)
-            throw new InvalidOperationException("Falling into a hole did not center Link on the hole tile.");
+                $"Room {holeGroup:x1}:{holeRoom:x2} hole terrain did not start Link's pull-in state.");
         if (_player.HealthQuarters != beforeHoleHealth)
-            throw new InvalidOperationException("Hole damage was applied before the falling animation finished.");
+            throw new InvalidOperationException("Hole damage was applied before the pull/fall animation finished.");
 
-        for (int i = 0; i < 42; i++)
-            _player._PhysicsProcess(1.0 / 60.0);
-        if (_player.IsFallingInHole)
-            throw new InvalidOperationException("The falling-in-hole animation did not finish.");
+        AdvanceHolePullUntilFall(expectedHoleCenter);
+        AdvanceHoleFallUntilRespawn(holeSafe);
         if (!_player.Visible || _player.Position.DistanceSquaredTo(holeSafe) > 1.0f)
             throw new InvalidOperationException("Hole terrain did not return Link to the last safe tile.");
         if (_player.HealthQuarters != beforeHoleHealth - 2)
@@ -753,18 +749,40 @@ public partial class GameRoot : Node2D
             throw new InvalidOperationException("Room 0:01 boundary setup did not sample the hole tile.");
 
         _player._PhysicsProcess(1.0 / 60.0);
-        if (!_player.IsFallingInHole || _player.Position.DistanceSquaredTo(holeCenter) > 1.0f)
+        if (!_player.IsPullingIntoHole && !_player.IsFallingInHole)
             throw new InvalidOperationException(
-                "Room 0:01 boundary hole entry did not center the fall animation on the sampled hole.");
+                "Room 0:01 boundary hole entry did not start the pull-in state.");
 
-        for (int i = 0; i < 42; i++)
-            _player._PhysicsProcess(1.0 / 60.0);
+        AdvanceHolePullUntilFall(holeCenter);
+        AdvanceHoleFallUntilRespawn(safePosition);
         if (_player.IsFallingInHole)
             throw new InvalidOperationException("Room 0:01 boundary hole fall did not complete.");
         if (_player.Position.DistanceSquaredTo(safePosition) > 1.0f)
             throw new InvalidOperationException("Room 0:01 hole respawn did not return to the room entry anchor.");
         if (_player.HealthQuarters != beforeHealth - 2)
             throw new InvalidOperationException("Room 0:01 hole fall did not apply half-heart damage.");
+    }
+
+    private void AdvanceHolePullUntilFall(Vector2 expectedCenter)
+    {
+        for (int i = 0; i < 120 && !_player.IsFallingInHole; i++)
+            _player._PhysicsProcess(1.0 / 60.0);
+
+        if (!_player.IsFallingInHole)
+            throw new InvalidOperationException("Hole pull-in did not transition to the fall animation.");
+        if (_player.Position.DistanceSquaredTo(expectedCenter) > 1.0f)
+            throw new InvalidOperationException("Hole pull-in did not center Link on the sampled hole tile.");
+    }
+
+    private void AdvanceHoleFallUntilRespawn(Vector2 expectedRespawn)
+    {
+        for (int i = 0; i < 80 && _player.IsFallingInHole; i++)
+            _player._PhysicsProcess(1.0 / 60.0);
+
+        if (_player.IsFallingInHole)
+            throw new InvalidOperationException("The falling-in-hole animation did not finish.");
+        if (_player.Position.DistanceSquaredTo(expectedRespawn) > 1.0f)
+            throw new InvalidOperationException("Hole terrain did not return Link to the stored respawn anchor.");
     }
 
     private static bool TryFindHoleWithSafeNeighbor(

@@ -32,10 +32,14 @@ public partial class Player : Node2D
     private float _fallInHoleTime;
     private float _fallInHoleInvisibleTime;
     private float _ledgeHopTime;
+    private Vector2 _holePullCenter;
+    private int _holePullCounter;
+    private int _holePullPackedPosition = -1;
     private int _healthQuarters = StartingHealthQuarters;
     private bool _attackHitApplied;
     private bool _walking;
     private bool _ledgeHopping;
+    private bool _pullingIntoHole;
     private bool _fallingInHole;
     private bool _fallInHoleRespawning;
 
@@ -43,6 +47,7 @@ public partial class Player : Node2D
 
     public int HealthQuarters => _healthQuarters;
     public int MaxHealthQuarters { get; private set; } = StartingHealthQuarters;
+    public bool IsPullingIntoHole => _pullingIntoHole;
     public bool IsFallingInHole => _fallingInHole;
 
     public Vector2I FacingVector => _facing switch
@@ -73,6 +78,9 @@ public partial class Player : Node2D
         _hazardRecoveryTime = 0.0f;
         _fallInHoleTime = 0.0f;
         _fallInHoleInvisibleTime = 0.0f;
+        _holePullCounter = 0;
+        _holePullPackedPosition = -1;
+        _pullingIntoHole = false;
         _fallingInHole = false;
         _fallInHoleRespawning = false;
         _precisePosition = position;
@@ -112,12 +120,12 @@ public partial class Player : Node2D
         OracleRoomData.HazardType hazard = activeTerrain.Terrain.Hazard;
         if (_hazardRespawnTime > 0.0f)
             return;
-        if (_fallingInHole)
+        if (_pullingIntoHole || _fallingInHole)
             return;
 
         if (hazard == OracleRoomData.HazardType.Hole)
         {
-            StartFallInHole(activeTerrain.TileCenter);
+            StartPullIntoHole(activeTerrain);
             return;
         }
 
@@ -205,6 +213,9 @@ public partial class Player : Node2D
             return;
         }
 
+        if (_pullingIntoHole && UpdatePullIntoHole())
+            return;
+
         if (_ledgeHopping)
         {
             UpdateLedgeHop((float)delta);
@@ -257,7 +268,8 @@ public partial class Player : Node2D
 
     public override void _Process(double delta)
     {
-        if (_fallingInHole || _hazardRespawnTime > 0.0f || _hazardRecoveryTime > 0.0f)
+        if (_fallingInHole || _hazardRespawnTime > 0.0f || _hazardRecoveryTime > 0.0f ||
+            (_pullingIntoHole && _holePullCounter >= 16))
         {
             _attackTime = 0.0f;
             return;
@@ -358,10 +370,81 @@ public partial class Player : Node2D
             TriggerHazard(activeTerrain);
             return;
         }
+
+        if (_pullingIntoHole && _holePullCounter < 16)
+        {
+            _pullingIntoHole = false;
+            _holePullPackedPosition = -1;
+        }
+    }
+
+    private void StartPullIntoHole(GameRoot.ActiveTerrainInfo activeTerrain)
+    {
+        _pullingIntoHole = true;
+        _holePullCenter = activeTerrain.TileCenter;
+        _holePullPackedPosition = activeTerrain.PackedPosition;
+        _holePullCounter = 0;
+        _walking = false;
+        _attackTime = 0.0f;
+        _attackHitApplied = false;
+        QueueRedraw();
+    }
+
+    private bool UpdatePullIntoHole()
+    {
+        GameRoot.ActiveTerrainInfo activeTerrain = _world.GetActiveTerrain(Position);
+        if (activeTerrain.Terrain.Hazard == OracleRoomData.HazardType.Hole)
+        {
+            if (activeTerrain.PackedPosition != _holePullPackedPosition)
+            {
+                _holePullCenter = activeTerrain.TileCenter;
+                _holePullPackedPosition = activeTerrain.PackedPosition;
+                _holePullCounter = 0;
+            }
+        }
+        else if (_holePullCounter < 16)
+        {
+            _pullingIntoHole = false;
+            _holePullPackedPosition = -1;
+            return false;
+        }
+
+        _holePullCounter++;
+
+        // Port of linkPullIntoHole's visible movement: every fourth frame it
+        // nudges vertically, the next frame horizontally, then waits two
+        // frames. For the first 16 frames, Link still has partial control;
+        // after that he is immobilized until he reaches the hole center.
+        int phase = _holePullCounter & 0x03;
+        if (phase == 0)
+            _precisePosition.Y = MoveOnePixelToward(_precisePosition.Y, _holePullCenter.Y);
+        else if (phase == 1)
+            _precisePosition.X = MoveOnePixelToward(_precisePosition.X, _holePullCenter.X);
+
+        Position = _precisePosition.Round();
+
+        if (Mathf.Abs(_precisePosition.X - _holePullCenter.X) < 3.0f &&
+            Mathf.Abs(_precisePosition.Y - _holePullCenter.Y) < 3.0f)
+        {
+            StartFallInHole(_holePullCenter);
+            return true;
+        }
+
+        if (_holePullCounter >= 16)
+        {
+            _walking = false;
+            _attackTime = 0.0f;
+            QueueRedraw();
+            return true;
+        }
+
+        return false;
     }
 
     private void StartFallInHole(Vector2 holeCenter)
     {
+        _pullingIntoHole = false;
+        _holePullPackedPosition = -1;
         _fallingInHole = true;
         _fallInHoleRespawning = false;
         _fallInHoleTime = 0.0f;
@@ -378,6 +461,13 @@ public partial class Player : Node2D
         Position = _precisePosition.Round();
         Visible = true;
         QueueRedraw();
+    }
+
+    private static float MoveOnePixelToward(float value, float target)
+    {
+        if (Mathf.Abs(value - target) <= 1.0f)
+            return target;
+        return value < target ? value + 1.0f : value - 1.0f;
     }
 
     private static int GetTerrainHazardDamageQuarters(OracleRoomData.HazardType hazard)
