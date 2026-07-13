@@ -7,7 +7,7 @@ namespace oracleofages;
 /// Owns the active and outgoing room-entity sets. Per-type behavior is exposed
 /// through small capability interfaces and constructed by RoomEntityFactory.
 /// </summary>
-public sealed partial class RoomEntityManager
+public sealed class RoomEntityManager
 {
     private readonly Node _worldRoot;
     private readonly RoomEntityFactory _factory;
@@ -167,12 +167,6 @@ public sealed partial class RoomEntityManager
         IRoomEntity entity = AddEntity(_factory.Create(spawn, _roomForActiveEntities));
         return (T)entity.Node;
     }
-
-    public EnemyDeathPuffEffect SpawnEnemyDeathPuff(
-        Vector2 position,
-        bool highKnockback = false,
-        int enemyId = -1) =>
-        Spawn<EnemyDeathPuffEffect>(new EnemyDeathPuffSpawn(position, highKnockback, enemyId));
 
     public void Clear()
     {

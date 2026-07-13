@@ -53,7 +53,7 @@ public partial class GameRoot : Node2D
         get => _rooms.ActiveGroup;
         set => _rooms.SetActiveGroup(value);
     }
-    private List<NpcCharacter> _npcNodes => _entities.Npcs;
+    private List<NpcCharacter> _npcNodes => _entities.Entities<NpcCharacter>();
     private bool _scrollTransitionActive => _transitions.ScrollActive;
     private Vector2I _scrollTransitionDirection => _transitions.ScrollDirection;
     private float _scrollTransitionDistance => _transitions.ScrollDistance;

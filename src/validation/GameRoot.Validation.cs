@@ -557,12 +557,12 @@ public partial class GameRoot
                 $"{database.KeeseRecordCount} / {database.KeeseInstanceCount}.");
 
         LoadValidationRoom(4, 0x39);
-        if (_entities.Keese.Count != 2 || _entities.Keese.Exists(keese => keese.Record.SubId != 1))
+        if (_entities.Entities<KeeseCharacter>().Count != 2 || _entities.Entities<KeeseCharacter>().Exists(keese => keese.Record.SubId != 1))
             throw new InvalidOperationException(
                 $"Room 4:39 should contain two random-position ENEMY_KEESE subid `$01 objects, " +
-                $"got {_entities.Keese.Count}.");
+                $"got {_entities.Entities<KeeseCharacter>().Count}.");
 
-        KeeseCharacter approachKeese = _entities.Keese[0];
+        KeeseCharacter approachKeese = _entities.Entities<KeeseCharacter>()[0];
         if (approachKeese.SpriteHeight != -1)
             throw new InvalidOperationException("Keese subid `$01 did not preserve its original z-height `$ff.");
         approachKeese.Position = new Vector2(80, 80);
@@ -586,12 +586,12 @@ public partial class GameRoot
                 "Keese subid `$01 did not return to rest after 12 turning intervals of 12 updates.");
 
         LoadValidationRoom(4, 0xcb);
-        if (_entities.Keese.Count != 4 || _entities.Keese.Exists(keese => keese.Record.SubId != 0))
+        if (_entities.Entities<KeeseCharacter>().Count != 4 || _entities.Entities<KeeseCharacter>().Exists(keese => keese.Record.SubId != 0))
             throw new InvalidOperationException(
                 $"Room 4:cb should contain four random-position ENEMY_KEESE subid `$00 objects, " +
-                $"got {_entities.Keese.Count}.");
+                $"got {_entities.Entities<KeeseCharacter>().Count}.");
 
-        KeeseCharacter normalKeese = _entities.Keese[0];
+        KeeseCharacter normalKeese = _entities.Entities<KeeseCharacter>()[0];
         normalKeese.Position = new Vector2(48, 48);
         _player.WarpTo(new Vector2(160, 120));
         _entities.Update(31.0 / 60.0, _player);
@@ -620,42 +620,42 @@ public partial class GameRoot
         _player.WarpTo(normalKeese.Position + Vector2.Down * 16.0f);
         Vector2 expectedPuffPosition = normalKeese.Position +
             Vector2.Down * normalKeese.SpriteHeight;
-        int countBeforeSword = _entities.Keese.Count;
+        int countBeforeSword = _entities.Entities<KeeseCharacter>().Count;
         if (!_entities.ApplySwordHit(normalKeese.CollisionBounds.Grow(1.0f)) ||
-            _entities.Keese.Count != countBeforeSword - 1)
+            _entities.Entities<KeeseCharacter>().Count != countBeforeSword - 1)
             throw new InvalidOperationException(
                 "The level-1 sword did not defeat the 1-health ENEMY_KEESE in one hit.");
-        if (_entities.DeathPuffs.Count != 1 ||
-            _entities.DeathPuffs[0].Position != expectedPuffPosition ||
-            _entities.DeathPuffs[0].HighKnockback ||
-            _entities.DeathPuffs[0].EnemyId != 0x32 ||
-            _entities.DeathPuffs[0].DurationFrames != 20 ||
-            _entities.DeathPuffs[0].CurrentPalette != 2)
+        if (_entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
+            _entities.Entities<EnemyDeathPuffEffect>()[0].Position != expectedPuffPosition ||
+            _entities.Entities<EnemyDeathPuffEffect>()[0].HighKnockback ||
+            _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x32 ||
+            _entities.Entities<EnemyDeathPuffEffect>()[0].DurationFrames != 20 ||
+            _entities.Entities<EnemyDeathPuffEffect>()[0].CurrentPalette != 2)
         {
             throw new InvalidOperationException(
                 "Defeating Keese did not create the ordinary 20-update PART_ENEMY_DESTROYED puff at its visual position.");
         }
 
-        KeeseCharacter transitionKeese = _entities.Keese[0];
+        KeeseCharacter transitionKeese = _entities.Entities<KeeseCharacter>()[0];
         int transitionCounter = transitionKeese.Counter1;
         OracleRoomData incomingRoom = _world.LoadRoom(4, 0x39);
         _entities.BeginScreenTransition(4, incomingRoom, Vector2.Left * incomingRoom.Width);
         _entities.Update(1.0, _player);
-        if (_entities.OutgoingKeese.Count != 3 || _entities.Keese.Count != 2 ||
-            _entities.OutgoingDeathPuffs.Count != 1 ||
-            _entities.OutgoingDeathPuffs[0].ElapsedFrames != 0 ||
+        if (_entities.OutgoingEntities<KeeseCharacter>().Count != 3 || _entities.Entities<KeeseCharacter>().Count != 2 ||
+            _entities.OutgoingEntities<EnemyDeathPuffEffect>().Count != 1 ||
+            _entities.OutgoingEntities<EnemyDeathPuffEffect>()[0].ElapsedFrames != 0 ||
             transitionKeese.Counter1 != transitionCounter ||
-            !_entities.Keese[0].TransitionDrawOffset.IsEqualApprox(Vector2.Left * incomingRoom.Width))
+            !_entities.Entities<KeeseCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Left * incomingRoom.Width))
             throw new InvalidOperationException(
                 "Scrolling did not retain/freeze outgoing Keese/death puffs and preload/freeze destination Keese.");
         _entities.SetScreenTransitionOffsets(
             Vector2.Right * 4.0f,
             Vector2.Left * (incomingRoom.Width - 4.0f));
-        if (!_entities.OutgoingDeathPuffs[0].TransitionDrawOffset.IsEqualApprox(Vector2.Right * 4.0f))
+        if (!_entities.OutgoingEntities<EnemyDeathPuffEffect>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Right * 4.0f))
             throw new InvalidOperationException("The death puff did not move with its outgoing room during scrolling.");
         _entities.FinishScreenTransition();
-        if (_entities.OutgoingKeese.Count != 0 || _entities.OutgoingDeathPuffs.Count != 0 ||
-            !_entities.Keese[0].TransitionDrawOffset.IsEqualApprox(Vector2.Zero))
+        if (_entities.OutgoingEntities<KeeseCharacter>().Count != 0 || _entities.OutgoingEntities<EnemyDeathPuffEffect>().Count != 0 ||
+            !_entities.Entities<KeeseCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Zero))
             throw new InvalidOperationException(
                 "Keese/death-puff transition ownership and offsets were not normalized after scrolling.");
 
@@ -725,9 +725,9 @@ public partial class GameRoot
         }
 
         LoadValidationRoom(0, 0x74);
-        if (_entities.Octoroks.Count != 2 ||
-            _entities.Octoroks.Find(octorok => octorok.Record.SubId == 0) is not OctorokCharacter red ||
-            _entities.Octoroks.Find(octorok => octorok.Record.SubId == 1) is not OctorokCharacter fastRed ||
+        if (_entities.Entities<OctorokCharacter>().Count != 2 ||
+            _entities.Entities<OctorokCharacter>().Find(octorok => octorok.Record.SubId == 0) is not OctorokCharacter red ||
+            _entities.Entities<OctorokCharacter>().Find(octorok => octorok.Record.SubId == 1) is not OctorokCharacter fastRed ||
             red.Record.SpeedRaw != 0x14 || fastRed.Record.SpeedRaw != 0x1e ||
             red.Record.Health != 2 || red.Record.DamageQuarters != 1)
         {
@@ -736,10 +736,10 @@ public partial class GameRoot
                 "SPEED_80/SPEED_c0, two health, and quarter-heart contact damage.");
         }
 
-        int redCount = _entities.Octoroks.Count;
+        int redCount = _entities.Entities<OctorokCharacter>().Count;
         if (!_entities.ApplySwordHit(red.CollisionBounds.Grow(1.0f), red.Position + Vector2.Down * 16.0f) ||
-            _entities.Octoroks.Count != redCount - 1 ||
-            _entities.DeathPuffs.Count != 1 || _entities.DeathPuffs[0].EnemyId != 0x09)
+            _entities.Entities<OctorokCharacter>().Count != redCount - 1 ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 1 || _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x09)
         {
             throw new InvalidOperationException(
                 "The level-1 sword did not defeat a two-health red Octorok in one hit and " +
@@ -747,17 +747,17 @@ public partial class GameRoot
         }
 
         LoadValidationRoom(1, 0xbc);
-        if (_entities.Octoroks.Count != 2 ||
-            _entities.Octoroks.Exists(octorok => octorok.Record.SubId != 2) ||
-            !_entities.Octoroks.Exists(octorok => octorok.Position == new Vector2(0x48, 0x48)) ||
-            !_entities.Octoroks.Exists(octorok => octorok.Position == new Vector2(0x58, 0x48)))
+        if (_entities.Entities<OctorokCharacter>().Count != 2 ||
+            _entities.Entities<OctorokCharacter>().Exists(octorok => octorok.Record.SubId != 2) ||
+            !_entities.Entities<OctorokCharacter>().Exists(octorok => octorok.Position == new Vector2(0x48, 0x48)) ||
+            !_entities.Entities<OctorokCharacter>().Exists(octorok => octorok.Position == new Vector2(0x58, 0x48)))
         {
             throw new InvalidOperationException(
                 "Room 1:bc did not preserve its fixed blue Octoroks at `$48,`$48 and `$58,`$48.");
         }
 
-        OctorokCharacter blue = _entities.Octoroks[0];
-        OctorokCharacter otherBlue = _entities.Octoroks[1];
+        OctorokCharacter blue = _entities.Entities<OctorokCharacter>()[0];
+        OctorokCharacter otherBlue = _entities.Entities<OctorokCharacter>()[1];
         if (blue.Record.Health != 3 || blue.Record.DamageQuarters != 2 ||
             blue.Record.CounterMask != 3)
         {
@@ -772,17 +772,17 @@ public partial class GameRoot
             OctorokCharacter.OctorokState.Shooting, counter1: 0x10, angle: 0x18);
         for (int frame = 1; frame < 0x10; frame++)
             _entities.Update(1.0 / 60.0, _player);
-        if (_entities.OctorokRocks.Count != 0 || blue.Counter1 != 1)
+        if (_entities.Entities<OctorokRockProjectile>().Count != 0 || blue.Counter1 != 1)
         {
             throw new InvalidOperationException(
                 "ENEMY_OCTOROK fired before completing its original `$10-update windup.");
         }
         Vector2 projectileOrigin = blue.Position;
         _entities.Update(1.0 / 60.0, _player);
-        if (_entities.OctorokRocks.Count != 1 ||
-            _entities.OctorokRocks[0].State != OctorokRockProjectile.RockState.Flying ||
-            _entities.OctorokRocks[0].ElapsedFrames != 1 ||
-            _entities.OctorokRocks[0].Position != projectileOrigin ||
+        if (_entities.Entities<OctorokRockProjectile>().Count != 1 ||
+            _entities.Entities<OctorokRockProjectile>()[0].State != OctorokRockProjectile.RockState.Flying ||
+            _entities.Entities<OctorokRockProjectile>()[0].ElapsedFrames != 1 ||
+            _entities.Entities<OctorokRockProjectile>()[0].Position != projectileOrigin ||
             blue.State != OctorokCharacter.OctorokState.Standing || blue.Counter1 != 0x20)
         {
             throw new InvalidOperationException(
@@ -790,7 +790,7 @@ public partial class GameRoot
                 "enter its 32-update post-shot stand.");
         }
 
-        OctorokRockProjectile rock = _entities.OctorokRocks[0];
+        OctorokRockProjectile rock = _entities.Entities<OctorokRockProjectile>()[0];
         _entities.Update(1.0 / 60.0, _player);
         if (rock.Position != projectileOrigin + Vector2.Left * 2.0f)
             throw new InvalidOperationException("The Octorok rock did not move at SPEED_200 (2 pixels/update).");
@@ -805,10 +805,10 @@ public partial class GameRoot
         }
         for (int frame = 1; frame < 0x20; frame++)
             _entities.Update(1.0 / 60.0, _player);
-        if (rock.Finished || _entities.OctorokRocks.Count != 1 || rock.Counter != 1)
+        if (rock.Finished || _entities.Entities<OctorokRockProjectile>().Count != 1 || rock.Counter != 1)
             throw new InvalidOperationException("The deflected Octorok rock ended before bounce update `$20.");
         _entities.Update(1.0 / 60.0, _player);
-        if (_entities.OctorokRocks.Count != 0)
+        if (_entities.Entities<OctorokRockProjectile>().Count != 0)
             throw new InvalidOperationException("The deflected Octorok rock survived bounce update `$20.");
 
         Vector2 terrainCollisionOrigin = Vector2.Zero;
@@ -849,19 +849,19 @@ public partial class GameRoot
         }
         terrainRock.Free();
 
-        blue = _entities.Octoroks[0];
+        blue = _entities.Entities<OctorokCharacter>()[0];
         otherBlue.SetStateForValidation(OctorokCharacter.OctorokState.Standing, counter1: 1000);
-        int blueCount = _entities.Octoroks.Count;
+        int blueCount = _entities.Entities<OctorokCharacter>().Count;
         if (!_entities.ApplySwordHit(
                 blue.CollisionBounds.Grow(1.0f), blue.Position + Vector2.Left * 16.0f) ||
             blue.Health != 1 || blue.InvincibilityCounter != 0x10 ||
-            blue.KnockbackCounter != 0x08 || _entities.Octoroks.Count != blueCount)
+            blue.KnockbackCounter != 0x08 || _entities.Entities<OctorokCharacter>().Count != blueCount)
         {
             throw new InvalidOperationException(
                 "A blue Octorok did not survive its first level-1 sword hit with one health, " +
                 "16 invincibility updates, and 8 SPEED_200 knockback updates. Got " +
                 $"health {blue.Health}, invincibility {blue.InvincibilityCounter}, " +
-                $"knockback {blue.KnockbackCounter}, count {_entities.Octoroks.Count}/{blueCount}.");
+                $"knockback {blue.KnockbackCounter}, count {_entities.Entities<OctorokCharacter>().Count}/{blueCount}.");
         }
         if (_entities.ApplySwordHit(blue.CollisionBounds.Grow(1.0f), _player.Position))
             throw new InvalidOperationException("Blue Octorok invincibility accepted a second immediate sword hit.");
@@ -869,34 +869,34 @@ public partial class GameRoot
             blue.UpdateFrame(_player.Position);
         if (blue.InvincibilityCounter != 0 || blue.KnockbackCounter != 0 ||
             !_entities.ApplySwordHit(blue.CollisionBounds.Grow(1.0f), _player.Position) ||
-            _entities.Octoroks.Count != blueCount - 1 ||
-            _entities.DeathPuffs.Count != 1 || _entities.DeathPuffs[0].EnemyId != 0x09)
+            _entities.Entities<OctorokCharacter>().Count != blueCount - 1 ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 1 || _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x09)
         {
             throw new InvalidOperationException(
                 "A blue Octorok did not become vulnerable after 16 updates and die on the second sword hit.");
         }
 
-        OctorokCharacter transitionOctorok = _entities.Octoroks[0];
+        OctorokCharacter transitionOctorok = _entities.Entities<OctorokCharacter>()[0];
         transitionOctorok.SetStateForValidation(
             OctorokCharacter.OctorokState.Standing, counter1: 1000, angle: 0x00);
-        OctorokRockProjectile transitionRock = _entities.SpawnOctorokRock(
-            transitionOctorok.Position, angle: 0x00);
+        OctorokRockProjectile transitionRock = _entities.Spawn<OctorokRockProjectile>(
+            new OctorokRockSpawn(transitionOctorok.Position, Angle: 0x00));
         OracleRoomData incomingRoom = _world.LoadRoom(0, 0x74);
         _entities.BeginScreenTransition(0, incomingRoom, Vector2.Left * incomingRoom.Width);
         int frozenCounter = transitionOctorok.Counter1;
         int frozenRockFrames = transitionRock.ElapsedFrames;
         _entities.Update(1.0, _player);
-        if (_entities.OutgoingOctoroks.Count != 1 || _entities.OutgoingOctorokRocks.Count != 1 ||
-            _entities.Octoroks.Count != 2 || transitionOctorok.Counter1 != frozenCounter ||
+        if (_entities.OutgoingEntities<OctorokCharacter>().Count != 1 || _entities.OutgoingEntities<OctorokRockProjectile>().Count != 1 ||
+            _entities.Entities<OctorokCharacter>().Count != 2 || transitionOctorok.Counter1 != frozenCounter ||
             transitionRock.ElapsedFrames != frozenRockFrames ||
-            !_entities.Octoroks[0].TransitionDrawOffset.IsEqualApprox(Vector2.Left * incomingRoom.Width))
+            !_entities.Entities<OctorokCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Left * incomingRoom.Width))
         {
             throw new InvalidOperationException(
                 "Scrolling did not retain/freeze outgoing Octoroks and rocks while preloading destination Octoroks.");
         }
         _entities.FinishScreenTransition();
-        if (_entities.OutgoingOctoroks.Count != 0 || _entities.OutgoingOctorokRocks.Count != 0 ||
-            !_entities.Octoroks[0].TransitionDrawOffset.IsEqualApprox(Vector2.Zero))
+        if (_entities.OutgoingEntities<OctorokCharacter>().Count != 0 || _entities.OutgoingEntities<OctorokRockProjectile>().Count != 0 ||
+            !_entities.Entities<OctorokCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Zero))
         {
             throw new InvalidOperationException(
                 "Octorok/rock transition ownership and offsets were not normalized after scrolling.");
@@ -945,32 +945,32 @@ public partial class GameRoot
         }
 
         LoadValidationRoom(4, 0xcc);
-        if (_entities.Zols.Count != 6 ||
-            _entities.Zols.FindAll(zol => zol.Record.SubId == 0).Count != 3 ||
-            _entities.Zols.FindAll(zol => zol.Record.SubId == 1).Count != 3 ||
-            !_entities.Zols.Exists(zol => zol.Position == new Vector2(0x58, 0x78)) ||
-            !_entities.Zols.Exists(zol => zol.Position == new Vector2(0x48, 0x98)))
+        if (_entities.Entities<ZolCharacter>().Count != 6 ||
+            _entities.Entities<ZolCharacter>().FindAll(zol => zol.Record.SubId == 0).Count != 3 ||
+            _entities.Entities<ZolCharacter>().FindAll(zol => zol.Record.SubId == 1).Count != 3 ||
+            !_entities.Entities<ZolCharacter>().Exists(zol => zol.Position == new Vector2(0x58, 0x78)) ||
+            !_entities.Entities<ZolCharacter>().Exists(zol => zol.Position == new Vector2(0x48, 0x98)))
         {
             throw new InvalidOperationException(
                 "Room 4:cc did not preserve its three fixed green and three fixed red Zols.");
         }
 
-        ZolCharacter transitionZol = _entities.Zols[0];
+        ZolCharacter transitionZol = _entities.Entities<ZolCharacter>()[0];
         int frozenCounter = transitionZol.Counter1;
         OracleRoomData incomingRoom = _world.LoadRoom(4, 0x0b);
         _entities.BeginScreenTransition(4, incomingRoom, Vector2.Left * incomingRoom.Width);
         _entities.Update(1.0, _player);
-        if (_entities.OutgoingZols.Count != 6 || _entities.Zols.Count != 0 ||
-            _entities.Gels.Count != 3 || transitionZol.Counter1 != frozenCounter ||
-            !_entities.Gels[0].TransitionDrawOffset.IsEqualApprox(Vector2.Left * incomingRoom.Width))
+        if (_entities.OutgoingEntities<ZolCharacter>().Count != 6 || _entities.Entities<ZolCharacter>().Count != 0 ||
+            _entities.Entities<GelCharacter>().Count != 3 || transitionZol.Counter1 != frozenCounter ||
+            !_entities.Entities<GelCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Left * incomingRoom.Width))
         {
             throw new InvalidOperationException(
                 "Scrolling did not retain/freeze six outgoing Zols and preload/freeze " +
                 "the three direct room 4:0b Gels.");
         }
         _entities.FinishScreenTransition();
-        if (_entities.OutgoingZols.Count != 0 ||
-            !_entities.Gels[0].TransitionDrawOffset.IsEqualApprox(Vector2.Zero))
+        if (_entities.OutgoingEntities<ZolCharacter>().Count != 0 ||
+            !_entities.Entities<GelCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Zero))
         {
             throw new InvalidOperationException(
                 "Zol/Gel transition ownership and offsets were not normalized after scrolling.");
@@ -1067,15 +1067,15 @@ public partial class GameRoot
         timingZol.Free();
 
         LoadValidationRoom(4, 0xcc);
-        ZolCharacter green = _entities.Zols.Find(zol => zol.Record.SubId == 0)!;
+        ZolCharacter green = _entities.Entities<ZolCharacter>().Find(zol => zol.Record.SubId == 0)!;
         green.SetStateForValidation(
             ZolCharacter.ZolState.GreenWaiting,
             counter1: 1000,
             animation: 1);
-        int greenCount = _entities.Zols.Count;
+        int greenCount = _entities.Entities<ZolCharacter>().Count;
         if (!_entities.ApplySwordHit(green.CollisionBounds.Grow(1.0f)) ||
-            _entities.Zols.Count != greenCount - 1 || _entities.DeathPuffs.Count != 1 ||
-            _entities.DeathPuffs[0].EnemyId != 0x34)
+            _entities.Entities<ZolCharacter>().Count != greenCount - 1 || _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
+            _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x34)
         {
             throw new InvalidOperationException(
                 "The level-1 sword did not defeat a surfaced green Zol and create its normal `$34 death puff.");
@@ -1083,52 +1083,52 @@ public partial class GameRoot
 
         LoadValidationRoom(4, 0xcc);
         _player.WarpTo(new Vector2(220, 160), recordSafe: false);
-        ZolCharacter red = _entities.Zols.Find(zol => zol.Record.SubId == 1)!;
+        ZolCharacter red = _entities.Entities<ZolCharacter>().Find(zol => zol.Record.SubId == 1)!;
         Vector2 splitPosition = red.Position;
-        int redRoomCount = _entities.Zols.Count;
+        int redRoomCount = _entities.Entities<ZolCharacter>().Count;
         if (!_entities.ApplySwordHit(red.CollisionBounds.Grow(1.0f)) ||
             red.State != ZolCharacter.ZolState.RedSplitting ||
-            _entities.Zols.Count != redRoomCount || _entities.DeathPuffs.Count != 0)
+            _entities.Entities<ZolCharacter>().Count != redRoomCount || _entities.Entities<EnemyDeathPuffEffect>().Count != 0)
         {
             throw new InvalidOperationException(
                 "A sword-hit red Zol did not enter its special split state without a normal death puff.");
         }
         _entities.Update(1.0 / 60.0, _player);
         if (red.State != ZolCharacter.ZolState.RedSplitDelay || red.Counter2 != 18 ||
-            red.Visible || red.CollisionEnabled || _entities.KillPuffs.Count != 1 ||
-            _entities.KillPuffs[0].DurationFrames != 20)
+            red.Visible || red.CollisionEnabled || _entities.Entities<KillEnemyPuffEffect>().Count != 1 ||
+            _entities.Entities<KillEnemyPuffEffect>()[0].DurationFrames != 20)
         {
             throw new InvalidOperationException(
                 "Red Zol did not create the 20-update INTERAC_KILLENEMYPUFF and begin its 18-update delay.");
         }
         for (int frame = 0; frame < 17; frame++)
             _entities.Update(1.0 / 60.0, _player);
-        if (_entities.Gels.Count != 0 || red.Counter2 != 1)
+        if (_entities.Entities<GelCharacter>().Count != 0 || red.Counter2 != 1)
             throw new InvalidOperationException("Red Zol spawned Gels before split delay update 18.");
         _entities.Update(1.0 / 60.0, _player);
-        if (_entities.Zols.Count != redRoomCount - 1 || _entities.Gels.Count != 2 ||
-            !_entities.Gels.Exists(gel => gel.Position == splitPosition + Vector2.Right * 4.0f) ||
-            !_entities.Gels.Exists(gel => gel.Position == splitPosition + Vector2.Left * 4.0f))
+        if (_entities.Entities<ZolCharacter>().Count != redRoomCount - 1 || _entities.Entities<GelCharacter>().Count != 2 ||
+            !_entities.Entities<GelCharacter>().Exists(gel => gel.Position == splitPosition + Vector2.Right * 4.0f) ||
+            !_entities.Entities<GelCharacter>().Exists(gel => gel.Position == splitPosition + Vector2.Left * 4.0f))
         {
             throw new InvalidOperationException(
                 "Red Zol did not replace itself with two Gels at the original +/-4 X offsets.");
         }
         _entities.Update(2.0 / 60.0, _player);
-        if (_entities.KillPuffs.Count != 0 || _entities.ItemDrops.Count != 0)
+        if (_entities.Entities<KillEnemyPuffEffect>().Count != 0 || _entities.Entities<ItemDropEffect>().Count != 0)
             throw new InvalidOperationException(
                 "INTERAC_KILLENEMYPUFF did not end after 20 updates or incorrectly resolved an item drop.");
 
-        GelCharacter defeatedGel = _entities.Gels[0];
-        int gelCount = _entities.Gels.Count;
+        GelCharacter defeatedGel = _entities.Entities<GelCharacter>()[0];
+        int gelCount = _entities.Entities<GelCharacter>().Count;
         if (!_entities.ApplySwordHit(defeatedGel.CollisionBounds.Grow(1.0f)) ||
-            _entities.Gels.Count != gelCount - 1 || _entities.DeathPuffs.Count != 1 ||
-            _entities.DeathPuffs[0].EnemyId != 0x43)
+            _entities.Entities<GelCharacter>().Count != gelCount - 1 || _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
+            _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x43)
         {
             throw new InvalidOperationException(
                 "The one-health ENEMY_GEL did not die to one level-1 sword hit with a `$43 death puff.");
         }
 
-        GelCharacter latchGel = _entities.Gels[0];
+        GelCharacter latchGel = _entities.Entities<GelCharacter>()[0];
         Vector2 latchPosition = new(180, 140);
         latchGel.Position = latchPosition;
         _player.WarpTo(latchPosition, recordSafe: false);
@@ -1165,7 +1165,8 @@ public partial class GameRoot
                 "A naturally released Gel immediately relatched before completing its hop.");
 
         Vector2 buttonLatchPosition = new(120, 140);
-        GelCharacter buttonGel = _entities.SpawnGel(buttonLatchPosition, "ButtonReleaseGel");
+        GelCharacter buttonGel = _entities.Spawn<GelCharacter>(
+            new GelSpawn(buttonLatchPosition, "ButtonReleaseGel"));
         _player.WarpTo(buttonLatchPosition, recordSafe: false);
         _entities.Update(0.0, _player);
         if (!buttonGel.IsAttached || buttonGel.Counter2 != 120)
@@ -1273,19 +1274,19 @@ public partial class GameRoot
         _player.WarpTo(new Vector2(140, 120), recordSafe: false);
         for (int defeated = 0; defeated < 5; defeated++)
         {
-            lifecycleManager.SpawnEnemyDeathPuff(
-                new Vector2(24, 24), enemyId: 0x32);
+            lifecycleManager.Spawn<EnemyDeathPuffEffect>(
+                new EnemyDeathPuffSpawn(new Vector2(24, 24), EnemyId: 0x32));
             for (int frame = 0; frame < 20; frame++)
                 lifecycleManager.Update(1.0 / 60.0, _player);
-            if (lifecycleManager.DeathPuffs.Count != 0)
+            if (lifecycleManager.Entities<EnemyDeathPuffEffect>().Count != 0)
             {
                 throw new InvalidOperationException(
                     "A finished Keese death puff was not replaced/deleted by item-drop resolution.");
             }
         }
-        if (lifecycleManager.ItemDrops.Count != 1 ||
-            lifecycleManager.ItemDrops[0].SubId != ItemDropDatabase.FiveRupees ||
-            lifecycleManager.ItemDrops[0].ElapsedFrames != 0)
+        if (lifecycleManager.Entities<ItemDropEffect>().Count != 1 ||
+            lifecycleManager.Entities<ItemDropEffect>()[0].SubId != ItemDropDatabase.FiveRupees ||
+            lifecycleManager.Entities<ItemDropEffect>()[0].ElapsedFrames != 0)
         {
             throw new InvalidOperationException(
                 "The deterministic fifth Keese death did not replace its completed puff with ITEM_DROP_5_RUPEES.");
@@ -1374,13 +1375,13 @@ public partial class GameRoot
                 "PART_ITEM_DROP did not expire after 240 alternating-frame ticks (480 update span).");
         expiryDrop.Free();
 
-        ItemDropEffect transitionDrop = _entities.SpawnItemDrop(
-            ItemDropDatabase.OneRupee, dropPosition);
+        ItemDropEffect transitionDrop = _entities.Spawn<ItemDropEffect>(
+            new ItemDropSpawn(ItemDropDatabase.OneRupee, dropPosition));
         OracleRoomData incomingRoom = _world.LoadRoom(4, 0x39);
         _entities.BeginScreenTransition(4, incomingRoom, Vector2.Left * incomingRoom.Width);
         _entities.Update(1.0, _player);
-        if (_entities.OutgoingItemDrops.Count != 1 ||
-            _entities.OutgoingItemDrops[0] != transitionDrop ||
+        if (_entities.OutgoingEntities<ItemDropEffect>().Count != 1 ||
+            _entities.OutgoingEntities<ItemDropEffect>()[0] != transitionDrop ||
             transitionDrop.ElapsedFrames != 0)
         {
             throw new InvalidOperationException(
@@ -1392,7 +1393,7 @@ public partial class GameRoot
         if (!transitionDrop.TransitionDrawOffset.IsEqualApprox(Vector2.Right * 4.0f))
             throw new InvalidOperationException("The item drop did not move with its outgoing room.");
         _entities.FinishScreenTransition();
-        if (_entities.OutgoingItemDrops.Count != 0)
+        if (_entities.OutgoingEntities<ItemDropEffect>().Count != 0)
             throw new InvalidOperationException("The outgoing item drop survived completed scrolling.");
 
         _player.RefillHealth();
@@ -2049,15 +2050,15 @@ public partial class GameRoot
         NpcCharacter? destinationNpc = _npcNodes.Find(npc =>
             npc.Record.Room == 0x58 && npc.Record.Id == 0x41 && npc.Record.SubId == 0x04);
         if (!_entities.ScreenTransitionActive || _currentRoom.Id != 0x58 ||
-            _entities.OutgoingNpcs.Count != 2 || destinationNpc is null)
+            _entities.OutgoingEntities<NpcCharacter>().Count != 2 || destinationNpc is null)
         {
             throw new InvalidOperationException(
                 $"The 0:48 -> 0:58 scroll did not retain two outgoing NPCs and preload the destination NPC " +
                 $"(active={_entities.ScreenTransitionActive}, room={_currentRoom.Id:x2}, " +
-                $"outgoing={_entities.OutgoingNpcs.Count}, incoming={_npcNodes.Count}, " +
+                $"outgoing={_entities.OutgoingEntities<NpcCharacter>().Count}, incoming={_npcNodes.Count}, " +
                 $"destinationFound={destinationNpc is not null}).");
         }
-        foreach (NpcCharacter outgoingNpc in _entities.OutgoingNpcs)
+        foreach (NpcCharacter outgoingNpc in _entities.OutgoingEntities<NpcCharacter>())
         {
             if (outgoingNpc.Record.Room != 0x48 ||
                 !outgoingNpc.TransitionDrawOffset.IsEqualApprox(Vector2.Zero))
@@ -2074,7 +2075,7 @@ public partial class GameRoot
         }
 
         UpdateScrollingTransition(1.0 / 60.0);
-        foreach (NpcCharacter outgoingNpc in _entities.OutgoingNpcs)
+        foreach (NpcCharacter outgoingNpc in _entities.OutgoingEntities<NpcCharacter>())
         {
             if (!outgoingNpc.TransitionDrawOffset.IsEqualApprox(Vector2.Up * 4.0f))
                 throw new InvalidOperationException("An outgoing NPC did not move with its scrolling room.");
@@ -2086,7 +2087,7 @@ public partial class GameRoot
         }
 
         FinishActiveScrollingTransitionForValidation();
-        if (_entities.ScreenTransitionActive || _entities.OutgoingNpcs.Count != 0 ||
+        if (_entities.ScreenTransitionActive || _entities.OutgoingEntities<NpcCharacter>().Count != 0 ||
             !destinationNpc.TransitionDrawOffset.IsEqualApprox(Vector2.Zero) ||
             destinationNpc.GetParent() != this)
         {
