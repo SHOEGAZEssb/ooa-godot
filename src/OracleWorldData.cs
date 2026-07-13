@@ -10,7 +10,7 @@ namespace oracleofages;
 /// </summary>
 public sealed class OracleWorldData
 {
-    private const int TilesetRecordSize = 6;
+    private const int TilesetRecordSize = 8;
 
     private readonly byte[] _tilesetMetadata;
     private readonly Dictionary<int, byte[]> _groupTilesets = new();
@@ -62,6 +62,8 @@ public sealed class OracleWorldData
         int metadataOffset = tileset * TilesetRecordSize;
         int layoutGroup = _tilesetMetadata[metadataOffset + 1];
         int animationGroup = _tilesetMetadata[metadataOffset + 4];
+        int activeCollisions = _tilesetMetadata[metadataOffset + 6];
+        byte tilesetFlags = _tilesetMetadata[metadataOffset + 7];
         string roomPath = GetRoomPath(layoutGroup, room);
 
         if (!_graphics.TryGetValue(tileset, out Image? graphics))
@@ -91,7 +93,8 @@ public sealed class OracleWorldData
 
         byte[] layout = Godot.FileAccess.GetFileAsBytes(roomPath);
         var result = new OracleRoomData(
-            group, room, tileset, animationGroup, layout, collisions,
+            group, room, tileset, animationGroup, activeCollisions, tilesetFlags,
+            layout, collisions,
             graphics, mappings, palette, _commonBgPalette0, _animations);
         _rooms.Add(key, result);
         return result;

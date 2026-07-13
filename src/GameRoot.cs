@@ -16,6 +16,7 @@ public partial class GameRoot : Node2D
     private RoomTransitionController _transitions = null!;
     private RoomEntityManager _entities = null!;
     private InteractionController _interactions = null!;
+    private PushBlockController _pushBlocks = null!;
     private TerrainController _terrain = null!;
     private CombatController _combat = null!;
     private DebugWarpController _debugWarps = null!;
@@ -92,7 +93,14 @@ public partial class GameRoot : Node2D
     private void CreateControllers()
     {
         _entities = new RoomEntityManager(this, new NpcDatabase());
-        _collision = new RoomCollision(_rooms, _entities, point => _transitions.HasNeighborFor(point));
+        _pushBlocks = new PushBlockController(
+            _rooms, new PushableTileDatabase(), _roomView, () => (long)_animationTicks)
+        {
+            Name = "PushBlock"
+        };
+        AddChild(_pushBlocks);
+        _collision = new RoomCollision(
+            _rooms, _entities, _pushBlocks, point => _transitions.HasNeighborFor(point));
         _transitions = new RoomTransitionController(
             _rooms, new WarpDatabase(), _roomView, _player, _roomCamera,
             _warpFade, _hud, _dialogue, _entities, _collision.Collides);
@@ -101,8 +109,14 @@ public partial class GameRoot : Node2D
             this, _roomView, _transitions.WorldToScreen, () => (long)_animationTicks,
             amount => _player.AddRupees(amount));
         _terrain = new TerrainController(this, _rooms, _collision.Collides);
+        _pushBlocks.EnteredHazard += (position, hazard) =>
+        {
+            if (hazard is OracleRoomData.HazardType.Water or OracleRoomData.HazardType.Lava)
+                _terrain.SpawnDrowningSplash(position, hazard);
+        };
         _combat = new CombatController(this, _rooms, _roomView, () => (long)_animationTicks);
-        _playerWorld = new PlayerWorld(_transitions, _interactions, _collision, _terrain, _combat);
+        _playerWorld = new PlayerWorld(
+            _transitions, _interactions, _collision, _pushBlocks, _terrain, _combat);
         _debugWarps = new DebugWarpController(
             _rooms, _player, LoadDebugRoom, FindSpawn, () => (long)_animationTicks,
             _interactions.ResetChestForTesting);
@@ -121,6 +135,7 @@ public partial class GameRoot : Node2D
         if (_launchOptions.Has("--validate-terrain")) CallDeferred(MethodName.ValidateTerrain);
         if (_launchOptions.Has("--validate-health")) CallDeferred(MethodName.ValidateHealth);
         if (_launchOptions.Has("--validate-chests")) CallDeferred(MethodName.ValidateChests);
+        if (_launchOptions.Has("--validate-push-blocks")) CallDeferred(MethodName.ValidatePushBlocks);
     }
 
     private void UpdateAnimatedTiles(double delta)

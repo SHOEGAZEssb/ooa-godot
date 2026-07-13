@@ -13,6 +13,8 @@ public sealed class OracleRoomData
     public int Id { get; }
     public int TilesetId { get; }
     public int AnimationGroup { get; }
+    public int ActiveCollisions { get; }
+    public byte TilesetFlags { get; }
     public int WidthInTiles { get; }
     public int HeightInTiles { get; }
     public int Width => WidthInTiles * MetatileSize;
@@ -64,6 +66,7 @@ public sealed class OracleRoomData
         HazardType Hazard);
 
     private readonly Image _source;
+    private readonly byte[] _originalLayout;
     private readonly byte[] _mappings;
     private readonly Color[,] _palette;
     private readonly Color[] _commonBgPalette0;
@@ -77,6 +80,8 @@ public sealed class OracleRoomData
         int id,
         int tilesetId,
         int animationGroup,
+        int activeCollisions,
+        byte tilesetFlags,
         byte[] layout,
         byte[] collisions,
         Image source,
@@ -89,7 +94,10 @@ public sealed class OracleRoomData
         Id = id;
         TilesetId = tilesetId;
         AnimationGroup = animationGroup;
+        ActiveCollisions = activeCollisions;
+        TilesetFlags = tilesetFlags;
         Layout = layout;
+        _originalLayout = (byte[])layout.Clone();
         Collisions = collisions;
         _source = source;
         _mappings = mappings;
@@ -192,8 +200,8 @@ public sealed class OracleRoomData
         return new TerrainInfo(
             metatile,
             collision,
-            GetTerrainType(Group, metatile),
-            GetHazardType(Group, metatile));
+            GetTerrainType(ActiveCollisions, metatile),
+            GetHazardType(ActiveCollisions, metatile));
     }
 
     public int GetPackedPosition(Vector2 localPoint)
@@ -201,6 +209,17 @@ public sealed class OracleRoomData
         int tileX = Mathf.FloorToInt(localPoint.X / MetatileSize);
         int tileY = Mathf.FloorToInt(localPoint.Y / MetatileSize);
         return (tileY << 4) | tileX;
+    }
+
+    public byte GetCollision(byte metatile) => Collisions[metatile];
+
+    public byte GetOriginalMetatile(Vector2 localPoint)
+    {
+        int tileX = Mathf.FloorToInt(localPoint.X / MetatileSize);
+        int tileY = Mathf.FloorToInt(localPoint.Y / MetatileSize);
+        if (tileX < 0 || tileX >= WidthInTiles || tileY < 0 || tileY >= HeightInTiles)
+            return 0xff;
+        return _originalLayout[tileY * WidthInTiles + tileX];
     }
 
     public bool ReplaceMetatile(Vector2 localPoint, byte expected, byte replacement, long animationTick)
@@ -227,9 +246,9 @@ public sealed class OracleRoomData
         0x00, 0xc3, 0x03, 0xc0, 0xc0, 0xc1, 0xff, 0x00
     };
 
-    private static TerrainType GetTerrainType(int group, byte tile)
+    private static TerrainType GetTerrainType(int activeCollisions, byte tile)
     {
-        return GetCollisionMode(group) switch
+        return activeCollisions switch
         {
             0 or 4 => tile switch
             {
@@ -272,9 +291,9 @@ public sealed class OracleRoomData
         };
     }
 
-    private static HazardType GetHazardType(int group, byte tile)
+    private static HazardType GetHazardType(int activeCollisions, byte tile)
     {
-        return GetCollisionMode(group) switch
+        return activeCollisions switch
         {
             0 or 4 => tile switch
             {
@@ -291,17 +310,6 @@ public sealed class OracleRoomData
                 _ => HazardType.None
             },
             _ => HazardType.None
-        };
-    }
-
-    private static int GetCollisionMode(int group)
-    {
-        return group switch
-        {
-            0 or 1 => 0,
-            2 or 3 => 1,
-            4 or 5 => 2,
-            _ => 0
         };
     }
 

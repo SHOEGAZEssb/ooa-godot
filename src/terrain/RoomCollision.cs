@@ -17,15 +17,18 @@ public sealed class RoomCollision
 
     private readonly RoomSession _rooms;
     private readonly RoomEntityManager _entities;
+    private readonly PushBlockController _pushBlocks;
     private readonly Func<Vector2, bool> _hasNeighborFor;
 
     public RoomCollision(
         RoomSession rooms,
         RoomEntityManager entities,
+        PushBlockController pushBlocks,
         Func<Vector2, bool> hasNeighborFor)
     {
         _rooms = rooms;
         _entities = entities;
+        _pushBlocks = pushBlocks;
         _hasNeighborFor = hasNeighborFor;
     }
 
@@ -44,7 +47,7 @@ public sealed class RoomCollision
             if (room.IsSolid(sample))
                 return true;
         }
-        return _entities.BlocksLink(playerPosition);
+        return _entities.BlocksLink(playerPosition) || _pushBlocks.BlocksLink(playerPosition);
     }
 
     public Vector2 ResolveMovement(Vector2 playerPosition, Vector2 movement, bool allowWallSlide)
@@ -70,6 +73,26 @@ public sealed class RoomCollision
         if (resolved == Vector2.Zero || !CanApplyMovement(playerPosition + resolved))
             return Vector2.Zero;
         return resolved;
+    }
+
+    public bool IsPushingAgainstWall(
+        Vector2 playerPosition,
+        Vector2I facing,
+        Vector2 movementInput)
+    {
+        bool pressingTowardWall = facing == Vector2I.Up && movementInput.Y < 0.0f
+            || facing == Vector2I.Right && movementInput.X > 0.0f
+            || facing == Vector2I.Down && movementInput.Y > 0.0f
+            || facing == Vector2I.Left && movementInput.X < 0.0f;
+        if (!pressingTowardWall)
+            return false;
+
+        int requiredWalls = facing == Vector2I.Up ? 0xc0
+            : facing == Vector2I.Right ? 0x03
+            : facing == Vector2I.Down ? 0x30
+            : 0x0c;
+        int walls = CalculateAdjacentWallsBitset(playerPosition);
+        return (walls & requiredWalls) == requiredWalls;
     }
 
     private static int GetMovementAngle(Vector2 movement)
@@ -169,7 +192,8 @@ public sealed class RoomCollision
         OracleRoomData room = _rooms.CurrentRoom;
         return position.X >= 0 && position.X < room.Width &&
             position.Y >= 0 && position.Y < room.Height &&
-            !_entities.BlocksLink(position);
+            !_entities.BlocksLink(position) &&
+            !_pushBlocks.BlocksLink(position);
     }
 
     private bool TileBlocksPoint(Vector2 point)

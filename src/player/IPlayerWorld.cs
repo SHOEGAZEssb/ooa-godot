@@ -10,6 +10,14 @@ public interface IPlayerWorld
     bool TryInteract(Player player);
     bool Collides(Vector2 playerPosition);
     Vector2 ResolveMovement(Vector2 playerPosition, Vector2 movement, bool allowWallSlide);
+    bool IsPushingAgainstWall(
+        Vector2 playerPosition,
+        Vector2I facing,
+        Vector2 movementInput);
+    void UpdatePushableBlocks(
+        Vector2 playerPosition,
+        Vector2I facing,
+        Vector2 movementInput);
     ActiveTerrainInfo GetActiveTerrain(Vector2 playerPosition);
     Vector2 GetTerrainPush(Vector2 playerPosition);
     bool TryStartLedgeHop(Player player, Vector2 from, Vector2 attemptedMovement);

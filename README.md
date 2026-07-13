@@ -25,7 +25,7 @@ The importer validates the clean US ROM MD5 (`C4639CC61C049E5A085526BB6CAC03BB`,
 
 The internal viewport is the Game Boy Color's 160×144 resolution and is integer-scaled to 640×576. The generated assets and original game data are for personal, non-commercial research use.
 
-The default room now has a directly testable transition: hold **Up** from Link's starting position to walk through the green staircase into room `01`. Walk back down through the same opening to return to room `11`. The southern staircase in room `11` also connects to room `21`.
+An argument-free launch now starts in dungeon room `4:09`, a compact pushblock practice room with several original one-way blocks near Link. Tiles `$18`, `$19`, `$1a`, and `$1b` move only up, right, down, and left respectively; hold the matching cardinal direction against one for 20 updates to push it. Restart the game to restore the room after testing. Explicit `--group`/`--room` arguments and headless validations keep their previous defaults.
 
 The gameplay HUD is reconstructed from the original HUD tilemap, flags, palette, item sprites, digit tiles, and full/partial/empty heart tiles. Health now uses the original quarter-heart units (`$0c` for three hearts), syncs into the HUD, and terrain respawn hazards remove a half-heart before returning Link to his last safe tile. Until inventory is connected, the HUD still displays the implemented level-1 sword in A and an empty B slot; its rupee counter now tracks collected chest rewards.
 
@@ -38,6 +38,8 @@ Animated background tiles are driven by the original 22 tileset animation groups
 The level-1 sword uses Link's original animation-mode `$22` poses, the original `spr_swords` weapon cells and OAM compositions, `swordArcData` positions/collision radii, and the frame-accurate bush-breaking event. Standard overworld bushes (`$c5`) are replaced by ground (`$3a`) and immediately stop colliding. Press **B** to warp below a bush in room `69`, then swing with the normal A-button control (Z/K or gamepad A).
 
 The importer preserves all 133 records from `chestData.s`. Closed chest metatiles (`$f1`) only open when approached from below; other directions use `TX_510d`. Supported rupee chests change to `$f0`, raise the original `spr_common_items` reward at `SPEED_40` for 32 frames, add the disassembled rupee amount to the HUD, display the matching `TX_00XX` pickup text, and remain open for the session. Chests containing inventory items remain closed with a development message until those item handlers exist. Press **C** to warp below the 30-rupee chest at room `0:49/$51`.
+
+Ordinary pushable metatiles now use the original collision-mode records from `interactableTiles.s` and `pushableTiles.s`, including one-way and all-direction blocks, statues, and colored variants. Link must push cardinally for the original 20 updates; while pressing a block or an ordinary wall he uses the original `$64-$67` / `$90-$93` two-frame pushing animation, alternating every 6 updates. A clear destination then converts the background tile into a blocking object that moves 16 pixels at `SPEED_80` over 32 updates, restores the table-selected source floor, and places the table-selected destination tile. Water and lava consume the block with the matching splash, while holes consume it without replacing the hazard. Bracelet-gated tiles remain immovable until inventory is implemented; Somaria blocks, pushblock puzzle triggers, secret sounds, and the falling-down-hole object animation remain later interaction/audio slices. Use `--validate-push-blocks` for the focused headless regression.
 
 Tile and screen-edge warps are resolved from all 529 original `warpSources.s` and `warpDestinations.s` records, including cross-group overworld/interior travel. Room teleports reproduce the original transition modes: gradual or instant white-out, the 32-frame fade into the destination, Link's 28-frame scripted interior entry, and the 16-frame walk offscreen when leaving. Large `256x176` cave and dungeon rooms use a clamped playfield camera while the HUD and textbox remain fixed on screen. Their screen neighbors come from the original 8x8 dungeon floor layouts rather than overworld room-number arithmetic. Press **H** to stand below the left house door in present room `47`; walk up to enter room `2:ea`, then walk down through the interior's bottom opening to return to the same exterior door.
 
@@ -52,7 +54,7 @@ For room-rendering development, hexadecimal group and room values can be selecte
 - `RoomSession` owns the active group/room and resolves overworld or dungeon neighbors.
 - `RoomTransitionController` owns warps, scrolling, fades, destination placement, and the room camera.
 - `RoomEntityManager` and `InteractionController` own NPC lifetime, blocking, signs, and dialogue.
-- `RoomCollision`, `TerrainController`, and `CombatController` own collision, terrain behavior, and weapon effects.
+- `RoomCollision`, `TerrainController`, `PushBlockController`, and `CombatController` own collision, terrain behavior, moving blocks, and weapon effects.
 - `PlayerWorld` implements the narrow `IPlayerWorld` API consumed by `Player`.
 - Development launch options and test-room warps live under `src/debug`; headless regression scenarios live under `src/validation`.
 

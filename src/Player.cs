@@ -21,6 +21,7 @@ public partial class Player : Node2D
     private const int TerrainHazardDamageQuarters = 2;
     private IPlayerWorld _world = null!;
     private Texture2D _texture = null!;
+    private Texture2D _pushTexture = null!;
     private Texture2D _attackTexture = null!;
     private Texture2D _swordTexture = null!;
     private Texture2D _drownTexture = null!;
@@ -45,6 +46,7 @@ public partial class Player : Node2D
     private int _healthQuarters = StartingHealthQuarters;
     private bool _attackHitApplied;
     private bool _walking;
+    private bool _pushing;
     private bool _ledgeHopping;
     private bool _pullingIntoHole;
     private bool _drowning;
@@ -70,11 +72,13 @@ public partial class Player : Node2D
         _ => Vector2I.Left
     };
     public bool IsAttacking => _attackTime > 0.0f;
+    internal bool IsPushing => _pushing;
 
     public void Initialize(IPlayerWorld world, Vector2 spawn)
     {
         _world = world;
         _texture = BuildLinkTexture();
+        _pushTexture = BuildPushLinkTexture();
         _attackTexture = BuildAttackLinkTexture();
         _swordTexture = BuildSwordTexture();
         _drownTexture = BuildDrownTexture();
@@ -237,6 +241,7 @@ public partial class Player : Node2D
 
     public override void _PhysicsProcess(double delta)
     {
+        _pushing = false;
         if (_drowning)
         {
             UpdateDrowning((float)delta);
@@ -294,6 +299,16 @@ public partial class Player : Node2D
             TryMove(movement, allowWallSlide: true);
             _walkTime += (float)delta;
         }
+
+        UpdatePushingState(input);
+
+        // interactWithTileBeforeLink observes wLinkPushingDirection after
+        // collision has stopped Link at the tile. Run the push check against
+        // the resolved position, not the pre-movement approach position.
+        _world.UpdatePushableBlocks(
+            _precisePosition,
+            FacingVector,
+            _walking ? input : Vector2.Zero);
 
         Vector2 terrainPush = _world.GetTerrainPush(Position) * (float)delta;
         if (terrainPush != Vector2.Zero)
@@ -359,9 +374,17 @@ public partial class Player : Node2D
                 new Rect2(texturePhase * 16, (int)_facing * 16, 16, 16));
             DrawSword(phase);
         }
+        else if (_pushing)
+        {
+            int frame = GetWalkAnimationFrame();
+            DrawTextureRectRegion(
+                _pushTexture,
+                new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
+                new Rect2(frame * 16, (int)_facing * 16, 16, 16));
+        }
         else
         {
-            int frame = _walking && ((int)(_walkTime / 0.10f) & 1) == 1 ? 1 : 0;
+            int frame = GetWalkAnimationFrame();
             Rect2 source = GetFrame(_facing, frame);
             DrawTextureRectRegion(
                 _texture,
@@ -385,6 +408,15 @@ public partial class Player : Node2D
         if (_attackTime <= 0.0f && _world.TryStartLedgeHop(this, _precisePosition, movement))
             return;
     }
+
+    internal void UpdatePushingState(Vector2 movementInput)
+    {
+        _pushing = movementInput.LengthSquared() > 0.01f && _attackTime <= 0.0f &&
+            _world.IsPushingAgainstWall(_precisePosition, FacingVector, movementInput);
+    }
+
+    private int GetWalkAnimationFrame() =>
+        _walking && ((int)(_walkTime / 0.10f) & 1) == 1 ? 1 : 0;
 
     // The original object coordinates are 8.8 fixed point. Collision uses the
     // high bytes (xh/yh), and OAM rendering uses those same bytes; it never
@@ -733,6 +765,27 @@ public partial class Player : Node2D
         WriteWalkFrame(output, source, Facing.Down, 1, 0x0200, true);  // gfx $82
         WriteWalkFrame(output, source, Facing.Left, 0, 0x0080, false); // gfx $57
         WriteWalkFrame(output, source, Facing.Left, 1, 0x00c0, false); // gfx $83
+
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private static Texture2D BuildPushLinkTexture()
+    {
+        Texture2D sourceTexture = GD.Load<Texture2D>("res://assets/oracle/gfx/spr_link.png");
+        Image source = sourceTexture.GetImage();
+        Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
+
+        // The pushing walking variant adds $10 to LINK_ANIM_MODE_WALK's
+        // gfx indices, producing frames $64-$67 and $90-$93. The source
+        // offsets and compositions below come from specialObjectAnimationData.s.
+        WriteLinkFrame(output, source, 0, (int)Facing.Up * 16, 0x0a00, false);       // $64, OAM $00
+        WriteLinkFrame(output, source, 0, (int)Facing.Right * 16, 0x0b00, true);    // $65, OAM $01
+        WriteSymmetricLinkCell(output, source, 0, (int)Facing.Down * 16, 0x0aa0);   // $66, OAM $04
+        WriteLinkFrame(output, source, 0, (int)Facing.Left * 16, 0x0b00, false);    // $67, OAM $00
+        WriteLinkFrame(output, source, 16, (int)Facing.Up * 16, 0x0a40, false);     // $90, OAM $00
+        WriteLinkFrame(output, source, 16, (int)Facing.Right * 16, 0x0b40, true);  // $91, OAM $01
+        WriteSymmetricLinkCell(output, source, 16, (int)Facing.Down * 16, 0x0ac0); // $92, OAM $04
+        WriteLinkFrame(output, source, 16, (int)Facing.Left * 16, 0x0b40, false);  // $93, OAM $00
 
         return ImageTexture.CreateFromImage(output);
     }

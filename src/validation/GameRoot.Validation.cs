@@ -5,6 +5,173 @@ namespace oracleofages;
 
 public partial class GameRoot
 {
+    private void ValidatePushBlocks()
+    {
+        OracleRoomData directionalRoom = _rooms.Load(4, 0x09);
+        _roomView.SetRoom(directionalRoom.Texture);
+        _entities.LoadRoom(4, directionalRoom);
+
+        // The left dungeon wall at this position sets the original $0c
+        // adjacent-wall mask. Link should use the pushing walk variant only
+        // while the held direction matches the side he is facing.
+        _player.WarpTo(new Vector2(20, 24));
+        _player.Face(Vector2I.Left);
+        _player.UpdatePushingState(Vector2.Left);
+        if (!_player.IsPushing)
+        {
+            throw new InvalidOperationException(
+                "Link did not enter his pushing animation against the ordinary wall in 4:09.");
+        }
+        _player.UpdatePushingState(Vector2.Right);
+        if (_player.IsPushing)
+        {
+            throw new InvalidOperationException(
+                "Link retained his pushing animation without holding toward the wall.");
+        }
+
+        Vector2 rightOnlyBlock = new(0x0b * 16 + 8, 0x01 * 16 + 8);
+        Vector2 linkAbove = rightOnlyBlock + new Vector2(0, -10);
+        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
+        {
+            _pushBlocks.UpdatePushAttempt(
+                linkAbove, Vector2I.Down, Vector2.Down);
+        }
+        if (_pushBlocks.Active || _pushBlocks.RemainingPushFrames !=
+            PushBlockController.PushDelayFrames ||
+            directionalRoom.GetMetatile(rightOnlyBlock) != 0x19 ||
+            directionalRoom.GetCollision(
+                directionalRoom.GetMetatile(rightOnlyBlock + Vector2.Down * 16)) != 0)
+        {
+            throw new InvalidOperationException(
+                "Right-only block $19 accepted a downward push toward clear floor in 4:09.");
+        }
+
+        OracleRoomData room = _rooms.Load(4, 0x08);
+        _roomView.SetRoom(room.Texture);
+        _entities.LoadRoom(4, room);
+
+        // Dungeon 0 room $08 has an all-direction tile $1c at packed
+        // position $4b. Its right neighbor is the solid one-way block $19,
+        // while the tile above is clear floor, so both rejection and a full
+        // successful push can be checked against unmodified original data.
+        Vector2 blockCenter = new(0x0b * 16 + 8, 0x04 * 16 + 8);
+        Vector2 linkBelow = blockCenter + new Vector2(0, 10);
+        Vector2 linkLeft = blockCenter + new Vector2(-10, 0);
+        Vector2 linkRight = blockCenter + new Vector2(10, 0);
+        if (room.ActiveCollisions != 2 || room.GetMetatile(blockCenter) != 0x1c)
+        {
+            throw new InvalidOperationException(
+                $"Expected dungeon collision mode 2 and block $1c at 4:08/$4b, got " +
+                $"mode {room.ActiveCollisions} / tile ${room.GetMetatile(blockCenter):x2}.");
+        }
+
+        _player.WarpTo(linkBelow);
+        _player.Face(Vector2I.Up);
+        _player.UpdatePushingState(Vector2.Up);
+        if (!_player.IsPushing)
+        {
+            throw new InvalidOperationException(
+                "Link did not enter his pushing animation while pressing block $1c in 4:08.");
+        }
+
+        Vector2 cornerApproach = new(blockCenter.X - 6, linkBelow.Y);
+        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
+        {
+            _pushBlocks.UpdatePushAttempt(
+                cornerApproach, Vector2I.Up, Vector2.Up);
+        }
+        if (_pushBlocks.Active || _pushBlocks.RemainingPushFrames !=
+            PushBlockController.PushDelayFrames)
+        {
+            throw new InvalidOperationException(
+                "Block $1c accepted a push while Link occupied a metatile corner.");
+        }
+
+        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
+        {
+            _pushBlocks.UpdatePushAttempt(
+                linkRight, Vector2I.Left, Vector2.Left);
+        }
+        for (int frame = 0; frame < PushBlockController.MoveFrames; frame++)
+        {
+            _pushBlocks.Advance(1.0 / 60.0);
+        }
+        Vector2 holeCenter = blockCenter + Vector2.Left * 16;
+        if (_pushBlocks.Active || room.GetMetatile(blockCenter) != 0xa0 ||
+            room.GetMetatile(holeCenter) != 0xf5)
+        {
+            throw new InvalidOperationException(
+                "Block $1c did not disappear while preserving destination hole $f5.");
+        }
+        if (!room.ReplaceMetatile(blockCenter, 0xa0, 0x1c, (long)_animationTicks))
+            throw new InvalidOperationException("Could not restore 4:08/$4b after the hole test.");
+
+        _pushBlocks.UpdatePushAttempt(linkLeft, Vector2I.Right, Vector2.Right);
+        if (_pushBlocks.RemainingPushFrames != PushBlockController.PushDelayFrames ||
+            _pushBlocks.Active)
+        {
+            throw new InvalidOperationException(
+                "Block $1c started moving right even though destination tile $19 is solid.");
+        }
+
+        for (int frame = 0; frame < PushBlockController.PushDelayFrames - 1; frame++)
+        {
+            _pushBlocks.UpdatePushAttempt(
+                linkBelow, Vector2I.Up, Vector2.Up);
+        }
+        if (_pushBlocks.Active || _pushBlocks.RemainingPushFrames != 1 ||
+            room.GetMetatile(blockCenter) != 0x1c)
+        {
+            throw new InvalidOperationException(
+                "Block $1c moved before Link completed the original 20-update push delay.");
+        }
+
+        _pushBlocks.UpdatePushAttempt(linkBelow, Vector2I.Up, Vector2.Zero);
+        if (_pushBlocks.RemainingPushFrames != PushBlockController.PushDelayFrames)
+        {
+            throw new InvalidOperationException(
+                "Releasing the direction did not reset wPushingAgainstTileCounter to 20.");
+        }
+
+        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
+        {
+            _pushBlocks.UpdatePushAttempt(
+                linkBelow, Vector2I.Up, Vector2.Up);
+        }
+        if (!_pushBlocks.Active || room.GetMetatile(blockCenter) != 0xa0 ||
+            !_collision.Collides(blockCenter + new Vector2(0, -2)))
+        {
+            throw new InvalidOperationException(
+                "Block $1c did not become a Link-blocking object over source floor $a0.");
+        }
+
+        for (int frame = 0; frame < PushBlockController.MoveFrames - 1; frame++)
+        {
+            _pushBlocks.Advance(1.0 / 60.0);
+        }
+        Vector2 expectedTopLeft = new(blockCenter.X - 8, blockCenter.Y - 8 - 15.5f);
+        if (!_pushBlocks.Active ||
+            !_pushBlocks.BlockTopLeft.IsEqualApprox(expectedTopLeft) ||
+            room.GetMetatile(blockCenter + Vector2.Up * 16) != 0xa0)
+        {
+            throw new InvalidOperationException(
+                "Block $1c did not move at SPEED_80 for the first 31 updates.");
+        }
+
+        _pushBlocks.Advance(1.0 / 60.0);
+        if (_pushBlocks.Active || room.GetMetatile(blockCenter) != 0xa0 ||
+            room.GetMetatile(blockCenter + Vector2.Up * 16) != 0x1d)
+        {
+            throw new InvalidOperationException(
+                "Block $1c did not finish after 32 updates as destination tile $1d.");
+        }
+
+        GD.Print("Validated Link's wall/block pushing animation, directional/corner " +
+            "restrictions, hazard disposal, 4:08/$4b push delay reset, blocked " +
+            "destination, source $a0 replacement, SPEED_80 movement, moving " +
+            "collision, and destination tile $1d.");
+    }
+
     private void ValidateChests()
     {
         WarpToChestTest();

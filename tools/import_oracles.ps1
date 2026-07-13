@@ -119,7 +119,8 @@ $commonBgPalettePath = Join-Path $destination 'metadata\commonBgPalette0.bin'
 New-Item -ItemType Directory -Force -Path (Split-Path $commonBgPalettePath -Parent) | Out-Null
 [IO.File]::WriteAllBytes($commonBgPalettePath, $commonBgPaletteBytes)
 
-$metadata = [byte[]]::new(128 * 6)
+$tilesetRecordSize = 8
+$metadata = [byte[]]::new(128 * $tilesetRecordSize)
 $usedTilesets = [Collections.Generic.HashSet[int]]::new()
 
 foreach ($tileset in $tilesets) {
@@ -135,16 +136,18 @@ foreach ($tileset in $tilesets) {
     }
 
     $paletteHeader = $paletteHeaders[$paletteSymbol]
-    $metadata[$id * 6] = [byte]$layout
-    $metadata[$id * 6 + 1] = [byte]$layoutGroup
-    $metadata[$id * 6 + 2] = [byte]$paletteHeader.Id
-    $metadata[$id * 6 + 3] = 1
-    $metadata[$id * 6 + 4] = [byte]$animation
-    $metadata[$id * 6 + 5] = if (($flags -band 0x08) -ne 0) {
+    $metadata[$id * $tilesetRecordSize] = [byte]$layout
+    $metadata[$id * $tilesetRecordSize + 1] = [byte]$layoutGroup
+    $metadata[$id * $tilesetRecordSize + 2] = [byte]$paletteHeader.Id
+    $metadata[$id * $tilesetRecordSize + 3] = 1
+    $metadata[$id * $tilesetRecordSize + 4] = [byte]$animation
+    $metadata[$id * $tilesetRecordSize + 5] = if (($flags -band 0x08) -ne 0) {
         [byte]($properties -band 0x0f)
     } else {
         [byte]0xff
     }
+    $metadata[$id * $tilesetRecordSize + 6] = [byte](($properties -shr 4) -band 0x07)
+    $metadata[$id * $tilesetRecordSize + 7] = [byte]$flags
     [void]$usedTilesets.Add($id)
 
     $label = $paletteHeader.Label
@@ -174,6 +177,88 @@ foreach ($tileset in $tilesets) {
 
 $metadataPath = Join-Path $destination "metadata\tilesets.bin"
 [IO.File]::WriteAllBytes($metadataPath, $metadata)
+
+# Join the two original collision-mode-indexed tables used by
+# interactWithTileBeforeLink and INTERAC_PUSHBLOCK. Each generated record is
+# four bytes: interactable parameter, source replacement tile, destination
+# tile, and property flags. $ff in the first byte means that the metatile does
+# not use the ordinary pushblock interaction in that collision mode.
+function Read-LocalHexByteTable([string]$path, [string]$tableLabel, [string]$pointerDirective) {
+    $bytes = [Collections.Generic.List[byte]]::new()
+    $labels = @{}
+    $pointers = [Collections.Generic.List[string]]::new()
+    $reading = $false
+    foreach ($line in Get-Content $path) {
+        if (-not $reading) {
+            if ($line -match "^$([regex]::Escape($tableLabel))\s*:") { $reading = $true }
+            continue
+        }
+        if ($line -match '^\s*(?<label>@[A-Za-z0-9_]+):') {
+            $labels[$Matches['label']] = $bytes.Count
+        }
+        if ($line -match "^\s*$pointerDirective\s+(?<label>@[A-Za-z0-9_]+)") {
+            $pointers.Add($Matches['label'])
+            continue
+        }
+        if ($line -match '^\s*\.db\s+(?<values>[^;]+)') {
+            foreach ($value in [regex]::Matches($Matches['values'], '\$(?<value>[0-9a-fA-F]{2})')) {
+                $bytes.Add([Convert]::ToByte($value.Groups['value'].Value, 16))
+            }
+        }
+    }
+    if ($pointers.Count -ne 6) {
+        throw "$tableLabel should have 6 collision-mode pointers, got $($pointers.Count)."
+    }
+    return @{ Bytes = $bytes; Labels = $labels; Pointers = $pointers }
+}
+
+$interactableTable = Read-LocalHexByteTable `
+    (Join-Path $Disassembly 'data\ages\tile_properties\interactableTiles.s') `
+    'interactableTilesTable' '\.dw'
+$pushableTable = Read-LocalHexByteTable `
+    (Join-Path $Disassembly 'data\ages\tile_properties\pushableTiles.s') `
+    'pushableTilePropertiesTable' 'dbrel'
+$pushableBytes = [byte[]]::new(6 * 256 * 4)
+for ($i = 0; $i -lt $pushableBytes.Length; $i++) { $pushableBytes[$i] = 0xff }
+$joinedPushableRecords = 0
+for ($mode = 0; $mode -lt 6; $mode++) {
+    $interactable = @{}
+    $offset = $interactableTable.Labels[$interactableTable.Pointers[$mode]]
+    while ($interactableTable.Bytes[$offset] -ne 0) {
+        $tile = $interactableTable.Bytes[$offset]
+        $parameter = $interactableTable.Bytes[$offset + 1]
+        if (($parameter -band 0x0f) -eq 0) { $interactable[$tile] = $parameter }
+        $offset += 2
+    }
+
+    $properties = @{}
+    $offset = $pushableTable.Labels[$pushableTable.Pointers[$mode]]
+    while ($pushableTable.Bytes[$offset] -ne 0) {
+        $tile = $pushableTable.Bytes[$offset]
+        $properties[$tile] = @(
+            $pushableTable.Bytes[$offset + 1],
+            $pushableTable.Bytes[$offset + 2],
+            $pushableTable.Bytes[$offset + 3])
+        $offset += 4
+    }
+
+    foreach ($tile in $interactable.Keys) {
+        # The Somaria block ($da) uses its dedicated item object and therefore
+        # intentionally has no INTERAC_PUSHBLOCK property record.
+        if (-not $properties.ContainsKey($tile)) { continue }
+        $recordOffset = ($mode * 256 + $tile) * 4
+        $pushableBytes[$recordOffset] = $interactable[$tile]
+        $pushableBytes[$recordOffset + 1] = $properties[$tile][0]
+        $pushableBytes[$recordOffset + 2] = $properties[$tile][1]
+        $pushableBytes[$recordOffset + 3] = $properties[$tile][2]
+        $joinedPushableRecords++
+    }
+}
+if ($joinedPushableRecords -ne 33) {
+    throw "Expected 33 collision-mode pushblock records, joined $joinedPushableRecords."
+}
+$pushablePath = Join-Path $destination 'metadata\pushableTiles.bin'
+[IO.File]::WriteAllBytes($pushablePath, $pushableBytes)
 
 # The expanded tileset table is indexed by tileset ID, even though byte 5 in
 # tilesets.s still records the original/shared mapping index. Copy the expanded
