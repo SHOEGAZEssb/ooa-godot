@@ -18,6 +18,7 @@ public partial class GameRoot
         ValidateNpcs();
         ValidateAnimations();
         ValidateSwordBush();
+        ValidateKeese();
         ValidateHouseWarp();
         ValidateCaveWarps();
         ValidateTerrain();
@@ -522,6 +523,162 @@ public partial class GameRoot
         if (_currentRoom.IsSolid(bushPoint))
             throw new InvalidOperationException("The cut bush's replacement tile remained solid.");
         GD.Print("Validated level-1 sword OAM anchoring, hit, and bush substitution c5 -> 3a in room 69.");
+    }
+
+    private void ValidateKeese()
+    {
+        var database = new EnemyDatabase();
+        if (database.KeeseRecordCount != 53 || database.KeeseInstanceCount != 158)
+            throw new InvalidOperationException(
+                $"Expected 53 ENEMY_KEESE room records / 158 instances, got " +
+                $"{database.KeeseRecordCount} / {database.KeeseInstanceCount}.");
+
+        LoadValidationRoom(4, 0x39);
+        if (_entities.Keese.Count != 2 || _entities.Keese.Exists(keese => keese.Record.SubId != 1))
+            throw new InvalidOperationException(
+                $"Room 4:39 should contain two random-position ENEMY_KEESE subid `$01 objects, " +
+                $"got {_entities.Keese.Count}.");
+
+        KeeseCharacter approachKeese = _entities.Keese[0];
+        if (approachKeese.SpriteHeight != -1)
+            throw new InvalidOperationException("Keese subid `$01 did not preserve its original z-height `$ff.");
+        approachKeese.Position = new Vector2(80, 80);
+        _player.WarpTo(new Vector2(128, 80));
+        _entities.Update(1.0 / 60.0, _player);
+        if (approachKeese.State != KeeseCharacter.KeeseState.Moving ||
+            approachKeese.Counter1 != 12 || approachKeese.Counter2 != 12 ||
+            !approachKeese.Flying)
+            throw new InvalidOperationException(
+                "Keese subid `$01 did not wake inside strict Manhattan distance `$31 with 12x12 counters.");
+
+        for (int frame = 0; frame < 4; frame++)
+            _entities.Update(1.0 / 60.0, _player);
+        if (approachKeese.CurrentAnimationFrame != 1)
+            throw new InvalidOperationException(
+                "Flying Keese did not switch OAM frames after the original 4 animation calls.");
+        for (int frame = 4; frame < 144; frame++)
+            _entities.Update(1.0 / 60.0, _player);
+        if (approachKeese.State != KeeseCharacter.KeeseState.Resting || approachKeese.Flying)
+            throw new InvalidOperationException(
+                "Keese subid `$01 did not return to rest after 12 turning intervals of 12 updates.");
+
+        LoadValidationRoom(4, 0xcb);
+        if (_entities.Keese.Count != 4 || _entities.Keese.Exists(keese => keese.Record.SubId != 0))
+            throw new InvalidOperationException(
+                $"Room 4:cb should contain four random-position ENEMY_KEESE subid `$00 objects, " +
+                $"got {_entities.Keese.Count}.");
+
+        KeeseCharacter normalKeese = _entities.Keese[0];
+        normalKeese.Position = new Vector2(48, 48);
+        _player.WarpTo(new Vector2(160, 120));
+        _entities.Update(31.0 / 60.0, _player);
+        if (normalKeese.State != KeeseCharacter.KeeseState.Resting || normalKeese.Counter1 != 1)
+            throw new InvalidOperationException(
+                "Normal Keese did not preserve its original 32-update initial rest counter.");
+        _entities.Update(1.0 / 60.0, _player);
+        if (normalKeese.State != KeeseCharacter.KeeseState.Moving || !normalKeese.Flying ||
+            normalKeese.Counter1 is < 0xc0 or > 0xff)
+            throw new InvalidOperationException(
+                "Normal Keese did not choose its original random `$c0-`$ff flight counter and angle.");
+
+        _player.RefillHealth();
+        _player.WarpTo(normalKeese.Position, recordSafe: false);
+        int healthBeforeContact = _player.HealthQuarters;
+        _entities.Update(0.0, _player);
+        if (_player.HealthQuarters != healthBeforeContact - 2 ||
+            !Mathf.IsEqualApprox(_player.InvincibilityFrames, 0x22) ||
+            !Mathf.IsEqualApprox(_player.KnockbackFrames, 0x0f))
+            throw new InvalidOperationException(
+                "Keese contact did not apply half-heart damage, 34 invincibility updates, and 15 knockback updates.");
+        _entities.Update(0.0, _player);
+        if (_player.HealthQuarters != healthBeforeContact - 2)
+            throw new InvalidOperationException("Keese contact bypassed Link's invincibility counter.");
+
+        _player.WarpTo(normalKeese.Position + Vector2.Down * 16.0f);
+        Vector2 expectedPuffPosition = normalKeese.Position +
+            Vector2.Down * normalKeese.SpriteHeight;
+        int countBeforeSword = _entities.Keese.Count;
+        if (!_entities.ApplySwordHit(normalKeese.CollisionBounds.Grow(1.0f)) ||
+            _entities.Keese.Count != countBeforeSword - 1)
+            throw new InvalidOperationException(
+                "The level-1 sword did not defeat the 1-health ENEMY_KEESE in one hit.");
+        if (_entities.DeathPuffs.Count != 1 ||
+            _entities.DeathPuffs[0].Position != expectedPuffPosition ||
+            _entities.DeathPuffs[0].HighKnockback ||
+            _entities.DeathPuffs[0].DurationFrames != 20 ||
+            _entities.DeathPuffs[0].CurrentPalette != 2)
+        {
+            throw new InvalidOperationException(
+                "Defeating Keese did not create the ordinary 20-update PART_ENEMY_DESTROYED puff at its visual position.");
+        }
+
+        KeeseCharacter transitionKeese = _entities.Keese[0];
+        int transitionCounter = transitionKeese.Counter1;
+        OracleRoomData incomingRoom = _world.LoadRoom(4, 0x39);
+        _entities.BeginScreenTransition(4, incomingRoom, Vector2.Left * incomingRoom.Width);
+        _entities.Update(1.0, _player);
+        if (_entities.OutgoingKeese.Count != 3 || _entities.Keese.Count != 2 ||
+            _entities.OutgoingDeathPuffs.Count != 1 ||
+            _entities.OutgoingDeathPuffs[0].ElapsedFrames != 0 ||
+            transitionKeese.Counter1 != transitionCounter ||
+            !_entities.Keese[0].TransitionDrawOffset.IsEqualApprox(Vector2.Left * incomingRoom.Width))
+            throw new InvalidOperationException(
+                "Scrolling did not retain/freeze outgoing Keese/death puffs and preload/freeze destination Keese.");
+        _entities.SetScreenTransitionOffsets(
+            Vector2.Right * 4.0f,
+            Vector2.Left * (incomingRoom.Width - 4.0f));
+        if (!_entities.OutgoingDeathPuffs[0].TransitionDrawOffset.IsEqualApprox(Vector2.Right * 4.0f))
+            throw new InvalidOperationException("The death puff did not move with its outgoing room during scrolling.");
+        _entities.FinishScreenTransition();
+        if (_entities.OutgoingKeese.Count != 0 || _entities.OutgoingDeathPuffs.Count != 0 ||
+            !_entities.Keese[0].TransitionDrawOffset.IsEqualApprox(Vector2.Zero))
+            throw new InvalidOperationException(
+                "Keese/death-puff transition ownership and offsets were not normalized after scrolling.");
+
+        var normalPuff = new EnemyDeathPuffEffect();
+        normalPuff.Initialize(Vector2.Zero);
+        for (int frame = 1; frame <= 20; frame++)
+        {
+            normalPuff.UpdateFrame(frame);
+            if (frame == 1 &&
+                (normalPuff.AnimationFrame != 0 || normalPuff.CurrentPalette != 2))
+            {
+                throw new InvalidOperationException(
+                    "PART_ENEMY_DESTROYED changed frame/palette before its first 2-update record elapsed.");
+            }
+            if (frame == 2 &&
+                (normalPuff.AnimationFrame != 1 || normalPuff.CurrentPalette != 3))
+            {
+                throw new InvalidOperationException(
+                    "PART_ENEMY_DESTROYED did not advance after 2 updates and toggle OAM flags `$0a -> `$0b.");
+            }
+            if (frame < 20 && normalPuff.Finished)
+                throw new InvalidOperationException("The ordinary enemy death puff ended before 20 updates.");
+        }
+        if (!normalPuff.Finished || normalPuff.ElapsedFrames != 20)
+            throw new InvalidOperationException("The ordinary enemy death puff did not end after 20 updates.");
+        normalPuff.Free();
+
+        var highKnockbackPuff = new EnemyDeathPuffEffect();
+        highKnockbackPuff.Initialize(Vector2.Zero, highKnockback: true);
+        for (int frame = 1; frame <= 28; frame++)
+        {
+            highKnockbackPuff.UpdateFrame(frame);
+            if (frame == 6 && highKnockbackPuff.AnimationFrame != 3)
+                throw new InvalidOperationException(
+                    "The high-knockback death puff did not enter its extra 8-update burst frame.");
+            if (frame < 28 && highKnockbackPuff.Finished)
+                throw new InvalidOperationException("The high-knockback enemy death puff ended before 28 updates.");
+        }
+        if (!highKnockbackPuff.Finished || highKnockbackPuff.DurationFrames != 28)
+            throw new InvalidOperationException("The high-knockback enemy death puff did not end after 28 updates.");
+        highKnockbackPuff.Free();
+        _player.RefillHealth();
+
+        GD.Print("Validated 53 imported ENEMY_KEESE room records, subid `$00/`$01 timing, " +
+            "original RNG-driven flight, 4-update wing animation, collision radii, contact damage, " +
+            "invincibility/knockback counters, one-hit level-1 sword defeat, common 20/28-update " +
+            "death puffs with palette toggling, and retained/preloaded scrolling.");
     }
 
     private void ValidateTerrain()

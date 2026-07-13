@@ -87,7 +87,7 @@ public partial class GameRoot : Node2D
         if (_mapMenu.IsActive)
             return;
         _transitions.Update(delta);
-        _entities.Update(delta, _player.Position);
+        _entities.Update(delta, _player);
         _interactions.Update(delta, _player);
         UpdateAnimatedTiles(delta);
         UpdateRoomDebugLabel();
@@ -96,7 +96,7 @@ public partial class GameRoot : Node2D
 
     private void CreateControllers()
     {
-        _entities = new RoomEntityManager(this, new NpcDatabase());
+        _entities = new RoomEntityManager(this, new NpcDatabase(), new EnemyDatabase());
         _pushBlocks = new PushBlockController(
             _rooms, new PushableTileDatabase(), _roomView, () => (long)_animationTicks)
         {
@@ -118,7 +118,8 @@ public partial class GameRoot : Node2D
             if (hazard is OracleRoomData.HazardType.Water or OracleRoomData.HazardType.Lava)
                 _terrain.SpawnDrowningSplash(position, hazard);
         };
-        _combat = new CombatController(this, _rooms, _roomView, () => (long)_animationTicks);
+        _combat = new CombatController(
+            this, _rooms, _roomView, _entities, () => (long)_animationTicks);
         _playerWorld = new PlayerWorld(
             _transitions, _interactions, _collision, _pushBlocks, _terrain, _combat);
         _debugWarps = new DebugWarpController(

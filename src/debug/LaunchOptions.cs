@@ -17,7 +17,7 @@ public sealed class LaunchOptions
     {
         // Keep room-only development commands and validation
         // in overworld group 0. A completely argument-free launch opens the
-        // dungeon pushblock practice room instead.
+        // dungeon Keese test room instead.
         return HasValidationFlag() || HasArgument("--room=") ? 0 : 4;
     }
 
@@ -25,7 +25,7 @@ public sealed class LaunchOptions
     {
         // Preserve the historical room $11 fallback when a group or a
         // validation was explicitly requested without a room.
-        return HasValidationFlag() || HasArgument("--group=") ? 0x11 : 0x09;
+        return HasValidationFlag() || HasArgument("--group=") ? 0x11 : 0x39;
     }
 
     private bool HasValidationFlag() => Has("--validate");

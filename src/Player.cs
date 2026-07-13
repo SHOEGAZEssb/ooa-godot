@@ -16,6 +16,9 @@ public partial class Player : Node2D
     private const float FallInHoleAnimationDuration = 36.0f / 60.0f;
     private const float FallInHoleInvisibleDuration = 2.0f / 60.0f;
     private const float HazardRecoveryDuration = 16.0f / 60.0f;
+    private const float EnemyKnockbackSpeed = 1.25f;
+    private const int EnemyInvincibilityFrames = 0x22;
+    private const int EnemyKnockbackFrames = 0x0f;
     private static readonly Vector2 DrownSpriteOrigin = new(-8, -4);
     private const int StartingHealthQuarters = 12;
     private const int TerrainHazardDamageQuarters = 2;
@@ -40,6 +43,9 @@ public partial class Player : Node2D
     private float _fallInHoleTime;
     private float _fallInHoleInvisibleTime;
     private float _ledgeHopTime;
+    private float _enemyInvincibilityFrames;
+    private float _enemyKnockbackFrames;
+    private Vector2 _enemyKnockbackDirection;
     private Vector2 _holePullCenter;
     private int _holePullCounter;
     private int _holePullPackedPosition = -1;
@@ -73,6 +79,8 @@ public partial class Player : Node2D
     };
     public bool IsAttacking => _attackTime > 0.0f;
     internal bool IsPushing => _pushing;
+    internal float InvincibilityFrames => _enemyInvincibilityFrames;
+    internal float KnockbackFrames => _enemyKnockbackFrames;
 
     public void Initialize(IPlayerWorld world, Vector2 spawn)
     {
@@ -96,6 +104,8 @@ public partial class Player : Node2D
         _hazardRecoveryTime = 0.0f;
         _fallInHoleTime = 0.0f;
         _fallInHoleInvisibleTime = 0.0f;
+        _enemyInvincibilityFrames = 0.0f;
+        _enemyKnockbackFrames = 0.0f;
         _holePullCounter = 0;
         _holePullPackedPosition = -1;
         _pullingIntoHole = false;
@@ -197,6 +207,32 @@ public partial class Player : Node2D
         return true;
     }
 
+    public bool ApplyEnemyContactDamage(Vector2 sourcePosition, int quarters)
+    {
+        if (_enemyInvincibilityFrames > 0.0f || quarters <= 0)
+            return false;
+        if (!ApplyDamage(quarters))
+            return false;
+
+        _enemyInvincibilityFrames = EnemyInvincibilityFrames;
+        _enemyKnockbackFrames = EnemyKnockbackFrames;
+        _enemyKnockbackDirection = Position - sourcePosition;
+        if (_enemyKnockbackDirection.LengthSquared() < 0.01f)
+            _enemyKnockbackDirection = -(Vector2)FacingVector;
+        float angleRadians = Mathf.Atan2(
+            _enemyKnockbackDirection.X, -_enemyKnockbackDirection.Y);
+        int angle = Mathf.PosMod(
+            Mathf.RoundToInt(angleRadians * 32.0f / Mathf.Tau), 32);
+        _enemyKnockbackDirection = new Vector2(
+            Mathf.Sin(angle * Mathf.Tau / 32.0f),
+            -Mathf.Cos(angle * Mathf.Tau / 32.0f));
+        _walking = false;
+        _pushing = false;
+        _attackTime = 0.0f;
+        QueueRedraw();
+        return true;
+    }
+
     public bool Heal(int quarters)
     {
         if (quarters <= 0)
@@ -272,6 +308,19 @@ public partial class Player : Node2D
             return;
         }
 
+        if (_enemyKnockbackFrames > 0.0f)
+        {
+            float frameDelta = (float)delta * 60.0f;
+            Vector2 movement = _enemyKnockbackDirection * EnemyKnockbackSpeed * frameDelta;
+            TryMove(movement, allowWallSlide: false);
+            _enemyKnockbackFrames = Mathf.Max(0.0f, _enemyKnockbackFrames - frameDelta);
+            _walking = false;
+            _attackTime = 0.0f;
+            Position = ToObjectPixelPosition(_precisePosition);
+            QueueRedraw();
+            return;
+        }
+
         if (_world.IsTransitioning)
             return;
 
@@ -326,6 +375,13 @@ public partial class Player : Node2D
 
     public override void _Process(double delta)
     {
+        if (_enemyInvincibilityFrames > 0.0f)
+        {
+            _enemyInvincibilityFrames = Mathf.Max(
+                0.0f, _enemyInvincibilityFrames - (float)delta * 60.0f);
+            QueueRedraw();
+        }
+
         if (_drowning || _fallingInHole || _hazardRecoveryTime > 0.0f ||
             (_pullingIntoHole && _holePullCounter >= 16))
         {

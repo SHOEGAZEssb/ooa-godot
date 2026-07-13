@@ -189,12 +189,12 @@ public partial class NpcCharacter : Node2D
             if (separator < 0 || !int.TryParse(encodedFrame[..separator], out int duration))
                 continue;
             yield return new AnimationFrame(
-                BuildFacingTexture(source, encodedFrame[(separator + 1)..], tileBase, basePalette),
+                BuildOamTexture(source, encodedFrame[(separator + 1)..], tileBase, basePalette),
                 Math.Max(1, duration));
         }
     }
 
-    private static Texture2D BuildFacingTexture(Image source, string encodedOam, int tileBase, int basePalette)
+    internal static Texture2D BuildOamTexture(Image source, string encodedOam, int tileBase, int basePalette)
     {
         Image output = Image.CreateEmpty(32, 32, false, Image.Format.Rgba8);
         string[] blocks = encodedOam.Split(';', StringSplitOptions.RemoveEmptyEntries);

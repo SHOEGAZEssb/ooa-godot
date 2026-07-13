@@ -1,6 +1,6 @@
 # Oracle of Ages — Godot reconstruction
 
-This project is an early, playable reconstruction of *Oracle of Ages* in Godot 4.6/.NET. It streams the present overworld from `oracles-disasm`, applies the original GBC background palettes and flip attributes, uses the expanded per-tileset metatile mappings and quarter-tile collision masks, animates Link from the disassembled sprite/OAM records, and supports scrolling room transitions, the map screen, and a basic sword action. The data pipeline covers all 1,536 expanded Ages room layouts and all 103 concrete tilesets for subsequent gameplay slices.
+This project is an early, playable reconstruction of *Oracle of Ages* in Godot 4.6/.NET. It streams the present overworld from `oracles-disasm`, applies the original GBC background palettes and flip attributes, uses the expanded per-tileset metatile mappings and quarter-tile collision masks, animates Link from the disassembled sprite/OAM records, and supports scrolling room transitions, the map screen, a basic sword action, and Keese as the first enemy. The data pipeline covers all 1,536 expanded Ages room layouts and all 103 concrete tilesets for subsequent gameplay slices.
 
 ## Import the research data
 
@@ -27,7 +27,7 @@ The importer validates the clean US ROM MD5 (`C4639CC61C049E5A085526BB6CAC03BB`,
 
 The internal viewport is the Game Boy Color's 160×144 resolution and is integer-scaled to 640×576. The generated assets and original game data are for personal, non-commercial research use.
 
-An argument-free launch now starts in dungeon room `4:09`, a compact pushblock practice room with several original one-way blocks near Link. Tiles `$18`, `$19`, `$1a`, and `$1b` move only up, right, down, and left respectively; hold the matching cardinal direction against one for 20 updates to push it. Restart the game to restore the room after testing. Explicit `--group`/`--room` arguments and headless validations keep their previous defaults.
+An argument-free launch now starts in dungeon room `4:cb`, which contains four normal Keese using their original random-position object record. Explicit `--group`/`--room` arguments and headless validations keep their previous defaults. The pushblock practice room remains available with `-- --group=4 --room=09`.
 
 The gameplay HUD is reconstructed from the original HUD tilemap, flags, palette, item sprites, digit tiles, and full/partial/empty heart tiles. Health now uses the original quarter-heart units (`$0c` for three hearts), syncs into the HUD, and terrain respawn hazards remove a half-heart before returning Link to his last safe tile. Until inventory is connected, the HUD still displays the implemented level-1 sword in A and an empty B slot; its rupee counter now tracks collected chest rewards.
 
@@ -40,6 +40,8 @@ The NPC importer now extracts all 377 positioned NPC/character interactions from
 Animated background tiles are driven by the original 22 tileset animation groups, 74 independent tracks, 112 graphics-transfer headers, frame durations, and all three Ages animation sheets. Graphics-transfer writes now persist in their separate VRAM destination ranges, as required by the interleaved waterfall sequences, and all animation counters freeze during scrolling and room-warp transitions. This covers overworld water/flowers, waterfalls, whirlpools, currents, pollution, seaweed, lava, and dungeon animation. Press **Y** to toggle between a water-heavy test room (`b8`) and the lava room (`03`).
 
 The level-1 sword uses Link's original animation-mode `$22` poses, the original `spr_swords` weapon cells and OAM compositions, `swordArcData` positions/collision radii, and the frame-accurate bush-breaking event. Standard overworld bushes (`$c5`) are replaced by ground (`$3a`) and immediately stop colliding. Press **B** to warp below a bush in room `69`, then swing with the normal A-button control (Z/K or gamepad A).
+
+Keese (`ENEMY_KEESE`, `$32`) are the first supported enemy. The importer resolves all 53 random-enemy room records (158 instances), the `$9d` graphics header, `$1f` collision mode, `$07` attribute record, and the exact folded/flying animation and OAM data. Normal subid `$00` Keese rest, wander at `SPEED_c0`, bounce from room boundaries, occasionally change heading, and decelerate with the original speed and wing-animation cadence tables. Subid `$01` wakes inside strict Manhattan distance `$31`, curves for 12 intervals of 12 updates at `SPEED_100`, then rests again. Their 6x4 collision radii, one health, half-heart contact damage, 34-update Link invincibility, 15-update `SPEED_140` knockback, and one-hit level-1 sword defeat are active. Defeated enemies use the shared `PART_ENEMY_DESTROYED` `$02` effect with its exact OAM, alternating `$0a`/`$0b` palettes, ordinary 20-update animation, and supported 28-update high-knockback variant. Launch `-- --group=4 --room=cb` for a room with four normal Keese, or `-- --group=4 --room=39` for two proximity-triggered Keese. Item drops, kill persistence, and reservation of spawn positions occupied by still-unsupported enemy types remain deferred; Keese placement otherwise uses the original RNG algorithm, random buffer, room bounds, count/solidity flags, and unique-position rule.
 
 The importer preserves all 133 records from `chestData.s`. Closed chest metatiles (`$f1`) only open when approached from below; other directions use `TX_510d`. Supported rupee chests change to `$f0`, raise the original `spr_common_items` reward at `SPEED_40` for 32 frames, add the disassembled rupee amount to the HUD, display the matching `TX_00XX` pickup text, and remain open for the session. Chests containing inventory items remain closed with a development message until those item handlers exist. Press **C** to warp below the 30-rupee chest at room `0:49/$51`.
 
@@ -60,7 +62,7 @@ For room-rendering development, hexadecimal group and room values can be selecte
 - `RoomSession` owns the active group/room and resolves overworld or dungeon neighbors.
 - `MapMenuController` and `MapScreen` own Select-menu fades, input freezing, visit visibility, and original overworld/dungeon map rendering.
 - `RoomTransitionController` owns warps, scrolling, fades, destination placement, and the room camera.
-- `RoomEntityManager` and `InteractionController` own NPC lifetime, blocking, signs, and dialogue.
+- `RoomEntityManager` and `InteractionController` own NPC/enemy lifetime, Keese updates and collisions, blocking, signs, and dialogue.
 - `RoomCollision`, `TerrainController`, `PushBlockController`, and `CombatController` own collision, terrain behavior, moving blocks, and weapon effects.
 - `PlayerWorld` implements the narrow `IPlayerWorld` API consumed by `Player`.
 - Development launch options and test-room warps live under `src/debug`; headless regression scenarios live under `src/validation`.
@@ -69,5 +71,5 @@ For room-rendering development, hexadecimal group and room values can be selecte
 
 1. Port further room objects and interactions from `data/ages/*Room.s` and `objects/ages`.
 2. Refine terrain with full swim/diving item checks, ledge screen transitions, terrain-specific Link animations, and the original low-health/death handling.
-3. Expand the NPC/object system, then add inventory/items, enemies, save data, and the present/past world state.
+3. Expand the NPC/object and enemy systems, then add inventory/items, save data, and the present/past world state.
 4. Translate music and sound-effect sequencing into Godot audio streams.

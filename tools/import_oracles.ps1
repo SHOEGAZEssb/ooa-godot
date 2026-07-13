@@ -861,6 +861,248 @@ foreach ($spriteName in $npcSpriteNames) {
 $npcPath = Join-Path $destination "objects\npcs.tsv"
 [IO.File]::WriteAllLines($npcPath, $npcRows, [Text.UTF8Encoding]::new($false))
 
+# Keese are the first supported enemy. Their room records use random-position
+# enemy opcodes, while their attributes, animations, OAM, and graphics are in
+# the shared enemy tables. Export the resolved values so runtime code never
+# reparses assembly source.
+$enemyDataSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\enemyData.s")
+$keeseDataMatch = [regex]::Match(
+    $enemyDataSource,
+    '(?m)^\s*/\* 0x32 \*/ m_EnemyData \$(?<gfx>[0-9a-f]{2}) \$(?<collision>[0-9a-f]{2}) \$(?<extra>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
+)
+if (-not $keeseDataMatch.Success) { throw "Could not resolve ENEMY_KEESE (`$32) data." }
+$keeseGfx = [Convert]::ToInt32($keeseDataMatch.Groups['gfx'].Value, 16)
+$keeseExtraIndex = [Convert]::ToInt32($keeseDataMatch.Groups['extra'].Value, 16) -band 0x7f
+$keeseGraphicFlags = [Convert]::ToInt32($keeseDataMatch.Groups['flags'].Value, 16)
+if ($keeseGfx -ne 0x9d -or
+    ([Convert]::ToInt32($keeseDataMatch.Groups['collision'].Value, 16) -band 0x7f) -ne 0x1f -or
+    $keeseExtraIndex -ne 0x07) {
+    throw "ENEMY_KEESE no longer resolves to gfx `$9d, collision mode `$1f, extra data `$07."
+}
+
+$extraEnemyBody = [regex]::Match(
+    $enemyDataSource,
+    '(?ms)^extraEnemyData:\r?\n(?<body>.*)'
+).Groups['body'].Value
+$extraEnemyRows = [regex]::Matches(
+    $extraEnemyBody,
+    '(?m)^\s*\.db \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<damage>[0-9a-f]{2}) \$(?<health>[0-9a-f]{2})'
+)
+if ($extraEnemyRows.Count -le $keeseExtraIndex) { throw "Keese extra-enemy record `$07 is missing." }
+$keeseExtra = $extraEnemyRows[$keeseExtraIndex]
+$keeseRadiusY = [Convert]::ToInt32($keeseExtra.Groups['y'].Value, 16)
+$keeseRadiusX = [Convert]::ToInt32($keeseExtra.Groups['x'].Value, 16)
+$keeseDamageByte = [Convert]::ToInt32($keeseExtra.Groups['damage'].Value, 16)
+$keeseDamageQuarters = (0x100 - $keeseDamageByte) / 2
+$keeseHealth = [Convert]::ToInt32($keeseExtra.Groups['health'].Value, 16)
+if ($keeseRadiusY -ne 4 -or $keeseRadiusX -ne 6 -or
+    $keeseDamageQuarters -ne 2 -or $keeseHealth -ne 1) {
+    throw "ENEMY_KEESE extra data no longer matches radii 4x6, half-heart damage, and 1 health."
+}
+
+function Get-AssemblyLabelBody([string]$source, [string]$label) {
+    $escaped = [regex]::Escape($label)
+    $match = [regex]::Match(
+        $source,
+        "(?ms)^${escaped}:[^\r\n]*\r?\n(?<body>.*?)(?=^[A-Za-z0-9_@]+:|\z)"
+    )
+    if (-not $match.Success) { throw "Assembly label not found: $label" }
+    return $match.Groups['body'].Value
+}
+
+$enemyAnimationSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\enemyAnimations.s")
+$enemyOamSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\enemyOamData.s")
+$keeseAnimationLabels = @(
+    [regex]::Matches(
+        (Get-AssemblyLabelBody $enemyAnimationSource 'enemy32Animations'),
+        '(?m)^\s*\.dw\s+(?<label>enemyAnimation[0-9a-f]+)'
+    ) | ForEach-Object { $_.Groups['label'].Value }
+)
+$keeseOamLabels = @(
+    [regex]::Matches(
+        (Get-AssemblyLabelBody $enemyAnimationSource 'enemy32OamDataPointers'),
+        '(?m)^\s*\.dw\s+(?<label>enemyOamData[0-9a-f]+)'
+    ) | ForEach-Object { $_.Groups['label'].Value }
+)
+if ($keeseAnimationLabels.Count -ne 2 -or $keeseOamLabels.Count -ne 2) {
+    throw "Expected two Keese animations and two Keese OAM pointers."
+}
+
+function Resolve-EnemyOam([string]$label) {
+    $body = Get-AssemblyLabelBody $script:enemyOamSource $label
+    $countMatch = [regex]::Match($body, '(?m)^\s*\.db\s+\$(?<count>[0-9a-f]{2})')
+    if (-not $countMatch.Success) { throw "OAM count missing for $label." }
+    $count = [Convert]::ToInt32($countMatch.Groups['count'].Value, 16)
+    $parts = @(
+        [regex]::Matches(
+            $body,
+            '(?m)^\s*\.db\s+\$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
+        ) | ForEach-Object {
+            "$([Convert]::ToInt32($_.Groups['y'].Value, 16)),$([Convert]::ToInt32($_.Groups['x'].Value, 16)),$([Convert]::ToInt32($_.Groups['tile'].Value, 16)),$([Convert]::ToInt32($_.Groups['flags'].Value, 16))"
+        }
+    )
+    if ($parts.Count -ne $count) { throw "$label declares $count OAM parts but contains $($parts.Count)." }
+    return $parts -join ';'
+}
+
+function Resolve-KeeseAnimation([string]$label) {
+    $frames = [Collections.Generic.List[string]]::new()
+    foreach ($frame in [regex]::Matches(
+        (Get-AssemblyLabelBody $script:enemyAnimationSource $label),
+        '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})'
+    )) {
+        $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
+        $pointerIndex = [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2
+        if ($pointerIndex -ge $script:keeseOamLabels.Count) {
+            throw "$label references missing OAM pointer byte offset $($frame.Groups['offset'].Value)."
+        }
+        $frames.Add("$duration@$(Resolve-EnemyOam $script:keeseOamLabels[$pointerIndex])")
+    }
+    return $frames -join '|'
+}
+
+$keeseIdleAnimation = Resolve-KeeseAnimation $keeseAnimationLabels[0]
+$keeseFlyAnimation = Resolve-KeeseAnimation $keeseAnimationLabels[1]
+if ($keeseIdleAnimation -ne '127@8,4,2,0' -or
+    $keeseFlyAnimation -ne '4@8,0,0,0;8,8,0,32|4@8,4,2,0') {
+    throw "ENEMY_KEESE animation/OAM data no longer matches the folded/flying records."
+}
+
+$keeseRows = [Collections.Generic.List[string]]::new()
+$keeseRows.Add("# group`troom`tid`tsubid`tflags`tcount`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tidle-animation`tfly-animation")
+$keeseAliases = [Collections.Generic.List[object]]::new()
+foreach ($line in Get-Content (Join-Path $Disassembly "objects\ages\enemyData.s")) {
+    if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})EnemyObjectData:') {
+        $keeseAliases.Add(@{
+            Group = [int]$Matches['group']
+            Room = $Matches['room']
+        })
+        continue
+    }
+    if ($keeseAliases.Count -eq 0) { continue }
+    if ($line -match '^\s*obj_RandomEnemy\s+\$(?<flags>[0-9a-f]{2})\s+\$32\s+\$(?<subid>[0-9a-f]{2})') {
+        $flags = [Convert]::ToInt32($Matches['flags'], 16)
+        $count = ($flags -shr 5) -band 7
+        foreach ($alias in $keeseAliases) {
+            $keeseRows.Add(
+                "$($alias.Group)`t$($alias.Room)`t32`t$($Matches['subid'])`t$($Matches['flags'])`t$count`t$($gfxNames[$keeseGfx])`t$(($keeseGraphicFlags -band 0x0f) * 2)`t$(($keeseGraphicFlags -shr 4) -band 7)`t$keeseRadiusY`t$keeseRadiusX`t$keeseDamageQuarters`t$keeseHealth`t$keeseIdleAnimation`t$keeseFlyAnimation")
+        }
+        continue
+    }
+    if ($line -match '^\s*obj_EndPointer') {
+        $keeseAliases.Clear()
+        continue
+    }
+    if ($line -match '^[A-Za-z0-9_@]+:') { $keeseAliases.Clear() }
+}
+$keeseInstanceCount = ($keeseRows | Select-Object -Skip 1 | ForEach-Object {
+    [int](($_ -split "`t")[5])
+} | Measure-Object -Sum).Sum
+if ($keeseRows.Count -ne 54 -or $keeseInstanceCount -ne 158) {
+    throw "Expected 53 Keese room records / 158 instances, parsed $($keeseRows.Count - 1) / $keeseInstanceCount."
+}
+if (-not ($keeseRows | Where-Object { $_ -match '^4\t39\t32\t01\t40\t2\t' })) {
+    throw "Canonical subid-1 Keese room 4:39 was not extracted."
+}
+
+$keeseSpriteName = $gfxNames[$keeseGfx]
+$keeseSourceSprite = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
+    ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Filter "$keeseSpriteName.png" } |
+    Select-Object -First 1
+if ($null -eq $keeseSourceSprite) { throw "Keese sprite not found in disassembly: $keeseSpriteName.png" }
+Copy-Item -LiteralPath $keeseSourceSprite.FullName -Destination (Join-Path $destination "gfx\$keeseSpriteName.png") -Force
+$keesePath = Join-Path $destination "objects\keese.tsv"
+[IO.File]::WriteAllLines($keesePath, $keeseRows, [Text.UTF8Encoding]::new($false))
+
+# PART_ENEMY_DESTROYED (`$02) is the common enemy death puff. Export both
+# animations: animation 0 is the ordinary 20-update puff, while animation 1
+# inserts the 8-update high-knockback burst selected by bit 7 of the defeated
+# enemy's knockback counter.
+$partDataSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\partData.s")
+$deathPuffData = [regex]::Match(
+    $partDataSource,
+    '(?m)^\s*\.db \$00 \$00 \$00 \$00 \$40 \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2}) \$00\s*; \$02'
+)
+if (-not $deathPuffData.Success) { throw "Could not resolve PART_ENEMY_DESTROYED (`$02) data." }
+$deathPuffTileBase = [Convert]::ToInt32($deathPuffData.Groups['tile'].Value, 16)
+$deathPuffOamFlags = [Convert]::ToInt32($deathPuffData.Groups['flags'].Value, 16)
+if ($deathPuffTileBase -ne 0x0c -or $deathPuffOamFlags -ne 0x0a) {
+    throw "PART_ENEMY_DESTROYED no longer resolves to tile base `$0c / OAM flags `$0a."
+}
+
+$partAnimationSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\partAnimations.s")
+$partOamSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\partOamData.s")
+$deathPuffAnimationLabels = @(
+    [regex]::Matches(
+        (Get-AssemblyLabelBody $partAnimationSource 'part02Animations'),
+        '(?m)^\s*\.dw\s+(?<label>partAnimation[0-9a-f]+)'
+    ) | ForEach-Object { $_.Groups['label'].Value }
+)
+$deathPuffOamLabels = @(
+    [regex]::Matches(
+        (Get-AssemblyLabelBody $partAnimationSource 'part02OamDataPointers'),
+        '(?m)^\s*\.dw\s+(?<label>partOamData[0-9a-f]+)'
+    ) | ForEach-Object { $_.Groups['label'].Value }
+)
+if ($deathPuffAnimationLabels.Count -ne 2 -or $deathPuffOamLabels.Count -ne 7) {
+    throw "Expected two death-puff animations and seven death-puff OAM pointers."
+}
+
+function Resolve-PartOam([string]$label) {
+    $body = Get-AssemblyLabelBody $script:partOamSource $label
+    $countMatch = [regex]::Match($body, '(?m)^\s*\.db\s+\$(?<count>[0-9a-f]{2})')
+    if (-not $countMatch.Success) { throw "OAM count missing for $label." }
+    $count = [Convert]::ToInt32($countMatch.Groups['count'].Value, 16)
+    $parts = @(
+        [regex]::Matches(
+            $body,
+            '(?m)^\s*\.db\s+\$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
+        ) | ForEach-Object {
+            "$([Convert]::ToInt32($_.Groups['y'].Value, 16)),$([Convert]::ToInt32($_.Groups['x'].Value, 16)),$([Convert]::ToInt32($_.Groups['tile'].Value, 16)),$([Convert]::ToInt32($_.Groups['flags'].Value, 16))"
+        }
+    )
+    if ($parts.Count -ne $count) { throw "$label declares $count OAM parts but contains $($parts.Count)." }
+    return $parts -join ';'
+}
+
+function Resolve-DeathPuffAnimation([string]$label) {
+    $frames = [Collections.Generic.List[string]]::new()
+    foreach ($frame in [regex]::Matches(
+        (Get-AssemblyLabelBody $script:partAnimationSource $label),
+        '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})'
+    )) {
+        $parameter = [Convert]::ToInt32($frame.Groups['parameter'].Value, 16)
+        if ($parameter -ne 0) { break }
+        $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
+        $pointerIndex = [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2
+        if ($pointerIndex -ge $script:deathPuffOamLabels.Count) {
+            throw "$label references missing OAM pointer byte offset $($frame.Groups['offset'].Value)."
+        }
+        $frames.Add("$duration@$(Resolve-PartOam $script:deathPuffOamLabels[$pointerIndex])")
+    }
+    return $frames -join '|'
+}
+
+$deathPuffNormalAnimation = Resolve-DeathPuffAnimation $deathPuffAnimationLabels[0]
+$deathPuffKnockbackAnimation = Resolve-DeathPuffAnimation $deathPuffAnimationLabels[1]
+$deathPuffNormalDurations = @($deathPuffNormalAnimation.Split('|') | ForEach-Object { [int]($_.Split('@')[0]) })
+$deathPuffKnockbackDurations = @($deathPuffKnockbackAnimation.Split('|') | ForEach-Object { [int]($_.Split('@')[0]) })
+if ($deathPuffNormalDurations.Count -ne 7 -or
+    ($deathPuffNormalDurations | Measure-Object -Sum).Sum -ne 20 -or
+    $deathPuffKnockbackDurations.Count -ne 8 -or
+    ($deathPuffKnockbackDurations | Measure-Object -Sum).Sum -ne 28 -or
+    $deathPuffKnockbackDurations[3] -ne 8) {
+    throw "PART_ENEMY_DESTROYED animations no longer match the 20/28-update records."
+}
+
+$deathPuffRows = @(
+    "# tile-base`tpalette-a`tpalette-b`tnormal-animation`thigh-knockback-animation",
+    "$deathPuffTileBase`t$($deathPuffOamFlags -band 7)`t$(($deathPuffOamFlags -bxor 1) -band 7)`t$deathPuffNormalAnimation`t$deathPuffKnockbackAnimation"
+)
+$deathPuffPath = Join-Path $destination "effects\enemy_death_puff.tsv"
+New-Item -ItemType Directory -Force -Path (Split-Path $deathPuffPath -Parent) | Out-Null
+[IO.File]::WriteAllLines($deathPuffPath, $deathPuffRows, [Text.UTF8Encoding]::new($false))
+
 # Resolve warp source indices to their destination records. A source position
 # of '*' is a standard whole-room tile warp; nonzero edge masks are the four
 # screen corners described by m_StandardWarp's first parameter.
@@ -1142,4 +1384,4 @@ if ($importedRoomCount -ne 1536) {
 }
 
 Write-Host "Validated clean US ROM: $hash"
-Write-Host "Imported $($tilesets.Count) tilesets, 1536 rooms, 42 signs, $($npcRows.Count - 1) NPCs, 133 chests, 529 warps, and 22 animation groups into $destination"
+Write-Host "Imported $($tilesets.Count) tilesets, 1536 rooms, 42 signs, $($npcRows.Count - 1) NPCs, $keeseInstanceCount Keese, 133 chests, 529 warps, and 22 animation groups into $destination"

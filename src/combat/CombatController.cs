@@ -8,18 +8,26 @@ public sealed class CombatController
     private readonly Node _worldRoot;
     private readonly RoomSession _rooms;
     private readonly RoomView _roomView;
+    private readonly RoomEntityManager _entities;
     private readonly Func<long> _animationTick;
 
-    public CombatController(Node worldRoot, RoomSession rooms, RoomView roomView, Func<long> animationTick)
+    public CombatController(
+        Node worldRoot,
+        RoomSession rooms,
+        RoomView roomView,
+        RoomEntityManager entities,
+        Func<long> animationTick)
     {
         _worldRoot = worldRoot;
         _rooms = rooms;
         _roomView = roomView;
+        _entities = entities;
         _animationTick = animationTick;
     }
 
     public bool ApplySwordHit(Player player, Rect2 hitbox)
     {
+        bool hitEnemy = _entities.ApplySwordHit(hitbox);
         Vector2 offset = player.FacingVector == Vector2I.Up ? new Vector2(0, -14)
             : player.FacingVector == Vector2I.Right ? new Vector2(13, 0)
             : player.FacingVector == Vector2I.Down ? new Vector2(0, 13)
@@ -34,7 +42,7 @@ public sealed class CombatController
             OracleRoomData.MetatileSize);
         if (!hitbox.Intersects(tileBounds) ||
             !_rooms.CurrentRoom.ReplaceMetatile(point, 0xc5, 0x3a, _animationTick()))
-            return false;
+            return hitEnemy;
 
         _worldRoot.AddChild(new BushCutEffect
         {
