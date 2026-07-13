@@ -25,6 +25,8 @@ public partial class GameRoot : Node2D
     private MapMenuController _mapMenu = null!;
     private InventoryMenuController _inventoryMenu = null!;
     private DebugFlagMenuController _debugFlagMenu = null!;
+    private MainMenuController? _mainMenu;
+    private MainMenuScreen? _mainMenuScreen;
     private LaunchOptions _launchOptions = null!;
     private RoomCollision _collision = null!;
     private PlayerWorld _playerWorld = null!;
@@ -33,6 +35,7 @@ public partial class GameRoot : Node2D
     private InventoryState _inventory = null!;
     private OracleSaveData _saveData = null!;
     private bool _persistSaveData;
+    private int _activeSaveSlot;
 
     private double _animationTicks;
 
@@ -75,9 +78,34 @@ public partial class GameRoot : Node2D
     {
         _launchOptions = new LaunchOptions();
         _persistSaveData = !_launchOptions.Has("--validate");
-        _saveData = _persistSaveData
+
+        if (_launchOptions.ShowMainMenu)
+        {
+            _mainMenuScreen = new MainMenuScreen { Name = "MainMenu", ZIndex = 200 };
+            AddChild(_mainMenuScreen);
+            _mainMenu = new MainMenuController(_mainMenuScreen, StartSelectedFile);
+            return;
+        }
+
+        _activeSaveSlot = 0;
+        OracleSaveData save = _persistSaveData
             ? OracleSaveStore.LoadOrCreate()
             : OracleSaveData.CreateStandardGame();
+        InitializeGameplay(save);
+    }
+
+    private void StartSelectedFile(int slot, OracleSaveData save)
+    {
+        _activeSaveSlot = slot;
+        _mainMenuScreen?.QueueFree();
+        _mainMenuScreen = null;
+        _mainMenu = null;
+        InitializeGameplay(save);
+    }
+
+    private void InitializeGameplay(OracleSaveData save)
+    {
+        _saveData = save;
         _saveData.Changed += PersistSaveData;
         _treasures = new TreasureDatabase();
         _inventory = new InventoryState(_treasures, _saveData);
@@ -86,8 +114,14 @@ public partial class GameRoot : Node2D
             _inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SWORD_00"));
             _inventory.EquipA(InventoryState.ItemSword);
         }
+        int startingGroup = _launchOptions.HasWorldOverride || !_persistSaveData
+            ? _launchOptions.StartingGroup
+            : _saveData.RespawnGroup;
+        int startingRoom = _launchOptions.HasWorldOverride || !_persistSaveData
+            ? _launchOptions.StartingRoom
+            : _saveData.RespawnRoom;
         _rooms = new RoomSession(
-            _launchOptions.StartingGroup, _launchOptions.StartingRoom,
+            startingGroup, startingRoom,
             () => (long)_animationTicks,
             () => _animationTicks = 0.0,
             _saveData);
@@ -100,7 +134,21 @@ public partial class GameRoot : Node2D
 
         _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom);
         _roomView.SetRoom(_rooms.CurrentRoom.Texture);
-        _player.Initialize(_playerWorld, _inventory, FindSpawn());
+        bool useSavedSpawn = !_launchOptions.HasWorldOverride && _persistSaveData;
+        Vector2 spawn = useSavedSpawn
+            ? new Vector2(_saveData.RespawnX, _saveData.RespawnY)
+            : FindSpawn();
+        _player.Initialize(_playerWorld, _inventory, spawn);
+        if (useSavedSpawn)
+        {
+            _player.Face(_saveData.RespawnFacing switch
+            {
+                0 => Vector2I.Up,
+                1 => Vector2I.Right,
+                2 => Vector2I.Down,
+                _ => Vector2I.Left
+            });
+        }
         _inventory.Changed += SyncHudToInventory;
         SyncHudToInventory();
         _transitions.UpdateCamera();
@@ -115,6 +163,14 @@ public partial class GameRoot : Node2D
 
     public override void _Process(double delta)
     {
+        if (_mainMenu is not null)
+        {
+            _mainMenu.Update(delta);
+            return;
+        }
+        if (_transitions is null)
+            return;
+
         _debugFlagMenu.Update();
         if (_debugFlagMenu.IsActive)
             return;
@@ -233,7 +289,7 @@ public partial class GameRoot : Node2D
     private void PersistSaveData()
     {
         if (_persistSaveData && _saveData is not null)
-            OracleSaveStore.Save(_saveData);
+            OracleSaveStore.SaveSlot(_activeSaveSlot, _saveData);
     }
 
     private bool Collides(Vector2 playerPosition) => _collision.Collides(playerPosition);

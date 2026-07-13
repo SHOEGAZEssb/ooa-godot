@@ -1,5 +1,6 @@
 using System;
 using System.Buffers.Binary;
+using System.Text;
 
 namespace oracleofages;
 
@@ -45,6 +46,29 @@ public sealed class OracleSaveData
     public int MinimapGroup => ReadWramByte(0xc63a);
     public int MinimapRoom => ReadWramByte(0xc63b);
     public int MakuTreeState => ReadWramByte(0xc6e8);
+    public string LinkName
+    {
+        get
+        {
+            Span<byte> name = stackalloc byte[5];
+            ReadWramBytes(0xc602, name);
+            int length = name.IndexOf((byte)0);
+            if (length < 0)
+                length = name.Length;
+            return Encoding.ASCII.GetString(name[..length]).TrimEnd(' ');
+        }
+    }
+    public int MaxHealthQuarters => ReadWramByte(0xc6ab);
+    public int DeathCount => ReadWramByte(0xc61f) * 100 +
+        FromBcd(ReadWramByte(0xc61e));
+    public int TextSpeed => ReadWramByte(0xc629);
+    public int RespawnGroup => ReadWramByte(0xc62b);
+    public int RespawnRoom => ReadWramByte(0xc62c);
+    public int RespawnFacing => ReadWramByte(0xc62e) & 0x03;
+    public int RespawnY => ReadWramByte(0xc62f);
+    public int RespawnX => ReadWramByte(0xc630);
+    public bool IsLinkedGame => ReadWramByte(0xc612) != 0;
+    public bool IsCompleted => ReadWramByte(0xc614) != 0;
 
     private OracleSaveData(byte[] data)
     {
@@ -122,6 +146,38 @@ public sealed class OracleSaveData
             Changed?.Invoke();
     }
 
+    public void SetLinkName(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        string normalized = name.TrimEnd(' ');
+        if (normalized.Length is < 1 or > 5)
+            throw new ArgumentOutOfRangeException(nameof(name),
+                "Original file names contain one to five characters.");
+
+        Span<byte> encoded = stackalloc byte[6];
+        for (int index = 0; index < normalized.Length; index++)
+        {
+            char character = normalized[index];
+            if (character != ' ' &&
+                (character < 'A' || character > 'Z') &&
+                (character < 'a' || character > 'z'))
+                throw new ArgumentException(
+                    "File names support the original US uppercase and lowercase letters.",
+                    nameof(name));
+            encoded[index] = (byte)character;
+        }
+        if (WriteWramBytes(0xc602, encoded))
+            Changed?.Invoke();
+    }
+
+    public void SetTextSpeed(int speed)
+    {
+        if (speed is < 0 or > 4)
+            throw new ArgumentOutOfRangeException(nameof(speed));
+        if (WriteWramByte(0xc629, (byte)speed))
+            Changed?.Invoke();
+    }
+
     public byte[] Serialize()
     {
         byte[] output = (byte[])_data.Clone();
@@ -191,6 +247,8 @@ public sealed class OracleSaveData
             checksum += BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(offset, 2));
         return (ushort)checksum;
     }
+
+    private static int FromBcd(byte value) => (value >> 4) * 10 + (value & 0x0f);
 
     private static int GetRoomFlagTableOffset(int group) => group switch
     {

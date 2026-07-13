@@ -10,6 +10,7 @@ public partial class GameRoot
     {
         _world.ValidateRepresentativeRooms();
         ValidateSaveDataFoundation();
+        ValidateMainMenu();
         ValidateDebugFlagMenu();
 
         LoadValidationRoom(0, 0x11);
@@ -99,6 +100,136 @@ public partial class GameRoot
 
         GD.Print("Validated original $550-byte save signature/checksum, 128 global flags, " +
             "four aliased room-flag tables, inventory fields, and BCD rupee round trip.");
+    }
+
+    private void ValidateMainMenu()
+    {
+        var stored = new OracleSaveData?[OracleSaveStore.SlotCount];
+        var screen = new MainMenuScreen { Name = "MainMenuValidation" };
+        AddChild(screen);
+        int startedSlot = -1;
+        OracleSaveData? startedSave = null;
+        var menu = new MainMenuController(
+            screen,
+            (slot, save) => { startedSlot = slot; startedSave = save; },
+            slot => stored[slot],
+            (slot, save) => stored[slot] = save,
+            slot => stored[slot] = null);
+
+        if (MainMenuScreen.InterleavedSourceTileForValidation(0, 16) != 0 ||
+            MainMenuScreen.InterleavedSourceTileForValidation(1, 16) != 16 ||
+            MainMenuScreen.InterleavedSourceTileForValidation(2, 16) != 1 ||
+            !screen.FileNameStripColorForValidation.IsEqualApprox(Colors.Black) ||
+            !screen.FilePanelColorForValidation.IsEqualApprox(
+                screen.DeathTileBackgroundColorForValidation) ||
+            !screen.NameEntryFieldColorForValidation.IsEqualApprox(
+                screen.NameEntryPanelColorForValidation) ||
+            !screen.NameEntryHighlightIsGlyphMaskForValidation ||
+            MainMenuScreen.SpriteColorIndexForValidation(Colors.White, inverted: false) != 0 ||
+            MainMenuScreen.SpriteColorIndexForValidation(Colors.Black, inverted: false) != 3 ||
+            MainMenuScreen.SpriteColorIndexForValidation(Colors.Black, inverted: true) != 0 ||
+            MainMenuScreen.SpriteColorIndexForValidation(Colors.White, inverted: true) != 3 ||
+            MainMenuScreen.TextSpeedCursorPositionForValidation(0) != new Vector2(41, 128) ||
+            MainMenuScreen.TextSpeedCursorPositionForValidation(4) != new Vector2(105, 128))
+        {
+            throw new InvalidOperationException(
+                "File-select tile interleave, panel fill, filename/name-entry fields, " +
+                "name cursor priority mask, sprite inversion, " +
+                "or original message-speed cursor coordinates regressed.");
+        }
+
+        menu.BeginTitleStart();
+        for (int frame = 0; frame < MainMenuController.WhiteFadeFrames - 1; frame++)
+            menu.Update(1.0 / 60.0);
+        if (menu.CurrentPage != MainMenuScreen.Page.Title)
+            throw new InvalidOperationException("The title white fade ended before its original 32 updates.");
+        menu.Update(1.0 / 60.0);
+        if (menu.CurrentPage != MainMenuScreen.Page.FileSelect)
+            throw new InvalidOperationException("The title did not enter file select after its 32-update white fade.");
+        menu.Move(Vector2I.Up);
+        if (menu.Cursor != 3)
+            throw new InvalidOperationException("File-select Up did not wrap from file 1 to the bottom row.");
+        menu.Move(Vector2I.Right);
+        if (screen.Choice != 1)
+            throw new InvalidOperationException("File-select Copy/Erase horizontal selection did not toggle.");
+
+        screen.SetCursor(0);
+        menu.Accept();
+        if (menu.CurrentPage != MainMenuScreen.Page.NewFileOptions)
+            throw new InvalidOperationException("A blank slot did not open New Game/Secret/Game Link.");
+        menu.Accept();
+        if (menu.CurrentPage != MainMenuScreen.Page.NameEntry)
+            throw new InvalidOperationException("New Game did not open file name entry.");
+        if (!screen.TryGetSelectedNameCharacter(out char initialCharacter) ||
+            initialCharacter != 'A')
+            throw new InvalidOperationException(
+                "The original US name keyboard did not begin on uppercase A.");
+        for (int column = 0; column < 6; column++)
+            screen.MoveNameCursor(Vector2I.Right);
+        if (!screen.TryGetSelectedNameCharacter(out char lowercaseCharacter) ||
+            lowercaseCharacter != 'a')
+            throw new InvalidOperationException(
+                "Name entry did not preserve the original six-column uppercase/lowercase split.");
+        for (int column = 0; column < 6; column++)
+            screen.MoveNameCursor(Vector2I.Left);
+        foreach (char character in "LINK")
+            screen.AppendNameCharacter(character);
+        for (int row = 0; row < 5; row++)
+            screen.MoveNameCursor(Vector2I.Down);
+        screen.MoveNameCursor(Vector2I.Right);
+        screen.MoveNameCursor(Vector2I.Right);
+        if (screen.NameCursor != 0x56 || screen.NameLowerChoice != 2)
+            throw new InvalidOperationException(
+                "Name entry did not map the five character rows onto its original OK option.");
+        menu.Accept();
+        if (stored[0]?.LinkName != "LINK" || menu.CurrentPage != MainMenuScreen.Page.FileSelect)
+            throw new InvalidOperationException("Name entry did not initialize and save the selected standard file.");
+
+        screen.SetCursor(0);
+        menu.Accept();
+        if (menu.CurrentPage != MainMenuScreen.Page.TextSpeed || screen.TextSpeed != 4 ||
+            screen.Cursor != 0 || screen.SelectedSlot != 0)
+            throw new InvalidOperationException("An existing file did not open its message-speed confirmation.");
+        menu.Move(Vector2I.Left);
+        menu.Accept();
+        for (int frame = 0; frame < MainMenuController.WhiteFadeFrames - 1; frame++)
+            menu.Update(1.0 / 60.0);
+        if (startedSave is not null)
+            throw new InvalidOperationException("File select started gameplay before its 32-update white fade.");
+        menu.Update(1.0 / 60.0);
+        if (startedSlot != 0 || startedSave != stored[0] || stored[0]!.TextSpeed != 3)
+            throw new InvalidOperationException("Message-speed confirmation did not save and start the chosen file.");
+
+        var copyScreen = new MainMenuScreen { Name = "MainMenuCopyValidation" };
+        AddChild(copyScreen);
+        var copyMenu = new MainMenuController(
+            copyScreen, (_, _) => { }, slot => stored[slot],
+            (slot, save) => stored[slot] = save, slot => stored[slot] = null);
+        copyMenu.OpenFileSelect();
+        copyScreen.SetCursor(3);
+        copyMenu.Accept();
+        copyScreen.SetCursor(0);
+        copyMenu.Accept();
+        copyMenu.Accept();
+        copyMenu.Move(Vector2I.Right);
+        copyMenu.Accept();
+        if (stored[1]?.LinkName != "LINK" || ReferenceEquals(stored[0], stored[1]))
+            throw new InvalidOperationException("Copy did not clone the original $550-byte file into its destination.");
+
+        copyScreen.SetCursor(3);
+        copyScreen.SetChoice(1);
+        copyMenu.Accept();
+        copyScreen.SetCursor(1);
+        copyMenu.Accept();
+        copyMenu.Move(Vector2I.Right);
+        copyMenu.Accept();
+        if (stored[1] is not null)
+            throw new InvalidOperationException("Erase confirmation did not clear the selected file slot.");
+
+        screen.QueueFree();
+        copyScreen.QueueFree();
+        GD.Print("Validated title/file-select 32-update white fades, slot wrapping, " +
+            "new-file naming, message speed, copy, and erase.");
     }
 
     private void ValidateDebugFlagMenu()

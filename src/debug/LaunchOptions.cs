@@ -10,6 +10,8 @@ public sealed class LaunchOptions
 
     public int StartingGroup => ParseHex("--group=", GetDefaultGroup(), 0, 5);
     public int StartingRoom => ParseHex("--room=", GetDefaultRoom(), 0, 0xff);
+    public bool HasWorldOverride => HasArgument("--group=") || HasArgument("--room=");
+    public bool ShowMainMenu => !HasValidationFlag() && !HasWorldOverride && !Has("--skip-menu");
     public bool Has(string flag) => Array.Exists(
         _arguments, argument => argument.Equals(flag, StringComparison.OrdinalIgnoreCase));
 

@@ -328,6 +328,54 @@ Copy-GeneratedFile "gfx_compressible\ages\spr_quest_items_4.png" "gfx\spr_quest_
 Copy-GeneratedFile "gfx_compressible\ages\spr_common_items.png" "gfx\spr_common_items.png"
 Copy-GeneratedFile "gfx\common\gfx_partial_hearts.png" "gfx\gfx_partial_hearts.png"
 Copy-GeneratedFile "gfx\common\gfx_font.png" "gfx\gfx_font.png"
+
+# Title and file-select screens use the same split VRAM layout as the original
+# GFXH_TITLESCREEN / GFXH_FILE_MENU_* headers. Preserve each source piece at
+# its header destination instead of baking a replacement menu image.
+foreach ($menuAsset in @(
+    @{ Source = 'gfx_compressible\ages\gfx_titlescreen_1.png'; Destination = 'menu\gfx_titlescreen_1.png' },
+    @{ Source = 'gfx_compressible\common\gfx_titlescreen_2.png'; Destination = 'menu\gfx_titlescreen_2.png' },
+    @{ Source = 'gfx_compressible\common\gfx_titlescreen_3.png'; Destination = 'menu\gfx_titlescreen_3.png' },
+    @{ Source = 'gfx_compressible\common\gfx_titlescreen_4.png'; Destination = 'menu\gfx_titlescreen_4.png' },
+    @{ Source = 'gfx_compressible\common\gfx_titlescreen_5.png'; Destination = 'menu\gfx_titlescreen_5.png' },
+    @{ Source = 'gfx_compressible\common\gfx_titlescreen_6.png'; Destination = 'menu\gfx_titlescreen_6.png' },
+    @{ Source = 'gfx_compressible\common\spr_titlescreen_sprites.png'; Destination = 'menu\spr_titlescreen_sprites.png' },
+    @{ Source = 'gfx_compressible\ages\map_titlescreen.bin'; Destination = 'menu\map_titlescreen.bin' },
+    @{ Source = 'gfx_compressible\ages\flg_titlescreen.bin'; Destination = 'menu\flags_titlescreen.bin' },
+    @{ Source = 'gfx_compressible\common\gfx_fileselect.png'; Destination = 'menu\gfx_fileselect.png' },
+    @{ Source = 'gfx_compressible\common\gfx_messagespeed.png'; Destination = 'menu\gfx_messagespeed.png' },
+    @{ Source = 'gfx_compressible\common\gfx_pickafile_2.png'; Destination = 'menu\gfx_pickafile_2.png' },
+    @{ Source = 'gfx_compressible\common\gfx_pickafile.png'; Destination = 'menu\gfx_pickafile.png' },
+    @{ Source = 'gfx_compressible\common\gfx_copywhatwhere.png'; Destination = 'menu\gfx_copywhatwhere.png' },
+    @{ Source = 'gfx_compressible\common\gfx_quit_2.png'; Destination = 'menu\gfx_quit_2.png' },
+    @{ Source = 'gfx_compressible\common\gfx_newfilescreen.png'; Destination = 'menu\gfx_newfilescreen.png' },
+    @{ Source = 'gfx_compressible\common\gfx_name.png'; Destination = 'menu\gfx_name.png' },
+    @{ Source = 'gfx_compressible\common\gfx_copy.png'; Destination = 'menu\gfx_copy.png' },
+    @{ Source = 'gfx_compressible\common\gfx_erase.png'; Destination = 'menu\gfx_erase.png' },
+    @{ Source = 'gfx_compressible\common\spr_fileselect_decorations.png'; Destination = 'menu\spr_fileselect_decorations.png' },
+    @{ Source = 'gfx_compressible\ages\spr_nayru_1.png'; Destination = 'menu\spr_nayru_1.png' },
+    @{ Source = 'gfx_compressible\common\map_file_menu_top.bin'; Destination = 'menu\map_file_menu_top.bin' },
+    @{ Source = 'gfx_compressible\common\flg_file_menu_top.bin'; Destination = 'menu\flags_file_menu_top.bin' },
+    @{ Source = 'gfx_compressible\common\map_file_menu_middle.bin'; Destination = 'menu\map_file_menu_middle.bin' },
+    @{ Source = 'gfx_compressible\common\flg_file_menu_middle.bin'; Destination = 'menu\flags_file_menu_middle.bin' },
+    @{ Source = 'gfx_compressible\common\map_file_menu_bottom.bin'; Destination = 'menu\map_file_menu_bottom.bin' },
+    @{ Source = 'gfx_compressible\common\flg_file_menu_bottom.bin'; Destination = 'menu\flags_file_menu_bottom.bin' },
+    @{ Source = 'gfx_compressible\common\map_file_menu_copy.bin'; Destination = 'menu\map_file_menu_copy.bin' },
+    @{ Source = 'gfx_compressible\common\flg_file_menu_copy.bin'; Destination = 'menu\flags_file_menu_copy.bin' },
+    @{ Source = 'gfx_compressible\common\map_save_menu_middle.bin'; Destination = 'menu\map_save_menu_middle.bin' },
+    @{ Source = 'gfx_compressible\common\flg_save_menu_middle.bin'; Destination = 'menu\flags_save_menu_middle.bin' },
+    @{ Source = 'gfx_compressible\common\map_save_menu_bottom.bin'; Destination = 'menu\map_save_menu_bottom.bin' },
+    @{ Source = 'gfx_compressible\common\flg_save_menu_bottom.bin'; Destination = 'menu\flags_save_menu_bottom.bin' },
+    @{ Source = 'gfx_compressible\common\map_file_menu_message_speed.bin'; Destination = 'menu\map_file_menu_message_speed.bin' },
+    @{ Source = 'gfx_compressible\common\flg_file_menu_message_speed.bin'; Destination = 'menu\flags_file_menu_message_speed.bin' },
+    @{ Source = 'gfx_compressible\common\map_name_entry_top.bin'; Destination = 'menu\map_name_entry_top.bin' },
+    @{ Source = 'gfx_compressible\common\flg_name_entry_top.bin'; Destination = 'menu\flags_name_entry_top.bin' },
+    @{ Source = 'gfx_compressible\common\map_name_entry_middle.bin'; Destination = 'menu\map_name_entry_middle.bin' },
+    @{ Source = 'gfx_compressible\common\flg_name_entry_middle.bin'; Destination = 'menu\flags_name_entry_middle.bin' },
+    @{ Source = 'gfx_compressible\common\map_name_entry_bottom.bin'; Destination = 'menu\map_name_entry_bottom.bin' },
+    @{ Source = 'gfx_compressible\common\flg_name_entry_bottom.bin'; Destination = 'menu\flags_name_entry_bottom.bin' })) {
+    Copy-GeneratedFile $menuAsset.Source $menuAsset.Destination
+}
 Copy-GeneratedFile "gfx_compressible\ages\gfx_inventory_hud_1.png" "inventory\gfx_inventory_hud_1.png"
 Copy-GeneratedFile "gfx_compressible\ages\spr_present_past_symbols.png" "inventory\spr_present_past_symbols.png"
 Copy-GeneratedFile "gfx_compressible\ages\gfx_inventory_hud_2.png" "inventory\gfx_inventory_hud_2.png"
@@ -423,6 +471,25 @@ $inventoryPalettePath = Join-Path $destination 'inventory\palette_bg.bin'
 New-Item -ItemType Directory -Force -Path (Split-Path $inventoryPalettePath -Parent) | Out-Null
 [IO.File]::WriteAllBytes($inventoryPalettePath, $inventoryBgPalette)
 Export-PaletteBlock 'standardSpritePaletteData' 24 'inventory\palette_sprites.bin'
+
+# PALH_03 supplies all title palettes. PALH_05 supplies file-select BG palette
+# 0, BG palettes 2-6, standard sprite palettes 0-3, and sprite palettes 4-6.
+Export-PaletteBlock 'paletteData4018' 32 'menu\palette_title_bg.bin'
+Export-PaletteBlock 'paletteData4058' 32 'menu\palette_title_sprites.bin'
+$fileMenuBgPalette = [byte[]]::new(8 * 4 * 3)
+$fileMenuBg0 = Read-PaletteBytes 'paletteData48e0' 4
+$fileMenuBg26 = Read-PaletteBytes 'paletteData5878' 20
+[Array]::Copy($fileMenuBg0, 0, $fileMenuBgPalette, 0, $fileMenuBg0.Length)
+[Array]::Copy($fileMenuBg26, 0, $fileMenuBgPalette, 2 * 4 * 3, $fileMenuBg26.Length)
+[IO.File]::WriteAllBytes(
+    (Join-Path $destination 'menu\palette_file_bg.bin'), $fileMenuBgPalette)
+$fileMenuSpritePalette = [byte[]]::new(8 * 4 * 3)
+$fileMenuSprite03 = Read-PaletteBytes 'standardSpritePaletteData' 16
+$fileMenuSprite46 = Read-PaletteBytes 'paletteData5858' 12
+[Array]::Copy($fileMenuSprite03, 0, $fileMenuSpritePalette, 0, $fileMenuSprite03.Length)
+[Array]::Copy($fileMenuSprite46, 0, $fileMenuSpritePalette, 4 * 4 * 3, $fileMenuSprite46.Length)
+[IO.File]::WriteAllBytes(
+    (Join-Path $destination 'menu\palette_file_sprites.bin'), $fileMenuSpritePalette)
 
 # Signs are map metatile $f2 rather than ordinary room objects. Preserve the
 # original group/room/position lookup table and resolve its TX_2eXX strings to

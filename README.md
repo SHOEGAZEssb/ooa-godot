@@ -17,6 +17,7 @@ The importer validates the clean US ROM MD5 (`C4639CC61C049E5A085526BB6CAC03BB`,
 - Move: arrow keys or WASD
 - Sword: Z or K (gamepad A)
 - Reserved item button: X or J (gamepad B)
+- Title/file select: Start opens file select; arrows move, A/Start confirms, and B goes back
 - Inventory / Start: I or Enter (gamepad Start); move the cursor, press A or B to equip/unequip that slot, press Start again to close
 - Map / Select: M or Tab (gamepad Back); close with Select or B
 - Development map fast travel: F; move, press A to travel, press F to switch eras, or B/Select to cancel
@@ -30,11 +31,13 @@ The importer validates the clean US ROM MD5 (`C4639CC61C049E5A085526BB6CAC03BB`,
 
 The internal viewport is the Game Boy Color's 160×144 resolution and is integer-scaled to 640×576. The generated assets and original game data are for personal, non-commercial research use.
 
-Normal runs now maintain `user://oracle_of_ages.sav` plus a backup copy. The file is the original `$550`-byte WRAM image (`$c5b0-$caff`) with the Ages `Z21216-0` verification string and original 16-bit checksum. Headless `--validate` runs always use an isolated in-memory standard-game file and never read or write the player's save. Launch arguments still select the development start room; saved respawn-position and file-select UI are not active yet.
+An argument-free run now opens the original Ages title presentation and its three-slot file select. The title uses the imported `GFXH_TITLESCREEN` tilemap, attributes, split VRAM graphics, `PALH_03` colors, Maku Seed OAM, the original 32-update Press Start blink, and the 32-update white transition into file select. File select preserves the three file rows, wrapping cursor, Copy/Erase row, standard New Game path, the imported five-row US name keyboard and its five-character editor, the existing-file message-speed confirmation (`$00-$04`), and its 32-update white transition into gameplay. Copy clones the complete save image and Erase removes both copies. Secret entry and Game Link remain visible but report as unsupported because their secret/link systems are not ported; the pre-title cinematic and audio are also deferred.
+
+The slots use `user://oracle_of_ages.sav`, `user://oracle_of_ages_2.sav`, and `user://oracle_of_ages_3.sav`, each with a `.bak` copy. Slot 1 deliberately retains the earlier single-save path, so an existing development save appears without migration. Every file remains the original `$550`-byte WRAM image (`$c5b0-$caff`) with the Ages `Z21216-0` verification string and original 16-bit checksum. Starting a selected file consumes its original death-respawn group, room, position, and facing fields; the per-character dialogue speed itself is not yet active. Headless `--validate` runs use isolated in-memory files and never touch player saves. Explicit `--group`/`--room` arguments bypass the menu for development and override the saved start location.
 
 Press **F1** to inspect and edit the live save image. The global page lists all 128 flags by their imported Ages `GLOBALFLAG_*` names; Up/Down moves one flag, Left/Right moves twelve, and A toggles the selected bit. Tab opens the room page, which exposes all `$00-$ff` bytes in the four original aliased tables (`0/2`, `1/3`, `4/6`, and `5/7`). Select the table or room rows and use Left/Right to browse, then select one of bits 0-7 and press A to toggle it. Gameplay freezes while the editor is open. Consumers that initialize on room entry, including layouts and object scripts, observe edited state after that room is reloaded.
 
-An argument-free launch now starts in dungeon room `4:cb`, which contains four normal Keese using their original random-position object record. Explicit `--group`/`--room` arguments and headless validations keep their previous defaults. The pushblock practice room remains available with `-- --group=4 --room=09`.
+The four-Keese room remains available directly with `-- --group=4 --room=cb`. Explicit `--group`/`--room` arguments and headless validations keep their development defaults, while an argument-free launch opens the title. The pushblock practice room remains available with `-- --group=4 --room=09`.
 
 The gameplay HUD is reconstructed from the original HUD tilemap, flags, palette, item sprites, digit tiles, and full/partial/empty heart tiles. Health now uses the original quarter-heart units (`$0c` for three hearts), syncs into the HUD, and terrain respawn hazards remove a half-heart before returning Link to his last safe tile. The inventory foundation mirrors and persists the original `wInventoryB`, `wInventoryA`, 16-byte `wInventoryStorage`, obtained-treasure flags, dungeon item/key bytes, item levels, health, BCD rupees, and currently supported counters at their original save-image offsets. A new file receives `TREASURE_OBJECT_SWORD_00` through the original-style treasure path and equips it to A so the existing sword slices remain playable; later launches preserve the player's equipment arrangement.
 
@@ -85,6 +88,7 @@ For room-rendering development, hexadecimal group and room values can be selecte
 `GameRoot` is limited to scene composition, lifecycle updates, HUD synchronization, and validation forwarding. Gameplay ownership is split by responsibility:
 
 - `OracleSaveData` and `OracleSaveStore` own the original save image, checksum/backup persistence, global story flags, four aliased room-flag tables, saved minimap position, and the inventory fields currently mirrored by `InventoryState`.
+- `MainMenuController` and `MainMenuScreen` own the title, three-slot file select, standard-file creation, names, message speed, Copy/Erase, and selection of the save passed into gameplay.
 - `DebugFlagMenuController` and `DebugFlagScreen` provide the F1 live editor over that same save image using imported global-flag names.
 - `RoomSession` owns the active group/room, resolves overworld or dungeon neighbors, and consumes persistent room flags for visits and layout selection.
 - `MapMenuController` and `MapScreen` own Select-menu fades, input freezing, visit visibility, and original overworld/dungeon map rendering.
@@ -100,5 +104,5 @@ For room-rendering development, hexadecimal group and room values can be selecte
 
 1. Port further room objects and interactions from `data/ages/*Room.s` and `objects/ages`.
 2. Refine terrain with full swim/diving item checks, ledge screen transitions, terrain-specific Link animations, and the original low-health/death handling.
-3. Expand active inventory item behavior, NPC/object and enemy systems, and route their script conditions through the save/story-state owner; then add file-select/save-menu and saved respawn-location flow.
+3. Expand active inventory item behavior, NPC/object and enemy systems, route their script conditions through the save/story-state owner, and add the in-game save/continue menu plus respawn-buffer updates.
 4. Translate music and sound-effect sequencing into Godot audio streams.
