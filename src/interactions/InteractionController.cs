@@ -54,15 +54,29 @@ public sealed class InteractionController
         if (_chestTreasure is null)
             return;
 
-        _chestTreasure.Advance(delta);
         if (!_chestTreasure.Finished)
+        {
+            _chestTreasure.Advance(delta);
+            if (!_chestTreasure.Finished)
+                return;
+
+            // treasure.s:@m3State1 gives the treasure and opens its text after
+            // the 32-frame rise, then falls through to @m3State2 without
+            // deleting the still-visible interaction.
+            _addRupees(_pendingChest.Amount);
+            _dialogue.ShowMessage(_pendingChest.Message, _worldToScreen(player.Position).Y);
+            return;
+        }
+
+        // treasure.s:@m3State2 waits for wTextIsActive to clear. Keep the
+        // reward at its final raised position until the player closes the
+        // pickup textbox.
+        if (_dialogue.IsOpen)
             return;
 
         _worldRoot.RemoveChild(_chestTreasure);
         _chestTreasure.QueueFree();
         _chestTreasure = null;
-        _addRupees(_pendingChest.Amount);
-        _dialogue.ShowMessage(_pendingChest.Message, _worldToScreen(player.Position).Y);
     }
 
     public bool TryInteract(Player player)

@@ -83,6 +83,42 @@ foreach ($block in $paletteBlocks) {
 }
 
 $paletteDataSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\paletteData.s")
+
+# initializeGame loads PALH_0f before every gameplay room. Besides the standard
+# sprite palettes, that header installs paletteData48e0 as background palette
+# 0. Special metatiles such as the closed/open chest ($f1/$f0) select that
+# palette directly instead of one of the tileset-specific palettes 2-7.
+$commonBgPaletteLabel = 'paletteData48e0'
+$commonBgPaletteIndex = $paletteDataSource.IndexOf(
+    "${commonBgPaletteLabel}:", [StringComparison]::Ordinal)
+if ($commonBgPaletteIndex -lt 0) {
+    throw "Common gameplay background palette not found: $commonBgPaletteLabel"
+}
+$commonBgPaletteEnd = $paletteDataSource.IndexOf(
+    'paletteData', $commonBgPaletteIndex + $commonBgPaletteLabel.Length,
+    [StringComparison]::Ordinal)
+if ($commonBgPaletteEnd -lt 0) { $commonBgPaletteEnd = $paletteDataSource.Length }
+$commonBgPaletteBlock = $paletteDataSource.Substring(
+    $commonBgPaletteIndex, $commonBgPaletteEnd - $commonBgPaletteIndex)
+$commonBgColors = [regex]::Matches(
+    $commonBgPaletteBlock,
+    'm_RGB16\s+\$(?<r>[0-9a-f]{2})\s+\$(?<g>[0-9a-f]{2})\s+\$(?<b>[0-9a-f]{2})')
+if ($commonBgColors.Count -lt 4) {
+    throw "$commonBgPaletteLabel contains $($commonBgColors.Count) colors; expected at least 4."
+}
+$commonBgPaletteBytes = [byte[]]::new(4 * 3)
+for ($color = 0; $color -lt 4; $color++) {
+    $commonBgPaletteBytes[$color * 3] = [Convert]::ToByte(
+        $commonBgColors[$color].Groups['r'].Value, 16)
+    $commonBgPaletteBytes[$color * 3 + 1] = [Convert]::ToByte(
+        $commonBgColors[$color].Groups['g'].Value, 16)
+    $commonBgPaletteBytes[$color * 3 + 2] = [Convert]::ToByte(
+        $commonBgColors[$color].Groups['b'].Value, 16)
+}
+$commonBgPalettePath = Join-Path $destination 'metadata\commonBgPalette0.bin'
+New-Item -ItemType Directory -Force -Path (Split-Path $commonBgPalettePath -Parent) | Out-Null
+[IO.File]::WriteAllBytes($commonBgPalettePath, $commonBgPaletteBytes)
+
 $metadata = [byte[]]::new(128 * 6)
 $usedTilesets = [Collections.Generic.HashSet[int]]::new()
 

@@ -19,6 +19,7 @@ public sealed class OracleWorldData
     private readonly Dictionary<int, byte[]> _mappings = new();
     private readonly Dictionary<int, byte[]> _collisions = new();
     private readonly Dictionary<int, Color[,]> _palettes = new();
+    private readonly Color[] _commonBgPalette0;
     private readonly OracleAnimationData _animations;
 
     public int CachedRoomCount => _rooms.Count;
@@ -26,6 +27,8 @@ public sealed class OracleWorldData
     public OracleWorldData()
     {
         _tilesetMetadata = ReadBytes("res://assets/oracle/metadata/tilesets.bin", 128 * TilesetRecordSize);
+        _commonBgPalette0 = LoadFourColorPalette(
+            "res://assets/oracle/metadata/commonBgPalette0.bin");
         _animations = new OracleAnimationData();
     }
 
@@ -89,7 +92,7 @@ public sealed class OracleWorldData
         byte[] layout = Godot.FileAccess.GetFileAsBytes(roomPath);
         var result = new OracleRoomData(
             group, room, tileset, animationGroup, layout, collisions,
-            graphics, mappings, palette, _animations);
+            graphics, mappings, palette, _commonBgPalette0, _animations);
         _rooms.Add(key, result);
         return result;
     }
@@ -139,6 +142,21 @@ public sealed class OracleWorldData
             byte g = (byte)Mathf.RoundToInt(values[offset + 1] * 255.0f / 31.0f);
             byte b = (byte)Mathf.RoundToInt(values[offset + 2] * 255.0f / 31.0f);
             result[palette, shade] = Color.Color8(r, g, b);
+        }
+        return result;
+    }
+
+    private static Color[] LoadFourColorPalette(string path)
+    {
+        byte[] values = ReadBytes(path, 12);
+        var result = new Color[4];
+        for (int shade = 0; shade < result.Length; shade++)
+        {
+            int offset = shade * 3;
+            byte r = (byte)Mathf.RoundToInt(values[offset] * 255.0f / 31.0f);
+            byte g = (byte)Mathf.RoundToInt(values[offset + 1] * 255.0f / 31.0f);
+            byte b = (byte)Mathf.RoundToInt(values[offset + 2] * 255.0f / 31.0f);
+            result[shade] = Color.Color8(r, g, b);
         }
         return result;
     }

@@ -66,6 +66,7 @@ public sealed class OracleRoomData
     private readonly Image _source;
     private readonly byte[] _mappings;
     private readonly Color[,] _palette;
+    private readonly Color[] _commonBgPalette0;
     private readonly OracleAnimationData _animations;
     private int _animationSignature;
 
@@ -79,6 +80,7 @@ public sealed class OracleRoomData
         Image source,
         byte[] mappings,
         Color[,] palette,
+        Color[] commonBgPalette0,
         OracleAnimationData animations)
     {
         Group = group;
@@ -90,6 +92,7 @@ public sealed class OracleRoomData
         _source = source;
         _mappings = mappings;
         _palette = palette;
+        _commonBgPalette0 = commonBgPalette0;
         _animations = animations;
 
         (WidthInTiles, HeightInTiles) = layout.Length switch
@@ -324,7 +327,8 @@ public sealed class OracleRoomData
                 int sourceY = (sourceTile / 16) * 8;
                 bool flipX = (attributes & 0x20) != 0;
                 bool flipY = (attributes & 0x40) != 0;
-                int paletteIndex = Mathf.Clamp((attributes & 0x07) - 2, 0, 5);
+                int rawPalette = attributes & 0x07;
+                int tilesetPaletteIndex = Mathf.Clamp(rawPalette - 2, 0, 5);
                 int quarterX = quarter % 2;
                 int quarterY = quarter / 2;
 
@@ -337,7 +341,15 @@ public sealed class OracleRoomData
                     int shade = Mathf.Clamp(Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f), 0, 3);
                     int writeX = roomX * 16 + quarterX * 8 + pixelX;
                     int writeY = roomY * 16 + quarterY * 8 + pixelY;
-                    output.SetPixel(writeX, writeY, _palette[paletteIndex, shade]);
+                    // initializeGame loads PALH_0f before the tileset palette.
+                    // Chest metatiles $f0/$f1 use its red background palette 0.
+                    // Palette 1 is transient (for example, textbox colors), so
+                    // preserve the existing tileset fallback until that state is
+                    // modeled independently.
+                    Color color = rawPalette == 0
+                        ? _commonBgPalette0[shade]
+                        : _palette[tilesetPaletteIndex, shade];
+                    output.SetPixel(writeX, writeY, color);
                 }
             }
         }

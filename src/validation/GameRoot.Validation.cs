@@ -18,6 +18,21 @@ public partial class GameRoot
                 "The canonical 0:49/$51 30-rupee chest was not available for testing.");
         }
 
+        Image roomImage = _currentRoom.Texture.GetImage();
+        int redChestPixels = 0;
+        for (int y = 80; y < 96; y++)
+        for (int x = 16; x < 32; x++)
+        {
+            Color pixel = roomImage.GetPixel(x, y);
+            if (pixel.R > 0.5f && pixel.G < 0.2f && pixel.B < 0.25f)
+                redChestPixels++;
+        }
+        if (redChestPixels == 0)
+        {
+            throw new InvalidOperationException(
+                "Chest $51 did not render with PALH_0f background palette 0.");
+        }
+
         _player.WarpTo(new Vector2(24, 74));
         _player.Face(Vector2I.Down);
         if (!TryInteract(_player) || !_dialogue.IsOpen ||
@@ -40,20 +55,27 @@ public partial class GameRoot
         if (!_interactions.ChestRewardActive || _player.Rupees != rupeesBefore)
             throw new InvalidOperationException("The chest reward completed before its 32-frame rise.");
         _interactions.Update(1.0 / 60.0, _player);
-        if (_interactions.ChestRewardActive || _player.Rupees != rupeesBefore + 30 ||
+        if (!_interactions.ChestRewardActive || _player.Rupees != rupeesBefore + 30 ||
             !_dialogue.IsOpen || _dialogue.CurrentMessage != "You got\n30 Rupees!\nThat's nice.")
         {
             throw new InvalidOperationException(
-                "TREASURE_OBJECT_RUPEES_04 did not grant 30 rupees with TX_0005.");
+                "TREASURE_OBJECT_RUPEES_04 did not remain visible while showing TX_0005.");
         }
 
         _dialogue.Close();
+        if (!_interactions.ChestRewardActive)
+            throw new InvalidOperationException("The chest reward disappeared before its textbox closed.");
+        _interactions.Update(0.0, _player);
+        if (_interactions.ChestRewardActive)
+            throw new InvalidOperationException("The chest reward remained after its textbox closed.");
+
         _currentRoom = _world.LoadRoom(0, 0x49);
         _roomView.SetRoom(_currentRoom.Texture);
         if (_currentRoom.GetMetatile(chestPoint) != 0xf0 || TryInteract(_player))
             throw new InvalidOperationException("The opened chest room flag did not persist for the session.");
 
-        GD.Print("Validated 0:49/$51 chest direction, 32-frame reward rise, 30 rupees, and opened state.");
+        GD.Print("Validated 0:49/$51 red chest palette, direction, 32-frame reward rise, " +
+            "reward visibility through TX_0005, 30 rupees, and opened state.");
     }
 
     private void ValidateHouseWarp()
