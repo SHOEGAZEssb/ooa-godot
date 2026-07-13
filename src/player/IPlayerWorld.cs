@@ -6,6 +6,8 @@ public interface IPlayerWorld
 {
     bool IsTransitioning { get; }
     bool DialogueOpen { get; }
+    bool SwordDisabled { get; }
+    bool MovementDisabled { get; }
     bool ApplySwordHit(Player player, Rect2 hitbox);
     bool TryInteract(Player player);
     bool Collides(Vector2 playerPosition);

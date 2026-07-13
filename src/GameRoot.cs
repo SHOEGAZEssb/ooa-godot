@@ -121,7 +121,7 @@ public partial class GameRoot : Node2D
         _combat = new CombatController(
             this, _rooms, _roomView, _entities, () => (long)_animationTicks);
         _playerWorld = new PlayerWorld(
-            _transitions, _interactions, _collision, _pushBlocks, _terrain, _combat);
+            _transitions, _interactions, _collision, _pushBlocks, _terrain, _combat, _entities);
         _debugWarps = new DebugWarpController(
             _rooms, _player, LoadDebugRoom, FindSpawn, () => (long)_animationTicks,
             _interactions.ResetChestForTesting);

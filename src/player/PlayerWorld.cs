@@ -10,9 +10,12 @@ public sealed class PlayerWorld : IPlayerWorld
     private readonly PushBlockController _pushBlocks;
     private readonly TerrainController _terrain;
     private readonly CombatController _combat;
+    private readonly RoomEntityManager _entities;
 
     public bool IsTransitioning => _transitions.IsTransitioning;
     public bool DialogueOpen => _interactions.DialogueOpen;
+    public bool SwordDisabled => _entities.PlayerSwordDisabled;
+    public bool MovementDisabled => _entities.PlayerMovementDisabled;
 
     public PlayerWorld(
         RoomTransitionController transitions,
@@ -20,7 +23,8 @@ public sealed class PlayerWorld : IPlayerWorld
         RoomCollision collision,
         PushBlockController pushBlocks,
         TerrainController terrain,
-        CombatController combat)
+        CombatController combat,
+        RoomEntityManager entities)
     {
         _transitions = transitions;
         _interactions = interactions;
@@ -28,6 +32,7 @@ public sealed class PlayerWorld : IPlayerWorld
         _pushBlocks = pushBlocks;
         _terrain = terrain;
         _combat = combat;
+        _entities = entities;
     }
 
     public bool ApplySwordHit(Player player, Rect2 hitbox) => _combat.ApplySwordHit(player, hitbox);

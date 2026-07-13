@@ -20,6 +20,7 @@ public partial class GameRoot
         ValidateSwordBush();
         ValidateKeese();
         ValidateOctoroks();
+        ValidateZolsAndGels();
         ValidateItemDrops();
         ValidateHouseWarp();
         ValidateCaveWarps();
@@ -920,6 +921,280 @@ public partial class GameRoot
         GD.Print("Validated 33 imported ENEMY_OCTOROK room records / 48 instances, random and fixed " +
             "red/fast-red/blue subids, movement/combat attributes, 16-update firing, SPEED_200 rocks, " +
             "sword deflection, 32-update bounce, two-hit blue combat, scrolling, and `$8e item drops.");
+    }
+
+    private void ValidateZolsAndGels()
+    {
+        var database = new EnemyDatabase();
+        if (database.ZolRecordCount != 61 || database.ZolInstanceCount != 79 ||
+            database.GelRecordCount != 1 || database.GelInstanceCount != 3)
+        {
+            throw new InvalidOperationException(
+                $"Expected 61 ENEMY_ZOL records / 79 instances and one ENEMY_GEL record / " +
+                $"3 instances, got {database.ZolRecordCount} / {database.ZolInstanceCount} " +
+                $"and {database.GelRecordCount} / {database.GelInstanceCount}.");
+        }
+        if (database.Gel.Id != 0x43 || database.Gel.TileBase != 0 ||
+            database.Gel.Palette != 2 || database.Gel.CollisionRadiusY != 2 ||
+            database.Gel.CollisionRadiusX != 2 || database.Gel.DamageQuarters != 2 ||
+            database.Gel.Health != 1)
+        {
+            throw new InvalidOperationException(
+                "ENEMY_GEL did not retain id `$43, tile base 0, palette 2, radius 2x2, " +
+                "half-heart damage, and one health.");
+        }
+
+        LoadValidationRoom(4, 0xcc);
+        if (_entities.Zols.Count != 6 ||
+            _entities.Zols.FindAll(zol => zol.Record.SubId == 0).Count != 3 ||
+            _entities.Zols.FindAll(zol => zol.Record.SubId == 1).Count != 3 ||
+            !_entities.Zols.Exists(zol => zol.Position == new Vector2(0x58, 0x78)) ||
+            !_entities.Zols.Exists(zol => zol.Position == new Vector2(0x48, 0x98)))
+        {
+            throw new InvalidOperationException(
+                "Room 4:cc did not preserve its three fixed green and three fixed red Zols.");
+        }
+
+        ZolCharacter transitionZol = _entities.Zols[0];
+        int frozenCounter = transitionZol.Counter1;
+        OracleRoomData incomingRoom = _world.LoadRoom(4, 0x0b);
+        _entities.BeginScreenTransition(4, incomingRoom, Vector2.Left * incomingRoom.Width);
+        _entities.Update(1.0, _player);
+        if (_entities.OutgoingZols.Count != 6 || _entities.Zols.Count != 0 ||
+            _entities.Gels.Count != 3 || transitionZol.Counter1 != frozenCounter ||
+            !_entities.Gels[0].TransitionDrawOffset.IsEqualApprox(Vector2.Left * incomingRoom.Width))
+        {
+            throw new InvalidOperationException(
+                "Scrolling did not retain/freeze six outgoing Zols and preload/freeze " +
+                "the three direct room 4:0b Gels.");
+        }
+        _entities.FinishScreenTransition();
+        if (_entities.OutgoingZols.Count != 0 ||
+            !_entities.Gels[0].TransitionDrawOffset.IsEqualApprox(Vector2.Zero))
+        {
+            throw new InvalidOperationException(
+                "Zol/Gel transition ownership and offsets were not normalized after scrolling.");
+        }
+
+        EnemyDatabase.ZolRecord greenRecord = default;
+        foreach (EnemyDatabase.ZolRecord record in database.GetRoomZols(4, 0xcc))
+        {
+            if (record.SubId == 0)
+            {
+                greenRecord = record;
+                break;
+            }
+        }
+        if (greenRecord.Id != 0x34 || greenRecord.Health != 2 ||
+            greenRecord.DamageQuarters != 2 || greenRecord.Palette != 0)
+        {
+            throw new InvalidOperationException(
+                "Green ENEMY_ZOL `$34/`$00 attributes were not imported correctly.");
+        }
+
+        var timingZol = new ZolCharacter();
+        var timingRandom = new OracleRandom();
+        timingZol.Initialize(greenRecord, _world.LoadRoom(4, 0xcc), new Vector2(80, 80), timingRandom);
+        timingZol.UpdateFrame(new Vector2(120, 80));
+        if (timingZol.State != ZolCharacter.ZolState.GreenHidden)
+            throw new InvalidOperationException("Green Zol woke at the excluded Manhattan distance `$28.");
+        timingZol.UpdateFrame(new Vector2(119, 80));
+        if (timingZol.State != ZolCharacter.ZolState.GreenEmerging ||
+            timingZol.Counter2 != 4 || !timingZol.Visible)
+        {
+            throw new InvalidOperationException(
+                "Green Zol did not wake inside Manhattan distance `$28 with four hops queued.");
+        }
+        for (int frame = 0; frame < 32; frame++)
+            timingZol.UpdateFrame(new Vector2(119, 80));
+        if (timingZol.State != ZolCharacter.ZolState.GreenEmerging ||
+            timingZol.AnimationParameter != 1 || timingZol.ZFixed != 0)
+        {
+            throw new InvalidOperationException(
+                "Green Zol emergence did not reach its terminal animation parameter after 32 updates.");
+        }
+        for (int frame = 0; frame < 26; frame++)
+            timingZol.UpdateFrame(new Vector2(119, 80));
+        if (timingZol.ZFixed >= 0 || timingZol.State != ZolCharacter.ZolState.GreenEmerging)
+            throw new InvalidOperationException("Green Zol landed before its 27th gravity update.");
+        timingZol.UpdateFrame(new Vector2(119, 80));
+        if (timingZol.State != ZolCharacter.ZolState.GreenWaiting ||
+            timingZol.Counter1 != 0x30 || !timingZol.CollisionEnabled)
+        {
+            throw new InvalidOperationException(
+                "Green Zol did not land on gravity update 27 and begin its 48-update wait.");
+        }
+        for (int frame = 0; frame < 47; frame++)
+            timingZol.UpdateFrame(new Vector2(119, 80));
+        if (timingZol.Counter1 != 1 || timingZol.State != ZolCharacter.ZolState.GreenWaiting)
+            throw new InvalidOperationException("Green Zol ended its 48-update wait early.");
+        timingZol.UpdateFrame(new Vector2(119, 80));
+        if (timingZol.State != ZolCharacter.ZolState.GreenHopping)
+            throw new InvalidOperationException("Green Zol did not begin its first pursuit hop.");
+        for (int frame = 0; frame < 27; frame++)
+            timingZol.UpdateFrame(new Vector2(119, 80));
+        if (timingZol.Counter2 != 3 || timingZol.State != ZolCharacter.ZolState.GreenWaiting)
+            throw new InvalidOperationException("Green Zol did not consume exactly one of four hops.");
+        for (int hop = 0; hop < 3; hop++)
+        {
+            for (int frame = 0; frame < 48; frame++)
+                timingZol.UpdateFrame(new Vector2(119, 80));
+            for (int frame = 0; frame < 27; frame++)
+                timingZol.UpdateFrame(new Vector2(119, 80));
+        }
+        if (timingZol.State != ZolCharacter.ZolState.GreenDisappearing ||
+            timingZol.Counter2 != 0 || timingZol.CollisionEnabled)
+        {
+            throw new InvalidOperationException(
+                "Green Zol did not disable collision and disappear after exactly four hops.");
+        }
+        for (int frame = 0; frame < 40; frame++)
+            timingZol.UpdateFrame(new Vector2(119, 80));
+        if (timingZol.AnimationParameter != 1 ||
+            timingZol.State != ZolCharacter.ZolState.GreenDisappearing)
+        {
+            throw new InvalidOperationException(
+                "Green Zol disappearance did not reach its terminal parameter after 40 updates.");
+        }
+        timingZol.UpdateFrame(new Vector2(119, 80));
+        for (int frame = 0; frame < 39; frame++)
+            timingZol.UpdateFrame(new Vector2(119, 80));
+        if (timingZol.State != ZolCharacter.ZolState.GreenGone || timingZol.Counter1 != 1)
+            throw new InvalidOperationException("Green Zol ended its 40-update underground wait early.");
+        timingZol.UpdateFrame(new Vector2(119, 80));
+        if (timingZol.State != ZolCharacter.ZolState.GreenHidden)
+            throw new InvalidOperationException("Green Zol did not return to its hidden proximity state.");
+        timingZol.Free();
+
+        LoadValidationRoom(4, 0xcc);
+        ZolCharacter green = _entities.Zols.Find(zol => zol.Record.SubId == 0)!;
+        green.SetStateForValidation(
+            ZolCharacter.ZolState.GreenWaiting,
+            counter1: 1000,
+            animation: 1);
+        int greenCount = _entities.Zols.Count;
+        if (!_entities.ApplySwordHit(green.CollisionBounds.Grow(1.0f)) ||
+            _entities.Zols.Count != greenCount - 1 || _entities.DeathPuffs.Count != 1 ||
+            _entities.DeathPuffs[0].EnemyId != 0x34)
+        {
+            throw new InvalidOperationException(
+                "The level-1 sword did not defeat a surfaced green Zol and create its normal `$34 death puff.");
+        }
+
+        LoadValidationRoom(4, 0xcc);
+        _player.WarpTo(new Vector2(220, 160), recordSafe: false);
+        ZolCharacter red = _entities.Zols.Find(zol => zol.Record.SubId == 1)!;
+        Vector2 splitPosition = red.Position;
+        int redRoomCount = _entities.Zols.Count;
+        if (!_entities.ApplySwordHit(red.CollisionBounds.Grow(1.0f)) ||
+            red.State != ZolCharacter.ZolState.RedSplitting ||
+            _entities.Zols.Count != redRoomCount || _entities.DeathPuffs.Count != 0)
+        {
+            throw new InvalidOperationException(
+                "A sword-hit red Zol did not enter its special split state without a normal death puff.");
+        }
+        _entities.Update(1.0 / 60.0, _player);
+        if (red.State != ZolCharacter.ZolState.RedSplitDelay || red.Counter2 != 18 ||
+            red.Visible || red.CollisionEnabled || _entities.KillPuffs.Count != 1 ||
+            _entities.KillPuffs[0].DurationFrames != 20)
+        {
+            throw new InvalidOperationException(
+                "Red Zol did not create the 20-update INTERAC_KILLENEMYPUFF and begin its 18-update delay.");
+        }
+        for (int frame = 0; frame < 17; frame++)
+            _entities.Update(1.0 / 60.0, _player);
+        if (_entities.Gels.Count != 0 || red.Counter2 != 1)
+            throw new InvalidOperationException("Red Zol spawned Gels before split delay update 18.");
+        _entities.Update(1.0 / 60.0, _player);
+        if (_entities.Zols.Count != redRoomCount - 1 || _entities.Gels.Count != 2 ||
+            !_entities.Gels.Exists(gel => gel.Position == splitPosition + Vector2.Right * 4.0f) ||
+            !_entities.Gels.Exists(gel => gel.Position == splitPosition + Vector2.Left * 4.0f))
+        {
+            throw new InvalidOperationException(
+                "Red Zol did not replace itself with two Gels at the original +/-4 X offsets.");
+        }
+        _entities.Update(2.0 / 60.0, _player);
+        if (_entities.KillPuffs.Count != 0 || _entities.ItemDrops.Count != 0)
+            throw new InvalidOperationException(
+                "INTERAC_KILLENEMYPUFF did not end after 20 updates or incorrectly resolved an item drop.");
+
+        GelCharacter defeatedGel = _entities.Gels[0];
+        int gelCount = _entities.Gels.Count;
+        if (!_entities.ApplySwordHit(defeatedGel.CollisionBounds.Grow(1.0f)) ||
+            _entities.Gels.Count != gelCount - 1 || _entities.DeathPuffs.Count != 1 ||
+            _entities.DeathPuffs[0].EnemyId != 0x43)
+        {
+            throw new InvalidOperationException(
+                "The one-health ENEMY_GEL did not die to one level-1 sword hit with a `$43 death puff.");
+        }
+
+        GelCharacter latchGel = _entities.Gels[0];
+        Vector2 latchPosition = new(180, 140);
+        latchGel.Position = latchPosition;
+        _player.WarpTo(latchPosition, recordSafe: false);
+        _player.RefillHealth();
+        int healthBeforeLatch = _player.HealthQuarters;
+        _entities.Update(0.0, _player);
+        if (!latchGel.IsAttached || latchGel.Counter2 != 120 ||
+            _player.HealthQuarters != healthBeforeLatch ||
+            !_entities.PlayerSwordDisabled)
+        {
+            throw new InvalidOperationException(
+                "Gel contact damaged Link or failed to latch for 120 updates and disable the sword.");
+        }
+        bool movementPhase = _entities.PlayerMovementDisabled;
+        _entities.Update(1.0 / 60.0, _player);
+        if (_entities.PlayerMovementDisabled == movementPhase)
+            throw new InvalidOperationException("Attached Gel did not immobilize Link on alternating updates.");
+        for (int frame = 0; frame < 118; frame++)
+            _entities.Update(1.0 / 60.0, _player);
+        if (!latchGel.IsAttached || latchGel.Counter2 != 1)
+            throw new InvalidOperationException(
+                "Gel did not remain attached through latch update 119.");
+        _entities.Update(1.0 / 60.0, _player);
+        if (latchGel.IsAttached || latchGel.State != GelCharacter.GelState.Hopping ||
+            latchGel.Angle != 0x00 || latchGel.CollisionEnabled ||
+            _entities.PlayerSwordDisabled)
+        {
+            throw new InvalidOperationException(
+                "Gel did not automatically release after 120 updates with hop collision disabled.");
+        }
+        _entities.Update(1.0 / 60.0, _player);
+        if (latchGel.IsAttached || _entities.PlayerSwordDisabled)
+            throw new InvalidOperationException(
+                "A naturally released Gel immediately relatched before completing its hop.");
+
+        Vector2 buttonLatchPosition = new(120, 140);
+        GelCharacter buttonGel = _entities.SpawnGel(buttonLatchPosition, "ButtonReleaseGel");
+        _player.WarpTo(buttonLatchPosition, recordSafe: false);
+        _entities.Update(0.0, _player);
+        if (!buttonGel.IsAttached || buttonGel.Counter2 != 120)
+            throw new InvalidOperationException("Button-release test Gel did not latch.");
+        for (int press = 0; press < 30; press++)
+            buttonGel.UpdateFrame(_player.Position, Vector2I.Down, anyButtonJustPressed: true);
+        if (!buttonGel.IsAttached || buttonGel.Counter2 != 1)
+            throw new InvalidOperationException(
+                "Thirty button presses did not reduce the Gel latch counter to one.");
+        buttonGel.UpdateFrame(_player.Position, Vector2I.Down, anyButtonJustPressed: false);
+        if (buttonGel.IsAttached || buttonGel.State != GelCharacter.GelState.Hopping ||
+            buttonGel.Angle != 0x00 || buttonGel.CollisionEnabled ||
+            _entities.PlayerSwordDisabled)
+        {
+            throw new InvalidOperationException(
+                "Button presses did not release the Gel with collision disabled and hop it away from Link.");
+        }
+        _entities.Update(1.0 / 60.0, _player);
+        if (buttonGel.IsAttached || _entities.PlayerSwordDisabled)
+            throw new InvalidOperationException(
+                "A button-released Gel immediately relatched before completing its hop.");
+
+        _player.RefillHealth();
+        GD.Print("Validated 61 ENEMY_ZOL records / 79 instances, room 4:cc fixed placements, " +
+            "strict `$28 emergence, 32/27/48-update green timing, four-hop disappearance, " +
+            "red 18-update splitting with INTERAC_KILLENEMYPUFF, +/-4 Gel spawning, direct " +
+            "room Gels, non-damaging 120-update latch/button release, collision-safe hop-off, " +
+            "alternating movement suppression, " +
+            "sword disabling, combat, drops, and retained/preloaded scrolling.");
     }
 
     private void ValidateItemDrops()

@@ -18,8 +18,14 @@ public sealed class RoomEntityManager
     private readonly List<OctorokCharacter> _outgoingOctorokNodes = new();
     private readonly List<OctorokRockProjectile> _octorokRockNodes = new();
     private readonly List<OctorokRockProjectile> _outgoingOctorokRockNodes = new();
+    private readonly List<ZolCharacter> _zolNodes = new();
+    private readonly List<ZolCharacter> _outgoingZolNodes = new();
+    private readonly List<GelCharacter> _gelNodes = new();
+    private readonly List<GelCharacter> _outgoingGelNodes = new();
     private readonly List<EnemyDeathPuffEffect> _deathPuffNodes = new();
     private readonly List<EnemyDeathPuffEffect> _outgoingDeathPuffNodes = new();
+    private readonly List<KillEnemyPuffEffect> _killPuffNodes = new();
+    private readonly List<KillEnemyPuffEffect> _outgoingKillPuffNodes = new();
     private readonly List<ItemDropEffect> _itemDropNodes = new();
     private readonly List<ItemDropEffect> _outgoingItemDropNodes = new();
     private OracleRoomData _roomForActiveEntities = null!;
@@ -36,11 +42,20 @@ public sealed class RoomEntityManager
     public IReadOnlyList<OctorokRockProjectile> OctorokRocks => _octorokRockNodes;
     public IReadOnlyList<OctorokRockProjectile> OutgoingOctorokRocks =>
         _outgoingOctorokRockNodes;
+    public List<ZolCharacter> Zols => _zolNodes;
+    public IReadOnlyList<ZolCharacter> OutgoingZols => _outgoingZolNodes;
+    public List<GelCharacter> Gels => _gelNodes;
+    public IReadOnlyList<GelCharacter> OutgoingGels => _outgoingGelNodes;
     public IReadOnlyList<EnemyDeathPuffEffect> DeathPuffs => _deathPuffNodes;
     public IReadOnlyList<EnemyDeathPuffEffect> OutgoingDeathPuffs => _outgoingDeathPuffNodes;
+    public IReadOnlyList<KillEnemyPuffEffect> KillPuffs => _killPuffNodes;
+    public IReadOnlyList<KillEnemyPuffEffect> OutgoingKillPuffs => _outgoingKillPuffNodes;
     public IReadOnlyList<ItemDropEffect> ItemDrops => _itemDropNodes;
     public IReadOnlyList<ItemDropEffect> OutgoingItemDrops => _outgoingItemDropNodes;
     public bool ScreenTransitionActive => _screenTransitionActive;
+    public bool PlayerSwordDisabled => _gelNodes.Exists(gel => gel.IsAttached);
+    public bool PlayerMovementDisabled =>
+        PlayerSwordDisabled && (_enemyFrameCounter & 1) != 0;
 
     public RoomEntityManager(Node worldRoot, NpcDatabase npcs, EnemyDatabase enemies)
         : this(worldRoot, npcs, enemies, new ItemDropDatabase(), new OracleRandom())
@@ -68,6 +83,8 @@ public sealed class RoomEntityManager
         SpawnRoomNpcs(group, room);
         SpawnRoomKeese(group, room);
         SpawnRoomOctoroks(group, room);
+        SpawnRoomZols(group, room);
+        SpawnRoomGels(group, room);
     }
 
     public void BeginScreenTransition(int group, OracleRoomData room, Vector2 incomingOffset)
@@ -76,25 +93,36 @@ public sealed class RoomEntityManager
         ClearNodes(_outgoingKeeseNodes);
         ClearNodes(_outgoingOctorokNodes);
         ClearNodes(_outgoingOctorokRockNodes);
+        ClearNodes(_outgoingZolNodes);
+        ClearNodes(_outgoingGelNodes);
         ClearNodes(_outgoingDeathPuffNodes);
+        ClearNodes(_outgoingKillPuffNodes);
         ClearNodes(_outgoingItemDropNodes);
         _outgoingNpcNodes.AddRange(_npcNodes);
         _outgoingKeeseNodes.AddRange(_keeseNodes);
         _outgoingOctorokNodes.AddRange(_octorokNodes);
         _outgoingOctorokRockNodes.AddRange(_octorokRockNodes);
+        _outgoingZolNodes.AddRange(_zolNodes);
+        _outgoingGelNodes.AddRange(_gelNodes);
         _outgoingDeathPuffNodes.AddRange(_deathPuffNodes);
+        _outgoingKillPuffNodes.AddRange(_killPuffNodes);
         _outgoingItemDropNodes.AddRange(_itemDropNodes);
         _npcNodes.Clear();
         _keeseNodes.Clear();
         _octorokNodes.Clear();
         _octorokRockNodes.Clear();
+        _zolNodes.Clear();
+        _gelNodes.Clear();
         _deathPuffNodes.Clear();
+        _killPuffNodes.Clear();
         _itemDropNodes.Clear();
         _screenTransitionActive = true;
         _roomForActiveEntities = room;
         SpawnRoomNpcs(group, room);
         SpawnRoomKeese(group, room);
         SpawnRoomOctoroks(group, room);
+        SpawnRoomZols(group, room);
+        SpawnRoomGels(group, room);
         SetScreenTransitionOffsets(Vector2.Zero, incomingOffset);
     }
 
@@ -119,9 +147,21 @@ public sealed class RoomEntityManager
             rock.SetTransitionDrawOffset(outgoingOffset);
         foreach (OctorokRockProjectile rock in _octorokRockNodes)
             rock.SetTransitionDrawOffset(incomingOffset);
+        foreach (ZolCharacter zol in _outgoingZolNodes)
+            zol.SetTransitionDrawOffset(outgoingOffset);
+        foreach (ZolCharacter zol in _zolNodes)
+            zol.SetTransitionDrawOffset(incomingOffset);
+        foreach (GelCharacter gel in _outgoingGelNodes)
+            gel.SetTransitionDrawOffset(outgoingOffset);
+        foreach (GelCharacter gel in _gelNodes)
+            gel.SetTransitionDrawOffset(incomingOffset);
         foreach (EnemyDeathPuffEffect puff in _outgoingDeathPuffNodes)
             puff.SetTransitionDrawOffset(outgoingOffset);
         foreach (EnemyDeathPuffEffect puff in _deathPuffNodes)
+            puff.SetTransitionDrawOffset(incomingOffset);
+        foreach (KillEnemyPuffEffect puff in _outgoingKillPuffNodes)
+            puff.SetTransitionDrawOffset(outgoingOffset);
+        foreach (KillEnemyPuffEffect puff in _killPuffNodes)
             puff.SetTransitionDrawOffset(incomingOffset);
         foreach (ItemDropEffect drop in _outgoingItemDropNodes)
             drop.SetTransitionDrawOffset(outgoingOffset);
@@ -138,7 +178,10 @@ public sealed class RoomEntityManager
         ClearNodes(_outgoingKeeseNodes);
         ClearNodes(_outgoingOctorokNodes);
         ClearNodes(_outgoingOctorokRockNodes);
+        ClearNodes(_outgoingZolNodes);
+        ClearNodes(_outgoingGelNodes);
         ClearNodes(_outgoingDeathPuffNodes);
+        ClearNodes(_outgoingKillPuffNodes);
         ClearNodes(_outgoingItemDropNodes);
         foreach (NpcCharacter npc in _npcNodes)
             npc.SetTransitionDrawOffset(Vector2.Zero);
@@ -148,7 +191,13 @@ public sealed class RoomEntityManager
             octorok.SetTransitionDrawOffset(Vector2.Zero);
         foreach (OctorokRockProjectile rock in _octorokRockNodes)
             rock.SetTransitionDrawOffset(Vector2.Zero);
+        foreach (ZolCharacter zol in _zolNodes)
+            zol.SetTransitionDrawOffset(Vector2.Zero);
+        foreach (GelCharacter gel in _gelNodes)
+            gel.SetTransitionDrawOffset(Vector2.Zero);
         foreach (EnemyDeathPuffEffect puff in _deathPuffNodes)
+            puff.SetTransitionDrawOffset(Vector2.Zero);
+        foreach (KillEnemyPuffEffect puff in _killPuffNodes)
             puff.SetTransitionDrawOffset(Vector2.Zero);
         foreach (ItemDropEffect drop in _itemDropNodes)
             drop.SetTransitionDrawOffset(Vector2.Zero);
@@ -222,6 +271,71 @@ public sealed class RoomEntityManager
         }
     }
 
+    private void SpawnRoomZols(int group, OracleRoomData room)
+    {
+        var occupiedPositions = new HashSet<int>();
+        foreach (EnemyDatabase.ZolRecord record in _enemies.GetRoomZols(group, room.Id))
+        {
+            for (int instance = 0; instance < record.Count; instance++)
+            {
+                Vector2 position;
+                if (record.FixedPosition)
+                {
+                    position = new Vector2(record.X, record.Y);
+                }
+                else if (!TryChooseRandomEnemyPosition(
+                    room, record.Flags, occupiedPositions, out position))
+                {
+                    continue;
+                }
+
+                var zol = new ZolCharacter
+                {
+                    Name = $"Zol_{record.SubId:x2}_{instance}",
+                    ZIndex = 10
+                };
+                zol.Initialize(record, room, position, _random);
+                _zolNodes.Add(zol);
+                _worldRoot.AddChild(zol);
+            }
+        }
+    }
+
+    private void SpawnRoomGels(int group, OracleRoomData room)
+    {
+        var occupiedPositions = new HashSet<int>();
+        foreach (EnemyDatabase.GelRecord record in _enemies.GetRoomGels(group, room.Id))
+        {
+            for (int instance = 0; instance < record.Count; instance++)
+            {
+                Vector2 position;
+                if (record.FixedPosition)
+                {
+                    position = new Vector2(record.X, record.Y);
+                }
+                else if (!TryChooseRandomEnemyPosition(
+                    room, record.Flags, occupiedPositions, out position))
+                {
+                    continue;
+                }
+                SpawnGel(position, $"RoomGel_{instance}");
+            }
+        }
+    }
+
+    internal GelCharacter SpawnGel(Vector2 position, string name = "Gel")
+    {
+        var gel = new GelCharacter
+        {
+            Name = name,
+            ZIndex = 10
+        };
+        gel.Initialize(_enemies.Gel, _roomForActiveEntities, position, _random);
+        _gelNodes.Add(gel);
+        _worldRoot.AddChild(gel);
+        return gel;
+    }
+
     internal OctorokRockProjectile SpawnOctorokRock(Vector2 position, int angle)
     {
         var rock = new OctorokRockProjectile
@@ -233,6 +347,19 @@ public sealed class RoomEntityManager
         _octorokRockNodes.Add(rock);
         _worldRoot.AddChild(rock);
         return rock;
+    }
+
+    internal KillEnemyPuffEffect SpawnKillEnemyPuff(Vector2 position)
+    {
+        var puff = new KillEnemyPuffEffect
+        {
+            Name = "KillEnemyPuff",
+            ZIndex = 10
+        };
+        puff.Initialize(position);
+        _killPuffNodes.Add(puff);
+        _worldRoot.AddChild(puff);
+        return puff;
     }
 
     private bool TryChooseRandomEnemyPosition(
@@ -279,6 +406,7 @@ public sealed class RoomEntityManager
         foreach (NpcCharacter npc in _npcNodes)
             npc.UpdateNpc(delta, player.Position);
 
+        bool anyButtonJustPressed = AnyGameButtonJustPressed();
         _enemyFrameAccumulator += delta * 60.0;
         while (_enemyFrameAccumulator >= 1.0)
         {
@@ -293,10 +421,39 @@ public sealed class RoomEntityManager
             }
             foreach (OctorokRockProjectile rock in _octorokRockNodes)
                 rock.UpdateFrame(player);
+            var zolEvents = new List<(ZolCharacter Zol, ZolCharacter.UpdateEvent Event)>();
+            foreach (ZolCharacter zol in _zolNodes)
+            {
+                ZolCharacter.UpdateEvent updateEvent = zol.UpdateFrame(player.Position);
+                if (updateEvent != ZolCharacter.UpdateEvent.None)
+                    zolEvents.Add((zol, updateEvent));
+            }
+            foreach (GelCharacter gel in _gelNodes)
+            {
+                gel.UpdateFrame(
+                    player.Position,
+                    player.FacingVector,
+                    anyButtonJustPressed);
+            }
             foreach (EnemyDeathPuffEffect puff in _deathPuffNodes)
                 puff.UpdateFrame(_enemyFrameCounter);
+            foreach (KillEnemyPuffEffect puff in _killPuffNodes)
+                puff.UpdateFrame();
             foreach (ItemDropEffect drop in _itemDropNodes)
                 drop.UpdateFrame(player, _enemyFrameCounter);
+            foreach ((ZolCharacter zol, ZolCharacter.UpdateEvent updateEvent) in zolEvents)
+            {
+                if (updateEvent == ZolCharacter.UpdateEvent.BeginSplit)
+                {
+                    SpawnKillEnemyPuff(zol.Position);
+                }
+                else
+                {
+                    SpawnGel(zol.Position + Vector2.Right * 4.0f, "SplitGelRight");
+                    SpawnGel(zol.Position + Vector2.Left * 4.0f, "SplitGelLeft");
+                }
+            }
+            anyButtonJustPressed = false;
         }
 
         foreach (KeeseCharacter keese in _keeseNodes)
@@ -309,11 +466,25 @@ public sealed class RoomEntityManager
             if (octorok.OverlapsLink(player.Position))
                 player.ApplyEnemyContactDamage(octorok.Position, octorok.Record.DamageQuarters);
         }
+        foreach (ZolCharacter zol in _zolNodes)
+        {
+            if (zol.OverlapsLink(player.Position))
+                player.ApplyEnemyContactDamage(zol.Position, zol.Record.DamageQuarters);
+        }
+        foreach (GelCharacter gel in _gelNodes)
+        {
+            if (!gel.OverlapsLink(player.Position))
+                continue;
+            gel.AttachToLink(player.Position);
+        }
 
         RemoveDeadKeese();
         RemoveDeadOctoroks();
+        RemoveDeadZols();
+        RemoveDeadGels();
         RemoveFinishedOctorokRocks();
         RemoveFinishedDeathPuffs();
+        RemoveFinishedKillPuffs();
         RemoveFinishedItemDrops();
     }
 
@@ -371,8 +542,32 @@ public sealed class RoomEntityManager
             if (struck && !wasDead && octorok.IsDead && !octorok.DiedInHazard)
                 SpawnEnemyDeathPuff(octorok.Position, enemyId: octorok.Record.Id);
         }
+        foreach (ZolCharacter zol in _zolNodes)
+        {
+            if (zol.IsDead || !hitbox.Intersects(zol.CollisionBounds))
+                continue;
+
+            bool wasDead = zol.IsDead;
+            bool struck = zol.TakeSwordHit();
+            hit |= struck;
+            if (struck && !wasDead && zol.IsDead && !zol.DiedInHazard)
+                SpawnEnemyDeathPuff(zol.Position, enemyId: zol.Record.Id);
+        }
+        foreach (GelCharacter gel in _gelNodes)
+        {
+            if (gel.IsDead || !hitbox.Intersects(gel.CollisionBounds))
+                continue;
+
+            bool wasDead = gel.IsDead;
+            bool struck = gel.TakeSwordHit();
+            hit |= struck;
+            if (struck && !wasDead && gel.IsDead && !gel.DiedInHazard)
+                SpawnEnemyDeathPuff(gel.Position, enemyId: gel.Definition.Id);
+        }
         RemoveDeadKeese();
         RemoveDeadOctoroks();
+        RemoveDeadZols();
+        RemoveDeadGels();
         return hit;
     }
 
@@ -416,8 +611,14 @@ public sealed class RoomEntityManager
         ClearNodes(_octorokNodes);
         ClearNodes(_outgoingOctorokRockNodes);
         ClearNodes(_octorokRockNodes);
+        ClearNodes(_outgoingZolNodes);
+        ClearNodes(_zolNodes);
+        ClearNodes(_outgoingGelNodes);
+        ClearNodes(_gelNodes);
         ClearNodes(_outgoingDeathPuffNodes);
         ClearNodes(_deathPuffNodes);
+        ClearNodes(_outgoingKillPuffNodes);
+        ClearNodes(_killPuffNodes);
         ClearNodes(_outgoingItemDropNodes);
         ClearNodes(_itemDropNodes);
         _screenTransitionActive = false;
@@ -468,9 +669,42 @@ public sealed class RoomEntityManager
         nodes.Clear();
     }
 
+    private void ClearNodes(List<ZolCharacter> nodes)
+    {
+        foreach (ZolCharacter zol in nodes)
+        {
+            if (zol.GetParent() == _worldRoot)
+                _worldRoot.RemoveChild(zol);
+            zol.QueueFree();
+        }
+        nodes.Clear();
+    }
+
+    private void ClearNodes(List<GelCharacter> nodes)
+    {
+        foreach (GelCharacter gel in nodes)
+        {
+            if (gel.GetParent() == _worldRoot)
+                _worldRoot.RemoveChild(gel);
+            gel.QueueFree();
+        }
+        nodes.Clear();
+    }
+
     private void ClearNodes(List<EnemyDeathPuffEffect> nodes)
     {
         foreach (EnemyDeathPuffEffect puff in nodes)
+        {
+            if (puff.GetParent() == _worldRoot)
+                _worldRoot.RemoveChild(puff);
+            puff.QueueFree();
+        }
+        nodes.Clear();
+    }
+
+    private void ClearNodes(List<KillEnemyPuffEffect> nodes)
+    {
+        foreach (KillEnemyPuffEffect puff in nodes)
         {
             if (puff.GetParent() == _worldRoot)
                 _worldRoot.RemoveChild(puff);
@@ -518,6 +752,34 @@ public sealed class RoomEntityManager
         }
     }
 
+    private void RemoveDeadZols()
+    {
+        for (int index = _zolNodes.Count - 1; index >= 0; index--)
+        {
+            ZolCharacter zol = _zolNodes[index];
+            if (!zol.IsDead)
+                continue;
+            _zolNodes.RemoveAt(index);
+            if (zol.GetParent() == _worldRoot)
+                _worldRoot.RemoveChild(zol);
+            zol.QueueFree();
+        }
+    }
+
+    private void RemoveDeadGels()
+    {
+        for (int index = _gelNodes.Count - 1; index >= 0; index--)
+        {
+            GelCharacter gel = _gelNodes[index];
+            if (!gel.IsDead)
+                continue;
+            _gelNodes.RemoveAt(index);
+            if (gel.GetParent() == _worldRoot)
+                _worldRoot.RemoveChild(gel);
+            gel.QueueFree();
+        }
+    }
+
     private void RemoveFinishedOctorokRocks()
     {
         for (int index = _octorokRockNodes.Count - 1; index >= 0; index--)
@@ -549,6 +811,20 @@ public sealed class RoomEntityManager
         }
     }
 
+    private void RemoveFinishedKillPuffs()
+    {
+        for (int index = _killPuffNodes.Count - 1; index >= 0; index--)
+        {
+            KillEnemyPuffEffect puff = _killPuffNodes[index];
+            if (!puff.Finished)
+                continue;
+            _killPuffNodes.RemoveAt(index);
+            if (puff.GetParent() == _worldRoot)
+                _worldRoot.RemoveChild(puff);
+            puff.QueueFree();
+        }
+    }
+
     private void RemoveFinishedItemDrops()
     {
         for (int index = _itemDropNodes.Count - 1; index >= 0; index--)
@@ -561,5 +837,15 @@ public sealed class RoomEntityManager
                 _worldRoot.RemoveChild(drop);
             drop.QueueFree();
         }
+    }
+
+    private static bool AnyGameButtonJustPressed()
+    {
+        return Input.IsActionJustPressed("attack") ||
+            Input.IsActionJustPressed("item") ||
+            Input.IsActionJustPressed("move_up") ||
+            Input.IsActionJustPressed("move_right") ||
+            Input.IsActionJustPressed("move_down") ||
+            Input.IsActionJustPressed("move_left");
     }
 }

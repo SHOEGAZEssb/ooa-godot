@@ -25,7 +25,7 @@ public sealed class LaunchOptions
     {
         // Preserve the historical room $11 fallback when a group or a
         // validation was explicitly requested without a room.
-        return HasValidationFlag() || HasArgument("--group=") ? 0x11 : 0x39;
+        return HasValidationFlag() || HasArgument("--group=") ? 0x11 : 0xcc;
     }
 
     private bool HasValidationFlag() => Has("--validate");

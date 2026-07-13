@@ -332,7 +332,8 @@ public partial class Player : Node2D
             return;
         }
 
-        if (Input.IsActionJustPressed("attack") && _attackTime <= 0.0f)
+        if (Input.IsActionJustPressed("attack") && _attackTime <= 0.0f &&
+            !_world.SwordDisabled)
         {
             if (_world.TryInteract(this))
                 return;
@@ -340,6 +341,8 @@ public partial class Player : Node2D
         }
 
         Vector2 input = Input.GetVector("move_left", "move_right", "move_up", "move_down");
+        if (_world.MovementDisabled)
+            input = Vector2.Zero;
         _walking = input.LengthSquared() > 0.01f && _attackTime <= 0.0f;
         if (_walking)
         {
@@ -380,6 +383,12 @@ public partial class Player : Node2D
             _enemyInvincibilityFrames = Mathf.Max(
                 0.0f, _enemyInvincibilityFrames - (float)delta * 60.0f);
             QueueRedraw();
+        }
+
+        if (_world.SwordDisabled)
+        {
+            _attackTime = 0.0f;
+            _attackHitApplied = false;
         }
 
         if (_drowning || _fallingInHole || _hazardRecoveryTime > 0.0f ||
