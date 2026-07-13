@@ -24,12 +24,15 @@ public partial class GameRoot : Node2D
     private DebugWarpController _debugWarps = null!;
     private MapMenuController _mapMenu = null!;
     private InventoryMenuController _inventoryMenu = null!;
+    private DebugFlagMenuController _debugFlagMenu = null!;
     private LaunchOptions _launchOptions = null!;
     private RoomCollision _collision = null!;
     private PlayerWorld _playerWorld = null!;
     private GameSceneGraph _scene = null!;
     private TreasureDatabase _treasures = null!;
     private InventoryState _inventory = null!;
+    private OracleSaveData _saveData = null!;
+    private bool _persistSaveData;
 
     private double _animationTicks;
 
@@ -42,11 +45,13 @@ public partial class GameRoot : Node2D
     private DialogueBox _dialogue => _scene.Dialogue;
     private MapScreen _mapScreen => _scene.MapScreen;
     private InventoryScreen _inventoryScreen => _scene.InventoryScreen;
+    private DebugFlagScreen _debugFlagScreen => _scene.DebugFlagScreen;
 
     public bool IsTransitioning => _transitions?.IsTransitioning ?? false;
     public bool DialogueOpen => _interactions?.DialogueOpen ?? false;
     public bool MapMenuOpen => _mapMenu?.IsActive ?? false;
     public bool InventoryMenuOpen => _inventoryMenu?.IsActive ?? false;
+    public bool DebugFlagMenuOpen => _debugFlagMenu?.IsActive ?? false;
 
     // Compatibility accessors used only by GameRoot.Validation.cs.
     private OracleWorldData _world => _rooms.World;
@@ -69,18 +74,28 @@ public partial class GameRoot : Node2D
     public override void _Ready()
     {
         _launchOptions = new LaunchOptions();
+        _persistSaveData = !_launchOptions.Has("--validate");
+        _saveData = _persistSaveData
+            ? OracleSaveStore.LoadOrCreate()
+            : OracleSaveData.CreateStandardGame();
+        _saveData.Changed += PersistSaveData;
         _treasures = new TreasureDatabase();
-        _inventory = new InventoryState(_treasures);
-        _inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SWORD_00"));
-        _inventory.EquipA(InventoryState.ItemSword);
+        _inventory = new InventoryState(_treasures, _saveData);
+        if (!_inventory.HasTreasure(TreasureDatabase.TreasureSword))
+        {
+            _inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SWORD_00"));
+            _inventory.EquipA(InventoryState.ItemSword);
+        }
         _rooms = new RoomSession(
             _launchOptions.StartingGroup, _launchOptions.StartingRoom,
             () => (long)_animationTicks,
-            () => _animationTicks = 0.0);
+            () => _animationTicks = 0.0,
+            _saveData);
         _scene = new GameSceneGraph(this);
         _hud.Initialize(_treasures, _inventory);
         _mapScreen.Initialize(_rooms);
         _inventoryScreen.Initialize(_treasures, _inventory);
+        _debugFlagScreen.Initialize(_saveData, new GlobalFlagDatabase());
         CreateControllers();
 
         _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom);
@@ -93,8 +108,16 @@ public partial class GameRoot : Node2D
         ScheduleRequestedValidation();
     }
 
+    public override void _ExitTree()
+    {
+        PersistSaveData();
+    }
+
     public override void _Process(double delta)
     {
+        _debugFlagMenu.Update();
+        if (_debugFlagMenu.IsActive)
+            return;
         _inventoryMenu.Update();
         if (_inventoryMenu.IsActive)
             return;
@@ -157,6 +180,10 @@ public partial class GameRoot : Node2D
         _inventoryMenu = new InventoryMenuController(
             _inventoryScreen, _player, _roomDebug,
             () => !IsTransitioning && !DialogueOpen && !MapMenuOpen && !_roomEvents.Active);
+        _debugFlagMenu = new DebugFlagMenuController(
+            _debugFlagScreen, _rooms, _player, _roomDebug,
+            () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
+                !InventoryMenuOpen && !_roomEvents.Active);
     }
 
     private void ScheduleRequestedValidation()
@@ -201,6 +228,12 @@ public partial class GameRoot : Node2D
         _hud.EquippedA = _inventory.EquippedA;
         _hud.EquippedB = _inventory.EquippedB;
         _hud.Refresh();
+    }
+
+    private void PersistSaveData()
+    {
+        if (_persistSaveData && _saveData is not null)
+            OracleSaveStore.Save(_saveData);
     }
 
     private bool Collides(Vector2 playerPosition) => _collision.Collides(playerPosition);

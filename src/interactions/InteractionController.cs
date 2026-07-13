@@ -17,7 +17,6 @@ public sealed class InteractionController
     private readonly Func<Vector2, Vector2> _worldToScreen;
     private readonly Func<long> _animationTick;
     private readonly InventoryState _inventory;
-    private readonly HashSet<int> _openedChestRooms = new();
     private readonly Dictionary<int, ChestDatabase.ChestRecord> _debugChestOverrides = new();
     private ChestTreasureEffect? _chestTreasure;
     private ChestDatabase.ChestRecord _pendingChest;
@@ -125,7 +124,7 @@ public sealed class InteractionController
 
     public void ResetChestForTesting(int group, int roomId, int position, string? treasureObjectName)
     {
-        _openedChestRooms.Remove(MakeRoomKey(group, roomId));
+        _rooms.SaveData.SetRoomFlag(group, roomId, OracleSaveData.RoomFlagItem, value: false);
         if (treasureObjectName is not null)
         {
             TreasureDatabase.TreasureObjectRecord treasure = _treasures.GetObject(treasureObjectName);
@@ -174,7 +173,8 @@ public sealed class InteractionController
         if (!room.ReplaceMetatile(tilePoint, 0xf1, 0xf0, _animationTick()))
             return true;
 
-        _openedChestRooms.Add(MakeRoomKey(_rooms.ActiveGroup, room.Id));
+        _rooms.SaveData.SetRoomFlag(
+            _rooms.ActiveGroup, room.Id, OracleSaveData.RoomFlagItem);
         _roomView.QueueRedraw();
         _pendingChest = chest;
         _chestTreasure = new ChestTreasureEffect { ZIndex = 12 };
@@ -187,7 +187,7 @@ public sealed class InteractionController
 
     private void ApplyOpenedChestState(int group, OracleRoomData room)
     {
-        if (!_openedChestRooms.Contains(MakeRoomKey(group, room.Id)))
+        if (!_rooms.SaveData.HasRoomFlag(group, room.Id, OracleSaveData.RoomFlagItem))
             return;
 
         foreach (ChestDatabase.ChestRecord chest in _chests.GetRoomRecords(group, room.Id))
@@ -201,7 +201,6 @@ public sealed class InteractionController
         (position & 0x0f) * OracleRoomData.MetatileSize + 8,
         (position >> 4) * OracleRoomData.MetatileSize + 8);
 
-    private static int MakeRoomKey(int group, int room) => (group << 8) | room;
     private static int MakeChestKey(int group, int room, int position) =>
         (group << 16) | (room << 8) | position;
 }

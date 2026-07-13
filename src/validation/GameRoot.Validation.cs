@@ -9,6 +9,8 @@ public partial class GameRoot
     private void ValidateAll()
     {
         _world.ValidateRepresentativeRooms();
+        ValidateSaveDataFoundation();
+        ValidateDebugFlagMenu();
 
         LoadValidationRoom(0, 0x11);
         ValidateStartupTransition();
@@ -37,6 +39,137 @@ public partial class GameRoot
         ValidateMapScreen();
 
         GD.Print("Validated all gameplay and world-data scenarios.");
+    }
+
+    private void ValidateSaveDataFoundation()
+    {
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        if (save.HasGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared) ||
+            save.GetRoomFlags(0, 0x38) != 0)
+        {
+            throw new InvalidOperationException(
+                "A standard file did not begin with clear global and room flags.");
+        }
+
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared);
+        save.SetRoomFlag(2, 0x38, OracleSaveData.RoomFlagLayoutSwap);
+        save.SetRoomFlag(6, 0x87, OracleSaveData.RoomFlagItem);
+        save.SetRoomFlag(7, 0xa6, OracleSaveData.RoomFlag80);
+        save.SetRoomFlag(1, 0x41, OracleSaveData.RoomFlagPortalSpotDiscovered);
+        save.SetMinimapLocation(1, 0x41);
+        save.SetMakuTreeState(1);
+        if (!save.HasGlobalFlag(0x0c) ||
+            !save.HasRoomFlag(0, 0x38, OracleSaveData.RoomFlagLayoutSwap) ||
+            !save.HasRoomFlag(4, 0x87, OracleSaveData.RoomFlagItem) ||
+            !save.HasRoomFlag(5, 0xa6, OracleSaveData.RoomFlag80) ||
+            !save.HasRoomFlag(3, 0x41, OracleSaveData.RoomFlagPortalSpotDiscovered) ||
+            save.MinimapGroup != 1 || save.MinimapRoom != 0x41 || save.MakuTreeState != 1)
+        {
+            throw new InvalidOperationException(
+                "Global flags, room flags, or the original 0/2, 1/3, 4/6 group aliases diverged.");
+        }
+
+        var inventory = new InventoryState(_treasures, save);
+        inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SWITCH_HOOK_00"));
+        inventory.AddRupees(987);
+        byte[] encoded = save.Serialize();
+        if (encoded.Length != OracleSaveData.FileSize ||
+            !encoded.AsSpan(2, 8).SequenceEqual("Z21216-0"u8) ||
+            !OracleSaveData.TryDeserialize(encoded, out OracleSaveData? decoded))
+        {
+            throw new InvalidOperationException(
+                "The $550-byte Ages save image did not pass its signature/checksum round trip.");
+        }
+
+        var restoredInventory = new InventoryState(_treasures, decoded!);
+        if (!restoredInventory.HasTreasure(TreasureDatabase.TreasureSwitchHook) ||
+            restoredInventory.SwitchHookLevel != 1 ||
+            restoredInventory.EquippedB != TreasureDatabase.TreasureSwitchHook ||
+            restoredInventory.Rupees != 987 || !decoded!.HasGlobalFlag(0x0c) ||
+            !decoded.HasRoomFlag(0, 0x38, OracleSaveData.RoomFlagLayoutSwap))
+        {
+            throw new InvalidOperationException(
+                "Inventory, BCD rupees, story flags, or room flags were lost across save reload.");
+        }
+
+        encoded[^1] ^= 0x80;
+        if (OracleSaveData.TryDeserialize(encoded, out _))
+            throw new InvalidOperationException("A corrupted Ages save checksum was accepted.");
+
+        GD.Print("Validated original $550-byte save signature/checksum, 128 global flags, " +
+            "four aliased room-flag tables, inventory fields, and BCD rupee round trip.");
+    }
+
+    private void ValidateDebugFlagMenu()
+    {
+        if (!InputMap.HasAction("debug_flags"))
+            throw new InvalidOperationException("The F1 debug_flags input action was not registered.");
+
+        _debugFlagMenu.OpenImmediatelyForValidation();
+        if (!_debugFlagMenu.IsActive || !_debugFlagScreen.Visible ||
+            _player.IsPhysicsProcessing() || _player.IsProcessing())
+        {
+            throw new InvalidOperationException(
+                "The debug flag menu did not open in screen space and freeze Link.");
+        }
+
+        _debugFlagScreen._Input(new InputEventKey
+        {
+            PhysicalKeycode = Key.Tab,
+            Pressed = true
+        });
+        if (_debugFlagScreen.Page != DebugFlagScreen.FlagPage.Room)
+            throw new InvalidOperationException(
+                "A physical Tab key event did not switch the flag editor to room flags.");
+        _debugFlagScreen._Input(new InputEventKey
+        {
+            Keycode = Key.Tab,
+            Pressed = true
+        });
+        if (_debugFlagScreen.Page != DebugFlagScreen.FlagPage.Global)
+            throw new InvalidOperationException(
+                "A logical Tab key event did not switch the flag editor back to global flags.");
+
+        _debugFlagScreen.SelectGlobalFlagForValidation(OracleSaveData.GlobalFlagIntroDone);
+        if (!_debugFlagScreen.RenderedText.Contains("GLOBALFLAG_INTRO_DONE", StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                "The imported name for GLOBALFLAG_INTRO_DONE was not displayed.");
+        bool globalBefore = _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
+        _debugFlagScreen.ToggleSelectedFlag();
+        if (_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone) == globalBefore)
+            throw new InvalidOperationException("The global flag editor did not toggle flag $0a.");
+        _debugFlagScreen.ToggleSelectedFlag();
+
+        const int room = 0xaa;
+        const int bit = 6;
+        byte mask = 1 << bit;
+        bool roomBefore = _saveData.HasRoomFlag(5, room, mask);
+        _debugFlagScreen.SelectRoomFlagForValidation(7, room, bit);
+        if (_debugFlagScreen.SelectedRoomGroup != 5 ||
+            !_debugFlagScreen.RenderedText.Contains("GENERIC_40", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "The room editor did not expose group 7 through canonical table 5 and bit 6.");
+        }
+        _debugFlagScreen.ToggleSelectedFlag();
+        if (_saveData.HasRoomFlag(5, room, mask) == roomBefore)
+            throw new InvalidOperationException("The room flag editor did not toggle 5:aa bit 6.");
+        _debugFlagScreen.MoveHorizontal(1);
+        if (_debugFlagScreen.SelectedRoom != 0xab)
+            throw new InvalidOperationException("Room flag browsing did not advance $aa -> $ab.");
+        _debugFlagScreen.MoveHorizontal(-1);
+        _debugFlagScreen.ToggleSelectedFlag();
+
+        _debugFlagMenu.CloseImmediatelyForValidation();
+        if (_debugFlagMenu.IsActive || _debugFlagScreen.Visible ||
+            !_player.IsPhysicsProcessing() || !_player.IsProcessing())
+        {
+            throw new InvalidOperationException(
+                "Closing the debug flag menu did not restore Link processing.");
+        }
+
+        GD.Print("Validated F1 global/room flag editor, all imported global labels, " +
+            "aliased room tables, navigation, mutation, and gameplay freezing.");
     }
 
     private void ValidateTimePortals()
@@ -2574,10 +2707,14 @@ public partial class GameRoot
         StepRoomEventFrames(1);
         StepRoomEventFrames(150);
         if (!_roomEvents.Completed || _roomEvents.Active || !IsTransitioning ||
-            _activeGroup != 0 || _currentRoom.Id != 0x38)
+            _activeGroup != 0 || _currentRoom.Id != 0x38 ||
+            !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared) ||
+            !_saveData.HasRoomFlag(0, 0x38, OracleSaveData.RoomFlagLayoutSwap) ||
+            _saveData.MakuTreeState != 1)
         {
             throw new InvalidOperationException(
-                "The Maku Tree event did not initiate its hardcoded same-room warp after 150 updates.");
+                "The Maku Tree event did not persist GLOBALFLAG_0c, wMakuTreeState, room bit 0, " +
+                "and initiate its hardcoded same-room warp after 150 updates.");
         }
         if (_currentRoom.TilesetId != 0x22 || !makuTree.Active || _warpFade.Color.A != 0.0f)
         {

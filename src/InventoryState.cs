@@ -19,6 +19,7 @@ public sealed class InventoryState
     };
 
     private readonly TreasureDatabase _treasures;
+    private readonly OracleSaveData? _saveData;
     private readonly byte[] _obtainedTreasureFlags = new byte[16];
     private readonly byte[] _inventoryStorage = new byte[InventoryCapacity];
     private readonly byte[] _dungeonSmallKeys = new byte[16];
@@ -55,10 +56,14 @@ public sealed class InventoryState
     public int HeartPieces { get; private set; }
     public int Slates { get; private set; }
 
-    public InventoryState(TreasureDatabase treasures)
+    public InventoryState(TreasureDatabase treasures, OracleSaveData? saveData = null)
     {
         _treasures = treasures;
-        ApplyStandardGameInitialVariables();
+        _saveData = saveData;
+        if (_saveData is null)
+            ApplyStandardGameInitialVariables();
+        else
+            LoadFromSaveData();
     }
 
     public bool HasTreasure(int treasure) =>
@@ -80,7 +85,7 @@ public sealed class InventoryState
         int oldButtonItem = GetInventorySlot(buttonSlot);
         SetInventorySlot(buttonSlot, _inventoryStorage[storageIndex]);
         _inventoryStorage[storageIndex] = (byte)oldButtonItem;
-        Changed?.Invoke();
+        NotifyChanged();
     }
 
     public void GiveTreasure(TreasureDatabase.TreasureObjectRecord treasureObject)
@@ -99,7 +104,7 @@ public sealed class InventoryState
             return false;
 
         HealthChanged?.Invoke();
-        Changed?.Invoke();
+        NotifyChanged();
         return true;
     }
 
@@ -114,7 +119,7 @@ public sealed class InventoryState
             return false;
 
         HealthChanged?.Invoke();
-        Changed?.Invoke();
+        NotifyChanged();
         return true;
     }
 
@@ -125,7 +130,7 @@ public sealed class InventoryState
 
         HealthQuarters = MaxHealthQuarters;
         HealthChanged?.Invoke();
-        Changed?.Invoke();
+        NotifyChanged();
     }
 
     public void AddRupees(int amount)
@@ -136,7 +141,7 @@ public sealed class InventoryState
             return;
 
         RupeesChanged?.Invoke();
-        Changed?.Invoke();
+        NotifyChanged();
     }
 
     private void ApplyStandardGameInitialVariables()
@@ -145,6 +150,66 @@ public sealed class InventoryState
         HealthQuarters = 0x0c;
         MaxHealthQuarters = 0x0c;
         SetTreasureFlag(TreasurePunch);
+    }
+
+    private void LoadFromSaveData()
+    {
+        EquippedB = _saveData!.ReadWramByte(0xc688);
+        EquippedA = _saveData.ReadWramByte(0xc689);
+        _saveData.ReadWramBytes(0xc68a, _inventoryStorage);
+        _saveData.ReadWramBytes(0xc69a, _obtainedTreasureFlags);
+        _saveData.ReadWramBytes(0xc672, _dungeonSmallKeys);
+        _saveData.ReadWramBytes(0xc682, _dungeonBossKeys);
+        _saveData.ReadWramBytes(0xc684, _dungeonCompasses);
+        _saveData.ReadWramBytes(0xc686, _dungeonMaps);
+        HealthQuarters = _saveData.ReadWramByte(0xc6aa);
+        MaxHealthQuarters = _saveData.ReadWramByte(0xc6ab);
+        HeartPieces = _saveData.ReadWramByte(0xc6ac);
+        Rupees = FromBcdWord(
+            _saveData.ReadWramByte(0xc6ad) | _saveData.ReadWramByte(0xc6ae) << 8);
+        ShieldLevel = _saveData.ReadWramByte(0xc6af);
+        Bombs = _saveData.ReadWramByte(0xc6b0);
+        MaxBombs = _saveData.ReadWramByte(0xc6b1);
+        SwordLevel = _saveData.ReadWramByte(0xc6b2);
+        SeedSatchelLevel = _saveData.ReadWramByte(0xc6b4);
+        SwitchHookLevel = _saveData.ReadWramByte(0xc6b6);
+        SelectedHarpSong = _saveData.ReadWramByte(0xc6b7);
+        BraceletLevel = _saveData.ReadWramByte(0xc6b8);
+        GashaSeeds = _saveData.ReadWramByte(0xc6be);
+        Slates = _saveData.ReadWramByte(0xc6c3);
+    }
+
+    private void NotifyChanged()
+    {
+        if (_saveData is not null)
+        {
+            _saveData.WriteWramByte(0xc688, (byte)EquippedB);
+            _saveData.WriteWramByte(0xc689, (byte)EquippedA);
+            _saveData.WriteWramBytes(0xc68a, _inventoryStorage);
+            _saveData.WriteWramBytes(0xc69a, _obtainedTreasureFlags);
+            _saveData.WriteWramBytes(0xc672, _dungeonSmallKeys);
+            _saveData.WriteWramBytes(0xc682, _dungeonBossKeys);
+            _saveData.WriteWramBytes(0xc684, _dungeonCompasses);
+            _saveData.WriteWramBytes(0xc686, _dungeonMaps);
+            _saveData.WriteWramByte(0xc6aa, (byte)HealthQuarters);
+            _saveData.WriteWramByte(0xc6ab, (byte)MaxHealthQuarters);
+            _saveData.WriteWramByte(0xc6ac, (byte)HeartPieces);
+            int rupeesBcd = ToBcdWord(Rupees);
+            _saveData.WriteWramByte(0xc6ad, (byte)rupeesBcd);
+            _saveData.WriteWramByte(0xc6ae, (byte)(rupeesBcd >> 8));
+            _saveData.WriteWramByte(0xc6af, (byte)ShieldLevel);
+            _saveData.WriteWramByte(0xc6b0, (byte)Bombs);
+            _saveData.WriteWramByte(0xc6b1, (byte)MaxBombs);
+            _saveData.WriteWramByte(0xc6b2, (byte)SwordLevel);
+            _saveData.WriteWramByte(0xc6b4, (byte)SeedSatchelLevel);
+            _saveData.WriteWramByte(0xc6b6, (byte)SwitchHookLevel);
+            _saveData.WriteWramByte(0xc6b7, (byte)SelectedHarpSong);
+            _saveData.WriteWramByte(0xc6b8, (byte)BraceletLevel);
+            _saveData.WriteWramByte(0xc6be, (byte)GashaSeeds);
+            _saveData.WriteWramByte(0xc6c3, (byte)Slates);
+            _saveData.CommitInventoryChange();
+        }
+        Changed?.Invoke();
     }
 
     private void GiveTreasure(int treasure, int parameter)
@@ -173,7 +238,7 @@ public sealed class InventoryState
 
         TreasureDatabase.BehaviourRecord behaviour = _treasures.GetBehaviour(treasure);
         ApplyParameter(behaviour.Variable, behaviour.Mode & 0x0f, parameter);
-        Changed?.Invoke();
+        NotifyChanged();
     }
 
     private void ApplyParameter(string variable, int mode, int parameter)
@@ -302,7 +367,7 @@ public sealed class InventoryState
         int oldButtonItem = GetInventorySlot(buttonSlot);
         SetInventorySlot(buttonSlot, item);
         SetInventorySlot(slot, oldButtonItem);
-        Changed?.Invoke();
+        NotifyChanged();
     }
 
     private void SetTreasureFlag(int treasure)
@@ -424,4 +489,8 @@ public sealed class InventoryState
 
     private static int FromBcd(int value) => (value >> 4) * 10 + (value & 0x0f);
     private static int ToBcd(int value) => value / 10 % 10 << 4 | value % 10;
+    private static int FromBcdWord(int value) =>
+        FromBcd(value & 0xff) + FromBcd(value >> 8 & 0xff) * 100;
+    private static int ToBcdWord(int value) =>
+        ToBcd(value % 100) | ToBcd(value / 100) << 8;
 }

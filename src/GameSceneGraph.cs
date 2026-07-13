@@ -13,6 +13,7 @@ public sealed class GameSceneGraph
     public Label RoomDebug { get; }
     public MapScreen MapScreen { get; }
     public InventoryScreen InventoryScreen { get; }
+    public DebugFlagScreen DebugFlagScreen { get; }
     public ColorRect MenuFade { get; }
 
     public GameSceneGraph(Node root)
@@ -65,6 +66,14 @@ public sealed class GameSceneGraph
             MouseFilter = Control.MouseFilterEnum.Ignore
         };
         interfaceLayer.AddChild(MenuFade);
+
+        DebugFlagScreen = new DebugFlagScreen
+        {
+            Name = "DebugFlagScreen",
+            ZIndex = 110,
+            Visible = false
+        };
+        interfaceLayer.AddChild(DebugFlagScreen);
 
         RoomDebug = new Label
         {

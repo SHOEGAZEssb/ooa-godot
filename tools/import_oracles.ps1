@@ -48,6 +48,48 @@ function Copy-GeneratedFile([string]$relativeSource, [string]$relativeDestinatio
     Copy-Item -LiteralPath $source -Destination $target -Force
 }
 
+# Preserve the complete Ages branch of constants/common/globalFlags.s for the
+# editable debug flag menu. Within WLA-DX enums, "db" advances the value while
+# ".db" is used here for range aliases, so only the former emits a flag row.
+$globalFlagRows = [Collections.Generic.List[string]]::new()
+$globalFlagValue = 0
+$inGlobalFlagEnum = $false
+$includeGlobalFlagBranch = $true
+$globalFlagBranch = ''
+foreach ($line in Get-Content (Join-Path $Disassembly 'constants\common\globalFlags.s')) {
+    if ($line -match '^\s*\.ENUM\s+\$0') {
+        $inGlobalFlagEnum = $true
+        continue
+    }
+    if (-not $inGlobalFlagEnum) { continue }
+    if ($line -match '^\s*\.ENDE') { break }
+    if ($line -match '^\s*\.ifdef\s+ROM_(AGES|SEASONS)') {
+        $globalFlagBranch = $Matches[1]
+        $includeGlobalFlagBranch = $globalFlagBranch -eq 'AGES'
+        continue
+    }
+    if ($line -match '^\s*\.else') {
+        $includeGlobalFlagBranch = $globalFlagBranch -eq 'SEASONS'
+        continue
+    }
+    if ($line -match '^\s*\.endif') {
+        $globalFlagBranch = ''
+        $includeGlobalFlagBranch = $true
+        continue
+    }
+    if ($includeGlobalFlagBranch -and
+        $line -match '^\s*(GLOBALFLAG_[A-Za-z0-9_]+)\s+db(?:\s|;)') {
+        $globalFlagRows.Add("$($globalFlagValue.ToString('x2'))`t$($Matches[1])")
+        $globalFlagValue++
+    }
+}
+if ($globalFlagRows.Count -ne 0x80) {
+    throw "Expected 128 Ages global flags, parsed $($globalFlagRows.Count)."
+}
+$globalFlagPath = Join-Path $destination 'metadata\global_flags.tsv'
+New-Item -ItemType Directory -Force -Path (Split-Path $globalFlagPath -Parent) | Out-Null
+[IO.File]::WriteAllLines($globalFlagPath, $globalFlagRows, [Text.UTF8Encoding]::new($false))
+
 # Parse the 103 non-stub tileset records. The runtime needs the room-layout
 # group and resolved six-palette block; the original shared mapping index is
 # retained in metadata for provenance, but expanded mappings use tileset IDs.

@@ -1,6 +1,5 @@
 using Godot;
 using System;
-using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -8,33 +7,31 @@ public sealed class RoomSession
 {
     private readonly Func<long> _animationTick;
     private readonly Action _resetAnimationTick;
+    private readonly OracleSaveData _saveData;
 
     public event Action<int, OracleRoomData>? RoomChanged;
     public OracleWorldData World { get; }
     public DungeonMapDatabase DungeonMaps { get; }
-    public IReadOnlySet<(int Group, int Room)> VisitedRooms => _visitedRooms;
+    public OracleSaveData SaveData => _saveData;
     public int ActiveGroup { get; private set; }
     public OracleRoomData CurrentRoom { get; private set; }
-    public int MinimapGroup { get; private set; }
-    public int MinimapRoom { get; private set; }
-
-    private readonly HashSet<(int Group, int Room)> _visitedRooms = new();
-    private readonly HashSet<(int Group, int Room)> _layoutSwappedRooms = new();
+    public int MinimapGroup => _saveData.MinimapGroup;
+    public int MinimapRoom => _saveData.MinimapRoom;
 
     public RoomSession(
         int startingGroup,
         int startingRoom,
         Func<long> animationTick,
-        Action resetAnimationTick)
+        Action resetAnimationTick,
+        OracleSaveData saveData)
     {
         _animationTick = animationTick;
         _resetAnimationTick = resetAnimationTick;
+        _saveData = saveData;
         World = new OracleWorldData();
         DungeonMaps = new DungeonMapDatabase();
         ActiveGroup = startingGroup;
         CurrentRoom = GetRoom(startingGroup, startingRoom);
-        MinimapGroup = startingGroup;
-        MinimapRoom = startingRoom;
         MarkRoomVisited(startingGroup, startingRoom);
         CurrentRoom.UpdateAnimation(_animationTick());
     }
@@ -76,7 +73,8 @@ public sealed class RoomSession
 
     public OracleRoomData GetRoom(int group, int room)
     {
-        int dataGroup = group is 0 or 1 && _layoutSwappedRooms.Contains((group, room))
+        int dataGroup = group is 0 or 1 &&
+            _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagLayoutSwap)
             ? group + 2
             : group;
         return World.LoadRoom(group, room, dataGroup);
@@ -87,25 +85,23 @@ public sealed class RoomSession
         if (group is not (0 or 1))
             throw new ArgumentOutOfRangeException(
                 nameof(group), "ROOMFLAG_LAYOUTSWAP only redirects overworld groups 0 and 1.");
-        _layoutSwappedRooms.Add((group, room));
+        _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlagLayoutSwap);
     }
 
     internal bool IsLayoutSwapped(int group, int room) =>
-        _layoutSwappedRooms.Contains((group, room));
+        _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagLayoutSwap);
 
-    public bool HasVisited(int group, int room) => _visitedRooms.Contains((group, room));
+    public bool HasVisited(int group, int room) =>
+        _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagVisited);
 
     private void MarkRoomVisited(int group, int room)
     {
-        _visitedRooms.Add((group, room));
+        _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlagVisited);
         // wMinimapGroup/wMinimapRoom retain the exterior position while Link
-        // is inside a house or cave. The current runtime has no save state, so
-        // preserve the most recently entered present/past overworld room.
+        // is inside a house or cave, so preserve the most recently entered
+        // present/past overworld room in the save image.
         if (group is 0 or 1)
-        {
-            MinimapGroup = group;
-            MinimapRoom = room;
-        }
+            _saveData.SetMinimapLocation(group, room);
     }
 
     public bool TryGetNeighbor(Vector2I direction, out int room)

@@ -43,14 +43,14 @@ public sealed class RoomEventController
     private int _inputFrame;
     private int _paletteHeader;
     private bool _paletteCycling;
-    private bool _completed;
 
     public bool Active => _stage != Stage.None;
     internal int CurrentStage => (int)_stage;
     internal int Counter => _counter;
     internal int InputFrame => _inputFrame;
     internal int PaletteHeader => _paletteHeader;
-    internal bool Completed => _completed;
+    internal bool Completed =>
+        _rooms.SaveData.HasGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared);
 
     public RoomEventController(
         RoomSession rooms,
@@ -109,7 +109,7 @@ public sealed class RoomEventController
             throw new InvalidOperationException(
                 "Room 0:38 did not instantiate INTERAC_MAKU_TREE $87:$00.");
 
-        if (_completed)
+        if (Completed)
         {
             _makuTree.SetActive(false);
             return;
@@ -222,12 +222,15 @@ public sealed class RoomEventController
 
     private void Finish()
     {
-        _completed = true;
         _stage = Stage.None;
         _paletteCycling = false;
         _eventRoom!.ClearTemporaryBackgroundPalette(_animationTick());
         _roomView.QueueRedraw();
         _player.EndCutsceneControl();
+        // makuTreeDisappearingCutsceneHandler sets GLOBALFLAG_0c and room bit
+        // 0, while the interaction script increments wMakuTreeState.
+        _rooms.SaveData.SetGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared);
+        _rooms.SaveData.SetMakuTreeState(Math.Min(_rooms.SaveData.MakuTreeState + 1, 0xff));
         // The cutscene handler sets bit 0 in room 0:38. For overworld rooms,
         // getAdjustedRoomGroup interprets ROOMFLAG_LAYOUTSWAP by loading the
         // corresponding group+2 tileset and layout on re-entry.
