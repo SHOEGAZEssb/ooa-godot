@@ -11,24 +11,30 @@ public partial class Player : Node2D
     private static readonly Vector2 NormalSpriteOrigin = new(-8, -8);
     private const float AttackDuration = 17.0f / 60.0f;
     private const float SwordBreakTime = 6.0f / 60.0f;
+    private const float DrownAnimationDuration = 22.0f / 60.0f;
+    private const float DrownInvisibleDuration = 2.0f / 60.0f;
     private const float FallInHoleAnimationDuration = 36.0f / 60.0f;
     private const float FallInHoleInvisibleDuration = 2.0f / 60.0f;
     private const float HazardRecoveryDuration = 16.0f / 60.0f;
+    private static readonly Vector2 DrownSpriteOrigin = new(-8, -4);
     private const int StartingHealthQuarters = 12;
     private const int TerrainHazardDamageQuarters = 2;
     private IPlayerWorld _world = null!;
     private Texture2D _texture = null!;
     private Texture2D _attackTexture = null!;
     private Texture2D _swordTexture = null!;
+    private Texture2D _drownTexture = null!;
     private Texture2D _fallInHoleTexture = null!;
     private Vector2 _precisePosition;
     private Vector2 _lastSafePosition;
     private Vector2 _ledgeStart;
     private Vector2 _ledgeEnd;
+    private OracleRoomData.HazardType _drowningHazard;
     private Facing _facing = Facing.Down;
     private float _walkTime;
     private float _attackTime;
-    private float _hazardRespawnTime;
+    private float _drownTime;
+    private float _drownInvisibleTime;
     private float _hazardRecoveryTime;
     private float _fallInHoleTime;
     private float _fallInHoleInvisibleTime;
@@ -41,6 +47,8 @@ public partial class Player : Node2D
     private bool _walking;
     private bool _ledgeHopping;
     private bool _pullingIntoHole;
+    private bool _drowning;
+    private bool _drownRespawning;
     private bool _fallingInHole;
     private bool _fallInHoleRespawning;
 
@@ -51,6 +59,7 @@ public partial class Player : Node2D
     public int Rupees { get; private set; }
     public int MaxHealthQuarters { get; private set; } = StartingHealthQuarters;
     public bool IsPullingIntoHole => _pullingIntoHole;
+    public bool IsDrowning => _drowning;
     public bool IsFallingInHole => _fallingInHole;
 
     public Vector2I FacingVector => _facing switch
@@ -68,6 +77,7 @@ public partial class Player : Node2D
         _texture = BuildLinkTexture();
         _attackTexture = BuildAttackLinkTexture();
         _swordTexture = BuildSwordTexture();
+        _drownTexture = BuildDrownTexture();
         _fallInHoleTexture = BuildFallInHoleTexture();
         _precisePosition = spawn;
         _lastSafePosition = spawn;
@@ -77,13 +87,17 @@ public partial class Player : Node2D
 
     public void WarpTo(Vector2 position, bool recordSafe = true)
     {
-        _hazardRespawnTime = 0.0f;
+        _drownTime = 0.0f;
+        _drownInvisibleTime = 0.0f;
         _hazardRecoveryTime = 0.0f;
         _fallInHoleTime = 0.0f;
         _fallInHoleInvisibleTime = 0.0f;
         _holePullCounter = 0;
         _holePullPackedPosition = -1;
         _pullingIntoHole = false;
+        _drowningHazard = OracleRoomData.HazardType.None;
+        _drowning = false;
+        _drownRespawning = false;
         _fallingInHole = false;
         _fallInHoleRespawning = false;
         _precisePosition = position;
@@ -153,9 +167,7 @@ public partial class Player : Node2D
     public void TriggerHazard(ActiveTerrainInfo activeTerrain)
     {
         OracleRoomData.HazardType hazard = activeTerrain.Terrain.Hazard;
-        if (_hazardRespawnTime > 0.0f)
-            return;
-        if (_pullingIntoHole || _fallingInHole)
+        if (_pullingIntoHole || _drowning || _fallingInHole)
             return;
 
         if (hazard == OracleRoomData.HazardType.Hole)
@@ -164,12 +176,7 @@ public partial class Player : Node2D
             return;
         }
 
-        ApplyDamage(GetTerrainHazardDamageQuarters(hazard));
-        _hazardRespawnTime = 0.48f;
-        _walking = false;
-        _attackTime = 0.0f;
-        Visible = false;
-        _world.SpawnTerrainEffect(Position, hazard);
+        StartDrowning(hazard);
     }
 
     public bool ApplyDamage(int quarters)
@@ -230,20 +237,15 @@ public partial class Player : Node2D
 
     public override void _PhysicsProcess(double delta)
     {
-        if (_fallingInHole)
+        if (_drowning)
         {
-            UpdateFallInHole((float)delta);
+            UpdateDrowning((float)delta);
             return;
         }
 
-        if (_hazardRespawnTime > 0.0f)
+        if (_fallingInHole)
         {
-            _hazardRespawnTime -= (float)delta;
-            if (_hazardRespawnTime <= 0.0f)
-            {
-                WarpTo(_lastSafePosition);
-                _hazardRecoveryTime = HazardRecoveryDuration;
-            }
+            UpdateFallInHole((float)delta);
             return;
         }
 
@@ -309,7 +311,7 @@ public partial class Player : Node2D
 
     public override void _Process(double delta)
     {
-        if (_fallingInHole || _hazardRespawnTime > 0.0f || _hazardRecoveryTime > 0.0f ||
+        if (_drowning || _fallingInHole || _hazardRecoveryTime > 0.0f ||
             (_pullingIntoHole && _holePullCounter >= 16))
         {
             _attackTime = 0.0f;
@@ -331,7 +333,15 @@ public partial class Player : Node2D
 
     public override void _Draw()
     {
-        if (_fallingInHole && !_fallInHoleRespawning)
+        if (_drowning && !_drownRespawning)
+        {
+            int frame = GetDrownAnimationFrame();
+            DrawTextureRectRegion(
+                _drownTexture,
+                new Rect2(DrownSpriteOrigin, new Vector2(16, 16)),
+                new Rect2(frame * 16, (int)_facing * 16, 16, 16));
+        }
+        else if (_fallingInHole && !_fallInHoleRespawning)
         {
             int frame = GetFallInHoleFrame();
             DrawTextureRectRegion(
@@ -528,6 +538,62 @@ public partial class Player : Node2D
         return hazard == OracleRoomData.HazardType.None ? 0 : TerrainHazardDamageQuarters;
     }
 
+    private void StartDrowning(OracleRoomData.HazardType hazard)
+    {
+        _drowningHazard = hazard;
+        _drowning = true;
+        _drownRespawning = false;
+        _drownTime = 0.0f;
+        _drownInvisibleTime = 0.0f;
+        _walking = false;
+        _attackTime = 0.0f;
+        _attackHitApplied = false;
+        Visible = true;
+        _world.SpawnDrowningSplash(Position, hazard);
+        QueueRedraw();
+    }
+
+    private void UpdateDrowning(float delta)
+    {
+        if (!_drownRespawning)
+        {
+            _drownTime += delta;
+            if (_drownTime < DrownAnimationDuration)
+            {
+                QueueRedraw();
+                return;
+            }
+
+            delta = _drownTime - DrownAnimationDuration;
+            _drownTime = DrownAnimationDuration;
+            _drownRespawning = true;
+            _drownInvisibleTime = DrownInvisibleDuration;
+            Visible = false;
+            QueueRedraw();
+        }
+
+        _drownInvisibleTime -= delta;
+        if (_drownInvisibleTime > 0.0f)
+            return;
+
+        ApplyDamage(GetTerrainHazardDamageQuarters(_drowningHazard));
+        WarpTo(_lastSafePosition);
+        _hazardRecoveryTime = HazardRecoveryDuration;
+        _walking = false;
+        _attackTime = 0.0f;
+        QueueRedraw();
+    }
+
+    internal int DrownAnimationFrame => GetDrownAnimationFrame();
+
+    private int GetDrownAnimationFrame()
+    {
+        // LINK_ANIM_MODE_DROWN ($0a) holds directional frame $d4 for six
+        // updates, then frame $0b for sixteen updates before setting bit 7 of
+        // animParameter. Direction is added to $d4 by the graphics loader.
+        return _drownTime < 6.0f / 60.0f ? 0 : 1;
+    }
+
     private void UpdateFallInHole(float delta)
     {
         if (!_fallInHoleRespawning)
@@ -719,6 +785,26 @@ public partial class Player : Node2D
         return ImageTexture.CreateFromImage(output);
     }
 
+    private static Texture2D BuildDrownTexture()
+    {
+        Texture2D sourceTexture = GD.Load<Texture2D>("res://assets/oracle/gfx/spr_link.png");
+        Image source = sourceTexture.GetImage();
+        Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
+
+        // LINK_ANIM_MODE_DROWN ($0a) uses directional graphics $d4-$d7 for
+        // six updates. Their OAM records $10-$12 place both 8x16 cells at
+        // y=$0c. The final sixteen updates use graphics $0b with OAM $12.
+        WriteLinkFrame(output, source, 0, (int)Facing.Up * 16, 0x0e00, false);    // $d4, OAM $10
+        WriteLinkFrame(output, source, 0, (int)Facing.Right * 16, 0x0ec0, true); // $d5, OAM $11
+        WriteSymmetricLinkCell(output, source, 0, (int)Facing.Down * 16, 0x0e80); // $d6, OAM $12
+        WriteLinkFrame(output, source, 0, (int)Facing.Left * 16, 0x0ec0, false); // $d7, OAM $10
+
+        for (int facing = 0; facing < 4; facing++)
+            WriteSymmetricLinkCell(output, source, 16, facing * 16, 0x0f40); // $0b, OAM $12
+
+        return ImageTexture.CreateFromImage(output);
+    }
+
     private static Texture2D BuildFallInHoleTexture()
     {
         Texture2D sourceTexture = GD.Load<Texture2D>("res://assets/oracle/gfx/spr_link.png");
@@ -796,6 +882,30 @@ public partial class Player : Node2D
         {
             Color sourceColor = source.GetPixel(cellX + x, cellY + y);
             output.SetPixel(destinationX + 4 + x, destinationY + y, RecolorLinkPixel(sourceColor));
+        }
+    }
+
+    private static void WriteSymmetricLinkCell(
+        Image output,
+        Image source,
+        int destinationX,
+        int destinationY,
+        int byteOffset)
+    {
+        int cell = byteOffset / 32;
+        int cellX = (cell % 16) * 8;
+        int cellY = (cell / 16) * 16;
+
+        for (int destinationPart = 0; destinationPart < 2; destinationPart++)
+        for (int y = 0; y < 16; y++)
+        for (int x = 0; x < 8; x++)
+        {
+            int sourceX = cellX + (destinationPart == 0 ? x : 7 - x);
+            Color sourceColor = source.GetPixel(sourceX, cellY + y);
+            output.SetPixel(
+                destinationX + destinationPart * 8 + x,
+                destinationY + y,
+                RecolorLinkPixel(sourceColor));
         }
     }
 

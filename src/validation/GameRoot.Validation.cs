@@ -251,12 +251,7 @@ public partial class GameRoot
         _player.WarpTo(new Vector2(8, 8), recordSafe: false);
         if (GetTerrainInfo(_player.Position).Hazard != OracleRoomData.HazardType.Water)
             throw new InvalidOperationException("Expected room b8/$00 to be water terrain.");
-        _player._PhysicsProcess(1.0 / 60.0);
-        if (_player.Visible)
-            throw new InvalidOperationException("Water terrain did not trigger Link's respawn state.");
-        _player._PhysicsProcess(0.5);
-        if (!_player.Visible || _player.Position.DistanceSquaredTo(waterSafe) > 1.0f)
-            throw new InvalidOperationException("Water terrain did not return Link to the last safe tile.");
+        ValidateDrowningSequence(waterSafe, OracleRoomData.HazardType.Water);
 
         _currentRoom = _world.LoadRoom(_activeGroup, 0x03);
         _roomView.SetRoom(_currentRoom.Texture);
@@ -265,12 +260,7 @@ public partial class GameRoot
         _player.WarpTo(new Vector2(8, 24), recordSafe: false);
         if (GetTerrainInfo(_player.Position).Hazard != OracleRoomData.HazardType.Lava)
             throw new InvalidOperationException("Expected room 03/$10 to be lava terrain.");
-        _player._PhysicsProcess(1.0 / 60.0);
-        if (_player.Visible)
-            throw new InvalidOperationException("Lava terrain did not trigger Link's respawn state.");
-        _player._PhysicsProcess(0.5);
-        if (!_player.Visible || _player.Position.DistanceSquaredTo(lavaSafe) > 1.0f)
-            throw new InvalidOperationException("Lava terrain did not return Link to the last safe tile.");
+        ValidateDrowningSequence(lavaSafe, OracleRoomData.HazardType.Lava);
 
         if (!TryFindTerrainSample(
             OracleRoomData.HazardType.Hole,
@@ -324,6 +314,92 @@ public partial class GameRoot
         ValidateRoom56TileEdgeSlide();
 
         GD.Print("Validated terrain hazards, hole fall/respawn, ledge hop, and original tile-edge sliding.");
+    }
+
+    private void ValidateDrowningSequence(
+        Vector2 safePosition,
+        OracleRoomData.HazardType hazard)
+    {
+        string terrainName = hazard.ToString();
+        Vector2 hazardPosition = _player.Position;
+        int healthBeforeDrowning = _player.HealthQuarters;
+        int worldChildCount = GetChildCount();
+
+        _player._PhysicsProcess(1.0 / 60.0);
+        SplashEffect? splash = _terrain.ActiveSplash;
+        if (GetChildCount() != worldChildCount + 1 || splash is null ||
+            splash.Position != hazardPosition ||
+            splash.IsLava != (hazard == OracleRoomData.HazardType.Lava))
+        {
+            throw new InvalidOperationException(
+                $"{terrainName} drowning did not create its original splash interaction at Link's position.");
+        }
+        int splashFrameDuration = splash.IsLava ? 2 : 4;
+        int splashFrameCount = splash.IsLava ? 10 : 3;
+        if (splash.DurationFrames != splashFrameDuration * splashFrameCount ||
+            splash.AnimationFrame != 0)
+        {
+            throw new InvalidOperationException(
+                $"{terrainName} splash did not start with the original interaction timing.");
+        }
+        splash.Advance((splashFrameDuration - 1.0) / 60.0);
+        if (splash.AnimationFrame != 0)
+            throw new InvalidOperationException(
+                $"{terrainName} splash did not hold its first OAM record for {splashFrameDuration} updates.");
+        splash.Advance(1.0 / 60.0);
+        if (splash.AnimationFrame != 1)
+            throw new InvalidOperationException(
+                $"{terrainName} splash did not advance to its second OAM record.");
+        splash.Advance((splash.DurationFrames - splashFrameDuration - 1.0) / 60.0);
+        if (splash.AnimationFrame != splashFrameCount - 1 || splash.IsQueuedForDeletion())
+            throw new InvalidOperationException(
+                $"{terrainName} splash did not reach and hold its final OAM record.");
+        splash.Advance(1.0 / 60.0);
+        if (!splash.IsQueuedForDeletion())
+            throw new InvalidOperationException(
+                $"{terrainName} splash did not delete after {splash.DurationFrames} updates.");
+        if (!_player.IsDrowning || !_player.Visible || _player.DrownAnimationFrame != 0)
+            throw new InvalidOperationException(
+                $"{terrainName} terrain did not begin visible LINK_ANIM_MODE_DROWN frame $d4.");
+        if (_player.HealthQuarters != healthBeforeDrowning)
+            throw new InvalidOperationException(
+                $"{terrainName} damage was applied before the drowning animation finished.");
+
+        _player._PhysicsProcess(5.0 / 60.0);
+        if (!_player.Visible || _player.DrownAnimationFrame != 0)
+            throw new InvalidOperationException(
+                $"{terrainName} did not hold directional drowning frame $d4 for six updates.");
+        _player._PhysicsProcess(1.0 / 60.0);
+        if (!_player.Visible || _player.DrownAnimationFrame != 1)
+            throw new InvalidOperationException(
+                $"{terrainName} did not advance to drowning frame $0b after six updates.");
+
+        _player._PhysicsProcess(15.0 / 60.0);
+        if (!_player.Visible || _player.Position != hazardPosition)
+            throw new InvalidOperationException(
+                $"{terrainName} moved or hid Link before the 22-update drowning animation finished.");
+        _player._PhysicsProcess(1.0 / 60.0);
+        if (_player.Visible || !_player.IsDrowning)
+            throw new InvalidOperationException(
+                $"{terrainName} did not hide Link after the 22-update drowning animation.");
+        if (_player.HealthQuarters != healthBeforeDrowning)
+            throw new InvalidOperationException(
+                $"{terrainName} damage was applied before the two-update respawn delay.");
+
+        _player._PhysicsProcess(1.0 / 60.0);
+        if (_player.Visible)
+            throw new InvalidOperationException(
+                $"{terrainName} did not preserve the first invisible respawn update.");
+        _player._PhysicsProcess(1.0 / 60.0);
+        if (_player.IsDrowning || !_player.Visible ||
+            _player.Position.DistanceSquaredTo(safePosition) > 1.0f)
+        {
+            throw new InvalidOperationException(
+                $"{terrainName} did not return Link to the last safe tile after drowning.");
+        }
+        if (_player.HealthQuarters != healthBeforeDrowning - 2)
+            throw new InvalidOperationException(
+                $"{terrainName} did not apply one half-heart after Link reappeared.");
     }
 
     private void ValidateRoom56TileEdgeSlide()
@@ -582,18 +658,12 @@ public partial class GameRoot
         _player.WarpTo(safe);
         _player.WarpTo(new Vector2(8, 24), recordSafe: false);
 
-        _player._PhysicsProcess(1.0 / 60.0);
+        ValidateDrowningSequence(safe, OracleRoomData.HazardType.Lava);
         if (_player.HealthQuarters != 10 || _hud.HealthQuarters != 10)
             throw new InvalidOperationException(
-                "Lava hazard did not apply half-heart damage and update the HUD.");
-        if (_player.Visible)
-            throw new InvalidOperationException("Lava hazard did not trigger Link's respawn state.");
+                "Lava hazard did not synchronize its delayed half-heart damage to the HUD.");
 
-        _player._PhysicsProcess(0.5);
-        if (!_player.Visible || _player.Position.DistanceSquaredTo(safe) > 1.0f)
-            throw new InvalidOperationException("Lava hazard did not return Link to the last safe tile.");
-
-        GD.Print("Validated quarter-heart health, HUD synchronization, and half-heart terrain damage.");
+        GD.Print("Validated quarter-heart health, HUD synchronization, and delayed half-heart terrain damage.");
     }
 
     private void ValidateAnimations()

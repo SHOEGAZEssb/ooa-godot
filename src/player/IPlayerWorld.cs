@@ -13,7 +13,7 @@ public interface IPlayerWorld
     ActiveTerrainInfo GetActiveTerrain(Vector2 playerPosition);
     Vector2 GetTerrainPush(Vector2 playerPosition);
     bool TryStartLedgeHop(Player player, Vector2 from, Vector2 attemptedMovement);
-    void SpawnTerrainEffect(Vector2 position, OracleRoomData.HazardType hazard);
+    void SpawnDrowningSplash(Vector2 position, OracleRoomData.HazardType hazard);
     bool CheckTileWarp(Player player);
     void CheckRoomExit(Player player);
 }

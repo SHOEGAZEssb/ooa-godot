@@ -36,8 +36,8 @@ public sealed class PlayerWorld : IPlayerWorld
     public Vector2 GetTerrainPush(Vector2 position) => _terrain.GetTerrainPush(position);
     public bool TryStartLedgeHop(Player player, Vector2 from, Vector2 movement) =>
         _terrain.TryStartLedgeHop(player, from, movement);
-    public void SpawnTerrainEffect(Vector2 position, OracleRoomData.HazardType hazard) =>
-        _terrain.SpawnEffect(position, hazard);
+    public void SpawnDrowningSplash(Vector2 position, OracleRoomData.HazardType hazard) =>
+        _terrain.SpawnDrowningSplash(position, hazard);
     public bool CheckTileWarp(Player player) => _transitions.CheckTileWarp(player);
     public void CheckRoomExit(Player player) => _transitions.CheckRoomExit(player);
 }

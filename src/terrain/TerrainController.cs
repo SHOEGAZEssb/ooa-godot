@@ -8,6 +8,9 @@ public sealed class TerrainController
     private readonly Node _worldRoot;
     private readonly RoomSession _rooms;
     private readonly Func<Vector2, bool> _collides;
+    private SplashEffect? _activeSplash;
+
+    internal SplashEffect? ActiveSplash => _activeSplash;
 
     public TerrainController(Node worldRoot, RoomSession rooms, Func<Vector2, bool> collides)
     {
@@ -70,11 +73,11 @@ public sealed class TerrainController
         return true;
     }
 
-    public void SpawnEffect(Vector2 position, OracleRoomData.HazardType hazard)
+    public void SpawnDrowningSplash(Vector2 position, OracleRoomData.HazardType hazard)
     {
-        var effect = new TerrainEffect { Position = position, ZIndex = 11 };
-        effect.Initialize(hazard);
-        _worldRoot.AddChild(effect);
+        _activeSplash = new SplashEffect { ZIndex = 11 };
+        _activeSplash.Initialize(position, hazard);
+        _worldRoot.AddChild(_activeSplash);
     }
 
     private static bool IsCliffTile(byte tile, Vector2I direction)
