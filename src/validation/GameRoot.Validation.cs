@@ -841,6 +841,56 @@ public partial class GameRoot
         if (villager.FacingVector != Vector2I.Down)
             throw new InvalidOperationException("The villager did not return to facing down when Link left the $28 awareness radius.");
 
+        _dialogue.Close();
+        _transitions.BeginScroll(_player, Vector2I.Down, 0x58);
+        NpcCharacter? destinationNpc = _npcNodes.Find(npc =>
+            npc.Record.Room == 0x58 && npc.Record.Id == 0x41 && npc.Record.SubId == 0x04);
+        if (!_entities.ScreenTransitionActive || _currentRoom.Id != 0x58 ||
+            _entities.OutgoingNpcs.Count != 2 || destinationNpc is null)
+        {
+            throw new InvalidOperationException(
+                $"The 0:48 -> 0:58 scroll did not retain two outgoing NPCs and preload the destination NPC " +
+                $"(active={_entities.ScreenTransitionActive}, room={_currentRoom.Id:x2}, " +
+                $"outgoing={_entities.OutgoingNpcs.Count}, incoming={_npcNodes.Count}, " +
+                $"destinationFound={destinationNpc is not null}).");
+        }
+        foreach (NpcCharacter outgoingNpc in _entities.OutgoingNpcs)
+        {
+            if (outgoingNpc.Record.Room != 0x48 ||
+                !outgoingNpc.TransitionDrawOffset.IsEqualApprox(Vector2.Zero))
+            {
+                throw new InvalidOperationException(
+                    "An outgoing room 0:48 NPC was not retained at its initial screen position.");
+            }
+        }
+        if (!destinationNpc.TransitionDrawOffset.IsEqualApprox(
+            Vector2.Down * OracleRoomData.ViewportHeight))
+        {
+            throw new InvalidOperationException(
+                "The room 0:58 NPC was not staged one screen below the outgoing room.");
+        }
+
+        UpdateScrollingTransition(1.0 / 60.0);
+        foreach (NpcCharacter outgoingNpc in _entities.OutgoingNpcs)
+        {
+            if (!outgoingNpc.TransitionDrawOffset.IsEqualApprox(Vector2.Up * 4.0f))
+                throw new InvalidOperationException("An outgoing NPC did not move with its scrolling room.");
+        }
+        if (!destinationNpc.TransitionDrawOffset.IsEqualApprox(
+            Vector2.Down * (OracleRoomData.ViewportHeight - 4.0f)))
+        {
+            throw new InvalidOperationException("The preloaded destination NPC did not scroll into view with room 0:58.");
+        }
+
+        FinishActiveScrollingTransitionForValidation();
+        if (_entities.ScreenTransitionActive || _entities.OutgoingNpcs.Count != 0 ||
+            !destinationNpc.TransitionDrawOffset.IsEqualApprox(Vector2.Zero) ||
+            destinationNpc.GetParent() != this)
+        {
+            throw new InvalidOperationException(
+                "The destination NPC did not become the normal room NPC after the scroll completed.");
+        }
+
         _activeGroup = 0;
         _currentRoom = _world.LoadRoom(_activeGroup, 0x66);
         _roomView.SetRoom(_currentRoom.Texture);
@@ -871,7 +921,8 @@ public partial class GameRoot
         }
 
         GD.Print("Validated villager idle animation, $28 Link awareness, 30-frame facing delay, " +
-            "TX_1420 dialogue, room 0:66 Link-relative draw priority, and Link sprite palette 0.");
+            "TX_1420 dialogue, retained/preloaded NPC screen scrolling, room 0:66 " +
+            "Link-relative draw priority, and Link sprite palette 0.");
     }
 
     private static int GetStartingRoom()

@@ -27,6 +27,7 @@ public sealed class RoomTransitionController
     private Vector2 _scrollLinkStart;
     private Vector2 _scrollLinkStep;
     private Vector2 _scrollFinishOffset;
+    private Vector2 _scrollIncomingStartOffset;
     private float _scrollDistance;
     private float _scrollFrame;
     private int _scrollFrames;
@@ -151,7 +152,6 @@ public sealed class RoomTransitionController
         if (direction == Vector2I.Right) start.X = source.Width - 6;
 
         _scrollActive = true;
-        _entities.Clear();
         _scrollDirection = direction;
         _scrollLinkStart = start;
         _scrollDistance = direction.X != 0 ? OracleRoomData.ViewportWidth : OracleRoomData.ViewportHeight;
@@ -168,9 +168,12 @@ public sealed class RoomTransitionController
 
         Vector2 transitionEnd = start + _scrollLinkStep * _scrollFrames + _scrollFinishOffset;
         Vector2 destinationCameraOrigin = GetCameraOrigin(target, transitionEnd);
+        _scrollIncomingStartOffset = sourceCameraOrigin - destinationCameraOrigin +
+            (Vector2)direction * _scrollDistance;
         _rooms.SetLoadedRoom(_rooms.ActiveGroup, target);
         _roomView.StartScreenTransition(
             target.Texture, direction, _scrollDistance, sourceCameraOrigin, destinationCameraOrigin);
+        _entities.BeginScreenTransition(_rooms.ActiveGroup, target, _scrollIncomingStartOffset);
         player.BeginScrollingTransition(start, direction);
     }
 
@@ -183,6 +186,7 @@ public sealed class RoomTransitionController
         float scrollPixels = Mathf.Min(Mathf.Floor(_scrollFrame) * 4.0f, _scrollDistance);
         Vector2 screenScroll = new(_scrollDirection.X * scrollPixels, _scrollDirection.Y * scrollPixels);
         _roomView.SetTransitionFrame(_scrollFrame);
+        _entities.SetScreenTransitionOffsets(-screenScroll, _scrollIncomingStartOffset - screenScroll);
         _player.SetScrollingTransitionPosition(linkPosition, screenScroll);
         if (_scrollFrame < _scrollFrames)
             return;
@@ -190,7 +194,7 @@ public sealed class RoomTransitionController
         _scrollActive = false;
         _roomView.FinishTransition();
         _player.FinishScrollingTransition(linkPosition + _scrollFinishOffset);
-        _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom);
+        _entities.FinishScreenTransition();
         UpdateCamera();
     }
 

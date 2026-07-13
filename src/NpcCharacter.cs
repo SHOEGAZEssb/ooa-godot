@@ -25,6 +25,7 @@ public partial class NpcCharacter : Node2D
     private int _animationFrame;
     private double _animationTicks;
     private double _faceCooldownFrames;
+    private Vector2 _transitionDrawOffset;
 
     public NpcDatabase.NpcRecord Record { get; private set; }
     public string Message => Record.Message;
@@ -35,6 +36,7 @@ public partial class NpcCharacter : Node2D
     public Rect2 SpriteBounds => new(Position + new Vector2(-8, -8), new Vector2(16, 16));
     public int CurrentFrameColumn => GetFrameColumn();
     public int CurrentAnimationFrame => _animationFrame;
+    public Vector2 TransitionDrawOffset => _transitionDrawOffset;
     public Vector2I FacingVector => _facing switch
     {
         Facing.Up => Vector2I.Up,
@@ -117,11 +119,22 @@ public partial class NpcCharacter : Node2D
             : BehindLinkZIndex;
     }
 
+    internal void SetTransitionDrawOffset(Vector2 offset)
+    {
+        if (_transitionDrawOffset.IsEqualApprox(offset))
+            return;
+
+        _transitionDrawOffset = offset;
+        QueueRedraw();
+    }
+
     public override void _Draw()
     {
         List<AnimationFrame> animation = _facingAnimations[(int)_facing];
         if (animation.Count > 0)
-            DrawTexture(animation[_animationFrame % animation.Count].Texture, new Vector2(-16, -16));
+            DrawTexture(
+                animation[_animationFrame % animation.Count].Texture,
+                new Vector2(-16, -16) + _transitionDrawOffset);
     }
 
     private void AdvanceAnimation(double delta)
