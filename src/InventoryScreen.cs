@@ -49,7 +49,7 @@ public partial class InventoryScreen : Node2D
         _itemIcons2 = LoadPng("res://assets/oracle/gfx/spr_item_icons_2.png");
         _itemIcons3 = LoadPng("res://assets/oracle/gfx/spr_item_icons_3.png");
         _bgPalette = LoadPalette("res://assets/oracle/inventory/palette_bg.bin", 8, 0);
-        _spritePalette = LoadPalette("res://assets/oracle/inventory/palette_sprites.bin", 6, 0);
+        _spritePalette = ItemIconAtlas.LoadStandardSpritePalettes();
     }
 
     public void Initialize(TreasureDatabase treasures, InventoryState inventory)
@@ -274,27 +274,9 @@ public partial class InventoryScreen : Node2D
 
     private bool SelectItemIcon(int sprite, out Image source, out int cell)
     {
-        if (sprite is >= 0x80 and <= 0x8f)
-        {
-            source = _itemIcons1;
-            cell = sprite - 0x80;
-            return true;
-        }
-        if (sprite is >= 0x90 and <= 0x9f)
-        {
-            source = _itemIcons2;
-            cell = sprite - 0x90;
-            return true;
-        }
-        if (sprite is >= 0xa0 and <= 0xaf)
-        {
-            source = _itemIcons3;
-            cell = sprite - 0xa0;
-            return true;
-        }
-        source = _itemIcons1;
-        cell = 0;
-        return false;
+        return ItemIconAtlas.Select(
+            sprite, _itemIcons1, _itemIcons2, _itemIcons3,
+            out source, out cell);
     }
 
     private Image SelectInventoryTile(byte tile, byte flags, out int sourceTile, out bool spriteBankTile)
@@ -406,16 +388,10 @@ public partial class InventoryScreen : Node2D
         Mathf.Clamp(Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f), 0, 3);
 
     private static int ItemIconShade(Color sourceColor, out bool transparent)
-    {
-        int shade = ItemIconShadeIncludingZero(sourceColor);
-        transparent = shade == 0;
-        return shade;
-    }
+        => ItemIconAtlas.ShadeFromPng(sourceColor, out transparent);
 
-    private static int ItemIconShadeIncludingZero(Color sourceColor) => sourceColor.R < 0.1f ? 0
-        : sourceColor.R < 0.5f ? 1
-        : sourceColor.R < 0.9f ? 2
-        : 3;
+    private static int ItemIconShadeIncludingZero(Color sourceColor) =>
+        ItemIconAtlas.ShadeFromPng(sourceColor, out _);
 
     private static Image LoadPng(string path)
     {

@@ -64,6 +64,23 @@ public sealed class TreasureDatabase
         };
     }
 
+    public DisplayRecord GetTreasureDisplay(int treasureId, int parameter, InventoryState inventory)
+    {
+        if (treasureId == 0)
+            return DisplayRecord.Empty;
+
+        int level = Math.Max(0, parameter - 1);
+        return treasureId switch
+        {
+            TreasureSword when parameter > 0 => GetDisplay("treasureDisplayData_sword", level),
+            TreasureBracelet when parameter > 0 => GetDisplay("treasureDisplayData_bracelet", level),
+            TreasureSwitchHook when parameter > 0 => GetDisplay("treasureDisplayData_switchHook", level),
+            TreasureBoomerang when parameter > 0 => GetDisplay("treasureDisplayData_boomerang", level),
+            TreasureFeather when parameter > 0 => GetDisplay("treasureDisplayData_feather", level),
+            _ => GetButtonDisplay(treasureId, inventory)
+        };
+    }
+
     private DisplayRecord GetDisplay(string table, int index)
     {
         if (!_displayRows.TryGetValue(table, out List<DisplayRecord>? records) ||

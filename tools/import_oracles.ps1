@@ -282,6 +282,7 @@ Copy-GeneratedFile "gfx_compressible\common\gfx_hud.png" "gfx\gfx_hud.png"
 Copy-GeneratedFile "gfx\common\spr_item_icons_1.png" "gfx\spr_item_icons_1.png"
 Copy-GeneratedFile "gfx\common\spr_item_icons_2.png" "gfx\spr_item_icons_2.png"
 Copy-GeneratedFile "gfx\common\spr_item_icons_3.png" "gfx\spr_item_icons_3.png"
+Copy-GeneratedFile "gfx_compressible\ages\spr_quest_items_4.png" "gfx\spr_quest_items_4.png"
 Copy-GeneratedFile "gfx_compressible\ages\spr_common_items.png" "gfx\spr_common_items.png"
 Copy-GeneratedFile "gfx\common\gfx_partial_hearts.png" "gfx\gfx_partial_hearts.png"
 Copy-GeneratedFile "gfx\common\gfx_font.png" "gfx\gfx_font.png"
@@ -644,6 +645,74 @@ if (($displayRows | Where-Object { $_ -match '^treasureDisplayData_sword\t0\t05\
 [IO.File]::WriteAllLines(
     (Join-Path $destination "metadata\treasure_display.tsv"),
     $displayRows,
+    [Text.UTF8Encoding]::new($false))
+
+# Export the breakable tile tables used by tryToBreakTile. The source masks
+# retain the disassembly's left-to-right bit order from breakableTileSources.s.
+$breakableSource = Get-Content (Join-Path $Disassembly "data\ages\tile_properties\breakableTiles.s")
+$breakableModes = @{}
+foreach ($line in $breakableSource) {
+    if ($line -match 'm_BreakableTileData\s+%(?<m0>[01]{8})\s+%(?<m1>[01]{8})\s+%(?<m2>[01]{4})\s+\$(?<drop>[0-9a-f])\s+\$(?<effect>[0-9a-f]{2})\s+\$(?<replacement>[0-9a-f]{2})\s*;\s*\$(?<index>[0-9a-f]{2})') {
+        $bits = $Matches['m0'] + $Matches['m1'] + $Matches['m2']
+        $mask = 0
+        for ($i = 0; $i -lt $bits.Length; $i++) {
+            if ($bits[$i] -eq '1') {
+                $mask = $mask -bor (1 -shl $i)
+            }
+        }
+        $breakableModes[[Convert]::ToInt32($Matches['index'], 16)] = @{
+            SourceMask = $mask
+            Drop = [Convert]::ToInt32($Matches['drop'], 16)
+            Effect = [Convert]::ToInt32($Matches['effect'], 16)
+            Replacement = [Convert]::ToInt32($Matches['replacement'], 16)
+        }
+    }
+}
+
+$breakableCollisionModes = @{
+    overworld = 0
+    indoors = 1
+    dungeons = 2
+    sidescrolling = 3
+    underwater = 4
+    five = 5
+}
+$breakableRows = [Collections.Generic.List[string]]::new()
+$breakableRows.Add("# active-collisions`ttile`tmode`tsource-mask`tdrop`teffect`treplacement")
+$activeLabels = [Collections.Generic.List[string]]::new()
+foreach ($line in $breakableSource) {
+    if ($line -match '^\s*@(?<label>[A-Za-z0-9_]+):') {
+        $label = $Matches['label']
+        if ($breakableCollisionModes.ContainsKey($label)) {
+            $activeLabels.Add($label)
+        }
+        continue
+    }
+    if ($activeLabels.Count -eq 0 -or $line -notmatch '^\s*\.db\s+\$(?<tile>[0-9a-f]{2})(?:(?:\s*,)?\s+\$(?<mode>[0-9a-f]{2}))?') {
+        continue
+    }
+    if (-not $Matches.ContainsKey('mode') -or $Matches['mode'] -eq '') {
+        $activeLabels.Clear()
+        continue
+    }
+
+    $tile = [Convert]::ToInt32($Matches['tile'], 16)
+    $modeIndex = [Convert]::ToInt32($Matches['mode'], 16)
+    if (-not $breakableModes.ContainsKey($modeIndex)) {
+        throw "Breakable tile collision row referenced missing mode $($modeIndex.ToString('x2'))."
+    }
+    $mode = $breakableModes[$modeIndex]
+    foreach ($label in $activeLabels) {
+        $collisionMode = $breakableCollisionModes[$label]
+        $breakableRows.Add("$collisionMode`t$($tile.ToString('x2'))`t$($modeIndex.ToString('x2'))`t$($mode.SourceMask.ToString('x5'))`t$($mode.Drop.ToString('x1'))`t$($mode.Effect.ToString('x2'))`t$($mode.Replacement.ToString('x2'))")
+    }
+}
+if (($breakableRows | Where-Object { $_ -eq "2`t10`t1d`t00125`t2`t06`ta0" }).Count -ne 1) {
+    throw 'Could not export dungeon moving pot tile $10 as bracelet-breakable mode $1d.'
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination "metadata\breakable_tiles.tsv"),
+    $breakableRows,
     [Text.UTF8Encoding]::new($false))
 
 # Chests are interactable $f1 metatiles whose room/position and treasure

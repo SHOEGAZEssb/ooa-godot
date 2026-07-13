@@ -12,11 +12,11 @@ public partial class ChestTreasureEffect : Node2D
 
     public bool Finished => _frames >= RiseFrames;
 
-    public void Initialize(Vector2 position)
+    public void Initialize(Vector2 position, TreasureDatabase.DisplayRecord display)
     {
         _start = position;
         Position = position;
-        _texture = BuildRupeeTexture();
+        _texture = display.HasIcon ? BuildDisplayTexture(display) : BuildRupeeTexture();
         QueueRedraw();
     }
 
@@ -54,6 +54,58 @@ public partial class ChestTreasureEffect : Node2D
                 : pixel.R < 0.9f ? GbcColor(0x00, 0x00, 0x1f) : Colors.Black);
         }
         return ImageTexture.CreateFromImage(output);
+    }
+
+    private static Texture2D BuildDisplayTexture(TreasureDatabase.DisplayRecord display)
+    {
+        Image itemIcons1 = LoadPng("res://assets/oracle/gfx/spr_item_icons_1.png");
+        Image itemIcons2 = LoadPng("res://assets/oracle/gfx/spr_item_icons_2.png");
+        Image itemIcons3 = LoadPng("res://assets/oracle/gfx/spr_item_icons_3.png");
+        Color[,] palettes = ItemIconAtlas.LoadStandardSpritePalettes();
+        int width = display.RightSprite == 0 ? 8 : 16;
+        Image output = Image.CreateEmpty(width, 16, false, Image.Format.Rgba8);
+        DrawSprite(output, display.LeftSprite, display.LeftPalette, 0,
+            itemIcons1, itemIcons2, itemIcons3, palettes);
+        if (display.RightSprite != 0)
+            DrawSprite(output, display.RightSprite, display.RightPalette, 8,
+                itemIcons1, itemIcons2, itemIcons3, palettes);
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private static void DrawSprite(
+        Image output,
+        int sprite,
+        int palette,
+        int destinationX,
+        Image itemIcons1,
+        Image itemIcons2,
+        Image itemIcons3,
+        Color[,] palettes)
+    {
+        if (!ItemIconAtlas.Select(sprite, itemIcons1, itemIcons2, itemIcons3,
+            out Image source, out int cell))
+        {
+            return;
+        }
+
+        palette = Mathf.Clamp(palette & 0x07, 0, 5);
+        for (int y = 0; y < 16; y++)
+        for (int x = 0; x < 8; x++)
+        {
+            Color pixel = source.GetPixel(cell * 8 + x, y);
+            int shade = ItemIconAtlas.ShadeFromPng(pixel, out bool transparent);
+            if (transparent)
+                continue;
+            output.SetPixel(destinationX + x, y, palettes[palette, shade]);
+        }
+    }
+
+    private static Image LoadPng(string path)
+    {
+        byte[] bytes = FileAccess.GetFileAsBytes(path);
+        Image image = new();
+        image.LoadPngFromBuffer(bytes);
+        return image;
     }
 
     private static Color GbcColor(int red, int green, int blue) =>

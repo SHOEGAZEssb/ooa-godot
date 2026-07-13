@@ -10,6 +10,7 @@ public interface IPlayerWorld
     bool MovementDisabled { get; }
     bool ApplySwordHit(Player player, Rect2 hitbox);
     bool TryInteract(Player player);
+    bool TryUseBracelet(Player player);
     bool Collides(Vector2 playerPosition);
     Vector2 ResolveMovement(Vector2 playerPosition, Vector2 movement, bool allowWallSlide);
     bool IsPushingAgainstWall(

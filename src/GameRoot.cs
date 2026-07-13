@@ -19,6 +19,7 @@ public partial class GameRoot : Node2D
     private PushBlockController _pushBlocks = null!;
     private TerrainController _terrain = null!;
     private CombatController _combat = null!;
+    private BraceletController _bracelet = null!;
     private DebugWarpController _debugWarps = null!;
     private MapMenuController _mapMenu = null!;
     private InventoryMenuController _inventoryMenu = null!;
@@ -122,9 +123,11 @@ public partial class GameRoot : Node2D
             _rooms, new WarpDatabase(), _roomView, _player, _roomCamera,
             _warpFade, _hud, _dialogue, _entities, _collision.Collides);
         _interactions = new InteractionController(
-            _rooms, _entities, new SignDatabase(), new ChestDatabase(), _dialogue,
+            _rooms, _entities, new SignDatabase(), new ChestDatabase(), _treasures, _dialogue,
             this, _roomView, _transitions.WorldToScreen, () => (long)_animationTicks,
             _inventory);
+        _bracelet = new BraceletController(
+            _rooms, new BreakableTileDatabase(), _roomView, () => (long)_animationTicks);
         _terrain = new TerrainController(this, _rooms, _collision.Collides);
         _pushBlocks.EnteredHazard += (position, hazard) =>
         {
@@ -134,7 +137,9 @@ public partial class GameRoot : Node2D
         _combat = new CombatController(
             this, _rooms, _roomView, _entities, () => (long)_animationTicks);
         _playerWorld = new PlayerWorld(
-            _transitions, _interactions, _collision, _pushBlocks, _terrain, _combat, _entities);
+            _transitions, _interactions, _collision, _pushBlocks, _terrain, _combat, _entities,
+            _bracelet,
+            _inventory);
         _debugWarps = new DebugWarpController(
             _rooms, _player, LoadDebugRoom, FindSpawn, () => (long)_animationTicks,
             _interactions.ResetChestForTesting);

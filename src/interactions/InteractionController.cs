@@ -10,6 +10,7 @@ public sealed class InteractionController
     private readonly RoomEntityManager _entities;
     private readonly SignDatabase _signs;
     private readonly ChestDatabase _chests;
+    private readonly TreasureDatabase _treasures;
     private readonly DialogueBox _dialogue;
     private readonly Node _worldRoot;
     private readonly RoomView _roomView;
@@ -17,6 +18,7 @@ public sealed class InteractionController
     private readonly Func<long> _animationTick;
     private readonly InventoryState _inventory;
     private readonly HashSet<int> _openedChestRooms = new();
+    private readonly Dictionary<int, ChestDatabase.ChestRecord> _debugChestOverrides = new();
     private ChestTreasureEffect? _chestTreasure;
     private ChestDatabase.ChestRecord _pendingChest;
 
@@ -28,6 +30,7 @@ public sealed class InteractionController
         RoomEntityManager entities,
         SignDatabase signs,
         ChestDatabase chests,
+        TreasureDatabase treasures,
         DialogueBox dialogue,
         Node worldRoot,
         RoomView roomView,
@@ -39,6 +42,7 @@ public sealed class InteractionController
         _entities = entities;
         _signs = signs;
         _chests = chests;
+        _treasures = treasures;
         _dialogue = dialogue;
         _worldRoot = worldRoot;
         _roomView = roomView;
@@ -116,11 +120,33 @@ public sealed class InteractionController
         return true;
     }
 
-    public void ResetChestForTesting(int group, int roomId, int position)
+    public void ResetChestForTesting(int group, int roomId, int position) =>
+        ResetChestForTesting(group, roomId, position, null);
+
+    public void ResetChestForTesting(int group, int roomId, int position, string? treasureObjectName)
     {
         _openedChestRooms.Remove(MakeRoomKey(group, roomId));
+        if (treasureObjectName is not null)
+        {
+            TreasureDatabase.TreasureObjectRecord treasure = _treasures.GetObject(treasureObjectName);
+            _debugChestOverrides[MakeChestKey(group, roomId, position)] = new ChestDatabase.ChestRecord(
+                group,
+                roomId,
+                position,
+                treasure.Name,
+                treasure.TreasureId,
+                treasure.SubId,
+                treasure.Parameter,
+                treasure.TextId,
+                treasure.Graphic,
+                0,
+                treasure.Message);
+        }
         OracleRoomData room = _rooms.World.LoadRoom(group, roomId);
-        room.ReplaceMetatile(PointForPackedPosition(position), 0xf0, 0xf1, _animationTick());
+        Vector2 point = PointForPackedPosition(position);
+        byte current = room.GetMetatile(point);
+        if (current != 0xf1)
+            room.ReplaceMetatile(point, current, 0xf1, _animationTick());
         if (_rooms.ActiveGroup == group && _rooms.CurrentRoom.Id == roomId)
             _roomView.QueueRedraw();
     }
@@ -135,7 +161,9 @@ public sealed class InteractionController
 
         OracleRoomData room = _rooms.CurrentRoom;
         int position = room.GetPackedPosition(tilePoint);
-        if (!_chests.TryGet(_rooms.ActiveGroup, room.Id, position, out ChestDatabase.ChestRecord chest))
+        if (!_debugChestOverrides.TryGetValue(MakeChestKey(_rooms.ActiveGroup, room.Id, position),
+                out ChestDatabase.ChestRecord chest) &&
+            !_chests.TryGet(_rooms.ActiveGroup, room.Id, position, out chest))
         {
             chest = new ChestDatabase.ChestRecord(
                 _rooms.ActiveGroup, room.Id, position,
@@ -150,7 +178,9 @@ public sealed class InteractionController
         _roomView.QueueRedraw();
         _pendingChest = chest;
         _chestTreasure = new ChestTreasureEffect { ZIndex = 12 };
-        _chestTreasure.Initialize(PointForPackedPosition(position) + new Vector2(0, -8));
+        _chestTreasure.Initialize(
+            PointForPackedPosition(position) + new Vector2(0, -8),
+            _treasures.GetTreasureDisplay(chest.TreasureId, chest.Parameter, _inventory));
         _worldRoot.AddChild(_chestTreasure);
         return true;
     }
@@ -172,4 +202,6 @@ public sealed class InteractionController
         (position >> 4) * OracleRoomData.MetatileSize + 8);
 
     private static int MakeRoomKey(int group, int room) => (group << 8) | room;
+    private static int MakeChestKey(int group, int room, int position) =>
+        (group << 16) | (room << 8) | position;
 }

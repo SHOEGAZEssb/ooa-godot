@@ -13,9 +13,10 @@ public partial class Hud : Node2D
     private const int VisibleColumns = 20;
 
     private Texture2D _background = null!;
-    private Texture2D _itemIcons1 = null!;
-    private Texture2D _itemIcons2 = null!;
-    private Texture2D _itemIcons3 = null!;
+    private Image _itemIcons1 = null!;
+    private Image _itemIcons2 = null!;
+    private Image _itemIcons3 = null!;
+    private Color[,] _itemPalettes = null!;
     private TreasureDatabase? _treasures;
     private InventoryState? _inventory;
 
@@ -27,9 +28,10 @@ public partial class Hud : Node2D
 
     public override void _Ready()
     {
-        _itemIcons1 = BuildItemIconTexture("res://assets/oracle/gfx/spr_item_icons_1.png");
-        _itemIcons2 = BuildItemIconTexture("res://assets/oracle/gfx/spr_item_icons_2.png");
-        _itemIcons3 = BuildItemIconTexture("res://assets/oracle/gfx/spr_item_icons_3.png");
+        _itemIcons1 = LoadPng("res://assets/oracle/gfx/spr_item_icons_1.png");
+        _itemIcons2 = LoadPng("res://assets/oracle/gfx/spr_item_icons_2.png");
+        _itemIcons3 = LoadPng("res://assets/oracle/gfx/spr_item_icons_3.png");
+        _itemPalettes = ItemIconAtlas.LoadStandardSpritePalettes();
         Refresh();
     }
 
@@ -158,61 +160,40 @@ public partial class Hud : Node2D
         if (!display.HasIcon)
             return;
 
-        DrawItemSprite(display.LeftSprite, position);
+        DrawItemSprite(display.LeftSprite, display.LeftPalette, position);
         if (display.RightSprite != 0)
-            DrawItemSprite(display.RightSprite, position + new Vector2(8, 0));
+            DrawItemSprite(display.RightSprite, display.RightPalette, position + new Vector2(8, 0));
     }
 
-    private void DrawItemSprite(int sprite, Vector2 position)
+    private void DrawItemSprite(int sprite, int palette, Vector2 position)
     {
-        Texture2D texture;
-        int cell;
-        if (sprite is >= 0x80 and <= 0x8f)
-        {
-            texture = _itemIcons1;
-            cell = sprite - 0x80;
-        }
-        else if (sprite is >= 0x90 and <= 0x9f)
-        {
-            texture = _itemIcons2;
-            cell = sprite - 0x90;
-        }
-        else if (sprite is >= 0xa0 and <= 0xaf)
-        {
-            texture = _itemIcons3;
-            cell = sprite - 0xa0;
-        }
-        else
+        if (!ItemIconAtlas.Select(
+            sprite, _itemIcons1, _itemIcons2, _itemIcons3,
+            out Image source, out int cell))
         {
             return;
         }
 
-        DrawTextureRectRegion(
-            texture,
-            new Rect2(position, new Vector2(8, 16)),
-            new Rect2(cell * 8, 0, 8, 16));
+        palette = Mathf.Clamp(palette & 0x07, 0, 5);
+        for (int y = 0; y < 16; y++)
+        for (int x = 0; x < 8; x++)
+        {
+            int shade = ItemIconAtlas.ShadeFromPng(
+                source.GetPixel(cell * 8 + x, y), out bool transparent);
+            if (!transparent)
+                DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
+                    _itemPalettes[palette, shade]);
+        }
     }
 
-    private static Texture2D BuildItemIconTexture(string path)
+    private static Image LoadPng(string path)
     {
         byte[] bytes = Godot.FileAccess.GetFileAsBytes(path);
-        Image source = new();
-        Error error = source.LoadPngFromBuffer(bytes);
+        Image image = new();
+        Error error = image.LoadPngFromBuffer(bytes);
         if (error != Error.Ok)
             throw new InvalidOperationException($"Could not load item icon graphics {path}: {error}.");
-        Image output = Image.CreateEmpty(source.GetWidth(), source.GetHeight(), false, Image.Format.Rgba8);
-
-        for (int y = 0; y < source.GetHeight(); y++)
-        for (int x = 0; x < source.GetWidth(); x++)
-        {
-            float value = source.GetPixel(x, y).R;
-            Color color = value < 0.1f ? Colors.Transparent
-                : value < 0.5f ? Color.Color8(0, 0, 0)
-                : value < 0.9f ? Color.Color8(16, 173, 66)
-                : Color.Color8(255, 214, 140);
-            output.SetPixel(x, y, color);
-        }
-        return ImageTexture.CreateFromImage(output);
+        return image;
     }
 
     // paletteData48e0, background palette 0 used by the status bar.

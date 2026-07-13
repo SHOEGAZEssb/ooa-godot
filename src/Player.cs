@@ -311,15 +311,24 @@ public partial class Player : Node2D
         if (Input.IsActionJustPressed("attack") && _attackTime <= 0.0f &&
             !_world.SwordDisabled)
         {
+            if (_inventory.EquippedA == InventoryState.ItemBracelet && _world.TryUseBracelet(this))
+                return;
             if (_world.TryInteract(this))
                 return;
             if (_inventory.EquippedA == InventoryState.ItemSword)
                 StartSwordAttack();
         }
         else if (Input.IsActionJustPressed("item") && _attackTime <= 0.0f &&
-            !_world.SwordDisabled && _inventory.EquippedB == InventoryState.ItemSword)
+            !_world.SwordDisabled)
         {
-            StartSwordAttack();
+            if (_inventory.EquippedB == InventoryState.ItemBracelet)
+            {
+                _world.TryUseBracelet(this);
+            }
+            else if (_inventory.EquippedB == InventoryState.ItemSword)
+            {
+                StartSwordAttack();
+            }
         }
 
         Vector2 input = Input.GetVector("move_left", "move_right", "move_up", "move_down");

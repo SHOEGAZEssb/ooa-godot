@@ -10,7 +10,7 @@ public sealed class DebugWarpController
     private readonly Action<int, int> _loadRoom;
     private readonly Func<Vector2> _findSpawn;
     private readonly Func<long> _animationTick;
-    private readonly Action<int, int, int> _resetChest;
+    private readonly Action<int, int, int, string?> _resetChest;
 
     public DebugWarpController(
         RoomSession rooms,
@@ -18,7 +18,7 @@ public sealed class DebugWarpController
         Action<int, int> loadRoom,
         Func<Vector2> findSpawn,
         Func<long> animationTick,
-        Action<int, int, int> resetChest)
+        Action<int, int, int, string?> resetChest)
     {
         _rooms = rooms;
         _player = player;
@@ -35,6 +35,7 @@ public sealed class DebugWarpController
         if (Input.IsActionJustPressed("debug_bush")) WarpToBush();
         if (Input.IsActionJustPressed("debug_house")) WarpToHouse();
         if (Input.IsActionJustPressed("debug_chest")) WarpToChest();
+        if (Input.IsActionJustPressed("debug_bracelet_chest")) WarpToBraceletChest();
     }
 
     public void WarpToSign()
@@ -81,8 +82,19 @@ public sealed class DebugWarpController
         const int room = 0x49;
         const int position = 0x51;
         _loadRoom(group, room);
-        _resetChest(group, room, position);
+        _resetChest(group, room, position, null);
         _player.WarpTo(new Vector2(24, 100));
+        _player.Face(Vector2I.Up);
+    }
+
+    public void WarpToBraceletChest()
+    {
+        const int group = 4;
+        const int room = 0xce;
+        const int position = 0x67;
+        _loadRoom(group, room);
+        _resetChest(group, room, position, "TREASURE_OBJECT_BRACELET_00");
+        _player.WarpTo(new Vector2(7 * OracleRoomData.MetatileSize + 8, 7 * OracleRoomData.MetatileSize + 4));
         _player.Face(Vector2I.Up);
     }
 }

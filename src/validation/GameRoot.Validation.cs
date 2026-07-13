@@ -29,6 +29,7 @@ public partial class GameRoot
         ValidateChests();
         ValidateInventoryFoundation();
         ValidateInventoryMenu();
+        ValidateBraceletChestAndPushGate();
         ValidatePushBlocks();
         ValidateMapScreen();
 
@@ -414,6 +415,7 @@ public partial class GameRoot
 
     private void ValidateInventoryMenu()
     {
+        ValidateItemIconShadeMapping();
         _inventoryMenu.OpenImmediatelyForValidation();
         if (!_inventoryMenu.IsActive || !_inventoryScreen.Visible ||
             _player.IsPhysicsProcessing() || _player.IsProcessing())
@@ -468,6 +470,178 @@ public partial class GameRoot
 
         GD.Print("Validated inventory subscreen slot cursor wrapping, A/B storage swaps, " +
             "sword unequip, B equip, and gameplay freezing.");
+    }
+
+    private static void ValidateItemIconShadeMapping()
+    {
+        if (ItemIconAtlas.ShadeFromPng(Color.Color8(0, 0, 0), out bool transparent) != 0 || !transparent ||
+            ItemIconAtlas.ShadeFromPng(Color.Color8(85, 85, 85), out transparent) != 1 || transparent ||
+            ItemIconAtlas.ShadeFromPng(Color.Color8(170, 170, 170), out transparent) != 2 || transparent ||
+            ItemIconAtlas.ShadeFromPng(Color.Color8(255, 255, 255), out transparent) != 3 || transparent)
+        {
+            throw new InvalidOperationException(
+                "Item icon PNG shade mapping no longer treats black as transparent and white as highlight.");
+        }
+
+        Image icons1 = Image.CreateEmpty(128, 16, false, Image.Format.Rgba8);
+        Image icons2 = Image.CreateEmpty(128, 16, false, Image.Format.Rgba8);
+        Image icons3 = Image.CreateEmpty(128, 16, false, Image.Format.Rgba8);
+        if (!ItemIconAtlas.Select(0x99, icons1, icons2, icons3, out Image bracelet, out int braceletCell) ||
+            bracelet != icons2 || braceletCell != 9 ||
+            !ItemIconAtlas.Select(0xaf, icons1, icons2, icons3, out Image glove, out int gloveCell) ||
+            glove != icons3 || gloveCell != 15)
+        {
+            throw new InvalidOperationException(
+                "Display `$99/`$af no longer resolve to item icon sheets 2:9 and 3:15.");
+        }
+
+        Color[,] palettes = ItemIconAtlas.LoadStandardSpritePalettes();
+        if (!palettes[0, 2].IsEqualApprox(new Color(0x02 / 31.0f, 0x15 / 31.0f, 0x08 / 31.0f)) ||
+            !palettes[5, 1].IsEqualApprox(new Color(0x1f / 31.0f, 0x16 / 31.0f, 0x06 / 31.0f)) ||
+            !palettes[5, 2].IsEqualApprox(new Color(0x1b / 31.0f, 0x00, 0x00)))
+        {
+            throw new InvalidOperationException(
+                "Standard sprite palettes no longer match bracelet palette `$05 and sword palette `$00.");
+        }
+    }
+
+    private void ValidateBraceletChestAndPushGate()
+    {
+        var chests = new ChestDatabase();
+        if (!chests.TryGet(5, 0xa6, 0x37, out ChestDatabase.ChestRecord braceletChest) ||
+            braceletChest.TreasureObject != "TREASURE_OBJECT_BRACELET_02" ||
+            braceletChest.TreasureId != TreasureDatabase.TreasureBracelet ||
+            braceletChest.Parameter != 2)
+        {
+            throw new InvalidOperationException(
+                "The original 5:a6/$37 chest did not resolve to TREASURE_OBJECT_BRACELET_02.");
+        }
+
+        var pushables = new PushableTileDatabase();
+        if (!pushables.TryGet(2, 0x10, out PushableTileDatabase.PushableTileRecord braceletBlock) ||
+            !braceletBlock.RequiresBracelet ||
+            !braceletBlock.AllowsEveryDirection ||
+            braceletBlock.SourceReplacement != 0xa0 ||
+            braceletBlock.DestinationTile != 0x10)
+        {
+            throw new InvalidOperationException(
+                "Collision mode 2 tile $10 did not retain interactable parameter $c0 and pushblock data.");
+        }
+
+        var breakables = new BreakableTileDatabase();
+        if (!breakables.TryGet(2, 0x10, out BreakableTileDatabase.BreakableTileRecord liftablePot) ||
+            !liftablePot.AllowsSource(BreakableTileDatabase.SourceBracelet) ||
+            liftablePot.Replacement != 0xa0)
+        {
+            throw new InvalidOperationException(
+                "Collision mode 2 tile $10 did not import as a bracelet-breakable tile with replacement $a0.");
+        }
+
+        LoadValidationRoom(4, 0x08);
+        Vector2 blockCenter = new(0x0b * 16 + 8, 0x04 * 16 + 8);
+        Vector2 linkBelow = blockCenter + new Vector2(0, 10);
+        if (_currentRoom.GetMetatile(blockCenter) != 0x1c ||
+            !_currentRoom.ReplaceMetatile(blockCenter, 0x1c, 0x10, (long)_animationTicks))
+        {
+            throw new InvalidOperationException("Could not prepare 4:08/$4b as bracelet-required tile $10.");
+        }
+
+        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
+            _playerWorld.UpdatePushableBlocks(linkBelow, Vector2I.Up, Vector2.Up);
+        if (_pushBlocks.Active || _currentRoom.GetMetatile(blockCenter) != 0x10)
+        {
+            throw new InvalidOperationException(
+                "Bracelet-required tile $10 moved before TREASURE_BRACELET was obtained.");
+        }
+
+        LoadValidationRoom(4, 0xce);
+        _interactions.ResetChestForTesting(4, 0xce, 0x67, "TREASURE_OBJECT_BRACELET_00");
+        Vector2 debugBraceletChest = new(7 * OracleRoomData.MetatileSize + 8, 6 * OracleRoomData.MetatileSize + 8);
+        if (_currentRoom.GetMetatile(debugBraceletChest) != 0xf1)
+            throw new InvalidOperationException("The debug 4:ce/$67 Power Bracelet chest was not closed.");
+
+        _player.WarpTo(new Vector2(debugBraceletChest.X, debugBraceletChest.Y + 12));
+        _player.Face(Vector2I.Up);
+        if (!TryInteract(_player) || !_interactions.ChestRewardActive ||
+            _currentRoom.GetMetatile(debugBraceletChest) != 0xf0)
+        {
+            throw new InvalidOperationException("The debug 4:ce/$67 Power Bracelet chest did not open from below.");
+        }
+
+        _interactions.Update(32.0 / 60.0, _player);
+        if (!_inventory.HasTreasure(TreasureDatabase.TreasureBracelet) ||
+            _inventory.BraceletLevel != 1 ||
+            _inventory.EquippedB != InventoryState.ItemBracelet ||
+            !_dialogue.IsOpen ||
+            _dialogue.CurrentMessage != "You got the\nPower Bracelet!\nHold the button\nand press \\item(0x00)\nto lift heavy\nobjects!")
+        {
+            throw new InvalidOperationException(
+                "TREASURE_OBJECT_BRACELET_00 did not set obtained flags, wBraceletLevel, wInventoryB, and TX_0026.");
+        }
+        _dialogue.Close();
+        _interactions.Update(0.0, _player);
+
+        Vector2 liftPoint = new(7 * OracleRoomData.MetatileSize + 8, 2 * OracleRoomData.MetatileSize + 8);
+        if (_currentRoom.GetMetatile(liftPoint) != 0x10)
+            throw new InvalidOperationException("The 4:ce bracelet-use test tile was not dungeon tile $10.");
+        _player.WarpTo(new Vector2(liftPoint.X, liftPoint.Y + 12));
+        _player.Face(Vector2I.Up);
+        if (!_playerWorld.TryUseBracelet(_player) || _currentRoom.GetMetatile(liftPoint) != 0xa0)
+        {
+            throw new InvalidOperationException(
+                "Equipped bracelet use did not break/lift the tile in front using BREAKABLETILESOURCE_BRACELET.");
+        }
+
+        LoadValidationRoom(5, 0xa6);
+        _interactions.ResetChestForTesting(5, 0xa6, 0x37);
+        Vector2 chestPoint = new(7 * OracleRoomData.MetatileSize + 8, 3 * OracleRoomData.MetatileSize + 8);
+        if (_currentRoom.GetMetatile(chestPoint) != 0xf1)
+            throw new InvalidOperationException("The original 5:a6/$37 Power Glove chest was not closed.");
+
+        _player.WarpTo(new Vector2(chestPoint.X, chestPoint.Y + 12));
+        _player.Face(Vector2I.Up);
+        if (!TryInteract(_player) || !_interactions.ChestRewardActive ||
+            _currentRoom.GetMetatile(chestPoint) != 0xf0)
+        {
+            throw new InvalidOperationException("The 5:a6/$37 Power Glove chest did not open from below.");
+        }
+
+        _interactions.Update(32.0 / 60.0, _player);
+        if (!_inventory.HasTreasure(TreasureDatabase.TreasureBracelet) ||
+            _inventory.BraceletLevel != 2 ||
+            _inventory.EquippedB != InventoryState.ItemBracelet ||
+            !_dialogue.IsOpen ||
+            _dialogue.CurrentMessage != "You got the\nPower Glove!\nYou can now lift\nheavy objects.")
+        {
+            throw new InvalidOperationException(
+                "TREASURE_OBJECT_BRACELET_02 did not set obtained flags, wBraceletLevel, wInventoryB, and TX_002f.");
+        }
+        _dialogue.Close();
+        _interactions.Update(0.0, _player);
+
+        LoadValidationRoom(4, 0x08);
+        if (_currentRoom.GetMetatile(blockCenter) != 0x10)
+        {
+            if (_currentRoom.GetMetatile(blockCenter) != 0x1c ||
+                !_currentRoom.ReplaceMetatile(blockCenter, 0x1c, 0x10, (long)_animationTicks))
+            {
+                throw new InvalidOperationException("Could not restore bracelet push validation tile $10.");
+            }
+        }
+
+        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
+            _playerWorld.UpdatePushableBlocks(linkBelow, Vector2I.Up, Vector2.Up);
+        if (!_pushBlocks.Active || _currentRoom.GetMetatile(blockCenter) != 0xa0)
+        {
+            throw new InvalidOperationException(
+                "Bracelet-required tile $10 did not start moving after TREASURE_BRACELET was obtained.");
+        }
+        _pushBlocks.Cancel();
+        _currentRoom.ReplaceMetatile(blockCenter, 0xa0, 0x1c, (long)_animationTicks);
+
+        GD.Print("Validated debug Power Bracelet chest TREASURE_OBJECT_BRACELET_00, " +
+            "bracelet tile use via BREAKABLETILESOURCE_BRACELET, original Power Glove upgrade, " +
+            "and bracelet-required pushblock tile $10.");
     }
 
     private void ValidateHouseWarp()
