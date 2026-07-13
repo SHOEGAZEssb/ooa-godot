@@ -54,6 +54,7 @@ public partial class MapScreen : Node2D
     public MapMode Mode { get; private set; }
     public int CursorRoom => _cursorRoom;
     public int DisplayedDungeonFloor => _dungeonFloor;
+    public bool DebugFastTravel { get; private set; }
     public bool LocationArrowVisible => (((int)_frameCounter >> 5) & 1) == 0;
 
     public override void _Ready()
@@ -76,21 +77,49 @@ public partial class MapScreen : Node2D
         _rooms = rooms;
     }
 
-    public void Open()
+    public void Open(bool debugFastTravel = false)
     {
         _frameCounter = 0.0;
+        DebugFastTravel = debugFastTravel;
+        if (debugFastTravel)
+        {
+            MapMode mode = _rooms.MinimapGroup == 1 ? MapMode.Past : MapMode.Present;
+            _cursorRoom = _rooms.MinimapRoom;
+            PrepareOverworld(revealAll: true, forcedMode: mode);
+            Visible = true;
+            QueueRedraw();
+            return;
+        }
+
         int dungeon = _rooms.World.GetDungeonIndex(_rooms.ActiveGroup, _rooms.CurrentRoom.Id);
         if (dungeon >= 0)
             PrepareDungeon(dungeon);
         else
-            PrepareOverworld();
+            PrepareOverworld(revealAll: false);
         Visible = true;
         QueueRedraw();
     }
 
     public void Close()
     {
+        DebugFastTravel = false;
         Visible = false;
+    }
+
+    public void ToggleDebugWorld()
+    {
+        if (!DebugFastTravel)
+            return;
+        MapMode mode = Mode == MapMode.Present ? MapMode.Past : MapMode.Present;
+        PrepareOverworld(revealAll: true, forcedMode: mode);
+        QueueRedraw();
+    }
+
+    public bool TryGetFastTravelTarget(out int group, out int room)
+    {
+        group = Mode == MapMode.Past ? 1 : 0;
+        room = _cursorRoom;
+        return DebugFastTravel && Mode != MapMode.Dungeon && _rooms.World.HasRoom(group, room);
     }
 
     public void Update(double delta)
@@ -145,11 +174,15 @@ public partial class MapScreen : Node2D
             DrawOverworldMarkers();
     }
 
-    private void PrepareOverworld()
+    private void PrepareOverworld(bool revealAll, MapMode? forcedMode = null)
     {
-        Mode = _rooms.MinimapGroup == 1 ? MapMode.Past : MapMode.Present;
+        Mode = forcedMode ?? (_rooms.MinimapGroup == 1 ? MapMode.Past : MapMode.Present);
         _dungeonIndex = -1;
-        _cursorRoom = _rooms.MinimapRoom;
+        if (!DebugFastTravel)
+            _cursorRoom = _rooms.MinimapRoom;
+        if ((_cursorRoom & 0x0f) >= OverworldWidth ||
+            ((_cursorRoom >> 4) & 0x0f) >= OverworldHeight)
+            _cursorRoom = 0x00;
         byte[] map = ReadBytes($"res://assets/oracle/map/map_{Mode.ToString().ToLowerInvariant()}.bin", 576);
         byte[] flags = ReadBytes($"res://assets/oracle/map/flags_{Mode.ToString().ToLowerInvariant()}.bin", 576);
         int group = Mode == MapMode.Past ? 1 : 0;
@@ -157,7 +190,7 @@ public partial class MapScreen : Node2D
         for (int x = 0; x < OverworldWidth; x++)
         {
             int room = (y << 4) | x;
-            if (_rooms.HasVisited(group, room))
+            if (revealAll || _rooms.HasVisited(group, room))
                 continue;
             int offset = (OverworldStartY + y) * TilemapStride + OverworldStartX + x;
             map[offset] = 0x04;
@@ -316,8 +349,12 @@ public partial class MapScreen : Node2D
         DrawMapSprite(0x88, 6, cursor + new Vector2(4, -4), flipX: true);
         if (LocationArrowVisible)
         {
-            Vector2 current = OverworldCellPosition(_rooms.MinimapRoom);
-            DrawMapSprite(0x0e, 7, current + new Vector2(0, -10));
+            int currentGroup = Mode == MapMode.Past ? 1 : 0;
+            if (_rooms.MinimapGroup == currentGroup)
+            {
+                Vector2 current = OverworldCellPosition(_rooms.MinimapRoom);
+                DrawMapSprite(0x0e, 7, current + new Vector2(0, -10));
+            }
         }
     }
 

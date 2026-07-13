@@ -18,6 +18,7 @@ The importer validates the clean US ROM MD5 (`C4639CC61C049E5A085526BB6CAC03BB`,
 - Sword: Z or K (gamepad A)
 - Reserved item button: X or J (gamepad B)
 - Map / Select: M or Tab (gamepad Back); close with Select or B
+- Development map fast travel: F; move, press A to travel, press F to switch eras, or B/Select to cancel
 - Development sign warp: T
 - Development animated-tile rooms: Y (toggles water/lava)
 - Development sword/bush test: B
@@ -30,7 +31,7 @@ An argument-free launch now starts in dungeon room `4:09`, a compact pushblock p
 
 The gameplay HUD is reconstructed from the original HUD tilemap, flags, palette, item sprites, digit tiles, and full/partial/empty heart tiles. Health now uses the original quarter-heart units (`$0c` for three hearts), syncs into the HUD, and terrain respawn hazards remove a half-heart before returning Link to his last safe tile. Until inventory is connected, the HUD still displays the implemented level-1 sword in A and an empty B slot; its rupee counter now tracks collected chest rewards.
 
-The Select map menu uses the original present, past, and dungeon 20x18 tilemaps, attributes, graphics pieces, palette headers, dungeon blurbs, 8x8 floor layouts, room-property connection tiles, 14x14 overworld cursor wrapping, 32-update location-marker blink, and 11-update fast white fades. Rooms become visible when entered during the current session; indoor maps retain the most recent exterior position, and dungeon floors can be selected with Up/Down after visiting them. Link and room animation freeze while the map is active. Map popup icons, A-button region text, inventory map/compass reveals, treasure/boss symbols, and persistent visit flags remain deferred until their quest, inventory, and save-state owners exist.
+The Select map menu uses the original present, past, and dungeon 20x18 tilemaps, attributes, graphics pieces, palette headers, dungeon blurbs, 8x8 floor layouts, room-property connection tiles, 14x14 overworld cursor wrapping, 32-update location-marker blink, and 11-update fast white fades. Rooms become visible when entered during the current session; indoor maps retain the most recent exterior position, and dungeon floors can be selected with Up/Down after visiting them. Link and room animation freeze while the map is active. For development, **F** opens a fully revealed overworld map from any room, including dungeons: move to a destination, press A to load it at the white midpoint of the menu fade, or press F again to switch between the present and past maps. Map popup icons, A-button region text, inventory map/compass reveals, treasure/boss symbols, and persistent visit flags remain deferred until their quest, inventory, and save-state owners exist.
 
 Signs now use the original `$f2` metatile interaction and the complete 42-entry `signText.s` lookup table. Their dialogue uses the original `gfx_font`, textbox dimensions, placement rules, palette, directional glyphs, and blinking continue marker. Press **A or B** (Z/K or X/J; either gamepad face button) to advance pages or close the final page. Press **T** at any time to warp directly below the Rolling Ridge/Lynna City test sign in present-overworld room `2a`.
 

@@ -80,8 +80,42 @@ public partial class GameRoot
             throw new InvalidOperationException("Dungeon 0d map did not open on room 09's floor.");
         _mapMenu.CloseImmediatelyForValidation();
 
+        _mapMenu.OpenDebugImmediatelyForValidation();
+        if (!_mapScreen.DebugFastTravel || _mapScreen.Mode != MapScreen.MapMode.Past)
+            throw new InvalidOperationException(
+                "Debug fast travel did not retain the most recent past-overworld map from dungeon 0d.");
+        _mapScreen.ToggleDebugWorld();
+        if (_mapScreen.Mode != MapScreen.MapMode.Present)
+            throw new InvalidOperationException("Debug fast travel did not switch from past to present.");
+        _mapScreen.MoveOverworldCursor(Vector2I.Right);
+        if (!_mapScreen.TryGetFastTravelTarget(out int group, out int room) ||
+            group != 0 || room != 0x12)
+        {
+            throw new InvalidOperationException(
+                $"Expected present fast-travel target 0:12, got {group}:{room:x2}.");
+        }
+        if (!_mapMenu.BeginTravelToSelectionForValidation())
+            throw new InvalidOperationException("Debug map rejected the valid present target 0:12.");
+        for (int frame = 0; frame < MapMenuController.FastFadeFrames - 1; frame++)
+        {
+            _mapMenu.Update(1.0 / 60.0);
+            if (_rooms.ActiveGroup != 4 || _rooms.CurrentRoom.Id != 0x09)
+                throw new InvalidOperationException("Debug fast travel loaded before the fade reached white.");
+        }
+        _mapMenu.Update(1.0 / 60.0);
+        if (_rooms.ActiveGroup != 0 || _rooms.CurrentRoom.Id != 0x12)
+        {
+            throw new InvalidOperationException(
+                "Debug map fast travel did not load present room 0:12 at full white.");
+        }
+        for (int frame = 0; frame < MapMenuController.FastFadeFrames; frame++)
+            _mapMenu.Update(1.0 / 60.0);
+        if (_mapMenu.IsActive || !_player.IsPhysicsProcessing() || !_player.IsProcessing())
+            throw new InvalidOperationException("Debug fast travel did not restore gameplay processing.");
+
         GD.Print("Validated original present/past/dungeon map tilemaps, 14x14 cursor wrapping, " +
-            "32-update marker blink, 11-update fast fades, and Link input freezing.");
+            "32-update marker blink, 11-update fast fades, Link input freezing, and " +
+            "dungeon-to-overworld debug fast travel.");
     }
 
     private void LoadValidationRoom(int group, int room)

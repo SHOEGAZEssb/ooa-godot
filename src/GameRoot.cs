@@ -126,7 +126,8 @@ public partial class GameRoot : Node2D
             _interactions.ResetChestForTesting);
         _mapMenu = new MapMenuController(
             _mapScreen, _scene.MenuFade, _player, _roomDebug,
-            () => !IsTransitioning && !DialogueOpen);
+            () => !IsTransitioning && !DialogueOpen,
+            FastTravelFromMap);
     }
 
     private void ScheduleRequestedValidation()
@@ -208,6 +209,13 @@ public partial class GameRoot : Node2D
         _entities.LoadRoom(group, loaded);
         _hud.Refresh();
         _transitions.UpdateCamera();
+    }
+
+    private void FastTravelFromMap(int group, int room)
+    {
+        LoadDebugRoom(group, room);
+        _player.WarpTo(FindSpawn());
+        _player.Face(Vector2I.Down);
     }
 
     // Validation compatibility wrappers.
