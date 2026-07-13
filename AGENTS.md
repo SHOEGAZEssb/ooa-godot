@@ -90,6 +90,7 @@ Available validation flags include:
 - `--validate-cave-warps`
 - `--validate-terrain`
 - `--validate-health`
+- `--validate-chests`
 
 Run the validation directly related to the change plus nearby regression tests. For room transitions, run at least the startup, house, and cave validations.
 

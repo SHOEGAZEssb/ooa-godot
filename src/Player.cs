@@ -45,8 +45,10 @@ public partial class Player : Node2D
     private bool _fallInHoleRespawning;
 
     public event Action? HealthChanged;
+    public event Action? RupeesChanged;
 
     public int HealthQuarters => _healthQuarters;
+    public int Rupees { get; private set; }
     public int MaxHealthQuarters { get; private set; } = StartingHealthQuarters;
     public bool IsPullingIntoHole => _pullingIntoHole;
     public bool IsFallingInHole => _fallingInHole;
@@ -205,6 +207,14 @@ public partial class Player : Node2D
 
         _healthQuarters = MaxHealthQuarters;
         HealthChanged?.Invoke();
+    }
+
+    public void AddRupees(int amount)
+    {
+        int previous = Rupees;
+        Rupees = Mathf.Clamp(Rupees + amount, 0, 999);
+        if (Rupees != previous)
+            RupeesChanged?.Invoke();
     }
 
     public void StartLedgeHop(Vector2 destination)

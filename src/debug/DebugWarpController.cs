@@ -10,19 +10,22 @@ public sealed class DebugWarpController
     private readonly Action<int, int> _loadRoom;
     private readonly Func<Vector2> _findSpawn;
     private readonly Func<long> _animationTick;
+    private readonly Action<int, int, int> _resetChest;
 
     public DebugWarpController(
         RoomSession rooms,
         Player player,
         Action<int, int> loadRoom,
         Func<Vector2> findSpawn,
-        Func<long> animationTick)
+        Func<long> animationTick,
+        Action<int, int, int> resetChest)
     {
         _rooms = rooms;
         _player = player;
         _loadRoom = loadRoom;
         _findSpawn = findSpawn;
         _animationTick = animationTick;
+        _resetChest = resetChest;
     }
 
     public void Update()
@@ -31,6 +34,7 @@ public sealed class DebugWarpController
         if (Input.IsActionJustPressed("debug_animation")) WarpToAnimation();
         if (Input.IsActionJustPressed("debug_bush")) WarpToBush();
         if (Input.IsActionJustPressed("debug_house")) WarpToHouse();
+        if (Input.IsActionJustPressed("debug_chest")) WarpToChest();
     }
 
     public void WarpToSign()
@@ -68,6 +72,17 @@ public sealed class DebugWarpController
     {
         _loadRoom(0, 0x48);
         _player.WarpTo(new Vector2(0x38, 0x58));
+        _player.Face(Vector2I.Up);
+    }
+
+    public void WarpToChest()
+    {
+        const int group = 0;
+        const int room = 0x49;
+        const int position = 0x51;
+        _loadRoom(group, room);
+        _resetChest(group, room, position);
+        _player.WarpTo(new Vector2(24, 100));
         _player.Face(Vector2I.Up);
     }
 }

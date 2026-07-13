@@ -5,6 +5,57 @@ namespace oracleofages;
 
 public partial class GameRoot
 {
+    private void ValidateChests()
+    {
+        WarpToChestTest();
+        const int chestPosition = 0x51;
+        Vector2 chestPoint = new(24, 88);
+        if (_activeGroup != 0 || _currentRoom.Id != 0x49 ||
+            _currentRoom.GetPackedPosition(chestPoint) != chestPosition ||
+            _currentRoom.GetMetatile(chestPoint) != 0xf1)
+        {
+            throw new InvalidOperationException(
+                "The canonical 0:49/$51 30-rupee chest was not available for testing.");
+        }
+
+        _player.WarpTo(new Vector2(24, 74));
+        _player.Face(Vector2I.Down);
+        if (!TryInteract(_player) || !_dialogue.IsOpen ||
+            _dialogue.CurrentMessage != "It won't open\nfrom this side!")
+        {
+            throw new InvalidOperationException("Chest $51 did not use TX_510d from the wrong side.");
+        }
+        _dialogue.Close();
+
+        _player.WarpTo(new Vector2(24, 100));
+        _player.Face(Vector2I.Up);
+        int rupeesBefore = _player.Rupees;
+        if (!TryInteract(_player) || !_interactions.ChestRewardActive ||
+            _currentRoom.GetMetatile(chestPoint) != 0xf0)
+        {
+            throw new InvalidOperationException("Chest $51 did not open from below into tile $f0.");
+        }
+
+        _interactions.Update(31.0 / 60.0, _player);
+        if (!_interactions.ChestRewardActive || _player.Rupees != rupeesBefore)
+            throw new InvalidOperationException("The chest reward completed before its 32-frame rise.");
+        _interactions.Update(1.0 / 60.0, _player);
+        if (_interactions.ChestRewardActive || _player.Rupees != rupeesBefore + 30 ||
+            !_dialogue.IsOpen || _dialogue.CurrentMessage != "You got\n30 Rupees!\nThat's nice.")
+        {
+            throw new InvalidOperationException(
+                "TREASURE_OBJECT_RUPEES_04 did not grant 30 rupees with TX_0005.");
+        }
+
+        _dialogue.Close();
+        _currentRoom = _world.LoadRoom(0, 0x49);
+        _roomView.SetRoom(_currentRoom.Texture);
+        if (_currentRoom.GetMetatile(chestPoint) != 0xf0 || TryInteract(_player))
+            throw new InvalidOperationException("The opened chest room flag did not persist for the session.");
+
+        GD.Print("Validated 0:49/$51 chest direction, 32-frame reward rise, 30 rupees, and opened state.");
+    }
+
     private void ValidateHouseWarp()
     {
         WarpToHouseTest();

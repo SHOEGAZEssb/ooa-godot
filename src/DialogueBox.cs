@@ -38,6 +38,7 @@ public partial class DialogueBox : Node2D
     internal int TextLineSpacing => LineSpacing;
     internal bool IsScrollingText => _scrollingText;
     internal float TextScrollOffset => _textScrollOffset;
+    internal string CurrentMessage => string.Join("\n", _lines);
 
     public override void _Ready()
     {

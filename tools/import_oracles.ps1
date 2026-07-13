@@ -158,6 +158,7 @@ Copy-GeneratedFile "gfx\common\spr_swords.png" "gfx\spr_swords.png"
 Copy-GeneratedFile "gfx_compressible\ages\spr_syrup_teenager.png" "gfx\spr_syrup_teenager.png"
 Copy-GeneratedFile "gfx_compressible\common\gfx_hud.png" "gfx\gfx_hud.png"
 Copy-GeneratedFile "gfx\common\spr_item_icons_2.png" "gfx\spr_item_icons_2.png"
+Copy-GeneratedFile "gfx_compressible\ages\spr_common_items.png" "gfx\spr_common_items.png"
 Copy-GeneratedFile "gfx\common\gfx_partial_hearts.png" "gfx\gfx_partial_hearts.png"
 Copy-GeneratedFile "gfx\common\gfx_font.png" "gfx\gfx_font.png"
 foreach ($animationSheet in 1..3) {
@@ -256,6 +257,72 @@ foreach ($match in $allTextMatches) {
     }
     $allTexts[[Convert]::ToInt32($match.Groups['id'].Value, 16)] = Normalize-NpcText ($lines -join "`n")
 }
+
+# Chests are interactable $f1 metatiles whose room/position and treasure
+# records live in chestData.s. Preserve every record now, while marking the
+# rupee rewards supported by the first inventory slice with their original
+# amount and TX_00XX pickup text.
+$rupeeValues = @(
+    0, 1, 2, 5, 10, 20, 40, 30, 60, 70,
+    25, 50, 100, 200, 400, 150, 300, 500, 900, 80
+)
+$rupeeRewards = @{}
+$treasureObjectSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\treasureObjectData.s")
+foreach ($match in [regex]::Matches(
+    $treasureObjectSource,
+    'm_TreasureSubid\s+\$[0-9a-f]{2},\s*\$(?<parameter>[0-9a-f]{2}),\s*\$(?<text>[0-9a-f]{2}),\s*\$[0-9a-f]{2},\s*TREASURE_OBJECT_RUPEES_(?<subid>[0-9a-f]{2})'
+)) {
+    $parameter = [Convert]::ToInt32($match.Groups['parameter'].Value, 16)
+    $textId = [Convert]::ToInt32($match.Groups['text'].Value, 16)
+    if ($parameter -ge $rupeeValues.Count -or -not $allTexts.ContainsKey($textId)) { continue }
+    $rupeeRewards[$match.Groups['subid'].Value] = @{
+        Amount = $rupeeValues[$parameter]
+        TextId = $textId
+        Message = $allTexts[$textId]
+    }
+}
+
+$chestRows = [Collections.Generic.List[string]]::new()
+$chestRows.Add("# group`troom`tposition`ttreasure-object`tsupported`tamount`ttext-id`tutf8-base64")
+$currentChestGroup = -1
+foreach ($line in Get-Content (Join-Path $Disassembly "data\ages\chestData.s")) {
+    if ($line -match '^chestGroup(?<group>[0-7])Data:') {
+        $currentChestGroup = [int]$Matches['group']
+        continue
+    }
+    if ($currentChestGroup -lt 0 -or
+        $line -notmatch '^\s*m_ChestData\s+\$(?<position>[0-9a-f]{2}),\s*\$(?<room>[0-9a-f]{2}),\s*(?<treasure>TREASURE_OBJECT_[A-Z0-9_]+)') {
+        continue
+    }
+
+    $room = $Matches['room']
+    $position = $Matches['position']
+    $treasure = $Matches['treasure']
+    $supported = 0
+    $amount = 0
+    $textId = 0
+    $message = ''
+    if ($treasure -match '^TREASURE_OBJECT_RUPEES_(?<subid>[0-9a-f]{2})$' -and
+        $rupeeRewards.ContainsKey($Matches['subid'])) {
+        $reward = $rupeeRewards[$Matches['subid']]
+        $supported = 1
+        $amount = $reward.Amount
+        $textId = $reward.TextId
+        $message = $reward.Message
+    }
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message))
+    $chestRows.Add(
+        "$currentChestGroup`t$room`t$position`t$treasure`t$supported`t$amount`t$($textId.ToString('x4'))`t$encoded")
+}
+if ($chestRows.Count -ne 134) {
+    throw "Expected 133 chest records, parsed $($chestRows.Count - 1)."
+}
+$testChest = $chestRows | Where-Object { $_ -match '^0\t49\t51\tTREASURE_OBJECT_RUPEES_04\t1\t30\t0005\t' } | Select-Object -First 1
+if (-not $testChest) {
+    throw "The canonical room 0:49/$51 chest no longer resolves to the 30-rupee TX_0005 reward."
+}
+$chestPath = Join-Path $destination "objects\chests.tsv"
+[IO.File]::WriteAllLines($chestPath, $chestRows, [Text.UTF8Encoding]::new($false))
 
 # Resolve the first dialogue command reached by a script label, following the
 # common scriptjump indirection used by generic NPCs.
@@ -844,4 +911,4 @@ if ($importedRoomCount -ne 1536) {
 }
 
 Write-Host "Validated clean US ROM: $hash"
-Write-Host "Imported $($tilesets.Count) tilesets, 1536 rooms, 42 signs, $($npcRows.Count - 1) NPCs, 529 warps, and 22 animation groups into $destination"
+Write-Host "Imported $($tilesets.Count) tilesets, 1536 rooms, 42 signs, $($npcRows.Count - 1) NPCs, 133 chests, 529 warps, and 22 animation groups into $destination"

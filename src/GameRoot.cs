@@ -69,6 +69,7 @@ public partial class GameRoot : Node2D
         _roomView.SetRoom(_rooms.CurrentRoom.Texture);
         _player.Initialize(_playerWorld, FindSpawn());
         _player.HealthChanged += SyncHudToPlayer;
+        _player.RupeesChanged += SyncHudToPlayer;
         SyncHudToPlayer();
         _transitions.UpdateCamera();
 
@@ -79,6 +80,7 @@ public partial class GameRoot : Node2D
     {
         _transitions.Update(delta);
         _entities.Update(delta, _player.Position);
+        _interactions.Update(delta, _player);
         UpdateAnimatedTiles(delta);
         UpdateRoomDebugLabel();
         _debugWarps.Update();
@@ -92,12 +94,15 @@ public partial class GameRoot : Node2D
             _rooms, new WarpDatabase(), _roomView, _player, _roomCamera,
             _warpFade, _hud, _dialogue, _entities, _collision.Collides);
         _interactions = new InteractionController(
-            _rooms, _entities, new SignDatabase(), _dialogue, _transitions.WorldToScreen);
+            _rooms, _entities, new SignDatabase(), new ChestDatabase(), _dialogue,
+            this, _roomView, _transitions.WorldToScreen, () => (long)_animationTicks,
+            amount => _player.AddRupees(amount));
         _terrain = new TerrainController(this, _rooms, _collision.Collides);
         _combat = new CombatController(this, _rooms, _roomView, () => (long)_animationTicks);
         _playerWorld = new PlayerWorld(_transitions, _interactions, _collision, _terrain, _combat);
         _debugWarps = new DebugWarpController(
-            _rooms, _player, LoadDebugRoom, FindSpawn, () => (long)_animationTicks);
+            _rooms, _player, LoadDebugRoom, FindSpawn, () => (long)_animationTicks,
+            _interactions.ResetChestForTesting);
     }
 
     private void ScheduleRequestedValidation()
@@ -112,6 +117,7 @@ public partial class GameRoot : Node2D
         if (_launchOptions.Has("--validate-cave-warps")) CallDeferred(MethodName.ValidateCaveWarps);
         if (_launchOptions.Has("--validate-terrain")) CallDeferred(MethodName.ValidateTerrain);
         if (_launchOptions.Has("--validate-health")) CallDeferred(MethodName.ValidateHealth);
+        if (_launchOptions.Has("--validate-chests")) CallDeferred(MethodName.ValidateChests);
     }
 
     private void UpdateAnimatedTiles(double delta)
@@ -133,10 +139,12 @@ public partial class GameRoot : Node2D
         if (_hud == null || _player == null)
             return;
         if (_hud.HealthQuarters == _player.HealthQuarters &&
-            _hud.MaxHealthQuarters == _player.MaxHealthQuarters)
+            _hud.MaxHealthQuarters == _player.MaxHealthQuarters &&
+            _hud.Rupees == _player.Rupees)
             return;
         _hud.HealthQuarters = _player.HealthQuarters;
         _hud.MaxHealthQuarters = _player.MaxHealthQuarters;
+        _hud.Rupees = _player.Rupees;
         _hud.Refresh();
     }
 
@@ -187,6 +195,7 @@ public partial class GameRoot : Node2D
     private void WarpToBushTest() => _debugWarps.WarpToBush();
     private void WarpToHouseTest() => _debugWarps.WarpToHouse();
     private void WarpToNpcTest() => _debugWarps.WarpToNpc();
+    private void WarpToChestTest() => _debugWarps.WarpToChest();
     private void ClearDeactivatedWarp() => _transitions.ClearDeactivatedWarp();
     private void RefreshRoomObjects() => _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom);
     private void ClearRoomObjects() => _entities.Clear();

@@ -1,9 +1,11 @@
 using Godot;
+using System;
 
 namespace oracleofages;
 
 public sealed class RoomSession
 {
+    public event Action<int, OracleRoomData>? RoomChanged;
     public OracleWorldData World { get; }
     public DungeonMapDatabase DungeonMaps { get; }
     public int ActiveGroup { get; private set; }
@@ -21,6 +23,7 @@ public sealed class RoomSession
     {
         ActiveGroup = group;
         CurrentRoom = World.LoadRoom(group, room);
+        RoomChanged?.Invoke(ActiveGroup, CurrentRoom);
         return CurrentRoom;
     }
 
@@ -28,6 +31,7 @@ public sealed class RoomSession
     {
         ActiveGroup = group;
         CurrentRoom = room;
+        RoomChanged?.Invoke(ActiveGroup, CurrentRoom);
     }
 
     public void SetActiveGroup(int group)
