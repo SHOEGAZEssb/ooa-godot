@@ -279,10 +279,19 @@ Copy-GeneratedFile "gfx\common\spr_swords.png" "gfx\spr_swords.png"
 Copy-GeneratedFile "gfx_compressible\common\spr_common_sprites.png" "gfx\spr_common_sprites.png"
 Copy-GeneratedFile "gfx_compressible\ages\spr_syrup_teenager.png" "gfx\spr_syrup_teenager.png"
 Copy-GeneratedFile "gfx_compressible\common\gfx_hud.png" "gfx\gfx_hud.png"
+Copy-GeneratedFile "gfx\common\spr_item_icons_1.png" "gfx\spr_item_icons_1.png"
 Copy-GeneratedFile "gfx\common\spr_item_icons_2.png" "gfx\spr_item_icons_2.png"
+Copy-GeneratedFile "gfx\common\spr_item_icons_3.png" "gfx\spr_item_icons_3.png"
 Copy-GeneratedFile "gfx_compressible\ages\spr_common_items.png" "gfx\spr_common_items.png"
 Copy-GeneratedFile "gfx\common\gfx_partial_hearts.png" "gfx\gfx_partial_hearts.png"
 Copy-GeneratedFile "gfx\common\gfx_font.png" "gfx\gfx_font.png"
+Copy-GeneratedFile "gfx_compressible\ages\gfx_inventory_hud_1.png" "inventory\gfx_inventory_hud_1.png"
+Copy-GeneratedFile "gfx_compressible\ages\spr_present_past_symbols.png" "inventory\spr_present_past_symbols.png"
+Copy-GeneratedFile "gfx_compressible\ages\gfx_inventory_hud_2.png" "inventory\gfx_inventory_hud_2.png"
+Copy-GeneratedFile "gfx_compressible\common\map_inventory_screen_1.bin" "inventory\map_inventory_screen_1.bin"
+Copy-GeneratedFile "gfx_compressible\common\flg_inventory_screen_1.bin" "inventory\flg_inventory_screen_1.bin"
+Copy-GeneratedFile "gfx_compressible\common\map_inventory_textbar.bin" "inventory\map_inventory_textbar.bin"
+Copy-GeneratedFile "gfx_compressible\common\flg_inventory_textbar.bin" "inventory\flg_inventory_textbar.bin"
 foreach ($animationSheet in 1..3) {
     Copy-GeneratedFile "gfx\ages\gfx_animations_${animationSheet}.png" "gfx\gfx_animations_${animationSheet}.png"
 }
@@ -321,6 +330,16 @@ function Export-PaletteBlock(
     [int]$colorCount,
     [string]$relativeDestination
 ) {
+    $bytes = Read-PaletteBytes $label $colorCount
+    $target = Join-Path $destination $relativeDestination
+    New-Item -ItemType Directory -Force -Path (Split-Path $target -Parent) | Out-Null
+    [IO.File]::WriteAllBytes($target, $bytes)
+}
+
+function Read-PaletteBytes(
+    [string]$label,
+    [int]$colorCount
+) {
     $labelIndex = $paletteDataSource.IndexOf("${label}:", [StringComparison]::Ordinal)
     if ($labelIndex -lt 0) { throw "Map palette data label not found: $label" }
     $nextLabel = $paletteDataSource.IndexOf(
@@ -339,9 +358,7 @@ function Export-PaletteBlock(
         $bytes[$color * 3 + 1] = [Convert]::ToByte($colors[$color].Groups['g'].Value, 16)
         $bytes[$color * 3 + 2] = [Convert]::ToByte($colors[$color].Groups['b'].Value, 16)
     }
-    $target = Join-Path $destination $relativeDestination
-    New-Item -ItemType Directory -Force -Path (Split-Path $target -Parent) | Out-Null
-    [IO.File]::WriteAllBytes($target, $bytes)
+    return $bytes
 }
 
 # PALH_07, PALH_08, PALH_09, plus the common sprite palettes used by
@@ -350,6 +367,19 @@ Export-PaletteBlock 'paletteData4098' 32 'map\palette_present.bin'
 Export-PaletteBlock 'paletteData40d8' 32 'map\palette_past.bin'
 Export-PaletteBlock 'paletteData4118' 16 'map\palette_dungeon.bin'
 Export-PaletteBlock 'paletteData4138' 32 'map\palette_sprites.bin'
+
+# PALH_0a installs paletteData48e0 into BG palettes 0-1 and the first six
+# standard sprite palettes into BG palettes 2-7. The cursor and equipped item
+# OAM use the same standard sprite palette block in sprite palette slots 0-5.
+$inventoryBgPalette = [byte[]]::new(8 * 4 * 3)
+$inventoryBg01 = Read-PaletteBytes 'paletteData48e0' 8
+$inventoryBg27 = Read-PaletteBytes 'standardSpritePaletteData' 24
+[Array]::Copy($inventoryBg01, 0, $inventoryBgPalette, 0, $inventoryBg01.Length)
+[Array]::Copy($inventoryBg27, 0, $inventoryBgPalette, $inventoryBg01.Length, $inventoryBg27.Length)
+$inventoryPalettePath = Join-Path $destination 'inventory\palette_bg.bin'
+New-Item -ItemType Directory -Force -Path (Split-Path $inventoryPalettePath -Parent) | Out-Null
+[IO.File]::WriteAllBytes($inventoryPalettePath, $inventoryBgPalette)
+Export-PaletteBlock 'standardSpritePaletteData' 24 'inventory\palette_sprites.bin'
 
 # Signs are map metatile $f2 rather than ordinary room objects. Preserve the
 # original group/room/position lookup table and resolve its TX_2eXX strings to
@@ -442,10 +472,183 @@ foreach ($match in $allTextMatches) {
     $allTexts[[Convert]::ToInt32($match.Groups['id'].Value, 16)] = Normalize-NpcText ($lines -join "`n")
 }
 
+function Read-ConstantIds([string]$path, [string]$prefix) {
+    $ids = @{}
+    foreach ($line in Get-Content $path) {
+        if ($line -match "^\s*(?<name>${prefix}[A-Z0-9_]+)\s+(?:\.?db|db)\s*;\s*(?:0x|\$)(?<id>[0-9a-f]{2})") {
+            $ids[$Matches['name']] = [Convert]::ToInt32($Matches['id'], 16)
+        }
+    }
+    return $ids
+}
+
+function Convert-AsmByte([string]$value) {
+    $trimmed = $value.Trim()
+    if ($trimmed -match '^\$([0-9a-f]{2})$') {
+        return [Convert]::ToInt32($Matches[1], 16)
+    }
+    return -1
+}
+
+function Resolve-TreasureId([string]$value, [hashtable]$treasureIds) {
+    $trimmed = $value.Trim()
+    if ($trimmed -match '^\$([0-9a-f]{2})$') {
+        return [Convert]::ToInt32($Matches[1], 16)
+    }
+    if ($treasureIds.ContainsKey($trimmed)) {
+        return $treasureIds[$trimmed]
+    }
+    return 0
+}
+
+$treasureIds = Read-ConstantIds (Join-Path $Disassembly "constants\common\treasure.s") "TREASURE_"
+$itemIds = Read-ConstantIds (Join-Path $Disassembly "constants\common\items.s") "ITEM_"
+if ($treasureIds['TREASURE_SWORD'] -ne 0x05 -or $itemIds['ITEM_SWORD'] -ne 0x05) {
+    throw "Treasure/item constants no longer match the expected first-32 inventory ID identity."
+}
+
+# Preserve the common giveTreasure lookup data so the runtime can update
+# inventory variables from original treasure IDs and parameters.
+$behaviourRows = [Collections.Generic.List[string]]::new()
+$behaviourRows.Add("# treasure-id`tvariable`tmode`tsound")
+$behaviourSource = Get-Content (Join-Path $Disassembly "data\ages\treasureCollectionBehaviours.s")
+$currentBehaviourTreasure = -1
+$behaviourFields = @()
+foreach ($line in $behaviourSource) {
+    if ($line -match '^\s*;\s+TREASURE_[A-Z0-9_]+\s+\(0x[0-9a-f]{2}\)') {
+        $currentBehaviourTreasure = $behaviourRows.Count - 1
+        $behaviourFields = @()
+        continue
+    }
+    if ($currentBehaviourTreasure -lt 0 -or
+        $line -notmatch '^\s*\.db\s+(?<value>[^;]+)') {
+        continue
+    }
+
+    $behaviourFields += $Matches['value'].Trim()
+    if ($behaviourFields.Count -ne 3) { continue }
+
+    $variable = $behaviourFields[0]
+    if ($variable.StartsWith('<')) { $variable = $variable.Substring(1) }
+    $mode = Convert-AsmByte $behaviourFields[1]
+    if ($mode -lt 0) { throw "Could not parse treasure behaviour mode '$($behaviourFields[1])'." }
+    $behaviourRows.Add("$($currentBehaviourTreasure.ToString('x2'))`t$variable`t$($mode.ToString('x2'))`t$($behaviourFields[2])")
+    $currentBehaviourTreasure = -1
+    $behaviourFields = @()
+}
+if ($behaviourRows.Count -ne 105) {
+    throw "Expected 104 treasure collection behaviour rows, parsed $($behaviourRows.Count - 1)."
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination "metadata\treasure_behaviours.tsv"),
+    $behaviourRows,
+    [Text.UTF8Encoding]::new($false))
+
+# Treasure objects encode the object subid found in chestData.s and the exact
+# b/c values passed to giveTreasure.
+$treasureObjectRows = [Collections.Generic.List[string]]::new()
+$treasureObjectRows.Add("# treasure-object`ttreasure-id`tsubid`tparameter`ttext-id`tgraphic`tmessage-base64")
+$treasureObjectRecords = @{}
+$treasureObjectSource = Get-Content (Join-Path $Disassembly "data\ages\treasureObjectData.s")
+$currentTreasure = -1
+foreach ($line in $treasureObjectSource) {
+    if ($line -match 'm_BeginTreasureSubids\s+(?<treasure>TREASURE_[A-Z0-9_]+)') {
+        if (-not $treasureIds.ContainsKey($Matches['treasure'])) {
+            throw "Unknown treasure constant $($Matches['treasure']) in treasureObjectData.s."
+        }
+        $currentTreasure = $treasureIds[$Matches['treasure']]
+        continue
+    }
+    $commentTreasure = -1
+    if ($line -match '/\*\s+\$(?<id>[0-9a-f]{2})\s+\*/') {
+        $commentTreasure = [Convert]::ToInt32($Matches['id'], 16)
+    }
+    if ($line -notmatch 'm_TreasureSubid\s+(?<spawn>\$[0-9a-f]{2}),\s*(?<parameter>\$[0-9a-f]{2}),\s*(?<text><?[A-Za-z0-9_]+|\$[0-9a-f]{2}),\s*(?<graphic>\$[0-9a-f]{2}),\s*(?<label>TREASURE_OBJECT_[A-Z0-9_]+)') {
+        continue
+    }
+
+    $treasure = if ($currentTreasure -ge 0) { $currentTreasure } else { $commentTreasure }
+    if ($treasure -lt 0) { throw "Could not resolve treasure index for $($Matches['label'])." }
+    $label = $Matches['label']
+    $parameterText = $Matches['parameter']
+    $textText = $Matches['text']
+    $graphicText = $Matches['graphic']
+    $subid = if ($label -match '_([0-9a-f]{2})$') { [Convert]::ToInt32($Matches[1], 16) } else { 0 }
+    $parameter = Convert-AsmByte $parameterText
+    $textId = Convert-AsmByte $textText
+    $graphic = Convert-AsmByte $graphicText
+    if ($parameter -lt 0 -or $graphic -lt 0) { throw "Could not parse $label treasure object data." }
+    $message = if ($textId -ge 0 -and $textId -ne 0xff -and $allTexts.ContainsKey($textId)) {
+        $allTexts[$textId]
+    } else {
+        ''
+    }
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message))
+    $row = "$label`t$($treasure.ToString('x2'))`t$($subid.ToString('x2'))`t$($parameter.ToString('x2'))`t$($textId.ToString('x2'))`t$($graphic.ToString('x2'))`t$encoded"
+    $treasureObjectRows.Add($row)
+    $treasureObjectRecords[$label] = @{
+        Treasure = $treasure
+        Subid = $subid
+        Parameter = $parameter
+        TextId = $textId
+        Graphic = $graphic
+        Message = $message
+    }
+}
+if (-not $treasureObjectRecords.ContainsKey('TREASURE_OBJECT_SWORD_00') -or
+    $treasureObjectRecords['TREASURE_OBJECT_SWORD_00'].Treasure -ne $treasureIds['TREASURE_SWORD']) {
+    throw "Could not resolve TREASURE_OBJECT_SWORD_00 to TREASURE_SWORD."
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination "metadata\treasure_objects.tsv"),
+    $treasureObjectRows,
+    [Text.UTF8Encoding]::new($false))
+
+# Export the item icon rows used by loadTreasureDisplayData. Runtime code only
+# consumes a subset today, but keeping all rows makes the inventory foundation
+# data-driven for later menu/equipment slices.
+$displayRows = [Collections.Generic.List[string]]::new()
+$displayRows.Add("# table`tindex`ttreasure-id`tleft-sprite`tleft-palette`tright-sprite`tright-palette`textra-mode`ttext-low")
+$displaySource = Get-Content (Join-Path $Disassembly "data\ages\treasureDisplayData.s")
+$displayTable = ''
+$displayIndex = 0
+foreach ($line in $displaySource) {
+    if ($line -match '^(treasureDisplayData_[A-Za-z0-9]+):') {
+        $displayTable = $Matches[1]
+        $displayIndex = 0
+        continue
+    }
+    if (-not $displayTable -or $line -notmatch '^\s*\.db\s+(?<values>[^;]+)') {
+        continue
+    }
+    $values = @($Matches['values'].Split(',') | ForEach-Object { $_.Trim() })
+    if ($values.Count -ne 7) { continue }
+    $treasure = Resolve-TreasureId $values[0] $treasureIds
+    $leftSprite = Convert-AsmByte $values[1]
+    $leftPalette = Convert-AsmByte $values[2]
+    $rightSprite = Convert-AsmByte $values[3]
+    $rightPalette = Convert-AsmByte $values[4]
+    $extraMode = Convert-AsmByte $values[5]
+    $textLow = if ($values[6] -match '<TX_[A-Z0-9_]+') { -1 } else { Convert-AsmByte $values[6] }
+    if ($leftSprite -lt 0 -or $leftPalette -lt 0 -or $rightSprite -lt 0 -or
+        $rightPalette -lt 0 -or $extraMode -lt 0) {
+        throw "Could not parse treasure display row '$line'."
+    }
+    $textColumn = if ($textLow -lt 0) { 'ff' } else { $textLow.ToString('x2') }
+    $displayRows.Add("$displayTable`t$displayIndex`t$($treasure.ToString('x2'))`t$($leftSprite.ToString('x2'))`t$($leftPalette.ToString('x2'))`t$($rightSprite.ToString('x2'))`t$($rightPalette.ToString('x2'))`t$($extraMode.ToString('x2'))`t$textColumn")
+    $displayIndex++
+}
+if (($displayRows | Where-Object { $_ -match '^treasureDisplayData_sword\t0\t05\t90\t' }).Count -ne 1) {
+    throw "Could not export the level-1 sword display icon row."
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination "metadata\treasure_display.tsv"),
+    $displayRows,
+    [Text.UTF8Encoding]::new($false))
+
 # Chests are interactable $f1 metatiles whose room/position and treasure
-# records live in chestData.s. Preserve every record now, while marking the
-# rupee rewards supported by the first inventory slice with their original
-# amount and TX_00XX pickup text.
+# records live in chestData.s. Preserve every record with the resolved
+# TREASURE_OBJECT_* b/c values that will be passed to giveTreasure.
 $rupeeValues = @(
     0, 1, 2, 5, 10, 20, 40, 30, 60, 70,
     25, 50, 100, 200, 400, 150, 300, 500, 900, 80
@@ -467,7 +670,7 @@ foreach ($match in [regex]::Matches(
 }
 
 $chestRows = [Collections.Generic.List[string]]::new()
-$chestRows.Add("# group`troom`tposition`ttreasure-object`tsupported`tamount`ttext-id`tutf8-base64")
+$chestRows.Add("# group`troom`tposition`ttreasure-object`ttreasure-id`tsubid`tparameter`ttext-id`tgraphic`tamount`tutf8-base64")
 $currentChestGroup = -1
 foreach ($line in Get-Content (Join-Path $Disassembly "data\ages\chestData.s")) {
     if ($line -match '^chestGroup(?<group>[0-7])Data:') {
@@ -482,26 +685,25 @@ foreach ($line in Get-Content (Join-Path $Disassembly "data\ages\chestData.s")) 
     $room = $Matches['room']
     $position = $Matches['position']
     $treasure = $Matches['treasure']
-    $supported = 0
-    $amount = 0
-    $textId = 0
-    $message = ''
-    if ($treasure -match '^TREASURE_OBJECT_RUPEES_(?<subid>[0-9a-f]{2})$' -and
-        $rupeeRewards.ContainsKey($Matches['subid'])) {
-        $reward = $rupeeRewards[$Matches['subid']]
-        $supported = 1
-        $amount = $reward.Amount
-        $textId = $reward.TextId
-        $message = $reward.Message
+    if (-not $treasureObjectRecords.ContainsKey($treasure)) {
+        throw "Chest $currentChestGroup`:$room/$position references unresolved $treasure."
     }
-    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message))
+    $treasureRecord = $treasureObjectRecords[$treasure]
+    $amount = 0
+    if ($treasureRecord.Treasure -eq $treasureIds['TREASURE_RUPEES']) {
+        if ($treasureRecord.Parameter -ge $rupeeValues.Count) {
+            throw "$treasure uses unsupported rupee value index $($treasureRecord.Parameter)."
+        }
+        $amount = $rupeeValues[$treasureRecord.Parameter]
+    }
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($treasureRecord.Message))
     $chestRows.Add(
-        "$currentChestGroup`t$room`t$position`t$treasure`t$supported`t$amount`t$($textId.ToString('x4'))`t$encoded")
+        "$currentChestGroup`t$room`t$position`t$treasure`t$($treasureRecord.Treasure.ToString('x2'))`t$($treasureRecord.Subid.ToString('x2'))`t$($treasureRecord.Parameter.ToString('x2'))`t$($treasureRecord.TextId.ToString('x2'))`t$($treasureRecord.Graphic.ToString('x2'))`t$amount`t$encoded")
 }
 if ($chestRows.Count -ne 134) {
     throw "Expected 133 chest records, parsed $($chestRows.Count - 1)."
 }
-$testChest = $chestRows | Where-Object { $_ -match '^0\t49\t51\tTREASURE_OBJECT_RUPEES_04\t1\t30\t0005\t' } | Select-Object -First 1
+$testChest = $chestRows | Where-Object { $_ -match '^0\t49\t51\tTREASURE_OBJECT_RUPEES_04\t28\t04\t07\t05\t2b\t30\t' } | Select-Object -First 1
 if (-not $testChest) {
     throw "The canonical room 0:49/$51 chest no longer resolves to the 30-rupee TX_0005 reward."
 }

@@ -27,6 +27,8 @@ public partial class GameRoot
         ValidateTerrain();
         ValidateHealth();
         ValidateChests();
+        ValidateInventoryFoundation();
+        ValidateInventoryMenu();
         ValidatePushBlocks();
         ValidateMapScreen();
 
@@ -367,6 +369,105 @@ public partial class GameRoot
 
         GD.Print("Validated 0:49/$51 red chest palette, direction, 32-frame reward rise, " +
             "reward visibility through TX_0005, 30 rupees, and opened state.");
+    }
+
+    private void ValidateInventoryFoundation()
+    {
+        if (!_inventory.HasTreasure(TreasureDatabase.TreasureSword) ||
+            _inventory.EquippedA != InventoryState.ItemSword ||
+            _inventory.SwordLevel != 1)
+        {
+            throw new InvalidOperationException(
+                "The development sword was not granted through TREASURE_OBJECT_SWORD_00 into wInventoryA.");
+        }
+
+        var chests = new ChestDatabase();
+        if (!chests.TryGet(4, 0x87, 0x65, out ChestDatabase.ChestRecord switchHookChest) ||
+            switchHookChest.TreasureObject != "TREASURE_OBJECT_SWITCH_HOOK_00" ||
+            switchHookChest.TreasureId != TreasureDatabase.TreasureSwitchHook ||
+            switchHookChest.Parameter != 1)
+        {
+            throw new InvalidOperationException(
+                "The original 4:87/$65 Switch Hook chest did not resolve to TREASURE_SWITCH_HOOK parameter 1.");
+        }
+
+        var tempInventory = new InventoryState(_treasures);
+        tempInventory.GiveTreasure(new TreasureDatabase.TreasureObjectRecord(
+            switchHookChest.TreasureObject,
+            switchHookChest.TreasureId,
+            switchHookChest.SubId,
+            switchHookChest.Parameter,
+            switchHookChest.TextId,
+            switchHookChest.Graphic,
+            switchHookChest.Message));
+        if (!tempInventory.HasTreasure(TreasureDatabase.TreasureSwitchHook) ||
+            tempInventory.SwitchHookLevel != 1 ||
+            tempInventory.EquippedB != TreasureDatabase.TreasureSwitchHook)
+        {
+            throw new InvalidOperationException(
+                "TREASURE_OBJECT_SWITCH_HOOK_00 did not update obtained flags, level, and first free button slot.");
+        }
+
+        GD.Print("Validated disassembly-backed inventory state, equipped A/B slots, " +
+            "TREASURE_OBJECT_SWORD_00 startup grant, and non-rupee chest treasure give path.");
+    }
+
+    private void ValidateInventoryMenu()
+    {
+        _inventoryMenu.OpenImmediatelyForValidation();
+        if (!_inventoryMenu.IsActive || !_inventoryScreen.Visible ||
+            _player.IsPhysicsProcessing() || _player.IsProcessing())
+        {
+            throw new InvalidOperationException("The inventory menu did not freeze gameplay on open.");
+        }
+
+        if (_inventoryScreen.Cursor != 0 || _inventory.StorageItemAt(0) != InventoryState.ItemNone ||
+            _inventory.EquippedA != InventoryState.ItemSword)
+        {
+            throw new InvalidOperationException("Inventory menu validation expected sword on A and slot 0 empty.");
+        }
+
+        _inventoryScreen.EquipToA();
+        if (_inventory.EquippedA != InventoryState.ItemNone ||
+            _inventory.StorageItemAt(0) != InventoryState.ItemSword)
+        {
+            throw new InvalidOperationException(
+                "Pressing A on empty storage slot 0 did not unequip the sword into wInventoryStorage.");
+        }
+
+        _inventoryScreen.EquipToB();
+        if (_inventory.EquippedB != InventoryState.ItemSword ||
+            _inventory.StorageItemAt(0) != InventoryState.ItemNone)
+        {
+            throw new InvalidOperationException(
+                "Pressing B on storage slot 0 did not equip the sword to wInventoryB.");
+        }
+
+        _inventoryScreen.MoveCursor(Vector2I.Left);
+        if (_inventoryScreen.Cursor != 15)
+            throw new InvalidOperationException("Inventory cursor did not wrap left with the original & $0f rule.");
+        _inventoryScreen.MoveCursor(Vector2I.Right);
+        if (_inventoryScreen.Cursor != 0)
+            throw new InvalidOperationException("Inventory cursor did not return to slot 0 after wrapping.");
+
+        _inventoryScreen.EquipToB();
+        _inventoryScreen.EquipToA();
+        if (_inventory.EquippedA != InventoryState.ItemSword ||
+            _inventory.EquippedB != InventoryState.ItemNone ||
+            _inventory.StorageItemAt(0) != InventoryState.ItemNone)
+        {
+            throw new InvalidOperationException("Inventory menu did not restore the sword to A through storage swaps.");
+        }
+
+        _inventoryMenu.CloseImmediatelyForValidation();
+        if (_inventoryMenu.IsActive || _inventoryScreen.Visible ||
+            !_player.IsPhysicsProcessing() || !_player.IsProcessing())
+        {
+            throw new InvalidOperationException("The inventory menu did not restore gameplay processing on close.");
+        }
+
+        GD.Print("Validated inventory subscreen slot cursor wrapping, A/B storage swaps, " +
+            "sword unequip, B equip, and gameplay freezing.");
     }
 
     private void ValidateHouseWarp()
@@ -1840,7 +1941,7 @@ public partial class GameRoot
     {
         _dialogue.Close();
         _player.RefillHealth();
-        SyncHudToPlayer();
+        SyncHudToInventory();
 
         if (_player.HealthQuarters != 12 || _hud.HealthQuarters != 12 ||
             _hud.MaxHealthQuarters != _player.MaxHealthQuarters)

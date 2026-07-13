@@ -13,15 +13,30 @@ public partial class Hud : Node2D
     private const int VisibleColumns = 20;
 
     private Texture2D _background = null!;
-    private Texture2D _itemIcons = null!;
+    private Texture2D _itemIcons1 = null!;
+    private Texture2D _itemIcons2 = null!;
+    private Texture2D _itemIcons3 = null!;
+    private TreasureDatabase? _treasures;
+    private InventoryState? _inventory;
 
     public int Rupees { get; set; }
     public int HealthQuarters { get; set; } = 12;
     public int MaxHealthQuarters { get; set; } = 12;
+    public int EquippedB { get; set; }
+    public int EquippedA { get; set; }
 
     public override void _Ready()
     {
-        _itemIcons = BuildItemIconTexture();
+        _itemIcons1 = BuildItemIconTexture("res://assets/oracle/gfx/spr_item_icons_1.png");
+        _itemIcons2 = BuildItemIconTexture("res://assets/oracle/gfx/spr_item_icons_2.png");
+        _itemIcons3 = BuildItemIconTexture("res://assets/oracle/gfx/spr_item_icons_3.png");
+        Refresh();
+    }
+
+    public void Initialize(TreasureDatabase treasures, InventoryState inventory)
+    {
+        _treasures = treasures;
+        _inventory = inventory;
         Refresh();
     }
 
@@ -29,13 +44,13 @@ public partial class Hud : Node2D
     {
         DrawTexture(_background, Vector2.Zero);
 
-        // TREASURE_SWORD level 1 uses sprite index $90. That is the first
-        // interleaved 8x16 cell in spr_item_icons_2. The original OAM places
-        // the A item's left half at hardware X=$38, or screen X=48.
-        DrawTextureRectRegion(
-            _itemIcons,
-            new Rect2(48, 0, 8, 16),
-            new Rect2(0, 0, 8, 16));
+        if (_treasures == null || _inventory == null)
+            return;
+
+        // wInventoryB is the left button slot in original RAM; wInventoryA is
+        // the right slot. Item sprites are drawn over the tilemap status bar.
+        DrawItemIcon(_treasures.GetButtonDisplay(EquippedB, _inventory), new Vector2(8, 0));
+        DrawItemIcon(_treasures.GetButtonDisplay(EquippedA, _inventory), new Vector2(48, 0));
     }
 
     public void Refresh()
@@ -138,10 +153,53 @@ public partial class Hud : Node2D
         }
     }
 
-    private static Texture2D BuildItemIconTexture()
+    private void DrawItemIcon(TreasureDatabase.DisplayRecord display, Vector2 position)
     {
-        Texture2D sourceTexture = GD.Load<Texture2D>("res://assets/oracle/gfx/spr_item_icons_2.png");
-        Image source = sourceTexture.GetImage();
+        if (!display.HasIcon)
+            return;
+
+        DrawItemSprite(display.LeftSprite, position);
+        if (display.RightSprite != 0)
+            DrawItemSprite(display.RightSprite, position + new Vector2(8, 0));
+    }
+
+    private void DrawItemSprite(int sprite, Vector2 position)
+    {
+        Texture2D texture;
+        int cell;
+        if (sprite is >= 0x80 and <= 0x8f)
+        {
+            texture = _itemIcons1;
+            cell = sprite - 0x80;
+        }
+        else if (sprite is >= 0x90 and <= 0x9f)
+        {
+            texture = _itemIcons2;
+            cell = sprite - 0x90;
+        }
+        else if (sprite is >= 0xa0 and <= 0xaf)
+        {
+            texture = _itemIcons3;
+            cell = sprite - 0xa0;
+        }
+        else
+        {
+            return;
+        }
+
+        DrawTextureRectRegion(
+            texture,
+            new Rect2(position, new Vector2(8, 16)),
+            new Rect2(cell * 8, 0, 8, 16));
+    }
+
+    private static Texture2D BuildItemIconTexture(string path)
+    {
+        byte[] bytes = Godot.FileAccess.GetFileAsBytes(path);
+        Image source = new();
+        Error error = source.LoadPngFromBuffer(bytes);
+        if (error != Error.Ok)
+            throw new InvalidOperationException($"Could not load item icon graphics {path}: {error}.");
         Image output = Image.CreateEmpty(source.GetWidth(), source.GetHeight(), false, Image.Format.Rgba8);
 
         for (int y = 0; y < source.GetHeight(); y++)

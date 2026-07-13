@@ -20,9 +20,9 @@ public partial class Player : Node2D
     private const int EnemyInvincibilityFrames = 0x22;
     private const int EnemyKnockbackFrames = 0x0f;
     private static readonly Vector2 DrownSpriteOrigin = new(-8, -4);
-    private const int StartingHealthQuarters = 12;
     private const int TerrainHazardDamageQuarters = 2;
     private IPlayerWorld _world = null!;
+    private InventoryState _inventory = null!;
     private Texture2D _texture = null!;
     private Texture2D _pushTexture = null!;
     private Texture2D _attackTexture = null!;
@@ -49,7 +49,6 @@ public partial class Player : Node2D
     private Vector2 _holePullCenter;
     private int _holePullCounter;
     private int _holePullPackedPosition = -1;
-    private int _healthQuarters = StartingHealthQuarters;
     private bool _attackHitApplied;
     private bool _walking;
     private bool _pushing;
@@ -60,12 +59,10 @@ public partial class Player : Node2D
     private bool _fallingInHole;
     private bool _fallInHoleRespawning;
 
-    public event Action? HealthChanged;
-    public event Action? RupeesChanged;
-
-    public int HealthQuarters => _healthQuarters;
-    public int Rupees { get; private set; }
-    public int MaxHealthQuarters { get; private set; } = StartingHealthQuarters;
+    public int HealthQuarters => _inventory.HealthQuarters;
+    public int Rupees => _inventory.Rupees;
+    public int MaxHealthQuarters => _inventory.MaxHealthQuarters;
+    public InventoryState Inventory => _inventory;
     public bool IsPullingIntoHole => _pullingIntoHole;
     public bool IsDrowning => _drowning;
     public bool IsFallingInHole => _fallingInHole;
@@ -82,9 +79,10 @@ public partial class Player : Node2D
     internal float InvincibilityFrames => _enemyInvincibilityFrames;
     internal float KnockbackFrames => _enemyKnockbackFrames;
 
-    public void Initialize(IPlayerWorld world, Vector2 spawn)
+    public void Initialize(IPlayerWorld world, InventoryState inventory, Vector2 spawn)
     {
         _world = world;
+        _inventory = inventory;
         _texture = BuildLinkTexture();
         _pushTexture = BuildPushLinkTexture();
         _attackTexture = BuildAttackLinkTexture();
@@ -195,16 +193,7 @@ public partial class Player : Node2D
 
     public bool ApplyDamage(int quarters)
     {
-        if (quarters <= 0 || _healthQuarters <= 0)
-            return false;
-
-        int previous = _healthQuarters;
-        _healthQuarters = Mathf.Max(0, _healthQuarters - quarters);
-        if (_healthQuarters == previous)
-            return false;
-
-        HealthChanged?.Invoke();
-        return true;
+        return _inventory.ApplyDamage(quarters);
     }
 
     public bool ApplyEnemyContactDamage(Vector2 sourcePosition, int quarters)
@@ -238,30 +227,17 @@ public partial class Player : Node2D
         if (quarters <= 0)
             return false;
 
-        int previous = _healthQuarters;
-        _healthQuarters = Mathf.Min(MaxHealthQuarters, _healthQuarters + quarters);
-        if (_healthQuarters == previous)
-            return false;
-
-        HealthChanged?.Invoke();
-        return true;
+        return _inventory.Heal(quarters);
     }
 
     public void RefillHealth()
     {
-        if (_healthQuarters == MaxHealthQuarters)
-            return;
-
-        _healthQuarters = MaxHealthQuarters;
-        HealthChanged?.Invoke();
+        _inventory.RefillHealth();
     }
 
     public void AddRupees(int amount)
     {
-        int previous = Rupees;
-        Rupees = Mathf.Clamp(Rupees + amount, 0, 999);
-        if (Rupees != previous)
-            RupeesChanged?.Invoke();
+        _inventory.AddRupees(amount);
     }
 
     public void StartLedgeHop(Vector2 destination)
@@ -337,6 +313,12 @@ public partial class Player : Node2D
         {
             if (_world.TryInteract(this))
                 return;
+            if (_inventory.EquippedA == InventoryState.ItemSword)
+                StartSwordAttack();
+        }
+        else if (Input.IsActionJustPressed("item") && _attackTime <= 0.0f &&
+            !_world.SwordDisabled && _inventory.EquippedB == InventoryState.ItemSword)
+        {
             StartSwordAttack();
         }
 

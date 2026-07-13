@@ -15,7 +15,7 @@ public sealed class InteractionController
     private readonly RoomView _roomView;
     private readonly Func<Vector2, Vector2> _worldToScreen;
     private readonly Func<long> _animationTick;
-    private readonly Action<int> _addRupees;
+    private readonly InventoryState _inventory;
     private readonly HashSet<int> _openedChestRooms = new();
     private ChestTreasureEffect? _chestTreasure;
     private ChestDatabase.ChestRecord _pendingChest;
@@ -33,7 +33,7 @@ public sealed class InteractionController
         RoomView roomView,
         Func<Vector2, Vector2> worldToScreen,
         Func<long> animationTick,
-        Action<int> addRupees)
+        InventoryState inventory)
     {
         _rooms = rooms;
         _entities = entities;
@@ -44,7 +44,7 @@ public sealed class InteractionController
         _roomView = roomView;
         _worldToScreen = worldToScreen;
         _animationTick = animationTick;
-        _addRupees = addRupees;
+        _inventory = inventory;
         _rooms.RoomChanged += ApplyOpenedChestState;
         ApplyOpenedChestState(_rooms.ActiveGroup, _rooms.CurrentRoom);
     }
@@ -63,8 +63,16 @@ public sealed class InteractionController
             // treasure.s:@m3State1 gives the treasure and opens its text after
             // the 32-frame rise, then falls through to @m3State2 without
             // deleting the still-visible interaction.
-            _addRupees(_pendingChest.Amount);
-            _dialogue.ShowMessage(_pendingChest.Message, _worldToScreen(player.Position).Y);
+            _inventory.GiveTreasure(new TreasureDatabase.TreasureObjectRecord(
+                _pendingChest.TreasureObject,
+                _pendingChest.TreasureId,
+                _pendingChest.SubId,
+                _pendingChest.Parameter,
+                _pendingChest.TextId,
+                _pendingChest.Graphic,
+                _pendingChest.Message));
+            if (!string.IsNullOrEmpty(_pendingChest.Message))
+                _dialogue.ShowMessage(_pendingChest.Message, _worldToScreen(player.Position).Y);
             return;
         }
 
@@ -131,15 +139,9 @@ public sealed class InteractionController
         {
             chest = new ChestDatabase.ChestRecord(
                 _rooms.ActiveGroup, room.Id, position,
-                "TREASURE_OBJECT_RUPEES_00", true, 1, 0x0001,
+                "TREASURE_OBJECT_RUPEES_00", TreasureDatabase.TreasureRupees, 0x00,
+                0x01, 0x01, 0x2b, 1,
                 "You got 1 Rupee!\n...");
-        }
-        if (!chest.Supported)
-        {
-            _dialogue.ShowMessage(
-                "This chest's item\nisn't implemented yet.",
-                _worldToScreen(player.Position).Y);
-            return true;
         }
         if (!room.ReplaceMetatile(tilePoint, 0xf1, 0xf0, _animationTick()))
             return true;

@@ -12,6 +12,7 @@ public sealed class GameSceneGraph
     public DialogueBox Dialogue { get; }
     public Label RoomDebug { get; }
     public MapScreen MapScreen { get; }
+    public InventoryScreen InventoryScreen { get; }
     public ColorRect MenuFade { get; }
 
     public GameSceneGraph(Node root)
@@ -51,6 +52,9 @@ public sealed class GameSceneGraph
 
         MapScreen = new MapScreen { Name = "MapScreen", ZIndex = 40, Visible = false };
         interfaceLayer.AddChild(MapScreen);
+
+        InventoryScreen = new InventoryScreen { Name = "InventoryScreen", ZIndex = 45, Visible = false };
+        interfaceLayer.AddChild(InventoryScreen);
 
         MenuFade = new ColorRect
         {

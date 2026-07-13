@@ -21,10 +21,13 @@ public partial class GameRoot : Node2D
     private CombatController _combat = null!;
     private DebugWarpController _debugWarps = null!;
     private MapMenuController _mapMenu = null!;
+    private InventoryMenuController _inventoryMenu = null!;
     private LaunchOptions _launchOptions = null!;
     private RoomCollision _collision = null!;
     private PlayerWorld _playerWorld = null!;
     private GameSceneGraph _scene = null!;
+    private TreasureDatabase _treasures = null!;
+    private InventoryState _inventory = null!;
 
     private double _animationTicks;
 
@@ -36,10 +39,12 @@ public partial class GameRoot : Node2D
     private ColorRect _warpFade => _scene.WarpFade;
     private DialogueBox _dialogue => _scene.Dialogue;
     private MapScreen _mapScreen => _scene.MapScreen;
+    private InventoryScreen _inventoryScreen => _scene.InventoryScreen;
 
     public bool IsTransitioning => _transitions?.IsTransitioning ?? false;
     public bool DialogueOpen => _interactions?.DialogueOpen ?? false;
     public bool MapMenuOpen => _mapMenu?.IsActive ?? false;
+    public bool InventoryMenuOpen => _inventoryMenu?.IsActive ?? false;
 
     // Compatibility accessors used only by GameRoot.Validation.cs.
     private OracleWorldData _world => _rooms.World;
@@ -62,20 +67,25 @@ public partial class GameRoot : Node2D
     public override void _Ready()
     {
         _launchOptions = new LaunchOptions();
+        _treasures = new TreasureDatabase();
+        _inventory = new InventoryState(_treasures);
+        _inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SWORD_00"));
+        _inventory.EquipA(InventoryState.ItemSword);
         _rooms = new RoomSession(
             _launchOptions.StartingGroup, _launchOptions.StartingRoom,
             () => (long)_animationTicks,
             () => _animationTicks = 0.0);
         _scene = new GameSceneGraph(this);
+        _hud.Initialize(_treasures, _inventory);
         _mapScreen.Initialize(_rooms);
+        _inventoryScreen.Initialize(_treasures, _inventory);
         CreateControllers();
 
         _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom);
         _roomView.SetRoom(_rooms.CurrentRoom.Texture);
-        _player.Initialize(_playerWorld, FindSpawn());
-        _player.HealthChanged += SyncHudToPlayer;
-        _player.RupeesChanged += SyncHudToPlayer;
-        SyncHudToPlayer();
+        _player.Initialize(_playerWorld, _inventory, FindSpawn());
+        _inventory.Changed += SyncHudToInventory;
+        SyncHudToInventory();
         _transitions.UpdateCamera();
 
         ScheduleRequestedValidation();
@@ -83,6 +93,9 @@ public partial class GameRoot : Node2D
 
     public override void _Process(double delta)
     {
+        _inventoryMenu.Update();
+        if (_inventoryMenu.IsActive)
+            return;
         _mapMenu.Update(delta);
         if (_mapMenu.IsActive)
             return;
@@ -111,7 +124,7 @@ public partial class GameRoot : Node2D
         _interactions = new InteractionController(
             _rooms, _entities, new SignDatabase(), new ChestDatabase(), _dialogue,
             this, _roomView, _transitions.WorldToScreen, () => (long)_animationTicks,
-            amount => _player.AddRupees(amount));
+            _inventory);
         _terrain = new TerrainController(this, _rooms, _collision.Collides);
         _pushBlocks.EnteredHazard += (position, hazard) =>
         {
@@ -127,8 +140,11 @@ public partial class GameRoot : Node2D
             _interactions.ResetChestForTesting);
         _mapMenu = new MapMenuController(
             _mapScreen, _scene.MenuFade, _player, _roomDebug,
-            () => !IsTransitioning && !DialogueOpen,
+            () => !IsTransitioning && !DialogueOpen && !InventoryMenuOpen,
             FastTravelFromMap);
+        _inventoryMenu = new InventoryMenuController(
+            _inventoryScreen, _player, _roomDebug,
+            () => !IsTransitioning && !DialogueOpen && !MapMenuOpen);
     }
 
     private void ScheduleRequestedValidation()
@@ -157,17 +173,21 @@ public partial class GameRoot : Node2D
             _roomDebug.Text = roomText;
     }
 
-    private void SyncHudToPlayer()
+    private void SyncHudToInventory()
     {
-        if (_hud == null || _player == null)
+        if (_hud == null || _inventory == null)
             return;
-        if (_hud.HealthQuarters == _player.HealthQuarters &&
-            _hud.MaxHealthQuarters == _player.MaxHealthQuarters &&
-            _hud.Rupees == _player.Rupees)
+        if (_hud.HealthQuarters == _inventory.HealthQuarters &&
+            _hud.MaxHealthQuarters == _inventory.MaxHealthQuarters &&
+            _hud.Rupees == _inventory.Rupees &&
+            _hud.EquippedA == _inventory.EquippedA &&
+            _hud.EquippedB == _inventory.EquippedB)
             return;
-        _hud.HealthQuarters = _player.HealthQuarters;
-        _hud.MaxHealthQuarters = _player.MaxHealthQuarters;
-        _hud.Rupees = _player.Rupees;
+        _hud.HealthQuarters = _inventory.HealthQuarters;
+        _hud.MaxHealthQuarters = _inventory.MaxHealthQuarters;
+        _hud.Rupees = _inventory.Rupees;
+        _hud.EquippedA = _inventory.EquippedA;
+        _hud.EquippedB = _inventory.EquippedB;
         _hud.Refresh();
     }
 

@@ -12,9 +12,12 @@ public sealed class ChestDatabase
         int Room,
         int Position,
         string TreasureObject,
-        bool Supported,
-        int Amount,
+        int TreasureId,
+        int SubId,
+        int Parameter,
         int TextId,
+        int Graphic,
+        int Amount,
         string Message);
 
     private readonly Dictionary<int, ChestRecord> _records = new();
@@ -30,7 +33,7 @@ public sealed class ChestDatabase
                 continue;
 
             string[] columns = line.Split('\t');
-            if (columns.Length != 8)
+            if (columns.Length != 11)
                 throw new InvalidOperationException($"Malformed chest data row: {line}");
 
             var record = new ChestRecord(
@@ -38,10 +41,13 @@ public sealed class ChestDatabase
                 Convert.ToInt32(columns[1], 16),
                 Convert.ToInt32(columns[2], 16),
                 columns[3],
-                columns[4] == "1",
-                int.Parse(columns[5]),
+                Convert.ToInt32(columns[4], 16),
+                Convert.ToInt32(columns[5], 16),
                 Convert.ToInt32(columns[6], 16),
-                Encoding.UTF8.GetString(Convert.FromBase64String(columns[7])));
+                Convert.ToInt32(columns[7], 16),
+                Convert.ToInt32(columns[8], 16),
+                int.Parse(columns[9]),
+                Encoding.UTF8.GetString(Convert.FromBase64String(columns[10])));
             _records.Add(MakeKey(record.Group, record.Room, record.Position), record);
 
             int roomKey = MakeRoomKey(record.Group, record.Room);
