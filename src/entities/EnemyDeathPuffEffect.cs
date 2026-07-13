@@ -28,17 +28,22 @@ public partial class EnemyDeathPuffEffect : Node2D
 
     public bool HighKnockback { get; private set; }
     public bool Finished { get; private set; }
+    public int EnemyId { get; private set; } = -1;
     internal int AnimationFrame => Math.Min(_animationFrame, _animation.Count - 1);
     internal int DurationFrames { get; private set; }
     internal int ElapsedFrames { get; private set; }
     internal int CurrentPalette => _palettes[_paletteIndex];
     internal Vector2 TransitionDrawOffset => _transitionDrawOffset;
 
-    internal void Initialize(Vector2 position, bool highKnockback = false)
+    internal void Initialize(
+        Vector2 position,
+        bool highKnockback = false,
+        int enemyId = -1)
     {
         Definition definition = _definition ??= LoadDefinition();
         Position = position;
         HighKnockback = highKnockback;
+        EnemyId = enemyId;
         _palettes = definition.Palettes;
         _animation = highKnockback
             ? definition.HighKnockbackAnimation

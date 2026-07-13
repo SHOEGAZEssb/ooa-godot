@@ -8,13 +8,17 @@ public sealed class RoomEntityManager
     private readonly Node _worldRoot;
     private readonly NpcDatabase _npcs;
     private readonly EnemyDatabase _enemies;
-    private readonly OracleRandom _random = new();
+    private readonly ItemDropDatabase _itemDrops;
+    private readonly OracleRandom _random;
     private readonly List<NpcCharacter> _npcNodes = new();
     private readonly List<NpcCharacter> _outgoingNpcNodes = new();
     private readonly List<KeeseCharacter> _keeseNodes = new();
     private readonly List<KeeseCharacter> _outgoingKeeseNodes = new();
     private readonly List<EnemyDeathPuffEffect> _deathPuffNodes = new();
     private readonly List<EnemyDeathPuffEffect> _outgoingDeathPuffNodes = new();
+    private readonly List<ItemDropEffect> _itemDropNodes = new();
+    private readonly List<ItemDropEffect> _outgoingItemDropNodes = new();
+    private OracleRoomData _roomForActiveEntities = null!;
     private bool _screenTransitionActive;
     private double _enemyFrameAccumulator;
     private int _enemyFrameCounter;
@@ -25,18 +29,33 @@ public sealed class RoomEntityManager
     public IReadOnlyList<KeeseCharacter> OutgoingKeese => _outgoingKeeseNodes;
     public IReadOnlyList<EnemyDeathPuffEffect> DeathPuffs => _deathPuffNodes;
     public IReadOnlyList<EnemyDeathPuffEffect> OutgoingDeathPuffs => _outgoingDeathPuffNodes;
+    public IReadOnlyList<ItemDropEffect> ItemDrops => _itemDropNodes;
+    public IReadOnlyList<ItemDropEffect> OutgoingItemDrops => _outgoingItemDropNodes;
     public bool ScreenTransitionActive => _screenTransitionActive;
 
     public RoomEntityManager(Node worldRoot, NpcDatabase npcs, EnemyDatabase enemies)
+        : this(worldRoot, npcs, enemies, new ItemDropDatabase(), new OracleRandom())
+    {
+    }
+
+    internal RoomEntityManager(
+        Node worldRoot,
+        NpcDatabase npcs,
+        EnemyDatabase enemies,
+        ItemDropDatabase itemDrops,
+        OracleRandom random)
     {
         _worldRoot = worldRoot;
         _npcs = npcs;
         _enemies = enemies;
+        _itemDrops = itemDrops;
+        _random = random;
     }
 
     public void LoadRoom(int group, OracleRoomData room)
     {
         Clear();
+        _roomForActiveEntities = room;
         SpawnRoomNpcs(group, room);
         SpawnRoomKeese(group, room);
     }
@@ -46,13 +65,17 @@ public sealed class RoomEntityManager
         ClearNodes(_outgoingNpcNodes);
         ClearNodes(_outgoingKeeseNodes);
         ClearNodes(_outgoingDeathPuffNodes);
+        ClearNodes(_outgoingItemDropNodes);
         _outgoingNpcNodes.AddRange(_npcNodes);
         _outgoingKeeseNodes.AddRange(_keeseNodes);
         _outgoingDeathPuffNodes.AddRange(_deathPuffNodes);
+        _outgoingItemDropNodes.AddRange(_itemDropNodes);
         _npcNodes.Clear();
         _keeseNodes.Clear();
         _deathPuffNodes.Clear();
+        _itemDropNodes.Clear();
         _screenTransitionActive = true;
+        _roomForActiveEntities = room;
         SpawnRoomNpcs(group, room);
         SpawnRoomKeese(group, room);
         SetScreenTransitionOffsets(Vector2.Zero, incomingOffset);
@@ -75,6 +98,10 @@ public sealed class RoomEntityManager
             puff.SetTransitionDrawOffset(outgoingOffset);
         foreach (EnemyDeathPuffEffect puff in _deathPuffNodes)
             puff.SetTransitionDrawOffset(incomingOffset);
+        foreach (ItemDropEffect drop in _outgoingItemDropNodes)
+            drop.SetTransitionDrawOffset(outgoingOffset);
+        foreach (ItemDropEffect drop in _itemDropNodes)
+            drop.SetTransitionDrawOffset(incomingOffset);
     }
 
     public void FinishScreenTransition()
@@ -85,12 +112,15 @@ public sealed class RoomEntityManager
         ClearNodes(_outgoingNpcNodes);
         ClearNodes(_outgoingKeeseNodes);
         ClearNodes(_outgoingDeathPuffNodes);
+        ClearNodes(_outgoingItemDropNodes);
         foreach (NpcCharacter npc in _npcNodes)
             npc.SetTransitionDrawOffset(Vector2.Zero);
         foreach (KeeseCharacter keese in _keeseNodes)
             keese.SetTransitionDrawOffset(Vector2.Zero);
         foreach (EnemyDeathPuffEffect puff in _deathPuffNodes)
             puff.SetTransitionDrawOffset(Vector2.Zero);
+        foreach (ItemDropEffect drop in _itemDropNodes)
+            drop.SetTransitionDrawOffset(Vector2.Zero);
         _screenTransitionActive = false;
     }
 
@@ -184,6 +214,8 @@ public sealed class RoomEntityManager
                 keese.UpdateFrame(player.Position, _enemyFrameCounter);
             foreach (EnemyDeathPuffEffect puff in _deathPuffNodes)
                 puff.UpdateFrame(_enemyFrameCounter);
+            foreach (ItemDropEffect drop in _itemDropNodes)
+                drop.UpdateFrame(player, _enemyFrameCounter);
         }
 
         foreach (KeeseCharacter keese in _keeseNodes)
@@ -194,6 +226,7 @@ public sealed class RoomEntityManager
 
         RemoveDeadKeese();
         RemoveFinishedDeathPuffs();
+        RemoveFinishedItemDrops();
     }
 
     public bool BlocksLink(Vector2 linkCenter)
@@ -229,7 +262,8 @@ public sealed class RoomEntityManager
                 if (struck && !wasDead && keese.IsDead)
                 {
                     SpawnEnemyDeathPuff(
-                        keese.Position + Vector2.Down * keese.SpriteHeight);
+                        keese.Position + Vector2.Down * keese.SpriteHeight,
+                        enemyId: keese.Record.Id);
                 }
             }
         }
@@ -239,17 +273,32 @@ public sealed class RoomEntityManager
 
     public EnemyDeathPuffEffect SpawnEnemyDeathPuff(
         Vector2 position,
-        bool highKnockback = false)
+        bool highKnockback = false,
+        int enemyId = -1)
     {
         var puff = new EnemyDeathPuffEffect
         {
             Name = "EnemyDeathPuff",
             ZIndex = 10
         };
-        puff.Initialize(position, highKnockback);
+        puff.Initialize(position, highKnockback, enemyId);
         _deathPuffNodes.Add(puff);
         _worldRoot.AddChild(puff);
         return puff;
+    }
+
+    internal ItemDropEffect SpawnItemDrop(int subId, Vector2 position)
+    {
+        var drop = new ItemDropEffect
+        {
+            Name = $"ItemDrop_{subId:x2}",
+            ZIndex = 10
+        };
+        drop.Initialize(subId, position, _roomForActiveEntities,
+            _itemDrops.GetVisual(subId));
+        _itemDropNodes.Add(drop);
+        _worldRoot.AddChild(drop);
+        return drop;
     }
 
     public void Clear()
@@ -260,6 +309,8 @@ public sealed class RoomEntityManager
         ClearNodes(_keeseNodes);
         ClearNodes(_outgoingDeathPuffNodes);
         ClearNodes(_deathPuffNodes);
+        ClearNodes(_outgoingItemDropNodes);
+        ClearNodes(_itemDropNodes);
         _screenTransitionActive = false;
         _enemyFrameAccumulator = 0.0;
     }
@@ -297,6 +348,17 @@ public sealed class RoomEntityManager
         nodes.Clear();
     }
 
+    private void ClearNodes(List<ItemDropEffect> nodes)
+    {
+        foreach (ItemDropEffect drop in nodes)
+        {
+            if (drop.GetParent() == _worldRoot)
+                _worldRoot.RemoveChild(drop);
+            drop.QueueFree();
+        }
+        nodes.Clear();
+    }
+
     private void RemoveDeadKeese()
     {
         for (int index = _keeseNodes.Count - 1; index >= 0; index--)
@@ -318,10 +380,27 @@ public sealed class RoomEntityManager
             EnemyDeathPuffEffect puff = _deathPuffNodes[index];
             if (!puff.Finished)
                 continue;
+            int? dropSubId = _itemDrops.DecideDrop(puff.EnemyId, _random);
+            if (dropSubId.HasValue)
+                SpawnItemDrop(dropSubId.Value, puff.Position);
             _deathPuffNodes.RemoveAt(index);
             if (puff.GetParent() == _worldRoot)
                 _worldRoot.RemoveChild(puff);
             puff.QueueFree();
+        }
+    }
+
+    private void RemoveFinishedItemDrops()
+    {
+        for (int index = _itemDropNodes.Count - 1; index >= 0; index--)
+        {
+            ItemDropEffect drop = _itemDropNodes[index];
+            if (!drop.Finished)
+                continue;
+            _itemDropNodes.RemoveAt(index);
+            if (drop.GetParent() == _worldRoot)
+                _worldRoot.RemoveChild(drop);
+            drop.QueueFree();
         }
     }
 }

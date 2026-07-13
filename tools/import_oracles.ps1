@@ -1103,6 +1103,160 @@ $deathPuffPath = Join-Path $destination "effects\enemy_death_puff.tsv"
 New-Item -ItemType Directory -Force -Path (Split-Path $deathPuffPath -Parent) | Out-Null
 [IO.File]::WriteAllLines($deathPuffPath, $deathPuffRows, [Text.UTF8Encoding]::new($false))
 
+# Preserve the complete Ages enemy item-drop selection data used by
+# decideItemDrop. The fixed binary layout is 144 enemy records, eight 8-byte
+# probability masks, and sixteen 32-byte item sets (720 bytes total).
+$treasureDropSource = Get-Content -Raw (Join-Path $Disassembly 'code\treasureAndDrops.s')
+function Get-HexBytes([string]$body) {
+    $result = [Collections.Generic.List[byte]]::new()
+    foreach ($dataLine in [regex]::Matches($body, '(?m)^\s*\.db\s+(?<values>[^;\r\n]+)')) {
+        foreach ($value in [regex]::Matches(
+            $dataLine.Groups['values'].Value, '\$(?<value>[0-9a-fA-F]{2})')) {
+            $result.Add([Convert]::ToByte($value.Groups['value'].Value, 16))
+        }
+    }
+    return $result.ToArray()
+}
+
+$itemDropTableMatch = [regex]::Match(
+    $treasureDropSource,
+    '(?ms)^itemDropTables:\r?\n\.ifdef ROM_AGES\r?\n(?<body>.*?)(?=^\.else)'
+)
+if (-not $itemDropTableMatch.Success) { throw 'Ages itemDropTables block was not found.' }
+$itemDropEnemyTable = @(Get-HexBytes $itemDropTableMatch.Groups['body'].Value)
+if ($itemDropEnemyTable.Count -ne 144 -or $itemDropEnemyTable[0x32] -ne 0xae) {
+    throw "Expected 144 Ages enemy item-drop records with ENEMY_KEESE (`$32) = `$ae."
+}
+
+$itemDropProbabilityBytes = [Collections.Generic.List[byte]]::new()
+foreach ($probability in 0..7) {
+    # Probability 0 deliberately aliases probability 1 in the original table.
+    $sourceProbability = if ($probability -eq 0) { 1 } else { $probability }
+    $label = "@probability${sourceProbability}:"
+    $start = $treasureDropSource.IndexOf($label, [StringComparison]::Ordinal)
+    if ($start -lt 0) { throw "Item-drop probability label not found: $label" }
+    $endLabel = if ($sourceProbability -lt 7) {
+        "@probability$($sourceProbability + 1):"
+    } else {
+        '.ifdef ROM_SEASONS'
+    }
+    $end = $treasureDropSource.IndexOf(
+        $endLabel, $start + $label.Length, [StringComparison]::Ordinal)
+    if ($end -lt 0) { throw "End of item-drop probability $sourceProbability was not found." }
+    $bytes = @(Get-HexBytes $treasureDropSource.Substring($start, $end - $start))
+    if ($bytes.Count -ne 8) {
+        throw "Item-drop probability $sourceProbability contains $($bytes.Count) bytes; expected 8."
+    }
+    foreach ($value in $bytes) { $itemDropProbabilityBytes.Add($value) }
+}
+
+$itemDropSetBytes = [Collections.Generic.List[byte]]::new()
+foreach ($setIndex in 0..15) {
+    $setLabel = "itemDropSet$($setIndex.ToString('X'))"
+    $bytes = @(Get-HexBytes (Get-AssemblyLabelBody $treasureDropSource $setLabel))
+    if ($bytes.Count -ne 32) {
+        throw "$setLabel contains $($bytes.Count) bytes; expected 32."
+    }
+    foreach ($value in $bytes) { $itemDropSetBytes.Add($value) }
+}
+
+$itemDropSelectionBytes = [Collections.Generic.List[byte]]::new()
+foreach ($value in $itemDropEnemyTable) { $itemDropSelectionBytes.Add($value) }
+foreach ($value in $itemDropProbabilityBytes) { $itemDropSelectionBytes.Add($value) }
+foreach ($value in $itemDropSetBytes) { $itemDropSelectionBytes.Add($value) }
+if ($itemDropSelectionBytes.Count -ne 720) {
+    throw "Generated item-drop selection data is $($itemDropSelectionBytes.Count) bytes; expected 720."
+}
+$itemDropSelectionPath = Join-Path $destination 'metadata\itemDrops.bin'
+[IO.File]::WriteAllBytes($itemDropSelectionPath, $itemDropSelectionBytes.ToArray())
+
+# Export the PART_ITEM_DROP (`$01) visual records. Its subid selects one of the
+# sixteen sprite-data rows and one of the first sixteen part animations.
+$itemDropPartData = [regex]::Match(
+    $partDataSource,
+    '(?m)^\s*\.db \$(?<gfx>[0-9a-f]{2}) \$(?<collision>[0-9a-f]{2}) \$(?<radius>[0-9a-f]{2}) \$00 \$01 \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2}) \$00\s*; \$01'
+)
+if (-not $itemDropPartData.Success -or
+    [Convert]::ToInt32($itemDropPartData.Groups['gfx'].Value, 16) -ne 0x78 -or
+    [Convert]::ToInt32($itemDropPartData.Groups['collision'].Value, 16) -ne 0x01 -or
+    [Convert]::ToInt32($itemDropPartData.Groups['radius'].Value, 16) -ne 0x44) {
+    throw 'PART_ITEM_DROP no longer resolves to gfx `$78, collision `$01, and radius `$44.'
+}
+$itemDropBaseTile = [Convert]::ToInt32($itemDropPartData.Groups['tile'].Value, 16)
+$itemDropCodeSource = Get-Content -Raw (Join-Path $Disassembly 'object_code\common\parts\itemDrop.s')
+$itemDropSpriteBlock = [regex]::Match(
+    $itemDropCodeSource,
+    '(?ms)^@spriteData:\r?\n(?<body>.*?)(?=^;;)'
+)
+$itemDropSpriteRows = @(
+    [regex]::Matches(
+        $itemDropSpriteBlock.Groups['body'].Value,
+        '(?m)^\s*\.db \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
+    )
+)
+if ($itemDropSpriteRows.Count -ne 16) {
+    throw "PART_ITEM_DROP spriteData contains $($itemDropSpriteRows.Count) rows; expected 16."
+}
+
+$part01AnimationStart = $partAnimationSource.IndexOf('part01Animations:', [StringComparison]::Ordinal)
+$part02AnimationStart = $partAnimationSource.IndexOf('part02Animations:', [StringComparison]::Ordinal)
+$part01AnimationLabels = @(
+    [regex]::Matches(
+        $partAnimationSource.Substring(
+            $part01AnimationStart, $part02AnimationStart - $part01AnimationStart),
+        '(?m)^\s*\.dw\s+(?<label>partAnimation[0-9a-f]+)'
+    ) | ForEach-Object { $_.Groups['label'].Value }
+)
+$part01OamStart = $partAnimationSource.IndexOf('part01OamDataPointers:', [StringComparison]::Ordinal)
+$part02OamStart = $partAnimationSource.IndexOf('part02OamDataPointers:', [StringComparison]::Ordinal)
+$part01OamLabels = @(
+    [regex]::Matches(
+        $partAnimationSource.Substring($part01OamStart, $part02OamStart - $part01OamStart),
+        '(?m)^\s*\.dw\s+(?<label>partOamData[0-9a-f]+)'
+    ) | ForEach-Object { $_.Groups['label'].Value }
+)
+if ($part01AnimationLabels.Count -lt 16 -or $part01OamLabels.Count -ne 4) {
+    throw 'PART_ITEM_DROP animation/OAM pointer tables are incomplete.'
+}
+
+function Resolve-ItemDropAnimation([string]$label) {
+    $frames = [Collections.Generic.List[string]]::new()
+    foreach ($frame in [regex]::Matches(
+        (Get-AssemblyLabelBody $script:partAnimationSource $label),
+        '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})'
+    )) {
+        $parameter = [Convert]::ToInt32($frame.Groups['parameter'].Value, 16)
+        if ($parameter -ne 0) { break }
+        $pointerIndex = [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2
+        if ($pointerIndex -ge $script:part01OamLabels.Count) {
+            throw "$label references missing PART_ITEM_DROP OAM pointer $pointerIndex."
+        }
+        $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
+        $frames.Add("$duration@$(Resolve-PartOam $script:part01OamLabels[$pointerIndex])")
+    }
+    return $frames -join '|'
+}
+
+$itemDropVisualRows = [Collections.Generic.List[string]]::new()
+$itemDropVisualRows.Add("# subid`ttile-base`tpalette`tanimation")
+foreach ($subid in 0..15) {
+    $spriteRow = $itemDropSpriteRows[$subid]
+    $tileBase = $itemDropBaseTile +
+        [Convert]::ToInt32($spriteRow.Groups['tile'].Value, 16)
+    $palette = [Convert]::ToInt32($spriteRow.Groups['flags'].Value, 16) -band 7
+    $animation = Resolve-ItemDropAnimation $part01AnimationLabels[$subid]
+    if (-not $animation) { throw "PART_ITEM_DROP subid `$($subid.ToString('x2')) has no animation." }
+    $itemDropVisualRows.Add("$subid`t$tileBase`t$palette`t$animation")
+}
+if ($itemDropVisualRows[2] -ne "1`t2`t5`t127@11,4,0,0" -or
+    $itemDropVisualRows[3] -ne "2`t4`t0`t127@8,4,0,0" -or
+    $itemDropVisualRows[4] -ne "3`t6`t5`t127@8,4,0,0") {
+    throw 'Heart and rupee PART_ITEM_DROP visual records no longer match the original data.'
+}
+$itemDropVisualPath = Join-Path $destination 'effects\item_drops.tsv'
+[IO.File]::WriteAllLines(
+    $itemDropVisualPath, $itemDropVisualRows, [Text.UTF8Encoding]::new($false))
+
 # Resolve warp source indices to their destination records. A source position
 # of '*' is a standard whole-room tile warp; nonzero edge masks are the four
 # screen corners described by m_StandardWarp's first parameter.

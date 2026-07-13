@@ -19,6 +19,7 @@ public partial class GameRoot
         ValidateAnimations();
         ValidateSwordBush();
         ValidateKeese();
+        ValidateItemDrops();
         ValidateHouseWarp();
         ValidateCaveWarps();
         ValidateTerrain();
@@ -625,6 +626,7 @@ public partial class GameRoot
         if (_entities.DeathPuffs.Count != 1 ||
             _entities.DeathPuffs[0].Position != expectedPuffPosition ||
             _entities.DeathPuffs[0].HighKnockback ||
+            _entities.DeathPuffs[0].EnemyId != 0x32 ||
             _entities.DeathPuffs[0].DurationFrames != 20 ||
             _entities.DeathPuffs[0].CurrentPalette != 2)
         {
@@ -699,6 +701,249 @@ public partial class GameRoot
             "original RNG-driven flight, 4-update wing animation, collision radii, contact damage, " +
             "invincibility/knockback counters, one-hit level-1 sword defeat, common 20/28-update " +
             "death puffs with palette toggling, and retained/preloaded scrolling.");
+    }
+
+    private void ValidateItemDrops()
+    {
+        var database = new ItemDropDatabase();
+        if (ItemDropDatabase.SelectionDataSize != 720 ||
+            database.EnemyTableRecord(0x32) != 0xae)
+        {
+            throw new InvalidOperationException(
+                "ENEMY_KEESE `$32 did not retain item-drop record `$ae in the 720-byte selection data.");
+        }
+
+        int allowedProbabilityRolls = 0;
+        int allowedRoll = -1;
+        int deniedRoll = -1;
+        for (int roll = 0; roll < 64; roll++)
+        {
+            if (database.ProbabilityAllows(5, roll))
+            {
+                allowedProbabilityRolls++;
+                if (allowedRoll < 0)
+                    allowedRoll = roll;
+            }
+            else if (deniedRoll < 0)
+            {
+                deniedRoll = roll;
+            }
+        }
+        if (allowedProbabilityRolls != 32 || allowedRoll < 0 || deniedRoll < 0 ||
+            database.ChooseDrop(0x32, (byte)deniedRoll, 0).HasValue ||
+            database.ChooseDrop(0x32, (byte)allowedRoll, 0) != ItemDropDatabase.Heart)
+        {
+            throw new InvalidOperationException(
+                "Keese probability set 5 did not preserve its original 32-of-64 drop chance.");
+        }
+
+        int hearts = 0;
+        int oneRupees = 0;
+        int fiveRupees = 0;
+        for (int roll = 0; roll < ItemDropDatabase.SetSize; roll++)
+        {
+            switch (database.DropSetValue(0x0e, roll))
+            {
+                case ItemDropDatabase.Heart: hearts++; break;
+                case ItemDropDatabase.OneRupee: oneRupees++; break;
+                case ItemDropDatabase.FiveRupees: fiveRupees++; break;
+            }
+        }
+        if (hearts != 16 || oneRupees != 12 || fiveRupees != 4)
+        {
+            throw new InvalidOperationException(
+                $"Keese drop set `$0e should contain 16 hearts, 12 single rupees, and 4 five-rupee drops; " +
+                $"got {hearts}, {oneRupees}, and {fiveRupees}.");
+        }
+
+        ItemDropDatabase.VisualRecord heartVisual = database.GetVisual(ItemDropDatabase.Heart);
+        ItemDropDatabase.VisualRecord oneRupeeVisual = database.GetVisual(ItemDropDatabase.OneRupee);
+        ItemDropDatabase.VisualRecord fiveRupeeVisual = database.GetVisual(ItemDropDatabase.FiveRupees);
+        if (heartVisual.TileBase != 2 || heartVisual.Palette != 5 ||
+            oneRupeeVisual.TileBase != 4 || oneRupeeVisual.Palette != 0 ||
+            fiveRupeeVisual.TileBase != 6 || fiveRupeeVisual.Palette != 5)
+        {
+            throw new InvalidOperationException(
+                "Heart/rupee PART_ITEM_DROP visuals do not match spriteData tile bases `$02/`$04/`$06.");
+        }
+
+        var lifecycleRoot = new Node { Name = "ItemDropLifecycleValidation" };
+        AddChild(lifecycleRoot);
+        var lifecycleManager = new RoomEntityManager(
+            lifecycleRoot,
+            new NpcDatabase(),
+            new EnemyDatabase(),
+            database,
+            new OracleRandom());
+        lifecycleManager.LoadRoom(0, _world.LoadRoom(0, 0x00));
+        _player.WarpTo(new Vector2(140, 120), recordSafe: false);
+        for (int defeated = 0; defeated < 5; defeated++)
+        {
+            lifecycleManager.SpawnEnemyDeathPuff(
+                new Vector2(24, 24), enemyId: 0x32);
+            for (int frame = 0; frame < 20; frame++)
+                lifecycleManager.Update(1.0 / 60.0, _player);
+            if (lifecycleManager.DeathPuffs.Count != 0)
+            {
+                throw new InvalidOperationException(
+                    "A finished Keese death puff was not replaced/deleted by item-drop resolution.");
+            }
+        }
+        if (lifecycleManager.ItemDrops.Count != 1 ||
+            lifecycleManager.ItemDrops[0].SubId != ItemDropDatabase.FiveRupees ||
+            lifecycleManager.ItemDrops[0].ElapsedFrames != 0)
+        {
+            throw new InvalidOperationException(
+                "The deterministic fifth Keese death did not replace its completed puff with ITEM_DROP_5_RUPEES.");
+        }
+        lifecycleManager.Clear();
+        RemoveChild(lifecycleRoot);
+        lifecycleRoot.Free();
+
+        LoadValidationRoom(4, 0xcb);
+        Vector2 dropPosition = FindOpenItemDropPosition(_currentRoom);
+        Vector2 farPosition = dropPosition + Vector2.Right * 40.0f;
+        _player.WarpTo(farPosition, recordSafe: false);
+
+        var bounceDrop = new ItemDropEffect();
+        bounceDrop.Initialize(
+            ItemDropDatabase.Heart, dropPosition, _currentRoom, heartVisual);
+        bounceDrop.UpdateFrame(_player, 1);
+        if (bounceDrop.State != ItemDropEffect.DropState.Bouncing ||
+            bounceDrop.ZFixed != 0 || bounceDrop.SpeedZ != -0x160)
+        {
+            throw new InvalidOperationException(
+                "PART_ITEM_DROP did not spend its first update initializing speedZ to -`$160.");
+        }
+        for (int frame = 2; frame < 36; frame++)
+        {
+            bounceDrop.UpdateFrame(_player, frame);
+            if (bounceDrop.State == ItemDropEffect.DropState.Grounded)
+                throw new InvalidOperationException("PART_ITEM_DROP finished bouncing before update 36.");
+        }
+        bounceDrop.UpdateFrame(_player, 36);
+        if (bounceDrop.State != ItemDropEffect.DropState.Grounded ||
+            bounceDrop.ZFixed != 0 || bounceDrop.SpeedZ != 0 ||
+            bounceDrop.Counter != 240 || !bounceDrop.CollisionEnabled)
+        {
+            throw new InvalidOperationException(
+                "PART_ITEM_DROP did not complete its original fixed-point bounce and start counter `$f0 on update 36.");
+        }
+        bounceDrop.Free();
+
+        _player.RefillHealth();
+        _player.ApplyDamage(4);
+        var heartDrop = new ItemDropEffect();
+        heartDrop.Initialize(
+            ItemDropDatabase.Heart, dropPosition, _currentRoom, heartVisual);
+        for (int frame = 1; frame <= 36; frame++)
+            heartDrop.UpdateFrame(_player, frame);
+        _player.WarpTo(dropPosition, recordSafe: false);
+        heartDrop.UpdateFrame(_player, 37);
+        if (!heartDrop.Collected || !heartDrop.Finished ||
+            _player.HealthQuarters != _player.MaxHealthQuarters)
+        {
+            throw new InvalidOperationException(
+                "Collecting ITEM_DROP_HEART did not restore four quarter-heart units and delete the drop.");
+        }
+        heartDrop.Free();
+
+        ValidateRupeeItemDrop(oneRupeeVisual, ItemDropDatabase.OneRupee, 1, dropPosition);
+        ValidateRupeeItemDrop(fiveRupeeVisual, ItemDropDatabase.FiveRupees, 5, dropPosition);
+
+        _player.WarpTo(farPosition, recordSafe: false);
+        var expiryDrop = new ItemDropEffect();
+        expiryDrop.Initialize(
+            ItemDropDatabase.OneRupee, dropPosition, _currentRoom, oneRupeeVisual);
+        for (int frame = 1; frame <= 395; frame++)
+            expiryDrop.UpdateFrame(_player, frame);
+        if (expiryDrop.Counter != 60 || !expiryDrop.Visible || expiryDrop.Finished)
+        {
+            throw new InvalidOperationException(
+                "PART_ITEM_DROP did not retain visibility through countdown value 60.");
+        }
+        expiryDrop.UpdateFrame(_player, 396);
+        expiryDrop.UpdateFrame(_player, 397);
+        if (expiryDrop.Counter != 59 || expiryDrop.Visible)
+            throw new InvalidOperationException("PART_ITEM_DROP did not begin flickering below counter 60.");
+        expiryDrop.UpdateFrame(_player, 398);
+        expiryDrop.UpdateFrame(_player, 399);
+        if (!expiryDrop.Visible)
+            throw new InvalidOperationException("PART_ITEM_DROP did not alternate visibility while flickering.");
+        for (int frame = 400; frame <= 514; frame++)
+            expiryDrop.UpdateFrame(_player, frame);
+        if (expiryDrop.Finished || expiryDrop.Counter != 1)
+            throw new InvalidOperationException("PART_ITEM_DROP expired before its 240th countdown tick.");
+        expiryDrop.UpdateFrame(_player, 515);
+        if (!expiryDrop.Finished || expiryDrop.Collected)
+            throw new InvalidOperationException(
+                "PART_ITEM_DROP did not expire after 240 alternating-frame ticks (480 update span).");
+        expiryDrop.Free();
+
+        ItemDropEffect transitionDrop = _entities.SpawnItemDrop(
+            ItemDropDatabase.OneRupee, dropPosition);
+        OracleRoomData incomingRoom = _world.LoadRoom(4, 0x39);
+        _entities.BeginScreenTransition(4, incomingRoom, Vector2.Left * incomingRoom.Width);
+        _entities.Update(1.0, _player);
+        if (_entities.OutgoingItemDrops.Count != 1 ||
+            _entities.OutgoingItemDrops[0] != transitionDrop ||
+            transitionDrop.ElapsedFrames != 0)
+        {
+            throw new InvalidOperationException(
+                "Scrolling did not retain and freeze the outgoing PART_ITEM_DROP object.");
+        }
+        _entities.SetScreenTransitionOffsets(
+            Vector2.Right * 4.0f,
+            Vector2.Left * (incomingRoom.Width - 4.0f));
+        if (!transitionDrop.TransitionDrawOffset.IsEqualApprox(Vector2.Right * 4.0f))
+            throw new InvalidOperationException("The item drop did not move with its outgoing room.");
+        _entities.FinishScreenTransition();
+        if (_entities.OutgoingItemDrops.Count != 0)
+            throw new InvalidOperationException("The outgoing item drop survived completed scrolling.");
+
+        _player.RefillHealth();
+        GD.Print("Validated all 144 enemy drop records, Keese `$ae probability/set data, " +
+            "PART_ITEM_DROP heart/rupee visuals, -`$160 fixed-point bounce, pickup rewards, " +
+            "240 alternating-frame lifetime ticks, final flicker, and frozen scrolling ownership.");
+    }
+
+    private void ValidateRupeeItemDrop(
+        ItemDropDatabase.VisualRecord visual,
+        int subId,
+        int amount,
+        Vector2 position)
+    {
+        int rupeesBefore = _player.Rupees;
+        _player.WarpTo(position + Vector2.Right * 40.0f, recordSafe: false);
+        var drop = new ItemDropEffect();
+        drop.Initialize(subId, position, _currentRoom, visual);
+        for (int frame = 1; frame <= 36; frame++)
+            drop.UpdateFrame(_player, frame);
+        _player.WarpTo(position, recordSafe: false);
+        drop.UpdateFrame(_player, 37);
+        if (!drop.Collected || _player.Rupees != Mathf.Min(999, rupeesBefore + amount) ||
+            _hud.Rupees != _player.Rupees)
+        {
+            throw new InvalidOperationException(
+                $"Collecting PART_ITEM_DROP ${subId:x2} did not add {amount} rupee(s) to Link and the HUD.");
+        }
+        drop.Free();
+    }
+
+    private static Vector2 FindOpenItemDropPosition(OracleRoomData room)
+    {
+        for (int y = 1; y < room.HeightInTiles - 1; y++)
+        for (int x = 1; x < room.WidthInTiles - 1; x++)
+        {
+            Vector2 point = new(
+                x * OracleRoomData.MetatileSize + 8,
+                y * OracleRoomData.MetatileSize + 8);
+            if (!room.IsSolid(point) &&
+                room.GetTerrainInfo(point).Hazard == OracleRoomData.HazardType.None)
+                return point;
+        }
+        throw new InvalidOperationException(
+            $"Room {room.Group:x1}:{room.Id:x2} has no open item-drop validation position.");
     }
 
     private void ValidateTerrain()
