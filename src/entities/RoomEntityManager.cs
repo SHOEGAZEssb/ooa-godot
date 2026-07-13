@@ -25,7 +25,7 @@ public sealed class RoomEntityManager
             var npc = new NpcCharacter
             {
                 Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                ZIndex = 9
+                ZIndex = NpcCharacter.BehindLinkZIndex
             };
             npc.Initialize(record);
             _npcNodes.Add(npc);

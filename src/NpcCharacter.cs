@@ -6,6 +6,13 @@ namespace oracleofages;
 
 public partial class NpcCharacter : Node2D
 {
+    // objectSetPriorityRelativeToLink compares the NPC's yh against
+    // w1Link.yh+$0b. Interactions are queued before Link, so matching Link's
+    // priority puts the NPC on top; otherwise Link remains on top.
+    internal const float LinkPriorityYOffset = 0x0b;
+    internal const int BehindLinkZIndex = 9;
+    internal const int InFrontOfLinkZIndex = 11;
+
     private enum Facing { Up, Right, Down, Left }
 
     private sealed record AnimationFrame(Texture2D Texture, int Duration);
@@ -83,6 +90,7 @@ public partial class NpcCharacter : Node2D
 
     public void UpdateNpc(double delta, Vector2 linkPosition)
     {
+        UpdateDrawPriority(linkPosition);
         AdvanceAnimation(delta);
         if (!Record.CanFace)
             return;
@@ -100,6 +108,13 @@ public partial class NpcCharacter : Node2D
 
         SetFacing(desired);
         _faceCooldownFrames = 30.0;
+    }
+
+    internal void UpdateDrawPriority(Vector2 linkPosition)
+    {
+        ZIndex = Position.Y > linkPosition.Y + LinkPriorityYOffset
+            ? InFrontOfLinkZIndex
+            : BehindLinkZIndex;
     }
 
     public override void _Draw()

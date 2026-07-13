@@ -840,7 +840,38 @@ public partial class GameRoot
         villager.UpdateNpc(30.0 / 60.0, villager.Position + Vector2.Right * 80.0f);
         if (villager.FacingVector != Vector2I.Down)
             throw new InvalidOperationException("The villager did not return to facing down when Link left the $28 awareness radius.");
-        GD.Print("Validated villager idle animation, $28 Link awareness, 30-frame facing delay, and TX_1420 dialogue.");
+
+        _activeGroup = 0;
+        _currentRoom = _world.LoadRoom(_activeGroup, 0x66);
+        _roomView.SetRoom(_currentRoom.Texture);
+        RefreshRoomObjects();
+        NpcCharacter? woman = _npcNodes.Find(npc =>
+            npc.Record.Id == 0x3b && npc.Record.SubId == 0x01);
+        if (woman is null || woman.Position != new Vector2(0x7a, 0x44))
+            throw new InvalidOperationException("Expected female villager $3b/$01 at 0:66 $44/$7a.");
+
+        woman.UpdateDrawPriority(woman.Position - Vector2.Down * 12.0f);
+        if (woman.ZIndex != NpcCharacter.InFrontOfLinkZIndex)
+            throw new InvalidOperationException(
+                "Room 0:66's woman did not cover Link when yh exceeded w1Link.yh+$0b.");
+        woman.UpdateDrawPriority(woman.Position - Vector2.Down * 11.0f);
+        if (woman.ZIndex != NpcCharacter.BehindLinkZIndex)
+            throw new InvalidOperationException(
+                "Room 0:66's woman covered Link at the strict w1Link.yh+$0b boundary.");
+
+        Color linkBlack = Player.RecolorLinkPixel(new Color(0.25f, 0.25f, 0.25f));
+        Color linkGreen = Player.RecolorLinkPixel(new Color(0.75f, 0.75f, 0.75f));
+        Color linkSkin = Player.RecolorLinkPixel(Colors.White);
+        if (!linkBlack.IsEqualApprox(Colors.Black) ||
+            !linkGreen.IsEqualApprox(new Color(0x02 / 31.0f, 0x15 / 31.0f, 0x08 / 31.0f)) ||
+            !linkSkin.IsEqualApprox(new Color(0x1f / 31.0f, 0x1a / 31.0f, 0x11 / 31.0f)))
+        {
+            throw new InvalidOperationException(
+                "Link did not use standardSpritePaletteData palette 0 selected by OAM flags $08.");
+        }
+
+        GD.Print("Validated villager idle animation, $28 Link awareness, 30-frame facing delay, " +
+            "TX_1420 dialogue, room 0:66 Link-relative draw priority, and Link sprite palette 0.");
     }
 
     private static int GetStartingRoom()

@@ -909,14 +909,19 @@ public partial class Player : Node2D
         }
     }
 
-    private static Color RecolorLinkPixel(Color source)
+    internal static Color RecolorLinkPixel(Color source)
     {
         float value = source.R;
         return value < 0.1f ? Colors.Transparent
-            : value < 0.5f ? Color.Color8(25, 47, 43)
-            : value < 0.9f ? Color.Color8(73, 145, 77)
-            : Color.Color8(244, 207, 120);
+            // specialObjectSetOamVariables gives Link OAM flags $08, selecting
+            // standardSpritePaletteData palette 0. Color 0 is transparent.
+            : value < 0.5f ? Colors.Black
+            : value < 0.9f ? GbcColor(0x02, 0x15, 0x08)
+            : GbcColor(0x1f, 0x1a, 0x11);
     }
+
+    private static Color GbcColor(int red, int green, int blue) =>
+        new(red / 31.0f, green / 31.0f, blue / 31.0f);
 
     private static Color RecolorSwordPixel(Color source)
     {
