@@ -14,6 +14,10 @@ public sealed class RoomEntityManager
     private readonly List<NpcCharacter> _outgoingNpcNodes = new();
     private readonly List<KeeseCharacter> _keeseNodes = new();
     private readonly List<KeeseCharacter> _outgoingKeeseNodes = new();
+    private readonly List<OctorokCharacter> _octorokNodes = new();
+    private readonly List<OctorokCharacter> _outgoingOctorokNodes = new();
+    private readonly List<OctorokRockProjectile> _octorokRockNodes = new();
+    private readonly List<OctorokRockProjectile> _outgoingOctorokRockNodes = new();
     private readonly List<EnemyDeathPuffEffect> _deathPuffNodes = new();
     private readonly List<EnemyDeathPuffEffect> _outgoingDeathPuffNodes = new();
     private readonly List<ItemDropEffect> _itemDropNodes = new();
@@ -27,6 +31,11 @@ public sealed class RoomEntityManager
     public IReadOnlyList<NpcCharacter> OutgoingNpcs => _outgoingNpcNodes;
     public List<KeeseCharacter> Keese => _keeseNodes;
     public IReadOnlyList<KeeseCharacter> OutgoingKeese => _outgoingKeeseNodes;
+    public List<OctorokCharacter> Octoroks => _octorokNodes;
+    public IReadOnlyList<OctorokCharacter> OutgoingOctoroks => _outgoingOctorokNodes;
+    public IReadOnlyList<OctorokRockProjectile> OctorokRocks => _octorokRockNodes;
+    public IReadOnlyList<OctorokRockProjectile> OutgoingOctorokRocks =>
+        _outgoingOctorokRockNodes;
     public IReadOnlyList<EnemyDeathPuffEffect> DeathPuffs => _deathPuffNodes;
     public IReadOnlyList<EnemyDeathPuffEffect> OutgoingDeathPuffs => _outgoingDeathPuffNodes;
     public IReadOnlyList<ItemDropEffect> ItemDrops => _itemDropNodes;
@@ -58,26 +67,34 @@ public sealed class RoomEntityManager
         _roomForActiveEntities = room;
         SpawnRoomNpcs(group, room);
         SpawnRoomKeese(group, room);
+        SpawnRoomOctoroks(group, room);
     }
 
     public void BeginScreenTransition(int group, OracleRoomData room, Vector2 incomingOffset)
     {
         ClearNodes(_outgoingNpcNodes);
         ClearNodes(_outgoingKeeseNodes);
+        ClearNodes(_outgoingOctorokNodes);
+        ClearNodes(_outgoingOctorokRockNodes);
         ClearNodes(_outgoingDeathPuffNodes);
         ClearNodes(_outgoingItemDropNodes);
         _outgoingNpcNodes.AddRange(_npcNodes);
         _outgoingKeeseNodes.AddRange(_keeseNodes);
+        _outgoingOctorokNodes.AddRange(_octorokNodes);
+        _outgoingOctorokRockNodes.AddRange(_octorokRockNodes);
         _outgoingDeathPuffNodes.AddRange(_deathPuffNodes);
         _outgoingItemDropNodes.AddRange(_itemDropNodes);
         _npcNodes.Clear();
         _keeseNodes.Clear();
+        _octorokNodes.Clear();
+        _octorokRockNodes.Clear();
         _deathPuffNodes.Clear();
         _itemDropNodes.Clear();
         _screenTransitionActive = true;
         _roomForActiveEntities = room;
         SpawnRoomNpcs(group, room);
         SpawnRoomKeese(group, room);
+        SpawnRoomOctoroks(group, room);
         SetScreenTransitionOffsets(Vector2.Zero, incomingOffset);
     }
 
@@ -94,6 +111,14 @@ public sealed class RoomEntityManager
             keese.SetTransitionDrawOffset(outgoingOffset);
         foreach (KeeseCharacter keese in _keeseNodes)
             keese.SetTransitionDrawOffset(incomingOffset);
+        foreach (OctorokCharacter octorok in _outgoingOctorokNodes)
+            octorok.SetTransitionDrawOffset(outgoingOffset);
+        foreach (OctorokCharacter octorok in _octorokNodes)
+            octorok.SetTransitionDrawOffset(incomingOffset);
+        foreach (OctorokRockProjectile rock in _outgoingOctorokRockNodes)
+            rock.SetTransitionDrawOffset(outgoingOffset);
+        foreach (OctorokRockProjectile rock in _octorokRockNodes)
+            rock.SetTransitionDrawOffset(incomingOffset);
         foreach (EnemyDeathPuffEffect puff in _outgoingDeathPuffNodes)
             puff.SetTransitionDrawOffset(outgoingOffset);
         foreach (EnemyDeathPuffEffect puff in _deathPuffNodes)
@@ -111,12 +136,18 @@ public sealed class RoomEntityManager
 
         ClearNodes(_outgoingNpcNodes);
         ClearNodes(_outgoingKeeseNodes);
+        ClearNodes(_outgoingOctorokNodes);
+        ClearNodes(_outgoingOctorokRockNodes);
         ClearNodes(_outgoingDeathPuffNodes);
         ClearNodes(_outgoingItemDropNodes);
         foreach (NpcCharacter npc in _npcNodes)
             npc.SetTransitionDrawOffset(Vector2.Zero);
         foreach (KeeseCharacter keese in _keeseNodes)
             keese.SetTransitionDrawOffset(Vector2.Zero);
+        foreach (OctorokCharacter octorok in _octorokNodes)
+            octorok.SetTransitionDrawOffset(Vector2.Zero);
+        foreach (OctorokRockProjectile rock in _octorokRockNodes)
+            rock.SetTransitionDrawOffset(Vector2.Zero);
         foreach (EnemyDeathPuffEffect puff in _deathPuffNodes)
             puff.SetTransitionDrawOffset(Vector2.Zero);
         foreach (ItemDropEffect drop in _itemDropNodes)
@@ -159,6 +190,49 @@ public sealed class RoomEntityManager
                 _worldRoot.AddChild(keese);
             }
         }
+    }
+
+    private void SpawnRoomOctoroks(int group, OracleRoomData room)
+    {
+        var occupiedPositions = new HashSet<int>();
+        foreach (EnemyDatabase.OctorokRecord record in _enemies.GetRoomOctoroks(group, room.Id))
+        {
+            for (int instance = 0; instance < record.Count; instance++)
+            {
+                Vector2 position;
+                if (record.FixedPosition)
+                {
+                    position = new Vector2(record.X, record.Y);
+                }
+                else if (!TryChooseRandomEnemyPosition(
+                    room, record.Flags, occupiedPositions, out position))
+                {
+                    continue;
+                }
+
+                var octorok = new OctorokCharacter
+                {
+                    Name = $"Octorok_{record.SubId:x2}_{instance}",
+                    ZIndex = 10
+                };
+                octorok.Initialize(record, room, position, _random);
+                _octorokNodes.Add(octorok);
+                _worldRoot.AddChild(octorok);
+            }
+        }
+    }
+
+    internal OctorokRockProjectile SpawnOctorokRock(Vector2 position, int angle)
+    {
+        var rock = new OctorokRockProjectile
+        {
+            Name = "OctorokRock",
+            ZIndex = 10
+        };
+        rock.Initialize(_enemies.OctorokProjectile, _roomForActiveEntities, position, angle);
+        _octorokRockNodes.Add(rock);
+        _worldRoot.AddChild(rock);
+        return rock;
     }
 
     private bool TryChooseRandomEnemyPosition(
@@ -212,6 +286,13 @@ public sealed class RoomEntityManager
             _enemyFrameCounter = (_enemyFrameCounter + 1) & 0xff;
             foreach (KeeseCharacter keese in _keeseNodes)
                 keese.UpdateFrame(player.Position, _enemyFrameCounter);
+            foreach (OctorokCharacter octorok in _octorokNodes)
+            {
+                if (octorok.UpdateFrame(player.Position))
+                    SpawnOctorokRock(octorok.Position, octorok.Angle);
+            }
+            foreach (OctorokRockProjectile rock in _octorokRockNodes)
+                rock.UpdateFrame(player);
             foreach (EnemyDeathPuffEffect puff in _deathPuffNodes)
                 puff.UpdateFrame(_enemyFrameCounter);
             foreach (ItemDropEffect drop in _itemDropNodes)
@@ -223,8 +304,15 @@ public sealed class RoomEntityManager
             if (keese.OverlapsLink(player.Position))
                 player.ApplyEnemyContactDamage(keese.Position, keese.Record.DamageQuarters);
         }
+        foreach (OctorokCharacter octorok in _octorokNodes)
+        {
+            if (octorok.OverlapsLink(player.Position))
+                player.ApplyEnemyContactDamage(octorok.Position, octorok.Record.DamageQuarters);
+        }
 
         RemoveDeadKeese();
+        RemoveDeadOctoroks();
+        RemoveFinishedOctorokRocks();
         RemoveFinishedDeathPuffs();
         RemoveFinishedItemDrops();
     }
@@ -249,9 +337,14 @@ public sealed class RoomEntityManager
         return null;
     }
 
-    public bool ApplySwordHit(Rect2 hitbox)
+    public bool ApplySwordHit(Rect2 hitbox, Vector2? sourcePosition = null)
     {
         bool hit = false;
+        foreach (OctorokRockProjectile rock in _octorokRockNodes)
+        {
+            if (hitbox.Intersects(rock.CollisionBounds))
+                hit |= rock.DeflectWithSword();
+        }
         foreach (KeeseCharacter keese in _keeseNodes)
         {
             if (!keese.IsDead && hitbox.Intersects(keese.CollisionBounds))
@@ -267,7 +360,19 @@ public sealed class RoomEntityManager
                 }
             }
         }
+        foreach (OctorokCharacter octorok in _octorokNodes)
+        {
+            if (octorok.IsDead || !hitbox.Intersects(octorok.CollisionBounds))
+                continue;
+
+            bool wasDead = octorok.IsDead;
+            bool struck = octorok.TakeSwordHit(sourcePosition ?? hitbox.GetCenter());
+            hit |= struck;
+            if (struck && !wasDead && octorok.IsDead && !octorok.DiedInHazard)
+                SpawnEnemyDeathPuff(octorok.Position, enemyId: octorok.Record.Id);
+        }
         RemoveDeadKeese();
+        RemoveDeadOctoroks();
         return hit;
     }
 
@@ -307,6 +412,10 @@ public sealed class RoomEntityManager
         ClearNodes(_npcNodes);
         ClearNodes(_outgoingKeeseNodes);
         ClearNodes(_keeseNodes);
+        ClearNodes(_outgoingOctorokNodes);
+        ClearNodes(_octorokNodes);
+        ClearNodes(_outgoingOctorokRockNodes);
+        ClearNodes(_octorokRockNodes);
         ClearNodes(_outgoingDeathPuffNodes);
         ClearNodes(_deathPuffNodes);
         ClearNodes(_outgoingItemDropNodes);
@@ -333,6 +442,28 @@ public sealed class RoomEntityManager
             if (keese.GetParent() == _worldRoot)
                 _worldRoot.RemoveChild(keese);
             keese.QueueFree();
+        }
+        nodes.Clear();
+    }
+
+    private void ClearNodes(List<OctorokCharacter> nodes)
+    {
+        foreach (OctorokCharacter octorok in nodes)
+        {
+            if (octorok.GetParent() == _worldRoot)
+                _worldRoot.RemoveChild(octorok);
+            octorok.QueueFree();
+        }
+        nodes.Clear();
+    }
+
+    private void ClearNodes(List<OctorokRockProjectile> nodes)
+    {
+        foreach (OctorokRockProjectile rock in nodes)
+        {
+            if (rock.GetParent() == _worldRoot)
+                _worldRoot.RemoveChild(rock);
+            rock.QueueFree();
         }
         nodes.Clear();
     }
@@ -370,6 +501,34 @@ public sealed class RoomEntityManager
             if (keese.GetParent() == _worldRoot)
                 _worldRoot.RemoveChild(keese);
             keese.QueueFree();
+        }
+    }
+
+    private void RemoveDeadOctoroks()
+    {
+        for (int index = _octorokNodes.Count - 1; index >= 0; index--)
+        {
+            OctorokCharacter octorok = _octorokNodes[index];
+            if (!octorok.IsDead)
+                continue;
+            _octorokNodes.RemoveAt(index);
+            if (octorok.GetParent() == _worldRoot)
+                _worldRoot.RemoveChild(octorok);
+            octorok.QueueFree();
+        }
+    }
+
+    private void RemoveFinishedOctorokRocks()
+    {
+        for (int index = _octorokRockNodes.Count - 1; index >= 0; index--)
+        {
+            OctorokRockProjectile rock = _octorokRockNodes[index];
+            if (!rock.Finished)
+                continue;
+            _octorokRockNodes.RemoveAt(index);
+            if (rock.GetParent() == _worldRoot)
+                _worldRoot.RemoveChild(rock);
+            rock.QueueFree();
         }
     }
 

@@ -1014,6 +1014,176 @@ Copy-Item -LiteralPath $keeseSourceSprite.FullName -Destination (Join-Path $dest
 $keesePath = Join-Path $destination "objects\keese.tsv"
 [IO.File]::WriteAllLines($keesePath, $keeseRows, [Text.UTF8Encoding]::new($false))
 
+# Octoroks (`$09) use both random-position and fixed-position enemy opcodes.
+# Ages room data instantiates subids `$00, `$01, and `$02: normal red, fast
+# red, and blue. Export resolved per-subid attributes and all four cardinal
+# animations alongside the original room-object order.
+$octorokDataMatch = [regex]::Match(
+    $enemyDataSource,
+    '(?m)^\s*/\* 0x09 \*/ m_EnemyData \$(?<gfx>[0-9a-f]{2}) \$(?<collision>[0-9a-f]{2}) enemy09SubidData'
+)
+if (-not $octorokDataMatch.Success -or
+    [Convert]::ToInt32($octorokDataMatch.Groups['gfx'].Value, 16) -ne 0x8f -or
+    [Convert]::ToInt32($octorokDataMatch.Groups['collision'].Value, 16) -ne 0x90) {
+    throw 'ENEMY_OCTOROK no longer resolves to gfx `$8f / standard collision mode `$10.'
+}
+$octorokGfx = [Convert]::ToInt32($octorokDataMatch.Groups['gfx'].Value, 16)
+$octorokSubidRows = @(
+    [regex]::Matches(
+        (Get-AssemblyLabelBody $enemyDataSource 'enemy09SubidData'),
+        '(?m)^\s*m_EnemySubidData \$(?<extra>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
+    )
+)
+if ($octorokSubidRows.Count -ne 5) {
+    throw "Expected five ENEMY_OCTOROK subid records, got $($octorokSubidRows.Count)."
+}
+
+$enemy09AnimationStart = $enemyAnimationSource.IndexOf('enemy09Animations:', [StringComparison]::Ordinal)
+$enemy0aAnimationStart = $enemyAnimationSource.IndexOf('enemy0aAnimations:', [StringComparison]::Ordinal)
+$octorokAnimationLabels = @(
+    [regex]::Matches(
+        $enemyAnimationSource.Substring(
+            $enemy09AnimationStart, $enemy0aAnimationStart - $enemy09AnimationStart),
+        '(?m)^\s*\.dw\s+(?<label>enemyAnimation[0-9a-f]+)'
+    ) | ForEach-Object { $_.Groups['label'].Value }
+)
+$enemy09OamStart = $enemyAnimationSource.IndexOf('enemy09OamDataPointers:', [StringComparison]::Ordinal)
+$enemy0aOamStart = $enemyAnimationSource.IndexOf('enemy0aOamDataPointers:', [StringComparison]::Ordinal)
+$octorokOamLabels = @(
+    [regex]::Matches(
+        $enemyAnimationSource.Substring($enemy09OamStart, $enemy0aOamStart - $enemy09OamStart),
+        '(?m)^\s*\.dw\s+(?<label>enemyOamData[0-9a-f]+)'
+    ) | ForEach-Object { $_.Groups['label'].Value }
+)
+if ($octorokAnimationLabels.Count -ne 4 -or $octorokOamLabels.Count -ne 8) {
+    throw 'Expected four Octorok animations and eight Octorok OAM pointers.'
+}
+
+function Resolve-OctorokAnimation([string]$label) {
+    $frames = [Collections.Generic.List[string]]::new()
+    foreach ($frame in [regex]::Matches(
+        (Get-AssemblyLabelBody $script:enemyAnimationSource $label),
+        '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})'
+    )) {
+        $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
+        $pointerIndex = [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2
+        if ($pointerIndex -ge $script:octorokOamLabels.Count) {
+            throw "$label references missing Octorok OAM pointer $pointerIndex."
+        }
+        $frames.Add("$duration@$(Resolve-EnemyOam $script:octorokOamLabels[$pointerIndex])")
+    }
+    return $frames -join '|'
+}
+
+$octorokAnimations = @($octorokAnimationLabels | ForEach-Object {
+    Resolve-OctorokAnimation $_
+})
+if ($octorokAnimations[0] -ne '8@8,0,0,64;8,8,0,96|8@8,0,2,64;8,8,2,96' -or
+    $octorokAnimations[1] -ne '8@8,0,6,32;8,8,4,32|8@8,0,10,32;8,8,8,32' -or
+    $octorokAnimations[2] -ne '8@8,0,0,0;8,8,0,32|8@8,0,2,0;8,8,2,32' -or
+    $octorokAnimations[3] -ne '8@8,0,4,0;8,8,6,0|8@8,0,8,0;8,8,10,0') {
+    throw 'ENEMY_OCTOROK cardinal animation/OAM data no longer matches the original records.'
+}
+
+$octorokDefinitions = @{}
+foreach ($subid in 0..2) {
+    $subidRow = $octorokSubidRows[$subid]
+    $extraIndex = [Convert]::ToInt32($subidRow.Groups['extra'].Value, 16)
+    $graphicFlags = [Convert]::ToInt32($subidRow.Groups['flags'].Value, 16)
+    $extra = $extraEnemyRows[$extraIndex]
+    $damageByte = [Convert]::ToInt32($extra.Groups['damage'].Value, 16)
+    $octorokDefinitions[$subid] = @{
+        TileBase = ($graphicFlags -band 0x0f) * 2
+        Palette = ($graphicFlags -shr 4) -band 7
+        RadiusY = [Convert]::ToInt32($extra.Groups['y'].Value, 16)
+        RadiusX = [Convert]::ToInt32($extra.Groups['x'].Value, 16)
+        DamageQuarters = (0x100 - $damageByte) / 2
+        Health = [Convert]::ToInt32($extra.Groups['health'].Value, 16)
+        SpeedRaw = if (($subid -band 1) -ne 0) { 0x1e } else { 0x14 }
+        CounterMask = if ($subid -lt 2) { 7 } else { 3 }
+    }
+}
+if ($octorokDefinitions[0].Health -ne 2 -or
+    $octorokDefinitions[0].DamageQuarters -ne 1 -or
+    $octorokDefinitions[1].SpeedRaw -ne 0x1e -or
+    $octorokDefinitions[2].Health -ne 3 -or
+    $octorokDefinitions[2].DamageQuarters -ne 2 -or
+    $octorokDefinitions[2].CounterMask -ne 3) {
+    throw 'ENEMY_OCTOROK subid attributes no longer match red/fast-red/blue behavior.'
+}
+
+$octorokRows = [Collections.Generic.List[string]]::new()
+$octorokRows.Add("# group`troom`tid`tsubid`tflags`tcount`tposition-mode`ty`tx`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tspeed-raw`tcounter-mask`tup-animation`tright-animation`tdown-animation`tleft-animation")
+$octorokAliases = [Collections.Generic.List[object]]::new()
+$octorokLastSpecificFlags = '00'
+foreach ($line in Get-Content (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
+    if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})EnemyObjectData:') {
+        $octorokAliases.Add(@{ Group = [int]$Matches['group']; Room = $Matches['room'] })
+        continue
+    }
+    if ($octorokAliases.Count -eq 0) { continue }
+
+    if ($line -match '^\s*obj_RandomEnemy\s+\$(?<flags>[0-9a-f]{2})\s+\$09\s+\$(?<subid>[0-9a-f]{2})') {
+        $subid = [Convert]::ToInt32($Matches['subid'], 16)
+        if (-not $octorokDefinitions.ContainsKey($subid)) {
+            throw "Room data uses unsupported ENEMY_OCTOROK subid `$($subid.ToString('x2'))."
+        }
+        $definition = $octorokDefinitions[$subid]
+        $flags = [Convert]::ToInt32($Matches['flags'], 16)
+        $count = ($flags -shr 5) -band 7
+        foreach ($alias in $octorokAliases) {
+            $octorokRows.Add("$($alias.Group)`t$($alias.Room)`t09`t$($Matches['subid'])`t$($Matches['flags'])`t$count`tR`t-1`t-1`t$($gfxNames[$octorokGfx])`t$($definition.TileBase)`t$($definition.Palette)`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.DamageQuarters)`t$($definition.Health)`t$($definition.SpeedRaw)`t$($definition.CounterMask)`t$($octorokAnimations[0])`t$($octorokAnimations[1])`t$($octorokAnimations[2])`t$($octorokAnimations[3])")
+        }
+        continue
+    }
+
+    if ($line -match '^\s*obj_SpecificEnemyA\s+(?<values>(?:\$[0-9a-f]{2}\s*)+)$') {
+        $values = @([regex]::Matches($Matches['values'], '\$(?<value>[0-9a-f]{2})') |
+            ForEach-Object { $_.Groups['value'].Value })
+        if ($values.Count -eq 5) {
+            $octorokLastSpecificFlags = $values[0]
+            $id, $subidHex, $y, $x = $values[1..4]
+        } else {
+            $id, $subidHex, $y, $x = $values
+        }
+        if ($id -eq '09') {
+            $subid = [Convert]::ToInt32($subidHex, 16)
+            if (-not $octorokDefinitions.ContainsKey($subid)) {
+                throw "Room data uses unsupported fixed ENEMY_OCTOROK subid `$subidHex."
+            }
+            $definition = $octorokDefinitions[$subid]
+            foreach ($alias in $octorokAliases) {
+                $octorokRows.Add("$($alias.Group)`t$($alias.Room)`t09`t$subidHex`t$octorokLastSpecificFlags`t1`tF`t$y`t$x`t$($gfxNames[$octorokGfx])`t$($definition.TileBase)`t$($definition.Palette)`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.DamageQuarters)`t$($definition.Health)`t$($definition.SpeedRaw)`t$($definition.CounterMask)`t$($octorokAnimations[0])`t$($octorokAnimations[1])`t$($octorokAnimations[2])`t$($octorokAnimations[3])")
+            }
+        }
+        continue
+    }
+
+    if ($line -match '^\s*obj_EndPointer' -or $line -match '^[A-Za-z0-9_@]+:') {
+        $octorokAliases.Clear()
+    }
+}
+$octorokInstanceCount = ($octorokRows | Select-Object -Skip 1 | ForEach-Object {
+    [int](($_ -split "`t")[5])
+} | Measure-Object -Sum).Sum
+if ($octorokRows.Count -ne 34 -or $octorokInstanceCount -ne 48) {
+    throw "Expected 33 Octorok room records / 48 instances, parsed $($octorokRows.Count - 1) / $octorokInstanceCount."
+}
+if (-not ($octorokRows | Where-Object { $_ -match '^0\t74\t09\t00\t20\t1\tR\t' }) -or
+    -not ($octorokRows | Where-Object { $_ -match '^0\t74\t09\t01\t20\t1\tR\t' }) -or
+    -not ($octorokRows | Where-Object { $_ -match '^1\tbc\t09\t02\t00\t1\tF\t48\t48\t' })) {
+    throw 'Canonical Octorok records in rooms 0:74 and 1:bc were not extracted.'
+}
+
+$octorokSpriteName = $gfxNames[$octorokGfx]
+$octorokSourceSprite = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
+    ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Filter "$octorokSpriteName.png" } |
+    Select-Object -First 1
+if ($null -eq $octorokSourceSprite) { throw "Octorok sprite not found: $octorokSpriteName.png" }
+Copy-Item -LiteralPath $octorokSourceSprite.FullName -Destination (Join-Path $destination "gfx\$octorokSpriteName.png") -Force
+$octorokPath = Join-Path $destination 'objects\octoroks.tsv'
+[IO.File]::WriteAllLines($octorokPath, $octorokRows, [Text.UTF8Encoding]::new($false))
+
 # PART_ENEMY_DESTROYED (`$02) is the common enemy death puff. Export both
 # animations: animation 0 is the ordinary 20-update puff, while animation 1
 # inserts the 8-update high-knockback burst selected by bit 7 of the defeated
@@ -1103,6 +1273,73 @@ $deathPuffPath = Join-Path $destination "effects\enemy_death_puff.tsv"
 New-Item -ItemType Directory -Force -Path (Split-Path $deathPuffPath -Parent) | Out-Null
 [IO.File]::WriteAllLines($deathPuffPath, $deathPuffRows, [Text.UTF8Encoding]::new($false))
 
+# PART_OCTOROK_PROJECTILE (`$18) uses the Octorok sprite sheet with a
+# directionless flying-rock cell. On a solid-tile or sword collision it
+# switches to animation 3, reverses direction, and bounces for `$20 updates.
+$octorokProjectileData = [regex]::Match(
+    $partDataSource,
+    '(?m)^\s*\.db \$(?<gfx>[0-9a-f]{2}) \$(?<collision>[0-9a-f]{2}) \$(?<radius>[0-9a-f]{2}) \$(?<damage>[0-9a-f]{2}) \$40 \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2}) \$00\s*; \$18'
+)
+if (-not $octorokProjectileData.Success -or
+    [Convert]::ToInt32($octorokProjectileData.Groups['gfx'].Value, 16) -ne 0x8f -or
+    [Convert]::ToInt32($octorokProjectileData.Groups['collision'].Value, 16) -ne 0x87 -or
+    [Convert]::ToInt32($octorokProjectileData.Groups['radius'].Value, 16) -ne 0x22 -or
+    [Convert]::ToInt32($octorokProjectileData.Groups['damage'].Value, 16) -ne 0xfc) {
+    throw 'PART_OCTOROK_PROJECTILE no longer matches gfx `$8f, collision `$07, radius 2x2, and half-heart damage.'
+}
+$part18AnimationStart = $partAnimationSource.IndexOf('part18Animations:', [StringComparison]::Ordinal)
+$part13AnimationStart = $partAnimationSource.IndexOf('part13Animations:', [StringComparison]::Ordinal)
+$part18AnimationLabels = @(
+    [regex]::Matches(
+        $partAnimationSource.Substring(
+            $part18AnimationStart, $part13AnimationStart - $part18AnimationStart),
+        '(?m)^\s*\.dw\s+(?<label>partAnimation[0-9a-f]+)'
+    ) | ForEach-Object { $_.Groups['label'].Value }
+)
+$part18OamStart = $partAnimationSource.IndexOf('part18OamDataPointers:', [StringComparison]::Ordinal)
+$part0eOamStart = $partAnimationSource.IndexOf('part0eOamDataPointers:', [StringComparison]::Ordinal)
+$part18OamLabels = @(
+    [regex]::Matches(
+        $partAnimationSource.Substring($part18OamStart, $part0eOamStart - $part18OamStart),
+        '(?m)^\s*\.dw\s+(?<label>partOamData[0-9a-f]+)'
+    ) | ForEach-Object { $_.Groups['label'].Value }
+)
+if ($part18AnimationLabels.Count -ne 5 -or $part18OamLabels.Count -ne 6) {
+    throw 'PART_OCTOROK_PROJECTILE animation/OAM pointer tables are incomplete.'
+}
+function Resolve-OctorokProjectileAnimation([string]$label) {
+    $frames = [Collections.Generic.List[string]]::new()
+    foreach ($frame in [regex]::Matches(
+        (Get-AssemblyLabelBody $script:partAnimationSource $label),
+        '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})'
+    )) {
+        $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
+        $pointerIndex = [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2
+        if ($pointerIndex -ge $script:part18OamLabels.Count) {
+            throw "$label references missing Octorok-projectile OAM pointer $pointerIndex."
+        }
+        $frames.Add("$duration@$(Resolve-PartOam $script:part18OamLabels[$pointerIndex])")
+    }
+    return $frames -join '|'
+}
+$octorokProjectileNormal = Resolve-OctorokProjectileAnimation $part18AnimationLabels[0]
+$octorokProjectileBounce = Resolve-OctorokProjectileAnimation $part18AnimationLabels[3]
+if ($octorokProjectileNormal -ne '127@8,0,0,0;8,8,0,32' -or
+    $octorokProjectileBounce -ne '127@8,0,2,0;8,8,2,32') {
+    throw 'PART_OCTOROK_PROJECTILE flying/bounced visuals changed from the expected OAM records.'
+}
+$octorokProjectileTileBase = [Convert]::ToInt32(
+    $octorokProjectileData.Groups['tile'].Value, 16)
+$octorokProjectilePalette = [Convert]::ToInt32(
+    $octorokProjectileData.Groups['flags'].Value, 16) -band 7
+$octorokProjectileRows = @(
+    "# sprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`tspeed-raw`tnormal-animation`tbounce-animation",
+    "$($gfxNames[0x8f])`t$octorokProjectileTileBase`t$octorokProjectilePalette`t2`t2`t2`t80`t$octorokProjectileNormal`t$octorokProjectileBounce"
+)
+$octorokProjectilePath = Join-Path $destination 'effects\octorok_projectile.tsv'
+[IO.File]::WriteAllLines(
+    $octorokProjectilePath, $octorokProjectileRows, [Text.UTF8Encoding]::new($false))
+
 # Preserve the complete Ages enemy item-drop selection data used by
 # decideItemDrop. The fixed binary layout is 144 enemy records, eight 8-byte
 # probability masks, and sixteen 32-byte item sets (720 bytes total).
@@ -1124,8 +1361,10 @@ $itemDropTableMatch = [regex]::Match(
 )
 if (-not $itemDropTableMatch.Success) { throw 'Ages itemDropTables block was not found.' }
 $itemDropEnemyTable = @(Get-HexBytes $itemDropTableMatch.Groups['body'].Value)
-if ($itemDropEnemyTable.Count -ne 144 -or $itemDropEnemyTable[0x32] -ne 0xae) {
-    throw "Expected 144 Ages enemy item-drop records with ENEMY_KEESE (`$32) = `$ae."
+if ($itemDropEnemyTable.Count -ne 144 -or
+    $itemDropEnemyTable[0x09] -ne 0x8e -or
+    $itemDropEnemyTable[0x32] -ne 0xae) {
+    throw "Expected 144 Ages enemy item-drop records with ENEMY_OCTOROK (`$09) = `$8e and ENEMY_KEESE (`$32) = `$ae."
 }
 
 $itemDropProbabilityBytes = [Collections.Generic.List[byte]]::new()
@@ -1538,4 +1777,4 @@ if ($importedRoomCount -ne 1536) {
 }
 
 Write-Host "Validated clean US ROM: $hash"
-Write-Host "Imported $($tilesets.Count) tilesets, 1536 rooms, 42 signs, $($npcRows.Count - 1) NPCs, $keeseInstanceCount Keese, 133 chests, 529 warps, and 22 animation groups into $destination"
+Write-Host "Imported $($tilesets.Count) tilesets, 1536 rooms, 42 signs, $($npcRows.Count - 1) NPCs, $keeseInstanceCount Keese, $octorokInstanceCount Octoroks, 133 chests, 529 warps, and 22 animation groups into $destination"

@@ -7,9 +7,13 @@ namespace oracleofages;
 public sealed class EnemyDatabase
 {
     private readonly Dictionary<int, List<EnemyRecord>> _keeseByRoom = new();
+    private readonly Dictionary<int, List<OctorokRecord>> _octoroksByRoom = new();
 
     public int KeeseRecordCount { get; }
     public int KeeseInstanceCount { get; }
+    public int OctorokRecordCount { get; }
+    public int OctorokInstanceCount { get; }
+    public OctorokProjectileRecord OctorokProjectile { get; }
 
     public EnemyDatabase()
     {
@@ -56,6 +60,82 @@ public sealed class EnemyDatabase
 
         KeeseRecordCount = records;
         KeeseInstanceCount = instances;
+
+        source = FileAccess.GetFileAsString("res://assets/oracle/objects/octoroks.tsv");
+        records = 0;
+        instances = 0;
+        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            string line = rawLine.TrimEnd('\r');
+            if (line.StartsWith('#'))
+                continue;
+
+            string[] columns = line.Split('\t');
+            if (columns.Length != 22)
+                throw new InvalidOperationException($"Malformed Octorok data row: {line}");
+
+            var record = new OctorokRecord(
+                int.Parse(columns[0]),
+                Convert.ToInt32(columns[1], 16),
+                Convert.ToInt32(columns[2], 16),
+                Convert.ToInt32(columns[3], 16),
+                Convert.ToInt32(columns[4], 16),
+                int.Parse(columns[5]),
+                columns[6] == "F",
+                ParsePosition(columns[7]),
+                ParsePosition(columns[8]),
+                columns[9],
+                int.Parse(columns[10]),
+                int.Parse(columns[11]),
+                int.Parse(columns[12]),
+                int.Parse(columns[13]),
+                int.Parse(columns[14]),
+                int.Parse(columns[15]),
+                int.Parse(columns[16]),
+                int.Parse(columns[17]),
+                columns[18],
+                columns[19],
+                columns[20],
+                columns[21]);
+
+            int key = MakeKey(record.Group, record.Room);
+            if (!_octoroksByRoom.TryGetValue(key, out List<OctorokRecord>? roomRecords))
+            {
+                roomRecords = new List<OctorokRecord>();
+                _octoroksByRoom.Add(key, roomRecords);
+            }
+            roomRecords.Add(record);
+            records++;
+            instances += record.Count;
+        }
+        OctorokRecordCount = records;
+        OctorokInstanceCount = instances;
+
+        string[] projectileRows = FileAccess.GetFileAsString(
+                "res://assets/oracle/effects/octorok_projectile.tsv")
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        OctorokProjectileRecord? projectile = null;
+        foreach (string rawLine in projectileRows)
+        {
+            string line = rawLine.TrimEnd('\r');
+            if (line.StartsWith('#'))
+                continue;
+            string[] columns = line.Split('\t');
+            if (columns.Length != 9)
+                throw new InvalidOperationException($"Malformed Octorok projectile row: {line}");
+            projectile = new OctorokProjectileRecord(
+                columns[0],
+                int.Parse(columns[1]),
+                int.Parse(columns[2]),
+                int.Parse(columns[3]),
+                int.Parse(columns[4]),
+                int.Parse(columns[5]),
+                int.Parse(columns[6]),
+                columns[7],
+                columns[8]);
+        }
+        OctorokProjectile = projectile ?? throw new InvalidOperationException(
+            "Octorok projectile data is empty.");
     }
 
     public IReadOnlyList<EnemyRecord> GetRoomKeese(int group, int room)
@@ -65,7 +145,18 @@ public sealed class EnemyDatabase
             : Array.Empty<EnemyRecord>();
     }
 
+    public IReadOnlyList<OctorokRecord> GetRoomOctoroks(int group, int room)
+    {
+        return _octoroksByRoom.TryGetValue(
+            MakeKey(group, room), out List<OctorokRecord>? records)
+            ? records
+            : Array.Empty<OctorokRecord>();
+    }
+
     private static int MakeKey(int group, int room) => (group << 8) | room;
+
+    private static int ParsePosition(string value) =>
+        value == "-1" ? -1 : Convert.ToInt32(value, 16);
 
     public readonly record struct EnemyRecord(
         int Group,
@@ -83,4 +174,39 @@ public sealed class EnemyDatabase
         int Health,
         string IdleAnimation,
         string FlyAnimation);
+
+    public readonly record struct OctorokRecord(
+        int Group,
+        int Room,
+        int Id,
+        int SubId,
+        int Flags,
+        int Count,
+        bool FixedPosition,
+        int Y,
+        int X,
+        string SpriteName,
+        int TileBase,
+        int Palette,
+        int CollisionRadiusY,
+        int CollisionRadiusX,
+        int DamageQuarters,
+        int Health,
+        int SpeedRaw,
+        int CounterMask,
+        string UpAnimation,
+        string RightAnimation,
+        string DownAnimation,
+        string LeftAnimation);
+
+    public readonly record struct OctorokProjectileRecord(
+        string SpriteName,
+        int TileBase,
+        int Palette,
+        int CollisionRadiusY,
+        int CollisionRadiusX,
+        int DamageQuarters,
+        int SpeedRaw,
+        string NormalAnimation,
+        string BounceAnimation);
 }

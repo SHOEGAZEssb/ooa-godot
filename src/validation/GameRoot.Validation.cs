@@ -19,6 +19,7 @@ public partial class GameRoot
         ValidateAnimations();
         ValidateSwordBush();
         ValidateKeese();
+        ValidateOctoroks();
         ValidateItemDrops();
         ValidateHouseWarp();
         ValidateCaveWarps();
@@ -701,6 +702,224 @@ public partial class GameRoot
             "original RNG-driven flight, 4-update wing animation, collision radii, contact damage, " +
             "invincibility/knockback counters, one-hit level-1 sword defeat, common 20/28-update " +
             "death puffs with palette toggling, and retained/preloaded scrolling.");
+    }
+
+    private void ValidateOctoroks()
+    {
+        var database = new EnemyDatabase();
+        if (database.OctorokRecordCount != 33 || database.OctorokInstanceCount != 48)
+        {
+            throw new InvalidOperationException(
+                $"Expected 33 ENEMY_OCTOROK room records / 48 instances, got " +
+                $"{database.OctorokRecordCount} / {database.OctorokInstanceCount}.");
+        }
+        EnemyDatabase.OctorokProjectileRecord projectile = database.OctorokProjectile;
+        if (projectile.TileBase != 0x0c || projectile.Palette != 3 ||
+            projectile.CollisionRadiusY != 2 || projectile.CollisionRadiusX != 2 ||
+            projectile.DamageQuarters != 2 || projectile.SpeedRaw != 0x50)
+        {
+            throw new InvalidOperationException(
+                "PART_OCTOROK_PROJECTILE did not retain tile `$0c, palette 3, radius 2x2, " +
+                "half-heart damage, and SPEED_200 (`$50)." );
+        }
+
+        LoadValidationRoom(0, 0x74);
+        if (_entities.Octoroks.Count != 2 ||
+            _entities.Octoroks.Find(octorok => octorok.Record.SubId == 0) is not OctorokCharacter red ||
+            _entities.Octoroks.Find(octorok => octorok.Record.SubId == 1) is not OctorokCharacter fastRed ||
+            red.Record.SpeedRaw != 0x14 || fastRed.Record.SpeedRaw != 0x1e ||
+            red.Record.Health != 2 || red.Record.DamageQuarters != 1)
+        {
+            throw new InvalidOperationException(
+                "Room 0:74 did not load one random red and one fast-red Octorok with " +
+                "SPEED_80/SPEED_c0, two health, and quarter-heart contact damage.");
+        }
+
+        int redCount = _entities.Octoroks.Count;
+        if (!_entities.ApplySwordHit(red.CollisionBounds.Grow(1.0f), red.Position + Vector2.Down * 16.0f) ||
+            _entities.Octoroks.Count != redCount - 1 ||
+            _entities.DeathPuffs.Count != 1 || _entities.DeathPuffs[0].EnemyId != 0x09)
+        {
+            throw new InvalidOperationException(
+                "The level-1 sword did not defeat a two-health red Octorok in one hit and " +
+                "create its ordinary ENEMY_OCTOROK `$09 death puff.");
+        }
+
+        LoadValidationRoom(1, 0xbc);
+        if (_entities.Octoroks.Count != 2 ||
+            _entities.Octoroks.Exists(octorok => octorok.Record.SubId != 2) ||
+            !_entities.Octoroks.Exists(octorok => octorok.Position == new Vector2(0x48, 0x48)) ||
+            !_entities.Octoroks.Exists(octorok => octorok.Position == new Vector2(0x58, 0x48)))
+        {
+            throw new InvalidOperationException(
+                "Room 1:bc did not preserve its fixed blue Octoroks at `$48,`$48 and `$58,`$48.");
+        }
+
+        OctorokCharacter blue = _entities.Octoroks[0];
+        OctorokCharacter otherBlue = _entities.Octoroks[1];
+        if (blue.Record.Health != 3 || blue.Record.DamageQuarters != 2 ||
+            blue.Record.CounterMask != 3)
+        {
+            throw new InvalidOperationException(
+                "Blue Octorok subid `$02 did not retain three health, half-heart contact damage, " +
+                "and decision mask `$03.");
+        }
+
+        _player.WarpTo(new Vector2(144, 120), recordSafe: false);
+        otherBlue.SetStateForValidation(OctorokCharacter.OctorokState.Standing, counter1: 1000);
+        blue.SetStateForValidation(
+            OctorokCharacter.OctorokState.Shooting, counter1: 0x10, angle: 0x18);
+        for (int frame = 1; frame < 0x10; frame++)
+            _entities.Update(1.0 / 60.0, _player);
+        if (_entities.OctorokRocks.Count != 0 || blue.Counter1 != 1)
+        {
+            throw new InvalidOperationException(
+                "ENEMY_OCTOROK fired before completing its original `$10-update windup.");
+        }
+        Vector2 projectileOrigin = blue.Position;
+        _entities.Update(1.0 / 60.0, _player);
+        if (_entities.OctorokRocks.Count != 1 ||
+            _entities.OctorokRocks[0].State != OctorokRockProjectile.RockState.Flying ||
+            _entities.OctorokRocks[0].ElapsedFrames != 1 ||
+            _entities.OctorokRocks[0].Position != projectileOrigin ||
+            blue.State != OctorokCharacter.OctorokState.Standing || blue.Counter1 != 0x20)
+        {
+            throw new InvalidOperationException(
+                "ENEMY_OCTOROK did not spawn PART_OCTOROK_PROJECTILE after 16 updates and " +
+                "enter its 32-update post-shot stand.");
+        }
+
+        OctorokRockProjectile rock = _entities.OctorokRocks[0];
+        _entities.Update(1.0 / 60.0, _player);
+        if (rock.Position != projectileOrigin + Vector2.Left * 2.0f)
+            throw new InvalidOperationException("The Octorok rock did not move at SPEED_200 (2 pixels/update).");
+        for (int frame = 0; frame < 4; frame++)
+            _entities.Update(1.0 / 60.0, _player);
+        if (!_entities.ApplySwordHit(rock.CollisionBounds.Grow(1.0f), _player.Position) ||
+            rock.State != OctorokRockProjectile.RockState.Bouncing ||
+            rock.Angle != 0x08 || rock.Counter != 0x20)
+        {
+            throw new InvalidOperationException(
+                "The level-1 sword did not reverse an Octorok rock and start its `$20-update bounce.");
+        }
+        for (int frame = 1; frame < 0x20; frame++)
+            _entities.Update(1.0 / 60.0, _player);
+        if (rock.Finished || _entities.OctorokRocks.Count != 1 || rock.Counter != 1)
+            throw new InvalidOperationException("The deflected Octorok rock ended before bounce update `$20.");
+        _entities.Update(1.0 / 60.0, _player);
+        if (_entities.OctorokRocks.Count != 0)
+            throw new InvalidOperationException("The deflected Octorok rock survived bounce update `$20.");
+
+        Vector2 terrainCollisionOrigin = Vector2.Zero;
+        bool foundTerrainCollision = false;
+        for (int y = 8; y < _currentRoom.Height - 8 && !foundTerrainCollision; y++)
+        {
+            for (int x = 8; x < _currentRoom.Width - 2; x++)
+            {
+                var origin = new Vector2(x, y);
+                if (!_currentRoom.IsSolid(origin) &&
+                    _currentRoom.IsSolid(origin + Vector2.Right * 2.0f) &&
+                    origin.DistanceTo(_player.Position) > 16.0f)
+                {
+                    terrainCollisionOrigin = origin;
+                    foundTerrainCollision = true;
+                    break;
+                }
+            }
+        }
+        if (!foundTerrainCollision)
+            throw new InvalidOperationException("Room 1:bc has no usable Octorok-rock collision edge.");
+        var terrainRock = new OctorokRockProjectile();
+        terrainRock.Initialize(projectile, _currentRoom, terrainCollisionOrigin, angle: 0x08);
+        terrainRock.UpdateFrame(_player);
+        terrainRock.UpdateFrame(_player);
+        if (terrainRock.State != OctorokRockProjectile.RockState.CollisionPending ||
+            terrainRock.Position != terrainCollisionOrigin + Vector2.Right * 2.0f)
+        {
+            throw new InvalidOperationException(
+                "A terrain-striking Octorok rock did not enter state 2 after applying its final flying step.");
+        }
+        terrainRock.UpdateFrame(_player);
+        if (terrainRock.State != OctorokRockProjectile.RockState.Bouncing ||
+            terrainRock.Counter != 0x20 || terrainRock.Angle != 0x18)
+        {
+            throw new InvalidOperationException(
+                "Octorok-rock terrain collision state 2 did not initialize the reversed bounce on the next update.");
+        }
+        terrainRock.Free();
+
+        blue = _entities.Octoroks[0];
+        otherBlue.SetStateForValidation(OctorokCharacter.OctorokState.Standing, counter1: 1000);
+        int blueCount = _entities.Octoroks.Count;
+        if (!_entities.ApplySwordHit(
+                blue.CollisionBounds.Grow(1.0f), blue.Position + Vector2.Left * 16.0f) ||
+            blue.Health != 1 || blue.InvincibilityCounter != 0x10 ||
+            blue.KnockbackCounter != 0x08 || _entities.Octoroks.Count != blueCount)
+        {
+            throw new InvalidOperationException(
+                "A blue Octorok did not survive its first level-1 sword hit with one health, " +
+                "16 invincibility updates, and 8 SPEED_200 knockback updates. Got " +
+                $"health {blue.Health}, invincibility {blue.InvincibilityCounter}, " +
+                $"knockback {blue.KnockbackCounter}, count {_entities.Octoroks.Count}/{blueCount}.");
+        }
+        if (_entities.ApplySwordHit(blue.CollisionBounds.Grow(1.0f), _player.Position))
+            throw new InvalidOperationException("Blue Octorok invincibility accepted a second immediate sword hit.");
+        for (int frame = 0; frame < 0x10; frame++)
+            blue.UpdateFrame(_player.Position);
+        if (blue.InvincibilityCounter != 0 || blue.KnockbackCounter != 0 ||
+            !_entities.ApplySwordHit(blue.CollisionBounds.Grow(1.0f), _player.Position) ||
+            _entities.Octoroks.Count != blueCount - 1 ||
+            _entities.DeathPuffs.Count != 1 || _entities.DeathPuffs[0].EnemyId != 0x09)
+        {
+            throw new InvalidOperationException(
+                "A blue Octorok did not become vulnerable after 16 updates and die on the second sword hit.");
+        }
+
+        OctorokCharacter transitionOctorok = _entities.Octoroks[0];
+        transitionOctorok.SetStateForValidation(
+            OctorokCharacter.OctorokState.Standing, counter1: 1000, angle: 0x00);
+        OctorokRockProjectile transitionRock = _entities.SpawnOctorokRock(
+            transitionOctorok.Position, angle: 0x00);
+        OracleRoomData incomingRoom = _world.LoadRoom(0, 0x74);
+        _entities.BeginScreenTransition(0, incomingRoom, Vector2.Left * incomingRoom.Width);
+        int frozenCounter = transitionOctorok.Counter1;
+        int frozenRockFrames = transitionRock.ElapsedFrames;
+        _entities.Update(1.0, _player);
+        if (_entities.OutgoingOctoroks.Count != 1 || _entities.OutgoingOctorokRocks.Count != 1 ||
+            _entities.Octoroks.Count != 2 || transitionOctorok.Counter1 != frozenCounter ||
+            transitionRock.ElapsedFrames != frozenRockFrames ||
+            !_entities.Octoroks[0].TransitionDrawOffset.IsEqualApprox(Vector2.Left * incomingRoom.Width))
+        {
+            throw new InvalidOperationException(
+                "Scrolling did not retain/freeze outgoing Octoroks and rocks while preloading destination Octoroks.");
+        }
+        _entities.FinishScreenTransition();
+        if (_entities.OutgoingOctoroks.Count != 0 || _entities.OutgoingOctorokRocks.Count != 0 ||
+            !_entities.Octoroks[0].TransitionDrawOffset.IsEqualApprox(Vector2.Zero))
+        {
+            throw new InvalidOperationException(
+                "Octorok/rock transition ownership and offsets were not normalized after scrolling.");
+        }
+
+        var drops = new ItemDropDatabase();
+        int octorokProbabilityRolls = 0;
+        for (int roll = 0; roll < 64; roll++)
+        {
+            if (drops.ProbabilityAllows(4, roll))
+                octorokProbabilityRolls++;
+        }
+        if (drops.EnemyTableRecord(0x09) != 0x8e || octorokProbabilityRolls != 24 ||
+            drops.ChooseDrop(0x09, 0, 0) != ItemDropDatabase.Heart)
+        {
+            throw new InvalidOperationException(
+                "ENEMY_OCTOROK `$09 did not preserve drop record `$8e, its 24-of-64 " +
+                "probability `$04, and supported heart/rupee set `$0e.");
+        }
+
+        _player.RefillHealth();
+        GD.Print("Validated 33 imported ENEMY_OCTOROK room records / 48 instances, random and fixed " +
+            "red/fast-red/blue subids, movement/combat attributes, 16-update firing, SPEED_200 rocks, " +
+            "sword deflection, 32-update bounce, two-hit blue combat, scrolling, and `$8e item drops.");
     }
 
     private void ValidateItemDrops()

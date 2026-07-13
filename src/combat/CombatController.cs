@@ -27,7 +27,7 @@ public sealed class CombatController
 
     public bool ApplySwordHit(Player player, Rect2 hitbox)
     {
-        bool hitEnemy = _entities.ApplySwordHit(hitbox);
+        bool hitEnemy = _entities.ApplySwordHit(hitbox, player.Position);
         Vector2 offset = player.FacingVector == Vector2I.Up ? new Vector2(0, -14)
             : player.FacingVector == Vector2I.Right ? new Vector2(13, 0)
             : player.FacingVector == Vector2I.Down ? new Vector2(0, 13)
