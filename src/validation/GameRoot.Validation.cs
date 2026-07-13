@@ -24,8 +24,64 @@ public partial class GameRoot
         ValidateHealth();
         ValidateChests();
         ValidatePushBlocks();
+        ValidateMapScreen();
 
         GD.Print("Validated all gameplay and world-data scenarios.");
+    }
+
+    private void ValidateMapScreen()
+    {
+        if (!Mathf.IsEqualApprox(MapMenuController.FastFadeFrames, 11.0f))
+            throw new InvalidOperationException("The map menu must use the 11-update fast palette fade.");
+
+        LoadValidationRoom(0, 0x11);
+        _mapMenu.OpenImmediatelyForValidation();
+        if (_mapScreen.Mode != MapScreen.MapMode.Present || _mapScreen.CursorRoom != 0x11)
+            throw new InvalidOperationException(
+                $"Present map should open at room 11, got {_mapScreen.Mode} / {_mapScreen.CursorRoom:x2}.");
+        if (_player.IsPhysicsProcessing() || _player.IsProcessing())
+            throw new InvalidOperationException("Link continued updating while the map menu was open.");
+
+        _mapScreen.MoveOverworldCursor(Vector2I.Left);
+        _mapScreen.MoveOverworldCursor(Vector2I.Left);
+        if (_mapScreen.CursorRoom != 0x1d)
+            throw new InvalidOperationException(
+                $"The 14-column overworld cursor did not wrap 11 -> 10 -> 1d; got {_mapScreen.CursorRoom:x2}.");
+
+        if (!_mapScreen.LocationArrowVisible)
+            throw new InvalidOperationException("The map location arrow was hidden on frame 0.");
+        _mapScreen.Update(32.0 / 60.0);
+        if (_mapScreen.LocationArrowVisible)
+            throw new InvalidOperationException("The map location arrow did not toggle after 32 updates.");
+        _mapScreen.Update(32.0 / 60.0);
+        if (!_mapScreen.LocationArrowVisible)
+            throw new InvalidOperationException("The map location arrow did not restore after 64 updates.");
+        _mapMenu.CloseImmediatelyForValidation();
+        if (!_player.IsPhysicsProcessing() || !_player.IsProcessing())
+            throw new InvalidOperationException("Link processing was not restored after closing the map.");
+
+        LoadValidationRoom(1, 0x11);
+        _mapMenu.OpenImmediatelyForValidation();
+        if (_mapScreen.Mode != MapScreen.MapMode.Past || _mapScreen.CursorRoom != 0x11)
+            throw new InvalidOperationException(
+                $"Past map should open at room 11, got {_mapScreen.Mode} / {_mapScreen.CursorRoom:x2}.");
+        _mapMenu.CloseImmediatelyForValidation();
+
+        DungeonMapDatabase.DungeonInfo dungeon = _rooms.DungeonMaps.GetDungeon(0x0d);
+        if (!dungeon.TryGetRoom(0x09, out DungeonMapDatabase.DungeonCell cell) ||
+            cell.Floor != 0 || cell.X != 2 || cell.Y != 2)
+        {
+            throw new InvalidOperationException(
+                "Dungeon 0d room 09 was not imported at floor 0, cell (2,2).");
+        }
+        LoadValidationRoom(4, 0x09);
+        _mapMenu.OpenImmediatelyForValidation();
+        if (_mapScreen.Mode != MapScreen.MapMode.Dungeon || _mapScreen.DisplayedDungeonFloor != 0)
+            throw new InvalidOperationException("Dungeon 0d map did not open on room 09's floor.");
+        _mapMenu.CloseImmediatelyForValidation();
+
+        GD.Print("Validated original present/past/dungeon map tilemaps, 14x14 cursor wrapping, " +
+            "32-update marker blink, 11-update fast fades, and Link input freezing.");
     }
 
     private void LoadValidationRoom(int group, int room)

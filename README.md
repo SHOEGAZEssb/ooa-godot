@@ -1,6 +1,6 @@
 # Oracle of Ages — Godot reconstruction
 
-This project is an early, playable reconstruction of *Oracle of Ages* in Godot 4.6/.NET. It streams the present overworld from `oracles-disasm`, applies the original GBC background palettes and flip attributes, uses the expanded per-tileset metatile mappings and quarter-tile collision masks, animates Link from the disassembled sprite/OAM records, and supports scrolling room transitions and a basic sword action. The data pipeline covers all 1,536 expanded Ages room layouts and all 103 concrete tilesets for subsequent gameplay slices.
+This project is an early, playable reconstruction of *Oracle of Ages* in Godot 4.6/.NET. It streams the present overworld from `oracles-disasm`, applies the original GBC background palettes and flip attributes, uses the expanded per-tileset metatile mappings and quarter-tile collision masks, animates Link from the disassembled sprite/OAM records, and supports scrolling room transitions, the map screen, and a basic sword action. The data pipeline covers all 1,536 expanded Ages room layouts and all 103 concrete tilesets for subsequent gameplay slices.
 
 ## Import the research data
 
@@ -17,6 +17,7 @@ The importer validates the clean US ROM MD5 (`C4639CC61C049E5A085526BB6CAC03BB`,
 - Move: arrow keys or WASD
 - Sword: Z or K (gamepad A)
 - Reserved item button: X or J (gamepad B)
+- Map / Select: M or Tab (gamepad Back); close with Select or B
 - Development sign warp: T
 - Development animated-tile rooms: Y (toggles water/lava)
 - Development sword/bush test: B
@@ -28,6 +29,8 @@ The internal viewport is the Game Boy Color's 160×144 resolution and is integer
 An argument-free launch now starts in dungeon room `4:09`, a compact pushblock practice room with several original one-way blocks near Link. Tiles `$18`, `$19`, `$1a`, and `$1b` move only up, right, down, and left respectively; hold the matching cardinal direction against one for 20 updates to push it. Restart the game to restore the room after testing. Explicit `--group`/`--room` arguments and headless validations keep their previous defaults.
 
 The gameplay HUD is reconstructed from the original HUD tilemap, flags, palette, item sprites, digit tiles, and full/partial/empty heart tiles. Health now uses the original quarter-heart units (`$0c` for three hearts), syncs into the HUD, and terrain respawn hazards remove a half-heart before returning Link to his last safe tile. Until inventory is connected, the HUD still displays the implemented level-1 sword in A and an empty B slot; its rupee counter now tracks collected chest rewards.
+
+The Select map menu uses the original present, past, and dungeon 20x18 tilemaps, attributes, graphics pieces, palette headers, dungeon blurbs, 8x8 floor layouts, room-property connection tiles, 14x14 overworld cursor wrapping, 32-update location-marker blink, and 11-update fast white fades. Rooms become visible when entered during the current session; indoor maps retain the most recent exterior position, and dungeon floors can be selected with Up/Down after visiting them. Link and room animation freeze while the map is active. Map popup icons, A-button region text, inventory map/compass reveals, treasure/boss symbols, and persistent visit flags remain deferred until their quest, inventory, and save-state owners exist.
 
 Signs now use the original `$f2` metatile interaction and the complete 42-entry `signText.s` lookup table. Their dialogue uses the original `gfx_font`, textbox dimensions, placement rules, palette, directional glyphs, and blinking continue marker. Press **A or B** (Z/K or X/J; either gamepad face button) to advance pages or close the final page. Press **T** at any time to warp directly below the Rolling Ridge/Lynna City test sign in present-overworld room `2a`.
 
@@ -54,6 +57,7 @@ For room-rendering development, hexadecimal group and room values can be selecte
 `GameRoot` is limited to scene composition, lifecycle updates, HUD synchronization, and validation forwarding. Gameplay ownership is split by responsibility:
 
 - `RoomSession` owns the active group/room and resolves overworld or dungeon neighbors.
+- `MapMenuController` and `MapScreen` own Select-menu fades, input freezing, visit visibility, and original overworld/dungeon map rendering.
 - `RoomTransitionController` owns warps, scrolling, fades, destination placement, and the room camera.
 - `RoomEntityManager` and `InteractionController` own NPC lifetime, blocking, signs, and dialogue.
 - `RoomCollision`, `TerrainController`, `PushBlockController`, and `CombatController` own collision, terrain behavior, moving blocks, and weapon effects.

@@ -11,6 +11,8 @@ public sealed class GameSceneGraph
     public ColorRect WarpFade { get; }
     public DialogueBox Dialogue { get; }
     public Label RoomDebug { get; }
+    public MapScreen MapScreen { get; }
+    public ColorRect MenuFade { get; }
 
     public GameSceneGraph(Node root)
     {
@@ -46,6 +48,19 @@ public sealed class GameSceneGraph
 
         Dialogue = new DialogueBox { Name = "Dialogue", ZIndex = 30, Visible = false };
         interfaceLayer.AddChild(Dialogue);
+
+        MapScreen = new MapScreen { Name = "MapScreen", ZIndex = 40, Visible = false };
+        interfaceLayer.AddChild(MapScreen);
+
+        MenuFade = new ColorRect
+        {
+            Name = "MenuFade",
+            Size = new Vector2(OracleRoomData.ViewportWidth, OracleRoomData.ViewportHeight),
+            Color = new Color(1, 1, 1, 0),
+            ZIndex = 50,
+            MouseFilter = Control.MouseFilterEnum.Ignore
+        };
+        interfaceLayer.AddChild(MenuFade);
 
         RoomDebug = new Label
         {

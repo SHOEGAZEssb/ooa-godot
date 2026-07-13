@@ -289,6 +289,68 @@ foreach ($animationSheet in 1..3) {
 Copy-GeneratedFile "gfx_compressible\common\map_hud_normal.bin" "hud\map_hud_normal.bin"
 Copy-GeneratedFile "gfx_compressible\common\flg_hud_normal.bin" "hud\flg_hud_normal.bin"
 
+# The map menu swaps in a complete 20x18 background tilemap. Preserve the
+# original VRAM-source pieces separately: the runtime composes them at their
+# GFXH_OVERWORLD_MAP / GFXH_PAST_MAP / GFXH_DUNGEON_MAP destinations, then
+# applies the tile attributes and map-menu palettes.
+foreach ($mapAsset in @(
+    @{ Source = 'gfx_compressible\ages\map_present_minimap.bin'; Destination = 'map\map_present.bin' },
+    @{ Source = 'gfx_compressible\ages\flg_present_minimap.bin'; Destination = 'map\flags_present.bin' },
+    @{ Source = 'gfx_compressible\ages\map_past_minimap.bin'; Destination = 'map\map_past.bin' },
+    @{ Source = 'gfx_compressible\ages\flg_past_minimap.bin'; Destination = 'map\flags_past.bin' },
+    @{ Source = 'gfx_compressible\common\map_dungeon_minimap.bin'; Destination = 'map\map_dungeon.bin' },
+    @{ Source = 'gfx_compressible\common\flg_dungeon_minimap.bin'; Destination = 'map\flags_dungeon.bin' },
+    @{ Source = 'gfx_compressible\ages\gfx_minimap_tiles_common.png'; Destination = 'map\tiles_common.png' },
+    @{ Source = 'gfx_compressible\ages\gfx_minimap_tiles_present_1.png'; Destination = 'map\tiles_present_1.png' },
+    @{ Source = 'gfx_compressible\ages\gfx_minimap_tiles_present_2.png'; Destination = 'map\tiles_present_2.png' },
+    @{ Source = 'gfx_compressible\ages\gfx_minimap_tiles_past_1.png'; Destination = 'map\tiles_past_1.png' },
+    @{ Source = 'gfx_compressible\ages\gfx_minimap_tiles_past_2.png'; Destination = 'map\tiles_past_2.png' },
+    @{ Source = 'gfx_compressible\common\gfx_minimap_tiles_dungeon.png'; Destination = 'map\tiles_dungeon.png' },
+    @{ Source = 'gfx_compressible\ages\spr_minimap_icons.png'; Destination = 'map\sprites.png' })) {
+    Copy-GeneratedFile $mapAsset.Source $mapAsset.Destination
+}
+foreach ($blurb in @(
+    'makupath', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8',
+    'blacktowerturret', 'roomofrites', 'heroscave')) {
+    $scope = if ($blurb -eq 'roomofrites') { 'common' } else { 'ages' }
+    Copy-GeneratedFile "gfx_compressible\$scope\gfx_blurb_$blurb.png" "map\blurb_$blurb.png"
+}
+
+function Export-PaletteBlock(
+    [string]$label,
+    [int]$colorCount,
+    [string]$relativeDestination
+) {
+    $labelIndex = $paletteDataSource.IndexOf("${label}:", [StringComparison]::Ordinal)
+    if ($labelIndex -lt 0) { throw "Map palette data label not found: $label" }
+    $nextLabel = $paletteDataSource.IndexOf(
+        'paletteData', $labelIndex + $label.Length, [StringComparison]::Ordinal)
+    if ($nextLabel -lt 0) { $nextLabel = $paletteDataSource.Length }
+    $block = $paletteDataSource.Substring($labelIndex, $nextLabel - $labelIndex)
+    $colors = [regex]::Matches(
+        $block,
+        'm_RGB16\s+\$(?<r>[0-9a-f]{2})\s+\$(?<g>[0-9a-f]{2})\s+\$(?<b>[0-9a-f]{2})')
+    if ($colors.Count -lt $colorCount) {
+        throw "$label contains $($colors.Count) colors; expected $colorCount."
+    }
+    $bytes = [byte[]]::new($colorCount * 3)
+    for ($color = 0; $color -lt $colorCount; $color++) {
+        $bytes[$color * 3] = [Convert]::ToByte($colors[$color].Groups['r'].Value, 16)
+        $bytes[$color * 3 + 1] = [Convert]::ToByte($colors[$color].Groups['g'].Value, 16)
+        $bytes[$color * 3 + 2] = [Convert]::ToByte($colors[$color].Groups['b'].Value, 16)
+    }
+    $target = Join-Path $destination $relativeDestination
+    New-Item -ItemType Directory -Force -Path (Split-Path $target -Parent) | Out-Null
+    [IO.File]::WriteAllBytes($target, $bytes)
+}
+
+# PALH_07, PALH_08, PALH_09, plus the common sprite palettes used by
+# spr_minimap_icons. PALH_09 installs its four palettes into BG slots 2-5.
+Export-PaletteBlock 'paletteData4098' 32 'map\palette_present.bin'
+Export-PaletteBlock 'paletteData40d8' 32 'map\palette_past.bin'
+Export-PaletteBlock 'paletteData4118' 16 'map\palette_dungeon.bin'
+Export-PaletteBlock 'paletteData4138' 32 'map\palette_sprites.bin'
+
 # Signs are map metatile $f2 rather than ordinary room objects. Preserve the
 # original group/room/position lookup table and resolve its TX_2eXX strings to
 # UTF-8 here, while the human-readable disassembly sources are available.
@@ -923,6 +985,53 @@ foreach ($block in $dungeonBlocks) {
 }
 $dungeonPath = Join-Path $destination "objects\dungeon_adjacency.tsv"
 [IO.File]::WriteAllLines($dungeonPath, $dungeonRows, [Text.UTF8Encoding]::new($false))
+
+# The full dungeon map screen needs floor/cell positions and the original room
+# property bits, not only the neighbor pairs used by screen transitions.
+$dungeonDataSource = Get-Content -Raw (Join-Path $Disassembly 'data\ages\dungeonData.s')
+$dungeonMetadata = @{}
+foreach ($record in [regex]::Matches(
+    $dungeonDataSource,
+    '(?ms)^dungeonData(?<index>[0-9a-f]{2}):\s*\r?\n\s*m_DungeonData\s+>wGroup(?<group>[45])RoomFlags,\s*\$[0-9a-f]{2},\s*dungeon[0-9a-f]{2}Layout,\s*\$(?<floors>[0-9a-f]{2}),\s*\$(?<base>[0-9a-f]{2})')) {
+    $index = [Convert]::ToInt32($record.Groups['index'].Value, 16)
+    $dungeonMetadata[$index] = @{
+        Group = [Convert]::ToInt32($record.Groups['group'].Value, 16)
+        Floors = [Convert]::ToInt32($record.Groups['floors'].Value, 16)
+        BaseFloor = [Convert]::ToInt32($record.Groups['base'].Value, 16)
+    }
+}
+if ($dungeonMetadata.Count -ne 16) {
+    throw "Expected 16 dungeon metadata records, parsed $($dungeonMetadata.Count)."
+}
+$dungeonProperties = @{
+    4 = [IO.File]::ReadAllBytes((Join-Path $Disassembly 'rooms\ages\group4DungeonProperties.bin'))
+    5 = [IO.File]::ReadAllBytes((Join-Path $Disassembly 'rooms\ages\group5DungeonProperties.bin'))
+}
+$dungeonMapRows = [Collections.Generic.List[string]]::new()
+$dungeonMapRows.Add('# dungeon`tgroup`tfloors`tbase-floor`tfloor`tx`ty`troom`tproperties')
+foreach ($block in $dungeonBlocks) {
+    $dungeon = [Convert]::ToInt32($block.Groups['index'].Value, 16)
+    $metadataRecord = $dungeonMetadata[$dungeon]
+    $cells = [Collections.Generic.List[int]]::new()
+    foreach ($dataLine in [regex]::Matches($block.Groups['body'].Value, '(?m)^\s*\.db\s+(?<values>[^;\r\n]+)')) {
+        foreach ($value in [regex]::Matches($dataLine.Groups['values'].Value, '\$(?<value>[0-9a-f]{2})')) {
+            $cells.Add([Convert]::ToInt32($value.Groups['value'].Value, 16))
+        }
+    }
+    if ($cells.Count -ne $metadataRecord.Floors * 64) {
+        throw "Dungeon $($dungeon.ToString('x2')) has $($cells.Count) layout cells; expected $($metadataRecord.Floors * 64)."
+    }
+    for ($cell = 0; $cell -lt $cells.Count; $cell++) {
+        $room = $cells[$cell]
+        if ($room -eq 0) { continue }
+        $floorCell = $cell % 64
+        $properties = $dungeonProperties[$metadataRecord.Group][$room]
+        $dungeonMapRows.Add(
+            "$dungeon`t$($metadataRecord.Group)`t$($metadataRecord.Floors)`t$($metadataRecord.BaseFloor)`t$([Math]::Floor($cell / 64))`t$($floorCell % 8)`t$([Math]::Floor($floorCell / 8))`t$($room.ToString('x2'))`t$($properties.ToString('x2'))")
+    }
+}
+$dungeonMapPath = Join-Path $destination 'objects\dungeon_maps.tsv'
+[IO.File]::WriteAllLines($dungeonMapPath, $dungeonMapRows, [Text.UTF8Encoding]::new($false))
 
 # Expand the animation engine's three linked tables into address-independent
 # records. Destinations are converted from VRAM addresses to the same signed

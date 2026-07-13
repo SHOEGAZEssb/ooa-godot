@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -11,8 +12,13 @@ public sealed class RoomSession
     public event Action<int, OracleRoomData>? RoomChanged;
     public OracleWorldData World { get; }
     public DungeonMapDatabase DungeonMaps { get; }
+    public IReadOnlySet<(int Group, int Room)> VisitedRooms => _visitedRooms;
     public int ActiveGroup { get; private set; }
     public OracleRoomData CurrentRoom { get; private set; }
+    public int MinimapGroup { get; private set; }
+    public int MinimapRoom { get; private set; }
+
+    private readonly HashSet<(int Group, int Room)> _visitedRooms = new();
 
     public RoomSession(
         int startingGroup,
@@ -26,6 +32,9 @@ public sealed class RoomSession
         DungeonMaps = new DungeonMapDatabase();
         ActiveGroup = startingGroup;
         CurrentRoom = World.LoadRoom(startingGroup, startingRoom);
+        MinimapGroup = startingGroup;
+        MinimapRoom = startingRoom;
+        MarkRoomVisited(startingGroup, startingRoom);
         CurrentRoom.UpdateAnimation(_animationTick());
     }
 
@@ -34,6 +43,7 @@ public sealed class RoomSession
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
         ActiveGroup = group;
         CurrentRoom = World.LoadRoom(group, room);
+        MarkRoomVisited(group, room);
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
         RoomChanged?.Invoke(ActiveGroup, CurrentRoom);
         return CurrentRoom;
@@ -44,6 +54,7 @@ public sealed class RoomSession
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
         ActiveGroup = group;
         CurrentRoom = room;
+        MarkRoomVisited(group, room.Id);
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
         RoomChanged?.Invoke(ActiveGroup, CurrentRoom);
     }
@@ -60,6 +71,21 @@ public sealed class RoomSession
     public void SetActiveGroup(int group)
     {
         ActiveGroup = group;
+    }
+
+    public bool HasVisited(int group, int room) => _visitedRooms.Contains((group, room));
+
+    private void MarkRoomVisited(int group, int room)
+    {
+        _visitedRooms.Add((group, room));
+        // wMinimapGroup/wMinimapRoom retain the exterior position while Link
+        // is inside a house or cave. The current runtime has no save state, so
+        // preserve the most recently entered present/past overworld room.
+        if (group is 0 or 1)
+        {
+            MinimapGroup = group;
+            MinimapRoom = room;
+        }
     }
 
     public bool TryGetNeighbor(Vector2I direction, out int room)

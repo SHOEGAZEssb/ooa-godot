@@ -20,6 +20,7 @@ public partial class GameRoot : Node2D
     private TerrainController _terrain = null!;
     private CombatController _combat = null!;
     private DebugWarpController _debugWarps = null!;
+    private MapMenuController _mapMenu = null!;
     private LaunchOptions _launchOptions = null!;
     private RoomCollision _collision = null!;
     private PlayerWorld _playerWorld = null!;
@@ -34,9 +35,11 @@ public partial class GameRoot : Node2D
     private Label _roomDebug => _scene.RoomDebug;
     private ColorRect _warpFade => _scene.WarpFade;
     private DialogueBox _dialogue => _scene.Dialogue;
+    private MapScreen _mapScreen => _scene.MapScreen;
 
     public bool IsTransitioning => _transitions?.IsTransitioning ?? false;
     public bool DialogueOpen => _interactions?.DialogueOpen ?? false;
+    public bool MapMenuOpen => _mapMenu?.IsActive ?? false;
 
     // Compatibility accessors used only by GameRoot.Validation.cs.
     private OracleWorldData _world => _rooms.World;
@@ -64,6 +67,7 @@ public partial class GameRoot : Node2D
             () => (long)_animationTicks,
             () => _animationTicks = 0.0);
         _scene = new GameSceneGraph(this);
+        _mapScreen.Initialize(_rooms);
         CreateControllers();
 
         _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom);
@@ -79,6 +83,9 @@ public partial class GameRoot : Node2D
 
     public override void _Process(double delta)
     {
+        _mapMenu.Update(delta);
+        if (_mapMenu.IsActive)
+            return;
         _transitions.Update(delta);
         _entities.Update(delta, _player.Position);
         _interactions.Update(delta, _player);
@@ -117,6 +124,9 @@ public partial class GameRoot : Node2D
         _debugWarps = new DebugWarpController(
             _rooms, _player, LoadDebugRoom, FindSpawn, () => (long)_animationTicks,
             _interactions.ResetChestForTesting);
+        _mapMenu = new MapMenuController(
+            _mapScreen, _scene.MenuFade, _player, _roomDebug,
+            () => !IsTransitioning && !DialogueOpen);
     }
 
     private void ScheduleRequestedValidation()
