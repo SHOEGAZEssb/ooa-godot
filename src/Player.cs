@@ -69,7 +69,7 @@ public partial class Player : Node2D
         _fallInHoleTexture = BuildFallInHoleTexture();
         _precisePosition = spawn;
         _lastSafePosition = spawn;
-        Position = spawn.Round();
+        Position = ToObjectPixelPosition(spawn);
         QueueRedraw();
     }
 
@@ -87,7 +87,7 @@ public partial class Player : Node2D
         _precisePosition = position;
         if (recordSafe)
             _lastSafePosition = position;
-        Position = position.Round();
+        Position = ToObjectPixelPosition(position);
         Visible = true;
         QueueRedraw();
     }
@@ -95,7 +95,7 @@ public partial class Player : Node2D
     public void BeginScrollingTransition(Vector2 position, Vector2I direction)
     {
         _precisePosition = position;
-        Position = position.Round();
+        Position = ToObjectPixelPosition(position);
         Face(direction);
         _walking = false;
         _attackTime = 0.0f;
@@ -105,7 +105,7 @@ public partial class Player : Node2D
     public void SetScrollingTransitionPosition(Vector2 logicalPosition, Vector2 screenScroll)
     {
         _precisePosition = logicalPosition;
-        Position = (logicalPosition - screenScroll).Round();
+        Position = ToObjectPixelPosition(logicalPosition - screenScroll);
         QueueRedraw();
     }
 
@@ -135,7 +135,7 @@ public partial class Player : Node2D
     public void SetRoomWarpWalkPosition(Vector2 position, double delta)
     {
         _precisePosition = position;
-        Position = position.Round();
+        Position = ToObjectPixelPosition(position);
         _walking = true;
         _walkTime += (float)delta;
         QueueRedraw();
@@ -289,7 +289,7 @@ public partial class Player : Node2D
             TryMove(terrainPush, allowWallSlide: false);
         }
 
-        Position = _precisePosition.Round();
+        Position = ToObjectPixelPosition(_precisePosition);
         if (!_world.CheckTileWarp(this))
             _world.CheckRoomExit(this);
         if (!_world.IsTransitioning)
@@ -366,6 +366,13 @@ public partial class Player : Node2D
         if (_attackTime <= 0.0f && _world.TryStartLedgeHop(this, _precisePosition, movement))
             return;
     }
+
+    // The original object coordinates are 8.8 fixed point. Collision uses the
+    // high bytes (xh/yh), and OAM rendering uses those same bytes; it never
+    // rounds the fractional position to the nearest pixel.
+    private static Vector2 ToObjectPixelPosition(Vector2 position) => new(
+        Mathf.Floor(position.X),
+        Mathf.Floor(position.Y));
 
     private void UpdateFacing(Vector2 input)
     {
@@ -455,7 +462,7 @@ public partial class Player : Node2D
         else if (phase == 1)
             _precisePosition.X = MoveOnePixelToward(_precisePosition.X, _holePullCenter.X);
 
-        Position = _precisePosition.Round();
+        Position = ToObjectPixelPosition(_precisePosition);
 
         if (Mathf.Abs(_precisePosition.X - _holePullCenter.X) < 3.0f &&
             Mathf.Abs(_precisePosition.Y - _holePullCenter.Y) < 3.0f)
@@ -492,7 +499,7 @@ public partial class Player : Node2D
         // rounded-vs-precise coordinates cannot recenter Link on a neighboring
         // solid tile at tile boundaries.
         _precisePosition = holeCenter;
-        Position = _precisePosition.Round();
+        Position = ToObjectPixelPosition(_precisePosition);
         Visible = true;
         QueueRedraw();
     }
@@ -555,7 +562,7 @@ public partial class Player : Node2D
         float t = Mathf.Min(_ledgeHopTime / 0.32f, 1.0f);
         float eased = t * t * (3.0f - 2.0f * t);
         _precisePosition = _ledgeStart.Lerp(_ledgeEnd, eased);
-        Position = _precisePosition.Round();
+        Position = ToObjectPixelPosition(_precisePosition);
         if (t >= 1.0f)
         {
             _ledgeHopping = false;

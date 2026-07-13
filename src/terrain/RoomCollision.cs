@@ -149,6 +149,11 @@ public sealed class RoomCollision
                 walls |= 1;
         }
 
+        // Intentional original-engine quirk: these are endpoint probes, not a
+        // continuous outline. At Link y=$3f, room 0:56's four-pixel $1a rail
+        // can sit between a side pair and be crossed. Keep this for parity;
+        // a future optional collision-polish mode could fill those gaps.
+
         // Ages normalizes these two asymmetric patterns after calculating the
         // bitset (specialObjectUpdateAdjacentWallsBitset@data).
         return walls switch

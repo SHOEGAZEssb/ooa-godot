@@ -250,6 +250,25 @@ public partial class GameRoot
         // west, including the lower corner shown in the reported stuck case.
         ValidateBridgeSlidePath(new Vector2(44, 62), expectUp: true);
         ValidateBridgeSlidePath(new Vector2(44, 92), expectUp: false);
+
+        // A fractional fixed-point remainder is possible when Link walks onto
+        // the bridge after moving over slower terrain. At y=70.5 the upper
+        // rail correctly blocks another upward step, while the original yh
+        // coordinate (and therefore the rendered sprite) remains row 70.
+        Vector2 fractionalStop = new(56, 70.5f);
+        if (_collision.ResolveMovement(
+                fractionalStop, Vector2.Up, allowWallSlide: true) != Vector2.Zero)
+        {
+            throw new InvalidOperationException(
+                "Room 0:56's upper bridge rail did not block the fractional direct approach.");
+        }
+
+        _player.WarpTo(fractionalStop, recordSafe: false);
+        if (_player.Position != new Vector2(56, 70))
+        {
+            throw new InvalidOperationException(
+                "Link's fixed-point bridge position was rounded instead of rendered from yh/xh.");
+        }
     }
 
     private void ValidateBridgeSlidePath(Vector2 start, bool expectUp)
