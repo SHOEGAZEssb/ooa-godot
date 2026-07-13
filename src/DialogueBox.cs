@@ -47,6 +47,11 @@ public partial class DialogueBox : Node2D
 
     public void ShowMessage(string message, float linkY)
     {
+        ShowMessage(message, linkY, 0);
+    }
+
+    public void ShowMessage(string message, float linkY, int textPosition)
+    {
         _lines = message.Replace("\r", "").Split('\n');
         _page = 0;
         _openedFrame = Engine.GetProcessFrames();
@@ -59,7 +64,9 @@ public partial class DialogueBox : Node2D
 
         // Port of initTextbox: Link above $48 puts the box at tilemap offset
         // $0140 (y=80); otherwise it uses $0020 (y=8).
-        Position = new Vector2(0, linkY < 0x48 ? 80 : 8);
+        // Text command \pos(2) explicitly selects the lower textbox. Without
+        // a command, initTextbox chooses the side opposite Link.
+        Position = new Vector2(0, textPosition == 2 || linkY < 0x48 ? 80 : 8);
         Visible = true;
         QueueRedraw();
     }

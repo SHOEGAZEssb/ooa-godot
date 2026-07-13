@@ -453,12 +453,14 @@ function Normalize-NpcText([string]$text) {
     $text = $text.Replace('\right', [string][char]0x2192)
     $text = $text.Replace('\up', [string][char]0x2191)
     $text = $text.Replace('\down', [string][char]0x2193)
+    $text = $text.Replace('\Link', 'Link')
     return [regex]::Replace($text, '\\(?:stop|pos\([^)]*\)|col\([^)]*\))', '')
 }
 
 # Resolve all text blocks once. This also handles the low-index generic-NPC
 # commands, whose source still spells the complete TX_XXXX symbol.
 $allTexts = @{}
+$allTextPositions = @{}
 $allTextMatches = [regex]::Matches(
     $textYaml,
     '(?ms)^  - name: TX_(?<id>[0-9a-f]{4})\r?\n    index: 0x[0-9a-f]{2}\r?\n    text: \|-\r?\n(?<body>(?:      [^\r\n]*(?:\r?\n|\z))+)'
@@ -470,7 +472,33 @@ foreach ($match in $allTextMatches) {
     while ($lines.Count -gt 0 -and $lines[-1] -eq '') {
         $lines = $lines[0..($lines.Count - 2)]
     }
-    $allTexts[[Convert]::ToInt32($match.Groups['id'].Value, 16)] = Normalize-NpcText ($lines -join "`n")
+    $textId = [Convert]::ToInt32($match.Groups['id'].Value, 16)
+    $rawText = $lines -join "`n"
+    $allTexts[$textId] = Normalize-NpcText $rawText
+    $positionMatch = [regex]::Match($rawText, '\\pos\((?<position>\d+)\)')
+    if ($positionMatch.Success) { $allTextPositions[$textId] = [int]$positionMatch.Groups['position'].Value }
+}
+# Shared text bodies use a YAML name/index list. Resolve every alias as well;
+# cutscene scripts refer to the individual TX_* names even when several IDs
+# intentionally share one body.
+foreach ($match in [regex]::Matches(
+    $textYaml,
+    '(?ms)^  - name:\r?\n(?<names>(?:    - TX_[0-9a-f]{4}\r?\n)+)    index:\r?\n(?:    - 0x[0-9a-f]{2}\r?\n)+    text: \|-\r?\n(?<body>(?:      [^\r\n]*(?:\r?\n|\z))+)'
+)) {
+    $lines = $match.Groups['body'].Value -split '\r?\n' | ForEach-Object {
+        if ($_.Length -ge 6) { $_.Substring(6) } else { '' }
+    }
+    while ($lines.Count -gt 0 -and $lines[-1] -eq '') {
+        $lines = $lines[0..($lines.Count - 2)]
+    }
+    $rawText = $lines -join "`n"
+    $message = Normalize-NpcText $rawText
+    $positionMatch = [regex]::Match($rawText, '\\pos\((?<position>\d+)\)')
+    foreach ($name in [regex]::Matches($match.Groups['names'].Value, 'TX_(?<id>[0-9a-f]{4})')) {
+        $textId = [Convert]::ToInt32($name.Groups['id'].Value, 16)
+        $allTexts[$textId] = $message
+        if ($positionMatch.Success) { $allTextPositions[$textId] = [int]$positionMatch.Groups['position'].Value }
+    }
 }
 
 function Read-ConstantIds([string]$path, [string]$prefix) {
@@ -1131,6 +1159,129 @@ foreach ($spriteName in $npcSpriteNames) {
 }
 $npcPath = Join-Path $destination "objects\npcs.tsv"
 [IO.File]::WriteAllLines($npcPath, $npcRows, [Text.UTF8Encoding]::new($false))
+
+# The first present Maku Tree visit is interaction $87 subid $01, selected
+# from room 0:38's $87:$00 object while wMakuTreeState and GLOBALFLAG_0c are
+# both clear. Export its complete simulated-input/script timing, all five tree
+# animations, text, hardcoded destination, and four cycling background
+# palettes instead of encoding disassembly-only details in runtime code.
+$makuTreeSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\makuTree.s')
+$makuScriptSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+$makuCutsceneSource = Get-Content -Raw (
+    Join-Path $Disassembly 'code\ages\cutscenes\miscCutscenes.s')
+$makuInputMatch = [regex]::Match(
+    $makuTreeSource,
+    '(?ms)@simulatedInput:\s*dwb\s+(?<idle>\d+)\s+\$00\s+dwb\s+(?<right>\d+)\s+BTN_RIGHT\s+dwb\s+(?<stop>\d+)\s+\$00\s+dwb\s+(?<up>\d+)\s+BTN_UP\s+dwb\s+(?<tail>\d+)\s+\$00')
+if (-not $makuInputMatch.Success) {
+    throw 'Could not parse the Maku Tree disappearance simulated-input record.'
+}
+$makuScriptMatch = [regex]::Match(
+    $makuScriptSource,
+    '(?ms)makuTree_subid01Script_body:(?<body>.*?)(?=^makuTree_subid02Script_body:)')
+if (-not $makuScriptMatch.Success) {
+    throw 'Could not parse makuTree_subid01Script_body.'
+}
+$makuWaits = @([regex]::Matches($makuScriptMatch.Groups['body'].Value, '(?m)^\s*wait\s+(?<frames>\d+)') |
+    ForEach-Object { [int]$_.Groups['frames'].Value })
+if ($makuWaits.Count -ne 6 -or ($makuWaits -join ',') -ne '210,60,60,210,210,150') {
+    throw "Unexpected Maku Tree disappearance waits: $($makuWaits -join ',')."
+}
+$makuWarpMatch = [regex]::Match(
+    $makuCutsceneSource,
+    'm_HardcodedWarpA\s+ROOM_AGES_(?<room>[0-9a-f]{3}),\s*\$(?<source>[0-9a-f]{2}),\s*\$(?<position>[0-9a-f]{2}),\s*\$(?<transition2>[0-9a-f]{2})')
+if (-not $makuWarpMatch.Success -or $makuWarpMatch.Groups['room'].Value -ne '038') {
+    throw 'Could not parse the Maku Tree disappearance hardcoded warp.'
+}
+$makuAnimations = @(0..4 | ForEach-Object { Resolve-NpcAnimation 0x87 $_ })
+if (($makuAnimations | Where-Object { -not $_ }).Count -ne 0) {
+    throw 'Could not resolve all five INTERAC_MAKU_TREE animations.'
+}
+# interactionLoadExtraGraphics follows object graphics header $04 until the
+# stop bit on $05, appending the second 16-tile sheet after the first.
+$makuGfxIndex = $interactionGraphics['135:0'].Gfx
+$makuExtraSprite = $gfxNames[$makuGfxIndex + 1]
+$objectGfxSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\objectGfxHeaders.s')
+if ($makuGfxIndex -ne 0x04 -or $makuExtraSprite -ne 'spr_makuadultsprites_2' -or
+    $objectGfxSource -notmatch '/\* \$05 \*/ m_ObjectGfxHeader spr_makuadultsprites_2, 1') {
+    throw 'Could not resolve the Maku Tree extra object-graphics header chain $04-$05.'
+}
+$makuExtraSource = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
+    ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Filter "$makuExtraSprite.png" } |
+    Select-Object -First 1
+if ($null -eq $makuExtraSource) { throw "Maku Tree extra sprite not found: $makuExtraSprite.png" }
+Copy-Item -LiteralPath $makuExtraSource.FullName -Destination (
+    Join-Path $destination "gfx\$makuExtraSprite.png") -Force
+foreach ($textId in @(0x0564, 0x0540, 0x0541)) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve Maku Tree cutscene text TX_$($textId.ToString('x4'))."
+    }
+    if (-not $allTextPositions.ContainsKey($textId) -or $allTextPositions[$textId] -ne 2) {
+        throw "Expected Maku Tree cutscene text TX_$($textId.ToString('x4')) to use \\pos(2)."
+    }
+}
+$makuColumns = [Collections.Generic.List[string]]::new()
+$makuColumns.AddRange([string[]]@(
+    '0', '38', '87', '00',
+    $makuInputMatch.Groups['idle'].Value,
+    $makuInputMatch.Groups['right'].Value,
+    $makuInputMatch.Groups['stop'].Value,
+    $makuInputMatch.Groups['up'].Value,
+    $makuInputMatch.Groups['tail'].Value
+))
+foreach ($wait in $makuWaits) { $makuColumns.Add($wait.ToString()) }
+$transition2 = [Convert]::ToInt32($makuWarpMatch.Groups['transition2'].Value, 16)
+$makuColumns.AddRange([string[]]@(
+    [Convert]::ToInt32($makuWarpMatch.Groups['source'].Value, 16).ToString(),
+    '0',
+    $makuWarpMatch.Groups['room'].Value.Substring(1),
+    $makuWarpMatch.Groups['position'].Value,
+    (($transition2 -shr 4) -band 0x07).ToString(),
+    ($transition2 -band 0x03).ToString()
+))
+$makuColumns.AddRange([string[]]$makuAnimations)
+$makuColumns.Add($makuExtraSprite)
+$makuColumns.Add('2')
+foreach ($textId in @(0x0564, 0x0540, 0x0541)) {
+    $makuColumns.Add([Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($allTexts[$textId])))
+}
+$makuEventRows = @(
+    "# group`troom`tid`tsubid`tinput-idle`tinput-right`tinput-stop`tinput-up`tinput-tail`tintro-delay`tpost-intro`tfrown-delay`tdisappearance`tpost-ahh`tfinish-delay`tsource-transition`tdestination-group`tdestination-room`tdestination-position`tdestination-parameter`tdestination-transition`tanimation0`tanimation1`tanimation2`tanimation3`tanimation4`textra-sprite`ttextbox-position`tintro-base64`tahh-base64`thelp-base64",
+    ($makuColumns -join "`t")
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\maku_tree_cutscene.tsv'),
+    $makuEventRows,
+    [Text.UTF8Encoding]::new($false))
+
+$makuPaletteLabels = @('paletteData4530', 'paletteData4550', 'paletteData4500', 'paletteData4570')
+$makuPaletteBytes = [Collections.Generic.List[byte]]::new()
+foreach ($label in $makuPaletteLabels) {
+    $labelIndex = $paletteDataSource.IndexOf("${label}:", [StringComparison]::Ordinal)
+    if ($labelIndex -lt 0) { throw "Maku Tree palette data not found: $label" }
+    $nextLabel = $paletteDataSource.IndexOf(
+        'paletteData', $labelIndex + $label.Length, [StringComparison]::Ordinal)
+    if ($nextLabel -lt 0) { $nextLabel = $paletteDataSource.Length }
+    $block = $paletteDataSource.Substring($labelIndex, $nextLabel - $labelIndex)
+    $colors = [regex]::Matches(
+        $block,
+        'm_RGB16\s+\$(?<r>[0-9a-f]{2})\s+\$(?<g>[0-9a-f]{2})\s+\$(?<b>[0-9a-f]{2})')
+    if ($colors.Count -lt 16) { throw "$label contains fewer than four background palettes." }
+    for ($color = 0; $color -lt 16; $color++) {
+        $makuPaletteBytes.Add([Convert]::ToByte($colors[$color].Groups['r'].Value, 16))
+        $makuPaletteBytes.Add([Convert]::ToByte($colors[$color].Groups['g'].Value, 16))
+        $makuPaletteBytes.Add([Convert]::ToByte($colors[$color].Groups['b'].Value, 16))
+    }
+}
+if ($makuPaletteBytes.Count -ne 192) {
+    throw "Expected 192 Maku Tree disappearance palette bytes, got $($makuPaletteBytes.Count)."
+}
+[IO.File]::WriteAllBytes(
+    (Join-Path $destination 'metadata\maku_tree_disappear_palettes.bin'),
+    $makuPaletteBytes.ToArray())
 
 # Keese are the first supported enemy. Their room records use random-position
 # enemy opcodes, while their attributes, animations, OAM, and graphics are in

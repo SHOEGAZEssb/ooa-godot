@@ -16,6 +16,7 @@ public partial class GameRoot
 
         ValidateSigns();
         ValidateNpcs();
+        ValidateMakuTreeDisappearanceCutscene();
         ValidateAnimations();
         ValidateSwordBush();
         ValidateKeese();
@@ -2402,6 +2403,156 @@ public partial class GameRoot
         GD.Print("Validated villager idle animation, $28 Link awareness, 30-frame facing delay, " +
             "TX_1420 dialogue, retained/preloaded NPC screen scrolling, room 0:66 " +
             "Link-relative draw priority, and Link sprite palette 0.");
+    }
+
+    private void ValidateMakuTreeDisappearanceCutscene()
+    {
+        LoadValidationRoom(0, 0x38);
+        // The event is entered through room position $52 (the open $dc tile),
+        // before its simulated right/up approach takes over.
+        _player.WarpTo(new Vector2(0x28, 0x58));
+        NpcCharacter? makuTree = _npcNodes.Find(npc =>
+            npc.Record.Id == 0x87 && npc.Record.SubId == 0x00);
+        if (makuTree is null || !_roomEvents.Active || !makuTree.Active ||
+            makuTree.Position != new Vector2(0x50, 0x40))
+        {
+            throw new InvalidOperationException(
+                "Room 0:38 did not start the $87:$01 Maku Tree entry event at $40/$50.");
+        }
+        if (makuTree.CurrentAnimationTextureSize.X <= 32 ||
+            makuTree.CurrentAnimationTextureSize.Y <= 32 ||
+            makuTree.CurrentAnimationOffset.Y >= -16)
+        {
+            throw new InvalidOperationException(
+                $"The Maku Tree face OAM was clipped to an ordinary NPC canvas " +
+                $"(size={makuTree.CurrentAnimationTextureSize}, offset={makuTree.CurrentAnimationOffset}).");
+        }
+
+        Vector2 inputStart = _player.Position;
+        StepRoomEventFrames(60);
+        if (_player.Position != inputStart)
+            throw new InvalidOperationException("Maku Tree simulated input did not begin with 60 idle updates.");
+        StepRoomEventFrames(48);
+        if (_roomEvents.InputFrame != 108 || _player.FacingVector != Vector2I.Right ||
+            _player.Position.X <= inputStart.X)
+        {
+            throw new InvalidOperationException(
+                $"Maku Tree simulated input did not hold BTN_RIGHT for exactly 48 updates " +
+                $"(input={_roomEvents.InputFrame}, facing={_player.FacingVector}, " +
+                $"start={inputStart}, current={_player.Position}).");
+        }
+        StepRoomEventFrames(4);
+        Vector2 beforeUp = _player.Position;
+        StepRoomEventFrames(14);
+        if (_roomEvents.InputFrame != 126 || _player.FacingVector != Vector2I.Up ||
+            _player.Position.Y >= beforeUp.Y)
+        {
+            throw new InvalidOperationException(
+                "Maku Tree simulated input did not hold BTN_UP for exactly 14 updates.");
+        }
+        StepRoomEventFrames(84);
+        if (!_dialogue.IsOpen || _dialogue.Position.Y != 80 ||
+            !_dialogue.CurrentMessage.StartsWith("Pleased to meet\nyou, young hero."))
+        {
+            throw new InvalidOperationException(
+                "TX_0564 did not open after the original 210-update introduction delay.");
+        }
+
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        StepRoomEventFrames(60);
+        if (makuTree.CurrentAnimationFrame != 0 || makuTree.CurrentAnimationOpaquePixels == 0)
+            throw new InvalidOperationException(
+                "The Maku Tree frown animation did not reset to a visible frame zero.");
+        StepRoomEventFrames(4);
+        if (makuTree.CurrentAnimationFrame != 1)
+            throw new InvalidOperationException(
+                "INTERAC_MAKU_TREE animation 4 did not use its original four-update first frame.");
+        StepRoomEventFrames(56);
+
+        int paletteBefore = _roomEvents.PaletteHeader;
+        StepRoomEventFrames(8);
+        if (_roomEvents.PaletteHeader == paletteBefore)
+            throw new InvalidOperationException(
+                "The $9a/$c4/$8f/$c5 Maku Tree palettes did not cycle within eight updates.");
+        StepRoomEventFrames(202);
+        if (!_dialogue.IsOpen || _dialogue.Position.Y != 80 || _dialogue.CurrentMessage != "Ahh...")
+            throw new InvalidOperationException("TX_0540 did not open after 210 disappearance updates.");
+
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        StepRoomEventFrames(210);
+        if (!_dialogue.IsOpen || _dialogue.Position.Y != 80 ||
+            !_dialogue.CurrentMessage.StartsWith("I feel so weird.\nI'm vanishing!"))
+            throw new InvalidOperationException("TX_0541 did not follow the original 210-update pause.");
+
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        StepRoomEventFrames(150);
+        if (!_roomEvents.Completed || _roomEvents.Active || !IsTransitioning ||
+            _activeGroup != 0 || _currentRoom.Id != 0x38)
+        {
+            throw new InvalidOperationException(
+                "The Maku Tree event did not initiate its hardcoded same-room warp after 150 updates.");
+        }
+        if (_currentRoom.TilesetId != 0x22 || !makuTree.Active || _warpFade.Color.A != 0.0f)
+        {
+            throw new InvalidOperationException(
+                "The delayed $83 fade replaced room 0:38 before beginning its transition to white.");
+        }
+
+        for (int frame = 0; frame < RoomTransitionController.DelayedWarpFadeFrames - 1; frame++)
+            UpdateRoomWarpTransition(1.0 / 60.0);
+        if (_currentRoom.TilesetId != 0x22 || _warpFade.Color.A <= 0.9f ||
+            _warpFade.Color.A >= 1.0f)
+        {
+            throw new InvalidOperationException(
+                $"The $83 delayed fade did not retain the old layout for 124 updates " +
+                $"(tileset={_currentRoom.TilesetId:x2}, alpha={_warpFade.Color.A}).");
+        }
+        UpdateRoomWarpTransition(1.0 / 60.0);
+        NpcCharacter? reloadedTree = _npcNodes.Find(npc =>
+            npc.Record.Id == 0x87 && npc.Record.SubId == 0x00);
+        if (reloadedTree is null || reloadedTree.Active ||
+            !_rooms.IsLayoutSwapped(0, 0x38) || _currentRoom.TilesetId != 0x23 ||
+            _currentRoom.GetMetatile(new Vector2(0x48, 0x28)) != 0xf9)
+        {
+            throw new InvalidOperationException(
+                $"Room flag bit 0 did not load group 2's tree-less room 0:38 layout and suppress $87 " +
+                $"(tree={reloadedTree is not null}/{reloadedTree?.Active}, " +
+                $"swap={_rooms.IsLayoutSwapped(0, 0x38)}, tileset={_currentRoom.TilesetId:x2}, " +
+                $"tile24={_currentRoom.GetMetatile(new Vector2(0x48, 0x28)):x2}).");
+        }
+
+        for (int frame = 0; frame < WarpFadeFrames; frame++)
+            UpdateRoomWarpTransition(1.0 / 60.0);
+        if (IsTransitioning || _player.Position != new Vector2(0x58, 0x48))
+        {
+            throw new InvalidOperationException(
+                $"The room $38/$45 hardcoded warp did not remain at $48/$58; got {_player.Position}.");
+        }
+        _player._PhysicsProcess(1.0 / 60.0);
+        if (_activeGroup != 0 || _currentRoom.Id != 0x38 || IsTransitioning)
+            throw new InvalidOperationException(
+                "The $45 re-entry incorrectly walked Link into room 0:38's $ee/$ef warp to 5:cf.");
+
+        LoadValidationRoom(0, 0x38);
+        reloadedTree = _npcNodes.Find(npc => npc.Record.Id == 0x87 && npc.Record.SubId == 0x00);
+        if (_roomEvents.Active || reloadedTree is null || reloadedTree.Active)
+            throw new InvalidOperationException("The completed Maku Tree entry event retriggered on room reload.");
+
+        GD.Print("Validated room 0:38 Maku Tree $87:$01 simulated input, two-sheet unclipped face OAM, " +
+            "fixed-bottom \\pos(2) dialogue, 210/60/60/210/210/150 timing, four-header " +
+            "palette cycle, delayed 125-update white fade, and one-shot $45 re-entry warp.");
+    }
+
+    private void StepRoomEventFrames(int frames)
+    {
+        for (int frame = 0; frame < frames; frame++)
+        {
+            _entities.Update(1.0 / 60.0, _player);
+            _roomEvents.Update(1.0 / 60.0);
+        }
     }
 
     private void ValidateStartupTransition()

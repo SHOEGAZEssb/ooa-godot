@@ -16,6 +16,7 @@ public partial class GameRoot : Node2D
     private RoomTransitionController _transitions = null!;
     private RoomEntityManager _entities = null!;
     private InteractionController _interactions = null!;
+    private RoomEventController _roomEvents = null!;
     private PushBlockController _pushBlocks = null!;
     private TerrainController _terrain = null!;
     private CombatController _combat = null!;
@@ -102,6 +103,7 @@ public partial class GameRoot : Node2D
             return;
         _transitions.Update(delta);
         _entities.Update(delta, _player);
+        _roomEvents.Update(delta);
         _interactions.Update(delta, _player);
         UpdateAnimatedTiles(delta);
         UpdateRoomDebugLabel();
@@ -126,6 +128,9 @@ public partial class GameRoot : Node2D
             _rooms, _entities, new SignDatabase(), new ChestDatabase(), _treasures, _dialogue,
             this, _roomView, _transitions.WorldToScreen, () => (long)_animationTicks,
             _inventory);
+        _roomEvents = new RoomEventController(
+            _rooms, _entities, _transitions, _dialogue, _player, _roomView,
+            _transitions.WorldToScreen, () => (long)_animationTicks);
         _bracelet = new BraceletController(
             _rooms, new BreakableTileDatabase(), _roomView, () => (long)_animationTicks);
         _terrain = new TerrainController(this, _rooms, _collision.Collides);
@@ -138,18 +143,18 @@ public partial class GameRoot : Node2D
             this, _rooms, _roomView, _entities, () => (long)_animationTicks);
         _playerWorld = new PlayerWorld(
             _transitions, _interactions, _collision, _pushBlocks, _terrain, _combat, _entities,
-            _bracelet,
+            _bracelet, _roomEvents,
             _inventory);
         _debugWarps = new DebugWarpController(
             _rooms, _player, LoadDebugRoom, FindSpawn, () => (long)_animationTicks,
             _interactions.ResetChestForTesting);
         _mapMenu = new MapMenuController(
             _mapScreen, _scene.MenuFade, _player, _roomDebug,
-            () => !IsTransitioning && !DialogueOpen && !InventoryMenuOpen,
+            () => !IsTransitioning && !DialogueOpen && !InventoryMenuOpen && !_roomEvents.Active,
             FastTravelFromMap);
         _inventoryMenu = new InventoryMenuController(
             _inventoryScreen, _player, _roomDebug,
-            () => !IsTransitioning && !DialogueOpen && !MapMenuOpen);
+            () => !IsTransitioning && !DialogueOpen && !MapMenuOpen && !_roomEvents.Active);
     }
 
     private void ScheduleRequestedValidation()

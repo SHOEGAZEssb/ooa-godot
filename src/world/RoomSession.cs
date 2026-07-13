@@ -19,6 +19,7 @@ public sealed class RoomSession
     public int MinimapRoom { get; private set; }
 
     private readonly HashSet<(int Group, int Room)> _visitedRooms = new();
+    private readonly HashSet<(int Group, int Room)> _layoutSwappedRooms = new();
 
     public RoomSession(
         int startingGroup,
@@ -31,7 +32,7 @@ public sealed class RoomSession
         World = new OracleWorldData();
         DungeonMaps = new DungeonMapDatabase();
         ActiveGroup = startingGroup;
-        CurrentRoom = World.LoadRoom(startingGroup, startingRoom);
+        CurrentRoom = GetRoom(startingGroup, startingRoom);
         MinimapGroup = startingGroup;
         MinimapRoom = startingRoom;
         MarkRoomVisited(startingGroup, startingRoom);
@@ -42,7 +43,7 @@ public sealed class RoomSession
     {
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
         ActiveGroup = group;
-        CurrentRoom = World.LoadRoom(group, room);
+        CurrentRoom = GetRoom(group, room);
         MarkRoomVisited(group, room);
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
         RoomChanged?.Invoke(ActiveGroup, CurrentRoom);
@@ -72,6 +73,25 @@ public sealed class RoomSession
     {
         ActiveGroup = group;
     }
+
+    public OracleRoomData GetRoom(int group, int room)
+    {
+        int dataGroup = group is 0 or 1 && _layoutSwappedRooms.Contains((group, room))
+            ? group + 2
+            : group;
+        return World.LoadRoom(group, room, dataGroup);
+    }
+
+    public void SetLayoutSwapped(int group, int room)
+    {
+        if (group is not (0 or 1))
+            throw new ArgumentOutOfRangeException(
+                nameof(group), "ROOMFLAG_LAYOUTSWAP only redirects overworld groups 0 and 1.");
+        _layoutSwappedRooms.Add((group, room));
+    }
+
+    internal bool IsLayoutSwapped(int group, int room) =>
+        _layoutSwappedRooms.Contains((group, room));
 
     public bool HasVisited(int group, int room) => _visitedRooms.Contains((group, room));
 

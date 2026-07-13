@@ -14,7 +14,7 @@ public sealed class OracleWorldData
 
     private readonly byte[] _tilesetMetadata;
     private readonly Dictionary<int, byte[]> _groupTilesets = new();
-    private readonly Dictionary<(int Group, int Room), OracleRoomData> _rooms = new();
+    private readonly Dictionary<(int Group, int Room, int DataGroup), OracleRoomData> _rooms = new();
     private readonly Dictionary<int, Image> _graphics = new();
     private readonly Dictionary<int, byte[]> _mappings = new();
     private readonly Dictionary<int, byte[]> _collisions = new();
@@ -47,11 +47,16 @@ public sealed class OracleWorldData
 
     public OracleRoomData LoadRoom(int group, int room)
     {
-        var key = (group, room);
-        if (!HasRoom(group, room))
+        return LoadRoom(group, room, group);
+    }
+
+    public OracleRoomData LoadRoom(int group, int room, int dataGroup)
+    {
+        var key = (group, room, dataGroup);
+        if (!HasRoom(dataGroup, room))
             throw new InvalidOperationException($"Room {group:x1}:{room:x2} is not available.");
 
-        int tileset = GetTilesetId(group, room);
+        int tileset = GetTilesetId(dataGroup, room);
         if (_rooms.TryGetValue(key, out OracleRoomData? cached))
         {
             if (cached.TilesetId == tileset)

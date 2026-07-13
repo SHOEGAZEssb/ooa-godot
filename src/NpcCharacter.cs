@@ -15,19 +15,23 @@ public partial class NpcCharacter : Node2D
 
     private enum Facing { Up, Right, Down, Left }
 
-    private sealed record AnimationFrame(Texture2D Texture, int Duration);
+    private sealed record AnimationFrame(Texture2D Texture, int Duration, Vector2 Offset);
 
     private readonly List<AnimationFrame>[] _facingAnimations =
     {
         new(), new(), new(), new()
     };
+    private readonly List<AnimationFrame> _scriptAnimation = new();
+    private Image _sourceImage = null!;
     private Facing _facing = Facing.Down;
     private int _animationFrame;
     private double _animationTicks;
     private double _faceCooldownFrames;
     private Vector2 _transitionDrawOffset;
+    private bool _scriptAnimationActive;
 
     public NpcDatabase.NpcRecord Record { get; private set; }
+    public bool Active { get; private set; } = true;
     public string Message => Record.Message;
     public int TextId => Record.TextId;
     public const float CollisionRadius = 6.0f;
@@ -36,6 +40,31 @@ public partial class NpcCharacter : Node2D
     public Rect2 SpriteBounds => new(Position + new Vector2(-8, -8), new Vector2(16, 16));
     public int CurrentFrameColumn => GetFrameColumn();
     public int CurrentAnimationFrame => _animationFrame;
+    internal Vector2 CurrentAnimationOffset => CurrentAnimation.Count == 0
+        ? Vector2.Zero
+        : CurrentAnimation[_animationFrame % CurrentAnimation.Count].Offset;
+    internal Vector2I CurrentAnimationTextureSize => CurrentAnimation.Count == 0
+        ? Vector2I.Zero
+        : new Vector2I(
+            CurrentAnimation[_animationFrame % CurrentAnimation.Count].Texture.GetWidth(),
+            CurrentAnimation[_animationFrame % CurrentAnimation.Count].Texture.GetHeight());
+    internal int CurrentAnimationOpaquePixels
+    {
+        get
+        {
+            if (CurrentAnimation.Count == 0)
+                return 0;
+            Image image = CurrentAnimation[_animationFrame % CurrentAnimation.Count].Texture.GetImage();
+            int count = 0;
+            for (int y = 0; y < image.GetHeight(); y++)
+            for (int x = 0; x < image.GetWidth(); x++)
+            {
+                if (image.GetPixel(x, y).A > 0.1f)
+                    count++;
+            }
+            return count;
+        }
+    }
     public Vector2 TransitionDrawOffset => _transitionDrawOffset;
     public Vector2I FacingVector => _facing switch
     {
@@ -60,6 +89,7 @@ public partial class NpcCharacter : Node2D
         byte[] bytes = FileAccess.GetFileAsBytes($"res://assets/oracle/gfx/{record.SpriteName}.png");
         Image image = new();
         image.LoadPngFromBuffer(bytes);
+        _sourceImage = image;
         _facingAnimations[(int)Facing.Up].AddRange(BuildAnimation(image, record.UpAnimation, record.TileBase, record.Palette));
         _facingAnimations[(int)Facing.Right].AddRange(BuildAnimation(image, record.RightAnimation, record.TileBase, record.Palette));
         _facingAnimations[(int)Facing.Down].AddRange(BuildAnimation(image, record.DownAnimation, record.TileBase, record.Palette));
@@ -70,6 +100,8 @@ public partial class NpcCharacter : Node2D
 
     public bool BlocksLinkCenter(Vector2 linkCenter)
     {
+        if (!Active)
+            return false;
         Vector2 delta = linkCenter - Position;
         return Mathf.Abs(delta.X) < LinkBlockingRadius &&
             Mathf.Abs(delta.Y) < LinkBlockingRadius;
@@ -77,7 +109,7 @@ public partial class NpcCharacter : Node2D
 
     public bool CanTalkTo(Player player)
     {
-        if (TextId == 0 || string.IsNullOrEmpty(Message))
+        if (!Active || TextId == 0 || string.IsNullOrEmpty(Message))
             return false;
         Vector2 talkPoint = player.Position + (Vector2)player.FacingVector * 8.0f;
         return InteractionBounds.HasPoint(talkPoint);
@@ -92,6 +124,8 @@ public partial class NpcCharacter : Node2D
 
     public void UpdateNpc(double delta, Vector2 linkPosition)
     {
+        if (!Active)
+            return;
         UpdateDrawPriority(linkPosition);
         AdvanceAnimation(delta);
         if (!Record.CanFace)
@@ -128,18 +162,60 @@ public partial class NpcCharacter : Node2D
         QueueRedraw();
     }
 
+    internal void SetScriptAnimation(string encodedAnimation)
+    {
+        _scriptAnimation.Clear();
+        _scriptAnimation.AddRange(BuildPositionedAnimation(
+            _sourceImage, encodedAnimation, Record.TileBase, Record.Palette));
+        _scriptAnimationActive = _scriptAnimation.Count > 0;
+        _animationFrame = 0;
+        _animationTicks = 0.0;
+        QueueRedraw();
+    }
+
+    internal void AppendScriptGraphics(string spriteName)
+    {
+        byte[] bytes = FileAccess.GetFileAsBytes($"res://assets/oracle/gfx/{spriteName}.png");
+        Image extra = new();
+        extra.LoadPngFromBuffer(bytes);
+        _sourceImage.Convert(Image.Format.Rgba8);
+        extra.Convert(Image.Format.Rgba8);
+        Image combined = Image.CreateEmpty(
+            _sourceImage.GetWidth() + extra.GetWidth(),
+            Math.Max(_sourceImage.GetHeight(), extra.GetHeight()),
+            false,
+            Image.Format.Rgba8);
+        combined.BlitRect(
+            _sourceImage,
+            new Rect2I(0, 0, _sourceImage.GetWidth(), _sourceImage.GetHeight()),
+            Vector2I.Zero);
+        combined.BlitRect(
+            extra,
+            new Rect2I(0, 0, extra.GetWidth(), extra.GetHeight()),
+            new Vector2I(_sourceImage.GetWidth(), 0));
+        _sourceImage = combined;
+    }
+
+    internal void SetActive(bool active)
+    {
+        Active = active;
+        Visible = active;
+        QueueRedraw();
+    }
+
     public override void _Draw()
     {
-        List<AnimationFrame> animation = _facingAnimations[(int)_facing];
+        List<AnimationFrame> animation = CurrentAnimation;
         if (animation.Count > 0)
-            DrawTexture(
-                animation[_animationFrame % animation.Count].Texture,
-                new Vector2(-16, -16) + _transitionDrawOffset);
+        {
+            AnimationFrame frame = animation[_animationFrame % animation.Count];
+            DrawTexture(frame.Texture, frame.Offset + _transitionDrawOffset);
+        }
     }
 
     private void AdvanceAnimation(double delta)
     {
-        List<AnimationFrame> animation = _facingAnimations[(int)_facing];
+        List<AnimationFrame> animation = CurrentAnimation;
         if (animation.Count <= 1)
             return;
         _animationTicks += delta * 60.0;
@@ -150,6 +226,10 @@ public partial class NpcCharacter : Node2D
             QueueRedraw();
         }
     }
+
+    private List<AnimationFrame> CurrentAnimation => _scriptAnimationActive
+        ? _scriptAnimation
+        : _facingAnimations[(int)_facing];
 
     private Facing GetFacingToward(Vector2 target)
     {
@@ -190,7 +270,22 @@ public partial class NpcCharacter : Node2D
                 continue;
             yield return new AnimationFrame(
                 BuildOamTexture(source, encodedFrame[(separator + 1)..], tileBase, basePalette),
-                Math.Max(1, duration));
+                Math.Max(1, duration),
+                new Vector2(-16, -16));
+        }
+    }
+
+    private static IEnumerable<AnimationFrame> BuildPositionedAnimation(
+        Image source, string encodedAnimation, int tileBase, int basePalette)
+    {
+        foreach (string encodedFrame in encodedAnimation.Split('|', StringSplitOptions.RemoveEmptyEntries))
+        {
+            int separator = encodedFrame.IndexOf('@');
+            if (separator < 0 || !int.TryParse(encodedFrame[..separator], out int duration))
+                continue;
+            (Texture2D texture, Vector2 offset) = BuildPositionedOamTexture(
+                source, encodedFrame[(separator + 1)..], tileBase, basePalette);
+            yield return new AnimationFrame(texture, Math.Max(1, duration), offset);
         }
     }
 
@@ -235,6 +330,66 @@ public partial class NpcCharacter : Node2D
         }
 
         return ImageTexture.CreateFromImage(output);
+    }
+
+    private static (Texture2D Texture, Vector2 Offset) BuildPositionedOamTexture(
+        Image source, string encodedOam, int tileBase, int basePalette)
+    {
+        string[] blocks = encodedOam.Split(';', StringSplitOptions.RemoveEmptyEntries);
+        int minX = int.MaxValue;
+        int minY = int.MaxValue;
+        int maxX = int.MinValue;
+        int maxY = int.MinValue;
+        foreach (string block in blocks)
+        {
+            string[] fields = block.Split(',');
+            if (fields.Length != 4)
+                continue;
+            int destinationX = ToSignedByte(int.Parse(fields[1])) + 8;
+            int destinationY = ToSignedByte(int.Parse(fields[0]));
+            minX = Math.Min(minX, destinationX);
+            minY = Math.Min(minY, destinationY);
+            maxX = Math.Max(maxX, destinationX + 8);
+            maxY = Math.Max(maxY, destinationY + 16);
+        }
+        if (minX == int.MaxValue)
+            return (BuildOamTexture(source, encodedOam, tileBase, basePalette), new Vector2(-16, -16));
+
+        Image output = Image.CreateEmpty(maxX - minX, maxY - minY, false, Image.Format.Rgba8);
+        // Preserve Game Boy OAM priority: lower indices cover later entries.
+        for (int blockIndex = blocks.Length - 1; blockIndex >= 0; blockIndex--)
+        {
+            string[] fields = blocks[blockIndex].Split(',');
+            if (fields.Length != 4)
+                continue;
+            int oamY = ToSignedByte(int.Parse(fields[0]));
+            int oamX = ToSignedByte(int.Parse(fields[1]));
+            int tile = int.Parse(fields[2]);
+            int flags = int.Parse(fields[3]);
+            int sourceX = (((tileBase + tile) & 0xfe) / 2) * 8;
+            int destinationX = oamX + 8 - minX;
+            int destinationY = oamY - minY;
+            bool flipX = (flags & 0x20) != 0;
+            bool flipY = (flags & 0x40) != 0;
+            int palette = basePalette ^ (flags & 0x07);
+
+            for (int y = 0; y < 16; y++)
+            for (int x = 0; x < 8; x++)
+            {
+                int readX = sourceX + (flipX ? 7 - x : x);
+                int readY = flipY ? 15 - y : y;
+                if (readX < 0 || readX >= source.GetWidth() || readY < 0 || readY >= source.GetHeight())
+                    continue;
+                Color pixel = RecolorSpritePixel(source.GetPixel(readX, readY), palette);
+                if (pixel.A > 0.1f)
+                    output.SetPixel(destinationX + x, destinationY + y, pixel);
+            }
+        }
+
+        // The legacy 32x32 compositor drew at (-16,-16). Keep that coordinate
+        // system while allowing large actors such as the Maku Tree to extend
+        // above and to either side of the interaction origin.
+        return (ImageTexture.CreateFromImage(output), new Vector2(minX - 16, minY - 16));
     }
 
     private static int ToSignedByte(int value) => value >= 0x80 ? value - 0x100 : value;

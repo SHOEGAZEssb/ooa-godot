@@ -8,6 +8,9 @@ public sealed class RoomTransitionController
     private enum WarpPhase { None, FadeOut, LeaveScreen, FadeIn }
 
     public const float WarpFadeFrames = 32.0f;
+    // applyWarpTransition2 bit 7 calls fadeoutToWhiteWithDelay(4). The palette
+    // offset advances on updates 1,5,...121 and stops when it reaches $20 on 125.
+    public const float DelayedWarpFadeFrames = 125.0f;
     public const float WarpLeaveFrames = 16.0f;
     public const float WarpEnterFrames = 28.0f;
 
@@ -39,6 +42,7 @@ public sealed class RoomTransitionController
     private WarpPhase _warpPhase;
     private WarpDatabase.Warp _pendingWarp;
     private float _warpFrame;
+    private float _warpFadeOutFrames = WarpFadeFrames;
     private Vector2 _warpWalkStart;
     private Vector2 _warpWalkEnd;
     private bool _destinationWalk;
@@ -142,7 +146,7 @@ public sealed class RoomTransitionController
     public void BeginScroll(Player player, Vector2I direction, int targetId)
     {
         OracleRoomData source = _rooms.CurrentRoom;
-        OracleRoomData target = _rooms.World.LoadRoom(_rooms.ActiveGroup, targetId);
+        OracleRoomData target = _rooms.GetRoom(_rooms.ActiveGroup, targetId);
         UpdateCamera();
         Vector2 sourceCameraOrigin = CurrentCameraOrigin;
         Vector2 start = player.Position;
@@ -200,14 +204,31 @@ public sealed class RoomTransitionController
 
     public void ApplyWarp(Player player, WarpDatabase.Warp warp)
     {
+        BeginWarp(player, warp, false);
+    }
+
+    public void ApplyWarpWithDelayedFadeOut(Player player, WarpDatabase.Warp warp)
+    {
+        BeginWarp(player, warp, true);
+    }
+
+    private void BeginWarp(Player player, WarpDatabase.Warp warp, bool delayedFadeOut)
+    {
         if (_warpActive || !_rooms.World.HasRoom(warp.DestinationGroup, warp.DestinationRoom))
             return;
         _dialogue.Close();
         _pendingWarp = warp;
         _warpActive = true;
         _warpFrame = 0.0f;
+        _warpFadeOutFrames = delayedFadeOut ? DelayedWarpFadeFrames : WarpFadeFrames;
         _destinationWalk = false;
         player.BeginRoomWarpTransition();
+        if (delayedFadeOut)
+        {
+            _warpPhase = WarpPhase.FadeOut;
+            SetFade(0.0f);
+            return;
+        }
         switch (warp.SourceTransition)
         {
             case 2:
@@ -235,8 +256,8 @@ public sealed class RoomTransitionController
         switch (_warpPhase)
         {
             case WarpPhase.FadeOut:
-                SetFade(_warpFrame / WarpFadeFrames);
-                if (_warpFrame >= WarpFadeFrames)
+                SetFade(_warpFrame / _warpFadeOutFrames);
+                if (_warpFrame >= _warpFadeOutFrames)
                 {
                     SetFade(1.0f);
                     LoadWarpDestination();
@@ -277,6 +298,7 @@ public sealed class RoomTransitionController
         if (warp.DestinationTransition == 3)
         {
             Vector2I direction = (warp.DestinationParameter & 0x04) != 0 ? Vector2I.Down : Vector2I.Up;
+            bool entersFromScreen = true;
             if (warp.DestinationPosition == 0xff)
             {
                 float middleX = _rooms.ActiveGroup >= 4 ? 0x78 : 0x50;
@@ -293,11 +315,25 @@ public sealed class RoomTransitionController
                 int tileX = warp.DestinationPosition & 0x0f;
                 int tileY = (warp.DestinationPosition >> 4) & 0x0f;
                 spawn = new Vector2(tileX * OracleRoomData.MetatileSize + 8, tileY * OracleRoomData.MetatileSize + 8);
+                entersFromScreen = false;
             }
-            _warpWalkStart = spawn;
-            _warpWalkEnd = spawn + (Vector2)direction * WarpEnterFrames;
-            _destinationWalk = true;
-            _player.BeginRoomWarpWalk(spawn, direction);
+            if (entersFromScreen)
+            {
+                _warpWalkStart = spawn;
+                _warpWalkEnd = spawn + (Vector2)direction * WarpEnterFrames;
+                _destinationWalk = true;
+                _player.BeginRoomWarpWalk(spawn, direction);
+            }
+            else
+            {
+                // warpTransition3:@destInit only runs the 28-update entrance
+                // walk for destination positions $ff or $f0-$ff. A normal
+                // packed position such as the Maku cutscene's $45 is placed
+                // directly and returned to standing.
+                _destinationWalk = false;
+                _player.WarpTo(spawn);
+                _player.Face(direction);
+            }
             ClearDeactivatedWarp();
         }
         else

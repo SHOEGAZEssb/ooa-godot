@@ -58,6 +58,7 @@ public partial class Player : Node2D
     private bool _drownRespawning;
     private bool _fallingInHole;
     private bool _fallInHoleRespawning;
+    private bool _cutsceneControlled;
 
     public int HealthQuarters => _inventory.HealthQuarters;
     public int Rupees => _inventory.Rupees;
@@ -146,6 +147,7 @@ public partial class Player : Node2D
 
     public void BeginRoomWarpTransition()
     {
+        _cutsceneControlled = false;
         _walking = false;
         _attackTime = 0.0f;
         _attackHitApplied = false;
@@ -254,6 +256,8 @@ public partial class Player : Node2D
     public override void _PhysicsProcess(double delta)
     {
         _pushing = false;
+        if (_cutsceneControlled)
+            return;
         if (_drowning)
         {
             UpdateDrowning((float)delta);
@@ -364,6 +368,37 @@ public partial class Player : Node2D
             _world.CheckRoomExit(this);
         if (!_world.IsTransitioning)
             ApplyTerrainAtFeet();
+        QueueRedraw();
+    }
+
+    internal void BeginCutsceneControl()
+    {
+        _cutsceneControlled = true;
+        _walking = false;
+        _pushing = false;
+        _attackTime = 0.0f;
+        QueueRedraw();
+    }
+
+    internal void AdvanceCutsceneInput(Vector2I direction)
+    {
+        if (!_cutsceneControlled)
+            return;
+        _walking = direction != Vector2I.Zero;
+        if (_walking)
+        {
+            Face(direction);
+            TryMove((Vector2)direction, allowWallSlide: false);
+            _walkTime += 1.0f / 60.0f;
+        }
+        Position = ToObjectPixelPosition(_precisePosition);
+        QueueRedraw();
+    }
+
+    internal void EndCutsceneControl()
+    {
+        _cutsceneControlled = false;
+        _walking = false;
         QueueRedraw();
     }
 

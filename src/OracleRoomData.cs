@@ -71,10 +71,13 @@ public sealed class OracleRoomData
     private readonly byte[] _originalLayout;
     private readonly byte[] _mappings;
     private readonly Color[,] _palette;
+    private Color[,,]? _temporaryBackgroundPalettes;
+    private int _temporaryBackgroundPaletteHeader;
     private readonly Color[] _commonBgPalette0;
     private readonly OracleAnimationData _animations;
     private readonly int _layoutStride;
     private int _animationSignature;
+    private int[] _activeAnimationHeaders;
 
     internal int CurrentAnimationSignature => _animationSignature;
 
@@ -119,6 +122,7 @@ public sealed class OracleRoomData
                 $"Room {group:x1}:{id:x2} has unsupported layout size {layout.Length}.")
         };
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, 0);
+        _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
         Texture = ImageTexture.CreateFromImage(RenderRoom(activeHeaders));
     }
@@ -131,8 +135,32 @@ public sealed class OracleRoomData
             return false;
 
         _animationSignature = signature;
+        _activeAnimationHeaders = activeHeaders;
         ((ImageTexture)Texture).Update(RenderRoom(activeHeaders));
         return true;
+    }
+
+    internal void SetTemporaryBackgroundPalette(Color[,,] palettes, int header)
+    {
+        if (palettes.GetLength(0) != 4 || palettes.GetLength(1) != 4 ||
+            palettes.GetLength(2) != 4 || header < 0 || header >= palettes.GetLength(0))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(palettes), "The Maku Tree effect requires four headers of four 4-color palettes.");
+        }
+        _temporaryBackgroundPalettes = palettes;
+        _temporaryBackgroundPaletteHeader = header;
+        ((ImageTexture)Texture).Update(RenderRoom(_activeAnimationHeaders));
+    }
+
+    internal void ClearTemporaryBackgroundPalette(long tick)
+    {
+        if (_temporaryBackgroundPalettes is null)
+            return;
+        _temporaryBackgroundPalettes = null;
+        _activeAnimationHeaders = _animations.GetActiveHeaders(AnimationGroup, tick);
+        _animationSignature = GetAnimationSignature(_activeAnimationHeaders);
+        ((ImageTexture)Texture).Update(RenderRoom(_activeAnimationHeaders));
     }
 
     public ulong GetAnimationChecksum(long tick)
@@ -241,6 +269,7 @@ public sealed class OracleRoomData
 
         Layout[index] = replacement;
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
+        _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
         ((ImageTexture)Texture).Update(RenderRoom(activeHeaders));
         return true;
@@ -371,7 +400,10 @@ public sealed class OracleRoomData
                     // modeled independently.
                     Color color = rawPalette == 0
                         ? _commonBgPalette0[shade]
-                        : _palette[tilesetPaletteIndex, shade];
+                        : _temporaryBackgroundPalettes is not null && rawPalette is >= 2 and <= 5
+                            ? _temporaryBackgroundPalettes[
+                                _temporaryBackgroundPaletteHeader, rawPalette - 2, shade]
+                            : _palette[tilesetPaletteIndex, shade];
                     output.SetPixel(writeX, writeY, color);
                 }
             }

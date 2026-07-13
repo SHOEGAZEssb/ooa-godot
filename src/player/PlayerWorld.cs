@@ -12,12 +12,13 @@ public sealed class PlayerWorld : IPlayerWorld
     private readonly CombatController _combat;
     private readonly RoomEntityManager _entities;
     private readonly BraceletController _bracelet;
+    private readonly RoomEventController _roomEvents;
     private readonly InventoryState _inventory;
 
     public bool IsTransitioning => _transitions.IsTransitioning;
     public bool DialogueOpen => _interactions.DialogueOpen;
-    public bool SwordDisabled => _entities.PlayerSwordDisabled;
-    public bool MovementDisabled => _entities.PlayerMovementDisabled;
+    public bool SwordDisabled => _roomEvents.Active || _entities.PlayerSwordDisabled;
+    public bool MovementDisabled => _roomEvents.Active || _entities.PlayerMovementDisabled;
 
     public PlayerWorld(
         RoomTransitionController transitions,
@@ -28,6 +29,7 @@ public sealed class PlayerWorld : IPlayerWorld
         CombatController combat,
         RoomEntityManager entities,
         BraceletController bracelet,
+        RoomEventController roomEvents,
         InventoryState inventory)
     {
         _transitions = transitions;
@@ -38,6 +40,7 @@ public sealed class PlayerWorld : IPlayerWorld
         _combat = combat;
         _entities = entities;
         _bracelet = bracelet;
+        _roomEvents = roomEvents;
         _inventory = inventory;
     }
 

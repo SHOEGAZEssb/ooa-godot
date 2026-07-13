@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 
 namespace oracleofages;
@@ -9,6 +10,7 @@ namespace oracleofages;
 /// </summary>
 public sealed class RoomEntityManager
 {
+    public event Action<int, OracleRoomData>? RoomEntitiesLoaded;
     private readonly Node _worldRoot;
     private readonly RoomEntityFactory _factory;
     private readonly List<IRoomEntity> _activeEntities = new();
@@ -20,6 +22,7 @@ public sealed class RoomEntityManager
     private int _enemyFrameCounter;
 
     public bool ScreenTransitionActive => _screenTransitionActive;
+    internal int FrameCounter => _enemyFrameCounter;
     public bool PlayerSwordDisabled
     {
         get
@@ -181,6 +184,7 @@ public sealed class RoomEntityManager
     {
         foreach (IRoomEntity entity in _factory.CreateRoomEntities(group, room))
             AddEntity(entity);
+        RoomEntitiesLoaded?.Invoke(group, room);
     }
 
     private IRoomEntity AddEntity(IRoomEntity entity)
