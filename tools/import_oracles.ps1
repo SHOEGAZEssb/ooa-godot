@@ -1160,6 +1160,56 @@ foreach ($spriteName in $npcSpriteNames) {
 $npcPath = Join-Path $destination "objects\npcs.tsv"
 [IO.File]::WriteAllLines($npcPath, $npcRows, [Text.UTF8Encoding]::new($false))
 
+# INTERAC_TIMEPORTAL_SPAWNER ($e1) is a scenery interaction rather than an
+# NPC, but it uses the same interaction graphics, animation, and OAM tables.
+# Export every placed portal spot so runtime activation stays data-driven.
+$portalGraphic = $interactionGraphics['225:0']
+if ($null -eq $portalGraphic) {
+    throw 'Could not resolve INTERAC_TIMEPORTAL_SPAWNER graphics.'
+}
+$portalAnimation = Resolve-NpcAnimation 0xe1 $portalGraphic.DefaultAnimation
+$portalAnimationLabel = $npcAnimationTables['interactione1Animations'][$portalGraphic.DefaultAnimation]
+$portalAnimationBlock = [regex]::Match(
+    $interactionAnimationSource,
+    "(?ms)^$portalAnimationLabel`:(?<intro>.*?)(?:^${portalAnimationLabel}Loop:)(?<loop>.*?)(?=^interactionAnimation[0-9a-f]+:|\z)")
+if (-not $portalAnimation -or -not $portalAnimationBlock.Success) {
+    throw 'Could not resolve INTERAC_TIMEPORTAL_SPAWNER graphics and animation.'
+}
+$portalLoopStart = [regex]::Matches(
+    $portalAnimationBlock.Groups['intro'].Value,
+    '\.db\s+\$[0-9a-f]{2}\s+\$[0-9a-f]{2}\s+\$[0-9a-f]{2}').Count
+$portalRows = [Collections.Generic.List[string]]::new()
+$portalRows.Add("# group`troom`tsubid`ty`tx`tsprite`ttile-base`tpalette`tloop-start`tanimation")
+$currentGroup = -1
+$currentRoom = -1
+foreach ($line in $mainObjectLines) {
+    if ($line -match '^group(?<group>[0-7])Map(?<room>[0-9a-f]{2})ObjectData:') {
+        $currentGroup = [Convert]::ToInt32($Matches['group'], 10)
+        $currentRoom = [Convert]::ToInt32($Matches['room'], 16)
+        continue
+    }
+    if ($currentGroup -lt 0 -or
+        $line -notmatch 'obj_Interaction\s+\$e1\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})') {
+        continue
+    }
+    $portalRows.Add("$currentGroup`t$($currentRoom.ToString('x2'))`t$($Matches['subid'])`t$($Matches['y'])`t$($Matches['x'])`tspr_makuflower_book_seedling_weirdswirl_block`t$($portalGraphic.TileBase)`t$($portalGraphic.Palette)`t$portalLoopStart`t$portalAnimation")
+}
+if ($portalRows.Count -ne 22) {
+    throw "Expected 21 positioned time-portal spawners, parsed $($portalRows.Count - 1)."
+}
+if ($portalLoopStart -ne 3) {
+    throw "INTERAC_TIMEPORTAL_SPAWNER animation loop moved from frame 3 to $portalLoopStart."
+}
+$initialPortal = $portalRows | Where-Object { $_ -match '^0\t39\t01\t28\t28\t' }
+if (-not $initialPortal) {
+    throw 'The initial active portal in room 0:39 was not extracted.'
+}
+Copy-GeneratedFile `
+    'gfx_compressible\ages\spr_makuflower_book_seedling_weirdswirl_block.png' `
+    'gfx\spr_makuflower_book_seedling_weirdswirl_block.png'
+$portalPath = Join-Path $destination 'objects\timePortals.tsv'
+[IO.File]::WriteAllLines($portalPath, $portalRows, [Text.UTF8Encoding]::new($false))
+
 # The first present Maku Tree visit is interaction $87 subid $01, selected
 # from room 0:38's $87:$00 object while wMakuTreeState and GLOBALFLAG_0c are
 # both clear. Export its complete simulated-input/script timing, all five tree

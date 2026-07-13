@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -23,6 +24,7 @@ public partial class GameRoot
         ValidateOctoroks();
         ValidateZolsAndGels();
         ValidateItemDrops();
+        ValidateTimePortals();
         ValidateHouseWarp();
         ValidateCaveWarps();
         ValidateTerrain();
@@ -35,6 +37,87 @@ public partial class GameRoot
         ValidateMapScreen();
 
         GD.Print("Validated all gameplay and world-data scenarios.");
+    }
+
+    private void ValidateTimePortals()
+    {
+        var database = new TimePortalDatabase();
+        IReadOnlyList<TimePortalDatabase.PortalRecord> ordinaryRecords =
+            database.GetRoomPortals(0, 0x3a);
+        if (ordinaryRecords.Count != 1 || ordinaryRecords[0].SubId != 0x00 ||
+            ordinaryRecords[0].X != 0x18 || ordinaryRecords[0].Y != 0x28)
+        {
+            throw new InvalidOperationException(
+                "Room 0:3a did not preserve its ordinary `$e1:$00 portal at `$21.");
+        }
+
+        LoadValidationRoom(0, 0x3a);
+        List<TimePortal> ordinaryPortals = _entities.Entities<TimePortal>();
+        if (ordinaryPortals.Count != 1 || !ordinaryPortals[0].Active ||
+            _currentRoom.GetMetatile(ordinaryPortals[0].Position) != 0xd7)
+        {
+            throw new InvalidOperationException(
+                "The exposed `$d7 marker in room 0:3a did not create an active ordinary portal.");
+        }
+
+        IReadOnlyList<TimePortalDatabase.PortalRecord> records = database.GetRoomPortals(0, 0x39);
+        if (records.Count != 1 || records[0].SubId != 0x01 ||
+            records[0].X != 0x28 || records[0].Y != 0x28 || records[0].LoopStart != 3)
+        {
+            throw new InvalidOperationException(
+                "Room 0:39 did not preserve its `$e1:$01 portal at `$22 with animation loop index 3.");
+        }
+
+        LoadValidationRoom(0, 0x39);
+        List<TimePortal> portals = _entities.Entities<TimePortal>();
+        if (portals.Count != 1 || portals[0].Active ||
+            _currentRoom.GetMetatile(portals[0].Position) != 0x3a)
+        {
+            throw new InvalidOperationException(
+                $"Room 0:39 portal initial state was count={portals.Count}, " +
+                $"active={(portals.Count == 1 && portals[0].Active)}, tile=" +
+                $"`${(portals.Count == 1 ? _currentRoom.GetMetatile(portals[0].Position) : 0):x2}.");
+        }
+
+        TimePortal portal = portals[0];
+        if (!_currentRoom.ReplaceMetatile(portal.Position, 0x3a, 0xd7, (long)_animationTicks))
+            throw new InvalidOperationException("Could not reveal portal-spot metatile `$d7 for validation.");
+        _roomView.QueueRedraw();
+        _entities.Update(1.0 / 60.0, _player);
+        if (!portal.Active)
+            throw new InvalidOperationException("The `$e1 portal did not initialize after its `$d7 spot was revealed.");
+        for (int frame = 0; frame < 6; frame++)
+            _entities.Update(1.0 / 60.0, _player);
+        if (portal.CurrentFrame != 3)
+            throw new InvalidOperationException("The portal did not finish its three 2-update intro frames.");
+        for (int frame = 0; frame < 6; frame++)
+            _entities.Update(1.0 / 60.0, _player);
+        if (portal.CurrentFrame != 3)
+            throw new InvalidOperationException("The portal's three-frame animation loop restarted incorrectly.");
+
+        _player.WarpTo(portal.Position, recordSafe: false);
+        _entities.Update(1.0 / 60.0, _player);
+        if (!IsTransitioning)
+            throw new InvalidOperationException("Touching the active `$e1 portal did not begin a time warp.");
+
+        UpdateRoomWarpTransition(RoomTransitionController.TimeWarpChargeFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.FastPaletteFadeFrames / 60.0);
+        UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
+        if (_activeGroup != 1 || _currentRoom.Id != 0x39 ||
+            _currentRoom.GetPackedPosition(_player.Position) != 0x22)
+        {
+            throw new InvalidOperationException(
+                $"Time portal 0:39/`$22 landed at {_activeGroup:x1}:{_currentRoom.Id:x2}/" +
+                $"`${_currentRoom.GetPackedPosition(_player.Position):x2} instead of 1:39/`$22.");
+        }
+
+        UpdateRoomWarpTransition((RoomTransitionController.TimeWarpArrivalHiddenFrames +
+            RoomTransitionController.TimeWarpArrivalFlickerFrames) / 60.0);
+        if (IsTransitioning || !_player.Visible)
+            throw new InvalidOperationException("The time-warp arrival did not restore visible Link and control.");
+
+        GD.Print("Validated all 21 `$e1 portal records, exposed 0:3a ordinary portal, " +
+            "and active 0:39 -> 1:39 time warp at `$22.");
     }
 
     private void ValidateMapScreen()
@@ -1545,6 +1628,7 @@ public partial class GameRoot
             new NpcDatabase(),
             new EnemyDatabase(),
             database,
+            new TimePortalDatabase(),
             new OracleRandom());
         lifecycleManager.LoadRoom(0, _world.LoadRoom(0, 0x00));
         _player.WarpTo(new Vector2(140, 120), recordSafe: false);

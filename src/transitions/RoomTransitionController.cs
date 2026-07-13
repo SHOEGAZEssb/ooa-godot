@@ -5,7 +5,17 @@ namespace oracleofages;
 
 public sealed class RoomTransitionController
 {
-    private enum WarpPhase { None, FadeOut, LeaveScreen, FadeIn }
+    private enum WarpPhase
+    {
+        None,
+        FadeOut,
+        LeaveScreen,
+        FadeIn,
+        TimeWarpCharge,
+        TimeWarpBlackFadeIn,
+        TimeWarpWhiteFadeOut,
+        TimeWarpArrival
+    }
 
     public const float WarpFadeFrames = 32.0f;
     // applyWarpTransition2 bit 7 calls fadeoutToWhiteWithDelay(4). The palette
@@ -13,6 +23,10 @@ public sealed class RoomTransitionController
     public const float DelayedWarpFadeFrames = 125.0f;
     public const float WarpLeaveFrames = 16.0f;
     public const float WarpEnterFrames = 28.0f;
+    public const float TimeWarpChargeFrames = 180.0f;
+    public const float FastPaletteFadeFrames = 11.0f;
+    public const float TimeWarpArrivalHiddenFrames = WarpFadeFrames + 30.0f + 16.0f;
+    public const float TimeWarpArrivalFlickerFrames = 30.0f;
 
     private readonly RoomSession _rooms;
     private readonly WarpDatabase _warps;
@@ -46,6 +60,7 @@ public sealed class RoomTransitionController
     private Vector2 _warpWalkStart;
     private Vector2 _warpWalkEnd;
     private bool _destinationWalk;
+    private bool _timeWarp;
 
     public bool IsTransitioning => _warpActive || _scrollActive || _roomView.IsTransitioning;
     public bool ScrollActive => _scrollActive;
@@ -212,12 +227,34 @@ public sealed class RoomTransitionController
         BeginWarp(player, warp, true);
     }
 
+    public void ApplyTimePortalWarp(Player player, Vector2 portalPosition)
+    {
+        int destinationGroup = _rooms.ActiveGroup ^ 0x01;
+        if (_warpActive || _rooms.ActiveGroup is not (0 or 1) ||
+            !_rooms.World.HasRoom(destinationGroup, _rooms.CurrentRoom.Id))
+            return;
+
+        int position = _rooms.CurrentRoom.GetPackedPosition(portalPosition);
+        _pendingWarp = new WarpDatabase.Warp(
+            _rooms.ActiveGroup, _rooms.CurrentRoom.Id, position, 0, 0,
+            destinationGroup, _rooms.CurrentRoom.Id, position, 0, 6);
+        _timeWarp = true;
+        _warpActive = true;
+        _warpPhase = WarpPhase.TimeWarpCharge;
+        _warpFrame = 0.0f;
+        _destinationWalk = false;
+        _dialogue.Close();
+        player.BeginRoomWarpTransition();
+        SetFadeColor(Colors.Black, 0.0f);
+    }
+
     private void BeginWarp(Player player, WarpDatabase.Warp warp, bool delayedFadeOut)
     {
         if (_warpActive || !_rooms.World.HasRoom(warp.DestinationGroup, warp.DestinationRoom))
             return;
         _dialogue.Close();
         _pendingWarp = warp;
+        _timeWarp = false;
         _warpActive = true;
         _warpFrame = 0.0f;
         _warpFadeOutFrames = delayedFadeOut ? DelayedWarpFadeFrames : WarpFadeFrames;
@@ -282,6 +319,42 @@ public sealed class RoomTransitionController
                 }
                 SetFade(1.0f - _warpFrame / WarpFadeFrames);
                 if (_warpFrame >= WarpFadeFrames)
+                    FinishWarp();
+                break;
+            case WarpPhase.TimeWarpCharge:
+                // CUTSCENE_TIMEWARP creates the source animation with a 120
+                // update counter, then holds its final phase for 60 updates.
+                SetFadeColor(Colors.Black, Mathf.Min(1.0f, _warpFrame / FastPaletteFadeFrames));
+                if (_warpFrame >= TimeWarpChargeFrames)
+                {
+                    _warpPhase = WarpPhase.TimeWarpBlackFadeIn;
+                    _warpFrame = 0.0f;
+                }
+                break;
+            case WarpPhase.TimeWarpBlackFadeIn:
+                SetFadeColor(Colors.Black, 1.0f - _warpFrame / FastPaletteFadeFrames);
+                if (_warpFrame >= FastPaletteFadeFrames)
+                {
+                    _warpPhase = WarpPhase.TimeWarpWhiteFadeOut;
+                    _warpFrame = 0.0f;
+                    SetFade(0.0f);
+                }
+                break;
+            case WarpPhase.TimeWarpWhiteFadeOut:
+                SetFade(_warpFrame / WarpFadeFrames);
+                if (_warpFrame >= WarpFadeFrames)
+                {
+                    SetFade(1.0f);
+                    LoadWarpDestination();
+                }
+                break;
+            case WarpPhase.TimeWarpArrival:
+                SetFade(1.0f - _warpFrame / WarpFadeFrames);
+                if (_warpFrame >= TimeWarpArrivalHiddenFrames)
+                {
+                    _player.Visible = ((int)(_warpFrame - TimeWarpArrivalHiddenFrames) & 1) != 0;
+                }
+                if (_warpFrame >= TimeWarpArrivalHiddenFrames + TimeWarpArrivalFlickerFrames)
                     FinishWarp();
                 break;
         }
@@ -358,7 +431,18 @@ public sealed class RoomTransitionController
             _player.WarpTo(spawn);
         }
 
-        _warpPhase = WarpPhase.FadeIn;
+        if (_timeWarp)
+        {
+            _destinationWalk = false;
+            _player.WarpTo(spawn);
+            _player.Face(Vector2I.Down);
+            _player.Visible = false;
+            _warpPhase = WarpPhase.TimeWarpArrival;
+        }
+        else
+        {
+            _warpPhase = WarpPhase.FadeIn;
+        }
         _warpFrame = 0.0f;
         UpdateCamera();
         _hud.Refresh();
@@ -368,8 +452,10 @@ public sealed class RoomTransitionController
     {
         _player.FinishRoomWarpTransition(_destinationWalk ? _warpWalkEnd : _player.Position);
         _destinationWalk = false;
+        _timeWarp = false;
         _warpActive = false;
         _warpPhase = WarpPhase.None;
+        _player.Visible = true;
         SetFade(0.0f);
     }
 
@@ -403,7 +489,10 @@ public sealed class RoomTransitionController
     }
 
     private void SetFade(float alpha) =>
-        _warpFade.Color = new Color(1, 1, 1, Mathf.Clamp(alpha, 0.0f, 1.0f));
+        SetFadeColor(Colors.White, alpha);
+
+    private void SetFadeColor(Color color, float alpha) =>
+        _warpFade.Color = new Color(color.R, color.G, color.B, Mathf.Clamp(alpha, 0.0f, 1.0f));
 
     private bool ShouldStepOut(WarpDatabase.Warp warp, byte destinationTile, int tileX, int tileY)
     {

@@ -21,6 +21,19 @@ internal sealed class NpcRoomEntity(NpcCharacter npc) : RoomEntityAdapter<NpcCha
     public override void SetTransitionDrawOffset(Vector2 offset) => Entity.SetTransitionDrawOffset(offset);
 }
 
+internal sealed class TimePortalRoomEntity(TimePortal portal, System.Action<TimePortal> entered)
+    : RoomEntityAdapter<TimePortal>(portal), IFixedRoomEntity, ILinkContactEntity
+{
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
+        Entity.UpdateFrame(frame.Counter);
+    public void HandleLinkContact(Player player)
+    {
+        if (Entity.CheckLinkContact(player.Position))
+            entered(Entity);
+    }
+    public override void SetTransitionDrawOffset(Vector2 offset) => Entity.SetTransitionDrawOffset(offset);
+}
+
 internal sealed class KeeseRoomEntity(KeeseCharacter keese) : RoomEntityAdapter<KeeseCharacter>(keese),
     IFixedRoomEntity, ILinkContactEntity, ISwordHittableRoomEntity, IRoomEntityLifetime
 {

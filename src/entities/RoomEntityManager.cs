@@ -11,6 +11,7 @@ namespace oracleofages;
 public sealed class RoomEntityManager
 {
     public event Action<int, OracleRoomData>? RoomEntitiesLoaded;
+    public event Action<TimePortal>? TimePortalEntered;
     private readonly Node _worldRoot;
     private readonly RoomEntityFactory _factory;
     private readonly List<IRoomEntity> _activeEntities = new();
@@ -38,7 +39,7 @@ public sealed class RoomEntityManager
     public bool PlayerMovementDisabled => PlayerSwordDisabled && (_enemyFrameCounter & 1) != 0;
 
     public RoomEntityManager(Node worldRoot, NpcDatabase npcs, EnemyDatabase enemies)
-        : this(worldRoot, npcs, enemies, new ItemDropDatabase(), new OracleRandom())
+        : this(worldRoot, npcs, enemies, new ItemDropDatabase(), new TimePortalDatabase(), new OracleRandom())
     {
     }
 
@@ -47,10 +48,11 @@ public sealed class RoomEntityManager
         NpcDatabase npcs,
         EnemyDatabase enemies,
         ItemDropDatabase itemDrops,
+        TimePortalDatabase timePortals,
         OracleRandom random)
     {
         _worldRoot = worldRoot;
-        _factory = new RoomEntityFactory(npcs, enemies, itemDrops, random);
+        _factory = new RoomEntityFactory(npcs, enemies, itemDrops, timePortals, random, OnTimePortalEntered);
     }
 
     public List<T> Entities<T>() where T : Node2D => SelectNodes<T>(_activeEntities);
@@ -233,6 +235,8 @@ public sealed class RoomEntityManager
             _worldRoot.RemoveChild(entity.Node);
         entity.Node.QueueFree();
     }
+
+    private void OnTimePortalEntered(TimePortal portal) => TimePortalEntered?.Invoke(portal);
 
     private static List<T> SelectNodes<T>(IEnumerable<IRoomEntity> entities) where T : Node2D
     {

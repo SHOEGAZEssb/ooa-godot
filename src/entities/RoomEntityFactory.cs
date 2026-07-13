@@ -8,7 +8,9 @@ internal sealed class RoomEntityFactory(
     NpcDatabase npcs,
     EnemyDatabase enemies,
     ItemDropDatabase itemDrops,
-    OracleRandom random)
+    TimePortalDatabase timePortals,
+    OracleRandom random,
+    Action<TimePortal> portalEntered)
 {
     public IEnumerable<IRoomEntity> CreateRoomEntities(int group, OracleRoomData room)
     {
@@ -21,6 +23,15 @@ internal sealed class RoomEntityFactory(
             };
             npc.Initialize(record);
             yield return new NpcRoomEntity(npc);
+        }
+
+        foreach (TimePortalDatabase.PortalRecord record in timePortals.GetRoomPortals(group, room.Id))
+        {
+            if (!StartsActive(record.SubId))
+                continue;
+            var portal = new TimePortal { Name = $"TimePortal_{record.SubId:x2}", ZIndex = 8 };
+            portal.Initialize(record, room);
+            yield return new TimePortalRoomEntity(portal, portalEntered);
         }
 
         var occupied = new HashSet<int>();
@@ -86,6 +97,16 @@ internal sealed class RoomEntityFactory(
         ItemDropSpawn drop => CreateItemDrop(drop, room),
         _ => throw new ArgumentOutOfRangeException(nameof(spawn), spawn, "Unknown room-entity spawn request.")
     };
+
+    private static bool StartsActive(int subId)
+    {
+        // Bit 7 means always active. Subid $01 is active until the Maku Tree
+        // is saved. Ordinary subid $00 portals normally wait for the Tune of
+        // Echoes; until harp playback exists, exposed `$d7 markers use the
+        // deterministic active fallback so they are usable instead of inert.
+        int type = subId & 0x0f;
+        return (subId & 0x80) != 0 || type is 0 or 1;
+    }
 
     private IRoomEntity CreateRock(OctorokRockSpawn spawn, OracleRoomData room)
     {

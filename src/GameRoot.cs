@@ -124,6 +124,8 @@ public partial class GameRoot : Node2D
         _transitions = new RoomTransitionController(
             _rooms, new WarpDatabase(), _roomView, _player, _roomCamera,
             _warpFade, _hud, _dialogue, _entities, _collision.Collides);
+        _entities.TimePortalEntered += portal =>
+            _transitions.ApplyTimePortalWarp(_player, portal.Position);
         _interactions = new InteractionController(
             _rooms, _entities, new SignDatabase(), new ChestDatabase(), _treasures, _dialogue,
             this, _roomView, _transitions.WorldToScreen, () => (long)_animationTicks,
