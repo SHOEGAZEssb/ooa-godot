@@ -20,6 +20,7 @@ public partial class GameRoot
         ValidateSigns();
         ValidateNpcs();
         ValidateMakuTreeDisappearanceCutscene();
+        ValidateRalphPortalDepartureEvent();
         ValidateAnimations();
         ValidateSwordBush();
         ValidateKeese();
@@ -2774,6 +2775,148 @@ public partial class GameRoot
             _entities.Update(1.0 / 60.0, _player);
             _roomEvents.Update(1.0 / 60.0);
         }
+    }
+
+    private void ValidateRalphPortalDepartureEvent()
+    {
+        // @initSubid0d deletes the object on a direct room load because
+        // wScreenTransitionDirection is not DIR_RIGHT ($01).
+        LoadValidationRoom(0, 0x39);
+        NpcCharacter? directRalph = _npcNodes.Find(npc =>
+            npc.Record.Id == 0x37 && npc.Record.SubId == 0x0d);
+        if (directRalph is null || directRalph.Active || _roomEvents.Active)
+        {
+            throw new InvalidOperationException(
+                "INTERAC_RALPH $37:$0d ignored its DIR_RIGHT room-entry guard.");
+        }
+
+        LoadValidationRoom(0, 0x38);
+        _transitions.BeginScroll(_player, Vector2I.Right, 0x39);
+        NpcCharacter? ralph = _npcNodes.Find(npc =>
+            npc.Record.Id == 0x37 && npc.Record.SubId == 0x0d);
+        if (ralph is null || !ralph.Active || !_roomEvents.Active ||
+            !_roomEvents.RalphWaitingForScroll || !_entities.ScreenTransitionActive ||
+            ralph.Position != new Vector2(0x18, 0x28))
+        {
+            throw new InvalidOperationException(
+                "Room 0:39 did not retain Ralph at $28/$18 while entering from the left.");
+        }
+
+        FinishActiveScrollingTransitionForValidation();
+        if (!_roomEvents.RalphWaitingForScroll || _player.CutsceneControlled)
+            throw new InvalidOperationException(
+                "Ralph's script began before the destination-room scroll finished.");
+
+        StepRoomEventFrames(1);
+        if (!_player.CutsceneControlled || _roomEvents.Counter != 40)
+            throw new InvalidOperationException(
+                "Ralph did not disable input and install his original 40-update wait.");
+        StepRoomEventFrames(39);
+        if (_dialogue.IsOpen || _roomEvents.Counter != 1)
+            throw new InvalidOperationException("Ralph's introductory wait ended early.");
+        StepRoomEventFrames(1);
+        if (!_dialogue.IsOpen || _dialogue.CurrentMessage !=
+            "The Maku Tree?\nThis is more\nof Veran's work!\nLink! You made\nit! Veran just\nleapt through\nthis Time\nPortal! If we go\nback in time, we\nshould be able\nto save Nayru\nand the Maku\nTree! I'm\ncoming, Nayru!")
+        {
+            throw new InvalidOperationException(
+                "TX_2a1e did not open after Ralph's original 40-update wait.");
+        }
+
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        StepRoomEventFrames(29);
+        if (_roomEvents.Counter != 1 || ralph.Position != new Vector2(0x18, 0x28))
+            throw new InvalidOperationException("Ralph's post-text 30-update wait ended early.");
+        StepRoomEventFrames(1);
+        if (ralph.CurrentAnimationFrame != 0)
+            throw new InvalidOperationException(
+                "Ralph did not select animation $01 after the post-text wait.");
+        StepRoomEventFrames(2);
+        if (ralph.Position != new Vector2(0x18, 0x28))
+            throw new InvalidOperationException(
+                "Ralph moved during the setspeed/setangle script-command updates.");
+        StepRoomEventFrames(1);
+        if (_roomEvents.Counter != 17 || ralph.Position != new Vector2(0x18, 0x28))
+            throw new InvalidOperationException(
+                "Ralph did not install applyspeed counter $11 on its own script update.");
+
+        StepRoomEventFrames(12);
+        if (ralph.Position != new Vector2(0x24, 0x28) ||
+            ralph.CurrentAnimationFrame != 0 || _roomEvents.Counter != 5)
+        {
+            throw new InvalidOperationException(
+                "Ralph's SPEED_100 movement or animation $01 first-frame duration diverged.");
+        }
+        StepRoomEventFrames(1);
+        if (ralph.Position != new Vector2(0x25, 0x28) ||
+            ralph.CurrentAnimationFrame != 1 || _roomEvents.Counter != 4)
+        {
+            throw new InvalidOperationException(
+                "Ralph's animation $01 did not change after its original 16 updates.");
+        }
+        StepRoomEventFrames(2);
+        if (ralph.Position != new Vector2(0x27, 0x28) || _roomEvents.Counter != 2)
+            throw new InvalidOperationException("Ralph's SPEED_100 movement skipped an update.");
+        StepRoomEventFrames(1);
+        if (ralph.Position != new Vector2(0x28, 0x28) ||
+            _roomEvents.Counter != 1)
+        {
+            throw new InvalidOperationException(
+                "applyspeed $11 did not move Ralph exactly 16 pixels to the portal.");
+        }
+        StepRoomEventFrames(1);
+        if (_roomEvents.Counter != 0 || _roomEvents.RalphFlickering ||
+            ralph.Position != new Vector2(0x28, 0x28))
+        {
+            throw new InvalidOperationException(
+                "Ralph's counter2 path did not pause for one update after reaching zero.");
+        }
+        StepRoomEventFrames(1);
+        if (ralph.CurrentAnimationFrame != 0 || _roomEvents.RalphFlickering)
+            throw new InvalidOperationException("Ralph did not select portal animation $09.");
+        StepRoomEventFrames(2);
+        if (_roomEvents.Counter != 45 || _roomEvents.RalphFlickering)
+            throw new InvalidOperationException(
+                "Ralph's var3f=$2d and SND_MYSTERY_SEED commands lost their script updates.");
+        StepRoomEventFrames(1);
+        bool firstFlickerVisibility = (_entities.FrameCounter & 1) != 0;
+        if (!_roomEvents.RalphFlickering || _roomEvents.Counter != 44 ||
+            ralph.CurrentAnimationFrame != 0 || ralph.Visible != firstFlickerVisibility ||
+            _roomEvents.RalphCompleted)
+        {
+            throw new InvalidOperationException(
+                "Ralph did not select animation $09 and begin the $2d-frame parity flicker.");
+        }
+        StepRoomEventFrames(1);
+        if (ralph.Visible == firstFlickerVisibility || _roomEvents.Counter != 43)
+            throw new InvalidOperationException(
+                "Ralph's objectFlickerVisibility b=$01 did not alternate every update.");
+        StepRoomEventFrames(42);
+        if (!_roomEvents.Active || _roomEvents.Counter != 1 ||
+            _roomEvents.RalphCompleted || !ralph.Active)
+        {
+            throw new InvalidOperationException(
+                "Ralph's $2d-frame portal flicker completed one update early.");
+        }
+        StepRoomEventFrames(1);
+        if (_roomEvents.Active || !_roomEvents.RalphCompleted || ralph.Active ||
+            _player.CutsceneControlled ||
+            !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagRalphEnteredPortal))
+        {
+            throw new InvalidOperationException(
+                "Ralph's departure did not set GLOBALFLAG_RALPH_ENTERED_PORTAL $40 and restore input.");
+        }
+
+        LoadValidationRoom(0, 0x39);
+        NpcCharacter? completedRalph = _npcNodes.Find(npc =>
+            npc.Record.Id == 0x37 && npc.Record.SubId == 0x0d);
+        if (completedRalph is null || completedRalph.Active || _roomEvents.Active)
+            throw new InvalidOperationException("Ralph's one-shot portal event retriggered after flag $40.");
+
+        GD.Print("Validated room 0:39 Ralph $37:$0d DIR_RIGHT guard, TX_2a1e, " +
+            "40/30 waits, per-command script cadence, animation $01, 16-pixel SPEED_100 " +
+            "movement, animation $09, " +
+            "$2d-frame flicker, and persistent GLOBALFLAG $40.");
     }
 
     private void ValidateStartupTransition()

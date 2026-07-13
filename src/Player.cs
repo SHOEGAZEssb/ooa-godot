@@ -380,6 +380,8 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
+    internal bool CutsceneControlled => _cutsceneControlled;
+
     internal void AdvanceCutsceneInput(Vector2I direction)
     {
         if (!_cutsceneControlled)

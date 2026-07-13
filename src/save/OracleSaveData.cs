@@ -25,6 +25,7 @@ public sealed class OracleSaveData
     public const int GlobalFlagMakuTreeDisappeared = 0x0c;
     public const int GlobalFlagSavedNayru = 0x11;
     public const int GlobalFlagMakuTreeSaved = 0x12;
+    public const int GlobalFlagRalphEnteredPortal = 0x40;
 
     private const int WramBase = 0xc5b0;
     private const int ChecksumOffset = 0x000;

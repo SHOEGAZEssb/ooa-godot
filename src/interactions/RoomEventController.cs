@@ -5,8 +5,8 @@ namespace oracleofages;
 
 /// <summary>
 /// Runs room-entry interaction scripts whose sequencing spans Link, dialogue,
-/// palettes, and a hardcoded warp. The first supported record is the original
-/// INTERAC_MAKU_TREE ($87) disappearance event in present room $38.
+/// palettes, actor movement, and hardcoded warps. Supported records begin with
+/// the original Maku Tree disappearance and Ralph's room $39 portal departure.
 /// </summary>
 public sealed class RoomEventController
 {
@@ -24,6 +24,24 @@ public sealed class RoomEventController
         FinishDelay
     }
 
+    private enum RalphStage
+    {
+        None,
+        WaitingForScroll,
+        IntroDelay,
+        Text,
+        PostText,
+        SetSpeed,
+        SetAngle,
+        StartMovement,
+        Moving,
+        MovementFinished,
+        SetFlickerCounter,
+        PlayPortalSound,
+        BeginFlicker,
+        Flickering
+    }
+
     private readonly RoomSession _rooms;
     private readonly RoomEntityManager _entities;
     private readonly RoomTransitionController _transitions;
@@ -34,23 +52,30 @@ public sealed class RoomEventController
     private readonly Func<long> _animationTick;
     private readonly MakuTreeCutsceneDatabase _database;
     private readonly MakuTreeCutsceneDatabase.MakuTreeCutsceneRecord _record;
+    private readonly RalphPortalEventDatabase.RalphPortalEventRecord _ralphRecord;
 
     private Stage _stage;
+    private RalphStage _ralphStage;
     private OracleRoomData? _eventRoom;
     private NpcCharacter? _makuTree;
+    private NpcCharacter? _ralph;
     private double _frameAccumulator;
     private int _counter;
     private int _inputFrame;
     private int _paletteHeader;
     private bool _paletteCycling;
 
-    public bool Active => _stage != Stage.None;
+    public bool Active => _stage != Stage.None || _ralphStage != RalphStage.None;
     internal int CurrentStage => (int)_stage;
+    internal bool RalphWaitingForScroll => _ralphStage == RalphStage.WaitingForScroll;
+    internal bool RalphFlickering => _ralphStage == RalphStage.Flickering;
     internal int Counter => _counter;
     internal int InputFrame => _inputFrame;
     internal int PaletteHeader => _paletteHeader;
     internal bool Completed =>
         _rooms.SaveData.HasGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared);
+    internal bool RalphCompleted =>
+        _rooms.SaveData.HasGlobalFlag(OracleSaveData.GlobalFlagRalphEnteredPortal);
 
     public RoomEventController(
         RoomSession rooms,
@@ -72,6 +97,12 @@ public sealed class RoomEventController
         _animationTick = animationTick;
         _database = new MakuTreeCutsceneDatabase();
         _record = _database.Record;
+        _ralphRecord = new RalphPortalEventDatabase().Record;
+        if (_ralphRecord.GlobalFlag != OracleSaveData.GlobalFlagRalphEnteredPortal)
+        {
+            throw new InvalidOperationException(
+                $"Ralph portal event uses global flag ${_ralphRecord.GlobalFlag:x2}, expected $40.");
+        }
         _entities.RoomEntitiesLoaded += OnRoomEntitiesLoaded;
     }
 
@@ -84,7 +115,10 @@ public sealed class RoomEventController
         while (Active && _frameAccumulator >= 1.0)
         {
             _frameAccumulator -= 1.0;
-            UpdateFrame();
+            if (_stage != Stage.None)
+                UpdateFrame();
+            else
+                UpdateRalphFrame();
         }
     }
 
@@ -93,9 +127,17 @@ public sealed class RoomEventController
         if (Active)
             Cancel();
 
-        if (group != _record.Group || room.Id != _record.Room)
+        if (group == _record.Group && room.Id == _record.Room)
+        {
+            StartMakuTreeEvent(room);
             return;
+        }
+        if (group == _ralphRecord.Group && room.Id == _ralphRecord.Room)
+            StartRalphEvent();
+    }
 
+    private void StartMakuTreeEvent(OracleRoomData room)
+    {
         _makuTree = null;
         foreach (NpcCharacter npc in _entities.Entities<NpcCharacter>())
         {
@@ -125,6 +167,39 @@ public sealed class RoomEventController
         _makuTree.AppendScriptGraphics(_record.ExtraSprite);
         _makuTree.SetScriptAnimation(_record.Animation0);
         _player.BeginCutsceneControl();
+    }
+
+    private void StartRalphEvent()
+    {
+        _ralph = null;
+        foreach (NpcCharacter npc in _entities.Entities<NpcCharacter>())
+        {
+            if (npc.Record.Id == _ralphRecord.InteractionId &&
+                npc.Record.SubId == _ralphRecord.SubId)
+            {
+                _ralph = npc;
+                break;
+            }
+        }
+        if (_ralph is null)
+        {
+            throw new InvalidOperationException(
+                "Room 0:39 did not instantiate INTERAC_RALPH $37:$0d.");
+        }
+
+        // @initSubid0d deletes Ralph unless wScreenTransitionDirection is
+        // DIR_RIGHT ($01). It also deletes him after the one-shot flag is set.
+        Vector2I requiredDirection = DirectionFromOriginalValue(_ralphRecord.EntryDirection);
+        if (RalphCompleted || !_transitions.ScrollActive ||
+            _transitions.ScrollDirection != requiredDirection)
+        {
+            _ralph.SetActive(false);
+            return;
+        }
+
+        _ralphStage = RalphStage.WaitingForScroll;
+        _counter = 0;
+        _frameAccumulator = 0.0;
     }
 
     private void UpdateFrame()
@@ -200,6 +275,128 @@ public sealed class RoomEventController
         _inputFrame++;
     }
 
+    private void UpdateRalphFrame()
+    {
+        switch (_ralphStage)
+        {
+            case RalphStage.WaitingForScroll:
+                // Destination objects do not update during a screen scroll.
+                // On the first object update afterward, the script disables
+                // input and installs its 40-frame counter.
+                _player.BeginCutsceneControl();
+                BeginRalphWait(RalphStage.IntroDelay, _ralphRecord.IntroDelayFrames);
+                break;
+            case RalphStage.IntroDelay:
+                if (CountDown())
+                {
+                    _ralphStage = RalphStage.Text;
+                    _dialogue.ShowMessage(
+                        _ralphRecord.Text, _worldToScreen(_player.Position).Y);
+                }
+                break;
+            case RalphStage.Text:
+                if (!_dialogue.IsOpen)
+                    BeginRalphWait(RalphStage.PostText, _ralphRecord.PostTextFrames);
+                break;
+            case RalphStage.PostText:
+                if (CountDown())
+                {
+                    _ralph!.SetScriptAnimation(_ralphRecord.MovementAnimation);
+                    _ralphStage = RalphStage.SetSpeed;
+                }
+                break;
+            case RalphStage.SetSpeed:
+                // setanimation, setspeed, setangle, and applyspeed each
+                // consume one interaction-script update.
+                _ralphStage = RalphStage.SetAngle;
+                break;
+            case RalphStage.SetAngle:
+                _ralphStage = RalphStage.StartMovement;
+                break;
+            case RalphStage.StartMovement:
+                BeginRalphWait(RalphStage.Moving, _ralphRecord.MovementCounter);
+                break;
+            case RalphStage.Moving:
+                // interactionRunScript decrements counter2 first and applies
+                // speed only while the result is nonzero. applyspeed $11 thus
+                // advances Ralph 16 pixels, from x=$18 to the portal at $28.
+                _counter--;
+                if (_counter > 0)
+                {
+                    _ralph!.Position += RalphMovementDelta();
+                }
+                else
+                {
+                    // The generic counter2 path returns even when the
+                    // decrement reaches zero. Script execution resumes on the
+                    // following update.
+                    _ralphStage = RalphStage.MovementFinished;
+                }
+                break;
+            case RalphStage.MovementFinished:
+                _ralph!.SetScriptAnimation(_ralphRecord.PortalAnimation);
+                _ralphStage = RalphStage.SetFlickerCounter;
+                break;
+            case RalphStage.SetFlickerCounter:
+                _counter = _ralphRecord.FlickerFrames;
+                _ralphStage = RalphStage.PlayPortalSound;
+                break;
+            case RalphStage.PlayPortalSound:
+                // SND_MYSTERY_SEED is deferred with the audio system, but its
+                // script command still occupies this update.
+                _ralphStage = RalphStage.BeginFlicker;
+                break;
+            case RalphStage.BeginFlicker:
+                _ralphStage = RalphStage.Flickering;
+                UpdateRalphFlickerFrame();
+                break;
+            case RalphStage.Flickering:
+                UpdateRalphFlickerFrame();
+                break;
+        }
+    }
+
+    private void BeginRalphWait(RalphStage stage, int frames)
+    {
+        _ralphStage = stage;
+        _counter = frames;
+    }
+
+    private void UpdateRalphFlickerFrame()
+    {
+        // objectFlickerVisibility with b=$01 uses wFrameCounter bit 0.
+        _ralph!.Visible = (_entities.FrameCounter & 0x01) != 0;
+        _counter--;
+        if (_counter == 0)
+            FinishRalphEvent();
+    }
+
+    private Vector2 RalphMovementDelta()
+    {
+        if (_ralphRecord.Speed != 0x28)
+            throw new InvalidOperationException(
+                $"Unsupported Ralph object speed ${_ralphRecord.Speed:x2}; expected SPEED_100 ($28).");
+        return _ralphRecord.Angle switch
+        {
+            0x00 => Vector2.Up,
+            0x08 => Vector2.Right,
+            0x10 => Vector2.Down,
+            0x18 => Vector2.Left,
+            _ => throw new InvalidOperationException(
+                $"Unsupported cardinal object angle ${_ralphRecord.Angle:x2}.")
+        };
+    }
+
+    private static Vector2I DirectionFromOriginalValue(int direction) => direction switch
+    {
+        0 => Vector2I.Up,
+        1 => Vector2I.Right,
+        2 => Vector2I.Down,
+        3 => Vector2I.Left,
+        _ => throw new InvalidOperationException(
+            $"Unsupported wScreenTransitionDirection value ${direction:x2}.")
+    };
+
     private bool CountDown()
     {
         if (_counter > 0)
@@ -251,13 +448,23 @@ public sealed class RoomEventController
         _transitions.ApplyWarpWithDelayedFadeOut(_player, warp);
     }
 
+    private void FinishRalphEvent()
+    {
+        _rooms.SaveData.SetGlobalFlag(_ralphRecord.GlobalFlag);
+        _ralph!.SetActive(false);
+        _ralphStage = RalphStage.None;
+        _player.EndCutsceneControl();
+    }
+
     private void Cancel()
     {
         _eventRoom?.ClearTemporaryBackgroundPalette(_animationTick());
         _player.EndCutsceneControl();
         _eventRoom = null;
         _makuTree = null;
+        _ralph = null;
         _stage = Stage.None;
+        _ralphStage = RalphStage.None;
         _paletteCycling = false;
         _frameAccumulator = 0.0;
     }
