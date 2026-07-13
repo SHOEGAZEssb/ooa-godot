@@ -474,9 +474,13 @@ public partial class GameRoot
             throw new InvalidOperationException(
                 $"Expected 0:48/${sourcePosition:x2} to enter 4:{destinationRoom:x2}, got " +
                 $"{_activeGroup}:{_currentRoom.Id:x2}.");
-        if (_currentRoom.Width != 256 || _currentRoom.Height != 176)
+        int expectedWidth = OracleRoomData.LargeRoomWidthInTiles * OracleRoomData.MetatileSize;
+        int expectedHeight = OracleRoomData.LargeRoomHeightInTiles * OracleRoomData.MetatileSize;
+        if (_currentRoom.Width != expectedWidth || _currentRoom.Height != expectedHeight ||
+            _currentRoom.Texture.GetWidth() != expectedWidth ||
+            _currentRoom.Texture.GetHeight() != expectedHeight)
             throw new InvalidOperationException(
-                $"Expected 4:{destinationRoom:x2} to use the original 256x176 large-room dimensions.");
+                $"Expected 4:{destinationRoom:x2} to use the original 240x176 playable large-room dimensions.");
         if (_player.Position != new Vector2(0x78, 0xb0))
             throw new InvalidOperationException(
                 $"Expected the original large-room entry coordinate $b0/$78, got {_player.Position}.");
@@ -493,6 +497,22 @@ public partial class GameRoot
         UpdateRoomWarpTransition((WarpFadeFrames - WarpEnterFrames) / 60.0);
         if (IsTransitioning)
             throw new InvalidOperationException($"The 4:{destinationRoom:x2} cave fade did not finish.");
+
+        _player.WarpTo(new Vector2(_currentRoom.Width - 1, _currentRoom.Height / 2.0f));
+        UpdateRoomCamera();
+        if (Mathf.Abs(WorldToScreen(new Vector2(_currentRoom.Width, 0)).X -
+            OracleRoomData.ViewportWidth) > 0.01f)
+        {
+            throw new InvalidOperationException(
+                $"The 4:{destinationRoom:x2} camera exposed the padded 16th large-room column.");
+        }
+        if (!_collision.Collides(new Vector2(
+            OracleRoomData.LargeRoomWidthInTiles * OracleRoomData.MetatileSize + 5,
+            _currentRoom.Height / 2.0f)))
+        {
+            throw new InvalidOperationException(
+                $"The 4:{destinationRoom:x2} padded 16th large-room column allowed Link out of bounds.");
+        }
     }
 
     private void ValidateSwordBush()

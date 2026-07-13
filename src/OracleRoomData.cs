@@ -8,6 +8,8 @@ public sealed class OracleRoomData
     public const int ViewportWidth = 160;
     public const int ViewportHeight = 128;
     public const int MetatileSize = 16;
+    public const int LargeRoomWidthInTiles = 15;
+    public const int LargeRoomHeightInTiles = 11;
 
     public int Group { get; }
     public int Id { get; }
@@ -71,6 +73,7 @@ public sealed class OracleRoomData
     private readonly Color[,] _palette;
     private readonly Color[] _commonBgPalette0;
     private readonly OracleAnimationData _animations;
+    private readonly int _layoutStride;
     private int _animationSignature;
 
     internal int CurrentAnimationSignature => _animationSignature;
@@ -105,10 +108,13 @@ public sealed class OracleRoomData
         _commonBgPalette0 = commonBgPalette0;
         _animations = animations;
 
-        (WidthInTiles, HeightInTiles) = layout.Length switch
+        (WidthInTiles, HeightInTiles, _layoutStride) = layout.Length switch
         {
-            80 => (10, 8),
-            176 => (16, 11),
+            80 => (10, 8, 10),
+            // Large-room data keeps the Game Boy's 16-byte wRoomLayout row
+            // stride, but LARGE_ROOM_WIDTH is $0f. The final byte of each row
+            // is padding and must never be rendered or treated as playable.
+            176 => (LargeRoomWidthInTiles, LargeRoomHeightInTiles, 16),
             _ => throw new InvalidOperationException(
                 $"Room {group:x1}:{id:x2} has unsupported layout size {layout.Length}.")
         };
@@ -155,7 +161,7 @@ public sealed class OracleRoomData
         if (tileX < 0 || tileX >= WidthInTiles || tileY < 0 || tileY >= HeightInTiles)
             return false;
 
-        byte metatile = Layout[tileY * WidthInTiles + tileX];
+        byte metatile = Layout[tileY * _layoutStride + tileX];
         byte collision = Collisions[metatile];
         int inTileX = Mathf.PosMod(Mathf.FloorToInt(localPoint.X), MetatileSize);
         int inTileY = Mathf.PosMod(Mathf.FloorToInt(localPoint.Y), MetatileSize);
@@ -187,7 +193,7 @@ public sealed class OracleRoomData
         int tileY = Mathf.FloorToInt(localPoint.Y / MetatileSize);
         if (tileX < 0 || tileX >= WidthInTiles || tileY < 0 || tileY >= HeightInTiles)
             return 0xff;
-        return Layout[tileY * WidthInTiles + tileX];
+        return Layout[tileY * _layoutStride + tileX];
     }
 
     public TerrainInfo GetTerrainInfo(Vector2 localPoint)
@@ -219,7 +225,7 @@ public sealed class OracleRoomData
         int tileY = Mathf.FloorToInt(localPoint.Y / MetatileSize);
         if (tileX < 0 || tileX >= WidthInTiles || tileY < 0 || tileY >= HeightInTiles)
             return 0xff;
-        return _originalLayout[tileY * WidthInTiles + tileX];
+        return _originalLayout[tileY * _layoutStride + tileX];
     }
 
     public bool ReplaceMetatile(Vector2 localPoint, byte expected, byte replacement, long animationTick)
@@ -229,7 +235,7 @@ public sealed class OracleRoomData
         if (tileX < 0 || tileX >= WidthInTiles || tileY < 0 || tileY >= HeightInTiles)
             return false;
 
-        int index = tileY * WidthInTiles + tileX;
+        int index = tileY * _layoutStride + tileX;
         if (Layout[index] != expected)
             return false;
 
@@ -324,7 +330,7 @@ public sealed class OracleRoomData
         for (int roomY = 0; roomY < HeightInTiles; roomY++)
         for (int roomX = 0; roomX < WidthInTiles; roomX++)
         {
-            int metatile = Layout[roomY * WidthInTiles + roomX];
+            int metatile = Layout[roomY * _layoutStride + roomX];
             int mappingOffset = metatile * 8;
 
             for (int quarter = 0; quarter < 4; quarter++)

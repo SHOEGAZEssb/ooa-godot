@@ -106,7 +106,7 @@ Search the disassembly with `rg` before relying on remembered behavior. Preserve
 ## Implementation notes
 
 - Small room layouts are 10×8 metatiles (160×128 pixels).
-- Large room layouts are 16×11 metatiles (256×176 pixels).
+- Large room layouts use a 16×11-metatile storage grid with the original 16-byte row stride, but only 15×11 metatiles (240×176 pixels) are playable; the 16th column is padding.
 - The visible gameplay area is 160×128; the complete viewport is 160×144 including the HUD.
 - Dungeon screen neighbors come from dungeon floor layouts, not room-ID arithmetic.
 - The HUD, dialogue, fade overlays, and debug room label use screen coordinates.
