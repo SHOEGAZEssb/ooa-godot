@@ -598,7 +598,55 @@ public partial class GameRoot
         if (!waterChanged || !lavaChanged)
             throw new InvalidOperationException(
                 $"Expected animated water and lava frames; water={waterChanged}, lava={lavaChanged}.");
-        GD.Print("Validated disassembly-driven water animation in room b8 and lava animation in room 03.");
+
+        OracleRoomData waterfall = _world.LoadRoom(0, 0x45);
+        const int settledWaterfallTick = 32;
+        if (waterfall.AnimationGroup != 0 ||
+            !waterfall.HasAnimationOverride(4, settledWaterfallTick) ||
+            !waterfall.HasAnimationOverride(236, settledWaterfallTick) ||
+            !waterfall.HasAnimationOverride(238, settledWaterfallTick))
+        {
+            throw new InvalidOperationException(
+                "Waterfall animation did not preserve its three alternating VRAM destination writes.");
+        }
+
+        // Room textures are cached independently, but the original engine has
+        // one shared animated-tile VRAM state. Prime 0:56 with a stale phase,
+        // then verify that beginning the 0:55 -> 0:56 scroll synchronizes it
+        // to the outgoing room before both textures are shown together.
+        OracleRoomData target = _world.LoadRoom(0, 0x56);
+        target.UpdateAnimation(0);
+        int staleTargetSignature = target.CurrentAnimationSignature;
+        _activeGroup = 0;
+        _currentRoom = _world.LoadRoom(0, 0x55);
+        OracleRoomData source = _currentRoom;
+        if (!Mathf.IsZeroApprox((float)_animationTicks))
+            throw new InvalidOperationException("Changing animation groups did not reset their shared clock.");
+        _animationTicks = 13.0;
+        source.UpdateAnimation((long)_animationTicks);
+        if (source.CurrentAnimationSignature == staleTargetSignature)
+            throw new InvalidOperationException("Animation phase-lock validation chose indistinguishable ticks.");
+
+        _roomView.SetRoom(source.Texture);
+        _entities.LoadRoom(_activeGroup, source);
+        _player.WarpTo(new Vector2(source.Width + 2.0f, source.Height / 2.0f));
+        CheckRoomExit(_player);
+        if (!IsTransitioning || _activeGroup != 0 || _currentRoom.Id != 0x56)
+            throw new InvalidOperationException("Room 0:55 did not begin its rightward scroll into 0:56.");
+        if (source.AnimationGroup != _currentRoom.AnimationGroup ||
+            source.CurrentAnimationSignature != _currentRoom.CurrentAnimationSignature)
+        {
+            throw new InvalidOperationException(
+                "Outgoing and incoming water/waterfall tiles began the scroll in different phases.");
+        }
+
+        ValidateLinkScrollsForOneTransitionFrame();
+        if (source.CurrentAnimationSignature != _currentRoom.CurrentAnimationSignature)
+            throw new InvalidOperationException("Animated-tile phases diverged during the frozen scroll.");
+        FinishActiveScrollingTransitionForValidation();
+
+        GD.Print("Validated disassembly-driven water and lava animation plus persistent " +
+            "three-range waterfall VRAM updates and 0:55 -> 0:56 phase locking.");
     }
 
     private void ValidateSigns()
@@ -792,6 +840,11 @@ public partial class GameRoot
     {
         if (!IsTransitioning)
             return;
+
+        double animationTickBefore = _animationTicks;
+        UpdateAnimatedTiles(1.0 / 60.0);
+        if (!Mathf.IsEqualApprox((float)_animationTicks, (float)animationTickBefore))
+            throw new InvalidOperationException("Animated tiles advanced during a room transition.");
 
         Vector2 position = _player.Position;
         UpdateScrollingTransition(1.0 / 60.0);

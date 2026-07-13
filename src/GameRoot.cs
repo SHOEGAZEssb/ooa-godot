@@ -58,7 +58,10 @@ public partial class GameRoot : Node2D
     public override void _Ready()
     {
         _launchOptions = new LaunchOptions();
-        _rooms = new RoomSession(_launchOptions.StartingGroup, _launchOptions.StartingRoom);
+        _rooms = new RoomSession(
+            _launchOptions.StartingGroup, _launchOptions.StartingRoom,
+            () => (long)_animationTicks,
+            () => _animationTicks = 0.0);
         if (_launchOptions.Has("--validate-world"))
             _rooms.World.ValidateRepresentativeRooms();
 
@@ -122,6 +125,12 @@ public partial class GameRoot : Node2D
 
     private void UpdateAnimatedTiles(double delta)
     {
+        // updateAnimations returns while wScrollMode bit 0 is clear. Both
+        // scrolling and warp transitions keep that bit clear, so the original
+        // animation counters and queued VRAM state remain completely frozen.
+        if (IsTransitioning)
+            return;
+
         _animationTicks += delta * 60.0;
         if (_rooms.CurrentRoom.UpdateAnimation((long)_animationTicks))
             _roomView.QueueRedraw();

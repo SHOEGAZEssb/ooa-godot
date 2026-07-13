@@ -70,6 +70,8 @@ public sealed class OracleRoomData
     private readonly OracleAnimationData _animations;
     private int _animationSignature;
 
+    internal int CurrentAnimationSignature => _animationSignature;
+
     internal OracleRoomData(
         int group,
         int id,
@@ -129,6 +131,13 @@ public sealed class OracleRoomData
             hash *= 1099511628211UL;
         }
         return hash;
+    }
+
+    internal bool HasAnimationOverride(int destinationTile, long tick)
+    {
+        int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, tick);
+        return _animations.TryGetOverride(
+            activeHeaders, destinationTile, out _, out _);
     }
 
     public bool IsSolid(Vector2 localPoint)

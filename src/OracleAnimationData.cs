@@ -30,16 +30,22 @@ public sealed class OracleAnimationData
         if (group == 0xff || !_groups.TryGetValue(group, out Frame[][]? tracks))
             return Array.Empty<int>();
 
-        var result = new int[tracks.Length];
-        for (int track = 0; track < tracks.Length; track++)
-            result[track] = GetActiveHeader(tracks[track], tick);
-        return result;
+        // Animation entries are DMA writes into VRAM, not interchangeable
+        // whole frames. Waterfalls in particular alternate writes to three
+        // separate destination ranges; every earlier write remains active
+        // until another header overwrites that range.
+        var result = new List<int>();
+        foreach (Frame[] track in tracks)
+            AppendAppliedHeaders(track, tick, result);
+        return result.ToArray();
     }
 
     public bool TryGetOverride(int[] activeHeaders, int destinationTile, out Image source, out int sourceTile)
     {
-        foreach (int headerIndex in activeHeaders)
+        // Later DMA writes take precedence where ranges overlap.
+        for (int index = activeHeaders.Length - 1; index >= 0; index--)
         {
+            int headerIndex = activeHeaders[index];
             Header header = _headers[headerIndex];
             int offset = destinationTile - header.DestinationTile;
             if (offset < 0 || offset >= header.TileCount)
@@ -55,27 +61,49 @@ public sealed class OracleAnimationData
         return false;
     }
 
-    private static int GetActiveHeader(Frame[] frames, long tick)
+    private static void AppendAppliedHeaders(Frame[] frames, long tick, List<int> result)
     {
         int cycleLength = 0;
         foreach (Frame frame in frames)
             cycleLength += frame.Duration;
 
-        // Ages force-advances all tracks three times while initializing them,
-        // leaving sequence frame 2 as the first visible timed frame.
-        int initialFrame = Math.Min(2, frames.Length - 1);
-        int initialPhase = 0;
-        for (int frame = 0; frame < initialFrame; frame++)
-            initialPhase += frames[frame].Duration;
+        int frameIndex = 0;
+        int counter = frames[0].Duration;
 
-        int phase = (int)((tick + initialPhase) % cycleLength);
-        foreach (Frame frame in frames)
+        void ApplyCurrentFrame()
         {
-            if (phase < frame.Duration)
-                return frame.HeaderIndex;
-            phase -= frame.Duration;
+            result.Add(frames[frameIndex].HeaderIndex);
+            frameIndex = (frameIndex + 1) % frames.Length;
+            counter = frames[frameIndex].Duration;
         }
-        return frames[^1].HeaderIndex;
+
+        // initializeAnimations first performs one normal counter update, then
+        // two forced updates. A normal update only emits the first header when
+        // its initial duration is one; each forced update emits unconditionally.
+        counter--;
+        if (counter == 0)
+            ApplyCurrentFrame();
+        ApplyCurrentFrame();
+        ApplyCurrentFrame();
+
+        void AdvanceTicks(long count)
+        {
+            for (long elapsed = 0; elapsed < count; elapsed++)
+            {
+                counter--;
+                if (counter == 0)
+                    ApplyCurrentFrame();
+            }
+        }
+
+        // Once one full cycle has executed, all destination ranges have a
+        // persistent value and subsequent complete cycles can be skipped.
+        long remaining = Math.Max(0, tick);
+        long firstCycle = Math.Min(remaining, cycleLength);
+        AdvanceTicks(firstCycle);
+        remaining -= firstCycle;
+        if (remaining > 0)
+            AdvanceTicks(remaining % cycleLength);
     }
 
     private static Header[] LoadHeaders()
