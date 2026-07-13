@@ -15,7 +15,7 @@ public sealed class LaunchOptions
 
     private int GetDefaultGroup()
     {
-        // Keep room-only development commands and every existing validation
+        // Keep room-only development commands and validation
         // in overworld group 0. A completely argument-free launch opens the
         // dungeon pushblock practice room instead.
         return HasValidationFlag() || HasArgument("--room=") ? 0 : 4;
@@ -28,9 +28,7 @@ public sealed class LaunchOptions
         return HasValidationFlag() || HasArgument("--group=") ? 0x11 : 0x09;
     }
 
-    private bool HasValidationFlag() => Array.Exists(
-        _arguments,
-        argument => argument.StartsWith("--validate-", StringComparison.OrdinalIgnoreCase));
+    private bool HasValidationFlag() => Has("--validate");
 
     private bool HasArgument(string prefix) => Array.Exists(
         _arguments,

@@ -63,9 +63,6 @@ public partial class GameRoot : Node2D
             _launchOptions.StartingGroup, _launchOptions.StartingRoom,
             () => (long)_animationTicks,
             () => _animationTicks = 0.0);
-        if (_launchOptions.Has("--validate-world"))
-            _rooms.World.ValidateRepresentativeRooms();
-
         _scene = new GameSceneGraph(this);
         CreateControllers();
 
@@ -124,18 +121,8 @@ public partial class GameRoot : Node2D
 
     private void ScheduleRequestedValidation()
     {
-        if (_launchOptions.Has("--validate-transition")) CallDeferred(MethodName.ValidateStartupTransition);
-        if (_launchOptions.Has("--validate-symmetry-transition")) CallDeferred(MethodName.ValidateSymmetryTransition);
-        if (_launchOptions.Has("--validate-signs")) CallDeferred(MethodName.ValidateSigns);
-        if (_launchOptions.Has("--validate-npcs")) CallDeferred(MethodName.ValidateNpcs);
-        if (_launchOptions.Has("--validate-animations")) CallDeferred(MethodName.ValidateAnimations);
-        if (_launchOptions.Has("--validate-sword-bush")) CallDeferred(MethodName.ValidateSwordBush);
-        if (_launchOptions.Has("--validate-house-warp")) CallDeferred(MethodName.ValidateHouseWarp);
-        if (_launchOptions.Has("--validate-cave-warps")) CallDeferred(MethodName.ValidateCaveWarps);
-        if (_launchOptions.Has("--validate-terrain")) CallDeferred(MethodName.ValidateTerrain);
-        if (_launchOptions.Has("--validate-health")) CallDeferred(MethodName.ValidateHealth);
-        if (_launchOptions.Has("--validate-chests")) CallDeferred(MethodName.ValidateChests);
-        if (_launchOptions.Has("--validate-push-blocks")) CallDeferred(MethodName.ValidatePushBlocks);
+        if (_launchOptions.Has("--validate"))
+            CallDeferred(MethodName.ValidateAll);
     }
 
     private void UpdateAnimatedTiles(double delta)

@@ -74,25 +74,10 @@ Use the console executable and `--quit-after` so validation runs terminate:
 
 ```powershell
 $godot = 'E:\Stuff\Gamedev\Godot_v4.6-stable_mono_win64\Godot_v4.6-stable_mono_win64_console.exe'
-& $godot --headless --path . --quit-after 10 -- --validate-house-warp
+& $godot --headless --path . --quit-after 10 -- --validate
 ```
 
-Available validation flags include:
-
-- `--validate-world`
-- `--validate-transition`
-- `--validate-symmetry-transition` (launch with `--room=22`)
-- `--validate-signs`
-- `--validate-npcs`
-- `--validate-animations`
-- `--validate-sword-bush`
-- `--validate-house-warp`
-- `--validate-cave-warps`
-- `--validate-terrain`
-- `--validate-health`
-- `--validate-chests`
-
-Run the validation directly related to the change plus nearby regression tests. For room transitions, run at least the startup, house, and cave validations.
+The single `--validate` flag runs every world-data and gameplay validation in sequence, selecting canonical rooms for each scenario automatically.
 
 Before handing off, also run:
 

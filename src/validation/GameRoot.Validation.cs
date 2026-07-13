@@ -5,6 +5,36 @@ namespace oracleofages;
 
 public partial class GameRoot
 {
+    private void ValidateAll()
+    {
+        _world.ValidateRepresentativeRooms();
+
+        LoadValidationRoom(0, 0x11);
+        ValidateStartupTransition();
+        LoadValidationRoom(0, 0x22);
+        ValidateSymmetryTransition();
+
+        ValidateSigns();
+        ValidateNpcs();
+        ValidateAnimations();
+        ValidateSwordBush();
+        ValidateHouseWarp();
+        ValidateCaveWarps();
+        ValidateTerrain();
+        ValidateHealth();
+        ValidateChests();
+        ValidatePushBlocks();
+
+        GD.Print("Validated all gameplay and world-data scenarios.");
+    }
+
+    private void LoadValidationRoom(int group, int room)
+    {
+        LoadDebugRoom(group, room);
+        _player.WarpTo(FindSpawn());
+        _player.Face(Vector2I.Down);
+    }
+
     private void ValidatePushBlocks()
     {
         OracleRoomData directionalRoom = _rooms.Load(4, 0x09);
@@ -1090,34 +1120,6 @@ public partial class GameRoot
         GD.Print("Validated villager idle animation, $28 Link awareness, 30-frame facing delay, " +
             "TX_1420 dialogue, retained/preloaded NPC screen scrolling, room 0:66 " +
             "Link-relative draw priority, and Link sprite palette 0.");
-    }
-
-    private static int GetStartingRoom()
-    {
-        foreach (string argument in OS.GetCmdlineUserArgs())
-        {
-            if (!argument.StartsWith("--room=", StringComparison.OrdinalIgnoreCase))
-                continue;
-            string value = argument[7..].Replace("0x", "", StringComparison.OrdinalIgnoreCase);
-            if (int.TryParse(value, System.Globalization.NumberStyles.HexNumber, null, out int room)
-                && room is >= 0 and <= 0xff)
-                return room;
-        }
-        return 0x11;
-    }
-
-    private static int GetStartingGroup()
-    {
-        foreach (string argument in OS.GetCmdlineUserArgs())
-        {
-            if (!argument.StartsWith("--group=", StringComparison.OrdinalIgnoreCase))
-                continue;
-            string value = argument[8..].Replace("0x", "", StringComparison.OrdinalIgnoreCase);
-            if (int.TryParse(value, System.Globalization.NumberStyles.HexNumber, null, out int group)
-                && group is >= 0 and <= 5)
-                return group;
-        }
-        return 0;
     }
 
     private void ValidateStartupTransition()
