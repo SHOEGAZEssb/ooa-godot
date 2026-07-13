@@ -343,10 +343,9 @@ public partial class Player : Node2D
         {
             int phase = GetAttackPhase();
             int texturePhase = phase == 3 ? 1 : phase;
-            Vector2 poseOffset = phase == 2 ? AttackPoseOffsets[(int)_facing] : Vector2.Zero;
             DrawTextureRectRegion(
                 _attackTexture,
-                new Rect2(new Vector2(-8, -12) + poseOffset, new Vector2(16, 16)),
+                new Rect2(AttackSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(texturePhase * 16, (int)_facing * 16, 16, 16));
             DrawSword(phase);
         }
@@ -609,18 +608,30 @@ public partial class Player : Node2D
 
     private void DrawSword(int phase)
     {
-        int arcIndex = GetSwordArcIndex(phase);
-        SwordArc arc = SwordArcs[arcIndex];
         int animation = SwordAnimationIndices[(int)_facing, phase];
-        // swordArcData is relative to Link's object Y. Our Link texture is
-        // anchored four pixels above the standard OAM origin (-12 vs -8), so
-        // apply the same visual correction to the weapon. Collision remains
-        // in the original object coordinate space.
-        Vector2 itemPosition = new Vector2(arc.OffsetX, arc.OffsetY) + SwordVisualOriginOffset;
         DrawTextureRectRegion(
             _swordTexture,
-            new Rect2(itemPosition - new Vector2(16, 16), new Vector2(32, 32)),
+            new Rect2(SwordSpritePosition - new Vector2(16, 16), new Vector2(32, 32)),
             new Rect2(animation * 32, 0, 32, 32));
+    }
+
+    internal Vector2 AttackSpriteOrigin
+    {
+        get
+        {
+            int phase = GetAttackPhase();
+            Vector2 poseOffset = phase == 2 ? AttackPoseOffsets[(int)_facing] : Vector2.Zero;
+            return NormalSpriteOrigin + poseOffset;
+        }
+    }
+
+    internal Vector2 SwordSpritePosition
+    {
+        get
+        {
+            SwordArc arc = SwordArcs[GetSwordArcIndex(GetAttackPhase())];
+            return new Vector2(arc.OffsetX, arc.OffsetY);
+        }
     }
 
     private int GetAttackPhase()
@@ -811,10 +822,11 @@ public partial class Player : Node2D
 
     private static readonly Vector2[] AttackPoseOffsets =
     {
+        // Frames $b4-$b7 use OAM records $08-$0b. Their part coordinates
+        // move the rendered pose three pixels through the swing while Link's
+        // object position remains fixed.
         new(0, -3), new(3, 0), new(0, 3), new(-3, 0)
     };
-
-    private static readonly Vector2 SwordVisualOriginOffset = new(0, -4);
 
     private static readonly int[,] SwordAnimationIndices =
     {

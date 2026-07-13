@@ -213,13 +213,28 @@ public partial class GameRoot
         Vector2 bushPoint = new(24, 56);
         if (_currentRoom.GetMetatile(bushPoint) != 0xc5)
             throw new InvalidOperationException("Expected overworld bush $c5 in room 69 at $31.");
+        Vector2 objectPosition = _player.Position;
         _player.StartSwordAttack();
+        if (_player.AttackSpriteOrigin != new Vector2(-8, -8))
+            throw new InvalidOperationException(
+                $"Sword frame $ac displaced Link from the standard OAM origin: {_player.AttackSpriteOrigin}.");
+        if (_player.SwordSpritePosition != new Vector2(16, -2))
+            throw new InvalidOperationException(
+                $"Sword arc phase $00 was not relative to Link's object position: {_player.SwordSpritePosition}.");
         _player._Process(7.0 / 60.0);
+        if (_player.Position != objectPosition)
+            throw new InvalidOperationException("Swinging the sword changed Link's object position.");
+        if (_player.AttackSpriteOrigin != new Vector2(-8, -11))
+            throw new InvalidOperationException(
+                $"Sword frame $b4 did not apply only its original OAM $08 pose offset: {_player.AttackSpriteOrigin}.");
+        if (_player.SwordSpritePosition != new Vector2(-4, -17))
+            throw new InvalidOperationException(
+                $"Sword arc phase $08 was not relative to Link's object position: {_player.SwordSpritePosition}.");
         if (_currentRoom.GetMetatile(bushPoint) != 0x3a)
             throw new InvalidOperationException("The level-1 sword did not replace bush $c5 with ground $3a.");
         if (_currentRoom.IsSolid(bushPoint))
             throw new InvalidOperationException("The cut bush's replacement tile remained solid.");
-        GD.Print("Validated level-1 sword hit and bush substitution c5 -> 3a in room 69.");
+        GD.Print("Validated level-1 sword OAM anchoring, hit, and bush substitution c5 -> 3a in room 69.");
     }
 
     private void ValidateTerrain()
