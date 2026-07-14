@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace oracleofages;
 
@@ -12,6 +13,7 @@ public partial class GameRoot
         ValidateSaveDataFoundation();
         ValidateExplicitSavePersistence();
         ValidateMainMenu();
+        ValidateNewGameIntro();
         ValidateDebugFlagMenu();
         ValidateDeathRespawnCheckpoints();
 
@@ -65,6 +67,123 @@ public partial class GameRoot
                 "Save and Quit did not save, wait 30 updates, and return to title/file select.");
         }
         GD.Print("Validated Save and Quit persistence request and return to title after 30 updates.");
+    }
+
+    private void ValidateNewGameIntro()
+    {
+        var screen = new NewGameIntroScreen { Name = "NewGameIntroValidation" };
+        AddChild(screen);
+        int completionRequests = 0;
+        var intro = new NewGameIntroController(screen, () => completionRequests++);
+        NewGameIntroDatabase.NewGameIntroRecord record = intro.Record;
+        var introDatabase = new NewGameIntroDatabase();
+        NewGameIntroDatabase.IntroSpriteFrame[] linkSpin =
+            introDatabase.SpriteFrames("link-spin");
+        NewGameIntroDatabase.IntroSpriteFrame[] linkVanish =
+            introDatabase.SpriteFrames("link-vanish");
+        NewGameIntroDatabase.IntroSpriteFrame[] orbDescend =
+            introDatabase.SpriteFrames("orb-descend");
+        NewGameIntroDatabase.IntroSpriteFrame[] orbVanish =
+            introDatabase.SpriteFrames("orb-vanish");
+        int descendFrames = record.InitialWaitFrames + record.VoiceWaitFrames;
+
+        if (record.InitialWaitFrames != 300 || record.VoiceWaitFrames != 60 ||
+            record.PostVanishWaitFrames != 60 || record.SummonFrames != 128 ||
+            record.LinkX != 0x50 || record.LinkY != 0xd0 ||
+            record.LinkSummonedFlag != OracleSaveData.GlobalFlagLinkSummoned ||
+            record.PregameIntroDoneFlag != OracleSaveData.GlobalFlagPregameIntroDone ||
+            record.TextId != 0x1213 || record.TextPosition != 2 ||
+            record.SpinFrameDuration != 4 || record.SpinGraphics.Length != 8 ||
+            record.VanishDurations.Length != 4 || record.VanishGraphics.Length != 4 ||
+            record.DescendOscillation.Length != 8 ||
+            record.DescendOscillation[6] != -1 ||
+            record.HoverOscillation.Length != 8 ||
+            !record.HoverOscillation.SequenceEqual(new[] { -1, -1, -1, 0, 1, 1, 1, 0 }) ||
+            NewGameIntroScreen.FirstVisibleLinkFrameForValidation(
+                record.LinkY,
+                descendFrames,
+                record.DescendOscillation,
+                record.HoverOscillation) != 96 ||
+            NewGameIntroScreen.LinkZForValidation(
+                descendFrames,
+                descendFrames,
+                record.DescendOscillation,
+                record.HoverOscillation) != 77 ||
+            NewGameIntroScreen.LinkZForValidation(
+                descendFrames + 64,
+                descendFrames,
+                record.DescendOscillation,
+                record.HoverOscillation) != 77 ||
+            NewGameIntroScreen.SourcePixelForValidation(0x0900, 0x00, 0, 0) !=
+                new Vector2I(64, 64) ||
+            NewGameIntroScreen.SourcePixelForValidation(0x1c00, 0x12, 7, 15) !=
+                new Vector2I(79, 239) ||
+            intro.TotalVanishFrames != 62 ||
+            NewGameIntroController.ArrivalFadeWaitFrames != 65 ||
+            RoomView.WaveOffsetForValidation(0xff, 0x1f) != 0xfe ||
+            RoomView.WaveOffsetForValidation(0xff, 0x5f) != -0xfe)
+        {
+            throw new InvalidOperationException(
+                "Imported CUTSCENE_PREGAME_INTRO data diverged from the disassembly.");
+        }
+
+        if (linkSpin.Length != 8 || linkVanish.Length != 4 ||
+            orbDescend.Length != 2 || orbVanish.Length != 4 ||
+            linkSpin.Any(frame => frame.Duration != 4 || frame.BasePalette != 0) ||
+            linkSpin[0].Parts.Length != 2 || linkVanish[1].Parts.Length != 1 ||
+            orbDescend[0].SourceOffset != 0x1c00 ||
+            orbDescend[0].Parts.Length != 18 || orbDescend[1].Parts.Length != 14 ||
+            orbDescend.Any(frame => frame.BasePalette != 0 ||
+                frame.Parts.Any(part => (part.Flags & 0x07) != 4)) ||
+            !orbVanish.Select(frame => frame.Duration)
+                .SequenceEqual(new[] { 30, 18, 1, 1 }) ||
+            !orbVanish.Select(frame => frame.Parts.Length)
+                .SequenceEqual(new[] { 6, 2, 2, 2 }) ||
+            orbVanish.Any(frame => frame.SourceOffset != 0x1d40 ||
+                frame.BasePalette != 4))
+        {
+            throw new InvalidOperationException(
+                "Imported pregame Link/orb graphics, OAM, palettes, or animation frames diverged.");
+        }
+
+        for (int frame = 0; frame < intro.TotalVoiceWaitFrames - 1; frame++)
+            intro.Update(1.0 / 60.0);
+        if (intro.CurrentStage != NewGameIntroController.Stage.WaitingForVoice ||
+            screen.Dialogue.IsOpen)
+        {
+            throw new InvalidOperationException(
+                "TX_1213 opened before the original 300+60 update wait.");
+        }
+        intro.Update(1.0 / 60.0);
+        if (intro.CurrentStage != NewGameIntroController.Stage.Dialogue ||
+            !screen.Dialogue.IsOpen ||
+            screen.Dialogue.CurrentMessage != "Accept our\nquest, hero!" ||
+            screen.Dialogue.Position.Y != 80)
+        {
+            throw new InvalidOperationException(
+                "CUTSCENE_PREGAME_INTRO did not open TX_1213 at position 2.");
+        }
+
+        screen.Dialogue.Close();
+        intro.Update(1.0 / 60.0);
+        for (int frame = 0; frame < intro.TotalVanishFrames - 1; frame++)
+            intro.Update(1.0 / 60.0);
+        if (intro.CurrentStage != NewGameIntroController.Stage.Vanishing)
+            throw new InvalidOperationException("Link's original vanish animation ended early.");
+        intro.Update(1.0 / 60.0);
+        for (int frame = 0; frame < record.PostVanishWaitFrames; frame++)
+            intro.Update(1.0 / 60.0);
+        if (completionRequests != 1 ||
+            intro.CurrentStage != NewGameIntroController.Stage.Complete)
+        {
+            throw new InvalidOperationException(
+                "The new-game intro did not hand off to the summon transition exactly once.");
+        }
+
+        screen.QueueFree();
+        GD.Print("Validated CUTSCENE_PREGAME_INTRO frame-96 top entrance, interleaved 8x16 OBJ cells, " +
+            "cumulative descend/hover Z tables, $0d/$06 blue-orb OAM and palette 4, 300/60 waits, TX_1213, 62-update " +
+            "vanish handoff, 60-update black hold, 65-update white-fade wait, and 128-update wave.");
     }
 
     private void ValidateExplicitSavePersistence()

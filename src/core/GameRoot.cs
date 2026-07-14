@@ -27,6 +27,8 @@ public partial class GameRoot : Node2D
     private DebugFlagMenuController _debugFlagMenu = null!;
     private MainMenuController? _mainMenu;
     private MainMenuScreen? _mainMenuScreen;
+    private NewGameIntroController? _newGameIntro;
+    private NewGameIntroScreen? _newGameIntroScreen;
     private LaunchOptions _launchOptions = null!;
     private RoomCollision _collision = null!;
     private PlayerWorld _playerWorld = null!;
@@ -38,6 +40,10 @@ public partial class GameRoot : Node2D
     private bool _persistSaveData;
     private int _activeSaveSlot;
     private int _saveWriteRequests;
+    private double _newGameArrivalTicks;
+    private int _newGameArrivalFadeFrames;
+    private int _newGameArrivalFrames;
+    private int _newGameArrivalPhase;
 
     private double _animationTicks;
 
@@ -103,7 +109,44 @@ public partial class GameRoot : Node2D
         _mainMenuScreen?.QueueFree();
         _mainMenuScreen = null;
         _mainMenu = null;
+
+        if (!save.HasGlobalFlag(OracleSaveData.GlobalFlagPregameIntroDone))
+        {
+            _newGameIntroScreen = new NewGameIntroScreen
+            {
+                Name = "NewGameIntro",
+                ZIndex = 200
+            };
+            AddChild(_newGameIntroScreen);
+            _newGameIntro = new NewGameIntroController(
+                _newGameIntroScreen,
+                () => CompleteNewGameIntro(save));
+            return;
+        }
+
         InitializeGameplay(save);
+    }
+
+    private void CompleteNewGameIntro(OracleSaveData save)
+    {
+        NewGameIntroDatabase.NewGameIntroRecord record =
+            _newGameIntro!.Record;
+        save.SetGlobalFlag(record.LinkSummonedFlag);
+        save.SetGlobalFlag(record.PregameIntroDoneFlag);
+        _newGameIntroScreen?.QueueFree();
+        _newGameIntroScreen = null;
+        _newGameIntro = null;
+        InitializeGameplay(save);
+
+        _newGameArrivalTicks = 0.0;
+        _newGameArrivalFadeFrames = NewGameIntroController.ArrivalFadeWaitFrames;
+        _newGameArrivalFrames = record.SummonFrames;
+        _newGameArrivalPhase = 0;
+        _warpFade.Color = Colors.White;
+        _roomView.SetHorizontalWave(0xff, 0);
+        _player.Visible = false;
+        _player.SetPhysicsProcess(false);
+        _player.SetProcess(false);
     }
 
     private void InitializeGameplay(OracleSaveData save)
@@ -172,7 +215,14 @@ public partial class GameRoot : Node2D
             _mainMenu.Update(delta);
             return;
         }
+        if (_newGameIntro is not null)
+        {
+            _newGameIntro.Update(delta);
+            return;
+        }
         if (_transitions is null)
+            return;
+        if (UpdateNewGameArrival(delta))
             return;
 
         _debugFlagMenu.Update();
@@ -194,6 +244,52 @@ public partial class GameRoot : Node2D
         UpdateAnimatedTiles(delta);
         UpdateRoomDebugLabel();
         _debugWarps.Update();
+    }
+
+    private bool UpdateNewGameArrival(double delta)
+    {
+        if (_newGameArrivalFadeFrames <= 0 && _newGameArrivalFrames <= 0)
+            return false;
+
+        if (_newGameArrivalFadeFrames > 0)
+        {
+            _newGameArrivalTicks = Math.Min(
+                _newGameArrivalFadeFrames,
+                _newGameArrivalTicks + delta * 60.0);
+            int fadeFrame = Mathf.FloorToInt(_newGameArrivalTicks);
+            _newGameArrivalPhase = fadeFrame;
+            _roomView.SetHorizontalWave(0xff, _newGameArrivalPhase);
+            // The 32 palette offsets occur on updates 1,3,...63; updates 64-65
+            // retain the completed palette while the thread reports completion.
+            int paletteStep = Math.Min(32, (fadeFrame + 1) / 2);
+            _warpFade.Color = new Color(1, 1, 1, 1.0f - paletteStep / 32.0f);
+            if (_newGameArrivalTicks < _newGameArrivalFadeFrames)
+                return true;
+
+            _newGameArrivalFadeFrames = 0;
+            _newGameArrivalTicks = 0.0;
+            _warpFade.Color = new Color(1, 1, 1, 0);
+            return true;
+        }
+
+        _newGameArrivalTicks = Math.Min(
+            _newGameArrivalFrames,
+            _newGameArrivalTicks + delta * 60.0);
+        int frame = Mathf.FloorToInt(_newGameArrivalTicks);
+        int amplitude = Math.Max(0, 0xff - frame * 2);
+        _roomView.SetHorizontalWave(amplitude, _newGameArrivalPhase + frame);
+        if (frame >= _newGameArrivalFrames / 2)
+            _player.Visible = true;
+        if (_newGameArrivalTicks < _newGameArrivalFrames)
+            return true;
+
+        _newGameArrivalFrames = 0;
+        _roomView.ClearHorizontalWave();
+        _warpFade.Color = new Color(1, 1, 1, 0);
+        _player.Visible = true;
+        _player.SetPhysicsProcess(true);
+        _player.SetProcess(true);
+        return false;
     }
 
     private void CreateControllers()

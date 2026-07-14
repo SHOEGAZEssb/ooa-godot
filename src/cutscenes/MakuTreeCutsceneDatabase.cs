@@ -16,7 +16,7 @@ public sealed class MakuTreeCutsceneDatabase
     public MakuTreeCutsceneDatabase()
     {
         string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/maku_tree_cutscene.tsv");
+            "res://assets/oracle/cutscenes/maku_tree_cutscene.tsv");
         string? row = null;
         foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {

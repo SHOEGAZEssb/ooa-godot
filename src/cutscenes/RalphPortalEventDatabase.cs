@@ -15,7 +15,7 @@ public sealed class RalphPortalEventDatabase
     public RalphPortalEventDatabase()
     {
         string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/ralph_portal_event.tsv");
+            "res://assets/oracle/cutscenes/ralph_portal_event.tsv");
         string? row = null;
         foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
