@@ -727,6 +727,18 @@ if (-not $introSpinAnimation.Success -or $introSpinFrames.Count -ne 8 -or
     ($introSpinFrames | Where-Object { $_.Groups['duration'].Value -ne '04' }).Count -ne 0) {
     throw 'Unexpected CUTSCENE_PREGAME_INTRO spin animation $08.'
 }
+$introArrivalAnimation = [regex]::Match(
+    $introAnimationSource,
+    '(?ms)^animationData19ea9:\s*(?<body>.*?)(?=^animationData19eb4:)')
+$introArrivalFrames = @([regex]::Matches(
+    $introArrivalAnimation.Groups['body'].Value,
+    '\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<graphic>[0-9a-f]{2})\s+\$00'))
+if (-not $introArrivalAnimation.Success -or $introArrivalFrames.Count -ne 3 -or
+    ($introArrivalFrames | Where-Object { $_.Groups['duration'].Value -ne '04' }).Count -ne 0 -or
+    (($introArrivalFrames | ForEach-Object { $_.Groups['graphic'].Value }) -join ',') -ne
+        'e4,e8,ec') {
+    throw 'Unexpected LINK_ANIM_MODE_FALL animation used by warp transition $0b.'
+}
 $introVanishAnimation = [regex]::Match(
     $introAnimationSource,
     '(?ms)^animationData19d84:\s*(?<body>.*?)(?=^animationData19d90:)')
@@ -757,6 +769,17 @@ $introInitialWait =
     ([Convert]::ToInt32($introLinkInit.Groups['waitHi'].Value, 16) -shl 8) -bor
     [Convert]::ToInt32($introLinkInit.Groups['waitLo'].Value, 16)
 $introSpinGraphics = $introSpinFrames | ForEach-Object { $_.Groups['graphic'].Value }
+$introArrivalDurations = $introArrivalFrames | ForEach-Object {
+    $_.Groups['duration'].Value
+}
+# Transition $0b runs on normal SPECIALOBJECT_LINK ($00), not
+# SPECIALOBJECT_LINK_CUTSCENE ($08). Link faces DIR_DOWN, and the normal Link
+# graphics loader adds that direction to graphic indices beginning at $54.
+$introArrivalGraphics = $introArrivalFrames | ForEach-Object {
+    $graphic = [Convert]::ToInt32($_.Groups['graphic'].Value, 16)
+    if ($graphic -ge 0x54) { $graphic += 2 }
+    $graphic.ToString('x2')
+}
 $introVanishDurations = $introVanishFrames | ForEach-Object { $_.Groups['duration'].Value }
 $introVanishGraphics = $introVanishFrames | ForEach-Object { $_.Groups['graphic'].Value }
 $introColumns = @(
@@ -833,8 +856,8 @@ $specialOamLabels = @([regex]::Matches(
     $specialOamPointerBlock.Groups['body'].Value,
     '(?m)^\s*\.dw\s+(?<label>[A-Za-z0-9_]+)') |
     ForEach-Object { $_.Groups['label'].Value })
-if (-not $specialGfxBlock.Success -or $specialGfxRows.Count -lt 0x18 -or
-    -not $specialOamPointerBlock.Success -or $specialOamLabels.Count -lt 7) {
+if (-not $specialGfxBlock.Success -or $specialGfxRows.Count -lt 0xef -or
+    -not $specialOamPointerBlock.Success -or $specialOamLabels.Count -lt 0x15) {
     throw 'Could not resolve SPECIALOBJECT_LINK_CUTSCENE graphics and OAM tables.'
 }
 
@@ -854,6 +877,7 @@ function Add-LinkIntroSpriteRows([string]$kind, $durations, $graphics) {
 $spinDurations = @(0..($introSpinGraphics.Count - 1) | ForEach-Object { '04' })
 Add-LinkIntroSpriteRows 'link-spin' $spinDurations $introSpinGraphics
 Add-LinkIntroSpriteRows 'link-vanish' $introVanishDurations $introVanishGraphics
+Add-LinkIntroSpriteRows 'link-arrival' $introArrivalDurations $introArrivalGraphics
 
 $sparkleSubids = [regex]::Match(
     $interactionDataSource,
@@ -928,8 +952,8 @@ function Add-SparkleIntroSpriteRows([string]$kind, [int]$subid) {
 }
 Add-SparkleIntroSpriteRows 'orb-descend' 0x0d
 Add-SparkleIntroSpriteRows 'orb-vanish' 0x06
-if ($introSpriteRows.Count -ne 19) {
-    throw "Expected 18 new-game intro sprite frames, exported $($introSpriteRows.Count - 1)."
+if ($introSpriteRows.Count -ne 22) {
+    throw "Expected 21 new-game intro sprite frames, exported $($introSpriteRows.Count - 1)."
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'cutscenes\new_game_intro_sprites.tsv'),

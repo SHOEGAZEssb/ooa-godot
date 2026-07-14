@@ -44,6 +44,7 @@ public partial class GameRoot : Node2D
     private int _newGameArrivalFadeFrames;
     private int _newGameArrivalFrames;
     private int _newGameArrivalPhase;
+    private int _newGameArrivalLastFrame;
 
     private double _animationTicks;
 
@@ -142,6 +143,7 @@ public partial class GameRoot : Node2D
         _newGameArrivalFadeFrames = NewGameIntroController.ArrivalFadeWaitFrames;
         _newGameArrivalFrames = record.SummonFrames;
         _newGameArrivalPhase = 0;
+        _newGameArrivalLastFrame = 0;
         _warpFade.Color = Colors.White;
         _roomView.SetHorizontalWave(0xff, 0);
         _player.Visible = false;
@@ -278,12 +280,27 @@ public partial class GameRoot : Node2D
         int frame = Mathf.FloorToInt(_newGameArrivalTicks);
         int amplitude = Math.Max(0, 0xff - frame * 2);
         _roomView.SetHorizontalWave(amplitude, _newGameArrivalPhase + frame);
-        if (frame >= _newGameArrivalFrames / 2)
-            _player.Visible = true;
+        int slowFallStartFrame = _newGameArrivalFrames / 2;
+        for (int update = _newGameArrivalLastFrame + 1; update <= frame; update++)
+        {
+            if (update == slowFallStartFrame)
+            {
+                int screenY = Mathf.FloorToInt(
+                    _transitions.WorldToScreen(_player.Position).Y);
+                _player.BeginNewGameSlowFall(
+                    Player.NewGameSlowFallInitialZ(screenY));
+            }
+            else if (update > slowFallStartFrame && _player.IsNewGameSlowFalling)
+            {
+                _player.AdvanceNewGameSlowFall();
+            }
+        }
+        _newGameArrivalLastFrame = frame;
         if (_newGameArrivalTicks < _newGameArrivalFrames)
             return true;
 
         _newGameArrivalFrames = 0;
+        _player.EndNewGameSlowFall();
         _roomView.ClearHorizontalWave();
         _warpFade.Color = new Color(1, 1, 1, 0);
         _player.Visible = true;

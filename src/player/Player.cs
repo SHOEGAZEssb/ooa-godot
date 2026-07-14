@@ -19,6 +19,7 @@ public partial class Player : Node2D
     private const float EnemyKnockbackSpeed = 1.25f;
     private const int EnemyInvincibilityFrames = 0x22;
     private const int EnemyKnockbackFrames = 0x0f;
+    private const int NewGameSlowFallGravity = 0x0c;
     private static readonly Vector2 DrownSpriteOrigin = new(-8, -4);
     private const int TerrainHazardDamageQuarters = 2;
     private IPlayerWorld _world = null!;
@@ -59,6 +60,13 @@ public partial class Player : Node2D
     private bool _fallingInHole;
     private bool _fallInHoleRespawning;
     private bool _cutsceneControlled;
+    private CutsceneSpriteRenderer? _newGameFallRenderer;
+    private NewGameIntroDatabase.IntroSpriteFrame[]? _newGameFallFrames;
+    private int _newGameFallFrame;
+    private int _newGameFallFrameTicks;
+    private int _newGameFallZFixed;
+    private int _newGameFallSpeedZ;
+    private bool _newGameSlowFalling;
 
     public int HealthQuarters => _inventory.HealthQuarters;
     public int Rupees => _inventory.Rupees;
@@ -79,6 +87,9 @@ public partial class Player : Node2D
     internal bool IsPushing => _pushing;
     internal float InvincibilityFrames => _enemyInvincibilityFrames;
     internal float KnockbackFrames => _enemyKnockbackFrames;
+    internal bool IsNewGameSlowFalling => _newGameSlowFalling;
+    internal int NewGameSlowFallFrame => _newGameFallFrame;
+    internal int NewGameSlowFallZ => _newGameFallZFixed >> 8;
 
     public void Initialize(IPlayerWorld world, InventoryState inventory, Vector2 spawn)
     {
@@ -90,6 +101,7 @@ public partial class Player : Node2D
         _swordTexture = BuildSwordTexture();
         _drownTexture = BuildDrownTexture();
         _fallInHoleTexture = BuildFallInHoleTexture();
+        EndNewGameSlowFall();
         _precisePosition = spawn;
         _lastSafePosition = spawn;
         Position = ToObjectPixelPosition(spawn);
@@ -98,6 +110,7 @@ public partial class Player : Node2D
 
     public void WarpTo(Vector2 position, bool recordSafe = true)
     {
+        EndNewGameSlowFall();
         _drownTime = 0.0f;
         _drownInvisibleTime = 0.0f;
         _hazardRecoveryTime = 0.0f;
@@ -119,6 +132,77 @@ public partial class Player : Node2D
         Position = ToObjectPixelPosition(position);
         Visible = true;
         QueueRedraw();
+    }
+
+    internal void BeginNewGameSlowFall(int initialZ)
+    {
+        _newGameFallRenderer ??= new CutsceneSpriteRenderer();
+        _newGameFallFrames ??= new NewGameIntroDatabase().SpriteFrames("link-arrival");
+        if (_newGameFallFrames.Length != 3)
+            throw new InvalidOperationException("Expected three LINK_ANIM_MODE_FALL frames.");
+
+        _newGameFallFrame = 0;
+        _newGameFallFrameTicks = _newGameFallFrames[0].Duration;
+        _newGameFallZFixed = initialZ << 8;
+        _newGameFallSpeedZ = 0;
+        _newGameSlowFalling = true;
+        _facing = Facing.Down;
+        _walking = false;
+        Visible = true;
+        QueueRedraw();
+    }
+
+    internal bool AdvanceNewGameSlowFall()
+    {
+        if (!_newGameSlowFalling || _newGameFallFrames is null)
+            return false;
+
+        // specialObjectAnimate runs before objectUpdateSpeedZ_paramC in
+        // TRANSITION_DEST_SLOWFALL ($0b).
+        _newGameFallFrameTicks--;
+        if (_newGameFallFrameTicks <= 0)
+        {
+            _newGameFallFrame = (_newGameFallFrame + 1) % _newGameFallFrames.Length;
+            _newGameFallFrameTicks = _newGameFallFrames[_newGameFallFrame].Duration;
+        }
+        _newGameFallZFixed += _newGameFallSpeedZ;
+        if (_newGameFallZFixed >= 0)
+        {
+            EndNewGameSlowFall();
+            return true;
+        }
+
+        _newGameFallSpeedZ += NewGameSlowFallGravity;
+        QueueRedraw();
+        return false;
+    }
+
+    internal void EndNewGameSlowFall()
+    {
+        _newGameSlowFalling = false;
+        _newGameFallFrame = 0;
+        _newGameFallFrameTicks = 0;
+        _newGameFallZFixed = 0;
+        _newGameFallSpeedZ = 0;
+        QueueRedraw();
+    }
+
+    internal static int NewGameSlowFallInitialZ(int screenY) =>
+        Math.Max(-0x80, -screenY - 8);
+
+    internal static int NewGameSlowFallZForValidation(int screenY, int updates)
+    {
+        int z = NewGameSlowFallInitialZ(screenY) << 8;
+        int speedZ = 0;
+        for (int update = 0; update < updates && z < 0; update++)
+        {
+            z += speedZ;
+            if (z >= 0)
+                z = 0;
+            else
+                speedZ += NewGameSlowFallGravity;
+        }
+        return z >> 8;
     }
 
     public void BeginScrollingTransition(Vector2 position, Vector2I direction)
@@ -441,7 +525,15 @@ public partial class Player : Node2D
 
     public override void _Draw()
     {
-        if (_drowning && !_drownRespawning)
+        if (_newGameSlowFalling &&
+            _newGameFallRenderer is not null && _newGameFallFrames is not null)
+        {
+            _newGameFallRenderer.DrawRelativeFrame(
+                this,
+                _newGameFallFrames[_newGameFallFrame],
+                _newGameFallZFixed >> 8);
+        }
+        else if (_drowning && !_drownRespawning)
         {
             int frame = GetDrownAnimationFrame();
             DrawTextureRectRegion(

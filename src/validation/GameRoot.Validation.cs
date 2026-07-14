@@ -81,6 +81,8 @@ public partial class GameRoot
             introDatabase.SpriteFrames("link-spin");
         NewGameIntroDatabase.IntroSpriteFrame[] linkVanish =
             introDatabase.SpriteFrames("link-vanish");
+        NewGameIntroDatabase.IntroSpriteFrame[] linkArrival =
+            introDatabase.SpriteFrames("link-arrival");
         NewGameIntroDatabase.IntroSpriteFrame[] orbDescend =
             introDatabase.SpriteFrames("orb-descend");
         NewGameIntroDatabase.IntroSpriteFrame[] orbVanish =
@@ -114,12 +116,16 @@ public partial class GameRoot
                 descendFrames,
                 record.DescendOscillation,
                 record.HoverOscillation) != 77 ||
-            NewGameIntroScreen.SourcePixelForValidation(0x0900, 0x00, 0, 0) !=
+            CutsceneSpriteRenderer.SourcePixelForValidation(0x0900, 0x00, 0, 0) !=
                 new Vector2I(64, 64) ||
-            NewGameIntroScreen.SourcePixelForValidation(0x1c00, 0x12, 7, 15) !=
+            CutsceneSpriteRenderer.SourcePixelForValidation(0x1c00, 0x12, 7, 15) !=
                 new Vector2I(79, 239) ||
             intro.TotalVanishFrames != 62 ||
             NewGameIntroController.ArrivalFadeWaitFrames != 65 ||
+            Player.NewGameSlowFallInitialZ(0x48) != -0x50 ||
+            Player.NewGameSlowFallInitialZ(0x90) != -0x80 ||
+            Player.NewGameSlowFallZForValidation(0x48, 58) != -3 ||
+            Player.NewGameSlowFallZForValidation(0x48, 59) != 0 ||
             RoomView.WaveOffsetForValidation(0xff, 0x1f) != 0xfe ||
             RoomView.WaveOffsetForValidation(0xff, 0x5f) != -0xfe)
         {
@@ -127,10 +133,18 @@ public partial class GameRoot
                 "Imported CUTSCENE_PREGAME_INTRO data diverged from the disassembly.");
         }
 
-        if (linkSpin.Length != 8 || linkVanish.Length != 4 ||
+        if (linkSpin.Length != 8 || linkVanish.Length != 4 || linkArrival.Length != 3 ||
             orbDescend.Length != 2 || orbVanish.Length != 4 ||
             linkSpin.Any(frame => frame.Duration != 4 || frame.BasePalette != 0) ||
             linkSpin[0].Parts.Length != 2 || linkVanish[1].Parts.Length != 1 ||
+            !linkArrival.Select(frame => frame.Duration).SequenceEqual(new[] { 4, 4, 4 }) ||
+            !linkArrival.Select(frame => frame.SourceOffset)
+                .SequenceEqual(new[] { 0x0c40, 0x0c00, 0x0c20 }) ||
+            !linkArrival.Select(frame => frame.Parts.Length)
+                .SequenceEqual(new[] { 2, 2, 2 }) ||
+            linkArrival.Any(frame => frame.BasePalette != 0) ||
+            linkArrival
+                .Any(frame => frame.Parts.Any(part => (part.Flags & 0x07) != 0)) ||
             orbDescend[0].SourceOffset != 0x1c00 ||
             orbDescend[0].Parts.Length != 18 || orbDescend[1].Parts.Length != 14 ||
             orbDescend.Any(frame => frame.BasePalette != 0 ||
@@ -143,7 +157,7 @@ public partial class GameRoot
                 frame.BasePalette != 4))
         {
             throw new InvalidOperationException(
-                "Imported pregame Link/orb graphics, OAM, palettes, or animation frames diverged.");
+                "Imported pregame Link/orb/slow-fall graphics, OAM, palettes, or animation frames diverged.");
         }
 
         for (int frame = 0; frame < intro.TotalVoiceWaitFrames - 1; frame++)
@@ -180,10 +194,67 @@ public partial class GameRoot
                 "The new-game intro did not hand off to the summon transition exactly once.");
         }
 
+        _player.WarpTo(new Vector2(0x50, 0x48));
+        _newGameArrivalTicks = 0.0;
+        _newGameArrivalFadeFrames = NewGameIntroController.ArrivalFadeWaitFrames;
+        _newGameArrivalFrames = record.SummonFrames;
+        _newGameArrivalPhase = 0;
+        _newGameArrivalLastFrame = 0;
+        _player.Visible = false;
+        _player.SetPhysicsProcess(false);
+        _player.SetProcess(false);
+        for (int frame = 1; frame <= NewGameIntroController.ArrivalFadeWaitFrames; frame++)
+        {
+            if (!UpdateNewGameArrival(1.0 / 60.0) || _player.Visible ||
+                _player.IsNewGameSlowFalling)
+            {
+                throw new InvalidOperationException(
+                    "The new-game room fade exposed Link before transition $0b.");
+            }
+        }
+        for (int frame = 1; frame < record.SummonFrames / 2; frame++)
+        {
+            if (!UpdateNewGameArrival(1.0 / 60.0) || _player.Visible)
+                throw new InvalidOperationException("Link appeared before summon-wave frame 64.");
+        }
+        if (!UpdateNewGameArrival(1.0 / 60.0) || !_player.Visible ||
+            !_player.IsNewGameSlowFalling || _player.NewGameSlowFallFrame != 0 ||
+            _player.NewGameSlowFallZ != -0x50)
+        {
+            throw new InvalidOperationException(
+                "Transition $0b did not begin at wave frame 64 and Z -$50.");
+        }
+        for (int frame = 65; frame <= 67; frame++)
+            UpdateNewGameArrival(1.0 / 60.0);
+        if (_player.NewGameSlowFallFrame != 0)
+            throw new InvalidOperationException("LINK_ANIM_MODE_FALL frame $e6 ended early.");
+        UpdateNewGameArrival(1.0 / 60.0);
+        if (_player.NewGameSlowFallFrame != 1)
+            throw new InvalidOperationException("LINK_ANIM_MODE_FALL did not advance after four updates.");
+        for (int frame = 69; frame <= 122; frame++)
+            UpdateNewGameArrival(1.0 / 60.0);
+        if (!_player.IsNewGameSlowFalling || _player.NewGameSlowFallFrame != 2 ||
+            _player.NewGameSlowFallZ != -3)
+        {
+            throw new InvalidOperationException(
+                "Transition $0b diverged before its 59th gravity update.");
+        }
+        if (!UpdateNewGameArrival(1.0 / 60.0) || _player.IsNewGameSlowFalling)
+            throw new InvalidOperationException("Transition $0b did not land on wave frame 123.");
+        for (int frame = 124; frame < record.SummonFrames; frame++)
+            UpdateNewGameArrival(1.0 / 60.0);
+        if (UpdateNewGameArrival(1.0 / 60.0) || !_player.Visible ||
+            !_player.IsProcessing() || !_player.IsPhysicsProcessing())
+        {
+            throw new InvalidOperationException(
+                "The summon wave did not restore Link control on frame 128.");
+        }
+
         screen.QueueFree();
         GD.Print("Validated CUTSCENE_PREGAME_INTRO frame-96 top entrance, interleaved 8x16 OBJ cells, " +
-            "cumulative descend/hover Z tables, $0d/$06 blue-orb OAM and palette 4, 300/60 waits, TX_1213, 62-update " +
-            "vanish handoff, 60-update black hold, 65-update white-fade wait, and 128-update wave.");
+            "hardware OAM priority, cumulative descend/hover Z tables, $0d/$06 blue-orb OAM and palette 4, " +
+            "300/60 waits, TX_1213, 62-update vanish handoff, 60-update black hold, 65-update white-fade wait, " +
+            "128-update wave, and transition $0b's three-pose 4-update/59-gravity-update slow fall.");
     }
 
     private void ValidateExplicitSavePersistence()
