@@ -39,8 +39,28 @@ public partial class GameRoot
         ValidateBraceletChestAndPushGate();
         ValidatePushBlocks();
         ValidateMapScreen();
+        ValidateSaveAndQuitToTitle();
 
         GD.Print("Validated all gameplay and world-data scenarios.");
+    }
+
+    private void ValidateSaveAndQuitToTitle()
+    {
+        _inventoryMenu.OpenSaveImmediatelyForValidation();
+        _saveQuitScreen.Move(1);
+        _saveQuitScreen.Move(1);
+        int saveRequests = _inventoryMenu.SaveRequests;
+        _inventoryMenu.SelectSaveOptionForValidation();
+        for (int frame = 0; frame < InventoryMenuController.SaveSelectionDelayFrames; frame++)
+            _inventoryMenu.Update(1.0 / 60.0);
+        if (_inventoryMenu.SaveRequests != saveRequests + 1 ||
+            _inventoryMenu.QuitRequests != 1 || _mainMenu is null || _mainMenuScreen is null ||
+            _inventoryMenu.IsActive)
+        {
+            throw new InvalidOperationException(
+                "Save and Quit did not save, wait 30 updates, and return to title/file select.");
+        }
+        GD.Print("Validated Save and Quit persistence request and return to title after 30 updates.");
     }
 
     private void ValidateSaveDataFoundation()
@@ -765,11 +785,29 @@ public partial class GameRoot
     private void ValidateInventoryMenu()
     {
         ValidateItemIconShadeMapping();
-        _inventoryMenu.OpenImmediatelyForValidation();
+        if (!Mathf.IsEqualApprox(InventoryMenuController.FastFadeFrames, 11.0f))
+            throw new InvalidOperationException("The inventory menu must use the 11-update fast palette fade.");
+
+        _inventoryMenu.BeginOpeningForValidation();
+        for (int frame = 0; frame < InventoryMenuController.FastFadeFrames - 1; frame++)
+        {
+            _inventoryMenu.Update(1.0 / 60.0);
+            if (_inventoryScreen.Visible)
+                throw new InvalidOperationException("The inventory screen appeared before the fade reached white.");
+        }
+        if (_scene.MenuFade.Color.A <= 0.0f || _scene.MenuFade.Color.A >= 1.0f)
+            throw new InvalidOperationException("The inventory opening fade did not remain partial for 10 updates.");
+        _inventoryMenu.Update(1.0 / 60.0);
+        if (!_inventoryScreen.Visible || !Mathf.IsEqualApprox(_scene.MenuFade.Color.A, 1.0f))
+            throw new InvalidOperationException("The inventory screen was not swapped in at full white.");
+        for (int frame = 0; frame < InventoryMenuController.FastFadeFrames; frame++)
+            _inventoryMenu.Update(1.0 / 60.0);
         if (!_inventoryMenu.IsActive || !_inventoryScreen.Visible ||
+            !_inventoryMenu.IsOpen || !Mathf.IsZeroApprox(_scene.MenuFade.Color.A) ||
             _player.IsPhysicsProcessing() || _player.IsProcessing())
         {
-            throw new InvalidOperationException("The inventory menu did not freeze gameplay on open.");
+            throw new InvalidOperationException(
+                "The inventory opening fade did not finish with the menu open and gameplay frozen.");
         }
 
         if (_inventoryScreen.Cursor != 0 || _inventory.StorageItemAt(0) != InventoryState.ItemNone ||
@@ -810,15 +848,117 @@ public partial class GameRoot
             throw new InvalidOperationException("Inventory menu did not restore the sword to A through storage swaps.");
         }
 
-        _inventoryMenu.CloseImmediatelyForValidation();
-        if (_inventoryMenu.IsActive || _inventoryScreen.Visible ||
-            !_player.IsPhysicsProcessing() || !_player.IsProcessing())
+        _inventoryScreen.BeginNextSubscreen();
+        for (int frame = 0; frame < InventoryScreen.PageScrollUpdates - 1; frame++)
+            _inventoryScreen.UpdatePageTransition(1.0 / 60.0);
+        if (!_inventoryScreen.PageTransitionActive ||
+            _inventoryScreen.Subscreen != InventoryScreen.InventorySubscreen.Items)
         {
-            throw new InvalidOperationException("The inventory menu did not restore gameplay processing on close.");
+            throw new InvalidOperationException(
+                "The secondary inventory page arrived before the original 13-update scroll finished.");
+        }
+        _inventoryScreen.UpdatePageTransition(1.0 / 60.0);
+        if (_inventoryScreen.PageTransitionActive ||
+            _inventoryScreen.Subscreen != InventoryScreen.InventorySubscreen.SecondaryItems)
+        {
+            throw new InvalidOperationException("The secondary inventory page did not finish after 13 updates.");
+        }
+        _inventoryScreen.MoveCursor(Vector2I.Left);
+        if (_inventoryScreen.ActiveCursor != 14)
+            throw new InvalidOperationException("The empty secondary page did not wrap 0 -> 14 to the left.");
+        _inventoryScreen.MoveCursor(Vector2I.Right);
+
+        OracleSaveData ringSave = OracleSaveData.CreateStandardGame();
+        ringSave.WriteWramByte(0xc6cc, 2);
+        ringSave.WriteWramByte(0xc6c6, 7);
+        ringSave.WriteWramByte(0xc6c7, 8);
+        ringSave.WriteWramByte(0xc6c8, 9);
+        var ringInventory = new InventoryState(_treasures, ringSave);
+        if (ringInventory.RingBoxCapacity != 3 || ringInventory.RingAt(2) != 9 ||
+            !ringInventory.EquipRingAt(1) || ringInventory.ActiveRing != 8 ||
+            !OracleSaveData.TryDeserialize(ringSave.Serialize(), out OracleSaveData? restoredRingSave) ||
+            new InventoryState(_treasures, restoredRingSave!).ActiveRing != 8)
+        {
+            throw new InvalidOperationException(
+                "Ring-box capacity, contents, active-ring toggle, or save-image persistence regressed.");
         }
 
-        GD.Print("Validated inventory subscreen slot cursor wrapping, A/B storage swaps, " +
-            "sword unequip, B equip, and gameplay freezing.");
+        _inventoryScreen.BeginNextSubscreen();
+        for (int frame = 0; frame < InventoryScreen.PageScrollUpdates; frame++)
+            _inventoryScreen.UpdatePageTransition(1.0 / 60.0);
+        if (_inventoryScreen.Subscreen != InventoryScreen.InventorySubscreen.EssencesAndSave)
+            throw new InvalidOperationException("The essence/save inventory page did not follow page 2.");
+        _inventoryScreen.MoveCursor(Vector2I.Right);
+        _inventoryScreen.MoveCursor(Vector2I.Down);
+        _inventoryScreen.MoveCursor(Vector2I.Down);
+        if (!_inventoryScreen.SaveAndQuitSelected || _inventoryScreen.ActiveCursor != 0x82)
+            throw new InvalidOperationException("The page-3 cursor did not reach the original Save & Quit entry.");
+
+        _inventoryMenu.OpenSaveMenuFromInventoryForValidation();
+        if (!_saveQuitScreen.Visible || _inventoryScreen.Visible ||
+            !Mathf.IsEqualApprox(_scene.MenuFade.Color.A, 1.0f))
+        {
+            throw new InvalidOperationException(
+                "Selecting Save & Quit did not swap screens immediately at full white.");
+        }
+        for (int frame = 0; frame < InventoryMenuController.FastFadeFrames; frame++)
+            _inventoryMenu.Update(1.0 / 60.0);
+        if (!_inventoryMenu.SaveMenuOpen || !_saveQuitScreen.Visible ||
+            !Mathf.IsZeroApprox(_scene.MenuFade.Color.A) || _saveQuitScreen.Cursor != 0)
+        {
+            throw new InvalidOperationException(
+                "The three-option save menu did not finish its 11-update fade-in on Continue.");
+        }
+        _saveQuitScreen.Move(1);
+        int saveRequests = _inventoryMenu.SaveRequests;
+        _inventoryMenu.SelectSaveOptionForValidation();
+        if (_inventoryMenu.SaveRequests != saveRequests + 1 ||
+            _saveQuitScreen.DelayCounter != InventoryMenuController.SaveSelectionDelayFrames)
+        {
+            throw new InvalidOperationException("Save and Continue did not save immediately and start its 30-update delay.");
+        }
+        for (int frame = 0; frame < InventoryMenuController.SaveSelectionDelayFrames - 1; frame++)
+            _inventoryMenu.Update(1.0 / 60.0);
+        if (!_saveQuitScreen.Visible || !_inventoryMenu.SaveMenuOpen)
+            throw new InvalidOperationException("Save and Continue exited before its original 30-update delay.");
+        _inventoryMenu.Update(1.0 / 60.0);
+
+        for (int frame = 0; frame < InventoryMenuController.FastFadeFrames - 1; frame++)
+        {
+            _inventoryMenu.Update(1.0 / 60.0);
+            if (!_saveQuitScreen.Visible)
+                throw new InvalidOperationException("The save menu disappeared before the fade reached white.");
+        }
+        _inventoryMenu.Update(1.0 / 60.0);
+        if (_saveQuitScreen.Visible || !Mathf.IsEqualApprox(_scene.MenuFade.Color.A, 1.0f))
+            throw new InvalidOperationException("The save menu was not removed at full white.");
+        for (int frame = 0; frame < InventoryMenuController.FastFadeFrames; frame++)
+            _inventoryMenu.Update(1.0 / 60.0);
+        if (_inventoryMenu.IsActive || _inventoryScreen.Visible || _saveQuitScreen.Visible ||
+            !Mathf.IsZeroApprox(_scene.MenuFade.Color.A) ||
+            !_player.IsPhysicsProcessing() || !_player.IsProcessing())
+        {
+            throw new InvalidOperationException(
+                "The inventory closing fade did not restore gameplay processing.");
+        }
+
+        _inventoryMenu.BeginSaveOpeningForValidation();
+        for (int frame = 0; frame < InventoryMenuController.FastFadeFrames - 1; frame++)
+        {
+            _inventoryMenu.Update(1.0 / 60.0);
+            if (_saveQuitScreen.Visible)
+                throw new InvalidOperationException("Start+Select save menu appeared before the fade reached white.");
+        }
+        _inventoryMenu.Update(1.0 / 60.0);
+        for (int frame = 0; frame < InventoryMenuController.FastFadeFrames; frame++)
+            _inventoryMenu.Update(1.0 / 60.0);
+        if (!_inventoryMenu.SaveMenuOpen || !_saveQuitScreen.Visible)
+            throw new InvalidOperationException("Start+Select did not open the save menu through the shared fast fade.");
+        _inventoryMenu.CloseImmediatelyForValidation();
+
+        GD.Print("Validated inventory 11-update fast white fades, 13-update three-page scrolling, " +
+            "secondary cursor/ring persistence, essence/save navigation, Start+Select, three save choices, " +
+            "30-update selection delay, A/B storage swaps, and gameplay freezing.");
     }
 
     private static void ValidateItemIconShadeMapping()

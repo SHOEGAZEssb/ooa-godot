@@ -18,7 +18,8 @@ The importer validates the clean US ROM MD5 (`C4639CC61C049E5A085526BB6CAC03BB`,
 - Sword: Z or K (gamepad A)
 - Reserved item button: X or J (gamepad B)
 - Title/file select: Start opens file select; arrows move, A/Start confirms, and B goes back
-- Inventory / Start: I or Enter (gamepad Start); move the cursor, press A or B to equip/unequip that slot, press Start again to close
+- Inventory / Start: I or Enter (gamepad Start); Select cycles the three subscreens, A/B equip items, A equips a boxed ring, and Start closes
+- Save & Quit: press Start+Select together, or choose Save & Quit on inventory page 3
 - Map / Select: M or Tab (gamepad Back); close with Select or B
 - Development map fast travel: F; move, press A to travel, press F to switch eras, or B/Select to cancel
 - Development flag editor: F1; Tab switches global/room pages, arrows navigate, and A toggles the selected flag
@@ -41,7 +42,9 @@ The four-Keese room remains available directly with `-- --group=4 --room=cb`. Ex
 
 The gameplay HUD is reconstructed from the original HUD tilemap, flags, palette, item sprites, digit tiles, and full/partial/empty heart tiles. Health now uses the original quarter-heart units (`$0c` for three hearts), syncs into the HUD, and terrain respawn hazards remove a half-heart before returning Link to his last safe tile. The inventory foundation mirrors and persists the original `wInventoryB`, `wInventoryA`, 16-byte `wInventoryStorage`, obtained-treasure flags, dungeon item/key bytes, item levels, health, BCD rupees, and currently supported counters at their original save-image offsets. A new file receives `TREASURE_OBJECT_SWORD_00` through the original-style treasure path and equips it to A so the existing sword slices remain playable; later launches preserve the player's equipment arrangement.
 
-The Start inventory menu now opens the first item subscreen. Its cursor uses the original 16-slot wrap rule (`+1`, `-1`, `-4`, `+4`, then `& $0f`), and pressing A or B swaps the selected `wInventoryStorage` byte with `wInventoryA` or `wInventoryB`. Selecting an empty slot therefore unequips the current button item, and the level-1 sword can be moved between A, B, and storage. The screen is drawn from `GFXH_INVENTORY_SCREEN`, `GFXH_INVENTORY_SUBSCREEN_1`, `PALH_0a`, the original status-bar rows, inventory tilemaps/attributes, stored-item positions, and `$0c` cursor OAM tile. Dynamic item-name text and secondary inventory pages remain deferred.
+The Start inventory menu opens through the original fast white transition: 11 updates to white, the screen swap at full white, then 11 updates back to the inventory palette, with the symmetric fade on close. Select rotates all three pages through the original 13-update horizontal scroll. Page 1 retains the 16-slot `& $0f` cursor and A/B storage swaps; page 2 draws obtained passive/quest items and the level-dependent 1/3/5-slot ring box, including A-button ring equip/unequip; page 3 draws the eight essence flags, present/past symbol, quarter-heart-piece state, and Save & Quit entry. The screens consume the complete imported `GFXH_INVENTORY_SCREEN`, all three `GFXH_INVENTORY_SUBSCREEN_*` tilemaps/attributes, `PALH_0a`, `map_rings`, and their original cursor positions. Dynamic item-name text, numeric item-count overlays, and the Maku Seed's special OAM composition remain deferred.
+
+The page-3 Save & Quit entry switches at white into the original three-option screen: Continue, Save and Continue, and Save and Quit. Start+Select opens the same screen directly. Up/Down select without wrapping, B cancels, A or Start confirms, save-bearing choices write the active original `$550`-byte file immediately, and all choices retain the original 30-update confirmation delay and cursor flicker. Save and Quit returns to the title/file-select flow; Continue and Save and Continue restore gameplay through the normal 11-update fast white fade.
 
 The development bracelet warp now lands in room `4:ce` and plants a closed chest at `$67` that gives `TREASURE_OBJECT_BRACELET_00`, making it the fast path for testing the level-1 Power Bracelet before the later Tokay-shop owner exists. Chest reward popups use the imported treasure display sprites instead of the temporary rupee graphic. An equipped bracelet button now applies the original `BREAKABLETILESOURCE_BRACELET` table to the tile in front of Link, so liftable dungeon tile `$10` changes through `breakableTiles.s` replacement data. The original Power Glove chest at `5:a6/$37` still resolves to `TREASURE_OBJECT_BRACELET_02` and upgrades `wBraceletLevel` to 2. Bracelet-required pushable tiles use the imported `interactableTilesTable` bit 6 gate, so dungeon tile `$10` refuses to move until `TREASURE_BRACELET` has been obtained, then uses the normal 20-update push delay and `INTERAC_PUSHBLOCK` movement path. Carrying held objects, dropping, throwing, lift animations, and heavy-object level checks remain deferred.
 
@@ -95,7 +98,7 @@ For room-rendering development, hexadecimal group and room values can be selecte
 - `RoomTransitionController` owns warps, scrolling, fades, destination placement, and the room camera.
 - `RoomEntityManager`, `InteractionController`, and `RoomEventController` own NPC/enemy/drop lifetime, Keese/Octorok/projectile updates and collisions, blocking, signs, dialogue, and multi-system room-entry cutscenes.
 - `TreasureDatabase` and `InventoryState` own imported treasure-object metadata, collection behaviours, A/B equipment bytes, inventory storage, obtained flags, item levels/counts, health, and rupees.
-- `InventoryMenuController` and `InventoryScreen` own Start-menu input freezing, item-subscreen cursor movement, and original A/B storage swaps.
+- `InventoryMenuController`, `InventoryScreen`, and `SaveQuitScreen` own Start/Start+Select menu input freezing, three-page scrolling and cursor movement, ring/A/B equipment, and save-menu lifecycle.
 - `RoomCollision`, `TerrainController`, `PushBlockController`, and `CombatController` own collision, terrain behavior, moving blocks, and weapon effects.
 - `PlayerWorld` implements the narrow `IPlayerWorld` API consumed by `Player`.
 - Development launch options and test-room warps live under `src/debug`; headless regression scenarios live under `src/validation`.
@@ -104,5 +107,5 @@ For room-rendering development, hexadecimal group and room values can be selecte
 
 1. Port further room objects and interactions from `data/ages/*Room.s` and `objects/ages`.
 2. Refine terrain with full swim/diving item checks, ledge screen transitions, terrain-specific Link animations, and the original low-health/death handling.
-3. Expand active inventory item behavior, NPC/object and enemy systems, route their script conditions through the save/story-state owner, and add the in-game save/continue menu plus respawn-buffer updates.
+3. Expand active inventory item behavior, NPC/object and enemy systems, and route their script conditions through the save/story-state owner.
 4. Translate music and sound-effect sequencing into Godot audio streams.

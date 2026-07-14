@@ -22,6 +22,11 @@ public sealed class TreasureDatabase
     public const int TreasureRupees = 0x28;
     public const int TreasureHeartRefill = 0x29;
     public const int TreasureHeartContainer = 0x2a;
+    public const int TreasureRingBox = 0x2c;
+    public const int TreasureRing = 0x2d;
+    public const int TreasureEssence = 0x40;
+    public const int TreasureTradeItem = 0x41;
+    public const int TreasureTuniNut = 0x4c;
 
     private readonly Dictionary<string, TreasureObjectRecord> _objects = new();
     private readonly Dictionary<int, BehaviourRecord> _behaviours = new();
@@ -60,6 +65,8 @@ public sealed class TreasureDatabase
             TreasureSlingshot when inventory.SlingshotLevel == 2 =>
                 GetDisplay("treasureDisplayData_hyperSlingshot", inventory.SlingshotSelectedSeeds),
             TreasureSlingshot => GetDisplay("treasureDisplayData_slingshot", inventory.SlingshotSelectedSeeds),
+            TreasureTradeItem => GetDisplay("treasureDisplayData_trade", inventory.TradeItem),
+            TreasureTuniNut => GetDisplay("treasureDisplayData_tuniNut", inventory.TuniNutState),
             _ => GetDisplay("treasureDisplayData_standard", itemId)
         };
     }

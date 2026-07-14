@@ -26,6 +26,7 @@ public sealed class InventoryState
     private readonly byte[] _dungeonBossKeys = new byte[2];
     private readonly byte[] _dungeonCompasses = new byte[2];
     private readonly byte[] _dungeonMaps = new byte[2];
+    private readonly byte[] _ringBoxContents = new byte[5];
     private byte _upgradesObtained;
 
     public event Action? Changed;
@@ -55,6 +56,12 @@ public sealed class InventoryState
     public int GashaSeeds { get; private set; }
     public int HeartPieces { get; private set; }
     public int Slates { get; private set; }
+    public int Essences { get; private set; }
+    public int TradeItem { get; private set; }
+    public int TuniNutState { get; private set; }
+    public int ActiveRing { get; private set; }
+    public int RingBoxLevel { get; private set; }
+    public int RingBoxCapacity => RingBoxLevel switch { 1 => 1, 2 => 3, >= 3 => 5, _ => 0 };
 
     public InventoryState(TreasureDatabase treasures, OracleSaveData? saveData = null)
     {
@@ -72,6 +79,19 @@ public sealed class InventoryState
 
     public int StorageItemAt(int index) =>
         index >= 0 && index < InventoryCapacity ? _inventoryStorage[index] : ItemNone;
+
+    public int RingAt(int index) =>
+        index >= 0 && index < RingBoxCapacity ? _ringBoxContents[index] : 0xff;
+
+    public bool EquipRingAt(int index)
+    {
+        int ring = RingAt(index);
+        if (ring == 0xff)
+            return false;
+        ActiveRing = ActiveRing == ring ? 0xff : ring;
+        NotifyChanged();
+        return true;
+    }
 
     public void EquipA(int item) => EquipButton(item, isA: true);
     public void EquipB(int item) => EquipButton(item, isA: false);
@@ -146,6 +166,8 @@ public sealed class InventoryState
 
     private void ApplyStandardGameInitialVariables()
     {
+        Array.Fill(_ringBoxContents, (byte)0xff);
+        ActiveRing = 0xff;
         MaxBombs = 0x10;
         HealthQuarters = 0x0c;
         MaxHealthQuarters = 0x0c;
@@ -162,6 +184,7 @@ public sealed class InventoryState
         _saveData.ReadWramBytes(0xc682, _dungeonBossKeys);
         _saveData.ReadWramBytes(0xc684, _dungeonCompasses);
         _saveData.ReadWramBytes(0xc686, _dungeonMaps);
+        _saveData.ReadWramBytes(0xc6c6, _ringBoxContents);
         HealthQuarters = _saveData.ReadWramByte(0xc6aa);
         MaxHealthQuarters = _saveData.ReadWramByte(0xc6ab);
         HeartPieces = _saveData.ReadWramByte(0xc6ac);
@@ -176,7 +199,12 @@ public sealed class InventoryState
         SelectedHarpSong = _saveData.ReadWramByte(0xc6b7);
         BraceletLevel = _saveData.ReadWramByte(0xc6b8);
         GashaSeeds = _saveData.ReadWramByte(0xc6be);
+        Essences = _saveData.ReadWramByte(0xc6bf);
+        TradeItem = _saveData.ReadWramByte(0xc6c0);
+        TuniNutState = _saveData.ReadWramByte(0xc6c2);
         Slates = _saveData.ReadWramByte(0xc6c3);
+        ActiveRing = _saveData.ReadWramByte(0xc6cb);
+        RingBoxLevel = _saveData.ReadWramByte(0xc6cc);
     }
 
     private void NotifyChanged()
@@ -191,6 +219,7 @@ public sealed class InventoryState
             _saveData.WriteWramBytes(0xc682, _dungeonBossKeys);
             _saveData.WriteWramBytes(0xc684, _dungeonCompasses);
             _saveData.WriteWramBytes(0xc686, _dungeonMaps);
+            _saveData.WriteWramBytes(0xc6c6, _ringBoxContents);
             _saveData.WriteWramByte(0xc6aa, (byte)HealthQuarters);
             _saveData.WriteWramByte(0xc6ab, (byte)MaxHealthQuarters);
             _saveData.WriteWramByte(0xc6ac, (byte)HeartPieces);
@@ -206,7 +235,12 @@ public sealed class InventoryState
             _saveData.WriteWramByte(0xc6b7, (byte)SelectedHarpSong);
             _saveData.WriteWramByte(0xc6b8, (byte)BraceletLevel);
             _saveData.WriteWramByte(0xc6be, (byte)GashaSeeds);
+            _saveData.WriteWramByte(0xc6bf, (byte)Essences);
+            _saveData.WriteWramByte(0xc6c0, (byte)TradeItem);
+            _saveData.WriteWramByte(0xc6c2, (byte)TuniNutState);
             _saveData.WriteWramByte(0xc6c3, (byte)Slates);
+            _saveData.WriteWramByte(0xc6cb, (byte)ActiveRing);
+            _saveData.WriteWramByte(0xc6cc, (byte)RingBoxLevel);
             _saveData.CommitInventoryChange();
         }
         Changed?.Invoke();
@@ -233,6 +267,11 @@ public sealed class InventoryState
 
     private void GiveTreasureCore(int treasure, int parameter)
     {
+        if (treasure == TreasureDatabase.TreasureRingBox && RingBoxLevel == 0)
+        {
+            Array.Fill(_ringBoxContents, (byte)0xff);
+            ActiveRing = 0xff;
+        }
         AddTreasureToInventory(treasure);
         SetTreasureFlag(treasure);
 
@@ -416,6 +455,10 @@ public sealed class InventoryState
         "wNumHeartPieces" => HeartPieces,
         "wNumSlates" => Slates,
         "wSelectedHarpSong" => SelectedHarpSong,
+        "wEssencesObtained" => Essences,
+        "wTradeItem" => TradeItem,
+        "wTuniNutState" => TuniNutState,
+        "wRingBoxLevel" => RingBoxLevel,
         _ => 0
     };
 
@@ -477,6 +520,18 @@ public sealed class InventoryState
                 break;
             case "wSelectedHarpSong":
                 SelectedHarpSong = value;
+                break;
+            case "wEssencesObtained":
+                Essences = value;
+                break;
+            case "wTradeItem":
+                TradeItem = value;
+                break;
+            case "wTuniNutState":
+                TuniNutState = value;
+                break;
+            case "wRingBoxLevel":
+                RingBoxLevel = value;
                 break;
         }
     }

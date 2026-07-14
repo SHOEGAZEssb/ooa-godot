@@ -352,6 +352,7 @@ foreach ($menuAsset in @(
     @{ Source = 'gfx_compressible\common\gfx_name.png'; Destination = 'menu\gfx_name.png' },
     @{ Source = 'gfx_compressible\common\gfx_copy.png'; Destination = 'menu\gfx_copy.png' },
     @{ Source = 'gfx_compressible\common\gfx_erase.png'; Destination = 'menu\gfx_erase.png' },
+    @{ Source = 'gfx_compressible\common\gfx_savescreen.png'; Destination = 'menu\gfx_savescreen.png' },
     @{ Source = 'gfx_compressible\common\spr_fileselect_decorations.png'; Destination = 'menu\spr_fileselect_decorations.png' },
     @{ Source = 'gfx_compressible\ages\spr_nayru_1.png'; Destination = 'menu\spr_nayru_1.png' },
     @{ Source = 'gfx_compressible\common\map_file_menu_top.bin'; Destination = 'menu\map_file_menu_top.bin' },
@@ -379,8 +380,22 @@ foreach ($menuAsset in @(
 Copy-GeneratedFile "gfx_compressible\ages\gfx_inventory_hud_1.png" "inventory\gfx_inventory_hud_1.png"
 Copy-GeneratedFile "gfx_compressible\ages\spr_present_past_symbols.png" "inventory\spr_present_past_symbols.png"
 Copy-GeneratedFile "gfx_compressible\ages\gfx_inventory_hud_2.png" "inventory\gfx_inventory_hud_2.png"
+Copy-GeneratedFile "gfx_compressible\common\spr_quest_items_5.png" "inventory\spr_quest_items_5.png"
+Copy-GeneratedFile "gfx_compressible\ages\spr_map_compass_keys_bookofseals.png" "inventory\spr_map_compass_keys_bookofseals.png"
+Copy-GeneratedFile "gfx_compressible\common\gfx_save.png" "inventory\gfx_save.png"
+Copy-GeneratedFile "gfx_compressible\common\gfx_blank.png" "inventory\gfx_blank.png"
+Copy-GeneratedFile "gfx_compressible\common\gfx_rings.png" "inventory\gfx_rings.png"
+Copy-GeneratedFile "gfx_compressible\ages\spr_essences.png" "inventory\spr_essences.png"
+foreach ($questSheet in 1..4) {
+    Copy-GeneratedFile "gfx_compressible\ages\spr_quest_items_${questSheet}.png" "inventory\spr_quest_items_${questSheet}.png"
+}
+Copy-GeneratedFile "gfx\common\map_rings.bin" "inventory\map_rings.bin"
 Copy-GeneratedFile "gfx_compressible\common\map_inventory_screen_1.bin" "inventory\map_inventory_screen_1.bin"
 Copy-GeneratedFile "gfx_compressible\common\flg_inventory_screen_1.bin" "inventory\flg_inventory_screen_1.bin"
+Copy-GeneratedFile "gfx_compressible\common\map_inventory_screen_2.bin" "inventory\map_inventory_screen_2.bin"
+Copy-GeneratedFile "gfx_compressible\common\flg_inventory_screen_2.bin" "inventory\flg_inventory_screen_2.bin"
+Copy-GeneratedFile "gfx_compressible\ages\map_inventory_screen_3.bin" "inventory\map_inventory_screen_3.bin"
+Copy-GeneratedFile "gfx_compressible\ages\flg_inventory_screen_3.bin" "inventory\flg_inventory_screen_3.bin"
 Copy-GeneratedFile "gfx_compressible\common\map_inventory_textbar.bin" "inventory\map_inventory_textbar.bin"
 Copy-GeneratedFile "gfx_compressible\common\flg_inventory_textbar.bin" "inventory\flg_inventory_textbar.bin"
 foreach ($animationSheet in 1..3) {

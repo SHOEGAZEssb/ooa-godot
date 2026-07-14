@@ -13,6 +13,7 @@ public sealed class GameSceneGraph
     public Label RoomDebug { get; }
     public MapScreen MapScreen { get; }
     public InventoryScreen InventoryScreen { get; }
+    public SaveQuitScreen SaveQuitScreen { get; }
     public DebugFlagScreen DebugFlagScreen { get; }
     public ColorRect MenuFade { get; }
 
@@ -56,6 +57,9 @@ public sealed class GameSceneGraph
 
         InventoryScreen = new InventoryScreen { Name = "InventoryScreen", ZIndex = 45, Visible = false };
         interfaceLayer.AddChild(InventoryScreen);
+
+        SaveQuitScreen = new SaveQuitScreen { Name = "SaveQuitScreen", ZIndex = 46, Visible = false };
+        interfaceLayer.AddChild(SaveQuitScreen);
 
         MenuFade = new ColorRect
         {

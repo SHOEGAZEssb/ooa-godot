@@ -94,6 +94,8 @@ public sealed class OracleSaveData
         save.WriteWramByte(0xc6ed, 0x48);
         save.WriteWramByte(0xc6ee, 0x48);
         save.WriteWramByte(0xc6ef, 0x02);
+        for (int address = 0xc6c6; address <= 0xc6cb; address++)
+            save.WriteWramByte(address, 0xff);
 
         int punchFlagAddress = 0xc69a + InventoryState.TreasurePunch / 8;
         save.WriteWramByte(

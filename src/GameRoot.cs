@@ -48,6 +48,7 @@ public partial class GameRoot : Node2D
     private DialogueBox _dialogue => _scene.Dialogue;
     private MapScreen _mapScreen => _scene.MapScreen;
     private InventoryScreen _inventoryScreen => _scene.InventoryScreen;
+    private SaveQuitScreen _saveQuitScreen => _scene.SaveQuitScreen;
     private DebugFlagScreen _debugFlagScreen => _scene.DebugFlagScreen;
 
     public bool IsTransitioning => _transitions?.IsTransitioning ?? false;
@@ -128,7 +129,8 @@ public partial class GameRoot : Node2D
         _scene = new GameSceneGraph(this);
         _hud.Initialize(_treasures, _inventory);
         _mapScreen.Initialize(_rooms);
-        _inventoryScreen.Initialize(_treasures, _inventory);
+        _inventoryScreen.Initialize(_treasures, _inventory,
+            () => _rooms.ActiveGroup is 1 or 3);
         _debugFlagScreen.Initialize(_saveData, new GlobalFlagDatabase());
         CreateControllers();
 
@@ -174,7 +176,9 @@ public partial class GameRoot : Node2D
         _debugFlagMenu.Update();
         if (_debugFlagMenu.IsActive)
             return;
-        _inventoryMenu.Update();
+        _inventoryMenu.Update(delta);
+        if (_mainMenu is not null)
+            return;
         if (_inventoryMenu.IsActive)
             return;
         _mapMenu.Update(delta);
@@ -234,8 +238,9 @@ public partial class GameRoot : Node2D
             () => !IsTransitioning && !DialogueOpen && !InventoryMenuOpen && !_roomEvents.Active,
             FastTravelFromMap);
         _inventoryMenu = new InventoryMenuController(
-            _inventoryScreen, _player, _roomDebug,
-            () => !IsTransitioning && !DialogueOpen && !MapMenuOpen && !_roomEvents.Active);
+            _inventoryScreen, _saveQuitScreen, _scene.MenuFade, _player, _roomDebug,
+            () => !IsTransitioning && !DialogueOpen && !MapMenuOpen && !_roomEvents.Active,
+            PersistSaveData, ReturnToTitle);
         _debugFlagMenu = new DebugFlagMenuController(
             _debugFlagScreen, _rooms, _player, _roomDebug,
             () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
@@ -290,6 +295,22 @@ public partial class GameRoot : Node2D
     {
         if (_persistSaveData && _saveData is not null)
             OracleSaveStore.SaveSlot(_activeSaveSlot, _saveData);
+    }
+
+    private void ReturnToTitle()
+    {
+        PersistSaveData();
+        if (_saveData is not null)
+            _saveData.Changed -= PersistSaveData;
+        if (_inventory is not null)
+            _inventory.Changed -= SyncHudToInventory;
+
+        foreach (Node child in GetChildren())
+            child.QueueFree();
+
+        _mainMenuScreen = new MainMenuScreen { Name = "MainMenu", ZIndex = 200 };
+        AddChild(_mainMenuScreen);
+        _mainMenu = new MainMenuController(_mainMenuScreen, StartSelectedFile);
     }
 
     private bool Collides(Vector2 playerPosition) => _collision.Collides(playerPosition);
