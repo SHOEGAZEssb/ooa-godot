@@ -69,3 +69,5 @@ internal sealed record EnemyDeathPuffSpawn(
     int EnemyId = -1) : RoomEntitySpawn;
 internal sealed record KillEnemyPuffSpawn(Vector2 Position) : RoomEntitySpawn;
 internal sealed record ItemDropSpawn(int SubId, Vector2 Position) : RoomEntitySpawn;
+internal sealed record CutsceneNpcSpawn(NpcDatabase.NpcRecord Record, string Name)
+    : RoomEntitySpawn;

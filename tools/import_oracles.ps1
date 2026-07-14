@@ -2005,6 +2005,300 @@ $ralphEventRows = @(
     $ralphEventRows,
     [Text.UTF8Encoding]::new($false))
 
+# The first Impa encounter is INTERAC_IMPA_IN_CUTSCENE ($31:$00) in present
+# room $6a. It creates three fake Octoroks from extra object data, replaces
+# Link with linkCutscene1, runs impaScript0, and finally installs Impa as the
+# 16-entry delayed follower. Export every event counter, actor record,
+# animation, text, and possessed PALH_97 sprite color used by that slice.
+$impaSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\impaInCutscene.s')
+$impaFakeSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\fakeOctorok.s')
+$impaLinkSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\specialObjects\linkInCutscene.s')
+$impaScriptSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\scripts.s')
+$impaExtraObjects = Get-Content -Raw (
+    Join-Path $Disassembly 'objects\ages\extraData3.s')
+
+$impaRoomRow = $npcRows | Where-Object { $_ -match '^0\t6a\t31\t00\t' } |
+    Select-Object -First 1
+if (-not $impaRoomRow) {
+    throw 'The positioned INTERAC_IMPA_IN_CUTSCENE $31:$00 record in room 0:6a was not extracted.'
+}
+$impaRoomColumns = $impaRoomRow -split "`t"
+if ($impaRoomColumns[4] -ne '38' -or $impaRoomColumns[5] -ne '48') {
+    throw 'INTERAC_IMPA_IN_CUTSCENE $31:$00 moved from original position $38/$48.'
+}
+$impaInitMatch = [regex]::Match(
+    $impaSource,
+    '(?ms)@init0:.*?bit 6,a.*?ld a,PALH_(?<palette>[0-9a-f]{2}).*?ld e,Interaction\.oamFlags\s+ld a,\$(?<flags>[0-9a-f]{2}).*?ld hl,objectData\.(?<objects>[A-Za-z0-9_]+).*?ld \(hl\),\$(?<linkSubid>[0-9a-f]{2})')
+if (-not $impaInitMatch.Success -or
+    $impaInitMatch.Groups['palette'].Value -ne '97' -or
+    $impaInitMatch.Groups['flags'].Value -ne '07' -or
+    $impaInitMatch.Groups['objects'].Value -ne 'impaOctoroks' -or
+    $impaInitMatch.Groups['linkSubid'].Value -ne '01') {
+    throw 'Could not parse Impa $31:$00 PALH_97, OAM flags $07, fake Octoroks, and Link subid $01.'
+}
+
+$impaLinkBlock = [regex]::Match(
+    $impaLinkSource,
+    '(?ms)^linkCutscene1:(?<body>.*?)(?=^linkCutscene2:)')
+if (-not $impaLinkBlock.Success) { throw 'Could not parse linkCutscene1.' }
+$impaLinkMatch = [regex]::Match(
+    $impaLinkBlock.Groups['body'].Value,
+    '(?ms)ld a,\$(?<initialWait>[0-9a-f]{2}).*?ld \(hl\),SPEED_(?<speed>[0-9a-fA-F_]+).*?cp \$(?<targetX>[0-9a-f]{2}).*?ld \(hl\),\$(?<centerWait>[0-9a-f]{2}).*?ld \(hl\),\$(?<approach>[0-9a-f]{2}).*?ld \(hl\),\$01')
+if (-not $impaLinkMatch.Success -or
+    $impaLinkMatch.Groups['initialWait'].Value -ne '78' -or
+    $impaLinkMatch.Groups['speed'].Value -ne '100' -or
+    $impaLinkMatch.Groups['targetX'].Value -ne '48' -or
+    $impaLinkMatch.Groups['centerWait'].Value -ne '04' -or
+    $impaLinkMatch.Groups['approach'].Value -ne '2e') {
+    throw 'linkCutscene1 no longer matches its $78/$48/$04/$2e SPEED_100 entrance.'
+}
+
+$impaScriptMatch = [regex]::Match(
+    $impaScriptSource,
+    '(?ms)^impaScript0:(?<body>.*?)(?=^impaScript_moveAwayFromRock:)')
+if (-not $impaScriptMatch.Success) { throw 'Could not parse impaScript0.' }
+$impaScriptBody = $impaScriptMatch.Groups['body'].Value
+$impaScriptCommand = [regex]::Match(
+    $impaScriptBody,
+    '(?ms)checkmemoryeq .*?, \$(?<signal>[0-9a-f]{2})\s+wait (?<introWait>\d+)\s+showtextdifferentforlinked TX_(?<text>[0-9a-f]{4}), TX_[0-9a-f]{4}\s+wait (?<postText>\d+)\s+setspeed SPEED_(?<speed>[0-9a-fA-F_]+)\s+movedown \$(?<moveFrames>[0-9a-f]{2})\s+orroomflag \$(?<roomFlag>[0-9a-f]{2})')
+if (-not $impaScriptCommand.Success -or
+    $impaScriptCommand.Groups['signal'].Value -ne '01' -or
+    $impaScriptCommand.Groups['introWait'].Value -ne '210' -or
+    $impaScriptCommand.Groups['text'].Value -ne '0102' -or
+    $impaScriptCommand.Groups['postText'].Value -ne '30' -or
+    $impaScriptCommand.Groups['speed'].Value -ne '080' -or
+    $impaScriptCommand.Groups['moveFrames'].Value -ne '20' -or
+    $impaScriptCommand.Groups['roomFlag'].Value -ne '40') {
+    throw 'impaScript0 no longer matches signal $01, waits 210/30, TX_0102, SPEED_080, movedown $20, and room flag $40.'
+}
+
+$impaSpeed80Match = [regex]::Match(
+    $speedSource,
+    '(?m)^\s*SPEED_80\s+dsb\s+\d+\s*;\s*0x(?<value>[0-9a-f]{2})')
+$impaSpeed300Match = [regex]::Match(
+    $speedSource,
+    '(?m)^\s*SPEED_300\s+dsb\s+\d+\s*;\s*0x(?<value>[0-9a-f]{2})')
+if (-not $impaSpeed80Match.Success -or $impaSpeed80Match.Groups['value'].Value -ne '14' -or
+    -not $impaSpeed300Match.Success -or $impaSpeed300Match.Groups['value'].Value -ne '78') {
+    throw 'SPEED_080/SPEED_300 no longer resolve to original object speeds $14/$78.'
+}
+
+$impaTextId = [Convert]::ToInt32($impaScriptCommand.Groups['text'].Value, 16)
+if (-not $allTexts.ContainsKey(0x0101) -or -not $allTexts.ContainsKey($impaTextId)) {
+    throw 'Could not resolve Impa encounter text TX_0101/TX_0102.'
+}
+# TX_0102 begins with a text-engine call to TX_0101. Expand it for the runtime
+# textbox, which consumes the already-resolved final string rather than text
+# bytecode pointers.
+$impaText = $allTexts[$impaTextId] -replace '^\\call\(TX_0101\)\r?\n?',
+    "$($allTexts[0x0101])`n"
+$impaText = $impaText.Replace('\sym(0x57)', [string][char]0x25b2)
+
+# INTERAC_IMPA_IN_CUTSCENE selects animation indices $00-$03 directly from
+# Interaction.direction while following Link. The generic room-NPC importer
+# deliberately does not infer facings for this scripted, non-talkable actor.
+$impaFollowerAnimations = @(0..3 | ForEach-Object {
+    Resolve-NpcAnimation 0x31 $_
+})
+if ($impaFollowerAnimations.Count -ne 4 -or
+    $impaFollowerAnimations.Where({ [string]::IsNullOrWhiteSpace($_) }).Count -ne 0) {
+    throw 'Could not resolve Impa follower animations $00-$03.'
+}
+
+$impaEventColumns = @(
+    '0', '6a', '31', '00',
+    [Convert]::ToInt32($impaScriptCommand.Groups['roomFlag'].Value, 16).ToString('x2'),
+    [Convert]::ToInt32($impaLinkMatch.Groups['initialWait'].Value, 16).ToString(),
+    [Convert]::ToInt32($impaLinkMatch.Groups['targetX'].Value, 16).ToString(),
+    [Convert]::ToInt32($impaLinkMatch.Groups['centerWait'].Value, 16).ToString(),
+    [Convert]::ToInt32($impaLinkMatch.Groups['approach'].Value, 16).ToString(),
+    '28',
+    $impaScriptCommand.Groups['introWait'].Value,
+    $impaTextId.ToString('x4'),
+    $impaScriptCommand.Groups['postText'].Value,
+    $impaSpeed80Match.Groups['value'].Value,
+    [Convert]::ToInt32($impaScriptCommand.Groups['moveFrames'].Value, 16).ToString(),
+    '16',
+    $impaFollowerAnimations[0],
+    $impaFollowerAnimations[1],
+    $impaFollowerAnimations[2],
+    $impaFollowerAnimations[3],
+    [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($impaText))
+)
+$impaEventRows = @(
+    "# group`troom`tid`tsubid`troom-flag`tlink-wait`ttarget-x`tcenter-wait`tapproach-frames`tlink-speed`timpa-wait`ttext-id`tpost-text`timpa-speed`timpa-move-frames`tfollow-lag`tup-animation`tright-animation`tdown-animation`tleft-animation`ttext-base64",
+    ($impaEventColumns -join "`t")
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\impa_intro_event.tsv'),
+    $impaEventRows,
+    [Text.UTF8Encoding]::new($false))
+
+# Room $7a's unpositioned INTERAC_MISCELLANEOUS_1 ($6b:$00) owns the
+# "HELLLLP!!!" edge trigger immediately before the Impa encounter. Export its
+# edge check, textbox gate, post-text counter, simulated input, and separate
+# room flag instead of folding them into room $6a's interaction.
+$impaHelpSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous1.s')
+$impaHelpBlock = [regex]::Match(
+    $impaHelpSource,
+    '(?ms)^interaction6b_subid00:(?<body>.*?)(?=^interaction6b_subid01:)')
+$impaHelpEdge = [regex]::Match(
+    $impaHelpSource,
+    '(?ms)^interaction6b_checkLinkPressedUpAtScreenEdge:.*?ld hl,w1Link\.yh.*?cp \$(?<edgeY>[0-9a-f]{2}).*?and BTN_UP')
+if (-not $impaHelpBlock.Success -or -not $impaHelpEdge.Success) {
+    throw 'Could not parse INTERAC_MISCELLANEOUS_1 $6b:$00 or its Up-at-screen-edge check.'
+}
+$impaHelpCommand = [regex]::Match(
+    $impaHelpBlock.Groups['body'].Value,
+    '(?ms)bit 6,a.*?ld a,(?<postText>\d+)\s+ld \(de\),a\s+ld bc,TX_(?<text>[0-9a-f]{4}).*?@simulatedInput:\s*dwb (?<inputFrames>\d+), BTN_UP')
+if (-not $impaHelpCommand.Success -or
+    $impaHelpEdge.Groups['edgeY'].Value -ne '07' -or
+    $impaHelpCommand.Groups['postText'].Value -ne '30' -or
+    $impaHelpCommand.Groups['text'].Value -ne '0100' -or
+    $impaHelpCommand.Groups['inputFrames'].Value -ne '8') {
+    throw 'Impa help trigger no longer matches y<$07, TX_0100, 30 updates, and 8 BTN_UP updates.'
+}
+$impaHelpRoomBlock = [regex]::Match(
+    ($mainObjectLines -join "`n"),
+    '(?ms)^group0Map7aObjectData:(?<body>.*?)(?=^group0Map7bObjectData:)')
+if (-not $impaHelpRoomBlock.Success -or
+    $impaHelpRoomBlock.Groups['body'].Value -notmatch 'obj_Interaction \$6b \$00') {
+    throw 'Room 0:7a no longer contains unpositioned INTERAC_MISCELLANEOUS_1 $6b:$00.'
+}
+$impaHelpTextId = [Convert]::ToInt32($impaHelpCommand.Groups['text'].Value, 16)
+if (-not $allTexts.ContainsKey($impaHelpTextId) -or
+    -not $allTextPositions.ContainsKey($impaHelpTextId) -or
+    $allTextPositions[$impaHelpTextId] -ne 2) {
+    throw 'Expected TX_0100 with fixed-bottom \\pos(2).'
+}
+$impaHelpRows = @(
+    "# group`troom`tid`tsubid`troom-flag`tedge-y`tpost-text`tinput-up`ttext-id`ttextbox-position`ttext-base64",
+    (@(
+        '0', '7a', '6b', '00', '40',
+        [Convert]::ToInt32($impaHelpEdge.Groups['edgeY'].Value, 16).ToString(),
+        $impaHelpCommand.Groups['postText'].Value,
+        $impaHelpCommand.Groups['inputFrames'].Value,
+        $impaHelpCommand.Groups['text'].Value,
+        $allTextPositions[$impaHelpTextId].ToString(),
+        [Convert]::ToBase64String(
+            [Text.Encoding]::UTF8.GetBytes($allTexts[$impaHelpTextId]))
+    ) -join "`t")
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\impa_help_event.tsv'),
+    $impaHelpRows,
+    [Text.UTF8Encoding]::new($false))
+
+$impaFakeAnimations = [regex]::Match(
+    $impaFakeSource,
+    '(?ms)@animations:\s*\.db \$(?<a>[0-9a-f]{2}) \$(?<b>[0-9a-f]{2}) \$(?<c>[0-9a-f]{2})')
+$impaFakeCounters = [regex]::Match(
+    $impaFakeSource,
+    '(?ms)@countersAndAngles:\s*\.db \$(?<counter0>[0-9a-f]{2}) \$(?<angle0>[0-9a-f]{2})\s*\.db \$(?<counter1>[0-9a-f]{2}) \$(?<angle1>[0-9a-f]{2})\s*\.db \$(?<counter2>[0-9a-f]{2}) \$(?<angle2>[0-9a-f]{2})')
+$impaFakeWait = [regex]::Match(
+    $impaFakeSource,
+    '(?ms)cp \$01.*?ld \(hl\),\$(?<wait>[0-9a-f]{2}).*?ld \(hl\),SPEED_300')
+$impaFakeObjectBlock = [regex]::Match(
+    $impaExtraObjects,
+    '(?ms)^impaOctoroks:(?<body>.*?)(?=^\S|\z)')
+if (-not $impaFakeAnimations.Success -or -not $impaFakeCounters.Success -or
+    -not $impaFakeWait.Success -or $impaFakeWait.Groups['wait'].Value -ne '14' -or
+    -not $impaFakeObjectBlock.Success) {
+    throw 'Could not parse the fake Octorok animations, signal wait, counters, angles, or object data.'
+}
+$impaFakeObjects = [regex]::Matches(
+    $impaFakeObjectBlock.Groups['body'].Value,
+    'obj_Interaction \$(?<id>[0-9a-f]{2}) \$(?<subid>[0-9a-f]{2}) \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<var03>[0-9a-f]{2})')
+if ($impaFakeObjects.Count -ne 3) {
+    throw "Expected three fake Octoroks in objectData.impaOctoroks, got $($impaFakeObjects.Count)."
+}
+$impaFakeGraphic = $interactionGraphics['50:0']
+if ($null -eq $impaFakeGraphic -or -not $gfxNames.ContainsKey($impaFakeGraphic.Gfx)) {
+    throw 'Could not resolve INTERAC_FAKE_OCTOROK $32:$00 graphics.'
+}
+$impaFakeSprite = $gfxNames[$impaFakeGraphic.Gfx]
+$impaInitialIndices = @(
+    [Convert]::ToInt32($impaFakeAnimations.Groups['a'].Value, 16),
+    [Convert]::ToInt32($impaFakeAnimations.Groups['b'].Value, 16),
+    [Convert]::ToInt32($impaFakeAnimations.Groups['c'].Value, 16))
+$impaFakeRows = [Collections.Generic.List[string]]::new()
+$impaFakeRows.Add("# index`tid`tsubid`ty`tx`tvar03`tsprite`ttile-base`tpalette`tinitial-animation`tflee-animation`tsignal-wait`tflee-counter`tangle`tspeed")
+for ($index = 0; $index -lt 3; $index++) {
+    $object = $impaFakeObjects[$index]
+    $var03 = [Convert]::ToInt32($object.Groups['var03'].Value, 16)
+    if ($var03 -ne $index -or $object.Groups['id'].Value -ne '32' -or
+        $object.Groups['subid'].Value -ne '00') {
+        throw "Unexpected fake Octorok record at objectData.impaOctoroks index $index."
+    }
+    $counter = [Convert]::ToInt32(
+        $impaFakeCounters.Groups["counter$index"].Value, 16)
+    $angle = [Convert]::ToInt32(
+        $impaFakeCounters.Groups["angle$index"].Value, 16)
+    $initialAnimation = Resolve-NpcAnimation 0x32 $impaInitialIndices[$index]
+    $fleeAnimation = Resolve-NpcAnimation 0x32 ([int]($angle / 8))
+    if (-not $initialAnimation -or -not $fleeAnimation) {
+        throw "Could not resolve fake Octorok animations for var03 $index."
+    }
+    $impaFakeRows.Add((@(
+        $index.ToString(), '32', '00',
+        $object.Groups['y'].Value, $object.Groups['x'].Value,
+        $object.Groups['var03'].Value, $impaFakeSprite,
+        $impaFakeGraphic.TileBase.ToString(), $impaFakeGraphic.Palette.ToString(),
+        $initialAnimation, $fleeAnimation,
+        [Convert]::ToInt32($impaFakeWait.Groups['wait'].Value, 16).ToString(),
+        $counter.ToString(), $angle.ToString('x2'),
+        $impaSpeed300Match.Groups['value'].Value
+    ) -join "`t"))
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\impa_intro_octoroks.tsv'),
+    $impaFakeRows,
+    [Text.UTF8Encoding]::new($false))
+
+$impaPaletteIndex = $paletteDataSource.IndexOf(
+    'paletteData44d8:', [StringComparison]::Ordinal)
+$impaPaletteEnd = $paletteDataSource.IndexOf(
+    'paletteData44e8:', $impaPaletteIndex, [StringComparison]::Ordinal)
+if ($impaPaletteIndex -lt 0 -or $impaPaletteEnd -lt 0) {
+    throw 'Could not locate PALH_97 paletteData44d8.'
+}
+$impaPaletteBlock = $paletteDataSource.Substring(
+    $impaPaletteIndex, $impaPaletteEnd - $impaPaletteIndex)
+$impaPaletteColors = [regex]::Matches(
+    $impaPaletteBlock,
+    'm_RGB16 \$(?<r>[0-9a-f]{2}) \$(?<g>[0-9a-f]{2}) \$(?<b>[0-9a-f]{2})')
+if ($impaPaletteColors.Count -ne 8) {
+    throw "PALH_97 paletteData44d8 should contain two sprite palettes, got $($impaPaletteColors.Count)."
+}
+$impaPaletteBytes = [Collections.Generic.List[byte]]::new()
+# Impa sets oamFlags=$07, selecting the second PALH_97 palette loaded into
+# slot 7. Slot 6 is intentionally not emitted for this actor.
+for ($color = 4; $color -lt 8; $color++) {
+    $impaPaletteBytes.Add([Convert]::ToByte($impaPaletteColors[$color].Groups['r'].Value, 16))
+    $impaPaletteBytes.Add([Convert]::ToByte($impaPaletteColors[$color].Groups['g'].Value, 16))
+    $impaPaletteBytes.Add([Convert]::ToByte($impaPaletteColors[$color].Groups['b'].Value, 16))
+}
+if ($impaPaletteBytes.Count -ne 12) {
+    throw "Expected 12 possessed-Impa sprite palette bytes, got $($impaPaletteBytes.Count)."
+}
+[IO.File]::WriteAllBytes(
+    (Join-Path $destination 'metadata\impa_possessed_palette.bin'),
+    $impaPaletteBytes.ToArray())
+
+$impaFakeSpriteSource = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
+    ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Filter "$impaFakeSprite.png" } |
+    Select-Object -First 1
+if ($null -eq $impaFakeSpriteSource) {
+    throw "Fake Octorok sprite not found: $impaFakeSprite.png"
+}
+Copy-Item -LiteralPath $impaFakeSpriteSource.FullName -Destination (
+    Join-Path $destination "gfx\$impaFakeSprite.png") -Force
+
 # Keese are the first supported enemy. Their room records use random-position
 # enemy opcodes, while their attributes, animations, OAM, and graphics are in
 # the shared enemy tables. Export the resolved values so runtime code never

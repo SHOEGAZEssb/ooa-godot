@@ -24,6 +24,7 @@ public partial class GameRoot
 
         ValidateSigns();
         ValidateNpcs();
+        ValidateImpaIntroEncounter();
         ValidateMakuTreeDisappearanceCutscene();
         ValidateRalphPortalDepartureEvent();
         ValidateAnimations();
@@ -3266,6 +3267,361 @@ public partial class GameRoot
         GD.Print("Validated villager idle animation, $28 Link awareness, 30-frame facing delay, " +
             "TX_1420 dialogue, retained/preloaded NPC screen scrolling, room 0:66 " +
             "Link-relative draw priority, and Link sprite palette 0.");
+    }
+
+    private void ValidateImpaIntroEncounter()
+    {
+        _saveData.SetRoomFlag(0, 0x7a, OracleSaveData.RoomFlag40, value: false);
+        _saveData.SetRoomFlag(0, 0x6a, OracleSaveData.RoomFlag40, value: false);
+        LoadValidationRoom(0, 0x7a);
+        _player.WarpTo(new Vector2(0x38, 0x07));
+        _player.Face(Vector2I.Up);
+        if (!_roomEvents.ImpaHelpWaitingAtEdge || _roomEvents.Active)
+            throw new InvalidOperationException("Room 0:7a did not arm INTERAC_MISCELLANEOUS_1 $6b:$00.");
+        _roomEvents.TriggerImpaHelpForValidation();
+        if (_dialogue.IsOpen)
+            throw new InvalidOperationException("Impa's help text triggered before Link's Y coordinate was below $07.");
+
+        _player.WarpTo(new Vector2(0x38, 0x06));
+        _roomEvents.TriggerImpaHelpForValidation();
+        if (!_dialogue.IsOpen || _dialogue.CurrentMessage != "HELLLLP!!!" ||
+            _dialogue.Position.Y != 80 || !_player.CutsceneControlled ||
+            _roomEvents.Counter != 30 ||
+            _saveData.HasRoomFlag(0, 0x7a, OracleSaveData.RoomFlag40))
+        {
+            throw new InvalidOperationException(
+                "Room 0:7a did not show fixed-bottom TX_0100 and install its 30-update counter.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(29);
+        if (_roomEvents.Counter != 1 ||
+            _saveData.HasRoomFlag(0, 0x7a, OracleSaveData.RoomFlag40))
+        {
+            throw new InvalidOperationException(
+                "INTERAC_MISCELLANEOUS_1 $6b:$00 ended its post-text counter early.");
+        }
+        StepRoomEventFrames(1);
+        if (_roomEvents.Counter != 8 ||
+            !_saveData.HasRoomFlag(0, 0x7a, OracleSaveData.RoomFlag40))
+        {
+            throw new InvalidOperationException(
+                "Room 0:7a did not set room flag $40 and install eight BTN_UP updates.");
+        }
+        StepRoomEventFrames(1);
+        if (!_transitions.ScrollActive || _activeGroup != 0 || _currentRoom.Id != 0x6a)
+            throw new InvalidOperationException("The simulated Up input did not begin the 0:7a -> 0:6a scroll.");
+        FinishActiveScrollingTransitionForValidation();
+
+        NpcCharacter? impa = _roomEvents.Impa;
+        System.Collections.Generic.IReadOnlyList<NpcCharacter> octoroks =
+            _roomEvents.FakeOctoroks;
+        Color possessedHighlight = new(0x12 / 31.0f, 0x1a / 31.0f, 0x1f / 31.0f);
+        if (impa is null || !_roomEvents.Active || impa.Position != new Vector2(0x48, 0x38) ||
+            octoroks.Count != 3 ||
+            octoroks[0].Position != new Vector2(0x48, 0x18) ||
+            octoroks[1].Position != new Vector2(0x38, 0x38) ||
+            octoroks[2].Position != new Vector2(0x58, 0x38) ||
+            !impa.CurrentAnimationUsesColor(possessedHighlight))
+        {
+            throw new InvalidOperationException(
+                "Room 0:6a did not create possessed Impa and objectData.impaOctoroks " +
+                $"with their original positions and PALH_97 palette 7 (impa={impa?.Position}, " +
+                $"active={_roomEvents.Active}, octoroks={octoroks.Count}, " +
+                $"positions={string.Join(',', octoroks.Select(actor => actor.Position))}, " +
+                $"highlight={impa?.CurrentAnimationUsesColor(possessedHighlight)}).");
+        }
+
+        Vector2 linkStart = _player.Position;
+        if (linkStart != new Vector2(0x38, 0x76))
+            throw new InvalidOperationException($"0:7a -> 0:6a placed Link at {linkStart}, expected $76/$38.");
+        StepRoomEventFrames(1);
+        if (!_player.CutsceneControlled || _roomEvents.Counter != 120 ||
+            _player.Position != linkStart || _player.FacingVector != Vector2I.Up)
+        {
+            throw new InvalidOperationException(
+                "linkCutscene1 state 0 did not install its $78 counter and upward animation.");
+        }
+        StepRoomEventFrames(119);
+        if (_roomEvents.Counter != 1 || _player.Position != linkStart)
+            throw new InvalidOperationException("Link's initial 120-update wait ended early in room 0:6a.");
+        StepRoomEventFrames(1);
+        StepRoomEventFrames(15);
+        if (_player.Position != new Vector2(0x47, 0x76) ||
+            _player.FacingVector != Vector2I.Right)
+        {
+            throw new InvalidOperationException(
+                "Link did not approach center X=$48 at one pixel per SPEED_100 update.");
+        }
+        StepRoomEventFrames(1);
+        StepRoomEventFrames(1);
+        if (_roomEvents.Counter != 4 || _player.Position != new Vector2(0x48, 0x76))
+            throw new InvalidOperationException("Link did not install the four-update center wait at X=$48.");
+        StepRoomEventFrames(3);
+        if (_roomEvents.Counter != 1 || _player.Position.Y != 0x76)
+            throw new InvalidOperationException("Link's four-update center wait ended early.");
+        StepRoomEventFrames(1);
+        StepRoomEventFrames(45);
+        if (_roomEvents.Counter != 1 || _player.Position != new Vector2(0x48, 0x49))
+            throw new InvalidOperationException("Link's $2e-update upward approach ended early.");
+        StepRoomEventFrames(1);
+        if (_player.Position != new Vector2(0x48, 0x48))
+            throw new InvalidOperationException("Link did not finish exactly 46 pixels above his entry point.");
+
+        StepRoomEventFrames(1);
+        if (_roomEvents.Counter != 210)
+            throw new InvalidOperationException(
+                "Impa observed cfd0=$01 on the wrong object update or lost her 210-update wait.");
+        Vector2[] fakeStarts =
+        {
+            new(0x48, 0x18), new(0x38, 0x38), new(0x58, 0x38)
+        };
+        StepRoomEventFrames(19);
+        if (octoroks[0].Position != fakeStarts[0] ||
+            octoroks[1].Position != fakeStarts[1] ||
+            octoroks[2].Position != fakeStarts[2])
+        {
+            throw new InvalidOperationException("A fake Octorok left before its original $14 signal wait.");
+        }
+        StepRoomEventFrames(1);
+        StepRoomEventFrames(59);
+        if (octoroks[1].Position != fakeStarts[1])
+            throw new InvalidOperationException("Fake Octorok var03=$01 moved during its $3c flee delay.");
+        StepRoomEventFrames(1);
+        if (octoroks[1].Position != fakeStarts[1])
+            throw new InvalidOperationException("Fake Octorok moved on the SND_THROW/substate update.");
+        StepRoomEventFrames(1);
+        if (octoroks[1].Position != fakeStarts[1] + Vector2.Left * 3)
+        {
+            throw new InvalidOperationException(
+                "Fake Octorok var03=$01 did not flee left at SPEED_300 after $14+$3c updates.");
+        }
+
+        StepRoomEventFrames(128);
+        if (_dialogue.IsOpen || _roomEvents.Counter != 1)
+            throw new InvalidOperationException("Impa's 210-update post-signal wait ended early.");
+        StepRoomEventFrames(1);
+        if (!_dialogue.IsOpen || _dialogue.Position.Y != 8 ||
+            !_dialogue.CurrentMessage.StartsWith("That was\nfrightening!") ||
+            !_dialogue.CurrentMessage.EndsWith("with you nearby.") ||
+            octoroks[0].Active || octoroks[1].Active || octoroks[2].Active)
+        {
+            throw new InvalidOperationException(
+                "TX_0102, automatic TX_0101 call, textbox placement, or fake-Octorok cleanup diverged.");
+        }
+
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        StepRoomEventFrames(29);
+        if (_roomEvents.Counter != 1 || impa.Position != new Vector2(0x48, 0x38))
+            throw new InvalidOperationException("Impa's 30-update post-text wait ended early.");
+        StepRoomEventFrames(1);
+        StepRoomEventFrames(2);
+        if (impa.Position != new Vector2(0x48, 0x38) || _roomEvents.Counter != 32)
+        {
+            throw new InvalidOperationException(
+                "Impa moved during the setspeed/movedown script-command updates.");
+        }
+        StepRoomEventFrames(30);
+        if (_roomEvents.Counter != 2 || impa.Position != new Vector2(0x48, 0x47))
+        {
+            throw new InvalidOperationException(
+                "Impa did not apply SPEED_080 through the high-coordinate byte for 30 updates.");
+        }
+        StepRoomEventFrames(1);
+        if (_roomEvents.Counter != 1 || impa.Position != new Vector2(0x48, 0x47))
+            throw new InvalidOperationException("movedown $20 did not retain its final half-pixel fraction.");
+        StepRoomEventFrames(1);
+        if (_saveData.HasRoomFlag(0, 0x6a, OracleSaveData.RoomFlag40))
+            throw new InvalidOperationException("Impa set room flag $40 before counter2 reached zero.");
+        StepRoomEventFrames(1);
+        Vector2 followStart = _player.Position;
+        if (_roomEvents.Active || !_roomEvents.ImpaFollowing || _player.CutsceneControlled ||
+            impa.Position != followStart || impa.FacingVector != Vector2I.Up ||
+            !_saveData.HasRoomFlag(0, 0x6a, OracleSaveData.RoomFlag40))
+        {
+            throw new InvalidOperationException(
+                "Impa did not set room flag $40, restore Link, and initialize the follower at Link's position.");
+        }
+
+        Vector2I[] impaDirections =
+        {
+            Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left
+        };
+        var impaAnimationHashes = new HashSet<ulong>();
+        foreach (Vector2I direction in impaDirections)
+        {
+            impa.SetFacingDirection(direction);
+            if (impa.CurrentAnimationOpaquePixels == 0 ||
+                !impaAnimationHashes.Add(impa.CurrentAnimationPixelHash))
+            {
+                throw new InvalidOperationException(
+                    $"Impa animation ${Array.IndexOf(impaDirections, direction):x2} " +
+                    "was empty or reused another directional sprite.");
+            }
+        }
+        impa.SetFacingDirection(Vector2I.Up);
+
+        for (int update = 1; update <= 16; update++)
+        {
+            _player.WarpTo(followStart + Vector2.Right * update);
+            _player.Face(Vector2I.Right);
+            StepRoomEventFrames(1);
+        }
+        if (impa.Position != followStart)
+            throw new InvalidOperationException("Impa advanced before the 16-entry Link path delay elapsed.");
+        _player.WarpTo(followStart + Vector2.Right * 17);
+        StepRoomEventFrames(1);
+        if (impa.Position != followStart + Vector2.Right || impa.FacingVector != Vector2I.Right)
+        {
+            throw new InvalidOperationException(
+                "checkUpdateFollowingLinkObject did not replay Link's first delayed position/direction.");
+        }
+
+        for (int update = 18; update <= 82; update++)
+        {
+            _player.WarpTo(followStart + Vector2.Right * update);
+            StepRoomEventFrames(1);
+        }
+        if (_player.Position.X != 0x9a ||
+            impa.Position != _player.Position + Vector2.Left * 16)
+        {
+            throw new InvalidOperationException(
+                "Impa's path was not primed at the right screen edge before scrolling.");
+        }
+
+        _transitions.BeginScroll(_player, Vector2I.Right, 0x6b);
+        NpcCharacter? incomingImpa = _roomEvents.Impa;
+        if (incomingImpa is null || incomingImpa == impa ||
+            incomingImpa.Position != impa.Position + Vector2.Left * 160 ||
+            impa.Active ||
+            !_roomEvents.ImpaFollowing)
+        {
+            throw new InvalidOperationException(
+                "Following Impa was not transferred into room 0:6b with the original " +
+                "screen offset and a retired outgoing rendering copy.");
+        }
+        for (int frame = 0; frame < 40; frame++)
+        {
+            UpdateScrollingTransition(1.0 / 60.0);
+            _roomEvents.Update(1.0 / 60.0);
+            Vector2 scrollingLink = _transitions.ScrollLinkPositionInDestination;
+            Vector2 expectedImpa = new(
+                Mathf.Floor(scrollingLink.X) - 16,
+                Mathf.Floor(scrollingLink.Y));
+            bool outgoingImpaVisible = _entities.OutgoingEntities<NpcCharacter>().Any(npc =>
+                npc.Record.Id == 0x31 && npc.Record.SubId == 0x00 && npc.Active);
+            if (_transitions.ScrollActive &&
+                (incomingImpa.Position != expectedImpa || outgoingImpaVisible))
+            {
+                throw new InvalidOperationException(
+                    $"Always-update Impa fell behind on right-scroll update {frame + 1}: " +
+                    $"expected {expectedImpa}, got {incomingImpa.Position}, " +
+                    $"outgoing visible={outgoingImpaVisible}.");
+            }
+        }
+        if (IsTransitioning)
+            throw new InvalidOperationException("The Impa right scroll did not finish in 40 updates.");
+        if (incomingImpa.Position != _player.Position + Vector2.Left * 16)
+        {
+            throw new InvalidOperationException(
+                "resetFollowingLinkObjectPosition did not place Impa 16 pixels behind " +
+                $"Link after the right scroll (Link={_player.Position}, Impa={incomingImpa.Position}).");
+        }
+        StepRoomEventFrames(1);
+        if (incomingImpa.Position != _player.Position + Vector2.Left * 16 ||
+            incomingImpa.FacingVector != Vector2I.Right)
+        {
+            throw new InvalidOperationException(
+                "The rebuilt path did not retain Impa at the left edge facing right on its first update.");
+        }
+
+        _player.Face(Vector2I.Left);
+        for (int x = 0x16; x >= 0x06; x--)
+        {
+            _player.WarpTo(new Vector2(x, _player.Position.Y));
+            StepRoomEventFrames(1);
+        }
+        if (incomingImpa.Position != _player.Position + Vector2.Right * 16 ||
+            incomingImpa.FacingVector != Vector2I.Left)
+        {
+            throw new InvalidOperationException(
+                "Impa's path was not primed at the left screen edge before scrolling.");
+        }
+
+        _transitions.BeginScroll(_player, Vector2I.Left, 0x6a);
+        List<NpcCharacter> returningImpas = _npcNodes.Where(npc =>
+            npc.Record.Id == 0x31 && npc.Record.SubId == 0x00).ToList();
+        NpcCharacter? returningFollower = _roomEvents.Impa;
+        if (returningImpas.Count != 2 || returningFollower is null ||
+            incomingImpa.Active ||
+            !returningFollower.Active || returningImpas.Count(npc => npc.Active) != 1 ||
+            !_roomEvents.ImpaFollowing)
+        {
+            throw new InvalidOperationException(
+                "Returning to room 0:6a retained both the completed placed Impa and her follower.");
+        }
+        for (int frame = 0; frame < 40; frame++)
+        {
+            UpdateScrollingTransition(1.0 / 60.0);
+            _roomEvents.Update(1.0 / 60.0);
+            Vector2 scrollingLink = _transitions.ScrollLinkPositionInDestination;
+            Vector2 expectedImpa = new(
+                Mathf.Floor(scrollingLink.X) + 16,
+                Mathf.Floor(scrollingLink.Y));
+            bool outgoingImpaVisible = _entities.OutgoingEntities<NpcCharacter>().Any(npc =>
+                npc.Record.Id == 0x31 && npc.Record.SubId == 0x00 && npc.Active);
+            if (_transitions.ScrollActive &&
+                (returningFollower.Position != expectedImpa || outgoingImpaVisible))
+            {
+                throw new InvalidOperationException(
+                    $"Always-update Impa fell behind on left-scroll update {frame + 1}: " +
+                    $"expected {expectedImpa}, got {returningFollower.Position}, " +
+                    $"outgoing visible={outgoingImpaVisible}.");
+            }
+        }
+        if (IsTransitioning)
+            throw new InvalidOperationException("The Impa left scroll did not finish in 40 updates.");
+        if (returningFollower.Position != _player.Position + Vector2.Right * 16)
+        {
+            throw new InvalidOperationException(
+                "resetFollowingLinkObjectPosition did not place Impa 16 pixels behind " +
+                $"Link after the left scroll (Link={_player.Position}, Impa={returningFollower.Position}).");
+        }
+        StepRoomEventFrames(1);
+        if (returningFollower.Position != _player.Position + Vector2.Right * 16 ||
+            returningFollower.FacingVector != Vector2I.Left)
+        {
+            throw new InvalidOperationException(
+                "The rebuilt path did not retain Impa at the right edge facing left on its first update.");
+        }
+
+        LoadValidationRoom(0, 0x6a);
+        NpcCharacter? completedImpa = _npcNodes.Find(npc =>
+            npc.Record.Id == 0x31 && npc.Record.SubId == 0x00);
+        if (completedImpa is null || completedImpa.Active || _roomEvents.Active ||
+            _roomEvents.ImpaFollowing || _roomEvents.FakeOctoroks.Count != 0)
+        {
+            throw new InvalidOperationException(
+                "Room flag $40 did not suppress Impa and her fake Octoroks on room 0:6a re-entry.");
+        }
+
+        LoadValidationRoom(0, 0x7a);
+        _player.WarpTo(new Vector2(0x38, 0x06));
+        _player.Face(Vector2I.Up);
+        _roomEvents.TriggerImpaHelpForValidation();
+        if (_roomEvents.ImpaHelpWaitingAtEdge || _roomEvents.Active || _dialogue.IsOpen)
+        {
+            throw new InvalidOperationException(
+                "Room 0:7a flag $40 did not suppress TX_0100 on re-entry.");
+        }
+
+        GD.Print("Validated room 0:7a $6b:$00 edge trigger, fixed-bottom TX_0100, 30-update " +
+            "post-text wait, room flag $40, and eight-Up handoff; room 0:6a possessed Impa " +
+            "$31:$00 PALH_97, three objectData fake Octoroks, linkCutscene1 $78/$04/$2e " +
+            "cadence, staggered $14+$50/$3c/$5a escapes, expanded TX_0102, 210/30 waits, " +
+            "SPEED_080 movedown $20, room flag $40, animations $00-$03, single-copy " +
+            "always-update scroll following, transition-end 16-entry follower-path rebuild, " +
+            "and placed-Impa suppression when the follower returns.");
     }
 
     private void ValidateMakuTreeDisappearanceCutscene()

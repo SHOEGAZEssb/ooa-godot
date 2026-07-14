@@ -21,6 +21,17 @@ internal sealed class NpcRoomEntity(NpcCharacter npc) : RoomEntityAdapter<NpcCha
     public override void SetTransitionDrawOffset(Vector2 offset) => Entity.SetTransitionDrawOffset(offset);
 }
 
+// Script-created character interactions animate with the normal NPC renderer,
+// but are not automatically solid or talkable. The original fake Octoroks use
+// objectSetVisible82 without objectMarkSolidPosition, and followers must not
+// trap Link against their delayed path.
+internal sealed class CutsceneNpcRoomEntity(NpcCharacter npc)
+    : RoomEntityAdapter<NpcCharacter>(npc), IVariableRoomEntity
+{
+    public void Update(double delta, Player player) => Entity.UpdateNpc(delta, player.Position);
+    public override void SetTransitionDrawOffset(Vector2 offset) => Entity.SetTransitionDrawOffset(offset);
+}
+
 internal sealed class TimePortalRoomEntity(TimePortal portal, System.Action<TimePortal> entered)
     : RoomEntityAdapter<TimePortal>(portal), IFixedRoomEntity, ILinkContactEntity
 {

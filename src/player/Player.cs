@@ -481,6 +481,20 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
+    internal void AdvanceCutsceneMovement(Vector2 movement, Vector2I direction)
+    {
+        if (!_cutsceneControlled)
+            return;
+        _walking = movement != Vector2.Zero;
+        if (direction != Vector2I.Zero)
+            Face(direction);
+        _precisePosition += movement;
+        if (_walking)
+            _walkTime += 1.0f / 60.0f;
+        Position = ToObjectPixelPosition(_precisePosition);
+        QueueRedraw();
+    }
+
     internal void EndCutsceneControl()
     {
         _cutsceneControlled = false;

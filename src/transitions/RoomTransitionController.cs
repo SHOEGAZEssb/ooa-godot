@@ -5,6 +5,8 @@ namespace oracleofages;
 
 public sealed class RoomTransitionController
 {
+    public event Action<Vector2I>? ScrollingTransitionFinished;
+
     private enum WarpPhase
     {
         None,
@@ -66,6 +68,8 @@ public sealed class RoomTransitionController
     public bool IsTransitioning => _warpActive || _scrollActive || _roomView.IsTransitioning;
     public bool ScrollActive => _scrollActive;
     public Vector2I ScrollDirection => _scrollDirection;
+    internal Vector2 ScrollLinkPositionInDestination =>
+        _scrollLinkStart + _scrollLinkStep * _scrollFrame + _scrollFinishOffset;
     public float ScrollDistance => _scrollDistance;
     public int ScrollFrames => _scrollFrames;
 
@@ -216,6 +220,7 @@ public sealed class RoomTransitionController
         _scrollActive = false;
         _roomView.FinishTransition();
         _player.FinishScrollingTransition(linkPosition + _scrollFinishOffset);
+        ScrollingTransitionFinished?.Invoke(_scrollDirection);
         _entities.FinishScreenTransition();
         UpdateCamera();
     }

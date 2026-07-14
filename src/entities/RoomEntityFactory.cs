@@ -95,6 +95,7 @@ internal sealed class RoomEntityFactory(
         EnemyDeathPuffSpawn puff => CreateDeathPuff(puff),
         KillEnemyPuffSpawn puff => CreateKillPuff(puff),
         ItemDropSpawn drop => CreateItemDrop(drop, room),
+        CutsceneNpcSpawn npc => CreateCutsceneNpc(npc),
         _ => throw new ArgumentOutOfRangeException(nameof(spawn), spawn, "Unknown room-entity spawn request.")
     };
 
@@ -141,6 +142,17 @@ internal sealed class RoomEntityFactory(
         var drop = new ItemDropEffect { Name = $"ItemDrop_{spawn.SubId:x2}", ZIndex = 10 };
         drop.Initialize(spawn.SubId, spawn.Position, room, itemDrops.GetVisual(spawn.SubId));
         return new ItemDropRoomEntity(drop);
+    }
+
+    private static IRoomEntity CreateCutsceneNpc(CutsceneNpcSpawn spawn)
+    {
+        var npc = new NpcCharacter
+        {
+            Name = spawn.Name,
+            ZIndex = NpcCharacter.BehindLinkZIndex
+        };
+        npc.Initialize(spawn.Record);
+        return new CutsceneNpcRoomEntity(npc);
     }
 
     private bool TryChoosePosition(

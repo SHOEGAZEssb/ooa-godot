@@ -5,8 +5,9 @@ namespace oracleofages;
 
 /// <summary>
 /// Runs room-entry interaction scripts whose sequencing spans Link, dialogue,
-/// palettes, actor movement, and hardcoded warps. Supported records begin with
-/// the original Maku Tree disappearance and Ralph's room $39 portal departure.
+/// palettes, actor movement, followers, and hardcoded warps. Supported records
+/// include the original Maku Tree disappearance, Ralph's room $39 portal
+/// departure, and the possessed-Impa encounter in room $6a.
 /// </summary>
 public sealed class RoomEventController
 {
@@ -42,6 +43,55 @@ public sealed class RoomEventController
         Flickering
     }
 
+    private enum ImpaStage
+    {
+        None,
+        LinkInitialize,
+        LinkInitialWait,
+        LinkHorizontal,
+        LinkCenterWait,
+        LinkApproach,
+        SignalPending,
+        ImpaDelay,
+        Text,
+        PostText,
+        SetSpeed,
+        StartMovement,
+        Moving,
+        MovementFinished,
+        Following
+    }
+
+    private enum ImpaHelpStage
+    {
+        None,
+        WaitingAtEdge,
+        Text,
+        PostText,
+        SimulatedInput
+    }
+
+    private enum FakeOctorokStage
+    {
+        WaitingForSignal,
+        SignalWait,
+        FleeDelay,
+        Moving,
+        Finished
+    }
+
+    private sealed class FakeOctorokState(
+        ImpaIntroEventDatabase.FakeOctorokRecord record,
+        NpcCharacter actor)
+    {
+        public ImpaIntroEventDatabase.FakeOctorokRecord Record { get; } = record;
+        public NpcCharacter Actor { get; } = actor;
+        public FakeOctorokStage Stage { get; set; }
+        public int Counter { get; set; }
+    }
+
+    private readonly record struct LinkPathEntry(Vector2I Direction, Vector2 Position);
+
     private readonly RoomSession _rooms;
     private readonly RoomEntityManager _entities;
     private readonly RoomTransitionController _transitions;
@@ -53,22 +103,54 @@ public sealed class RoomEventController
     private readonly MakuTreeCutsceneDatabase _database;
     private readonly MakuTreeCutsceneDatabase.MakuTreeCutsceneRecord _record;
     private readonly RalphPortalEventDatabase.RalphPortalEventRecord _ralphRecord;
+    private readonly ImpaIntroEventDatabase _impaDatabase;
+    private readonly ImpaIntroEventDatabase.ImpaIntroEventRecord _impaRecord;
+    private readonly ImpaIntroEventDatabase.ImpaHelpEventRecord _impaHelpRecord;
 
     private Stage _stage;
     private RalphStage _ralphStage;
     private OracleRoomData? _eventRoom;
     private NpcCharacter? _makuTree;
     private NpcCharacter? _ralph;
+    private NpcCharacter? _impa;
+    private OracleRoomData? _impaFollowRoom;
+    private readonly System.Collections.Generic.List<FakeOctorokState> _fakeOctoroks = new();
+    private readonly LinkPathEntry[] _linkPath = new LinkPathEntry[16];
+    private int _linkPathIndex;
+    private ImpaStage _impaStage;
+    private ImpaHelpStage _impaHelpStage;
+    private Vector2 _impaPrecisePosition;
+    private bool _resetImpaFollowerAfterScroll;
+    private Vector2I _impaFollowerScrollDirection;
     private double _frameAccumulator;
     private int _counter;
     private int _inputFrame;
     private int _paletteHeader;
     private bool _paletteCycling;
 
-    public bool Active => _stage != Stage.None || _ralphStage != RalphStage.None;
+    public bool Active => _stage != Stage.None || _ralphStage != RalphStage.None ||
+        _impaStage is not (ImpaStage.None or ImpaStage.Following) ||
+        _impaHelpStage is ImpaHelpStage.Text or ImpaHelpStage.PostText or
+            ImpaHelpStage.SimulatedInput;
+    private bool HasEventState => Active || ImpaFollowing ||
+        _impaHelpStage != ImpaHelpStage.None;
     internal int CurrentStage => (int)_stage;
     internal bool RalphWaitingForScroll => _ralphStage == RalphStage.WaitingForScroll;
     internal bool RalphFlickering => _ralphStage == RalphStage.Flickering;
+    internal bool ImpaFollowing => _impaStage == ImpaStage.Following;
+    internal bool ImpaHelpWaitingAtEdge => _impaHelpStage == ImpaHelpStage.WaitingAtEdge;
+    internal int ImpaCurrentStage => (int)_impaStage;
+    internal NpcCharacter? Impa => _impa;
+    internal System.Collections.Generic.IReadOnlyList<NpcCharacter> FakeOctoroks
+    {
+        get
+        {
+            var actors = new System.Collections.Generic.List<NpcCharacter>(_fakeOctoroks.Count);
+            foreach (FakeOctorokState state in _fakeOctoroks)
+                actors.Add(state.Actor);
+            return actors;
+        }
+    }
     internal int Counter => _counter;
     internal int InputFrame => _inputFrame;
     internal int PaletteHeader => _paletteHeader;
@@ -98,33 +180,61 @@ public sealed class RoomEventController
         _database = new MakuTreeCutsceneDatabase();
         _record = _database.Record;
         _ralphRecord = new RalphPortalEventDatabase().Record;
+        _impaDatabase = new ImpaIntroEventDatabase();
+        _impaRecord = _impaDatabase.Record;
+        _impaHelpRecord = _impaDatabase.HelpRecord;
         if (_ralphRecord.GlobalFlag != OracleSaveData.GlobalFlagRalphEnteredPortal)
         {
             throw new InvalidOperationException(
                 $"Ralph portal event uses global flag ${_ralphRecord.GlobalFlag:x2}, expected $40.");
         }
         _entities.RoomEntitiesLoaded += OnRoomEntitiesLoaded;
+        _transitions.ScrollingTransitionFinished += OnScrollingTransitionFinished;
     }
 
     public void Update(double delta)
     {
-        if (!Active || _transitions.IsTransitioning)
+        if (!HasEventState)
             return;
 
         _frameAccumulator += delta * 60.0;
-        while (Active && _frameAccumulator >= 1.0)
+        if (_transitions.IsTransitioning)
+        {
+            // Impa sets Interaction.enabled bit 7 before following Link, so
+            // both her interaction and checkUpdateFollowingLinkObject continue
+            // to run while ordinary room objects are frozen during scrolling.
+            while (ImpaFollowing && _transitions.ScrollActive &&
+                _resetImpaFollowerAfterScroll && _frameAccumulator >= 1.0)
+            {
+                _frameAccumulator -= 1.0;
+                UpdateFollowingImpa(_transitions.ScrollLinkPositionInDestination);
+            }
+            return;
+        }
+
+        while (HasEventState && _frameAccumulator >= 1.0)
         {
             _frameAccumulator -= 1.0;
             if (_stage != Stage.None)
                 UpdateFrame();
-            else
+            else if (_ralphStage != RalphStage.None)
                 UpdateRalphFrame();
+            else if (_impaStage != ImpaStage.None)
+                UpdateImpaFrame();
+            else
+                UpdateImpaHelpFrame(Input.IsActionPressed("move_up"));
         }
     }
 
     private void OnRoomEntitiesLoaded(int group, OracleRoomData room)
     {
-        if (Active)
+        if (ImpaFollowing && _transitions.ScrollActive && _impaFollowRoom is not null)
+        {
+            SuppressPlacedImpaIfCompleted(group, room);
+            TransferFollowingImpa(group, room);
+            return;
+        }
+        if (HasEventState)
             Cancel();
 
         if (group == _record.Group && room.Id == _record.Room)
@@ -133,7 +243,79 @@ public sealed class RoomEventController
             return;
         }
         if (group == _ralphRecord.Group && room.Id == _ralphRecord.Room)
+        {
             StartRalphEvent();
+            return;
+        }
+        if (group == _impaRecord.Group && room.Id == _impaRecord.Room)
+        {
+            StartImpaEvent(room);
+            return;
+        }
+        if (group == _impaHelpRecord.Group && room.Id == _impaHelpRecord.Room)
+            StartImpaHelpEvent();
+    }
+
+    private void StartImpaHelpEvent()
+    {
+        if (_rooms.SaveData.HasRoomFlag(
+            _impaHelpRecord.Group,
+            _impaHelpRecord.Room,
+            (byte)_impaHelpRecord.RoomFlag))
+        {
+            return;
+        }
+        _impaHelpStage = ImpaHelpStage.WaitingAtEdge;
+        _counter = 0;
+        _frameAccumulator = 0.0;
+    }
+
+    private void StartImpaEvent(OracleRoomData room)
+    {
+        _impa = null;
+        foreach (NpcCharacter npc in _entities.Entities<NpcCharacter>())
+        {
+            if (npc.Record.Id == _impaRecord.InteractionId &&
+                npc.Record.SubId == _impaRecord.SubId)
+            {
+                _impa = npc;
+                break;
+            }
+        }
+        if (_impa is null)
+        {
+            throw new InvalidOperationException(
+                "Room 0:6a did not instantiate INTERAC_IMPA_IN_CUTSCENE $31:$00.");
+        }
+
+        if (_rooms.SaveData.HasRoomFlag(
+            _impaRecord.Group, _impaRecord.Room, (byte)_impaRecord.RoomFlag))
+        {
+            _impa.SetActive(false);
+            return;
+        }
+
+        _impa.SetSpritePalette(_impaDatabase.PossessedPalette);
+        _impa.SetDirectionalAnimations(
+            _impaRecord.UpAnimation,
+            _impaRecord.RightAnimation,
+            _impaRecord.DownAnimation,
+            _impaRecord.LeftAnimation);
+        _fakeOctoroks.Clear();
+        foreach (ImpaIntroEventDatabase.FakeOctorokRecord record in _impaDatabase.Octoroks)
+        {
+            NpcCharacter actor = _entities.Spawn<NpcCharacter>(new CutsceneNpcSpawn(
+                record.ToNpcRecord(_impaRecord.Group, _impaRecord.Room),
+                $"FakeOctorok_{record.Index}"));
+            actor.SetScriptAnimation(record.InitialAnimation);
+            _fakeOctoroks.Add(new FakeOctorokState(record, actor));
+        }
+
+        _impaFollowRoom = room;
+        _impaStage = ImpaStage.LinkInitialize;
+        _counter = 0;
+        _frameAccumulator = 0.0;
+        _player.BeginCutsceneControl();
     }
 
     private void StartMakuTreeEvent(OracleRoomData room)
@@ -371,6 +553,361 @@ public sealed class RoomEventController
             FinishRalphEvent();
     }
 
+    private void UpdateImpaFrame()
+    {
+        UpdateFakeOctoroks();
+        switch (_impaStage)
+        {
+            case ImpaStage.LinkInitialize:
+                // linkCutscene1 state 0 occupies its own object update.
+                _player.Face(Vector2I.Up);
+                BeginImpaWait(ImpaStage.LinkInitialWait, _impaRecord.LinkWaitFrames);
+                break;
+            case ImpaStage.LinkInitialWait:
+                if (CountDown())
+                    _impaStage = ImpaStage.LinkHorizontal;
+                break;
+            case ImpaStage.LinkHorizontal:
+                if (Mathf.IsEqualApprox(_player.Position.X, _impaRecord.TargetX))
+                {
+                    BeginImpaWait(ImpaStage.LinkCenterWait, _impaRecord.CenterWaitFrames);
+                    break;
+                }
+                EnsureObjectSpeed(_impaRecord.LinkSpeed, 0x28, "Link's room 0:6a approach");
+                int horizontal = _player.Position.X < _impaRecord.TargetX ? 1 : -1;
+                _player.AdvanceCutsceneMovement(
+                    new Vector2(horizontal, 0),
+                    horizontal > 0 ? Vector2I.Right : Vector2I.Left);
+                break;
+            case ImpaStage.LinkCenterWait:
+                if (CountDown())
+                {
+                    _counter = _impaRecord.ApproachFrames;
+                    _player.Face(Vector2I.Up);
+                    _impaStage = ImpaStage.LinkApproach;
+                }
+                break;
+            case ImpaStage.LinkApproach:
+                EnsureObjectSpeed(_impaRecord.LinkSpeed, 0x28, "Link's room 0:6a approach");
+                _player.AdvanceCutsceneMovement(Vector2.Up, Vector2I.Up);
+                _counter--;
+                if (_counter == 0)
+                    _impaStage = ImpaStage.SignalPending;
+                break;
+            case ImpaStage.SignalPending:
+                // Impa and the fake Octoroks update before linkCutscene1 in
+                // the original object order, so they observe cfd0=$01 on the
+                // update after Link writes it.
+                SignalFakeOctoroks();
+                BeginImpaWait(ImpaStage.ImpaDelay, _impaRecord.ImpaWaitFrames);
+                break;
+            case ImpaStage.ImpaDelay:
+                if (CountDown())
+                {
+                    _impaStage = ImpaStage.Text;
+                    _dialogue.ShowMessage(
+                        _impaRecord.Text, _worldToScreen(_player.Position).Y);
+                }
+                break;
+            case ImpaStage.Text:
+                if (!_dialogue.IsOpen)
+                    BeginImpaWait(ImpaStage.PostText, _impaRecord.PostTextFrames);
+                break;
+            case ImpaStage.PostText:
+                if (CountDown())
+                    _impaStage = ImpaStage.SetSpeed;
+                break;
+            case ImpaStage.SetSpeed:
+                // setspeed and movedown each stop this interaction-script
+                // update; counter2 movement begins on the following update.
+                EnsureObjectSpeed(_impaRecord.ImpaSpeed, 0x14, "Impa's room 0:6a movement");
+                _impaStage = ImpaStage.StartMovement;
+                break;
+            case ImpaStage.StartMovement:
+                _impa!.SetFacingDirection(Vector2I.Down);
+                _impaPrecisePosition = _impa.Position;
+                _counter = _impaRecord.ImpaMoveFrames;
+                _impaStage = ImpaStage.Moving;
+                break;
+            case ImpaStage.Moving:
+                _counter--;
+                if (_counter > 0)
+                {
+                    // SPEED_080 is 0.5px/update, but only the high coordinate
+                    // byte is rendered by the GBC object compositor.
+                    _impaPrecisePosition += Vector2.Down * 0.5f;
+                    _impa!.Position = ObjectPosition(_impaPrecisePosition);
+                }
+                else
+                {
+                    _impaStage = ImpaStage.MovementFinished;
+                }
+                break;
+            case ImpaStage.MovementFinished:
+                FinishImpaEncounter();
+                break;
+            case ImpaStage.Following:
+                UpdateFollowingImpa();
+                break;
+        }
+    }
+
+    private void UpdateImpaHelpFrame(bool upPressed)
+    {
+        switch (_impaHelpStage)
+        {
+            case ImpaHelpStage.WaitingAtEdge:
+                if (!upPressed || _player.Position.Y >= _impaHelpRecord.EdgeY)
+                    return;
+                _player.BeginCutsceneControl();
+                _counter = _impaHelpRecord.PostTextFrames;
+                _impaHelpStage = ImpaHelpStage.Text;
+                _dialogue.ShowMessage(
+                    _impaHelpRecord.Text,
+                    _worldToScreen(_player.Position).Y,
+                    _impaHelpRecord.TextboxPosition);
+                break;
+            case ImpaHelpStage.Text:
+                if (_dialogue.IsOpen)
+                    return;
+                _impaHelpStage = ImpaHelpStage.PostText;
+                AdvanceImpaHelpPostTextCounter();
+                break;
+            case ImpaHelpStage.PostText:
+                AdvanceImpaHelpPostTextCounter();
+                break;
+            case ImpaHelpStage.SimulatedInput:
+                _counter--;
+                _player.AdvanceCutsceneInput(Vector2I.Up);
+                _transitions.CheckRoomExit(_player);
+                // Beginning the scroll synchronously loads room $6a, which
+                // replaces this state with the Impa encounter in the room-
+                // entities callback.
+                if (_impaHelpStage != ImpaHelpStage.SimulatedInput)
+                    return;
+                if (_counter == 0)
+                {
+                    _impaHelpStage = ImpaHelpStage.None;
+                    _player.EndCutsceneControl();
+                }
+                break;
+        }
+    }
+
+    internal void TriggerImpaHelpForValidation() => UpdateImpaHelpFrame(upPressed: true);
+
+    private void AdvanceImpaHelpPostTextCounter()
+    {
+        _counter--;
+        if (_counter != 0)
+            return;
+        _rooms.SaveData.SetRoomFlag(
+            _impaHelpRecord.Group,
+            _impaHelpRecord.Room,
+            (byte)_impaHelpRecord.RoomFlag);
+        _counter = _impaHelpRecord.InputUpFrames;
+        _impaHelpStage = ImpaHelpStage.SimulatedInput;
+    }
+
+    private void UpdateFakeOctoroks()
+    {
+        foreach (FakeOctorokState state in _fakeOctoroks)
+        {
+            switch (state.Stage)
+            {
+                case FakeOctorokStage.SignalWait:
+                    state.Counter--;
+                    if (state.Counter == 0)
+                    {
+                        state.Actor.SetScriptAnimation(state.Record.FleeAnimation);
+                        // impaOctorokCode calls interactionAnimate once, then
+                        // interactionAnimate2Times in substates 2 and 3.
+                        state.Actor.SetAnimationRate(3.0f);
+                        state.Counter = state.Record.FleeCounter;
+                        state.Stage = FakeOctorokStage.FleeDelay;
+                    }
+                    break;
+                case FakeOctorokStage.FleeDelay:
+                    state.Counter--;
+                    if (state.Counter == 0)
+                        state.Stage = FakeOctorokStage.Moving;
+                    break;
+                case FakeOctorokStage.Moving:
+                    if (!WithinOriginalScreenBoundary(state.Actor.Position))
+                    {
+                        state.Actor.SetActive(false);
+                        state.Stage = FakeOctorokStage.Finished;
+                        break;
+                    }
+                    EnsureObjectSpeed(state.Record.Speed, 0x78, "fake Octorok escape");
+                    state.Actor.Position += AngleDirection(state.Record.Angle) * 3.0f;
+                    break;
+            }
+        }
+    }
+
+    private void SignalFakeOctoroks()
+    {
+        foreach (FakeOctorokState state in _fakeOctoroks)
+        {
+            if (state.Stage != FakeOctorokStage.WaitingForSignal)
+                continue;
+            state.Counter = state.Record.SignalWaitFrames;
+            state.Stage = FakeOctorokStage.SignalWait;
+        }
+    }
+
+    private void FinishImpaEncounter()
+    {
+        _rooms.SaveData.SetRoomFlag(
+            _impaRecord.Group, _impaRecord.Room, (byte)_impaRecord.RoomFlag);
+        _player.EndCutsceneControl();
+        _player.Face(Vector2I.Up);
+        _impa!.Position = _player.Position;
+        _impa.SetBlocksLink(false);
+        _impa.SetFacingDirection(Vector2I.Up);
+        _impa.UpdateDrawPriority(_player.Position);
+        LinkPathEntry initial = new(Vector2I.Up, ObjectPosition(_player.Position));
+        for (int index = 0; index < _linkPath.Length; index++)
+            _linkPath[index] = initial;
+        _linkPathIndex = 0;
+        _impaFollowRoom = _rooms.CurrentRoom;
+        _impaStage = ImpaStage.Following;
+    }
+
+    private void UpdateFollowingImpa() => UpdateFollowingImpa(_player.Position);
+
+    private void UpdateFollowingImpa(Vector2 linkPosition)
+    {
+        LinkPathEntry current = new(
+            _player.FacingVector,
+            ObjectPosition(linkPosition));
+        LinkPathEntry indexed = _linkPath[_linkPathIndex];
+        if (indexed == current)
+            return;
+
+        _linkPathIndex = (_linkPathIndex + 1) & 0x0f;
+        LinkPathEntry old = _linkPath[_linkPathIndex];
+        _linkPath[_linkPathIndex] = current;
+        _impa!.Position = old.Position;
+        _impa.SetFacingDirection(old.Direction);
+        _impa.UpdateDrawPriority(_player.Position);
+    }
+
+    private void TransferFollowingImpa(int group, OracleRoomData room)
+    {
+        NpcCharacter outgoing = _impa!;
+        Vector2 offset = _transitions.ScrollDirection == Vector2I.Up
+            ? new Vector2(0, _impaFollowRoom!.Height)
+            : _transitions.ScrollDirection == Vector2I.Right
+                ? new Vector2(-_impaFollowRoom!.Width, 0)
+                : _transitions.ScrollDirection == Vector2I.Down
+                    ? new Vector2(0, -_impaFollowRoom!.Height)
+                    : new Vector2(_impaFollowRoom!.Width, 0);
+
+        NpcDatabase.NpcRecord record = _impa!.Record with
+        {
+            Group = group,
+            Room = room.Id,
+            Y = (int)(_impa.Position.Y + offset.Y),
+            X = (int)(_impa.Position.X + offset.X)
+        };
+        NpcCharacter incoming = _entities.Spawn<NpcCharacter>(new CutsceneNpcSpawn(
+            record, "FollowingImpa"));
+        incoming.SetSpritePalette(_impaDatabase.PossessedPalette);
+        incoming.Position = _impa.Position + offset;
+        incoming.SetFacingDirection(_impa.FacingVector);
+        // objectSetReservedBit1 keeps one interaction slot alive across the
+        // original reload. Our room lists require a destination-owned actor,
+        // so retire the superseded outgoing rendering copy immediately.
+        outgoing.SetActive(false);
+        _impa = incoming;
+        for (int index = 0; index < _linkPath.Length; index++)
+            _linkPath[index] = _linkPath[index] with { Position = _linkPath[index].Position + offset };
+        _resetImpaFollowerAfterScroll = true;
+        _impaFollowerScrollDirection = _transitions.ScrollDirection;
+        _impaFollowRoom = room;
+    }
+
+    private void OnScrollingTransitionFinished(Vector2I direction)
+    {
+        if (!ImpaFollowing || !_resetImpaFollowerAfterScroll)
+            return;
+        if (direction != _impaFollowerScrollDirection)
+        {
+            throw new InvalidOperationException(
+                $"Following Impa expected scroll direction {_impaFollowerScrollDirection}, got {direction}.");
+        }
+
+        // resetFollowingLinkObjectPosition rebuilds w2LinkWalkPath backwards
+        // from entry $0f so the follower begins exactly 16 pixels outside the
+        // destination edge, as if Link had just walked in from that edge.
+        Vector2I movementOffset = direction == Vector2I.Up ? Vector2I.Down
+            : direction == Vector2I.Right ? Vector2I.Left
+            : direction == Vector2I.Down ? Vector2I.Up
+            : Vector2I.Right;
+        Vector2 position = ObjectPosition(_player.Position);
+        for (int index = _linkPath.Length - 1; index >= 0; index--)
+        {
+            position += movementOffset;
+            _linkPath[index] = new LinkPathEntry(direction, position);
+        }
+        _impa!.Position = position;
+        _impa.UpdateDrawPriority(_player.Position);
+        _linkPathIndex = 0x0f;
+        _resetImpaFollowerAfterScroll = false;
+    }
+
+    private void SuppressPlacedImpaIfCompleted(int group, OracleRoomData room)
+    {
+        if (group != _impaRecord.Group || room.Id != _impaRecord.Room ||
+            !_rooms.SaveData.HasRoomFlag(
+                _impaRecord.Group, _impaRecord.Room, (byte)_impaRecord.RoomFlag))
+        {
+            return;
+        }
+        foreach (NpcCharacter npc in _entities.Entities<NpcCharacter>())
+        {
+            if (npc.Record.Id == _impaRecord.InteractionId &&
+                npc.Record.SubId == _impaRecord.SubId)
+            {
+                npc.SetActive(false);
+            }
+        }
+    }
+
+    private void BeginImpaWait(ImpaStage stage, int frames)
+    {
+        _impaStage = stage;
+        _counter = frames;
+    }
+
+    private static Vector2 ObjectPosition(Vector2 position) => new(
+        Mathf.Floor(position.X), Mathf.Floor(position.Y));
+
+    private static bool WithinOriginalScreenBoundary(Vector2 position) =>
+        position.Y >= -7 && position.Y < 136 &&
+        position.X >= -7 && position.X < 168;
+
+    private static Vector2 AngleDirection(int angle) => angle switch
+    {
+        0x00 => Vector2.Up,
+        0x08 => Vector2.Right,
+        0x10 => Vector2.Down,
+        0x18 => Vector2.Left,
+        _ => throw new InvalidOperationException(
+            $"Unsupported cardinal object angle ${angle:x2}.")
+    };
+
+    private static void EnsureObjectSpeed(int actual, int expected, string context)
+    {
+        if (actual != expected)
+        {
+            throw new InvalidOperationException(
+                $"Unsupported {context} speed ${actual:x2}; expected ${expected:x2}.");
+        }
+    }
+
     private Vector2 RalphMovementDelta()
     {
         if (_ralphRecord.Speed != 0x28)
@@ -460,11 +997,19 @@ public sealed class RoomEventController
     {
         _eventRoom?.ClearTemporaryBackgroundPalette(_animationTick());
         _player.EndCutsceneControl();
+        foreach (FakeOctorokState state in _fakeOctoroks)
+            state.Actor.SetActive(false);
+        _fakeOctoroks.Clear();
         _eventRoom = null;
         _makuTree = null;
         _ralph = null;
+        _impa = null;
+        _impaFollowRoom = null;
+        _resetImpaFollowerAfterScroll = false;
         _stage = Stage.None;
         _ralphStage = RalphStage.None;
+        _impaStage = ImpaStage.None;
+        _impaHelpStage = ImpaHelpStage.None;
         _paletteCycling = false;
         _frameAccumulator = 0.0;
     }

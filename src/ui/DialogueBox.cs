@@ -281,6 +281,7 @@ public partial class DialogueBox : Node2D
             '↓' => 0x16,
             '←' => 0x17,
             '→' => 0x18,
+            '▲' => 0x57,
             <= (char)0xff => character,
             _ => 0x3f
         };
