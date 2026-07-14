@@ -21,6 +21,7 @@ public partial class NpcCharacter : Node2D
     {
         new(), new(), new(), new()
     };
+    private readonly int[] _facingAnimationLoopStarts = new int[4];
     private readonly List<AnimationFrame> _scriptAnimation = new();
     private Image _sourceImage = null!;
     private Facing _facing = Facing.Down;
@@ -28,7 +29,10 @@ public partial class NpcCharacter : Node2D
     private double _animationTicks;
     private double _faceCooldownFrames;
     private Vector2 _transitionDrawOffset;
+    private Vector2 _scriptDrawOffset;
     private bool _scriptAnimationActive;
+    private int _scriptAnimationLoopStart;
+    private string _scriptAnimationSource = string.Empty;
     private float _animationRate = 1.0f;
     private Color[]? _paletteOverride;
     private bool _blocksLink = true;
@@ -48,6 +52,7 @@ public partial class NpcCharacter : Node2D
     internal Vector2 CurrentAnimationOffset => CurrentAnimation.Count == 0
         ? Vector2.Zero
         : CurrentAnimation[_animationFrame % CurrentAnimation.Count].Offset;
+    internal Vector2 ScriptDrawOffset => _scriptDrawOffset;
     internal Vector2I CurrentAnimationTextureSize => CurrentAnimation.Count == 0
         ? Vector2I.Zero
         : new Vector2I(
@@ -104,6 +109,9 @@ public partial class NpcCharacter : Node2D
         }
         return false;
     }
+    internal string CurrentScriptAnimationSource => _scriptAnimationSource;
+    internal float AnimationRate => _animationRate;
+    internal int SourceGraphicsWidth => _sourceImage.GetWidth();
     public Vector2 TransitionDrawOffset => _transitionDrawOffset;
     public Vector2I FacingVector => _facing switch
     {
@@ -198,9 +206,20 @@ public partial class NpcCharacter : Node2D
         QueueRedraw();
     }
 
+    internal void SetScriptDrawOffset(Vector2 offset)
+    {
+        if (_scriptDrawOffset.IsEqualApprox(offset))
+            return;
+
+        _scriptDrawOffset = offset;
+        QueueRedraw();
+    }
+
     internal void SetScriptAnimation(string encodedAnimation)
     {
+        _scriptAnimationSource = encodedAnimation;
         _scriptAnimation.Clear();
+        _scriptAnimationLoopStart = ExtractLoopStart(ref encodedAnimation);
         _scriptAnimation.AddRange(BuildPositionedAnimation(
             _sourceImage, encodedAnimation, Record.TileBase, Record.Palette, _paletteOverride));
         _scriptAnimationActive = _scriptAnimation.Count > 0;
@@ -211,6 +230,7 @@ public partial class NpcCharacter : Node2D
 
     internal void SetFacingDirection(Vector2I direction)
     {
+        _scriptAnimationSource = string.Empty;
         _scriptAnimationActive = false;
         SetFacing(direction == Vector2I.Up ? Facing.Up
             : direction == Vector2I.Right ? Facing.Right
@@ -234,7 +254,9 @@ public partial class NpcCharacter : Node2D
         };
         RebuildFacingAnimations();
         _scriptAnimation.Clear();
+        _scriptAnimationSource = string.Empty;
         _scriptAnimationActive = false;
+        _scriptAnimationLoopStart = 0;
         _animationFrame = 0;
         _animationTicks = 0.0;
         QueueRedraw();
@@ -247,6 +269,16 @@ public partial class NpcCharacter : Node2D
         _animationRate = Math.Max(0.0f, rate);
     }
 
+    internal void AdjustInitialAnimationCounter(int adjustment)
+    {
+        List<AnimationFrame> animation = CurrentAnimation;
+        if (animation.Count == 0)
+            return;
+        int duration = animation[_animationFrame].Duration;
+        int remaining = (duration + adjustment) & 0xff;
+        _animationTicks = duration - remaining;
+    }
+
     internal void SetSpritePalette(Color[] palette)
     {
         if (palette.Length != 4)
@@ -254,9 +286,39 @@ public partial class NpcCharacter : Node2D
         _paletteOverride = (Color[])palette.Clone();
         RebuildFacingAnimations();
         _scriptAnimation.Clear();
+        _scriptAnimationSource = string.Empty;
         _scriptAnimationActive = false;
+        _scriptAnimationLoopStart = 0;
         _animationFrame = 0;
         _animationTicks = 0.0;
+        QueueRedraw();
+    }
+
+    internal void SetScriptPaletteOverride(Color[]? palette)
+    {
+        _paletteOverride = palette is null ? null : (Color[])palette.Clone();
+        if (!_scriptAnimationActive || string.IsNullOrEmpty(_scriptAnimationSource))
+        {
+            QueueRedraw();
+            return;
+        }
+
+        int frame = _animationFrame;
+        double ticks = _animationTicks;
+        string encodedAnimation = _scriptAnimationSource;
+        _scriptAnimation.Clear();
+        _scriptAnimationLoopStart = ExtractLoopStart(ref encodedAnimation);
+        _scriptAnimation.AddRange(BuildPositionedAnimation(
+            _sourceImage,
+            encodedAnimation,
+            Record.TileBase,
+            Record.Palette,
+            _paletteOverride));
+        _scriptAnimationActive = _scriptAnimation.Count > 0;
+        _animationFrame = _scriptAnimation.Count == 0
+            ? 0
+            : Math.Min(frame, _scriptAnimation.Count - 1);
+        _animationTicks = ticks;
         QueueRedraw();
     }
 
@@ -267,8 +329,13 @@ public partial class NpcCharacter : Node2D
         extra.LoadPngFromBuffer(bytes);
         _sourceImage.Convert(Image.Format.Rgba8);
         extra.Convert(Image.Format.Rgba8);
+        // Each loaded-object graphics slot occupies $20 8x8 tiles, or 128
+        // pixels in the disassembly PNG representation. Short compressed
+        // sheets leave the remainder of their VRAM slot blank; the next
+        // chained header still begins on the following slot boundary.
+        int extraOffset = Mathf.CeilToInt(_sourceImage.GetWidth() / 128.0f) * 128;
         Image combined = Image.CreateEmpty(
-            _sourceImage.GetWidth() + extra.GetWidth(),
+            extraOffset + extra.GetWidth(),
             Math.Max(_sourceImage.GetHeight(), extra.GetHeight()),
             false,
             Image.Format.Rgba8);
@@ -279,7 +346,7 @@ public partial class NpcCharacter : Node2D
         combined.BlitRect(
             extra,
             new Rect2I(0, 0, extra.GetWidth(), extra.GetHeight()),
-            new Vector2I(_sourceImage.GetWidth(), 0));
+            new Vector2I(extraOffset, 0));
         _sourceImage = combined;
     }
 
@@ -303,7 +370,7 @@ public partial class NpcCharacter : Node2D
         if (animation.Count > 0)
         {
             AnimationFrame frame = animation[_animationFrame % animation.Count];
-            DrawTexture(frame.Texture, frame.Offset + _transitionDrawOffset);
+            DrawTexture(frame.Texture, frame.Offset + _transitionDrawOffset + _scriptDrawOffset);
         }
     }
 
@@ -316,7 +383,9 @@ public partial class NpcCharacter : Node2D
         while (_animationTicks >= animation[_animationFrame].Duration)
         {
             _animationTicks -= animation[_animationFrame].Duration;
-            _animationFrame = (_animationFrame + 1) % animation.Count;
+            _animationFrame++;
+            if (_animationFrame >= animation.Count)
+                _animationFrame = CurrentAnimationLoopStart;
             QueueRedraw();
         }
     }
@@ -324,6 +393,11 @@ public partial class NpcCharacter : Node2D
     private List<AnimationFrame> CurrentAnimation => _scriptAnimationActive
         ? _scriptAnimation
         : _facingAnimations[(int)_facing];
+
+    private int CurrentAnimationLoopStart => _scriptAnimationActive
+        ? Mathf.Clamp(_scriptAnimationLoopStart, 0, Math.Max(0, _scriptAnimation.Count - 1))
+        : Mathf.Clamp(_facingAnimationLoopStarts[(int)_facing], 0,
+            Math.Max(0, _facingAnimations[(int)_facing].Count - 1));
 
     private Facing GetFacingToward(Vector2 target)
     {
@@ -359,14 +433,34 @@ public partial class NpcCharacter : Node2D
     {
         foreach (List<AnimationFrame> animation in _facingAnimations)
             animation.Clear();
+        string up = Record.UpAnimation;
+        string right = Record.RightAnimation;
+        string down = Record.DownAnimation;
+        string left = Record.LeftAnimation;
+        _facingAnimationLoopStarts[(int)Facing.Up] = ExtractLoopStart(ref up);
+        _facingAnimationLoopStarts[(int)Facing.Right] = ExtractLoopStart(ref right);
+        _facingAnimationLoopStarts[(int)Facing.Down] = ExtractLoopStart(ref down);
+        _facingAnimationLoopStarts[(int)Facing.Left] = ExtractLoopStart(ref left);
         _facingAnimations[(int)Facing.Up].AddRange(BuildAnimation(
-            _sourceImage, Record.UpAnimation, Record.TileBase, Record.Palette, _paletteOverride));
+            _sourceImage, up, Record.TileBase, Record.Palette, _paletteOverride));
         _facingAnimations[(int)Facing.Right].AddRange(BuildAnimation(
-            _sourceImage, Record.RightAnimation, Record.TileBase, Record.Palette, _paletteOverride));
+            _sourceImage, right, Record.TileBase, Record.Palette, _paletteOverride));
         _facingAnimations[(int)Facing.Down].AddRange(BuildAnimation(
-            _sourceImage, Record.DownAnimation, Record.TileBase, Record.Palette, _paletteOverride));
+            _sourceImage, down, Record.TileBase, Record.Palette, _paletteOverride));
         _facingAnimations[(int)Facing.Left].AddRange(BuildAnimation(
-            _sourceImage, Record.LeftAnimation, Record.TileBase, Record.Palette, _paletteOverride));
+            _sourceImage, left, Record.TileBase, Record.Palette, _paletteOverride));
+    }
+
+    private static int ExtractLoopStart(ref string encodedAnimation)
+    {
+        int marker = encodedAnimation.LastIndexOf('~');
+        if (marker < 0 || marker == encodedAnimation.Length - 1 ||
+            !int.TryParse(encodedAnimation[(marker + 1)..], out int loopStart))
+        {
+            return 0;
+        }
+        encodedAnimation = encodedAnimation[..marker];
+        return Math.Max(0, loopStart);
     }
 
     private static IEnumerable<AnimationFrame> BuildAnimation(
@@ -414,6 +508,12 @@ public partial class NpcCharacter : Node2D
         int basePalette,
         Color[]? paletteOverride = null)
     {
+        // Imported NPC animations may suffix their final OAM frame with the
+        // nonzero animation-loop target (`~N`). Consumers that render one
+        // frame directly do not need that sequence metadata.
+        int loopMarker = encodedOam.LastIndexOf('~');
+        if (loopMarker >= 0)
+            encodedOam = encodedOam[..loopMarker];
         Image output = Image.CreateEmpty(32, 32, false, Image.Format.Rgba8);
         string[] blocks = encodedOam.Split(';', StringSplitOptions.RemoveEmptyEntries);
         // Lower OAM indices win when sprites overlap. Compose in reverse so
@@ -429,7 +529,10 @@ public partial class NpcCharacter : Node2D
             int oamX = ToSignedByte(int.Parse(fields[1]));
             int tile = int.Parse(fields[2]);
             int flags = int.Parse(fields[3]);
-            int sourceX = (((tileBase + tile) & 0xfe) / 2) * 8;
+            int cell = ((tileBase + tile) & 0xfe) / 2;
+            int cellsPerRow = Math.Max(1, source.GetWidth() / 8);
+            int sourceX = cell % cellsPerRow * 8;
+            int sourceY = cell / cellsPerRow * 16;
             int destinationX = oamX + 8;
             int destinationY = oamY;
             bool flipX = (flags & 0x20) != 0;
@@ -440,7 +543,7 @@ public partial class NpcCharacter : Node2D
             for (int x = 0; x < 8; x++)
             {
                 int readX = sourceX + (flipX ? 7 - x : x);
-                int readY = flipY ? 15 - y : y;
+                int readY = sourceY + (flipY ? 15 - y : y);
                 int writeX = destinationX + x;
                 int writeY = destinationY + y;
                 if (readX < 0 || readX >= source.GetWidth() || readY < 0 || readY >= source.GetHeight() ||
@@ -495,7 +598,10 @@ public partial class NpcCharacter : Node2D
             int oamX = ToSignedByte(int.Parse(fields[1]));
             int tile = int.Parse(fields[2]);
             int flags = int.Parse(fields[3]);
-            int sourceX = (((tileBase + tile) & 0xfe) / 2) * 8;
+            int cell = ((tileBase + tile) & 0xfe) / 2;
+            int cellsPerRow = Math.Max(1, source.GetWidth() / 8);
+            int sourceX = cell % cellsPerRow * 8;
+            int sourceY = cell / cellsPerRow * 16;
             int destinationX = oamX + 8 - minX;
             int destinationY = oamY - minY;
             bool flipX = (flags & 0x20) != 0;
@@ -506,7 +612,7 @@ public partial class NpcCharacter : Node2D
             for (int x = 0; x < 8; x++)
             {
                 int readX = sourceX + (flipX ? 7 - x : x);
-                int readY = flipY ? 15 - y : y;
+                int readY = sourceY + (flipY ? 15 - y : y);
                 if (readX < 0 || readX >= source.GetWidth() || readY < 0 || readY >= source.GetHeight())
                     continue;
                 Color pixel = RecolorSpritePixel(

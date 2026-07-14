@@ -9,7 +9,7 @@ namespace oracleofages;
 /// include the original Maku Tree disappearance, Ralph's room $39 portal
 /// departure, and the possessed-Impa encounter in room $6a.
 /// </summary>
-public sealed class RoomEventController
+public sealed partial class RoomEventController
 {
     private enum Stage
     {
@@ -98,6 +98,8 @@ public sealed class RoomEventController
     private readonly DialogueBox _dialogue;
     private readonly Player _player;
     private readonly RoomView _roomView;
+    private readonly InventoryState _inventory;
+    private readonly TreasureDatabase _treasures;
     private readonly Func<Vector2, Vector2> _worldToScreen;
     private readonly Func<long> _animationTick;
     private readonly MakuTreeCutsceneDatabase _database;
@@ -128,11 +130,12 @@ public sealed class RoomEventController
     private int _paletteHeader;
     private bool _paletteCycling;
 
-    public bool Active => _stage != Stage.None || _ralphStage != RalphStage.None ||
+    public bool Active => _nayruStage is not (NayruStage.None or NayruStage.Crowd) ||
+        _stage != Stage.None || _ralphStage != RalphStage.None ||
         _impaStage is not (ImpaStage.None or ImpaStage.Following) ||
         _impaHelpStage is ImpaHelpStage.Text or ImpaHelpStage.PostText or
             ImpaHelpStage.SimulatedInput;
-    private bool HasEventState => Active || ImpaFollowing ||
+    private bool HasEventState => _nayruStage != NayruStage.None || Active || ImpaFollowing ||
         _impaHelpStage != ImpaHelpStage.None;
     internal int CurrentStage => (int)_stage;
     internal bool RalphWaitingForScroll => _ralphStage == RalphStage.WaitingForScroll;
@@ -167,7 +170,12 @@ public sealed class RoomEventController
         Player player,
         RoomView roomView,
         Func<Vector2, Vector2> worldToScreen,
-        Func<long> animationTick)
+        Func<long> animationTick,
+        CanvasLayer interfaceLayer,
+        ColorRect fade,
+        Hud hud,
+        InventoryState inventory,
+        TreasureDatabase treasures)
     {
         _rooms = rooms;
         _entities = entities;
@@ -175,8 +183,15 @@ public sealed class RoomEventController
         _dialogue = dialogue;
         _player = player;
         _roomView = roomView;
+        _inventory = inventory;
+        _treasures = treasures;
         _worldToScreen = worldToScreen;
         _animationTick = animationTick;
+        _nayruInterfaceLayer = interfaceLayer;
+        _nayruFade = fade;
+        _nayruHud = hud;
+        _nayruDatabase = new NayruIntroEventDatabase();
+        _nayruRecord = _nayruDatabase.Event;
         _database = new MakuTreeCutsceneDatabase();
         _record = _database.Record;
         _ralphRecord = new RalphPortalEventDatabase().Record;
@@ -215,7 +230,13 @@ public sealed class RoomEventController
         while (HasEventState && _frameAccumulator >= 1.0)
         {
             _frameAccumulator -= 1.0;
-            if (_stage != Stage.None)
+            if (_nayruStage != NayruStage.None)
+            {
+                UpdateNayruFrame();
+                if (_nayruStage == NayruStage.Crowd && ImpaFollowing)
+                    UpdateFollowingImpa();
+            }
+            else if (_stage != Stage.None)
                 UpdateFrame();
             else if (_ralphStage != RalphStage.None)
                 UpdateRalphFrame();
@@ -228,6 +249,26 @@ public sealed class RoomEventController
 
     private void OnRoomEntitiesLoaded(int group, OracleRoomData room)
     {
+        RestoreCompletedNayruPortal(group, room);
+        if (_nayruStage != NayruStage.None &&
+            (group != _nayruRecord.Group || room.Id != _nayruRecord.Room))
+        {
+            // $6b:$01 recreates its dynamic object list on every pre-intro
+            // room entry. Retire the outgoing list while its nodes are still
+            // valid, before following Impa's transfer takes the early return.
+            CancelNayruEvent(deactivateActors: false);
+        }
+        if (group == _nayruRecord.Group && room.Id == _nayruRecord.Room &&
+            !_rooms.SaveData.HasGlobalFlag(_nayruRecord.IntroFlag))
+        {
+            if (ImpaFollowing && _transitions.ScrollActive && _impaFollowRoom is not null)
+            {
+                SuppressPlacedImpaIfCompleted(group, room);
+                TransferFollowingImpa(group, room);
+            }
+            StartNayruEvent(room);
+            return;
+        }
         if (ImpaFollowing && _transitions.ScrollActive && _impaFollowRoom is not null)
         {
             SuppressPlacedImpaIfCompleted(group, room);
@@ -995,6 +1036,7 @@ public sealed class RoomEventController
 
     private void Cancel()
     {
+        CancelNayruEvent();
         _eventRoom?.ClearTemporaryBackgroundPalette(_animationTick());
         _player.EndCutsceneControl();
         foreach (FakeOctorokState state in _fakeOctoroks)

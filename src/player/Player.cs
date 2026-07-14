@@ -25,6 +25,7 @@ public partial class Player : Node2D
     private IPlayerWorld _world = null!;
     private InventoryState _inventory = null!;
     private Texture2D _texture = null!;
+    private Texture2D _getItemOneHandTexture = null!;
     private Texture2D _pushTexture = null!;
     private Texture2D _attackTexture = null!;
     private Texture2D _swordTexture = null!;
@@ -60,6 +61,7 @@ public partial class Player : Node2D
     private bool _fallingInHole;
     private bool _fallInHoleRespawning;
     private bool _cutsceneControlled;
+    private bool _getItemOneHandPose;
     private CutsceneSpriteRenderer? _newGameFallRenderer;
     private NewGameIntroDatabase.IntroSpriteFrame[]? _newGameFallFrames;
     private int _newGameFallFrame;
@@ -90,12 +92,14 @@ public partial class Player : Node2D
     internal bool IsNewGameSlowFalling => _newGameSlowFalling;
     internal int NewGameSlowFallFrame => _newGameFallFrame;
     internal int NewGameSlowFallZ => _newGameFallZFixed >> 8;
+    internal bool IsHoldingItemOneHand => _getItemOneHandPose;
 
     public void Initialize(IPlayerWorld world, InventoryState inventory, Vector2 spawn)
     {
         _world = world;
         _inventory = inventory;
         _texture = BuildLinkTexture();
+        _getItemOneHandTexture = BuildGetItemOneHandTexture();
         _pushTexture = BuildPushLinkTexture();
         _attackTexture = BuildAttackLinkTexture();
         _swordTexture = BuildSwordTexture();
@@ -126,6 +130,7 @@ public partial class Player : Node2D
         _drownRespawning = false;
         _fallingInHole = false;
         _fallInHoleRespawning = false;
+        _getItemOneHandPose = false;
         _precisePosition = position;
         if (recordSafe)
             _lastSafePosition = position;
@@ -465,6 +470,24 @@ public partial class Player : Node2D
     }
 
     internal bool CutsceneControlled => _cutsceneControlled;
+    internal bool Walking => _walking;
+
+    internal void BeginGetItemOneHandPose()
+    {
+        _getItemOneHandPose = true;
+        _walking = false;
+        _pushing = false;
+        _attackTime = 0.0f;
+        QueueRedraw();
+    }
+
+    internal void EndGetItemOneHandPose()
+    {
+        if (!_getItemOneHandPose)
+            return;
+        _getItemOneHandPose = false;
+        QueueRedraw();
+    }
 
     internal void AdvanceCutsceneInput(Vector2I direction)
     {
@@ -562,6 +585,10 @@ public partial class Player : Node2D
                 _fallInHoleTexture,
                 new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(frame * 16, 0, 16, 16));
+        }
+        else if (_getItemOneHandPose)
+        {
+            DrawTexture(_getItemOneHandTexture, NormalSpriteOrigin);
         }
         else if (IsAttacking)
         {
@@ -965,6 +992,19 @@ public partial class Player : Node2D
         WriteWalkFrame(output, source, Facing.Left, 0, 0x0080, false); // gfx $57
         WriteWalkFrame(output, source, Facing.Left, 1, 0x00c0, false); // gfx $83
 
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private static Texture2D BuildGetItemOneHandTexture()
+    {
+        Texture2D sourceTexture = GD.Load<Texture2D>("res://assets/oracle/gfx/spr_link.png");
+        Image source = sourceTexture.GetImage();
+        Image output = Image.CreateEmpty(16, 16, false, Image.Format.Rgba8);
+
+        // LINK_ANIM_MODE_GETITEM1HAND ($0e) is the static graphics frame $05:
+        // OAM $00, spr_link+$0da0, four tiles. The frame is below $54, so
+        // loadLinkAndCompanionAnimationFrame_body does not add Link's direction.
+        WriteLinkFrame(output, source, 0, 0, 0x0da0, false);
         return ImageTexture.CreateFromImage(output);
     }
 

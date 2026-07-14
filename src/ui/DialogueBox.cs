@@ -277,6 +277,7 @@ public partial class DialogueBox : Node2D
     {
         return character switch
         {
+            '♪' => 0x1c,
             '↑' => 0x15,
             '↓' => 0x16,
             '←' => 0x17,

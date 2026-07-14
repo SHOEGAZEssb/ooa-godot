@@ -73,6 +73,8 @@ public sealed class OracleRoomData
     private readonly Color[,] _palette;
     private Color[,,]? _temporaryBackgroundPalettes;
     private int _temporaryBackgroundPaletteHeader;
+    private Color[,]? _temporaryFullBackgroundPalette;
+    private float _temporaryFullBackgroundPaletteBlend;
     private readonly Color[] _commonBgPalette0;
     private readonly OracleAnimationData _animations;
     private readonly int _layoutStride;
@@ -80,6 +82,7 @@ public sealed class OracleRoomData
     private int[] _activeAnimationHeaders;
 
     internal int CurrentAnimationSignature => _animationSignature;
+    internal float TemporaryBackgroundPaletteBlend => _temporaryFullBackgroundPaletteBlend;
 
     internal OracleRoomData(
         int group,
@@ -153,11 +156,28 @@ public sealed class OracleRoomData
         ((ImageTexture)Texture).Update(RenderRoom(_activeAnimationHeaders));
     }
 
+    internal void SetTemporaryBackgroundPalette(Color[,] palette, float blend)
+    {
+        if (palette.GetLength(0) != 6 || palette.GetLength(1) != 4)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(palette), "A full room override requires six 4-color BG palettes (2-7).");
+        }
+        _temporaryFullBackgroundPalette = palette;
+        _temporaryFullBackgroundPaletteBlend = Mathf.Clamp(blend, 0.0f, 1.0f);
+        ((ImageTexture)Texture).Update(RenderRoom(_activeAnimationHeaders));
+    }
+
     internal void ClearTemporaryBackgroundPalette(long tick)
     {
         if (_temporaryBackgroundPalettes is null)
-            return;
+        {
+            if (_temporaryFullBackgroundPalette is null)
+                return;
+        }
         _temporaryBackgroundPalettes = null;
+        _temporaryFullBackgroundPalette = null;
+        _temporaryFullBackgroundPaletteBlend = 0.0f;
         _activeAnimationHeaders = _animations.GetActiveHeaders(AnimationGroup, tick);
         _animationSignature = GetAnimationSignature(_activeAnimationHeaders);
         ((ImageTexture)Texture).Update(RenderRoom(_activeAnimationHeaders));
@@ -398,12 +418,26 @@ public sealed class OracleRoomData
                     // Palette 1 is transient (for example, textbox colors), so
                     // preserve the existing tileset fallback until that state is
                     // modeled independently.
-                    Color color = rawPalette == 0
-                        ? _commonBgPalette0[shade]
-                        : _temporaryBackgroundPalettes is not null && rawPalette is >= 2 and <= 5
-                            ? _temporaryBackgroundPalettes[
-                                _temporaryBackgroundPaletteHeader, rawPalette - 2, shade]
-                            : _palette[tilesetPaletteIndex, shade];
+                    Color color;
+                    if (rawPalette == 0)
+                    {
+                        color = _commonBgPalette0[shade];
+                    }
+                    else if (_temporaryFullBackgroundPalette is not null && rawPalette is >= 2 and <= 7)
+                    {
+                        color = _palette[tilesetPaletteIndex, shade].Lerp(
+                            _temporaryFullBackgroundPalette[tilesetPaletteIndex, shade],
+                            _temporaryFullBackgroundPaletteBlend);
+                    }
+                    else if (_temporaryBackgroundPalettes is not null && rawPalette is >= 2 and <= 5)
+                    {
+                        color = _temporaryBackgroundPalettes[
+                            _temporaryBackgroundPaletteHeader, rawPalette - 2, shade];
+                    }
+                    else
+                    {
+                        color = _palette[tilesetPaletteIndex, shade];
+                    }
                     output.SetPixel(writeX, writeY, color);
                 }
             }

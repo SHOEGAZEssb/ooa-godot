@@ -78,6 +78,21 @@ public sealed class RoomEntityManager
         AddRoomEntities(group, room);
     }
 
+    /// <summary>
+    /// Mirrors disableLcdAndLoadRoom followed by parseGivenObjectData: change
+    /// the room backing the entity set without parsing its ordinary object list.
+    /// The caller may retain time portals explicitly present in the cutscene set.
+    /// </summary>
+    public void LoadCutsceneRoom(int group, OracleRoomData room, bool includeTimePortals)
+    {
+        Clear();
+        _roomForActiveEntities = room;
+        if (!includeTimePortals)
+            return;
+        foreach (IRoomEntity portal in _factory.CreateTimePortals(group, room))
+            AddEntity(portal);
+    }
+
     public void BeginScreenTransition(int group, OracleRoomData room, Vector2 incomingOffset)
     {
         ClearEntities(_outgoingEntities);

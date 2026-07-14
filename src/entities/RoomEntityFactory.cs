@@ -25,14 +25,8 @@ internal sealed class RoomEntityFactory(
             yield return new NpcRoomEntity(npc);
         }
 
-        foreach (TimePortalDatabase.PortalRecord record in timePortals.GetRoomPortals(group, room.Id))
-        {
-            if (!StartsActive(record.SubId))
-                continue;
-            var portal = new TimePortal { Name = $"TimePortal_{record.SubId:x2}", ZIndex = 8 };
-            portal.Initialize(record, room);
-            yield return new TimePortalRoomEntity(portal, portalEntered);
-        }
+        foreach (IRoomEntity portal in CreateTimePortals(group, room))
+            yield return portal;
 
         var occupied = new HashSet<int>();
         foreach (EnemyDatabase.EnemyRecord record in enemies.GetRoomKeese(group, room.Id))
@@ -152,7 +146,19 @@ internal sealed class RoomEntityFactory(
             ZIndex = NpcCharacter.BehindLinkZIndex
         };
         npc.Initialize(spawn.Record);
-        return new CutsceneNpcRoomEntity(npc);
+        return new CutsceneNpcRoomEntity(npc, spawn.Talkable, spawn.Solid);
+    }
+
+    internal IEnumerable<IRoomEntity> CreateTimePortals(int group, OracleRoomData room)
+    {
+        foreach (TimePortalDatabase.PortalRecord record in timePortals.GetRoomPortals(group, room.Id))
+        {
+            if (!StartsActive(record.SubId))
+                continue;
+            var portal = new TimePortal { Name = $"TimePortal_{record.SubId:x2}", ZIndex = 8 };
+            portal.Initialize(record, room);
+            yield return new TimePortalRoomEntity(portal, portalEntered);
+        }
     }
 
     private bool TryChoosePosition(

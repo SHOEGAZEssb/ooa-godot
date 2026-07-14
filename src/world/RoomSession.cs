@@ -47,6 +47,20 @@ public sealed class RoomSession
         return CurrentRoom;
     }
 
+    /// <summary>
+    /// Implements the cutscene engine's disableLcdAndLoadRoom path. It swaps
+    /// the room backing data without treating the viewed location as a room
+    /// Link entered, so no visit/minimap state or ordinary room scripts change.
+    /// </summary>
+    public OracleRoomData LoadCutsceneRoom(int group, int room)
+    {
+        int previousAnimationGroup = CurrentRoom.AnimationGroup;
+        ActiveGroup = group;
+        CurrentRoom = GetRoom(group, room);
+        SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
+        return CurrentRoom;
+    }
+
     public void SetLoadedRoom(int group, OracleRoomData room)
     {
         int previousAnimationGroup = CurrentRoom.AnimationGroup;

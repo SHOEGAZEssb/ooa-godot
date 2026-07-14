@@ -21,6 +21,8 @@ public sealed class InteractionController
     private ChestTreasureEffect? _chestTreasure;
     private ChestDatabase.ChestRecord _pendingChest;
 
+    public Func<NpcCharacter, bool>? NpcInteractionOverride { get; set; }
+
     public bool DialogueOpen => _dialogue.BlocksPlayerInput || _chestTreasure is not null;
     internal bool ChestRewardActive => _chestTreasure is not null;
 
@@ -95,6 +97,8 @@ public sealed class InteractionController
         NpcCharacter? npc = _entities.FindTalkTarget(player);
         if (npc != null)
         {
+            if (NpcInteractionOverride?.Invoke(npc) == true)
+                return true;
             npc.FaceToward(player.Position);
             _dialogue.ShowMessage(npc.Message, _worldToScreen(player.Position).Y);
             return true;

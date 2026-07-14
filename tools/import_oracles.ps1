@@ -1614,17 +1614,73 @@ function Read-NpcDwTables([string]$source, [string]$tableLabelPattern, [string]$
 $npcAnimationTables = Read-NpcDwTables $interactionAnimationSource 'interaction[0-9a-f]{2}Animations' 'interactionAnimation[0-9a-f]+'
 $npcOamPointerTables = Read-NpcDwTables $interactionAnimationSource 'interaction[0-9a-f]{2}OamDataPointers' 'interactionOamData[0-9a-f]+'
 $npcAnimationFrames = @{}
-foreach ($animation in [regex]::Matches($interactionAnimationSource, '(?ms)^(?<label>interactionAnimation[0-9a-f]+):\r?\n(?<body>.*?)(?=^interactionAnimation[0-9a-f]+:|\z)')) {
+$npcAnimationLoopStarts = @{}
+$npcAnimationLabels = @{}
+$npcAnimationLabelMatches = @([regex]::Matches(
+    $interactionAnimationSource,
+    '(?m)^(?<label>interactionAnimation[0-9a-f]+(?:Loop)?):'))
+foreach ($labelMatch in $npcAnimationLabelMatches) {
+    $npcAnimationLabels[$labelMatch.Groups['label'].Value] =
+        $labelMatch.Index + $labelMatch.Length
+}
+$npcFramePattern = '\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<frame>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})'
+function Read-NpcAnimationFrameRange([int]$start, [int]$length) {
     $frames = [Collections.Generic.List[object]]::new()
-    foreach ($frame in [regex]::Matches($animation.Groups['body'].Value, '\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<frame>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})')) {
+    foreach ($frame in [regex]::Matches(
+        $interactionAnimationSource.Substring($start, $length),
+        $npcFramePattern)) {
         $frames.Add(@{
             Duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
             PointerOffset = [Convert]::ToInt32($frame.Groups['frame'].Value, 16)
         })
     }
-    if ($frames.Count -gt 0) {
-        $npcAnimationFrames[$animation.Groups['label'].Value] = @($frames)
+    return @($frames)
+}
+for ($labelIndex = 0; $labelIndex -lt $npcAnimationLabelMatches.Count; $labelIndex++) {
+    $labelMatch = $npcAnimationLabelMatches[$labelIndex]
+    $label = $labelMatch.Groups['label'].Value
+    $start = $labelMatch.Index + $labelMatch.Length
+    $tail = $interactionAnimationSource.Substring($start)
+    $loopMatch = [regex]::Match(
+        $tail,
+        'm_AnimationLoop\s+(?<target>interactionAnimation[0-9a-f]+(?:Loop)?)')
+    $terminalMatch = [regex]::Match(
+        $tail,
+        '\.db\s+\$[0-9a-f]{2}\s+\$[0-9a-f]{2}\s+\$ff')
+    $usesLoop = $loopMatch.Success -and
+        (-not $terminalMatch.Success -or $loopMatch.Index -lt $terminalMatch.Index)
+    $endOffset = if ($usesLoop) {
+        $loopMatch.Index
+    } elseif ($terminalMatch.Success) {
+        $terminalMatch.Index + $terminalMatch.Length
+    } elseif ($labelIndex + 1 -lt $npcAnimationLabelMatches.Count) {
+        $npcAnimationLabelMatches[$labelIndex + 1].Index - $start
+    } else {
+        $tail.Length
     }
+    $frames = [Collections.Generic.List[object]]::new()
+    $frames.AddRange([object[]](Read-NpcAnimationFrameRange $start $endOffset))
+    if ($frames.Count -eq 0) { continue }
+
+    $loopStart = 0
+    if ($usesLoop) {
+        $target = $loopMatch.Groups['target'].Value
+        if (-not $npcAnimationLabels.ContainsKey($target)) {
+            throw "$label loops to missing animation label $target."
+        }
+        $targetStart = [int]$npcAnimationLabels[$target]
+        if ($targetStart -ge $start -and $targetStart -le $start + $endOffset) {
+            $loopStart = (Read-NpcAnimationFrameRange $start ($targetStart - $start)).Count
+        } elseif ($targetStart -lt $start) {
+            # A table pointer can enter halfway through a shared animation
+            # ($5a849 falls back to $5a846). Keep its initial suffix, then
+            # append the full cycle and loop over that appended copy.
+            $loopStart = $frames.Count
+            $frames.AddRange([object[]](Read-NpcAnimationFrameRange $targetStart (($start + $endOffset) - $targetStart)))
+        }
+    }
+    $npcAnimationFrames[$label] = @($frames)
+    $npcAnimationLoopStarts[$label] = $loopStart
 }
 
 $npcOamBlocks = @{}
@@ -1664,7 +1720,12 @@ function Resolve-NpcAnimation([int]$interactionId, [int]$animationIndex) {
         $oam = if ($npcOamBlocks.ContainsKey($oamLabel)) { $npcOamBlocks[$oamLabel] } else { '' }
         $resolvedFrames.Add("$($frame.Duration)@$oam")
     }
-    return $resolvedFrames -join '|'
+    $encoded = $resolvedFrames -join '|'
+    $loopStart = $npcAnimationLoopStarts[$animationLabel]
+    if ($loopStart -gt 0) {
+        $encoded += "~$loopStart"
+    }
+    return $encoded
 }
 
 # The graphics record supplies the animation used before interaction state 0
@@ -1928,6 +1989,438 @@ if ($npcVisibilityRows.Count -ne 75) {
     (Join-Path $destination 'objects\npc_visibility.tsv'),
     $npcVisibilityRows,
     [Text.UTF8Encoding]::new($false))
+
+# Initial Nayru cutscene in present room $39. The room contains the unpositioned
+# INTERAC_MISCELLANEOUS_1 $6b:$01 controller; it creates the seven actors in
+# objectData.nayruAndAnimalsInIntro while GLOBALFLAG_INTRO_DONE is clear. Export
+# those dynamic actors (plus the ghost/human Veran and aftermath actors) with
+# every animation index used by their original state machines.
+$nayruIntroActors = @(
+    @(0x36, 0x00, 0x18, 0x78, 0x00, 'Nayru'),
+    @(0x37, 0x00, 0x30, 0x88, 0x00, 'Ralph'),
+    @(0x5d, 0x00, 0x28, 0x58, 0x00, 'Bear'),
+    @(0x39, 0x00, 0x50, 0x78, 0x00, 'Monkey'),
+    @(0x4b, 0x00, 0x50, 0x88, 0x00, 'Rabbit'),
+    @(0x3c, 0x00, 0x48, 0x68, 0x00, 'Boy'),
+    @(0x4c, 0x00, 0x2c, 0x48, 0x00, 'Bird'),
+    @(0x3e, 0x00, 0x58, 0x58, 0x00, 'GhostVeran'),
+    @(0xbb, 0x00, 0x58, 0x58, 0x00, 'HumanVeran'),
+    @(0x5e, 0x00, 0x00, 0x00, 0x00, 'RalphSword'),
+    @(0x37, 0x02, 0x28, 0x48, 0x00, 'AftermathRalph'),
+    @(0x31, 0x01, 0x68, 0x38, 0x00, 'AftermathImpa'),
+    @(0x3a, 0x00, 0x42, 0x78, 0x00, 'VignetteGuy'),
+    @(0x44, 0x01, 0x42, 0x78, 0x00, 'VignetteOldMan'),
+    @(0x3b, 0x00, 0x42, 0x68, 0x00, 'VignetteGirl'),
+    @(0x3c, 0x01, 0x48, 0x78, 0x00, 'VignetteBoy'),
+    @(0x3d, 0x01, 0x28, 0x68, 0x00, 'VignetteLady'),
+    @(0x9f, 0x00, 0x00, 0x00, 0x00, 'Exclamation')
+)
+$nayruActorRows = [Collections.Generic.List[string]]::new()
+$nayruActorRows.Add('# index`tid`tsubid`ty`tx`tvar03`tname`tsprite`ttile-base`tpalette`tdefault-animation`tanimation-0`tanimation-1`tanimation-2`tanimation-3`tanimation-4`tanimation-5`tanimation-6`tanimation-7`tanimation-8`tanimation-9`tanimation-10`tinitial-animation`textra-sprite')
+$nayruInitialAnimations = @{
+    'Nayru' = 4
+    'Ralph' = 0
+    'Bear' = 0
+    'Monkey' = 2
+    'Rabbit' = 0
+    'Boy' = 0
+    'Bird' = 1
+    'VignetteGuy' = 3
+    'VignetteOldMan' = 4
+    'VignetteGirl' = 1
+    'VignetteBoy' = 1
+}
+$nayruExtraGraphics = @{
+    0x36 = 'spr_nayru_2'
+    0x37 = 'spr_ralph_2'
+}
+foreach ($extraActor in @(
+    @{ Id = 0x36; File = 'nayru.s'; Header = 0x26; ExtraHeader = 0x27 },
+    @{ Id = 0x37; File = 'ralph.s'; Header = 0x24; ExtraHeader = 0x25 }
+)) {
+    $actorSource = Get-Content -Raw (
+        Join-Path $Disassembly "object_code\ages\interactions\$($extraActor.File)")
+    $header = $extraActor.Header.ToString('x2')
+    $extraHeader = $extraActor.ExtraHeader.ToString('x2')
+    $extraSprite = $nayruExtraGraphics[$extraActor.Id]
+    $headerNeedle = '/* $' + $header + ' */ m_ObjectGfxHeader ' +
+        $gfxNames[$extraActor.Header]
+    $extraHeaderNeedle = '/* $' + $extraHeader + ' */ m_ObjectGfxHeader ' +
+        $extraSprite + ', 1'
+    if ($actorSource -notmatch 'interactionLoadExtraGraphics' -or
+        -not $objectGfxHeaderSource.Contains($headerNeedle) -or
+        -not $objectGfxHeaderSource.Contains($extraHeaderNeedle)) {
+        throw "Could not resolve $extraSprite through the initial Nayru cutscene actor graphics chain."
+    }
+}
+$nayruInitialSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\nayru.s')
+$ralphInitialSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\ralph.s')
+$boyInitialSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\boy.s')
+$monkeyInitialSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\monkeyMain.s')
+if ($nayruInitialSource -notmatch '(?ms)@init00:.*?@setSingingAnimation:\s*ld a,\$04\s*call interactionSetAnimation' -or
+    $ralphInitialSource -notmatch '(?ms)@initSubid00:\s*@initSubid05:\s*xor a\s*@setAnimation:\s*call interactionSetAnimation' -or
+    $boyInitialSource -notmatch '(?ms)@initSubid00:\s*xor a\s*call interactionSetAnimation' -or
+    $monkeyInitialSource -notmatch '(?ms)@subid0Init:\s*ld a,\$02\s*call interactionSetAnimation' -or
+    $interactionGraphics['93:0'].DefaultAnimation -ne 0 -or
+    $interactionGraphics['75:0'].DefaultAnimation -ne 0 -or
+    $interactionGraphics['76:0'].DefaultAnimation -ne 1) {
+    throw 'An initial Nayru gathering actor animation changed in its interaction initializer.'
+}
+for ($actorIndex = 0; $actorIndex -lt $nayruIntroActors.Count; $actorIndex++) {
+    $actor = $nayruIntroActors[$actorIndex]
+    $id = [int]$actor[0]
+    $subid = [int]$actor[1]
+    $graphic = $interactionGraphics["$id`:$subid"]
+    if ($null -eq $graphic) { $graphic = $interactionGraphics["$id`:0"] }
+    if ($null -eq $graphic -or -not $gfxNames.ContainsKey($graphic.Gfx)) {
+        throw "Could not resolve initial Nayru cutscene actor $($actor[5]) `$$($id.ToString('x2')):`$$($subid.ToString('x2'))."
+    }
+    $spriteName = $gfxNames[$graphic.Gfx]
+    [void]$npcSpriteNames.Add($spriteName)
+    $animations = @(0..10 | ForEach-Object { Resolve-NpcAnimation $id $_ })
+    if (-not $animations[$graphic.DefaultAnimation]) {
+        throw "Initial Nayru cutscene actor $($actor[5]) has no default animation `$$($graphic.DefaultAnimation.ToString('x2'))."
+    }
+    $extraSprite = if ($nayruExtraGraphics.ContainsKey($id)) {
+        $nayruExtraGraphics[$id]
+    } else { '' }
+    if ($extraSprite) { [void]$npcSpriteNames.Add($extraSprite) }
+    $initialAnimation = if ($nayruInitialAnimations.ContainsKey([string]$actor[5])) {
+        $nayruInitialAnimations[[string]$actor[5]]
+    } else { $graphic.DefaultAnimation }
+    if (-not $animations[$initialAnimation]) {
+        throw "Initial Nayru cutscene actor $($actor[5]) has no initial animation `$$($initialAnimation.ToString('x2'))."
+    }
+    $columns = @(
+        $actorIndex.ToString(), $id.ToString('x2'), $subid.ToString('x2'),
+        ([int]$actor[2]).ToString('x2'), ([int]$actor[3]).ToString('x2'),
+        ([int]$actor[4]).ToString('x2'), [string]$actor[5], $spriteName,
+        $graphic.TileBase.ToString(), $graphic.Palette.ToString(),
+        $graphic.DefaultAnimation.ToString()
+    ) + $animations + @($initialAnimation.ToString(), $extraSprite)
+    $nayruActorRows.Add($columns -join "`t")
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\nayru_intro_actors.tsv'),
+    $nayruActorRows,
+    [Text.UTF8Encoding]::new($false))
+
+# The three visions after TX_5607 are not ordinary loads of these rooms. The
+# singing handler indexes objectTable2, runs those interactions until one writes
+# $ff to cfdf, and only then advances to the next room. Export the room order,
+# exact interaction lifetime, and the ten-entry monkey initializer table used by
+# objectData7717 instead of duplicating them in the runtime.
+$nayruObjectData2Source = Get-Content -Raw (
+    Join-Path $Disassembly 'objects\ages\extraData3.s')
+$nayruMiscInteractionSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous1.s')
+$nayruFemaleVillagerSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\femaleVillager.s')
+$nayruOldLadySource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\oldLady.s')
+$nayruVignetteCutsceneSource = Get-Content -Raw (
+    Join-Path $Disassembly 'code\ages\cutscenes\miscCutscenes.s')
+$nayruVignetteMonkeySource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\monkeyMain.s')
+if ($nayruObjectData2Source -notmatch '(?ms)^objectTable2:.*?objectData7705.*?objectData7717.*?objectData771b' -or
+    $nayruObjectData2Source -notmatch '(?ms)^objectData7705:.*?obj_Interaction \$3a \$00 \$42 \$78.*?obj_Interaction \$44 \$01 \$42 \$78.*?obj_Interaction \$3b \$00 \$42 \$68.*?obj_Interaction \$6b \$05 \$48 \$88' -or
+    $nayruObjectData2Source -notmatch '(?ms)^objectData7717:.*?obj_Interaction \$39 \$01' -or
+    $nayruObjectData2Source -notmatch '(?ms)^objectData771b:.*?obj_Interaction \$3c \$01 \$48 \$78.*?obj_Interaction \$3d \$01 \$28 \$68' -or
+    $nayruVignetteCutsceneSource -notmatch '(?ms)^cutscene_disableLcdLoadRoomResetCamera:.*?ROOM_AGES_098.*?ROOM_AGES_05a.*?ROOM_AGES_20e.*?ROOM_AGES_039' -or
+    $nayruMiscInteractionSource -notmatch '(?ms)interaction6b_subid05:.*?ld \(hl\),20.*?cp \$04.*?cfd1\),a.*?@lightningPositions:\s*\.db \$28 \$28\s*\.db \$58 \$38\s*\.db \$38 \$68\s*\.db \$48 \$98' -or
+    $nayruFemaleVillagerSource -notmatch '(?ms)@runSubid00:.*?cp \$02.*?interactionOscillateXRandomly.*?cp \$04.*?ld \(hl\),\$1e.*?ld bc,-\$1c0.*?objectUpdateSpeedZ_paramC' -or
+    $boyInitialSource -notmatch '(?ms)^boyRunSubid01:.*?cp \$01.*?interactionAnimate2Times.*?cp \$02.*?xor \$04.*?interactionAnimate' -or
+    $nayruOldLadySource -notmatch '(?ms)@runSubid1:.*?ld \(hl\),60.*?ld \(hl\),20.*?interactionAnimate3Times.*?ld \(\$cfdf\),a') {
+    throw 'An initial Nayru time-stop vignette object set or state machine changed.'
+}
+$nayruVignetteRows = @(
+    '# index`tgroup`troom`tduration',
+    "0`t0`t98`t937",
+    "1`t0`t5a`t600",
+    "2`t2`t0e`t645"
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\nayru_intro_vignettes.tsv'),
+    $nayruVignetteRows,
+    [Text.UTF8Encoding]::new($false))
+
+$nayruMonkeyRows = @(
+    '# index`ty`tx`tstone-counter`tanimation',
+    "0`t58`t88`t240`t0",
+    "1`t58`t78`t210`t1",
+    "2`t28`t28`t220`t1",
+    "3`t38`t38`t190`t2",
+    "4`t18`t68`t100`t1",
+    "5`t1c`t80`t120`t0",
+    "6`t30`t68`t80`t5",
+    "7`t34`t88`t140`t2",
+    "8`t50`t46`t180`t2",
+    "9`t64`t28`t184`t8"
+)
+$nayruMonkeyTable = [regex]::Match(
+    $nayruVignetteMonkeySource,
+    '(?ms)^@monkeyPositions:.*?\.db \$58 \$88 \$f0 \$00.*?\.db \$58 \$78 \$d2 \$01.*?\.db \$28 \$28 \$dc \$01.*?\.db \$38 \$38 \$be \$02.*?\.db \$18 \$68 \$64 \$01.*?\.db \$1c \$80 \$78 \$00.*?\.db \$30 \$68 \$50 \$05.*?\.db \$34 \$88 \$8c \$02.*?\.db \$50 \$46 \$b4 \$02.*?\.db \$64 \$28 \$b8 \$08')
+if (-not $nayruMonkeyTable.Success -or
+    $nayruVignetteMonkeySource -notmatch '(?ms)^monkeySubid1State1:.*?monkey0Disappearance.*?monkey9Disappearance' -or
+    $nayruVignetteMonkeySource -notmatch '(?ms)^monkey8Disappearance:.*?ld \(hl\),\$5a.*?ld \(hl\),\$b4.*?ld \(hl\),\$1e.*?ld \(\$cfdf\),a') {
+    throw 'The ten-monkey disappearance positions, counters, or terminal timing changed.'
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\nayru_intro_vignette_monkeys.tsv'),
+    $nayruMonkeyRows,
+    [Text.UTF8Encoding]::new($false))
+
+# INTERAC_FLOATING_IMAGE $a0:$01 supplies Nayru's 70-update singing notes.
+# PART_LIGHTNING $27 supplies both the portal strike and the first vignette's
+# thunderbolts. Export their original OAM instead of approximating either with
+# a Godot primitive.
+$nayruMusicNoteAnimation = Resolve-NpcAnimation 0xa0 0
+if (-not $nayruMusicNoteAnimation -or
+    $interactionGraphics['160:1'].TileBase -ne 0x44 -or
+    $interactionGraphics['160:1'].Palette -ne 1) {
+    throw 'INTERAC_FLOATING_IMAGE $a0:$01 music-note graphics changed.'
+}
+$floatingImageSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\floatingImage.s')
+if ($floatingImageSource -notmatch '(?s)ld b,\$03.*?ld b,\$1d' -or
+    $floatingImageSource -notmatch 'ld \(hl\),SPEED_60' -or
+    $floatingImageSource -notmatch 'ld \(hl\),70' -or
+    $floatingImageSource -notmatch '(?s)@xOffsets:\s*\.db \$ff \$fe \$ff \$00\s*\.db \$01 \$02 \$01 \$00') {
+    throw 'INTERAC_FLOATING_IMAGE $a0 movement or global-frame sway changed.'
+}
+$noteVelocityXFixed = [int][Math]::Truncate(
+    [Math]::Sin(3 * [Math]::PI / 16) * 0x60)
+$noteVelocityYFixed = [int][Math]::Truncate(
+    -[Math]::Cos(3 * [Math]::PI / 16) * 0x60)
+if ($noteVelocityXFixed -ne 53 -or $noteVelocityYFixed -ne -79) {
+    throw 'SPEED_60 angle $03 no longer resolves to signed 8.8 velocity 53,-79.'
+}
+$nayruPartAnimationSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\partAnimations.s')
+$nayruPartOamSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\partOamData.s')
+$part27PointersMatch = [regex]::Match(
+    $nayruPartAnimationSource,
+    '(?ms)^part27OamDataPointers:[^\r\n]*\r?\n(?<body>(?:\s*\.dw\s+partOamData[0-9a-f]+\s*\r?\n)+)')
+$part27AnimationMatch = [regex]::Match(
+    $nayruPartAnimationSource,
+    '(?ms)^partAnimation5b9a7:\r?\n(?<body>.*?)(?=^partAnimation[0-9a-f]+:)')
+if (-not $part27PointersMatch.Success -or -not $part27AnimationMatch.Success) {
+    throw 'Could not resolve PART_LIGHTNING $27 animation tables.'
+}
+$part27Pointers = @(
+    [regex]::Matches($part27PointersMatch.Groups['body'].Value, 'partOamData[0-9a-f]+') |
+        ForEach-Object { $_.Value })
+function Resolve-NayruPartOam([string]$label) {
+    $match = [regex]::Match(
+        $script:nayruPartOamSource,
+        "(?ms)^${label}:\r?\n(?<body>.*?)(?=^partOamData[0-9a-f]+:|\z)")
+    if (-not $match.Success) { throw "Could not resolve $label for PART_LIGHTNING." }
+    $rows = [regex]::Matches($match.Groups['body'].Value, '(?m)^\s*\.db\s+(?<bytes>[^;\r\n]+)')
+    $count = [Convert]::ToInt32(
+        [regex]::Match($rows[0].Groups['bytes'].Value, '\$(?<value>[0-9a-f]{2})').Groups['value'].Value,
+        16)
+    $blocks = [Collections.Generic.List[string]]::new()
+    for ($row = 1; $row -le $count; $row++) {
+        $values = [regex]::Matches($rows[$row].Groups['bytes'].Value, '\$(?<value>[0-9a-f]{2})')
+        $blocks.Add(($values | Select-Object -First 4 | ForEach-Object {
+            [Convert]::ToInt32($_.Groups['value'].Value, 16)
+        }) -join ',')
+    }
+    return $blocks -join ';'
+}
+$part27Frames = [Collections.Generic.List[string]]::new()
+$part27Duration = 0
+foreach ($frame in [regex]::Matches(
+    $part27AnimationMatch.Groups['body'].Value,
+    '\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<offset>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})')) {
+    $parameter = [Convert]::ToInt32($frame.Groups['parameter'].Value, 16)
+    if ($parameter -eq 0xff) { break }
+    $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
+    $pointer = [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2
+    $part27Frames.Add("$duration@$(Resolve-NayruPartOam $part27Pointers[$pointer])")
+    $part27Duration += $duration
+}
+if ($part27Frames.Count -ne 9 -or $part27Duration -ne 20 -or
+    $gfxNames[0xa6] -ne 'spr_projectiles_2') {
+    throw 'PART_LIGHTNING $27 no longer has its original 9-frame / 20-update visual.'
+}
+[void]$npcSpriteNames.Add('spr_common_sprites')
+[void]$npcSpriteNames.Add('spr_projectiles_2')
+$nayruEffectRows = @(
+    "# name`tsprite`ttile-base`tpalette`tduration`tspeed`tangle`tsway`tvelocity-x-fixed`tvelocity-y-fixed`tanimation",
+    # Subid $01 loads no object graphics header: it reads fixed bank-1 OBJ
+    # tile $44 from spr_common_sprites. Object header $45's similarly named
+    # Z/bubble/exclamation sheet belongs to the boy and is not this VRAM bank.
+    "MusicNote`tspr_common_sprites`t68`t1`t70`t0.375`t3`t1`t$noteVelocityXFixed`t$noteVelocityYFixed`t$nayruMusicNoteAnimation",
+    "Lightning`tspr_projectiles_2`t14`t4`t20`t0`t0`t0`t0`t0`t$($part27Frames -join '|')"
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\nayru_intro_effects.tsv'),
+    $nayruEffectRows,
+    [Text.UTF8Encoding]::new($false))
+
+$nayruTextIds = @(
+    0x3214, 0x5705, 0x2510, 0x5704, 0x5702, 0x5703, 0x5706,
+    0x2a00, 0x1d00, 0x2a22, 0x1d22, 0x5600, 0x5606, 0x5601,
+    0x5602, 0x2a01, 0x5603, 0x5604, 0x5605, 0x5607, 0x2a02,
+    0x2a03, 0x2a04, 0x2a05, 0x2a06, 0x0110, 0x0112, 0x0115, 0x0117,
+    0x001c
+)
+$nayruTextRows = [Collections.Generic.List[string]]::new()
+$nayruTextRows.Add('# text-id`ttextbox-position`tutf8-base64')
+foreach ($textId in $nayruTextIds) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve initial Nayru cutscene text TX_$($textId.ToString('x4'))."
+    }
+    $textboxPosition = if ($allTextPositions.ContainsKey($textId)) {
+        $allTextPositions[$textId]
+    } else { -1 }
+    $message = $allTexts[$textId]
+    for ($expansion = 0; $expansion -lt 4; $expansion++) {
+        $reference = [regex]::Match($message, '\\(?:call|jump)\(TX_(?<id>[0-9a-f]{4})\)')
+        if (-not $reference.Success) { break }
+        $referencedId = [Convert]::ToInt32($reference.Groups['id'].Value, 16)
+        if (-not $allTexts.ContainsKey($referencedId)) {
+            throw "Could not expand initial Nayru cutscene TX_$($textId.ToString('x4')) reference TX_$($referencedId.ToString('x4'))."
+        }
+        $message = $message.Remove($reference.Index, $reference.Length).Insert(
+            $reference.Index, $allTexts[$referencedId])
+    }
+    $message = $message.Replace('\sym(0x1c)', [string][char]0x266a)
+    $message = $message.Replace('\sym(0x57)', [string][char]0x25b2)
+    $message = [regex]::Replace($message, '\\x(?<hex>[0-9a-f]{2})', {
+        param($match)
+        [string][char][Convert]::ToInt32($match.Groups['hex'].Value, 16)
+    })
+    $encoded = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($message))
+    $nayruTextRows.Add("$($textId.ToString('x4'))`t$textboxPosition`t$encoded")
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\nayru_intro_text.tsv'),
+    $nayruTextRows,
+    [Text.UTF8Encoding]::new($false))
+
+$nayruMiscSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous1.s')
+$nayruObjectsSource = Get-Content -Raw (
+    Join-Path $Disassembly 'objects\ages\extraData3.s')
+$nayruBearSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\bear.s')
+$nayruCutsceneSource = Get-Content -Raw (
+    Join-Path $Disassembly 'code\ages\cutscenes\miscCutscenes.s')
+$nayruScriptSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\scripts.s')
+$nayruScriptHelperSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+$nayruBirdSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\bird.s')
+$nayruRabbitSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\rabbitMain.s')
+$nayruMonkeySource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\monkeyMain.s')
+$nayruGhostSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\ghostVeran.s')
+if ($nayruMiscSource -notmatch '(?ms)^interaction6b_subid01:.*?GLOBALFLAG_INTRO_DONE.*?objectData\.nayruAndAnimalsInIntro' -or
+    $nayruObjectsSource -notmatch '(?ms)^nayruAndAnimalsInIntro:.*?obj_Interaction \$36 \$00 \$18 \$78.*?obj_Interaction \$4c \$00 \$2c \$48.*?obj_End' -or
+    $nayruBearSource -notmatch '(?ms)cp \$60.*?cp \$3e.*?mainScripts\.bearSubid00Script_part2' -or
+    $nayruCutsceneSource -notmatch '(?ms)^nayruSingingCutsceneHandler:.*?ld \(hl\),\$58\s+inc hl\s+ld \(hl\),\$02.*?paletteData44a8.*?ld \(hl\),\$3c\s+jp fadeoutToWhite.*?ld a,\$15.*?ld a,\$03\s+jp fadeinFromWhiteWithDelay' -or
+    $nayruScriptSource -notmatch '(?ms)^ralphSubid00Script:.*?callscript jumpAndWaitUntilLanded.*?showtext TX_2a00.*?callscript jumpAndWaitUntilLanded.*?showtext TX_2a22.*?ralph_createLinkedSwordAnimation.*?setanimation \$04' -or
+    $nayruScriptSource -notmatch '(?ms)^nayruScript00_part1:.*?wait 120.*?cfd0, \$16.*?wait 30.*?applyspeed \$81.*?wait 210.*?setanimation \$05.*?wait 60.*?cfd0, \$17' -or
+    $nayruScriptSource -notmatch '(?ms)^ralphSubid00Script:.*?@faceUp:.*?wait 220.*?applyspeed \$81.*?cfd0, \$17.*?wait 120' -or
+    $nayruScriptHelperSource -notmatch '(?ms)^beginJump:.*?ld \(hl\),\$00.*?ld \(hl\),\$fe.*?^updateGravity:.*?ld c,\$30' -or
+    $nayruInitialSource -notmatch '(?ms)ld bc,-\$400.*?ld bc,\$3828.*?ld \(hl\),\$80.*?ld \(hl\),\$1e.*?ld bc,\$0040.*?ld c,\$20' -or
+    $nayruInitialSource -notmatch '(?ms)@swayHorizontally:.*?and \$07.*?@@xOffsets:\s*\.db \$ff \$ff \$ff \$00 \$01 \$01 \$01 \$00' -or
+    $nayruGhostSource -notmatch '(?ms)@substate7:.*?cp \$17.*?ghostVeranSubid1Script_part2.*?objectSetVisible80' -or
+    $paletteHeaderSource -notmatch '(?ms)PALH_97.*?m_PaletteHeaderSpr\s+6,\s*2,\s*paletteData44d8') {
+    throw 'Initial Nayru cutscene controller, actor list, trigger boundary, or cutscene counters changed.'
+}
+$nayruEventRows = @(
+    '# group`troom`tintro-flag`tcompletion-room-flag`tbear-room-flag`ttrigger-x`ttrigger-y`tbear-delay`tpost-bear-text`tsinging-frames`tskip-window`tsprite-scroll-period`tsprite-scroll-steps`tpossession-fade-hold`tportal-position`tportal-tile`tvignette-count`tnpc-jump-speed-z`tnpc-jump-gravity`tdark-fade-frames`twhite-fade-out-frames`twhite-fade-in-frames`tnayru-ascent-speed-z`tnayru-transfer-z`tnayru-landing-delay`tnayru-fall-speed-z`tnayru-fall-gravity',
+    "0`t39`t0a`t40`t80`t96`t62`t120`t30`t600`t240`t8`t40`t60`t22`td7`t3`t-512`t48`t32`t32`t97`t-1024`t-32768`t30`t64`t32"
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\nayru_intro_event.tsv'),
+    $nayruEventRows,
+    [Text.UTF8Encoding]::new($false))
+
+# The five audience interactions respond independently to controller signal
+# $10. Preserve their counters, cardinal speeds, jump Z speeds/gravity, repeat
+# rules, and animation selections instead of treating the escape as one tween.
+if ($nayruBearSource -notmatch '(?ms)cp \$10.*?ld \(hl\),40.*?ld \(hl\),\$02.*?SPEED_100.*?ld a,\$01' -or
+    $nayruMonkeySource -notmatch '(?ms)cp \$10.*?ld \(hl\),\$32.*?ld a,\$03.*?monkeyJumpSpeed120.*?ld \(hl\),\$02.*?SPEED_180.*?monkeyJumpSpeed100' -or
+    $nayruRabbitSource -notmatch '(?ms)cp \$10.*?ld \(hl\),40.*?ld \(hl\),\$06.*?SPEED_180.*?ld bc,-\$200.*?ld a,\$04' -or
+    $boyInitialSource -notmatch '(?ms)cp \$10.*?ld bc,-\$180.*?ld \(hl\),\$02.*?SPEED_180' -or
+    $nayruBirdSource -notmatch '(?ms)cp \$10.*?ld \(hl\),\$1e.*?bird_hop.*?ld a,\$02.*?ld \(hl\),\$01.*?SPEED_100.*?ld bc,-\$100.*?ld a,\$03' -or
+    $nayruBirdSource -notmatch '(?ms)^bird_updateGravityAndHopWhenHitGround:.*?ld c,\$20.*?^bird_hop:.*?ld bc,-\$c0') {
+    throw 'An initial Nayru audience escape counter, speed, jump, or animation changed.'
+}
+$nayruFleeRows = @(
+    '# actor`tdelay`tangle`tspeed`twait-jump-speed-z`twait-gravity`trepeat-wait-jump`tescape-jump-speed-z`tescape-gravity`trepeat-escape-jump`twait-for-landing`twait-animation`tescape-animation',
+    "Bear`t40`t2`t1.0`t0`t0`t0`t0`t0`t0`t0`t2`t1",
+    "Monkey`t50`t2`t1.5`t-288`t32`t1`t-256`t32`t1`t0`t3`t4",
+    "Rabbit`t40`t6`t1.5`t0`t0`t0`t-512`t32`t1`t0`t2`t4",
+    "Boy`t0`t2`t1.5`t-384`t32`t0`t0`t0`t0`t1`t2`t0",
+    "Bird`t30`t1`t1.0`t-192`t32`t1`t-256`t0`t0`t0`t2`t3"
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\nayru_intro_flee.tsv'),
+    $nayruFleeRows,
+    [Text.UTF8Encoding]::new($false))
+
+# State 4 blends BG palettes 2-7 into paletteData44a8 before PALH_99 is
+# installed. Export its six exact palettes for the 32-update runtime blend.
+Export-PaletteBlock 'paletteData44a8' 24 'cutscenes\nayru_intro_dark_bg_palette.bin'
+# Following possessed Impa leaves PALH_97's two palettes in OBJ slots 6-7.
+# Nayru alternates her ordinary slot 1 with slot 6 while possession takes hold.
+Export-PaletteBlock 'paletteData44d8' 4 'cutscenes\nayru_possessed_sprite_palette.bin'
+# PALH_a2 / PALH_ad install paletteData44e8 in OBJ slot 6 when the
+# vignette actors are petrified.
+Export-PaletteBlock 'paletteData44e8' 4 'cutscenes\nayru_stone_sprite_palette.bin'
+
+# GFXH_NAYRU_SINGING_CUTSCENE and PALH_95 provide the full-screen prologue
+# still. The sprite layer is the exact 39-entry bank3f.oamData_7249 list.
+foreach ($asset in @(
+    @{ Source = 'gfx_compressible\ages\spr_nayru_singing_cutscene.png'; Destination = 'cutscenes\spr_nayru_singing_cutscene.png' },
+    @{ Source = 'gfx_compressible\ages\gfx_nayru_singing_cutscene_1.png'; Destination = 'cutscenes\gfx_nayru_singing_cutscene_1.png' },
+    @{ Source = 'gfx_compressible\ages\gfx_nayru_singing_cutscene_2.png'; Destination = 'cutscenes\gfx_nayru_singing_cutscene_2.png' },
+    @{ Source = 'gfx_compressible\ages\gfx_nayru_singing_cutscene_3.png'; Destination = 'cutscenes\gfx_nayru_singing_cutscene_3.png' },
+    @{ Source = 'gfx_compressible\ages\map_nayru_singing_cutscene.bin'; Destination = 'cutscenes\map_nayru_singing_cutscene.bin' },
+    @{ Source = 'gfx_compressible\ages\flg_nayru_singing_cutscene.bin'; Destination = 'cutscenes\flags_nayru_singing_cutscene.bin' }
+)) { Copy-GeneratedFile $asset.Source $asset.Destination }
+Export-PaletteBlock 'paletteData4430' 32 'cutscenes\nayru_singing_bg_palette.bin'
+Export-PaletteBlock 'paletteData4470' 28 'cutscenes\nayru_singing_sprite_palette.bin'
+$agesBank3f = Get-Content -Raw (Join-Path $Disassembly 'ages.s')
+$nayruOamBlock = [regex]::Match(
+    $agesBank3f,
+    '(?ms)^oamData_7249:\s*\.db \$(?<count>[0-9a-f]{2})(?<body>.*?)(?=^\s*$)')
+if (-not $nayruOamBlock.Success -or
+    [Convert]::ToInt32($nayruOamBlock.Groups['count'].Value, 16) -ne 39) {
+    throw 'Could not resolve the 39-entry Nayru singing OAM list.'
+}
+$nayruOamRows = [Collections.Generic.List[string]]::new()
+$nayruOamRows.Add('# y`tx`ttile`tflags')
+foreach ($entry in [regex]::Matches(
+    $nayruOamBlock.Groups['body'].Value,
+    '\.db \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})')) {
+    $nayruOamRows.Add(
+        "$($entry.Groups['y'].Value)`t$($entry.Groups['x'].Value)`t$($entry.Groups['tile'].Value)`t$($entry.Groups['flags'].Value)")
+}
+if ($nayruOamRows.Count -ne 40) {
+    throw "Expected 39 Nayru singing OAM entries, got $($nayruOamRows.Count - 1)."
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\nayru_singing_oam.tsv'),
+    $nayruOamRows,
+    [Text.UTF8Encoding]::new($false))
+
+# Impa switches to the separate collapsed sheet when Veran leaves her body.
+Copy-GeneratedFile 'gfx_compressible\ages\spr_impafainted.png' 'gfx\spr_impafainted.png'
 
 # Copy every sprite sheet referenced by the extracted NPC records. The source
 # keeps common and Ages graphics in separate directories, so search both.

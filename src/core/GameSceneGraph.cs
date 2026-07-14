@@ -4,6 +4,7 @@ namespace oracleofages;
 
 public sealed class GameSceneGraph
 {
+    public CanvasLayer InterfaceLayer { get; }
     public RoomView RoomView { get; }
     public Player Player { get; }
     public Camera2D RoomCamera { get; }
@@ -33,11 +34,11 @@ public sealed class GameSceneGraph
         };
         root.AddChild(RoomCamera);
 
-        var interfaceLayer = new CanvasLayer { Name = "Interface", Layer = 10 };
-        root.AddChild(interfaceLayer);
+        InterfaceLayer = new CanvasLayer { Name = "Interface", Layer = 10 };
+        root.AddChild(InterfaceLayer);
 
         Hud = new Hud { Name = "Hud", Position = new Vector2(0, 128), ZIndex = 20 };
-        interfaceLayer.AddChild(Hud);
+        InterfaceLayer.AddChild(Hud);
 
         WarpFade = new ColorRect
         {
@@ -47,19 +48,19 @@ public sealed class GameSceneGraph
             ZIndex = 15,
             MouseFilter = Control.MouseFilterEnum.Ignore
         };
-        interfaceLayer.AddChild(WarpFade);
+        InterfaceLayer.AddChild(WarpFade);
 
         Dialogue = new DialogueBox { Name = "Dialogue", ZIndex = 49, Visible = false };
-        interfaceLayer.AddChild(Dialogue);
+        InterfaceLayer.AddChild(Dialogue);
 
         MapScreen = new MapScreen { Name = "MapScreen", ZIndex = 40, Visible = false };
-        interfaceLayer.AddChild(MapScreen);
+        InterfaceLayer.AddChild(MapScreen);
 
         InventoryScreen = new InventoryScreen { Name = "InventoryScreen", ZIndex = 45, Visible = false };
-        interfaceLayer.AddChild(InventoryScreen);
+        InterfaceLayer.AddChild(InventoryScreen);
 
         SaveQuitScreen = new SaveQuitScreen { Name = "SaveQuitScreen", ZIndex = 46, Visible = false };
-        interfaceLayer.AddChild(SaveQuitScreen);
+        InterfaceLayer.AddChild(SaveQuitScreen);
 
         MenuFade = new ColorRect
         {
@@ -69,7 +70,7 @@ public sealed class GameSceneGraph
             ZIndex = 50,
             MouseFilter = Control.MouseFilterEnum.Ignore
         };
-        interfaceLayer.AddChild(MenuFade);
+        InterfaceLayer.AddChild(MenuFade);
 
         DebugFlagScreen = new DebugFlagScreen
         {
@@ -77,7 +78,7 @@ public sealed class GameSceneGraph
             ZIndex = 110,
             Visible = false
         };
-        interfaceLayer.AddChild(DebugFlagScreen);
+        InterfaceLayer.AddChild(DebugFlagScreen);
 
         RoomDebug = new Label
         {
@@ -90,6 +91,6 @@ public sealed class GameSceneGraph
         RoomDebug.AddThemeColorOverride("font_color", Color.Color8(255, 248, 207));
         RoomDebug.AddThemeColorOverride("font_outline_color", Color.Color8(20, 24, 20));
         RoomDebug.AddThemeConstantOverride("outline_size", 1);
-        interfaceLayer.AddChild(RoomDebug);
+        InterfaceLayer.AddChild(RoomDebug);
     }
 }
