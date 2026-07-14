@@ -66,6 +66,7 @@ function Copy-GeneratedFile([string]$relativeSource, [string]$relativeDestinatio
 # editable debug flag menu. Within WLA-DX enums, "db" advances the value while
 # ".db" is used here for range aliases, so only the former emits a flag row.
 $globalFlagRows = [Collections.Generic.List[string]]::new()
+$globalFlagValues = @{}
 $globalFlagValue = 0
 $inGlobalFlagEnum = $false
 $includeGlobalFlagBranch = $true
@@ -94,6 +95,7 @@ foreach ($line in Get-Content (Join-Path $Disassembly 'constants\common\globalFl
     if ($includeGlobalFlagBranch -and
         $line -match '^\s*(GLOBALFLAG_[A-Za-z0-9_]+)\s+db(?:\s|;)') {
         $globalFlagRows.Add("$($globalFlagValue.ToString('x2'))`t$($Matches[1])")
+        $globalFlagValues[$Matches[1]] = $globalFlagValue
         $globalFlagValue++
     }
 }
@@ -1433,7 +1435,13 @@ $npcInteractionSourcePaths += Get-ChildItem (Join-Path $Disassembly "object_code
 $npcInteractionSourcePaths += Get-ChildItem (Join-Path $Disassembly "object_code\common\interactions") -File -Filter '*.s'
 foreach ($interactionSourcePath in $npcInteractionSourcePaths) {
     $interactionSource = Get-Content -Raw $interactionSourcePath.FullName
-    $codeMatch = [regex]::Match($interactionSource, '(?m)^interactionCode(?<id>[0-9a-f]{2}):')
+    # A few large interactions keep only a jpab trampoline in their primary
+    # file and put the implementation in interactionCodeXX_body (for example,
+    # monkeyMain.s). Treat that body as the same interaction so its exact
+    # subid script references can resolve dialogue too.
+    $codeMatch = [regex]::Match(
+        $interactionSource,
+        '(?m)^interactionCode(?<id>[0-9a-f]{2})(?:_body)?:')
     if (-not $codeMatch.Success) { continue }
     $interactionId = [Convert]::ToInt32($codeMatch.Groups['id'].Value, 16)
     if (-not $npcInteractionIds.Contains($interactionId)) { continue }
@@ -1476,7 +1484,7 @@ foreach ($interactionSourcePath in $npcInteractionSourcePaths) {
         $subids = @()
         if ($label -match '(?i)Subid(?<a>[0-9a-f])And(?<b>[0-9a-f])') {
             $subids = @([Convert]::ToInt32($Matches['a'], 16), [Convert]::ToInt32($Matches['b'], 16))
-        } elseif ($label -match '(?i)Subid(?<subid>[0-9a-f]{2})') {
+        } elseif ($label -match '(?i)Subid(?<subid>[0-9a-f]{1,2})Script') {
             $subids = @([Convert]::ToInt32($Matches['subid'], 16))
         } elseif ($label -match '(?i)Script(?<subid>[0-9a-f]{2})(?:_|$)') {
             $subids = @([Convert]::ToInt32($Matches['subid'], 16))
@@ -1659,6 +1667,24 @@ function Resolve-NpcAnimation([int]$interactionId, [int]$animationIndex) {
     return $resolvedFrames -join '|'
 }
 
+# The graphics record supplies the animation used before interaction state 0
+# runs. Interactions which immediately call interactionSetAnimation need that
+# exact initialized index in the runtime record. Parse these overrides from
+# their implementation instead of treating the graphics default as final.
+$npcInitialAnimationBySubid = @{}
+$monkeyMainSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\monkeyMain.s')
+$introMonkeyAnimationMatch = [regex]::Match(
+    $monkeyMainSource,
+    '(?ms)^@subid2Init:.*?ld e,Interaction\.oamFlags.*?ld a,\$(?<subid2>[0-9a-f]{2})\s+call interactionSetAnimation\s+jr \+\+\s+^@subid3Init:\s+ld a,\$(?<subid3>[0-9a-f]{2})\s+call interactionSetAnimation')
+if (-not $introMonkeyAnimationMatch.Success) {
+    throw 'Could not resolve the intro monkeys'' state-0 animation indices.'
+}
+$npcInitialAnimationBySubid['57:2'] =
+    [Convert]::ToInt32($introMonkeyAnimationMatch.Groups['subid2'].Value, 16)
+$npcInitialAnimationBySubid['57:3'] =
+    [Convert]::ToInt32($introMonkeyAnimationMatch.Groups['subid3'].Value, 16)
+
 # Room object data is grouped by room label. Only positioned interaction
 # objects are emitted; state-only two-byte interaction records cannot spawn a
 # visible room NPC without a position and are intentionally left to the later
@@ -1693,16 +1719,21 @@ foreach ($line in $mainObjectLines) {
     $textId = if ($npcTextBySubid.ContainsKey("$id`:$subid")) { $npcTextBySubid["$id`:$subid"] } else { 0 }
     $message = if ($allTexts.ContainsKey($textId)) { $allTexts[$textId] } else { '' }
     $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message))
+    $initialAnimation = if ($npcInitialAnimationBySubid.ContainsKey("$id`:$subid")) {
+        $npcInitialAnimationBySubid["$id`:$subid"]
+    } else {
+        $graphic.DefaultAnimation
+    }
     # Only enable autonomous facing for interactions whose talk script is
     # currently resolved. Many IDs reuse the same code for both ordinary NPC
     # and cutscene subids; applying the helper to the whole ID makes actors in
     # scripted scenes turn toward Link when the original subid would not.
-    $canFace = $textId -ne 0 -and $npcFacingIds.Contains($id) -and $graphic.DefaultAnimation -ge 2
-    $downOam = Resolve-NpcAnimation $id $graphic.DefaultAnimation
+    $canFace = $textId -ne 0 -and $npcFacingIds.Contains($id) -and $initialAnimation -ge 2
+    $downOam = Resolve-NpcAnimation $id $initialAnimation
     if ($canFace) {
-        $upOam = Resolve-NpcAnimation $id ($graphic.DefaultAnimation - 2)
-        $rightOam = Resolve-NpcAnimation $id ($graphic.DefaultAnimation - 1)
-        $leftOam = Resolve-NpcAnimation $id ($graphic.DefaultAnimation + 1)
+        $upOam = Resolve-NpcAnimation $id ($initialAnimation - 2)
+        $rightOam = Resolve-NpcAnimation $id ($initialAnimation - 1)
+        $leftOam = Resolve-NpcAnimation $id ($initialAnimation + 1)
     } else {
         $upOam = $downOam
         $rightOam = $downOam
@@ -1711,7 +1742,7 @@ foreach ($line in $mainObjectLines) {
     if (-not $upOam) { $upOam = $downOam }
     if (-not $rightOam) { $rightOam = $downOam }
     if (-not $leftOam) { $leftOam = $downOam }
-    $npcRows.Add("$currentGroup`t$($currentRoom.ToString('x2'))`t$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$y`t$x`t$var03`t$($textId.ToString('x4'))`t$spriteName`t$($graphic.TileBase)`t$($graphic.Palette)`t$($graphic.DefaultAnimation)`t$([int]$canFace)`t$upOam`t$rightOam`t$downOam`t$leftOam`t$encoded")
+    $npcRows.Add("$currentGroup`t$($currentRoom.ToString('x2'))`t$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$y`t$x`t$var03`t$($textId.ToString('x4'))`t$spriteName`t$($graphic.TileBase)`t$($graphic.Palette)`t$initialAnimation`t$([int]$canFace)`t$upOam`t$rightOam`t$downOam`t$leftOam`t$encoded")
 }
 if ($npcRows.Count -ne 378) {
     throw "Expected 377 positioned NPC/character records from Ages mainData.s, parsed $($npcRows.Count - 1)."
@@ -1727,6 +1758,176 @@ if ($villagerColumns[7] -ne '1420' -or $villagerColumns[9] -ne '16' -or
     $villagerColumns[16] -ne '16@8,0,8,0;8,8,10,0|16@8,0,12,0;8,8,14,0') {
     throw "The room 0:48 villager no longer matches interaction3a animation/OAM data."
 }
+$introMonkeyRows = @($npcRows | Where-Object { $_ -match '^0\t5a\t39\t0[23]\t' })
+if ($introMonkeyRows.Count -ne 2 -or
+    ($introMonkeyRows[0] -split "`t")[7] -ne '5700' -or
+    ($introMonkeyRows[1] -split "`t")[7] -ne '5701' -or
+    ($introMonkeyRows[0] -split "`t")[11] -ne '6' -or
+    ($introMonkeyRows[1] -split "`t")[11] -ne '7') {
+    throw "Room 0:5a's intro monkeys no longer resolve TX_5700/TX_5701 and animations `$06/`$07."
+}
+
+# Room interactions frequently delete their placed NPC during state 0 based
+# on global flags or room flags. Export those predicates separately from the
+# visual NPC record. Rules in one alternative are ANDed; alternatives are
+# ORed, which preserves branches such as Mamamu's dog remaining indoors when
+# any one of three original conditions is true.
+$npcVisibilityRows = [Collections.Generic.List[string]]::new()
+$npcVisibilityRows.Add(
+    "# id`tsubid`tvar03`talternative`tkind`tgroup`troom`tvalue`texpected-set`tsource")
+$npcVisibilitySources = @{}
+function Confirm-NpcVisibilitySource([string]$source, [string]$token) {
+    $file = $source.Split(':')[0]
+    if (-not $npcVisibilitySources.ContainsKey($file)) {
+        $path = Join-Path $Disassembly "object_code\ages\interactions\$file"
+        if (-not (Test-Path -LiteralPath $path)) {
+            throw "NPC visibility source not found: $file"
+        }
+        $npcVisibilitySources[$file] = Get-Content -Raw $path
+    }
+    if ($npcVisibilitySources[$file] -notmatch [regex]::Escape($token)) {
+        throw "NPC visibility source $source no longer references $token."
+    }
+}
+function Add-NpcGlobalVisibility(
+    [int]$id, [int]$subid, [int]$var03, [int]$alternative,
+    [string]$flag, [bool]$expectedSet, [string]$source
+) {
+    if (-not $globalFlagValues.ContainsKey($flag)) {
+        throw "NPC visibility rule references unknown $flag."
+    }
+    Confirm-NpcVisibilitySource $source $flag
+    $variant = if ($var03 -lt 0) { '*' } else { $var03.ToString('x2') }
+    $npcVisibilityRows.Add(
+        "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$variant`t$alternative`tglobal`t-`t-`t$($globalFlagValues[$flag].ToString('x2'))`t$([int]$expectedSet)`t$source")
+}
+function Add-NpcCurrentRoomVisibility(
+    [int]$id, [int]$subid, [int]$var03, [int]$alternative,
+    [int]$mask, [bool]$expectedSet, [string]$source
+) {
+    Confirm-NpcVisibilitySource $source 'getThisRoomFlags'
+    $variant = if ($var03 -lt 0) { '*' } else { $var03.ToString('x2') }
+    $npcVisibilityRows.Add(
+        "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$variant`t$alternative`tcurrent-room`t-`t-`t$($mask.ToString('x2'))`t$([int]$expectedSet)`t$source")
+}
+function Add-NpcSpecificRoomVisibility(
+    [int]$id, [int]$subid, [int]$var03, [int]$alternative,
+    [int]$group, [int]$room, [int]$mask, [bool]$expectedSet,
+    [string]$source, [string]$addressToken
+) {
+    Confirm-NpcVisibilitySource $source $addressToken
+    $variant = if ($var03 -lt 0) { '*' } else { $var03.ToString('x2') }
+    $npcVisibilityRows.Add(
+        "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$variant`t$alternative`tspecific-room`t$group`t$($room.ToString('x2'))`t$($mask.ToString('x2'))`t$([int]$expectedSet)`t$source")
+}
+
+# Ambi cutscene actors: current-room completion bits.
+Add-NpcCurrentRoomVisibility 0x4d 0x03 -1 0 0x40 $false 'ambi.s:@initSubid03'
+Add-NpcCurrentRoomVisibility 0x4d 0x06 -1 0 0x80 $false 'ambi.s:@initSubid06'
+
+# Bear subid $02 selects mutually exclusive pre/post-game actors through var03.
+Add-NpcGlobalVisibility 0x5d 0x02 0 0 'GLOBALFLAG_INTRO_DONE' $true 'bear.s:@initSubid02'
+Add-NpcGlobalVisibility 0x5d 0x02 0 0 'GLOBALFLAG_FINISHEDGAME' $false 'bear.s:@initSubid02'
+Add-NpcGlobalVisibility 0x5d 0x02 0 0 'GLOBALFLAG_MAKU_TREE_SAVED' $true 'bear.s:@initSubid02'
+Add-NpcGlobalVisibility 0x5d 0x02 1 0 'GLOBALFLAG_FINISHEDGAME' $true 'bear.s:@var03IsNonzero'
+
+# The two room 0:5a monkeys are available while Impa follows Link, then their
+# state-0 initializer deletes them once the wider intro is complete.
+Add-NpcGlobalVisibility 0x39 0x02 -1 0 'GLOBALFLAG_INTRO_DONE' $false 'monkeyMain.s:@subid2Init'
+Add-NpcGlobalVisibility 0x39 0x03 -1 0 'GLOBALFLAG_INTRO_DONE' $false 'monkeyMain.s:@subid3Init'
+
+Add-NpcGlobalVisibility 0x83 0x00 -1 0 'GLOBALFLAG_GOT_BOMB_UPGRADE_FROM_FAIRY' $false 'bombUpgradeFairy.s:@state0'
+Add-NpcCurrentRoomVisibility 0x83 0x00 -1 0 0x01 $true 'bombUpgradeFairy.s:@state0'
+
+# Boys used by room events and the post-game Lynna actor.
+Add-NpcCurrentRoomVisibility 0x3c 0x03 -1 0 0x40 $false 'boy.s:@initSubid03'
+Add-NpcCurrentRoomVisibility 0x3c 0x04 -1 0 0x40 $false 'boy.s:@initSubid04'
+Add-NpcGlobalVisibility 0x3c 0x10 -1 0 'GLOBALFLAG_FINISHEDGAME' $true 'boy.s:@initSubid10'
+Add-NpcGlobalVisibility 0x3f 0x00 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'boy2.s:@@state0'
+Add-NpcGlobalVisibility 0x3f 0x00 -1 0 'GLOBALFLAG_0b' $false 'boy2.s:@@state0'
+Add-NpcCurrentRoomVisibility 0x3f 0x02 -1 0 0x40 $false 'boy2.s:@@state0'
+
+# Forest-fairy phases use global progress plus room $90's entrance-open flag.
+Add-NpcGlobalVisibility 0x49 0x07 -1 0 'GLOBALFLAG_WON_FAIRY_HIDING_GAME' $true 'forestFairy.s:forestFairy_subid07'
+Add-NpcGlobalVisibility 0x49 0x07 -1 0 'GLOBALFLAG_FOREST_UNSCRAMBLED' $true 'forestFairy.s:forestFairy_subid07'
+Add-NpcSpecificRoomVisibility 0x49 0x07 -1 0 0 0x90 0x40 $false 'forestFairy.s:forestFairy_subid07' 'wPresentRoomFlags+$90'
+Add-NpcGlobalVisibility 0x49 0x0a -1 0 'GLOBALFLAG_WON_FAIRY_HIDING_GAME' $true 'forestFairy.s:forestFairy_subid0a'
+Add-NpcGlobalVisibility 0x49 0x0a -1 0 'GLOBALFLAG_FOREST_UNSCRAMBLED' $true 'forestFairy.s:forestFairy_subid0a'
+Add-NpcSpecificRoomVisibility 0x49 0x0a -1 0 0 0x90 0x40 $true 'forestFairy.s:forestFairy_subid0a' 'wPresentRoomFlags+$90'
+Add-NpcGlobalVisibility 0x49 0x0a -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'forestFairy.s:forestFairy_subid0a'
+Add-NpcGlobalVisibility 0x49 0x0b -1 0 'GLOBALFLAG_FINISHEDGAME' $true 'forestFairy.s:forestFairy_subid0b'
+Add-NpcGlobalVisibility 0x49 0x10 -1 0 'GLOBALFLAG_GOT_FLUTE' $false 'forestFairy.s:forestFairy_subid10'
+Add-NpcGlobalVisibility 0x49 0x10 -1 0 'GLOBALFLAG_FOREST_UNSCRAMBLED' $false 'forestFairy.s:forestFairy_subid10'
+Add-NpcGlobalVisibility 0x49 0x10 -1 0 'GLOBALFLAG_COMPANION_LOST_IN_FOREST' $true 'forestFairy.s:forestFairy_subid10'
+
+Add-NpcGlobalVisibility 0x8b 0x02 -1 0 'GLOBALFLAG_FINISHEDGAME' $true 'goronElder.s:@subid2'
+Add-NpcGlobalVisibility 0x72 0x00 -1 0 'GLOBALFLAG_MOBLINS_KEEP_DESTROYED' $true 'kingMoblinDefeated.s:@subid0State0'
+Add-NpcCurrentRoomVisibility 0x72 0x00 -1 0 0x40 $false 'kingMoblinDefeated.s:@subid0State0'
+Add-NpcGlobalVisibility 0x9c 0x00 -1 0 'GLOBALFLAG_KING_ZORA_CURED' $true 'kingZora.s:@subid0State0'
+
+# Mamamu's indoor dog survives when any of these original branches is true.
+Add-NpcGlobalVisibility 0x54 0x00 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'mamamuDog.s:@state0'
+Add-NpcGlobalVisibility 0x54 0x00 -1 1 'GLOBALFLAG_RETURNED_DOG' $true 'mamamuDog.s:@state0'
+Add-NpcCurrentRoomVisibility 0x54 0x00 -1 2 0x20 $false 'mamamuDog.s:@state0'
+
+# Mutually exclusive pre/post-bombs and pre/post-game town actors.
+Add-NpcGlobalVisibility 0x41 0x00 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'miscMan.s:@subid0'
+Add-NpcGlobalVisibility 0x41 0x00 -1 0 'GLOBALFLAG_0b' $false 'miscMan.s:@subid0'
+Add-NpcGlobalVisibility 0x44 0x00 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'miscMan2.s:@subid0'
+Add-NpcGlobalVisibility 0x42 0x00 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'mustacheMan.s:@subid0'
+Add-NpcGlobalVisibility 0x52 0x02 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'oldMan.s:@@state0'
+Add-NpcGlobalVisibility 0x45 0x00 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'pastOldLady.s:@subid0'
+
+# Nayru's flag-only late-game variants.
+Add-NpcGlobalVisibility 0x36 0x0c -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'nayru.s:@init0c'
+Add-NpcGlobalVisibility 0x36 0x0c -1 0 'GLOBALFLAG_PRE_BLACK_TOWER_CUTSCENE_DONE' $true 'nayru.s:@init0c'
+Add-NpcGlobalVisibility 0x36 0x0c -1 0 'GLOBALFLAG_FLAME_OF_DESPAIR_LIT' $false 'nayru.s:@init0c'
+Add-NpcGlobalVisibility 0x36 0x0d -1 0 'GLOBALFLAG_FLAME_OF_DESPAIR_LIT' $true 'nayru.s:@init0d'
+Add-NpcGlobalVisibility 0x36 0x0d -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'nayru.s:@init0d'
+Add-NpcGlobalVisibility 0x36 0x13 -1 0 'GLOBALFLAG_FINISHEDGAME' $true 'nayru.s:@init13'
+
+# The two placed past-guy variants exchange places when GLOBALFLAG_0b changes.
+Add-NpcGlobalVisibility 0x43 0x00 0 0 'GLOBALFLAG_FINISHEDGAME' $false 'pastGuy.s:@subid0'
+Add-NpcGlobalVisibility 0x43 0x00 0 0 'GLOBALFLAG_0b' $false 'pastGuy.s:@subid0'
+Add-NpcGlobalVisibility 0x43 0x00 1 0 'GLOBALFLAG_FINISHEDGAME' $false 'pastGuy.s:@subid0'
+Add-NpcGlobalVisibility 0x43 0x00 1 0 'GLOBALFLAG_0b' $true 'pastGuy.s:@subid0'
+
+# Poe's var03 selects the overworld, tomb, or final-item encounter.
+Add-NpcCurrentRoomVisibility 0x59 0x00 0 0 0x40 $false 'poe.s:@initSubid00'
+Add-NpcSpecificRoomVisibility 0x59 0x00 0 0 0 0x2e 0x40 $false 'poe.s:@initSubid00' 'wPresentRoomFlags+$2e'
+Add-NpcSpecificRoomVisibility 0x59 0x00 1 0 0 0x7c 0x40 $true 'poe.s:@initSubid01' 'wPresentRoomFlags+$7c'
+Add-NpcCurrentRoomVisibility 0x59 0x00 1 0 0x40 $false 'poe.s:@initSubid01'
+Add-NpcCurrentRoomVisibility 0x59 0x00 2 0 0x20 $false 'poe.s:@initSubid02'
+Add-NpcCurrentRoomVisibility 0x59 0x00 2 0 0x40 $true 'poe.s:@initSubid02'
+Add-NpcSpecificRoomVisibility 0x59 0x00 2 0 0 0x2e 0x40 $true 'poe.s:@initSubid02' 'wPresentRoomFlags+$2e'
+
+Add-NpcGlobalVisibility 0x6d 0x00 -1 0 'GLOBALFLAG_BEAT_POSSESSED_NAYRU' $false 'possessedNayru.s:@state0'
+Add-NpcCurrentRoomVisibility 0x69 0x00 -1 0 0x80 $false 'rafton.s:@state0'
+Add-NpcGlobalVisibility 0x69 0x00 -1 0 'GLOBALFLAG_RAFTON_CHANGED_ROOMS' $false 'rafton.s:@initSubid00'
+Add-NpcCurrentRoomVisibility 0x69 0x01 -1 0 0x80 $false 'rafton.s:@state0'
+Add-NpcGlobalVisibility 0x69 0x01 -1 0 'GLOBALFLAG_RAFTON_CHANGED_ROOMS' $true 'rafton.s:@initSubid01'
+
+Add-NpcGlobalVisibility 0x37 0x03 -1 0 'GLOBALFLAG_GAVE_ROPE_TO_RAFTON' $true 'ralph.s:@initSubid03'
+Add-NpcCurrentRoomVisibility 0x37 0x03 -1 0 0x40 $false 'ralph.s:@initSubid03'
+Add-NpcGlobalVisibility 0x37 0x11 -1 0 'GLOBALFLAG_FINISHEDGAME' $true 'ralph.s:@initSubid11'
+
+# Soldier $00/$01 variants swap on GLOBALFLAG_0b; all disappear post-game.
+foreach ($soldierSubid in @(0x00, 0x01)) {
+    Add-NpcGlobalVisibility 0x40 $soldierSubid 0 0 'GLOBALFLAG_FINISHEDGAME' $false 'soldier.s:soldierSubid00'
+    Add-NpcGlobalVisibility 0x40 $soldierSubid 0 0 'GLOBALFLAG_0b' $false 'soldier.s:soldierSubid00'
+    Add-NpcGlobalVisibility 0x40 $soldierSubid 1 0 'GLOBALFLAG_FINISHEDGAME' $false 'soldier.s:soldierSubid01'
+    Add-NpcGlobalVisibility 0x40 $soldierSubid 1 0 'GLOBALFLAG_0b' $true 'soldier.s:soldierSubid01'
+}
+
+Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symmetryNpc.s:@subid0cInit'
+
+if ($npcVisibilityRows.Count -ne 75) {
+    throw "Expected 74 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\npc_visibility.tsv'),
+    $npcVisibilityRows,
+    [Text.UTF8Encoding]::new($false))
 
 # Copy every sprite sheet referenced by the extracted NPC records. The source
 # keeps common and Ages graphics in separate directories, so search both.

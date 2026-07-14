@@ -14,6 +14,8 @@ public sealed class RoomEntityManager
     public event Action<TimePortal>? TimePortalEntered;
     private readonly Node _worldRoot;
     private readonly RoomEntityFactory _factory;
+    private readonly OracleSaveData? _saveData;
+    private readonly NpcVisibilityRuleDatabase _npcVisibility = new();
     private readonly List<IRoomEntity> _activeEntities = new();
     private readonly List<IRoomEntity> _outgoingEntities = new();
     private readonly List<RoomEntitySpawn> _pendingSpawns = new();
@@ -38,9 +40,16 @@ public sealed class RoomEntityManager
     }
     public bool PlayerMovementDisabled => PlayerSwordDisabled && (_enemyFrameCounter & 1) != 0;
 
-    public RoomEntityManager(Node worldRoot, NpcDatabase npcs, EnemyDatabase enemies)
+    public RoomEntityManager(
+        Node worldRoot,
+        NpcDatabase npcs,
+        EnemyDatabase enemies,
+        OracleSaveData? saveData = null)
         : this(worldRoot, npcs, enemies, new ItemDropDatabase(), new TimePortalDatabase(), new OracleRandom())
     {
+        _saveData = saveData;
+        if (_saveData is not null)
+            _saveData.Changed += RefreshNpcVisibility;
     }
 
     internal RoomEntityManager(
@@ -49,10 +58,14 @@ public sealed class RoomEntityManager
         EnemyDatabase enemies,
         ItemDropDatabase itemDrops,
         TimePortalDatabase timePortals,
-        OracleRandom random)
+        OracleRandom random,
+        OracleSaveData? saveData = null)
     {
         _worldRoot = worldRoot;
         _factory = new RoomEntityFactory(npcs, enemies, itemDrops, timePortals, random, OnTimePortalEntered);
+        _saveData = saveData;
+        if (_saveData is not null)
+            _saveData.Changed += RefreshNpcVisibility;
     }
 
     public List<T> Entities<T>() where T : Node2D => SelectNodes<T>(_activeEntities);
@@ -186,7 +199,25 @@ public sealed class RoomEntityManager
     {
         foreach (IRoomEntity entity in _factory.CreateRoomEntities(group, room))
             AddEntity(entity);
+        RefreshNpcVisibility(_activeEntities);
         RoomEntitiesLoaded?.Invoke(group, room);
+    }
+
+    private void RefreshNpcVisibility()
+    {
+        RefreshNpcVisibility(_outgoingEntities);
+        RefreshNpcVisibility(_activeEntities);
+    }
+
+    private void RefreshNpcVisibility(IEnumerable<IRoomEntity> entities)
+    {
+        if (_saveData is null)
+            return;
+        foreach (IRoomEntity entity in entities)
+        {
+            if (entity is NpcRoomEntity && entity.Node is NpcCharacter npc)
+                npc.SetFlagVisible(_npcVisibility.ShouldShow(npc.Record, _saveData));
+        }
     }
 
     private IRoomEntity AddEntity(IRoomEntity entity)

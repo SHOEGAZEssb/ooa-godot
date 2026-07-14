@@ -311,7 +311,8 @@ public partial class GameRoot : Node2D
 
     private void CreateControllers()
     {
-        _entities = new RoomEntityManager(this, new NpcDatabase(), new EnemyDatabase());
+        _entities = new RoomEntityManager(
+            this, new NpcDatabase(), new EnemyDatabase(), _saveData);
         _pushBlocks = new PushBlockController(
             _rooms, new PushableTileDatabase(), _roomView, () => (long)_animationTicks)
         {

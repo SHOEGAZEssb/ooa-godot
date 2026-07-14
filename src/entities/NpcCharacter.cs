@@ -32,9 +32,11 @@ public partial class NpcCharacter : Node2D
     private float _animationRate = 1.0f;
     private Color[]? _paletteOverride;
     private bool _blocksLink = true;
+    private bool _active = true;
+    private bool _flagVisible = true;
 
     public NpcDatabase.NpcRecord Record { get; private set; }
-    public bool Active { get; private set; } = true;
+    public bool Active => _active && _flagVisible;
     public string Message => Record.Message;
     public int TextId => Record.TextId;
     public const float CollisionRadius = 6.0f;
@@ -283,8 +285,15 @@ public partial class NpcCharacter : Node2D
 
     internal void SetActive(bool active)
     {
-        Active = active;
-        Visible = active;
+        _active = active;
+        Visible = Active;
+        QueueRedraw();
+    }
+
+    internal void SetFlagVisible(bool visible)
+    {
+        _flagVisible = visible;
+        Visible = Active;
         QueueRedraw();
     }
 

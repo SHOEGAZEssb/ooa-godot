@@ -24,6 +24,7 @@ public partial class GameRoot
 
         ValidateSigns();
         ValidateNpcs();
+        ValidateNpcFlagVisibility();
         ValidateImpaIntroEncounter();
         ValidateMakuTreeDisappearanceCutscene();
         ValidateRalphPortalDepartureEvent();
@@ -3267,6 +3268,147 @@ public partial class GameRoot
         GD.Print("Validated villager idle animation, $28 Link awareness, 30-frame facing delay, " +
             "TX_1420 dialogue, retained/preloaded NPC screen scrolling, room 0:66 " +
             "Link-relative draw priority, and Link sprite palette 0.");
+    }
+
+    private void ValidateNpcFlagVisibility()
+    {
+        var validationRoot = new Node { Name = "NpcFlagVisibilityValidation" };
+        AddChild(validationRoot);
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var manager = new RoomEntityManager(
+            validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
+
+        if (new NpcVisibilityRuleDatabase().RuleCount != 74)
+            throw new InvalidOperationException(
+                "Expected 74 imported NPC initialization flag predicates.");
+
+        manager.LoadRoom(0, _world.LoadRoom(0, 0x5a));
+        List<NpcCharacter> introMonkeys = manager.Entities<NpcCharacter>().Where(npc =>
+            npc.Record.Id == 0x39 && npc.Record.SubId is 0x02 or 0x03).ToList();
+        if (introMonkeys.Count != 2 ||
+            introMonkeys[0].TextId != 0x5700 || introMonkeys[1].TextId != 0x5701 ||
+            introMonkeys[0].Record.DefaultAnimation != 0x06 ||
+            introMonkeys[1].Record.DefaultAnimation != 0x07 ||
+            introMonkeys.Any(monkey => !monkey.Active || string.IsNullOrEmpty(monkey.Message)))
+        {
+            throw new InvalidOperationException(
+                "Room 0:5a did not load its two active intro monkeys with TX_5700/TX_5701 and animations $06/$07.");
+        }
+        foreach (NpcCharacter monkey in introMonkeys)
+        {
+            _player.WarpTo(monkey.Position + Vector2.Down * 16.0f);
+            _player.Face(Vector2I.Up);
+            if (!monkey.CanTalkTo(_player))
+                throw new InvalidOperationException(
+                    $"Room 0:5a monkey ${monkey.Record.Id:x2}:${monkey.Record.SubId:x2} was not talkable from below.");
+        }
+        ulong upperMonkeyFirstFrame = introMonkeys[0].CurrentAnimationPixelHash;
+        ulong lowerMonkeyFirstFrame = introMonkeys[1].CurrentAnimationPixelHash;
+        foreach (NpcCharacter monkey in introMonkeys)
+            monkey.UpdateNpc(31.0 / 60.0, _player.Position);
+        if (introMonkeys.Any(monkey => monkey.CurrentAnimationFrame != 0))
+            throw new InvalidOperationException(
+                "A room 0:5a monkey advanced before animation $06/$07's original $20-frame duration.");
+        foreach (NpcCharacter monkey in introMonkeys)
+            monkey.UpdateNpc(1.0 / 60.0, _player.Position);
+        if (introMonkeys.Any(monkey => monkey.CurrentAnimationFrame != 1) ||
+            introMonkeys[0].CurrentAnimationPixelHash != lowerMonkeyFirstFrame ||
+            introMonkeys[1].CurrentAnimationPixelHash != upperMonkeyFirstFrame)
+        {
+            throw new InvalidOperationException(
+                "Room 0:5a's animation $06/$07 monkeys did not swap their two original poses after $20 frames.");
+        }
+        foreach (NpcCharacter monkey in introMonkeys)
+            monkey.UpdateNpc(32.0 / 60.0, _player.Position);
+        if (introMonkeys.Any(monkey => monkey.CurrentAnimationFrame != 0))
+            throw new InvalidOperationException(
+                "Room 0:5a's two-pose monkey animation did not loop after another $20 frames.");
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
+        if (introMonkeys.Any(monkey => monkey.Active || monkey.Visible))
+            throw new InvalidOperationException(
+                "GLOBALFLAG_INTRO_DONE $0a did not remove room 0:5a's intro monkeys.");
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone, value: false);
+        if (introMonkeys.Any(monkey => !monkey.Active || !monkey.Visible))
+            throw new InvalidOperationException(
+                "Clearing GLOBALFLAG_INTRO_DONE $0a did not restore room 0:5a's intro monkeys.");
+
+        manager.LoadRoom(0, _world.LoadRoom(0, 0x3a));
+        NpcCharacter? finishedGameBoy = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x3c && npc.Record.SubId == 0x10);
+        NpcCharacter? postgameBear = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x5d && npc.Record.SubId == 0x02 && npc.Record.Var03 == 0x01);
+        if (finishedGameBoy is not { Active: false } || postgameBear is not { Active: false })
+            throw new InvalidOperationException(
+                "Room 0:3a's finished-game NPC variants appeared before GLOBALFLAG_FINISHEDGAME $14.");
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        if (!finishedGameBoy.Active || !postgameBear.Active)
+            throw new InvalidOperationException(
+                "Room 0:3a did not reveal its $3c:$10 and $5d:$02 var03 $01 finished-game NPCs.");
+
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
+        manager.LoadRoom(0, _world.LoadRoom(0, 0x7b));
+        List<NpcCharacter> graveyardBoys = manager.Entities<NpcCharacter>().Where(npc =>
+            (npc.Record.Id == 0x3c && npc.Record.SubId is 0x03 or 0x04) ||
+            (npc.Record.Id == 0x3f && npc.Record.SubId == 0x02)).ToList();
+        if (graveyardBoys.Count != 3 || graveyardBoys.Any(npc => !npc.Active))
+            throw new InvalidOperationException(
+                "Room 0:7b did not begin with all three room-flag-gated children visible.");
+        save.SetRoomFlag(0, 0x7b, OracleSaveData.RoomFlag40);
+        if (graveyardBoys.Any(npc => npc.Active || npc.Visible))
+            throw new InvalidOperationException(
+                "Room 0:7b flag $40 did not hide all three completed-event children immediately.");
+        save.SetRoomFlag(0, 0x7b, OracleSaveData.RoomFlag40, value: false);
+        if (graveyardBoys.Any(npc => !npc.Active || !npc.Visible))
+            throw new InvalidOperationException(
+                "Clearing room 0:7b flag $40 did not restore its room-placed children.");
+        graveyardBoys[0].SetActive(false);
+        save.SetRoomFlag(0, 0x7b, OracleSaveData.RoomFlag40);
+        save.SetRoomFlag(0, 0x7b, OracleSaveData.RoomFlag40, value: false);
+        if (graveyardBoys[0].Active || graveyardBoys[0].Visible)
+            throw new InvalidOperationException(
+                "A live flag refresh revived an NPC already retired by its interaction lifecycle.");
+
+        manager.LoadRoom(0, _world.LoadRoom(0, 0x82));
+        List<NpcCharacter> forestFairies = manager.Entities<NpcCharacter>().Where(npc =>
+            npc.Record.Id == 0x49 && npc.Record.SubId == 0x0a).ToList();
+        if (forestFairies.Count != 2 || forestFairies.Any(npc => npc.Active))
+            throw new InvalidOperationException(
+                "Room 0:82's $49:$0a fairies ignored their initial compound flag gate.");
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagWonFairyHidingGame);
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagForestUnscrambled);
+        if (forestFairies.Any(npc => npc.Active))
+            throw new InvalidOperationException(
+                "Room 0:82's fairies appeared before specific room 0:90 flag $40 was set.");
+        save.SetRoomFlag(0, 0x90, OracleSaveData.RoomFlag40);
+        if (forestFairies.Any(npc => !npc.Active))
+            throw new InvalidOperationException(
+                "The global-and-specific-room predicate did not reveal room 0:82's fairies.");
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        if (forestFairies.Any(npc => npc.Active))
+            throw new InvalidOperationException(
+                "GLOBALFLAG_FINISHEDGAME $14 did not hide the pre-ending forest fairies.");
+
+        manager.LoadRoom(2, _world.LoadRoom(2, 0xe7));
+        NpcCharacter? dog = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x54 && npc.Record.SubId == 0x00);
+        if (dog is null || !dog.Active)
+            throw new InvalidOperationException("Room 2:e7's Mamamu dog did not satisfy its room-item alternative.");
+        save.SetRoomFlag(2, 0xe7, OracleSaveData.RoomFlagItem);
+        if (dog.Active)
+            throw new InvalidOperationException(
+                "Mamamu's dog remained visible after every initialization alternative failed.");
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagReturnedDog);
+        if (!dog.Active)
+            throw new InvalidOperationException(
+                "GLOBALFLAG_RETURNED_DOG $3b did not satisfy Mamamu's alternative visibility branch.");
+
+        manager.Clear();
+        RemoveChild(validationRoot);
+        validationRoot.QueueFree();
+        GD.Print("Validated room 0:5a's TX_5700/TX_5701 intro monkeys, opposing $06/$07 " +
+            "$20-frame animation loops, and 74 imported NPC " +
+            "global/current/specific-room predicates, var03 selection, compound and alternative " +
+            "gates, live refresh, and lifecycle-safe hiding.");
     }
 
     private void ValidateImpaIntroEncounter()
