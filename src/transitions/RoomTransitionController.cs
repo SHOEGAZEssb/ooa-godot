@@ -38,6 +38,7 @@ public sealed class RoomTransitionController
     private readonly DialogueBox _dialogue;
     private readonly RoomEntityManager _entities;
     private readonly Func<Vector2, bool> _collides;
+    private readonly DeathRespawnPointController _deathRespawnPoints;
 
     private bool _scrollActive;
     private Vector2I _scrollDirection;
@@ -78,7 +79,8 @@ public sealed class RoomTransitionController
         Hud hud,
         DialogueBox dialogue,
         RoomEntityManager entities,
-        Func<Vector2, bool> collides)
+        Func<Vector2, bool> collides,
+        DeathRespawnPointController deathRespawnPoints)
     {
         _rooms = rooms;
         _warps = warps;
@@ -90,6 +92,7 @@ public sealed class RoomTransitionController
         _dialogue = dialogue;
         _entities = entities;
         _collides = collides;
+        _deathRespawnPoints = deathRespawnPoints;
     }
 
     public void Update(double delta)
@@ -414,6 +417,8 @@ public sealed class RoomTransitionController
             int tileX = warp.DestinationPosition & 0x0f;
             int tileY = (warp.DestinationPosition >> 4) & 0x0f;
             spawn = new Vector2(tileX * OracleRoomData.MetatileSize + 8, tileY * OracleRoomData.MetatileSize + 8);
+            if (warp.DestinationTransition == 0x0e)
+                spawn.X -= 8.0f;
             byte destinationTile = room.GetMetatile(spawn);
             if (ShouldStepOut(warp, destinationTile, tileX, tileY))
             {
@@ -451,6 +456,7 @@ public sealed class RoomTransitionController
     private void FinishWarp()
     {
         _player.FinishRoomWarpTransition(_destinationWalk ? _warpWalkEnd : _player.Position);
+        _deathRespawnPoints.RecordWarpDestination(_pendingWarp.DestinationTransition);
         _destinationWalk = false;
         _timeWarp = false;
         _warpActive = false;
@@ -510,5 +516,6 @@ public sealed class RoomTransitionController
         if (tile == 0x36) player.Face(Vector2I.Up);
         else if (tile == 0x44) player.Face(Vector2I.Left);
         else if (tile == 0x45) player.Face(Vector2I.Right);
+        else player.Face(Vector2I.Down);
     }
 }

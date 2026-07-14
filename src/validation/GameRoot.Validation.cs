@@ -10,8 +10,10 @@ public partial class GameRoot
     {
         _world.ValidateRepresentativeRooms();
         ValidateSaveDataFoundation();
+        ValidateExplicitSavePersistence();
         ValidateMainMenu();
         ValidateDebugFlagMenu();
+        ValidateDeathRespawnCheckpoints();
 
         LoadValidationRoom(0, 0x11);
         ValidateStartupTransition();
@@ -50,10 +52,12 @@ public partial class GameRoot
         _saveQuitScreen.Move(1);
         _saveQuitScreen.Move(1);
         int saveRequests = _inventoryMenu.SaveRequests;
+        int saveWrites = _saveWriteRequests;
         _inventoryMenu.SelectSaveOptionForValidation();
         for (int frame = 0; frame < InventoryMenuController.SaveSelectionDelayFrames; frame++)
             _inventoryMenu.Update(1.0 / 60.0);
         if (_inventoryMenu.SaveRequests != saveRequests + 1 ||
+            _saveWriteRequests != saveWrites + 1 ||
             _inventoryMenu.QuitRequests != 1 || _mainMenu is null || _mainMenuScreen is null ||
             _inventoryMenu.IsActive)
         {
@@ -63,14 +67,46 @@ public partial class GameRoot
         GD.Print("Validated Save and Quit persistence request and return to title after 30 updates.");
     }
 
+    private void ValidateExplicitSavePersistence()
+    {
+        int saveWrites = _saveWriteRequests;
+        bool flagWasSet = _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        int rupees = _inventory.Rupees;
+        int rupeeDelta = rupees == 999 ? -1 : 1;
+
+        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru, !flagWasSet);
+        _inventory.AddRupees(rupeeDelta);
+        _ExitTree();
+        _inventory.AddRupees(-rupeeDelta);
+        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru, flagWasSet);
+
+        _inventoryMenu.OpenSaveImmediatelyForValidation();
+        int menuSaveRequests = _inventoryMenu.SaveRequests;
+        _inventoryMenu.SelectSaveOptionForValidation();
+        if (_saveWriteRequests != saveWrites ||
+            _inventoryMenu.SaveRequests != menuSaveRequests ||
+            _saveQuitScreen.DelayCounter != InventoryMenuController.SaveSelectionDelayFrames)
+        {
+            throw new InvalidOperationException(
+                "Ordinary save-image changes, application exit, or Continue unexpectedly wrote the active file.");
+        }
+        _inventoryMenu.CloseImmediatelyForValidation();
+
+        GD.Print("Validated explicit-only persistence: gameplay changes and Continue remain " +
+            "in memory, and application exit does not save.");
+    }
+
     private void ValidateSaveDataFoundation()
     {
         OracleSaveData save = OracleSaveData.CreateStandardGame();
         if (save.HasGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared) ||
-            save.GetRoomFlags(0, 0x38) != 0)
+            save.GetRoomFlags(0, 0x38) != 0 ||
+            save.RespawnGroup != 0 || save.RespawnRoom != 0x8a ||
+            save.RespawnStateModifier != 0 || save.RespawnFacing != 0 ||
+            save.RespawnY != 0x38 || save.RespawnX != 0x48)
         {
             throw new InvalidOperationException(
-                "A standard file did not begin with clear global and room flags.");
+                "A standard file did not begin with clear flags and the original 0:8a/$38/$48 checkpoint.");
         }
 
         save.SetGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared);
@@ -94,6 +130,7 @@ public partial class GameRoot
         var inventory = new InventoryState(_treasures, save);
         inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SWITCH_HOOK_00"));
         inventory.AddRupees(987);
+        save.SetDeathRespawnPoint(5, 0xa6, 2, 3, 0x78, 0x88);
         byte[] encoded = save.Serialize();
         if (encoded.Length != OracleSaveData.FileSize ||
             !encoded.AsSpan(2, 8).SequenceEqual("Z21216-0"u8) ||
@@ -108,7 +145,10 @@ public partial class GameRoot
             restoredInventory.SwitchHookLevel != 1 ||
             restoredInventory.EquippedB != TreasureDatabase.TreasureSwitchHook ||
             restoredInventory.Rupees != 987 || !decoded!.HasGlobalFlag(0x0c) ||
-            !decoded.HasRoomFlag(0, 0x38, OracleSaveData.RoomFlagLayoutSwap))
+            !decoded.HasRoomFlag(0, 0x38, OracleSaveData.RoomFlagLayoutSwap) ||
+            decoded.RespawnGroup != 5 || decoded.RespawnRoom != 0xa6 ||
+            decoded.RespawnStateModifier != 2 || decoded.RespawnFacing != 3 ||
+            decoded.RespawnY != 0x78 || decoded.RespawnX != 0x88)
         {
             throw new InvalidOperationException(
                 "Inventory, BCD rupees, story flags, or room flags were lost across save reload.");
@@ -119,7 +159,48 @@ public partial class GameRoot
             throw new InvalidOperationException("A corrupted Ages save checksum was accepted.");
 
         GD.Print("Validated original $550-byte save signature/checksum, 128 global flags, " +
-            "four aliased room-flag tables, inventory fields, and BCD rupee round trip.");
+            "four aliased room-flag tables, initial/current death checkpoint, inventory fields, " +
+            "and BCD rupee round trip.");
+    }
+
+    private void ValidateDeathRespawnCheckpoints()
+    {
+        if (!_deathRespawnPoints.UpdatesContinuously(0, 0x38) ||
+            !_deathRespawnPoints.UpdatesContinuously(1, 0x38) ||
+            _deathRespawnPoints.UpdatesContinuously(0, 0x39))
+        {
+            throw new InvalidOperationException(
+                "The imported roomSpecificCode $06 death-respawn room table regressed.");
+        }
+
+        int saveWrites = _saveWriteRequests;
+        LoadValidationRoom(0, 0x38);
+        _player.WarpTo(new Vector2(0x38, 0x58));
+        _player.Face(Vector2I.Left);
+        _deathRespawnPoints.Update();
+        if (_saveData.RespawnGroup != 0 || _saveData.RespawnRoom != 0x38 ||
+            _saveData.RespawnFacing != 3 || _saveData.RespawnY != 0x58 ||
+            _saveData.RespawnX != 0x38 || _saveWriteRequests != saveWrites)
+        {
+            throw new InvalidOperationException(
+                "Room 0:38 did not update its live death checkpoint without autosaving.");
+        }
+
+        LoadValidationRoom(0, 0x39);
+        _player.WarpTo(new Vector2(0x78, 0x68));
+        _player.Face(Vector2I.Down);
+        _deathRespawnPoints.Update();
+        if (!OracleSaveData.TryDeserialize(_saveData.Serialize(), out OracleSaveData? restored) ||
+            restored!.RespawnGroup != 0 || restored.RespawnRoom != 0x38 ||
+            restored.RespawnFacing != 3 || restored.RespawnY != 0x58 ||
+            restored.RespawnX != 0x38)
+        {
+            throw new InvalidOperationException(
+                "An ordinary room replaced the checkpoint, or saving captured Link's arbitrary position.");
+        }
+
+        GD.Print("Validated imported roomSpecificCode $06 checkpoint rooms and save-image " +
+            "retention of the maintained checkpoint instead of Link's arbitrary position.");
     }
 
     private void ValidateMainMenu()
@@ -911,8 +992,10 @@ public partial class GameRoot
         }
         _saveQuitScreen.Move(1);
         int saveRequests = _inventoryMenu.SaveRequests;
+        int saveWrites = _saveWriteRequests;
         _inventoryMenu.SelectSaveOptionForValidation();
         if (_inventoryMenu.SaveRequests != saveRequests + 1 ||
+            _saveWriteRequests != saveWrites + 1 ||
             _saveQuitScreen.DelayCounter != InventoryMenuController.SaveSelectionDelayFrames)
         {
             throw new InvalidOperationException("Save and Continue did not save immediately and start its 30-update delay.");
@@ -1153,6 +1236,13 @@ public partial class GameRoot
         UpdateRoomWarpTransition((WarpFadeFrames - WarpEnterFrames) / 60.0);
         if (IsTransitioning)
             throw new InvalidOperationException("The 32-frame room fade did not finish after entering the house.");
+        if (_saveData.RespawnGroup != 2 || _saveData.RespawnRoom != 0xea ||
+            _saveData.RespawnFacing != 0 || _saveData.RespawnY != 0x64 ||
+            _saveData.RespawnX != 0x50)
+        {
+            throw new InvalidOperationException(
+                "TRANSITION_DEST_ENTERSCREEN did not record house 2:ea's final entry checkpoint.");
+        }
 
         for (float y = _player.Position.Y; y <= _currentRoom.Height + 2; y++)
         {
@@ -1174,6 +1264,21 @@ public partial class GameRoot
                 $"{_activeGroup}:{_currentRoom.Id:x2}/${_currentRoom.GetPackedPosition(_player.Position):x2}.");
         if (Collides(_player.Position + Vector2.Down))
             throw new InvalidOperationException("The exterior landing spot below 0:47/$25 is blocked.");
+        if (_saveData.RespawnGroup != 0 || _saveData.RespawnRoom != 0x47 ||
+            _saveData.RespawnFacing != 2 || _saveData.RespawnY != 0x38 ||
+            _saveData.RespawnX != 0x58 ||
+            !OracleSaveData.TryDeserialize(_saveData.Serialize(), out OracleSaveData? exteriorSave) ||
+            exteriorSave!.RespawnGroup != 0 || exteriorSave.RespawnRoom != 0x47 ||
+            exteriorSave.RespawnY != 0x38 || exteriorSave.RespawnX != 0x58)
+        {
+            throw new InvalidOperationException(
+                "TRANSITION_DEST_SET_RESPAWN did not persist exterior 0:47's stepped-out checkpoint.");
+        }
+
+        int checkpointGroup = _saveData.RespawnGroup;
+        int checkpointRoom = _saveData.RespawnRoom;
+        int checkpointY = _saveData.RespawnY;
+        int checkpointX = _saveData.RespawnX;
 
         _activeGroup = 2;
         ClearDeactivatedWarp();
@@ -1190,8 +1295,15 @@ public partial class GameRoot
             throw new InvalidOperationException(
                 $"Expected Link to finish 2:eb -> 2:ea near the right edge, got " +
                 $"${_currentRoom.GetPackedPosition(_player.Position):x2}.");
+        if (_saveData.RespawnGroup != checkpointGroup || _saveData.RespawnRoom != checkpointRoom ||
+            _saveData.RespawnY != checkpointY || _saveData.RespawnX != checkpointX)
+        {
+            throw new InvalidOperationException(
+                "An ordinary scrolling transition incorrectly replaced the death checkpoint.");
+        }
 
-        GD.Print("Validated original house entry/exit fades, scripted walks, and 2:eb -> 2:ea screen transition.");
+        GD.Print("Validated original house entry/exit fades, destination checkpoint updates, " +
+            "save-image round trip, and non-checkpoint 2:eb -> 2:ea scrolling.");
     }
 
     private void ValidateCaveWarps()

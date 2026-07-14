@@ -90,6 +90,35 @@ $globalFlagPath = Join-Path $destination 'metadata\global_flags.tsv'
 New-Item -ItemType Directory -Force -Path (Split-Path $globalFlagPath -Parent) | Out-Null
 [IO.File]::WriteAllLines($globalFlagPath, $globalFlagRows, [Text.UTF8Encoding]::new($false))
 
+# roomSpecificCode index $06 calls setDeathRespawnPoint every update. Preserve
+# that table instead of embedding the two Ages rooms in runtime code.
+$roomSpecificCodeSource = Get-Content -Raw (
+    Join-Path $Disassembly 'code\ages\roomSpecificCode.s')
+$continuousRespawnRows = [Collections.Generic.List[string]]::new()
+$continuousRespawnRows.Add("# group`troom")
+for ($group = 0; $group -lt 8; $group++) {
+    $block = [regex]::Match(
+        $roomSpecificCodeSource,
+        "(?ms)^roomSpecificCodeGroup${group}Table:\s*(?<body>.*?)(?=^roomSpecificCodeGroup[0-7]Table:|^;;)")
+    if (-not $block.Success) {
+        throw "Could not parse roomSpecificCode group $group table."
+    }
+    foreach ($entry in [regex]::Matches(
+        $block.Groups['body'].Value,
+        '(?m)^\s*\.db\s+\$(?<room>[0-9a-f]{2})\s+\$(?<code>[0-9a-f]{2})')) {
+        if ([Convert]::ToInt32($entry.Groups['code'].Value, 16) -eq 0x06) {
+            $continuousRespawnRows.Add(
+                "$group`t$($entry.Groups['room'].Value.ToLowerInvariant())")
+        }
+    }
+}
+if ($continuousRespawnRows.Count -ne 3) {
+    throw "Expected 2 continuous death-respawn rooms, parsed $($continuousRespawnRows.Count - 1)."
+}
+$continuousRespawnPath = Join-Path $destination 'metadata\continuous_death_respawn_rooms.tsv'
+[IO.File]::WriteAllLines(
+    $continuousRespawnPath, $continuousRespawnRows, [Text.UTF8Encoding]::new($false))
+
 # Parse the 103 non-stub tileset records. The runtime needs the room-layout
 # group and resolved six-palette block; the original shared mapping index is
 # retained in metadata for provenance, but expanded mappings use tileset IDs.

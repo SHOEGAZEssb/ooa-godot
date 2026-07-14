@@ -34,8 +34,10 @@ public partial class GameRoot : Node2D
     private TreasureDatabase _treasures = null!;
     private InventoryState _inventory = null!;
     private OracleSaveData _saveData = null!;
+    private DeathRespawnPointController _deathRespawnPoints = null!;
     private bool _persistSaveData;
     private int _activeSaveSlot;
+    private int _saveWriteRequests;
 
     private double _animationTicks;
 
@@ -107,7 +109,6 @@ public partial class GameRoot : Node2D
     private void InitializeGameplay(OracleSaveData save)
     {
         _saveData = save;
-        _saveData.Changed += PersistSaveData;
         _treasures = new TreasureDatabase();
         _inventory = new InventoryState(_treasures, _saveData);
         if (!_inventory.HasTreasure(TreasureDatabase.TreasureSword))
@@ -160,7 +161,8 @@ public partial class GameRoot : Node2D
 
     public override void _ExitTree()
     {
-        PersistSaveData();
+        // The original engine does not write SRAM merely because play stops.
+        // Unsaved changes remain only in the live WRAM-style save image.
     }
 
     public override void _Process(double delta)
@@ -185,6 +187,7 @@ public partial class GameRoot : Node2D
         if (_mapMenu.IsActive)
             return;
         _transitions.Update(delta);
+        _deathRespawnPoints.Update();
         _entities.Update(delta, _player);
         _roomEvents.Update(delta);
         _interactions.Update(delta, _player);
@@ -204,9 +207,10 @@ public partial class GameRoot : Node2D
         AddChild(_pushBlocks);
         _collision = new RoomCollision(
             _rooms, _entities, _pushBlocks, point => _transitions.HasNeighborFor(point));
+        _deathRespawnPoints = new DeathRespawnPointController(_rooms, _player);
         _transitions = new RoomTransitionController(
             _rooms, new WarpDatabase(), _roomView, _player, _roomCamera,
-            _warpFade, _hud, _dialogue, _entities, _collision.Collides);
+            _warpFade, _hud, _dialogue, _entities, _collision.Collides, _deathRespawnPoints);
         _entities.TimePortalEntered += portal =>
             _transitions.ApplyTimePortalWarp(_player, portal.Position);
         _interactions = new InteractionController(
@@ -240,7 +244,7 @@ public partial class GameRoot : Node2D
         _inventoryMenu = new InventoryMenuController(
             _inventoryScreen, _saveQuitScreen, _scene.MenuFade, _player, _roomDebug,
             () => !IsTransitioning && !DialogueOpen && !MapMenuOpen && !_roomEvents.Active,
-            PersistSaveData, ReturnToTitle);
+            SaveActiveFile, ReturnToTitle);
         _debugFlagMenu = new DebugFlagMenuController(
             _debugFlagScreen, _rooms, _player, _roomDebug,
             () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
@@ -291,17 +295,15 @@ public partial class GameRoot : Node2D
         _hud.Refresh();
     }
 
-    private void PersistSaveData()
+    private void SaveActiveFile()
     {
+        _saveWriteRequests++;
         if (_persistSaveData && _saveData is not null)
             OracleSaveStore.SaveSlot(_activeSaveSlot, _saveData);
     }
 
     private void ReturnToTitle()
     {
-        PersistSaveData();
-        if (_saveData is not null)
-            _saveData.Changed -= PersistSaveData;
         if (_inventory is not null)
             _inventory.Changed -= SyncHudToInventory;
 

@@ -64,6 +64,7 @@ public sealed class OracleSaveData
     public int TextSpeed => ReadWramByte(0xc629);
     public int RespawnGroup => ReadWramByte(0xc62b);
     public int RespawnRoom => ReadWramByte(0xc62c);
+    public int RespawnStateModifier => ReadWramByte(0xc62d);
     public int RespawnFacing => ReadWramByte(0xc62e) & 0x03;
     public int RespawnY => ReadWramByte(0xc62f);
     public int RespawnX => ReadWramByte(0xc630);
@@ -85,6 +86,12 @@ public sealed class OracleSaveData
         VerificationString.CopyTo(save._data, VerificationOffset);
         save.WriteWramByte(0xc608, 0x01);
         save.WriteWramByte(0xc629, 0x04);
+        // initialFileVariables: Ages begins at 0:8a, facing up at $38/$48.
+        save.WriteWramByte(0xc62b, 0x00);
+        save.WriteWramByte(0xc62c, 0x8a);
+        save.WriteWramByte(0xc62e, 0x00);
+        save.WriteWramByte(0xc62f, 0x38);
+        save.WriteWramByte(0xc630, 0x48);
         save.WriteWramByte(0xc6b1, 0x10);
         save.WriteWramByte(0xc6aa, 0x0c);
         save.WriteWramByte(0xc6ab, 0x0c);
@@ -177,6 +184,29 @@ public sealed class OracleSaveData
         if (speed is < 0 or > 4)
             throw new ArgumentOutOfRangeException(nameof(speed));
         if (WriteWramByte(0xc629, (byte)speed))
+            Changed?.Invoke();
+    }
+
+    public void SetDeathRespawnPoint(
+        int group, int room, int stateModifier, int facing, int y, int x)
+    {
+        ValidateRoom(group, room);
+        if (stateModifier is < 0 or > 0xff)
+            throw new ArgumentOutOfRangeException(nameof(stateModifier));
+        if (facing is < 0 or > 3)
+            throw new ArgumentOutOfRangeException(nameof(facing));
+        if (y is < 0 or > 0xff)
+            throw new ArgumentOutOfRangeException(nameof(y));
+        if (x is < 0 or > 0xff)
+            throw new ArgumentOutOfRangeException(nameof(x));
+
+        bool changed = WriteWramByte(0xc62b, (byte)group);
+        changed |= WriteWramByte(0xc62c, (byte)room);
+        changed |= WriteWramByte(0xc62d, (byte)stateModifier);
+        changed |= WriteWramByte(0xc62e, (byte)facing);
+        changed |= WriteWramByte(0xc62f, (byte)y);
+        changed |= WriteWramByte(0xc630, (byte)x);
+        if (changed)
             Changed?.Invoke();
     }
 
