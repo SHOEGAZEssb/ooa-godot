@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-public sealed partial class RoomEventController
+internal sealed class NayruIntroEvent : IRoomEvent
 {
     private enum NayruStage
     {
@@ -167,6 +167,17 @@ public sealed partial class RoomEventController
         public int RalphMoveStart { get; set; } = -1;
     }
 
+    private readonly RoomSession _rooms;
+    private readonly RoomEntityManager _entities;
+    private readonly RoomTransitionController _transitions;
+    private readonly DialogueBox _dialogue;
+    private readonly Player _player;
+    private readonly RoomView _roomView;
+    private readonly InventoryState _inventory;
+    private readonly TreasureDatabase _treasures;
+    private readonly Func<Vector2, Vector2> _worldToScreen;
+    private readonly Func<long> _animationTick;
+    private readonly ImpaIntroEvent _impaEvent;
     private readonly NayruIntroEventDatabase _nayruDatabase;
     private readonly NayruIntroEventDatabase.EventRecord _nayruRecord;
     private readonly CanvasLayer _nayruInterfaceLayer;
@@ -242,49 +253,87 @@ public sealed partial class RoomEventController
     private bool _nayruVignetteMonkeyFlickerShown;
     private bool _nayruVignetteBoyPaletteShown;
     private bool _nayruVignetteLadyCadenceShown;
+    private int _counter;
 
-    internal int NayruCurrentStage => (int)_nayruStage;
-    internal int NayruAudienceMask => _nayruAudienceMask;
-    internal IReadOnlyDictionary<string, NpcCharacter> NayruActors => _nayruActors;
-    internal int NayruVisitedVignettes => _nayruVisitedVignettes;
-    internal int NayruNoteSpawnCount => _nayruNoteSpawnCount;
-    internal int NayruLightningSpawnCount => _nayruLightningSpawnCount;
-    internal bool NayruSwordGiftShown => _nayruSwordGiftShown;
-    internal Vector2 NayruInitialMoveEnd => _nayruInitialMoveEnd;
-    internal bool NayruCollapsedImpaRendered => _nayruCollapsedImpaRendered;
-    internal int NayruRalphJumpCount => _nayruRalphJumpCount;
-    internal bool NayruDarkPaletteShown => _nayruDarkPaletteShown;
-    internal bool NayruAudienceJumpShown => _nayruAudienceJumpShown;
-    internal bool NayruVeranReactionMoved => _nayruVeranReactionMoved;
-    internal bool NayruPossessionFlashShown => _nayruPossessionFlashShown;
-    internal bool NayruRalphSwordShown => _nayruRalphSwordShown;
-    internal bool NayruPortalFlightShown => _nayruPortalFlightShown;
-    internal bool NayruBoyEscaped => _nayruBoyEscaped;
-    internal bool NayruBoyEscapeStarted => _nayruBoyEscapeStarted;
-    internal bool NayruGhostTrackingShown => _nayruGhostTrackingShown;
-    internal int NayruLinkVeranFacingMask => _nayruLinkVeranFacingMask;
-    internal int NayruRalphVeranFacingMask => _nayruRalphVeranFacingMask;
-    internal bool NayruBackstepShown => _nayruBackstepShown;
-    internal bool NayruGhostHiddenAfterPossession => _nayruGhostHiddenAfterPossession;
-    internal bool NayruSwordSpacingShown => _nayruSwordSpacingShown;
-    internal bool NayruAftermathLinkWalkShown => _nayruAftermathLinkWalkShown;
-    internal bool NayruNoteMotionShown => _nayruNoteMotionMask == 0x03;
-    internal bool NayruPossessionBlinkShown => _nayruPossessionBlinkShown;
-    internal bool NayruPossessionSwayShown => _nayruPossessionSwayShown;
-    internal bool NayruPossessionMovementSyncShown => _nayruPossessionMovementSyncShown;
-    internal bool NayruPostChargeFacingShown => _nayruPostChargeFacingShown;
-    internal bool NayruGhostEmergenceShown => _nayruGhostEmergenceShown;
-    internal bool NayruMovementFacingShown =>
+    private ImpaIntroEventDatabase _impaDatabase => _impaEvent.Database;
+    private NpcCharacter? _impa
+    {
+        get => _impaEvent.Actor;
+        set => _impaEvent.Actor = value;
+    }
+
+    public NayruIntroEvent(RoomEventContext context, ImpaIntroEvent impaEvent)
+    {
+        _rooms = context.Rooms;
+        _entities = context.Entities;
+        _transitions = context.Transitions;
+        _dialogue = context.Dialogue;
+        _player = context.Player;
+        _roomView = context.RoomView;
+        _inventory = context.Inventory;
+        _treasures = context.Treasures;
+        _worldToScreen = context.WorldToScreen;
+        _animationTick = context.AnimationTick;
+        _impaEvent = impaEvent;
+        _nayruInterfaceLayer = context.InterfaceLayer;
+        _nayruFade = context.Fade;
+        _nayruHud = context.Hud;
+        _nayruDatabase = new NayruIntroEventDatabase();
+        _nayruRecord = _nayruDatabase.Event;
+    }
+
+    public bool HasState => _nayruStage != NayruStage.None;
+    public bool BlocksGameplay =>
+        _nayruStage is not (NayruStage.None or NayruStage.Crowd);
+    internal bool CrowdActive => _nayruStage == NayruStage.Crowd;
+    internal bool IntroCompleted => _rooms.SaveData.HasGlobalFlag(_nayruRecord.IntroFlag);
+    internal int Counter => _counter;
+
+    internal bool Matches(int group, OracleRoomData room) =>
+        group == _nayruRecord.Group && room.Id == _nayruRecord.Room;
+
+    internal int CurrentStage => (int)_nayruStage;
+    internal int AudienceMask => _nayruAudienceMask;
+    internal IReadOnlyDictionary<string, NpcCharacter> Actors => _nayruActors;
+    internal int VisitedVignettes => _nayruVisitedVignettes;
+    internal int NoteSpawnCount => _nayruNoteSpawnCount;
+    internal int LightningSpawnCount => _nayruLightningSpawnCount;
+    internal bool SwordGiftShown => _nayruSwordGiftShown;
+    internal Vector2 InitialMoveEnd => _nayruInitialMoveEnd;
+    internal bool CollapsedImpaRendered => _nayruCollapsedImpaRendered;
+    internal int RalphJumpCount => _nayruRalphJumpCount;
+    internal bool DarkPaletteShown => _nayruDarkPaletteShown;
+    internal bool AudienceJumpShown => _nayruAudienceJumpShown;
+    internal bool VeranReactionMoved => _nayruVeranReactionMoved;
+    internal bool PossessionFlashShown => _nayruPossessionFlashShown;
+    internal bool RalphSwordShown => _nayruRalphSwordShown;
+    internal bool PortalFlightShown => _nayruPortalFlightShown;
+    internal bool BoyEscaped => _nayruBoyEscaped;
+    internal bool BoyEscapeStarted => _nayruBoyEscapeStarted;
+    internal bool GhostTrackingShown => _nayruGhostTrackingShown;
+    internal int LinkVeranFacingMask => _nayruLinkVeranFacingMask;
+    internal int RalphVeranFacingMask => _nayruRalphVeranFacingMask;
+    internal bool BackstepShown => _nayruBackstepShown;
+    internal bool GhostHiddenAfterPossession => _nayruGhostHiddenAfterPossession;
+    internal bool SwordSpacingShown => _nayruSwordSpacingShown;
+    internal bool AftermathLinkWalkShown => _nayruAftermathLinkWalkShown;
+    internal bool NoteMotionShown => _nayruNoteMotionMask == 0x03;
+    internal bool PossessionBlinkShown => _nayruPossessionBlinkShown;
+    internal bool PossessionSwayShown => _nayruPossessionSwayShown;
+    internal bool PossessionMovementSyncShown => _nayruPossessionMovementSyncShown;
+    internal bool PostChargeFacingShown => _nayruPostChargeFacingShown;
+    internal bool GhostEmergenceShown => _nayruGhostEmergenceShown;
+    internal bool MovementFacingShown =>
         _nayruMoveFacingMask == (ulong)NayruMoveFacing.All;
-    internal bool NayruAftermathRalphFacingShown =>
+    internal bool AftermathRalphFacingShown =>
         (_nayruAftermathRalphFacingMask & 0x07) == 0x07;
-    internal bool NayruVignetteDetailShown =>
+    internal bool VignetteDetailShown =>
         _nayruVignetteGirlJumpShown && _nayruVignetteMonkeyHopShown &&
         _nayruVignetteMonkeyPacingShown && _nayruVignetteMonkeyStoneShown &&
         _nayruVignetteMonkeyFlickerShown && _nayruVignetteBoyPaletteShown &&
         _nayruVignetteLadyCadenceShown && _nayruVignetteExclamationCount == 3;
 
-    private void RestoreCompletedNayruPortal(int group, OracleRoomData room)
+    internal void RestoreCompletedPortal(int group, OracleRoomData room)
     {
         if (group != _nayruRecord.Group || room.Id != _nayruRecord.Room ||
             !_rooms.SaveData.HasRoomFlag(
@@ -302,9 +351,9 @@ public sealed partial class RoomEventController
         }
     }
 
-    private void StartNayruEvent(OracleRoomData room)
+    internal void Start(OracleRoomData room)
     {
-        CancelNayruEvent();
+        Cancel();
         _nayruRoom = room;
         _nayruAudienceMask = 0;
         _nayruNotePhase = 0;
@@ -367,7 +416,6 @@ public sealed partial class RoomEventController
         _nayruAudienceTalkStates.Clear();
         _nayruStage = NayruStage.Crowd;
         _counter = 0;
-        _frameAccumulator = 0.0;
 
         // The positioned bear $5d:$02 and portal-departure Ralph $37:$0d are
         // later story variants. $6b:$01 owns the intro actors instead.
@@ -431,7 +479,7 @@ public sealed partial class RoomEventController
         return npc;
     }
 
-    internal bool TryInteractNayruNpc(NpcCharacter npc)
+    internal bool TryInteractNpc(NpcCharacter npc)
     {
         if (_nayruStage != NayruStage.Crowd)
             return false;
@@ -524,7 +572,7 @@ public sealed partial class RoomEventController
             name, resetAnimation, resetDelay, hopping));
     }
 
-    private void UpdateNayruFrame()
+    public void UpdateFrame()
     {
         UpdateNayruFleeingAudience();
         UpdateNayruAudienceTalks();
@@ -669,7 +717,7 @@ public sealed partial class RoomEventController
     private void BeginNayruTrigger()
     {
         _player.BeginCutsceneControl();
-        _impaStage = ImpaStage.None;
+        _impaEvent.StopFollowing();
         _counter = _nayruRecord.BearDelayFrames;
         _nayruStage = NayruStage.TriggerDelay;
     }
@@ -2466,7 +2514,9 @@ public sealed partial class RoomEventController
         _nayruSwordEffect = null;
     }
 
-    private void CancelNayruEvent(bool deactivateActors = true)
+    public void Cancel() => Cancel(deactivateActors: true);
+
+    internal void Cancel(bool deactivateActors)
     {
         _nayruSingingScreen?.QueueFree();
         _nayruSingingScreen = null;
@@ -2552,6 +2602,10 @@ public sealed partial class RoomEventController
         float radians = angle * Mathf.Pi / 16.0f;
         return new Vector2(Mathf.Sin(radians), -Mathf.Cos(radians));
     }
+
+    private static bool WithinOriginalScreenBoundary(Vector2 position) =>
+        position.Y >= -7 && position.Y < 136 &&
+        position.X >= -7 && position.X < 168;
 
     private void Wait(int frames) => _nayruCommands.Enqueue(new NayruCommand
         { Kind = NayruCommandKind.Wait, Frames = frames });
