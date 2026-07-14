@@ -16,6 +16,7 @@ public sealed class MapMenuController
 
     private readonly MapScreen _screen;
     private readonly ColorRect _fade;
+    private readonly DialogueBox _dialogue;
     private readonly Player _player;
     private readonly Label _roomDebug;
     private readonly System.Func<bool> _canOpen;
@@ -30,11 +31,12 @@ public sealed class MapMenuController
     public bool IsActive => _phase != Phase.Closed;
     public bool IsOpen => _phase == Phase.Open;
 
-    public MapMenuController(MapScreen screen, ColorRect fade, Player player,
+    public MapMenuController(MapScreen screen, ColorRect fade, DialogueBox dialogue, Player player,
         Label roomDebug, System.Func<bool> canOpen, System.Action<int, int> fastTravel)
     {
         _screen = screen;
         _fade = fade;
+        _dialogue = dialogue;
         _player = player;
         _roomDebug = roomDebug;
         _canOpen = canOpen;
@@ -55,6 +57,8 @@ public sealed class MapMenuController
         _screen.Update(delta);
         if (_phase == Phase.Open)
         {
+            if (_dialogue.BlocksPlayerInput)
+                return;
             if (_debugFastTravel && Input.IsActionJustPressed("debug_map_travel"))
                 _screen.ToggleDebugWorld();
             else if (_debugFastTravel && Input.IsActionJustPressed("attack") &&
@@ -64,6 +68,11 @@ public sealed class MapMenuController
                 _travelGroup = group;
                 _travelRoom = room;
                 BeginClosing();
+            }
+            else if (!_debugFastTravel && Input.IsActionJustPressed("attack") &&
+                _screen.TryGetSelectedAreaText(out MapDataDatabase.MapText text))
+            {
+                _dialogue.ShowMessage(text.Message, _screen.SelectedMarkerY, text.Position);
             }
             else if (Input.IsActionJustPressed("map") || Input.IsActionJustPressed("item"))
                 BeginClosing();

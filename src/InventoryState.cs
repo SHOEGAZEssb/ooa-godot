@@ -63,6 +63,13 @@ public sealed class InventoryState
     public int RingBoxLevel { get; private set; }
     public int RingBoxCapacity => RingBoxLevel switch { 1 => 1, 2 => 3, >= 3 => 5, _ => 0 };
 
+    public int GetDungeonSmallKeys(int dungeon) =>
+        dungeon is >= 0 and < 16 ? _dungeonSmallKeys[dungeon] : 0;
+
+    public bool HasDungeonBossKey(int dungeon) => HasDungeonBit(_dungeonBossKeys, dungeon);
+    public bool HasDungeonCompass(int dungeon) => HasDungeonBit(_dungeonCompasses, dungeon);
+    public bool HasDungeonMap(int dungeon) => HasDungeonBit(_dungeonMaps, dungeon);
+
     public InventoryState(TreasureDatabase treasures, OracleSaveData? saveData = null)
     {
         _treasures = treasures;
@@ -435,6 +442,10 @@ public sealed class InventoryState
                 break;
         }
     }
+
+    private static bool HasDungeonBit(byte[] values, int dungeon) =>
+        dungeon >= 0 && dungeon < values.Length * 8 &&
+        (values[dungeon >> 3] & (1 << (dungeon & 7))) != 0;
 
     private int GetVariable(string variable) => variable switch
     {

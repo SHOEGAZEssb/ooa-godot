@@ -129,7 +129,7 @@ public partial class GameRoot : Node2D
             _saveData);
         _scene = new GameSceneGraph(this);
         _hud.Initialize(_treasures, _inventory);
-        _mapScreen.Initialize(_rooms);
+        _mapScreen.Initialize(_rooms, _inventory);
         _inventoryScreen.Initialize(_treasures, _inventory,
             () => _rooms.ActiveGroup is 1 or 3);
         _debugFlagScreen.Initialize(_saveData, new GlobalFlagDatabase());
@@ -238,7 +238,7 @@ public partial class GameRoot : Node2D
             _rooms, _player, LoadDebugRoom, FindSpawn, () => (long)_animationTicks,
             _interactions.ResetChestForTesting);
         _mapMenu = new MapMenuController(
-            _mapScreen, _scene.MenuFade, _player, _roomDebug,
+            _mapScreen, _scene.MenuFade, _dialogue, _player, _roomDebug,
             () => !IsTransitioning && !DialogueOpen && !InventoryMenuOpen && !_roomEvents.Active,
             FastTravelFromMap);
         _inventoryMenu = new InventoryMenuController(

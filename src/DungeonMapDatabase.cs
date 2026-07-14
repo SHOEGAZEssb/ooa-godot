@@ -59,25 +59,27 @@ public sealed class DungeonMapDatabase
             if (line.StartsWith('#'))
                 continue;
             string[] columns = line.Split('\t');
-            if (columns.Length != 9)
+            if (columns.Length != 10)
                 throw new InvalidOperationException($"Malformed dungeon map row: {line}");
 
             int dungeon = int.Parse(columns[0]);
             int group = int.Parse(columns[1]);
             int floorCount = int.Parse(columns[2]);
             int baseFloor = int.Parse(columns[3]);
-            int floor = int.Parse(columns[4]);
-            int x = int.Parse(columns[5]);
-            int y = int.Parse(columns[6]);
-            int room = Convert.ToInt32(columns[7], 16);
-            byte properties = Convert.ToByte(columns[8], 16);
+            byte compassFloors = Convert.ToByte(columns[4], 16);
+            int floor = int.Parse(columns[5]);
+            int x = int.Parse(columns[6]);
+            int y = int.Parse(columns[7]);
+            int room = Convert.ToInt32(columns[8], 16);
+            byte properties = Convert.ToByte(columns[9], 16);
 
             if (!_dungeons.TryGetValue(dungeon, out DungeonInfo? info))
             {
-                info = new DungeonInfo(dungeon, group, floorCount, baseFloor);
+                info = new DungeonInfo(dungeon, group, floorCount, baseFloor, compassFloors);
                 _dungeons.Add(dungeon, info);
             }
-            if (info.Group != group || info.FloorCount != floorCount || info.BaseFloor != baseFloor)
+            if (info.Group != group || info.FloorCount != floorCount ||
+                info.BaseFloor != baseFloor || info.CompassFloors != compassFloors)
                 throw new InvalidOperationException($"Inconsistent metadata for dungeon {dungeon:x2}.");
             info.AddCell(new DungeonCell(floor, x, y, room, properties));
         }
@@ -94,14 +96,17 @@ public sealed class DungeonMapDatabase
         public int Group { get; }
         public int FloorCount { get; }
         public int BaseFloor { get; }
+        public byte CompassFloors { get; }
         public IEnumerable<DungeonCell> Cells => _positionCells.Values;
 
-        internal DungeonInfo(int index, int group, int floorCount, int baseFloor)
+        internal DungeonInfo(int index, int group, int floorCount, int baseFloor,
+            byte compassFloors)
         {
             Index = index;
             Group = group;
             FloorCount = floorCount;
             BaseFloor = baseFloor;
+            CompassFloors = compassFloors;
         }
 
         internal void AddCell(DungeonCell cell)

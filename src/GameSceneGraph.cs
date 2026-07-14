@@ -49,7 +49,7 @@ public sealed class GameSceneGraph
         };
         interfaceLayer.AddChild(WarpFade);
 
-        Dialogue = new DialogueBox { Name = "Dialogue", ZIndex = 30, Visible = false };
+        Dialogue = new DialogueBox { Name = "Dialogue", ZIndex = 49, Visible = false };
         interfaceLayer.AddChild(Dialogue);
 
         MapScreen = new MapScreen { Name = "MapScreen", ZIndex = 40, Visible = false };

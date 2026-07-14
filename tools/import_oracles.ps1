@@ -654,6 +654,128 @@ foreach ($match in [regex]::Matches(
     }
 }
 
+# Preserve the overworld map's 14x14 region-text table, cursor popup table,
+# tree icons, and every text bank the map resolver can select. Conditional
+# popup behavior remains a runtime concern because it reads live room/global
+# flags, but the table bytes and TX strings come directly from the disassembly.
+$mapDataSource = Get-Content -Raw (Join-Path $Disassembly 'data\ages\mapTextAndPopups.s')
+$mapDataSource = [regex]::Replace(
+    $mapDataSource,
+    '(?ms)\.ifdef REGION_JP\s*.*?\.else\s*(?<us>.*?)\.endif',
+    '${us}')
+
+function Read-MapByteArray([string]$label, [string]$nextLabel) {
+    $match = [regex]::Match(
+        $mapDataSource,
+        "(?ms)^${label}:\s*(?<body>.*?)(?=^${nextLabel}:)")
+    if (-not $match.Success) { throw "Could not find map data array $label." }
+    return @([regex]::Matches($match.Groups['body'].Value, '\$(?<value>[0-9a-f]{2})') |
+        ForEach-Object { [Convert]::ToInt32($_.Groups['value'].Value, 16) })
+}
+
+function Read-MinimapPopups([string]$label, [string]$nextLabel) {
+    $match = [regex]::Match(
+        $mapDataSource,
+        "(?ms)^${label}:\s*(?<body>.*?)(?=^${nextLabel}:|\z)")
+    if (-not $match.Success) { throw "Could not find minimap popup array $label." }
+    $result = @{}
+    foreach ($entry in [regex]::Matches(
+        $match.Groups['body'].Value,
+        '(?m)^\s*\.db\s+\$(?<room>[0-9a-f]{2})\s+\$(?<popup>[0-9a-f]{2})')) {
+        $room = [Convert]::ToInt32($entry.Groups['room'].Value, 16)
+        if ($room -eq 0xff) { continue }
+        # mapMenu_loadPopupData stops at the first matching room. A few source
+        # tables intentionally repeat room IDs, so retain the first record.
+        if (-not $result.ContainsKey($room)) {
+            $result[$room] = [Convert]::ToInt32($entry.Groups['popup'].Value, 16)
+        }
+    }
+    return $result
+}
+
+$presentMapTexts = Read-MapByteArray 'presentMapTextIndices' 'pastMapTextIndices'
+$pastMapTexts = Read-MapByteArray 'pastMapTextIndices' 'presentMinimapPopups'
+if ($presentMapTexts.Count -ne 196 -or $pastMapTexts.Count -ne 196) {
+    throw "Expected 196 present and past map text indices, got $($presentMapTexts.Count) and $($pastMapTexts.Count)."
+}
+$presentMapPopups = Read-MinimapPopups 'presentMinimapPopups' 'pastMinimapPopups'
+$pastMapPopups = Read-MinimapPopups 'pastMinimapPopups' '__end_of_file__'
+if ($presentMapPopups.Count -ne 44 -or $pastMapPopups.Count -ne 38) {
+    throw "Expected 44 present and 38 past popup rooms, got $($presentMapPopups.Count) and $($pastMapPopups.Count)."
+}
+$mapRows = [Collections.Generic.List[string]]::new()
+$mapRows.Add('# room`tpresent-text`tpast-text`tpresent-popup`tpast-popup')
+for ($y = 0; $y -lt 14; $y++) {
+    for ($x = 0; $x -lt 14; $x++) {
+        $index = $y * 14 + $x
+        $room = $y * 16 + $x
+        $presentPopup = if ($presentMapPopups.ContainsKey($room)) { $presentMapPopups[$room] } else { 0 }
+        $pastPopup = if ($pastMapPopups.ContainsKey($room)) { $pastMapPopups[$room] } else { 0 }
+        $mapRows.Add(
+            "$($room.ToString('x2'))`t$($presentMapTexts[$index].ToString('x2'))`t$($pastMapTexts[$index].ToString('x2'))`t$($presentPopup.ToString('x2'))`t$($pastPopup.ToString('x2'))")
+    }
+}
+$mapMetadataPath = Join-Path $destination 'map\overworld.tsv'
+[IO.File]::WriteAllLines($mapMetadataPath, $mapRows, [Text.UTF8Encoding]::new($false))
+
+$mapTextRows = [Collections.Generic.List[string]]::new()
+$mapTextRows.Add('# text-id`tposition`tmessage-base64')
+foreach ($textId in @($allTexts.Keys | Sort-Object)) {
+    if ($textId -lt 0x0200 -or $textId -ge 0x0600) { continue }
+    $position = if ($allTextPositions.ContainsKey($textId)) { $allTextPositions[$textId] } else { 0 }
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
+    $mapTextRows.Add("$($textId.ToString('x4'))`t$position`t$encoded")
+}
+$mapTextsPath = Join-Path $destination 'map\texts.tsv'
+[IO.File]::WriteAllLines($mapTextsPath, $mapTextRows, [Text.UTF8Encoding]::new($false))
+
+$treeWarpSource = Get-Content -Raw (Join-Path $Disassembly 'data\ages\treeWarps.s')
+$treeWarpRows = [Collections.Generic.List[string]]::new()
+$treeWarpRows.Add('# group`troom`tpopup')
+foreach ($treeGroup in @(
+    @{ Label = 'presentTreeWarps'; Group = 0; Next = 'pastTreeWarps' },
+    @{ Label = 'pastTreeWarps'; Group = 1; Next = '__end_of_file__' })) {
+    $pattern = if ($treeGroup.Next -eq '__end_of_file__') {
+        "(?ms)^$($treeGroup.Label):\s*(?<body>.*)"
+    } else {
+        "(?ms)^$($treeGroup.Label):\s*(?<body>.*?)(?=^$($treeGroup.Next):)"
+    }
+    $block = [regex]::Match($treeWarpSource, $pattern)
+    if (-not $block.Success) { throw "Could not find $($treeGroup.Label)." }
+    foreach ($entry in [regex]::Matches(
+        $block.Groups['body'].Value,
+        '(?m)^\s*\.db\s+\$(?<room>[0-9a-f]{2})\s+\$[0-9a-f]{2}\s+\$(?<popup>[0-9a-f]{2})')) {
+        $room = [Convert]::ToInt32($entry.Groups['room'].Value, 16)
+        if ($room -eq 0) { continue }
+        $treeWarpRows.Add("$($treeGroup.Group)`t$($room.ToString('x2'))`t$($entry.Groups['popup'].Value)")
+    }
+}
+$treeWarpsPath = Join-Path $destination 'map\tree_warps.tsv'
+if ($treeWarpRows.Count -ne 11) {
+    throw "Expected 10 nonzero Ages tree-warp popup records, parsed $($treeWarpRows.Count - 1)."
+}
+[IO.File]::WriteAllLines($treeWarpsPath, $treeWarpRows, [Text.UTF8Encoding]::new($false))
+
+$mapMenuCode = Get-Content -Raw (Join-Path $Disassembly 'code\bank2.s')
+$entranceBlock = [regex]::Match(
+    $mapMenuCode,
+    '(?ms)^mapMenu_dungeonEntranceText:\s*\r?\n\s*\.ifdef ROM_AGES\s*(?<body>.*?)\s*\.else; ROM_SEASONS')
+if (-not $entranceBlock.Success) { throw 'Could not find the Ages dungeon entrance text table.' }
+$entranceRows = [Collections.Generic.List[string]]::new()
+$entranceRows.Add('# dungeon`tgroup`troom`tfallback-text')
+$dungeonIndex = 0
+foreach ($entry in [regex]::Matches(
+    $entranceBlock.Groups['body'].Value,
+    '(?m)^\s*\.db\s+\$(?<room>[0-9a-f]{2}),\s*(?<group>\$80\|)?\(<TX_03(?<text>[0-9a-f]{2})\)')) {
+    $group = if ($entry.Groups['group'].Success) { 4 } else { 5 }
+    $entranceRows.Add(
+        "$dungeonIndex`t$group`t$($entry.Groups['room'].Value)`t$($entry.Groups['text'].Value)")
+    $dungeonIndex++
+}
+if ($dungeonIndex -ne 16) { throw "Expected 16 Ages dungeon entrance rows, parsed $dungeonIndex." }
+$entrancePath = Join-Path $destination 'map\dungeon_entrances.tsv'
+[IO.File]::WriteAllLines($entrancePath, $entranceRows, [Text.UTF8Encoding]::new($false))
+
 function Read-ConstantIds([string]$path, [string]$prefix) {
     $ids = @{}
     foreach ($line in Get-Content $path) {
@@ -2652,12 +2774,13 @@ $dungeonDataSource = Get-Content -Raw (Join-Path $Disassembly 'data\ages\dungeon
 $dungeonMetadata = @{}
 foreach ($record in [regex]::Matches(
     $dungeonDataSource,
-    '(?ms)^dungeonData(?<index>[0-9a-f]{2}):\s*\r?\n\s*m_DungeonData\s+>wGroup(?<group>[45])RoomFlags,\s*\$[0-9a-f]{2},\s*dungeon[0-9a-f]{2}Layout,\s*\$(?<floors>[0-9a-f]{2}),\s*\$(?<base>[0-9a-f]{2})')) {
+    '(?ms)^dungeonData(?<index>[0-9a-f]{2}):\s*\r?\n\s*m_DungeonData\s+>wGroup(?<group>[45])RoomFlags,\s*\$[0-9a-f]{2},\s*dungeon[0-9a-f]{2}Layout,\s*\$(?<floors>[0-9a-f]{2}),\s*\$(?<base>[0-9a-f]{2}),\s*\$(?<compass>[0-9a-f]{2})')) {
     $index = [Convert]::ToInt32($record.Groups['index'].Value, 16)
     $dungeonMetadata[$index] = @{
         Group = [Convert]::ToInt32($record.Groups['group'].Value, 16)
         Floors = [Convert]::ToInt32($record.Groups['floors'].Value, 16)
         BaseFloor = [Convert]::ToInt32($record.Groups['base'].Value, 16)
+        CompassFloors = [Convert]::ToInt32($record.Groups['compass'].Value, 16)
     }
 }
 if ($dungeonMetadata.Count -ne 16) {
@@ -2668,7 +2791,7 @@ $dungeonProperties = @{
     5 = [IO.File]::ReadAllBytes((Join-Path $Disassembly 'rooms\ages\group5DungeonProperties.bin'))
 }
 $dungeonMapRows = [Collections.Generic.List[string]]::new()
-$dungeonMapRows.Add('# dungeon`tgroup`tfloors`tbase-floor`tfloor`tx`ty`troom`tproperties')
+$dungeonMapRows.Add('# dungeon`tgroup`tfloors`tbase-floor`tcompass-floors`tfloor`tx`ty`troom`tproperties')
 foreach ($block in $dungeonBlocks) {
     $dungeon = [Convert]::ToInt32($block.Groups['index'].Value, 16)
     $metadataRecord = $dungeonMetadata[$dungeon]
@@ -2687,7 +2810,7 @@ foreach ($block in $dungeonBlocks) {
         $floorCell = $cell % 64
         $properties = $dungeonProperties[$metadataRecord.Group][$room]
         $dungeonMapRows.Add(
-            "$dungeon`t$($metadataRecord.Group)`t$($metadataRecord.Floors)`t$($metadataRecord.BaseFloor)`t$([Math]::Floor($cell / 64))`t$($floorCell % 8)`t$([Math]::Floor($floorCell / 8))`t$($room.ToString('x2'))`t$($properties.ToString('x2'))")
+            "$dungeon`t$($metadataRecord.Group)`t$($metadataRecord.Floors)`t$($metadataRecord.BaseFloor)`t$($metadataRecord.CompassFloors)`t$([Math]::Floor($cell / 64))`t$($floorCell % 8)`t$([Math]::Floor($floorCell / 8))`t$($room.ToString('x2'))`t$($properties.ToString('x2'))")
     }
 }
 $dungeonMapPath = Join-Path $destination 'objects\dungeon_maps.tsv'

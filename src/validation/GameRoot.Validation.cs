@@ -490,6 +490,27 @@ public partial class GameRoot
     {
         if (!Mathf.IsEqualApprox(MapMenuController.FastFadeFrames, 11.0f))
             throw new InvalidOperationException("The map menu must use the 11-update fast palette fade.");
+        if (MapScreen.GetSpriteShadeForValidation(Colors.Black, true) != 0 ||
+            MapScreen.GetSpriteShadeForValidation(Color.Color8(85, 85, 85), true) != 1 ||
+            MapScreen.GetSpriteShadeForValidation(Color.Color8(170, 170, 170), true) != 2 ||
+            MapScreen.GetSpriteShadeForValidation(Colors.White, true) != 3 ||
+            MapScreen.GetSpriteShadeForValidation(Colors.White, false) != 0 ||
+            MapScreen.GetSpriteShadeForValidation(Colors.Black, false) != 3)
+        {
+            throw new InvalidOperationException(
+                "Map OAM grayscale no longer handles inverted spr_ and normal gfx sheets separately.");
+        }
+        if (MapScreen.UsesInvertedSpriteGrayscale(MapScreen.MapMode.Present, 0x0e) ||
+            MapScreen.UsesInvertedSpriteGrayscale(MapScreen.MapMode.Present, 0x22) ||
+            MapScreen.UsesInvertedSpriteGrayscale(MapScreen.MapMode.Dungeon, 0x88) ||
+            !MapScreen.UsesInvertedSpriteGrayscale(MapScreen.MapMode.Dungeon, 0x00))
+        {
+            throw new InvalidOperationException(
+                "Map OAM sheets no longer honor spr_minimap_icons invert:false separately " +
+                "from the default-inverted dungeon item sheet.");
+        }
+        if ((MapScreen.LocationArrowAttributes & 0x40) == 0)
+            throw new InvalidOperationException("The map location arrow lost OAM Y-flip attribute $47.");
 
         LoadValidationRoom(0, 0x11);
         _mapMenu.OpenImmediatelyForValidation();
@@ -517,6 +538,23 @@ public partial class GameRoot
         if (!_player.IsPhysicsProcessing() || !_player.IsProcessing())
             throw new InvalidOperationException("Link processing was not restored after closing the map.");
 
+        LoadValidationRoom(0, 0x45);
+        _mapMenu.OpenImmediatelyForValidation();
+        if (!_mapScreen.TryGetSelectedAreaText(out MapDataDatabase.MapText areaText) ||
+            areaText.TextId != 0x0343 || string.IsNullOrWhiteSpace(areaText.Message))
+        {
+            throw new InvalidOperationException(
+                "Present room 45 did not resolve its imported TX_0343 map text.");
+        }
+        _mapScreen.Update(7.0 / 60.0);
+        if (_mapScreen.PopupPrimary != 0x01 || _mapScreen.PopupSize != 4)
+        {
+            throw new InvalidOperationException(
+                $"Room 45's house popup did not expand in 7 updates: " +
+                $"icon={_mapScreen.PopupPrimary:x2}, size={_mapScreen.PopupSize}.");
+        }
+        _mapMenu.CloseImmediatelyForValidation();
+
         LoadValidationRoom(1, 0x11);
         _mapMenu.OpenImmediatelyForValidation();
         if (_mapScreen.Mode != MapScreen.MapMode.Past || _mapScreen.CursorRoom != 0x11)
@@ -536,6 +574,38 @@ public partial class GameRoot
         if (_mapScreen.Mode != MapScreen.MapMode.Dungeon || _mapScreen.DisplayedDungeonFloor != 0)
             throw new InvalidOperationException("Dungeon 0d map did not open on room 09's floor.");
         _mapMenu.CloseImmediatelyForValidation();
+
+        byte oldCompasses = _saveData.ReadWramByte(0xc684);
+        byte oldMaps = _saveData.ReadWramByte(0xc686);
+        byte oldRoom30Flags = _saveData.GetRoomFlags(4, 0x30);
+        _saveData.WriteWramByte(0xc684, (byte)(oldCompasses | 0x04));
+        _saveData.WriteWramByte(0xc686, (byte)(oldMaps | 0x04));
+        _saveData.SetRoomFlag(4, 0x30, OracleSaveData.RoomFlagItem, value: false);
+        var mapInventory = new InventoryState(_treasures, _saveData);
+        _mapScreen.Initialize(_rooms, mapInventory);
+        LoadValidationRoom(4, 0x46);
+        _mapMenu.OpenImmediatelyForValidation();
+        DungeonMapDatabase.DungeonInfo dungeon02 = _rooms.DungeonMaps.GetDungeon(0x02);
+        if (dungeon02.CompassFloors != 0x01 ||
+            _mapScreen.DisplayedDungeonFloor != 1 || _mapScreen.DungeonTileAt(6, 1) != 0x83)
+        {
+            throw new InvalidOperationException(
+                "Dungeon 02's map/compass did not reveal its imported boss room and floor mask.");
+        }
+        _mapScreen.SelectDungeonFloorForValidation(0);
+        if (_mapScreen.DisplayedDungeonFloor != 0 || _mapScreen.DungeonTileAt(5, 1) != 0xae)
+        {
+            throw new InvalidOperationException(
+                "Dungeon 02's compass did not reveal the unopened room 30 treasure on floor 0.");
+        }
+        _mapMenu.CloseImmediatelyForValidation();
+        _saveData.WriteWramByte(0xc684, oldCompasses);
+        _saveData.WriteWramByte(0xc686, oldMaps);
+        _saveData.SetRoomFlag(4, 0x30, 0xff, value: false);
+        if (oldRoom30Flags != 0)
+            _saveData.SetRoomFlag(4, 0x30, oldRoom30Flags);
+        _mapScreen.Initialize(_rooms, _inventory);
+        LoadValidationRoom(4, 0x09);
 
         _mapMenu.OpenDebugImmediatelyForValidation();
         if (!_mapScreen.DebugFastTravel || _mapScreen.Mode != MapScreen.MapMode.Past)
@@ -570,9 +640,11 @@ public partial class GameRoot
         if (_mapMenu.IsActive || !_player.IsPhysicsProcessing() || !_player.IsProcessing())
             throw new InvalidOperationException("Debug fast travel did not restore gameplay processing.");
 
-        GD.Print("Validated original present/past/dungeon map tilemaps, 14x14 cursor wrapping, " +
-            "32-update marker blink, 11-update fast fades, Link input freezing, and " +
-            "dungeon-to-overworld debug fast travel.");
+        GD.Print("Validated original present/past/dungeon map tilemaps, imported TX_03XX area " +
+            "text, source-specific color-0 OAM transparency, arrow Y-flip, 7-update popup " +
+            "expansion, map/compass floor and " +
+            "boss/treasure reveals, 14x14 cursor wrapping, 32-update marker blink, 11-update " +
+            "fast fades, Link input freezing, and dungeon-to-overworld debug fast travel.");
     }
 
     private void LoadValidationRoom(int group, int room)
