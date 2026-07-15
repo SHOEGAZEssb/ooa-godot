@@ -2195,9 +2195,40 @@ public partial class GameRoot
                     $"swordArcData row `${index:x2} mismatch: expected {expected}, got {actual}.");
         }
 
+        // wScrollMode $08 freezes initialized item objects. The held sword
+        // parent and its locked facing must therefore survive both ends of a
+        // scrolling transition without charging or observing button release.
+        _player.Face(Vector2I.Up);
+        _player.StartSwordAttack();
+        _player.AdvanceSwordForValidation(17, buttonHeld: true);
+        _transitions.BeginScroll(_player, Vector2I.Right, 0x6a);
+        if (!_transitions.ScrollActive ||
+            _player.SwordState != Player.SwordActionState.Held ||
+            _player.FacingVector != Vector2I.Up || _player.SwordArcIndex != 12)
+        {
+            throw new InvalidOperationException(
+                "Scrolling right did not preserve the up-facing held sword parent item.");
+        }
+        _player._Process(1.0);
+        if (_player.SwordState != Player.SwordActionState.Held ||
+            _player.SwordStateFrame != 0 || _player.FacingVector != Vector2I.Up)
+        {
+            throw new InvalidOperationException(
+                "wScrollMode $08 did not freeze the held sword for the scrolling transition.");
+        }
+        _transitions.UpdateScroll(1.0);
+        if (_transitions.ScrollActive ||
+            _player.SwordState != Player.SwordActionState.Held ||
+            _player.FacingVector != Vector2I.Up || _player.SwordArcIndex != 12)
+        {
+            throw new InvalidOperationException(
+                "Finishing the scrolling transition cleared or redirected the held sword.");
+        }
+        _player.AdvanceSwordForValidation(1, buttonHeld: false);
+
         GD.Print(
             "Validated ITEM_SWORD's 17-update swing/3-update directional restart gate, " +
-            "held collision/movement, " +
+            "held collision/movement and scrolling-transition persistence, " +
             "41-update charge, " +
             "held/charged standing/walking body, child-item Z/layer rendering, charged palette cadence, " +
             "12-update wall poke/clinks with 8-update INTERAC_CLINK sprites, 23-update swordspin, " +

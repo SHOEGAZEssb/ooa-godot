@@ -134,9 +134,13 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
-    public void WarpTo(Vector2 position, bool recordSafe = true)
+    public void WarpTo(
+        Vector2 position,
+        bool recordSafe = true,
+        bool preserveSword = false)
     {
-        CancelSwordAttack();
+        if (!preserveSword)
+            CancelSwordAttack();
         EndNewGameSlowFall();
         _drownTime = 0.0f;
         _drownInvisibleTime = 0.0f;
@@ -232,9 +236,11 @@ public partial class Player : Node2D
     {
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
-        Face(direction);
+        // wScrollMode $08 freezes the active parent item, while the scrolling
+        // transition moves Link without changing his sword-locked direction.
+        if (!IsAttacking)
+            Face(direction);
         _walking = false;
-        CancelSwordAttack();
         QueueRedraw();
     }
 
@@ -247,7 +253,7 @@ public partial class Player : Node2D
 
     public void FinishScrollingTransition(Vector2 position)
     {
-        WarpTo(position);
+        WarpTo(position, preserveSword: true);
         _walking = false;
         QueueRedraw();
     }
@@ -583,6 +589,11 @@ public partial class Player : Node2D
                 0.0f, _enemyInvincibilityFrames - (float)delta * 60.0f);
             QueueRedraw();
         }
+
+        // updateItems skips initialized items while wScrollMode is $08. Room
+        // warps cancel the sword synchronously in BeginRoomWarpTransition.
+        if (_world.IsTransitioning)
+            return;
 
         if (_world.SwordDisabled)
             CancelSwordAttack();
