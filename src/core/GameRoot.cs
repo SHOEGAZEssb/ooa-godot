@@ -131,6 +131,7 @@ public partial class GameRoot : Node2D
                 ZIndex = 200
             };
             AddChild(_newGameIntroScreen);
+            _newGameIntroScreen.Dialogue.MessageSpeed = save.TextSpeed;
             _newGameIntro = new NewGameIntroController(
                 _newGameIntroScreen,
                 () => CompleteNewGameIntro(save),
@@ -185,6 +186,7 @@ public partial class GameRoot : Node2D
             _saveData);
         _rooms.RoomChanged += ApplyRoomMusic;
         _scene = new GameSceneGraph(this);
+        _dialogue.MessageSpeed = _saveData.TextSpeed;
         _hud.Initialize(_treasures, _inventory);
         _mapScreen.Initialize(_rooms, _inventory);
         _inventoryScreen.Initialize(_treasures, _inventory,

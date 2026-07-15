@@ -3599,6 +3599,19 @@ public partial class GameRoot
     private void ValidateSigns()
     {
         WarpToSignTest();
+        if (_dialogue.MessageSpeed != _saveData.TextSpeed)
+            throw new InvalidOperationException(
+                "Gameplay dialogue did not consume the selected save's wTextSpeed value.");
+        Color expectedDefaultText = new(0x1f / 31.0f, 0x1a / 31.0f, 0x11 / 31.0f);
+        if (!DialogueBox.DefaultTextColorForValidation.IsEqualApprox(expectedDefaultText))
+            throw new InvalidOperationException(
+                "Default textbox text did not use paletteData48e0's white color 2.");
+        if (DialogueBox.ContinueMarkerRectForValidation != new Rect2(144, 32, 8, 8) ||
+            _dialogue.ContinueMarkerOpaquePixelCountForValidation() != 22)
+        {
+            throw new InvalidOperationException(
+                "The textbox continue marker did not use gfx_hud tile $03 at its original tile position.");
+        }
         if (_dialogue.VisibleLinesPerPage != 2 || _dialogue.TextLineSpacing != 16)
             throw new InvalidOperationException(
                 "The textbox does not use the original two 8x16 text rows.");
@@ -3607,15 +3620,75 @@ public partial class GameRoot
         if (!TryInteract(_player) || !_dialogue.IsOpen)
             throw new InvalidOperationException("The room 2a test sign did not open its dialogue.");
 
-        bool arrowBefore = _dialogue.ArrowVisible;
+        _dialogue.RevealCurrentPageForValidation();
+        if (!_dialogue.IsPageComplete || _dialogue.HasNextMessage || _dialogue.ArrowVisible)
+        {
+            throw new InvalidOperationException(
+                "The final two-line sign message incorrectly displayed a continuation prompt.");
+        }
+
+        _dialogue.ShowMessage("First.\nSecond.\nThird.", _player.Position.Y);
+        _dialogue.RevealCurrentPageForValidation();
+        if (!_dialogue.HasNextMessage || _dialogue.ArrowVisible)
+            throw new InvalidOperationException(
+                "A multi-line textbox did not begin its continuation prompt on the blank phase.");
         _dialogue.AdvanceArrowClockForValidation(16.0 / 60.0);
-        if (_dialogue.ArrowVisible == arrowBefore)
-            throw new InvalidOperationException("The textbox arrow did not toggle after 16 original-engine frames.");
+        if (!_dialogue.ArrowVisible)
+            throw new InvalidOperationException("The textbox arrow did not appear after 16 original-engine frames.");
         _dialogue.AdvanceArrowClockForValidation(16.0 / 60.0);
-        if (_dialogue.ArrowVisible != arrowBefore)
+        if (_dialogue.ArrowVisible)
             throw new InvalidOperationException("The textbox arrow did not complete its 32-frame blink cycle.");
 
+        int selectedSpeed = _dialogue.MessageSpeed;
+        int[] expectedCharacterFrames = { 7, 5, 4, 3, 2 };
+        for (int speed = 0; speed < expectedCharacterFrames.Length; speed++)
+        {
+            _dialogue.MessageSpeed = speed;
+            if (_dialogue.CharacterDisplayFrameLength != expectedCharacterFrames[speed])
+                throw new InvalidOperationException(
+                    $"Message speed {speed} did not select {expectedCharacterFrames[speed]} updates per character.");
+        }
+        _dialogue.MessageSpeed = 0;
+        _dialogue.ShowMessage("AB", _player.Position.Y);
+        _dialogue.AdvanceCharacterClockForValidation(6.0 / 60.0);
+        if (_dialogue.VisibleGlyphCount != 0)
+            throw new InvalidOperationException("Message speed 0 displayed a character before update 7.");
+        _dialogue.AdvanceCharacterClockForValidation(1.0 / 60.0);
+        if (_dialogue.VisibleGlyphCount != 1)
+            throw new InvalidOperationException("Message speed 0 did not display its first character on update 7.");
+        _dialogue.MessageSpeed = 4;
+        _dialogue.ShowMessage("AB", _player.Position.Y);
+        _dialogue.AdvanceCharacterClockForValidation(1.0 / 60.0);
+        if (_dialogue.VisibleGlyphCount != 0)
+            throw new InvalidOperationException("Message speed 4 displayed a character before update 2.");
+        _dialogue.AdvanceCharacterClockForValidation(1.0 / 60.0);
+        if (_dialogue.VisibleGlyphCount != 1)
+            throw new InvalidOperationException("Message speed 4 did not display its first character on update 2.");
+
+        _dialogue.ShowMessage(
+            "\\col(1)R\\col(3)B\\col(0)N\n\\sym(0x57)♪\\heart\\abtn\\bbtn",
+            _player.Position.Y);
+        if (_dialogue.GlyphColorForValidation(0, 0, 0) != 1 ||
+            _dialogue.GlyphColorForValidation(0, 0, 1) != 3 ||
+            _dialogue.GlyphColorForValidation(0, 0, 2) != 0 ||
+            !_dialogue.GlyphUsesSymbolFontForValidation(0, 1, 0) ||
+            _dialogue.GlyphCodeForValidation(0, 1, 0) != 0x57 ||
+            !_dialogue.GlyphUsesSymbolFontForValidation(0, 1, 1) ||
+            _dialogue.GlyphCodeForValidation(0, 1, 1) != 0x1c ||
+            _dialogue.GlyphUsesSymbolFontForValidation(0, 1, 2) ||
+            _dialogue.GlyphCodeForValidation(0, 1, 2) != 0x14 ||
+            _dialogue.GlyphCodeForValidation(0, 1, 3) != 0xb8 ||
+            _dialogue.GlyphCodeForValidation(0, 1, 4) != 0xb9 ||
+            _dialogue.GlyphCodeForValidation(0, 1, 5) != 0xba ||
+            _dialogue.GlyphCodeForValidation(0, 1, 6) != 0xbb)
+        {
+            throw new InvalidOperationException(
+                "Textbox color commands or main/symbol-font glyph selection were not preserved.");
+        }
+        _dialogue.MessageSpeed = selectedSpeed;
+
         _dialogue.ShowMessage("First.\nSecond.\nThird.\nFourth.", _player.Position.Y);
+        _dialogue.RevealCurrentPageForValidation();
         _dialogue.AdvanceOrClose();
         if (!_dialogue.IsScrollingText ||
             !Mathf.IsEqualApprox(_dialogue.TextScrollOffset, 8.0f))
@@ -3636,9 +3709,13 @@ public partial class GameRoot
         _dialogue.AdvanceTextScrollForValidation(5.0 / 60.0);
         if (_dialogue.IsScrollingText || !Mathf.IsZeroApprox(_dialogue.TextScrollOffset))
             throw new InvalidOperationException(
-                "The two discrete tile-row scroll sequences did not finish in seven frames.");
+                "The two discrete tile-row shifts did not finish the one-line text scroll.");
 
         _dialogue.ShowMessage("Last line.", _player.Position.Y);
+        _dialogue.RevealCurrentPageForValidation();
+        _dialogue.AdvanceArrowClockForValidation(32.0 / 60.0);
+        if (_dialogue.HasNextMessage || _dialogue.ArrowVisible)
+            throw new InvalidOperationException("The final dialogue message displayed a continuation arrow.");
         _dialogue.AdvanceOrClose();
         if (_dialogue.IsOpen || !_dialogue.BlocksPlayerInput)
             throw new InvalidOperationException("Closing the final textbox did not consume its button press.");
@@ -3646,7 +3723,10 @@ public partial class GameRoot
         if (_dialogue.IsOpen)
             throw new InvalidOperationException("The final textbox press immediately restarted the interaction.");
 
-        GD.Print("Validated dialogue spacing, discrete tile-row text scroll, 32-frame arrow blink, and final-page input consumption.");
+        GD.Print("Validated save-selected 7/5/4/3/2-update dialogue speed, white default " +
+            "text, colored and symbol-font glyphs, gfx_hud tile $03 continuation marker, " +
+            "one-line tile-row scrolling, continuation-only 32-update blink, and " +
+            "final-message input consumption.");
     }
 
     private void ValidateNpcs()
@@ -4426,7 +4506,8 @@ public partial class GameRoot
                 $"Impa's -$1c0/$20 first jump did not land after 29 gravity updates ({firstAirUpdates}).");
         }
         StepRoomEventFrames(timing.FirstLandingWait);
-        if (!_dialogue.IsOpen || _dialogue.CurrentMessage != record.Texts.First.Message ||
+        if (!_dialogue.IsOpen || _dialogue.CurrentMessage !=
+            DialogueBox.PlainText(record.Texts.First.Message) ||
             impaEvent.Counter != timing.FirstTextPostFrames)
         {
             throw new InvalidOperationException("Impa did not show TX_0104 after the first landing wait.");
@@ -4461,7 +4542,8 @@ public partial class GameRoot
                 $"Impa's -$180/$20 second jump did not land after 25 gravity updates ({secondAirUpdates}).");
         }
         StepRoomEventFrames(timing.SecondLandingWait);
-        if (!_dialogue.IsOpen || _dialogue.CurrentMessage != record.Texts.Sign.Message ||
+        if (!_dialogue.IsOpen || _dialogue.CurrentMessage !=
+            DialogueBox.PlainText(record.Texts.Sign.Message) ||
             !_dialogue.CurrentMessage.Contains('▲'))
         {
             throw new InvalidOperationException("Impa did not show expanded TX_0105 with the Triforce glyph.");
@@ -4475,7 +4557,8 @@ public partial class GameRoot
         {
             StepRoomEventFrames(1);
         }
-        if (!_dialogue.IsOpen || _dialogue.CurrentMessage != record.Texts.Request.Message ||
+        if (!_dialogue.IsOpen || _dialogue.CurrentMessage !=
+            DialogueBox.PlainText(record.Texts.Request.Message) ||
             _player.Position != new Vector2(stone.LinkTargetX, stone.LinkTargetY))
         {
             throw new InvalidOperationException(
@@ -4484,7 +4567,8 @@ public partial class GameRoot
         _dialogue.Close();
         StepRoomEventFrames(1 + timing.RequestPostFrames + timing.FirstBackAwayFrames +
             timing.BetweenFirstBackAwayFrames);
-        if (!_dialogue.IsOpen || _dialogue.CurrentMessage != record.Texts.Hesitation.Message ||
+        if (!_dialogue.IsOpen || _dialogue.CurrentMessage !=
+            DialogueBox.PlainText(record.Texts.Hesitation.Message) ||
             follower.Position.X != stone.TargetX - 16)
         {
             throw new InvalidOperationException(
@@ -4493,7 +4577,8 @@ public partial class GameRoot
         _dialogue.Close();
         StepRoomEventFrames(1 + timing.HesitationPostFrames + timing.SecondBackAwayFrames +
             timing.BetweenSecondBackAwayFrames);
-        if (!_dialogue.IsOpen || _dialogue.CurrentMessage != record.Texts.Failure.Message ||
+        if (!_dialogue.IsOpen || _dialogue.CurrentMessage !=
+            DialogueBox.PlainText(record.Texts.Failure.Message) ||
             follower.Position.X != stone.TargetX - 32)
         {
             throw new InvalidOperationException(
@@ -4535,7 +4620,7 @@ public partial class GameRoot
         _player.WarpTo(follower.Position + Vector2.Right * 16);
         _player.Face(Vector2I.Left);
         if (!TryInteract(_player) || !_dialogue.IsOpen ||
-            _dialogue.CurrentMessage != record.Texts.Talk.Message ||
+            _dialogue.CurrentMessage != DialogueBox.PlainText(record.Texts.Talk.Message) ||
             follower.Record.CanFace ||
             follower.CurrentScriptAnimationSource != impaEvent.Database.Record.RightAnimation)
         {
@@ -4546,7 +4631,7 @@ public partial class GameRoot
         _player.WarpTo(new Vector2(0x50, stone.LeaveY + 2));
         impaEvent.UpdateStoneFrame(pushing: false, downPressed: true);
         if (!_dialogue.IsOpen || _player.Position.Y != stone.LeaveY ||
-            _dialogue.CurrentMessage != record.Texts.Leave.Message ||
+            _dialogue.CurrentMessage != DialogueBox.PlainText(record.Texts.Leave.Message) ||
             !_dialogue.CurrentMessage.EndsWith("move this!"))
         {
             throw new InvalidOperationException(
@@ -4631,7 +4716,8 @@ public partial class GameRoot
         {
             StepRoomEventFrames(1);
         }
-        if (!_dialogue.IsOpen || _dialogue.CurrentMessage != record.Texts.Thanks.Message ||
+        if (!_dialogue.IsOpen || _dialogue.CurrentMessage !=
+            DialogueBox.PlainText(record.Texts.Thanks.Message) ||
             responseUpdates >= 400)
         {
             throw new InvalidOperationException(
@@ -5214,11 +5300,11 @@ public partial class GameRoot
         bool sawVignetteRestartSilence = false;
         bool sawDisasterMusic = false;
         bool sawSadnessMusic = false;
-        string swordMessage = nayruDatabase.Text(0x001c).Message;
-        string nayruGreeting = nayruDatabase.Text(0x1d00).Message;
-        string nayruSecondGreeting = nayruDatabase.Text(0x1d22).Message;
-        string ralphIntroduction = nayruDatabase.Text(0x2a00).Message;
-        string ralphReply = nayruDatabase.Text(0x2a22).Message;
+        string swordMessage = DialogueBox.PlainText(nayruDatabase.Text(0x001c).Message);
+        string nayruGreeting = DialogueBox.PlainText(nayruDatabase.Text(0x1d00).Message);
+        string nayruSecondGreeting = DialogueBox.PlainText(nayruDatabase.Text(0x1d22).Message);
+        string ralphIntroduction = DialogueBox.PlainText(nayruDatabase.Text(0x2a00).Message);
+        string ralphReply = DialogueBox.PlainText(nayruDatabase.Text(0x2a22).Message);
         string nayruDownAnimation = nayruDatabase.Actor("Nayru").Animation(2);
         string impaRevealAnimation = nayruDatabase.Actor("AftermathImpa").Animation(4);
         string ralphFallAnimation = nayruDatabase.Actor("AftermathRalph").Animation(8);

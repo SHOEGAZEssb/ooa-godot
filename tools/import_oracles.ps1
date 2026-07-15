@@ -373,6 +373,7 @@ Copy-GeneratedFile "gfx_compressible\ages\spr_quest_items_4.png" "gfx\spr_quest_
 Copy-GeneratedFile "gfx_compressible\ages\spr_common_items.png" "gfx\spr_common_items.png"
 Copy-GeneratedFile "gfx\common\gfx_partial_hearts.png" "gfx\gfx_partial_hearts.png"
 Copy-GeneratedFile "gfx\common\gfx_font.png" "gfx\gfx_font.png"
+Copy-GeneratedFile "gfx\common\gfx_font_jp.png" "gfx\gfx_font_jp.png"
 
 # Title and file-select screens use the same split VRAM layout as the original
 # GFXH_TITLESCREEN / GFXH_FILE_MENU_* headers. Preserve each source piece at
@@ -551,6 +552,20 @@ $fileMenuSprite46 = Read-PaletteBytes 'paletteData5858' 12
 [IO.File]::WriteAllBytes(
     (Join-Path $destination 'menu\palette_file_sprites.bin'), $fileMenuSpritePalette)
 
+# Preserve visible symbols as UTF-8 while retaining commands whose behavior is
+# owned by DialogueBox. In particular, \col and \stop must survive import so
+# the runtime can apply their original inline palette and page-break behavior.
+function Normalize-DialogueText([string]$text) {
+    $text = $text.Replace('\left', [string][char]0x2190)
+    $text = $text.Replace('\right', [string][char]0x2192)
+    $text = $text.Replace('\up', [string][char]0x2191)
+    $text = $text.Replace('\down', [string][char]0x2193)
+    $text = $text.Replace('\sym(0x1c)', [string][char]0x266a)
+    $text = $text.Replace('\sym(0x57)', [string][char]0x25b2)
+    $text = $text.Replace('\Link', 'Link')
+    return [regex]::Replace($text, '\\pos\([^)]*\)', '')
+}
+
 # Signs are map metatile $f2 rather than ordinary room objects. Preserve the
 # original group/room/position lookup table and resolve its TX_2eXX strings to
 # UTF-8 here, while the human-readable disassembly sources are available.
@@ -567,12 +582,7 @@ foreach ($match in $textMatches) {
     while ($lines.Count -gt 0 -and $lines[-1] -eq '') {
         $lines = $lines[0..($lines.Count - 2)]
     }
-    $text = $lines -join "`n"
-    $text = $text.Replace('\left', [string][char]0x2190)
-    $text = $text.Replace('\right', [string][char]0x2192)
-    $text = $text.Replace('\up', [string][char]0x2191)
-    $text = $text.Replace('\down', [string][char]0x2193)
-    $text = [regex]::Replace($text, '\\(?:stop|pos\([^)]*\)|col\([^)]*\))', '')
+    $text = Normalize-DialogueText ($lines -join "`n")
     $signTexts[[Convert]::ToInt32($match.Groups['id'].Value, 16)] = $text
 }
 
@@ -617,15 +627,6 @@ foreach ($id in @(
     0xcb, 0xcc, 0xcd, 0xce, 0xd5, 0xd6, 0xe3
 )) { [void]$npcInteractionIds.Add($id) }
 
-function Normalize-NpcText([string]$text) {
-    $text = $text.Replace('\left', [string][char]0x2190)
-    $text = $text.Replace('\right', [string][char]0x2192)
-    $text = $text.Replace('\up', [string][char]0x2191)
-    $text = $text.Replace('\down', [string][char]0x2193)
-    $text = $text.Replace('\Link', 'Link')
-    return [regex]::Replace($text, '\\(?:stop|pos\([^)]*\)|col\([^)]*\))', '')
-}
-
 # Resolve all text blocks once. This also handles the low-index generic-NPC
 # commands, whose source still spells the complete TX_XXXX symbol.
 $allTexts = @{}
@@ -643,7 +644,7 @@ foreach ($match in $allTextMatches) {
     }
     $textId = [Convert]::ToInt32($match.Groups['id'].Value, 16)
     $rawText = $lines -join "`n"
-    $allTexts[$textId] = Normalize-NpcText $rawText
+    $allTexts[$textId] = Normalize-DialogueText $rawText
     $positionMatch = [regex]::Match($rawText, '\\pos\((?<position>\d+)\)')
     if ($positionMatch.Success) { $allTextPositions[$textId] = [int]$positionMatch.Groups['position'].Value }
 }
@@ -661,7 +662,7 @@ foreach ($match in [regex]::Matches(
         $lines = $lines[0..($lines.Count - 2)]
     }
     $rawText = $lines -join "`n"
-    $message = Normalize-NpcText $rawText
+    $message = Normalize-DialogueText $rawText
     $positionMatch = [regex]::Match($rawText, '\\pos\((?<position>\d+)\)')
     foreach ($name in [regex]::Matches($match.Groups['names'].Value, 'TX_(?<id>[0-9a-f]{4})')) {
         $textId = [Convert]::ToInt32($name.Groups['id'].Value, 16)
