@@ -126,6 +126,8 @@ The initial room `0:39` dialogue now stops Nayru's singing as Ralph begins, turn
 - `PlayerWorld` implements the narrow `IPlayerWorld` API consumed by `Player`.
 - Development launch options and test-room warps live under `src/debug`; headless regression scenarios live under `src/validation`.
 
+The time portal resets Link to his neutral down-facing pose on contact, and its source tilemap remains fully black-masked through the white-out so the old era cannot flash between palette phases.
+
 ## Next implementation slices
 
 1. Port further room objects and interactions from `data/ages/*Room.s` and `objects/ages`.

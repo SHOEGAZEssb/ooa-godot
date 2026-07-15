@@ -322,9 +322,7 @@ public sealed class RoomTransitionController
         // interactionBeginTimewarp copies the portal's position into w1Link,
         // forces DIR_DOWN, and calls restartSound before CUTSCENE_TIMEWARP is
         // serviced on the next update.
-        player.WarpTo(portalPosition, recordSafe: false);
-        player.Face(Vector2I.Down);
-        player.BeginRoomWarpTransition();
+        player.BeginTimeWarpTransition(portalPosition);
         _sound.RestartSound();
         _roomView.SetBackgroundFade(Colors.Black, 0.0f);
         SetFade(0.0f);
@@ -501,19 +499,27 @@ public sealed class RoomTransitionController
 
             case WarpPhase.TimeWarpBlackFadeIn:
                 _timeWarpEffect?.AdvanceFrame(_timeWarpGlobalFrame);
-                _roomView.SetBackgroundFade(
-                    Colors.Black,
-                    1.0f - _timeWarpPhaseFrame / FastPaletteFadeFrames);
+                // Keep the source tilemap fully masked. The original palette
+                // handoff transitions the displayed field from black to white;
+                // exposing the unfaded Godot room between those palette
+                // operations produces a map flash that the hardware path does
+                // not present.
+                _roomView.SetBackgroundFade(Colors.Black, 1.0f);
                 if (_timeWarpPhaseFrame >= FastPaletteFadeFrames)
                 {
-                    _roomView.ClearBackgroundFade();
-                    SetFade(0.0f);
                     SetTimeWarpPhase(WarpPhase.TimeWarpWhiteFadeOut);
+                    // The cutscene observes palette mode 0 on this update and
+                    // immediately calls fadeoutToWhite. Apply its first step
+                    // now so there is no fully neutral source-room frame
+                    // between the black and white fades.
+                    _timeWarpPhaseFrame = 1;
+                    SetFade(_timeWarpPhaseFrame / WarpFadeFrames);
                 }
                 break;
 
             case WarpPhase.TimeWarpWhiteFadeOut:
                 _timeWarpEffect?.AdvanceFrame(_timeWarpGlobalFrame);
+                _roomView.SetBackgroundFade(Colors.Black, 1.0f);
                 SetFade(_timeWarpPhaseFrame / WarpFadeFrames);
                 if (_timeWarpPhaseFrame >= WarpFadeFrames)
                 {

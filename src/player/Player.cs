@@ -266,6 +266,21 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
+    public void BeginTimeWarpTransition(Vector2 portalPosition)
+    {
+        // interactionBeginTimewarp copies the portal position into w1Link and
+        // writes DIR_DOWN before disabling Link. Clear pose state at the same
+        // handoff so a pushing or item animation cannot survive underneath the
+        // time-warp beam.
+        WarpTo(portalPosition, recordSafe: false);
+        BeginRoomWarpTransition();
+        _facing = Facing.Down;
+        _pushing = false;
+        _walkTime = 0.0f;
+        _lastMovementInput = Vector2.Zero;
+        QueueRedraw();
+    }
+
     public void BeginRoomWarpWalk(Vector2 position, Vector2I direction)
     {
         WarpTo(position, recordSafe: false);

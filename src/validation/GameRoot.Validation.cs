@@ -1158,15 +1158,21 @@ public partial class GameRoot
 
         _player.WarpTo(portal.Position, recordSafe: false);
         _player.Face(Vector2I.Left);
+        // Enter from a composite non-neutral pose. The sword previously hid a
+        // stale pushing flag which became visible as soon as portal entry
+        // cancelled the sword.
+        _player.SetCutscenePushing(true);
+        _player.StartSwordAttackForValidation(Vector2.Left);
         _sound.ClearPlayRequestAudit();
         _entities.Update(1.0 / 60.0, _player);
         if (!IsTransitioning || portal.Visible || _player.Position != portal.Position ||
-            _player.FacingVector != Vector2I.Down || _sound.ActiveMusic != 0 ||
+            _player.FacingVector != Vector2I.Down || _player.Walking || _player.IsPushing ||
+            _player.IsAttacking || _player.IsHoldingItemOneHand || _sound.ActiveMusic != 0 ||
             _transitions.TimeWarpPhaseName != "TimeWarpInitialize")
         {
             throw new InvalidOperationException(
-                "interactionBeginTimewarp did not delete the portal, center/facing Link, restart " +
-                "sound, and trigger CUTSCENE_TIMEWARP.");
+                "interactionBeginTimewarp did not delete the portal, center Link in a neutral " +
+                "down-facing pose, restart sound, and trigger CUTSCENE_TIMEWARP.");
         }
 
         // A long rendered frame must still service only state 0. In
@@ -1316,12 +1322,27 @@ public partial class GameRoot
         }
         UpdateRoomWarpTransition(RoomTransitionController.FastPaletteFadeFrames / 60.0);
         if (_transitions.TimeWarpPhaseName != "TimeWarpWhiteFadeOut" ||
-            !Mathf.IsZeroApprox(_roomView.BackgroundFadeAlpha) || _player.Visible)
+            _transitions.TimeWarpPhaseFrame != 1 ||
+            !Mathf.IsEqualApprox(_roomView.BackgroundFadeAlpha, 1.0f) ||
+            !Mathf.IsEqualApprox(_warpFade.Color.A, 1.0f / WarpFadeFrames) ||
+            _player.Visible)
         {
             throw new InvalidOperationException(
-                "fastFadeinFromBlack did not reveal the source room in 11 updates.");
+                "The source tilemap was not kept black-covered while the palette handoff " +
+                "started the first fadeoutToWhite step.");
         }
-        UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
+        UpdateRoomWarpTransition((WarpFadeFrames - 2.0f) / 60.0);
+        if (_transitions.TimeWarpPhaseName != "TimeWarpWhiteFadeOut" ||
+            _transitions.TimeWarpPhaseFrame != WarpFadeFrames - 1 ||
+            !Mathf.IsEqualApprox(_roomView.BackgroundFadeAlpha, 1.0f) ||
+            !Mathf.IsEqualApprox(
+                _warpFade.Color.A, (WarpFadeFrames - 1.0f) / WarpFadeFrames) ||
+            _activeGroup != 0)
+        {
+            throw new InvalidOperationException(
+                "The source tilemap became visible before the white overlay reached opacity.");
+        }
+        UpdateRoomWarpTransition(1.0 / 60.0);
         if (_activeGroup != 1 || _currentRoom.Id != 0x39 ||
             _currentRoom.GetPackedPosition(_player.Position) != 0x22 ||
             _player.Visible || !_hud.Visible ||
@@ -1411,8 +1432,10 @@ public partial class GameRoot
             "CUTSCENE_TIMEWARP: centered Link, sound restart, 8x6 non-Link sprite dissolve, " +
             "intact-until-120 source Link, priority-3 ground below Link, priority-2/1 beam " +
             "and trail above Link, source update-24 horizontal beam fold, 11-update " +
-            "source/arrival beam contraction, source-carried PALH_c1/c2 palette, hidden HUD, " +
-            "$dd/$2b/$84 source effects, black/white fades, $d1/$d4 sounds, and 30/16/30 arrival.");
+            "source/arrival beam contraction, neutral down-facing Link on contact, " +
+            "source-carried PALH_c1/c2 palette, hidden HUD, " +
+            "$dd/$2b/$84 source effects, map-masked black-to-white fade, $d1/$d4 sounds, " +
+            "and 30/16/30 arrival.");
     }
 
     private void ValidateEnterPastEvent()

@@ -151,6 +151,9 @@ if ($timeWarpCutsceneSource -notmatch '(?ms)^func_03_7244:.*?ld a,\$08\s+ld \(\$
     $linkWarpSource -notmatch '(?ms)^warpTransition6:.*?ld \(hl\),\$1e.*?ld \(hl\),\$10.*?SND_TIMEWARP_COMPLETED.*?ld \(hl\),\$1e') {
     throw 'CUTSCENE_TIMEWARP or TRANSITION_DEST_TIMEWARP timing no longer matches 8x6, 120/60, and 30/16/30.'
 }
+if ($timeWarpCutsceneSource -notmatch '(?ms)^@@cbb3_03:\s+call timewarpCutscene_decCBB4\s+ret nz\s+call fastFadeinFromBlack\s+jp timewarpCutscene_incCBB3\s+@@cbb3_04:\s+ld a,\(wPaletteThread_mode\)\s+or a\s+ret nz\s+call fadeoutToWhite') {
+    throw 'CUTSCENE_TIMEWARP no longer hands fastFadeinFromBlack directly to fadeoutToWhite.'
+}
 if ($timeWarpCutsceneSource -notmatch '(?ms)^func_03_7244:.*?ld a,\(wTilesetFlags\)\s+and \$80\s+ld a,\$02\s+jr nz,\+\s+dec a\s+\+\s+ld l,Interaction.var03\s+ld \(hl\),a\s+ld \(wcc50\),a' -or
     $linkWarpSource -notmatch '(?ms)^@createDestinationTimewarpAnimation:.*?ld a,\(wcc50\)\s+inc l\s+ld \(hl\),a') {
     throw 'Time-warp PALH_c1/PALH_c2 selection no longer carries the source tileset flag through wcc50.'
