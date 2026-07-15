@@ -20,6 +20,7 @@ public sealed class MapMenuController
     private readonly Player _player;
     private readonly Label _roomDebug;
     private readonly System.Func<bool> _canOpen;
+    private readonly System.Func<bool> _normalMenuUnlocked;
     private readonly System.Action<int, int> _fastTravel;
     private Phase _phase;
     private float _phaseFrame;
@@ -32,7 +33,8 @@ public sealed class MapMenuController
     public bool IsOpen => _phase == Phase.Open;
 
     public MapMenuController(MapScreen screen, ColorRect fade, DialogueBox dialogue, Player player,
-        Label roomDebug, System.Func<bool> canOpen, System.Action<int, int> fastTravel)
+        Label roomDebug, System.Func<bool> canOpen, System.Func<bool> normalMenuUnlocked,
+        System.Action<int, int> fastTravel)
     {
         _screen = screen;
         _fade = fade;
@@ -40,6 +42,7 @@ public sealed class MapMenuController
         _player = player;
         _roomDebug = roomDebug;
         _canOpen = canOpen;
+        _normalMenuUnlocked = normalMenuUnlocked;
         _fastTravel = fastTravel;
     }
 
@@ -49,7 +52,7 @@ public sealed class MapMenuController
         {
             if (Input.IsActionJustPressed("debug_map_travel") && _canOpen())
                 BeginOpening(debugFastTravel: true);
-            else if (Input.IsActionJustPressed("map") && _canOpen())
+            else if (Input.IsActionJustPressed("map") && _normalMenuUnlocked() && _canOpen())
                 BeginOpening(debugFastTravel: false);
             return;
         }
@@ -130,6 +133,9 @@ public sealed class MapMenuController
         _phase = Phase.Open;
         _phaseFrame = 0.0f;
     }
+
+    internal bool CanOpenNormalForValidation =>
+        _phase == Phase.Closed && _normalMenuUnlocked() && _canOpen();
 
     internal void CloseImmediatelyForValidation()
     {

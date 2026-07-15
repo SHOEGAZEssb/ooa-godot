@@ -31,6 +31,7 @@ public sealed class InventoryMenuController
     public bool IsActive => _phase != Phase.Closed;
     public bool IsOpen => _phase is Phase.InventoryOpen or Phase.SaveOpen;
     public bool SaveMenuOpen => _phase is Phase.SaveOpen or Phase.SaveSelectionDelay;
+    internal bool CanOpenForValidation => _phase == Phase.Closed && _canOpen();
     internal int SaveRequests { get; private set; }
     internal int QuitRequests { get; private set; }
 

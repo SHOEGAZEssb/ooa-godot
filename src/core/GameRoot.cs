@@ -160,11 +160,6 @@ public partial class GameRoot : Node2D
         _saveData = save;
         _treasures = new TreasureDatabase();
         _inventory = new InventoryState(_treasures, _saveData);
-        if (!_inventory.HasTreasure(TreasureDatabase.TreasureSword))
-        {
-            _inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SWORD_00"));
-            _inventory.EquipA(InventoryState.ItemSword);
-        }
         int startingGroup = _launchOptions.HasWorldOverride || !_persistSaveData
             ? _launchOptions.StartingGroup
             : _saveData.RespawnGroup;
@@ -362,10 +357,12 @@ public partial class GameRoot : Node2D
         _mapMenu = new MapMenuController(
             _mapScreen, _scene.MenuFade, _dialogue, _player, _roomDebug,
             () => !IsTransitioning && !DialogueOpen && !InventoryMenuOpen && !_roomEvents.Active,
+            () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone),
             FastTravelFromMap);
         _inventoryMenu = new InventoryMenuController(
             _inventoryScreen, _saveQuitScreen, _scene.MenuFade, _player, _roomDebug,
-            () => !IsTransitioning && !DialogueOpen && !MapMenuOpen && !_roomEvents.Active,
+            () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone) &&
+                !IsTransitioning && !DialogueOpen && !MapMenuOpen && !_roomEvents.Active,
             SaveActiveFile, ReturnToTitle);
         _debugFlagMenu = new DebugFlagMenuController(
             _debugFlagScreen, _rooms, _player, _roomDebug,

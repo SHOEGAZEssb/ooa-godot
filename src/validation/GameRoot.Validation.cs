@@ -558,14 +558,20 @@ public partial class GameRoot
     private void ValidateSaveDataFoundation()
     {
         OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var standardInventory = new InventoryState(_treasures, save);
         if (save.HasGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared) ||
             save.GetRoomFlags(0, 0x38) != 0 ||
             save.RespawnGroup != 0 || save.RespawnRoom != 0x8a ||
             save.RespawnStateModifier != 0 || save.RespawnFacing != 0 ||
-            save.RespawnY != 0x38 || save.RespawnX != 0x48)
+            save.RespawnY != 0x38 || save.RespawnX != 0x48 ||
+            standardInventory.HasTreasure(TreasureDatabase.TreasureSword) ||
+            standardInventory.SwordLevel != 0 ||
+            standardInventory.EquippedA == InventoryState.ItemSword ||
+            standardInventory.EquippedB == InventoryState.ItemSword)
         {
             throw new InvalidOperationException(
-                "A standard file did not begin with clear flags and the original 0:8a/$38/$48 checkpoint.");
+                "A standard file did not begin swordless, with clear flags and the " +
+                "original 0:8a/$38/$48 checkpoint.");
         }
 
         save.SetGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared);
@@ -619,7 +625,7 @@ public partial class GameRoot
 
         GD.Print("Validated original $550-byte save signature/checksum, 128 global flags, " +
             "four aliased room-flag tables, initial/current death checkpoint, inventory fields, " +
-            "and BCD rupee round trip.");
+            "swordless standard-game state, and BCD rupee round trip.");
     }
 
     private void ValidateDeathRespawnCheckpoints()
@@ -1356,12 +1362,17 @@ public partial class GameRoot
     private void ValidateInventoryFoundation()
     {
         if (!_inventory.HasTreasure(TreasureDatabase.TreasureSword) ||
-            _inventory.EquippedA != InventoryState.ItemSword ||
+            _inventory.EquippedB != InventoryState.ItemSword ||
             _inventory.SwordLevel != 1)
         {
             throw new InvalidOperationException(
-                "The development sword was not granted through TREASURE_OBJECT_SWORD_00 into wInventoryA.");
+                "Impa's TREASURE_OBJECT_SWORD_00 gift was not added to the first empty " +
+                "inventory slot, wInventoryB.");
         }
+
+        // The menu swap checks below begin from their established sword-on-A
+        // arrangement; move Impa's B-slot gift there through the normal path.
+        _inventory.EquipA(InventoryState.ItemSword);
 
         var chests = new ChestDatabase();
         if (!chests.TryGet(4, 0x87, 0x65, out ChestDatabase.ChestRecord switchHookChest) ||
@@ -1391,7 +1402,7 @@ public partial class GameRoot
         }
 
         GD.Print("Validated disassembly-backed inventory state, equipped A/B slots, " +
-            "TREASURE_OBJECT_SWORD_00 startup grant, and non-rupee chest treasure give path.");
+            "Impa's TREASURE_OBJECT_SWORD_00 gift, and non-rupee chest treasure give path.");
     }
 
     private void ValidateInventoryMenu()
@@ -4253,6 +4264,15 @@ public partial class GameRoot
         _saveData.SetRoomFlag(group, roomId, OracleSaveData.RoomFlag80, value: false);
         LoadValidationRoom(group, roomId);
 
+        if (_inventory.HasTreasure(TreasureDatabase.TreasureSword) ||
+            _inventory.SwordLevel != 0 || _inventoryMenu.CanOpenForValidation ||
+            _mapMenu.CanOpenNormalForValidation)
+        {
+            throw new InvalidOperationException(
+                "The pre-intro save retained the development sword or allowed Start/Select " +
+                "before GLOBALFLAG_INTRO_DONE $0a.");
+        }
+
         NayruActorRegistry actors = nayruIntro.ActorRegistry;
         (string Name, Vector2 Position)[] expectedActors =
         {
@@ -4703,6 +4723,9 @@ public partial class GameRoot
             !nayruIntro.AftermathRalphFacingShown ||
             !sawNayruAscent || !sawNayruDescent ||
             !nayruIntro.PortalFlightShown ||
+            !_inventory.HasTreasure(TreasureDatabase.TreasureSword) ||
+            _inventory.SwordLevel != 1 || !_inventoryMenu.CanOpenForValidation ||
+            !_mapMenu.CanOpenNormalForValidation ||
             scriptFrames >= 20000)
         {
             throw new InvalidOperationException(
