@@ -2832,6 +2832,377 @@ $impaEventRows = @(
     $impaEventRows,
     [Text.UTF8Encoding]::new($false))
 
+# Room 0:59 continues the same retained INTERAC_IMPA_IN_CUTSCENE object.
+# Export the complete two-object handshake: Impa subid $00/linkCutscene2,
+# INTERAC_TRIFORCE_STONE ($34:$00), the post-move PART_TRIFORCE_STONE
+# ($5a:$5a), and both Impa scripts on either side of the push.
+$impaStoneSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\triforceStone.s')
+$impaStonePartSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\parts\triforceStone.s')
+$impaScriptHelperSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+$musicConstantSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\music.s')
+
+$impaStoneRoomBlock = [regex]::Match(
+    ($mainObjectLines -join "`n"),
+    '(?ms)^group0Map59ObjectData:(?<body>.*?)(?=^group0Map5aObjectData:)')
+$impaStoneRoomInteraction = [regex]::Match(
+    $impaStoneRoomBlock.Groups['body'].Value,
+    'obj_Interaction \$(?<id>[0-9a-f]{2}) \$(?<subid>[0-9a-f]{2}) \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2})')
+$impaStoneRoomPart = [regex]::Match(
+    $impaStoneRoomBlock.Groups['body'].Value,
+    'obj_Part \$(?<id>[0-9a-f]{2}) \$(?<subid>[0-9a-f]{2}) \$(?<position>[0-9a-f]{2})')
+if (-not $impaStoneRoomBlock.Success -or -not $impaStoneRoomInteraction.Success -or
+    -not $impaStoneRoomPart.Success -or
+    $impaStoneRoomInteraction.Groups['id'].Value -ne '34' -or
+    $impaStoneRoomInteraction.Groups['subid'].Value -ne '00' -or
+    $impaStoneRoomInteraction.Groups['y'].Value -ne '26' -or
+    $impaStoneRoomInteraction.Groups['x'].Value -ne '38' -or
+    $impaStoneRoomPart.Groups['id'].Value -ne '5a' -or
+    $impaStoneRoomPart.Groups['subid'].Value -ne '5a' -or
+    $impaStoneRoomPart.Groups['position'].Value -ne '23') {
+    throw 'Room 0:59 no longer contains INTERAC_TRIFORCE_STONE $34:$00 at $26/$38 and PART_TRIFORCE_STONE $5a:$5a at $23.'
+}
+
+$impaStoneInit = [regex]::Match(
+    $impaStoneSource,
+    '(?ms)and \$(?<deleteMask>[0-9a-f]{2}).*?Interaction\.collisionRadiusY\s+ld \(hl\),\$(?<radiusY>[0-9a-f]{2})\s+inc l\s+ld \(hl\),\$(?<radiusX>[0-9a-f]{2}).*?ld a,PALH_(?<palette>[0-9a-f]{2})')
+$impaStonePush = [regex]::Match(
+    $impaStoneSource,
+    '(?ms)ld \(hl\),SPEED_40.*?ld \(hl\),\$(?<moveFrames>[0-9a-f]{2}).*?ld \(hl\),\$(?<linkSubid>[0-9a-f]{2}).*?ld \(hl\),SPEED_80.*?ld \(hl\),\$(?<signal>[0-9a-f]{2}).*?ld a,SND_(?<pushSound>[A-Z0-9_]+)')
+$impaStoneHold = [regex]::Match(
+    $impaStoneSource,
+    '(?ms)ld a,\$01\s+ld \(wForceLinkPushAnimation\),a.*?call interactionDecCounter1.*?ld \(wForceLinkPushAnimation\),a\s+ld a,\$(?<frames>[0-9a-f]{2})')
+$impaStoneFinish = [regex]::Match(
+    $impaStoneSource,
+    '(?ms)ld b,\$(?<rightX>[0-9a-f]{2}).*?and \$10.*?ld b,\$(?<leftX>[0-9a-f]{2}).*?ld b,\$(?<leftFlag>[0-9a-f]{2}).*?ld b,\$(?<rightFlag>[0-9a-f]{2}).*?ld a,SNDCTRL_(?<stopSound>[A-Z0-9_]+).*?ld a,SND_(?<solveSound>[A-Z0-9_]+)')
+$impaStoneFinalTile = [regex]::Match(
+    $impaStoneSource,
+    '(?ms)@setSolidTile:.*?ld a,\$(?<tile>[0-9a-f]{2})\s+ld \(bc\),a.*?ld a,\$(?<collision>[0-9a-f]{2})')
+if (-not $impaStoneInit.Success -or -not $impaStonePush.Success -or
+    -not $impaStoneHold.Success -or -not $impaStoneFinish.Success -or
+    -not $impaStoneFinalTile.Success -or
+    $impaStoneInit.Groups['deleteMask'].Value -ne 'c0' -or
+    $impaStoneInit.Groups['radiusY'].Value -ne '03' -or
+    $impaStoneInit.Groups['radiusX'].Value -ne '0a' -or
+    $impaStoneInit.Groups['palette'].Value -ne '98' -or
+    $impaStonePush.Groups['moveFrames'].Value -ne '40' -or
+    $impaStonePush.Groups['linkSubid'].Value -ne '06' -or
+    $impaStonePush.Groups['signal'].Value -ne '06' -or
+    $impaStonePush.Groups['pushSound'].Value -ne 'MAKUDISAPPEAR' -or
+    $impaStoneHold.Groups['frames'].Value -ne '14' -or
+    $impaStoneFinish.Groups['rightX'].Value -ne '48' -or
+    $impaStoneFinish.Groups['leftX'].Value -ne '28' -or
+    $impaStoneFinish.Groups['leftFlag'].Value -ne '40' -or
+    $impaStoneFinish.Groups['rightFlag'].Value -ne '80' -or
+    $impaStoneFinish.Groups['stopSound'].Value -ne 'STOPSFX' -or
+    $impaStoneFinish.Groups['solveSound'].Value -ne 'SOLVEPUZZLE_2' -or
+    $impaStoneFinalTile.Groups['tile'].Value -ne '00' -or
+    $impaStoneFinalTile.Groups['collision'].Value -ne '0f') {
+    throw 'Could not parse the original Triforce-stone radii, 20/64-update push, positions, flags, sounds, or final solid tile.'
+}
+
+$impaApproach = [regex]::Match(
+    $impaSource,
+    '(?ms)^impaCheckApproachedStone:.*?cp \$(?<room>[0-9a-f]{2}).*?cp \$(?<y>[0-9a-f]{2}).*?cp \$(?<x>[0-9a-f]{2})')
+$impaStoneSequence = [regex]::Match(
+    $impaSource,
+    '(?ms); Link has approached the stone; trigger cutscene\..*?ld l,Interaction\.counter1\s+ld \(hl\),\$(?<spotHold>[0-9a-f]{2}).*?ld bc,-\$(?<spotSpeedZ>[0-9a-f]{3}).*?ld c,\$(?<gravity>[0-9a-f]{2}).*?ld \(hl\),\$(?<firstLanding>[0-9a-f]{2}).*?ld \(hl\),\$(?<firstPost>[0-9a-f]{2}).*?TX_(?<firstText>[0-9a-f]{4}).*?ld \(hl\),SPEED_300.*?ldh \(<hFF8B\),a\s+ldbc \$(?<targetY>[0-9a-f]{2}),\$(?<targetX>[0-9a-f]{2}).*?ld \(hl\),\$(?<stoneWait>[0-9a-f]{2}).*?; Start a jump\s+ld \(hl\),\$(?<secondHold>[0-9a-f]{2})\s+ld bc,-\$(?<secondSpeedZ>[0-9a-f]{3}).*?ld c,\$(?<gravity2>[0-9a-f]{2}).*?ld \(hl\),\$(?<secondLanding>[0-9a-f]{2}).*?ld \(hl\),\$(?<signPost>[0-9a-f]{2}).*?TX_(?<signText>[0-9a-f]{4})')
+if (-not $impaApproach.Success -or -not $impaStoneSequence.Success -or
+    $impaApproach.Groups['room'].Value -ne '59' -or
+    $impaApproach.Groups['y'].Value -ne '58' -or
+    $impaApproach.Groups['x'].Value -ne '78' -or
+    $impaStoneSequence.Groups['spotHold'].Value -ne '1e' -or
+    $impaStoneSequence.Groups['spotSpeedZ'].Value -ne '1c0' -or
+    $impaStoneSequence.Groups['gravity'].Value -ne '20' -or
+    $impaStoneSequence.Groups['firstLanding'].Value -ne '0a' -or
+    $impaStoneSequence.Groups['firstPost'].Value -ne '14' -or
+    $impaStoneSequence.Groups['firstText'].Value -ne '0104' -or
+    $impaStoneSequence.Groups['targetY'].Value -ne '38' -or
+    $impaStoneSequence.Groups['targetX'].Value -ne '38' -or
+    $impaStoneSequence.Groups['stoneWait'].Value -ne '1e' -or
+    $impaStoneSequence.Groups['secondHold'].Value -ne '1e' -or
+    $impaStoneSequence.Groups['secondSpeedZ'].Value -ne '180' -or
+    $impaStoneSequence.Groups['gravity2'].Value -ne '20' -or
+    $impaStoneSequence.Groups['secondLanding'].Value -ne '0a' -or
+    $impaStoneSequence.Groups['signPost'].Value -ne '1e' -or
+    $impaStoneSequence.Groups['signText'].Value -ne '0105') {
+    throw "Could not parse Impa's room `$59 approach, two jumps, target, waits, or TX_0104/TX_0105 (approach=$($impaApproach.Success):$($impaApproach.Groups['room'].Value)/$($impaApproach.Groups['y'].Value)/$($impaApproach.Groups['x'].Value), sequence=$($impaStoneSequence.Success):$($impaStoneSequence.Groups['spotHold'].Value)/$($impaStoneSequence.Groups['spotSpeedZ'].Value)/$($impaStoneSequence.Groups['gravity'].Value)/$($impaStoneSequence.Groups['firstLanding'].Value)/$($impaStoneSequence.Groups['firstPost'].Value)/$($impaStoneSequence.Groups['firstText'].Value)/$($impaStoneSequence.Groups['targetY'].Value)/$($impaStoneSequence.Groups['targetX'].Value)/$($impaStoneSequence.Groups['stoneWait'].Value)/$($impaStoneSequence.Groups['secondHold'].Value)/$($impaStoneSequence.Groups['secondSpeedZ'].Value)/$($impaStoneSequence.Groups['gravity2'].Value)/$($impaStoneSequence.Groups['secondLanding'].Value)/$($impaStoneSequence.Groups['signPost'].Value)/$($impaStoneSequence.Groups['signText'].Value))."
+}
+
+$impaMoveAwayBlock = [regex]::Match(
+    $impaScriptSource,
+    '(?ms)^impaScript_moveAwayFromRock:(?<body>.*?)(?=^impaScript_waitForRockToBeMoved:)')
+$impaMoveAway = [regex]::Match(
+    $impaMoveAwayBlock.Groups['body'].Value,
+    '(?ms)checkmemoryeq .*?, \$(?<signal>[0-9a-f]{2}).*?wait (?<lead>\d+).*?showtext TX_(?<request>[0-9a-f]{4})\s+wait (?<post1>\d+).*?setanimation \$(?<backAnimation>[0-9a-f]{2}).*?setangle \$(?<backAngle>[0-9a-f]{2}).*?setspeed SPEED_(?<backSpeed>[0-9a-fA-F_]+).*?applyspeed \$(?<backFrames1>[0-9a-f]{2})\s+wait (?<between1>\d+)\s+showtext TX_(?<hesitation>[0-9a-f]{4})\s+wait (?<post2>\d+)\s+applyspeed \$(?<backFrames2>[0-9a-f]{2})\s+wait (?<between2>\d+)\s+showtext TX_(?<failure>[0-9a-f]{4})\s+wait (?<post3>\d+).*?\$(?<doneSignal>[0-9a-f]{2})')
+if (-not $impaMoveAwayBlock.Success -or -not $impaMoveAway.Success -or
+    $impaMoveAway.Groups['signal'].Value -ne '03' -or
+    $impaMoveAway.Groups['lead'].Value -ne '10' -or
+    $impaMoveAway.Groups['request'].Value -ne '0106' -or
+    $impaMoveAway.Groups['post1'].Value -ne '30' -or
+    $impaMoveAway.Groups['backAnimation'].Value -ne '01' -or
+    $impaMoveAway.Groups['backAngle'].Value -ne '18' -or
+    $impaMoveAway.Groups['backSpeed'].Value -ne '080' -or
+    $impaMoveAway.Groups['backFrames1'].Value -ne '21' -or
+    $impaMoveAway.Groups['between1'].Value -ne '30' -or
+    $impaMoveAway.Groups['hesitation'].Value -ne '0107' -or
+    $impaMoveAway.Groups['post2'].Value -ne '30' -or
+    $impaMoveAway.Groups['backFrames2'].Value -ne '21' -or
+    $impaMoveAway.Groups['between2'].Value -ne '30' -or
+    $impaMoveAway.Groups['failure'].Value -ne '0108' -or
+    $impaMoveAway.Groups['post3'].Value -ne '30' -or
+    $impaMoveAway.Groups['doneSignal'].Value -ne '04') {
+    throw 'Could not parse impaScript_moveAwayFromRock and its TX_0106/TX_0107/TX_0108 cadence.'
+}
+
+$impaRockMovedBlock = [regex]::Match(
+    $impaScriptHelperSource,
+    '(?ms)^impaScript_rockJustMoved:(?<body>.*?)(?=^; Subid 4:)')
+$impaRockMoved = [regex]::Match(
+    $impaRockMovedBlock.Groups['body'].Value,
+    '(?ms)wait (?<lead>\d+).*?w1Link\.angle, \$(?<rightAngle>[0-9a-f]{2}).*?setangle \$(?<downAngle>[0-9a-f]{2})\s+setspeed SPEED_(?<correctSpeed>[0-9a-fA-F_]+)\s+applyspeed (?<leftCorrect>\d+).*?wait (?<rightWait>\d+).*?wait (?<commonWait>\d+)\s+setangle \$(?<rightMoveAngle>[0-9a-f]{2})\s+setspeed SPEED_(?<rightSpeed>[0-9a-fA-F_]+)\s+applyspeed \$(?<rightFrames>[0-9a-f]{2})\s+wait (?<wait1>\d+).*?moveup \$(?<upFrames>[0-9a-f]{2})\s+wait (?<wait2>\d+).*?\$(?<signal>[0-9a-f]{2})\s+setanimation \$(?<animation>[0-9a-f]{2})\s+wait (?<poseWait>\d+)\s+showtext TX_(?<thanks>[0-9a-f]{4})\s+wait (?<thanksPost>\d+)\s+setspeed SPEED_(?<finalSpeed>[0-9a-fA-F_]+)\s+moveup \$(?<finalFrames>[0-9a-f]{2})')
+if (-not $impaRockMovedBlock.Success -or -not $impaRockMoved.Success -or
+    $impaRockMoved.Groups['lead'].Value -ne '4' -or
+    $impaRockMoved.Groups['rightAngle'].Value -ne '08' -or
+    $impaRockMoved.Groups['downAngle'].Value -ne '10' -or
+    $impaRockMoved.Groups['correctSpeed'].Value -ne '040' -or
+    $impaRockMoved.Groups['leftCorrect'].Value -ne '65' -or
+    $impaRockMoved.Groups['rightWait'].Value -ne '65' -or
+    $impaRockMoved.Groups['commonWait'].Value -ne '120' -or
+    $impaRockMoved.Groups['rightMoveAngle'].Value -ne '08' -or
+    $impaRockMoved.Groups['rightSpeed'].Value -ne '100' -or
+    $impaRockMoved.Groups['rightFrames'].Value -ne '21' -or
+    $impaRockMoved.Groups['wait1'].Value -ne '8' -or
+    $impaRockMoved.Groups['upFrames'].Value -ne '11' -or
+    $impaRockMoved.Groups['wait2'].Value -ne '8' -or
+    $impaRockMoved.Groups['signal'].Value -ne '07' -or
+    $impaRockMoved.Groups['animation'].Value -ne '00' -or
+    $impaRockMoved.Groups['poseWait'].Value -ne '30' -or
+    $impaRockMoved.Groups['thanks'].Value -ne '0109' -or
+    $impaRockMoved.Groups['thanksPost'].Value -ne '30' -or
+    $impaRockMoved.Groups['finalSpeed'].Value -ne '080' -or
+    $impaRockMoved.Groups['finalFrames'].Value -ne '20') {
+    throw 'Could not parse scriptHelp.impaScript_rockJustMoved and its direction-dependent response.'
+}
+
+$impaLeaveGuard = [regex]::Match(
+    $impaSource,
+    '(?ms)^impaPreventLinkFromLeavingStoneScreen:.*?ld b,\$(?<y>[0-9a-f]{2}).*?BTN_DOWN.*?ld b,\$(?<x>[0-9a-f]{2}).*?BTN_RIGHT.*?TX_(?<text>[0-9a-f]{4})')
+$linkCutscene2Block = [regex]::Match(
+    $impaLinkSource,
+    '(?ms)^linkCutscene2:(?<body>.*?)(?=^linkCutscene3:)')
+$linkCutscene2 = [regex]::Match(
+    $linkCutscene2Block.Groups['body'].Value,
+    '(?ms)ld bc,\$(?<target>[0-9a-f]{4}).*?^@substate0:.*?ld l,SpecialObject\.yh\s+ldi a,\(hl\)\s+cp \$(?<targetY>[0-9a-f]{2}).*?ld \(hl\),\$(?<axisWait>[0-9a-f]{2}).*?^@gotoState7:.*?ld l,SpecialObject\.counter1\s+ld \(hl\),\$(?<targetWait>[0-9a-f]{2}).*?^@substate7:.*?ld \(hl\),\$(?<faceWait>[0-9a-f]{2}).*?ld hl,\$cfd0\s+ld \(hl\),\$(?<signal>[0-9a-f]{2})')
+if (-not $impaLeaveGuard.Success -or -not $linkCutscene2Block.Success -or
+    -not $linkCutscene2.Success -or
+    $impaLeaveGuard.Groups['y'].Value -ne '76' -or
+    $impaLeaveGuard.Groups['x'].Value -ne '96' -or
+    $impaLeaveGuard.Groups['text'].Value -ne '010a' -or
+    $linkCutscene2.Groups['target'].Value -ne '3838' -or
+    $linkCutscene2.Groups['targetY'].Value -ne '48' -or
+    $linkCutscene2.Groups['axisWait'].Value -ne '08' -or
+    $linkCutscene2.Groups['targetWait'].Value -ne '3c' -or
+    $linkCutscene2.Groups['faceWait'].Value -ne '10' -or
+    $linkCutscene2.Groups['signal'].Value -ne '03') {
+    throw "Could not parse linkCutscene2 target `$38/`$48, 8/60/16 waits, or room-exit guard (guard=$($impaLeaveGuard.Success):$($impaLeaveGuard.Groups['y'].Value)/$($impaLeaveGuard.Groups['x'].Value)/$($impaLeaveGuard.Groups['text'].Value), link=$($linkCutscene2.Success):$($linkCutscene2.Groups['target'].Value)/$($linkCutscene2.Groups['targetY'].Value)/$($linkCutscene2.Groups['axisWait'].Value)/$($linkCutscene2.Groups['targetWait'].Value)/$($linkCutscene2.Groups['faceWait'].Value)/$($linkCutscene2.Groups['signal'].Value))."
+}
+
+$impaStonePart = [regex]::Match(
+    $impaStonePartSource,
+    '(?ms)and \$(?<flags>[0-9a-f]{2}).*?and \$(?<leftMask>[0-9a-f]{2})\s+ld a,\$(?<leftX>[0-9a-f]{2}).*?ld a,\$(?<rightX>[0-9a-f]{2}).*?ld a,PALH_(?<palette>[0-9a-f]{2})')
+if (-not $impaStonePart.Success -or
+    $impaStonePart.Groups['flags'].Value -ne 'c0' -or
+    $impaStonePart.Groups['leftMask'].Value -ne '40' -or
+    $impaStonePart.Groups['leftX'].Value -ne '28' -or
+    $impaStonePart.Groups['rightX'].Value -ne '48' -or
+    $impaStonePart.Groups['palette'].Value -ne '98') {
+    throw 'Could not parse PART_TRIFORCE_STONE completed-room position and PALH_98.'
+}
+
+function Resolve-ObjectSpeed([string]$name) {
+    $match = [regex]::Match(
+        $speedSource,
+        "(?m)^\s*SPEED_$([regex]::Escape($name))\s+dsb\s+\d+\s*;\s*0x(?<value>[0-9a-f]{2})")
+    if (-not $match.Success) { throw "Could not resolve SPEED_$name." }
+    return [Convert]::ToInt32($match.Groups['value'].Value, 16)
+}
+function Resolve-SoundConstant([string]$name) {
+    $match = [regex]::Match(
+        $musicConstantSource,
+        "(?m)^\s*$([regex]::Escape($name))\s+db\s*;\s*\`$(?<value>[0-9a-f]{2})")
+    if (-not $match.Success) { throw "Could not resolve sound constant $name." }
+    return [Convert]::ToInt32($match.Groups['value'].Value, 16)
+}
+
+$stoneGraphic = $interactionGraphics['52:0']
+if ($null -eq $stoneGraphic -or $stoneGraphic.Gfx -ne 0x3d -or
+    -not $gfxNames.ContainsKey($stoneGraphic.Gfx) -or
+    $gfxNames[$stoneGraphic.Gfx] -ne 'spr_triforcestone' -or
+    $stoneGraphic.TileBase -ne 0 -or $stoneGraphic.Palette -ne 6 -or
+    $stoneGraphic.DefaultAnimation -ne 0) {
+    throw 'INTERAC_TRIFORCE_STONE $34:$00 no longer resolves to spr_triforcestone, tile base 0, palette 6, animation 0.'
+}
+$stoneAnimation = Resolve-NpcAnimation 0x34 0
+if (-not $stoneAnimation) { throw 'Could not resolve INTERAC_TRIFORCE_STONE animation $00.' }
+
+$impaStoneSpriteSource = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
+    ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Filter 'spr_triforcestone.png' } |
+    Select-Object -First 1
+if ($null -eq $impaStoneSpriteSource) {
+    throw 'Triforce-stone sprite not found: spr_triforcestone.png'
+}
+$impaStoneSpriteProperties = [IO.Path]::ChangeExtension(
+    $impaStoneSpriteSource.FullName, '.properties')
+if (-not (Test-Path -LiteralPath $impaStoneSpriteProperties)) {
+    throw 'Triforce-stone sprite properties not found: spr_triforcestone.properties'
+}
+$stoneSourceInverted = [regex]::Match(
+    (Get-Content -Raw -LiteralPath $impaStoneSpriteProperties),
+    '(?m)^invert:\s*(?<value>true|false)\s*$')
+if (-not $stoneSourceInverted.Success -or
+    $stoneSourceInverted.Groups['value'].Value -ne 'false') {
+    throw 'spr_triforcestone.properties no longer selects non-inverted source grayscale.'
+}
+
+$stoneTextIds = @(
+    [Convert]::ToInt32($impaStoneSequence.Groups['firstText'].Value, 16),
+    [Convert]::ToInt32($impaStoneSequence.Groups['signText'].Value, 16),
+    [Convert]::ToInt32($impaMoveAway.Groups['request'].Value, 16),
+    [Convert]::ToInt32($impaMoveAway.Groups['hesitation'].Value, 16),
+    [Convert]::ToInt32($impaMoveAway.Groups['failure'].Value, 16),
+    [Convert]::ToInt32($impaRockMoved.Groups['thanks'].Value, 16),
+    [Convert]::ToInt32($impaLeaveGuard.Groups['text'].Value, 16),
+    0x010b)
+foreach ($textId in $stoneTextIds) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve Impa stone-event text TX_$($textId.ToString('x4'))."
+    }
+}
+if (-not $allTexts.ContainsKey(0x010c)) {
+    throw 'Could not resolve the TX_010a jump target TX_010c.'
+}
+$stoneMessages = @($stoneTextIds | ForEach-Object { $allTexts[$_] })
+$stoneMessages[1] = $stoneMessages[1].Replace('\sym(0x57)', [string][char]0x25b2)
+$stoneMessages[6] = $stoneMessages[6].Replace(
+    '\jump(TX_010c)', $allTexts[0x010c])
+$stoneMessages[7] = $stoneMessages[7].Replace('\n', '')
+
+$partPosition = [Convert]::ToInt32($impaStoneRoomPart.Groups['position'].Value, 16)
+$partY = (($partPosition -shr 4) * 16) + 8
+$stoneColumns = @(
+    '0', '59', '34', '00',
+    [Convert]::ToInt32($impaStoneRoomInteraction.Groups['y'].Value, 16).ToString(),
+    [Convert]::ToInt32($impaStoneRoomInteraction.Groups['x'].Value, 16).ToString(),
+    $partY.ToString(),
+    [Convert]::ToInt32($impaStoneFinish.Groups['leftX'].Value, 16).ToString(),
+    [Convert]::ToInt32($impaStoneFinish.Groups['rightX'].Value, 16).ToString(),
+    [Convert]::ToInt32($impaStoneInit.Groups['radiusY'].Value, 16).ToString(),
+    [Convert]::ToInt32($impaStoneInit.Groups['radiusX'].Value, 16).ToString(),
+    $impaStoneFinish.Groups['leftFlag'].Value,
+    $impaStoneFinish.Groups['rightFlag'].Value,
+    [Convert]::ToInt32($impaApproach.Groups['y'].Value, 16).ToString(),
+    [Convert]::ToInt32($impaApproach.Groups['x'].Value, 16).ToString(),
+    [Convert]::ToInt32($impaStoneSequence.Groups['targetY'].Value, 16).ToString(),
+    [Convert]::ToInt32($impaStoneSequence.Groups['targetX'].Value, 16).ToString(),
+    '2',
+    [Convert]::ToInt32($impaStoneSequence.Groups['spotHold'].Value, 16).ToString(),
+    (-[Convert]::ToInt32($impaStoneSequence.Groups['spotSpeedZ'].Value, 16)).ToString(),
+    [Convert]::ToInt32($impaStoneSequence.Groups['gravity'].Value, 16).ToString(),
+    [Convert]::ToInt32($impaStoneSequence.Groups['firstLanding'].Value, 16).ToString(),
+    $stoneTextIds[0].ToString('x4'),
+    [Convert]::ToInt32($impaStoneSequence.Groups['firstPost'].Value, 16).ToString(),
+    (Resolve-ObjectSpeed '300').ToString(),
+    [Convert]::ToInt32($impaStoneSequence.Groups['stoneWait'].Value, 16).ToString(),
+    [Convert]::ToInt32($impaStoneSequence.Groups['secondHold'].Value, 16).ToString(),
+    (-[Convert]::ToInt32($impaStoneSequence.Groups['secondSpeedZ'].Value, 16)).ToString(),
+    [Convert]::ToInt32($impaStoneSequence.Groups['secondLanding'].Value, 16).ToString(),
+    $stoneTextIds[1].ToString('x4'),
+    [Convert]::ToInt32($impaStoneSequence.Groups['signPost'].Value, 16).ToString(),
+    [Convert]::ToInt32($linkCutscene2.Groups['axisWait'].Value, 16).ToString(),
+    [Convert]::ToInt32($linkCutscene2.Groups['targetWait'].Value, 16).ToString(),
+    [Convert]::ToInt32($linkCutscene2.Groups['faceWait'].Value, 16).ToString(),
+    (Resolve-ObjectSpeed '100').ToString(),
+    $impaMoveAway.Groups['lead'].Value,
+    $stoneTextIds[2].ToString('x4'),
+    $impaMoveAway.Groups['post1'].Value,
+    (Resolve-ObjectSpeed '80').ToString(),
+    [Convert]::ToInt32($impaMoveAway.Groups['backFrames1'].Value, 16).ToString(),
+    $impaMoveAway.Groups['between1'].Value,
+    $stoneTextIds[3].ToString('x4'),
+    $impaMoveAway.Groups['post2'].Value,
+    [Convert]::ToInt32($impaMoveAway.Groups['backFrames2'].Value, 16).ToString(),
+    $impaMoveAway.Groups['between2'].Value,
+    $stoneTextIds[4].ToString('x4'),
+    $impaMoveAway.Groups['post3'].Value,
+    [Convert]::ToInt32($impaStoneHold.Groups['frames'].Value, 16).ToString(),
+    [Convert]::ToInt32($impaStonePush.Groups['moveFrames'].Value, 16).ToString(),
+    (Resolve-ObjectSpeed '40').ToString(),
+    (Resolve-ObjectSpeed '80').ToString(),
+    $impaRockMoved.Groups['lead'].Value,
+    $impaRockMoved.Groups['leftCorrect'].Value,
+    (Resolve-ObjectSpeed '40').ToString(),
+    $impaRockMoved.Groups['rightWait'].Value,
+    $impaRockMoved.Groups['commonWait'].Value,
+    [Convert]::ToInt32($impaRockMoved.Groups['rightFrames'].Value, 16).ToString(),
+    (Resolve-ObjectSpeed '100').ToString(),
+    $impaRockMoved.Groups['wait1'].Value,
+    [Convert]::ToInt32($impaRockMoved.Groups['upFrames'].Value, 16).ToString(),
+    $impaRockMoved.Groups['wait2'].Value,
+    $impaRockMoved.Groups['poseWait'].Value,
+    $stoneTextIds[5].ToString('x4'),
+    $impaRockMoved.Groups['thanksPost'].Value,
+    (Resolve-ObjectSpeed '80').ToString(),
+    [Convert]::ToInt32($impaRockMoved.Groups['finalFrames'].Value, 16).ToString(),
+    [Convert]::ToInt32($impaLeaveGuard.Groups['y'].Value, 16).ToString(),
+    [Convert]::ToInt32($impaLeaveGuard.Groups['x'].Value, 16).ToString(),
+    $stoneTextIds[6].ToString('x4'),
+    $stoneTextIds[7].ToString('x4'),
+    (Resolve-SoundConstant 'SND_CLINK').ToString('x2'),
+    (Resolve-SoundConstant 'SND_MAKUDISAPPEAR').ToString('x2'),
+    'f1',
+    (Resolve-SoundConstant 'SND_SOLVEPUZZLE_2').ToString('x2'),
+    $gfxNames[$stoneGraphic.Gfx],
+    $stoneGraphic.TileBase.ToString(),
+    $stoneGraphic.Palette.ToString(),
+    $stoneAnimation,
+    $impaStoneFinalTile.Groups['tile'].Value,
+    $impaStoneFinalTile.Groups['collision'].Value,
+    [Convert]::ToInt32($linkCutscene2.Groups['targetY'].Value, 16).ToString(),
+    '56'
+)
+foreach ($message in $stoneMessages) {
+    $stoneColumns += [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($message))
+}
+$stoneColumns += '0'
+$stoneHeader = @(
+    'group','room','id','subid','initial-y','initial-x','moved-y','left-x','right-x',
+    'radius-y','radius-x','left-flag','right-flag','approach-y','approach-x','target-y','target-x','close-radius',
+    'spot-hold','spot-speed-z','gravity','first-land-wait','first-text','first-post','approach-speed','stone-wait',
+    'second-hold','second-speed-z','second-land-wait','sign-text','sign-post','link-axis-wait','link-target-wait',
+    'link-face-wait','link-speed','request-lead','request-text','request-post','back-speed','back-frames-1',
+    'between-back-1','hesitation-text','hesitation-post','back-frames-2','between-back-2','failure-text','failure-post',
+    'push-hold','stone-move-frames','stone-speed','link-push-speed','reaction-lead','left-correct-frames',
+    'left-correct-speed','right-branch-wait','common-wait','response-right-frames','response-right-speed','response-wait-1',
+    'response-up-frames','response-wait-2','pose-wait','thanks-text','thanks-post','final-speed','final-frames',
+    'leave-y','leave-x','leave-text','talk-text','spot-sound','push-sound','stop-sound','solve-sound',
+    'stone-sprite','stone-tile-base','stone-palette','stone-animation','final-layout-tile','final-collision',
+    'link-target-y','link-target-x',
+    'first-text-base64','sign-text-base64','request-text-base64','hesitation-text-base64','failure-text-base64',
+    'thanks-text-base64','leave-text-base64','talk-text-base64','stone-source-inverted') -join "`t"
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\impa_stone_event.tsv'),
+    @("# $stoneHeader", ($stoneColumns -join "`t")),
+    [Text.UTF8Encoding]::new($false))
+
+Export-PaletteBlock 'paletteData4428' 4 'metadata\impa_stone_palette.bin'
+Copy-Item -LiteralPath $impaStoneSpriteSource.FullName -Destination (
+    Join-Path $destination 'gfx\spr_triforcestone.png') -Force
+
 # Room $7a's unpositioned INTERAC_MISCELLANEOUS_1 ($6b:$00) owns the
 # "HELLLLP!!!" edge trigger immediately before the Impa encounter. Export its
 # edge check, textbox gate, post-text counter, simulated input, and separate

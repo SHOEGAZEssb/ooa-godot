@@ -14,7 +14,15 @@ public partial class OracleSoundEngine : Node
     private const double ApuClock = 4194304.0;
 
     public const int MusTitlescreen = 0x01;
+    public const int MusOverworld = 0x03;
+    public const int MusNayru = 0x08;
+    public const int MusEssenceRoom = 0x0d;
+    public const int MusFairyFountain = 0x0f;
     public const int MusFileSelect = 0x11;
+    public const int MusRoomOfRites = 0x1d;
+    public const int MusSadness = 0x1f;
+    public const int MusDisaster = 0x21;
+    public const int MusLadxSideview = 0x2f;
     public const int SndSelectItem = 0x56;
     public const int SndSwordSlash = 0x74;
     public const int SndMenuMove = 0x84;
@@ -22,6 +30,8 @@ public partial class OracleSoundEngine : Node
     public const int SndCtrlStopSfx = 0xf1;
     public const int SndCtrlDisable = 0xf5;
     public const int SndCtrlEnable = 0xf6;
+    public const int SndCtrlFastFadeOut = 0xfa;
+    public const int SndCtrlMediumFadeOut = 0xfb;
 
     private static readonly float[] SquareDuty = { 0.125f, 0.25f, 0.5f, 0.75f };
     private static readonly double CgbHighPassFactor =
@@ -85,11 +95,25 @@ public partial class OracleSoundEngine : Node
     public void PlayRoomMusic(int group, int room)
     {
         int music = _data.RoomMusic(group, room);
+        PlayMusicIfChanged(music);
+    }
+
+    public void PlayMusicIfChanged(int music)
+    {
         if (music != ActiveMusic)
             PlaySound(music == 0 ? SndCtrlStopMusic : music);
     }
 
     public void SetMusicVolume(int volume) => _musicVolume = Math.Clamp(volume, 0, 3);
+
+    public void RestartSound()
+    {
+        // restartSound calls the driver's stopSound entry point directly,
+        // terminating all eight channels without changing music volume.
+        foreach (ChannelState channel in _channels)
+            channel.Stop();
+        ActiveMusic = 0;
+    }
 
     public void PlaySound(int soundId)
     {

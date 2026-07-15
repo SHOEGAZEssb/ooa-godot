@@ -159,6 +159,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
         public Vector2 RalphStart { get; } = ralphStart;
         public int Elapsed { get; set; }
         public int SwayX { get; set; }
+        public int MinimumSwayX { get; set; }
+        public int MaximumSwayX { get; set; }
         public int PaletteCounter { get; set; } = 15;
         public int NormalPaletteFrames { get; set; } = 15;
         public int PossessedPaletteFrames { get; set; } = 1;
@@ -252,6 +254,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
     private bool _nayruVignetteMonkeyFlickerShown;
     private bool _nayruVignetteBoyPaletteShown;
     private bool _nayruVignetteLadyCadenceShown;
+    private bool _nayruMusicInitialized;
     private int _counter;
 
     private ImpaIntroEventDatabase _impaDatabase => _impaEvent.Database;
@@ -295,6 +298,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
     internal int AudienceMask => _nayruAudienceMask;
     internal NayruActorRegistry ActorRegistry => _nayruActors;
     internal int VisitedVignettes => _nayruVisitedVignettes;
+    internal int CurrentVignetteIndex => _nayruVignetteIndex;
+    internal int VignetteElapsed => _nayruVignetteElapsed;
     internal int NoteSpawnCount => _nayruNoteSpawnCount;
     internal int LightningSpawnCount => _nayruLightningSpawnCount;
     internal bool SwordGiftShown => _nayruSwordGiftShown;
@@ -411,6 +416,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         _nayruVignetteMonkeyFlickerShown = false;
         _nayruVignetteBoyPaletteShown = false;
         _nayruVignetteLadyCadenceShown = false;
+        _nayruMusicInitialized = false;
         _nayruVignetteMonkeys.Clear();
         _nayruAudienceTalkStates.Clear();
         _nayruStage = NayruStage.Crowd;
@@ -532,6 +538,13 @@ internal sealed class NayruIntroEvent : IRoomEvent
 
     public void UpdateFrame()
     {
+        if (!_nayruMusicInitialized)
+        {
+            // INTERAC_NAYRU $36:$00 restores full volume when its state 0
+            // first runs after the incoming 0:39 scroll has completed.
+            _context.Sound.SetMusicVolume(3);
+            _nayruMusicInitialized = true;
+        }
         UpdateNayruFleeingAudience();
         UpdateNayruAudienceTalks();
         UpdateNayruAmbientActors();
@@ -747,9 +760,12 @@ internal sealed class NayruIntroEvent : IRoomEvent
         Wait(10); Text(0x2a22); Wait(30);
         Wait(40); Callback(() => _player.Face(Vector2I.Up)); Text(0x1d22); Wait(30);
 
-        Animation("Impa", 2); Wait(30); Wait(30);
+        Animation("Impa", 2); Wait(30);
+        Callback(() => _context.Sound.PlaySound(OracleSoundEngine.SndCtrlFastFadeOut));
+        Wait(30);
         NpcMove("Impa", Vector2.Right * 32, 32, NayruMoveFacing.ImpaRight); Wait(8);
         NpcMove("Impa", Vector2.Up * 16, 16, NayruMoveFacing.ImpaUp); Wait(30);
+        Callback(() => _context.Sound.PlaySound(OracleSoundEngine.MusLadxSideview));
         Animation("Impa", 4); Wait(240); Text(0x5600);
         Callback(() => _player.Face(Vector2I.Down));
         Callback(AlarmNayruAudience); Wait(60); Animation("Impa", 0);
@@ -819,7 +835,9 @@ internal sealed class NayruIntroEvent : IRoomEvent
         Wait(40); Text(0x5605); Wait(60);
         NpcMove("Nayru", Vector2.Up * 17, 17, NayruMoveFacing.NayruPortalUp);
         Flicker("Nayru", 120); Callback(() => _nayruActors.Hide("Nayru"));
-        Wait(120); Wait(90); Text(0x5607); Wait(90);
+        Wait(120);
+        Callback(() => _context.Sound.PlaySound(OracleSoundEngine.SndCtrlMediumFadeOut));
+        Wait(90); Text(0x5607); Wait(90);
 
         Fade(11, fadeIn: false); Callback(() => BeginNayruVignette(0));
         Fade(11, fadeIn: true); BuildNayruVignetteZero();
@@ -872,7 +890,10 @@ internal sealed class NayruIntroEvent : IRoomEvent
         NpcMove(
             "AftermathImpa", Vector2.Down * 33, 33,
             NayruMoveFacing.AftermathImpaDown);
-        Wait(60);
+        Wait(30);
+        Callback(() => _context.Sound.PlayRoomMusic(
+            _nayruRecord.Group, _nayruRecord.Room));
+        Wait(30);
         Callback(FinishNayruIntro);
     }
 
@@ -1418,7 +1439,12 @@ internal sealed class NayruIntroEvent : IRoomEvent
             ghost.Visible = (_entities.FrameCounter & 1) != 0;
             _nayruGhostRevealFlickerRemaining--;
             if (_nayruGhostRevealFlickerRemaining == 0)
+            {
                 ghost.Visible = true;
+                // runVeranGhostSubid0 starts this cue when its initial $5a
+                // flicker counter expires and the ghost appears from Impa.
+                _context.Sound.PlaySound(OracleSoundEngine.MusRoomOfRites);
+            }
         }
 
         UpdateGhostVeranEmergence();
@@ -1492,6 +1518,15 @@ internal sealed class NayruIntroEvent : IRoomEvent
         if (_nayruVignetteIndex < 0)
             return;
         _nayruVignetteElapsed++;
+        if (_nayruVignetteIndex == 0)
+        {
+            // INTERAC_MISCELLANEOUS_1 $6b:$05 runs restartSound on its first
+            // script update, then waits 120 updates before MUS_DISASTER.
+            if (_nayruVignetteElapsed == 1)
+                _context.Sound.RestartSound();
+            else if (_nayruVignetteElapsed == 121)
+                _context.Sound.PlaySound(OracleSoundEngine.MusDisaster);
+        }
         switch (_nayruVignetteIndex)
         {
             case 0:
@@ -2044,7 +2079,13 @@ internal sealed class NayruIntroEvent : IRoomEvent
             {
                 ReadOnlySpan<int> sway = [-1, -1, -1, 0, 1, 1, 1, 0];
                 state.SwayX += sway[(_entities.FrameCounter >> 3) & 7];
-                _nayruPossessionSwayShown |= Math.Abs(state.SwayX) >= 3;
+                state.MinimumSwayX = Math.Min(state.MinimumSwayX, state.SwayX);
+                state.MaximumSwayX = Math.Max(state.MaximumSwayX, state.SwayX);
+                // The original table travels three pixels between its two
+                // extrema. Which extremum is the initial coordinate depends
+                // on the persistent global frame phase.
+                _nayruPossessionSwayShown |=
+                    state.MaximumSwayX - state.MinimumSwayX >= 3;
             }
             int forwardPixels = movementFrame * 0x20 >> 8;
             nayru.Position = new Vector2(
@@ -2339,6 +2380,9 @@ internal sealed class NayruIntroEvent : IRoomEvent
         // @initSubid02 selects animation $09 before ralphSubid02Script starts.
         ralph.SetScriptAnimation(_nayruDatabase.Actor("AftermathRalph").Animation(9));
         SpawnCollapsedImpa(new Vector2(0x38, 0x68), "AftermathImpaCollapsed");
+        // State $0f issues these back-to-back after restoring room 0:39.
+        _context.Sound.PlaySound(OracleSoundEngine.SndCtrlMediumFadeOut);
+        _context.Sound.PlaySound(OracleSoundEngine.MusSadness);
         _player.WarpTo(new Vector2(0x58, 0x38), recordSafe: false);
         _player.Face(Vector2I.Up);
         _nayruTrackAftermathRalphFacing = true;
@@ -2466,6 +2510,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         _nayruTrackRalphVeranFacing = false;
         _nayruUpdateVeranFacingTarget = false;
         _nayruTrackAftermathRalphFacing = false;
+        _nayruMusicInitialized = false;
         _nayruRoom = null;
         _nayruStage = NayruStage.None;
     }

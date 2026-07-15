@@ -10,6 +10,7 @@ public partial class NpcCharacter : Node2D
     // w1Link.yh+$0b. Interactions are queued before Link, so matching Link's
     // priority puts the NPC on top; otherwise Link remains on top.
     internal const float LinkPriorityYOffset = 0x0b;
+    internal const int FixedLowPriorityZIndex = 8;
     internal const int BehindLinkZIndex = 9;
     internal const int InFrontOfLinkZIndex = 11;
 
@@ -35,9 +36,13 @@ public partial class NpcCharacter : Node2D
     private string _scriptAnimationSource = string.Empty;
     private float _animationRate = 1.0f;
     private Color[]? _paletteOverride;
+    private bool _sourceGrayscaleInverted = true;
     private bool _blocksLink = true;
     private bool _active = true;
     private bool _flagVisible = true;
+    private float _collisionRadiusY = CollisionRadius;
+    private float _collisionRadiusX = CollisionRadius;
+    private int? _fixedDrawPriority;
 
     public NpcDatabase.NpcRecord Record { get; private set; }
     public bool Active => _active && _flagVisible;
@@ -123,11 +128,15 @@ public partial class NpcCharacter : Node2D
 
     public Rect2 BodyBounds => ObjectCollisionBounds;
     public Rect2 ObjectCollisionBounds => new(
-        Position - new Vector2(CollisionRadius, CollisionRadius),
-        new Vector2(CollisionRadius * 2.0f, CollisionRadius * 2.0f));
+        Position - new Vector2(_collisionRadiusX, _collisionRadiusY),
+        new Vector2(_collisionRadiusX * 2.0f, _collisionRadiusY * 2.0f));
     public Rect2 LinkBlockingBounds => new(
-        Position - new Vector2(LinkBlockingRadius, LinkBlockingRadius),
-        new Vector2(LinkBlockingRadius * 2.0f, LinkBlockingRadius * 2.0f));
+        Position - new Vector2(
+            _collisionRadiusX + LinkCollisionRadius,
+            _collisionRadiusY + LinkCollisionRadius),
+        new Vector2(
+            (_collisionRadiusX + LinkCollisionRadius) * 2.0f,
+            (_collisionRadiusY + LinkCollisionRadius) * 2.0f));
     public Rect2 InteractionBounds => SpriteBounds.Grow(8);
 
     public void Initialize(NpcDatabase.NpcRecord record)
@@ -137,6 +146,9 @@ public partial class NpcCharacter : Node2D
         Image image = new();
         image.LoadPngFromBuffer(bytes);
         _sourceImage = image;
+        _sourceGrayscaleInverted = true;
+        _collisionRadiusY = CollisionRadius;
+        _collisionRadiusX = CollisionRadius;
         RebuildFacingAnimations();
         Position = new Vector2(record.X, record.Y);
         QueueRedraw();
@@ -147,8 +159,26 @@ public partial class NpcCharacter : Node2D
         if (!Active || !_blocksLink)
             return false;
         Vector2 delta = linkCenter - Position;
-        return Mathf.Abs(delta.X) < LinkBlockingRadius &&
-            Mathf.Abs(delta.Y) < LinkBlockingRadius;
+        return Mathf.Abs(delta.X) < _collisionRadiusX + LinkCollisionRadius &&
+            Mathf.Abs(delta.Y) < _collisionRadiusY + LinkCollisionRadius;
+    }
+
+    internal void SetCollisionRadii(float radiusY, float radiusX)
+    {
+        if (radiusY < 0.0f || radiusX < 0.0f)
+            throw new ArgumentOutOfRangeException(nameof(radiusY));
+        _collisionRadiusY = radiusY;
+        _collisionRadiusX = radiusX;
+    }
+
+    internal void SetDialogue(int textId, string message, bool canFace)
+    {
+        Record = Record with
+        {
+            TextId = textId,
+            Message = message,
+            CanFace = canFace
+        };
     }
 
     public bool CanTalkTo(Player player)
@@ -192,9 +222,21 @@ public partial class NpcCharacter : Node2D
 
     internal void UpdateDrawPriority(Vector2 linkPosition)
     {
+        if (_fixedDrawPriority is int fixedDrawPriority)
+        {
+            ZIndex = fixedDrawPriority;
+            return;
+        }
+
         ZIndex = Position.Y > linkPosition.Y + LinkPriorityYOffset
             ? InFrontOfLinkZIndex
             : BehindLinkZIndex;
+    }
+
+    internal void SetFixedDrawPriority(int zIndex)
+    {
+        _fixedDrawPriority = zIndex;
+        ZIndex = zIndex;
     }
 
     internal void SetTransitionDrawOffset(Vector2 offset)
@@ -221,7 +263,8 @@ public partial class NpcCharacter : Node2D
         _scriptAnimation.Clear();
         _scriptAnimationLoopStart = ExtractLoopStart(ref encodedAnimation);
         _scriptAnimation.AddRange(BuildPositionedAnimation(
-            _sourceImage, encodedAnimation, Record.TileBase, Record.Palette, _paletteOverride));
+            _sourceImage, encodedAnimation, Record.TileBase, Record.Palette,
+            _paletteOverride, _sourceGrayscaleInverted));
         _scriptAnimationActive = _scriptAnimation.Count > 0;
         _animationFrame = 0;
         _animationTicks = 0.0;
@@ -269,6 +312,30 @@ public partial class NpcCharacter : Node2D
         _animationRate = Math.Max(0.0f, rate);
     }
 
+    internal void SetSourceGrayscaleInverted(bool inverted)
+    {
+        if (_sourceGrayscaleInverted == inverted)
+            return;
+
+        _sourceGrayscaleInverted = inverted;
+        RebuildFacingAnimations();
+        if (!string.IsNullOrEmpty(_scriptAnimationSource))
+        {
+            string encodedAnimation = _scriptAnimationSource;
+            _scriptAnimation.Clear();
+            _scriptAnimationLoopStart = ExtractLoopStart(ref encodedAnimation);
+            _scriptAnimation.AddRange(BuildPositionedAnimation(
+                _sourceImage,
+                encodedAnimation,
+                Record.TileBase,
+                Record.Palette,
+                _paletteOverride,
+                _sourceGrayscaleInverted));
+            _scriptAnimationActive = _scriptAnimation.Count > 0;
+        }
+        QueueRedraw();
+    }
+
     internal void AdjustInitialAnimationCounter(int adjustment)
     {
         List<AnimationFrame> animation = CurrentAnimation;
@@ -313,7 +380,8 @@ public partial class NpcCharacter : Node2D
             encodedAnimation,
             Record.TileBase,
             Record.Palette,
-            _paletteOverride));
+            _paletteOverride,
+            _sourceGrayscaleInverted));
         _scriptAnimationActive = _scriptAnimation.Count > 0;
         _animationFrame = _scriptAnimation.Count == 0
             ? 0
@@ -442,13 +510,17 @@ public partial class NpcCharacter : Node2D
         _facingAnimationLoopStarts[(int)Facing.Down] = ExtractLoopStart(ref down);
         _facingAnimationLoopStarts[(int)Facing.Left] = ExtractLoopStart(ref left);
         _facingAnimations[(int)Facing.Up].AddRange(BuildAnimation(
-            _sourceImage, up, Record.TileBase, Record.Palette, _paletteOverride));
+            _sourceImage, up, Record.TileBase, Record.Palette,
+            _paletteOverride, _sourceGrayscaleInverted));
         _facingAnimations[(int)Facing.Right].AddRange(BuildAnimation(
-            _sourceImage, right, Record.TileBase, Record.Palette, _paletteOverride));
+            _sourceImage, right, Record.TileBase, Record.Palette,
+            _paletteOverride, _sourceGrayscaleInverted));
         _facingAnimations[(int)Facing.Down].AddRange(BuildAnimation(
-            _sourceImage, down, Record.TileBase, Record.Palette, _paletteOverride));
+            _sourceImage, down, Record.TileBase, Record.Palette,
+            _paletteOverride, _sourceGrayscaleInverted));
         _facingAnimations[(int)Facing.Left].AddRange(BuildAnimation(
-            _sourceImage, left, Record.TileBase, Record.Palette, _paletteOverride));
+            _sourceImage, left, Record.TileBase, Record.Palette,
+            _paletteOverride, _sourceGrayscaleInverted));
     }
 
     private static int ExtractLoopStart(ref string encodedAnimation)
@@ -468,7 +540,8 @@ public partial class NpcCharacter : Node2D
         string encodedAnimation,
         int tileBase,
         int basePalette,
-        Color[]? paletteOverride)
+        Color[]? paletteOverride,
+        bool sourceGrayscaleInverted)
     {
         foreach (string encodedFrame in encodedAnimation.Split('|', StringSplitOptions.RemoveEmptyEntries))
         {
@@ -477,7 +550,8 @@ public partial class NpcCharacter : Node2D
                 continue;
             yield return new AnimationFrame(
                 BuildOamTexture(
-                    source, encodedFrame[(separator + 1)..], tileBase, basePalette, paletteOverride),
+                    source, encodedFrame[(separator + 1)..], tileBase, basePalette,
+                    paletteOverride, sourceGrayscaleInverted),
                 Math.Max(1, duration),
                 new Vector2(-16, -16));
         }
@@ -488,7 +562,8 @@ public partial class NpcCharacter : Node2D
         string encodedAnimation,
         int tileBase,
         int basePalette,
-        Color[]? paletteOverride)
+        Color[]? paletteOverride,
+        bool sourceGrayscaleInverted)
     {
         foreach (string encodedFrame in encodedAnimation.Split('|', StringSplitOptions.RemoveEmptyEntries))
         {
@@ -496,7 +571,8 @@ public partial class NpcCharacter : Node2D
             if (separator < 0 || !int.TryParse(encodedFrame[..separator], out int duration))
                 continue;
             (Texture2D texture, Vector2 offset) = BuildPositionedOamTexture(
-                source, encodedFrame[(separator + 1)..], tileBase, basePalette, paletteOverride);
+                source, encodedFrame[(separator + 1)..], tileBase, basePalette,
+                paletteOverride, sourceGrayscaleInverted);
             yield return new AnimationFrame(texture, Math.Max(1, duration), offset);
         }
     }
@@ -506,7 +582,8 @@ public partial class NpcCharacter : Node2D
         string encodedOam,
         int tileBase,
         int basePalette,
-        Color[]? paletteOverride = null)
+        Color[]? paletteOverride = null,
+        bool sourceGrayscaleInverted = true)
     {
         // Imported NPC animations may suffix their final OAM frame with the
         // nonzero animation-loop target (`~N`). Consumers that render one
@@ -550,7 +627,8 @@ public partial class NpcCharacter : Node2D
                     writeX < 0 || writeX >= output.GetWidth() || writeY < 0 || writeY >= output.GetHeight())
                     continue;
                 Color pixel = RecolorSpritePixel(
-                    source.GetPixel(readX, readY), palette, paletteOverride);
+                    source.GetPixel(readX, readY), palette, paletteOverride,
+                    sourceGrayscaleInverted);
                 if (pixel.A > 0.1f)
                     output.SetPixel(writeX, writeY, pixel);
             }
@@ -564,7 +642,8 @@ public partial class NpcCharacter : Node2D
         string encodedOam,
         int tileBase,
         int basePalette,
-        Color[]? paletteOverride)
+        Color[]? paletteOverride,
+        bool sourceGrayscaleInverted)
     {
         string[] blocks = encodedOam.Split(';', StringSplitOptions.RemoveEmptyEntries);
         int minX = int.MaxValue;
@@ -585,7 +664,8 @@ public partial class NpcCharacter : Node2D
         }
         if (minX == int.MaxValue)
             return (BuildOamTexture(
-                source, encodedOam, tileBase, basePalette, paletteOverride), new Vector2(-16, -16));
+                source, encodedOam, tileBase, basePalette, paletteOverride,
+                sourceGrayscaleInverted), new Vector2(-16, -16));
 
         Image output = Image.CreateEmpty(maxX - minX, maxY - minY, false, Image.Format.Rgba8);
         // Preserve Game Boy OAM priority: lower indices cover later entries.
@@ -616,7 +696,8 @@ public partial class NpcCharacter : Node2D
                 if (readX < 0 || readX >= source.GetWidth() || readY < 0 || readY >= source.GetHeight())
                     continue;
                 Color pixel = RecolorSpritePixel(
-                    source.GetPixel(readX, readY), palette, paletteOverride);
+                    source.GetPixel(readX, readY), palette, paletteOverride,
+                    sourceGrayscaleInverted);
                 if (pixel.A > 0.1f)
                     output.SetPixel(destinationX + x, destinationY + y, pixel);
             }
@@ -633,11 +714,13 @@ public partial class NpcCharacter : Node2D
     private static Color RecolorSpritePixel(
         Color source,
         int palette,
-        Color[]? paletteOverride)
+        Color[]? paletteOverride,
+        bool sourceGrayscaleInverted)
     {
-        if (source.A < 0.1f || source.R < 0.1f)
+        int color = Mathf.Clamp(Mathf.RoundToInt(
+            (sourceGrayscaleInverted ? source.R : 1.0f - source.R) * 3.0f), 0, 3);
+        if (source.A < 0.1f || color == 0)
             return Colors.Transparent;
-        int color = source.R < 0.5f ? 1 : source.R < 0.9f ? 2 : 3;
         if (paletteOverride is not null)
             return paletteOverride[color];
         Color[][] palettes = StandardSpritePalettes;

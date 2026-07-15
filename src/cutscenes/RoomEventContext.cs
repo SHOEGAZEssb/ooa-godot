@@ -21,7 +21,8 @@ internal sealed class RoomEventContext(
     ColorRect fade,
     Hud hud,
     InventoryState inventory,
-    TreasureDatabase treasures)
+    TreasureDatabase treasures,
+    OracleSoundEngine sound)
 {
     private readonly DialogueBox _dialogue = dialogue;
     private readonly Func<Vector2, Vector2> _worldToScreen = worldToScreen;
@@ -37,6 +38,7 @@ internal sealed class RoomEventContext(
     public Hud Hud { get; } = hud;
     public InventoryState Inventory { get; } = inventory;
     public TreasureDatabase Treasures { get; } = treasures;
+    public OracleSoundEngine Sound { get; } = sound;
     public bool DialogueOpen => _dialogue.IsOpen;
 
     public NpcCharacter RequireNpc(

@@ -508,6 +508,37 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
+    internal void SetScriptedPosition(Vector2 position)
+    {
+        _precisePosition = position;
+        Position = OracleObjectMath.ToPixelPosition(position);
+        QueueRedraw();
+    }
+
+    internal void SetScriptedCoordinateHigh(bool horizontal, int coordinate)
+    {
+        // preventObjectHFromPassingObjectD overwrites only Object.xh/yh. Keep
+        // the 8.8 fractional byte accumulated by linkCutscene6 intact.
+        if (horizontal)
+        {
+            float fraction = _precisePosition.X - Mathf.Floor(_precisePosition.X);
+            _precisePosition.X = coordinate + fraction;
+        }
+        else
+        {
+            float fraction = _precisePosition.Y - Mathf.Floor(_precisePosition.Y);
+            _precisePosition.Y = coordinate + fraction;
+        }
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        QueueRedraw();
+    }
+
+    internal void SetCutscenePushing(bool pushing)
+    {
+        _pushing = pushing;
+        QueueRedraw();
+    }
+
     internal void EndCutsceneControl()
     {
         _cutsceneControlled = false;

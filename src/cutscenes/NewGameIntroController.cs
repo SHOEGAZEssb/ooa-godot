@@ -21,6 +21,7 @@ public sealed class NewGameIntroController
     private readonly NewGameIntroScreen _screen;
     private readonly NewGameIntroDatabase.NewGameIntroRecord _record;
     private readonly Action _complete;
+    private readonly OracleSoundEngine _sound;
     private readonly RoomEventTimeline _timeline = new();
     private double _tickAccumulator;
     private int _stageFrame;
@@ -36,11 +37,18 @@ public sealed class NewGameIntroController
     internal int TotalVanishFrames => _record.VanishDurations[..^1].Sum() + 2;
     internal NewGameIntroDatabase.NewGameIntroRecord Record => _record;
 
-    public NewGameIntroController(NewGameIntroScreen screen, Action complete)
+    public NewGameIntroController(
+        NewGameIntroScreen screen,
+        Action complete,
+        OracleSoundEngine sound)
     {
         _screen = screen;
         _record = new NewGameIntroDatabase().Record;
         _complete = complete;
+        _sound = sound;
+        // Pregame state $0a starts this cue as it creates Link's blue-orb
+        // descent presentation.
+        _sound.PlaySound(OracleSoundEngine.MusEssenceRoom);
         BuildTimeline();
         UpdateScreen();
     }
@@ -106,6 +114,9 @@ public sealed class NewGameIntroController
                 _stageFrame = _record.PostVanishWaitFrames - remaining,
             elapsed: () =>
             {
+                // State $0c stops the cue after the post-vanish $3c hold,
+                // before handing off to the silent playable arrival.
+                _sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
                 CurrentStage = Stage.Complete;
                 _complete();
             });

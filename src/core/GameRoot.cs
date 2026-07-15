@@ -46,6 +46,8 @@ public partial class GameRoot : Node2D
     private int _newGameArrivalFrames;
     private int _newGameArrivalPhase;
     private int _newGameArrivalLastFrame;
+    private int _deferredIntroMusicGroup = -1;
+    private int _deferredIntroMusicRoom = -1;
 
     private double _animationTicks;
 
@@ -115,6 +117,12 @@ public partial class GameRoot : Node2D
         _mainMenuScreen = null;
         _mainMenu = null;
 
+        // The playable intro begins with no active room music. This also
+        // prevents MUS_FILE_SELECT from leaking into an interrupted pre-intro
+        // file, even though the original does not expose saving in this span.
+        if (!save.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone))
+            _sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
+
         if (!save.HasGlobalFlag(OracleSaveData.GlobalFlagPregameIntroDone))
         {
             _newGameIntroScreen = new NewGameIntroScreen
@@ -125,7 +133,8 @@ public partial class GameRoot : Node2D
             AddChild(_newGameIntroScreen);
             _newGameIntro = new NewGameIntroController(
                 _newGameIntroScreen,
-                () => CompleteNewGameIntro(save));
+                () => CompleteNewGameIntro(save),
+                _sound);
             return;
         }
 
@@ -171,7 +180,7 @@ public partial class GameRoot : Node2D
             () => (long)_animationTicks,
             () => _animationTicks = 0.0,
             _saveData);
-        _rooms.RoomChanged += (group, room) => _sound.PlayRoomMusic(group, room.Id);
+        _rooms.RoomChanged += ApplyRoomMusic;
         _scene = new GameSceneGraph(this);
         _hud.Initialize(_treasures, _inventory);
         _mapScreen.Initialize(_rooms, _inventory);
@@ -200,7 +209,7 @@ public partial class GameRoot : Node2D
         _inventory.Changed += SyncHudToInventory;
         SyncHudToInventory();
         _transitions.UpdateCamera();
-        _sound.PlayRoomMusic(_rooms.ActiveGroup, _rooms.CurrentRoom.Id);
+        ApplyRoomMusic(_rooms.ActiveGroup, _rooms.CurrentRoom);
 
         ScheduleRequestedValidation();
     }
@@ -326,6 +335,7 @@ public partial class GameRoot : Node2D
         _transitions = new RoomTransitionController(
             _rooms, new WarpDatabase(), _roomView, _player, _roomCamera,
             _warpFade, _hud, _dialogue, _entities, _collision.Collides, _deathRespawnPoints);
+        _transitions.ScrollingTransitionFinished += _ => ApplyDeferredIntroMusic();
         _entities.TimePortalEntered += portal =>
             _transitions.ApplyTimePortalWarp(_player, portal.Position);
         _interactions = new InteractionController(
@@ -335,7 +345,8 @@ public partial class GameRoot : Node2D
         _roomEvents = new RoomEventController(
             _rooms, _entities, _transitions, _dialogue, _player, _roomView,
             _transitions.WorldToScreen, () => (long)_animationTicks,
-            _scene.InterfaceLayer, _warpFade, _hud, _inventory, _treasures);
+            _scene.InterfaceLayer, _warpFade, _hud, _inventory, _treasures,
+            _sound);
         _interactions.NpcInteractionOverride = _roomEvents.Nayru.TryInteractNpc;
         _bracelet = new BraceletController(
             _rooms, new BreakableTileDatabase(), _roomView, () => (long)_animationTicks);
@@ -436,6 +447,55 @@ public partial class GameRoot : Node2D
         AddChild(_mainMenuScreen);
         _mainMenu = new MainMenuController(
             _mainMenuScreen, StartSelectedFile, playSound: _sound.PlaySound);
+    }
+
+    private void ApplyRoomMusic(int group, OracleRoomData room)
+    {
+        _deferredIntroMusicGroup = -1;
+        _deferredIntroMusicRoom = -1;
+
+        bool playableIntro =
+            _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagPregameIntroDone) &&
+            !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
+        if (!playableIntro)
+        {
+            _sound.PlayRoomMusic(group, room.Id);
+            return;
+        }
+
+        // INTERAC_PLAY_NAYRU_MUSIC $2f exists in 0:49, not on Nayru's
+        // gathering screen. Destination interactions remain frozen during a
+        // scroll, so its volume-2 override starts only when that scroll ends.
+        if (group == 0 && room.Id == 0x49)
+        {
+            if (_transitions is not null && _transitions.ScrollActive)
+            {
+                _deferredIntroMusicGroup = group;
+                _deferredIntroMusicRoom = room.Id;
+                return;
+            }
+            PlayNayruApproachMusic();
+        }
+
+        // All other room assignments are suppressed until an intro
+        // interaction explicitly changes the active track.
+    }
+
+    private void ApplyDeferredIntroMusic()
+    {
+        if (_deferredIntroMusicGroup != _rooms.ActiveGroup ||
+            _deferredIntroMusicRoom != _rooms.CurrentRoom.Id)
+            return;
+
+        _deferredIntroMusicGroup = -1;
+        _deferredIntroMusicRoom = -1;
+        PlayNayruApproachMusic();
+    }
+
+    private void PlayNayruApproachMusic()
+    {
+        _sound.PlayMusicIfChanged(OracleSoundEngine.MusNayru);
+        _sound.SetMusicVolume(2);
     }
 
     private bool Collides(Vector2 playerPosition) => _collision.Collides(playerPosition);

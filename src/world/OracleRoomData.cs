@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -78,6 +79,7 @@ public sealed class OracleRoomData
     private readonly Color[] _commonBgPalette0;
     private readonly OracleAnimationData _animations;
     private readonly int _layoutStride;
+    private readonly Dictionary<int, byte> _positionCollisionOverrides = new();
     private int _animationSignature;
     private int[] _activeAnimationHeaders;
 
@@ -209,8 +211,12 @@ public sealed class OracleRoomData
         if (tileX < 0 || tileX >= WidthInTiles || tileY < 0 || tileY >= HeightInTiles)
             return false;
 
-        byte metatile = Layout[tileY * _layoutStride + tileX];
-        byte collision = Collisions[metatile];
+        int layoutIndex = tileY * _layoutStride + tileX;
+        byte metatile = Layout[layoutIndex];
+        byte collision = _positionCollisionOverrides.TryGetValue(
+            layoutIndex, out byte collisionOverride)
+            ? collisionOverride
+            : Collisions[metatile];
         int inTileX = Mathf.PosMod(Mathf.FloorToInt(localPoint.X), MetatileSize);
         int inTileY = Mathf.PosMod(Mathf.FloorToInt(localPoint.Y), MetatileSize);
 
@@ -250,7 +256,13 @@ public sealed class OracleRoomData
         if (metatile == 0xff)
             return new TerrainInfo(metatile, 0xff, TerrainType.Normal, HazardType.None);
 
-        byte collision = Collisions[metatile];
+        int tileX = Mathf.FloorToInt(localPoint.X / MetatileSize);
+        int tileY = Mathf.FloorToInt(localPoint.Y / MetatileSize);
+        int layoutIndex = tileY * _layoutStride + tileX;
+        byte collision = _positionCollisionOverrides.TryGetValue(
+            layoutIndex, out byte collisionOverride)
+            ? collisionOverride
+            : Collisions[metatile];
         return new TerrainInfo(
             metatile,
             collision,
@@ -293,6 +305,33 @@ public sealed class OracleRoomData
         _animationSignature = GetAnimationSignature(activeHeaders);
         ((ImageTexture)Texture).Update(RenderRoom(activeHeaders));
         return true;
+    }
+
+    internal void SetPositionTileAndCollision(
+        Vector2 localPoint,
+        byte tile,
+        byte? collision,
+        long animationTick)
+    {
+        int tileX = Mathf.FloorToInt(localPoint.X / MetatileSize);
+        int tileY = Mathf.FloorToInt(localPoint.Y / MetatileSize);
+        if (tileX < 0 || tileX >= WidthInTiles || tileY < 0 || tileY >= HeightInTiles)
+            throw new ArgumentOutOfRangeException(nameof(localPoint));
+
+        int index = tileY * _layoutStride + tileX;
+        bool redraw = Layout[index] != tile;
+        Layout[index] = tile;
+        if (collision.HasValue)
+            _positionCollisionOverrides[index] = collision.Value;
+        else
+            _positionCollisionOverrides.Remove(index);
+
+        if (!redraw)
+            return;
+        int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
+        _activeAnimationHeaders = activeHeaders;
+        _animationSignature = GetAnimationSignature(activeHeaders);
+        ((ImageTexture)Texture).Update(RenderRoom(activeHeaders));
     }
 
     private static readonly byte[] SpecialCollisionMasks =

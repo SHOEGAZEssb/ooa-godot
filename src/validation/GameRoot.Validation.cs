@@ -195,6 +195,7 @@ public partial class GameRoot
                 .SequenceEqual(new[] { 0, 1, 2, 1, 0, -1, -2, -1 }) ||
             data.RoomMusic(0, 0x11) != 0x03 ||
             data.RoomMusic(0, 0x38) != 0x1e ||
+            data.RoomMusic(0, 0x49) != OracleSoundEngine.MusOverworld ||
             data.RoomMusic(1, 0x11) != 0x04 ||
             !data.TryGetNoise(0x24, out OracleSoundData.NoiseRecord noise) ||
             noise.Envelope != 0x01 || noise.Frequency != 0x47 ||
@@ -325,7 +326,8 @@ public partial class GameRoot
         var screen = new NewGameIntroScreen { Name = "NewGameIntroValidation" };
         AddChild(screen);
         int completionRequests = 0;
-        var intro = new NewGameIntroController(screen, () => completionRequests++);
+        var intro = new NewGameIntroController(
+            screen, () => completionRequests++, _sound);
         NewGameIntroDatabase.NewGameIntroRecord record = intro.Record;
         var introDatabase = new NewGameIntroDatabase();
         NewGameIntroDatabase.IntroSpriteFrame[] linkSpin =
@@ -339,6 +341,10 @@ public partial class GameRoot
         NewGameIntroDatabase.IntroSpriteFrame[] orbVanish =
             introDatabase.SpriteFrames("orb-vanish");
         int descendFrames = record.InitialWaitFrames + record.VoiceWaitFrames;
+
+        if (_sound.ActiveMusic != OracleSoundEngine.MusEssenceRoom)
+            throw new InvalidOperationException(
+                "Pregame state $0a did not start MUS_ESSENCE_ROOM for the blue-orb descent.");
 
         if (record.InitialWaitFrames != 300 || record.VoiceWaitFrames != 60 ||
             record.PostVanishWaitFrames != 60 || record.SummonFrames != 128 ||
@@ -457,10 +463,11 @@ public partial class GameRoot
             intro.Update(1.0 / 60.0);
         if (completionRequests != 1 ||
             intro.CurrentStage != NewGameIntroController.Stage.Complete ||
-            intro.StageFrame != record.PostVanishWaitFrames)
+            intro.StageFrame != record.PostVanishWaitFrames ||
+            _sound.ActiveMusic != 0)
         {
             throw new InvalidOperationException(
-                "The new-game intro did not hand off to the summon transition exactly once.");
+                "The new-game intro did not stop music and hand off to the summon transition exactly once.");
         }
 
         _player.WarpTo(new Vector2(0x50, 0x48));
@@ -523,7 +530,8 @@ public partial class GameRoot
         GD.Print("Validated CUTSCENE_PREGAME_INTRO frame-96 top entrance, interleaved 8x16 OBJ cells, " +
             "hardware OAM priority, cumulative descend/hover Z tables, $0d/$06 blue-orb OAM and palette 4, " +
             "300/60 waits, TX_1213, 62-update vanish handoff, 60-update black hold, 65-update white-fade wait, " +
-            "128-update wave, and transition $0b's three-pose 4-update/59-gravity-update slow fall.");
+            "MUS_ESSENCE_ROOM/STOPMUSIC handoff, 128-update wave, and transition $0b's three-pose " +
+            "4-update/59-gravity-update slow fall.");
     }
 
     private void ValidateExplicitSavePersistence()
@@ -3693,9 +3701,15 @@ public partial class GameRoot
     {
         ImpaIntroEvent impaEvent = _roomEvents.Impa;
         NayruIntroEvent nayruIntro = _roomEvents.Nayru;
+        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagPregameIntroDone);
+        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone, value: false);
+        _sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
         _saveData.SetRoomFlag(0, 0x7a, OracleSaveData.RoomFlag40, value: false);
         _saveData.SetRoomFlag(0, 0x6a, OracleSaveData.RoomFlag40, value: false);
         LoadValidationRoom(0, 0x7a);
+        if (_sound.ActiveMusic != 0)
+            throw new InvalidOperationException(
+                "The playable intro did not suppress ordinary room music before meeting Impa.");
         _player.WarpTo(new Vector2(0x38, 0x07));
         _player.Face(Vector2I.Up);
         if (!impaEvent.HelpWaitingAtEdge || _roomEvents.Active)
@@ -3733,6 +3747,9 @@ public partial class GameRoot
         if (!_transitions.ScrollActive || _activeGroup != 0 || _currentRoom.Id != 0x6a)
             throw new InvalidOperationException("The simulated Up input did not begin the 0:7a -> 0:6a scroll.");
         FinishActiveScrollingTransitionForValidation();
+        if (_sound.ActiveMusic != 0)
+            throw new InvalidOperationException(
+                "Possessed Impa changed the music before her destination interaction resumed.");
 
         NpcCharacter? impa = impaEvent.Actor;
         System.Collections.Generic.IReadOnlyList<NpcCharacter> octoroks =
@@ -3758,10 +3775,13 @@ public partial class GameRoot
             throw new InvalidOperationException($"0:7a -> 0:6a placed Link at {linkStart}, expected $76/$38.");
         StepRoomEventFrames(1);
         if (!_player.CutsceneControlled || impaEvent.Counter != 120 ||
+            _sound.ActiveMusic != OracleSoundEngine.MusFairyFountain ||
+            _sound.MusicVolume != 3 ||
             _player.Position != linkStart || _player.FacingVector != Vector2I.Up)
         {
             throw new InvalidOperationException(
-                "linkCutscene1 state 0 did not install its $78 counter and upward animation.");
+                "linkCutscene1 state 0 did not install its $78 counter, upward animation, " +
+                "and MUS_FAIRY_FOUNTAIN volume-3 override.");
         }
         StepRoomEventFrames(119);
         if (impaEvent.Counter != 1 || _player.Position != linkStart)
@@ -4064,6 +4084,8 @@ public partial class GameRoot
         }
         FinishActiveScrollingTransitionForValidation();
 
+        ValidateImpaStoneEvent(impaEvent);
+
         LoadValidationRoom(0, 0x6a);
         NpcCharacter? completedImpa = _npcNodes.Find(npc =>
             npc.Record.Id == 0x31 && npc.Record.SubId == 0x00);
@@ -4085,13 +4107,334 @@ public partial class GameRoot
         }
 
         GD.Print("Validated room 0:7a $6b:$00 edge trigger, fixed-bottom TX_0100, 30-update " +
-            "post-text wait, room flag $40, and eight-Up handoff; room 0:6a possessed Impa " +
+            "post-text wait, silent playable-intro room music, room flag $40, and eight-Up handoff; " +
+            "room 0:6a possessed Impa " +
             "$31:$00 PALH_97, three objectData fake Octoroks, linkCutscene1 $78/$04/$2e " +
             "cadence, staggered $14+$50/$3c/$5a escapes, expanded TX_0102, 210/30 waits, " +
-            "SPEED_080 movedown $20, room flag $40, animations $00-$03, single-copy " +
+            "SPEED_080 movedown $20, MUS_FAIRY_FOUNTAIN volume 3, room flag $40, " +
+            "animations $00-$03, single-copy " +
             "always-update scroll following, transition-end 16-entry follower-path rebuild, " +
             "room 0:39's seven-actor intro gathering during follow, clean leave/re-entry " +
             "recreation, and placed-Impa suppression when the follower returns.");
+    }
+
+    private void ValidateImpaStoneEvent(ImpaIntroEvent impaEvent)
+    {
+        const int group = 0;
+        const int room = 0x59;
+        ImpaIntroEventDatabase.ImpaStoneEventRecord record = impaEvent.Database.StoneRecord;
+        ImpaIntroEventDatabase.ImpaStoneActorRecord stone = record.Actor;
+        ImpaIntroEventDatabase.ImpaStoneTimingRecord timing = record.Timing;
+        _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlag40, value: false);
+        _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlag80, value: false);
+
+        _transitions.BeginScroll(_player, Vector2I.Right, room);
+        NpcCharacter? follower = impaEvent.Actor;
+        NpcCharacter? stoneActor = impaEvent.StoneActor;
+        Color stoneMidtone = new(0x0c / 31.0f, 0x12 / 31.0f, 0x11 / 31.0f);
+        if (follower is null || stoneActor is null ||
+            impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.WaitingForApproach ||
+            stoneActor.Position != new Vector2(stone.InitialX, stone.InitialY) ||
+            stone.SourceGrayscaleInverted ||
+            stoneActor.CurrentAnimationTextureSize != new Vector2I(24, 16) ||
+            stoneActor.CurrentAnimationOpaquePixels != 278 ||
+            !stoneActor.CurrentAnimationUsesColor(stoneMidtone) ||
+            stoneActor.ZIndex != NpcCharacter.FixedLowPriorityZIndex ||
+            follower.ZIndex <= stoneActor.ZIndex)
+        {
+            throw new InvalidOperationException(
+                "Room 0:59 did not transfer following Impa or instantiate the centered " +
+                "INTERAC_TRIFORCE_STONE $34:$00 with its non-inverted 24x16 sprite, PALH_98, " +
+                "and fixed priority 3 below follower Impa's relative priority 1/2.");
+        }
+        FinishActiveScrollingTransitionForValidation();
+
+        _player.WarpTo(new Vector2(stone.ApproachX - 8, stone.ApproachY - 8));
+        StepRoomEventFrames(1);
+        if (stoneActor.ZIndex != NpcCharacter.FixedLowPriorityZIndex ||
+            follower.ZIndex <= stoneActor.ZIndex)
+        {
+            throw new InvalidOperationException(
+                "INTERAC_TRIFORCE_STONE priority 3 did not remain below follower Impa's " +
+                "priority 1/2 after the room-entity priority update.");
+        }
+        if (!_player.CutsceneControlled || !_roomEvents.Active ||
+            impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.SpotJumpHold ||
+            impaEvent.Counter != timing.SpotHoldFrames)
+        {
+            throw new InvalidOperationException(
+                "Impa did not clear following and begin the $1e-update first jump below $58/$78.");
+        }
+
+        StepRoomEventFrames(timing.SpotHoldFrames);
+        int firstAirUpdates = 0;
+        while (impaEvent.CurrentStoneStage == ImpaIntroEvent.StoneStage.SpotJumpAir &&
+            firstAirUpdates++ < 60)
+        {
+            StepRoomEventFrames(1);
+        }
+        if (firstAirUpdates != 29 ||
+            impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.FirstLandingWait ||
+            follower.ScriptDrawOffset != Vector2.Zero)
+        {
+            throw new InvalidOperationException(
+                $"Impa's -$1c0/$20 first jump did not land after 29 gravity updates ({firstAirUpdates}).");
+        }
+        StepRoomEventFrames(timing.FirstLandingWait);
+        if (!_dialogue.IsOpen || _dialogue.CurrentMessage != record.Texts.First.Message ||
+            impaEvent.Counter != timing.FirstTextPostFrames)
+        {
+            throw new InvalidOperationException("Impa did not show TX_0104 after the first landing wait.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1 + timing.FirstTextPostFrames);
+        int approachUpdates = 0;
+        while (impaEvent.CurrentStoneStage == ImpaIntroEvent.StoneStage.ApproachStone &&
+            approachUpdates++ < 80)
+        {
+            StepRoomEventFrames(1);
+        }
+        if (impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.AtStoneWait ||
+            follower.Position != new Vector2(stone.TargetX, stone.TargetY) ||
+            !Mathf.IsEqualApprox(follower.AnimationRate, 1.0f))
+        {
+            throw new InvalidOperationException(
+                "Impa did not reach $38/$38 at SPEED_300 with the original close-radius snap.");
+        }
+
+        StepRoomEventFrames(timing.StoneWaitFrames + timing.SecondHoldFrames);
+        int secondAirUpdates = 0;
+        while (impaEvent.CurrentStoneStage == ImpaIntroEvent.StoneStage.SecondJumpAir &&
+            secondAirUpdates++ < 60)
+        {
+            StepRoomEventFrames(1);
+        }
+        if (secondAirUpdates != 25 ||
+            impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.SecondLandingWait)
+        {
+            throw new InvalidOperationException(
+                $"Impa's -$180/$20 second jump did not land after 25 gravity updates ({secondAirUpdates}).");
+        }
+        StepRoomEventFrames(timing.SecondLandingWait);
+        if (!_dialogue.IsOpen || _dialogue.CurrentMessage != record.Texts.Sign.Message ||
+            !_dialogue.CurrentMessage.Contains('▲'))
+        {
+            throw new InvalidOperationException("Impa did not show expanded TX_0105 with the Triforce glyph.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1 + timing.SignTextPostFrames);
+
+        int linkUpdates = 0;
+        while (impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.RequestText &&
+            linkUpdates++ < 240)
+        {
+            StepRoomEventFrames(1);
+        }
+        if (!_dialogue.IsOpen || _dialogue.CurrentMessage != record.Texts.Request.Message ||
+            _player.Position != new Vector2(stone.LinkTargetX, stone.LinkTargetY))
+        {
+            throw new InvalidOperationException(
+                "linkCutscene2 did not route Link through $38/$48 and its 8/60/16 waits before TX_0106.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1 + timing.RequestPostFrames + timing.FirstBackAwayFrames +
+            timing.BetweenFirstBackAwayFrames);
+        if (!_dialogue.IsOpen || _dialogue.CurrentMessage != record.Texts.Hesitation.Message ||
+            follower.Position.X != stone.TargetX - 16)
+        {
+            throw new InvalidOperationException(
+                "Impa's first SPEED_080 applyspeed $21 or TX_0107 handoff diverged.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1 + timing.HesitationPostFrames + timing.SecondBackAwayFrames +
+            timing.BetweenSecondBackAwayFrames);
+        if (!_dialogue.IsOpen || _dialogue.CurrentMessage != record.Texts.Failure.Message ||
+            follower.Position.X != stone.TargetX - 32)
+        {
+            throw new InvalidOperationException(
+                "Impa's second SPEED_080 applyspeed $21 or TX_0108 handoff diverged.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1 + timing.FailurePostFrames);
+        if (impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.WaitingForPush ||
+            _roomEvents.Active || _player.CutsceneControlled ||
+            impaEvent.WaitingNpcInitialized || follower.TextId != 0 ||
+            follower.Record.CanFace ||
+            follower.CurrentScriptAnimationSource != impaEvent.Database.Record.RightAnimation ||
+            _entities.BlocksLink(follower.Position))
+        {
+            throw new InvalidOperationException(
+                "Impa did not retain animation $01 for the one update between installing " +
+                "impaScript_waitForRockToBeMoved and running rungenericnpc TX_010b.");
+        }
+        StepRoomEventFrames(1);
+        if (!impaEvent.WaitingNpcInitialized ||
+            !_entities.BlocksLink(follower.Position) ||
+            !_collision.Collides(follower.Position) || follower.Record.CanFace ||
+            follower.CurrentScriptAnimationSource != impaEvent.Database.Record.RightAnimation)
+        {
+            throw new InvalidOperationException(
+                "genericNpcScript did not install Impa's $06/$06 collision and TX_010b " +
+                "without changing her animation or enabling automatic Link-facing.");
+        }
+
+        _player.WarpTo(follower.Position);
+        impaEvent.UpdateStoneFrame(pushing: false);
+        if (_player.Position != follower.Position + Vector2.Left * 12)
+        {
+            throw new InvalidOperationException(
+                "interactionAnimateAsNpc did not resolve an exact Impa/Link overlap " +
+                "horizontally by the combined $06+$06 collision radii.");
+        }
+
+        _player.WarpTo(follower.Position + Vector2.Right * 16);
+        _player.Face(Vector2I.Left);
+        if (!TryInteract(_player) || !_dialogue.IsOpen ||
+            _dialogue.CurrentMessage != record.Texts.Talk.Message ||
+            follower.Record.CanFace ||
+            follower.CurrentScriptAnimationSource != impaEvent.Database.Record.RightAnimation)
+        {
+            throw new InvalidOperationException(
+                "Waiting Impa did not expose rungenericnpc TX_010b while holding animation $01.");
+        }
+        _dialogue.Close();
+        _player.WarpTo(new Vector2(0x50, stone.LeaveY + 2));
+        impaEvent.UpdateStoneFrame(pushing: false, downPressed: true);
+        if (!_dialogue.IsOpen || _player.Position.Y != stone.LeaveY ||
+            _dialogue.CurrentMessage != record.Texts.Leave.Message ||
+            !_dialogue.CurrentMessage.EndsWith("move this!"))
+        {
+            throw new InvalidOperationException(
+                "The room $59 boundary guard did not clamp Y=$76 and expand TX_010a -> TX_010c.");
+        }
+        _dialogue.Close();
+
+        _player.WarpTo(new Vector2(stone.InitialX - 16, stone.InitialY));
+        _player.Face(Vector2I.Right);
+        impaEvent.UpdateStoneFrame(pushing: false);
+        if (impaEvent.StonePushCounter != timing.PushHoldFrames)
+            throw new InvalidOperationException("The stone push counter did not reset to $14.");
+
+        // Dynamic actors are not room-tile walls, so Link's generic wall-push
+        // detector is deliberately false here. Drive the actual room-event
+        // input path to ensure the interaction observes the held direction.
+        _player.UpdatePushingState(Vector2.Right);
+        if (_player.IsPushing)
+            throw new InvalidOperationException(
+                "The Triforce stone was incorrectly treated as static room-tile collision.");
+        Input.ActionPress("move_right");
+        Input.ActionPress("attack");
+        StepRoomEventFrames(1);
+        Input.ActionRelease("attack");
+        if (impaEvent.StonePushCounter != timing.PushHoldFrames || _player.IsPushing)
+        {
+            throw new InvalidOperationException(
+                "objectCheckLinkPushingAgainstCenter counted a push update while A was held.");
+        }
+        StepRoomEventFrames(timing.PushHoldFrames - 1);
+        if (impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.WaitingForPush ||
+            impaEvent.StonePushCounter != 1 || !_player.IsPushing)
+        {
+            throw new InvalidOperationException("The Triforce stone moved before 20 centered push updates.");
+        }
+        StepRoomEventFrames(1);
+        Input.ActionRelease("move_right");
+        if (impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.PushStarted ||
+            !_player.CutsceneControlled || !_player.IsPushing ||
+            impaEvent.StoneMoveCounter != timing.StoneMoveFrames)
+        {
+            throw new InvalidOperationException(
+                "INTERAC_TRIFORCE_STONE did not start linkCutscene6 and its $40-update movement.");
+        }
+
+        for (int update = 1; update < timing.StoneMoveFrames; update++)
+        {
+            StepRoomEventFrames(1);
+            if (Mathf.Abs(stoneActor.Position.X - _player.Position.X) <
+                    stone.CollisionRadiusX + NpcCharacter.LinkCollisionRadius &&
+                Mathf.Abs(stoneActor.Position.Y - _player.Position.Y) <
+                    stone.CollisionRadiusY + NpcCharacter.LinkCollisionRadius)
+            {
+                throw new InvalidOperationException(
+                    $"objectPreventLinkFromPassing allowed Link inside the moving stone " +
+                    $"on update {update} (Link={_player.Position}, stone={stoneActor.Position}).");
+            }
+        }
+        if (_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag80) ||
+            impaEvent.StoneMoveCounter != 1)
+        {
+            throw new InvalidOperationException("The stone set room flag $80 before counter1 reached zero.");
+        }
+        StepRoomEventFrames(1);
+        if (!_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag80) ||
+            _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag40) ||
+            stoneActor.Position != new Vector2(stone.RightX, stone.InitialY) ||
+            _player.Position != new Vector2(0x37, stone.InitialY) ||
+            _collision.Collides(_player.Position) ||
+            _currentRoom.GetMetatile(new Vector2(stone.RightX, stone.MovedY)) !=
+                stone.FinalLayoutTile ||
+            !_currentRoom.IsSolid(new Vector2(stone.RightX, stone.MovedY)))
+        {
+            throw new InvalidOperationException(
+                "The right-pushed stone did not snap to X=$48, leave Link outside at X=$37, " +
+                "set room flag $80, and install collision $0f.");
+        }
+
+        int responseUpdates = 0;
+        while (impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.ThanksText &&
+            responseUpdates++ < 400)
+        {
+            StepRoomEventFrames(1);
+        }
+        if (!_dialogue.IsOpen || _dialogue.CurrentMessage != record.Texts.Thanks.Message ||
+            responseUpdates >= 400)
+        {
+            throw new InvalidOperationException(
+                "Impa's right-push 4+65+120 response, SPEED_100 move, or TX_0109 timing stalled.");
+        }
+        _dialogue.Close();
+        int finishUpdates = 0;
+        while (impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.Moved &&
+            finishUpdates++ < 100)
+        {
+            StepRoomEventFrames(1);
+        }
+        if (!impaEvent.Following || _player.CutsceneControlled ||
+            _player.FacingVector != Vector2I.Down || follower.Position != _player.Position)
+        {
+            throw new InvalidOperationException(
+                "Impa did not finish TX_0109, move up $20, restore Link, and rebuild following.");
+        }
+
+        LoadValidationRoom(group, room);
+        NpcCharacter? movedStone = impaEvent.StoneActor;
+        if (movedStone is null || movedStone.Position != new Vector2(stone.RightX, stone.MovedY) ||
+            _roomEvents.Active || impaEvent.Following ||
+            !_currentRoom.IsSolid(new Vector2(stone.RightX, stone.MovedY)))
+        {
+            throw new InvalidOperationException(
+                "PART_TRIFORCE_STONE $5a:$5a did not restore the right-side solid stone on re-entry.");
+        }
+
+        _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlag80, value: false);
+        _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlag40);
+        LoadValidationRoom(group, room);
+        movedStone = impaEvent.StoneActor;
+        if (movedStone is null || movedStone.Position != new Vector2(stone.LeftX, stone.MovedY) ||
+            !_currentRoom.IsSolid(new Vector2(stone.LeftX, stone.MovedY)) ||
+            _currentRoom.IsSolid(new Vector2(stone.RightX, stone.MovedY)))
+        {
+            throw new InvalidOperationException(
+                "PART_TRIFORCE_STONE $5a:$5a did not select the left-side $40 position on re-entry.");
+        }
+
+        GD.Print("Validated room 0:59 Impa/Triforce-stone event: PALH_98 interaction/part " +
+            "forms, fixed priority 3 below follower Impa, two fixed-point jumps, " +
+            "TX_0104-$010b, linkCutscene2 targeting, " +
+            "two SPEED_080 retreats, exact rungenericnpc wait animation/collision/talk loop, " +
+            "A/B-safe 20-update push, 64-update SPEED_40 movement with per-update " +
+            "objectPreventLinkFromPassing, linkCutscene6, direction flags $40/$80, response waits, " +
+            "TX_0109 follower restore, final collision, sounds, and completed re-entry.");
     }
 
     private void ValidateMakuTreeDisappearanceCutscene()
@@ -4246,6 +4589,7 @@ public partial class GameRoot
         {
             _entities.Update(1.0 / 60.0, _player);
             _roomEvents.Update(1.0 / 60.0);
+            _sound.Tick();
         }
     }
 
@@ -4259,10 +4603,41 @@ public partial class GameRoot
         byte sourcePortalTile = sourceRoom.GetMetatile(portalPoint);
         if (sourcePortalTile != 0x3a)
             sourceRoom.ReplaceMetatile(portalPoint, sourcePortalTile, 0x3a, (long)_animationTicks);
+        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagPregameIntroDone);
         _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone, value: false);
         _saveData.SetRoomFlag(group, roomId, OracleSaveData.RoomFlag40, value: false);
         _saveData.SetRoomFlag(group, roomId, OracleSaveData.RoomFlag80, value: false);
-        LoadValidationRoom(group, roomId);
+        _sound.PlayMusicIfChanged(OracleSoundEngine.MusFairyFountain);
+        _sound.SetMusicVolume(3);
+        LoadValidationRoom(group, 0x59);
+        _transitions.BeginScroll(_player, Vector2I.Up, 0x49);
+        if (_sound.ActiveMusic != OracleSoundEngine.MusFairyFountain ||
+            _sound.MusicVolume != 3)
+        {
+            throw new InvalidOperationException(
+                "INTERAC_PLAY_NAYRU_MUSIC $2f ran before the 0:59 -> 0:49 scroll completed.");
+        }
+        FinishActiveScrollingTransitionForValidation();
+        if (_sound.ActiveMusic != OracleSoundEngine.MusNayru ||
+            _sound.MusicVolume != 2)
+        {
+            throw new InvalidOperationException(
+                "Room 0:49 did not start MUS_NAYRU with volume 2 after its incoming scroll.");
+        }
+        _transitions.BeginScroll(_player, Vector2I.Up, roomId);
+        if (_sound.ActiveMusic != OracleSoundEngine.MusNayru ||
+            _sound.MusicVolume != 2)
+        {
+            throw new InvalidOperationException(
+                "The 0:49 -> 0:39 scroll changed Nayru's volume before her interaction resumed.");
+        }
+        FinishActiveScrollingTransitionForValidation();
+        if (_sound.ActiveMusic != OracleSoundEngine.MusNayru ||
+            _sound.MusicVolume != 2)
+        {
+            throw new InvalidOperationException(
+                "Nayru's destination interaction changed music during the 0:39 scroll.");
+        }
 
         if (_inventory.HasTreasure(TreasureDatabase.TreasureSword) ||
             _inventory.SwordLevel != 0 || _inventoryMenu.CanOpenForValidation ||
@@ -4344,6 +4719,13 @@ public partial class GameRoot
                     $"animation ${record.InitialAnimation:x2}.");
             }
         }
+        StepRoomEventFrames(1);
+        if (_sound.ActiveMusic != OracleSoundEngine.MusNayru ||
+            _sound.MusicVolume != 3)
+        {
+            throw new InvalidOperationException(
+                "INTERAC_NAYRU $36:$00 did not restore MUS_NAYRU to volume 3 on its first update.");
+        }
         if (actors["Nayru"].SourceGraphicsWidth != 256)
         {
             throw new InvalidOperationException(
@@ -4355,9 +4737,11 @@ public partial class GameRoot
                 throw new InvalidOperationException(
                     $"Dynamically generated Nayru gathering actor {name} has no Link collision.");
         }
-        // The second note is created on phase 45 after effect movement runs;
-        // advance two more updates so both opposing trajectories are observable.
-        StepRoomEventFrames(48);
+        // The second note is created on phase 45 after effect movement runs. Give it
+        // 18 movement updates so its rightward SPEED_60 path always exceeds the
+        // global-frame sway, regardless of the frame phase established by earlier
+        // validation scenarios. The first note remains inside its 70-update life.
+        StepRoomEventFrames(63);
         List<NpcCharacter> singingNotes = _entities.Entities<NpcCharacter>()
             .Where(actor => actor.Name.ToString().StartsWith(
                 "NayruIntroEffect_MusicNote", StringComparison.Ordinal))
@@ -4547,6 +4931,11 @@ public partial class GameRoot
         bool sawRalphSword = false;
         bool sawNayruAscent = false;
         bool sawNayruDescent = false;
+        bool sawSideviewMusic = false;
+        bool sawRoomOfRitesMusic = false;
+        bool sawVignetteRestartSilence = false;
+        bool sawDisasterMusic = false;
+        bool sawSadnessMusic = false;
         string swordMessage = nayruDatabase.Text(0x001c).Message;
         string nayruGreeting = nayruDatabase.Text(0x1d00).Message;
         string nayruSecondGreeting = nayruDatabase.Text(0x1d22).Message;
@@ -4559,6 +4948,15 @@ public partial class GameRoot
             scriptFrames < 20000)
         {
             NayruActorRegistry currentActors = nayruIntro.ActorRegistry;
+            sawSideviewMusic |= _sound.ActiveMusic == OracleSoundEngine.MusLadxSideview;
+            sawRoomOfRitesMusic |= _sound.ActiveMusic == OracleSoundEngine.MusRoomOfRites;
+            sawVignetteRestartSilence |= nayruIntro.CurrentVignetteIndex == 0 &&
+                nayruIntro.VignetteElapsed is >= 1 and <= 120 && _sound.ActiveMusic == 0;
+            sawDisasterMusic |= nayruIntro.VisitedVignettes != 0 &&
+                !currentActors.ContainsKey("AftermathRalph") &&
+                _sound.ActiveMusic == OracleSoundEngine.MusDisaster;
+            sawSadnessMusic |= currentActors.ContainsKey("AftermathRalph") &&
+                _sound.ActiveMusic == OracleSoundEngine.MusSadness;
             if (nayruIntro.VisitedVignettes != 0 && _roomEvents.Active)
             {
                 sawHudDuringVignetteSequence |= _hud.Visible;
@@ -4723,6 +5121,10 @@ public partial class GameRoot
             !nayruIntro.AftermathRalphFacingShown ||
             !sawNayruAscent || !sawNayruDescent ||
             !nayruIntro.PortalFlightShown ||
+            !sawSideviewMusic || !sawRoomOfRitesMusic ||
+            !sawVignetteRestartSilence || !sawDisasterMusic || !sawSadnessMusic ||
+            _sound.ActiveMusic != OracleSoundEngine.MusOverworld ||
+            _sound.MusicVolume != 3 ||
             !_inventory.HasTreasure(TreasureDatabase.TreasureSword) ||
             _inventory.SwordLevel != 1 || !_inventoryMenu.CanOpenForValidation ||
             !_mapMenu.CanOpenNormalForValidation ||
@@ -4755,7 +5157,10 @@ public partial class GameRoot
                 $"flash={sawPossessionFlash}/{nayruIntro.PossessionFlashShown}, " +
                 $"sword={sawRalphSword}/{nayruIntro.RalphSwordShown}/" +
                 $"{sawSwordPickupPose}/{_player.IsHoldingItemOneHand}, " +
-                $"flight={sawNayruAscent}/{sawNayruDescent}/{nayruIntro.PortalFlightShown}).");
+                $"flight={sawNayruAscent}/{sawNayruDescent}/{nayruIntro.PortalFlightShown}, " +
+                $"music={sawSideviewMusic}/{sawRoomOfRitesMusic}/" +
+                $"{sawVignetteRestartSilence}/{sawDisasterMusic}/{sawSadnessMusic}/" +
+                $"{_sound.ActiveMusic:x2}:{_sound.MusicVolume}).");
         }
         _entities.Update(1.0 / 60.0, _player);
         TimePortal? portal = _entities.Entities<TimePortal>().SingleOrDefault();
@@ -4793,7 +5198,9 @@ public partial class GameRoot
             "linked Ralph sword, animated aftermath Link walking, Nayru's ascent/landing, fainted Impa, " +
             "portal/vignette lightning, exact $98/$5a/2:$0e room swaps and 937/600/645-update " +
             "actor scripts with jumps, pacing, stone palettes, flicker, and exclamation marks, one-shot Ralph fall, " +
-            "visible sword handoff, $22=$d7/flag $40, aftermath, and persistent completion.");
+            "visible sword handoff, Fairy Fountain/Nayru/sideview/Room of Rites/" +
+            "vignette-stop/Disaster/Sadness/room-music cue chain, " +
+            "$22=$d7/flag $40, aftermath, and persistent completion.");
     }
 
     private void ValidateRalphPortalDepartureEvent()

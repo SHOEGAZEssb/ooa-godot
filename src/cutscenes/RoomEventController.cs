@@ -30,7 +30,8 @@ public sealed class RoomEventController
         ColorRect fade,
         Hud hud,
         InventoryState inventory,
-        TreasureDatabase treasures)
+        TreasureDatabase treasures,
+        OracleSoundEngine sound)
     {
         _context = new RoomEventContext(
             rooms,
@@ -45,7 +46,8 @@ public sealed class RoomEventController
             fade,
             hud,
             inventory,
-            treasures);
+            treasures,
+            sound);
         _makuTree = new MakuTreeDisappearanceEvent(_context);
         _ralph = new RalphPortalEvent(_context);
         _impa = new ImpaIntroEvent(_context);
@@ -121,6 +123,8 @@ public sealed class RoomEventController
         if (_impa.CanTransferFollowing)
         {
             TransferFollowingImpaIfNeeded(group, room);
+            if (_impa.MatchesStone(group, room))
+                _impa.StartStoneRoom();
             return;
         }
         if (HasEventState)
@@ -148,6 +152,12 @@ public sealed class RoomEventController
         {
             _impa.StartHelp();
             ResetClock();
+            return;
+        }
+        if (_impa.MatchesStone(group, room))
+        {
+            _impa.StartStoneRoom();
+            ResetClock();
         }
     }
 
@@ -157,6 +167,8 @@ public sealed class RoomEventController
             return;
         _impa.SuppressPlacedActorIfCompleted(group, room);
         _impa.TransferFollowingActor(group, room);
+        if (!_impa.MatchesStone(group, room))
+            _impa.LeaveStoneRoom();
     }
 
     private void CancelAll()
