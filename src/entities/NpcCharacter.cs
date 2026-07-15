@@ -672,7 +672,7 @@ public partial class NpcCharacter : Node2D
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static (Texture2D Texture, Vector2 Offset) BuildPositionedOamTexture(
+    internal static (Texture2D Texture, Vector2 Offset) BuildPositionedOamTexture(
         Image source,
         string encodedOam,
         int tileBase,

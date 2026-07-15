@@ -18,6 +18,7 @@ public partial class TimePortal : Node2D
     private int _loopStart;
     private Vector2 _transitionDrawOffset;
     private OracleRoomData _room = null!;
+    private bool _linkWasOutside;
 
     public TimePortalDatabase.PortalRecord Record { get; private set; }
     public bool Entered { get; private set; }
@@ -78,9 +79,22 @@ public partial class TimePortal : Node2D
         if (!Active || Entered)
             return false;
         Vector2 delta = linkPosition - Position;
-        if (Mathf.Abs(delta.X) >= ContactRadius || Mathf.Abs(delta.Y) >= ContactRadius)
+        bool overlaps = Mathf.Abs(delta.X) < ContactRadius && Mathf.Abs(delta.Y) < ContactRadius;
+        if (!overlaps)
+        {
+            _linkWasOutside = true;
+            return false;
+        }
+        // Ordinary `$e1:$00 spawners normally wait for a fresh Tune of Echoes
+        // activation after room load. The no-harp fallback keeps exposed spots
+        // usable, but still requires Link to leave a destination spot before
+        // re-entering so paired same-position portals cannot bounce forever.
+        if (!_linkWasOutside)
             return false;
         Entered = true;
+        // interactionBeginTimewarp deletes the portal interaction before the
+        // cutscene trigger is serviced on the following update.
+        Visible = false;
         return true;
     }
 

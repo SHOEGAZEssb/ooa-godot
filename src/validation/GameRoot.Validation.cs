@@ -1054,6 +1054,41 @@ public partial class GameRoot
     private void ValidateTimePortals()
     {
         var database = new TimePortalDatabase();
+        var effectDatabase = new TimeWarpEffectDatabase();
+        (int Even, int Odd)[] expectedMasks =
+        {
+            (0xdd, 0xff), (0xdd, 0xbb), (0x55, 0xbb), (0x55, 0xaa),
+            (0x11, 0xaa), (0x11, 0x88), (0x00, 0x88), (0x00, 0x00)
+        };
+        if (effectDatabase.TimeWarpSprite != "spr_timeportal" ||
+            effectDatabase.CommonSprite != "spr_common_sprites" ||
+            effectDatabase.SparkleSprite !=
+                "spr_triforce_sparkle_vineseed_bookofseals" ||
+            effectDatabase.PrimaryTileBase != 0 || effectDatabase.PrimaryPalette != 0 ||
+            effectDatabase.BeamPalette != 7 ||
+            effectDatabase.TrailTileBase != 0x10 || effectDatabase.TrailPalette != 3 ||
+            effectDatabase.ParticleTileBase != 0x1e || effectDatabase.ParticlePalette != 4 ||
+            effectDatabase.SparkleTileBase != 0x0a || effectDatabase.SparklePalette != 2 ||
+            effectDatabase.PrimaryPriority != 3 || effectDatabase.BeamPriority != 2 ||
+            effectDatabase.TrailPriority != 1 || effectDatabase.ParticlePriority != 3 ||
+            effectDatabase.SparklePriority != 1 ||
+            effectDatabase.DissolveFrames != 48 ||
+            effectDatabase.SourceEffectFrames != 120 ||
+            effectDatabase.SourceTrailFrames != 60 ||
+            effectDatabase.ArrivalWaitFrames != 30 ||
+            effectDatabase.ArrivalEffectFrames != 16 ||
+            effectDatabase.ArrivalFlickerFrames != 30 ||
+            effectDatabase.Particles.Count != 8 ||
+            effectDatabase.Particles[0] != new TimeWarpEffectDatabase.ParticleRecord(0x280, -4, 0) ||
+            effectDatabase.Particles[7] != new TimeWarpEffectDatabase.ParticleRecord(0x240, 9, 3) ||
+            effectDatabase.OutdoorBeamPalette.SequenceEqual(effectDatabase.IndoorBeamPalette) ||
+            expectedMasks.Where((mask, index) =>
+                RoomTransitionController.TimeWarpDissolveMaskForValidation(index) != mask).Any())
+        {
+            throw new InvalidOperationException(
+                "Imported $dd/$2b/$84 time-warp graphics, priorities, timing, particles, palettes, or " +
+                "$dd/$ff..$00/$00 dissolve masks changed.");
+        }
         IReadOnlyList<TimePortalDatabase.PortalRecord> ordinaryRecords =
             database.GetRoomPortals(0, 0x3a);
         if (ordinaryRecords.Count != 1 || ordinaryRecords[0].SubId != 0x00 ||
@@ -1081,6 +1116,16 @@ public partial class GameRoot
         }
 
         LoadValidationRoom(0, 0x39);
+        bool sourceUsesIndoorBeamPalette =
+            (_currentRoom.TilesetFlags & 0x80) != 0;
+        bool destinationUsesIndoorBeamPalette =
+            (_rooms.GetRoom(1, 0x39).TilesetFlags & 0x80) != 0;
+        if (sourceUsesIndoorBeamPalette || !destinationUsesIndoorBeamPalette)
+        {
+            throw new InvalidOperationException(
+                "Canonical room 0:39 -> 1:39 no longer crosses from the outdoor " +
+                "PALH_c1 source classification to the indoor PALH_c2 destination classification.");
+        }
         List<TimePortal> portals = _entities.Entities<TimePortal>();
         if (portals.Count != 1 || portals[0].Active ||
             _currentRoom.GetMetatile(portals[0].Position) != 0x3a)
@@ -1108,28 +1153,257 @@ public partial class GameRoot
             throw new InvalidOperationException("The portal's three-frame animation loop restarted incorrectly.");
 
         _player.WarpTo(portal.Position, recordSafe: false);
+        _player.Face(Vector2I.Left);
+        _sound.ClearPlayRequestAudit();
         _entities.Update(1.0 / 60.0, _player);
-        if (!IsTransitioning)
-            throw new InvalidOperationException("Touching the active `$e1 portal did not begin a time warp.");
+        if (!IsTransitioning || portal.Visible || _player.Position != portal.Position ||
+            _player.FacingVector != Vector2I.Down || _sound.ActiveMusic != 0 ||
+            _transitions.TimeWarpPhaseName != "TimeWarpInitialize")
+        {
+            throw new InvalidOperationException(
+                "interactionBeginTimewarp did not delete the portal, center/facing Link, restart " +
+                "sound, and trigger CUTSCENE_TIMEWARP.");
+        }
 
-        UpdateRoomWarpTransition(RoomTransitionController.TimeWarpChargeFrames / 60.0);
+        // A long rendered frame must still service only state 0. In
+        // particular, first-use shader compilation cannot collapse the 48
+        // graphics-buffer updates into one visible frame.
+        _transitions.UpdateWarp(5.0 / 60.0);
+        if (_transitions.TimeWarpPhaseName != "TimeWarpDissolve" ||
+            _transitions.TimeWarpDissolveStep != 0 ||
+            _transitions.TimeWarpDissolveBufferStep != -1 ||
+            _transitions.TimeWarpAppliedDissolveStep != -1 || _hud.Visible ||
+            !_player.Visible ||
+            !Mathf.IsEqualApprox(
+                _roomView.BackgroundFadeAlpha,
+                1.0f / RoomTransitionController.FastPaletteFadeFrames))
+        {
+            throw new InvalidOperationException(
+                "CUTSCENE_TIMEWARP state 0 did not hide the HUD, start the BG-only fast black " +
+                "fade, preserve a long rendered frame, and prepare the still-unmasked " +
+                "six-buffer dissolve pass.");
+        }
+        UpdateRoomWarpTransition(5.0 / 60.0);
+        if (_transitions.TimeWarpDissolveStep != 0 ||
+            _transitions.TimeWarpDissolveBufferStep != 4 ||
+            _transitions.TimeWarpAppliedDissolveStep != -1 || !_player.Visible)
+        {
+            throw new InvalidOperationException(
+                "Link was hidden by the first five non-Link object/common graphics buffer updates.");
+        }
+        UpdateRoomWarpTransition(1.0 / 60.0);
+        if (_transitions.TimeWarpDissolveBufferStep != 5 ||
+            _transitions.TimeWarpAppliedDissolveStep != 0 || !_player.Visible)
+        {
+            throw new InvalidOperationException(
+                "The final bank-6 object/companion pass did not commit mask $dd/$ff " +
+                "without masking Link.");
+        }
+        UpdateRoomWarpTransition(1.0 / 60.0);
+        if (_transitions.TimeWarpDissolveStep != 1 ||
+            _transitions.TimeWarpDissolveBufferStep != 0 ||
+            _transitions.TimeWarpAppliedDissolveStep != 0 || !_player.Visible)
+        {
+            throw new InvalidOperationException(
+                "The second $dd/$bb non-Link buffer cycle did not begin on update 7.");
+        }
+        UpdateRoomWarpTransition(41.0 / 60.0);
+        if (_transitions.TimeWarpPhaseName != "TimeWarpSetup" ||
+            _transitions.TimeWarpDissolveStep != 7 ||
+            _transitions.TimeWarpDissolveBufferStep != 5 ||
+            _transitions.TimeWarpAppliedDissolveStep != 7 || !_player.Visible ||
+            _entities.Entities<TimePortal>().Count != 0 ||
+            !Mathf.IsEqualApprox(_roomView.BackgroundFadeAlpha, 1.0f))
+        {
+            throw new InvalidOperationException(
+                "The eight six-buffer object-graphics masks did not make non-Link objects " +
+                "transparent over black, retain Link, and clear the source objects.");
+        }
+
+        UpdateRoomWarpTransition(1.0 / 60.0);
+        if (_transitions.ActiveTimeWarpEffect is not null ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndTimewarpInitiated) != 0 ||
+            !_player.Visible)
+        {
+            throw new InvalidOperationException("The tilemap reload substep created the source effect early.");
+        }
+        UpdateRoomWarpTransition(1.0 / 60.0);
+        TimeWarpEffect sourceEffect = _transitions.ActiveTimeWarpEffect ??
+            throw new InvalidOperationException("INTERAC_TIMEWARP $dd:$00 was not created.");
+        if (_transitions.TimeWarpPhaseName != "TimeWarpSourceEffect" ||
+            !sourceEffect.PrimaryVisible || !_player.Visible ||
+            sourceEffect.BackgroundZIndex != NpcCharacter.BehindLinkZIndex ||
+            sourceEffect.ForegroundZIndex != NpcCharacter.InFrontOfLinkZIndex ||
+            sourceEffect.UsesIndoorBeamPalette != sourceUsesIndoorBeamPalette ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndTimewarpInitiated) != 1)
+        {
+            throw new InvalidOperationException(
+                "The source effect did not begin with priority-3 ground below Link, its " +
+                "priority-2 beam layer above Link, and SND_TIMEWARP_INITIATED $d1.");
+        }
+        UpdateRoomWarpTransition(119.0 / 60.0);
+        if (_transitions.TimeWarpPhaseName != "TimeWarpSourceEffect" ||
+            !sourceEffect.PrimaryVisible || !sourceEffect.BeamVisible || !_player.Visible ||
+            sourceEffect.ParticleSpawnCount != 10)
+        {
+            throw new InvalidOperationException(
+                "The source $dd:$00 effect or intact Link ended before the 120-count handoff.");
+        }
+        UpdateRoomWarpTransition(1.0 / 60.0);
+        if (_transitions.TimeWarpPhaseName != "TimeWarpSourceTrail" ||
+            !sourceEffect.PrimaryVisible || !sourceEffect.BeamVisible ||
+            sourceEffect.BeamContracting || !sourceEffect.TrailVisible ||
+            sourceEffect.SourceCounter != 24 ||
+            sourceEffect.ParticleSpawnCount != 10 || _player.Visible)
+        {
+            throw new InvalidOperationException(
+                "The cutscene's 120-count handoff did not delete w1Link, retain the " +
+                "$dd:$00 interaction's final 24 counts and purple child, emit ten $2b " +
+                "particles, and create $dd:$02.");
+        }
+        UpdateRoomWarpTransition(12.0 / 60.0);
+        if (sourceEffect.SparkleSpawnCount != 1 || sourceEffect.ActiveSparkleCount != 1 ||
+            sourceEffect.SourceCounter != 12 || sourceEffect.BeamContracting)
+        {
+            throw new InvalidOperationException(
+                "The rising -$0400 trail did not create INTERAC_SPARKLE $84:$01 after six moves.");
+        }
+        UpdateRoomWarpTransition(11.0 / 60.0);
+        if (sourceEffect.SourceCounter != 1 || sourceEffect.BeamContracting ||
+            !sourceEffect.PrimaryVisible || !sourceEffect.BeamVisible)
+        {
+            throw new InvalidOperationException(
+                "The source ground or purple child began contracting before $dd:$00 counter1 reached zero.");
+        }
+        UpdateRoomWarpTransition(1.0 / 60.0);
+        if (sourceEffect.SourceCounter != 0 || !sourceEffect.BeamContracting ||
+            sourceEffect.BeamFrameIndex != 0 || !sourceEffect.PrimaryVisible ||
+            !sourceEffect.BeamVisible)
+        {
+            throw new InvalidOperationException(
+                "$dd:$00 counter1 zero did not select ground animation $01 and the purple " +
+                "child's horizontal-fold animation $04 on source-trail update 24.");
+        }
+        UpdateRoomWarpTransition(10.0 / 60.0);
+        if (!sourceEffect.BeamVisible || sourceEffect.BeamFrameIndex != 10)
+        {
+            throw new InvalidOperationException(
+                "The source purple child did not retain all 11 visible animation-$04 fold frames.");
+        }
+        UpdateRoomWarpTransition(1.0 / 60.0);
+        if (sourceEffect.BeamVisible || !sourceEffect.PrimaryVisible)
+        {
+            throw new InvalidOperationException(
+                "The source purple child did not delete immediately after its 11-update horizontal fold.");
+        }
+        UpdateRoomWarpTransition(13.0 / 60.0);
+        if (sourceEffect.PrimaryVisible)
+        {
+            throw new InvalidOperationException(
+                "The source ground did not finish its independent 24-update contraction.");
+        }
+        UpdateRoomWarpTransition(12.0 / 60.0);
+        if (_transitions.TimeWarpPhaseName != "TimeWarpBlackFadeIn" ||
+            sourceEffect.BeamVisible || sourceEffect.PrimaryVisible || _player.Visible)
+        {
+            throw new InvalidOperationException(
+                "The source trail did not hold for exactly 60 updates after both portal " +
+                "components had collapsed and vanished.");
+        }
         UpdateRoomWarpTransition(RoomTransitionController.FastPaletteFadeFrames / 60.0);
+        if (_transitions.TimeWarpPhaseName != "TimeWarpWhiteFadeOut" ||
+            !Mathf.IsZeroApprox(_roomView.BackgroundFadeAlpha) || _player.Visible)
+        {
+            throw new InvalidOperationException(
+                "fastFadeinFromBlack did not reveal the source room in 11 updates.");
+        }
         UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
         if (_activeGroup != 1 || _currentRoom.Id != 0x39 ||
-            _currentRoom.GetPackedPosition(_player.Position) != 0x22)
+            _currentRoom.GetPackedPosition(_player.Position) != 0x22 ||
+            _player.Visible || !_hud.Visible ||
+            _transitions.TimeWarpPhaseName != "TimeWarpArrivalFadeIn" ||
+            _transitions.TimeWarpDissolveStep != -1)
         {
             throw new InvalidOperationException(
                 $"Time portal 0:39/`$22 landed at {_activeGroup:x1}:{_currentRoom.Id:x2}/" +
                 $"`${_currentRoom.GetPackedPosition(_player.Position):x2} instead of 1:39/`$22.");
         }
 
-        UpdateRoomWarpTransition((RoomTransitionController.TimeWarpArrivalHiddenFrames +
-            RoomTransitionController.TimeWarpArrivalFlickerFrames) / 60.0);
-        if (IsTransitioning || !_player.Visible)
-            throw new InvalidOperationException("The time-warp arrival did not restore visible Link and control.");
+        UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
+        if (_transitions.TimeWarpPhaseName != "TimeWarpArrivalWait")
+            throw new InvalidOperationException("The destination did not fade in from white for 32 updates.");
+        UpdateRoomWarpTransition(30.0 / 60.0);
+        TimeWarpEffect arrivalEffect = _transitions.ActiveTimeWarpEffect ??
+            throw new InvalidOperationException("Destination INTERAC_TIMEWARP $dd:$01 was not created.");
+        if (_transitions.TimeWarpPhaseName != "TimeWarpArrivalEffect" || _player.Visible ||
+            !arrivalEffect.PrimaryVisible ||
+            arrivalEffect.BackgroundZIndex != NpcCharacter.BehindLinkZIndex ||
+            arrivalEffect.ForegroundZIndex != NpcCharacter.InFrontOfLinkZIndex ||
+            arrivalEffect.UsesIndoorBeamPalette != sourceUsesIndoorBeamPalette ||
+            ((_currentRoom.TilesetFlags & 0x80) != 0) !=
+                destinationUsesIndoorBeamPalette)
+        {
+            throw new InvalidOperationException(
+                "The hidden 30-update arrival wait did not create the destination effect " +
+                "with the source-carried wcc50 beam palette variant.");
+        }
+        UpdateRoomWarpTransition(15.0 / 60.0);
+        if (_player.Visible ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndTimewarpCompleted) != 0)
+        {
+            throw new InvalidOperationException("Link or SND_TIMEWARP_COMPLETED appeared before update 16.");
+        }
+        UpdateRoomWarpTransition(1.0 / 60.0);
+        if (!_player.Visible ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndTimewarpCompleted) != 1 ||
+            _transitions.TimeWarpPhaseName != "TimeWarpArrivalFlicker" ||
+            !arrivalEffect.BeamVisible || arrivalEffect.BeamContracting)
+        {
+            throw new InvalidOperationException(
+                "Destination update 16 did not reveal Link and play SND_TIMEWARP_COMPLETED $d4.");
+        }
 
-        GD.Print("Validated all 21 `$e1 portal records, exposed 0:3a ordinary portal, " +
-            "and active 0:39 -> 1:39 time warp at `$22.");
+        int invisibleFlickerFrames = 0;
+        for (int frame = 0; frame < 4; frame++)
+        {
+            UpdateRoomWarpTransition(1.0 / 60.0);
+            if (!_player.Visible)
+                invisibleFlickerFrames++;
+        }
+        if (invisibleFlickerFrames != 1)
+        {
+            throw new InvalidOperationException(
+                "Destination objectFlickerVisibility b=$03 was not visible on three of four updates.");
+        }
+        UpdateRoomWarpTransition(4.0 / 60.0);
+        if (!arrivalEffect.BeamContracting || !arrivalEffect.BeamVisible ||
+            arrivalEffect.BeamFrameIndex != 0 || !arrivalEffect.PrimaryVisible)
+        {
+            throw new InvalidOperationException(
+                "The completed $dd:$01 expansion did not start ground animation $01 and " +
+                "purple-child animation $04 with their first contraction frames intact.");
+        }
+        UpdateRoomWarpTransition(11.0 / 60.0);
+        if (arrivalEffect.BeamVisible || !arrivalEffect.PrimaryVisible)
+        {
+            throw new InvalidOperationException(
+                "The purple $dd:$04 child did not collapse for 11 updates and delete itself " +
+                "before the slower ground contraction.");
+        }
+        UpdateRoomWarpTransition(11.0 / 60.0);
+        if (IsTransitioning || !_player.Visible ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndTimewarpCompleted) != 1)
+        {
+            throw new InvalidOperationException(
+                "The 30-update arrival flicker did not restore standing Link and control.");
+        }
+
+        GD.Print("Validated all 21 `$e1 portal records and the complete 0:39 -> 1:39 " +
+            "CUTSCENE_TIMEWARP: centered Link, sound restart, 8x6 non-Link sprite dissolve, " +
+            "intact-until-120 source Link, priority-3 ground below Link, priority-2/1 beam " +
+            "and trail above Link, source update-24 horizontal beam fold, 11-update " +
+            "source/arrival beam contraction, source-carried PALH_c1/c2 palette, hidden HUD, " +
+            "$dd/$2b/$84 source effects, black/white fades, $d1/$d4 sounds, and 30/16/30 arrival.");
     }
 
     private void ValidateMapScreen()

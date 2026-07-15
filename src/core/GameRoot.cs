@@ -261,10 +261,20 @@ public partial class GameRoot : Node2D
             return;
         }
         _transitions.Update(delta);
-        _deathRespawnPoints.Update();
-        _entities.Update(delta, _player);
-        _roomEvents.Update(delta);
-        _interactions.Update(delta, _player);
+        if (!_transitions.TimeWarpActive)
+        {
+            _deathRespawnPoints.Update();
+            _entities.Update(delta, _player);
+        }
+        // A portal can begin the time warp from the contact pass above. The
+        // original DISABLE_ALL_BUT_INTERACTIONS|DISABLE_LINK state freezes
+        // ordinary room scripts from the following handler onward; the
+        // transition controller advances only its imported warp interactions.
+        if (!_transitions.TimeWarpActive)
+        {
+            _roomEvents.Update(delta);
+            _interactions.Update(delta, _player);
+        }
         UpdateAnimatedTiles(delta);
         UpdateRoomDebugLabel();
         _debugWarps.Update();
@@ -346,7 +356,8 @@ public partial class GameRoot : Node2D
         _deathRespawnPoints = new DeathRespawnPointController(_rooms, _player);
         _transitions = new RoomTransitionController(
             _rooms, new WarpDatabase(), _roomView, _player, _roomCamera,
-            _warpFade, _hud, _dialogue, _entities, _collision.Collides, _deathRespawnPoints);
+            _warpFade, _hud, _dialogue, _entities, _collision.Collides,
+            _deathRespawnPoints, _sound);
         _transitions.ScrollingTransitionFinished += _ => ApplyDeferredIntroMusic();
         _entities.TimePortalEntered += portal =>
             _transitions.ApplyTimePortalWarp(_player, portal.Position);
@@ -572,6 +583,19 @@ public partial class GameRoot : Node2D
     private bool TryGetNeighborId(Vector2I direction, out int id) => _rooms.TryGetNeighbor(direction, out id);
     private void UpdateRoomCamera() => _transitions.UpdateCamera();
     private Vector2 WorldToScreen(Vector2 position) => _transitions.WorldToScreen(position);
-    private void UpdateRoomWarpTransition(double delta) => _transitions.UpdateWarp(delta);
+    private void UpdateRoomWarpTransition(double delta)
+    {
+        // Validation often advances several nominal frames at once. The live
+        // time-warp controller deliberately processes at most one vblank step
+        // per rendered call, so preserve that call boundary in bulk checks.
+        const double frame = 1.0 / 60.0;
+        while (_transitions.TimeWarpActive && delta > frame + 0.000001)
+        {
+            _transitions.UpdateWarp(frame);
+            delta -= frame;
+        }
+        if (delta > 0.000001)
+            _transitions.UpdateWarp(delta);
+    }
     private void UpdateScrollingTransition(double delta) => _transitions.UpdateScroll(delta);
 }

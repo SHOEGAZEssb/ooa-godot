@@ -14,6 +14,7 @@ public partial class RoomView : Node2D
     private bool _waveActive;
     private int _waveAmplitude;
     private int _wavePhase;
+    private Color _backgroundFade = new(0, 0, 0, 0);
 
     private static readonly int[] WaveQuarter =
     {
@@ -80,6 +81,21 @@ public partial class RoomView : Node2D
         QueueRedraw();
     }
 
+    public void SetBackgroundFade(Color color, float alpha)
+    {
+        _backgroundFade = new Color(
+            color.R, color.G, color.B, Mathf.Clamp(alpha, 0.0f, 1.0f));
+        QueueRedraw();
+    }
+
+    public void ClearBackgroundFade()
+    {
+        _backgroundFade = new Color(0, 0, 0, 0);
+        QueueRedraw();
+    }
+
+    internal float BackgroundFadeAlpha => _backgroundFade.A;
+
     public override void _Draw()
     {
         if (_current is null)
@@ -91,6 +107,7 @@ public partial class RoomView : Node2D
                 DrawWavedTexture(_current);
             else
                 DrawTexture(_current, Vector2.Zero);
+            DrawBackgroundFade();
             return;
         }
 
@@ -101,6 +118,16 @@ public partial class RoomView : Node2D
             _direction.Y * _transitionDistance);
         DrawTexture(_previous, -scroll);
         DrawTexture(_current, _transitionTextureOffset + distance - scroll);
+        DrawBackgroundFade();
+    }
+
+    private void DrawBackgroundFade()
+    {
+        if (_backgroundFade.A <= 0.0f || _current is null)
+            return;
+        DrawRect(
+            new Rect2(Vector2.Zero, new Vector2(_current.GetWidth(), _current.GetHeight())),
+            _backgroundFade);
     }
 
     private void DrawWavedTexture(Texture2D texture)

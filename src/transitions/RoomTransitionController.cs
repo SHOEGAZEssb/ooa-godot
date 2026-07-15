@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -13,10 +14,17 @@ public sealed class RoomTransitionController
         FadeOut,
         LeaveScreen,
         FadeIn,
-        TimeWarpCharge,
+        TimeWarpInitialize,
+        TimeWarpDissolve,
+        TimeWarpSetup,
+        TimeWarpSourceEffect,
+        TimeWarpSourceTrail,
         TimeWarpBlackFadeIn,
         TimeWarpWhiteFadeOut,
-        TimeWarpArrival
+        TimeWarpArrivalFadeIn,
+        TimeWarpArrivalWait,
+        TimeWarpArrivalEffect,
+        TimeWarpArrivalFlicker
     }
 
     public const float WarpFadeFrames = 32.0f;
@@ -25,10 +33,17 @@ public sealed class RoomTransitionController
     public const float DelayedWarpFadeFrames = 125.0f;
     public const float WarpLeaveFrames = 16.0f;
     public const float WarpEnterFrames = 28.0f;
-    public const float TimeWarpChargeFrames = 180.0f;
     public const float FastPaletteFadeFrames = 11.0f;
-    public const float TimeWarpArrivalHiddenFrames = WarpFadeFrames + 30.0f + 16.0f;
-    public const float TimeWarpArrivalFlickerFrames = 30.0f;
+    public const int TimeWarpInitializeFrames = 1;
+    public const int TimeWarpDissolveFrames = 48;
+    public const int TimeWarpDissolveBufferSteps = 6;
+    public const int TimeWarpDissolveCommitBufferStep = 5;
+    public const int TimeWarpSetupFrames = 2;
+    public const int TimeWarpSourceEffectFrames = 120;
+    public const int TimeWarpSourceTrailFrames = 60;
+    public const int TimeWarpArrivalWaitFrames = 30;
+    public const int TimeWarpArrivalEffectFrames = 16;
+    public const int TimeWarpArrivalFlickerFrames = 30;
 
     private readonly RoomSession _rooms;
     private readonly WarpDatabase _warps;
@@ -41,6 +56,8 @@ public sealed class RoomTransitionController
     private readonly RoomEntityManager _entities;
     private readonly Func<Vector2, bool> _collides;
     private readonly DeathRespawnPointController _deathRespawnPoints;
+    private readonly OracleSoundEngine _sound;
+    private readonly TimeWarpEffectDatabase _timeWarpEffects = new();
 
     private bool _scrollActive;
     private Vector2I _scrollDirection;
@@ -64,6 +81,22 @@ public sealed class RoomTransitionController
     private Vector2 _warpWalkEnd;
     private bool _destinationWalk;
     private bool _timeWarp;
+    private int _timeWarpPhaseFrame;
+    private int _timeWarpGlobalFrame;
+    private int _timeWarpDissolveStep = -1;
+    private int _timeWarpDissolveBufferStep = -1;
+    private int _timeWarpAppliedDissolveStep = -1;
+    private double _timeWarpTickAccumulator;
+    private bool _timeWarpUsesIndoorBeamPalette;
+    private TimeWarpEffect? _timeWarpEffect;
+    private readonly Dictionary<CanvasItem, Material?> _dissolvedItems = new();
+    private ShaderMaterial? _dissolveMaterial;
+
+    private static readonly (int Even, int Odd)[] TimeWarpDissolveMasks =
+    {
+        (0xdd, 0xff), (0xdd, 0xbb), (0x55, 0xbb), (0x55, 0xaa),
+        (0x11, 0xaa), (0x11, 0x88), (0x00, 0x88), (0x00, 0x00)
+    };
 
     public bool IsTransitioning => _warpActive || _scrollActive || _roomView.IsTransitioning;
     public bool ScrollActive => _scrollActive;
@@ -72,6 +105,15 @@ public sealed class RoomTransitionController
         _scrollLinkStart + _scrollLinkStep * _scrollFrame + _scrollFinishOffset;
     public float ScrollDistance => _scrollDistance;
     public int ScrollFrames => _scrollFrames;
+    internal bool TimeWarpActive => _timeWarp && _warpActive;
+    internal int TimeWarpPhaseFrame => _timeWarpPhaseFrame;
+    internal int TimeWarpDissolveStep => _timeWarpDissolveStep;
+    internal int TimeWarpDissolveBufferStep => _timeWarpDissolveBufferStep;
+    internal int TimeWarpAppliedDissolveStep => _timeWarpAppliedDissolveStep;
+    internal string TimeWarpPhaseName => _warpPhase.ToString();
+    internal TimeWarpEffect? ActiveTimeWarpEffect => _timeWarpEffect;
+    internal static (int Even, int Odd) TimeWarpDissolveMaskForValidation(int step) =>
+        TimeWarpDissolveMasks[step];
 
     public RoomTransitionController(
         RoomSession rooms,
@@ -84,7 +126,8 @@ public sealed class RoomTransitionController
         DialogueBox dialogue,
         RoomEntityManager entities,
         Func<Vector2, bool> collides,
-        DeathRespawnPointController deathRespawnPoints)
+        DeathRespawnPointController deathRespawnPoints,
+        OracleSoundEngine sound)
     {
         _rooms = rooms;
         _warps = warps;
@@ -97,6 +140,18 @@ public sealed class RoomTransitionController
         _entities = entities;
         _collides = collides;
         _deathRespawnPoints = deathRespawnPoints;
+        _sound = sound;
+
+        if (_timeWarpEffects.DissolveFrames != TimeWarpDissolveFrames ||
+            _timeWarpEffects.SourceEffectFrames != TimeWarpSourceEffectFrames ||
+            _timeWarpEffects.SourceTrailFrames != TimeWarpSourceTrailFrames ||
+            _timeWarpEffects.ArrivalWaitFrames != TimeWarpArrivalWaitFrames ||
+            _timeWarpEffects.ArrivalEffectFrames != TimeWarpArrivalEffectFrames ||
+            _timeWarpEffects.ArrivalFlickerFrames != TimeWarpArrivalFlickerFrames)
+        {
+            throw new InvalidOperationException(
+                "Imported CUTSCENE_TIMEWARP timing disagrees with the runtime state machine.");
+        }
     }
 
     public void Update(double delta)
@@ -248,12 +303,31 @@ public sealed class RoomTransitionController
             destinationGroup, _rooms.CurrentRoom.Id, position, 0, 6);
         _timeWarp = true;
         _warpActive = true;
-        _warpPhase = WarpPhase.TimeWarpCharge;
+        _warpPhase = WarpPhase.TimeWarpInitialize;
         _warpFrame = 0.0f;
+        _timeWarpPhaseFrame = 0;
+        _timeWarpTickAccumulator = 0.0;
+        _timeWarpGlobalFrame = _entities.FrameCounter;
+        _timeWarpDissolveStep = -1;
+        _timeWarpDissolveBufferStep = -1;
+        _timeWarpAppliedDissolveStep = -1;
+        // CUTSCENE_TIMEWARP writes $01/$02 from the source room's
+        // wTilesetFlags bit 7 into wcc50. TRANSITION_DEST_TIMEWARP copies that
+        // same value into the destination interaction instead of recomputing
+        // it after the era swap.
+        _timeWarpUsesIndoorBeamPalette =
+            (_rooms.CurrentRoom.TilesetFlags & 0x80) != 0;
         _destinationWalk = false;
         _dialogue.Close();
+        // interactionBeginTimewarp copies the portal's position into w1Link,
+        // forces DIR_DOWN, and calls restartSound before CUTSCENE_TIMEWARP is
+        // serviced on the next update.
+        player.WarpTo(portalPosition, recordSafe: false);
+        player.Face(Vector2I.Down);
         player.BeginRoomWarpTransition();
-        SetFadeColor(Colors.Black, 0.0f);
+        _sound.RestartSound();
+        _roomView.SetBackgroundFade(Colors.Black, 0.0f);
+        SetFade(0.0f);
     }
 
     private void BeginWarp(Player player, WarpDatabase.Warp warp, bool delayedFadeOut)
@@ -297,6 +371,23 @@ public sealed class RoomTransitionController
     {
         if (!_warpActive)
             return;
+        if (_timeWarp)
+        {
+            _timeWarpTickAccumulator += delta * 60.0;
+            if (_timeWarpTickAccumulator + 0.000001 >= 1.0)
+            {
+                _timeWarpTickAccumulator -= 1.0;
+                AdvanceTimeWarpFrame();
+                // This cutscene rewrites one graphics buffer per vblank. A
+                // render/driver hitch (notably the first shader compilation)
+                // must slow the sequence instead of consuming several masks
+                // before another frame can be drawn.
+                _timeWarpTickAccumulator = Math.Min(
+                    _timeWarpTickAccumulator, 0.999999);
+            }
+            return;
+        }
+
         _warpFrame += (float)delta * 60.0f;
         switch (_warpPhase)
         {
@@ -329,47 +420,162 @@ public sealed class RoomTransitionController
                 if (_warpFrame >= WarpFadeFrames)
                     FinishWarp();
                 break;
-            case WarpPhase.TimeWarpCharge:
-                // CUTSCENE_TIMEWARP creates the source animation with a 120
-                // update counter, then holds its final phase for 60 updates.
-                SetFadeColor(Colors.Black, Mathf.Min(1.0f, _warpFrame / FastPaletteFadeFrames));
-                if (_warpFrame >= TimeWarpChargeFrames)
+        }
+    }
+
+    private void AdvanceTimeWarpFrame()
+    {
+        _timeWarpGlobalFrame = (_timeWarpGlobalFrame + 1) & 0xff;
+        _timeWarpPhaseFrame++;
+
+        switch (_warpPhase)
+        {
+            case WarpPhase.TimeWarpInitialize:
+                // State 0 starts the fast BG-only black fade, leaves OBJ
+                // palettes untouched, prepares all loaded object graphics for
+                // masking, and hides the status bar.
+                _hud.Visible = false;
+                _roomView.SetBackgroundFade(
+                    Colors.Black,
+                    _timeWarpPhaseFrame / FastPaletteFadeFrames);
+                if (_timeWarpPhaseFrame >= TimeWarpInitializeFrames)
                 {
-                    _warpPhase = WarpPhase.TimeWarpBlackFadeIn;
-                    _warpFrame = 0.0f;
+                    BeginTimeWarpDissolve();
+                    SetTimeWarpPhase(WarpPhase.TimeWarpDissolve);
                 }
                 break;
+
+            case WarpPhase.TimeWarpDissolve:
+                int dissolveFrame = _timeWarpPhaseFrame - 1;
+                int step = Math.Min(
+                    TimeWarpDissolveMasks.Length - 1,
+                    dissolveFrame / TimeWarpDissolveBufferSteps);
+                int bufferStep = dissolveFrame % TimeWarpDissolveBufferSteps;
+                SetTimeWarpDissolvePosition(step, bufferStep);
+                _roomView.SetBackgroundFade(
+                    Colors.Black,
+                    Math.Min(1.0f,
+                        (TimeWarpInitializeFrames + _timeWarpPhaseFrame) /
+                        FastPaletteFadeFrames));
+                if (_timeWarpPhaseFrame >= TimeWarpDissolveFrames)
+                {
+                    _entities.Clear();
+                    SetTimeWarpPhase(WarpPhase.TimeWarpSetup);
+                }
+                break;
+
+            case WarpPhase.TimeWarpSetup:
+                // State 2 substeps $00/$01 reload the tilemap, then create
+                // INTERAC_TIMEWARP $dd:$00 with counter1=120.
+                if (_timeWarpPhaseFrame >= TimeWarpSetupFrames)
+                {
+                    SpawnTimeWarpEffect(source: true);
+                    _sound.PlaySound(OracleSoundEngine.SndTimewarpInitiated);
+                    SetTimeWarpPhase(WarpPhase.TimeWarpSourceEffect);
+                }
+                break;
+
+            case WarpPhase.TimeWarpSourceEffect:
+                if (_timeWarpPhaseFrame >= TimeWarpSourceEffectFrames)
+                {
+                    // CUTSCENE_TIMEWARP creates $dd:$02 and then calls
+                    // objectDelete_de on $d000 (w1Link). Link remains intact
+                    // through the object-gfx masking and source expansion,
+                    // then disappears at this exact 120-count handoff.
+                    _player.Visible = false;
+                    _timeWarpEffect?.BeginSourceTrail();
+                    _timeWarpEffect?.AdvanceFrame(_timeWarpGlobalFrame);
+                    SetTimeWarpPhase(WarpPhase.TimeWarpSourceTrail);
+                }
+                else
+                {
+                    _timeWarpEffect?.AdvanceFrame(_timeWarpGlobalFrame);
+                }
+                break;
+
+            case WarpPhase.TimeWarpSourceTrail:
+                _timeWarpEffect?.AdvanceFrame(_timeWarpGlobalFrame);
+                if (_timeWarpPhaseFrame >= TimeWarpSourceTrailFrames)
+                    SetTimeWarpPhase(WarpPhase.TimeWarpBlackFadeIn);
+                break;
+
             case WarpPhase.TimeWarpBlackFadeIn:
-                SetFadeColor(Colors.Black, 1.0f - _warpFrame / FastPaletteFadeFrames);
-                if (_warpFrame >= FastPaletteFadeFrames)
+                _timeWarpEffect?.AdvanceFrame(_timeWarpGlobalFrame);
+                _roomView.SetBackgroundFade(
+                    Colors.Black,
+                    1.0f - _timeWarpPhaseFrame / FastPaletteFadeFrames);
+                if (_timeWarpPhaseFrame >= FastPaletteFadeFrames)
                 {
-                    _warpPhase = WarpPhase.TimeWarpWhiteFadeOut;
-                    _warpFrame = 0.0f;
+                    _roomView.ClearBackgroundFade();
                     SetFade(0.0f);
+                    SetTimeWarpPhase(WarpPhase.TimeWarpWhiteFadeOut);
                 }
                 break;
+
             case WarpPhase.TimeWarpWhiteFadeOut:
-                SetFade(_warpFrame / WarpFadeFrames);
-                if (_warpFrame >= WarpFadeFrames)
+                _timeWarpEffect?.AdvanceFrame(_timeWarpGlobalFrame);
+                SetFade(_timeWarpPhaseFrame / WarpFadeFrames);
+                if (_timeWarpPhaseFrame >= WarpFadeFrames)
                 {
                     SetFade(1.0f);
                     LoadWarpDestination();
                 }
                 break;
-            case WarpPhase.TimeWarpArrival:
-                SetFade(1.0f - _warpFrame / WarpFadeFrames);
-                if (_warpFrame >= TimeWarpArrivalHiddenFrames)
+
+            case WarpPhase.TimeWarpArrivalFadeIn:
+                SetFade(1.0f - _timeWarpPhaseFrame / WarpFadeFrames);
+                if (_timeWarpPhaseFrame >= WarpFadeFrames)
                 {
-                    _player.Visible = ((int)(_warpFrame - TimeWarpArrivalHiddenFrames) & 1) != 0;
+                    SetFade(0.0f);
+                    SetTimeWarpPhase(WarpPhase.TimeWarpArrivalWait);
                 }
-                if (_warpFrame >= TimeWarpArrivalHiddenFrames + TimeWarpArrivalFlickerFrames)
+                break;
+
+            case WarpPhase.TimeWarpArrivalWait:
+                if (_timeWarpPhaseFrame >= TimeWarpArrivalWaitFrames)
+                {
+                    SpawnTimeWarpEffect(source: false);
+                    SetTimeWarpPhase(WarpPhase.TimeWarpArrivalEffect);
+                }
+                break;
+
+            case WarpPhase.TimeWarpArrivalEffect:
+                _timeWarpEffect?.AdvanceFrame(_timeWarpGlobalFrame);
+                if (_timeWarpPhaseFrame >= TimeWarpArrivalEffectFrames)
+                {
+                    _player.Visible = true;
+                    _sound.PlaySound(OracleSoundEngine.SndTimewarpCompleted);
+                    SetTimeWarpPhase(WarpPhase.TimeWarpArrivalFlicker);
+                }
+                break;
+
+            case WarpPhase.TimeWarpArrivalFlicker:
+                _timeWarpEffect?.AdvanceFrame(_timeWarpGlobalFrame);
+                // objectFlickerVisibility uses b=$03: only global frames
+                // divisible by four are invisible.
+                _player.Visible = (_timeWarpGlobalFrame & 0x03) != 0;
+                if (_timeWarpPhaseFrame >= TimeWarpArrivalFlickerFrames)
                     FinishWarp();
                 break;
         }
     }
 
+    private void SetTimeWarpPhase(WarpPhase phase)
+    {
+        _warpPhase = phase;
+        _timeWarpPhaseFrame = 0;
+    }
+
     private void LoadWarpDestination()
     {
+        if (_timeWarp)
+        {
+            _timeWarpEffect?.StopImmediately();
+            _timeWarpEffect = null;
+            EndTimeWarpDissolve();
+            _roomView.ClearBackgroundFade();
+        }
+
         WarpDatabase.Warp warp = _pendingWarp;
         OracleRoomData room = _rooms.Load(warp.DestinationGroup, warp.DestinationRoom);
         _roomView.SetRoom(room.Texture);
@@ -447,7 +653,8 @@ public sealed class RoomTransitionController
             _player.WarpTo(spawn);
             _player.Face(Vector2I.Down);
             _player.Visible = false;
-            _warpPhase = WarpPhase.TimeWarpArrival;
+            _hud.Visible = true;
+            SetTimeWarpPhase(WarpPhase.TimeWarpArrivalFadeIn);
         }
         else
         {
@@ -460,14 +667,112 @@ public sealed class RoomTransitionController
 
     private void FinishWarp()
     {
+        bool finishedTimeWarp = _timeWarp;
         _player.FinishRoomWarpTransition(_destinationWalk ? _warpWalkEnd : _player.Position);
         _deathRespawnPoints.RecordWarpDestination(_pendingWarp.DestinationTransition);
+        if (finishedTimeWarp)
+        {
+            _timeWarpEffect?.ContinueAfterTransition(_timeWarpGlobalFrame);
+            _timeWarpEffect = null;
+            EndTimeWarpDissolve();
+            _roomView.ClearBackgroundFade();
+            _hud.Visible = true;
+        }
         _destinationWalk = false;
         _timeWarp = false;
         _warpActive = false;
         _warpPhase = WarpPhase.None;
         _player.Visible = true;
         SetFade(0.0f);
+    }
+
+    private void SpawnTimeWarpEffect(bool source)
+    {
+        _timeWarpEffect?.StopImmediately();
+        _timeWarpEffect = new TimeWarpEffect(
+            _timeWarpEffects,
+            _player.Position,
+            source,
+            _timeWarpUsesIndoorBeamPalette)
+        {
+            Name = source ? "TimeWarpSourceEffect" : "TimeWarpArrivalEffect"
+        };
+        _player.GetParent().AddChild(_timeWarpEffect);
+    }
+
+    private void BeginTimeWarpDissolve()
+    {
+        EndTimeWarpDissolve();
+        var shader = new Shader
+        {
+            Code = @"shader_type canvas_item;
+uniform int even_mask = 255;
+uniform int odd_mask = 255;
+void fragment() {
+    vec4 pixel = texture(TEXTURE, UV) * COLOR;
+    ivec2 source_pixel = ivec2(floor(UV / TEXTURE_PIXEL_SIZE));
+    int x = source_pixel.x & 7;
+    int mask = (source_pixel.y & 1) == 0 ? even_mask : odd_mask;
+    if ((mask & (128 >> x)) == 0) {
+        pixel.a = 0.0;
+    }
+    COLOR = pixel;
+}"
+        };
+        _dissolveMaterial = new ShaderMaterial { Shader = shader };
+
+        Node root = _player.GetParent();
+        foreach (Node child in root.GetChildren())
+        {
+            if (child is not CanvasItem canvas || child == _roomView ||
+                child == _camera || child == _player)
+                continue;
+            _dissolvedItems[canvas] = canvas.Material;
+            canvas.Material = _dissolveMaterial;
+        }
+        // CUTSCENE_TIMEWARP masks four object-gfx chunks and two bank-6
+        // object/companion chunks on six consecutive updates. Link's graphics
+        // are loaded separately straight into VRAM and are not among them.
+        // Our objects share one material, so commit its next aggregate mask
+        // after the final source-buffer pass.
+        _timeWarpDissolveStep = 0;
+        _timeWarpDissolveBufferStep = -1;
+        SetTimeWarpDissolveMaterialMask(-1);
+    }
+
+    private void SetTimeWarpDissolvePosition(int step, int bufferStep)
+    {
+        _timeWarpDissolveStep = Math.Clamp(step, 0, TimeWarpDissolveMasks.Length - 1);
+        _timeWarpDissolveBufferStep = Math.Clamp(
+            bufferStep, 0, TimeWarpDissolveBufferSteps - 1);
+        if (_timeWarpDissolveBufferStep == TimeWarpDissolveCommitBufferStep)
+            SetTimeWarpDissolveMaterialMask(_timeWarpDissolveStep);
+    }
+
+    private void SetTimeWarpDissolveMaterialMask(int step)
+    {
+        if (_dissolveMaterial is null)
+            return;
+        _timeWarpAppliedDissolveStep = step;
+        (int even, int odd) = step < 0
+            ? (0xff, 0xff)
+            : TimeWarpDissolveMasks[step];
+        _dissolveMaterial.SetShaderParameter("even_mask", even);
+        _dissolveMaterial.SetShaderParameter("odd_mask", odd);
+    }
+
+    private void EndTimeWarpDissolve()
+    {
+        foreach ((CanvasItem item, Material? material) in _dissolvedItems)
+        {
+            if (GodotObject.IsInstanceValid(item))
+                item.Material = material;
+        }
+        _dissolvedItems.Clear();
+        _dissolveMaterial = null;
+        _timeWarpDissolveStep = -1;
+        _timeWarpDissolveBufferStep = -1;
+        _timeWarpAppliedDissolveStep = -1;
     }
 
     public void ClearDeactivatedWarp()

@@ -47,7 +47,9 @@ public partial class OracleSoundEngine : Node
     public const int SndMakuDisappear = 0xb2;
     public const int SndFadeOut = 0xb4;
     public const int SndRumble2 = 0xb8;
+    public const int SndTimewarpInitiated = 0xd1;
     public const int SndLightning = 0xd2;
+    public const int SndTimewarpCompleted = 0xd4;
     public const int SndCtrlStopMusic = 0xf0;
     public const int SndCtrlStopSfx = 0xf1;
     public const int SndCtrlDisable = 0xf5;

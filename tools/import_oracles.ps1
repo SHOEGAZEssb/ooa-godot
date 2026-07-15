@@ -3327,6 +3327,135 @@ Copy-GeneratedFile `
 $portalPath = Join-Path $destination 'objects\timePortals.tsv'
 [IO.File]::WriteAllLines($portalPath, $portalRows, [Text.UTF8Encoding]::new($false))
 
+# CUTSCENE_TIMEWARP uses INTERAC_TIMEWARP ($dd), PART_TIMEWARP_ANIMATION
+# ($2b), and INTERAC_SPARKLE ($84:$01) after a portal spawner transfers Link
+# to its center. Export the complete source/destination sprite records and the
+# two PALH_c1/PALH_c2 beam palettes; runtime should not approximate the effect
+# with a full-screen color fade.
+$timeWarpSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\timewarp.s')
+$timeWarpCutsceneSource = Get-Content -Raw (
+    Join-Path $Disassembly 'code\ages\cutscenes\miscCutscenes.s')
+$linkWarpSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\specialObjects\link.s')
+$partDataSourceForTimeWarp = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\partData.s')
+$timeWarpPartSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\parts\timewarpAnimation.s')
+$sparkleSourceForTimeWarp = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\sparkle.s')
+
+$timeWarpGraphics = @($interactionGraphics['221:0'], $interactionGraphics['221:1'])
+$timeWarpTrailGraphic = $interactionGraphics['221:2']
+$timeWarpBeamGraphic = $interactionGraphics['221:3']
+$sparkleGraphic = $interactionGraphics['132:1']
+if ($timeWarpGraphics.Count -ne 2 -or
+    $timeWarpGraphics[0].Gfx -ne 0x6a -or $timeWarpGraphics[1].Gfx -ne 0x6a -or
+    $timeWarpGraphics[0].TileBase -ne 0 -or $timeWarpGraphics[0].Palette -ne 0 -or
+    $timeWarpTrailGraphic.Gfx -ne 0 -or $timeWarpTrailGraphic.TileBase -ne 0x10 -or
+    $timeWarpTrailGraphic.Palette -ne 3 -or
+    $timeWarpBeamGraphic.Gfx -ne 0x6a -or $timeWarpBeamGraphic.Palette -ne 7 -or
+    $sparkleGraphic.Gfx -ne 0x6b -or $sparkleGraphic.TileBase -ne 0x0a -or
+    $sparkleGraphic.Palette -ne 2) {
+    throw 'INTERAC_TIMEWARP / INTERAC_SPARKLE graphics no longer match the time-portal effect.'
+}
+
+$timeWarpAnimations = @(0..5 | ForEach-Object { Resolve-NpcAnimation 0xdd $_ })
+$sparkleAnimation = Resolve-NpcAnimation 0x84 $sparkleGraphic.DefaultAnimation
+if (($timeWarpAnimations | Where-Object { -not $_ }).Count -ne 0 -or
+    -not $sparkleAnimation) {
+    throw 'Could not resolve all six INTERAC_TIMEWARP animations and sparkle animation $01.'
+}
+
+$timeWarpPart = [regex]::Match(
+    $partDataSourceForTimeWarp,
+    '(?m)^\s*\.db \$(?<gfx>[0-9a-f]{2}) \$00 \$00 \$00 \$40 \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2}) \$00\s*; \$2b')
+if (-not $timeWarpPart.Success -or
+    [Convert]::ToInt32($timeWarpPart.Groups['gfx'].Value, 16) -ne 0x6a -or
+    [Convert]::ToInt32($timeWarpPart.Groups['tile'].Value, 16) -ne 0x1e -or
+    [Convert]::ToInt32($timeWarpPart.Groups['flags'].Value, 16) -ne 0x04) {
+    throw 'PART_TIMEWARP_ANIMATION no longer resolves to gfx $6a, tile base $1e, palette $04.'
+}
+
+# The original Object.visible low bits place the circular $dd:$00/$01 object
+# and $2b particles below Link, while the purple $dd:$03/$04 beam, rising
+# $dd:$02 trail, and its $84:$01 sparkles are drawn in front of him.
+$timeWarpPriorityMatches = @(
+    [regex]::Match($timeWarpSource,
+        '(?ms)^timewarp_common_state0:.*?objectSetVisible8(?<priority>[0-3])'),
+    [regex]::Match($timeWarpSource,
+        '(?ms)^itemwarp_subid3Or4_state0:.*?objectSetVisible8(?<priority>[0-3])'),
+    [regex]::Match($timeWarpSource,
+        '(?ms)^timewarp_subid2:.*?@state0:.*?objectSetVisible8(?<priority>[0-3])'),
+    [regex]::Match($timeWarpPartSource,
+        '(?ms)^partCode2b:.*?objectSetVisible8(?<priority>[0-3])'),
+    [regex]::Match($sparkleSourceForTimeWarp,
+        '(?ms)^@initSubid00:\s*^@initSubid01:.*?objectSetVisible8(?<priority>[0-3])')
+)
+if (($timeWarpPriorityMatches | Where-Object { -not $_.Success }).Count -ne 0) {
+    throw 'Could not resolve all time-warp Object.visible draw priorities.'
+}
+$timeWarpPriorities = @($timeWarpPriorityMatches | ForEach-Object {
+    [Convert]::ToInt32($_.Groups['priority'].Value, 16)
+})
+if (($timeWarpPriorities -join ',') -ne '3,2,1,3,1') {
+    throw "Time-warp ground/beam/trail/particle/sparkle priorities changed from 3,2,1,3,1."
+}
+
+$particleBlock = [regex]::Match(
+    $timeWarpSource,
+    '(?ms)^@data:\s*(?<body>.*?)^timewarp_animateUntilFinished:')
+$particleRows = @(
+    [regex]::Matches(
+        $particleBlock.Groups['body'].Value,
+        '(?m)^\s*\.db SPEED_(?<speed>[0-9a-f]+), \$(?<x>[0-9a-f]{2}), \$(?<subid>[0-9a-f]{2}), \$00') |
+        ForEach-Object {
+            $x = [Convert]::ToInt32($_.Groups['x'].Value, 16)
+            if ($x -ge 0x80) { $x -= 0x100 }
+            $speedFixed = [Convert]::ToInt32($_.Groups['speed'].Value, 16)
+            $subid = [Convert]::ToInt32($_.Groups['subid'].Value, 16)
+            "$speedFixed,$x,$subid"
+        }
+)
+if (-not $particleBlock.Success -or $particleRows.Count -ne 8 -or
+    ($particleRows -join '|') -ne
+        '640,-4,0|704,9,3|576,-9,2|704,4,1|576,-4,0|640,4,1|704,-9,2|576,9,3') {
+    throw 'INTERAC_TIMEWARP particle speed/offset/subid table no longer matches its eight records.'
+}
+
+# State 1 performs six queued graphics-buffer writes for each of eight masks.
+# State 2 then owns independent 120 and 60 update counters. Destination
+# transition $06 waits 30, creates the effect, waits 16, and flickers for 30.
+if ($timeWarpCutsceneSource -notmatch '(?ms)^func_03_7244:.*?ld a,\$08\s+ld \(\$cbb7\),a.*?@@cbb3_00:.*?@@cbb3_05:.*?ld a,120.*?ld \(wTmpcbb4\),a.*?ld \(hl\),\$3c' -or
+    $linkWarpSource -notmatch '(?ms)^warpTransition6:.*?ld \(hl\),\$1e.*?ld \(hl\),\$10.*?SND_TIMEWARP_COMPLETED.*?ld \(hl\),\$1e') {
+    throw 'CUTSCENE_TIMEWARP or TRANSITION_DEST_TIMEWARP timing no longer matches 8x6, 120/60, and 30/16/30.'
+}
+if ($timeWarpCutsceneSource -notmatch '(?ms)^func_03_7244:.*?ld a,\(wTilesetFlags\)\s+and \$80\s+ld a,\$02\s+jr nz,\+\s+dec a\s+\+\s+ld l,Interaction.var03\s+ld \(hl\),a\s+ld \(wcc50\),a' -or
+    $linkWarpSource -notmatch '(?ms)^@createDestinationTimewarpAnimation:.*?ld a,\(wcc50\)\s+inc l\s+ld \(hl\),a') {
+    throw 'Time-warp PALH_c1/PALH_c2 selection no longer carries the source tileset flag through wcc50.'
+}
+
+$timeWarpPalette = [byte[]]::new(24)
+$timeWarpOutdoorPalette = Read-PaletteBytes 'paletteData5928' 4
+$timeWarpIndoorPalette = Read-PaletteBytes 'paletteData5930' 4
+[Array]::Copy($timeWarpOutdoorPalette, 0, $timeWarpPalette, 0, 12)
+[Array]::Copy($timeWarpIndoorPalette, 0, $timeWarpPalette, 12, 12)
+$timeWarpPalettePath = Join-Path $destination 'metadata\time_warp_palettes.bin'
+[IO.File]::WriteAllBytes($timeWarpPalettePath, $timeWarpPalette)
+
+$timeWarpSprite = $gfxNames[0x6a]
+$sparkleSprite = $gfxNames[0x6b]
+Copy-GeneratedFile "gfx_compressible\ages\$timeWarpSprite.png" "gfx\$timeWarpSprite.png"
+Copy-GeneratedFile "gfx_compressible\ages\$sparkleSprite.png" "gfx\$sparkleSprite.png"
+$timeWarpRows = @(
+    "# timewarp-sprite`tcommon-sprite`tsparkle-sprite`tprimary-tile-base`tprimary-palette`tbeam-palette`ttrail-tile-base`ttrail-palette`tparticle-tile-base`tparticle-palette`tsparkle-tile-base`tsparkle-palette`tprimary-priority`tbeam-priority`ttrail-priority`tparticle-priority`tsparkle-priority`tdissolve-frames`tsource-effect-frames`tsource-trail-frames`tarrival-wait-frames`tarrival-effect-frames`tarrival-flicker-frames`texpand-animation`tcontract-animation`tbeam-intro-animation`tbeam-loop-animation`tbeam-contract-animation`ttrail-animation`tsparkle-animation`tparticles",
+    "$timeWarpSprite`tspr_common_sprites`t$sparkleSprite`t$($timeWarpGraphics[0].TileBase)`t$($timeWarpGraphics[0].Palette)`t$($timeWarpBeamGraphic.Palette)`t$($timeWarpTrailGraphic.TileBase)`t$($timeWarpTrailGraphic.Palette)`t$([Convert]::ToInt32($timeWarpPart.Groups['tile'].Value, 16))`t$([Convert]::ToInt32($timeWarpPart.Groups['flags'].Value, 16) -band 7)`t$($sparkleGraphic.TileBase)`t$($sparkleGraphic.Palette)`t$($timeWarpPriorities -join "`t")`t48`t120`t60`t30`t16`t30`t$($timeWarpAnimations[0])`t$($timeWarpAnimations[1])`t$($timeWarpAnimations[2])`t$($timeWarpAnimations[3])`t$($timeWarpAnimations[4])`t$($timeWarpAnimations[5])`t$sparkleAnimation`t$($particleRows -join '|')"
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\timeWarpEffects.tsv'),
+    $timeWarpRows,
+    [Text.UTF8Encoding]::new($false))
+
 # The first present Maku Tree visit is interaction $87 subid $01, selected
 # from room 0:38's $87:$00 object while wMakuTreeState and GLOBALFLAG_0c are
 # both clear. Export its complete simulated-input/script timing, all five tree
