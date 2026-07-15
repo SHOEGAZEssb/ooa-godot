@@ -4828,6 +4828,8 @@ public partial class GameRoot
     private void ValidateMakuTreeDisappearanceCutscene()
     {
         MakuTreeDisappearanceEvent makuEvent = _roomEvents.MakuTree;
+        MakuTreeCutsceneDatabase makuDatabase = makuEvent.Database;
+        MakuTreeCutsceneDatabase.MakuTreeCutsceneRecord makuRecord = makuDatabase.Record;
         _sound.ClearPlayRequestAudit();
         LoadValidationRoom(0, 0x38);
         // The event is entered through room position $52 (the open $dc tile),
@@ -4840,6 +4842,44 @@ public partial class GameRoot
         {
             throw new InvalidOperationException(
                 "Room 0:38 did not start the $87:$01 Maku Tree entry event at $40/$50.");
+        }
+        bool retainedPalettes = true;
+        for (int header = 0; header < MakuTreeCutsceneDatabase.PaletteCount; header++)
+        for (int palette = 4;
+            palette < MakuTreeCutsceneDatabase.BackgroundPalettesPerHeader;
+            palette++)
+        for (int shade = 0; shade < MakuTreeCutsceneDatabase.ColorsPerPalette; shade++)
+        {
+            retainedPalettes &= makuDatabase.BackgroundPalettes[header, palette, shade]
+                .IsEqualApprox(makuDatabase.BackgroundPalettes[
+                    makuRecord.InitialPaletteHeader, palette, shade]);
+        }
+        // Metatile $8f at room tile 3,7 selects BG palette 7. Pixel $31,$71
+        // uses its first color, making it a focused check for the gate shown
+        // during the unswapped-layout lead-in.
+        OracleRoomData unswappedRoom = _currentRoom;
+        Vector2I gatePixelPosition = new(0x31, 0x71);
+        Color gatePixel = unswappedRoom.GetRenderedPixelForValidation(gatePixelPosition);
+        Color expectedGate = makuDatabase.BackgroundPalettes[
+            makuRecord.InitialPaletteHeader, 5, 0];
+        bool GateMatchesExpected(Color color) =>
+            Mathf.RoundToInt(color.R * 31) == Mathf.RoundToInt(expectedGate.R * 31) &&
+            Mathf.RoundToInt(color.G * 31) == Mathf.RoundToInt(expectedGate.G * 31) &&
+            Mathf.RoundToInt(color.B * 31) == Mathf.RoundToInt(expectedGate.B * 31);
+        if (makuRecord.InitialPaletteHeader != 2 ||
+            makuDatabase.BackgroundPalettes.GetLength(0) != 4 ||
+            makuDatabase.BackgroundPalettes.GetLength(1) != 6 ||
+            makuDatabase.BackgroundPalettes.GetLength(2) != 4 ||
+            !retainedPalettes || makuEvent.PaletteHeader != makuRecord.InitialPaletteHeader ||
+            Mathf.RoundToInt(expectedGate.R * 31) != 0x19 ||
+            Mathf.RoundToInt(expectedGate.G * 31) != 0x15 ||
+            Mathf.RoundToInt(expectedGate.B * 31) != 0x02 ||
+            !GateMatchesExpected(gatePixel))
+        {
+            throw new InvalidOperationException(
+                $"The unswapped Maku Tree room did not apply PALH_8f to BG palettes 2-7 " +
+                $"before simulated input (header={makuEvent.PaletteHeader}, " +
+                $"gate={gatePixel}, expected={expectedGate}, retained={retainedPalettes}).");
         }
         if (makuTree.CurrentAnimationTextureSize.X <= 32 ||
             makuTree.CurrentAnimationTextureSize.Y <= 32 ||
@@ -4945,32 +4985,39 @@ public partial class GameRoot
                 "The Maku Tree event did not persist GLOBALFLAG_0c, wMakuTreeState, room bit 0, " +
                 "and initiate its hardcoded same-room warp after 150 updates.");
         }
-        if (_currentRoom.TilesetId != 0x22 || !makuTree.Active || _warpFade.Color.A != 0.0f)
+        Color fadeStartGate = unswappedRoom.GetRenderedPixelForValidation(gatePixelPosition);
+        if (_currentRoom.TilesetId != 0x22 || !makuTree.Active || _warpFade.Color.A != 0.0f ||
+            !GateMatchesExpected(fadeStartGate))
         {
             throw new InvalidOperationException(
-                "The delayed $83 fade replaced room 0:38 before beginning its transition to white.");
+                $"The delayed $83 fade replaced room 0:38 or restored its corrupt base palette " +
+                $"before beginning its transition to white (gate={fadeStartGate}).");
         }
 
         for (int frame = 0; frame < RoomTransitionController.DelayedWarpFadeFrames - 1; frame++)
             UpdateRoomWarpTransition(1.0 / 60.0);
+        Color nearWhiteGate = unswappedRoom.GetRenderedPixelForValidation(gatePixelPosition);
         if (_currentRoom.TilesetId != 0x22 || _warpFade.Color.A <= 0.9f ||
-            _warpFade.Color.A >= 1.0f)
+            _warpFade.Color.A >= 1.0f || !GateMatchesExpected(nearWhiteGate))
         {
             throw new InvalidOperationException(
-                $"The $83 delayed fade did not retain the old layout for 124 updates " +
-                $"(tileset={_currentRoom.TilesetId:x2}, alpha={_warpFade.Color.A}).");
+                $"The $83 delayed fade did not retain the old layout and cutscene palette " +
+                $"for 124 updates (tileset={_currentRoom.TilesetId:x2}, " +
+                $"alpha={_warpFade.Color.A}, gate={nearWhiteGate}).");
         }
         UpdateRoomWarpTransition(1.0 / 60.0);
         NpcCharacter? reloadedTree = _npcNodes.Find(npc =>
             npc.Record.Id == 0x87 && npc.Record.SubId == 0x00);
-        if (reloadedTree is null || reloadedTree.Active ||
+        Color retiredGate = unswappedRoom.GetRenderedPixelForValidation(gatePixelPosition);
+        if (reloadedTree is null || reloadedTree.Active || GateMatchesExpected(retiredGate) ||
             !_rooms.IsLayoutSwapped(0, 0x38) || _currentRoom.TilesetId != 0x23 ||
             _currentRoom.GetMetatile(new Vector2(0x48, 0x28)) != 0xf9)
         {
             throw new InvalidOperationException(
                 $"Room flag bit 0 did not load group 2's tree-less room 0:38 layout and suppress $87 " +
                 $"(tree={reloadedTree is not null}/{reloadedTree?.Active}, " +
-                $"swap={_rooms.IsLayoutSwapped(0, 0x38)}, tileset={_currentRoom.TilesetId:x2}, " +
+                $"swap={_rooms.IsLayoutSwapped(0, 0x38)}, retiredGate={retiredGate}, " +
+                $"tileset={_currentRoom.TilesetId:x2}, " +
                 $"tile24={_currentRoom.GetMetatile(new Vector2(0x48, 0x28)):x2}).");
         }
 
@@ -4992,9 +5039,11 @@ public partial class GameRoot
             throw new InvalidOperationException("The completed Maku Tree entry event retriggered on room reload.");
 
         GD.Print("Validated room 0:38 Maku Tree $87:$01 simulated input, two-sheet unclipped face OAM, " +
-            "fixed-bottom \\pos(2) dialogue, 210/60/60/210/210/150 timing, four-header " +
+            "initial six-palette PALH_8f gate/ground colors, fixed-bottom \\pos(2) dialogue, " +
+            "210/60/60/210/210/150 timing, four-header " +
             "palette cycle, STOPMUSIC/three SND_MAKUDISAPPEAR/SND_FADEOUT cue chain, " +
-            "delayed 125-update white fade, and one-shot $45 re-entry warp.");
+            "cutscene palette retained through the delayed 125-update white fade, " +
+            "and one-shot $45 re-entry warp.");
     }
 
     private void StepRoomEventFrames(int frames)

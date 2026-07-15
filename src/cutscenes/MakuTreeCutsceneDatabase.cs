@@ -7,7 +7,7 @@ namespace oracleofages;
 public sealed class MakuTreeCutsceneDatabase
 {
     public const int PaletteCount = 4;
-    public const int BackgroundPalettesPerHeader = 4;
+    public const int BackgroundPalettesPerHeader = 6;
     public const int ColorsPerPalette = 4;
 
     public MakuTreeCutsceneRecord Record { get; }
@@ -31,9 +31,9 @@ public sealed class MakuTreeCutsceneDatabase
             throw new InvalidOperationException("Maku Tree cutscene data is empty.");
 
         string[] columns = row.Split('\t');
-        if (columns.Length != 31)
+        if (columns.Length != 32)
             throw new InvalidOperationException(
-                $"Maku Tree cutscene row should contain 31 columns, got {columns.Length}.");
+                $"Maku Tree cutscene row should contain 32 columns, got {columns.Length}.");
 
         Record = new MakuTreeCutsceneRecord(
             int.Parse(columns[0]),
@@ -53,20 +53,21 @@ public sealed class MakuTreeCutsceneDatabase
             int.Parse(columns[14]),
             int.Parse(columns[15]),
             int.Parse(columns[16]),
-            Convert.ToInt32(columns[17], 16),
+            int.Parse(columns[17]),
             Convert.ToInt32(columns[18], 16),
-            int.Parse(columns[19]),
+            Convert.ToInt32(columns[19], 16),
             int.Parse(columns[20]),
-            columns[21],
+            int.Parse(columns[21]),
             columns[22],
             columns[23],
             columns[24],
             columns[25],
             columns[26],
-            int.Parse(columns[27]),
-            Decode(columns[28]),
+            columns[27],
+            int.Parse(columns[28]),
             Decode(columns[29]),
-            Decode(columns[30]));
+            Decode(columns[30]),
+            Decode(columns[31]));
 
         byte[] bytes = FileAccess.GetFileAsBytes(
             "res://assets/oracle/metadata/maku_tree_disappear_palettes.bin");
@@ -98,6 +99,7 @@ public sealed class MakuTreeCutsceneDatabase
         int Room,
         int InteractionId,
         int SubId,
+        int InitialPaletteHeader,
         int InputIdleFrames,
         int InputRightFrames,
         int InputStopFrames,

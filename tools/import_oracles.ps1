@@ -2489,8 +2489,9 @@ $portalPath = Join-Path $destination 'objects\timePortals.tsv'
 # The first present Maku Tree visit is interaction $87 subid $01, selected
 # from room 0:38's $87:$00 object while wMakuTreeState and GLOBALFLAG_0c are
 # both clear. Export its complete simulated-input/script timing, all five tree
-# animations, text, hardcoded destination, and four cycling background
-# palettes instead of encoding disassembly-only details in runtime code.
+# animations, text, hardcoded destination, initial PALH_8f load, and four
+# cycling background-palette states instead of encoding disassembly-only
+# details in runtime code.
 $makuTreeSource = Get-Content -Raw (
     Join-Path $Disassembly 'object_code\ages\interactions\makuTree.s')
 $makuScriptSource = Get-Content -Raw (
@@ -2502,6 +2503,25 @@ $makuInputMatch = [regex]::Match(
     '(?ms)@simulatedInput:\s*dwb\s+(?<idle>\d+)\s+\$00\s+dwb\s+(?<right>\d+)\s+BTN_RIGHT\s+dwb\s+(?<stop>\d+)\s+\$00\s+dwb\s+(?<up>\d+)\s+BTN_UP\s+dwb\s+(?<tail>\d+)\s+\$00')
 if (-not $makuInputMatch.Success) {
     throw 'Could not parse the Maku Tree disappearance simulated-input record.'
+}
+$makuInitialPaletteMatch = [regex]::Match(
+    $makuTreeSource,
+    '(?ms)Subid 1 only:.*?ld a,(?<palette>PALH_[A-Za-z0-9_]+)\s+call loadPaletteHeader\s+ld hl,@simulatedInput')
+if (-not $makuInitialPaletteMatch.Success -or
+    $makuInitialPaletteMatch.Groups['palette'].Value -ne 'PALH_8f') {
+    throw 'Could not resolve the Maku Tree disappearance initial PALH_8f load.'
+}
+$makuPaletteSymbols = @('PALH_9a', 'PALH_c4', 'PALH_8f', 'PALH_c5')
+$makuPaletteTableMatch = [regex]::Match(
+    $makuCutsceneSource,
+    '(?ms)@paletteHeaders:\s*\.db\s+\$9a\s+\$c4\s+\$8f\s+\$c5')
+if (-not $makuPaletteTableMatch.Success) {
+    throw 'Could not resolve the Maku Tree $9a/$c4/$8f/$c5 palette cycle.'
+}
+$makuInitialPaletteIndex = [Array]::IndexOf(
+    $makuPaletteSymbols, $makuInitialPaletteMatch.Groups['palette'].Value)
+if ($makuInitialPaletteIndex -lt 0) {
+    throw 'The initial Maku Tree palette is absent from its cycling palette table.'
 }
 $makuScriptMatch = [regex]::Match(
     $makuScriptSource,
@@ -2551,6 +2571,7 @@ foreach ($textId in @(0x0564, 0x0540, 0x0541)) {
 $makuColumns = [Collections.Generic.List[string]]::new()
 $makuColumns.AddRange([string[]]@(
     '0', '38', '87', '00',
+    $makuInitialPaletteIndex.ToString(),
     $makuInputMatch.Groups['idle'].Value,
     $makuInputMatch.Groups['right'].Value,
     $makuInputMatch.Groups['stop'].Value,
@@ -2575,7 +2596,7 @@ foreach ($textId in @(0x0564, 0x0540, 0x0541)) {
         [Text.Encoding]::UTF8.GetBytes($allTexts[$textId])))
 }
 $makuEventRows = @(
-    "# group`troom`tid`tsubid`tinput-idle`tinput-right`tinput-stop`tinput-up`tinput-tail`tintro-delay`tpost-intro`tfrown-delay`tdisappearance`tpost-ahh`tfinish-delay`tsource-transition`tdestination-group`tdestination-room`tdestination-position`tdestination-parameter`tdestination-transition`tanimation0`tanimation1`tanimation2`tanimation3`tanimation4`textra-sprite`ttextbox-position`tintro-base64`tahh-base64`thelp-base64",
+    "# group`troom`tid`tsubid`tinitial-palette`tinput-idle`tinput-right`tinput-stop`tinput-up`tinput-tail`tintro-delay`tpost-intro`tfrown-delay`tdisappearance`tpost-ahh`tfinish-delay`tsource-transition`tdestination-group`tdestination-room`tdestination-position`tdestination-parameter`tdestination-transition`tanimation0`tanimation1`tanimation2`tanimation3`tanimation4`textra-sprite`ttextbox-position`tintro-base64`tahh-base64`thelp-base64",
     ($makuColumns -join "`t")
 )
 [IO.File]::WriteAllLines(
@@ -2583,8 +2604,26 @@ $makuEventRows = @(
     $makuEventRows,
     [Text.UTF8Encoding]::new($false))
 
-$makuPaletteLabels = @('paletteData4530', 'paletteData4550', 'paletteData4500', 'paletteData4570')
-$makuPaletteBytes = [Collections.Generic.List[byte]]::new()
+$makuPaletteLabels = [Collections.Generic.List[string]]::new()
+foreach ($symbol in $makuPaletteSymbols) {
+    $headerMatch = [regex]::Match(
+        $paletteHeaderSource,
+        "(?ms)^m_PaletteHeaderStart\s+\`$[0-9a-f]{2},[ \t]*$([regex]::Escape($symbol))(?<body>.*?)(?=^m_PaletteHeaderStart|\z)")
+    if (-not $headerMatch.Success) {
+        throw "Maku Tree palette header not found: $symbol"
+    }
+    $background = [regex]::Match(
+        $headerMatch.Groups['body'].Value,
+        'm_PaletteHeaderBg\s+2,\s*(?<count>[46]),\s*(?<label>paletteData[0-9a-f]+)')
+    $expectedPaletteCount = if ($symbol -eq 'PALH_8f') { 6 } else { 4 }
+    if (-not $background.Success -or
+        [int]$background.Groups['count'].Value -ne $expectedPaletteCount) {
+        throw "$symbol did not load the expected $expectedPaletteCount Maku Tree BG palettes."
+    }
+    $makuPaletteLabels.Add($background.Groups['label'].Value)
+}
+$makuBasePaletteLabel = $makuPaletteLabels[$makuInitialPaletteIndex]
+$makuPaletteColors = @{}
 foreach ($label in $makuPaletteLabels) {
     $labelIndex = $paletteDataSource.IndexOf("${label}:", [StringComparison]::Ordinal)
     if ($labelIndex -lt 0) { throw "Maku Tree palette data not found: $label" }
@@ -2595,15 +2634,26 @@ foreach ($label in $makuPaletteLabels) {
     $colors = [regex]::Matches(
         $block,
         'm_RGB16\s+\$(?<r>[0-9a-f]{2})\s+\$(?<g>[0-9a-f]{2})\s+\$(?<b>[0-9a-f]{2})')
-    if ($colors.Count -lt 16) { throw "$label contains fewer than four background palettes." }
-    for ($color = 0; $color -lt 16; $color++) {
-        $makuPaletteBytes.Add([Convert]::ToByte($colors[$color].Groups['r'].Value, 16))
-        $makuPaletteBytes.Add([Convert]::ToByte($colors[$color].Groups['g'].Value, 16))
-        $makuPaletteBytes.Add([Convert]::ToByte($colors[$color].Groups['b'].Value, 16))
+    $expectedColors = if ($label -eq $makuBasePaletteLabel) { 24 } else { 16 }
+    if ($colors.Count -lt $expectedColors) {
+        throw "$label contains fewer than $expectedColors Maku Tree background colors."
+    }
+    $makuPaletteColors[$label] = $colors
+}
+$makuPaletteBytes = [Collections.Generic.List[byte]]::new()
+foreach ($label in $makuPaletteLabels) {
+    for ($color = 0; $color -lt 24; $color++) {
+        # PALH_9a/PALH_c4/PALH_c5 replace BG palettes 2-5 only. Palettes
+        # 6-7 retain the values installed by the initial PALH_8f load.
+        $sourceLabel = if ($color -lt 16) { $label } else { $makuBasePaletteLabel }
+        $sourceColor = $makuPaletteColors[$sourceLabel][$color]
+        $makuPaletteBytes.Add([Convert]::ToByte($sourceColor.Groups['r'].Value, 16))
+        $makuPaletteBytes.Add([Convert]::ToByte($sourceColor.Groups['g'].Value, 16))
+        $makuPaletteBytes.Add([Convert]::ToByte($sourceColor.Groups['b'].Value, 16))
     }
 }
-if ($makuPaletteBytes.Count -ne 192) {
-    throw "Expected 192 Maku Tree disappearance palette bytes, got $($makuPaletteBytes.Count)."
+if ($makuPaletteBytes.Count -ne 288) {
+    throw "Expected 288 Maku Tree disappearance palette bytes, got $($makuPaletteBytes.Count)."
 }
 [IO.File]::WriteAllBytes(
     (Join-Path $destination 'metadata\maku_tree_disappear_palettes.bin'),

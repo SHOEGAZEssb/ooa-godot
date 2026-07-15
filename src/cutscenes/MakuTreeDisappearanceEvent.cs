@@ -13,6 +13,7 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
     private OracleRoomData? _eventRoom;
     private NpcCharacter? _makuTree;
     private int _inputFrame;
+    private int _paletteCycleIndex;
     private int _paletteHeader;
     private bool _paletteCycling;
 
@@ -26,6 +27,7 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
     public bool BlocksGameplay => HasState;
     internal int InputFrame => _inputFrame;
     internal int PaletteHeader => _paletteHeader;
+    internal MakuTreeCutsceneDatabase Database => _database;
     internal bool Completed =>
         _context.Rooms.SaveData.HasGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared);
 
@@ -44,14 +46,22 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
 
         if (Completed)
         {
+            // The hardcoded same-room warp has now replaced the unswapped
+            // room at full white. Only retire its PALH_8f override here; the
+            // original fade operates on the cutscene palette still in RAM.
+            ClearEventRoomPalette();
             _makuTree.SetActive(false);
             return;
         }
 
         _eventRoom = room;
         _inputFrame = 0;
-        _paletteHeader = 0;
+        _paletteCycleIndex = 0;
+        _paletteHeader = _record.InitialPaletteHeader;
         _paletteCycling = false;
+        _eventRoom.SetTemporaryBackgroundPalette(
+            _database.BackgroundPalettes, _paletteHeader);
+        _context.RoomView.QueueRedraw();
         _makuTree.AppendScriptGraphics(_record.ExtraSprite);
         _makuTree.SetScriptAnimation(_record.Animation0);
         _context.Player.BeginCutsceneControl();
@@ -63,7 +73,8 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
         AdvanceSimulatedInput();
         if (_paletteCycling && (_context.Entities.FrameCounter & 0x07) == 0)
         {
-            _paletteHeader = (_paletteHeader + 1) & 0x03;
+            _paletteCycleIndex = (_paletteCycleIndex + 1) & 0x03;
+            _paletteHeader = _paletteCycleIndex;
             _eventRoom!.SetTemporaryBackgroundPalette(
                 _database.BackgroundPalettes, _paletteHeader);
             _context.RoomView.QueueRedraw();
@@ -74,8 +85,7 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
 
     public void Cancel()
     {
-        _eventRoom?.ClearTemporaryBackgroundPalette(_context.AnimationTick());
-        _eventRoom = null;
+        ClearEventRoomPalette();
         _makuTree = null;
         _timeline.Clear();
         _paletteCycling = false;
@@ -143,9 +153,9 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
         _paletteCycling = false;
         // The cutscene handler starts the transition's endless fade effect on
         // the same update that it sets GLOBALFLAG_0c and the hardcoded warp.
+        // It does not reload the tileset palette first, so PALH_8f must remain
+        // on the unswapped room until the fade reaches white and reloads it.
         _context.Sound.PlaySound(OracleSoundEngine.SndFadeOut);
-        _eventRoom!.ClearTemporaryBackgroundPalette(_context.AnimationTick());
-        _context.RoomView.QueueRedraw();
         _context.Player.EndCutsceneControl();
         // makuTreeDisappearingCutsceneHandler sets GLOBALFLAG_0c and room bit
         // 0, while the interaction script increments wMakuTreeState.
@@ -170,5 +180,11 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
             _record.DestinationTransition);
         // wWarpTransition2=$83 takes the delayed (divisor 4) white fade path.
         _context.Transitions.ApplyWarpWithDelayedFadeOut(_context.Player, warp);
+    }
+
+    private void ClearEventRoomPalette()
+    {
+        _eventRoom?.ClearTemporaryBackgroundPalette(_context.AnimationTick());
+        _eventRoom = null;
     }
 }

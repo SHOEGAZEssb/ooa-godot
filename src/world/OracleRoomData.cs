@@ -147,11 +147,11 @@ public sealed class OracleRoomData
 
     internal void SetTemporaryBackgroundPalette(Color[,,] palettes, int header)
     {
-        if (palettes.GetLength(0) != 4 || palettes.GetLength(1) != 4 ||
+        if (palettes.GetLength(0) != 4 || palettes.GetLength(1) != 6 ||
             palettes.GetLength(2) != 4 || header < 0 || header >= palettes.GetLength(0))
         {
             throw new ArgumentOutOfRangeException(
-                nameof(palettes), "The Maku Tree effect requires four headers of four 4-color palettes.");
+                nameof(palettes), "The Maku Tree effect requires four headers of six 4-color palettes.");
         }
         _temporaryBackgroundPalettes = palettes;
         _temporaryBackgroundPaletteHeader = header;
@@ -195,6 +195,13 @@ public sealed class OracleRoomData
             hash *= 1099511628211UL;
         }
         return hash;
+    }
+
+    internal Color GetRenderedPixelForValidation(Vector2I point)
+    {
+        if (point.X < 0 || point.X >= Width || point.Y < 0 || point.Y >= Height)
+            throw new ArgumentOutOfRangeException(nameof(point));
+        return RenderRoom(_activeAnimationHeaders).GetPixel(point.X, point.Y);
     }
 
     internal bool HasAnimationOverride(int destinationTile, long tick)
@@ -468,7 +475,7 @@ public sealed class OracleRoomData
                             _temporaryFullBackgroundPalette[tilesetPaletteIndex, shade],
                             _temporaryFullBackgroundPaletteBlend);
                     }
-                    else if (_temporaryBackgroundPalettes is not null && rawPalette is >= 2 and <= 5)
+                    else if (_temporaryBackgroundPalettes is not null && rawPalette is >= 2 and <= 7)
                     {
                         color = _temporaryBackgroundPalettes[
                             _temporaryBackgroundPaletteHeader, rawPalette - 2, shade];
