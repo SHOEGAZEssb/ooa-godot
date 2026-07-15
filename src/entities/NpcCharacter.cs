@@ -347,6 +347,18 @@ public partial class NpcCharacter : Node2D
         _animationRate = Math.Max(0.0f, rate);
     }
 
+    /// <summary>
+    /// Advances the animation by an exact number of interactionAnimate calls.
+    /// Cutscene interactions use this when their script changes animation or
+    /// speed before the animation helper runs later in the same update.
+    /// </summary>
+    internal void AdvanceAnimationUpdates(int updates)
+    {
+        if (updates <= 0)
+            return;
+        AdvanceAnimationTicks(updates);
+    }
+
     internal void SetSourceGrayscaleInverted(bool inverted)
     {
         if (_sourceGrayscaleInverted == inverted)
@@ -479,10 +491,15 @@ public partial class NpcCharacter : Node2D
 
     private void AdvanceAnimation(double delta)
     {
+        AdvanceAnimationTicks(delta * 60.0 * _animationRate);
+    }
+
+    private void AdvanceAnimationTicks(double ticks)
+    {
         List<AnimationFrame> animation = CurrentAnimation;
         if (animation.Count <= 1)
             return;
-        _animationTicks += delta * 60.0 * _animationRate;
+        _animationTicks += ticks;
         while (_animationTicks >= animation[_animationFrame].Duration)
         {
             _animationTicks -= animation[_animationFrame].Duration;

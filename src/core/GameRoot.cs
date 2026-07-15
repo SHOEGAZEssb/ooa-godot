@@ -270,7 +270,11 @@ public partial class GameRoot : Node2D
         // original DISABLE_ALL_BUT_INTERACTIONS|DISABLE_LINK state freezes
         // ordinary room scripts from the following handler onward; the
         // transition controller advances only its imported warp interactions.
-        if (!_transitions.TimeWarpActive)
+        if (_transitions.TimeWarpActive)
+        {
+            _roomEvents.UpdateDuringTimeWarp(delta);
+        }
+        else
         {
             _roomEvents.Update(delta);
             _interactions.Update(delta, _player);
@@ -592,10 +596,20 @@ public partial class GameRoot : Node2D
         while (_transitions.TimeWarpActive && delta > frame + 0.000001)
         {
             _transitions.UpdateWarp(frame);
+            if (_transitions.TimeWarpActive)
+                _roomEvents.UpdateDuringTimeWarp(frame);
+            else
+                _roomEvents.Update(frame);
             delta -= frame;
         }
         if (delta > 0.000001)
+        {
             _transitions.UpdateWarp(delta);
+            if (_transitions.TimeWarpActive)
+                _roomEvents.UpdateDuringTimeWarp(delta);
+            else
+                _roomEvents.Update(delta);
+        }
     }
     private void UpdateScrollingTransition(double delta) => _transitions.UpdateScroll(delta);
 }

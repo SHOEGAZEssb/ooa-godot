@@ -38,6 +38,7 @@ public sealed class OracleSaveData
     public const int GlobalFlagFlameOfDespairLit = 0x3a;
     public const int GlobalFlagReturnedDog = 0x3b;
     public const int GlobalFlagRalphEnteredPortal = 0x40;
+    public const int GlobalFlagEnterPastCutsceneDone = 0x41;
 
     public const int ChildNameAddress = 0xc609;
     public const int ChildStatusAddress = 0xc60f;

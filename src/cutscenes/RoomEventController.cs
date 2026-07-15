@@ -13,6 +13,7 @@ public sealed class RoomEventController
     private readonly RoomEventContext _context;
     private readonly MakuTreeDisappearanceEvent _makuTree;
     private readonly RalphPortalEvent _ralph;
+    private readonly EnterPastEvent _enterPast;
     private readonly ImpaIntroEvent _impa;
     private readonly NayruIntroEvent _nayru;
     private double _frameAccumulator;
@@ -50,6 +51,7 @@ public sealed class RoomEventController
             sound);
         _makuTree = new MakuTreeDisappearanceEvent(_context);
         _ralph = new RalphPortalEvent(_context);
+        _enterPast = new EnterPastEvent(_context);
         _impa = new ImpaIntroEvent(_context);
         _nayru = new NayruIntroEvent(_context, _impa);
         entities.RoomEntitiesLoaded += OnRoomEntitiesLoaded;
@@ -57,13 +59,15 @@ public sealed class RoomEventController
 
     public bool Active =>
         _nayru.BlocksGameplay || _makuTree.BlocksGameplay ||
-        _ralph.BlocksGameplay || _impa.BlocksGameplay;
+        _ralph.BlocksGameplay || _enterPast.BlocksGameplay || _impa.BlocksGameplay;
 
     private bool HasEventState =>
-        _nayru.HasState || _makuTree.HasState || _ralph.HasState || _impa.HasState;
+        _nayru.HasState || _makuTree.HasState || _ralph.HasState ||
+        _enterPast.HasState || _impa.HasState;
 
     internal MakuTreeDisappearanceEvent MakuTree => _makuTree;
     internal RalphPortalEvent Ralph => _ralph;
+    internal EnterPastEvent EnterPast => _enterPast;
     internal ImpaIntroEvent Impa => _impa;
     internal NayruIntroEvent Nayru => _nayru;
 
@@ -98,8 +102,27 @@ public sealed class RoomEventController
                 _makuTree.UpdateFrame();
             else if (_ralph.HasState)
                 _ralph.UpdateFrame();
+            else if (_enterPast.HasState)
+                _enterPast.UpdateFrame();
             else
                 _impa.UpdateFrame();
+        }
+    }
+
+    /// <summary>
+    /// Destination interactions continue updating during TRANSITION_DEST_TIMEWARP.
+    /// Only the room $1:$39 entry event currently needs that overlap.
+    /// </summary>
+    public void UpdateDuringTimeWarp(double delta)
+    {
+        if (!_enterPast.HasState)
+            return;
+
+        _frameAccumulator += delta * 60.0;
+        while (_enterPast.HasState && _frameAccumulator >= 1.0)
+        {
+            _frameAccumulator -= 1.0;
+            _enterPast.UpdateFrame();
         }
     }
 
@@ -142,6 +165,12 @@ public sealed class RoomEventController
             ResetClock();
             return;
         }
+        if (_enterPast.Matches(group, room))
+        {
+            _enterPast.Start();
+            ResetClock();
+            return;
+        }
         if (_impa.MatchesEncounter(group, room))
         {
             _impa.StartEncounter(room);
@@ -176,6 +205,7 @@ public sealed class RoomEventController
         _nayru.Cancel();
         _makuTree.Cancel();
         _ralph.Cancel();
+        _enterPast.Cancel();
         _impa.Cancel();
         _context.Player.EndCutsceneControl();
         ResetClock();
