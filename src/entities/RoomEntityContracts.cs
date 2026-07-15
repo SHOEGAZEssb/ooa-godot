@@ -53,6 +53,11 @@ internal interface IPlayerRestriction
     bool DisablesSword { get; }
 }
 
+internal interface IRoomSaveStateEntity
+{
+    void RefreshSaveState();
+}
+
 internal readonly record struct RoomEntityFrame(
     Player Player,
     int Counter,

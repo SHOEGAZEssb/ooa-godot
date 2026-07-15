@@ -34,6 +34,7 @@ public partial class GameRoot
 
         ValidateSigns();
         ValidateNpcs();
+        ValidateRoom149FamilyInteractions();
         ValidateNpcFlagVisibility();
         ValidateBipinBlossomNaming();
         ValidateImpaIntroEncounter();
@@ -4577,6 +4578,188 @@ public partial class GameRoot
         GD.Print("Validated villager idle animation, $28 Link awareness, 30-frame facing delay, " +
             "TX_1420 dialogue, retained/preloaded NPC screen scrolling, room 0:66 " +
             "Link-relative draw priority, and Link sprite palette 0.");
+    }
+
+    private void ValidateRoom149FamilyInteractions()
+    {
+        const double frame = 1.0 / 60.0;
+        var validationRoot = new Node { Name = "Room149FamilyValidation" };
+        AddChild(validationRoot);
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var manager = new RoomEntityManager(
+            validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
+        var database = new Room149FamilyDatabase();
+        manager.LoadRoom(1, _world.LoadRoom(1, 0x49));
+
+        NpcCharacter? boy = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x3c && npc.Record.SubId == 0x0e);
+        NpcCharacter? father = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x3a && npc.Record.SubId == 0x0c);
+        NpcCharacter? observer = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x43 && npc.Record.SubId == 0x06);
+        Room149Ball? ball = manager.Entities<Room149Ball>().SingleOrDefault();
+        if (manager.Entities<NpcCharacter>().Count != 3 ||
+            boy is null || father is null || observer is null || ball is null ||
+            boy.Position != new Vector2(0x78, 0x48) || boy.TextId != 0x251d ||
+            boy.TextPosition != 0 || father.Position != new Vector2(0x38, 0x48) ||
+            father.TextId != 0x1442 || observer.Position != new Vector2(0x78, 0x28) ||
+            observer.TextId != 0x1712 || !ball.Active || !ball.Idle ||
+            ball.Position != new Vector2(0x75, 0x4a) ||
+            boy.CurrentScriptAnimationSource != database.Visual("boy").Animation ||
+            father.CurrentScriptAnimationSource !=
+                database.Visual("father-default").Animation ||
+            observer.CurrentScriptAnimationSource !=
+                database.Visual("observer").Animation)
+        {
+            throw new InvalidOperationException(
+                "Room 1:49 did not load the pre-D7 father/son catch interaction, " +
+                "observer, imported animations, and TX_251d/TX_1442/TX_1712.");
+        }
+
+        ulong normalFatherHash = father.CurrentAnimationPixelHash;
+        ulong normalObserverHash = observer.CurrentAnimationPixelHash;
+        if (save.WriteWramByte(0xc6bf, 0xbf))
+            save.CommitInventoryChange();
+        save.SetRoomFlag(4, 0xfc, 0x7f);
+        save.SetRoomFlag(4, 0xfb, OracleSaveData.RoomFlag80);
+        save.SetRoomFlag(5, 0xfc, OracleSaveData.RoomFlag80);
+        if (boy.Position != new Vector2(0x78, 0x48) || boy.TextId != 0x251d ||
+            father.TextId != 0x1442 || observer.TextId != 0x1712 ||
+            !ball.Active || !ball.Idle ||
+            father.CurrentAnimationPixelHash != normalFatherHash ||
+            observer.CurrentAnimationPixelHash != normalObserverHash)
+        {
+            throw new InvalidOperationException(
+                "Unrelated wEssencesObtained bits, room 4:fc bits $01-$40, " +
+                "room 4:fb bit $80, or group-5 room fc bit $80 changed room " +
+                "1:49's pre-D7 family state.");
+        }
+
+        if (save.WriteWramByte(0xc6bf, 0xff))
+            save.CommitInventoryChange();
+        if (boy.Position != new Vector2(0x48, 0x48) ||
+            boy.TextId != 0x251b || boy.TextPosition != 2 ||
+            father.TextId != 0 || observer.TextId != 0 || ball.Active ||
+            father.CurrentScriptAnimationSource !=
+                database.Visual("father-stone").Animation ||
+            father.CurrentAnimationPixelHash == normalFatherHash ||
+            observer.CurrentAnimationPixelHash == normalObserverHash ||
+            !father.CurrentAnimationUsesColor(database.StonePalette[1]) &&
+            !father.CurrentAnimationUsesColor(database.StonePalette[2]) &&
+            !father.CurrentAnimationUsesColor(database.StonePalette[3]))
+        {
+            throw new InvalidOperationException(
+                "D7 essence bit 6 did not move the room 1:49 boy to $48/$48, " +
+                "select TX_251b with \\pos(2), petrify the father/observer with " +
+                "PALH_a2, suppress their dialogue, and remove INTERAC_BALL $95.");
+        }
+
+        save.SetRoomFlag(4, 0xfc, OracleSaveData.RoomFlag80);
+        if (boy.Position != new Vector2(0x78, 0x48) || boy.TextId != 0x251e ||
+            boy.TextPosition != 0 || father.TextId != 0x1443 ||
+            observer.TextId != 0x1712 || !ball.Active || !ball.Idle ||
+            ball.Position != new Vector2(0x75, 0x4a) ||
+            father.CurrentScriptAnimationSource !=
+                database.Visual("father-default").Animation ||
+            father.CurrentAnimationPixelHash != normalFatherHash ||
+            observer.CurrentAnimationPixelHash != normalObserverHash)
+        {
+            throw new InvalidOperationException(
+                "Room 4:fc flag $80 did not restore room 1:49's family, ball, " +
+                "normal palettes, positions, and TX_251e/TX_1443/TX_1712 live.");
+        }
+
+        if (save.WriteWramByte(0xc6bf, 0xbf))
+            save.CommitInventoryChange();
+        if (boy.TextId != 0x251e || father.TextId != 0x1443 ||
+            observer.TextId != 0x1712 || !ball.Active)
+        {
+            throw new InvalidOperationException(
+                "Room 4:fc flag $80 did not take precedence after D7 essence " +
+                "bit 6 was cleared live.");
+        }
+
+        save.SetRoomFlag(4, 0xfc, OracleSaveData.RoomFlag80, value: false);
+        if (boy.TextId != 0x251d || father.TextId != 0x1442 ||
+            observer.TextId != 0x1712 || !ball.Active)
+        {
+            throw new InvalidOperationException(
+                "Clearing room 4:fc flag $80 with D7 essence bit 6 clear did " +
+                "not restore room 1:49's pre-D7 state live.");
+        }
+
+        if (save.WriteWramByte(0xc6bf, 0xff))
+            save.CommitInventoryChange();
+        if (boy.TextId != 0x251b || father.TextId != 0 || observer.TextId != 0 ||
+            ball.Active)
+        {
+            throw new InvalidOperationException(
+                "D7 essence bit 6 did not reselect room 1:49's stone state " +
+                "after the Veran flag was cleared live.");
+        }
+
+        save.SetRoomFlag(4, 0xfc, OracleSaveData.RoomFlag80);
+        if (boy.TextId != 0x251e || father.TextId != 0x1443 ||
+            observer.TextId != 0x1712 || !ball.Active || !ball.Idle ||
+            ball.Position != new Vector2(0x75, 0x4a))
+        {
+            throw new InvalidOperationException(
+                "Reapplying room 4:fc flag $80 did not restore and reset room " +
+                "1:49's post-Veran catch interaction live.");
+        }
+
+        _player.WarpTo(new Vector2(0x18, 0x70));
+        for (int update = 0; update < 29; update++)
+            manager.Update(frame, _player);
+        if (!ball.Idle || ball.Position != new Vector2(0x75, 0x4a) ||
+            boy.CurrentAnimationFrame != 0)
+        {
+            throw new InvalidOperationException(
+                "The room 1:49 boy threw the ball before his initial 30-update wait.");
+        }
+
+        manager.Update(frame, _player);
+        if (ball.Idle || ball.SubId != 1 || ball.Position != new Vector2(0x75, 0x4a) ||
+            ball.ZFixed != 0 || ball.SpeedZ != -0x1c0 ||
+            boy.CurrentAnimationFrame != 1)
+        {
+            throw new InvalidOperationException(
+                "The boy's cfd3=$02 update did not force his throw frame and launch " +
+                "INTERAC_BALL $95 left from $4a/$75 at Z speed -$01c0.");
+        }
+
+        for (int update = 0; update < 29; update++)
+            manager.Update(frame, _player);
+        if (!ball.Idle || ball.Position != new Vector2(0x3c, 0x4a) ||
+            ball.ZFixed != 0 || ball.SpeedZ != 0)
+        {
+            throw new InvalidOperationException(
+                "The boy's ball did not land at the father's original $4a/$3c " +
+                "position after the exact SPEED_200/-$01c0/$20 flight.");
+        }
+
+        for (int update = 0; update < 30; update++)
+            manager.Update(frame, _player);
+        if (!ball.Idle)
+            throw new InvalidOperationException(
+                "The father threw before his initial 60+30 update script waits.");
+        manager.Update(frame, _player);
+        if (ball.Idle || ball.SubId != 0 ||
+            ball.Position != new Vector2(0x3c, 0x4a) ||
+            ball.SpeedZ != -0x1c0 || father.CurrentAnimationFrame != 1)
+        {
+            throw new InvalidOperationException(
+                "The father's cfd3=$01 update did not force his throw frame and " +
+                "launch INTERAC_BALL $95 right on update 90.");
+        }
+
+        manager.Clear();
+        RemoveChild(validationRoot);
+        validationRoot.QueueFree();
+        GD.Print("Validated room 1:49's exact D7/Veran flag truth table and precedence, " +
+            "six imported texts, PALH_a2 stone palette, exact actor positions, " +
+            "30/60/90-update synchronized throw scripts, and INTERAC_BALL $95 " +
+            "SPEED_200 8.8 parabolic flights.");
     }
 
     private void ValidateNpcFlagVisibility()

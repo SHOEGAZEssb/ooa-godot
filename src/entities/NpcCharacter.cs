@@ -43,11 +43,13 @@ public partial class NpcCharacter : Node2D
     private float _collisionRadiusY = CollisionRadius;
     private float _collisionRadiusX = CollisionRadius;
     private int? _fixedDrawPriority;
+    private int _textPosition;
 
     public NpcDatabase.NpcRecord Record { get; private set; }
     public bool Active => _active && _flagVisible;
     public string Message => Record.Message;
     public int TextId => Record.TextId;
+    public int TextPosition => _textPosition;
     public const float CollisionRadius = 6.0f;
     public const float LinkCollisionRadius = 6.0f;
     public const float LinkBlockingRadius = CollisionRadius + LinkCollisionRadius;
@@ -206,7 +208,11 @@ public partial class NpcCharacter : Node2D
         _collisionRadiusX = radiusX;
     }
 
-    internal void SetDialogue(int textId, string message, bool canFace)
+    internal void SetDialogue(
+        int textId,
+        string message,
+        bool canFace,
+        int textPosition = 0)
     {
         Record = Record with
         {
@@ -214,6 +220,7 @@ public partial class NpcCharacter : Node2D
             Message = message,
             CanFace = canFace
         };
+        _textPosition = textPosition;
     }
 
     public bool CanTalkTo(Player player)
@@ -357,6 +364,18 @@ public partial class NpcCharacter : Node2D
         if (updates <= 0)
             return;
         AdvanceAnimationTicks(updates);
+    }
+
+    internal void ForceNextAnimationFrame()
+    {
+        List<AnimationFrame> animation = CurrentAnimation;
+        if (animation.Count <= 1)
+            return;
+        _animationFrame++;
+        if (_animationFrame >= animation.Count)
+            _animationFrame = CurrentAnimationLoopStart;
+        _animationTicks = 0.0;
+        QueueRedraw();
     }
 
     internal void SetSourceGrayscaleInverted(bool inverted)

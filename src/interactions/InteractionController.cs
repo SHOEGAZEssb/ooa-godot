@@ -129,7 +129,10 @@ public sealed class InteractionController
             if (NpcInteractionOverride?.Invoke(npc) == true)
                 return true;
             npc.FaceToward(player.Position);
-            _dialogue.ShowMessage(npc.Message, _worldToScreen(player.Position).Y);
+            _dialogue.ShowMessage(
+                npc.Message,
+                _worldToScreen(player.Position).Y,
+                npc.TextPosition);
             return true;
         }
 

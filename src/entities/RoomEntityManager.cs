@@ -236,6 +236,8 @@ public sealed class RoomEntityManager
             return;
         foreach (IRoomEntity entity in entities)
         {
+            if (entity is IRoomSaveStateEntity stateEntity)
+                stateEntity.RefreshSaveState();
             if (entity is NpcRoomEntity && entity.Node is NpcCharacter npc)
             {
                 npc.SetFlagVisible(_npcVisibility.ShouldShow(

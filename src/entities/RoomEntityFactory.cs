@@ -14,20 +14,31 @@ internal sealed class RoomEntityFactory(
     OracleRuntimeState runtimeState,
     Action<TimePortal> portalEntered)
 {
+    private readonly Room149FamilyDatabase _room149 = new();
+
     public IEnumerable<IRoomEntity> CreateRoomEntities(int group, OracleRoomData room)
     {
-        foreach (NpcDatabase.NpcRecord record in
-            npcs.GetRoomNpcs(group, room.Id, saveData, runtimeState))
+        IReadOnlyList<NpcDatabase.NpcRecord> roomNpcs =
+            npcs.GetRoomNpcs(group, room.Id, saveData, runtimeState);
+        if (group == 1 && room.Id == 0x49)
         {
-            var npc = new NpcCharacter
+            foreach (IRoomEntity entity in CreateRoom149Family(roomNpcs))
+                yield return entity;
+        }
+        else
+        {
+            foreach (NpcDatabase.NpcRecord record in roomNpcs)
             {
-                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                ZIndex = NpcCharacter.BehindLinkZIndex
-            };
-            npc.Initialize(record);
-            yield return record is { Id: 0x28, SubId: 0x00 }
-                ? new RunningBipinRoomEntity(npc)
-                : new NpcRoomEntity(npc);
+                var npc = new NpcCharacter
+                {
+                    Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+                    ZIndex = NpcCharacter.BehindLinkZIndex
+                };
+                npc.Initialize(record);
+                yield return record is { Id: 0x28, SubId: 0x00 }
+                    ? new RunningBipinRoomEntity(npc)
+                    : new NpcRoomEntity(npc);
+            }
         }
 
         foreach (IRoomEntity portal in CreateTimePortals(group, room))
@@ -97,6 +108,54 @@ internal sealed class RoomEntityFactory(
         CutsceneNpcSpawn npc => CreateCutsceneNpc(npc),
         _ => throw new ArgumentOutOfRangeException(nameof(spawn), spawn, "Unknown room-entity spawn request.")
     };
+
+    private IEnumerable<IRoomEntity> CreateRoom149Family(
+        IReadOnlyList<NpcDatabase.NpcRecord> records)
+    {
+        NpcDatabase.NpcRecord Find(int id, int subId)
+        {
+            foreach (NpcDatabase.NpcRecord record in records)
+            {
+                if (record.Id == id && record.SubId == subId)
+                    return record;
+            }
+            throw new InvalidOperationException(
+                $"Room 1:49 is missing interaction ${id:x2}:${subId:x2}.");
+        }
+
+        NpcCharacter CreateNpc(NpcDatabase.NpcRecord record)
+        {
+            var npc = new NpcCharacter
+            {
+                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+                ZIndex = NpcCharacter.BehindLinkZIndex
+            };
+            npc.Initialize(record);
+            return npc;
+        }
+
+        NpcCharacter boy = CreateNpc(Find(0x3c, 0x0e));
+        NpcCharacter father = CreateNpc(Find(0x3a, 0x0c));
+        NpcCharacter observer = CreateNpc(Find(0x43, 0x06));
+        var ball = new Room149Ball
+        {
+            Name = "Room149Ball",
+            ZIndex = 10
+        };
+        ball.Initialize(_room149.Visual("ball"));
+        var family = new Room149FamilyInteraction(
+            saveData, _room149, boy, father, observer, ball);
+
+        // Preserve object-table update order; the ball created by the boy's
+        // state-0 handler occupies a later interaction slot.
+        yield return new Room149NpcRoomEntity(
+            boy, family, family.UpdateBoy);
+        yield return new Room149NpcRoomEntity(
+            father, family, family.UpdateFather);
+        yield return new Room149NpcRoomEntity(
+            observer, family, family.UpdateObserver);
+        yield return new Room149BallRoomEntity(ball, family);
+    }
 
     private static bool StartsActive(int subId)
     {

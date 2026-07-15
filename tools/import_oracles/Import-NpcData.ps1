@@ -488,6 +488,75 @@ if ($introMonkeyRows.Count -ne 2 -or
     throw "Room 0:5a's intro monkeys no longer resolve TX_5700/TX_5701 and animations `$06/`$07."
 }
 
+# Past room 1:49's three placed characters are one shared interaction: the
+# father and son play catch through wTmpcfc0.genericCutscene.cfd3 and
+# INTERAC_BALL, while D7's essence bit and D8/Veran's completion room flag
+# select the temporary stone tableau. Export every animation and dialogue
+# selected by those handlers instead of leaving the two manual A-button
+# branches with the generic TX_0000 fallback.
+$room149ObjectSource = $mainObjectLines -join "`n"
+$room149BoySource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\boy.s')
+$room149FatherSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\villager.s')
+$room149ObserverSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\pastGuy.s')
+$room149BallSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\ball.s')
+$room149ScriptSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\scripts.s')
+$room149ScriptHelperSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+if ($room149ObjectSource -notmatch '(?ms)^group1Map49ObjectData:\s+obj_Interaction \$3c \$0e \$48 \$78\s+obj_Interaction \$3a \$0c \$48 \$38\s+obj_Interaction \$43 \$06 \$28 \$78\s+obj_End' -or
+    $room149BoySource -notmatch '(?ms)^@initSubid0e:.*?wGroup4RoomFlags\+\$fc.*?bit 7.*?<TX_251e.*?wEssencesObtained.*?bit 6.*?<TX_251d.*?ld bc,\$4848.*?<TX_251b.*?ld bc,\$4a75' -or
+    $room149FatherSource -notmatch '(?ms)^@initSubid0c:.*?wGroup4RoomFlags\+\$fc.*?bit 7.*?wEssencesObtained.*?bit 6.*?Interaction\.var03.*?\$0d.*?^@runSubid0c:.*?TX_1442.*?TX_1443' -or
+    $room149ObserverSource -notmatch '(?ms)^@subid6:.*?wGroup4RoomFlags\+\$fc.*?bit 7.*?wEssencesObtained.*?bit 6.*?Interaction\.var03.*?pastGuySubid6Script' -or
+    $room149BallSource -notmatch '(?ms)^interactionCode95:.*?SPEED_200.*?ANGLE_RIGHT.*?ANGLE_LEFT.*?ld bc,-\$1c0.*?objectUpdateSpeedZ_paramC.*?ld bc,\$4a3c.*?ld c,\$75' -or
+    $room149ScriptSource -notmatch '(?ms)^villagerSubid0cScript:.*?wait 60.*?setanimation \$01.*?wait 30.*?loadNextAnimationFrameAndMore, \$01.*?wait 30.*?^boySubid0eScript:.*?initcollisions.*?boySubid0cScript@playCatch' -or
+    $room149ScriptSource -notmatch '(?ms)^boySubid0cScript:.*?@playCatch:.*?wait 30.*?loadNextAnimationFrameAndMore, \$02.*?wait 90' -or
+    $room149ScriptHelperSource -notmatch '(?ms)^loadNextAnimationFrameAndMore:.*?Interaction\.animCounter.*?Interaction\.var38.*?genericCutscene\.cfd3.*?interactionAnimate') {
+    throw 'Room 1:49 family, stone-state, catch timing, or ball behavior changed in the disassembly.'
+}
+
+$room149VisualRows = [Collections.Generic.List[string]]::new()
+$room149VisualRows.Add("# key`tsprite`ttile-base`tpalette`tanimation")
+$room149VisualSpecs = @(
+    @{ Key = 'father-default'; Id = 0x3a; Subid = 0x0c; Animation = 0x02 },
+    @{ Key = 'father-throw';   Id = 0x3a; Subid = 0x0c; Animation = 0x01 },
+    @{ Key = 'father-stone';   Id = 0x3a; Subid = 0x0c; Animation = 0x0d },
+    @{ Key = 'boy';            Id = 0x3c; Subid = 0x0e; Animation = 0x03 },
+    @{ Key = 'observer';       Id = 0x43; Subid = 0x06; Animation = 0x04 },
+    @{ Key = 'ball';           Id = 0x95; Subid = 0x00; Animation = 0x00 }
+)
+foreach ($spec in $room149VisualSpecs) {
+    $graphic = $interactionGraphics["$([int]$spec.Id)`:$([int]$spec.Subid)"]
+    if ($null -eq $graphic) {
+        $graphic = $interactionGraphics["$([int]$spec.Id)`:0"]
+    }
+    $animation = Resolve-NpcAnimation ([int]$spec.Id) ([int]$spec.Animation)
+    if ($null -eq $graphic -or -not $gfxNames.ContainsKey($graphic.Gfx) -or -not $animation) {
+        throw "Could not resolve room 1:49 visual '$($spec.Key)'."
+    }
+    $spriteName = $gfxNames[$graphic.Gfx]
+    [void]$npcSpriteNames.Add($spriteName)
+    $room149VisualRows.Add(
+        "$($spec.Key)`t$spriteName`t$($graphic.TileBase)`t$($graphic.Palette)`t$animation")
+}
+if ($room149VisualRows.Count -ne 7) {
+    throw "Expected six room 1:49 visual records, got $($room149VisualRows.Count - 1)."
+}
+
+$room149TextRows = [Collections.Generic.List[string]]::new()
+$room149TextRows.Add("# text-id`tutf8-base64")
+foreach ($textId in @(0x1442, 0x1443, 0x1712, 0x251b, 0x251d, 0x251e)) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve room 1:49 text TX_$($textId.ToString('x4'))."
+    }
+    $encoded = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
+    $room149TextRows.Add("$($textId.ToString('x4'))`t$encoded")
+}
+
 # Rooms 2:ea and 2:eb place only INTERAC_BIPIN_BLOSSOM_FAMILY_SPAWNER
 # ($ac). The controller creates Bipin, Blossom, and their child from the shared
 # stage/personality table below. Import all of its results so runtime can select
@@ -1686,4 +1755,13 @@ $familyTextPath = Join-Path $destination "objects\bipin_blossom_family_texts.tsv
     $familyTextPath,
     $familyTextRows,
     [Text.UTF8Encoding]::new($false))
-
+$room149VisualPath = Join-Path $destination "objects\room149_family_visuals.tsv"
+[IO.File]::WriteAllLines(
+    $room149VisualPath,
+    $room149VisualRows,
+    [Text.UTF8Encoding]::new($false))
+$room149TextPath = Join-Path $destination "objects\room149_family_texts.tsv"
+[IO.File]::WriteAllLines(
+    $room149TextPath,
+    $room149TextRows,
+    [Text.UTF8Encoding]::new($false))
