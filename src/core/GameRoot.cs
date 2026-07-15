@@ -360,11 +360,12 @@ public partial class GameRoot : Node2D
                 _terrain.SpawnDrowningSplash(position, hazard);
         };
         _combat = new CombatController(
-            this, _rooms, _roomView, _entities, () => (long)_animationTicks);
+            this, _rooms, _roomView, _entities, new BreakableTileDatabase(), _sound,
+            () => (long)_animationTicks);
         _playerWorld = new PlayerWorld(
             _transitions, _interactions, _collision, _pushBlocks, _terrain, _combat, _entities,
             _bracelet, _roomEvents,
-            _inventory);
+            _inventory, _sound);
         _debugWarps = new DebugWarpController(
             _rooms, _player, LoadDebugRoom, FindSpawn, () => (long)_animationTicks,
             _interactions.ResetChestForTesting);

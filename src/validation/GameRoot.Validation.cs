@@ -1951,27 +1951,258 @@ public partial class GameRoot
         if (_currentRoom.GetMetatile(bushPoint) != 0xc5)
             throw new InvalidOperationException("Expected overworld bush $c5 in room 69 at $31.");
         Vector2 objectPosition = _player.Position;
+        _sound.ClearPlayRequestAudit();
         _player.StartSwordAttack();
+        int slashRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSlash) +
+            _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5) +
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBoomerang);
+        if (slashRequests != 1 || _player.SwordState != Player.SwordActionState.Swing ||
+            _player.SwordStateFrame != 0 || _player.SwordArcIndex != 0)
+        {
+            throw new InvalidOperationException(
+                "Starting ITEM_SWORD did not select one entry from the original 8-sound table " +
+                "and initialize LINK_ANIM_MODE_22 at sword arc $00.");
+        }
+        _player.AdvanceSwordForValidation(2, buttonHeld: false);
+        _sound.ClearPlayRequestAudit();
+        _player.StartSwordAttack();
+        if (_player.SwordCanRestart || _player.SwordStateFrame != 2 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSlash) +
+            _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5) +
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBoomerang) != 0)
+        {
+            throw new InvalidOperationException(
+                "The protected first three sword updates accepted an equal-priority restart.");
+        }
+        _player.AdvanceSwordForValidation(1, buttonHeld: false);
+        if (!_player.SwordCanRestart)
+            throw new InvalidOperationException(
+                "The sword did not become restartable when animation parameter `$02 cleared enabled bit 7.");
+        _player.StartSwordAttackForValidation(Vector2.Right);
+        slashRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSlash) +
+            _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5) +
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBoomerang);
+        if (slashRequests != 1 || _player.SwordStateFrame != 0 ||
+            _player.SwordArcIndex != 1 || _player.FacingVector != Vector2I.Right ||
+            _player.SwordCanRestart)
+        {
+            throw new InvalidOperationException(
+                "An equal-priority sword press did not restart and retarget the single swing after update 3.");
+        }
+        _player.AdvanceSwordForValidation(3, buttonHeld: false);
+        _sound.ClearPlayRequestAudit();
+        _player.StartSwordAttackForValidation(Vector2.Up);
+        slashRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSlash) +
+            _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5) +
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBoomerang);
+        if (slashRequests != 1 || _player.SwordStateFrame != 0 ||
+            _player.SwordArcIndex != 0 || _player.FacingVector != Vector2I.Up ||
+            _player.SwordCanRestart)
+        {
+            throw new InvalidOperationException(
+                "Spammed sword input did not retarget a subsequent swing back upward.");
+        }
         if (_player.AttackSpriteOrigin != new Vector2(-8, -8))
             throw new InvalidOperationException(
                 $"Sword frame $ac displaced Link from the standard OAM origin: {_player.AttackSpriteOrigin}.");
-        if (_player.SwordSpritePosition != new Vector2(16, -2))
+        if (_player.SwordSpritePosition != new Vector2(16, -4))
             throw new InvalidOperationException(
-                $"Sword arc phase $00 was not relative to Link's object position: {_player.SwordSpritePosition}.");
+                $"Sword arc phase $00 did not include the child item's -2 Z draw offset: {_player.SwordSpritePosition}.");
         _player._Process(7.0 / 60.0);
         if (_player.Position != objectPosition)
             throw new InvalidOperationException("Swinging the sword changed Link's object position.");
         if (_player.AttackSpriteOrigin != new Vector2(-8, -11))
             throw new InvalidOperationException(
                 $"Sword frame $b4 did not apply only its original OAM $08 pose offset: {_player.AttackSpriteOrigin}.");
-        if (_player.SwordSpritePosition != new Vector2(-4, -17))
+        if (_player.SwordSpritePosition != new Vector2(-4, -19))
             throw new InvalidOperationException(
-                $"Sword arc phase $08 was not relative to Link's object position: {_player.SwordSpritePosition}.");
+                $"Sword arc phase $08 did not include the child item's -2 Z draw offset: {_player.SwordSpritePosition}.");
         if (_currentRoom.GetMetatile(bushPoint) != 0x3a)
             throw new InvalidOperationException("The level-1 sword did not replace bush $c5 with ground $3a.");
         if (_currentRoom.IsSolid(bushPoint))
             throw new InvalidOperationException("The cut bush's replacement tile remained solid.");
-        GD.Print("Validated level-1 sword OAM anchoring, hit, and bush substitution c5 -> 3a in room 69.");
+        if (_sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass) != 1)
+            throw new InvalidOperationException("INTERAC_GRASSDEBRIS did not request SND_CUTGRASS once.");
+
+        // Complete LINK_ANIM_MODE_22 while preserving the initiating button.
+        // State 6 must re-enable movement but keep turning disabled and expose
+        // the fourth normal swordArcData row continuously while charging.
+        _player.AdvanceSwordForValidation(9, buttonHeld: true);
+        if (_player.SwordState != Player.SwordActionState.Swing ||
+            _player.SwordStateFrame != 16)
+            throw new InvalidOperationException("The sword swing ended before its 17th update.");
+        _player.AdvanceSwordForValidation(1, buttonHeld: true);
+        if (_player.SwordState != Player.SwordActionState.Held ||
+            !_player.SwordAllowsMovement || !_player.SwordCanRestart || _player.SwordArcIndex != 12 ||
+            _player.SwordSpritePosition != new Vector2(-4, -12))
+        {
+            throw new InvalidOperationException(
+                "Holding the sword button did not enter the movable ITEMCOLLISION_SWORD_HELD state " +
+                "with the original up-facing arc $0c.");
+        }
+        if (Player.GetHeldSwordBodyAnimationFrameForValidation(
+                Player.SwordActionState.Held, walking: true, walkTime: 0.0f) != 0 ||
+            Player.GetHeldSwordBodyAnimationFrameForValidation(
+                Player.SwordActionState.Held, walking: true, walkTime: 0.10f) != 1 ||
+            Player.GetHeldSwordBodyAnimationFrameForValidation(
+                Player.SwordActionState.Charged, walking: true, walkTime: 0.20f) != 0 ||
+            Player.GetHeldSwordBodyAnimationFrameForValidation(
+                Player.SwordActionState.Held, walking: false, walkTime: 0.10f) != 0 ||
+            Player.GetHeldSwordBodyAnimationFrameForValidation(
+                Player.SwordActionState.Swing, walking: true, walkTime: 0.10f) != -1)
+        {
+            throw new InvalidOperationException(
+                "Held/charged sword state did not select Link's ordinary standing/walking body.");
+        }
+        if (Player.GetSwordSpritePositionForValidation(13) != new Vector2(12, 0) ||
+            Player.GetSwordSpritePositionForValidation(15) != new Vector2(-12, 0))
+        {
+            throw new InvalidOperationException(
+                "Held horizontal sword sprites did not apply the child item's -2 Z draw offset.");
+        }
+
+        _player.AdvanceSwordForValidation(40, buttonHeld: true);
+        if (_player.SwordState != Player.SwordActionState.Held ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndChargeSword) != 0)
+            throw new InvalidOperationException("Sword counter `$28 charged without the original underflow update.");
+        _player.AdvanceSwordForValidation(1, buttonHeld: true);
+        if (_player.SwordState != Player.SwordActionState.Charged ||
+            _player.SwordCanRestart || _player.SwordUsesChargedPalette ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndChargeSword) != 1)
+            throw new InvalidOperationException("The 41st held update did not enter the charged state with SND_CHARGE_SWORD.");
+        _player.AdvanceSwordForValidation(3, buttonHeld: true);
+        if (_player.SwordUsesChargedPalette)
+            throw new InvalidOperationException("The charged sword selected palette 5 before counter bit 2 was set.");
+        _player.AdvanceSwordForValidation(1, buttonHeld: true);
+        if (!_player.SwordUsesChargedPalette)
+            throw new InvalidOperationException("The charged sword did not select palette 5 when counter bit 2 became set.");
+
+        _player.AdvanceSwordForValidation(1, buttonHeld: false);
+        if (_player.SwordState != Player.SwordActionState.Spin ||
+            _player.SwordStateFrame != 0 || _player.SwordAllowsMovement ||
+            _player.SwordArcIndex != 16 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSpin) != 1)
+        {
+            throw new InvalidOperationException(
+                "Releasing a charged up-facing sword did not begin the immobilized arc `$10 spin with SND_SWORDSPIN.");
+        }
+        _player.AdvanceSwordForValidation(2, buttonHeld: false);
+        if (_player.SwordArcIndex != 16)
+            throw new InvalidOperationException("Swordspin arc `$10 did not retain its original 3-update duration.");
+        _player.AdvanceSwordForValidation(1, buttonHeld: false);
+        if (_player.SwordArcIndex != 17)
+            throw new InvalidOperationException("Swordspin did not enter diagonal arc `$11 on update 3.");
+        _player.AdvanceSwordForValidation(2, buttonHeld: false);
+        if (_player.SwordArcIndex != 18)
+            throw new InvalidOperationException("Swordspin did not enter right-facing arc `$12 on update 5.");
+        _player.AdvanceSwordForValidation(17, buttonHeld: false);
+        if (_player.SwordState != Player.SwordActionState.Spin ||
+            _player.SwordStateFrame != 22 || _player.SwordArcIndex != 16)
+            throw new InvalidOperationException("Swordspin did not retain its wrapped arc through update 22.");
+        _player.AdvanceSwordForValidation(1, buttonHeld: false);
+        if (_player.IsAttacking)
+            throw new InvalidOperationException("Swordspin did not end on its original 23rd update.");
+
+        // A held sword pressed into a full wall switches to LINK_ANIM_MODE_1f,
+        // clears weapon collision for 12 updates, and emits the ordinary clink.
+        _currentRoom.SetPositionTileAndCollision(
+            bushPoint, 0x3a, 0x0f, (long)_animationTicks);
+        _player.WarpTo(new Vector2(bushPoint.X, 66));
+        _player.Face(Vector2I.Up);
+        _player.StartSwordAttack();
+        _player.AdvanceSwordForValidation(17, buttonHeld: true);
+        _sound.ClearPlayRequestAudit();
+        _combat.ClearClinkEffectAudit();
+        _player.AdvanceSwordForValidation(1, buttonHeld: true, movementInput: Vector2.Up);
+        if (_player.SwordState != Player.SwordActionState.Poke ||
+            !_player.SwordCanRestart || _player.GetSwordHitbox().Size != Vector2.Zero ||
+            _player.AttackSpriteOrigin != new Vector2(-8, -11) ||
+            _player.SwordSpritePosition != new Vector2(-4, -19) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1)
+        {
+            throw new InvalidOperationException(
+                "Held-sword wall pressure did not enter the collision-disabled 12-update poke and play SND_CLINK.");
+        }
+        ClinkEffect? ordinaryClink = _combat.LastClinkEffect;
+        Vector2 expectedClinkPosition = _player.Position + new Vector2(0, -14);
+        if (_combat.ClinkEffectsSpawned != 1 || ordinaryClink is null ||
+            ordinaryClink.Position != expectedClinkPosition || !ordinaryClink.Flickers ||
+            ordinaryClink.DurationFrames != 8 || ordinaryClink.AnimationFrame != 0 ||
+            !ordinaryClink.EffectVisible)
+        {
+            throw new InvalidOperationException(
+                "Ordinary wall pressure did not spawn flickering INTERAC_CLINK at the up-facing `$f2/$00 probe.");
+        }
+        ordinaryClink.AdvanceForValidation(1.0 / 60.0);
+        if (ordinaryClink.EffectVisible || ordinaryClink.AnimationFrame != 0)
+            throw new InvalidOperationException("INTERAC_CLINK did not flicker during its first 4-update frame.");
+        ordinaryClink.AdvanceForValidation(3.0 / 60.0);
+        if (!ordinaryClink.EffectVisible || ordinaryClink.AnimationFrame != 1)
+            throw new InvalidOperationException("INTERAC_CLINK did not enter its second OAM frame after 4 updates.");
+        _player.AdvanceSwordForValidation(11, buttonHeld: true);
+        if (_player.SwordState != Player.SwordActionState.Poke ||
+            _player.SwordStateFrame != 11)
+            throw new InvalidOperationException("LINK_ANIM_MODE_1f ended before update 12.");
+        _player.AdvanceSwordForValidation(1, buttonHeld: true);
+        if (_player.SwordState != Player.SwordActionState.Held ||
+            _player.SwordArcIndex != 12)
+            throw new InvalidOperationException("A wall poke did not reinitialize the held sword after update 12.");
+        _player.AdvanceSwordForValidation(1, buttonHeld: false);
+        if (_player.IsAttacking)
+            throw new InvalidOperationException("Releasing an uncharged held sword did not clear the parent item.");
+
+        // Bombable wall tiles bypass the poke-only ordinary clink condition.
+        _currentRoom.SetPositionTileAndCollision(
+            bushPoint, 0xc1, null, (long)_animationTicks);
+        _sound.ClearPlayRequestAudit();
+        _combat.ClearClinkEffectAudit();
+        _player.StartSwordAttack();
+        _player.AdvanceSwordForValidation(6, buttonHeld: false);
+        ClinkEffect? bombableClink = _combat.LastClinkEffect;
+        if (_sound.PlayRequestsFor(OracleSoundEngine.SndClink2) != 1 ||
+            _combat.ClinkEffectsSpawned != 1 || bombableClink is null ||
+            bombableClink.Position != expectedClinkPosition || bombableClink.Flickers ||
+            !bombableClink.EffectVisible)
+        {
+            throw new InvalidOperationException(
+                "Bombable overworld tile `$c1 did not play SND_CLINK2 and spawn non-flickering INTERAC_CLINK.");
+        }
+        _player.AdvanceSwordForValidation(11, buttonHeld: false);
+        _currentRoom.SetPositionTileAndCollision(
+            bushPoint, 0x3a, null, (long)_animationTicks);
+
+        (int RadiusY, int RadiusX, int OffsetY, int OffsetX)[] expectedArcs =
+        {
+            (9, 6, -2, 16), (6, 9, -14, 0), (9, 6, 0, -15), (6, 9, -14, 0),
+            (7, 7, -11, 13), (7, 7, -11, 13), (7, 7, 17, -13), (7, 7, -11, -13),
+            (9, 6, -17, -4), (6, 9, 2, 19), (9, 6, 21, 3), (6, 9, 2, -19),
+            (9, 6, -10, -4), (4, 9, 2, 12), (9, 6, 16, 3), (6, 9, 2, -12),
+            (9, 9, -17, -4), (9, 9, -14, 16), (9, 9, 2, 19), (9, 9, 18, 16),
+            (9, 9, 21, 3), (9, 9, 17, -13), (9, 9, 2, -19), (9, 9, -11, -13)
+        };
+        Vector2 auditPosition = new(80, 64);
+        for (int index = 0; index < expectedArcs.Length; index++)
+        {
+            var arc = expectedArcs[index];
+            Rect2 expected = new(
+                auditPosition + new Vector2(
+                    arc.OffsetX - arc.RadiusX,
+                    arc.OffsetY - arc.RadiusY),
+                new Vector2(arc.RadiusX * 2, arc.RadiusY * 2));
+            Rect2 actual = Player.GetSwordHitboxForValidation(auditPosition, index);
+            if (actual != expected)
+                throw new InvalidOperationException(
+                    $"swordArcData row `${index:x2} mismatch: expected {expected}, got {actual}.");
+        }
+
+        GD.Print(
+            "Validated ITEM_SWORD's 17-update swing/3-update directional restart gate, " +
+            "held collision/movement, " +
+            "41-update charge, " +
+            "held/charged standing/walking body, child-item Z/layer rendering, charged palette cadence, " +
+            "12-update wall poke/clinks with 8-update INTERAC_CLINK sprites, 23-update swordspin, " +
+            "sound triggers, grass break, " +
+            "and all 24 swordArcData hitboxes.");
     }
 
     private void ValidateKeese()

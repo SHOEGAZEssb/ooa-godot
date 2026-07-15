@@ -9,6 +9,8 @@ public interface IPlayerWorld
     bool SwordDisabled { get; }
     bool MovementDisabled { get; }
     bool ApplySwordHit(Player player, Rect2 hitbox);
+    bool ApplySwordTileHit(Player player, int direction, bool swordPoke);
+    void PlaySound(int soundId);
     bool TryInteract(Player player);
     bool TryUseBracelet(Player player);
     bool Collides(Vector2 playerPosition);

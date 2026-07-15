@@ -7,6 +7,8 @@ namespace oracleofages;
 public sealed class BreakableTileDatabase
 {
     public const int SourceBracelet = 0x00;
+    public const int SourceSwordLevel1 = 0x01;
+    public const int SourceSwordLevel2 = 0x02;
 
     private readonly Dictionary<int, BreakableTileRecord> _records = new();
 

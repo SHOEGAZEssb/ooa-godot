@@ -6,11 +6,14 @@ namespace oracleofages;
 public partial class Player : Node2D
 {
     private enum Facing { Up, Right, Down, Left }
+    internal enum SwordActionState { None, Swing, Held, Charged, Poke, Spin }
 
     private const float Speed = 60.0f;
     private static readonly Vector2 NormalSpriteOrigin = new(-8, -8);
-    private const float AttackDuration = 17.0f / 60.0f;
-    private const float SwordBreakTime = 6.0f / 60.0f;
+    private const int SwordSwingFrames = 17;
+    private const int SwordChargeCounter = 0x28;
+    private const int SwordPokeFrames = 12;
+    private const int SwordSpinFrames = 23;
     private const float DrownAnimationDuration = 22.0f / 60.0f;
     private const float DrownInvisibleDuration = 2.0f / 60.0f;
     private const float FallInHoleAnimationDuration = 36.0f / 60.0f;
@@ -29,6 +32,7 @@ public partial class Player : Node2D
     private Texture2D _pushTexture = null!;
     private Texture2D _attackTexture = null!;
     private Texture2D _swordTexture = null!;
+    private Texture2D _chargedSwordTexture = null!;
     private Texture2D _drownTexture = null!;
     private Texture2D _fallInHoleTexture = null!;
     private Vector2 _precisePosition;
@@ -38,7 +42,7 @@ public partial class Player : Node2D
     private OracleRoomData.HazardType _drowningHazard;
     private Facing _facing = Facing.Down;
     private float _walkTime;
-    private float _attackTime;
+    private double _swordFrameAccumulator;
     private float _drownTime;
     private float _drownInvisibleTime;
     private float _hazardRecoveryTime;
@@ -51,7 +55,11 @@ public partial class Player : Node2D
     private Vector2 _holePullCenter;
     private int _holePullCounter;
     private int _holePullPackedPosition = -1;
-    private bool _attackHitApplied;
+    private SwordActionState _swordState;
+    private int _swordStateFrame;
+    private int _swordChargeCounter;
+    private string? _swordButtonAction;
+    private Vector2 _lastMovementInput;
     private bool _walking;
     private bool _pushing;
     private bool _ledgeHopping;
@@ -85,8 +93,21 @@ public partial class Player : Node2D
         Facing.Down => Vector2I.Down,
         _ => Vector2I.Left
     };
-    public bool IsAttacking => _attackTime > 0.0f;
+    public bool IsAttacking => _swordState != SwordActionState.None;
     internal bool IsPushing => _pushing;
+    internal SwordActionState SwordState => _swordState;
+    internal int SwordStateFrame => _swordStateFrame;
+    internal int SwordArcIndex => IsAttacking ? GetSwordArcIndex() : -1;
+    internal bool SwordAllowsMovement =>
+        _swordState is SwordActionState.Held or SwordActionState.Charged;
+    internal bool SwordCanRestart => _swordState switch
+    {
+        SwordActionState.Swing => _swordStateFrame >= 3,
+        SwordActionState.Held or SwordActionState.Poke => true,
+        _ => false
+    };
+    internal bool SwordUsesChargedPalette =>
+        _swordState == SwordActionState.Charged && (_swordStateFrame & 0x04) != 0;
     internal float InvincibilityFrames => _enemyInvincibilityFrames;
     internal float KnockbackFrames => _enemyKnockbackFrames;
     internal bool IsNewGameSlowFalling => _newGameSlowFalling;
@@ -102,7 +123,8 @@ public partial class Player : Node2D
         _getItemOneHandTexture = BuildGetItemOneHandTexture();
         _pushTexture = BuildPushLinkTexture();
         _attackTexture = BuildAttackLinkTexture();
-        _swordTexture = BuildSwordTexture();
+        _swordTexture = BuildSwordTexture(chargedPalette: false);
+        _chargedSwordTexture = BuildSwordTexture(chargedPalette: true);
         _drownTexture = BuildDrownTexture();
         _fallInHoleTexture = BuildFallInHoleTexture();
         EndNewGameSlowFall();
@@ -114,6 +136,7 @@ public partial class Player : Node2D
 
     public void WarpTo(Vector2 position, bool recordSafe = true)
     {
+        CancelSwordAttack();
         EndNewGameSlowFall();
         _drownTime = 0.0f;
         _drownInvisibleTime = 0.0f;
@@ -211,7 +234,7 @@ public partial class Player : Node2D
         Position = OracleObjectMath.ToPixelPosition(position);
         Face(direction);
         _walking = false;
-        _attackTime = 0.0f;
+        CancelSwordAttack();
         QueueRedraw();
     }
 
@@ -233,8 +256,7 @@ public partial class Player : Node2D
     {
         _cutsceneControlled = false;
         _walking = false;
-        _attackTime = 0.0f;
-        _attackHitApplied = false;
+        CancelSwordAttack();
         QueueRedraw();
     }
 
@@ -298,7 +320,7 @@ public partial class Player : Node2D
         _enemyKnockbackDirection = OracleObjectMath.VectorFromAngle32(angle);
         _walking = false;
         _pushing = false;
-        _attackTime = 0.0f;
+        CancelSwordAttack();
         QueueRedraw();
         return true;
     }
@@ -328,7 +350,7 @@ public partial class Player : Node2D
         _ledgeHopTime = 0.0f;
         _ledgeHopping = true;
         _walking = false;
-        _attackTime = 0.0f;
+        CancelSwordAttack();
         QueueRedraw();
     }
 
@@ -353,7 +375,7 @@ public partial class Player : Node2D
         {
             _hazardRecoveryTime = Mathf.Max(0.0f, _hazardRecoveryTime - (float)delta);
             _walking = false;
-            _attackTime = 0.0f;
+            CancelSwordAttack();
             QueueRedraw();
             return;
         }
@@ -374,7 +396,7 @@ public partial class Player : Node2D
             TryMove(movement, allowWallSlide: false);
             _enemyKnockbackFrames = Mathf.Max(0.0f, _enemyKnockbackFrames - frameDelta);
             _walking = false;
-            _attackTime = 0.0f;
+            CancelSwordAttack();
             Position = OracleObjectMath.ToPixelPosition(_precisePosition);
             QueueRedraw();
             return;
@@ -386,41 +408,48 @@ public partial class Player : Node2D
         if (_world.DialogueOpen)
         {
             _walking = false;
-            _attackTime = 0.0f;
+            CancelSwordAttack();
             QueueRedraw();
             return;
-        }
-
-        if (Input.IsActionJustPressed("attack") && _attackTime <= 0.0f &&
-            !_world.SwordDisabled)
-        {
-            if (_inventory.EquippedA == InventoryState.ItemBracelet && _world.TryUseBracelet(this))
-                return;
-            if (_world.TryInteract(this))
-                return;
-            if (_inventory.EquippedA == InventoryState.ItemSword)
-                StartSwordAttack();
-        }
-        else if (Input.IsActionJustPressed("item") && _attackTime <= 0.0f &&
-            !_world.SwordDisabled)
-        {
-            if (_inventory.EquippedB == InventoryState.ItemBracelet)
-            {
-                _world.TryUseBracelet(this);
-            }
-            else if (_inventory.EquippedB == InventoryState.ItemSword)
-            {
-                StartSwordAttack();
-            }
         }
 
         Vector2 input = Input.GetVector("move_left", "move_right", "move_up", "move_down");
         if (_world.MovementDisabled)
             input = Vector2.Zero;
-        _walking = input.LengthSquared() > 0.01f && _attackTime <= 0.0f;
+        _lastMovementInput = input;
+
+        if (Input.IsActionJustPressed("attack") && !_world.SwordDisabled)
+        {
+            if (!IsAttacking)
+            {
+                if (_inventory.EquippedA == InventoryState.ItemBracelet && _world.TryUseBracelet(this))
+                    return;
+                if (_world.TryInteract(this))
+                    return;
+            }
+            if (_inventory.EquippedA == InventoryState.ItemSword)
+                StartSwordAttack("attack", input);
+        }
+        else if (Input.IsActionJustPressed("item") && !_world.SwordDisabled)
+        {
+            if (!IsAttacking && _inventory.EquippedB == InventoryState.ItemBracelet)
+            {
+                _world.TryUseBracelet(this);
+            }
+            else if (_inventory.EquippedB == InventoryState.ItemSword)
+            {
+                StartSwordAttack("item", input);
+            }
+        }
+
+        bool movementAllowed = !IsAttacking || SwordAllowsMovement;
+        _walking = input.LengthSquared() > 0.01f && movementAllowed;
         if (_walking)
         {
-            UpdateFacing(input);
+            // parentItemLoadAnimationAndIncState disables Link's turning for
+            // the sword's full lifetime, even after state 6 re-enables movement.
+            if (!IsAttacking)
+                UpdateFacing(input);
             Vector2 movement = input * Speed * GetTerrainSpeedMultiplier() * (float)delta;
             TryMove(movement, allowWallSlide: true);
             _walkTime += (float)delta;
@@ -455,7 +484,7 @@ public partial class Player : Node2D
         _cutsceneControlled = true;
         _walking = false;
         _pushing = false;
-        _attackTime = 0.0f;
+        CancelSwordAttack();
         QueueRedraw();
     }
 
@@ -467,7 +496,7 @@ public partial class Player : Node2D
         _getItemOneHandPose = true;
         _walking = false;
         _pushing = false;
-        _attackTime = 0.0f;
+        CancelSwordAttack();
         QueueRedraw();
     }
 
@@ -556,26 +585,22 @@ public partial class Player : Node2D
         }
 
         if (_world.SwordDisabled)
-        {
-            _attackTime = 0.0f;
-            _attackHitApplied = false;
-        }
+            CancelSwordAttack();
 
         if (_drowning || _fallingInHole || _hazardRecoveryTime > 0.0f ||
             (_pullingIntoHole && _holePullCounter >= 16))
         {
-            _attackTime = 0.0f;
+            CancelSwordAttack();
             return;
         }
 
-        if (_attackTime > 0.0f)
+        if (IsAttacking)
         {
-            _attackTime = Mathf.Max(0.0f, _attackTime - (float)delta);
-            float elapsed = AttackDuration - _attackTime;
-            if (!_attackHitApplied && elapsed >= SwordBreakTime)
+            _swordFrameAccumulator += delta * 60.0;
+            while (_swordFrameAccumulator + 0.000001 >= 1.0 && IsAttacking)
             {
-                _attackHitApplied = true;
-                _world.ApplySwordHit(this, GetSwordHitbox());
+                _swordFrameAccumulator -= 1.0;
+                AdvanceSwordFrame(IsSwordButtonHeld(), _lastMovementInput);
             }
             QueueRedraw();
         }
@@ -613,13 +638,27 @@ public partial class Player : Node2D
         }
         else if (IsAttacking)
         {
-            int phase = GetAttackPhase();
-            int texturePhase = phase == 3 ? 1 : phase;
-            DrawTextureRectRegion(
-                _attackTexture,
-                new Rect2(AttackSpriteOrigin, new Vector2(16, 16)),
-                new Rect2(texturePhase * 16, (int)_facing * 16, 16, 16));
-            DrawSword(phase);
+            // The weapon item occupies an earlier visual layer than Link, so
+            // Link's body masks the sword where their sprites overlap.
+            DrawSword();
+            int heldBodyFrame = GetHeldSwordBodyAnimationFrame();
+            if (heldBodyFrame >= 0)
+            {
+                DrawTextureRectRegion(
+                    _texture,
+                    new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
+                    GetFrame(_facing, heldBodyFrame));
+            }
+            else
+            {
+                Facing poseFacing = GetSwordPoseFacing();
+                int phase = GetSwordPosePhase();
+                int texturePhase = _swordState == SwordActionState.Spin || phase == 3 ? 1 : phase;
+                DrawTextureRectRegion(
+                    _attackTexture,
+                    new Rect2(AttackSpriteOrigin, new Vector2(16, 16)),
+                    new Rect2(texturePhase * 16, (int)poseFacing * 16, 16, 16));
+            }
         }
         else if (_pushing)
         {
@@ -652,25 +691,64 @@ public partial class Player : Node2D
             return;
         }
 
-        if (_attackTime <= 0.0f && _world.TryStartLedgeHop(this, _precisePosition, movement))
+        if (!IsAttacking && _world.TryStartLedgeHop(this, _precisePosition, movement))
             return;
     }
 
     internal void UpdatePushingState(Vector2 movementInput)
     {
-        _pushing = movementInput.LengthSquared() > 0.01f && _attackTime <= 0.0f &&
+        _pushing = movementInput.LengthSquared() > 0.01f && !IsAttacking &&
             _world.IsPushingAgainstWall(_precisePosition, FacingVector, movementInput);
     }
 
-    private int GetWalkAnimationFrame() =>
-        _walking && ((int)(_walkTime / 0.10f) & 1) == 1 ? 1 : 0;
+    private int GetWalkAnimationFrame() => GetWalkAnimationFrame(_walking, _walkTime);
+
+    private int GetHeldSwordBodyAnimationFrame() =>
+        GetHeldSwordBodyAnimationFrame(_swordState, _walking, _walkTime);
+
+    internal static int GetHeldSwordBodyAnimationFrameForValidation(
+        SwordActionState state,
+        bool walking,
+        float walkTime) => GetHeldSwordBodyAnimationFrame(state, walking, walkTime);
+
+    private static int GetHeldSwordBodyAnimationFrame(
+        SwordActionState state,
+        bool walking,
+        float walkTime)
+    {
+        // Sword state 6 clears the parent item's var3f priority. func_4553 then
+        // resolves the priority-0 tie in Link's favor, exposing his ordinary
+        // standing/walking body while the child sword retains its held arc.
+        if (state is not (SwordActionState.Held or SwordActionState.Charged))
+            return -1;
+        return GetWalkAnimationFrame(walking, walkTime);
+    }
+
+    private static int GetWalkAnimationFrame(bool walking, float walkTime) =>
+        walking && ((int)(walkTime / 0.10f) & 1) == 1 ? 1 : 0;
 
     private void UpdateFacing(Vector2 input)
     {
-        if (Mathf.Abs(input.X) > Mathf.Abs(input.Y))
+        float horizontal = Mathf.Abs(input.X);
+        float vertical = Mathf.Abs(input.Y);
+        if (horizontal > vertical)
             _facing = input.X > 0 ? Facing.Right : Facing.Left;
-        else
+        else if (vertical > horizontal)
             _facing = input.Y > 0 ? Facing.Down : Facing.Up;
+        else if (horizontal > 0.01f)
+        {
+            Facing horizontalFacing = input.X > 0 ? Facing.Right : Facing.Left;
+            Facing verticalFacing = input.Y > 0 ? Facing.Down : Facing.Up;
+            if (_facing == horizontalFacing || _facing == verticalFacing)
+                return;
+
+            // updateLinkDirectionFromAngle keeps either current diagonal
+            // component. With neither component current, angles $04/$0c/$14/$1c
+            // round to up/right/down/left respectively.
+            _facing = input.X > 0
+                ? input.Y < 0 ? Facing.Up : Facing.Right
+                : input.Y > 0 ? Facing.Down : Facing.Left;
+        }
     }
 
     public void Face(Vector2I direction)
@@ -717,8 +795,7 @@ public partial class Player : Node2D
         _holePullPackedPosition = activeTerrain.PackedPosition;
         _holePullCounter = 0;
         _walking = false;
-        _attackTime = 0.0f;
-        _attackHitApplied = false;
+        CancelSwordAttack();
         QueueRedraw();
     }
 
@@ -765,7 +842,7 @@ public partial class Player : Node2D
         if (_holePullCounter >= 16)
         {
             _walking = false;
-            _attackTime = 0.0f;
+            CancelSwordAttack();
             QueueRedraw();
             return true;
         }
@@ -782,8 +859,7 @@ public partial class Player : Node2D
         _fallInHoleTime = 0.0f;
         _fallInHoleInvisibleTime = FallInHoleInvisibleDuration;
         _walking = false;
-        _attackTime = 0.0f;
-        _attackHitApplied = false;
+        CancelSwordAttack();
 
         // The active hazard tile is selected by the same +5px sample used by
         // objectGetRelativeTile($0500). Carry its center through explicitly so
@@ -818,8 +894,7 @@ public partial class Player : Node2D
         _drownTime = 0.0f;
         _drownInvisibleTime = 0.0f;
         _walking = false;
-        _attackTime = 0.0f;
-        _attackHitApplied = false;
+        CancelSwordAttack();
         Visible = true;
         _world.SpawnDrowningSplash(Position, hazard);
         QueueRedraw();
@@ -852,7 +927,7 @@ public partial class Player : Node2D
         WarpTo(_lastSafePosition);
         _hazardRecoveryTime = HazardRecoveryDuration;
         _walking = false;
-        _attackTime = 0.0f;
+        CancelSwordAttack();
         QueueRedraw();
     }
 
@@ -889,7 +964,7 @@ public partial class Player : Node2D
         WarpTo(_lastSafePosition);
         _hazardRecoveryTime = HazardRecoveryDuration;
         _walking = false;
-        _attackTime = 0.0f;
+        CancelSwordAttack();
         QueueRedraw();
     }
 
@@ -925,30 +1000,193 @@ public partial class Player : Node2D
 
     public Rect2 GetSwordHitbox()
     {
-        if (!IsAttacking)
+        if (!IsAttacking || _swordState == SwordActionState.Poke)
             return new Rect2(Position, Vector2.Zero);
-        SwordArc arc = SwordArcs[GetSwordArcIndex(GetAttackPhase())];
-        Vector2 center = Position + new Vector2(arc.OffsetX, arc.OffsetY);
+        return GetSwordHitbox(Position, GetSwordArcIndex());
+    }
+
+    internal static Rect2 GetSwordHitboxForValidation(Vector2 position, int arcIndex) =>
+        GetSwordHitbox(position, arcIndex);
+
+    private static Rect2 GetSwordHitbox(Vector2 position, int arcIndex)
+    {
+        if ((uint)arcIndex >= SwordArcs.Length)
+            throw new ArgumentOutOfRangeException(nameof(arcIndex));
+        SwordArc arc = SwordArcs[arcIndex];
+        Vector2 center = position + new Vector2(arc.OffsetX, arc.OffsetY);
         return new Rect2(
             center - new Vector2(arc.RadiusX, arc.RadiusY),
             new Vector2(arc.RadiusX * 2, arc.RadiusY * 2));
     }
 
-    public void StartSwordAttack()
+    public void StartSwordAttack() => StartSwordAttack(null, Vector2.Zero);
+
+    internal void StartSwordAttackForValidation(Vector2 facingInput) =>
+        StartSwordAttack(null, facingInput);
+
+    private void StartSwordAttack(string? buttonAction, Vector2 facingInput)
     {
-        if (IsAttacking)
+        if (IsAttacking && !SwordCanRestart)
             return;
-        _attackTime = AttackDuration;
-        _attackHitApplied = false;
+        if (facingInput.LengthSquared() > 0.01f)
+            UpdateFacing(facingInput);
+        _swordState = SwordActionState.Swing;
+        _swordStateFrame = 0;
+        _swordChargeCounter = SwordChargeCounter;
+        _swordFrameAccumulator = 0.0;
+        _swordButtonAction = buttonAction;
         _walking = false;
+        int sound = SwordSlashSounds[Random.Shared.Next(SwordSlashSounds.Length)];
+        _world.PlaySound(sound);
         QueueRedraw();
     }
 
-    private void DrawSword(int phase)
+    private void CancelSwordAttack()
     {
-        int animation = SwordAnimationIndices[(int)_facing, phase];
+        bool changed = IsAttacking;
+        _swordState = SwordActionState.None;
+        _swordStateFrame = 0;
+        _swordChargeCounter = 0;
+        _swordFrameAccumulator = 0.0;
+        _swordButtonAction = null;
+        if (changed)
+            QueueRedraw();
+    }
+
+    private bool IsSwordButtonHeld() =>
+        _swordButtonAction is not null && Input.IsActionPressed(_swordButtonAction);
+
+    internal void AdvanceSwordForValidation(
+        int frames,
+        bool buttonHeld,
+        Vector2 movementInput = default)
+    {
+        _lastMovementInput = movementInput;
+        for (int frame = 0; frame < frames && IsAttacking; frame++)
+            AdvanceSwordFrame(buttonHeld, movementInput);
+        QueueRedraw();
+    }
+
+    private void AdvanceSwordFrame(bool buttonHeld, Vector2 movementInput)
+    {
+        switch (_swordState)
+        {
+            case SwordActionState.Swing:
+                _swordStateFrame++;
+                if (_swordStateFrame == 6)
+                    _world.ApplySwordTileHit(this, (int)_facing * 2, swordPoke: false);
+                if (_swordStateFrame >= SwordSwingFrames)
+                {
+                    if (!buttonHeld)
+                    {
+                        CancelSwordAttack();
+                        return;
+                    }
+                    EnterSwordHeldState();
+                }
+                ApplySwordCollision();
+                break;
+
+            case SwordActionState.Held:
+                ApplySwordCollision();
+                if (CheckSwordPoke(movementInput))
+                    return;
+                if (!buttonHeld)
+                {
+                    CancelSwordAttack();
+                    return;
+                }
+                _swordChargeCounter--;
+                if (_swordChargeCounter < 0)
+                {
+                    _swordState = SwordActionState.Charged;
+                    _swordStateFrame = 0;
+                    _world.PlaySound(OracleSoundEngine.SndChargeSword);
+                }
+                break;
+
+            case SwordActionState.Charged:
+                ApplySwordCollision();
+                if (CheckSwordPoke(movementInput))
+                    return;
+                if (!buttonHeld)
+                    BeginSwordSpin();
+                else
+                    _swordStateFrame++;
+                break;
+
+            case SwordActionState.Poke:
+                _swordStateFrame++;
+                if (_swordStateFrame < SwordPokeFrames)
+                    break;
+                if (buttonHeld)
+                    EnterSwordHeldState();
+                else
+                    CancelSwordAttack();
+                break;
+
+            case SwordActionState.Spin:
+                int previousPhase = GetSpinArcPhase();
+                _swordStateFrame++;
+                if (_swordStateFrame >= SwordSpinFrames)
+                {
+                    _world.ApplySwordTileHit(this, 8, swordPoke: false);
+                    CancelSwordAttack();
+                    return;
+                }
+                int phase = GetSpinArcPhase();
+                if (phase != previousPhase)
+                    _world.ApplySwordTileHit(
+                        this, ((int)_facing * 2 + phase) & 7, swordPoke: false);
+                ApplySwordCollision();
+                break;
+        }
+        QueueRedraw();
+    }
+
+    private void EnterSwordHeldState()
+    {
+        _swordState = SwordActionState.Held;
+        _swordStateFrame = 0;
+        _swordChargeCounter = SwordChargeCounter;
+    }
+
+    private bool CheckSwordPoke(Vector2 movementInput)
+    {
+        if (!_world.IsPushingAgainstWall(_precisePosition, FacingVector, movementInput))
+            return false;
+
+        _swordState = SwordActionState.Poke;
+        _swordStateFrame = 0;
+        _walking = false;
+        _world.ApplySwordTileHit(this, (int)_facing * 2, swordPoke: true);
+        return true;
+    }
+
+    private void BeginSwordSpin()
+    {
+        _swordState = SwordActionState.Spin;
+        _swordStateFrame = 0;
+        _walking = false;
+        _world.PlaySound(OracleSoundEngine.SndSwordSpin);
+        _world.ApplySwordTileHit(this, (int)_facing * 2, swordPoke: false);
+        ApplySwordCollision();
+    }
+
+    private void ApplySwordCollision()
+    {
+        Rect2 hitbox = GetSwordHitbox();
+        if (hitbox.Size != Vector2.Zero)
+            _world.ApplySwordHit(this, hitbox);
+    }
+
+    private void DrawSword()
+    {
+        int animation = _swordState == SwordActionState.Spin
+            ? GetSwordArcIndex() - 16
+            : SwordAnimationIndices[(int)_facing, GetSwordPosePhase()];
         DrawTextureRectRegion(
-            _swordTexture,
+            SwordUsesChargedPalette ? _chargedSwordTexture : _swordTexture,
             new Rect2(SwordSpritePosition - new Vector2(16, 16), new Vector2(32, 32)),
             new Rect2(animation * 32, 0, 32, 32));
     }
@@ -957,33 +1195,70 @@ public partial class Player : Node2D
     {
         get
         {
-            int phase = GetAttackPhase();
-            Vector2 poseOffset = phase == 2 ? AttackPoseOffsets[(int)_facing] : Vector2.Zero;
+            Facing poseFacing = GetSwordPoseFacing();
+            int phase = GetSwordPosePhase();
+            Vector2 poseOffset = _swordState == SwordActionState.Spin || phase == 2
+                ? AttackPoseOffsets[(int)poseFacing]
+                : Vector2.Zero;
             return NormalSpriteOrigin + poseOffset;
         }
     }
 
     internal Vector2 SwordSpritePosition
     {
-        get
+        get => GetSwordSpritePosition(GetSwordArcIndex());
+    }
+
+    internal static Vector2 GetSwordSpritePositionForValidation(int arcIndex) =>
+        GetSwordSpritePosition(arcIndex);
+
+    private static Vector2 GetSwordSpritePosition(int arcIndex)
+    {
+        if ((uint)arcIndex >= SwordArcs.Length)
+            throw new ArgumentOutOfRangeException(nameof(arcIndex));
+        SwordArc arc = SwordArcs[arcIndex];
+        // itemInitializeFromLinkPosition uses the table offset for yh, then
+        // gives the child sword zh = Link.zh - 2. Apply that visual height
+        // separately; its collision center remains at the table's raw Y/X.
+        return new Vector2(arc.OffsetX, arc.OffsetY - 2);
+    }
+
+    private int GetSwordPosePhase()
+    {
+        return _swordState switch
         {
-            SwordArc arc = SwordArcs[GetSwordArcIndex(GetAttackPhase())];
-            return new Vector2(arc.OffsetX, arc.OffsetY);
-        }
+            SwordActionState.Swing => _swordStateFrame < 3 ? 0
+                : _swordStateFrame < 6 ? 1
+                : _swordStateFrame < 14 ? 2
+                : 3,
+            SwordActionState.Poke => _swordStateFrame < 6 ? 2 : 3,
+            _ => 3
+        };
     }
 
-    private int GetAttackPhase()
+    private Facing GetSwordPoseFacing() => _swordState == SwordActionState.Spin
+        ? (Facing)((((int)_facing * 2 + GetSpinArcPhase()) & 7) >> 1)
+        : _facing;
+
+    private int GetSwordArcIndex()
     {
-        float elapsed = AttackDuration - _attackTime;
-        return elapsed < 3.0f / 60.0f ? 0
-            : elapsed < 6.0f / 60.0f ? 1
-            : elapsed < 14.0f / 60.0f ? 2
-            : 3;
+        if (_swordState == SwordActionState.Spin)
+            return 16 + (((int)_facing * 2 + GetSpinArcPhase()) & 7);
+        return (int)_facing + GetSwordPosePhase() * 4;
     }
 
-    private int GetSwordArcIndex(int phase)
+    private int GetSpinArcPhase()
     {
-        return (int)_facing + phase * 4;
+        int frame = _swordStateFrame;
+        return frame < 3 ? 0
+            : frame < 5 ? 1
+            : frame < 8 ? 2
+            : frame < 10 ? 3
+            : frame < 13 ? 4
+            : frame < 15 ? 5
+            : frame < 18 ? 6
+            : frame < 20 ? 7
+            : 0;
     }
 
     private static Texture2D BuildLinkTexture()
@@ -1066,7 +1341,7 @@ public partial class Player : Node2D
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildSwordTexture()
+    private static Texture2D BuildSwordTexture(bool chargedPalette)
     {
         Texture2D sourceTexture = GD.Load<Texture2D>("res://assets/oracle/gfx/spr_swords.png");
         Image source = sourceTexture.GetImage();
@@ -1083,7 +1358,7 @@ public partial class Player : Node2D
             {
                 int readX = sourceX + (part.FlipX ? 7 - x : x);
                 int readY = part.FlipY ? 15 - y : y;
-                Color pixel = RecolorSwordPixel(source.GetPixel(readX, readY));
+                Color pixel = RecolorSwordPixel(source.GetPixel(readX, readY), chargedPalette);
                 if (pixel.A > 0.0f)
                     output.SetPixel(destinationX + x, destinationY + y, pixel);
             }
@@ -1229,9 +1504,16 @@ public partial class Player : Node2D
     private static Color GbcColor(int red, int green, int blue) =>
         new(red / 31.0f, green / 31.0f, blue / 31.0f);
 
-    private static Color RecolorSwordPixel(Color source)
+    private static Color RecolorSwordPixel(Color source, bool chargedPalette)
     {
         float value = source.R;
+        if (chargedPalette)
+        {
+            return value < 0.1f ? Colors.Transparent
+                : value < 0.5f ? GbcColor(0x1f, 0x16, 0x06)
+                : value < 0.9f ? GbcColor(0x1b, 0x00, 0x00)
+                : Colors.Black;
+        }
         return value < 0.1f ? Colors.Transparent
             : value < 0.5f ? Colors.Black
             : value < 0.9f ? Color.Color8(16, 173, 66)
@@ -1257,12 +1539,26 @@ public partial class Player : Node2D
         { 0, 7, 6, 6 }
     };
 
+    private static readonly int[] SwordSlashSounds =
+    {
+        OracleSoundEngine.SndSwordSlash,
+        OracleSoundEngine.SndUnknown5,
+        OracleSoundEngine.SndBoomerang,
+        OracleSoundEngine.SndSwordSlash,
+        OracleSoundEngine.SndSwordSlash,
+        OracleSoundEngine.SndUnknown5,
+        OracleSoundEngine.SndSwordSlash,
+        OracleSoundEngine.SndSwordSlash
+    };
+
     private static readonly SwordArc[] SwordArcs =
     {
         new(9, 6, -2, 16), new(6, 9, -14, 0), new(9, 6, 0, -15), new(6, 9, -14, 0),
         new(7, 7, -11, 13), new(7, 7, -11, 13), new(7, 7, 17, -13), new(7, 7, -11, -13),
         new(9, 6, -17, -4), new(6, 9, 2, 19), new(9, 6, 21, 3), new(6, 9, 2, -19),
-        new(9, 6, -10, -4), new(4, 9, 2, 12), new(9, 6, 16, 3), new(6, 9, 2, -12)
+        new(9, 6, -10, -4), new(4, 9, 2, 12), new(9, 6, 16, 3), new(6, 9, 2, -12),
+        new(9, 9, -17, -4), new(9, 9, -14, 16), new(9, 9, 2, 19), new(9, 9, 18, 16),
+        new(9, 9, 21, 3), new(9, 9, 17, -13), new(9, 9, 2, -19), new(9, 9, -11, -13)
     };
 
     private static readonly SwordPart[][] SwordOam =

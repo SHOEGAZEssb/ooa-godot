@@ -24,14 +24,17 @@ public partial class OracleSoundEngine : Node
     public const int MusDisaster = 0x21;
     public const int MusLadxSideview = 0x2f;
     public const int SndGetItem = 0x4c;
+    public const int SndChargeSword = 0x4f;
     public const int SndClink = 0x50;
     public const int SndThrow = 0x51;
     public const int SndJump = 0x53;
     public const int SndCloseMenu = 0x55;
     public const int SndSelectItem = 0x56;
+    public const int SndClink2 = 0x58;
     public const int SndBossDead = 0x67;
     public const int SndSlash = 0x6a;
     public const int SndSwordSpin = 0x6b;
+    public const int SndCutGrass = 0x6d;
     public const int SndKillEnemy = 0x73;
     public const int SndSwordSlash = 0x74;
     public const int SndUnknown5 = 0x75;

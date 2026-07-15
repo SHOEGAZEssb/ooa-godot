@@ -14,6 +14,7 @@ public sealed class PlayerWorld : IPlayerWorld
     private readonly BraceletController _bracelet;
     private readonly RoomEventController _roomEvents;
     private readonly InventoryState _inventory;
+    private readonly OracleSoundEngine _sound;
 
     public bool IsTransitioning => _transitions.IsTransitioning;
     public bool DialogueOpen => _interactions.DialogueOpen;
@@ -30,7 +31,8 @@ public sealed class PlayerWorld : IPlayerWorld
         RoomEntityManager entities,
         BraceletController bracelet,
         RoomEventController roomEvents,
-        InventoryState inventory)
+        InventoryState inventory,
+        OracleSoundEngine sound)
     {
         _transitions = transitions;
         _interactions = interactions;
@@ -42,9 +44,13 @@ public sealed class PlayerWorld : IPlayerWorld
         _bracelet = bracelet;
         _roomEvents = roomEvents;
         _inventory = inventory;
+        _sound = sound;
     }
 
     public bool ApplySwordHit(Player player, Rect2 hitbox) => _combat.ApplySwordHit(player, hitbox);
+    public bool ApplySwordTileHit(Player player, int direction, bool swordPoke) =>
+        _combat.ApplySwordTileHit(player, direction, swordPoke);
+    public void PlaySound(int soundId) => _sound.PlaySound(soundId);
     public bool TryInteract(Player player) => _interactions.TryInteract(player);
     public bool TryUseBracelet(Player player) => _bracelet.TryUse(player);
     public bool Collides(Vector2 position) => _collision.Collides(position);
