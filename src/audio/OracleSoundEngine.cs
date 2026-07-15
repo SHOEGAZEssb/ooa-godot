@@ -23,9 +23,28 @@ public partial class OracleSoundEngine : Node
     public const int MusSadness = 0x1f;
     public const int MusDisaster = 0x21;
     public const int MusLadxSideview = 0x2f;
+    public const int SndGetItem = 0x4c;
+    public const int SndClink = 0x50;
+    public const int SndThrow = 0x51;
+    public const int SndJump = 0x53;
+    public const int SndCloseMenu = 0x55;
     public const int SndSelectItem = 0x56;
+    public const int SndBossDead = 0x67;
+    public const int SndSlash = 0x6a;
+    public const int SndSwordSpin = 0x6b;
+    public const int SndKillEnemy = 0x73;
     public const int SndSwordSlash = 0x74;
+    public const int SndUnknown5 = 0x75;
+    public const int SndBoomerang = 0x78;
+    public const int SndMysterySeed = 0x7b;
     public const int SndMenuMove = 0x84;
+    public const int SndTeleport = 0x8d;
+    public const int SndWarpStart = 0x95;
+    public const int SndSwordObtained = 0xab;
+    public const int SndMakuDisappear = 0xb2;
+    public const int SndFadeOut = 0xb4;
+    public const int SndRumble2 = 0xb8;
+    public const int SndLightning = 0xd2;
     public const int SndCtrlStopMusic = 0xf0;
     public const int SndCtrlStopSfx = 0xf1;
     public const int SndCtrlDisable = 0xf5;
@@ -39,6 +58,7 @@ public partial class OracleSoundEngine : Node
 
     private readonly OracleSoundData _data;
     private readonly ChannelState[] _channels = new ChannelState[8];
+    private readonly int[] _playRequestCounts = new int[0x100];
     private readonly bool _enableOutput;
     private AudioStreamPlayer? _player;
     private AudioStreamGeneratorPlayback? _playback;
@@ -55,6 +75,8 @@ public partial class OracleSoundEngine : Node
     public int MusicVolume => _musicVolume;
     internal OracleSoundData Data => _data;
     internal ChannelState Channel(int channel) => _channels[channel];
+    internal int LastPlayRequest { get; private set; }
+    internal int PlayRequestsFor(int soundId) => _playRequestCounts[soundId & 0xff];
 
     public OracleSoundEngine() : this(new OracleSoundData(), true) { }
 
@@ -119,6 +141,8 @@ public partial class OracleSoundEngine : Node
     {
         if (soundId == 0)
             return;
+        LastPlayRequest = soundId;
+        _playRequestCounts[soundId & 0xff]++;
         bool stoppingMusic = soundId == SndCtrlStopMusic;
         switch (soundId)
         {
@@ -158,6 +182,12 @@ public partial class OracleSoundEngine : Node
             channel.Start(start.Priority, start.Bank, start.Offset);
         }
         _masterVolume = 7;
+    }
+
+    internal void ClearPlayRequestAudit()
+    {
+        Array.Clear(_playRequestCounts);
+        LastPlayRequest = 0;
     }
 
     internal void Tick()

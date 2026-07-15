@@ -3704,6 +3704,7 @@ public partial class GameRoot
         _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagPregameIntroDone);
         _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone, value: false);
         _sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
+        _sound.ClearPlayRequestAudit();
         _saveData.SetRoomFlag(0, 0x7a, OracleSaveData.RoomFlag40, value: false);
         _saveData.SetRoomFlag(0, 0x6a, OracleSaveData.RoomFlag40, value: false);
         LoadValidationRoom(0, 0x7a);
@@ -3806,8 +3807,13 @@ public partial class GameRoot
         if (impaEvent.Counter != 1 || _player.Position != new Vector2(0x48, 0x49))
             throw new InvalidOperationException("Link's $2e-update upward approach ended early.");
         StepRoomEventFrames(1);
-        if (_player.Position != new Vector2(0x48, 0x48))
-            throw new InvalidOperationException("Link did not finish exactly 46 pixels above his entry point.");
+        if (_player.Position != new Vector2(0x48, 0x48) ||
+            _sound.LastPlayRequest != OracleSoundEngine.SndClink ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1)
+        {
+            throw new InvalidOperationException(
+                "Link did not finish exactly 46 pixels above his entry point and play SND_CLINK.");
+        }
 
         StepRoomEventFrames(1);
         if (impaEvent.Counter != 210)
@@ -3829,8 +3835,13 @@ public partial class GameRoot
         if (octoroks[1].Position != fakeStarts[1])
             throw new InvalidOperationException("Fake Octorok var03=$01 moved during its $3c flee delay.");
         StepRoomEventFrames(1);
-        if (octoroks[1].Position != fakeStarts[1])
-            throw new InvalidOperationException("Fake Octorok moved on the SND_THROW/substate update.");
+        if (octoroks[1].Position != fakeStarts[1] ||
+            _sound.LastPlayRequest != OracleSoundEngine.SndThrow ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndThrow) != 1)
+        {
+            throw new InvalidOperationException(
+                "Fake Octorok var03=$01 did not play SND_THROW on its stationary substate update.");
+        }
         StepRoomEventFrames(1);
         if (octoroks[1].Position != fakeStarts[1] + Vector2.Left * 3)
         {
@@ -3845,10 +3856,12 @@ public partial class GameRoot
         if (!_dialogue.IsOpen || _dialogue.Position.Y != 8 ||
             !_dialogue.CurrentMessage.StartsWith("That was\nfrightening!") ||
             !_dialogue.CurrentMessage.EndsWith("with you nearby.") ||
-            octoroks[0].Active || octoroks[1].Active || octoroks[2].Active)
+            octoroks[0].Active || octoroks[1].Active || octoroks[2].Active ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndThrow) != 3)
         {
             throw new InvalidOperationException(
-                "TX_0102, automatic TX_0101 call, textbox placement, or fake-Octorok cleanup diverged.");
+                "TX_0102, automatic TX_0101 call, textbox placement, fake-Octorok cleanup, " +
+                "or the three staggered SND_THROW calls diverged.");
         }
 
         _dialogue.Close();
@@ -4110,7 +4123,8 @@ public partial class GameRoot
             "post-text wait, silent playable-intro room music, room flag $40, and eight-Up handoff; " +
             "room 0:6a possessed Impa " +
             "$31:$00 PALH_97, three objectData fake Octoroks, linkCutscene1 $78/$04/$2e " +
-            "cadence, staggered $14+$50/$3c/$5a escapes, expanded TX_0102, 210/30 waits, " +
+            "cadence with SND_CLINK, staggered $14+$50/$3c/$5a escapes and three SND_THROW " +
+            "calls, expanded TX_0102, 210/30 waits, " +
             "SPEED_080 movedown $20, MUS_FAIRY_FOUNTAIN volume 3, room flag $40, " +
             "animations $00-$03, single-copy " +
             "always-update scroll following, transition-end 16-entry follower-path rebuild, " +
@@ -4440,6 +4454,7 @@ public partial class GameRoot
     private void ValidateMakuTreeDisappearanceCutscene()
     {
         MakuTreeDisappearanceEvent makuEvent = _roomEvents.MakuTree;
+        _sound.ClearPlayRequestAudit();
         LoadValidationRoom(0, 0x38);
         // The event is entered through room position $52 (the open $dc tile),
         // before its simulated right/up approach takes over.
@@ -4494,14 +4509,24 @@ public partial class GameRoot
         _dialogue.Close();
         StepRoomEventFrames(1);
         StepRoomEventFrames(60);
-        if (makuTree.CurrentAnimationFrame != 0 || makuTree.CurrentAnimationOpaquePixels == 0)
+        if (makuTree.CurrentAnimationFrame != 0 || makuTree.CurrentAnimationOpaquePixels == 0 ||
+            _sound.LastPlayRequest != OracleSoundEngine.SndCtrlStopMusic ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1)
+        {
             throw new InvalidOperationException(
-                "The Maku Tree frown animation did not reset to a visible frame zero.");
+                "The Maku Tree did not stop its music and reset the frown to visible frame zero.");
+        }
         StepRoomEventFrames(4);
         if (makuTree.CurrentAnimationFrame != 1)
             throw new InvalidOperationException(
                 "INTERAC_MAKU_TREE animation 4 did not use its original four-update first frame.");
         StepRoomEventFrames(56);
+        if (_sound.LastPlayRequest != OracleSoundEngine.SndMakuDisappear ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMakuDisappear) != 1)
+        {
+            throw new InvalidOperationException(
+                "The first SND_MAKUDISAPPEAR did not start with the palette-cycling disappearance.");
+        }
 
         int paletteBefore = makuEvent.PaletteHeader;
         StepRoomEventFrames(8);
@@ -4514,6 +4539,12 @@ public partial class GameRoot
 
         _dialogue.Close();
         StepRoomEventFrames(1);
+        if (_sound.LastPlayRequest != OracleSoundEngine.SndMakuDisappear ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMakuDisappear) != 2)
+        {
+            throw new InvalidOperationException(
+                "TX_0540 did not replay SND_MAKUDISAPPEAR when its textbox closed.");
+        }
         StepRoomEventFrames(210);
         if (!_dialogue.IsOpen || _dialogue.Position.Y != 80 ||
             !_dialogue.CurrentMessage.StartsWith("I feel so weird.\nI'm vanishing!"))
@@ -4521,12 +4552,20 @@ public partial class GameRoot
 
         _dialogue.Close();
         StepRoomEventFrames(1);
+        if (_sound.LastPlayRequest != OracleSoundEngine.SndMakuDisappear ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMakuDisappear) != 3)
+        {
+            throw new InvalidOperationException(
+                "TX_0541 did not replay SND_MAKUDISAPPEAR when its textbox closed.");
+        }
         StepRoomEventFrames(150);
         if (!makuEvent.Completed || _roomEvents.Active || !IsTransitioning ||
             _activeGroup != 0 || _currentRoom.Id != 0x38 ||
             !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared) ||
             !_saveData.HasRoomFlag(0, 0x38, OracleSaveData.RoomFlagLayoutSwap) ||
-            _saveData.MakuTreeState != 1)
+            _saveData.MakuTreeState != 1 ||
+            _sound.LastPlayRequest != OracleSoundEngine.SndFadeOut ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndFadeOut) != 1)
         {
             throw new InvalidOperationException(
                 "The Maku Tree event did not persist GLOBALFLAG_0c, wMakuTreeState, room bit 0, " +
@@ -4580,7 +4619,8 @@ public partial class GameRoot
 
         GD.Print("Validated room 0:38 Maku Tree $87:$01 simulated input, two-sheet unclipped face OAM, " +
             "fixed-bottom \\pos(2) dialogue, 210/60/60/210/210/150 timing, four-header " +
-            "palette cycle, delayed 125-update white fade, and one-shot $45 re-entry warp.");
+            "palette cycle, STOPMUSIC/three SND_MAKUDISAPPEAR/SND_FADEOUT cue chain, " +
+            "delayed 125-update white fade, and one-shot $45 re-entry warp.");
     }
 
     private void StepRoomEventFrames(int frames)
@@ -4871,6 +4911,7 @@ public partial class GameRoot
             throw new InvalidOperationException("The bear lead-in did not restore Link control.");
         }
 
+        _sound.ClearPlayRequestAudit();
         _player.WarpTo(new Vector2(0x60, 0x3d), recordSafe: false);
         StepRoomEventFrames(1);
         if (nayruIntro.CurrentStage != 6 || nayruIntro.Counter != 120 ||
@@ -4891,10 +4932,12 @@ public partial class GameRoot
         NayruSingingScreen? singing =
             _scene.InterfaceLayer.GetNodeOrNull<NayruSingingScreen>("NayruSingingScreen");
         if (nayruIntro.CurrentStage != 10 || singing is null || singing.ScrollX != 0 ||
-            _hud.Visible)
+            _hud.Visible ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCloseMenu) != 1)
         {
             throw new InvalidOperationException(
-                "GFXH_NAYRU_SINGING_CUTSCENE did not replace the room and HUD after 11 updates.");
+                "GFXH_NAYRU_SINGING_CUTSCENE did not play SND_CLOSEMENU and replace the " +
+                "room/HUD after 11 updates.");
         }
         StepRoomEventFrames(320);
         if (singing.ScrollX != 40 || nayruIntro.CurrentStage != 10)
@@ -4904,8 +4947,12 @@ public partial class GameRoot
         }
         StepRoomEventFrames(280);
         StepRoomEventFrames(11);
-        if (nayruIntro.CurrentStage != 12 || !_hud.Visible)
-            throw new InvalidOperationException("The 600-update singing screen did not enter the room script.");
+        if (nayruIntro.CurrentStage != 12 || !_hud.Visible ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCloseMenu) != 2)
+        {
+            throw new InvalidOperationException(
+                "The 600-update singing screen did not replay SND_CLOSEMENU and enter the room script.");
+        }
 
         int scriptFrames = 0;
         int observedVignettes = 0;
@@ -5082,6 +5129,24 @@ public partial class GameRoot
                 }
             }
         }
+        int rumbleRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndRumble2);
+        bool exactCutsceneSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCloseMenu) == 2 &&
+            _sound.PlayRequestsFor(OracleSoundEngine.SndJump) == 4 &&
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDead) == 1 &&
+            _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5) == 4 &&
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSpin) == 8 &&
+            _sound.PlayRequestsFor(OracleSoundEngine.SndTeleport) == 2 &&
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSwordObtained) == 2 &&
+            rumbleRequests is >= 13 and <= 15 &&
+            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) == 1 &&
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSlash) == 1 &&
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLightning) == 6 &&
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSlash) == 1 &&
+            _sound.PlayRequestsFor(OracleSoundEngine.SndWarpStart) == 1 &&
+            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) == 10 &&
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBoomerang) == 1 &&
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) == 1;
         if (!_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone) ||
             !_saveData.HasRoomFlag(group, roomId, OracleSaveData.RoomFlag40) ||
             _currentRoom.GetMetatile(portalPoint) != 0xd7 ||
@@ -5123,6 +5188,7 @@ public partial class GameRoot
             !nayruIntro.PortalFlightShown ||
             !sawSideviewMusic || !sawRoomOfRitesMusic ||
             !sawVignetteRestartSilence || !sawDisasterMusic || !sawSadnessMusic ||
+            !exactCutsceneSounds ||
             _sound.ActiveMusic != OracleSoundEngine.MusOverworld ||
             _sound.MusicVolume != 3 ||
             !_inventory.HasTreasure(TreasureDatabase.TreasureSword) ||
@@ -5158,6 +5224,12 @@ public partial class GameRoot
                 $"sword={sawRalphSword}/{nayruIntro.RalphSwordShown}/" +
                 $"{sawSwordPickupPose}/{_player.IsHoldingItemOneHand}, " +
                 $"flight={sawNayruAscent}/{sawNayruDescent}/{nayruIntro.PortalFlightShown}, " +
+                $"sfx={exactCutsceneSounds}:jump" +
+                $"{_sound.PlayRequestsFor(OracleSoundEngine.SndJump)}/" +
+                $"spin{_sound.PlayRequestsFor(OracleSoundEngine.SndSwordSpin)}/" +
+                $"clink{_sound.PlayRequestsFor(OracleSoundEngine.SndClink)}/" +
+                $"lightning{_sound.PlayRequestsFor(OracleSoundEngine.SndLightning)}/" +
+                $"rumble{rumbleRequests}, " +
                 $"music={sawSideviewMusic}/{sawRoomOfRitesMusic}/" +
                 $"{sawVignetteRestartSilence}/{sawDisasterMusic}/{sawSadnessMusic}/" +
                 $"{_sound.ActiveMusic:x2}:{_sound.MusicVolume}).");
@@ -5200,12 +5272,14 @@ public partial class GameRoot
             "actor scripts with jumps, pacing, stone palettes, flicker, and exclamation marks, one-shot Ralph fall, " +
             "visible sword handoff, Fairy Fountain/Nayru/sideview/Room of Rites/" +
             "vignette-stop/Disaster/Sadness/room-music cue chain, " +
+            "all actor/part/treasure SFX calls and repeated global-frame cues, " +
             "$22=$d7/flag $40, aftermath, and persistent completion.");
     }
 
     private void ValidateRalphPortalDepartureEvent()
     {
         RalphPortalEvent ralphEvent = _roomEvents.Ralph;
+        _sound.ClearPlayRequestAudit();
         // @initSubid0d deletes the object on a direct room load because
         // wScreenTransitionDirection is not DIR_RIGHT ($01).
         LoadValidationRoom(0, 0x39);
@@ -5302,9 +5376,13 @@ public partial class GameRoot
         if (ralph.CurrentAnimationFrame != 0 || ralphEvent.Flickering)
             throw new InvalidOperationException("Ralph did not select portal animation $09.");
         StepRoomEventFrames(2);
-        if (ralphEvent.Counter != 45 || ralphEvent.Flickering)
+        if (ralphEvent.Counter != 45 || ralphEvent.Flickering ||
+            _sound.LastPlayRequest != OracleSoundEngine.SndMysterySeed ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMysterySeed) != 1)
+        {
             throw new InvalidOperationException(
                 "Ralph's var3f=$2d and SND_MYSTERY_SEED commands lost their script updates.");
+        }
         StepRoomEventFrames(1);
         bool firstFlickerVisibility = (_entities.FrameCounter & 1) != 0;
         if (!ralphEvent.Flickering || ralphEvent.Counter != 44 ||
@@ -5328,6 +5406,7 @@ public partial class GameRoot
         StepRoomEventFrames(1);
         if (_roomEvents.Active || !ralphEvent.Completed || ralph.Active ||
             _player.CutsceneControlled ||
+            _sound.ActiveMusic != OracleSoundEngine.MusOverworld ||
             !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagRalphEnteredPortal))
         {
             throw new InvalidOperationException(
@@ -5342,8 +5421,8 @@ public partial class GameRoot
 
         GD.Print("Validated room 0:39 Ralph $37:$0d DIR_RIGHT guard, TX_2a1e, " +
             "40/30 waits, per-command script cadence, animation $01, 16-pixel SPEED_100 " +
-            "movement, animation $09, " +
-            "$2d-frame flicker, and persistent GLOBALFLAG $40.");
+            "movement, animation $09, SND_MYSTERY_SEED, $2d-frame flicker, " +
+            "MUS_OVERWORLD restore, and persistent GLOBALFLAG $40.");
     }
 
     private void ValidateStartupTransition()

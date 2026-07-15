@@ -123,9 +123,10 @@ internal sealed class RalphPortalEvent : IRoomEvent
         _timeline.Do(() => _ralph!.SetScriptAnimation(_record.PortalAnimation));
         _timeline.Do(() => _counter = _record.FlickerFrames);
 
-        // SND_MYSTERY_SEED is deferred with the audio system, but its script
-        // command still occupies this update.
-        _timeline.Yield();
+        // The playsound command occupies the update between animation $09 and
+        // the first flicker, exactly as ralphSubid0dScript does.
+        _timeline.Do(() =>
+            _context.Sound.PlaySound(OracleSoundEngine.SndMysterySeed));
         _timeline.Wait(
             _record.FlickerFrames,
             counterChanged: remaining =>
@@ -142,6 +143,9 @@ internal sealed class RalphPortalEvent : IRoomEvent
     {
         _context.Rooms.SaveData.SetGlobalFlag(_record.GlobalFlag);
         _ralph!.SetActive(false);
+        // scriptHelp.ralph_restoreMusic writes MUS_OVERWORLD to both active
+        // music slots and restarts it after Ralph has vanished.
+        _context.Sound.PlaySound(OracleSoundEngine.MusOverworld);
         _timeline.Clear();
         _waitingForScroll = false;
         _flickering = false;

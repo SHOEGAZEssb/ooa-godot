@@ -90,18 +90,32 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
         _timeline.WaitUntil(() => !_context.DialogueOpen);
         _timeline.Wait(
             _record.PostIntroFrames,
-            elapsed: () => _makuTree!.SetScriptAnimation(_record.Animation4));
+            elapsed: () =>
+            {
+                _context.Sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
+                _makuTree!.SetScriptAnimation(_record.Animation4);
+            });
         _timeline.Wait(
             _record.FrownFrames,
-            elapsed: () => _paletteCycling = true);
+            elapsed: () =>
+            {
+                _context.Sound.PlaySound(OracleSoundEngine.SndMakuDisappear);
+                _paletteCycling = true;
+            });
         _timeline.Wait(
             _record.DisappearanceFrames,
             elapsed: () => ShowDialogue(_record.AhhText));
-        _timeline.WaitUntil(() => !_context.DialogueOpen);
+        _timeline.WaitUntil(
+            () => !_context.DialogueOpen,
+            completed: () =>
+                _context.Sound.PlaySound(OracleSoundEngine.SndMakuDisappear));
         _timeline.Wait(
             _record.PostAhhFrames,
             elapsed: () => ShowDialogue(_record.HelpText));
-        _timeline.WaitUntil(() => !_context.DialogueOpen);
+        _timeline.WaitUntil(
+            () => !_context.DialogueOpen,
+            completed: () =>
+                _context.Sound.PlaySound(OracleSoundEngine.SndMakuDisappear));
         _timeline.Wait(_record.FinishDelayFrames, elapsed: Finish);
     }
 
@@ -127,6 +141,9 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
     {
         _timeline.Clear();
         _paletteCycling = false;
+        // The cutscene handler starts the transition's endless fade effect on
+        // the same update that it sets GLOBALFLAG_0c and the hardcoded warp.
+        _context.Sound.PlaySound(OracleSoundEngine.SndFadeOut);
         _eventRoom!.ClearTemporaryBackgroundPalette(_context.AnimationTick());
         _context.RoomView.QueueRedraw();
         _context.Player.EndCutsceneControl();

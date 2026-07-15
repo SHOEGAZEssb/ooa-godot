@@ -410,7 +410,12 @@ internal sealed class ImpaIntroEvent : IRoomEvent
                 _context.Player.AdvanceCutsceneMovement(Vector2.Up, Vector2I.Up);
                 _counter--;
                 if (_counter == 0)
+                {
+                    // linkCutscene1 writes cfd0=$01 and plays SND_CLINK on
+                    // the update after its final SPEED_100 movement.
+                    _context.Sound.PlaySound(OracleSoundEngine.SndClink);
                     _stage = Stage.SignalPending;
+                }
                 break;
             case Stage.SignalPending:
                 // Impa and the fake Octoroks update before linkCutscene1 in
@@ -1221,7 +1226,12 @@ internal sealed class ImpaIntroEvent : IRoomEvent
                 case FakeOctorokStage.FleeDelay:
                     state.Counter--;
                     if (state.Counter == 0)
+                    {
+                        // impaOctorokCode plays this before entering the
+                        // boundary-checked movement substate.
+                        _context.Sound.PlaySound(OracleSoundEngine.SndThrow);
                         state.Stage = FakeOctorokStage.Moving;
+                    }
                     break;
                 case FakeOctorokStage.Moving:
                     if (!OracleObjectMath.IsInsideOriginalScreenBoundary(state.Actor.Position))

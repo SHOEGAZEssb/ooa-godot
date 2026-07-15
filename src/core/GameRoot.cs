@@ -152,6 +152,9 @@ public partial class GameRoot : Node2D
         _newGameIntro = null;
         InitializeGameplay(save);
 
+        // linkSummonedCutscene state 0 starts SND_WARP_START when it loads the
+        // arrival room and initializes the divisor-2 white fade/wave.
+        _sound.PlaySound(OracleSoundEngine.SndWarpStart);
         _newGameArrivalTicks = 0.0;
         _newGameArrivalFadeFrames = NewGameIntroController.ArrivalFadeWaitFrames;
         _newGameArrivalFrames = record.SummonFrames;
