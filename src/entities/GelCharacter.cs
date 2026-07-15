@@ -142,7 +142,7 @@ public partial class GelCharacter : Node2D
                 {
                     _state = GelState.Inching;
                     _counter1 = 0x08;
-                    _angle = GetAngleToward(linkPosition);
+                    _angle = OracleObjectMath.AngleToward(Position, linkPosition);
                 }
                 return;
 
@@ -159,7 +159,7 @@ public partial class GelCharacter : Node2D
                 AdvanceAnimation();
                 if (--_counter1 > 0)
                     return;
-                BeginHop(GetAngleToward(linkPosition));
+                BeginHop(OracleObjectMath.AngleToward(Position, linkPosition));
                 return;
 
             case GelState.Hopping:
@@ -267,8 +267,7 @@ public partial class GelCharacter : Node2D
 
     private void MoveAtAngle(int angle, float speed, bool allowHoles)
     {
-        float radians = angle * Mathf.Tau / 32.0f;
-        Vector2 movement = new Vector2(Mathf.Sin(radians), -Mathf.Cos(radians)) * speed;
+        Vector2 movement = OracleObjectMath.VectorFromAngle32(angle) * speed;
         Vector2 destination = Position + movement;
         if (CanOccupy(destination, allowHoles))
             Position = destination;
@@ -296,13 +295,6 @@ public partial class GelCharacter : Node2D
                 return false;
         }
         return true;
-    }
-
-    private int GetAngleToward(Vector2 target)
-    {
-        Vector2 difference = target - Position;
-        float radians = Mathf.Atan2(difference.X, -difference.Y);
-        return Mathf.PosMod(Mathf.RoundToInt(radians * 32.0f / Mathf.Tau), 32);
     }
 
     private int AngleAwayFromFacing(Vector2I facing)

@@ -200,15 +200,7 @@ internal sealed class RalphPortalEvent : IRoomEvent
             throw new InvalidOperationException(
                 $"Unsupported Ralph object speed ${_record.Speed:x2}; expected SPEED_100 ($28).");
         }
-        return _record.Angle switch
-        {
-            0x00 => Vector2.Up,
-            0x08 => Vector2.Right,
-            0x10 => Vector2.Down,
-            0x18 => Vector2.Left,
-            _ => throw new InvalidOperationException(
-                $"Unsupported cardinal object angle ${_record.Angle:x2}.")
-        };
+        return OracleObjectMath.StrictCardinalVector(_record.Angle);
     }
 
     private static Vector2I DirectionFromOriginalValue(int direction) => direction switch

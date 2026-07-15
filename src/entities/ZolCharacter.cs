@@ -166,7 +166,7 @@ public partial class ZolCharacter : Node2D
                     return UpdateEvent.None;
                 _state = ZolState.GreenHopping;
                 _speedZ = InitialSpeedZ;
-                _angle = GetAngleToward(linkPosition);
+                _angle = OracleObjectMath.AngleToward(Position, linkPosition);
                 SetAnimation(2);
                 return UpdateEvent.None;
 
@@ -221,7 +221,7 @@ public partial class ZolCharacter : Node2D
                 {
                     _state = ZolState.RedSliding;
                     _counter1 = 0x10;
-                    _angle = GetAngleToward(linkPosition);
+                    _angle = OracleObjectMath.AngleToward(Position, linkPosition);
                 }
                 return UpdateEvent.None;
 
@@ -241,7 +241,7 @@ public partial class ZolCharacter : Node2D
                     return UpdateEvent.None;
                 _state = ZolState.RedHopping;
                 _speedZ = InitialSpeedZ;
-                _angle = GetAngleToward(linkPosition);
+                _angle = OracleObjectMath.AngleToward(Position, linkPosition);
                 SetAnimation(2);
                 return UpdateEvent.None;
 
@@ -348,8 +348,7 @@ public partial class ZolCharacter : Node2D
 
     private void MoveAtAngle(int angle, float speed, bool allowHoles)
     {
-        float radians = angle * Mathf.Tau / 32.0f;
-        Vector2 movement = new Vector2(Mathf.Sin(radians), -Mathf.Cos(radians)) * speed;
+        Vector2 movement = OracleObjectMath.VectorFromAngle32(angle) * speed;
         Vector2 destination = Position + movement;
         if (CanOccupy(destination, allowHoles))
         {
@@ -393,13 +392,6 @@ public partial class ZolCharacter : Node2D
             _angle = (0x20 - _angle) & 0x1f;
         if (hitVertical)
             _angle = (0x10 - _angle) & 0x1f;
-    }
-
-    private int GetAngleToward(Vector2 target)
-    {
-        Vector2 difference = target - Position;
-        float radians = Mathf.Atan2(difference.X, -difference.Y);
-        return Mathf.PosMod(Mathf.RoundToInt(radians * 32.0f / Mathf.Tau), 32);
     }
 
     private void SetAnimation(int index)

@@ -10,6 +10,7 @@ public partial class GameRoot
     private void ValidateAll()
     {
         _world.ValidateRepresentativeRooms();
+        ValidateOracleObjectMath();
         ValidateSaveDataFoundation();
         ValidateExplicitSavePersistence();
         ValidateMainMenu();
@@ -50,6 +51,40 @@ public partial class GameRoot
         ValidateSaveAndQuitToTitle();
 
         GD.Print("Validated all gameplay and world-data scenarios.");
+    }
+
+    private static void ValidateOracleObjectMath()
+    {
+        bool rejectedNonCardinal = false;
+        try
+        {
+            OracleObjectMath.StrictCardinalVector(0x04);
+        }
+        catch (InvalidOperationException)
+        {
+            rejectedNonCardinal = true;
+        }
+
+        if (OracleObjectMath.ToPixelPosition(new Vector2(1.75f, -0.25f)) !=
+                new Vector2(1, -1) ||
+            !OracleObjectMath.VectorFromAngle32(0x00).IsEqualApprox(Vector2.Up) ||
+            !OracleObjectMath.VectorFromAngle32(0x08).IsEqualApprox(Vector2.Right) ||
+            OracleObjectMath.AngleToward(Vector2.Zero, Vector2.Up) != 0x00 ||
+            OracleObjectMath.AngleToward(Vector2.Zero, Vector2.Right) != 0x08 ||
+            OracleObjectMath.AngleToward(Vector2.Zero, Vector2.Down) != 0x10 ||
+            OracleObjectMath.AngleToward(Vector2.Zero, Vector2.Left) != 0x18 ||
+            OracleObjectMath.CardinalVector(0x0f) != Vector2.Right ||
+            OracleObjectMath.StrictCardinalVector(0x18) != Vector2.Left ||
+            !rejectedNonCardinal ||
+            !OracleObjectMath.IsInsideOriginalScreenBoundary(new Vector2(-7, -7)) ||
+            OracleObjectMath.IsInsideOriginalScreenBoundary(new Vector2(168, 0)) ||
+            OracleObjectMath.IsInsideOriginalScreenBoundary(new Vector2(0, 136)))
+        {
+            throw new InvalidOperationException(
+                "Shared original-object coordinate, angle, or screen-boundary math regressed.");
+        }
+        GD.Print("Validated shared 8.8 object-pixel flooring, 32-step angles, strict/masked " +
+            "cardinal decoding, and original screen boundaries.");
     }
 
     private void ValidateSoundEngine()

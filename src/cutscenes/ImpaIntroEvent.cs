@@ -341,7 +341,7 @@ internal sealed class ImpaIntroEvent : IRoomEvent
                     // SPEED_080 is 0.5px/update, but only the high coordinate
                     // byte is rendered by the GBC object compositor.
                     _precisePosition += Vector2.Down * 0.5f;
-                    Actor!.Position = ObjectPosition(_precisePosition);
+                    Actor!.Position = OracleObjectMath.ToPixelPosition(_precisePosition);
                 }
                 else
                 {
@@ -435,14 +435,15 @@ internal sealed class ImpaIntroEvent : IRoomEvent
                         state.Stage = FakeOctorokStage.Moving;
                     break;
                 case FakeOctorokStage.Moving:
-                    if (!WithinOriginalScreenBoundary(state.Actor.Position))
+                    if (!OracleObjectMath.IsInsideOriginalScreenBoundary(state.Actor.Position))
                     {
                         state.Actor.SetActive(false);
                         state.Stage = FakeOctorokStage.Finished;
                         break;
                     }
                     EnsureObjectSpeed(state.Record.Speed, 0x78, "fake Octorok escape");
-                    state.Actor.Position += AngleDirection(state.Record.Angle) * 3.0f;
+                    state.Actor.Position +=
+                        OracleObjectMath.StrictCardinalVector(state.Record.Angle) * 3.0f;
                     break;
             }
         }
@@ -469,7 +470,9 @@ internal sealed class ImpaIntroEvent : IRoomEvent
         Actor.SetBlocksLink(false);
         Actor.SetFacingDirection(Vector2I.Up);
         Actor.UpdateDrawPriority(_context.Player.Position);
-        LinkPathEntry initial = new(Vector2I.Up, ObjectPosition(_context.Player.Position));
+        LinkPathEntry initial = new(
+            Vector2I.Up,
+            OracleObjectMath.ToPixelPosition(_context.Player.Position));
         for (int index = 0; index < _linkPath.Length; index++)
             _linkPath[index] = initial;
         _linkPathIndex = 0;
@@ -481,7 +484,7 @@ internal sealed class ImpaIntroEvent : IRoomEvent
     {
         LinkPathEntry current = new(
             _context.Player.FacingVector,
-            ObjectPosition(linkPosition));
+            OracleObjectMath.ToPixelPosition(linkPosition));
         LinkPathEntry indexed = _linkPath[_linkPathIndex];
         if (indexed == current)
             return;
@@ -511,7 +514,7 @@ internal sealed class ImpaIntroEvent : IRoomEvent
             : direction == Vector2I.Right ? Vector2I.Left
             : direction == Vector2I.Down ? Vector2I.Up
             : Vector2I.Right;
-        Vector2 position = ObjectPosition(_context.Player.Position);
+        Vector2 position = OracleObjectMath.ToPixelPosition(_context.Player.Position);
         for (int index = _linkPath.Length - 1; index >= 0; index--)
         {
             position += movementOffset;
@@ -535,23 +538,6 @@ internal sealed class ImpaIntroEvent : IRoomEvent
             _counter--;
         return _counter == 0;
     }
-
-    private static Vector2 ObjectPosition(Vector2 position) => new(
-        Mathf.Floor(position.X), Mathf.Floor(position.Y));
-
-    private static bool WithinOriginalScreenBoundary(Vector2 position) =>
-        position.Y >= -7 && position.Y < 136 &&
-        position.X >= -7 && position.X < 168;
-
-    private static Vector2 AngleDirection(int angle) => angle switch
-    {
-        0x00 => Vector2.Up,
-        0x08 => Vector2.Right,
-        0x10 => Vector2.Down,
-        0x18 => Vector2.Left,
-        _ => throw new InvalidOperationException(
-            $"Unsupported cardinal object angle ${angle:x2}.")
-    };
 
     private static void EnsureObjectSpeed(int actual, int expected, string context)
     {

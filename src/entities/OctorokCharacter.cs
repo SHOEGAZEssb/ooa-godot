@@ -239,7 +239,7 @@ public partial class OctorokCharacter : Node2D
 
     private bool MoveAtAngle(int angle, float speed, bool allowHazards)
     {
-        Vector2 direction = DirectionForAngle(angle);
+        Vector2 direction = OracleObjectMath.CardinalVector(angle);
         Vector2 destination = Position + direction * speed;
         if (!CanOccupy(destination, allowHazards))
             return false;
@@ -296,14 +296,6 @@ public partial class OctorokCharacter : Node2D
             return difference.X >= 0 ? 0x08 : 0x18;
         return difference.Y >= 0 ? 0x10 : 0x00;
     }
-
-    private static Vector2 DirectionForAngle(int angle) => (angle & 0x18) switch
-    {
-        0x00 => Vector2.Up,
-        0x08 => Vector2.Right,
-        0x10 => Vector2.Down,
-        _ => Vector2.Left
-    };
 
     private void SetAnimationFromAngle()
     {

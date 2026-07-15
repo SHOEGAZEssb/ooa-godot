@@ -216,7 +216,8 @@ public partial class KeeseCharacter : Node2D
             if (Mathf.Abs(difference.X) + Mathf.Abs(difference.Y) >= ApproachDistance)
                 return;
 
-            _angle = (GetAngleToward(linkPosition) + _turnAmount) & 0x1f;
+            _angle = (OracleObjectMath.AngleToward(Position, linkPosition) +
+                _turnAmount) & 0x1f;
             _counter1 = TurningInterval;
             _counter2 = TurningIntervals;
             _speed = Speed100;
@@ -247,8 +248,7 @@ public partial class KeeseCharacter : Node2D
 
     private void ApplySpeed(float speed)
     {
-        float radians = _angle * Mathf.Tau / 32.0f;
-        Position += new Vector2(Mathf.Sin(radians), -Mathf.Cos(radians)) * speed;
+        Position += OracleObjectMath.VectorFromAngle32(_angle) * speed;
     }
 
     private void BounceOffScreenBoundary()
@@ -276,13 +276,6 @@ public partial class KeeseCharacter : Node2D
             _angle = BoundaryBounceAngles[0x10 + _angle];
         else if (hitVertical)
             _angle = BoundaryBounceAngles[_angle];
-    }
-
-    private int GetAngleToward(Vector2 target)
-    {
-        Vector2 difference = target - Position;
-        float radians = Mathf.Atan2(difference.X, -difference.Y);
-        return Mathf.PosMod(Mathf.RoundToInt(radians * 32.0f / Mathf.Tau), 32);
     }
 
     private void SetFlying(bool flying)

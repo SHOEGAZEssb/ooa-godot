@@ -108,7 +108,7 @@ public partial class Player : Node2D
         EndNewGameSlowFall();
         _precisePosition = spawn;
         _lastSafePosition = spawn;
-        Position = ToObjectPixelPosition(spawn);
+        Position = OracleObjectMath.ToPixelPosition(spawn);
         QueueRedraw();
     }
 
@@ -134,7 +134,7 @@ public partial class Player : Node2D
         _precisePosition = position;
         if (recordSafe)
             _lastSafePosition = position;
-        Position = ToObjectPixelPosition(position);
+        Position = OracleObjectMath.ToPixelPosition(position);
         Visible = true;
         QueueRedraw();
     }
@@ -213,7 +213,7 @@ public partial class Player : Node2D
     public void BeginScrollingTransition(Vector2 position, Vector2I direction)
     {
         _precisePosition = position;
-        Position = ToObjectPixelPosition(position);
+        Position = OracleObjectMath.ToPixelPosition(position);
         Face(direction);
         _walking = false;
         _attackTime = 0.0f;
@@ -223,7 +223,7 @@ public partial class Player : Node2D
     public void SetScrollingTransitionPosition(Vector2 logicalPosition, Vector2 screenScroll)
     {
         _precisePosition = logicalPosition;
-        Position = ToObjectPixelPosition(logicalPosition - screenScroll);
+        Position = OracleObjectMath.ToPixelPosition(logicalPosition - screenScroll);
         QueueRedraw();
     }
 
@@ -254,7 +254,7 @@ public partial class Player : Node2D
     public void SetRoomWarpWalkPosition(Vector2 position, double delta)
     {
         _precisePosition = position;
-        Position = ToObjectPixelPosition(position);
+        Position = OracleObjectMath.ToPixelPosition(position);
         _walking = true;
         _walkTime += (float)delta;
         QueueRedraw();
@@ -299,13 +299,8 @@ public partial class Player : Node2D
         _enemyKnockbackDirection = Position - sourcePosition;
         if (_enemyKnockbackDirection.LengthSquared() < 0.01f)
             _enemyKnockbackDirection = -(Vector2)FacingVector;
-        float angleRadians = Mathf.Atan2(
-            _enemyKnockbackDirection.X, -_enemyKnockbackDirection.Y);
-        int angle = Mathf.PosMod(
-            Mathf.RoundToInt(angleRadians * 32.0f / Mathf.Tau), 32);
-        _enemyKnockbackDirection = new Vector2(
-            Mathf.Sin(angle * Mathf.Tau / 32.0f),
-            -Mathf.Cos(angle * Mathf.Tau / 32.0f));
+        int angle = OracleObjectMath.AngleToward(Vector2.Zero, _enemyKnockbackDirection);
+        _enemyKnockbackDirection = OracleObjectMath.VectorFromAngle32(angle);
         _walking = false;
         _pushing = false;
         _attackTime = 0.0f;
@@ -385,7 +380,7 @@ public partial class Player : Node2D
             _enemyKnockbackFrames = Mathf.Max(0.0f, _enemyKnockbackFrames - frameDelta);
             _walking = false;
             _attackTime = 0.0f;
-            Position = ToObjectPixelPosition(_precisePosition);
+            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
             QueueRedraw();
             return;
         }
@@ -452,7 +447,7 @@ public partial class Player : Node2D
             TryMove(terrainPush, allowWallSlide: false);
         }
 
-        Position = ToObjectPixelPosition(_precisePosition);
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         if (!_world.CheckTileWarp(this))
             _world.CheckRoomExit(this);
         if (!_world.IsTransitioning)
@@ -500,7 +495,7 @@ public partial class Player : Node2D
             TryMove((Vector2)direction, allowWallSlide: false);
             _walkTime += 1.0f / 60.0f;
         }
-        Position = ToObjectPixelPosition(_precisePosition);
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         QueueRedraw();
     }
 
@@ -514,7 +509,7 @@ public partial class Player : Node2D
         _precisePosition += movement;
         if (_walking)
             _walkTime += 1.0f / 60.0f;
-        Position = ToObjectPixelPosition(_precisePosition);
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         QueueRedraw();
     }
 
@@ -644,13 +639,6 @@ public partial class Player : Node2D
     private int GetWalkAnimationFrame() =>
         _walking && ((int)(_walkTime / 0.10f) & 1) == 1 ? 1 : 0;
 
-    // The original object coordinates are 8.8 fixed point. Collision uses the
-    // high bytes (xh/yh), and OAM rendering uses those same bytes; it never
-    // rounds the fractional position to the nearest pixel.
-    private static Vector2 ToObjectPixelPosition(Vector2 position) => new(
-        Mathf.Floor(position.X),
-        Mathf.Floor(position.Y));
-
     private void UpdateFacing(Vector2 input)
     {
         if (Mathf.Abs(input.X) > Mathf.Abs(input.Y))
@@ -739,7 +727,7 @@ public partial class Player : Node2D
         else if (phase == 1)
             _precisePosition.X = MoveOnePixelToward(_precisePosition.X, _holePullCenter.X);
 
-        Position = ToObjectPixelPosition(_precisePosition);
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
 
         if (Mathf.Abs(_precisePosition.X - _holePullCenter.X) < 3.0f &&
             Mathf.Abs(_precisePosition.Y - _holePullCenter.Y) < 3.0f)
@@ -776,7 +764,7 @@ public partial class Player : Node2D
         // rounded-vs-precise coordinates cannot recenter Link on a neighboring
         // solid tile at tile boundaries.
         _precisePosition = holeCenter;
-        Position = ToObjectPixelPosition(_precisePosition);
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         Visible = true;
         QueueRedraw();
     }
@@ -895,7 +883,7 @@ public partial class Player : Node2D
         float t = Mathf.Min(_ledgeHopTime / 0.32f, 1.0f);
         float eased = t * t * (3.0f - 2.0f * t);
         _precisePosition = _ledgeStart.Lerp(_ledgeEnd, eased);
-        Position = ToObjectPixelPosition(_precisePosition);
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         if (t >= 1.0f)
         {
             _ledgeHopping = false;

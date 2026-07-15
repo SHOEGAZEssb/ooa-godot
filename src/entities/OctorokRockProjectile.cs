@@ -91,7 +91,8 @@ public partial class OctorokRockProjectile : Node2D
             return;
         }
 
-        Vector2 destination = Position + DirectionForAngle(_angle) * (_record.SpeedRaw / 40.0f);
+        Vector2 destination = Position +
+            OracleObjectMath.CardinalVector(_angle) * (_record.SpeedRaw / 40.0f);
         if (destination.X < 0 || destination.X >= _room.Width ||
             destination.Y < 0 || destination.Y >= _room.Height)
         {
@@ -158,7 +159,7 @@ public partial class OctorokRockProjectile : Node2D
             _speedZ += BounceGravity;
         else
             _zFixed = 0;
-        Position += DirectionForAngle(_angle) * 0.25f;
+        Position += OracleObjectMath.CardinalVector(_angle) * 0.25f;
         QueueRedraw();
     }
 
@@ -176,8 +177,7 @@ public partial class OctorokRockProjectile : Node2D
             Mathf.Clamp(linkPosition.X - OracleRoomData.ViewportWidth / 2.0f, 0.0f, maxCameraX),
             Mathf.Clamp(linkPosition.Y - OracleRoomData.ViewportHeight / 2.0f, 0.0f, maxCameraY));
         Vector2 screen = Position - cameraOrigin;
-        return screen.X >= -7.0f && screen.X < 168.0f &&
-            screen.Y >= -7.0f && screen.Y < 136.0f;
+        return OracleObjectMath.IsInsideOriginalScreenBoundary(screen);
     }
 
     private void Finish()
@@ -185,14 +185,6 @@ public partial class OctorokRockProjectile : Node2D
         Finished = true;
         Visible = false;
     }
-
-    private static Vector2 DirectionForAngle(int angle) => (angle & 0x18) switch
-    {
-        0x00 => Vector2.Up,
-        0x08 => Vector2.Right,
-        0x10 => Vector2.Down,
-        _ => Vector2.Left
-    };
 
     private static Texture2D BuildFirstFrame(
         Image source,

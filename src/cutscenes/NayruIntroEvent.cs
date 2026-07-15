@@ -562,7 +562,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
                 // The rabbit and boy call scriptHelp.turnToFaceLink, whose
                 // diagonal ties use convertAngleToDirection's clockwise round.
                 Vector2I facing = FacingForTrackedTarget(
-                    OriginalPixelPosition(_player.Position) - OriginalPixelPosition(npc.Position));
+                    OracleObjectMath.ToPixelPosition(_player.Position) -
+                    OracleObjectMath.ToPixelPosition(npc.Position));
                 SetNayruAnimation(name, AnimationForFacing(facing));
                 resetAnimation = 0;
                 resetDelay = 10;
@@ -798,7 +799,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         Callback(AlarmNayruAudience); Wait(60); Animation("Impa", 0);
         Wait(60); Text(0x5606); Wait(10); Animation("Impa", 7);
         PoseMove(
-            "Impa", AngleVector(0x16) * 36.0f, 72, 7,
+            "Impa", OracleObjectMath.VectorFromAngle32(0x16) * 36.0f, 72, 7,
             NayruMoveFacing.ImpaSpin);
         Callback(SpawnGhostVeran); RoomPalette(_nayruRecord.DarkFadeFrames);
         Callback(BeginNayruAudienceEscape); Wait(58);
@@ -808,18 +809,25 @@ internal sealed class NayruIntroEvent : IRoomEvent
         ParallelMove("Player", Vector2.Left * 33, "Ralph", Vector2.Down * 33, 22);
         Wait(6); MovePlayer(Vector2.Down * 12, 8);
         Wait(84);
-        Move("GhostVeran", AngleVector(0x1c) * 68, 17); Wait(8);
-        Move("GhostVeran", AngleVector(0x0b) * 148, 37); Wait(8);
-        Move("GhostVeran", AngleVector(0x18) * 76, 19); Wait(8);
-        Move("GhostVeran", AngleVector(0x02) * 100, 25); Wait(8);
-        Move("GhostVeran", AngleVector(0x0a) * 48, 12); Wait(8);
-        Move("GhostVeran", AngleVector(0x14) * 68, 17); Wait(30);
+        Move("GhostVeran",
+            OracleObjectMath.VectorFromAngle32(0x1c) * 68, 17); Wait(8);
+        Move("GhostVeran",
+            OracleObjectMath.VectorFromAngle32(0x0b) * 148, 37); Wait(8);
+        Move("GhostVeran",
+            OracleObjectMath.VectorFromAngle32(0x18) * 76, 19); Wait(8);
+        Move("GhostVeran",
+            OracleObjectMath.VectorFromAngle32(0x02) * 100, 25); Wait(8);
+        Move("GhostVeran",
+            OracleObjectMath.VectorFromAngle32(0x0a) * 48, 12); Wait(8);
+        Move("GhostVeran",
+            OracleObjectMath.VectorFromAngle32(0x14) * 68, 17); Wait(30);
 
         Callback(SpawnHumanVeran); Flicker("GhostVeran", 120); Wait(120);
         Animation("HumanVeran", 1); Wait(30); Text(0x5601); Wait(30);
         Animation("HumanVeran", 0); Wait(60); Flicker("GhostVeran", 120);
         Callback(() => HideNayruActor("HumanVeran")); Wait(30);
-        Move("GhostVeran", AngleVector(0x0b) * 40, 80); Wait(30);
+        Move("GhostVeran",
+            OracleObjectMath.VectorFromAngle32(0x0b) * 40, 80); Wait(30);
         Text(0x5602); Wait(30); Wait(120);
         Move("GhostVeran", Vector2.Down * 10.25f, 41); Wait(60);
         Callback(BeginGhostCharge);
@@ -1181,9 +1189,6 @@ internal sealed class NayruIntroEvent : IRoomEvent
             ? (delta.X > 0 ? Vector2I.Right : Vector2I.Left)
             : (delta.Y > 0 ? Vector2I.Down : Vector2I.Up);
 
-    private static Vector2 OriginalPixelPosition(Vector2 position) =>
-        new(Mathf.Floor(position.X), Mathf.Floor(position.Y));
-
     private static Vector2I FacingForTrackedTarget(Vector2 delta)
     {
         float x = Mathf.Abs(delta.X);
@@ -1331,7 +1336,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
         NayruIntroEventDatabase.FleeRecord record = _nayruDatabase.Flee(actor);
         SetNayruAnimation(actor, record.WaitAnimation);
         _nayruFleeingAudience.Add(new FleeingAudience(
-            _nayruActors[actor], record, AngleVector(record.Angle) * record.Speed));
+            _nayruActors[actor], record,
+            OracleObjectMath.VectorFromAngle32(record.Angle) * record.Speed));
     }
 
     private void UpdateNayruFleeingAudience()
@@ -1367,7 +1373,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
                 fleeing.Record.EscapeJumpSpeedZ,
                 fleeing.Record.EscapeGravity,
                 fleeing.Record.RepeatEscapeJump);
-            if (!WithinOriginalScreenBoundary(fleeing.Actor.Position))
+            if (!OracleObjectMath.IsInsideOriginalScreenBoundary(fleeing.Actor.Position))
             {
                 fleeing.Actor.SetActive(false);
                 if (fleeing.Record.Actor == "Boy")
@@ -1480,7 +1486,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
             _nayruActors.TryGetValue("GhostVeran", out NpcCharacter? trackedGhost) &&
             trackedGhost.Active)
         {
-            _nayruVeranFacingTarget = OriginalPixelPosition(trackedGhost.Position);
+            _nayruVeranFacingTarget = OracleObjectMath.ToPixelPosition(trackedGhost.Position);
             if (_nayruActors.TryGetValue("Nayru", out NpcCharacter? watchingNayru) &&
                 watchingNayru.CurrentScriptAnimationSource !=
                     _nayruDatabase.Actor("Nayru").Animation(2))
@@ -1491,7 +1497,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
         if (_nayruTrackLinkVeranFacing && (_entities.FrameCounter & 7) == 0)
         {
             Vector2I facing = FacingForTrackedTarget(
-                _nayruVeranFacingTarget - OriginalPixelPosition(_player.Position));
+                _nayruVeranFacingTarget -
+                OracleObjectMath.ToPixelPosition(_player.Position));
             if (facing != Vector2I.Zero)
             {
                 _player.Face(facing);
@@ -1506,7 +1513,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
             trackingRalph.Active)
         {
             Vector2I facing = FacingForTrackedTarget(
-                _nayruVeranFacingTarget - OriginalPixelPosition(trackingRalph.Position));
+                _nayruVeranFacingTarget -
+                OracleObjectMath.ToPixelPosition(trackingRalph.Position));
             if (facing != Vector2I.Zero)
             {
                 SetNayruAnimation("Ralph", AnimationForFacing(facing));
@@ -1524,8 +1532,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
             aftermathRalph.Active)
         {
             Vector2I facing = FacingForTrackedTarget(
-                OriginalPixelPosition(aftermathRalph.Position) -
-                OriginalPixelPosition(_player.Position));
+                OracleObjectMath.ToPixelPosition(aftermathRalph.Position) -
+                OracleObjectMath.ToPixelPosition(_player.Position));
             _player.Face(facing);
             if (facing == Vector2I.Up)
                 _nayruAftermathRalphFacingMask |= 0x01;
@@ -2028,7 +2036,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         SpawnNayruActor("GhostVeran", "GhostVeran", position).SetScriptAnimation(
             _nayruDatabase.Actor("GhostVeran").Animation(0));
         _nayruGhostRevealFlickerRemaining = 90;
-        _nayruVeranFacingTarget = OriginalPixelPosition(position);
+        _nayruVeranFacingTarget = OracleObjectMath.ToPixelPosition(position);
         _nayruUpdateVeranFacingTarget = true;
         _nayruNayruHeldVeranFacing =
             _nayruActors["Nayru"].CurrentScriptAnimationSource ==
@@ -2596,16 +2604,6 @@ internal sealed class NayruIntroEvent : IRoomEvent
     private void bearSetAnimation(int animation) =>
         _nayruActors["Bear"].SetScriptAnimation(
             _nayruDatabase.Actor("Bear").Animation(animation));
-
-    private static Vector2 AngleVector(int angle)
-    {
-        float radians = angle * Mathf.Pi / 16.0f;
-        return new Vector2(Mathf.Sin(radians), -Mathf.Cos(radians));
-    }
-
-    private static bool WithinOriginalScreenBoundary(Vector2 position) =>
-        position.Y >= -7 && position.Y < 136 &&
-        position.X >= -7 && position.X < 168;
 
     private void Wait(int frames) => _nayruCommands.Enqueue(new NayruCommand
         { Kind = NayruCommandKind.Wait, Frames = frames });
