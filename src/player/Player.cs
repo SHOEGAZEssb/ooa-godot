@@ -170,14 +170,15 @@ public partial class Player : Node2D
             _newGameFallFrame = (_newGameFallFrame + 1) % _newGameFallFrames.Length;
             _newGameFallFrameTicks = _newGameFallFrames[_newGameFallFrame].Duration;
         }
-        _newGameFallZFixed += _newGameFallSpeedZ;
-        if (_newGameFallZFixed >= 0)
+        if (OracleObjectMath.UpdateSpeedZ(
+            ref _newGameFallZFixed,
+            ref _newGameFallSpeedZ,
+            NewGameSlowFallGravity))
         {
             EndNewGameSlowFall();
             return true;
         }
 
-        _newGameFallSpeedZ += NewGameSlowFallGravity;
         QueueRedraw();
         return false;
     }
@@ -200,13 +201,7 @@ public partial class Player : Node2D
         int z = NewGameSlowFallInitialZ(screenY) << 8;
         int speedZ = 0;
         for (int update = 0; update < updates && z < 0; update++)
-        {
-            z += speedZ;
-            if (z >= 0)
-                z = 0;
-            else
-                speedZ += NewGameSlowFallGravity;
-        }
+            OracleObjectMath.UpdateSpeedZ(ref z, ref speedZ, NewGameSlowFallGravity);
         return z >> 8;
     }
 

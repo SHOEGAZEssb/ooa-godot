@@ -154,11 +154,7 @@ public partial class OctorokRockProjectile : Node2D
             Finish();
             return;
         }
-        _zFixed += _speedZ;
-        if (_zFixed < 0)
-            _speedZ += BounceGravity;
-        else
-            _zFixed = 0;
+        OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, BounceGravity);
         Position += OracleObjectMath.CardinalVector(_angle) * 0.25f;
         QueueRedraw();
     }

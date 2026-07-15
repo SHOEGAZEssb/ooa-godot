@@ -4,9 +4,10 @@ using System;
 namespace oracleofages;
 
 /// <summary>
-/// Coordinate and angle operations shared by original-engine objects. Object
-/// angles use 32 clockwise steps with $00 facing up; rendered coordinates use
-/// the high byte of the original 8.8 fixed-point position without rounding.
+/// Coordinate, angle, and fixed-point motion operations shared by
+/// original-engine objects. Object angles use 32 clockwise steps with $00
+/// facing up; rendered coordinates use the high byte of the original 8.8
+/// fixed-point position without rounding.
 /// </summary>
 internal static class OracleObjectMath
 {
@@ -25,6 +26,24 @@ internal static class OracleObjectMath
         Vector2 difference = target - origin;
         float radians = Mathf.Atan2(difference.X, -difference.Y);
         return Mathf.PosMod(Mathf.RoundToInt(radians * 32.0f / Mathf.Tau), 32);
+    }
+
+    /// <summary>
+    /// Mirrors objectUpdateSpeedZ_paramC: integrates an object's 8.8 Z
+    /// position, applies gravity only while airborne, and clamps Z to zero on
+    /// landing. Impact speed is retained for caller-specific bounce behavior.
+    /// </summary>
+    public static bool UpdateSpeedZ(ref int zFixed, ref int speedZ, int gravity)
+    {
+        zFixed += speedZ;
+        if (zFixed < 0)
+        {
+            speedZ += gravity;
+            return false;
+        }
+
+        zFixed = 0;
+        return true;
     }
 
     /// <summary>

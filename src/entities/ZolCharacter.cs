@@ -333,17 +333,12 @@ public partial class ZolCharacter : Node2D
 
     private bool UpdateZ()
     {
-        _zFixed += _speedZ;
-        if (_zFixed < 0)
-        {
-            _speedZ += Gravity;
-            QueueRedraw();
-            return false;
-        }
-        _zFixed = 0;
-        _speedZ = 0;
+        bool landed = OracleObjectMath.UpdateSpeedZ(
+            ref _zFixed, ref _speedZ, Gravity);
+        if (landed)
+            _speedZ = 0;
         QueueRedraw();
-        return true;
+        return landed;
     }
 
     private void MoveAtAngle(int angle, float speed, bool allowHoles)

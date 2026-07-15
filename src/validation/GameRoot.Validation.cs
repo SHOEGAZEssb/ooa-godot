@@ -65,6 +65,15 @@ public partial class GameRoot
             rejectedNonCardinal = true;
         }
 
+        int airborneZ = 0;
+        int airborneSpeedZ = -0x100;
+        bool airborneLanded = OracleObjectMath.UpdateSpeedZ(
+            ref airborneZ, ref airborneSpeedZ, 0x20);
+        int landingZ = -0x10;
+        int landingSpeedZ = 0x20;
+        bool landed = OracleObjectMath.UpdateSpeedZ(
+            ref landingZ, ref landingSpeedZ, 0x20);
+
         if (OracleObjectMath.ToPixelPosition(new Vector2(1.75f, -0.25f)) !=
                 new Vector2(1, -1) ||
             !OracleObjectMath.VectorFromAngle32(0x00).IsEqualApprox(Vector2.Up) ||
@@ -75,16 +84,19 @@ public partial class GameRoot
             OracleObjectMath.AngleToward(Vector2.Zero, Vector2.Left) != 0x18 ||
             OracleObjectMath.CardinalVector(0x0f) != Vector2.Right ||
             OracleObjectMath.StrictCardinalVector(0x18) != Vector2.Left ||
+            airborneLanded || airborneZ != -0x100 || airborneSpeedZ != -0xe0 ||
+            !landed || landingZ != 0 || landingSpeedZ != 0x20 ||
             !rejectedNonCardinal ||
             !OracleObjectMath.IsInsideOriginalScreenBoundary(new Vector2(-7, -7)) ||
             OracleObjectMath.IsInsideOriginalScreenBoundary(new Vector2(168, 0)) ||
             OracleObjectMath.IsInsideOriginalScreenBoundary(new Vector2(0, 136)))
         {
             throw new InvalidOperationException(
-                "Shared original-object coordinate, angle, or screen-boundary math regressed.");
+                "Shared original-object coordinate, angle, Z integration, or " +
+                "screen-boundary math regressed.");
         }
-        GD.Print("Validated shared 8.8 object-pixel flooring, 32-step angles, strict/masked " +
-            "cardinal decoding, and original screen boundaries.");
+        GD.Print("Validated shared 8.8 object-pixel flooring and Z integration, 32-step " +
+            "angles, strict/masked cardinal decoding, and original screen boundaries.");
     }
 
     private void ValidateSoundEngine()

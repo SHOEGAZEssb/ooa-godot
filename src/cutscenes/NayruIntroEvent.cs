@@ -77,8 +77,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
         public bool Started { get; set; }
         public Vector2 StartPosition { get; set; }
         public Vector2 StartPosition2 { get; set; }
-        public int ZFixed { get; set; }
-        public int SpeedZ { get; set; }
+        public int ZFixed;
+        public int SpeedZ;
         public int Phase { get; set; }
         public ulong FacingAuditBit { get; init; }
         public bool SetFacingOnStart { get; init; }
@@ -93,8 +93,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
         public NayruIntroEventDatabase.FleeRecord Record { get; } = record;
         public Vector2 Velocity { get; } = velocity;
         public int Delay { get; set; } = record.Delay;
-        public int ZFixed { get; set; }
-        public int SpeedZ { get; set; } = record.WaitJumpSpeedZ;
+        public int ZFixed;
+        public int SpeedZ = record.WaitJumpSpeedZ;
         public bool Escaping { get; set; }
     }
 
@@ -110,8 +110,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
         public bool Hopping { get; } = hopping;
         public bool WaitingForText { get; set; } = true;
         public int Counter { get; set; }
-        public int ZFixed { get; set; }
-        public int SpeedZ { get; set; } = hopping ? -0xc0 : 0;
+        public int ZFixed;
+        public int SpeedZ = hopping ? -0xc0 : 0;
     }
 
     private sealed class TimedNayruEffect(
@@ -142,8 +142,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
         public NayruIntroEventDatabase.VignetteMonkeyRecord Record { get; } = record;
         public int StartupDelay { get; } = startupDelay;
         public int JumpSpeedZ { get; } = jumpSpeedZ;
-        public int ZFixed { get; set; }
-        public int SpeedZ { get; set; } = jumpSpeedZ;
+        public int ZFixed;
+        public int SpeedZ = jumpSpeedZ;
         public int MovementPhase { get; set; }
         public int MovementCounter { get; set; }
         public int HopCount { get; set; }
@@ -696,15 +696,15 @@ internal sealed class NayruIntroEvent : IRoomEvent
         NayruAudienceTalkState state,
         NpcCharacter bird)
     {
-        state.ZFixed += state.SpeedZ;
-        if (state.ZFixed < 0)
+        if (!OracleObjectMath.UpdateSpeedZ(
+            ref state.ZFixed,
+            ref state.SpeedZ,
+            0x20))
         {
             bird.SetScriptDrawOffset(new Vector2(0, state.ZFixed / 256.0f));
-            state.SpeedZ += 0x20;
             return;
         }
 
-        state.ZFixed = 0;
         state.SpeedZ = -0xc0;
         bird.SetScriptDrawOffset(Vector2.Zero);
     }
@@ -1086,11 +1086,12 @@ internal sealed class NayruIntroEvent : IRoomEvent
             command.SpeedZ = _nayruRecord.NpcJumpSpeedZ;
             _nayruRalphJumpCount++;
         }
-        command.ZFixed += command.SpeedZ;
-        if (command.ZFixed < 0)
+        if (!OracleObjectMath.UpdateSpeedZ(
+            ref command.ZFixed,
+            ref command.SpeedZ,
+            _nayruRecord.NpcJumpGravity))
         {
             actor.SetScriptDrawOffset(new Vector2(0, command.ZFixed / 256.0f));
-            command.SpeedZ += _nayruRecord.NpcJumpGravity;
             return false;
         }
         actor.SetScriptDrawOffset(Vector2.Zero);
@@ -1130,11 +1131,12 @@ internal sealed class NayruIntroEvent : IRoomEvent
             command.Phase = 2;
         }
 
-        command.ZFixed += command.SpeedZ;
-        if (command.ZFixed < 0)
+        if (!OracleObjectMath.UpdateSpeedZ(
+            ref command.ZFixed,
+            ref command.SpeedZ,
+            _nayruRecord.NayruFallGravity))
         {
             nayru.SetScriptDrawOffset(new Vector2(0, command.ZFixed / 256.0f));
-            command.SpeedZ += _nayruRecord.NayruFallGravity;
             return false;
         }
         nayru.SetScriptDrawOffset(Vector2.Zero);
@@ -1395,15 +1397,15 @@ internal sealed class NayruIntroEvent : IRoomEvent
     {
         if (initialSpeedZ == 0)
             return true;
-        fleeing.ZFixed += fleeing.SpeedZ;
-        if (fleeing.ZFixed < 0)
+        if (!OracleObjectMath.UpdateSpeedZ(
+            ref fleeing.ZFixed,
+            ref fleeing.SpeedZ,
+            gravity))
         {
             fleeing.Actor.SetScriptDrawOffset(new Vector2(0, fleeing.ZFixed / 256.0f));
-            fleeing.SpeedZ += gravity;
             _nayruAudienceJumpShown = true;
             return false;
         }
-        fleeing.ZFixed = 0;
         fleeing.Actor.SetScriptDrawOffset(Vector2.Zero);
         fleeing.SpeedZ = repeat ? initialSpeedZ : 0;
         return true;
@@ -1638,12 +1640,13 @@ internal sealed class NayruIntroEvent : IRoomEvent
                 _nayruVignetteOldManZ = 0;
                 _nayruVignetteOldManSpeedZ = -0x200;
             }
-            _nayruVignetteOldManZ += _nayruVignetteOldManSpeedZ;
-            if (_nayruVignetteOldManZ < 0)
+            if (!OracleObjectMath.UpdateSpeedZ(
+                ref _nayruVignetteOldManZ,
+                ref _nayruVignetteOldManSpeedZ,
+                0x30))
             {
                 oldMan.SetScriptDrawOffset(
                     new Vector2(0, _nayruVignetteOldManZ / 256.0f));
-                _nayruVignetteOldManSpeedZ += 0x30;
             }
             else
             {
@@ -1755,15 +1758,15 @@ internal sealed class NayruIntroEvent : IRoomEvent
 
     private void UpdateNayruVignetteMonkeyHop(NayruVignetteMonkeyState state)
     {
-        state.ZFixed += state.SpeedZ;
-        if (state.ZFixed < 0)
+        if (!OracleObjectMath.UpdateSpeedZ(
+            ref state.ZFixed,
+            ref state.SpeedZ,
+            0x10))
         {
             state.Actor.SetScriptDrawOffset(new Vector2(0, state.ZFixed / 256.0f));
-            state.SpeedZ += 0x10;
             _nayruVignetteMonkeyHopShown = true;
             return;
         }
-        state.ZFixed = 0;
         state.SpeedZ = state.JumpSpeedZ;
         state.Actor.SetScriptDrawOffset(Vector2.Zero);
     }
@@ -1799,18 +1802,18 @@ internal sealed class NayruIntroEvent : IRoomEvent
         switch (state.MovementPhase)
         {
             case 0:
-                state.ZFixed += state.SpeedZ;
-                if (state.ZFixed < 0)
+                if (!OracleObjectMath.UpdateSpeedZ(
+                    ref state.ZFixed,
+                    ref state.SpeedZ,
+                    0x20))
                 {
                     state.Actor.SetScriptDrawOffset(
                         new Vector2(0, state.ZFixed / 256.0f));
-                    state.SpeedZ += 0x20;
                     state.Actor.Position += Vector2.Right * state.Direction;
                     _nayruVignetteMonkeyHopShown = true;
                     return;
                 }
                 state.Actor.SetScriptDrawOffset(Vector2.Zero);
-                state.ZFixed = 0;
                 state.SpeedZ = -0x100;
                 state.HopCount++;
                 if (state.HopCount == 3)

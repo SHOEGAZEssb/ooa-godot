@@ -115,16 +115,13 @@ public partial class ItemDropEffect : Node2D
 
     private void UpdateBounce()
     {
-        _zFixed += _speedZ;
-        if (_zFixed < 0)
+        if (!OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, Gravity))
         {
-            _speedZ += Gravity;
             if (_speedZ >= 0)
                 _collisionEnabled = true;
             return;
         }
 
-        _zFixed = 0;
         if (_speedZ < StopBounceSpeed)
         {
             _speedZ = 0;
