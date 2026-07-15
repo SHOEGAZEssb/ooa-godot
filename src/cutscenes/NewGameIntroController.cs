@@ -21,6 +21,7 @@ public sealed class NewGameIntroController
     private readonly NewGameIntroScreen _screen;
     private readonly NewGameIntroDatabase.NewGameIntroRecord _record;
     private readonly Action _complete;
+    private readonly RoomEventTimeline _timeline = new();
     private double _tickAccumulator;
     private int _stageFrame;
     private int _clock;
@@ -40,6 +41,7 @@ public sealed class NewGameIntroController
         _screen = screen;
         _record = new NewGameIntroDatabase().Record;
         _complete = complete;
+        BuildTimeline();
         UpdateScreen();
     }
 
@@ -50,13 +52,10 @@ public sealed class NewGameIntroController
 
         if (CurrentStage == Stage.Dialogue)
         {
-            if (!_screen.Dialogue.IsOpen)
-            {
-                AdvanceDialogueClock(delta);
-                BeginStage(Stage.Vanishing);
-                return;
-            }
             AdvanceDialogueClock(delta);
+            if (!_screen.Dialogue.IsOpen)
+                _timeline.AdvanceFrame();
+            UpdateScreen();
             return;
         }
 
@@ -73,38 +72,49 @@ public sealed class NewGameIntroController
         _clock++;
         if (CurrentStage == Stage.WaitingForVoice)
             _motionClock++;
-        _stageFrame++;
-        switch (CurrentStage)
-        {
-            case Stage.WaitingForVoice:
-                if (_stageFrame >= TotalVoiceWaitFrames)
-                {
-                    CurrentStage = Stage.Dialogue;
-                    _stageFrame = 0;
-                    _screen.ShowDialogue();
-                }
-                break;
-            case Stage.Vanishing:
-                if (_stageFrame >= TotalVanishFrames)
-                    BeginStage(Stage.PostVanish);
-                break;
-            case Stage.PostVanish:
-                if (_stageFrame >= _record.PostVanishWaitFrames)
-                {
-                    CurrentStage = Stage.Complete;
-                    _complete();
-                    return;
-                }
-                break;
-        }
+        _timeline.AdvanceFrame();
+        if (CurrentStage == Stage.Complete)
+            return;
         UpdateScreen();
     }
 
-    private void BeginStage(Stage stage)
+    private void BuildTimeline()
+    {
+        int voiceWaitFrames = TotalVoiceWaitFrames;
+        _timeline.Wait(
+            voiceWaitFrames,
+            counterChanged: remaining =>
+                _stageFrame = voiceWaitFrames - remaining,
+            elapsed: () =>
+            {
+                SetStage(Stage.Dialogue);
+                _screen.ShowDialogue();
+            });
+        _timeline.WaitUntil(
+            () => !_screen.Dialogue.IsOpen,
+            completed: () => SetStage(Stage.Vanishing));
+
+        int vanishFrames = TotalVanishFrames;
+        _timeline.Wait(
+            vanishFrames,
+            counterChanged: remaining =>
+                _stageFrame = vanishFrames - remaining,
+            elapsed: () => SetStage(Stage.PostVanish));
+        _timeline.Wait(
+            _record.PostVanishWaitFrames,
+            counterChanged: remaining =>
+                _stageFrame = _record.PostVanishWaitFrames - remaining,
+            elapsed: () =>
+            {
+                CurrentStage = Stage.Complete;
+                _complete();
+            });
+    }
+
+    private void SetStage(Stage stage)
     {
         CurrentStage = stage;
         _stageFrame = 0;
-        UpdateScreen();
     }
 
     private void AdvanceDialogueClock(double delta)
@@ -116,7 +126,6 @@ public sealed class NewGameIntroController
             _clock++;
             _motionClock++;
         }
-        UpdateScreen();
     }
 
     private void UpdateScreen()

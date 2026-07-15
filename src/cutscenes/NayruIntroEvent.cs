@@ -58,7 +58,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         All = (1UL << 23) - 1
     }
 
-    private sealed class NayruCommand
+    private sealed class NayruCommand : IRoomEventTimelineStep
     {
         public NayruCommandKind Kind { get; init; }
         public int Frames { get; init; }
@@ -82,6 +82,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         public int Phase { get; set; }
         public ulong FacingAuditBit { get; init; }
         public bool SetFacingOnStart { get; init; }
+        public int DurationFrames => Math.Max(Frames, Frames2);
     }
 
     private sealed class FleeingAudience(
@@ -182,14 +183,13 @@ internal sealed class NayruIntroEvent : IRoomEvent
     private readonly CanvasLayer _nayruInterfaceLayer;
     private readonly ColorRect _nayruFade;
     private readonly Hud _nayruHud;
-    private readonly Dictionary<string, NpcCharacter> _nayruActors = new();
+    private readonly NayruActorRegistry _nayruActors;
     private readonly List<FleeingAudience> _nayruFleeingAudience = new();
     private readonly List<NayruAudienceTalkState> _nayruAudienceTalkStates = new();
     private readonly List<TimedNayruEffect> _nayruEffects = new();
     private readonly List<NayruVignetteMonkeyState> _nayruVignetteMonkeys = new();
-    private readonly Queue<NayruCommand> _nayruCommands = new();
+    private readonly RoomEventTimeline<NayruCommand> _timeline = new();
     private NayruStage _nayruStage;
-    private NayruCommand? _nayruCommand;
     private OracleRoomData? _nayruRoom;
     private NayruSingingScreen? _nayruSingingScreen;
     private int _nayruAudienceMask;
@@ -278,6 +278,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         _nayruHud = context.Hud;
         _nayruDatabase = new NayruIntroEventDatabase();
         _nayruRecord = _nayruDatabase.Event;
+        _nayruActors = new NayruActorRegistry(_rooms, _entities, _nayruDatabase);
     }
 
     public bool HasState => _nayruStage != NayruStage.None;
@@ -292,7 +293,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
 
     internal int CurrentStage => (int)_nayruStage;
     internal int AudienceMask => _nayruAudienceMask;
-    internal IReadOnlyDictionary<string, NpcCharacter> Actors => _nayruActors;
+    internal NayruActorRegistry ActorRegistry => _nayruActors;
     internal int VisitedVignettes => _nayruVisitedVignettes;
     internal int NoteSpawnCount => _nayruNoteSpawnCount;
     internal int LightningSpawnCount => _nayruLightningSpawnCount;
@@ -420,72 +421,32 @@ internal sealed class NayruIntroEvent : IRoomEvent
         _context.DeactivateNpcs(0x5d, 0x02);
         _context.DeactivateNpcs(0x37, 0x0d);
 
-        NpcCharacter nayru = SpawnNayruActor("Nayru", "Nayru", solid: true);
+        NpcCharacter nayru = _nayruActors.Spawn("Nayru", "Nayru", solid: true);
         NayruIntroEventDatabase.ActorRecord nayruRecord = _nayruDatabase.Actor("Nayru");
         nayru.SetScriptAnimation(nayruRecord.Animation(nayruRecord.InitialAnimation));
-        NpcCharacter ralph = SpawnNayruActor("Ralph", "Ralph", solid: true);
+        NpcCharacter ralph = _nayruActors.Spawn("Ralph", "Ralph", solid: true);
         NayruIntroEventDatabase.ActorRecord ralphRecord = _nayruDatabase.Actor("Ralph");
         ralph.SetScriptAnimation(ralphRecord.Animation(ralphRecord.InitialAnimation));
-        NpcCharacter bear = SpawnAudienceActor("Bear", 0x5702);
+        NpcCharacter bear = _nayruActors.SpawnAudience(
+            "Bear", 0x5702, _nayruRecord.Group, _nayruRecord.Room);
         if (!_rooms.SaveData.HasRoomFlag(
             _nayruRecord.Group, _nayruRecord.Room, (byte)_nayruRecord.BearRoomFlag))
             bear.Position += Vector2.Down * 16.0f;
-        SpawnAudienceActor("Monkey", 0x5704);
-        SpawnAudienceActor("Rabbit", 0x5705);
-        SpawnAudienceActor("Boy", 0x2510);
-        SpawnAudienceActor("Bird", 0x3214);
-    }
-
-    private NpcCharacter SpawnAudienceActor(string name, int textId)
-    {
-        NayruIntroEventDatabase.ActorRecord actor = _nayruDatabase.Actor(name);
-        NayruIntroEventDatabase.TextRecord text = _nayruDatabase.Text(textId);
-        NpcDatabase.NpcRecord record = actor.ToNpcRecord(_nayruRecord.Group, _nayruRecord.Room) with
-        {
-            TextId = textId,
-            Message = text.Message
-        };
-        NpcCharacter npc = _entities.Spawn<NpcCharacter>(
-            new CutsceneNpcSpawn(
-                record, $"NayruIntro_{name}", Talkable: true, Solid: true));
-        if (!string.IsNullOrEmpty(actor.ExtraSprite))
-            npc.AppendScriptGraphics(actor.ExtraSprite);
-        npc.SetScriptAnimation(actor.Animation(actor.InitialAnimation));
-        _nayruActors.Add(name, npc);
-        return npc;
-    }
-
-    private NpcCharacter SpawnNayruActor(
-        string template,
-        string name,
-        Vector2? position = null,
-        bool solid = false)
-    {
-        NayruIntroEventDatabase.ActorRecord actor = _nayruDatabase.Actor(template);
-        NpcCharacter npc = _entities.Spawn<NpcCharacter>(new CutsceneNpcSpawn(
-            actor.ToNpcRecord(_rooms.ActiveGroup, _rooms.CurrentRoom.Id),
-            $"NayruIntro_{name}", Solid: solid));
-        if (!string.IsNullOrEmpty(actor.ExtraSprite))
-            npc.AppendScriptGraphics(actor.ExtraSprite);
-        if (position.HasValue)
-            npc.Position = position.Value;
-        _nayruActors[name] = npc;
-        return npc;
+        _nayruActors.SpawnAudience(
+            "Monkey", 0x5704, _nayruRecord.Group, _nayruRecord.Room);
+        _nayruActors.SpawnAudience(
+            "Rabbit", 0x5705, _nayruRecord.Group, _nayruRecord.Room);
+        _nayruActors.SpawnAudience(
+            "Boy", 0x2510, _nayruRecord.Group, _nayruRecord.Room);
+        _nayruActors.SpawnAudience(
+            "Bird", 0x3214, _nayruRecord.Group, _nayruRecord.Room);
     }
 
     internal bool TryInteractNpc(NpcCharacter npc)
     {
         if (_nayruStage != NayruStage.Crowd)
             return false;
-        string? name = null;
-        foreach ((string actorName, NpcCharacter actor) in _nayruActors)
-        {
-            if (actor == npc)
-            {
-                name = actorName;
-                break;
-            }
-        }
+        string? name = _nayruActors.NameOf(npc);
         if (name is null)
             return false;
 
@@ -525,7 +486,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         _player.BeginCutsceneControl();
         _counter = 20;
         _nayruStage = NayruStage.BearLead;
-        bearSetAnimation(1);
+        _nayruActors.SetAnimation("Bear", 1);
         return true;
     }
 
@@ -539,7 +500,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
             case "Monkey":
                 // monkeySubid0Script uses cplinkx rather than the general
                 // four-way turn helper: animation $00 faces left and $01 right.
-                SetNayruAnimation(name, _player.Position.X <= npc.Position.X ? 0 : 1);
+                _nayruActors.SetAnimation(
+                    name, _player.Position.X <= npc.Position.X ? 0 : 1);
                 resetAnimation = 2;
                 resetDelay = 20;
                 break;
@@ -547,7 +509,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
                 // birdScript_listeningToNayruGameStart adds two to cplinkx's
                 // result and repeatedly applies -$00c0/$0020 Z physics while
                 // the textbox is active.
-                SetNayruAnimation(name, _player.Position.X <= npc.Position.X ? 2 : 3);
+                _nayruActors.SetAnimation(
+                    name, _player.Position.X <= npc.Position.X ? 2 : 3);
                 resetAnimation = 1;
                 resetDelay = 10;
                 hopping = true;
@@ -558,7 +521,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
                 Vector2I facing = FacingForTrackedTarget(
                     OracleObjectMath.ToPixelPosition(_player.Position) -
                     OracleObjectMath.ToPixelPosition(npc.Position));
-                SetNayruAnimation(name, AnimationForFacing(facing));
+                _nayruActors.SetAnimation(name, AnimationForFacing(facing));
                 resetAnimation = 0;
                 resetDelay = 10;
                 break;
@@ -606,7 +569,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
             case NayruStage.BearSettle:
                 if (--_counter == 0)
                 {
-                    bearSetAnimation(0);
+                    _nayruActors.SetAnimation("Bear", 0);
                     _rooms.SaveData.SetRoomFlag(
                         _nayruRecord.Group, _nayruRecord.Room,
                         (byte)_nayruRecord.BearRoomFlag);
@@ -649,7 +612,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
                 UpdateNayruSingingFade(fadeIn: false);
                 break;
             case NayruStage.Script:
-                UpdateNayruCommand();
+                UpdateNayruTimeline();
                 break;
         }
     }
@@ -659,7 +622,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         for (int index = _nayruAudienceTalkStates.Count - 1; index >= 0; index--)
         {
             NayruAudienceTalkState state = _nayruAudienceTalkStates[index];
-            if (!_nayruActors.TryGetValue(state.Actor, out NpcCharacter? actor) || !actor.Active)
+            if (!_nayruActors.TryGetActive(state.Actor, out NpcCharacter actor))
             {
                 _nayruAudienceTalkStates.RemoveAt(index);
                 continue;
@@ -687,7 +650,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
 
             if (--state.Counter > 0)
                 continue;
-            SetNayruAnimation(state.Actor, state.ResetAnimation);
+            _nayruActors.SetAnimation(state.Actor, state.ResetAnimation);
             _nayruAudienceTalkStates.RemoveAt(index);
         }
     }
@@ -771,8 +734,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
 
     private void BuildNayruScript()
     {
-        _nayruCommands.Clear();
-        _nayruCommand = null;
+        _timeline.Clear();
         Callback(SetupNayruPossessionScene);
         Fade(11, fadeIn: true);
 
@@ -819,7 +781,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         Callback(SpawnHumanVeran); Flicker("GhostVeran", 120); Wait(120);
         Animation("HumanVeran", 1); Wait(30); Text(0x5601); Wait(30);
         Animation("HumanVeran", 0); Wait(60); Flicker("GhostVeran", 120);
-        Callback(() => HideNayruActor("HumanVeran")); Wait(30);
+        Callback(() => _nayruActors.Hide("HumanVeran")); Wait(30);
         Move("GhostVeran",
             OracleObjectMath.VectorFromAngle32(0x0b) * 40, 80); Wait(30);
         Text(0x5602); Wait(30); Wait(120);
@@ -849,14 +811,14 @@ internal sealed class NayruIntroEvent : IRoomEvent
         Wait(2); Callback(ActivateNayruPortal); Wait(1);
         Wait(60);
         Move("GhostVeran", Vector2.Down * 17.5f, 35); Wait(10);
-        Callback(() => HideNayruActor("GhostVeran"));
+        Callback(() => _nayruActors.Hide("GhostVeran"));
         Wait(60); PortalFlight("Nayru"); Wait(20);
         NpcMove("Ralph", Vector2.Up * 48, 48, NayruMoveFacing.RalphPortalUp);
         Wait(6);
         NpcMove("Ralph", Vector2.Left * 49, 49, NayruMoveFacing.RalphPortalLeft);
         Wait(40); Text(0x5605); Wait(60);
         NpcMove("Nayru", Vector2.Up * 17, 17, NayruMoveFacing.NayruPortalUp);
-        Flicker("Nayru", 120); Callback(() => HideNayruActor("Nayru"));
+        Flicker("Nayru", 120); Callback(() => _nayruActors.Hide("Nayru"));
         Wait(120); Wait(90); Text(0x5607); Wait(90);
 
         Fade(11, fadeIn: false); Callback(() => BeginNayruVignette(0));
@@ -929,21 +891,13 @@ internal sealed class NayruIntroEvent : IRoomEvent
         Wait(_nayruDatabase.Vignette(2).Duration - 11);
     }
 
-    private void UpdateNayruCommand()
+    private void UpdateNayruTimeline()
     {
-        if (_nayruCommand is null)
-        {
-            if (_nayruCommands.Count == 0)
-            {
-                FinishNayruIntro();
-                return;
-            }
-            _nayruCommand = _nayruCommands.Dequeue();
-            _nayruCommand.Counter = Math.Max(
-                1, Math.Max(_nayruCommand.Frames, _nayruCommand.Frames2));
-        }
-        NayruCommand command = _nayruCommand;
-        bool finished = command.Kind switch
+        if (!_timeline.AdvanceFrame(UpdateNayruCommand))
+            FinishNayruIntro();
+    }
+
+    private bool UpdateNayruCommand(NayruCommand command) => command.Kind switch
         {
             NayruCommandKind.Wait => --command.Counter == 0,
             NayruCommandKind.Text => UpdateNayruTextCommand(command),
@@ -959,9 +913,6 @@ internal sealed class NayruIntroEvent : IRoomEvent
             NayruCommandKind.PaletteFlicker => UpdateNayruPaletteFlickerCommand(command),
             _ => true
         };
-        if (finished)
-            _nayruCommand = null;
-    }
 
     private bool UpdateNayruTextCommand(NayruCommand command)
     {
@@ -982,10 +933,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
             if (command.Value >= 0 && command.Actor != "Player")
             {
                 if (command.SetFacingOnStart)
-                    SetNayruAnimation(command.Actor, command.Value);
-                if (_nayruActors.TryGetValue(command.Actor, out NpcCharacter? actor) &&
-                    actor.CurrentScriptAnimationSource ==
-                        NayruAnimationSource(command.Actor, command.Value))
+                    _nayruActors.SetAnimation(command.Actor, command.Value);
+                if (_nayruActors.IsUsingAnimation(command.Actor, command.Value))
                 {
                     _nayruMoveFacingMask |= command.FacingAuditBit;
                 }
@@ -1070,8 +1019,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         {
             _nayruBackstepShown =
                 _nayruActors["Nayru"].Position == new Vector2(0x78, 0x18) &&
-                _nayruActors["Nayru"].CurrentScriptAnimationSource ==
-                    _nayruDatabase.Actor("Nayru").Animation(2);
+                _nayruActors.IsUsingAnimation("Nayru", 2);
         }
         return finished;
     }
@@ -1107,7 +1055,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
             command.SpeedZ = _nayruRecord.NayruAscentSpeedZ;
             command.ZFixed = 0;
             command.Phase = 0;
-            SetNayruAnimation(command.Actor, 5);
+            _nayruActors.SetAnimation(command.Actor, 5);
         }
 
         if (command.Phase == 0)
@@ -1140,7 +1088,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
             return false;
         }
         nayru.SetScriptDrawOffset(Vector2.Zero);
-        SetNayruAnimation(command.Actor, 2);
+        _nayruActors.SetAnimation(command.Actor, 2);
         _nayruPortalFlightShown = nayru.Position == new Vector2(0x28, 0x38);
         return true;
     }
@@ -1228,7 +1176,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
 
     private bool UpdateNayruAnimationCommand(NayruCommand command)
     {
-        SetNayruAnimation(command.Actor, command.Value);
+        _nayruActors.SetAnimation(command.Actor, command.Value);
         return true;
     }
 
@@ -1285,18 +1233,19 @@ internal sealed class NayruIntroEvent : IRoomEvent
         _player.WarpTo(new Vector2(0x78, 0x30), recordSafe: false);
         _player.Face(Vector2I.Right);
         _nayruActors["Nayru"].Position = new Vector2(0x78, 0x18);
-        SetNayruAnimation("Nayru", 2);
+        _nayruActors.SetAnimation("Nayru", 2);
         _nayruActors["Nayru"].SetScriptPaletteOverride(null);
         _nayruActors["Ralph"].Position = new Vector2(0x88, 0x30);
-        SetNayruAnimation("Ralph", 3);
+        _nayruActors.SetAnimation("Ralph", 3);
         if (_impa is null || !_impa.Active)
         {
-            _impa = SpawnNayruActor("AftermathImpa", "Impa", new Vector2(0x38, 0x68));
+            _impa = _nayruActors.Spawn(
+                "AftermathImpa", "Impa", new Vector2(0x38, 0x68));
             _impa.SetSpritePalette(_impaDatabase.PossessedPalette);
         }
         else
         {
-            _nayruActors["Impa"] = _impa;
+            _nayruActors.Register("Impa", _impa);
             _impa.Position = new Vector2(0x38, 0x68);
         }
         _impa.SetBlocksLink(false);
@@ -1304,14 +1253,14 @@ internal sealed class NayruIntroEvent : IRoomEvent
 
     private void AlarmNayruAudience()
     {
-        SetNayruAnimation("Bear", 2);
-        SetNayruAnimation("Monkey", 6);
-        SetNayruAnimation("Rabbit", 2);
-        SetNayruAnimation("Boy", 2);
+        _nayruActors.SetAnimation("Bear", 2);
+        _nayruActors.SetAnimation("Monkey", 6);
+        _nayruActors.SetAnimation("Rabbit", 2);
+        _nayruActors.SetAnimation("Boy", 2);
         // boyRunSubid00 calls interactionAnimate once before its substate
         // dispatch and a second time in shocked substate $01.
         _nayruActors["Boy"].SetAnimationRate(2.0f);
-        SetNayruAnimation("Bird", 1);
+        _nayruActors.SetAnimation("Bird", 1);
     }
 
     private void BeginNayruAudienceEscape()
@@ -1330,7 +1279,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
     private void AddFlee(string actor)
     {
         NayruIntroEventDatabase.FleeRecord record = _nayruDatabase.Flee(actor);
-        SetNayruAnimation(actor, record.WaitAnimation);
+        _nayruActors.SetAnimation(actor, record.WaitAnimation);
         _nayruFleeingAudience.Add(new FleeingAudience(
             _nayruActors[actor], record,
             OracleObjectMath.VectorFromAngle32(record.Angle) * record.Speed));
@@ -1384,7 +1333,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
         fleeing.ZFixed = 0;
         fleeing.SpeedZ = fleeing.Record.EscapeJumpSpeedZ;
         fleeing.Actor.SetScriptDrawOffset(Vector2.Zero);
-        SetNayruAnimation(fleeing.Record.Actor, fleeing.Record.EscapeAnimation);
+        _nayruActors.SetAnimation(
+            fleeing.Record.Actor, fleeing.Record.EscapeAnimation);
         if (fleeing.Record.Actor == "Boy")
             _nayruBoyEscapeStarted = true;
     }
@@ -1414,8 +1364,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
     private void UpdateNayruSingingNotes()
     {
         if (_nayruStage is < NayruStage.Crowd or > NayruStage.TriggerPostText ||
-            !_nayruActors.TryGetValue("Nayru", out NpcCharacter? nayru) ||
-            !nayru.Active)
+            !_nayruActors.TryGetActive("Nayru", out NpcCharacter nayru))
         {
             return;
         }
@@ -1464,7 +1413,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         UpdateNayruVignette();
 
         if (_nayruGhostRevealFlickerRemaining > 0 &&
-            _nayruActors.TryGetValue("GhostVeran", out NpcCharacter? ghost) && ghost.Active)
+            _nayruActors.TryGetActive("GhostVeran", out NpcCharacter ghost))
         {
             ghost.Visible = (_entities.FrameCounter & 1) != 0;
             _nayruGhostRevealFlickerRemaining--;
@@ -1479,13 +1428,11 @@ internal sealed class NayruIntroEvent : IRoomEvent
         // before advancing the flight script. Link and Ralph read that cached
         // position independently; neither faces the live object directly.
         if (_nayruUpdateVeranFacingTarget &&
-            _nayruActors.TryGetValue("GhostVeran", out NpcCharacter? trackedGhost) &&
-            trackedGhost.Active)
+            _nayruActors.TryGetActive("GhostVeran", out NpcCharacter trackedGhost))
         {
             _nayruVeranFacingTarget = OracleObjectMath.ToPixelPosition(trackedGhost.Position);
-            if (_nayruActors.TryGetValue("Nayru", out NpcCharacter? watchingNayru) &&
-                watchingNayru.CurrentScriptAnimationSource !=
-                    _nayruDatabase.Actor("Nayru").Animation(2))
+            if (_nayruActors.TryGetValue("Nayru", out _) &&
+                !_nayruActors.IsUsingAnimation("Nayru", 2))
             {
                 _nayruNayruHeldVeranFacing = false;
             }
@@ -1505,15 +1452,14 @@ internal sealed class NayruIntroEvent : IRoomEvent
                 _nayruGhostTrackingMask |= 0x08;
         }
         if (_nayruTrackRalphVeranFacing && (_entities.FrameCounter & 15) == 0 &&
-            _nayruActors.TryGetValue("Ralph", out NpcCharacter? trackingRalph) &&
-            trackingRalph.Active)
+            _nayruActors.TryGetActive("Ralph", out NpcCharacter trackingRalph))
         {
             Vector2I facing = FacingForTrackedTarget(
                 _nayruVeranFacingTarget -
                 OracleObjectMath.ToPixelPosition(trackingRalph.Position));
             if (facing != Vector2I.Zero)
             {
-                SetNayruAnimation("Ralph", AnimationForFacing(facing));
+                _nayruActors.SetAnimation("Ralph", AnimationForFacing(facing));
                 _nayruGhostTrackingMask |= 0x02;
                 _nayruRalphVeranFacingMask |= DirectionMask(facing);
             }
@@ -1524,8 +1470,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
         // until his subid $02 script signals cfd0=$20 and deletes itself.
         if (_nayruTrackAftermathRalphFacing &&
             (_entities.FrameCounter & 7) == 0 &&
-            _nayruActors.TryGetValue("AftermathRalph", out NpcCharacter? aftermathRalph) &&
-            aftermathRalph.Active)
+            _nayruActors.TryGetActive(
+                "AftermathRalph", out NpcCharacter aftermathRalph))
         {
             Vector2I facing = FacingForTrackedTarget(
                 OracleObjectMath.ToPixelPosition(aftermathRalph.Position) -
@@ -1619,12 +1565,12 @@ internal sealed class NayruIntroEvent : IRoomEvent
             girl.SetAnimationRate(2.0f);
         }
         if (frame == 846)
-            SetNayruAnimationIfChanged("VignetteGirl", 0);
+            _nayruActors.SetAnimationIfChanged("VignetteGirl", 0);
         if (frame is >= 876 and <= 937)
         {
             if (frame == 876)
             {
-                SetNayruAnimationIfChanged("VignetteGirl", 0);
+                _nayruActors.SetAnimationIfChanged("VignetteGirl", 0);
                 _nayruMoveFacingMask |= (ulong)NayruMoveFacing.VignetteGirlUp;
             }
             girl.Position += Vector2.Up;
@@ -1784,7 +1730,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
         if (frame >= 270 && (_entities.FrameCounter & 0x0f) == 0)
         {
             state.Animation ^= 1;
-            SetNayruAnimationIfChanged($"VignetteMonkey{state.Record.Index}", state.Animation);
+            _nayruActors.SetAnimationIfChanged(
+                $"VignetteMonkey{state.Record.Index}", state.Animation);
         }
     }
 
@@ -1848,7 +1795,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
         if (state.Animation == animation)
             return;
         state.Animation = animation;
-        SetNayruAnimationIfChanged($"VignetteMonkey{state.Record.Index}", animation);
+        _nayruActors.SetAnimationIfChanged(
+            $"VignetteMonkey{state.Record.Index}", animation);
     }
 
     private void UpdateNayruStoneChildVignette()
@@ -1860,7 +1808,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
 
         if (frame == 1)
         {
-            SetNayruAnimationIfChanged("VignetteBoy", 3);
+            _nayruActors.SetAnimationIfChanged("VignetteBoy", 3);
             boy.SetAnimationRate(2.0f);
             _nayruMoveFacingMask |= (ulong)NayruMoveFacing.VignetteBoyLeft1;
         }
@@ -1875,7 +1823,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         {
             if (frame == 89)
             {
-                SetNayruAnimationIfChanged("VignetteBoy", 1);
+                _nayruActors.SetAnimationIfChanged("VignetteBoy", 1);
                 boy.SetAnimationRate(2.0f);
                 _nayruMoveFacingMask |= (ulong)NayruMoveFacing.VignetteBoyRight;
             }
@@ -1890,7 +1838,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         {
             if (frame == 177)
             {
-                SetNayruAnimationIfChanged("VignetteBoy", 3);
+                _nayruActors.SetAnimationIfChanged("VignetteBoy", 3);
                 boy.SetAnimationRate(2.0f);
                 _nayruMoveFacingMask |= (ulong)NayruMoveFacing.VignetteBoyLeft2;
             }
@@ -1921,13 +1869,13 @@ internal sealed class NayruIntroEvent : IRoomEvent
         if (frame == 365)
         {
             boy.SetScriptPaletteOverride(_nayruDatabase.StoneSpritePalette);
-            SetNayruAnimationIfChanged("VignetteBoy", 3);
+            _nayruActors.SetAnimationIfChanged("VignetteBoy", 3);
             _nayruMoveFacingMask |= (ulong)NayruMoveFacing.VignetteBoyStoneLeft;
         }
 
         if (frame == 459)
         {
-            SetNayruAnimationIfChanged("VignetteLady", 2);
+            _nayruActors.SetAnimationIfChanged("VignetteLady", 2);
             lady.SetAnimationRate(3.0f);
             _nayruMoveFacingMask |= (ulong)NayruMoveFacing.VignetteLadyDown;
         }
@@ -1942,7 +1890,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         {
             if (frame == 477)
             {
-                SetNayruAnimationIfChanged("VignetteLady", 3);
+                _nayruActors.SetAnimationIfChanged("VignetteLady", 3);
                 lady.SetAnimationRate(3.0f);
                 _nayruMoveFacingMask |= (ulong)NayruMoveFacing.VignetteLadyLeft;
             }
@@ -1968,19 +1916,10 @@ internal sealed class NayruIntroEvent : IRoomEvent
         }
     }
 
-    private void SetNayruAnimationIfChanged(string actorName, int animation)
-    {
-        if (!_nayruActors.TryGetValue(actorName, out NpcCharacter? actor) || !actor.Active)
-            return;
-        string source = NayruAnimationSource(actorName, animation);
-        if (actor.CurrentScriptAnimationSource != source)
-            actor.SetScriptAnimation(source);
-    }
-
     private void SpawnNayruExclamation(Vector2 position, int duration)
     {
         string name = $"VignetteExclamation{_nayruVignetteExclamationCount}";
-        NpcCharacter actor = SpawnNayruActor("Exclamation", name, position);
+        NpcCharacter actor = _nayruActors.Spawn("Exclamation", name, position);
         NayruIntroEventDatabase.ActorRecord record = _nayruDatabase.Actor("Exclamation");
         actor.SetScriptAnimation(record.Animation(record.InitialAnimation));
         actor.SetAnimationRate(1.0f);
@@ -2030,24 +1969,22 @@ internal sealed class NayruIntroEvent : IRoomEvent
         Vector2 position = _nayruActors["Impa"].Position;
         _nayruActors["Impa"].SetActive(false);
         SpawnCollapsedImpa(position, "CollapsedImpa");
-        SpawnNayruActor("GhostVeran", "GhostVeran", position).SetScriptAnimation(
+        _nayruActors.Spawn("GhostVeran", "GhostVeran", position).SetScriptAnimation(
             _nayruDatabase.Actor("GhostVeran").Animation(0));
         _nayruGhostRevealFlickerRemaining = 90;
         _nayruVeranFacingTarget = OracleObjectMath.ToPixelPosition(position);
         _nayruUpdateVeranFacingTarget = true;
         _nayruNayruHeldVeranFacing =
-            _nayruActors["Nayru"].CurrentScriptAnimationSource ==
-            _nayruDatabase.Actor("Nayru").Animation(2);
+            _nayruActors.IsUsingAnimation("Nayru", 2);
     }
 
     private void BeginGhostCharge()
     {
         NpcCharacter ghost = _nayruActors["GhostVeran"];
         ghost.Position = new Vector2(0x78, ghost.Position.Y);
-        SetNayruAnimation("Nayru", 2);
+        _nayruActors.SetAnimation("Nayru", 2);
         if (_nayruNayruHeldVeranFacing &&
-            _nayruActors["Nayru"].CurrentScriptAnimationSource ==
-            _nayruDatabase.Actor("Nayru").Animation(2))
+            _nayruActors.IsUsingAnimation("Nayru", 2))
         {
             // nayruScript00_part1 never calls turnToFaceSomething. Its
             // explicit animation $02 is held while angle $00 moves backward.
@@ -2060,22 +1997,19 @@ internal sealed class NayruIntroEvent : IRoomEvent
         // Ghost substate 6 stops updating cfd5/cfd6 after this script ends.
         // Link and Ralph continue reading the final cached collision point.
         _nayruUpdateVeranFacingTarget = false;
-        SetNayruAnimation("Nayru", 2);
-        _nayruPostChargeFacingShown =
-            _nayruActors["Nayru"].CurrentScriptAnimationSource ==
-            _nayruDatabase.Actor("Nayru").Animation(2);
+        _nayruActors.SetAnimation("Nayru", 2);
+        _nayruPostChargeFacingShown = _nayruActors.IsUsingAnimation("Nayru", 2);
     }
 
     private void BeginNayruPossessionRecovery()
     {
         NpcCharacter nayru = _nayruActors["Nayru"];
         NpcCharacter ralph = _nayruActors["Ralph"];
-        SetNayruAnimation("Nayru", 2);
+        _nayruActors.SetAnimation("Nayru", 2);
         nayru.SetScriptPaletteOverride(null);
-        SetNayruAnimation("Ralph", 0);
+        _nayruActors.SetAnimation("Ralph", 0);
         _nayruTrackRalphVeranFacing = false;
-        if (ralph.CurrentScriptAnimationSource ==
-            _nayruDatabase.Actor("Ralph").Animation(0))
+        if (_nayruActors.IsUsingAnimation("Ralph", 0))
         {
             // cfd0=$15 exits @faceVeranGhost and selects animation $00.
             _nayruGhostTrackingMask |= 0x10;
@@ -2140,21 +2074,19 @@ internal sealed class NayruIntroEvent : IRoomEvent
         if (elapsed == 489)
         {
             SetNayruPossessionPalette(nayru, possessed: true);
-            SetNayruAnimation("Nayru", 5);
+            _nayruActors.SetAnimation("Nayru", 5);
         }
         if (elapsed < 549)
             return;
 
-        SetNayruAnimation("Nayru", 2);
+        _nayruActors.SetAnimation("Nayru", 2);
         StartGhostVeranEmergence();
         _nayruPossessionMovementSyncShown =
             state.NayruMoveStart == 150 && state.RalphMoveStart == 220 &&
             nayru.Position == new Vector2(0x78, 0x28) &&
             ralph.Position == state.RalphStart + Vector2.Down * 16.0f &&
-            nayru.CurrentScriptAnimationSource ==
-                _nayruDatabase.Actor("Nayru").Animation(2) &&
-            ralph.CurrentScriptAnimationSource ==
-                _nayruDatabase.Actor("Ralph").Animation(0);
+            _nayruActors.IsUsingAnimation("Nayru", 2) &&
+            _nayruActors.IsUsingAnimation("Ralph", 0);
         _nayruPossessionState = null;
     }
 
@@ -2211,8 +2143,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
     private void UpdateGhostVeranEmergence()
     {
         if (_nayruGhostEmergencePhase == 0 ||
-            !_nayruActors.TryGetValue("GhostVeran", out NpcCharacter? ghost) ||
-            !ghost.Active)
+            !_nayruActors.TryGetActive("GhostVeran", out NpcCharacter ghost))
         {
             return;
         }
@@ -2237,7 +2168,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
 
     private void SpawnHumanVeran()
     {
-        NpcCharacter human = SpawnNayruActor(
+        NpcCharacter human = _nayruActors.Spawn(
             "HumanVeran", "HumanVeran", _nayruActors["GhostVeran"].Position);
         human.SetScriptAnimation(_nayruDatabase.Actor("HumanVeran").Animation(0));
     }
@@ -2252,7 +2183,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
 
     private void SpawnRalphSword()
     {
-        NpcCharacter sword = SpawnNayruActor(
+        NpcCharacter sword = _nayruActors.Spawn(
             "RalphSword", "RalphSword", _nayruActors["Ralph"].Position);
         sword.SetScriptAnimation(_nayruDatabase.Actor("RalphSword").Animation(0));
         sword.SetActive(false);
@@ -2262,11 +2193,10 @@ internal sealed class NayruIntroEvent : IRoomEvent
     private void UpdateNayruRalphSword()
     {
         if (!_nayruActors.TryGetValue("RalphSword", out NpcCharacter? sword) ||
-            !_nayruActors.TryGetValue("Ralph", out NpcCharacter? ralph) || !ralph.Active)
+            !_nayruActors.TryGetActive("Ralph", out NpcCharacter ralph))
             return;
         sword.Position = ralph.Position;
-        string swing = _nayruDatabase.Actor("Ralph").Animation(4);
-        if (ralph.CurrentScriptAnimationSource != swing)
+        if (!_nayruActors.IsUsingAnimation("Ralph", 4))
         {
             sword.SetActive(false);
             return;
@@ -2304,7 +2234,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         };
         NpcCharacter npc = _entities.Spawn<NpcCharacter>(new CutsceneNpcSpawn(record, name));
         npc.Position = position;
-        _nayruActors[name] = npc;
+        _nayruActors.Register(name, npc);
         _nayruCollapsedImpaRendered |=
             record.DownAnimation == actor.Animation(6) &&
             npc.CurrentAnimationOpaquePixels > 0;
@@ -2317,11 +2247,9 @@ internal sealed class NayruIntroEvent : IRoomEvent
         // cfd5/cfd6 and forces left, while Ralph's script also selects $03.
         _nayruTrackLinkVeranFacing = false;
         _player.Face(Vector2I.Left);
-        SetNayruAnimation("Ralph", 3);
+        _nayruActors.SetAnimation("Ralph", 3);
         if (_player.FacingVector == Vector2I.Left &&
-            _nayruActors.TryGetValue("Ralph", out NpcCharacter? ralph) &&
-            ralph.CurrentScriptAnimationSource ==
-                _nayruDatabase.Actor("Ralph").Animation(3))
+            _nayruActors.IsUsingAnimation("Ralph", 3))
         {
             _nayruGhostTrackingMask |= 0x20;
         }
@@ -2355,20 +2283,21 @@ internal sealed class NayruIntroEvent : IRoomEvent
         switch (index)
         {
             case 0:
-                NpcCharacter guy = SpawnNayruActor("VignetteGuy", "VignetteGuy");
+                NpcCharacter guy = _nayruActors.Spawn("VignetteGuy", "VignetteGuy");
                 guy.SetScriptAnimation(_nayruDatabase.Actor("VignetteGuy").Animation(3));
-                NpcCharacter oldMan = SpawnNayruActor("VignetteOldMan", "VignetteOldMan");
+                NpcCharacter oldMan = _nayruActors.Spawn(
+                    "VignetteOldMan", "VignetteOldMan");
                 oldMan.SetScriptAnimation(_nayruDatabase.Actor("VignetteOldMan").Animation(4));
                 oldMan.SetAnimationRate(0.0f);
                 oldMan.SetActive(false);
-                NpcCharacter girl = SpawnNayruActor("VignetteGirl", "VignetteGirl");
+                NpcCharacter girl = _nayruActors.Spawn("VignetteGirl", "VignetteGirl");
                 girl.SetScriptAnimation(_nayruDatabase.Actor("VignetteGirl").Animation(1));
                 break;
             case 1:
                 foreach (NayruIntroEventDatabase.VignetteMonkeyRecord record in
                     _nayruDatabase.VignetteMonkeys)
                 {
-                    NpcCharacter monkey = SpawnNayruActor(
+                    NpcCharacter monkey = _nayruActors.Spawn(
                         "Monkey", $"VignetteMonkey{record.Index}",
                         new Vector2(record.X, record.Y));
                     monkey.SetScriptAnimation(
@@ -2389,11 +2318,11 @@ internal sealed class NayruIntroEvent : IRoomEvent
                 }
                 break;
             case 2:
-                NpcCharacter boy = SpawnNayruActor("VignetteBoy", "VignetteBoy");
+                NpcCharacter boy = _nayruActors.Spawn("VignetteBoy", "VignetteBoy");
                 boy.SetScriptAnimation(_nayruDatabase.Actor("VignetteBoy").Animation(1));
                 boy.SetScriptPaletteOverride(_nayruDatabase.BoySpritePalette);
                 boy.SetAnimationRate(0.0f);
-                NpcCharacter lady = SpawnNayruActor("VignetteLady", "VignetteLady");
+                NpcCharacter lady = _nayruActors.Spawn("VignetteLady", "VignetteLady");
                 lady.SetScriptAnimation(_nayruDatabase.Actor("VignetteLady").Animation(2));
                 break;
         }
@@ -2406,7 +2335,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
             _nayruRecord.Group, _nayruRecord.Room, includeTimePortals: true);
         _player.Visible = true;
         _nayruHud.Visible = true;
-        NpcCharacter ralph = SpawnNayruActor("AftermathRalph", "AftermathRalph");
+        NpcCharacter ralph = _nayruActors.Spawn("AftermathRalph", "AftermathRalph");
         // @initSubid02 selects animation $09 before ralphSubid02Script starts.
         ralph.SetScriptAnimation(_nayruDatabase.Actor("AftermathRalph").Animation(9));
         SpawnCollapsedImpa(new Vector2(0x38, 0x68), "AftermathImpaCollapsed");
@@ -2418,7 +2347,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
     private void FinishAftermathRalphDeparture()
     {
         _nayruTrackAftermathRalphFacing = false;
-        HideNayruActor("AftermathRalph");
+        _nayruActors.Hide("AftermathRalph");
     }
 
     private void LoadNayruCutsceneRoom(int group, int room, bool includeTimePortals)
@@ -2432,8 +2361,9 @@ internal sealed class NayruIntroEvent : IRoomEvent
 
     private void RestoreAftermathImpa()
     {
-        HideNayruActor("AftermathImpaCollapsed");
-        NpcCharacter impa = SpawnNayruActor("AftermathImpa", "AftermathImpa", new Vector2(0x38, 0x68));
+        _nayruActors.Hide("AftermathImpaCollapsed");
+        NpcCharacter impa = _nayruActors.Spawn(
+            "AftermathImpa", "AftermathImpa", new Vector2(0x38, 0x68));
         impa.SetScriptAnimation(_nayruDatabase.Actor("AftermathImpa").Animation(2));
     }
 
@@ -2477,19 +2407,13 @@ internal sealed class NayruIntroEvent : IRoomEvent
         _nayruTrackRalphVeranFacing = false;
         _nayruUpdateVeranFacingTarget = false;
         _nayruTrackAftermathRalphFacing = false;
-        _nayruCommands.Clear();
-        _nayruCommand = null;
+        _timeline.Clear();
         _nayruStage = NayruStage.None;
     }
 
     private void ClearNayruActors()
     {
-        foreach (NpcCharacter actor in _nayruActors.Values)
-        {
-            actor.SetScriptDrawOffset(Vector2.Zero);
-            actor.SetActive(false);
-        }
-        _nayruActors.Clear();
+        _nayruActors.Clear(deactivateActors: true);
         _nayruFleeingAudience.Clear();
         _nayruAudienceTalkStates.Clear();
         _nayruVignetteMonkeys.Clear();
@@ -2530,62 +2454,20 @@ internal sealed class NayruIntroEvent : IRoomEvent
             _nayruHud.Visible = true;
         _player.Visible = true;
         _nayruRoom?.ClearTemporaryBackgroundPalette(_animationTick());
-        if (deactivateActors)
-        {
-            foreach (NpcCharacter actor in _nayruActors.Values)
-            {
-                actor.SetScriptDrawOffset(Vector2.Zero);
-                actor.SetActive(false);
-            }
-        }
-        _nayruActors.Clear();
+        _nayruActors.Clear(deactivateActors);
         _nayruFleeingAudience.Clear();
         _nayruAudienceTalkStates.Clear();
         _nayruVignetteMonkeys.Clear();
         _nayruVignetteIndex = -1;
         ClearNayruEffects(deactivateActors);
         RemoveNayruSwordEffect();
-        _nayruCommands.Clear();
-        _nayruCommand = null;
+        _timeline.Clear();
         _nayruTrackLinkVeranFacing = false;
         _nayruTrackRalphVeranFacing = false;
         _nayruUpdateVeranFacingTarget = false;
         _nayruTrackAftermathRalphFacing = false;
         _nayruRoom = null;
         _nayruStage = NayruStage.None;
-    }
-
-    private void SetNayruAnimation(string actorName, int animation)
-    {
-        if (!_nayruActors.TryGetValue(actorName, out NpcCharacter? actor) || !actor.Active)
-            return;
-        actor.SetScriptAnimation(NayruAnimationSource(actorName, animation));
-    }
-
-    private string NayruAnimationSource(string actorName, int animation)
-    {
-        string template = actorName switch
-        {
-            "Impa" or "AftermathImpa" => "AftermathImpa",
-            _ when actorName.StartsWith("VignetteMonkey", StringComparison.Ordinal) => "Monkey",
-            _ => actorName
-        };
-        return _nayruDatabase.Actor(template).Animation(animation);
-    }
-
-    private void HideNayruActor(string name)
-    {
-        if (_nayruActors.TryGetValue(name, out NpcCharacter? actor))
-            actor.SetActive(false);
-    }
-
-    private void ShowNayruActor(string name)
-    {
-        if (_nayruActors.TryGetValue(name, out NpcCharacter? actor))
-        {
-            actor.SetActive(true);
-            actor.Visible = true;
-        }
     }
 
     private void ShowNayruText(int textId)
@@ -2595,23 +2477,19 @@ internal sealed class NayruIntroEvent : IRoomEvent
         _context.ShowDialogue(text.Message, textboxPosition);
     }
 
-    private void bearSetAnimation(int animation) =>
-        _nayruActors["Bear"].SetScriptAnimation(
-            _nayruDatabase.Actor("Bear").Animation(animation));
-
-    private void Wait(int frames) => _nayruCommands.Enqueue(new NayruCommand
+    private void Wait(int frames) => _timeline.Enqueue(new NayruCommand
         { Kind = NayruCommandKind.Wait, Frames = frames });
-    private void Text(int id) => _nayruCommands.Enqueue(new NayruCommand
+    private void Text(int id) => _timeline.Enqueue(new NayruCommand
         { Kind = NayruCommandKind.Text, TextId = id });
     private void Move(string actor, Vector2 delta, int frames) =>
-        _nayruCommands.Enqueue(new NayruCommand
+        _timeline.Enqueue(new NayruCommand
             { Kind = NayruCommandKind.Move, Actor = actor, Delta = delta, Frames = frames });
     private void NpcMove(
         string actor,
         Vector2 delta,
         int frames,
         NayruMoveFacing audit) =>
-        _nayruCommands.Enqueue(new NayruCommand
+        _timeline.Enqueue(new NayruCommand
         {
             Kind = NayruCommandKind.Move,
             Actor = actor,
@@ -2627,7 +2505,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         int frames,
         int animation,
         NayruMoveFacing audit) =>
-        _nayruCommands.Enqueue(new NayruCommand
+        _timeline.Enqueue(new NayruCommand
         {
             Kind = NayruCommandKind.Move,
             Actor = actor,
@@ -2643,7 +2521,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         string actor2,
         Vector2 delta2,
         int frames) =>
-        _nayruCommands.Enqueue(new NayruCommand
+        _timeline.Enqueue(new NayruCommand
         {
             Kind = NayruCommandKind.ParallelMove,
             Actor = actor,
@@ -2660,7 +2538,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         string actor2,
         Vector2 delta2,
         int frames2) =>
-        _nayruCommands.Enqueue(new NayruCommand
+        _timeline.Enqueue(new NayruCommand
         {
             Kind = NayruCommandKind.ParallelMove,
             Actor = actor,
@@ -2670,31 +2548,31 @@ internal sealed class NayruIntroEvent : IRoomEvent
             Delta2 = delta2,
             Frames2 = frames2
         });
-    private void Jump(string actor) => _nayruCommands.Enqueue(new NayruCommand
+    private void Jump(string actor) => _timeline.Enqueue(new NayruCommand
         { Kind = NayruCommandKind.Jump, Actor = actor, Frames = 1 });
-    private void PortalFlight(string actor) => _nayruCommands.Enqueue(new NayruCommand
+    private void PortalFlight(string actor) => _timeline.Enqueue(new NayruCommand
         { Kind = NayruCommandKind.PortalFlight, Actor = actor, Frames = 1 });
-    private void RoomPalette(int frames) => _nayruCommands.Enqueue(new NayruCommand
+    private void RoomPalette(int frames) => _timeline.Enqueue(new NayruCommand
         { Kind = NayruCommandKind.RoomPalette, Frames = frames });
     private void Animation(string actor, int animation) =>
-        _nayruCommands.Enqueue(new NayruCommand
+        _timeline.Enqueue(new NayruCommand
             { Kind = NayruCommandKind.Animation, Actor = actor, Value = animation });
-    private void Callback(Action callback) => _nayruCommands.Enqueue(new NayruCommand
+    private void Callback(Action callback) => _timeline.Enqueue(new NayruCommand
         { Kind = NayruCommandKind.Callback, Callback = callback });
     private void Fade(int frames, bool fadeIn) =>
         FadeTo(frames, fadeIn ? 0.0f : 1.0f, Colors.White);
     private void FadeTo(int frames, float targetAlpha, Color color) =>
-        _nayruCommands.Enqueue(new NayruCommand
+        _timeline.Enqueue(new NayruCommand
         {
             Kind = NayruCommandKind.Fade,
             Frames = frames,
             TargetAlpha = targetAlpha,
             FadeColor = color
         });
-    private void Flicker(string actor, int frames) => _nayruCommands.Enqueue(new NayruCommand
+    private void Flicker(string actor, int frames) => _timeline.Enqueue(new NayruCommand
         { Kind = NayruCommandKind.Flicker, Actor = actor, Frames = frames });
     private void PaletteFlicker(string actor, int frames) =>
-        _nayruCommands.Enqueue(new NayruCommand
+        _timeline.Enqueue(new NayruCommand
             { Kind = NayruCommandKind.PaletteFlicker, Actor = actor, Frames = frames });
 
     private static int AnimationForDelta(Vector2 delta)

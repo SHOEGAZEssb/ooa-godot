@@ -6,27 +6,12 @@ namespace oracleofages;
 /// <summary>Runs the one-shot Maku Tree disappearance in room $0:$38.</summary>
 internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
 {
-    private enum Stage
-    {
-        None,
-        IntroDelay,
-        IntroText,
-        PostIntro,
-        Frown,
-        Disappearance,
-        AhhText,
-        PostAhh,
-        HelpText,
-        FinishDelay
-    }
-
     private readonly RoomEventContext _context;
     private readonly MakuTreeCutsceneDatabase _database = new();
     private readonly MakuTreeCutsceneDatabase.MakuTreeCutsceneRecord _record;
-    private Stage _stage;
+    private readonly RoomEventTimeline _timeline = new();
     private OracleRoomData? _eventRoom;
     private NpcCharacter? _makuTree;
-    private int _counter;
     private int _inputFrame;
     private int _paletteHeader;
     private bool _paletteCycling;
@@ -37,7 +22,7 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
         _record = _database.Record;
     }
 
-    public bool HasState => _stage != Stage.None;
+    public bool HasState => _timeline.Active;
     public bool BlocksGameplay => HasState;
     internal int InputFrame => _inputFrame;
     internal int PaletteHeader => _paletteHeader;
@@ -49,6 +34,7 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
 
     public void Start(OracleRoomData room)
     {
+        _timeline.Clear();
         _makuTree = _context.RequireNpc(
             _record.Group,
             _record.Room,
@@ -63,14 +49,13 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
         }
 
         _eventRoom = room;
-        _stage = Stage.IntroDelay;
-        _counter = _record.IntroDelayFrames;
         _inputFrame = 0;
         _paletteHeader = 0;
         _paletteCycling = false;
         _makuTree.AppendScriptGraphics(_record.ExtraSprite);
         _makuTree.SetScriptAnimation(_record.Animation0);
         _context.Player.BeginCutsceneControl();
+        BuildTimeline();
     }
 
     public void UpdateFrame()
@@ -84,51 +69,7 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
             _context.RoomView.QueueRedraw();
         }
 
-        switch (_stage)
-        {
-            case Stage.IntroDelay:
-                if (CountDown())
-                    ShowText(_record.IntroText, Stage.IntroText);
-                break;
-            case Stage.IntroText:
-                if (!_context.DialogueOpen)
-                    BeginWait(Stage.PostIntro, _record.PostIntroFrames);
-                break;
-            case Stage.PostIntro:
-                if (CountDown())
-                {
-                    _makuTree!.SetScriptAnimation(_record.Animation4);
-                    BeginWait(Stage.Frown, _record.FrownFrames);
-                }
-                break;
-            case Stage.Frown:
-                if (CountDown())
-                {
-                    _paletteCycling = true;
-                    BeginWait(Stage.Disappearance, _record.DisappearanceFrames);
-                }
-                break;
-            case Stage.Disappearance:
-                if (CountDown())
-                    ShowText(_record.AhhText, Stage.AhhText);
-                break;
-            case Stage.AhhText:
-                if (!_context.DialogueOpen)
-                    BeginWait(Stage.PostAhh, _record.PostAhhFrames);
-                break;
-            case Stage.PostAhh:
-                if (CountDown())
-                    ShowText(_record.HelpText, Stage.HelpText);
-                break;
-            case Stage.HelpText:
-                if (!_context.DialogueOpen)
-                    BeginWait(Stage.FinishDelay, _record.FinishDelayFrames);
-                break;
-            case Stage.FinishDelay:
-                if (CountDown())
-                    Finish();
-                break;
-        }
+        _timeline.AdvanceFrame();
     }
 
     public void Cancel()
@@ -136,9 +77,36 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
         _eventRoom?.ClearTemporaryBackgroundPalette(_context.AnimationTick());
         _eventRoom = null;
         _makuTree = null;
-        _stage = Stage.None;
+        _timeline.Clear();
         _paletteCycling = false;
     }
+
+    private void BuildTimeline()
+    {
+        _timeline.Clear();
+        _timeline.Wait(
+            _record.IntroDelayFrames,
+            elapsed: () => ShowDialogue(_record.IntroText));
+        _timeline.WaitUntil(() => !_context.DialogueOpen);
+        _timeline.Wait(
+            _record.PostIntroFrames,
+            elapsed: () => _makuTree!.SetScriptAnimation(_record.Animation4));
+        _timeline.Wait(
+            _record.FrownFrames,
+            elapsed: () => _paletteCycling = true);
+        _timeline.Wait(
+            _record.DisappearanceFrames,
+            elapsed: () => ShowDialogue(_record.AhhText));
+        _timeline.WaitUntil(() => !_context.DialogueOpen);
+        _timeline.Wait(
+            _record.PostAhhFrames,
+            elapsed: () => ShowDialogue(_record.HelpText));
+        _timeline.WaitUntil(() => !_context.DialogueOpen);
+        _timeline.Wait(_record.FinishDelayFrames, elapsed: Finish);
+    }
+
+    private void ShowDialogue(string text) =>
+        _context.ShowDialogue(text, _record.TextboxPosition);
 
     private void AdvanceSimulatedInput()
     {
@@ -155,28 +123,9 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
         _inputFrame++;
     }
 
-    private bool CountDown()
-    {
-        if (_counter > 0)
-            _counter--;
-        return _counter == 0;
-    }
-
-    private void BeginWait(Stage stage, int frames)
-    {
-        _stage = stage;
-        _counter = frames;
-    }
-
-    private void ShowText(string text, Stage stage)
-    {
-        _stage = stage;
-        _context.ShowDialogue(text, _record.TextboxPosition);
-    }
-
     private void Finish()
     {
-        _stage = Stage.None;
+        _timeline.Clear();
         _paletteCycling = false;
         _eventRoom!.ClearTemporaryBackgroundPalette(_context.AnimationTick());
         _context.RoomView.QueueRedraw();

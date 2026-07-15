@@ -7,10 +7,17 @@ namespace oracleofages;
 
 public partial class GameRoot
 {
+    private sealed class ValidationTimelineStep(int durationFrames) : IRoomEventTimelineStep
+    {
+        public int DurationFrames { get; } = durationFrames;
+        public int Counter { get; set; }
+    }
+
     private void ValidateAll()
     {
         _world.ValidateRepresentativeRooms();
         ValidateOracleObjectMath();
+        ValidateRoomEventTimeline();
         ValidateSaveDataFoundation();
         ValidateExplicitSavePersistence();
         ValidateMainMenu();
@@ -97,6 +104,74 @@ public partial class GameRoot
         }
         GD.Print("Validated shared 8.8 object-pixel flooring and Z integration, 32-step " +
             "angles, strict/masked cardinal decoding, and original screen boundaries.");
+    }
+
+    private static void ValidateRoomEventTimeline()
+    {
+        var timeline = new RoomEventTimeline<ValidationTimelineStep>();
+        timeline.Enqueue(new ValidationTimelineStep(2));
+        timeline.Enqueue(new ValidationTimelineStep(0));
+        var observedCounters = new List<int>();
+        bool Update(ValidationTimelineStep step)
+        {
+            observedCounters.Add(step.Counter);
+            return --step.Counter == 0;
+        }
+
+        if (!timeline.AdvanceFrame(Update) ||
+            !timeline.AdvanceFrame(Update) ||
+            !timeline.AdvanceFrame(Update) ||
+            timeline.AdvanceFrame(Update) ||
+            !observedCounters.SequenceEqual(new[] { 2, 1, 1 }))
+        {
+            throw new InvalidOperationException(
+                "Room-event timeline duration clamping or one-step update cadence regressed.");
+        }
+
+        timeline.Enqueue(new ValidationTimelineStep(3));
+        timeline.AdvanceFrame(Update);
+        timeline.Clear();
+        if (timeline.AdvanceFrame(Update))
+            throw new InvalidOperationException("Room-event timeline clear retained active work.");
+
+        var sequence = new RoomEventTimeline();
+        var observedSequence = new List<string>();
+        bool gateOpen = false;
+        sequence.Wait(
+            2,
+            counterChanged: remaining => observedSequence.Add($"wait:{remaining}"),
+            elapsed: () => observedSequence.Add("elapsed"));
+        sequence.WaitUntil(
+            () => gateOpen,
+            completed: () => observedSequence.Add("gate"));
+        sequence.Yield();
+        sequence.Do(() => observedSequence.Add("action"));
+
+        if (!sequence.Active ||
+            !sequence.AdvanceFrame() ||
+            !sequence.AdvanceFrame() ||
+            !sequence.AdvanceFrame())
+        {
+            throw new InvalidOperationException(
+                "Finite room-event sequence did not retain queued or gated work.");
+        }
+
+        gateOpen = true;
+        if (!sequence.AdvanceFrame() ||
+            !sequence.AdvanceFrame() ||
+            !sequence.Active ||
+            !sequence.AdvanceFrame() ||
+            sequence.Active ||
+            sequence.AdvanceFrame() ||
+            !observedSequence.SequenceEqual(
+                new[] { "wait:1", "wait:0", "elapsed", "gate", "action" }))
+        {
+            throw new InvalidOperationException(
+                "Finite room-event wait, gate, action, or command cadence regressed.");
+        }
+
+        GD.Print("Validated shared room-event timeline duration clamping, command boundaries, " +
+            "finite wait/gate/action sequences, and lifecycle clearing.");
     }
 
     private void ValidateSoundEngine()
@@ -339,6 +414,7 @@ public partial class GameRoot
         for (int frame = 0; frame < intro.TotalVoiceWaitFrames - 1; frame++)
             intro.Update(1.0 / 60.0);
         if (intro.CurrentStage != NewGameIntroController.Stage.WaitingForVoice ||
+            intro.StageFrame != intro.TotalVoiceWaitFrames - 1 ||
             screen.Dialogue.IsOpen)
         {
             throw new InvalidOperationException(
@@ -346,6 +422,7 @@ public partial class GameRoot
         }
         intro.Update(1.0 / 60.0);
         if (intro.CurrentStage != NewGameIntroController.Stage.Dialogue ||
+            intro.StageFrame != 0 ||
             !screen.Dialogue.IsOpen ||
             screen.Dialogue.CurrentMessage != "Accept our\nquest, hero!" ||
             screen.Dialogue.Position.Y != 80)
@@ -356,15 +433,31 @@ public partial class GameRoot
 
         screen.Dialogue.Close();
         intro.Update(1.0 / 60.0);
+        if (intro.CurrentStage != NewGameIntroController.Stage.Vanishing ||
+            intro.StageFrame != 0)
+        {
+            throw new InvalidOperationException(
+                "Closing TX_1213 did not enter the vanish timeline at frame zero.");
+        }
         for (int frame = 0; frame < intro.TotalVanishFrames - 1; frame++)
             intro.Update(1.0 / 60.0);
-        if (intro.CurrentStage != NewGameIntroController.Stage.Vanishing)
+        if (intro.CurrentStage != NewGameIntroController.Stage.Vanishing ||
+            intro.StageFrame != intro.TotalVanishFrames - 1)
+        {
             throw new InvalidOperationException("Link's original vanish animation ended early.");
+        }
         intro.Update(1.0 / 60.0);
+        if (intro.CurrentStage != NewGameIntroController.Stage.PostVanish ||
+            intro.StageFrame != 0)
+        {
+            throw new InvalidOperationException(
+                "Link's vanish did not enter the post-vanish timeline at frame zero.");
+        }
         for (int frame = 0; frame < record.PostVanishWaitFrames; frame++)
             intro.Update(1.0 / 60.0);
         if (completionRequests != 1 ||
-            intro.CurrentStage != NewGameIntroController.Stage.Complete)
+            intro.CurrentStage != NewGameIntroController.Stage.Complete ||
+            intro.StageFrame != record.PostVanishWaitFrames)
         {
             throw new InvalidOperationException(
                 "The new-game intro did not hand off to the summon transition exactly once.");
@@ -3919,7 +4012,7 @@ public partial class GameRoot
         _transitions.BeginScroll(_player, Vector2I.Right, 0x39);
         NpcCharacter? gatheringFollower = impaEvent.Actor;
         if (gatheringFollower is null || !impaEvent.Following ||
-            nayruIntro.Actors.Count != 7 || _roomEvents.Active)
+            nayruIntro.ActorRegistry.Count != 7 || _roomEvents.Active)
         {
             throw new InvalidOperationException(
                 "Room 0:39 did not create the seven intro gathering actors while Impa was following Link.");
@@ -3927,7 +4020,7 @@ public partial class GameRoot
         FinishActiveScrollingTransitionForValidation();
         StepRoomEventFrames(1);
         if (gatheringFollower.Position != _player.Position + Vector2.Left * 16 ||
-            nayruIntro.Actors.Values.Any(actor => !actor.Active))
+            nayruIntro.ActorRegistry.Values.Any(actor => !actor.Active))
         {
             throw new InvalidOperationException(
                 "The complete Nayru gathering or following Impa did not survive the incoming room scroll.");
@@ -3938,7 +4031,7 @@ public partial class GameRoot
             .Where(actor => actor.Name.ToString().StartsWith(
                 "NayruIntro_", StringComparison.Ordinal))
             .ToList();
-        if (nayruIntro.Actors.Count != 0 || !impaEvent.Following ||
+        if (nayruIntro.ActorRegistry.Count != 0 || !impaEvent.Following ||
             outgoingGathering.Count != 7 || outgoingGathering.Any(actor => !actor.Active))
         {
             throw new InvalidOperationException(
@@ -3952,8 +4045,8 @@ public partial class GameRoot
         _transitions.BeginScroll(_player, Vector2I.Left, 0x39);
         NpcCharacter? returningGatheringFollower = impaEvent.Actor;
         if (returningGatheringFollower is null || !impaEvent.Following ||
-            nayruIntro.Actors.Count != 7 ||
-            nayruIntro.Actors.Values.Any(actor => !actor.Active))
+            nayruIntro.ActorRegistry.Count != 7 ||
+            nayruIntro.ActorRegistry.Values.Any(actor => !actor.Active))
         {
             throw new InvalidOperationException(
                 "Re-entering pre-intro room 0:39 did not recreate all seven gathering actors.");
@@ -4160,7 +4253,7 @@ public partial class GameRoot
         _saveData.SetRoomFlag(group, roomId, OracleSaveData.RoomFlag80, value: false);
         LoadValidationRoom(group, roomId);
 
-        IReadOnlyDictionary<string, NpcCharacter> actors = nayruIntro.Actors;
+        NayruActorRegistry actors = nayruIntro.ActorRegistry;
         (string Name, Vector2 Position)[] expectedActors =
         {
             ("Nayru", new Vector2(0x78, 0x18)),
@@ -4219,7 +4312,10 @@ public partial class GameRoot
         {
             NayruIntroEventDatabase.ActorRecord record = nayruDatabase.Actor(name);
             if (!actors.TryGetValue(name, out NpcCharacter? actor) || !actor.Active ||
+                actors.NameOf(actor) != name ||
                 actor.Position != position || actor.CurrentAnimationOpaquePixels == 0 ||
+                actors.AnimationSource(name, record.InitialAnimation) !=
+                    record.Animation(record.InitialAnimation) ||
                 actor.CurrentScriptAnimationSource != record.Animation(record.InitialAnimation))
             {
                 throw new InvalidOperationException(
@@ -4442,7 +4538,7 @@ public partial class GameRoot
         while (!_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone) &&
             scriptFrames < 20000)
         {
-            IReadOnlyDictionary<string, NpcCharacter> currentActors = nayruIntro.Actors;
+            NayruActorRegistry currentActors = nayruIntro.ActorRegistry;
             if (nayruIntro.VisitedVignettes != 0 && _roomEvents.Active)
             {
                 sawHudDuringVignetteSequence |= _hud.Visible;
@@ -4553,7 +4649,7 @@ public partial class GameRoot
                 observedVignettes |= newVignettes;
             }
 
-            if (nayruIntro.Actors.TryGetValue(
+            if (nayruIntro.ActorRegistry.TryGetValue(
                     "AftermathRalph", out NpcCharacter? aftermathRalph) &&
                 aftermathRalph.Active &&
                 aftermathRalph.CurrentScriptAnimationSource == ralphFallAnimation)
@@ -4571,7 +4667,7 @@ public partial class GameRoot
         if (!_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone) ||
             !_saveData.HasRoomFlag(group, roomId, OracleSaveData.RoomFlag40) ||
             _currentRoom.GetMetatile(portalPoint) != 0xd7 ||
-            nayruIntro.CurrentStage != 0 || nayruIntro.Actors.Count != 0 ||
+            nayruIntro.CurrentStage != 0 || nayruIntro.ActorRegistry.Count != 0 ||
             _roomEvents.Active || _player.CutsceneControlled || !_hud.Visible ||
             _rooms.ActiveGroup != group || _rooms.CurrentRoom.Id != roomId ||
             observedVignettes != 0x07 || nayruIntro.LightningSpawnCount != 6 ||
