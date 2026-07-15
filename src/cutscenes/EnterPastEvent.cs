@@ -32,6 +32,7 @@ internal sealed class EnterPastEvent : IRoomEvent
     private readonly RoomEventContext _context;
     private readonly EnterPastEventDatabase.EnterPastEventRecord _record =
         new EnterPastEventDatabase().Record;
+    private readonly RoomEventTimeline _timeline = new();
     private NpcCharacter? _villager;
     private Vector2 _precisePosition;
     private EventStage _stage;
@@ -55,7 +56,7 @@ internal sealed class EnterPastEvent : IRoomEvent
         }
     }
 
-    public bool HasState => _stage != EventStage.Inactive;
+    public bool HasState => _timeline.Active;
     public bool BlocksGameplay => HasState;
     internal bool Completed =>
         _context.Rooms.SaveData.HasGlobalFlag(_record.GlobalFlag);
@@ -87,137 +88,16 @@ internal sealed class EnterPastEvent : IRoomEvent
 
         _precisePosition = _villager.Position;
         _stage = EventStage.Begin;
+        BuildTimeline();
     }
 
     public void UpdateFrame()
     {
-        if (_villager is null || _stage == EventStage.Inactive)
+        if (_villager is null || !_timeline.Active)
             return;
 
-        bool deleted = false;
-        switch (_stage)
-        {
-            case EventStage.Begin:
-                // State 0 runs jumpifglobalflagset and
-                // setdisabledobjectsto11 in the interaction's first update.
-                _context.Player.BeginCutsceneControl();
-                _villager.SetAnimationRate(0.0f);
-                _stage = EventStage.InstallIntroWait;
-                break;
-
-            case EventStage.InstallIntroWait:
-                _counter = _record.IntroWaitFrames;
-                _stage = EventStage.IntroWait;
-                break;
-
-            case EventStage.IntroWait:
-                if (CountDown())
-                {
-                    // disableinput continues directly into wait 40 on the
-                    // update where the original counter1 reaches zero.
-                    _context.Player.BeginCutsceneControl();
-                    _counter = _record.PreJumpWaitFrames;
-                    _stage = EventStage.PreJumpWait;
-                }
-                break;
-
-            case EventStage.PreJumpWait:
-                if (CountDown())
-                    _stage = EventStage.BeginJump;
-                break;
-
-            case EventStage.BeginJump:
-                _zFixed = 0;
-                _speedZ = _record.JumpSpeedZ;
-                _context.Sound.PlaySound(_record.JumpSound);
-                AdvanceJump();
-                break;
-
-            case EventStage.Jump:
-                AdvanceJump();
-                break;
-
-            case EventStage.InstallPostJumpWait:
-                _counter = _record.PostJumpWaitFrames;
-                _stage = EventStage.PostJumpWait;
-                break;
-
-            case EventStage.PostJumpWait:
-                if (CountDown())
-                {
-                    _context.ShowDialogue(_record.Text);
-                    _stage = EventStage.Dialogue;
-                }
-                break;
-
-            case EventStage.Dialogue:
-                if (!_context.DialogueOpen)
-                {
-                    // The script resumes and installs wait 30 on the first
-                    // interaction update after the textbox closes.
-                    _counter = _record.PostTextWaitFrames;
-                    _stage = EventStage.PostTextWait;
-                }
-                break;
-
-            case EventStage.PostTextWait:
-                if (CountDown())
-                {
-                    _speed = _record.FastSpeed;
-                    _stage = EventStage.StartFirstDown;
-                }
-                break;
-
-            case EventStage.StartFirstDown:
-                StartMove(Vector2I.Down, _record.FirstDownCounter, EventStage.FirstDown);
-                break;
-
-            case EventStage.FirstDown:
-                AdvanceMove(Vector2I.Down, () =>
-                    StartMove(Vector2I.Right, _record.RightCounter, EventStage.Right));
-                break;
-
-            case EventStage.Right:
-                AdvanceMove(Vector2I.Right, () =>
-                    StartMove(Vector2I.Down, _record.SecondDownCounter, EventStage.SecondDown));
-                break;
-
-            case EventStage.SecondDown:
-                AdvanceMove(Vector2I.Down, () =>
-                {
-                    _speed = _record.SlowSpeed;
-                    _stage = EventStage.StartSlowDown;
-                });
-                break;
-
-            case EventStage.StartSlowDown:
-                _counter = _record.SlowDownCounter;
-                _stage = EventStage.SlowDown;
-                break;
-
-            case EventStage.SlowDown:
-                AdvanceMove(Vector2I.Down, () =>
-                {
-                    _speed = _record.FastSpeed;
-                    _stage = EventStage.StartFinalDown;
-                });
-                break;
-
-            case EventStage.StartFinalDown:
-                _counter = _record.FinalDownCounter;
-                _stage = EventStage.FinalDown;
-                break;
-
-            case EventStage.FinalDown:
-                AdvanceMove(Vector2I.Down, () =>
-                {
-                    Finish();
-                    deleted = true;
-                });
-                break;
-        }
-
-        if (deleted || _villager is null)
+        _timeline.AdvanceFrame();
+        if (!_timeline.Active)
             return;
 
         // @runSubid0d calls interactionAnimateBasedOnSpeed after its script.
@@ -242,8 +122,118 @@ internal sealed class EnterPastEvent : IRoomEvent
         ResetState();
     }
 
-    private void AdvanceJump()
+    private void BuildTimeline()
     {
+        _timeline.Clear();
+        _timeline.Do(() =>
+        {
+            // State 0 runs jumpifglobalflagset and
+            // setdisabledobjectsto11 in the interaction's first update.
+            _context.Player.BeginCutsceneControl();
+            _villager!.SetAnimationRate(0.0f);
+            _stage = EventStage.InstallIntroWait;
+        });
+        _timeline.Do(() =>
+        {
+            _counter = _record.IntroWaitFrames;
+            _stage = EventStage.IntroWait;
+        });
+        _timeline.Wait(
+            _record.IntroWaitFrames,
+            counterChanged: remaining => _counter = remaining,
+            elapsed: () =>
+            {
+                // disableinput continues directly into wait 40 on the
+                // update where the original counter1 reaches zero.
+                _context.Player.BeginCutsceneControl();
+                _counter = _record.PreJumpWaitFrames;
+                _stage = EventStage.PreJumpWait;
+            });
+        _timeline.Wait(
+            _record.PreJumpWaitFrames,
+            counterChanged: remaining => _counter = remaining,
+            elapsed: () => _stage = EventStage.BeginJump);
+        _timeline.WaitUntil(AdvanceJump);
+        _timeline.Do(() =>
+        {
+            _counter = _record.PostJumpWaitFrames;
+            _stage = EventStage.PostJumpWait;
+        });
+        _timeline.Wait(
+            _record.PostJumpWaitFrames,
+            counterChanged: remaining => _counter = remaining,
+            elapsed: () =>
+            {
+                _context.ShowDialogue(_record.Text);
+                _stage = EventStage.Dialogue;
+            });
+        _timeline.WaitUntil(
+            () => !_context.DialogueOpen,
+            completed: () =>
+            {
+                // The script resumes and installs wait 30 on the first
+                // interaction update after the textbox closes.
+                _counter = _record.PostTextWaitFrames;
+                _stage = EventStage.PostTextWait;
+            });
+        _timeline.Wait(
+            _record.PostTextWaitFrames,
+            counterChanged: remaining => _counter = remaining,
+            elapsed: () =>
+            {
+                _speed = _record.FastSpeed;
+                _stage = EventStage.StartFirstDown;
+            });
+        _timeline.Do(() =>
+        {
+            StartMove(Vector2I.Down, _record.FirstDownCounter, EventStage.FirstDown);
+        });
+        EnqueueMove(
+            Vector2I.Down,
+            _record.FirstDownCounter,
+            () => StartMove(Vector2I.Right, _record.RightCounter, EventStage.Right));
+        EnqueueMove(
+            Vector2I.Right,
+            _record.RightCounter,
+            () => StartMove(Vector2I.Down, _record.SecondDownCounter, EventStage.SecondDown));
+        EnqueueMove(
+            Vector2I.Down,
+            _record.SecondDownCounter,
+            () =>
+            {
+                _speed = _record.SlowSpeed;
+                _stage = EventStage.StartSlowDown;
+            });
+        _timeline.Do(() =>
+        {
+            _counter = _record.SlowDownCounter;
+            _stage = EventStage.SlowDown;
+        });
+        EnqueueMove(
+            Vector2I.Down,
+            _record.SlowDownCounter,
+            () =>
+            {
+                _speed = _record.FastSpeed;
+                _stage = EventStage.StartFinalDown;
+            });
+        _timeline.Do(() =>
+        {
+            _counter = _record.FinalDownCounter;
+            _stage = EventStage.FinalDown;
+        });
+        EnqueueMove(Vector2I.Down, _record.FinalDownCounter, Finish);
+    }
+
+    private bool AdvanceJump()
+    {
+        if (_stage == EventStage.BeginJump)
+        {
+            _zFixed = 0;
+            _speedZ = _record.JumpSpeedZ;
+            _context.Sound.PlaySound(_record.JumpSound);
+        }
+
         bool landed = OracleObjectMath.UpdateSpeedZ(
             ref _zFixed, ref _speedZ, _record.JumpGravity);
         _villager!.SetScriptDrawOffset(new Vector2(0, _zFixed >> 8));
@@ -256,6 +246,7 @@ internal sealed class EnterPastEvent : IRoomEvent
         {
             _stage = EventStage.Jump;
         }
+        return landed;
     }
 
     private void StartMove(Vector2I direction, int counter, EventStage stage)
@@ -267,24 +258,20 @@ internal sealed class EnterPastEvent : IRoomEvent
             : _record.DownAnimation);
     }
 
-    private void AdvanceMove(Vector2I direction, Action completed)
+    private void EnqueueMove(Vector2I direction, int counter, Action completed)
     {
-        _counter--;
-        if (_counter == 0)
-        {
-            completed();
-            return;
-        }
-
-        float pixels = SpeedPixelsPerUpdate(_speed);
-        _precisePosition += (Vector2)direction * pixels;
-        _villager!.Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-    }
-
-    private bool CountDown()
-    {
-        _counter--;
-        return _counter == 0;
+        _timeline.Wait(
+            counter,
+            counterChanged: remaining =>
+            {
+                _counter = remaining;
+                if (remaining == 0)
+                    return;
+                float pixels = SpeedPixelsPerUpdate(_speed);
+                _precisePosition += (Vector2)direction * pixels;
+                _villager!.Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+            },
+            elapsed: completed);
     }
 
     private void Finish()
@@ -301,6 +288,7 @@ internal sealed class EnterPastEvent : IRoomEvent
 
     private void ResetState()
     {
+        _timeline.Clear();
         _stage = EventStage.Inactive;
         _counter = 0;
         _zFixed = 0;
