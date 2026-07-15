@@ -29,10 +29,22 @@ public sealed class OracleSaveData
     public const int GlobalFlagMakuTreeDisappeared = 0x0c;
     public const int GlobalFlagSavedNayru = 0x11;
     public const int GlobalFlagMakuTreeSaved = 0x12;
+    public const int GlobalFlagSawTwinrovaBeforeEndgame = 0x13;
     public const int GlobalFlagFinishedGame = 0x14;
+    public const int GlobalFlagSymmetryBridgeBuilt = 0x25;
     public const int GlobalFlagForestUnscrambled = 0x2b;
+    public const int GlobalFlagPreBlackTowerCutsceneDone = 0x33;
+    public const int GlobalFlagGotRingFromZelda = 0x38;
+    public const int GlobalFlagFlameOfDespairLit = 0x3a;
     public const int GlobalFlagReturnedDog = 0x3b;
     public const int GlobalFlagRalphEnteredPortal = 0x40;
+
+    public const int ChildNameAddress = 0xc609;
+    public const int ChildStatusAddress = 0xc60f;
+    public const int ChildStageAddress = 0xc6e0;
+    public const int NextChildStageAddress = 0xc6e1;
+    public const int ChildFlagsAddress = 0xc6e2;
+    public const int ChildPersonalityAddress = 0xc6e4;
 
     private const int WramBase = 0xc5b0;
     private const int ChecksumOffset = 0x000;
@@ -52,17 +64,11 @@ public sealed class OracleSaveData
     public int MinimapGroup => ReadWramByte(0xc63a);
     public int MinimapRoom => ReadWramByte(0xc63b);
     public int MakuTreeState => ReadWramByte(0xc6e8);
+    public string ChildName => ReadName(ChildNameAddress, 6);
+    public bool ChildNamed => (ReadWramByte(ChildFlagsAddress) & 0x01) != 0;
     public string LinkName
     {
-        get
-        {
-            Span<byte> name = stackalloc byte[5];
-            ReadWramBytes(0xc602, name);
-            int length = name.IndexOf((byte)0);
-            if (length < 0)
-                length = name.Length;
-            return Encoding.ASCII.GetString(name[..length]).TrimEnd(' ');
-        }
+        get => ReadName(0xc602, 5);
     }
     public int MaxHealthQuarters => ReadWramByte(0xc6ab);
     public int DeathCount => ReadWramByte(0xc61f) * 100 +
@@ -123,6 +129,14 @@ public sealed class OracleSaveData
         return (_data[GlobalFlagsOffset + flag / 8] & (1 << (flag & 7))) != 0;
     }
 
+    public bool HasTreasure(int treasure)
+    {
+        if (treasure is < 0 or >= 0x80)
+            throw new ArgumentOutOfRangeException(nameof(treasure));
+        return (ReadWramByte(0xc69a + treasure / 8) &
+            (1 << (treasure & 7))) != 0;
+    }
+
     public void SetGlobalFlag(int flag, bool value = true)
     {
         ValidateGlobalFlag(flag);
@@ -163,25 +177,27 @@ public sealed class OracleSaveData
 
     public void SetLinkName(string name)
     {
-        ArgumentNullException.ThrowIfNull(name);
-        string normalized = name.TrimEnd(' ');
-        if (normalized.Length is < 1 or > 5)
-            throw new ArgumentOutOfRangeException(nameof(name),
-                "Original file names contain one to five characters.");
-
         Span<byte> encoded = stackalloc byte[6];
-        for (int index = 0; index < normalized.Length; index++)
-        {
-            char character = normalized[index];
-            if (character != ' ' &&
-                (character < 'A' || character > 'Z') &&
-                (character < 'a' || character > 'z'))
-                throw new ArgumentException(
-                    "File names support the original US uppercase and lowercase letters.",
-                    nameof(name));
-            encoded[index] = (byte)character;
-        }
+        EncodeName(name, encoded, nameof(name));
         if (WriteWramBytes(0xc602, encoded))
+            Changed?.Invoke();
+    }
+
+    public void NameChild(string name)
+    {
+        Span<byte> encoded = stackalloc byte[6];
+        string normalized = EncodeName(name, encoded, nameof(name));
+        bool changed = WriteWramBytes(ChildNameAddress, encoded);
+
+        int lowNibbleSum = 0;
+        for (int index = 0; index < normalized.Length; index++)
+            lowNibbleSum += encoded[index] & 0x0f;
+        changed |= WriteWramByte(
+            ChildStatusAddress, (byte)(lowNibbleSum % 3 + 1));
+        changed |= WriteWramByte(
+            ChildFlagsAddress, (byte)(ReadWramByte(ChildFlagsAddress) | 0x01));
+        changed |= WriteWramByte(NextChildStageAddress, 0x01);
+        if (changed)
             Changed?.Invoke();
     }
 
@@ -287,6 +303,42 @@ public sealed class OracleSaveData
     }
 
     private static int FromBcd(byte value) => (value >> 4) * 10 + (value & 0x0f);
+
+    private string ReadName(int address, int byteCount)
+    {
+        Span<byte> name = stackalloc byte[byteCount];
+        ReadWramBytes(address, name);
+        int length = name.IndexOf((byte)0);
+        if (length < 0)
+            length = name.Length;
+        return Encoding.ASCII.GetString(name[..length]).TrimEnd(' ');
+    }
+
+    private static string EncodeName(
+        string name,
+        Span<byte> destination,
+        string parameterName)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        string normalized = name.TrimEnd(' ');
+        if (normalized.Length is < 1 or > 5)
+            throw new ArgumentOutOfRangeException(parameterName,
+                "Original names contain one to five characters.");
+
+        destination.Clear();
+        for (int index = 0; index < normalized.Length; index++)
+        {
+            char character = normalized[index];
+            if (character != ' ' &&
+                (character < 'A' || character > 'Z') &&
+                (character < 'a' || character > 'z'))
+                throw new ArgumentException(
+                    "Names support the original US uppercase and lowercase letters.",
+                    parameterName);
+            destination[index] = (byte)character;
+        }
+        return normalized;
+    }
 
     private static int GetRoomFlagTableOffset(int group) => group switch
     {

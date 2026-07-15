@@ -253,6 +253,13 @@ public partial class GameRoot : Node2D
         _mapMenu.Update(delta);
         if (_mapMenu.IsActive)
             return;
+        // MENU_KIDNAME is a gameplay-owned file-menu screen in the original.
+        // Keep servicing its controller while freezing the room beneath it.
+        if (_interactions.GameplayMenuActive)
+        {
+            _interactions.Update(delta, _player);
+            return;
+        }
         _transitions.Update(delta);
         _deathRespawnPoints.Update();
         _entities.Update(delta, _player);
@@ -346,7 +353,7 @@ public partial class GameRoot : Node2D
         _interactions = new InteractionController(
             _rooms, _entities, new SignDatabase(), new ChestDatabase(), _treasures, _dialogue,
             this, _roomView, _transitions.WorldToScreen, () => (long)_animationTicks,
-            _inventory);
+            _inventory, _scene.InterfaceLayer, _sound.PlaySound);
         _roomEvents = new RoomEventController(
             _rooms, _entities, _transitions, _dialogue, _player, _roomView,
             _transitions.WorldToScreen, () => (long)_animationTicks,

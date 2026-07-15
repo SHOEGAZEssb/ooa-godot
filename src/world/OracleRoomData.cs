@@ -341,6 +341,35 @@ public sealed class OracleRoomData
         ((ImageTexture)Texture).Update(RenderRoom(activeHeaders));
     }
 
+    internal void ApplyRoomInitializationChanges(
+        IReadOnlyDictionary<int, byte> changes,
+        long animationTick)
+    {
+        bool redraw = false;
+        for (int index = 0; index < Layout.Length; index++)
+            redraw |= Layout[index] != _originalLayout[index];
+        Array.Copy(_originalLayout, Layout, Layout.Length);
+        _positionCollisionOverrides.Clear();
+
+        foreach ((int position, byte tile) in changes)
+        {
+            int x = position & 0x0f;
+            int y = position >> 4;
+            if (x < 0 || x >= WidthInTiles || y < 0 || y >= HeightInTiles)
+                throw new ArgumentOutOfRangeException(nameof(changes));
+            int index = y * _layoutStride + x;
+            redraw |= Layout[index] != tile;
+            Layout[index] = tile;
+        }
+
+        if (!redraw)
+            return;
+        int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
+        _activeAnimationHeaders = activeHeaders;
+        _animationSignature = GetAnimationSignature(activeHeaders);
+        ((ImageTexture)Texture).Update(RenderRoom(activeHeaders));
+    }
+
     private static readonly byte[] SpecialCollisionMasks =
     {
         0x00, 0xc3, 0x03, 0xc0, 0x00, 0xc3, 0xc3, 0x00,

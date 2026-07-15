@@ -24,6 +24,7 @@ public sealed class TreasureDatabase
     public const int TreasureHeartContainer = 0x2a;
     public const int TreasureRingBox = 0x2c;
     public const int TreasureRing = 0x2d;
+    public const int TreasureMakuSeed = 0x36;
     public const int TreasureEssence = 0x40;
     public const int TreasureTradeItem = 0x41;
     public const int TreasureTuniNut = 0x4c;

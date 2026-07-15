@@ -15,7 +15,9 @@ public sealed class RoomEntityManager
     private readonly Node _worldRoot;
     private readonly RoomEntityFactory _factory;
     private readonly OracleSaveData? _saveData;
+    private readonly OracleRuntimeState _runtimeState;
     private readonly NpcVisibilityRuleDatabase _npcVisibility = new();
+    private readonly NpcDialogueRuleDatabase _npcDialogue = new();
     private readonly List<IRoomEntity> _activeEntities = new();
     private readonly List<IRoomEntity> _outgoingEntities = new();
     private readonly List<RoomEntitySpawn> _pendingSpawns = new();
@@ -25,6 +27,7 @@ public sealed class RoomEntityManager
     private int _enemyFrameCounter;
 
     public bool ScreenTransitionActive => _screenTransitionActive;
+    public OracleRuntimeState RuntimeState => _runtimeState;
     internal int FrameCounter => _enemyFrameCounter;
     public bool PlayerSwordDisabled
     {
@@ -44,13 +47,11 @@ public sealed class RoomEntityManager
         Node worldRoot,
         NpcDatabase npcs,
         EnemyDatabase enemies,
-        OracleSaveData? saveData = null)
-        : this(worldRoot, npcs, enemies, new ItemDropDatabase(), new TimePortalDatabase(), new OracleRandom())
-    {
-        _saveData = saveData;
-        if (_saveData is not null)
-            _saveData.Changed += RefreshNpcVisibility;
-    }
+        OracleSaveData? saveData = null,
+        OracleRuntimeState? runtimeState = null)
+        : this(worldRoot, npcs, enemies, new ItemDropDatabase(),
+            new TimePortalDatabase(), new OracleRandom(), saveData, runtimeState)
+    { }
 
     internal RoomEntityManager(
         Node worldRoot,
@@ -59,13 +60,18 @@ public sealed class RoomEntityManager
         ItemDropDatabase itemDrops,
         TimePortalDatabase timePortals,
         OracleRandom random,
-        OracleSaveData? saveData = null)
+        OracleSaveData? saveData = null,
+        OracleRuntimeState? runtimeState = null)
     {
         _worldRoot = worldRoot;
-        _factory = new RoomEntityFactory(npcs, enemies, itemDrops, timePortals, random, OnTimePortalEntered);
         _saveData = saveData;
+        _runtimeState = runtimeState ?? new OracleRuntimeState();
+        _factory = new RoomEntityFactory(
+            npcs, enemies, itemDrops, timePortals, random,
+            _saveData, _runtimeState, OnTimePortalEntered);
         if (_saveData is not null)
-            _saveData.Changed += RefreshNpcVisibility;
+            _saveData.Changed += RefreshNpcState;
+        _runtimeState.Changed += RefreshNpcState;
     }
 
     public List<T> Entities<T>() where T : Node2D => SelectNodes<T>(_activeEntities);
@@ -214,24 +220,29 @@ public sealed class RoomEntityManager
     {
         foreach (IRoomEntity entity in _factory.CreateRoomEntities(group, room))
             AddEntity(entity);
-        RefreshNpcVisibility(_activeEntities);
+        RefreshNpcState(_activeEntities);
         RoomEntitiesLoaded?.Invoke(group, room);
     }
 
-    private void RefreshNpcVisibility()
+    private void RefreshNpcState()
     {
-        RefreshNpcVisibility(_outgoingEntities);
-        RefreshNpcVisibility(_activeEntities);
+        RefreshNpcState(_outgoingEntities);
+        RefreshNpcState(_activeEntities);
     }
 
-    private void RefreshNpcVisibility(IEnumerable<IRoomEntity> entities)
+    private void RefreshNpcState(IEnumerable<IRoomEntity> entities)
     {
         if (_saveData is null)
             return;
         foreach (IRoomEntity entity in entities)
         {
             if (entity is NpcRoomEntity && entity.Node is NpcCharacter npc)
-                npc.SetFlagVisible(_npcVisibility.ShouldShow(npc.Record, _saveData));
+            {
+                npc.SetFlagVisible(_npcVisibility.ShouldShow(
+                    npc.Record, _saveData, _runtimeState));
+                if (_npcDialogue.TryResolve(npc.Record, _saveData, out var dialogue))
+                    npc.SetDialogue(dialogue.TextId, dialogue.Message, npc.Record.CanFace);
+            }
         }
     }
 

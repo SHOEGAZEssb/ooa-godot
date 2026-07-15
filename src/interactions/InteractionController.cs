@@ -6,6 +6,17 @@ namespace oracleofages;
 
 public sealed class InteractionController
 {
+    private enum FamilyNamingState
+    {
+        None,
+        AwaitOpeningClose,
+        NameEntry,
+        AwaitConfirmation,
+        AwaitInvalidClose,
+        ThanksDelay,
+        AwaitThanksClose
+    }
+
     private readonly RoomSession _rooms;
     private readonly RoomEntityManager _entities;
     private readonly SignDatabase _signs;
@@ -17,13 +28,23 @@ public sealed class InteractionController
     private readonly Func<Vector2, Vector2> _worldToScreen;
     private readonly Func<long> _animationTick;
     private readonly InventoryState _inventory;
+    private readonly BipinBlossomFamilyInteractionDatabase _familyInteractions = new();
+    private readonly KidNameEntryController _kidNameEntry;
     private readonly Dictionary<int, ChestDatabase.ChestRecord> _debugChestOverrides = new();
     private ChestTreasureEffect? _chestTreasure;
     private ChestDatabase.ChestRecord _pendingChest;
+    private FamilyNamingState _familyNamingState;
+    private string _pendingChildName = string.Empty;
+    private float _familyLinkScreenY;
+    private double _familyWaitTicks;
 
     public Func<NpcCharacter, bool>? NpcInteractionOverride { get; set; }
 
-    public bool DialogueOpen => _dialogue.BlocksPlayerInput || _chestTreasure is not null;
+    public bool DialogueOpen => _dialogue.BlocksPlayerInput ||
+        _chestTreasure is not null ||
+        _familyNamingState != FamilyNamingState.None ||
+        _kidNameEntry.Active;
+    public bool GameplayMenuActive => _kidNameEntry.Active;
     internal bool ChestRewardActive => _chestTreasure is not null;
 
     public InteractionController(
@@ -37,7 +58,9 @@ public sealed class InteractionController
         RoomView roomView,
         Func<Vector2, Vector2> worldToScreen,
         Func<long> animationTick,
-        InventoryState inventory)
+        InventoryState inventory,
+        Node interfaceLayer,
+        Action<int>? playSound = null)
     {
         _rooms = rooms;
         _entities = entities;
@@ -50,12 +73,16 @@ public sealed class InteractionController
         _worldToScreen = worldToScreen;
         _animationTick = animationTick;
         _inventory = inventory;
+        _kidNameEntry = new KidNameEntryController(interfaceLayer, playSound);
         _rooms.RoomChanged += ApplyOpenedChestState;
         ApplyOpenedChestState(_rooms.ActiveGroup, _rooms.CurrentRoom);
     }
 
     public void Update(double delta, Player player)
     {
+        _kidNameEntry.Update();
+        UpdateFamilyNaming(delta);
+
         if (_chestTreasure is null)
             return;
 
@@ -97,6 +124,8 @@ public sealed class InteractionController
         NpcCharacter? npc = _entities.FindTalkTarget(player);
         if (npc != null)
         {
+            if (TryStartFamilyNaming(npc, player))
+                return true;
             if (NpcInteractionOverride?.Invoke(npc) == true)
                 return true;
             npc.FaceToward(player.Position);
@@ -122,6 +151,115 @@ public sealed class InteractionController
         _dialogue.ShowMessage(message, _worldToScreen(player.Position).Y);
         return true;
     }
+
+    private bool TryStartFamilyNaming(NpcCharacter npc, Player player)
+    {
+        if (npc.Record is not { Id: 0x2b, SubId: 0x00 } ||
+            _rooms.SaveData.ChildNamed ||
+            _familyNamingState != FamilyNamingState.None)
+        {
+            return false;
+        }
+
+        npc.FaceToward(player.Position);
+        _familyLinkScreenY = _worldToScreen(player.Position).Y;
+        _dialogue.ShowMessage(npc.Message, _familyLinkScreenY);
+        _familyNamingState = FamilyNamingState.AwaitOpeningClose;
+        return true;
+    }
+
+    private void UpdateFamilyNaming(double delta)
+    {
+        switch (_familyNamingState)
+        {
+            case FamilyNamingState.None:
+                return;
+
+            case FamilyNamingState.AwaitOpeningClose:
+                if (_dialogue.IsOpen)
+                    return;
+                _kidNameEntry.Open(_rooms.SaveData.ChildName);
+                _familyNamingState = FamilyNamingState.NameEntry;
+                return;
+
+            case FamilyNamingState.NameEntry:
+                if (!_kidNameEntry.TryTakeResult(out string name))
+                    return;
+                if (string.IsNullOrEmpty(name))
+                {
+                    var invalid = _familyInteractions.Text(0x440a, _rooms.SaveData);
+                    _dialogue.ShowMessage(invalid.Message, _familyLinkScreenY);
+                    _familyNamingState = FamilyNamingState.AwaitInvalidClose;
+                    return;
+                }
+                _pendingChildName = name;
+                var confirmation = _familyInteractions.Text(
+                    0x4407, _rooms.SaveData, _pendingChildName);
+                _dialogue.ShowChoiceMessage(confirmation.Message, _familyLinkScreenY);
+                _familyNamingState = FamilyNamingState.AwaitConfirmation;
+                return;
+
+            case FamilyNamingState.AwaitConfirmation:
+                if (!_dialogue.TryTakeChoiceResult(out int choice))
+                    return;
+                if (choice != 0)
+                {
+                    _kidNameEntry.Open(_pendingChildName);
+                    _familyNamingState = FamilyNamingState.NameEntry;
+                    return;
+                }
+                _rooms.SaveData.NameChild(_pendingChildName);
+                RefreshNamedFamilyDialogue();
+                _familyWaitTicks = 0.0;
+                _familyNamingState = FamilyNamingState.ThanksDelay;
+                return;
+
+            case FamilyNamingState.AwaitInvalidClose:
+                if (!_dialogue.IsOpen)
+                    _familyNamingState = FamilyNamingState.None;
+                return;
+
+            case FamilyNamingState.ThanksDelay:
+                _familyWaitTicks += delta * 60.0;
+                if (_familyWaitTicks < 30.0)
+                    return;
+                var thanks = _familyInteractions.Text(0x4408, _rooms.SaveData);
+                _dialogue.ShowMessage(thanks.Message, _familyLinkScreenY);
+                _familyNamingState = FamilyNamingState.AwaitThanksClose;
+                return;
+
+            case FamilyNamingState.AwaitThanksClose:
+                if (!_dialogue.IsOpen)
+                    _familyNamingState = FamilyNamingState.None;
+                return;
+        }
+    }
+
+    private void RefreshNamedFamilyDialogue()
+    {
+        foreach (NpcCharacter npc in _entities.Entities<NpcCharacter>())
+        {
+            int textId = npc.Record switch
+            {
+                { Id: 0x28, SubId: 0x00 } => 0x4301,
+                { Id: 0x2b, SubId: 0x00 } => 0x4409,
+                _ => 0
+            };
+            if (textId == 0)
+                continue;
+            var dialogue = _familyInteractions.Text(textId, _rooms.SaveData);
+            npc.SetDialogue(dialogue.TextId, dialogue.Message, canFace: false);
+        }
+    }
+
+    internal bool FamilyNamingActive =>
+        _familyNamingState != FamilyNamingState.None || _kidNameEntry.Active;
+    internal MainMenuScreen? KidNameScreenForValidation =>
+        _kidNameEntry.ScreenForValidation;
+    internal void CommitKidNameForValidation(string name) =>
+        _kidNameEntry.CommitForValidation(name);
+    internal void UpdateFamilyNamingForValidation(double delta) =>
+        UpdateFamilyNaming(delta);
 
     public void ResetChestForTesting(int group, int roomId, int position) =>
         ResetChestForTesting(group, roomId, position, null);

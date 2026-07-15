@@ -106,6 +106,203 @@ $globalFlagPath = Join-Path $destination 'metadata\global_flags.tsv'
 New-Item -ItemType Directory -Force -Path (Split-Path $globalFlagPath -Parent) | Out-Null
 [IO.File]::WriteAllLines($globalFlagPath, $globalFlagRows, [Text.UTF8Encoding]::new($false))
 
+# Import the save-backed subset of applyRoomSpecificTileChanges as declarative
+# conditions and layout operations. The dispatcher is parsed rather than
+# repeating group/room IDs, so shared routines automatically expand to every
+# room that calls them. Transient switch, water, vine, and encounter state is
+# kept out until its owning runtime systems exist.
+$roomTileChangeSource = Get-Content -Raw (
+    Join-Path $Disassembly 'code\ages\roomSpecificTileChanges.s')
+$tileChangeJumpBlock = [regex]::Match(
+    $roomTileChangeSource,
+    '(?ms)^\s*rst_jumpTable\s*(?<body>.*?)(?=^roomTileChangerCodeGroupTable:)')
+if (-not $tileChangeJumpBlock.Success) {
+    throw 'Could not parse the room tile-changer jump table.'
+}
+$tileChangeCodeLabels = @{}
+foreach ($entry in [regex]::Matches(
+    $tileChangeJumpBlock.Groups['body'].Value,
+    '(?m)^\s*\.dw\s+(?<label>tileReplacement_[A-Za-z0-9]+)\s*;\s*\$(?<code>[0-9a-f]{2})')) {
+    $code = [Convert]::ToInt32($entry.Groups['code'].Value, 16)
+    $tileChangeCodeLabels[$code] = $entry.Groups['label'].Value
+}
+if ($tileChangeCodeLabels.Count -ne 56) {
+    throw "Expected 56 room tile-changer routines, parsed $($tileChangeCodeLabels.Count)."
+}
+
+$tileChangeDispatch = @{}
+$tileChangeDispatchCount = 0
+for ($group = 0; $group -lt 8; $group++) {
+    $groupBlock = [regex]::Match(
+        $roomTileChangeSource,
+        "(?ms)^roomTileChangerCodeGroup${group}Data:\s*(?<body>.*?)(?=^roomTileChangerCodeGroup|^;;)")
+    if (-not $groupBlock.Success) {
+        throw "Could not parse room tile-changer group $group data."
+    }
+    foreach ($entry in [regex]::Matches(
+        $groupBlock.Groups['body'].Value,
+        '(?m)^\s*\.db\s+\$(?<room>[0-9a-f]{2})\s+\$(?<code>[0-9a-f]{2})')) {
+        $code = [Convert]::ToInt32($entry.Groups['code'].Value, 16)
+        if (-not $tileChangeCodeLabels.ContainsKey($code)) {
+            throw "Room tile-changer group $group references unknown code `$$($code.ToString('x2'))."
+        }
+        $label = $tileChangeCodeLabels[$code]
+        if (-not $tileChangeDispatch.ContainsKey($label)) {
+            $tileChangeDispatch[$label] = [Collections.Generic.List[object]]::new()
+        }
+        $tileChangeDispatch[$label].Add([pscustomobject]@{
+            Group = $group
+            Room = $entry.Groups['room'].Value.ToLowerInvariant()
+        })
+        $tileChangeDispatchCount++
+    }
+}
+if ($tileChangeDispatchCount -ne 58) {
+    throw "Expected 58 room tile-changer dispatch entries, parsed $tileChangeDispatchCount."
+}
+
+$roomTileChangeRows = [Collections.Generic.List[string]]::new()
+$roomTileChangeRows.Add("# group`troom`tconditions`toperations`tsource")
+$supportedTileChangeLabels = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::Ordinal)
+function Add-RoomTileChangeRule(
+    [string]$label,
+    [string]$conditions,
+    [string]$operations) {
+    if (-not $tileChangeDispatch.ContainsKey($label)) {
+        throw "Room tile-change rule references undispatched routine $label."
+    }
+    foreach ($location in $tileChangeDispatch[$label]) {
+        $roomTileChangeRows.Add(
+            "$($location.Group)`t$($location.Room)`t$conditions`t$operations`t$label")
+    }
+    [void]$supportedTileChangeLabels.Add($label)
+}
+
+$flagD3Crystals = $globalFlagValues['GLOBALFLAG_D3_CRYSTALS'].ToString('x2')
+$flagMakuSaved = $globalFlagValues['GLOBALFLAG_MAKU_TREE_SAVED'].ToString('x2')
+$flagSymmetryBridge = $globalFlagValues['GLOBALFLAG_SYMMETRY_BRIDGE_BUILT'].ToString('x2')
+$flagIntroDone = $globalFlagValues['GLOBALFLAG_INTRO_DONE'].ToString('x2')
+
+# CGB/secret-shop routines, including the original D1 fallthrough bug.
+Add-RoomTileChangeRule 'tileReplacement_group1Map58' 'always' 'set:35:de'
+Add-RoomTileChangeRule 'tileReplacement_group2Map7e' 'wram_mask_eq:c642:0f:0f' `
+    'fill:13:03:06:a0|set:25:f1,27:f1,32:a0'
+Add-RoomTileChangeRule 'tileReplacement_group4Map1b' 'current_room_set:80' `
+    'set:1a:09,1c:09'
+Add-RoomTileChangeRule 'tileReplacement_group4Map1b' `
+    'current_room_set:80,wram_mask_eq:c642:0f:0f' `
+    'fill:13:03:06:a0|set:25:f1,27:f1,32:a0'
+
+# Current-room flag changes.
+Add-RoomTileChangeRule 'tileReplacement_group4Mapc9' 'current_room_set:40' `
+    'fill:27:01:04:6d'
+Add-RoomTileChangeRule 'tileReplacement_group4Map59' 'current_room_set:80' 'replace:09:08'
+Add-RoomTileChangeRule 'tileReplacement_group5Map38' 'current_room_set:40' `
+    'set:39:6a,49:6a,59:6a,69:6a'
+Add-RoomTileChangeRule 'tileReplacement_group5Map25' 'current_room_clear:40' `
+    'fill:17:09:04:a6|fill:1b:09:01:b3|fill:16:09:01:b1'
+Add-RoomTileChangeRule 'tileReplacement_group5Map43' 'current_room_clear:40' `
+    'fill:17:09:04:a7|fill:1b:09:01:b3|fill:16:09:01:b1'
+Add-RoomTileChangeRule 'tileReplacement_group5Map43' 'current_room_set:40' 'replace:09:08'
+Add-RoomTileChangeRule 'tileReplacement_group5Map95' 'current_room_clear:40' `
+    'set:4d:b4,4e:b2|fill:5e:05:01:a7|fill:5d:05:01:b1'
+Add-RoomTileChangeRule 'tileReplacement_group5Mapc3' 'current_room_set:40' `
+    'set:31:a2,32:a1,33:a2,34:a1,35:a2,41:a1,42:a2,43:a1,44:a2,45:a1,51:a2,52:a1,53:a2,54:a1,55:a2'
+Add-RoomTileChangeRule 'tileReplacement_group7Map4a' 'current_room_set:80' `
+    'fill:0d:0a:01:18'
+Add-RoomTileChangeRule 'tileReplacement_group0Map5c' 'current_room_set:80' `
+    'set:34:3a,43:3a,44:3a,45:3a'
+Add-RoomTileChangeRule 'tileReplacement_group0Map73' 'current_room_set:80' `
+    'set:73:3a,74:10,75:11,76:12,77:3a'
+Add-RoomTileChangeRule 'tileReplacement_group0Mapac' 'current_room_clear:80' `
+    'set:33:af,34:af,43:af,44:af'
+Add-RoomTileChangeRule 'tileReplacement_group0Map54' 'current_room_set:40' `
+    'set:43:1d,44:1d,45:1d,53:1e,54:1e,55:1e,68:9e'
+Add-RoomTileChangeRule 'tileReplacement_group5Mapc2' 'current_room_set:80' `
+    'fill:56:01:04:6d'
+Add-RoomTileChangeRule 'tileReplacement_group5Mape3' 'current_room_set:80' `
+    'fill:26:01:03:6d'
+Add-RoomTileChangeRule 'tileReplacement_group2Map90' 'current_room_set:02' `
+    'draw:42:02:06:dd,de,df,ed,ee,ef,b9,ba,bb,bc,bd,be'
+Add-RoomTileChangeRule 'tileReplacement_group1Map8c' 'current_room_set:80' `
+    'set:04:30,05:32,14:3a,15:3a,34:02,35:3a'
+Add-RoomTileChangeRule 'tileReplacement_group2Map9e' 'current_room_set:40' `
+    'fill:13:01:06:6d'
+Add-RoomTileChangeRule 'tileReplacement_group4Mapea' 'current_room_set:40' `
+    'fill:33:01:03:a3|fill:39:01:03:a3|fill:43:01:03:b7|fill:49:01:03:b7|fill:53:01:03:88|fill:59:01:03:88'
+
+# Global-flag changes.
+Add-RoomTileChangeRule 'tileReplacement_group4Map60' "global_set:$flagD3Crystals" `
+    'fill:34:05:07:a0|set:34:1d,3a:1d,74:1d,7a:1d'
+Add-RoomTileChangeRule 'tileReplacement_group4Map60' `
+    "global_set:$flagD3Crystals,current_room_clear:20" 'set:57:f1'
+Add-RoomTileChangeRule 'tileReplacement_group4Map60' `
+    "global_set:$flagD3Crystals,current_room_set:20" 'set:57:f0'
+Add-RoomTileChangeRule 'tileReplacement_group4Map52' "global_set:$flagD3Crystals" `
+    'copy_original:60'
+Add-RoomTileChangeRule 'tileReplacement_group0Map38' "global_set:$flagMakuSaved" `
+    'fill:73:01:04:f9'
+Add-RoomTileChangeRule 'tileReplacement_group1Map38' 'current_room_set:80' `
+    'fill:73:01:04:f9'
+Add-RoomTileChangeRule 'tileReplacement_group0Map48' "global_set:$flagMakuSaved" `
+    'fill:03:01:04:3a'
+Add-RoomTileChangeRule 'tileReplacement_group0Map25' "global_set:$flagSymmetryBridge" `
+    'set:50:1d,51:1d,52:1d,60:1e,61:1e,62:1e'
+Add-RoomTileChangeRule 'tileReplacement_group0Map3a' "global_set:$flagIntroDone" `
+    'set:23:ee'
+
+# Flags belonging to another room table.
+Add-RoomTileChangeRule 'tileReplacement_group0Map0b' 'room_set:0:0a:40' 'set:43:dd'
+Add-RoomTileChangeRule 'tileReplacement_group1Map27' 'room_set:1:15:80' `
+    'set:33:3a,43:02'
+Add-RoomTileChangeRule 'tileReplacement_group1Map27' 'room_set:1:17:80' `
+    'set:34:3a,24:02'
+Add-RoomTileChangeRule 'tileReplacement_group1Map27' 'room_set:1:35:80' `
+    'set:35:3a,45:02'
+Add-RoomTileChangeRule 'tileReplacement_group1Map27' 'room_set:1:37:80' `
+    'set:36:3a,26:02'
+Add-RoomTileChangeRule 'tileReplacement_group0Mapa5' 'room_set:1:a5:80' `
+    'set:22:ee,23:ef'
+
+# Essence-backed changes.
+Add-RoomTileChangeRule 'tileReplacement_group5Mapc3' 'essence_set:4' `
+    'set:06:b0,07:b0,08:b0,09:b0,16:ef,19:ef,26:ef,29:ef,36:b4,37:b2,38:b2,39:b2'
+Add-RoomTileChangeRule 'tileReplacement_group5Mapb9' 'essence_set:3' `
+    'set:41:a1,42:a1,43:a1,44:ef,45:a1,51:a2,52:ef,53:a2,54:a2,55:a2'
+Add-RoomTileChangeRule 'tileReplacement_group0Mape0' 'essence_set:4' 'set:46:dd'
+Add-RoomTileChangeRule 'tileReplacement_group0Mape1' 'essence_set:0' 'set:26:dd'
+Add-RoomTileChangeRule 'tileReplacement_group0Mape1' 'essence_set:1' 'set:53:dd'
+Add-RoomTileChangeRule 'tileReplacement_group0Mape2' 'essence_set:2' 'set:54:dd'
+
+# Every flag/essence-backed routine must be imported above or explicitly
+# deferred here. Room 2:f7 also reads transient wSeedTreeRefilledBitset, which
+# has no owning gameplay system in the port yet.
+$deferredFlagTileChangeLabels = @('tileReplacement_group2Mapf7')
+$flagTileChangeBlocks = [regex]::Matches(
+    $roomTileChangeSource,
+    '(?ms)^(?<label>tileReplacement_[A-Za-z0-9]+):(?<body>.*?)(?=^tileReplacement_|\z)')
+$flagTileChangeCount = 0
+foreach ($block in $flagTileChangeBlocks) {
+    if ($block.Groups['body'].Value -notmatch
+        'checkGlobalFlag|getThisRoomFlags|w(?:Present|Past|Group[0-9])RoomFlags|wEssencesObtained') {
+        continue
+    }
+    $flagTileChangeCount++
+    $label = $block.Groups['label'].Value
+    if (-not $supportedTileChangeLabels.Contains($label) -and
+        $deferredFlagTileChangeLabels -notcontains $label) {
+        throw "Flag-backed room tile-change routine $label was neither imported nor deferred."
+    }
+}
+if ($flagTileChangeCount -ne 34 -or $supportedTileChangeLabels.Count -ne 35) {
+    throw "Expected 34 flag-backed and 35 total supported tile-change routines; " +
+        "found $flagTileChangeCount and $($supportedTileChangeLabels.Count)."
+}
+$roomTileChangePath = Join-Path $destination 'metadata\room_tile_changes.tsv'
+[IO.File]::WriteAllLines(
+    $roomTileChangePath, $roomTileChangeRows, [Text.UTF8Encoding]::new($false))
+
 # roomSpecificCode index $06 calls setDeathRespawnPoint every update. Preserve
 # that table instead of embedding the two Ages rooms in runtime code.
 $roomSpecificCodeSource = Get-Content -Raw (
@@ -618,7 +815,7 @@ New-Item -ItemType Directory -Force -Path (Split-Path $signPath -Parent) | Out-N
 # triggers, enemies, or cutscene-only helpers even when they have text.
 $npcInteractionIds = [Collections.Generic.HashSet[int]]::new()
 foreach ($id in @(
-    0x10, 0x28, 0x29, 0x2a, 0x2e, 0x30, 0x31, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d,
+    0x10, 0x28, 0x29, 0x2a, 0x2b, 0x2e, 0x30, 0x31, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d,
     0x3f, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x48, 0x49,
     0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50, 0x51, 0x52, 0x53, 0x54,
     0x55, 0x57, 0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d, 0x5f, 0x65, 0x66, 0x68,
@@ -1497,6 +1694,30 @@ foreach ($interactionSourcePath in $npcInteractionSourcePaths) {
     }
 }
 
+# linkedGameNpcScript derives its initial text as TX_4d00 + var3f*5. Resolve
+# the two old-lady secret subids from that shared formula instead of leaving
+# them with text ID $0000 merely because the script uses showloadedtext.
+$linkedNpcScriptHelperSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+$oldLadyInteractionSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\oldLady.s')
+if ($linkedNpcScriptHelperSource -notmatch '(?ms)^linkedNpc_initHighTextIndex:.*?>TX_4d00.*?^linkedNpc_calcLowTextIndex:.*?add <TX_4d00.*?add a.*?add a.*?add b' -or
+    $oldLadyInteractionSource -notmatch '(?ms)^@initSubid4:.*?ld a,\$00.*?^@initSubid5:.*?ld a,\$09.*?ld e,Interaction\.var3f.*?ld \(de\),a.*?mainScripts\.linkedGameNpcScript') {
+    throw 'Old-lady linked-secret text selection no longer matches TX_4d00 + var3f*5.'
+}
+foreach ($linkedSecretNpc in @(
+    @(0x04, 0x00),
+    @(0x05, 0x09)
+)) {
+    $subid = [int]$linkedSecretNpc[0]
+    $secretIndex = [int]$linkedSecretNpc[1]
+    $textId = 0x4d00 + $secretIndex * 5
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve linked-secret old-lady text TX_$($textId.ToString('x4'))."
+    }
+    $npcTextBySubid["$([int]0x3d):$subid"] = $textId
+}
+
 # Parse the interaction graphics table, including pointer-backed subid data.
 $interactionDataSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\interactionData.s")
 $interactionGraphics = @{}
@@ -1747,10 +1968,64 @@ $npcInitialAnimationBySubid['57:2'] =
 $npcInitialAnimationBySubid['57:3'] =
     [Convert]::ToInt32($introMonkeyAnimationMatch.Groups['subid3'].Value, 16)
 
-# Room object data is grouped by room label. Only positioned interaction
-# objects are emitted; state-only two-byte interaction records cannot spawn a
-# visible room NPC without a position and are intentionally left to the later
-# object-system slice.
+function New-NpcDataRow(
+    [int]$group,
+    [int]$room,
+    [int]$id,
+    [int]$subid,
+    [int]$y,
+    [int]$x,
+    [int]$var03,
+    [int]$textIdOverride = -1,
+    [int]$initialAnimationOverride = -1,
+    [int]$canFaceOverride = -1
+) {
+    $graphic = $interactionGraphics["$id`:$subid"]
+    if ($null -eq $graphic) { $graphic = $interactionGraphics["$id`:0"] }
+    if ($null -eq $graphic -or -not $gfxNames.ContainsKey($graphic.Gfx)) { return '' }
+
+    $spriteName = $gfxNames[$graphic.Gfx]
+    [void]$npcSpriteNames.Add($spriteName)
+    $textId = if ($textIdOverride -ge 0) {
+        $textIdOverride
+    } elseif ($npcTextBySubid.ContainsKey("$id`:$subid")) {
+        $npcTextBySubid["$id`:$subid"]
+    } else {
+        0
+    }
+    $message = if ($allTexts.ContainsKey($textId)) { $allTexts[$textId] } else { '' }
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message))
+    $initialAnimation = if ($initialAnimationOverride -ge 0) {
+        $initialAnimationOverride
+    } elseif ($npcInitialAnimationBySubid.ContainsKey("$id`:$subid")) {
+        $npcInitialAnimationBySubid["$id`:$subid"]
+    } else {
+        $graphic.DefaultAnimation
+    }
+    $canFace = if ($canFaceOverride -ge 0) {
+        $canFaceOverride -ne 0
+    } else {
+        $textId -ne 0 -and $npcFacingIds.Contains($id) -and $initialAnimation -ge 2
+    }
+    $downOam = Resolve-NpcAnimation $id $initialAnimation
+    if ($canFace) {
+        $upOam = Resolve-NpcAnimation $id ($initialAnimation - 2)
+        $rightOam = Resolve-NpcAnimation $id ($initialAnimation - 1)
+        $leftOam = Resolve-NpcAnimation $id ($initialAnimation + 1)
+    } else {
+        $upOam = $downOam
+        $rightOam = $downOam
+        $leftOam = $downOam
+    }
+    if (-not $upOam) { $upOam = $downOam }
+    if (-not $rightOam) { $rightOam = $downOam }
+    if (-not $leftOam) { $leftOam = $downOam }
+    return "$group`t$($room.ToString('x2'))`t$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($y.ToString('x2'))`t$($x.ToString('x2'))`t$($var03.ToString('x2'))`t$($textId.ToString('x4'))`t$spriteName`t$($graphic.TileBase)`t$($graphic.Palette)`t$initialAnimation`t$([int]$canFace)`t$upOam`t$rightOam`t$downOam`t$leftOam`t$encoded"
+}
+
+# Room object data is grouped by room label. Positioned interactions are
+# emitted directly. Unpositioned interactions which derive a visible actor's
+# position from save state are expanded below into mutually exclusive records.
 $npcRows = [Collections.Generic.List[string]]::new()
 $npcRows.Add("# group`troom`tid`tsubid`ty`tx`tvar03`ttext-id`tsprite`ttile-base`tpalette`tdefault-animation`tcan-face`tup-animation`tright-animation`tdown-animation`tleft-animation`tutf8-base64")
 $mainObjectLines = Get-Content (Join-Path $Disassembly "objects\ages\mainData.s")
@@ -1770,41 +2045,15 @@ foreach ($line in $mainObjectLines) {
     # INTERAC_SHOOTING_GALLERY subids 0-2 are the human, goron, and elder
     # attendants; subid 3 is the invisible minigame controller.
     if ($id -eq 0x30 -and $subid -eq 0x03) { continue }
-    $y = $Matches['y']
-    $x = $Matches['x']
-    $var03 = if ($Matches['var03']) { $Matches['var03'] } else { '00' }
-    $graphic = $interactionGraphics["$id`:$subid"]
-    if ($null -eq $graphic) { $graphic = $interactionGraphics["$id`:0"] }
-    if ($null -eq $graphic -or -not $gfxNames.ContainsKey($graphic.Gfx)) { continue }
-    $spriteName = $gfxNames[$graphic.Gfx]
-    [void]$npcSpriteNames.Add($spriteName)
-    $textId = if ($npcTextBySubid.ContainsKey("$id`:$subid")) { $npcTextBySubid["$id`:$subid"] } else { 0 }
-    $message = if ($allTexts.ContainsKey($textId)) { $allTexts[$textId] } else { '' }
-    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message))
-    $initialAnimation = if ($npcInitialAnimationBySubid.ContainsKey("$id`:$subid")) {
-        $npcInitialAnimationBySubid["$id`:$subid"]
+    $y = [Convert]::ToInt32($Matches['y'], 16)
+    $x = [Convert]::ToInt32($Matches['x'], 16)
+    $var03 = if ($Matches['var03']) {
+        [Convert]::ToInt32($Matches['var03'], 16)
     } else {
-        $graphic.DefaultAnimation
+        0
     }
-    # Only enable autonomous facing for interactions whose talk script is
-    # currently resolved. Many IDs reuse the same code for both ordinary NPC
-    # and cutscene subids; applying the helper to the whole ID makes actors in
-    # scripted scenes turn toward Link when the original subid would not.
-    $canFace = $textId -ne 0 -and $npcFacingIds.Contains($id) -and $initialAnimation -ge 2
-    $downOam = Resolve-NpcAnimation $id $initialAnimation
-    if ($canFace) {
-        $upOam = Resolve-NpcAnimation $id ($initialAnimation - 2)
-        $rightOam = Resolve-NpcAnimation $id ($initialAnimation - 1)
-        $leftOam = Resolve-NpcAnimation $id ($initialAnimation + 1)
-    } else {
-        $upOam = $downOam
-        $rightOam = $downOam
-        $leftOam = $downOam
-    }
-    if (-not $upOam) { $upOam = $downOam }
-    if (-not $rightOam) { $rightOam = $downOam }
-    if (-not $leftOam) { $leftOam = $downOam }
-    $npcRows.Add("$currentGroup`t$($currentRoom.ToString('x2'))`t$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$y`t$x`t$var03`t$($textId.ToString('x4'))`t$spriteName`t$($graphic.TileBase)`t$($graphic.Palette)`t$initialAnimation`t$([int]$canFace)`t$upOam`t$rightOam`t$downOam`t$leftOam`t$encoded")
+    $row = New-NpcDataRow $currentGroup $currentRoom $id $subid $y $x $var03
+    if ($row) { $npcRows.Add($row) }
 }
 if ($npcRows.Count -ne 378) {
     throw "Expected 377 positioned NPC/character records from Ages mainData.s, parsed $($npcRows.Count - 1)."
@@ -1829,6 +2078,311 @@ if ($introMonkeyRows.Count -ne 2 -or
     throw "Room 0:5a's intro monkeys no longer resolve TX_5700/TX_5701 and animations `$06/`$07."
 }
 
+# Rooms 2:ea and 2:eb place only INTERAC_BIPIN_BLOSSOM_FAMILY_SPAWNER
+# ($ac). The controller creates Bipin, Blossom, and their child from the shared
+# stage/personality table below. Import all of its results so runtime can select
+# the original family without hard-coding either room's occupants.
+$familySpawnerSourcePath = Join-Path $Disassembly `
+    'object_code\common\interactions\bipinBlossomFamilySpawner.s'
+$familySpawnerSource = Get-Content -Raw $familySpawnerSourcePath
+$mainObjectSource = $mainObjectLines -join "`n"
+$interactionConstantSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\interactions.s')
+$familyInteractionIds = @{
+    INTERAC_BIPIN = 0x28
+    INTERAC_BLOSSOM = 0x2b
+    INTERAC_CHILD = 0x35
+}
+foreach ($constant in $familyInteractionIds.GetEnumerator()) {
+    $expected = ([int]$constant.Value).ToString('x2')
+    $constantPattern = '(?m)^\.define\s+{0}\s+\${1}\s*$' -f `
+        [regex]::Escape($constant.Key), $expected
+    if ($interactionConstantSource -notmatch $constantPattern) {
+        throw "$($constant.Key) no longer resolves to interaction `$$expected."
+    }
+}
+if ($mainObjectSource -notmatch
+        '(?ms)^group2MapeaObjectData:.*?obj_Interaction\s+\$ac\s+\$00\s+\$58\s+\$38' -or
+    $mainObjectSource -notmatch
+        '(?ms)^group2MapebObjectData:.*?obj_Interaction\s+\$ac\s+\$01\s+\$58\s+\$38') {
+    throw 'Rooms 2:ea/2:eb no longer place the left/right family spawner $ac.'
+}
+
+$familyBlocks = @{}
+$familyBlockLabels = [Collections.Generic.List[string]]::new()
+$familyBlockRecords = [Collections.Generic.List[object]]::new()
+foreach ($line in ($familySpawnerSource -split '\r?\n')) {
+    if ($line -match '^@(?<label>(?:left|right)Stage[0-9](?:_[a-z]+)?):') {
+        if ($familyBlockRecords.Count -gt 0) {
+            # A label can point at the terminating byte of the preceding
+            # record list (for example rightStage0 is leftStage0's `$00).
+            foreach ($label in $familyBlockLabels) {
+                $familyBlocks[$label] = @($familyBlockRecords)
+            }
+            $familyBlockLabels.Clear()
+            $familyBlockRecords.Clear()
+        }
+        $familyBlockLabels.Add($Matches['label'])
+        continue
+    }
+    if ($familyBlockLabels.Count -eq 0) { continue }
+    if ($line -match '^\s*\.db\s+\$00') {
+        foreach ($label in $familyBlockLabels) {
+            $familyBlocks[$label] = @($familyBlockRecords)
+        }
+        $familyBlockLabels.Clear()
+        $familyBlockRecords.Clear()
+        continue
+    }
+    if ($line -notmatch
+        '^\s*\.db\s+(?<id>INTERAC_[A-Z_]+)\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<var03>[0-9a-f]{2})\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})') {
+        continue
+    }
+    $idName = $Matches['id']
+    if (-not $familyInteractionIds.ContainsKey($idName)) {
+        throw "Family spawn table references unsupported $idName."
+    }
+    $familyBlockRecords.Add(@{
+        Id = [int]$familyInteractionIds[$idName]
+        Subid = [Convert]::ToInt32($Matches['subid'], 16)
+        Var03 = [Convert]::ToInt32($Matches['var03'], 16)
+        Y = [Convert]::ToInt32($Matches['y'], 16)
+        X = [Convert]::ToInt32($Matches['x'], 16)
+    })
+}
+if ($familyBlockLabels.Count -ne 0 -or $familyBlockRecords.Count -ne 0) {
+    throw 'The final family spawn block was not terminated by $00.'
+}
+
+$bipinTextIds = @(
+    0x4300, 0x4302, 0x4303, 0x4303, 0x4304,
+    0x4305, 0x4306, 0x4307, 0x4308, 0x4308
+)
+$blossomTextIds = @(
+    @(0x4400), @(0x440b), @(0x4412), @(0x4413), @(0x4417), @(0x4418),
+    @(0x4419, 0x441a, 0x441b),
+    @(0x4425, 0x4426, 0x4427, 0x4428),
+    @(0x4429, 0x442a, 0x442b, 0x442c),
+    @(0x442d, 0x442e, 0x442f, 0x4430)
+)
+$childTextIds = @(
+    0x0000,
+    0x4700, 0x4200, 0x4900,
+    0x4701, 0x4201, 0x4901,
+    0x4702, 0x4202, 0x4902,
+    0x4b00, 0x4a00, 0x4800, 0x4600,
+    0x4b01, 0x4a01, 0x4801, 0x4601,
+    0x4b0a, 0x4a06, 0x4804, 0x4603
+)
+$familyInteractionTextIds = @(
+    0x4301,
+    0x4407, 0x4408, 0x4409, 0x440a
+)
+$familyScriptSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\scripts.s')
+$familyScriptHelperSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+foreach ($textId in @($bipinTextIds + $childTextIds + $familyInteractionTextIds +
+        ($blossomTextIds | ForEach-Object { $_ }))) {
+    if ($textId -eq 0) { continue }
+    $symbol = "TX_$($textId.ToString('x4'))"
+    if (-not $allTexts.ContainsKey($textId) -or
+        ($familyScriptSource -notmatch "\b$symbol\b" -and
+         $familyScriptHelperSource -notmatch "\b$symbol\b")) {
+        throw "Could not verify family dialogue $symbol in the original actor scripts."
+    }
+}
+
+$familyRows = [Collections.Generic.List[string]]::new()
+$familyRows.Add("# group`troom`tstage`tpersonality`tid`tsubid`ty`tx`tvar03`ttext-id`tsprite`ttile-base`tpalette`tdefault-animation`tcan-face`tup-animation`tright-animation`tdown-animation`tleft-animation`tutf8-base64")
+$familyPersonalities = @{
+    hyperactive = 0; shy = 1; curious = 2
+    slacker = 0; warrior = 1; arborist = 2; singer = 3
+}
+foreach ($entry in ($familyBlocks.GetEnumerator() | Sort-Object Name)) {
+    if ($entry.Key -notmatch
+        '^(?<house>left|right)Stage(?<stage>[0-9])(?:_(?<personality>[a-z]+))?$') {
+        throw "Malformed family spawn label $($entry.Key)."
+    }
+    $room = if ($Matches['house'] -eq 'left') { 0xea } else { 0xeb }
+    $stage = [int]$Matches['stage']
+    $personality = if ($Matches['personality']) {
+        [int]$familyPersonalities[$Matches['personality']]
+    } else {
+        -1
+    }
+    foreach ($actor in $entry.Value) {
+        $id = [int]$actor.Id
+        $subid = [int]$actor.Subid
+        $var03 = [int]$actor.Var03
+        if ($id -eq 0x28) {
+            $textId = $bipinTextIds[$subid]
+            $initialAnimation = if ($subid -eq 0) { 4 } elseif ($subid -eq 5) { 2 } else { 3 }
+        } elseif ($id -eq 0x2b) {
+            $textOptions = $blossomTextIds[$subid]
+            $textIndex = if ($subid -ge 6) { $var03 } else { 0 }
+            if ($textIndex -ge $textOptions.Count) {
+                throw "Blossom `$2b:`$$($subid.ToString('x2')) has invalid var03 `$$($var03.ToString('x2'))."
+            }
+            $textId = $textOptions[$textIndex]
+            $initialAnimation = if ($subid -in @(0, 1, 3)) { 0 } else { 4 }
+        } else {
+            if ($var03 -ge $childTextIds.Count) {
+                throw "Child `$35 var03 `$$($var03.ToString('x2')) has no script text mapping."
+            }
+            $textId = $childTextIds[$var03]
+            $childAnimationBases = @(0, 2, 5, 8, 11, 17, 21, 23)
+            $initialAnimation = $childAnimationBases[$subid]
+            if ($subid -eq 5) { $initialAnimation += 3 }
+        }
+        $npcRow = New-NpcDataRow 2 $room $id $subid `
+            ([int]$actor.Y) ([int]$actor.X) $var03 $textId $initialAnimation 0
+        if (-not $npcRow) {
+            throw "Could not resolve family actor `$$($id.ToString('x2')):`$$($subid.ToString('x2'))."
+        }
+        $npcColumns = $npcRow -split "`t"
+        if ($id -eq 0x28 -and $subid -eq 0) {
+            # @updateSpeed flips var3a between animations $04/$05 whenever
+            # running Bipin crosses X $28/$58. Preserve the second sequence
+            # in the otherwise-unused right-facing record field.
+            $alternateAnimation = Resolve-NpcAnimation 0x28 5
+            if (-not $alternateAnimation) {
+                throw 'Could not resolve running Bipin animation $05.'
+            }
+            $npcColumns[14] = $alternateAnimation
+        }
+        $familyRows.Add(
+            "$($npcColumns[0])`t$($npcColumns[1])`t$stage`t$personality`t$($npcColumns[2..($npcColumns.Count - 1)] -join "`t")")
+    }
+}
+if ($familyRows.Count -ne 73) {
+    throw "Expected 72 state-selected Bipin/Blossom family actors, parsed $($familyRows.Count - 1)."
+}
+$familyTextRows = [Collections.Generic.List[string]]::new()
+$familyTextRows.Add("# text-id`tutf8-base64")
+foreach ($textId in $familyInteractionTextIds) {
+    $encoded = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
+    $familyTextRows.Add("$($textId.ToString('x4'))`t$encoded")
+}
+
+# INTERAC_IMPA_NPC $4f:$00 is an unpositioned room object in Nayru's house.
+# getImpaNpcState selects its exact position, text, and var03 behavior from the
+# shared story state. Export every visible result; visibility predicates below
+# keep exactly one variant alive and naturally swap it when the save changes.
+$impaHouseBlock = [regex]::Match(
+    $mainObjectSource,
+    '(?ms)^group3Map9eObjectData:.*?(?=^group[0-7]Map[0-9a-f]{2}ObjectData:|\z)')
+if (-not $impaHouseBlock.Success -or
+    $impaHouseBlock.Value -notmatch '(?m)^\s*obj_Interaction\s+\$4f\s+\$00\s*$') {
+    throw 'Nayru''s house no longer contains unpositioned INTERAC_IMPA_NPC $4f:$00.'
+}
+$impaGraphic = $interactionGraphics['79:0']
+if ($null -eq $impaGraphic -or -not $gfxNames.ContainsKey($impaGraphic.Gfx) -or
+    $impaGraphic.DefaultAnimation -ne 2) {
+    throw 'Could not resolve Impa NPC graphics and original down-facing animation $02.'
+}
+$impaSpriteName = $gfxNames[$impaGraphic.Gfx]
+[void]$npcSpriteNames.Add($impaSpriteName)
+$impaUpOam = Resolve-NpcAnimation 0x4f 0
+$impaRightOam = Resolve-NpcAnimation 0x4f 1
+$impaDownOam = Resolve-NpcAnimation 0x4f 2
+$impaLeftOam = Resolve-NpcAnimation 0x4f 3
+if (-not $impaUpOam -or -not $impaRightOam -or -not $impaDownOam -or -not $impaLeftOam) {
+    throw 'Could not resolve Impa NPC''s four original facing animations.'
+}
+$impaHouseVariants = @(
+    # var03, y, x, text, faces Link while idle
+    @(0x00, 0x38, 0x38, 0x0120, $true),
+    @(0x01, 0x48, 0x28, 0x0121, $false),
+    @(0x02, 0x28, 0x68, 0x0122, $true),
+    @(0x05, 0x28, 0x68, 0x0123, $true),
+    @(0x09, 0x38, 0x38, 0x0120, $true),
+    @(0x0a, 0x48, 0x28, 0x0121, $false),
+    @(0x0b, 0x28, 0x68, 0x0122, $true),
+    @(0x0d, 0x28, 0x68, 0x012c, $true),
+    @(0x0e, 0x28, 0x68, 0x0123, $true)
+)
+foreach ($variant in $impaHouseVariants) {
+    $textId = [int]$variant[3]
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve Impa house text TX_$($textId.ToString('x4'))."
+    }
+    $encoded = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
+    $npcRows.Add(
+        "3`t9e`t4f`t00`t$(([int]$variant[1]).ToString('x2'))`t$(([int]$variant[2]).ToString('x2'))`t$(([int]$variant[0]).ToString('x2'))`t$($textId.ToString('x4'))`t$impaSpriteName`t$($impaGraphic.TileBase)`t$($impaGraphic.Palette)`t2`t$([int][bool]$variant[4])`t$impaUpOam`t$impaRightOam`t$impaDownOam`t$impaLeftOam`t$encoded")
+}
+if ($npcRows.Count -ne 387) {
+    throw "Expected 377 positioned and 9 state-derived NPC records, got $($npcRows.Count - 1)."
+}
+
+# Ordinary NPC scripts can replace their dialogue without replacing the room
+# object. Export the complete getGameProgress_1-indexed tables used by Lynna's
+# present-day villagers so runtime save changes select the original text.
+$npcDialogueRows = [Collections.Generic.List[string]]::new()
+$npcDialogueRows.Add(
+    "# id`tsubid`tvar03`tkind`tvalue`ttext-id`tsource`tutf8-base64")
+function Add-NpcGameProgress1DialogueTable(
+    [int]$id, [int[]]$subids, [int]$var03,
+    [string]$sourceFile, [string]$tableLabel,
+    [int]$entryOffset = 0, [bool]$subidPerState = $false
+) {
+    $sourcePath = Join-Path $Disassembly "object_code\ages\interactions\$sourceFile"
+    if (-not (Test-Path -LiteralPath $sourcePath)) {
+        throw "NPC dialogue source not found: $sourceFile"
+    }
+    $source = Get-Content -Raw $sourcePath
+    if ($source -notmatch 'getGameProgress_1') {
+        throw "$sourceFile no longer selects $tableLabel with getGameProgress_1."
+    }
+    $tableMatch = [regex]::Match(
+        $source,
+        "(?ms)^$([regex]::Escape($tableLabel)):\r?\n(?<body>.*?)(?=^[A-Za-z0-9_@]+:|\z)")
+    if (-not $tableMatch.Success) {
+        throw "Could not resolve NPC dialogue table $sourceFile`:$tableLabel."
+    }
+    $entries = @([regex]::Matches(
+        $tableMatch.Groups['body'].Value,
+        '(?m)^\s*\.dw\s+mainScripts\.(?<label>[A-Za-z0-9_@]+)'))
+    if ($entries.Count -ne 6 + $entryOffset -or
+        ($subidPerState -and $subids.Count -ne 6)) {
+        throw "$sourceFile`:$tableLabel no longer matches its six getGameProgress_1 states."
+    }
+
+    $variant = if ($var03 -lt 0) { '*' } else { $var03.ToString('x2') }
+    for ($state = 0; $state -lt 6; $state++) {
+        $scriptLabel = $entries[$state + $entryOffset].Groups['label'].Value
+        $textId = Resolve-ScriptTextId `
+            $scriptLabel ([Collections.Generic.HashSet[string]]::new())
+        if ($textId -le 0 -or -not $allTexts.ContainsKey($textId)) {
+            throw "Could not resolve $sourceFile`:$tableLabel state $state dialogue."
+        }
+        $encoded = [Convert]::ToBase64String(
+            [Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
+        $stateSubids = if ($subidPerState) { @($subids[$state]) } else { $subids }
+        foreach ($subid in $stateSubids) {
+            $npcDialogueRows.Add(
+                "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$variant`tgame-progress-1`t$($state.ToString('x2'))`t$($textId.ToString('x4'))`t$sourceFile`:$tableLabel`t$encoded")
+        }
+    }
+}
+
+Add-NpcGameProgress1DialogueTable 0x3a @(0x03) -1 'villager.s' '@subid03ScriptTable'
+Add-NpcGameProgress1DialogueTable 0x3a @(0x04, 0x05) -1 'villager.s' '@subid4And5ScriptTable'
+Add-NpcGameProgress1DialogueTable 0x3b @(0x01, 0x02) -1 'femaleVillager.s' '@subid1And2ScriptTable'
+Add-NpcGameProgress1DialogueTable 0x3c @(0x02) -1 'boy.s' 'boySubid02ScriptTable'
+Add-NpcGameProgress1DialogueTable 0x44 @(0x02, 0x03) -1 'miscMan2.s' 'lynnaMan2ScriptTable'
+Add-NpcGameProgress1DialogueTable 0x41 @(0x01, 0x02, 0x03, 0x04, 0x05, 0x06) -1 'miscMan.s' '@scriptTable' 1 $true
+
+if ($npcDialogueRows.Count -ne 55) {
+    throw "Expected 54 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\npc_dialogue.tsv'),
+    $npcDialogueRows,
+    [Text.UTF8Encoding]::new($false))
+
 # Room interactions frequently delete their placed NPC during state 0 based
 # on global flags or room flags. Export those predicates separately from the
 # visual NPC record. Rules in one alternative are ANDed; alternatives are
@@ -1841,8 +2395,11 @@ $npcVisibilitySources = @{}
 function Confirm-NpcVisibilitySource([string]$source, [string]$token) {
     $file = $source.Split(':')[0]
     if (-not $npcVisibilitySources.ContainsKey($file)) {
-        $path = Join-Path $Disassembly "object_code\ages\interactions\$file"
-        if (-not (Test-Path -LiteralPath $path)) {
+        $path = @(
+            (Join-Path $Disassembly "object_code\ages\interactions\$file"),
+            (Join-Path $Disassembly "scripts\ages\$file")
+        ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+        if (-not $path) {
             throw "NPC visibility source not found: $file"
         }
         $npcVisibilitySources[$file] = Get-Content -Raw $path
@@ -1882,10 +2439,101 @@ function Add-NpcSpecificRoomVisibility(
     $npcVisibilityRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$variant`t$alternative`tspecific-room`t$group`t$($room.ToString('x2'))`t$($mask.ToString('x2'))`t$([int]$expectedSet)`t$source")
 }
+function Add-NpcTreasureVisibility(
+    [int]$id, [int]$subid, [int]$var03, [int]$alternative,
+    [string]$treasure, [bool]$expectedSet, [string]$source
+) {
+    if (-not $treasureIds.ContainsKey($treasure)) {
+        throw "NPC visibility rule references unknown $treasure."
+    }
+    Confirm-NpcVisibilitySource $source $treasure
+    $variant = if ($var03 -lt 0) { '*' } else { $var03.ToString('x2') }
+    $npcVisibilityRows.Add(
+        "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$variant`t$alternative`ttreasure`t-`t-`t$($treasureIds[$treasure].ToString('x2'))`t$([int]$expectedSet)`t$source")
+}
+function Add-NpcLinkedVisibility(
+    [int]$id, [int]$subid, [int]$var03, [int]$alternative,
+    [bool]$expectedSet, [string]$source
+) {
+    Confirm-NpcVisibilitySource $source 'checkIsLinkedGame'
+    $variant = if ($var03 -lt 0) { '*' } else { $var03.ToString('x2') }
+    $npcVisibilityRows.Add(
+        "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$variant`t$alternative`tlinked`t-`t-`t00`t$([int]$expectedSet)`t$source")
+}
+function Add-NpcEssenceVisibility(
+    [int]$id, [int]$subid, [int]$var03, [int]$alternative,
+    [int]$mask, [bool]$expectedSet, [string]$source,
+    [string]$sourceToken = 'TREASURE_ESSENCE'
+) {
+    Confirm-NpcVisibilitySource $source $sourceToken
+    $variant = if ($var03 -lt 0) { '*' } else { $var03.ToString('x2') }
+    $npcVisibilityRows.Add(
+        "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$variant`t$alternative`tessence`t-`t-`t$($mask.ToString('x2'))`t$([int]$expectedSet)`t$source")
+}
+function Add-NpcWramVisibility(
+    [int]$id, [int]$subid, [int]$var03, [int]$alternative,
+    [int]$address, [int]$mask, [bool]$expectedSet,
+    [string]$source, [string]$addressToken
+) {
+    if ($address -lt 0xc5b0 -or $address -gt 0xcaff) {
+        throw "NPC visibility rule references invalid save WRAM address 0x$($address.ToString('x4'))."
+    }
+    Confirm-NpcVisibilitySource $source $addressToken
+    $variant = if ($var03 -lt 0) { '*' } else { $var03.ToString('x2') }
+    $npcVisibilityRows.Add(
+        "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$variant`t$alternative`twram`t-`t$($address.ToString('x4'))`t$($mask.ToString('x2'))`t$([int]$expectedSet)`t$source")
+}
+function Add-NpcRuntimeEquality(
+    [int]$id, [int]$subid, [int]$var03, [int]$alternative,
+    [int]$address, [int]$expectedValue, [bool]$expectedEqual,
+    [string]$source, [string]$addressToken
+) {
+    if ($address -lt 0xc000 -or $address -gt 0xdfff -or
+        $expectedValue -lt 0 -or $expectedValue -gt 0xff) {
+        throw "NPC visibility rule references invalid runtime WRAM equality."
+    }
+    Confirm-NpcVisibilitySource $source $addressToken
+    $variant = if ($var03 -lt 0) { '*' } else { $var03.ToString('x2') }
+    $npcVisibilityRows.Add(
+        "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$variant`t$alternative`truntime-equals`t-`t$($address.ToString('x4'))`t$($expectedValue.ToString('x2'))`t$([int]$expectedEqual)`t$source")
+}
+function Add-NpcGameProgress1Visibility(
+    [int]$id, [int]$subid, [int]$var03, [int]$alternative,
+    [int]$expectedState, [bool]$expectedEqual, [string]$source
+) {
+    if ($expectedState -lt 0 -or $expectedState -gt 5) {
+        throw "NPC visibility rule references invalid getGameProgress_1 state $expectedState."
+    }
+    Confirm-NpcVisibilitySource $source 'getGameProgress_1'
+    foreach ($token in @(
+        'GLOBALFLAG_FINISHEDGAME',
+        'GLOBALFLAG_SAW_TWINROVA_BEFORE_ENDGAME',
+        'TREASURE_ESSENCE',
+        'GLOBALFLAG_SAVED_NAYRU'
+    )) {
+        Confirm-NpcVisibilitySource 'miscMan2.s:getGameProgress_1' $token
+    }
+    $variant = if ($var03 -lt 0) { '*' } else { $var03.ToString('x2') }
+    $npcVisibilityRows.Add(
+        "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$variant`t$alternative`tgame-progress-1`t-`t-`t$($expectedState.ToString('x2'))`t$([int]$expectedEqual)`t$source")
+}
+function Add-NpcGameProgress1SetVisibility(
+    [int]$id, [int]$subid, [int]$var03,
+    [int[]]$expectedStates, [string]$source
+) {
+    $alternative = 0
+    foreach ($expectedState in $expectedStates) {
+        Add-NpcGameProgress1Visibility `
+            $id $subid $var03 $alternative $expectedState $true $source
+        $alternative++
+    }
+}
 
 # Ambi cutscene actors: current-room completion bits.
 Add-NpcCurrentRoomVisibility 0x4d 0x03 -1 0 0x40 $false 'ambi.s:@initSubid03'
 Add-NpcCurrentRoomVisibility 0x4d 0x06 -1 0 0x80 $false 'ambi.s:@initSubid06'
+Add-NpcLinkedVisibility 0x4d 0x0a -1 0 $true 'ambi.s:@initSubid0a'
+Add-NpcSpecificRoomVisibility 0x4d 0x0a -1 0 4 0xfc 0x80 $true 'ambi.s:@initSubid0a' 'wGroup4RoomFlags+$fc'
 
 # Bear subid $02 selects mutually exclusive pre/post-game actors through var03.
 Add-NpcGlobalVisibility 0x5d 0x02 0 0 'GLOBALFLAG_INTRO_DONE' $true 'bear.s:@initSubid02'
@@ -1898,10 +2546,19 @@ Add-NpcGlobalVisibility 0x5d 0x02 1 0 'GLOBALFLAG_FINISHEDGAME' $true 'bear.s:@v
 Add-NpcGlobalVisibility 0x39 0x02 -1 0 'GLOBALFLAG_INTRO_DONE' $false 'monkeyMain.s:@subid2Init'
 Add-NpcGlobalVisibility 0x39 0x03 -1 0 'GLOBALFLAG_INTRO_DONE' $false 'monkeyMain.s:@subid3Init'
 
+# Monkey subid $07 selects three distinct story phases through var03.
+Add-NpcGlobalVisibility 0x39 0x07 0 0 'GLOBALFLAG_FINISHEDGAME' $false 'monkeyMain.s:@subid7Init_0'
+Add-NpcGlobalVisibility 0x39 0x07 0 0 'GLOBALFLAG_SAVED_NAYRU' $true 'monkeyMain.s:@subid7Init_0'
+Add-NpcGlobalVisibility 0x39 0x07 1 0 'GLOBALFLAG_FINISHEDGAME' $true 'monkeyMain.s:@subid7Init_1'
+Add-NpcGlobalVisibility 0x39 0x07 2 0 'GLOBALFLAG_FINISHEDGAME' $false 'monkeyMain.s:@subid7Init_2'
+Add-NpcGlobalVisibility 0x39 0x07 2 0 'GLOBALFLAG_MAKU_TREE_SAVED' $true 'monkeyMain.s:@subid7Init_2'
+
 Add-NpcGlobalVisibility 0x83 0x00 -1 0 'GLOBALFLAG_GOT_BOMB_UPGRADE_FROM_FAIRY' $false 'bombUpgradeFairy.s:@state0'
 Add-NpcCurrentRoomVisibility 0x83 0x00 -1 0 0x01 $true 'bombUpgradeFairy.s:@state0'
 
 # Boys used by room events and the post-game Lynna actor.
+Add-NpcTreasureVisibility 0x3c 0x02 -1 0 'TREASURE_SEED_SATCHEL' $true 'boy.s:@initSubid02'
+Add-NpcGameProgress1Visibility 0x3c 0x02 -1 1 0 $false 'boy.s:@initSubid02'
 Add-NpcCurrentRoomVisibility 0x3c 0x03 -1 0 0x40 $false 'boy.s:@initSubid03'
 Add-NpcCurrentRoomVisibility 0x3c 0x04 -1 0 0x40 $false 'boy.s:@initSubid04'
 Add-NpcGlobalVisibility 0x3c 0x10 -1 0 'GLOBALFLAG_FINISHEDGAME' $true 'boy.s:@initSubid10'
@@ -1927,26 +2584,175 @@ Add-NpcGlobalVisibility 0x72 0x00 -1 0 'GLOBALFLAG_MOBLINS_KEEP_DESTROYED' $true
 Add-NpcCurrentRoomVisibility 0x72 0x00 -1 0 0x40 $false 'kingMoblinDefeated.s:@subid0State0'
 Add-NpcGlobalVisibility 0x9c 0x00 -1 0 'GLOBALFLAG_KING_ZORA_CURED' $true 'kingZora.s:@subid0State0'
 
+# Save-gated supporting cast whose original state-0 code uses treasure,
+# linked-game, essence, or arbitrary save-WRAM checks.
+Add-NpcEssenceVisibility 0x31 0x07 -1 0 0x04 $true 'impaInCutscene.s:@init7' 'wEssencesObtained'
+Add-NpcLinkedVisibility 0x31 0x07 -1 0 $true 'impaInCutscene.s:@init7'
+Add-NpcGlobalVisibility 0x31 0x07 -1 0 'GLOBALFLAG_GOT_RING_FROM_ZELDA' $false 'impaInCutscene.s:@init7'
+Add-NpcLinkedVisibility 0x31 0x04 -1 0 $false 'impaInCutscene.s:@init4'
+Add-NpcTreasureVisibility 0x31 0x04 -1 0 'TREASURE_MAKU_SEED' $true 'impaInCutscene.s:@preBlackTowerCutscene'
+Add-NpcGlobalVisibility 0x31 0x04 -1 0 'GLOBALFLAG_PRE_BLACK_TOWER_CUTSCENE_DONE' $false 'impaInCutscene.s:@preBlackTowerCutscene'
+Add-NpcLinkedVisibility 0x31 0x05 -1 0 $true 'impaInCutscene.s:@init5'
+Add-NpcTreasureVisibility 0x31 0x05 -1 0 'TREASURE_MAKU_SEED' $true 'impaInCutscene.s:@preBlackTowerCutscene'
+Add-NpcGlobalVisibility 0x31 0x05 -1 0 'GLOBALFLAG_PRE_BLACK_TOWER_CUTSCENE_DONE' $false 'impaInCutscene.s:@preBlackTowerCutscene'
+Add-NpcEssenceVisibility 0x4c 0x04 -1 0 0x04 $true 'bird.s:@initSubid04' 'wEssencesObtained'
+Add-NpcLinkedVisibility 0x4c 0x04 -1 0 $true 'bird.s:@initSubid04'
+Add-NpcGlobalVisibility 0x4c 0x04 -1 0 'GLOBALFLAG_GOT_RING_FROM_ZELDA' $false 'bird.s:@initSubid04'
+Add-NpcLinkedVisibility 0x68 0x00 -1 0 $true 'rosa.s:@@state0'
+Add-NpcEssenceVisibility 0x68 0x00 -1 0 0x04 $false 'rosa.s:@@state0' 'wEssencesObtained'
+Add-NpcEssenceVisibility 0x58 0x02 -1 0 0x08 $false 'hardhatWorker.s:@@state0' 'wEssencesObtained'
+
+# The linked Lynna subrosian exists only for getGameProgress_2 states $05 or
+# $07: after seeing Twinrova or after finishing the game.
+Add-NpcLinkedVisibility 0x4e 0x00 -1 0 $true 'subrosian.s:subrosian_subid00'
+Add-NpcGlobalVisibility 0x4e 0x00 -1 0 'GLOBALFLAG_SAW_TWINROVA_BEFORE_ENDGAME' $true 'miscMan2.s:getGameProgress_2'
+Add-NpcLinkedVisibility 0x4e 0x00 -1 1 $true 'subrosian.s:subrosian_subid00'
+Add-NpcGlobalVisibility 0x4e 0x00 -1 1 'GLOBALFLAG_FINISHEDGAME' $true 'miscMan2.s:getGameProgress_2'
+
+# The fourteen search/bridge carpenter records share one initializer. In an
+# unlinked game they exist until the bridge is built; in a linked game Zelda
+# must also have been rescued. Subid $09 deliberately bypasses these gates.
+$carpenterSubids = @(0x00, 0x01, 0x02, 0x03, 0x04,
+    0xb2, 0xb3, 0xb4, 0xc2, 0xc3, 0xc4, 0xd2, 0xd3, 0xd4)
+foreach ($carpenterSubid in $carpenterSubids) {
+    Add-NpcGlobalVisibility 0x9a $carpenterSubid -1 0 'GLOBALFLAG_SYMMETRY_BRIDGE_BUILT' $false 'carpenter.s:@state0'
+    Add-NpcLinkedVisibility 0x9a $carpenterSubid -1 0 $false 'carpenter.s:@state0'
+    Add-NpcGlobalVisibility 0x9a $carpenterSubid -1 1 'GLOBALFLAG_SYMMETRY_BRIDGE_BUILT' $false 'carpenter.s:@state0'
+    Add-NpcLinkedVisibility 0x9a $carpenterSubid -1 1 $true 'carpenter.s:@state0'
+    Add-NpcGlobalVisibility 0x9a $carpenterSubid -1 1 'GLOBALFLAG_GOT_RING_FROM_ZELDA' $true 'carpenter.s:@state0'
+}
+
 # Mamamu's indoor dog survives when any of these original branches is true.
 Add-NpcGlobalVisibility 0x54 0x00 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'mamamuDog.s:@state0'
 Add-NpcGlobalVisibility 0x54 0x00 -1 1 'GLOBALFLAG_RETURNED_DOG' $true 'mamamuDog.s:@state0'
 Add-NpcCurrentRoomVisibility 0x54 0x00 -1 2 0x20 $false 'mamamuDog.s:@state0'
 
+# The roaming dog has one placement for each wMamamuDogLocation value. The
+# sidequest start is stored in present room $e7 flag $80; the selected screen
+# itself is transient WRAM $cde2 and is deliberately not part of the save file.
+foreach ($dogLocation in 0..3) {
+    Add-NpcGlobalVisibility 0x54 0x01 $dogLocation 0 'GLOBALFLAG_RETURNED_DOG' $false 'mamamuDog.s:dog_subid01'
+    Add-NpcSpecificRoomVisibility 0x54 0x01 $dogLocation 0 0 0xe7 0x80 $true 'mamamuDog.s:dog_subid01' 'wPresentRoomFlags+$e7'
+    Add-NpcRuntimeEquality 0x54 0x01 $dogLocation 0 0xcde2 $dogLocation $true 'mamamuDog.s:dog_subid01' 'wMamamuDogLocation'
+}
+
 # Mutually exclusive pre/post-bombs and pre/post-game town actors.
 Add-NpcGlobalVisibility 0x41 0x00 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'miscMan.s:@subid0'
 Add-NpcGlobalVisibility 0x41 0x00 -1 0 'GLOBALFLAG_0b' $false 'miscMan.s:@subid0'
+foreach ($miscManSubid in 1..6) {
+    Add-NpcGameProgress1Visibility 0x41 $miscManSubid -1 0 ($miscManSubid - 1) $true 'miscMan.s:@subidNonzero'
+}
 Add-NpcGlobalVisibility 0x44 0x00 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'miscMan2.s:@subid0'
 Add-NpcGlobalVisibility 0x42 0x00 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'mustacheMan.s:@subid0'
 Add-NpcGlobalVisibility 0x52 0x02 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'oldMan.s:@@state0'
 Add-NpcGlobalVisibility 0x45 0x00 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'pastOldLady.s:@subid0'
 
-# Nayru's flag-only late-game variants.
+# The linked-secret old ladies share linkedNpc_checkShouldSpawn. Secret index
+# $00 appears after D4; index $09 appears after D2.
+Confirm-NpcVisibilitySource 'oldLady.s:@initSubid4' 'linkedGameNpcScript'
+Confirm-NpcVisibilitySource 'oldLady.s:@initSubid5' 'linkedGameNpcScript'
+Add-NpcLinkedVisibility 0x3d 0x04 -1 0 $true 'scriptHelper.s:linkedNpc_checkShouldSpawn'
+Add-NpcEssenceVisibility 0x3d 0x04 -1 0 0x08 $true 'scriptHelper.s:@checkd4' '@checkd4'
+Add-NpcLinkedVisibility 0x3d 0x05 -1 0 $true 'scriptHelper.s:linkedNpc_checkShouldSpawn'
+Add-NpcEssenceVisibility 0x3d 0x05 -1 0 0x02 $true 'scriptHelper.s:@checkd2_2' '@checkd2_2'
+
+# Lynna City's paired villager placements use the original
+# checkNpcShouldExistAtGameStage table. Import every phase listed for each
+# subid, including the three actors placed together in room 0:68.
+$npcStageSelectionSource = $npcVisibilitySources['miscMan2.s']
+foreach ($expectedTable in @(
+    '(?ms)^@data0:.*?^@@subid1:\s*\r?\n\s*\.db \$00 \$01 \$02 \$ff\s*\r?\n^@@subid2:\s*\r?\n\s*\.db \$03 \$04 \$05 \$ff',
+    '(?ms)^@data3:.*?^@@subid4:\s*\r?\n\s*\.db \$00 \$01 \$05 \$ff\s*\r?\n^@@subid5:\s*\r?\n\s*\.db \$04 \$ff',
+    '(?ms)^@data6:.*?^@@subid2:\s*\r?\n\s*\.db \$00 \$01 \$02 \$ff\s*\r?\n^@@subid3:\s*\r?\n\s*\.db \$03 \$04 \$05 \$ff'
+)) {
+    if ($npcStageSelectionSource -notmatch $expectedTable) {
+        throw 'checkNpcShouldExistAtGameStage no longer matches the imported Lynna NPC phase sets.'
+    }
+}
+Add-NpcGameProgress1SetVisibility 0x3b 0x01 -1 @(0, 1, 2) 'femaleVillager.s:@initSubid01'
+Add-NpcGameProgress1SetVisibility 0x3b 0x02 -1 @(3, 4, 5) 'femaleVillager.s:@initSubid02'
+Add-NpcGameProgress1SetVisibility 0x3a 0x04 -1 @(0, 1, 5) 'villager.s:@initSubid04'
+Add-NpcGameProgress1SetVisibility 0x3a 0x05 -1 @(4) 'villager.s:@initSubid05'
+Add-NpcGameProgress1SetVisibility 0x44 0x02 -1 @(0, 1, 2) 'miscMan2.s:@subid2'
+Add-NpcGameProgress1SetVisibility 0x44 0x03 -1 @(3, 4, 5) 'miscMan2.s:@subid3'
+
+# Impa's shared story-state function controls her room NPC subids.
+# House subid $00 adds $09 in a linked game, selecting one of the exported
+# position/text variants above. Positioned subids $01 and $02 exist only in
+# states $07 and $08; subid $03 is created dynamically rather than placed.
+function Add-ImpaStateBase(
+    [int]$subid, [int]$var03, [bool]$d2PassageOpen, [int]$linked
+) {
+    Add-NpcGlobalVisibility 0x4f $subid $var03 0 'GLOBALFLAG_FINISHEDGAME' $false 'impaNpc.s:getImpaNpcState'
+    Add-NpcSpecificRoomVisibility 0x4f $subid $var03 0 0 0x83 0x80 $d2PassageOpen 'impaNpc.s:getImpaNpcState' 'wPresentRoomFlags+$83'
+    if ($linked -ge 0) {
+        Add-NpcLinkedVisibility 0x4f $subid $var03 0 ([bool]$linked) 'impaNpc.s:impaNpc_subid00'
+    }
+}
+
+Add-ImpaStateBase 0x00 0x00 $false 0
+Add-ImpaStateBase 0x00 0x01 $true 0
+Add-NpcTreasureVisibility 0x4f 0x00 0x01 0 'TREASURE_HARP' $false 'impaNpc.s:getImpaNpcState'
+Add-ImpaStateBase 0x00 0x02 $true 0
+Add-NpcTreasureVisibility 0x4f 0x00 0x02 0 'TREASURE_HARP' $true 'impaNpc.s:getImpaNpcState'
+Add-NpcGlobalVisibility 0x4f 0x00 0x02 0 'GLOBALFLAG_SAVED_NAYRU' $false 'impaNpc.s:getImpaNpcState'
+Add-ImpaStateBase 0x00 0x05 $true 0
+Add-NpcTreasureVisibility 0x4f 0x00 0x05 0 'TREASURE_HARP' $true 'impaNpc.s:getImpaNpcState'
+Add-NpcGlobalVisibility 0x4f 0x00 0x05 0 'GLOBALFLAG_SAVED_NAYRU' $true 'impaNpc.s:getImpaNpcState'
+Add-NpcTreasureVisibility 0x4f 0x00 0x05 0 'TREASURE_MAKU_SEED' $false 'impaNpc.s:getImpaNpcState'
+
+Add-ImpaStateBase 0x00 0x09 $false 1
+Add-ImpaStateBase 0x00 0x0a $true 1
+Add-NpcTreasureVisibility 0x4f 0x00 0x0a 0 'TREASURE_HARP' $false 'impaNpc.s:getImpaNpcState'
+Add-ImpaStateBase 0x00 0x0b $true 1
+Add-NpcTreasureVisibility 0x4f 0x00 0x0b 0 'TREASURE_HARP' $true 'impaNpc.s:getImpaNpcState'
+Add-NpcGlobalVisibility 0x4f 0x00 0x0b 0 'GLOBALFLAG_SAVED_NAYRU' $false 'impaNpc.s:getImpaNpcState'
+Add-NpcGlobalVisibility 0x4f 0x00 0x0b 0 'GLOBALFLAG_GOT_RING_FROM_ZELDA' $false 'impaNpc.s:getImpaNpcState'
+Add-NpcEssenceVisibility 0x4f 0x00 0x0b 0 0x04 $false 'impaNpc.s:getImpaNpcState'
+Add-ImpaStateBase 0x00 0x0d $true 1
+Add-NpcTreasureVisibility 0x4f 0x00 0x0d 0 'TREASURE_HARP' $true 'impaNpc.s:getImpaNpcState'
+Add-NpcGlobalVisibility 0x4f 0x00 0x0d 0 'GLOBALFLAG_SAVED_NAYRU' $false 'impaNpc.s:getImpaNpcState'
+Add-NpcGlobalVisibility 0x4f 0x00 0x0d 0 'GLOBALFLAG_GOT_RING_FROM_ZELDA' $true 'impaNpc.s:getImpaNpcState'
+Add-ImpaStateBase 0x00 0x0e $true 1
+Add-NpcTreasureVisibility 0x4f 0x00 0x0e 0 'TREASURE_HARP' $true 'impaNpc.s:getImpaNpcState'
+Add-NpcGlobalVisibility 0x4f 0x00 0x0e 0 'GLOBALFLAG_SAVED_NAYRU' $true 'impaNpc.s:getImpaNpcState'
+Add-NpcTreasureVisibility 0x4f 0x00 0x0e 0 'TREASURE_MAKU_SEED' $false 'impaNpc.s:getImpaNpcState'
+
+Add-ImpaStateBase 0x01 -1 $true -1
+Add-NpcTreasureVisibility 0x4f 0x01 -1 0 'TREASURE_HARP' $true 'impaNpc.s:getImpaNpcState'
+Add-NpcGlobalVisibility 0x4f 0x01 -1 0 'GLOBALFLAG_SAVED_NAYRU' $true 'impaNpc.s:getImpaNpcState'
+Add-NpcTreasureVisibility 0x4f 0x01 -1 0 'TREASURE_MAKU_SEED' $true 'impaNpc.s:getImpaNpcState'
+Add-NpcGlobalVisibility 0x4f 0x01 -1 0 'GLOBALFLAG_PRE_BLACK_TOWER_CUTSCENE_DONE' $true 'impaNpc.s:getImpaNpcState'
+Add-NpcGlobalVisibility 0x4f 0x01 -1 0 'GLOBALFLAG_FLAME_OF_DESPAIR_LIT' $false 'impaNpc.s:getImpaNpcState'
+Add-ImpaStateBase 0x02 -1 $true -1
+Add-NpcTreasureVisibility 0x4f 0x02 -1 0 'TREASURE_HARP' $true 'impaNpc.s:getImpaNpcState'
+Add-NpcGlobalVisibility 0x4f 0x02 -1 0 'GLOBALFLAG_SAVED_NAYRU' $true 'impaNpc.s:getImpaNpcState'
+Add-NpcTreasureVisibility 0x4f 0x02 -1 0 'TREASURE_MAKU_SEED' $true 'impaNpc.s:getImpaNpcState'
+Add-NpcGlobalVisibility 0x4f 0x02 -1 0 'GLOBALFLAG_PRE_BLACK_TOWER_CUTSCENE_DONE' $true 'impaNpc.s:getImpaNpcState'
+Add-NpcGlobalVisibility 0x4f 0x02 -1 0 'GLOBALFLAG_FLAME_OF_DESPAIR_LIT' $true 'impaNpc.s:getImpaNpcState'
+# Nayru's placed house and linked/post-game variants.
+Add-NpcLinkedVisibility 0x36 0x0a -1 0 $true 'nayru.s:@init0a'
+Add-NpcTreasureVisibility 0x36 0x0a -1 0 'TREASURE_MAKU_SEED' $true 'nayru.s:@init0a'
+Add-NpcGlobalVisibility 0x36 0x0a -1 0 'GLOBALFLAG_PRE_BLACK_TOWER_CUTSCENE_DONE' $false 'nayru.s:@init0a'
+Add-NpcGlobalVisibility 0x36 0x0b -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'nayru.s:@init0b'
+Add-NpcGlobalVisibility 0x36 0x0b -1 0 'GLOBALFLAG_SAVED_NAYRU' $true 'nayru.s:@init0b'
+Add-NpcTreasureVisibility 0x36 0x0b -1 0 'TREASURE_MAKU_SEED' $false 'nayru.s:@init0b'
 Add-NpcGlobalVisibility 0x36 0x0c -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'nayru.s:@init0c'
 Add-NpcGlobalVisibility 0x36 0x0c -1 0 'GLOBALFLAG_PRE_BLACK_TOWER_CUTSCENE_DONE' $true 'nayru.s:@init0c'
 Add-NpcGlobalVisibility 0x36 0x0c -1 0 'GLOBALFLAG_FLAME_OF_DESPAIR_LIT' $false 'nayru.s:@init0c'
 Add-NpcGlobalVisibility 0x36 0x0d -1 0 'GLOBALFLAG_FLAME_OF_DESPAIR_LIT' $true 'nayru.s:@init0d'
 Add-NpcGlobalVisibility 0x36 0x0d -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'nayru.s:@init0d'
 Add-NpcGlobalVisibility 0x36 0x13 -1 0 'GLOBALFLAG_FINISHEDGAME' $true 'nayru.s:@init13'
+
+# Zelda's three positioned story variants.
+Add-NpcLinkedVisibility 0xad 0x04 -1 0 $true 'zelda.s:@initSubid04'
+Add-NpcTreasureVisibility 0xad 0x04 -1 0 'TREASURE_MAKU_SEED' $true 'zelda.s:@initSubid04'
+Add-NpcGlobalVisibility 0xad 0x04 -1 0 'GLOBALFLAG_PRE_BLACK_TOWER_CUTSCENE_DONE' $false 'zelda.s:@initSubid04'
+Add-NpcGlobalVisibility 0xad 0x07 -1 0 'GLOBALFLAG_GOT_RING_FROM_ZELDA' $true 'zelda.s:@initSubid07'
+Add-NpcTreasureVisibility 0xad 0x07 -1 0 'TREASURE_MAKU_SEED' $false 'zelda.s:@initSubid07'
+Add-NpcLinkedVisibility 0xad 0x08 -1 0 $true 'zelda.s:@initSubid08'
+Add-NpcGlobalVisibility 0xad 0x08 -1 0 'GLOBALFLAG_PRE_BLACK_TOWER_CUTSCENE_DONE' $true 'zelda.s:@initSubid08'
+Add-NpcGlobalVisibility 0xad 0x08 -1 0 'GLOBALFLAG_FLAME_OF_DESPAIR_LIT' $false 'zelda.s:@initSubid08'
 
 # The two placed past-guy variants exchange places when GLOBALFLAG_0b changes.
 Add-NpcGlobalVisibility 0x43 0x00 0 0 'GLOBALFLAG_FINISHEDGAME' $false 'pastGuy.s:@subid0'
@@ -1971,7 +2777,14 @@ Add-NpcGlobalVisibility 0x69 0x01 -1 0 'GLOBALFLAG_RAFTON_CHANGED_ROOMS' $true '
 
 Add-NpcGlobalVisibility 0x37 0x03 -1 0 'GLOBALFLAG_GAVE_ROPE_TO_RAFTON' $true 'ralph.s:@initSubid03'
 Add-NpcCurrentRoomVisibility 0x37 0x03 -1 0 0x40 $false 'ralph.s:@initSubid03'
+Add-NpcGlobalVisibility 0x37 0x09 -1 0 'GLOBALFLAG_RALPH_ENTERED_AMBIS_PALACE' $false 'ralph.s:@initSubid09'
+Add-NpcEssenceVisibility 0x37 0x09 -1 0 0x20 $true 'ralph.s:@initSubid09'
+Add-NpcTreasureVisibility 0x37 0x0a -1 0 'TREASURE_MAKU_SEED' $true 'ralph.s:@initSubid0a'
+Add-NpcGlobalVisibility 0x37 0x0a -1 0 'GLOBALFLAG_PRE_BLACK_TOWER_CUTSCENE_DONE' $false 'ralph.s:@initSubid0a'
+Add-NpcGlobalVisibility 0x37 0x0a -1 0 'GLOBALFLAG_RALPH_ENTERED_BLACK_TOWER' $false 'ralph.s:@initSubid0a'
 Add-NpcGlobalVisibility 0x37 0x11 -1 0 'GLOBALFLAG_FINISHEDGAME' $true 'ralph.s:@initSubid11'
+Add-NpcLinkedVisibility 0x37 0x12 -1 0 $true 'ralph.s:@initSubid12'
+Add-NpcSpecificRoomVisibility 0x37 0x12 -1 0 4 0xfc 0x80 $true 'ralph.s:@initSubid12' 'wGroup4RoomFlags + (<ROOM_AGES_4fc)'
 
 # Soldier $00/$01 variants swap on GLOBALFLAG_0b; all disappear post-game.
 foreach ($soldierSubid in @(0x00, 0x01)) {
@@ -1980,11 +2793,29 @@ foreach ($soldierSubid in @(0x00, 0x01)) {
     Add-NpcGlobalVisibility 0x40 $soldierSubid 1 0 'GLOBALFLAG_FINISHEDGAME' $false 'soldier.s:soldierSubid01'
     Add-NpcGlobalVisibility 0x40 $soldierSubid 1 0 'GLOBALFLAG_0b' $true 'soldier.s:soldierSubid01'
 }
+Add-NpcGlobalVisibility 0x40 0x0b -1 0 'GLOBALFLAG_0b' $false 'soldier.s:soldierSubid0b'
+Add-NpcTreasureVisibility 0x40 0x0b -1 0 'TREASURE_MYSTERY_SEEDS' $true 'soldier.s:soldierSubid0b'
+
+# Tokay and Zora variants which are selected directly by linked, essence,
+# room, and companion-state checks.
+Add-NpcLinkedVisibility 0x48 0x07 -1 0 $false 'tokay.s:@initSubid07'
+Add-NpcLinkedVisibility 0x48 0x0b -1 0 $true 'tokay.s:@initSubid0b'
+Add-NpcTreasureVisibility 0x48 0x0b -1 0 'TREASURE_SHOVEL' $false 'tokay.s:@initSubid0b'
+Add-NpcCurrentRoomVisibility 0x48 0x0b -1 0 0x80 $false 'tokay.s:@initSubid0b'
+Add-NpcEssenceVisibility 0x48 0x10 -1 0 0x04 $true 'tokay.s:@initSubid10' 'wEssencesObtained'
+Add-NpcWramVisibility 0x48 0x10 -1 0 0xc647 0x02 $false 'tokay.s:@initSubid10' 'wDimitriState'
+
+Add-NpcCurrentRoomVisibility 0xab 0x10 -1 0 0x20 $false 'zora.s:@subid10'
+Add-NpcEssenceVisibility 0xab 0x10 -1 0 0x40 $true 'zora.s:@subid10' 'wEssencesObtained'
+Add-NpcLinkedVisibility 0xab 0x11 -1 0 $false 'zora.s:@subid11'
+Add-NpcCurrentRoomVisibility 0xab 0x11 -1 0 0x40 $false 'zora.s:@deleteIfFlagSet'
+Add-NpcLinkedVisibility 0xab 0x12 -1 0 $true 'zora.s:@subid12'
+Add-NpcCurrentRoomVisibility 0xab 0x12 -1 0 0x40 $false 'zora.s:@deleteIfFlagSet'
 
 Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symmetryNpc.s:@subid0cInit'
 
-if ($npcVisibilityRows.Count -ne 75) {
-    throw "Expected 74 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 304) {
+    throw "Expected 303 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\npc_visibility.tsv'),
@@ -2435,6 +3266,16 @@ foreach ($spriteName in $npcSpriteNames) {
 }
 $npcPath = Join-Path $destination "objects\npcs.tsv"
 [IO.File]::WriteAllLines($npcPath, $npcRows, [Text.UTF8Encoding]::new($false))
+$familyNpcPath = Join-Path $destination "objects\bipin_blossom_family.tsv"
+[IO.File]::WriteAllLines(
+    $familyNpcPath,
+    $familyRows,
+    [Text.UTF8Encoding]::new($false))
+$familyTextPath = Join-Path $destination "objects\bipin_blossom_family_texts.tsv"
+[IO.File]::WriteAllLines(
+    $familyTextPath,
+    $familyTextRows,
+    [Text.UTF8Encoding]::new($false))
 
 # INTERAC_TIMEPORTAL_SPAWNER ($e1) is a scenery interaction rather than an
 # NPC, but it uses the same interaction graphics, animation, and OAM tables.

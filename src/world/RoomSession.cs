@@ -8,6 +8,7 @@ public sealed class RoomSession
     private readonly Func<long> _animationTick;
     private readonly Action _resetAnimationTick;
     private readonly OracleSaveData _saveData;
+    private readonly RoomTileChangeDatabase _tileChanges;
 
     public event Action<int, OracleRoomData>? RoomChanged;
     public OracleWorldData World { get; }
@@ -29,6 +30,7 @@ public sealed class RoomSession
         _resetAnimationTick = resetAnimationTick;
         _saveData = saveData;
         World = new OracleWorldData();
+        _tileChanges = new RoomTileChangeDatabase();
         DungeonMaps = new DungeonMapDatabase();
         ActiveGroup = startingGroup;
         CurrentRoom = GetRoom(startingGroup, startingRoom);
@@ -91,7 +93,9 @@ public sealed class RoomSession
             _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagLayoutSwap)
             ? group + 2
             : group;
-        return World.LoadRoom(group, room, dataGroup);
+        OracleRoomData loaded = World.LoadRoom(group, room, dataGroup);
+        _tileChanges.Apply(group, loaded, _saveData, World, _animationTick());
+        return loaded;
     }
 
     public void SetLayoutSwapped(int group, int room)

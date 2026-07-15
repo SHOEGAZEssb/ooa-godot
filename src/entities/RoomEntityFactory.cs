@@ -10,11 +10,14 @@ internal sealed class RoomEntityFactory(
     ItemDropDatabase itemDrops,
     TimePortalDatabase timePortals,
     OracleRandom random,
+    OracleSaveData? saveData,
+    OracleRuntimeState runtimeState,
     Action<TimePortal> portalEntered)
 {
     public IEnumerable<IRoomEntity> CreateRoomEntities(int group, OracleRoomData room)
     {
-        foreach (NpcDatabase.NpcRecord record in npcs.GetRoomNpcs(group, room.Id))
+        foreach (NpcDatabase.NpcRecord record in
+            npcs.GetRoomNpcs(group, room.Id, saveData, runtimeState))
         {
             var npc = new NpcCharacter
             {
@@ -22,7 +25,9 @@ internal sealed class RoomEntityFactory(
                 ZIndex = NpcCharacter.BehindLinkZIndex
             };
             npc.Initialize(record);
-            yield return new NpcRoomEntity(npc);
+            yield return record is { Id: 0x28, SubId: 0x00 }
+                ? new RunningBipinRoomEntity(npc)
+                : new NpcRoomEntity(npc);
         }
 
         foreach (IRoomEntity portal in CreateTimePortals(group, room))

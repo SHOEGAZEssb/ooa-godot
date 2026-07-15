@@ -48,6 +48,9 @@ public partial class DialogueBox : Node2D
     private bool _open;
     private bool _consumeClosingInput;
     private bool _scrollingText;
+    private bool _choiceActive;
+    private int _selectedChoice;
+    private int? _choiceResult;
 
     public bool IsOpen => _open;
     public bool BlocksPlayerInput => _open || _consumeClosingInput;
@@ -73,6 +76,8 @@ public partial class DialogueBox : Node2D
     internal bool IsScrollingText => _scrollingText;
     internal float TextScrollOffset => _textScrollOffset;
     internal string CurrentMessage => _currentMessage;
+    internal bool ChoiceActive => _choiceActive;
+    internal int SelectedChoice => _selectedChoice;
     internal static Color DefaultTextColorForValidation => NormalTextColor;
     internal static Rect2 ContinueMarkerRectForValidation => ContinueMarkerRect;
 
@@ -109,6 +114,9 @@ public partial class DialogueBox : Node2D
         _open = true;
         _consumeClosingInput = false;
         _scrollingText = false;
+        _choiceActive = false;
+        _selectedChoice = 0;
+        _choiceResult = null;
         _arrowFrameCounter = 0.0;
         _characterFrameAccumulator = 0.0;
         _textScrollTickAccumulator = 0.0;
@@ -124,10 +132,38 @@ public partial class DialogueBox : Node2D
         QueueRedraw();
     }
 
+    internal void ShowChoiceMessage(
+        string message,
+        float linkY,
+        int initialChoice = 0)
+    {
+        ShowMessage(message, linkY);
+        _choiceActive = true;
+        _selectedChoice = Math.Max(0, initialChoice);
+    }
+
+    internal bool TryTakeChoiceResult(out int choice)
+    {
+        choice = _choiceResult ?? 0;
+        if (!_choiceResult.HasValue)
+            return false;
+        _choiceResult = null;
+        return true;
+    }
+
+    internal void SubmitChoiceForValidation(int choice)
+    {
+        if (!_choiceActive)
+            throw new InvalidOperationException("No dialogue choice is active.");
+        _selectedChoice = choice;
+        SubmitChoice();
+    }
+
     public void Close()
     {
         _open = false;
         _scrollingText = false;
+        _choiceActive = false;
         Visible = false;
     }
 
@@ -160,8 +196,33 @@ public partial class DialogueBox : Node2D
 
         QueueRedraw();
         if (Engine.GetProcessFrames() == _openedFrame ||
-            (!Input.IsActionJustPressed("attack") && !Input.IsActionJustPressed("item")))
+            (!Input.IsActionJustPressed("attack") && !Input.IsActionJustPressed("item") &&
+             !Input.IsActionJustPressed("move_left") && !Input.IsActionJustPressed("move_right") &&
+             !Input.IsActionJustPressed("move_up") && !Input.IsActionJustPressed("move_down")))
             return;
+
+        if (_choiceActive && IsPageComplete && !HasContinuation)
+        {
+            int choiceCount = CurrentLine(0).OptionColumns.Count +
+                CurrentLine(1).OptionColumns.Count;
+            if (choiceCount > 0 &&
+                (Input.IsActionJustPressed("move_left") ||
+                 Input.IsActionJustPressed("move_right") ||
+                 Input.IsActionJustPressed("move_up") ||
+                 Input.IsActionJustPressed("move_down")))
+            {
+                int choiceDelta = Input.IsActionJustPressed("move_left") ||
+                    Input.IsActionJustPressed("move_up") ? -1 : 1;
+                _selectedChoice = (_selectedChoice + choiceDelta + choiceCount) % choiceCount;
+                QueueRedraw();
+                return;
+            }
+            if (Input.IsActionJustPressed("attack") || Input.IsActionJustPressed("item"))
+            {
+                SubmitChoice();
+                return;
+            }
+        }
 
         AdvanceOrClose();
     }
@@ -199,6 +260,11 @@ public partial class DialogueBox : Node2D
         }
         else
         {
+            if (_choiceActive)
+            {
+                SubmitChoice();
+                return;
+            }
             Close();
             // The original main loop cannot run Link's interaction code again
             // for the same wKeysJustPressed value. Hold the closing press until
@@ -239,6 +305,9 @@ public partial class DialogueBox : Node2D
         // text, so the final message of a dialogue never receives an arrow.
         if (ArrowVisible)
             DrawTextureRect(_continueMarkerTexture, ContinueMarkerRect, false, RedTextColor);
+
+        if (_choiceActive && IsPageComplete && !HasContinuation)
+            DrawChoiceCursor();
     }
 
     internal void AdvanceArrowClockForValidation(double delta)
@@ -299,9 +368,38 @@ public partial class DialogueBox : Node2D
         text = Regex.Replace(text, @"\\heart(?![A-Za-z])", "♥");
         return Regex.Replace(
             text,
-            @"\\(?:stop(?:\(\))?|pos\([^)]*\)|col\([^)]*\))",
+            @"\\(?:stop(?:\(\))?|pos\([^)]*\)|col\([^)]*\)|opt\([^)]*\))",
             string.Empty,
             RegexOptions.IgnoreCase);
+    }
+
+    private void SubmitChoice()
+    {
+        _choiceResult = _selectedChoice;
+        Close();
+        _consumeClosingInput = true;
+    }
+
+    private void DrawChoiceCursor()
+    {
+        int optionIndex = 0;
+        for (int lineIndex = 0; lineIndex < LinesPerPage; lineIndex++)
+        {
+            foreach (int column in CurrentLine(lineIndex).OptionColumns)
+            {
+                if (optionIndex++ != _selectedChoice)
+                    continue;
+                var cursorLine = new TextLine(
+                    new[] { new TextGlyph('>', FontSource.Main, 0) },
+                    Array.Empty<int>());
+                DrawFontLine(
+                    cursorLine,
+                    new Vector2(16 + Math.Max(0, column - 1) * 8,
+                        lineIndex * LineSpacing),
+                    1);
+                return;
+            }
+        }
     }
 
     private void UpdateCharacterDisplay(double delta)
@@ -448,6 +546,7 @@ public partial class DialogueBox : Node2D
         var segments = new List<TextSegment>();
         var lines = new List<TextLine>();
         var glyphs = new List<TextGlyph>();
+        var optionColumns = new List<int>();
         int colorIndex = 0;
         bool skipNextNewline = false;
 
@@ -471,8 +570,9 @@ public partial class DialogueBox : Node2D
 
         void FinishLine()
         {
-            lines.Add(new TextLine(glyphs));
+            lines.Add(new TextLine(glyphs, optionColumns));
             glyphs = new List<TextGlyph>();
+            optionColumns = new List<int>();
         }
 
         void FinishSegment()
@@ -564,12 +664,14 @@ public partial class DialogueBox : Node2D
                 case "n":
                     FinishLine();
                     break;
+                case "opt":
+                    optionColumns.Add(glyphs.Count);
+                    break;
                 case "pos":
                 case "sfx":
                 case "charsfx":
                 case "slow":
                 case "speed":
-                case "opt":
                 case "wait":
                     break;
                 default:
@@ -660,14 +762,21 @@ public partial class DialogueBox : Node2D
 
     private sealed class TextLine
     {
-        public static readonly TextLine Empty = new(Array.Empty<TextGlyph>());
+        public static readonly TextLine Empty = new(
+            Array.Empty<TextGlyph>(), Array.Empty<int>());
         public IReadOnlyList<TextGlyph> Glyphs { get; }
+        public IReadOnlyList<int> OptionColumns { get; }
 
-        public TextLine(IEnumerable<TextGlyph> glyphs)
+        public TextLine(
+            IEnumerable<TextGlyph> glyphs,
+            IEnumerable<int> optionColumns)
         {
             Glyphs = glyphs is IReadOnlyList<TextGlyph> list
                 ? list
                 : new List<TextGlyph>(glyphs);
+            OptionColumns = optionColumns is IReadOnlyList<int> optionList
+                ? optionList
+                : new List<int>(optionColumns);
         }
     }
 

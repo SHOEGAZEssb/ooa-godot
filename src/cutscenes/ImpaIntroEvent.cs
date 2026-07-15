@@ -1095,29 +1095,8 @@ internal sealed class ImpaIntroEvent : IRoomEvent
         NpcCharacter blocker,
         float collisionRadiusY,
         float collisionRadiusX)
-    {
-        Vector2 link = _context.Player.Position;
-        Vector2 obstacle = blocker.Position;
-        float radiusY = collisionRadiusY + NpcCharacter.LinkCollisionRadius;
-        float radiusX = collisionRadiusX + NpcCharacter.LinkCollisionRadius;
-        float differenceY = Mathf.Abs(link.Y - obstacle.Y);
-        float differenceX = Mathf.Abs(link.X - obstacle.X);
-        if (differenceY >= radiusY || differenceX >= radiusX)
-            return false;
-
-        // preventObjectHFromPassingObjectD resolves the axis with less overlap;
-        // ties are horizontal because its final comparison uses CP without EQ.
-        float overlapY = radiusY - differenceY;
-        float overlapX = radiusX - differenceX;
-        bool horizontal = overlapY >= overlapX;
-        float linkCoordinate = horizontal ? link.X : link.Y;
-        float obstacleCoordinate = horizontal ? obstacle.X : obstacle.Y;
-        int side = linkCoordinate > obstacleCoordinate ? 1 : -1;
-        int coordinate = Mathf.FloorToInt(obstacleCoordinate) +
-            side * Mathf.RoundToInt(horizontal ? radiusX : radiusY);
-        _context.Player.SetScriptedCoordinateHigh(horizontal, coordinate);
-        return true;
-    }
+        => blocker.PreventPlayerPassing(
+            _context.Player, collisionRadiusY, collisionRadiusX);
 
     private void RestoreStoneTiles()
     {

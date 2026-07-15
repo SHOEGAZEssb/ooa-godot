@@ -19,6 +19,7 @@ public partial class GameRoot
         ValidateOracleObjectMath();
         ValidateRoomEventTimeline();
         ValidateSaveDataFoundation();
+        ValidateRoomTileChanges();
         ValidateExplicitSavePersistence();
         ValidateMainMenu();
         ValidateNewGameIntro();
@@ -34,6 +35,7 @@ public partial class GameRoot
         ValidateSigns();
         ValidateNpcs();
         ValidateNpcFlagVisibility();
+        ValidateBipinBlossomNaming();
         ValidateImpaIntroEncounter();
         ValidateMakuTreeDisappearanceCutscene();
         ValidateNayruIntroCutscene();
@@ -104,6 +106,151 @@ public partial class GameRoot
         }
         GD.Print("Validated shared 8.8 object-pixel flooring and Z integration, 32-step " +
             "angles, strict/masked cardinal decoding, and original screen boundaries.");
+    }
+
+    private static void ValidateRoomTileChanges()
+    {
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        long animationTick = 0;
+        var rooms = new RoomSession(
+            0, 0x3a,
+            () => animationTick,
+            () => animationTick = 0,
+            save);
+        var changes = new RoomTileChangeDatabase();
+        var warps = new WarpDatabase();
+        static Vector2 Point(int position) => new(
+            (position & 0x0f) * OracleRoomData.MetatileSize + 8,
+            (position >> 4) * OracleRoomData.MetatileSize + 8);
+
+        Vector2 doorPoint = Point(0x23);
+        OracleRoomData room = rooms.CurrentRoom;
+
+        if (changes.RuleCount != 44 || changes.RoomCount != 35 ||
+            room.GetPackedPosition(doorPoint) != 0x23 ||
+            room.GetOriginalMetatile(doorPoint) != 0xa7 ||
+            room.GetMetatile(doorPoint) != 0xa7 || !room.IsSolid(doorPoint) ||
+            warps.TryGetTileWarp(0, 0x3a, 0x23, room.GetMetatile(doorPoint), out _))
+        {
+            throw new InvalidOperationException(
+                "Room 0:3a did not begin with Nayru's house door closed at $23/$a7.");
+        }
+
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
+        room = rooms.Load(0, 0x3a);
+        if (room.GetMetatile(doorPoint) != 0xee || room.IsSolid(doorPoint) ||
+            !warps.TryGetTileWarp(0, 0x3a, 0x23, 0xee, out WarpDatabase.Warp warp) ||
+            warp.DestinationGroup != 3 || warp.DestinationRoom != 0x9e)
+        {
+            throw new InvalidOperationException(
+                "GLOBALFLAG_INTRO_DONE $0a did not open room 0:3a's $23/$ee door to 3:9e.");
+        }
+
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone, value: false);
+        room = rooms.Load(0, 0x3a);
+        if (room.GetMetatile(doorPoint) != 0xa7 || !room.IsSolid(doorPoint))
+        {
+            throw new InvalidOperationException(
+                "Reloading room 0:3a without GLOBALFLAG_INTRO_DONE did not restore door $23/$a7.");
+        }
+
+        // Current-room set/clear conditions and arbitrary direct writes.
+        room = rooms.Load(0, 0x73);
+        byte forestOriginal = room.GetOriginalMetatile(Point(0x73));
+        save.SetRoomFlag(0, 0x73, OracleSaveData.RoomFlag80);
+        room = rooms.Load(0, 0x73);
+        if (room.GetMetatile(Point(0x73)) != 0x3a ||
+            room.GetMetatile(Point(0x74)) != 0x10 ||
+            room.GetMetatile(Point(0x77)) != 0x3a)
+        {
+            throw new InvalidOperationException(
+                "Room 0:73 flag $80 did not apply its five imported rubble writes.");
+        }
+        save.SetRoomFlag(0, 0x73, OracleSaveData.RoomFlag80, value: false);
+        room = rooms.Load(0, 0x73);
+        if (room.GetMetatile(Point(0x73)) != forestOriginal)
+            throw new InvalidOperationException("Room 0:73 did not restore its original rubble layout.");
+
+        room = rooms.Load(0, 0xac);
+        byte treeOriginal = room.GetOriginalMetatile(Point(0x33));
+        if (room.GetMetatile(Point(0x33)) != 0xaf || room.GetMetatile(Point(0x44)) != 0xaf)
+            throw new InvalidOperationException(
+                "Room 0:ac's clear flag-$80 branch did not remove the scent tree.");
+        save.SetRoomFlag(0, 0xac, OracleSaveData.RoomFlag80);
+        room = rooms.Load(0, 0xac);
+        if (room.GetMetatile(Point(0x33)) != treeOriginal)
+            throw new InvalidOperationException(
+                "Room 0:ac flag $80 did not retain the original planted-tree layout.");
+
+        // Explicit other-room flags.
+        room = rooms.Load(0, 0x0b);
+        byte caveOriginal = room.GetOriginalMetatile(Point(0x43));
+        if (room.GetMetatile(Point(0x43)) != caveOriginal)
+            throw new InvalidOperationException("Room 0:0b opened before room 0:0a flag $40 was set.");
+        save.SetRoomFlag(0, 0x0a, OracleSaveData.RoomFlag40);
+        room = rooms.Load(0, 0x0b);
+        if (room.GetMetatile(Point(0x43)) != 0xdd)
+            throw new InvalidOperationException(
+                "Room 0:0a flag $40 did not open room 0:0b's imported cave entrance.");
+
+        // Essence conditions.
+        room = rooms.Load(5, 0xb9);
+        byte elderOriginal = room.GetOriginalMetatile(Point(0x41));
+        if (room.GetMetatile(Point(0x41)) != elderOriginal)
+            throw new InvalidOperationException("Room 5:b9 changed before essence bit 3 was set.");
+        save.WriteWramByte(0xc6bf, (byte)(1 << 3));
+        room = rooms.Load(5, 0xb9);
+        if (room.GetMetatile(Point(0x41)) != 0xa1 ||
+            room.GetMetatile(Point(0x44)) != 0xef ||
+            room.GetMetatile(Point(0x55)) != 0xa2)
+        {
+            throw new InvalidOperationException(
+                "Essence bit 3 did not apply room 5:b9's two imported boulder rows.");
+        }
+
+        // Draw rectangles preserve the original height/width ordering.
+        room = rooms.Load(2, 0x90);
+        save.SetRoomFlag(2, 0x90, 0x02);
+        room = rooms.Load(2, 0x90);
+        if (room.GetMetatile(Point(0x42)) != 0xdd ||
+            room.GetMetatile(Point(0x47)) != 0xef ||
+            room.GetMetatile(Point(0x52)) != 0xb9 ||
+            room.GetMetatile(Point(0x57)) != 0xbe)
+        {
+            throw new InvalidOperationException(
+                "Room 2:90 flag $02 did not draw its imported 2x6 Jabu entrance rectangle.");
+        }
+
+        // Full-layout copies and ANDed global/current-room conditions.
+        save.SetGlobalFlag(0x0f); // GLOBALFLAG_D3_CRYSTALS
+        OracleRoomData sourceRoom = rooms.World.LoadRoom(4, 0x60);
+        room = rooms.Load(4, 0x52);
+        for (int y = 0; y < room.HeightInTiles; y++)
+        for (int x = 0; x < room.WidthInTiles; x++)
+        {
+            Vector2 point = new(
+                x * OracleRoomData.MetatileSize + 8,
+                y * OracleRoomData.MetatileSize + 8);
+            if (room.GetMetatile(point) != sourceRoom.GetOriginalMetatile(point))
+            {
+                throw new InvalidOperationException(
+                    "GLOBALFLAG_D3_CRYSTALS did not copy room 4:60's original layout into 4:52.");
+            }
+        }
+
+        room = rooms.Load(4, 0x60);
+        if (room.GetMetatile(Point(0x57)) != 0xf1)
+            throw new InvalidOperationException(
+                "Room 4:60 did not create its closed chest for clear room item flag $20.");
+        save.SetRoomFlag(4, 0x60, OracleSaveData.RoomFlagItem);
+        room = rooms.Load(4, 0x60);
+        if (room.GetMetatile(Point(0x57)) != 0xf0)
+            throw new InvalidOperationException(
+                "Room 4:60 item flag $20 did not select the opened chest under the D3 global flag.");
+
+        GD.Print("Validated 44 imported rules for 35 room-specific tile changers: " +
+            "global/current/specific-room/essence/WRAM conditions, set/fill/draw/replace/copy " +
+            "operations, and room 0:3a's closed-to-open Nayru-house warp.");
     }
 
     private static void ValidateRoomEventTimeline()
@@ -3932,9 +4079,10 @@ public partial class GameRoot
         var manager = new RoomEntityManager(
             validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
 
-        if (new NpcVisibilityRuleDatabase().RuleCount != 74)
+        if (new NpcVisibilityRuleDatabase().RuleCount != 303 ||
+            new NpcDialogueRuleDatabase().RuleCount != 54)
             throw new InvalidOperationException(
-                "Expected 74 imported NPC initialization flag predicates.");
+                "Expected 303 NPC visibility and 54 NPC dialogue state predicates.");
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x5a));
         List<NpcCharacter> introMonkeys = manager.Entities<NpcCharacter>().Where(npc =>
@@ -3986,20 +4134,166 @@ public partial class GameRoot
             throw new InvalidOperationException(
                 "Clearing GLOBALFLAG_INTRO_DONE $0a did not restore room 0:5a's intro monkeys.");
 
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
+        manager.LoadRoom(2, _world.LoadRoom(2, 0xea));
+        List<NpcCharacter> newbornLeftFamily = manager.Entities<NpcCharacter>();
+        NpcCharacter? newbornBipin = newbornLeftFamily.Find(npc =>
+            npc.Record.Id == 0x28 && npc.Record.SubId == 0x00);
+        NpcCharacter? newbornBlossom = newbornLeftFamily.Find(npc =>
+            npc.Record.Id == 0x2b && npc.Record.SubId == 0x00);
+        if (newbornLeftFamily.Count != 2 ||
+            newbornBipin is not { TextId: 0x4300 } ||
+            newbornBipin.Position != new Vector2(0x48, 0x48) ||
+            newbornBipin.Record.DefaultAnimation != 0x04 ||
+            !CanTalkTo(newbornBipin) ||
+            newbornBlossom is not { TextId: 0x4400 } ||
+            newbornBlossom.Position != new Vector2(0x78, 0x38) ||
+            !CanTalkTo(newbornBlossom))
+        {
+            throw new InvalidOperationException(
+                "Room 2:ea did not expand family stage $00 into talkable Bipin/Blossom actors.");
+        }
+
+        string bipinRunningLeft = newbornBipin.Record.DownAnimation;
+        string bipinRunningRight = newbornBipin.Record.RightAnimation;
+        if (string.IsNullOrEmpty(bipinRunningLeft) ||
+            string.IsNullOrEmpty(bipinRunningRight) ||
+            bipinRunningLeft == bipinRunningRight)
+        {
+            throw new InvalidOperationException(
+                "Bipin $28:$00 did not import distinct animation $04/$05 running records.");
+        }
+        for (int frame = 0; frame < 32; frame++)
+            manager.Update(1.0 / 60.0, _player);
+        if (newbornBipin.Position != new Vector2(0x28, 0x48))
+            throw new InvalidOperationException(
+                "Bipin $28:$00 did not move left at SPEED_100 to X=$28 after 32 updates.");
+        manager.Update(1.0 / 60.0, _player);
+        if (newbornBipin.Position != new Vector2(0x27, 0x48) ||
+            newbornBipin.CurrentScriptAnimationSource != bipinRunningRight)
+        {
+            throw new InvalidOperationException(
+                "Bipin $28:$00 did not reverse and toggle animation $04->$05 after leaving X=$28.");
+        }
+        for (int frame = 0; frame < 49; frame++)
+            manager.Update(1.0 / 60.0, _player);
+        if (newbornBipin.Position != new Vector2(0x58, 0x48) ||
+            newbornBipin.CurrentScriptAnimationSource != bipinRunningLeft)
+        {
+            throw new InvalidOperationException(
+                "Bipin $28:$00 did not reverse and toggle animation $05->$04 at X=$58.");
+        }
+
+        // Link begins exactly at the legal left edge of Bipin's collision box.
+        // Bipin's next leftward update creates a one-pixel overlap, which the
+        // original objectPreventLinkFromPassing immediately resolves leftward.
+        _player.WarpTo(new Vector2(0x4c, 0x48));
+        manager.Update(1.0 / 60.0, _player);
+        if (newbornBipin.Position != new Vector2(0x57, 0x48) ||
+            _player.Position != new Vector2(0x4b, 0x48))
+        {
+            throw new InvalidOperationException(
+                "Running Bipin entered Link from the side without resolving their collision.");
+        }
+        manager.LoadRoom(2, _world.LoadRoom(2, 0xeb));
+        if (manager.Entities<NpcCharacter>().Count != 0)
+            throw new InvalidOperationException(
+                "Room 2:eb was not empty during family stage $00.");
+
+        bool familySaveChanged = save.WriteWramByte(
+            OracleSaveData.ChildStageAddress, 0x04);
+        familySaveChanged |= save.WriteWramByte(
+            OracleSaveData.ChildPersonalityAddress, 0x01);
+        if (familySaveChanged)
+            save.CommitInventoryChange();
+        manager.LoadRoom(2, _world.LoadRoom(2, 0xea));
+        List<NpcCharacter> shyStage4Left = manager.Entities<NpcCharacter>();
+        if (shyStage4Left.Count != 2 ||
+            shyStage4Left.Find(npc => npc.Record.Id == 0x2b) is not
+                { Record.SubId: 0x04, TextId: 0x4417 } ||
+            shyStage4Left.Find(npc => npc.Record.Id == 0x35) is not
+                { Record.SubId: 0x01, Record.Var03: 0x02, TextId: 0x4200 })
+        {
+            throw new InvalidOperationException(
+                "Room 2:ea did not select the shy family stage-$04 actors and dialogue.");
+        }
+        manager.LoadRoom(2, _world.LoadRoom(2, 0xeb));
+        List<NpcCharacter> shyStage4Right = manager.Entities<NpcCharacter>();
+        if (shyStage4Right.Count != 1 ||
+            shyStage4Right[0].Record is not { Id: 0x28, SubId: 0x04 } ||
+            shyStage4Right[0].TextId != 0x4304)
+        {
+            throw new InvalidOperationException(
+                "Room 2:eb did not select Bipin for shy family stage $04.");
+        }
+
+        familySaveChanged = save.WriteWramByte(
+            OracleSaveData.ChildStageAddress, 0x06);
+        familySaveChanged |= save.WriteWramByte(
+            OracleSaveData.NextChildStageAddress, 0x07);
+        familySaveChanged |= save.WriteWramByte(
+            OracleSaveData.ChildPersonalityAddress, 0x02);
+        familySaveChanged |= save.WriteWramByte(
+            OracleSaveData.ChildStatusAddress, 0x0e);
+        familySaveChanged |= save.WriteWramByte(0xc6bf, 0x03);
+        if (familySaveChanged)
+            save.CommitInventoryChange();
+        manager.RuntimeState.SetWramByte(
+            OracleRuntimeState.SeedTreeRefilledBitsetAddress, 0x02);
+        manager.LoadRoom(2, _world.LoadRoom(2, 0xeb));
+        List<NpcCharacter> warriorStage7Right = manager.Entities<NpcCharacter>();
+        if (save.ReadWramByte(OracleSaveData.ChildStageAddress) != 0x07 ||
+            save.ReadWramByte(OracleSaveData.ChildPersonalityAddress) != 0x01 ||
+            manager.RuntimeState.ReadWramByte(
+                OracleRuntimeState.SeedTreeRefilledBitsetAddress) != 0 ||
+            warriorStage7Right.Count != 2 ||
+            warriorStage7Right.Find(npc => npc.Record.Id == 0x2b) is not
+                { Record.SubId: 0x07, Record.Var03: 0x01, TextId: 0x4426 } ||
+            warriorStage7Right.Find(npc => npc.Record.Id == 0x28) is not
+                { Record.SubId: 0x07, TextId: 0x4307 })
+        {
+            throw new InvalidOperationException(
+                "The family spawner did not advance curious stage $06 to warrior stage $07 " +
+                "after two essences and seed-tree refill bit 1.");
+        }
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        manager.LoadRoom(2, _world.LoadRoom(2, 0xea));
+        if (manager.Entities<NpcCharacter>().Count != 0)
+            throw new InvalidOperationException(
+                "GLOBALFLAG_FINISHEDGAME $14 did not delete the Bipin/Blossom family spawner.");
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
+        familySaveChanged = save.WriteWramByte(
+            OracleSaveData.ChildStageAddress, 0x00);
+        familySaveChanged |= save.WriteWramByte(
+            OracleSaveData.NextChildStageAddress, 0x00);
+        familySaveChanged |= save.WriteWramByte(
+            OracleSaveData.ChildPersonalityAddress, 0x00);
+        familySaveChanged |= save.WriteWramByte(
+            OracleSaveData.ChildStatusAddress, 0x00);
+        familySaveChanged |= save.WriteWramByte(0xc6bf, 0x00);
+        if (familySaveChanged)
+            save.CommitInventoryChange();
+
         manager.LoadRoom(0, _world.LoadRoom(0, 0x3a));
         NpcCharacter? finishedGameBoy = manager.Entities<NpcCharacter>().Find(npc =>
             npc.Record.Id == 0x3c && npc.Record.SubId == 0x10);
         NpcCharacter? postgameBear = manager.Entities<NpcCharacter>().Find(npc =>
             npc.Record.Id == 0x5d && npc.Record.SubId == 0x02 && npc.Record.Var03 == 0x01);
-        if (finishedGameBoy is not { Active: false } || postgameBear is not { Active: false })
+        NpcCharacter? postgameMonkey = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x39 && npc.Record.SubId == 0x07 && npc.Record.Var03 == 0x01);
+        if (finishedGameBoy is not { Active: false } ||
+            postgameBear is not { Active: false } ||
+            postgameMonkey is not { Active: false })
             throw new InvalidOperationException(
                 "Room 0:3a's finished-game NPC variants appeared before GLOBALFLAG_FINISHEDGAME $14.");
         save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
-        if (!finishedGameBoy.Active || !postgameBear.Active)
+        if (!finishedGameBoy.Active || !postgameBear.Active || !postgameMonkey.Active)
             throw new InvalidOperationException(
-                "Room 0:3a did not reveal its $3c:$10 and $5d:$02 var03 $01 finished-game NPCs.");
+                "Room 0:3a did not reveal its boy, bear, and monkey finished-game variants.");
 
         save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
+        save.SetGlobalFlag(
+            OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame, value: false);
         manager.LoadRoom(0, _world.LoadRoom(0, 0x7b));
         List<NpcCharacter> graveyardBoys = manager.Entities<NpcCharacter>().Where(npc =>
             (npc.Record.Id == 0x3c && npc.Record.SubId is 0x03 or 0x04) ||
@@ -4056,13 +4350,547 @@ public partial class GameRoot
             throw new InvalidOperationException(
                 "GLOBALFLAG_RETURNED_DOG $3b did not satisfy Mamamu's alternative visibility branch.");
 
+        void SetTreasure(int treasure, bool value)
+        {
+            int address = 0xc69a + treasure / 8;
+            byte mask = (byte)(1 << (treasure & 7));
+            byte current = save.ReadWramByte(address);
+            byte next = value ? (byte)(current | mask) : (byte)(current & ~mask);
+            if (save.WriteWramByte(address, next))
+                save.CommitInventoryChange();
+        }
+
+        // Restore a coherent immediate-post-intro state before checking all
+        // placed members of the Impa/Nayru/Zelda story-state family.
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru, value: false);
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagPreBlackTowerCutsceneDone, value: false);
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagGotRingFromZelda, value: false);
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagFlameOfDespairLit, value: false);
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagReturnedDog, value: false);
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
+        save.SetRoomFlag(0, 0x83, OracleSaveData.RoomFlag80, value: false);
+        save.SetRoomFlag(0, 0xe7, OracleSaveData.RoomFlag80, value: false);
+        SetTreasure(TreasureDatabase.TreasureHarp, value: false);
+        SetTreasure(TreasureDatabase.TreasureMakuSeed, value: false);
+        if (save.WriteWramByte(0xc612, 0))
+            save.CommitInventoryChange();
+        if (save.WriteWramByte(0xc6bf, 0))
+            save.CommitInventoryChange();
+
+        manager.RuntimeState.SetWramByte(
+            OracleRuntimeState.MamamuDogLocationAddress, 0x03);
+        manager.LoadRoom(0, _world.LoadRoom(0, 0x48));
+        NpcCharacter? roamingDog = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x54 && npc.Record.SubId == 0x01 && npc.Record.Var03 == 0x03);
+        if (roamingDog is not { Active: false })
+            throw new InvalidOperationException(
+                "Room 0:48's roaming dog appeared before Mamamu's search began.");
+        save.SetRoomFlag(0, 0xe7, OracleSaveData.RoomFlag80);
+        if (!roamingDog.Active)
+            throw new InvalidOperationException(
+                "Room 0:e7 flag $80 did not reveal location-$03 Mamamu dog in room 0:48.");
+        manager.RuntimeState.SetWramByte(
+            OracleRuntimeState.MamamuDogLocationAddress, 0x01);
+        if (roamingDog.Active)
+            throw new InvalidOperationException(
+                "Changing wMamamuDogLocation away from $03 did not hide room 0:48's dog.");
+
+        manager.LoadRoom(0, _world.LoadRoom(0, 0x55));
+        NpcCharacter? relocatedDog = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x54 && npc.Record.SubId == 0x01 && npc.Record.Var03 == 0x01);
+        if (relocatedDog is not { Active: true })
+            throw new InvalidOperationException(
+                "wMamamuDogLocation $01 did not select the roaming dog in room 0:55.");
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagReturnedDog);
+        if (relocatedDog.Active)
+            throw new InvalidOperationException(
+                "GLOBALFLAG_RETURNED_DOG $3b did not remove the selected roaming dog.");
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagReturnedDog, value: false);
+        save.SetRoomFlag(0, 0xe7, OracleSaveData.RoomFlag80, value: false);
+        manager.RuntimeState.SetWramByte(
+            OracleRuntimeState.MamamuDogLocationAddress, 0x00);
+
+        manager.LoadRoom(0, _world.LoadRoom(0, 0x57));
+        NpcCharacter? earlyLynnaOldMan = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x41 && npc.Record.SubId == 0x01);
+        if (earlyLynnaOldMan is not { Active: true } ||
+            earlyLynnaOldMan.TextId != 0x2600 || !CanTalkTo(earlyLynnaOldMan))
+            throw new InvalidOperationException(
+                "Room 0:57 did not load its talkable state-$00 old man with TX_2600.");
+        if (save.WriteWramByte(0xc6bf, 0x04))
+            save.CommitInventoryChange();
+        if (earlyLynnaOldMan.Active)
+            throw new InvalidOperationException(
+                "Room 0:57's $41:$01 old man remained after getGameProgress_1 state $00.");
+        if (save.WriteWramByte(0xc6bf, 0))
+            save.CommitInventoryChange();
+
+        manager.LoadRoom(0, _world.LoadRoom(0, 0x58));
+        NpcCharacter? rollingRidgeMan = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x41 && npc.Record.SubId == 0x04);
+        if (rollingRidgeMan is not { Active: false })
+            throw new InvalidOperationException(
+                "Room 0:58's $41:$04 man appeared before getGameProgress_1 state $03.");
+        if (save.WriteWramByte(0xc6bf, 0x40))
+            save.CommitInventoryChange();
+        if (!rollingRidgeMan.Active || rollingRidgeMan.TextId != 0x2603 ||
+            !CanTalkTo(rollingRidgeMan))
+            throw new InvalidOperationException(
+                "Beating D7 did not reveal room 0:58's talkable TX_2603 state-$03 man.");
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame);
+        if (rollingRidgeMan.Active)
+            throw new InvalidOperationException(
+                "The Maku-seed/Twinrova phase did not retire room 0:58's state-$03 man.");
+        save.SetGlobalFlag(
+            OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame, value: false);
+        if (!rollingRidgeMan.Active)
+            throw new InvalidOperationException(
+                "Clearing the later-phase flag did not restore room 0:58's D7-phase man.");
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        if (rollingRidgeMan.Active)
+            throw new InvalidOperationException(
+                "Finished-game state did not retire room 0:58's state-$03 man.");
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
+        if (save.WriteWramByte(0xc6bf, 0))
+            save.CommitInventoryChange();
+
+        manager.LoadRoom(0, _world.LoadRoom(0, 0x65));
+        List<NpcCharacter> kidnappedZeldaActors = manager.Entities<NpcCharacter>().Where(npc =>
+            (npc.Record.Id == 0x31 && npc.Record.SubId == 0x07) ||
+            (npc.Record.Id == 0x4c && npc.Record.SubId == 0x04)).ToList();
+        if (kidnappedZeldaActors.Count != 2 || kidnappedZeldaActors.Any(npc => npc.Active))
+            throw new InvalidOperationException(
+                "Room 0:65's linked kidnapped-Zelda Impa and bird appeared immediately after the intro.");
+
+        manager.LoadRoom(0, _world.LoadRoom(0, 0x68));
+        NpcCharacter? earlyLynnaMan = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x44 && npc.Record.SubId == 0x02);
+        NpcCharacter? lateLynnaWoman = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x3b && npc.Record.SubId == 0x02);
+        NpcCharacter? makuSeedVillager = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x3a && npc.Record.SubId == 0x05);
+        NpcCharacter? seedSatchelBoy = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x3c && npc.Record.SubId == 0x02);
+        if (earlyLynnaMan is not { Active: true } ||
+            earlyLynnaMan.TextId != 0x1610 ||
+            lateLynnaWoman is not { Active: false } ||
+            makuSeedVillager is not { Active: false } ||
+            seedSatchelBoy is not { Active: false })
+            throw new InvalidOperationException(
+                "Room 0:68 did not select its talkable TX_1610 pre-D3 man after the intro.");
+
+        bool CanTalkTo(NpcCharacter npc)
+        {
+            _player.WarpTo(npc.Position + Vector2.Down * 16.0f);
+            _player.Face(Vector2I.Up);
+            return manager.FindTalkTarget(_player) == npc;
+        }
+        if (!CanTalkTo(earlyLynnaMan))
+            throw new InvalidOperationException(
+                "Room 0:68's $44:$02 man was visible with TX_1610 but not talkable.");
+
+        if (save.WriteWramByte(0xc6bf, 0x04))
+            save.CommitInventoryChange();
+        if (!earlyLynnaMan.Active || earlyLynnaMan.TextId != 0x1611 ||
+            !CanTalkTo(earlyLynnaMan))
+            throw new InvalidOperationException(
+                "Room 0:68's $44:$02 man did not switch live to D3 dialogue TX_1611.");
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        if (!earlyLynnaMan.Active || earlyLynnaMan.TextId != 0x1612 ||
+            !CanTalkTo(earlyLynnaMan))
+            throw new InvalidOperationException(
+                "Room 0:68's $44:$02 man did not switch live to saved-Nayru dialogue TX_1612.");
+
+        if (save.WriteWramByte(0xc6bf, 0x40))
+            save.CommitInventoryChange();
+        if (earlyLynnaMan.Active || !lateLynnaWoman.Active ||
+            lateLynnaWoman.TextId != 0x1523 ||
+            makuSeedVillager.Active || !seedSatchelBoy.Active ||
+            seedSatchelBoy.TextId != 0x2503 ||
+            !CanTalkTo(lateLynnaWoman) || !CanTalkTo(seedSatchelBoy))
+            throw new InvalidOperationException(
+                "Room 0:68 did not switch to talkable TX_1523/TX_2503 actors in state $03.");
+
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame);
+        if (earlyLynnaMan.Active || !lateLynnaWoman.Active ||
+            lateLynnaWoman.TextId != 0x1524 ||
+            !makuSeedVillager.Active || makuSeedVillager.TextId != 0x1434 ||
+            !seedSatchelBoy.Active || seedSatchelBoy.TextId != 0x2504 ||
+            !CanTalkTo(makuSeedVillager))
+            throw new InvalidOperationException(
+                "Room 0:68 did not select its state-$04 dialogue and talkable villager cast.");
+
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        if (earlyLynnaMan.Active || !lateLynnaWoman.Active ||
+            lateLynnaWoman.TextId != 0x1525 ||
+            makuSeedVillager.Active || !seedSatchelBoy.Active ||
+            seedSatchelBoy.TextId != 0x2505)
+            throw new InvalidOperationException(
+                "Room 0:68 did not select finished-game dialogue and retire its state-$04 villager.");
+
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
+        save.SetGlobalFlag(
+            OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame, value: false);
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru, value: false);
+        if (save.WriteWramByte(0xc6bf, 0))
+            save.CommitInventoryChange();
+
+        manager.LoadRoom(0, _world.LoadRoom(0, 0x78));
+        NpcCharacter? clockSecretLady = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x3d && npc.Record.SubId == 0x04);
+        if (clockSecretLady is not { Active: false } ||
+            clockSecretLady.TextId != 0x4d00)
+            throw new InvalidOperationException(
+                "Room 0:78's TX_4d00 linked-secret old lady appeared in an unlinked game.");
+        if (save.WriteWramByte(0xc6bf, 0x08))
+            save.CommitInventoryChange();
+        if (clockSecretLady.Active)
+            throw new InvalidOperationException(
+                "Room 0:78's old lady ignored the linked-game requirement after D4.");
+        if (save.WriteWramByte(0xc612, 1))
+            save.CommitInventoryChange();
+        if (!clockSecretLady.Active || !CanTalkTo(clockSecretLady))
+            throw new InvalidOperationException(
+                "Linked-game plus D4 state did not reveal room 0:78's talkable TX_4d00 old lady.");
+
+        if (save.WriteWramByte(0xc6bf, 0x02))
+            save.CommitInventoryChange();
+        manager.LoadRoom(3, _world.LoadRoom(3, 0xf8));
+        NpcCharacter? ruulSecretLady = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x3d && npc.Record.SubId == 0x05);
+        if (ruulSecretLady is not { Active: true } ||
+            ruulSecretLady.TextId != 0x4d2d || !CanTalkTo(ruulSecretLady))
+            throw new InvalidOperationException(
+                "Linked-game plus D2 state did not reveal the paired talkable TX_4d2d old lady.");
+        if (save.WriteWramByte(0xc612, 0))
+            save.CommitInventoryChange();
+        if (save.WriteWramByte(0xc6bf, 0))
+            save.CommitInventoryChange();
+
+        manager.LoadRoom(0, _world.LoadRoom(0, 0x25));
+        List<NpcCharacter> bridgeCarpenters = manager.Entities<NpcCharacter>().Where(npc =>
+            npc.Record.Id == 0x9a).ToList();
+        if (bridgeCarpenters.Count != 5 || bridgeCarpenters.Any(npc => !npc.Active))
+            throw new InvalidOperationException(
+                "Room 0:25 did not begin with its five unlinked pre-bridge carpenters.");
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagSymmetryBridgeBuilt);
+        if (bridgeCarpenters.Any(npc => npc.Active))
+            throw new InvalidOperationException(
+                "GLOBALFLAG_SYMMETRY_BRIDGE_BUILT $25 did not hide room 0:25's carpenters.");
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagSymmetryBridgeBuilt, value: false);
+
+        manager.LoadRoom(0, _world.LoadRoom(0, 0xaa));
+        NpcCharacter? dimitriTokay = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x48 && npc.Record.SubId == 0x10);
+        if (dimitriTokay is not { Active: false })
+            throw new InvalidOperationException(
+                "Room 0:aa's Dimitri-event Tokay appeared before D3.");
+
+        manager.LoadRoom(1, _world.LoadRoom(1, 0x46));
+        List<NpcCharacter> palaceActors = manager.Entities<NpcCharacter>().Where(npc =>
+            (npc.Record.Id == 0x37 && npc.Record.SubId == 0x09) ||
+            (npc.Record.Id == 0x40 && npc.Record.SubId == 0x0b)).ToList();
+        if (palaceActors.Count != 2 || palaceActors.Any(npc => npc.Active))
+            throw new InvalidOperationException(
+                "Room 1:46's essence/Mystery-Seed-gated Ralph and soldier appeared immediately after the intro.");
+
+        manager.LoadRoom(1, _world.LoadRoom(1, 0x65));
+        List<NpcCharacter> linkedFinaleActors = manager.Entities<NpcCharacter>().Where(npc =>
+            (npc.Record.Id == 0x4d && npc.Record.SubId == 0x0a) ||
+            (npc.Record.Id == 0x37 && npc.Record.SubId == 0x12)).ToList();
+        if (linkedFinaleActors.Count != 2 || linkedFinaleActors.Any(npc => npc.Active))
+            throw new InvalidOperationException(
+                "Room 1:65's linked finale Ambi and Ralph appeared in a standard post-intro game.");
+
+        manager.LoadRoom(1, _world.LoadRoom(1, 0x68));
+        NpcCharacter? linkedSubrosian = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x4e && npc.Record.SubId == 0x00);
+        if (linkedSubrosian is not { Active: false })
+            throw new InvalidOperationException(
+                "Room 1:68's late linked-game Subrosian appeared immediately after the intro.");
+
+        manager.LoadRoom(1, _world.LoadRoom(1, 0x75));
+        List<NpcCharacter> linkedEndingActors = manager.Entities<NpcCharacter>().Where(npc =>
+            (npc.Record.Id == 0x37 && npc.Record.SubId == 0x0a) ||
+            (npc.Record.Id == 0x31 && npc.Record.SubId is 0x04 or 0x05) ||
+            (npc.Record.Id == 0x36 && npc.Record.SubId == 0x0a) ||
+            (npc.Record.Id == 0xad && npc.Record.SubId == 0x04)).ToList();
+        if (linkedEndingActors.Count != 5 || linkedEndingActors.Any(npc => npc.Active))
+            throw new InvalidOperationException(
+                "Room 1:75's pre-tower/linked Impa, Ralph, Nayru, and Zelda variants appeared immediately after the intro.");
+
+        manager.LoadRoom(1, _world.LoadRoom(1, 0x47));
+        List<NpcCharacter> heritageActors = manager.Entities<NpcCharacter>().Where(npc =>
+            (npc.Record.Id == 0x4f && npc.Record.SubId == 0x01) ||
+            (npc.Record.Id == 0xad && npc.Record.SubId == 0x08)).ToList();
+        if (heritageActors.Count != 2 || heritageActors.Any(npc => npc.Active))
+            throw new InvalidOperationException(
+                "Room 1:47's late-story Impa and linked Zelda variants appeared immediately after the intro.");
+
+        manager.LoadRoom(1, _world.LoadRoom(1, 0x58));
+        List<NpcCharacter> flameActors = manager.Entities<NpcCharacter>().Where(npc =>
+            (npc.Record.Id == 0x4f && npc.Record.SubId == 0x02) ||
+            (npc.Record.Id == 0x36 && npc.Record.SubId == 0x0d)).ToList();
+        if (flameActors.Count != 2 || flameActors.Any(npc => npc.Active))
+            throw new InvalidOperationException(
+                "Room 1:58's flame-of-despair Impa and Nayru variants appeared immediately after the intro.");
+
+        manager.LoadRoom(1, _world.LoadRoom(1, 0xcb));
+        NpcCharacter? rosa = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x68 && npc.Record.SubId == 0x00);
+        if (rosa is not { Active: false })
+            throw new InvalidOperationException(
+                "Room 1:cb's linked pre-D3 Rosa appeared immediately after the intro.");
+
+        manager.LoadRoom(2, _world.LoadRoom(2, 0xa0));
+        NpcCharacter? d7Zora = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0xab && npc.Record.SubId == 0x10);
+        if (d7Zora is not { Active: false })
+            throw new InvalidOperationException(
+                "Room 2:a0's D7-gated Zora appeared immediately after the intro.");
+
+        manager.LoadRoom(2, _world.LoadRoom(2, 0xd7));
+        NpcCharacter? linkedZora = manager.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0xab && npc.Record.SubId == 0x12);
+        if (linkedZora is not { Active: false })
+            throw new InvalidOperationException(
+                "Room 2:d7's linked-game Zora appeared in a standard post-intro game.");
+
+        manager.LoadRoom(3, _world.LoadRoom(3, 0x9e));
+        List<NpcCharacter> nayruHouseActors = manager.Entities<NpcCharacter>().Where(npc =>
+            npc.Record.Id is 0x36 or 0x4f or 0xad).ToList();
+        List<NpcCharacter> activeHouseActors = nayruHouseActors.Where(npc => npc.Active).ToList();
+        if (nayruHouseActors.Count != 11 || activeHouseActors.Count != 1 ||
+            activeHouseActors[0].Record.Id != 0x4f ||
+            activeHouseActors[0].Record.SubId != 0x00 ||
+            activeHouseActors[0].Record.Var03 != 0x00 ||
+            activeHouseActors[0].Position != new Vector2(0x38, 0x38) ||
+            activeHouseActors[0].TextId != 0x0120 ||
+            string.IsNullOrEmpty(activeHouseActors[0].Message))
+        {
+            throw new InvalidOperationException(
+                "Immediate-post-intro room 3:9e did not contain only talkable Impa $4f:$00 state $00 at $38,$38.");
+        }
+
+        save.SetRoomFlag(0, 0x83, OracleSaveData.RoomFlag80);
+        NpcCharacter? passageImpa = nayruHouseActors.Find(npc =>
+            npc.Record.Id == 0x4f && npc.Record.Var03 == 0x01);
+        if (passageImpa is not { Active: true } ||
+            nayruHouseActors.Count(npc => npc.Active) != 1 ||
+            passageImpa.Position != new Vector2(0x28, 0x48) ||
+            passageImpa.TextId != 0x0121)
+        {
+            throw new InvalidOperationException(
+                "Opening D2's passage did not live-swap Nayru's-house Impa to state $01 and TX_0121.");
+        }
+
+        SetTreasure(TreasureDatabase.TreasureHarp, value: true);
+        NpcCharacter? harpImpa = nayruHouseActors.Find(npc =>
+            npc.Record.Id == 0x4f && npc.Record.Var03 == 0x02);
+        if (harpImpa is not { Active: true } || nayruHouseActors.Count(npc => npc.Active) != 1 ||
+            harpImpa.Position != new Vector2(0x68, 0x28) || harpImpa.TextId != 0x0122)
+        {
+            throw new InvalidOperationException(
+                "Obtaining the harp did not live-swap Nayru's-house Impa to state $02 and TX_0122.");
+        }
+
+        if (save.WriteWramByte(0xc612, 1))
+            save.CommitInventoryChange();
+        NpcCharacter? linkedD3Impa = nayruHouseActors.Find(npc =>
+            npc.Record.Id == 0x4f && npc.Record.Var03 == 0x0b);
+        if (linkedD3Impa is not { Active: true } || nayruHouseActors.Count(npc => npc.Active) != 1)
+            throw new InvalidOperationException(
+                "Linked-game state did not select Nayru's-house Impa behavior $0b before D3.");
+        if (save.WriteWramByte(0xc6bf, 0x04))
+            save.CommitInventoryChange();
+        if (nayruHouseActors.Any(npc => npc.Active))
+            throw new InvalidOperationException(
+                "D3 essence bit 2 did not delete linked Nayru's-house Impa state $0c.");
+
+        if (save.WriteWramByte(0xc612, 0))
+            save.CommitInventoryChange();
+        if (save.WriteWramByte(0xc6bf, 0))
+            save.CommitInventoryChange();
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        NpcCharacter? houseNayru = nayruHouseActors.Find(npc =>
+            npc.Record.Id == 0x36 && npc.Record.SubId == 0x0b);
+        if (houseNayru is not { Active: true })
+            throw new InvalidOperationException(
+                "GLOBALFLAG_SAVED_NAYRU $11 did not reveal room 3:9e's pre-Maku-seed Nayru.");
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagGotRingFromZelda);
+        NpcCharacter? houseZelda = nayruHouseActors.Find(npc =>
+            npc.Record.Id == 0xad && npc.Record.SubId == 0x07);
+        if (houseZelda is not { Active: true })
+            throw new InvalidOperationException(
+                "GLOBALFLAG_GOT_RING_FROM_ZELDA $38 did not reveal room 3:9e's pre-Maku-seed Zelda.");
+        SetTreasure(TreasureDatabase.TreasureMakuSeed, value: true);
+        if (houseNayru.Active || houseZelda.Active)
+            throw new InvalidOperationException(
+                "Obtaining the Maku Seed did not remove Nayru and Zelda from room 3:9e.");
+
         manager.Clear();
         RemoveChild(validationRoot);
         validationRoot.QueueFree();
         GD.Print("Validated room 0:5a's TX_5700/TX_5701 intro monkeys, opposing $06/$07 " +
-            "$20-frame animation loops, and 74 imported NPC " +
-            "global/current/specific-room predicates, var03 selection, compound and alternative " +
-            "gates, live refresh, and lifecycle-safe hiding.");
+            "$20-frame animation loops, rooms 2:ea/2:eb's 72-record family spawner, " +
+            "Bipin $28:$00's SPEED_100 X=$28/$58 patrol, $04/$05 animation reversal, " +
+            "and moving objectPreventLinkFromPassing collision, " +
+            "303 visibility and 54 dialogue predicates, roaming-dog " +
+            "location selection, rooms 0:68/0:78's phased and linked talkable cast, " +
+            "room 3:9e's post-intro Impa, var03 selection, compound and alternative gates, " +
+            "live refresh, and lifecycle-safe hiding.");
+    }
+
+    private void ValidateBipinBlossomNaming()
+    {
+        Span<byte> emptyName = stackalloc byte[6];
+        emptyName.Clear();
+        bool changed = _saveData.WriteWramBytes(
+            OracleSaveData.ChildNameAddress, emptyName);
+        changed |= _saveData.WriteWramByte(OracleSaveData.ChildStatusAddress, 0x00);
+        changed |= _saveData.WriteWramByte(OracleSaveData.ChildStageAddress, 0x00);
+        changed |= _saveData.WriteWramByte(OracleSaveData.NextChildStageAddress, 0x00);
+        changed |= _saveData.WriteWramByte(OracleSaveData.ChildFlagsAddress, 0x00);
+        changed |= _saveData.WriteWramByte(OracleSaveData.ChildPersonalityAddress, 0x00);
+        if (changed)
+            _saveData.CommitInventoryChange();
+        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
+        _entities.RuntimeState.SetWramByte(
+            OracleRuntimeState.SeedTreeRefilledBitsetAddress, 0x00);
+
+        LoadValidationRoom(2, 0xea);
+        NpcCharacter? blossom = _entities.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x2b && npc.Record.SubId == 0x00);
+        if (blossom is null)
+            throw new InvalidOperationException(
+                "Room 2:ea did not provide Blossom $2b:$00 for child-name validation.");
+
+        _player.WarpTo(blossom.Position + Vector2.Down * 16.0f);
+        _player.Face(Vector2I.Up);
+        if (!_interactions.TryInteract(_player) ||
+            !_dialogue.CurrentMessage.Contains("would you call", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Blossom $2b:$00 did not begin TX_4400's child-naming interaction.");
+        }
+        _dialogue.Close();
+        _interactions.UpdateFamilyNamingForValidation(0.0);
+        if (!_interactions.GameplayMenuActive ||
+            _interactions.KidNameScreenForValidation is not { EnteredName.Length: 0 })
+        {
+            throw new InvalidOperationException(
+                "Closing TX_4400 did not open MENU_KIDNAME $07 with an empty five-character field.");
+        }
+
+        _interactions.CommitKidNameForValidation(string.Empty);
+        _interactions.UpdateFamilyNamingForValidation(0.0);
+        if (!_dialogue.CurrentMessage.Contains("more thought", StringComparison.Ordinal) ||
+            _saveData.ChildNamed)
+        {
+            throw new InvalidOperationException(
+                "An empty child name did not show TX_440a without advancing family state.");
+        }
+        _dialogue.Close();
+        _interactions.UpdateFamilyNamingForValidation(0.0);
+        if (_interactions.FamilyNamingActive)
+            throw new InvalidOperationException(
+                "Blossom's empty-name response did not return to her ordinary talk loop.");
+
+        if (!_interactions.TryInteract(_player))
+            throw new InvalidOperationException(
+                "Blossom could not restart child naming after an empty name.");
+        _dialogue.Close();
+        _interactions.UpdateFamilyNamingForValidation(0.0);
+        _interactions.CommitKidNameForValidation("Pip");
+        _interactions.UpdateFamilyNamingForValidation(0.0);
+        if (!_dialogue.ChoiceActive ||
+            !_dialogue.CurrentMessage.Contains("Pip", StringComparison.Ordinal) ||
+            !_dialogue.CurrentMessage.Contains("Yes", StringComparison.Ordinal) ||
+            !_dialogue.CurrentMessage.Contains("No", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "MENU_KIDNAME did not pass the candidate name into TX_4407's Yes/No confirmation.");
+        }
+
+        _dialogue.SubmitChoiceForValidation(1);
+        _interactions.UpdateFamilyNamingForValidation(0.0);
+        if (!_interactions.GameplayMenuActive ||
+            _interactions.KidNameScreenForValidation?.EnteredName != "Pip" ||
+            _saveData.ChildNamed)
+        {
+            throw new InvalidOperationException(
+                "Choosing No in TX_4407 did not reopen MENU_KIDNAME with the candidate preserved.");
+        }
+        _interactions.CommitKidNameForValidation("Pip");
+        _interactions.UpdateFamilyNamingForValidation(0.0);
+        _dialogue.SubmitChoiceForValidation(0);
+        _interactions.UpdateFamilyNamingForValidation(0.0);
+
+        // blossom_decideInitialChildStatus sums the encoded name's low
+        // nibbles: P=$0, i=$9, p=$0, so Pip selects status $01.
+        if (_saveData.ChildName != "Pip" || !_saveData.ChildNamed ||
+            _saveData.ReadWramByte(OracleSaveData.ChildStatusAddress) != 0x01 ||
+            _saveData.ReadWramByte(OracleSaveData.ChildStageAddress) != 0x00 ||
+            _saveData.ReadWramByte(OracleSaveData.NextChildStageAddress) != 0x01)
+        {
+            throw new InvalidOperationException(
+                "Confirming Pip did not reproduce wKidName/wChildStatus/wc6e2/wNextChildStage writes.");
+        }
+
+        NpcCharacter? bipin = _entities.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x28 && npc.Record.SubId == 0x00);
+        if (bipin is not { TextId: 0x4301 } || blossom.TextId != 0x4409 ||
+            !bipin.Message.Contains("Pip", StringComparison.Ordinal) ||
+            !blossom.Message.Contains("Pip", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Naming the child did not live-switch Bipin/Blossom to TX_4301/TX_4409 with \\Child expanded.");
+        }
+
+        for (int frame = 0; frame < 29; frame++)
+            _interactions.UpdateFamilyNamingForValidation(1.0 / 60.0);
+        if (_dialogue.IsOpen)
+            throw new InvalidOperationException(
+                "Blossom showed TX_4408 before the original 30-update delay elapsed.");
+        _interactions.UpdateFamilyNamingForValidation(1.0 / 60.0);
+        if (!_dialogue.CurrentMessage.Contains("It's a fine", StringComparison.Ordinal) ||
+            !_dialogue.CurrentMessage.Contains("Come visit us", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Blossom did not show TX_4408 after the original 30-update delay.");
+        }
+        _dialogue.Close();
+        _interactions.UpdateFamilyNamingForValidation(0.0);
+        if (_interactions.FamilyNamingActive)
+            throw new InvalidOperationException(
+                "Blossom's child-naming interaction did not finish after TX_4408 closed.");
+
+        LoadValidationRoom(2, 0xea);
+        blossom = _entities.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x2b && npc.Record.SubId == 0x00);
+        bipin = _entities.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == 0x28 && npc.Record.SubId == 0x00);
+        if (blossom is not { TextId: 0x4409 } || bipin is not { TextId: 0x4301 } ||
+            !blossom.Message.Contains("Pip", StringComparison.Ordinal) ||
+            !bipin.Message.Contains("Pip", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Reloading room 2:ea lost the named stage-$00 family dialogue state.");
+        }
+
+        changed = _saveData.WriteWramBytes(OracleSaveData.ChildNameAddress, emptyName);
+        changed |= _saveData.WriteWramByte(OracleSaveData.ChildStatusAddress, 0x00);
+        changed |= _saveData.WriteWramByte(OracleSaveData.ChildStageAddress, 0x00);
+        changed |= _saveData.WriteWramByte(OracleSaveData.NextChildStageAddress, 0x00);
+        changed |= _saveData.WriteWramByte(OracleSaveData.ChildFlagsAddress, 0x00);
+        changed |= _saveData.WriteWramByte(OracleSaveData.ChildPersonalityAddress, 0x00);
+        if (changed)
+            _saveData.CommitInventoryChange();
+
+        GD.Print("Validated Bipin/Blossom stage-$00 movement and MENU_KIDNAME $07: empty-name " +
+            "handling, No/re-edit, Yes confirmation, original child-status/state writes, " +
+            "30-update TX_4408 delay, and persistent TX_4301/TX_4409 \\Child dialogue.");
     }
 
     private void ValidateImpaIntroEncounter()

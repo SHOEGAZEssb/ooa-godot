@@ -163,6 +163,41 @@ public partial class NpcCharacter : Node2D
             Mathf.Abs(delta.Y) < _collisionRadiusY + LinkCollisionRadius;
     }
 
+    /// <summary>
+    /// Port of preventObjectHFromPassingObjectD for an NPC and Link. Unlike
+    /// destination collision, the original helper also separates Link when a
+    /// moving object enters his collision box during its own update.
+    /// </summary>
+    internal bool PreventPlayerPassing(Player player) =>
+        PreventPlayerPassing(player, _collisionRadiusY, _collisionRadiusX);
+
+    internal bool PreventPlayerPassing(
+        Player player,
+        float collisionRadiusY,
+        float collisionRadiusX)
+    {
+        Vector2 link = player.Position;
+        float radiusY = collisionRadiusY + LinkCollisionRadius;
+        float radiusX = collisionRadiusX + LinkCollisionRadius;
+        float differenceY = Mathf.Abs(link.Y - Position.Y);
+        float differenceX = Mathf.Abs(link.X - Position.X);
+        if (differenceY >= radiusY || differenceX >= radiusX)
+            return false;
+
+        // The assembly resolves the axis with less overlap. Its CP tie falls
+        // through to horizontal resolution.
+        float overlapY = radiusY - differenceY;
+        float overlapX = radiusX - differenceX;
+        bool horizontal = overlapY >= overlapX;
+        float linkCoordinate = horizontal ? link.X : link.Y;
+        float obstacleCoordinate = horizontal ? Position.X : Position.Y;
+        int side = linkCoordinate > obstacleCoordinate ? 1 : -1;
+        int coordinate = Mathf.FloorToInt(obstacleCoordinate) +
+            side * Mathf.RoundToInt(horizontal ? radiusX : radiusY);
+        player.SetScriptedCoordinateHigh(horizontal, coordinate);
+        return true;
+    }
+
     internal void SetCollisionRadii(float radiusY, float radiusX)
     {
         if (radiusY < 0.0f || radiusX < 0.0f)

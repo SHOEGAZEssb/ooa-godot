@@ -154,12 +154,17 @@ public partial class MainMenuScreen : Node2D
     }
     public void ShowFileSelect() { CurrentPage = Page.FileSelect; Cursor = 0; Choice = 0; QueueRedraw(); }
     public void ShowNewFileOptions(int slot) { CurrentPage = Page.NewFileOptions; SelectedSlot = slot; Cursor = 0; QueueRedraw(); }
-    public void ShowNameEntry(int slot)
+    public void ShowNameEntry(int slot) => ShowNameEntry(slot, string.Empty);
+
+    internal void ShowNameEntry(int slot, string initialName)
     {
         CurrentPage = Page.NameEntry;
         SelectedSlot = slot;
         Array.Fill(_enteredName, ' ');
-        _nameEntryPosition = 0;
+        int length = Math.Min(initialName.Length, _enteredName.Length);
+        for (int index = 0; index < length; index++)
+            _enteredName[index] = initialName[index];
+        _nameEntryPosition = Math.Min(length, _enteredName.Length - 1);
         _nameLowerChoice = 0;
         NameCursor = 0;
         QueueRedraw();
