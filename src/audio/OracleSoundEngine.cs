@@ -632,7 +632,9 @@ public partial class OracleSoundEngine : Node
         int divider = noiseRegister & 7;
         float divisor = divider == 0 ? 0.5f : divider;
         int shift = (noiseRegister >> 4) & 0x0f;
-        return shift >= 14 ? 0 : 262144.0f / divisor / (1 << (shift + 1));
+        // NR43 clocks CH4 at 262144 / divider / 2^shift. Shifts $e-$f
+        // suppress the clock entirely on Game Boy hardware.
+        return shift >= 14 ? 0 : 262144.0f / divisor / (1 << shift);
     }
 
     internal static double CgbHighPassFactorForValidation => CgbHighPassFactor;

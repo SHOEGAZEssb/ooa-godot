@@ -180,12 +180,17 @@ public partial class GameRoot
         OracleSoundData.ChannelStart[] title = data.ChannelsFor(
             OracleSoundEngine.MusTitlescreen).ToArray();
         OracleSoundData.ChannelStart[] getItem = data.ChannelsFor(0x4c).ToArray();
+        OracleSoundData.ChannelStart[] makuDisappear = data.ChannelsFor(
+            OracleSoundEngine.SndMakuDisappear).ToArray();
         if (title.Length != 4 ||
             !title.Select(channel => channel.Channel).SequenceEqual(new[] { 0, 1, 4, 6 }) ||
             title.Any(channel => channel.Priority != 1 || channel.Bank != 0x3a) ||
             getItem.Length != 4 ||
             !getItem.Select(channel => channel.Channel).SequenceEqual(new[] { 2, 3, 5, 7 }) ||
             getItem.Any(channel => channel.Priority != 8 || channel.Bank != 0x3b) ||
+            makuDisappear.Length != 2 ||
+            !makuDisappear.Select(channel => channel.Channel).SequenceEqual(new[] { 2, 7 }) ||
+            makuDisappear.Any(channel => channel.Priority != 1 || channel.Bank != 0x39) ||
             data.FrequencyRegister(0x0c) != 0x002d ||
             data.FrequencyRegister(0x26) != 0x0642 ||
             data.FrequencyRegisterByIndex(0x16) != 0x05ce ||
@@ -210,7 +215,9 @@ public partial class GameRoot
         if (!Mathf.IsEqualApprox(pulseFrequency, 233.2242f) ||
             !Mathf.IsEqualApprox(waveFrequency, 116.6121f) ||
             !Mathf.IsEqualApprox(pulseFrequency, waveFrequency * 2) ||
-            !Mathf.IsEqualApprox(OracleSoundEngine.NoiseClockForValidation(0x14), 16384.0f) ||
+            !Mathf.IsEqualApprox(OracleSoundEngine.NoiseClockForValidation(0x14), 32768.0f) ||
+            !Mathf.IsEqualApprox(OracleSoundEngine.NoiseClockForValidation(0x75), 409.6f) ||
+            OracleSoundEngine.NoiseClockForValidation(0xe1) != 0 ||
             OracleSoundEngine.CgbHighPassFactorForValidation is < 0.904 or > 0.905)
         {
             throw new InvalidOperationException(
@@ -272,6 +279,24 @@ public partial class GameRoot
                 "SND_SWORDSLASH did not retrigger CH4 from its raw NR42/NR43 pair.");
         }
 
+        sound.PlaySound(OracleSoundEngine.SndMakuDisappear);
+        sound.Tick();
+        OracleSoundEngine.ChannelState makuPulse = sound.Channel(2);
+        OracleSoundEngine.ChannelState makuNoise = sound.Channel(7);
+        if (!makuPulse.Active || makuPulse.Priority != 1 ||
+            makuPulse.DutyOrWaveform != 2 || makuPulse.Volume != 3 ||
+            makuPulse.OutputVolume != 3 ||
+            makuPulse.CurrentFrequencyRegister != 0x002d ||
+            makuPulse.WaitFrames != 0x1b ||
+            !makuNoise.Active || !makuNoise.Gate || makuNoise.Priority != 1 ||
+            makuNoise.RawEnvelope != 0xf0 || makuNoise.OutputVolume != 15 ||
+            makuNoise.EnvelopePeriod != 0 || makuNoise.NoiseRegister != 0x75 ||
+            makuNoise.NoiseTriggerPending || makuNoise.WaitFrames != 0x1b)
+        {
+            throw new InvalidOperationException(
+                "SND_MAKUDISAPPEAR did not start its low C2 pulse and raw $f0/$75 CH4 block.");
+        }
+
         sound.PlaySound(0x4c);
         sound.Tick();
         int protectedOffset = sound.Channel(2).Offset;
@@ -297,7 +322,8 @@ public partial class GameRoot
         sound.Free();
         GD.Print("Validated all 223 original sound pointers, room music assignments, " +
             "frequency/wave/noise clocks, envelope/vibrato tables, CGB filtering, " +
-            "title square releases, raw square/noise SFX, channel priority, and stop controls.");
+            "title square releases, raw square/noise SFX including SND_MAKUDISAPPEAR, " +
+            "channel priority, and stop controls.");
     }
 
     private void ValidateSaveAndQuitToTitle()
