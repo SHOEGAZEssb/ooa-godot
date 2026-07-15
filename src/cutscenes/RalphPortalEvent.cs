@@ -53,20 +53,12 @@ internal sealed class RalphPortalEvent : IRoomEvent
 
     public void Start()
     {
-        _ralph = null;
-        foreach (NpcCharacter npc in _context.Entities.Entities<NpcCharacter>())
-        {
-            if (npc.Record.Id == _record.InteractionId && npc.Record.SubId == _record.SubId)
-            {
-                _ralph = npc;
-                break;
-            }
-        }
-        if (_ralph is null)
-        {
-            throw new InvalidOperationException(
-                "Room 0:39 did not instantiate INTERAC_RALPH $37:$0d.");
-        }
+        _ralph = _context.RequireNpc(
+            _record.Group,
+            _record.Room,
+            _record.InteractionId,
+            _record.SubId,
+            "INTERAC_RALPH");
 
         // @initSubid0d deletes Ralph unless wScreenTransitionDirection is
         // DIR_RIGHT ($01). It also deletes him after the one-shot flag is set.
@@ -97,13 +89,11 @@ internal sealed class RalphPortalEvent : IRoomEvent
                 if (CountDown())
                 {
                     _stage = Stage.Text;
-                    _context.Dialogue.ShowMessage(
-                        _record.Text,
-                        _context.WorldToScreen(_context.Player.Position).Y);
+                    _context.ShowDialogue(_record.Text);
                 }
                 break;
             case Stage.Text:
-                if (!_context.Dialogue.IsOpen)
+                if (!_context.DialogueOpen)
                     BeginWait(Stage.PostText, _record.PostTextFrames);
                 break;
             case Stage.PostText:

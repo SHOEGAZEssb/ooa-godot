@@ -49,20 +49,12 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
 
     public void Start(OracleRoomData room)
     {
-        _makuTree = null;
-        foreach (NpcCharacter npc in _context.Entities.Entities<NpcCharacter>())
-        {
-            if (npc.Record.Id == _record.InteractionId && npc.Record.SubId == _record.SubId)
-            {
-                _makuTree = npc;
-                break;
-            }
-        }
-        if (_makuTree is null)
-        {
-            throw new InvalidOperationException(
-                "Room 0:38 did not instantiate INTERAC_MAKU_TREE $87:$00.");
-        }
+        _makuTree = _context.RequireNpc(
+            _record.Group,
+            _record.Room,
+            _record.InteractionId,
+            _record.SubId,
+            "INTERAC_MAKU_TREE");
 
         if (Completed)
         {
@@ -99,7 +91,7 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
                     ShowText(_record.IntroText, Stage.IntroText);
                 break;
             case Stage.IntroText:
-                if (!_context.Dialogue.IsOpen)
+                if (!_context.DialogueOpen)
                     BeginWait(Stage.PostIntro, _record.PostIntroFrames);
                 break;
             case Stage.PostIntro:
@@ -121,7 +113,7 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
                     ShowText(_record.AhhText, Stage.AhhText);
                 break;
             case Stage.AhhText:
-                if (!_context.Dialogue.IsOpen)
+                if (!_context.DialogueOpen)
                     BeginWait(Stage.PostAhh, _record.PostAhhFrames);
                 break;
             case Stage.PostAhh:
@@ -129,7 +121,7 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
                     ShowText(_record.HelpText, Stage.HelpText);
                 break;
             case Stage.HelpText:
-                if (!_context.Dialogue.IsOpen)
+                if (!_context.DialogueOpen)
                     BeginWait(Stage.FinishDelay, _record.FinishDelayFrames);
                 break;
             case Stage.FinishDelay:
@@ -179,10 +171,7 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEvent
     private void ShowText(string text, Stage stage)
     {
         _stage = stage;
-        _context.Dialogue.ShowMessage(
-            text,
-            _context.WorldToScreen(_context.Player.Position).Y,
-            _record.TextboxPosition);
+        _context.ShowDialogue(text, _record.TextboxPosition);
     }
 
     private void Finish()

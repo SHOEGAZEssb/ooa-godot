@@ -167,15 +167,14 @@ internal sealed class NayruIntroEvent : IRoomEvent
         public int RalphMoveStart { get; set; } = -1;
     }
 
+    private readonly RoomEventContext _context;
     private readonly RoomSession _rooms;
     private readonly RoomEntityManager _entities;
     private readonly RoomTransitionController _transitions;
-    private readonly DialogueBox _dialogue;
     private readonly Player _player;
     private readonly RoomView _roomView;
     private readonly InventoryState _inventory;
     private readonly TreasureDatabase _treasures;
-    private readonly Func<Vector2, Vector2> _worldToScreen;
     private readonly Func<long> _animationTick;
     private readonly ImpaIntroEvent _impaEvent;
     private readonly NayruIntroEventDatabase _nayruDatabase;
@@ -264,15 +263,14 @@ internal sealed class NayruIntroEvent : IRoomEvent
 
     public NayruIntroEvent(RoomEventContext context, ImpaIntroEvent impaEvent)
     {
+        _context = context;
         _rooms = context.Rooms;
         _entities = context.Entities;
         _transitions = context.Transitions;
-        _dialogue = context.Dialogue;
         _player = context.Player;
         _roomView = context.RoomView;
         _inventory = context.Inventory;
         _treasures = context.Treasures;
-        _worldToScreen = context.WorldToScreen;
         _animationTick = context.AnimationTick;
         _impaEvent = impaEvent;
         _nayruInterfaceLayer = context.InterfaceLayer;
@@ -419,12 +417,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
 
         // The positioned bear $5d:$02 and portal-departure Ralph $37:$0d are
         // later story variants. $6b:$01 owns the intro actors instead.
-        foreach (NpcCharacter npc in _entities.Entities<NpcCharacter>())
-        {
-            if ((npc.Record.Id == 0x5d && npc.Record.SubId == 0x02) ||
-                (npc.Record.Id == 0x37 && npc.Record.SubId == 0x0d))
-                npc.SetActive(false);
-        }
+        _context.DeactivateNpcs(0x5d, 0x02);
+        _context.DeactivateNpcs(0x37, 0x0d);
 
         NpcCharacter nayru = SpawnNayruActor("Nayru", "Nayru", solid: true);
         NayruIntroEventDatabase.ActorRecord nayruRecord = _nayruDatabase.Actor("Nayru");
@@ -586,7 +580,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
         switch (_nayruStage)
         {
             case NayruStage.Crowd:
-                if (!_dialogue.IsOpen &&
+                if (!_context.DialogueOpen &&
                     _rooms.SaveData.HasRoomFlag(
                         _nayruRecord.Group, _nayruRecord.Room,
                         (byte)_nayruRecord.BearRoomFlag) &&
@@ -621,7 +615,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
                 }
                 break;
             case NayruStage.BearText:
-                if (!_dialogue.IsOpen)
+                if (!_context.DialogueOpen)
                 {
                     _nayruStage = NayruStage.Crowd;
                     _player.EndCutsceneControl();
@@ -635,7 +629,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
                 }
                 break;
             case NayruStage.TriggerText:
-                if (!_dialogue.IsOpen)
+                if (!_context.DialogueOpen)
                 {
                     _counter = _nayruRecord.PostBearTextFrames;
                     _nayruStage = NayruStage.TriggerPostText;
@@ -675,7 +669,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
             {
                 if (state.Hopping)
                     UpdateNayruTalkingBirdHop(state, actor);
-                if (_dialogue.IsOpen)
+                if (_context.DialogueOpen)
                     continue;
 
                 // The bird clears var37 and zh immediately after the textbox;
@@ -977,7 +971,7 @@ internal sealed class NayruIntroEvent : IRoomEvent
             ShowNayruText(command.TextId);
             return false;
         }
-        return !_dialogue.IsOpen;
+        return !_context.DialogueOpen;
     }
 
     private bool UpdateNayruMoveCommand(NayruCommand command)
@@ -2594,11 +2588,8 @@ internal sealed class NayruIntroEvent : IRoomEvent
     private void ShowNayruText(int textId)
     {
         NayruIntroEventDatabase.TextRecord text = _nayruDatabase.Text(textId);
-        if (text.TextboxPosition >= 0)
-            _dialogue.ShowMessage(
-                text.Message, _worldToScreen(_player.Position).Y, text.TextboxPosition);
-        else
-            _dialogue.ShowMessage(text.Message, _worldToScreen(_player.Position).Y);
+        int? textboxPosition = text.TextboxPosition >= 0 ? text.TextboxPosition : null;
+        _context.ShowDialogue(text.Message, textboxPosition);
     }
 
     private void bearSetAnimation(int animation) =>

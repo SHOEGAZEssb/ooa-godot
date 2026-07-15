@@ -4,9 +4,9 @@ using System;
 namespace oracleofages;
 
 /// <summary>
-/// Shared runtime services available to room-entry events. Keeping these
-/// dependencies in one immutable context lets individual event implementations
-/// own their state without turning the coordinator into a service locator.
+/// Shared runtime services and common operations available to room-entry
+/// events. Individual event implementations keep their own state while actor
+/// resolution and player-relative dialogue follow one consistent path.
 /// </summary>
 internal sealed class RoomEventContext(
     RoomSession rooms,
@@ -23,19 +23,60 @@ internal sealed class RoomEventContext(
     InventoryState inventory,
     TreasureDatabase treasures)
 {
+    private readonly DialogueBox _dialogue = dialogue;
+    private readonly Func<Vector2, Vector2> _worldToScreen = worldToScreen;
+
     public RoomSession Rooms { get; } = rooms;
     public RoomEntityManager Entities { get; } = entities;
     public RoomTransitionController Transitions { get; } = transitions;
-    public DialogueBox Dialogue { get; } = dialogue;
     public Player Player { get; } = player;
     public RoomView RoomView { get; } = roomView;
-    public Func<Vector2, Vector2> WorldToScreen { get; } = worldToScreen;
     public Func<long> AnimationTick { get; } = animationTick;
     public CanvasLayer InterfaceLayer { get; } = interfaceLayer;
     public ColorRect Fade { get; } = fade;
     public Hud Hud { get; } = hud;
     public InventoryState Inventory { get; } = inventory;
     public TreasureDatabase Treasures { get; } = treasures;
+    public bool DialogueOpen => _dialogue.IsOpen;
+
+    public NpcCharacter RequireNpc(
+        int group,
+        int room,
+        int interactionId,
+        int subId,
+        string interactionName)
+    {
+        foreach (NpcCharacter npc in Entities.Entities<NpcCharacter>())
+        {
+            if (Matches(npc, interactionId, subId))
+                return npc;
+        }
+
+        throw new InvalidOperationException(
+            $"Room {group:x}:{room:x2} did not instantiate " +
+            $"{interactionName} ${interactionId:x2}:${subId:x2}.");
+    }
+
+    public void DeactivateNpcs(int interactionId, int subId)
+    {
+        foreach (NpcCharacter npc in Entities.Entities<NpcCharacter>())
+        {
+            if (Matches(npc, interactionId, subId))
+                npc.SetActive(false);
+        }
+    }
+
+    public void ShowDialogue(string message, int? textboxPosition = null)
+    {
+        float playerScreenY = _worldToScreen(Player.Position).Y;
+        if (textboxPosition.HasValue)
+            _dialogue.ShowMessage(message, playerScreenY, textboxPosition.Value);
+        else
+            _dialogue.ShowMessage(message, playerScreenY);
+    }
+
+    private static bool Matches(NpcCharacter npc, int interactionId, int subId) =>
+        npc.Record.Id == interactionId && npc.Record.SubId == subId;
 }
 
 internal interface IRoomEvent

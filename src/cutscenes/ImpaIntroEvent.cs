@@ -127,20 +127,12 @@ internal sealed class ImpaIntroEvent : IRoomEvent
 
     public void StartEncounter(OracleRoomData room)
     {
-        Actor = null;
-        foreach (NpcCharacter npc in _context.Entities.Entities<NpcCharacter>())
-        {
-            if (npc.Record.Id == _record.InteractionId && npc.Record.SubId == _record.SubId)
-            {
-                Actor = npc;
-                break;
-            }
-        }
-        if (Actor is null)
-        {
-            throw new InvalidOperationException(
-                "Room 0:6a did not instantiate INTERAC_IMPA_IN_CUTSCENE $31:$00.");
-        }
+        Actor = _context.RequireNpc(
+            _record.Group,
+            _record.Room,
+            _record.InteractionId,
+            _record.SubId,
+            "INTERAC_IMPA_IN_CUTSCENE");
 
         if (_context.Rooms.SaveData.HasRoomFlag(
             _record.Group, _record.Room, (byte)_record.RoomFlag))
@@ -232,11 +224,7 @@ internal sealed class ImpaIntroEvent : IRoomEvent
         {
             return;
         }
-        foreach (NpcCharacter npc in _context.Entities.Entities<NpcCharacter>())
-        {
-            if (npc.Record.Id == _record.InteractionId && npc.Record.SubId == _record.SubId)
-                npc.SetActive(false);
-        }
+        _context.DeactivateNpcs(_record.InteractionId, _record.SubId);
     }
 
     public void StopFollowing()
@@ -309,13 +297,11 @@ internal sealed class ImpaIntroEvent : IRoomEvent
                 if (CountDown())
                 {
                     _stage = Stage.Text;
-                    _context.Dialogue.ShowMessage(
-                        _record.Text,
-                        _context.WorldToScreen(_context.Player.Position).Y);
+                    _context.ShowDialogue(_record.Text);
                 }
                 break;
             case Stage.Text:
-                if (!_context.Dialogue.IsOpen)
+                if (!_context.DialogueOpen)
                     BeginWait(Stage.PostText, _record.PostTextFrames);
                 break;
             case Stage.PostText:
@@ -367,13 +353,10 @@ internal sealed class ImpaIntroEvent : IRoomEvent
                 _context.Player.BeginCutsceneControl();
                 _counter = _helpRecord.PostTextFrames;
                 _helpStage = HelpStage.Text;
-                _context.Dialogue.ShowMessage(
-                    _helpRecord.Text,
-                    _context.WorldToScreen(_context.Player.Position).Y,
-                    _helpRecord.TextboxPosition);
+                _context.ShowDialogue(_helpRecord.Text, _helpRecord.TextboxPosition);
                 break;
             case HelpStage.Text:
-                if (_context.Dialogue.IsOpen)
+                if (_context.DialogueOpen)
                     return;
                 _helpStage = HelpStage.PostText;
                 AdvanceHelpPostTextCounter();
