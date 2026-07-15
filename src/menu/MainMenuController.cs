@@ -19,6 +19,7 @@ public sealed class MainMenuController
     private readonly Action<int, OracleSaveData> _save;
     private readonly Action<int> _erase;
     private readonly Action<int, OracleSaveData> _startGame;
+    private readonly Action<int>? _playSound;
     private readonly OracleSaveData?[] _slots = new OracleSaveData?[OracleSaveStore.SlotCount];
     private int _sourceSlot = -1;
     private double _titleTicks;
@@ -37,15 +38,18 @@ public sealed class MainMenuController
         Action<int, OracleSaveData> startGame,
         Func<int, OracleSaveData?>? load = null,
         Action<int, OracleSaveData>? save = null,
-        Action<int>? erase = null)
+        Action<int>? erase = null,
+        Action<int>? playSound = null)
     {
         _screen = screen;
         _startGame = startGame;
         _load = load ?? OracleSaveStore.LoadSlot;
         _save = save ?? OracleSaveStore.SaveSlot;
         _erase = erase ?? OracleSaveStore.EraseSlot;
+        _playSound = playSound;
         ReloadSlots();
         _screen.ShowTitle();
+        _playSound?.Invoke(OracleSoundEngine.MusTitlescreen);
     }
 
     public void Update(double delta)
@@ -98,6 +102,10 @@ public sealed class MainMenuController
 
     internal void Move(Vector2I direction)
     {
+        int cursor = _screen.Cursor;
+        int choice = _screen.Choice;
+        int nameCursor = _screen.NameCursor;
+        int textSpeed = _screen.TextSpeed;
         switch (_screen.CurrentPage)
         {
             case MainMenuScreen.Page.FileSelect:
@@ -127,10 +135,16 @@ public sealed class MainMenuController
                     _screen.SetChoice(_screen.Choice ^ 1);
                 break;
         }
+        if (_screen.Cursor != cursor || _screen.Choice != choice ||
+            _screen.NameCursor != nameCursor || _screen.TextSpeed != textSpeed)
+        {
+            _playSound?.Invoke(OracleSoundEngine.SndMenuMove);
+        }
     }
 
     internal void Accept()
     {
+        _playSound?.Invoke(OracleSoundEngine.SndSelectItem);
         switch (_screen.CurrentPage)
         {
             case MainMenuScreen.Page.FileSelect:
@@ -320,6 +334,7 @@ public sealed class MainMenuController
         _screen.SetWhiteFade(0.0f);
         if (destination == FadeDestination.FileSelect)
         {
+            _playSound?.Invoke(OracleSoundEngine.MusFileSelect);
             OpenFileSelect();
             return;
         }

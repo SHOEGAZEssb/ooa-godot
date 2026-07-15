@@ -13,6 +13,7 @@ public partial class GameRoot : Node2D
     private const float WarpEnterFrames = RoomTransitionController.WarpEnterFrames;
 
     private RoomSession _rooms = null!;
+    private OracleSoundEngine _sound = null!;
     private RoomTransitionController _transitions = null!;
     private RoomEntityManager _entities = null!;
     private InteractionController _interactions = null!;
@@ -88,12 +89,15 @@ public partial class GameRoot : Node2D
     {
         _launchOptions = new LaunchOptions();
         _persistSaveData = !_launchOptions.Has("--validate");
+        _sound = new OracleSoundEngine { Name = "SoundEngine" };
+        AddChild(_sound);
 
         if (_launchOptions.ShowMainMenu)
         {
             _mainMenuScreen = new MainMenuScreen { Name = "MainMenu", ZIndex = 200 };
             AddChild(_mainMenuScreen);
-            _mainMenu = new MainMenuController(_mainMenuScreen, StartSelectedFile);
+            _mainMenu = new MainMenuController(
+                _mainMenuScreen, StartSelectedFile, playSound: _sound.PlaySound);
             return;
         }
 
@@ -172,6 +176,7 @@ public partial class GameRoot : Node2D
             () => (long)_animationTicks,
             () => _animationTicks = 0.0,
             _saveData);
+        _rooms.RoomChanged += (group, room) => _sound.PlayRoomMusic(group, room.Id);
         _scene = new GameSceneGraph(this);
         _hud.Initialize(_treasures, _inventory);
         _mapScreen.Initialize(_rooms, _inventory);
@@ -200,6 +205,7 @@ public partial class GameRoot : Node2D
         _inventory.Changed += SyncHudToInventory;
         SyncHudToInventory();
         _transitions.UpdateCamera();
+        _sound.PlayRoomMusic(_rooms.ActiveGroup, _rooms.CurrentRoom.Id);
 
         ScheduleRequestedValidation();
     }
@@ -424,11 +430,15 @@ public partial class GameRoot : Node2D
             _inventory.Changed -= SyncHudToInventory;
 
         foreach (Node child in GetChildren())
-            child.QueueFree();
+        {
+            if (child != _sound)
+                child.QueueFree();
+        }
 
         _mainMenuScreen = new MainMenuScreen { Name = "MainMenu", ZIndex = 200 };
         AddChild(_mainMenuScreen);
-        _mainMenu = new MainMenuController(_mainMenuScreen, StartSelectedFile);
+        _mainMenu = new MainMenuController(
+            _mainMenuScreen, StartSelectedFile, playSound: _sound.PlaySound);
     }
 
     private bool Collides(Vector2 playerPosition) => _collision.Collides(playerPosition);

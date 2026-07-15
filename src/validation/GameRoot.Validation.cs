@@ -14,6 +14,7 @@ public partial class GameRoot
         ValidateExplicitSavePersistence();
         ValidateMainMenu();
         ValidateNewGameIntro();
+        ValidateSoundEngine();
         ValidateDebugFlagMenu();
         ValidateDeathRespawnCheckpoints();
 
@@ -49,6 +50,131 @@ public partial class GameRoot
         ValidateSaveAndQuitToTitle();
 
         GD.Print("Validated all gameplay and world-data scenarios.");
+    }
+
+    private void ValidateSoundEngine()
+    {
+        var data = new OracleSoundData();
+        OracleSoundData.ChannelStart[] title = data.ChannelsFor(
+            OracleSoundEngine.MusTitlescreen).ToArray();
+        OracleSoundData.ChannelStart[] getItem = data.ChannelsFor(0x4c).ToArray();
+        if (title.Length != 4 ||
+            !title.Select(channel => channel.Channel).SequenceEqual(new[] { 0, 1, 4, 6 }) ||
+            title.Any(channel => channel.Priority != 1 || channel.Bank != 0x3a) ||
+            getItem.Length != 4 ||
+            !getItem.Select(channel => channel.Channel).SequenceEqual(new[] { 2, 3, 5, 7 }) ||
+            getItem.Any(channel => channel.Priority != 8 || channel.Bank != 0x3b) ||
+            data.FrequencyRegister(0x0c) != 0x002d ||
+            data.FrequencyRegister(0x26) != 0x0642 ||
+            data.FrequencyRegisterByIndex(0x16) != 0x05ce ||
+            data.EnvelopeAttackFrames(8, 1) != 8 ||
+            data.EnvelopeAttackFrames(8, 2) != 17 ||
+            !Enumerable.Range(0, 8).Select(data.VibratoOffset)
+                .SequenceEqual(new[] { 0, 1, 2, 1, 0, -1, -2, -1 }) ||
+            data.RoomMusic(0, 0x11) != 0x03 ||
+            data.RoomMusic(0, 0x38) != 0x1e ||
+            data.RoomMusic(1, 0x11) != 0x04 ||
+            !data.TryGetNoise(0x24, out OracleSoundData.NoiseRecord noise) ||
+            noise.Envelope != 0x01 || noise.Frequency != 0x47 ||
+            data.WaveSample(0x0e, 0) >= data.WaveSample(0x0e, 16))
+        {
+            throw new InvalidOperationException(
+                "Imported sound pointers, frequencies, room assignments, waveforms, or noise table diverged.");
+        }
+
+        float pulseFrequency = OracleSoundEngine.ToneFrequencyForValidation(0, 0x05ce);
+        float waveFrequency = OracleSoundEngine.ToneFrequencyForValidation(4, 0x05ce);
+        if (!Mathf.IsEqualApprox(pulseFrequency, 233.2242f) ||
+            !Mathf.IsEqualApprox(waveFrequency, 116.6121f) ||
+            !Mathf.IsEqualApprox(pulseFrequency, waveFrequency * 2) ||
+            !Mathf.IsEqualApprox(OracleSoundEngine.NoiseClockForValidation(0x14), 16384.0f) ||
+            OracleSoundEngine.CgbHighPassFactorForValidation is < 0.904 or > 0.905)
+        {
+            throw new InvalidOperationException(
+                "GBC pulse/wave/noise clocks or CGB high-pass coefficient diverged.");
+        }
+
+        var sound = new OracleSoundEngine(data, enableOutput: false);
+        sound.PlaySound(OracleSoundEngine.MusTitlescreen);
+        sound.Tick();
+        OracleSoundEngine.ChannelState square1 = sound.Channel(0);
+        OracleSoundEngine.ChannelState square2 = sound.Channel(1);
+        OracleSoundEngine.ChannelState wave = sound.Channel(4);
+        if (sound.ActiveMusic != OracleSoundEngine.MusTitlescreen ||
+            !square1.Active || square1.DutyOrWaveform != 2 || square1.Volume != 8 ||
+            square1.CurrentFrequencyRegister != 0x0642 || square1.WaitFrames != 0x17 ||
+            !square2.Active || square2.CurrentFrequencyRegister != 0x06e7 ||
+            square2.WaitFrames != 0x17 || !wave.Active || wave.Gate ||
+            wave.WaitFrames != 0x23 || sound.Channel(6).Active)
+        {
+            throw new InvalidOperationException(
+                "MUS_TITLESCREEN did not execute its original first square/wave/noise commands.");
+        }
+
+
+        // Channel 0's first $18 note, second $14 note, and following $10
+        // rest consume 45 sound updates including their command updates.
+        for (int update = 0; update < 44; update++)
+            sound.Tick();
+        if (!square1.Active || !square1.Gate || square1.WaitFrames != 0x0f ||
+            square1.OutputVolume != 2 || square1.EnvelopePeriod != 1 ||
+            square1.EnvelopeDirection != -1)
+        {
+            throw new InvalidOperationException(
+                "MUS_TITLESCREEN channel 0 rest did not install its period-1 square release.");
+        }
+
+        sound.PlaySound(OracleSoundEngine.SndMenuMove);
+        sound.Tick();
+        OracleSoundEngine.ChannelState sfxSquare = sound.Channel(2);
+        if (!sfxSquare.Active || sfxSquare.Priority != 1 ||
+            sfxSquare.DutyOrWaveform != 3 || !sfxSquare.RawFrequencyMode ||
+            sfxSquare.RawEnvelope != 0xd9 ||
+            sfxSquare.CurrentFrequencyRegister != 0x07a0 ||
+            sfxSquare.WaitFrames != 2)
+        {
+            throw new InvalidOperationException(
+                "SND_MENU_MOVE did not execute its raw-frequency $07a0/$03 command.");
+        }
+
+        sound.PlaySound(OracleSoundEngine.SndSwordSlash);
+        sound.Tick();
+        OracleSoundEngine.ChannelState rawNoise = sound.Channel(7);
+        if (!rawNoise.Active || !rawNoise.Gate || rawNoise.Priority != 1 ||
+            rawNoise.RawEnvelope != 0x20 || rawNoise.OutputVolume != 2 ||
+            rawNoise.EnvelopePeriod != 0 || rawNoise.NoiseRegister != 0x47 ||
+            rawNoise.NoiseTriggerPending || rawNoise.WaitFrames != 0)
+        {
+            throw new InvalidOperationException(
+                "SND_SWORDSLASH did not retrigger CH4 from its raw NR42/NR43 pair.");
+        }
+
+        sound.PlaySound(0x4c);
+        sound.Tick();
+        int protectedOffset = sound.Channel(2).Offset;
+        if (sound.Channel(2).Priority != 8 || sound.Channel(3).Priority != 8 ||
+            sound.Channel(5).Priority != 8 || sound.Channel(7).Priority != 8)
+        {
+            throw new InvalidOperationException(
+                "SND_GETITEM did not claim all four SFX channels at priority 8.");
+        }
+        sound.PlaySound(OracleSoundEngine.SndMenuMove);
+        if (sound.Channel(2).Priority != 8 || sound.Channel(2).Offset != protectedOffset)
+            throw new InvalidOperationException(
+                "Low-priority SND_MENU_MOVE replaced SND_GETITEM's square channel.");
+
+        sound.PlaySound(OracleSoundEngine.SndCtrlStopSfx);
+        if (new[] { 2, 3, 5, 7 }.Any(channel => sound.Channel(channel).Active))
+            throw new InvalidOperationException("SNDCTRL_STOPSFX did not release all SFX channels.");
+        sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
+        sound.Tick();
+        if (sound.ActiveMusic != 0 || new[] { 0, 1, 4, 6 }.Any(channel => sound.Channel(channel).Active))
+            throw new InvalidOperationException("SNDCTRL_STOPMUSIC did not run sound $de's stop channels.");
+
+        sound.Free();
+        GD.Print("Validated all 223 original sound pointers, room music assignments, " +
+            "frequency/wave/noise clocks, envelope/vibrato tables, CGB filtering, " +
+            "title square releases, raw square/noise SFX, channel priority, and stop controls.");
     }
 
     private void ValidateSaveAndQuitToTitle()
