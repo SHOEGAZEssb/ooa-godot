@@ -229,6 +229,7 @@ public partial class GameRoot : Node2D
     {
         // The original engine does not write SRAM merely because play stops.
         // Unsaved changes remain only in the live WRAM-style save image.
+        OracleGraphicsCache.Shutdown();
     }
 
     public override void _Process(double delta)

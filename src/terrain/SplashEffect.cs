@@ -48,9 +48,8 @@ public partial class SplashEffect : Node2D
 
     private static Texture2D BuildTexture(bool lava)
     {
-        byte[] bytes = FileAccess.GetFileAsBytes("res://assets/oracle/gfx/spr_common_sprites.png");
-        Image source = new();
-        source.LoadPngFromBuffer(bytes);
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_common_sprites.png");
         SplashPart[][] frames = lava ? LavaParts : WaterParts;
         int sourceCell = lava ? 0x26 / 2 : 0x04 / 2;
         int sourceCellX = (sourceCell % 16) * 8;

@@ -282,22 +282,16 @@ internal partial class Room149Ball : Node2D
 
     internal void Initialize(Room149FamilyDatabase.VisualRecord visual)
     {
-        byte[] bytes = FileAccess.GetFileAsBytes(
+        Image source = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{visual.SpriteName}.png");
-        Image source = new();
-        Error error = source.LoadPngFromBuffer(bytes);
-        if (error != Error.Ok)
-            throw new InvalidOperationException(
-                $"Could not load INTERAC_BALL graphics: {error}.");
-        string frame = visual.Animation.Split(
-            '|', StringSplitOptions.RemoveEmptyEntries)[0];
-        int separator = frame.IndexOf('@');
-        if (separator < 0)
+        OracleGraphicsCache.AnimationFrameDefinition[] frames =
+            OracleGraphicsCache.GetAnimationDefinition(visual.Animation).Frames;
+        if (frames.Length == 0)
             throw new InvalidOperationException(
                 "INTERAC_BALL $95 has malformed imported animation data.");
         _texture = NpcCharacter.BuildOamTexture(
             source,
-            frame[(separator + 1)..],
+            frames[0].EncodedOam,
             visual.TileBase,
             visual.Palette);
         Reset();

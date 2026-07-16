@@ -144,10 +144,8 @@ public partial class NpcCharacter : Node2D
     public void Initialize(NpcDatabase.NpcRecord record)
     {
         Record = record;
-        byte[] bytes = FileAccess.GetFileAsBytes($"res://assets/oracle/gfx/{record.SpriteName}.png");
-        Image image = new();
-        image.LoadPngFromBuffer(bytes);
-        _sourceImage = image;
+        _sourceImage = OracleGraphicsCache.LoadImage(
+            $"res://assets/oracle/gfx/{record.SpriteName}.png");
         _sourceGrayscaleInverted = true;
         _collisionRadiusY = CollisionRadius;
         _collisionRadiusX = CollisionRadius;
@@ -303,7 +301,7 @@ public partial class NpcCharacter : Node2D
     {
         _scriptAnimationSource = encodedAnimation;
         _scriptAnimation.Clear();
-        _scriptAnimationLoopStart = ExtractLoopStart(ref encodedAnimation);
+        _scriptAnimationLoopStart = AnimationLoopStart(encodedAnimation);
         _scriptAnimation.AddRange(BuildPositionedAnimation(
             _sourceImage, encodedAnimation, Record.TileBase, Record.Palette,
             _paletteOverride, _sourceGrayscaleInverted));
@@ -389,7 +387,7 @@ public partial class NpcCharacter : Node2D
         {
             string encodedAnimation = _scriptAnimationSource;
             _scriptAnimation.Clear();
-            _scriptAnimationLoopStart = ExtractLoopStart(ref encodedAnimation);
+            _scriptAnimationLoopStart = AnimationLoopStart(encodedAnimation);
             _scriptAnimation.AddRange(BuildPositionedAnimation(
                 _sourceImage,
                 encodedAnimation,
@@ -440,7 +438,7 @@ public partial class NpcCharacter : Node2D
         double ticks = _animationTicks;
         string encodedAnimation = _scriptAnimationSource;
         _scriptAnimation.Clear();
-        _scriptAnimationLoopStart = ExtractLoopStart(ref encodedAnimation);
+        _scriptAnimationLoopStart = AnimationLoopStart(encodedAnimation);
         _scriptAnimation.AddRange(BuildPositionedAnimation(
             _sourceImage,
             encodedAnimation,
@@ -458,30 +456,12 @@ public partial class NpcCharacter : Node2D
 
     internal void AppendScriptGraphics(string spriteName)
     {
-        byte[] bytes = FileAccess.GetFileAsBytes($"res://assets/oracle/gfx/{spriteName}.png");
-        Image extra = new();
-        extra.LoadPngFromBuffer(bytes);
-        _sourceImage.Convert(Image.Format.Rgba8);
-        extra.Convert(Image.Format.Rgba8);
         // Each loaded-object graphics slot occupies $20 8x8 tiles, or 128
         // pixels in the disassembly PNG representation. Short compressed
         // sheets leave the remainder of their VRAM slot blank; the next
         // chained header still begins on the following slot boundary.
-        int extraOffset = Mathf.CeilToInt(_sourceImage.GetWidth() / 128.0f) * 128;
-        Image combined = Image.CreateEmpty(
-            extraOffset + extra.GetWidth(),
-            Math.Max(_sourceImage.GetHeight(), extra.GetHeight()),
-            false,
-            Image.Format.Rgba8);
-        combined.BlitRect(
-            _sourceImage,
-            new Rect2I(0, 0, _sourceImage.GetWidth(), _sourceImage.GetHeight()),
-            Vector2I.Zero);
-        combined.BlitRect(
-            extra,
-            new Rect2I(0, 0, extra.GetWidth(), extra.GetHeight()),
-            new Vector2I(extraOffset, 0));
-        _sourceImage = combined;
+        _sourceImage = OracleGraphicsCache.AppendGraphics(
+            _sourceImage, $"res://assets/oracle/gfx/{spriteName}.png");
     }
 
     internal void SetActive(bool active)
@@ -576,10 +556,10 @@ public partial class NpcCharacter : Node2D
         string right = Record.RightAnimation;
         string down = Record.DownAnimation;
         string left = Record.LeftAnimation;
-        _facingAnimationLoopStarts[(int)Facing.Up] = ExtractLoopStart(ref up);
-        _facingAnimationLoopStarts[(int)Facing.Right] = ExtractLoopStart(ref right);
-        _facingAnimationLoopStarts[(int)Facing.Down] = ExtractLoopStart(ref down);
-        _facingAnimationLoopStarts[(int)Facing.Left] = ExtractLoopStart(ref left);
+        _facingAnimationLoopStarts[(int)Facing.Up] = AnimationLoopStart(up);
+        _facingAnimationLoopStarts[(int)Facing.Right] = AnimationLoopStart(right);
+        _facingAnimationLoopStarts[(int)Facing.Down] = AnimationLoopStart(down);
+        _facingAnimationLoopStarts[(int)Facing.Left] = AnimationLoopStart(left);
         _facingAnimations[(int)Facing.Up].AddRange(BuildAnimation(
             _sourceImage, up, Record.TileBase, Record.Palette,
             _paletteOverride, _sourceGrayscaleInverted));
@@ -594,16 +574,9 @@ public partial class NpcCharacter : Node2D
             _paletteOverride, _sourceGrayscaleInverted));
     }
 
-    private static int ExtractLoopStart(ref string encodedAnimation)
+    private static int AnimationLoopStart(string encodedAnimation)
     {
-        int marker = encodedAnimation.LastIndexOf('~');
-        if (marker < 0 || marker == encodedAnimation.Length - 1 ||
-            !int.TryParse(encodedAnimation[(marker + 1)..], out int loopStart))
-        {
-            return 0;
-        }
-        encodedAnimation = encodedAnimation[..marker];
-        return Math.Max(0, loopStart);
+        return OracleGraphicsCache.GetAnimationDefinition(encodedAnimation).LoopStart;
     }
 
     private static IEnumerable<AnimationFrame> BuildAnimation(
@@ -614,16 +587,15 @@ public partial class NpcCharacter : Node2D
         Color[]? paletteOverride,
         bool sourceGrayscaleInverted)
     {
-        foreach (string encodedFrame in encodedAnimation.Split('|', StringSplitOptions.RemoveEmptyEntries))
+        OracleGraphicsCache.AnimationDefinition definition =
+            OracleGraphicsCache.GetAnimationDefinition(encodedAnimation);
+        foreach (OracleGraphicsCache.AnimationFrameDefinition frame in definition.Frames)
         {
-            int separator = encodedFrame.IndexOf('@');
-            if (separator < 0 || !int.TryParse(encodedFrame[..separator], out int duration))
-                continue;
             yield return new AnimationFrame(
                 BuildOamTexture(
-                    source, encodedFrame[(separator + 1)..], tileBase, basePalette,
+                    source, frame.EncodedOam, tileBase, basePalette,
                     paletteOverride, sourceGrayscaleInverted),
-                Math.Max(1, duration),
+                frame.Duration,
                 new Vector2(-16, -16));
         }
     }
@@ -636,15 +608,14 @@ public partial class NpcCharacter : Node2D
         Color[]? paletteOverride,
         bool sourceGrayscaleInverted)
     {
-        foreach (string encodedFrame in encodedAnimation.Split('|', StringSplitOptions.RemoveEmptyEntries))
+        OracleGraphicsCache.AnimationDefinition definition =
+            OracleGraphicsCache.GetAnimationDefinition(encodedAnimation);
+        foreach (OracleGraphicsCache.AnimationFrameDefinition frame in definition.Frames)
         {
-            int separator = encodedFrame.IndexOf('@');
-            if (separator < 0 || !int.TryParse(encodedFrame[..separator], out int duration))
-                continue;
             (Texture2D texture, Vector2 offset) = BuildPositionedOamTexture(
-                source, encodedFrame[(separator + 1)..], tileBase, basePalette,
+                source, frame.EncodedOam, tileBase, basePalette,
                 paletteOverride, sourceGrayscaleInverted);
-            yield return new AnimationFrame(texture, Math.Max(1, duration), offset);
+            yield return new AnimationFrame(texture, frame.Duration, offset);
         }
     }
 
@@ -655,6 +626,40 @@ public partial class NpcCharacter : Node2D
         int basePalette,
         Color[]? paletteOverride = null,
         bool sourceGrayscaleInverted = true)
+    {
+        OracleGraphicsCache.OamFrame frame = OracleGraphicsCache.GetOrCreateOamFrame(
+            source,
+            encodedOam,
+            tileBase,
+            basePalette,
+            paletteOverride,
+            sourceGrayscaleInverted,
+            OracleGraphicsCache.CompositionMode.Fixed32,
+            () => new OracleGraphicsCache.OamFrame(
+                BuildOamTextureUncached(
+                    source, encodedOam, tileBase, basePalette,
+                    paletteOverride, sourceGrayscaleInverted),
+                new Vector2(-16, -16)));
+        return frame.Texture;
+    }
+
+    internal static Texture2D BuildOamTextureUncachedForValidation(
+        Image source,
+        string encodedOam,
+        int tileBase,
+        int basePalette,
+        Color[]? paletteOverride = null,
+        bool sourceGrayscaleInverted = true) => BuildOamTextureUncached(
+            source, encodedOam, tileBase, basePalette,
+            paletteOverride, sourceGrayscaleInverted);
+
+    private static Texture2D BuildOamTextureUncached(
+        Image source,
+        string encodedOam,
+        int tileBase,
+        int basePalette,
+        Color[]? paletteOverride,
+        bool sourceGrayscaleInverted)
     {
         // Imported NPC animations may suffix their final OAM frame with the
         // nonzero animation-loop target (`~N`). Consumers that render one
@@ -716,6 +721,43 @@ public partial class NpcCharacter : Node2D
         Color[]? paletteOverride,
         bool sourceGrayscaleInverted)
     {
+        OracleGraphicsCache.OamFrame frame = OracleGraphicsCache.GetOrCreateOamFrame(
+            source,
+            encodedOam,
+            tileBase,
+            basePalette,
+            paletteOverride,
+            sourceGrayscaleInverted,
+            OracleGraphicsCache.CompositionMode.Positioned,
+            () =>
+            {
+                (Texture2D texture, Vector2 offset) = BuildPositionedOamTextureUncached(
+                    source, encodedOam, tileBase, basePalette,
+                    paletteOverride, sourceGrayscaleInverted);
+                return new OracleGraphicsCache.OamFrame(texture, offset);
+            });
+        return (frame.Texture, frame.Offset);
+    }
+
+    internal static (Texture2D Texture, Vector2 Offset)
+        BuildPositionedOamTextureUncachedForValidation(
+            Image source,
+            string encodedOam,
+            int tileBase,
+            int basePalette,
+            Color[]? paletteOverride,
+            bool sourceGrayscaleInverted) => BuildPositionedOamTextureUncached(
+                source, encodedOam, tileBase, basePalette,
+                paletteOverride, sourceGrayscaleInverted);
+
+    private static (Texture2D Texture, Vector2 Offset) BuildPositionedOamTextureUncached(
+        Image source,
+        string encodedOam,
+        int tileBase,
+        int basePalette,
+        Color[]? paletteOverride,
+        bool sourceGrayscaleInverted)
+    {
         string[] blocks = encodedOam.Split(';', StringSplitOptions.RemoveEmptyEntries);
         int minX = int.MaxValue;
         int minY = int.MaxValue;
@@ -734,7 +776,7 @@ public partial class NpcCharacter : Node2D
             maxY = Math.Max(maxY, destinationY + 16);
         }
         if (minX == int.MaxValue)
-            return (BuildOamTexture(
+            return (BuildOamTextureUncached(
                 source, encodedOam, tileBase, basePalette, paletteOverride,
                 sourceGrayscaleInverted), new Vector2(-16, -16));
 

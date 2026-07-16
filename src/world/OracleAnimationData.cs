@@ -18,10 +18,8 @@ public sealed class OracleAnimationData
         _headers = LoadHeaders();
         LoadTracks();
         for (int sheet = 0; sheet < _sheets.Length; sheet++)
-        {
-            Texture2D texture = GD.Load<Texture2D>($"res://assets/oracle/gfx/gfx_animations_{sheet + 1}.png");
-            _sheets[sheet] = texture.GetImage();
-        }
+            _sheets[sheet] = OracleGraphicsCache.LoadImage(
+                $"res://assets/oracle/gfx/gfx_animations_{sheet + 1}.png");
         ValidateHeaderRanges();
     }
 

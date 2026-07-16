@@ -90,9 +90,8 @@ public partial class KeeseCharacter : Node2D
         _counter1 = record.SubId == 0 ? InitialRestFrames : 0;
         _turnAmount = record.SubId == 1 ? 2 : 0;
 
-        byte[] bytes = FileAccess.GetFileAsBytes($"res://assets/oracle/gfx/{record.SpriteName}.png");
-        Image source = new();
-        source.LoadPngFromBuffer(bytes);
+        Image source = OracleGraphicsCache.LoadImage(
+            $"res://assets/oracle/gfx/{record.SpriteName}.png");
         _idleAnimation.AddRange(BuildAnimation(
             source, record.IdleAnimation, record.TileBase, record.Palette));
         _flyAnimation.AddRange(BuildAnimation(
@@ -313,15 +312,13 @@ public partial class KeeseCharacter : Node2D
         int tileBase,
         int palette)
     {
-        foreach (string encodedFrame in encodedAnimation.Split('|', StringSplitOptions.RemoveEmptyEntries))
+        foreach (OracleGraphicsCache.AnimationFrameDefinition frame in
+            OracleGraphicsCache.GetAnimationDefinition(encodedAnimation).Frames)
         {
-            int separator = encodedFrame.IndexOf('@');
-            if (separator < 0 || !int.TryParse(encodedFrame[..separator], out int duration))
-                continue;
             yield return new AnimationFrame(
                 NpcCharacter.BuildOamTexture(
-                    source, encodedFrame[(separator + 1)..], tileBase, palette),
-                Math.Max(1, duration));
+                    source, frame.EncodedOam, tileBase, palette),
+                frame.Duration);
         }
     }
 }

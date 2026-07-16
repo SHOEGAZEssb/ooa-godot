@@ -21,7 +21,7 @@ internal sealed class CutsceneSpriteRenderer
 
     private readonly Dictionary<long, Texture2D> _cells = new();
     private readonly Image _source =
-        GD.Load<Texture2D>("res://assets/oracle/gfx/spr_link.png").GetImage();
+        OracleGraphicsCache.LoadImage("res://assets/oracle/gfx/spr_link.png");
 
     public void DrawScreenFrame(
         CanvasItem target,

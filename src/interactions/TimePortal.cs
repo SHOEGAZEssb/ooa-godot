@@ -32,18 +32,15 @@ public partial class TimePortal : Node2D
         Position = new Vector2(record.X, record.Y);
         _loopStart = record.LoopStart;
 
-        byte[] bytes = FileAccess.GetFileAsBytes($"res://assets/oracle/gfx/{record.SpriteName}.png");
-        Image source = new();
-        source.LoadPngFromBuffer(bytes);
-        foreach (string encodedFrame in record.Animation.Split('|', StringSplitOptions.RemoveEmptyEntries))
+        Image source = OracleGraphicsCache.LoadImage(
+            $"res://assets/oracle/gfx/{record.SpriteName}.png");
+        foreach (OracleGraphicsCache.AnimationFrameDefinition frame in
+            OracleGraphicsCache.GetAnimationDefinition(record.Animation).Frames)
         {
-            int separator = encodedFrame.IndexOf('@');
-            if (separator < 0 || !int.TryParse(encodedFrame[..separator], out int duration))
-                continue;
             _frames.Add(new AnimationFrame(
                 NpcCharacter.BuildOamTexture(
-                    source, encodedFrame[(separator + 1)..], record.TileBase, record.Palette),
-                Math.Max(1, duration)));
+                    source, frame.EncodedOam, record.TileBase, record.Palette),
+                frame.Duration));
         }
         if (_frames.Count == 0 || _loopStart < 0 || _loopStart >= _frames.Count)
             throw new InvalidOperationException("Time portal has invalid animation data.");

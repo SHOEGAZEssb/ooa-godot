@@ -82,12 +82,8 @@ public partial class ZolCharacter : Node2D
         Position = position;
         _health = record.Health;
 
-        byte[] bytes = FileAccess.GetFileAsBytes(
+        Image source = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{record.SpriteName}.png");
-        Image source = new();
-        Error error = source.LoadPngFromBuffer(bytes);
-        if (error != Error.Ok)
-            throw new InvalidOperationException($"Could not load Zol graphics: {error}.");
         string[] encodedAnimations =
         {
             record.EmergeAnimation,
@@ -425,20 +421,14 @@ public partial class ZolCharacter : Node2D
         int tileBase,
         int palette)
     {
-        foreach (string encodedFrame in encodedAnimation.Split(
-            '|', StringSplitOptions.RemoveEmptyEntries))
+        foreach (OracleGraphicsCache.AnimationFrameDefinition frame in
+            OracleGraphicsCache.GetAnimationDefinition(encodedAnimation).Frames)
         {
-            int separator = encodedFrame.IndexOf('@');
-            int comma = encodedFrame.IndexOf(',');
-            if (separator < 0 || comma < 0 || comma > separator ||
-                !int.TryParse(encodedFrame[..comma], out int duration) ||
-                !int.TryParse(encodedFrame[(comma + 1)..separator], out int parameter))
-                continue;
             yield return new AnimationFrame(
                 NpcCharacter.BuildOamTexture(
-                    source, encodedFrame[(separator + 1)..], tileBase, palette),
-                Math.Max(1, duration),
-                parameter);
+                    source, frame.EncodedOam, tileBase, palette),
+                frame.Duration,
+                frame.Parameter);
         }
     }
 }

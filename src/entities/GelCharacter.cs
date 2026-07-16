@@ -70,12 +70,8 @@ public partial class GelCharacter : Node2D
         _counter1 = 0x10;
         _collisionEnabled = true;
 
-        byte[] bytes = FileAccess.GetFileAsBytes(
+        Image source = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{definition.SpriteName}.png");
-        Image source = new();
-        Error error = source.LoadPngFromBuffer(bytes);
-        if (error != Error.Ok)
-            throw new InvalidOperationException($"Could not load Gel graphics: {error}.");
         string[] encodedAnimations =
         {
             definition.NormalAnimation,
@@ -332,18 +328,13 @@ public partial class GelCharacter : Node2D
         int tileBase,
         int palette)
     {
-        foreach (string encodedFrame in encodedAnimation.Split(
-            '|', StringSplitOptions.RemoveEmptyEntries))
+        foreach (OracleGraphicsCache.AnimationFrameDefinition frame in
+            OracleGraphicsCache.GetAnimationDefinition(encodedAnimation).Frames)
         {
-            int separator = encodedFrame.IndexOf('@');
-            int comma = encodedFrame.IndexOf(',');
-            if (separator < 0 || comma < 0 || comma > separator ||
-                !int.TryParse(encodedFrame[..comma], out int duration))
-                continue;
             yield return new AnimationFrame(
                 NpcCharacter.BuildOamTexture(
-                    source, encodedFrame[(separator + 1)..], tileBase, palette),
-                Math.Max(1, duration));
+                    source, frame.EncodedOam, tileBase, palette),
+                frame.Duration);
         }
     }
 }

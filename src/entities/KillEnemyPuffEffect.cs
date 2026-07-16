@@ -94,26 +94,17 @@ public partial class KillEnemyPuffEffect : Node2D
                     $"Malformed INTERAC_KILLENEMYPUFF data row: {line}");
             }
 
-            byte[] bytes = FileAccess.GetFileAsBytes(
+            Image source = OracleGraphicsCache.LoadImage(
                 "res://assets/oracle/gfx/spr_common_sprites.png");
-            Image source = new();
-            Error error = source.LoadPngFromBuffer(bytes);
-            if (error != Error.Ok)
-                throw new InvalidOperationException(
-                    $"Could not load kill-enemy-puff graphics: {error}.");
 
             var animation = new List<FrameRecord>();
-            foreach (string encodedFrame in fields[2].Split(
-                '|', StringSplitOptions.RemoveEmptyEntries))
+            foreach (OracleGraphicsCache.AnimationFrameDefinition frame in
+                OracleGraphicsCache.GetAnimationDefinition(fields[2]).Frames)
             {
-                int separator = encodedFrame.IndexOf('@');
-                if (separator < 0 ||
-                    !int.TryParse(encodedFrame[..separator], out int duration))
-                    continue;
                 animation.Add(new FrameRecord(
                     NpcCharacter.BuildOamTexture(
-                        source, encodedFrame[(separator + 1)..], tileBase, palette),
-                    Math.Max(1, duration)));
+                        source, frame.EncodedOam, tileBase, palette),
+                    frame.Duration));
             }
             if (animation.Count == 0)
                 throw new InvalidOperationException("INTERAC_KILLENEMYPUFF has no frames.");

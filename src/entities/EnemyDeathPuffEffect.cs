@@ -121,13 +121,8 @@ public partial class EnemyDeathPuffEffect : Node2D
                     $"Malformed PART_ENEMY_DESTROYED data row: {line}");
             }
 
-            byte[] bytes = FileAccess.GetFileAsBytes(
+            Image source = OracleGraphicsCache.LoadImage(
                 "res://assets/oracle/gfx/spr_common_sprites.png");
-            Image source = new();
-            Error loadError = source.LoadPngFromBuffer(bytes);
-            if (loadError != Error.Ok)
-                throw new InvalidOperationException(
-                    $"Could not load common sprite graphics for enemy death puff: {loadError}.");
 
             int[] palettes = { paletteA, paletteB };
             List<FrameRecord> normal = BuildAnimation(source, fields[3], tileBase, palettes);
@@ -147,22 +142,16 @@ public partial class EnemyDeathPuffEffect : Node2D
         int[] palettes)
     {
         var animation = new List<FrameRecord>();
-        foreach (string encodedFrame in encodedAnimation.Split(
-            '|', StringSplitOptions.RemoveEmptyEntries))
+        foreach (OracleGraphicsCache.AnimationFrameDefinition frame in
+            OracleGraphicsCache.GetAnimationDefinition(encodedAnimation).Frames)
         {
-            int separator = encodedFrame.IndexOf('@');
-            if (separator < 0 ||
-                !int.TryParse(encodedFrame[..separator], out int duration))
-                continue;
-
-            string encodedOam = encodedFrame[(separator + 1)..];
             var textures = new Texture2D[palettes.Length];
             for (int palette = 0; palette < palettes.Length; palette++)
             {
                 textures[palette] = NpcCharacter.BuildOamTexture(
-                    source, encodedOam, tileBase, palettes[palette]);
+                    source, frame.EncodedOam, tileBase, palettes[palette]);
             }
-            animation.Add(new FrameRecord(textures, Math.Max(1, duration)));
+            animation.Add(new FrameRecord(textures, frame.Duration));
         }
         return animation;
     }

@@ -29,6 +29,7 @@ public partial class GameRoot
         ValidateMainMenu();
         ValidateNewGameIntro();
         ValidateSoundEngine();
+        ValidateGraphicsCache();
         ValidateDebugFlagMenu();
         ValidateDeathRespawnCheckpoints();
 
@@ -593,6 +594,184 @@ public partial class GameRoot
             "frequency/wave/noise clocks, envelope/vibrato tables, CGB filtering, " +
             "title square releases, raw square/noise SFX including SND_MAKUDISAPPEAR, " +
             "channel priority, stop controls, and output teardown.");
+    }
+
+    private static void ValidateGraphicsCache()
+    {
+        string[] pngPaths = EnumeratePngPaths("res://assets/oracle")
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+        if (pngPaths.Length < 200)
+        {
+            throw new InvalidOperationException(
+                $"Expected the complete generated PNG set, found only {pngPaths.Length} files.");
+        }
+
+        foreach (string path in pngPaths)
+        {
+            Image resourceImage = OracleGraphicsCache.LoadImage(path);
+            using Image rawImage = OracleGraphicsCache.LoadRawPngForValidation(path);
+            if (resourceImage.GetWidth() != rawImage.GetWidth() ||
+                resourceImage.GetHeight() != rawImage.GetHeight() ||
+                resourceImage.GetFormat() != rawImage.GetFormat() ||
+                !resourceImage.GetData().AsSpan().SequenceEqual(rawImage.GetData()))
+            {
+                throw new InvalidOperationException(
+                    $"ResourceLoader changed imported PNG pixels for {path}.");
+            }
+        }
+
+        const string sourcePath = "res://assets/oracle/gfx/spr_impa.png";
+        int loadsBefore = OracleGraphicsCache.SourceLoadCount;
+        Image source = OracleGraphicsCache.LoadImage(sourcePath);
+        int loadsAfterFirst = OracleGraphicsCache.SourceLoadCount;
+        Image sameSource = OracleGraphicsCache.LoadImage(sourcePath);
+        if (!ReferenceEquals(source, sameSource) ||
+            OracleGraphicsCache.SourceLoadCount != loadsAfterFirst ||
+            loadsAfterFirst - loadsBefore is < 0 or > 1)
+        {
+            throw new InvalidOperationException(
+                "Repeated graphics access did not return one cached CPU source image.");
+        }
+
+        const string extraPath = "res://assets/oracle/gfx/spr_common_sprites.png";
+        Image composite = OracleGraphicsCache.AppendGraphics(source, extraPath);
+        Image sameComposite = OracleGraphicsCache.AppendGraphics(source, extraPath);
+        int expectedExtraX = Mathf.CeilToInt(source.GetWidth() / 128.0f) * 128;
+        Image extra = OracleGraphicsCache.LoadImage(extraPath);
+        if (!ReferenceEquals(composite, sameComposite) ||
+            composite.GetWidth() != expectedExtraX + extra.GetWidth() ||
+            composite.GetHeight() != Math.Max(source.GetHeight(), extra.GetHeight()))
+        {
+            throw new InvalidOperationException(
+                "Chained graphics did not preserve `$20-tile slot alignment or cache identity.");
+        }
+
+        const string encodedOam = "8,0,0,0;8,8,2,32";
+        string encodedAnimation = $"2@{encodedOam}|4@{encodedOam}~1";
+        OracleGraphicsCache.AnimationDefinition animation =
+            OracleGraphicsCache.GetAnimationDefinition(encodedAnimation);
+        OracleGraphicsCache.AnimationDefinition sameAnimation =
+            OracleGraphicsCache.GetAnimationDefinition(encodedAnimation);
+        if (!ReferenceEquals(animation, sameAnimation) ||
+            animation.LoopStart != 1 || animation.Frames.Length != 2 ||
+            animation.Frames[0].Duration != 2 || animation.Frames[1].Duration != 4 ||
+            animation.Frames.Any(frame => frame.EncodedOam != encodedOam))
+        {
+            throw new InvalidOperationException(
+                "Encoded animation definitions were not parsed and cached immutably.");
+        }
+
+        int buildsBefore = OracleGraphicsCache.OamBuildCount;
+        Texture2D cached = NpcCharacter.BuildOamTexture(source, encodedOam, 0, 1);
+        int buildsAfterFirst = OracleGraphicsCache.OamBuildCount;
+        int hitsAfterFirst = OracleGraphicsCache.OamCacheHitCount;
+        Texture2D sameCached = NpcCharacter.BuildOamTexture(source, encodedOam, 0, 1);
+        if (!ReferenceEquals(cached, sameCached) ||
+            OracleGraphicsCache.OamBuildCount != buildsAfterFirst ||
+            OracleGraphicsCache.OamCacheHitCount != hitsAfterFirst + 1 ||
+            buildsAfterFirst - buildsBefore is < 0 or > 1)
+        {
+            throw new InvalidOperationException(
+                "An identical OAM frame was rebuilt instead of reused.");
+        }
+
+        using Texture2D uncached = NpcCharacter.BuildOamTextureUncachedForValidation(
+            source, encodedOam, 0, 1);
+        using Image cachedImage = cached.GetImage();
+        using Image uncachedImage = uncached.GetImage();
+        if (cachedImage.GetWidth() != uncachedImage.GetWidth() ||
+            cachedImage.GetHeight() != uncachedImage.GetHeight() ||
+            !cachedImage.GetData().AsSpan().SequenceEqual(uncachedImage.GetData()))
+        {
+            throw new InvalidOperationException(
+                "Cached fixed OAM composition differs from the original compositor.");
+        }
+
+        (Texture2D positioned, Vector2 positionedOffset) =
+            NpcCharacter.BuildPositionedOamTexture(
+                source, encodedOam, 0, 1, null, true);
+        (Texture2D uncachedPositioned, Vector2 uncachedPositionedOffset) =
+            NpcCharacter.BuildPositionedOamTextureUncachedForValidation(
+                source, encodedOam, 0, 1, null, true);
+        using (uncachedPositioned)
+        using (Image positionedImage = positioned.GetImage())
+        using (Image uncachedPositionedImage = uncachedPositioned.GetImage())
+        {
+            if (positionedOffset != uncachedPositionedOffset ||
+                positionedImage.GetWidth() != uncachedPositionedImage.GetWidth() ||
+                positionedImage.GetHeight() != uncachedPositionedImage.GetHeight() ||
+                !positionedImage.GetData().AsSpan().SequenceEqual(
+                    uncachedPositionedImage.GetData()))
+            {
+                throw new InvalidOperationException(
+                    "Cached positioned OAM composition differs from the original compositor.");
+            }
+        }
+
+        Color[] overridePalette =
+        {
+            Colors.Transparent,
+            Color.Color8(0x11, 0x22, 0x33),
+            Color.Color8(0x44, 0x55, 0x66),
+            Color.Color8(0x77, 0x88, 0x99)
+        };
+        Texture2D paletteVariant = NpcCharacter.BuildOamTexture(
+            source, encodedOam, 0, 1, overridePalette, true);
+        Texture2D inversionVariant = NpcCharacter.BuildOamTexture(
+            source, encodedOam, 0, 1, null, false);
+        if (ReferenceEquals(cached, positioned) ||
+            ReferenceEquals(cached, paletteVariant) ||
+            ReferenceEquals(cached, inversionVariant))
+        {
+            throw new InvalidOperationException(
+                "OAM cache keys collapsed composition, palette, or grayscale variants.");
+        }
+
+        NpcDatabase.NpcRecord npcRecord = new NpcDatabase().GetRoomNpcs(0, 0x66).First();
+        var firstNpc = new NpcCharacter();
+        var secondNpc = new NpcCharacter();
+        try
+        {
+            firstNpc.Initialize(npcRecord);
+            int buildsAfterFirstNpc = OracleGraphicsCache.OamBuildCount;
+            secondNpc.Initialize(npcRecord);
+            if (OracleGraphicsCache.OamBuildCount != buildsAfterFirstNpc)
+            {
+                throw new InvalidOperationException(
+                    "A second NPC instance rebuilt shared facing OAM frames.");
+            }
+
+            firstNpc.SetScriptAnimation(npcRecord.DownAnimation);
+            int buildsAfterFirstScriptSelection = OracleGraphicsCache.OamBuildCount;
+            firstNpc.SetScriptAnimation(npcRecord.DownAnimation);
+            if (OracleGraphicsCache.OamBuildCount != buildsAfterFirstScriptSelection)
+            {
+                throw new InvalidOperationException(
+                    "Re-selecting a scripted NPC animation rebuilt its OAM textures.");
+            }
+        }
+        finally
+        {
+            firstNpc.Free();
+            secondNpc.Free();
+        }
+
+        GD.Print($"Validated ResourceLoader pixel parity for {pngPaths.Length} generated PNGs, " +
+            "immutable source/composite reuse, `$20-tile chain alignment, complete OAM cache keys, " +
+            "cross-instance/scripted-animation reuse, and byte-identical fixed/positioned composition.");
+    }
+
+    private static IEnumerable<string> EnumeratePngPaths(string directory)
+    {
+        foreach (string file in DirAccess.GetFilesAt(directory))
+        {
+            if (file.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                yield return $"{directory}/{file}";
+        }
+        foreach (string child in DirAccess.GetDirectoriesAt(directory))
+        foreach (string path in EnumeratePngPaths($"{directory}/{child}"))
+            yield return path;
     }
 
     private void ValidateSaveAndQuitToTitle()

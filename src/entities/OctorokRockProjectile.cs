@@ -43,12 +43,8 @@ public partial class OctorokRockProjectile : Node2D
         _room = room;
         Position = position;
         _angle = angle & 0x18;
-        byte[] bytes = FileAccess.GetFileAsBytes(
+        Image source = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{record.SpriteName}.png");
-        Image source = new();
-        Error error = source.LoadPngFromBuffer(bytes);
-        if (error != Error.Ok)
-            throw new InvalidOperationException($"Could not load Octorok rock graphics: {error}.");
         _normalTexture = BuildFirstFrame(
             source, record.NormalAnimation, record.TileBase, record.Palette);
         _bounceTexture = BuildFirstFrame(
@@ -188,11 +184,11 @@ public partial class OctorokRockProjectile : Node2D
         int tileBase,
         int palette)
     {
-        string firstFrame = animation.Split('|', StringSplitOptions.RemoveEmptyEntries)[0];
-        int separator = firstFrame.IndexOf('@');
-        if (separator < 0)
+        OracleGraphicsCache.AnimationFrameDefinition[] frames =
+            OracleGraphicsCache.GetAnimationDefinition(animation).Frames;
+        if (frames.Length == 0)
             throw new InvalidOperationException("Malformed Octorok projectile animation.");
         return NpcCharacter.BuildOamTexture(
-            source, firstFrame[(separator + 1)..], tileBase, palette);
+            source, frames[0].EncodedOam, tileBase, palette);
     }
 }

@@ -1295,8 +1295,8 @@ public partial class Player : Node2D
 
     private static Texture2D BuildLinkTexture()
     {
-        Texture2D sourceTexture = GD.Load<Texture2D>("res://assets/oracle/gfx/spr_link.png");
-        Image source = sourceTexture.GetImage();
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
         Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
 
         // LINK_ANIM_MODE_WALK uses base gfx indices $54 and $80, then adds
@@ -1318,8 +1318,8 @@ public partial class Player : Node2D
 
     private static Texture2D BuildGetItemOneHandTexture()
     {
-        Texture2D sourceTexture = GD.Load<Texture2D>("res://assets/oracle/gfx/spr_link.png");
-        Image source = sourceTexture.GetImage();
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
         Image output = Image.CreateEmpty(16, 16, false, Image.Format.Rgba8);
 
         // LINK_ANIM_MODE_GETITEM1HAND ($0e) is the static graphics frame $05:
@@ -1331,8 +1331,8 @@ public partial class Player : Node2D
 
     private static Texture2D BuildPushLinkTexture()
     {
-        Texture2D sourceTexture = GD.Load<Texture2D>("res://assets/oracle/gfx/spr_link.png");
-        Image source = sourceTexture.GetImage();
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
         Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
 
         // The pushing walking variant adds $10 to LINK_ANIM_MODE_WALK's
@@ -1352,8 +1352,8 @@ public partial class Player : Node2D
 
     private static Texture2D BuildAttackLinkTexture()
     {
-        Texture2D sourceTexture = GD.Load<Texture2D>("res://assets/oracle/gfx/spr_link.png");
-        Image source = sourceTexture.GetImage();
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
         Image output = Image.CreateEmpty(48, 64, false, Image.Format.Rgba8);
         int[,] offsets =
         {
@@ -1375,8 +1375,8 @@ public partial class Player : Node2D
 
     private static Texture2D BuildSwordTexture(bool chargedPalette)
     {
-        Texture2D sourceTexture = GD.Load<Texture2D>("res://assets/oracle/gfx/spr_swords.png");
-        Image source = sourceTexture.GetImage();
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_swords.png");
         Image output = Image.CreateEmpty(8 * 32, 32, false, Image.Format.Rgba8);
 
         for (int animation = 0; animation < SwordOam.Length; animation++)
@@ -1400,8 +1400,8 @@ public partial class Player : Node2D
 
     private static Texture2D BuildDrownTexture()
     {
-        Texture2D sourceTexture = GD.Load<Texture2D>("res://assets/oracle/gfx/spr_link.png");
-        Image source = sourceTexture.GetImage();
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
         Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
 
         // LINK_ANIM_MODE_DROWN ($0a) uses directional graphics $d4-$d7 for
@@ -1420,8 +1420,8 @@ public partial class Player : Node2D
 
     private static Texture2D BuildFallInHoleTexture()
     {
-        Texture2D sourceTexture = GD.Load<Texture2D>("res://assets/oracle/gfx/spr_link.png");
-        Image source = sourceTexture.GetImage();
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
         Image output = Image.CreateEmpty(48, 16, false, Image.Format.Rgba8);
 
         // LINK_ANIM_MODE_FALLINHOLE (mode $0d) uses frames $08, $09,

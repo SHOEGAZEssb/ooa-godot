@@ -36,9 +36,8 @@ public partial class ChestTreasureEffect : Node2D
 
     private static Texture2D BuildRupeeTexture()
     {
-        byte[] bytes = FileAccess.GetFileAsBytes("res://assets/oracle/gfx/spr_common_items.png");
-        Image source = new();
-        source.LoadPngFromBuffer(bytes);
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_common_items.png");
         Image output = Image.CreateEmpty(8, 16, false, Image.Format.Rgba8);
 
         // TREASURE_OBJECT_RUPEES uses interaction $60 graphic $2b. Its
@@ -102,10 +101,7 @@ public partial class ChestTreasureEffect : Node2D
 
     private static Image LoadPng(string path)
     {
-        byte[] bytes = FileAccess.GetFileAsBytes(path);
-        Image image = new();
-        image.LoadPngFromBuffer(bytes);
-        return image;
+        return OracleGraphicsCache.LoadImage(path);
     }
 
     private static Color GbcColor(int red, int green, int blue) =>

@@ -63,10 +63,10 @@ public partial class Hud : Node2D
 
     private Texture2D BuildBackgroundTexture()
     {
-        Texture2D tilesTexture = GD.Load<Texture2D>("res://assets/oracle/gfx/gfx_hud.png");
-        Image tiles = tilesTexture.GetImage();
-        Texture2D partialTexture = GD.Load<Texture2D>("res://assets/oracle/gfx/gfx_partial_hearts.png");
-        Image partialHearts = partialTexture.GetImage();
+        Image tiles = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/gfx_hud.png");
+        Image partialHearts = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/gfx_partial_hearts.png");
         byte[] map = Godot.FileAccess.GetFileAsBytes("res://assets/oracle/hud/map_hud_normal.bin");
         byte[] flags = Godot.FileAccess.GetFileAsBytes("res://assets/oracle/hud/flg_hud_normal.bin");
         if (map.Length != 64 || flags.Length != 64)
@@ -188,12 +188,7 @@ public partial class Hud : Node2D
 
     private static Image LoadPng(string path)
     {
-        byte[] bytes = Godot.FileAccess.GetFileAsBytes(path);
-        Image image = new();
-        Error error = image.LoadPngFromBuffer(bytes);
-        if (error != Error.Ok)
-            throw new InvalidOperationException($"Could not load item icon graphics {path}: {error}.");
-        return image;
+        return OracleGraphicsCache.LoadImage(path);
     }
 
     // paletteData48e0, background palette 0 used by the status bar.

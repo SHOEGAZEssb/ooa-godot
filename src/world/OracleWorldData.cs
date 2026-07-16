@@ -73,8 +73,8 @@ public sealed class OracleWorldData
 
         if (!_graphics.TryGetValue(tileset, out Image? graphics))
         {
-            Texture2D texture = GD.Load<Texture2D>($"res://assets/oracle/gfx/gfx_tileset{tileset:x2}.png");
-            graphics = texture.GetImage();
+            graphics = OracleGraphicsCache.LoadImage(
+                $"res://assets/oracle/gfx/gfx_tileset{tileset:x2}.png");
             _graphics.Add(tileset, graphics);
         }
         // expandedTilesetMappingsTable is indexed by tileset ID. The original

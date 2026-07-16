@@ -733,18 +733,7 @@ public partial class DialogueBox : Node2D
 
     private static Image LoadSourceImage(string path)
     {
-        if (ResourceLoader.Exists(path))
-        {
-            Texture2D sourceTexture = GD.Load<Texture2D>(path);
-            return sourceTexture.GetImage();
-        }
-
-        // Newly generated PNGs do not have an import sidecar until the editor
-        // scans them. Headless validation runs immediately after the importer.
-        Image source = Image.LoadFromFile(ProjectSettings.GlobalizePath(path));
-        if (source.IsEmpty())
-            throw new InvalidOperationException($"Dialogue image is empty: {path}.");
-        return source;
+        return OracleGraphicsCache.LoadImage(path);
     }
 
     private static Color GbcColor(int red, int green, int blue)

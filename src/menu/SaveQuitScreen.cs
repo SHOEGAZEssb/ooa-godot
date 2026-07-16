@@ -205,11 +205,7 @@ public partial class SaveQuitScreen : Node2D
 
     private static Image LoadPng(string path)
     {
-        Image image = new();
-        Error error = image.LoadPngFromBuffer(FileAccess.GetFileAsBytes(path));
-        if (error != Error.Ok)
-            throw new InvalidOperationException($"Could not load save-menu graphics {path}: {error}.");
-        return image;
+        return OracleGraphicsCache.LoadImage(path);
     }
 
     private static byte[] ReadBytes(string path, int expected)

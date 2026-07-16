@@ -493,20 +493,14 @@ public partial class TimeWarpEffect : Node2D
         int palette,
         Color[]? paletteOverride = null)
     {
-        int loopMarker = encodedAnimation.LastIndexOf('~');
-        if (loopMarker >= 0)
-            encodedAnimation = encodedAnimation[..loopMarker];
         var result = new List<Frame>();
-        foreach (string encodedFrame in encodedAnimation.Split(
-            '|', StringSplitOptions.RemoveEmptyEntries))
+        foreach (OracleGraphicsCache.AnimationFrameDefinition frame in
+            OracleGraphicsCache.GetAnimationDefinition(encodedAnimation).Frames)
         {
-            int separator = encodedFrame.IndexOf('@');
-            if (separator < 0 || !int.TryParse(encodedFrame[..separator], out int duration))
-                continue;
             (Texture2D texture, Vector2 offset) = NpcCharacter.BuildPositionedOamTexture(
-                source, encodedFrame[(separator + 1)..], tileBase, palette,
+                source, frame.EncodedOam, tileBase, palette,
                 paletteOverride, sourceGrayscaleInverted: true);
-            result.Add(new Frame(texture, offset, Math.Max(1, duration)));
+            result.Add(new Frame(texture, offset, frame.Duration));
         }
         if (result.Count == 0)
             throw new InvalidOperationException("Imported time-warp animation contains no frames.");
@@ -525,11 +519,7 @@ public partial class TimeWarpEffect : Node2D
 
     private static Image LoadImage(string sprite)
     {
-        byte[] bytes = FileAccess.GetFileAsBytes($"res://assets/oracle/gfx/{sprite}.png");
-        var image = new Image();
-        Error error = image.LoadPngFromBuffer(bytes);
-        if (error != Error.Ok)
-            throw new InvalidOperationException($"Could not load time-warp sprite {sprite}: {error}.");
-        return image;
+        return OracleGraphicsCache.LoadImage(
+            $"res://assets/oracle/gfx/{sprite}.png");
     }
 }

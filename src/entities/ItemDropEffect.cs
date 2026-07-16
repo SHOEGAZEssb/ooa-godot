@@ -172,20 +172,15 @@ public partial class ItemDropEffect : Node2D
 
     private static Texture2D BuildTexture(ItemDropDatabase.VisualRecord visual)
     {
-        byte[] bytes = FileAccess.GetFileAsBytes(
+        Image source = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_common_items.png");
-        Image source = new();
-        Error error = source.LoadPngFromBuffer(bytes);
-        if (error != Error.Ok)
-            throw new InvalidOperationException($"Could not load item-drop graphics: {error}.");
 
-        string firstFrame = visual.Animation.Split(
-            '|', StringSplitOptions.RemoveEmptyEntries)[0];
-        int separator = firstFrame.IndexOf('@');
-        if (separator < 0)
+        OracleGraphicsCache.AnimationFrameDefinition[] frames =
+            OracleGraphicsCache.GetAnimationDefinition(visual.Animation).Frames;
+        if (frames.Length == 0)
             throw new InvalidOperationException(
                 $"PART_ITEM_DROP ${visual.SubId:x2} has malformed animation data.");
         return NpcCharacter.BuildOamTexture(
-            source, firstFrame[(separator + 1)..], visual.TileBase, visual.Palette);
+            source, frames[0].EncodedOam, visual.TileBase, visual.Palette);
     }
 }
