@@ -6,4 +6,11 @@
     <Nullable>enable</Nullable>
     <RootNamespace>oracleofages</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- The validation runner is built by the friend test assembly. -->
+    <Compile Remove="validation\**\*.cs" />
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>oracle-of-ages.validation</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
 </Project>

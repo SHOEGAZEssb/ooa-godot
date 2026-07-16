@@ -6,8 +6,10 @@ using System.Linq;
 
 namespace oracleofages;
 
-public partial class GameRoot
+public sealed class ValidationGameRoot : GameRoot
 {
+    private int _neutralInputFrames;
+
     private sealed class ValidationTimelineStep(int durationFrames) : IRoomEventTimelineStep
     {
         public int DurationFrames { get; } = durationFrames;
@@ -25,6 +27,67 @@ public partial class GameRoot
         public void CloseAtWhite() => CloseAtWhiteCalls++;
         public void LifecycleClosed() => ClosedCalls++;
     }
+
+    public override void _Ready()
+    {
+        base._Ready();
+        ResetValidationInput();
+        _scene.ProcessMode = ProcessModeEnum.Disabled;
+    }
+
+    public override void _Process(double delta)
+    {
+        // Scene entry can retain a just-pressed input edge for the remainder
+        // of that real frame. Let it expire without advancing gameplay, since
+        // the suite performs many original-engine updates synchronously.
+        if (AnyValidationInputJustPressed())
+        {
+            _neutralInputFrames = 0;
+            return;
+        }
+        if (++_neutralInputFrames < 2)
+            return;
+
+        SetProcess(false);
+        _scene.ProcessMode = ProcessModeEnum.Inherit;
+        _entities.GameButtonJustPressedSource = static () => false;
+        RunValidation();
+    }
+
+    private void RunValidation()
+    {
+        try
+        {
+            ValidateAll();
+            GetTree().Quit(0);
+        }
+        catch (Exception exception)
+        {
+            GD.PushError($"Validation failed.\n{exception}");
+            GetTree().Quit(1);
+        }
+    }
+
+    private static void ResetValidationInput()
+    {
+        // The runner can be entered through a scene change while an editor or
+        // joypad event is still marked just-pressed for the current frame.
+        // Explicit frame simulations must start from neutral WRAM-style input.
+        foreach (string action in new[]
+        {
+            "attack", "item", "move_up", "move_right", "move_down", "move_left",
+            "map", "inventory"
+        })
+        {
+            Input.ActionRelease(action);
+        }
+    }
+
+    private static bool AnyValidationInputJustPressed() =>
+        Input.IsActionJustPressed("attack") || Input.IsActionJustPressed("item") ||
+        Input.IsActionJustPressed("move_up") || Input.IsActionJustPressed("move_right") ||
+        Input.IsActionJustPressed("move_down") || Input.IsActionJustPressed("move_left") ||
+        Input.IsActionJustPressed("map") || Input.IsActionJustPressed("inventory");
 
     private void ValidateAll()
     {
@@ -4644,7 +4707,9 @@ public partial class GameRoot
             _entities.Update(1.0 / 60.0, _player);
         if (!latchGel.IsAttached || latchGel.Counter2 != 1)
             throw new InvalidOperationException(
-                "Gel did not remain attached through latch update 119.");
+                "Gel did not remain attached through latch update 119: " +
+                $"state={latchGel.State}, counter2={latchGel.Counter2}, " +
+                $"entityFrame={_entities.FrameCounter}.");
         _entities.Update(1.0 / 60.0, _player);
         if (latchGel.IsAttached || latchGel.State != GelCharacter.GelState.Hopping ||
             latchGel.Angle != 0x00 || latchGel.CollisionEnabled ||

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>oracleofages</RootNamespace>
+    <AssemblyName>oracle-of-ages.validation</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Keep build ordering without importing the Godot source generators a
+         second time; this assembly only derives from already-generated types. -->
+    <ProjectReference Include="..\oracle-of-ages.csproj"
+                      ReferenceOutputAssembly="false" />
+    <PackageReference Include="GodotSharp" Version="4.6.0" />
+    <Reference Include="oracle-of-ages">
+      <HintPath>..\.godot\mono\temp\bin\Debug\oracle-of-ages.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Compile Include="GameRoot.Validation.cs" />
+  </ItemGroup>
+</Project>

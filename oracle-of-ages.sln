@@ -2,6 +2,8 @@
 # Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "oracle-of-ages", "oracle-of-ages.csproj", "{2F6BF0E1-7C1A-41C0-84F5-74C3888AE25B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "oracle-of-ages.validation", "validation\oracle-of-ages.validation.csproj", "{9AB8673A-C672-4BF9-A2A6-C4B05B7E31B2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 	Debug|Any CPU = Debug|Any CPU
@@ -15,5 +17,9 @@ Global
 		{2F6BF0E1-7C1A-41C0-84F5-74C3888AE25B}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
 		{2F6BF0E1-7C1A-41C0-84F5-74C3888AE25B}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
 		{2F6BF0E1-7C1A-41C0-84F5-74C3888AE25B}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+		{9AB8673A-C672-4BF9-A2A6-C4B05B7E31B2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9AB8673A-C672-4BF9-A2A6-C4B05B7E31B2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9AB8673A-C672-4BF9-A2A6-C4B05B7E31B2}.ExportDebug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9AB8673A-C672-4BF9-A2A6-C4B05B7E31B2}.ExportRelease|Any CPU.ActiveCfg = Debug|Any CPU
 	EndGlobalSection
 EndGlobal

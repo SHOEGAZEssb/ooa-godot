@@ -4,3 +4,5 @@
 *.gbc
 /assets/oracle/
 /.vs/ORACLE-OF-AGES
+/validation/bin
+/validation/obj

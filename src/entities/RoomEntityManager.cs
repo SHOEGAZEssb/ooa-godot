@@ -27,6 +27,9 @@ public sealed class RoomEntityManager
     private double _enemyFrameAccumulator;
     private int _enemyFrameCounter;
 
+    internal Func<bool> GameButtonJustPressedSource { get; set; } =
+        ReadGameButtonJustPressed;
+
     public bool ScreenTransitionActive => _screenTransitionActive;
     public OracleRuntimeState RuntimeState => _runtimeState;
     internal int FrameCounter => _enemyFrameCounter;
@@ -174,7 +177,7 @@ public sealed class RoomEntityManager
                 variableEntity.Update(delta, player);
         }
 
-        bool anyButtonJustPressed = AnyGameButtonJustPressed();
+        bool anyButtonJustPressed = GameButtonJustPressedSource();
         _enemyFrameAccumulator += delta * 60.0;
         while (_enemyFrameAccumulator >= 1.0)
         {
@@ -346,7 +349,7 @@ public sealed class RoomEntityManager
         return result;
     }
 
-    private static bool AnyGameButtonJustPressed() =>
+    private static bool ReadGameButtonJustPressed() =>
         Input.IsActionJustPressed("attack") ||
         Input.IsActionJustPressed("item") ||
         Input.IsActionJustPressed("move_up") ||

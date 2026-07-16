@@ -6,65 +6,66 @@ namespace oracleofages;
 
 public partial class GameRoot : Node2D
 {
-    // Kept as aliases for the validation partial; production transition state
-    // is owned by RoomTransitionController.
-    private const float WarpFadeFrames = RoomTransitionController.WarpFadeFrames;
-    private const float WarpLeaveFrames = RoomTransitionController.WarpLeaveFrames;
-    private const float WarpEnterFrames = RoomTransitionController.WarpEnterFrames;
+    // Internal aliases and state form the narrow host surface used by the
+    // friend validation assembly. Production transition state remains owned
+    // by RoomTransitionController.
+    internal const float WarpFadeFrames = RoomTransitionController.WarpFadeFrames;
+    internal const float WarpLeaveFrames = RoomTransitionController.WarpLeaveFrames;
+    internal const float WarpEnterFrames = RoomTransitionController.WarpEnterFrames;
 
-    private RoomSession _rooms = null!;
-    private OracleSoundEngine _sound = null!;
-    private RoomTransitionController _transitions = null!;
-    private RoomEntityManager _entities = null!;
-    private InteractionController _interactions = null!;
-    private RoomEventController _roomEvents = null!;
-    private PushBlockController _pushBlocks = null!;
-    private TerrainController _terrain = null!;
-    private CombatController _combat = null!;
+    internal RoomSession _rooms = null!;
+    internal OracleSoundEngine _sound = null!;
+    internal RoomTransitionController _transitions = null!;
+    internal RoomEntityManager _entities = null!;
+    internal InteractionController _interactions = null!;
+    internal RoomEventController _roomEvents = null!;
+    internal PushBlockController _pushBlocks = null!;
+    internal TerrainController _terrain = null!;
+    internal CombatController _combat = null!;
     private BraceletController _bracelet = null!;
     private DebugWarpController _debugWarps = null!;
-    private MapMenuController _mapMenu = null!;
-    private InventoryMenuController _inventoryMenu = null!;
-    private DebugFlagMenuController _debugFlagMenu = null!;
-    private GameplayPauseController _gameplayPause = null!;
-    private OracleMenuLifecycle _menuLifecycle = null!;
-    private MainMenuController? _mainMenu;
-    private MainMenuScreen? _mainMenuScreen;
+    internal MapMenuController _mapMenu = null!;
+    internal InventoryMenuController _inventoryMenu = null!;
+    internal DebugFlagMenuController _debugFlagMenu = null!;
+    internal GameplayPauseController _gameplayPause = null!;
+    internal OracleMenuLifecycle _menuLifecycle = null!;
+    internal MainMenuController? _mainMenu;
+    internal MainMenuScreen? _mainMenuScreen;
     private NewGameIntroController? _newGameIntro;
     private NewGameIntroScreen? _newGameIntroScreen;
     private LaunchOptions _launchOptions = null!;
-    private RoomCollision _collision = null!;
-    private PlayerWorld _playerWorld = null!;
-    private GameSceneGraph _scene = null!;
-    private TreasureDatabase _treasures = null!;
-    private InventoryState _inventory = null!;
-    private OracleSaveData _saveData = null!;
-    private OracleRandom _random = null!;
-    private DeathRespawnPointController _deathRespawnPoints = null!;
+    internal RoomCollision _collision = null!;
+    internal PlayerWorld _playerWorld = null!;
+    internal GameSceneGraph _scene = null!;
+    internal TreasureDatabase _treasures = null!;
+    internal InventoryState _inventory = null!;
+    internal OracleSaveData _saveData = null!;
+    internal OracleRandom _random = null!;
+    internal DeathRespawnPointController _deathRespawnPoints = null!;
     private bool _persistSaveData;
     private int _activeSaveSlot;
-    private int _saveWriteRequests;
-    private double _newGameArrivalTicks;
-    private int _newGameArrivalFadeFrames;
-    private int _newGameArrivalFrames;
-    private int _newGameArrivalPhase;
-    private int _newGameArrivalLastFrame;
+    internal int _saveWriteRequests;
+    internal double _newGameArrivalTicks;
+    internal int _newGameArrivalFadeFrames;
+    internal int _newGameArrivalFrames;
+    internal int _newGameArrivalPhase;
+    internal int _newGameArrivalLastFrame;
     private int _deferredIntroMusicGroup = -1;
     private int _deferredIntroMusicRoom = -1;
 
-    private double _animationTicks;
+    internal double _animationTicks;
 
-    private RoomView _roomView => _scene.RoomView;
-    private Player _player => _scene.Player;
-    private Camera2D _roomCamera => _scene.RoomCamera;
-    private Hud _hud => _scene.Hud;
-    private Label _roomDebug => _scene.RoomDebug;
-    private ColorRect _warpFade => _scene.WarpFade;
-    private DialogueBox _dialogue => _scene.Dialogue;
-    private MapScreen _mapScreen => _scene.MapScreen;
-    private InventoryScreen _inventoryScreen => _scene.InventoryScreen;
-    private SaveQuitScreen _saveQuitScreen => _scene.SaveQuitScreen;
-    private DebugFlagScreen _debugFlagScreen => _scene.DebugFlagScreen;
+    internal RoomView _roomView => _scene.RoomView;
+    internal Player _player => _scene.Player;
+    internal Camera2D _roomCamera => _scene.RoomCamera;
+    internal Hud _hud => _scene.Hud;
+    internal Label _roomDebug => _scene.RoomDebug;
+    internal ColorRect _warpFade => _scene.WarpFade;
+    internal DialogueBox _dialogue => _scene.Dialogue;
+    internal MapScreen _mapScreen => _scene.MapScreen;
+    internal InventoryScreen _inventoryScreen => _scene.InventoryScreen;
+    internal SaveQuitScreen _saveQuitScreen => _scene.SaveQuitScreen;
+    internal DebugFlagScreen _debugFlagScreen => _scene.DebugFlagScreen;
 
     public bool IsTransitioning => _transitions?.IsTransitioning ?? false;
     public bool DialogueOpen => _interactions?.DialogueOpen ?? false;
@@ -72,31 +73,39 @@ public partial class GameRoot : Node2D
     public bool InventoryMenuOpen => _inventoryMenu?.IsActive ?? false;
     public bool DebugFlagMenuOpen => _debugFlagMenu?.IsActive ?? false;
 
-    // Compatibility accessors used only by GameRoot.Validation.cs.
-    private OracleWorldData _world => _rooms.World;
-    private OracleRoomData _currentRoom
+    // Compatibility accessors used only by the friend validation assembly.
+    internal OracleWorldData _world => _rooms.World;
+    internal OracleRoomData _currentRoom
     {
         get => _rooms.CurrentRoom;
         set => _rooms.SetLoadedRoom(_rooms.ActiveGroup, value);
     }
-    private int _activeGroup
+    internal int _activeGroup
     {
         get => _rooms.ActiveGroup;
         set => _rooms.SetActiveGroup(value);
     }
-    private List<NpcCharacter> _npcNodes => _entities.Entities<NpcCharacter>();
-    private bool _scrollTransitionActive => _transitions.ScrollActive;
-    private Vector2I _scrollTransitionDirection => _transitions.ScrollDirection;
-    private float _scrollTransitionDistance => _transitions.ScrollDistance;
-    private int _scrollTransitionFrames => _transitions.ScrollFrames;
+    internal List<NpcCharacter> _npcNodes => _entities.Entities<NpcCharacter>();
+    internal bool _scrollTransitionActive => _transitions.ScrollActive;
+    internal Vector2I _scrollTransitionDirection => _transitions.ScrollDirection;
+    internal float _scrollTransitionDistance => _transitions.ScrollDistance;
+    internal int _scrollTransitionFrames => _transitions.ScrollFrames;
 
     public override void _Ready()
     {
         _launchOptions = new LaunchOptions();
+        if (_launchOptions.Has("--validate") && GetType() == typeof(GameRoot))
+        {
+            GetTree().CallDeferred(
+                SceneTree.MethodName.ChangeSceneToFile,
+                "res://validation/validation.tscn");
+            return;
+        }
         _persistSaveData = !_launchOptions.Has("--validate");
         _sound = GetNodeOrNull<OracleSoundEngine>("%SoundEngine") ??
+            GetNodeOrNull<OracleSoundEngine>("SoundEngine") ??
             throw new InvalidOperationException(
-                "main.tscn is missing its required unique SoundEngine node.");
+                "The game scene is missing its required SoundEngine node.");
 
         if (_launchOptions.ShowMainMenu)
         {
@@ -229,8 +238,6 @@ public partial class GameRoot : Node2D
         SyncHudToInventory();
         _transitions.UpdateCamera();
         ApplyRoomMusic(_rooms.ActiveGroup, _rooms.CurrentRoom);
-
-        ScheduleRequestedValidation();
     }
 
     public override void _ExitTree()
@@ -299,7 +306,7 @@ public partial class GameRoot : Node2D
         _debugWarps.Update();
     }
 
-    private bool UpdateNewGameArrival(double delta)
+    internal bool UpdateNewGameArrival(double delta)
     {
         if (_newGameArrivalFadeFrames <= 0 && _newGameArrivalFrames <= 0)
             return false;
@@ -427,13 +434,7 @@ public partial class GameRoot : Node2D
                 !InventoryMenuOpen && !_roomEvents.Active);
     }
 
-    private void ScheduleRequestedValidation()
-    {
-        if (_launchOptions.Has("--validate"))
-            CallDeferred(MethodName.ValidateAll);
-    }
-
-    private void UpdateAnimatedTiles(double delta)
+    internal void UpdateAnimatedTiles(double delta)
     {
         // updateAnimations returns while wScrollMode bit 0 is clear. Both
         // scrolling and warp transitions keep that bit clear, so the original
@@ -453,7 +454,7 @@ public partial class GameRoot : Node2D
             _roomDebug.Text = roomText;
     }
 
-    private void SyncHudToInventory()
+    internal void SyncHudToInventory()
     {
         if (_hud == null || _inventory == null)
             return;
@@ -546,16 +547,16 @@ public partial class GameRoot : Node2D
         _sound.SetMusicVolume(2);
     }
 
-    private bool Collides(Vector2 playerPosition) => _collision.Collides(playerPosition);
-    private bool TryInteract(Player player) => _interactions.TryInteract(player);
-    private OracleRoomData.TerrainInfo GetTerrainInfo(Vector2 position) => _terrain.GetTerrainInfo(position);
-    private ActiveTerrainInfo GetActiveTerrain(Vector2 position) => _terrain.GetActiveTerrain(position);
-    private bool TryStartLedgeHop(Player player, Vector2 from, Vector2 movement) =>
+    internal bool Collides(Vector2 playerPosition) => _collision.Collides(playerPosition);
+    internal bool TryInteract(Player player) => _interactions.TryInteract(player);
+    internal OracleRoomData.TerrainInfo GetTerrainInfo(Vector2 position) => _terrain.GetTerrainInfo(position);
+    internal ActiveTerrainInfo GetActiveTerrain(Vector2 position) => _terrain.GetActiveTerrain(position);
+    internal bool TryStartLedgeHop(Player player, Vector2 from, Vector2 movement) =>
         _terrain.TryStartLedgeHop(player, from, movement);
-    private bool CheckTileWarp(Player player) => _transitions.CheckTileWarp(player);
-    private void CheckRoomExit(Player player) => _transitions.CheckRoomExit(player);
+    internal bool CheckTileWarp(Player player) => _transitions.CheckTileWarp(player);
+    internal void CheckRoomExit(Player player) => _transitions.CheckRoomExit(player);
 
-    private Vector2 FindSpawn()
+    internal Vector2 FindSpawn()
     {
         Vector2 center = new(80, 64);
         Vector2 best = center;
@@ -576,7 +577,7 @@ public partial class GameRoot : Node2D
         return best;
     }
 
-    private void LoadDebugRoom(int group, int room)
+    internal void LoadDebugRoom(int group, int room)
     {
         _dialogue.Close();
         _transitions.ClearDeactivatedWarp();
@@ -595,19 +596,19 @@ public partial class GameRoot : Node2D
     }
 
     // Validation compatibility wrappers.
-    private void WarpToSignTest() => _debugWarps.WarpToSign();
+    internal void WarpToSignTest() => _debugWarps.WarpToSign();
     private void WarpToAnimationTest() => _debugWarps.WarpToAnimation();
-    private void WarpToBushTest() => _debugWarps.WarpToBush();
-    private void WarpToHouseTest() => _debugWarps.WarpToHouse();
-    private void WarpToNpcTest() => _debugWarps.WarpToNpc();
-    private void WarpToChestTest() => _debugWarps.WarpToChest();
-    private void ClearDeactivatedWarp() => _transitions.ClearDeactivatedWarp();
-    private void RefreshRoomObjects() => _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom);
+    internal void WarpToBushTest() => _debugWarps.WarpToBush();
+    internal void WarpToHouseTest() => _debugWarps.WarpToHouse();
+    internal void WarpToNpcTest() => _debugWarps.WarpToNpc();
+    internal void WarpToChestTest() => _debugWarps.WarpToChest();
+    internal void ClearDeactivatedWarp() => _transitions.ClearDeactivatedWarp();
+    internal void RefreshRoomObjects() => _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom);
     private void ClearRoomObjects() => _entities.Clear();
     private bool TryGetNeighborId(Vector2I direction, out int id) => _rooms.TryGetNeighbor(direction, out id);
-    private void UpdateRoomCamera() => _transitions.UpdateCamera();
-    private Vector2 WorldToScreen(Vector2 position) => _transitions.WorldToScreen(position);
-    private void UpdateRoomWarpTransition(double delta)
+    internal void UpdateRoomCamera() => _transitions.UpdateCamera();
+    internal Vector2 WorldToScreen(Vector2 position) => _transitions.WorldToScreen(position);
+    internal void UpdateRoomWarpTransition(double delta)
     {
         // Validation often advances several nominal frames at once. The live
         // time-warp controller deliberately processes at most one vblank step
@@ -631,5 +632,5 @@ public partial class GameRoot : Node2D
                 _roomEvents.Update(delta);
         }
     }
-    private void UpdateScrollingTransition(double delta) => _transitions.UpdateScroll(delta);
+    internal void UpdateScrollingTransition(double delta) => _transitions.UpdateScroll(delta);
 }
