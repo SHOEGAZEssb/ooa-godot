@@ -16,6 +16,7 @@ public partial class GameRoot
 
     private void ValidateAll()
     {
+        ValidateGameplaySceneGraph();
         _world.ValidateRepresentativeRooms();
         ValidateOracleObjectMath();
         ValidateOracleRandom();
@@ -70,6 +71,58 @@ public partial class GameRoot
         ValidateSaveAndQuitToTitle();
 
         GD.Print("Validated all gameplay and world-data scenarios.");
+    }
+
+    private void ValidateGameplaySceneGraph()
+    {
+        Vector2 roomViewportSize = new(
+            OracleRoomData.ViewportWidth, OracleRoomData.ViewportHeight);
+        Vector2 screenSize = new(
+            OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight);
+        if (_sound.GetParent() != this || _sound.Owner != this ||
+            _scene.GetParent() != this ||
+            _scene.SceneFilePath != GameSceneGraph.ScenePath ||
+            GetChildCount() != 2 ||
+            _scene.WorldRoot.GetParent() != _scene ||
+            _scene.WorldRoot.Owner != _scene ||
+            _scene.InterfaceLayer.GetParent() != _scene ||
+            _scene.InterfaceLayer.Owner != _scene ||
+            _roomView.GetParent() != _scene.WorldRoot ||
+            _player.GetParent() != _scene.WorldRoot ||
+            _roomCamera.GetParent() != _scene.WorldRoot ||
+            _pushBlocks.GetParent() != _scene.WorldRoot)
+        {
+            throw new InvalidOperationException(
+                "The main/gameplay PackedScene ownership boundary or world-node parentage regressed.");
+        }
+
+        if (_scene.Position != Vector2.Zero || _scene.WorldRoot.Position != Vector2.Zero ||
+            _scene.InterfaceLayer.Layer != 10 ||
+            _roomView.ZIndex != 0 || _player.ZIndex != 10 ||
+            !_roomCamera.Enabled || _roomCamera.PositionSmoothingEnabled ||
+            _hud.Position != new Vector2(0, 128) || _hud.ZIndex != 20 ||
+            _warpFade.Size != roomViewportSize || _warpFade.ZIndex != 15 ||
+            _warpFade.MouseFilter != Control.MouseFilterEnum.Ignore ||
+            _warpFade.Color != new Color(1, 1, 1, 0) ||
+            _scene.MenuFade.Size != screenSize || _scene.MenuFade.ZIndex != 50 ||
+            _scene.MenuFade.MouseFilter != Control.MouseFilterEnum.Ignore ||
+            _scene.MenuFade.Color != new Color(1, 1, 1, 0) ||
+            _dialogue.Visible || _dialogue.ZIndex != 49 ||
+            _mapScreen.Visible || _mapScreen.ZIndex != 40 ||
+            _inventoryScreen.Visible || _inventoryScreen.ZIndex != 45 ||
+            _saveQuitScreen.Visible || _saveQuitScreen.ZIndex != 46 ||
+            _debugFlagScreen.Visible || _debugFlagScreen.ZIndex != 110 ||
+            _roomDebug.Position != new Vector2(2, 0) || _roomDebug.ZIndex != 100 ||
+            _roomDebug.MouseFilter != Control.MouseFilterEnum.Ignore ||
+            _roomDebug.GetThemeFontSize("font_size") != 8 ||
+            _roomDebug.GetThemeConstant("outline_size") != 1)
+        {
+            throw new InvalidOperationException(
+                $"{GameSceneGraph.ScenePath} no longer preserves the fixed camera, UI, or draw-order values.");
+        }
+
+        GD.Print("Validated main/gameplay PackedScene ownership, unique typed bindings, " +
+            "world-node containment, and fixed camera/UI presentation values.");
     }
 
     private static void ValidateOracleObjectMath()
@@ -776,6 +829,7 @@ public partial class GameRoot
 
     private void ValidateSaveAndQuitToTitle()
     {
+        GameSceneGraph gameplayScene = _scene;
         bool quitAfterFailure = false;
         var failedMenu = new InventoryMenuController(
             _inventoryScreen,
@@ -815,13 +869,16 @@ public partial class GameRoot
         if (_inventoryMenu.SaveRequests != saveRequests + 1 ||
             _saveWriteRequests != saveWrites + 1 ||
             _inventoryMenu.QuitRequests != 1 || _mainMenu is null || _mainMenuScreen is null ||
-            _inventoryMenu.IsActive)
+            _inventoryMenu.IsActive || !gameplayScene.IsQueuedForDeletion() ||
+            _sound.IsQueuedForDeletion() || _mainMenuScreen.GetParent() != this)
         {
             throw new InvalidOperationException(
-                "Save and Quit did not save, wait 30 updates, and return to title/file select.");
+                "Save and Quit did not save, free the gameplay scene as one lifecycle unit, " +
+                "preserve application audio, and return to title/file select after 30 updates.");
         }
         GD.Print("Validated retryable Save and Quit failure handling, successful persistence " +
-            "request, and return to title after 30 updates.");
+            "request, one-root gameplay cleanup, persistent application audio, and return to " +
+            "title after 30 updates.");
     }
 
     private void ValidateNewGameIntro()
@@ -4837,11 +4894,11 @@ public partial class GameRoot
         string terrainName = hazard.ToString();
         Vector2 hazardPosition = _player.Position;
         int healthBeforeDrowning = _player.HealthQuarters;
-        int worldChildCount = GetChildCount();
+        int worldChildCount = _scene.WorldRoot.GetChildCount();
 
         _player._PhysicsProcess(1.0 / 60.0);
         SplashEffect? splash = _terrain.ActiveSplash;
-        if (GetChildCount() != worldChildCount + 1 || splash is null ||
+        if (_scene.WorldRoot.GetChildCount() != worldChildCount + 1 || splash is null ||
             splash.Position != hazardPosition ||
             splash.IsLava != (hazard == OracleRoomData.HazardType.Lava))
         {
@@ -5479,7 +5536,7 @@ public partial class GameRoot
         FinishActiveScrollingTransitionForValidation();
         if (_entities.ScreenTransitionActive || _entities.OutgoingEntities<NpcCharacter>().Count != 0 ||
             !destinationNpc.TransitionDrawOffset.IsEqualApprox(Vector2.Zero) ||
-            destinationNpc.GetParent() != this)
+            destinationNpc.GetParent() != _scene.WorldRoot)
         {
             throw new InvalidOperationException(
                 "The destination NPC did not become the normal room NPC after the scroll completed.");
@@ -7959,7 +8016,7 @@ public partial class GameRoot
                 }
             }
             ChestTreasureEffect? swordGift =
-                GetNodeOrNull<ChestTreasureEffect>("NayruSwordGift");
+                _scene.WorldRoot.GetNodeOrNull<ChestTreasureEffect>("NayruSwordGift");
             if (_dialogue.IsOpen && _dialogue.CurrentMessage == swordMessage &&
                 swordGift is not null)
             {

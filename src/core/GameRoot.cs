@@ -92,8 +92,9 @@ public partial class GameRoot : Node2D
     {
         _launchOptions = new LaunchOptions();
         _persistSaveData = !_launchOptions.Has("--validate");
-        _sound = new OracleSoundEngine { Name = "SoundEngine" };
-        AddChild(_sound);
+        _sound = GetNodeOrNull<OracleSoundEngine>("%SoundEngine") ??
+            throw new InvalidOperationException(
+                "main.tscn is missing its required unique SoundEngine node.");
 
         if (_launchOptions.ShowMainMenu)
         {
@@ -188,7 +189,12 @@ public partial class GameRoot : Node2D
         _inventory = new InventoryState(
             _treasures, _saveData, () => _rooms.CurrentDungeonIndex);
         _rooms.RoomChanged += ApplyRoomMusic;
-        _scene = new GameSceneGraph(this);
+        PackedScene gameplayScene = ResourceLoader.Load<PackedScene>(
+            GameSceneGraph.ScenePath, string.Empty, ResourceLoader.CacheMode.Reuse) ??
+            throw new InvalidOperationException(
+                $"Could not load gameplay scene {GameSceneGraph.ScenePath}.");
+        _scene = gameplayScene.Instantiate<GameSceneGraph>();
+        AddChild(_scene);
         _dialogue.MessageSpeed = _saveData.TextSpeed;
         _hud.Initialize(_treasures, _inventory);
         _mapScreen.Initialize(_rooms, _inventory);
@@ -355,14 +361,14 @@ public partial class GameRoot : Node2D
     private void CreateControllers()
     {
         _entities = new RoomEntityManager(
-            this, new NpcDatabase(), new EnemyDatabase(),
+            _scene.WorldRoot, new NpcDatabase(), new EnemyDatabase(),
             new ItemDropDatabase(), new TimePortalDatabase(), _random, _saveData);
         _pushBlocks = new PushBlockController(
             _rooms, new PushableTileDatabase(), _roomView, () => (long)_animationTicks)
         {
             Name = "PushBlock"
         };
-        AddChild(_pushBlocks);
+        _scene.WorldRoot.AddChild(_pushBlocks);
         _collision = new RoomCollision(
             _rooms, _entities, _pushBlocks, point => _transitions.HasNeighborFor(point));
         _deathRespawnPoints = new DeathRespawnPointController(_rooms, _player);
@@ -375,7 +381,7 @@ public partial class GameRoot : Node2D
             _transitions.ApplyTimePortalWarp(_player, portal.Position);
         _interactions = new InteractionController(
             _rooms, _entities, new SignDatabase(), new ChestDatabase(), _treasures, _dialogue,
-            this, _roomView, _transitions.WorldToScreen, () => (long)_animationTicks,
+            _scene.WorldRoot, _roomView, _transitions.WorldToScreen, () => (long)_animationTicks,
             _inventory, _scene.InterfaceLayer, _sound.PlaySound);
         _roomEvents = new RoomEventController(
             _rooms, _entities, _transitions, _dialogue, _player, _roomView,
@@ -385,14 +391,14 @@ public partial class GameRoot : Node2D
         _interactions.NpcInteractionOverride = _roomEvents.Nayru.TryInteractNpc;
         _bracelet = new BraceletController(
             _rooms, new BreakableTileDatabase(), _roomView, () => (long)_animationTicks);
-        _terrain = new TerrainController(this, _rooms, _collision.Collides);
+        _terrain = new TerrainController(_scene.WorldRoot, _rooms, _collision.Collides);
         _pushBlocks.EnteredHazard += (position, hazard) =>
         {
             if (hazard is OracleRoomData.HazardType.Water or OracleRoomData.HazardType.Lava)
                 _terrain.SpawnDrowningSplash(position, hazard);
         };
         _combat = new CombatController(
-            this, _rooms, _roomView, _entities, new BreakableTileDatabase(), _sound,
+            _scene.WorldRoot, _rooms, _roomView, _entities, new BreakableTileDatabase(), _sound,
             () => (long)_animationTicks);
         _playerWorld = new PlayerWorld(
             _transitions, _interactions, _collision, _pushBlocks, _terrain, _combat, _entities,
@@ -473,12 +479,13 @@ public partial class GameRoot : Node2D
     {
         if (_inventory is not null)
             _inventory.Changed -= SyncHudToInventory;
+        if (_rooms is not null)
+            _rooms.RoomChanged -= ApplyRoomMusic;
 
-        foreach (Node child in GetChildren())
-        {
-            if (child != _sound)
-                child.QueueFree();
-        }
+        // gameplay.tscn owns every persistent and transient gameplay node.
+        // Freeing this one root leaves the application-owned sound engine in
+        // place for the title screen and the next selected file.
+        _scene.QueueFree();
 
         _mainMenuScreen = new MainMenuScreen { Name = "MainMenu", ZIndex = 200 };
         AddChild(_mainMenuScreen);

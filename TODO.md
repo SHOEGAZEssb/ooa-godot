@@ -90,3 +90,59 @@ serialization.
 - Imported record values and sequence are unchanged by the migration.
 - `tools/import_oracles.ps1`, `dotnet build`, the complete headless `--validate`
   suite, and `git diff --check` all pass.
+
+## Consider a TileMapLayer room renderer
+
+Status: Very hard maybe
+
+Consolidation value: Medium if profiling proves the current renderer costly
+
+Fidelity risk: Very high
+
+### Finding
+
+`OracleRoomData` currently recomposes and uploads the complete room texture
+after a single metatile mutation. Animated VRAM substitutions and temporary
+background-palette changes also rerender the complete texture. A
+`TileMapLayer`-based renderer could update affected cells and use Godot's
+rendering quadrants for batching.
+
+This is not a routine optimization. The flattened room texture is also used for
+exact room scrolling, scanline wave distortion, palette effects, validation,
+and push-block image extraction. Rooms are only 160x128 or 240x176 pixels, so
+the existing work may be cheaper and safer than a new rendering model. Do not
+prioritize this migration without profiling evidence of a material bottleneck.
+
+### Migration constraints
+
+- Keep `OracleRoomData`'s custom collision and original-room-coordinate model.
+- Model each metatile as four independently mapped 8x8 cells so original tile
+  IDs, X/Y flips, palette attributes, and animated destination ranges remain
+  exact.
+- Implement animation as the original persistent, potentially overlapping VRAM
+  writes. Do not replace it with generic independent tile animations.
+- Keep palette source data indexed and nearest-filtered. Any shader-based
+  palette lookup or blend must reproduce the current RGBA bytes exactly.
+- Preserve the original animation freeze during scrolling and account for
+  `TileMapLayer` deferring batched updates until the end of the frame.
+- Support two independently positioned room renderers during screen scrolling.
+- Preserve the 128-phase integer scanline-wave table and horizontal wrapping.
+  Rendering through a room-sized intermediate texture is acceptable if needed
+  for whole-room effects.
+- Replace push-block sampling from the flattened room texture with an equivalent
+  metatile-frame source before removing that texture.
+- Disable `TileMapLayer` collision, navigation, and occlusion features unless an
+  original behavior specifically requires them.
+
+### Required validation
+
+- Retain the current CPU renderer as the reference implementation throughout
+  the staged migration.
+- Compare old and new output pixel-for-pixel for every imported room, including
+  large-room padding behavior, every relevant animation phase, all palette
+  variants and blends, flips, and representative runtime metatile mutations.
+- Validate exact update timing for tile changes, animation writes, transitions,
+  palette effects, and wave phases—not just final screenshots.
+- Profile the current and proposed renderers in representative animated rooms;
+  adopt the new renderer only if it produces a meaningful measured benefit
+  without weakening the 1:1 validation surface.

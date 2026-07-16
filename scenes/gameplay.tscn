@@ -1,0 +1,100 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://src/core/GameSceneGraph.cs" id="1_gameplay"]
+[ext_resource type="Script" path="res://src/world/RoomView.cs" id="2_room_view"]
+[ext_resource type="Script" path="res://src/player/Player.cs" id="3_player"]
+[ext_resource type="Script" path="res://src/ui/Hud.cs" id="4_hud"]
+[ext_resource type="Script" path="res://src/ui/DialogueBox.cs" id="5_dialogue"]
+[ext_resource type="Script" path="res://src/map/MapScreen.cs" id="6_map"]
+[ext_resource type="Script" path="res://src/inventory/InventoryScreen.cs" id="7_inventory"]
+[ext_resource type="Script" path="res://src/menu/SaveQuitScreen.cs" id="8_save_quit"]
+[ext_resource type="Script" path="res://src/debug/DebugFlagScreen.cs" id="9_debug_flags"]
+
+[node name="Gameplay" type="Node2D"]
+script = ExtResource("1_gameplay")
+
+[node name="World" type="Node2D" parent="."]
+unique_name_in_owner = true
+
+[node name="RoomView" type="Node2D" parent="World"]
+unique_name_in_owner = true
+z_index = 0
+script = ExtResource("2_room_view")
+
+[node name="Link" type="Node2D" parent="World"]
+unique_name_in_owner = true
+z_index = 10
+script = ExtResource("3_player")
+
+[node name="RoomCamera" type="Camera2D" parent="World"]
+unique_name_in_owner = true
+position_smoothing_enabled = false
+enabled = true
+
+[node name="Interface" type="CanvasLayer" parent="."]
+unique_name_in_owner = true
+layer = 10
+
+[node name="Hud" type="Node2D" parent="Interface"]
+unique_name_in_owner = true
+position = Vector2(0, 128)
+z_index = 20
+script = ExtResource("4_hud")
+
+[node name="RoomWarpFade" type="ColorRect" parent="Interface"]
+unique_name_in_owner = true
+offset_right = 160.0
+offset_bottom = 128.0
+mouse_filter = 2
+color = Color(1, 1, 1, 0)
+z_index = 15
+
+[node name="Dialogue" type="Node2D" parent="Interface"]
+unique_name_in_owner = true
+visible = false
+z_index = 49
+script = ExtResource("5_dialogue")
+
+[node name="MapScreen" type="Node2D" parent="Interface"]
+unique_name_in_owner = true
+visible = false
+z_index = 40
+script = ExtResource("6_map")
+
+[node name="InventoryScreen" type="Node2D" parent="Interface"]
+unique_name_in_owner = true
+visible = false
+z_index = 45
+script = ExtResource("7_inventory")
+
+[node name="SaveQuitScreen" type="Node2D" parent="Interface"]
+unique_name_in_owner = true
+visible = false
+z_index = 46
+script = ExtResource("8_save_quit")
+
+[node name="MenuFade" type="ColorRect" parent="Interface"]
+unique_name_in_owner = true
+offset_right = 160.0
+offset_bottom = 144.0
+mouse_filter = 2
+color = Color(1, 1, 1, 0)
+z_index = 50
+
+[node name="DebugFlagScreen" type="Control" parent="Interface"]
+unique_name_in_owner = true
+visible = false
+z_index = 110
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("9_debug_flags")
+
+[node name="RoomDebug" type="Label" parent="Interface"]
+unique_name_in_owner = true
+offset_left = 2.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.972549, 0.811765, 1)
+theme_override_colors/font_outline_color = Color(0.0784314, 0.0941176, 0.0784314, 1)
+theme_override_constants/outline_size = 1
+theme_override_font_sizes/font_size = 8
+z_index = 100

@@ -1,96 +1,67 @@
 using Godot;
+using System;
 
 namespace oracleofages;
 
-public sealed class GameSceneGraph
+/// <summary>
+/// Typed binding for the stable gameplay hierarchy stored in gameplay.tscn.
+/// Original behavior remains in the owning runtime classes; the scene owns
+/// only node lifecycle, parentage, draw order, and fixed presentation values.
+/// </summary>
+public partial class GameSceneGraph : Node2D
 {
-    public CanvasLayer InterfaceLayer { get; }
-    public RoomView RoomView { get; }
-    public Player Player { get; }
-    public Camera2D RoomCamera { get; }
-    public Hud Hud { get; }
-    public ColorRect WarpFade { get; }
-    public DialogueBox Dialogue { get; }
-    public Label RoomDebug { get; }
-    public MapScreen MapScreen { get; }
-    public InventoryScreen InventoryScreen { get; }
-    public SaveQuitScreen SaveQuitScreen { get; }
-    public DebugFlagScreen DebugFlagScreen { get; }
-    public ColorRect MenuFade { get; }
+    public const string ScenePath = "res://scenes/gameplay.tscn";
 
-    public GameSceneGraph(Node root)
+    public Node2D WorldRoot { get; private set; } = null!;
+    public CanvasLayer InterfaceLayer { get; private set; } = null!;
+    public RoomView RoomView { get; private set; } = null!;
+    public Player Player { get; private set; } = null!;
+    public Camera2D RoomCamera { get; private set; } = null!;
+    public Hud Hud { get; private set; } = null!;
+    public ColorRect WarpFade { get; private set; } = null!;
+    public DialogueBox Dialogue { get; private set; } = null!;
+    public Label RoomDebug { get; private set; } = null!;
+    public MapScreen MapScreen { get; private set; } = null!;
+    public InventoryScreen InventoryScreen { get; private set; } = null!;
+    public SaveQuitScreen SaveQuitScreen { get; private set; } = null!;
+    public DebugFlagScreen DebugFlagScreen { get; private set; } = null!;
+    public ColorRect MenuFade { get; private set; } = null!;
+
+    public override void _Ready()
     {
-        RoomView = new RoomView { Name = "RoomView", ZIndex = 0 };
-        root.AddChild(RoomView);
+        WorldRoot = Unique<Node2D>("World");
+        InterfaceLayer = Unique<CanvasLayer>("Interface");
+        RoomView = Unique<RoomView>("RoomView");
+        Player = Unique<Player>("Link");
+        RoomCamera = Unique<Camera2D>("RoomCamera");
+        Hud = Unique<Hud>("Hud");
+        WarpFade = Unique<ColorRect>("RoomWarpFade");
+        Dialogue = Unique<DialogueBox>("Dialogue");
+        RoomDebug = Unique<Label>("RoomDebug");
+        MapScreen = Unique<MapScreen>("MapScreen");
+        InventoryScreen = Unique<InventoryScreen>("InventoryScreen");
+        SaveQuitScreen = Unique<SaveQuitScreen>("SaveQuitScreen");
+        DebugFlagScreen = Unique<DebugFlagScreen>("DebugFlagScreen");
+        MenuFade = Unique<ColorRect>("MenuFade");
 
-        Player = new Player { Name = "Link", ZIndex = 10 };
-        root.AddChild(Player);
-
-        RoomCamera = new Camera2D
+        if (WorldRoot.GetParent() != this || InterfaceLayer.GetParent() != this ||
+            RoomView.GetParent() != WorldRoot || Player.GetParent() != WorldRoot ||
+            RoomCamera.GetParent() != WorldRoot || Hud.GetParent() != InterfaceLayer ||
+            WarpFade.GetParent() != InterfaceLayer || Dialogue.GetParent() != InterfaceLayer ||
+            RoomDebug.GetParent() != InterfaceLayer || MapScreen.GetParent() != InterfaceLayer ||
+            InventoryScreen.GetParent() != InterfaceLayer ||
+            SaveQuitScreen.GetParent() != InterfaceLayer ||
+            DebugFlagScreen.GetParent() != InterfaceLayer ||
+            MenuFade.GetParent() != InterfaceLayer)
         {
-            Name = "RoomCamera",
-            Enabled = true,
-            PositionSmoothingEnabled = false
-        };
-        root.AddChild(RoomCamera);
+            throw new InvalidOperationException(
+                $"{ScenePath} does not match the required world/interface ownership hierarchy.");
+        }
+    }
 
-        InterfaceLayer = new CanvasLayer { Name = "Interface", Layer = 10 };
-        root.AddChild(InterfaceLayer);
-
-        Hud = new Hud { Name = "Hud", Position = new Vector2(0, 128), ZIndex = 20 };
-        InterfaceLayer.AddChild(Hud);
-
-        WarpFade = new ColorRect
-        {
-            Name = "RoomWarpFade",
-            Size = new Vector2(OracleRoomData.ViewportWidth, OracleRoomData.ViewportHeight),
-            Color = new Color(1, 1, 1, 0),
-            ZIndex = 15,
-            MouseFilter = Control.MouseFilterEnum.Ignore
-        };
-        InterfaceLayer.AddChild(WarpFade);
-
-        Dialogue = new DialogueBox { Name = "Dialogue", ZIndex = 49, Visible = false };
-        InterfaceLayer.AddChild(Dialogue);
-
-        MapScreen = new MapScreen { Name = "MapScreen", ZIndex = 40, Visible = false };
-        InterfaceLayer.AddChild(MapScreen);
-
-        InventoryScreen = new InventoryScreen { Name = "InventoryScreen", ZIndex = 45, Visible = false };
-        InterfaceLayer.AddChild(InventoryScreen);
-
-        SaveQuitScreen = new SaveQuitScreen { Name = "SaveQuitScreen", ZIndex = 46, Visible = false };
-        InterfaceLayer.AddChild(SaveQuitScreen);
-
-        MenuFade = new ColorRect
-        {
-            Name = "MenuFade",
-            Size = new Vector2(OracleRoomData.ViewportWidth, OracleRoomData.ViewportHeight),
-            Color = new Color(1, 1, 1, 0),
-            ZIndex = 50,
-            MouseFilter = Control.MouseFilterEnum.Ignore
-        };
-        InterfaceLayer.AddChild(MenuFade);
-
-        DebugFlagScreen = new DebugFlagScreen
-        {
-            Name = "DebugFlagScreen",
-            ZIndex = 110,
-            Visible = false
-        };
-        InterfaceLayer.AddChild(DebugFlagScreen);
-
-        RoomDebug = new Label
-        {
-            Name = "RoomDebug",
-            Position = new Vector2(2, 0),
-            ZIndex = 100,
-            MouseFilter = Control.MouseFilterEnum.Ignore
-        };
-        RoomDebug.AddThemeFontSizeOverride("font_size", 8);
-        RoomDebug.AddThemeColorOverride("font_color", Color.Color8(255, 248, 207));
-        RoomDebug.AddThemeColorOverride("font_outline_color", Color.Color8(20, 24, 20));
-        RoomDebug.AddThemeConstantOverride("outline_size", 1);
-        InterfaceLayer.AddChild(RoomDebug);
+    private T Unique<T>(string name) where T : Node
+    {
+        return GetNodeOrNull<T>($"%{name}") ?? throw new InvalidOperationException(
+            $"{ScenePath} is missing required unique {typeof(T).Name} node %{name}.");
     }
 }
