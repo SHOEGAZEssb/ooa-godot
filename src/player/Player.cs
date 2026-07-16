@@ -27,6 +27,7 @@ public partial class Player : Node2D
     private const int TerrainHazardDamageQuarters = 2;
     private IPlayerWorld _world = null!;
     private InventoryState _inventory = null!;
+    private OracleRandom _random = null!;
     private Texture2D _texture = null!;
     private Texture2D _getItemOneHandTexture = null!;
     private Texture2D _pushTexture = null!;
@@ -115,10 +116,15 @@ public partial class Player : Node2D
     internal int NewGameSlowFallZ => _newGameFallZFixed >> 8;
     internal bool IsHoldingItemOneHand => _getItemOneHandPose;
 
-    public void Initialize(IPlayerWorld world, InventoryState inventory, Vector2 spawn)
+    internal void Initialize(
+        IPlayerWorld world,
+        InventoryState inventory,
+        Vector2 spawn,
+        OracleRandom random)
     {
         _world = world;
         _inventory = inventory;
+        _random = random;
         _texture = BuildLinkTexture();
         _getItemOneHandTexture = BuildGetItemOneHandTexture();
         _pushTexture = BuildPushLinkTexture();
@@ -1062,7 +1068,7 @@ public partial class Player : Node2D
         _swordFrameAccumulator = 0.0;
         _swordButtonAction = buttonAction;
         _walking = false;
-        int sound = SwordSlashSounds[Random.Shared.Next(SwordSlashSounds.Length)];
+        int sound = SwordSlashSounds[_random.Next().Value & 0x07];
         _world.PlaySound(sound);
         QueueRedraw();
     }

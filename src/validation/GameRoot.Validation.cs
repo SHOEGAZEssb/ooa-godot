@@ -2951,27 +2951,48 @@ public partial class GameRoot
 
     private void ValidateSwordBush()
     {
+        OracleRandom.Result ExpectedNextRandom()
+        {
+            var replay = new OracleRandom();
+            for (int call = 0; call < _random.Calls; call++)
+                replay.Next();
+            return replay.Next();
+        }
+
+        int SoundFor(OracleRandom.Result result) => (result.Value & 0x07) switch
+        {
+            0 or 3 or 4 or 6 or 7 => OracleSoundEngine.SndSwordSlash,
+            1 or 5 => OracleSoundEngine.SndUnknown5,
+            _ => OracleSoundEngine.SndBoomerang
+        };
+
         WarpToBushTest();
         Vector2 bushPoint = new(24, 56);
         if (_currentRoom.GetMetatile(bushPoint) != 0xc5)
             throw new InvalidOperationException("Expected overworld bush $c5 in room 69 at $31.");
         Vector2 objectPosition = _player.Position;
         _sound.ClearPlayRequestAudit();
+        int randomCalls = _random.Calls;
+        OracleRandom.Result expectedRandom = ExpectedNextRandom();
         _player.StartSwordAttack();
         int slashRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSlash) +
             _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5) +
             _sound.PlayRequestsFor(OracleSoundEngine.SndBoomerang);
         if (slashRequests != 1 || _player.SwordState != Player.SwordActionState.Swing ||
-            _player.SwordStateFrame != 0 || _player.SwordArcIndex != 0)
+            _player.SwordStateFrame != 0 || _player.SwordArcIndex != 0 ||
+            _random.Calls != randomCalls + 1 || _random.LastResult != expectedRandom ||
+            _sound.PlayRequestsFor(SoundFor(expectedRandom)) != 1)
         {
             throw new InvalidOperationException(
                 "Starting ITEM_SWORD did not select one entry from the original 8-sound table " +
-                "and initialize LINK_ANIM_MODE_22 at sword arc $00.");
+                "from shared RNG and initialize LINK_ANIM_MODE_22 at sword arc $00.");
         }
         _player.AdvanceSwordForValidation(2, buttonHeld: false);
         _sound.ClearPlayRequestAudit();
+        randomCalls = _random.Calls;
         _player.StartSwordAttack();
         if (_player.SwordCanRestart || _player.SwordStateFrame != 2 ||
+            _random.Calls != randomCalls ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSlash) +
             _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5) +
             _sound.PlayRequestsFor(OracleSoundEngine.SndBoomerang) != 0)
@@ -2983,29 +3004,38 @@ public partial class GameRoot
         if (!_player.SwordCanRestart)
             throw new InvalidOperationException(
                 "The sword did not become restartable when animation parameter `$02 cleared enabled bit 7.");
+        randomCalls = _random.Calls;
+        expectedRandom = ExpectedNextRandom();
         _player.StartSwordAttackForValidation(Vector2.Right);
         slashRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSlash) +
             _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5) +
             _sound.PlayRequestsFor(OracleSoundEngine.SndBoomerang);
         if (slashRequests != 1 || _player.SwordStateFrame != 0 ||
             _player.SwordArcIndex != 1 || _player.FacingVector != Vector2I.Right ||
-            _player.SwordCanRestart)
+            _player.SwordCanRestart || _random.Calls != randomCalls + 1 ||
+            _random.LastResult != expectedRandom ||
+            _sound.PlayRequestsFor(SoundFor(expectedRandom)) != 1)
         {
             throw new InvalidOperationException(
-                "An equal-priority sword press did not restart and retarget the single swing after update 3.");
+                "An equal-priority sword press did not consume shared RNG, restart, and " +
+                "retarget the single swing after update 3.");
         }
         _player.AdvanceSwordForValidation(3, buttonHeld: false);
         _sound.ClearPlayRequestAudit();
+        randomCalls = _random.Calls;
+        expectedRandom = ExpectedNextRandom();
         _player.StartSwordAttackForValidation(Vector2.Up);
         slashRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSlash) +
             _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5) +
             _sound.PlayRequestsFor(OracleSoundEngine.SndBoomerang);
         if (slashRequests != 1 || _player.SwordStateFrame != 0 ||
             _player.SwordArcIndex != 0 || _player.FacingVector != Vector2I.Up ||
-            _player.SwordCanRestart)
+            _player.SwordCanRestart || _random.Calls != randomCalls + 1 ||
+            _random.LastResult != expectedRandom ||
+            _sound.PlayRequestsFor(SoundFor(expectedRandom)) != 1)
         {
             throw new InvalidOperationException(
-                "Spammed sword input did not retarget a subsequent swing back upward.");
+                "Spammed sword input did not consume shared RNG and retarget a subsequent swing upward.");
         }
         if (_player.AttackSpriteOrigin != new Vector2(-8, -8))
             throw new InvalidOperationException(
@@ -3237,7 +3267,7 @@ public partial class GameRoot
             "41-update charge, " +
             "held/charged standing/walking body, child-item Z/layer rendering, charged palette cadence, " +
             "12-update wall poke/clinks with 8-update INTERAC_CLINK sprites, 23-update swordspin, " +
-            "sound triggers, grass break, " +
+            "shared-RNG slash sounds, blocked-restart RNG preservation, grass break, " +
             "and all 24 swordArcData hitboxes.");
     }
 

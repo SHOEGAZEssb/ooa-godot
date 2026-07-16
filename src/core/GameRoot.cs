@@ -37,6 +37,7 @@ public partial class GameRoot : Node2D
     private TreasureDatabase _treasures = null!;
     private InventoryState _inventory = null!;
     private OracleSaveData _saveData = null!;
+    private OracleRandom _random = null!;
     private DeathRespawnPointController _deathRespawnPoints = null!;
     private bool _persistSaveData;
     private int _activeSaveSlot;
@@ -171,6 +172,7 @@ public partial class GameRoot : Node2D
     private void InitializeGameplay(OracleSaveData save)
     {
         _saveData = save;
+        _random = new OracleRandom();
         _treasures = new TreasureDatabase();
         int startingGroup = _launchOptions.HasWorldOverride || !_persistSaveData
             ? _launchOptions.StartingGroup
@@ -204,7 +206,7 @@ public partial class GameRoot : Node2D
         _roomView.SetRoom(_rooms.CurrentRoom.Texture);
         if (!useSavedSpawn)
             spawn = FindSpawn();
-        _player.Initialize(_playerWorld, _inventory, spawn);
+        _player.Initialize(_playerWorld, _inventory, spawn, _random);
         if (useSavedSpawn)
         {
             _player.Face(_saveData.RespawnFacing switch
@@ -352,7 +354,8 @@ public partial class GameRoot : Node2D
     private void CreateControllers()
     {
         _entities = new RoomEntityManager(
-            this, new NpcDatabase(), new EnemyDatabase(), _saveData);
+            this, new NpcDatabase(), new EnemyDatabase(),
+            new ItemDropDatabase(), new TimePortalDatabase(), _random, _saveData);
         _pushBlocks = new PushBlockController(
             _rooms, new PushableTileDatabase(), _roomView, () => (long)_animationTicks)
         {

@@ -13,6 +13,9 @@ internal sealed class OracleRandom
     private byte _placementIndex;
     private bool _placementBufferReady;
 
+    internal int Calls { get; private set; }
+    internal Result LastResult { get; private set; }
+
     public Result Next()
     {
         int original = (_rng2 << 8) | _rng1;
@@ -21,7 +24,9 @@ internal sealed class OracleRandom
         byte low = (byte)multiplied;
         _rng2 = high;
         _rng1 = (byte)(high + _rng1);
-        return new Result(_rng1, high, low);
+        LastResult = new Result(_rng1, high, low);
+        Calls++;
+        return LastResult;
     }
 
     public byte NextPlacementValue()
