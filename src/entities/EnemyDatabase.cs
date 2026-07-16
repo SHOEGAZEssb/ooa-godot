@@ -10,6 +10,10 @@ public sealed class EnemyDatabase
     private readonly Dictionary<int, List<OctorokRecord>> _octoroksByRoom = new();
     private readonly Dictionary<int, List<ZolRecord>> _zolsByRoom = new();
     private readonly Dictionary<int, List<GelRecord>> _gelsByRoom = new();
+    private readonly Dictionary<int, List<RoomObjectRecord>> _roomObjectsByRoom = new();
+    private readonly Dictionary<int, EnemyRecord> _keeseDefinitions = new();
+    private readonly Dictionary<int, OctorokRecord> _octorokDefinitions = new();
+    private readonly Dictionary<int, ZolRecord> _zolDefinitions = new();
 
     public int KeeseRecordCount { get; }
     public int KeeseInstanceCount { get; }
@@ -19,6 +23,7 @@ public sealed class EnemyDatabase
     public int ZolInstanceCount { get; }
     public int GelRecordCount { get; }
     public int GelInstanceCount { get; }
+    public int RoomObjectRecordCount { get; }
     public OctorokProjectileRecord OctorokProjectile { get; }
     public GelDefinition Gel { get; }
 
@@ -61,6 +66,7 @@ public sealed class EnemyDatabase
                 _keeseByRoom.Add(key, roomRecords);
             }
             roomRecords.Add(record);
+            _keeseDefinitions.TryAdd(record.SubId, record);
             records++;
             instances += record.Count;
         }
@@ -112,6 +118,7 @@ public sealed class EnemyDatabase
                 _octoroksByRoom.Add(key, roomRecords);
             }
             roomRecords.Add(record);
+            _octorokDefinitions.TryAdd(record.SubId, record);
             records++;
             instances += record.Count;
         }
@@ -161,6 +168,7 @@ public sealed class EnemyDatabase
                 _zolsByRoom.Add(key, roomRecords);
             }
             roomRecords.Add(record);
+            _zolDefinitions.TryAdd(record.SubId, record);
             records++;
             instances += record.Count;
         }
@@ -219,6 +227,48 @@ public sealed class EnemyDatabase
         GelRecordCount = records;
         GelInstanceCount = instances;
 
+        source = FileAccess.GetFileAsString(
+            "res://assets/oracle/objects/enemy_object_stream.tsv");
+        records = 0;
+        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            string line = rawLine.TrimEnd('\r');
+            if (line.StartsWith('#'))
+                continue;
+            string[] columns = line.Split('\t');
+            if (columns.Length != 12)
+                throw new InvalidOperationException($"Malformed ordered room-object row: {line}");
+
+            var record = new RoomObjectRecord(
+                int.Parse(columns[0]),
+                Convert.ToInt32(columns[1], 16),
+                int.Parse(columns[2]),
+                ParseRoomObjectKind(columns[3]),
+                Convert.ToInt32(columns[4], 16),
+                Convert.ToInt32(columns[5], 16),
+                Convert.ToInt32(columns[6], 16),
+                int.Parse(columns[7]),
+                ParsePosition(columns[8]),
+                ParsePosition(columns[9]),
+                ParsePosition(columns[10]),
+                Convert.ToInt32(columns[11], 16));
+            int key = MakeKey(record.Group, record.Room);
+            if (!_roomObjectsByRoom.TryGetValue(key, out List<RoomObjectRecord>? roomRecords))
+            {
+                roomRecords = new List<RoomObjectRecord>();
+                _roomObjectsByRoom.Add(key, roomRecords);
+            }
+            if (roomRecords.Count != record.Order)
+            {
+                throw new InvalidOperationException(
+                    $"Room {record.Group:x1}:{record.Room:x2} object order jumped from " +
+                    $"{roomRecords.Count} to {record.Order}.");
+            }
+            roomRecords.Add(record);
+            records++;
+        }
+        RoomObjectRecordCount = records;
+
         string[] projectileRows = FileAccess.GetFileAsString(
                 "res://assets/oracle/effects/octorok_projectile.tsv")
             .Split('\n', StringSplitOptions.RemoveEmptyEntries);
@@ -275,10 +325,110 @@ public sealed class EnemyDatabase
             : Array.Empty<GelRecord>();
     }
 
+    public IReadOnlyList<RoomObjectRecord> GetRoomObjects(int group, int room)
+    {
+        return _roomObjectsByRoom.TryGetValue(
+            MakeKey(group, room), out List<RoomObjectRecord>? records)
+            ? records
+            : Array.Empty<RoomObjectRecord>();
+    }
+
+    public bool TryGetKeeseDefinition(RoomObjectRecord source, out EnemyRecord record)
+    {
+        if (!_keeseDefinitions.TryGetValue(source.SubId, out EnemyRecord template))
+        {
+            record = default;
+            return false;
+        }
+        record = template with
+        {
+            Group = source.Group,
+            Room = source.Room,
+            Flags = source.Flags,
+            Count = source.Count
+        };
+        return true;
+    }
+
+    public bool TryGetOctorokDefinition(RoomObjectRecord source, out OctorokRecord record)
+    {
+        if (!_octorokDefinitions.TryGetValue(source.SubId, out OctorokRecord template))
+        {
+            record = default;
+            return false;
+        }
+        record = template with
+        {
+            Group = source.Group,
+            Room = source.Room,
+            Flags = source.Flags,
+            Count = source.Count,
+            FixedPosition = source.Kind == RoomObjectKind.FixedEnemy,
+            Y = source.Y,
+            X = source.X
+        };
+        return true;
+    }
+
+    public bool TryGetZolDefinition(RoomObjectRecord source, out ZolRecord record)
+    {
+        if (!_zolDefinitions.TryGetValue(source.SubId, out ZolRecord template))
+        {
+            record = default;
+            return false;
+        }
+        record = template with
+        {
+            Group = source.Group,
+            Room = source.Room,
+            Flags = source.Flags,
+            Count = source.Count,
+            FixedPosition = source.Kind == RoomObjectKind.FixedEnemy,
+            Y = source.Y,
+            X = source.X
+        };
+        return true;
+    }
+
     private static int MakeKey(int group, int room) => (group << 8) | room;
 
     private static int ParsePosition(string value) =>
         value == "-1" ? -1 : Convert.ToInt32(value, 16);
+
+    private static RoomObjectKind ParseRoomObjectKind(string value) => value switch
+    {
+        "R" => RoomObjectKind.RandomEnemy,
+        "F" => RoomObjectKind.FixedEnemy,
+        "B" => RoomObjectKind.ParameterEnemy,
+        "P" => RoomObjectKind.ReservingPart,
+        "Q" => RoomObjectKind.ParameterPart,
+        "I" => RoomObjectKind.ItemDrop,
+        _ => throw new InvalidOperationException($"Unknown ordered room-object kind: {value}")
+    };
+
+    public enum RoomObjectKind
+    {
+        RandomEnemy,
+        FixedEnemy,
+        ParameterEnemy,
+        ReservingPart,
+        ParameterPart,
+        ItemDrop
+    }
+
+    public readonly record struct RoomObjectRecord(
+        int Group,
+        int Room,
+        int Order,
+        RoomObjectKind Kind,
+        int Id,
+        int SubId,
+        int Flags,
+        int Count,
+        int Y,
+        int X,
+        int PackedPosition,
+        int ConditionMask);
 
     public readonly record struct EnemyRecord(
         int Group,

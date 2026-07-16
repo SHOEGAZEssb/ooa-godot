@@ -362,6 +362,68 @@ if (($breakableRows | Where-Object { $_ -eq "2`t10`t1d`t00125`t2`t06`ta0" }).Cou
     $breakableRows,
     [Text.UTF8Encoding]::new($false))
 
+# Preserve checkTileValidForEnemySpawn's collision-mode-specific exceptions.
+# The routine rejects every nonzero collision byte first, then consults this
+# table for metatiles which remain forbidden despite having collision $00.
+$enemyUnspawnableSource = Get-Content (
+    Join-Path $Disassembly "data\ages\tile_properties\enemyUnspawnableTiles.s")
+$enemyUnspawnableModes = @{
+    overworld = 0
+    indoors = 1
+    dungeons = 2
+    sidescrolling = 3
+    underwater = 4
+    five = 5
+}
+$enemyUnspawnableBytes = [byte[]]::new(6 * 256)
+$enemyUnspawnableLabels = [Collections.Generic.List[string]]::new()
+$enemyUnspawnableTileCount = 0
+foreach ($line in $enemyUnspawnableSource) {
+    if ($line -match '^\s*@(?<label>[A-Za-z0-9_]+):') {
+        $label = $Matches['label']
+        if ($enemyUnspawnableModes.ContainsKey($label)) {
+            $enemyUnspawnableLabels.Add($label)
+        }
+        continue
+    }
+    if ($enemyUnspawnableLabels.Count -eq 0 -or
+        $line -notmatch '^\s*\.db\s+\$(?<tile>[0-9a-f]{2})(?:\s+\$(?<value>[0-9a-f]{2}))?') {
+        continue
+    }
+
+    $tile = [Convert]::ToInt32($Matches['tile'], 16)
+    if (-not $Matches.ContainsKey('value') -or $Matches['value'] -eq '') {
+        if ($tile -ne 0) {
+            throw "Unexpected enemy-unspawnable terminator `$$($tile.ToString('x2'))."
+        }
+        $enemyUnspawnableLabels.Clear()
+        continue
+    }
+    if ([Convert]::ToInt32($Matches['value'], 16) -ne 1) {
+        throw "Enemy-unspawnable tile `$$($tile.ToString('x2')) did not retain value `$01."
+    }
+
+    foreach ($label in $enemyUnspawnableLabels) {
+        $mode = $enemyUnspawnableModes[$label]
+        $index = $mode * 256 + $tile
+        if ($enemyUnspawnableBytes[$index] -ne 0) {
+            throw "Duplicate enemy-unspawnable tile $label`:$$($tile.ToString('x2'))."
+        }
+        $enemyUnspawnableBytes[$index] = 1
+        $enemyUnspawnableTileCount++
+    }
+}
+if ($enemyUnspawnableTileCount -ne 63 -or
+    $enemyUnspawnableBytes[0 * 256 + 0xe9] -ne 1 -or
+    $enemyUnspawnableBytes[2 * 256 + 0x44] -ne 1 -or
+    $enemyUnspawnableBytes[3 * 256 + 0xf3] -ne 0 -or
+    $enemyUnspawnableBytes[4 * 256 + 0xfd] -ne 1) {
+    throw "Expected 63 collision-mode enemy-unspawnable tile records, parsed $enemyUnspawnableTileCount."
+}
+[IO.File]::WriteAllBytes(
+    (Join-Path $destination "metadata\enemyUnspawnableTiles.bin"),
+    $enemyUnspawnableBytes)
+
 # Chests are interactable $f1 metatiles whose room/position and treasure
 # records live in chestData.s. Preserve every record with the resolved
 # TREASURE_OBJECT_* b/c values that will be passed to giveTreasure.
@@ -425,4 +487,3 @@ if (-not $testChest) {
 }
 $chestPath = Join-Path $destination "objects\chests.tsv"
 [IO.File]::WriteAllLines($chestPath, $chestRows, [Text.UTF8Encoding]::new($false))
-

@@ -9,13 +9,9 @@ internal sealed class OracleRandom
 
     private byte _rng1 = 0x37;
     private byte _rng2 = 0x0d;
-    private readonly byte[] _placementBuffer;
+    private readonly byte[] _placementBuffer = new byte[256];
     private byte _placementIndex;
-
-    public OracleRandom()
-    {
-        _placementBuffer = GenerateInitialBuffer();
-    }
+    private bool _placementBufferReady;
 
     public Result Next()
     {
@@ -30,23 +26,29 @@ internal sealed class OracleRandom
 
     public byte NextPlacementValue()
     {
-        _placementIndex++;
+        if (!_placementBufferReady)
+        {
+            throw new System.InvalidOperationException(
+                "Enemy placement requested before the room object list was parsed.");
+        }
+
+        _placementIndex = unchecked((byte)(_placementIndex + 1));
         return _placementBuffer[_placementIndex];
     }
 
-    private byte[] GenerateInitialBuffer()
+    public void BeginRoomParse()
     {
-        var buffer = new byte[256];
-        for (int index = 0; index < buffer.Length; index++)
-            buffer[index] = (byte)index;
+        _placementIndex = 0;
+        for (int index = 0; index < _placementBuffer.Length; index++)
+            _placementBuffer[index] = (byte)index;
 
-        Swap(buffer, 0xff, Next().Value);
+        Swap(_placementBuffer, 0xff, Next().Value);
         for (int current = 0xff; current > 0; current--)
         {
             int randomIndex = (Next().Value * current) >> 8;
-            Swap(buffer, current, randomIndex);
+            Swap(_placementBuffer, current, randomIndex);
         }
-        return buffer;
+        _placementBufferReady = true;
     }
 
     private static void Swap(byte[] values, int first, int second)

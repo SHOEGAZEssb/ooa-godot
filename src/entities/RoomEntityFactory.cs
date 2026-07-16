@@ -15,8 +15,12 @@ internal sealed class RoomEntityFactory(
     Action<TimePortal> portalEntered)
 {
     private readonly Room149FamilyDatabase _room149 = new();
+    private readonly EnemySpawnTileDatabase _enemySpawnTiles = new();
 
-    public IEnumerable<IRoomEntity> CreateRoomEntities(int group, OracleRoomData room)
+    public IEnumerable<IRoomEntity> CreateRoomEntities(
+        int group,
+        OracleRoomData room,
+        EnemyPlacementContext placementContext)
     {
         IReadOnlyList<NpcDatabase.NpcRecord> roomNpcs =
             npcs.GetRoomNpcs(group, room.Id, saveData, runtimeState);
@@ -44,58 +48,116 @@ internal sealed class RoomEntityFactory(
         foreach (IRoomEntity portal in CreateTimePortals(group, room))
             yield return portal;
 
-        var occupied = new HashSet<int>();
-        foreach (EnemyDatabase.EnemyRecord record in enemies.GetRoomKeese(group, room.Id))
+        var reservations = new EnemyPlacementReservations();
+        int enemySlots = 0;
+        int partSlots = 0;
+        foreach (EnemyDatabase.RoomObjectRecord source in enemies.GetRoomObjects(group, room.Id))
         {
-            for (int instance = 0; instance < record.Count; instance++)
+            if (!RoomObjectConditionMet(source, group, room))
+                continue;
+
+            switch (source.Kind)
             {
-                if (!TryChooseRandomEnemyPosition(room, record.Flags, occupied, out Vector2 position))
-                    continue;
-                var keese = new KeeseCharacter { Name = $"Keese_{record.SubId:x2}_{instance}", ZIndex = 10 };
-                keese.Initialize(record, room, position, random);
-                yield return new KeeseRoomEntity(keese);
+                case EnemyDatabase.RoomObjectKind.RandomEnemy:
+                    for (int instance = 0; instance < source.Count; instance++)
+                    {
+                        if (enemySlots >= 16)
+                            break;
+                        enemySlots++;
+                        if (!TryChooseRandomEnemyPosition(
+                            room, source.Flags, reservations, placementContext,
+                            out Vector2 position))
+                        {
+                            continue;
+                        }
+                        IRoomEntity? entity = CreateOrderedEnemy(source, room, position, instance);
+                        if (entity is not null)
+                            yield return entity;
+                    }
+                    break;
+
+                case EnemyDatabase.RoomObjectKind.FixedEnemy:
+                    if (enemySlots >= 16)
+                        break;
+                    enemySlots++;
+                    reservations.Add(source.PackedPosition);
+                    IRoomEntity? fixedEntity = CreateOrderedEnemy(
+                        source, room, new Vector2(source.X, source.Y), 0);
+                    if (fixedEntity is not null)
+                        yield return fixedEntity;
+                    break;
+
+                case EnemyDatabase.RoomObjectKind.ParameterEnemy:
+                    if (enemySlots < 16)
+                        enemySlots++;
+                    break;
+
+                case EnemyDatabase.RoomObjectKind.ItemDrop:
+                    if (enemySlots >= 16)
+                        break;
+                    enemySlots++;
+                    reservations.Add(source.PackedPosition);
+                    break;
+
+                case EnemyDatabase.RoomObjectKind.ReservingPart:
+                    if (partSlots >= 16)
+                        break;
+                    partSlots++;
+                    reservations.Add(source.PackedPosition);
+                    break;
+
+                case EnemyDatabase.RoomObjectKind.ParameterPart:
+                    if (partSlots < 16)
+                        partSlots++;
+                    break;
             }
+        }
+    }
+
+    private IRoomEntity? CreateOrderedEnemy(
+        EnemyDatabase.RoomObjectRecord source,
+        OracleRoomData room,
+        Vector2 position,
+        int instance)
+    {
+        if (source.Id == 0x32 && enemies.TryGetKeeseDefinition(source, out EnemyDatabase.EnemyRecord keeseRecord))
+        {
+            var keese = new KeeseCharacter
+            {
+                Name = $"Keese_{source.SubId:x2}_{source.Order}_{instance}",
+                ZIndex = 10
+            };
+            keese.Initialize(keeseRecord, room, position, random);
+            return new KeeseRoomEntity(keese);
         }
 
-        occupied.Clear();
-        foreach (EnemyDatabase.OctorokRecord record in enemies.GetRoomOctoroks(group, room.Id))
+        if (source.Id == 0x09 &&
+            enemies.TryGetOctorokDefinition(source, out EnemyDatabase.OctorokRecord octorokRecord))
         {
-            for (int instance = 0; instance < record.Count; instance++)
+            var octorok = new OctorokCharacter
             {
-                if (!TryChoosePosition(room, record.FixedPosition, record.X, record.Y,
-                    record.Flags, occupied, out Vector2 position))
-                    continue;
-                var octorok = new OctorokCharacter { Name = $"Octorok_{record.SubId:x2}_{instance}", ZIndex = 10 };
-                octorok.Initialize(record, room, position, random);
-                yield return new OctorokRoomEntity(octorok);
-            }
+                Name = $"Octorok_{source.SubId:x2}_{source.Order}_{instance}",
+                ZIndex = 10
+            };
+            octorok.Initialize(octorokRecord, room, position, random);
+            return new OctorokRoomEntity(octorok);
         }
 
-        occupied.Clear();
-        foreach (EnemyDatabase.ZolRecord record in enemies.GetRoomZols(group, room.Id))
+        if (source.Id == 0x34 &&
+            enemies.TryGetZolDefinition(source, out EnemyDatabase.ZolRecord zolRecord))
         {
-            for (int instance = 0; instance < record.Count; instance++)
+            var zol = new ZolCharacter
             {
-                if (!TryChoosePosition(room, record.FixedPosition, record.X, record.Y,
-                    record.Flags, occupied, out Vector2 position))
-                    continue;
-                var zol = new ZolCharacter { Name = $"Zol_{record.SubId:x2}_{instance}", ZIndex = 10 };
-                zol.Initialize(record, room, position, random);
-                yield return new ZolRoomEntity(zol);
-            }
+                Name = $"Zol_{source.SubId:x2}_{source.Order}_{instance}",
+                ZIndex = 10
+            };
+            zol.Initialize(zolRecord, room, position, random);
+            return new ZolRoomEntity(zol);
         }
 
-        occupied.Clear();
-        foreach (EnemyDatabase.GelRecord record in enemies.GetRoomGels(group, room.Id))
-        {
-            for (int instance = 0; instance < record.Count; instance++)
-            {
-                if (!TryChoosePosition(room, record.FixedPosition, record.X, record.Y,
-                    record.Flags, occupied, out Vector2 position))
-                    continue;
-                yield return Create(new GelSpawn(position, $"RoomGel_{instance}"), room);
-            }
-        }
+        return source.Id == 0x43 && source.SubId == 0
+            ? Create(new GelSpawn(position, $"RoomGel_{source.Order}_{instance}"), room)
+            : null;
     }
 
     public IRoomEntity Create(RoomEntitySpawn spawn, OracleRoomData room) => spawn switch
@@ -225,30 +287,26 @@ internal sealed class RoomEntityFactory(
         }
     }
 
-    private bool TryChoosePosition(
-        OracleRoomData room,
-        bool fixedPosition,
-        int x,
-        int y,
-        int flags,
-        HashSet<int> occupied,
-        out Vector2 position)
+    private bool RoomObjectConditionMet(
+        EnemyDatabase.RoomObjectRecord record,
+        int group,
+        OracleRoomData room)
     {
-        if (fixedPosition)
-        {
-            position = new Vector2(x, y);
-            return true;
-        }
-        return TryChooseRandomEnemyPosition(room, flags, occupied, out position);
+        int stateModifier = (room.TilesetFlags & 0x40) != 0 ? 1 : 0;
+        if (saveData?.HasRoomFlag(group, room.Id, OracleSaveData.RoomFlagLayoutSwap) == true)
+            stateModifier++;
+        return (record.ConditionMask & (1 << stateModifier)) != 0;
     }
 
     private bool TryChooseRandomEnemyPosition(
         OracleRoomData room,
         int flags,
-        HashSet<int> occupied,
+        EnemyPlacementReservations reservations,
+        EnemyPlacementContext placementContext,
         out Vector2 position)
     {
-        for (int attempt = 0; attempt < 0x3f; attempt++)
+        int attemptsRemaining = 0x3f;
+        while (attemptsRemaining > 0)
         {
             int packed = random.NextPlacementValue();
             int tileY = packed >> 4;
@@ -258,18 +316,52 @@ internal sealed class RoomEntityFactory(
                     tileX < OracleRoomData.ViewportWidth / OracleRoomData.MetatileSize
                 : tileY > 0 && tileY < room.HeightInTiles - 1 &&
                     tileX > 0 && tileX < room.WidthInTiles - 1;
-            if (!validBoundary || occupied.Contains(packed))
+            if (!validBoundary || reservations.Contains(packed))
+                continue;
+
+            // getCandidatePositionForEnemy loops over out-of-bounds and
+            // reserved entries internally. Only a candidate returned from it
+            // consumes one of getRandomPositionForEnemy's `$3f attempts.
+            attemptsRemaining--;
+            if (!placementContext.Allows(room, packed))
                 continue;
 
             position = new Vector2(
                 tileX * OracleRoomData.MetatileSize + 8,
                 tileY * OracleRoomData.MetatileSize + 8);
-            if ((flags & 0x04) == 0 && room.IsSolid(position))
+            if ((flags & 0x04) == 0 && !_enemySpawnTiles.IsValid(
+                room.ActiveCollisions, room.GetTerrainInfo(position)))
                 continue;
-            occupied.Add(packed);
+            reservations.Add(packed);
             return true;
         }
         position = Vector2.Zero;
         return false;
+    }
+}
+
+internal sealed class EnemyPlacementReservations
+{
+    private readonly byte[] _positions = new byte[16];
+    private int _count;
+
+    internal int Count => _count;
+
+    internal bool Contains(int packedPosition)
+    {
+        for (int index = 0; index < _count; index++)
+        {
+            if (_positions[index] == packedPosition)
+                return true;
+        }
+        return false;
+    }
+
+    internal void Add(int packedPosition)
+    {
+        if (packedPosition is < 0 or > 0xff)
+            throw new ArgumentOutOfRangeException(nameof(packedPosition));
+        _positions[_count] = (byte)packedPosition;
+        _count = (_count + 1) & 0x0f;
     }
 }

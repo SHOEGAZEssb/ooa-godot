@@ -552,6 +552,183 @@ Copy-Item -LiteralPath $zolSourceSprite.FullName -Destination (Join-Path $destin
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\gels.tsv'), $gelRows, [Text.UTF8Encoding]::new($false))
 
+# Preserve parseObjectData order independently of the currently implemented
+# enemy species. Random/fixed enemies, reserving parts, and item-drop producers
+# all affect wPlacedEnemyPositions; parameterized enemies/parts consume their
+# respective object slots without reserving a tile.
+$orderedObjectRows = [Collections.Generic.List[string]]::new()
+$orderedObjectRows.Add(
+    "# group`troom`torder`tkind`tid`tsubid`tflags`tcount`ty`tx`tpacked-position`tcondition-mask")
+$orderedAliases = [Collections.Generic.List[object]]::new()
+$orderedPendingCondition = 'ff'
+$orderedActiveCondition = 'ff'
+$orderedActiveOpcode = ''
+$orderedSpecificFlags = '00'
+$orderedItemFlags = '00'
+
+foreach ($line in Get-Content (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
+    if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})EnemyObjectData:') {
+        if ($orderedAliases.Count -eq 0) {
+            $orderedPendingCondition = 'ff'
+            $orderedActiveCondition = 'ff'
+            $orderedActiveOpcode = ''
+            $orderedSpecificFlags = '00'
+            $orderedItemFlags = '00'
+        }
+        $orderedAliases.Add(@{
+            Group = [int]$Matches['group']
+            Room = $Matches['room']
+            Order = 0
+        })
+        continue
+    }
+    if ($orderedAliases.Count -eq 0) { continue }
+
+    if ($line -match '^\s*obj_Condition\s+\$(?<mask>[0-9a-f]{2})') {
+        $orderedPendingCondition = $Matches['mask']
+        $orderedActiveOpcode = ''
+        continue
+    }
+
+    if ($line -match '^\s*obj_RandomEnemy\s+\$(?<flags>[0-9a-f]{2})\s+\$(?<id>[0-9a-f]{2})\s+\$(?<subid>[0-9a-f]{2})') {
+        $orderedActiveCondition = $orderedPendingCondition
+        $orderedPendingCondition = 'ff'
+        $orderedActiveOpcode = 'R'
+        $count = ([Convert]::ToInt32($Matches['flags'], 16) -shr 5) -band 7
+        foreach ($alias in $orderedAliases) {
+            $orderedObjectRows.Add(
+                "$($alias.Group)`t$($alias.Room)`t$($alias.Order)`tR`t$($Matches['id'])`t$($Matches['subid'])`t$($Matches['flags'])`t$count`t-1`t-1`t-1`t$orderedActiveCondition")
+            $alias.Order = [int]$alias.Order + 1
+        }
+        continue
+    }
+
+    if ($line -match '^\s*obj_SpecificEnemyA\s+(?<values>(?:\$[0-9a-f]{2}\s*)+)$') {
+        $values = @([regex]::Matches($Matches['values'], '\$(?<value>[0-9a-f]{2})') |
+            ForEach-Object { $_.Groups['value'].Value })
+        if ($values.Count -eq 5) {
+            $orderedActiveCondition = $orderedPendingCondition
+            $orderedPendingCondition = 'ff'
+            $orderedActiveOpcode = 'F'
+            $orderedSpecificFlags = $values[0]
+            $id, $subid, $y, $x = $values[1..4]
+        } elseif ($values.Count -eq 4 -and $orderedActiveOpcode -eq 'F') {
+            $id, $subid, $y, $x = $values
+        } else {
+            throw "Malformed ordered obj_SpecificEnemyA row: $line"
+        }
+        $packed = ([Convert]::ToInt32($y, 16) -band 0xf0) -bor
+            (([Convert]::ToInt32($x, 16) -shr 4) -band 0x0f)
+        foreach ($alias in $orderedAliases) {
+            $orderedObjectRows.Add(
+                "$($alias.Group)`t$($alias.Room)`t$($alias.Order)`tF`t$id`t$subid`t$orderedSpecificFlags`t1`t$y`t$x`t$($packed.ToString('x2'))`t$orderedActiveCondition")
+            $alias.Order = [int]$alias.Order + 1
+        }
+        continue
+    }
+
+    if ($line -match '^\s*obj_Part\s+(?<values>(?:\$[0-9a-f]{2}\s*)+)$') {
+        $values = @([regex]::Matches($Matches['values'], '\$(?<value>[0-9a-f]{2})') |
+            ForEach-Object { $_.Groups['value'].Value })
+        if ($values.Count -eq 3) {
+            if ($orderedActiveOpcode -ne 'P') {
+                $orderedActiveCondition = $orderedPendingCondition
+                $orderedPendingCondition = 'ff'
+            }
+            $orderedActiveOpcode = 'P'
+            $id, $subid, $packed = $values
+            $kind = 'P'
+            $y = '-1'
+            $x = '-1'
+        } elseif ($values.Count -eq 5) {
+            if ($orderedActiveOpcode -ne '9') {
+                $orderedActiveCondition = $orderedPendingCondition
+                $orderedPendingCondition = 'ff'
+            }
+            $orderedActiveOpcode = '9'
+            $id, $subid, $y, $x, $null = $values
+            $packedValue = ([Convert]::ToInt32($y, 16) -band 0xf0) -bor
+                (([Convert]::ToInt32($x, 16) -shr 4) -band 0x0f)
+            $packed = $packedValue.ToString('x2')
+            $kind = 'Q'
+        } else {
+            throw "Malformed ordered obj_Part row: $line"
+        }
+        foreach ($alias in $orderedAliases) {
+            $orderedObjectRows.Add(
+                "$($alias.Group)`t$($alias.Room)`t$($alias.Order)`t$kind`t$id`t$subid`t00`t1`t$y`t$x`t$packed`t$orderedActiveCondition")
+            $alias.Order = [int]$alias.Order + 1
+        }
+        continue
+    }
+
+    if ($line -match '^\s*obj_SpecificEnemyB\s+\$(?<id>[0-9a-f]{2})\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})\s+\$(?<var03>[0-9a-f]{2})') {
+        if ($orderedActiveOpcode -ne '9') {
+            $orderedActiveCondition = $orderedPendingCondition
+            $orderedPendingCondition = 'ff'
+        }
+        $orderedActiveOpcode = '9'
+        $packed = ([Convert]::ToInt32($Matches['y'], 16) -band 0xf0) -bor
+            (([Convert]::ToInt32($Matches['x'], 16) -shr 4) -band 0x0f)
+        foreach ($alias in $orderedAliases) {
+            $orderedObjectRows.Add(
+                "$($alias.Group)`t$($alias.Room)`t$($alias.Order)`tB`t$($Matches['id'])`t$($Matches['subid'])`t00`t1`t$($Matches['y'])`t$($Matches['x'])`t$($packed.ToString('x2'))`t$orderedActiveCondition")
+            $alias.Order = [int]$alias.Order + 1
+        }
+        continue
+    }
+
+    if ($line -match '^\s*obj_ItemDrop\s+(?<values>(?:\$[0-9a-f]{2}\s*)+)$') {
+        $values = @([regex]::Matches($Matches['values'], '\$(?<value>[0-9a-f]{2})') |
+            ForEach-Object { $_.Groups['value'].Value })
+        if ($values.Count -eq 3) {
+            $orderedActiveCondition = $orderedPendingCondition
+            $orderedPendingCondition = 'ff'
+            $orderedActiveOpcode = 'I'
+            $orderedItemFlags, $item, $packed = $values
+        } elseif ($values.Count -eq 2 -and $orderedActiveOpcode -eq 'I') {
+            $item, $packed = $values
+        } else {
+            throw "Malformed ordered obj_ItemDrop row: $line"
+        }
+        foreach ($alias in $orderedAliases) {
+            $orderedObjectRows.Add(
+                "$($alias.Group)`t$($alias.Room)`t$($alias.Order)`tI`t57`t$item`t$orderedItemFlags`t1`t-1`t-1`t$packed`t$orderedActiveCondition")
+            $alias.Order = [int]$alias.Order + 1
+        }
+        continue
+    }
+
+    if ($line -match '^\s*obj_EndPointer') {
+        $orderedAliases.Clear()
+        continue
+    }
+    if ($line -match '^\s*obj_[A-Za-z0-9_]+') {
+        $orderedActiveOpcode = 'X'
+        $orderedActiveCondition = $orderedPendingCondition
+        $orderedPendingCondition = 'ff'
+        continue
+    }
+    if ($line -match '^[A-Za-z0-9_@]+:') {
+        $orderedAliases.Clear()
+    }
+}
+
+if ($orderedObjectRows.Count -ne 1142) {
+    throw "Expected 1141 ordered placement records, parsed $($orderedObjectRows.Count - 1)."
+}
+if (-not ($orderedObjectRows | Where-Object { $_ -match '^5\tb0\t0\tF\t1b\t01\t00\t1\t68\t38\t63\tff$' }) -or
+    -not ($orderedObjectRows | Where-Object { $_ -match '^5\tb0\t1\tF\t34\t00\t00\t1\t78\t58\t75\tff$' }) -or
+    -not ($orderedObjectRows | Where-Object { $_ -match '^5\tb0\t2\tR\t32\t00\t40\t2\t-1\t-1\t-1\tff$' }) -or
+    -not ($orderedObjectRows | Where-Object { $_ -match '^5\tdb\t0\tI\t57\t01\t00\t1\t-1\t-1\t1d\tff$' }) -or
+    -not ($orderedObjectRows | Where-Object { $_ -match '^5\t01\t0\tP\t23\t01\t00\t1\t-1\t-1\t08\tff$' })) {
+    throw 'Canonical ordered enemy/fixed-enemy/item-drop/part placement records were not extracted.'
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\enemy_object_stream.tsv'),
+    $orderedObjectRows,
+    [Text.UTF8Encoding]::new($false))
+
 # PART_ENEMY_DESTROYED (`$02) is the common enemy death puff. Export both
 # animations: animation 0 is the ordinary 20-update puff, while animation 1
 # inserts the 8-update high-knockback burst selected by bit 7 of the defeated
@@ -941,4 +1118,3 @@ if ($itemDropVisualRows[2] -ne "1`t2`t5`t127@11,4,0,0" -or
 $itemDropVisualPath = Join-Path $destination 'effects\item_drops.tsv'
 [IO.File]::WriteAllLines(
     $itemDropVisualPath, $itemDropVisualRows, [Text.UTF8Encoding]::new($false))
-

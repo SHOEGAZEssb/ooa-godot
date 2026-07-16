@@ -14,6 +14,7 @@ public sealed class RoomEntityManager
     public event Action<TimePortal>? TimePortalEntered;
     private readonly Node _worldRoot;
     private readonly RoomEntityFactory _factory;
+    private readonly OracleRandom _random;
     private readonly OracleSaveData? _saveData;
     private readonly OracleRuntimeState _runtimeState;
     private readonly NpcVisibilityRuleDatabase _npcVisibility = new();
@@ -64,6 +65,7 @@ public sealed class RoomEntityManager
         OracleRuntimeState? runtimeState = null)
     {
         _worldRoot = worldRoot;
+        _random = random;
         _saveData = saveData;
         _runtimeState = runtimeState ?? new OracleRuntimeState();
         _factory = new RoomEntityFactory(
@@ -79,9 +81,17 @@ public sealed class RoomEntityManager
 
     public void LoadRoom(int group, OracleRoomData room)
     {
+        LoadRoom(group, room, EnemyPlacementContext.Unrestricted);
+    }
+
+    internal void LoadRoom(
+        int group,
+        OracleRoomData room,
+        EnemyPlacementContext placementContext)
+    {
         Clear();
         _roomForActiveEntities = room;
-        AddRoomEntities(group, room);
+        AddRoomEntities(group, room, placementContext);
     }
 
     /// <summary>
@@ -101,12 +111,33 @@ public sealed class RoomEntityManager
 
     public void BeginScreenTransition(int group, OracleRoomData room, Vector2 incomingOffset)
     {
+        BeginScreenTransition(
+            group, room, incomingOffset, EnemyPlacementContext.Unrestricted);
+    }
+
+    internal void BeginScreenTransition(
+        int group,
+        OracleRoomData room,
+        Vector2 incomingOffset,
+        Vector2I scrollDirection)
+    {
+        BeginScreenTransition(
+            group, room, incomingOffset,
+            EnemyPlacementContext.Scrolling(scrollDirection));
+    }
+
+    private void BeginScreenTransition(
+        int group,
+        OracleRoomData room,
+        Vector2 incomingOffset,
+        EnemyPlacementContext placementContext)
+    {
         ClearEntities(_outgoingEntities);
         _outgoingEntities.AddRange(_activeEntities);
         _activeEntities.Clear();
         _screenTransitionActive = true;
         _roomForActiveEntities = room;
-        AddRoomEntities(group, room);
+        AddRoomEntities(group, room, placementContext);
         SetScreenTransitionOffsets(Vector2.Zero, incomingOffset);
     }
 
@@ -216,9 +247,16 @@ public sealed class RoomEntityManager
         _enemyFrameAccumulator = 0.0;
     }
 
-    private void AddRoomEntities(int group, OracleRoomData room)
+    private void AddRoomEntities(
+        int group,
+        OracleRoomData room,
+        EnemyPlacementContext placementContext)
     {
-        foreach (IRoomEntity entity in _factory.CreateRoomEntities(group, room))
+        // parseObjectData clears wEnemyPlacement, then rebuilds w4RandomBuffer.
+        // This consumes 256 values from the game-wide RNG on every room parse.
+        _random.BeginRoomParse();
+        foreach (IRoomEntity entity in _factory.CreateRoomEntities(
+            group, room, placementContext))
             AddEntity(entity);
         RefreshNpcState(_activeEntities);
         RoomEntitiesLoaded?.Invoke(group, room);

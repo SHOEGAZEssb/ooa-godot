@@ -17,6 +17,7 @@ public sealed class RoomEventController
     private readonly ImpaIntroEvent _impa;
     private readonly NayruIntroEvent _nayru;
     private double _frameAccumulator;
+    private double _transitionFrameAccumulator;
 
     public RoomEventController(
         RoomSession rooms,
@@ -76,19 +77,27 @@ public sealed class RoomEventController
         if (!HasEventState)
             return;
 
-        _frameAccumulator += delta * 60.0;
         if (_context.Transitions.IsTransitioning)
         {
             // Following interactions keep updating during room scrolling while
             // ordinary room objects are frozen.
-            while (_impa.UpdatesDuringTransition && _frameAccumulator >= 1.0)
+            if (!_impa.UpdatesDuringTransition)
             {
-                _frameAccumulator -= 1.0;
+                _transitionFrameAccumulator = 0.0;
+                return;
+            }
+
+            _transitionFrameAccumulator += delta * 60.0;
+            while (_impa.UpdatesDuringTransition && _transitionFrameAccumulator >= 1.0)
+            {
+                _transitionFrameAccumulator -= 1.0;
                 _impa.UpdateDuringTransition();
             }
             return;
         }
 
+        _transitionFrameAccumulator = 0.0;
+        _frameAccumulator += delta * 60.0;
         while (HasEventState && _frameAccumulator >= 1.0)
         {
             _frameAccumulator -= 1.0;
@@ -211,5 +220,9 @@ public sealed class RoomEventController
         ResetClock();
     }
 
-    private void ResetClock() => _frameAccumulator = 0.0;
+    private void ResetClock()
+    {
+        _frameAccumulator = 0.0;
+        _transitionFrameAccumulator = 0.0;
+    }
 }

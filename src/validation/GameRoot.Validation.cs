@@ -17,6 +17,7 @@ public partial class GameRoot
     {
         _world.ValidateRepresentativeRooms();
         ValidateOracleObjectMath();
+        ValidateOracleRandom();
         ValidateRoomEventTimeline();
         ValidateSaveDataFoundation();
         ValidateRoomTileChanges();
@@ -43,6 +44,8 @@ public partial class GameRoot
         ValidateRalphPortalDepartureEvent();
         ValidateAnimations();
         ValidateSwordBush();
+        ValidateEnemyPlacementRules();
+        ValidateEnemyObjectPlacementOrder();
         ValidateKeese();
         ValidateOctoroks();
         ValidateZolsAndGels();
@@ -108,6 +111,95 @@ public partial class GameRoot
         }
         GD.Print("Validated shared 8.8 object-pixel flooring and Z integration, 32-step " +
             "angles, strict/masked cardinal decoding, and original screen boundaries.");
+    }
+
+    private void ValidateOracleRandom()
+    {
+        var firstParse = new OracleRandom();
+        bool rejectedUnparsedPlacement = false;
+        try
+        {
+            firstParse.NextPlacementValue();
+        }
+        catch (InvalidOperationException)
+        {
+            rejectedUnparsedPlacement = true;
+        }
+        firstParse.BeginRoomParse();
+        byte[] firstPlacements = new byte[8];
+        for (int index = 0; index < firstPlacements.Length; index++)
+            firstPlacements[index] = firstParse.NextPlacementValue();
+        OracleRandom.Result firstNext = firstParse.Next();
+
+        var secondParse = new OracleRandom();
+        secondParse.BeginRoomParse();
+        for (int index = 0; index < 17; index++)
+            secondParse.NextPlacementValue();
+        secondParse.BeginRoomParse();
+        byte[] secondPlacements = new byte[8];
+        for (int index = 0; index < secondPlacements.Length; index++)
+            secondPlacements[index] = secondParse.NextPlacementValue();
+        OracleRandom.Result secondNext = secondParse.Next();
+
+        if (!rejectedUnparsedPlacement ||
+            !firstPlacements.SequenceEqual(new byte[]
+                { 0x7d, 0xe4, 0xf0, 0x49, 0x98, 0xd7, 0x5c, 0xfe }) ||
+            firstNext != new OracleRandom.Result(0xc6, 0x1a, 0x04) ||
+            !secondPlacements.SequenceEqual(new byte[]
+                { 0x07, 0x5d, 0x70, 0xde, 0xa8, 0x08, 0x6f, 0xb3 }) ||
+            secondNext != new OracleRandom.Result(0x59, 0xd0, 0x9b))
+        {
+            throw new InvalidOperationException(
+                "Room parsing did not rebuild the enemy-placement permutation, reset its " +
+                "index, or consume the original 256 shared RNG values.");
+        }
+
+        OracleRoomData emptyRoom = _world.LoadRoom(0, 0x00);
+        var validationRoot = new Node { Name = "OracleRandomValidation" };
+        AddChild(validationRoot);
+
+        var directRandom = new OracleRandom();
+        var directManager = new RoomEntityManager(
+            validationRoot, new NpcDatabase(), new EnemyDatabase(),
+            new ItemDropDatabase(), new TimePortalDatabase(), directRandom);
+        directManager.LoadRoom(0, emptyRoom);
+        if (directRandom.Next() != new OracleRandom.Result(0xc6, 0x1a, 0x04))
+        {
+            throw new InvalidOperationException(
+                "A direct room load did not generate exactly one enemy-placement buffer.");
+        }
+        directManager.Clear();
+
+        var preloadRandom = new OracleRandom();
+        var preloadManager = new RoomEntityManager(
+            validationRoot, new NpcDatabase(), new EnemyDatabase(),
+            new ItemDropDatabase(), new TimePortalDatabase(), preloadRandom);
+        preloadManager.LoadRoom(0, emptyRoom);
+        preloadManager.BeginScreenTransition(0, emptyRoom, Vector2.Zero);
+        if (preloadRandom.Next() != new OracleRandom.Result(0x59, 0xd0, 0x9b))
+        {
+            throw new InvalidOperationException(
+                "A scrolling destination preload did not generate the next placement buffer.");
+        }
+        preloadManager.Clear();
+
+        var cutsceneRandom = new OracleRandom();
+        var cutsceneManager = new RoomEntityManager(
+            validationRoot, new NpcDatabase(), new EnemyDatabase(),
+            new ItemDropDatabase(), new TimePortalDatabase(), cutsceneRandom);
+        cutsceneManager.LoadCutsceneRoom(0, emptyRoom, includeTimePortals: false);
+        if (cutsceneRandom.Next() != new OracleRandom.Result(0x5e, 0x27, 0xa5))
+        {
+            throw new InvalidOperationException(
+                "A cutscene-only room load unexpectedly parsed ordinary room objects.");
+        }
+        cutsceneManager.Clear();
+        RemoveChild(validationRoot);
+        validationRoot.Free();
+
+        GD.Print("Validated shared getRandomNumber state, per-parse 256-call placement-buffer " +
+            "generation, placement-index reset, direct loads, destination preloads, and " +
+            "cutscene-only load exclusion.");
     }
 
     private static void ValidateRoomTileChanges()
@@ -2918,6 +3010,237 @@ public partial class GameRoot
             "and all 24 swordArcData hitboxes.");
     }
 
+    private void ValidateEnemyPlacementRules()
+    {
+        var spawnTiles = new EnemySpawnTileDatabase();
+        var normal = new OracleRoomData.TerrainInfo(
+            0x1a, 0x00, OracleRoomData.TerrainType.Normal,
+            OracleRoomData.HazardType.None);
+        var collision10Water = new OracleRoomData.TerrainInfo(
+            0xfc, 0x10, OracleRoomData.TerrainType.SeaWater,
+            OracleRoomData.HazardType.Water);
+        var overworldWhirlpool = new OracleRoomData.TerrainInfo(
+            0xe9, 0x00, OracleRoomData.TerrainType.Whirlpool,
+            OracleRoomData.HazardType.Water);
+        var dungeonException = new OracleRoomData.TerrainInfo(
+            0x44, 0x00, OracleRoomData.TerrainType.Normal,
+            OracleRoomData.HazardType.None);
+        var sidescrollHoleIndex = new OracleRoomData.TerrainInfo(
+            0xf3, 0x00, OracleRoomData.TerrainType.Normal,
+            OracleRoomData.HazardType.None);
+        if (spawnTiles.RecordCount != 63 ||
+            !spawnTiles.IsValid(0, normal) ||
+            spawnTiles.IsValid(0, collision10Water) ||
+            spawnTiles.IsValid(0, overworldWhirlpool) ||
+            spawnTiles.IsValid(2, dungeonException) ||
+            !spawnTiles.IsValid(3, sidescrollHoleIndex))
+        {
+            throw new InvalidOperationException(
+                "checkTileValidForEnemySpawn did not require collision `$00 or " +
+                "select the original exception list by wActiveCollisions.");
+        }
+
+        OracleRoomData room1db = _world.LoadRoom(1, 0xdb);
+        int validCells = 0;
+        int rejectedWaterCells = 0;
+        int centerOpenButRejected = 0;
+        for (int tileY = 0; tileY < room1db.HeightInTiles; tileY++)
+        for (int tileX = 0; tileX < room1db.WidthInTiles; tileX++)
+        {
+            Vector2 center = new(
+                tileX * OracleRoomData.MetatileSize + 8,
+                tileY * OracleRoomData.MetatileSize + 8);
+            OracleRoomData.TerrainInfo terrain = room1db.GetTerrainInfo(center);
+            bool valid = spawnTiles.IsValid(room1db.ActiveCollisions, terrain);
+            if (valid)
+                validCells++;
+            if (terrain is { Tile: 0xfc, Collision: 0x10 })
+            {
+                if (valid)
+                    throw new InvalidOperationException(
+                        "Room 1:db deep water remained valid for random enemies.");
+                rejectedWaterCells++;
+            }
+            if (!room1db.IsSolid(center) && !valid)
+                centerOpenButRejected++;
+        }
+        if (validCells != 32 || rejectedWaterCells != 18 ||
+            centerOpenButRejected != 19)
+        {
+            throw new InvalidOperationException(
+                $"Room 1:db enemy-placement pool mismatch: valid={validCells}, " +
+                $"water={rejectedWaterCells}, center-open rejected={centerOpenButRejected}.");
+        }
+
+        EnemyPlacementContext warp = EnemyPlacementContext.Warp(0x33);
+        EnemyPlacementContext scrollUp = EnemyPlacementContext.Scrolling(Vector2I.Up);
+        EnemyPlacementContext scrollRight = EnemyPlacementContext.Scrolling(Vector2I.Right);
+        EnemyPlacementContext scrollDown = EnemyPlacementContext.Scrolling(Vector2I.Down);
+        EnemyPlacementContext scrollLeft = EnemyPlacementContext.Scrolling(Vector2I.Left);
+        OracleRoomData largeRoom = _world.LoadRoom(4, 0x39);
+        if (warp.Allows(room1db, 0x11) || !warp.Allows(room1db, 0x03) ||
+            scrollUp.Allows(room1db, 0x59) || !scrollUp.Allows(room1db, 0x49) ||
+            scrollRight.Allows(room1db, 0x42) || !scrollRight.Allows(room1db, 0x43) ||
+            scrollDown.Allows(room1db, 0x29) || !scrollDown.Allows(room1db, 0x39) ||
+            scrollLeft.Allows(room1db, 0x47) || !scrollLeft.Allows(room1db, 0x46) ||
+            scrollLeft.Allows(largeRoom, 0x5b) || !scrollLeft.Allows(largeRoom, 0x5a) ||
+            EnemyPlacementContext.FromWarpDestination(0xf5).Allows(room1db, 0x59))
+        {
+            throw new InvalidOperationException(
+                "checkPositionValidForEnemySpawn lost its warp square, incoming " +
+                "three-tile edge, or large-room DIR_LEFT `$0b boundary.");
+        }
+
+        var validationRoot = new Node { Name = "EnemySpawnTerrainValidation" };
+        AddChild(validationRoot);
+        var enemies = new EnemyDatabase();
+        for (int rngAdvance = 0; rngAdvance <= 24; rngAdvance++)
+        {
+            var random = new OracleRandom();
+            for (int index = 0; index < rngAdvance; index++)
+                random.Next();
+            var manager = new RoomEntityManager(
+                validationRoot, new NpcDatabase(), enemies,
+                new ItemDropDatabase(), new TimePortalDatabase(), random);
+            manager.LoadRoom(1, room1db);
+            List<OctorokCharacter> octoroks = manager.Entities<OctorokCharacter>();
+            if (octoroks.Count != 2 || octoroks.Any(octorok =>
+                !spawnTiles.IsValid(
+                    room1db.ActiveCollisions,
+                    room1db.GetTerrainInfo(octorok.Position))))
+            {
+                throw new InvalidOperationException(
+                    $"Room 1:db placed a blue Octorok on ROM-invalid terrain " +
+                    $"after {rngAdvance} pre-parse RNG calls.");
+            }
+            manager.Clear();
+        }
+        RemoveChild(validationRoot);
+        validationRoot.Free();
+
+        GD.Print("Validated 63 enemy-unspawnable tile records, whole-metatile collision " +
+            "checks, room 1:db's 32-cell land pool / 18 rejected water cells, 25 RNG " +
+            "states, warp-distance exclusion, and all scrolling entry boundaries.");
+    }
+
+    private void ValidateEnemyObjectPlacementOrder()
+    {
+        var database = new EnemyDatabase();
+        IReadOnlyList<EnemyDatabase.RoomObjectRecord> room5b0 =
+            database.GetRoomObjects(5, 0xb0);
+        IReadOnlyList<EnemyDatabase.RoomObjectRecord> room5db =
+            database.GetRoomObjects(5, 0xdb);
+        IReadOnlyList<EnemyDatabase.RoomObjectRecord> room501 =
+            database.GetRoomObjects(5, 0x01);
+        IReadOnlyList<EnemyDatabase.RoomObjectRecord> room036 =
+            database.GetRoomObjects(0, 0x36);
+        IReadOnlyList<EnemyDatabase.RoomObjectRecord> room006 =
+            database.GetRoomObjects(0, 0x06);
+        if (database.RoomObjectRecordCount != 1141 ||
+            room5b0.Count != 3 ||
+            room5b0[0] is not { Order: 0, Kind: EnemyDatabase.RoomObjectKind.FixedEnemy,
+                Id: 0x1b, PackedPosition: 0x63 } ||
+            room5b0[1] is not { Order: 1, Kind: EnemyDatabase.RoomObjectKind.FixedEnemy,
+                Id: 0x34, PackedPosition: 0x75 } ||
+            room5b0[2] is not { Order: 2, Kind: EnemyDatabase.RoomObjectKind.RandomEnemy,
+                Id: 0x32, Count: 2 } ||
+            room5db.Count != 7 ||
+            room5db.Take(4).Any(record =>
+                record.Kind != EnemyDatabase.RoomObjectKind.ItemDrop) ||
+            room5db[6] is not { Kind: EnemyDatabase.RoomObjectKind.RandomEnemy,
+                Id: 0x32, Count: 3 } ||
+            room501.Count != 3 ||
+            room501[0].Kind != EnemyDatabase.RoomObjectKind.ReservingPart ||
+            room501[1].Kind != EnemyDatabase.RoomObjectKind.ReservingPart ||
+            room501[2].Kind != EnemyDatabase.RoomObjectKind.RandomEnemy ||
+            room036.Count != 2 || room036[0].ConditionMask != 0x01 ||
+            room036[1].ConditionMask != 0xff ||
+            room006.Count != 1 || room006[0].Order != 0)
+        {
+            throw new InvalidOperationException(
+                "The ordered room-object stream lost source order, aliases, conditions, " +
+                "unsupported enemies, item drops, or reserving parts.");
+        }
+
+        var wrappedReservations = new EnemyPlacementReservations();
+        for (int position = 0; position < 15; position++)
+            wrappedReservations.Add(position);
+        if (wrappedReservations.Count != 15 || !wrappedReservations.Contains(0x00) ||
+            !wrappedReservations.Contains(0x0e))
+        {
+            throw new InvalidOperationException(
+                "wPlacedEnemyPositions did not retain its first 15 packed positions.");
+        }
+        wrappedReservations.Add(0x0f);
+        if (wrappedReservations.Count != 0 || wrappedReservations.Contains(0x00) ||
+            wrappedReservations.Contains(0x0f))
+        {
+            throw new InvalidOperationException(
+                "wEnemyPlacement.numEnemies did not wrap after its 16th reservation.");
+        }
+        wrappedReservations.Add(0xaa);
+        if (wrappedReservations.Count != 1 || !wrappedReservations.Contains(0xaa) ||
+            wrappedReservations.Contains(0x01))
+        {
+            throw new InvalidOperationException(
+                "The wrapped placement table did not restart from entry zero.");
+        }
+
+        var validationRoot = new Node { Name = "EnemyPlacementOrderValidation" };
+        AddChild(validationRoot);
+        var npcs = new NpcDatabase();
+        var itemDrops = new ItemDropDatabase();
+        var timePortals = new TimePortalDatabase();
+
+        static int Pack(Vector2 position) =>
+            ((int)position.Y & 0xf0) | (((int)position.X >> 4) & 0x0f);
+
+        void ValidateRoom(
+            int group,
+            int roomId,
+            int rngAdvance,
+            int expectedKeese,
+            int expectedZols,
+            params int[] reservedPositions)
+        {
+            var random = new OracleRandom();
+            for (int index = 0; index < rngAdvance; index++)
+                random.Next();
+            var manager = new RoomEntityManager(
+                validationRoot, npcs, database, itemDrops, timePortals, random);
+            manager.LoadRoom(group, _world.LoadRoom(group, roomId));
+
+            List<KeeseCharacter> keese = manager.Entities<KeeseCharacter>();
+            List<ZolCharacter> zols = manager.Entities<ZolCharacter>();
+            int[] allPacked = keese.Select(enemy => Pack(enemy.Position))
+                .Concat(zols.Select(enemy => Pack(enemy.Position)))
+                .ToArray();
+            HashSet<int> reserved = reservedPositions.ToHashSet();
+            if (keese.Count != expectedKeese || zols.Count != expectedZols ||
+                allPacked.Distinct().Count() != allPacked.Length ||
+                keese.Any(enemy => reserved.Contains(Pack(enemy.Position))))
+            {
+                throw new InvalidOperationException(
+                    $"Room {group:x1}:{roomId:x2} lost ordered placement reservations " +
+                    $"(Keese={string.Join(',', keese.Select(enemy => $"${Pack(enemy.Position):x2}"))}, " +
+                    $"Zols={string.Join(',', zols.Select(enemy => $"${Pack(enemy.Position):x2}"))}).");
+            }
+            manager.Clear();
+        }
+
+        // These advances deliberately make the first shuffled candidate collide
+        // with a reservation: fixed Zol $43, unsupported enemy $63, and item $1d.
+        ValidateRoom(4, 0x9a, 11, 2, 2, 0x39, 0x43);
+        ValidateRoom(5, 0xb0, 30, 2, 1, 0x63, 0x75);
+        ValidateRoom(5, 0xdb, 16, 3, 2, 0x1d, 0x92, 0x82, 0x83, 0x73, 0x63);
+
+        RemoveChild(validationRoot);
+        validationRoot.Free();
+        GD.Print("Validated 1,141 ordered room placement records, mid-stream aliases, " +
+            "condition masks, 16-entry reservation wrapping, and fixed/unsupported/item " +
+            "reservations before random Keese in rooms 4:9a, 5:b0, and 5:db.");
+    }
+
     private void ValidateKeese()
     {
         var database = new EnemyDatabase();
@@ -5634,10 +5957,10 @@ public partial class GameRoot
         StepRoomEventFrames(1);
         if (!_transitions.ScrollActive || _activeGroup != 0 || _currentRoom.Id != 0x6a)
             throw new InvalidOperationException("The simulated Up input did not begin the 0:7a -> 0:6a scroll.");
-        FinishActiveScrollingTransitionForValidation();
-        if (_sound.ActiveMusic != 0)
+        int impaScrollFrames = FinishActiveScrollingTransitionWithRoomEventsForValidation();
+        if (impaScrollFrames != 32)
             throw new InvalidOperationException(
-                "Possessed Impa changed the music before her destination interaction resumed.");
+                $"The 0:7a -> 0:6a vertical scroll took {impaScrollFrames} updates, expected 32.");
 
         NpcCharacter? impa = impaEvent.Actor;
         System.Collections.Generic.IReadOnlyList<NpcCharacter> octoroks =
@@ -5661,7 +5984,6 @@ public partial class GameRoot
         Vector2 linkStart = _player.Position;
         if (linkStart != new Vector2(0x38, 0x76))
             throw new InvalidOperationException($"0:7a -> 0:6a placed Link at {linkStart}, expected $76/$38.");
-        StepRoomEventFrames(1);
         if (!_player.CutsceneControlled || impaEvent.Counter != 120 ||
             _sound.ActiveMusic != OracleSoundEngine.MusFairyFountain ||
             _sound.MusicVolume != 3 ||
@@ -7245,15 +7567,14 @@ public partial class GameRoot
                 "Room 0:39 did not retain Ralph at $28/$18 while entering from the left.");
         }
 
-        FinishActiveScrollingTransitionForValidation();
-        if (!ralphEvent.WaitingForScroll || _player.CutsceneControlled)
+        int ralphScrollFrames = FinishActiveScrollingTransitionWithRoomEventsForValidation();
+        if (ralphScrollFrames != 40)
             throw new InvalidOperationException(
-                "Ralph's script began before the destination-room scroll finished.");
-
-        StepRoomEventFrames(1);
+                $"The 0:38 -> 0:39 horizontal scroll took {ralphScrollFrames} updates, expected 40.");
         if (!_player.CutsceneControlled || ralphEvent.Counter != 40)
             throw new InvalidOperationException(
-                "Ralph did not disable input and install his original 40-update wait.");
+                "Ralph's destination event fast-forwarded instead of installing its full " +
+                "40-update wait after scrolling.");
         StepRoomEventFrames(39);
         if (_dialogue.IsOpen || ralphEvent.Counter != 1)
             throw new InvalidOperationException("Ralph's introductory wait ended early.");
@@ -7441,5 +7762,19 @@ public partial class GameRoot
             UpdateScrollingTransition(1.0 / 60.0);
         if (IsTransitioning)
             throw new InvalidOperationException("Scrolling transition did not finish within 80 frames.");
+    }
+
+    private int FinishActiveScrollingTransitionWithRoomEventsForValidation()
+    {
+        int frames = 0;
+        for (; frames < 80 && IsTransitioning; frames++)
+        {
+            UpdateScrollingTransition(1.0 / 60.0);
+            _entities.Update(1.0 / 60.0, _player);
+            _roomEvents.Update(1.0 / 60.0);
+        }
+        if (IsTransitioning)
+            throw new InvalidOperationException("Scrolling transition did not finish within 80 frames.");
+        return frames;
     }
 }

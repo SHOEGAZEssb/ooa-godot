@@ -194,12 +194,15 @@ public partial class GameRoot : Node2D
         _debugFlagScreen.Initialize(_saveData, new GlobalFlagDatabase());
         CreateControllers();
 
-        _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom);
-        _roomView.SetRoom(_rooms.CurrentRoom.Texture);
         bool useSavedSpawn = !_launchOptions.HasWorldOverride && _persistSaveData;
-        Vector2 spawn = useSavedSpawn
-            ? new Vector2(_saveData.RespawnX, _saveData.RespawnY)
-            : FindSpawn();
+        Vector2 spawn = new(_saveData.RespawnX, _saveData.RespawnY);
+        EnemyPlacementContext placementContext = useSavedSpawn
+            ? EnemyPlacementContext.Warp(_rooms.CurrentRoom.GetPackedPosition(spawn))
+            : EnemyPlacementContext.Unrestricted;
+        _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom, placementContext);
+        _roomView.SetRoom(_rooms.CurrentRoom.Texture);
+        if (!useSavedSpawn)
+            spawn = FindSpawn();
         _player.Initialize(_playerWorld, _inventory, spawn);
         if (useSavedSpawn)
         {

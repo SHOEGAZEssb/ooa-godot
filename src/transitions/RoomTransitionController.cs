@@ -254,7 +254,8 @@ public sealed class RoomTransitionController
         _rooms.SetLoadedRoom(_rooms.ActiveGroup, target);
         _roomView.StartScreenTransition(
             target.Texture, direction, _scrollDistance, sourceCameraOrigin, destinationCameraOrigin);
-        _entities.BeginScreenTransition(_rooms.ActiveGroup, target, _scrollIncomingStartOffset);
+        _entities.BeginScreenTransition(
+            _rooms.ActiveGroup, target, _scrollIncomingStartOffset, direction);
         player.BeginScrollingTransition(start, direction);
     }
 
@@ -585,7 +586,9 @@ public sealed class RoomTransitionController
         WarpDatabase.Warp warp = _pendingWarp;
         OracleRoomData room = _rooms.Load(warp.DestinationGroup, warp.DestinationRoom);
         _roomView.SetRoom(room.Texture);
-        _entities.LoadRoom(_rooms.ActiveGroup, room);
+        _entities.LoadRoom(
+            _rooms.ActiveGroup, room,
+            EnemyPlacementContext.FromWarpDestination(warp.DestinationPosition));
 
         Vector2 spawn;
         if (warp.DestinationTransition == 3)
