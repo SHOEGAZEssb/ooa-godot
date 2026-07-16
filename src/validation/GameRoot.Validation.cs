@@ -564,11 +564,35 @@ public partial class GameRoot
         if (sound.ActiveMusic != 0 || new[] { 0, 1, 4, 6 }.Any(channel => sound.Channel(channel).Active))
             throw new InvalidOperationException("SNDCTRL_STOPMUSIC did not run sound $de's stop channels.");
 
+        var outputSound = new OracleSoundEngine(
+            data, enableOutput: true, allowHeadlessOutput: true);
+        AddChild(outputSound);
+        try
+        {
+            if (!outputSound.OutputResourcesActiveForValidation)
+                throw new InvalidOperationException("The output sound engine did not create its stream playback.");
+            RemoveChild(outputSound);
+            if (outputSound.OutputResourcesActiveForValidation)
+            {
+                throw new InvalidOperationException(
+                    "The output sound engine retained its player or stream playback after _ExitTree.");
+            }
+        }
+        finally
+        {
+            if (GodotObject.IsInstanceValid(outputSound))
+            {
+                if (outputSound.GetParent() == this)
+                    RemoveChild(outputSound);
+                outputSound.Free();
+            }
+        }
+
         sound.Free();
         GD.Print("Validated all 223 original sound pointers, room music assignments, " +
             "frequency/wave/noise clocks, envelope/vibrato tables, CGB filtering, " +
             "title square releases, raw square/noise SFX including SND_MAKUDISAPPEAR, " +
-            "channel priority, and stop controls.");
+            "channel priority, stop controls, and output teardown.");
     }
 
     private void ValidateSaveAndQuitToTitle()
@@ -1028,13 +1052,28 @@ public partial class GameRoot
 
         OracleSaveData save = OracleSaveData.CreateStandardGame();
         var inventory = new InventoryState(_treasures, save);
+        int inventoryCommits = 0;
+        int saveCommits = 0;
+        int rupeeNotifications = 0;
+        inventory.Changed += () => inventoryCommits++;
+        inventory.RupeesChanged += () => rupeeNotifications++;
+        save.Changed += () => saveCommits++;
 
-        inventory.GiveTreasure(Reward(TreasureDatabase.TreasureSeedSatchel, 1));
-        if (inventory.SeedSatchelLevel != 1 || inventory.EmberSeeds != 0x20 ||
-            save.ReadWramByte(0xc6b9) != 0x20)
+        inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_RUPEES_04"));
+        if (inventory.Rupees != 30 || inventoryCommits != 1 || saveCommits != 1 ||
+            rupeeNotifications != 1)
         {
             throw new InvalidOperationException(
-                "The Seed Satchel did not grant and persist its extra 20 Ember Seeds.");
+                "A mode `$0e rupee grant did not commit exactly once.");
+        }
+
+        inventoryCommits = saveCommits = 0;
+        inventory.GiveTreasure(Reward(TreasureDatabase.TreasureSeedSatchel, 1));
+        if (inventory.SeedSatchelLevel != 1 || inventory.EmberSeeds != 0x20 ||
+            save.ReadWramByte(0xc6b9) != 0x20 || inventoryCommits != 1 || saveCommits != 1)
+        {
+            throw new InvalidOperationException(
+                "The Seed Satchel did not grant and persist its extra 20 Ember Seeds in one transaction.");
         }
 
         inventory.GiveTreasure(Reward(0x62, 0));
@@ -1132,7 +1171,7 @@ public partial class GameRoot
 
         GD.Print("Validated all `$68 typed treasure behaviours, seed counters/capacities, " +
             "mode `$09 ring storage, linked item/selection aliases, transient upgrade bits, " +
-            "and save persistence.");
+            "single-commit treasure transactions, and save persistence.");
     }
 
     private void ValidateDungeonCollectibles()

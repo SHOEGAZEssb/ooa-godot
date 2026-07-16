@@ -65,6 +65,7 @@ public partial class OracleSoundEngine : Node
     private readonly ChannelState[] _channels = new ChannelState[8];
     private readonly int[] _playRequestCounts = new int[0x100];
     private readonly bool _enableOutput;
+    private readonly bool _allowHeadlessOutput;
     private AudioStreamPlayer? _player;
     private AudioStreamGeneratorPlayback? _playback;
     private double _updateTicks;
@@ -82,20 +83,25 @@ public partial class OracleSoundEngine : Node
     internal ChannelState Channel(int channel) => _channels[channel];
     internal int LastPlayRequest { get; private set; }
     internal int PlayRequestsFor(int soundId) => _playRequestCounts[soundId & 0xff];
+    internal bool OutputResourcesActiveForValidation => _player is not null || _playback is not null;
 
     public OracleSoundEngine() : this(new OracleSoundData(), true) { }
 
-    internal OracleSoundEngine(OracleSoundData data, bool enableOutput)
+    internal OracleSoundEngine(
+        OracleSoundData data,
+        bool enableOutput,
+        bool allowHeadlessOutput = false)
     {
         _data = data;
         _enableOutput = enableOutput;
+        _allowHeadlessOutput = allowHeadlessOutput;
         for (int channel = 0; channel < _channels.Length; channel++)
             _channels[channel] = new ChannelState(channel);
     }
 
     public override void _Ready()
     {
-        if (!_enableOutput)
+        if (!_enableOutput || (!_allowHeadlessOutput && DisplayServer.GetName() == "headless"))
             return;
         var stream = new AudioStreamGenerator
         {
@@ -106,6 +112,24 @@ public partial class OracleSoundEngine : Node
         AddChild(_player);
         _player.Play();
         _playback = _player.GetStreamPlayback() as AudioStreamGeneratorPlayback;
+    }
+
+    public override void _ExitTree()
+    {
+        _player?.Stop();
+        if (_playback is not null)
+        {
+            // AudioStreamPlayer.Stop schedules removal through AudioServer. Stop
+            // the playback itself as well so its generator buffer is inactive
+            // and can be released synchronously during scene-tree teardown.
+            _playback.Stop();
+            _playback.ClearBuffer();
+            _playback.Dispose();
+            _playback = null;
+        }
+        if (_player is not null)
+            _player.Stream = null;
+        _player = null;
     }
 
     public override void _Process(double delta)

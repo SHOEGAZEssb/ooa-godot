@@ -229,13 +229,19 @@ public sealed class InventoryState
 
     public void AddRupees(int amount)
     {
+        if (AddRupeesCore(amount))
+            NotifyChanged();
+    }
+
+    private bool AddRupeesCore(int amount)
+    {
         int previous = Rupees;
         Rupees = Mathf.Clamp(Rupees + amount, 0, 999);
         if (previous == Rupees)
-            return;
+            return false;
 
         RupeesChanged?.Invoke();
-        NotifyChanged();
+        return true;
     }
 
     private void ApplyStandardGameInitialVariables()
@@ -357,17 +363,17 @@ public sealed class InventoryState
         {
             GiveTreasureCore(treasure, parameter);
             GiveTreasureCore(TreasureDatabase.TreasureBombs + 0x1d, 0x20);
-            return;
         }
-
-        if (treasure == TreasureDatabase.TreasureHeartContainer)
+        else if (treasure == TreasureDatabase.TreasureHeartContainer)
         {
             GiveTreasureCore(treasure, parameter);
             GiveTreasureCore(TreasureDatabase.TreasureHeartRefill, 0x40);
-            return;
         }
-
-        GiveTreasureCore(treasure, parameter);
+        else
+        {
+            GiveTreasureCore(treasure, parameter);
+        }
+        NotifyChanged();
     }
 
     private void GiveTreasureCore(int treasure, int parameter)
@@ -382,7 +388,6 @@ public sealed class InventoryState
 
         TreasureDatabase.BehaviourRecord behaviour = _treasures.GetBehaviour(treasure);
         ApplyParameter(behaviour, parameter);
-        NotifyChanged();
     }
 
     private void ApplyParameter(TreasureDatabase.BehaviourRecord behaviour, int parameter)
@@ -441,7 +446,7 @@ public sealed class InventoryState
                 AddCapped(variable, parameter, bcd: true);
                 return;
             case TreasureDatabase.CollectionMode.AddRupees:
-                AddRupees(RupeeValues[Math.Min(parameter, RupeeValues.Length - 1)]);
+                AddRupeesCore(RupeeValues[Math.Min(parameter, RupeeValues.Length - 1)]);
                 return;
             case TreasureDatabase.CollectionMode.AddSeeds:
                 SetVariable(variable, Math.Min(
@@ -648,7 +653,7 @@ public sealed class InventoryState
                 HeartPieces = byteValue;
                 break;
             case TreasureDatabase.TreasureVariable.Rupees:
-                AddRupees(value - Rupees);
+                AddRupeesCore(value - Rupees);
                 break;
             case TreasureDatabase.TreasureVariable.ShieldLevel:
                 ShieldLevel = byteValue;
