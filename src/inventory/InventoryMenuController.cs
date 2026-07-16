@@ -22,7 +22,7 @@ public sealed class InventoryMenuController
     private readonly Player _player;
     private readonly Label _roomDebug;
     private readonly Func<bool> _canOpen;
-    private readonly Action _save;
+    private readonly Func<OracleSaveStore.SaveResult> _save;
     private readonly Action _quitToTitle;
     private Phase _phase;
     private float _phaseFrame;
@@ -34,6 +34,7 @@ public sealed class InventoryMenuController
     internal bool CanOpenForValidation => _phase == Phase.Closed && _canOpen();
     internal int SaveRequests { get; private set; }
     internal int QuitRequests { get; private set; }
+    internal string? LastSaveError { get; private set; }
 
     public InventoryMenuController(
         InventoryScreen screen,
@@ -42,7 +43,7 @@ public sealed class InventoryMenuController
         Player player,
         Label roomDebug,
         Func<bool> canOpen,
-        Action save,
+        Func<OracleSaveStore.SaveResult> save,
         Action quitToTitle)
     {
         _screen = screen;
@@ -106,6 +107,16 @@ public sealed class InventoryMenuController
 
         if (_phase == Phase.SaveOpen)
         {
+            if (_saveScreen.SaveErrorVisible)
+            {
+                if (Input.IsActionJustPressed("attack") ||
+                    Input.IsActionJustPressed("item") ||
+                    Input.IsActionJustPressed("inventory"))
+                {
+                    _saveScreen.ClearSaveError();
+                }
+                return;
+            }
             if (Input.IsActionJustPressed("item"))
             {
                 BeginClosing();
@@ -237,10 +248,22 @@ public sealed class InventoryMenuController
     {
         if (_phase != Phase.SaveOpen)
             return;
+        if (_saveScreen.SaveErrorVisible)
+        {
+            _saveScreen.ClearSaveError();
+            return;
+        }
         if (_saveScreen.Cursor != 0)
         {
             SaveRequests++;
-            _save();
+            OracleSaveStore.SaveResult result = _save();
+            if (!result.Success)
+            {
+                LastSaveError = result.ErrorMessage;
+                _saveScreen.ShowSaveError();
+                return;
+            }
+            LastSaveError = null;
         }
         _saveScreen.DelayCounter = SaveSelectionDelayFrames;
         StartPhase(Phase.SaveSelectionDelay);

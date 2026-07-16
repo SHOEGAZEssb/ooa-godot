@@ -48,6 +48,7 @@ public partial class MainMenuScreen : Node2D
     public int TextSpeed { get; private set; }
     public int NameCursor { get; private set; }
     public string EnteredName => new string(_enteredName).TrimEnd(' ');
+    public bool SaveErrorVisible { get; private set; }
 
     public override void _Ready()
     {
@@ -135,6 +136,8 @@ public partial class MainMenuScreen : Node2D
             case Page.EraseConfirm: DrawConfirm(); break;
             case Page.Notice: DrawNotice(); break;
         }
+        if (SaveErrorVisible)
+            DrawNotice();
     }
 
     public void SetSlots(OracleSaveData?[] slots)
@@ -176,6 +179,13 @@ public partial class MainMenuScreen : Node2D
     public void ShowEraseSelect() { CurrentPage = Page.EraseSelect; Cursor = 0; QueueRedraw(); }
     public void ShowEraseConfirm(int slot) { CurrentPage = Page.EraseConfirm; SelectedSlot = slot; Choice = 0; QueueRedraw(); }
     public void ShowNotice(string text) { CurrentPage = Page.Notice; _notice = text; QueueRedraw(); }
+    public void ShowSaveError()
+    {
+        SaveErrorVisible = true;
+        _notice = "SAVE FAILED\nCHECK STORAGE";
+        QueueRedraw();
+    }
+    public void ClearSaveError() { SaveErrorVisible = false; QueueRedraw(); }
     public void SetCursor(int cursor) { Cursor = cursor; QueueRedraw(); }
     public void SetChoice(int choice) { Choice = choice; QueueRedraw(); }
     public void SetSelectedSlot(int slot) => SelectedSlot = slot;

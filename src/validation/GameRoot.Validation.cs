@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace oracleofages;
@@ -20,6 +21,7 @@ public partial class GameRoot
         ValidateOracleRandom();
         ValidateRoomEventTimeline();
         ValidateSaveDataFoundation();
+        ValidateSaveStore();
         ValidateTreasureInterpreter();
         ValidateDungeonCollectibles();
         ValidateRoomTileChanges();
@@ -571,6 +573,34 @@ public partial class GameRoot
 
     private void ValidateSaveAndQuitToTitle()
     {
+        bool quitAfterFailure = false;
+        var failedMenu = new InventoryMenuController(
+            _inventoryScreen,
+            _saveQuitScreen,
+            _scene.MenuFade,
+            _player,
+            _roomDebug,
+            () => true,
+            () => OracleSaveStore.SaveResult.Failed("validation failure"),
+            () => quitAfterFailure = true);
+        failedMenu.OpenSaveImmediatelyForValidation();
+        _saveQuitScreen.Move(1);
+        _saveQuitScreen.Move(1);
+        failedMenu.SelectSaveOptionForValidation();
+        for (int frame = 0; frame < InventoryMenuController.SaveSelectionDelayFrames; frame++)
+            failedMenu.Update(1.0 / 60.0);
+        if (!_saveQuitScreen.SaveErrorVisible ||
+            failedMenu.LastSaveError != "validation failure" ||
+            !failedMenu.SaveMenuOpen || quitAfterFailure)
+        {
+            throw new InvalidOperationException(
+                "A failed Save and Quit did not remain open with a surfaced retryable error.");
+        }
+        failedMenu.SelectSaveOptionForValidation();
+        if (_saveQuitScreen.SaveErrorVisible || !failedMenu.SaveMenuOpen)
+            throw new InvalidOperationException("The Save and Quit failure could not be dismissed for retry.");
+        failedMenu.CloseImmediatelyForValidation();
+
         _inventoryMenu.OpenSaveImmediatelyForValidation();
         _saveQuitScreen.Move(1);
         _saveQuitScreen.Move(1);
@@ -587,7 +617,8 @@ public partial class GameRoot
             throw new InvalidOperationException(
                 "Save and Quit did not save, wait 30 updates, and return to title/file select.");
         }
-        GD.Print("Validated Save and Quit persistence request and return to title after 30 updates.");
+        GD.Print("Validated retryable Save and Quit failure handling, successful persistence " +
+            "request, and return to title after 30 updates.");
     }
 
     private void ValidateNewGameIntro()
@@ -905,6 +936,79 @@ public partial class GameRoot
             "swordless standard-game state, and BCD rupee round trip.");
     }
 
+    private static void ValidateSaveStore()
+    {
+        string directory = Path.Combine(
+            Path.GetTempPath(), $"ooa-save-validation-{Guid.NewGuid():N}");
+        string primary = Path.Combine(directory, "save.sav");
+        string backup = primary + ".bak";
+        try
+        {
+            var save = OracleSaveData.CreateStandardGame();
+            save.SetLinkName("ONE");
+            OracleSaveStore.SaveResult result = OracleSaveStore.Save(save, primary);
+            if (!result.Success || !File.Exists(primary) || File.Exists(backup) ||
+                OracleSaveStore.LoadOrCreate(primary).LinkName != "ONE")
+            {
+                throw new InvalidOperationException(
+                    $"The first-save path failed or invented a backup generation: {result.ErrorMessage}");
+            }
+
+            save.SetLinkName("TWO");
+            result = OracleSaveStore.Save(save, primary);
+            if (!result.Success ||
+                OracleSaveStore.LoadOrCreate(primary).LinkName != "TWO" ||
+                !OracleSaveData.TryDeserialize(File.ReadAllBytes(backup), out OracleSaveData? first) ||
+                first!.LinkName != "ONE")
+            {
+                throw new InvalidOperationException(
+                    $"The second save did not rotate generation ONE into .bak: {result.ErrorMessage}");
+            }
+
+            save.SetLinkName("THREE");
+            result = OracleSaveStore.Save(save, primary);
+            if (!result.Success ||
+                OracleSaveStore.LoadOrCreate(primary).LinkName != "THREE" ||
+                !OracleSaveData.TryDeserialize(File.ReadAllBytes(backup), out OracleSaveData? second) ||
+                second!.LinkName != "TWO")
+            {
+                throw new InvalidOperationException(
+                    $"A later save did not preserve the immediately previous generation: {result.ErrorMessage}");
+            }
+
+            File.WriteAllBytes(primary, new byte[] { 0xde, 0xad, 0xbe, 0xef });
+            OracleSaveData recovered = OracleSaveStore.LoadOrCreate(primary);
+            if (recovered.LinkName != "TWO")
+                throw new InvalidOperationException("A corrupt primary did not load generation TWO from .bak.");
+            recovered.SetLinkName("FOUR");
+            result = OracleSaveStore.Save(recovered, primary);
+            if (!result.Success || OracleSaveStore.LoadOrCreate(primary).LinkName != "FOUR" ||
+                !OracleSaveData.TryDeserialize(File.ReadAllBytes(backup), out OracleSaveData? preserved) ||
+                preserved!.LinkName != "TWO")
+            {
+                throw new InvalidOperationException(
+                    "Saving after backup recovery overwrote the good backup with the corrupt primary.");
+            }
+
+            string blockingFile = Path.Combine(directory, "not-a-directory");
+            File.WriteAllText(blockingFile, "blocked");
+            result = OracleSaveStore.Save(
+                recovered, Path.Combine(blockingFile, "save.sav"));
+            if (result.Success || string.IsNullOrWhiteSpace(result.ErrorMessage))
+                throw new InvalidOperationException("A save I/O failure escaped or returned success.");
+            if (File.Exists(primary + ".tmp") || File.Exists(primary + ".previous.tmp"))
+                throw new InvalidOperationException("A completed save left temporary generation files behind.");
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+
+        GD.Print("Validated durable temporary save serialization, first-save promotion, " +
+            "previous-generation .bak rotation, corrupt-primary recovery, cleanup, and surfaced I/O errors.");
+    }
+
     private void ValidateTreasureInterpreter()
     {
         if (_treasures.BehaviourCount != 0x68)
@@ -1185,7 +1289,11 @@ public partial class GameRoot
             screen,
             (slot, save) => { startedSlot = slot; startedSave = save; },
             slot => stored[slot],
-            (slot, save) => stored[slot] = save,
+            (slot, save) =>
+            {
+                stored[slot] = save;
+                return OracleSaveStore.SaveResult.Succeeded;
+            },
             slot => stored[slot] = null);
 
         if (MainMenuScreen.InterleavedSourceTileForValidation(0, 16) != 0 ||
@@ -1276,7 +1384,12 @@ public partial class GameRoot
         AddChild(copyScreen);
         var copyMenu = new MainMenuController(
             copyScreen, (_, _) => { }, slot => stored[slot],
-            (slot, save) => stored[slot] = save, slot => stored[slot] = null);
+            (slot, save) =>
+            {
+                stored[slot] = save;
+                return OracleSaveStore.SaveResult.Succeeded;
+            },
+            slot => stored[slot] = null);
         copyMenu.OpenFileSelect();
         copyScreen.SetCursor(3);
         copyMenu.Accept();
@@ -1298,10 +1411,34 @@ public partial class GameRoot
         if (stored[1] is not null)
             throw new InvalidOperationException("Erase confirmation did not clear the selected file slot.");
 
+        bool startedAfterFailure = false;
+        var failureScreen = new MainMenuScreen { Name = "MainMenuSaveFailureValidation" };
+        AddChild(failureScreen);
+        var failureMenu = new MainMenuController(
+            failureScreen,
+            (_, _) => startedAfterFailure = true,
+            slot => stored[slot],
+            (_, _) => OracleSaveStore.SaveResult.Failed("validation failure"));
+        failureMenu.OpenFileSelect();
+        failureScreen.SetCursor(0);
+        failureMenu.Accept();
+        failureMenu.Accept();
+        if (failureMenu.CurrentPage != MainMenuScreen.Page.TextSpeed ||
+            !failureScreen.SaveErrorVisible ||
+            failureMenu.LastSaveError != "validation failure" || startedAfterFailure)
+        {
+            throw new InvalidOperationException(
+                "A file-select save failure escaped, changed page, or began gameplay.");
+        }
+        failureMenu.Accept();
+        if (failureScreen.SaveErrorVisible || failureMenu.CurrentPage != MainMenuScreen.Page.TextSpeed)
+            throw new InvalidOperationException("The file-select save error was not dismissible and retryable.");
+
         screen.QueueFree();
         copyScreen.QueueFree();
+        failureScreen.QueueFree();
         GD.Print("Validated title/file-select 32-update white fades, slot wrapping, " +
-            "new-file naming, message speed, copy, and erase.");
+            "new-file naming, message speed, copy, erase, and retryable save failures.");
     }
 
     private void ValidateDebugFlagMenu()

@@ -460,11 +460,12 @@ public partial class GameRoot : Node2D
         _hud.Refresh();
     }
 
-    private void SaveActiveFile()
+    private OracleSaveStore.SaveResult SaveActiveFile()
     {
         _saveWriteRequests++;
         if (_persistSaveData && _saveData is not null)
-            OracleSaveStore.SaveSlot(_activeSaveSlot, _saveData);
+            return OracleSaveStore.SaveSlot(_activeSaveSlot, _saveData);
+        return OracleSaveStore.SaveResult.Succeeded;
     }
 
     private void ReturnToTitle()

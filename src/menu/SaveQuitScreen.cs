@@ -12,9 +12,11 @@ public partial class SaveQuitScreen : Node2D
     private Texture2D _background = null!;
     private Image _fileSprites = null!;
     private Color[,] _spritePalette = null!;
+    private Label _saveError = null!;
     private int _delayCounter;
 
     public int Cursor { get; private set; }
+    public bool SaveErrorVisible => _saveError.Visible;
     public int DelayCounter
     {
         get => _delayCounter;
@@ -30,12 +32,24 @@ public partial class SaveQuitScreen : Node2D
         _fileSprites = LoadPng("res://assets/oracle/menu/spr_fileselect_decorations.png");
         _spritePalette = LoadPalette("res://assets/oracle/menu/palette_file_sprites.bin");
         _background = BuildBackground();
+        _saveError = new Label
+        {
+            Text = "SAVE FAILED\nCHECK STORAGE\nA/B: RETRY",
+            Position = new Vector2(24, 43),
+            Size = new Vector2(112, 58),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Visible = false,
+            ZIndex = 1
+        };
+        AddChild(_saveError);
     }
 
     public void Open()
     {
         Cursor = 0;
         DelayCounter = 0;
+        _saveError.Visible = false;
         Visible = true;
         QueueRedraw();
     }
@@ -44,6 +58,7 @@ public partial class SaveQuitScreen : Node2D
     {
         Visible = false;
         DelayCounter = 0;
+        _saveError.Visible = false;
     }
 
     public void Move(int direction)
@@ -55,13 +70,25 @@ public partial class SaveQuitScreen : Node2D
         QueueRedraw();
     }
 
+    public void ShowSaveError()
+    {
+        _saveError.Visible = true;
+        QueueRedraw();
+    }
+
+    public void ClearSaveError()
+    {
+        _saveError.Visible = false;
+        QueueRedraw();
+    }
+
     public override void _Draw()
     {
         if (!Visible)
             return;
         DrawTexture(_background, Vector2.Zero);
         DrawFileDecorations();
-        if ((DelayCounter & 0x04) == 0)
+        if (!SaveErrorVisible && (DelayCounter & 0x04) == 0)
             DrawOamTile(0x28, 4, new Vector2(33, 56 + Cursor * 24));
     }
 

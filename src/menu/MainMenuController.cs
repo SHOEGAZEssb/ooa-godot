@@ -16,7 +16,7 @@ public sealed class MainMenuController
 
     private readonly MainMenuScreen _screen;
     private readonly Func<int, OracleSaveData?> _load;
-    private readonly Action<int, OracleSaveData> _save;
+    private readonly Func<int, OracleSaveData, OracleSaveStore.SaveResult> _save;
     private readonly Action<int> _erase;
     private readonly Action<int, OracleSaveData> _startGame;
     private readonly Action<int>? _playSound;
@@ -32,12 +32,13 @@ public sealed class MainMenuController
     public bool IsActive { get; private set; } = true;
     internal MainMenuScreen.Page CurrentPage => _screen.CurrentPage;
     internal int Cursor => _screen.Cursor;
+    internal string? LastSaveError { get; private set; }
 
     public MainMenuController(
         MainMenuScreen screen,
         Action<int, OracleSaveData> startGame,
         Func<int, OracleSaveData?>? load = null,
-        Action<int, OracleSaveData>? save = null,
+        Func<int, OracleSaveData, OracleSaveStore.SaveResult>? save = null,
         Action<int>? erase = null,
         Action<int>? playSound = null)
     {
@@ -56,6 +57,17 @@ public sealed class MainMenuController
     {
         if (!IsActive)
             return;
+
+        if (_screen.SaveErrorVisible)
+        {
+            if (Input.IsActionJustPressed("attack") ||
+                Input.IsActionJustPressed("item") ||
+                Input.IsActionJustPressed("inventory"))
+            {
+                _screen.ClearSaveError();
+            }
+            return;
+        }
 
         if (_fadeDestination != FadeDestination.None)
         {
@@ -144,6 +156,11 @@ public sealed class MainMenuController
 
     internal void Accept()
     {
+        if (_screen.SaveErrorVisible)
+        {
+            _screen.ClearSaveError();
+            return;
+        }
         _playSound?.Invoke(OracleSoundEngine.SndSelectItem);
         switch (_screen.CurrentPage)
         {
@@ -175,7 +192,8 @@ public sealed class MainMenuController
                 {
                     OracleSaveData source = _slots[_sourceSlot]!;
                     OracleSaveData.TryDeserialize(source.Serialize(), out OracleSaveData? copy);
-                    _save(_screen.SelectedSlot, copy!);
+                    if (!TrySave(_screen.SelectedSlot, copy!))
+                        break;
                 }
                 OpenFileSelect();
                 break;
@@ -198,6 +216,11 @@ public sealed class MainMenuController
 
     internal void Back()
     {
+        if (_screen.SaveErrorVisible)
+        {
+            _screen.ClearSaveError();
+            return;
+        }
         switch (_screen.CurrentPage)
         {
             case MainMenuScreen.Page.NewFileOptions:
@@ -267,7 +290,8 @@ public sealed class MainMenuController
 
         OracleSaveData save = OracleSaveData.CreateStandardGame();
         save.SetLinkName(_screen.EnteredName);
-        _save(_screen.SelectedSlot, save);
+        if (!TrySave(_screen.SelectedSlot, save))
+            return;
         OpenFileSelect();
         _screen.SetCursor(_screen.SelectedSlot);
     }
@@ -277,7 +301,8 @@ public sealed class MainMenuController
         int slot = _screen.SelectedSlot;
         OracleSaveData save = _slots[slot]!;
         save.SetTextSpeed(_screen.TextSpeed);
-        _save(slot, save);
+        if (!TrySave(slot, save))
+            return;
         _pendingSlot = slot;
         _pendingSave = save;
         BeginFade(FadeDestination.Gameplay);
@@ -313,6 +338,19 @@ public sealed class MainMenuController
         for (int slot = 0; slot < _slots.Length; slot++)
             _slots[slot] = _load(slot);
         _screen.SetSlots(_slots);
+    }
+
+    private bool TrySave(int slot, OracleSaveData save)
+    {
+        OracleSaveStore.SaveResult result = _save(slot, save);
+        if (result.Success)
+        {
+            LastSaveError = null;
+            return true;
+        }
+        LastSaveError = result.ErrorMessage;
+        _screen.ShowSaveError();
+        return false;
     }
 
     private void BeginFade(FadeDestination destination)
