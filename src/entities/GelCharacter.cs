@@ -1,6 +1,5 @@
 using Godot;
 using System;
-using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -15,26 +14,20 @@ public partial class GelCharacter : Node2D
         Attached = 13
     }
 
-    private sealed record AnimationFrame(Texture2D Texture, int Duration);
-
     private const int InitialSpeedZ = -0x200;
     private const int Gravity = 0x28;
     private const int AttachedFrames = 120;
 
-    private readonly List<AnimationFrame>[] _animations = { new(), new(), new() };
     private EnemyDatabase.GelDefinition _definition;
-    private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
+    private EnemyTerrainMovement _movement = null!;
+    private EnemyVerticalMotion _verticalMotion = null!;
+    private EnemyAnimationPlayer _animation = null!;
     private GelState _state;
     private int _counter1;
     private int _counter2;
     private int _angle;
-    private int _zFixed;
-    private int _speedZ;
     private int _health;
-    private int _animationIndex;
-    private int _animationFrame;
-    private int _animationCounter;
     private bool _collisionEnabled;
     private Vector2 _transitionDrawOffset;
 
@@ -49,9 +42,9 @@ public partial class GelCharacter : Node2D
     internal int Counter1 => _counter1;
     internal int Counter2 => _counter2;
     internal int Angle => _angle;
-    internal int ZFixed => _zFixed;
-    internal int AnimationIndex => _animationIndex;
-    internal int CurrentAnimationFrame => _animationFrame;
+    internal int ZFixed => _verticalMotion.ZFixed;
+    internal int AnimationIndex => _animation.AnimationIndex;
+    internal int CurrentAnimationFrame => _animation.FrameIndex;
     internal bool CollisionEnabled => _collisionEnabled;
     internal Vector2 TransitionDrawOffset => _transitionDrawOffset;
 
@@ -62,8 +55,10 @@ public partial class GelCharacter : Node2D
         OracleRandom random)
     {
         _definition = definition;
-        _room = room;
         _random = random;
+        _movement = new EnemyTerrainMovement(this, room);
+        _verticalMotion = new EnemyVerticalMotion(this, Gravity);
+        _animation = new EnemyAnimationPlayer(this, animationCount: 3);
         Position = position;
         _health = definition.Health;
         _state = GelState.Waiting;
@@ -78,11 +73,7 @@ public partial class GelCharacter : Node2D
             definition.AttachedAnimation,
             definition.ShakeAnimation
         };
-        for (int index = 0; index < encodedAnimations.Length; index++)
-        {
-            _animations[index].AddRange(BuildAnimation(
-                source, encodedAnimations[index], definition.TileBase, definition.Palette));
-        }
+        _animation.Load(source, encodedAnimations, definition.TileBase, definition.Palette);
         SetAnimation(0);
         QueueRedraw();
     }
@@ -108,13 +99,12 @@ public partial class GelCharacter : Node2D
                 _counter2 = Math.Max(1, _counter2 - 3);
             if ((_counter2 & 0x03) == 0)
                 ZIndex = ZIndex <= 10 ? 11 : 9;
-            AdvanceAnimation();
+            _animation.Advance();
             QueueRedraw();
             return;
         }
 
-        if (_zFixed == 0 && _collisionEnabled &&
-            _room.GetTerrainInfo(Position).Hazard != OracleRoomData.HazardType.None)
+        if (_verticalMotion.ZFixed == 0 && _collisionEnabled && _movement.IsOnHazard)
         {
             DiedInHazard = true;
             IsDead = true;
@@ -125,7 +115,7 @@ public partial class GelCharacter : Node2D
         switch (_state)
         {
             case GelState.Waiting:
-                AdvanceAnimation();
+                _animation.Advance();
                 if (--_counter1 > 0)
                     return;
                 if ((_random.Next().Value & 0x07) == 0)
@@ -143,8 +133,8 @@ public partial class GelCharacter : Node2D
                 return;
 
             case GelState.Inching:
-                MoveAtAngle(_angle, 0.25f, allowHoles: false);
-                AdvanceAnimation();
+                _movement.MoveAtAngle(_angle, 0.25f, allowHoles: false);
+                _animation.Advance();
                 if (--_counter1 > 0)
                     return;
                 _state = GelState.Waiting;
@@ -152,15 +142,15 @@ public partial class GelCharacter : Node2D
                 return;
 
             case GelState.Shaking:
-                AdvanceAnimation();
+                _animation.Advance();
                 if (--_counter1 > 0)
                     return;
                 BeginHop(OracleObjectMath.AngleToward(Position, linkPosition));
                 return;
 
             case GelState.Hopping:
-                MoveAtAngle(_angle, 1.0f, allowHoles: true);
-                if (!UpdateZ())
+                _movement.MoveAtAngle(_angle, 1.0f, allowHoles: true);
+                if (!_verticalMotion.Update())
                     return;
                 _state = GelState.Waiting;
                 _counter1 = 0x10;
@@ -184,8 +174,7 @@ public partial class GelCharacter : Node2D
         Position = linkPosition;
         _state = GelState.Attached;
         _counter2 = AttachedFrames;
-        _zFixed = 0;
-        _speedZ = 0;
+        _verticalMotion.Reset();
         _collisionEnabled = false;
         SetAnimation(1);
         ZIndex = 11;
@@ -226,66 +215,24 @@ public partial class GelCharacter : Node2D
 
     public override void _Draw()
     {
-        List<AnimationFrame> animation = _animations[_animationIndex];
-        if (IsDead || animation.Count == 0)
+        if (IsDead || !_animation.HasFrames)
             return;
         DrawTexture(
-            animation[_animationFrame].Texture,
-            new Vector2(-16, -16 + (_zFixed >> 8)) + _transitionDrawOffset);
+            _animation.CurrentTexture,
+            new Vector2(-16, -16 + (_verticalMotion.ZFixed >> 8)) +
+                _transitionDrawOffset);
     }
 
     private void BeginHop(int angle)
     {
         _state = GelState.Hopping;
-        _speedZ = InitialSpeedZ;
+        _verticalMotion.SpeedZ = InitialSpeedZ;
         _angle = angle & 0x1f;
         // gel_beginHop does not alter collisionType. A Gel hopping normally
         // therefore stays enabled, while a Gel whose Link collision disabled
         // it stays disabled until state $0b restores bit 7 on landing.
         ZIndex = 10;
         SetAnimation(0);
-    }
-
-    private bool UpdateZ()
-    {
-        bool landed = OracleObjectMath.UpdateSpeedZ(
-            ref _zFixed, ref _speedZ, Gravity);
-        if (landed)
-            _speedZ = 0;
-        QueueRedraw();
-        return landed;
-    }
-
-    private void MoveAtAngle(int angle, float speed, bool allowHoles)
-    {
-        Vector2 movement = OracleObjectMath.VectorFromAngle32(angle) * speed;
-        Vector2 destination = Position + movement;
-        if (CanOccupy(destination, allowHoles))
-            Position = destination;
-        else if (CanOccupy(Position + new Vector2(movement.X, 0), allowHoles))
-            Position += new Vector2(movement.X, 0);
-        else if (CanOccupy(Position + new Vector2(0, movement.Y), allowHoles))
-            Position += new Vector2(0, movement.Y);
-        QueueRedraw();
-    }
-
-    private bool CanOccupy(Vector2 center, bool allowHoles)
-    {
-        Vector2[] samples =
-        {
-            center + new Vector2(-5, -4), center + new Vector2(5, -4),
-            center + new Vector2(-5, 6), center + new Vector2(5, 6)
-        };
-        foreach (Vector2 sample in samples)
-        {
-            if (sample.X < 0 || sample.X >= _room.Width ||
-                sample.Y < 0 || sample.Y >= _room.Height || _room.IsSolid(sample))
-                return false;
-            if (!allowHoles && _room.GetTerrainInfo(sample).Hazard ==
-                OracleRoomData.HazardType.Hole)
-                return false;
-        }
-        return true;
     }
 
     private int AngleAwayFromFacing(Vector2I facing)
@@ -301,40 +248,6 @@ public partial class GelCharacter : Node2D
 
     private void SetAnimation(int index)
     {
-        _animationIndex = index;
-        _animationFrame = 0;
-        _animationCounter = _animations[index].Count > 0
-            ? _animations[index][0].Duration
-            : 1;
-        QueueRedraw();
-    }
-
-    private void AdvanceAnimation()
-    {
-        List<AnimationFrame> animation = _animations[_animationIndex];
-        if (animation.Count <= 1)
-            return;
-        _animationCounter--;
-        if (_animationCounter > 0)
-            return;
-        _animationFrame = (_animationFrame + 1) % animation.Count;
-        _animationCounter = animation[_animationFrame].Duration;
-        QueueRedraw();
-    }
-
-    private static IEnumerable<AnimationFrame> BuildAnimation(
-        Image source,
-        string encodedAnimation,
-        int tileBase,
-        int palette)
-    {
-        foreach (OracleGraphicsCache.AnimationFrameDefinition frame in
-            OracleGraphicsCache.GetAnimationDefinition(encodedAnimation).Frames)
-        {
-            yield return new AnimationFrame(
-                NpcCharacter.BuildOamTexture(
-                    source, frame.EncodedOam, tileBase, palette),
-                frame.Duration);
-        }
+        _animation.SetAnimation(index);
     }
 }

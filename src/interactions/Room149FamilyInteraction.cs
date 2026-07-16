@@ -224,8 +224,8 @@ internal sealed class Room149NpcRoomEntity(
     NpcCharacter npc,
     Room149FamilyInteraction family,
     Action<RoomEntityFrame> updateFrame)
-    : RoomEntityAdapter<NpcCharacter>(npc), IFixedRoomEntity, IRoomBlocker,
-        ITalkTarget, IRoomSaveStateEntity
+    : RoomEntityAdapter<NpcCharacter>(npc, npc.SetTransitionDrawOffset),
+        IFixedRoomEntity, IRoomBlocker, ITalkTarget, IRoomSaveStateEntity
 {
     public void UpdateFrame(
         RoomEntityFrame frame,
@@ -238,22 +238,17 @@ internal sealed class Room149NpcRoomEntity(
         Entity.CanTalkTo(player) ? Entity : null;
 
     public void RefreshSaveState() => family.RefreshSaveState();
-
-    public override void SetTransitionDrawOffset(Vector2 offset) =>
-        Entity.SetTransitionDrawOffset(offset);
 }
 
 internal sealed class Room149BallRoomEntity(
     Room149Ball ball,
     Room149FamilyInteraction family)
-    : RoomEntityAdapter<Room149Ball>(ball), IFixedRoomEntity
+    : RoomEntityAdapter<Room149Ball>(ball, ball.SetTransitionDrawOffset),
+        IFixedRoomEntity
 {
     public void UpdateFrame(
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns) => family.UpdateBall();
-
-    public override void SetTransitionDrawOffset(Vector2 offset) =>
-        Entity.SetTransitionDrawOffset(offset);
 }
 
 /// <summary>INTERAC_BALL $95, including its exact 8.8 parabolic flight.</summary>

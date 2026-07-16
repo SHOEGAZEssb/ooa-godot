@@ -1,24 +1,50 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 
 namespace oracleofages;
 
 internal abstract class RoomEntityAdapter<T> : IRoomEntity where T : Node2D
 {
-    protected RoomEntityAdapter(T node) => Entity = node;
+    private readonly Action<Vector2> _setTransitionDrawOffset;
+
+    protected RoomEntityAdapter(T node, Action<Vector2> setTransitionDrawOffset)
+    {
+        Entity = node;
+        _setTransitionDrawOffset = setTransitionDrawOffset;
+    }
 
     protected T Entity { get; }
     public Node2D Node => Entity;
-    public abstract void SetTransitionDrawOffset(Vector2 offset);
+    public void SetTransitionDrawOffset(Vector2 offset) =>
+        _setTransitionDrawOffset(offset);
 }
 
-internal sealed class NpcRoomEntity(NpcCharacter npc) : RoomEntityAdapter<NpcCharacter>(npc),
+internal abstract class CombatEnemyRoomEntityAdapter<T>(
+    T entity,
+    Action<Vector2> setTransitionDrawOffset,
+    EnemyCombatComponent combat)
+    : RoomEntityAdapter<T>(entity, setTransitionDrawOffset),
+        ILinkContactEntity, ISwordHittableRoomEntity, IRoomEntityLifetime
+    where T : Node2D
+{
+    public bool Finished => combat.Finished;
+    public void HandleLinkContact(Player player) => combat.HandleLinkContact(player);
+    public bool ApplySwordHit(
+        Rect2 hitbox,
+        Vector2 sourcePosition,
+        ICollection<RoomEntitySpawn> spawns) =>
+        combat.ApplySwordHit(hitbox, sourcePosition, spawns);
+    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
+}
+
+internal sealed class NpcRoomEntity(NpcCharacter npc)
+    : RoomEntityAdapter<NpcCharacter>(npc, npc.SetTransitionDrawOffset),
     IVariableRoomEntity, IRoomBlocker, ITalkTarget
 {
     public void Update(double delta, Player player) => Entity.UpdateNpc(delta, player.Position);
     public bool BlocksLink(Vector2 linkCenter) => Entity.BlocksLinkCenter(linkCenter);
     public NpcCharacter? FindTalkTarget(Player player) => Entity.CanTalkTo(player) ? Entity : null;
-    public override void SetTransitionDrawOffset(Vector2 offset) => Entity.SetTransitionDrawOffset(offset);
 }
 
 // INTERAC_BIPIN $28:$00 starts at SPEED_100/angle $18 and reverses whenever
@@ -32,7 +58,8 @@ internal sealed class RunningBipinRoomEntity
     private int _angle = 0x18;
     private bool _alternateAnimation;
 
-    public RunningBipinRoomEntity(NpcCharacter npc) : base(npc)
+    public RunningBipinRoomEntity(NpcCharacter npc)
+        : base(npc, npc.SetTransitionDrawOffset)
     {
         _precisePosition = npc.Position;
     }
@@ -70,25 +97,24 @@ internal sealed class RunningBipinRoomEntity
     public bool BlocksLink(Vector2 linkCenter) => Entity.BlocksLinkCenter(linkCenter);
     public NpcCharacter? FindTalkTarget(Player player) =>
         Entity.CanTalkTo(player) ? Entity : null;
-    public override void SetTransitionDrawOffset(Vector2 offset) =>
-        Entity.SetTransitionDrawOffset(offset);
 }
 
 // Script-created character interactions animate with the normal NPC renderer.
 // Solidity and talking are opt-in because objectSetVisible82-only actors and
 // followers do neither, while initialized NPC scripts call objectMarkSolidPosition.
 internal sealed class CutsceneNpcRoomEntity(NpcCharacter npc, bool talkable, bool solid)
-    : RoomEntityAdapter<NpcCharacter>(npc), IVariableRoomEntity, IRoomBlocker, ITalkTarget
+    : RoomEntityAdapter<NpcCharacter>(npc, npc.SetTransitionDrawOffset),
+        IVariableRoomEntity, IRoomBlocker, ITalkTarget
 {
     public void Update(double delta, Player player) => Entity.UpdateNpc(delta, player.Position);
     public bool BlocksLink(Vector2 linkCenter) => solid && Entity.BlocksLinkCenter(linkCenter);
     public NpcCharacter? FindTalkTarget(Player player) =>
         talkable && Entity.CanTalkTo(player) ? Entity : null;
-    public override void SetTransitionDrawOffset(Vector2 offset) => Entity.SetTransitionDrawOffset(offset);
 }
 
-internal sealed class TimePortalRoomEntity(TimePortal portal, System.Action<TimePortal> entered)
-    : RoomEntityAdapter<TimePortal>(portal), IFixedRoomEntity, ILinkContactEntity
+internal sealed class TimePortalRoomEntity(TimePortal portal, Action<TimePortal> entered)
+    : RoomEntityAdapter<TimePortal>(portal, portal.SetTransitionDrawOffset),
+        IFixedRoomEntity, ILinkContactEntity
 {
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Counter);
@@ -97,65 +123,63 @@ internal sealed class TimePortalRoomEntity(TimePortal portal, System.Action<Time
         if (Entity.CheckLinkContact(player.Position))
             entered(Entity);
     }
-    public override void SetTransitionDrawOffset(Vector2 offset) => Entity.SetTransitionDrawOffset(offset);
 }
 
-internal sealed class KeeseRoomEntity(KeeseCharacter keese) : RoomEntityAdapter<KeeseCharacter>(keese),
-    IFixedRoomEntity, ILinkContactEntity, ISwordHittableRoomEntity, IRoomEntityLifetime
+internal sealed class KeeseRoomEntity
+    : CombatEnemyRoomEntityAdapter<KeeseCharacter>, IFixedRoomEntity
 {
-    public bool Finished => Entity.IsDead;
+    public KeeseRoomEntity(KeeseCharacter keese)
+        : base(keese, keese.SetTransitionDrawOffset, CreateCombat(keese))
+    { }
+
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Player.Position, frame.Counter);
-    public void HandleLinkContact(Player player)
-    {
-        if (Entity.OverlapsLink(player.Position))
-            player.ApplyEnemyContactDamage(Entity.Position, Entity.Record.DamageQuarters);
-    }
-    public bool ApplySwordHit(Rect2 hitbox, Vector2 sourcePosition, ICollection<RoomEntitySpawn> spawns)
-    {
-        if (Entity.IsDead || !hitbox.Intersects(Entity.CollisionBounds))
-            return false;
-        bool struck = Entity.TakeSwordHit();
-        if (struck && Entity.IsDead)
-            spawns.Add(new EnemyDeathPuffSpawn(Entity.Position + Vector2.Down * Entity.SpriteHeight,
-                EnemyId: Entity.Record.Id));
-        return struck;
-    }
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
-    public override void SetTransitionDrawOffset(Vector2 offset) => Entity.SetTransitionDrawOffset(offset);
+
+    private static EnemyCombatComponent CreateCombat(KeeseCharacter keese) =>
+        EnemyCombatComponent.WithContactDamage(
+            () => keese.IsDead,
+            () => keese.CollisionBounds,
+            _ => keese.TakeSwordHit(),
+            keese.OverlapsLink,
+            () => keese.Position,
+            keese.Record.DamageQuarters,
+            () => keese.IsDead
+                ? new EnemyDeathPuffSpawn(
+                    keese.Position + Vector2.Down * keese.SpriteHeight,
+                    EnemyId: keese.Record.Id)
+                : null);
 }
 
-internal sealed class OctorokRoomEntity(OctorokCharacter octorok)
-    : RoomEntityAdapter<OctorokCharacter>(octorok), IFixedRoomEntity, ILinkContactEntity,
-        ISwordHittableRoomEntity, IRoomEntityLifetime
+internal sealed class OctorokRoomEntity
+    : CombatEnemyRoomEntityAdapter<OctorokCharacter>, IFixedRoomEntity
 {
-    public bool Finished => Entity.IsDead;
+    public OctorokRoomEntity(OctorokCharacter octorok)
+        : base(octorok, octorok.SetTransitionDrawOffset, CreateCombat(octorok))
+    { }
+
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
         if (Entity.UpdateFrame(frame.Player.Position))
             spawns.Add(new OctorokRockSpawn(Entity.Position, Entity.Angle));
     }
-    public void HandleLinkContact(Player player)
-    {
-        if (Entity.OverlapsLink(player.Position))
-            player.ApplyEnemyContactDamage(Entity.Position, Entity.Record.DamageQuarters);
-    }
-    public bool ApplySwordHit(Rect2 hitbox, Vector2 sourcePosition, ICollection<RoomEntitySpawn> spawns)
-    {
-        if (Entity.IsDead || !hitbox.Intersects(Entity.CollisionBounds))
-            return false;
-        bool struck = Entity.TakeSwordHit(sourcePosition);
-        if (struck && Entity.IsDead && !Entity.DiedInHazard)
-            spawns.Add(new EnemyDeathPuffSpawn(Entity.Position, EnemyId: Entity.Record.Id));
-        return struck;
-    }
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
-    public override void SetTransitionDrawOffset(Vector2 offset) => Entity.SetTransitionDrawOffset(offset);
+
+    private static EnemyCombatComponent CreateCombat(OctorokCharacter octorok) =>
+        EnemyCombatComponent.WithContactDamage(
+            () => octorok.IsDead,
+            () => octorok.CollisionBounds,
+            octorok.TakeSwordHit,
+            octorok.OverlapsLink,
+            () => octorok.Position,
+            octorok.Record.DamageQuarters,
+            () => octorok.IsDead && !octorok.DiedInHazard
+                ? new EnemyDeathPuffSpawn(
+                    octorok.Position, EnemyId: octorok.Record.Id)
+                : null);
 }
 
 internal sealed class OctorokRockRoomEntity(OctorokRockProjectile rock)
-    : RoomEntityAdapter<OctorokRockProjectile>(rock), IFixedRoomEntity,
-        ISwordHittableRoomEntity, IRoomEntityLifetime
+    : RoomEntityAdapter<OctorokRockProjectile>(rock, rock.SetTransitionDrawOffset),
+        IFixedRoomEntity, ISwordHittableRoomEntity, IRoomEntityLifetime
 {
     public bool Finished => Entity.Finished;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
@@ -163,13 +187,15 @@ internal sealed class OctorokRockRoomEntity(OctorokRockProjectile rock)
     public bool ApplySwordHit(Rect2 hitbox, Vector2 sourcePosition, ICollection<RoomEntitySpawn> spawns) =>
         hitbox.Intersects(Entity.CollisionBounds) && Entity.DeflectWithSword();
     public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
-    public override void SetTransitionDrawOffset(Vector2 offset) => Entity.SetTransitionDrawOffset(offset);
 }
 
-internal sealed class ZolRoomEntity(ZolCharacter zol) : RoomEntityAdapter<ZolCharacter>(zol),
-    IFixedRoomEntity, ILinkContactEntity, ISwordHittableRoomEntity, IRoomEntityLifetime
+internal sealed class ZolRoomEntity
+    : CombatEnemyRoomEntityAdapter<ZolCharacter>, IFixedRoomEntity
 {
-    public bool Finished => Entity.IsDead;
+    public ZolRoomEntity(ZolCharacter zol)
+        : base(zol, zol.SetTransitionDrawOffset, CreateCombat(zol))
+    { }
+
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
         switch (Entity.UpdateFrame(frame.Player.Position))
@@ -183,54 +209,51 @@ internal sealed class ZolRoomEntity(ZolCharacter zol) : RoomEntityAdapter<ZolCha
                 break;
         }
     }
-    public void HandleLinkContact(Player player)
-    {
-        if (Entity.OverlapsLink(player.Position))
-            player.ApplyEnemyContactDamage(Entity.Position, Entity.Record.DamageQuarters);
-    }
-    public bool ApplySwordHit(Rect2 hitbox, Vector2 sourcePosition, ICollection<RoomEntitySpawn> spawns)
-    {
-        if (Entity.IsDead || !hitbox.Intersects(Entity.CollisionBounds))
-            return false;
-        bool struck = Entity.TakeSwordHit();
-        if (struck && Entity.IsDead && !Entity.DiedInHazard)
-            spawns.Add(new EnemyDeathPuffSpawn(Entity.Position, EnemyId: Entity.Record.Id));
-        return struck;
-    }
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
-    public override void SetTransitionDrawOffset(Vector2 offset) => Entity.SetTransitionDrawOffset(offset);
+
+    private static EnemyCombatComponent CreateCombat(ZolCharacter zol) =>
+        EnemyCombatComponent.WithContactDamage(
+            () => zol.IsDead,
+            () => zol.CollisionBounds,
+            _ => zol.TakeSwordHit(),
+            zol.OverlapsLink,
+            () => zol.Position,
+            zol.Record.DamageQuarters,
+            () => zol.IsDead && !zol.DiedInHazard
+                ? new EnemyDeathPuffSpawn(zol.Position, EnemyId: zol.Record.Id)
+                : null);
 }
 
-internal sealed class GelRoomEntity(GelCharacter gel) : RoomEntityAdapter<GelCharacter>(gel),
-    IFixedRoomEntity, ILinkContactEntity, ISwordHittableRoomEntity, IRoomEntityLifetime,
-    IPlayerRestriction
+internal sealed class GelRoomEntity
+    : CombatEnemyRoomEntityAdapter<GelCharacter>, IFixedRoomEntity, IPlayerRestriction
 {
-    public bool Finished => Entity.IsDead;
+    public GelRoomEntity(GelCharacter gel)
+        : base(gel, gel.SetTransitionDrawOffset, CreateCombat(gel))
+    { }
+
     public bool DisablesSword => Entity.IsAttached;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Player.Position, frame.Player.FacingVector, frame.AnyButtonJustPressed);
-    public void HandleLinkContact(Player player)
-    {
-        if (Entity.OverlapsLink(player.Position))
-            Entity.AttachToLink(player.Position);
-    }
-    public bool ApplySwordHit(Rect2 hitbox, Vector2 sourcePosition, ICollection<RoomEntitySpawn> spawns)
-    {
-        if (Entity.IsDead || !hitbox.Intersects(Entity.CollisionBounds))
-            return false;
-        bool struck = Entity.TakeSwordHit();
-        if (struck && Entity.IsDead && !Entity.DiedInHazard)
-            spawns.Add(new EnemyDeathPuffSpawn(Entity.Position, EnemyId: Entity.Definition.Id));
-        return struck;
-    }
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
-    public override void SetTransitionDrawOffset(Vector2 offset) => Entity.SetTransitionDrawOffset(offset);
+
+    private static EnemyCombatComponent CreateCombat(GelCharacter gel) =>
+        new(
+            () => gel.IsDead,
+            () => gel.CollisionBounds,
+            _ => gel.TakeSwordHit(),
+            player =>
+            {
+                if (gel.OverlapsLink(player.Position))
+                    gel.AttachToLink(player.Position);
+            },
+            () => gel.IsDead && !gel.DiedInHazard
+                ? new EnemyDeathPuffSpawn(gel.Position, EnemyId: gel.Definition.Id)
+                : null);
 }
 
 internal sealed class DeathPuffRoomEntity(
     EnemyDeathPuffEffect puff,
     ItemDropDatabase itemDrops,
-    OracleRandom random) : RoomEntityAdapter<EnemyDeathPuffEffect>(puff),
+    OracleRandom random)
+    : RoomEntityAdapter<EnemyDeathPuffEffect>(puff, puff.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomEntityLifetime
 {
     public bool Finished => Entity.Finished;
@@ -242,24 +265,23 @@ internal sealed class DeathPuffRoomEntity(
         if (subId.HasValue)
             spawns.Add(new ItemDropSpawn(subId.Value, Entity.Position));
     }
-    public override void SetTransitionDrawOffset(Vector2 offset) => Entity.SetTransitionDrawOffset(offset);
 }
 
 internal sealed class KillPuffRoomEntity(KillEnemyPuffEffect puff)
-    : RoomEntityAdapter<KillEnemyPuffEffect>(puff), IFixedRoomEntity, IRoomEntityLifetime
+    : RoomEntityAdapter<KillEnemyPuffEffect>(puff, puff.SetTransitionDrawOffset),
+        IFixedRoomEntity, IRoomEntityLifetime
 {
     public bool Finished => Entity.Finished;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) => Entity.UpdateFrame();
     public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
-    public override void SetTransitionDrawOffset(Vector2 offset) => Entity.SetTransitionDrawOffset(offset);
 }
 
 internal sealed class ItemDropRoomEntity(ItemDropEffect drop)
-    : RoomEntityAdapter<ItemDropEffect>(drop), IFixedRoomEntity, IRoomEntityLifetime
+    : RoomEntityAdapter<ItemDropEffect>(drop, drop.SetTransitionDrawOffset),
+        IFixedRoomEntity, IRoomEntityLifetime
 {
     public bool Finished => Entity.Finished;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Player, frame.Counter);
     public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
-    public override void SetTransitionDrawOffset(Vector2 offset) => Entity.SetTransitionDrawOffset(offset);
 }

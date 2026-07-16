@@ -1,6 +1,5 @@
 using Godot;
 using System;
-using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -24,28 +23,20 @@ public partial class ZolCharacter : Node2D
 
     internal enum UpdateEvent { None, BeginSplit, SpawnGels }
 
-    private sealed record AnimationFrame(Texture2D Texture, int Duration, int Parameter);
-
     private const int InitialSpeedZ = -0x200;
     private const int Gravity = 0x28;
     private const int WakeDistance = 0x28;
 
-    private readonly List<AnimationFrame>[] _animations =
-    {
-        new(), new(), new(), new(), new(), new()
-    };
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
+    private EnemyTerrainMovement _movement = null!;
+    private EnemyVerticalMotion _verticalMotion = null!;
+    private EnemyAnimationPlayer _animation = null!;
     private ZolState _state;
     private int _counter1;
     private int _counter2;
     private int _angle;
-    private int _zFixed;
-    private int _speedZ;
     private int _health;
-    private int _animationIndex;
-    private int _animationFrame;
-    private int _animationCounter;
     private bool _collisionEnabled;
     private Vector2 _transitionDrawOffset;
 
@@ -59,16 +50,13 @@ public partial class ZolCharacter : Node2D
     internal int Counter1 => _counter1;
     internal int Counter2 => _counter2;
     internal int Angle => _angle;
-    internal int ZFixed => _zFixed;
+    internal int ZFixed => _verticalMotion.ZFixed;
     internal int Health => _health;
     internal bool CollisionEnabled => _collisionEnabled;
-    internal int AnimationIndex => _animationIndex;
-    internal int CurrentAnimationFrame => _animationFrame;
-    internal int AnimationParameter => CurrentFrame.Parameter;
+    internal int AnimationIndex => _animation.AnimationIndex;
+    internal int CurrentAnimationFrame => _animation.FrameIndex;
+    internal int AnimationParameter => _animation.CurrentParameter;
     internal Vector2 TransitionDrawOffset => _transitionDrawOffset;
-
-    private AnimationFrame CurrentFrame =>
-        _animations[_animationIndex][_animationFrame];
 
     internal void Initialize(
         EnemyDatabase.ZolRecord record,
@@ -79,6 +67,9 @@ public partial class ZolCharacter : Node2D
         Record = record;
         _room = room;
         _random = random;
+        _movement = new EnemyTerrainMovement(this, room);
+        _verticalMotion = new EnemyVerticalMotion(this, Gravity);
+        _animation = new EnemyAnimationPlayer(this, animationCount: 6);
         Position = position;
         _health = record.Health;
 
@@ -93,11 +84,7 @@ public partial class ZolCharacter : Node2D
             record.RedIdleAnimation,
             record.RedShakeAnimation
         };
-        for (int index = 0; index < encodedAnimations.Length; index++)
-        {
-            _animations[index].AddRange(BuildAnimation(
-                source, encodedAnimations[index], record.TileBase, record.Palette));
-        }
+        _animation.Load(source, encodedAnimations, record.TileBase, record.Palette);
 
         if (record.SubId == 0)
         {
@@ -122,8 +109,7 @@ public partial class ZolCharacter : Node2D
         if (IsDead)
             return UpdateEvent.None;
 
-        if (_zFixed == 0 && _collisionEnabled &&
-            _room.GetTerrainInfo(Position).Hazard != OracleRoomData.HazardType.None)
+        if (_verticalMotion.ZFixed == 0 && _collisionEnabled && _movement.IsOnHazard)
         {
             DiedInHazard = true;
             IsDead = true;
@@ -136,7 +122,7 @@ public partial class ZolCharacter : Node2D
             case ZolState.GreenHidden:
                 if (ManhattanDistance(Position, linkPosition) >= WakeDistance)
                     return UpdateEvent.None;
-                _speedZ = InitialSpeedZ;
+                _verticalMotion.SpeedZ = InitialSpeedZ;
                 _counter2 = 4;
                 _state = ZolState.GreenEmerging;
                 Visible = true;
@@ -144,12 +130,12 @@ public partial class ZolCharacter : Node2D
                 return UpdateEvent.None;
 
             case ZolState.GreenEmerging:
-                if (CurrentFrame.Parameter == 0)
+                if (_animation.CurrentParameter == 0)
                 {
-                    AdvanceAnimation();
+                    _animation.Advance();
                     return UpdateEvent.None;
                 }
-                if (!UpdateZ())
+                if (!_verticalMotion.Update())
                     return UpdateEvent.None;
                 _state = ZolState.GreenWaiting;
                 _counter1 = 0x30;
@@ -161,14 +147,14 @@ public partial class ZolCharacter : Node2D
                 if (--_counter1 > 0)
                     return UpdateEvent.None;
                 _state = ZolState.GreenHopping;
-                _speedZ = InitialSpeedZ;
+                _verticalMotion.SpeedZ = InitialSpeedZ;
                 _angle = OracleObjectMath.AngleToward(Position, linkPosition);
                 SetAnimation(2);
                 return UpdateEvent.None;
 
             case ZolState.GreenHopping:
-                MoveAtAngle(_angle, 0.75f, allowHoles: true);
-                if (!UpdateZ())
+                _movement.MoveAtAngle(_angle, 0.75f, allowHoles: true);
+                if (!_verticalMotion.Update())
                     return UpdateEvent.None;
                 _counter1 = 0x30;
                 _counter2--;
@@ -186,9 +172,9 @@ public partial class ZolCharacter : Node2D
                 return UpdateEvent.None;
 
             case ZolState.GreenDisappearing:
-                if (CurrentFrame.Parameter == 0)
+                if (_animation.CurrentParameter == 0)
                 {
-                    AdvanceAnimation();
+                    _animation.Advance();
                     return UpdateEvent.None;
                 }
                 _state = ZolState.GreenGone;
@@ -204,7 +190,7 @@ public partial class ZolCharacter : Node2D
                 return UpdateEvent.None;
 
             case ZolState.RedWaiting:
-                AdvanceAnimation();
+                _animation.Advance();
                 if (--_counter1 > 0)
                     return UpdateEvent.None;
                 if ((_random.Next().Value & 0x07) == 0)
@@ -222,9 +208,9 @@ public partial class ZolCharacter : Node2D
                 return UpdateEvent.None;
 
             case ZolState.RedSliding:
-                MoveAtAngle(_angle, 0.5f, allowHoles: false);
+                _movement.MoveAtAngle(_angle, 0.5f, allowHoles: false);
                 BounceOffScreenBoundary();
-                AdvanceAnimation();
+                _animation.Advance();
                 if (--_counter1 > 0)
                     return UpdateEvent.None;
                 _state = ZolState.RedWaiting;
@@ -232,18 +218,18 @@ public partial class ZolCharacter : Node2D
                 return UpdateEvent.None;
 
             case ZolState.RedShaking:
-                AdvanceAnimation();
+                _animation.Advance();
                 if (--_counter1 > 0)
                     return UpdateEvent.None;
                 _state = ZolState.RedHopping;
-                _speedZ = InitialSpeedZ;
+                _verticalMotion.SpeedZ = InitialSpeedZ;
                 _angle = OracleObjectMath.AngleToward(Position, linkPosition);
                 SetAnimation(2);
                 return UpdateEvent.None;
 
             case ZolState.RedHopping:
-                MoveAtAngle(_angle, 1.0f, allowHoles: true);
-                if (!UpdateZ())
+                _movement.MoveAtAngle(_angle, 1.0f, allowHoles: true);
+                if (!_verticalMotion.Update())
                     return UpdateEvent.None;
                 _state = ZolState.RedWaiting;
                 _counter1 = 0x18;
@@ -320,59 +306,12 @@ public partial class ZolCharacter : Node2D
 
     public override void _Draw()
     {
-        if (IsDead || !Visible || _animations[_animationIndex].Count == 0)
+        if (IsDead || !Visible || !_animation.HasFrames)
             return;
         DrawTexture(
-            CurrentFrame.Texture,
-            new Vector2(-16, -16 + (_zFixed >> 8)) + _transitionDrawOffset);
-    }
-
-    private bool UpdateZ()
-    {
-        bool landed = OracleObjectMath.UpdateSpeedZ(
-            ref _zFixed, ref _speedZ, Gravity);
-        if (landed)
-            _speedZ = 0;
-        QueueRedraw();
-        return landed;
-    }
-
-    private void MoveAtAngle(int angle, float speed, bool allowHoles)
-    {
-        Vector2 movement = OracleObjectMath.VectorFromAngle32(angle) * speed;
-        Vector2 destination = Position + movement;
-        if (CanOccupy(destination, allowHoles))
-        {
-            Position = destination;
-        }
-        else if (CanOccupy(Position + new Vector2(movement.X, 0), allowHoles))
-        {
-            Position += new Vector2(movement.X, 0);
-        }
-        else if (CanOccupy(Position + new Vector2(0, movement.Y), allowHoles))
-        {
-            Position += new Vector2(0, movement.Y);
-        }
-        QueueRedraw();
-    }
-
-    private bool CanOccupy(Vector2 center, bool allowHoles)
-    {
-        Vector2[] samples =
-        {
-            center + new Vector2(-5, -4), center + new Vector2(5, -4),
-            center + new Vector2(-5, 6), center + new Vector2(5, 6)
-        };
-        foreach (Vector2 sample in samples)
-        {
-            if (sample.X < 0 || sample.X >= _room.Width ||
-                sample.Y < 0 || sample.Y >= _room.Height || _room.IsSolid(sample))
-                return false;
-            if (!allowHoles && _room.GetTerrainInfo(sample).Hazard ==
-                OracleRoomData.HazardType.Hole)
-                return false;
-        }
-        return true;
+            _animation.CurrentTexture,
+            new Vector2(-16, -16 + (_verticalMotion.ZFixed >> 8)) +
+                _transitionDrawOffset);
     }
 
     private void BounceOffScreenBoundary()
@@ -387,48 +326,10 @@ public partial class ZolCharacter : Node2D
 
     private void SetAnimation(int index)
     {
-        _animationIndex = index;
-        _animationFrame = 0;
-        _animationCounter = _animations[index].Count > 0
-            ? _animations[index][0].Duration
-            : 1;
-        QueueRedraw();
-    }
-
-    private void AdvanceAnimation()
-    {
-        List<AnimationFrame> animation = _animations[_animationIndex];
-        if (animation.Count <= 1)
-            return;
-        _animationCounter--;
-        if (_animationCounter > 0)
-            return;
-        if (_animationFrame < animation.Count - 1)
-            _animationFrame++;
-        else
-            _animationFrame = 0;
-        _animationCounter = animation[_animationFrame].Duration;
-        QueueRedraw();
+        _animation.SetAnimation(index);
     }
 
     private static int ManhattanDistance(Vector2 first, Vector2 second) =>
         Mathf.Abs(Mathf.FloorToInt(first.X) - Mathf.FloorToInt(second.X)) +
         Mathf.Abs(Mathf.FloorToInt(first.Y) - Mathf.FloorToInt(second.Y));
-
-    private static IEnumerable<AnimationFrame> BuildAnimation(
-        Image source,
-        string encodedAnimation,
-        int tileBase,
-        int palette)
-    {
-        foreach (OracleGraphicsCache.AnimationFrameDefinition frame in
-            OracleGraphicsCache.GetAnimationDefinition(encodedAnimation).Frames)
-        {
-            yield return new AnimationFrame(
-                NpcCharacter.BuildOamTexture(
-                    source, frame.EncodedOam, tileBase, palette),
-                frame.Duration,
-                frame.Parameter);
-        }
-    }
 }
