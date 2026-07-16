@@ -33,6 +33,8 @@ public sealed class TreasureDatabase
     private readonly Dictionary<int, BehaviourRecord> _behaviours = new();
     private readonly Dictionary<string, List<DisplayRecord>> _displayRows = new();
 
+    public int BehaviourCount => _behaviours.Count;
+
     public TreasureDatabase()
     {
         LoadObjects();
@@ -131,13 +133,107 @@ public sealed class TreasureDatabase
                 throw new InvalidOperationException($"Malformed treasure behaviour row: {line}");
 
             int treasure = Convert.ToInt32(fields[0], 16);
+            int rawMode = Convert.ToInt32(fields[2], 16);
+            CollectionMode mode = ParseCollectionMode(treasure, fields[1], rawMode);
+            TreasureVariable variable = ParseTreasureVariable(treasure, fields[1], rawMode);
+            ValidateBehaviourBinding(treasure, fields[1], rawMode, variable, mode);
             _behaviours.Add(treasure, new BehaviourRecord(
                 treasure,
-                fields[1],
-                Convert.ToInt32(fields[2], 16),
+                variable,
+                mode,
+                rawMode,
                 fields[3]));
         }
     }
+
+    private static CollectionMode ParseCollectionMode(int treasure, string variable, int rawMode)
+    {
+        int mode = rawMode & 0x0f;
+        if ((rawMode & ~0x8f) != 0 || !Enum.IsDefined(typeof(CollectionMode), mode))
+            throw UnsupportedBehaviour(treasure, variable, rawMode, "unknown collection mode");
+        return (CollectionMode)mode;
+    }
+
+    private static TreasureVariable ParseTreasureVariable(int treasure, string variable, int rawMode) =>
+        variable switch
+        {
+            // The original giveTreasure redirects a zero variable byte to wShortSecretIndex.
+            "$00" => TreasureVariable.ShortSecretIndex,
+            "wc608" => TreasureVariable.DummyC608,
+            "wAnimalCompanion" => TreasureVariable.AnimalCompanion,
+            "wDeathRespawnBuffer.rememberedCompanionId" => TreasureVariable.RememberedCompanionId,
+            "wNumBombchus" => TreasureVariable.Bombchus,
+            "wLinkHealth" => TreasureVariable.LinkHealth,
+            "wLinkMaxHealth" => TreasureVariable.LinkMaxHealth,
+            "wNumHeartPieces" => TreasureVariable.HeartPieces,
+            "wNumRupees" => TreasureVariable.Rupees,
+            "wShieldLevel" => TreasureVariable.ShieldLevel,
+            "wNumBombs" => TreasureVariable.Bombs,
+            "wSwordLevel" => TreasureVariable.SwordLevel,
+            "wSeedSatchelLevel" => TreasureVariable.SeedSatchelLevel,
+            "wSwitchHookLevel" => TreasureVariable.SwitchHookLevel,
+            "wSelectedHarpSong" => TreasureVariable.SelectedHarpSong,
+            "wBraceletLevel" => TreasureVariable.BraceletLevel,
+            "wNumEmberSeeds" => TreasureVariable.EmberSeeds,
+            "wNumScentSeeds" => TreasureVariable.ScentSeeds,
+            "wNumPegasusSeeds" => TreasureVariable.PegasusSeeds,
+            "wNumGaleSeeds" => TreasureVariable.GaleSeeds,
+            "wNumMysterySeeds" => TreasureVariable.MysterySeeds,
+            "wNumGashaSeeds" => TreasureVariable.GashaSeeds,
+            "wEssencesObtained" => TreasureVariable.EssencesObtained,
+            "wTradeItem" => TreasureVariable.TradeItem,
+            "wTuniNutState" => TreasureVariable.TuniNutState,
+            "wNumSlates" => TreasureVariable.Slates,
+            "wRingBoxLevel" => TreasureVariable.RingBoxLevel,
+            "wNumUnappraisedRingsBcd" => TreasureVariable.UnappraisedRings,
+            "wDungeonSmallKeys" => TreasureVariable.DungeonSmallKeys,
+            "wDungeonBossKeys" => TreasureVariable.DungeonBossKeys,
+            "wDungeonCompasses" => TreasureVariable.DungeonCompasses,
+            "wDungeonMaps" => TreasureVariable.DungeonMaps,
+            "wObtainedSeasons" => TreasureVariable.ObtainedSeasons,
+            "wBoomerangLevel" => TreasureVariable.BoomerangLevel,
+            "wMagnetGlovePolarity" => TreasureVariable.MagnetGlovePolarity,
+            "wSlingshotLevel" => TreasureVariable.SlingshotLevel,
+            "wFeatherLevel" => TreasureVariable.FeatherLevel,
+            _ => throw UnsupportedBehaviour(treasure, variable, rawMode, "unknown WRAM variable")
+        };
+
+    private static void ValidateBehaviourBinding(
+        int treasure,
+        string sourceVariable,
+        int rawMode,
+        TreasureVariable variable,
+        CollectionMode mode)
+    {
+        bool valid = mode switch
+        {
+            CollectionMode.None => true,
+            CollectionMode.SetBit => variable is TreasureVariable.EssencesObtained or
+                TreasureVariable.ObtainedSeasons,
+            CollectionMode.SetDungeonBit => variable is TreasureVariable.DungeonBossKeys or
+                TreasureVariable.DungeonCompasses or TreasureVariable.DungeonMaps,
+            CollectionMode.IncrementDungeonKey => variable == TreasureVariable.DungeonSmallKeys,
+            CollectionMode.AddUnappraisedRing => variable == TreasureVariable.UnappraisedRings,
+            CollectionMode.SetUpgradeBit => variable == TreasureVariable.ShortSecretIndex,
+            CollectionMode.AddRupees => variable == TreasureVariable.Rupees,
+            _ => IsScalarVariable(variable)
+        };
+        if (!valid)
+            throw UnsupportedBehaviour(treasure, sourceVariable, rawMode,
+                $"{mode} cannot target {variable}");
+    }
+
+    private static bool IsScalarVariable(TreasureVariable variable) => variable is not
+        (TreasureVariable.DungeonSmallKeys or TreasureVariable.DungeonBossKeys or
+        TreasureVariable.DungeonCompasses or TreasureVariable.DungeonMaps or
+        TreasureVariable.UnappraisedRings);
+
+    private static InvalidOperationException UnsupportedBehaviour(
+        int treasure,
+        string variable,
+        int mode,
+        string reason) => new(
+            $"Treasure ${treasure:x2} behaviour variable '{variable}' mode ${mode:x2} is unsupported: {reason}.");
 
     private void LoadDisplayRows()
     {
@@ -188,10 +284,75 @@ public sealed class TreasureDatabase
         int Graphic,
         string Message);
 
+    public enum CollectionMode
+    {
+        None = 0x0,
+        SetBit = 0x1,
+        Increment = 0x2,
+        IncrementBcd = 0x3,
+        AddBcd = 0x4,
+        Set = 0x5,
+        SetDungeonBit = 0x6,
+        IncrementDungeonKey = 0x7,
+        SetMinimum = 0x8,
+        AddUnappraisedRing = 0x9,
+        Add = 0xa,
+        SetUpgradeBit = 0xb,
+        AddCapped = 0xc,
+        AddBcdCapped = 0xd,
+        AddRupees = 0xe,
+        AddSeeds = 0xf
+    }
+
+    public enum TreasureVariable
+    {
+        ShortSecretIndex,
+        DummyC608,
+        AnimalCompanion,
+        RememberedCompanionId,
+        Bombchus,
+        LinkHealth,
+        LinkMaxHealth,
+        HeartPieces,
+        Rupees,
+        ShieldLevel,
+        Bombs,
+        SwordLevel,
+        SeedSatchelLevel,
+        SwitchHookLevel,
+        SelectedHarpSong,
+        BraceletLevel,
+        EmberSeeds,
+        ScentSeeds,
+        PegasusSeeds,
+        GaleSeeds,
+        MysterySeeds,
+        GashaSeeds,
+        EssencesObtained,
+        TradeItem,
+        TuniNutState,
+        Slates,
+        RingBoxLevel,
+        UnappraisedRings,
+        DungeonSmallKeys,
+        DungeonBossKeys,
+        DungeonCompasses,
+        DungeonMaps,
+        ObtainedSeasons,
+        BoomerangLevel,
+        MagnetGlovePolarity,
+        SlingshotLevel,
+        FeatherLevel,
+        SatchelSelectedSeeds,
+        ShooterSelectedSeeds,
+        SlingshotSelectedSeeds
+    }
+
     public readonly record struct BehaviourRecord(
         int TreasureId,
-        string Variable,
-        int Mode,
+        TreasureVariable Variable,
+        CollectionMode Mode,
+        int RawMode,
         string Sound);
 
     public readonly record struct DisplayRecord(

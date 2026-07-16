@@ -16,6 +16,7 @@ public sealed class RoomSession
     public OracleSaveData SaveData => _saveData;
     public int ActiveGroup { get; private set; }
     public OracleRoomData CurrentRoom { get; private set; }
+    public int CurrentDungeonIndex => World.GetDungeonIndex(ActiveGroup, CurrentRoom.Id);
     public int MinimapGroup => _saveData.MinimapGroup;
     public int MinimapRoom => _saveData.MinimapRoom;
 
@@ -124,7 +125,7 @@ public sealed class RoomSession
 
     public bool TryGetNeighbor(Vector2I direction, out int room)
     {
-        int dungeon = World.GetDungeonIndex(ActiveGroup, CurrentRoom.Id);
+        int dungeon = CurrentDungeonIndex;
         if (dungeon >= 0)
             return DungeonMaps.TryGetNeighbor(dungeon, CurrentRoom.Id, direction, out room);
 

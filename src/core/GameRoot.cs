@@ -172,7 +172,6 @@ public partial class GameRoot : Node2D
     {
         _saveData = save;
         _treasures = new TreasureDatabase();
-        _inventory = new InventoryState(_treasures, _saveData);
         int startingGroup = _launchOptions.HasWorldOverride || !_persistSaveData
             ? _launchOptions.StartingGroup
             : _saveData.RespawnGroup;
@@ -184,6 +183,8 @@ public partial class GameRoot : Node2D
             () => (long)_animationTicks,
             () => _animationTicks = 0.0,
             _saveData);
+        _inventory = new InventoryState(
+            _treasures, _saveData, () => _rooms.CurrentDungeonIndex);
         _rooms.RoomChanged += ApplyRoomMusic;
         _scene = new GameSceneGraph(this);
         _dialogue.MessageSpeed = _saveData.TextSpeed;

@@ -20,6 +20,8 @@ public partial class GameRoot
         ValidateOracleRandom();
         ValidateRoomEventTimeline();
         ValidateSaveDataFoundation();
+        ValidateTreasureInterpreter();
+        ValidateDungeonCollectibles();
         ValidateRoomTileChanges();
         ValidateExplicitSavePersistence();
         ValidateMainMenu();
@@ -901,6 +903,235 @@ public partial class GameRoot
         GD.Print("Validated original $550-byte save signature/checksum, 128 global flags, " +
             "four aliased room-flag tables, initial/current death checkpoint, inventory fields, " +
             "swordless standard-game state, and BCD rupee round trip.");
+    }
+
+    private void ValidateTreasureInterpreter()
+    {
+        if (_treasures.BehaviourCount != 0x68)
+        {
+            throw new InvalidOperationException(
+                $"Expected `$68 typed treasure behaviours, found {_treasures.BehaviourCount}.");
+        }
+        for (int treasure = 0; treasure < 0x68; treasure++)
+        {
+            TreasureDatabase.BehaviourRecord behaviour = _treasures.GetBehaviour(treasure);
+            if (behaviour.TreasureId != treasure)
+                throw new InvalidOperationException($"Treasure ${treasure:x2} resolved to another behaviour.");
+        }
+
+        static TreasureDatabase.TreasureObjectRecord Reward(int treasure, int parameter) => new(
+            $"VALIDATION_TREASURE_{treasure:x2}", treasure, 0, parameter, 0xff, 0, string.Empty);
+
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var inventory = new InventoryState(_treasures, save);
+
+        inventory.GiveTreasure(Reward(TreasureDatabase.TreasureSeedSatchel, 1));
+        if (inventory.SeedSatchelLevel != 1 || inventory.EmberSeeds != 0x20 ||
+            save.ReadWramByte(0xc6b9) != 0x20)
+        {
+            throw new InvalidOperationException(
+                "The Seed Satchel did not grant and persist its extra 20 Ember Seeds.");
+        }
+
+        inventory.GiveTreasure(Reward(0x62, 0));
+        inventory.GiveTreasure(Reward(0x20, 0x15));
+        inventory.GiveTreasure(Reward(0x21, 0x09));
+        inventory.GiveTreasure(Reward(0x22, 0x09));
+        inventory.GiveTreasure(Reward(0x23, 0x09));
+        inventory.GiveTreasure(Reward(0x24, 0x09));
+        if (inventory.SeedSatchelLevel != 2 || inventory.EmberSeeds != 0x35 ||
+            inventory.ScentSeeds != 0x09 || inventory.PegasusSeeds != 0x09 ||
+            inventory.GaleSeeds != 0x09 || inventory.MysterySeeds != 0x09)
+        {
+            throw new InvalidOperationException(
+                "Typed mode `$0f seed counters or the satchel capacity table diverged.");
+        }
+
+        inventory.GiveTreasure(Reward(0x0d, 0x10));
+        inventory.GiveTreasure(Reward(0x0e, 0x0c));
+        inventory.GiveTreasure(Reward(0x52, 0x07));
+        inventory.GiveTreasure(Reward(0x07, 0x02));
+        inventory.GiveTreasure(Reward(0x08, 0x01));
+        inventory.GiveTreasure(Reward(0x51, 0x22));
+        inventory.GiveTreasure(Reward(0x15, 0x00));
+        if (inventory.Bombchus != 0x10 || inventory.AnimalCompanion != 0x0c ||
+            inventory.RememberedCompanionId != 0x07 || inventory.ObtainedSeasons != 0x04 ||
+            inventory.MagnetGlovePolarity != 0x01 ||
+            save.ReadWramByte(0xc6fb) != 0x23)
+        {
+            throw new InvalidOperationException(
+                "An imported typed WRAM binding did not execute or persist its collection mode.");
+        }
+
+        inventory.GiveTreasure(Reward(TreasureDatabase.TreasureBoomerang, 1));
+        inventory.GiveTreasure(Reward(TreasureDatabase.TreasureFeather, 1));
+        inventory.GiveTreasure(Reward(TreasureDatabase.TreasureSlingshot, 1));
+        inventory.SelectSatchelSeeds(2);
+        inventory.SelectShooterSeeds(3);
+        inventory.SelectSlingshotSeeds(4);
+        inventory.GiveTreasure(Reward(0x60, 0));
+        if (save.ReadWramByte(0xc700) != 1 || save.ReadWramByte(0xc701) != 1 ||
+            save.ReadWramByte(0xc6ff) != 1 || save.ReadWramByte(0xc703) != 2 ||
+            save.ReadWramByte(0xc704) != 3 || save.ReadWramByte(0xc705) != 4 ||
+            !inventory.HasUpgrade(0) || !inventory.HasTreasure(0x60))
+        {
+            throw new InvalidOperationException(
+                "Item levels, selected seeds, or transient wUpgradesObtained were not updated.");
+        }
+
+        // These linked-item bytes alias the first room-flag bytes in the original layout.
+        // An unrelated inventory update must consume the live byte instead of restoring a stale copy.
+        save.SetRoomFlag(0, 0x00, 0x80);
+        inventory.GiveTreasure(Reward(0x20, 0x01));
+        if (save.ReadWramByte(0xc700) != 0x81)
+            throw new InvalidOperationException("Inventory persistence clobbered aliased room flag 0:00.");
+
+        if (!OracleSaveData.TryDeserialize(save.Serialize(), out OracleSaveData? restoredSave))
+            throw new InvalidOperationException("Typed treasure WRAM state did not deserialize.");
+        var restored = new InventoryState(_treasures, restoredSave);
+        if (restored.SeedSatchelLevel != 2 || restored.EmberSeeds != 0x36 ||
+            restored.ScentSeeds != 0x09 || restored.Bombchus != 0x10 ||
+            restored.BoomerangLevel != 0x81 || restored.FeatherLevel != 1 ||
+            restored.SlingshotLevel != 1 || restored.SatchelSelectedSeeds != 2 ||
+            restored.ShooterSelectedSeeds != 3 || restored.SlingshotSelectedSeeds != 4)
+        {
+            throw new InvalidOperationException(
+                "Typed treasure variables were lost across the `$550-byte save round trip.");
+        }
+
+        OracleSaveData ringSave = OracleSaveData.CreateStandardGame();
+        var ringInventory = new InventoryState(_treasures, ringSave);
+        ringInventory.GiveTreasure(Reward(TreasureDatabase.TreasureRing, 0x1e));
+        if (ringInventory.UnappraisedRingCount != 1 ||
+            ringInventory.UnappraisedRingAt(0) != 0x5e ||
+            ringInventory.UnappraisedRingAt(1) != 0xff ||
+            ringSave.ReadWramByte(0xc6cd) != 0x01)
+        {
+            throw new InvalidOperationException(
+                "Treasure mode `$09 did not append an unappraised ring and update its BCD count.");
+        }
+
+        var fullRings = new byte[0x40];
+        Array.Fill(fullRings, (byte)0x41);
+        ringSave.WriteWramBytes(0xc5c0, fullRings);
+        ringSave.WriteWramByte(0xc6cd, 0x64);
+        ringInventory = new InventoryState(_treasures, ringSave);
+        ringInventory.GiveTreasure(Reward(TreasureDatabase.TreasureRing, 0x02));
+        if (ringInventory.UnappraisedRingCount != 0x40 ||
+            ringInventory.UnappraisedRingAt(0x3e) != 0x41 ||
+            ringInventory.UnappraisedRingAt(0x3f) != 0x42 ||
+            ringSave.ReadWramByte(0xc6cd) != 0x64)
+        {
+            throw new InvalidOperationException(
+                "A full unappraised-ring list did not replace a duplicate like mode `$09.");
+        }
+
+        GD.Print("Validated all `$68 typed treasure behaviours, seed counters/capacities, " +
+            "mode `$09 ring storage, linked item/selection aliases, transient upgrade bits, " +
+            "and save persistence.");
+    }
+
+    private void ValidateDungeonCollectibles()
+    {
+        int currentDungeon = -1;
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var inventory = new InventoryState(
+            _treasures, save, () => currentDungeon);
+        TreasureDatabase.TreasureObjectRecord smallKey =
+            _treasures.GetObject("TREASURE_OBJECT_SMALL_KEY_03");
+        TreasureDatabase.TreasureObjectRecord bossKey =
+            _treasures.GetObject("TREASURE_OBJECT_BOSS_KEY_03");
+        TreasureDatabase.TreasureObjectRecord compass =
+            _treasures.GetObject("TREASURE_OBJECT_COMPASS_02");
+        TreasureDatabase.TreasureObjectRecord map =
+            _treasures.GetObject("TREASURE_OBJECT_MAP_02");
+
+        void GiveDungeonSet()
+        {
+            inventory.GiveTreasure(smallKey);
+            inventory.GiveTreasure(bossKey);
+            inventory.GiveTreasure(compass);
+            inventory.GiveTreasure(map);
+        }
+
+        // A malformed/non-dungeon reward must not silently mutate dungeon 0.
+        GiveDungeonSet();
+        for (int dungeon = 0; dungeon < 16; dungeon++)
+        {
+            if (inventory.GetDungeonSmallKeys(dungeon) != 0 ||
+                inventory.HasDungeonBossKey(dungeon) ||
+                inventory.HasDungeonCompass(dungeon) ||
+                inventory.HasDungeonMap(dungeon))
+            {
+                throw new InvalidOperationException(
+                    "A dungeon collectible obtained with wDungeonIndex `$ff mutated dungeon state.");
+            }
+        }
+
+        int[] boundaryDungeons = { 0, 7, 8, 15 };
+        foreach (int dungeon in boundaryDungeons)
+        {
+            currentDungeon = dungeon;
+            GiveDungeonSet();
+        }
+        currentDungeon = 8;
+        inventory.GiveTreasure(smallKey);
+
+        for (int dungeon = 0; dungeon < 16; dungeon++)
+        {
+            bool expected = boundaryDungeons.Contains(dungeon);
+            int expectedKeys = dungeon == 8 ? 2 : expected ? 1 : 0;
+            if (inventory.GetDungeonSmallKeys(dungeon) != expectedKeys ||
+                inventory.HasDungeonBossKey(dungeon) != expected ||
+                inventory.HasDungeonCompass(dungeon) != expected ||
+                inventory.HasDungeonMap(dungeon) != expected)
+            {
+                throw new InvalidOperationException(
+                    $"Dungeon collectible indexing failed for dungeon {dungeon}: " +
+                    $"keys={inventory.GetDungeonSmallKeys(dungeon)}, " +
+                    $"boss={inventory.HasDungeonBossKey(dungeon)}, " +
+                    $"compass={inventory.HasDungeonCompass(dungeon)}, " +
+                    $"map={inventory.HasDungeonMap(dungeon)}.");
+            }
+        }
+
+        if (save.ReadWramByte(0xc672) != 1 ||
+            save.ReadWramByte(0xc679) != 1 ||
+            save.ReadWramByte(0xc67a) != 2 ||
+            save.ReadWramByte(0xc681) != 1 ||
+            save.ReadWramByte(0xc682) != 0x81 ||
+            save.ReadWramByte(0xc683) != 0x81 ||
+            save.ReadWramByte(0xc684) != 0x81 ||
+            save.ReadWramByte(0xc685) != 0x81 ||
+            save.ReadWramByte(0xc686) != 0x81 ||
+            save.ReadWramByte(0xc687) != 0x81)
+        {
+            throw new InvalidOperationException(
+                "Dungeon collectibles did not retain the original 16 key bytes and " +
+                "two-byte boss-key/compass/map bitsets in WRAM.");
+        }
+
+        byte[] encoded = save.Serialize();
+        if (!OracleSaveData.TryDeserialize(encoded, out OracleSaveData? decoded))
+            throw new InvalidOperationException("Dungeon collectible save data did not deserialize.");
+        var restored = new InventoryState(_treasures, decoded);
+        for (int dungeon = 0; dungeon < 16; dungeon++)
+        {
+            bool expected = boundaryDungeons.Contains(dungeon);
+            int expectedKeys = dungeon == 8 ? 2 : expected ? 1 : 0;
+            if (restored.GetDungeonSmallKeys(dungeon) != expectedKeys ||
+                restored.HasDungeonBossKey(dungeon) != expected ||
+                restored.HasDungeonCompass(dungeon) != expected ||
+                restored.HasDungeonMap(dungeon) != expected)
+            {
+                throw new InvalidOperationException(
+                    $"Dungeon {dungeon} collectibles were lost across save serialization.");
+            }
+        }
+
+        GD.Print("Validated treasure behaviour modes `$87/`$86 against live dungeon " +
+            "indices 0, 7, 8, and 15, non-dungeon rejection, both bitset bytes, " +
+            "and save round-trip persistence.");
     }
 
     private void ValidateDeathRespawnCheckpoints()
