@@ -8,23 +8,21 @@ public sealed class DebugFlagMenuController
     private const string InputAction = "debug_flags";
     private readonly DebugFlagScreen _screen;
     private readonly RoomSession _rooms;
-    private readonly Player _player;
-    private readonly Label _roomDebug;
+    private readonly GameplayPauseController _pause;
     private readonly Func<bool> _canOpen;
+    private GameplayPauseController.PauseLease? _pauseLease;
 
     public bool IsActive { get; private set; }
 
     public DebugFlagMenuController(
         DebugFlagScreen screen,
         RoomSession rooms,
-        Player player,
-        Label roomDebug,
+        GameplayPauseController pause,
         Func<bool> canOpen)
     {
         _screen = screen;
         _rooms = rooms;
-        _player = player;
-        _roomDebug = roomDebug;
+        _pause = pause;
         _canOpen = canOpen;
         EnsureInputAction();
     }
@@ -59,9 +57,9 @@ public sealed class DebugFlagMenuController
 
     private void Open()
     {
-        _player.SetPhysicsProcess(false);
-        _player.SetProcess(false);
-        _roomDebug.Visible = false;
+        _pauseLease = _pause.TryAcquire(this);
+        if (_pauseLease is null)
+            return;
         _screen.Open(_rooms.ActiveGroup, _rooms.CurrentRoom.Id);
         IsActive = true;
     }
@@ -70,9 +68,8 @@ public sealed class DebugFlagMenuController
     {
         _screen.Close();
         IsActive = false;
-        _roomDebug.Visible = true;
-        _player.SetPhysicsProcess(true);
-        _player.SetProcess(true);
+        _pauseLease?.Dispose();
+        _pauseLease = null;
     }
 
     private static void EnsureInputAction()

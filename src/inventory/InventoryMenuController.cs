@@ -3,54 +3,50 @@ using System;
 
 namespace oracleofages;
 
-public sealed class InventoryMenuController
+/// <summary>
+/// MENU_INVENTORY and MENU_SAVEQUIT-specific behavior. Their common
+/// wMenuLoadState fade/pause lifecycle is owned by OracleMenuLifecycle.
+/// </summary>
+public sealed class InventoryMenuController : IOracleMenuLifecycleClient
 {
-    private enum Phase
-    {
-        Closed, OpeningFadeOut, OpeningFadeIn, InventoryOpen, SaveOpen,
-        SaveSelectionDelay, ClosingFadeOut, ClosingFadeIn
-    }
+    private enum OpenMenu { Inventory, SaveQuit }
 
-    // fastFadeoutToWhite / fastFadeinFromWhite advance the original $20-step
-    // palette range by $03 per update, stopping on the 11th update.
-    public const float FastFadeFrames = 11.0f;
+    public const float FastFadeFrames = OracleMenuLifecycle.FastFadeUpdates;
     public const int SaveSelectionDelayFrames = 30;
 
     private readonly InventoryScreen _screen;
     private readonly SaveQuitScreen _saveScreen;
-    private readonly ColorRect _fade;
-    private readonly Player _player;
-    private readonly Label _roomDebug;
+    private readonly OracleMenuLifecycle _lifecycle;
     private readonly Func<bool> _canOpen;
     private readonly Func<OracleSaveStore.SaveResult> _save;
     private readonly Action _quitToTitle;
-    private Phase _phase;
-    private float _phaseFrame;
-    private bool _openingSaveMenu;
+    private readonly FixedUpdateAccumulator _saveDelayUpdates = new();
+    private OpenMenu _openMenu;
+    private bool _saveSelectionDelay;
+    private int _saveDelayElapsed;
 
-    public bool IsActive => _phase != Phase.Closed;
-    public bool IsOpen => _phase is Phase.InventoryOpen or Phase.SaveOpen;
-    public bool SaveMenuOpen => _phase is Phase.SaveOpen or Phase.SaveSelectionDelay;
-    internal bool CanOpenForValidation => _phase == Phase.Closed && _canOpen();
+    public bool IsActive => _lifecycle.IsOwnedBy(this);
+    public bool IsOpen => _lifecycle.IsOpenFor(this) && !_saveSelectionDelay;
+    public bool SaveMenuOpen =>
+        _lifecycle.IsOpenFor(this) && _openMenu == OpenMenu.SaveQuit;
+    internal bool CanOpenForValidation => _lifecycle.IsIdle && _canOpen();
     internal int SaveRequests { get; private set; }
     internal int QuitRequests { get; private set; }
     internal string? LastSaveError { get; private set; }
+    string IOracleMenuLifecycleClient.MenuName =>
+        _openMenu == OpenMenu.SaveQuit ? "MENU_SAVEQUIT" : "MENU_INVENTORY";
 
-    public InventoryMenuController(
+    internal InventoryMenuController(
         InventoryScreen screen,
         SaveQuitScreen saveScreen,
-        ColorRect fade,
-        Player player,
-        Label roomDebug,
+        OracleMenuLifecycle lifecycle,
         Func<bool> canOpen,
         Func<OracleSaveStore.SaveResult> save,
         Action quitToTitle)
     {
         _screen = screen;
         _saveScreen = saveScreen;
-        _fade = fade;
-        _player = player;
-        _roomDebug = roomDebug;
+        _lifecycle = lifecycle;
         _canOpen = canOpen;
         _save = save;
         _quitToTitle = quitToTitle;
@@ -58,7 +54,7 @@ public sealed class InventoryMenuController
 
     public void Update(double delta)
     {
-        if (_phase == Phase.Closed)
+        if (!IsActive)
         {
             bool inventoryPressed = Input.IsActionJustPressed("inventory");
             bool mapPressed = Input.IsActionJustPressed("map");
@@ -69,128 +65,25 @@ public sealed class InventoryMenuController
             return;
         }
 
-        if (_phase == Phase.InventoryOpen)
+        if (!_lifecycle.IsOpenFor(this))
         {
-            if (_screen.PageTransitionActive)
-            {
-                _screen.UpdatePageTransition(delta);
-                return;
-            }
-            if (Input.IsActionJustPressed("inventory"))
-            {
-                BeginClosing();
-                return;
-            }
-            if (Input.IsActionJustPressed("map"))
-            {
-                _screen.BeginNextSubscreen();
-                return;
-            }
-            if (Input.IsActionJustPressed("attack"))
-            {
-                if (_screen.SaveAndQuitSelected)
-                    OpenSaveMenuFromInventory();
-                else if (_screen.Subscreen == InventoryScreen.InventorySubscreen.SecondaryItems)
-                    _screen.EquipSelectedRing();
-                else
-                    _screen.EquipToA();
-                return;
-            }
-            if (Input.IsActionJustPressed("item"))
-            {
-                _screen.EquipToB();
-                return;
-            }
-            HandleDirectionInput();
+            _lifecycle.Update(this, delta);
             return;
         }
 
-        if (_phase == Phase.SaveOpen)
+        if (_saveSelectionDelay)
         {
-            if (_saveScreen.SaveErrorVisible)
-            {
-                if (Input.IsActionJustPressed("attack") ||
-                    Input.IsActionJustPressed("item") ||
-                    Input.IsActionJustPressed("inventory"))
-                {
-                    _saveScreen.ClearSaveError();
-                }
-                return;
-            }
-            if (Input.IsActionJustPressed("item"))
-            {
-                BeginClosing();
-                return;
-            }
-            if (Input.IsActionJustPressed("attack") || Input.IsActionJustPressed("inventory"))
-            {
-                SelectSaveOption();
-                return;
-            }
-            if (Input.IsActionJustPressed("move_up"))
-                _saveScreen.Move(-1);
-            else if (Input.IsActionJustPressed("move_down"))
-                _saveScreen.Move(1);
+            UpdateSaveSelectionDelay(delta);
             return;
         }
 
-        if (_phase == Phase.SaveSelectionDelay)
+        if (_openMenu == OpenMenu.Inventory)
         {
-            _phaseFrame += (float)(delta * 60.0);
-            _saveScreen.DelayCounter = Math.Max(0,
-                SaveSelectionDelayFrames - Mathf.FloorToInt(_phaseFrame));
-            if (_phaseFrame < SaveSelectionDelayFrames)
-                return;
-            if (_saveScreen.Cursor == 2)
-            {
-                QuitRequests++;
-                _saveScreen.Close();
-                _phase = Phase.Closed;
-                _quitToTitle();
-            }
-            else
-                BeginClosing();
+            UpdateInventoryInput(delta);
             return;
         }
 
-        _phaseFrame += (float)(delta * 60.0);
-        float progress = Mathf.Clamp(_phaseFrame / FastFadeFrames, 0.0f, 1.0f);
-        switch (_phase)
-        {
-            case Phase.OpeningFadeOut:
-                SetFade(progress);
-                if (progress >= 1.0f)
-                {
-                    if (_openingSaveMenu)
-                        _saveScreen.Open();
-                    else
-                        _screen.Open();
-                    StartPhase(Phase.OpeningFadeIn);
-                }
-                break;
-            case Phase.OpeningFadeIn:
-                SetFade(1.0f - progress);
-                if (progress >= 1.0f)
-                {
-                    SetFade(0.0f);
-                    StartPhase(_openingSaveMenu ? Phase.SaveOpen : Phase.InventoryOpen);
-                }
-                break;
-            case Phase.ClosingFadeOut:
-                SetFade(progress);
-                if (progress >= 1.0f)
-                {
-                    _screen.Close();
-                    _saveScreen.Close();
-                    StartPhase(Phase.ClosingFadeIn);
-                }
-                break;
-            case Phase.ClosingFadeIn:
-                SetFade(1.0f - progress);
-                if (progress >= 1.0f)
-                    FinishClosing();
-                break;
-        }
+        UpdateSaveInput();
     }
 
     internal void BeginOpeningForValidation() => BeginOpening(openSaveMenu: false);
@@ -201,52 +94,131 @@ public sealed class InventoryMenuController
 
     internal void OpenImmediatelyForValidation()
     {
-        FreezeGameplay();
-        _screen.Open();
-        _saveScreen.Close();
-        _openingSaveMenu = false;
-        SetFade(0.0f);
-        _phase = Phase.InventoryOpen;
-        _phaseFrame = 0.0f;
+        _openMenu = OpenMenu.Inventory;
+        ResetSaveDelay();
+        _lifecycle.OpenImmediately(this);
     }
 
     internal void OpenSaveImmediatelyForValidation()
     {
-        FreezeGameplay();
-        _screen.Close();
-        _saveScreen.Open();
-        _openingSaveMenu = true;
-        SetFade(0.0f);
-        _phase = Phase.SaveOpen;
-        _phaseFrame = 0.0f;
+        _openMenu = OpenMenu.SaveQuit;
+        ResetSaveDelay();
+        _lifecycle.OpenImmediately(this);
     }
 
-    internal void CloseImmediatelyForValidation()
+    internal void CloseImmediatelyForValidation() => _lifecycle.CloseImmediately(this);
+
+    private void UpdateInventoryInput(double delta)
     {
-        _screen.Close();
-        _saveScreen.Close();
-        FinishClosing();
+        if (_screen.PageTransitionActive)
+        {
+            _screen.UpdatePageTransition(delta);
+            return;
+        }
+        if (Input.IsActionJustPressed("inventory"))
+        {
+            BeginClosing();
+            return;
+        }
+        if (Input.IsActionJustPressed("map"))
+        {
+            _screen.BeginNextSubscreen();
+            return;
+        }
+        if (Input.IsActionJustPressed("attack"))
+        {
+            if (_screen.SaveAndQuitSelected)
+                OpenSaveMenuFromInventory();
+            else if (_screen.Subscreen == InventoryScreen.InventorySubscreen.SecondaryItems)
+                _screen.EquipSelectedRing();
+            else
+                _screen.EquipToA();
+            return;
+        }
+        if (Input.IsActionJustPressed("item"))
+        {
+            _screen.EquipToB();
+            return;
+        }
+        HandleDirectionInput();
+    }
+
+    private void UpdateSaveInput()
+    {
+        if (_saveScreen.SaveErrorVisible)
+        {
+            if (Input.IsActionJustPressed("attack") ||
+                Input.IsActionJustPressed("item") ||
+                Input.IsActionJustPressed("inventory"))
+            {
+                _saveScreen.ClearSaveError();
+            }
+            return;
+        }
+        if (Input.IsActionJustPressed("item"))
+        {
+            BeginClosing();
+            return;
+        }
+        if (Input.IsActionJustPressed("attack") || Input.IsActionJustPressed("inventory"))
+        {
+            SelectSaveOption();
+            return;
+        }
+        if (Input.IsActionJustPressed("move_up"))
+            _saveScreen.Move(-1);
+        else if (Input.IsActionJustPressed("move_down"))
+            _saveScreen.Move(1);
+    }
+
+    private void UpdateSaveSelectionDelay(double delta)
+    {
+        int updates = _saveDelayUpdates.Consume(delta);
+        for (int update = 0; update < updates; update++)
+        {
+            _saveDelayElapsed++;
+            _saveScreen.DelayCounter = Math.Max(
+                0, SaveSelectionDelayFrames - _saveDelayElapsed);
+            if (_saveDelayElapsed < SaveSelectionDelayFrames)
+                continue;
+
+            _saveSelectionDelay = false;
+            if (_saveScreen.Cursor == 2)
+            {
+                QuitRequests++;
+                _lifecycle.CloseImmediately(this);
+                _quitToTitle();
+            }
+            else
+            {
+                BeginClosing();
+            }
+            return;
+        }
     }
 
     private void BeginOpening(bool openSaveMenu)
     {
-        FreezeGameplay();
-        _openingSaveMenu = openSaveMenu;
-        StartPhase(Phase.OpeningFadeOut);
+        _openMenu = openSaveMenu ? OpenMenu.SaveQuit : OpenMenu.Inventory;
+        ResetSaveDelay();
+        _lifecycle.TryBeginOpening(this);
     }
 
     private void OpenSaveMenuFromInventory()
     {
+        if (!_lifecycle.IsOpenFor(this) || _openMenu != OpenMenu.Inventory)
+            throw new InvalidOperationException(
+                "MENU_INVENTORY attempted to open MENU_SAVEQUIT outside its active state.");
         _screen.Close();
         _saveScreen.Open();
-        _openingSaveMenu = true;
-        SetFade(1.0f);
-        StartPhase(Phase.OpeningFadeIn);
+        _openMenu = OpenMenu.SaveQuit;
+        ResetSaveDelay();
+        _lifecycle.BeginFadeInFromWhite(this);
     }
 
     private void SelectSaveOption()
     {
-        if (_phase != Phase.SaveOpen)
+        if (!_lifecycle.IsOpenFor(this) || _openMenu != OpenMenu.SaveQuit || _saveSelectionDelay)
             return;
         if (_saveScreen.SaveErrorVisible)
         {
@@ -265,8 +237,11 @@ public sealed class InventoryMenuController
             }
             LastSaveError = null;
         }
+
         _saveScreen.DelayCounter = SaveSelectionDelayFrames;
-        StartPhase(Phase.SaveSelectionDelay);
+        _saveSelectionDelay = true;
+        _saveDelayElapsed = 0;
+        _saveDelayUpdates.Reset();
     }
 
     private void HandleDirectionInput()
@@ -281,34 +256,38 @@ public sealed class InventoryMenuController
             _screen.MoveCursor(Vector2I.Down);
     }
 
-    private void BeginClosing() => StartPhase(Phase.ClosingFadeOut);
+    private void BeginClosing() => _lifecycle.BeginClosing(this);
 
-    private void FreezeGameplay()
+    private void ResetSaveDelay()
     {
-        _player.SetPhysicsProcess(false);
-        _player.SetProcess(false);
-        _roomDebug.Visible = false;
+        _saveSelectionDelay = false;
+        _saveDelayElapsed = 0;
+        _saveDelayUpdates.Reset();
     }
 
-    private void FinishClosing()
+    void IOracleMenuLifecycleClient.OpenAtWhite()
     {
-        SetFade(0.0f);
-        _phase = Phase.Closed;
-        _phaseFrame = 0.0f;
-        _openingSaveMenu = false;
-        _roomDebug.Visible = true;
-        _player.SetPhysicsProcess(true);
-        _player.SetProcess(true);
+        if (_openMenu == OpenMenu.SaveQuit)
+        {
+            _screen.Close();
+            _saveScreen.Open();
+        }
+        else
+        {
+            _saveScreen.Close();
+            _screen.Open();
+        }
     }
 
-    private void StartPhase(Phase phase)
+    void IOracleMenuLifecycleClient.CloseAtWhite()
     {
-        _phase = phase;
-        _phaseFrame = 0.0f;
+        _screen.Close();
+        _saveScreen.Close();
     }
 
-    private void SetFade(float alpha)
+    void IOracleMenuLifecycleClient.LifecycleClosed()
     {
-        _fade.Color = new Color(1, 1, 1, Mathf.Clamp(alpha, 0.0f, 1.0f));
+        _openMenu = OpenMenu.Inventory;
+        ResetSaveDelay();
     }
 }

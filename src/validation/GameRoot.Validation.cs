@@ -14,9 +14,22 @@ public partial class GameRoot
         public int Counter { get; set; }
     }
 
+    private sealed class ValidationMenuClient(string name) : IOracleMenuLifecycleClient
+    {
+        public string MenuName { get; } = name;
+        public int OpenAtWhiteCalls { get; private set; }
+        public int CloseAtWhiteCalls { get; private set; }
+        public int ClosedCalls { get; private set; }
+
+        public void OpenAtWhite() => OpenAtWhiteCalls++;
+        public void CloseAtWhite() => CloseAtWhiteCalls++;
+        public void LifecycleClosed() => ClosedCalls++;
+    }
+
     private void ValidateAll()
     {
         ValidateGameplaySceneGraph();
+        ValidateMenuLifecycleFoundation();
         _world.ValidateRepresentativeRooms();
         ValidateOracleObjectMath();
         ValidateOracleRandom();
@@ -123,6 +136,115 @@ public partial class GameRoot
 
         GD.Print("Validated main/gameplay PackedScene ownership, unique typed bindings, " +
             "world-node containment, and fixed camera/UI presentation values.");
+    }
+
+    private void ValidateMenuLifecycleFoundation()
+    {
+        bool processEnabled = _player.IsProcessing();
+        bool physicsEnabled = _player.IsPhysicsProcessing();
+        bool debugVisible = _roomDebug.Visible;
+        var fade = new ColorRect { Color = new Color(1, 1, 1, 0) };
+        var pause = new GameplayPauseController(_player, _roomDebug);
+        var lifecycle = new OracleMenuLifecycle(fade, pause);
+        var inventory = new ValidationMenuClient("MENU_INVENTORY_VALIDATION");
+        var map = new ValidationMenuClient("MENU_MAP_VALIDATION");
+
+        if (!lifecycle.TryBeginOpening(inventory) ||
+            lifecycle.TryBeginOpening(map) ||
+            !pause.IsLeased || !pause.IsOwnedBy(inventory) ||
+            _player.IsProcessing() || _player.IsPhysicsProcessing() || _roomDebug.Visible)
+        {
+            throw new InvalidOperationException(
+                "The shared menu lifecycle did not acquire one exclusive gameplay pause lease.");
+        }
+
+        lifecycle.Update(inventory, 0.5 / 60.0);
+        if (lifecycle.FadeUpdate != 0 || !Mathf.IsZeroApprox(fade.Color.A))
+            throw new InvalidOperationException(
+                "The fixed-update menu fade advanced on a fractional update.");
+        lifecycle.Update(inventory, 0.5 / 60.0);
+        if (lifecycle.FadeUpdate != 1 ||
+            !Mathf.IsEqualApprox(fade.Color.A, 1.0f / OracleMenuLifecycle.FastFadeUpdates))
+        {
+            throw new InvalidOperationException(
+                "The fixed-update menu fade did not consume two half-updates as one update.");
+        }
+
+        for (int update = 1; update < OracleMenuLifecycle.FastFadeUpdates - 1; update++)
+            lifecycle.Update(inventory, 1.0 / 60.0);
+        if (inventory.OpenAtWhiteCalls != 0 || lifecycle.FadeUpdate != 10 ||
+            lifecycle.CurrentPhase != OracleMenuLifecycle.Phase.OpeningFadeOut)
+        {
+            throw new InvalidOperationException(
+                "The common menu lifecycle swapped screens before fast fade update 11.");
+        }
+        lifecycle.Update(inventory, 1.0 / 60.0);
+        if (inventory.OpenAtWhiteCalls != 1 || !Mathf.IsEqualApprox(fade.Color.A, 1.0f) ||
+            lifecycle.CurrentPhase != OracleMenuLifecycle.Phase.OpeningFadeIn)
+        {
+            throw new InvalidOperationException(
+                "The common menu lifecycle did not swap screens at full white on update 11.");
+        }
+        for (int update = 0; update < OracleMenuLifecycle.FastFadeUpdates; update++)
+            lifecycle.Update(inventory, 1.0 / 60.0);
+        if (!lifecycle.IsOpenFor(inventory) || inventory.OpenAtWhiteCalls != 1 ||
+            !Mathf.IsZeroApprox(fade.Color.A) || !pause.IsLeased)
+        {
+            throw new InvalidOperationException(
+                "The common menu lifecycle did not finish its 11-update fade-in while retaining ownership.");
+        }
+
+        lifecycle.BeginClosing(inventory);
+        for (int update = 0; update < OracleMenuLifecycle.FastFadeUpdates; update++)
+            lifecycle.Update(inventory, 1.0 / 60.0);
+        if (inventory.CloseAtWhiteCalls != 1 ||
+            lifecycle.CurrentPhase != OracleMenuLifecycle.Phase.ClosingFadeIn ||
+            !pause.IsLeased)
+        {
+            throw new InvalidOperationException(
+                "The common menu lifecycle did not remove its screen at closing full white.");
+        }
+        for (int update = 0; update < OracleMenuLifecycle.FastFadeUpdates; update++)
+            lifecycle.Update(inventory, 1.0 / 60.0);
+        if (lifecycle.IsActive || pause.IsLeased || inventory.ClosedCalls != 1 ||
+            _player.IsProcessing() != processEnabled ||
+            _player.IsPhysicsProcessing() != physicsEnabled ||
+            _roomDebug.Visible != debugVisible)
+        {
+            throw new InvalidOperationException(
+                "The shared menu lifecycle did not release ownership and restore its captured gameplay state.");
+        }
+
+        if (!lifecycle.TryBeginOpening(map))
+            throw new InvalidOperationException("The shared menu lifecycle could not be reopened.");
+        lifecycle.Update(map, (OracleMenuLifecycle.FastFadeUpdates * 2.0 + 1.0) / 60.0);
+        if (!lifecycle.IsOpenFor(map) || map.OpenAtWhiteCalls != 1 ||
+            !Mathf.IsZeroApprox(fade.Color.A))
+        {
+            throw new InvalidOperationException(
+                "A long rendered frame did not execute both fixed 11-update menu fades exactly once.");
+        }
+        lifecycle.CloseImmediately(map);
+
+        _player.SetProcess(false);
+        _player.SetPhysicsProcess(true);
+        _roomDebug.Visible = false;
+        GameplayPauseController.PauseLease preservedLease = pause.TryAcquire(map) ??
+            throw new InvalidOperationException("A released gameplay pause lease could not be reacquired.");
+        preservedLease.Dispose();
+        if (_player.IsProcessing() || !_player.IsPhysicsProcessing() || _roomDebug.Visible)
+        {
+            throw new InvalidOperationException(
+                "A gameplay pause lease blindly enabled state instead of restoring its captured values.");
+        }
+        _player.SetProcess(processEnabled);
+        _player.SetPhysicsProcess(physicsEnabled);
+        _roomDebug.Visible = debugVisible;
+        fade.Free();
+
+        GD.Print("Validated one shared Oracle menu load state, exclusive pause ownership, " +
+            "fractional fixed-update accumulation, exact 11-update white swap boundaries, " +
+            "and captured-state restoration.");
     }
 
     private static void ValidateOracleObjectMath()
@@ -834,9 +956,7 @@ public partial class GameRoot
         var failedMenu = new InventoryMenuController(
             _inventoryScreen,
             _saveQuitScreen,
-            _scene.MenuFade,
-            _player,
-            _roomDebug,
+            _menuLifecycle,
             () => true,
             () => OracleSaveStore.SaveResult.Failed("validation failure"),
             () => quitAfterFailure = true);
@@ -1723,6 +1843,7 @@ public partial class GameRoot
 
         _debugFlagMenu.OpenImmediatelyForValidation();
         if (!_debugFlagMenu.IsActive || !_debugFlagScreen.Visible ||
+            !_gameplayPause.IsOwnedBy(_debugFlagMenu) ||
             _player.IsPhysicsProcessing() || _player.IsProcessing())
         {
             throw new InvalidOperationException(
@@ -2407,7 +2528,8 @@ public partial class GameRoot
         if (_mapScreen.Mode != MapScreen.MapMode.Present || _mapScreen.CursorRoom != 0x11)
             throw new InvalidOperationException(
                 $"Present map should open at room 11, got {_mapScreen.Mode} / {_mapScreen.CursorRoom:x2}.");
-        if (_player.IsPhysicsProcessing() || _player.IsProcessing())
+        if (!_gameplayPause.IsOwnedBy(_mapMenu) ||
+            _player.IsPhysicsProcessing() || _player.IsProcessing())
             throw new InvalidOperationException("Link continued updating while the map menu was open.");
 
         _mapScreen.MoveOverworldCursor(Vector2I.Left);
@@ -2837,6 +2959,12 @@ public partial class GameRoot
             throw new InvalidOperationException("The inventory menu must use the 11-update fast palette fade.");
 
         _inventoryMenu.BeginOpeningForValidation();
+        if (!_gameplayPause.IsOwnedBy(_inventoryMenu) ||
+            _mapMenu.CanOpenNormalForValidation)
+        {
+            throw new InvalidOperationException(
+                "Inventory opening did not exclusively own the shared menu pause/load state.");
+        }
         for (int frame = 0; frame < InventoryMenuController.FastFadeFrames - 1; frame++)
         {
             _inventoryMenu.Update(1.0 / 60.0);

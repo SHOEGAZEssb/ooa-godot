@@ -26,6 +26,8 @@ public partial class GameRoot : Node2D
     private MapMenuController _mapMenu = null!;
     private InventoryMenuController _inventoryMenu = null!;
     private DebugFlagMenuController _debugFlagMenu = null!;
+    private GameplayPauseController _gameplayPause = null!;
+    private OracleMenuLifecycle _menuLifecycle = null!;
     private MainMenuController? _mainMenu;
     private MainMenuScreen? _mainMenuScreen;
     private NewGameIntroController? _newGameIntro;
@@ -407,18 +409,20 @@ public partial class GameRoot : Node2D
         _debugWarps = new DebugWarpController(
             _rooms, _player, LoadDebugRoom, FindSpawn, () => (long)_animationTicks,
             _interactions.ResetChestForTesting);
+        _gameplayPause = new GameplayPauseController(_player, _roomDebug);
+        _menuLifecycle = new OracleMenuLifecycle(_scene.MenuFade, _gameplayPause);
         _mapMenu = new MapMenuController(
-            _mapScreen, _scene.MenuFade, _dialogue, _player, _roomDebug,
+            _mapScreen, _dialogue, _menuLifecycle,
             () => !IsTransitioning && !DialogueOpen && !InventoryMenuOpen && !_roomEvents.Active,
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone),
             FastTravelFromMap);
         _inventoryMenu = new InventoryMenuController(
-            _inventoryScreen, _saveQuitScreen, _scene.MenuFade, _player, _roomDebug,
+            _inventoryScreen, _saveQuitScreen, _menuLifecycle,
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone) &&
                 !IsTransitioning && !DialogueOpen && !MapMenuOpen && !_roomEvents.Active,
             SaveActiveFile, ReturnToTitle);
         _debugFlagMenu = new DebugFlagMenuController(
-            _debugFlagScreen, _rooms, _player, _roomDebug,
+            _debugFlagScreen, _rooms, _gameplayPause,
             () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
                 !InventoryMenuOpen && !_roomEvents.Active);
     }
