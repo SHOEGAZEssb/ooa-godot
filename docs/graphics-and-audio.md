@@ -55,6 +55,12 @@ chooses a variation with the global game RNG (for example sword sounds), consume
 `OracleRandom`; never use a separate nondeterministic RNG because it changes
 later enemies and drops.
 
+Accepted enemy contact requests `SND_DAMAGE_LINK` (`$5f`) once; invincibility
+rejects both the damage and a repeated request. Drowning requests that same
+sound when the drowning animation and splash begin, not when respawn damage is
+applied. Hole pull-in stays silent until Link enters the fall animation, which
+requests `SND_LINK_FALL` (`$65`) once; respawning does not replay it.
+
 `DialogueBox` requests `SND_TEXT` for revealed non-space glyphs with the
 original four-update cooldown, applies inline `\sfx()`/`\charsfx()` commands,
 and requests `SND_TEXT_2`, `SND_MENU_MOVE`, and `SND_SELECTITEM` at continuation,

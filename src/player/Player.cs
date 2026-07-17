@@ -338,6 +338,10 @@ public partial class Player : Node2D
         if (!ApplyDamage(quarters))
             return false;
 
+        // LINKDMG_04 selects SND_DAMAGE_LINK ($5f) when the collision is
+        // accepted. Rejected contacts during Link's invincibility do not
+        // enqueue another request.
+        _world.PlaySound(OracleSoundEngine.SndDamageLink);
         _enemyInvincibilityFrames = EnemyInvincibilityFrames;
         _enemyKnockbackFrames = EnemyKnockbackFrames;
         _enemyKnockbackDirection = Position - sourcePosition;
@@ -893,6 +897,10 @@ public partial class Player : Node2D
         _walking = false;
         CancelSwordAttack();
 
+        // LINK_STATE_RESPAWNING parameter $00 starts SND_LINK_FALL ($65) on
+        // the same update that it selects LINK_ANIM_MODE_FALLINHOLE.
+        _world.PlaySound(OracleSoundEngine.SndLinkFall);
+
         // The active hazard tile is selected by the same +5px sample used by
         // objectGetRelativeTile($0500). Carry its center through explicitly so
         // rounded-vs-precise coordinates cannot recenter Link on a neighboring
@@ -928,6 +936,10 @@ public partial class Player : Node2D
         _walking = false;
         CancelSwordAttack();
         Visible = true;
+
+        // overworldSwimmingState1 requests SND_DAMAGE_LINK ($5f) before it
+        // selects LINK_ANIM_MODE_DROWN and creates the splash interaction.
+        _world.PlaySound(OracleSoundEngine.SndDamageLink);
         _world.SpawnDrowningSplash(Position, hazard);
         QueueRedraw();
     }

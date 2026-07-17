@@ -884,6 +884,10 @@ public sealed class ValidationGameRoot : GameRoot
         OracleSoundData.ChannelStart[] getItem = data.ChannelsFor(0x4c).ToArray();
         OracleSoundData.ChannelStart[] makuDisappear = data.ChannelsFor(
             OracleSoundEngine.SndMakuDisappear).ToArray();
+        OracleSoundData.ChannelStart[] damageLink = data.ChannelsFor(
+            OracleSoundEngine.SndDamageLink).ToArray();
+        OracleSoundData.ChannelStart[] linkFall = data.ChannelsFor(
+            OracleSoundEngine.SndLinkFall).ToArray();
         if (title.Length != 4 ||
             !title.Select(channel => channel.Channel).SequenceEqual(new[] { 0, 1, 4, 6 }) ||
             title.Any(channel => channel.Priority != 1 || channel.Bank != 0x3a) ||
@@ -893,6 +897,10 @@ public sealed class ValidationGameRoot : GameRoot
             makuDisappear.Length != 2 ||
             !makuDisappear.Select(channel => channel.Channel).SequenceEqual(new[] { 2, 7 }) ||
             makuDisappear.Any(channel => channel.Priority != 1 || channel.Bank != 0x39) ||
+            damageLink.Length != 1 || damageLink[0].Channel != 5 ||
+            damageLink[0].Priority != 1 || damageLink[0].Bank != 0x3d ||
+            linkFall.Length != 1 || linkFall[0].Channel != 5 ||
+            linkFall[0].Priority != 1 || linkFall[0].Bank != 0x3a ||
             data.FrequencyRegister(0x0c) != 0x002d ||
             data.FrequencyRegister(0x26) != 0x0642 ||
             data.FrequencyRegisterByIndex(0x16) != 0x05ce ||
@@ -954,6 +962,33 @@ public sealed class ValidationGameRoot : GameRoot
         {
             throw new InvalidOperationException(
                 "MUS_TITLESCREEN channel 0 rest did not install its period-1 square release.");
+        }
+
+        sound.PlaySound(OracleSoundEngine.SndDamageLink);
+        sound.Tick();
+        OracleSoundEngine.ChannelState linkVoice = sound.Channel(5);
+        if (!linkVoice.Active || !linkVoice.Gate || linkVoice.Priority != 1 ||
+            linkVoice.DutyOrWaveform != 0x2d || linkVoice.PitchShift != -3 ||
+            linkVoice.CurrentFrequencyRegister != 0x050f || linkVoice.WaitFrames != 0)
+        {
+            throw new InvalidOperationException(
+                "SND_DAMAGE_LINK did not start its shifted F2 wave-channel cry: " +
+                $"active={linkVoice.Active}, gate={linkVoice.Gate}, priority={linkVoice.Priority}, " +
+                $"waveform=${linkVoice.DutyOrWaveform:x2}, shift={linkVoice.PitchShift}, " +
+                $"frequency=${linkVoice.CurrentFrequencyRegister:x4}, wait={linkVoice.WaitFrames}.");
+        }
+
+        sound.PlaySound(OracleSoundEngine.SndLinkFall);
+        sound.Tick();
+        if (!linkVoice.Active || !linkVoice.Gate || linkVoice.Priority != 1 ||
+            linkVoice.DutyOrWaveform != 0x03 || linkVoice.PitchShift != 0 ||
+            linkVoice.CurrentFrequencyRegister != 0x07c1 || linkVoice.WaitFrames != 1)
+        {
+            throw new InvalidOperationException(
+                "SND_LINK_FALL did not start its two-update C6 wave-channel descent: " +
+                $"active={linkVoice.Active}, gate={linkVoice.Gate}, priority={linkVoice.Priority}, " +
+                $"waveform=${linkVoice.DutyOrWaveform:x2}, shift={linkVoice.PitchShift}, " +
+                $"frequency=${linkVoice.CurrentFrequencyRegister:x4}, wait={linkVoice.WaitFrames}.");
         }
 
         sound.PlaySound(OracleSoundEngine.SndMenuMove);
@@ -1048,7 +1083,7 @@ public sealed class ValidationGameRoot : GameRoot
         sound.Free();
         GD.Print("Validated all 223 original sound pointers, room music assignments, " +
             "frequency/wave/noise clocks, envelope/vibrato tables, CGB filtering, " +
-            "title square releases, raw square/noise SFX including SND_MAKUDISAPPEAR, " +
+            "title square releases, Link damage/fall wave SFX, raw square/noise SFX including SND_MAKUDISAPPEAR, " +
             "channel priority, stop controls, and output teardown.");
     }
 
@@ -4499,15 +4534,23 @@ public sealed class ValidationGameRoot : GameRoot
         _player.RefillHealth();
         _player.WarpTo(normalKeese.Position, recordSafe: false);
         int healthBeforeContact = _player.HealthQuarters;
+        int damageSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink);
         _entities.Update(0.0, _player);
         if (_player.HealthQuarters != healthBeforeContact - 2 ||
             !Mathf.IsEqualApprox(_player.InvincibilityFrames, 0x22) ||
-            !Mathf.IsEqualApprox(_player.KnockbackFrames, 0x0f))
+            !Mathf.IsEqualApprox(_player.KnockbackFrames, 0x0f) ||
+            _sound.LastPlayRequest != OracleSoundEngine.SndDamageLink ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1)
             throw new InvalidOperationException(
-                "Keese contact did not apply half-heart damage, 34 invincibility updates, and 15 knockback updates.");
+                "Keese contact did not apply half-heart damage, 34 invincibility updates, " +
+                "15 knockback updates, and SND_DAMAGE_LINK $5f.");
         _entities.Update(0.0, _player);
-        if (_player.HealthQuarters != healthBeforeContact - 2)
-            throw new InvalidOperationException("Keese contact bypassed Link's invincibility counter.");
+        if (_player.HealthQuarters != healthBeforeContact - 2 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1)
+        {
+            throw new InvalidOperationException(
+                "Keese contact bypassed Link's invincibility counter or replayed SND_DAMAGE_LINK $5f.");
+        }
 
         _player.WarpTo(normalKeese.Position + Vector2.Down * 16.0f);
         Vector2 expectedPuffPosition = normalKeese.Position +
@@ -5379,6 +5422,7 @@ public sealed class ValidationGameRoot : GameRoot
         _player.WarpTo(holeSafe);
         Vector2 offCenterHoleEntry = holeCenter + new Vector2(3, -2);
         int beforeHoleHealth = _player.HealthQuarters;
+        int fallSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall);
         _player.WarpTo(offCenterHoleEntry, recordSafe: false);
         Vector2 expectedHoleCenter = GetActiveTerrain(_player.Position).TileCenter;
         _player._PhysicsProcess(1.0 / 60.0);
@@ -5387,13 +5431,23 @@ public sealed class ValidationGameRoot : GameRoot
                 $"Room {holeGroup:x1}:{holeRoom:x2} hole terrain did not start Link's pull-in state.");
         if (_player.HealthQuarters != beforeHoleHealth)
             throw new InvalidOperationException("Hole damage was applied before the pull/fall animation finished.");
+        if (_sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall) != fallSoundRequests)
+            throw new InvalidOperationException("Hole pull-in played SND_LINK_FALL $65 before the fall began.");
 
         AdvanceHolePullUntilFall(expectedHoleCenter);
+        if (_sound.LastPlayRequest != OracleSoundEngine.SndLinkFall ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall) != fallSoundRequests + 1)
+        {
+            throw new InvalidOperationException(
+                "The fall-in-hole animation did not start exactly one SND_LINK_FALL $65 request.");
+        }
         AdvanceHoleFallUntilRespawn(holeSafe);
         if (!_player.Visible || _player.Position.DistanceSquaredTo(holeSafe) > 1.0f)
             throw new InvalidOperationException("Hole terrain did not return Link to the last safe tile.");
         if (_player.HealthQuarters != beforeHoleHealth - 2)
             throw new InvalidOperationException("Hole terrain did not apply half-heart damage after respawn.");
+        if (_sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall) != fallSoundRequests + 1)
+            throw new InvalidOperationException("Hole respawn replayed SND_LINK_FALL $65.");
 
         ValidateRoom01HoleBoundaryCase();
 
@@ -5423,6 +5477,7 @@ public sealed class ValidationGameRoot : GameRoot
         Vector2 hazardPosition = _player.Position;
         int healthBeforeDrowning = _player.HealthQuarters;
         int worldChildCount = _scene.WorldRoot.GetChildCount();
+        int damageSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink);
 
         _player._PhysicsProcess(1.0 / 60.0);
         SplashEffect? splash = _terrain.ActiveSplash;
@@ -5460,6 +5515,12 @@ public sealed class ValidationGameRoot : GameRoot
         if (!_player.IsDrowning || !_player.Visible || _player.DrownAnimationFrame != 0)
             throw new InvalidOperationException(
                 $"{terrainName} terrain did not begin visible LINK_ANIM_MODE_DROWN frame $d4.");
+        if (_sound.LastPlayRequest != OracleSoundEngine.SndDamageLink ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1)
+        {
+            throw new InvalidOperationException(
+                $"{terrainName} drowning did not start exactly one SND_DAMAGE_LINK $5f request.");
+        }
         if (_player.HealthQuarters != healthBeforeDrowning)
             throw new InvalidOperationException(
                 $"{terrainName} damage was applied before the drowning animation finished.");
@@ -5499,6 +5560,8 @@ public sealed class ValidationGameRoot : GameRoot
         if (_player.HealthQuarters != healthBeforeDrowning - 2)
             throw new InvalidOperationException(
                 $"{terrainName} did not apply one half-heart after Link reappeared.");
+        if (_sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1)
+            throw new InvalidOperationException($"{terrainName} respawn replayed SND_DAMAGE_LINK $5f.");
     }
 
     private void ValidateRoom56TileEdgeSlide()
