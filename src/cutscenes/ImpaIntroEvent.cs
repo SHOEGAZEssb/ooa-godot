@@ -8,7 +8,7 @@ namespace oracleofages;
 /// Owns the possessed-Impa encounter, its preceding room-edge prompt, and the
 /// following-Link behavior that persists across scrolling room transitions.
 /// </summary>
-internal sealed class ImpaIntroEvent : IRoomEvent
+internal sealed class ImpaIntroEvent : IRoomEvent, ICutsceneCommandHost
 {
     private enum Stage
     {
@@ -18,14 +18,7 @@ internal sealed class ImpaIntroEvent : IRoomEvent
         LinkHorizontal,
         LinkCenterWait,
         LinkApproach,
-        SignalPending,
-        ImpaDelay,
-        Text,
-        PostText,
-        SetSpeed,
-        StartMovement,
-        Moving,
-        MovementFinished,
+        WaitingForScript,
         Following
     }
 
@@ -33,8 +26,7 @@ internal sealed class ImpaIntroEvent : IRoomEvent
     {
         None,
         WaitingAtEdge,
-        Text,
-        PostText,
+        Script,
         SimulatedInput
     }
 
@@ -62,32 +54,10 @@ internal sealed class ImpaIntroEvent : IRoomEvent
         LinkSecondAxis,
         LinkTargetWait,
         LinkFaceWait,
-        RequestLead,
-        RequestText,
-        RequestPost,
-        FirstBackAway,
-        BetweenFirstBackAway,
-        HesitationText,
-        HesitationPost,
-        SecondBackAway,
-        BetweenSecondBackAway,
-        FailureText,
-        FailurePost,
+        PrePushScript,
         WaitingForPush,
         PushStarted,
-        ReactionLead,
-        LeftCorrection,
-        RightBranchWait,
-        CommonWait,
-        ResponseRight,
-        ResponseWait1,
-        ResponseUp,
-        ResponseWait2,
-        PoseWait,
-        ThanksText,
-        ThanksPost,
-        FinalMove,
-        FinishFollowing
+        PostPushScript
     }
 
     private enum FakeOctorokStage
@@ -116,6 +86,10 @@ internal sealed class ImpaIntroEvent : IRoomEvent
     private readonly ImpaIntroEventDatabase.ImpaIntroEventRecord _record;
     private readonly ImpaIntroEventDatabase.ImpaHelpEventRecord _helpRecord;
     private readonly ImpaIntroEventDatabase.ImpaStoneEventRecord _stoneRecord;
+    private readonly CutsceneCommandRunner _encounterRunner;
+    private readonly CutsceneCommandRunner _helpRunner;
+    private readonly CutsceneCommandRunner _stonePrePushRunner;
+    private readonly CutsceneCommandRunner _stonePostPushRunner;
     private readonly List<FakeOctorokState> _fakeOctoroks = new();
     private readonly LinkPathEntry[] _linkPath = new LinkPathEntry[16];
     private OracleRoomData? _followRoom;
@@ -130,6 +104,8 @@ internal sealed class ImpaIntroEvent : IRoomEvent
     private int _stoneMoveCounter;
     private int _jumpZFixed;
     private int _jumpSpeedZ;
+    private int _encounterSignal;
+    private int _stoneSignal;
     private bool _resetFollowerAfterScroll;
     private bool _linkMovesXFirst;
     private bool _pushedRight;
@@ -142,22 +118,34 @@ internal sealed class ImpaIntroEvent : IRoomEvent
         _record = _database.Record;
         _helpRecord = _database.HelpRecord;
         _stoneRecord = _database.StoneRecord;
+        _encounterRunner = new CutsceneCommandRunner(this);
+        _helpRunner = new CutsceneCommandRunner(this);
+        _stonePrePushRunner = new CutsceneCommandRunner(this);
+        _stonePostPushRunner = new CutsceneCommandRunner(this);
         _context.Transitions.ScrollingTransitionFinished += OnScrollingTransitionFinished;
     }
 
-    public bool HasState => _stage != Stage.None || _helpStage != HelpStage.None ||
-        StoneNeedsUpdates;
+    public bool HasState => _stage != Stage.None || _encounterRunner.Active ||
+        _helpStage != HelpStage.None || _helpRunner.Active ||
+        _stonePrePushRunner.Active || _stonePostPushRunner.Active || StoneNeedsUpdates;
     public bool BlocksGameplay =>
-        _stage is not (Stage.None or Stage.Following) ||
-        _helpStage is HelpStage.Text or HelpStage.PostText or HelpStage.SimulatedInput ||
-        StoneBlocksGameplay;
+        _encounterRunner.Active || _stage is not (Stage.None or Stage.Following) ||
+        _helpStage is HelpStage.Script or HelpStage.SimulatedInput ||
+        _stonePrePushRunner.Active || _stonePostPushRunner.Active || StoneBlocksGameplay;
     internal bool Following => _stage == Stage.Following;
     internal bool HelpWaitingAtEdge => _helpStage == HelpStage.WaitingAtEdge;
     internal bool UpdatesDuringTransition =>
         Following && _context.Transitions.ScrollActive && _resetFollowerAfterScroll;
     internal bool CanTransferFollowing =>
         Following && _context.Transitions.ScrollActive && _followRoom is not null && Actor is not null;
-    internal int Counter => _counter;
+    internal int Counter => _stage == Stage.WaitingForScript
+        ? _encounterRunner.Counter
+        : _helpRunner.Active ? _helpRunner.Counter
+        : _stonePrePushRunner.Active ? _stonePrePushRunner.Counter
+        : _stonePostPushRunner.Active ? _stonePostPushRunner.Counter
+        : _counter;
+    internal int EncounterCommandIndex =>
+        _encounterRunner.CurrentCommand?.Source.CommandIndex ?? -1;
     internal int StonePushCounter => _stonePushCounter;
     internal int StoneMoveCounter => _stoneMoveCounter;
     internal bool WaitingNpcInitialized =>
@@ -188,6 +176,7 @@ internal sealed class ImpaIntroEvent : IRoomEvent
 
     public void StartHelp()
     {
+        _helpRunner.Clear();
         if (_context.Rooms.SaveData.HasRoomFlag(
             _helpRecord.Group,
             _helpRecord.Room,
@@ -201,6 +190,8 @@ internal sealed class ImpaIntroEvent : IRoomEvent
 
     public void StartEncounter(OracleRoomData room)
     {
+        _encounterRunner.Clear();
+        _encounterSignal = 0;
         Actor = _context.RequireNpc(
             _record.Group,
             _record.Room,
@@ -235,10 +226,14 @@ internal sealed class ImpaIntroEvent : IRoomEvent
         _stage = Stage.LinkInitialize;
         _counter = 0;
         _context.Player.BeginCutsceneControl();
+        _encounterRunner.Start(_database.EncounterCommands);
     }
 
     public void StartStoneRoom()
     {
+        _stonePrePushRunner.Clear();
+        _stonePostPushRunner.Clear();
+        _stoneSignal = 0;
         ImpaIntroEventDatabase.ImpaStoneActorRecord stone = _stoneRecord.Actor;
         byte roomFlags = _context.Rooms.SaveData.GetRoomFlags(stone.Group, stone.Room);
         bool moved = (roomFlags & (stone.LeftRoomFlag | stone.RightRoomFlag)) != 0;
@@ -273,6 +268,9 @@ internal sealed class ImpaIntroEvent : IRoomEvent
 
     public void LeaveStoneRoom()
     {
+        _stonePrePushRunner.Clear();
+        _stonePostPushRunner.Clear();
+        _stoneSignal = 0;
         StoneActor = null;
         _stoneStage = StoneStage.None;
         _stonePushCounter = 0;
@@ -282,7 +280,7 @@ internal sealed class ImpaIntroEvent : IRoomEvent
 
     public void UpdateFrame()
     {
-        if (_stage != Stage.None)
+        if (_stage != Stage.None || _encounterRunner.Active)
             UpdateEncounterFrame();
         else
             UpdateHelpFrame(Input.IsActionPressed("move_up"));
@@ -349,6 +347,9 @@ internal sealed class ImpaIntroEvent : IRoomEvent
     {
         if (_stage == Stage.Following)
             _stage = Stage.None;
+        _stonePrePushRunner.Clear();
+        _stonePostPushRunner.Clear();
+        _stoneSignal = 0;
         _stoneStage = StoneStage.None;
     }
 
@@ -361,6 +362,12 @@ internal sealed class ImpaIntroEvent : IRoomEvent
         StoneActor = null;
         _followRoom = null;
         _resetFollowerAfterScroll = false;
+        _encounterRunner.Clear();
+        _helpRunner.Clear();
+        _stonePrePushRunner.Clear();
+        _stonePostPushRunner.Clear();
+        _encounterSignal = 0;
+        _stoneSignal = 0;
         _stage = Stage.None;
         _helpStage = HelpStage.None;
         _stoneStage = StoneStage.None;
@@ -373,6 +380,9 @@ internal sealed class ImpaIntroEvent : IRoomEvent
     private void UpdateEncounterFrame()
     {
         EnsureImpaMusicOverride();
+        // INTERAC_IMPA_IN_CUTSCENE runs before its parsed fake Octoroks and
+        // linkCutscene1. Keep that object ordering authoritative here.
+        _encounterRunner.AdvanceFrame();
         UpdateFakeOctoroks();
         switch (_stage)
         {
@@ -411,62 +421,15 @@ internal sealed class ImpaIntroEvent : IRoomEvent
                 _counter--;
                 if (_counter == 0)
                 {
-                    // linkCutscene1 writes cfd0=$01 and plays SND_CLINK on
-                    // the update after its final SPEED_100 movement.
+                    // linkCutscene1 writes cfd0=$01 after Impa and the fake
+                    // Octoroks have already updated. They observe it on the
+                    // following original-engine update.
+                    _encounterSignal = 0x01;
                     _context.Sound.PlaySound(OracleSoundEngine.SndClink);
-                    _stage = Stage.SignalPending;
+                    _stage = Stage.WaitingForScript;
                 }
                 break;
-            case Stage.SignalPending:
-                // Impa and the fake Octoroks update before linkCutscene1 in
-                // the original object order, so they observe cfd0=$01 on the
-                // update after Link writes it.
-                SignalFakeOctoroks();
-                BeginWait(Stage.ImpaDelay, _record.ImpaWaitFrames);
-                break;
-            case Stage.ImpaDelay:
-                if (CountDown())
-                {
-                    _stage = Stage.Text;
-                    _context.ShowDialogue(_record.Text);
-                }
-                break;
-            case Stage.Text:
-                if (!_context.DialogueOpen)
-                    BeginWait(Stage.PostText, _record.PostTextFrames);
-                break;
-            case Stage.PostText:
-                if (CountDown())
-                    _stage = Stage.SetSpeed;
-                break;
-            case Stage.SetSpeed:
-                // setspeed and movedown each stop this interaction-script
-                // update; counter2 movement begins on the following update.
-                EnsureObjectSpeed(_record.ImpaSpeed, 0x14, "Impa's room 0:6a movement");
-                _stage = Stage.StartMovement;
-                break;
-            case Stage.StartMovement:
-                Actor!.SetFacingDirection(Vector2I.Down);
-                _precisePosition = Actor.Position;
-                _counter = _record.ImpaMoveFrames;
-                _stage = Stage.Moving;
-                break;
-            case Stage.Moving:
-                _counter--;
-                if (_counter > 0)
-                {
-                    // SPEED_080 is 0.5px/update, but only the high coordinate
-                    // byte is rendered by the GBC object compositor.
-                    _precisePosition += Vector2.Down * 0.5f;
-                    Actor!.Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-                }
-                else
-                {
-                    _stage = Stage.MovementFinished;
-                }
-                break;
-            case Stage.MovementFinished:
-                FinishEncounter();
+            case Stage.WaitingForScript:
                 break;
             case Stage.Following:
                 bool directionalInput =
@@ -490,7 +453,7 @@ internal sealed class ImpaIntroEvent : IRoomEvent
         ImpaIntroEventDatabase.ImpaStoneActorRecord stone = _stoneRecord.Actor;
         ImpaIntroEventDatabase.ImpaStoneTimingRecord timing = _stoneRecord.Timing;
 
-        if (_stoneStage is >= StoneStage.PushStarted and <= StoneStage.ResponseWait2)
+        if (_stoneStage == StoneStage.PushStarted || _stonePostPushRunner.Active)
             _context.Player.SetCutscenePushing(true);
 
         // INTERAC_TRIFORCE_STONE calls objectPreventLinkFromPassing at the
@@ -510,8 +473,30 @@ internal sealed class ImpaIntroEvent : IRoomEvent
             return;
         }
 
+        bool prePushScriptWasActive = _stonePrePushRunner.Active;
+        if (prePushScriptWasActive)
+        {
+            _stonePrePushRunner.AdvanceFrame();
+            // A completed script returns carry to native substate $0a, which
+            // installs rungenericnpc but does not execute substate $0b until
+            // the next interaction update.
+            if (!_stonePrePushRunner.Active)
+                return;
+        }
+
         if (_stoneMoveCounter > 0 && _stoneStage != StoneStage.PushStarted)
             AdvanceStoneMovement();
+
+        bool postPushScriptWasActive = _stonePostPushRunner.Active;
+        if (postPushScriptWasActive)
+        {
+            _stonePostPushRunner.AdvanceFrame();
+            // scriptend returns carry to native substate $0c, which restores
+            // Link and following immediately without dispatching another
+            // stone-event stage in this update.
+            if (!_stonePostPushRunner.Active)
+                return;
+        }
 
         switch (_stoneStage)
         {
@@ -592,7 +577,15 @@ internal sealed class ImpaIntroEvent : IRoomEvent
                 break;
             case StoneStage.SignTextPost:
                 if (CountDown())
+                {
+                    // Native substate $09 writes cfd0=$02 and installs the
+                    // script. linkCutscene2 observes the signal later in this
+                    // same original-engine update; the script runs next time.
+                    _stoneSignal = 0x02;
+                    _precisePosition = Actor!.Position;
+                    _stonePrePushRunner.Start(_database.StonePrePushCommands);
                     _stoneStage = StoneStage.LinkSelect;
+                }
                 break;
             case StoneStage.LinkSelect:
                 _linkMovesXFirst = _context.Player.Position.Y > stone.TargetY;
@@ -631,86 +624,13 @@ internal sealed class ImpaIntroEvent : IRoomEvent
             case StoneStage.LinkFaceWait:
                 if (CountDown())
                 {
-                    Actor!.SetScriptAnimation(_record.DownAnimation);
-                    _counter = timing.RequestLeadFrames;
-                    _stoneStage = StoneStage.RequestLead;
+                    // linkCutscene2 writes cfd0=$03 after Impa's interaction
+                    // has already run, so her memory gate opens next update.
+                    _stoneSignal = 0x03;
+                    _stoneStage = StoneStage.PrePushScript;
                 }
                 break;
-            case StoneStage.RequestLead:
-                if (CountDown())
-                {
-                    _context.ShowDialogue(_stoneRecord.Texts.Request.Message);
-                    _stoneStage = StoneStage.RequestText;
-                }
-                break;
-            case StoneStage.RequestText:
-                if (!_context.DialogueOpen)
-                {
-                    _counter = timing.RequestPostFrames;
-                    _stoneStage = StoneStage.RequestPost;
-                }
-                break;
-            case StoneStage.RequestPost:
-                if (CountDown())
-                {
-                    Actor!.SetScriptAnimation(_record.RightAnimation);
-                    _precisePosition = Actor.Position;
-                    _counter = timing.FirstBackAwayFrames;
-                    _stoneStage = StoneStage.FirstBackAway;
-                }
-                break;
-            case StoneStage.FirstBackAway:
-                if (AdvanceImpaScriptMovement(Vector2.Left, timing.BackAwaySpeed))
-                {
-                    _counter = timing.BetweenFirstBackAwayFrames;
-                    _stoneStage = StoneStage.BetweenFirstBackAway;
-                }
-                break;
-            case StoneStage.BetweenFirstBackAway:
-                if (CountDown())
-                {
-                    _context.ShowDialogue(_stoneRecord.Texts.Hesitation.Message);
-                    _stoneStage = StoneStage.HesitationText;
-                }
-                break;
-            case StoneStage.HesitationText:
-                if (!_context.DialogueOpen)
-                {
-                    _counter = timing.HesitationPostFrames;
-                    _stoneStage = StoneStage.HesitationPost;
-                }
-                break;
-            case StoneStage.HesitationPost:
-                if (CountDown())
-                {
-                    _counter = timing.SecondBackAwayFrames;
-                    _stoneStage = StoneStage.SecondBackAway;
-                }
-                break;
-            case StoneStage.SecondBackAway:
-                if (AdvanceImpaScriptMovement(Vector2.Left, timing.BackAwaySpeed))
-                {
-                    _counter = timing.BetweenSecondBackAwayFrames;
-                    _stoneStage = StoneStage.BetweenSecondBackAway;
-                }
-                break;
-            case StoneStage.BetweenSecondBackAway:
-                if (CountDown())
-                {
-                    _context.ShowDialogue(_stoneRecord.Texts.Failure.Message);
-                    _stoneStage = StoneStage.FailureText;
-                }
-                break;
-            case StoneStage.FailureText:
-                if (!_context.DialogueOpen)
-                {
-                    _counter = timing.FailurePostFrames;
-                    _stoneStage = StoneStage.FailurePost;
-                }
-                break;
-            case StoneStage.FailurePost:
-                if (CountDown())
-                    BeginWaitingForStonePush();
+            case StoneStage.PrePushScript:
                 break;
             case StoneStage.WaitingForPush:
                 UpdateWaitingImpaAsNpc();
@@ -722,108 +642,12 @@ internal sealed class ImpaIntroEvent : IRoomEvent
                 // linkCutscene6, and the earlier retained Impa slot observes
                 // cfd0=$06 before loading her response script.
                 AdvanceStoneMovement();
-                _counter = timing.ReactionLeadFrames;
-                _stoneStage = StoneStage.ReactionLead;
+                _stoneSignal = 0x06;
+                _precisePosition = Actor!.Position;
+                _stonePostPushRunner.Start(_database.StonePostPushCommands);
+                _stoneStage = StoneStage.PostPushScript;
                 break;
-            case StoneStage.ReactionLead:
-                if (CountDown())
-                {
-                    _precisePosition = Actor!.Position;
-                    if (_pushedRight)
-                    {
-                        _counter = timing.RightBranchWaitFrames;
-                        _stoneStage = StoneStage.RightBranchWait;
-                    }
-                    else
-                    {
-                        _counter = timing.LeftCorrectionFrames;
-                        _stoneStage = StoneStage.LeftCorrection;
-                    }
-                }
-                break;
-            case StoneStage.LeftCorrection:
-                if (AdvanceImpaScriptMovement(Vector2.Down, timing.LeftCorrectionSpeed))
-                {
-                    _counter = timing.CommonWaitFrames;
-                    _stoneStage = StoneStage.CommonWait;
-                }
-                break;
-            case StoneStage.RightBranchWait:
-                if (CountDown())
-                {
-                    _counter = timing.CommonWaitFrames;
-                    _stoneStage = StoneStage.CommonWait;
-                }
-                break;
-            case StoneStage.CommonWait:
-                if (CountDown())
-                {
-                    _counter = timing.ResponseRightFrames;
-                    _stoneStage = StoneStage.ResponseRight;
-                }
-                break;
-            case StoneStage.ResponseRight:
-                if (AdvanceImpaScriptMovement(Vector2.Right, timing.ResponseRightSpeed))
-                {
-                    _counter = timing.ResponseWait1Frames;
-                    _stoneStage = StoneStage.ResponseWait1;
-                }
-                break;
-            case StoneStage.ResponseWait1:
-                if (!CountDown())
-                    break;
-                if (_pushedRight)
-                    BeginImpaThanksPose();
-                else
-                {
-                    _counter = timing.ResponseUpFrames;
-                    _stoneStage = StoneStage.ResponseUp;
-                }
-                break;
-            case StoneStage.ResponseUp:
-                if (AdvanceImpaScriptMovement(Vector2.Up, timing.ResponseRightSpeed))
-                {
-                    _counter = timing.ResponseWait2Frames;
-                    _stoneStage = StoneStage.ResponseWait2;
-                }
-                break;
-            case StoneStage.ResponseWait2:
-                if (CountDown())
-                    BeginImpaThanksPose();
-                break;
-            case StoneStage.PoseWait:
-                if (CountDown())
-                {
-                    _context.ShowDialogue(_stoneRecord.Texts.Thanks.Message);
-                    _stoneStage = StoneStage.ThanksText;
-                }
-                break;
-            case StoneStage.ThanksText:
-                if (!_context.DialogueOpen)
-                {
-                    _counter = timing.ThanksPostFrames;
-                    _stoneStage = StoneStage.ThanksPost;
-                }
-                break;
-            case StoneStage.ThanksPost:
-                if (CountDown())
-                {
-                    _precisePosition = Actor!.Position;
-                    _counter = timing.FinalMoveFrames;
-                    _stoneStage = StoneStage.FinalMove;
-                }
-                break;
-            case StoneStage.FinalMove:
-                if (AdvanceImpaScriptMovement(Vector2.Up, timing.FinalSpeed))
-                    _stoneStage = StoneStage.FinishFollowing;
-                break;
-            case StoneStage.FinishFollowing:
-                _context.Player.SetCutscenePushing(false);
-                _context.Player.EndCutsceneControl();
-                _context.Player.Face(Vector2I.Down);
-                Actor!.SetDialogue(0, string.Empty, canFace: false);
-                BeginFollowing();
-                _stoneStage = StoneStage.Moved;
+            case StoneStage.PostPushScript:
                 break;
         }
     }
@@ -917,16 +741,6 @@ internal sealed class ImpaIntroEvent : IRoomEvent
         _context.Player.Face(horizontal
             ? position.X < stone.LinkTargetX ? Vector2I.Right : Vector2I.Left
             : position.Y < stone.LinkTargetY ? Vector2I.Down : Vector2I.Up);
-    }
-
-    private bool AdvanceImpaScriptMovement(Vector2 direction, int speed)
-    {
-        _counter--;
-        if (_counter <= 0)
-            return true;
-        _precisePosition += direction * SpeedPerFrame(speed);
-        Actor!.Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-        return false;
     }
 
     private void BeginWaitingForStonePush()
@@ -1082,15 +896,6 @@ internal sealed class ImpaIntroEvent : IRoomEvent
         _context.Sound.PlaySound(_stoneRecord.Sounds.Solve);
     }
 
-    private void BeginImpaThanksPose()
-    {
-        _context.Player.AdvanceCutsceneMovement(Vector2.Zero, Vector2I.Down);
-        _context.Player.SetCutscenePushing(false);
-        Actor!.SetScriptAnimation(_record.UpAnimation);
-        _counter = _stoneRecord.Timing.PoseWaitFrames;
-        _stoneStage = StoneStage.PoseWait;
-    }
-
     private bool PreventLinkFromPassing(
         NpcCharacter blocker,
         float collisionRadiusY,
@@ -1141,18 +946,12 @@ internal sealed class ImpaIntroEvent : IRoomEvent
                 if (!upPressed || _context.Player.Position.Y >= _helpRecord.EdgeY)
                     return;
                 _context.Player.BeginCutsceneControl();
-                _counter = _helpRecord.PostTextFrames;
-                _helpStage = HelpStage.Text;
-                _context.ShowDialogue(_helpRecord.Text, _helpRecord.TextboxPosition);
+                _helpStage = HelpStage.Script;
+                _helpRunner.Start(_database.HelpCommands);
+                _helpRunner.AdvanceFrame();
                 break;
-            case HelpStage.Text:
-                if (_context.DialogueOpen)
-                    return;
-                _helpStage = HelpStage.PostText;
-                AdvanceHelpPostTextCounter();
-                break;
-            case HelpStage.PostText:
-                AdvanceHelpPostTextCounter();
+            case HelpStage.Script:
+                _helpRunner.AdvanceFrame();
                 break;
             case HelpStage.SimulatedInput:
                 _counter--;
@@ -1171,25 +970,19 @@ internal sealed class ImpaIntroEvent : IRoomEvent
         }
     }
 
-    private void AdvanceHelpPostTextCounter()
-    {
-        _counter--;
-        if (_counter != 0)
-            return;
-        _context.Rooms.SaveData.SetRoomFlag(
-            _helpRecord.Group,
-            _helpRecord.Room,
-            (byte)_helpRecord.RoomFlag);
-        _counter = _helpRecord.InputUpFrames;
-        _helpStage = HelpStage.SimulatedInput;
-    }
-
     private void UpdateFakeOctoroks()
     {
         foreach (FakeOctorokState state in _fakeOctoroks)
         {
             switch (state.Stage)
             {
+                case FakeOctorokStage.WaitingForSignal:
+                    if (_encounterSignal == 0x01)
+                    {
+                        state.Counter = state.Record.SignalWaitFrames;
+                        state.Stage = FakeOctorokStage.SignalWait;
+                    }
+                    break;
                 case FakeOctorokStage.SignalWait:
                     state.Counter--;
                     if (state.Counter == 0)
@@ -1227,24 +1020,307 @@ internal sealed class ImpaIntroEvent : IRoomEvent
         }
     }
 
-    private void SignalFakeOctoroks()
+    bool ICutsceneCommandHost.DialogueOpen => _context.DialogueOpen;
+    bool ICutsceneCommandHost.IsLinkedGame =>
+        _context.Rooms.SaveData.IsLinkedGame;
+    int ICutsceneCommandHost.FrameCounter => _context.Entities.FrameCounter;
+    ICutsceneCommandTraceSink? ICutsceneCommandHost.TraceSink =>
+        _context.CommandTraceSink;
+    bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
+        actor.Value == "Impa";
+
+    void ICutsceneCommandHost.SetInputEnabled(bool enabled) =>
+        throw new InvalidOperationException(
+            $"impaScript0 does not set input enabled={enabled}.");
+
+    void ICutsceneCommandHost.SetMenuEnabled(bool enabled)
     {
-        foreach (FakeOctorokState state in _fakeOctoroks)
+        if (!_helpRunner.Active || enabled)
         {
-            if (state.Stage != FakeOctorokStage.WaitingForSignal)
-                continue;
-            state.Counter = state.Record.SignalWaitFrames;
-            state.Stage = FakeOctorokStage.SignalWait;
+            throw new InvalidOperationException(
+                $"The active Impa command stream cannot set menu enabled={enabled}.");
         }
+        _context.Player.BeginCutsceneControl();
     }
 
-    private void FinishEncounter()
+    void ICutsceneCommandHost.SetDisabledObjects(int value)
     {
+        if (!_helpRunner.Active || value is not (0x00 or 0x01))
+        {
+            throw new InvalidOperationException(
+                $"The active Impa command stream cannot set wDisabledObjects=${value:x2}.");
+        }
+        if (value == 0x01)
+            _context.Player.BeginCutsceneControl();
+    }
+
+    bool ICutsceneCommandHost.GateOpen(string gate) =>
+        throw new InvalidOperationException(
+            $"impaScript0 does not support named gate '{gate}'.");
+
+    bool ICutsceneCommandHost.MemoryEquals(string binding, int value)
+    {
+        if (_stonePostPushRunner.Active && binding == "w1Link.angle")
+            return (_pushedRight ? 0x08 : 0x18) == value;
+        if (binding == "wTmpcfc0.genericCutscene.cfd0")
+        {
+            return _stonePrePushRunner.Active
+                ? _stoneSignal == value
+                : _encounterSignal == value;
+        }
+        throw new InvalidOperationException(
+            $"The active Impa command stream cannot read unknown binding '{binding}'.");
+    }
+
+    void ICutsceneCommandHost.ShowText(int textId, string message)
+    {
+        if (_helpRunner.Active)
+        {
+            if (textId != _helpRecord.TextId || message != _helpRecord.Text)
+            {
+                throw new InvalidOperationException(
+                    $"interaction6b_subid00 requested unknown or divergent TX_{textId:x4}.");
+            }
+            _context.ShowDialogue(message, _helpRecord.TextboxPosition);
+            return;
+        }
+
+        if (_stonePrePushRunner.Active)
+        {
+            ImpaIntroEventDatabase.ImpaStoneText stoneText = textId switch
+            {
+                var id when id == _stoneRecord.Texts.Request.Id =>
+                    _stoneRecord.Texts.Request,
+                var id when id == _stoneRecord.Texts.Hesitation.Id =>
+                    _stoneRecord.Texts.Hesitation,
+                var id when id == _stoneRecord.Texts.Failure.Id =>
+                    _stoneRecord.Texts.Failure,
+                _ => throw new InvalidOperationException(
+                    $"impaScript_moveAwayFromRock requested unknown TX_{textId:x4}.")
+            };
+            if (message != stoneText.Message)
+            {
+                throw new InvalidOperationException(
+                    $"impaScript_moveAwayFromRock TX_{textId:x4} diverges from imported text.");
+            }
+            _context.ShowDialogue(message);
+            return;
+        }
+
+        if (_stonePostPushRunner.Active)
+        {
+            ImpaIntroEventDatabase.ImpaStoneText thanks = _stoneRecord.Texts.Thanks;
+            if (textId != thanks.Id || message != thanks.Message)
+            {
+                throw new InvalidOperationException(
+                    $"impaScript_rockJustMoved requested unknown or divergent TX_{textId:x4}.");
+            }
+            _context.ShowDialogue(message);
+            return;
+        }
+
+        string expected = textId switch
+        {
+            var id when id == _record.TextId => _record.Text,
+            var id when id == _record.LinkedTextId => _record.LinkedText,
+            _ => throw new InvalidOperationException(
+                $"impaScript0 requested unknown TX_{textId:x4}.")
+        };
+        if (message != expected)
+        {
+            throw new InvalidOperationException(
+                $"impaScript0 TX_{textId:x4} diverges from imported text.");
+        }
+        _context.ShowDialogue(message);
+    }
+
+    void ICutsceneCommandHost.SetActorAnimation(
+        string actor,
+        int animation,
+        string encodedAnimation) =>
+        RequireImpaCommandActor(actor).SetScriptAnimation(encodedAnimation);
+
+    void ICutsceneCommandHost.SetActorMovementAnimation(
+        string actor,
+        int angle,
+        string encodedAnimation)
+    {
+        NpcCharacter impa = RequireImpaCommandActor(actor);
+        Vector2 direction = OracleObjectMath.StrictCardinalVector(angle);
+        impa.SetFacingDirection(new Vector2I(
+            Mathf.RoundToInt(direction.X), Mathf.RoundToInt(direction.Y)));
+        _precisePosition = impa.Position;
+    }
+
+    void ICutsceneCommandHost.SetActorCollisionRadii(
+        string actor,
+        int radiusY,
+        int radiusX) =>
+        RequireImpaCommandActor(actor).SetCollisionRadii(radiusY, radiusX);
+
+    void ICutsceneCommandHost.SetActorButtonSensitive(string actor) =>
+        throw new InvalidOperationException(
+            $"impaScript0 actor '{actor}' cannot become A-button sensitive.");
+
+    void ICutsceneCommandHost.MoveActorAtSpeed(string actor, int speed, int angle)
+    {
+        if (_stonePostPushRunner.Active)
+        {
+            ImpaIntroEventDatabase.ImpaStoneTimingRecord timing = _stoneRecord.Timing;
+            if (speed != timing.LeftCorrectionSpeed &&
+                speed != timing.ResponseRightSpeed && speed != timing.FinalSpeed)
+            {
+                throw new InvalidOperationException(
+                    $"Impa's room 0:59 post-push script used unexpected speed ${speed:x2}.");
+            }
+        }
+        else
+        {
+            int expectedSpeed = _stonePrePushRunner.Active
+                ? _stoneRecord.Timing.BackAwaySpeed
+                : _record.ImpaSpeed;
+            string context = _stonePrePushRunner.Active
+                ? "Impa's room 0:59 pre-push retreat"
+                : "Impa's room 0:6a movement";
+            EnsureObjectSpeed(speed, expectedSpeed, context);
+        }
+        _precisePosition += OracleObjectMath.StrictCardinalVector(angle) *
+            SpeedPerFrame(speed);
+        RequireImpaCommandActor(actor).Position =
+            OracleObjectMath.ToPixelPosition(_precisePosition);
+    }
+
+    void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>
+        throw new InvalidOperationException(
+            $"impaScript0 actor '{actor}' cannot set Z to ${zFixed:x4}.");
+
+    void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
+        RequireImpaCommandActor(actor).Visible = visible;
+
+    void ICutsceneCommandHost.WriteMemory(string binding, int value)
+    {
+        if (_stonePrePushRunner.Active &&
+            binding == "wTmpcfc0.genericCutscene.cfd0" && value == 0x04)
+        {
+            _stoneSignal = value;
+            return;
+        }
+        if (_stonePostPushRunner.Active &&
+            binding == "wTmpcfc0.genericCutscene.cfd0" && value == 0x07)
+        {
+            _stoneSignal = value;
+            // linkCutscene6 observes cfd0=$07 after Impa's interaction and
+            // selects Link's non-pushing animation $02 in this same update.
+            _context.Player.AdvanceCutsceneMovement(Vector2.Zero, Vector2I.Down);
+            _context.Player.SetCutscenePushing(false);
+            return;
+        }
+        throw new InvalidOperationException(
+            $"The active Impa command stream cannot write '{binding}'=${value:x2}.");
+    }
+
+    void ICutsceneCommandHost.PlaySound(int sound) =>
+        _context.Sound.PlaySound(sound);
+
+    void ICutsceneCommandHost.SetGlobalFlag(int flag) =>
+        throw new InvalidOperationException(
+            $"impaScript0 cannot set global flag ${flag:x2}.");
+
+    void ICutsceneCommandHost.OrRoomFlag(int flag)
+    {
+        if (_helpRunner.Active)
+        {
+            if (flag != _helpRecord.RoomFlag)
+            {
+                throw new InvalidOperationException(
+                    $"interaction6b_subid00 requested room flag ${flag:x2}, " +
+                    $"expected ${_helpRecord.RoomFlag:x2}.");
+            }
+            _context.Rooms.SaveData.SetRoomFlag(
+                _helpRecord.Group, _helpRecord.Room, (byte)flag);
+            return;
+        }
+
+        if (flag != _record.RoomFlag)
+        {
+            throw new InvalidOperationException(
+                $"impaScript0 requested room flag ${flag:x2}, expected ${_record.RoomFlag:x2}.");
+        }
         _context.Rooms.SaveData.SetRoomFlag(
-            _record.Group, _record.Room, (byte)_record.RoomFlag);
+            _record.Group, _record.Room, (byte)flag);
+    }
+
+    void ICutsceneCommandHost.RunNativeHandler(string handler)
+    {
+        if (_helpRunner.Active && handler == "installHelpSimulatedInput")
+        {
+            _counter = _helpRecord.InputUpFrames;
+            _helpStage = HelpStage.SimulatedInput;
+            return;
+        }
+        throw new InvalidOperationException(
+            $"The active Impa command stream requested unknown native handler '{handler}'.");
+    }
+
+    void ICutsceneCommandHost.ScriptEnded()
+    {
+        if (_helpRunner.Active)
+        {
+            if (_helpStage != HelpStage.SimulatedInput ||
+                !_context.Rooms.SaveData.HasRoomFlag(
+                    _helpRecord.Group, _helpRecord.Room, (byte)_helpRecord.RoomFlag))
+            {
+                throw new InvalidOperationException(
+                    "interaction6b_subid00 ended before installing simulated input " +
+                    "and setting room flag $40.");
+            }
+            return;
+        }
+
+        if (_stonePrePushRunner.Active)
+        {
+            if (_stoneSignal != 0x04)
+            {
+                throw new InvalidOperationException(
+                    "impaScript_moveAwayFromRock ended before writing cfd0=$04.");
+            }
+            BeginWaitingForStonePush();
+            return;
+        }
+
+        if (_stonePostPushRunner.Active)
+        {
+            if (_stoneSignal != 0x07)
+            {
+                throw new InvalidOperationException(
+                    "impaScript_rockJustMoved ended before writing cfd0=$07.");
+            }
+            _context.Player.SetCutscenePushing(false);
+            _context.Player.EndCutsceneControl();
+            _context.Player.Face(Vector2I.Down);
+            Actor!.SetDialogue(0, string.Empty, canFace: false);
+            BeginFollowing();
+            _stoneStage = StoneStage.Moved;
+            return;
+        }
+
+        if (!_context.Rooms.SaveData.HasRoomFlag(
+            _record.Group, _record.Room, (byte)_record.RoomFlag))
+        {
+            throw new InvalidOperationException(
+                "impaScript0 ended before setting room flag $40.");
+        }
         _context.Player.EndCutsceneControl();
         _context.Player.Face(Vector2I.Up);
         BeginFollowing();
+    }
+
+    private NpcCharacter RequireImpaCommandActor(string actor)
+    {
+        if (actor != "Impa" || Actor is null)
+            throw new InvalidOperationException(
+                $"Unknown active Impa command-stream actor '{actor}'.");
+        return Actor;
     }
 
     private void BeginFollowing()

@@ -1,3 +1,105 @@
+function Find-CutsceneCommandSourceLine {
+    param(
+        [string]$source,
+        [int]$bodyStart,
+        [int]$bodyEnd,
+        [string]$pattern,
+        [string]$script,
+        [int]$occurrence = 0)
+    $regex = [regex]::new(
+        $pattern, [Text.RegularExpressions.RegexOptions]::Multiline,
+        [TimeSpan]::FromSeconds(1))
+    $matches = @($regex.Matches($source, $bodyStart) |
+        Where-Object { $_.Index -ge $bodyStart -and $_.Index -lt $bodyEnd })
+    if ($occurrence -lt 0 -or $occurrence -ge $matches.Count) {
+        throw "Could not locate $script command source occurrence $occurrence matching: $pattern"
+    }
+    $match = $matches[$occurrence]
+    $firstToken = [regex]::Match($match.Value, '\S')
+    if (-not $firstToken.Success) {
+        throw "$script command match contains no opcode token: $pattern"
+    }
+    $sourceIndex = $match.Index + $firstToken.Index
+    return [regex]::Matches(
+        $source.Substring(0, $sourceIndex), "`n").Count + 1
+}
+function ConvertTo-CutsceneCommandPayload {
+    param([string]$value)
+    if ([string]::IsNullOrEmpty($value)) { return '' }
+    return [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($value))
+}
+function New-CutsceneCommandRow {
+    param(
+        [string]$script,
+        [int]$index,
+        [string]$label,
+        [int]$line,
+        [string]$opcode,
+        [string]$actor,
+        [string]$arg0,
+        [string]$arg1,
+        [string]$payload)
+    return @(
+        $script, $label, $index.ToString(), $line.ToString(),
+        $opcode, $actor, $arg0, $arg1,
+        (ConvertTo-CutsceneCommandPayload $payload)
+    ) -join "`t"
+}
+
+function Read-AssemblyCutsceneCommands {
+    param(
+        [string]$path,
+        [string]$source,
+        [string]$script,
+        [int]$bodyStart,
+        [int]$bodyLength,
+        [Collections.Generic.HashSet[string]]$supportedOpcodes)
+
+    $body = $source.Substring($bodyStart, $bodyLength)
+    $firstLine = [regex]::Matches($source.Substring(0, $bodyStart), "`n").Count + 1
+    $label = $script
+    $commands = [Collections.Generic.List[object]]::new()
+    $lines = $body -split "`r?`n"
+    for ($offset = 0; $offset -lt $lines.Count; $offset++) {
+        $lineNumber = $firstLine + $offset
+        $line = ($lines[$offset] -replace ';.*$', '').Trim()
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        if ($line -match '^(?<label>@?[A-Za-z_][A-Za-z0-9_@]*):$') {
+            $label = $Matches['label']
+            continue
+        }
+        if ($line.StartsWith('.')) { continue }
+        if ($line -notmatch '^(?<opcode>[a-zA-Z0-9_]+)(?:\s+(?<operands>.*))?$') {
+            throw "$path`:$lineNumber`: malformed $script assembly command '$line'."
+        }
+        $opcode = $Matches['opcode'].ToLowerInvariant()
+        if (-not $supportedOpcodes.Contains($opcode)) {
+            throw "$path`:$lineNumber`: unsupported $script opcode '$opcode' at label '$label'."
+        }
+        $commands.Add([pscustomobject]@{
+            Script = $script
+            Label = $label
+            Index = $commands.Count
+            Line = $lineNumber
+            Opcode = $opcode
+            Operands = $Matches['operands']
+        })
+    }
+    if ($commands.Count -eq 0) {
+        throw "$path`:$firstLine`: $script contains no commands."
+    }
+    return $commands
+}
+
+function Get-AssemblySourceLine {
+    param([string]$source, [string]$pattern, [string]$description)
+    $match = [regex]::Match(
+        $source, $pattern, [Text.RegularExpressions.RegexOptions]::Multiline,
+        [TimeSpan]::FromSeconds(1))
+    if (-not $match.Success) { throw "Could not locate $description source label." }
+    return [regex]::Matches($source.Substring(0, $match.Index), "`n").Count + 1
+}
+
 # INTERAC_TIMEPORTAL_SPAWNER ($e1) is a scenery interaction rather than an
 # NPC, but it uses the same interaction graphics, animation, and OAM tables.
 # Export every placed portal spot so runtime activation stays data-driven.
@@ -298,6 +400,77 @@ $makuEventRows = @(
     $makuEventRows,
     [Text.UTF8Encoding]::new($false))
 
+$makuMusicSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\music.s')
+$makuStopSound = [regex]::Match(
+    $makuMusicSource,
+    '(?m)^\.define\s+SNDCTRL_STOPMUSIC\s+\$(?<value>[0-9a-f]{2})')
+$makuDisappearSound = [regex]::Match(
+    $makuMusicSource,
+    '(?m)^\s*SND_MAKUDISAPPEAR\s+db\s*;\s*\$(?<value>[0-9a-f]{2})')
+$makuCutsceneConstants = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\cutsceneIndices.s')
+$makuCutsceneIndex = [regex]::Match(
+    $makuCutsceneConstants,
+    '(?m)^\s*CUTSCENE_MAKU_TREE_DISAPPEARING\s+db\s*;\s*0x(?<value>[0-9a-f]{2})')
+if (-not $makuStopSound.Success -or $makuStopSound.Groups['value'].Value -ne 'f0' -or
+    -not $makuDisappearSound.Success -or $makuDisappearSound.Groups['value'].Value -ne 'b2' -or
+    -not $makuCutsceneIndex.Success -or $makuCutsceneIndex.Groups['value'].Value -ne '07') {
+    throw 'Could not resolve Maku Tree STOPMUSIC $f0, disappearance sound $b2, or cutscene $07.'
+}
+
+$makuBodyStart = $makuScriptMatch.Groups['body'].Index
+$makuBodyEnd = $makuBodyStart + $makuScriptMatch.Groups['body'].Length
+$findMakuSourceLine = {
+    param([string]$pattern, [int]$occurrence = 0)
+    return Find-CutsceneCommandSourceLine `
+        $makuScriptSource $makuBodyStart $makuBodyEnd $pattern `
+        'makuTree_subid01Script_body' $occurrence
+}
+$newMakuCommandRow = {
+    param(
+        [int]$index,
+        [int]$line,
+        [string]$opcode,
+        [string]$actor,
+        [string]$arg0,
+        [string]$arg1,
+        [string]$payload)
+    return New-CutsceneCommandRow `
+        'makuTree_subid01Script_body' $index 'makuTree_subid01Script_body' `
+        $line $opcode $actor $arg0 $arg1 $payload
+}
+$makuCommandRows = @(
+    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64",
+    (& $newMakuCommandRow 0 (& $findMakuSourceLine '(?m)^\s*disablemenu\s*$') 'disablemenu' '' '' '' ''),
+    (& $newMakuCommandRow 1 (& $findMakuSourceLine '(?m)^\s*asm15\s+makuTree_setAnimation,\s*\$00\s*$') 'setanimationcontinue' 'MakuTree' '00' '' $makuAnimations[0]),
+    (& $newMakuCommandRow 2 (& $findMakuSourceLine '(?m)^\s*setcollisionradii\s+\$08,\s*\$08\s*$') 'setcollisionradii' 'MakuTree' '08' '08' ''),
+    (& $newMakuCommandRow 3 (& $findMakuSourceLine '(?m)^\s*makeabuttonsensitive\s*$') 'makeabuttonsensitive' 'MakuTree' '' '' ''),
+    (& $newMakuCommandRow 4 (& $findMakuSourceLine '(?m)^\s*checkpalettefadedone\s*$') 'gate' '' '' '' 'palette-fade-done'),
+    (& $newMakuCommandRow 5 (& $findMakuSourceLine '(?m)^\s*wait\s+210\s*$') 'wait' '' '210' '' ''),
+    (& $newMakuCommandRow 6 (& $findMakuSourceLine '(?m)^\s*showtextlowindex\s+<TX_0564\s*$') 'showtext' '' '0564' '' $allTexts[0x0564]),
+    (& $newMakuCommandRow 7 (& $findMakuSourceLine '(?m)^\s*wait\s+60\s*$') 'wait' '' '60' '' ''),
+    (& $newMakuCommandRow 8 (& $findMakuSourceLine '(?m)^\s*playsound\s+SNDCTRL_STOPMUSIC\s*$') 'playsound' '' $makuStopSound.Groups['value'].Value '' ''),
+    (& $newMakuCommandRow 9 (& $findMakuSourceLine '(?m)^\s*asm15\s+makuTree_setAnimation,\s*\$04\s*$') 'setanimationcontinue' 'MakuTree' '04' '' $makuAnimations[4]),
+    (& $newMakuCommandRow 10 (& $findMakuSourceLine '(?m)^\s*wait\s+60\s*$' 1) 'wait' '' '60' '' ''),
+    (& $newMakuCommandRow 11 (& $findMakuSourceLine '(?m)^\s*playsound\s+SND_MAKUDISAPPEAR\s*$') 'playsound' '' $makuDisappearSound.Groups['value'].Value '' ''),
+    (& $newMakuCommandRow 12 (& $findMakuSourceLine '(?m)^\s*writememory\s+wCutsceneTrigger,\s*CUTSCENE_MAKU_TREE_DISAPPEARING\s*$') 'writememory' '' $makuCutsceneIndex.Groups['value'].Value '' 'wCutsceneTrigger'),
+    (& $newMakuCommandRow 13 (& $findMakuSourceLine '(?m)^\s*wait\s+210\s*$' 1) 'wait' '' '210' '' ''),
+    (& $newMakuCommandRow 14 (& $findMakuSourceLine '(?m)^\s*showtextlowindex\s+<TX_0540\s*$') 'showtext' '' '0540' '' $allTexts[0x0540]),
+    (& $newMakuCommandRow 15 (& $findMakuSourceLine '(?m)^\s*playsound\s+SND_MAKUDISAPPEAR\s*$' 1) 'playsound' '' $makuDisappearSound.Groups['value'].Value '' ''),
+    (& $newMakuCommandRow 16 (& $findMakuSourceLine '(?m)^\s*wait\s+210\s*$' 2) 'wait' '' '210' '' ''),
+    (& $newMakuCommandRow 17 (& $findMakuSourceLine '(?m)^\s*showtextlowindex\s+<TX_0541\s*$') 'showtext' '' '0541' '' $allTexts[0x0541]),
+    (& $newMakuCommandRow 18 (& $findMakuSourceLine '(?m)^\s*playsound\s+SND_MAKUDISAPPEAR\s*$' 2) 'playsound' '' $makuDisappearSound.Groups['value'].Value '' ''),
+    (& $newMakuCommandRow 19 (& $findMakuSourceLine '(?m)^\s*wait\s+150\s*$') 'wait' '' '150' '' ''),
+    (& $newMakuCommandRow 20 (& $findMakuSourceLine '(?m)^\s*writememory\s+wTmpcfc0\.genericCutscene\.state,\s*\$01\s*$') 'writememory' '' '01' '' 'wTmpcfc0.genericCutscene.state'),
+    (& $newMakuCommandRow 21 (& $findMakuSourceLine '(?m)^\s*asm15\s+incMakuTreeState\s*$') 'native' '' '' '' 'incMakuTreeState'),
+    (& $newMakuCommandRow 22 (& $findMakuSourceLine '(?m)^\s*scriptend\s*$') 'scriptend' '' '' '' '')
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\maku_tree_commands.tsv'),
+    $makuCommandRows,
+    [Text.UTF8Encoding]::new($false))
+
 $makuPaletteLabels = [Collections.Generic.List[string]]::new()
 foreach ($symbol in $makuPaletteSymbols) {
     $headerMatch = [regex]::Match(
@@ -444,6 +617,64 @@ $ralphEventRows = @(
     $ralphEventRows,
     [Text.UTF8Encoding]::new($false))
 
+# Emit the active path as typed command records. Command rows retain the
+# assembly script/label, normalized command index, and physical source line.
+# The recognized flicker loop remains one native-effect command, while its
+# counter byte and frame mask stay explicit operands.
+$ralphMusicSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\music.s')
+$ralphSoundMatch = [regex]::Match(
+    $ralphMusicSource,
+    '(?m)^\s*SND_MYSTERY_SEED\s+db\s*;\s*\$(?<value>[0-9a-f]{2})')
+if (-not $ralphSoundMatch.Success -or $ralphSoundMatch.Groups['value'].Value -ne '7b') {
+    throw 'SND_MYSTERY_SEED no longer resolves to $7b.'
+}
+
+$ralphBodyStart = $ralphScriptMatch.Groups['body'].Index
+$ralphBodyEnd = $ralphBodyStart + $ralphScriptMatch.Groups['body'].Length
+$findRalphSourceLine = {
+    param([string]$pattern)
+    return Find-CutsceneCommandSourceLine `
+        $ralphScriptSource $ralphBodyStart $ralphBodyEnd $pattern 'ralphSubid0dScript'
+}
+$newRalphCommandRow = {
+    param(
+        [int]$index,
+        [string]$label,
+        [int]$line,
+        [string]$opcode,
+        [string]$actor,
+        [string]$arg0,
+        [string]$arg1,
+        [string]$payload)
+    return New-CutsceneCommandRow `
+        'ralphSubid0dScript' $index $label $line $opcode $actor $arg0 $arg1 $payload
+}
+
+$ralphCommandRows = @(
+    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64",
+    (& $newRalphCommandRow 0 'ralphSubid0dScript' (& $findRalphSourceLine '(?m)^\s*disableinput\s*$') 'disableinput' '' '' '' ''),
+    (& $newRalphCommandRow 1 'ralphSubid0dScript' (& $findRalphSourceLine '(?m)^\s*wait\s+40\s*$') 'wait' '' '40' '' ''),
+    (& $newRalphCommandRow 2 'ralphSubid0dScript' (& $findRalphSourceLine '(?m)^\s*showtext\s+TX_2a1e\s*$') 'showtext' '' '2a1e' '' $allTexts[$ralphTextId]),
+    (& $newRalphCommandRow 3 'ralphSubid0dScript' (& $findRalphSourceLine '(?m)^\s*wait\s+30\s*$') 'wait' '' '30' '' ''),
+    (& $newRalphCommandRow 4 'ralphSubid0dScript' (& $findRalphSourceLine '(?m)^\s*setanimation\s+\$01\s*$') 'setanimation' 'Ralph' '01' '' $ralphMoveAnimation),
+    (& $newRalphCommandRow 5 'ralphSubid0dScript' (& $findRalphSourceLine '(?m)^\s*setspeed\s+SPEED_100\s*$') 'setspeed' 'Ralph' '28' '' ''),
+    (& $newRalphCommandRow 6 'ralphSubid0dScript' (& $findRalphSourceLine '(?m)^\s*setangle\s+\$08\s*$') 'setangle' 'Ralph' '08' '' ''),
+    (& $newRalphCommandRow 7 'ralphSubid0dScript' (& $findRalphSourceLine '(?m)^\s*applyspeed\s+\$11\s*$') 'applyspeed' 'Ralph' '11' '' ''),
+    (& $newRalphCommandRow 8 'ralphSubid0dScript' (& $findRalphSourceLine '(?m)^\s*setanimation\s+\$09\s*$') 'setanimation' 'Ralph' '09' '' $ralphPortalAnimation),
+    (& $newRalphCommandRow 9 'ralphSubid0dScript' (& $findRalphSourceLine '(?m)^\s*writeobjectbyte\s+Interaction\.var3f,\s*\$2d\s*$') 'writeobjectbyte' 'Ralph' '3f' '2d' ''),
+    (& $newRalphCommandRow 10 'ralphSubid0dScript' (& $findRalphSourceLine '(?m)^\s*playsound\s+SND_MYSTERY_SEED\s*$') 'playsound' '' $ralphSoundMatch.Groups['value'].Value '' ''),
+    (& $newRalphCommandRow 11 '@flickerVisibility' (& $findRalphSourceLine '(?m)^\s*asm15\s+scriptHelp\.ralph_flickerVisibility\s*$') 'flicker' 'Ralph' '3f' '01' ''),
+    (& $newRalphCommandRow 12 '@done' (& $findRalphSourceLine '(?m)^\s*setglobalflag\s+GLOBALFLAG_RALPH_ENTERED_PORTAL\s*$') 'setglobalflag' '' $flagMatch.Groups['value'].Value '' ''),
+    (& $newRalphCommandRow 13 '@done' (& $findRalphSourceLine '(?m)^\s*asm15\s+scriptHelp\.ralph_restoreMusic\s*$') 'native' '' '' '' 'ralph_restoreMusic'),
+    (& $newRalphCommandRow 14 '@done' (& $findRalphSourceLine '(?m)^\s*enableinput\s*$') 'enableinput' '' '' '' ''),
+    (& $newRalphCommandRow 15 '@done' (& $findRalphSourceLine '(?m)^\s*scriptend\s*$') 'scriptend' '' '' '' '')
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\ralph_portal_commands.tsv'),
+    $ralphCommandRows,
+    [Text.UTF8Encoding]::new($false))
+
 # The first arrival in the past is INTERAC_MALE_VILLAGER ($3a:$0d) in room
 # 1:39. Its leading wait advances while TRANSITION_DEST_TIMEWARP finishes, so
 # export the script counters, jump physics, speeds, path, animations, text,
@@ -574,6 +805,58 @@ $enterPastEventRows = @(
     $enterPastEventRows,
     [Text.UTF8Encoding]::new($false))
 
+# The second shared-runner slice preserves the active path's actual command
+# boundaries. jumpAndWaitUntilLanded remains one typed composite command, but
+# retains callscript's setup-only update before beginJump/updateGravity.
+$enterPastBodyStart = $enterPastScriptMatch.Groups['body'].Index
+$enterPastBodyEnd = $enterPastBodyStart + $enterPastScriptMatch.Groups['body'].Length
+$findEnterPastSourceLine = {
+    param([string]$pattern, [int]$occurrence = 0)
+    return Find-CutsceneCommandSourceLine `
+        $ralphScriptSource $enterPastBodyStart $enterPastBodyEnd $pattern `
+        'villagerSubid0dScript' $occurrence
+}
+$newEnterPastCommandRow = {
+    param(
+        [int]$index,
+        [int]$line,
+        [string]$opcode,
+        [string]$actor,
+        [string]$arg0,
+        [string]$arg1,
+        [string]$payload)
+    return New-CutsceneCommandRow `
+        'villagerSubid0dScript' $index 'villagerSubid0dScript' $line `
+        $opcode $actor $arg0 $arg1 $payload
+}
+
+$enterPastCommandRows = @(
+    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64",
+    (& $newEnterPastCommandRow 0 (& $findEnterPastSourceLine '(?m)^\s*setdisabledobjectsto11\s*$') 'setdisabledobjects' '' '11' '' ''),
+    (& $newEnterPastCommandRow 1 (& $findEnterPastSourceLine '(?m)^\s*wait\s+100\s*$') 'wait' '' '100' '' ''),
+    (& $newEnterPastCommandRow 2 (& $findEnterPastSourceLine '(?m)^\s*disableinput\s*$') 'disableinput' '' '' '' ''),
+    (& $newEnterPastCommandRow 3 (& $findEnterPastSourceLine '(?m)^\s*wait\s+40\s*$') 'wait' '' '40' '' ''),
+    (& $newEnterPastCommandRow 4 (& $findEnterPastSourceLine '(?m)^\s*callscript\s+jumpAndWaitUntilLanded\s*$') 'jump' 'Villager' $enterPastJumpRaw.ToString() $enterPastGravity.ToString('x2') $enterPastSoundMatch.Groups['value'].Value),
+    (& $newEnterPastCommandRow 5 (& $findEnterPastSourceLine '(?m)^\s*wait\s+30\s*$') 'wait' '' '30' '' ''),
+    (& $newEnterPastCommandRow 6 (& $findEnterPastSourceLine '(?m)^\s*showtext\s+TX_1622\s*$') 'showtext' '' '1622' '' $allTexts[$enterPastTextId]),
+    (& $newEnterPastCommandRow 7 (& $findEnterPastSourceLine '(?m)^\s*wait\s+30\s*$' 1) 'wait' '' '30' '' ''),
+    (& $newEnterPastCommandRow 8 (& $findEnterPastSourceLine '(?m)^\s*setspeed\s+SPEED_100\s*$') 'setspeed' 'Villager' $speedMatch.Groups['value'].Value '' ''),
+    (& $newEnterPastCommandRow 9 (& $findEnterPastSourceLine '(?m)^\s*movedown\s+\$11\s*$') 'move' 'Villager' '10' '11' $enterPastDownAnimation),
+    (& $newEnterPastCommandRow 10 (& $findEnterPastSourceLine '(?m)^\s*moveright\s+\$11\s*$') 'move' 'Villager' '08' '11' $enterPastRightAnimation),
+    (& $newEnterPastCommandRow 11 (& $findEnterPastSourceLine '(?m)^\s*movedown\s+\$09\s*$') 'move' 'Villager' '10' '09' $enterPastDownAnimation),
+    (& $newEnterPastCommandRow 12 (& $findEnterPastSourceLine '(?m)^\s*setspeed\s+SPEED_080\s*$') 'setspeed' 'Villager' $enterPastSlowSpeedMatch.Groups['value'].Value '' ''),
+    (& $newEnterPastCommandRow 13 (& $findEnterPastSourceLine '(?m)^\s*applyspeed\s+\$21\s*$') 'applyspeed' 'Villager' '21' '' ''),
+    (& $newEnterPastCommandRow 14 (& $findEnterPastSourceLine '(?m)^\s*setspeed\s+SPEED_100\s*$' 1) 'setspeed' 'Villager' $speedMatch.Groups['value'].Value '' ''),
+    (& $newEnterPastCommandRow 15 (& $findEnterPastSourceLine '(?m)^\s*applyspeed\s+\$39\s*$') 'applyspeed' 'Villager' '39' '' ''),
+    (& $newEnterPastCommandRow 16 (& $findEnterPastSourceLine '(?m)^\s*setglobalflag\s+GLOBALFLAG_ENTER_PAST_CUTSCENE_DONE\s*$') 'setglobalflag' '' $enterPastFlagMatch.Groups['value'].Value '' ''),
+    (& $newEnterPastCommandRow 17 (& $findEnterPastSourceLine '(?m)^\s*enableinput\s*$') 'enableinput' '' '' '' ''),
+    (& $newEnterPastCommandRow 18 (& $findEnterPastSourceLine '(?m)^\s*scriptend\s*$') 'scriptend' '' '' '' '')
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\enter_past_commands.tsv'),
+    $enterPastCommandRows,
+    [Text.UTF8Encoding]::new($false))
+
 # The first Impa encounter is INTERAC_IMPA_IN_CUTSCENE ($31:$00) in present
 # room $6a. It creates three fake Octoroks from extra object data, replaces
 # Link with linkCutscene1, runs impaScript0, and finally installs Impa as the
@@ -633,16 +916,17 @@ if (-not $impaScriptMatch.Success) { throw 'Could not parse impaScript0.' }
 $impaScriptBody = $impaScriptMatch.Groups['body'].Value
 $impaScriptCommand = [regex]::Match(
     $impaScriptBody,
-    '(?ms)checkmemoryeq .*?, \$(?<signal>[0-9a-f]{2})\s+wait (?<introWait>\d+)\s+showtextdifferentforlinked TX_(?<text>[0-9a-f]{4}), TX_[0-9a-f]{4}\s+wait (?<postText>\d+)\s+setspeed SPEED_(?<speed>[0-9a-fA-F_]+)\s+movedown \$(?<moveFrames>[0-9a-f]{2})\s+orroomflag \$(?<roomFlag>[0-9a-f]{2})')
+    '(?ms)checkmemoryeq .*?, \$(?<signal>[0-9a-f]{2})\s+wait (?<introWait>\d+)\s+showtextdifferentforlinked TX_(?<text>[0-9a-f]{4}), TX_(?<linkedText>[0-9a-f]{4})\s+wait (?<postText>\d+)\s+setspeed SPEED_(?<speed>[0-9a-fA-F_]+)\s+movedown \$(?<moveFrames>[0-9a-f]{2})\s+orroomflag \$(?<roomFlag>[0-9a-f]{2})')
 if (-not $impaScriptCommand.Success -or
     $impaScriptCommand.Groups['signal'].Value -ne '01' -or
     $impaScriptCommand.Groups['introWait'].Value -ne '210' -or
     $impaScriptCommand.Groups['text'].Value -ne '0102' -or
+    $impaScriptCommand.Groups['linkedText'].Value -ne '0103' -or
     $impaScriptCommand.Groups['postText'].Value -ne '30' -or
     $impaScriptCommand.Groups['speed'].Value -ne '080' -or
     $impaScriptCommand.Groups['moveFrames'].Value -ne '20' -or
     $impaScriptCommand.Groups['roomFlag'].Value -ne '40') {
-    throw 'impaScript0 no longer matches signal $01, waits 210/30, TX_0102, SPEED_080, movedown $20, and room flag $40.'
+    throw 'impaScript0 no longer matches signal $01, waits 210/30, TX_0102/TX_0103, SPEED_080, movedown $20, and room flag $40.'
 }
 
 $impaSpeed80Match = [regex]::Match(
@@ -657,8 +941,12 @@ if (-not $impaSpeed80Match.Success -or $impaSpeed80Match.Groups['value'].Value -
 }
 
 $impaTextId = [Convert]::ToInt32($impaScriptCommand.Groups['text'].Value, 16)
-if (-not $allTexts.ContainsKey(0x0101) -or -not $allTexts.ContainsKey($impaTextId)) {
-    throw 'Could not resolve Impa encounter text TX_0101/TX_0102.'
+$impaLinkedTextId = [Convert]::ToInt32(
+    $impaScriptCommand.Groups['linkedText'].Value, 16)
+if (-not $allTexts.ContainsKey(0x0101) -or
+    -not $allTexts.ContainsKey($impaTextId) -or
+    -not $allTexts.ContainsKey($impaLinkedTextId)) {
+    throw 'Could not resolve Impa encounter text TX_0101/TX_0102/TX_0103.'
 }
 # TX_0102 begins with a text-engine call to TX_0101. Expand it for the runtime
 # textbox, which consumes the already-resolved final string rather than text
@@ -666,6 +954,9 @@ if (-not $allTexts.ContainsKey(0x0101) -or -not $allTexts.ContainsKey($impaTextI
 $impaText = $allTexts[$impaTextId] -replace '^\\call\(TX_0101\)\r?\n?',
     "$($allTexts[0x0101])`n"
 $impaText = $impaText.Replace('\sym(0x57)', [string][char]0x25b2)
+$impaLinkedText = $allTexts[$impaLinkedTextId] -replace '^\\call\(TX_0101\)\r?\n?',
+    "$($allTexts[0x0101])`n"
+$impaLinkedText = $impaLinkedText.Replace('\sym(0x57)', [string][char]0x25b2)
 
 # INTERAC_IMPA_IN_CUTSCENE selects animation indices $00-$03 directly from
 # Interaction.direction while following Link. The generic room-NPC importer
@@ -696,15 +987,46 @@ $impaEventColumns = @(
     $impaFollowerAnimations[1],
     $impaFollowerAnimations[2],
     $impaFollowerAnimations[3],
-    [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($impaText))
+    [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($impaText)),
+    $impaLinkedTextId.ToString('x4'),
+    [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($impaLinkedText))
 )
 $impaEventRows = @(
-    "# group`troom`tid`tsubid`troom-flag`tlink-wait`ttarget-x`tcenter-wait`tapproach-frames`tlink-speed`timpa-wait`ttext-id`tpost-text`timpa-speed`timpa-move-frames`tfollow-lag`tup-animation`tright-animation`tdown-animation`tleft-animation`ttext-base64",
+    "# group`troom`tid`tsubid`troom-flag`tlink-wait`ttarget-x`tcenter-wait`tapproach-frames`tlink-speed`timpa-wait`ttext-id`tpost-text`timpa-speed`timpa-move-frames`tfollow-lag`tup-animation`tright-animation`tdown-animation`tleft-animation`ttext-base64`tlinked-text-id`tlinked-text-base64",
     ($impaEventColumns -join "`t")
 )
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'cutscenes\impa_intro_event.tsv'),
     $impaEventRows,
+    [Text.UTF8Encoding]::new($false))
+
+$impaCommandDefinitions = @(
+    @('^\s*checkmemoryeq\s+wTmpcfc0\.genericCutscene\.cfd0,\s*\$01', 'checkmemoryeq', '', '01', '', 'wTmpcfc0.genericCutscene.cfd0'),
+    @('^\s*wait\s+210', 'wait', '', '210', '', ''),
+    @('^\s*showtextdifferentforlinked\s+TX_0102,\s*TX_0103', 'showtextdifferentforlinked', '', '0102', '0103', [string]::Concat($impaText, [char]0, $impaLinkedText)),
+    @('^\s*wait\s+30', 'wait', '', '30', '', ''),
+    @('^\s*setspeed\s+SPEED_080', 'setspeed', 'Impa', $impaSpeed80Match.Groups['value'].Value, '', ''),
+    @('^\s*movedown\s+\$20', 'move', 'Impa', '10', '20', $impaFollowerAnimations[2]),
+    @('^\s*orroomflag\s+\$40', 'orroomflag', '', '40', '', ''),
+    @('^\s*scriptend', 'scriptend', '', '', '', '')
+)
+$impaCommandRows = [Collections.Generic.List[string]]::new()
+$impaCommandRows.Add(
+    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
+$impaScriptBodyStart = $impaScriptMatch.Groups['body'].Index
+$impaScriptBodyEnd = $impaScriptBodyStart + $impaScriptMatch.Groups['body'].Length
+for ($index = 0; $index -lt $impaCommandDefinitions.Count; $index++) {
+    $definition = $impaCommandDefinitions[$index]
+    $sourceLine = Find-CutsceneCommandSourceLine `
+        $impaScriptSource $impaScriptBodyStart $impaScriptBodyEnd `
+        $definition[0] 'impaScript0'
+    $impaCommandRows.Add((New-CutsceneCommandRow `
+        'impaScript0' $index 'impaScript0' $sourceLine `
+        $definition[1] $definition[2] $definition[3] $definition[4] $definition[5]))
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\impa_intro_commands.tsv'),
+    $impaCommandRows,
     [Text.UTF8Encoding]::new($false))
 
 # Room 0:59 continues the same retained INTERAC_IMPA_IN_CUTSCENE object.
@@ -1074,6 +1396,112 @@ $stoneHeader = @(
     @("# $stoneHeader", ($stoneColumns -join "`t")),
     [Text.UTF8Encoding]::new($false))
 
+# The approach, jumps, and linkCutscene2 positioning handshake are native
+# interaction/special-object code. The retreat after linkCutscene2 writes
+# cfd0=$03 is the actual interaction-script stream; export it without folding
+# those parallel native handlers into event-specific timing stages.
+$impaMoveAwayBodyStart = $impaMoveAwayBlock.Groups['body'].Index
+$impaMoveAwayBodyEnd =
+    $impaMoveAwayBodyStart + $impaMoveAwayBlock.Groups['body'].Length
+$findImpaMoveAwaySourceLine = {
+    param([string]$pattern, [int]$occurrence = 0)
+    return Find-CutsceneCommandSourceLine `
+        $impaScriptSource $impaMoveAwayBodyStart $impaMoveAwayBodyEnd `
+        $pattern 'impaScript_moveAwayFromRock' $occurrence
+}
+$newImpaMoveAwayCommandRow = {
+    param(
+        [int]$index,
+        [int]$line,
+        [string]$opcode,
+        [string]$actor = '',
+        [string]$arg0 = '',
+        [string]$arg1 = '',
+        [string]$payload = '')
+    return New-CutsceneCommandRow `
+        'impaScript_moveAwayFromRock' $index 'impaScript_moveAwayFromRock' $line `
+        $opcode $actor $arg0 $arg1 $payload
+}
+$impaMoveAwayCommandRows = @(
+    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64",
+    (& $newImpaMoveAwayCommandRow 0 (& $findImpaMoveAwaySourceLine '^\s*checkmemoryeq\s+wTmpcfc0\.genericCutscene\.cfd0,\s*\$03\s*$') 'checkmemoryeq' '' '03' '' 'wTmpcfc0.genericCutscene.cfd0'),
+    (& $newImpaMoveAwayCommandRow 1 (& $findImpaMoveAwaySourceLine '^\s*setanimation\s+\$02\s*$') 'setanimation' 'Impa' '02' '' $impaFollowerAnimations[2]),
+    (& $newImpaMoveAwayCommandRow 2 (& $findImpaMoveAwaySourceLine '^\s*wait\s+10\s*$') 'wait' '' '10'),
+    (& $newImpaMoveAwayCommandRow 3 (& $findImpaMoveAwaySourceLine '^\s*showtext\s+TX_0106\s*$') 'showtext' '' '0106' '' $stoneMessages[2]),
+    (& $newImpaMoveAwayCommandRow 4 (& $findImpaMoveAwaySourceLine '^\s*wait\s+30\s*$' 0) 'wait' '' '30'),
+    (& $newImpaMoveAwayCommandRow 5 (& $findImpaMoveAwaySourceLine '^\s*setanimation\s+\$01\s*$') 'setanimation' 'Impa' '01' '' $impaFollowerAnimations[1]),
+    (& $newImpaMoveAwayCommandRow 6 (& $findImpaMoveAwaySourceLine '^\s*setangle\s+\$18\s*$') 'setangle' 'Impa' '18'),
+    (& $newImpaMoveAwayCommandRow 7 (& $findImpaMoveAwaySourceLine '^\s*setspeed\s+SPEED_080\s*$') 'setspeed' 'Impa' $impaSpeed80Match.Groups['value'].Value),
+    (& $newImpaMoveAwayCommandRow 8 (& $findImpaMoveAwaySourceLine '^\s*applyspeed\s+\$21\s*$' 0) 'applyspeed' 'Impa' '21'),
+    (& $newImpaMoveAwayCommandRow 9 (& $findImpaMoveAwaySourceLine '^\s*wait\s+30\s*$' 1) 'wait' '' '30'),
+    (& $newImpaMoveAwayCommandRow 10 (& $findImpaMoveAwaySourceLine '^\s*showtext\s+TX_0107\s*$') 'showtext' '' '0107' '' $stoneMessages[3]),
+    (& $newImpaMoveAwayCommandRow 11 (& $findImpaMoveAwaySourceLine '^\s*wait\s+30\s*$' 2) 'wait' '' '30'),
+    (& $newImpaMoveAwayCommandRow 12 (& $findImpaMoveAwaySourceLine '^\s*applyspeed\s+\$21\s*$' 1) 'applyspeed' 'Impa' '21'),
+    (& $newImpaMoveAwayCommandRow 13 (& $findImpaMoveAwaySourceLine '^\s*wait\s+30\s*$' 3) 'wait' '' '30'),
+    (& $newImpaMoveAwayCommandRow 14 (& $findImpaMoveAwaySourceLine '^\s*showtext\s+TX_0108\s*$') 'showtext' '' '0108' '' $stoneMessages[4]),
+    (& $newImpaMoveAwayCommandRow 15 (& $findImpaMoveAwaySourceLine '^\s*wait\s+30\s*$' 4) 'wait' '' '30'),
+    (& $newImpaMoveAwayCommandRow 16 (& $findImpaMoveAwaySourceLine '^\s*writememory\s+wTmpcfc0\.genericCutscene\.cfd0,\s*\$04\s*$') 'writememory' '' '04' '' 'wTmpcfc0.genericCutscene.cfd0'),
+    (& $newImpaMoveAwayCommandRow 17 (& $findImpaMoveAwaySourceLine '^\s*scriptend\s*$') 'scriptend')
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\impa_stone_prepush_commands.tsv'),
+    $impaMoveAwayCommandRows,
+    [Text.UTF8Encoding]::new($false))
+
+$impaRockMovedBodyStart = $impaRockMovedBlock.Groups['body'].Index
+$impaRockMovedBodyEnd =
+    $impaRockMovedBodyStart + $impaRockMovedBlock.Groups['body'].Length
+$findImpaRockMovedSourceLine = {
+    param([string]$pattern, [int]$occurrence = 0)
+    return Find-CutsceneCommandSourceLine `
+        $impaScriptHelperSource $impaRockMovedBodyStart $impaRockMovedBodyEnd `
+        $pattern 'impaScript_rockJustMoved' $occurrence
+}
+$newImpaRockMovedCommandRow = {
+    param(
+        [int]$index,
+        [string]$label,
+        [int]$line,
+        [string]$opcode,
+        [string]$actor = '',
+        [string]$arg0 = '',
+        [string]$arg1 = '',
+        [string]$payload = '')
+    return New-CutsceneCommandRow `
+        'impaScript_rockJustMoved' $index $label $line `
+        $opcode $actor $arg0 $arg1 $payload
+}
+$impaRockMovedCommandRows = @(
+    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64",
+    (& $newImpaRockMovedCommandRow 0 'impaScript_rockJustMoved' (& $findImpaRockMovedSourceLine '^\s*wait\s+4\s*$') 'wait' '' '4'),
+    (& $newImpaRockMovedCommandRow 1 'impaScript_rockJustMoved' (& $findImpaRockMovedSourceLine '^\s*jumpifmemoryeq\s+w1Link\.angle,\s*\$08,\s*@pushedRight\s*$') 'jumpifmemoryeq' '' '08' '6' 'w1Link.angle'),
+    (& $newImpaRockMovedCommandRow 2 'impaScript_rockJustMoved' (& $findImpaRockMovedSourceLine '^\s*setangle\s+\$10\s*$') 'setangle' 'Impa' '10'),
+    (& $newImpaRockMovedCommandRow 3 'impaScript_rockJustMoved' (& $findImpaRockMovedSourceLine '^\s*setspeed\s+SPEED_040\s*$') 'setspeed' 'Impa' ((Resolve-ObjectSpeed '40').ToString('x2'))),
+    (& $newImpaRockMovedCommandRow 4 'impaScript_rockJustMoved' (& $findImpaRockMovedSourceLine '^\s*applyspeed\s+65\s*$') 'applyspeed' 'Impa' ([Convert]::ToInt32($impaRockMoved.Groups['leftCorrect'].Value, 10).ToString('x2'))),
+    (& $newImpaRockMovedCommandRow 5 'impaScript_rockJustMoved' (& $findImpaRockMovedSourceLine '^\s*scriptjump\s+\+\+\s*$') 'scriptjump' '' '7'),
+    (& $newImpaRockMovedCommandRow 6 '@pushedRight' (& $findImpaRockMovedSourceLine '^\s*wait\s+65\s*$') 'wait' '' '65'),
+    (& $newImpaRockMovedCommandRow 7 '++[1]' (& $findImpaRockMovedSourceLine '^\s*wait\s+120\s*$') 'wait' '' '120'),
+    (& $newImpaRockMovedCommandRow 8 '++[1]' (& $findImpaRockMovedSourceLine '^\s*setangle\s+\$08\s*$') 'setangle' 'Impa' '08'),
+    (& $newImpaRockMovedCommandRow 9 '++[1]' (& $findImpaRockMovedSourceLine '^\s*setspeed\s+SPEED_100\s*$') 'setspeed' 'Impa' ((Resolve-ObjectSpeed '100').ToString('x2'))),
+    (& $newImpaRockMovedCommandRow 10 '++[1]' (& $findImpaRockMovedSourceLine '^\s*applyspeed\s+\$21\s*$') 'applyspeed' 'Impa' '21'),
+    (& $newImpaRockMovedCommandRow 11 '++[1]' (& $findImpaRockMovedSourceLine '^\s*wait\s+8\s*$' 0) 'wait' '' '8'),
+    (& $newImpaRockMovedCommandRow 12 '++[1]' (& $findImpaRockMovedSourceLine '^\s*jumpifmemoryeq\s+w1Link\.angle,\s*\$08\s+\+\+\s*$') 'jumpifmemoryeq' '' '08' '15' 'w1Link.angle'),
+    (& $newImpaRockMovedCommandRow 13 '++[1]' (& $findImpaRockMovedSourceLine '^\s*moveup\s+\$11\s*$') 'move' 'Impa' '00' '11' $impaFollowerAnimations[0]),
+    (& $newImpaRockMovedCommandRow 14 '++[1]' (& $findImpaRockMovedSourceLine '^\s*wait\s+8\s*$' 1) 'wait' '' '8'),
+    (& $newImpaRockMovedCommandRow 15 '++[2]' (& $findImpaRockMovedSourceLine '^\s*writememory\s+wTmpcfc0\.genericCutscene\.cfd0,\s*\$07\s*$') 'writememory' '' '07' '' 'wTmpcfc0.genericCutscene.cfd0'),
+    (& $newImpaRockMovedCommandRow 16 '++[2]' (& $findImpaRockMovedSourceLine '^\s*setanimation\s+\$00\s*$') 'setanimation' 'Impa' '00' '' $impaFollowerAnimations[0]),
+    (& $newImpaRockMovedCommandRow 17 '++[2]' (& $findImpaRockMovedSourceLine '^\s*wait\s+30\s*$' 0) 'wait' '' '30'),
+    (& $newImpaRockMovedCommandRow 18 '++[2]' (& $findImpaRockMovedSourceLine '^\s*showtext\s+TX_0109\s*$') 'showtext' '' '0109' '' $stoneMessages[5]),
+    (& $newImpaRockMovedCommandRow 19 '++[2]' (& $findImpaRockMovedSourceLine '^\s*wait\s+30\s*$' 1) 'wait' '' '30'),
+    (& $newImpaRockMovedCommandRow 20 '++[2]' (& $findImpaRockMovedSourceLine '^\s*setspeed\s+SPEED_080\s*$') 'setspeed' 'Impa' $impaSpeed80Match.Groups['value'].Value),
+    (& $newImpaRockMovedCommandRow 21 '++[2]' (& $findImpaRockMovedSourceLine '^\s*moveup\s+\$20\s*$') 'move' 'Impa' '00' '20' $impaFollowerAnimations[0]),
+    (& $newImpaRockMovedCommandRow 22 '++[2]' (& $findImpaRockMovedSourceLine '^\s*scriptend\s*$') 'scriptend')
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\impa_stone_postpush_commands.tsv'),
+    $impaRockMovedCommandRows,
+    [Text.UTF8Encoding]::new($false))
+
 Export-PaletteBlock 'paletteData4428' 4 'metadata\impa_stone_palette.bin'
 Copy-Item -LiteralPath $impaStoneSpriteSource.FullName -Destination (
     Join-Path $destination 'gfx\spr_triforcestone.png') -Force
@@ -1132,6 +1560,47 @@ $impaHelpRows = @(
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'cutscenes\impa_help_event.tsv'),
     $impaHelpRows,
+    [Text.UTF8Encoding]::new($false))
+
+# interaction6b_subid00 is native object code rather than interaction-script
+# bytecode. Export its linear active path through the same typed catalog while
+# retaining the edge predicate and simulated-input playback as native runtime
+# handoffs. In particular, counter1 is installed before TX_0100 and its first
+# decrement occurs on the first object update after the textbox closes.
+$impaHelpBodyStart = $impaHelpBlock.Groups['body'].Index
+$impaHelpBodyEnd = $impaHelpBodyStart + $impaHelpBlock.Groups['body'].Length
+$findImpaHelpSourceLine = {
+    param([string]$pattern, [int]$occurrence = 0)
+    return Find-CutsceneCommandSourceLine `
+        $impaHelpSource $impaHelpBodyStart $impaHelpBodyEnd `
+        $pattern 'interaction6b_subid00' $occurrence
+}
+$newImpaHelpCommandRow = {
+    param(
+        [int]$index,
+        [int]$line,
+        [string]$opcode,
+        [string]$arg0 = '',
+        [string]$payload = '')
+    return New-CutsceneCommandRow `
+        'interaction6b_subid00' $index 'interaction6b_subid00' $line `
+        $opcode '' $arg0 '' $payload
+}
+$impaHelpCommandRows = @(
+    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64",
+    (& $newImpaHelpCommandRow 0 (& $findImpaHelpSourceLine '^\s*ld\s+\(wMenuDisabled\),a\s*$') 'disablemenu'),
+    (& $newImpaHelpCommandRow 1 (& $findImpaHelpSourceLine '^\s*ld\s+\(wDisabledObjects\),a\s*$' 0) 'setdisabledobjectscontinue' '01'),
+    (& $newImpaHelpCommandRow 2 (& $findImpaHelpSourceLine '^\s*ld\s+a,30\s*$') 'setcounter' $impaHelpCommand.Groups['postText'].Value),
+    (& $newImpaHelpCommandRow 3 (& $findImpaHelpSourceLine '^\s*call\s+showText\s*$') 'showtext' $impaHelpCommand.Groups['text'].Value $allTexts[$impaHelpTextId]),
+    (& $newImpaHelpCommandRow 4 (& $findImpaHelpSourceLine '^\s*call\s+@decCounter1IfTextNotActive\s*$') 'waitpreloadedcounter'),
+    (& $newImpaHelpCommandRow 5 (& $findImpaHelpSourceLine '^\s*ld\s+\(wDisabledObjects\),a\s*$' 1) 'setdisabledobjectscontinue' '00'),
+    (& $newImpaHelpCommandRow 6 (& $findImpaHelpSourceLine '^\s*call\s+setSimulatedInputAddress\s*$') 'native' '' 'installHelpSimulatedInput'),
+    (& $newImpaHelpCommandRow 7 (& $findImpaHelpSourceLine '^\s*set\s+6,\(hl\)\s*$') 'orroomflagcontinue' '40'),
+    (& $newImpaHelpCommandRow 8 (& $findImpaHelpSourceLine '^\s*jp\s+interactionDelete\s*$') 'scriptend')
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\impa_help_commands.tsv'),
+    $impaHelpCommandRows,
     [Text.UTF8Encoding]::new($false))
 
 $impaFakeAnimations = [regex]::Match(
@@ -1238,3 +1707,228 @@ if ($null -eq $impaFakeSpriteSource) {
 }
 Copy-Item -LiteralPath $impaFakeSpriteSource.FullName -Destination (
     Join-Path $destination "gfx\$impaFakeSprite.png") -Force
+
+# Keep the command vocabulary used by implemented and near-term events tied to
+# the actual script macros/handlers. A no-carry handler yields for the current
+# object update; a carry handler immediately dispatches the next command.
+$cutsceneVocabularyRows = @(
+    "# opcode`tbytes`trunner-result`tdescription",
+    "scriptend`t1`tend`tEnd the interaction script.",
+    "scriptjump`t2`tcontinue`tJump and continue dispatch in the same update.",
+    "setcoords`t3`tyield`tWrite the actor Y/X bytes.",
+    "setangle`t2`tyield`tWrite Interaction.angle.",
+    "setspeed`t2`tyield`tWrite Interaction.speed.",
+    "applyspeed`t1-or-2`tblock`tWait for counter2; apply speed while nonzero.",
+    "setcollisionradii`t3`tyield`tWrite collision radius Y/X.",
+    "writeobjectbyte`t3`tyield`tWrite an Interaction byte.",
+    "setanimation`t2-or-3`tyield`tSelect a literal, angle, or object-byte animation.",
+    "writememory`t4`tcontinue`tWrite one WRAM byte and continue dispatch.",
+    "showtext`t2-or-3`tyield`tOpen text; interactionRunScript then waits globally.",
+    "showtextdifferentforlinked`t4`tyield`tSelect linked or unlinked text.",
+    "orroomflag`t2`tyield`tOR the current room flags.",
+    "disablemenu`t1`tcontinue`tDisable the menu.",
+    "disableinput`t1`tcontinue`tDisable Link and the menu.",
+    "enableinput`t1`tcontinue`tEnable Link and the menu.",
+    "callscript`t3`tyield`tStore return address and transfer on the next update.",
+    "retscript`t1`tyield`tRestore return address on the next update.",
+    "jumpifmemoryeq`t6`tcontinue`tConditionally branch and continue dispatch.",
+    "checkmemoryeq`t4`tgate`tHold until the WRAM byte equals the operand.",
+    "playsound`t2`tyield`tQueue a sound effect.",
+    "moveup/moveright/movedown/moveleft`t2`tblock`tSet direction/animation and install counter2.",
+    "wait`t1-or-more`tblock`tPseudo-op selecting delay or setcounter1 records.",
+    "asm15`t3-or-4`tcontinue`tRun an object-code handler; carry is forced on return."
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\script_command_vocabulary.tsv'),
+    $cutsceneVocabularyRows,
+    [Text.UTF8Encoding]::new($false))
+
+# Parse the active Nayru/Ralph/Ghost script lanes with one source-aware reader.
+# This is intentionally done before emitting the merged controller stream so a
+# newly introduced opcode fails import at its exact source file, line and label.
+$supportedNayruOpcodes = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @(
+    'setanimation', 'checkmemoryeq', 'wait', 'setspeed', 'moveup',
+    'moveright', 'movedown', 'moveleft', 'showtext', 'writememory',
+    'asm15', 'setangle', 'applyspeed', 'setcoords', 'writeobjectbyte',
+    'playsound', 'orroomflag', 'scriptend', 'callscript',
+    'jumpifmemoryeq', 'scriptjump')) {
+    [void]$supportedNayruOpcodes.Add($opcode)
+}
+$nayruScriptPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
+$nayruLaneSpecs = @(
+    @('nayruScript00_part1', '(?ms)^nayruScript00_part1:(?<body>.*?)(?=^nayruScript00_part2:)'),
+    @('nayruScript00_part2', '(?ms)^nayruScript00_part2:(?<body>.*?)(?=^nayruScript01:)'),
+    @('ralphSubid00Script', '(?ms)^ralphSubid00Script:(?<body>.*?)(?=^ralphSubid02Script:)'),
+    @('ghostVeranSubid1Script_part2', '(?ms)^ghostVeranSubid1Script_part2:(?<body>.*?)(?=^ghostVeranSubid1Script:)')
+)
+foreach ($laneSpec in $nayruLaneSpecs) {
+    $laneMatch = [regex]::Match($nayruScriptSource, $laneSpec[1])
+    if (-not $laneMatch.Success) {
+        throw "$nayruScriptPath`: could not locate $($laneSpec[0]) for typed parsing."
+    }
+    $parsedLane = @(Read-AssemblyCutsceneCommands `
+        $nayruScriptPath $nayruScriptSource $laneSpec[0] `
+        $laneMatch.Groups['body'].Index $laneMatch.Groups['body'].Length `
+        $supportedNayruOpcodes)
+    if ($parsedLane[-1].Opcode -ne 'scriptend') {
+        throw "$nayruScriptPath`:$($parsedLane[-1].Line): $($laneSpec[0]) does not terminate in scriptend."
+    }
+}
+
+# The intro is a multi-object controller: independent interaction scripts,
+# Link object code, and native palette/room handlers synchronize through cfd0.
+# Export the already validated active-path orchestration as typed records while
+# retaining native handlers only for the non-script object code.
+$nayruControllerLine = Get-AssemblySourceLine `
+    $nayruCutsceneSource '^nayruSingingCutsceneHandler:' 'nayruSingingCutsceneHandler'
+$nayruPart1Line = Get-AssemblySourceLine `
+    $nayruScriptSource '^nayruScript00_part1:' 'nayruScript00_part1'
+$nayruPart2Line = Get-AssemblySourceLine `
+    $nayruScriptSource '^nayruScript00_part2:' 'nayruScript00_part2'
+$nayruRalphLine = Get-AssemblySourceLine `
+    $nayruScriptSource '^ralphSubid00Script:' 'ralphSubid00Script'
+$nayruGhostLine = Get-AssemblySourceLine `
+    $nayruScriptSource '^ghostVeranSubid1Script_part2:' 'ghostVeranSubid1Script_part2'
+
+$nayruCommandRows = [Collections.Generic.List[string]]::new()
+$nayruCommandRows.Add(
+    '# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64')
+$addNayruCommand = {
+    param(
+        [string]$opcode,
+        [string]$actor = '',
+        [string]$arg0 = '',
+        [string]$arg1 = '',
+        [string]$payload = '',
+        [string]$script = 'nayruSingingCutsceneHandler',
+        [int]$line = $nayruControllerLine)
+    $nayruCommandRows.Add((New-CutsceneCommandRow `
+        $script ($nayruCommandRows.Count - 1) $script $line `
+        $opcode $actor $arg0 $arg1 $payload))
+}
+$nayruWait = { param([int]$frames) & $addNayruCommand 'waitframes' '' $frames '' '' }
+$nayruText = { param([string]$id, [string]$script = 'nayruSingingCutsceneHandler', [int]$line = $nayruControllerLine)
+    & $addNayruCommand 'dialogue' '' $id '' '' $script $line }
+$nayruAnimation = { param([string]$actor, [int]$animation, [string]$script = 'nayruSingingCutsceneHandler', [int]$line = $nayruControllerLine)
+    & $addNayruCommand 'setanimation' $actor $animation.ToString('x2') '' '' $script $line }
+$nayruMove = { param([string]$actor, [double]$dx, [double]$dy, [int]$frames, [int]$animation = -1, [bool]$setAnimation = $false, [string]$script = 'nayruSingingCutsceneHandler', [int]$line = $nayruControllerLine)
+    $payload = @(
+        $dx.ToString([Globalization.CultureInfo]::InvariantCulture),
+        $dy.ToString([Globalization.CultureInfo]::InvariantCulture),
+        $(if ($setAnimation) { '1' } else { '0' })) -join ','
+    & $addNayruCommand 'translate' $actor $frames $animation $payload $script $line }
+$nayruParallelMove = { param([string]$actor, [double]$dx, [double]$dy, [int]$frames, [string]$actor2, [double]$dx2, [double]$dy2, [int]$frames2)
+    $first = $dx.ToString([Globalization.CultureInfo]::InvariantCulture) + ',' +
+        $dy.ToString([Globalization.CultureInfo]::InvariantCulture)
+    $second = $dx2.ToString([Globalization.CultureInfo]::InvariantCulture) + ',' +
+        $dy2.ToString([Globalization.CultureInfo]::InvariantCulture)
+    & $addNayruCommand 'paralleltranslate' $actor $frames $frames2 "$first|$actor2|$second" }
+$nayruNative = { param([string]$handler)
+    & $addNayruCommand 'nativeyield' '' '' '' $handler }
+$nayruBlock = { param([string]$handler, [int]$frames, [string]$actor = '', [string]$arguments = '')
+    $payload = if ([string]::IsNullOrEmpty($arguments)) { $handler } else { "$handler`0$arguments" }
+    & $addNayruCommand 'nativeblock' $actor $frames '' $payload }
+$nayruSound = { param([string]$sound)
+    & $addNayruCommand 'playsound' '' $sound '' '' }
+
+& $nayruNative 'SetupNayruPossessionScene'
+& $nayruBlock 'Fade' 11 '' 'in'
+& $nayruWait 30; & $nayruBlock 'Jump' 1 'Ralph'; & $nayruWait 30
+& $nayruText '2a00' 'ralphSubid00Script' $nayruRalphLine; & $nayruWait 30
+& $nayruNative 'FacePlayerUp'; & $nayruAnimation 'Nayru' 2 'nayruScript00_part1' $nayruPart1Line; & $nayruWait 10
+& $nayruMove 'Nayru' 0 8 32 2 $true 'nayruScript00_part1' $nayruPart1Line
+& $nayruWait 30; & $nayruText '1d00' 'nayruScript00_part1' $nayruPart1Line; & $nayruWait 30
+& $nayruNative 'FacePlayerRight'; & $nayruBlock 'Jump' 1 'Ralph'; & $nayruWait 10
+& $nayruText '2a22' 'ralphSubid00Script' $nayruRalphLine; & $nayruWait 30
+& $nayruWait 40; & $nayruNative 'FacePlayerUp'; & $nayruText '1d22' 'nayruScript00_part1' $nayruPart1Line; & $nayruWait 30
+& $nayruAnimation 'Impa' 2; & $nayruWait 30; & $nayruNative 'FastMusicFadeOut'; & $nayruWait 30
+& $nayruMove 'Impa' 32 0 32 1 $true; & $nayruWait 8
+& $nayruMove 'Impa' 0 -16 16 0 $true; & $nayruWait 30
+& $nayruNative 'PlaySideviewMusic'; & $nayruAnimation 'Impa' 4; & $nayruWait 240
+& $nayruText '5600'; & $nayruNative 'FacePlayerDown'; & $nayruNative 'AlarmNayruAudience'
+& $nayruWait 60; & $nayruAnimation 'Impa' 0; & $nayruWait 60; & $nayruText '5606'; & $nayruWait 10
+& $nayruAnimation 'Impa' 7
+& $nayruMove 'Impa' -33.259663 13.776604 72 7 $false
+& $nayruNative 'SpawnGhostVeran'; & $nayruBlock 'RoomPalette' 32
+& $nayruNative 'BeginNayruAudienceEscape'; & $nayruWait 58
+& $nayruMove 'GhostVeran' 0 -22.5 90; & $nayruWait 60
+& $nayruAnimation 'Ralph' 2 'ralphSubid00Script' $nayruRalphLine
+& $nayruNative 'PlayDoubleUnknown5'
+& $nayruParallelMove 'Player' -33 0 22 'Ralph' 0 33 22
+& $nayruSound '75'; & $nayruWait 6; & $nayruMove 'Player' 0 12 8
+& $nayruSound '75'; & $nayruWait 84
+& $nayruSound '6b'; & $nayruMove 'GhostVeran' -48.08326 -48.08326 17; & $nayruWait 8
+& $nayruSound '6b'; & $nayruMove 'GhostVeran' 123.0575 82.224396 37; & $nayruWait 8
+& $nayruSound '6b'; & $nayruMove 'GhostVeran' -76 0 19; & $nayruWait 8
+& $nayruSound '6b'; & $nayruMove 'GhostVeran' 38.26834 -92.38795 25; & $nayruWait 8
+& $nayruSound '6b'; & $nayruMove 'GhostVeran' 44.346214 18.368805 12; & $nayruWait 8
+& $nayruSound '6b'; & $nayruMove 'GhostVeran' -48.08326 48.08326 17; & $nayruWait 30
+& $nayruNative 'SpawnHumanVeran'; & $nayruBlock 'Flicker' 120 'GhostVeran'; & $nayruWait 120
+& $nayruAnimation 'HumanVeran' 1; & $nayruWait 30; & $nayruText '5601'; & $nayruWait 30
+& $nayruAnimation 'HumanVeran' 0; & $nayruWait 60; & $nayruSound '8d'
+& $nayruBlock 'Flicker' 120 'GhostVeran' 'PlaySwordObtained'
+& $nayruNative 'HideHumanVeran'; & $nayruWait 30
+& $nayruMove 'GhostVeran' 33.258785 22.222809 80; & $nayruWait 30
+& $nayruText '5602'; & $nayruWait 30; & $nayruNative 'BeginGhostRumble'; & $nayruWait 120
+& $nayruMove 'GhostVeran' 0 10.25 41; & $nayruWait 60
+& $nayruNative 'BeginGhostCharge'; & $nayruParallelMove 'GhostVeran' 0 -102 34 'Nayru' 0 -8 32
+& $nayruNative 'FinishGhostCharge'; & $nayruBlock 'Fade' 32 '' 'out'
+& $nayruWait 60; & $nayruNative 'HideGhostVeranAfterPossession'
+& $nayruNative 'BeginNayruPossessionRecovery'; & $nayruBlock 'Fade' 97 '' 'in'
+& $nayruWait 452; & $nayruWait 120
+& $nayruMove 'Ralph' -16 0 16 3 $true 'ralphSubid00Script' $nayruRalphLine; & $nayruWait 6
+& $nayruNative 'SpawnRalphSword'; & $nayruMove 'Ralph' 0 -24 24 0 $true 'ralphSubid00Script' $nayruRalphLine
+& $nayruWait 30; & $nayruAnimation 'Ralph' 4 'ralphSubid00Script' $nayruRalphLine
+& $nayruSound '74'; & $nayruWait 60; & $nayruText '2a01' 'ralphSubid00Script' $nayruRalphLine
+& $nayruWait 30; & $nayruText '5603' 'ralphSubid00Script' $nayruRalphLine; & $nayruWait 60
+& $nayruAnimation 'Ralph' 0 'ralphSubid00Script' $nayruRalphLine
+& $nayruMove 'Ralph' 0 16 129 0 $false 'ralphSubid00Script' $nayruRalphLine
+& $nayruWait 30; & $nayruText '5604' 'ralphSubid00Script' $nayruRalphLine; & $nayruWait 60
+& $nayruNative 'SpawnPortalLightning'; & $nayruWait 2; & $nayruNative 'ActivateNayruPortal'; & $nayruWait 1; & $nayruWait 60
+& $nayruMove 'GhostVeran' 0 17.5 35 '0' $false 'ghostVeranSubid1Script_part2' $nayruGhostLine
+& $nayruWait 10; & $nayruNative 'HideGhostVeran'; & $nayruWait 60
+& $nayruBlock 'PortalFlight' 1 'Nayru'; & $nayruWait 20
+& $nayruMove 'Ralph' 0 -48 48 0 $true 'ralphSubid00Script' $nayruRalphLine; & $nayruWait 6
+& $nayruMove 'Ralph' -49 0 49 3 $true 'ralphSubid00Script' $nayruRalphLine
+& $nayruWait 40; & $nayruText '5605' 'nayruScript00_part2' $nayruPart2Line; & $nayruWait 60
+& $nayruMove 'Nayru' 0 -17 17 0 $true 'nayruScript00_part2' $nayruPart2Line
+& $nayruSound '95'; & $nayruBlock 'Flicker' 120 'Nayru'; & $nayruNative 'HideNayru'; & $nayruWait 120
+& $nayruNative 'MediumMusicFadeOut'; & $nayruWait 90; & $nayruText '5607'; & $nayruWait 90
+& $nayruBlock 'Fade' 11 '' 'out'; & $nayruNative 'BeginNayruVignette0'; & $nayruBlock 'Fade' 11 '' 'in'; & $nayruWait 926
+& $nayruBlock 'Fade' 11 '' 'out'; & $nayruNative 'BeginNayruVignette1'; & $nayruBlock 'Fade' 11 '' 'in'; & $nayruWait 589
+& $nayruBlock 'Fade' 11 '' 'out'; & $nayruNative 'BeginNayruVignette2'; & $nayruBlock 'Fade' 11 '' 'in'; & $nayruWait 634
+& $nayruBlock 'Fade' 11 '' 'out'; & $nayruNative 'BeginNayruAftermath'; & $nayruBlock 'Fade' 11 '' 'in'
+& $nayruWait 120; & $nayruText '2a02'; & $nayruWait 30
+& $nayruMove 'AftermathRalph' 16 0 129 9 $false; & $nayruAnimation 'AftermathRalph' 8
+& $nayruWait 120; & $nayruText '2a03'; & $nayruWait 120; & $nayruAnimation 'AftermathRalph' 9
+& $nayruWait 10; & $nayruAnimation 'AftermathRalph' 10; & $nayruWait 60
+& $nayruMove 'AftermathRalph' -17 0 102 10 $false; & $nayruWait 30
+& $nayruText '2a04'; & $nayruWait 120; & $nayruWait 60; & $nayruAnimation 'AftermathRalph' 2
+& $nayruText '2a05'; & $nayruWait 30; & $nayruMove 'AftermathRalph' 50 0 25 1 $true
+& $nayruAnimation 'AftermathRalph' 2; & $nayruSound '78'; & $nayruWait 120
+& $nayruText '2a06'; & $nayruWait 30; & $nayruMove 'AftermathRalph' 0 120 40 2 $true
+& $nayruWait 60; & $nayruNative 'FinishAftermathRalphDeparture'
+& $nayruWait 80; & $nayruMove 'Player' 0 48 48; & $nayruWait 8
+& $nayruMove 'Player' -16 0 16; & $nayruWait 60; & $nayruWait 120
+& $nayruNative 'RestoreAftermathImpa'; & $nayruWait 60; & $nayruAnimation 'AftermathImpa' 3
+& $nayruWait 50; & $nayruAnimation 'AftermathImpa' 1; & $nayruWait 30
+& $nayruAnimation 'AftermathImpa' 3; & $nayruWait 10; & $nayruAnimation 'AftermathImpa' 1
+& $nayruWait 60; & $nayruText '0110'; & $nayruWait 30; & $nayruAnimation 'AftermathImpa' 3
+& $nayruWait 30; & $nayruText '0112'; & $nayruWait 30; & $nayruAnimation 'AftermathImpa' 1
+& $nayruText '0115'; & $nayruWait 30; & $nayruNative 'BeginNayruSwordGift'
+& $nayruNative 'GrantNayruSword'; & $nayruText '001c'; & $nayruNative 'RemoveNayruSwordEffect'
+& $nayruWait 30; & $nayruNative 'FacePlayerLeft'; & $nayruWait 30; & $nayruText '0117'; & $nayruWait 30
+& $nayruMove 'AftermathImpa' 65 0 65 1 $true; & $nayruWait 8
+& $nayruMove 'AftermathImpa' 0 33 33 2 $true; & $nayruWait 30
+& $nayruNative 'RestoreRoomMusic'; & $nayruWait 30
+& $addNayruCommand 'scriptend' '' '' '' ''
+
+if ($nayruCommandRows.Count -lt 200) {
+    throw "Initial Nayru typed command stream is unexpectedly short ($($nayruCommandRows.Count - 1) records)."
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\nayru_intro_commands.tsv'),
+    $nayruCommandRows,
+    [Text.UTF8Encoding]::new($false))

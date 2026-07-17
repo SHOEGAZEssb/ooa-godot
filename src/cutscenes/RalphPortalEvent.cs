@@ -4,20 +4,21 @@ using System;
 namespace oracleofages;
 
 /// <summary>Runs Ralph's one-shot portal departure in room $0:$39.</summary>
-internal sealed class RalphPortalEvent : IRoomEvent
+internal sealed class RalphPortalEvent : IRoomEvent, ICutsceneCommandHost
 {
     private readonly RoomEventContext _context;
-    private readonly RalphPortalEventDatabase.RalphPortalEventRecord _record =
-        new RalphPortalEventDatabase().Record;
-    private readonly RoomEventTimeline _timeline = new();
+    private readonly RalphPortalEventDatabase _database = new();
+    private readonly RalphPortalEventDatabase.RalphPortalEventRecord _record;
+    private readonly CutsceneCommandRunner _runner;
     private NpcCharacter? _ralph;
     private bool _waitingForScroll;
     private bool _flickering;
-    private int _counter;
 
     public RalphPortalEvent(RoomEventContext context)
     {
         _context = context;
+        _record = _database.Record;
+        _runner = new CutsceneCommandRunner(this);
         if (_record.GlobalFlag != OracleSaveData.GlobalFlagRalphEnteredPortal)
         {
             throw new InvalidOperationException(
@@ -25,11 +26,11 @@ internal sealed class RalphPortalEvent : IRoomEvent
         }
     }
 
-    public bool HasState => _waitingForScroll || _timeline.Active;
+    public bool HasState => _waitingForScroll || _runner.Active;
     public bool BlocksGameplay => HasState;
     internal bool WaitingForScroll => _waitingForScroll;
     internal bool Flickering => _flickering;
-    internal int Counter => _counter;
+    internal int Counter => _runner.Counter;
     internal bool Completed => _context.Rooms.SaveData.HasGlobalFlag(_record.GlobalFlag);
 
     public bool Matches(int group, OracleRoomData room) =>
@@ -37,10 +38,9 @@ internal sealed class RalphPortalEvent : IRoomEvent
 
     public void Start()
     {
-        _timeline.Clear();
+        _runner.Clear();
         _waitingForScroll = false;
         _flickering = false;
-        _counter = 0;
         _ralph = _context.RequireNpc(
             _record.Group,
             _record.Room,
@@ -69,97 +69,145 @@ internal sealed class RalphPortalEvent : IRoomEvent
             // the first object update afterward, the script disables input
             // and installs its 40-frame counter.
             _waitingForScroll = false;
-            _context.Player.BeginCutsceneControl();
-            BuildTimeline();
+            _runner.Start(_database.Commands);
+            _runner.AdvanceFrame();
             return;
         }
 
-        _timeline.AdvanceFrame();
+        _runner.AdvanceFrame();
     }
 
     public void Cancel()
     {
         _ralph = null;
-        _timeline.Clear();
+        _runner.Clear();
         _waitingForScroll = false;
         _flickering = false;
-        _counter = 0;
     }
 
-    private void BuildTimeline()
+    bool ICutsceneCommandHost.DialogueOpen => _context.DialogueOpen;
+    bool ICutsceneCommandHost.IsLinkedGame =>
+        _context.Rooms.SaveData.IsLinkedGame;
+    int ICutsceneCommandHost.FrameCounter => _context.Entities.FrameCounter;
+    ICutsceneCommandTraceSink? ICutsceneCommandHost.TraceSink =>
+        _context.CommandTraceSink;
+    bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
+        actor.Value == "Ralph";
+
+    void ICutsceneCommandHost.SetInputEnabled(bool enabled)
     {
-        _timeline.Clear();
-        _counter = _record.IntroDelayFrames;
-        _timeline.Wait(
-            _record.IntroDelayFrames,
-            counterChanged: remaining => _counter = remaining,
-            elapsed: () => _context.ShowDialogue(_record.Text));
-        _timeline.WaitUntil(
-            () => !_context.DialogueOpen,
-            completed: () => _counter = _record.PostTextFrames);
-        _timeline.Wait(
-            _record.PostTextFrames,
-            counterChanged: remaining => _counter = remaining,
-            elapsed: () => _ralph!.SetScriptAnimation(_record.MovementAnimation));
-
-        // setanimation, setspeed, setangle, and applyspeed each consume one
-        // interaction-script update. Speed and angle are applied by the move
-        // callback, so these two command slots intentionally have no mutation.
-        _timeline.Yield();
-        _timeline.Yield();
-        _timeline.Do(() => _counter = _record.MovementCounter);
-
-        // interactionRunScript decrements counter2 first and applies speed
-        // only while the result is nonzero. applyspeed $11 thus advances Ralph
-        // 16 pixels, from x=$18 to the portal at $28.
-        _timeline.Wait(
-            _record.MovementCounter,
-            counterChanged: remaining =>
-            {
-                _counter = remaining;
-                if (remaining > 0)
-                    _ralph!.Position += MovementDelta();
-            });
-        _timeline.Do(() => _ralph!.SetScriptAnimation(_record.PortalAnimation));
-        _timeline.Do(() => _counter = _record.FlickerFrames);
-
-        // The playsound command occupies the update between animation $09 and
-        // the first flicker, exactly as ralphSubid0dScript does.
-        _timeline.Do(() =>
-            _context.Sound.PlaySound(OracleSoundEngine.SndMysterySeed));
-        _timeline.Wait(
-            _record.FlickerFrames,
-            counterChanged: remaining =>
-            {
-                _flickering = true;
-                _counter = remaining;
-                // objectFlickerVisibility with b=$01 uses wFrameCounter bit 0.
-                _ralph!.Visible = (_context.Entities.FrameCounter & 0x01) != 0;
-            },
-            elapsed: Finish);
+        if (enabled)
+            _context.Player.EndCutsceneControl();
+        else
+            _context.Player.BeginCutsceneControl();
     }
 
-    private void Finish()
+    void ICutsceneCommandHost.SetMenuEnabled(bool enabled) =>
+        throw new InvalidOperationException(
+            $"Ralph's command stream does not support setting menu enabled={enabled}.");
+
+    void ICutsceneCommandHost.SetDisabledObjects(int value)
     {
-        _context.Rooms.SaveData.SetGlobalFlag(_record.GlobalFlag);
-        _ralph!.SetActive(false);
-        // scriptHelp.ralph_restoreMusic writes MUS_OVERWORLD to both active
-        // music slots and restarts it after Ralph has vanished.
-        _context.Sound.PlaySound(OracleSoundEngine.MusOverworld);
-        _timeline.Clear();
-        _waitingForScroll = false;
-        _flickering = false;
-        _context.Player.EndCutsceneControl();
+        throw new InvalidOperationException(
+            $"Ralph's command stream does not support setdisabledobjects ${value:x2}.");
     }
 
-    private Vector2 MovementDelta()
+    bool ICutsceneCommandHost.GateOpen(string gate) =>
+        throw new InvalidOperationException(
+            $"Ralph's command stream does not support gate '{gate}'.");
+
+    bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
+        throw new InvalidOperationException(
+            $"Ralph's command stream cannot read '{binding}'=${value:x2}.");
+
+    void ICutsceneCommandHost.ShowText(int textId, string message)
     {
-        if (_record.Speed != 0x28)
+        if (textId != _record.TextId)
         {
             throw new InvalidOperationException(
-                $"Unsupported Ralph object speed ${_record.Speed:x2}; expected SPEED_100 ($28).");
+                $"Ralph command stream requested TX_{textId:x4}, expected TX_{_record.TextId:x4}.");
         }
-        return OracleObjectMath.StrictCardinalVector(_record.Angle);
+        _context.ShowDialogue(message);
+    }
+
+    void ICutsceneCommandHost.SetActorAnimation(
+        string actor,
+        int animation,
+        string encodedAnimation)
+    {
+        RequireRalph(actor).SetScriptAnimation(encodedAnimation);
+    }
+
+    void ICutsceneCommandHost.SetActorMovementAnimation(
+        string actor,
+        int angle,
+        string encodedAnimation) =>
+        RequireRalph(actor).SetScriptAnimation(encodedAnimation);
+
+    void ICutsceneCommandHost.SetActorCollisionRadii(
+        string actor,
+        int radiusY,
+        int radiusX) =>
+        RequireRalph(actor).SetCollisionRadii(radiusY, radiusX);
+
+    void ICutsceneCommandHost.SetActorButtonSensitive(string actor) =>
+        throw new InvalidOperationException(
+            $"Ralph's command actor '{actor}' cannot become A-button sensitive.");
+
+    void ICutsceneCommandHost.MoveActorAtSpeed(string actor, int speed, int angle)
+    {
+        if (speed != 0x28)
+        {
+            throw new InvalidOperationException(
+                $"Unsupported Ralph object speed ${speed:x2}; expected SPEED_100 ($28).");
+        }
+        RequireRalph(actor).Position += OracleObjectMath.StrictCardinalVector(angle);
+    }
+
+    void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>
+        RequireRalph(actor).SetScriptDrawOffset(new Vector2(0, zFixed >> 8));
+
+    void ICutsceneCommandHost.SetActorVisible(string actor, bool visible)
+    {
+        _flickering = true;
+        RequireRalph(actor).Visible = visible;
+    }
+
+    void ICutsceneCommandHost.WriteMemory(string binding, int value) =>
+        throw new InvalidOperationException(
+            $"Ralph's command stream cannot write '{binding}'=${value:x2}.");
+
+    void ICutsceneCommandHost.PlaySound(int sound) =>
+        _context.Sound.PlaySound(sound);
+
+    void ICutsceneCommandHost.SetGlobalFlag(int flag) =>
+        _context.Rooms.SaveData.SetGlobalFlag(flag);
+
+    void ICutsceneCommandHost.OrRoomFlag(int flag) =>
+        throw new InvalidOperationException(
+            $"Ralph's command stream cannot OR room flag ${flag:x2}.");
+
+    void ICutsceneCommandHost.RunNativeHandler(string handler)
+    {
+        if (handler != "ralph_restoreMusic")
+            throw new InvalidOperationException($"Unknown Ralph native script handler '{handler}'.");
+        // scriptHelp.ralph_restoreMusic writes MUS_OVERWORLD to both active
+        // music slots and restarts it before enableinput and scriptend.
+        _context.Sound.PlaySound(OracleSoundEngine.MusOverworld);
+    }
+
+    void ICutsceneCommandHost.ScriptEnded()
+    {
+        _ralph!.SetActive(false);
+        _waitingForScroll = false;
+        _flickering = false;
+    }
+
+    private NpcCharacter RequireRalph(string actor)
+    {
+        if (actor != "Ralph" || _ralph is null)
+            throw new InvalidOperationException($"Unknown Ralph command actor '{actor}'.");
+        return _ralph;
     }
 
     private static Vector2I DirectionFromOriginalValue(int direction) => direction switch

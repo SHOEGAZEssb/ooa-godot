@@ -9,6 +9,7 @@ namespace oracleofages;
 public sealed class ValidationGameRoot : GameRoot
 {
     private int _neutralInputFrames;
+    private ValidationCutsceneTrace? _enterPastCommandTrace;
 
     private sealed class ValidationTimelineStep(int durationFrames) : IRoomEventTimelineStep
     {
@@ -26,6 +27,105 @@ public sealed class ValidationGameRoot : GameRoot
         public void OpenAtWhite() => OpenAtWhiteCalls++;
         public void CloseAtWhite() => CloseAtWhiteCalls++;
         public void LifecycleClosed() => ClosedCalls++;
+    }
+
+    private sealed class ValidationCutsceneTrace : ICutsceneCommandTraceSink
+    {
+        public List<CutsceneCommandTraceEntry> Entries { get; } = new();
+        public List<CutsceneObservationTraceEntry> Observations { get; } = new();
+        public void Record(CutsceneCommandTraceEntry entry) => Entries.Add(entry);
+        public void RecordObservation(CutsceneObservationTraceEntry entry) =>
+            Observations.Add(entry);
+
+        public bool Saw(string observation, string? actor = null, int? value = null) =>
+            Observations.Any(entry =>
+                entry.Observation == observation &&
+                (actor is null || entry.Actor?.Value == actor) &&
+                (!value.HasValue || entry.Value == value.Value));
+
+        public int LastValue(string observation) =>
+            Observations.Last(entry => entry.Observation == observation).Value;
+
+        public int OrValues(string observation) =>
+            Observations.Where(entry => entry.Observation == observation)
+                .Aggregate(0, (mask, entry) => mask | entry.Value);
+
+        public int Count(string observation) =>
+            Observations.Count(entry => entry.Observation == observation);
+
+        public bool SawPosition(string observation, string actor, Vector2 position) =>
+            Observations.Any(entry => entry.Observation == observation &&
+                entry.Actor?.Value == actor && entry.Position.IsEqualApprox(position));
+    }
+
+    private sealed class ValidationImpaPostPushHost(int linkAngle) : ICutsceneCommandHost
+    {
+        public ValidationCutsceneTrace Trace { get; } = new();
+        public bool DialogueOpen { get; private set; }
+        public bool IsLinkedGame => false;
+        public int FrameCounter { get; private set; }
+        public ICutsceneCommandTraceSink TraceSink => Trace;
+        public Vector2 Position { get; private set; }
+        public Vector2I Facing { get; private set; } = Vector2I.Right;
+        public List<int> TextIds { get; } = new();
+        public int Signal { get; private set; } = 0x06;
+        public bool Ended { get; private set; }
+
+        public bool HasActorBinding(CutsceneActorId actor) => actor.Value == "Impa";
+        public void AdvanceValidationFrame() => FrameCounter++;
+        public void CloseDialogue() => DialogueOpen = false;
+        public void SetInputEnabled(bool enabled) => throw Unsupported(nameof(SetInputEnabled));
+        public void SetMenuEnabled(bool enabled) => throw Unsupported(nameof(SetMenuEnabled));
+        public void SetDisabledObjects(int value) =>
+            throw Unsupported(nameof(SetDisabledObjects));
+        public bool GateOpen(string gate) => throw Unsupported(nameof(GateOpen));
+        public bool MemoryEquals(string binding, int value) =>
+            binding == "w1Link.angle" && linkAngle == value;
+        public void ShowText(int textId, string message)
+        {
+            TextIds.Add(textId);
+            DialogueOpen = true;
+        }
+        public void SetActorAnimation(
+            string actor,
+            int animation,
+            string encodedAnimation)
+        {
+        }
+        public void SetActorMovementAnimation(
+            string actor,
+            int angle,
+            string encodedAnimation)
+        {
+            Vector2 direction = OracleObjectMath.StrictCardinalVector(angle);
+            Facing = new Vector2I(
+                Mathf.RoundToInt(direction.X), Mathf.RoundToInt(direction.Y));
+        }
+        public void SetActorCollisionRadii(string actor, int radiusY, int radiusX) =>
+            throw Unsupported(nameof(SetActorCollisionRadii));
+        public void SetActorButtonSensitive(string actor) =>
+            throw Unsupported(nameof(SetActorButtonSensitive));
+        public void MoveActorAtSpeed(string actor, int speed, int angle) =>
+            Position += OracleObjectMath.StrictCardinalVector(angle) * (speed / 40.0f);
+        public void SetActorZ(string actor, int zFixed) =>
+            throw Unsupported(nameof(SetActorZ));
+        public void SetActorVisible(string actor, bool visible) =>
+            throw Unsupported(nameof(SetActorVisible));
+        public void WriteMemory(string binding, int value)
+        {
+            if (binding != "wTmpcfc0.genericCutscene.cfd0")
+                throw Unsupported(nameof(WriteMemory));
+            Signal = value;
+        }
+        public void PlaySound(int sound) => throw Unsupported(nameof(PlaySound));
+        public void SetGlobalFlag(int flag) => throw Unsupported(nameof(SetGlobalFlag));
+        public void OrRoomFlag(int flag) => throw Unsupported(nameof(OrRoomFlag));
+        public void RunNativeHandler(string handler) =>
+            throw Unsupported(nameof(RunNativeHandler));
+        public void ScriptEnded() => Ended = true;
+
+        private static InvalidOperationException Unsupported(string operation) =>
+            new($"Validation Impa post-push host does not support {operation}.");
     }
 
     public override void _Ready()
@@ -618,6 +718,123 @@ public sealed class ValidationGameRoot : GameRoot
         if (timeline.AdvanceFrame(Update))
             throw new InvalidOperationException("Room-event timeline clear retained active work.");
 
+        static CutsceneCommandSource CommandSource(
+            string script,
+            int commandIndex,
+            string opcode) =>
+            new(script, $"{script}Label", commandIndex, 100 + commandIndex, opcode);
+
+        var callHost = new ValidationImpaPostPushHost(linkAngle: 0x18);
+        var callRunner = new CutsceneCommandRunner(callHost);
+        CutsceneCommand[] callCommands =
+        [
+            new CutsceneCallCommand(CommandSource("callValidation", 0, "callscript"), 3),
+            new CutsceneWriteMemoryCommand(
+                CommandSource("callValidation", 1, "writememory"),
+                "wTmpcfc0.genericCutscene.cfd0",
+                0x08),
+            new CutsceneEndCommand(CommandSource("callValidation", 2, "scriptend")),
+            new CutsceneWriteMemoryCommand(
+                CommandSource("callValidation", 3, "writememory"),
+                "wTmpcfc0.genericCutscene.cfd0",
+                0x07),
+            new CutsceneReturnCommand(CommandSource("callValidation", 4, "retscript"))
+        ];
+        callRunner.Start(callCommands);
+        callHost.AdvanceValidationFrame();
+        callRunner.AdvanceFrame();
+        if (callHost.Signal != 0x06 || callRunner.Instruction != 3)
+            throw new InvalidOperationException("Cutscene callscript did not yield at its target boundary.");
+        callHost.AdvanceValidationFrame();
+        callRunner.AdvanceFrame();
+        if (callHost.Signal != 0x07 || callRunner.Instruction != 1)
+            throw new InvalidOperationException("Cutscene retscript did not yield at its return boundary.");
+        callHost.AdvanceValidationFrame();
+        callRunner.AdvanceFrame();
+        int[] callOrder = callHost.Trace.Entries
+            .Where(entry => entry.Phase == CutsceneCommandTracePhase.Started)
+            .Select(entry => entry.Source.CommandIndex)
+            .ToArray();
+        if (callRunner.Active || !callHost.Ended || callHost.Signal != 0x08 ||
+            !callOrder.SequenceEqual(new[] { 0, 3, 4, 1, 2 }) ||
+            !callHost.Trace.Entries.Any(entry =>
+                entry.Source.CommandIndex == 0 &&
+                entry.Phase == CutsceneCommandTracePhase.Completed &&
+                entry.NextCommandIndex == 3) ||
+            !callHost.Trace.Entries.Any(entry =>
+                entry.Source.CommandIndex == 4 &&
+                entry.Phase == CutsceneCommandTracePhase.Completed &&
+                entry.NextCommandIndex == 1))
+        {
+            throw new InvalidOperationException(
+                "Cutscene branch/call stack execution or trace targets regressed.");
+        }
+
+        var laneHost = new ValidationImpaPostPushHost(linkAngle: 0x18);
+        var scheduler = new CutsceneCommandLaneScheduler(laneHost);
+        scheduler.StartLane(
+            "laneA",
+            [
+                new CutsceneSetAnimationCommand(
+                    CommandSource("laneA", 0, "setanimation"), "Impa", 0, ""),
+                new CutsceneWaitFramesCommand(
+                    CommandSource("laneA", 1, "waitframes"), 3),
+                new CutsceneEndCommand(CommandSource("laneA", 2, "scriptend"))
+            ]);
+        scheduler.StartLane(
+            "laneB",
+            [
+                new CutsceneSetAnimationCommand(
+                    CommandSource("laneB", 0, "setanimation"), "Impa", 1, ""),
+                new CutsceneWaitFramesCommand(
+                    CommandSource("laneB", 1, "waitframes"), 2),
+                new CutsceneEndCommand(CommandSource("laneB", 2, "scriptend"))
+            ]);
+        for (int frame = 0; frame < 5; frame++)
+        {
+            laneHost.AdvanceValidationFrame();
+            scheduler.AdvanceFrame();
+        }
+        string[] laneStartOrder = laneHost.Trace.Entries
+            .Where(entry => entry.Phase == CutsceneCommandTracePhase.Started)
+            .Select(entry => $"{entry.Source.Script}:{entry.Source.CommandIndex}")
+            .ToArray();
+        if (scheduler.Active || scheduler.Count != 2 ||
+            !laneStartOrder.SequenceEqual(
+                new[] { "laneA:0", "laneB:0", "laneA:1", "laneB:1", "laneB:2", "laneA:2" }))
+        {
+            throw new InvalidOperationException(
+                "Parallel cutscene lanes lost independent counters or stable insertion order.");
+        }
+        scheduler.Clear();
+        if (scheduler.Active || scheduler.Count != 0)
+            throw new InvalidOperationException("Parallel cutscene lane clear retained active work.");
+
+        try
+        {
+            callRunner.Start(
+            [
+                new CutsceneSetAnimationCommand(
+                    new CutsceneCommandSource(
+                        "bindingValidation", "missingActor", 0, 321, "setanimation"),
+                    "Nayru",
+                    0,
+                    ""),
+                new CutsceneEndCommand(
+                    new CutsceneCommandSource(
+                        "bindingValidation", "missingActor", 1, 322, "scriptend"))
+            ]);
+            throw new InvalidOperationException(
+                "Cutscene runner accepted an unregistered typed actor binding.");
+        }
+        catch (InvalidOperationException exception) when (
+            exception.Message.Contains("Nayru", StringComparison.Ordinal) &&
+            exception.Message.Contains("missingActor", StringComparison.Ordinal) &&
+            exception.Message.Contains("[0]", StringComparison.Ordinal) &&
+            exception.Message.Contains("line 321", StringComparison.Ordinal))
+        {
+        }
+
         var sequence = new RoomEventTimeline();
         var observedSequence = new List<string>();
         bool gateOpen = false;
@@ -655,7 +872,8 @@ public sealed class ValidationGameRoot : GameRoot
         }
 
         GD.Print("Validated shared room-event timeline duration clamping, command boundaries, " +
-            "finite wait/gate/action sequences, and lifecycle clearing.");
+            "finite wait/gate/action sequences, typed actor diagnostics, call stacks, " +
+            "parallel lane ordering, independent counters, and lifecycle clearing.");
     }
 
     private void ValidateSoundEngine()
@@ -1979,6 +2197,8 @@ public sealed class ValidationGameRoot : GameRoot
         _saveData.SetGlobalFlag(
             OracleSaveData.GlobalFlagEnterPastCutsceneDone,
             value: false);
+        _enterPastCommandTrace = new ValidationCutsceneTrace();
+        _roomEvents.CommandTraceSink = _enterPastCommandTrace;
         (int Even, int Odd)[] expectedMasks =
         {
             (0xdd, 0xff), (0xdd, 0xbb), (0x55, 0xbb), (0x55, 0xaa),
@@ -2482,30 +2702,59 @@ public sealed class ValidationGameRoot : GameRoot
         if (villager.Position != new Vector2(0x18, 0x38) || enterPast.Counter != 1)
             throw new InvalidOperationException("movedown $11 did not move exactly 16 pixels.");
         StepRoomEventFrames(1);
+        if (enterPast.Stage != EnterPastEvent.EventStage.FirstDown ||
+            enterPast.CurrentCommandIndex != 10 || enterPast.CurrentCommandUpdates != 0 ||
+            enterPast.Counter != 0 ||
+            villager.CurrentScriptAnimationSource != record.DownAnimation)
+        {
+            throw new InvalidOperationException(
+                "movedown $11's counter2-zero update incorrectly dispatched moveright.");
+        }
+        StepRoomEventFrames(1);
         if (enterPast.Stage != EnterPastEvent.EventStage.Right ||
             enterPast.Counter != record.RightCounter ||
             villager.CurrentScriptAnimationSource != record.RightAnimation)
         {
             throw new InvalidOperationException(
-                "The zero update did not fall through to moveright $11.");
+                "moveright $11 did not start on the update after counter2 reached zero.");
         }
         StepRoomEventFrames(record.RightCounter - 1);
         if (villager.Position != new Vector2(0x28, 0x38) || enterPast.Counter != 1)
             throw new InvalidOperationException("moveright $11 did not move exactly 16 pixels.");
+        StepRoomEventFrames(1);
+        if (enterPast.Stage != EnterPastEvent.EventStage.Right ||
+            enterPast.CurrentCommandIndex != 11 || enterPast.CurrentCommandUpdates != 0 ||
+            enterPast.Counter != 0 ||
+            villager.CurrentScriptAnimationSource != record.RightAnimation)
+        {
+            throw new InvalidOperationException(
+                "moveright $11's counter2-zero update incorrectly dispatched movedown.");
+        }
         StepRoomEventFrames(1);
         if (enterPast.Stage != EnterPastEvent.EventStage.SecondDown ||
             enterPast.Counter != record.SecondDownCounter ||
             villager.CurrentScriptAnimationSource != record.DownAnimation)
         {
             throw new InvalidOperationException(
-                "The right leg's zero update did not fall through to movedown $09.");
+                "movedown $09 did not start on the update after counter2 reached zero.");
         }
         StepRoomEventFrames(record.SecondDownCounter - 1);
         if (villager.Position != new Vector2(0x28, 0x40) || enterPast.Counter != 1)
             throw new InvalidOperationException("movedown $09 did not move exactly eight pixels.");
         StepRoomEventFrames(1);
-        if (enterPast.Stage != EnterPastEvent.EventStage.StartSlowDown)
+        if (enterPast.Stage != EnterPastEvent.EventStage.StartSlowDown ||
+            enterPast.CurrentCommandIndex != 12 || enterPast.CurrentCommandUpdates != 0 ||
+            enterPast.Counter != 0)
+        {
+            throw new InvalidOperationException(
+                "movedown $09's counter2-zero update incorrectly dispatched SPEED_080.");
+        }
+        StepRoomEventFrames(1);
+        if (enterPast.Stage != EnterPastEvent.EventStage.StartSlowDown ||
+            enterPast.CurrentCommandIndex != 13 || enterPast.CurrentCommandUpdates != 0)
+        {
             throw new InvalidOperationException("setspeed SPEED_080 lost its script-command update.");
+        }
         StepRoomEventFrames(1);
         if (enterPast.Stage != EnterPastEvent.EventStage.SlowDown ||
             enterPast.Counter != record.SlowDownCounter)
@@ -2519,8 +2768,19 @@ public sealed class ValidationGameRoot : GameRoot
                 "SPEED_080 applyspeed $21 did not move exactly 16 pixels.");
         }
         StepRoomEventFrames(1);
-        if (enterPast.Stage != EnterPastEvent.EventStage.StartFinalDown)
+        if (enterPast.Stage != EnterPastEvent.EventStage.StartFinalDown ||
+            enterPast.CurrentCommandIndex != 14 || enterPast.CurrentCommandUpdates != 0 ||
+            enterPast.Counter != 0)
+        {
+            throw new InvalidOperationException(
+                "applyspeed $21's counter2-zero update incorrectly dispatched SPEED_100.");
+        }
+        StepRoomEventFrames(1);
+        if (enterPast.Stage != EnterPastEvent.EventStage.StartFinalDown ||
+            enterPast.CurrentCommandIndex != 15 || enterPast.CurrentCommandUpdates != 0)
+        {
             throw new InvalidOperationException("The final SPEED_100 command lost its own update.");
+        }
         StepRoomEventFrames(1);
         if (enterPast.Stage != EnterPastEvent.EventStage.FinalDown ||
             enterPast.Counter != record.FinalDownCounter)
@@ -2533,6 +2793,14 @@ public sealed class ValidationGameRoot : GameRoot
         {
             throw new InvalidOperationException(
                 "The final SPEED_100 applyspeed $39 path did not cover 56 pixels.");
+        }
+        StepRoomEventFrames(1);
+        if (!enterPast.HasState || enterPast.Completed || !villager.Active ||
+            enterPast.CurrentCommandIndex != 16 || enterPast.CurrentCommandUpdates != 0 ||
+            enterPast.Counter != 0 || !_player.CutsceneControlled)
+        {
+            throw new InvalidOperationException(
+                "applyspeed $39's counter2-zero update incorrectly completed the script.");
         }
         StepRoomEventFrames(1);
         if (enterPast.HasState || !enterPast.Completed || villager.Active ||
@@ -2554,10 +2822,61 @@ public sealed class ValidationGameRoot : GameRoot
                 "villagerSubid0dScript did not redirect to stubScript and delete on re-entry.");
         }
 
+        ValidationCutsceneTrace commandTrace = _enterPastCommandTrace ??
+            throw new InvalidOperationException(
+                "The first-past-arrival command trace was not installed before time-warp arrival.");
+        CutsceneCommandTraceEntry[] starts = commandTrace.Entries
+            .Where(entry => entry.Phase == CutsceneCommandTracePhase.Started)
+            .ToArray();
+        string[] expectedOpcodes =
+        {
+            "setdisabledobjects", "wait", "disableinput", "wait", "jump",
+            "wait", "showtext", "wait", "setspeed", "move", "move", "move",
+            "setspeed", "applyspeed", "setspeed", "applyspeed",
+            "setglobalflag", "enableinput", "scriptend"
+        };
+        if (starts.Length != expectedOpcodes.Length ||
+            starts.Where((entry, index) =>
+                entry.Source.Script != "villagerSubid0dScript" ||
+                entry.Source.Label != "villagerSubid0dScript" ||
+                entry.Source.CommandIndex != index ||
+                entry.Source.Opcode != expectedOpcodes[index] ||
+                entry.Source.SourceLine <= 0 ||
+                (index > 0 && entry.Source.SourceLine <= starts[index - 1].Source.SourceLine))
+            .Any())
+        {
+            throw new InvalidOperationException(
+                "The imported first-past-arrival trace lost source lines, command order, " +
+                "or typed opcodes.");
+        }
+
+        int CompletedUpdate(int commandIndex) => commandTrace.Entries.Single(entry =>
+            entry.Source.CommandIndex == commandIndex &&
+            entry.Phase == CutsceneCommandTracePhase.Completed).ScriptUpdate;
+        if (starts[3].ScriptUpdate != starts[2].ScriptUpdate ||
+            starts[6].ScriptUpdate != CompletedUpdate(5) ||
+            starts[10].ScriptUpdate != CompletedUpdate(9) + 1 ||
+            starts[11].ScriptUpdate != CompletedUpdate(10) + 1 ||
+            starts[12].ScriptUpdate != CompletedUpdate(11) + 1 ||
+            starts[13].ScriptUpdate != starts[12].ScriptUpdate + 1 ||
+            starts[14].ScriptUpdate != CompletedUpdate(13) + 1 ||
+            starts[15].ScriptUpdate != starts[14].ScriptUpdate + 1 ||
+            starts[16].ScriptUpdate != CompletedUpdate(15) + 1 ||
+            starts[17].ScriptUpdate != starts[16].ScriptUpdate ||
+            starts[18].ScriptUpdate != starts[16].ScriptUpdate)
+        {
+            throw new InvalidOperationException(
+                "villagerSubid0dScript did not preserve carry-through commands, " +
+                "counter2 zero-update yields, or the final same-update completion chain.");
+        }
+        _roomEvents.CommandTraceSink = null;
+        _enterPastCommandTrace = null;
+
         GD.Print("Validated room 1:39's first time-portal arrival: transition-overlapped " +
             "100/40 waits, -$0200/$30 jump and SND_JUMP, TX_1622 controls, 30/30 waits, " +
             "$11/$11/$09/$21/$39 movement counters, SPEED_100/SPEED_080 animation cadence, " +
-            "exact $18,$28 -> $28,$88 path, input gating, deletion, and persistent flag $41.");
+            "counter2 zero-update command boundaries, exact $18,$28 -> $28,$88 path, " +
+            "imported source trace, input gating, deletion, and persistent flag $41.");
     }
 
     private void ValidateMapScreen()
@@ -6777,6 +7096,8 @@ public sealed class ValidationGameRoot : GameRoot
     {
         ImpaIntroEvent impaEvent = _roomEvents.Impa;
         NayruIntroEvent nayruIntro = _roomEvents.Nayru;
+        var encounterTrace = new ValidationCutsceneTrace();
+        _roomEvents.CommandTraceSink = encounterTrace;
         _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagPregameIntroDone);
         _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone, value: false);
         _sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
@@ -6891,14 +7212,18 @@ public sealed class ValidationGameRoot : GameRoot
         }
 
         StepRoomEventFrames(1);
-        if (impaEvent.Counter != 210)
+        if (impaEvent.Counter != 0 || impaEvent.EncounterCommandIndex != 1)
             throw new InvalidOperationException(
-                "Impa observed cfd0=$01 on the wrong object update or lost her 210-update wait.");
+                "impaScript0 did not preserve checkmemoryeq's successful one-update yield.");
+        StepRoomEventFrames(1);
+        if (impaEvent.Counter != 210 || impaEvent.EncounterCommandIndex != 1)
+            throw new InvalidOperationException(
+                "impaScript0 did not install its 210-update wait after the cfd0 gate.");
         Vector2[] fakeStarts =
         {
             new(0x48, 0x18), new(0x38, 0x38), new(0x58, 0x38)
         };
-        StepRoomEventFrames(19);
+        StepRoomEventFrames(18);
         if (octoroks[0].Position != fakeStarts[0] ||
             octoroks[1].Position != fakeStarts[1] ||
             octoroks[2].Position != fakeStarts[2])
@@ -6924,7 +7249,7 @@ public sealed class ValidationGameRoot : GameRoot
                 "Fake Octorok var03=$01 did not flee left at SPEED_300 after $14+$3c updates.");
         }
 
-        StepRoomEventFrames(128);
+        StepRoomEventFrames(129);
         if (_dialogue.IsOpen || impaEvent.Counter != 1)
             throw new InvalidOperationException("Impa's 210-update post-signal wait ended early.");
         StepRoomEventFrames(1);
@@ -6945,7 +7270,10 @@ public sealed class ValidationGameRoot : GameRoot
         if (impaEvent.Counter != 1 || impa.Position != new Vector2(0x48, 0x38))
             throw new InvalidOperationException("Impa's 30-update post-text wait ended early.");
         StepRoomEventFrames(1);
-        StepRoomEventFrames(2);
+        if (impaEvent.Counter != 0 || impaEvent.EncounterCommandIndex != 5)
+            throw new InvalidOperationException(
+                "Impa's post-text wait did not carry through setspeed on its completion update.");
+        StepRoomEventFrames(1);
         if (impa.Position != new Vector2(0x48, 0x38) || impaEvent.Counter != 32)
         {
             throw new InvalidOperationException(
@@ -6963,6 +7291,14 @@ public sealed class ValidationGameRoot : GameRoot
         StepRoomEventFrames(1);
         if (_saveData.HasRoomFlag(0, 0x6a, OracleSaveData.RoomFlag40))
             throw new InvalidOperationException("Impa set room flag $40 before counter2 reached zero.");
+        StepRoomEventFrames(1);
+        if (!_roomEvents.Active || impaEvent.Following ||
+            !_player.CutsceneControlled || impa.Position == _player.Position ||
+            !_saveData.HasRoomFlag(0, 0x6a, OracleSaveData.RoomFlag40))
+        {
+            throw new InvalidOperationException(
+                "scriptCmd_orRoomFlags did not set room flag $40 and yield before scriptend.");
+        }
         StepRoomEventFrames(1);
         Vector2 followStart = _player.Position;
         if (_roomEvents.Active || !impaEvent.Following || _player.CutsceneControlled ||
@@ -7172,7 +7508,7 @@ public sealed class ValidationGameRoot : GameRoot
         }
         FinishActiveScrollingTransitionForValidation();
 
-        ValidateImpaStoneEvent(impaEvent);
+        ValidateImpaStoneEvent(impaEvent, encounterTrace);
 
         LoadValidationRoom(0, 0x6a);
         NpcCharacter? completedImpa = _npcNodes.Find(npc =>
@@ -7194,12 +7530,107 @@ public sealed class ValidationGameRoot : GameRoot
                 "Room 0:7a flag $40 did not suppress TX_0100 on re-entry.");
         }
 
-        GD.Print("Validated room 0:7a $6b:$00 edge trigger, fixed-bottom TX_0100, 30-update " +
-            "post-text wait, silent playable-intro room music, room flag $40, and eight-Up handoff; " +
+        CutsceneCommandTraceEntry[] helpStarts = encounterTrace.Entries
+            .Where(entry =>
+                entry.Source.Script == "interaction6b_subid00" &&
+                entry.Phase == CutsceneCommandTracePhase.Started)
+            .ToArray();
+        string[] expectedHelpOpcodes =
+        {
+            "disablemenu", "setdisabledobjectscontinue", "setcounter", "showtext",
+            "waitpreloadedcounter", "setdisabledobjectscontinue", "native",
+            "orroomflagcontinue", "scriptend"
+        };
+        if (helpStarts.Length != expectedHelpOpcodes.Length ||
+            helpStarts.Where((entry, index) =>
+                entry.Source.Label != "interaction6b_subid00" ||
+                entry.Source.CommandIndex != index ||
+                entry.Source.Opcode != expectedHelpOpcodes[index] ||
+                entry.Source.SourceLine <= 0 ||
+                (index > 0 && entry.Source.SourceLine <=
+                    helpStarts[index - 1].Source.SourceLine))
+            .Any())
+        {
+            throw new InvalidOperationException(
+                "The imported interaction6b_subid00 trace lost source lines, " +
+                "native-operation order, or typed opcodes.");
+        }
+
+        int HelpCompletedUpdate(int commandIndex) => encounterTrace.Entries.Single(entry =>
+            entry.Source.Script == "interaction6b_subid00" &&
+            entry.Source.CommandIndex == commandIndex &&
+            entry.Phase == CutsceneCommandTracePhase.Completed).ScriptUpdate;
+        CutsceneCommandTraceEntry[] helpWaitUpdates = encounterTrace.Entries
+            .Where(entry =>
+                entry.Source.Script == "interaction6b_subid00" &&
+                entry.Source.CommandIndex == 4 &&
+                entry.Phase == CutsceneCommandTracePhase.Updated)
+            .ToArray();
+        if (helpStarts[0].ScriptUpdate != helpStarts[1].ScriptUpdate ||
+            helpStarts[0].ScriptUpdate != helpStarts[2].ScriptUpdate ||
+            helpStarts[0].ScriptUpdate != helpStarts[3].ScriptUpdate ||
+            helpStarts[4].ScriptUpdate != HelpCompletedUpdate(3) + 1 ||
+            helpWaitUpdates.Length != 29 ||
+            helpWaitUpdates.Where((entry, index) => entry.Counter != 29 - index).Any() ||
+            helpStarts[5].ScriptUpdate != HelpCompletedUpdate(4) ||
+            helpStarts[6].ScriptUpdate != helpStarts[5].ScriptUpdate ||
+            helpStarts[7].ScriptUpdate != helpStarts[5].ScriptUpdate ||
+            helpStarts[8].ScriptUpdate != helpStarts[5].ScriptUpdate)
+        {
+            throw new InvalidOperationException(
+                "interaction6b_subid00 did not preserve its same-update setup, " +
+                "first-post-text decrement, 30-update counter, or completion handoff.");
+        }
+
+        CutsceneCommandTraceEntry[] starts = encounterTrace.Entries
+            .Where(entry =>
+                entry.Source.Script == "impaScript0" &&
+                entry.Phase == CutsceneCommandTracePhase.Started)
+            .ToArray();
+        string[] expectedOpcodes =
+        {
+            "checkmemoryeq", "wait", "showtextdifferentforlinked", "wait",
+            "setspeed", "move", "orroomflag", "scriptend"
+        };
+        if (starts.Length != expectedOpcodes.Length ||
+            starts.Where((entry, index) =>
+                entry.Source.Script != "impaScript0" ||
+                entry.Source.Label != "impaScript0" ||
+                entry.Source.CommandIndex != index ||
+                entry.Source.Opcode != expectedOpcodes[index] ||
+                entry.Source.SourceLine <= 0 ||
+                (index > 0 && entry.Source.SourceLine <= starts[index - 1].Source.SourceLine))
+            .Any())
+        {
+            throw new InvalidOperationException(
+                "The imported impaScript0 trace lost source lines, command order, or typed opcodes.");
+        }
+
+        int CompletedUpdate(int commandIndex) => encounterTrace.Entries.Single(entry =>
+            entry.Source.Script == "impaScript0" &&
+            entry.Source.CommandIndex == commandIndex &&
+            entry.Phase == CutsceneCommandTracePhase.Completed).ScriptUpdate;
+        if (starts[1].ScriptUpdate != CompletedUpdate(0) + 1 ||
+            starts[2].ScriptUpdate != CompletedUpdate(1) ||
+            starts[3].ScriptUpdate != CompletedUpdate(2) + 1 ||
+            starts[4].ScriptUpdate != CompletedUpdate(3) ||
+            starts[5].ScriptUpdate != CompletedUpdate(4) + 1 ||
+            starts[6].ScriptUpdate != CompletedUpdate(5) + 1 ||
+            starts[7].ScriptUpdate != CompletedUpdate(6) + 1)
+        {
+            throw new InvalidOperationException(
+                "impaScript0 did not preserve gate, text, wait, setspeed, counter2, " +
+                "room-flag yield, or scriptend cadence.");
+        }
+        _roomEvents.CommandTraceSink = null;
+
+        GD.Print("Validated room 0:7a $6b:$00 edge trigger, imported native-operation " +
+            "source trace, fixed-bottom TX_0100, 30-update post-text wait, silent playable-intro " +
+            "room music, room flag $40, and eight-Up handoff; " +
             "room 0:6a possessed Impa " +
             "$31:$00 PALH_97, three objectData fake Octoroks, linkCutscene1 $78/$04/$2e " +
             "cadence with SND_CLINK, staggered $14+$50/$3c/$5a escapes and three SND_THROW " +
-            "calls, expanded TX_0102, 210/30 waits, " +
+            "calls, imported TX_0102/TX_0103 selection and source trace, 210/30 waits, " +
             "SPEED_080 movedown $20, MUS_FAIRY_FOUNTAIN volume 3, room flag $40, " +
             "animations $00-$03, single-copy " +
             "always-update scroll following, transition-end 16-entry follower-path rebuild, " +
@@ -7207,7 +7638,9 @@ public sealed class ValidationGameRoot : GameRoot
             "recreation, and placed-Impa suppression when the follower returns.");
     }
 
-    private void ValidateImpaStoneEvent(ImpaIntroEvent impaEvent)
+    private void ValidateImpaStoneEvent(
+        ImpaIntroEvent impaEvent,
+        ValidationCutsceneTrace commandTrace)
     {
         const int group = 0;
         const int room = 0x59;
@@ -7316,8 +7749,7 @@ public sealed class ValidationGameRoot : GameRoot
         StepRoomEventFrames(1 + timing.SignTextPostFrames);
 
         int linkUpdates = 0;
-        while (impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.RequestText &&
-            linkUpdates++ < 240)
+        while (!_dialogue.IsOpen && linkUpdates++ < 240)
         {
             StepRoomEventFrames(1);
         }
@@ -7329,28 +7761,38 @@ public sealed class ValidationGameRoot : GameRoot
                 "linkCutscene2 did not route Link through $38/$48 and its 8/60/16 waits before TX_0106.");
         }
         _dialogue.Close();
-        StepRoomEventFrames(1 + timing.RequestPostFrames + timing.FirstBackAwayFrames +
-            timing.BetweenFirstBackAwayFrames);
-        if (!_dialogue.IsOpen || _dialogue.CurrentMessage !=
+        int firstRetreatUpdates = 0;
+        while (!_dialogue.IsOpen && firstRetreatUpdates++ < 120)
+            StepRoomEventFrames(1);
+        if (firstRetreatUpdates != 98 || !_dialogue.IsOpen || _dialogue.CurrentMessage !=
             DialogueBox.PlainText(record.Texts.Hesitation.Message) ||
             follower.Position.X != stone.TargetX - 16)
         {
             throw new InvalidOperationException(
-                "Impa's first SPEED_080 applyspeed $21 or TX_0107 handoff diverged.");
+                "Imported impaScript_moveAwayFromRock did not reach TX_0107 after " +
+                "the exact 98-update first retreat path.");
         }
         _dialogue.Close();
-        StepRoomEventFrames(1 + timing.HesitationPostFrames + timing.SecondBackAwayFrames +
-            timing.BetweenSecondBackAwayFrames);
-        if (!_dialogue.IsOpen || _dialogue.CurrentMessage !=
+        int secondRetreatUpdates = 0;
+        while (!_dialogue.IsOpen && secondRetreatUpdates++ < 120)
+            StepRoomEventFrames(1);
+        if (secondRetreatUpdates != 95 || !_dialogue.IsOpen || _dialogue.CurrentMessage !=
             DialogueBox.PlainText(record.Texts.Failure.Message) ||
             follower.Position.X != stone.TargetX - 32)
         {
             throw new InvalidOperationException(
-                "Impa's second SPEED_080 applyspeed $21 or TX_0108 handoff diverged.");
+                "Imported impaScript_moveAwayFromRock did not reach TX_0108 after " +
+                "the exact 95-update second retreat path.");
         }
         _dialogue.Close();
-        StepRoomEventFrames(1 + timing.FailurePostFrames);
-        if (impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.WaitingForPush ||
+        int finishRetreatUpdates = 0;
+        while (impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.WaitingForPush &&
+            finishRetreatUpdates++ < 60)
+        {
+            StepRoomEventFrames(1);
+        }
+        if (finishRetreatUpdates != 31 ||
+            impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.WaitingForPush ||
             _roomEvents.Active || _player.CutsceneControlled ||
             impaEvent.WaitingNpcInitialized || follower.TextId != 0 ||
             follower.Record.CanFace ||
@@ -7361,6 +7803,76 @@ public sealed class ValidationGameRoot : GameRoot
                 "Impa did not retain animation $01 for the one update between installing " +
                 "impaScript_waitForRockToBeMoved and running rungenericnpc TX_010b.");
         }
+
+        CutsceneCommandTraceEntry[] prePushStarts = commandTrace.Entries
+            .Where(entry =>
+                entry.Source.Script == "impaScript_moveAwayFromRock" &&
+                entry.Phase == CutsceneCommandTracePhase.Started)
+            .ToArray();
+        string[] expectedPrePushOpcodes =
+        {
+            "checkmemoryeq", "setanimation", "wait", "showtext", "wait",
+            "setanimation", "setangle", "setspeed", "applyspeed", "wait",
+            "showtext", "wait", "applyspeed", "wait", "showtext", "wait",
+            "writememory", "scriptend"
+        };
+        if (prePushStarts.Length != expectedPrePushOpcodes.Length ||
+            prePushStarts.Where((entry, index) =>
+                entry.Source.Label != "impaScript_moveAwayFromRock" ||
+                entry.Source.CommandIndex != index ||
+                entry.Source.Opcode != expectedPrePushOpcodes[index] ||
+                entry.Source.SourceLine <= 0 ||
+                (index > 0 && entry.Source.SourceLine <=
+                    prePushStarts[index - 1].Source.SourceLine))
+            .Any())
+        {
+            throw new InvalidOperationException(
+                "The imported impaScript_moveAwayFromRock trace lost source lines, " +
+                "command order, or typed opcodes.");
+        }
+
+        int PrePushCompletedUpdate(int commandIndex) => commandTrace.Entries.Single(entry =>
+            entry.Source.Script == "impaScript_moveAwayFromRock" &&
+            entry.Source.CommandIndex == commandIndex &&
+            entry.Phase == CutsceneCommandTracePhase.Completed).ScriptUpdate;
+        int PrePushDuration(int commandIndex) =>
+            PrePushCompletedUpdate(commandIndex) - prePushStarts[commandIndex].ScriptUpdate;
+        int gateUpdates = commandTrace.Entries.Count(entry =>
+            entry.Source.Script == "impaScript_moveAwayFromRock" &&
+            entry.Source.CommandIndex == 0 &&
+            entry.Phase == CutsceneCommandTracePhase.Updated);
+        if (gateUpdates == 0 ||
+            PrePushDuration(2) != timing.RequestLeadFrames ||
+            PrePushDuration(4) != timing.RequestPostFrames ||
+            PrePushDuration(8) != timing.FirstBackAwayFrames ||
+            PrePushDuration(9) != timing.BetweenFirstBackAwayFrames ||
+            PrePushDuration(11) != timing.HesitationPostFrames ||
+            PrePushDuration(12) != timing.SecondBackAwayFrames ||
+            PrePushDuration(13) != timing.BetweenSecondBackAwayFrames ||
+            PrePushDuration(15) != timing.FailurePostFrames ||
+            prePushStarts[1].ScriptUpdate != PrePushCompletedUpdate(0) + 1 ||
+            prePushStarts[2].ScriptUpdate != PrePushCompletedUpdate(1) + 1 ||
+            prePushStarts[3].ScriptUpdate != PrePushCompletedUpdate(2) ||
+            prePushStarts[4].ScriptUpdate != PrePushCompletedUpdate(3) + 1 ||
+            prePushStarts[5].ScriptUpdate != PrePushCompletedUpdate(4) ||
+            prePushStarts[6].ScriptUpdate != PrePushCompletedUpdate(5) + 1 ||
+            prePushStarts[7].ScriptUpdate != PrePushCompletedUpdate(6) + 1 ||
+            prePushStarts[8].ScriptUpdate != PrePushCompletedUpdate(7) + 1 ||
+            prePushStarts[9].ScriptUpdate != PrePushCompletedUpdate(8) + 1 ||
+            prePushStarts[10].ScriptUpdate != PrePushCompletedUpdate(9) ||
+            prePushStarts[11].ScriptUpdate != PrePushCompletedUpdate(10) + 1 ||
+            prePushStarts[12].ScriptUpdate != PrePushCompletedUpdate(11) ||
+            prePushStarts[13].ScriptUpdate != PrePushCompletedUpdate(12) + 1 ||
+            prePushStarts[14].ScriptUpdate != PrePushCompletedUpdate(13) ||
+            prePushStarts[15].ScriptUpdate != PrePushCompletedUpdate(14) + 1 ||
+            prePushStarts[16].ScriptUpdate != PrePushCompletedUpdate(15) ||
+            prePushStarts[17].ScriptUpdate != prePushStarts[16].ScriptUpdate)
+        {
+            throw new InvalidOperationException(
+                "impaScript_moveAwayFromRock did not preserve the native $02/$03 gate, " +
+                "yield boundaries, waits, counter2 movement, or same-update $04 completion.");
+        }
+
         StepRoomEventFrames(1);
         if (!impaEvent.WaitingNpcInitialized ||
             !_entities.BlocksLink(follower.Position) ||
@@ -7403,8 +7915,8 @@ public sealed class ValidationGameRoot : GameRoot
         }
         _dialogue.Close();
 
-        _player.WarpTo(new Vector2(stone.InitialX - 16, stone.InitialY));
-        _player.Face(Vector2I.Right);
+        _player.WarpTo(new Vector2(stone.InitialX + 16, stone.InitialY));
+        _player.Face(Vector2I.Left);
         impaEvent.UpdateStoneFrame(pushing: false);
         if (impaEvent.StonePushCounter != timing.PushHoldFrames)
             throw new InvalidOperationException("The stone push counter did not reset to $14.");
@@ -7412,11 +7924,11 @@ public sealed class ValidationGameRoot : GameRoot
         // Dynamic actors are not room-tile walls, so Link's generic wall-push
         // detector is deliberately false here. Drive the actual room-event
         // input path to ensure the interaction observes the held direction.
-        _player.UpdatePushingState(Vector2.Right);
+        _player.UpdatePushingState(Vector2.Left);
         if (_player.IsPushing)
             throw new InvalidOperationException(
                 "The Triforce stone was incorrectly treated as static room-tile collision.");
-        Input.ActionPress("move_right");
+        Input.ActionPress("move_left");
         Input.ActionPress("attack");
         StepRoomEventFrames(1);
         Input.ActionRelease("attack");
@@ -7432,7 +7944,7 @@ public sealed class ValidationGameRoot : GameRoot
             throw new InvalidOperationException("The Triforce stone moved before 20 centered push updates.");
         }
         StepRoomEventFrames(1);
-        Input.ActionRelease("move_right");
+        Input.ActionRelease("move_left");
         if (impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.PushStarted ||
             !_player.CutsceneControlled || !_player.IsPushing ||
             impaEvent.StoneMoveCounter != timing.StoneMoveFrames)
@@ -7454,82 +7966,235 @@ public sealed class ValidationGameRoot : GameRoot
                     $"on update {update} (Link={_player.Position}, stone={stoneActor.Position}).");
             }
         }
-        if (_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag80) ||
+        if (_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag40) ||
             impaEvent.StoneMoveCounter != 1)
         {
-            throw new InvalidOperationException("The stone set room flag $80 before counter1 reached zero.");
+            throw new InvalidOperationException("The stone set room flag $40 before counter1 reached zero.");
         }
         StepRoomEventFrames(1);
-        if (!_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag80) ||
-            _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag40) ||
-            stoneActor.Position != new Vector2(stone.RightX, stone.InitialY) ||
-            _player.Position != new Vector2(0x37, stone.InitialY) ||
+        if (!_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag40) ||
+            _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag80) ||
+            stoneActor.Position != new Vector2(stone.LeftX, stone.InitialY) ||
+            _player.Position != new Vector2(0x38, stone.InitialY) ||
             _collision.Collides(_player.Position) ||
-            _currentRoom.GetMetatile(new Vector2(stone.RightX, stone.MovedY)) !=
+            _currentRoom.GetMetatile(new Vector2(stone.LeftX, stone.MovedY)) !=
                 stone.FinalLayoutTile ||
-            !_currentRoom.IsSolid(new Vector2(stone.RightX, stone.MovedY)))
+            !_currentRoom.IsSolid(new Vector2(stone.LeftX, stone.MovedY)))
         {
             throw new InvalidOperationException(
-                "The right-pushed stone did not snap to X=$48, leave Link outside at X=$37, " +
-                "set room flag $80, and install collision $0f.");
+                "The left-pushed stone did not snap to X=$28, leave Link outside at X=$38, " +
+                $"set room flag $40, and install collision $0f (flags=" +
+                $"{_saveData.GetRoomFlags(group, room):x2}, stone={stoneActor.Position}, " +
+                $"Link={_player.Position}, LinkCollision={_collision.Collides(_player.Position)}, " +
+                $"tile={_currentRoom.GetMetatile(new Vector2(stone.LeftX, stone.MovedY)):x2}, " +
+                $"solid={_currentRoom.IsSolid(new Vector2(stone.LeftX, stone.MovedY))}).");
         }
 
         int responseUpdates = 0;
-        while (impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.ThanksText &&
-            responseUpdates++ < 400)
+        bool sawRightFacingReunion = false;
+        bool sawUpFacingCorrection = false;
+        while (!_dialogue.IsOpen && responseUpdates++ < 400)
         {
             StepRoomEventFrames(1);
+            if (!sawRightFacingReunion && commandTrace.Entries.Any(entry =>
+                entry.Source.Script == "impaScript_rockJustMoved" &&
+                entry.Source.CommandIndex == 10 &&
+                entry.Phase == CutsceneCommandTracePhase.Started))
+            {
+                sawRightFacingReunion = true;
+                if (follower.CurrentScriptAnimationSource !=
+                    impaEvent.Database.Record.RightAnimation)
+                {
+                    throw new InvalidOperationException(
+                        "Impa did not retain animation $01 while moving right to rejoin Link.");
+                }
+            }
+            if (!sawUpFacingCorrection && commandTrace.Entries.Any(entry =>
+                entry.Source.Script == "impaScript_rockJustMoved" &&
+                entry.Source.CommandIndex == 13 &&
+                entry.Phase == CutsceneCommandTracePhase.Started))
+            {
+                sawUpFacingCorrection = true;
+                if (follower.FacingVector != Vector2I.Up)
+                {
+                    throw new InvalidOperationException(
+                        "moveup $11 did not select Impa's up-facing animation before correction movement.");
+                }
+            }
         }
         if (!_dialogue.IsOpen || _dialogue.CurrentMessage !=
             DialogueBox.PlainText(record.Texts.Thanks.Message) ||
-            responseUpdates >= 400)
+            responseUpdates >= 400 || !sawRightFacingReunion ||
+            !sawUpFacingCorrection)
         {
             throw new InvalidOperationException(
-                "Impa's right-push 4+65+120 response, SPEED_100 move, or TX_0109 timing stalled.");
+                "Impa's left-push 4+65+120 response, SPEED_100 move, moveup $11, " +
+                "or TX_0109 timing stalled.");
         }
         _dialogue.Close();
         int finishUpdates = 0;
+        bool sawUpFacingFinalMove = false;
         while (impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.Moved &&
             finishUpdates++ < 100)
         {
             StepRoomEventFrames(1);
+            if (!sawUpFacingFinalMove && commandTrace.Entries.Any(entry =>
+                entry.Source.Script == "impaScript_rockJustMoved" &&
+                entry.Source.CommandIndex == 21 &&
+                entry.Phase == CutsceneCommandTracePhase.Started))
+            {
+                sawUpFacingFinalMove = true;
+                if (follower.FacingVector != Vector2I.Up)
+                {
+                    throw new InvalidOperationException(
+                        "moveup $20 did not select Impa's up-facing animation before reunion movement.");
+                }
+            }
         }
-        if (!impaEvent.Following || _player.CutsceneControlled ||
-            _player.FacingVector != Vector2I.Down || follower.Position != _player.Position)
+        if (!sawUpFacingFinalMove || !impaEvent.Following ||
+            _player.CutsceneControlled || _player.FacingVector != Vector2I.Down ||
+            follower.FacingVector != Vector2I.Down || follower.Position != _player.Position)
         {
             throw new InvalidOperationException(
-                "Impa did not finish TX_0109, move up $20, restore Link, and rebuild following.");
+                "Impa did not face up for moveup $20, finish TX_0109, face down with Link, " +
+                "and rebuild following.");
+        }
+
+        CutsceneCommandTraceEntry[] leftPostPushStarts = commandTrace.Entries
+            .Where(entry =>
+                entry.Source.Script == "impaScript_rockJustMoved" &&
+                entry.Phase == CutsceneCommandTracePhase.Started)
+            .ToArray();
+        int[] expectedLeftPostPushCommands =
+        {
+            0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+            18, 19, 20, 21, 22
+        };
+        if (leftPostPushStarts.Length != expectedLeftPostPushCommands.Length ||
+            leftPostPushStarts.Where((entry, pathIndex) =>
+                entry.Source.CommandIndex != expectedLeftPostPushCommands[pathIndex] ||
+                entry.Source.SourceLine <= 0 ||
+                (pathIndex > 0 && entry.Source.SourceLine <=
+                    leftPostPushStarts[pathIndex - 1].Source.SourceLine))
+            .Any())
+        {
+            throw new InvalidOperationException(
+                "The left-push impaScript_rockJustMoved trace did not follow the " +
+                "imported correction branch and source order.");
+        }
+
+        CutsceneCommandTraceEntry LeftCompleted(int commandIndex) =>
+            commandTrace.Entries.Single(entry =>
+                entry.Source.Script == "impaScript_rockJustMoved" &&
+                entry.Source.CommandIndex == commandIndex &&
+                entry.Phase == CutsceneCommandTracePhase.Completed);
+        int LeftStartedUpdate(int commandIndex) => leftPostPushStarts.Single(entry =>
+            entry.Source.CommandIndex == commandIndex).ScriptUpdate;
+        int LeftDuration(int commandIndex) =>
+            LeftCompleted(commandIndex).ScriptUpdate - LeftStartedUpdate(commandIndex);
+        if (LeftCompleted(1).NextCommandIndex != 2 ||
+            LeftCompleted(5).NextCommandIndex != 7 ||
+            LeftCompleted(12).NextCommandIndex != 13 ||
+            LeftDuration(0) != timing.ReactionLeadFrames ||
+            LeftDuration(4) != timing.LeftCorrectionFrames ||
+            LeftDuration(7) != timing.CommonWaitFrames ||
+            LeftDuration(10) != timing.ResponseRightFrames ||
+            LeftDuration(11) != timing.ResponseWait1Frames ||
+            LeftDuration(13) != timing.ResponseUpFrames ||
+            LeftDuration(14) != timing.ResponseWait2Frames ||
+            LeftDuration(17) != timing.PoseWaitFrames ||
+            LeftDuration(19) != timing.ThanksPostFrames ||
+            LeftDuration(21) != timing.FinalMoveFrames ||
+            LeftStartedUpdate(1) != LeftCompleted(0).ScriptUpdate ||
+            LeftStartedUpdate(2) != LeftCompleted(0).ScriptUpdate ||
+            LeftStartedUpdate(5) != LeftCompleted(4).ScriptUpdate + 1 ||
+            LeftStartedUpdate(7) != LeftStartedUpdate(5) ||
+            LeftStartedUpdate(12) != LeftCompleted(11).ScriptUpdate ||
+            LeftStartedUpdate(13) != LeftStartedUpdate(12) ||
+            LeftStartedUpdate(15) != LeftCompleted(14).ScriptUpdate ||
+            LeftStartedUpdate(16) != LeftStartedUpdate(15) ||
+            LeftStartedUpdate(18) != LeftCompleted(17).ScriptUpdate ||
+            LeftStartedUpdate(20) != LeftCompleted(19).ScriptUpdate ||
+            LeftStartedUpdate(22) != LeftCompleted(21).ScriptUpdate + 1)
+        {
+            throw new InvalidOperationException(
+                "The left-push post-stone script lost a branch decision, counter duration, " +
+                "yield boundary, or same-update continuation.");
+        }
+
+        // Execute the imported right-push branch independently of room state;
+        // the left path above covers the complete native stone/Link integration.
+        // This second lane proves both jump targets and all skipped commands.
+        var rightPostPushHost = new ValidationImpaPostPushHost(linkAngle: 0x08);
+        var rightPostPushRunner = new CutsceneCommandRunner(rightPostPushHost);
+        rightPostPushRunner.Start(impaEvent.Database.StonePostPushCommands);
+        int rightGuard = 0;
+        while (rightPostPushRunner.Active && rightGuard++ < 500)
+        {
+            rightPostPushHost.AdvanceValidationFrame();
+            rightPostPushRunner.AdvanceFrame();
+            if (rightPostPushHost.DialogueOpen)
+                rightPostPushHost.CloseDialogue();
+        }
+        int[] expectedRightPostPushCommands =
+        {
+            0, 1, 6, 7, 8, 9, 10, 11, 12, 15, 16, 17, 18, 19, 20, 21, 22
+        };
+        CutsceneCommandTraceEntry[] rightPostPushStarts = rightPostPushHost.Trace.Entries
+            .Where(entry => entry.Phase == CutsceneCommandTracePhase.Started)
+            .ToArray();
+        CutsceneCommandTraceEntry RightCompleted(int commandIndex) =>
+            rightPostPushHost.Trace.Entries.Single(entry =>
+                entry.Source.CommandIndex == commandIndex &&
+                entry.Phase == CutsceneCommandTracePhase.Completed);
+        if (rightPostPushRunner.Active || !rightPostPushHost.Ended ||
+            rightPostPushHost.Signal != 0x07 ||
+            rightPostPushHost.TextIds.ToArray() is not [0x0109] ||
+            rightPostPushStarts.Length != expectedRightPostPushCommands.Length ||
+            rightPostPushStarts.Where((entry, pathIndex) =>
+                entry.Source.CommandIndex != expectedRightPostPushCommands[pathIndex]).Any() ||
+            RightCompleted(1).NextCommandIndex != 6 ||
+            RightCompleted(12).NextCommandIndex != 15 ||
+            rightPostPushHost.Position != new Vector2(32.0f, -15.5f) ||
+            rightPostPushHost.Facing != Vector2I.Up)
+        {
+            throw new InvalidOperationException(
+                "The imported right-push branch did not skip both left corrections, " +
+                "retain its 65-update wait, signal $07, or complete the reunion path.");
         }
 
         LoadValidationRoom(group, room);
         NpcCharacter? movedStone = impaEvent.StoneActor;
-        if (movedStone is null || movedStone.Position != new Vector2(stone.RightX, stone.MovedY) ||
+        if (movedStone is null || movedStone.Position != new Vector2(stone.LeftX, stone.MovedY) ||
             _roomEvents.Active || impaEvent.Following ||
-            !_currentRoom.IsSolid(new Vector2(stone.RightX, stone.MovedY)))
+            !_currentRoom.IsSolid(new Vector2(stone.LeftX, stone.MovedY)))
         {
             throw new InvalidOperationException(
-                "PART_TRIFORCE_STONE $5a:$5a did not restore the right-side solid stone on re-entry.");
+                "PART_TRIFORCE_STONE $5a:$5a did not restore the left-side solid stone on re-entry.");
         }
 
-        _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlag80, value: false);
-        _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlag40);
+        _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlag40, value: false);
+        _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlag80);
         LoadValidationRoom(group, room);
         movedStone = impaEvent.StoneActor;
-        if (movedStone is null || movedStone.Position != new Vector2(stone.LeftX, stone.MovedY) ||
-            !_currentRoom.IsSolid(new Vector2(stone.LeftX, stone.MovedY)) ||
-            _currentRoom.IsSolid(new Vector2(stone.RightX, stone.MovedY)))
+        if (movedStone is null || movedStone.Position != new Vector2(stone.RightX, stone.MovedY) ||
+            !_currentRoom.IsSolid(new Vector2(stone.RightX, stone.MovedY)) ||
+            _currentRoom.IsSolid(new Vector2(stone.LeftX, stone.MovedY)))
         {
             throw new InvalidOperationException(
-                "PART_TRIFORCE_STONE $5a:$5a did not select the left-side $40 position on re-entry.");
+                "PART_TRIFORCE_STONE $5a:$5a did not select the right-side $80 position on re-entry.");
         }
 
         GD.Print("Validated room 0:59 Impa/Triforce-stone event: PALH_98 interaction/part " +
             "forms, fixed priority 3 below follower Impa, two fixed-point jumps, " +
-            "TX_0104-$010b, linkCutscene2 targeting, " +
+            "TX_0104-$010b, native linkCutscene2 targeting, imported " +
+            "impaScript_moveAwayFromRock source trace and $02/$03/$04 handshake, " +
             "two SPEED_080 retreats, exact rungenericnpc wait animation/collision/talk loop, " +
             "A/B-safe 20-update push, 64-update SPEED_40 movement with per-update " +
-            "objectPreventLinkFromPassing, linkCutscene6, direction flags $40/$80, response waits, " +
-            "TX_0109 follower restore, final collision, sounds, and completed re-entry.");
+            "objectPreventLinkFromPassing, linkCutscene6, direction flags $40/$80, imported " +
+            "impaScript_rockJustMoved left/right branch traces, response waits, moveup $11/$20 " +
+            "facing resets, $07, TX_0109 follower restore, final collision, sounds, and " +
+            "completed re-entry.");
     }
 
     private void ValidateMakuTreeDisappearanceCutscene()
@@ -7537,6 +8202,8 @@ public sealed class ValidationGameRoot : GameRoot
         MakuTreeDisappearanceEvent makuEvent = _roomEvents.MakuTree;
         MakuTreeCutsceneDatabase makuDatabase = makuEvent.Database;
         MakuTreeCutsceneDatabase.MakuTreeCutsceneRecord makuRecord = makuDatabase.Record;
+        var commandTrace = new ValidationCutsceneTrace();
+        _roomEvents.CommandTraceSink = commandTrace;
         _sound.ClearPlayRequestAudit();
         LoadValidationRoom(0, 0x38);
         // The event is entered through room position $52 (the open $dc tile),
@@ -7620,28 +8287,40 @@ public sealed class ValidationGameRoot : GameRoot
                 "Maku Tree simulated input did not hold BTN_UP for exactly 14 updates.");
         }
         StepRoomEventFrames(84);
+        if (_dialogue.IsOpen || makuEvent.CurrentCommandIndex != 5 ||
+            makuEvent.Counter != 3)
+        {
+            throw new InvalidOperationException(
+                "The Maku Tree script preamble did not retain its collision/gate update boundaries.");
+        }
+        StepRoomEventFrames(3);
         if (!_dialogue.IsOpen || _dialogue.Position.Y != 80 ||
             !_dialogue.CurrentMessage.StartsWith("Pleased to meet\nyou, young hero."))
         {
             throw new InvalidOperationException(
-                "TX_0564 did not open after the original 210-update introduction delay.");
+                "TX_0564 did not open after the script preamble and original 210-update wait.");
         }
 
         _dialogue.Close();
-        StepRoomEventFrames(1);
-        StepRoomEventFrames(60);
-        if (makuTree.CurrentAnimationFrame != 0 || makuTree.CurrentAnimationOpaquePixels == 0 ||
-            _sound.LastPlayRequest != OracleSoundEngine.SndCtrlStopMusic ||
+        StepRoomEventFrames(61);
+        if (_sound.LastPlayRequest != OracleSoundEngine.SndCtrlStopMusic ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1)
         {
             throw new InvalidOperationException(
-                "The Maku Tree did not stop its music and reset the frown to visible frame zero.");
+                "The Maku Tree did not stop its music after the 60-update post-text wait.");
         }
-        StepRoomEventFrames(4);
+        StepRoomEventFrames(1);
+        if (makuTree.CurrentAnimationFrame != 0 ||
+            makuTree.CurrentAnimationOpaquePixels == 0)
+        {
+            throw new InvalidOperationException(
+                "The Maku Tree animation command did not reset the frown to visible frame zero.");
+        }
+        StepRoomEventFrames(3);
         if (makuTree.CurrentAnimationFrame != 1)
             throw new InvalidOperationException(
                 "INTERAC_MAKU_TREE animation 4 did not use its original four-update first frame.");
-        StepRoomEventFrames(56);
+        StepRoomEventFrames(57);
         if (_sound.LastPlayRequest != OracleSoundEngine.SndMakuDisappear ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMakuDisappear) != 1)
         {
@@ -7649,6 +8328,7 @@ public sealed class ValidationGameRoot : GameRoot
                 "The first SND_MAKUDISAPPEAR did not start with the palette-cycling disappearance.");
         }
 
+        StepRoomEventFrames(1);
         int paletteBefore = makuEvent.PaletteHeader;
         StepRoomEventFrames(8);
         if (makuEvent.PaletteHeader == paletteBefore)
@@ -7666,7 +8346,7 @@ public sealed class ValidationGameRoot : GameRoot
             throw new InvalidOperationException(
                 "TX_0540 did not replay SND_MAKUDISAPPEAR when its textbox closed.");
         }
-        StepRoomEventFrames(210);
+        StepRoomEventFrames(211);
         if (!_dialogue.IsOpen || _dialogue.Position.Y != 80 ||
             !_dialogue.CurrentMessage.StartsWith("I feel so weird.\nI'm vanishing!"))
             throw new InvalidOperationException("TX_0541 did not follow the original 210-update pause.");
@@ -7679,7 +8359,15 @@ public sealed class ValidationGameRoot : GameRoot
             throw new InvalidOperationException(
                 "TX_0541 did not replay SND_MAKUDISAPPEAR when its textbox closed.");
         }
-        StepRoomEventFrames(150);
+        StepRoomEventFrames(151);
+        if (!makuEvent.HasState || makuEvent.Completed || IsTransitioning ||
+            _saveData.MakuTreeState != 1 ||
+            _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared))
+        {
+            throw new InvalidOperationException(
+                "The Maku Tree script did not increment wMakuTreeState and defer its native handler by one update.");
+        }
+        StepRoomEventFrames(1);
         if (!makuEvent.Completed || _roomEvents.Active || !IsTransitioning ||
             _activeGroup != 0 || _currentRoom.Id != 0x38 ||
             !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared) ||
@@ -7745,9 +8433,67 @@ public sealed class ValidationGameRoot : GameRoot
         if (_roomEvents.Active || reloadedTree is null || reloadedTree.Active)
             throw new InvalidOperationException("The completed Maku Tree entry event retriggered on room reload.");
 
+        CutsceneCommandTraceEntry[] starts = commandTrace.Entries
+            .Where(entry => entry.Phase == CutsceneCommandTracePhase.Started)
+            .ToArray();
+        string[] expectedOpcodes =
+        {
+            "disablemenu", "setanimationcontinue", "setcollisionradii",
+            "makeabuttonsensitive", "gate", "wait", "showtext", "wait",
+            "playsound", "setanimationcontinue", "wait", "playsound",
+            "writememory", "wait", "showtext", "playsound", "wait",
+            "showtext", "playsound", "wait", "writememory", "native",
+            "scriptend"
+        };
+        if (starts.Length != expectedOpcodes.Length ||
+            starts.Where((entry, index) =>
+                entry.Source.Script != "makuTree_subid01Script_body" ||
+                entry.Source.Label != "makuTree_subid01Script_body" ||
+                entry.Source.CommandIndex != index ||
+                entry.Source.Opcode != expectedOpcodes[index] ||
+                entry.Source.SourceLine <= 0 ||
+                (index > 0 && entry.Source.SourceLine <= starts[index - 1].Source.SourceLine))
+            .Any())
+        {
+            throw new InvalidOperationException(
+                "The imported Maku Tree command trace lost source lines, command order, or typed opcodes.");
+        }
+
+        int CompletedUpdate(int commandIndex) => commandTrace.Entries.Single(entry =>
+            entry.Source.CommandIndex == commandIndex &&
+            entry.Phase == CutsceneCommandTracePhase.Completed).ScriptUpdate;
+        if (starts[1].ScriptUpdate != starts[0].ScriptUpdate ||
+            starts[2].ScriptUpdate != starts[0].ScriptUpdate ||
+            starts[3].ScriptUpdate != CompletedUpdate(2) + 1 ||
+            starts[4].ScriptUpdate != starts[3].ScriptUpdate ||
+            starts[5].ScriptUpdate != CompletedUpdate(4) + 1 ||
+            starts[6].ScriptUpdate != CompletedUpdate(5) ||
+            starts[7].ScriptUpdate != CompletedUpdate(6) + 1 ||
+            starts[8].ScriptUpdate != CompletedUpdate(7) ||
+            starts[9].ScriptUpdate != CompletedUpdate(8) + 1 ||
+            starts[10].ScriptUpdate != starts[9].ScriptUpdate ||
+            starts[11].ScriptUpdate != CompletedUpdate(10) ||
+            starts[12].ScriptUpdate != CompletedUpdate(11) + 1 ||
+            starts[13].ScriptUpdate != starts[12].ScriptUpdate ||
+            starts[14].ScriptUpdate != CompletedUpdate(13) ||
+            starts[15].ScriptUpdate != CompletedUpdate(14) + 1 ||
+            starts[16].ScriptUpdate != CompletedUpdate(15) + 1 ||
+            starts[17].ScriptUpdate != CompletedUpdate(16) ||
+            starts[18].ScriptUpdate != CompletedUpdate(17) + 1 ||
+            starts[19].ScriptUpdate != CompletedUpdate(18) + 1 ||
+            starts[20].ScriptUpdate != CompletedUpdate(19) ||
+            starts[21].ScriptUpdate != starts[20].ScriptUpdate ||
+            starts[22].ScriptUpdate != starts[20].ScriptUpdate)
+        {
+            throw new InvalidOperationException(
+                "makuTree_subid01Script_body did not preserve carry-through, yield, wait, " +
+                "dialogue, or final same-update command cadence.");
+        }
+        _roomEvents.CommandTraceSink = null;
+
         GD.Print("Validated room 0:38 Maku Tree $87:$01 simulated input, two-sheet unclipped face OAM, " +
             "initial six-palette PALH_8f gate/ground colors, fixed-bottom \\pos(2) dialogue, " +
-            "210/60/60/210/210/150 timing, four-header " +
+            "imported typed script/source trace, exact command yields, 210/60/60/210/210/150 waits, four-header " +
             "palette cycle, STOPMUSIC/three SND_MAKUDISAPPEAR/SND_FADEOUT cue chain, " +
             "cutscene palette retained through the delayed 125-update white fade, " +
             "and one-shot $45 re-entry warp.");
@@ -7766,6 +8512,8 @@ public sealed class ValidationGameRoot : GameRoot
     private void ValidateNayruIntroCutscene()
     {
         NayruIntroEvent nayruIntro = _roomEvents.Nayru;
+        var nayruTrace = new ValidationCutsceneTrace();
+        _roomEvents.CommandTraceSink = nayruTrace;
         const int group = 0;
         const int roomId = 0x39;
         Vector2 portalPoint = new(0x28, 0x28);
@@ -7922,14 +8670,15 @@ public sealed class ValidationGameRoot : GameRoot
             note.Name.ToString().EndsWith("MusicNote1", StringComparison.Ordinal))!;
         if (nayruDatabase.Effect("MusicNote").SpriteName != "spr_common_sprites" ||
             nayruDatabase.Effect("MusicNote").TileBase != 0x44 ||
-            nayruIntro.NoteSpawnCount != 2 || singingNotes.Count != 2 ||
+            !nayruTrace.Saw("NoteSpawn", value: 2) || singingNotes.Count != 2 ||
             singingNotes.Any(note => note.Record.SpriteName != "spr_common_sprites" ||
                 note.Record.TileBase != 0x44) ||
             singingNotes.Any(note => !note.Active || note.CurrentAnimationOpaquePixels == 0) ||
             leftNote is null || rightNote is null ||
             leftNote.Position.X >= 0x78 - 6 || leftNote.Position.Y >= 0x18 - 4 ||
             rightNote.Position.X <= 0x78 + 8 || rightNote.Position.Y >= 0x18 - 4 ||
-            !nayruIntro.NoteMotionShown)
+            !nayruTrace.Saw("NoteMotion", value: 0x01) ||
+            !nayruTrace.Saw("NoteMotion", value: 0x02))
         {
             throw new InvalidOperationException(
                 "Nayru's animation $04 did not create both visible music notes from " +
@@ -7939,7 +8688,7 @@ public sealed class ValidationGameRoot : GameRoot
                 string.Join(", ", singingNotes.Select(note =>
                     $"{note.Name}:{note.Position}:tile{note.Record.TileBase}:" +
                     $"active={note.Active}:pixels={note.CurrentAnimationOpaquePixels}")) +
-                $", motion={nayruIntro.NoteMotionShown}.");
+                $", motion={nayruTrace.OrValues("NoteMotion"):x2}.");
         }
 
         NpcCharacter bird = actors["Bird"];
@@ -7947,7 +8696,7 @@ public sealed class ValidationGameRoot : GameRoot
         _player.Face(Vector2I.Right);
         if (!TryInteract(_player) || !_dialogue.IsOpen ||
             _dialogue.CurrentMessage != "No! I have to\nhear Nayru's\nsong!" ||
-            nayruIntro.AudienceMask != 0x01 ||
+            nayruTrace.LastValue("AudienceMask") != 0x01 ||
             bird.CurrentScriptAnimationSource != nayruDatabase.Actor("Bird").Animation(2))
         {
             throw new InvalidOperationException(
@@ -7975,7 +8724,7 @@ public sealed class ValidationGameRoot : GameRoot
         _player.WarpTo(rabbit.Position + Vector2.Right * 16, recordSafe: false);
         if (!nayruIntro.TryInteractNpc(rabbit) ||
             !_dialogue.CurrentMessage.StartsWith("♪La la li li la♪", StringComparison.Ordinal) ||
-            nayruIntro.AudienceMask != 0x03 ||
+            nayruTrace.LastValue("AudienceMask") != 0x03 ||
             rabbit.CurrentScriptAnimationSource != nayruDatabase.Actor("Rabbit").Animation(1))
         {
             throw new InvalidOperationException(
@@ -8006,9 +8755,9 @@ public sealed class ValidationGameRoot : GameRoot
         }
         _dialogue.Close();
         StepRoomEventFrames(21);
-        if (nayruIntro.AudienceMask != 0x0f ||
+        if (nayruTrace.LastValue("AudienceMask") != 0x0f ||
             !nayruIntro.TryInteractNpc(actors["Bear"]) ||
-            nayruIntro.AudienceMask != 0x1f ||
+            nayruTrace.LastValue("AudienceMask") != 0x1f ||
             nayruIntro.CurrentStage != 2 || !_roomEvents.Active ||
             !_player.CutsceneControlled)
         {
@@ -8108,6 +8857,7 @@ public sealed class ValidationGameRoot : GameRoot
         bool sawRalphSword = false;
         bool sawNayruAscent = false;
         bool sawNayruDescent = false;
+        bool sawNeutralLinkDuringVeranSpeech = false;
         bool sawSideviewMusic = false;
         bool sawRoomOfRitesMusic = false;
         bool sawVignetteRestartSilence = false;
@@ -8118,6 +8868,7 @@ public sealed class ValidationGameRoot : GameRoot
         string nayruSecondGreeting = DialogueBox.PlainText(nayruDatabase.Text(0x1d22).Message);
         string ralphIntroduction = DialogueBox.PlainText(nayruDatabase.Text(0x2a00).Message);
         string ralphReply = DialogueBox.PlainText(nayruDatabase.Text(0x2a22).Message);
+        string veranAgeSpeech = DialogueBox.PlainText(nayruDatabase.Text(0x5605).Message);
         string nayruDownAnimation = nayruDatabase.Actor("Nayru").Animation(2);
         string impaRevealAnimation = nayruDatabase.Actor("AftermathImpa").Animation(4);
         string ralphFallAnimation = nayruDatabase.Actor("AftermathRalph").Animation(8);
@@ -8125,16 +8876,17 @@ public sealed class ValidationGameRoot : GameRoot
             scriptFrames < 20000)
         {
             NayruActorRegistry currentActors = nayruIntro.ActorRegistry;
+            int visitedVignettes = nayruTrace.OrValues("VignetteVisited");
             sawSideviewMusic |= _sound.ActiveMusic == OracleSoundEngine.MusLadxSideview;
             sawRoomOfRitesMusic |= _sound.ActiveMusic == OracleSoundEngine.MusRoomOfRites;
             sawVignetteRestartSilence |= nayruIntro.CurrentVignetteIndex == 0 &&
                 nayruIntro.VignetteElapsed is >= 1 and <= 120 && _sound.ActiveMusic == 0;
-            sawDisasterMusic |= nayruIntro.VisitedVignettes != 0 &&
+            sawDisasterMusic |= visitedVignettes != 0 &&
                 !currentActors.ContainsKey("AftermathRalph") &&
                 _sound.ActiveMusic == OracleSoundEngine.MusDisaster;
             sawSadnessMusic |= currentActors.ContainsKey("AftermathRalph") &&
                 _sound.ActiveMusic == OracleSoundEngine.MusSadness;
-            if (nayruIntro.VisitedVignettes != 0 && _roomEvents.Active)
+            if (visitedVignettes != 0 && _roomEvents.Active)
             {
                 sawHudDuringVignetteSequence |= _hud.Visible;
                 hudHiddenDuringVignetteSequence |= !_hud.Visible;
@@ -8148,6 +8900,11 @@ public sealed class ValidationGameRoot : GameRoot
             if (_dialogue.IsOpen && _dialogue.CurrentMessage == ralphReply &&
                 _player.FacingVector == Vector2I.Right)
                 sawLinkFaceRalph = true;
+            if (_dialogue.IsOpen && _dialogue.CurrentMessage == veranAgeSpeech &&
+                !_player.Walking)
+            {
+                sawNeutralLinkDuringVeranSpeech = true;
+            }
             if (_dialogue.IsOpen && _dialogue.CurrentMessage == ralphIntroduction &&
                 currentActors.TryGetValue("Nayru", out NpcCharacter? listeningNayru) &&
                 listeningNayru.CurrentScriptAnimationSource == nayruDownAnimation)
@@ -8185,7 +8942,6 @@ public sealed class ValidationGameRoot : GameRoot
                     sawBoyEscapeNormalCadence = true;
                 }
             }
-            sawVeranReactionMovement |= nayruIntro.VeranReactionMoved;
             if (currentActors.ContainsKey("GhostVeran") && _scene.WarpFade.Color.A >= 0.99f)
                 sawPossessionFlash = true;
             if (currentActors.TryGetValue("RalphSword", out NpcCharacter? ralphSword) &&
@@ -8222,7 +8978,7 @@ public sealed class ValidationGameRoot : GameRoot
             StepRoomEventFrames(1);
             scriptFrames++;
 
-            int newVignettes = nayruIntro.VisitedVignettes & ~observedVignettes;
+            int newVignettes = visitedVignettes & ~observedVignettes;
             if (newVignettes != 0)
             {
                 (int Group, int Room) expected = newVignettes switch
@@ -8259,6 +9015,41 @@ public sealed class ValidationGameRoot : GameRoot
                 }
             }
         }
+        CutsceneCommandTraceEntry[] nayruStarts = nayruTrace.Entries
+            .Where(entry => entry.Phase == CutsceneCommandTracePhase.Started)
+            .ToArray();
+        int importedTranslateCount = nayruDatabase.Commands
+            .Count(command => command is CutsceneTranslateCommand or
+                CutsceneParallelTranslateCommand);
+        int startedTranslateCount = nayruStarts.Count(entry =>
+            entry.Source.Opcode is "translate" or "paralleltranslate");
+        int linkVeranFacingMask = nayruTrace.OrValues("LinkVeranFacing");
+        int ralphVeranFacingMask = nayruTrace.OrValues("RalphVeranFacing");
+        int ghostTrackingPhases = nayruTrace.OrValues("GhostTrackingPhase");
+        sawVeranReactionMovement =
+            nayruTrace.SawPosition(
+                "ActorPosition", "Player", new Vector2(0x57, 0x30)) &&
+            nayruTrace.SawPosition(
+                "ActorPosition", "Ralph", new Vector2(0x88, 0x51));
+        bool movementFacingShown =
+            startedTranslateCount == importedTranslateCount &&
+            nayruTrace.Saw("VignetteMovement", "VignetteGirl", 0) &&
+            nayruTrace.Saw("VignetteMovement", "VignetteBoy", 1) &&
+            nayruTrace.Saw("VignetteMovement", "VignetteBoy", 3) &&
+            nayruTrace.Saw("VignetteMovement", "VignetteLady", 2) &&
+            nayruTrace.Saw("VignetteMovement", "VignetteLady", 3);
+        bool vignetteDetailShown =
+            nayruTrace.Saw("VignetteGirlJump") &&
+            nayruTrace.Saw("VignetteMonkeyHop") &&
+            nayruTrace.Saw("VignetteMonkeyPacing") &&
+            nayruTrace.Saw("VignetteMonkeyStone") &&
+            nayruTrace.Saw("VignetteMonkeyFlicker") &&
+            nayruTrace.Saw("VignetteBoyPalette") &&
+            nayruTrace.Saw("VignetteLadyCadence") &&
+            nayruTrace.Count("VignetteExclamation") == 3;
+        bool completeCommandTrace = nayruStarts.Length == nayruDatabase.Commands.Count &&
+            nayruStarts.Select(entry => entry.Source.CommandIndex)
+                .SequenceEqual(Enumerable.Range(0, nayruDatabase.Commands.Count));
         int rumbleRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndRumble2);
         bool exactCutsceneSounds =
             _sound.PlayRequestsFor(OracleSoundEngine.SndCloseMenu) == 2 &&
@@ -8283,39 +9074,40 @@ public sealed class ValidationGameRoot : GameRoot
             nayruIntro.CurrentStage != 0 || nayruIntro.ActorRegistry.Count != 0 ||
             _roomEvents.Active || _player.CutsceneControlled || !_hud.Visible ||
             _rooms.ActiveGroup != group || _rooms.CurrentRoom.Id != roomId ||
-            observedVignettes != 0x07 || nayruIntro.LightningSpawnCount != 6 ||
-            !sawVisibleLightning || !nayruIntro.CollapsedImpaRendered ||
-            nayruIntro.InitialMoveEnd != new Vector2(0x78, 0x20) ||
-            !nayruIntro.SwordGiftShown || !sawVisibleSwordGift ||
+            observedVignettes != 0x07 || nayruTrace.Count("LightningSpawn") != 6 ||
+            !sawVisibleLightning || !nayruTrace.Saw("CollapsedImpaRendered") ||
+            !nayruTrace.SawPosition(
+                "ActorPosition", "Nayru", new Vector2(0x78, 0x20)) ||
+            !nayruTrace.Saw("SwordGift") || !sawVisibleSwordGift ||
             !sawSwordPickupPose || _player.IsHoldingItemOneHand ||
             !sawHudDuringVignetteSequence || hudHiddenDuringVignetteSequence ||
             !sawStaticFallenRalph || !sawLinkFaceNayru || !sawLinkFaceNayruSecond ||
             !sawLinkFaceRalph || !sawLinkFaceImpaAfterReveal ||
+            !sawNeutralLinkDuringVeranSpeech ||
             !sawNayruStopSingingForRalph ||
-            !sawRalphAirborne || nayruIntro.RalphJumpCount != 2 ||
-            !sawDarkPalette || !nayruIntro.DarkPaletteShown ||
-            !sawAudienceAirborne || !nayruIntro.AudienceJumpShown ||
+            !sawRalphAirborne || nayruTrace.Count("RalphJump") != 2 ||
+            !sawDarkPalette || !nayruTrace.Saw("DarkPalette") ||
+            !sawAudienceAirborne || !nayruTrace.Saw("AudienceAirborne") ||
             !sawBoyShockDoubleCadence || !sawBoyEscapeNormalCadence ||
-            !nayruIntro.BoyEscapeStarted || !nayruIntro.BoyEscaped ||
-            !nayruIntro.GhostTrackingShown ||
-            nayruIntro.LinkVeranFacingMask != 0x0f ||
-            nayruIntro.RalphVeranFacingMask != 0x0d ||
+            !nayruTrace.Saw("BoyEscapeStarted") || !nayruTrace.Saw("BoyEscaped") ||
+            ghostTrackingPhases != 0x3c ||
+            linkVeranFacingMask != 0x0f || ralphVeranFacingMask != 0x0d ||
             !sawVeranReactionMovement || !sawPossessionFlash ||
-            !nayruIntro.PossessionFlashShown || !sawRalphSword ||
-            !nayruIntro.RalphSwordShown || !nayruIntro.BackstepShown ||
-            !nayruIntro.GhostHiddenAfterPossession ||
-            !nayruIntro.PostChargeFacingShown ||
-            !nayruIntro.PossessionSwayShown ||
-            !nayruIntro.PossessionBlinkShown ||
-            !nayruIntro.PossessionMovementSyncShown ||
-            !nayruIntro.GhostEmergenceShown ||
-            !nayruIntro.SwordSpacingShown ||
-            !nayruIntro.AftermathLinkWalkShown ||
-            !nayruIntro.MovementFacingShown ||
-            !nayruIntro.VignetteDetailShown ||
-            !nayruIntro.AftermathRalphFacingShown ||
+            !sawRalphSword || !nayruTrace.Saw("RalphSwordVisible") ||
+            !nayruTrace.SawPosition(
+                "ActorPosition", "Nayru", new Vector2(0x78, 0x18)) ||
+            !nayruTrace.Saw("GhostHiddenAfterPossession") ||
+            !nayruTrace.Saw("PostChargeFacing") ||
+            !nayruTrace.Saw("PossessionSway") ||
+            !nayruTrace.Saw("PossessionBlink") ||
+            !nayruTrace.Saw("PossessionMovementSync") ||
+            !nayruTrace.Saw("GhostEmergence") ||
+            !nayruTrace.Saw("RalphSwordSpacing") ||
+            !nayruTrace.Saw("AftermathLinkWalk") ||
+            !movementFacingShown || !vignetteDetailShown ||
+            (nayruTrace.OrValues("AftermathRalphFacing") & 0x07) != 0x07 ||
             !sawNayruAscent || !sawNayruDescent ||
-            !nayruIntro.PortalFlightShown ||
+            !nayruTrace.Saw("PortalFlight") || !completeCommandTrace ||
             !sawSideviewMusic || !sawRoomOfRitesMusic ||
             !sawVignetteRestartSilence || !sawDisasterMusic || !sawSadnessMusic ||
             !exactCutsceneSounds ||
@@ -8331,29 +9123,29 @@ public sealed class ValidationGameRoot : GameRoot
                 $"(frames={scriptFrames}, stage={nayruIntro.CurrentStage}, " +
                 $"faces={sawLinkFaceNayru}/{sawLinkFaceNayruSecond}/" +
                 $"{sawLinkFaceRalph}/{sawLinkFaceImpaAfterReveal}, " +
+                $"neutralLink={sawNeutralLinkDuringVeranSpeech}, " +
                 $"boy={sawBoyShockDoubleCadence}/{sawBoyEscapeNormalCadence}/" +
-                $"{nayruIntro.BoyEscapeStarted}/{nayruIntro.BoyEscaped}" +
-                $", track={nayruIntro.GhostTrackingShown}:" +
-                $"{nayruIntro.LinkVeranFacingMask:x2}/" +
-                $"{nayruIntro.RalphVeranFacingMask:x2}, " +
-                $"backstep={nayruIntro.BackstepShown}, " +
-                $"ghostHidden={nayruIntro.GhostHiddenAfterPossession}, " +
-                $"listen/down={sawNayruStopSingingForRalph}/{nayruIntro.PostChargeFacingShown}, " +
-                $"possession={nayruIntro.PossessionSwayShown}/" +
-                $"{nayruIntro.PossessionBlinkShown}/" +
-                $"{nayruIntro.PossessionMovementSyncShown}/" +
-                $"{nayruIntro.GhostEmergenceShown}, " +
-                $"swordSpace={nayruIntro.SwordSpacingShown}, " +
-                $"moveFacing={nayruIntro.MovementFacingShown}, " +
-                $"vignette={nayruIntro.VignetteDetailShown}, " +
+                $"{nayruTrace.Saw("BoyEscapeStarted")}/{nayruTrace.Saw("BoyEscaped")}" +
+                $", track={ghostTrackingPhases:x2}:" +
+                $"{linkVeranFacingMask:x2}/{ralphVeranFacingMask:x2}, " +
+                $"ghostHidden={nayruTrace.Saw("GhostHiddenAfterPossession")}, " +
+                $"listen/down={sawNayruStopSingingForRalph}/" +
+                $"{nayruTrace.Saw("PostChargeFacing")}, " +
+                $"possession={nayruTrace.Saw("PossessionSway")}/" +
+                $"{nayruTrace.Saw("PossessionBlink")}/" +
+                $"{nayruTrace.Saw("PossessionMovementSync")}/" +
+                $"{nayruTrace.Saw("GhostEmergence")}, " +
+                $"swordSpace={nayruTrace.Saw("RalphSwordSpacing")}, " +
+                $"moveFacing={movementFacingShown}, vignette={vignetteDetailShown}, " +
                 $"hud={sawHudDuringVignetteSequence}/{hudHiddenDuringVignetteSequence}, " +
-                $"ralphTracking={nayruIntro.AftermathRalphFacingShown}, " +
-                $"linkWalk={nayruIntro.AftermathLinkWalkShown}, " +
-                $"reaction={sawVeranReactionMovement}/{nayruIntro.VeranReactionMoved}, " +
-                $"flash={sawPossessionFlash}/{nayruIntro.PossessionFlashShown}, " +
-                $"sword={sawRalphSword}/{nayruIntro.RalphSwordShown}/" +
+                $"ralphTracking={nayruTrace.OrValues("AftermathRalphFacing"):x2}, " +
+                $"linkWalk={nayruTrace.Saw("AftermathLinkWalk")}, " +
+                $"reaction={sawVeranReactionMovement}, flash={sawPossessionFlash}, " +
+                $"sword={sawRalphSword}/{nayruTrace.Saw("RalphSwordVisible")}/" +
                 $"{sawSwordPickupPose}/{_player.IsHoldingItemOneHand}, " +
-                $"flight={sawNayruAscent}/{sawNayruDescent}/{nayruIntro.PortalFlightShown}, " +
+                $"flight={sawNayruAscent}/{sawNayruDescent}/" +
+                $"{nayruTrace.Saw("PortalFlight")}, trace={nayruStarts.Length}/" +
+                $"{nayruDatabase.Commands.Count}, " +
                 $"sfx={exactCutsceneSounds}:jump" +
                 $"{_sound.PlayRequestsFor(OracleSoundEngine.SndJump)}/" +
                 $"spin{_sound.PlayRequestsFor(OracleSoundEngine.SndSwordSpin)}/" +
@@ -8384,12 +9176,14 @@ public sealed class ValidationGameRoot : GameRoot
         _currentRoom.ReplaceMetatile(portalPoint, 0xd7, 0x3a, (long)_animationTicks);
         _saveData.SetRoomFlag(group, roomId, OracleSaveData.RoomFlag40, value: false);
         _saveData.SetRoomFlag(group, roomId, OracleSaveData.RoomFlag80, value: false);
+        _roomEvents.CommandTraceSink = null;
         GD.Print("Validated room 0:39's pre-GLOBALFLAG_INTRO_DONE $6b:$01 audience, " +
             "$01/$02/$04/$08/$10 talk mask, cplinkx/turnToFaceLink talk facings, bird " +
             "$02/$03 hop and exact pose resets, bear room flag $80 movement, $60/$3e trigger, " +
             "solid dynamic actors and outgoing scrolling, visible singing notes, 120/30/600 " +
             "timing, imported singing OAM and 40-pixel scroll, opposing SPEED_60 notes, all " +
-            "Link/Nayru/Ralph/Impa dialogue and cfd5/cfd6 ghost-facing handoffs with Link's " +
+            "Link/Nayru/Ralph/Impa dialogue, neutral Link holds after translated movement, " +
+            "and cfd5/cfd6 ghost-facing handoffs with Link's " +
             "8-update and Ralph's 16-update cadence, Nayru's held $02, cached collision target, " +
             "clockwise diagonal rounding and cfd2 left turn, opcode-driven movement " +
             "facings with preserved raw-angle backwalk poses, aftermath Ralph tracking, two Ralph jumps, PALH $99 " +
@@ -8409,6 +9203,8 @@ public sealed class ValidationGameRoot : GameRoot
     private void ValidateRalphPortalDepartureEvent()
     {
         RalphPortalEvent ralphEvent = _roomEvents.Ralph;
+        var commandTrace = new ValidationCutsceneTrace();
+        _roomEvents.CommandTraceSink = commandTrace;
         _sound.ClearPlayRequestAudit();
         // @initSubid0d deletes the object on a direct room load because
         // wScreenTransitionDirection is not DIR_RIGHT ($01).
@@ -8548,10 +9344,46 @@ public sealed class ValidationGameRoot : GameRoot
         if (completedRalph is null || completedRalph.Active || _roomEvents.Active)
             throw new InvalidOperationException("Ralph's one-shot portal event retriggered after flag $40.");
 
+        CutsceneCommandTraceEntry[] starts = commandTrace.Entries
+            .Where(entry => entry.Phase == CutsceneCommandTracePhase.Started)
+            .ToArray();
+        string[] expectedOpcodes =
+        {
+            "disableinput", "wait", "showtext", "wait", "setanimation",
+            "setspeed", "setangle", "applyspeed", "setanimation",
+            "writeobjectbyte", "playsound", "flicker", "setglobalflag",
+            "native", "enableinput", "scriptend"
+        };
+        if (starts.Length != expectedOpcodes.Length ||
+            starts.Where((entry, index) =>
+                entry.Source.Script != "ralphSubid0dScript" ||
+                entry.Source.CommandIndex != index ||
+                entry.Source.Opcode != expectedOpcodes[index] ||
+                entry.Source.SourceLine <= 0).Any())
+        {
+            throw new InvalidOperationException(
+                "The importer-generated Ralph command trace lost script labels, " +
+                "source lines, command order, or typed opcodes.");
+        }
+        int flickerCompletionUpdate = commandTrace.Entries.Single(entry =>
+            entry.Source.CommandIndex == 11 &&
+            entry.Phase == CutsceneCommandTracePhase.Completed).ScriptUpdate;
+        if (starts[12].ScriptUpdate != flickerCompletionUpdate ||
+            starts[13].ScriptUpdate != flickerCompletionUpdate ||
+            starts[14].ScriptUpdate != flickerCompletionUpdate ||
+            starts[15].ScriptUpdate != flickerCompletionUpdate)
+        {
+            throw new InvalidOperationException(
+                "Ralph's completion flag, native music restore, enableinput, and " +
+                "scriptend did not continue on the final flicker update.");
+        }
+        _roomEvents.CommandTraceSink = null;
+
         GD.Print("Validated room 0:39 Ralph $37:$0d DIR_RIGHT guard, TX_2a1e, " +
             "40/30 waits, per-command script cadence, animation $01, 16-pixel SPEED_100 " +
             "movement, animation $09, SND_MYSTERY_SEED, $2d-frame flicker, " +
-            "MUS_OVERWORLD restore, and persistent GLOBALFLAG $40.");
+            "same-update completion chain, imported source trace, MUS_OVERWORLD restore, " +
+            "and persistent GLOBALFLAG $40.");
     }
 
     private void ValidateStartupTransition()

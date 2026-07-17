@@ -40,6 +40,7 @@ internal sealed class RoomEventContext(
     public TreasureDatabase Treasures { get; } = treasures;
     public OracleSoundEngine Sound { get; } = sound;
     public bool DialogueOpen => _dialogue.IsOpen;
+    internal ICutsceneCommandTraceSink? CommandTraceSink { get; set; }
 
     public NpcCharacter RequireNpc(
         int group,

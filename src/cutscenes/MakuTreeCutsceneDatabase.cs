@@ -1,10 +1,11 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 using System.Text;
 
 namespace oracleofages;
 
-public sealed class MakuTreeCutsceneDatabase
+internal sealed class MakuTreeCutsceneDatabase
 {
     public const int PaletteCount = 4;
     public const int BackgroundPalettesPerHeader = 6;
@@ -12,6 +13,7 @@ public sealed class MakuTreeCutsceneDatabase
 
     public MakuTreeCutsceneRecord Record { get; }
     public Color[,,] BackgroundPalettes { get; }
+    public IReadOnlyList<CutsceneCommand> Commands { get; }
 
     public MakuTreeCutsceneDatabase()
     {
@@ -89,12 +91,78 @@ public sealed class MakuTreeCutsceneDatabase
                 bytes[offset++] / 31.0f,
                 bytes[offset++] / 31.0f);
         }
+
+        Commands = CutsceneCommandCatalog.Load(
+            "res://assets/oracle/cutscenes/maku_tree_commands.tsv");
+        ValidateCommandStream();
     }
+
+    private void ValidateCommandStream()
+    {
+        if (Commands.Count != 23 ||
+            Commands[0] is not CutsceneDisableMenuCommand ||
+            !MatchesAnimation(Commands[1], 0x00, Record.Animation0) ||
+            Commands[2] is not CutsceneSetCollisionRadiiCommand
+                { Actor: "MakuTree", RadiusY: 0x08, RadiusX: 0x08 } ||
+            Commands[3] is not CutsceneMakeAButtonSensitiveCommand
+                { Actor: "MakuTree" } ||
+            Commands[4] is not CutsceneGateCommand { Gate: "palette-fade-done" } ||
+            !MatchesWait(Commands[5], Record.IntroDelayFrames) ||
+            !MatchesText(Commands[6], 0x0564, Record.IntroText) ||
+            !MatchesWait(Commands[7], Record.PostIntroFrames) ||
+            Commands[8] is not CutscenePlaySoundCommand
+                { Sound: OracleSoundEngine.SndCtrlStopMusic } ||
+            !MatchesAnimation(Commands[9], 0x04, Record.Animation4) ||
+            !MatchesWait(Commands[10], Record.FrownFrames) ||
+            Commands[11] is not CutscenePlaySoundCommand
+                { Sound: OracleSoundEngine.SndMakuDisappear } ||
+            Commands[12] is not CutsceneWriteMemoryCommand
+                { Binding: "wCutsceneTrigger", Value: 0x07 } ||
+            !MatchesWait(Commands[13], Record.DisappearanceFrames) ||
+            !MatchesText(Commands[14], 0x0540, Record.AhhText) ||
+            Commands[15] is not CutscenePlaySoundCommand
+                { Sound: OracleSoundEngine.SndMakuDisappear } ||
+            !MatchesWait(Commands[16], Record.PostAhhFrames) ||
+            !MatchesText(Commands[17], 0x0541, Record.HelpText) ||
+            Commands[18] is not CutscenePlaySoundCommand
+                { Sound: OracleSoundEngine.SndMakuDisappear } ||
+            !MatchesWait(Commands[19], Record.FinishDelayFrames) ||
+            Commands[20] is not CutsceneWriteMemoryCommand
+                { Binding: "wTmpcfc0.genericCutscene.state", Value: 0x01 } ||
+            Commands[21] is not CutsceneNativeCommand { Handler: "incMakuTreeState" } ||
+            Commands[22] is not CutsceneEndCommand)
+        {
+            throw new InvalidOperationException(
+                "makuTree_subid01Script_body command stream diverges from imported metadata.");
+        }
+    }
+
+    private static bool MatchesAnimation(
+        CutsceneCommand command,
+        int animation,
+        string encodedAnimation) =>
+        command is CutsceneSetAnimationContinueCommand
+        {
+            Actor: "MakuTree",
+            Animation: var actualAnimation,
+            EncodedAnimation: var actualEncoding
+        } && actualAnimation == animation && actualEncoding == encodedAnimation;
+
+    private static bool MatchesWait(CutsceneCommand command, int frames) =>
+        command is CutsceneWaitCommand { Frames: var actual } && actual == frames;
+
+    private static bool MatchesText(
+        CutsceneCommand command,
+        int textId,
+        string message) =>
+        command is CutsceneShowTextCommand
+            { TextId: var actualId, Message: var actualMessage } &&
+        actualId == textId && actualMessage == message;
 
     private static string Decode(string encoded) =>
         Encoding.UTF8.GetString(Convert.FromBase64String(encoded));
 
-    public readonly record struct MakuTreeCutsceneRecord(
+    internal readonly record struct MakuTreeCutsceneRecord(
         int Group,
         int Room,
         int InteractionId,

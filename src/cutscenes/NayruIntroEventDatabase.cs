@@ -20,6 +20,7 @@ public sealed class NayruIntroEventDatabase
     private readonly List<VignetteMonkeyRecord> _vignetteMonkeys = new();
 
     public EventRecord Event { get; }
+    internal IReadOnlyList<CutsceneCommand> Commands { get; }
     public IReadOnlyList<SingingOamRecord> SingingOam { get; }
     public Color[,] SingingBackgroundPalettes { get; }
     public Color[,] SingingSpritePalettes { get; }
@@ -64,6 +65,14 @@ public sealed class NayruIntroEventDatabase
             int.Parse(eventColumns[24]),
             int.Parse(eventColumns[25]),
             int.Parse(eventColumns[26]));
+        Commands = CutsceneCommandCatalog.Load(
+            "res://assets/oracle/cutscenes/nayru_intro_commands.tsv");
+        if (Commands.Count != 235 || Commands[^1] is not CutsceneEndCommand)
+        {
+            throw new InvalidOperationException(
+                $"Initial Nayru command stream should contain 235 records ending in scriptend, " +
+                $"got {Commands.Count}.");
+        }
 
         foreach (string line in ReadRows(
             "res://assets/oracle/cutscenes/nayru_intro_actors.tsv"))
@@ -229,6 +238,8 @@ public sealed class NayruIntroEventDatabase
     public ActorRecord Actor(string name) => _actors.TryGetValue(name, out ActorRecord actor)
         ? actor
         : throw new InvalidOperationException($"Unknown initial Nayru cutscene actor '{name}'.");
+
+    internal bool HasActor(string name) => _actors.ContainsKey(name);
 
     public TextRecord Text(int id) => _texts.TryGetValue(id, out TextRecord text)
         ? text

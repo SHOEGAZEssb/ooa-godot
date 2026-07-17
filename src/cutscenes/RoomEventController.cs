@@ -71,6 +71,10 @@ public sealed class RoomEventController
     internal EnterPastEvent EnterPast => _enterPast;
     internal ImpaIntroEvent Impa => _impa;
     internal NayruIntroEvent Nayru => _nayru;
+    internal ICutsceneCommandTraceSink? CommandTraceSink
+    {
+        set => _context.CommandTraceSink = value;
+    }
 
     public void Update(double delta)
     {
