@@ -100,7 +100,7 @@ public sealed class NewGameIntroController
             });
         _timeline.WaitUntil(
             () => !_screen.Dialogue.IsOpen,
-            completed: () => SetStage(Stage.Vanishing));
+            completed: BeginVanishing);
 
         int vanishFrames = TotalVanishFrames;
         _timeline.Wait(
@@ -126,6 +126,14 @@ public sealed class NewGameIntroController
     {
         CurrentStage = stage;
         _stageFrame = 0;
+    }
+
+    private void BeginVanishing()
+    {
+        // linkCutsceneB substate 2 requests SND_FAIRYCUTSCENE on the update
+        // TX_1213 closes, immediately before creating the glowing orb.
+        _sound.PlaySound(OracleSoundEngine.SndFairyCutscene);
+        SetStage(Stage.Vanishing);
     }
 
     private void AdvanceDialogueClock(double delta)

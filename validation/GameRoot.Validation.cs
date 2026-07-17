@@ -1302,6 +1302,10 @@ public sealed class ValidationGameRoot : GameRoot
         NewGameIntroDatabase.IntroSpriteFrame[] orbVanish =
             introDatabase.SpriteFrames("orb-vanish");
         int descendFrames = record.InitialWaitFrames + record.VoiceWaitFrames;
+        int fairySoundRequests =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndFairyCutscene);
+        OracleSoundData.ChannelStart fairySoundChannel =
+            _sound.Data.ChannelsFor(OracleSoundEngine.SndFairyCutscene).Single();
 
         if (_sound.ActiveMusic != OracleSoundEngine.MusEssenceRoom)
             throw new InvalidOperationException(
@@ -1392,19 +1396,29 @@ public sealed class ValidationGameRoot : GameRoot
             intro.StageFrame != 0 ||
             !screen.Dialogue.IsOpen ||
             screen.Dialogue.CurrentMessage != "Accept our\nquest, hero!" ||
-            screen.Dialogue.Position.Y != 80)
+            screen.Dialogue.Position.Y != 80 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndFairyCutscene) != fairySoundRequests)
         {
             throw new InvalidOperationException(
-                "CUTSCENE_PREGAME_INTRO did not open TX_1213 at position 2.");
+                "CUTSCENE_PREGAME_INTRO did not open TX_1213 at position 2 " +
+                "without starting SND_FAIRYCUTSCENE early.");
         }
 
         screen.Dialogue.Close();
         intro.Update(1.0 / 60.0);
         if (intro.CurrentStage != NewGameIntroController.Stage.Vanishing ||
-            intro.StageFrame != 0)
+            intro.StageFrame != 0 ||
+            _sound.LastPlayRequest != OracleSoundEngine.SndFairyCutscene ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndFairyCutscene) !=
+                fairySoundRequests + 1 ||
+            !_sound.Channel(fairySoundChannel.Channel).Active ||
+            _sound.Channel(fairySoundChannel.Channel).Priority != fairySoundChannel.Priority ||
+            _sound.Channel(fairySoundChannel.Channel).Bank != fairySoundChannel.Bank ||
+            _sound.Channel(fairySoundChannel.Channel).Offset != fairySoundChannel.Offset)
         {
             throw new InvalidOperationException(
-                "Closing TX_1213 did not enter the vanish timeline at frame zero.");
+                "Closing TX_1213 did not start SND_FAIRYCUTSCENE and its original " +
+                "channel program with the vanish timeline at frame zero.");
         }
         for (int frame = 0; frame < intro.TotalVanishFrames - 1; frame++)
             intro.Update(1.0 / 60.0);
@@ -1425,7 +1439,9 @@ public sealed class ValidationGameRoot : GameRoot
         if (completionRequests != 1 ||
             intro.CurrentStage != NewGameIntroController.Stage.Complete ||
             intro.StageFrame != record.PostVanishWaitFrames ||
-            _sound.ActiveMusic != 0)
+            _sound.ActiveMusic != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndFairyCutscene) !=
+                fairySoundRequests + 1)
         {
             throw new InvalidOperationException(
                 "The new-game intro did not stop music and hand off to the summon transition exactly once.");
@@ -1491,7 +1507,7 @@ public sealed class ValidationGameRoot : GameRoot
         GD.Print("Validated CUTSCENE_PREGAME_INTRO frame-96 top entrance, interleaved 8x16 OBJ cells, " +
             "hardware OAM priority, cumulative descend/hover Z tables, $0d/$06 blue-orb OAM and palette 4, " +
             "300/60 waits, TX_1213, 62-update vanish handoff, 60-update black hold, 65-update white-fade wait, " +
-            "MUS_ESSENCE_ROOM/STOPMUSIC handoff, 128-update wave, and transition $0b's three-pose " +
+            "SND_FAIRYCUTSCENE, MUS_ESSENCE_ROOM/STOPMUSIC handoff, 128-update wave, and transition $0b's three-pose " +
             "4-update/59-gravity-update slow fall.");
     }
 

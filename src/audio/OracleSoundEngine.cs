@@ -42,6 +42,7 @@ public partial class OracleSoundEngine : Node
     public const int SndMysterySeed = 0x7b;
     public const int SndMenuMove = 0x84;
     public const int SndTeleport = 0x8d;
+    public const int SndFairyCutscene = 0x91;
     public const int SndWarpStart = 0x95;
     public const int SndSwordObtained = 0xab;
     public const int SndMakuDisappear = 0xb2;
