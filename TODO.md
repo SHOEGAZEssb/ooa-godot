@@ -91,132 +91,119 @@ serialization.
 - `tools/import_oracles.ps1`, `dotnet build`, the complete headless `--validate`
   suite, and `git diff --check` all pass.
 
-## Finish the typed cutscene command architecture
+## Parse the disassembly once
 
-Status: Complete; shared runner and Nayru migration validated
+Status: Planned
 
 Consolidation value: Very high
 
-Fidelity risk: High; migrate incrementally
+Fidelity risk: High; migrate incrementally with byte-for-byte output checks
 
 ### Finding
 
-`RoomEventTimeline` already preserves the original one-command-per-update
-boundary and is used by several finite events. It currently expresses most
-behavior through callbacks, however, rather than imported typed commands.
-`NayruIntroEvent.cs` is approximately 2,700 lines and contains a local
-12-command interpreter alongside extensive validation-only audit state.
-`ImpaIntroEvent.cs` is approximately 1,350 lines and remains split across large
-handwritten encounter, help, stone, and follower state machines.
+`tools/import_oracles.ps1` dot-sources every stage into one shared PowerShell
+scope and relies on their execution order. The current stage scripts contain
+132 `Get-Content` references, approximately 252 regex operations, and 140
+literal disassembly-path references. Several large source files are loaded and
+scanned repeatedly: `objects/ages/enemyData.s` is read four times within
+`Import-EnemyData.ps1`, while `scripts/ages/scriptHelper.s` and
+`scripts/ages/scripts.s` are referenced eight and seven times across the NPC
+and cutscene stages.
 
-The importer already parses the relevant interaction scripts, labels, waits,
-movement constants, text IDs, signals, flags, and branches from the
-disassembly. It currently flattens those values into event-specific TSV rows.
-New cutscenes should not add more handwritten state machines where the original
-behavior is an `interactionRunScript` command stream.
+The shared scope also creates undeclared stage dependencies. For example, the
+menu stage consumes `$paletteDataSource` created by the world stage, the
+dialogue/intro stage consumes `$textYaml` and `Normalize-DialogueText` from the
+menu stage, and the cutscene stage consumes `$interactionGraphics`,
+`$npcAnimationTables`, `$interactionAnimationSource`, and
+`Resolve-NpcAnimation` from the NPC stage. Reordering or independently testing
+a stage can therefore break it without an explicit missing dependency.
+
+Repeated domain-specific regex scans lose structural information such as the
+original sequence of labels, directives, macro invocations, instructions,
+aliases, and duplicate records. The previously lost enemy object ordering is a
+concrete example of the resulting fidelity risk. New cutscenes, interactions,
+and enemy families will otherwise continue increasing this parsing debt.
+
+This task concerns import-time parsing of the disassembly. It is separate from
+the generated-data parsing task above, which concerns production C# readers of
+the TSV assets after import.
 
 ### Required design
 
-- Define an importer-generated typed command stream with stable script and
-  label identifiers from the disassembly.
-- Preserve exact one-command-per-update cadence, including commands that only
-  set state or intentionally yield for one update.
-- Support waits, gates, text, sound, animation, movement, jumps, flags,
-  signals, branches, calls/returns, actor deletion, and explicit completion.
-- Support parallel actor lanes without merging their independent counters or
-  changing object update order.
-- Keep actor lookup typed and fail startup/import with the script label,
-  command index, actor identifier, and source location when a binding is
-  invalid.
-- Keep bespoke native handlers for behavior that was not an interaction script,
-  including palette engines, room swaps, portal effects, actor spawning, and
-  other original object-code handlers.
-- Add a validation trace sink for command boundaries, branch decisions, actor
-  positions/facings, animations, dialogue, sounds, flags, and signals. Audit
-  observations must not remain as production event booleans and bit masks.
-- Do not make generic Tweens or frame-time interpolation authoritative for
-  original fixed-update movement.
+- Introduce one import-session source repository that opens each assembly file
+  once and retains its path, raw text, ordered lines, and line-start offsets.
+- Parse assembly sources into a small ordered lexical representation with
+  source spans. Represent labels, directives, macro calls, instructions,
+  operands, comments, and unrecognized syntax without discarding their order.
+- Build reusable indexes over that ordered representation for labels,
+  constants, `.db`/`.dw` data, macro invocations, and configured conditional
+  branches. Indexes must preserve aliases and intentional duplicates.
+- Keep domain interpretation in typed resolvers for rooms, objects, scripts,
+  animations, OAM, palettes, sounds, and other original formats. Do not flatten
+  all assembly into one universal semantic record.
+- Give every stage explicit typed inputs and outputs. Eliminate dependencies on
+  functions or variables that happen to exist because an earlier script was
+  dot-sourced first.
+- Include source path, line, column, label, and offending syntax in every parse
+  or resolution error.
+- Preserve PowerShell as the orchestration layer. Prefer a small C# importer
+  library for the source model, indexes, typed records, and unit tests, loaded
+  once for the complete import session.
+- Keep copied PNG/binary resources and non-assembly formats outside this model
+  unless they have a separate demonstrated parsing problem.
 
-### Staged checklist
+### Migration plan
 
-- [x] Preserve one-command-per-update sequencing in `RoomEventTimeline`.
-- [x] Prove typed movement, parallel movement, animation, text, fade, jump, and
-  effect commands in Nayru's event-local runner.
-- [x] Inventory the original script command vocabulary used by implemented and
-  near-term cutscenes, including command byte lengths and yield behavior.
-- [x] Define shared typed command records, source script/label metadata, a
-  schema-validating runtime catalog, and a fixed-update host/runner contract.
-- [x] Add typed actor bindings, branch/call stacks, gates, and a parallel-lane
-  scheduler to the shared runner.
-- [x] Add deterministic shared-runner command tracing and migrate Ralph's
-  validation assertions to trace entries.
-- [x] Migrate remaining production audit fields and event-specific validation
-  observations to shared trace assertions.
-- [x] Extend `Import-CutsceneData.ps1` to emit Ralph's active-path command stream
-  with assembly source labels/lines and startup diagnostics for malformed or
-  unsupported runtime records.
-- [x] Generalize assembly command parsing for subsequent scripts and reject
-  unsupported assembly commands during import with source diagnostics.
-- [x] Migrate Ralph's room 0:39 portal departure as the first simple event and
-  compare every imported command boundary, mutation, source label, native
-  flicker-loop cadence, and completion update against the previous
-  implementation.
-- [x] Migrate `villagerSubid0dScript`, the room 1:39 first-past arrival, including
-  transition-overlapped waits, the shared jump subscript, cardinal movement,
-  animation cadence, and the original counter2 zero-update command boundaries.
-- [x] Migrate the Maku Tree disappearance and any other remaining simple
-  `RoomEventTimeline` events; require newly added script-driven cutscenes to use
-  the shared runner.
-- [x] Migrate Impa's encounter script while retaining native follower-path,
-  collision, room-transfer, and object-handshake handlers.
-- [x] Finish migrating Impa's stone/help sequence.
-  - [x] Migrate room 0:7a's native help interaction through the typed runner,
-    preserving its edge gate, preloaded 30-update counter, TX_0100, room flag,
-    and eight-update simulated-Link-input handoff.
-  - [x] Migrate `impaScript_moveAwayFromRock` and validate its `$02/$03/$04`
-    signal handshake with the native Impa approach/jumps and `linkCutscene2`
-    positioning handlers.
-  - [x] Migrate direction-dependent `impaScript_rockJustMoved`, including both
-    branch targets, `$07`, TX_0109, movement facings, and follower restoration.
-  - [x] Retain fake Octorok behavior as parallel native object handlers, with
-    their staggered counters, movement, sounds, and ordering validated beside
-    the imported encounter stream.
-- [x] Migrate Nayru's script-driven actor lanes and remove its local command
-  type/dispatcher where the shared runner has equivalent commands.
-- [x] Move Nayru's validation-only counters, masks, and booleans into trace-based
-  assertions in the validation assembly.
-- [x] Reduce `NayruIntroEvent` to orchestration and native effect handlers, with
-  imported records owning script order and command parameters.
-- [x] Run importer determinism checks, `dotnet build`, the complete headless
-  `--validate` suite, and `git diff --check` after each migration stage.
+1. Produce a baseline manifest of generated file paths, byte counts, hashes,
+   record counts, key sequences, and existing importer/validation results.
+2. Add the source repository, source-span type, ordered lexical nodes, label
+   index, and tests for line endings, comments, local labels, directives,
+   macros, duplicate labels where legal, and configured conditional branches.
+3. Expose the parser context to PowerShell and require new importer work to use
+   it instead of adding direct assembly `Get-Content` or whole-file regex scans.
+4. Migrate shared constants, labels, byte/word tables, and source-line lookup
+   helpers first, comparing generated output with the baseline after each family.
+5. Migrate fidelity-sensitive ordered streams next: room objects, enemy
+   placement, interaction scripts, and cutscene commands. Assert record sequence
+   and source spans before deleting the old parsers.
+6. Migrate animation, OAM, palette, interaction, navigation, and audio table
+   resolvers one family at a time.
+7. Replace shared-scope stage state with explicit result objects and remove the
+   corresponding legacy scans only after parity is proven.
+8. Finish by rejecting direct `.s` file reads outside the source repository and
+   documenting the importer library API in `docs/data-import.md`.
 
-### Completed result
+### Scope decision
 
-- The importer emits a 235-record Nayru command stream with original source
-  scripts, labels, command indices, and line diagnostics, and rejects unknown
-  assembly opcodes instead of silently flattening them.
-- The shared fixed-update runner now owns typed actor validation, waits, gates,
-  dialogue, sound, animation, flags/signals, branches, calls/returns, translated
-  movement, deletion, native boundaries, and deterministic command traces.
-- Independent lane runners retain their own counters, registers, and return
-  stacks while the scheduler preserves insertion/object update order.
-- Nayru's former local command type, handwritten command list, dispatcher, and
-  validation-only audit masks/booleans are gone. Bespoke palette, room-swap,
-  spawning, portal, possession, vignette, and aftermath object-code behavior
-  remains in native handlers.
+Do not begin by implementing a complete RGBDS assembler, preprocessor, or one
+monolithic AST for every source construct. The first model needs only lossless
+ordering, source identity, common lexical structure, configured-US conditional
+selection, and the typed table/script resolvers required by current imports.
+Unsupported syntax must remain visible and fail when a resolver attempts to
+consume it; it must not be silently dropped.
+
+Do not combine this migration with a wholesale generated-asset format change.
+Keep current generated outputs stable while changing how their source data is
+understood. The runtime TSV-reader consolidation can then proceed independently
+against proven importer output.
 
 ### Acceptance criteria
 
-- Newly implemented interaction-script cutscenes are importer-generated command
-  streams rather than event-specific state-machine switches.
-- Imported command order, command boundaries, labels, branches, calls, actor
-  update order, and fixed-update movement match the disassembly.
-- Unsupported or malformed commands fail during import/startup with actionable
-  script-label and source diagnostics.
-- Impa and Nayru retain only native orchestration that cannot be represented by
-  original script commands.
-- Production cutscene classes contain no validation-only audit state.
-- Trace comparisons cover complete successful paths and every supported branch.
+- Every assembly source is read once per import session through the shared
+  source repository; stages contain no direct `Get-Content` calls for `.s`
+  files and no repeated whole-file regex scans.
+- Every stage declares its inputs and outputs and can be tested without relying
+  on undeclared variables or functions from a previous dot-sourced stage.
+- Labels, aliases, directives, macro calls, instructions, duplicate records,
+  and object/script row order remain traceable to exact source spans.
+- Ordered room-object, enemy-placement, and cutscene-command outputs match their
+  original source sequence and retain source-aware diagnostics.
+- Generated assets are byte-for-byte identical to the baseline except for
+  separately reviewed, intentional corrections backed by the disassembly.
+- Unsupported or malformed consumed syntax fails with actionable diagnostics
+  instead of disappearing from generated output.
+- `tools/import_oracles.ps1`, `dotnet build`, the complete headless `--validate`
+  suite, deterministic second-import comparison, and `git diff --check` pass.
 
 ## Consider a TileMapLayer room renderer
 
