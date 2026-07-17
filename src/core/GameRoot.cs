@@ -423,12 +423,12 @@ public partial class GameRoot : Node2D
             _mapScreen, _dialogue, _menuLifecycle,
             () => !IsTransitioning && !DialogueOpen && !InventoryMenuOpen && !_roomEvents.Active,
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone),
-            FastTravelFromMap);
+            FastTravelFromMap, _sound.PlaySound);
         _inventoryMenu = new InventoryMenuController(
             _inventoryScreen, _saveQuitScreen, _menuLifecycle,
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone) &&
                 !IsTransitioning && !DialogueOpen && !MapMenuOpen && !_roomEvents.Active,
-            SaveActiveFile, ReturnToTitle);
+            SaveActiveFile, ReturnToTitle, _sound.PlaySound);
         _debugFlagMenu = new DebugFlagMenuController(
             _debugFlagScreen, _rooms, _gameplayPause,
             () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&

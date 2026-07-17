@@ -17,6 +17,7 @@ public sealed class MapMenuController : IOracleMenuLifecycleClient
     private readonly System.Func<bool> _canOpen;
     private readonly System.Func<bool> _normalMenuUnlocked;
     private readonly System.Action<int, int> _fastTravel;
+    private readonly System.Action<int> _playSound;
     private bool _debugFastTravel;
     private bool _travelPending;
     private int _travelGroup;
@@ -32,7 +33,8 @@ public sealed class MapMenuController : IOracleMenuLifecycleClient
         OracleMenuLifecycle lifecycle,
         System.Func<bool> canOpen,
         System.Func<bool> normalMenuUnlocked,
-        System.Action<int, int> fastTravel)
+        System.Action<int, int> fastTravel,
+        System.Action<int> playSound)
     {
         _screen = screen;
         _dialogue = dialogue;
@@ -40,6 +42,7 @@ public sealed class MapMenuController : IOracleMenuLifecycleClient
         _canOpen = canOpen;
         _normalMenuUnlocked = normalMenuUnlocked;
         _fastTravel = fastTravel;
+        _playSound = playSound;
     }
 
     public void Update(double delta)
@@ -81,8 +84,18 @@ public sealed class MapMenuController : IOracleMenuLifecycleClient
         }
         else if (Input.IsActionJustPressed("map") || Input.IsActionJustPressed("item"))
             BeginClosing();
-        else
-            _screen.HandleDirectionInput();
+        else if (_screen.HandleDirectionInput())
+            _playSound(OracleSoundEngine.SndMenuMove);
+    }
+
+    internal void BeginOpeningForValidation() => BeginOpening(debugFastTravel: false);
+
+    internal bool NavigateForValidation(Vector2I direction)
+    {
+        if (!IsOpen || !_screen.Navigate(direction))
+            return false;
+        _playSound(OracleSoundEngine.SndMenuMove);
+        return true;
     }
 
     internal void OpenImmediatelyForValidation()
@@ -124,7 +137,13 @@ public sealed class MapMenuController : IOracleMenuLifecycleClient
 
     private void BeginClosing() => _lifecycle.BeginClosing(this);
 
-    void IOracleMenuLifecycleClient.OpenAtWhite() => _screen.Open(_debugFastTravel);
+    void IOracleMenuLifecycleClient.OpenAtWhite()
+    {
+        // menuStateFadeIntoMenu requests SND_OPENMENU ($54) after the fast
+        // fade reaches white, immediately before loading MENU_MAP.
+        _playSound(OracleSoundEngine.SndOpenMenu);
+        _screen.Open(_debugFastTravel);
+    }
 
     void IOracleMenuLifecycleClient.CloseAtWhite()
     {

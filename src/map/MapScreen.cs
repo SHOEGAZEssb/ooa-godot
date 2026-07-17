@@ -184,31 +184,34 @@ public partial class MapScreen : Node2D
         QueueRedraw();
     }
 
-    public void HandleDirectionInput()
+    public bool HandleDirectionInput()
     {
-        if (Mode == MapMode.Dungeon)
-        {
-            if (Input.IsActionJustPressed("move_up"))
-                TrySelectDungeonFloor(_dungeonFloor + 1);
-            else if (Input.IsActionJustPressed("move_down"))
-                TrySelectDungeonFloor(_dungeonFloor - 1);
-            return;
-        }
-
         if (Input.IsActionJustPressed("move_right"))
-            MoveOverworldCursor(Vector2I.Right);
+            return Navigate(Vector2I.Right);
         else if (Input.IsActionJustPressed("move_left"))
-            MoveOverworldCursor(Vector2I.Left);
+            return Navigate(Vector2I.Left);
         else if (Input.IsActionJustPressed("move_up"))
-            MoveOverworldCursor(Vector2I.Up);
+            return Navigate(Vector2I.Up);
         else if (Input.IsActionJustPressed("move_down"))
-            MoveOverworldCursor(Vector2I.Down);
+            return Navigate(Vector2I.Down);
+        return false;
     }
 
-    internal void MoveOverworldCursor(Vector2I direction)
+    internal bool Navigate(Vector2I direction)
     {
-        if (Mode == MapMode.Dungeon)
-            return;
+        if (Mode != MapMode.Dungeon)
+            return MoveOverworldCursor(direction);
+        if (direction == Vector2I.Up)
+            return TrySelectDungeonFloor(_dungeonFloor + 1);
+        if (direction == Vector2I.Down)
+            return TrySelectDungeonFloor(_dungeonFloor - 1);
+        return false;
+    }
+
+    internal bool MoveOverworldCursor(Vector2I direction)
+    {
+        if (Mode == MapMode.Dungeon || direction == Vector2I.Zero)
+            return false;
         int x = _cursorRoom & 0x0f;
         int y = (_cursorRoom >> 4) & 0x0f;
         x = (x + direction.X + OverworldWidth) % OverworldWidth;
@@ -216,6 +219,7 @@ public partial class MapScreen : Node2D
         _cursorRoom = (y << 4) | x;
         LoadPopupData();
         QueueRedraw();
+        return true;
     }
 
     public bool TryGetSelectedAreaText(out MapDataDatabase.MapText text)
@@ -281,7 +285,7 @@ public partial class MapScreen : Node2D
         RebuildDungeonBackground(info);
     }
 
-    private void TrySelectDungeonFloor(int floor)
+    private bool TrySelectDungeonFloor(int floor)
     {
         DungeonMapDatabase.DungeonInfo info = _rooms.DungeonMaps.GetDungeon(_dungeonIndex);
         int direction = Math.Sign(floor - _dungeonFloor);
@@ -292,10 +296,11 @@ public partial class MapScreen : Node2D
                 _dungeonFloor = floor;
                 RebuildDungeonBackground(info);
                 QueueRedraw();
-                return;
+                return true;
             }
             floor += direction;
         }
+        return false;
     }
 
     private bool IsFloorVisited(DungeonMapDatabase.DungeonInfo info, int floor)
@@ -416,7 +421,7 @@ public partial class MapScreen : Node2D
     internal byte DungeonTileAt(int x, int y) =>
         _dungeonMapTiles[(5 + y) * TilemapStride + 10 + x];
 
-    internal void SelectDungeonFloorForValidation(int floor) => TrySelectDungeonFloor(floor);
+    internal bool SelectDungeonFloorForValidation(int floor) => TrySelectDungeonFloor(floor);
 
     private Texture2D BuildBackground(byte[] map, byte[] flags, Image? blurb = null)
     {

@@ -20,6 +20,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     private readonly Func<bool> _canOpen;
     private readonly Func<OracleSaveStore.SaveResult> _save;
     private readonly Action _quitToTitle;
+    private readonly Action<int> _playSound;
     private readonly FixedUpdateAccumulator _saveDelayUpdates = new();
     private OpenMenu _openMenu;
     private bool _saveSelectionDelay;
@@ -42,7 +43,8 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         OracleMenuLifecycle lifecycle,
         Func<bool> canOpen,
         Func<OracleSaveStore.SaveResult> save,
-        Action quitToTitle)
+        Action quitToTitle,
+        Action<int> playSound)
     {
         _screen = screen;
         _saveScreen = saveScreen;
@@ -50,6 +52,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         _canOpen = canOpen;
         _save = save;
         _quitToTitle = quitToTitle;
+        _playSound = playSound;
     }
 
     public void Update(double delta)
@@ -91,6 +94,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     internal void BeginClosingForValidation() => BeginClosing();
     internal void OpenSaveMenuFromInventoryForValidation() => OpenSaveMenuFromInventory();
     internal void SelectSaveOptionForValidation() => SelectSaveOption();
+    internal bool BeginNextSubscreenForValidation() => BeginNextSubscreen();
 
     internal void OpenImmediatelyForValidation()
     {
@@ -122,7 +126,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         }
         if (Input.IsActionJustPressed("map"))
         {
-            _screen.BeginNextSubscreen();
+            BeginNextSubscreen();
             return;
         }
         if (Input.IsActionJustPressed("attack"))
@@ -204,6 +208,18 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         _lifecycle.TryBeginOpening(this);
     }
 
+    private bool BeginNextSubscreen()
+    {
+        if (_screen.PageTransitionActive)
+            return false;
+
+        // inventoryMenuState3 starts SND_OPENMENU ($54) on the update that
+        // advances wInventorySubmenu and begins the horizontal page scroll.
+        _screen.BeginNextSubscreen();
+        _playSound(OracleSoundEngine.SndOpenMenu);
+        return true;
+    }
+
     private void OpenSaveMenuFromInventory()
     {
         if (!_lifecycle.IsOpenFor(this) || _openMenu != OpenMenu.Inventory)
@@ -275,6 +291,9 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         else
         {
             _saveScreen.Close();
+            // menuStateFadeIntoMenu requests SND_OPENMENU ($54) after the
+            // fast fade reaches white, immediately before loading inventory.
+            _playSound(OracleSoundEngine.SndOpenMenu);
             _screen.Open();
         }
     }

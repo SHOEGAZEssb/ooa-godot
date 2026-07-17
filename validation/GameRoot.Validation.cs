@@ -882,6 +882,8 @@ public sealed class ValidationGameRoot : GameRoot
         OracleSoundData.ChannelStart[] title = data.ChannelsFor(
             OracleSoundEngine.MusTitlescreen).ToArray();
         OracleSoundData.ChannelStart[] getItem = data.ChannelsFor(0x4c).ToArray();
+        OracleSoundData.ChannelStart[] openMenu = data.ChannelsFor(
+            OracleSoundEngine.SndOpenMenu).ToArray();
         OracleSoundData.ChannelStart[] makuDisappear = data.ChannelsFor(
             OracleSoundEngine.SndMakuDisappear).ToArray();
         OracleSoundData.ChannelStart[] damageLink = data.ChannelsFor(
@@ -894,6 +896,9 @@ public sealed class ValidationGameRoot : GameRoot
             getItem.Length != 4 ||
             !getItem.Select(channel => channel.Channel).SequenceEqual(new[] { 2, 3, 5, 7 }) ||
             getItem.Any(channel => channel.Priority != 8 || channel.Bank != 0x3b) ||
+            openMenu.Length != 2 ||
+            !openMenu.Select(channel => channel.Channel).SequenceEqual(new[] { 2, 3 }) ||
+            openMenu.Any(channel => channel.Priority != 1 || channel.Bank != 0x3a) ||
             makuDisappear.Length != 2 ||
             !makuDisappear.Select(channel => channel.Channel).SequenceEqual(new[] { 2, 7 }) ||
             makuDisappear.Any(channel => channel.Priority != 1 || channel.Bank != 0x39) ||
@@ -962,6 +967,25 @@ public sealed class ValidationGameRoot : GameRoot
         {
             throw new InvalidOperationException(
                 "MUS_TITLESCREEN channel 0 rest did not install its period-1 square release.");
+        }
+
+        sound.PlaySound(OracleSoundEngine.SndOpenMenu);
+        sound.Tick();
+        OracleSoundEngine.ChannelState openMenuHigh = sound.Channel(2);
+        OracleSoundEngine.ChannelState openMenuLow = sound.Channel(3);
+        if (!openMenuHigh.Active || !openMenuHigh.Gate || openMenuHigh.Priority != 1 ||
+            openMenuHigh.DutyOrWaveform != 1 || openMenuHigh.Volume != 15 ||
+            openMenuHigh.OutputVolume != 1 || openMenuHigh.Envelope != 3 ||
+            openMenuHigh.PitchSlide != 0x23 ||
+            openMenuHigh.CurrentFrequencyRegister != 0x0416 || openMenuHigh.WaitFrames != 0x15 ||
+            !openMenuLow.Active || !openMenuLow.Gate || openMenuLow.Priority != 1 ||
+            openMenuLow.DutyOrWaveform != 2 || openMenuLow.Volume != 15 ||
+            openMenuLow.OutputVolume != 1 || openMenuLow.Envelope != 3 ||
+            openMenuLow.PitchSlide != 0x2c ||
+            openMenuLow.CurrentFrequencyRegister != 0x002d || openMenuLow.WaitFrames != 0x15)
+        {
+            throw new InvalidOperationException(
+                "SND_OPENMENU did not start its paired C3/C2 square-channel sweep.");
         }
 
         sound.PlaySound(OracleSoundEngine.SndDamageLink);
@@ -1083,7 +1107,8 @@ public sealed class ValidationGameRoot : GameRoot
         sound.Free();
         GD.Print("Validated all 223 original sound pointers, room music assignments, " +
             "frequency/wave/noise clocks, envelope/vibrato tables, CGB filtering, " +
-            "title square releases, Link damage/fall wave SFX, raw square/noise SFX including SND_MAKUDISAPPEAR, " +
+            "title square releases, menu square and Link damage/fall wave SFX, " +
+            "raw square/noise SFX including SND_MAKUDISAPPEAR, " +
             "channel priority, stop controls, and output teardown.");
     }
 
@@ -1275,7 +1300,8 @@ public sealed class ValidationGameRoot : GameRoot
             _menuLifecycle,
             () => true,
             () => OracleSaveStore.SaveResult.Failed("validation failure"),
-            () => quitAfterFailure = true);
+            () => quitAfterFailure = true,
+            _sound.PlaySound);
         failedMenu.OpenSaveImmediatelyForValidation();
         _saveQuitScreen.Move(1);
         _saveQuitScreen.Move(1);
@@ -2957,7 +2983,29 @@ public sealed class ValidationGameRoot : GameRoot
             throw new InvalidOperationException("The map location arrow lost OAM Y-flip attribute $47.");
 
         LoadValidationRoom(0, 0x11);
-        _mapMenu.OpenImmediatelyForValidation();
+        int openMenuRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu);
+        _mapMenu.BeginOpeningForValidation();
+        if (_sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != openMenuRequests)
+            throw new InvalidOperationException("MENU_MAP played SND_OPENMENU $54 before its opening fade.");
+        for (int frame = 0; frame < MapMenuController.FastFadeFrames - 1; frame++)
+        {
+            _mapMenu.Update(1.0 / 60.0);
+            if (_mapScreen.Visible ||
+                _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != openMenuRequests)
+            {
+                throw new InvalidOperationException(
+                    "MENU_MAP appeared or played SND_OPENMENU $54 before full white.");
+            }
+        }
+        _mapMenu.Update(1.0 / 60.0);
+        if (!_mapScreen.Visible || _sound.LastPlayRequest != OracleSoundEngine.SndOpenMenu ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != openMenuRequests + 1)
+        {
+            throw new InvalidOperationException(
+                "MENU_MAP did not request SND_OPENMENU $54 at the full-white screen swap.");
+        }
+        for (int frame = 0; frame < MapMenuController.FastFadeFrames; frame++)
+            _mapMenu.Update(1.0 / 60.0);
         if (_mapScreen.Mode != MapScreen.MapMode.Present || _mapScreen.CursorRoom != 0x11)
             throw new InvalidOperationException(
                 $"Present map should open at room 11, got {_mapScreen.Mode} / {_mapScreen.CursorRoom:x2}.");
@@ -2965,11 +3013,17 @@ public sealed class ValidationGameRoot : GameRoot
             _player.IsPhysicsProcessing() || _player.IsProcessing())
             throw new InvalidOperationException("Link continued updating while the map menu was open.");
 
-        _mapScreen.MoveOverworldCursor(Vector2I.Left);
-        _mapScreen.MoveOverworldCursor(Vector2I.Left);
-        if (_mapScreen.CursorRoom != 0x1d)
+        int mapMoveRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
+        if (!_mapMenu.NavigateForValidation(Vector2I.Left) ||
+            !_mapMenu.NavigateForValidation(Vector2I.Left) ||
+            _mapScreen.CursorRoom != 0x1d ||
+            _sound.LastPlayRequest != OracleSoundEngine.SndMenuMove ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != mapMoveRequests + 2)
+        {
             throw new InvalidOperationException(
-                $"The 14-column overworld cursor did not wrap 11 -> 10 -> 1d; got {_mapScreen.CursorRoom:x2}.");
+                $"The overworld cursor did not wrap 11 -> 10 -> 1d with two " +
+                $"SND_MENU_MOVE $84 requests; got {_mapScreen.CursorRoom:x2}.");
+        }
 
         if (!_mapScreen.LocationArrowVisible)
             throw new InvalidOperationException("The map location arrow was hidden on frame 0.");
@@ -3037,11 +3091,20 @@ public sealed class ValidationGameRoot : GameRoot
             throw new InvalidOperationException(
                 "Dungeon 02's map/compass did not reveal its imported boss room and floor mask.");
         }
-        _mapScreen.SelectDungeonFloorForValidation(0);
-        if (_mapScreen.DisplayedDungeonFloor != 0 || _mapScreen.DungeonTileAt(5, 1) != 0xae)
+        mapMoveRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
+        if (!_mapMenu.NavigateForValidation(Vector2I.Down) ||
+            _mapScreen.DisplayedDungeonFloor != 0 || _mapScreen.DungeonTileAt(5, 1) != 0xae ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != mapMoveRequests + 1)
         {
             throw new InvalidOperationException(
-                "Dungeon 02's compass did not reveal the unopened room 30 treasure on floor 0.");
+                "Dungeon 02's floor navigation did not reveal room 30 on floor 0 " +
+                "and request SND_MENU_MOVE $84.");
+        }
+        if (_mapMenu.NavigateForValidation(Vector2I.Down) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != mapMoveRequests + 1)
+        {
+            throw new InvalidOperationException(
+                "Blocked dungeon-floor navigation played SND_MENU_MOVE $84.");
         }
         _mapMenu.CloseImmediatelyForValidation();
         _saveData.WriteWramByte(0xc684, oldCompasses);
@@ -3088,7 +3151,8 @@ public sealed class ValidationGameRoot : GameRoot
         GD.Print("Validated original present/past/dungeon map tilemaps, imported TX_03XX area " +
             "text, source-specific color-0 OAM transparency, arrow Y-flip, 7-update popup " +
             "expansion, map/compass floor and " +
-            "boss/treasure reveals, 14x14 cursor wrapping, 32-update marker blink, 11-update " +
+            "boss/treasure reveals, SND_OPENMENU/SND_MENU_MOVE boundaries, 14x14 cursor " +
+            "wrapping, 32-update marker blink, 11-update " +
             "fast fades, Link input freezing, and dungeon-to-overworld debug fast travel.");
     }
 
@@ -3391,9 +3455,11 @@ public sealed class ValidationGameRoot : GameRoot
         if (!Mathf.IsEqualApprox(InventoryMenuController.FastFadeFrames, 11.0f))
             throw new InvalidOperationException("The inventory menu must use the 11-update fast palette fade.");
 
+        int openMenuRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu);
         _inventoryMenu.BeginOpeningForValidation();
         if (!_gameplayPause.IsOwnedBy(_inventoryMenu) ||
-            _mapMenu.CanOpenNormalForValidation)
+            _mapMenu.CanOpenNormalForValidation ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != openMenuRequests)
         {
             throw new InvalidOperationException(
                 "Inventory opening did not exclusively own the shared menu pause/load state.");
@@ -3401,14 +3467,23 @@ public sealed class ValidationGameRoot : GameRoot
         for (int frame = 0; frame < InventoryMenuController.FastFadeFrames - 1; frame++)
         {
             _inventoryMenu.Update(1.0 / 60.0);
-            if (_inventoryScreen.Visible)
-                throw new InvalidOperationException("The inventory screen appeared before the fade reached white.");
+            if (_inventoryScreen.Visible ||
+                _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != openMenuRequests)
+            {
+                throw new InvalidOperationException(
+                    "The inventory screen appeared or played SND_OPENMENU $54 before full white.");
+            }
         }
         if (_scene.MenuFade.Color.A <= 0.0f || _scene.MenuFade.Color.A >= 1.0f)
             throw new InvalidOperationException("The inventory opening fade did not remain partial for 10 updates.");
         _inventoryMenu.Update(1.0 / 60.0);
-        if (!_inventoryScreen.Visible || !Mathf.IsEqualApprox(_scene.MenuFade.Color.A, 1.0f))
-            throw new InvalidOperationException("The inventory screen was not swapped in at full white.");
+        if (!_inventoryScreen.Visible || !Mathf.IsEqualApprox(_scene.MenuFade.Color.A, 1.0f) ||
+            _sound.LastPlayRequest != OracleSoundEngine.SndOpenMenu ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != openMenuRequests + 1)
+        {
+            throw new InvalidOperationException(
+                "The inventory screen did not swap in with SND_OPENMENU $54 at full white.");
+        }
         for (int frame = 0; frame < InventoryMenuController.FastFadeFrames; frame++)
             _inventoryMenu.Update(1.0 / 60.0);
         if (!_inventoryMenu.IsActive || !_inventoryScreen.Visible ||
@@ -3457,7 +3532,20 @@ public sealed class ValidationGameRoot : GameRoot
             throw new InvalidOperationException("Inventory menu did not restore the sword to A through storage swaps.");
         }
 
-        _inventoryScreen.BeginNextSubscreen();
+        int tabSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu);
+        if (!_inventoryMenu.BeginNextSubscreenForValidation() ||
+            _sound.LastPlayRequest != OracleSoundEngine.SndOpenMenu ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != tabSoundRequests + 1)
+        {
+            throw new InvalidOperationException(
+                "The first inventory tab switch did not request SND_OPENMENU $54.");
+        }
+        if (_inventoryMenu.BeginNextSubscreenForValidation() ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != tabSoundRequests + 1)
+        {
+            throw new InvalidOperationException(
+                "An in-progress inventory tab scroll replayed SND_OPENMENU $54.");
+        }
         for (int frame = 0; frame < InventoryScreen.PageScrollUpdates - 1; frame++)
             _inventoryScreen.UpdatePageTransition(1.0 / 60.0);
         if (!_inventoryScreen.PageTransitionActive ||
@@ -3492,7 +3580,12 @@ public sealed class ValidationGameRoot : GameRoot
                 "Ring-box capacity, contents, active-ring toggle, or save-image persistence regressed.");
         }
 
-        _inventoryScreen.BeginNextSubscreen();
+        if (!_inventoryMenu.BeginNextSubscreenForValidation() ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != tabSoundRequests + 2)
+        {
+            throw new InvalidOperationException(
+                "The second inventory tab switch did not request SND_OPENMENU $54.");
+        }
         for (int frame = 0; frame < InventoryScreen.PageScrollUpdates; frame++)
             _inventoryScreen.UpdatePageTransition(1.0 / 60.0);
         if (_inventoryScreen.Subscreen != InventoryScreen.InventorySubscreen.EssencesAndSave)
@@ -3567,7 +3660,8 @@ public sealed class ValidationGameRoot : GameRoot
             throw new InvalidOperationException("Start+Select did not open the save menu through the shared fast fade.");
         _inventoryMenu.CloseImmediatelyForValidation();
 
-        GD.Print("Validated inventory 11-update fast white fades, 13-update three-page scrolling, " +
+        GD.Print("Validated inventory SND_OPENMENU boundaries, 11-update fast white fades, " +
+            "13-update three-page scrolling, " +
             "secondary cursor/ring persistence, essence/save navigation, Start+Select, three save choices, " +
             "30-update selection delay, A/B storage swaps, and gameplay freezing.");
     }

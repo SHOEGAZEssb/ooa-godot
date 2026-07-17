@@ -23,6 +23,12 @@ A menu-to-menu switch such as Inventory to Save & Quit can reuse ownership and
 begin the new fade-in while already white. It must not release gameplay between
 the two screens.
 
+Normal inventory and map opening request `SND_OPENMENU` (`$54`) at the
+full-white screen swap, not on the initial Start/Select input. Inventory tab
+switches request that same sound when their 13-update scroll begins. Accepted
+overworld cursor moves and dungeon-floor changes request `SND_MENU_MOVE`
+(`$84`); a blocked dungeon-floor direction remains silent.
+
 ## Gameplay pause lease
 
 `GameplayPauseController` provides exclusive pause/input ownership. Its lease
