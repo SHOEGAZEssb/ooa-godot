@@ -63,3 +63,11 @@ forcing them through the map/inventory sequence.
 
 Validate opening, closing, cancellation, direct menu switches, ownership
 failure, a long host frame, and restoration when Link was already disabled.
+
+## File-select palettes
+
+The normal file-select, copy, and message-speed screens use imported `PALH_05`
+background colors. Entering either erase selection or erase confirmation swaps
+background palettes 2-6 to `PALH_06` (`paletteData58a0`); this includes the
+live heart and death-counter tiles. File-menu sprite palettes are unchanged.
+Returning from erase mode restores `PALH_05`.

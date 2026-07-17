@@ -2055,6 +2055,12 @@ public sealed class ValidationGameRoot : GameRoot
             !screen.FileNameStripColorForValidation.IsEqualApprox(Colors.Black) ||
             !screen.FilePanelColorForValidation.IsEqualApprox(
                 screen.DeathTileBackgroundColorForValidation) ||
+            !screen.EraseBackgroundAccentForValidation.IsEqualApprox(
+                new Color(0x10 / 31.0f, 0x16 / 31.0f, 0x1b / 31.0f)) ||
+            !screen.EraseFilePanelColorForValidation.IsEqualApprox(
+                screen.EraseDeathTileBackgroundColorForValidation) ||
+            screen.EraseFilePanelColorForValidation.IsEqualApprox(
+                screen.FilePanelColorForValidation) ||
             !screen.NameEntryFieldColorForValidation.IsEqualApprox(
                 screen.NameEntryPanelColorForValidation) ||
             !screen.NameEntryHighlightIsGlyphMaskForValidation ||
@@ -2066,7 +2072,8 @@ public sealed class ValidationGameRoot : GameRoot
             MainMenuScreen.TextSpeedCursorPositionForValidation(4) != new Vector2(105, 128))
         {
             throw new InvalidOperationException(
-                "File-select tile interleave, panel fill, filename/name-entry fields, " +
+                "File-select tile interleave, normal/PALH_06 erase panel fill, " +
+                "filename/name-entry fields, " +
                 "name cursor priority mask, sprite inversion, " +
                 "or original message-speed cursor coordinates regressed.");
         }
@@ -2085,6 +2092,22 @@ public sealed class ValidationGameRoot : GameRoot
         menu.Move(Vector2I.Right);
         if (screen.Choice != 1)
             throw new InvalidOperationException("File-select Copy/Erase horizontal selection did not toggle.");
+        menu.Accept();
+        if (menu.CurrentPage != MainMenuScreen.Page.EraseSelect ||
+            !screen.CurrentDeathTileBackgroundColorForValidation.IsEqualApprox(
+                screen.EraseDeathTileBackgroundColorForValidation))
+        {
+            throw new InvalidOperationException(
+                "Erase selection did not swap the file background and HUD tiles to PALH_06.");
+        }
+        menu.Back();
+        if (menu.CurrentPage != MainMenuScreen.Page.FileSelect ||
+            !screen.CurrentDeathTileBackgroundColorForValidation.IsEqualApprox(
+                screen.DeathTileBackgroundColorForValidation))
+        {
+            throw new InvalidOperationException(
+                "Leaving erase selection did not restore the normal PALH_05 file palette.");
+        }
 
         screen.SetCursor(0);
         menu.Accept();
@@ -2191,7 +2214,8 @@ public sealed class ValidationGameRoot : GameRoot
         copyScreen.QueueFree();
         failureScreen.QueueFree();
         GD.Print("Validated title/file-select 32-update white fades, slot wrapping, " +
-            "new-file naming, message speed, copy, erase, and retryable save failures.");
+            "PALH_05/PALH_06 erase palette switching, new-file naming, message speed, " +
+            "copy, erase, and retryable save failures.");
     }
 
     private void ValidateDebugFlagMenu()

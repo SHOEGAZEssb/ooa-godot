@@ -158,6 +158,8 @@ Export-PaletteBlock 'standardSpritePaletteData' 24 'inventory\palette_sprites.bi
 
 # PALH_03 supplies all title palettes. PALH_05 supplies file-select BG palette
 # 0, BG palettes 2-6, standard sprite palettes 0-3, and sprite palettes 4-6.
+# PALH_06 replaces BG palettes 2-6 with the darker erase-menu variants while
+# retaining the same BG palette 0 and sprite palettes.
 Export-PaletteBlock 'paletteData4018' 32 'menu\palette_title_bg.bin'
 Export-PaletteBlock 'paletteData4058' 32 'menu\palette_title_sprites.bin'
 $fileMenuBgPalette = [byte[]]::new(8 * 4 * 3)
@@ -167,6 +169,12 @@ $fileMenuBg26 = Read-PaletteBytes 'paletteData5878' 20
 [Array]::Copy($fileMenuBg26, 0, $fileMenuBgPalette, 2 * 4 * 3, $fileMenuBg26.Length)
 [IO.File]::WriteAllBytes(
     (Join-Path $destination 'menu\palette_file_bg.bin'), $fileMenuBgPalette)
+$eraseMenuBgPalette = [byte[]]::new(8 * 4 * 3)
+$eraseMenuBg26 = Read-PaletteBytes 'paletteData58a0' 20
+[Array]::Copy($fileMenuBg0, 0, $eraseMenuBgPalette, 0, $fileMenuBg0.Length)
+[Array]::Copy($eraseMenuBg26, 0, $eraseMenuBgPalette, 2 * 4 * 3, $eraseMenuBg26.Length)
+[IO.File]::WriteAllBytes(
+    (Join-Path $destination 'menu\palette_file_erase_bg.bin'), $eraseMenuBgPalette)
 $fileMenuSpritePalette = [byte[]]::new(8 * 4 * 3)
 $fileMenuSprite03 = Read-PaletteBytes 'standardSpritePaletteData' 16
 $fileMenuSprite46 = Read-PaletteBytes 'paletteData5858' 12
@@ -234,4 +242,3 @@ if ($signRows.Count -ne 43) {
 $signPath = Join-Path $destination "objects\signs.tsv"
 New-Item -ItemType Directory -Force -Path (Split-Path $signPath -Parent) | Out-Null
 [IO.File]::WriteAllLines($signPath, $signRows, [Text.UTF8Encoding]::new($false))
-

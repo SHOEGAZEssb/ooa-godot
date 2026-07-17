@@ -25,6 +25,7 @@ public partial class MainMenuScreen : Node2D
     private Texture2D _nameEntryFont = null!;
     private Texture2D _nameKeyboardGlyphFont = null!;
     private Texture2D[] _fileHudTileTextures = null!;
+    private Texture2D[] _eraseHudTileTextures = null!;
     private Image _hudTiles = null!;
     private Image _titleSprites = null!;
     private Image _fileSprites = null!;
@@ -33,6 +34,7 @@ public partial class MainMenuScreen : Node2D
     private Color[,] _titleSpritePalette = null!;
     private Color[,] _fileSpritePalette = null!;
     private Color[,] _fileBgPalette = null!;
+    private Color[,] _eraseBgPalette = null!;
     private ShaderMaterial _fadeMaterial = null!;
     private bool _titleBlink = true;
     private bool _actorFrame;
@@ -81,6 +83,7 @@ public partial class MainMenuScreen : Node2D
         _titleSpritePalette = LoadPalette("res://assets/oracle/menu/palette_title_sprites.bin");
         _fileSpritePalette = LoadPalette("res://assets/oracle/menu/palette_file_sprites.bin");
         _fileBgPalette = LoadPalette("res://assets/oracle/menu/palette_file_bg.bin");
+        _eraseBgPalette = LoadPalette("res://assets/oracle/menu/palette_file_erase_bg.bin");
         _font = BuildFontTexture(new Color(0x08 / 31.0f, 0x1f / 31.0f, 0x00));
         // gfx_font is 1bpp with white glyph pixels and a black background.
         // File-menu palette 6 therefore displays names as white on black.
@@ -89,7 +92,8 @@ public partial class MainMenuScreen : Node2D
         // field and color 0 for the glyph, opposite the filename strips.
         _nameEntryFont = BuildFontTexture(_fileBgPalette[5, 0]);
         _nameKeyboardGlyphFont = BuildFontTexture(_fileSpritePalette[1, 2]);
-        _fileHudTileTextures = BuildHudTileTextures();
+        _fileHudTileTextures = BuildHudTileTextures(_fileBgPalette);
+        _eraseHudTileTextures = BuildHudTileTextures(_eraseBgPalette);
         _title = BuildTitleTexture();
         _fileMenu = BuildFileMenuTexture();
         _copyMenu = BuildCopyMenuTexture();
@@ -263,6 +267,13 @@ public partial class MainMenuScreen : Node2D
     internal Color FilePanelColorForValidation => _fileMenu.GetImage().GetPixel(80, 72);
     internal Color DeathTileBackgroundColorForValidation =>
         _fileHudTileTextures[0x10].GetImage().GetPixel(0, 0);
+    internal Color EraseBackgroundAccentForValidation => _eraseBgPalette[6, 2];
+    internal Color EraseFilePanelColorForValidation =>
+        _eraseMenu.GetImage().GetPixel(80, 72);
+    internal Color EraseDeathTileBackgroundColorForValidation =>
+        _eraseHudTileTextures[0x10].GetImage().GetPixel(0, 0);
+    internal Color CurrentDeathTileBackgroundColorForValidation =>
+        CurrentHudTileTextures[0x10].GetImage().GetPixel(0, 0);
     internal Color NameEntryFieldColorForValidation =>
         _nameEntryMenus[0].GetImage().GetPixel(80, 8);
     internal Color NameEntryPanelColorForValidation =>
@@ -493,12 +504,15 @@ public partial class MainMenuScreen : Node2D
         }
     }
 
-    private void DrawHudTile(int tile, Vector2 position)
-    {
-        DrawTexture(_fileHudTileTextures[tile], position);
-    }
+    private void DrawHudTile(int tile, Vector2 position) =>
+        DrawTexture(CurrentHudTileTextures[tile], position);
 
-    private Texture2D[] BuildHudTileTextures()
+    private Texture2D[] CurrentHudTileTextures =>
+        CurrentPage is Page.EraseSelect or Page.EraseConfirm
+            ? _eraseHudTileTextures
+            : _fileHudTileTextures;
+
+    private Texture2D[] BuildHudTileTextures(Color[,] palette)
     {
         int columns = _hudTiles.GetWidth() / 8;
         int count = columns * (_hudTiles.GetHeight() / 8);
@@ -511,7 +525,7 @@ public partial class MainMenuScreen : Node2D
             {
                 Color pixel = _hudTiles.GetPixel(
                     tile % columns * 8 + x, tile / columns * 8 + y);
-                output.SetPixel(x, y, _fileBgPalette[6, Shade(pixel)]);
+                output.SetPixel(x, y, palette[6, Shade(pixel)]);
             }
             textures[tile] = ImageTexture.CreateFromImage(output);
         }
@@ -708,7 +722,7 @@ public partial class MainMenuScreen : Node2D
         (byte[] map, byte[] flags) = BuildFileLayout(
             "map_file_menu_middle.bin", "flags_file_menu_middle.bin",
             "map_file_menu_bottom.bin", "flags_file_menu_bottom.bin");
-        return BuildScreenTexture(map, flags, _fileBgPalette,
+        return BuildScreenTexture(map, flags, _eraseBgPalette,
             ("res://assets/oracle/gfx/gfx_hud.png", 0x9000, 0, false),
             ("res://assets/oracle/gfx/gfx_hud.png", 0x9000, 1, false),
             ("res://assets/oracle/menu/gfx_messagespeed.png", 0x9200, 0, false),
