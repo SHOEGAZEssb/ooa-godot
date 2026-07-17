@@ -17,6 +17,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     private readonly InventoryScreen _screen;
     private readonly SaveQuitScreen _saveScreen;
     private readonly OracleMenuLifecycle _lifecycle;
+    private readonly Func<bool> _normalMenuUnlocked;
     private readonly Func<bool> _canOpen;
     private readonly Func<OracleSaveStore.SaveResult> _save;
     private readonly Action _quitToTitle;
@@ -41,6 +42,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         InventoryScreen screen,
         SaveQuitScreen saveScreen,
         OracleMenuLifecycle lifecycle,
+        Func<bool> normalMenuUnlocked,
         Func<bool> canOpen,
         Func<OracleSaveStore.SaveResult> save,
         Action quitToTitle,
@@ -49,6 +51,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         _screen = screen;
         _saveScreen = saveScreen;
         _lifecycle = lifecycle;
+        _normalMenuUnlocked = normalMenuUnlocked;
         _canOpen = canOpen;
         _save = save;
         _quitToTitle = quitToTitle;
@@ -61,6 +64,15 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         {
             bool inventoryPressed = Input.IsActionJustPressed("inventory");
             bool mapPressed = Input.IsActionJustPressed("map");
+            // b2_updateMenus handles this shared Start/Select gate before it
+            // dispatches MENU_INVENTORY or MENU_MAP. Keep it here, in the
+            // first normal-menu controller updated by GameRoot, so a chord
+            // still requests SND_ERROR ($5a) exactly once.
+            if ((inventoryPressed || mapPressed) && !_normalMenuUnlocked())
+            {
+                _playSound(OracleSoundEngine.SndError);
+                return;
+            }
             if (inventoryPressed && mapPressed && _canOpen())
                 BeginOpening(openSaveMenu: true);
             else if (inventoryPressed && _canOpen())

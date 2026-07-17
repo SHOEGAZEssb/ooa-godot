@@ -1299,6 +1299,7 @@ public sealed class ValidationGameRoot : GameRoot
             _saveQuitScreen,
             _menuLifecycle,
             () => true,
+            () => true,
             () => OracleSaveStore.SaveResult.Failed("validation failure"),
             () => quitAfterFailure = true,
             _sound.PlaySound);
@@ -8834,6 +8835,32 @@ public sealed class ValidationGameRoot : GameRoot
             throw new InvalidOperationException(
                 "The pre-intro save retained the development sword or allowed Start/Select " +
                 "before GLOBALFLAG_INTRO_DONE $0a.");
+        }
+
+        int errorRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndError);
+        int openMenuRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu);
+        foreach (string[] actions in new[]
+        {
+            new[] { "inventory" },
+            new[] { "map" },
+            new[] { "inventory", "map" }
+        })
+        {
+            foreach (string action in actions)
+                Input.ActionPress(action);
+            _inventoryMenu.Update(1.0 / 60.0);
+            foreach (string action in actions)
+                Input.ActionRelease(action);
+        }
+        if (_sound.LastPlayRequest != OracleSoundEngine.SndError ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndError) != errorRequests + 3 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != openMenuRequests ||
+            _inventoryMenu.IsActive || _mapMenu.IsActive ||
+            _inventoryScreen.Visible || _mapScreen.Visible)
+        {
+            throw new InvalidOperationException(
+                "Pre-GLOBALFLAG_INTRO_DONE $0a Start, Select, and Start+Select did not " +
+                "each reject the blocked menu request with exactly one SND_ERROR $5a.");
         }
 
         NayruActorRegistry actors = nayruIntro.ActorRegistry;

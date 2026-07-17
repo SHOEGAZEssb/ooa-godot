@@ -426,6 +426,7 @@ public partial class GameRoot : Node2D
             FastTravelFromMap, _sound.PlaySound);
         _inventoryMenu = new InventoryMenuController(
             _inventoryScreen, _saveQuitScreen, _menuLifecycle,
+            () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone),
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone) &&
                 !IsTransitioning && !DialogueOpen && !MapMenuOpen && !_roomEvents.Active,
             SaveActiveFile, ReturnToTitle, _sound.PlaySound);

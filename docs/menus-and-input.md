@@ -58,6 +58,9 @@ forcing them through the map/inventory sequence.
   opened screen.
 - Start/Select chords are evaluated deliberately so the individual button
   actions do not also fire.
+- Before `GLOBALFLAG_INTRO_DONE` `$0a`, a newly pressed Start, Select, or
+  Start+Select chord leaves the normal menus closed and requests `SND_ERROR`
+  (`$5a`) exactly once, matching the common `b2_updateMenus` gate.
 - Presentation animation may use `AnimationPlayer` when it is not authoritative
   gameplay timing. Original counters remain fixed-update state.
 

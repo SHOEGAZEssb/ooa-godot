@@ -32,6 +32,7 @@ public partial class OracleSoundEngine : Node
     public const int SndCloseMenu = 0x55;
     public const int SndSelectItem = 0x56;
     public const int SndClink2 = 0x58;
+    public const int SndError = 0x5a;
     public const int SndDamageLink = 0x5f;
     public const int SndLinkFall = 0x65;
     public const int SndText = 0x66;
