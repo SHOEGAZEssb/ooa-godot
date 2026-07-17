@@ -46,6 +46,7 @@ public sealed class NewGameIntroController
         _record = new NewGameIntroDatabase().Record;
         _complete = complete;
         _sound = sound;
+        _screen.Dialogue.SetSoundPlayer(_sound.PlaySound);
         // Pregame state $0a starts this cue as it creates Link's blue-orb
         // descent presentation.
         _sound.PlaySound(OracleSoundEngine.MusEssenceRoom);

@@ -5902,6 +5902,73 @@ public sealed class ValidationGameRoot : GameRoot
         if (_dialogue.VisibleGlyphCount != 1)
             throw new InvalidOperationException("Message speed 4 did not display its first character on update 2.");
 
+        int textRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndText);
+        _dialogue.ShowMessage("ABC", _player.Position.Y);
+        _dialogue.AdvanceCharacterClockForValidation(1.0 / 60.0);
+        if (_sound.PlayRequestsFor(OracleSoundEngine.SndText) != textRequests)
+            throw new InvalidOperationException("SND_TEXT played before the first glyph appeared.");
+        _dialogue.AdvanceCharacterClockForValidation(1.0 / 60.0);
+        if (_sound.PlayRequestsFor(OracleSoundEngine.SndText) != textRequests + 1)
+            throw new InvalidOperationException("The first visible non-space glyph did not request SND_TEXT $66.");
+        _dialogue.AdvanceCharacterClockForValidation(2.0 / 60.0);
+        if (_sound.PlayRequestsFor(OracleSoundEngine.SndText) != textRequests + 1)
+            throw new InvalidOperationException("SND_TEXT ignored its four-update cooldown.");
+        _dialogue.AdvanceCharacterClockForValidation(2.0 / 60.0);
+        if (_sound.PlayRequestsFor(OracleSoundEngine.SndText) != textRequests + 2)
+            throw new InvalidOperationException(
+                "SND_TEXT did not become available on the original fourth cooldown update.");
+
+        textRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndText);
+        _dialogue.ShowMessage(" A", _player.Position.Y);
+        _dialogue.AdvanceCharacterClockForValidation(4.0 / 60.0);
+        if (_sound.PlayRequestsFor(OracleSoundEngine.SndText) != textRequests + 1)
+            throw new InvalidOperationException(
+                "Textbox character audio did not suppress spaces or sound the following glyph.");
+
+        const int tokayTextSound = 0xb6;
+        textRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndText);
+        int tokayRequests = _sound.PlayRequestsFor(tokayTextSound);
+        _dialogue.ShowMessage("\\sfx(0xb6)A", _player.Position.Y);
+        _dialogue.AdvanceCharacterClockForValidation(2.0 / 60.0);
+        if (_dialogue.CurrentMessage != "A" ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndText) != textRequests + 1 ||
+            _sound.PlayRequestsFor(tokayTextSound) != tokayRequests + 1)
+        {
+            throw new InvalidOperationException(
+                "Inline \\sfx() did not remain hidden and play beside the next glyph's default cue.");
+        }
+
+        textRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndText);
+        tokayRequests = _sound.PlayRequestsFor(tokayTextSound);
+        _dialogue.ShowMessage("\\charsfx(0xb6)A", _player.Position.Y);
+        _dialogue.AdvanceCharacterClockForValidation(2.0 / 60.0);
+        if (_dialogue.CurrentMessage != "A" ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndText) != textRequests ||
+            _sound.PlayRequestsFor(tokayTextSound) != tokayRequests + 1)
+        {
+            throw new InvalidOperationException(
+                "Inline \\charsfx() did not replace the per-character SND_TEXT cue.");
+        }
+
+        int moveRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
+        int selectRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem);
+        _dialogue.ShowChoiceMessage("\\opt()Yes \\opt()No", _player.Position.Y);
+        _dialogue.RevealCurrentPageForValidation();
+        _dialogue.MoveChoiceForValidation(1);
+        if (_dialogue.SelectedChoice != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != moveRequests + 1)
+        {
+            throw new InvalidOperationException(
+                "Moving the textbox option cursor did not request SND_MENU_MOVE $84.");
+        }
+        _dialogue.SubmitChoiceForValidation(1);
+        if (_dialogue.IsOpen ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectRequests + 1)
+        {
+            throw new InvalidOperationException(
+                "Confirming a textbox option did not request SND_SELECTITEM $56.");
+        }
+
         _dialogue.ShowMessage(
             "\\col(1)R\\col(3)B\\col(0)N\n\\sym(0x57)♪\\heart\\abtn\\bbtn",
             _player.Position.Y);
@@ -5926,12 +5993,17 @@ public sealed class ValidationGameRoot : GameRoot
 
         _dialogue.ShowMessage("First.\nSecond.\nThird.\nFourth.", _player.Position.Y);
         _dialogue.RevealCurrentPageForValidation();
+        int continuationRequests =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndText2);
         _dialogue.AdvanceOrClose();
         if (!_dialogue.IsScrollingText ||
-            !Mathf.IsEqualApprox(_dialogue.TextScrollOffset, 8.0f))
+            !Mathf.IsEqualApprox(_dialogue.TextScrollOffset, 8.0f) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndText2) !=
+                continuationRequests + 1)
         {
             throw new InvalidOperationException(
-                "The button frame did not perform standardTextStateb's first 8px shift.");
+                "The button frame did not request SND_TEXT_2 $89 and perform " +
+                "standardTextStateb's first 8px shift.");
         }
         _dialogue.AdvanceTextScrollForValidation(1.0 / 60.0);
         if (!_dialogue.IsScrollingText ||
@@ -5961,9 +6033,10 @@ public sealed class ValidationGameRoot : GameRoot
             throw new InvalidOperationException("The final textbox press immediately restarted the interaction.");
 
         GD.Print("Validated save-selected 7/5/4/3/2-update dialogue speed, white default " +
-            "text, colored and symbol-font glyphs, gfx_hud tile $03 continuation marker, " +
-            "one-line tile-row scrolling, continuation-only 32-update blink, and " +
-            "final-message input consumption.");
+            "text, four-update SND_TEXT/inline voice cues, SND_TEXT_2 continuation, " +
+            "choice sounds, colored and symbol-font glyphs, gfx_hud tile $03 continuation " +
+            "marker, one-line tile-row scrolling, continuation-only 32-update blink, " +
+            "and final-message input consumption.");
     }
 
     private void ValidateNpcs()

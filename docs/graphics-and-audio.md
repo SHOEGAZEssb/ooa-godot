@@ -55,6 +55,13 @@ chooses a variation with the global game RNG (for example sword sounds), consume
 `OracleRandom`; never use a separate nondeterministic RNG because it changes
 later enemies and drops.
 
+`DialogueBox` requests `SND_TEXT` for revealed non-space glyphs with the
+original four-update cooldown, applies inline `\sfx()`/`\charsfx()` commands,
+and requests `SND_TEXT_2`, `SND_MENU_MOVE`, and `SND_SELECTITEM` at continuation,
+choice-movement, and choice-confirmation boundaries respectively. Gameplay and
+the new-game intro both inject the persistent sound engine into their dialogue
+instance.
+
 The sound engine must stop generated playback, detach buffers/signals, and clear
 references during shutdown. A headless run should finish without a retained
 `AudioStreamGeneratorPlayback`.

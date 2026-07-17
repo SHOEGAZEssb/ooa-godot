@@ -31,6 +31,7 @@ public partial class OracleSoundEngine : Node
     public const int SndCloseMenu = 0x55;
     public const int SndSelectItem = 0x56;
     public const int SndClink2 = 0x58;
+    public const int SndText = 0x66;
     public const int SndBossDead = 0x67;
     public const int SndSlash = 0x6a;
     public const int SndSwordSpin = 0x6b;
@@ -41,6 +42,7 @@ public partial class OracleSoundEngine : Node
     public const int SndBoomerang = 0x78;
     public const int SndMysterySeed = 0x7b;
     public const int SndMenuMove = 0x84;
+    public const int SndText2 = 0x89;
     public const int SndTeleport = 0x8d;
     public const int SndFairyCutscene = 0x91;
     public const int SndWarpStart = 0x95;

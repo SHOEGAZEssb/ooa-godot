@@ -206,6 +206,7 @@ public partial class GameRoot : Node2D
                 $"Could not load gameplay scene {GameSceneGraph.ScenePath}.");
         _scene = gameplayScene.Instantiate<GameSceneGraph>();
         AddChild(_scene);
+        _dialogue.SetSoundPlayer(_sound.PlaySound);
         _dialogue.MessageSpeed = _saveData.TextSpeed;
         _hud.Initialize(_treasures, _inventory);
         _mapScreen.Initialize(_rooms, _inventory);

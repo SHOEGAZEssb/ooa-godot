@@ -14,6 +14,7 @@ public partial class DialogueBox : Node2D
     private const int PanelWidth = 18 * 8;
     private const int PanelHeight = 5 * 8;
     private const int TextAreaHeight = LinesPerPage * LineSpacing;
+    private const int TextSoundCooldownFrames = 4;
     private static readonly Rect2 ContinueMarkerRect = new(144, 32, 8, 8);
 
     // getCharacterDisplayLength reads byte 2 of each eight-byte row in
@@ -42,6 +43,8 @@ public partial class DialogueBox : Node2D
     private ulong _openedFrame;
     private double _arrowFrameCounter;
     private double _characterFrameAccumulator;
+    private int _characterDisplayTimer;
+    private int _textSoundCooldownCounter;
     private double _textScrollTickAccumulator;
     private float _textScrollOffset;
     private int _textScrollState;
@@ -51,6 +54,7 @@ public partial class DialogueBox : Node2D
     private bool _choiceActive;
     private int _selectedChoice;
     private int? _choiceResult;
+    private Action<int> _playSound = static _ => { };
 
     public bool IsOpen => _open;
     public bool BlocksPlayerInput => _open || _consumeClosingInput;
@@ -96,6 +100,12 @@ public partial class DialogueBox : Node2D
         _continueMarkerTexture = BuildContinueMarkerTexture();
     }
 
+    internal void SetSoundPlayer(Action<int> playSound)
+    {
+        ArgumentNullException.ThrowIfNull(playSound);
+        _playSound = playSound;
+    }
+
     public void ShowMessage(string message, float linkY)
     {
         ShowMessage(message, linkY, 0);
@@ -119,6 +129,8 @@ public partial class DialogueBox : Node2D
         _choiceResult = null;
         _arrowFrameCounter = 0.0;
         _characterFrameAccumulator = 0.0;
+        _characterDisplayTimer = CharacterDisplayFrames[_messageSpeed];
+        _textSoundCooldownCounter = 0;
         _textScrollTickAccumulator = 0.0;
         _textScrollOffset = 0.0f;
         _textScrollState = 0;
@@ -213,8 +225,7 @@ public partial class DialogueBox : Node2D
             {
                 int choiceDelta = Input.IsActionJustPressed("move_left") ||
                     Input.IsActionJustPressed("move_up") ? -1 : 1;
-                _selectedChoice = (_selectedChoice + choiceDelta + choiceCount) % choiceCount;
-                QueueRedraw();
+                MoveChoice(choiceDelta);
                 return;
             }
             if (Input.IsActionJustPressed("attack") || Input.IsActionJustPressed("item"))
@@ -238,6 +249,9 @@ public partial class DialogueBox : Node2D
             QueueRedraw();
             return;
         }
+
+        if (HasContinuation)
+            _playSound(OracleSoundEngine.SndText2);
 
         if (HasAnotherLine)
         {
@@ -334,6 +348,8 @@ public partial class DialogueBox : Node2D
         UpdateTextScroll(delta);
     }
 
+    internal void MoveChoiceForValidation(int delta) => MoveChoice(delta);
+
     internal int GlyphColorForValidation(int segment, int line, int column) =>
         _segments[segment].Lines[line].Glyphs[column].ColorIndex;
 
@@ -368,16 +384,34 @@ public partial class DialogueBox : Node2D
         text = Regex.Replace(text, @"\\heart(?![A-Za-z])", "♥");
         return Regex.Replace(
             text,
-            @"\\(?:stop(?:\(\))?|pos\([^)]*\)|col\([^)]*\)|opt\([^)]*\))",
+            @"\\(?:stop(?:\(\))?|pos\([^)]*\)|col\([^)]*\)|opt\([^)]*\)|" +
+            @"sfx\([^)]*\)|charsfx\([^)]*\))",
             string.Empty,
             RegexOptions.IgnoreCase);
     }
 
     private void SubmitChoice()
     {
+        _playSound(OracleSoundEngine.SndSelectItem);
         _choiceResult = _selectedChoice;
         Close();
         _consumeClosingInput = true;
+    }
+
+    private void MoveChoice(int delta)
+    {
+        if (!_choiceActive || !IsPageComplete || HasContinuation)
+            return;
+
+        int choiceCount = CurrentLine(0).OptionColumns.Count +
+            CurrentLine(1).OptionColumns.Count;
+        if (choiceCount == 0)
+            return;
+
+        _playSound(OracleSoundEngine.SndMenuMove);
+        _selectedChoice =
+            (_selectedChoice + delta % choiceCount + choiceCount) % choiceCount;
+        QueueRedraw();
     }
 
     private void DrawChoiceCursor()
@@ -390,7 +424,7 @@ public partial class DialogueBox : Node2D
                 if (optionIndex++ != _selectedChoice)
                     continue;
                 var cursorLine = new TextLine(
-                    new[] { new TextGlyph('>', FontSource.Main, 0) },
+                    new[] { new TextGlyph('>', FontSource.Main, 0, 0, 0) },
                     Array.Empty<int>());
                 DrawFontLine(
                     cursorLine,
@@ -408,12 +442,17 @@ public partial class DialogueBox : Node2D
             return;
 
         _characterFrameAccumulator += delta * 60.0;
-        int frameLength = CharacterDisplayFrames[_messageSpeed];
         while (_visibleGlyphs < CurrentWindowGlyphCount &&
-               _characterFrameAccumulator >= frameLength)
+               _characterFrameAccumulator >= 1.0)
         {
-            _characterFrameAccumulator -= frameLength;
-            _visibleGlyphs++;
+            _characterFrameAccumulator -= 1.0;
+            if (_textSoundCooldownCounter > 0)
+                _textSoundCooldownCounter--;
+            if (--_characterDisplayTimer > 0)
+                continue;
+
+            RevealNextGlyph();
+            _characterDisplayTimer = CharacterDisplayFrames[_messageSpeed];
         }
         if (IsPageComplete)
         {
@@ -426,10 +465,13 @@ public partial class DialogueBox : Node2D
     private void RevealCurrentLine()
     {
         int topLineLength = CurrentLine(0).Glyphs.Count;
-        _visibleGlyphs = _visibleGlyphs < topLineLength
+        int targetGlyphs = _visibleGlyphs < topLineLength
             ? topLineLength
             : CurrentWindowGlyphCount;
+        while (_visibleGlyphs < targetGlyphs)
+            RevealNextGlyph();
         _characterFrameAccumulator = 0.0;
+        _characterDisplayTimer = CharacterDisplayFrames[_messageSpeed];
         if (IsPageComplete)
             _arrowFrameCounter = 0.0;
     }
@@ -438,7 +480,42 @@ public partial class DialogueBox : Node2D
     {
         _visibleGlyphs = alreadyVisible;
         _characterFrameAccumulator = 0.0;
+        _characterDisplayTimer = CharacterDisplayFrames[_messageSpeed];
         _arrowFrameCounter = 0.0;
+    }
+
+    private void RevealNextGlyph()
+    {
+        TextLine firstLine = CurrentLine(0);
+        TextLine line;
+        int column;
+        if (_visibleGlyphs < firstLine.Glyphs.Count)
+        {
+            line = firstLine;
+            column = _visibleGlyphs;
+        }
+        else
+        {
+            line = CurrentLine(1);
+            column = _visibleGlyphs - firstLine.Glyphs.Count;
+        }
+
+        TextGlyph glyph = line.Glyphs[column];
+        _visibleGlyphs++;
+
+        // displayNextTextCharacter branches to @endLine before reading the
+        // sound buffers for column $0f.
+        if (column + 1 == CharactersPerLine)
+            return;
+
+        if (glyph.Code != ' ' && glyph.CharacterSound != 0 &&
+            _textSoundCooldownCounter == 0)
+        {
+            _textSoundCooldownCounter = TextSoundCooldownFrames;
+            _playSound(glyph.CharacterSound);
+        }
+        if (glyph.SoundEffect != 0)
+            _playSound(glyph.SoundEffect);
     }
 
     private void UpdateTextScroll(double delta)
@@ -548,10 +625,16 @@ public partial class DialogueBox : Node2D
         var glyphs = new List<TextGlyph>();
         var optionColumns = new List<int>();
         int colorIndex = 0;
+        int characterSound = OracleSoundEngine.SndText;
+        int pendingSoundEffect = 0;
         bool skipNextNewline = false;
 
-        void AddGlyph(int code, FontSource source = FontSource.Main) =>
-            glyphs.Add(new TextGlyph(code, source, colorIndex));
+        void AddGlyph(int code, FontSource source = FontSource.Main)
+        {
+            glyphs.Add(new TextGlyph(
+                code, source, colorIndex, characterSound, pendingSoundEffect));
+            pendingSoundEffect = 0;
+        }
 
         void AddCharacter(char character)
         {
@@ -667,9 +750,15 @@ public partial class DialogueBox : Node2D
                 case "opt":
                     optionColumns.Add(glyphs.Count);
                     break;
-                case "pos":
                 case "sfx":
+                    if (TryParseCommandNumber(argument, out int requestedSoundEffect))
+                        pendingSoundEffect = requestedSoundEffect & 0xff;
+                    break;
                 case "charsfx":
+                    if (TryParseCommandNumber(argument, out int requestedCharacterSound))
+                        characterSound = requestedCharacterSound & 0xff;
+                    break;
+                case "pos":
                 case "slow":
                 case "speed":
                 case "wait":
@@ -747,7 +836,12 @@ public partial class DialogueBox : Node2D
         Symbol
     }
 
-    private readonly record struct TextGlyph(int Code, FontSource Source, int ColorIndex);
+    private readonly record struct TextGlyph(
+        int Code,
+        FontSource Source,
+        int ColorIndex,
+        int CharacterSound,
+        int SoundEffect);
 
     private sealed class TextLine
     {
