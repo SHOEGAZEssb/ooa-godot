@@ -1,14 +1,16 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 using System.Text;
 
 namespace oracleofages;
 
 public partial class DebugFlagScreen : Control
 {
-    public enum FlagPage { Global, Room }
+    public enum FlagPage { Global, Room, Inventory }
 
     private const int GlobalVisibleRows = 12;
+    private const int InventoryVisibleRows = 11;
     private static readonly int[] RoomTableGroups = { 0, 1, 4, 5 };
     private static readonly string[] RoomBitNames =
     {
@@ -24,11 +26,14 @@ public partial class DebugFlagScreen : Control
 
     private OracleSaveData _saveData = null!;
     private GlobalFlagDatabase _globalFlags = null!;
+    private InventoryState _inventory = null!;
+    private readonly List<TreasureDatabase.TreasureObjectRecord> _treasureObjects = new();
     private Label _text = null!;
     private int _globalCursor;
     private int _roomTable;
     private int _room;
     private int _roomCursor = 2;
+    private int _inventoryCursor;
 
     public FlagPage Page { get; private set; }
     public int GlobalCursor => _globalCursor;
@@ -76,10 +81,22 @@ public partial class DebugFlagScreen : Control
         GetViewport().SetInputAsHandled();
     }
 
-    public void Initialize(OracleSaveData saveData, GlobalFlagDatabase globalFlags)
+    public void Initialize(
+        OracleSaveData saveData,
+        GlobalFlagDatabase globalFlags,
+        TreasureDatabase treasures,
+        InventoryState inventory)
     {
         _saveData = saveData;
         _globalFlags = globalFlags;
+        _inventory = inventory;
+        _treasureObjects.Clear();
+        foreach (TreasureDatabase.TreasureObjectRecord record in treasures.Objects)
+        {
+            if (record.TreasureId != TreasureDatabase.TreasureNone)
+                _treasureObjects.Add(record);
+        }
+        _inventoryCursor = Math.Clamp(_inventoryCursor, 0, _treasureObjects.Count);
     }
 
     public void Open(int activeGroup, int activeRoom)
@@ -96,17 +113,32 @@ public partial class DebugFlagScreen : Control
 
     public void TogglePage()
     {
-        Page = Page == FlagPage.Global ? FlagPage.Room : FlagPage.Global;
+        Page = Page switch
+        {
+            FlagPage.Global => FlagPage.Room,
+            FlagPage.Room => FlagPage.Inventory,
+            _ => FlagPage.Global
+        };
         Refresh();
     }
 
     public void MoveVertical(int direction)
     {
-        if (Page == FlagPage.Global)
-            _globalCursor = Math.Clamp(_globalCursor + Math.Sign(direction), 0,
-                OracleSaveData.GlobalFlagCount - 1);
-        else
-            _roomCursor = Math.Clamp(_roomCursor + Math.Sign(direction), 0, 9);
+        int step = Math.Sign(direction);
+        switch (Page)
+        {
+            case FlagPage.Global:
+                _globalCursor = Math.Clamp(_globalCursor + step, 0,
+                    OracleSaveData.GlobalFlagCount - 1);
+                break;
+            case FlagPage.Room:
+                _roomCursor = Math.Clamp(_roomCursor + step, 0, 9);
+                break;
+            case FlagPage.Inventory:
+                _inventoryCursor = Math.Clamp(
+                    _inventoryCursor + step, 0, _treasureObjects.Count);
+                break;
+        }
         Refresh();
     }
 
@@ -117,6 +149,13 @@ public partial class DebugFlagScreen : Control
         {
             _globalCursor = Math.Clamp(_globalCursor + step * GlobalVisibleRows, 0,
                 OracleSaveData.GlobalFlagCount - 1);
+        }
+        else if (Page == FlagPage.Inventory)
+        {
+            _inventoryCursor = Math.Clamp(
+                _inventoryCursor + step * InventoryVisibleRows,
+                0,
+                _treasureObjects.Count);
         }
         else if (_roomCursor == 0)
         {
@@ -130,18 +169,28 @@ public partial class DebugFlagScreen : Control
         Refresh();
     }
 
-    public void ToggleSelectedFlag()
+    public void ActivateSelection()
     {
-        if (Page == FlagPage.Global)
+        switch (Page)
         {
-            _saveData.SetGlobalFlag(_globalCursor, !_saveData.HasGlobalFlag(_globalCursor));
-        }
-        else if (_roomCursor >= 2)
-        {
-            byte mask = (byte)(1 << (_roomCursor - 2));
-            _saveData.SetRoomFlag(
-                SelectedRoomGroup, _room, mask,
-                !_saveData.HasRoomFlag(SelectedRoomGroup, _room, mask));
+            case FlagPage.Global:
+                _saveData.SetGlobalFlag(
+                    _globalCursor, !_saveData.HasGlobalFlag(_globalCursor));
+                break;
+            case FlagPage.Room when _roomCursor >= 2:
+            {
+                byte mask = (byte)(1 << (_roomCursor - 2));
+                _saveData.SetRoomFlag(
+                    SelectedRoomGroup, _room, mask,
+                    !_saveData.HasRoomFlag(SelectedRoomGroup, _room, mask));
+                break;
+            }
+            case FlagPage.Inventory when _inventoryCursor == 0:
+                _saveData.SetLinkedGame(!_saveData.IsLinkedGame);
+                break;
+            case FlagPage.Inventory:
+                _inventory.GiveTreasure(_treasureObjects[_inventoryCursor - 1]);
+                break;
         }
         Refresh();
     }
@@ -162,11 +211,38 @@ public partial class DebugFlagScreen : Control
         Refresh();
     }
 
+    internal void SelectLinkedGameForValidation()
+    {
+        _inventoryCursor = 0;
+        Page = FlagPage.Inventory;
+        Refresh();
+    }
+
+    internal void SelectTreasureForValidation(string name)
+    {
+        for (int index = 0; index < _treasureObjects.Count; index++)
+        {
+            if (_treasureObjects[index].Name != name)
+                continue;
+            _inventoryCursor = index + 1;
+            Page = FlagPage.Inventory;
+            Refresh();
+            return;
+        }
+
+        throw new KeyNotFoundException($"Debug treasure {name} was not imported.");
+    }
+
     private void Refresh()
     {
         if (_text is null || _saveData is null || _globalFlags is null)
             return;
-        _text.Text = Page == FlagPage.Global ? BuildGlobalText() : BuildRoomText();
+        _text.Text = Page switch
+        {
+            FlagPage.Global => BuildGlobalText(),
+            FlagPage.Room => BuildRoomText(),
+            _ => BuildInventoryText()
+        };
     }
 
     private string BuildGlobalText()
@@ -210,7 +286,53 @@ public partial class DebugFlagScreen : Control
                 .Append(RoomBitNames[bit]).Append('\n');
         }
         text.Append("LEFT/RIGHT TABLE OR ROOM").Append('\n');
-        text.Append("F1 CLOSE TAB GLOBAL A TOGGLE");
+        text.Append("F1 CLOSE TAB ITEMS A TOGGLE");
+        return text.ToString();
+    }
+
+    private string BuildInventoryText()
+    {
+        var text = new StringBuilder();
+        text.Append("LINKED / ITEMS  ").Append(_inventoryCursor.ToString("000"))
+            .Append('/').Append(_treasureObjects.Count.ToString("000")).Append('\n');
+        if (_inventoryCursor == 0)
+        {
+            text.Append("wIsLinkedGame $c612 = $")
+                .Append(_saveData.IsLinkedGame ? "01" : "00").Append('\n');
+        }
+        else
+        {
+            TreasureDatabase.TreasureObjectRecord selected =
+                _treasureObjects[_inventoryCursor - 1];
+            text.Append("ID $").Append(selected.TreasureId.ToString("x2"))
+                .Append(" SUB $").Append(selected.SubId.ToString("x2"))
+                .Append(" PARAM $").Append(selected.Parameter.ToString("x2")).Append('\n');
+        }
+
+        int final = _treasureObjects.Count;
+        int first = Math.Clamp(
+            _inventoryCursor - InventoryVisibleRows / 2,
+            0,
+            Math.Max(0, final - InventoryVisibleRows + 1));
+        int end = Math.Min(final + 1, first + InventoryVisibleRows);
+        for (int cursor = first; cursor < end; cursor++)
+        {
+            text.Append(cursor == _inventoryCursor ? '>' : ' ');
+            if (cursor == 0)
+            {
+                text.Append("LINKED GAME ")
+                    .Append(_saveData.IsLinkedGame ? "[1]" : "[0]").Append('\n');
+                continue;
+            }
+
+            TreasureDatabase.TreasureObjectRecord record = _treasureObjects[cursor - 1];
+            text.Append('$').Append(record.TreasureId.ToString("x2"))
+                .Append(_inventory.HasTreasure(record.TreasureId) ? " [1] " : " [0] ")
+                .Append(TrimName(ShortTreasureName(record.Name), 25)).Append('\n');
+        }
+        text.Append("LEFT/RIGHT PAGE  A ")
+            .Append(_inventoryCursor == 0 ? "TOGGLE" : "GIVE").Append('\n');
+        text.Append("F1 CLOSE  TAB GLOBAL FLAGS");
         return text.ToString();
     }
 
@@ -234,4 +356,10 @@ public partial class DebugFlagScreen : Control
 
     private static string TrimName(string name, int maximum) =>
         name.Length <= maximum ? name : name[..(maximum - 1)] + "~";
+
+    private static string ShortTreasureName(string name)
+    {
+        const string prefix = "TREASURE_OBJECT_";
+        return name.StartsWith(prefix, StringComparison.Ordinal) ? name[prefix.Length..] : name;
+    }
 }

@@ -37,6 +37,21 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
     public int ActorSpeed(CutsceneActorId actor) =>
         _speeds.TryGetValue(actor, out int speed) ? speed : 0;
 
+    /// <summary>
+    /// Seeds motion bytes written by an interaction initializer before its
+    /// script starts. Call only immediately after <see cref="Start"/>.
+    /// </summary>
+    public void SetInitialMotionRegisters(CutsceneActorId actor, int speed, int angle)
+    {
+        if (!Active || _instruction != 0 || _scriptUpdates != 0)
+        {
+            throw new InvalidOperationException(
+                "Initial cutscene motion registers must be set before the first script update.");
+        }
+        _speeds[actor] = speed;
+        _angles[actor] = angle;
+    }
+
     public void Start(IReadOnlyList<CutsceneCommand> commands)
     {
         if (commands.Count == 0)

@@ -214,6 +214,12 @@ Animation records retain a frame's nonzero `animParameter` as
 `duration@oam` form. A native owner must inspect the parameter at the same point
 relative to `interactionAnimate` as the original handler.
 
+Room `1:57` is the minimal ordinary-predicate reference. Female villager
+`$3b:$05` imports its `getGameProgress_2` existence set and complete eight-entry
+dialogue table. Its initializer's final `oamFlags = $01` palette replaces the
+graphics-header default in the base NPC row; a constant visual override does
+not require a specialized runtime owner.
+
 Room `1:58` is the reference for story-selected ordinary NPC state without a
 specialized runtime owner:
 
@@ -229,6 +235,33 @@ specialized runtime owner:
 - These records stay ordinary `NpcRoomEntity` adapters because none of the
   three handlers owns native movement, shared signals, or a per-update state
   machine after initialization.
+
+Room `1:75` demonstrates the boundary between ordinary predicates and a
+coordinated event in one object stream:
+
+- Hardhat worker `$58:$01` remains an ordinary NPC. `var03=$00` requires both
+  present-room `$90` and `$ba` bit `$40` clear; `var03=$01` requires `$ba` set
+  and `$90` clear. This preserves `getBlackTowerProgress` checking `$90` first,
+  so progress `$02` deletes both placements. Their TX `$1007`/`$1008` choices
+  are variant-specific base records rather than event dialogue.
+- Ralph `$37:$0a`, Impa `$31:$04/$05`, Nayru `$36:$0a`, and Zelda `$ad:$04`
+  retain their ordinary placement and state-0 visibility predicates. The event
+  resolves those actors instead of creating duplicate scene copies.
+- `PreBlackTowerEvent` owns the input-disabled choreography because the actors
+  exchange `$cfc0` bits or the shared `$cfd0` byte, force Link movement, spawn
+  Nayru `$36:$09` and exclamation interactions, and write global completion
+  flags. Each original interaction script is imported as an independent typed
+  lane and advanced in room-object order.
+- Initializer writes that precede a script remain explicit runtime inputs.
+  Ralph's unlinked lane begins with native `SPEED_180` (`$3c`); Zelda's linked
+  lane begins with `SPEED_100` (`$28`) and angle `$08` before its first
+  `applyspeed`. Seed runner motion registers at lane start instead of inserting
+  synthetic script commands that would change yield timing.
+- The unlinked sequence deliberately releases gameplay after Ralph leaves and
+  keeps Impa armed until Link reaches the original Y threshold. Event state and
+  gameplay blocking are separate so re-entry after
+  `GLOBALFLAG_RALPH_ENTERED_BLACK_TOWER` resumes the pending Impa phase without
+  replaying Ralph.
 
 ## State predicates and live changes
 
@@ -372,6 +405,8 @@ production behavior; it must not drive it.
 - `src/interactions/InteractionController.cs`
 - `src/cutscenes/RoomEventController.cs`
 - `src/cutscenes/RoomEventContext.cs`
+- `src/cutscenes/PreBlackTowerEvent.cs`
+- `src/cutscenes/PreBlackTowerEventDatabase.cs`
 - `validation/GameRoot.Validation.cs`
 
 See [Rooms and entities](rooms-and-entities.md) for room lifetime and capability

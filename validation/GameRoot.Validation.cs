@@ -219,7 +219,9 @@ public sealed class ValidationGameRoot : GameRoot
         ValidateNpcs();
         ValidateRoom148NpcInteractions();
         ValidateRoom149FamilyInteractions();
+        ValidateRoom157NpcInteractions();
         ValidateRoom158NpcInteractions();
+        ValidateRoom175NpcInteractions();
         ValidateNpcFlagVisibility();
         ValidateBipinBlossomNaming();
         ValidateImpaIntroEncounter();
@@ -2248,19 +2250,27 @@ public sealed class ValidationGameRoot : GameRoot
             Keycode = Key.Tab,
             Pressed = true
         });
+        if (_debugFlagScreen.Page != DebugFlagScreen.FlagPage.Inventory)
+            throw new InvalidOperationException(
+                "A logical Tab key event did not switch the flag editor to linked/items.");
+        _debugFlagScreen._Input(new InputEventKey
+        {
+            Keycode = Key.Tab,
+            Pressed = true
+        });
         if (_debugFlagScreen.Page != DebugFlagScreen.FlagPage.Global)
             throw new InvalidOperationException(
-                "A logical Tab key event did not switch the flag editor back to global flags.");
+                "Tab did not cycle the debug editor back to global flags.");
 
         _debugFlagScreen.SelectGlobalFlagForValidation(OracleSaveData.GlobalFlagIntroDone);
         if (!_debugFlagScreen.RenderedText.Contains("GLOBALFLAG_INTRO_DONE", StringComparison.Ordinal))
             throw new InvalidOperationException(
                 "The imported name for GLOBALFLAG_INTRO_DONE was not displayed.");
         bool globalBefore = _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
-        _debugFlagScreen.ToggleSelectedFlag();
+        _debugFlagScreen.ActivateSelection();
         if (_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone) == globalBefore)
             throw new InvalidOperationException("The global flag editor did not toggle flag $0a.");
-        _debugFlagScreen.ToggleSelectedFlag();
+        _debugFlagScreen.ActivateSelection();
 
         const int room = 0xaa;
         const int bit = 6;
@@ -2273,14 +2283,49 @@ public sealed class ValidationGameRoot : GameRoot
             throw new InvalidOperationException(
                 "The room editor did not expose group 7 through canonical table 5 and bit 6.");
         }
-        _debugFlagScreen.ToggleSelectedFlag();
+        _debugFlagScreen.ActivateSelection();
         if (_saveData.HasRoomFlag(5, room, mask) == roomBefore)
             throw new InvalidOperationException("The room flag editor did not toggle 5:aa bit 6.");
         _debugFlagScreen.MoveHorizontal(1);
         if (_debugFlagScreen.SelectedRoom != 0xab)
             throw new InvalidOperationException("Room flag browsing did not advance $aa -> $ab.");
         _debugFlagScreen.MoveHorizontal(-1);
-        _debugFlagScreen.ToggleSelectedFlag();
+        _debugFlagScreen.ActivateSelection();
+
+        bool linkedBefore = _saveData.IsLinkedGame;
+        _debugFlagScreen.SelectLinkedGameForValidation();
+        if (!_debugFlagScreen.RenderedText.Contains("wIsLinkedGame $c612", StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                "The linked/items page did not expose the source WRAM linked-game field.");
+        _debugFlagScreen.ActivateSelection();
+        if (_saveData.IsLinkedGame == linkedBefore)
+            throw new InvalidOperationException("The debug editor did not toggle wIsLinkedGame.");
+        _debugFlagScreen.ActivateSelection();
+
+        var itemSave = OracleSaveData.CreateStandardGame();
+        var itemTreasures = new TreasureDatabase();
+        var itemInventory = new InventoryState(itemTreasures, itemSave, () => 0);
+        var itemScreen = new DebugFlagScreen { Name = "DebugItemGrantValidation" };
+        AddChild(itemScreen);
+        itemScreen.Initialize(
+            itemSave, new GlobalFlagDatabase(), itemTreasures, itemInventory);
+        itemScreen.Open(0, 0);
+        itemScreen.SelectTreasureForValidation("TREASURE_OBJECT_SWORD_01");
+        if (!itemScreen.RenderedText.Contains("PARAM $02", StringComparison.Ordinal) ||
+            !itemScreen.RenderedText.Contains("SWORD_01", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "The item grant browser did not display the imported treasure variant and parameter.");
+        }
+        itemScreen.ActivateSelection();
+        if (itemInventory.SwordLevel != 2 ||
+            !itemInventory.HasTreasure(TreasureDatabase.TreasureSword) ||
+            !itemSave.HasTreasure(TreasureDatabase.TreasureSword))
+        {
+            throw new InvalidOperationException(
+                "The debug item grant did not use the imported treasure transaction.");
+        }
+        itemScreen.QueueFree();
 
         _debugFlagMenu.CloseImmediatelyForValidation();
         if (_debugFlagMenu.IsActive || _debugFlagScreen.Visible ||
@@ -2290,8 +2335,8 @@ public sealed class ValidationGameRoot : GameRoot
                 "Closing the debug flag menu did not restore Link processing.");
         }
 
-        GD.Print("Validated F1 global/room flag editor, all imported global labels, " +
-            "aliased room tables, navigation, mutation, and gameplay freezing.");
+        GD.Print("Validated F1 global/room flag editor, linked-game toggle, imported " +
+            "treasure grants, navigation, mutation, and gameplay freezing.");
     }
 
     private void ValidateTimePortals()
@@ -6579,8 +6624,7 @@ public sealed class ValidationGameRoot : GameRoot
             throw new InvalidOperationException(
                 "GLOBALFLAG_SAW_TWINROVA_BEFORE_ENDGAME did not take precedence as state $05.");
         }
-        if (save.WriteWramByte(0xc612, 1))
-            save.CommitInventoryChange();
+        save.SetLinkedGame(linked: true);
         if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 5 ||
             girl.TextId != 0x1a08)
         {
@@ -6627,8 +6671,7 @@ public sealed class ValidationGameRoot : GameRoot
         if (!state3Villager.Active || state3Villager.TextId != 0x1403)
             throw new InvalidOperationException(
                 "Villager $3a:$07 did not use unlinked state-$03 TX_1403.");
-        if (state3Save.WriteWramByte(0xc612, 1))
-            state3Save.CommitInventoryChange();
+        state3Save.SetLinkedGame(linked: true);
         if (!state3Villager.Active || state3Villager.TextId != 0x1408)
             throw new InvalidOperationException(
                 "Villager $3a:$07 did not switch live to linked state-$03 TX_1408.");
@@ -6844,6 +6887,155 @@ public sealed class ValidationGameRoot : GameRoot
             "SPEED_200 8.8 parabolic flights.");
     }
 
+    private void ValidateRoom157NpcInteractions()
+    {
+        const double frame = 1.0 / 60.0;
+        var validationRoot = new Node { Name = "Room157NpcValidation" };
+        AddChild(validationRoot);
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var manager = new RoomEntityManager(
+            validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
+        manager.LoadRoom(1, _world.LoadRoom(1, 0x57));
+
+        List<NpcCharacter> actors = manager.Entities<NpcCharacter>();
+        if (actors.Count != 1 ||
+            actors[0].Record is not { Id: 0x3b, SubId: 0x05 })
+        {
+            throw new InvalidOperationException(
+                "Room 1:57 did not preserve its sole female villager $3b:$05.");
+        }
+
+        NpcCharacter villager = actors[0];
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 0 ||
+            !villager.Active || villager.Position != new Vector2(0x48, 0x38) ||
+            villager.Record.Palette != 1 || villager.Record.DefaultAnimation != 2 ||
+            !villager.Record.CanFace || villager.TextId != 0x1510 ||
+            string.IsNullOrEmpty(villager.Message))
+        {
+            throw new InvalidOperationException(
+                "Room 1:57 state $00 did not create the palette-$01, down-facing " +
+                "female villager at $38,$48 with TX_1510.");
+        }
+
+        bool CanTalkToVillager()
+        {
+            _player.WarpTo(villager.Position + Vector2.Down * 16.0f);
+            _player.Face(Vector2I.Up);
+            return villager.CanTalkTo(_player);
+        }
+        void SetEssences(byte value)
+        {
+            if (save.WriteWramByte(0xc6bf, value))
+                save.CommitInventoryChange();
+        }
+        void SetLinked(bool value)
+        {
+            save.SetLinkedGame(value);
+        }
+
+        if (!CanTalkToVillager())
+            throw new InvalidOperationException(
+                "Room 1:57's state-$00 female villager was not talkable.");
+
+        ulong downHash = villager.CurrentAnimationPixelHash;
+        _player.WarpTo(new Vector2(0x21, 0x38));
+        manager.Update(frame, _player);
+        if (villager.CurrentAnimationPixelHash == downHash)
+        {
+            throw new InvalidOperationException(
+                "Room 1:57's female villager did not use npcFaceLinkAndAnimate " +
+                "inside the original $28 facing radius.");
+        }
+
+        SetEssences(0x02);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 1 ||
+            !villager.Active || villager.TextId != 0x1511)
+        {
+            throw new InvalidOperationException(
+                "Room 1:57 state $01 did not select TX_1511.");
+        }
+
+        SetEssences(0x08);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 2 ||
+            !villager.Active || villager.TextId != 0x1512)
+        {
+            throw new InvalidOperationException(
+                "Room 1:57 state $02 did not select TX_1512.");
+        }
+
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 3 ||
+            !villager.Active || villager.TextId != 0x1513)
+        {
+            throw new InvalidOperationException(
+                "Room 1:57 state $03 did not select TX_1513.");
+        }
+
+        SetEssences(0x40);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 4 ||
+            villager.Active || villager.TextId != 0x1515)
+        {
+            throw new InvalidOperationException(
+                "Room 1:57's female villager was not deleted in state $04.");
+        }
+
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 5 ||
+            !villager.Active || villager.TextId != 0x1515)
+        {
+            throw new InvalidOperationException(
+                "Room 1:57 state $05 did not restore the villager with TX_1515.");
+        }
+
+        SetLinked(value: true);
+        save.SetRoomFlag(4, 0xfc, 0x7f);
+        save.SetRoomFlag(5, 0xfc, OracleSaveData.RoomFlag80);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 5 ||
+            !villager.Active || villager.TextId != 0x1515)
+        {
+            throw new InvalidOperationException(
+                "Unrelated room 4:fc bits or group-5 room fc bit $80 " +
+                "incorrectly selected room 1:57 state $06.");
+        }
+
+        save.SetRoomFlag(4, 0xfc, OracleSaveData.RoomFlag80);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 6 ||
+            !villager.Active || villager.TextId != 0x1518)
+        {
+            throw new InvalidOperationException(
+                "Linked room 4:fc flag $80 did not select room 1:57 " +
+                "state $06/TX_1518.");
+        }
+
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 7 ||
+            villager.Active || villager.TextId != 0x1518)
+        {
+            throw new InvalidOperationException(
+                "Finished-game state $07 did not take precedence and delete " +
+                "room 1:57's female villager.");
+        }
+
+        manager.LoadRoom(1, _world.LoadRoom(1, 0x57));
+        villager = manager.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x3b, SubId: 0x05 });
+        if (villager.Active || villager.Position != new Vector2(0x48, 0x38) ||
+            villager.Record.Palette != 1 || villager.TextId != 0x1518)
+        {
+            throw new InvalidOperationException(
+                "Room 1:57 finished-game re-entry did not retain the deleted " +
+                "palette-$01 state-$07 actor record.");
+        }
+
+        manager.Clear();
+        RemoveChild(validationRoot);
+        validationRoot.QueueFree();
+        GD.Print("Validated room 1:57's sole female villager, palette-$01 " +
+            "override, six-state existence set, all eight getGameProgress_2 " +
+            "dialogue entries, facing, exact flag precedence, negative " +
+            "room-table cases, live refresh, and re-entry.");
+    }
+
     private void ValidateRoom158NpcInteractions()
     {
         const double frame = 1.0 / 60.0;
@@ -6884,8 +7076,7 @@ public sealed class ValidationGameRoot : GameRoot
         }
         void SetLinked(bool value)
         {
-            if (save.WriteWramByte(0xc612, value ? (byte)1 : (byte)0))
-                save.CommitInventoryChange();
+            save.SetLinkedGame(value);
         }
         void SetTreasure(int treasure, bool value)
         {
@@ -7039,6 +7230,197 @@ public sealed class ValidationGameRoot : GameRoot
             "facing, flag precedence, negative room-table cases, and re-entry.");
     }
 
+    private void ValidateRoom175NpcInteractions()
+    {
+        var validationRoot = new Node { Name = "Room175NpcValidation" };
+        AddChild(validationRoot);
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var manager = new RoomEntityManager(
+            validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
+
+        void SetTreasure(OracleSaveData target, int treasure, bool value)
+        {
+            int address = 0xc69a + treasure / 8;
+            byte mask = (byte)(1 << (treasure & 7));
+            byte current = target.ReadWramByte(address);
+            byte next = value ? (byte)(current | mask) : (byte)(current & ~mask);
+            if (target.WriteWramByte(address, next))
+                target.CommitInventoryChange();
+        }
+
+        void SetLinked(OracleSaveData target, bool value)
+        {
+            target.SetLinkedGame(value);
+        }
+
+        manager.LoadRoom(1, _world.LoadRoom(1, 0x75));
+        List<NpcCharacter> actors = manager.Entities<NpcCharacter>();
+        if (actors.Count != 7 ||
+            actors[0].Record is not { Id: 0x37, SubId: 0x0a } ||
+            actors[1].Record is not { Id: 0x31, SubId: 0x04 } ||
+            actors[2].Record is not { Id: 0x31, SubId: 0x05 } ||
+            actors[3].Record is not { Id: 0x36, SubId: 0x0a } ||
+            actors[4].Record is not { Id: 0xad, SubId: 0x04 } ||
+            actors[5].Record is not { Id: 0x58, SubId: 0x01, Var03: 0x00 } ||
+            actors[6].Record is not { Id: 0x58, SubId: 0x01, Var03: 0x01 })
+        {
+            throw new InvalidOperationException(
+                "Room 1:75 did not preserve its seven pre-Black Tower placements in object order.");
+        }
+
+        NpcCharacter ralph = actors[0];
+        NpcCharacter impaUnlinked = actors[1];
+        NpcCharacter impaLinked = actors[2];
+        NpcCharacter nayru = actors[3];
+        NpcCharacter zelda = actors[4];
+        NpcCharacter earlyWorker = actors[5];
+        NpcCharacter lateWorker = actors[6];
+        if (ralph.Active || impaUnlinked.Active || impaLinked.Active ||
+            nayru.Active || zelda.Active || !earlyWorker.Active || lateWorker.Active ||
+            earlyWorker.TextId != 0x1007 || lateWorker.TextId != 0x1008 ||
+            !earlyWorker.Record.CanFace || !lateWorker.Record.CanFace)
+        {
+            throw new InvalidOperationException(
+                "Room 1:75's initial hardhat/story actor selection or TX_1007/TX_1008 records were wrong.");
+        }
+
+        save.SetRoomFlag(0, 0xba, OracleSaveData.RoomFlag40);
+        if (earlyWorker.Active || !lateWorker.Active)
+            throw new InvalidOperationException(
+                "getBlackTowerProgress $01 did not swap room 1:75 to hardhat var03 $01.");
+
+        save.SetRoomFlag(5, 0x90, OracleSaveData.RoomFlag40);
+        save.SetRoomFlag(1, 0x90, OracleSaveData.RoomFlag40);
+        if (earlyWorker.Active || !lateWorker.Active)
+            throw new InvalidOperationException(
+                "Non-present room-table $90 bits incorrectly changed room 1:75's hardhat phase.");
+
+        save.SetRoomFlag(0, 0x90, OracleSaveData.RoomFlag40);
+        if (earlyWorker.Active || lateWorker.Active)
+            throw new InvalidOperationException(
+                "Room 0:90 flag $40 did not take precedence as getBlackTowerProgress $02.");
+
+        save.SetRoomFlag(0, 0x90, OracleSaveData.RoomFlag40, value: false);
+        save.SetRoomFlag(0, 0xba, OracleSaveData.RoomFlag40, value: false);
+        if (!earlyWorker.Active || lateWorker.Active)
+            throw new InvalidOperationException(
+                "Clearing both Black Tower progress bits did not restore hardhat var03 $00 live.");
+
+        SetTreasure(save, TreasureDatabase.TreasureMakuSeed, value: true);
+        if (!ralph.Active || !impaUnlinked.Active || impaLinked.Active ||
+            nayru.Active || zelda.Active)
+        {
+            throw new InvalidOperationException(
+                "Unlinked Maku Seed state did not reveal only Ralph and Impa $31:$04 in room 1:75.");
+        }
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagRalphEnteredBlackTower);
+        if (ralph.Active || !impaUnlinked.Active)
+            throw new InvalidOperationException(
+                "GLOBALFLAG_RALPH_ENTERED_BLACK_TOWER did not remove only Ralph before Impa's scene.");
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagPreBlackTowerCutsceneDone);
+        if (impaUnlinked.Active)
+            throw new InvalidOperationException(
+                "GLOBALFLAG_PRE_BLACK_TOWER_CUTSCENE_DONE did not remove unlinked Impa.");
+
+        save.SetGlobalFlag(
+            OracleSaveData.GlobalFlagPreBlackTowerCutsceneDone, value: false);
+        save.SetGlobalFlag(
+            OracleSaveData.GlobalFlagRalphEnteredBlackTower, value: false);
+        SetLinked(save, value: true);
+        if (!ralph.Active || impaUnlinked.Active || !impaLinked.Active ||
+            !nayru.Active || !zelda.Active ||
+            impaLinked.Record.DefaultAnimation != 3 ||
+            nayru.Record.DefaultAnimation != 1)
+        {
+            throw new InvalidOperationException(
+                "Linked room 1:75 did not reveal Ralph/Impa $05/Nayru/Zelda with animations $03/$01.");
+        }
+
+        manager.Clear();
+        RemoveChild(validationRoot);
+        validationRoot.QueueFree();
+
+        PreBlackTowerEvent roomEvent = _roomEvents.PreBlackTower;
+        var trace = new ValidationCutsceneTrace();
+        _roomEvents.CommandTraceSink = trace;
+        SetTreasure(_saveData, TreasureDatabase.TreasureMakuSeed, value: true);
+        SetLinked(_saveData, value: false);
+        _saveData.SetGlobalFlag(
+            OracleSaveData.GlobalFlagPreBlackTowerCutsceneDone, value: false);
+        _saveData.SetGlobalFlag(
+            OracleSaveData.GlobalFlagRalphEnteredBlackTower, value: false);
+        _player.WarpTo(new Vector2(0x50, 0x10));
+        LoadValidationRoom(1, 0x75);
+        _player.WarpTo(new Vector2(0x50, 0x10));
+        if (roomEvent.Stage != PreBlackTowerEvent.EventStage.RalphUnlinkedNative ||
+            !_player.CutsceneControlled)
+        {
+            throw new InvalidOperationException(
+                "Unlinked room 1:75 did not begin Ralph's native entrance choreography.");
+        }
+
+        for (int frame = 0; frame < 1600 && roomEvent.HasState; frame++)
+        {
+            StepRoomEventFrames(1);
+            if (_dialogue.IsOpen)
+                _dialogue.Close();
+        }
+        int[] unlinkedTexts = trace.Observations
+            .Where(entry => entry.Observation == "Dialogue")
+            .Select(entry => entry.Value)
+            .ToArray();
+        int[] expectedUnlinked = [0x2a19, 0x0124, 0x0125, 0x1d12, 0x0126, 0x1d13];
+        if (roomEvent.HasState || _player.CutsceneControlled ||
+            !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagRalphEnteredBlackTower) ||
+            !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagPreBlackTowerCutsceneDone) ||
+            !unlinkedTexts.SequenceEqual(expectedUnlinked))
+        {
+            throw new InvalidOperationException(
+                "Unlinked room 1:75 did not complete its exact Ralph/Impa/Nayru dialogue and flag sequence.");
+        }
+
+        trace = new ValidationCutsceneTrace();
+        _roomEvents.CommandTraceSink = trace;
+        SetLinked(_saveData, value: true);
+        _saveData.SetGlobalFlag(
+            OracleSaveData.GlobalFlagPreBlackTowerCutsceneDone, value: false);
+        _saveData.SetGlobalFlag(
+            OracleSaveData.GlobalFlagRalphEnteredBlackTower, value: false);
+        LoadValidationRoom(1, 0x75);
+        _player.WarpTo(new Vector2(0x50, 0x20));
+        if (roomEvent.Stage != PreBlackTowerEvent.EventStage.Linked ||
+            !_player.CutsceneControlled || roomEvent.SharedSignal != 0)
+        {
+            throw new InvalidOperationException(
+                "Linked room 1:75 did not start its four ordered actor lanes at signal $00.");
+        }
+        for (int frame = 0; frame < 1600 && roomEvent.HasState; frame++)
+        {
+            StepRoomEventFrames(1);
+            if (_dialogue.IsOpen)
+                _dialogue.Close();
+        }
+        int[] linkedTexts = trace.Observations
+            .Where(entry => entry.Observation == "Dialogue")
+            .Select(entry => entry.Value)
+            .ToArray();
+        int[] expectedLinked = [0x2a19, 0x0125, 0x1d12, 0x0607];
+        if (roomEvent.HasState || _player.CutsceneControlled ||
+            roomEvent.SharedSignal != 0x08 ||
+            !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagPreBlackTowerCutsceneDone) ||
+            _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagRalphEnteredBlackTower) ||
+            !linkedTexts.SequenceEqual(expectedLinked))
+        {
+            throw new InvalidOperationException(
+                "Linked room 1:75 did not complete its ordered $cfd0 actor lanes and dialogue sequence.");
+        }
+        _roomEvents.CommandTraceSink = null;
+
+        GD.Print("Validated room 1:75's ordered ensemble, exact hardhat getBlackTowerProgress " +
+            "predicates/texts, linked/unlinked actor gates, forced movement, shared signals, " +
+            "spawned Nayru, gravity, dialogue order, and completion flags.");
+    }
+
     private void ValidateNpcFlagVisibility()
     {
         var validationRoot = new Node { Name = "NpcFlagVisibilityValidation" };
@@ -7047,11 +7429,11 @@ public sealed class ValidationGameRoot : GameRoot
         var manager = new RoomEntityManager(
             validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
 
-        if (new NpcVisibilityRuleDatabase().RuleCount != 318 ||
-            new NpcDialogueRuleDatabase().RuleCount != 91 ||
+        if (new NpcVisibilityRuleDatabase().RuleCount != 328 ||
+            new NpcDialogueRuleDatabase().RuleCount != 99 ||
             new NpcPositionRuleDatabase().RuleCount != 1)
             throw new InvalidOperationException(
-                "Expected 318 NPC visibility, 91 NPC dialogue, and one NPC " +
+                "Expected 328 NPC visibility, 99 NPC dialogue, and one NPC " +
                 "position state predicate.");
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x5a));
@@ -7343,8 +7725,7 @@ public sealed class ValidationGameRoot : GameRoot
         save.SetRoomFlag(0, 0xe7, OracleSaveData.RoomFlag80, value: false);
         SetTreasure(TreasureDatabase.TreasureHarp, value: false);
         SetTreasure(TreasureDatabase.TreasureMakuSeed, value: false);
-        if (save.WriteWramByte(0xc612, 0))
-            save.CommitInventoryChange();
+        save.SetLinkedGame(linked: false);
         if (save.WriteWramByte(0xc6bf, 0))
             save.CommitInventoryChange();
 
@@ -7518,8 +7899,7 @@ public sealed class ValidationGameRoot : GameRoot
         if (clockSecretLady.Active)
             throw new InvalidOperationException(
                 "Room 0:78's old lady ignored the linked-game requirement after D4.");
-        if (save.WriteWramByte(0xc612, 1))
-            save.CommitInventoryChange();
+        save.SetLinkedGame(linked: true);
         if (!clockSecretLady.Active || !CanTalkTo(clockSecretLady))
             throw new InvalidOperationException(
                 "Linked-game plus D4 state did not reveal room 0:78's talkable TX_4d00 old lady.");
@@ -7533,8 +7913,7 @@ public sealed class ValidationGameRoot : GameRoot
             ruulSecretLady.TextId != 0x4d2d || !CanTalkTo(ruulSecretLady))
             throw new InvalidOperationException(
                 "Linked-game plus D2 state did not reveal the paired talkable TX_4d2d old lady.");
-        if (save.WriteWramByte(0xc612, 0))
-            save.CommitInventoryChange();
+        save.SetLinkedGame(linked: false);
         if (save.WriteWramByte(0xc6bf, 0))
             save.CommitInventoryChange();
 
@@ -7665,8 +8044,7 @@ public sealed class ValidationGameRoot : GameRoot
                 "Obtaining the harp did not live-swap Nayru's-house Impa to state $02 and TX_0122.");
         }
 
-        if (save.WriteWramByte(0xc612, 1))
-            save.CommitInventoryChange();
+        save.SetLinkedGame(linked: true);
         NpcCharacter? linkedD3Impa = nayruHouseActors.Find(npc =>
             npc.Record.Id == 0x4f && npc.Record.Var03 == 0x0b);
         if (linkedD3Impa is not { Active: true } || nayruHouseActors.Count(npc => npc.Active) != 1)
@@ -7678,8 +8056,7 @@ public sealed class ValidationGameRoot : GameRoot
             throw new InvalidOperationException(
                 "D3 essence bit 2 did not delete linked Nayru's-house Impa state $0c.");
 
-        if (save.WriteWramByte(0xc612, 0))
-            save.CommitInventoryChange();
+        save.SetLinkedGame(linked: false);
         if (save.WriteWramByte(0xc6bf, 0))
             save.CommitInventoryChange();
         save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
@@ -7706,7 +8083,7 @@ public sealed class ValidationGameRoot : GameRoot
             "$20-frame animation loops, rooms 2:ea/2:eb's 72-record family spawner, " +
             "Bipin $28:$00's SPEED_100 X=$28/$58 patrol, $04/$05 animation reversal, " +
             "and moving objectPreventLinkFromPassing collision, " +
-            "318 visibility, 91 dialogue, and one position predicate, roaming-dog " +
+            "328 visibility, 99 dialogue, and one position predicate, roaming-dog " +
             "location selection, rooms 0:68/0:78's phased and linked talkable cast, " +
             "room 3:9e's post-intro Impa, var03 selection, compound and alternative gates, " +
             "live refresh, and lifecycle-safe hiding.");

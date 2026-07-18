@@ -30,10 +30,12 @@ public sealed class TreasureDatabase
     public const int TreasureTuniNut = 0x4c;
 
     private readonly Dictionary<string, TreasureObjectRecord> _objects = new();
+    private readonly List<TreasureObjectRecord> _objectRows = new();
     private readonly Dictionary<int, BehaviourRecord> _behaviours = new();
     private readonly Dictionary<string, List<DisplayRecord>> _displayRows = new();
 
     public int BehaviourCount => _behaviours.Count;
+    public IReadOnlyList<TreasureObjectRecord> Objects => _objectRows;
 
     public TreasureDatabase()
     {
@@ -119,7 +121,10 @@ public sealed class TreasureDatabase
                 Convert.ToInt32(fields[5], 16),
                 Encoding.UTF8.GetString(Convert.FromBase64String(fields[6])));
             if (!_objects.ContainsKey(record.Name))
+            {
                 _objects.Add(record.Name, record);
+                _objectRows.Add(record);
+            }
         }
     }
 

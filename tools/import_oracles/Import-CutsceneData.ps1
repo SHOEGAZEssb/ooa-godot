@@ -1932,3 +1932,260 @@ if ($nayruCommandRows.Count -lt 200) {
     (Join-Path $destination 'cutscenes\nayru_intro_commands.tsv'),
     $nayruCommandRows,
     [Text.UTF8Encoding]::new($false))
+
+# Room 1:75's pre-Black Tower sequence is seven synchronized interaction
+# lanes. Export the original per-actor scripts independently; runtime advances
+# them in placement order and preserves their cfc0/cfd0 gates.
+$preBlackTowerMainScriptPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
+$preBlackTowerHelperScriptPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
+$preBlackTowerMainScriptSource = Get-Content -Raw $preBlackTowerMainScriptPath
+$preBlackTowerHelperScriptSource = Get-Content -Raw $preBlackTowerHelperScriptPath
+$preBlackTowerOpcodes = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @(
+    'wait', 'showtext', 'writememory', 'setspeed', 'moveup',
+    'moveright', 'movedown', 'moveleft', 'setanimation',
+    'checkmemoryeq', 'checkobjectbyteeq', 'applyspeed', 'asm15',
+    'xorcfc0bit', 'checkcfc0bit', 'spawninteraction',
+    'writeobjectword', 'scriptend')) {
+    [void]$preBlackTowerOpcodes.Add($opcode)
+}
+
+$preBlackTowerActorIds = @{
+    'Ralph' = 0x37
+    'Impa' = 0x31
+    'Nayru' = 0x36
+    'Zelda' = 0xad
+}
+$preBlackTowerDirection = @{
+    'DIR_UP' = 0
+    'DIR_RIGHT' = 1
+    'DIR_DOWN' = 2
+    'DIR_LEFT' = 3
+}
+$preBlackTowerMovement = @{
+    'moveup' = @(0x00, 0)
+    'moveright' = @(0x08, 1)
+    'movedown' = @(0x10, 2)
+    'moveleft' = @(0x18, 3)
+}
+
+function Convert-PreBlackTowerHex([string]$value) {
+    $trimmed = $value.Trim()
+    if ($trimmed -match '^\$(?<hex>[0-9a-f]+)$') {
+        return [Convert]::ToInt32($Matches['hex'], 16)
+    }
+    return [Convert]::ToInt32($trimmed, 10)
+}
+
+function Export-PreBlackTowerLane {
+    param(
+        [string]$script,
+        [string]$actor,
+        [string]$path,
+        [string]$source,
+        [string]$nextLabel,
+        [string]$outputName)
+
+    $endPattern = if ([string]::IsNullOrEmpty($nextLabel)) {
+        '\z'
+    } else {
+        "^$([regex]::Escape($nextLabel)):"
+    }
+    $match = [regex]::Match(
+        $source,
+        "(?ms)^$([regex]::Escape($script)):(?<body>.*?)(?=$endPattern)")
+    if (-not $match.Success) {
+        throw "$path`: could not locate typed pre-Black Tower lane $script."
+    }
+    $parsed = @(Read-AssemblyCutsceneCommands `
+        $path $source $script $match.Groups['body'].Index `
+        $match.Groups['body'].Length $preBlackTowerOpcodes)
+    if ($parsed[-1].Opcode -ne 'scriptend') {
+        throw "$path`:$($parsed[-1].Line): $script does not terminate in scriptend."
+    }
+
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add('# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64')
+    foreach ($command in $parsed) {
+        $opcode = [string]$command.Opcode
+        $operands = [string]$command.Operands
+        $runtimeOpcode = $opcode
+        $runtimeActor = ''
+        $arg0 = ''
+        $arg1 = ''
+        $payload = ''
+
+        switch ($opcode) {
+            'wait' {
+                $arg0 = (Convert-PreBlackTowerHex $operands).ToString()
+            }
+            'showtext' {
+                if ($operands -notmatch '^TX_(?<text>[0-9a-f]{4})$') {
+                    throw "$path`:$($command.Line): unsupported showtext operand '$operands'."
+                }
+                $textId = [Convert]::ToInt32($Matches['text'], 16)
+                if (-not $allTexts.ContainsKey($textId)) {
+                    throw "$path`:$($command.Line): missing TX_$($Matches['text'])."
+                }
+                $arg0 = $Matches['text']
+                $payload = $allTexts[$textId]
+            }
+            'writememory' {
+                $parts = $operands -split '\s*,\s*'
+                if ($parts.Count -ne 2) {
+                    throw "$path`:$($command.Line): malformed writememory '$operands'."
+                }
+                $value = if ($preBlackTowerDirection.ContainsKey($parts[1])) {
+                    $preBlackTowerDirection[$parts[1]]
+                } else { Convert-PreBlackTowerHex $parts[1] }
+                $arg0 = ([int]$value).ToString('x2')
+                $payload = switch -Regex ($parts[0]) {
+                    'wTmpcfc0\.genericCutscene\.cfd0' { 'SharedSignal'; break }
+                    'w1Link\.direction' { 'PlayerDirection'; break }
+                    default { throw "$path`:$($command.Line): unsupported writememory binding '$($parts[0])'." }
+                }
+            }
+            'setspeed' {
+                if ($operands -notmatch '^SPEED_(?<speed>[0-9a-f]+)$') {
+                    throw "$path`:$($command.Line): unsupported speed '$operands'."
+                }
+                $runtimeActor = $actor
+                $speedName = $Matches['speed'].TrimStart('0')
+                if ([string]::IsNullOrEmpty($speedName)) { $speedName = '0' }
+                $arg0 = (Resolve-ObjectSpeed $speedName).ToString('x2')
+            }
+            { $preBlackTowerMovement.ContainsKey($_) } {
+                $movement = $preBlackTowerMovement[$opcode]
+                $animation = [int]$movement[1]
+                $runtimeOpcode = 'move'
+                $runtimeActor = $actor
+                $arg0 = ([int]$movement[0]).ToString('x2')
+                $arg1 = (Convert-PreBlackTowerHex $operands).ToString('x2')
+                $payload = Resolve-NpcAnimation $preBlackTowerActorIds[$actor] $animation
+                if (-not $payload) {
+                    throw "$path`:$($command.Line): missing $actor movement animation $animation."
+                }
+            }
+            'setanimation' {
+                $animation = Convert-PreBlackTowerHex $operands
+                $runtimeActor = $actor
+                $arg0 = $animation.ToString('x2')
+                $payload = Resolve-NpcAnimation $preBlackTowerActorIds[$actor] $animation
+                if (-not $payload) {
+                    throw "$path`:$($command.Line): missing $actor animation $animation."
+                }
+            }
+            'checkmemoryeq' {
+                $parts = $operands -split '\s*,\s*'
+                if ($parts.Count -ne 2 -or $parts[0] -ne 'wTmpcfc0.genericCutscene.cfd0') {
+                    throw "$path`:$($command.Line): unsupported checkmemoryeq '$operands'."
+                }
+                $arg0 = (Convert-PreBlackTowerHex $parts[1]).ToString('x2')
+                $payload = 'SharedSignal'
+            }
+            'checkobjectbyteeq' {
+                $parts = $operands -split '\s*,\s*'
+                if ($parts.Count -ne 2) {
+                    throw "$path`:$($command.Line): malformed checkobjectbyteeq '$operands'."
+                }
+                $runtimeOpcode = 'checkmemoryeq'
+                $arg0 = (Convert-PreBlackTowerHex $parts[1]).ToString('x2')
+                $payload = switch ($parts[0]) {
+                    'Interaction.substate' { "${actor}Substate" }
+                    'Interaction.var38' { "${actor}Var38" }
+                    default { throw "$path`:$($command.Line): unsupported object binding '$($parts[0])'." }
+                }
+            }
+            'applyspeed' {
+                $runtimeActor = $actor
+                $arg0 = (Convert-PreBlackTowerHex $operands).ToString('x2')
+            }
+            'asm15' {
+                if ($operands -match '^setGlobalFlag,\s*GLOBALFLAG_RALPH_ENTERED_BLACK_TOWER$') {
+                    $runtimeOpcode = 'setglobalflag'
+                    $arg0 = '45'
+                } elseif ($operands -match '^scriptHelp\.ralph_createExclamationMarkShiftedRight,\s*\$1e$') {
+                    $runtimeOpcode = 'native'
+                    $payload = 'CreateLinkedExclamation'
+                } else {
+                    throw "$path`:$($command.Line): unsupported asm15 handler '$operands'."
+                }
+            }
+            'xorcfc0bit' {
+                $bit = Convert-PreBlackTowerHex $operands
+                $runtimeOpcode = 'writememory'
+                $arg0 = (1 -shl $bit).ToString('x2')
+                $payload = 'ToggleSharedBit'
+            }
+            'checkcfc0bit' {
+                $bit = Convert-PreBlackTowerHex $operands
+                $runtimeOpcode = 'checkmemoryeq'
+                $arg0 = '01'
+                $payload = "SharedBit$bit"
+            }
+            'spawninteraction' {
+                if ($operands -ne 'INTERAC_NAYRU, $09, $f8, $48') {
+                    throw "$path`:$($command.Line): unexpected spawninteraction '$operands'."
+                }
+                $runtimeOpcode = 'nativeyield'
+                $payload = 'SpawnNayru09'
+            }
+            'writeobjectword' {
+                if ($operands -ne 'Interaction.speedZ, -$180') {
+                    throw "$path`:$($command.Line): unexpected writeobjectword '$operands'."
+                }
+                $runtimeOpcode = 'nativeyield'
+                $payload = "Begin${actor}Jump"
+            }
+            'scriptend' { }
+            default {
+                throw "$path`:$($command.Line): unsupported converted opcode '$opcode'."
+            }
+        }
+
+        $rows.Add((New-CutsceneCommandRow `
+            $script $command.Index $command.Label $command.Line `
+            $runtimeOpcode $runtimeActor $arg0 $arg1 $payload))
+    }
+    [IO.File]::WriteAllLines(
+        (Join-Path $destination "cutscenes\$outputName"),
+        $rows,
+        [Text.UTF8Encoding]::new($false))
+}
+
+$preBlackTowerLaneSpecs = @(
+    @('ralphSubid0aScript_unlinked', 'Ralph', $preBlackTowerMainScriptPath, $preBlackTowerMainScriptSource, 'ralphSubid0aScript_linked', 'pre_black_tower_ralph_unlinked.tsv'),
+    @('ralphSubid0aScript_linked', 'Ralph', $preBlackTowerMainScriptPath, $preBlackTowerMainScriptSource, 'ralphSubid0bScript', 'pre_black_tower_ralph_linked.tsv'),
+    @('impaScript4', 'Impa', $preBlackTowerHelperScriptPath, $preBlackTowerHelperScriptSource, 'impaScript5', 'pre_black_tower_impa_unlinked.tsv'),
+    @('impaScript5', 'Impa', $preBlackTowerHelperScriptPath, $preBlackTowerHelperScriptSource, 'impaScript7', 'pre_black_tower_impa_linked.tsv'),
+    @('nayruScript09', 'Nayru', $preBlackTowerMainScriptPath, $preBlackTowerMainScriptSource, 'nayruScript0a', 'pre_black_tower_nayru_unlinked.tsv'),
+    @('nayruScript0a', 'Nayru', $preBlackTowerMainScriptPath, $preBlackTowerMainScriptSource, 'nayruScript10', 'pre_black_tower_nayru_linked.tsv'),
+    @('zeldaSubid04Script', 'Zelda', $preBlackTowerMainScriptPath, $preBlackTowerMainScriptSource, 'zeldaSubid05Script', 'pre_black_tower_zelda_linked.tsv')
+)
+foreach ($lane in $preBlackTowerLaneSpecs) {
+    Export-PreBlackTowerLane @lane
+}
+
+$preBlackTowerExclamationGraphic = $interactionGraphics['159:0']
+$preBlackTowerExclamationAnimation = Resolve-NpcAnimation 0x9f 0
+if ($null -eq $preBlackTowerExclamationGraphic -or
+    -not $gfxNames.ContainsKey($preBlackTowerExclamationGraphic.Gfx) -or
+    -not $preBlackTowerExclamationAnimation) {
+    throw 'Could not resolve the pre-Black Tower exclamation effect graphics.'
+}
+$preBlackTowerEventRows = @(
+    "# group`troom`tmaku-seed`tcompletion-flag`tralph-entered-flag`tclink-sound`tgravity`tralph-id`tralph-subid`timpa-id`timpa-unlinked-subid`timpa-linked-subid`tnayru-id`tnayru-linked-subid`tnayru-spawned-subid`tzelda-id`tzelda-subid`teffect-id`teffect-subid`teffect-sprite`teffect-tile-base`teffect-palette`teffect-animation",
+    (@(
+        '1', '75', '36', '33', '45', '50', '20', '37', '0a', '31', '04', '05',
+        '36', '0a', '09', 'ad', '04', '9f', '00',
+        $gfxNames[$preBlackTowerExclamationGraphic.Gfx],
+        $preBlackTowerExclamationGraphic.TileBase.ToString(),
+        $preBlackTowerExclamationGraphic.Palette.ToString(),
+        $preBlackTowerExclamationAnimation
+    ) -join "`t")
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\pre_black_tower_event.tsv'),
+    $preBlackTowerEventRows,
+    [Text.UTF8Encoding]::new($false))

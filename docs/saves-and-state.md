@@ -63,6 +63,11 @@ or seeds do not emit nested change notifications; the completed transaction
 notifies and serializes observers once. This keeps HUD refreshes and persistence
 hooks from seeing partial or duplicate commits.
 
+The F1 debug editor follows the same ownership boundaries: linked-game state is
+written through the typed `$c612` save accessor, and item grants select an
+imported treasure object and pass it through `InventoryState`. Debug changes do
+not bypass the live image or trigger an automatic disk save.
+
 When adding a state field:
 
 1. Find its real WRAM address, width, encoding, masks, and initial value.

@@ -39,6 +39,7 @@ public sealed class OracleSaveData
     public const int GlobalFlagReturnedDog = 0x3b;
     public const int GlobalFlagRalphEnteredPortal = 0x40;
     public const int GlobalFlagEnterPastCutsceneDone = 0x41;
+    public const int GlobalFlagRalphEnteredBlackTower = 0x45;
 
     public const int ChildNameAddress = 0xc609;
     public const int ChildStatusAddress = 0xc60f;
@@ -173,6 +174,12 @@ public sealed class OracleSaveData
         if (state is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(state));
         if (WriteWramByte(0xc6e8, (byte)state))
+            Changed?.Invoke();
+    }
+
+    public void SetLinkedGame(bool linked)
+    {
+        if (WriteWramByte(0xc612, linked ? (byte)0x01 : (byte)0x00))
             Changed?.Invoke();
     }
 

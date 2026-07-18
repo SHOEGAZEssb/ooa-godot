@@ -212,7 +212,8 @@ public partial class GameRoot : Node2D
         _mapScreen.Initialize(_rooms, _inventory);
         _inventoryScreen.Initialize(_treasures, _inventory,
             () => _rooms.ActiveGroup is 1 or 3);
-        _debugFlagScreen.Initialize(_saveData, new GlobalFlagDatabase());
+        _debugFlagScreen.Initialize(
+            _saveData, new GlobalFlagDatabase(), _treasures, _inventory);
         CreateControllers();
 
         bool useSavedSpawn = !_launchOptions.HasWorldOverride && _persistSaveData;

@@ -27,8 +27,11 @@ claim that the entire surrounding game is complete.
 ### NPCs and enemies
 
 - Representative NPCs, including past Lynna room `1:48`'s pickaxe worker and
-  story-selected cast, room `1:49`'s linked family tableau, and room `1:58`'s
-  complete hobo/Impa/Nayru story predicates, dialogue, facing, and placement.
+  story-selected cast, room `1:49`'s linked family tableau, room `1:57`'s
+  palette- and story-selected female villager, and room `1:58`'s complete
+  hobo/Impa/Nayru story predicates, dialogue, facing, and placement. Room
+  `1:75` includes both mutually exclusive Black Tower hardhat phases with
+  exact `getBlackTowerProgress` predicates and text.
 - Keese, Octoroks/projectiles, Zols, and Gels using ordered room-object placement,
   original spawn restrictions, shared RNG, combat, and drop paths.
 
@@ -38,6 +41,9 @@ claim that the entire surrounding game is complete.
   first arrival in the past, the Maku Tree disappearance, and Nayru's
   introduction/aftermath. Script-driven portions use the typed command runner;
   native transition/presentation objects retain specialized controllers.
+- Room `1:75`'s complete linked and unlinked pre-Black Tower sequences,
+  including Ralph's departure, the heritage scene, coordinated Impa/Nayru/Zelda
+  lanes, Link movement, spawned effects, and persistent completion state.
 
 ### Interface and persistence
 

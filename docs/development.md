@@ -64,13 +64,21 @@ Development controls are intentionally separate from game behavior:
 | Key | Development action |
 | --- | --- |
 | F | Fully revealed map and fast travel; F switches era while open |
-| F1 | Live global/room flag editor |
+| F1 | Live global/room flag, linked-game, and item grant editor |
 | T | Sign test warp |
 | Y | Animated water/lava test rooms |
 | B | Sword and bush test warp |
 | H | House warp test |
 | C | Chest test |
 | G | Power Bracelet chest test |
+
+In the F1 editor, Tab cycles through global flags, room flags, and linked/items.
+Use Up/Down to select a row, Left/Right to jump through global flags or imported
+treasure variants (and to change the selected room/table on the room page), and
+A to toggle a flag or the linked-game bit. On an item row, A grants that exact
+imported treasure variant and parameter through the live inventory transaction.
+These changes affect the live WRAM-style state and follow the normal explicit
+save rules.
 
 ## Normal change cycle
 

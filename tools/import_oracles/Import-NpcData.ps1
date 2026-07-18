@@ -387,6 +387,46 @@ $npcInitialAnimationBySubid['57:2'] =
 $npcInitialAnimationBySubid['57:3'] =
     [Convert]::ToInt32($introMonkeyAnimationMatch.Groups['subid3'].Value, 16)
 
+# Room 1:75 contains the pre-Black Tower ensemble and two var03-selected
+# hardhat workers. Pin the initial animation writes performed by the linked
+# Impa/Nayru initializers; their script lanes use all four facing animations.
+$preBlackTowerImpaSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\impaInCutscene.s')
+$preBlackTowerNayruSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\nayru.s')
+$preBlackTowerHardhatSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\hardhatWorker.s')
+$preBlackTowerScriptsSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\scripts.s')
+$preBlackTowerScriptHelperSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+$blackTowerProgressSource = Get-Content -Raw (
+    Join-Path $Disassembly 'code\bank0.s')
+if ($preBlackTowerImpaSource -notmatch '(?ms)^@init4:.*?checkIsLinkedGame.*?xor a\s+ld \(\$cfc0\),a.*?^@init5:.*?checkIsLinkedGame.*?ld a,\$03\s+call interactionSetAnimation' -or
+    $preBlackTowerNayruSource -notmatch '(?ms)^@init09:.*?mainScripts\.nayruScript09.*?^@init0a:.*?checkIsLinkedGame.*?TREASURE_MAKU_SEED.*?GLOBALFLAG_PRE_BLACK_TOWER_CUTSCENE_DONE.*?ld a,\$01\s+call interactionSetAnimation\s+ld hl,mainScripts\.nayruScript0a' -or
+    $preBlackTowerHardhatSource -notmatch '(?ms)^@scriptTable:\s+\.dw mainScripts\.hardhatWorkerSubid00Script\s+\.dw mainScripts\.hardhatWorkerSubid01Script' -or
+    $preBlackTowerScriptsSource -notmatch '(?ms)^hardhatWorkerSubid01Script:.*?^@var03_00:.*?hardhatWorker_checkBlackTowerProgressIs00.*?<TX_1007.*?^@var03_01:.*?hardhatWorker_checkBlackTowerProgressIs01.*?<TX_1008' -or
+    $preBlackTowerScriptHelperSource -notmatch '(?ms)^hardhatWorker_checkBlackTowerProgressIs00:\s+call getBlackTowerProgress\s+jp writeFlagsTocddb.*?^hardhatWorker_checkBlackTowerProgressIs01:\s+call getBlackTowerProgress\s+cp \$01\s+jp writeFlagsTocddb' -or
+    $blackTowerProgressSource -notmatch '(?ms)^getBlackTowerProgress:\s+push bc\s+ld c,\$02\s+ld a,\(wPresentRoomFlags\+\$90\)\s+bit ROOMFLAG_BIT_40,a\s+jr nz,\+\+\s+dec c\s+ld a,\(wPresentRoomFlags\+\$ba\)\s+bit ROOMFLAG_BIT_40,a\s+jr nz,\+\+\s+dec c\s+\+\+\s+ld a,c\s+pop bc\s+ret') {
+    throw 'Room 1:75 pre-Black Tower actor initialization changed in the disassembly.'
+}
+$npcInitialAnimationBySubid['49:5'] = 3
+$npcInitialAnimationBySubid['54:10'] = 1
+
+# Room 1:57's female villager overwrites the palette loaded from interaction
+# data after interactionInitGraphics. Pin the full initializer and table shape
+# so the ordinary NPC row receives the final OAM palette used for drawing.
+$room157VillagerSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\femaleVillager.s')
+if ($room157VillagerSource -notmatch '(?ms)^@initSubid05:\s+ld a,\$01\s+ld e,Interaction\.oamFlags\s+ld \(de\),a\s+callab agesInteractionsBank09\.getGameProgress_2\s+ld c,\$05\s+ld a,\$02\s+call checkNpcShouldExistAtGameStage\s+jp nz,interactionDelete.*?ld hl,@subid5ScriptTable.*?jp objectSetVisible82' -or
+    $room157VillagerSource -notmatch '(?ms)^@runScriptAndAnimateFacingLink:\s+call interactionRunScript\s+jp npcFaceLinkAndAnimate' -or
+    $room157VillagerSource -notmatch '(?ms)^@subid5ScriptTable:\s+\.dw mainScripts\.villagerGalSubid05Script_befored2\s+\.dw mainScripts\.villagerGalSubid05Script_afterd2\s+\.dw mainScripts\.villagerGalSubid05Script_afterd4\s+\.dw mainScripts\.villagerGalSubid05Script_afterNayruSaved\s+\.dw mainScripts\.villagerGalSubid05Script_afterd7\s+\.dw mainScripts\.villagerGalSubid05Script_afterd7\s+\.dw mainScripts\.villagerGalSubid05Script_twinrovaKidnappedZelda\s+\.dw mainScripts\.villagerGalSubid05Script_twinrovaKidnappedZelda') {
+    throw 'Room 1:57 female villager $3b:$05 initialization changed in the disassembly.'
+}
+$npcPaletteBySubid = @{
+    '59:5' = 1
+}
+
 # Room 1:58's late-story Impa and Nayru select their fixed text in assembly
 # before entering a generic NPC script. Preserve those selections and their
 # directional facing behavior instead of leaving the positioned records at the
@@ -408,9 +448,16 @@ if ($room158HoboSource -notmatch '(?ms)^@subid4:.*?getGameProgress_2.*?cp \$03\s
 }
 $npcTextBySubid['79:2'] = 0x012f
 $npcTextBySubid['54:13'] = 0x1d17
+$npcTextByVariant = @{
+    '88:1:0' = 0x1007
+    '88:1:1' = 0x1008
+}
 $npcCanFaceBySubid = @{
     '79:2' = $true
     '54:13' = $true
+    '49:4' = $true
+    '49:5' = $true
+    '88:1' = $true
 }
 
 function New-NpcDataRow(
@@ -433,6 +480,8 @@ function New-NpcDataRow(
     [void]$npcSpriteNames.Add($spriteName)
     $textId = if ($textIdOverride -ge 0) {
         $textIdOverride
+    } elseif ($npcTextByVariant.ContainsKey("$id`:$subid`:$var03")) {
+        $npcTextByVariant["$id`:$subid`:$var03"]
     } elseif ($npcTextBySubid.ContainsKey("$id`:$subid")) {
         $npcTextBySubid["$id`:$subid"]
     } else {
@@ -446,6 +495,11 @@ function New-NpcDataRow(
         $npcInitialAnimationBySubid["$id`:$subid"]
     } else {
         $graphic.DefaultAnimation
+    }
+    $palette = if ($npcPaletteBySubid.ContainsKey("$id`:$subid")) {
+        [int]$npcPaletteBySubid["$id`:$subid"]
+    } else {
+        [int]$graphic.Palette
     }
     $canFace = if ($canFaceOverride -ge 0) {
         $canFaceOverride -ne 0
@@ -467,7 +521,7 @@ function New-NpcDataRow(
     if (-not $upOam) { $upOam = $downOam }
     if (-not $rightOam) { $rightOam = $downOam }
     if (-not $leftOam) { $leftOam = $downOam }
-    return "$group`t$($room.ToString('x2'))`t$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($y.ToString('x2'))`t$($x.ToString('x2'))`t$($var03.ToString('x2'))`t$($textId.ToString('x4'))`t$spriteName`t$($graphic.TileBase)`t$($graphic.Palette)`t$initialAnimation`t$([int]$canFace)`t$upOam`t$rightOam`t$downOam`t$leftOam`t$encoded"
+    return "$group`t$($room.ToString('x2'))`t$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($y.ToString('x2'))`t$($x.ToString('x2'))`t$($var03.ToString('x2'))`t$($textId.ToString('x4'))`t$spriteName`t$($graphic.TileBase)`t$palette`t$initialAnimation`t$([int]$canFace)`t$upOam`t$rightOam`t$downOam`t$leftOam`t$encoded"
 }
 
 # Room object data is grouped by room label. Positioned interactions are
@@ -476,9 +530,15 @@ function New-NpcDataRow(
 $npcRows = [Collections.Generic.List[string]]::new()
 $npcRows.Add("# group`troom`tid`tsubid`ty`tx`tvar03`ttext-id`tsprite`ttile-base`tpalette`tdefault-animation`tcan-face`tup-animation`tright-animation`tdown-animation`tleft-animation`tutf8-base64")
 $mainObjectLines = Get-Content (Join-Path $Disassembly "objects\ages\mainData.s")
-$room158ObjectSource = $mainObjectLines -join "`n"
-if ($room158ObjectSource -notmatch '(?ms)^group1Map58ObjectData:\s+obj_Interaction \$44 \$04 \$48 \$48\s+obj_Interaction \$4f \$02 \$48 \$48\s+obj_Interaction \$36 \$0d \$48 \$38\s+obj_End') {
+$mainObjectSource = $mainObjectLines -join "`n"
+if ($mainObjectSource -notmatch '(?ms)^group1Map57ObjectData:\s+obj_Interaction \$3b \$05 \$38 \$48\s+obj_End') {
+    throw 'Room 1:57 no longer contains female villager $3b:$05 at $38,$48.'
+}
+if ($mainObjectSource -notmatch '(?ms)^group1Map58ObjectData:\s+obj_Interaction \$44 \$04 \$48 \$48\s+obj_Interaction \$4f \$02 \$48 \$48\s+obj_Interaction \$36 \$0d \$48 \$38\s+obj_End') {
     throw 'Room 1:58 no longer contains ordered hobo $44:$04, Impa $4f:$02, and Nayru $36:$0d placements.'
+}
+if ($mainObjectSource -notmatch '(?ms)^group1Map75ObjectData:\s+obj_Interaction \$37 \$0a \$58 \$60\s+obj_Interaction \$31 \$04 \$f8 \$58\s+obj_Interaction \$31 \$05 \$58 \$60\s+obj_Interaction \$36 \$0a \$58 \$40\s+obj_Interaction \$ad \$04 \$48 \$50\s+obj_Interaction \$58 \$01 \$58 \$48 \$00\s+obj_Interaction \$58 \$01 \$58 \$28 \$01\s+obj_End') {
+    throw 'Room 1:75 pre-Black Tower ensemble and hardhat worker order changed.'
 }
 $currentGroup = -1
 $currentRoom = -1
@@ -1047,10 +1107,11 @@ Add-NpcGameProgress1DialogueTable 0x44 @(0x02, 0x03) -1 'miscMan2.s' 'lynnaMan2S
 Add-NpcGameProgress1DialogueTable 0x41 @(0x01, 0x02, 0x03, 0x04, 0x05, 0x06) -1 'miscMan.s' '@scriptTable' 1 $true
 Add-NpcGameProgress2DialogueTable 0x3a @(0x06, 0x07) -1 'villager.s' '@subid6And7ScriptTable'
 Add-NpcGameProgress2DialogueTable 0x38 @(0x00) -1 'pastGirl.s' '@scriptTable'
+Add-NpcGameProgress2DialogueTable 0x3b @(0x05) -1 'femaleVillager.s' '@subid5ScriptTable'
 Add-NpcGameProgress2DialogueTable 0x44 @(0x04) -1 'miscMan2.s' 'pastHoboScriptTable'
 
-if ($npcDialogueRows.Count -ne 92) {
-    throw "Expected 91 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
+if ($npcDialogueRows.Count -ne 100) {
+    throw "Expected 99 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\npc_dialogue.tsv'),
@@ -1083,7 +1144,8 @@ function Confirm-NpcVisibilitySource([string]$source, [string]$token) {
     if (-not $npcVisibilitySources.ContainsKey($file)) {
         $path = @(
             (Join-Path $Disassembly "object_code\ages\interactions\$file"),
-            (Join-Path $Disassembly "scripts\ages\$file")
+            (Join-Path $Disassembly "scripts\ages\$file"),
+            (Join-Path $Disassembly "code\$file")
         ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
         if (-not $path) {
             throw "NPC visibility source not found: $file"
@@ -1318,6 +1380,14 @@ Add-NpcLinkedVisibility 0x4c 0x04 -1 0 $true 'bird.s:@initSubid04'
 Add-NpcGlobalVisibility 0x4c 0x04 -1 0 'GLOBALFLAG_GOT_RING_FROM_ZELDA' $false 'bird.s:@initSubid04'
 Add-NpcLinkedVisibility 0x68 0x00 -1 0 $true 'rosa.s:@@state0'
 Add-NpcEssenceVisibility 0x68 0x00 -1 0 0x04 $false 'rosa.s:@@state0' 'wEssencesObtained'
+# getBlackTowerProgress checks room $90 before room $ba. Progress $00 therefore
+# requires both entrance flags clear; progress $01 requires $ba set while $90
+# remains clear. The var03 $00/$01 hardhats delete themselves outside those
+# exact mutually exclusive states.
+Add-NpcSpecificRoomVisibility 0x58 0x01 0 0 0 0x90 0x40 $false 'bank0.s:getBlackTowerProgress' 'wPresentRoomFlags+$90'
+Add-NpcSpecificRoomVisibility 0x58 0x01 0 0 0 0xba 0x40 $false 'bank0.s:getBlackTowerProgress' 'wPresentRoomFlags+$ba'
+Add-NpcSpecificRoomVisibility 0x58 0x01 1 0 0 0x90 0x40 $false 'bank0.s:getBlackTowerProgress' 'wPresentRoomFlags+$90'
+Add-NpcSpecificRoomVisibility 0x58 0x01 1 0 0 0xba 0x40 $true 'bank0.s:getBlackTowerProgress' 'wPresentRoomFlags+$ba'
 Add-NpcEssenceVisibility 0x58 0x02 -1 0 0x08 $false 'hardhatWorker.s:@@state0' 'wEssencesObtained'
 
 # The linked Lynna subrosian exists only for getGameProgress_2 states $05 or
@@ -1394,6 +1464,7 @@ Add-NpcGameProgress1SetVisibility 0x3a 0x05 -1 @(4) 'villager.s:@initSubid05'
 Add-NpcGameProgress1SetVisibility 0x44 0x02 -1 @(0, 1, 2) 'miscMan2.s:@subid2'
 Add-NpcGameProgress1SetVisibility 0x44 0x03 -1 @(3, 4, 5) 'miscMan2.s:@subid3'
 Add-NpcGameProgress2Visibility 0x44 0x04 -1 0 0x03 $false 'miscMan2.s:@subid4'
+Add-NpcGameProgress2SetVisibility 0x3b 0x05 -1 @(0, 1, 2, 3, 5, 6) 'femaleVillager.s:@initSubid05'
 Add-NpcGameProgress2SetVisibility 0x3a 0x06 -1 @(0, 1, 2) 'villager.s:@initSubid06'
 Add-NpcGameProgress2SetVisibility 0x3a 0x07 -1 @(3, 4, 5, 6, 7) 'villager.s:@initSubid07'
 Add-NpcGameProgress2SetVisibility 0x38 0x00 -1 @(0, 3, 4, 5, 6, 7) 'pastGirl.s:@subid0Init'
@@ -1536,8 +1607,8 @@ Add-NpcCurrentRoomVisibility 0xab 0x12 -1 0 0x40 $false 'zora.s:@deleteIfFlagSet
 
 Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symmetryNpc.s:@subid0cInit'
 
-if ($npcVisibilityRows.Count -ne 319) {
-    throw "Expected 318 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 329) {
+    throw "Expected 328 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\npc_visibility.tsv'),

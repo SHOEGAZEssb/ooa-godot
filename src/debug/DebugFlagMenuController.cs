@@ -41,7 +41,7 @@ public sealed class DebugFlagMenuController
         if (!IsActive)
             return;
         if (Input.IsActionJustPressed("attack"))
-            _screen.ToggleSelectedFlag();
+            _screen.ActivateSelection();
         else if (Input.IsActionJustPressed("move_up"))
             _screen.MoveVertical(-1);
         else if (Input.IsActionJustPressed("move_down"))
