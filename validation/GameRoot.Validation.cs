@@ -7942,14 +7942,21 @@ public sealed class ValidationGameRoot : GameRoot
         }
         FinishActiveScrollingTransitionForValidation();
 
-        _player.WarpTo(new Vector2(stone.ApproachX - 8, stone.ApproachY - 8));
-        StepRoomEventFrames(1);
+        int approachX = stone.ApproachX - 8;
+        _player.WarpTo(
+            new Vector2(approachX, stone.ApproachY + 0x20), recordSafe: false);
+        for (int y = stone.ApproachY + 0x1f; y >= stone.ApproachY - 1; y--)
+        {
+            _player.SetScriptedPosition(new Vector2(approachX, y));
+            StepRoomEventFrames(1);
+        }
+        int retainedStoneCutscenePriority = follower.ZIndex;
         if (stoneActor.ZIndex != NpcCharacter.FixedLowPriorityZIndex ||
-            follower.ZIndex <= stoneActor.ZIndex)
+            retainedStoneCutscenePriority != NpcCharacter.InFrontOfLinkZIndex)
         {
             throw new InvalidOperationException(
                 "INTERAC_TRIFORCE_STONE priority 3 did not remain below follower Impa's " +
-                "priority 1/2 after the room-entity priority update.");
+                "trigger-frame priority 2 after Link approached from below.");
         }
         if (!_player.CutsceneControlled || !_roomEvents.Active ||
             impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.SpotJumpHold ||
@@ -7990,10 +7997,12 @@ public sealed class ValidationGameRoot : GameRoot
         }
         if (impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.AtStoneWait ||
             follower.Position != new Vector2(stone.TargetX, stone.TargetY) ||
-            !Mathf.IsEqualApprox(follower.AnimationRate, 1.0f))
+            !Mathf.IsEqualApprox(follower.AnimationRate, 1.0f) ||
+            follower.ZIndex != retainedStoneCutscenePriority)
         {
             throw new InvalidOperationException(
-                "Impa did not reach $38/$38 at SPEED_300 with the original close-radius snap.");
+                "Impa did not reach $38/$38 at SPEED_300 with the original close-radius " +
+                "snap and retained trigger-frame priority.");
         }
 
         StepRoomEventFrames(timing.StoneWaitFrames + timing.SecondHoldFrames);
@@ -8026,10 +8035,12 @@ public sealed class ValidationGameRoot : GameRoot
         }
         if (!_dialogue.IsOpen || _dialogue.CurrentMessage !=
             DialogueBox.PlainText(record.Texts.Request.Message) ||
-            _player.Position != new Vector2(stone.LinkTargetX, stone.LinkTargetY))
+            _player.Position != new Vector2(stone.LinkTargetX, stone.LinkTargetY) ||
+            follower.ZIndex != retainedStoneCutscenePriority)
         {
             throw new InvalidOperationException(
-                "linkCutscene2 did not route Link through $38/$48 and its 8/60/16 waits before TX_0106.");
+                "linkCutscene2 did not route Link through $38/$48 while Impa retained " +
+                "priority 2 through its 8/60/16 waits before TX_0106.");
         }
         _dialogue.Close();
         int firstRetreatUpdates = 0;
@@ -8148,11 +8159,13 @@ public sealed class ValidationGameRoot : GameRoot
         if (!impaEvent.WaitingNpcInitialized ||
             !_entities.BlocksLink(follower.Position) ||
             !_collision.Collides(follower.Position) || follower.Record.CanFace ||
-            follower.CurrentScriptAnimationSource != impaEvent.Database.Record.RightAnimation)
+            follower.CurrentScriptAnimationSource != impaEvent.Database.Record.RightAnimation ||
+            follower.ZIndex != NpcCharacter.BehindLinkZIndex)
         {
             throw new InvalidOperationException(
                 "genericNpcScript did not install Impa's $06/$06 collision and TX_010b " +
-                "without changing her animation or enabling automatic Link-facing.");
+                "or resume relative priority without changing her animation or enabling " +
+                "automatic Link-facing.");
         }
 
         _player.WarpTo(follower.Position);
@@ -8186,8 +8199,35 @@ public sealed class ValidationGameRoot : GameRoot
         }
         _dialogue.Close();
 
-        _player.WarpTo(new Vector2(stone.InitialX + 16, stone.InitialY));
-        _player.Face(Vector2I.Left);
+        // Approach from the stone's left through the normal movement path. The
+        // original interaction accepts either horizontal side; this verifies
+        // that entity collision leaves Link at the centered pushing distance
+        // and that the room event starts counting rightward input there.
+        _player.WarpTo(new Vector2(stone.InitialX - 23.5f, stone.InitialY));
+        _player.Face(Vector2I.Right);
+        Input.ActionPress("move_right");
+        int leftApproachGuard = 16;
+        while (_player.Position.X < stone.InitialX - 16 && leftApproachGuard-- > 0)
+        {
+            _player._PhysicsProcess(1.0 / 60.0);
+            StepRoomEventFrames(1);
+        }
+        Input.ActionRelease("move_right");
+        if (_player.Position != new Vector2(stone.InitialX - 16, stone.InitialY) ||
+            impaEvent.StonePushCounter != timing.PushHoldFrames - 1 ||
+            !_player.IsPushing)
+        {
+            throw new InvalidOperationException(
+                "The Triforce stone could not be pushed from its left side through normal movement.");
+        }
+        StepRoomEventFrames(1);
+        if (impaEvent.StonePushCounter != timing.PushHoldFrames || _player.IsPushing)
+        {
+            throw new InvalidOperationException(
+                "Releasing the left-side stone push did not reset its hold counter.");
+        }
+
+        _player.Face(Vector2I.Right);
         impaEvent.UpdateStoneFrame(pushing: false);
         if (impaEvent.StonePushCounter != timing.PushHoldFrames)
             throw new InvalidOperationException("The stone push counter did not reset to $14.");
@@ -8195,11 +8235,11 @@ public sealed class ValidationGameRoot : GameRoot
         // Dynamic actors are not room-tile walls, so Link's generic wall-push
         // detector is deliberately false here. Drive the actual room-event
         // input path to ensure the interaction observes the held direction.
-        _player.UpdatePushingState(Vector2.Left);
+        _player.UpdatePushingState(Vector2.Right);
         if (_player.IsPushing)
             throw new InvalidOperationException(
                 "The Triforce stone was incorrectly treated as static room-tile collision.");
-        Input.ActionPress("move_left");
+        Input.ActionPress("move_right");
         Input.ActionPress("attack");
         StepRoomEventFrames(1);
         Input.ActionRelease("attack");
@@ -8215,7 +8255,7 @@ public sealed class ValidationGameRoot : GameRoot
             throw new InvalidOperationException("The Triforce stone moved before 20 centered push updates.");
         }
         StepRoomEventFrames(1);
-        Input.ActionRelease("move_left");
+        Input.ActionRelease("move_right");
         if (impaEvent.CurrentStoneStage != ImpaIntroEvent.StoneStage.PushStarted ||
             !_player.CutsceneControlled || !_player.IsPushing ||
             impaEvent.StoneMoveCounter != timing.StoneMoveFrames)
@@ -8237,33 +8277,32 @@ public sealed class ValidationGameRoot : GameRoot
                     $"on update {update} (Link={_player.Position}, stone={stoneActor.Position}).");
             }
         }
-        if (_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag40) ||
+        if (_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag80) ||
             impaEvent.StoneMoveCounter != 1)
         {
-            throw new InvalidOperationException("The stone set room flag $40 before counter1 reached zero.");
+            throw new InvalidOperationException("The stone set room flag $80 before counter1 reached zero.");
         }
         StepRoomEventFrames(1);
-        if (!_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag40) ||
-            _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag80) ||
-            stoneActor.Position != new Vector2(stone.LeftX, stone.InitialY) ||
-            _player.Position != new Vector2(0x38, stone.InitialY) ||
+        if (_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag40) ||
+            !_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag80) ||
+            stoneActor.Position != new Vector2(stone.RightX, stone.InitialY) ||
+            _player.Position != new Vector2(0x37, stone.InitialY) ||
             _collision.Collides(_player.Position) ||
-            _currentRoom.GetMetatile(new Vector2(stone.LeftX, stone.MovedY)) !=
+            _currentRoom.GetMetatile(new Vector2(stone.RightX, stone.MovedY)) !=
                 stone.FinalLayoutTile ||
-            !_currentRoom.IsSolid(new Vector2(stone.LeftX, stone.MovedY)))
+            !_currentRoom.IsSolid(new Vector2(stone.RightX, stone.MovedY)))
         {
             throw new InvalidOperationException(
-                "The left-pushed stone did not snap to X=$28, leave Link outside at X=$38, " +
-                $"set room flag $40, and install collision $0f (flags=" +
+                "The right-pushed stone did not snap to X=$48, leave Link outside at X=$37, " +
+                $"set room flag $80, and install collision $0f (flags=" +
                 $"{_saveData.GetRoomFlags(group, room):x2}, stone={stoneActor.Position}, " +
                 $"Link={_player.Position}, LinkCollision={_collision.Collides(_player.Position)}, " +
-                $"tile={_currentRoom.GetMetatile(new Vector2(stone.LeftX, stone.MovedY)):x2}, " +
-                $"solid={_currentRoom.IsSolid(new Vector2(stone.LeftX, stone.MovedY))}).");
+                $"tile={_currentRoom.GetMetatile(new Vector2(stone.RightX, stone.MovedY)):x2}, " +
+                $"solid={_currentRoom.IsSolid(new Vector2(stone.RightX, stone.MovedY))}).");
         }
 
         int responseUpdates = 0;
         bool sawRightFacingReunion = false;
-        bool sawUpFacingCorrection = false;
         while (!_dialogue.IsOpen && responseUpdates++ < 400)
         {
             StepRoomEventFrames(1);
@@ -8280,27 +8319,15 @@ public sealed class ValidationGameRoot : GameRoot
                         "Impa did not retain animation $01 while moving right to rejoin Link.");
                 }
             }
-            if (!sawUpFacingCorrection && commandTrace.Entries.Any(entry =>
-                entry.Source.Script == "impaScript_rockJustMoved" &&
-                entry.Source.CommandIndex == 13 &&
-                entry.Phase == CutsceneCommandTracePhase.Started))
-            {
-                sawUpFacingCorrection = true;
-                if (follower.FacingVector != Vector2I.Up)
-                {
-                    throw new InvalidOperationException(
-                        "moveup $11 did not select Impa's up-facing animation before correction movement.");
-                }
-            }
         }
         if (!_dialogue.IsOpen || _dialogue.CurrentMessage !=
             DialogueBox.PlainText(record.Texts.Thanks.Message) ||
             responseUpdates >= 400 || !sawRightFacingReunion ||
-            !sawUpFacingCorrection)
+            _player.FacingVector != Vector2I.Down || _player.IsPushing)
         {
             throw new InvalidOperationException(
-                "Impa's left-push 4+65+120 response, SPEED_100 move, moveup $11, " +
-                "or TX_0109 timing stalled.");
+                "Impa's right-push 4+65+120 response, SPEED_100 move, " +
+                "cfd0=$07 Link pose reset, or TX_0109 timing stalled.");
         }
         _dialogue.Close();
         int finishUpdates = 0;
@@ -8331,133 +8358,129 @@ public sealed class ValidationGameRoot : GameRoot
                 "and rebuild following.");
         }
 
-        CutsceneCommandTraceEntry[] leftPostPushStarts = commandTrace.Entries
+        CutsceneCommandTraceEntry[] rightPostPushStarts = commandTrace.Entries
             .Where(entry =>
                 entry.Source.Script == "impaScript_rockJustMoved" &&
                 entry.Phase == CutsceneCommandTracePhase.Started)
             .ToArray();
+        int[] expectedRightPostPushCommands =
+        {
+            0, 1, 6, 7, 8, 9, 10, 11, 12, 15, 16, 17, 18, 19, 20, 21, 22
+        };
+        if (rightPostPushStarts.Length != expectedRightPostPushCommands.Length ||
+            rightPostPushStarts.Where((entry, pathIndex) =>
+                entry.Source.CommandIndex != expectedRightPostPushCommands[pathIndex] ||
+                entry.Source.SourceLine <= 0 ||
+                (pathIndex > 0 && entry.Source.SourceLine <=
+                    rightPostPushStarts[pathIndex - 1].Source.SourceLine))
+            .Any())
+        {
+            throw new InvalidOperationException(
+                "The right-push impaScript_rockJustMoved trace did not follow the " +
+                "imported branch and source order.");
+        }
+
+        CutsceneCommandTraceEntry PrimaryRightCompleted(int commandIndex) =>
+            commandTrace.Entries.Single(entry =>
+                entry.Source.Script == "impaScript_rockJustMoved" &&
+                entry.Source.CommandIndex == commandIndex &&
+                entry.Phase == CutsceneCommandTracePhase.Completed);
+        int PrimaryRightStartedUpdate(int commandIndex) => rightPostPushStarts.Single(entry =>
+            entry.Source.CommandIndex == commandIndex).ScriptUpdate;
+        int PrimaryRightDuration(int commandIndex) =>
+            PrimaryRightCompleted(commandIndex).ScriptUpdate -
+            PrimaryRightStartedUpdate(commandIndex);
+        if (PrimaryRightCompleted(1).NextCommandIndex != 6 ||
+            PrimaryRightCompleted(12).NextCommandIndex != 15 ||
+            PrimaryRightDuration(0) != timing.ReactionLeadFrames ||
+            PrimaryRightDuration(6) != timing.RightBranchWaitFrames ||
+            PrimaryRightDuration(7) != timing.CommonWaitFrames ||
+            PrimaryRightDuration(10) != timing.ResponseRightFrames ||
+            PrimaryRightDuration(11) != timing.ResponseWait1Frames ||
+            PrimaryRightDuration(17) != timing.PoseWaitFrames ||
+            PrimaryRightDuration(19) != timing.ThanksPostFrames ||
+            PrimaryRightDuration(21) != timing.FinalMoveFrames ||
+            PrimaryRightStartedUpdate(1) != PrimaryRightCompleted(0).ScriptUpdate ||
+            PrimaryRightStartedUpdate(6) != PrimaryRightCompleted(0).ScriptUpdate ||
+            PrimaryRightStartedUpdate(12) != PrimaryRightCompleted(11).ScriptUpdate ||
+            PrimaryRightStartedUpdate(15) != PrimaryRightStartedUpdate(12) ||
+            PrimaryRightStartedUpdate(16) != PrimaryRightStartedUpdate(15) ||
+            PrimaryRightStartedUpdate(18) != PrimaryRightCompleted(17).ScriptUpdate ||
+            PrimaryRightStartedUpdate(20) != PrimaryRightCompleted(19).ScriptUpdate ||
+            PrimaryRightStartedUpdate(22) != PrimaryRightCompleted(21).ScriptUpdate + 1)
+        {
+            throw new InvalidOperationException(
+                "The right-push post-stone script lost a branch decision, counter duration, " +
+                "yield boundary, or same-update continuation.");
+        }
+
+        // Execute the imported left-push branch independently of room state;
+        // the right path above covers the complete native stone/Link integration.
+        // This second lane proves both jump targets and all skipped commands.
+        var leftPostPushHost = new ValidationImpaPostPushHost(linkAngle: 0x18);
+        var leftPostPushRunner = new CutsceneCommandRunner(leftPostPushHost);
+        leftPostPushRunner.Start(impaEvent.Database.StonePostPushCommands);
+        int leftGuard = 0;
+        while (leftPostPushRunner.Active && leftGuard++ < 500)
+        {
+            leftPostPushHost.AdvanceValidationFrame();
+            leftPostPushRunner.AdvanceFrame();
+            if (leftPostPushHost.DialogueOpen)
+                leftPostPushHost.CloseDialogue();
+        }
         int[] expectedLeftPostPushCommands =
         {
             0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
             18, 19, 20, 21, 22
         };
-        if (leftPostPushStarts.Length != expectedLeftPostPushCommands.Length ||
-            leftPostPushStarts.Where((entry, pathIndex) =>
-                entry.Source.CommandIndex != expectedLeftPostPushCommands[pathIndex] ||
-                entry.Source.SourceLine <= 0 ||
-                (pathIndex > 0 && entry.Source.SourceLine <=
-                    leftPostPushStarts[pathIndex - 1].Source.SourceLine))
-            .Any())
-        {
-            throw new InvalidOperationException(
-                "The left-push impaScript_rockJustMoved trace did not follow the " +
-                "imported correction branch and source order.");
-        }
-
-        CutsceneCommandTraceEntry LeftCompleted(int commandIndex) =>
-            commandTrace.Entries.Single(entry =>
-                entry.Source.Script == "impaScript_rockJustMoved" &&
-                entry.Source.CommandIndex == commandIndex &&
-                entry.Phase == CutsceneCommandTracePhase.Completed);
-        int LeftStartedUpdate(int commandIndex) => leftPostPushStarts.Single(entry =>
-            entry.Source.CommandIndex == commandIndex).ScriptUpdate;
-        int LeftDuration(int commandIndex) =>
-            LeftCompleted(commandIndex).ScriptUpdate - LeftStartedUpdate(commandIndex);
-        if (LeftCompleted(1).NextCommandIndex != 2 ||
-            LeftCompleted(5).NextCommandIndex != 7 ||
-            LeftCompleted(12).NextCommandIndex != 13 ||
-            LeftDuration(0) != timing.ReactionLeadFrames ||
-            LeftDuration(4) != timing.LeftCorrectionFrames ||
-            LeftDuration(7) != timing.CommonWaitFrames ||
-            LeftDuration(10) != timing.ResponseRightFrames ||
-            LeftDuration(11) != timing.ResponseWait1Frames ||
-            LeftDuration(13) != timing.ResponseUpFrames ||
-            LeftDuration(14) != timing.ResponseWait2Frames ||
-            LeftDuration(17) != timing.PoseWaitFrames ||
-            LeftDuration(19) != timing.ThanksPostFrames ||
-            LeftDuration(21) != timing.FinalMoveFrames ||
-            LeftStartedUpdate(1) != LeftCompleted(0).ScriptUpdate ||
-            LeftStartedUpdate(2) != LeftCompleted(0).ScriptUpdate ||
-            LeftStartedUpdate(5) != LeftCompleted(4).ScriptUpdate + 1 ||
-            LeftStartedUpdate(7) != LeftStartedUpdate(5) ||
-            LeftStartedUpdate(12) != LeftCompleted(11).ScriptUpdate ||
-            LeftStartedUpdate(13) != LeftStartedUpdate(12) ||
-            LeftStartedUpdate(15) != LeftCompleted(14).ScriptUpdate ||
-            LeftStartedUpdate(16) != LeftStartedUpdate(15) ||
-            LeftStartedUpdate(18) != LeftCompleted(17).ScriptUpdate ||
-            LeftStartedUpdate(20) != LeftCompleted(19).ScriptUpdate ||
-            LeftStartedUpdate(22) != LeftCompleted(21).ScriptUpdate + 1)
-        {
-            throw new InvalidOperationException(
-                "The left-push post-stone script lost a branch decision, counter duration, " +
-                "yield boundary, or same-update continuation.");
-        }
-
-        // Execute the imported right-push branch independently of room state;
-        // the left path above covers the complete native stone/Link integration.
-        // This second lane proves both jump targets and all skipped commands.
-        var rightPostPushHost = new ValidationImpaPostPushHost(linkAngle: 0x08);
-        var rightPostPushRunner = new CutsceneCommandRunner(rightPostPushHost);
-        rightPostPushRunner.Start(impaEvent.Database.StonePostPushCommands);
-        int rightGuard = 0;
-        while (rightPostPushRunner.Active && rightGuard++ < 500)
-        {
-            rightPostPushHost.AdvanceValidationFrame();
-            rightPostPushRunner.AdvanceFrame();
-            if (rightPostPushHost.DialogueOpen)
-                rightPostPushHost.CloseDialogue();
-        }
-        int[] expectedRightPostPushCommands =
-        {
-            0, 1, 6, 7, 8, 9, 10, 11, 12, 15, 16, 17, 18, 19, 20, 21, 22
-        };
-        CutsceneCommandTraceEntry[] rightPostPushStarts = rightPostPushHost.Trace.Entries
+        CutsceneCommandTraceEntry[] leftPostPushStarts = leftPostPushHost.Trace.Entries
             .Where(entry => entry.Phase == CutsceneCommandTracePhase.Started)
             .ToArray();
-        CutsceneCommandTraceEntry RightCompleted(int commandIndex) =>
-            rightPostPushHost.Trace.Entries.Single(entry =>
+        CutsceneCommandTraceEntry LeftCompleted(int commandIndex) =>
+            leftPostPushHost.Trace.Entries.Single(entry =>
                 entry.Source.CommandIndex == commandIndex &&
                 entry.Phase == CutsceneCommandTracePhase.Completed);
-        if (rightPostPushRunner.Active || !rightPostPushHost.Ended ||
-            rightPostPushHost.Signal != 0x07 ||
-            rightPostPushHost.TextIds.ToArray() is not [0x0109] ||
-            rightPostPushStarts.Length != expectedRightPostPushCommands.Length ||
-            rightPostPushStarts.Where((entry, pathIndex) =>
-                entry.Source.CommandIndex != expectedRightPostPushCommands[pathIndex]).Any() ||
-            RightCompleted(1).NextCommandIndex != 6 ||
-            RightCompleted(12).NextCommandIndex != 15 ||
-            rightPostPushHost.Position != new Vector2(32.0f, -15.5f) ||
-            rightPostPushHost.Facing != Vector2I.Up)
+        if (leftPostPushRunner.Active || !leftPostPushHost.Ended ||
+            leftPostPushHost.Signal != 0x07 ||
+            leftPostPushHost.TextIds.ToArray() is not [0x0109] ||
+            leftPostPushStarts.Length != expectedLeftPostPushCommands.Length ||
+            leftPostPushStarts.Where((entry, pathIndex) =>
+                entry.Source.CommandIndex != expectedLeftPostPushCommands[pathIndex]).Any() ||
+            LeftCompleted(1).NextCommandIndex != 2 ||
+            LeftCompleted(5).NextCommandIndex != 7 ||
+            LeftCompleted(12).NextCommandIndex != 13 ||
+            leftPostPushHost.Facing != Vector2I.Up)
         {
             throw new InvalidOperationException(
-                "The imported right-push branch did not skip both left corrections, " +
-                "retain its 65-update wait, signal $07, or complete the reunion path.");
+                "The imported left-push branch did not run both corrections, signal $07, " +
+                "or complete the reunion path.");
         }
 
         LoadValidationRoom(group, room);
         NpcCharacter? movedStone = impaEvent.StoneActor;
-        if (movedStone is null || movedStone.Position != new Vector2(stone.LeftX, stone.MovedY) ||
+        if (movedStone is null || movedStone.Position != new Vector2(stone.RightX, stone.MovedY) ||
             _roomEvents.Active || impaEvent.Following ||
-            !_currentRoom.IsSolid(new Vector2(stone.LeftX, stone.MovedY)))
+            !_currentRoom.IsSolid(new Vector2(stone.RightX, stone.MovedY)))
         {
             throw new InvalidOperationException(
-                "PART_TRIFORCE_STONE $5a:$5a did not restore the left-side solid stone on re-entry.");
+                "PART_TRIFORCE_STONE $5a:$5a did not restore the right-side solid stone on re-entry.");
         }
 
-        _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlag40, value: false);
-        _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlag80);
+        _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlag80, value: false);
+        _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlag40);
         LoadValidationRoom(group, room);
         movedStone = impaEvent.StoneActor;
-        if (movedStone is null || movedStone.Position != new Vector2(stone.RightX, stone.MovedY) ||
-            !_currentRoom.IsSolid(new Vector2(stone.RightX, stone.MovedY)) ||
-            _currentRoom.IsSolid(new Vector2(stone.LeftX, stone.MovedY)))
+        if (movedStone is null || movedStone.Position != new Vector2(stone.LeftX, stone.MovedY) ||
+            !_currentRoom.IsSolid(new Vector2(stone.LeftX, stone.MovedY)) ||
+            _currentRoom.IsSolid(new Vector2(stone.RightX, stone.MovedY)))
         {
             throw new InvalidOperationException(
-                "PART_TRIFORCE_STONE $5a:$5a did not select the right-side $80 position on re-entry.");
+                "PART_TRIFORCE_STONE $5a:$5a did not select the left-side $40 position on re-entry.");
         }
 
         GD.Print("Validated room 0:59 Impa/Triforce-stone event: PALH_98 interaction/part " +
-            "forms, fixed priority 3 below follower Impa, two fixed-point jumps, " +
+            "forms, fixed priority 3 below follower Impa, retained trigger-frame priority 2 " +
+            "while Link approaches, two fixed-point jumps, " +
             "TX_0104-$010b, native linkCutscene2 targeting, imported " +
             "impaScript_moveAwayFromRock source trace and $02/$03/$04 handshake, " +
             "two SPEED_080 retreats, exact rungenericnpc wait animation/collision/talk loop, " +

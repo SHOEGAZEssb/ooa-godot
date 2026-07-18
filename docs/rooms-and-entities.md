@@ -91,6 +91,12 @@ remove mechanical duplication. Species state machines stay separate so their
 counter order and branch behavior remain traceable to the source. Spawn records
 state whether a child updates in the creation frame; preserve that distinction.
 
+Dynamic blocker collision compares the high-byte pixel coordinates of both
+objects, matching `checkObjectsCollided`; fractional 8.8 position bytes must not
+stop Link one rendered pixel before contact. Object-side separation helpers may
+then replace only the collided coordinate's high byte while retaining its
+fractional byte.
+
 ## Required regressions
 
 Room/entity changes should cover the reported room plus a general invariant:

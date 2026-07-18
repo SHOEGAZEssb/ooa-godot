@@ -453,8 +453,15 @@ internal sealed class ImpaIntroEvent : IRoomEvent, ICutsceneCommandHost
         ImpaIntroEventDatabase.ImpaStoneActorRecord stone = _stoneRecord.Actor;
         ImpaIntroEventDatabase.ImpaStoneTimingRecord timing = _stoneRecord.Timing;
 
-        if (_stoneStage == StoneStage.PushStarted || _stonePostPushRunner.Active)
+        // linkCutscene6 retains its pushing animation while waiting for the
+        // response script, then cfd0=$07 advances it to substate 2 and selects
+        // normal animation $02. Do not restore the pushing pose after that
+        // signal while Impa's remaining dialogue and reunion script run.
+        if ((_stoneStage == StoneStage.PushStarted || _stonePostPushRunner.Active) &&
+            _stoneSignal != 0x07)
+        {
             _context.Player.SetCutscenePushing(true);
+        }
 
         // INTERAC_TRIFORCE_STONE calls objectPreventLinkFromPassing at the
         // start of substates 0 and 1. Once movement finishes, collision $0f
@@ -667,6 +674,11 @@ internal sealed class ImpaIntroEvent : IRoomEvent, ICutsceneCommandHost
         _context.Player.BeginCutsceneControl();
         _context.Player.Face(DirectionToward(_context.Player.Position,
             new Vector2(stone.TargetX, stone.TargetY)));
+        // Substate $01 updates Impa's priority before detecting Link at
+        // Y<$58/X<$78. Substates $02-$0a never update it again, so retain that
+        // trigger-frame priority while she moves to the stone and Link walks
+        // toward her.
+        Actor!.SetFixedDrawPriority(Actor.ZIndex);
         Actor!.SetBlocksLink(false);
         Actor.SetFacingDirection(DirectionToward(
             Actor.Position, new Vector2(stone.TargetX, stone.TargetY)));
@@ -752,6 +764,7 @@ internal sealed class ImpaIntroEvent : IRoomEvent, ICutsceneCommandHost
         // its rungenericnpc command is not executed until substate $0b's next
         // interaction update.
         Actor!.SetDialogue(0, string.Empty, canFace: false);
+        Actor.ClearFixedDrawPriority();
         Actor.SetBlocksLink(false);
         _waitingNpcInitialized = false;
         _stonePushCounter = _stoneRecord.Timing.PushHoldFrames;
@@ -842,6 +855,9 @@ internal sealed class ImpaIntroEvent : IRoomEvent, ICutsceneCommandHost
         _stonePrecisePosition = StoneActor!.Position;
         _stoneMoveCounter = _stoneRecord.Timing.StoneMoveFrames;
         Actor!.SetDialogue(0, string.Empty, canFace: false);
+        // Substate $0b updates relative priority before observing cfd0=$06;
+        // substate $0c retains that value throughout the response script.
+        Actor.SetFixedDrawPriority(Actor.ZIndex);
         Actor.SetBlocksLink(false);
         _waitingNpcInitialized = false;
         _context.Player.BeginCutsceneControl();
@@ -1325,6 +1341,7 @@ internal sealed class ImpaIntroEvent : IRoomEvent, ICutsceneCommandHost
 
     private void BeginFollowing()
     {
+        Actor!.ClearFixedDrawPriority();
         Actor!.SetDirectionalAnimations(
             _record.UpAnimation,
             _record.RightAnimation,

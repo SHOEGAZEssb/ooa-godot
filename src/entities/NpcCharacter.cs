@@ -158,7 +158,13 @@ public partial class NpcCharacter : Node2D
     {
         if (!Active || !_blocksLink)
             return false;
-        Vector2 delta = linkCenter - Position;
+        // checkObjectsCollided compares Object.xh/yh, not their 8.8
+        // fractional bytes. Using precise movement coordinates here can stop
+        // Link one rendered pixel early when approaching an NPC from its left
+        // or top side, preventing the later object-side resolver from seeing
+        // contact at all.
+        Vector2 delta = OracleObjectMath.ToPixelPosition(linkCenter) -
+            OracleObjectMath.ToPixelPosition(Position);
         return Mathf.Abs(delta.X) < _collisionRadiusX + LinkCollisionRadius &&
             Mathf.Abs(delta.Y) < _collisionRadiusY + LinkCollisionRadius;
     }
@@ -278,6 +284,8 @@ public partial class NpcCharacter : Node2D
         _fixedDrawPriority = zIndex;
         ZIndex = zIndex;
     }
+
+    internal void ClearFixedDrawPriority() => _fixedDrawPriority = null;
 
     internal void SetTransitionDrawOffset(Vector2 offset)
     {
