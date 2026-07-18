@@ -217,6 +217,7 @@ public sealed class ValidationGameRoot : GameRoot
 
         ValidateSigns();
         ValidateNpcs();
+        ValidateRoom148NpcInteractions();
         ValidateRoom149FamilyInteractions();
         ValidateNpcFlagVisibility();
         ValidateBipinBlossomNaming();
@@ -6359,6 +6360,307 @@ public sealed class ValidationGameRoot : GameRoot
             "Link-relative draw priority, and Link sprite palette 0.");
     }
 
+    private void ValidateRoom148NpcInteractions()
+    {
+        const double frame = 1.0 / 60.0;
+        var validationRoot = new Node { Name = "Room148NpcValidation" };
+        AddChild(validationRoot);
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var manager = new RoomEntityManager(
+            validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
+        var pickaxe = new Room148PickaxeDatabase();
+        var sounds = new List<int>();
+        manager.SoundRequested += sounds.Add;
+        OracleRoomData room148 = _world.LoadRoom(1, 0x48);
+        manager.LoadRoom(1, room148);
+
+        NpcCharacter Worker() => manager.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x57, SubId: 0x00 });
+        NpcCharacter Villager() => manager.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x3a, SubId: 0x06 });
+        NpcCharacter Girl() => manager.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x38, SubId: 0x00 });
+        void SetEssences(byte value)
+        {
+            if (save.WriteWramByte(0xc6bf, value))
+                save.CommitInventoryChange();
+        }
+
+        NpcCharacter worker = Worker();
+        NpcCharacter villager = Villager();
+        NpcCharacter girl = Girl();
+        if (pickaxe.Record.DebrisSpriteName != "spr_common_sprites" ||
+            pickaxe.Record.DebrisTileBase != 0x02 ||
+            manager.Entities<NpcCharacter>().Count != 3 ||
+            worker.Position != new Vector2(0x38, 0x58) ||
+            villager.Position != new Vector2(0x88, 0x58) ||
+            girl.Position != new Vector2(0x78, 0x38) ||
+            worker.TextId != 0x1b00 || villager.TextId != 0x1400 ||
+            girl.TextId != 0x1a00 ||
+            worker.CurrentScriptAnimationSource != pickaxe.Record.WorkAnimation ||
+            worker.CurrentAnimationParameter != 0 ||
+            worker.CurrentAnimationOpaquePixels == 0 ||
+            !worker.Active || !villager.Active || !girl.Active)
+        {
+            throw new InvalidOperationException(
+                "Room 1:48 did not load ordered worker $57:$00, villager " +
+                "$3a:$06, and girl $38:$00 with their imported positions, " +
+                "work animation, and TX_1b00/TX_1400/TX_1a00 dialogue.");
+        }
+
+        _player.WarpTo(new Vector2(0x18, 0x70));
+        for (int update = 0; update < 25; update++)
+            manager.Update(frame, _player);
+        if (sounds.Count != 0 ||
+            manager.Entities<Room148PickaxeDebris>().Count != 0 ||
+            worker.CurrentAnimationFrame != 0 ||
+            worker.CurrentAnimationParameter != 0)
+        {
+            throw new InvalidOperationException(
+                "Pickaxe worker $57:$00 struck before animation $02's initial 26-update frame.");
+        }
+
+        manager.Update(frame, _player);
+        List<Room148PickaxeDebris> debris =
+            manager.Entities<Room148PickaxeDebris>();
+        if (sounds.Count != 1 || sounds[0] != OracleSoundEngine.SndClink ||
+            worker.CurrentAnimationFrame != 1 ||
+            worker.CurrentAnimationParameter != 1 || debris.Count != 2 ||
+            debris[0].Position != new Vector2(0x2a, 0x5c) ||
+            debris[1].Position != new Vector2(0x2a, 0x5c) ||
+            debris[0].Angle != 0x18 || debris[1].Angle != 0x08 ||
+            debris.Any(chip => chip.Palette != 1 || chip.ZFixed != 0 ||
+                chip.SpeedZ != -0xc0 || !chip.StateInitialized))
+        {
+            throw new InvalidOperationException(
+                "Animation $02's first parameter-$01 strike did not play " +
+                "SND_CLINK and create two same-update $92:$06 chips at " +
+                "$5c/$2a with angles $18/$08 and Z speed -$00c0.");
+        }
+
+        OracleGraphicsCache.AnimationFrameDefinition debrisFrame =
+            OracleGraphicsCache.GetAnimationDefinition(
+                pickaxe.Record.DebrisAnimation).Frames[0];
+        Image debrisSource = OracleGraphicsCache.LoadImage(
+            $"res://assets/oracle/gfx/{pickaxe.Record.DebrisSpriteName}.png");
+        using Texture2D debrisTexture = NpcCharacter.BuildOamTextureUncachedForValidation(
+            debrisSource,
+            debrisFrame.EncodedOam,
+            pickaxe.Record.DebrisTileBase,
+            1);
+        Image debrisImage = debrisTexture.GetImage();
+        int debrisOpaquePixels = 0;
+        for (int y = 0; y < debrisImage.GetHeight(); y++)
+        for (int x = 0; x < debrisImage.GetWidth(); x++)
+        {
+            if (debrisImage.GetPixel(x, y).A > 0.1f)
+                debrisOpaquePixels++;
+        }
+        if (debrisOpaquePixels != 52 ||
+            debrisImage.GetPixel(12, 8).A > 0.1f ||
+            debrisImage.GetPixel(14, 12).A <= 0.1f)
+        {
+            throw new InvalidOperationException(
+                "INTERAC_FALLING_ROCK $92:$06 did not render fixed bank-1 " +
+                "spr_common_sprites tile $02 as the 8x8 dirt chip.");
+        }
+
+        manager.Update(frame, _player);
+        debris = manager.Entities<Room148PickaxeDebris>();
+        if (debris.Count != 2 ||
+            debris[0].PrecisePosition != new Vector2(0x29 + 0.5f, 0x5c) ||
+            debris[1].PrecisePosition != new Vector2(0x2a + 0.5f, 0x5c) ||
+            debris[0].Position != new Vector2(0x29, 0x5c) ||
+            debris[1].Position != new Vector2(0x2a, 0x5c) ||
+            debris.Any(chip => chip.ZFixed != -0xc0 || chip.SpeedZ != -0xa8))
+        {
+            throw new InvalidOperationException(
+                "Pickaxe dirt chips did not begin their SPEED_80 cardinal " +
+                "movement and -$00c0/$18 fixed-point Z flight one update after creation.");
+        }
+        for (int update = 0;
+            update < 30 && manager.Entities<Room148PickaxeDebris>().Count != 0;
+            update++)
+        {
+            manager.Update(frame, _player);
+        }
+        if (manager.Entities<Room148PickaxeDebris>().Count != 0)
+            throw new InvalidOperationException(
+                "Pickaxe dirt chips were not deleted on their first Z=0 landing update.");
+
+        manager.LoadRoom(1, room148);
+        sounds.Clear();
+        worker = Worker();
+        for (int update = 0; update < 130; update++)
+            manager.Update(frame, _player);
+        debris = manager.Entities<Room148PickaxeDebris>();
+        if (sounds.Count != 3 || sounds.Any(sound =>
+                sound != OracleSoundEngine.SndClink) ||
+            worker.CurrentAnimationParameter != 2 || debris.Count != 2 ||
+            debris.Any(chip => chip.Palette != 2 ||
+                chip.Position != new Vector2(0x46, 0x5c)))
+        {
+            throw new InvalidOperationException(
+                "Pickaxe animation $02 did not strike on updates 26/78/130 " +
+                "or move its parameter-$02 dirt-chip origin to $5c/$46.");
+        }
+
+        manager.LoadRoom(1, room148);
+        sounds.Clear();
+        worker = Worker();
+        if (!manager.BeginNpcTalk(worker) ||
+            worker.CurrentScriptAnimationSource != pickaxe.Record.TalkAnimation)
+        {
+            throw new InvalidOperationException(
+                "Talking to worker $57:$00 did not select static animation $03.");
+        }
+        for (int update = 0; update < 100; update++)
+            manager.Update(frame, _player);
+        if (sounds.Count != 0 ||
+            manager.Entities<Room148PickaxeDebris>().Count != 0)
+        {
+            throw new InvalidOperationException(
+                "Worker $57:$00 continued striking while TX_1b00 was active.");
+        }
+        manager.EndNpcTalk(worker);
+        if (worker.CurrentScriptAnimationSource != pickaxe.Record.WorkAnimation ||
+            worker.CurrentAnimationFrame != 0 ||
+            worker.CurrentAnimationParameter != 0)
+        {
+            throw new InvalidOperationException(
+                "Closing TX_1b00 did not jump back to work animation $02 " +
+                "and run its same-update interactionAnimateAsNpc call.");
+        }
+        for (int update = 0; update < 24; update++)
+            manager.Update(frame, _player);
+        if (sounds.Count != 0)
+            throw new InvalidOperationException(
+                "Worker $57:$00 struck too early after closing TX_1b00.");
+        manager.Update(frame, _player);
+        if (sounds.Count != 1 || worker.CurrentAnimationParameter != 1)
+            throw new InvalidOperationException(
+                "Worker $57:$00 did not restart its 26-update strike cycle at the script boundary.");
+
+        villager = Villager();
+        girl = Girl();
+        SetEssences(0x02);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 1 ||
+            !villager.Active || villager.TextId != 0x1401 || girl.Active)
+        {
+            throw new InvalidOperationException(
+                "getGameProgress_2 state $01 did not keep $3a:$06 with TX_1401 and delete $38:$00.");
+        }
+        SetEssences(0x08);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 2 ||
+            !villager.Active || villager.TextId != 0x1402 || girl.Active)
+        {
+            throw new InvalidOperationException(
+                "getGameProgress_2 state $02 did not keep $3a:$06 with TX_1402 and delete $38:$00.");
+        }
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 3 ||
+            villager.Active || !girl.Active || girl.TextId != 0x1a03)
+        {
+            throw new InvalidOperationException(
+                "getGameProgress_2 state $03 did not replace $3a:$06 with $38:$00/TX_1a03.");
+        }
+        SetEssences(0x40);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 4 ||
+            villager.Active || !girl.Active || girl.TextId != 0x1a04)
+        {
+            throw new InvalidOperationException(
+                "getGameProgress_2 state $04 did not select $38:$00/TX_1a04 after D7.");
+        }
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 5 ||
+            villager.Active || !girl.Active || girl.TextId != 0x1a05)
+        {
+            throw new InvalidOperationException(
+                "GLOBALFLAG_SAW_TWINROVA_BEFORE_ENDGAME did not take precedence as state $05.");
+        }
+        if (save.WriteWramByte(0xc612, 1))
+            save.CommitInventoryChange();
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 5 ||
+            girl.TextId != 0x1a08)
+        {
+            throw new InvalidOperationException(
+                "Linked getGameProgress_2 state $05 did not select the TX_1a08 branch.");
+        }
+        save.SetRoomFlag(4, 0xfb, OracleSaveData.RoomFlag80);
+        save.SetRoomFlag(5, 0xfc, OracleSaveData.RoomFlag80);
+        save.SetRoomFlag(4, 0xfc, 0x7f);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 5 ||
+            girl.TextId != 0x1a08)
+        {
+            throw new InvalidOperationException(
+                "Unrelated room/group flags or room 4:fc bits $01-$40 changed getGameProgress_2.");
+        }
+        save.SetRoomFlag(4, 0xfc, OracleSaveData.RoomFlag80);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 6 ||
+            villager.Active || !girl.Active || girl.TextId != 0x1a09)
+        {
+            throw new InvalidOperationException(
+                "Linked room 4:fc flag $80 did not take precedence as state $06/TX_1a09.");
+        }
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 7 ||
+            villager.Active || !girl.Active || girl.TextId != 0x1a07)
+        {
+            throw new InvalidOperationException(
+                "GLOBALFLAG_FINISHEDGAME did not take precedence as state $07/TX_1a07.");
+        }
+        manager.LoadRoom(1, room148);
+        if (Villager().Active || !Girl().Active || Girl().TextId != 0x1a07)
+            throw new InvalidOperationException(
+                "Room 1:48 re-entry did not retain getGameProgress_2 state $07.");
+
+        OracleSaveData state3Save = OracleSaveData.CreateStandardGame();
+        if (state3Save.WriteWramByte(0xc6bf, 0x08))
+            state3Save.CommitInventoryChange();
+        state3Save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        var state3Manager = new RoomEntityManager(
+            validationRoot, new NpcDatabase(), new EnemyDatabase(), state3Save);
+        state3Manager.LoadRoom(1, _world.LoadRoom(1, 0x47));
+        NpcCharacter state3Villager = state3Manager.Entities<NpcCharacter>().Single(
+            npc => npc.Record is { Id: 0x3a, SubId: 0x07 });
+        if (!state3Villager.Active || state3Villager.TextId != 0x1403)
+            throw new InvalidOperationException(
+                "Villager $3a:$07 did not use unlinked state-$03 TX_1403.");
+        if (state3Save.WriteWramByte(0xc612, 1))
+            state3Save.CommitInventoryChange();
+        if (!state3Villager.Active || state3Villager.TextId != 0x1408)
+            throw new InvalidOperationException(
+                "Villager $3a:$07 did not switch live to linked state-$03 TX_1408.");
+        state3Manager.Clear();
+
+        manager.LoadRoom(1, room148);
+        sounds.Clear();
+        worker = Worker();
+        for (int update = 0; update < 10; update++)
+            manager.Update(frame, _player);
+        int frozenFrame = worker.CurrentAnimationFrame;
+        int frozenParameter = worker.CurrentAnimationParameter;
+        manager.BeginScreenTransition(
+            1, _world.LoadRoom(1, 0x47), new Vector2(160, 0));
+        for (int update = 0; update < 120; update++)
+            manager.Update(frame, _player);
+        if (worker.CurrentAnimationFrame != frozenFrame ||
+            worker.CurrentAnimationParameter != frozenParameter ||
+            sounds.Count != 0)
+        {
+            throw new InvalidOperationException(
+                "Room 1:48's outgoing worker advanced or struck during scrolling.");
+        }
+
+        manager.Clear();
+        RemoveChild(validationRoot);
+        validationRoot.QueueFree();
+        GD.Print("Validated room 1:48's $57:$00 pickaxe strike/talk cycle, " +
+            "$92:$06 dirt-chip spawn order and 8.8 flight, SND_CLINK, " +
+            "transition freeze, and all eight getGameProgress_2 visibility/" +
+            "dialogue states including linked branches and flag precedence.");
+    }
+
     private void ValidateRoom149FamilyInteractions()
     {
         const double frame = 1.0 / 60.0;
@@ -6549,10 +6851,10 @@ public sealed class ValidationGameRoot : GameRoot
         var manager = new RoomEntityManager(
             validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
 
-        if (new NpcVisibilityRuleDatabase().RuleCount != 303 ||
-            new NpcDialogueRuleDatabase().RuleCount != 54)
+        if (new NpcVisibilityRuleDatabase().RuleCount != 317 ||
+            new NpcDialogueRuleDatabase().RuleCount != 81)
             throw new InvalidOperationException(
-                "Expected 303 NPC visibility and 54 NPC dialogue state predicates.");
+                "Expected 317 NPC visibility and 81 NPC dialogue state predicates.");
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x5a));
         List<NpcCharacter> introMonkeys = manager.Entities<NpcCharacter>().Where(npc =>
@@ -7206,7 +7508,7 @@ public sealed class ValidationGameRoot : GameRoot
             "$20-frame animation loops, rooms 2:ea/2:eb's 72-record family spawner, " +
             "Bipin $28:$00's SPEED_100 X=$28/$58 patrol, $04/$05 animation reversal, " +
             "and moving objectPreventLinkFromPassing collision, " +
-            "303 visibility and 54 dialogue predicates, roaming-dog " +
+            "317 visibility and 81 dialogue predicates, roaming-dog " +
             "location selection, rooms 0:68/0:78's phased and linked talkable cast, " +
             "room 3:9e's post-intro Impa, var03 selection, compound and alternative gates, " +
             "live refresh, and lifecycle-safe hiding.");

@@ -22,7 +22,8 @@ public sealed class NpcVisibilityRuleDatabase
         Essence,
         Wram,
         RuntimeEquals,
-        GameProgress1
+        GameProgress1,
+        GameProgress2
     }
 
     private readonly record struct Rule(
@@ -67,6 +68,7 @@ public sealed class NpcVisibilityRuleDatabase
                 "wram" => FlagKind.Wram,
                 "runtime-equals" => FlagKind.RuntimeEquals,
                 "game-progress-1" => FlagKind.GameProgress1,
+                "game-progress-2" => FlagKind.GameProgress2,
                 _ => throw new InvalidOperationException(
                     $"Unknown NPC visibility flag kind '{fields[4]}'.")
             };
@@ -91,6 +93,7 @@ public sealed class NpcVisibilityRuleDatabase
                 kind == FlagKind.RuntimeEquals &&
                     room is < OracleRuntimeState.WramStart or > OracleRuntimeState.WramEnd ||
                 kind == FlagKind.GameProgress1 && value > 5 ||
+                kind == FlagKind.GameProgress2 && value > 7 ||
                 kind == FlagKind.SpecificRoom && (group is < 0 or > 7 || room is < 0 or > 0xff))
             {
                 throw new InvalidOperationException($"Invalid NPC visibility rule: {line}");
@@ -145,6 +148,7 @@ public sealed class NpcVisibilityRuleDatabase
             FlagKind.RuntimeEquals =>
                 runtimeState.ReadWramByte(rule.Room) == rule.Value,
             FlagKind.GameProgress1 => GetGameProgress1(save) == rule.Value,
+            FlagKind.GameProgress2 => GetGameProgress2(save) == rule.Value,
             _ => throw new InvalidOperationException(
                 $"Unhandled NPC visibility rule from {rule.Source}.")
         };
@@ -169,6 +173,33 @@ public sealed class NpcVisibilityRuleDatabase
         if (save.HasGlobalFlag(OracleSaveData.GlobalFlagSavedNayru))
             return 2;
         return highestEssence >= 2 ? 1 : 0;
+    }
+
+    internal static int GetGameProgress2(OracleSaveData save)
+    {
+        if (save.HasGlobalFlag(OracleSaveData.GlobalFlagFinishedGame))
+            return 7;
+        if (save.IsLinkedGame && save.HasRoomFlag(
+            4, 0xfc, OracleSaveData.RoomFlag80))
+        {
+            return 6;
+        }
+        if (save.HasGlobalFlag(OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame))
+            return 5;
+
+        byte essences = save.ReadWramByte(0xc6bf);
+        if (essences == 0)
+            return 0;
+        int highestEssence = 7;
+        while ((essences & (1 << highestEssence)) == 0)
+            highestEssence--;
+        if (highestEssence >= 6)
+            return 4;
+        if (save.HasGlobalFlag(OracleSaveData.GlobalFlagSavedNayru))
+            return 3;
+        if (highestEssence >= 3)
+            return 2;
+        return highestEssence >= 1 ? 1 : 0;
     }
 
     private static int MakeKey(int id, int subId) => (id << 8) | subId;

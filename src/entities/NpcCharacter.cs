@@ -16,7 +16,11 @@ public partial class NpcCharacter : Node2D
 
     private enum Facing { Up, Right, Down, Left }
 
-    private sealed record AnimationFrame(Texture2D Texture, int Duration, Vector2 Offset);
+    private sealed record AnimationFrame(
+        Texture2D Texture,
+        int Duration,
+        int Parameter,
+        Vector2 Offset);
 
     private readonly List<AnimationFrame>[] _facingAnimations =
     {
@@ -56,6 +60,9 @@ public partial class NpcCharacter : Node2D
     public Rect2 SpriteBounds => new(Position + new Vector2(-8, -8), new Vector2(16, 16));
     public int CurrentFrameColumn => GetFrameColumn();
     public int CurrentAnimationFrame => _animationFrame;
+    internal int CurrentAnimationParameter => CurrentAnimation.Count == 0
+        ? 0
+        : CurrentAnimation[_animationFrame % CurrentAnimation.Count].Parameter;
     internal Vector2 CurrentAnimationOffset => CurrentAnimation.Count == 0
         ? Vector2.Zero
         : CurrentAnimation[_animationFrame % CurrentAnimation.Count].Offset;
@@ -604,6 +611,7 @@ public partial class NpcCharacter : Node2D
                     source, frame.EncodedOam, tileBase, basePalette,
                     paletteOverride, sourceGrayscaleInverted),
                 frame.Duration,
+                frame.Parameter,
                 new Vector2(-16, -16));
         }
     }
@@ -623,7 +631,8 @@ public partial class NpcCharacter : Node2D
             (Texture2D texture, Vector2 offset) = BuildPositionedOamTexture(
                 source, frame.EncodedOam, tileBase, basePalette,
                 paletteOverride, sourceGrayscaleInverted);
-            yield return new AnimationFrame(texture, frame.Duration, offset);
+            yield return new AnimationFrame(
+                texture, frame.Duration, frame.Parameter, offset);
         }
     }
 

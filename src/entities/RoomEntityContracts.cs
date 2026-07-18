@@ -42,6 +42,13 @@ internal interface ITalkTarget
     NpcCharacter? FindTalkTarget(Player player);
 }
 
+internal interface INpcTalkLifecycle
+{
+    NpcCharacter TalkNpc { get; }
+    void OnNpcTalkStarted();
+    void OnNpcTalkEnded();
+}
+
 internal interface IRoomEntityLifetime
 {
     bool Finished { get; }

@@ -389,6 +389,7 @@ public partial class GameRoot : Node2D
         _transitions.ScrollingTransitionFinished += _ => ApplyDeferredIntroMusic();
         _entities.TimePortalEntered += portal =>
             _transitions.ApplyTimePortalWarp(_player, portal.Position);
+        _entities.SoundRequested += _sound.PlaySound;
         _interactions = new InteractionController(
             _rooms, _entities, new SignDatabase(), new ChestDatabase(), _treasures, _dialogue,
             _scene.WorldRoot, _roomView, _transitions.WorldToScreen, () => (long)_animationTicks,

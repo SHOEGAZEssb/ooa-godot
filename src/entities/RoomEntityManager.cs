@@ -12,6 +12,7 @@ public sealed class RoomEntityManager
 {
     public event Action<int, OracleRoomData>? RoomEntitiesLoaded;
     public event Action<TimePortal>? TimePortalEntered;
+    public event Action<int>? SoundRequested;
     private readonly Node _worldRoot;
     private readonly RoomEntityFactory _factory;
     private readonly OracleRandom _random;
@@ -73,7 +74,7 @@ public sealed class RoomEntityManager
         _runtimeState = runtimeState ?? new OracleRuntimeState();
         _factory = new RoomEntityFactory(
             npcs, enemies, itemDrops, timePortals, random,
-            _saveData, _runtimeState, OnTimePortalEntered);
+            _saveData, _runtimeState, OnTimePortalEntered, OnSoundRequested);
         if (_saveData is not null)
             _saveData.Changed += RefreshNpcState;
         _runtimeState.Changed += RefreshNpcState;
@@ -221,6 +222,33 @@ public sealed class RoomEntityManager
         return null;
     }
 
+    internal bool BeginNpcTalk(NpcCharacter npc)
+    {
+        foreach (IRoomEntity entity in _activeEntities)
+        {
+            if (entity is INpcTalkLifecycle lifecycle &&
+                ReferenceEquals(lifecycle.TalkNpc, npc))
+            {
+                lifecycle.OnNpcTalkStarted();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    internal void EndNpcTalk(NpcCharacter npc)
+    {
+        foreach (IRoomEntity entity in _activeEntities)
+        {
+            if (entity is INpcTalkLifecycle lifecycle &&
+                ReferenceEquals(lifecycle.TalkNpc, npc))
+            {
+                lifecycle.OnNpcTalkEnded();
+                return;
+            }
+        }
+    }
+
     public bool ApplySwordHit(Rect2 hitbox, Vector2? sourcePosition = null)
     {
         bool hit = false;
@@ -337,6 +365,7 @@ public sealed class RoomEntityManager
     }
 
     private void OnTimePortalEntered(TimePortal portal) => TimePortalEntered?.Invoke(portal);
+    private void OnSoundRequested(int sound) => SoundRequested?.Invoke(sound);
 
     private static List<T> SelectNodes<T>(IEnumerable<IRoomEntity> entities) where T : Node2D
     {

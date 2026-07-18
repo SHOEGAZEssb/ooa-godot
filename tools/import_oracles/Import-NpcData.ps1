@@ -138,6 +138,7 @@ foreach ($match in [regex]::Matches($interactionDataSource, '(?m)^\s*/\* \$(?<id
         $interactionGraphics["$id`:0"] = @{
             Gfx = [Convert]::ToInt32($match.Groups['gfx'].Value.Substring(1), 16)
             TileBase = [Convert]::ToInt32($match.Groups['base'].Value.Substring(1), 16)
+            Flags = [Convert]::ToInt32($match.Groups['flags'].Value.Substring(1), 16)
             Palette = ([Convert]::ToInt32($match.Groups['flags'].Value.Substring(1), 16) -shr 4) -band 7
             DefaultAnimation = [Convert]::ToInt32($match.Groups['flags'].Value.Substring(1), 16) -band 15
         }
@@ -151,6 +152,7 @@ foreach ($block in [regex]::Matches($interactionDataSource, '(?ms)^interaction(?
         $interactionGraphics["$id`:$subid"] = @{
             Gfx = [Convert]::ToInt32($entry.Groups['gfx'].Value, 16)
             TileBase = [Convert]::ToInt32($entry.Groups['base'].Value, 16)
+            Flags = $flags
             Palette = ($flags -shr 4) -band 7
             DefaultAnimation = $flags -band 15
         }
@@ -186,6 +188,7 @@ foreach ($line in ($interactionDataSource -split '\r?\n')) {
         $subidEntries.Add(@{
             Gfx = [Convert]::ToInt32($Matches['gfx'], 16)
             TileBase = [Convert]::ToInt32($Matches['base'], 16)
+            Flags = $flags
             Palette = ($flags -shr 4) -band 7
             DefaultAnimation = $flags -band 15
         })
@@ -264,6 +267,7 @@ function Read-NpcAnimationFrameRange([int]$start, [int]$length) {
         $frames.Add(@{
             Duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
             PointerOffset = [Convert]::ToInt32($frame.Groups['frame'].Value, 16)
+            Parameter = [Convert]::ToInt32($frame.Groups['parameter'].Value, 16)
         })
     }
     return @($frames)
@@ -350,7 +354,12 @@ function Resolve-NpcAnimation([int]$interactionId, [int]$animationIndex) {
         if ($pointerIndex -lt 0 -or $pointerIndex -ge $pointers.Count) { continue }
         $oamLabel = $pointers[$pointerIndex]
         $oam = if ($npcOamBlocks.ContainsKey($oamLabel)) { $npcOamBlocks[$oamLabel] } else { '' }
-        $resolvedFrames.Add("$($frame.Duration)@$oam")
+        $metadata = if ([int]$frame.Parameter -eq 0) {
+            "$($frame.Duration)"
+        } else {
+            "$($frame.Duration),$($frame.Parameter)"
+        }
+        $resolvedFrames.Add("$metadata@$oam")
     }
     $encoded = $resolvedFrames -join '|'
     $loopStart = $npcAnimationLoopStarts[$animationLabel]
@@ -487,6 +496,86 @@ if ($introMonkeyRows.Count -ne 2 -or
     ($introMonkeyRows[1] -split "`t")[11] -ne '7') {
     throw "Room 0:5a's intro monkeys no longer resolve TX_5700/TX_5701 and animations `$06/`$07."
 }
+
+# Past room 1:48's pickaxe worker is a native room interaction. Animation $02
+# carries one-update strike parameters which play SND_CLINK and create two
+# INTERAC_FALLING_ROCK $92:$06 dirt chips. Export the worker's script-selected
+# visuals, text, and the debris physics as one typed record. The debris has no
+# object graphics header and sets OAM flag bit 3, so tile $02 comes from the
+# fixed bank-1 spr_common_sprites sheet rather than the worker's dynamic slot.
+$room148ObjectSource = $mainObjectLines -join "`n"
+$room148WorkerSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\pickaxeWorker.s')
+$room148FallingRockSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\fallingRock.s')
+$agesMainScriptSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\scripts.s')
+$room148VillagerSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\villager.s')
+$room148PastGirlSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\pastGirl.s')
+$gameProgress2Source = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscMan2.s')
+$objectSpeedSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\objectSpeeds.s')
+$musicConstantSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\music.s')
+$agesGfxHeaderSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\gfxHeaders.s')
+if ($room148ObjectSource -notmatch '(?ms)^group1Map48ObjectData:\s+obj_Interaction \$57 \$00 \$58 \$38\s+obj_Interaction \$e1 \$02 \$48 \$58\s+obj_Interaction \$3a \$06 \$58 \$88\s+obj_Interaction \$38 \$00 \$38 \$78\s+obj_End' -or
+    $room148WorkerSource -notmatch '(?ms)^@subid00:\s*^@subid03:.*?@loadScriptAndInitGraphics.*?interactionSetAlwaysUpdateBit.*?interactionRunScript.*?interactionAnimateAsNpc.*?Interaction\.animParameter.*?SND_CLINK.*?wScrollMode.*?and \$01.*?ld a,\$03.*?@createDirtChips' -or
+    $room148WorkerSource -notmatch '(?ms)^@loadScriptAndInitGraphics:.*?>TX_1b00.*?@scriptTable:.*?pickaxeWorkerSubid00Script' -or
+    $room148WorkerSource -notmatch '(?ms)^@createDirtChips:.*?ld b,\$02.*?INTERAC_FALLING_ROCK.*?ld \(hl\),\$06.*?Interaction\.counter2.*?Interaction\.angle.*?objectCopyPosition.*?add \$04.*?cp \$01.*?add \$0e\*2.*?sub \$0e' -or
+    $agesMainScriptSource -notmatch '(?ms)^pickaxeWorkerSubid00Script:\s+initcollisions\s+@npcLoop:\s+asm15 interactionSetAnimation, \$02\s+checkabutton\s+asm15 interactionSetAnimation, \$03\s+showtextlowindex <TX_1b00\s+scriptjump @npcLoop' -or
+    $room148FallingRockSource -notmatch '(?ms)^fallingRock_subid06:.*?fallingRock_initGraphicsAndIncState.*?interactionSetAlwaysUpdateBit.*?Interaction\.var03.*?or \$08.*?Interaction\.counter2.*?Interaction\.angle.*?SPEED_80.*?Interaction\.speedZ.*?ld a,\$40.*?ld \(hl\),\$ff.*?^@angles:\s+\.db \$08 \$18' -or
+    $room148FallingRockSource -notmatch '(?ms)^fallingRock_updateSpeedAndDeleteWhenLanded:\s+ld c,\$18\s+call objectUpdateSpeedZ_paramC\s+jp z,interactionDelete\s+jp objectApplySpeed' -or
+    $agesGfxHeaderSource -notmatch '(?ms)^m_GfxHeaderStart \$83, GFXH_COMMON_SPRITES\s+m_GfxHeader spr_common_sprites, \$8001\s+m_GfxHeaderEnd' -or
+    $room148VillagerSource -notmatch '(?ms)^@initSubid06:\s*^@initSubid07:\s+callab agesInteractionsBank09\.getGameProgress_2\s+ld c,\$06\s+ld a,\$04\s+call checkNpcShouldExistAtGameStage\s+jp nz,interactionDelete\s+ld a,b\s+ld hl,@subid6And7ScriptTable' -or
+    $room148PastGirlSource -notmatch '(?ms)^@subid0Init:\s+callab agesInteractionsBank09\.getGameProgress_2.*?ld a,b\s+cp \$01\s+jp z,interactionDelete\s+cp \$02\s+jp z,interactionDelete\s+ld a,b\s+ld hl,@scriptTable' -or
+    $gameProgress2Source -notmatch '(?ms)^getGameProgress_2:\s+ld b,\$07.*?GLOBALFLAG_FINISHEDGAME.*?ret nz.*?dec b\s+call checkIsLinkedGame.*?wGroup4RoomFlags\+\$fc.*?bit 7,\(hl\).*?ret nz.*?dec b\s+ld a,GLOBALFLAG_SAW_TWINROVA_BEFORE_ENDGAME.*?ret nz.*?TREASURE_ESSENCE.*?getHighestSetBit.*?ld b,\$04\s+cp \$06\s+ret nc.*?dec b\s+ld a,GLOBALFLAG_SAVED_NAYRU.*?ret nz.*?dec b.*?cp \$03\s+ret nc\s+dec b.*?cp \$01\s+ret nc\s+^@noEssences:\s+ld b,\$00\s+ret' -or
+    $gameProgress2Source -notmatch '(?ms)^@data4:.*?\.dw @@subid6\s+\.dw @@subid7\s+@@subid6:\s+\.db \$00 \$01 \$02 \$ff\s+@@subid7:\s+\.db \$03 \$04 \$05 \$06 \$07 \$ff') {
+    throw 'Room 1:48 NPC, getGameProgress_2 predicate, strike animation, or dirt-chip behavior changed in the disassembly.'
+}
+
+$room148SpeedMatch = [regex]::Match(
+    $objectSpeedSource,
+    '(?m)^\s*SPEED_80\s+dsb\s+\d+\s*;\s*0x(?<value>[0-9a-f]{2})')
+$room148SoundMatch = [regex]::Match(
+    $musicConstantSource,
+    '(?m)^\s*SND_CLINK\s+db\s*;\s*\$(?<value>[0-9a-f]{2})')
+$room148WorkerGraphic = $interactionGraphics['87:0']
+$room148DebrisGraphic = $interactionGraphics['146:6']
+$room148WorkAnimation = Resolve-NpcAnimation 0x57 0x02
+$room148TalkAnimation = Resolve-NpcAnimation 0x57 0x03
+$room148DebrisAnimation = Resolve-NpcAnimation 0x92 0x01
+if (-not $room148SpeedMatch.Success -or
+    -not $room148SoundMatch.Success -or
+    $null -eq $room148WorkerGraphic -or
+    $room148WorkerGraphic.Gfx -ne 0x4a -or
+    $room148WorkerGraphic.TileBase -ne 0 -or
+    $room148WorkerGraphic.Palette -ne 0 -or
+    $null -eq $room148DebrisGraphic -or
+    $room148DebrisGraphic.Gfx -ne 0 -or
+    $room148DebrisGraphic.TileBase -ne 2 -or
+    $room148DebrisGraphic.Flags -ne 0x81 -or
+    $room148DebrisGraphic.DefaultAnimation -ne 1 -or
+    -not $gfxNames.ContainsKey($room148WorkerGraphic.Gfx) -or
+    -not $room148WorkAnimation -or
+    -not $room148TalkAnimation -or
+    -not $room148DebrisAnimation -or
+    -not $allTexts.ContainsKey(0x1b00)) {
+    throw 'Could not resolve room 1:48 worker graphics, debris graphics, animations, sound, speed, or TX_1b00.'
+}
+$room148SpriteName = $gfxNames[$room148WorkerGraphic.Gfx]
+$room148DebrisSpriteName = 'spr_common_sprites'
+[void]$npcSpriteNames.Add($room148SpriteName)
+[void]$npcSpriteNames.Add($room148DebrisSpriteName)
+$room148Text = [Convert]::ToBase64String(
+    [Text.Encoding]::UTF8.GetBytes($allTexts[0x1b00]))
+$room148PickaxeRows = @(
+    "# worker-sprite`tworker-tile-base`tworker-palette`twork-animation`ttalk-animation`tdebris-sprite`tdebris-tile-base`tdebris-animation`ttext-id`tutf8-base64`tsound`tdebris-count`toffset-y`toffset-x`tspeed`tspeed-z`tgravity`tangle-0`tangle-1",
+    "$room148SpriteName`t$($room148WorkerGraphic.TileBase)`t$($room148WorkerGraphic.Palette)`t$room148WorkAnimation`t$room148TalkAnimation`t$room148DebrisSpriteName`t$($room148DebrisGraphic.TileBase)`t$room148DebrisAnimation`t1b00`t$room148Text`t$([Convert]::ToInt32($room148SoundMatch.Groups['value'].Value, 16))`t2`t4`t14`t$([Convert]::ToInt32($room148SpeedMatch.Groups['value'].Value, 16))`t-192`t24`t8`t24"
+)
 
 # Past room 1:49's three placed characters are one shared interaction: the
 # father and son play catch through wTmpcfc0.genericCutscene.cfd3 and
@@ -801,7 +890,7 @@ if ($npcRows.Count -ne 387) {
 # present-day villagers so runtime save changes select the original text.
 $npcDialogueRows = [Collections.Generic.List[string]]::new()
 $npcDialogueRows.Add(
-    "# id`tsubid`tvar03`tkind`tvalue`ttext-id`tsource`tutf8-base64")
+    "# id`tsubid`tvar03`tkind`tvalue`tlinked`ttext-id`tsource`tutf8-base64")
 function Add-NpcGameProgress1DialogueTable(
     [int]$id, [int[]]$subids, [int]$var03,
     [string]$sourceFile, [string]$tableLabel,
@@ -842,7 +931,78 @@ function Add-NpcGameProgress1DialogueTable(
         $stateSubids = if ($subidPerState) { @($subids[$state]) } else { $subids }
         foreach ($subid in $stateSubids) {
             $npcDialogueRows.Add(
-                "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$variant`tgame-progress-1`t$($state.ToString('x2'))`t$($textId.ToString('x4'))`t$sourceFile`:$tableLabel`t$encoded")
+                "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$variant`tgame-progress-1`t$($state.ToString('x2'))`t*`t$($textId.ToString('x4'))`t$sourceFile`:$tableLabel`t$encoded")
+        }
+    }
+}
+
+function Add-NpcGameProgress2DialogueTable(
+    [int]$id, [int[]]$subids, [int]$var03,
+    [string]$sourceFile, [string]$tableLabel
+) {
+    $sourcePath = Join-Path $Disassembly "object_code\ages\interactions\$sourceFile"
+    if (-not (Test-Path -LiteralPath $sourcePath)) {
+        throw "NPC dialogue source not found: $sourceFile"
+    }
+    $source = Get-Content -Raw $sourcePath
+    if ($source -notmatch 'getGameProgress_2') {
+        throw "$sourceFile no longer selects $tableLabel with getGameProgress_2."
+    }
+    $tableMatch = [regex]::Match(
+        $source,
+        "(?ms)^$([regex]::Escape($tableLabel)):\r?\n(?<body>.*?)(?=^[A-Za-z0-9_@]+:|\z)")
+    if (-not $tableMatch.Success) {
+        throw "Could not resolve NPC dialogue table $sourceFile`:$tableLabel."
+    }
+    $entries = @([regex]::Matches(
+        $tableMatch.Groups['body'].Value,
+        '(?m)^\s*\.dw\s+mainScripts\.(?<label>[A-Za-z0-9_@]+)'))
+    if ($entries.Count -ne 8) {
+        throw "$sourceFile`:$tableLabel no longer matches its eight getGameProgress_2 states."
+    }
+
+    $variant = if ($var03 -lt 0) { '*' } else { $var03.ToString('x2') }
+    for ($state = 0; $state -lt 8; $state++) {
+        $scriptLabel = $entries[$state].Groups['label'].Value
+        $textId = Resolve-ScriptTextId `
+            $scriptLabel ([Collections.Generic.HashSet[string]]::new())
+        if ($textId -le 0 -or -not $allTexts.ContainsKey($textId)) {
+            throw "Could not resolve $sourceFile`:$tableLabel state $state dialogue."
+        }
+
+        $selectors = @(@{ Linked = '*'; TextId = $textId })
+        $scriptMatch = [regex]::Match(
+            $agesMainScriptSource,
+            "(?ms)^$([regex]::Escape($scriptLabel)):\r?\n(?<body>.*?)(?=^(?!@)[A-Za-z0-9_]+:|\z)")
+        if (-not $scriptMatch.Success) {
+            throw "Could not resolve script body mainScripts.$scriptLabel."
+        }
+        $linkedMatch = [regex]::Match(
+            $scriptMatch.Groups['body'].Value,
+            '(?ms)jumpifmemoryeq\s+wIsLinkedGame,\s*\$01,\s*@linked.*?(?:rungenericnpc|rungenericnpclowindex)\s+(?:<)?TX_(?<unlinked>[0-9a-f]{4}).*?^@linked:\s*(?:rungenericnpc|rungenericnpclowindex)\s+(?:<)?TX_(?<linked>[0-9a-f]{4})')
+        if ($linkedMatch.Success) {
+            $unlinkedText = [Convert]::ToInt32(
+                $linkedMatch.Groups['unlinked'].Value, 16)
+            $linkedText = [Convert]::ToInt32(
+                $linkedMatch.Groups['linked'].Value, 16)
+            if ($unlinkedText -ne $textId -or
+                -not $allTexts.ContainsKey($linkedText)) {
+                throw "Could not verify linked dialogue in mainScripts.$scriptLabel."
+            }
+            $selectors = @(
+                @{ Linked = '0'; TextId = $unlinkedText },
+                @{ Linked = '1'; TextId = $linkedText }
+            )
+        }
+
+        foreach ($selector in $selectors) {
+            $selectedTextId = [int]$selector.TextId
+            $encoded = [Convert]::ToBase64String(
+                [Text.Encoding]::UTF8.GetBytes($allTexts[$selectedTextId]))
+            foreach ($subid in $subids) {
+                $npcDialogueRows.Add(
+                    "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$variant`tgame-progress-2`t$($state.ToString('x2'))`t$($selector.Linked)`t$($selectedTextId.ToString('x4'))`t$sourceFile`:$tableLabel`t$encoded")
+            }
         }
     }
 }
@@ -853,9 +1013,11 @@ Add-NpcGameProgress1DialogueTable 0x3b @(0x01, 0x02) -1 'femaleVillager.s' '@sub
 Add-NpcGameProgress1DialogueTable 0x3c @(0x02) -1 'boy.s' 'boySubid02ScriptTable'
 Add-NpcGameProgress1DialogueTable 0x44 @(0x02, 0x03) -1 'miscMan2.s' 'lynnaMan2ScriptTable'
 Add-NpcGameProgress1DialogueTable 0x41 @(0x01, 0x02, 0x03, 0x04, 0x05, 0x06) -1 'miscMan.s' '@scriptTable' 1 $true
+Add-NpcGameProgress2DialogueTable 0x3a @(0x06, 0x07) -1 'villager.s' '@subid6And7ScriptTable'
+Add-NpcGameProgress2DialogueTable 0x38 @(0x00) -1 'pastGirl.s' '@scriptTable'
 
-if ($npcDialogueRows.Count -ne 55) {
-    throw "Expected 54 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
+if ($npcDialogueRows.Count -ne 82) {
+    throw "Expected 81 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\npc_dialogue.tsv'),
@@ -1007,6 +1169,38 @@ function Add-NpcGameProgress1SetVisibility(
         $alternative++
     }
 }
+function Add-NpcGameProgress2Visibility(
+    [int]$id, [int]$subid, [int]$var03, [int]$alternative,
+    [int]$expectedState, [bool]$expectedEqual, [string]$source
+) {
+    if ($expectedState -lt 0 -or $expectedState -gt 7) {
+        throw "NPC visibility rule references invalid getGameProgress_2 state $expectedState."
+    }
+    Confirm-NpcVisibilitySource $source 'getGameProgress_2'
+    foreach ($token in @(
+        'GLOBALFLAG_FINISHEDGAME',
+        'wGroup4RoomFlags+$fc',
+        'GLOBALFLAG_SAW_TWINROVA_BEFORE_ENDGAME',
+        'TREASURE_ESSENCE',
+        'GLOBALFLAG_SAVED_NAYRU'
+    )) {
+        Confirm-NpcVisibilitySource 'miscMan2.s:getGameProgress_2' $token
+    }
+    $variant = if ($var03 -lt 0) { '*' } else { $var03.ToString('x2') }
+    $npcVisibilityRows.Add(
+        "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$variant`t$alternative`tgame-progress-2`t-`t-`t$($expectedState.ToString('x2'))`t$([int]$expectedEqual)`t$source")
+}
+function Add-NpcGameProgress2SetVisibility(
+    [int]$id, [int]$subid, [int]$var03,
+    [int[]]$expectedStates, [string]$source
+) {
+    $alternative = 0
+    foreach ($expectedState in $expectedStates) {
+        Add-NpcGameProgress2Visibility `
+            $id $subid $var03 $alternative $expectedState $true $source
+        $alternative++
+    }
+}
 
 # Ambi cutscene actors: current-room completion bits.
 Add-NpcCurrentRoomVisibility 0x4d 0x03 -1 0 0x40 $false 'ambi.s:@initSubid03'
@@ -1154,6 +1348,9 @@ Add-NpcGameProgress1SetVisibility 0x3a 0x04 -1 @(0, 1, 5) 'villager.s:@initSubid
 Add-NpcGameProgress1SetVisibility 0x3a 0x05 -1 @(4) 'villager.s:@initSubid05'
 Add-NpcGameProgress1SetVisibility 0x44 0x02 -1 @(0, 1, 2) 'miscMan2.s:@subid2'
 Add-NpcGameProgress1SetVisibility 0x44 0x03 -1 @(3, 4, 5) 'miscMan2.s:@subid3'
+Add-NpcGameProgress2SetVisibility 0x3a 0x06 -1 @(0, 1, 2) 'villager.s:@initSubid06'
+Add-NpcGameProgress2SetVisibility 0x3a 0x07 -1 @(3, 4, 5, 6, 7) 'villager.s:@initSubid07'
+Add-NpcGameProgress2SetVisibility 0x38 0x00 -1 @(0, 3, 4, 5, 6, 7) 'pastGirl.s:@subid0Init'
 
 # Impa's shared story-state function controls her room NPC subids.
 # House subid $00 adds $09 in a linked game, selecting one of the exported
@@ -1293,8 +1490,8 @@ Add-NpcCurrentRoomVisibility 0xab 0x12 -1 0 0x40 $false 'zora.s:@deleteIfFlagSet
 
 Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symmetryNpc.s:@subid0cInit'
 
-if ($npcVisibilityRows.Count -ne 304) {
-    throw "Expected 303 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 318) {
+    throw "Expected 317 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\npc_visibility.tsv'),
@@ -1754,6 +1951,11 @@ $familyTextPath = Join-Path $destination "objects\bipin_blossom_family_texts.tsv
 [IO.File]::WriteAllLines(
     $familyTextPath,
     $familyTextRows,
+    [Text.UTF8Encoding]::new($false))
+$room148PickaxePath = Join-Path $destination "objects\room148_pickaxe.tsv"
+[IO.File]::WriteAllLines(
+    $room148PickaxePath,
+    $room148PickaxeRows,
     [Text.UTF8Encoding]::new($false))
 $room149VisualPath = Join-Path $destination "objects\room149_family_visuals.tsv"
 [IO.File]::WriteAllLines(

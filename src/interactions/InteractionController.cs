@@ -37,6 +37,7 @@ public sealed class InteractionController
     private string _pendingChildName = string.Empty;
     private float _familyLinkScreenY;
     private double _familyWaitTicks;
+    private NpcCharacter? _activeNpcTalkLifecycle;
 
     public Func<NpcCharacter, bool>? NpcInteractionOverride { get; set; }
 
@@ -80,6 +81,11 @@ public sealed class InteractionController
 
     public void Update(double delta, Player player)
     {
+        if (_activeNpcTalkLifecycle is not null && !_dialogue.IsOpen)
+        {
+            _entities.EndNpcTalk(_activeNpcTalkLifecycle);
+            _activeNpcTalkLifecycle = null;
+        }
         _kidNameEntry.Update();
         UpdateFamilyNaming(delta);
 
@@ -129,6 +135,8 @@ public sealed class InteractionController
             if (NpcInteractionOverride?.Invoke(npc) == true)
                 return true;
             npc.FaceToward(player.Position);
+            if (_entities.BeginNpcTalk(npc))
+                _activeNpcTalkLifecycle = npc;
             _dialogue.ShowMessage(
                 npc.Message,
                 _worldToScreen(player.Position).Y,

@@ -123,7 +123,9 @@ effects:
   Rules within one alternative are ANDed; alternatives are ORed. A `var03`
   selector can distinguish placements sharing one ID/subid.
 - Dialogue rules model script selection while the interaction remains alive.
-  Exactly one applicable rule may resolve for an actor.
+  Exactly one applicable rule may resolve for an actor. A linked-game selector
+  distinguishes branches within the same story-state table entry without
+  inventing another progress state.
 
 `RoomEntityManager` reevaluates these rules when `OracleSaveData` or
 `OracleRuntimeState` changes. Ordinary visibility uses `SetFlagVisible` rather
@@ -133,9 +135,10 @@ separate active-state decision.
 
 Use the original state domain. Current visibility inputs include global,
 current-room, specific-room, treasure, linked-game, essence, save-WRAM,
-transient runtime-WRAM, and `getGameProgress_1` conditions. New kinds require a
-typed evaluator and strict importer validation; do not fold an unknown state
-function into a nearby flag that happens to match one save file.
+transient runtime-WRAM, and `getGameProgress_1`/`getGameProgress_2` conditions.
+New kinds require a typed evaluator and strict importer validation; do not fold
+an unknown state function into a nearby flag that happens to match one save
+file.
 
 ## Native and linked room interactions
 
@@ -177,6 +180,31 @@ source has one. Do not grow a list of observed-room exceptions.
 Spawned interactions, parts, and effects use `RoomEntitySpawn`. Preserve
 whether a child updates on its creation frame through `UpdateThisFrame`; that
 boundary must come from the original creation/update loop.
+
+Room `1:48` is the reference for a single native NPC with ordinary neighbors:
+
+- The male villager and past girl remain generic NPCs; imported
+  `getGameProgress_2` visibility and dialogue rules select their exact living
+  states and linked-game text branches.
+- `Room148PickaxeWorkerRoomEntity` advances animation `$02` once per original
+  update. Imported animation parameters `$01`/`$02` are read after that advance
+  and directly trigger SND `$50` plus two dirt-chip spawns.
+- `INpcTalkLifecycle` mirrors the worker script's animation `$03` while TX
+  `$1b00` is open and its same-update return to animation `$02` when text
+  closes. Use this lifecycle only when the original interaction script changes
+  persistent per-update behavior around a textbox.
+- Each `Room148PickaxeDebris` preserves the `$92:$06` state-0 return,
+  palette-from-parent parameter, source-order angles `$18`/`$08`, SPEED `$14`,
+  and `-$00c0`/`$18` fixed-point Z flight. Its graphics index `$00` loads no
+  dynamic object sheet, while interaction flag `$81` selects fixed VRAM bank 1;
+  therefore tile base `$02` comes from `spr_common_sprites`, not the worker
+  sheet. Preserve both the no-load index and bank bit when resolving such child
+  effects to a source PNG.
+
+Animation records retain a frame's nonzero `animParameter` as
+`duration,parameter@oam`; frames with parameter zero keep the compact
+`duration@oam` form. A native owner must inspect the parameter at the same point
+relative to `interactionAnimate` as the original handler.
 
 ## State predicates and live changes
 
@@ -313,6 +341,8 @@ production behavior; it must not drive it.
 - `src/entities/RoomEntityManager.cs`
 - `src/entities/RoomEntityContracts.cs`
 - `src/entities/RoomEntityAdapters.cs`
+- `src/interactions/Room148PickaxeDatabase.cs`
+- `src/interactions/Room148PickaxeInteraction.cs`
 - `src/interactions/InteractionController.cs`
 - `src/cutscenes/RoomEventController.cs`
 - `src/cutscenes/RoomEventContext.cs`

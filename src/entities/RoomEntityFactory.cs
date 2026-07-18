@@ -12,8 +12,10 @@ internal sealed class RoomEntityFactory(
     OracleRandom random,
     OracleSaveData? saveData,
     OracleRuntimeState runtimeState,
-    Action<TimePortal> portalEntered)
+    Action<TimePortal> portalEntered,
+    Action<int> soundRequested)
 {
+    private readonly Room148PickaxeDatabase _room148 = new();
     private readonly Room149FamilyDatabase _room149 = new();
     private readonly EnemySpawnTileDatabase _enemySpawnTiles = new();
 
@@ -24,7 +26,12 @@ internal sealed class RoomEntityFactory(
     {
         IReadOnlyList<NpcDatabase.NpcRecord> roomNpcs =
             npcs.GetRoomNpcs(group, room.Id, saveData, runtimeState);
-        if (group == 1 && room.Id == 0x49)
+        if (group == 1 && room.Id == 0x48)
+        {
+            foreach (IRoomEntity entity in CreateRoom148Npcs(roomNpcs))
+                yield return entity;
+        }
+        else if (group == 1 && room.Id == 0x49)
         {
             foreach (IRoomEntity entity in CreateRoom149Family(roomNpcs))
                 yield return entity;
@@ -168,8 +175,45 @@ internal sealed class RoomEntityFactory(
         KillEnemyPuffSpawn puff => CreateKillPuff(puff),
         ItemDropSpawn drop => CreateItemDrop(drop, room),
         CutsceneNpcSpawn npc => CreateCutsceneNpc(npc),
+        Room148DebrisSpawn debris => CreateRoom148Debris(debris),
         _ => throw new ArgumentOutOfRangeException(nameof(spawn), spawn, "Unknown room-entity spawn request.")
     };
+
+    private IEnumerable<IRoomEntity> CreateRoom148Npcs(
+        IReadOnlyList<NpcDatabase.NpcRecord> records)
+    {
+        bool foundWorker = false;
+        foreach (NpcDatabase.NpcRecord record in records)
+        {
+            var npc = new NpcCharacter
+            {
+                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+                ZIndex = NpcCharacter.BehindLinkZIndex
+            };
+            npc.Initialize(record);
+            if (record is { Id: 0x57, SubId: 0x00 })
+            {
+                if (foundWorker)
+                    throw new InvalidOperationException(
+                        "Room 1:48 contains more than one pickaxe worker $57:$00.");
+                foundWorker = true;
+                Room148PickaxeDatabase.PickaxeRecord pickaxe = _room148.Record;
+                npc.SetDialogue(
+                    pickaxe.TextId, pickaxe.Message, canFace: false);
+                npc.SetScriptAnimation(pickaxe.WorkAnimation);
+                yield return new Room148PickaxeWorkerRoomEntity(
+                    npc, pickaxe, soundRequested);
+            }
+            else
+            {
+                yield return new NpcRoomEntity(npc);
+            }
+        }
+
+        if (!foundWorker)
+            throw new InvalidOperationException(
+                "Room 1:48 is missing interaction $57:$00.");
+    }
 
     private IEnumerable<IRoomEntity> CreateRoom149Family(
         IReadOnlyList<NpcDatabase.NpcRecord> records)
@@ -241,6 +285,16 @@ internal sealed class RoomEntityFactory(
         var gel = new GelCharacter { Name = spawn.Name, ZIndex = 10 };
         gel.Initialize(enemies.Gel, room, spawn.Position, random);
         return new GelRoomEntity(gel);
+    }
+
+    private IRoomEntity CreateRoom148Debris(Room148DebrisSpawn spawn)
+    {
+        var debris = new Room148PickaxeDebris
+        {
+            Name = "Room148PickaxeDebris"
+        };
+        debris.Initialize(_room148.Record, spawn);
+        return new Room148DebrisRoomEntity(debris);
     }
 
     private IRoomEntity CreateDeathPuff(EnemyDeathPuffSpawn spawn)

@@ -15,7 +15,8 @@ claim that the entire surrounding game is complete.
   and warp transitions, time portals, dungeon neighbor resolution, and
   persistent visited/layout flags.
 - Link movement, level-1 sword combat, terrain hazards, push blocks, signs,
-  chests, item drops, basic bracelet interactions, and representative NPCs.
+  chests, item drops, basic bracelet interactions, and representative NPCs,
+  including past Lynna room `1:48`'s pickaxe worker and story-selected cast.
 - Keese, Octoroks/projectiles, Zols, and Gels using ordered room-object placement,
   original spawn restrictions, shared RNG, combat, and drop paths.
 - Title/file select, three save slots, new-file name/message-speed setup, the
