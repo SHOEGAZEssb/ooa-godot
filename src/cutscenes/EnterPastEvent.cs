@@ -4,7 +4,7 @@ using System;
 namespace oracleofages;
 
 /// <summary>Runs the one-shot first arrival in past room $1:$39.</summary>
-internal sealed class EnterPastEvent : IRoomEvent, ICutsceneCommandHost
+internal sealed class EnterPastEvent : IRoomEntryEvent, ICutsceneCommandHost
 {
     internal enum EventStage
     {
@@ -89,6 +89,8 @@ internal sealed class EnterPastEvent : IRoomEvent, ICutsceneCommandHost
         _precisePosition = _villager.Position;
         _runner.Start(_database.Commands);
     }
+
+    void IRoomEntryEvent.Start(OracleRoomData _) => Start();
 
     public void UpdateFrame()
     {

@@ -16,6 +16,7 @@ public sealed class RoomEventController
     private readonly EnterPastEvent _enterPast;
     private readonly ImpaIntroEvent _impa;
     private readonly NayruIntroEvent _nayru;
+    private readonly IRoomEvent[] _eventsByPriority;
     private double _frameAccumulator;
     private double _transitionFrameAccumulator;
 
@@ -55,16 +56,42 @@ public sealed class RoomEventController
         _enterPast = new EnterPastEvent(_context);
         _impa = new ImpaIntroEvent(_context);
         _nayru = new NayruIntroEvent(_context, _impa);
+        _eventsByPriority =
+        [
+            _nayru,
+            _makuTree,
+            _ralph,
+            _enterPast,
+            _impa,
+        ];
         entities.RoomEntitiesLoaded += OnRoomEntitiesLoaded;
     }
 
-    public bool Active =>
-        _nayru.BlocksGameplay || _makuTree.BlocksGameplay ||
-        _ralph.BlocksGameplay || _enterPast.BlocksGameplay || _impa.BlocksGameplay;
+    public bool Active
+    {
+        get
+        {
+            foreach (IRoomEvent roomEvent in _eventsByPriority)
+            {
+                if (roomEvent.BlocksGameplay)
+                    return true;
+            }
+            return false;
+        }
+    }
 
-    private bool HasEventState =>
-        _nayru.HasState || _makuTree.HasState || _ralph.HasState ||
-        _enterPast.HasState || _impa.HasState;
+    private bool HasEventState
+    {
+        get
+        {
+            foreach (IRoomEvent roomEvent in _eventsByPriority)
+            {
+                if (roomEvent.HasState)
+                    return true;
+            }
+            return false;
+        }
+    }
 
     internal MakuTreeDisappearanceEvent MakuTree => _makuTree;
     internal RalphPortalEvent Ralph => _ralph;
@@ -105,20 +132,7 @@ public sealed class RoomEventController
         while (HasEventState && _frameAccumulator >= 1.0)
         {
             _frameAccumulator -= 1.0;
-            if (_nayru.HasState)
-            {
-                _nayru.UpdateFrame();
-                if (_nayru.CrowdActive && _impa.Following)
-                    _impa.UpdateFollower();
-            }
-            else if (_makuTree.HasState)
-                _makuTree.UpdateFrame();
-            else if (_ralph.HasState)
-                _ralph.UpdateFrame();
-            else if (_enterPast.HasState)
-                _enterPast.UpdateFrame();
-            else
-                _impa.UpdateFrame();
+            UpdatePrimaryEventFrame();
         }
     }
 
@@ -166,21 +180,15 @@ public sealed class RoomEventController
         if (HasEventState)
             CancelAll();
 
-        if (_makuTree.Matches(group, room))
+        foreach (IRoomEvent roomEvent in _eventsByPriority)
         {
-            _makuTree.Start(room);
-            ResetClock();
-            return;
-        }
-        if (_ralph.Matches(group, room))
-        {
-            _ralph.Start();
-            ResetClock();
-            return;
-        }
-        if (_enterPast.Matches(group, room))
-        {
-            _enterPast.Start();
+            if (roomEvent is not IRoomEntryEvent entryEvent ||
+                !entryEvent.Matches(group, room))
+            {
+                continue;
+            }
+
+            entryEvent.Start(room);
             ResetClock();
             return;
         }
@@ -215,13 +223,27 @@ public sealed class RoomEventController
 
     private void CancelAll()
     {
-        _nayru.Cancel();
-        _makuTree.Cancel();
-        _ralph.Cancel();
-        _enterPast.Cancel();
-        _impa.Cancel();
+        foreach (IRoomEvent roomEvent in _eventsByPriority)
+            roomEvent.Cancel();
         _context.Player.EndCutsceneControl();
         ResetClock();
+    }
+
+    private void UpdatePrimaryEventFrame()
+    {
+        foreach (IRoomEvent roomEvent in _eventsByPriority)
+        {
+            if (!roomEvent.HasState)
+                continue;
+
+            roomEvent.UpdateFrame();
+            if (ReferenceEquals(roomEvent, _nayru) &&
+                _nayru.CrowdActive && _impa.Following)
+            {
+                _impa.UpdateFollower();
+            }
+            return;
+        }
     }
 
     private void ResetClock()

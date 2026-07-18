@@ -188,6 +188,13 @@ actors, or native completion takes ownership. Do not accumulate ordinary event
 updates during scrolling unless the original object is explicitly updated
 during transitions.
 
+Room events with ordinary room-match/start behavior implement
+`IRoomEntryEvent` and are registered once in `RoomEventController`'s explicit
+priority list. That list owns their entry selection, fixed updates, gameplay
+blocking, and cancellation order. Events that coordinate state across rooms or
+with another event, such as the Nayru and Impa sequence, keep their specialized
+room-load handling in the controller.
+
 ## Tracing and validation
 
 Command tracing belongs in the validation assembly. Production event classes

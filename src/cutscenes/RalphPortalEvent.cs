@@ -4,7 +4,7 @@ using System;
 namespace oracleofages;
 
 /// <summary>Runs Ralph's one-shot portal departure in room $0:$39.</summary>
-internal sealed class RalphPortalEvent : IRoomEvent, ICutsceneCommandHost
+internal sealed class RalphPortalEvent : IRoomEntryEvent, ICutsceneCommandHost
 {
     private readonly RoomEventContext _context;
     private readonly RalphPortalEventDatabase _database = new();
@@ -60,6 +60,8 @@ internal sealed class RalphPortalEvent : IRoomEvent, ICutsceneCommandHost
 
         _waitingForScroll = true;
     }
+
+    void IRoomEntryEvent.Start(OracleRoomData _) => Start();
 
     public void UpdateFrame()
     {
