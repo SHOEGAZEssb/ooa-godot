@@ -79,3 +79,7 @@ Graphics require tracing the complete source byte offset, tile base, OAM tile
 offset, 8x16 interleaving, flips, palette flags, and priority. Parsed OAM text
 alone does not prove an assembled sprite is correct. See
 [Graphics and audio](graphics-and-audio.md).
+
+NPC placement, state predicates, linked native interactions, and story event
+records follow the ownership and validation workflow in
+[NPCs and room events](npcs-and-events.md).

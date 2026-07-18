@@ -91,6 +91,7 @@ with these when working in a subsystem:
 - [Data import](docs/data-import.md)
 - [Runtime architecture](docs/runtime-architecture.md)
 - [Rooms and entities](docs/rooms-and-entities.md)
+- [NPCs and room events](docs/npcs-and-events.md)
 - [Menus and input](docs/menus-and-input.md)
 - [Saves and runtime state](docs/saves-and-state.md)
 - [Graphics and audio](docs/graphics-and-audio.md)

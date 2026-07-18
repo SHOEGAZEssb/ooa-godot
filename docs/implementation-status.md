@@ -49,3 +49,6 @@ claim that the entire surrounding game is complete.
 See [TODO.md](../TODO.md) for engineering consolidation tasks. New gameplay work
 should be selected from traced original interactions and should include imported
 data, runtime behavior, and validation in the same slice.
+
+The [NPC and room-event implementation guide](npcs-and-events.md) documents the
+current source-to-importer-to-runtime workflow used to expand that coverage.

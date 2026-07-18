@@ -1,0 +1,323 @@
+# NPC and room-event implementation
+
+This guide records the current method for porting NPC interactions and room
+events. In the disassembly, a visible character is usually an interaction
+object whose initialization, script, native handler, and related parts can have
+different owners. Start from those original owners; do not choose an
+architecture from the character's appearance or from the size of the scene.
+
+The common pipeline is:
+
+```text
+ROM behavior and disassembly
+        -> strict importer records with source identity
+        -> typed runtime database
+        -> room entity, linked interaction, or room event
+        -> separate headless regression
+```
+
+Generated records carry data across the disassembly/runtime boundary. Runtime
+code never parses assembly files, and production classes do not contain
+validation-only traces.
+
+## Choose the original owner
+
+Use the smallest owner that preserves the original mechanism and update order:
+
+| Original behavior | Runtime representation |
+| --- | --- |
+| Positioned character with ordinary animation, solidity, facing, and text | Imported `NpcRecord`, `NpcCharacter`, and `NpcRoomEntity` |
+| State-0 branch deletes or retains a placed interaction | Imported `NpcVisibilityRuleDatabase` predicate |
+| The actor remains but selects different text from story state | Imported `NpcDialogueRuleDatabase` rule |
+| Native object code advances movement, counters, animation, or collision every update | Specialized `IRoomEntity` adapter implementing the required capabilities |
+| Several interaction slots exchange signals or own a shared part | One linked interaction state owner, with one adapter/update call per original object slot |
+| Room entry starts a sequence that coordinates Link, dialogue, transitions, flags, audio, or several actors | Dedicated event owned by `RoomEventController` |
+| The original behavior is an `interactionRunScript` stream | Typed `CutsceneCommandRunner` inside the owning entity or event |
+| The original is a native cutscene, transition, palette thread, or special-object state machine | Specialized native controller, with typed script lanes only for script-driven portions |
+
+Complexity alone is not a reason to promote an NPC into a room event. A moving
+villager that remains an ordinary room object belongs in `RoomEntityManager`.
+Conversely, a short sequence that changes input, rooms, or persistent story
+state should not be hidden inside `NpcCharacter` merely because one NPC starts
+it.
+
+## Build an evidence packet first
+
+Trace all inputs that can affect the interaction before editing runtime code:
+
+1. Find its room-object placement and preserve the surrounding object order.
+2. Follow the interaction ID/subid dispatch into state 0 and later states.
+3. Trace every called script, helper routine, native handler, created
+   interaction/part, and shared temporary byte.
+4. Record flag addresses, masks, aliases, branch precedence, and whether a
+   branch deletes the object or changes its behavior in place.
+5. Record initialization order, per-object update order, counter installation,
+   decrement boundaries, and same-update versus next-update work.
+6. Trace positions, collision radii, speed/angle arithmetic, fixed-point Z,
+   animation indices/frames, OAM, palettes, text IDs, textbox position, sounds,
+   and input-disable masks.
+7. Trace completion writes, room exit, scrolling, cancellation, re-entry, and
+   save/reload behavior.
+
+Executed clean-ROM behavior has priority when it can be observed. The
+disassembly remains the primary implementation trace and should be searched for
+callers and data tables, not just for a promising routine name.
+
+Keep original identifiers in importer diagnostics, runtime assertions, source
+comments, and validation failures. A message such as `Room 1:49 is missing
+interaction $3c:$0e` is actionable; a message such as `missing boy` is not.
+
+## Importer boundary
+
+`tools/import_oracles/Import-NpcData.ps1` owns ordinary NPC placement, graphics,
+animation inputs, text, visibility predicates, dialogue selection, and small
+interaction-specific data sets. `Import-CutsceneData.ps1` owns typed command
+streams and event records that span several systems.
+
+Prefer one of these generated forms:
+
+- A base NPC row for placement, `var03`, initial visual, directional
+  animations, text, and facing behavior.
+- A visibility row for a state-0 deletion predicate.
+- A dialogue row when the same actor selects text from live story state.
+- A family/spawner row when an original table selects one of several actor
+  records by stage or personality.
+- A narrowly typed visual, physics, timing, or event record for native behavior
+  not represented by the common NPC schema.
+- A source-addressed command stream for original interaction scripts.
+
+Do not encode dialogue strings, sprite choices, or parsed script operands in a
+runtime controller when they can be emitted by the importer. Do not invent a
+generic format that erases an original distinction merely to avoid a small
+typed record.
+
+Importer checks must fail if a consumed handler or table no longer matches the
+expected source structure. For a specialized interaction, assert every branch
+input that runtime code depends on, not only the visually interesting branch.
+If a reusable generated predicate schema does not yet express a native state
+machine, exact masks may remain in that specialized runtime owner only when the
+importer pins the source sequence and validation covers its complete truth
+table. Extend the general schema when the same mechanism appears again.
+
+Generated output under `assets/oracle/` is never edited directly. Regenerate it
+after importer changes and keep row order deterministic.
+
+## Ordinary data-driven NPCs
+
+The ordinary path is intentionally small:
+
+1. `NpcDatabase` loads the generated room rows in source order.
+2. `RoomEntityFactory` creates one `NpcCharacter` and adapter for each selected
+   row.
+3. `RoomEntityManager` adds the adapters to the active entity list in that
+   order.
+4. `NpcCharacter` owns rendering, common animation, Link awareness, facing,
+   collision radii, talk range, and resolved dialogue presentation.
+5. `InteractionController` asks the entity manager for the first `ITalkTarget`,
+   applies facing, and opens the imported text at the actor's textbox position.
+
+Visibility and dialogue are separate because they reproduce different original
+effects:
+
+- Visibility rules model initialization branches that delete an interaction.
+  Rules within one alternative are ANDed; alternatives are ORed. A `var03`
+  selector can distinguish placements sharing one ID/subid.
+- Dialogue rules model script selection while the interaction remains alive.
+  Exactly one applicable rule may resolve for an actor.
+
+`RoomEntityManager` reevaluates these rules when `OracleSaveData` or
+`OracleRuntimeState` changes. Ordinary visibility uses `SetFlagVisible` rather
+than destroying the Godot node, allowing mutually exclusive imported variants
+to swap live without reparsing room data. Event-owned deactivation remains a
+separate active-state decision.
+
+Use the original state domain. Current visibility inputs include global,
+current-room, specific-room, treasure, linked-game, essence, save-WRAM,
+transient runtime-WRAM, and `getGameProgress_1` conditions. New kinds require a
+typed evaluator and strict importer validation; do not fold an unknown state
+function into a nearby flag that happens to match one save file.
+
+## Native and linked room interactions
+
+When an ordinary interaction has native per-update behavior, add only the room
+entity capabilities it actually uses. Exact original-engine counters and
+movement belong in `IFixedRoomEntity.UpdateFrame`; delta-driven presentation
+belongs in `IVariableRoomEntity` only when it is intentionally variable.
+Solidity and talking remain independent through `IRoomBlocker` and
+`ITalkTarget`.
+
+For linked interactions, one class may own shared state, but each original
+object slot still receives its update in room-object order. Expose a separate
+adapter or update delegate per actor instead of advancing the whole group from
+the first actor. This preserves temporary-byte handshakes and cases where a
+created part occupies a later slot.
+
+Room `1:49` is the current reference pattern:
+
+- `Room149FamilyInteraction` owns the father/son signal, ball ownership, and
+  three-state tableau.
+- Separate boy, father, observer, and ball adapters are yielded in original
+  update order.
+- Generated visual/text records retain the selected animation and dialogue
+  data.
+- The exact D7/Veran predicate changes behavior in place; it is not a visibility
+  rule because all three characters remain instantiated.
+- `IRoomSaveStateEntity` refreshes the tableau immediately when live save state
+  changes.
+
+`RunningBipinRoomEntity` is the smaller reference: it adds the original
+fixed-update patrol and reversal behavior while continuing to use
+`NpcCharacter` for rendering, talking, and collision.
+
+A group/room branch in `RoomEntityFactory` is acceptable only when the original
+defines that exact linked composition. Prefer interaction ID/subid dispatch for
+behavior shared across placements, and import a general selector table when the
+source has one. Do not grow a list of observed-room exceptions.
+
+Spawned interactions, parts, and effects use `RoomEntitySpawn`. Preserve
+whether a child updates on its creation frame through `UpdateThisFrame`; that
+boundary must come from the original creation/update loop.
+
+## State predicates and live changes
+
+Keep four questions distinct:
+
+| Question | Typical owner |
+| --- | --- |
+| Should this placed interaction exist? | Visibility predicate |
+| Which text should the living actor use? | Dialogue predicate |
+| Which native behavior/palette/position state is active? | Specialized interaction state machine |
+| Has a one-shot event completed on re-entry? | Original save or room flag read by the event |
+
+Preserve branch order rather than reducing it to unordered booleans. For
+example, room `1:49` checks room `4:fc` bit `$80` before essence byte `$c6bf`
+bit `$40`; the first branch therefore wins when both are set. Validation covers
+all four combinations, not only the two states normally seen in sequence.
+
+Also validate negative space: unrelated bits in the same byte, the same mask in
+another room or group, room-table aliases, and clearing a flag live. A broad
+mask or wrong aliased table can otherwise pass the happy path.
+
+Persistent predicates read `OracleSaveData`; transient original WRAM reads
+`OracleRuntimeState`. Do not cache either in a clone-only completion boolean.
+Use `IRoomSaveStateEntity` when a living specialized entity must react
+immediately. When the original only selects actors during room parsing, perform
+selection at load and validate exit/re-entry instead of adding invented live
+replacement behavior.
+
+## Room events and cutscenes
+
+`RoomEventController` owns room-entry and story sequences that coordinate more
+than ordinary entity behavior. It keeps an explicit priority list and advances
+one active primary event at 60 original updates per second.
+
+An event with ordinary room-match/start behavior implements `IRoomEntryEvent`:
+
+- `Matches` checks imported room identity and only the state needed to select
+  that entry path.
+- `Start` resolves required placed actors through `RoomEventContext.RequireNpc`
+  using group, room, interaction ID, and subid.
+- `HasState` reports real active work; `BlocksGameplay` derives from the
+  original input/object-disable behavior.
+- `UpdateFrame` advances one original update.
+- `Cancel` clears runners, actor references, temporary palettes/effects, and
+  other event-owned transient state.
+
+Cross-room sequences such as following Impa or the Nayru introduction retain
+specialized coordination in `RoomEventController`; forcing them through a
+simple room-entry interface would lose actor transfer and cancellation order.
+
+Placed characters remain `RoomEntityManager` entities when possible. Events
+operate on those actors rather than creating parallel scene-owned copies.
+Actors genuinely created by scripts use typed `RoomEntitySpawn` requests.
+`RoomEventContext` is the narrow bridge to room state, entities, transitions,
+Link, dialogue, presentation, inventory, and sound; event classes should not
+reconstruct those owners.
+
+Use the [Cutscene command runner](command-runner.md) when the original advances
+an interaction script. The event remains the host and validates its supported
+actors and operations. Native palette, transition, follower, physics, or effect
+handlers remain narrowly named native operations at their original command
+boundary. Do not turn a native state machine into an approximate command list
+because both contain waits.
+
+Ordinary destination entities and events stay frozen during scrolling. Add a
+transition update path only for an original exception, such as a retained
+follower or the first-past arrival overlap. Completion must be represented by
+the original global/room/WRAM write so room re-entry naturally selects the
+correct state.
+
+## Validation pattern
+
+NPC and event regressions live in `validation/GameRoot.Validation.cs`, not in
+production classes. Build a canonical-room scenario through the same public or
+internal lifecycle used by gameplay.
+
+For an ordinary NPC slice, cover as applicable:
+
+- imported record count/order and exact ID/subid/`var03` selection;
+- initial position, animation, palette, collision, talkability, and text;
+- every visibility/dialogue alternative and live state refresh;
+- unrelated masks, room/group aliases, and mutually exclusive variants;
+- movement or animation update boundaries and room-transition freeze;
+- exit/re-entry after persistent state changes.
+
+For a linked interaction or event, additionally cover:
+
+- original per-actor update order and shared-signal boundaries;
+- exact waits, counter installation/decrement behavior, movement, Z physics,
+  sounds, dialogue, and spawned-object timing;
+- successful and rejected entry predicates;
+- input/gameplay blocking, cancellation, transitions, and retained actors;
+- completion flags plus completed re-entry behavior;
+- every supported script branch and native-handler handoff.
+
+Attach command traces from the validation assembly when command boundaries are
+observable. Trace script label, command index, source line, opcode, start,
+update, and completion update, plus the branch result. A trace observes
+production behavior; it must not drive it.
+
+## Adding an NPC or event slice
+
+1. Trace placement, dispatch, callers, scripts, native handlers, graphics, and
+   every state branch.
+2. Write down the original owner and select the matching runtime path from the
+   ownership table above.
+3. Extend `Import-NpcData.ps1` or `Import-CutsceneData.ps1` with strict,
+   source-aware parsing and the smallest typed records.
+4. Regenerate assets; never repair generated rows manually.
+5. Add the ordinary adapter, specialized linked owner, or event without moving
+   unrelated mechanics into it.
+6. Preserve object order, fixed-update boundaries, arithmetic, collision,
+   spawn timing, and transition behavior.
+7. Route flags and WRAM through `OracleSaveData` or `OracleRuntimeState`, with
+   exact masks, aliases, and precedence.
+8. Add a canonical headless regression for every supported branch, negative
+   predicate cases, live/re-entry behavior, and exact timing.
+9. Update [Implementation status](implementation-status.md) for new
+   player-visible coverage and [TODO.md](../TODO.md) for deliberate remaining
+   work.
+10. Run the importer when changed, build with zero warnings/errors, run the
+    complete headless suite, and finish with `git diff --check` and
+    `git status --short`.
+
+## Relevant files
+
+- `tools/import_oracles/Import-NpcData.ps1`
+- `tools/import_oracles/Import-CutsceneData.ps1`
+- `src/entities/NpcDatabase.cs`
+- `src/entities/NpcCharacter.cs`
+- `src/entities/NpcVisibilityRuleDatabase.cs`
+- `src/entities/NpcDialogueRuleDatabase.cs`
+- `src/entities/RoomEntityFactory.cs`
+- `src/entities/RoomEntityManager.cs`
+- `src/entities/RoomEntityContracts.cs`
+- `src/entities/RoomEntityAdapters.cs`
+- `src/interactions/InteractionController.cs`
+- `src/cutscenes/RoomEventController.cs`
+- `src/cutscenes/RoomEventContext.cs`
+- `validation/GameRoot.Validation.cs`
+
+See [Rooms and entities](rooms-and-entities.md) for room lifetime and capability
+contracts, [Saves and runtime state](saves-and-state.md) for flag ownership, and
+[Validation](validation.md) for the regression assembly boundary.

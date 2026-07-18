@@ -4,6 +4,10 @@ This guide defines when and how to use the typed cutscene command runner in
 the Oracle of Ages port. The primary goal is behavioral parity with the
 original ROM, not making every sequence use one abstraction.
 
+See [NPCs and room events](npcs-and-events.md) for the preceding decision about
+whether the owning behavior is an ordinary room entity, a linked interaction,
+or a `RoomEventController` event.
+
 ## Decision rule
 
 Use `CutsceneCommandRunner` when the original behavior is an

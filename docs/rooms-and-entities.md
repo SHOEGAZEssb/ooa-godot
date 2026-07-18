@@ -97,6 +97,10 @@ stop Link one rendered pixel before contact. Object-side separation helpers may
 then replace only the collided coordinate's high byte while retaining its
 fractional byte.
 
+See [NPCs and room events](npcs-and-events.md) for deciding whether an imported
+interaction remains an ordinary NPC, receives a specialized room-entity
+adapter, or is coordinated by `RoomEventController`.
+
 ## Required regressions
 
 Room/entity changes should cover the reported room plus a general invariant:

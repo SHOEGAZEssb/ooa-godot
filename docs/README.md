@@ -12,6 +12,7 @@ importer, runtime, and validation suite.
 | [Data import](data-import.md) | ROM/disassembly import stages and generated-asset rules |
 | [Runtime architecture](runtime-architecture.md) | Scene ownership, controller boundaries, and update order |
 | [Rooms and entities](rooms-and-entities.md) | Room coordinates, transitions, object ordering, enemy placement, and entity lifetime |
+| [NPCs and room events](npcs-and-events.md) | Choosing data-driven NPCs, native linked interactions, or room events and carrying them from source to validation |
 | [Menus and input](menus-and-input.md) | Modal ownership, fixed-update fades, and gameplay pause leases |
 | [Saves and runtime state](saves-and-state.md) | WRAM-backed state, persistence, transactions, and checkpoints |
 | [Graphics and audio](graphics-and-audio.md) | Resource caching, OAM composition, palettes, and deterministic sound behavior |
