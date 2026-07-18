@@ -8,40 +8,67 @@ claim that the entire surrounding game is complete.
 
 ## Current coverage
 
+### Data and world
+
 - Import pipeline for all 1,536 expanded Ages room layouts and 103 concrete
   tilesets, including palettes, metatiles, attributes, collision, navigation,
   warps, maps, object records, dialogue, sprites, and all 223 sound IDs.
 - Original-resolution room rendering, collision, animated terrain, scrolling
   and warp transitions, time portals, dungeon neighbor resolution, and
   persistent visited/layout flags.
+
+### Player, combat, and items
+
 - Link movement, level-1 sword combat, terrain hazards, push blocks, signs,
-  chests, item drops, basic bracelet interactions, and representative NPCs,
-  including past Lynna room `1:48`'s pickaxe worker and story-selected cast.
-- Keese, Octoroks/projectiles, Zols, and Gels using ordered room-object placement,
-  original spawn restrictions, shared RNG, combat, and drop paths.
-- Title/file select, three save slots, new-file name/message-speed setup, the
-  new-game intro, original save image/checksum, previous-generation backups,
-  death checkpoints, and explicit Save & Quit flows.
-- HUD, dialogue, inventory pages, map/dungeon map, live flag editor, and shared
-  fixed-update menu lifecycle.
+  chests, item drops, and basic bracelet interactions.
 - Typed treasure behavior for imported collection modes and WRAM-backed
   inventory fields currently consumed by the game.
-- The imported sound sequencer with square, wave, and noise channels, channel
-  priority, music/SFX ownership, envelopes, vibrato, pitch behavior, and room
-  music assignments.
+
+### NPCs and enemies
+
+- Representative NPCs, including past Lynna room `1:48`'s pickaxe worker and
+  story-selected cast, room `1:49`'s linked family tableau, and room `1:58`'s
+  complete hobo/Impa/Nayru story predicates, dialogue, facing, and placement.
+- Keese, Octoroks/projectiles, Zols, and Gels using ordered room-object placement,
+  original spawn restrictions, shared RNG, combat, and drop paths.
+
+### Story and events
+
 - Early-game story/cutscene paths for Impa, the Triforce stone, Ralph's portal,
   first arrival in the past, the Maku Tree disappearance, and Nayru's
   introduction/aftermath. Script-driven portions use the typed command runner;
   native transition/presentation objects retain specialized controllers.
 
+### Interface and persistence
+
+- Title/file select, three save slots, new-file name/message-speed setup, the
+  new-game intro, original save image/checksum, previous-generation backups,
+  death checkpoints, and explicit Save & Quit flows.
+- HUD, dialogue, inventory pages, map/dungeon map, live flag editor, and shared
+  fixed-update menu lifecycle.
+
+### Audio
+
+- The imported sound sequencer with square, wave, and noise channels, channel
+  priority, music/SFX ownership, envelopes, vibrato, pitch behavior, and room
+  music assignments.
+
 ## Deferred or partial systems
+
+### World, story, and actors
 
 - The complete story, world interactions, NPC scripts, dungeons, bosses, enemy
   roster, and progression beyond the currently ported paths.
+
+### Player and inventory
+
 - Full active-item behavior, held objects, lifting/throwing, swimming/diving,
   ledges, terrain-specific Link states, and complete low-health/death handling.
 - Secret entry, linked-game/Game Link behavior, ring appraisal and the wider
   ring-effect system beyond the currently represented inventory state.
+
+### Graphics and audio
+
 - Remaining dynamic inventory text/count overlays and specialized item OAM.
 - Sound calls owned by interactions and objects that have not yet been ported.
 - A possible cell-based room renderer; the current full-room texture path remains

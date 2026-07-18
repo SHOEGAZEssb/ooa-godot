@@ -29,6 +29,7 @@ Use the smallest owner that preserves the original mechanism and update order:
 | Positioned character with ordinary animation, solidity, facing, and text | Imported `NpcRecord`, `NpcCharacter`, and `NpcRoomEntity` |
 | State-0 branch deletes or retains a placed interaction | Imported `NpcVisibilityRuleDatabase` predicate |
 | The actor remains but selects different text from story state | Imported `NpcDialogueRuleDatabase` rule |
+| Initialization selects a different static position from story state | Imported `NpcPositionRuleDatabase` rule |
 | Native object code advances movement, counters, animation, or collision every update | Specialized `IRoomEntity` adapter implementing the required capabilities |
 | Several interaction slots exchange signals or own a shared part | One linked interaction state owner, with one adapter/update call per original object slot |
 | Room entry starts a sequence that coordinates Link, dialogue, transitions, flags, audio, or several actors | Dedicated event owned by `RoomEventController` |
@@ -80,6 +81,8 @@ Prefer one of these generated forms:
   animations, text, and facing behavior.
 - A visibility row for a state-0 deletion predicate.
 - A dialogue row when the same actor selects text from live story state.
+- A position row when initialization chooses a static coordinate from story
+  state and the actor otherwise keeps its object-data position.
 - A family/spawner row when an original table selects one of several actor
   records by stage or personality.
 - A narrowly typed visual, physics, timing, or event record for native behavior
@@ -116,8 +119,8 @@ The ordinary path is intentionally small:
 5. `InteractionController` asks the entity manager for the first `ITalkTarget`,
    applies facing, and opens the imported text at the actor's textbox position.
 
-Visibility and dialogue are separate because they reproduce different original
-effects:
+Visibility, dialogue, and state-selected position are separate because they
+reproduce different original effects:
 
 - Visibility rules model initialization branches that delete an interaction.
   Rules within one alternative are ANDed; alternatives are ORed. A `var03`
@@ -126,12 +129,17 @@ effects:
   Exactly one applicable rule may resolve for an actor. A linked-game selector
   distinguishes branches within the same story-state table entry without
   inventing another progress state.
+- Position rules model an initialization branch that replaces object-data
+  coordinates without introducing per-update motion. A living actor without a
+  matching state uses its original room-object coordinates.
 
 `RoomEntityManager` reevaluates these rules when `OracleSaveData` or
 `OracleRuntimeState` changes. Ordinary visibility uses `SetFlagVisible` rather
 than destroying the Godot node, allowing mutually exclusive imported variants
 to swap live without reparsing room data. Event-owned deactivation remains a
-separate active-state decision.
+separate active-state decision. Ordinary position refresh likewise resolves
+from the original object-data coordinates every time, so leaving an override
+state restores the source position instead of retaining stale coordinates.
 
 Use the original state domain. Current visibility inputs include global,
 current-room, specific-room, treasure, linked-game, essence, save-WRAM,
@@ -206,6 +214,22 @@ Animation records retain a frame's nonzero `animParameter` as
 `duration@oam` form. A native owner must inspect the parameter at the same point
 relative to `interactionAnimate` as the original handler.
 
+Room `1:58` is the reference for story-selected ordinary NPC state without a
+specialized runtime owner:
+
+- The hobo `$44:$04` imports all eight `getGameProgress_2` script choices,
+  including the linked/unlinked text branches in states `$01` and `$07`.
+- His state-0 deletion is a visibility rule for state `$03`; his `$58,$78`
+  coordinate in state `$06` is a position rule; every other living state falls
+  back to the room-object coordinate `$48,$48`.
+- Impa `$4f:$02` imports the exact `getImpaNpcState == $08` conjunction,
+  including present-room `$83` bit `$80`, both treasures, and all global flags.
+  Nayru `$36:$0d` imports Flame of Despair set and finished-game clear as one
+  alternative. Their fixed TX IDs and directional facing remain base NPC data.
+- These records stay ordinary `NpcRoomEntity` adapters because none of the
+  three handlers owns native movement, shared signals, or a per-update state
+  machine after initialization.
+
 ## State predicates and live changes
 
 Keep four questions distinct:
@@ -214,7 +238,8 @@ Keep four questions distinct:
 | --- | --- |
 | Should this placed interaction exist? | Visibility predicate |
 | Which text should the living actor use? | Dialogue predicate |
-| Which native behavior/palette/position state is active? | Specialized interaction state machine |
+| Which static position should initialization select? | Position predicate |
+| Which native behavior, palette, or moving state is active? | Specialized interaction state machine |
 | Has a one-shot event completed on re-entry? | Original save or room flag read by the event |
 
 Preserve branch order rather than reducing it to unordered booleans. For
@@ -337,6 +362,7 @@ production behavior; it must not drive it.
 - `src/entities/NpcCharacter.cs`
 - `src/entities/NpcVisibilityRuleDatabase.cs`
 - `src/entities/NpcDialogueRuleDatabase.cs`
+- `src/entities/NpcPositionRuleDatabase.cs`
 - `src/entities/RoomEntityFactory.cs`
 - `src/entities/RoomEntityManager.cs`
 - `src/entities/RoomEntityContracts.cs`

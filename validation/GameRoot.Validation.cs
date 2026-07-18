@@ -219,6 +219,7 @@ public sealed class ValidationGameRoot : GameRoot
         ValidateNpcs();
         ValidateRoom148NpcInteractions();
         ValidateRoom149FamilyInteractions();
+        ValidateRoom158NpcInteractions();
         ValidateNpcFlagVisibility();
         ValidateBipinBlossomNaming();
         ValidateImpaIntroEncounter();
@@ -6843,6 +6844,201 @@ public sealed class ValidationGameRoot : GameRoot
             "SPEED_200 8.8 parabolic flights.");
     }
 
+    private void ValidateRoom158NpcInteractions()
+    {
+        const double frame = 1.0 / 60.0;
+        var validationRoot = new Node { Name = "Room158NpcValidation" };
+        AddChild(validationRoot);
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var manager = new RoomEntityManager(
+            validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
+        manager.LoadRoom(1, _world.LoadRoom(1, 0x58));
+
+        List<NpcCharacter> actors = manager.Entities<NpcCharacter>();
+        if (actors.Count != 3 ||
+            actors[0].Record is not { Id: 0x44, SubId: 0x04 } ||
+            actors[1].Record is not { Id: 0x4f, SubId: 0x02 } ||
+            actors[2].Record is not { Id: 0x36, SubId: 0x0d })
+        {
+            throw new InvalidOperationException(
+                "Room 1:58 did not preserve hobo, Impa, and Nayru object-data order.");
+        }
+
+        NpcCharacter hobo = actors[0];
+        NpcCharacter impa = actors[1];
+        NpcCharacter nayru = actors[2];
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 0 ||
+            !hobo.Active || hobo.Position != new Vector2(0x48, 0x48) ||
+            hobo.TextId != 0x1600 || string.IsNullOrEmpty(hobo.Message) ||
+            hobo.Record.CanFace || impa.Active || nayru.Active)
+        {
+            throw new InvalidOperationException(
+                "Room 1:58 state $00 did not contain only the static hobo " +
+                "at $48,$48 with TX_1600.");
+        }
+
+        void SetEssences(byte value)
+        {
+            if (save.WriteWramByte(0xc6bf, value))
+                save.CommitInventoryChange();
+        }
+        void SetLinked(bool value)
+        {
+            if (save.WriteWramByte(0xc612, value ? (byte)1 : (byte)0))
+                save.CommitInventoryChange();
+        }
+        void SetTreasure(int treasure, bool value)
+        {
+            int address = 0xc69a + treasure / 8;
+            byte mask = (byte)(1 << (treasure & 7));
+            byte current = save.ReadWramByte(address);
+            byte next = value ? (byte)(current | mask) : (byte)(current & ~mask);
+            if (save.WriteWramByte(address, next))
+                save.CommitInventoryChange();
+        }
+        bool CanTalkTo(NpcCharacter npc)
+        {
+            _player.WarpTo(npc.Position + Vector2.Down * 16.0f);
+            _player.Face(Vector2I.Up);
+            return npc.CanTalkTo(_player);
+        }
+
+        SetEssences(0x02);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 1 ||
+            !hobo.Active || hobo.TextId != 0x1601 || !CanTalkTo(hobo))
+        {
+            throw new InvalidOperationException(
+                "Room 1:58 state $01 did not select unlinked TX_1601.");
+        }
+        SetLinked(value: true);
+        if (hobo.TextId != 0x1608 || !CanTalkTo(hobo))
+            throw new InvalidOperationException(
+                "Room 1:58 linked state $01 did not select TX_1608 live.");
+        SetLinked(value: false);
+
+        SetEssences(0x08);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 2 ||
+            !hobo.Active || hobo.TextId != 0x1602)
+        {
+            throw new InvalidOperationException(
+                "Room 1:58 state $02 did not select TX_1602.");
+        }
+
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 3 || hobo.Active)
+            throw new InvalidOperationException(
+                "Room 1:58's hobo was not deleted only in saved-Nayru state $03.");
+
+        SetEssences(0x40);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 4 ||
+            !hobo.Active || hobo.Position != new Vector2(0x48, 0x48) ||
+            hobo.TextId != 0x1604)
+        {
+            throw new InvalidOperationException(
+                "Room 1:58 state $04 did not restore the hobo at $48,$48 with TX_1604.");
+        }
+
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 5 ||
+            hobo.TextId != 0x1605)
+        {
+            throw new InvalidOperationException(
+                "Room 1:58 state $05 did not select TX_1605.");
+        }
+
+        SetLinked(value: true);
+        save.SetRoomFlag(4, 0xfc, 0x7f);
+        save.SetRoomFlag(5, 0xfc, OracleSaveData.RoomFlag80);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 5 ||
+            hobo.Position != new Vector2(0x48, 0x48) || hobo.TextId != 0x1605)
+        {
+            throw new InvalidOperationException(
+                "Unrelated room 4:fc bits or group-5 room fc bit $80 " +
+                "incorrectly selected room 1:58 state $06.");
+        }
+
+        save.SetRoomFlag(4, 0xfc, OracleSaveData.RoomFlag80);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 6 ||
+            !hobo.Active || hobo.Position != new Vector2(0x78, 0x58) ||
+            hobo.TextId != 0x1609 || impa.Active || nayru.Active)
+        {
+            throw new InvalidOperationException(
+                "Linked room 4:fc flag $80 did not move the hobo to $58,$78, " +
+                "select TX_1609, and retain the pre-flame actor set.");
+        }
+
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagFlameOfDespairLit);
+        if (!nayru.Active || nayru.TextId != 0x1d17 || impa.Active ||
+            !nayru.Record.CanFace || !CanTalkTo(nayru))
+        {
+            throw new InvalidOperationException(
+                "GLOBALFLAG_FLAME_OF_DESPAIR_LIT did not reveal talkable " +
+                "Nayru $36:$0d/TX_1d17 while retaining Impa's compound gate.");
+        }
+
+        SetTreasure(TreasureDatabase.TreasureHarp, value: true);
+        SetTreasure(TreasureDatabase.TreasureMakuSeed, value: true);
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagPreBlackTowerCutsceneDone);
+        save.SetRoomFlag(1, 0x83, OracleSaveData.RoomFlag80);
+        if (impa.Active)
+            throw new InvalidOperationException(
+                "Group-1 room 83 flag $80 incorrectly satisfied Impa's " +
+                "wPresentRoomFlags+$83 predicate.");
+        save.SetRoomFlag(0, 0x83, OracleSaveData.RoomFlag80);
+        if (!impa.Active || impa.TextId != 0x012f || !impa.Record.CanFace ||
+            !CanTalkTo(impa))
+        {
+            throw new InvalidOperationException(
+                "getImpaNpcState $08 did not reveal talkable Impa " +
+                "$4f:$02/TX_012f after every exact prerequisite was met.");
+        }
+
+        ulong impaDownHash = impa.CurrentAnimationPixelHash;
+        ulong nayruDownHash = nayru.CurrentAnimationPixelHash;
+        _player.WarpTo(new Vector2(0x21, 0x48));
+        manager.Update(frame, _player);
+        if (impa.CurrentAnimationPixelHash == impaDownHash ||
+            nayru.CurrentAnimationPixelHash == nayruDownHash)
+        {
+            throw new InvalidOperationException(
+                "Room 1:58 Impa or Nayru did not use the imported directional " +
+                "animation when Link entered the original $28 facing radius.");
+        }
+
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(save) != 7 ||
+            !hobo.Active || hobo.Position != new Vector2(0x48, 0x48) ||
+            hobo.TextId != 0x160a || impa.Active || nayru.Active)
+        {
+            throw new InvalidOperationException(
+                "Finished-game state $07 did not override linked state $06, " +
+                "restore the hobo position, select linked TX_160a, and remove " +
+                "the Flame of Despair actors.");
+        }
+        SetLinked(value: false);
+        if (hobo.TextId != 0x1607)
+            throw new InvalidOperationException(
+                "Unlinked room 1:58 state $07 did not select TX_1607 live.");
+
+        manager.LoadRoom(1, _world.LoadRoom(1, 0x58));
+        hobo = manager.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x44, SubId: 0x04 });
+        if (!hobo.Active || hobo.Position != new Vector2(0x48, 0x48) ||
+            hobo.TextId != 0x1607)
+        {
+            throw new InvalidOperationException(
+                "Room 1:58 re-entry did not retain unlinked state-$07 hobo state.");
+        }
+
+        manager.Clear();
+        RemoveChild(validationRoot);
+        validationRoot.QueueFree();
+        GD.Print("Validated room 1:58's ordered hobo/Impa/Nayru composition, " +
+            "all eight getGameProgress_2 hobo states and linked texts, exact " +
+            "state-$06 relocation, Flame of Despair predicates, directional " +
+            "facing, flag precedence, negative room-table cases, and re-entry.");
+    }
+
     private void ValidateNpcFlagVisibility()
     {
         var validationRoot = new Node { Name = "NpcFlagVisibilityValidation" };
@@ -6851,10 +7047,12 @@ public sealed class ValidationGameRoot : GameRoot
         var manager = new RoomEntityManager(
             validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
 
-        if (new NpcVisibilityRuleDatabase().RuleCount != 317 ||
-            new NpcDialogueRuleDatabase().RuleCount != 81)
+        if (new NpcVisibilityRuleDatabase().RuleCount != 318 ||
+            new NpcDialogueRuleDatabase().RuleCount != 91 ||
+            new NpcPositionRuleDatabase().RuleCount != 1)
             throw new InvalidOperationException(
-                "Expected 317 NPC visibility and 81 NPC dialogue state predicates.");
+                "Expected 318 NPC visibility, 91 NPC dialogue, and one NPC " +
+                "position state predicate.");
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x5a));
         List<NpcCharacter> introMonkeys = manager.Entities<NpcCharacter>().Where(npc =>
@@ -7508,7 +7706,7 @@ public sealed class ValidationGameRoot : GameRoot
             "$20-frame animation loops, rooms 2:ea/2:eb's 72-record family spawner, " +
             "Bipin $28:$00's SPEED_100 X=$28/$58 patrol, $04/$05 animation reversal, " +
             "and moving objectPreventLinkFromPassing collision, " +
-            "317 visibility and 81 dialogue predicates, roaming-dog " +
+            "318 visibility, 91 dialogue, and one position predicate, roaming-dog " +
             "location selection, rooms 0:68/0:78's phased and linked talkable cast, " +
             "room 3:9e's post-intro Impa, var03 selection, compound and alternative gates, " +
             "live refresh, and lifecycle-safe hiding.");

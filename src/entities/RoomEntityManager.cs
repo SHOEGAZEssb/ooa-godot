@@ -20,6 +20,7 @@ public sealed class RoomEntityManager
     private readonly OracleRuntimeState _runtimeState;
     private readonly NpcVisibilityRuleDatabase _npcVisibility = new();
     private readonly NpcDialogueRuleDatabase _npcDialogue = new();
+    private readonly NpcPositionRuleDatabase _npcPositions = new();
     private readonly List<IRoomEntity> _activeEntities = new();
     private readonly List<IRoomEntity> _outgoingEntities = new();
     private readonly List<RoomEntitySpawn> _pendingSpawns = new();
@@ -313,6 +314,11 @@ public sealed class RoomEntityManager
                     npc.Record, _saveData, _runtimeState));
                 if (_npcDialogue.TryResolve(npc.Record, _saveData, out var dialogue))
                     npc.SetDialogue(dialogue.TextId, dialogue.Message, npc.Record.CanFace);
+                if (_npcPositions.TryResolve(
+                    npc.Record, _saveData, out Vector2 position))
+                {
+                    npc.SetStatePosition(position);
+                }
             }
         }
     }

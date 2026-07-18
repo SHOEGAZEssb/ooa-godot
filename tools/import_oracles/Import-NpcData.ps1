@@ -387,6 +387,32 @@ $npcInitialAnimationBySubid['57:2'] =
 $npcInitialAnimationBySubid['57:3'] =
     [Convert]::ToInt32($introMonkeyAnimationMatch.Groups['subid3'].Value, 16)
 
+# Room 1:58's late-story Impa and Nayru select their fixed text in assembly
+# before entering a generic NPC script. Preserve those selections and their
+# directional facing behavior instead of leaving the positioned records at the
+# TX_0000/can-face fallback used for unresolved controllers.
+$room158HoboSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscMan2.s')
+$room158ImpaSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\impaNpc.s')
+$room158NayruSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\nayru.s')
+if ($room158HoboSource -notmatch '(?ms)^@subid4:.*?getGameProgress_2.*?cp \$03\s+jp z,interactionDelete.*?cp \$06.*?ld bc,\$5878.*?pastHoboScriptTable' -or
+    $room158ImpaSource -notmatch '(?ms)^impaNpc_subid02:.*?getImpaNpcState.*?cp \$08\s+jp nz,interactionDelete\s+ld a,<TX_012f.*?impaNpc_runScriptAndFaceLink' -or
+    $room158ImpaSource -notmatch '(?ms)^impaNpc_setTextIndexAndLoadGenericNpcScript:.*?Interaction\.var38.*?ld a,\$02.*?mainScripts\.genericNpcScript' -or
+    $room158NayruSource -notmatch '(?ms)^@init0d:.*?GLOBALFLAG_FLAME_OF_DESPAIR_LIT.*?jp z,interactionDelete.*?GLOBALFLAG_FINISHEDGAME.*?jp nz,interactionDelete.*?<TX_1d17\s+jr @runGenericNpc' -or
+    $room158NayruSource -notmatch '(?ms)^nayruAsNpc:\s+call interactionRunScript\s+jp npcFaceLinkAndAnimate' -or
+    -not $allTexts.ContainsKey(0x012f) -or
+    -not $allTexts.ContainsKey(0x1d17)) {
+    throw 'Room 1:58 hobo, Impa, or Nayru initialization changed in the disassembly.'
+}
+$npcTextBySubid['79:2'] = 0x012f
+$npcTextBySubid['54:13'] = 0x1d17
+$npcCanFaceBySubid = @{
+    '79:2' = $true
+    '54:13' = $true
+}
+
 function New-NpcDataRow(
     [int]$group,
     [int]$room,
@@ -423,6 +449,8 @@ function New-NpcDataRow(
     }
     $canFace = if ($canFaceOverride -ge 0) {
         $canFaceOverride -ne 0
+    } elseif ($npcCanFaceBySubid.ContainsKey("$id`:$subid")) {
+        [bool]$npcCanFaceBySubid["$id`:$subid"]
     } else {
         $textId -ne 0 -and $npcFacingIds.Contains($id) -and $initialAnimation -ge 2
     }
@@ -448,6 +476,10 @@ function New-NpcDataRow(
 $npcRows = [Collections.Generic.List[string]]::new()
 $npcRows.Add("# group`troom`tid`tsubid`ty`tx`tvar03`ttext-id`tsprite`ttile-base`tpalette`tdefault-animation`tcan-face`tup-animation`tright-animation`tdown-animation`tleft-animation`tutf8-base64")
 $mainObjectLines = Get-Content (Join-Path $Disassembly "objects\ages\mainData.s")
+$room158ObjectSource = $mainObjectLines -join "`n"
+if ($room158ObjectSource -notmatch '(?ms)^group1Map58ObjectData:\s+obj_Interaction \$44 \$04 \$48 \$48\s+obj_Interaction \$4f \$02 \$48 \$48\s+obj_Interaction \$36 \$0d \$48 \$38\s+obj_End') {
+    throw 'Room 1:58 no longer contains ordered hobo $44:$04, Impa $4f:$02, and Nayru $36:$0d placements.'
+}
 $currentGroup = -1
 $currentRoom = -1
 $npcSpriteNames = [Collections.Generic.HashSet[string]]::new()
@@ -979,7 +1011,7 @@ function Add-NpcGameProgress2DialogueTable(
         }
         $linkedMatch = [regex]::Match(
             $scriptMatch.Groups['body'].Value,
-            '(?ms)jumpifmemoryeq\s+wIsLinkedGame,\s*\$01,\s*@linked.*?(?:rungenericnpc|rungenericnpclowindex)\s+(?:<)?TX_(?<unlinked>[0-9a-f]{4}).*?^@linked:\s*(?:rungenericnpc|rungenericnpclowindex)\s+(?:<)?TX_(?<linked>[0-9a-f]{4})')
+            '(?ms)jumpifmemoryeq\s+wIsLinkedGame,\s*\$01,\s*(?:@linked|\+).*?(?:rungenericnpc|rungenericnpclowindex)\s+(?:<)?TX_(?<unlinked>[0-9a-f]{4}).*?^(?:@linked:|\+)\s*(?:rungenericnpc|rungenericnpclowindex)\s+(?:<)?TX_(?<linked>[0-9a-f]{4})')
         if ($linkedMatch.Success) {
             $unlinkedText = [Convert]::ToInt32(
                 $linkedMatch.Groups['unlinked'].Value, 16)
@@ -1015,13 +1047,26 @@ Add-NpcGameProgress1DialogueTable 0x44 @(0x02, 0x03) -1 'miscMan2.s' 'lynnaMan2S
 Add-NpcGameProgress1DialogueTable 0x41 @(0x01, 0x02, 0x03, 0x04, 0x05, 0x06) -1 'miscMan.s' '@scriptTable' 1 $true
 Add-NpcGameProgress2DialogueTable 0x3a @(0x06, 0x07) -1 'villager.s' '@subid6And7ScriptTable'
 Add-NpcGameProgress2DialogueTable 0x38 @(0x00) -1 'pastGirl.s' '@scriptTable'
+Add-NpcGameProgress2DialogueTable 0x44 @(0x04) -1 'miscMan2.s' 'pastHoboScriptTable'
 
-if ($npcDialogueRows.Count -ne 82) {
-    throw "Expected 81 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
+if ($npcDialogueRows.Count -ne 92) {
+    throw "Expected 91 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\npc_dialogue.tsv'),
     $npcDialogueRows,
+    [Text.UTF8Encoding]::new($false))
+
+# State-selected position overrides remain separate from visibility and text.
+# INTERAC_MISC_MAN_2 $44:$04 moves only in getGameProgress_2 state $06;
+# every other living state uses its object-data position $48,$48.
+$npcPositionRows = @(
+    "# id`tsubid`tvar03`tkind`tvalue`ty`tx`tsource",
+    "44`t04`t*`tgame-progress-2`t06`t58`t78`tmiscMan2.s:@subid4"
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\npc_positions.tsv'),
+    $npcPositionRows,
     [Text.UTF8Encoding]::new($false))
 
 # Room interactions frequently delete their placed NPC during state 0 based
@@ -1348,6 +1393,7 @@ Add-NpcGameProgress1SetVisibility 0x3a 0x04 -1 @(0, 1, 5) 'villager.s:@initSubid
 Add-NpcGameProgress1SetVisibility 0x3a 0x05 -1 @(4) 'villager.s:@initSubid05'
 Add-NpcGameProgress1SetVisibility 0x44 0x02 -1 @(0, 1, 2) 'miscMan2.s:@subid2'
 Add-NpcGameProgress1SetVisibility 0x44 0x03 -1 @(3, 4, 5) 'miscMan2.s:@subid3'
+Add-NpcGameProgress2Visibility 0x44 0x04 -1 0 0x03 $false 'miscMan2.s:@subid4'
 Add-NpcGameProgress2SetVisibility 0x3a 0x06 -1 @(0, 1, 2) 'villager.s:@initSubid06'
 Add-NpcGameProgress2SetVisibility 0x3a 0x07 -1 @(3, 4, 5, 6, 7) 'villager.s:@initSubid07'
 Add-NpcGameProgress2SetVisibility 0x38 0x00 -1 @(0, 3, 4, 5, 6, 7) 'pastGirl.s:@subid0Init'
@@ -1490,8 +1536,8 @@ Add-NpcCurrentRoomVisibility 0xab 0x12 -1 0 0x40 $false 'zora.s:@deleteIfFlagSet
 
 Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symmetryNpc.s:@subid0cInit'
 
-if ($npcVisibilityRows.Count -ne 318) {
-    throw "Expected 317 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 319) {
+    throw "Expected 318 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\npc_visibility.tsv'),

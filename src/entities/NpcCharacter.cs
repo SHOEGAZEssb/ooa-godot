@@ -219,6 +219,14 @@ public partial class NpcCharacter : Node2D
         _collisionRadiusX = radiusX;
     }
 
+    internal void SetStatePosition(Vector2 position)
+    {
+        if (Position == position)
+            return;
+        Position = position;
+        QueueRedraw();
+    }
+
     internal void SetDialogue(
         int textId,
         string message,
