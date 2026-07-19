@@ -12,6 +12,7 @@ public sealed class RoomEntityManager
 {
     public event Action<int, OracleRoomData>? RoomEntitiesLoaded;
     public event Action<TimePortal>? TimePortalEntered;
+    internal event Action<int, string>? DungeonEntranceTriggered;
     internal event Action<GroundTreasurePickup, Player>? GroundTreasureCollected;
     public event Action<int>? SoundRequested;
     private readonly Node _worldRoot;
@@ -52,7 +53,18 @@ public sealed class RoomEntityManager
             return false;
         }
     }
-    public bool PlayerMovementDisabled => PlayerSwordDisabled && (_enemyFrameCounter & 1) != 0;
+    public bool PlayerMovementDisabled
+    {
+        get
+        {
+            foreach (IRoomEntity entity in _activeEntities)
+            {
+                if (entity is IPlayerRestriction { DisablesMovement: true })
+                    return true;
+            }
+            return PlayerSwordDisabled && (_enemyFrameCounter & 1) != 0;
+        }
+    }
 
     public RoomEntityManager(
         Node worldRoot,
@@ -82,7 +94,8 @@ public sealed class RoomEntityManager
             npcs, enemies, itemDrops, timePortals, random,
             _saveData, _runtimeState, OnTimePortalEntered,
             () => GroundTreasureCollectionAllowed(),
-            OnGroundTreasureCollected, OnSoundRequested);
+            OnGroundTreasureCollected, OnDungeonEntranceTriggered,
+            OnSoundRequested);
         if (_saveData is not null)
             _saveData.Changed += RefreshNpcState;
         _runtimeState.Changed += RefreshNpcState;
@@ -315,8 +328,9 @@ public sealed class RoomEntityManager
         {
             if (entity is IRoomSaveStateEntity stateEntity)
                 stateEntity.RefreshSaveState();
-            if (entity is NpcRoomEntity && entity.Node is NpcCharacter npc)
+            if (entity is IOrdinaryNpcEntity ordinary)
             {
+                NpcCharacter npc = ordinary.Npc;
                 npc.SetFlagVisible(_npcVisibility.ShouldShow(
                     npc.Record, _saveData, _runtimeState));
                 if (_npcDialogue.TryResolve(npc.Record, _saveData, out var dialogue))
@@ -381,6 +395,8 @@ public sealed class RoomEntityManager
     private void OnGroundTreasureCollected(
         GroundTreasurePickup treasure,
         Player player) => GroundTreasureCollected?.Invoke(treasure, player);
+    private void OnDungeonEntranceTriggered(int textId, string message) =>
+        DungeonEntranceTriggered?.Invoke(textId, message);
     private void OnSoundRequested(int sound) => SoundRequested?.Invoke(sound);
 
     private static List<T> SelectNodes<T>(IEnumerable<IRoomEntity> entities) where T : Node2D

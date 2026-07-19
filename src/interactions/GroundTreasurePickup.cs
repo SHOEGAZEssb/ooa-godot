@@ -101,6 +101,20 @@ public partial class GroundTreasurePickup : Node2D
         return true;
     }
 
+    /// <summary>
+    /// Starts the same grab-mode-$02 state used by a touched ground treasure
+    /// for script opcode giveitem, whose treasure is already assigned to Link.
+    /// </summary>
+    internal void BeginGranted(Player player)
+    {
+        if (Finished || Held)
+            throw new InvalidOperationException(
+                "A granted treasure cannot be started twice.");
+        _state = PickupState.Collected;
+        Visible = true;
+        UpdateFrame(player);
+    }
+
     internal void Finish(Player player)
     {
         if (Finished)

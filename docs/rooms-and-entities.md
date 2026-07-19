@@ -66,6 +66,9 @@ AI and drops even if the placements happen to look valid.
 - `Scrolling` excludes the original rows or columns near Link's incoming edge.
 - `Warp` excludes the surrounding 5 by 5-metatile area around the packed
   destination.
+- `ScreenWarp` retains the same incoming-edge enemy exclusion as upward
+  scrolling for destination bytes `$f0`-`$ff`, while remaining distinguishable
+  to whiteout-only room interactions such as dungeon-stuff `$12:$00`.
 
 Do not infer the context from Link's eventual position after entities have
 already been parsed. Pass it from the transition/load operation that owns the
@@ -83,6 +86,8 @@ single universal entity base class:
 | `ILinkContactEntity` | Post-update Link contact handling |
 | `ISwordHittableRoomEntity` | Sword collision and hit response |
 | `IRoomBlocker` / `ITalkTarget` | Collision or interaction capability |
+| `IOrdinaryNpcEntity` | A placed NPC eligible for live imported save-predicate refresh |
+| `IPlayerRestriction` | Native interaction-owned sword and/or movement input suppression |
 | `IRoomEntityLifetime` | Completion and final spawned effects |
 | `IRoomSaveStateEntity` | Refresh from changed live save state |
 

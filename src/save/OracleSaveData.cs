@@ -23,6 +23,7 @@ public sealed class OracleSaveData
     public const byte RoomFlag80 = 0x80;
 
     public const int GlobalFlagIntroDone = 0x0a;
+    public const int GlobalFlag0b = 0x0b;
     public const int GlobalFlagWonFairyHidingGame = 0x0e;
     public const int GlobalFlagPregameIntroDone = 0x21;
     public const int GlobalFlagLinkSummoned = 0x3d;

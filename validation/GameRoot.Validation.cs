@@ -224,6 +224,7 @@ public sealed class ValidationGameRoot : GameRoot
         ValidateRoom175NpcInteractions();
         ValidateRoom176NpcInteractions();
         ValidateRoom186NpcInteractions();
+        ValidateLowerBlackTowerInteractions();
         ValidateNpcFlagVisibility();
         ValidateBipinBlossomNaming();
         ValidateImpaIntroEncounter();
@@ -4786,6 +4787,14 @@ public sealed class ValidationGameRoot : GameRoot
                 $"got {_entities.Entities<KeeseCharacter>().Count}.");
 
         KeeseCharacter normalKeese = _entities.Entities<KeeseCharacter>()[0];
+        // Keep the target hitbox independent of the room-wide RNG stream.
+        // Earlier exact-RNG interaction loads may legitimately place another
+        // random Keese near the validation's synthetic $30/$30 target.
+        for (int index = 1; index < _entities.Entities<KeeseCharacter>().Count; index++)
+        {
+            _entities.Entities<KeeseCharacter>()[index].Position =
+                new Vector2(0xc0 + index * 8, 0x20 + index * 16);
+        }
         normalKeese.Position = new Vector2(48, 48);
         _player.WarpTo(new Vector2(160, 120));
         _entities.Update(31.0 / 60.0, _player);
@@ -7984,6 +7993,413 @@ public sealed class ValidationGameRoot : GameRoot
             "predicates, typed first/aftermath lanes, full-screen fade above the HUD, stage-0 " +
             "Black Tower screen and same-room $0c return with restored room-fade bounds, plus " +
             "reusable $dc:$07 Heart Piece collection and room flag $20.");
+    }
+
+    private void ValidateLowerBlackTowerInteractions()
+    {
+        const double frame = 1.0 / 60.0;
+        var data = new BlackTowerWorkerDatabase();
+        var strike = new Room148PickaxeDatabase();
+
+        (int Room, (int Id, int SubId, int Var03, int Y, int X)[] Actors,
+            int InitialRandomCalls)[] rooms =
+        {
+            (0xe0, new[] { (0x3a, 0x02, 0, 0x98, 0x38) }, 256),
+            (0xe1, new[]
+            {
+                (0x58, 0x00, 0, 0x98, 0x48),
+                (0x40, 0x0c, 0, 0x68, 0x58),
+                (0x57, 0x03, 0, 0x38, 0x48),
+                (0x57, 0x03, 1, 0x58, 0x88)
+            }, 256),
+            (0xe2, new[]
+            {
+                (0x40, 0x0c, 0, 0x98, 0xd8),
+                (0x58, 0x00, 1, 0x58, 0x88),
+                (0x58, 0x03, 3, 0x68, 0x28),
+                (0x57, 0x03, 2, 0x48, 0x78),
+                (0x57, 0x03, 3, 0x58, 0x98)
+            }, 257),
+            (0xe7, new[]
+            {
+                (0x40, 0x0c, 0, 0x78, 0xa8),
+                (0x58, 0x03, 0, 0x58, 0x28),
+                (0x58, 0x03, 1, 0x48, 0x38),
+                (0x57, 0x03, 4, 0x38, 0x28),
+                (0x57, 0x03, 5, 0x88, 0xc8)
+            }, 258),
+            (0xe8, new[]
+            {
+                (0x58, 0x03, 2, 0x48, 0x28),
+                (0x57, 0x03, 6, 0x68, 0x78),
+                (0x57, 0x03, 7, 0x58, 0x98)
+            }, 257)
+        };
+
+        foreach (var expectedRoom in rooms)
+        {
+            var root = new Node { Name = $"BlackTower{expectedRoom.Room:x2}Validation" };
+            AddChild(root);
+            OracleSaveData save = OracleSaveData.CreateStandardGame();
+            var manager = new RoomEntityManager(
+                root, new NpcDatabase(), new EnemyDatabase(), save);
+            manager.LoadRoom(4, _world.LoadRoom(4, expectedRoom.Room));
+            List<NpcCharacter> actors = manager.Entities<NpcCharacter>();
+            if (actors.Count != expectedRoom.Actors.Length ||
+                manager.RandomCalls != expectedRoom.InitialRandomCalls)
+            {
+                throw new InvalidOperationException(
+                    $"Room 4:{expectedRoom.Room:x2} did not preserve its actor count or " +
+                    "initialization-only RNG consumption.");
+            }
+            for (int index = 0; index < actors.Count; index++)
+            {
+                var expected = expectedRoom.Actors[index];
+                NpcCharacter actor = actors[index];
+                if (actor.Record.Id != expected.Id ||
+                    actor.Record.SubId != expected.SubId ||
+                    actor.Record.Var03 != expected.Var03 ||
+                    actor.Position != new Vector2(expected.X, expected.Y) ||
+                    actor.CurrentAnimationOpaquePixels == 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Room 4:{expectedRoom.Room:x2} actor {index} did not match " +
+                        "the ordered mainData.s stream and imported visual.");
+                }
+            }
+            manager.Clear();
+            RemoveChild(root);
+            root.QueueFree();
+        }
+
+        // $40:$0c enters soldierSubid0c directly. The deletion predicates in
+        // soldierSubid00/01 must never leak onto these placed construction guards.
+        var predicateRoot = new Node { Name = "BlackTowerSoldierPredicateValidation" };
+        AddChild(predicateRoot);
+        OracleSaveData predicateSave = OracleSaveData.CreateStandardGame();
+        var predicateManager = new RoomEntityManager(
+            predicateRoot, new NpcDatabase(), new EnemyDatabase(), predicateSave);
+        predicateManager.LoadRoom(4, _world.LoadRoom(4, 0xe1));
+        NpcCharacter soldier = predicateManager.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x40, SubId: 0x0c });
+        predicateSave.SetGlobalFlag(OracleSaveData.GlobalFlag0b);
+        predicateSave.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        if (!soldier.Active || !soldier.Visible)
+            throw new InvalidOperationException(
+                "GLOBALFLAG_0b/FINISHEDGAME incorrectly hid soldier $40:$0c.");
+
+        var referenceRandom = new OracleRandom();
+        referenceRandom.BeginRoomParse();
+        int[] soldierTexts = { 0x590d, 0x590e, 0x590f, 0x590d };
+        int expectedSoldierText = soldierTexts[referenceRandom.Next().Value & 3];
+        if (!predicateManager.BeginNpcTalk(soldier) ||
+            soldier.TextId != expectedSoldierText ||
+            predicateManager.RandomCalls != 257)
+        {
+            throw new InvalidOperationException(
+                "Soldier $40:$0c did not consume one global RNG value and choose its per-talk text.");
+        }
+        predicateManager.EndNpcTalk(soldier);
+        NpcCharacter pickaxe = predicateManager.Entities<NpcCharacter>().First(npc =>
+            npc.Record is { Id: 0x57, SubId: 0x03 });
+        int[] pickaxeTexts =
+        {
+            0x1b01, 0x1b02, 0x1b03, 0x1b04,
+            0x1b05, 0x1b01, 0x1b02, 0x1b03
+        };
+        int expectedPickaxeText = pickaxeTexts[referenceRandom.Next().Value & 7];
+        if (!predicateManager.BeginNpcTalk(pickaxe) ||
+            pickaxe.TextId != expectedPickaxeText ||
+            predicateManager.RandomCalls != 258)
+        {
+            throw new InvalidOperationException(
+                "Pickaxe worker $57:$03 did not consume one global RNG value and choose its per-talk text.");
+        }
+        predicateManager.EndNpcTalk(pickaxe);
+
+        var sounds = new List<int>();
+        predicateManager.SoundRequested += sounds.Add;
+        _player.WarpTo(new Vector2(0x18, 0x18));
+        for (int update = 0; update < 26; update++)
+            predicateManager.Update(frame, _player);
+        List<Room148PickaxeDebris> chips =
+            predicateManager.Entities<Room148PickaxeDebris>();
+        if (sounds.Count != 2 || sounds.Any(sound => sound != strike.Record.Sound) ||
+            chips.Count != 4 ||
+            chips.Count(chip => chip.Palette == 1 &&
+                chip.Position == new Vector2(0x3a, 0x3c)) != 2 ||
+            chips.Count(chip => chip.Palette == 2 &&
+                chip.Position == new Vector2(0x96, 0x5c)) != 2)
+        {
+            throw new InvalidOperationException(
+                "Black Tower pickaxe animations $00/$01 did not strike left/right with exact dirt-chip origins.");
+        }
+        predicateManager.Clear();
+        RemoveChild(predicateRoot);
+        predicateRoot.QueueFree();
+
+        // var03=$03 begins down for $40, moves on the first 63 updates at
+        // SPEED_80, skips movement when the counter reaches zero, then waits 20.
+        var patrolRoot = new Node { Name = "BlackTowerPatrolValidation" };
+        AddChild(patrolRoot);
+        var patrolManager = new RoomEntityManager(
+            patrolRoot, new NpcDatabase(), new EnemyDatabase(),
+            OracleSaveData.CreateStandardGame());
+        patrolManager.LoadRoom(4, _world.LoadRoom(4, 0xe2));
+        NpcCharacter patroller = patrolManager.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x58, SubId: 0x03 });
+        _player.WarpTo(new Vector2(0x100, 0x20));
+        for (int update = 0; update < 63; update++)
+            patrolManager.Update(frame, _player);
+        if (patroller.Position != new Vector2(0x28, 0x87))
+            throw new InvalidOperationException(
+                "Hardhat var03=$03 did not apply 63 half-pixel down movements for counter $40.");
+        patrolManager.Update(frame, _player);
+        Vector2 stoppedPosition = patroller.Position;
+        _player.WarpTo(stoppedPosition + Vector2.Down * 12);
+        _player.Face(Vector2I.Up);
+        if (patrolManager.FindTalkTarget(_player) is not null)
+            throw new InvalidOperationException(
+                "Hardhat patrol accepted A-button interaction inside its 20-update between-leg wait.");
+        _player.WarpTo(new Vector2(0x100, 0x20));
+        for (int update = 0; update < data.PatrolWait; update++)
+            patrolManager.Update(frame, _player);
+        if (patroller.Position != stoppedPosition ||
+            patroller.CurrentScriptAnimationSource.Length != 0)
+        {
+            throw new InvalidOperationException(
+                "Hardhat patrol moved on its counter-zero/20-wait boundary or retained a script animation.");
+        }
+        patrolManager.Update(frame, _player);
+        patrolManager.Update(frame, _player);
+        if (patroller.Position != stoppedPosition + Vector2.Right)
+            throw new InvalidOperationException(
+                "Hardhat patrol did not resume its next rightward half-pixel leg after the exact wait.");
+        patrolManager.Clear();
+        RemoveChild(patrolRoot);
+        patrolRoot.QueueFree();
+
+        var blockerRoot = new Node { Name = "BlackTowerBlockerValidation" };
+        AddChild(blockerRoot);
+        var blockerManager = new RoomEntityManager(
+            blockerRoot, new NpcDatabase(), new EnemyDatabase(),
+            OracleSaveData.CreateStandardGame());
+        blockerManager.LoadRoom(4, _world.LoadRoom(4, 0xe0));
+        NpcCharacter blocker = blockerManager.Entities<NpcCharacter>().Single();
+        _player.WarpTo(new Vector2(0x49, 0x98));
+        blockerManager.Update(frame, _player);
+        if (blocker.Position != new Vector2(0x38, 0x98) ||
+            !blockerManager.PlayerMovementDisabled)
+        {
+            throw new InvalidOperationException(
+                "Villager $3a:$02 did not arm part 2 at saved-X+$11 without moving before its next script update.");
+        }
+        for (int update = 0; update < data.BlockerDistance; update++)
+            blockerManager.Update(frame, _player);
+        if (blocker.Position != new Vector2(0x48, 0x98) ||
+            _player.Position.Y != 0x98 || !blockerManager.PlayerMovementDisabled)
+        {
+            throw new InvalidOperationException(
+                "Villager $3a:$02 did not move exactly 16 pixels while restoring Link's saved Y.");
+        }
+        for (int update = 0; update < data.BlockerWait; update++)
+            blockerManager.Update(frame, _player);
+        if (blockerManager.PlayerMovementDisabled ||
+            _player.Position != new Vector2(0x54, 0x98) ||
+            blockerManager.BlocksLink(_player.Position) ||
+            blockerManager.BlocksLink(_player.Position + Vector2.Right))
+        {
+            throw new InvalidOperationException(
+                "Villager $3a:$02 did not separate Link before enabling input after its exact 10-update wait.");
+        }
+        _player.WarpTo(new Vector2(0x37, 0x98));
+        blockerManager.Update(frame, _player);
+        if (blocker.Position != new Vector2(0x48, 0x98))
+            throw new InvalidOperationException(
+                "Villager $3a:$02 moved before reversed part 2's next script update.");
+        blockerManager.Update(frame, _player);
+        if (blocker.Position != new Vector2(0x47, 0x98))
+            throw new InvalidOperationException(
+                "Villager $3a:$02 did not reverse and move left on the next open-side collision.");
+        blockerManager.Clear();
+        RemoveChild(blockerRoot);
+        blockerRoot.QueueFree();
+
+        // Dungeon-stuff $12:$00 exists only for the $ff screen-entry warp. It
+        // shows TX_020f once and records the live position as the checkpoint.
+        var entranceRoot = new Node { Name = "BlackTowerEntranceValidation" };
+        AddChild(entranceRoot);
+        OracleSaveData entranceSave = OracleSaveData.CreateStandardGame();
+        long entranceTick = 0;
+        var entranceRooms = new RoomSession(
+            4, 0xe7, () => entranceTick, () => entranceTick = 0, entranceSave);
+        var entranceManager = new RoomEntityManager(
+            entranceRoot, new NpcDatabase(), new EnemyDatabase(), entranceSave);
+        var respawn = new DeathRespawnPointController(entranceRooms, _player);
+        int entranceText = 0;
+        string entranceMessage = string.Empty;
+        entranceManager.DungeonEntranceTriggered += (textId, message) =>
+        {
+            entranceText = textId;
+            entranceMessage = message;
+            respawn.RecordCurrentPoint();
+        };
+        _player.WarpTo(new Vector2(0x78, 0x88));
+        entranceManager.LoadRoom(
+            4, entranceRooms.CurrentRoom,
+            EnemyPlacementContext.FromWarpDestination(0xff));
+        if (entranceManager.Entities<Node2D>().Count != 6)
+            throw new InvalidOperationException(
+                "Room 4:e7's screen warp did not insert dungeon-stuff second in its object stream.");
+        entranceManager.Update(frame, _player);
+        if (entranceText != 0x020f || entranceMessage != data.Text(0x020f) ||
+            entranceManager.Entities<Node2D>().Count != 5 ||
+            entranceSave.RespawnGroup != 4 || entranceSave.RespawnRoom != 0xe7 ||
+            entranceSave.RespawnY != 0x88 || entranceSave.RespawnX != 0x78)
+        {
+            throw new InvalidOperationException(
+                "Dungeon-stuff $12:$00 did not show TX_020f, delete, and record the 4:e7 checkpoint.");
+        }
+        entranceManager.LoadRoom(4, entranceRooms.CurrentRoom);
+        if (entranceManager.Entities<Node2D>().Count != 6)
+            throw new InvalidOperationException(
+                "Direct room 4:e7 load did not preserve dungeon-stuff's source interaction slot.");
+        entranceManager.Update(frame, _player);
+        if (entranceManager.Entities<Node2D>().Count != 5)
+            throw new InvalidOperationException(
+                "Direct room 4:e7 load did not delete dungeon-stuff on its first non-whiteout update.");
+        entranceText = 0;
+        _player.WarpTo(new Vector2(0x78, 0x77));
+        entranceManager.LoadRoom(
+            4, entranceRooms.CurrentRoom,
+            EnemyPlacementContext.FromWarpDestination(0xff));
+        entranceManager.Update(frame, _player);
+        if (entranceText != 0 || entranceManager.Entities<Node2D>().Count != 5)
+            throw new InvalidOperationException(
+                "Dungeon-stuff $12:$00 did not delete below the strict entry-side Y=$78 gate.");
+        entranceManager.Clear();
+        RemoveChild(entranceRoot);
+        entranceRoot.QueueFree();
+
+        // Run hardhatWorkerSubid00Script through a completely isolated room,
+        // inventory, textbox, and sound sink so the grant cannot affect later scenarios.
+        var shovelRoot = new Node { Name = "BlackTowerShovelValidation" };
+        var shovelWorldRoot = new Node { Name = "World" };
+        var shovelInterface = new Node { Name = "Interface" };
+        var shovelView = new RoomView { Name = "RoomView" };
+        var shovelDialogue = new DialogueBox { Name = "Dialogue" };
+        shovelRoot.AddChild(shovelWorldRoot);
+        shovelRoot.AddChild(shovelInterface);
+        shovelRoot.AddChild(shovelView);
+        shovelRoot.AddChild(shovelDialogue);
+        AddChild(shovelRoot);
+        OracleSaveData shovelSave = OracleSaveData.CreateStandardGame();
+        long shovelTick = 0;
+        var shovelRooms = new RoomSession(
+            4, 0xe1, () => shovelTick, () => shovelTick = 0, shovelSave);
+        var shovelManager = new RoomEntityManager(
+            shovelWorldRoot, new NpcDatabase(), new EnemyDatabase(), shovelSave);
+        var shovelTreasures = new TreasureDatabase();
+        var shovelInventory = new InventoryState(
+            shovelTreasures, shovelSave, () => shovelRooms.CurrentDungeonIndex);
+        var shovelSounds = new List<int>();
+        var shovelInteractions = new InteractionController(
+            shovelRooms, shovelManager, new SignDatabase(), new ChestDatabase(),
+            shovelTreasures, shovelDialogue, shovelWorldRoot, shovelView,
+            static position => position, () => shovelTick, shovelInventory,
+            shovelInterface, shovelSounds.Add);
+        shovelManager.LoadRoom(4, shovelRooms.CurrentRoom);
+        NpcCharacter shovelWorker = shovelManager.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x58, SubId: 0x00 });
+        _player.WarpTo(shovelWorker.Position + Vector2.Down * 12);
+        _player.Face(Vector2I.Up);
+        if (!shovelInteractions.TryInteract(_player) ||
+            DialogueBox.PlainText(shovelDialogue.CurrentMessage) !=
+                DialogueBox.PlainText(data.Text(0x1001)))
+        {
+            throw new InvalidOperationException(
+                "Hardhat var03=$00 did not begin the uncollected TX_1001 shovel branch.");
+        }
+        shovelDialogue.Close();
+        shovelInteractions.Update(frame, _player);
+        for (int update = 0; update < data.TalkWait - 1; update++)
+            shovelInteractions.Update(frame, _player);
+        if (shovelInventory.HasTreasure(TreasureDatabase.TreasureShovel) ||
+            shovelSave.HasRoomFlag(4, 0xe1, OracleSaveData.RoomFlagItem))
+        {
+            throw new InvalidOperationException(
+                "Hardhat giveitem ran before the exact first 30-update wait.");
+        }
+        shovelInteractions.Update(frame, _player);
+        GroundTreasurePickup heldShovel = shovelWorldRoot.GetChildren()
+            .OfType<GroundTreasurePickup>().Single();
+        if (!shovelInventory.HasTreasure(TreasureDatabase.TreasureShovel) ||
+            !shovelSave.HasRoomFlag(4, 0xe1, OracleSaveData.RoomFlagItem) ||
+            !heldShovel.Held || heldShovel.PixelHash == 0 ||
+            heldShovel.Position != _player.Position + Vector2.Up * 14 ||
+            !_player.IsHoldingItemTwoHands ||
+            shovelSounds.Count(sound => sound == OracleSoundEngine.SndGetItem) != 2 ||
+            DialogueBox.PlainText(shovelDialogue.CurrentMessage) !=
+                DialogueBox.PlainText(data.Text(0x0025)))
+        {
+            throw new InvalidOperationException(
+                "Hardhat giveitem did not grant/set $20, play both SND_GETITEM calls, and hold the exact Shovel visual for TX_0025.");
+        }
+        shovelDialogue.Close();
+        shovelInteractions.Update(frame, _player);
+        for (int update = 0; update < data.TalkWait - 1; update++)
+            shovelInteractions.Update(frame, _player);
+        if (shovelDialogue.IsOpen || _player.IsHoldingItemTwoHands)
+            throw new InvalidOperationException(
+                "Hardhat shovel branch did not remove the held object during its second 30-update wait.");
+        shovelInteractions.Update(frame, _player);
+        if (DialogueBox.PlainText(shovelDialogue.CurrentMessage) !=
+            DialogueBox.PlainText(data.Text(0x1002)))
+        {
+            throw new InvalidOperationException(
+                "Hardhat shovel branch did not finish with TX_1002 after the second exact wait.");
+        }
+        shovelDialogue.Close();
+        shovelInteractions.Update(frame, _player);
+        int soundsAfterGrant = shovelSounds.Count;
+        if (!shovelInteractions.TryInteract(_player) ||
+            DialogueBox.PlainText(shovelDialogue.CurrentMessage) !=
+                DialogueBox.PlainText(data.Text(0x1002)))
+        {
+            throw new InvalidOperationException(
+                "Room flag $20 did not select hardhat worker's already-gave TX_1002 branch.");
+        }
+        shovelDialogue.Close();
+        shovelInteractions.Update(frame, _player);
+        if (shovelSounds.Count != soundsAfterGrant)
+            throw new InvalidOperationException(
+                "Hardhat worker replayed giveitem after room flag $20 was set.");
+
+        shovelRooms.Load(4, 0xe2);
+        shovelManager.LoadRoom(4, shovelRooms.CurrentRoom);
+        NpcCharacter genericHardhat = shovelManager.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x58, SubId: 0x00 });
+        _player.WarpTo(genericHardhat.Position + Vector2.Down * 12);
+        _player.Face(Vector2I.Up);
+        if (!shovelInteractions.TryInteract(_player) ||
+            DialogueBox.PlainText(shovelDialogue.CurrentMessage) !=
+                DialogueBox.PlainText(data.Text(0x1000)))
+        {
+            throw new InvalidOperationException(
+                "Hardhat var03=$01 did not take its unconditional generic TX_1000 branch.");
+        }
+        shovelDialogue.Close();
+        shovelInteractions.Update(frame, _player);
+        if (shovelSave.HasRoomFlag(4, 0xe2, OracleSaveData.RoomFlagItem))
+            throw new InvalidOperationException(
+                "Hardhat var03=$01 incorrectly set the shovel room flag in 4:e2.");
+        shovelManager.Clear();
+        RemoveChild(shovelRoot);
+        shovelRoot.QueueFree();
+
+        GD.Print("Validated rooms 4:e0/e1/e2/e7/e8 ordered construction actors, unconditional " +
+            "$40:$0c flag truth table, per-talk and initialization RNG, pickaxe debris, " +
+            "SPEED_80 patrols, path blocker, exact Shovel giveitem sequence, and TX_020f checkpoint entry.");
     }
 
     private void ValidateNpcFlagVisibility()

@@ -395,6 +395,11 @@ public partial class GameRoot : Node2D
             _rooms, _entities, new SignDatabase(), new ChestDatabase(), _treasures, _dialogue,
             _scene.WorldRoot, _roomView, _transitions.WorldToScreen, () => (long)_animationTicks,
             _inventory, _scene.InterfaceLayer, _sound.PlaySound);
+        _entities.DungeonEntranceTriggered += (_, message) =>
+        {
+            _interactions.ShowRoomInteractionMessage(message, _player);
+            _deathRespawnPoints.RecordCurrentPoint();
+        };
         _roomEvents = new RoomEventController(
             _rooms, _entities, _transitions, _dialogue, _player, _roomView,
             _transitions.WorldToScreen, () => (long)_animationTicks,

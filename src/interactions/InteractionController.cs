@@ -17,6 +17,17 @@ public sealed class InteractionController
         AwaitThanksClose
     }
 
+    private enum HardhatShovelState
+    {
+        None,
+        AwaitOpeningClose,
+        PreRewardWait,
+        AwaitRewardClose,
+        PostRewardWait,
+        AwaitFinalClose,
+        AwaitSimpleClose
+    }
+
     private readonly RoomSession _rooms;
     private readonly RoomEntityManager _entities;
     private readonly SignDatabase _signs;
@@ -30,6 +41,7 @@ public sealed class InteractionController
     private readonly InventoryState _inventory;
     private readonly Action<int> _playSound;
     private readonly BipinBlossomFamilyInteractionDatabase _familyInteractions = new();
+    private readonly BlackTowerWorkerDatabase _blackTower = new();
     private readonly KidNameEntryController _kidNameEntry;
     private readonly Dictionary<int, ChestDatabase.ChestRecord> _debugChestOverrides = new();
     private ChestTreasureEffect? _chestTreasure;
@@ -43,12 +55,18 @@ public sealed class InteractionController
     private float _familyLinkScreenY;
     private double _familyWaitTicks;
     private NpcCharacter? _activeNpcTalkLifecycle;
+    private HardhatShovelState _hardhatShovelState;
+    private NpcCharacter? _hardhatNpc;
+    private Player? _hardhatPlayer;
+    private GroundTreasurePickup? _hardhatTreasure;
+    private double _hardhatWaitTicks;
 
     public Func<NpcCharacter, bool>? NpcInteractionOverride { get; set; }
 
     public bool DialogueOpen => _dialogue.BlocksPlayerInput ||
         _chestTreasure is not null ||
         _groundTreasure is not null ||
+        _hardhatShovelState != HardhatShovelState.None ||
         _familyNamingState != FamilyNamingState.None ||
         _kidNameEntry.Active;
     public bool GameplayMenuActive => _kidNameEntry.Active;
@@ -94,13 +112,15 @@ public sealed class InteractionController
 
     public void Update(double delta, Player player)
     {
-        if (_activeNpcTalkLifecycle is not null && !_dialogue.IsOpen)
+        if (_activeNpcTalkLifecycle is not null && !_dialogue.IsOpen &&
+            _hardhatShovelState == HardhatShovelState.None)
         {
             _entities.EndNpcTalk(_activeNpcTalkLifecycle);
             _activeNpcTalkLifecycle = null;
         }
         _kidNameEntry.Update();
         UpdateFamilyNaming(delta);
+        UpdateHardhatShovel(delta);
 
         if (_groundTreasure is not null)
         {
@@ -184,6 +204,8 @@ public sealed class InteractionController
             if (NpcInteractionOverride?.Invoke(npc) == true)
                 return true;
             npc.FaceToward(player.Position);
+            if (npc.Record is { Id: 0x58, SubId: 0x00 })
+                return TryStartHardhatShovel(npc, player);
             if (_entities.BeginNpcTalk(npc))
                 _activeNpcTalkLifecycle = npc;
             _dialogue.ShowMessage(
@@ -211,6 +233,162 @@ public sealed class InteractionController
         _dialogue.ShowMessage(message, _worldToScreen(player.Position).Y);
         return true;
     }
+
+    private bool TryStartHardhatShovel(NpcCharacter npc, Player player)
+    {
+        if (_hardhatShovelState != HardhatShovelState.None)
+            return false;
+
+        _entities.BeginNpcTalk(npc);
+        _activeNpcTalkLifecycle = npc;
+        _hardhatNpc = npc;
+        _hardhatPlayer = player;
+
+        int textId;
+        if (npc.Record.Var03 != 0)
+        {
+            textId = 0x1000;
+            _hardhatShovelState = HardhatShovelState.AwaitSimpleClose;
+        }
+        else if (_rooms.SaveData.HasRoomFlag(
+            _rooms.ActiveGroup, _rooms.CurrentRoom.Id, OracleSaveData.RoomFlagItem))
+        {
+            textId = 0x1002;
+            _hardhatShovelState = HardhatShovelState.AwaitSimpleClose;
+        }
+        else
+        {
+            textId = 0x1001;
+            _hardhatShovelState = HardhatShovelState.AwaitOpeningClose;
+        }
+        npc.SetDialogue(textId, _blackTower.Text(textId), canFace: true);
+        _dialogue.ShowMessage(
+            npc.Message, _worldToScreen(player.Position).Y, npc.TextPosition);
+        return true;
+    }
+
+    private void UpdateHardhatShovel(double delta)
+    {
+        switch (_hardhatShovelState)
+        {
+            case HardhatShovelState.None:
+                return;
+
+            case HardhatShovelState.AwaitSimpleClose:
+                if (!_dialogue.IsOpen)
+                    FinishHardhatShovel();
+                return;
+
+            case HardhatShovelState.AwaitOpeningClose:
+                if (_dialogue.IsOpen)
+                    return;
+                _hardhatWaitTicks = 0.0;
+                _hardhatShovelState = HardhatShovelState.PreRewardWait;
+                return;
+
+            case HardhatShovelState.PreRewardWait:
+                _hardhatWaitTicks += delta * 60.0;
+                if (_hardhatWaitTicks < _blackTower.TalkWait)
+                    return;
+                GiveHardhatShovel();
+                _hardhatShovelState = HardhatShovelState.AwaitRewardClose;
+                return;
+
+            case HardhatShovelState.AwaitRewardClose:
+                if (_dialogue.IsOpen)
+                    return;
+                RemoveHardhatTreasure();
+                _hardhatWaitTicks = 0.0;
+                _hardhatShovelState = HardhatShovelState.PostRewardWait;
+                return;
+
+            case HardhatShovelState.PostRewardWait:
+                _hardhatWaitTicks += delta * 60.0;
+                if (_hardhatWaitTicks < _blackTower.TalkWait)
+                    return;
+                _dialogue.ShowMessage(
+                    _blackTower.Text(0x1002),
+                    _worldToScreen(_hardhatPlayer!.Position).Y);
+                _hardhatShovelState = HardhatShovelState.AwaitFinalClose;
+                return;
+
+            case HardhatShovelState.AwaitFinalClose:
+                if (!_dialogue.IsOpen)
+                    FinishHardhatShovel();
+                return;
+        }
+    }
+
+    private void GiveHardhatShovel()
+    {
+        TreasureDatabase.TreasureObjectRecord shovel =
+            _treasures.GetObject("TREASURE_OBJECT_SHOVEL_00");
+        if (shovel.TreasureId != TreasureDatabase.TreasureShovel ||
+            shovel.TextId != 0x25)
+        {
+            throw new InvalidOperationException(
+                "TREASURE_OBJECT_SHOVEL_00 no longer matches giveitem in the hardhat script.");
+        }
+
+        _inventory.GiveTreasure(shovel);
+        _rooms.SaveData.SetRoomFlag(
+            _rooms.ActiveGroup, _rooms.CurrentRoom.Id, OracleSaveData.RoomFlagItem);
+        // giveTreasure's behavior sound precedes grab-mode $02's own sound.
+        _playSound(OracleSoundEngine.SndGetItem);
+
+        BlackTowerWorkerDatabase.VisualRecord visual = _blackTower.Visual("shovel");
+        Vector2 position = _hardhatPlayer!.Position;
+        var record = new GroundTreasureDatabase.Record(
+            _rooms.ActiveGroup,
+            _rooms.CurrentRoom.Id,
+            0,
+            Mathf.FloorToInt(position.Y),
+            Mathf.FloorToInt(position.X),
+            shovel.Name,
+            visual.Sprite,
+            visual.TileBase,
+            visual.Palette,
+            visual.Animation,
+            0x0049,
+            string.Empty,
+            "hardhatWorkerSubid00Script:giveitem TREASURE_SHOVEL,$00");
+        _hardhatTreasure = new GroundTreasurePickup
+        {
+            Name = "HardhatShovel",
+            ZIndex = 12
+        };
+        _hardhatTreasure.Initialize(record, _playSound);
+        _worldRoot.AddChild(_hardhatTreasure);
+        _hardhatTreasure.BeginGranted(_hardhatPlayer);
+        _dialogue.ShowMessage(
+            shovel.Message, _worldToScreen(_hardhatPlayer.Position).Y);
+    }
+
+    private void RemoveHardhatTreasure()
+    {
+        if (_hardhatTreasure is null)
+            return;
+        _hardhatTreasure.Finish(_hardhatPlayer!);
+        if (_hardhatTreasure.GetParent() == _worldRoot)
+            _worldRoot.RemoveChild(_hardhatTreasure);
+        _hardhatTreasure.QueueFree();
+        _hardhatTreasure = null;
+    }
+
+    private void FinishHardhatShovel()
+    {
+        RemoveHardhatTreasure();
+        if (_hardhatNpc is not null)
+            _entities.EndNpcTalk(_hardhatNpc);
+        _activeNpcTalkLifecycle = null;
+        _hardhatNpc = null;
+        _hardhatPlayer = null;
+        _hardhatWaitTicks = 0.0;
+        _hardhatShovelState = HardhatShovelState.None;
+    }
+
+    internal void ShowRoomInteractionMessage(string message, Player player) =>
+        _dialogue.ShowMessage(message, _worldToScreen(player.Position).Y);
 
     private bool TryStartFamilyNaming(NpcCharacter npc, Player player)
     {
@@ -430,6 +608,8 @@ public sealed class InteractionController
 
     private void OnRoomChanged(int group, OracleRoomData room)
     {
+        if (_hardhatShovelState != HardhatShovelState.None)
+            FinishHardhatShovel();
         if (_groundTreasure is not null && _groundTreasurePlayer is not null)
             _groundTreasure.Finish(_groundTreasurePlayer);
         _groundTreasure = null;

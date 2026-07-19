@@ -7,7 +7,8 @@ internal enum EnemyPlacementEntryKind
 {
     Unrestricted,
     Scrolling,
-    Warp
+    Warp,
+    ScreenWarp
 }
 
 /// <summary>
@@ -49,7 +50,8 @@ internal readonly record struct EnemyPlacementContext(
 
     internal static EnemyPlacementContext FromWarpDestination(int packedDestination) =>
         packedDestination >= 0xf0
-            ? Scrolling(Vector2I.Up)
+            ? new EnemyPlacementContext(
+                EnemyPlacementEntryKind.ScreenWarp, Vector2I.Up, packedDestination)
             : Warp(packedDestination);
 
     internal bool Allows(OracleRoomData room, int packedPosition)
@@ -62,7 +64,8 @@ internal readonly record struct EnemyPlacementContext(
             EnemyPlacementEntryKind.Warp =>
                 Math.Abs(tileY - (WarpDestination >> 4)) >= 3 ||
                 Math.Abs(tileX - (WarpDestination & 0x0f)) >= 3,
-            EnemyPlacementEntryKind.Scrolling => AllowsScrolling(room, tileX, tileY),
+            EnemyPlacementEntryKind.Scrolling or EnemyPlacementEntryKind.ScreenWarp =>
+                AllowsScrolling(room, tileX, tileY),
             _ => throw new ArgumentOutOfRangeException(nameof(Kind), Kind, null)
         };
     }

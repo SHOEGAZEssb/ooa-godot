@@ -15,10 +15,12 @@ internal sealed class RoomEntityFactory(
     Action<TimePortal> portalEntered,
     Func<bool> groundTreasureCollectionAllowed,
     Action<GroundTreasurePickup, Player> groundTreasureCollected,
+    Action<int, string> dungeonEntranceTriggered,
     Action<int> soundRequested)
 {
     private readonly Room148PickaxeDatabase _room148 = new();
     private readonly Room149FamilyDatabase _room149 = new();
+    private readonly BlackTowerWorkerDatabase _blackTower = new();
     private readonly EnemySpawnTileDatabase _enemySpawnTiles = new();
     private readonly GroundTreasureDatabase _groundTreasures = new();
 
@@ -29,7 +31,15 @@ internal sealed class RoomEntityFactory(
     {
         IReadOnlyList<NpcDatabase.NpcRecord> roomNpcs =
             npcs.GetRoomNpcs(group, room.Id, saveData, runtimeState);
-        if (group == 1 && room.Id == 0x48)
+        if (group == 4 && room.Id is 0xe0 or 0xe1 or 0xe2 or 0xe7 or 0xe8)
+        {
+            foreach (IRoomEntity entity in CreateBlackTowerNpcs(
+                room.Id, roomNpcs, placementContext))
+            {
+                yield return entity;
+            }
+        }
+        else if (group == 1 && room.Id == 0x48)
         {
             foreach (IRoomEntity entity in CreateRoom148Npcs(roomNpcs))
                 yield return entity;
@@ -235,6 +245,53 @@ internal sealed class RoomEntityFactory(
         if (!foundWorker)
             throw new InvalidOperationException(
                 "Room 1:48 is missing interaction $57:$00.");
+    }
+
+    private IEnumerable<IRoomEntity> CreateBlackTowerNpcs(
+        int room,
+        IReadOnlyList<NpcDatabase.NpcRecord> records,
+        EnemyPlacementContext placementContext)
+    {
+        for (int index = 0; index < records.Count; index++)
+        {
+            NpcDatabase.NpcRecord record = records[index];
+            var npc = new NpcCharacter
+            {
+                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+                ZIndex = NpcCharacter.BehindLinkZIndex
+            };
+            npc.Initialize(record);
+
+            IRoomEntity entity = record switch
+            {
+                { Id: 0x3a, SubId: 0x02 } =>
+                    new BlackTowerBlockingVillagerRoomEntity(npc, _blackTower),
+                { Id: 0x40, SubId: 0x0c } =>
+                    new BlackTowerSoldierRoomEntity(npc, _blackTower, random),
+                { Id: 0x57, SubId: 0x03 } =>
+                    new BlackTowerPickaxeWorkerRoomEntity(
+                        npc, _room148.Record, _blackTower, random, soundRequested),
+                { Id: 0x58, SubId: 0x00 } =>
+                    new BlackTowerShovelWorkerRoomEntity(npc, _blackTower),
+                { Id: 0x58, SubId: 0x03 } =>
+                    new BlackTowerPatrollingWorkerRoomEntity(
+                        npc, _blackTower, random),
+                _ => throw new InvalidOperationException(
+                    $"Unsupported placed Black Tower interaction " +
+                    $"${record.Id:x2}:${record.SubId:x2} in room 4:${room:x2}.")
+            };
+            yield return entity;
+
+            // INTERAC_DUNGEON_STUFF is the second source object in $e7 but is
+            // intentionally absent from the ordinary visible-NPC table.
+            if (room == 0xe7 && index == 0)
+            {
+                yield return new BlackTowerEntranceRoomEntity(
+                    new Vector2(0x78, 0x88), _blackTower,
+                    placementContext.Kind == EnemyPlacementEntryKind.ScreenWarp,
+                    dungeonEntranceTriggered);
+            }
+        }
     }
 
     private IEnumerable<IRoomEntity> CreateRoom149Family(

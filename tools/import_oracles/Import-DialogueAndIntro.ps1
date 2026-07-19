@@ -29,7 +29,7 @@ foreach ($emptyText in [regex]::Matches(
 }
 $allTextMatches = [regex]::Matches(
     $textYaml,
-    '(?ms)^  - name: TX_(?<id>[0-9a-f]{4})\r?\n    index: 0x[0-9a-f]{2}\r?\n    text: \|-\r?\n(?<body>(?:      [^\r\n]*(?:\r?\n|\z))+)'
+    '(?ms)^  - name: TX_(?<id>[0-9a-f]{4})\r?\n    index: 0x[0-9a-f]{2}\r?\n    text: \|(?:\d+)?-\r?\n(?<body>(?:      [^\r\n]*(?:\r?\n|\z))+)'
 )
 foreach ($match in $allTextMatches) {
     $lines = $match.Groups['body'].Value -split '\r?\n' | ForEach-Object {
@@ -50,7 +50,7 @@ foreach ($match in $allTextMatches) {
 # intentionally share one body.
 foreach ($match in [regex]::Matches(
     $textYaml,
-    '(?ms)^  - name:\r?\n(?<names>(?:    - TX_[0-9a-f]{4}\r?\n)+)    index:\r?\n(?:    - 0x[0-9a-f]{2}\r?\n)+    text: \|-\r?\n(?<body>(?:      [^\r\n]*(?:\r?\n|\z))+)'
+    '(?ms)^  - name:\r?\n(?<names>(?:    - TX_[0-9a-f]{4}\r?\n)+)    index:\r?\n(?:    - 0x[0-9a-f]{2}\r?\n)+    text: \|(?:\d+)?-\r?\n(?<body>(?:      [^\r\n]*(?:\r?\n|\z))+)'
 )) {
     $lines = $match.Groups['body'].Value -split '\r?\n' | ForEach-Object {
         if ($_.Length -ge 6) { $_.Substring(6) } else { '' }

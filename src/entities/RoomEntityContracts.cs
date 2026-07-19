@@ -49,6 +49,15 @@ internal interface INpcTalkLifecycle
     void OnNpcTalkEnded();
 }
 
+/// <summary>
+/// Identifies ordinary placed NPCs whose imported save predicates may be
+/// refreshed live. Script-created cutscene actors deliberately do not opt in.
+/// </summary>
+internal interface IOrdinaryNpcEntity
+{
+    NpcCharacter Npc { get; }
+}
+
 internal interface IRoomEntityLifetime
 {
     bool Finished { get; }
@@ -58,6 +67,7 @@ internal interface IRoomEntityLifetime
 internal interface IPlayerRestriction
 {
     bool DisablesSword { get; }
+    bool DisablesMovement => false;
 }
 
 internal interface IRoomSaveStateEntity

@@ -38,6 +38,10 @@ claim that the entire surrounding game is complete.
   `1:75` includes both mutually exclusive Black Tower hardhat phases with
   exact `getBlackTowerProgress` predicates and text. Room `1:86` includes its
   entrance guard's essence/room-flag phases, dialogue, facing, and movement.
+- Lower Black Tower rooms `4:e0`, `4:e1`, `4:e2`, `4:e7`, and `4:e8`, including
+  the moving path-blocking villager, unconditional construction soldiers,
+  per-talk random worker text, left/right pickaxe strikes and dirt chips,
+  half-pixel hardhat patrols, and the exact Shovel grant/held-item sequence.
 - Keese, Octoroks/projectiles, Zols, and Gels using ordered room-object placement,
   original spawn restrictions, shared RNG, combat, and drop paths.
 
@@ -57,6 +61,10 @@ claim that the entire surrounding game is complete.
 - Room `1:86`'s stage-0 Black Tower explanation, including its imported
   background/OAM/palettes, shared-RNG lightning, saved Link return position and
   direction, same-room transition `$0c`, and `$40` to `$80` aftermath.
+- Room `4:e7`'s screen-warp-only dungeon entrance interaction, including its
+  entry-side Y predicate, TX `$020f`, one-shot deletion, and death-checkpoint
+  update. Direct debug loads and ordinary scrolling delete it on their first
+  post-load update because the whiteout scroll-mode bit is clear.
 
 ### Interface and persistence
 

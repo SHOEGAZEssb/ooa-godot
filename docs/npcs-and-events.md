@@ -214,6 +214,64 @@ Animation records retain a frame's nonzero `animParameter` as
 `duration@oam` form. A native owner must inspect the parameter at the same point
 relative to `interactionAnimate` as the original handler.
 
+Lower Black Tower rooms `4:e0`, `4:e1`, `4:e2`, `4:e7`, and `4:e8` are the
+reference for several native NPC handlers sharing one room slice:
+
+- Import the five complete `mainData.s` streams, not only their visible NPC
+  rows. The `$12:$00` dungeon handler in `4:e7` is invisible but occupies the
+  second interaction slot, between soldier `$40:$0c` and the hardhat workers.
+  Specialized adapters are emitted in that same order.
+- Pickaxe worker `$57:$03` selects animation `$00` or `$01` from the exact
+  eight-entry `var03` table. Unlike room `1:48`'s `$57:$00`, talking does not
+  switch to a static pose: native animation continues, so a strike can still
+  play `SND_CLINK` and create two `$92:$06` dirt chips while text is open. Each
+  A-button talk consumes one shared `getRandomNumber` value and selects the
+  eight-entry TX `$1b01`-`$1b05` table.
+- Soldier `$40:$0c` likewise consumes one shared RNG value per talk for TX
+  `$590d/$590e/$590f/$590d` and faces Link every update. Do not reuse the
+  `GLOBALFLAG_FINISHEDGAME`/`GLOBALFLAG_0b` predicates from soldier subids
+  `$00/$01`: the placed `$0c` dispatch jumps directly to `soldierSubid0c`, so
+  both flags leave these construction soldiers alive.
+- Patrolling hardhat `$58:$03` consumes its random TX `$100a/$100b/$100c`
+  choice once during initialization, in object order, rather than per talk.
+  Its imported `var03` patrol list stores raw direction/counter pairs. SPEED
+  `$14` advances one half-pixel; the helper decrements before moving, does not
+  move on counter zero, and waits 20 updates between legs. A-button polling is
+  inside the movement helper, so that 20-update wait is not talkable. A talk
+  retains its facing through the textbox plus the following 30-update
+  input-disabled wait.
+- Hardhat `$58:$00,var03=$00` reads current-room item bit `$20`. Clear shows TX
+  `$1001`, waits 30 updates, executes `giveitem TREASURE_SHOVEL,$00`, waits 30,
+  then shows TX `$1002`; set skips directly to TX `$1002`. The giveitem path
+  grants the imported treasure, sets `$20`, plays the behavior and grab-mode
+  `SND_GETITEM` calls, uses the exact interaction `$60:$1b` Shovel OAM, and
+  holds it 14 pixels above Link in the two-hand pose until TX `$0025` closes.
+  `var03=$01` always shows TX `$1000` and neither reads nor writes `$20`.
+- Villager `$3a:$02` checks the open side at saved X plus or minus `$11` with
+  temporary `$05/$03` radii. On strict Link collision it disables input, moves
+  16 pixels at SPEED `$28`, restores Link's saved Y high byte, waits 10, saves
+  the new X, reverses direction, and resumes watching. Both native substates
+  call `interactionAnimateAsNpc`, so preserve its
+  `objectPreventLinkFromPassing` separation before the open-side test or script
+  movement. In particular, the final wait update separates Link before
+  `enableinput`; otherwise Link can regain control while still overlapping the
+  room blocker and cannot move away.
+- Dungeon-stuff `$12:$00` retains its source slot on every `4:e7` parse, while
+  a destination byte at or above `$f0` is represented as a distinct
+  screen-warp entry context. On its first update it deletes unless that
+  whiteout context is active and Link Y is at least `$78`; otherwise its strict
+  radius `$08` contact at `$88,$78` shows aliased TX `$020f` ("The Black
+  Tower"), records the death-respawn point, and deletes. Ordinary scrolling
+  uses the same enemy edge-exclusion geometry but must not activate this
+  whiteout-only interaction.
+
+Global RNG calls in these handlers are part of the room contract. Room parsing
+still consumes the shared 256-call placement-buffer shuffle first; patroller
+initializers then consume values in source order, while soldier and pickaxe
+talks consume later values only when A-button interaction reaches their helper.
+Validations should compute expectations from that stream rather than reseeding
+individual actors.
+
 Room `1:57` is the minimal ordinary-predicate reference. Female villager
 `$3b:$05` imports its `getGameProgress_2` existence set and complete eight-entry
 dialogue table. Its initializer's final `oamFlags = $01` palette replaces the
@@ -477,6 +535,8 @@ production behavior; it must not drive it.
 - `src/entities/RoomEntityAdapters.cs`
 - `src/interactions/Room148PickaxeDatabase.cs`
 - `src/interactions/Room148PickaxeInteraction.cs`
+- `src/interactions/BlackTowerWorkerDatabase.cs`
+- `src/interactions/BlackTowerWorkerInteractions.cs`
 - `src/interactions/InteractionController.cs`
 - `src/interactions/GroundTreasureDatabase.cs`
 - `src/interactions/GroundTreasurePickup.cs`

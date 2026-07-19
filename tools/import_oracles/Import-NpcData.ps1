@@ -672,6 +672,126 @@ $room148PickaxeRows = @(
     "$room148SpriteName`t$($room148WorkerGraphic.TileBase)`t$($room148WorkerGraphic.Palette)`t$room148WorkAnimation`t$room148TalkAnimation`t$room148DebrisSpriteName`t$($room148DebrisGraphic.TileBase)`t$room148DebrisAnimation`t1b00`t$room148Text`t$([Convert]::ToInt32($room148SoundMatch.Groups['value'].Value, 16))`t2`t4`t14`t$([Convert]::ToInt32($room148SpeedMatch.Groups['value'].Value, 16))`t-192`t24`t8`t24"
 )
 
+# The lower Black Tower construction rooms share four native handlers whose
+# behavior is selected by placement var03 and the game-wide RNG. Pin the five
+# complete object streams and export the script tables, extra animation, item
+# visual, text, and timing values used by those handlers. Runtime still uses
+# the ordinary NPC rows for positioned graphics and source ordering.
+$blackTowerHardhatSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\hardhatWorker.s')
+$blackTowerSoldierSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\soldier.s')
+$blackTowerDungeonSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\dungeonStuff.s')
+$agesScriptHelperSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+$blackTowerRooms = @{
+    'e0' = 'obj_Interaction \$3a \$02 \$98 \$38\s+obj_End'
+    'e1' = 'obj_Interaction \$58 \$00 \$98 \$48\s+obj_Interaction \$40 \$0c \$68 \$58\s+obj_Interaction \$57 \$03 \$38 \$48 \$00\s+obj_Interaction \$57 \$03 \$58 \$88 \$01\s+obj_End'
+    'e2' = 'obj_Interaction \$40 \$0c \$98 \$d8\s+obj_Interaction \$58 \$00 \$58 \$88 \$01\s+obj_Interaction \$58 \$03 \$68 \$28 \$03\s+obj_Interaction \$57 \$03 \$48 \$78 \$02\s+obj_Interaction \$57 \$03 \$58 \$98 \$03\s+obj_End'
+    'e7' = 'obj_Interaction \$40 \$0c \$78 \$a8\s+obj_Interaction \$12 \$00 \$88 \$78\s+obj_Interaction \$58 \$03 \$58 \$28 \$00\s+obj_Interaction \$58 \$03 \$48 \$38 \$01\s+obj_Interaction \$57 \$03 \$38 \$28 \$04\s+obj_Interaction \$57 \$03 \$88 \$c8 \$05\s+obj_End'
+    'e8' = 'obj_Interaction \$58 \$03 \$48 \$28 \$02\s+obj_Interaction \$57 \$03 \$68 \$78 \$06\s+obj_Interaction \$57 \$03 \$58 \$98 \$07\s+obj_End'
+}
+foreach ($entry in $blackTowerRooms.GetEnumerator()) {
+    if ($room148ObjectSource -notmatch
+        "(?ms)^group4Map$($entry.Key)ObjectData:\s+$($entry.Value)") {
+        throw "Black Tower room 4:$($entry.Key) object stream changed in mainData.s."
+    }
+}
+if ($room148WorkerSource -notmatch '(?ms)^@subid00:\s*^@subid03:.*?SND_CLINK.*?@createDirtChips' -or
+    $agesMainScriptSource -notmatch '(?ms)^pickaxeWorkerSubid03Script:.*?pickaxeWorker_setAnimationFromVar03.*?pickaxeWorker_chooseRandomBlackTowerText.*?showloadedtext' -or
+    $agesScriptHelperSource -notmatch '(?ms)^pickaxeWorker_setAnimationFromVar03:.*?@animations:\s+\.db \$00 \$01 \$00 \$01 \$00 \$01 \$01 \$01' -or
+    $agesScriptHelperSource -notmatch '(?ms)^pickaxeWorker_chooseRandomBlackTowerText:.*?getRandomNumber.*?and \$07.*?@blackTowerText:\s+\.db <TX_1b01\s+\.db <TX_1b02\s+\.db <TX_1b03\s+\.db <TX_1b04\s+\.db <TX_1b05\s+\.db <TX_1b01\s+\.db <TX_1b02\s+\.db <TX_1b03' -or
+    $blackTowerHardhatSource -notmatch '(?ms)^@subid00:.*?interactionSetAlwaysUpdateBit.*?ld a,\$04.*?interactionSetAnimation.*?^@subid03:.*?interactionAnimateBasedOnSpeed.*?interactionPushLinkAwayAndUpdateDrawPriority' -or
+    $agesMainScriptSource -notmatch '(?ms)^hardhatWorkerSubid00Script:.*?jumpifroomflagset \$20.*?TX_1001.*?wait 30.*?giveitem TREASURE_SHOVEL, \$00.*?wait 30.*?TX_1002.*?TX_1000.*?setanimation \$04' -or
+    $agesMainScriptSource -notmatch '(?ms)^hardhatWorkerFunc_patrol:.*?hardhatWorker_decPatrolCounter.*?objectApplySpeed.*?wait 20.*?disableinput.*?turnToFaceLink.*?showloadedtext.*?wait 30.*?hardhatWorker_updatePatrolAnimation.*?enableinput' -or
+    $agesScriptHelperSource -notmatch '(?ms)^hardhatWorker_chooseTextForPatroller:.*?cp \$04.*?getRandomNumber.*?and \$03.*?@textIDs:\s+\.db <TX_100a.*?\.db <TX_100b.*?\.db <TX_100c.*?\.db <TX_100c.*?\.db <TX_100d' -or
+    $blackTowerSoldierSource -notmatch '(?ms)^soldierSubid00:\s*^soldierSubid01:.*?GLOBALFLAG_FINISHEDGAME.*?GLOBALFLAG_0b.*?jr soldierSubid0c.*?^soldierSubid0c:.*?soldierInitGraphicsAndLoadScript.*?npcFaceLinkAndAnimate' -or
+    $agesScriptHelperSource -notmatch '(?ms)^soldierGetRandomVar32Val:.*?getRandomNumber.*?and \$03.*?@data:\s+\.db \$0d \$0e \$0f \$0d' -or
+    $room148VillagerSource -notmatch '(?ms)^@runSubid02:.*?objectSetCollideRadii.*?ld b,\$11.*?ld b,\$ef.*?objectCheckCollidedWithLink_ignoreZ.*?villagerSubid02Script_part2.*?Interaction\.var39.*?Interaction\.var3d' -or
+    $agesMainScriptSource -notmatch '(?ms)^villagerSubid02Script_part2:.*?disableinput.*?SPEED_100.*?moveleft \$10.*?moveright \$10.*?villager_setLinkYToVar39.*?wait 10.*?enableinput' -or
+    $blackTowerDungeonSource -notmatch '(?ms)^@subid00:.*?SCROLLMODE_02.*?cp \$78.*?objectSetCollideRadius.*?@dungeonTextIndices:.*?<TX_020f.*?@initialSpinnerValues:.*?\.db \$01 \$00 \$00 \$00 \$01 \$00 \$00 \$00') {
+    throw 'Black Tower worker, soldier, blocker, or entrance behavior changed in the disassembly.'
+}
+
+$blackTowerTextRows = [Collections.Generic.List[string]]::new()
+$blackTowerTextRows.Add("# text-id`tutf8-base64")
+foreach ($textId in @(
+    0x0025, 0x020f, 0x1000, 0x1001, 0x1002,
+    0x100a, 0x100b, 0x100c, 0x100d,
+    0x1b01, 0x1b02, 0x1b03, 0x1b04, 0x1b05,
+    0x590d, 0x590e, 0x590f)) {
+    # text.yaml intentionally aliases dungeon labels TX_020e/TX_020f to one
+    # payload; the generic text loader keys that payload by its first label.
+    $sourceTextId = if ($textId -eq 0x020f) { 0x020e } else { $textId }
+    if (-not $allTexts.ContainsKey($sourceTextId)) {
+        throw "Could not resolve Black Tower text TX_$($textId.ToString('x4'))."
+    }
+    $encoded = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($allTexts[$sourceTextId]))
+    $blackTowerTextRows.Add("$($textId.ToString('x4'))`t$encoded")
+}
+
+$blackTowerVisualRows = [Collections.Generic.List[string]]::new()
+$blackTowerVisualRows.Add("# key`tsprite`ttile-base`tpalette`tanimation")
+foreach ($spec in @(
+    @{ Key = 'pickaxe-0'; Id = 0x57; Subid = 0x03; Animation = 0x00 },
+    @{ Key = 'pickaxe-1'; Id = 0x57; Subid = 0x03; Animation = 0x01 },
+    @{ Key = 'hardhat-0'; Id = 0x58; Subid = 0x03; Animation = 0x00 },
+    @{ Key = 'hardhat-1'; Id = 0x58; Subid = 0x03; Animation = 0x01 },
+    @{ Key = 'hardhat-2'; Id = 0x58; Subid = 0x03; Animation = 0x02 },
+    @{ Key = 'hardhat-3'; Id = 0x58; Subid = 0x03; Animation = 0x03 },
+    @{ Key = 'hardhat-work'; Id = 0x58; Subid = 0x00; Animation = 0x04 },
+    @{ Key = 'soldier-0'; Id = 0x40; Subid = 0x0c; Animation = 0x00 },
+    @{ Key = 'soldier-1'; Id = 0x40; Subid = 0x0c; Animation = 0x01 },
+    @{ Key = 'soldier-2'; Id = 0x40; Subid = 0x0c; Animation = 0x02 },
+    @{ Key = 'soldier-3'; Id = 0x40; Subid = 0x0c; Animation = 0x03 },
+    # TREASURE_OBJECT_SHOVEL_00 uses graphic $1b, which is interaction $60
+    # subid $1b after the treasure loader overwrites its subid.
+    @{ Key = 'shovel'; Id = 0x60; Subid = 0x1b; Animation = -1 }
+)) {
+    $graphic = $interactionGraphics["$([int]$spec.Id)`:$([int]$spec.Subid)"]
+    if ($null -eq $graphic) {
+        $graphic = $interactionGraphics["$([int]$spec.Id)`:0"]
+    }
+    if ($null -eq $graphic) {
+        throw "Could not resolve Black Tower visual '$($spec.Key)' graphics."
+    }
+    $animationIndex = if ([int]$spec.Animation -ge 0) {
+        [int]$spec.Animation
+    } else {
+        [int]$graphic.DefaultAnimation
+    }
+    $animation = Resolve-NpcAnimation ([int]$spec.Id) $animationIndex
+    if (-not $gfxNames.ContainsKey($graphic.Gfx) -or -not $animation) {
+        throw "Could not resolve Black Tower visual '$($spec.Key)' animation."
+    }
+    $spriteName = $gfxNames[$graphic.Gfx]
+    [void]$npcSpriteNames.Add($spriteName)
+    $blackTowerVisualRows.Add(
+        "$($spec.Key)`t$spriteName`t$($graphic.TileBase)`t$($graphic.Palette)`t$animation")
+}
+
+$blackTowerPatrolRows = @(
+    "# var03`tdirection:counter,...",
+    "0`t2:64,1:96,3:96,0:64",
+    "1`t2:64,1:128,0:32,2:32,3:128,0:64",
+    "2`t1:160,3:160",
+    "3`t2:64,1:160,3:160,0:64",
+    "4`t1:96,3:96"
+)
+$blackTowerConstantsRows = @(
+    "# key`tvalue",
+    "speed-80`t$([Convert]::ToInt32($room148SpeedMatch.Groups['value'].Value, 16))",
+    "speed-100`t40",
+    "patrol-wait`t20",
+    "talk-wait`t30",
+    "blocker-distance`t16",
+    "blocker-wait`t10",
+    "entrance-y-min`t120",
+    "entrance-radius`t8"
+)
+
 # Past room 1:49's three placed characters are one shared interaction: the
 # father and son play catch through wTmpcfc0.genericCutscene.cfd3 and
 # INTERAC_BALL, while D7's essence bit and D8/Veran's completion room flag
@@ -2145,6 +2265,26 @@ $room148PickaxePath = Join-Path $destination "objects\room148_pickaxe.tsv"
 [IO.File]::WriteAllLines(
     $room148PickaxePath,
     $room148PickaxeRows,
+    [Text.UTF8Encoding]::new($false))
+$blackTowerTextPath = Join-Path $destination "objects\black_tower_texts.tsv"
+[IO.File]::WriteAllLines(
+    $blackTowerTextPath,
+    $blackTowerTextRows,
+    [Text.UTF8Encoding]::new($false))
+$blackTowerVisualPath = Join-Path $destination "objects\black_tower_visuals.tsv"
+[IO.File]::WriteAllLines(
+    $blackTowerVisualPath,
+    $blackTowerVisualRows,
+    [Text.UTF8Encoding]::new($false))
+$blackTowerPatrolPath = Join-Path $destination "objects\black_tower_patrols.tsv"
+[IO.File]::WriteAllLines(
+    $blackTowerPatrolPath,
+    $blackTowerPatrolRows,
+    [Text.UTF8Encoding]::new($false))
+$blackTowerConstantsPath = Join-Path $destination "objects\black_tower_constants.tsv"
+[IO.File]::WriteAllLines(
+    $blackTowerConstantsPath,
+    $blackTowerConstantsRows,
     [Text.UTF8Encoding]::new($false))
 $room149VisualPath = Join-Path $destination "objects\room149_family_visuals.tsv"
 [IO.File]::WriteAllLines(
