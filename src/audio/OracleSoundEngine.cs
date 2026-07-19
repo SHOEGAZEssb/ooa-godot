@@ -24,6 +24,7 @@ public partial class OracleSoundEngine : Node
     public const int MusDisaster = 0x21;
     public const int MusLadxSideview = 0x2f;
     public const int MusBlackTowerEntrance = 0x46;
+    public const int SndSolvePuzzle = 0x4d;
     public const int SndGetItem = 0x4c;
     public const int SndChargeSword = 0x4f;
     public const int SndClink = 0x50;
@@ -53,6 +54,7 @@ public partial class OracleSoundEngine : Node
     public const int SndTeleport = 0x8d;
     public const int SndFairyCutscene = 0x91;
     public const int SndWarpStart = 0x95;
+    public const int SndDig = 0xa9;
     public const int SndSwordObtained = 0xab;
     public const int SndMakuDisappear = 0xb2;
     public const int SndFadeOut = 0xb4;

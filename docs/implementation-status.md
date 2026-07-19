@@ -20,7 +20,11 @@ claim that the entire surrounding game is complete.
 ### Player, combat, and items
 
 - Link movement, level-1 sword combat, terrain hazards, push blocks, signs,
-  chests, item drops, and basic bracelet interactions.
+  chests, item drops, basic bracelet interactions, and the active Shovel. The
+  Shovel uses the original 23-update Link/item animation, update-4 tile probe,
+  imported breakable-tile replacements and drops, directional dirt debris,
+  `SPEED_a0` cardinal drop launch, sounds, room flags, and WRAM-backed gasha
+  maturity.
 - Typed treasure behavior for imported collection modes and WRAM-backed
   inventory fields currently consumed by the game. Static `$dc:$07` ground
   Heart Pieces use their original two-hand pickup, text, sound, and room-item
@@ -91,6 +95,9 @@ claim that the entire surrounding game is complete.
 
 - Full active-item behavior, held objects, lifting/throwing, swimming/diving,
   ledges, terrain-specific Link states, and complete low-health/death handling.
+- Shovel drop `$0f` consumes its third RNG value and supports the 100-Rupee
+  branch; its rope/beetle branches remain suppressed until those enemies are
+  implemented.
 - Secret entry, linked-game/Game Link behavior, ring appraisal and the wider
   ring-effect system beyond the currently represented inventory state.
 

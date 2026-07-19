@@ -23,6 +23,7 @@ public partial class GameRoot : Node2D
     internal TerrainController _terrain = null!;
     internal CombatController _combat = null!;
     private BraceletController _bracelet = null!;
+    internal ShovelController _shovel = null!;
     private DebugWarpController _debugWarps = null!;
     internal MapMenuController _mapMenu = null!;
     internal InventoryMenuController _inventoryMenu = null!;
@@ -408,6 +409,9 @@ public partial class GameRoot : Node2D
         _interactions.NpcInteractionOverride = _roomEvents.TryInteractNpc;
         _bracelet = new BraceletController(
             _rooms, new BreakableTileDatabase(), _roomView, () => (long)_animationTicks);
+        _shovel = new ShovelController(
+            _rooms, new BreakableTileDatabase(), _roomView, _entities, _saveData,
+            _sound.PlaySound, () => (long)_animationTicks);
         _terrain = new TerrainController(_scene.WorldRoot, _rooms, _collision.Collides);
         _pushBlocks.EnteredHazard += (position, hazard) =>
         {
@@ -419,7 +423,7 @@ public partial class GameRoot : Node2D
             () => (long)_animationTicks);
         _playerWorld = new PlayerWorld(
             _transitions, _interactions, _collision, _pushBlocks, _terrain, _combat, _entities,
-            _bracelet, _roomEvents,
+            _bracelet, _shovel, _roomEvents,
             _inventory, _sound);
         _debugWarps = new DebugWarpController(
             _rooms, _player, LoadDebugRoom, FindSpawn, () => (long)_animationTicks,

@@ -14,6 +14,9 @@ public partial class Player : Node2D
     private const int SwordChargeCounter = 0x28;
     private const int SwordPokeFrames = 12;
     private const int SwordSpinFrames = 23;
+    private const int ShovelActionFrames = 23;
+    private const int ShovelDigFrame = 4;
+    private const int ShovelSecondPoseFrame = 8;
     private const float DrownAnimationDuration = 22.0f / 60.0f;
     private const float DrownInvisibleDuration = 2.0f / 60.0f;
     private const float FallInHoleAnimationDuration = 36.0f / 60.0f;
@@ -35,6 +38,7 @@ public partial class Player : Node2D
     private Texture2D _attackTexture = null!;
     private Texture2D _swordTexture = null!;
     private Texture2D _chargedSwordTexture = null!;
+    private Texture2D _shovelLinkTexture = null!;
     private Texture2D _drownTexture = null!;
     private Texture2D _fallInHoleTexture = null!;
     private Vector2 _precisePosition;
@@ -45,6 +49,7 @@ public partial class Player : Node2D
     private Facing _facing = Facing.Down;
     private float _walkTime;
     private double _swordFrameAccumulator;
+    private double _shovelFrameAccumulator;
     private float _drownTime;
     private float _drownInvisibleTime;
     private float _hazardRecoveryTime;
@@ -61,6 +66,8 @@ public partial class Player : Node2D
     private int _swordStateFrame;
     private int _swordChargeCounter;
     private string? _swordButtonAction;
+    private int _shovelFrame;
+    private bool _usingShovel;
     private Vector2 _lastMovementInput;
     private bool _walking;
     private bool _pushing;
@@ -97,6 +104,8 @@ public partial class Player : Node2D
         _ => Vector2I.Left
     };
     public bool IsAttacking => _swordState != SwordActionState.None;
+    public bool IsUsingShovel => _usingShovel;
+    private bool IsUsingItem => IsAttacking || IsUsingShovel;
     internal bool IsPushing => _pushing;
     internal SwordActionState SwordState => _swordState;
     internal int SwordStateFrame => _swordStateFrame;
@@ -118,6 +127,10 @@ public partial class Player : Node2D
     internal int NewGameSlowFallZ => _newGameFallZFixed >> 8;
     internal bool IsHoldingItemOneHand => _getItemOneHandPose;
     internal bool IsHoldingItemTwoHands => _getItemTwoHandPose;
+    internal int ShovelFrame => _shovelFrame;
+    internal bool ShovelChildActive =>
+        IsUsingShovel && _shovelFrame is >= ShovelDigFrame and < ShovelSecondPoseFrame;
+    internal Vector2 ShovelChildOffset => ShovelOffsets[(int)_facing];
 
     internal void Initialize(
         IPlayerWorld world,
@@ -135,6 +148,7 @@ public partial class Player : Node2D
         _attackTexture = BuildAttackLinkTexture();
         _swordTexture = BuildSwordTexture(chargedPalette: false);
         _chargedSwordTexture = BuildSwordTexture(chargedPalette: true);
+        _shovelLinkTexture = BuildShovelLinkTexture();
         _drownTexture = BuildDrownTexture();
         _fallInHoleTexture = BuildFallInHoleTexture();
         EndNewGameSlowFall();
@@ -151,6 +165,7 @@ public partial class Player : Node2D
     {
         if (!preserveSword)
             CancelSwordAttack();
+        CancelShovelAction();
         EndNewGameSlowFall();
         _drownTime = 0.0f;
         _drownInvisibleTime = 0.0f;
@@ -248,8 +263,8 @@ public partial class Player : Node2D
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
         // wScrollMode $08 freezes the active parent item, while the scrolling
-        // transition moves Link without changing his sword-locked direction.
-        if (!IsAttacking)
+        // transition moves Link without changing his parent-item-locked direction.
+        if (!IsUsingItem)
             Face(direction);
         _walking = false;
         QueueRedraw();
@@ -274,6 +289,7 @@ public partial class Player : Node2D
         _cutsceneControlled = false;
         _walking = false;
         CancelSwordAttack();
+        CancelShovelAction();
         QueueRedraw();
     }
 
@@ -357,6 +373,7 @@ public partial class Player : Node2D
         _walking = false;
         _pushing = false;
         CancelSwordAttack();
+        CancelShovelAction();
         QueueRedraw();
         return true;
     }
@@ -387,6 +404,7 @@ public partial class Player : Node2D
         _ledgeHopping = true;
         _walking = false;
         CancelSwordAttack();
+        CancelShovelAction();
         QueueRedraw();
     }
 
@@ -412,6 +430,7 @@ public partial class Player : Node2D
             _hazardRecoveryTime = Mathf.Max(0.0f, _hazardRecoveryTime - (float)delta);
             _walking = false;
             CancelSwordAttack();
+            CancelShovelAction();
             QueueRedraw();
             return;
         }
@@ -433,6 +452,7 @@ public partial class Player : Node2D
             _enemyKnockbackFrames = Mathf.Max(0.0f, _enemyKnockbackFrames - frameDelta);
             _walking = false;
             CancelSwordAttack();
+            CancelShovelAction();
             Position = OracleObjectMath.ToPixelPosition(_precisePosition);
             QueueRedraw();
             return;
@@ -445,6 +465,7 @@ public partial class Player : Node2D
         {
             _walking = false;
             CancelSwordAttack();
+            CancelShovelAction();
             QueueRedraw();
             return;
         }
@@ -456,7 +477,7 @@ public partial class Player : Node2D
 
         if (Input.IsActionJustPressed("attack") && !_world.SwordDisabled)
         {
-            if (!IsAttacking)
+            if (!IsUsingItem)
             {
                 if (_inventory.EquippedA == InventoryState.ItemBracelet && _world.TryUseBracelet(this))
                     return;
@@ -465,10 +486,12 @@ public partial class Player : Node2D
             }
             if (_inventory.EquippedA == InventoryState.ItemSword)
                 StartSwordAttack("attack", input);
+            else if (_inventory.EquippedA == InventoryState.ItemShovel)
+                StartShovelAction(input);
         }
         else if (Input.IsActionJustPressed("item") && !_world.SwordDisabled)
         {
-            if (!IsAttacking && _inventory.EquippedB == InventoryState.ItemBracelet)
+            if (!IsUsingItem && _inventory.EquippedB == InventoryState.ItemBracelet)
             {
                 _world.TryUseBracelet(this);
             }
@@ -476,15 +499,19 @@ public partial class Player : Node2D
             {
                 StartSwordAttack("item", input);
             }
+            else if (_inventory.EquippedB == InventoryState.ItemShovel)
+            {
+                StartShovelAction(input);
+            }
         }
 
-        bool movementAllowed = !IsAttacking || SwordAllowsMovement;
+        bool movementAllowed = !IsUsingItem || SwordAllowsMovement;
         _walking = input.LengthSquared() > 0.01f && movementAllowed;
         if (_walking)
         {
             // parentItemLoadAnimationAndIncState disables Link's turning for
             // the sword's full lifetime, even after state 6 re-enables movement.
-            if (!IsAttacking)
+            if (!IsUsingItem)
                 UpdateFacing(input);
             Vector2 movement = input * Speed * GetTerrainSpeedMultiplier() * (float)delta;
             TryMove(movement, allowWallSlide: true);
@@ -521,6 +548,7 @@ public partial class Player : Node2D
         _walking = false;
         _pushing = false;
         CancelSwordAttack();
+        CancelShovelAction();
         QueueRedraw();
     }
 
@@ -533,6 +561,7 @@ public partial class Player : Node2D
         _walking = false;
         _pushing = false;
         CancelSwordAttack();
+        CancelShovelAction();
         QueueRedraw();
     }
 
@@ -550,6 +579,7 @@ public partial class Player : Node2D
         _walking = false;
         _pushing = false;
         CancelSwordAttack();
+        CancelShovelAction();
         QueueRedraw();
     }
 
@@ -643,12 +673,16 @@ public partial class Player : Node2D
             return;
 
         if (_world.SwordDisabled)
+        {
             CancelSwordAttack();
+            CancelShovelAction();
+        }
 
         if (_drowning || _fallingInHole || _hazardRecoveryTime > 0.0f ||
             (_pullingIntoHole && _holePullCounter >= 16))
         {
             CancelSwordAttack();
+            CancelShovelAction();
             return;
         }
 
@@ -659,6 +693,16 @@ public partial class Player : Node2D
             {
                 _swordFrameAccumulator -= 1.0;
                 AdvanceSwordFrame(IsSwordButtonHeld(), _lastMovementInput);
+            }
+            QueueRedraw();
+        }
+        if (IsUsingShovel)
+        {
+            _shovelFrameAccumulator += delta * 60.0;
+            while (_shovelFrameAccumulator + 0.000001 >= 1.0 && IsUsingShovel)
+            {
+                _shovelFrameAccumulator -= 1.0;
+                AdvanceShovelFrame();
             }
             QueueRedraw();
         }
@@ -722,6 +766,14 @@ public partial class Player : Node2D
                     new Rect2(texturePhase * 16, (int)poseFacing * 16, 16, 16));
             }
         }
+        else if (IsUsingShovel)
+        {
+            int phase = _shovelFrame < ShovelSecondPoseFrame ? 0 : 1;
+            DrawTextureRectRegion(
+                _shovelLinkTexture,
+                new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
+                new Rect2(phase * 16, (int)_facing * 16, 16, 16));
+        }
         else if (_pushing)
         {
             int frame = GetWalkAnimationFrame();
@@ -753,13 +805,13 @@ public partial class Player : Node2D
             return;
         }
 
-        if (!IsAttacking && _world.TryStartLedgeHop(this, _precisePosition, movement))
+        if (!IsUsingItem && _world.TryStartLedgeHop(this, _precisePosition, movement))
             return;
     }
 
     internal void UpdatePushingState(Vector2 movementInput)
     {
-        _pushing = movementInput.LengthSquared() > 0.01f && !IsAttacking &&
+        _pushing = movementInput.LengthSquared() > 0.01f && !IsUsingItem &&
             _world.IsPushingAgainstWall(_precisePosition, FacingVector, movementInput);
     }
 
@@ -858,6 +910,7 @@ public partial class Player : Node2D
         _holePullCounter = 0;
         _walking = false;
         CancelSwordAttack();
+        CancelShovelAction();
         QueueRedraw();
     }
 
@@ -905,6 +958,7 @@ public partial class Player : Node2D
         {
             _walking = false;
             CancelSwordAttack();
+            CancelShovelAction();
             QueueRedraw();
             return true;
         }
@@ -922,6 +976,7 @@ public partial class Player : Node2D
         _fallInHoleInvisibleTime = FallInHoleInvisibleDuration;
         _walking = false;
         CancelSwordAttack();
+        CancelShovelAction();
 
         // LINK_STATE_RESPAWNING parameter $00 starts SND_LINK_FALL ($65) on
         // the same update that it selects LINK_ANIM_MODE_FALLINHOLE.
@@ -961,6 +1016,7 @@ public partial class Player : Node2D
         _drownInvisibleTime = 0.0f;
         _walking = false;
         CancelSwordAttack();
+        CancelShovelAction();
         Visible = true;
 
         // overworldSwimmingState1 requests SND_DAMAGE_LINK ($5f) before it
@@ -998,6 +1054,7 @@ public partial class Player : Node2D
         _hazardRecoveryTime = HazardRecoveryDuration;
         _walking = false;
         CancelSwordAttack();
+        CancelShovelAction();
         QueueRedraw();
     }
 
@@ -1035,6 +1092,7 @@ public partial class Player : Node2D
         _hazardRecoveryTime = HazardRecoveryDuration;
         _walking = false;
         CancelSwordAttack();
+        CancelShovelAction();
         QueueRedraw();
     }
 
@@ -1096,6 +1154,8 @@ public partial class Player : Node2D
 
     private void StartSwordAttack(string? buttonAction, Vector2 facingInput)
     {
+        if (IsUsingShovel)
+            return;
         if (IsAttacking && !SwordCanRestart)
             return;
         if (facingInput.LengthSquared() > 0.01f)
@@ -1121,6 +1181,59 @@ public partial class Player : Node2D
         _swordButtonAction = null;
         if (changed)
             QueueRedraw();
+    }
+
+    public void StartShovelAction() => StartShovelAction(Vector2.Zero);
+
+    internal void StartShovelActionForValidation(Vector2 facingInput) =>
+        StartShovelAction(facingInput);
+
+    private void StartShovelAction(Vector2 facingInput)
+    {
+        if (IsUsingItem)
+            return;
+        if (facingInput.LengthSquared() > 0.01f)
+            UpdateFacing(facingInput);
+        _usingShovel = true;
+        _shovelFrame = 0;
+        _shovelFrameAccumulator = 0.0;
+        _walking = false;
+        _pushing = false;
+        QueueRedraw();
+    }
+
+    private void CancelShovelAction()
+    {
+        bool changed = IsUsingShovel;
+        _usingShovel = false;
+        _shovelFrame = 0;
+        _shovelFrameAccumulator = 0.0;
+        if (changed)
+            QueueRedraw();
+    }
+
+    internal void AdvanceShovelForValidation(int frames)
+    {
+        for (int frame = 0; frame < frames && IsUsingShovel; frame++)
+            AdvanceShovelFrame();
+        QueueRedraw();
+    }
+
+    private void AdvanceShovelFrame()
+    {
+        _shovelFrame++;
+        if (_shovelFrame == ShovelDigFrame)
+        {
+            _world.DigWithShovel(
+                Position + ShovelChildOffset,
+                FacingVector);
+        }
+        if (_shovelFrame >= ShovelActionFrames)
+        {
+            CancelShovelAction();
+            return;
+        }
+        QueueRedraw();
     }
 
     private bool IsSwordButtonHeld() =>
@@ -1423,6 +1536,32 @@ public partial class Player : Node2D
         return ImageTexture.CreateFromImage(output);
     }
 
+    private static Texture2D BuildShovelLinkTexture()
+    {
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
+        Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
+
+        // LINK_ANIM_MODE_DIG_2 ($1a) selects $f8-$ff. The first and second
+        // columns are the $f8-$fb and $fc-$ff phases respectively.
+        int[,] offsets =
+        {
+            { 0x1400, 0x1440 },
+            { 0x1500, 0x1540 },
+            { 0x1480, 0x14c0 },
+            { 0x1500, 0x1540 }
+        };
+        bool[] mirrored = { false, true, false, false };
+        for (int facing = 0; facing < 4; facing++)
+        for (int phase = 0; phase < 2; phase++)
+        {
+            WriteLinkFrame(
+                output, source, phase * 16, facing * 16,
+                offsets[facing, phase], mirrored[facing]);
+        }
+        return ImageTexture.CreateFromImage(output);
+    }
+
     private static Texture2D BuildSwordTexture(bool chargedPalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
@@ -1611,6 +1750,12 @@ public partial class Player : Node2D
         // move the rendered pose three pixels through the swing while Link's
         // object position remains fixed.
         new(0, -3), new(3, 0), new(0, 3), new(-3, 0)
+    };
+
+    private static readonly Vector2[] ShovelOffsets =
+    {
+        // shovelParent.itemOffsets, stored as signed Y/X pairs.
+        new(0, -8), new(6, 4), new(0, 7), new(-7, 4)
     };
 
     private static readonly int[,] SwordAnimationIndices =

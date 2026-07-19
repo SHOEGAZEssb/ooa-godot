@@ -90,7 +90,13 @@ internal sealed record EnemyDeathPuffSpawn(
     bool HighKnockback = false,
     int EnemyId = -1) : RoomEntitySpawn;
 internal sealed record KillEnemyPuffSpawn(Vector2 Position) : RoomEntitySpawn;
-internal sealed record ItemDropSpawn(int SubId, Vector2 Position) : RoomEntitySpawn;
+internal sealed record ItemDropSpawn(
+    int SubId,
+    Vector2 Position,
+    int Angle = 0,
+    bool DugUp = false) : RoomEntitySpawn;
+internal sealed record ShovelDebrisSpawn(Vector2 Position, Vector2I Direction)
+    : RoomEntitySpawn(UpdateThisFrame: true);
 internal sealed record CutsceneNpcSpawn(
     NpcDatabase.NpcRecord Record,
     string Name,

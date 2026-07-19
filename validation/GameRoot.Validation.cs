@@ -233,6 +233,7 @@ public sealed class ValidationGameRoot : GameRoot
         ValidateRalphPortalDepartureEvent();
         ValidateAnimations();
         ValidateSwordBush();
+        ValidateShovel();
         ValidateEnemyPlacementRules();
         ValidateEnemyObjectPlacementOrder();
         ValidateKeese();
@@ -4190,6 +4191,138 @@ public sealed class ValidationGameRoot : GameRoot
         }
     }
 
+    private void ValidateShovel()
+    {
+        WarpToBushTest();
+        Vector2 tileCenter = new(24, 56);
+        _player.WarpTo(tileCenter + Vector2.Down * 8.0f);
+        _player.Face(Vector2I.Up);
+        _currentRoom.SetPositionTileAndCollision(
+            tileCenter, 0x01, null, (long)_animationTicks);
+        _saveData.WriteWramByte(0xc65f, 0);
+        _saveData.WriteWramByte(0xc660, 0);
+        _sound.ClearPlayRequestAudit();
+        int debrisBefore = _entities.Entities<ShovelDebrisEffect>().Count;
+
+        _player.StartShovelActionForValidation(Vector2.Up);
+        if (!_player.IsUsingShovel || _player.ShovelFrame != 0 ||
+            _player.ShovelChildActive ||
+            _player.ShovelChildOffset != new Vector2(0, -8))
+        {
+            throw new InvalidOperationException(
+                "ITEM_SHOVEL did not initialize LINK_ANIM_MODE_DIG_2 at its up-facing offset.");
+        }
+
+        _player.AdvanceShovelForValidation(3);
+        if (_player.ShovelFrame != 3 || _currentRoom.GetMetatile(tileCenter) != 0x01 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDig) != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 0)
+        {
+            throw new InvalidOperationException(
+                "ITEM_SHOVEL attempted its tile collision before animation update 4.");
+        }
+
+        _player.AdvanceShovelForValidation(1);
+        List<ShovelDebrisEffect> debris = _entities.Entities<ShovelDebrisEffect>();
+        if (_player.ShovelFrame != 4 || !_player.ShovelChildActive ||
+            _currentRoom.GetMetatile(tileCenter) != 0x1c ||
+            _saveData.GashaMaturity != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDig) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 0 ||
+            debris.Count != debrisBefore + 1)
+        {
+            throw new InvalidOperationException(
+                "The update-4 shovel child did not replace dirt, mature gasha state, " +
+                "play SND_DIG, and spawn INTERAC_SHOVELDEBRIS exactly once.");
+        }
+
+        ShovelDebrisEffect chip = debris[^1];
+        Vector2 debrisStart = chip.PrecisePosition;
+        chip.UpdateFrame();
+        if (chip.ElapsedFrames != 1 || chip.PrecisePosition != debrisStart + Vector2.Up * 0.5f ||
+            chip.SpeedZ != -0x1e0 || chip.ZFixed != -0x240)
+        {
+            throw new InvalidOperationException(
+                "INTERAC_SHOVELDEBRIS did not apply SPEED_80 and its original 8.8 Z integration.");
+        }
+        for (int frame = 1; frame < 14; frame++)
+            chip.UpdateFrame();
+        if (!chip.Finished || chip.ElapsedFrames != 14)
+            throw new InvalidOperationException(
+                "INTERAC_SHOVELDEBRIS did not end with its 14-update animation.");
+
+        _player.AdvanceShovelForValidation(3);
+        if (_player.ShovelFrame != 7 || !_player.ShovelChildActive)
+            throw new InvalidOperationException(
+                "ITEM_SHOVEL's four-update collision child ended before update 8.");
+        _player.AdvanceShovelForValidation(1);
+        if (_player.ShovelFrame != 8 || _player.ShovelChildActive)
+            throw new InvalidOperationException(
+                "ITEM_SHOVEL did not enter graphics $fc and remove its collision child on update 8.");
+        _player.AdvanceShovelForValidation(14);
+        if (!_player.IsUsingShovel || _player.ShovelFrame != 22)
+            throw new InvalidOperationException(
+                "LINK_ANIM_MODE_DIG_2 ended before update 23.");
+        _player.AdvanceShovelForValidation(1);
+        if (_player.IsUsingShovel)
+            throw new InvalidOperationException(
+                "LINK_ANIM_MODE_DIG_2 did not end on update 23.");
+
+        _sound.ClearPlayRequestAudit();
+        _player.StartShovelAction();
+        _player.AdvanceShovelForValidation(4);
+        if (_currentRoom.GetMetatile(tileCenter) != 0x1c ||
+            _saveData.GashaMaturity != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDig) != 0)
+        {
+            throw new InvalidOperationException(
+                "Shoveling a non-breakable tile did not preserve state and play SND_CLINK once.");
+        }
+        _player.WarpTo(_player.Position);
+
+        // Tile $cb sets effect bits 7/6. Its break tables add 50 maturity and
+        // current-room flag bit 7 before ITEM_SHOVEL adds its own one point.
+        _currentRoom.SetPositionTileAndCollision(
+            tileCenter, 0xcb, null, (long)_animationTicks);
+        _saveData.WriteWramByte(0xc65f, 0);
+        _saveData.WriteWramByte(0xc660, 0);
+        _saveData.SetRoomFlag(_activeGroup, _currentRoom.Id, OracleSaveData.RoomFlag80, false);
+        _sound.ClearPlayRequestAudit();
+        _player.StartShovelAction();
+        _player.AdvanceShovelForValidation(4);
+        if (_currentRoom.GetMetatile(tileCenter) != 0xd2 ||
+            _saveData.GashaMaturity != 51 ||
+            !_saveData.HasRoomFlag(_activeGroup, _currentRoom.Id, OracleSaveData.RoomFlag80) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDig) != 1)
+        {
+            throw new InvalidOperationException(
+                "Shovel tile $cb did not apply its room flag, +50/+1 maturity, " +
+                "SND_SOLVEPUZZLE, and SND_DIG table effects.");
+        }
+        _player.WarpTo(_player.Position);
+
+        Vector2[] expectedOffsets =
+        {
+            new(0, -8), new(6, 4), new(0, 7), new(-7, 4)
+        };
+        Vector2I[] directions =
+        {
+            Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left
+        };
+        for (int index = 0; index < directions.Length; index++)
+        {
+            _player.Face(directions[index]);
+            if (_player.ShovelChildOffset != expectedOffsets[index])
+                throw new InvalidOperationException(
+                    $"ITEM_SHOVEL direction {index} lost its signed Y/X child offset.");
+        }
+
+        GD.Print("Validated ITEM_SHOVEL timing, invisible child offsets, tile effects, " +
+            "gasha maturity, debris, and clink/success sounds.");
+    }
+
     private void ValidateSwordBush()
     {
         OracleRandom.Result ExpectedNextRandom()
@@ -5467,12 +5600,16 @@ public sealed class ValidationGameRoot : GameRoot
         ItemDropDatabase.VisualRecord heartVisual = database.GetVisual(ItemDropDatabase.Heart);
         ItemDropDatabase.VisualRecord oneRupeeVisual = database.GetVisual(ItemDropDatabase.OneRupee);
         ItemDropDatabase.VisualRecord fiveRupeeVisual = database.GetVisual(ItemDropDatabase.FiveRupees);
+        ItemDropDatabase.VisualRecord hundredRupeeVisual =
+            database.GetVisual(ItemDropDatabase.OneHundredRupeesOrEnemy);
         if (heartVisual.TileBase != 2 || heartVisual.Palette != 5 ||
             oneRupeeVisual.TileBase != 4 || oneRupeeVisual.Palette != 0 ||
-            fiveRupeeVisual.TileBase != 6 || fiveRupeeVisual.Palette != 5)
+            fiveRupeeVisual.TileBase != 6 || fiveRupeeVisual.Palette != 5 ||
+            hundredRupeeVisual.TileBase != 8 || hundredRupeeVisual.Palette != 4)
         {
             throw new InvalidOperationException(
-                "Heart/rupee PART_ITEM_DROP visuals do not match spriteData tile bases `$02/`$04/`$06.");
+                "Heart/rupee PART_ITEM_DROP visuals do not match spriteData tile bases " +
+                "`$02/`$04/`$06/`$08.");
         }
 
         var lifecycleRoot = new Node { Name = "ItemDropLifecycleValidation" };
@@ -5513,6 +5650,50 @@ public sealed class ValidationGameRoot : GameRoot
         Vector2 dropPosition = FindOpenItemDropPosition(_currentRoom);
         Vector2 farPosition = dropPosition + Vector2.Right * 40.0f;
         _player.WarpTo(farPosition, recordSafe: false);
+
+        int[] shovelAngles = { 0x00, 0x08, 0x10, 0x18 };
+        Vector2[] shovelDirections =
+        {
+            Vector2.Up, Vector2.Right, Vector2.Down, Vector2.Left
+        };
+        for (int index = 0; index < shovelAngles.Length; index++)
+        {
+            var dugUpDrop = new ItemDropEffect();
+            dugUpDrop.Initialize(
+                ItemDropDatabase.OneRupee, dropPosition, _currentRoom,
+                oneRupeeVisual, shovelAngles[index], dugUp: true);
+            dugUpDrop.UpdateFrame(_player, 1);
+            if (dugUpDrop.State != ItemDropEffect.DropState.Bouncing ||
+                dugUpDrop.Speed != 0x19 || dugUpDrop.Angle != shovelAngles[index] ||
+                dugUpDrop.PrecisePosition != dropPosition)
+            {
+                throw new InvalidOperationException(
+                    $"Shovel item drop angle ${shovelAngles[index]:x2} did not initialize " +
+                    "SPEED_a0 without moving during state 0.");
+            }
+            dugUpDrop.UpdateFrame(_player, 2);
+            Vector2 expectedPosition = dropPosition + shovelDirections[index] * 0.625f;
+            if (dugUpDrop.PrecisePosition != expectedPosition ||
+                dugUpDrop.Position != OracleObjectMath.ToPixelPosition(expectedPosition))
+            {
+                throw new InvalidOperationException(
+                    $"Shovel item drop angle ${shovelAngles[index]:x2} did not apply its " +
+                    "exact SPEED_a0 8.8 displacement on the first bounce update.");
+            }
+            dugUpDrop.Free();
+        }
+
+        var stationaryDrop = new ItemDropEffect();
+        stationaryDrop.Initialize(
+            ItemDropDatabase.OneRupee, dropPosition, _currentRoom, oneRupeeVisual);
+        stationaryDrop.UpdateFrame(_player, 1);
+        stationaryDrop.UpdateFrame(_player, 2);
+        if (stationaryDrop.Speed != 0 || stationaryDrop.PrecisePosition != dropPosition)
+        {
+            throw new InvalidOperationException(
+                "An ordinary enemy item drop incorrectly inherited shovel launch velocity.");
+        }
+        stationaryDrop.Free();
 
         var bounceDrop = new ItemDropEffect();
         bounceDrop.Initialize(
@@ -5559,6 +5740,9 @@ public sealed class ValidationGameRoot : GameRoot
 
         ValidateRupeeItemDrop(oneRupeeVisual, ItemDropDatabase.OneRupee, 1, dropPosition);
         ValidateRupeeItemDrop(fiveRupeeVisual, ItemDropDatabase.FiveRupees, 5, dropPosition);
+        ValidateRupeeItemDrop(
+            hundredRupeeVisual, ItemDropDatabase.OneHundredRupeesOrEnemy,
+            100, dropPosition);
 
         _player.WarpTo(farPosition, recordSafe: false);
         var expiryDrop = new ItemDropEffect();
@@ -5612,7 +5796,8 @@ public sealed class ValidationGameRoot : GameRoot
 
         _player.RefillHealth();
         GD.Print("Validated all 144 enemy drop records, Keese `$ae probability/set data, " +
-            "PART_ITEM_DROP heart/rupee visuals, -`$160 fixed-point bounce, pickup rewards, " +
+            "PART_ITEM_DROP heart/1/5/100-rupee visuals, shovel SPEED_a0 launch, " +
+            "-`$160 fixed-point bounce, pickup rewards, " +
             "240 alternating-frame lifetime ticks, final flicker, and frozen scrolling ownership.");
     }
 
@@ -5648,6 +5833,10 @@ public sealed class ValidationGameRoot : GameRoot
                 x * OracleRoomData.MetatileSize + 8,
                 y * OracleRoomData.MetatileSize + 8);
             if (!room.IsSolid(point) &&
+                !room.IsSolid(point + new Vector2(0, -5)) &&
+                !room.IsSolid(point + new Vector2(4, 0)) &&
+                !room.IsSolid(point + new Vector2(0, 4)) &&
+                !room.IsSolid(point + new Vector2(-5, 0)) &&
                 room.GetTerrainInfo(point).Hazard == OracleRoomData.HazardType.None)
                 return point;
         }

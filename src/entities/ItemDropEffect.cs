@@ -4,14 +4,16 @@ using System;
 namespace oracleofages;
 
 /// <summary>
-/// PART_ITEM_DROP ($01). Enemy drops use vertical 8.8 fixed-point motion,
-/// then wait for 240 alternating-frame countdown ticks before disappearing.
+/// PART_ITEM_DROP ($01). Drops use vertical 8.8 fixed-point motion; shovel
+/// drops additionally copy Link's angle and SPEED_a0 until they finish
+/// bouncing. Grounded drops wait for 240 alternating-frame countdown ticks.
 /// </summary>
 public partial class ItemDropEffect : Node2D
 {
     internal enum DropState { Initializing, Bouncing, Grounded }
 
     private const int InitialSpeedZ = -0x160;
+    private const int DugUpSpeed = 0x19;
     private const int Gravity = 0x20;
     private const int StopBounceSpeed = 0x100;
     private const int LifetimeTicks = 240;
@@ -27,6 +29,9 @@ public partial class ItemDropEffect : Node2D
     private int _counter;
     private bool _collisionEnabled;
     private Vector2 _transitionDrawOffset;
+    private Vector2 _precisePosition;
+    private int _angle;
+    private int _speed;
 
     public int SubId { get; private set; }
     public bool Finished { get; private set; }
@@ -38,16 +43,26 @@ public partial class ItemDropEffect : Node2D
     internal bool CollisionEnabled => _collisionEnabled;
     internal int ElapsedFrames { get; private set; }
     internal Vector2 TransitionDrawOffset => _transitionDrawOffset;
+    internal Vector2 PrecisePosition => _precisePosition;
+    internal int Angle => _angle;
+    internal int Speed => _speed;
 
     internal void Initialize(
         int subId,
         Vector2 position,
         OracleRoomData room,
-        ItemDropDatabase.VisualRecord visual)
+        ItemDropDatabase.VisualRecord visual,
+        int angle = 0,
+        bool dugUp = false)
     {
+        if (angle is < 0 or >= 0x20)
+            throw new ArgumentOutOfRangeException(nameof(angle));
         SubId = subId;
-        Position = position;
+        _precisePosition = position;
+        Position = OracleObjectMath.ToPixelPosition(position);
         _room = room;
+        _angle = angle;
+        _speed = dugUp && subId != 0 ? DugUpSpeed : 0;
         _speedZ = InitialSpeedZ;
         _state = DropState.Initializing;
         _texture = BuildTexture(visual);
@@ -115,6 +130,7 @@ public partial class ItemDropEffect : Node2D
 
     private void UpdateBounce()
     {
+        UpdateHorizontalSpeed();
         if (!OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, Gravity))
         {
             if (_speedZ >= 0)
@@ -133,6 +149,34 @@ public partial class ItemDropEffect : Node2D
 
         _speedZ = -_speedZ / 2;
     }
+
+    private void UpdateHorizontalSpeed()
+    {
+        if (_speed == 0)
+            return;
+
+        Vector2 direction = OracleObjectMath.StrictCardinalVector(_angle);
+        // partCommon_anglePositionOffsets probes five pixels toward up/left
+        // and four toward right/down before objectCheckTileCollision_allowHoles
+        // checks the current high-byte position.
+        Vector2 frontOffset = new(
+            direction.X < 0 ? -5 : direction.X > 0 ? 4 : 0,
+            direction.Y < 0 ? -5 : direction.Y > 0 ? 4 : 0);
+        Vector2 front = OracleObjectMath.ToPixelPosition(_precisePosition) + frontOffset;
+        Vector2 current = OracleObjectMath.ToPixelPosition(_precisePosition);
+        if (IsBlocked(front) || IsBlocked(current))
+        {
+            return;
+        }
+
+        _precisePosition += direction * (_speed / 40.0f);
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+    }
+
+    private bool IsBlocked(Vector2 point) =>
+        point.X < 0 || point.X >= _room.Width ||
+        point.Y < 0 || point.Y >= _room.Height ||
+        _room.IsSolid(point);
 
     private bool OverlapsLink(Vector2 linkPosition)
     {
@@ -154,6 +198,9 @@ public partial class ItemDropEffect : Node2D
                 break;
             case ItemDropDatabase.FiveRupees:
                 player.AddRupees(5);
+                break;
+            case ItemDropDatabase.OneHundredRupeesOrEnemy:
+                player.AddRupees(100);
                 break;
             default:
                 return;

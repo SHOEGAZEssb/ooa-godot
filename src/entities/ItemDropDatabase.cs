@@ -17,6 +17,7 @@ public sealed class ItemDropDatabase
     public const int Heart = 0x01;
     public const int OneRupee = 0x02;
     public const int FiveRupees = 0x03;
+    public const int OneHundredRupeesOrEnemy = 0x0f;
 
     private readonly byte[] _selectionData;
     private readonly Dictionary<int, VisualRecord> _visuals = new();
@@ -74,6 +75,17 @@ public sealed class ItemDropDatabase
         return IsCurrentlyAvailable(subId) ? subId : null;
     }
 
+    internal int? DecideBreakableDrop(int dropType, OracleRandom random)
+    {
+        int? subId = DecideDrop(0x80 | (dropType & 0x0f), random);
+        if (subId != OneHundredRupeesOrEnemy)
+            return subId;
+
+        // PART_ITEM_DROP:$0f consumes one more global RNG value. Values below
+        // $e0 create a rope or beetle, which are not runtime-supported yet.
+        return random.Next().Value >= 0xe0 ? OneHundredRupeesOrEnemy : null;
+    }
+
     internal int? ChooseDrop(int enemyId, byte probabilityRoll, byte itemRoll)
     {
         int record = EnemyTableRecord(enemyId);
@@ -102,7 +114,7 @@ public sealed class ItemDropDatabase
     }
 
     private static bool IsCurrentlyAvailable(int subId) =>
-        subId is Heart or OneRupee or FiveRupees;
+        subId is Heart or OneRupee or FiveRupees or OneHundredRupeesOrEnemy;
 
     public readonly record struct VisualRecord(
         int SubId,

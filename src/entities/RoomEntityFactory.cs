@@ -206,6 +206,7 @@ internal sealed class RoomEntityFactory(
         EnemyDeathPuffSpawn puff => CreateDeathPuff(puff),
         KillEnemyPuffSpawn puff => CreateKillPuff(puff),
         ItemDropSpawn drop => CreateItemDrop(drop, room),
+        ShovelDebrisSpawn debris => CreateShovelDebris(debris),
         CutsceneNpcSpawn npc => CreateCutsceneNpc(npc),
         Room148DebrisSpawn debris => CreateRoom148Debris(debris),
         _ => throw new ArgumentOutOfRangeException(nameof(spawn), spawn, "Unknown room-entity spawn request.")
@@ -376,6 +377,17 @@ internal sealed class RoomEntityFactory(
         return new Room148DebrisRoomEntity(debris);
     }
 
+    private static IRoomEntity CreateShovelDebris(ShovelDebrisSpawn spawn)
+    {
+        var debris = new ShovelDebrisEffect
+        {
+            Name = "ShovelDebris",
+            ZIndex = 9
+        };
+        debris.Initialize(spawn.Position, spawn.Direction);
+        return new ShovelDebrisRoomEntity(debris);
+    }
+
     private IRoomEntity CreateDeathPuff(EnemyDeathPuffSpawn spawn)
     {
         var puff = new EnemyDeathPuffEffect { Name = "EnemyDeathPuff", ZIndex = 10 };
@@ -393,7 +405,9 @@ internal sealed class RoomEntityFactory(
     private IRoomEntity CreateItemDrop(ItemDropSpawn spawn, OracleRoomData room)
     {
         var drop = new ItemDropEffect { Name = $"ItemDrop_{spawn.SubId:x2}", ZIndex = 10 };
-        drop.Initialize(spawn.SubId, spawn.Position, room, itemDrops.GetVisual(spawn.SubId));
+        drop.Initialize(
+            spawn.SubId, spawn.Position, room, itemDrops.GetVisual(spawn.SubId),
+            spawn.Angle, spawn.DugUp);
         return new ItemDropRoomEntity(drop);
     }
 

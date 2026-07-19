@@ -33,6 +33,11 @@ Transient state that was outside the file image, such as `wUpgradesObtained`,
 belongs in `OracleRuntimeState` or another explicit runtime owner. Do not place
 it at an invented save offset merely to make persistence convenient.
 
+Gasha maturity is the original little-endian 16-bit field at `$c65f-$c660`.
+`OracleSaveData.AddGashaMaturity` performs the original saturating update;
+successful Shovel digs add one, while breakable-tile effect bit 7 may apply the
+source table's additional maturity before that item-owned increment.
+
 ## Flags, rooms, and dungeons
 
 Global flags comprise 128 imported bits. Room flags retain the four original

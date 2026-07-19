@@ -13,6 +13,7 @@ public interface IPlayerWorld
     void PlaySound(int soundId);
     bool TryInteract(Player player);
     bool TryUseBracelet(Player player);
+    bool DigWithShovel(Vector2 point, Vector2I direction);
     bool Collides(Vector2 playerPosition);
     Vector2 ResolveMovement(Vector2 playerPosition, Vector2 movement, bool allowWallSlide);
     bool IsPushingAgainstWall(

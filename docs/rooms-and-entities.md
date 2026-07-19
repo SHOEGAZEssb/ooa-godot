@@ -96,6 +96,20 @@ remove mechanical duplication. Species state machines stay separate so their
 counter order and branch behavior remain traceable to the source. Spawn records
 state whether a child updates in the creation frame; preserve that distinction.
 
+Active Shovel use keeps parent-item timing in `Player` and delegates the
+update-4 child probe to `ShovelController`. The controller reads
+`BreakableTileDatabase` source `$06`, normalizes the hit to the metatile center,
+applies replacement/drop/effect ordering, and spawns fixed-update
+`ShovelDebrisEffect` through `RoomEntityManager`. Do not duplicate shovel dirt
+lists or encode room-specific dig coordinates.
+
+`PART_ITEM_DROP` spawn records distinguish ordinary stationary enemy drops from
+Shovel-created drops. A dug-up drop copies Link's cardinal angle and applies
+`SPEED_a0` (0.625 pixels per original update) during its airborne bounce, using
+the allow-holes front/current tile probes before movement. Horizontal movement
+ends with the bounce; it must not leak into ordinary drops or grounded lifetime
+updates.
+
 Dynamic blocker collision compares the high-byte pixel coordinates of both
 objects, matching `checkObjectsCollided`; fractional 8.8 position bytes must not
 stop Link one rendered pixel before contact. Object-side separation helpers may

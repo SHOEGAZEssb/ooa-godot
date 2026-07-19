@@ -10,6 +10,7 @@ public sealed class InventoryState
     public const int NumInventoryItems = 0x20;
     public const int ItemNone = 0x00;
     public const int ItemSword = 0x05;
+    public const int ItemShovel = 0x15;
     public const int ItemBracelet = 0x16;
     public const int TreasurePunch = 0x02;
 

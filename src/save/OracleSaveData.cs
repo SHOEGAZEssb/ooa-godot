@@ -85,6 +85,8 @@ public sealed class OracleSaveData
     public int RespawnX => ReadWramByte(0xc630);
     public bool IsLinkedGame => ReadWramByte(0xc612) != 0;
     public bool IsCompleted => ReadWramByte(0xc614) != 0;
+    public int GashaMaturity =>
+        ReadWramByte(0xc65f) | (ReadWramByte(0xc660) << 8);
 
     private OracleSaveData(byte[] data)
     {
@@ -215,6 +217,20 @@ public sealed class OracleSaveData
         if (speed is < 0 or > 4)
             throw new ArgumentOutOfRangeException(nameof(speed));
         if (WriteWramByte(0xc629, (byte)speed))
+            Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Mirrors addToGashaMaturity's little-endian add and $ffff saturation.
+    /// </summary>
+    public void AddGashaMaturity(int amount)
+    {
+        if (amount is < 0 or > 0xff)
+            throw new ArgumentOutOfRangeException(nameof(amount));
+        int next = Math.Min(0xffff, GashaMaturity + amount);
+        bool changed = WriteWramByte(0xc65f, (byte)next);
+        changed |= WriteWramByte(0xc660, (byte)(next >> 8));
+        if (changed)
             Changed?.Invoke();
     }
 

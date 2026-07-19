@@ -18,6 +18,7 @@ public sealed class RoomEntityManager
     private readonly Node _worldRoot;
     private readonly RoomEntityFactory _factory;
     private readonly OracleRandom _random;
+    private readonly ItemDropDatabase _itemDrops;
     private readonly OracleSaveData? _saveData;
     private readonly OracleRuntimeState _runtimeState;
     private readonly NpcVisibilityRuleDatabase _npcVisibility = new();
@@ -88,6 +89,7 @@ public sealed class RoomEntityManager
     {
         _worldRoot = worldRoot;
         _random = random;
+        _itemDrops = itemDrops;
         _saveData = saveData;
         _runtimeState = runtimeState ?? new OracleRuntimeState();
         _factory = new RoomEntityFactory(
@@ -288,6 +290,24 @@ public sealed class RoomEntityManager
     {
         IRoomEntity entity = AddEntity(_factory.Create(spawn, _roomForActiveEntities));
         return (T)entity.Node;
+    }
+
+    internal void SpawnBreakableDrop(
+        int dropType,
+        Vector2 position,
+        Vector2I shovelDirection)
+    {
+        int? subId = _itemDrops.DecideBreakableDrop(dropType, _random);
+        if (subId.HasValue)
+        {
+            int angle = shovelDirection == Vector2I.Up ? 0x00
+                : shovelDirection == Vector2I.Right ? 0x08
+                : shovelDirection == Vector2I.Down ? 0x10
+                : shovelDirection == Vector2I.Left ? 0x18
+                : throw new ArgumentOutOfRangeException(nameof(shovelDirection));
+            Spawn<ItemDropEffect>(new ItemDropSpawn(
+                subId.Value, position, angle, DugUp: true));
+        }
     }
 
     public void Clear()
