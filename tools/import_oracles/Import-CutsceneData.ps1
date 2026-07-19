@@ -2332,3 +2332,122 @@ $blackTowerEventRows = @(
     (Join-Path $destination 'cutscenes\black_tower_entrance_event.tsv'),
     $blackTowerEventRows,
     [Text.UTF8Encoding]::new($false))
+
+# Room $1:$76 contains INTERAC_MISCELLANEOUS_2 $dc:$10 rather than a visible
+# NPC. It opens the two entrance metatiles and arms a collision rectangle that
+# selects one of two hardcoded Black Tower rooms from this room's bit $01.
+# Keep the placement, state-machine inputs, flag predicate, raw warp bytes, and
+# sound tied to their disassembly definitions instead of encoding them in the
+# runtime controller.
+$towerDoorObjectSource = Get-Content -Raw (
+    Join-Path $Disassembly 'objects\ages\mainData.s')
+$towerDoorPlacement = [regex]::Match(
+    $towerDoorObjectSource,
+    '(?ms)^group(?<group>1)Map(?<room>76)ObjectData:\s*' +
+    'obj_Interaction \$(?<id>[0-9a-f]{2}) \$(?<subid>[0-9a-f]{2}) ' +
+    '\$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2})\s*obj_End')
+if (-not $towerDoorPlacement.Success -or
+    [Convert]::ToInt32($towerDoorPlacement.Groups['group'].Value, 16) -ne 1 -or
+    [Convert]::ToInt32($towerDoorPlacement.Groups['room'].Value, 16) -ne 0x76 -or
+    [Convert]::ToInt32($towerDoorPlacement.Groups['id'].Value, 16) -ne 0xdc -or
+    [Convert]::ToInt32($towerDoorPlacement.Groups['subid'].Value, 16) -ne 0x10) {
+    throw 'Could not resolve room 1:76 INTERAC_MISCELLANEOUS_2 $dc:$10 placement.'
+}
+
+$towerDoorSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous2.s')
+$towerDoorHandler = [regex]::Match(
+    $towerDoorSource,
+    '(?ms)^interactiondc_subid10:(?<body>.*?)(?=^interactiondc_subid11:)')
+if (-not $towerDoorHandler.Success) {
+    throw 'Could not resolve interactiondc_subid10.'
+}
+$towerDoorBody = $towerDoorHandler.Groups['body'].Value
+$towerDoorClear = [regex]::Match(
+    $towerDoorBody,
+    'ld hl,wRoomLayout\+\$(?<position>[0-9a-f]{2})\s*xor a\s*ldi \(hl\),a\s*ld \(hl\),a')
+$towerDoorRadii = [regex]::Match(
+    $towerDoorBody, 'ld bc,\$(?<y>[0-9a-f]{2})(?<x>[0-9a-f]{2})\s*call objectSetCollideRadii')
+$towerDoorFlag = [regex]::Match(
+    $towerDoorBody, 'call getThisRoomFlags\s*and \$(?<mask>[0-9a-f]{2})')
+$towerDoorWarps = [regex]::Matches(
+    $towerDoorBody,
+    '(?m)^@warp[12]:\s*\r?\n\s*m_HardcodedWarpA ROOM_AGES_(?<group>[0-7])(?<room>[0-9a-f]{2}), ' +
+    '\$(?<transition>[0-9a-f]{2}), \$(?<position>[0-9a-f]{2}), \$(?<transition2>[0-9a-f]{2})')
+if (-not $towerDoorClear.Success -or -not $towerDoorRadii.Success -or
+    -not $towerDoorFlag.Success -or $towerDoorWarps.Count -ne 2 -or
+    $towerDoorBody -notmatch '(?ms)@state0:.*?call objectCheckCollidedWithLink_notDeadAndNotGrabbing\s*call nc,interactionIncState\s*jp interactionIncState' -or
+    $towerDoorBody -notmatch '(?ms)@state1:.*?call objectCheckCollidedWithLink_notDeadAndNotGrabbing\s*ret c\s*jp interactionIncState' -or
+    $towerDoorBody -notmatch '(?ms)@state2:.*?call objectCheckCollidedWithLink_notDeadAndNotGrabbing\s*ret nc\s*call checkLinkVulnerable\s*ret nc' -or
+    $towerDoorBody -notmatch 'ld a,SND_ENTERCAVE\s*call playSound') {
+    throw 'Room 1:76 tower-door collision handler changed.'
+}
+
+$linkSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\specialObjects\link.s')
+$linkRadii = [regex]::Match(
+    $linkSource,
+    '(?ms); Set collisionRadiusY,X\s*inc l\s*ld a,\$(?<radius>[0-9a-f]{2})\s*ldi \(hl\),a\s*ldi \(hl\),a')
+$musicConstantSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\music.s')
+$enterCaveSound = [regex]::Match(
+    $musicConstantSource,
+    '(?m)^\s*SND_ENTERCAVE\s+db\s*;\s*\$(?<sound>[0-9a-f]{2})')
+if (-not $linkRadii.Success -or -not $enterCaveSound.Success) {
+    throw 'Could not resolve Link collision radii or SND_ENTERCAVE.'
+}
+
+$clearPosition = [Convert]::ToInt32($towerDoorClear.Groups['position'].Value, 16)
+$towerDoorWarpRows = @($towerDoorWarps | ForEach-Object {
+    [pscustomobject]@{
+        Group = [Convert]::ToInt32($_.Groups['group'].Value, 16)
+        Room = [Convert]::ToInt32($_.Groups['room'].Value, 16)
+        Transition = [Convert]::ToInt32($_.Groups['transition'].Value, 16)
+        Position = [Convert]::ToInt32($_.Groups['position'].Value, 16)
+        Transition2 = [Convert]::ToInt32($_.Groups['transition2'].Value, 16)
+    }
+})
+if ($clearPosition -ne 0x44 -or
+    [Convert]::ToInt32($towerDoorRadii.Groups['y'].Value, 16) -ne 0x04 -or
+    [Convert]::ToInt32($towerDoorRadii.Groups['x'].Value, 16) -ne 0x10 -or
+    [Convert]::ToInt32($towerDoorFlag.Groups['mask'].Value, 16) -ne 0x01 -or
+    $towerDoorWarpRows[0].Transition -ne 0x93 -or
+    $towerDoorWarpRows[0].Position -ne 0xff -or
+    $towerDoorWarpRows[0].Transition2 -ne 0x01 -or
+    $towerDoorWarpRows[1].Transition -ne 0x93 -or
+    $towerDoorWarpRows[1].Position -ne 0xff -or
+    $towerDoorWarpRows[1].Transition2 -ne 0x01) {
+    throw 'Room 1:76 tower-door constants diverged from the supported handler.'
+}
+
+$towerDoorRows = @(
+    "# group`troom`tid`tsubid`ty`tx`tclear-position-a`tclear-position-b`tobject-radius-y`tobject-radius-x`tlink-radius-y`tlink-radius-x`troom-flag-mask`tclear-dest-group`tclear-dest-room`tset-dest-group`tset-dest-room`twarp-transition`tdest-position`twarp-transition2`tsound`tsource",
+    (@(
+        $towerDoorPlacement.Groups['group'].Value,
+        $towerDoorPlacement.Groups['room'].Value,
+        $towerDoorPlacement.Groups['id'].Value,
+        $towerDoorPlacement.Groups['subid'].Value,
+        $towerDoorPlacement.Groups['y'].Value,
+        $towerDoorPlacement.Groups['x'].Value,
+        $clearPosition.ToString('x2'),
+        ($clearPosition + 1).ToString('x2'),
+        $towerDoorRadii.Groups['y'].Value,
+        $towerDoorRadii.Groups['x'].Value,
+        $linkRadii.Groups['radius'].Value,
+        $linkRadii.Groups['radius'].Value,
+        $towerDoorFlag.Groups['mask'].Value,
+        $towerDoorWarpRows[0].Group.ToString('x1'),
+        $towerDoorWarpRows[0].Room.ToString('x2'),
+        $towerDoorWarpRows[1].Group.ToString('x1'),
+        $towerDoorWarpRows[1].Room.ToString('x2'),
+        $towerDoorWarpRows[0].Transition.ToString('x2'),
+        $towerDoorWarpRows[0].Position.ToString('x2'),
+        $towerDoorWarpRows[0].Transition2.ToString('x2'),
+        $enterCaveSound.Groups['sound'].Value,
+        'miscellaneous2.s:interactiondc_subid10'
+    ) -join "`t")
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\black_tower_doorway_event.tsv'),
+    $towerDoorRows,
+    [Text.UTF8Encoding]::new($false))

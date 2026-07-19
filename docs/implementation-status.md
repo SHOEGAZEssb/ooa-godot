@@ -50,6 +50,10 @@ claim that the entire surrounding game is complete.
 - Room `1:75`'s complete linked and unlinked pre-Black Tower sequences,
   including Ralph's departure, the heritage scene, coordinated Impa/Nayru/Zelda
   lanes, Link movement, spawned effects, and persistent completion state.
+- Room `1:76`'s invisible `$dc:$10` Black Tower doorway handler, including its
+  transient `$44/$45` tile clears, initial-overlap exit latch, strict combined
+  collision radii, current-room bit `$01` destination selection (`4:e7` or
+  `4:f3`), `$93/$ff/$01` entrance transition, and cave-entry sound.
 - Room `1:86`'s stage-0 Black Tower explanation, including its imported
   background/OAM/palettes, shared-RNG lightning, saved Link return position and
   direction, same-room transition `$0c`, and `$40` to `$80` aftermath.

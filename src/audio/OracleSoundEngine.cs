@@ -41,6 +41,7 @@ public partial class OracleSoundEngine : Node
     public const int SndSlash = 0x6a;
     public const int SndSwordSpin = 0x6b;
     public const int SndCutGrass = 0x6d;
+    public const int SndEnterCave = 0x6e;
     public const int SndKillEnemy = 0x73;
     public const int SndSwordSlash = 0x74;
     public const int SndUnknown5 = 0x75;

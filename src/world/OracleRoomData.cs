@@ -82,6 +82,7 @@ public sealed class OracleRoomData
     private readonly OracleAnimationData _animations;
     private readonly int _layoutStride;
     private readonly Dictionary<int, byte> _positionCollisionOverrides = new();
+    private readonly Dictionary<int, byte> _positionVisualOverrides = new();
     private int _animationSignature;
     private int[] _activeAnimationHeaders;
 
@@ -309,6 +310,7 @@ public sealed class OracleRoomData
             return false;
 
         Layout[index] = replacement;
+        _positionVisualOverrides.Remove(index);
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
         _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
@@ -320,7 +322,8 @@ public sealed class OracleRoomData
         Vector2 localPoint,
         byte tile,
         byte? collision,
-        long animationTick)
+        long animationTick,
+        bool preserveRenderedTile = false)
     {
         int tileX = Mathf.FloorToInt(localPoint.X / MetatileSize);
         int tileY = Mathf.FloorToInt(localPoint.Y / MetatileSize);
@@ -328,8 +331,13 @@ public sealed class OracleRoomData
             throw new ArgumentOutOfRangeException(nameof(localPoint));
 
         int index = tileY * _layoutStride + tileX;
-        bool redraw = Layout[index] != tile;
+        byte renderedBefore = GetRenderedMetatile(index);
         Layout[index] = tile;
+        if (preserveRenderedTile)
+            _positionVisualOverrides[index] = renderedBefore;
+        else
+            _positionVisualOverrides.Remove(index);
+        bool redraw = renderedBefore != GetRenderedMetatile(index);
         if (collision.HasValue)
             _positionCollisionOverrides[index] = collision.Value;
         else
@@ -352,6 +360,8 @@ public sealed class OracleRoomData
             redraw |= Layout[index] != _originalLayout[index];
         Array.Copy(_originalLayout, Layout, Layout.Length);
         _positionCollisionOverrides.Clear();
+        redraw |= _positionVisualOverrides.Count != 0;
+        _positionVisualOverrides.Clear();
 
         foreach ((int position, byte tile) in changes)
         {
@@ -456,7 +466,8 @@ public sealed class OracleRoomData
         for (int roomY = 0; roomY < HeightInTiles; roomY++)
         for (int roomX = 0; roomX < WidthInTiles; roomX++)
         {
-            int metatile = Layout[roomY * _layoutStride + roomX];
+            int layoutIndex = roomY * _layoutStride + roomX;
+            int metatile = GetRenderedMetatile(layoutIndex);
             int mappingOffset = metatile * 8;
 
             for (int quarter = 0; quarter < 4; quarter++)
@@ -522,6 +533,11 @@ public sealed class OracleRoomData
 
         return output;
     }
+
+    private byte GetRenderedMetatile(int layoutIndex) =>
+        _positionVisualOverrides.TryGetValue(layoutIndex, out byte visualOverride)
+            ? visualOverride
+            : Layout[layoutIndex];
 
     private static int GetAnimationSignature(int[] headers)
     {

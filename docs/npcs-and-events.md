@@ -263,6 +263,34 @@ coordinated event in one object stream:
   `GLOBALFLAG_RALPH_ENTERED_BLACK_TOWER` resumes the pending Impa phase without
   replaying Ralph.
 
+Room `1:76` is the corresponding reference for an invisible placed interaction
+that is neither an NPC nor a tile-table warp:
+
+- Its only object is `INTERAC_MISCELLANEOUS_2` `$dc:$10` at `$42,$50`. The
+  cutscene importer emits that placement together with the handler's layout
+  writes, collision radii, flag mask, hardcoded destinations, raw transition
+  bytes, and sound. A controller must not invent a talkable actor merely
+  because the room was selected during an NPC implementation pass.
+- State 0 changes packed layout positions `$44/$45` to metatile `$00`. These
+  are transient `wRoomLayout` writes, not persistent room-specific tile-change
+  rules; every room parse restores its selected base layout before the event
+  clears the doorway again. The handler issues no BG redraw, so those logical
+  clears affect collision while the already-rendered doorway remains unchanged;
+  the invisible interaction draws no overlay of its own.
+- The placed object's `$04/$10` Y/X radii combine with Link's imported
+  `$06/$06` radii using the original strict comparison. State 0 advances
+  directly to armed state 2 when Link starts outside. When Link starts inside,
+  it enters state 1 and must observe one non-colliding update before a later
+  re-entry can warp, preventing the return entrance from immediately looping.
+- The sole predicate is current room `1:76` bit `$01`: clear selects room
+  `4:e7`, set selects `4:f3`. This is `ROOMFLAG_LAYOUTSWAP`, so the same bit also
+  selects group 1 versus group 3 base room data through `RoomSession`; it is not
+  a global, linked-game, essence, or treasure predicate.
+- Raw hardcoded values `$93/$ff/$01` mean destination transition 3, entering
+  upward from the middle bottom, with immediate room loading. The interaction
+  itself plays `SND_ENTERCAVE` `$6e`. `BlackTowerDoorwayEvent` remains a
+  non-blocking room event while armed, so ordinary gameplay and menus continue.
+
 Room `1:86` demonstrates an A-button script that hands off to a native
 presentation and resumes through a same-room warp:
 
@@ -456,6 +484,8 @@ production behavior; it must not drive it.
 - `src/cutscenes/RoomEventContext.cs`
 - `src/cutscenes/PreBlackTowerEvent.cs`
 - `src/cutscenes/PreBlackTowerEventDatabase.cs`
+- `src/cutscenes/BlackTowerDoorwayEvent.cs`
+- `src/cutscenes/BlackTowerDoorwayEventDatabase.cs`
 - `src/cutscenes/BlackTowerEntranceEvent.cs`
 - `src/cutscenes/BlackTowerEntranceEventDatabase.cs`
 - `src/cutscenes/BlackTowerExplanationScreen.cs`

@@ -222,6 +222,7 @@ public sealed class ValidationGameRoot : GameRoot
         ValidateRoom157NpcInteractions();
         ValidateRoom158NpcInteractions();
         ValidateRoom175NpcInteractions();
+        ValidateRoom176NpcInteractions();
         ValidateRoom186NpcInteractions();
         ValidateNpcFlagVisibility();
         ValidateBipinBlossomNaming();
@@ -7519,6 +7520,143 @@ public sealed class ValidationGameRoot : GameRoot
         GD.Print("Validated room 1:75's ordered ensemble, exact hardhat getBlackTowerProgress " +
             "predicates/texts, linked/unlinked actor gates, forced movement, shared signals, " +
             "spawned Nayru, gravity, dialogue order, and completion flags.");
+    }
+
+    private void ValidateRoom176NpcInteractions()
+    {
+        const int group = 1;
+        const int roomId = 0x76;
+        BlackTowerDoorwayEvent doorway = _roomEvents.BlackTowerDoorway;
+        BlackTowerDoorwayEventDatabase.Record record = doorway.Database.Data;
+        if (record is not
+            { InteractionId: 0xdc, SubId: 0x10, Y: 0x42, X: 0x50,
+              ClearPositionA: 0x44, ClearPositionB: 0x45,
+              ObjectRadiusY: 0x04, ObjectRadiusX: 0x10,
+              LinkRadiusY: 0x06, LinkRadiusX: 0x06,
+              RoomFlagMask: OracleSaveData.RoomFlagLayoutSwap,
+              ClearDestinationGroup: 4, ClearDestinationRoom: 0xe7,
+              SetDestinationGroup: 4, SetDestinationRoom: 0xf3,
+              WarpTransition: 0x93, DestinationPosition: 0xff,
+              WarpTransition2: 0x01, Sound: OracleSoundEngine.SndEnterCave })
+        {
+            throw new InvalidOperationException(
+                "Room 1:76 did not import the exact $dc:$10 doorway record.");
+        }
+
+        Vector2 firstDoorTile = new(0x48, 0x48);
+        Vector2 secondDoorTile = new(0x58, 0x48);
+        (bool FlagSet, int FirstTile, int SecondTile, int Destination)[] branches =
+        [
+            (false, 0xdf, 0xed, 0xe7),
+            (true, 0xee, 0xef, 0xf3)
+        ];
+
+        foreach ((bool flagSet, int firstTile, int secondTile, int destination) in branches)
+        {
+            _saveData.SetRoomFlag(
+                group, roomId, OracleSaveData.RoomFlagLayoutSwap, flagSet);
+            LoadValidationRoom(group, roomId);
+            if (_currentRoom.GetOriginalMetatile(firstDoorTile) != firstTile ||
+                _currentRoom.GetOriginalMetatile(secondDoorTile) != secondTile ||
+                doorway.Stage != BlackTowerDoorwayEvent.EventStage.Initialize)
+            {
+                throw new InvalidOperationException(
+                    $"Room 1:76 flag ${record.RoomFlagMask:x2}={flagSet} did not load its expected entrance layout or $dc:$10 initializer.");
+            }
+            var doorwayPixelsBefore = new Color[0x20 * 0x10];
+            for (int pixelY = 0x40; pixelY < 0x50; pixelY++)
+            for (int pixelX = 0x40; pixelX < 0x60; pixelX++)
+            {
+                doorwayPixelsBefore[(pixelY - 0x40) * 0x20 + pixelX - 0x40] =
+                    _currentRoom.GetRenderedPixelForValidation(
+                        new Vector2I(pixelX, pixelY));
+            }
+
+            _player.WarpTo(new Vector2(record.X, record.Y));
+            _sound.ClearPlayRequestAudit();
+            StepRoomEventFrames(1);
+            if (_currentRoom.GetMetatile(firstDoorTile) != 0x00 ||
+                _currentRoom.GetMetatile(secondDoorTile) != 0x00 ||
+                doorway.Stage != BlackTowerDoorwayEvent.EventStage.WaitForExit ||
+                _transitions.IsTransitioning)
+            {
+                throw new InvalidOperationException(
+                    "Room 1:76 state 0 did not clear $44/$45 and retain an initially overlapping Link in state 1.");
+            }
+            for (int pixelY = 0x40; pixelY < 0x50; pixelY++)
+            for (int pixelX = 0x40; pixelX < 0x60; pixelX++)
+            {
+                Color clearedPixel = _currentRoom.GetRenderedPixelForValidation(
+                    new Vector2I(pixelX, pixelY));
+                Color pixelBefore = doorwayPixelsBefore[
+                    (pixelY - 0x40) * 0x20 + pixelX - 0x40];
+                if (clearedPixel != pixelBefore)
+                {
+                    throw new InvalidOperationException(
+                        $"Room 1:76 logical doorway clear redrew pixel ({pixelX:x2},{pixelY:x2}).");
+                }
+            }
+
+            StepRoomEventFrames(1);
+            if (doorway.Stage != BlackTowerDoorwayEvent.EventStage.WaitForExit ||
+                _transitions.IsTransitioning)
+            {
+                throw new InvalidOperationException(
+                    "Room 1:76 state 1 warped before Link left the entrance rectangle.");
+            }
+
+            // Combined X radius is $10+$06=$16 and collision is strict. At
+            // exactly +$16 the interaction arms without triggering.
+            _player.WarpTo(new Vector2(
+                record.X + record.ObjectRadiusX + record.LinkRadiusX,
+                record.Y));
+            StepRoomEventFrames(1);
+            if (doorway.Stage != BlackTowerDoorwayEvent.EventStage.Armed ||
+                _transitions.IsTransitioning)
+            {
+                throw new InvalidOperationException(
+                    "Room 1:76 did not use the original strict combined collision-radius boundary.");
+            }
+
+            _player.WarpTo(new Vector2(
+                record.X + record.ObjectRadiusX + record.LinkRadiusX - 1,
+                record.Y));
+            _dialogue.ShowMessage("Doorway vulnerability gate", record.Y);
+            StepRoomEventFrames(1);
+            if (doorway.Stage != BlackTowerDoorwayEvent.EventStage.Armed ||
+                _transitions.IsTransitioning)
+            {
+                throw new InvalidOperationException(
+                    "Room 1:76 ignored checkLinkVulnerable's active-text gate.");
+            }
+            _dialogue.Close();
+            StepRoomEventFrames(1);
+            if (_activeGroup != 4 || _currentRoom.Id != destination ||
+                !_transitions.IsTransitioning || doorway.HasState ||
+                _player.Position != new Vector2(0x78, _currentRoom.Height) ||
+                _player.FacingVector != Vector2I.Up ||
+                _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Room 1:76 flag ${record.RoomFlagMask:x2}={flagSet} did not enter 4:{destination:x2} through $93/$ff/$01 with SND_ENTERCAVE.");
+            }
+
+            UpdateRoomWarpTransition(RoomTransitionController.WarpFadeFrames / 60.0);
+            if (_transitions.IsTransitioning ||
+                _player.Position != new Vector2(
+                    0x78, _currentRoom.Height - RoomTransitionController.WarpEnterFrames) ||
+                _player.FacingVector != Vector2I.Up)
+            {
+                throw new InvalidOperationException(
+                    "The room 1:76 destination did not complete its 28-update middle-bottom entrance within the 32-update fade.");
+            }
+        }
+
+        _saveData.SetRoomFlag(
+            group, roomId, OracleSaveData.RoomFlagLayoutSwap, value: false);
+        GD.Print("Validated room 1:76 INTERAC_MISCELLANEOUS_2 $dc:$10 nonvisual layout clears, " +
+            "initial-overlap exit latch, strict $04/$10+$06/$06 collision, current-room " +
+            "flag $01 destinations 4:e7/4:f3, $93/$ff/$01 entrance, and SND_ENTERCAVE.");
     }
 
     private void ValidateRoom186NpcInteractions()

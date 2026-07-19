@@ -46,6 +46,13 @@ palette threads, waves, and fades advance on their original fixed updates. A
 future cell renderer must preserve those effects and custom collision; the
 tentative TileMapLayer migration is documented in [TODO.md](../TODO.md).
 
+An original interaction can write selected `wRoomLayout` cells without issuing
+a BG redraw. Represent that split with position-specific visual overrides: the
+logical metatile changes for collision and terrain queries while the composited
+room texture retains the already-drawn metatile, including through later full
+texture refreshes. Room initialization and explicit visual metatile replacement
+remove stale visual overrides along with the other transient layout state.
+
 ## Audio determinism and lifecycle
 
 `OracleSoundData` imports all 223 sound/music IDs and their banked channel

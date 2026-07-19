@@ -14,6 +14,7 @@ public sealed class RoomEventController
     private readonly MakuTreeDisappearanceEvent _makuTree;
     private readonly RalphPortalEvent _ralph;
     private readonly PreBlackTowerEvent _preBlackTower;
+    private readonly BlackTowerDoorwayEvent _blackTowerDoorway;
     private readonly BlackTowerEntranceEvent _blackTowerEntrance;
     private readonly EnterPastEvent _enterPast;
     private readonly ImpaIntroEvent _impa;
@@ -56,6 +57,7 @@ public sealed class RoomEventController
         _makuTree = new MakuTreeDisappearanceEvent(_context);
         _ralph = new RalphPortalEvent(_context);
         _preBlackTower = new PreBlackTowerEvent(_context);
+        _blackTowerDoorway = new BlackTowerDoorwayEvent(_context);
         _blackTowerEntrance = new BlackTowerEntranceEvent(_context);
         _enterPast = new EnterPastEvent(_context);
         _impa = new ImpaIntroEvent(_context);
@@ -66,6 +68,7 @@ public sealed class RoomEventController
             _makuTree,
             _ralph,
             _preBlackTower,
+            _blackTowerDoorway,
             _blackTowerEntrance,
             _enterPast,
             _impa,
@@ -102,6 +105,7 @@ public sealed class RoomEventController
     internal MakuTreeDisappearanceEvent MakuTree => _makuTree;
     internal RalphPortalEvent Ralph => _ralph;
     internal PreBlackTowerEvent PreBlackTower => _preBlackTower;
+    internal BlackTowerDoorwayEvent BlackTowerDoorway => _blackTowerDoorway;
     internal BlackTowerEntranceEvent BlackTowerEntrance => _blackTowerEntrance;
     internal EnterPastEvent EnterPast => _enterPast;
     internal ImpaIntroEvent Impa => _impa;
