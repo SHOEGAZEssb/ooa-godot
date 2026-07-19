@@ -3621,6 +3621,18 @@ public sealed class ValidationGameRoot : GameRoot
                 "Imported inventory text or the level-1 sword's L-/digit tiles regressed.");
         }
 
+        var heartPieceDisplay = _inventoryScreen.HeartPieceDisplayForValidation;
+        if (heartPieceDisplay.NormalAttributes != 0x07 ||
+            heartPieceDisplay.FlippedAttributes != 0x27 ||
+            !heartPieceDisplay.Shade2.IsEqualApprox(
+                new Color(0x1b / 31.0f, 0x00, 0x00)) ||
+            !heartPieceDisplay.Shade3.IsEqualApprox(Colors.Black))
+        {
+            throw new InvalidOperationException(
+                "bank2.s:itemSubmenu2HeartPieceDisplayData did not map source " +
+                "attributes $05/$25 to BG attributes $07/$27 and the original red/black palette.");
+        }
+
         int selectItemRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem);
         int inventoryMoveRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
         if (!_inventoryMenu.EquipToAForValidation() ||

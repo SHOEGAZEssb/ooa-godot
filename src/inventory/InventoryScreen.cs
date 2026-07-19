@@ -130,6 +130,16 @@ public partial class InventoryScreen : Node2D
     }
     internal Color EquippedLevelSymbolBackgroundColorForValidation =>
         HudBackgroundTileColor(0x1a, 0, 0);
+    internal (int NormalAttributes, int FlippedAttributes, Color Shade2, Color Shade3)
+        HeartPieceDisplayForValidation
+    {
+        get
+        {
+            int normal = TreasureBackgroundAttributes(0x05);
+            return (normal, TreasureBackgroundAttributes(0x25),
+                _bgPalette[normal & 7, 2], _bgPalette[normal & 7, 3]);
+        }
+    }
 
     public override void _Ready()
     {
@@ -623,10 +633,11 @@ public partial class InventoryScreen : Node2D
     private void DrawEraSymbol(Vector2 drawOffset)
     {
         int first = _isPast() ? 0x1c : 0x18;
-        DrawLogicalBackgroundSprite(first, 1 + (_isPast() ? 2 : 0), Slot(0x06e) + drawOffset);
-        DrawLogicalBackgroundSprite(first + 1, 1 + (_isPast() ? 2 : 0), Slot(0x06f) + drawOffset);
-        DrawLogicalBackgroundSprite(first + 2, 1 + (_isPast() ? 2 : 0), Slot(0x070) + drawOffset);
-        DrawLogicalBackgroundSprite(first + 3, 1 + (_isPast() ? 2 : 0), Slot(0x071) + drawOffset);
+        int attributes = 1 + (_isPast() ? 2 : 0);
+        DrawTreasureBackgroundSprite(first, attributes, Slot(0x06e) + drawOffset);
+        DrawTreasureBackgroundSprite(first + 1, attributes, Slot(0x06f) + drawOffset);
+        DrawTreasureBackgroundSprite(first + 2, attributes, Slot(0x070) + drawOffset);
+        DrawTreasureBackgroundSprite(first + 3, attributes, Slot(0x071) + drawOffset);
     }
 
     private void DrawHeartPieces(Vector2 drawOffset)
@@ -634,18 +645,18 @@ public partial class InventoryScreen : Node2D
         int count = Math.Clamp(_inventory.HeartPieces, 0, 3);
         if (count >= 1)
         {
-            DrawLogicalBackgroundSprite(0x78, 5, Slot(0x0ce) + drawOffset);
-            DrawLogicalBackgroundSprite(0x79, 5, Slot(0x0cf) + drawOffset);
+            DrawTreasureBackgroundSprite(0x78, 0x05, Slot(0x0ce) + drawOffset);
+            DrawTreasureBackgroundSprite(0x79, 0x05, Slot(0x0cf) + drawOffset);
         }
         if (count >= 2)
         {
-            DrawLogicalBackgroundSprite(0x7a, 5, Slot(0x10e) + drawOffset);
-            DrawLogicalBackgroundSprite(0x7b, 5, Slot(0x10f) + drawOffset);
+            DrawTreasureBackgroundSprite(0x7a, 0x05, Slot(0x10e) + drawOffset);
+            DrawTreasureBackgroundSprite(0x7b, 0x05, Slot(0x10f) + drawOffset);
         }
         if (count >= 3)
         {
-            DrawLogicalBackgroundSprite(0x7b, 0x25, Slot(0x110) + drawOffset);
-            DrawLogicalBackgroundSprite(0x7a, 0x25, Slot(0x111) + drawOffset);
+            DrawTreasureBackgroundSprite(0x7b, 0x25, Slot(0x110) + drawOffset);
+            DrawTreasureBackgroundSprite(0x7a, 0x25, Slot(0x111) + drawOffset);
         }
     }
 
@@ -843,9 +854,9 @@ public partial class InventoryScreen : Node2D
                 DrawLogicalOamSprite(display.RightSprite, display.RightPalette & 7, position + new Vector2(8, 0));
             return;
         }
-        DrawLogicalBackgroundSprite(display.LeftSprite, display.LeftPalette + 2, position);
+        DrawTreasureBackgroundSprite(display.LeftSprite, display.LeftPalette, position);
         if (display.RightSprite != 0)
-            DrawLogicalBackgroundSprite(display.RightSprite, display.RightPalette + 2,
+            DrawTreasureBackgroundSprite(display.RightSprite, display.RightPalette,
                 position + new Vector2(8, 0));
         // drawTreasureDisplayDataToBg leaves de on the right icon column
         // before adding one tilemap row for the extra display.
@@ -904,6 +915,19 @@ public partial class InventoryScreen : Node2D
                 _bgPalette[palette, PaletteShade(pixel, spriteEncoding)]);
         }
     }
+
+    private void DrawTreasureBackgroundSprite(
+        int sprite,
+        int sourceAttributes,
+        Vector2 position) =>
+        DrawLogicalBackgroundSprite(
+            sprite, TreasureBackgroundAttributes(sourceAttributes), position);
+
+    // bank2.s:drawTreasureDisplayDataToBg increments the source attribute byte
+    // twice before writing it to w4AttributeMap, shifting sprite palette 0-5
+    // into the inventory's BG palette slots 2-7 while preserving flip bits.
+    private static int TreasureBackgroundAttributes(int sourceAttributes) =>
+        (sourceAttributes + 2) & 0xff;
 
     private void DrawLogicalOamSprite(int sprite, int palette, Vector2 position)
     {

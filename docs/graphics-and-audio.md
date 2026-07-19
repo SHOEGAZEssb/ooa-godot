@@ -46,6 +46,11 @@ palette threads, waves, and fades advance on their original fixed updates. A
 future cell renderer must preserve those effects and custom collision; the
 tentative TileMapLayer migration is documented in [TODO.md](../TODO.md).
 
+Inventory treasures, the era symbol, and Heart Piece quarters pass their source
+attribute bytes through `drawTreasureDisplayDataToBg`: its two increments shift
+sprite palettes 0-5 into BG palette slots 2-7 while preserving flip bits. Do not
+apply their table attributes directly to the inventory BG layer.
+
 An original interaction can write selected `wRoomLayout` cells without issuing
 a BG redraw. Represent that split with position-specific visual overrides: the
 logical metatile changes for collision and terrain queries while the composited
