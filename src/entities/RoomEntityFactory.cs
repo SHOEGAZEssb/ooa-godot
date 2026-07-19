@@ -13,11 +13,14 @@ internal sealed class RoomEntityFactory(
     OracleSaveData? saveData,
     OracleRuntimeState runtimeState,
     Action<TimePortal> portalEntered,
+    Func<bool> groundTreasureCollectionAllowed,
+    Action<GroundTreasurePickup, Player> groundTreasureCollected,
     Action<int> soundRequested)
 {
     private readonly Room148PickaxeDatabase _room148 = new();
     private readonly Room149FamilyDatabase _room149 = new();
     private readonly EnemySpawnTileDatabase _enemySpawnTiles = new();
+    private readonly GroundTreasureDatabase _groundTreasures = new();
 
     public IEnumerable<IRoomEntity> CreateRoomEntities(
         int group,
@@ -50,6 +53,25 @@ internal sealed class RoomEntityFactory(
                     ? new RunningBipinRoomEntity(npc)
                     : new NpcRoomEntity(npc);
             }
+        }
+
+        foreach (GroundTreasureDatabase.Record record in
+            _groundTreasures.GetRoomRecords(group, room.Id))
+        {
+            if (saveData?.HasRoomFlag(
+                group, room.Id, OracleSaveData.RoomFlagItem) == true)
+            {
+                continue;
+            }
+            var treasure = new GroundTreasurePickup
+            {
+                Name = $"GroundTreasure_{record.Order}",
+                ZIndex = 12
+            };
+            treasure.Initialize(record, soundRequested);
+            yield return new GroundTreasureRoomEntity(
+                treasure, groundTreasureCollectionAllowed,
+                groundTreasureCollected);
         }
 
         foreach (IRoomEntity portal in CreateTimePortals(group, room))

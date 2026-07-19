@@ -222,6 +222,7 @@ public sealed class ValidationGameRoot : GameRoot
         ValidateRoom157NpcInteractions();
         ValidateRoom158NpcInteractions();
         ValidateRoom175NpcInteractions();
+        ValidateRoom186NpcInteractions();
         ValidateNpcFlagVisibility();
         ValidateBipinBlossomNaming();
         ValidateImpaIntroEncounter();
@@ -1083,6 +1084,25 @@ public sealed class ValidationGameRoot : GameRoot
         sound.Tick();
         if (sound.ActiveMusic != 0 || new[] { 0, 1, 4, 6 }.Any(channel => sound.Channel(channel).Active))
             throw new InvalidOperationException("SNDCTRL_STOPMUSIC did not run sound $de's stop channels.");
+
+        sound.PlaySound(OracleSoundEngine.MusTitlescreen);
+        int overworldRequests = sound.PlayRequestsFor(OracleSoundEngine.MusOverworld);
+        sound.PlaySound(OracleSoundEngine.SndCtrlMediumFadeOut);
+        sound.PlayMusicIfChanged(OracleSoundEngine.MusOverworld);
+        if (sound.ActiveMusic != OracleSoundEngine.MusOverworld ||
+            sound.PlayRequestsFor(OracleSoundEngine.MusOverworld) != overworldRequests + 1)
+        {
+            throw new InvalidOperationException(
+                "Ordinary room music did not immediately cancel SNDCTRL_MEDIUM_FADEOUT.");
+        }
+        for (int update = 0; update < 127; update++)
+            sound.Tick();
+        if (sound.ActiveMusic != OracleSoundEngine.MusOverworld ||
+            sound.PlayRequestsFor(OracleSoundEngine.MusOverworld) != overworldRequests + 1)
+        {
+            throw new InvalidOperationException(
+                "A cancelled SNDCTRL_MEDIUM_FADEOUT later stopped the replacement room music.");
+        }
 
         var outputSound = new OracleSoundEngine(
             data, enableOutput: true, allowHeadlessOutput: true);
@@ -7421,6 +7441,333 @@ public sealed class ValidationGameRoot : GameRoot
             "spawned Nayru, gravity, dialogue order, and completion flags.");
     }
 
+    private void ValidateRoom186NpcInteractions()
+    {
+        const int group = 1;
+        const int roomId = 0x86;
+        var groundDatabase = new GroundTreasureDatabase();
+        IReadOnlyList<GroundTreasureDatabase.Record> groundRecords =
+            groundDatabase.GetRoomRecords(group, roomId);
+        if (groundRecords.Count != 1 ||
+            groundRecords[0] is not
+            { Order: 1, Y: 0x28, X: 0x78,
+              TreasureObject: "TREASURE_OBJECT_HEART_PIECE_00",
+              Sprite: "spr_quest_items_5", TileBase: 0x10,
+              Palette: 0x02, CompletionTextId: 0x0049 } ||
+            string.IsNullOrWhiteSpace(groundRecords[0].CompletionMessage))
+        {
+            throw new InvalidOperationException(
+                "Room 1:86 did not import ordered $dc:$07 Heart Piece data.");
+        }
+
+        var completionInventory = new InventoryState(_treasures);
+        TreasureDatabase.TreasureObjectRecord heartPieceObject =
+            _treasures.GetObject("TREASURE_OBJECT_HEART_PIECE_00");
+        for (int piece = 0; piece < 4; piece++)
+            completionInventory.GiveTreasure(heartPieceObject);
+        int maxHealthBeforeCompletion = completionInventory.MaxHealthQuarters;
+        completionInventory.CompleteHeartPieceSet(
+            _treasures.GetObject("TREASURE_OBJECT_HEART_CONTAINER_00"));
+        if (completionInventory.HeartPieces != 0 ||
+            completionInventory.MaxHealthQuarters != maxHealthBeforeCompletion + 4 ||
+            completionInventory.HealthQuarters !=
+                completionInventory.MaxHealthQuarters)
+        {
+            throw new InvalidOperationException(
+                "The fourth Heart Piece did not clear its counter and grant/refill a four-quarter Heart Container.");
+        }
+
+        var heartDialogue = new DialogueBox { Name = "HeartPieceTextboxValidation" };
+        AddChild(heartDialogue);
+        var heartDialogueInventory = new InventoryState(_treasures);
+        for (int piece = 0; piece < 4; piece++)
+            heartDialogueInventory.GiveTreasure(heartPieceObject);
+        var heartDialogueSounds = new List<int>();
+        int heartFilledEvents = 0;
+        int heartAcceptedEvents = 0;
+        heartDialogue.SetSoundPlayer(heartDialogueSounds.Add);
+        heartDialogue.SetHeartPieceCountProvider(
+            () => heartDialogueInventory.HeartPieces);
+        heartDialogue.HeartPieceSetFilled += () =>
+        {
+            heartFilledEvents++;
+            heartDialogueInventory.ResetCompletedHeartPieceSet();
+        };
+        heartDialogue.HeartPieceSetAccepted += () =>
+        {
+            heartAcceptedEvents++;
+            heartDialogueInventory.GiveCompletedHeartContainer(
+                _treasures.GetObject("TREASURE_OBJECT_HEART_CONTAINER_00"));
+            heartDialogueSounds.Add(OracleSoundEngine.SndFilledHeartContainer);
+            heartDialogue.ShowMessage(groundRecords[0].CompletionMessage, 0x48);
+        };
+        heartDialogue.ShowMessage("Heart!\\heartpiece\nAfter", 0x48);
+        heartDialogue.RevealCurrentPageForValidation();
+        ulong threeQuarterHash = heartDialogue.HeartPiecePixelHashForValidation();
+        if (!heartDialogue.HeartPieceDisplayActive ||
+            heartDialogue.HeartPieceDisplayCount != 3 ||
+            heartDialogue.HeartPieceDisplayTimer != 30 || threeQuarterHash == 0)
+        {
+            throw new InvalidOperationException(
+                "The inline Heart Piece control did not begin with its previous three-quarter graphic.");
+        }
+        heartDialogue.AdvanceHeartPieceClockForValidation(29.0 / 60.0);
+        if (heartDialogue.HeartPieceDisplayTimer != 1 ||
+            heartDialogueInventory.HeartPieces != 4 || heartFilledEvents != 0)
+        {
+            throw new InvalidOperationException(
+                "The inline Heart Piece control completed before its 30th update.");
+        }
+        heartDialogue.AdvanceHeartPieceClockForValidation(1.0 / 60.0);
+        ulong fullHeartHash = heartDialogue.HeartPiecePixelHashForValidation();
+        if (heartDialogue.HeartPieceDisplayTimer != 0 ||
+            heartDialogue.HeartPieceDisplayCount != 4 ||
+            fullHeartHash == 0 || fullHeartHash == threeQuarterHash ||
+            heartDialogueInventory.HeartPieces != 0 || heartFilledEvents != 1 ||
+            heartDialogueSounds.Count(sound => sound == OracleSoundEngine.SndText2) != 1)
+        {
+            throw new InvalidOperationException(
+                "The inline Heart Piece control did not fill/reset/sound on update 30.");
+        }
+        heartDialogue.AdvanceOrClose();
+        if (heartAcceptedEvents != 1 ||
+            heartDialogueInventory.MaxHealthQuarters != maxHealthBeforeCompletion + 4 ||
+            heartDialogueInventory.HealthQuarters !=
+                heartDialogueInventory.MaxHealthQuarters ||
+            heartDialogue.CurrentMessage !=
+                DialogueBox.PlainText(groundRecords[0].CompletionMessage) ||
+            heartDialogueSounds.Count(sound =>
+                sound == OracleSoundEngine.SndFilledHeartContainer) != 1)
+        {
+            throw new InvalidOperationException(
+                "Accepting the full inline Heart did not grant/refill and hand off to TX_0049.");
+        }
+        heartDialogue.Close();
+        RemoveChild(heartDialogue);
+        heartDialogue.QueueFree();
+
+        var validationRoot = new Node { Name = "Room186PredicateValidation" };
+        AddChild(validationRoot);
+        OracleSaveData isolatedSave = OracleSaveData.CreateStandardGame();
+        var isolatedManager = new RoomEntityManager(
+            validationRoot, new NpcDatabase(), new EnemyDatabase(), isolatedSave);
+        isolatedManager.LoadRoom(group, _world.LoadRoom(group, roomId));
+        NpcCharacter isolatedGuard = isolatedManager.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x58, SubId: 0x02 });
+        GroundTreasurePickup isolatedHeart =
+            isolatedManager.Entities<GroundTreasurePickup>().Single();
+        if (!isolatedGuard.Active || isolatedGuard.TextId != 0x1003 ||
+            isolatedGuard.Position != new Vector2(0x48, 0x38) ||
+            isolatedHeart.Position != new Vector2(0x78, 0x28) ||
+            isolatedHeart.PixelHash == 0)
+        {
+            throw new InvalidOperationException(
+                "Room 1:86 did not create its initial guard and static Heart Piece visuals.");
+        }
+
+        isolatedSave.SetRoomFlag(
+            group, roomId, OracleSaveData.RoomFlag80);
+        if (isolatedGuard.TextId != 0x1004 ||
+            isolatedGuard.Position != new Vector2(0x58, 0x38))
+        {
+            throw new InvalidOperationException(
+                "Room flag $80 did not select the moved guard and TX_1004 phase live.");
+        }
+        isolatedSave.SetRoomFlag(
+            group, roomId, OracleSaveData.RoomFlagItem);
+        isolatedManager.LoadRoom(group, _world.LoadRoom(group, roomId));
+        if (isolatedManager.Entities<GroundTreasurePickup>().Count != 0)
+            throw new InvalidOperationException(
+                "Room flag $20 did not suppress the $dc:$07 Heart Piece on re-entry.");
+        isolatedSave.WriteWramByte(0xc6bf, 0x08);
+        isolatedSave.CommitInventoryChange();
+        NpcCharacter essenceGuard = isolatedManager.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x58, SubId: 0x02 });
+        if (essenceGuard.Active || essenceGuard.Visible)
+            throw new InvalidOperationException(
+                "Essence bit $08 did not delete hardhat worker $58:$02.");
+        isolatedManager.Clear();
+        RemoveChild(validationRoot);
+        validationRoot.QueueFree();
+
+        // Exercise the reusable ground-treasure interaction before setting
+        // the story bits. State 0/1 make it collectible on the second update.
+        _saveData.WriteWramByte(0xc6bf, 0x00);
+        _saveData.CommitInventoryChange();
+        _saveData.SetRoomFlag(
+            group, roomId, OracleSaveData.RoomFlagItem, value: false);
+        _saveData.SetRoomFlag(
+            group, roomId, OracleSaveData.RoomFlag40, value: false);
+        _saveData.SetRoomFlag(
+            group, roomId, OracleSaveData.RoomFlag80, value: false);
+        LoadValidationRoom(group, roomId);
+        GroundTreasurePickup heart = _entities.Entities<GroundTreasurePickup>().Single();
+        int heartPiecesBefore = _inventory.HeartPieces;
+        _sound.ClearPlayRequestAudit();
+        _player.WarpTo(heart.Position);
+        _entities.Update(1.0 / 60.0, _player);
+        if (heart.State != GroundTreasurePickup.PickupState.Spawning)
+            throw new InvalidOperationException(
+                "Ground Heart Piece did not retain its state-0 initialization update.");
+        _entities.Update(1.0 / 60.0, _player);
+        if (_interactions.GroundTreasureForValidation != heart ||
+            heart.State != GroundTreasurePickup.PickupState.Collected ||
+            _inventory.HeartPieces != (heartPiecesBefore + 1) % 4 ||
+            !_saveData.HasRoomFlag(
+                group, roomId, OracleSaveData.RoomFlagItem) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 1 ||
+            !_dialogue.IsOpen ||
+            _dialogue.CurrentMessage.Contains("\\heartpiece", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Ground Heart Piece contact did not give the treasure, set $20, play SND_GETITEM, and open TX_0017.");
+        }
+        _interactions.Update(1.0 / 60.0, _player);
+        _entities.Update(1.0 / 60.0, _player);
+        if (!heart.Held || !_player.IsHoldingItemTwoHands ||
+            heart.Position != _player.Position + new Vector2(0, -14) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2)
+        {
+            throw new InvalidOperationException(
+                "Ground Heart Piece did not enter its next-update two-hand pose with the second SND_GETITEM.");
+        }
+        _dialogue.Close();
+        _interactions.Update(1.0 / 60.0, _player);
+        _entities.Update(1.0 / 60.0, _player);
+        if (_player.IsHoldingItemTwoHands ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0)
+        {
+            throw new InvalidOperationException(
+                "Closing TX_0017 did not clear Link's two-hand pose and delete the ground treasure.");
+        }
+        LoadValidationRoom(group, roomId);
+        if (_entities.Entities<GroundTreasurePickup>().Count != 0)
+            throw new InvalidOperationException(
+                "Collected room 1:86 Heart Piece respawned despite room flag $20.");
+
+        // Run the guard's first lane, imported tower scene, same-room return,
+        // and aftermath lane as one continuous flow.
+        _saveData.SetRoomFlag(
+            group, roomId, OracleSaveData.RoomFlag40, value: false);
+        _saveData.SetRoomFlag(
+            group, roomId, OracleSaveData.RoomFlag80, value: false);
+        LoadValidationRoom(group, roomId);
+        BlackTowerEntranceEvent roomEvent = _roomEvents.BlackTowerEntrance;
+        var trace = new ValidationCutsceneTrace();
+        _roomEvents.CommandTraceSink = trace;
+        NpcCharacter guard = _entities.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x58, SubId: 0x02 });
+        _player.WarpTo(new Vector2(0x5a, 0x38));
+        _player.Face(Vector2I.Left);
+        _sound.ClearPlayRequestAudit();
+        if (!_interactions.TryInteract(_player) ||
+            roomEvent.Stage != BlackTowerEntranceEvent.EventStage.FirstScript)
+        {
+            throw new InvalidOperationException(
+                "A-button contact did not start hardhatWorkerSubid02Script's first lane.");
+        }
+
+        bool sawExplanation = false;
+        bool sawExplanationText = false;
+        bool sawAftermath = false;
+        for (int frame = 0; frame < 1200 &&
+            (roomEvent.HasState || _transitions.IsTransitioning); frame++)
+        {
+            _transitions.Update(1.0 / 60.0);
+            if (!_transitions.TimeWarpActive)
+                _entities.Update(1.0 / 60.0, _player);
+            _roomEvents.Update(1.0 / 60.0);
+            _interactions.Update(1.0 / 60.0, _player);
+            _sound.Tick();
+
+            if (roomEvent.Screen is { } screen)
+            {
+                sawExplanation = true;
+                if (screen.BackgroundPixelHash == 0 || _hud.Visible ||
+                    _sound.ActiveMusic != OracleSoundEngine.MusDisaster ||
+                    _warpFade.Size != new Vector2(
+                        OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight) ||
+                    screen.Size != new Vector2(
+                        OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight) ||
+                    _warpFade.ZIndex <= _hud.ZIndex)
+                {
+                    throw new InvalidOperationException(
+                        "Black Tower stage-0 screen, full-screen fade priority, hidden HUD, or MUS_DISASTER presentation was missing.");
+                }
+            }
+            if (roomEvent.Stage ==
+                    BlackTowerEntranceEvent.EventStage.ExplanationDialogue &&
+                _dialogue.IsOpen)
+            {
+                sawExplanationText =
+                    _dialogue.CurrentMessage == DialogueBox.PlainText(
+                        roomEvent.Database.Record.ExplanationText);
+            }
+            if (roomEvent.Stage == BlackTowerEntranceEvent.EventStage.Aftermath)
+            {
+                if (!sawAftermath &&
+                    _sound.ActiveMusic != OracleSoundEngine.MusBlackTowerEntrance)
+                {
+                    throw new InvalidOperationException(
+                        "Room 1:86 did not restore MUS_BLACK_TOWER_ENTRANCE on its same-room return.");
+                }
+                sawAftermath = true;
+            }
+            if (_dialogue.IsOpen)
+                _dialogue.Close();
+        }
+
+        guard = _entities.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x58, SubId: 0x02 });
+        int[] scriptTexts = trace.Observations
+            .Where(entry => entry.Observation == "Dialogue")
+            .Select(entry => entry.Value)
+            .ToArray();
+        if (roomEvent.HasState || _transitions.IsTransitioning ||
+            !sawExplanation || !sawExplanationText || !sawAftermath ||
+            !_saveData.HasRoomFlag(group, roomId, OracleSaveData.RoomFlag40) ||
+            !_saveData.HasRoomFlag(group, roomId, OracleSaveData.RoomFlag80) ||
+            guard.Position != new Vector2(0x58, 0x38) ||
+            guard.TextId != 0x1004 || _player.CutsceneControlled ||
+            _warpFade.Size != new Vector2(
+                OracleRoomData.ViewportWidth, OracleRoomData.ViewportHeight) ||
+            _warpFade.ZIndex != 15 ||
+            !scriptTexts.SequenceEqual(new[] { 0x1003, 0x1006 }) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlMediumFadeOut) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.MusBlackTowerEntrance) != 1 ||
+            _sound.ActiveMusic != OracleSoundEngine.MusBlackTowerEntrance)
+        {
+            throw new InvalidOperationException(
+                "Room 1:86 did not complete its $40 explanation/$0c return/$80 aftermath sequence exactly.");
+        }
+
+        _player.WarpTo(new Vector2(0x58, 0x48));
+        _player.Face(Vector2I.Up);
+        if (!_interactions.TryInteract(_player) ||
+            _dialogue.CurrentMessage != DialogueBox.PlainText(guard.Message))
+        {
+            throw new InvalidOperationException(
+                "Completed hardhat worker did not enter the ordinary TX_1004 A-button loop.");
+        }
+        _dialogue.Close();
+        _saveData.WriteWramByte(0xc6bf, 0x08);
+        _saveData.CommitInventoryChange();
+        LoadValidationRoom(group, roomId);
+        guard = _entities.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x58, SubId: 0x02 });
+        if (guard.Active || guard.Visible || roomEvent.HasState)
+            throw new InvalidOperationException(
+                "Essence bit $08 did not suppress the guard and its entry event after completion.");
+        _saveData.WriteWramByte(0xc6bf, 0x00);
+        _saveData.CommitInventoryChange();
+        _roomEvents.CommandTraceSink = null;
+
+        GD.Print("Validated room 1:86's $58:$02 guard, essence $08 and room $40/$80 " +
+            "predicates, typed first/aftermath lanes, full-screen fade above the HUD, stage-0 " +
+            "Black Tower screen and same-room $0c return with restored room-fade bounds, plus " +
+            "reusable $dc:$07 Heart Piece collection and room flag $20.");
+    }
+
     private void ValidateNpcFlagVisibility()
     {
         var validationRoot = new Node { Name = "NpcFlagVisibilityValidation" };
@@ -7430,11 +7777,11 @@ public sealed class ValidationGameRoot : GameRoot
             validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
 
         if (new NpcVisibilityRuleDatabase().RuleCount != 328 ||
-            new NpcDialogueRuleDatabase().RuleCount != 99 ||
-            new NpcPositionRuleDatabase().RuleCount != 1)
+            new NpcDialogueRuleDatabase().RuleCount != 100 ||
+            new NpcPositionRuleDatabase().RuleCount != 2)
             throw new InvalidOperationException(
-                "Expected 328 NPC visibility, 99 NPC dialogue, and one NPC " +
-                "position state predicate.");
+                "Expected 328 NPC visibility, 100 NPC dialogue, and two NPC " +
+                "position state predicates.");
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x5a));
         List<NpcCharacter> introMonkeys = manager.Entities<NpcCharacter>().Where(npc =>
@@ -8083,7 +8430,7 @@ public sealed class ValidationGameRoot : GameRoot
             "$20-frame animation loops, rooms 2:ea/2:eb's 72-record family spawner, " +
             "Bipin $28:$00's SPEED_100 X=$28/$58 patrol, $04/$05 animation reversal, " +
             "and moving objectPreventLinkFromPassing collision, " +
-            "328 visibility, 99 dialogue, and one position predicate, roaming-dog " +
+            "328 visibility, 100 dialogue, and two position predicates, roaming-dog " +
             "location selection, rooms 0:68/0:78's phased and linked talkable cast, " +
             "room 3:9e's post-intro Impa, var03 selection, compound and alternative gates, " +
             "live refresh, and lifecycle-safe hiding.");

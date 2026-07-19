@@ -263,6 +263,53 @@ coordinated event in one object stream:
   `GLOBALFLAG_RALPH_ENTERED_BLACK_TOWER` resumes the pending Impa phase without
   replaying Ralph.
 
+Room `1:86` demonstrates an A-button script that hands off to a native
+presentation and resumes through a same-room warp:
+
+- Hardhat worker `$58:$02` is still the placed, solid, talkable actor. Essence
+  bit `$08` deletes it in state 0. Room bit `$80` selects TX `$1004` and moves
+  its initialized position from `$38,$48` to `$38,$58`; these are ordinary
+  visibility/dialogue/position predicates rather than event-only copies.
+- The first and aftermath portions of `hardhatWorkerSubid02Script` are separate
+  imported typed lanes. The first talk shows TX `$1003`, waits 30 updates,
+  writes room bit `$40`, saves Link's packed position/direction, and triggers
+  stage 0 of `CUTSCENE_BLACK_TOWER_EXPLANATION`.
+- `BlackTowerEntranceEvent` natively owns the original full-screen graphics
+  headers, palettes, OAM `$714c`, white fade, shared-RNG lightning, TX `$1005`,
+  and medium music fade. Its temporary 160-by-144 fade draws above the HUD so
+  the gameplay and status-bar regions share one uniform white fade; ordinary
+  room transitions regain their 160-by-128, below-HUD fade afterward. The
+  source cutscene returns through destination transition `$0c`; reparsing room
+  `$86` observes bit `$40` and starts the aftermath lane on the newly created
+  guard instead of retaining a stale node.
+- The aftermath preserves its 60/30/30 waits, Link-away simulated input,
+  `SPEED_080` raw speed `$14`, `moveright $21` counter boundary, final room bit
+  `$80`, and release of input. Completed A-button talks then use the ordinary
+  TX `$1004` loop.
+
+Interaction `$dc:$07` in the same room is not part of the guard event. It is a
+general ground-treasure spawner used in eight rooms:
+
+- The importer emits its original object order, position, Heart Piece treasure
+  object, graphics, palette, and static OAM animation.
+- `RoomEntityFactory` creates it only while room flag `$20` is clear. Its fixed
+  state-0/state-1 exposure and strict combined `$0c` Link collision run through
+  `IFixedRoomEntity` and `ILinkContactEntity`.
+- Collection gives the imported treasure and sets `$20` immediately; on the
+  following update it raises the item 14 pixels above Link, selects
+  `LINK_ANIM_MODE_GETITEM2HAND`, and plays the second `SND_GETITEM`. The entity
+  and pose remain until TX `$0017` closes. The inline `\heartpiece` control
+  draws the source four-tile diagram at the text cursor, initially shows one
+  fewer piece, blocks for 30 updates, fills the newly collected quarter, and
+  plays `SND_TEXT_2`. For the fourth piece that update also clears the piece
+  counter; the following A/B press plays `SND_FILLED_HEART_CONTAINER`, grants
+  and refills a four-quarter Heart Container, and replaces the remaining text
+  with TX `$0049` before the pose is released.
+
+Keep independent interactions independent even when they share a room. Room
+`1:86` validation therefore exercises the guard flags `$40/$80`, deletion bit
+`$08`, and treasure bit `$20` separately before running the combined room flow.
+
 ## State predicates and live changes
 
 Keep four questions distinct:
@@ -403,10 +450,15 @@ production behavior; it must not drive it.
 - `src/interactions/Room148PickaxeDatabase.cs`
 - `src/interactions/Room148PickaxeInteraction.cs`
 - `src/interactions/InteractionController.cs`
+- `src/interactions/GroundTreasureDatabase.cs`
+- `src/interactions/GroundTreasurePickup.cs`
 - `src/cutscenes/RoomEventController.cs`
 - `src/cutscenes/RoomEventContext.cs`
 - `src/cutscenes/PreBlackTowerEvent.cs`
 - `src/cutscenes/PreBlackTowerEventDatabase.cs`
+- `src/cutscenes/BlackTowerEntranceEvent.cs`
+- `src/cutscenes/BlackTowerEntranceEventDatabase.cs`
+- `src/cutscenes/BlackTowerExplanationScreen.cs`
 - `validation/GameRoot.Validation.cs`
 
 See [Rooms and entities](rooms-and-entities.md) for room lifetime and capability

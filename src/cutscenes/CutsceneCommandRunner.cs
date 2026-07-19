@@ -371,6 +371,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
 
             case CutsceneWriteObjectByteCommand write:
                 _objectBytes[(write.Actor, write.Address)] = write.Value;
+                host.WriteObjectByte(write.Actor, write.Address, write.Value);
                 SetCounter(write.Value);
                 return CommandResult.Yield;
 

@@ -69,10 +69,23 @@ internal static class OracleGraphicsCache
             return cached;
         }
 
-        Texture2D texture = ResourceLoader.Load<Texture2D>(
-            path, string.Empty, ResourceLoader.CacheMode.Reuse) ??
-            throw new InvalidOperationException($"Could not load graphics resource {path}.");
-        Image image = texture.GetImage();
+        Image image;
+        if (ResourceLoader.Exists(path))
+        {
+            Texture2D texture = ResourceLoader.Load<Texture2D>(
+                path, string.Empty, ResourceLoader.CacheMode.Reuse) ??
+                throw new InvalidOperationException(
+                    $"Could not load graphics resource {path}.");
+            image = texture.GetImage();
+        }
+        else
+        {
+            // The stable importer can add a PNG that has not yet received a
+            // Godot .import sidecar. Decode that generated source directly so
+            // the documented importer -> headless-validation workflow works
+            // in a clean checkout without an intervening editor launch.
+            image = Image.LoadFromFile(ProjectSettings.GlobalizePath(path));
+        }
         if (image.IsEmpty())
             throw new InvalidOperationException($"Graphics resource {path} produced an empty image.");
         if (image.GetFormat() != Image.Format.Rgba8)

@@ -12,6 +12,7 @@ public sealed class RoomEntityManager
 {
     public event Action<int, OracleRoomData>? RoomEntitiesLoaded;
     public event Action<TimePortal>? TimePortalEntered;
+    internal event Action<GroundTreasurePickup, Player>? GroundTreasureCollected;
     public event Action<int>? SoundRequested;
     private readonly Node _worldRoot;
     private readonly RoomEntityFactory _factory;
@@ -31,10 +32,14 @@ public sealed class RoomEntityManager
 
     internal Func<bool> GameButtonJustPressedSource { get; set; } =
         ReadGameButtonJustPressed;
+    internal Func<bool> GroundTreasureCollectionAllowed { get; set; } =
+        static () => true;
 
     public bool ScreenTransitionActive => _screenTransitionActive;
     public OracleRuntimeState RuntimeState => _runtimeState;
     internal int FrameCounter => _enemyFrameCounter;
+    internal int RandomCalls => _random.Calls;
+    internal byte NextRandomValue() => _random.Next().Value;
     public bool PlayerSwordDisabled
     {
         get
@@ -75,7 +80,9 @@ public sealed class RoomEntityManager
         _runtimeState = runtimeState ?? new OracleRuntimeState();
         _factory = new RoomEntityFactory(
             npcs, enemies, itemDrops, timePortals, random,
-            _saveData, _runtimeState, OnTimePortalEntered, OnSoundRequested);
+            _saveData, _runtimeState, OnTimePortalEntered,
+            () => GroundTreasureCollectionAllowed(),
+            OnGroundTreasureCollected, OnSoundRequested);
         if (_saveData is not null)
             _saveData.Changed += RefreshNpcState;
         _runtimeState.Changed += RefreshNpcState;
@@ -371,6 +378,9 @@ public sealed class RoomEntityManager
     }
 
     private void OnTimePortalEntered(TimePortal portal) => TimePortalEntered?.Invoke(portal);
+    private void OnGroundTreasureCollected(
+        GroundTreasurePickup treasure,
+        Player player) => GroundTreasureCollected?.Invoke(treasure, player);
     private void OnSoundRequested(int sound) => SoundRequested?.Invoke(sound);
 
     private static List<T> SelectNodes<T>(IEnumerable<IRoomEntity> entities) where T : Node2D

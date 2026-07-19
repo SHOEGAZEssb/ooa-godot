@@ -28,10 +28,15 @@ public sealed class InteractionController
     private readonly Func<Vector2, Vector2> _worldToScreen;
     private readonly Func<long> _animationTick;
     private readonly InventoryState _inventory;
+    private readonly Action<int> _playSound;
     private readonly BipinBlossomFamilyInteractionDatabase _familyInteractions = new();
     private readonly KidNameEntryController _kidNameEntry;
     private readonly Dictionary<int, ChestDatabase.ChestRecord> _debugChestOverrides = new();
     private ChestTreasureEffect? _chestTreasure;
+    private GroundTreasurePickup? _groundTreasure;
+    private Player? _groundTreasurePlayer;
+    private bool _groundTreasureCompletesHeartContainer;
+    private bool _groundTreasureShowingHeartContainer;
     private ChestDatabase.ChestRecord _pendingChest;
     private FamilyNamingState _familyNamingState;
     private string _pendingChildName = string.Empty;
@@ -43,10 +48,12 @@ public sealed class InteractionController
 
     public bool DialogueOpen => _dialogue.BlocksPlayerInput ||
         _chestTreasure is not null ||
+        _groundTreasure is not null ||
         _familyNamingState != FamilyNamingState.None ||
         _kidNameEntry.Active;
     public bool GameplayMenuActive => _kidNameEntry.Active;
     internal bool ChestRewardActive => _chestTreasure is not null;
+    internal GroundTreasurePickup? GroundTreasureForValidation => _groundTreasure;
 
     public InteractionController(
         RoomSession rooms,
@@ -74,8 +81,14 @@ public sealed class InteractionController
         _worldToScreen = worldToScreen;
         _animationTick = animationTick;
         _inventory = inventory;
+        _playSound = playSound ?? (static _ => { });
         _kidNameEntry = new KidNameEntryController(interfaceLayer, playSound);
-        _rooms.RoomChanged += ApplyOpenedChestState;
+        _dialogue.SetHeartPieceCountProvider(() => _inventory.HeartPieces);
+        _dialogue.HeartPieceSetFilled += OnHeartPieceSetFilled;
+        _dialogue.HeartPieceSetAccepted += OnHeartPieceSetAccepted;
+        _rooms.RoomChanged += OnRoomChanged;
+        _entities.GroundTreasureCollected += OnGroundTreasureCollected;
+        _entities.GroundTreasureCollectionAllowed = () => !DialogueOpen;
         ApplyOpenedChestState(_rooms.ActiveGroup, _rooms.CurrentRoom);
     }
 
@@ -88,6 +101,20 @@ public sealed class InteractionController
         }
         _kidNameEntry.Update();
         UpdateFamilyNaming(delta);
+
+        if (_groundTreasure is not null)
+        {
+            if (_dialogue.IsOpen || !_groundTreasure.Held)
+                return;
+            if (_groundTreasureCompletesHeartContainer &&
+                !_groundTreasureShowingHeartContainer)
+                return;
+            _groundTreasure.Finish(_groundTreasurePlayer!);
+            _groundTreasure = null;
+            _groundTreasurePlayer = null;
+            _groundTreasureCompletesHeartContainer = false;
+            _groundTreasureShowingHeartContainer = false;
+        }
 
         if (_chestTreasure is null)
             return;
@@ -123,6 +150,28 @@ public sealed class InteractionController
         _worldRoot.RemoveChild(_chestTreasure);
         _chestTreasure.QueueFree();
         _chestTreasure = null;
+    }
+
+    private void OnHeartPieceSetFilled()
+    {
+        if (_groundTreasure is null || !_groundTreasureCompletesHeartContainer ||
+            _groundTreasureShowingHeartContainer)
+            return;
+        _inventory.ResetCompletedHeartPieceSet();
+    }
+
+    private void OnHeartPieceSetAccepted()
+    {
+        if (_groundTreasure is null || !_groundTreasureCompletesHeartContainer ||
+            _groundTreasureShowingHeartContainer)
+            return;
+        _inventory.GiveCompletedHeartContainer(
+            _treasures.GetObject("TREASURE_OBJECT_HEART_CONTAINER_00"));
+        _playSound(OracleSoundEngine.SndFilledHeartContainer);
+        _dialogue.ShowMessage(
+            _groundTreasure.Record.CompletionMessage,
+            _worldToScreen(_groundTreasurePlayer!.Position).Y);
+        _groundTreasureShowingHeartContainer = true;
     }
 
     public bool TryInteract(Player player)
@@ -348,6 +397,46 @@ public sealed class InteractionController
             room.ReplaceMetatile(
                 PointForPackedPosition(chest.Position), 0xf1, 0xf0, _animationTick());
         }
+    }
+
+    private void OnGroundTreasureCollected(
+        GroundTreasurePickup treasure,
+        Player player)
+    {
+        if (_groundTreasure is not null || _chestTreasure is not null)
+            throw new InvalidOperationException(
+                "A ground treasure was collected while another reward was active.");
+
+        TreasureDatabase.TreasureObjectRecord treasureObject =
+            _treasures.GetObject(treasure.Record.TreasureObject);
+        _inventory.GiveTreasure(treasureObject);
+        _groundTreasureCompletesHeartContainer =
+            treasureObject.TreasureId == 0x2b && _inventory.HeartPieces == 4;
+        _groundTreasureShowingHeartContainer = false;
+        _rooms.SaveData.SetRoomFlag(
+            treasure.Record.Group,
+            treasure.Record.Room,
+            OracleSaveData.RoomFlagItem);
+        _playSound(OracleSoundEngine.SndGetItem);
+        _groundTreasure = treasure;
+        _groundTreasurePlayer = player;
+        if (!string.IsNullOrEmpty(treasureObject.Message))
+        {
+            _dialogue.ShowMessage(
+                treasureObject.Message,
+                _worldToScreen(player.Position).Y);
+        }
+    }
+
+    private void OnRoomChanged(int group, OracleRoomData room)
+    {
+        if (_groundTreasure is not null && _groundTreasurePlayer is not null)
+            _groundTreasure.Finish(_groundTreasurePlayer);
+        _groundTreasure = null;
+        _groundTreasurePlayer = null;
+        _groundTreasureCompletesHeartContainer = false;
+        _groundTreasureShowingHeartContainer = false;
+        ApplyOpenedChestState(group, room);
     }
 
     private static Vector2 PointForPackedPosition(int position) => new(

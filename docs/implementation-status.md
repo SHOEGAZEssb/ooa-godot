@@ -22,7 +22,12 @@ claim that the entire surrounding game is complete.
 - Link movement, level-1 sword combat, terrain hazards, push blocks, signs,
   chests, item drops, and basic bracelet interactions.
 - Typed treasure behavior for imported collection modes and WRAM-backed
-  inventory fields currently consumed by the game.
+  inventory fields currently consumed by the game. Static `$dc:$07` ground
+  Heart Pieces use their original two-hand pickup, text, sound, and room-item
+  flag `$20` re-entry suppression in all eight source placements. The fourth
+  piece's inline 2x2 diagram changes from the previous quarter count on the
+  30th update, clears the piece counter, then hands off to TX `$0049` while
+  granting and refilling the four-quarter Heart Container.
 
 ### NPCs and enemies
 
@@ -31,7 +36,8 @@ claim that the entire surrounding game is complete.
   palette- and story-selected female villager, and room `1:58`'s complete
   hobo/Impa/Nayru story predicates, dialogue, facing, and placement. Room
   `1:75` includes both mutually exclusive Black Tower hardhat phases with
-  exact `getBlackTowerProgress` predicates and text.
+  exact `getBlackTowerProgress` predicates and text. Room `1:86` includes its
+  entrance guard's essence/room-flag phases, dialogue, facing, and movement.
 - Keese, Octoroks/projectiles, Zols, and Gels using ordered room-object placement,
   original spawn restrictions, shared RNG, combat, and drop paths.
 
@@ -44,6 +50,9 @@ claim that the entire surrounding game is complete.
 - Room `1:75`'s complete linked and unlinked pre-Black Tower sequences,
   including Ralph's departure, the heritage scene, coordinated Impa/Nayru/Zelda
   lanes, Link movement, spawned effects, and persistent completion state.
+- Room `1:86`'s stage-0 Black Tower explanation, including its imported
+  background/OAM/palettes, shared-RNG lightning, saved Link return position and
+  direction, same-room transition `$0c`, and `$40` to `$80` aftermath.
 
 ### Interface and persistence
 

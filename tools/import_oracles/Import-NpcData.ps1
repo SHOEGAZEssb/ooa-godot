@@ -540,6 +540,9 @@ if ($mainObjectSource -notmatch '(?ms)^group1Map58ObjectData:\s+obj_Interaction 
 if ($mainObjectSource -notmatch '(?ms)^group1Map75ObjectData:\s+obj_Interaction \$37 \$0a \$58 \$60\s+obj_Interaction \$31 \$04 \$f8 \$58\s+obj_Interaction \$31 \$05 \$58 \$60\s+obj_Interaction \$36 \$0a \$58 \$40\s+obj_Interaction \$ad \$04 \$48 \$50\s+obj_Interaction \$58 \$01 \$58 \$48 \$00\s+obj_Interaction \$58 \$01 \$58 \$28 \$01\s+obj_End') {
     throw 'Room 1:75 pre-Black Tower ensemble and hardhat worker order changed.'
 }
+if ($mainObjectSource -notmatch '(?ms)^group1Map86ObjectData:\s+obj_Interaction \$58 \$02 \$38 \$48\s+obj_Interaction \$dc \$07 \$28 \$78\s+obj_End') {
+    throw 'Room 1:86 no longer contains ordered hardhat $58:$02 and heart-piece spawner $dc:$07 placements.'
+}
 $currentGroup = -1
 $currentRoom = -1
 $npcSpriteNames = [Collections.Generic.HashSet[string]]::new()
@@ -1110,8 +1113,20 @@ Add-NpcGameProgress2DialogueTable 0x38 @(0x00) -1 'pastGirl.s' '@scriptTable'
 Add-NpcGameProgress2DialogueTable 0x3b @(0x05) -1 'femaleVillager.s' '@subid5ScriptTable'
 Add-NpcGameProgress2DialogueTable 0x44 @(0x04) -1 'miscMan2.s' 'pastHoboScriptTable'
 
-if ($npcDialogueRows.Count -ne 100) {
-    throw "Expected 99 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
+# hardhatWorkerSubid02Script checks room flag $80 before its A-button loop.
+# The initial TX_1003 remains in the base NPC row; only the completed phase
+# needs a state-selected replacement.
+$hardhatCompletedText = 0x1004
+if (-not $allTexts.ContainsKey($hardhatCompletedText)) {
+    throw 'Could not resolve room 1:86 completed hardhat text TX_1004.'
+}
+$hardhatCompletedEncoded = [Convert]::ToBase64String(
+    [Text.Encoding]::UTF8.GetBytes($allTexts[$hardhatCompletedText]))
+$npcDialogueRows.Add(
+    "58`t02`t*`tcurrent-room-flag`t80`t*`t1004`thardhatWorkerSubid02Script:@alreadySawCutscene`t$hardhatCompletedEncoded")
+
+if ($npcDialogueRows.Count -ne 101) {
+    throw "Expected 100 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\npc_dialogue.tsv'),
@@ -1123,11 +1138,68 @@ if ($npcDialogueRows.Count -ne 100) {
 # every other living state uses its object-data position $48,$48.
 $npcPositionRows = @(
     "# id`tsubid`tvar03`tkind`tvalue`ty`tx`tsource",
-    "44`t04`t*`tgame-progress-2`t06`t58`t78`tmiscMan2.s:@subid4"
+    "44`t04`t*`tgame-progress-2`t06`t58`t78`tmiscMan2.s:@subid4",
+    "58`t02`t*`tcurrent-room-flag`t80`t38`t58`thardhatWorker.s:@@state0"
 )
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\npc_positions.tsv'),
     $npcPositionRows,
+    [Text.UTF8Encoding]::new($false))
+
+# INTERAC_MISCELLANEOUS_2 $dc:$07 is a general static Heart Piece spawner.
+# Its state-0 handler deletes itself when ROOMFLAG_ITEM is set; otherwise it
+# creates TREASURE_OBJECT_HEART_PIECE_00 at the spawner's exact position.
+$miscellaneous2Source = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous2.s')
+$treasureSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\treasure.s')
+$treasureObjectSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\treasureObjectData.s')
+if ($miscellaneous2Source -notmatch '(?ms)^interactiondc_subid07:\s+call getThisRoomFlags\s+and ROOMFLAG_ITEM\s+jp nz,interactionDelete\s+ld bc,TREASURE_OBJECT_HEART_PIECE_00\s+call createTreasure\s+call objectCopyPosition\s+jp interactionDelete' -or
+    $treasureObjectSource -notmatch '(?m)^\s*m_TreasureSubid \$0a, \$01, \$17, \$3a, TREASURE_OBJECT_HEART_PIECE_00\s*$' -or
+    $treasureSource -notmatch '(?ms)^@spawnMode0:.*?@checkLinkTouched.*?^@grabMode2:\s+ldbc \$81,\$00') {
+    throw 'Static Heart Piece spawner or TREASURE_OBJECT_HEART_PIECE_00 behavior changed.'
+}
+$heartPieceGraphic = $interactionGraphics['96:58']
+$heartPieceAnimation = Resolve-NpcAnimation 0x60 0x02
+$heartContainerFollowupText = 0x0049
+if ($null -eq $heartPieceGraphic -or $heartPieceGraphic.Gfx -ne 0x79 -or
+    $heartPieceGraphic.TileBase -ne 0x10 -or
+    $heartPieceGraphic.Palette -ne 0x02 -or
+    $heartPieceGraphic.DefaultAnimation -ne 0x02 -or
+    -not $heartPieceAnimation -or
+    -not $allTexts.ContainsKey($heartContainerFollowupText) -or
+    -not $gfxNames.ContainsKey($heartPieceGraphic.Gfx)) {
+    throw 'Could not resolve static Heart Piece interaction $60 graphic $3a.'
+}
+$heartPieceSprite = $gfxNames[$heartPieceGraphic.Gfx]
+[void]$npcSpriteNames.Add($heartPieceSprite)
+$groundTreasureRows = [Collections.Generic.List[string]]::new()
+$groundTreasureRows.Add(
+    "# group`troom`torder`ty`tx`ttreasure-object`tsprite`ttile-base`tpalette`tanimation`tcompletion-text-id`tcompletion-text-base64`tsource")
+$currentGroup = -1
+$currentRoom = -1
+$objectOrder = 0
+foreach ($line in $mainObjectLines) {
+    if ($line -match '^group(?<group>[0-7])Map(?<room>[0-9a-f]{2})ObjectData:') {
+        $currentGroup = [Convert]::ToInt32($Matches['group'], 10)
+        $currentRoom = [Convert]::ToInt32($Matches['room'], 16)
+        $objectOrder = 0
+        continue
+    }
+    if ($currentGroup -lt 0 -or $line -notmatch '^\s+obj_(?!End)') { continue }
+    if ($line -match 'obj_Interaction\s+\$dc\s+\$07\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})') {
+        $groundTreasureRows.Add(
+            "$currentGroup`t$($currentRoom.ToString('x2'))`t$objectOrder`t$($Matches['y'])`t$($Matches['x'])`tTREASURE_OBJECT_HEART_PIECE_00`t$heartPieceSprite`t$($heartPieceGraphic.TileBase)`t$($heartPieceGraphic.Palette)`t$heartPieceAnimation`t$($heartContainerFollowupText.ToString('x4'))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$heartContainerFollowupText])))`tmiscellaneous2.s:interactiondc_subid07")
+    }
+    $objectOrder++
+}
+if ($groundTreasureRows.Count -ne 9) {
+    throw "Expected eight static Heart Piece spawners, got $($groundTreasureRows.Count - 1)."
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\ground_treasures.tsv'),
+    $groundTreasureRows,
     [Text.UTF8Encoding]::new($false))
 
 # Room interactions frequently delete their placed NPC during state 0 based

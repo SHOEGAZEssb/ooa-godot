@@ -23,6 +23,7 @@ public partial class OracleSoundEngine : Node
     public const int MusSadness = 0x1f;
     public const int MusDisaster = 0x21;
     public const int MusLadxSideview = 0x2f;
+    public const int MusBlackTowerEntrance = 0x46;
     public const int SndGetItem = 0x4c;
     public const int SndChargeSword = 0x4f;
     public const int SndClink = 0x50;
@@ -47,6 +48,7 @@ public partial class OracleSoundEngine : Node
     public const int SndMysterySeed = 0x7b;
     public const int SndMenuMove = 0x84;
     public const int SndText2 = 0x89;
+    public const int SndFilledHeartContainer = 0x8b;
     public const int SndTeleport = 0x8d;
     public const int SndFairyCutscene = 0x91;
     public const int SndWarpStart = 0x95;

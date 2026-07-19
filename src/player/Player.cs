@@ -30,6 +30,7 @@ public partial class Player : Node2D
     private OracleRandom _random = null!;
     private Texture2D _texture = null!;
     private Texture2D _getItemOneHandTexture = null!;
+    private Texture2D _getItemTwoHandTexture = null!;
     private Texture2D _pushTexture = null!;
     private Texture2D _attackTexture = null!;
     private Texture2D _swordTexture = null!;
@@ -71,6 +72,7 @@ public partial class Player : Node2D
     private bool _fallInHoleRespawning;
     private bool _cutsceneControlled;
     private bool _getItemOneHandPose;
+    private bool _getItemTwoHandPose;
     private CutsceneSpriteRenderer? _newGameFallRenderer;
     private NewGameIntroDatabase.IntroSpriteFrame[]? _newGameFallFrames;
     private int _newGameFallFrame;
@@ -115,6 +117,7 @@ public partial class Player : Node2D
     internal int NewGameSlowFallFrame => _newGameFallFrame;
     internal int NewGameSlowFallZ => _newGameFallZFixed >> 8;
     internal bool IsHoldingItemOneHand => _getItemOneHandPose;
+    internal bool IsHoldingItemTwoHands => _getItemTwoHandPose;
 
     internal void Initialize(
         IPlayerWorld world,
@@ -127,6 +130,7 @@ public partial class Player : Node2D
         _random = random;
         _texture = BuildLinkTexture();
         _getItemOneHandTexture = BuildGetItemOneHandTexture();
+        _getItemTwoHandTexture = BuildGetItemTwoHandTexture();
         _pushTexture = BuildPushLinkTexture();
         _attackTexture = BuildAttackLinkTexture();
         _swordTexture = BuildSwordTexture(chargedPalette: false);
@@ -164,6 +168,7 @@ public partial class Player : Node2D
         _fallingInHole = false;
         _fallInHoleRespawning = false;
         _getItemOneHandPose = false;
+        _getItemTwoHandPose = false;
         _precisePosition = position;
         if (recordSafe)
             _lastSafePosition = position;
@@ -539,6 +544,23 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
+    internal void BeginGetItemTwoHandPose()
+    {
+        _getItemTwoHandPose = true;
+        _walking = false;
+        _pushing = false;
+        CancelSwordAttack();
+        QueueRedraw();
+    }
+
+    internal void EndGetItemTwoHandPose()
+    {
+        if (!_getItemTwoHandPose)
+            return;
+        _getItemTwoHandPose = false;
+        QueueRedraw();
+    }
+
     internal void AdvanceCutsceneInput(Vector2I direction)
     {
         if (!_cutsceneControlled)
@@ -667,6 +689,10 @@ public partial class Player : Node2D
                 _fallInHoleTexture,
                 new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(frame * 16, 0, 16, 16));
+        }
+        else if (_getItemTwoHandPose)
+        {
+            DrawTexture(_getItemTwoHandTexture, NormalSpriteOrigin);
         }
         else if (_getItemOneHandPose)
         {
@@ -1338,6 +1364,18 @@ public partial class Player : Node2D
         // OAM $00, spr_link+$0da0, four tiles. The frame is below $54, so
         // loadLinkAndCompanionAnimationFrame_body does not add Link's direction.
         WriteLinkFrame(output, source, 0, 0, 0x0da0, false);
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private static Texture2D BuildGetItemTwoHandTexture()
+    {
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
+        Image output = Image.CreateEmpty(16, 16, false, Image.Format.Rgba8);
+
+        // LINK_ANIM_MODE_GETITEM2HAND ($0f) is static graphics frame $06:
+        // OAM $04 mirrors the single spr_link+$0de0 cell into a 16-pixel body.
+        WriteSymmetricLinkCell(output, source, 0, 0, 0x0de0);
         return ImageTexture.CreateFromImage(output);
     }
 

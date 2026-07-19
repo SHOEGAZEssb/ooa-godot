@@ -14,7 +14,8 @@ public sealed class NpcPositionRuleDatabase
 {
     private enum StateKind
     {
-        GameProgress2
+        GameProgress2,
+        CurrentRoomFlag
     }
 
     private readonly record struct Rule(
@@ -58,13 +59,17 @@ public sealed class NpcPositionRuleDatabase
             StateKind kind = fields[3] switch
             {
                 "game-progress-2" => StateKind.GameProgress2,
+                "current-room-flag" => StateKind.CurrentRoomFlag,
                 _ => throw new InvalidOperationException(
                     $"Unknown NPC position state kind '{fields[3]}'.")
             };
             int value = Convert.ToInt32(fields[4], 16);
             int y = Convert.ToInt32(fields[5], 16);
             int x = Convert.ToInt32(fields[6], 16);
-            if (value is < 0 or > 7 || y is < 0 or > 0xff ||
+            if (value is < 0 or > 0xff ||
+                kind == StateKind.GameProgress2 && value > 7 ||
+                kind == StateKind.CurrentRoomFlag && value == 0 ||
+                y is < 0 or > 0xff ||
                 x is < 0 or > 0xff ||
                 !uniqueRules.Add((id, subId, var03, kind, value)))
             {
@@ -102,7 +107,7 @@ public sealed class NpcPositionRuleDatabase
             return false;
 
         List<Rule> matches = applicable.Where(rule =>
-            GetState(rule, save) == rule.Value).ToList();
+            GetState(rule, npc, save) == rule.Value).ToList();
         if (matches.Count > 1)
         {
             throw new InvalidOperationException(
@@ -114,11 +119,16 @@ public sealed class NpcPositionRuleDatabase
         return true;
     }
 
-    private static int GetState(Rule rule, OracleSaveData save) =>
+    private static int GetState(
+        Rule rule,
+        NpcDatabase.NpcRecord npc,
+        OracleSaveData save) =>
         rule.Kind switch
         {
             StateKind.GameProgress2 =>
                 NpcVisibilityRuleDatabase.GetGameProgress2(save),
+            StateKind.CurrentRoomFlag => save.HasRoomFlag(
+                npc.Group, npc.Room, (byte)rule.Value) ? rule.Value : 0,
             _ => throw new InvalidOperationException(
                 $"Unhandled NPC position rule from {rule.Source}.")
         };

@@ -2189,3 +2189,146 @@ $preBlackTowerEventRows = @(
     (Join-Path $destination 'cutscenes\pre_black_tower_event.tsv'),
     $preBlackTowerEventRows,
     [Text.UTF8Encoding]::new($false))
+
+# Room 1:86's guard starts stage 0 of CUTSCENE_BLACK_TOWER_EXPLANATION, then
+# resumes at @cutsceneAftermath after the cutscene's same-room transition $0c.
+$blackTowerScriptPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
+$blackTowerScriptSource = Get-Content -Raw $blackTowerScriptPath
+$blackTowerScriptMatch = [regex]::Match(
+    $blackTowerScriptSource,
+    '(?ms)^hardhatWorkerSubid02Script:(?<body>.*?)(?=^hardhatWorkerSubid03Script:)')
+if (-not $blackTowerScriptMatch.Success) {
+    throw 'Could not locate hardhatWorkerSubid02Script for room 1:86.'
+}
+$blackTowerBodyStart = $blackTowerScriptMatch.Groups['body'].Index
+$blackTowerBodyEnd = $blackTowerBodyStart + $blackTowerScriptMatch.Groups['body'].Length
+function Get-BlackTowerGuardLine([string]$pattern, [int]$occurrence = 0) {
+    return Find-CutsceneCommandSourceLine `
+        $blackTowerScriptSource $blackTowerBodyStart $blackTowerBodyEnd `
+        $pattern 'hardhatWorkerSubid02Script' $occurrence
+}
+foreach ($textId in @(0x1003, 0x1004, 0x1005, 0x1006)) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Room 1:86 is missing TX_$($textId.ToString('x4'))."
+    }
+}
+$blackTowerRightAnimation = Resolve-NpcAnimation 0x58 1
+$blackTowerMoveSpeed = Resolve-ObjectSpeed '80'
+if (-not $blackTowerRightAnimation -or $blackTowerMoveSpeed -ne 0x14) {
+    throw 'Could not resolve the hardhat worker right-facing animation or SPEED_080 raw value.'
+}
+
+$blackTowerFirstRows = [Collections.Generic.List[string]]::new()
+$blackTowerFirstRows.Add('# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64')
+$firstSpec = @(
+    @('disableinput', '', '', '', '', '^\s*disableinput\s*$', 0),
+    @('showtext', '', '1003', '', $allTexts[0x1003], '^\s*showtextlowindex\s+<TX_1003\s*$', 0),
+    @('wait', '', '30', '', '', '^\s*wait\s+30\s*$', 0),
+    @('orroomflag', '', '40', '', '', '^\s*orroomflag\s+\$40\s*$', 0),
+    @('native', '', '', '', 'StoreLink', '^\s*asm15\s+hardhatWorker_storeLinkVarsSomewhere\s*$', 0),
+    @('writememory', '', '00', '', 'CutsceneStage', '^\s*writememory\s+wGenericCutscene\.cbb8,\s*\$00\s*$', 0),
+    @('writememory', '', '08', '', 'CutsceneTrigger', '^\s*writememory\s+wCutsceneTrigger,\s*CUTSCENE_BLACK_TOWER_EXPLANATION\s*$', 0),
+    @('scriptend', '', '', '', '', '^\s*scriptend\s*$', 0)
+)
+for ($index = 0; $index -lt $firstSpec.Count; $index++) {
+    $spec = $firstSpec[$index]
+    $blackTowerFirstRows.Add((New-CutsceneCommandRow `
+        'hardhatWorkerSubid02Script:first' $index 'hardhatWorkerSubid02Script' `
+        (Get-BlackTowerGuardLine $spec[5] ([int]$spec[6])) `
+        $spec[0] $spec[1] $spec[2] $spec[3] $spec[4]))
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\black_tower_guard_first.tsv'),
+    $blackTowerFirstRows,
+    [Text.UTF8Encoding]::new($false))
+
+$blackTowerAfterRows = [Collections.Generic.List[string]]::new()
+$blackTowerAfterRows.Add('# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64')
+$afterSpec = @(
+    @('disableinput', '', '', '', '', '^\s*disableinput\s*$', 1),
+    @('native', '', '', '', 'TurnToFaceLink', '^\s*asm15\s+turnToFaceLink\s*$', 0),
+    @('gate', '', '', '', 'palette-fade-done', '^\s*checkpalettefadedone\s*$', 0),
+    @('wait', '', '60', '', '', '^\s*wait\s+60\s*$', 0),
+    @('showtext', '', '1006', '', $allTexts[0x1006], '^\s*showtextlowindex\s+<TX_1006\s*$', 0),
+    @('native', '', '', '', 'MoveLinkAway', '^\s*asm15\s+hardhatWorker_moveLinkAway\s*$', 0),
+    @('writeobjectbyte', 'Guard', '38', '01', '', '^\s*writeobjectbyte\s+Interaction\.var38,\s*\$01\s*$', 0),
+    @('wait', '', '30', '', '', '^\s*wait\s+30\s*$', 1),
+    @('setspeed', 'Guard', ($blackTowerMoveSpeed.ToString('x2')), '', '', '^\s*setspeed\s+SPEED_080\s*$', 0),
+    @('move', 'Guard', '08', '21', $blackTowerRightAnimation, '^\s*moveright\s+\$21\s*$', 0),
+    @('writeobjectbyte', 'Guard', '38', '00', '', '^\s*writeobjectbyte\s+Interaction\.var38,\s*\$00\s*$', 0),
+    @('wait', '', '30', '', '', '^\s*wait\s+30\s*$', 2),
+    @('orroomflag', '', '80', '', '', '^\s*orroomflag\s+\$80\s*$', 0),
+    @('writememory', '', '00', '', 'SimulatedInput', '^\s*writememory\s+wUseSimulatedInput,\s*\$00\s*$', 0),
+    @('enableinput', '', '', '', '', '^\s*enableinput\s*$', 0),
+    @('scriptend', '', '', '', '', '^\s*enableinput\s*$', 0)
+)
+for ($index = 0; $index -lt $afterSpec.Count; $index++) {
+    $spec = $afterSpec[$index]
+    $blackTowerAfterRows.Add((New-CutsceneCommandRow `
+        'hardhatWorkerSubid02Script:aftermath' $index '@cutsceneAftermath' `
+        (Get-BlackTowerGuardLine $spec[5] ([int]$spec[6])) `
+        $spec[0] $spec[1] $spec[2] $spec[3] $spec[4]))
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\black_tower_guard_aftermath.tsv'),
+    $blackTowerAfterRows,
+    [Text.UTF8Encoding]::new($false))
+
+$blackTowerCutsceneSource = Get-Content -Raw (
+    Join-Path $Disassembly 'code\ages\cutscenes\miscCutscenes.s')
+if ($blackTowerCutsceneSource -notmatch '(?ms)^blackTowerExplanationCutsceneHandler:.*?^@@table_6625:\s+\.db GFXH_BLACK_TOWER_STAGE_1_LAYOUT, GFXH_BLACK_TOWER_BASE' -or
+    $blackTowerCutsceneSource -notmatch '(?ms)^func_6ef7:.*?and \$1f.*?call getRandomNumber.*?and \$07.*?SND_LIGHTNING' -or
+    $blackTowerCutsceneSource -notmatch '(?ms)^func_6f44:.*?oamData_714c') {
+    throw 'Black Tower explanation stage-0 presentation changed.'
+}
+$blackTowerOamSource = Get-Content -Raw (Join-Path $Disassembly 'ages.s')
+$blackTowerOamMatch = [regex]::Match(
+    $blackTowerOamSource,
+    '(?ms)^oamData_714c:\s+\.db \$10(?<body>.*?)(?=^oamData_718d:)')
+$blackTowerOamEntries = [regex]::Matches(
+    $blackTowerOamMatch.Groups['body'].Value,
+    '(?m)^\s*\.db \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})\s*$')
+if (-not $blackTowerOamMatch.Success -or $blackTowerOamEntries.Count -ne 16) {
+    throw 'Could not import stage-0 Black Tower OAM data $714c.'
+}
+$blackTowerOamRows = [Collections.Generic.List[string]]::new()
+$blackTowerOamRows.Add("# index`ty`tx`ttile`tflags`tsource")
+for ($index = 0; $index -lt $blackTowerOamEntries.Count; $index++) {
+    $entry = $blackTowerOamEntries[$index]
+    $blackTowerOamRows.Add(
+        "$index`t$($entry.Groups['y'].Value)`t$($entry.Groups['x'].Value)`t$($entry.Groups['tile'].Value)`t$($entry.Groups['flags'].Value)`tages.s:oamData_714c")
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\black_tower_stage_0_oam.tsv'),
+    $blackTowerOamRows,
+    [Text.UTF8Encoding]::new($false))
+
+foreach ($asset in @(
+    @('map_black_tower_stage_1.bin', 'map_black_tower_stage_1.bin'),
+    @('flg_black_tower_stage_1.bin', 'flags_black_tower_stage_1.bin'),
+    @('map_black_tower_base.bin', 'map_black_tower_base.bin'),
+    @('flg_black_tower_base.bin', 'flags_black_tower_base.bin'),
+    @('gfx_black_tower_scene_1.png', 'gfx_black_tower_scene_1.png'),
+    @('gfx_black_tower_scene_2.png', 'gfx_black_tower_scene_2.png'),
+    @('gfx_black_tower_scene_3.png', 'gfx_black_tower_scene_3.png'),
+    @('gfx_black_tower_scene_4.png', 'gfx_black_tower_scene_4.png'),
+    @('spr_black_tower_scene.png', 'spr_black_tower_scene.png'))) {
+    Copy-GeneratedFile `
+        "gfx_compressible\ages\$($asset[0])" `
+        "cutscenes\$($asset[1])"
+}
+Export-PaletteBlock 'paletteData57e0' 28 'cutscenes\black_tower_bg_palette.bin'
+Export-PaletteBlock 'paletteData5818' 32 'cutscenes\black_tower_sprite_palette.bin'
+
+$blackTowerEventRows = @(
+    "# group`troom`tguard-id`tguard-subid`tessence-mask`titem-flag`taftermath-flag`tcomplete-flag`tinitial-y`tinitial-x`tcompleted-y`tcompleted-x`tmove-speed`tmove-counter`tscreen-offset-y`tintro-wait`tpost-wait`tsource-transition`tdestination-transition`texplanation-text-id`texplanation-text-base64",
+    (@(
+        '1', '86', '58', '02', '08', '20', '40', '80', '38', '48', '38', '58',
+        $blackTowerMoveSpeed.ToString('x2'), '21', '70', '60', '60', '04', '0c', '1005',
+        (ConvertTo-CutsceneCommandPayload $allTexts[0x1005])
+    ) -join "`t")
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\black_tower_entrance_event.tsv'),
+    $blackTowerEventRows,
+    [Text.UTF8Encoding]::new($false))

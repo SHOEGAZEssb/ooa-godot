@@ -400,7 +400,7 @@ public partial class GameRoot : Node2D
             _transitions.WorldToScreen, () => (long)_animationTicks,
             _scene.InterfaceLayer, _warpFade, _hud, _inventory, _treasures,
             _sound);
-        _interactions.NpcInteractionOverride = _roomEvents.Nayru.TryInteractNpc;
+        _interactions.NpcInteractionOverride = _roomEvents.TryInteractNpc;
         _bracelet = new BraceletController(
             _rooms, new BreakableTileDatabase(), _roomView, () => (long)_animationTicks);
         _terrain = new TerrainController(_scene.WorldRoot, _rooms, _collision.Collides);

@@ -35,6 +35,7 @@ public partial class DialogueBox : Node2D
     private Texture2D _fontTexture = null!;
     private Texture2D _symbolTexture = null!;
     private Texture2D _continueMarkerTexture = null!;
+    private Texture2D[] _heartPieceTextures = null!;
     private string _currentMessage = string.Empty;
     private int _segmentIndex;
     private int _firstLineIndex;
@@ -48,6 +49,12 @@ public partial class DialogueBox : Node2D
     private double _textScrollTickAccumulator;
     private float _textScrollOffset;
     private int _textScrollState;
+    private double _heartPieceTickAccumulator;
+    private int _heartPieceTimer;
+    private int _heartPieceDisplayCount;
+    private int _heartPieceLine = -1;
+    private int _heartPieceColumn = -1;
+    private bool _heartPieceSetComplete;
     private bool _open;
     private bool _consumeClosingInput;
     private bool _scrollingText;
@@ -55,6 +62,10 @@ public partial class DialogueBox : Node2D
     private int _selectedChoice;
     private int? _choiceResult;
     private Action<int> _playSound = static _ => { };
+    private Func<int> _heartPieceCount = static () => 0;
+
+    internal event Action? HeartPieceSetFilled;
+    internal event Action? HeartPieceSetAccepted;
 
     public bool IsOpen => _open;
     public bool BlocksPlayerInput => _open || _consumeClosingInput;
@@ -69,7 +80,7 @@ public partial class DialogueBox : Node2D
         }
     }
 
-    internal bool ArrowVisible => IsAwaitingNextMessage &&
+    internal bool ArrowVisible => IsAwaitingNextMessage && _heartPieceTimer == 0 &&
         (((int)_arrowFrameCounter >> 4) & 1) != 0;
     internal bool HasNextMessage => _open && HasContinuation;
     internal bool IsPageComplete => _open && CurrentWindowGlyphCount == _visibleGlyphs;
@@ -82,6 +93,9 @@ public partial class DialogueBox : Node2D
     internal string CurrentMessage => _currentMessage;
     internal bool ChoiceActive => _choiceActive;
     internal int SelectedChoice => _selectedChoice;
+    internal bool HeartPieceDisplayActive => _heartPieceLine >= 0;
+    internal int HeartPieceDisplayCount => _heartPieceDisplayCount;
+    internal int HeartPieceDisplayTimer => _heartPieceTimer;
     internal static Color DefaultTextColorForValidation => NormalTextColor;
     internal static Rect2 ContinueMarkerRectForValidation => ContinueMarkerRect;
 
@@ -98,12 +112,19 @@ public partial class DialogueBox : Node2D
         _fontTexture = BuildFontTexture("res://assets/oracle/gfx/gfx_font.png");
         _symbolTexture = BuildFontTexture("res://assets/oracle/gfx/gfx_font_jp.png");
         _continueMarkerTexture = BuildContinueMarkerTexture();
+        _heartPieceTextures = BuildHeartPieceTextures();
     }
 
     internal void SetSoundPlayer(Action<int> playSound)
     {
         ArgumentNullException.ThrowIfNull(playSound);
         _playSound = playSound;
+    }
+
+    internal void SetHeartPieceCountProvider(Func<int> heartPieceCount)
+    {
+        ArgumentNullException.ThrowIfNull(heartPieceCount);
+        _heartPieceCount = heartPieceCount;
     }
 
     public void ShowMessage(string message, float linkY)
@@ -134,6 +155,7 @@ public partial class DialogueBox : Node2D
         _textScrollTickAccumulator = 0.0;
         _textScrollOffset = 0.0f;
         _textScrollState = 0;
+        ResetHeartPieceDisplay();
 
         // Port of initTextbox: Link above $48 puts the box at tilemap offset
         // $0140 (y=80); otherwise it uses $0020 (y=8).
@@ -176,6 +198,7 @@ public partial class DialogueBox : Node2D
         _open = false;
         _scrollingText = false;
         _choiceActive = false;
+        ResetHeartPieceDisplay();
         Visible = false;
     }
 
@@ -189,6 +212,12 @@ public partial class DialogueBox : Node2D
 
         if (!_open)
             return;
+
+        if (UpdateHeartPieceDisplay(delta))
+        {
+            QueueRedraw();
+            return;
+        }
 
         if (_scrollingText)
         {
@@ -243,6 +272,15 @@ public partial class DialogueBox : Node2D
         if (!_open || _scrollingText)
             return;
 
+        if (_heartPieceTimer > 0)
+            return;
+        if (_heartPieceSetComplete)
+        {
+            _heartPieceSetComplete = false;
+            HeartPieceSetAccepted?.Invoke();
+            return;
+        }
+
         if (!IsPageComplete)
         {
             RevealCurrentLine();
@@ -269,6 +307,7 @@ public partial class DialogueBox : Node2D
             // \stop clears the old text before the following segment starts.
             _segmentIndex++;
             _firstLineIndex = 0;
+            ResetHeartPieceDisplay();
             ResetCharacterDisplay(0);
             QueueRedraw();
         }
@@ -322,6 +361,8 @@ public partial class DialogueBox : Node2D
 
         if (_choiceActive && IsPageComplete && !HasContinuation)
             DrawChoiceCursor();
+
+        DrawHeartPieceDisplay();
     }
 
     internal void AdvanceArrowClockForValidation(double delta)
@@ -340,7 +381,28 @@ public partial class DialogueBox : Node2D
         _visibleGlyphs = CurrentWindowGlyphCount;
         _characterFrameAccumulator = 0.0;
         _arrowFrameCounter = 0.0;
+        TryStartVisibleHeartPieceDisplay();
         QueueRedraw();
+    }
+
+    internal void AdvanceHeartPieceClockForValidation(double delta) =>
+        UpdateHeartPieceDisplay(delta);
+
+    internal ulong HeartPiecePixelHashForValidation()
+    {
+        if (_heartPieceLine < 0)
+            return 0;
+        Image image = _heartPieceTextures[_heartPieceDisplayCount].GetImage();
+        ulong hash = 1469598103934665603UL;
+        for (int y = 0; y < image.GetHeight(); y++)
+        for (int x = 0; x < image.GetWidth(); x++)
+        {
+            Color pixel = image.GetPixel(x, y);
+            hash = (hash ^ (byte)Mathf.RoundToInt(pixel.R * 255.0f)) * 1099511628211UL;
+            hash = (hash ^ (byte)Mathf.RoundToInt(pixel.G * 255.0f)) * 1099511628211UL;
+            hash = (hash ^ (byte)Mathf.RoundToInt(pixel.B * 255.0f)) * 1099511628211UL;
+        }
+        return hash;
     }
 
     internal void AdvanceTextScrollForValidation(double delta)
@@ -382,6 +444,8 @@ public partial class DialogueBox : Node2D
         text = text.Replace("\\up", "↑", StringComparison.Ordinal);
         text = text.Replace("\\down", "↓", StringComparison.Ordinal);
         text = Regex.Replace(text, @"\\heart(?![A-Za-z])", "♥");
+        text = Regex.Replace(text, @"\\heartpiece", string.Empty,
+            RegexOptions.IgnoreCase);
         return Regex.Replace(
             text,
             @"\\(?:stop(?:\(\))?|pos\([^)]*\)|col\([^)]*\)|opt\([^)]*\)|" +
@@ -489,19 +553,27 @@ public partial class DialogueBox : Node2D
         TextLine firstLine = CurrentLine(0);
         TextLine line;
         int column;
+        int windowLine;
         if (_visibleGlyphs < firstLine.Glyphs.Count)
         {
             line = firstLine;
             column = _visibleGlyphs;
+            windowLine = 0;
         }
         else
         {
             line = CurrentLine(1);
             column = _visibleGlyphs - firstLine.Glyphs.Count;
+            windowLine = 1;
         }
 
         TextGlyph glyph = line.Glyphs[column];
         _visibleGlyphs++;
+        if (line.HeartPieceColumn == column + 1)
+        {
+            StartHeartPieceDisplay(
+                _firstLineIndex + windowLine, line.HeartPieceColumn);
+        }
 
         // displayNextTextCharacter branches to @endLine before reading the
         // sound buffers for column $0f.
@@ -516,6 +588,73 @@ public partial class DialogueBox : Node2D
         }
         if (glyph.SoundEffect != 0)
             _playSound(glyph.SoundEffect);
+    }
+
+    private bool UpdateHeartPieceDisplay(double delta)
+    {
+        if (_heartPieceLine < 0 || _heartPieceTimer == 0)
+            return false;
+
+        _heartPieceTickAccumulator += delta * 60.0;
+        while (_heartPieceTimer > 0 && _heartPieceTickAccumulator >= 1.0)
+        {
+            _heartPieceTickAccumulator -= 1.0;
+            _heartPieceTimer--;
+        }
+        if (_heartPieceTimer > 0)
+            return true;
+
+        int pieces = Math.Clamp(_heartPieceCount(), 0, 4);
+        _heartPieceDisplayCount = pieces;
+        _playSound(OracleSoundEngine.SndText2);
+        if (pieces == 4)
+        {
+            _heartPieceSetComplete = true;
+            HeartPieceSetFilled?.Invoke();
+        }
+        _arrowFrameCounter = 0.0;
+        return false;
+    }
+
+    private void StartHeartPieceDisplay(int line, int column)
+    {
+        if (_heartPieceLine >= 0)
+            return;
+        int pieces = Math.Clamp(_heartPieceCount(), 1, 4);
+        _heartPieceLine = line;
+        _heartPieceColumn = column;
+        _heartPieceDisplayCount = pieces - 1;
+        _heartPieceTimer = 30;
+        _heartPieceTickAccumulator = 0.0;
+        _heartPieceSetComplete = false;
+        _arrowFrameCounter = 0.0;
+    }
+
+    private void TryStartVisibleHeartPieceDisplay()
+    {
+        int visible = _visibleGlyphs;
+        for (int windowLine = 0; windowLine < LinesPerPage; windowLine++)
+        {
+            TextLine line = CurrentLine(windowLine);
+            if (line.HeartPieceColumn >= 0 &&
+                visible >= line.HeartPieceColumn)
+            {
+                StartHeartPieceDisplay(
+                    _firstLineIndex + windowLine, line.HeartPieceColumn);
+                return;
+            }
+            visible = Math.Max(0, visible - line.Glyphs.Count);
+        }
+    }
+
+    private void ResetHeartPieceDisplay()
+    {
+        _heartPieceTickAccumulator = 0.0;
+        _heartPieceTimer = 0;
+        _heartPieceDisplayCount = 0;
+        _heartPieceLine = -1;
+        _heartPieceColumn = -1;
+        _heartPieceSetComplete = false;
     }
 
     private void UpdateTextScroll(double delta)
@@ -606,6 +745,18 @@ public partial class DialogueBox : Node2D
         }
     }
 
+    private void DrawHeartPieceDisplay()
+    {
+        if (_heartPieceLine < _firstLineIndex ||
+            _heartPieceLine >= _firstLineIndex + LinesPerPage)
+            return;
+
+        Vector2 destination = new(
+            16 + _heartPieceColumn * 8,
+            (_heartPieceLine - _firstLineIndex) * LineSpacing);
+        DrawTexture(_heartPieceTextures[_heartPieceDisplayCount], destination);
+    }
+
     private Texture2D TextureFor(TextGlyph glyph) =>
         glyph.Source == FontSource.Symbol ? _symbolTexture : _fontTexture;
 
@@ -624,6 +775,7 @@ public partial class DialogueBox : Node2D
         var lines = new List<TextLine>();
         var glyphs = new List<TextGlyph>();
         var optionColumns = new List<int>();
+        int heartPieceColumn = -1;
         int colorIndex = 0;
         int characterSound = OracleSoundEngine.SndText;
         int pendingSoundEffect = 0;
@@ -653,9 +805,10 @@ public partial class DialogueBox : Node2D
 
         void FinishLine()
         {
-            lines.Add(new TextLine(glyphs, optionColumns));
+            lines.Add(new TextLine(glyphs, optionColumns, heartPieceColumn));
             glyphs = new List<TextGlyph>();
             optionColumns = new List<int>();
+            heartPieceColumn = -1;
         }
 
         void FinishSegment()
@@ -735,6 +888,15 @@ public partial class DialogueBox : Node2D
                 case "diamond": AddGlyph(0x12); break;
                 case "spade": AddGlyph(0x13); break;
                 case "heart": AddGlyph(0x14); break;
+                // Control $0c:$05 stops the current textbox span, draws its
+                // 2x2 quarter-heart map at the current cursor, then holds for
+                // 30 updates before revealing the newly collected quarter.
+                case "heartpiece":
+                    heartPieceColumn = glyphs.Count;
+                    FinishLine();
+                    FinishSegment();
+                    skipNextNewline = true;
+                    break;
                 case "up": AddGlyph(0x15); break;
                 case "down": AddGlyph(0x16); break;
                 case "left": AddGlyph(0x17); break;
@@ -820,6 +982,59 @@ public partial class DialogueBox : Node2D
         return ImageTexture.CreateFromImage(output);
     }
 
+    private static Texture2D[] BuildHeartPieceTextures()
+    {
+        // func_53eb loads four tiles at $5d/$5f/$7c/$7e. Its table selects
+        // outline or filled left halves and attribute bit 5 mirrors the right
+        // halves. PNG shades retain the PALH_0e background-palette-0 indices.
+        Image source = LoadSourceImage(
+            "res://assets/oracle/gfx/gfx_font_heartpiece.png");
+        if (source.GetWidth() != 64 || source.GetHeight() != 8)
+        {
+            throw new InvalidOperationException(
+                "gfx_font_heartpiece must contain eight horizontal 8x8 tiles.");
+        }
+
+        int[,] sourceTiles =
+        {
+            { 0, 2, 0, 2 },
+            { 1, 2, 0, 2 },
+            { 1, 3, 0, 2 },
+            { 1, 3, 0, 3 },
+            { 1, 3, 1, 3 }
+        };
+        var textures = new Texture2D[5];
+        for (int pieces = 0; pieces < textures.Length; pieces++)
+        {
+            Image output = Image.CreateEmpty(16, 16, false, Image.Format.Rgba8);
+            for (int quadrant = 0; quadrant < 4; quadrant++)
+            {
+                bool right = quadrant >= 2;
+                bool bottom = (quadrant & 1) != 0;
+                int tile = sourceTiles[pieces, quadrant];
+                for (int y = 0; y < 8; y++)
+                for (int x = 0; x < 8; x++)
+                {
+                    int sourceX = tile * 8 + (right ? 7 - x : x);
+                    Color shade = source.GetPixel(sourceX, y);
+                    int paletteIndex = 3 - Math.Clamp(
+                        Mathf.RoundToInt(shade.R * 3.0f), 0, 3);
+                    Color color = paletteIndex switch
+                    {
+                        0 => GbcColor(0x0d, 0x01, 0x05),
+                        1 => RedTextColor,
+                        2 => NormalTextColor,
+                        _ => BackgroundColor
+                    };
+                    output.SetPixel((right ? 8 : 0) + x,
+                        (bottom ? 8 : 0) + y, color);
+                }
+            }
+            textures[pieces] = ImageTexture.CreateFromImage(output);
+        }
+        return textures;
+    }
+
     private static Image LoadSourceImage(string path)
     {
         return OracleGraphicsCache.LoadImage(path);
@@ -849,10 +1064,12 @@ public partial class DialogueBox : Node2D
             Array.Empty<TextGlyph>(), Array.Empty<int>());
         public IReadOnlyList<TextGlyph> Glyphs { get; }
         public IReadOnlyList<int> OptionColumns { get; }
+        public int HeartPieceColumn { get; }
 
         public TextLine(
             IEnumerable<TextGlyph> glyphs,
-            IEnumerable<int> optionColumns)
+            IEnumerable<int> optionColumns,
+            int heartPieceColumn = -1)
         {
             Glyphs = glyphs is IReadOnlyList<TextGlyph> list
                 ? list
@@ -860,6 +1077,7 @@ public partial class DialogueBox : Node2D
             OptionColumns = optionColumns is IReadOnlyList<int> optionList
                 ? optionList
                 : new List<int>(optionColumns);
+            HeartPieceColumn = heartPieceColumn;
         }
     }
 

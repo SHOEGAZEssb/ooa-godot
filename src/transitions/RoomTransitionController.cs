@@ -640,7 +640,20 @@ public sealed class RoomTransitionController
             if (warp.DestinationTransition == 0x0e)
                 spawn.X -= 8.0f;
             byte destinationTile = room.GetMetatile(spawn);
-            if (ShouldStepOut(warp, destinationTile, tileX, tileY))
+            if (warp.DestinationTransition == 0x0c)
+            {
+                _deactivatedWarpGroup = _rooms.ActiveGroup;
+                _deactivatedWarpRoom = room.Id;
+                _deactivatedWarpPosition = warp.DestinationPosition;
+                _player.Face(warp.DestinationParameter switch
+                {
+                    0 => Vector2I.Up,
+                    1 => Vector2I.Right,
+                    2 => Vector2I.Down,
+                    _ => Vector2I.Left
+                });
+            }
+            else if (ShouldStepOut(warp, destinationTile, tileX, tileY))
             {
                 spawn.Y += OracleRoomData.MetatileSize;
                 ClearDeactivatedWarp();

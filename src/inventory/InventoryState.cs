@@ -133,6 +133,38 @@ public sealed class InventoryState
         _ => false
     };
 
+    internal void CompleteHeartPieceSet(
+        TreasureDatabase.TreasureObjectRecord heartContainer)
+    {
+        ResetCompletedHeartPieceSet();
+        GiveCompletedHeartContainer(heartContainer);
+    }
+
+    internal void ResetCompletedHeartPieceSet()
+    {
+        if (HeartPieces != 4)
+            throw new InvalidOperationException("A completed Heart Piece set requires four pieces.");
+
+        // textbox.s:func_53eb clears wNumHeartPieces when the 30-update inline
+        // display fills its fourth quarter, before the player accepts TX_0049.
+        HeartPieces = 0;
+        NotifyChanged();
+    }
+
+    internal void GiveCompletedHeartContainer(
+        TreasureDatabase.TreasureObjectRecord heartContainer)
+    {
+        if (HeartPieces != 0 ||
+            heartContainer.TreasureId != TreasureDatabase.TreasureHeartContainer)
+        {
+            throw new InvalidOperationException(
+                "A completed Heart Piece display requires its reset counter and Heart Container treasure.");
+        }
+        // standardTextStatef calls giveTreasure(TREASURE_HEART_CONTAINER, $04)
+        // on the A/B press that replaces the piece text with TX_0049.
+        GiveTreasure(heartContainer);
+    }
+
     public int StorageItemAt(int index) =>
         index >= 0 && index < InventoryCapacity ? _inventoryStorage[index] : ItemNone;
 

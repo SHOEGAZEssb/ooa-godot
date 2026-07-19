@@ -16,7 +16,8 @@ public sealed class NpcDialogueRuleDatabase
     private enum StateKind
     {
         GameProgress1,
-        GameProgress2
+        GameProgress2,
+        CurrentRoomFlag
     }
 
     private readonly record struct Rule(
@@ -61,6 +62,7 @@ public sealed class NpcDialogueRuleDatabase
             {
                 "game-progress-1" => StateKind.GameProgress1,
                 "game-progress-2" => StateKind.GameProgress2,
+                "current-room-flag" => StateKind.CurrentRoomFlag,
                 _ => throw new InvalidOperationException(
                     $"Unknown NPC dialogue state kind '{fields[3]}'.")
             };
@@ -78,6 +80,7 @@ public sealed class NpcDialogueRuleDatabase
             if (value < 0 ||
                 kind == StateKind.GameProgress1 && value > 5 ||
                 kind == StateKind.GameProgress2 && value > 7 ||
+                kind == StateKind.CurrentRoomFlag && value == 0 ||
                 textId == 0 || string.IsNullOrEmpty(message) ||
                 !uniqueRules.Add((id, subId, var03, kind, value, linked)))
             {
@@ -108,7 +111,7 @@ public sealed class NpcDialogueRuleDatabase
         List<Rule> matches = rules.Where(rule =>
             (rule.Var03 < 0 || rule.Var03 == npc.Var03) &&
             (rule.Linked < 0 || rule.Linked == (save.IsLinkedGame ? 1 : 0)) &&
-            GetState(rule, save) == rule.Value).ToList();
+            GetState(rule, npc, save) == rule.Value).ToList();
         if (matches.Count > 1)
         {
             throw new InvalidOperationException(
@@ -121,10 +124,15 @@ public sealed class NpcDialogueRuleDatabase
         return true;
     }
 
-    private static int GetState(Rule rule, OracleSaveData save) => rule.Kind switch
+    private static int GetState(
+        Rule rule,
+        NpcDatabase.NpcRecord npc,
+        OracleSaveData save) => rule.Kind switch
     {
         StateKind.GameProgress1 => NpcVisibilityRuleDatabase.GetGameProgress1(save),
         StateKind.GameProgress2 => NpcVisibilityRuleDatabase.GetGameProgress2(save),
+        StateKind.CurrentRoomFlag => save.HasRoomFlag(
+            npc.Group, npc.Room, (byte)rule.Value) ? rule.Value : 0,
         _ => throw new InvalidOperationException(
             $"Unhandled NPC dialogue rule from {rule.Source}.")
     };

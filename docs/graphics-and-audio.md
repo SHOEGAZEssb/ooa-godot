@@ -2,9 +2,12 @@
 
 ## Graphics resource ownership
 
-Imported PNGs are Godot resources. Runtime code loads them through
-`ResourceLoader` with cache reuse, via `OracleGraphicsCache`, instead of reading
-PNG bytes and decoding a new image for every NPC or animation change.
+Imported PNGs are normally Godot resources. Runtime code loads them through
+`ResourceLoader` with cache reuse, via `OracleGraphicsCache`. Immediately after
+the stable importer adds a new generated PNG, a clean checkout may not yet have
+its editor-generated `.import` sidecar; the same cache then decodes that source
+file once and retains the immutable result. Callers never decode a new image
+for every NPC or animation change.
 
 `OracleGraphicsCache` owns three immutable layers:
 
@@ -49,6 +52,11 @@ tentative TileMapLayer migration is documented in [TODO.md](../TODO.md).
 programs. The persistent `OracleSoundEngine` in `main.tscn` advances the
 sequencer at 60 original updates per second and owns square, wave, noise, channel
 priority, music/SFX replacement, fades, envelopes, vibrato, and pitch behavior.
+Like the original `playSound`, an ordinary music or SFX request cancels an
+active NR50 fade and restores full master volume. This matters when a cutscene
+invalidates `wActiveMusic`, issues a sound-control fade, and arms a room warp in
+the same update: the destination room's music request replaces the cutscene
+track during the room load instead of waiting for the fade to run to silence.
 
 Gameplay code requests original sound IDs at the original update. If the source
 chooses a variation with the global game RNG (for example sword sounds), consume

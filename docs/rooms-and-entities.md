@@ -97,6 +97,12 @@ stop Link one rendered pixel before contact. Object-side separation helpers may
 then replace only the collided coordinate's high byte while retaining its
 fractional byte.
 
+Room interaction spawners can produce reusable entities without becoming room
+exceptions. `$dc:$07` ground treasures are emitted after placed NPCs and before
+portals/enemies in original object order, expose collision through
+`ILinkContactEntity`, and use `IRoomEntityLifetime` to disappear only after the
+pickup textbox closes. Their room-item bit is checked on every room parse.
+
 See [NPCs and room events](npcs-and-events.md) for deciding whether an imported
 interaction remains an ordinary NPC, receives a specialized room-entity
 adapter, or is coordinated by `RoomEventController`.

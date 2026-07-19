@@ -408,6 +408,9 @@ internal interface ICutsceneCommandHost
     void MoveActorAtSpeed(string actor, int speed, int angle);
     void SetActorZ(string actor, int zFixed);
     void SetActorVisible(string actor, bool visible);
+    void WriteObjectByte(string actor, int address, int value)
+    {
+    }
     Vector2 GetActorPosition(CutsceneActorId actor) =>
         throw new InvalidOperationException($"Actor '{actor}' does not support translated movement.");
     void SetActorPosition(
