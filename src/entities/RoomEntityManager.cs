@@ -14,6 +14,7 @@ public sealed class RoomEntityManager
     public event Action<TimePortal>? TimePortalEntered;
     internal event Action<int, string>? DungeonEntranceTriggered;
     internal event Action<GroundTreasurePickup, Player>? GroundTreasureCollected;
+    internal event Action<Vector2, OracleRoomData.HazardType>? ItemDropEnteredHazard;
     public event Action<int>? SoundRequested;
     private readonly Node _worldRoot;
     private readonly RoomEntityFactory _factory;
@@ -97,6 +98,7 @@ public sealed class RoomEntityManager
             _saveData, _runtimeState, OnTimePortalEntered,
             () => GroundTreasureCollectionAllowed(),
             OnGroundTreasureCollected, OnDungeonEntranceTriggered,
+            OnItemDropEnteredHazard,
             OnSoundRequested);
         if (_saveData is not null)
             _saveData.Changed += RefreshNpcState;
@@ -417,6 +419,9 @@ public sealed class RoomEntityManager
         Player player) => GroundTreasureCollected?.Invoke(treasure, player);
     private void OnDungeonEntranceTriggered(int textId, string message) =>
         DungeonEntranceTriggered?.Invoke(textId, message);
+    private void OnItemDropEnteredHazard(
+        Vector2 position,
+        OracleRoomData.HazardType hazard) => ItemDropEnteredHazard?.Invoke(position, hazard);
     private void OnSoundRequested(int sound) => SoundRequested?.Invoke(sound);
 
     private static List<T> SelectNodes<T>(IEnumerable<IRoomEntity> entities) where T : Node2D

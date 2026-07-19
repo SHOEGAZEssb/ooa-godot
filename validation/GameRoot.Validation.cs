@@ -3214,18 +3214,65 @@ public sealed class ValidationGameRoot : GameRoot
         if (!_mapScreen.DebugFastTravel || _mapScreen.Mode != MapScreen.MapMode.Past)
             throw new InvalidOperationException(
                 "Debug fast travel did not retain the most recent past-overworld map from dungeon 0d.");
-        _mapScreen.ToggleDebugWorld();
-        if (_mapScreen.Mode != MapScreen.MapMode.Present)
-            throw new InvalidOperationException("Debug fast travel did not switch from past to present.");
-        _mapScreen.MoveOverworldCursor(Vector2I.Right);
-        if (!_mapScreen.TryGetFastTravelTarget(out int group, out int room) ||
-            group != 0 || room != 0x12)
+        _mapScreen.CycleDebugPage();
+        bool hasTarget = _mapScreen.TryGetFastTravelTarget(out int group, out int room);
+        if (_mapScreen.Mode != MapScreen.MapMode.Interior || _mapScreen.InteriorGroup != 2 ||
+            !hasTarget || group != 2 || room != 0x11)
         {
             throw new InvalidOperationException(
-                $"Expected present fast-travel target 0:12, got {group}:{room:x2}.");
+                $"Expected first interior fast-travel page at 2:11, got " +
+                $"{_mapScreen.Mode} / {group}:{room:x2}.");
+        }
+        _mapScreen.CycleDebugPage();
+        if (_mapScreen.InteriorGroup != 3 ||
+            !_mapScreen.TryGetFastTravelTarget(out group, out room) || group != 3 || room != 0x11)
+        {
+            throw new InvalidOperationException(
+                $"Expected second interior fast-travel page at 3:11, got {group}:{room:x2}.");
+        }
+        _mapScreen.CycleDebugPage();
+        if (_mapScreen.InteriorGroup != 4 || _mapScreen.CursorRoom != 0x09)
+            throw new InvalidOperationException("Group 4 interior page did not select active room 4:09.");
+        mapMoveRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
+        for (int step = 0; step < 10; step++)
+        {
+            if (!_mapMenu.NavigateForValidation(Vector2I.Left))
+                throw new InvalidOperationException("The interior room cursor rejected a left move.");
+        }
+        if (_mapScreen.CursorRoom != 0x0f ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != mapMoveRequests + 10)
+        {
+            throw new InvalidOperationException(
+                $"The 16x16 interior cursor did not wrap 09 left to 0f with ten move sounds; " +
+                $"got {_mapScreen.CursorRoom:x2}.");
+        }
+        _mapScreen.CycleDebugPage();
+        if (_mapScreen.InteriorGroup != 5 ||
+            !_mapScreen.TryGetFastTravelTarget(out group, out room) || group != 5 || room != 0x11)
+        {
+            throw new InvalidOperationException(
+                $"Expected fourth interior fast-travel page at 5:11, got {group}:{room:x2}.");
+        }
+        _mapScreen.CycleDebugPage();
+        if (_mapScreen.Mode != MapScreen.MapMode.Present ||
+            !_mapScreen.TryGetFastTravelTarget(out group, out room) || group != 0 || room != 0x11)
+        {
+            throw new InvalidOperationException(
+                $"Interior group 5 did not cycle back to present room 0:11; got {group}:{room:x2}.");
+        }
+        _mapScreen.CycleDebugPage();
+        _mapScreen.CycleDebugPage();
+        _mapScreen.CycleDebugPage();
+        _mapScreen.CycleDebugPage();
+        if (_mapScreen.Mode != MapScreen.MapMode.Interior || _mapScreen.InteriorGroup != 4 ||
+            _mapScreen.CursorRoom != 0x0f ||
+            !_mapScreen.TryGetFastTravelTarget(out group, out room) || group != 4 || room != 0x0f)
+        {
+            throw new InvalidOperationException(
+                $"Group 4 did not retain interior selection 4:0f; got {group}:{room:x2}.");
         }
         if (!_mapMenu.BeginTravelToSelectionForValidation())
-            throw new InvalidOperationException("Debug map rejected the valid present target 0:12.");
+            throw new InvalidOperationException("Debug map rejected the valid interior target 4:0f.");
         for (int frame = 0; frame < MapMenuController.FastFadeFrames - 1; frame++)
         {
             _mapMenu.Update(1.0 / 60.0);
@@ -3233,10 +3280,10 @@ public sealed class ValidationGameRoot : GameRoot
                 throw new InvalidOperationException("Debug fast travel loaded before the fade reached white.");
         }
         _mapMenu.Update(1.0 / 60.0);
-        if (_rooms.ActiveGroup != 0 || _rooms.CurrentRoom.Id != 0x12)
+        if (_rooms.ActiveGroup != 4 || _rooms.CurrentRoom.Id != 0x0f)
         {
             throw new InvalidOperationException(
-                "Debug map fast travel did not load present room 0:12 at full white.");
+                "Debug map fast travel did not load interior room 4:0f at full white.");
         }
         for (int frame = 0; frame < MapMenuController.FastFadeFrames; frame++)
             _mapMenu.Update(1.0 / 60.0);
@@ -3248,7 +3295,8 @@ public sealed class ValidationGameRoot : GameRoot
             "expansion, map/compass floor and " +
             "boss/treasure reveals, SND_OPENMENU/SND_MENU_MOVE boundaries, 14x14 cursor " +
             "wrapping, 32-update marker blink, 11-update " +
-            "fast fades, Link input freezing, and dungeon-to-overworld debug fast travel.");
+            "fast fades, Link input freezing, 16x16 group 2-5 interior browsing, per-page " +
+            "selection retention, and fade-safe interior debug fast travel.");
     }
 
     private void LoadValidationRoom(int group, int room)
@@ -5735,6 +5783,9 @@ public sealed class ValidationGameRoot : GameRoot
 
         _player.RefillHealth();
         _player.ApplyDamage(4);
+        _statusBar.SynchronizeHealth();
+        int heartSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndGainHeart);
+        int displayedHealthBefore = _hud.HealthQuarters;
         var heartDrop = new ItemDropEffect();
         heartDrop.Initialize(
             ItemDropDatabase.Heart, dropPosition, _currentRoom, heartVisual);
@@ -5743,18 +5794,63 @@ public sealed class ValidationGameRoot : GameRoot
         _player.WarpTo(dropPosition, recordSafe: false);
         heartDrop.UpdateFrame(_player, 37);
         if (!heartDrop.Collected || !heartDrop.Finished ||
-            _player.HealthQuarters != _player.MaxHealthQuarters)
+            _player.HealthQuarters != _player.MaxHealthQuarters ||
+            _hud.HealthQuarters != displayedHealthBefore ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGainHeart) != heartSoundRequests)
         {
             throw new InvalidOperationException(
-                "Collecting ITEM_DROP_HEART did not restore four quarter-heart units and delete the drop.");
+                "Collecting ITEM_DROP_HEART did not restore live health immediately while " +
+                "leaving wDisplayedHearts and SND_GAINHEART pending.");
         }
         heartDrop.Free();
+
+        var healthDisplayUpdates = new List<int>();
+        int previousDisplayedHealth = _hud.HealthQuarters;
+        for (int update = 1; update <= 16; update++)
+        {
+            _statusBar.Update(1.0 / 60.0);
+            if (_hud.HealthQuarters != previousDisplayedHealth)
+            {
+                healthDisplayUpdates.Add(update);
+                previousDisplayedHealth = _hud.HealthQuarters;
+            }
+        }
+        if (_hud.HealthQuarters != _player.HealthQuarters ||
+            healthDisplayUpdates.Count != 4 ||
+            healthDisplayUpdates.Skip(1).Zip(healthDisplayUpdates, (next, prior) => next - prior)
+                .Any(interval => interval != 4) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGainHeart) != heartSoundRequests + 1)
+        {
+            throw new InvalidOperationException(
+                "ITEM_DROP_HEART did not fill one displayed quarter every four updates and " +
+                "request SND_GAINHEART `$57 on the completed-heart boundary.");
+        }
+
+        _statusBar.SynchronizeHealth();
+        heartSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndGainHeart);
+        var fullHealthDrop = new ItemDropEffect();
+        fullHealthDrop.Initialize(
+            ItemDropDatabase.Heart, dropPosition, _currentRoom, heartVisual);
+        _player.WarpTo(farPosition, recordSafe: false);
+        for (int frame = 1; frame <= 36; frame++)
+            fullHealthDrop.UpdateFrame(_player, frame);
+        _player.WarpTo(dropPosition, recordSafe: false);
+        fullHealthDrop.UpdateFrame(_player, 37);
+        if (!fullHealthDrop.Collected || _player.HealthQuarters != _player.MaxHealthQuarters ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGainHeart) != heartSoundRequests + 1)
+        {
+            throw new InvalidOperationException(
+                "ITEM_DROP_HEART collected at full health did not request SND_GAINHEART `$57 immediately.");
+        }
+        fullHealthDrop.Free();
 
         ValidateRupeeItemDrop(oneRupeeVisual, ItemDropDatabase.OneRupee, 1, dropPosition);
         ValidateRupeeItemDrop(fiveRupeeVisual, ItemDropDatabase.FiveRupees, 5, dropPosition);
         ValidateRupeeItemDrop(
             hundredRupeeVisual, ItemDropDatabase.OneHundredRupeesOrEnemy,
             100, dropPosition);
+        ValidateRupeeCountDown();
+        ValidateCappedRupeeItemDrop(oneRupeeVisual, dropPosition);
 
         _player.WarpTo(farPosition, recordSafe: false);
         var expiryDrop = new ItemDropEffect();
@@ -5806,10 +5902,14 @@ public sealed class ValidationGameRoot : GameRoot
         if (_entities.OutgoingEntities<ItemDropEffect>().Count != 0)
             throw new InvalidOperationException("The outgoing item drop survived completed scrolling.");
 
+        ValidateItemDropWaterSplash(oneRupeeVisual);
+
         _player.RefillHealth();
         GD.Print("Validated all 144 enemy drop records, Keese `$ae probability/set data, " +
             "PART_ITEM_DROP heart/1/5/100-rupee visuals, shovel SPEED_a0 launch, " +
-            "-`$160 fixed-point bounce, pickup rewards, " +
+            "-`$160 fixed-point bounce, heart `$57 and rupee `$61 pickup sounds, " +
+            "ground-height INTERAC_SPLASH/`$87 water disposal, one-per-update rupee display and " +
+            "SND_RUPEE `$61 requests including the `$0999 cap, " +
             "240 alternating-frame lifetime ticks, final flicker, and frozen scrolling ownership.");
     }
 
@@ -5819,7 +5919,12 @@ public sealed class ValidationGameRoot : GameRoot
         int amount,
         Vector2 position)
     {
+        if (_player.Rupees + amount > 999)
+            _inventory.AddRupees(800 - _player.Rupees);
+        _statusBar.SynchronizeRupees();
         int rupeesBefore = _player.Rupees;
+        int displayedBefore = _hud.Rupees;
+        int soundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndRupee);
         _player.WarpTo(position + Vector2.Right * 40.0f, recordSafe: false);
         var drop = new ItemDropEffect();
         drop.Initialize(subId, position, _currentRoom, visual);
@@ -5828,12 +5933,121 @@ public sealed class ValidationGameRoot : GameRoot
         _player.WarpTo(position, recordSafe: false);
         drop.UpdateFrame(_player, 37);
         if (!drop.Collected || _player.Rupees != Mathf.Min(999, rupeesBefore + amount) ||
-            _hud.Rupees != _player.Rupees)
+            _hud.Rupees != displayedBefore ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndRupee) != soundRequests)
         {
             throw new InvalidOperationException(
-                $"Collecting PART_ITEM_DROP ${subId:x2} did not add {amount} rupee(s) to Link and the HUD.");
+                $"Collecting PART_ITEM_DROP ${subId:x2} did not update the wallet immediately " +
+                "while leaving wDisplayedRupees and SND_RUPEE pending for updateStatusBar_body.");
+        }
+        for (int update = 1; update <= amount; update++)
+        {
+            _statusBar.Update(1.0 / 60.0);
+            if (_hud.Rupees != displayedBefore + update ||
+                _sound.PlayRequestsFor(OracleSoundEngine.SndRupee) != soundRequests + update)
+            {
+                throw new InvalidOperationException(
+                    $"PART_ITEM_DROP ${subId:x2} rupee display update {update}/{amount} did not " +
+                    "advance by one and request SND_RUPEE `$61 exactly once.");
+            }
         }
         drop.Free();
+    }
+
+    private void ValidateRupeeCountDown()
+    {
+        _statusBar.SynchronizeRupees();
+        int displayedBefore = _hud.Rupees;
+        int soundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndRupee);
+        _inventory.AddRupees(-3);
+        for (int update = 1; update <= 3; update++)
+        {
+            _statusBar.Update(1.0 / 60.0);
+            if (_hud.Rupees != displayedBefore - update ||
+                _sound.PlayRequestsFor(OracleSoundEngine.SndRupee) != soundRequests + update)
+            {
+                throw new InvalidOperationException(
+                    $"Rupee display countdown update {update}/3 did not subtract one and " +
+                    "request SND_RUPEE `$61 exactly once.");
+            }
+        }
+        _inventory.AddRupees(3);
+        _statusBar.SynchronizeRupees();
+    }
+
+    private void ValidateCappedRupeeItemDrop(
+        ItemDropDatabase.VisualRecord visual,
+        Vector2 position)
+    {
+        int restoreRupees = _player.Rupees;
+        _inventory.AddRupees(999 - restoreRupees);
+        _statusBar.SynchronizeRupees();
+        int soundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndRupee);
+
+        _player.WarpTo(position + Vector2.Right * 40.0f, recordSafe: false);
+        var drop = new ItemDropEffect();
+        drop.Initialize(ItemDropDatabase.OneRupee, position, _currentRoom, visual);
+        for (int frame = 1; frame <= 36; frame++)
+            drop.UpdateFrame(_player, frame);
+        _player.WarpTo(position, recordSafe: false);
+        drop.UpdateFrame(_player, 37);
+        _statusBar.Update(1.0 / 60.0);
+        if (!drop.Collected || _player.Rupees != 999 || _hud.Rupees != 999 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndRupee) != soundRequests + 1)
+        {
+            throw new InvalidOperationException(
+                "A PART_ITEM_DROP rupee collected at the `$0999 cap did not retain the cap " +
+                "and request the mode `$0e overflow SND_RUPEE `$61 exactly once; got " +
+                $"collected={drop.Collected}, wallet={_player.Rupees}, displayed={_hud.Rupees}, " +
+                $"sound requests={_sound.PlayRequestsFor(OracleSoundEngine.SndRupee) - soundRequests}.");
+        }
+        drop.Free();
+
+        _inventory.AddRupees(restoreRupees - _player.Rupees);
+        _statusBar.SynchronizeRupees();
+    }
+
+    private void ValidateItemDropWaterSplash(ItemDropDatabase.VisualRecord visual)
+    {
+        const int group = 0;
+        const int room = 0xb8;
+        Vector2 waterCenter = new(8, 8);
+        Vector2 safePosition = new(40, 8);
+        LoadValidationRoom(group, room);
+        if (_currentRoom.GetTerrainInfo(waterCenter + new Vector2(0, 5)).Hazard !=
+            OracleRoomData.HazardType.Water)
+        {
+            throw new InvalidOperationException(
+                "Canonical room 0:b8 position `$00 is not water for PART_ITEM_DROP validation.");
+        }
+
+        _player.WarpTo(safePosition, recordSafe: false);
+        int splashSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSplash);
+        SplashEffect? priorSplash = _terrain.ActiveSplash;
+        ItemDropEffect drop = _entities.Spawn<ItemDropEffect>(
+            new ItemDropSpawn(ItemDropDatabase.OneRupee, waterCenter));
+
+        for (int update = 1; update <= 23; update++)
+        {
+            _entities.Update(1.0 / 60.0, _player);
+            if (drop.Finished || _terrain.ActiveSplash != priorSplash)
+            {
+                throw new InvalidOperationException(
+                    $"PART_ITEM_DROP created its water splash while still airborne on update {update}.");
+            }
+        }
+        _entities.Update(1.0 / 60.0, _player);
+        SplashEffect? splash = _terrain.ActiveSplash;
+        if (!drop.Finished || drop.FinishedHazard != OracleRoomData.HazardType.Water ||
+            _entities.Entities<ItemDropEffect>().Count != 0 || splash is null ||
+            ReferenceEquals(splash, priorSplash) || splash.IsLava ||
+            splash.Position != waterCenter || splash.DurationFrames != 12 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) != splashSoundRequests + 1)
+        {
+            throw new InvalidOperationException(
+                $"PART_ITEM_DROP did not become INTERAC_SPLASH with SND_SPLASH `$87 on " +
+                $"ground-height update 24 in room {group:x1}:{room:x2}.");
+        }
     }
 
     private static Vector2 FindOpenItemDropPosition(OracleRoomData room)
@@ -5955,6 +6169,7 @@ public sealed class ValidationGameRoot : GameRoot
         int healthBeforeDrowning = _player.HealthQuarters;
         int worldChildCount = _scene.WorldRoot.GetChildCount();
         int damageSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink);
+        int splashSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSplash);
 
         _player._PhysicsProcess(1.0 / 60.0);
         SplashEffect? splash = _terrain.ActiveSplash;
@@ -5992,11 +6207,13 @@ public sealed class ValidationGameRoot : GameRoot
         if (!_player.IsDrowning || !_player.Visible || _player.DrownAnimationFrame != 0)
             throw new InvalidOperationException(
                 $"{terrainName} terrain did not begin visible LINK_ANIM_MODE_DROWN frame $d4.");
-        if (_sound.LastPlayRequest != OracleSoundEngine.SndDamageLink ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1)
+        if (_sound.LastPlayRequest != OracleSoundEngine.SndSplash ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) != splashSoundRequests + 1)
         {
             throw new InvalidOperationException(
-                $"{terrainName} drowning did not start exactly one SND_DAMAGE_LINK $5f request.");
+                $"{terrainName} drowning did not request SND_DAMAGE_LINK `$5f followed by " +
+                "the splash interaction's SND_SPLASH `$87 exactly once.");
         }
         if (_player.HealthQuarters != healthBeforeDrowning)
             throw new InvalidOperationException(
@@ -6275,19 +6492,26 @@ public sealed class ValidationGameRoot : GameRoot
     {
         _dialogue.Close();
         _player.RefillHealth();
-        SyncHudToInventory();
+        _statusBar.SynchronizeHealth();
 
         if (_player.HealthQuarters != 12 || _hud.HealthQuarters != 12 ||
             _hud.MaxHealthQuarters != _player.MaxHealthQuarters)
             throw new InvalidOperationException("Expected Link and the HUD to start with three full hearts.");
 
         _player.ApplyDamage(1);
-        if (_player.HealthQuarters != 11 || _hud.HealthQuarters != 11)
-            throw new InvalidOperationException("Direct quarter-heart damage did not synchronize to the HUD.");
+        if (_player.HealthQuarters != 11 || _hud.HealthQuarters != 12)
+            throw new InvalidOperationException("Direct quarter-heart damage changed the HUD before its update.");
+        _statusBar.Update(1.0 / 60.0);
+        if (_hud.HealthQuarters != 11)
+            throw new InvalidOperationException("Displayed damage did not subtract one quarter per update.");
 
         _player.Heal(1);
-        if (_player.HealthQuarters != 12 || _hud.HealthQuarters != 12)
-            throw new InvalidOperationException("Direct quarter-heart healing did not synchronize to the HUD.");
+        if (_player.HealthQuarters != 12 || _hud.HealthQuarters != 11)
+            throw new InvalidOperationException("Direct healing changed the HUD before its divisor-4 update.");
+        for (int update = 0; update < 4 && _hud.HealthQuarters != 12; update++)
+            _statusBar.Update(1.0 / 60.0);
+        if (_hud.HealthQuarters != 12)
+            throw new InvalidOperationException("Displayed healing did not add a quarter on a divisor-4 update.");
 
         _activeGroup = 0;
         ClearDeactivatedWarp();
@@ -6298,11 +6522,16 @@ public sealed class ValidationGameRoot : GameRoot
         _player.WarpTo(new Vector2(8, 24), recordSafe: false);
 
         ValidateDrowningSequence(safe, OracleRoomData.HazardType.Lava);
-        if (_player.HealthQuarters != 10 || _hud.HealthQuarters != 10)
+        if (_player.HealthQuarters != 10 || _hud.HealthQuarters != 12)
+            throw new InvalidOperationException(
+                "Lava hazard changed displayed health before updateStatusBar_body.");
+        _statusBar.Update(2.0 / 60.0);
+        if (_hud.HealthQuarters != 10)
             throw new InvalidOperationException(
                 "Lava hazard did not synchronize its delayed half-heart damage to the HUD.");
 
-        GD.Print("Validated quarter-heart health, HUD synchronization, and delayed half-heart terrain damage.");
+        GD.Print("Validated quarter-heart health, divisor-4 healing display/SND_GAINHEART cadence, " +
+            "per-update damage display, and delayed half-heart terrain damage.");
     }
 
     private void ValidateAnimations()

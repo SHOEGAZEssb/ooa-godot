@@ -9,7 +9,7 @@ namespace oracleofages;
 /// </summary>
 public partial class MapScreen : Node2D
 {
-    public enum MapMode { Present, Past, Dungeon }
+    public enum MapMode { Present, Past, Interior, Dungeon }
 
     private const int TilemapStride = 32;
     private const int ScreenColumns = 20;
@@ -18,6 +18,12 @@ public partial class MapScreen : Node2D
     private const int OverworldHeight = 14;
     private const int OverworldStartX = 3;
     private const int OverworldStartY = 2;
+    private const int FirstInteriorGroup = 2;
+    private const int LastInteriorGroup = 5;
+    private const int InteriorGridSize = 16;
+    private const int InteriorCellSize = 7;
+    private const int InteriorGridLeft = 24;
+    private const int InteriorGridTop = 20;
     private const int PopupFullyOpenSize = 4;
     internal const byte LocationArrowAttributes = 0x47;
 
@@ -71,6 +77,10 @@ public partial class MapScreen : Node2D
     private Color[,] _spritePalette = null!;
     private Color[,] _dungeonSpritePalette = null!;
     private int _cursorRoom;
+    private int _interiorGroup = FirstInteriorGroup;
+    private readonly int[] _interiorCursors = new int[LastInteriorGroup - FirstInteriorGroup + 1];
+    private readonly bool[] _interiorRoomAvailable = new bool[0x100];
+    private readonly bool[] _interiorRoomDungeon = new bool[0x100];
     private int _dungeonIndex = -1;
     private int _dungeonFloor;
     private DungeonMapDatabase.DungeonCell _dungeonLinkCell;
@@ -87,6 +97,7 @@ public partial class MapScreen : Node2D
 
     public MapMode Mode { get; private set; }
     public int CursorRoom => _cursorRoom;
+    public int InteriorGroup => _interiorGroup;
     public int DisplayedDungeonFloor => _dungeonFloor;
     public bool DebugFastTravel { get; private set; }
     public bool LocationArrowVisible => (((int)_frameCounter >> 5) & 1) == 0;
@@ -133,6 +144,9 @@ public partial class MapScreen : Node2D
         {
             MapMode mode = _rooms.MinimapGroup == 1 ? MapMode.Past : MapMode.Present;
             _cursorRoom = _rooms.MinimapRoom;
+            Array.Fill(_interiorCursors, _cursorRoom);
+            if (_rooms.ActiveGroup is >= FirstInteriorGroup and <= LastInteriorGroup)
+                _interiorCursors[_rooms.ActiveGroup - FirstInteriorGroup] = _rooms.CurrentRoom.Id;
             PrepareOverworld(revealAll: true, forcedMode: mode);
             Visible = true;
             QueueRedraw();
@@ -154,20 +168,41 @@ public partial class MapScreen : Node2D
         Visible = false;
     }
 
-    public void ToggleDebugWorld()
+    public void CycleDebugPage()
     {
         if (!DebugFastTravel)
             return;
-        MapMode mode = Mode == MapMode.Present ? MapMode.Past : MapMode.Present;
-        PrepareOverworld(revealAll: true, forcedMode: mode);
+        switch (Mode)
+        {
+            case MapMode.Present:
+                PrepareOverworld(revealAll: true, forcedMode: MapMode.Past);
+                break;
+            case MapMode.Past:
+                PrepareInterior(FirstInteriorGroup);
+                break;
+            case MapMode.Interior when _interiorGroup < LastInteriorGroup:
+                PrepareInterior(_interiorGroup + 1);
+                break;
+            case MapMode.Interior:
+                PrepareOverworld(revealAll: true, forcedMode: MapMode.Present);
+                break;
+            default:
+                return;
+        }
         QueueRedraw();
     }
 
     public bool TryGetFastTravelTarget(out int group, out int room)
     {
-        group = Mode == MapMode.Past ? 1 : 0;
+        group = Mode switch
+        {
+            MapMode.Present => 0,
+            MapMode.Past => 1,
+            MapMode.Interior => _interiorGroup,
+            _ => -1
+        };
         room = _cursorRoom;
-        return DebugFastTravel && Mode != MapMode.Dungeon && _rooms.World.HasRoom(group, room);
+        return DebugFastTravel && group >= 0 && _rooms.World.HasRoom(group, room);
     }
 
     public void Update(double delta)
@@ -199,6 +234,8 @@ public partial class MapScreen : Node2D
 
     internal bool Navigate(Vector2I direction)
     {
+        if (Mode == MapMode.Interior)
+            return MoveInteriorCursor(direction);
         if (Mode != MapMode.Dungeon)
             return MoveOverworldCursor(direction);
         if (direction == Vector2I.Up)
@@ -210,7 +247,7 @@ public partial class MapScreen : Node2D
 
     internal bool MoveOverworldCursor(Vector2I direction)
     {
-        if (Mode == MapMode.Dungeon || direction == Vector2I.Zero)
+        if (Mode is MapMode.Dungeon or MapMode.Interior || direction == Vector2I.Zero)
             return false;
         int x = _cursorRoom & 0x0f;
         int y = (_cursorRoom >> 4) & 0x0f;
@@ -222,10 +259,24 @@ public partial class MapScreen : Node2D
         return true;
     }
 
+    internal bool MoveInteriorCursor(Vector2I direction)
+    {
+        if (Mode != MapMode.Interior || direction == Vector2I.Zero)
+            return false;
+        int x = _cursorRoom & 0x0f;
+        int y = (_cursorRoom >> 4) & 0x0f;
+        x = (x + direction.X + InteriorGridSize) % InteriorGridSize;
+        y = (y + direction.Y + InteriorGridSize) % InteriorGridSize;
+        _cursorRoom = (y << 4) | x;
+        _interiorCursors[_interiorGroup - FirstInteriorGroup] = _cursorRoom;
+        QueueRedraw();
+        return true;
+    }
+
     public bool TryGetSelectedAreaText(out MapDataDatabase.MapText text)
     {
         text = default;
-        if (Mode == MapMode.Dungeon || DebugFastTravel)
+        if (Mode is MapMode.Dungeon or MapMode.Interior || DebugFastTravel)
             return false;
         int group = Mode == MapMode.Past ? 1 : 0;
         return _rooms.HasVisited(group, _cursorRoom) &&
@@ -241,6 +292,8 @@ public partial class MapScreen : Node2D
         DrawTexture(_background, Vector2.Zero);
         if (Mode == MapMode.Dungeon)
             DrawDungeonMarkers();
+        else if (Mode == MapMode.Interior)
+            DrawInteriorBrowser();
         else
             DrawOverworldMarkers();
     }
@@ -270,6 +323,26 @@ public partial class MapScreen : Node2D
         }
         _background = BuildBackground(map, flags);
         LoadPopupData();
+    }
+
+    private void PrepareInterior(int group)
+    {
+        if (group is < FirstInteriorGroup or > LastInteriorGroup)
+            throw new ArgumentOutOfRangeException(nameof(group));
+        if (Mode == MapMode.Interior)
+            _interiorCursors[_interiorGroup - FirstInteriorGroup] = _cursorRoom;
+        Mode = MapMode.Interior;
+        _dungeonIndex = -1;
+        _interiorGroup = group;
+        _cursorRoom = _interiorCursors[group - FirstInteriorGroup];
+        for (int room = 0; room <= 0xff; room++)
+        {
+            _interiorRoomAvailable[room] = _rooms.World.HasRoom(group, room);
+            _interiorRoomDungeon[room] = _interiorRoomAvailable[room] &&
+                _rooms.World.GetDungeonIndex(group, room) >= 0;
+        }
+        _background = BuildInteriorBackground();
+        ResetPopupAnimation();
     }
 
     private void PrepareDungeon(int dungeon)
@@ -518,6 +591,57 @@ public partial class MapScreen : Node2D
         }
     }
 
+    private void DrawInteriorBrowser()
+    {
+        Font font = ThemeDB.FallbackFont;
+        Color text = Color.Color8(232, 240, 224);
+        Color grid = Color.Color8(80, 104, 112);
+        Color ordinaryRoom = Color.Color8(72, 112, 136);
+        Color dungeonRoom = Color.Color8(72, 128, 104);
+        Color selected = Color.Color8(255, 224, 88);
+        Color current = Color.Color8(248, 248, 240);
+
+        DrawString(font, new Vector2(4, 9),
+            $"F NEXT   INTERIORS G{_interiorGroup:X1}   ROOM {_cursorRoom:X2}",
+            fontSize: 8, modulate: text);
+
+        const string hex = "0123456789ABCDEF";
+        for (int index = 0; index < InteriorGridSize; index++)
+        {
+            DrawString(font,
+                new Vector2(InteriorGridLeft + index * InteriorCellSize + 1, InteriorGridTop - 3),
+                hex[index].ToString(), fontSize: 7, modulate: text);
+            DrawString(font,
+                new Vector2(InteriorGridLeft - 8, InteriorGridTop + index * InteriorCellSize + 6),
+                hex[index].ToString(), fontSize: 7, modulate: text);
+        }
+
+        for (int room = 0; room <= 0xff; room++)
+        {
+            int x = room & 0x0f;
+            int y = room >> 4;
+            Vector2 position = new(
+                InteriorGridLeft + x * InteriorCellSize,
+                InteriorGridTop + y * InteriorCellSize);
+            Rect2 cell = new(position, new Vector2(InteriorCellSize - 1, InteriorCellSize - 1));
+            if (_interiorRoomAvailable[room])
+                DrawRect(cell, _interiorRoomDungeon[room] ? dungeonRoom : ordinaryRoom);
+            else
+                DrawRect(cell, grid, filled: false, width: 1.0f);
+
+            if (_rooms.ActiveGroup == _interiorGroup && _rooms.CurrentRoom.Id == room)
+                DrawCircle(position + new Vector2(3, 3), 1.0f, current);
+        }
+
+        Vector2 selectedPosition = new(
+            InteriorGridLeft + (_cursorRoom & 0x0f) * InteriorCellSize,
+            InteriorGridTop + (_cursorRoom >> 4) * InteriorCellSize);
+        DrawRect(new Rect2(selectedPosition - Vector2.One,
+            new Vector2(InteriorCellSize + 1, InteriorCellSize + 1)),
+            selected, filled: false, width: 1.0f);
+        DrawString(font, new Vector2(4, 142), "A WARP   GREEN DUNGEON", fontSize: 8, modulate: text);
+    }
+
     private void DrawDungeonMarkers()
     {
         DrawDungeonItemSprites();
@@ -587,6 +711,14 @@ public partial class MapScreen : Node2D
         (OverworldStartX + (room & 0x0f)) * 8,
         (OverworldStartY + ((room >> 4) & 0x0f)) * 8);
 
+    private static Texture2D BuildInteriorBackground()
+    {
+        Image image = Image.CreateEmpty(
+            OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight, false, Image.Format.Rgba8);
+        image.Fill(Color.Color8(24, 40, 48));
+        return ImageTexture.CreateFromImage(image);
+    }
+
     private static int GetDungeonSymbolY(int dungeon)
     {
         int[] positions = { 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50,
@@ -630,7 +762,7 @@ public partial class MapScreen : Node2D
 
     private void LoadPopupData()
     {
-        if (Mode == MapMode.Dungeon)
+        if (Mode is MapMode.Dungeon or MapMode.Interior)
             return;
         int group = Mode == MapMode.Past ? 1 : 0;
         int popupByte = _rooms.HasVisited(group, _cursorRoom)

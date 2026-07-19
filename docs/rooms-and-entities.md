@@ -110,6 +110,12 @@ the allow-holes front/current tile probes before movement. Horizontal movement
 ends with the bounce; it must not leak into ordinary drops or grounded lifetime
 updates.
 
+Item drops use `objectCheckIsOnHazard`, so water, lava, and holes do not consume
+them while their Z high byte is negative. On the first ground-height hazard
+update, water and lava replace the drop with their corresponding splash
+interaction at the drop position. Hole disposal remains distinct and must not be
+routed through the splash effect.
+
 Dynamic blocker collision compares the high-byte pixel coordinates of both
 objects, matching `checkObjectsCollided`; fractional 8.8 position bytes must not
 stop Link one rendered pixel before contact. Object-side separation helpers may

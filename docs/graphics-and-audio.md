@@ -75,6 +75,20 @@ chooses a variation with the global game RNG (for example sword sounds), consume
 `OracleRandom`; never use a separate nondeterministic RNG because it changes
 later enemies and drops.
 
+The live rupee wallet and `wDisplayedRupees` are distinct. The wallet changes
+immediately, while the status bar moves one rupee toward it on each original
+update and requests `SND_RUPEE` (`$61`) for every step. A grant that exceeds the
+`$0999` BCD cap also requests `SND_RUPEE`, even when the displayed count is
+already full.
+
+Health likewise remains distinct from `wDisplayedHearts`. Damage removes one
+displayed quarter per update. Healing adds one quarter every four updates and
+requests `SND_GAINHEART` (`$57`) whenever that fills a complete heart; attempting
+to collect a heart at full health requests the sound immediately. Item drops
+ignore hazards while airborne, then create `INTERAC_SPLASH`/`INTERAC_LAVASPLASH`
+and request `SND_SPLASH` (`$87`) on their first ground-height update over water
+or lava.
+
 Accepted enemy contact requests `SND_DAMAGE_LINK` (`$5f`) once; invincibility
 rejects both the damage and a repeated request. Drowning requests that same
 sound when the drowning animation and splash begin, not when respawn damage is

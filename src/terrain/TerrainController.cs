@@ -8,15 +8,21 @@ public sealed class TerrainController
     private readonly Node _worldRoot;
     private readonly RoomSession _rooms;
     private readonly Func<Vector2, bool> _collides;
+    private readonly Action<int> _playSound;
     private SplashEffect? _activeSplash;
 
     internal SplashEffect? ActiveSplash => _activeSplash;
 
-    public TerrainController(Node worldRoot, RoomSession rooms, Func<Vector2, bool> collides)
+    public TerrainController(
+        Node worldRoot,
+        RoomSession rooms,
+        Func<Vector2, bool> collides,
+        Action<int> playSound)
     {
         _worldRoot = worldRoot;
         _rooms = rooms;
         _collides = collides;
+        _playSound = playSound;
     }
 
     public OracleRoomData.TerrainInfo GetTerrainInfo(Vector2 playerPosition)
@@ -73,11 +79,14 @@ public sealed class TerrainController
         return true;
     }
 
-    public void SpawnDrowningSplash(Vector2 position, OracleRoomData.HazardType hazard)
+    public void SpawnSplash(Vector2 position, OracleRoomData.HazardType hazard)
     {
+        if (hazard is not (OracleRoomData.HazardType.Water or OracleRoomData.HazardType.Lava))
+            throw new ArgumentOutOfRangeException(nameof(hazard));
         _activeSplash = new SplashEffect { ZIndex = 11 };
         _activeSplash.Initialize(position, hazard);
         _worldRoot.AddChild(_activeSplash);
+        _playSound(OracleSoundEngine.SndSplash);
     }
 
     private static bool IsCliffTile(byte tile, Vector2I direction)

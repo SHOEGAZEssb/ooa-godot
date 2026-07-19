@@ -68,6 +68,13 @@ or seeds do not emit nested change notifications; the completed transaction
 notifies and serializes observers once. This keeps HUD refreshes and persistence
 hooks from seeing partial or duplicate commits.
 
+The saved/live rupee wallet is authoritative and updates immediately. The HUD's
+transient displayed rupees are not save data; the status-bar controller advances
+them by one per original update until they match the wallet.
+
+Live health is authoritative under the same split. The HUD's transient displayed
+health catches up using the original damage and healing cadence and is not saved.
+
 The F1 debug editor follows the same ownership boundaries: linked-game state is
 written through the typed `$c612` save accessor, and item grants select an
 imported treasure object and pass it through `InventoryState`. Debug changes do

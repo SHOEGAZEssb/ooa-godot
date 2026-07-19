@@ -36,6 +36,7 @@ public partial class ItemDropEffect : Node2D
     public int SubId { get; private set; }
     public bool Finished { get; private set; }
     public bool Collected { get; private set; }
+    internal OracleRoomData.HazardType FinishedHazard { get; private set; }
     internal DropState State => _state;
     internal int ZFixed => _zFixed;
     internal int SpeedZ => _speedZ;
@@ -90,8 +91,19 @@ public partial class ItemDropEffect : Node2D
         if (_state == DropState.Bouncing)
         {
             UpdateBounce();
-            if (_room.GetTerrainInfo(Position).Hazard != OracleRoomData.HazardType.None)
-                FinishWithoutCollection();
+            // objectCheckIsOnHazard ignores an object while zh is negative.
+            // On the first ground-height update, the hazard replaces the drop
+            // instead of allowing another bounce.
+            if (_zFixed == 0)
+            {
+                OracleRoomData.HazardType hazard = _room.GetTerrainInfo(
+                    Position + new Vector2(0, 5)).Hazard;
+                if (hazard != OracleRoomData.HazardType.None)
+                {
+                    FinishedHazard = hazard;
+                    FinishWithoutCollection();
+                }
+            }
             QueueRedraw();
             return;
         }

@@ -16,6 +16,7 @@ internal sealed class RoomEntityFactory(
     Func<bool> groundTreasureCollectionAllowed,
     Action<GroundTreasurePickup, Player> groundTreasureCollected,
     Action<int, string> dungeonEntranceTriggered,
+    Action<Vector2, OracleRoomData.HazardType> itemDropEnteredHazard,
     Action<int> soundRequested)
 {
     private readonly Room148PickaxeDatabase _room148 = new();
@@ -408,7 +409,7 @@ internal sealed class RoomEntityFactory(
         drop.Initialize(
             spawn.SubId, spawn.Position, room, itemDrops.GetVisual(spawn.SubId),
             spawn.Angle, spawn.DugUp);
-        return new ItemDropRoomEntity(drop);
+        return new ItemDropRoomEntity(drop, itemDropEnteredHazard);
     }
 
     private static IRoomEntity CreateCutsceneNpc(CutsceneNpcSpawn spawn)

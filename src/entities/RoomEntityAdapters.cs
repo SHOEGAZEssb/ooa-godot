@@ -299,12 +299,21 @@ internal sealed class KillPuffRoomEntity(KillEnemyPuffEffect puff)
     public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }
 
-internal sealed class ItemDropRoomEntity(ItemDropEffect drop)
+internal sealed class ItemDropRoomEntity(
+    ItemDropEffect drop,
+    Action<Vector2, OracleRoomData.HazardType> enteredHazard)
     : RoomEntityAdapter<ItemDropEffect>(drop, drop.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomEntityLifetime
 {
     public bool Finished => Entity.Finished;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Player, frame.Counter);
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
+    public void OnFinished(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (Entity.FinishedHazard is
+            OracleRoomData.HazardType.Water or OracleRoomData.HazardType.Lava)
+        {
+            enteredHazard(Entity.Position, Entity.FinishedHazard);
+        }
+    }
 }

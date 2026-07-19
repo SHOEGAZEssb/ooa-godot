@@ -40,6 +40,7 @@ public partial class GameRoot : Node2D
     internal GameSceneGraph _scene = null!;
     internal TreasureDatabase _treasures = null!;
     internal InventoryState _inventory = null!;
+    internal StatusBarController _statusBar = null!;
     internal OracleSaveData _saveData = null!;
     internal OracleRandom _random = null!;
     internal DeathRespawnPointController _deathRespawnPoints = null!;
@@ -210,6 +211,7 @@ public partial class GameRoot : Node2D
         _dialogue.SetSoundPlayer(_sound.PlaySound);
         _dialogue.MessageSpeed = _saveData.TextSpeed;
         _hud.Initialize(_treasures, _inventory);
+        _statusBar = new StatusBarController(_inventory, _hud, _sound.PlaySound);
         _mapScreen.Initialize(_rooms, _inventory);
         _inventoryScreen.Initialize(_treasures, _inventory,
             () => _rooms.ActiveGroup is 1 or 3);
@@ -304,6 +306,7 @@ public partial class GameRoot : Node2D
             _roomEvents.Update(delta);
             _interactions.Update(delta, _player);
         }
+        _statusBar.Update(delta);
         UpdateAnimatedTiles(delta);
         UpdateRoomDebugLabel();
         _debugWarps.Update();
@@ -412,11 +415,13 @@ public partial class GameRoot : Node2D
         _shovel = new ShovelController(
             _rooms, new BreakableTileDatabase(), _roomView, _entities, _saveData,
             _sound.PlaySound, () => (long)_animationTicks);
-        _terrain = new TerrainController(_scene.WorldRoot, _rooms, _collision.Collides);
+        _terrain = new TerrainController(
+            _scene.WorldRoot, _rooms, _collision.Collides, _sound.PlaySound);
+        _entities.ItemDropEnteredHazard += _terrain.SpawnSplash;
         _pushBlocks.EnteredHazard += (position, hazard) =>
         {
             if (hazard is OracleRoomData.HazardType.Water or OracleRoomData.HazardType.Lava)
-                _terrain.SpawnDrowningSplash(position, hazard);
+                _terrain.SpawnSplash(position, hazard);
         };
         _combat = new CombatController(
             _scene.WorldRoot, _rooms, _roomView, _entities, new BreakableTileDatabase(), _sound,
@@ -471,9 +476,7 @@ public partial class GameRoot : Node2D
     {
         if (_hud == null || _inventory == null)
             return;
-        _hud.HealthQuarters = _inventory.HealthQuarters;
         _hud.MaxHealthQuarters = _inventory.MaxHealthQuarters;
-        _hud.Rupees = _inventory.Rupees;
         _hud.EquippedA = _inventory.EquippedA;
         _hud.EquippedB = _inventory.EquippedB;
         _hud.Refresh();
@@ -491,6 +494,7 @@ public partial class GameRoot : Node2D
     {
         if (_inventory is not null)
             _inventory.Changed -= SyncHudToInventory;
+        _statusBar?.Dispose();
         if (_rooms is not null)
             _rooms.RoomChanged -= ApplyRoomMusic;
 

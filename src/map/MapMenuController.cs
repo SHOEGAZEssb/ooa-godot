@@ -68,7 +68,7 @@ public sealed class MapMenuController : IOracleMenuLifecycleClient
         if (_dialogue.BlocksPlayerInput)
             return;
         if (_debugFastTravel && Input.IsActionJustPressed("debug_map_travel"))
-            _screen.ToggleDebugWorld();
+            _screen.CycleDebugPage();
         else if (_debugFastTravel && Input.IsActionJustPressed("attack") &&
             _screen.TryGetFastTravelTarget(out int group, out int room))
         {

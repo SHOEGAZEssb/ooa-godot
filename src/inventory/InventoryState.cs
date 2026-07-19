@@ -63,6 +63,8 @@ public sealed class InventoryState
     public event Action? Changed;
     public event Action? HealthChanged;
     public event Action? RupeesChanged;
+    internal event Action? FullHealthRefillAttempted;
+    internal event Action? RupeeCapExceeded;
 
     public int EquippedB { get; private set; }
     public int EquippedA { get; private set; }
@@ -253,7 +255,11 @@ public sealed class InventoryState
         int previous = HealthQuarters;
         HealthQuarters = Math.Min(MaxHealthQuarters, HealthQuarters + quarters);
         if (previous == HealthQuarters)
+        {
+            if (previous == MaxHealthQuarters)
+                FullHealthRefillAttempted?.Invoke();
             return false;
+        }
 
         HealthChanged?.Invoke();
         NotifyChanged();
@@ -279,7 +285,14 @@ public sealed class InventoryState
     private bool AddRupeesCore(int amount)
     {
         int previous = Rupees;
-        Rupees = Mathf.Clamp(Rupees + amount, 0, 999);
+        long result = (long)Rupees + amount;
+        Rupees = (int)Math.Clamp(result, 0, 999);
+        if (result > 999)
+        {
+            // giveTreasure mode $0e requests SND_RUPEE when its BCD addition
+            // exceeds $0999, including when the displayed count is already full.
+            RupeeCapExceeded?.Invoke();
+        }
         if (previous == Rupees)
             return false;
 
@@ -516,8 +529,13 @@ public sealed class InventoryState
         };
         int previous = GetVariable(variable);
         SetVariable(variable, Math.Min(value, cap));
-        if (variable == TreasureDatabase.TreasureVariable.LinkHealth && previous != HealthQuarters)
-            HealthChanged?.Invoke();
+        if (variable == TreasureDatabase.TreasureVariable.LinkHealth)
+        {
+            if (previous != HealthQuarters)
+                HealthChanged?.Invoke();
+            else if (previous == cap && parameter > 0)
+                FullHealthRefillAttempted?.Invoke();
+        }
     }
 
     private void AddTreasureToInventory(int treasure)
