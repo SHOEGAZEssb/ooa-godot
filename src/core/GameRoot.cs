@@ -379,7 +379,8 @@ public partial class GameRoot : Node2D
     {
         _entities = new RoomEntityManager(
             _scene.WorldRoot, new NpcDatabase(), new EnemyDatabase(),
-            new ItemDropDatabase(), new TimePortalDatabase(), _random, _saveData);
+            new ItemDropDatabase(), new TimePortalDatabase(), _random, _saveData,
+            animationTick: () => (long)_animationTicks);
         _pushBlocks = new PushBlockController(
             _rooms, new PushableTileDatabase(), _roomView, () => (long)_animationTicks)
         {
@@ -393,6 +394,7 @@ public partial class GameRoot : Node2D
             _rooms, new WarpDatabase(), _roomView, _player, _roomCamera,
             _warpFade, _hud, _dialogue, _entities, _collision.Collides,
             _deathRespawnPoints, _sound);
+        _entities.WorldToScreen = _transitions.WorldToScreen;
         _transitions.ScrollingTransitionFinished += _ => ApplyDeferredIntroMusic();
         _entities.TimePortalEntered += portal =>
             _transitions.ApplyTimePortalWarp(_player, portal.Position);
@@ -597,6 +599,7 @@ public partial class GameRoot : Node2D
     {
         _dialogue.Close();
         _transitions.ClearDeactivatedWarp();
+        _entities.ClearRecentEnemyDefeats();
         OracleRoomData loaded = _rooms.Load(group, room);
         _roomView.SetRoom(loaded.Texture);
         _entities.LoadRoom(group, loaded);

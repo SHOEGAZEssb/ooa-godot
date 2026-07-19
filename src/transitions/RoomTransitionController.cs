@@ -255,7 +255,8 @@ public sealed class RoomTransitionController
         _roomView.StartScreenTransition(
             target.Texture, direction, _scrollDistance, sourceCameraOrigin, destinationCameraOrigin);
         _entities.BeginScreenTransition(
-            _rooms.ActiveGroup, target, _scrollIncomingStartOffset, direction);
+            _rooms.ActiveGroup, target, _scrollIncomingStartOffset, direction,
+            target.GetPackedPosition(transitionEnd));
         player.BeginScrollingTransition(start, direction);
     }
 
@@ -586,6 +587,11 @@ public sealed class RoomTransitionController
         WarpDatabase.Warp warp = _pendingWarp;
         OracleRoomData room = _rooms.Load(warp.DestinationGroup, warp.DestinationRoom);
         _roomView.SetRoom(room.Texture);
+        // Standard warp loading clears wEnemiesKilledList only when the
+        // destination's wDungeonIndex is $ff. Dungeon-to-dungeon warps retain
+        // the same transient last-eight-room suppression as scrolling.
+        if (_rooms.CurrentDungeonIndex < 0)
+            _entities.ClearRecentEnemyDefeats();
         _entities.LoadRoom(
             _rooms.ActiveGroup, room,
             EnemyPlacementContext.FromWarpDestination(warp.DestinationPosition));

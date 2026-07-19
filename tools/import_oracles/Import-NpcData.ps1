@@ -543,6 +543,98 @@ if ($mainObjectSource -notmatch '(?ms)^group1Map75ObjectData:\s+obj_Interaction 
 if ($mainObjectSource -notmatch '(?ms)^group1Map86ObjectData:\s+obj_Interaction \$58 \$02 \$38 \$48\s+obj_Interaction \$dc \$07 \$28 \$78\s+obj_End') {
     throw 'Room 1:86 no longer contains ordered hardhat $58:$02 and heart-piece spawner $dc:$07 placements.'
 }
+
+# INTERAC_PUSHBLOCK_TRIGGER $13:$01 and the enemy-shutter variants of
+# INTERAC_DOOR_CONTROLLER $1e:$08-$0b form one reusable dungeon mechanism.
+# Export every direct placement in source order; room 4:0c is the canonical
+# trigger-before-door case, while rooms such as 4:0b use the same doors with
+# ordinary enemy objects.
+$pushblockTriggerSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\pushblockTrigger.s')
+$doorControllerSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\doorController.s')
+$commonScriptSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\common\commonScripts.s')
+$tileIndexSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\tileIndices.s')
+$musicIdSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\music.s')
+if ($pushblockTriggerSource -notmatch '(?ms)^@state0:.*?ld a,TILEINDEX_PUSHABLE_BLOCK.*?ld hl,wNumEnemies\s+inc \(hl\).*?^@state1:.*?^@state2:.*?cp \(hl\)\s+ret z.*?ld a,\$1e.*?^@state3:.*?interactionDecCounter1.*?xor a\s+ld \(wNumEnemies\),a' -or
+    $doorControllerSource -notmatch '(?ms)^@state2Substate0:.*?ld a,SND_DOORCLOSE.*?call setInterleavedTile.*?ld \(hl\),\$06.*?ld \(bc\),a.*?^@state2Substate1:.*?interactionDecCounter1.*?@shutterTiles:\s+\.db \$a0 \$70.*?\.db \$a0 \$77\s+\.db \$a0 \$78.*?\.db \$a0 \$79.*?\.db \$a0 \$7a.*?\.db \$a0 \$7b' -or
+    $commonScriptSource -notmatch '(?ms)^doorController_shutUntilEnemiesDead:.*?jumpifnoenemies @end.*?setstate \$03\s+checknoenemies\s+playsound SND_SOLVEPUZZLE\s+wait 8\s+incstate.*?^doorController_shutUntilEnemiesDead_up:.*?setangle \$10.*?^doorController_shutUntilEnemiesDead_right:.*?setangle \$12.*?^doorController_shutUntilEnemiesDead_down:.*?setangle \$14.*?^doorController_shutUntilEnemiesDead_left:.*?setangle \$16' -or
+    $tileIndexSource -notmatch '(?m)^\.define TILEINDEX_PUSHABLE_BLOCK\s+\$1d' -or
+    $musicIdSource -notmatch '(?m)^\s*SND_SOLVEPUZZLE\s+db\s+; \$4d' -or
+    $musicIdSource -notmatch '(?m)^\s*SND_DOORCLOSE\s+db\s+; \$70') {
+    throw 'Dungeon $13:$01 / $1e:$08-$0b trigger, shutter, timing, tile, or sound contract changed.'
+}
+
+$conditionalDungeonEnemyRooms = [Collections.Generic.HashSet[string]]::new()
+foreach ($block in [regex]::Matches(
+    $mainObjectSource,
+    '(?ms)^group(?<group>[0-7])Map(?<room>[0-9a-f]{2})ObjectData:(?<body>.*?)(?=^group[0-7]Map[0-9a-f]{2}ObjectData:|\z)')) {
+    if ($block.Groups['body'].Value -match '(?m)^\s*obj_(?:BeforeEvent|AfterEvent)\s+') {
+        [void]$conditionalDungeonEnemyRooms.Add(
+            "$($block.Groups['group'].Value):$($block.Groups['room'].Value)")
+    }
+}
+
+$dungeonMechanicRows = [Collections.Generic.List[string]]::new()
+$dungeonMechanicRows.Add("# group`troom`torder`tid`tsubid`tposition`tparameter`tcount-source-complete")
+$mechanicGroup = -1
+$mechanicRoom = -1
+$mechanicOrder = 0
+foreach ($line in $mainObjectLines) {
+    if ($line -match '^group(?<group>[0-7])Map(?<room>[0-9a-f]{2})ObjectData:') {
+        $mechanicGroup = [Convert]::ToInt32($Matches['group'], 10)
+        $mechanicRoom = [Convert]::ToInt32($Matches['room'], 16)
+        $mechanicOrder = 0
+        continue
+    }
+    if ($mechanicGroup -lt 0 -or $line -notmatch '^\s*obj_') { continue }
+    if ($line -match '^\s*obj_End') { continue }
+    if ($line -match '^\s*obj_Interaction\s+\$(?<id>[0-9a-f]{2})\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<a>[0-9a-f]{2})\s+\$(?<b>[0-9a-f]{2})') {
+        $id = [Convert]::ToInt32($Matches['id'], 16)
+        $subid = [Convert]::ToInt32($Matches['subid'], 16)
+        if (($id -eq 0x13 -and $subid -eq 0x01) -or
+            ($id -eq 0x1e -and $subid -ge 0x08 -and $subid -le 0x0b)) {
+            $a = [Convert]::ToInt32($Matches['a'], 16)
+            $b = [Convert]::ToInt32($Matches['b'], 16)
+            $position = if ($id -eq 0x13) {
+                ($a -band 0xf0) -bor (($b -shr 4) -band 0x0f)
+            } else {
+                $a
+            }
+            $parameter = if ($id -eq 0x13) { 0 } else { $b }
+            $countSourceComplete = if ($conditionalDungeonEnemyRooms.Contains(
+                "$mechanicGroup`:$($mechanicRoom.ToString('x2'))")) { 0 } else { 1 }
+            $dungeonMechanicRows.Add(
+                "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($position.ToString('x2'))`t$($parameter.ToString('x2'))`t$countSourceComplete")
+        }
+    }
+    $mechanicOrder++
+}
+if ($dungeonMechanicRows.Count -ne 74 -or
+    -not ($dungeonMechanicRows -contains "4`t0c`t0`t13`t01`t47`t00`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t0c`t1`t1e`t08`t07`t00`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`t0")) {
+    throw "Expected 73 reusable dungeon trigger/shutter placements including rooms 4:0b/4:0c, parsed $($dungeonMechanicRows.Count - 1)."
+}
+$dungeonMechanicConstantRows = @(
+    "# key`tvalue"
+    "pushable-block`t29"
+    "push-delay`t30"
+    "solve-wait`t8"
+    "door-frame-wait`t6"
+    "open-tile`t160"
+    "closed-up`t120"
+    "closed-right`t121"
+    "closed-down`t122"
+    "closed-left`t123"
+    "solve-sound`t77"
+    "door-sound`t112"
+)
 $currentGroup = -1
 $currentRoom = -1
 $npcSpriteNames = [Collections.Generic.HashSet[string]]::new()
@@ -2251,6 +2343,16 @@ foreach ($spriteName in $npcSpriteNames) {
 }
 $npcPath = Join-Path $destination "objects\npcs.tsv"
 [IO.File]::WriteAllLines($npcPath, $npcRows, [Text.UTF8Encoding]::new($false))
+$dungeonMechanicPath = Join-Path $destination "objects\dungeon_mechanics.tsv"
+[IO.File]::WriteAllLines(
+    $dungeonMechanicPath,
+    $dungeonMechanicRows,
+    [Text.UTF8Encoding]::new($false))
+$dungeonMechanicConstantsPath = Join-Path $destination "objects\dungeon_mechanic_constants.tsv"
+[IO.File]::WriteAllLines(
+    $dungeonMechanicConstantsPath,
+    $dungeonMechanicConstantRows,
+    [Text.UTF8Encoding]::new($false))
 $familyNpcPath = Join-Path $destination "objects\bipin_blossom_family.tsv"
 [IO.File]::WriteAllLines(
     $familyNpcPath,

@@ -27,4 +27,4 @@ foreach ($importScript in $importScripts) {
 }
 
 Write-Host "Validated clean US ROM: $hash"
-Write-Host "Imported $($tilesets.Count) tilesets, 1536 rooms, 42 signs, $($npcRows.Count - 1) NPCs, $keeseInstanceCount Keese, $octorokInstanceCount Octoroks, $zolInstanceCount Zols, $gelInstanceCount direct Gels, $($orderedObjectRows.Count - 1) ordered placement records, $enemyUnspawnableTileCount enemy-unspawnable tile records, 133 chests, 529 warps, 22 animation groups, and 223 sound IDs into $destination"
+Write-Host "Imported $($tilesets.Count) tilesets, 1536 rooms, 42 signs, $($npcRows.Count - 1) NPCs, $($dungeonMechanicRows.Count - 1) dungeon trigger/shutter placements, $keeseInstanceCount Keese, $octorokInstanceCount Octoroks, $zolInstanceCount Zols, $gelInstanceCount direct Gels, $($orderedObjectRows.Count - 1) ordered placement records, $enemyUnspawnableTileCount enemy-unspawnable tile records, 133 chests, 529 warps, 22 animation groups, and 223 sound IDs into $destination"

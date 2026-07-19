@@ -64,6 +64,25 @@ internal interface IRoomEntityLifetime
     void OnFinished(ICollection<RoomEntitySpawn> spawns);
 }
 
+/// <summary>
+/// Contributes to the room's live wNumEnemies equivalent. Native puzzle
+/// sentinels opt in alongside combat enemies.
+/// </summary>
+internal interface IRoomEnemyCounterEntity
+{
+    bool CountsAsEnemy { get; }
+}
+
+/// <summary>
+/// Retains the source object's one-based enemy index from Enemy.enabled. The
+/// original uses indices $01-$07 to suppress recently defeated placements.
+/// </summary>
+internal interface IRoomKillTrackedEnemy
+{
+    int KillableEnemyIndex { get; }
+    bool MarksEnemyKilled { get; }
+}
+
 internal interface IPlayerRestriction
 {
     bool DisablesSword { get; }
@@ -83,7 +102,10 @@ internal readonly record struct RoomEntityFrame(
 internal abstract record RoomEntitySpawn(bool UpdateThisFrame = false);
 internal sealed record OctorokRockSpawn(Vector2 Position, int Angle)
     : RoomEntitySpawn(UpdateThisFrame: true);
-internal sealed record GelSpawn(Vector2 Position, string Name = "Gel")
+internal sealed record GelSpawn(
+    Vector2 Position,
+    string Name = "Gel",
+    int KillableEnemyIndex = 0)
     : RoomEntitySpawn;
 internal sealed record EnemyDeathPuffSpawn(
     Vector2 Position,

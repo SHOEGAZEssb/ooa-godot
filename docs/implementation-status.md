@@ -48,6 +48,18 @@ claim that the entire surrounding game is complete.
   half-pixel hardhat patrols, and the exact Shovel grant/held-item sequence.
 - Keese, Octoroks/projectiles, Zols, and Gels using ordered room-object placement,
   original spawn restrictions, shared RNG, combat, and drop paths.
+- Reusable dungeon push-block triggers `$13:$01` and enemy shutters
+  `$1e:$08-$0b`, with all 73 direct placements imported in source order. Room
+  `4:0c` includes its trigger-owned live enemy count, source block restoration,
+  30-update release, eight-update solve wait, and six-update mapping-interleaved
+  up-door animation. Room `4:0b` includes its always-active three-Gel combat
+  gate, simultaneous up/left shutters, real sword-death path, and entry/re-entry
+  behavior: a left scroll substitutes only the crossed shutter with non-solid
+  floor, waits until Link is fully inside, then completes its six-update close;
+  the original transient last-eight-room enemy bitset suppresses defeated Gels
+  and reopens both doors without replaying the solve cue. Imported shutter rooms
+  activate only when the implemented enemy roster can provide their complete
+  live enemy count.
 
 ### Story and events
 
@@ -90,6 +102,8 @@ claim that the entire surrounding game is complete.
 
 - The complete story, world interactions, NPC scripts, dungeons, bosses, enemy
   roster, and progression beyond the currently ported paths.
+- Door-controller variants for keys, bosses, switches, minecarts, room entry,
+  and torches (`$1e` subids outside `$08-$0b`) remain deferred.
 
 ### Player and inventory
 

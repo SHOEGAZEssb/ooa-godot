@@ -23,12 +23,20 @@ internal abstract class RoomEntityAdapter<T> : IRoomEntity where T : Node2D
 internal abstract class CombatEnemyRoomEntityAdapter<T>(
     T entity,
     Action<Vector2> setTransitionDrawOffset,
-    EnemyCombatComponent combat)
+    EnemyCombatComponent combat,
+    bool countsAsEnemy,
+    int killableEnemyIndex,
+    Func<bool>? marksEnemyKilled = null)
     : RoomEntityAdapter<T>(entity, setTransitionDrawOffset),
-        ILinkContactEntity, ISwordHittableRoomEntity, IRoomEntityLifetime
+        ILinkContactEntity, ISwordHittableRoomEntity, IRoomEntityLifetime,
+        IRoomEnemyCounterEntity, IRoomKillTrackedEnemy
     where T : Node2D
 {
     public bool Finished => combat.Finished;
+    public bool CountsAsEnemy => countsAsEnemy && !combat.Finished;
+    public int KillableEnemyIndex => killableEnemyIndex;
+    public bool MarksEnemyKilled =>
+        killableEnemyIndex != 0 && (marksEnemyKilled?.Invoke() ?? true);
     public void HandleLinkContact(Player player) => combat.HandleLinkContact(player);
     public bool ApplySwordHit(
         Rect2 hitbox,
@@ -151,8 +159,10 @@ internal sealed class GroundTreasureRoomEntity(
 internal sealed class KeeseRoomEntity
     : CombatEnemyRoomEntityAdapter<KeeseCharacter>, IFixedRoomEntity
 {
-    public KeeseRoomEntity(KeeseCharacter keese)
-        : base(keese, keese.SetTransitionDrawOffset, CreateCombat(keese))
+    public KeeseRoomEntity(KeeseCharacter keese, int killableEnemyIndex = 0)
+        : base(
+            keese, keese.SetTransitionDrawOffset, CreateCombat(keese),
+            (keese.Record.Flags & 0x02) == 0, killableEnemyIndex)
     { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
@@ -176,8 +186,10 @@ internal sealed class KeeseRoomEntity
 internal sealed class OctorokRoomEntity
     : CombatEnemyRoomEntityAdapter<OctorokCharacter>, IFixedRoomEntity
 {
-    public OctorokRoomEntity(OctorokCharacter octorok)
-        : base(octorok, octorok.SetTransitionDrawOffset, CreateCombat(octorok))
+    public OctorokRoomEntity(OctorokCharacter octorok, int killableEnemyIndex = 0)
+        : base(
+            octorok, octorok.SetTransitionDrawOffset, CreateCombat(octorok),
+            (octorok.Record.Flags & 0x02) == 0, killableEnemyIndex)
     { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
@@ -215,8 +227,11 @@ internal sealed class OctorokRockRoomEntity(OctorokRockProjectile rock)
 internal sealed class ZolRoomEntity
     : CombatEnemyRoomEntityAdapter<ZolCharacter>, IFixedRoomEntity
 {
-    public ZolRoomEntity(ZolCharacter zol)
-        : base(zol, zol.SetTransitionDrawOffset, CreateCombat(zol))
+    public ZolRoomEntity(ZolCharacter zol, int killableEnemyIndex = 0)
+        : base(
+            zol, zol.SetTransitionDrawOffset, CreateCombat(zol),
+            (zol.Record.Flags & 0x02) == 0, killableEnemyIndex,
+            () => zol.Record.SubId != 1 || zol.DiedInHazard)
     { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
@@ -227,8 +242,12 @@ internal sealed class ZolRoomEntity
                 spawns.Add(new KillEnemyPuffSpawn(Entity.Position));
                 break;
             case ZolCharacter.UpdateEvent.SpawnGels:
-                spawns.Add(new GelSpawn(Entity.Position + Vector2.Right * 4.0f, "SplitGelRight"));
-                spawns.Add(new GelSpawn(Entity.Position + Vector2.Left * 4.0f, "SplitGelLeft"));
+                spawns.Add(new GelSpawn(
+                    Entity.Position + Vector2.Right * 4.0f,
+                    "SplitGelRight", KillableEnemyIndex));
+                spawns.Add(new GelSpawn(
+                    Entity.Position + Vector2.Left * 4.0f,
+                    "SplitGelLeft", KillableEnemyIndex));
                 break;
         }
     }
@@ -249,8 +268,13 @@ internal sealed class ZolRoomEntity
 internal sealed class GelRoomEntity
     : CombatEnemyRoomEntityAdapter<GelCharacter>, IFixedRoomEntity, IPlayerRestriction
 {
-    public GelRoomEntity(GelCharacter gel)
-        : base(gel, gel.SetTransitionDrawOffset, CreateCombat(gel))
+    public GelRoomEntity(
+        GelCharacter gel,
+        bool countsAsEnemy = true,
+        int killableEnemyIndex = 0)
+        : base(
+            gel, gel.SetTransitionDrawOffset, CreateCombat(gel),
+            countsAsEnemy, killableEnemyIndex)
     { }
 
     public bool DisablesSword => Entity.IsAttached;

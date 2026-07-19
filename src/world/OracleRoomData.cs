@@ -82,6 +82,7 @@ public sealed class OracleRoomData
     private readonly OracleAnimationData _animations;
     private readonly int _layoutStride;
     private readonly Dictionary<int, byte> _positionCollisionOverrides = new();
+    private readonly Dictionary<int, byte[]> _positionMappingOverrides = new();
     private readonly Dictionary<int, byte> _positionVisualOverrides = new();
     private int _animationSignature;
     private int[] _activeAnimationHeaders;
@@ -310,6 +311,8 @@ public sealed class OracleRoomData
             return false;
 
         Layout[index] = replacement;
+        _positionCollisionOverrides.Remove(index);
+        _positionMappingOverrides.Remove(index);
         _positionVisualOverrides.Remove(index);
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
         _activeAnimationHeaders = activeHeaders;
@@ -332,12 +335,20 @@ public sealed class OracleRoomData
 
         int index = tileY * _layoutStride + tileX;
         byte renderedBefore = GetRenderedMetatile(index);
+        bool hadMappingOverride = _positionMappingOverrides.ContainsKey(index);
         Layout[index] = tile;
         if (preserveRenderedTile)
-            _positionVisualOverrides[index] = renderedBefore;
+        {
+            if (!hadMappingOverride)
+                _positionVisualOverrides[index] = renderedBefore;
+        }
         else
+        {
+            _positionMappingOverrides.Remove(index);
             _positionVisualOverrides.Remove(index);
-        bool redraw = renderedBefore != GetRenderedMetatile(index);
+        }
+        bool redraw = (!preserveRenderedTile && hadMappingOverride) ||
+            renderedBefore != GetRenderedMetatile(index);
         if (collision.HasValue)
             _positionCollisionOverrides[index] = collision.Value;
         else
@@ -345,6 +356,68 @@ public sealed class OracleRoomData
 
         if (!redraw)
             return;
+        int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
+        _activeAnimationHeaders = activeHeaders;
+        _animationSignature = GetAnimationSignature(activeHeaders);
+        ((ImageTexture)Texture).Update(RenderRoom(activeHeaders));
+    }
+
+    /// <summary>
+    /// Mirrors setInterleavedTile: render one half-frame assembled from two
+    /// metatile mappings while separately installing tile1 in wRoomLayout.
+    /// The existing collision byte is retained until the caller performs the
+    /// final ordinary tile write.
+    /// </summary>
+    internal void SetInterleavedMetatile(
+        Vector2 localPoint,
+        byte tile1,
+        byte tile2,
+        int type,
+        long animationTick)
+    {
+        int tileX = Mathf.FloorToInt(localPoint.X / MetatileSize);
+        int tileY = Mathf.FloorToInt(localPoint.Y / MetatileSize);
+        if (tileX < 0 || tileX >= WidthInTiles || tileY < 0 || tileY >= HeightInTiles)
+            throw new ArgumentOutOfRangeException(nameof(localPoint));
+        if (type is < 0 or > 3)
+            throw new ArgumentOutOfRangeException(nameof(type));
+
+        int index = tileY * _layoutStride + tileX;
+        byte collisionBefore = _positionCollisionOverrides.TryGetValue(
+            index, out byte collisionOverride)
+            ? collisionOverride
+            : Collisions[Layout[index]];
+        var mapping = new byte[8];
+        Array.Copy(_mappings, tile1 * 8, mapping, 0, mapping.Length);
+        int tile2Offset = tile2 * 8;
+        switch (type)
+        {
+            // Top uses tile2's bottom half; bottom retains tile1's bottom half.
+            case 0:
+                CopyMappingQuarter(mapping, 0, tile2Offset + 2);
+                CopyMappingQuarter(mapping, 1, tile2Offset + 3);
+                break;
+            // Right uses tile2's left half; left retains tile1's left half.
+            case 1:
+                CopyMappingQuarter(mapping, 1, tile2Offset);
+                CopyMappingQuarter(mapping, 3, tile2Offset + 2);
+                break;
+            // Bottom uses tile2's top half; top retains tile1's top half.
+            case 2:
+                CopyMappingQuarter(mapping, 2, tile2Offset);
+                CopyMappingQuarter(mapping, 3, tile2Offset + 1);
+                break;
+            // Left uses tile2's right half; right retains tile1's right half.
+            case 3:
+                CopyMappingQuarter(mapping, 0, tile2Offset + 1);
+                CopyMappingQuarter(mapping, 2, tile2Offset + 3);
+                break;
+        }
+
+        Layout[index] = tile1;
+        _positionCollisionOverrides[index] = collisionBefore;
+        _positionVisualOverrides.Remove(index);
+        _positionMappingOverrides[index] = mapping;
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
         _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
@@ -360,6 +433,8 @@ public sealed class OracleRoomData
             redraw |= Layout[index] != _originalLayout[index];
         Array.Copy(_originalLayout, Layout, Layout.Length);
         _positionCollisionOverrides.Clear();
+        redraw |= _positionMappingOverrides.Count != 0;
+        _positionMappingOverrides.Clear();
         redraw |= _positionVisualOverrides.Count != 0;
         _positionVisualOverrides.Clear();
 
@@ -467,13 +542,18 @@ public sealed class OracleRoomData
         for (int roomX = 0; roomX < WidthInTiles; roomX++)
         {
             int layoutIndex = roomY * _layoutStride + roomX;
-            int metatile = GetRenderedMetatile(layoutIndex);
-            int mappingOffset = metatile * 8;
+            byte[]? mappingOverride = _positionMappingOverrides.TryGetValue(
+                layoutIndex, out byte[]? value) ? value : null;
+            int mappingOffset = GetRenderedMetatile(layoutIndex) * 8;
 
             for (int quarter = 0; quarter < 4; quarter++)
             {
-                byte tileId = _mappings[mappingOffset + quarter];
-                byte attributes = _mappings[mappingOffset + 4 + quarter];
+                byte tileId = mappingOverride is null
+                    ? _mappings[mappingOffset + quarter]
+                    : mappingOverride[quarter];
+                byte attributes = mappingOverride is null
+                    ? _mappings[mappingOffset + 4 + quarter]
+                    : mappingOverride[4 + quarter];
                 int sourceIndex = tileId >= 0x80 ? tileId - 0x80 : tileId + 0x80;
                 Image tileSource = _source;
                 int sourceTile = sourceIndex;
@@ -538,6 +618,12 @@ public sealed class OracleRoomData
         _positionVisualOverrides.TryGetValue(layoutIndex, out byte visualOverride)
             ? visualOverride
             : Layout[layoutIndex];
+
+    private void CopyMappingQuarter(byte[] destination, int quarter, int sourceOffset)
+    {
+        destination[quarter] = _mappings[sourceOffset];
+        destination[4 + quarter] = _mappings[sourceOffset + 4];
+    }
 
     private static int GetAnimationSignature(int[] headers)
     {

@@ -252,6 +252,7 @@ public sealed class ValidationGameRoot : GameRoot
         ValidateInventoryMenu();
         ValidateBraceletChestAndPushGate();
         ValidatePushBlocks();
+        ValidateDungeonEnemyShutters();
         ValidateMapScreen();
         ValidateSaveAndQuitToTitle();
 
@@ -3525,6 +3526,387 @@ public sealed class ValidationGameRoot : GameRoot
             "restrictions, hazard disposal, 4:08/$4b push delay reset, blocked " +
             "destination, source $a0 replacement, SPEED_80 movement, moving " +
             "collision, and destination tile $1d.");
+    }
+
+    private void ValidateDungeonEnemyShutters()
+    {
+        const double update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
+        var database = new DungeonMechanicDatabase();
+        if (database.RecordCount != 73 ||
+            database.GetRoomRecords(4, 0x0c).Select(record => record.Order)
+                .ToArray() is not [0, 1])
+        {
+            throw new InvalidOperationException(
+                "Expected 73 ordered $13:$01/$1e:$08-$0b dungeon interaction placements.");
+        }
+
+        void Step() => _entities.Update(update, _player);
+        _entities.WorldToScreen = static position => position;
+        _sound.ClearPlayRequestAudit();
+        LoadValidationRoom(4, 0x0c);
+        OracleRoomData room = _currentRoom;
+        Vector2 block = new(0x78, 0x48);
+        Vector2 door = new(0x78, 0x08);
+        if (_entities.Entities<PushBlockTriggerRoomEntity>() is not [{ PackedPosition: 0x47 }] ||
+            _entities.Entities<DungeonDoorRoomEntity>() is not
+                [{ SubId: 0x08, PackedPosition: 0x07 }] ||
+            room.GetMetatile(block) != 0x18 || room.GetMetatile(door) != 0x78)
+        {
+            throw new InvalidOperationException(
+                "Room 4:0c did not instantiate ordered trigger $13:$01 then up shutter $1e:$08.");
+        }
+
+        Step();
+        if (room.GetMetatile(block) != 0x1d || room.GetMetatile(door) != 0x78)
+            throw new InvalidOperationException(
+                "Room 4:0c update 1 did not install trigger tile $1d while retaining shutter $78.");
+        Step();
+        if (room.GetMetatile(block) != 0x18 || room.GetMetatile(door) != 0x78)
+            throw new InvalidOperationException(
+                "Room 4:0c update 2 did not restore the source push block before arming it.");
+
+        Vector2 linkBelow = block + Vector2.Down * 10.0f;
+        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
+            _pushBlocks.UpdatePushAttempt(linkBelow, Vector2I.Up, Vector2.Up);
+        if (!_pushBlocks.Active || room.GetMetatile(block) != 0xa0)
+            throw new InvalidOperationException(
+                "Room 4:0c's up-only trigger block did not start its common push movement.");
+
+        // State 2 observes the source-layout write, then state 3 installs and
+        // decrements its own $1e counter on the following 30 updates.
+        Step();
+        for (int frame = 0; frame < database.PushDelay - 1; frame++)
+            Step();
+        if (_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0 ||
+            room.GetMetatile(door) != 0x78)
+        {
+            throw new InvalidOperationException(
+                "Room 4:0c released its synthetic enemy before the 30-update trigger delay.");
+        }
+        Step();
+        if (_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1 ||
+            _entities.Entities<PushBlockTriggerRoomEntity>().Count != 0 ||
+            room.GetMetatile(door) != 0x78)
+        {
+            throw new InvalidOperationException(
+                "Room 4:0c did not clear wNumEnemies and request SND_SOLVEPUZZLE on update 30.");
+        }
+
+        for (int frame = 0; frame < database.SolveWait - 1; frame++)
+            Step();
+        if (room.GetMetatile(door) != 0x78)
+            throw new InvalidOperationException(
+                "Room 4:0c began opening before the exact eight-update solve wait.");
+        Step();
+        if (room.GetMetatile(door) != 0x78)
+            throw new InvalidOperationException(
+                "Room 4:0c opened in the same update that wait 8 reached zero.");
+
+        // OracleWorldData caches mutable room instances; use an isolated world
+        // so preparing the open mapping cannot alter the active door state.
+        OracleRoomData reference = new OracleWorldData().LoadRoom(4, 0x0c);
+        Vector2 topLeftSample = door + new Vector2(-4, -4);
+        Vector2 bottomLeftSample = door + new Vector2(-4, 4);
+        Color expectedClosedBottom = reference.GetRenderedPixelForValidation(
+            new Vector2I((int)bottomLeftSample.X, (int)bottomLeftSample.Y));
+        if (!reference.ReplaceMetatile(door, 0x78, 0xa0, (long)_animationTicks))
+            throw new InvalidOperationException("Could not prepare the 4:0c open-door reference tile.");
+        Color expectedOpenBottom = reference.GetRenderedPixelForValidation(
+            new Vector2I((int)bottomLeftSample.X, (int)bottomLeftSample.Y));
+
+        Step();
+        Color actualInterleavedTop = room.GetRenderedPixelForValidation(
+            new Vector2I((int)topLeftSample.X, (int)topLeftSample.Y));
+        Color actualInterleavedBottom = room.GetRenderedPixelForValidation(
+            new Vector2I((int)bottomLeftSample.X, (int)bottomLeftSample.Y));
+        if (room.GetMetatile(door) != 0xa0 || !room.IsSolid(door) ||
+            !actualInterleavedTop.IsEqualApprox(expectedClosedBottom) ||
+            !actualInterleavedBottom.IsEqualApprox(expectedOpenBottom) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 1)
+        {
+            throw new InvalidOperationException(
+                "Room 4:0c did not install the type-0 mapping-interleaved, still-solid " +
+                $"door frame: tile=${room.GetMetatile(door):x2}, solid={room.IsSolid(door)}, " +
+                $"top={actualInterleavedTop}/{expectedClosedBottom}, " +
+                $"bottom={actualInterleavedBottom}/{expectedOpenBottom}, " +
+                $"SND_DOORCLOSE={_sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose)}.");
+        }
+
+        for (int frame = 0; frame < database.DoorFrameWait - 1; frame++)
+            Step();
+        if (!room.IsSolid(door) ||
+            _entities.Entities<DungeonDoorRoomEntity>().Count != 1)
+        {
+            throw new InvalidOperationException(
+                "Room 4:0c finalized the shutter before six interleaved updates elapsed.");
+        }
+        Step();
+        if (room.GetMetatile(door) != 0xa0 || room.IsSolid(door) ||
+            _entities.Entities<DungeonDoorRoomEntity>().Count != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 2)
+        {
+            throw new InvalidOperationException(
+                "Room 4:0c did not finalize open tile $a0 and SND_DOORCLOSE on update 6.");
+        }
+
+        // replaceShutterForLinkEntering temporarily opens only the shutter at
+        // Link's incoming packed position. Destination objects remain frozen
+        // throughout the scroll; afterward $1e:$0b waits until Link no longer
+        // overlaps its $08/$0a radii before beginning the six-update close.
+        _player.WarpTo(new Vector2(0xe8, 0x58));
+        _sound.ClearPlayRequestAudit();
+        _transitions.BeginScroll(_player, Vector2I.Right, 0x0b);
+        OracleRoomData scrollingRoom40b = _world.LoadRoom(4, 0x0b);
+        Vector2 scrollingUpDoor = new(0x78, 0x08);
+        Vector2 scrollingLeftDoor = new(0x08, 0x58);
+        if (scrollingRoom40b.GetMetatile(scrollingLeftDoor) != 0xa0 ||
+            scrollingRoom40b.IsSolid(scrollingLeftDoor) ||
+            scrollingRoom40b.GetMetatile(scrollingUpDoor) != 0x78 ||
+            !scrollingRoom40b.IsSolid(scrollingUpDoor))
+        {
+            throw new InvalidOperationException(
+                "Room 4:0b scrolling preload did not open only Link's left-entry shutter.");
+        }
+        Step();
+        if (scrollingRoom40b.GetMetatile(scrollingLeftDoor) != 0xa0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 0)
+        {
+            throw new InvalidOperationException(
+                "Room 4:0b's incoming left shutter advanced while destination entities were frozen.");
+        }
+        _transitions.UpdateScroll(1.0);
+        if (scrollingRoom40b.GetPackedPosition(_player.Position) != 0x50)
+        {
+            throw new InvalidOperationException(
+                $"Room 4:0b's left scroll ended at packed position " +
+                $"${scrollingRoom40b.GetPackedPosition(_player.Position):x2} instead of $50.");
+        }
+
+        Step();
+        Step();
+        _player.WarpTo(new Vector2(0x17, 0x58));
+        Step();
+        if (scrollingRoom40b.GetMetatile(scrollingLeftDoor) != 0xa0 ||
+            scrollingRoom40b.IsSolid(scrollingLeftDoor) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 0)
+        {
+            throw new InvalidOperationException(
+                "Room 4:0b closed its left shutter while Link still overlapped the strict 16-pixel boundary.");
+        }
+        _player.WarpTo(new Vector2(0x18, 0x58));
+        Step();
+        if (scrollingRoom40b.GetMetatile(scrollingLeftDoor) != 0xa0 ||
+            scrollingRoom40b.IsSolid(scrollingLeftDoor) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 0)
+        {
+            throw new InvalidOperationException(
+                "Room 4:0b began closing in the update that Link first cleared the doorway.");
+        }
+        Step();
+        if (scrollingRoom40b.GetMetatile(scrollingLeftDoor) != 0xa0 ||
+            scrollingRoom40b.IsSolid(scrollingLeftDoor) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 1)
+        {
+            throw new InvalidOperationException(
+                "Room 4:0b did not begin its non-solid interleaved close after Link cleared the left doorway.");
+        }
+        for (int frame = 0; frame < database.DoorFrameWait - 1; frame++)
+            Step();
+        if (scrollingRoom40b.IsSolid(scrollingLeftDoor))
+        {
+            throw new InvalidOperationException(
+                "Room 4:0b made the incoming shutter solid before six close updates elapsed.");
+        }
+        Step();
+        if (scrollingRoom40b.GetMetatile(scrollingLeftDoor) != 0x7b ||
+            !scrollingRoom40b.IsSolid(scrollingLeftDoor) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 2)
+        {
+            throw new InvalidOperationException(
+                "Room 4:0b did not finalize closed left tile $7b and collision on update 6.");
+        }
+
+        // Room 4:0b proves the same controller handles multiple orientations
+        // and ordinary live combat enemies rather than depending on room 4:0c.
+        IReadOnlyList<EnemyDatabase.RoomObjectRecord> room40bObjects =
+            new EnemyDatabase().GetRoomObjects(4, 0x0b);
+        if (room40bObjects is not
+            [{
+                Kind: EnemyDatabase.RoomObjectKind.RandomEnemy,
+                Id: 0x43,
+                SubId: 0x00,
+                Flags: 0x60,
+                Count: 3,
+                ConditionMask: 0xff
+            }])
+        {
+            throw new InvalidOperationException(
+                "Room 4:0b's Gel stream or always-active predicate diverged from obj_RandomEnemy $60 $43 $00.");
+        }
+        LoadValidationRoom(4, 0x0b);
+        room = _currentRoom;
+        _sound.ClearPlayRequestAudit();
+        if (_entities.Entities<DungeonDoorRoomEntity>().Select(value => value.SubId)
+                .ToArray() is not [0x08, 0x0b] ||
+            _entities.Entities<GelCharacter>().Count != 3)
+        {
+            throw new InvalidOperationException(
+                "Room 4:0b did not reuse the up/left enemy shutters with its three Gels.");
+        }
+        Step();
+        if (room.GetMetatile(new Vector2(0x78, 0x08)) != 0x78 ||
+            room.GetMetatile(new Vector2(0x08, 0x58)) != 0x7b)
+        {
+            throw new InvalidOperationException(
+                "Room 4:0b shutters opened while live Gel enemies remained.");
+        }
+        GelCharacter[] room40bGels = _entities.Entities<GelCharacter>().ToArray();
+        for (int index = 0; index < room40bGels.Length; index++)
+        {
+            GelCharacter gel = room40bGels[index];
+            if (!_entities.ApplySwordHit(gel.CollisionBounds, gel.Position) ||
+                _entities.Entities<GelCharacter>().Count != room40bGels.Length - index - 1)
+            {
+                throw new InvalidOperationException(
+                    $"Room 4:0b Gel {index + 1} did not die through the shared sword/combat path.");
+            }
+            Step();
+            if (index < room40bGels.Length - 1 &&
+                (_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0 ||
+                 room.GetMetatile(new Vector2(0x78, 0x08)) != 0x78 ||
+                 room.GetMetatile(new Vector2(0x08, 0x58)) != 0x7b))
+            {
+                throw new InvalidOperationException(
+                    "Room 4:0b shutters released before all three counted Gels were defeated.");
+            }
+        }
+        if (_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 2)
+            throw new InvalidOperationException(
+                "Room 4:0b's two shutters did not observe the shared live enemy count.");
+        for (int frame = 0; frame < database.SolveWait; frame++)
+            Step();
+        Step();
+        if (room.GetMetatile(new Vector2(0x78, 0x08)) != 0xa0 ||
+            room.GetMetatile(new Vector2(0x08, 0x58)) != 0xa0 ||
+            !room.IsSolid(new Vector2(0x78, 0x08)) ||
+            !room.IsSolid(new Vector2(0x08, 0x58)) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 2)
+        {
+            throw new InvalidOperationException(
+                "Room 4:0b did not begin both directional interleaved door frames together.");
+        }
+        for (int frame = 0; frame < database.DoorFrameWait; frame++)
+            Step();
+        if (room.IsSolid(new Vector2(0x78, 0x08)) ||
+            room.IsSolid(new Vector2(0x08, 0x58)) ||
+            _entities.Entities<DungeonDoorRoomEntity>().Count != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 4)
+        {
+            throw new InvalidOperationException(
+                "Room 4:0b did not finish both reusable enemy shutters after six updates.");
+        }
+
+        // wEnemiesKilledList retains each source object's one-based index for
+        // the last eight visited room IDs. A short re-entry therefore omits
+        // all three direct Gels; the source layout is reloaded closed, then
+        // both zero-count shutters open without SND_SOLVEPUZZLE.
+        _entities.LoadRoom(4, _world.LoadRoom(4, 0x0c));
+        _sound.ClearPlayRequestAudit();
+        _entities.LoadRoom(4, room);
+        if (_entities.Entities<GelCharacter>().Count != 0 ||
+            _entities.Entities<DungeonDoorRoomEntity>().Count != 2 ||
+            room.GetMetatile(new Vector2(0x78, 0x08)) != 0x78 ||
+            room.GetMetatile(new Vector2(0x08, 0x58)) != 0x7b)
+        {
+            throw new InvalidOperationException(
+                "Room 4:0b short re-entry did not suppress its defeated Gel indices and restore both source shutters.");
+        }
+        Step();
+        if (_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0)
+            throw new InvalidOperationException(
+                "Room 4:0b replayed SND_SOLVEPUZZLE for a zero-count re-entry.");
+        Step();
+        if (!room.IsSolid(new Vector2(0x78, 0x08)) ||
+            !room.IsSolid(new Vector2(0x08, 0x58)) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 2)
+        {
+            throw new InvalidOperationException(
+                "Room 4:0b did not begin its immediate re-entry door animation on update 2.");
+        }
+        for (int frame = 0; frame < database.DoorFrameWait; frame++)
+            Step();
+        if (room.IsSolid(new Vector2(0x78, 0x08)) ||
+            room.IsSolid(new Vector2(0x08, 0x58)) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 4)
+        {
+            throw new InvalidOperationException(
+                "Room 4:0b did not finish its no-solve-cue re-entry shutters after six updates.");
+        }
+
+        var recentDefeats = new RecentEnemyDefeats();
+        recentDefeats.BeginRoom(0x0b);
+        recentDefeats.MarkKilled(1);
+        for (int roomId = 0x20; roomId < 0x27; roomId++)
+            recentDefeats.BeginRoom(roomId);
+        recentDefeats.BeginRoom(0x0b);
+        if (!recentDefeats.WasKilled(1))
+            throw new InvalidOperationException(
+                "wEnemiesKilledList did not retain room 4:0b across seven other visited room IDs.");
+        recentDefeats.BeginRoom(0x27);
+        recentDefeats.BeginRoom(0x0b);
+        if (recentDefeats.WasKilled(1))
+            throw new InvalidOperationException(
+                "wEnemiesKilledList did not evict room 4:0b at its original eight-entry ring boundary.");
+
+        // The six room 5:93 Keese carry enemy-object flag $02. The parser
+        // immediately subtracts them from wNumEnemies, so they must not hold
+        // its right shutter closed even while their combat entities are live.
+        LoadValidationRoom(5, 0x93);
+        room = _currentRoom;
+        _sound.ClearPlayRequestAudit();
+        Vector2 countExemptDoor = new(0xe8, 0x88);
+        if (_entities.Entities<KeeseCharacter>().Count != 6 ||
+            _entities.Entities<DungeonDoorRoomEntity>() is not [{ SubId: 0x09 }] ||
+            room.GetMetatile(countExemptDoor) != 0x79)
+        {
+            throw new InvalidOperationException(
+                "Room 5:93 did not load six count-exempt Keese and right shutter $1e:$09.");
+        }
+        Step();
+        Step();
+        if (room.GetMetatile(countExemptDoor) != 0xa0 ||
+            !room.IsSolid(countExemptDoor) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0)
+        {
+            throw new InvalidOperationException(
+                "Enemy flag $02 incorrectly held room 5:93's shutter in wNumEnemies.");
+        }
+
+        LoadValidationRoom(4, 0x13);
+        if (_entities.Entities<DungeonDoorRoomEntity>().Count != 0 ||
+            _currentRoom.GetMetatile(new Vector2(0x78, 0x08)) != 0x78 ||
+            _currentRoom.GetMetatile(new Vector2(0x08, 0x78)) != 0x7b)
+        {
+            throw new InvalidOperationException(
+                "Room 4:13 activated enemy shutters without its unresolved before-event enemy.");
+        }
+        LoadValidationRoom(4, 0x09);
+        Step();
+        if (_entities.Entities<PushBlockTriggerRoomEntity>().Count != 0 ||
+            _currentRoom.GetMetatile(new Vector2(0xa8, 0x28)) != 0x19)
+        {
+            throw new InvalidOperationException(
+                "Room 4:09 activated $13:$01 without its unsupported trigger-door controller.");
+        }
+        _entities.WorldToScreen = _transitions.WorldToScreen;
+
+        GD.Print("Validated all 73 imported $13:$01/$1e:$08-$0b placements, room 4:0c's " +
+            "ordered push-trigger enemy count and 30/8/6-update boundaries, mapping-level " +
+            "half-door animation/collision, sounds, room 4:0b's delayed left-entry close, " +
+            "shared up/left Gel shutters, sword path, predicates, transient eight-room " +
+            "defeat/re-entry behavior, room 5:93's " +
+            "enemy flag-$02 count exemption, and safe unresolved-stream/door skips.");
     }
 
     private void ValidateChests()

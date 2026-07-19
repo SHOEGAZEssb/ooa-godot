@@ -89,6 +89,8 @@ single universal entity base class:
 | `IOrdinaryNpcEntity` | A placed NPC eligible for live imported save-predicate refresh |
 | `IPlayerRestriction` | Native interaction-owned sword and/or movement input suppression |
 | `IRoomEntityLifetime` | Completion and final spawned effects |
+| `IRoomEnemyCounterEntity` | A live combat enemy or native puzzle sentinel contributing to `wNumEnemies` |
+| `IRoomKillTrackedEnemy` | A source enemy's transient `$01-$07` killed-list index and whether completion marks it |
 | `IRoomSaveStateEntity` | Refresh from changed live save state |
 
 Shared combat, terrain movement, vertical motion, and animation components may
@@ -127,6 +129,37 @@ exceptions. `$dc:$07` ground treasures are emitted after placed NPCs and before
 portals/enemies in original object order, expose collision through
 `ILinkContactEntity`, and use `IRoomEntityLifetime` to disappear only after the
 pickup textbox closes. Their room-item bit is checked on every room parse.
+
+Enemy-shutter door controllers query `IRoomEnemyCounterEntity` rather than a
+room-specific completion boolean. Combat adapters contribute while alive;
+native sentinels such as push-block trigger `$13:$01` contribute from their
+state-0 increment through their delayed reset. Enemy object flag bit `$02`
+retains the original count-exempt behavior. Import every shared placement, but
+instantiate a shutter only when every active, non-exempt enemy record in that
+room has a runtime entity capable of contributing to the count and its object
+list has no unresolved before/after-event enemy stream. Standalone `$13:$01`
+records paired only with unsupported door variants likewise remain inactive.
+Until the remaining enemy roster exists, this keeps unsupported rooms at their
+original closed base tile instead of opening a door from an incomplete count.
+
+Scrolling placement context also carries Link's final packed destination.
+Directional shutter controllers use it with the scroll direction to mirror
+`replaceShutterForLinkEntering`: only the crossed shutter is preloaded as open
+floor. It remains non-solid while destination entities are frozen and while
+Link overlaps the door's combined radii; its shared six-update interleaved
+close starts afterward and applies the closed collision only on completion.
+Do not infer the entry shutter from a room edge alone, because the original
+substitution also requires Link's packed row or column to match that door.
+
+Ordinary random and fixed enemy records without object flag `$01` advance the
+source `numKillableEnemies` counter before allocation. Only indices `$01-$07`
+are retained. `RecentEnemyDefeats` mirrors the original eight-entry
+`wEnemiesKilledList` ring by room ID; combat death marks the entity's bit,
+subsequent short re-entry skips that placement before slot allocation and
+random positioning, and visiting enough distinct rooms eventually evicts it.
+Red Zol split children retain the parent's index while the replaced parent does
+not mark it. This state is runtime-only: scrolling and dungeon warps retain it,
+whereas standard warp loading to a non-dungeon destination clears it.
 
 See [NPCs and room events](npcs-and-events.md) for deciding whether an imported
 interaction remains an ordinary NPC, receives a specialized room-entity

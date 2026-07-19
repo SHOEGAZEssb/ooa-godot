@@ -15,16 +15,21 @@ internal enum EnemyPlacementEntryKind
 /// Inputs consumed by checkPositionValidForEnemySpawn. Ordinary scrolling
 /// excludes the three metatile rows or columns at Link's incoming edge; a
 /// packed warp destination excludes the surrounding 5x5-metatile square.
+/// Scrolling also retains Link's final packed position for the destination
+/// room's replaceShutterForLinkEntering pass.
 /// </summary>
 internal readonly record struct EnemyPlacementContext(
     EnemyPlacementEntryKind Kind,
     Vector2I ScrollDirection,
-    int WarpDestination)
+    int WarpDestination,
+    int EntryPackedPosition)
 {
     internal static EnemyPlacementContext Unrestricted => new(
-        EnemyPlacementEntryKind.Unrestricted, Vector2I.Zero, -1);
+        EnemyPlacementEntryKind.Unrestricted, Vector2I.Zero, -1, -1);
 
-    internal static EnemyPlacementContext Scrolling(Vector2I direction)
+    internal static EnemyPlacementContext Scrolling(
+        Vector2I direction,
+        int entryPackedPosition = -1)
     {
         if (direction != Vector2I.Up && direction != Vector2I.Right &&
             direction != Vector2I.Down && direction != Vector2I.Left)
@@ -32,8 +37,14 @@ internal readonly record struct EnemyPlacementContext(
             throw new ArgumentOutOfRangeException(
                 nameof(direction), direction, "Scroll direction must be cardinal.");
         }
+        if (entryPackedPosition is < -1 or >= 0xf0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(entryPackedPosition), entryPackedPosition,
+                "A scrolling entry position must be a packed position below `$f0.");
+        }
         return new EnemyPlacementContext(
-            EnemyPlacementEntryKind.Scrolling, direction, -1);
+            EnemyPlacementEntryKind.Scrolling, direction, -1, entryPackedPosition);
     }
 
     internal static EnemyPlacementContext Warp(int packedDestination)
@@ -45,13 +56,13 @@ internal readonly record struct EnemyPlacementContext(
                 "A direct warp destination must be a packed position below `$f0.");
         }
         return new EnemyPlacementContext(
-            EnemyPlacementEntryKind.Warp, Vector2I.Zero, packedDestination);
+            EnemyPlacementEntryKind.Warp, Vector2I.Zero, packedDestination, -1);
     }
 
     internal static EnemyPlacementContext FromWarpDestination(int packedDestination) =>
         packedDestination >= 0xf0
             ? new EnemyPlacementContext(
-                EnemyPlacementEntryKind.ScreenWarp, Vector2I.Up, packedDestination)
+                EnemyPlacementEntryKind.ScreenWarp, Vector2I.Up, packedDestination, -1)
             : Warp(packedDestination);
 
     internal bool Allows(OracleRoomData room, int packedPosition)

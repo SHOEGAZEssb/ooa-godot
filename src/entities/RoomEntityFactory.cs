@@ -17,19 +17,50 @@ internal sealed class RoomEntityFactory(
     Action<GroundTreasurePickup, Player> groundTreasureCollected,
     Action<int, string> dungeonEntranceTriggered,
     Action<Vector2, OracleRoomData.HazardType> itemDropEnteredHazard,
-    Action<int> soundRequested)
+    Action<int> soundRequested,
+    Func<int> roomEnemyCount,
+    Func<int, bool> enemyWasKilled,
+    Func<Vector2, Vector2> worldToScreen,
+    Func<long> animationTick)
 {
     private readonly Room148PickaxeDatabase _room148 = new();
     private readonly Room149FamilyDatabase _room149 = new();
     private readonly BlackTowerWorkerDatabase _blackTower = new();
     private readonly EnemySpawnTileDatabase _enemySpawnTiles = new();
     private readonly GroundTreasureDatabase _groundTreasures = new();
+    private readonly DungeonMechanicDatabase _dungeonMechanics = new();
 
     public IEnumerable<IRoomEntity> CreateRoomEntities(
         int group,
         OracleRoomData room,
         EnemyPlacementContext placementContext)
     {
+        // Enemy shutters depend on a complete live wNumEnemies equivalent.
+        // The generated placement path is enabled for every room whose active
+        // enemy records are represented by the current runtime roster; other
+        // imported placements safely retain their closed base metatile.
+        IReadOnlyList<DungeonMechanicDatabase.Record> dungeonRecords =
+            _dungeonMechanics.GetRoomRecords(group, room.Id);
+        if (DungeonMechanicRoomIsSupported(dungeonRecords, group, room))
+        {
+            foreach (DungeonMechanicDatabase.Record record in dungeonRecords)
+            {
+                yield return record.Id switch
+                {
+                    0x13 => new PushBlockTriggerRoomEntity(
+                        record, room, _dungeonMechanics,
+                        roomEnemyCount, animationTick),
+                    0x1e => new DungeonDoorRoomEntity(
+                        record, room, _dungeonMechanics, roomEnemyCount,
+                        worldToScreen, animationTick, soundRequested,
+                        placementContext),
+                    _ => throw new InvalidOperationException(
+                        $"Unsupported dungeon interaction ${record.Id:x2}:" +
+                        $"${record.SubId:x2} in room {group:x1}:{room.Id:x2}.")
+                };
+            }
+        }
+
         IReadOnlyList<NpcDatabase.NpcRecord> roomNpcs =
             npcs.GetRoomNpcs(group, room.Id, saveData, runtimeState);
         if (group == 4 && room.Id is 0xe0 or 0xe1 or 0xe2 or 0xe7 or 0xe8)
@@ -91,6 +122,7 @@ internal sealed class RoomEntityFactory(
         var reservations = new EnemyPlacementReservations();
         int enemySlots = 0;
         int partSlots = 0;
+        int killableEnemies = 0;
         foreach (EnemyDatabase.RoomObjectRecord source in enemies.GetRoomObjects(group, room.Id))
         {
             if (!RoomObjectConditionMet(source, group, room))
@@ -101,6 +133,10 @@ internal sealed class RoomEntityFactory(
                 case EnemyDatabase.RoomObjectKind.RandomEnemy:
                     for (int instance = 0; instance < source.Count; instance++)
                     {
+                        int killableEnemyIndex = NextKillableEnemyIndex(
+                            source.Flags, ref killableEnemies);
+                        if (enemyWasKilled(killableEnemyIndex))
+                            continue;
                         if (enemySlots >= 16)
                             break;
                         enemySlots++;
@@ -110,19 +146,25 @@ internal sealed class RoomEntityFactory(
                         {
                             continue;
                         }
-                        IRoomEntity? entity = CreateOrderedEnemy(source, room, position, instance);
+                        IRoomEntity? entity = CreateOrderedEnemy(
+                            source, room, position, instance, killableEnemyIndex);
                         if (entity is not null)
                             yield return entity;
                     }
                     break;
 
                 case EnemyDatabase.RoomObjectKind.FixedEnemy:
+                    int fixedKillableEnemyIndex = NextKillableEnemyIndex(
+                        source.Flags, ref killableEnemies);
+                    if (enemyWasKilled(fixedKillableEnemyIndex))
+                        break;
                     if (enemySlots >= 16)
                         break;
                     enemySlots++;
                     reservations.Add(source.PackedPosition);
                     IRoomEntity? fixedEntity = CreateOrderedEnemy(
-                        source, room, new Vector2(source.X, source.Y), 0);
+                        source, room, new Vector2(source.X, source.Y), 0,
+                        fixedKillableEnemyIndex);
                     if (fixedEntity is not null)
                         yield return fixedEntity;
                     break;
@@ -133,6 +175,10 @@ internal sealed class RoomEntityFactory(
                     break;
 
                 case EnemyDatabase.RoomObjectKind.ItemDrop:
+                    int itemKillableEnemyIndex = NextKillableEnemyIndex(
+                        source.Flags, ref killableEnemies);
+                    if (enemyWasKilled(itemKillableEnemyIndex))
+                        break;
                     if (enemySlots >= 16)
                         break;
                     enemySlots++;
@@ -158,7 +204,8 @@ internal sealed class RoomEntityFactory(
         EnemyDatabase.RoomObjectRecord source,
         OracleRoomData room,
         Vector2 position,
-        int instance)
+        int instance,
+        int killableEnemyIndex)
     {
         if (source.Id == 0x32 && enemies.TryGetKeeseDefinition(source, out EnemyDatabase.EnemyRecord keeseRecord))
         {
@@ -168,7 +215,7 @@ internal sealed class RoomEntityFactory(
                 ZIndex = 10
             };
             keese.Initialize(keeseRecord, room, position, random);
-            return new KeeseRoomEntity(keese);
+            return new KeeseRoomEntity(keese, killableEnemyIndex);
         }
 
         if (source.Id == 0x09 &&
@@ -180,7 +227,7 @@ internal sealed class RoomEntityFactory(
                 ZIndex = 10
             };
             octorok.Initialize(octorokRecord, room, position, random);
-            return new OctorokRoomEntity(octorok);
+            return new OctorokRoomEntity(octorok, killableEnemyIndex);
         }
 
         if (source.Id == 0x34 &&
@@ -192,11 +239,13 @@ internal sealed class RoomEntityFactory(
                 ZIndex = 10
             };
             zol.Initialize(zolRecord, room, position, random);
-            return new ZolRoomEntity(zol);
+            return new ZolRoomEntity(zol, killableEnemyIndex);
         }
 
         return source.Id == 0x43 && source.SubId == 0
-            ? Create(new GelSpawn(position, $"RoomGel_{source.Order}_{instance}"), room)
+            ? CreateGel(
+                new GelSpawn(position, $"RoomGel_{source.Order}_{instance}"),
+                room, (source.Flags & 0x02) == 0, killableEnemyIndex)
             : null;
     }
 
@@ -361,11 +410,27 @@ internal sealed class RoomEntityFactory(
         return new OctorokRockRoomEntity(rock);
     }
 
-    private IRoomEntity CreateGel(GelSpawn spawn, OracleRoomData room)
+    private IRoomEntity CreateGel(
+        GelSpawn spawn,
+        OracleRoomData room,
+        bool countsAsEnemy = true,
+        int? killableEnemyIndex = null)
     {
         var gel = new GelCharacter { Name = spawn.Name, ZIndex = 10 };
         gel.Initialize(enemies.Gel, room, spawn.Position, random);
-        return new GelRoomEntity(gel);
+        return new GelRoomEntity(
+            gel, countsAsEnemy,
+            killableEnemyIndex ?? spawn.KillableEnemyIndex);
+    }
+
+    private static int NextKillableEnemyIndex(int flags, ref int count)
+    {
+        // checkEnemyKilled is bypassed by object flag bit $01. Only the first
+        // seven checked objects receive an index in Enemy.enabled.
+        if ((flags & 0x01) != 0 || count >= 7)
+            return 0;
+        count++;
+        return count;
     }
 
     private IRoomEntity CreateRoom148Debris(Room148DebrisSpawn spawn)
@@ -444,6 +509,56 @@ internal sealed class RoomEntityFactory(
         if (saveData?.HasRoomFlag(group, room.Id, OracleSaveData.RoomFlagLayoutSwap) == true)
             stateModifier++;
         return (record.ConditionMask & (1 << stateModifier)) != 0;
+    }
+
+    private bool DungeonEnemyCountIsComplete(int group, OracleRoomData room)
+    {
+        foreach (EnemyDatabase.RoomObjectRecord source in
+            enemies.GetRoomObjects(group, room.Id))
+        {
+            if (!RoomObjectConditionMet(source, group, room))
+                continue;
+            // objectData flags bit $02 calls decEnemyCounterIfApplicable
+            // immediately after allocation, so an omitted count-exempt enemy
+            // cannot make the shutter's live count incomplete.
+            if ((source.Flags & 0x02) != 0)
+                continue;
+            switch (source.Kind)
+            {
+                case EnemyDatabase.RoomObjectKind.RandomEnemy:
+                case EnemyDatabase.RoomObjectKind.FixedEnemy:
+                    bool supported = source.Id switch
+                    {
+                        0x09 => enemies.TryGetOctorokDefinition(source, out _),
+                        0x32 => enemies.TryGetKeeseDefinition(source, out _),
+                        0x34 => enemies.TryGetZolDefinition(source, out _),
+                        0x43 => source.SubId == 0,
+                        _ => false
+                    };
+                    if (!supported)
+                        return false;
+                    break;
+
+                case EnemyDatabase.RoomObjectKind.ParameterEnemy:
+                    return false;
+            }
+        }
+        return true;
+    }
+
+    private bool DungeonMechanicRoomIsSupported(
+        IReadOnlyList<DungeonMechanicDatabase.Record> records,
+        int group,
+        OracleRoomData room)
+    {
+        bool hasEnemyShutter = false;
+        foreach (DungeonMechanicDatabase.Record record in records)
+        {
+            if (!record.CountSourceComplete)
+                return false;
+            hasEnemyShutter |= record.Id == 0x1e;
+        }
+        return hasEnemyShutter && DungeonEnemyCountIsComplete(group, room);
     }
 
     private bool TryChooseRandomEnemyPosition(

@@ -22,6 +22,8 @@ public sealed class RoomEntityManager
     private readonly ItemDropDatabase _itemDrops;
     private readonly OracleSaveData? _saveData;
     private readonly OracleRuntimeState _runtimeState;
+    private readonly Func<long> _animationTick;
+    private readonly RecentEnemyDefeats _recentEnemyDefeats = new();
     private readonly NpcVisibilityRuleDatabase _npcVisibility = new();
     private readonly NpcDialogueRuleDatabase _npcDialogue = new();
     private readonly NpcPositionRuleDatabase _npcPositions = new();
@@ -37,6 +39,8 @@ public sealed class RoomEntityManager
         ReadGameButtonJustPressed;
     internal Func<bool> GroundTreasureCollectionAllowed { get; set; } =
         static () => true;
+    internal Func<Vector2, Vector2> WorldToScreen { get; set; } =
+        static position => position;
 
     public bool ScreenTransitionActive => _screenTransitionActive;
     public OracleRuntimeState RuntimeState => _runtimeState;
@@ -86,20 +90,24 @@ public sealed class RoomEntityManager
         TimePortalDatabase timePortals,
         OracleRandom random,
         OracleSaveData? saveData = null,
-        OracleRuntimeState? runtimeState = null)
+        OracleRuntimeState? runtimeState = null,
+        Func<long>? animationTick = null)
     {
         _worldRoot = worldRoot;
         _random = random;
         _itemDrops = itemDrops;
         _saveData = saveData;
         _runtimeState = runtimeState ?? new OracleRuntimeState();
+        _animationTick = animationTick ?? (() => 0);
         _factory = new RoomEntityFactory(
             npcs, enemies, itemDrops, timePortals, random,
             _saveData, _runtimeState, OnTimePortalEntered,
             () => GroundTreasureCollectionAllowed(),
             OnGroundTreasureCollected, OnDungeonEntranceTriggered,
             OnItemDropEnteredHazard,
-            OnSoundRequested);
+            OnSoundRequested, CountRoomEnemies,
+            enemyIndex => _recentEnemyDefeats.WasKilled(enemyIndex),
+            position => WorldToScreen(position), _animationTick);
         if (_saveData is not null)
             _saveData.Changed += RefreshNpcState;
         _runtimeState.Changed += RefreshNpcState;
@@ -148,11 +156,13 @@ public sealed class RoomEntityManager
         int group,
         OracleRoomData room,
         Vector2 incomingOffset,
-        Vector2I scrollDirection)
+        Vector2I scrollDirection,
+        int entryPackedPosition)
     {
         BeginScreenTransition(
             group, room, incomingOffset,
-            EnemyPlacementContext.Scrolling(scrollDirection));
+            EnemyPlacementContext.Scrolling(
+                scrollDirection, entryPackedPosition));
     }
 
     private void BeginScreenTransition(
@@ -321,11 +331,16 @@ public sealed class RoomEntityManager
         _enemyFrameAccumulator = 0.0;
     }
 
+    internal void ClearRecentEnemyDefeats() => _recentEnemyDefeats.Clear();
+
     private void AddRoomEntities(
         int group,
         OracleRoomData room,
         EnemyPlacementContext placementContext)
     {
+        // parseObjectData loads wEnemyPlacement.killedEnemiesBitset from the
+        // last-eight-room list before rebuilding w4RandomBuffer.
+        _recentEnemyDefeats.BeginRoom(room.Id);
         // parseObjectData clears wEnemyPlacement, then rebuilds w4RandomBuffer.
         // This consumes 256 values from the game-wide RNG on every room parse.
         _random.BeginRoomParse();
@@ -340,6 +355,17 @@ public sealed class RoomEntityManager
     {
         RefreshNpcState(_outgoingEntities);
         RefreshNpcState(_activeEntities);
+    }
+
+    private int CountRoomEnemies()
+    {
+        int count = 0;
+        foreach (IRoomEntity entity in _activeEntities)
+        {
+            if (entity is IRoomEnemyCounterEntity { CountsAsEnemy: true })
+                count++;
+        }
+        return count;
     }
 
     private void RefreshNpcState(IEnumerable<IRoomEntity> entities)
@@ -392,6 +418,14 @@ public sealed class RoomEntityManager
             IRoomEntity entity = _activeEntities[index];
             if (entity is not IRoomEntityLifetime { Finished: true } lifetime)
                 continue;
+            if (entity is IRoomKillTrackedEnemy
+                {
+                    MarksEnemyKilled: true,
+                    KillableEnemyIndex: > 0
+                } killedEnemy)
+            {
+                _recentEnemyDefeats.MarkKilled(killedEnemy.KillableEnemyIndex);
+            }
             lifetime.OnFinished(_pendingSpawns);
             _activeEntities.RemoveAt(index);
             FreeEntity(entity);

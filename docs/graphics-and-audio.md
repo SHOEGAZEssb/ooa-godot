@@ -58,6 +58,14 @@ room texture retains the already-drawn metatile, including through later full
 texture refreshes. Room initialization and explicit visual metatile replacement
 remove stale visual overrides along with the other transient layout state.
 
+`setInterleavedTile` is a different split. Shutter doors copy selected 8x8 tile
+IDs and attributes from a second metatile into a position-specific eight-byte
+mapping, install the destination tile in `wRoomLayout`, and retain the old
+collision byte. The mapping override must survive full-room texture refreshes
+for the exact six-update half-door frame. The final ordinary tile write removes
+both mapping and collision overrides, renders the complete destination
+metatile, and only then makes the doorway passable.
+
 ## Audio determinism and lifecycle
 
 `OracleSoundData` imports all 223 sound/music IDs and their banked channel

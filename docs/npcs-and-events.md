@@ -272,6 +272,59 @@ talks consume later values only when A-button interaction reaches their helper.
 Validations should compute expectations from that stream rather than reseeding
 individual actors.
 
+Room `4:0c` is the reference for reusable invisible dungeon interactions whose
+shared state is the live enemy count:
+
+- The importer emits all 73 direct `$13:$01` push-block-trigger and
+  `$1e:$08-$0b` enemy-shutter placements, retaining group, room, source object
+  order, packed position, subid, parameter, and whether a conditional enemy
+  stream remains unresolved. It separately pins the common handler's push tile,
+  30/8/6-update counters, four closed tiles, open tile, and sound IDs.
+- `$13:$01` occupies the first `4:0c` slot. State 0 saves the source tile,
+  writes logical pushable tile `$1d` without redrawing, and contributes one to
+  `wNumEnemies`. Once only that sentinel remains it restores the source tile;
+  after the push changes the source layout, it waits exactly 30 updates and
+  removes its enemy-count contribution before the later door slot updates.
+- `$1e:$08-$0b` query the shared live count. A count that begins at zero opens
+  without the solve cue; a transition from nonzero to zero requests
+  `SND_SOLVEPUZZLE`, waits eight updates, and begins opening on the following
+  update. Enemy object flag `$02` remains count-exempt, as exercised by room
+  `5:93`'s six living Keese. Direction selects closed tiles `$78-$7b` and
+  interleave type 0-3.
+- During an ordinary scroll, `replaceShutterForLinkEntering` compares the
+  transition direction and Link's destination packed position against the
+  room's directional shutters. Only the shutter Link actually crosses is
+  preloaded as non-solid floor `$a0`; other shutters retain their closed source
+  tiles. After destination objects unfreeze, the controller waits while Link
+  overlaps the original directional `$08/$0a` radii plus Link's `$06` radius.
+  It begins closing on the update after Link clears that strict boundary, keeps
+  floor collision throughout the six-update interleaved frame, and installs
+  the solid directional tile only when that frame completes.
+- Door opening requests `SND_DOORCLOSE` only inside the original screen
+  boundary, renders the source mapping's directional half over open tile `$a0`,
+  retains closed collision for six updates, then writes the full open tile,
+  updates collision, repeats the visible sound, and deletes the controller.
+- `RoomEntityFactory` uses this shared path in every imported room for which
+  the active, counted enemy stream is completely represented. An unsupported
+  counted enemy type disables the room's mechanics as a unit, preserving its
+  closed base layout until a truthful `wNumEnemies` count is possible. The same
+  applies to unresolved before/after-event streams and standalone push triggers
+  whose associated door variant is still unsupported. Room `4:0b` is the
+  second canonical regression: its sole enemy row is always active
+  (`obj_RandomEnemy $60 $43 $00`, count 3, no low flag bits), so it has no
+  global, room, linked-game, essence, or treasure predicate. Three ordinary
+  Gels gate simultaneous up and left shutters through the same entity contract.
+- Killable enemy objects without source flag `$01` receive the original
+  one-based indices `$01-$07`. `RecentEnemyDefeats` mirrors
+  `wEnemiesKilledList`: eight room IDs and their killed-index bitsets in a ring,
+  retained across scrolling and dungeon warps but cleared by non-dungeon warp
+  loading. A cached mutable room restores each shutter to either its closed
+  source tile or the entry-only `$a0` substitution on every parse. A short
+  `4:0b` re-entry suppresses all three Gels and runs the zero-count door branch
+  without `SND_SOLVEPUZZLE`; an uncleared left entry delays tile `$7b` until
+  Link is fully inside. Red Zol split Gels inherit their parent's index,
+  matching the original `Enemy.enabled` transfer.
+
 Room `1:57` is the minimal ordinary-predicate reference. Female villager
 `$3b:$05` imports its `getGameProgress_2` existence set and complete eight-entry
 dialogue table. Its initializer's final `oamFlags = $01` palette replaces the
