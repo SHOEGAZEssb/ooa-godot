@@ -177,6 +177,16 @@ public sealed class InventoryState
     public bool HasUpgrade(int bit) =>
         bit is >= 0 and < 8 && (_upgradesObtained & (1 << bit)) != 0;
 
+    internal int LevelForInventoryDisplay(int treasure) => treasure switch
+    {
+        TreasureDatabase.TreasureSword => SwordLevel,
+        TreasureDatabase.TreasureBracelet => BraceletLevel,
+        TreasureDatabase.TreasureSwitchHook => SwitchHookLevel,
+        TreasureDatabase.TreasureBoomerang => BoomerangLevel,
+        TreasureDatabase.TreasureFeather => FeatherLevel,
+        _ => 0
+    };
+
     public void SelectSatchelSeeds(int seeds) =>
         SetSelectedSeeds(ref _satchelSelectedSeeds,
             TreasureDatabase.TreasureVariable.SatchelSelectedSeeds, seeds);

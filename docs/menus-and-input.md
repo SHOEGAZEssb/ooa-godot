@@ -29,6 +29,28 @@ switches request that same sound when their 13-update scroll begins. Accepted
 overworld cursor moves and dungeon-floor changes request `SND_MENU_MOVE`
 (`$84`); a blocked dungeon-floor direction remains silent.
 
+Every accepted directional input on each of the three inventory subscreens
+requests `SND_MENU_MOVE` (`$84`). An A/B storage-slot swap, including an
+unequip into an empty slot, requests `SND_SELECTITEM` (`$56`); successfully
+equipping or unequipping a ring requests the same sound, while pressing A on a
+non-ring secondary item remains silent.
+
+## Inventory text marquee
+
+The inventory's bottom text bar uses the original `showItemText2` indices.
+Ordinary items and all three subscreens resolve `TX_09XX`; ring slots combine
+the `TX_3040+ring` name with the `TX_3080+ring` description as `TX_30c1` does.
+Changing to a different text index centers its first line immediately, holds it
+for 40 original updates, and then scrolls the remaining lines as one marquee at
+one character per 8 updates. Re-selecting the same text index does not restart
+the marquee. Starting a 13-update page scroll clears the text bar, and the new
+page's selection appears on its first normal menu update after the scroll.
+
+Treasure display mode `$00` uses the original inventory HUD tiles to draw
+`L-` plus the live low-nibble level beneath stored items and beside equipped
+A/B items. This applies to every imported level-mode record, including swords,
+bracelets, switch hooks, boomerangs, and feathers.
+
 ## Gameplay pause lease
 
 `GameplayPauseController` provides exclusive pause/input ownership. Its lease

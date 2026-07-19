@@ -277,13 +277,21 @@ foreach ($line in $displaySource) {
     $rightSprite = Convert-AsmByte $values[3]
     $rightPalette = Convert-AsmByte $values[4]
     $extraMode = Convert-AsmByte $values[5]
-    $textLow = if ($values[6] -match '<TX_[A-Z0-9_]+') { -1 } else { Convert-AsmByte $values[6] }
+    $textMatch = [regex]::Match($values[6], '<(?<name>TX_[A-Za-z0-9_]+)')
+    if (-not $textMatch.Success -or
+        -not $allTextIdsByName.ContainsKey($textMatch.Groups['name'].Value)) {
+        throw "Could not resolve inventory text symbol '$($values[6])' in row '$line'."
+    }
+    $textId = $allTextIdsByName[$textMatch.Groups['name'].Value]
+    if (($textId -band 0xff00) -ne 0x0900) {
+        throw "Inventory display row '$line' resolved outside text group `$09."
+    }
+    $textLow = $textId -band 0xff
     if ($leftSprite -lt 0 -or $leftPalette -lt 0 -or $rightSprite -lt 0 -or
         $rightPalette -lt 0 -or $extraMode -lt 0) {
         throw "Could not parse treasure display row '$line'."
     }
-    $textColumn = if ($textLow -lt 0) { 'ff' } else { $textLow.ToString('x2') }
-    $displayRows.Add("$displayTable`t$displayIndex`t$($treasure.ToString('x2'))`t$($leftSprite.ToString('x2'))`t$($leftPalette.ToString('x2'))`t$($rightSprite.ToString('x2'))`t$($rightPalette.ToString('x2'))`t$($extraMode.ToString('x2'))`t$textColumn")
+    $displayRows.Add("$displayTable`t$displayIndex`t$($treasure.ToString('x2'))`t$($leftSprite.ToString('x2'))`t$($leftPalette.ToString('x2'))`t$($rightSprite.ToString('x2'))`t$($rightPalette.ToString('x2'))`t$($extraMode.ToString('x2'))`t$($textLow.ToString('x2'))")
     $displayIndex++
 }
 if (($displayRows | Where-Object { $_ -match '^treasureDisplayData_sword\t0\t05\t90\t' }).Count -ne 1) {
@@ -292,6 +300,39 @@ if (($displayRows | Where-Object { $_ -match '^treasureDisplayData_sword\t0\t05\
 [IO.File]::WriteAllLines(
     (Join-Path $destination "metadata\treasure_display.tsv"),
     $displayRows,
+    [Text.UTF8Encoding]::new($false))
+
+# showItemText2 reads normal inventory labels from TX_09XX. Ring slots set bit
+# 7 and substitute TX_3040+ring and TX_3080+ring into TX_30c1; export that
+# already-resolved pair while retaining both source IDs in the generated row.
+$inventoryTextRows = [Collections.Generic.List[string]]::new()
+$inventoryTextRows.Add('# kind`tindex`tname-text-id`tdescription-text-id`tmessage-base64')
+foreach ($textId in @($allTexts.Keys | Sort-Object)) {
+    if ($textId -lt 0x0900 -or $textId -ge 0x0a00) { continue }
+    $encoded = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
+    $inventoryTextRows.Add(
+        "item`t$(($textId -band 0xff).ToString('x2'))`t$($textId.ToString('x4'))`tffff`t$encoded")
+}
+foreach ($ring in 0..0x3f) {
+    $nameId = 0x3040 + $ring
+    $descriptionId = 0x3080 + $ring
+    if (-not $allTexts.ContainsKey($nameId) -or
+        -not $allTexts.ContainsKey($descriptionId)) {
+        throw "Could not resolve inventory ring text `$${ring}: TX_$($nameId.ToString('x4')) / TX_$($descriptionId.ToString('x4'))."
+    }
+    $message = "$($allTexts[$nameId])`n$($allTexts[$descriptionId])"
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message))
+    $inventoryTextRows.Add(
+        "ring`t$($ring.ToString('x2'))`t$($nameId.ToString('x4'))`t$($descriptionId.ToString('x4'))`t$encoded")
+}
+if (($inventoryTextRows | Where-Object { $_ -match '^item\t23\t0923\t' }).Count -ne 1 -or
+    ($inventoryTextRows | Where-Object { $_ -match '^ring\t00\t3040\t3080\t' }).Count -ne 1) {
+    throw 'Could not export Wooden Sword and Friendship Ring inventory text records.'
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination "metadata\inventory_text.tsv"),
+    $inventoryTextRows,
     [Text.UTF8Encoding]::new($false))
 
 # Export the breakable tile tables used by tryToBreakTile. The source masks

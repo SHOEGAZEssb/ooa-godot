@@ -84,7 +84,7 @@ claim that the entire surrounding game is complete.
 
 ### Graphics and audio
 
-- Remaining dynamic inventory text/count overlays and specialized item OAM.
+- Remaining dynamic inventory count overlays and specialized item OAM.
 - Sound calls owned by interactions and objects that have not yet been ported.
 - A possible cell-based room renderer; the current full-room texture path remains
   authoritative until a staged migration proves parity.

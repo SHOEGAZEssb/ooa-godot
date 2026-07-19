@@ -13,6 +13,7 @@ public partial class Hud : Node2D
     private const int VisibleColumns = 20;
 
     private Texture2D _background = null!;
+    private Image _hudTiles = null!;
     private Image _itemIcons1 = null!;
     private Image _itemIcons2 = null!;
     private Image _itemIcons3 = null!;
@@ -28,6 +29,7 @@ public partial class Hud : Node2D
 
     public override void _Ready()
     {
+        _hudTiles = LoadPng("res://assets/oracle/gfx/gfx_hud.png");
         _itemIcons1 = LoadPng("res://assets/oracle/gfx/spr_item_icons_1.png");
         _itemIcons2 = LoadPng("res://assets/oracle/gfx/spr_item_icons_2.png");
         _itemIcons3 = LoadPng("res://assets/oracle/gfx/spr_item_icons_3.png");
@@ -51,8 +53,14 @@ public partial class Hud : Node2D
 
         // wInventoryB is the left button slot in original RAM; wInventoryA is
         // the right slot. Item sprites are drawn over the tilemap status bar.
-        DrawItemIcon(_treasures.GetButtonDisplay(EquippedB, _inventory), new Vector2(8, 0));
-        DrawItemIcon(_treasures.GetButtonDisplay(EquippedA, _inventory), new Vector2(48, 0));
+        TreasureDatabase.DisplayRecord equippedB =
+            _treasures.GetButtonDisplay(EquippedB, _inventory);
+        TreasureDatabase.DisplayRecord equippedA =
+            _treasures.GetButtonDisplay(EquippedA, _inventory);
+        DrawItemLevel(equippedB, new Vector2(16, 8));
+        DrawItemLevel(equippedA, new Vector2(56, 8));
+        DrawItemIcon(equippedB, new Vector2(8, 0));
+        DrawItemIcon(equippedA, new Vector2(48, 0));
     }
 
     public void Refresh()
@@ -63,8 +71,6 @@ public partial class Hud : Node2D
 
     private Texture2D BuildBackgroundTexture()
     {
-        Image tiles = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/gfx/gfx_hud.png");
         Image partialHearts = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/gfx_partial_hearts.png");
         byte[] map = Godot.FileAccess.GetFileAsBytes("res://assets/oracle/hud/map_hud_normal.bin");
@@ -84,7 +90,7 @@ public partial class Hud : Node2D
             int mapOffset = row * MapStride + column;
             DrawHudTile(
                 output,
-                tiles,
+                _hudTiles,
                 partialHearts,
                 HealthQuarters % 4,
                 map[mapOffset],
@@ -163,6 +169,49 @@ public partial class Hud : Node2D
         DrawItemSprite(display.LeftSprite, display.LeftPalette, position);
         if (display.RightSprite != 0)
             DrawItemSprite(display.RightSprite, display.RightPalette, position + new Vector2(8, 0));
+    }
+
+    private void DrawItemLevel(TreasureDatabase.DisplayRecord display, Vector2 position)
+    {
+        int level = display.ExtraMode == 0 && _inventory != null
+            ? _inventory.LevelForInventoryDisplay(display.TreasureId)
+            : 0;
+        if (level <= 0)
+            return;
+
+        // updateStatusBar uses drawTreasureExtraTiles with c=$80. Palette 0
+        // matches the tan HUD and bit 7 places these BG tiles behind item OAM.
+        DrawHudOverlayTile(0x1a, position);
+        DrawHudOverlayTile(0x10 + (level & 0x0f), position + new Vector2(8, 0));
+    }
+
+    private void DrawHudOverlayTile(int tile, Vector2 position)
+    {
+        int sourceX = tile % 16 * 8;
+        int sourceY = tile / 16 * 8;
+        for (int y = 0; y < 8; y++)
+        for (int x = 0; x < 8; x++)
+        {
+            Color sourceColor = _hudTiles.GetPixel(sourceX + x, sourceY + y);
+            int shade = Mathf.Clamp(
+                Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f), 0, 3);
+            DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
+                HudPalette[shade]);
+        }
+    }
+
+    internal (int SymbolTile, int DigitTile, Vector2 Position)?
+        LevelOverlayForValidation(int item, bool isA)
+    {
+        if (_treasures == null || _inventory == null)
+            return null;
+        TreasureDatabase.DisplayRecord display = _treasures.GetButtonDisplay(item, _inventory);
+        int level = display.ExtraMode == 0
+            ? _inventory.LevelForInventoryDisplay(display.TreasureId)
+            : 0;
+        return level > 0
+            ? (0x1a, 0x10 + (level & 0x0f), isA ? new Vector2(56, 8) : new Vector2(16, 8))
+            : null;
     }
 
     private void DrawItemSprite(int sprite, int palette, Vector2 position)

@@ -17,6 +17,16 @@ foreach ($id in @(
 # commands, whose source still spells the complete TX_XXXX symbol.
 $allTexts = @{}
 $allTextPositions = @{}
+$allTextIdsByName = @{}
+foreach ($name in [regex]::Matches($textYaml, '(?m)^  - name: TX_(?<id>[0-9a-f]{4})$')) {
+    $allTextIdsByName["TX_$($name.Groups['id'].Value)"] =
+        [Convert]::ToInt32($name.Groups['id'].Value, 16)
+}
+foreach ($emptyText in [regex]::Matches(
+    $textYaml,
+    '(?m)^  - name: TX_(?<id>[0-9a-f]{4})\r?\n    index: (?:0x[0-9a-f]{2}|auto)\r?\n    text: ""$')) {
+    $allTexts[[Convert]::ToInt32($emptyText.Groups['id'].Value, 16)] = ''
+}
 $allTextMatches = [regex]::Matches(
     $textYaml,
     '(?ms)^  - name: TX_(?<id>[0-9a-f]{4})\r?\n    index: 0x[0-9a-f]{2}\r?\n    text: \|-\r?\n(?<body>(?:      [^\r\n]*(?:\r?\n|\z))+)'
@@ -29,6 +39,7 @@ foreach ($match in $allTextMatches) {
         $lines = $lines[0..($lines.Count - 2)]
     }
     $textId = [Convert]::ToInt32($match.Groups['id'].Value, 16)
+    $allTextIdsByName["TX_$($match.Groups['id'].Value)"] = $textId
     $rawText = $lines -join "`n"
     $allTexts[$textId] = Normalize-DialogueText $rawText
     $positionMatch = [regex]::Match($rawText, '\\pos\((?<position>\d+)\)')
@@ -52,9 +63,42 @@ foreach ($match in [regex]::Matches(
     $positionMatch = [regex]::Match($rawText, '\\pos\((?<position>\d+)\)')
     foreach ($name in [regex]::Matches($match.Groups['names'].Value, 'TX_(?<id>[0-9a-f]{4})')) {
         $textId = [Convert]::ToInt32($name.Groups['id'].Value, 16)
+        $allTextIdsByName["TX_$($name.Groups['id'].Value)"] = $textId
         $allTexts[$textId] = $message
         if ($positionMatch.Success) { $allTextPositions[$textId] = [int]$positionMatch.Groups['position'].Value }
     }
+}
+
+# CROSSITEMS appends symbolic TX_09_* rows with `index: auto`. Resolve those
+# sequential indices as the text compiler does so treasure display records can
+# retain their real low text byte instead of degrading every TX symbol to $ff.
+$group09 = [regex]::Match(
+    $textYaml,
+    '(?ms)^- group: 0x09\r?\n(?<body>.*?)(?=^- group: 0x0a\r?$)')
+if (-not $group09.Success) { throw 'Could not parse inventory text group $09.' }
+$nextGroup09Index = 0
+foreach ($match in [regex]::Matches(
+    $group09.Groups['body'].Value,
+    '(?ms)^  - name: (?<name>TX_09[A-Z0-9_]+)\r?\n    index: (?<index>auto|0x[0-9a-f]{2})\r?\n    text: \|-\r?\n(?<body>(?:      [^\r\n]*(?:\r?\n|\z))+)'
+)) {
+    $indexText = $match.Groups['index'].Value
+    $index = if ($indexText -eq 'auto') {
+        $nextGroup09Index
+    } else {
+        [Convert]::ToInt32($indexText.Substring(2), 16)
+    }
+    $nextGroup09Index = $index + 1
+    if ($indexText -ne 'auto') { continue }
+
+    $lines = $match.Groups['body'].Value -split '\r?\n' | ForEach-Object {
+        if ($_.Length -ge 6) { $_.Substring(6) } else { '' }
+    }
+    while ($lines.Count -gt 0 -and $lines[-1] -eq '') {
+        $lines = $lines[0..($lines.Count - 2)]
+    }
+    $textId = 0x0900 -bor $index
+    $allTextIdsByName[$match.Groups['name'].Value] = $textId
+    $allTexts[$textId] = Normalize-DialogueText ($lines -join "`n")
 }
 
 # Starting a standard file runs CUTSCENE_PREGAME_INTRO ("Accept our quest,
@@ -348,4 +392,3 @@ if ($introSpriteRows.Count -ne 22) {
     (Join-Path $destination 'cutscenes\new_game_intro_sprites.tsv'),
     $introSpriteRows,
     [Text.UTF8Encoding]::new($false))
-

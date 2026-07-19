@@ -33,6 +33,8 @@ public sealed class TreasureDatabase
     private readonly List<TreasureObjectRecord> _objectRows = new();
     private readonly Dictionary<int, BehaviourRecord> _behaviours = new();
     private readonly Dictionary<string, List<DisplayRecord>> _displayRows = new();
+    private readonly Dictionary<int, InventoryTextRecord> _inventoryTexts = new();
+    private readonly Dictionary<int, InventoryTextRecord> _ringTexts = new();
 
     public int BehaviourCount => _behaviours.Count;
     public IReadOnlyList<TreasureObjectRecord> Objects => _objectRows;
@@ -42,6 +44,7 @@ public sealed class TreasureDatabase
         LoadObjects();
         LoadBehaviours();
         LoadDisplayRows();
+        LoadInventoryTexts();
     }
 
     public TreasureObjectRecord GetObject(string name) => _objects.TryGetValue(name, out TreasureObjectRecord record)
@@ -92,6 +95,18 @@ public sealed class TreasureDatabase
             _ => GetButtonDisplay(treasureId, inventory)
         };
     }
+
+    public InventoryTextRecord GetInventoryText(int textLow) =>
+        _inventoryTexts.TryGetValue(textLow & 0xff, out InventoryTextRecord record)
+            ? record
+            : throw new KeyNotFoundException(
+                $"Inventory text TX_09{textLow & 0xff:x2} was not imported.");
+
+    public InventoryTextRecord GetRingText(int ring) =>
+        _ringTexts.TryGetValue(ring & 0x3f, out InventoryTextRecord record)
+            ? record
+            : throw new KeyNotFoundException(
+                $"Inventory ring text ${ring & 0x3f:x2} was not imported.");
 
     private DisplayRecord GetDisplay(string table, int index)
     {
@@ -270,6 +285,43 @@ public sealed class TreasureDatabase
         }
     }
 
+    private void LoadInventoryTexts()
+    {
+        string source = FileAccess.GetFileAsString(
+            "res://assets/oracle/metadata/inventory_text.tsv");
+        foreach (string line in DataLines(source))
+        {
+            string[] fields = line.Split('\t');
+            if (fields.Length != 5)
+                throw new InvalidOperationException($"Malformed inventory text row: {line}");
+
+            int index = Convert.ToInt32(fields[1], 16);
+            var record = new InventoryTextRecord(
+                fields[0],
+                index,
+                Convert.ToInt32(fields[2], 16),
+                Convert.ToInt32(fields[3], 16),
+                Encoding.UTF8.GetString(Convert.FromBase64String(fields[4])));
+            Dictionary<int, InventoryTextRecord> destination = fields[0] switch
+            {
+                "item" => _inventoryTexts,
+                "ring" => _ringTexts,
+                _ => throw new InvalidOperationException(
+                    $"Unknown inventory text kind '{fields[0]}' in row: {line}")
+            };
+            if (!destination.TryAdd(index, record))
+                throw new InvalidOperationException(
+                    $"Duplicate {fields[0]} inventory text index ${index:x2}.");
+        }
+
+        if (!_inventoryTexts.ContainsKey(0x00) || !_inventoryTexts.ContainsKey(0x65) ||
+            _ringTexts.Count != 0x40)
+        {
+            throw new InvalidOperationException(
+                "Inventory text data must include TX_0900, TX_0965, and all 64 rings.");
+        }
+    }
+
     private static IEnumerable<string> DataLines(string source)
     {
         foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
@@ -369,7 +421,14 @@ public sealed class TreasureDatabase
         int ExtraMode,
         int TextLow)
     {
-        public static readonly DisplayRecord Empty = new(0, 0, 0, 0, 0, 0xff, 0xff);
+        public static readonly DisplayRecord Empty = new(0, 0, 0, 0, 0, 0xff, 0x00);
         public bool HasIcon => LeftSprite != 0 || RightSprite != 0;
     }
+
+    public readonly record struct InventoryTextRecord(
+        string Kind,
+        int Index,
+        int NameTextId,
+        int DescriptionTextId,
+        string Message);
 }

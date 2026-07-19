@@ -17,6 +17,10 @@ public partial class InventoryScreen : Node2D
     private const int ScreenColumns = 20;
     private const int ScreenRows = 18;
     private const float PageScrollPixelsPerUpdate = 12.0f;
+    private const int InventoryTextColumns = 16;
+    private const int InventoryTextY = 15 * 8;
+    private const int InventoryTextInitialPauseUpdates = 40;
+    private const int InventoryTextScrollIntervalUpdates = 8;
 
     private static readonly Vector2[] SlotPositions =
     {
@@ -69,6 +73,7 @@ public partial class InventoryScreen : Node2D
     private Image _itemIcons3 = null!;
     private Image _essenceTiles = null!;
     private Image[] _questItemTiles = null!;
+    private Texture2D _fontTexture = null!;
     private VramSource[] _bank0Sources = null!;
     private VramSource[] _bank1Sources = null!;
     private byte[] _ringMap = null!;
@@ -85,6 +90,15 @@ public partial class InventoryScreen : Node2D
     private InventorySubscreen _subscreen;
     private InventorySubscreen _nextSubscreen;
     private float _pageScrollFrame;
+    private readonly FixedUpdateAccumulator _inventoryTextUpdates = new();
+    private readonly int[] _inventoryTextWindow = new int[InventoryTextColumns];
+    private int[] _inventoryTextName = Array.Empty<int>();
+    private int[] _inventoryTextDescription = Array.Empty<int>();
+    private InventoryTextPhase _inventoryTextPhase;
+    private int _inventoryTextKey;
+    private int _inventoryTextTimer;
+    private int _inventoryTextCursor;
+    private int _inventoryTextSpaceCounter;
 
     public int Cursor => _itemCursor;
     public int ActiveCursor => _subscreen switch
@@ -97,6 +111,25 @@ public partial class InventoryScreen : Node2D
     public bool PageTransitionActive => _pageScrollFrame > 0.0f;
     public bool SaveAndQuitSelected =>
         _subscreen == InventorySubscreen.EssencesAndSave && _rightSide && _rightCursor == 2;
+    internal int ActiveTextKey => _inventoryTextKey;
+    internal string VisibleTextForValidation => string.Create(
+        InventoryTextColumns,
+        _inventoryTextWindow,
+        static (characters, glyphs) =>
+        {
+            for (int index = 0; index < glyphs.Length; index++)
+                characters[index] = CharacterForInventoryGlyph(glyphs[index]);
+        });
+    internal (int SymbolTile, int DigitTile, int Attributes, Vector2 Offset)?
+        LevelOverlayForValidation(int item)
+    {
+        TreasureDatabase.DisplayRecord display = _treasures.GetButtonDisplay(item, _inventory);
+        return TryGetLevelOverlay(display, out int level)
+            ? (0x1a, 0x10 + (level & 0x0f), 0x07, new Vector2(8, 8))
+            : null;
+    }
+    internal Color EquippedLevelSymbolBackgroundColorForValidation =>
+        HudBackgroundTileColor(0x1a, 0, 0);
 
     public override void _Ready()
     {
@@ -114,6 +147,7 @@ public partial class InventoryScreen : Node2D
         _itemIcons2 = LoadPng("res://assets/oracle/gfx/spr_item_icons_2.png");
         _itemIcons3 = LoadPng("res://assets/oracle/gfx/spr_item_icons_3.png");
         _essenceTiles = LoadPng("res://assets/oracle/inventory/spr_essences.png");
+        _fontTexture = BuildFontTexture("res://assets/oracle/gfx/gfx_font.png");
         _questItemTiles = new Image[4];
         for (int sheet = 0; sheet < _questItemTiles.Length; sheet++)
             _questItemTiles[sheet] = LoadPng($"res://assets/oracle/inventory/spr_quest_items_{sheet + 1}.png");
@@ -161,6 +195,8 @@ public partial class InventoryScreen : Node2D
         _rightSide = false;
         _subscreen = InventorySubscreen.Items;
         _pageScrollFrame = 0.0f;
+        _inventoryTextKey = -1;
+        SetInventoryText(0);
         _backgrounds = new[] { BuildBackgroundTexture(0), BuildBackgroundTexture(1), BuildBackgroundTexture(2) };
         Visible = true;
         QueueRedraw();
@@ -178,6 +214,7 @@ public partial class InventoryScreen : Node2D
             return;
         _nextSubscreen = (InventorySubscreen)(((int)_subscreen + 1) % 3);
         _pageScrollFrame = float.Epsilon;
+        SetInventoryText(0);
         QueueRedraw();
     }
 
@@ -194,8 +231,14 @@ public partial class InventoryScreen : Node2D
         QueueRedraw();
     }
 
-    public void MoveCursor(Vector2I direction)
+    public bool MoveCursor(Vector2I direction)
     {
+        if (direction is not { X: 1, Y: 0 } and not { X: -1, Y: 0 } and
+            not { X: 0, Y: 1 } and not { X: 0, Y: -1 })
+        {
+            return false;
+        }
+
         switch (_subscreen)
         {
             case InventorySubscreen.Items:
@@ -213,23 +256,29 @@ public partial class InventoryScreen : Node2D
                 MoveEssenceCursor(direction);
                 break;
         }
+        RefreshSelectedText();
         QueueRedraw();
+        return true;
     }
 
-    public void EquipToA()
+    public bool EquipToA()
     {
         if (_subscreen != InventorySubscreen.Items)
-            return;
+            return false;
         _inventory.SwapStorageSlotWithButton(_itemCursor, isA: true);
+        RefreshSelectedText();
         QueueRedraw();
+        return true;
     }
 
-    public void EquipToB()
+    public bool EquipToB()
     {
         if (_subscreen != InventorySubscreen.Items)
-            return;
+            return false;
         _inventory.SwapStorageSlotWithButton(_itemCursor, isA: false);
+        RefreshSelectedText();
         QueueRedraw();
+        return true;
     }
 
     public bool EquipSelectedRing()
@@ -261,6 +310,7 @@ public partial class InventoryScreen : Node2D
     private void DrawSubscreen(InventorySubscreen page, Vector2 drawOffset, bool drawCursor)
     {
         DrawTexture(_backgrounds[(int)page], drawOffset);
+        DrawInventoryText(drawOffset);
         DrawTreasure(_treasures.GetButtonDisplay(_inventory.EquippedB, _inventory),
             new Vector2(8, 0) + drawOffset, spritePalette: true);
         DrawTreasure(_treasures.GetButtonDisplay(_inventory.EquippedA, _inventory),
@@ -292,12 +342,7 @@ public partial class InventoryScreen : Node2D
 
     private void DrawPassiveTreasures(Vector2 drawOffset)
     {
-        var selected = new PassiveTreasure?[15];
-        foreach (PassiveTreasure treasure in PassiveTreasures)
-        {
-            if (_inventory.HasTreasure(treasure.Id))
-                selected[treasure.Slot] = treasure;
-        }
+        PassiveTreasure?[] selected = SelectPassiveTreasures();
         foreach (PassiveTreasure? treasure in selected)
         {
             if (treasure is not PassiveTreasure value || value.Id == 0x36)
@@ -307,6 +352,243 @@ public partial class InventoryScreen : Node2D
                 spritePalette: false);
         }
     }
+
+    public void UpdateInventoryText(double delta)
+    {
+        if (PageTransitionActive || RefreshSelectedText())
+            return;
+
+        int updates = _inventoryTextUpdates.Consume(delta);
+        for (int update = 0; update < updates; update++)
+            TickInventoryText();
+        if (updates > 0)
+            QueueRedraw();
+    }
+
+    private bool RefreshSelectedText()
+    {
+        int key = _subscreen switch
+        {
+            InventorySubscreen.Items =>
+                _treasures.GetButtonDisplay(_inventory.StorageItemAt(_itemCursor), _inventory).TextLow,
+            InventorySubscreen.SecondaryItems => SecondaryTextKey(),
+            InventorySubscreen.EssencesAndSave => EssenceTextKey(),
+            _ => 0
+        };
+        return SetInventoryText(key);
+    }
+
+    private int SecondaryTextKey()
+    {
+        if (_secondaryCursor >= 16)
+        {
+            int ring = _inventory.RingAt(_secondaryCursor - 16);
+            return ring == 0xff ? 0 : 0xc0 | (ring & 0x3f);
+        }
+        if (_secondaryCursor == 15)
+            return _inventory.RingBoxLevel == 0 ? 0 : 0x1c + _inventory.RingBoxLevel;
+
+        PassiveTreasure? treasure = SelectPassiveTreasures()[_secondaryCursor];
+        return treasure is PassiveTreasure value
+            ? _treasures.GetButtonDisplay(value.Id, _inventory).TextLow
+            : 0;
+    }
+
+    private int EssenceTextKey()
+    {
+        if (!_rightSide)
+        {
+            // inventorySubscreen2_drawTreasures clears w4SubscreenTextIndices
+            // for each essence whose wEssencesObtained bit is unset.
+            return (_inventory.Essences & (1 << _essenceCursor)) != 0
+                ? 0x01 + _essenceCursor
+                : 0;
+        }
+        return _rightCursor switch
+        {
+            0 => _isPast() ? 0x66 : 0x65,
+            1 => 0x61 + Math.Clamp(_inventory.HeartPieces, 0, 4),
+            _ => 0x60
+        };
+    }
+
+    private PassiveTreasure?[] SelectPassiveTreasures()
+    {
+        var selected = new PassiveTreasure?[15];
+        foreach (PassiveTreasure treasure in PassiveTreasures)
+        {
+            if (_inventory.HasTreasure(treasure.Id))
+                selected[treasure.Slot] = treasure;
+        }
+        return selected;
+    }
+
+    private bool SetInventoryText(int key)
+    {
+        if (_inventoryTextKey == key)
+            return false;
+
+        _inventoryTextKey = key;
+        _inventoryTextUpdates.Reset();
+        Array.Fill(_inventoryTextWindow, 0x20);
+        TreasureDatabase.InventoryTextRecord record = (key & 0x80) != 0
+            ? _treasures.GetRingText(key & 0x3f)
+            : _treasures.GetInventoryText(key);
+        string message = DialogueBox.PlainText(record.Message).Replace("\r", string.Empty);
+        int lineEnd = message.IndexOf('\n');
+        string name = lineEnd < 0 ? message : message[..lineEnd];
+        string description = lineEnd < 0 ? string.Empty : message[(lineEnd + 1)..];
+        _inventoryTextName = InventoryGlyphs(name, InventoryTextColumns);
+        _inventoryTextDescription = InventoryGlyphs(description.Replace('\n', ' '));
+        _inventoryTextCursor = 0;
+        _inventoryTextSpaceCounter = 0;
+
+        if (_inventoryTextName.Length == 0)
+        {
+            _inventoryTextPhase = InventoryTextPhase.Hidden;
+            _inventoryTextTimer = 0;
+            QueueRedraw();
+            return true;
+        }
+
+        int leftPadding = (InventoryTextColumns - _inventoryTextName.Length) / 2;
+        Array.Copy(_inventoryTextName, 0, _inventoryTextWindow, leftPadding,
+            _inventoryTextName.Length);
+        _inventoryTextPhase = InventoryTextPhase.NamePause;
+        _inventoryTextTimer = InventoryTextInitialPauseUpdates;
+        QueueRedraw();
+        return true;
+    }
+
+    private void TickInventoryText()
+    {
+        if (_inventoryTextPhase == InventoryTextPhase.Hidden || --_inventoryTextTimer > 0)
+            return;
+
+        if (_inventoryTextPhase == InventoryTextPhase.NamePause)
+        {
+            _inventoryTextPhase = InventoryTextPhase.Description;
+            _inventoryTextCursor = 0;
+            _inventoryTextTimer = 1;
+            return;
+        }
+
+        _inventoryTextTimer = InventoryTextScrollIntervalUpdates;
+        switch (_inventoryTextPhase)
+        {
+            case InventoryTextPhase.Description:
+                if (_inventoryTextCursor < _inventoryTextDescription.Length)
+                {
+                    ShiftInventoryText(_inventoryTextDescription[_inventoryTextCursor++]);
+                    return;
+                }
+                ShiftInventoryText(0x20);
+                _inventoryTextSpaceCounter = 16;
+                _inventoryTextPhase = InventoryTextPhase.TrailingSpaces;
+                return;
+
+            case InventoryTextPhase.TrailingSpaces:
+                ShiftInventoryText(0x20);
+                if (--_inventoryTextSpaceCounter == 0)
+                {
+                    _inventoryTextCursor = 0;
+                    _inventoryTextPhase = InventoryTextPhase.NameReplay;
+                }
+                return;
+
+            case InventoryTextPhase.NameReplay:
+                if (_inventoryTextCursor < _inventoryTextName.Length)
+                {
+                    ShiftInventoryText(_inventoryTextName[_inventoryTextCursor++]);
+                    return;
+                }
+                _inventoryTextCursor = 0;
+                int spaces = InventoryTextColumns - _inventoryTextName.Length;
+                if (spaces == 0)
+                {
+                    _inventoryTextPhase = InventoryTextPhase.FullNameLeadWait;
+                    return;
+                }
+                ShiftInventoryText(0x20);
+                _inventoryTextSpaceCounter = (spaces + 1) / 2;
+                _inventoryTextPhase = InventoryTextPhase.NamePadding;
+                return;
+
+            case InventoryTextPhase.NamePadding:
+                if (--_inventoryTextSpaceCounter > 0)
+                {
+                    ShiftInventoryText(0x20);
+                    return;
+                }
+                _inventoryTextPhase = InventoryTextPhase.NamePause;
+                _inventoryTextTimer = InventoryTextInitialPauseUpdates;
+                return;
+
+            case InventoryTextPhase.FullNameLeadWait:
+                _inventoryTextPhase = InventoryTextPhase.FullNamePause;
+                _inventoryTextTimer = InventoryTextInitialPauseUpdates;
+                return;
+
+            case InventoryTextPhase.FullNamePause:
+                ShiftInventoryText(0x20);
+                _inventoryTextPhase = InventoryTextPhase.Description;
+                return;
+        }
+    }
+
+    private void ShiftInventoryText(int glyph)
+    {
+        Array.Copy(_inventoryTextWindow, 1, _inventoryTextWindow, 0,
+            InventoryTextColumns - 1);
+        _inventoryTextWindow[^1] = glyph;
+    }
+
+    private void DrawInventoryText(Vector2 drawOffset)
+    {
+        if (_inventoryTextPhase == InventoryTextPhase.Hidden)
+            return;
+        Color color = _bgPalette[1, 2];
+        for (int column = 0; column < InventoryTextColumns; column++)
+        {
+            int glyph = _inventoryTextWindow[column];
+            if (glyph == 0x20)
+                continue;
+            Rect2 source = new((glyph & 0x0f) * 8, (glyph >> 4) * 16, 8, 16);
+            Rect2 destination = new(
+                drawOffset + new Vector2(16 + column * 8, InventoryTextY),
+                new Vector2(8, 16));
+            DrawTextureRectRegion(_fontTexture, destination, source, color);
+        }
+    }
+
+    private static int[] InventoryGlyphs(string text, int maximum = int.MaxValue)
+    {
+        int count = Math.Min(text.Length, maximum);
+        var result = new int[count];
+        for (int index = 0; index < count; index++)
+        {
+            result[index] = text[index] switch
+            {
+                '♥' => 0x14,
+                '↑' => 0x15,
+                '↓' => 0x16,
+                '←' => 0x17,
+                '→' => 0x18,
+                _ => text[index] <= 0xff ? text[index] : 0x3f
+            };
+        }
+        return result;
+    }
+
+    private static char CharacterForInventoryGlyph(int glyph) => glyph switch
+    {
+        0x14 => '♥',
+        0x15 => '↑',
+        0x16 => '↓',
+        0x17 => '←',
+        0x18 => '→',
+        _ => (char)glyph
+    };
 
     private void DrawRings(Vector2 drawOffset)
     {
@@ -486,6 +768,8 @@ public partial class InventoryScreen : Node2D
             int offset = row * TilemapStride + column;
             if (row < 2)
                 DrawHudTileToImage(output, map[offset], flags[offset], column * 8, row * 8);
+            else if (row is 15 or 16 && column is >= 2 and < 18)
+                output.FillRect(new Rect2I(column * 8, row * 8, 8, 8), _bgPalette[1, 3]);
             else
                 DrawVramTileToImage(output, (flags[offset] & 0x08) != 0 ? 1 : 0,
                     map[offset], flags[offset], column * 8, row * 8);
@@ -552,6 +836,7 @@ public partial class InventoryScreen : Node2D
             return;
         if (spritePalette)
         {
+            DrawTreasureLevel(display, position + new Vector2(8, 8), equipped: true);
             DrawLogicalOamSprite(display.LeftSprite,
                 EquippedLeftSpritePalette(display.LeftSprite, display.LeftPalette), position);
             if (display.RightSprite != 0)
@@ -562,6 +847,42 @@ public partial class InventoryScreen : Node2D
         if (display.RightSprite != 0)
             DrawLogicalBackgroundSprite(display.RightSprite, display.RightPalette + 2,
                 position + new Vector2(8, 0));
+        // drawTreasureDisplayDataToBg leaves de on the right icon column
+        // before adding one tilemap row for the extra display.
+        DrawTreasureLevel(display, position + new Vector2(8, 8), equipped: false);
+    }
+
+    private void DrawTreasureLevel(
+        TreasureDatabase.DisplayRecord display,
+        Vector2 position,
+        bool equipped)
+    {
+        if (!TryGetLevelOverlay(display, out int level))
+            return;
+
+        // Equipped mode-$00 overlays still reference the common HUD tiles;
+        // the inventory VRAM sheet encodes these tile numbers differently.
+        if (equipped)
+        {
+            DrawHudBackgroundTile(0x1a, position);
+            DrawHudBackgroundTile(0x10 + (level & 0x0f), position + new Vector2(8, 0));
+        }
+        else
+        {
+            DrawVramBackgroundTile(0, 0x1a, 0x07, position);
+            DrawVramBackgroundTile(0, 0x10 + (level & 0x0f), 0x07,
+                position + new Vector2(8, 0));
+        }
+    }
+
+    private bool TryGetLevelOverlay(
+        TreasureDatabase.DisplayRecord display,
+        out int level)
+    {
+        level = display.ExtraMode == 0
+            ? _inventory.LevelForInventoryDisplay(display.TreasureId)
+            : 0;
+        return level > 0;
     }
 
     private void DrawLogicalBackgroundSprite(int sprite, int flags, Vector2 position)
@@ -629,6 +950,23 @@ public partial class InventoryScreen : Node2D
             DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
                 _bgPalette[palette, PaletteShade(pixel, spriteEncoding)]);
         }
+    }
+
+    private void DrawHudBackgroundTile(int tile, Vector2 position)
+    {
+        for (int y = 0; y < 8; y++)
+        for (int x = 0; x < 8; x++)
+        {
+            DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
+                HudBackgroundTileColor(tile, x, y));
+        }
+    }
+
+    private Color HudBackgroundTileColor(int tile, int x, int y)
+    {
+        int columns = _hudTiles.GetWidth() / 8;
+        Color pixel = _hudTiles.GetPixel(tile % columns * 8 + x, tile / columns * 8 + y);
+        return _bgPalette[0, TwoBitShade(pixel)];
     }
 
     private bool TryGetVramPixel(int bank, int tile, int x, int y,
@@ -740,6 +1078,20 @@ public partial class InventoryScreen : Node2D
         return OracleGraphicsCache.LoadImage(path);
     }
 
+    private static Texture2D BuildFontTexture(string path)
+    {
+        Image source = LoadPng(path);
+        Image output = Image.CreateEmpty(
+            source.GetWidth(), source.GetHeight(), false, Image.Format.Rgba8);
+        for (int y = 0; y < source.GetHeight(); y++)
+        for (int x = 0; x < source.GetWidth(); x++)
+        {
+            Color pixel = source.GetPixel(x, y);
+            output.SetPixel(x, y, pixel.R > 0.5f ? Colors.White : Colors.Transparent);
+        }
+        return ImageTexture.CreateFromImage(output);
+    }
+
     private static byte[] ReadBytes(string path, int expectedLength)
     {
         byte[] data = FileAccess.GetFileAsBytes(path);
@@ -766,6 +1118,18 @@ public partial class InventoryScreen : Node2D
         (tileMapOffset & 0x1f) * 8, (tileMapOffset >> 5) * 8);
 
     private readonly record struct PassiveTreasure(int Id, int Position, int Slot);
+    private enum InventoryTextPhase
+    {
+        Hidden,
+        NamePause,
+        Description,
+        TrailingSpaces,
+        NameReplay,
+        NamePadding,
+        FullNameLeadWait,
+        FullNamePause
+    }
+
     private readonly record struct VramSource(
         int FirstTile, Image Image, bool Interleaved, bool SpriteEncoding = false)
     {

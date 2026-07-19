@@ -39,6 +39,12 @@ Stages share parsed state in one PowerShell process. Add a new stage only when
 its ownership is genuinely distinct and place it after every stage that
 provides its inputs.
 
+`Import-DialogueAndIntro.ps1` resolves both numeric text names and the
+`index: auto` `TX_09_*` CROSSITEMS rows. `Import-MapAndItemData.ps1` retains
+those resolved low bytes in `treasure_display.tsv` and emits
+`inventory_text.tsv`, including the 64 ring name/description pairs used by the
+inventory marquee.
+
 ## Generated-data rules
 
 - Never hand-edit `assets/oracle/`. Fix the parser or source mapping and rerun

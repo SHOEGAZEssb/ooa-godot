@@ -462,12 +462,6 @@ public partial class GameRoot : Node2D
     {
         if (_hud == null || _inventory == null)
             return;
-        if (_hud.HealthQuarters == _inventory.HealthQuarters &&
-            _hud.MaxHealthQuarters == _inventory.MaxHealthQuarters &&
-            _hud.Rupees == _inventory.Rupees &&
-            _hud.EquippedA == _inventory.EquippedA &&
-            _hud.EquippedB == _inventory.EquippedB)
-            return;
         _hud.HealthQuarters = _inventory.HealthQuarters;
         _hud.MaxHealthQuarters = _inventory.MaxHealthQuarters;
         _hud.Rupees = _inventory.Rupees;

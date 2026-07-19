@@ -107,6 +107,9 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     internal void OpenSaveMenuFromInventoryForValidation() => OpenSaveMenuFromInventory();
     internal void SelectSaveOptionForValidation() => SelectSaveOption();
     internal bool BeginNextSubscreenForValidation() => BeginNextSubscreen();
+    internal bool MoveCursorForValidation(Vector2I direction) => MoveCursor(direction);
+    internal bool EquipToAForValidation() => EquipToA();
+    internal bool EquipToBForValidation() => EquipToB();
 
     internal void OpenImmediatelyForValidation()
     {
@@ -131,6 +134,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             _screen.UpdatePageTransition(delta);
             return;
         }
+        _screen.UpdateInventoryText(delta);
         if (Input.IsActionJustPressed("inventory"))
         {
             BeginClosing();
@@ -146,14 +150,14 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             if (_screen.SaveAndQuitSelected)
                 OpenSaveMenuFromInventory();
             else if (_screen.Subscreen == InventoryScreen.InventorySubscreen.SecondaryItems)
-                _screen.EquipSelectedRing();
+                EquipSelectedRing();
             else
-                _screen.EquipToA();
+                EquipToA();
             return;
         }
         if (Input.IsActionJustPressed("item"))
         {
-            _screen.EquipToB();
+            EquipToB();
             return;
         }
         HandleDirectionInput();
@@ -275,13 +279,45 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     private void HandleDirectionInput()
     {
         if (Input.IsActionJustPressed("move_right"))
-            _screen.MoveCursor(Vector2I.Right);
+            MoveCursor(Vector2I.Right);
         else if (Input.IsActionJustPressed("move_left"))
-            _screen.MoveCursor(Vector2I.Left);
+            MoveCursor(Vector2I.Left);
         else if (Input.IsActionJustPressed("move_up"))
-            _screen.MoveCursor(Vector2I.Up);
+            MoveCursor(Vector2I.Up);
         else if (Input.IsActionJustPressed("move_down"))
-            _screen.MoveCursor(Vector2I.Down);
+            MoveCursor(Vector2I.Down);
+    }
+
+    private bool MoveCursor(Vector2I direction)
+    {
+        if (!_screen.MoveCursor(direction))
+            return false;
+        _playSound(OracleSoundEngine.SndMenuMove);
+        return true;
+    }
+
+    private bool EquipToA()
+    {
+        if (!_screen.EquipToA())
+            return false;
+        _playSound(OracleSoundEngine.SndSelectItem);
+        return true;
+    }
+
+    private bool EquipToB()
+    {
+        if (!_screen.EquipToB())
+            return false;
+        _playSound(OracleSoundEngine.SndSelectItem);
+        return true;
+    }
+
+    private bool EquipSelectedRing()
+    {
+        if (!_screen.EquipSelectedRing())
+            return false;
+        _playSound(OracleSoundEngine.SndSelectItem);
+        return true;
     }
 
     private void BeginClosing() => _lifecycle.BeginClosing(this);

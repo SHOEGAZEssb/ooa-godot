@@ -3587,37 +3587,101 @@ public sealed class ValidationGameRoot : GameRoot
         }
 
         if (_inventoryScreen.Cursor != 0 || _inventory.StorageItemAt(0) != InventoryState.ItemNone ||
-            _inventory.EquippedA != InventoryState.ItemSword)
+            _inventory.EquippedA != InventoryState.ItemSword ||
+            _inventoryScreen.ActiveTextKey != 0 ||
+            _inventoryScreen.VisibleTextForValidation != new string(' ', 16))
         {
             throw new InvalidOperationException("Inventory menu validation expected sword on A and slot 0 empty.");
         }
 
-        _inventoryScreen.EquipToA();
-        if (_inventory.EquippedA != InventoryState.ItemNone ||
-            _inventory.StorageItemAt(0) != InventoryState.ItemSword)
+        TreasureDatabase.InventoryTextRecord woodenSwordText = _treasures.GetInventoryText(0x23);
+        TreasureDatabase.InventoryTextRecord friendshipRingText = _treasures.GetRingText(0x00);
+        var swordLevelOverlay = _inventoryScreen.LevelOverlayForValidation(
+            InventoryState.ItemSword);
+        var hudSwordLevelOverlay = _hud.LevelOverlayForValidation(
+            InventoryState.ItemSword, isA: true);
+        if (woodenSwordText.NameTextId != 0x0923 ||
+            woodenSwordText.Message != "Wooden Sword\nA hero's blade." ||
+            friendshipRingText.NameTextId != 0x3040 ||
+            friendshipRingText.DescriptionTextId != 0x3080 ||
+            friendshipRingText.Message != "Friendship Ring\nSymbol of a\nmeeting" ||
+            swordLevelOverlay is not { } levelOverlay ||
+            levelOverlay.SymbolTile != 0x1a || levelOverlay.DigitTile != 0x11 ||
+            levelOverlay.Attributes != 0x07 || levelOverlay.Offset != new Vector2(8, 8) ||
+            !_inventoryScreen.EquippedLevelSymbolBackgroundColorForValidation.IsEqualApprox(
+                new Color(0x1f / 31.0f, 0x1a / 31.0f, 0x11 / 31.0f)) ||
+            hudSwordLevelOverlay is not { } hudLevelOverlay ||
+            hudLevelOverlay.SymbolTile != 0x1a || hudLevelOverlay.DigitTile != 0x11 ||
+            hudLevelOverlay.Position != new Vector2(56, 8))
         {
             throw new InvalidOperationException(
-                "Pressing A on empty storage slot 0 did not unequip the sword into wInventoryStorage.");
+                "Imported inventory text or the level-1 sword's L-/digit tiles regressed.");
         }
 
-        _inventoryScreen.EquipToB();
-        if (_inventory.EquippedB != InventoryState.ItemSword ||
+        int selectItemRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem);
+        int inventoryMoveRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
+        if (!_inventoryMenu.EquipToAForValidation() ||
+            _sound.LastPlayRequest != OracleSoundEngine.SndSelectItem ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectItemRequests + 1 ||
+            _inventory.EquippedA != InventoryState.ItemNone ||
+            _inventory.StorageItemAt(0) != InventoryState.ItemSword ||
+            _inventoryScreen.ActiveTextKey != 0x23 ||
+            _inventoryScreen.VisibleTextForValidation != "  Wooden Sword  ")
+        {
+            throw new InvalidOperationException(
+                "Pressing A on empty storage slot 0 did not unequip the sword or center TX_0923.");
+        }
+        for (int update = 0; update < 40; update++)
+            _inventoryScreen.UpdateInventoryText(1.0 / 60.0);
+        if (_inventoryScreen.VisibleTextForValidation != "  Wooden Sword  ")
+        {
+            throw new InvalidOperationException(
+                "Inventory text scrolled before its original 40-update name pause completed.");
+        }
+        _inventoryScreen.UpdateInventoryText(1.0 / 60.0);
+        if (_inventoryScreen.VisibleTextForValidation != " Wooden Sword  A")
+        {
+            throw new InvalidOperationException(
+                "Inventory text did not begin TX_0923's description after the original pause.");
+        }
+        for (int update = 0; update < 7; update++)
+            _inventoryScreen.UpdateInventoryText(1.0 / 60.0);
+        if (_inventoryScreen.VisibleTextForValidation != " Wooden Sword  A")
+        {
+            throw new InvalidOperationException(
+                "Inventory text ignored the original eight-update character interval.");
+        }
+        _inventoryScreen.UpdateInventoryText(1.0 / 60.0);
+        if (_inventoryScreen.VisibleTextForValidation != "Wooden Sword  A ")
+        {
+            throw new InvalidOperationException(
+                "Inventory text did not advance on the eighth marquee update.");
+        }
+
+        if (!_inventoryMenu.EquipToBForValidation() ||
+            _sound.LastPlayRequest != OracleSoundEngine.SndSelectItem ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectItemRequests + 2 ||
+            _inventory.EquippedB != InventoryState.ItemSword ||
             _inventory.StorageItemAt(0) != InventoryState.ItemNone)
         {
             throw new InvalidOperationException(
                 "Pressing B on storage slot 0 did not equip the sword to wInventoryB.");
         }
 
-        _inventoryScreen.MoveCursor(Vector2I.Left);
-        if (_inventoryScreen.Cursor != 15)
+        if (!_inventoryMenu.MoveCursorForValidation(Vector2I.Left) ||
+            _sound.LastPlayRequest != OracleSoundEngine.SndMenuMove ||
+            _inventoryScreen.Cursor != 15)
             throw new InvalidOperationException("Inventory cursor did not wrap left with the original & $0f rule.");
-        _inventoryScreen.MoveCursor(Vector2I.Right);
-        if (_inventoryScreen.Cursor != 0)
+        if (!_inventoryMenu.MoveCursorForValidation(Vector2I.Right) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != inventoryMoveRequests + 2 ||
+            _inventoryScreen.Cursor != 0)
             throw new InvalidOperationException("Inventory cursor did not return to slot 0 after wrapping.");
 
-        _inventoryScreen.EquipToB();
-        _inventoryScreen.EquipToA();
-        if (_inventory.EquippedA != InventoryState.ItemSword ||
+        if (!_inventoryMenu.EquipToBForValidation() ||
+            !_inventoryMenu.EquipToAForValidation() ||
+            _sound.LastPlayRequest != OracleSoundEngine.SndSelectItem ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectItemRequests + 4 ||
+            _inventory.EquippedA != InventoryState.ItemSword ||
             _inventory.EquippedB != InventoryState.ItemNone ||
             _inventory.StorageItemAt(0) != InventoryState.ItemNone)
         {
@@ -3652,10 +3716,15 @@ public sealed class ValidationGameRoot : GameRoot
         {
             throw new InvalidOperationException("The secondary inventory page did not finish after 13 updates.");
         }
-        _inventoryScreen.MoveCursor(Vector2I.Left);
-        if (_inventoryScreen.ActiveCursor != 14)
+        if (!_inventoryMenu.MoveCursorForValidation(Vector2I.Left) ||
+            _inventoryScreen.ActiveCursor != 14)
             throw new InvalidOperationException("The empty secondary page did not wrap 0 -> 14 to the left.");
-        _inventoryScreen.MoveCursor(Vector2I.Right);
+        if (!_inventoryMenu.MoveCursorForValidation(Vector2I.Right) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != inventoryMoveRequests + 4)
+        {
+            throw new InvalidOperationException(
+                "Secondary inventory cursor movement did not request SND_MENU_MOVE $84.");
+        }
 
         OracleSaveData ringSave = OracleSaveData.CreateStandardGame();
         ringSave.WriteWramByte(0xc6cc, 2);
@@ -3680,12 +3749,21 @@ public sealed class ValidationGameRoot : GameRoot
         }
         for (int frame = 0; frame < InventoryScreen.PageScrollUpdates; frame++)
             _inventoryScreen.UpdatePageTransition(1.0 / 60.0);
-        if (_inventoryScreen.Subscreen != InventoryScreen.InventorySubscreen.EssencesAndSave)
-            throw new InvalidOperationException("The essence/save inventory page did not follow page 2.");
-        _inventoryScreen.MoveCursor(Vector2I.Right);
-        _inventoryScreen.MoveCursor(Vector2I.Down);
-        _inventoryScreen.MoveCursor(Vector2I.Down);
-        if (!_inventoryScreen.SaveAndQuitSelected || _inventoryScreen.ActiveCursor != 0x82)
+        if (_inventoryScreen.Subscreen != InventoryScreen.InventorySubscreen.EssencesAndSave ||
+            _inventory.Essences != 0 || _inventoryScreen.ActiveTextKey != 0 ||
+            _inventoryScreen.VisibleTextForValidation != new string(' ', 16))
+        {
+            throw new InvalidOperationException(
+                "The essence/save page displayed text for an unobtained essence.");
+        }
+        if (!_inventoryMenu.MoveCursorForValidation(Vector2I.Right) ||
+            !_inventoryMenu.MoveCursorForValidation(Vector2I.Down) ||
+            !_inventoryMenu.MoveCursorForValidation(Vector2I.Down) ||
+            _sound.LastPlayRequest != OracleSoundEngine.SndMenuMove ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != inventoryMoveRequests + 7 ||
+            !_inventoryScreen.SaveAndQuitSelected || _inventoryScreen.ActiveCursor != 0x82 ||
+            _inventoryScreen.ActiveTextKey != 0x60 ||
+            _inventoryScreen.VisibleTextForValidation != "  Save Screen   ")
             throw new InvalidOperationException("The page-3 cursor did not reach the original Save & Quit entry.");
 
         _inventoryMenu.OpenSaveMenuFromInventoryForValidation();
@@ -3753,7 +3831,9 @@ public sealed class ValidationGameRoot : GameRoot
         _inventoryMenu.CloseImmediatelyForValidation();
 
         GD.Print("Validated inventory SND_OPENMENU boundaries, 11-update fast white fades, " +
-            "13-update three-page scrolling, " +
+            "13-update three-page scrolling, SND_SELECTITEM equip/unequip and " +
+            "SND_MENU_MOVE cursor boundaries, TX_09XX/ring marquee text and 40/8-update counters, " +
+            "mode-$00 item level tiles, " +
             "secondary cursor/ring persistence, essence/save navigation, Start+Select, three save choices, " +
             "30-update selection delay, A/B storage swaps, and gameplay freezing.");
     }
