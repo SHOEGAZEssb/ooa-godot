@@ -119,6 +119,12 @@ internal sealed record ItemDropSpawn(
     bool DugUp = false) : RoomEntitySpawn;
 internal sealed record ShovelDebrisSpawn(Vector2 Position, Vector2I Direction)
     : RoomEntitySpawn(UpdateThisFrame: true);
+internal sealed record PuzzlePuffSpawn(Vector2 Position, int Sound)
+    : RoomEntitySpawn(UpdateThisFrame: true);
+internal sealed record FallingDownHoleSpawn(Vector2 Position) : RoomEntitySpawn;
+internal sealed record DungeonKeyUseSpawn(
+    Vector2 Position,
+    TreasureDatabase.TreasureObjectVisualRecord Visual) : RoomEntitySpawn;
 internal sealed record CutsceneNpcSpawn(
     NpcDatabase.NpcRecord Record,
     string Name,

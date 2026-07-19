@@ -8,17 +8,21 @@ public sealed class EnemyDatabase
 {
     private readonly Dictionary<int, List<EnemyRecord>> _keeseByRoom = new();
     private readonly Dictionary<int, List<OctorokRecord>> _octoroksByRoom = new();
+    private readonly Dictionary<int, List<StalfosRecord>> _stalfosByRoom = new();
     private readonly Dictionary<int, List<ZolRecord>> _zolsByRoom = new();
     private readonly Dictionary<int, List<GelRecord>> _gelsByRoom = new();
     private readonly Dictionary<int, List<RoomObjectRecord>> _roomObjectsByRoom = new();
     private readonly Dictionary<int, EnemyRecord> _keeseDefinitions = new();
     private readonly Dictionary<int, OctorokRecord> _octorokDefinitions = new();
+    private readonly Dictionary<int, StalfosRecord> _stalfosDefinitions = new();
     private readonly Dictionary<int, ZolRecord> _zolDefinitions = new();
 
     public int KeeseRecordCount { get; }
     public int KeeseInstanceCount { get; }
     public int OctorokRecordCount { get; }
     public int OctorokInstanceCount { get; }
+    public int StalfosRecordCount { get; }
+    public int StalfosInstanceCount { get; }
     public int ZolRecordCount { get; }
     public int ZolInstanceCount { get; }
     public int GelRecordCount { get; }
@@ -124,6 +128,53 @@ public sealed class EnemyDatabase
         }
         OctorokRecordCount = records;
         OctorokInstanceCount = instances;
+
+        source = FileAccess.GetFileAsString("res://assets/oracle/objects/stalfos.tsv");
+        records = 0;
+        instances = 0;
+        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            string line = rawLine.TrimEnd('\r');
+            if (line.StartsWith('#'))
+                continue;
+
+            string[] columns = line.Split('\t');
+            if (columns.Length != 19)
+                throw new InvalidOperationException($"Malformed Stalfos data row: {line}");
+
+            var record = new StalfosRecord(
+                int.Parse(columns[0]),
+                Convert.ToInt32(columns[1], 16),
+                Convert.ToInt32(columns[2], 16),
+                Convert.ToInt32(columns[3], 16),
+                Convert.ToInt32(columns[4], 16),
+                int.Parse(columns[5]),
+                columns[6] == "F",
+                ParsePosition(columns[7]),
+                ParsePosition(columns[8]),
+                columns[9],
+                int.Parse(columns[10]),
+                int.Parse(columns[11]),
+                int.Parse(columns[12]),
+                int.Parse(columns[13]),
+                int.Parse(columns[14]),
+                int.Parse(columns[15]),
+                int.Parse(columns[16]),
+                columns[17],
+                columns[18]);
+            int key = MakeKey(record.Group, record.Room);
+            if (!_stalfosByRoom.TryGetValue(key, out List<StalfosRecord>? roomRecords))
+            {
+                roomRecords = new List<StalfosRecord>();
+                _stalfosByRoom.Add(key, roomRecords);
+            }
+            roomRecords.Add(record);
+            _stalfosDefinitions.TryAdd(record.SubId, record);
+            records++;
+            instances += record.Count;
+        }
+        StalfosRecordCount = records;
+        StalfosInstanceCount = instances;
 
         source = FileAccess.GetFileAsString("res://assets/oracle/objects/zols.tsv");
         records = 0;
@@ -318,6 +369,14 @@ public sealed class EnemyDatabase
             : Array.Empty<ZolRecord>();
     }
 
+    public IReadOnlyList<StalfosRecord> GetRoomStalfos(int group, int room)
+    {
+        return _stalfosByRoom.TryGetValue(
+            MakeKey(group, room), out List<StalfosRecord>? records)
+            ? records
+            : Array.Empty<StalfosRecord>();
+    }
+
     public IReadOnlyList<GelRecord> GetRoomGels(int group, int room)
     {
         return _gelsByRoom.TryGetValue(MakeKey(group, room), out List<GelRecord>? records)
@@ -373,6 +432,26 @@ public sealed class EnemyDatabase
     public bool TryGetZolDefinition(RoomObjectRecord source, out ZolRecord record)
     {
         if (!_zolDefinitions.TryGetValue(source.SubId, out ZolRecord template))
+        {
+            record = default;
+            return false;
+        }
+        record = template with
+        {
+            Group = source.Group,
+            Room = source.Room,
+            Flags = source.Flags,
+            Count = source.Count,
+            FixedPosition = source.Kind == RoomObjectKind.FixedEnemy,
+            Y = source.Y,
+            X = source.X
+        };
+        return true;
+    }
+
+    public bool TryGetStalfosDefinition(RoomObjectRecord source, out StalfosRecord record)
+    {
+        if (!_stalfosDefinitions.TryGetValue(source.SubId, out StalfosRecord template))
         {
             record = default;
             return false;
@@ -481,6 +560,27 @@ public sealed class EnemyDatabase
         int SpeedRaw,
         string NormalAnimation,
         string BounceAnimation);
+
+    public readonly record struct StalfosRecord(
+        int Group,
+        int Room,
+        int Id,
+        int SubId,
+        int Flags,
+        int Count,
+        bool FixedPosition,
+        int Y,
+        int X,
+        string SpriteName,
+        int TileBase,
+        int Palette,
+        int CollisionRadiusY,
+        int CollisionRadiusX,
+        int DamageQuarters,
+        int Health,
+        int SpeedRaw,
+        string WalkAnimation,
+        string JumpAnimation);
 
     public readonly record struct ZolRecord(
         int Group,

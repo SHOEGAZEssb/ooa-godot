@@ -20,6 +20,9 @@ internal sealed class RoomEntityFactory(
     Action<int> soundRequested,
     Func<int> roomEnemyCount,
     Func<int, bool> enemyWasKilled,
+    Func<int, bool> triggerActive,
+    Func<int> triggerState,
+    Action<int, bool> setTrigger,
     Func<Vector2, Vector2> worldToScreen,
     Func<long> animationTick)
 {
@@ -35,30 +38,49 @@ internal sealed class RoomEntityFactory(
         OracleRoomData room,
         EnemyPlacementContext placementContext)
     {
-        // Enemy shutters depend on a complete live wNumEnemies equivalent.
-        // The generated placement path is enabled for every room whose active
-        // enemy records are represented by the current runtime roster; other
-        // imported placements safely retain their closed base metatile.
+        // Buttons and trigger-controlled shutters use wActiveTriggers without
+        // depending on the enemy roster. Push triggers require a complete live
+        // wNumEnemies equivalent. Enemy-shutter controllers are retained even
+        // when that count is incomplete so an incoming shutter can perform the
+        // original entry substitution. That crossed route remains open for
+        // safe backtracking; solving and non-entry shutters stay disabled.
         IReadOnlyList<DungeonMechanicDatabase.Record> dungeonRecords =
             _dungeonMechanics.GetRoomRecords(group, room.Id);
-        if (DungeonMechanicRoomIsSupported(dungeonRecords, group, room))
+        bool enemyMechanicsSupported = DungeonEnemyMechanicsAreSupported(
+            dungeonRecords, group, room);
+        foreach (DungeonMechanicDatabase.Record record in dungeonRecords)
         {
-            foreach (DungeonMechanicDatabase.Record record in dungeonRecords)
+            if (record.Id == 0x09)
             {
-                yield return record.Id switch
-                {
-                    0x13 => new PushBlockTriggerRoomEntity(
-                        record, room, _dungeonMechanics,
-                        roomEnemyCount, animationTick),
-                    0x1e => new DungeonDoorRoomEntity(
-                        record, room, _dungeonMechanics, roomEnemyCount,
-                        worldToScreen, animationTick, soundRequested,
-                        placementContext),
-                    _ => throw new InvalidOperationException(
-                        $"Unsupported dungeon interaction ${record.Id:x2}:" +
-                        $"${record.SubId:x2} in room {group:x1}:{room.Id:x2}.")
-                };
+                yield return new GroundButtonRoomEntity(
+                    record, room, _dungeonMechanics, setTrigger,
+                    animationTick, soundRequested);
+                continue;
             }
+            if (record.Id is 0x20 or 0x21)
+            {
+                yield return new TriggerChestRoomEntity(
+                    record, room, _dungeonMechanics, triggerState,
+                    () => saveData?.HasRoomFlag(
+                        group, room.Id, OracleSaveData.RoomFlagItem) == true,
+                    animationTick, soundRequested);
+                continue;
+            }
+            if (record.Id == 0x13 && !enemyMechanicsSupported)
+                continue;
+            yield return record.Id switch
+            {
+                0x13 => new PushBlockTriggerRoomEntity(
+                    record, room, _dungeonMechanics,
+                    roomEnemyCount, animationTick),
+                0x1e => new DungeonDoorRoomEntity(
+                    record, room, _dungeonMechanics, roomEnemyCount,
+                    triggerActive, worldToScreen, animationTick,
+                    soundRequested, placementContext, enemyMechanicsSupported),
+                _ => throw new InvalidOperationException(
+                    $"Unsupported dungeon interaction ${record.Id:x2}:" +
+                    $"${record.SubId:x2} in room {group:x1}:{room.Id:x2}.")
+            };
         }
 
         IReadOnlyList<NpcDatabase.NpcRecord> roomNpcs =
@@ -227,7 +249,19 @@ internal sealed class RoomEntityFactory(
                 ZIndex = 10
             };
             octorok.Initialize(octorokRecord, room, position, random);
-            return new OctorokRoomEntity(octorok, killableEnemyIndex);
+            return new OctorokRoomEntity(octorok, soundRequested, killableEnemyIndex);
+        }
+
+        if (source.Id == 0x31 &&
+            enemies.TryGetStalfosDefinition(source, out EnemyDatabase.StalfosRecord stalfosRecord))
+        {
+            var stalfos = new StalfosCharacter
+            {
+                Name = $"Stalfos_{source.SubId:x2}_{source.Order}_{instance}",
+                ZIndex = 10
+            };
+            stalfos.Initialize(stalfosRecord, room, position, random);
+            return new StalfosRoomEntity(stalfos, soundRequested, killableEnemyIndex);
         }
 
         if (source.Id == 0x34 &&
@@ -239,7 +273,7 @@ internal sealed class RoomEntityFactory(
                 ZIndex = 10
             };
             zol.Initialize(zolRecord, room, position, random);
-            return new ZolRoomEntity(zol, killableEnemyIndex);
+            return new ZolRoomEntity(zol, soundRequested, killableEnemyIndex);
         }
 
         return source.Id == 0x43 && source.SubId == 0
@@ -257,6 +291,9 @@ internal sealed class RoomEntityFactory(
         KillEnemyPuffSpawn puff => CreateKillPuff(puff),
         ItemDropSpawn drop => CreateItemDrop(drop, room),
         ShovelDebrisSpawn debris => CreateShovelDebris(debris),
+        PuzzlePuffSpawn puff => CreatePuzzlePuff(puff),
+        FallingDownHoleSpawn fall => CreateFallingDownHole(fall),
+        DungeonKeyUseSpawn key => CreateDungeonKeyUse(key),
         CutsceneNpcSpawn npc => CreateCutsceneNpc(npc),
         Room148DebrisSpawn debris => CreateRoom148Debris(debris),
         _ => throw new ArgumentOutOfRangeException(nameof(spawn), spawn, "Unknown room-entity spawn request.")
@@ -419,7 +456,7 @@ internal sealed class RoomEntityFactory(
         var gel = new GelCharacter { Name = spawn.Name, ZIndex = 10 };
         gel.Initialize(enemies.Gel, room, spawn.Position, random);
         return new GelRoomEntity(
-            gel, countsAsEnemy,
+            gel, soundRequested, countsAsEnemy,
             killableEnemyIndex ?? spawn.KillableEnemyIndex);
     }
 
@@ -454,17 +491,54 @@ internal sealed class RoomEntityFactory(
         return new ShovelDebrisRoomEntity(debris);
     }
 
+    private IRoomEntity CreatePuzzlePuff(PuzzlePuffSpawn spawn)
+    {
+        var puff = new PuzzlePuffEffect
+        {
+            Name = "PuzzlePuff",
+            ZIndex = 10
+        };
+        puff.Initialize(spawn.Position, spawn.Sound, soundRequested);
+        return new PuzzlePuffRoomEntity(puff);
+    }
+
+    private IRoomEntity CreateFallingDownHole(FallingDownHoleSpawn spawn)
+    {
+        var effect = new FallingDownHoleEffect
+        {
+            Name = "FallingDownHole",
+            ZIndex = 10
+        };
+        effect.Initialize(spawn.Position);
+        soundRequested(OracleSoundEngine.SndFallInHole);
+        return new FallingDownHoleRoomEntity(effect);
+    }
+
+    private IRoomEntity CreateDungeonKeyUse(DungeonKeyUseSpawn spawn)
+    {
+        var effect = new DungeonKeyUseEffect
+        {
+            Name = "DungeonKeyUse",
+            ZIndex = 10
+        };
+        effect.Initialize(spawn.Position, spawn.Visual);
+        soundRequested(OracleSoundEngine.SndGetSeed);
+        return new DungeonKeyUseRoomEntity(effect);
+    }
+
     private IRoomEntity CreateDeathPuff(EnemyDeathPuffSpawn spawn)
     {
         var puff = new EnemyDeathPuffEffect { Name = "EnemyDeathPuff", ZIndex = 10 };
         puff.Initialize(spawn.Position, spawn.HighKnockback, spawn.EnemyId);
+        soundRequested(OracleSoundEngine.SndKillEnemy);
         return new DeathPuffRoomEntity(puff, itemDrops, random);
     }
 
-    private static IRoomEntity CreateKillPuff(KillEnemyPuffSpawn spawn)
+    private IRoomEntity CreateKillPuff(KillEnemyPuffSpawn spawn)
     {
         var puff = new KillEnemyPuffEffect { Name = "KillEnemyPuff", ZIndex = 10 };
         puff.Initialize(spawn.Position);
+        soundRequested(OracleSoundEngine.SndKillEnemy);
         return new KillPuffRoomEntity(puff);
     }
 
@@ -530,6 +604,7 @@ internal sealed class RoomEntityFactory(
                     bool supported = source.Id switch
                     {
                         0x09 => enemies.TryGetOctorokDefinition(source, out _),
+                        0x31 => enemies.TryGetStalfosDefinition(source, out _),
                         0x32 => enemies.TryGetKeeseDefinition(source, out _),
                         0x34 => enemies.TryGetZolDefinition(source, out _),
                         0x43 => source.SubId == 0,
@@ -546,19 +621,24 @@ internal sealed class RoomEntityFactory(
         return true;
     }
 
-    private bool DungeonMechanicRoomIsSupported(
+    private bool DungeonEnemyMechanicsAreSupported(
         IReadOnlyList<DungeonMechanicDatabase.Record> records,
         int group,
         OracleRoomData room)
     {
-        bool hasEnemyShutter = false;
+        bool hasSupportedDoor = false;
         foreach (DungeonMechanicDatabase.Record record in records)
         {
+            if (record.Id == 0x09)
+                continue;
+            if (record.Id == 0x1e)
+                hasSupportedDoor = true;
+            if (record.Id == 0x1e && record.SubId <= 0x07)
+                continue;
             if (!record.CountSourceComplete)
                 return false;
-            hasEnemyShutter |= record.Id == 0x1e;
         }
-        return hasEnemyShutter && DungeonEnemyCountIsComplete(group, room);
+        return hasSupportedDoor && DungeonEnemyCountIsComplete(group, room);
     }
 
     private bool TryChooseRandomEnemyPosition(

@@ -32,6 +32,7 @@ public sealed class TreasureDatabase
 
     private readonly Dictionary<string, TreasureObjectRecord> _objects = new();
     private readonly List<TreasureObjectRecord> _objectRows = new();
+    private readonly Dictionary<int, TreasureObjectVisualRecord> _objectVisuals = new();
     private readonly Dictionary<int, BehaviourRecord> _behaviours = new();
     private readonly Dictionary<string, List<DisplayRecord>> _displayRows = new();
     private readonly Dictionary<int, InventoryTextRecord> _inventoryTexts = new();
@@ -43,6 +44,7 @@ public sealed class TreasureDatabase
     public TreasureDatabase()
     {
         LoadObjects();
+        LoadObjectVisuals();
         LoadBehaviours();
         LoadDisplayRows();
         LoadInventoryTexts();
@@ -51,6 +53,12 @@ public sealed class TreasureDatabase
     public TreasureObjectRecord GetObject(string name) => _objects.TryGetValue(name, out TreasureObjectRecord record)
         ? record
         : throw new KeyNotFoundException($"Treasure object {name} was not imported.");
+
+    public TreasureObjectVisualRecord GetObjectVisual(int graphic) =>
+        _objectVisuals.TryGetValue(graphic, out TreasureObjectVisualRecord record)
+            ? record
+            : throw new KeyNotFoundException(
+                $"INTERAC_TREASURE $60 graphic ${graphic:x2} was not imported.");
 
     public BehaviourRecord GetBehaviour(int treasureId) => _behaviours.TryGetValue(treasureId, out BehaviourRecord record)
         ? record
@@ -144,6 +152,43 @@ public sealed class TreasureDatabase
         }
     }
 
+    private void LoadObjectVisuals()
+    {
+        string source = FileAccess.GetFileAsString(
+            "res://assets/oracle/metadata/treasure_object_visuals.tsv");
+        foreach (string line in DataLines(source))
+        {
+            string[] fields = line.Split('\t');
+            if (fields.Length != 6)
+                throw new InvalidOperationException(
+                    $"Malformed treasure object visual row: {line}");
+
+            int graphic = Convert.ToInt32(fields[0], 16);
+            var record = new TreasureObjectVisualRecord(
+                graphic,
+                fields[1],
+                Convert.ToInt32(fields[2], 16),
+                Convert.ToInt32(fields[3], 16),
+                Convert.ToInt32(fields[4], 16),
+                fields[5]);
+            if (!_objectVisuals.TryAdd(graphic, record))
+            {
+                throw new InvalidOperationException(
+                    $"Duplicate treasure object visual graphic ${graphic:x2}.");
+            }
+        }
+
+        if (_objectVisuals.Count != 91 ||
+            !_objectVisuals.TryGetValue(0x42, out TreasureObjectVisualRecord smallKey) ||
+            smallKey.Sprite != "spr_map_compass_keys_bookofseals" ||
+            smallKey.TileBase != 0x0c || smallKey.Palette != 5 ||
+            smallKey.DefaultAnimation != 0 || string.IsNullOrEmpty(smallKey.Animation))
+        {
+            throw new InvalidOperationException(
+                "Treasure visuals must include all 91 source graphics and exact small-key graphic $42 data.");
+        }
+    }
+
     private void LoadBehaviours()
     {
         string source = FileAccess.GetFileAsString("res://assets/oracle/metadata/treasure_behaviours.tsv");
@@ -163,9 +208,19 @@ public sealed class TreasureDatabase
                 variable,
                 mode,
                 rawMode,
-                fields[3]));
+                ParseSound(fields[3])));
         }
     }
+
+    private static int ParseSound(string sound) => sound switch
+    {
+        "SND_NONE" => 0,
+        "SND_GETITEM" => OracleSoundEngine.SndGetItem,
+        "SND_GETSEED" => OracleSoundEngine.SndGetSeed,
+        "MUS_GET_ESSENCE" => OracleSoundEngine.MusGetEssence,
+        _ => throw new InvalidOperationException(
+            $"Unknown treasure collection sound '{sound}'.")
+    };
 
     private static CollectionMode ParseCollectionMode(int treasure, string variable, int rawMode)
     {
@@ -342,6 +397,14 @@ public sealed class TreasureDatabase
         int Graphic,
         string Message);
 
+    public readonly record struct TreasureObjectVisualRecord(
+        int Graphic,
+        string Sprite,
+        int TileBase,
+        int Palette,
+        int DefaultAnimation,
+        string Animation);
+
     public enum CollectionMode
     {
         None = 0x0,
@@ -411,7 +474,7 @@ public sealed class TreasureDatabase
         TreasureVariable Variable,
         CollectionMode Mode,
         int RawMode,
-        string Sound);
+        int Sound);
 
     public readonly record struct DisplayRecord(
         int TreasureId,

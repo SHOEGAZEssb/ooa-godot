@@ -43,6 +43,7 @@ public partial class ZolCharacter : Node2D
     public EnemyDatabase.ZolRecord Record { get; private set; }
     public bool IsDead { get; private set; }
     public bool DiedInHazard { get; private set; }
+    public OracleRoomData.HazardType DeathHazard { get; private set; }
     public Rect2 CollisionBounds => new(
         Position - new Vector2(Record.CollisionRadiusX, Record.CollisionRadiusY),
         new Vector2(Record.CollisionRadiusX * 2, Record.CollisionRadiusY * 2));
@@ -111,6 +112,7 @@ public partial class ZolCharacter : Node2D
 
         if (_verticalMotion.ZFixed == 0 && _collisionEnabled && _movement.IsOnHazard)
         {
+            DeathHazard = _movement.Hazard;
             DiedInHazard = true;
             IsDead = true;
             Visible = false;

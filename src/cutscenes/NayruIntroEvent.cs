@@ -1885,8 +1885,7 @@ internal sealed class NayruIntroEvent : IRoomEvent, ICutsceneCommandHost
             // Treasure grab mode $01 calls objectTakePositionWithOffset with
             // b=$f2/c=$fc: 14 pixels above and four pixels left of Link.
             _player.Position + new Vector2(-4, -14),
-            _treasures.GetTreasureDisplay(
-                sword.TreasureId, sword.Parameter, _inventory));
+            _treasures.GetObjectVisual(sword.Graphic));
         _roomView.GetParent().AddChild(_nayruSwordEffect);
     }
 

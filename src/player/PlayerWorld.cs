@@ -9,6 +9,7 @@ public sealed class PlayerWorld : IPlayerWorld
     private readonly InteractionController _interactions;
     private readonly RoomCollision _collision;
     private readonly PushBlockController _pushBlocks;
+    private readonly DungeonKeyDoorController _keyDoors;
     private readonly TerrainController _terrain;
     private readonly CombatController _combat;
     private readonly RoomEntityManager _entities;
@@ -29,6 +30,7 @@ public sealed class PlayerWorld : IPlayerWorld
         InteractionController interactions,
         RoomCollision collision,
         PushBlockController pushBlocks,
+        DungeonKeyDoorController keyDoors,
         TerrainController terrain,
         CombatController combat,
         RoomEntityManager entities,
@@ -43,6 +45,7 @@ public sealed class PlayerWorld : IPlayerWorld
         _interactions = interactions;
         _collision = collision;
         _pushBlocks = pushBlocks;
+        _keyDoors = keyDoors;
         _terrain = terrain;
         _combat = combat;
         _entities = entities;
@@ -77,10 +80,16 @@ public sealed class PlayerWorld : IPlayerWorld
     public void UpdatePushableBlocks(
         Vector2 position,
         Vector2I facing,
-        Vector2 movementInput) =>
+        Vector2 movementInput)
+    {
+        Vector2 resolvedInput = _collisionsDisabled()
+            ? Vector2.Zero
+            : movementInput;
         _pushBlocks.UpdatePushAttempt(
-            position, facing, _collisionsDisabled() ? Vector2.Zero : movementInput,
+            position, facing, resolvedInput,
             _inventory.HasTreasure(TreasureDatabase.TreasureBracelet));
+        _keyDoors.UpdatePushAttempt(position, facing, resolvedInput);
+    }
     public ActiveTerrainInfo GetActiveTerrain(Vector2 position) => _terrain.GetActiveTerrain(position);
     public Vector2 GetTerrainPush(Vector2 position) => _terrain.GetTerrainPush(position);
     public bool TryStartLedgeHop(Player player, Vector2 from, Vector2 movement) =>

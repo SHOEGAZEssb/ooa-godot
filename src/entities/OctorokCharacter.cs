@@ -35,6 +35,7 @@ public partial class OctorokCharacter : Node2D
     public EnemyDatabase.OctorokRecord Record { get; private set; }
     public bool IsDead { get; private set; }
     public bool DiedInHazard { get; private set; }
+    public OracleRoomData.HazardType DeathHazard { get; private set; }
     public Rect2 CollisionBounds => new(
         Position - new Vector2(Record.CollisionRadiusX, Record.CollisionRadiusY),
         new Vector2(Record.CollisionRadiusX * 2, Record.CollisionRadiusY * 2));
@@ -242,6 +243,7 @@ public partial class OctorokCharacter : Node2D
         Position = destination;
         if (allowHazards && _room.GetTerrainInfo(Position).Hazard != OracleRoomData.HazardType.None)
         {
+            DeathHazard = _room.GetTerrainInfo(Position).Hazard;
             DiedInHazard = true;
             IsDead = true;
             Visible = false;

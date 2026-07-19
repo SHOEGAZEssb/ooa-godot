@@ -45,6 +45,32 @@ those resolved low bytes in `treasure_display.tsv` and emits
 `inventory_text.tsv`, including the 64 ring name/description pairs used by the
 inventory marquee.
 
+Treasure-object sprites are a different source path from those inventory BG
+displays. `Import-NpcData.ps1` follows each treasure object's graphic byte into
+the contiguous `INTERAC_TREASURE $60` subid, animation, and OAM pointer tables
+and writes `treasure_object_visuals.tsv`. Alias labels inside those tables do
+not end the ROM data: offsets may legally continue across the next label. The
+imported record therefore retains the sprite sheet, tile base, palette,
+default animation, and resolved OAM for every referenced treasure graphic.
+
+Reusable dungeon mechanics are imported from their shared source tables rather
+than inferred from whichever room first exposes them. `Import-NpcData.ps1`
+combines `interactableTilesTable`, standard room-flag substitutions,
+`_adjacentRoomsData`, and door-controller timing into
+`dungeon_key_doors.tsv`. It also resolves `INTERAC_FALLDOWNHOLE $0f` to
+`fall_down_hole.tsv`, including its common sprite header, `SPEED_60`, and
+terminal animation. `Import-WorldAssets.ps1` copies the dedicated 8x8
+`gfx_key.png` tile used when the dungeon HUD dynamically replaces tile `$04`.
+
+Enemy species records remain separate from the ordered room-object stream.
+`Import-EnemyData.ps1` resolves ordinary `ENEMY_STALFOS $31:$00` subid data,
+walk/jump animation pointers, aliased OAM pointers, graphics header `$9b`, and
+all random/fixed placements into `stalfos.tsv`; the runtime joins those typed
+definitions back to `enemy_object_stream.tsv` in source order. Subids whose
+additional state machines are not implemented are intentionally absent from
+the typed species table while their ordered source records remain available as
+unsupported reservations/completion evidence.
+
 ## Generated-data rules
 
 - Never hand-edit `assets/oracle/`. Fix the parser or source mapping and rerun

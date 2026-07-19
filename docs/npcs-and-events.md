@@ -272,14 +272,49 @@ talks consume later values only when A-button interaction reaches their helper.
 Validations should compute expectations from that stream rather than reseeding
 individual actors.
 
-Room `4:0c` is the reference for reusable invisible dungeon interactions whose
-shared state is the live enemy count:
+Rooms `4:08`, `4:09`, `4:0b`, `4:0c`, `4:22`, and `4:7a` are the references for
+reusable invisible dungeon interactions whose shared state is
+`wActiveTriggers` or the live enemy count:
 
-- The importer emits all 73 direct `$13:$01` push-block-trigger and
-  `$1e:$08-$0b` enemy-shutter placements, retaining group, room, source object
-  order, packed position, subid, parameter, and whether a conditional enemy
-  stream remains unresolved. It separately pins the common handler's push tile,
-  30/8/6-update counters, four closed tiles, open tile, and sound IDs.
+- The importer emits all 155 direct `PART_BUTTON $09`, `$20:$00` permanent
+  trigger-chest, `$21:$17` retractable trigger-chest, `$13:$01`
+  push-block-trigger, and `$1e:$04-$0b` shutter placements: 49 buttons, 20
+  trigger-controlled shutters, seven delayed chests, six retractable chests,
+  and 73 live-enemy mechanism records. Each retains group, room, source object
+  order, packed position, subid, parameter, trigger predicate, and whether a
+  conditional enemy stream remains unresolved. Common button/shutter/chest
+  tiles, collision radii, 28/30/15/8/6-update counters, and sound IDs are pinned
+  separately.
+- `PART_BUTTON` state 0 copies subid bits 0-2 as its `wActiveTriggers` index and
+  returns before checking pressure. Bit 7 is behavior, not a save predicate:
+  clear buttons latch tile `$0d` and their trigger for the rest of the room;
+  set buttons return to `$0c` and clear the bit when released. Link contact uses
+  strict `$02+$06` radii and requires ground Z. A block, pot, or other tile above
+  a reusable button retains its visual while the underlying button becomes
+  pressed, then starts the exact `$1c`-update release delay when it leaves.
+  Both press and release request `SND_SPLASH` (`$87`). All 49 direct placements
+  are unconditional; subid bits do not read global, room, linked-game, essence,
+  or treasure flags.
+- `$1e:$04-$07` select one trigger bit from their object parameter. An inactive
+  bit closes the directional shutter; an active bit requests
+  `SND_SOLVEPUZZLE` and opens it on the next update. These controllers remain
+  alive after the common six-update interleaved animation so reusable buttons
+  can close and reopen them. Room `4:09` proves one one-shot bit-0 button opens
+  both its up and right shutters; room `4:22` proves reusable press/release.
+  Once Link clears an entry shutter, its controller moves a door-tile local
+  respawn one tile inward. If a reusable shutter later finishes closing on
+  Link's tile, parameter-2 respawn hides him for two updates, returns him to
+  that local point, applies one heart of damage, and holds the 16-update
+  recovery state instead of leaving him embedded in collision.
+- `$20:$00` uses its imported dungeon script to choose either exact-byte or
+  bit-set trigger semantics. Room `4:08` requires `wActiveTriggers == $01`;
+  the qualifying update requests `SND_SOLVEPUZZLE`, creates `INTERAC_PUFF`
+  with `SND_POOF`, waits exactly 15 updates, then writes chest tile `$f1`.
+  Once `ROOMFLAG_ITEM` is set, re-entry writes opened chest tile `$f0` at the
+  imported position and retires the controller. `$21:$17` also compares the
+  complete trigger byte: it writes `$f1` and puffs immediately when active,
+  then restores the saved source-layout tile and puffs again when inactive.
+  Only appearance requests the solve cue. Room `4:7a` exercises both edges.
 - `$13:$01` occupies the first `4:0c` slot. State 0 saves the source tile,
   writes logical pushable tile `$1d` without redrawing, and contributes one to
   `wNumEnemies`. Once only that sentinel remains it restores the source tile;
@@ -300,17 +335,18 @@ shared state is the live enemy count:
   It begins closing on the update after Link clears that strict boundary, keeps
   floor collision throughout the six-update interleaved frame, and installs
   the solid directional tile only when that frame completes.
-- Door opening requests `SND_DOORCLOSE` only inside the original screen
+- Door movement requests `SND_DOORCLOSE` only inside the original screen
   boundary, renders the source mapping's directional half over open tile `$a0`,
-  retains closed collision for six updates, then writes the full open tile,
-  updates collision, repeats the visible sound, and deletes the controller.
-- `RoomEntityFactory` uses this shared path in every imported room for which
-  the active, counted enemy stream is completely represented. An unsupported
-  counted enemy type disables the room's mechanics as a unit, preserving its
-  closed base layout until a truthful `wNumEnemies` count is possible. The same
-  applies to unresolved before/after-event streams and standalone push triggers
-  whose associated door variant is still unsupported. Room `4:0b` is the
-  second canonical regression: its sole enemy row is always active
+  retains the old collision for six updates, then writes the full destination
+  tile, updates collision, and repeats the visible sound. Enemy-door controllers
+  delete after opening; trigger-controlled variants return to their bit loop.
+- `RoomEntityFactory` always enables imported buttons and trigger-controlled
+  shutters. It enables `$13:$01` and enemy shutters only where the active,
+  counted enemy stream is completely represented. An unsupported counted enemy
+  type or unresolved before/after-event stream preserves those count-dependent
+  mechanics at the source layout until a truthful `wNumEnemies` count is
+  possible. Room `4:0b` is the enemy-count regression: its sole enemy row is
+  always active
   (`obj_RandomEnemy $60 $43 $00`, count 3, no low flag bits), so it has no
   global, room, linked-game, essence, or treasure predicate. Three ordinary
   Gels gate simultaneous up and left shutters through the same entity contract.

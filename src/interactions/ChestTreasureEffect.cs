@@ -2,21 +2,48 @@ using Godot;
 
 namespace oracleofages;
 
+/// <summary>
+/// INTERAC_TREASURE $60 spawn mode $03. The displayed object comes from the
+/// treasure record's graphic byte and the interaction graphics/OAM tables,
+/// which are distinct from the inventory-button display tables.
+/// </summary>
 public partial class ChestTreasureEffect : Node2D
 {
     public const int RiseFrames = 32;
 
     private Texture2D _texture = null!;
+    private Vector2 _textureOffset;
     private Vector2 _start;
     private double _frames;
 
     public bool Finished => _frames >= RiseFrames;
+    internal int VisualGraphic { get; private set; }
+    internal Texture2D RewardTexture => _texture;
 
-    public void Initialize(Vector2 position, TreasureDatabase.DisplayRecord display)
+    public void Initialize(
+        Vector2 position,
+        TreasureDatabase.TreasureObjectVisualRecord visual)
     {
         _start = position;
         Position = position;
-        _texture = display.HasIcon ? BuildDisplayTexture(display) : BuildRupeeTexture();
+        VisualGraphic = visual.Graphic;
+
+        Image source = OracleGraphicsCache.LoadImage(
+            $"res://assets/oracle/gfx/{visual.Sprite}.png");
+        OracleGraphicsCache.AnimationDefinition definition =
+            OracleGraphicsCache.GetAnimationDefinition(visual.Animation);
+        if (definition.Frames.Length == 0)
+        {
+            throw new System.InvalidOperationException(
+                $"Treasure graphic ${visual.Graphic:x2} has no animation frames.");
+        }
+        (_texture, _textureOffset) = NpcCharacter.BuildPositionedOamTexture(
+            source,
+            definition.Frames[0].EncodedOam,
+            visual.TileBase,
+            visual.Palette,
+            paletteOverride: null,
+            sourceGrayscaleInverted: true);
         QueueRedraw();
     }
 
@@ -31,79 +58,6 @@ public partial class ChestTreasureEffect : Node2D
 
     public override void _Draw()
     {
-        DrawTexture(_texture, new Vector2(-4, -8));
+        DrawTexture(_texture, _textureOffset);
     }
-
-    private static Texture2D BuildRupeeTexture()
-    {
-        Image source = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/gfx/spr_common_items.png");
-        Image output = Image.CreateEmpty(8, 16, false, Image.Format.Rgba8);
-
-        // TREASURE_OBJECT_RUPEES uses interaction $60 graphic $2b. Its
-        // interaction data selects tile base $06 in spr_common_items.
-        for (int y = 0; y < 16; y++)
-        for (int x = 0; x < 8; x++)
-        {
-            Color pixel = source.GetPixel(24 + x, y);
-            if (pixel.A < 0.1f || pixel.R < 0.1f)
-                continue;
-            output.SetPixel(x, y, pixel.R < 0.5f
-                ? GbcColor(0x0e, 0x15, 0x1f)
-                : pixel.R < 0.9f ? GbcColor(0x00, 0x00, 0x1f) : Colors.Black);
-        }
-        return ImageTexture.CreateFromImage(output);
-    }
-
-    private static Texture2D BuildDisplayTexture(TreasureDatabase.DisplayRecord display)
-    {
-        Image itemIcons1 = LoadPng("res://assets/oracle/gfx/spr_item_icons_1.png");
-        Image itemIcons2 = LoadPng("res://assets/oracle/gfx/spr_item_icons_2.png");
-        Image itemIcons3 = LoadPng("res://assets/oracle/gfx/spr_item_icons_3.png");
-        Color[,] palettes = ItemIconAtlas.LoadStandardSpritePalettes();
-        int width = display.RightSprite == 0 ? 8 : 16;
-        Image output = Image.CreateEmpty(width, 16, false, Image.Format.Rgba8);
-        DrawSprite(output, display.LeftSprite, display.LeftPalette, 0,
-            itemIcons1, itemIcons2, itemIcons3, palettes);
-        if (display.RightSprite != 0)
-            DrawSprite(output, display.RightSprite, display.RightPalette, 8,
-                itemIcons1, itemIcons2, itemIcons3, palettes);
-        return ImageTexture.CreateFromImage(output);
-    }
-
-    private static void DrawSprite(
-        Image output,
-        int sprite,
-        int palette,
-        int destinationX,
-        Image itemIcons1,
-        Image itemIcons2,
-        Image itemIcons3,
-        Color[,] palettes)
-    {
-        if (!ItemIconAtlas.Select(sprite, itemIcons1, itemIcons2, itemIcons3,
-            out Image source, out int cell))
-        {
-            return;
-        }
-
-        palette = Mathf.Clamp(palette & 0x07, 0, 5);
-        for (int y = 0; y < 16; y++)
-        for (int x = 0; x < 8; x++)
-        {
-            Color pixel = source.GetPixel(cell * 8 + x, y);
-            int shade = ItemIconAtlas.ShadeFromPng(pixel, out bool transparent);
-            if (transparent)
-                continue;
-            output.SetPixel(destinationX + x, y, palettes[palette, shade]);
-        }
-    }
-
-    private static Image LoadPng(string path)
-    {
-        return OracleGraphicsCache.LoadImage(path);
-    }
-
-    private static Color GbcColor(int red, int green, int blue) =>
-        new(red / 31.0f, green / 31.0f, blue / 31.0f);
 }

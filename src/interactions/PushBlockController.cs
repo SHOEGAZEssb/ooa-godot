@@ -14,6 +14,7 @@ public partial class PushBlockController : Node2D
     private readonly PushableTileDatabase _tiles;
     private readonly RoomView _roomView;
     private readonly Func<long> _animationTick;
+    private readonly Action<int> _playSound;
     private int _pushCounter = PushDelayFrames;
     private int _candidatePosition = -1;
     private Vector2I _candidateDirection;
@@ -39,12 +40,14 @@ public partial class PushBlockController : Node2D
         RoomSession rooms,
         PushableTileDatabase tiles,
         RoomView roomView,
-        Func<long> animationTick)
+        Func<long> animationTick,
+        Action<int> playSound)
     {
         _rooms = rooms;
         _tiles = tiles;
         _roomView = roomView;
         _animationTick = animationTick;
+        _playSound = playSound;
         ZIndex = 9;
         _rooms.RoomChanged += (_, _) => Cancel();
     }
@@ -180,6 +183,7 @@ public partial class PushBlockController : Node2D
             : record.SourceReplacement;
         room.ReplaceMetatile(topLeft + Vector2.One * 8.0f, tile, replacement, _animationTick());
         _roomView.QueueRedraw();
+        _playSound(OracleSoundEngine.SndMoveBlock);
         QueueRedraw();
     }
 

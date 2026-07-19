@@ -8,8 +8,9 @@ namespace oracleofages;
 /// </summary>
 internal sealed class EnemyTerrainMovement(Node2D entity, OracleRoomData room)
 {
-    public bool IsOnHazard =>
-        room.GetTerrainInfo(entity.Position).Hazard != OracleRoomData.HazardType.None;
+    public OracleRoomData.HazardType Hazard =>
+        room.GetTerrainInfo(entity.Position).Hazard;
+    public bool IsOnHazard => Hazard != OracleRoomData.HazardType.None;
 
     public void MoveAtAngle(int angle, float speed, bool allowHoles)
     {

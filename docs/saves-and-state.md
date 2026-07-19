@@ -50,6 +50,13 @@ Small-key bytes and map/compass/boss-key bitsets must address the full dungeon
 index, including dungeons 8 through 15. Never use dungeon zero as a default for
 a generic chest or treasure behavior.
 
+Using a small-key door decrements that current-dungeon byte and notifies HUD
+observers immediately. The unlocked state is stored in directional room-flag
+bits `$01/$02/$04/$08`; dungeon doors set both the active room's direction bit
+and the opposite bit in the neighbor resolved from the imported dungeon floor
+layout. Re-entry derives tile `$a0` from those flags rather than an event-local
+"opened" boolean.
+
 Death respawn fields store the maintained checkpoint, not Link's arbitrary
 position at save time. Imported warp destinations and room-specific checkpoint
 code decide when the checkpoint changes. Ordinary room scrolling and time

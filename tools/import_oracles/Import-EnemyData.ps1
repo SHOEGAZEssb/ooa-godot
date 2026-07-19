@@ -321,6 +321,156 @@ Copy-Item -LiteralPath $octorokSourceSprite.FullName -Destination (Join-Path $de
 $octorokPath = Join-Path $destination 'objects\octoroks.tsv'
 [IO.File]::WriteAllLines($octorokPath, $octorokRows, [Text.UTF8Encoding]::new($false))
 
+# ENEMY_STALFOS (`$31) subid `$00 is the ordinary walking Stalfos used by
+# room 4:06 and 33 other source records. Other subids add weapon-evasion,
+# bone projectiles, or stomp states and remain explicit unsupported variants.
+$stalfosDataMatch = [regex]::Match(
+    $enemyDataSource,
+    '(?m)^\s*/\* 0x31 \*/ m_EnemyData \$(?<gfx>[0-9a-f]{2}) \$(?<collision>[0-9a-f]{2}) enemy31SubidData'
+)
+if (-not $stalfosDataMatch.Success -or
+    [Convert]::ToInt32($stalfosDataMatch.Groups['gfx'].Value, 16) -ne 0x9b -or
+    ([Convert]::ToInt32($stalfosDataMatch.Groups['collision'].Value, 16) -band 0x7f) -ne 0x7d) {
+    throw 'ENEMY_STALFOS no longer resolves to gfx `$9b / undead collision mode `$7d.'
+}
+$stalfosGfx = [Convert]::ToInt32($stalfosDataMatch.Groups['gfx'].Value, 16)
+$stalfosSubidRows = @(
+    [regex]::Matches(
+        (Get-AssemblyLabelBody $enemyDataSource 'enemy31SubidData'),
+        '(?m)^\s*m_EnemySubidData \$(?<extra>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
+    )
+)
+if ($stalfosSubidRows.Count -ne 4) {
+    throw "Expected four ENEMY_STALFOS subid records, got $($stalfosSubidRows.Count)."
+}
+
+$enemy31AnimationStart = $enemyAnimationSource.IndexOf('enemy31Animations:', [StringComparison]::Ordinal)
+$enemy32AnimationStart = $enemyAnimationSource.IndexOf('enemy32Animations:', [StringComparison]::Ordinal)
+$stalfosAnimationLabels = @(
+    [regex]::Matches(
+        $enemyAnimationSource.Substring(
+            $enemy31AnimationStart, $enemy32AnimationStart - $enemy31AnimationStart),
+        '(?m)^\s*\.dw\s+(?<label>enemyAnimation[0-9a-f]+)'
+    ) | ForEach-Object { $_.Groups['label'].Value }
+)
+$enemy31OamStart = $enemyAnimationSource.IndexOf('enemy31OamDataPointers:', [StringComparison]::Ordinal)
+$enemy10OamStart = $enemyAnimationSource.IndexOf('enemy10OamDataPointers:', [StringComparison]::Ordinal)
+$stalfosOamLabels = @(
+    [regex]::Matches(
+        $enemyAnimationSource.Substring($enemy31OamStart, $enemy10OamStart - $enemy31OamStart),
+        '(?m)^\s*\.dw\s+(?<label>enemyOamData[0-9a-f]+)'
+    ) | ForEach-Object { $_.Groups['label'].Value }
+)
+if ($stalfosAnimationLabels.Count -ne 2 -or $stalfosOamLabels.Count -ne 3) {
+    throw 'Expected two Stalfos animations and three Stalfos OAM pointers.'
+}
+
+function Resolve-StalfosAnimation([string]$label) {
+    $frames = [Collections.Generic.List[string]]::new()
+    foreach ($frame in [regex]::Matches(
+        (Get-AssemblyLabelBody $script:enemyAnimationSource $label),
+        '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})'
+    )) {
+        $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
+        $pointerIndex = [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2
+        if ($pointerIndex -ge $script:stalfosOamLabels.Count) {
+            throw "$label references missing Stalfos OAM pointer $pointerIndex."
+        }
+        $frames.Add("$duration@$(Resolve-EnemyOam $script:stalfosOamLabels[$pointerIndex])")
+    }
+    return $frames -join '|'
+}
+
+$stalfosAnimations = @($stalfosAnimationLabels | ForEach-Object {
+    Resolve-StalfosAnimation $_
+})
+if ($stalfosAnimations[0] -ne '4@8,0,0,0;8,8,2,0|4@8,0,2,32;8,8,0,32' -or
+    $stalfosAnimations[1] -ne '127@8,0,4,0;8,8,4,32') {
+    throw 'ENEMY_STALFOS walk/jump animation OAM no longer matches the original records.'
+}
+
+$stalfosSubid0 = $stalfosSubidRows[0]
+$stalfosExtraIndex = [Convert]::ToInt32($stalfosSubid0.Groups['extra'].Value, 16)
+$stalfosGraphicFlags = [Convert]::ToInt32($stalfosSubid0.Groups['flags'].Value, 16)
+$stalfosExtra = $extraEnemyRows[$stalfosExtraIndex]
+$stalfosDamageByte = [Convert]::ToInt32($stalfosExtra.Groups['damage'].Value, 16)
+$stalfosDefinition = @{
+    TileBase = ($stalfosGraphicFlags -band 0x0f) * 2
+    Palette = ($stalfosGraphicFlags -shr 4) -band 7
+    RadiusY = [Convert]::ToInt32($stalfosExtra.Groups['y'].Value, 16)
+    RadiusX = [Convert]::ToInt32($stalfosExtra.Groups['x'].Value, 16)
+    DamageQuarters = (0x100 - $stalfosDamageByte) / 2
+    Health = [Convert]::ToInt32($stalfosExtra.Groups['health'].Value, 16)
+    SpeedRaw = 0x14
+}
+if ($stalfosDefinition.TileBase -ne 4 -or $stalfosDefinition.Palette -ne 1 -or
+    $stalfosDefinition.RadiusY -ne 6 -or $stalfosDefinition.RadiusX -ne 6 -or
+    $stalfosDefinition.DamageQuarters -ne 2 -or $stalfosDefinition.Health -ne 2) {
+    throw 'ENEMY_STALFOS subid `$00 no longer matches tile base 4, palette 1, radii 6x6, half-heart damage, and two health.'
+}
+
+$stalfosRows = [Collections.Generic.List[string]]::new()
+$stalfosRows.Add("# group`troom`tid`tsubid`tflags`tcount`tposition-mode`ty`tx`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tspeed-raw`twalk-animation`tjump-animation")
+$stalfosAliases = [Collections.Generic.List[object]]::new()
+$stalfosLastSpecificFlags = '00'
+foreach ($line in Get-Content (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
+    if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})EnemyObjectData:') {
+        $stalfosAliases.Add(@{ Group = [int]$Matches['group']; Room = $Matches['room'] })
+        continue
+    }
+    if ($stalfosAliases.Count -eq 0) { continue }
+
+    if ($line -match '^\s*obj_RandomEnemy\s+\$(?<flags>[0-9a-f]{2})\s+\$31\s+\$(?<subid>[0-9a-f]{2})') {
+        if ($Matches['subid'] -ne '00') { continue }
+        $flags = [Convert]::ToInt32($Matches['flags'], 16)
+        $count = ($flags -shr 5) -band 7
+        foreach ($alias in $stalfosAliases) {
+            $stalfosRows.Add("$($alias.Group)`t$($alias.Room)`t31`t00`t$($Matches['flags'])`t$count`tR`t-1`t-1`t$($gfxNames[$stalfosGfx])`t$($stalfosDefinition.TileBase)`t$($stalfosDefinition.Palette)`t$($stalfosDefinition.RadiusY)`t$($stalfosDefinition.RadiusX)`t$($stalfosDefinition.DamageQuarters)`t$($stalfosDefinition.Health)`t$($stalfosDefinition.SpeedRaw)`t$($stalfosAnimations[0])`t$($stalfosAnimations[1])")
+        }
+        continue
+    }
+
+    if ($line -match '^\s*obj_SpecificEnemyA\s+(?<values>(?:\$[0-9a-f]{2}\s*)+)$') {
+        $values = @([regex]::Matches($Matches['values'], '\$(?<value>[0-9a-f]{2})') |
+            ForEach-Object { $_.Groups['value'].Value })
+        if ($values.Count -eq 5) {
+            $stalfosLastSpecificFlags = $values[0]
+            $id, $subidHex, $y, $x = $values[1..4]
+        } else {
+            $id, $subidHex, $y, $x = $values
+        }
+        if ($id -eq '31' -and $subidHex -eq '00') {
+            foreach ($alias in $stalfosAliases) {
+                $stalfosRows.Add("$($alias.Group)`t$($alias.Room)`t31`t00`t$stalfosLastSpecificFlags`t1`tF`t$y`t$x`t$($gfxNames[$stalfosGfx])`t$($stalfosDefinition.TileBase)`t$($stalfosDefinition.Palette)`t$($stalfosDefinition.RadiusY)`t$($stalfosDefinition.RadiusX)`t$($stalfosDefinition.DamageQuarters)`t$($stalfosDefinition.Health)`t$($stalfosDefinition.SpeedRaw)`t$($stalfosAnimations[0])`t$($stalfosAnimations[1])")
+            }
+        }
+        continue
+    }
+
+    if ($line -match '^\s*obj_EndPointer' -or $line -match '^[A-Za-z0-9_@]+:') {
+        $stalfosAliases.Clear()
+    }
+}
+$stalfosInstanceCount = ($stalfosRows | Select-Object -Skip 1 | ForEach-Object {
+    [int](($_ -split "`t")[5])
+} | Measure-Object -Sum).Sum
+if ($stalfosRows.Count -ne 35 -or $stalfosInstanceCount -ne 37) {
+    throw "Expected 34 ordinary Stalfos room records / 37 instances, parsed $($stalfosRows.Count - 1) / $stalfosInstanceCount."
+}
+if (($stalfosRows | Where-Object { $_ -match '^4\t06\t31\t00\t00\t1\tF\t68\t68\t' }).Count -ne 1 -or
+    ($stalfosRows | Where-Object { $_ -match '^4\t06\t31\t00\t00\t1\tF\t68\t98\t' }).Count -ne 1) {
+    throw 'Canonical room 4:06 Stalfos records at `$68,`$68 and `$68,`$98 were not extracted.'
+}
+
+$stalfosSpriteName = $gfxNames[$stalfosGfx]
+$stalfosSourceSprite = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
+    ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Filter "$stalfosSpriteName.png" } |
+    Select-Object -First 1
+if ($null -eq $stalfosSourceSprite) { throw "Stalfos sprite not found: $stalfosSpriteName.png" }
+Copy-Item -LiteralPath $stalfosSourceSprite.FullName -Destination (Join-Path $destination "gfx\$stalfosSpriteName.png") -Force
+$stalfosPath = Join-Path $destination 'objects\stalfos.tsv'
+[IO.File]::WriteAllLines($stalfosPath, $stalfosRows, [Text.UTF8Encoding]::new($false))
+
 # Zols (`$34) are instantiated with both random and fixed-position enemy
 # opcodes. Red Zols split into ENEMY_GEL (`$43), which also has one direct
 # random-position room record. Export both definitions with animation

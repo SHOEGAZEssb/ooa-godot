@@ -9,11 +9,13 @@ public sealed class RoomSession
     private readonly Action _resetAnimationTick;
     private readonly OracleSaveData _saveData;
     private readonly RoomTileChangeDatabase _tileChanges;
+    private readonly DungeonKeyDoorDatabase _keyDoors;
 
     public event Action<int, OracleRoomData>? RoomChanged;
     public OracleWorldData World { get; }
     public DungeonMapDatabase DungeonMaps { get; }
     public OracleSaveData SaveData => _saveData;
+    internal DungeonKeyDoorDatabase KeyDoors => _keyDoors;
     public int ActiveGroup { get; private set; }
     public OracleRoomData CurrentRoom { get; private set; }
     public int CurrentDungeonIndex => World.GetDungeonIndex(ActiveGroup, CurrentRoom.Id);
@@ -32,6 +34,7 @@ public sealed class RoomSession
         _saveData = saveData;
         World = new OracleWorldData();
         _tileChanges = new RoomTileChangeDatabase();
+        _keyDoors = new DungeonKeyDoorDatabase();
         DungeonMaps = new DungeonMapDatabase();
         ActiveGroup = startingGroup;
         CurrentRoom = GetRoom(startingGroup, startingRoom);
@@ -96,6 +99,8 @@ public sealed class RoomSession
             : group;
         OracleRoomData loaded = World.LoadRoom(group, room, dataGroup);
         _tileChanges.Apply(group, loaded, _saveData, World, _animationTick());
+        _keyDoors.ApplyOpenedDoorState(
+            loaded, _saveData.GetRoomFlags(group, room), _animationTick());
         return loaded;
     }
 

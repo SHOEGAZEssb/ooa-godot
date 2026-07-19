@@ -20,6 +20,7 @@ public partial class GameRoot : Node2D
     internal InteractionController _interactions = null!;
     internal RoomEventController _roomEvents = null!;
     internal PushBlockController _pushBlocks = null!;
+    internal DungeonKeyDoorController _keyDoors = null!;
     internal TerrainController _terrain = null!;
     internal CombatController _combat = null!;
     private BraceletController _bracelet = null!;
@@ -212,6 +213,7 @@ public partial class GameRoot : Node2D
         _dialogue.SetSoundPlayer(_sound.PlaySound);
         _dialogue.MessageSpeed = _saveData.TextSpeed;
         _hud.Initialize(_treasures, _inventory);
+        _rooms.RoomChanged += SyncHudToRoom;
         _statusBar = new StatusBarController(_inventory, _hud, _sound.PlaySound);
         _mapScreen.Initialize(_rooms, _inventory);
         _inventoryScreen.Initialize(_treasures, _inventory,
@@ -382,11 +384,19 @@ public partial class GameRoot : Node2D
             new ItemDropDatabase(), new TimePortalDatabase(), _random, _saveData,
             animationTick: () => (long)_animationTicks);
         _pushBlocks = new PushBlockController(
-            _rooms, new PushableTileDatabase(), _roomView, () => (long)_animationTicks)
+            _rooms, new PushableTileDatabase(), _roomView,
+            () => (long)_animationTicks, _sound.PlaySound)
         {
             Name = "PushBlock"
         };
         _scene.WorldRoot.AddChild(_pushBlocks);
+        _keyDoors = new DungeonKeyDoorController(
+            _rooms, _inventory, _entities, _treasures,
+            () => (long)_animationTicks, _sound.PlaySound)
+        {
+            Name = "DungeonKeyDoors"
+        };
+        _scene.WorldRoot.AddChild(_keyDoors);
         _collision = new RoomCollision(
             _rooms, _entities, _pushBlocks, point => _transitions.HasNeighborFor(point));
         _deathRespawnPoints = new DeathRespawnPointController(_rooms, _player);
@@ -403,6 +413,8 @@ public partial class GameRoot : Node2D
             _rooms, _entities, new SignDatabase(), new ChestDatabase(), _treasures, _dialogue,
             _scene.WorldRoot, _roomView, _transitions.WorldToScreen, () => (long)_animationTicks,
             _inventory, _scene.InterfaceLayer, _sound.PlaySound);
+        _keyDoors.MessageRequested += message =>
+            _interactions.ShowRoomInteractionMessage(message, _player);
         _entities.DungeonEntranceTriggered += (_, message) =>
         {
             _interactions.ShowRoomInteractionMessage(message, _player);
@@ -426,13 +438,17 @@ public partial class GameRoot : Node2D
         {
             if (hazard is OracleRoomData.HazardType.Water or OracleRoomData.HazardType.Lava)
                 _terrain.SpawnSplash(position, hazard);
+            else if (hazard == OracleRoomData.HazardType.Hole)
+                _entities.Spawn<FallingDownHoleEffect>(
+                    new FallingDownHoleSpawn(position));
         };
         _combat = new CombatController(
             _scene.WorldRoot, _rooms, _roomView, _entities, new BreakableTileDatabase(), _sound,
             () => (long)_animationTicks);
         _debugCollision = new DebugCollisionController();
         _playerWorld = new PlayerWorld(
-            _transitions, _interactions, _collision, _pushBlocks, _terrain, _combat, _entities,
+            _transitions, _interactions, _collision, _pushBlocks, _keyDoors,
+            _terrain, _combat, _entities,
             _bracelet, _shovel, _roomEvents,
             _inventory, _sound, () => _debugCollision.CollisionsDisabled);
         _debugWarps = new DebugWarpController(
@@ -486,8 +502,13 @@ public partial class GameRoot : Node2D
         _hud.MaxHealthQuarters = _inventory.MaxHealthQuarters;
         _hud.EquippedA = _inventory.EquippedA;
         _hud.EquippedB = _inventory.EquippedB;
+        _hud.DungeonIndex = _rooms.CurrentDungeonIndex;
+        _hud.TilesetFlags = _rooms.CurrentRoom.TilesetFlags;
         _hud.Refresh();
     }
+
+    private void SyncHudToRoom(int group, OracleRoomData room) =>
+        SyncHudToInventory();
 
     private OracleSaveStore.SaveResult SaveActiveFile()
     {
@@ -503,7 +524,10 @@ public partial class GameRoot : Node2D
             _inventory.Changed -= SyncHudToInventory;
         _statusBar?.Dispose();
         if (_rooms is not null)
+        {
             _rooms.RoomChanged -= ApplyRoomMusic;
+            _rooms.RoomChanged -= SyncHudToRoom;
+        }
 
         // gameplay.tscn owns every persistent and transient gameplay node.
         // Freeing this one root leaves the application-owned sound engine in

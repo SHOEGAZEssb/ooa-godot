@@ -51,6 +51,23 @@ attribute bytes through `drawTreasureDisplayDataToBg`: its two increments shift
 sprite palettes 0-5 into BG palette slots 2-7 while preserving flip bits. Do not
 apply their table attributes directly to the inventory BG layer.
 
+Chest rewards and held treasure interactions do not use that inventory table.
+Their treasure-object `graphic` byte becomes the subid of `INTERAC_TREASURE
+$60`; render the first frame from its imported sprite header, tile base,
+palette, animation, and OAM. This distinction is visible for items absent from
+the standard inventory button table, including room `4:08`'s small-key graphic
+`$42` (`spr_map_compass_keys_bookofseals`, tile base `$0c`, palette 5).
+The small-key door pickup sprite reuses that graphic, first at Z `$fc` for
+eight updates and then Z `$f8` for 20 updates.
+
+In a real dungeon, unless tileset flag `$10` marks a large-indoor room, the
+status bar dynamically replaces HUD tile `$04` with the dedicated `gfx_key`
+tile and writes `$1b` (the X symbol) plus `$10 + current key count` beside it.
+The independent rupee update still writes the ordinary bottom-row digits at
+`$2a-$2c`, so keys supplement rather than replace the wallet display. Dungeon
+identity and key count remain runtime state; only the selected HUD composition
+changes.
+
 An original interaction can write selected `wRoomLayout` cells without issuing
 a BG redraw. Represent that split with position-specific visual overrides: the
 logical metatile changes for collision and terrain queries while the composited
@@ -95,7 +112,31 @@ requests `SND_GAINHEART` (`$57`) whenever that fills a complete heart; attemptin
 to collect a heart at full health requests the sound immediately. Item drops
 ignore hazards while airborne, then create `INTERAC_SPLASH`/`INTERAC_LAVASPLASH`
 and request `SND_SPLASH` (`$87`) on their first ground-height update over water
-or lava.
+or lava. Dungeon pressure buttons deliberately reuse `SND_SPLASH` for both the
+pressed and released transitions; that sound is not evidence of a water effect
+by itself.
+
+Trigger-created dungeon chests request `SND_SOLVEPUZZLE` on appearance and
+spawn `INTERAC_PUFF`, whose state-0 update requests `SND_POOF` (`$98`). The puff
+uses the imported interaction graphics and its 6/8/4-update animation entries;
+the terminal `$ff` animation parameter deletes it. A retractable chest creates
+the same puff when restoring its original source tile, without replaying the
+solve cue.
+
+Opening a chest requests `SND_OPENCHEST` (`$6c`) when tile `$f1` is replaced
+with `$f0`; the reward requests `SND_GETITEM` (`$4c`) when its 32-update rise
+finishes and the treasure/text are handed to Link. The treasure collection
+table's own nonzero sound is requested first; room `4:08` therefore requests
+`SND_GETSEED` (`$5e`) for the small key immediately before `SND_GETITEM`.
+Accepted push-block movement
+requests `SND_MOVEBLOCK` (`$71`) at movement start. A block or supported enemy
+resolved over a hole requests `SND_FALLINHOLE` (`$59`); a block also renders
+the imported falling-hole interaction, while water/lava keep their splash path.
+Opening a small-key door requests `SND_GETSEED` (`$5e`) with its key sprite and
+`SND_DOORCLOSE` (`$70`) at both the interleaved and final door frames. Creating
+an ordinary enemy death puff requests
+`SND_KILLENEMY` (`$73`); the red-Zol split puff requests the same cue without
+creating an ordinary death/drop puff.
 
 Accepted enemy contact requests `SND_DAMAGE_LINK` (`$5f`) once; invincibility
 rejects both the damage and a repeated request. Drowning requests that same

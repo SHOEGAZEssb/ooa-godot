@@ -26,7 +26,8 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     EnemyCombatComponent combat,
     bool countsAsEnemy,
     int killableEnemyIndex,
-    Func<bool>? marksEnemyKilled = null)
+    Func<bool>? marksEnemyKilled = null,
+    Action? finished = null)
     : RoomEntityAdapter<T>(entity, setTransitionDrawOffset),
         ILinkContactEntity, ISwordHittableRoomEntity, IRoomEntityLifetime,
         IRoomEnemyCounterEntity, IRoomKillTrackedEnemy
@@ -43,7 +44,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         Vector2 sourcePosition,
         ICollection<RoomEntitySpawn> spawns) =>
         combat.ApplySwordHit(hitbox, sourcePosition, spawns);
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
+    public void OnFinished(ICollection<RoomEntitySpawn> spawns) => finished?.Invoke();
 }
 
 internal sealed class NpcRoomEntity(NpcCharacter npc)
@@ -186,10 +187,15 @@ internal sealed class KeeseRoomEntity
 internal sealed class OctorokRoomEntity
     : CombatEnemyRoomEntityAdapter<OctorokCharacter>, IFixedRoomEntity
 {
-    public OctorokRoomEntity(OctorokCharacter octorok, int killableEnemyIndex = 0)
+    public OctorokRoomEntity(
+        OctorokCharacter octorok,
+        Action<int> soundRequested,
+        int killableEnemyIndex = 0)
         : base(
             octorok, octorok.SetTransitionDrawOffset, CreateCombat(octorok),
-            (octorok.Record.Flags & 0x02) == 0, killableEnemyIndex)
+            (octorok.Record.Flags & 0x02) == 0, killableEnemyIndex,
+            finished: () => EnemyHazardSounds.PlayHoleSound(
+                octorok.DeathHazard, soundRequested))
     { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
@@ -224,14 +230,50 @@ internal sealed class OctorokRockRoomEntity(OctorokRockProjectile rock)
     public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }
 
+internal sealed class StalfosRoomEntity
+    : CombatEnemyRoomEntityAdapter<StalfosCharacter>, IFixedRoomEntity
+{
+    public StalfosRoomEntity(
+        StalfosCharacter stalfos,
+        Action<int> soundRequested,
+        int killableEnemyIndex = 0)
+        : base(
+            stalfos, stalfos.SetTransitionDrawOffset, CreateCombat(stalfos),
+            (stalfos.Record.Flags & 0x02) == 0, killableEnemyIndex,
+            finished: () => EnemyHazardSounds.PlayHoleSound(
+                stalfos.DeathHazard, soundRequested))
+    { }
+
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
+        Entity.UpdateFrame(frame.Player.Position);
+
+    private static EnemyCombatComponent CreateCombat(StalfosCharacter stalfos) =>
+        EnemyCombatComponent.WithContactDamage(
+            () => stalfos.IsDead,
+            () => stalfos.CollisionBounds,
+            stalfos.TakeSwordHit,
+            stalfos.OverlapsLink,
+            () => stalfos.Position,
+            stalfos.Record.DamageQuarters,
+            () => stalfos.IsDead && !stalfos.DiedInHazard
+                ? new EnemyDeathPuffSpawn(
+                    stalfos.Position, EnemyId: stalfos.Record.Id)
+                : null);
+}
+
 internal sealed class ZolRoomEntity
     : CombatEnemyRoomEntityAdapter<ZolCharacter>, IFixedRoomEntity
 {
-    public ZolRoomEntity(ZolCharacter zol, int killableEnemyIndex = 0)
+    public ZolRoomEntity(
+        ZolCharacter zol,
+        Action<int> soundRequested,
+        int killableEnemyIndex = 0)
         : base(
             zol, zol.SetTransitionDrawOffset, CreateCombat(zol),
             (zol.Record.Flags & 0x02) == 0, killableEnemyIndex,
-            () => zol.Record.SubId != 1 || zol.DiedInHazard)
+            () => zol.Record.SubId != 1 || zol.DiedInHazard,
+            () => EnemyHazardSounds.PlayHoleSound(
+                zol.DeathHazard, soundRequested))
     { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
@@ -270,11 +312,14 @@ internal sealed class GelRoomEntity
 {
     public GelRoomEntity(
         GelCharacter gel,
+        Action<int> soundRequested,
         bool countsAsEnemy = true,
         int killableEnemyIndex = 0)
         : base(
             gel, gel.SetTransitionDrawOffset, CreateCombat(gel),
-            countsAsEnemy, killableEnemyIndex)
+            countsAsEnemy, killableEnemyIndex,
+            finished: () => EnemyHazardSounds.PlayHoleSound(
+                gel.DeathHazard, soundRequested))
     { }
 
     public bool DisablesSword => Entity.IsAttached;
@@ -294,6 +339,17 @@ internal sealed class GelRoomEntity
             () => gel.IsDead && !gel.DiedInHazard
                 ? new EnemyDeathPuffSpawn(gel.Position, EnemyId: gel.Definition.Id)
                 : null);
+}
+
+internal static class EnemyHazardSounds
+{
+    internal static void PlayHoleSound(
+        OracleRoomData.HazardType hazard,
+        Action<int> soundRequested)
+    {
+        if (hazard == OracleRoomData.HazardType.Hole)
+            soundRequested(OracleSoundEngine.SndFallInHole);
+    }
 }
 
 internal sealed class DeathPuffRoomEntity(

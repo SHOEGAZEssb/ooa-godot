@@ -200,6 +200,33 @@ foreach ($line in ($interactionDataSource -split '\r?\n')) {
     }
 }
 Complete-InteractionSubidAliases
+
+# INTERAC_TREASURE's subid table also has alias labels embedded in its byte
+# range. They do not terminate the table in ROM: the graphic byte may index
+# straight through them up to the explicit m_InteractionSubidDataEnd.
+$treasureSubidBlock = [regex]::Match(
+    $interactionDataSource,
+    '(?ms)^interaction60SubidData:\r?\n(?<body>.*?m_InteractionSubidDataEnd)')
+if (-not $treasureSubidBlock.Success) {
+    throw 'Could not resolve the complete INTERAC_TREASURE subid table.'
+}
+$treasureGraphicIndex = 0
+foreach ($entry in [regex]::Matches(
+    $treasureSubidBlock.Groups['body'].Value,
+    'm_InteractionSubidData\s+\$(?<gfx>[0-9a-f]{2})\s+\$(?<base>[0-9a-f]{2})\s+\$(?<flags>[0-9a-f]{2})')) {
+    $flags = [Convert]::ToInt32($entry.Groups['flags'].Value, 16)
+    $interactionGraphics["96`:$treasureGraphicIndex"] = @{
+        Gfx = [Convert]::ToInt32($entry.Groups['gfx'].Value, 16)
+        TileBase = [Convert]::ToInt32($entry.Groups['base'].Value, 16)
+        Flags = $flags
+        Palette = ($flags -shr 4) -band 7
+        DefaultAnimation = $flags -band 15
+    }
+    $treasureGraphicIndex++
+}
+if ($treasureGraphicIndex -ne 0x83) {
+    throw "Expected 131 INTERAC_TREASURE subid graphics, parsed $treasureGraphicIndex."
+}
 $gfxNames = @{}
 foreach ($line in Get-Content (Join-Path $Disassembly "data\ages\objectGfxHeaders.s")) {
     if ($line -match '/\* \$(?<id>[0-9a-f]{2}) \*/ m_ObjectGfxHeader (?<name>[A-Za-z0-9_]+)') {
@@ -366,6 +393,51 @@ function Resolve-NpcAnimation([int]$interactionId, [int]$animationIndex) {
     if ($loopStart -gt 0) {
         $encoded += "~$loopStart"
     }
+    return $encoded
+}
+
+# The shared INTERAC_TREASURE OAM pointer base intentionally indexes through
+# the following labeled pointer tables for several common animation frames.
+# Preserve that contiguous ROM layout instead of truncating at the next label.
+$treasureOamPointerBase = [regex]::Match(
+    $interactionAnimationSource,
+    '(?m)^interaction60OamDataPointers:[^\r\n]*\r?\n')
+if (-not $treasureOamPointerBase.Success) {
+    throw 'Could not resolve the INTERAC_TREASURE OAM pointer base.'
+}
+$treasureOamPointers = @(
+    [regex]::Matches(
+        $interactionAnimationSource.Substring(
+            $treasureOamPointerBase.Index + $treasureOamPointerBase.Length),
+        '(?m)^\s*\.dw\s+(?<entry>interactionOamData[0-9a-f]+)') |
+        ForEach-Object { $_.Groups['entry'].Value })
+function Resolve-TreasureAnimation([int]$animationIndex) {
+    $animations = $npcAnimationTables['interaction60Animations']
+    if ($animationIndex -lt 0 -or $animationIndex -ge $animations.Count) { return '' }
+    $animationLabel = $animations[$animationIndex]
+    if (-not $npcAnimationFrames.ContainsKey($animationLabel)) { return '' }
+    $resolvedFrames = [Collections.Generic.List[string]]::new()
+    foreach ($frame in $npcAnimationFrames[$animationLabel]) {
+        $pointerIndex = [int]($frame.PointerOffset / 2)
+        if ($pointerIndex -lt 0 -or $pointerIndex -ge $treasureOamPointers.Count) {
+            continue
+        }
+        $oamLabel = $treasureOamPointers[$pointerIndex]
+        $oam = if ($npcOamBlocks.ContainsKey($oamLabel)) {
+            $npcOamBlocks[$oamLabel]
+        } else {
+            ''
+        }
+        $metadata = if ([int]$frame.Parameter -eq 0) {
+            "$($frame.Duration)"
+        } else {
+            "$($frame.Duration),$($frame.Parameter)"
+        }
+        $resolvedFrames.Add("$metadata@$oam")
+    }
+    $encoded = $resolvedFrames -join '|'
+    $loopStart = $npcAnimationLoopStarts[$animationLabel]
+    if ($loopStart -gt 0) { $encoded += "~$loopStart" }
     return $encoded
 }
 
@@ -544,28 +616,179 @@ if ($mainObjectSource -notmatch '(?ms)^group1Map86ObjectData:\s+obj_Interaction 
     throw 'Room 1:86 no longer contains ordered hardhat $58:$02 and heart-piece spawner $dc:$07 placements.'
 }
 
-# INTERAC_PUSHBLOCK_TRIGGER $13:$01 and the enemy-shutter variants of
-# INTERAC_DOOR_CONTROLLER $1e:$08-$0b form one reusable dungeon mechanism.
-# Export every direct placement in source order; room 4:0c is the canonical
-# trigger-before-door case, while rooms such as 4:0b use the same doors with
-# ordinary enemy objects.
+# PART_BUTTON $09, its trigger-chest consumers $20:$00/$21:$17, the
+# trigger-controlled and enemy-controlled shutter variants of
+# INTERAC_DOOR_CONTROLLER $1e:$04-$0b, and INTERAC_PUSHBLOCK_TRIGGER $13:$01
+# form reusable dungeon mechanisms around wActiveTriggers and wNumEnemies.
+# Export every supported direct placement in source order; rooms 4:08, 4:09,
+# 4:0b, and 4:0c are the canonical button-chest, button-door, combat-door, and
+# trigger-before-door cases.
 $pushblockTriggerSource = Get-Content -Raw (
     Join-Path $Disassembly 'object_code\common\interactions\pushblockTrigger.s')
+$buttonSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\parts\button.s')
 $doorControllerSource = Get-Content -Raw (
     Join-Path $Disassembly 'object_code\common\interactions\doorController.s')
+$dungeonScriptSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\dungeonScript.s')
+$dungeonEventSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\dungeonEvents.s')
+$dungeonScriptCommandSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\dungeonScripts.s')
 $commonScriptSource = Get-Content -Raw (
     Join-Path $Disassembly 'scripts\common\commonScripts.s')
+$commonScriptHelperSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\common\scriptHelper.s')
+$interactableTilesSource = Get-Content -Raw (
+    Join-Path $Disassembly 'code\interactableTiles.s')
+$interactableTileDataSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\tile_properties\interactableTiles.s')
+$standardTileSubstitutionSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\tile_properties\standardTileSubstitutions.s')
+$keyDoorGraphicSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\tile_properties\keydoorTiles.s')
+$dungeonKeySpriteSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\dungeonKeySprite.s')
+$treasureInteractionSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\treasure.s')
+$treasureAndDropsSource = Get-Content -Raw (
+    Join-Path $Disassembly 'code\treasureAndDrops.s')
+$pushblockSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\pushblock.s')
+$fallDownHoleSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\fallDownHole.s')
+$bank0Source = Get-Content -Raw (Join-Path $Disassembly 'code\bank0.s')
+$zolEnemySource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\enemies\zol.s')
+$partDataSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\partData.s')
 $tileIndexSource = Get-Content -Raw (
     Join-Path $Disassembly 'constants\common\tileIndices.s')
 $musicIdSource = Get-Content -Raw (
     Join-Path $Disassembly 'constants\common\music.s')
+$objectSpeedSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\objectSpeeds.s')
 if ($pushblockTriggerSource -notmatch '(?ms)^@state0:.*?ld a,TILEINDEX_PUSHABLE_BLOCK.*?ld hl,wNumEnemies\s+inc \(hl\).*?^@state1:.*?^@state2:.*?cp \(hl\)\s+ret z.*?ld a,\$1e.*?^@state3:.*?interactionDecCounter1.*?xor a\s+ld \(wNumEnemies\),a' -or
+    $buttonSource -notmatch '(?ms)^partCode09:.*?call z,@state0.*?checkObjectsCollided.*?@linkTouchedButton:.*?ld a,\(w1Link\.zh\).*?rlca\s+jr nc,@delete.*?@checkButtonPushed:.*?TILEINDEX_PRESSED_BUTTON.*?@setTriggerAndPlaySound:.*?wActiveTriggers.*?setFlag.*?SND_SPLASH.*?@state0:.*?and \$07' -or
+    $buttonSource -notmatch '(?ms)^@somethingOnButton:.*?bit 7,\(hl\).*?ld \(hl\),\$1c.*?setTileInRoomLayoutBuffer.*?^@updateTileBeforeDeletion:.*?TILEINDEX_PRESSED_BUTTON.*?setTileInRoomLayoutBuffer' -or
+    $dungeonScriptSource -notmatch '(?ms)^@dungeon0:.*?^@dungeond:.*?makuPathScript_spawnChestWhenActiveTriggersEq01.*?^@dungeon1:.*?dungeonScript_spawnChestOnTriggerBit0.*?^@dungeon9:.*?^@dungeona:.*?^@dungeonb:.*?dungeonScript_spawnChestOnTriggerBit0' -or
+    $dungeonScriptCommandSource -notmatch '(?ms)^dungeonScript_spawnChestOnTriggerBit0:.*?stopifitemflagset.*?checkflagset \$00, wActiveTriggers.*?scriptjump spawnChestAfterPuff.*?^makuPathScript_spawnChestWhenActiveTriggersEq01:.*?checkmemoryeq wActiveTriggers, \$01.*?^spawnChestAfterPuff:.*?playsound SND_SOLVEPUZZLE.*?createpuff.*?wait 15.*?settilehere TILEINDEX_CHEST' -or
+    $dungeonEventSource -notmatch '(?ms)^interaction21_subid17:.*?ROOMFLAG_ITEM.*?ld a,\(wActiveTriggers\).*?cp b.*?@triggerActive:.*?TILEINDEX_CHEST.*?createPuffAt.*?SND_SOLVEPUZZLE.*?@triggerInactive:.*?w3RoomLayoutBuffer.*?setTile.*?createPuffAt' -or
     $doorControllerSource -notmatch '(?ms)^@state2Substate0:.*?ld a,SND_DOORCLOSE.*?call setInterleavedTile.*?ld \(hl\),\$06.*?ld \(bc\),a.*?^@state2Substate1:.*?interactionDecCounter1.*?@shutterTiles:\s+\.db \$a0 \$70.*?\.db \$a0 \$77\s+\.db \$a0 \$78.*?\.db \$a0 \$79.*?\.db \$a0 \$7a.*?\.db \$a0 \$7b' -or
+    $commonScriptSource -notmatch '(?ms)^doorController_controlledByTriggers_up:.*?setangle \$10.*?^doorController_controlledByTriggers_right:.*?setangle \$12.*?^doorController_controlledByTriggers_down:.*?setangle \$14.*?^doorController_controlledByTriggers_left:.*?setangle \$16.*?^doorController_controlledByTriggers:.*?doorController_decideActionBasedOnTriggers.*?\.dw @open\s+\.dw @close.*?@open:\s+playsound SND_SOLVEPUZZLE\s+setstate \$02.*?@close:\s+setstate \$03' -or
     $commonScriptSource -notmatch '(?ms)^doorController_shutUntilEnemiesDead:.*?jumpifnoenemies @end.*?setstate \$03\s+checknoenemies\s+playsound SND_SOLVEPUZZLE\s+wait 8\s+incstate.*?^doorController_shutUntilEnemiesDead_up:.*?setangle \$10.*?^doorController_shutUntilEnemiesDead_right:.*?setangle \$12.*?^doorController_shutUntilEnemiesDead_down:.*?setangle \$14.*?^doorController_shutUntilEnemiesDead_left:.*?setangle \$16' -or
+    $commonScriptHelperSource -notmatch '(?ms)^doorController_decideActionBasedOnTriggers:.*?ld a,\(wActiveTriggers\)\s+and b.*?@triggerInactive:.*?@checkTileIsShutterDoor:.*?@tileIndices:.*?\.db \$78 \$79 \$7a \$7b' -or
+    $interactableTilesSource -notmatch '(?ms)TILEINDEX_CHEST_OPENED\s+call setTile.*?SND_OPENCHEST\s+call playSound' -or
+    $treasureInteractionSource -notmatch '(?ms)^@m3State1:.*?interactionDecCounter1\s+ret nz.*?call z,@giveTreasure\s+ld a,SND_GETITEM\s+call playSound' -or
+    $treasureInteractionSource -notmatch '(?ms)^@giveTreasure:.*?call giveTreasure\s+ld b,a.*?ld a,b\s+call playSound.*?call showText' -or
+    $treasureAndDropsSource -notmatch '(?ms)^@giveTreasure:.*?treasureCollectionBehaviourTable.*?bit 7,\(hl\).*?ldi a,\(hl\).*?call playSound' -or
+    $pushblockSource -notmatch '(?ms)^@state0:.*?@replaceTileUnderneathBlock\s+call objectSetVisible82\s+ld a,SND_MOVEBLOCK\s+call playSound' -or
+    $fallDownHoleSource -notmatch '(?ms)^@fallDownHole:.*?ld a,SND_FALLINHOLE\s+call nc,playSound' -or
+    $bank0Source -notmatch '(?ms)^@enemyCreateDeathPuff:.*?PART_ENEMY_DESTROYED.*?ld a,SND_KILLENEMY\s+jp playSound' -or
+    $zolEnemySource -notmatch '(?ms)^zol_subid01_stateC:.*?INTERAC_KILLENEMYPUFF.*?ld a,SND_KILLENEMY\s+call playSound' -or
+    $partDataSource -notmatch '(?m)^\s*\.db \$00 \$02 \$22 \$00 \$40 \$00 \$00 \$00 ; \$09' -or
     $tileIndexSource -notmatch '(?m)^\.define TILEINDEX_PUSHABLE_BLOCK\s+\$1d' -or
+    $tileIndexSource -notmatch '(?m)^\.define TILEINDEX_BUTTON\s+\$0c' -or
+    $tileIndexSource -notmatch '(?m)^\.define TILEINDEX_PRESSED_BUTTON\s+\$0d' -or
     $musicIdSource -notmatch '(?m)^\s*SND_SOLVEPUZZLE\s+db\s+; \$4d' -or
-    $musicIdSource -notmatch '(?m)^\s*SND_DOORCLOSE\s+db\s+; \$70') {
-    throw 'Dungeon $13:$01 / $1e:$08-$0b trigger, shutter, timing, tile, or sound contract changed.'
+    $musicIdSource -notmatch '(?m)^\s*SND_GETITEM\s+db\s+; \$4c' -or
+    $musicIdSource -notmatch '(?m)^\s*MUS_GET_ESSENCE\s+db\s+; \$10' -or
+    $musicIdSource -notmatch '(?m)^\s*SND_FALLINHOLE\s+db\s+; \$59' -or
+    $musicIdSource -notmatch '(?m)^\s*SND_GETSEED\s+db\s+; \$5e' -or
+    $musicIdSource -notmatch '(?m)^\s*SND_OPENCHEST\s+db\s+; \$6c' -or
+    $musicIdSource -notmatch '(?m)^\s*SND_DOORCLOSE\s+db\s+; \$70' -or
+    $musicIdSource -notmatch '(?m)^\s*SND_MOVEBLOCK\s+db\s+; \$71' -or
+    $musicIdSource -notmatch '(?m)^\s*SND_KILLENEMY\s+db\s+; \$73' -or
+    $musicIdSource -notmatch '(?m)^\s*SND_SPLASH\s+db\s+; \$87' -or
+    $musicIdSource -notmatch '(?m)^\s*SND_POOF\s+db\s+; \$98') {
+    throw 'Dungeon button/chest/push block and enemy death/hole trigger, timing, tile, or sound contract changed.'
+}
+
+if ($interactableTilesSource -notmatch '(?ms)^nextToKeyDoor:.*?call decPushingAgainstTileCounter\s+jr z,\+\s+dec \(hl\)\s+ret nz.*?call checkAndDecKeyCount.*?call createKeySpriteInteraction.*?INTERAC_DOOR_CONTROLLER.*?call setRoomFlagsForUnlockedKeyDoor' -or
+    $interactableTilesSource -notmatch '(?ms)^resetPushingAgainstTileCounter:\s+ld a,20\s+ld \(wPushingAgainstTileCounter\),a' -or
+    $doorControllerSource -notmatch '(?ms)^@state2Substate0:.*?ld a,SND_DOORCLOSE.*?call setInterleavedTile.*?ld \(hl\),\$06.*?^@state2Substate1:.*?interactionDecCounter1.*?^@shutterTiles:\s+\.db \$a0 \$70.*?\.db \$a0 \$71.*?\.db \$a0 \$72.*?\.db \$a0 \$73' -or
+    $bank0Source -notmatch '(?ms)^setRoomFlagsForUnlockedKeyDoor:.*?^_adjacentRoomsData:\s+\.db \$01 \$f8 \$04 \$00.*?\.db \$02 \$01 \$08 \$00.*?\.db \$04 \$08 \$01 \$00.*?\.db \$08 \$ff \$02 \$00' -or
+    $keyDoorGraphicSource -notmatch '(?ms)^@dungeons:.*?\.db \$70 \$00.*?\.db \$71 \$00.*?\.db \$72 \$00.*?\.db \$73 \$00' -or
+    $dungeonKeySpriteSource -notmatch '(?ms)^@state0:.*?ld \(hl\),\$fc.*?ld \(hl\),\$08.*?ld a,SND_GETSEED.*?^@state1:.*?ld \(hl\),\$14.*?ld \(hl\),\$f8.*?^@state2:' -or
+    $objectSpeedSource -notmatch '(?m)^\s*SPEED_60\s+dsb 5 ; 0x0f') {
+    throw 'Small-key door push, paired flag, key-sprite, animation, or timing contract changed.'
+}
+
+$puzzlePuffGraphic = $interactionGraphics['5:0']
+$puzzlePuffAnimation = Resolve-NpcAnimation 0x05 0
+if (-not $puzzlePuffGraphic -or
+    $puzzlePuffGraphic.TileBase -ne 0x16 -or
+    $puzzlePuffGraphic.Palette -ne 3 -or
+    [string]::IsNullOrWhiteSpace($puzzlePuffAnimation)) {
+    throw 'INTERAC_PUFF $05 no longer resolves to tile base $16, palette 3, animation 0.'
+}
+$puzzlePuffRows = @(
+    "# tile-base`tpalette`tanimation"
+    "$($puzzlePuffGraphic.TileBase)`t$($puzzlePuffGraphic.Palette)`t$puzzlePuffAnimation"
+)
+
+$fallDownHoleGraphic = $interactionGraphics['15:0']
+$fallDownHoleAnimation = Resolve-NpcAnimation 0x0f 0
+if (-not $fallDownHoleGraphic -or
+    $fallDownHoleGraphic.Gfx -ne 0 -or
+    $fallDownHoleGraphic.TileBase -ne 0x16 -or
+    $fallDownHoleGraphic.Palette -ne 3 -or
+    $fallDownHoleGraphic.DefaultAnimation -ne 0 -or
+    [string]::IsNullOrWhiteSpace($fallDownHoleAnimation) -or
+    $fallDownHoleSource -notmatch '(?ms)^@interac0f_state1:.*?bit 7,\(hl\).*?add \$05\s+and \$f0\s+add \$08.*?ld \(de\),a\s+call objectApplySpeed.*?jp interactionAnimate') {
+    throw 'INTERAC_FALLDOWNHOLE `$0f no longer resolves to common graphics tile base `$16, palette 3, SPEED_60, animation 0.'
+}
+$fallDownHoleRows = @(
+    "# tile-base`tpalette`tspeed-raw`tanimation"
+    "$($fallDownHoleGraphic.TileBase)`t$($fallDownHoleGraphic.Palette)`t15`t$fallDownHoleAnimation"
+)
+
+$keyDoorOpenTiles = @{}
+foreach ($entry in [regex]::Matches(
+    $standardTileSubstitutionSource,
+    '(?m)^\s*\.db \$(?<open>[0-9a-f]{2}) \$(?<closed>7[0-3])(?:\s|;)')) {
+    $closedTile = $entry.Groups['closed'].Value
+    if ($keyDoorOpenTiles.ContainsKey($closedTile)) {
+        throw "Duplicate standard small-key door substitution for `$$closedTile."
+    }
+    $keyDoorOpenTiles[$closedTile] = $entry.Groups['open'].Value
+}
+$keyDoorFlags = @{}
+foreach ($entry in [regex]::Matches(
+    $bank0Source,
+    '(?m)^\s*\.db \$(?<room>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<opposite>[0-9a-f]{2}) \$00 ; Key door going (?<direction>up|right|down|left)\s*$')) {
+    $directionName = $entry.Groups['direction'].Value
+    if ($keyDoorFlags.ContainsKey($directionName)) {
+        throw "Duplicate _adjacentRoomsData key-door direction $directionName."
+    }
+    $keyDoorFlags[$directionName] = @(
+        $entry.Groups['room'].Value,
+        $entry.Groups['opposite'].Value)
+}
+$keyDoorRows = [Collections.Generic.List[string]]::new()
+$keyDoorRows.Add(
+    "# closed-tile`tdirection`topen-tile`troom-flag`topposite-room-flag`tpush-counter`tdoor-frame-wait`tdoor-sound`tkey-sound`tno-key-text-id`tno-key-utf8-base64")
+$noKeyText = [Convert]::ToBase64String(
+    [Text.Encoding]::UTF8.GetBytes($allTexts[0x5100]))
+foreach ($entry in [regex]::Matches(
+    $interactableTileDataSource,
+    '(?m)^\s*\.db \$(?<tile>7[0-3]) \$(?<direction>[0-3])2\s*$')) {
+    $tile = $entry.Groups['tile'].Value
+    $direction = [Convert]::ToInt32($entry.Groups['direction'].Value, 16)
+    if (-not $keyDoorOpenTiles.ContainsKey($tile)) {
+        throw "Small-key door `$$tile has no standard opened-tile substitution."
+    }
+    $directionName = @('up', 'right', 'down', 'left')[$direction]
+    if (-not $keyDoorFlags.ContainsKey($directionName)) {
+        throw "Small-key door `$$tile has no _adjacentRoomsData flags for $directionName."
+    }
+    $roomFlag, $oppositeFlag = $keyDoorFlags[$directionName]
+    $keyDoorRows.Add(
+        "$tile`t$directionName`t$($keyDoorOpenTiles[$tile])`t$roomFlag`t$oppositeFlag`t20`t6`t112`t94`t5100`t$noKeyText")
+}
+if ($keyDoorRows.Count -ne 5 -or
+    -not ($keyDoorRows -contains "73`tleft`ta0`t08`t02`t20`t6`t112`t94`t5100`t$noKeyText")) {
+    throw "Expected four imported small-key doors `$70-`$73 including left door `$73, parsed $($keyDoorRows.Count - 1)."
 }
 
 $conditionalDungeonEnemyRooms = [Collections.Generic.HashSet[string]]::new()
@@ -578,8 +801,28 @@ foreach ($block in [regex]::Matches(
     }
 }
 
+$triggerChestPredicateByDungeon = @{
+    0x00 = 'exact'
+    0x01 = 'bit'
+    0x09 = 'bit'
+    0x0a = 'bit'
+    0x0b = 'bit'
+    0x0d = 'exact'
+}
+$mechanicTilesetsByGroup = @{}
+function Resolve-DungeonMechanicDungeonIndex([int]$group, [int]$room) {
+    if (-not $script:mechanicTilesetsByGroup.ContainsKey($group)) {
+        $script:mechanicTilesetsByGroup[$group] = [IO.File]::ReadAllBytes(
+            (Join-Path $Disassembly "rooms\ages\group${group}Tilesets.bin"))
+    }
+    $tileset = $script:mechanicTilesetsByGroup[$group][$room] -band 0x7f
+    return [int]$metadata[$tileset * $tilesetRecordSize + 5]
+}
+
 $dungeonMechanicRows = [Collections.Generic.List[string]]::new()
-$dungeonMechanicRows.Add("# group`troom`torder`tid`tsubid`tposition`tparameter`tcount-source-complete")
+$dungeonMechanicRows.Add("# group`troom`torder`tid`tsubid`tposition`tparameter`ttrigger-predicate`tcount-source-complete")
+$permanentTriggerChestCount = 0
+$retractableTriggerChestCount = 0
 $mechanicGroup = -1
 $mechanicRoom = -1
 $mechanicOrder = 0
@@ -595,31 +838,70 @@ foreach ($line in $mainObjectLines) {
     if ($line -match '^\s*obj_Interaction\s+\$(?<id>[0-9a-f]{2})\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<a>[0-9a-f]{2})\s+\$(?<b>[0-9a-f]{2})') {
         $id = [Convert]::ToInt32($Matches['id'], 16)
         $subid = [Convert]::ToInt32($Matches['subid'], 16)
+        $dungeonScriptPredicate = ''
+        if ($id -eq 0x20 -and $subid -eq 0x00) {
+            $dungeon = Resolve-DungeonMechanicDungeonIndex $mechanicGroup $mechanicRoom
+            if ($triggerChestPredicateByDungeon.ContainsKey($dungeon)) {
+                $dungeonScriptPredicate = $triggerChestPredicateByDungeon[$dungeon]
+            }
+        }
         if (($id -eq 0x13 -and $subid -eq 0x01) -or
-            ($id -eq 0x1e -and $subid -ge 0x08 -and $subid -le 0x0b)) {
+            ($id -eq 0x1e -and $subid -ge 0x04 -and $subid -le 0x0b) -or
+            $dungeonScriptPredicate -ne '' -or
+            ($id -eq 0x21 -and $subid -eq 0x17)) {
             $a = [Convert]::ToInt32($Matches['a'], 16)
             $b = [Convert]::ToInt32($Matches['b'], 16)
-            $position = if ($id -eq 0x13) {
+            $position = if ($id -eq 0x13 -or $id -eq 0x20) {
                 ($a -band 0xf0) -bor (($b -shr 4) -band 0x0f)
             } else {
                 $a
             }
-            $parameter = if ($id -eq 0x13) { 0 } else { $b }
+            $parameter = if ($id -eq 0x13) {
+                0
+            } elseif ($id -eq 0x20) {
+                if ($dungeonScriptPredicate -eq 'exact') { 1 } else { 0 }
+            } else {
+                $b
+            }
+            $triggerPredicate = if ($id -eq 0x1e -and $subid -le 0x07) {
+                'bit'
+            } elseif ($id -eq 0x20) {
+                $dungeonScriptPredicate
+            } elseif ($id -eq 0x21) {
+                'exact'
+            } else {
+                'none'
+            }
             $countSourceComplete = if ($conditionalDungeonEnemyRooms.Contains(
                 "$mechanicGroup`:$($mechanicRoom.ToString('x2'))")) { 0 } else { 1 }
             $dungeonMechanicRows.Add(
-                "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($position.ToString('x2'))`t$($parameter.ToString('x2'))`t$countSourceComplete")
+                "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($position.ToString('x2'))`t$($parameter.ToString('x2'))`t$triggerPredicate`t$countSourceComplete")
+            if ($id -eq 0x20) { $permanentTriggerChestCount++ }
+            if ($id -eq 0x21) { $retractableTriggerChestCount++ }
         }
+    } elseif ($line -match '^\s*obj_Part\s+\$09\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<position>[0-9a-f]{2})\s*$') {
+        $dungeonMechanicRows.Add(
+            "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t09`t$($Matches['subid'])`t$($Matches['position'])`t00`tnone`t1")
     }
     $mechanicOrder++
 }
-if ($dungeonMechanicRows.Count -ne 74 -or
-    -not ($dungeonMechanicRows -contains "4`t0c`t0`t13`t01`t47`t00`t1") -or
-    -not ($dungeonMechanicRows -contains "4`t0c`t1`t1e`t08`t07`t00`t1") -or
-    -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`t1") -or
-    -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`t1") -or
-    -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`t0")) {
-    throw "Expected 73 reusable dungeon trigger/shutter placements including rooms 4:0b/4:0c, parsed $($dungeonMechanicRows.Count - 1)."
+if ($dungeonMechanicRows.Count -ne 156 -or
+    $permanentTriggerChestCount -ne 7 -or
+    $retractableTriggerChestCount -ne 6 -or
+    -not ($dungeonMechanicRows -contains "4`t08`t0`t20`t00`t57`t01`texact`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t08`t1`t09`t00`t17`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t09`t0`t1e`t04`t07`t00`tbit`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t09`t1`t1e`t05`t5e`t00`tbit`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t09`t3`t13`t01`t2a`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t09`t5`t09`t00`t14`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t22`t1`t09`t80`t5b`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t7a`t0`t21`t17`t39`t01`texact`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t0c`t0`t13`t01`t47`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t0c`t1`t1e`t08`t07`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`tnone`t0")) {
+    throw "Expected 155 reusable dungeon button/trigger/chest/shutter placements including rooms 4:08/4:09/4:0b/4:0c/4:7a, parsed $($dungeonMechanicRows.Count - 1)."
 }
 $dungeonMechanicConstantRows = @(
     "# key`tvalue"
@@ -634,10 +916,54 @@ $dungeonMechanicConstantRows = @(
     "closed-left`t123"
     "solve-sound`t77"
     "door-sound`t112"
+    "button-tile`t12"
+    "pressed-button-tile`t13"
+    "button-radius-y`t2"
+    "button-radius-x`t2"
+    "button-object-release-delay`t28"
+    "button-sound`t135"
+    "chest-tile`t241"
+    "chest-wait`t15"
+    "puff-sound`t152"
 )
 $currentGroup = -1
 $currentRoom = -1
 $npcSpriteNames = [Collections.Generic.HashSet[string]]::new()
+
+# INTERAC_TREASURE $60 overwrites its subid with the treasure object's graphic
+# byte, then initializes that interaction's graphics. Export the corresponding
+# sprite header and first animation so chest rewards do not incorrectly reuse
+# the unrelated inventory-button display tables.
+$treasureObjectVisualRows = [Collections.Generic.List[string]]::new()
+$treasureObjectVisualRows.Add(
+    "# graphic`tsprite`ttile-base`tpalette`tdefault-animation`tanimation")
+$treasureObjectGraphics = @(
+    $treasureObjectRecords.Values |
+        ForEach-Object { [int]$_.Graphic } |
+        Sort-Object -Unique)
+foreach ($graphicIndex in $treasureObjectGraphics) {
+    $graphic = $interactionGraphics["96`:$graphicIndex"]
+    if ($null -eq $graphic -or -not $gfxNames.ContainsKey($graphic.Gfx)) {
+        throw "Could not resolve INTERAC_TREASURE `$60 graphic `$$($graphicIndex.ToString('x2'))."
+    }
+    $animation = Resolve-TreasureAnimation $graphic.DefaultAnimation
+    if ([string]::IsNullOrWhiteSpace($animation)) {
+        throw "Could not resolve INTERAC_TREASURE `$60 graphic `$$($graphicIndex.ToString('x2')) animation `$$($graphic.DefaultAnimation.ToString('x2'))."
+    }
+    $spriteName = $gfxNames[$graphic.Gfx]
+    [void]$npcSpriteNames.Add($spriteName)
+    $treasureObjectVisualRows.Add(
+        "$($graphicIndex.ToString('x2'))`t$spriteName`t$($graphic.TileBase.ToString('x2'))`t$($graphic.Palette.ToString('x2'))`t$($graphic.DefaultAnimation.ToString('x2'))`t$animation")
+}
+$smallKeyVisual = $interactionGraphics['96:66']
+if ($treasureObjectVisualRows.Count -ne 92 -or
+    $null -eq $smallKeyVisual -or
+    $gfxNames[$smallKeyVisual.Gfx] -ne 'spr_map_compass_keys_bookofseals' -or
+    $smallKeyVisual.TileBase -ne 0x0c -or
+    $smallKeyVisual.Palette -ne 5 -or
+    $smallKeyVisual.DefaultAnimation -ne 0) {
+    throw "Expected 91 INTERAC_TREASURE visuals including the small-key graphic `$42."
+}
 foreach ($line in $mainObjectLines) {
     if ($line -match '^group(?<group>[0-7])Map(?<room>[0-9a-f]{2})ObjectData:') {
         $currentGroup = [Convert]::ToInt32($Matches['group'], 10)
@@ -2352,6 +2678,26 @@ $dungeonMechanicConstantsPath = Join-Path $destination "objects\dungeon_mechanic
 [IO.File]::WriteAllLines(
     $dungeonMechanicConstantsPath,
     $dungeonMechanicConstantRows,
+    [Text.UTF8Encoding]::new($false))
+$puzzlePuffPath = Join-Path $destination "effects\puzzle_puff.tsv"
+[IO.File]::WriteAllLines(
+    $puzzlePuffPath,
+    $puzzlePuffRows,
+    [Text.UTF8Encoding]::new($false))
+$fallDownHolePath = Join-Path $destination "effects\fall_down_hole.tsv"
+[IO.File]::WriteAllLines(
+    $fallDownHolePath,
+    $fallDownHoleRows,
+    [Text.UTF8Encoding]::new($false))
+$keyDoorPath = Join-Path $destination "objects\dungeon_key_doors.tsv"
+[IO.File]::WriteAllLines(
+    $keyDoorPath,
+    $keyDoorRows,
+    [Text.UTF8Encoding]::new($false))
+$treasureObjectVisualPath = Join-Path $destination "metadata\treasure_object_visuals.tsv"
+[IO.File]::WriteAllLines(
+    $treasureObjectVisualPath,
+    $treasureObjectVisualRows,
     [Text.UTF8Encoding]::new($false))
 $familyNpcPath = Join-Path $destination "objects\bipin_blossom_family.tsv"
 [IO.File]::WriteAllLines(

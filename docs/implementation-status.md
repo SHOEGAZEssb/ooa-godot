@@ -21,6 +21,11 @@ claim that the entire surrounding game is complete.
 
 - Link movement, level-1 sword combat, terrain hazards, push blocks, signs,
   chests, item drops, basic bracelet interactions, and the active Shovel. The
+  shared chest path renders all reward objects from imported
+  `INTERAC_TREASURE $60` graphics/OAM (including room `4:08`'s small key) and
+  preserves the open/collection/get-item sound boundaries. Push blocks request their move
+  cue only on accepted movement and distinguish the imported falling-hole
+  animation/sound from splash effects. The
   Shovel uses the original 23-update Link/item animation, update-4 tile probe,
   imported breakable-tile replacements and drops, directional dirt debris,
   `SPEED_a0` cardinal drop launch, sounds, room flags, and WRAM-backed gasha
@@ -46,11 +51,28 @@ claim that the entire surrounding game is complete.
   the moving path-blocking villager, unconditional construction soldiers,
   per-talk random worker text, left/right pickaxe strikes and dirt chips,
   half-pixel hardhat patrols, and the exact Shovel grant/held-item sequence.
-- Keese, Octoroks/projectiles, Zols, and Gels using ordered room-object placement,
-  original spawn restrictions, shared RNG, combat, and drop paths.
-- Reusable dungeon push-block triggers `$13:$01` and enemy shutters
-  `$1e:$08-$0b`, with all 73 direct placements imported in source order. Room
-  `4:0c` includes its trigger-owned live enemy count, source block restoration,
+- Keese, Octoroks/projectiles, ordinary Stalfos `$31:$00`, Zols, and Gels using
+  ordered room-object placement, original spawn restrictions, shared RNG,
+  combat, common/split kill sounds, hole-fall sounds, and drop paths. All 34
+  ordinary-Stalfos records (37 instances) use their source SPEED_80 walk,
+  two-call direction/counter decision, wall/hole bounce, animation, damage,
+  health, and drop path. Evasive, bone-throwing, and stomping Stalfos subids
+  remain deferred.
+- Reusable dungeon buttons `$09`, trigger shutters `$1e:$04-$07`, permanent
+  trigger chests `$20:$00`, retractable trigger chests `$21:$17`, push-block
+  triggers `$13:$01`, and enemy shutters `$1e:$08-$0b`, with all 155 direct
+  placements imported in source order: 49 buttons, 20 trigger doors, seven
+  delayed chests, six retractable chests, and 73 live-enemy mechanism records.
+  Room `4:08` includes its exact-`$01` button predicate, solve/puff sequence,
+  15-update chest delay, and room-item re-entry state. Room `4:7a` covers the
+  reusable chest's immediate appearance and restoration of its original tile
+  when its exact trigger byte is released. Room `4:09` includes its one-shot bit-0 button
+  and simultaneous up/right shutters. Room `4:22` covers reusable ground-only
+  strict-radius pressure, `$0c/$0d` tiles, `SND_SPLASH`, release/closing, and the
+  28-update object-pressure delay, including local door respawn if a shutter
+  closes on Link. Button subids select trigger bits and latch mode without
+  save/story predicates. Room `4:0c` includes its trigger-owned
+  live enemy count, source block restoration,
   30-update release, eight-update solve wait, and six-update mapping-interleaved
   up-door animation. Room `4:0b` includes its always-active three-Gel combat
   gate, simultaneous up/left shutters, real sword-death path, and entry/re-entry
@@ -58,8 +80,17 @@ claim that the entire surrounding game is complete.
   floor, waits until Link is fully inside, then completes its six-update close;
   the original transient last-eight-room enemy bitset suppresses defeated Gels
   and reopens both doors without replaying the solve cue. Imported shutter rooms
-  activate only when the implemented enemy roster can provide their complete
-  live enemy count.
+  solve only when the implemented enemy roster can provide their complete live
+  enemy count. In incomplete rooms, the crossed entry shutter still preloads as
+  open and remains available only for safe backtracking; all other shutters
+  stay closed. Room `4:06` covers both entry directions, delayed crossed-door
+  closure, its two ordinary Stalfos, the all-direction source push block, and
+  the complete 30/8/6-update block-trigger/shutter solve.
+- Reusable small-key door tiles `$70-$73`, including current-dungeon key
+  consumption, TX `$5100`, paired dungeon-layout room flags, the 10-update push
+  threshold, key sprite, and six-update mapping-interleaved opening. Room
+  `4:0a` exercises the left-facing `$73` path and persistent re-entry tile
+  substitution.
 
 ### Story and events
 
@@ -87,8 +118,9 @@ claim that the entire surrounding game is complete.
 - Title/file select, three save slots, new-file name/message-speed setup, the
   new-game intro, original save image/checksum, previous-generation backups,
   death checkpoints, and explicit Save & Quit flows.
-- HUD, dialogue, inventory pages, map/dungeon map, live flag editor, and shared
-  fixed-update menu lifecycle.
+- HUD (including simultaneous rupee digits and the dungeon-only
+  `gfx_key`/X/key-count field), dialogue, inventory pages, map/dungeon map,
+  live flag editor, and shared fixed-update menu lifecycle.
 
 ### Audio
 
@@ -102,8 +134,8 @@ claim that the entire surrounding game is complete.
 
 - The complete story, world interactions, NPC scripts, dungeons, bosses, enemy
   roster, and progression beyond the currently ported paths.
-- Door-controller variants for keys, bosses, switches, minecarts, room entry,
-  and torches (`$1e` subids outside `$08-$0b`) remain deferred.
+- Door-controller variants for bosses, switches, minecarts, room entry, and
+  torches (`$1e` subids outside `$08-$0b`) remain deferred.
 
 ### Player and inventory
 

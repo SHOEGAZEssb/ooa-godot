@@ -87,6 +87,8 @@ public partial class Player : Node2D
     private int _newGameFallZFixed;
     private int _newGameFallSpeedZ;
     private bool _newGameSlowFalling;
+    private int _floorDoorRespawnCounter;
+    private int _floorDoorRecoveryCounter;
 
     public int HealthQuarters => _inventory.HealthQuarters;
     public int Rupees => _inventory.Rupees;
@@ -123,6 +125,13 @@ public partial class Player : Node2D
     internal float InvincibilityFrames => _enemyInvincibilityFrames;
     internal float KnockbackFrames => _enemyKnockbackFrames;
     internal bool IsNewGameSlowFalling => _newGameSlowFalling;
+    internal bool IsGroundedForFloorButton =>
+        !_ledgeHopping && !_newGameSlowFalling &&
+        !_drowning && !_fallingInHole;
+    internal bool IsFloorDoorRespawning =>
+        _floorDoorRespawnCounter != 0 || _floorDoorRecoveryCounter != 0;
+    internal int FloorDoorRespawnCounter => _floorDoorRespawnCounter;
+    internal Vector2 LocalRespawnPosition => _lastSafePosition;
     internal int NewGameSlowFallFrame => _newGameFallFrame;
     internal int NewGameSlowFallZ => _newGameFallZFixed >> 8;
     internal bool IsHoldingItemOneHand => _getItemOneHandPose;
@@ -182,6 +191,8 @@ public partial class Player : Node2D
         _drownRespawning = false;
         _fallingInHole = false;
         _fallInHoleRespawning = false;
+        _floorDoorRespawnCounter = 0;
+        _floorDoorRecoveryCounter = 0;
         _getItemOneHandPose = false;
         _getItemTwoHandPose = false;
         _precisePosition = position;
@@ -411,6 +422,24 @@ public partial class Player : Node2D
     public override void _PhysicsProcess(double delta)
     {
         _pushing = false;
+        if (_floorDoorRespawnCounter != 0)
+        {
+            _floorDoorRespawnCounter--;
+            if (_floorDoorRespawnCounter == 0)
+            {
+                Visible = true;
+                ApplyDamage(4);
+                _enemyInvincibilityFrames = 0x3c;
+                _floorDoorRecoveryCounter = 0x10;
+                QueueRedraw();
+            }
+            return;
+        }
+        if (_floorDoorRecoveryCounter != 0)
+        {
+            _floorDoorRecoveryCounter--;
+            return;
+        }
         if (_cutsceneControlled)
             return;
         if (_drowning)
@@ -645,6 +674,39 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
+    internal void MoveLocalRespawnOffShutter(
+        OracleRoomData room,
+        int doorPackedPosition,
+        int doorSubId)
+    {
+        if (room.GetPackedPosition(_lastSafePosition) != doorPackedPosition)
+            return;
+        int offset = (doorSubId & 0x03) switch
+        {
+            0 => 0x10,
+            1 => -1,
+            2 => -0x10,
+            _ => 1
+        };
+        int packed = doorPackedPosition + offset;
+        _lastSafePosition = new Vector2(
+            (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
+            (packed >> 4) * OracleRoomData.MetatileSize + 8);
+    }
+
+    internal void BeginFloorDoorRespawn()
+    {
+        Vector2 respawn = _lastSafePosition;
+        WarpTo(respawn, recordSafe: false);
+        _walking = false;
+        _pushing = false;
+        CancelSwordAttack();
+        CancelShovelAction();
+        Visible = false;
+        _floorDoorRespawnCounter = 2;
+        QueueRedraw();
+    }
+
     internal void SetCutscenePushing(bool pushing)
     {
         _pushing = pushing;
@@ -666,6 +728,9 @@ public partial class Player : Node2D
                 0.0f, _enemyInvincibilityFrames - (float)delta * 60.0f);
             QueueRedraw();
         }
+
+        if (IsFloorDoorRespawning)
+            return;
 
         // updateItems skips initialized items while wScrollMode is $08. Room
         // warps cancel the sword synchronously in BeginRoomWarpTransition.

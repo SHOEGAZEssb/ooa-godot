@@ -457,6 +457,35 @@ public sealed class OracleRoomData
         ((ImageTexture)Texture).Update(RenderRoom(activeHeaders));
     }
 
+    internal void ApplyMetatileSubstitutions(
+        IReadOnlyDictionary<byte, byte> substitutions,
+        long animationTick)
+    {
+        if (substitutions.Count == 0)
+            return;
+
+        bool redraw = false;
+        for (int y = 0; y < HeightInTiles; y++)
+        for (int x = 0; x < WidthInTiles; x++)
+        {
+            int index = y * _layoutStride + x;
+            if (!substitutions.TryGetValue(Layout[index], out byte replacement))
+                continue;
+            redraw |= Layout[index] != replacement;
+            Layout[index] = replacement;
+            _positionCollisionOverrides.Remove(index);
+            _positionMappingOverrides.Remove(index);
+            _positionVisualOverrides.Remove(index);
+        }
+
+        if (!redraw)
+            return;
+        int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
+        _activeAnimationHeaders = activeHeaders;
+        _animationSignature = GetAnimationSignature(activeHeaders);
+        ((ImageTexture)Texture).Update(RenderRoom(activeHeaders));
+    }
+
     private static readonly byte[] SpecialCollisionMasks =
     {
         0x00, 0xc3, 0x03, 0xc0, 0x00, 0xc3, 0xc3, 0x00,

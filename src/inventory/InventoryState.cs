@@ -110,6 +110,15 @@ public sealed class InventoryState
     public int GetDungeonSmallKeys(int dungeon) =>
         dungeon is >= 0 and < 16 ? _dungeonSmallKeys[dungeon] : 0;
 
+    public bool TryUseDungeonSmallKey(int dungeon)
+    {
+        if (dungeon is < 0 or >= 16 || _dungeonSmallKeys[dungeon] == 0)
+            return false;
+        _dungeonSmallKeys[dungeon]--;
+        NotifyChanged();
+        return true;
+    }
+
     public bool HasDungeonBossKey(int dungeon) => HasDungeonBit(_dungeonBossKeys, dungeon);
     public bool HasDungeonCompass(int dungeon) => HasDungeonBit(_dungeonCompasses, dungeon);
     public bool HasDungeonMap(int dungeon) => HasDungeonBit(_dungeonMaps, dungeon);

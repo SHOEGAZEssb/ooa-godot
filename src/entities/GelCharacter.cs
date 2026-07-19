@@ -33,6 +33,7 @@ public partial class GelCharacter : Node2D
 
     public bool IsDead { get; private set; }
     public bool DiedInHazard { get; private set; }
+    public OracleRoomData.HazardType DeathHazard { get; private set; }
     public bool IsAttached => !IsDead && _state == GelState.Attached;
     public Rect2 CollisionBounds => new(
         Position - new Vector2(_definition.CollisionRadiusX, _definition.CollisionRadiusY),
@@ -106,6 +107,7 @@ public partial class GelCharacter : Node2D
 
         if (_verticalMotion.ZFixed == 0 && _collisionEnabled && _movement.IsOnHazard)
         {
+            DeathHazard = _movement.Hazard;
             DiedInHazard = true;
             IsDead = true;
             Visible = false;

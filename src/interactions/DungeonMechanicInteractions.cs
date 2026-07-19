@@ -11,9 +11,14 @@ internal abstract partial class DungeonMechanicRoomEntity : Node2D, IRoomEntity
     protected DungeonMechanicRoomEntity(
         DungeonMechanicDatabase.Record record,
         string name)
+        : this(record.PackedPosition, name)
+    {
+    }
+
+    protected DungeonMechanicRoomEntity(int packedPosition, string name)
     {
         Name = name;
-        Position = PositionFromPacked(record.PackedPosition);
+        Position = PositionFromPacked(packedPosition);
     }
 
     public void SetTransitionDrawOffset(Vector2 offset)
@@ -25,6 +30,296 @@ internal abstract partial class DungeonMechanicRoomEntity : Node2D, IRoomEntity
     private static Vector2 PositionFromPacked(int packedPosition) => new(
         (packedPosition & 0x0f) * OracleRoomData.MetatileSize + 8,
         (packedPosition >> 4) * OracleRoomData.MetatileSize + 8);
+}
+
+/// <summary>
+/// Common PART_BUTTON $09 handler. Subid bit 7 selects a reusable pressure
+/// button; bits 0-2 select the shared wActiveTriggers bit.
+/// </summary>
+internal sealed partial class GroundButtonRoomEntity : DungeonMechanicRoomEntity,
+    IFixedRoomEntity, IRoomEntityLifetime
+{
+    private readonly DungeonMechanicDatabase.Record _record;
+    private readonly OracleRoomData _room;
+    private readonly DungeonMechanicDatabase _data;
+    private readonly Action<int, bool> _setTrigger;
+    private readonly Func<long> _animationTick;
+    private readonly Action<int> _playSound;
+    private bool _initialized;
+    private bool _pressed;
+    private bool _latchedBelowObject;
+    private int _releaseCounter;
+
+    internal int SubId => _record.SubId;
+    internal int PackedPosition => _record.PackedPosition;
+    internal int TriggerBit => _record.SubId & 0x07;
+    internal bool Reusable => (_record.SubId & 0x80) != 0;
+    internal bool Pressed => _pressed;
+    internal int ReleaseCounter => _releaseCounter;
+    public bool Finished { get; private set; }
+
+    internal GroundButtonRoomEntity(
+        DungeonMechanicDatabase.Record record,
+        OracleRoomData room,
+        DungeonMechanicDatabase data,
+        Action<int, bool> setTrigger,
+        Func<long> animationTick,
+        Action<int> playSound)
+        : base(record, $"GroundButton_{record.SubId:x2}_{record.Order}")
+    {
+        if (record.Id != 0x09)
+            throw new ArgumentOutOfRangeException(nameof(record));
+        _record = record;
+        _room = room;
+        _data = data;
+        _setTrigger = setTrigger;
+        _animationTick = animationTick;
+        _playSound = playSound;
+    }
+
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
+    {
+        // State 0 copies subid bits 0-2 to var03 and returns without checking
+        // pressure until the following update.
+        if (!_initialized)
+        {
+            _initialized = true;
+            return;
+        }
+
+        byte tile = _room.GetMetatile(Position);
+        if (_latchedBelowObject)
+        {
+            if (tile != _data.ButtonTile && tile != _data.PressedButtonTile)
+                return;
+            SetButtonTile((byte)_data.PressedButtonTile);
+            Finished = true;
+            return;
+        }
+
+        if (TouchesLink(frame.Player))
+        {
+            if (_pressed)
+                return;
+            Press();
+            if (tile == _data.ButtonTile || tile == _data.PressedButtonTile)
+            {
+                SetButtonTile((byte)_data.PressedButtonTile);
+                if (!Reusable)
+                    Finished = true;
+            }
+            else if (!Reusable)
+            {
+                // setTileInRoomLayoutBuffer leaves the object above the
+                // button visible. Keep a tiny helper alive until the runtime
+                // push-block controller restores the underlying tile.
+                _latchedBelowObject = true;
+            }
+            return;
+        }
+
+        bool somethingOnButton = tile != _data.ButtonTile &&
+            tile != _data.PressedButtonTile;
+        if (somethingOnButton)
+        {
+            if (_pressed)
+                return;
+            Press();
+            if (Reusable)
+            {
+                _releaseCounter = _data.ButtonObjectReleaseDelay;
+            }
+            else
+            {
+                _latchedBelowObject = true;
+            }
+            return;
+        }
+
+        if (_releaseCounter != 0)
+        {
+            // A stationary object hides the button tile. The original writes
+            // $0d to wRoomLayoutBuffer, so it is revealed pressed when the
+            // object moves; the runtime represents that reveal explicitly.
+            if (tile == _data.ButtonTile)
+                SetButtonTile((byte)_data.PressedButtonTile);
+            _releaseCounter--;
+            if (_releaseCounter != 0)
+                return;
+        }
+
+        if (!_pressed)
+            return;
+        SetButtonTile((byte)_data.ButtonTile);
+        _setTrigger(TriggerBit, false);
+        _pressed = false;
+        _playSound(_data.ButtonSound);
+    }
+
+    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
+
+    private bool TouchesLink(Player player)
+    {
+        if (!player.IsGroundedForFloorButton)
+            return false;
+        Vector2 link = OracleObjectMath.ToPixelPosition(player.Position);
+        Vector2 button = OracleObjectMath.ToPixelPosition(Position);
+        return Mathf.Abs(link.Y - button.Y) <
+                _data.ButtonRadiusY + NpcCharacter.LinkCollisionRadius &&
+            Mathf.Abs(link.X - button.X) <
+                _data.ButtonRadiusX + NpcCharacter.LinkCollisionRadius;
+    }
+
+    private void Press()
+    {
+        _setTrigger(TriggerBit, true);
+        _pressed = true;
+        _playSound(_data.ButtonSound);
+    }
+
+    private void SetButtonTile(byte tile) => _room.SetPositionTileAndCollision(
+        Position, tile, null, _animationTick());
+}
+
+/// <summary>
+/// Trigger-chest consumers used by dungeon script $20:$00 and dungeon event
+/// $21:$17. The former plays the solve cue, creates a puff, waits 15 updates,
+/// installs a permanent chest, and deletes. The latter mirrors trigger state
+/// immediately and restores the source layout tile when pressure is released.
+/// </summary>
+internal sealed partial class TriggerChestRoomEntity : DungeonMechanicRoomEntity,
+    IFixedRoomEntity, IRoomEntityLifetime
+{
+    private readonly DungeonMechanicDatabase.Record _record;
+    private readonly OracleRoomData _room;
+    private readonly DungeonMechanicDatabase _data;
+    private readonly Func<int> _triggerState;
+    private readonly Func<bool> _itemFlagSet;
+    private readonly Func<long> _animationTick;
+    private readonly Action<int> _playSound;
+    private readonly byte _originalTile;
+    private bool _initialized;
+    private int _counter;
+
+    internal int Id => _record.Id;
+    internal int SubId => _record.SubId;
+    internal int PackedPosition => _record.PackedPosition;
+    internal int TriggerParameter => _record.Parameter;
+    internal DungeonMechanicDatabase.TriggerPredicate Predicate => _record.Predicate;
+    internal int Counter => _counter;
+    internal byte OriginalTile => _originalTile;
+    public bool Finished { get; private set; }
+
+    internal TriggerChestRoomEntity(
+        DungeonMechanicDatabase.Record record,
+        OracleRoomData room,
+        DungeonMechanicDatabase data,
+        Func<int> triggerState,
+        Func<bool> itemFlagSet,
+        Func<long> animationTick,
+        Action<int> playSound)
+        : base(record, $"TriggerChest_{record.Id:x2}_{record.Order}")
+    {
+        if (record is not ({ Id: 0x20, SubId: 0x00 } or
+            { Id: 0x21, SubId: 0x17 }))
+        {
+            throw new ArgumentOutOfRangeException(nameof(record));
+        }
+        _record = record;
+        _room = room;
+        _data = data;
+        _triggerState = triggerState;
+        _itemFlagSet = itemFlagSet;
+        _animationTick = animationTick;
+        _playSound = playSound;
+        _originalTile = room.GetOriginalMetatile(Position);
+    }
+
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
+    {
+        if (_record.Id == 0x21)
+        {
+            UpdateRetractable(spawns);
+            return;
+        }
+
+        // INTERAC_DUNGEON_SCRIPT executes stopifitemflagset once when its
+        // script is selected, then remains parked at its trigger predicate.
+        if (!_initialized)
+        {
+            _initialized = true;
+            if (_itemFlagSet())
+            {
+                Finished = true;
+                return;
+            }
+        }
+
+        if (_counter != 0)
+        {
+            _counter--;
+            if (_counter == 0)
+            {
+                SetTile((byte)_data.ChestTile);
+                Finished = true;
+            }
+            return;
+        }
+
+        if (!TriggerMatches())
+            return;
+
+        // spawnChestAfterPuff requests the solve cue before allocating
+        // INTERAC_PUFF, then wait 15 reaches zero and executes settilehere in
+        // that same update.
+        _playSound(_data.SolveSound);
+        spawns.Add(new PuzzlePuffSpawn(Position, _data.PuffSound));
+        _counter = _data.ChestWait;
+    }
+
+    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
+
+    private void UpdateRetractable(ICollection<RoomEntitySpawn> spawns)
+    {
+        // $21:$17 checks ROOMFLAG_ITEM on every update, so opening the dynamic
+        // chest retires this controller before it can restore the source tile.
+        if (_itemFlagSet())
+        {
+            Finished = true;
+            return;
+        }
+
+        byte tile = _room.GetMetatile(Position);
+        if (TriggerMatches())
+        {
+            if (tile == _data.ChestTile)
+                return;
+            SetTile((byte)_data.ChestTile);
+            spawns.Add(new PuzzlePuffSpawn(Position, _data.PuffSound));
+            _playSound(_data.SolveSound);
+            return;
+        }
+
+        if (tile != _data.ChestTile)
+            return;
+        SetTile(_originalTile);
+        spawns.Add(new PuzzlePuffSpawn(Position, _data.PuffSound));
+    }
+
+    private bool TriggerMatches() => _record.Predicate switch
+    {
+        DungeonMechanicDatabase.TriggerPredicate.BitSet
+            when _record.Parameter is >= 0 and <= 7 =>
+                (_triggerState() & (1 << _record.Parameter)) != 0,
+        DungeonMechanicDatabase.TriggerPredicate.Exact =>
+            _triggerState() == _record.Parameter,
+        _ => throw new InvalidOperationException(
+            $"Unsupported trigger predicate for ${_record.Id:x2}:" +
+            $"${_record.SubId:x2} in room {_record.Group:x1}:{_record.Room:x2}.")
+    };
+
+    private void SetTile(byte tile) => _room.SetPositionTileAndCollision(
+        Position, tile, null, _animationTick());
 }
 
 /// <summary>
@@ -70,8 +365,12 @@ internal sealed partial class PushBlockTriggerRoomEntity : DungeonMechanicRoomEn
         {
             case 0:
                 _state = 1;
-                _originalTile = _room.GetMetatile(Position);
-                _originalCollision = _room.GetTerrainInfo(Position).Collision;
+                // loadTilesetAndRoomLayout restores the source buffer before
+                // this object initializes. OracleWorldData caches mutable room
+                // instances, so read that source layout explicitly instead of
+                // treating a stale temporary `$1d sentinel as the real block.
+                _originalTile = _room.GetOriginalMetatile(Position);
+                _originalCollision = _room.GetCollision(_originalTile);
                 _room.SetPositionTileAndCollision(
                     Position, (byte)_data.PushableBlock, _originalCollision,
                     _animationTick(), preserveRenderedTile: true);
@@ -111,9 +410,12 @@ internal sealed partial class PushBlockTriggerRoomEntity : DungeonMechanicRoomEn
 }
 
 /// <summary>
-/// Common enemy-shutter variants $1e:$08-$0b. The interaction reads the live
-/// room enemy count, runs the original solve delay, and uses mapping-level
-/// interleaving before the final open metatile write.
+/// Common shutter variants $1e:$04-$0b. Trigger-controlled doors observe one
+/// wActiveTriggers bit; enemy shutters read the live room enemy count. Both
+/// use the original mapping-level interleaving for opening and closing. An
+/// enemy shutter whose full enemy stream is not implemented still handles the
+/// crossed-entry substitution, but leaves that one route open for safe
+/// backtracking instead of trapping Link or falsely solving the room.
 /// </summary>
 internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
     IFixedRoomEntity, IRoomEntityLifetime
@@ -122,6 +424,7 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
     {
         Initialize,
         WaitingForLinkClear,
+        WatchingTrigger,
         ReadyToClose,
         ClosingInterleaved,
         WaitingForEnemies,
@@ -134,15 +437,20 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
     private readonly OracleRoomData _room;
     private readonly DungeonMechanicDatabase _data;
     private readonly Func<int> _roomEnemyCount;
+    private readonly Func<int, bool> _triggerActive;
     private readonly Func<Vector2, Vector2> _worldToScreen;
     private readonly Func<long> _animationTick;
     private readonly Action<int> _playSound;
     private readonly bool _enteredThroughThisDoor;
+    private readonly bool _controlledByTrigger;
+    private readonly bool _enemyCompletionSupported;
     private DoorState _state;
     private int _counter;
 
     internal int SubId => _record.SubId;
     internal int PackedPosition => _record.PackedPosition;
+    internal bool EnteredThroughThisDoor => _enteredThroughThisDoor;
+    internal bool EnemyCompletionSupported => _enemyCompletionSupported;
     public bool Finished { get; private set; }
 
     internal DungeonDoorRoomEntity(
@@ -150,22 +458,27 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
         OracleRoomData room,
         DungeonMechanicDatabase data,
         Func<int> roomEnemyCount,
+        Func<int, bool> triggerActive,
         Func<Vector2, Vector2> worldToScreen,
         Func<long> animationTick,
         Action<int> playSound,
-        EnemyPlacementContext placementContext)
+        EnemyPlacementContext placementContext,
+        bool enemyCompletionSupported)
         : base(record, $"DungeonDoor_{record.SubId:x2}_{record.Order}")
     {
-        if (record.Id != 0x1e || record.SubId is < 0x08 or > 0x0b)
+        if (record.Id != 0x1e || record.SubId is < 0x04 or > 0x0b)
             throw new ArgumentOutOfRangeException(nameof(record));
         _record = record;
         _room = room;
         _data = data;
         _roomEnemyCount = roomEnemyCount;
+        _triggerActive = triggerActive;
         _worldToScreen = worldToScreen;
         _animationTick = animationTick;
         _playSound = playSound;
         _enteredThroughThisDoor = IsEnteredShutter(record, placementContext);
+        _controlledByTrigger = record.SubId <= 0x07;
+        _enemyCompletionSupported = _controlledByTrigger || enemyCompletionSupported;
 
         // loadTilesetAndRoomLayout restores the source layout on every room
         // parse. replaceShutterForLinkEntering changes only the shutter on
@@ -186,16 +499,37 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
         switch (_state)
         {
             case DoorState.Initialize:
-                _state = _roomEnemyCount() == 0
-                    ? DoorState.ReadyToOpen
-                    : _enteredThroughThisDoor
+                _state = _controlledByTrigger
+                    ? _enteredThroughThisDoor
                         ? DoorState.WaitingForLinkClear
-                        : DoorState.WaitingForEnemies;
+                        : DoorState.WatchingTrigger
+                    : _enemyCompletionSupported && _roomEnemyCount() == 0
+                        ? DoorState.ReadyToOpen
+                        : _enteredThroughThisDoor
+                            ? DoorState.WaitingForLinkClear
+                            : DoorState.WaitingForEnemies;
                 return;
 
             case DoorState.WaitingForLinkClear:
                 if (OverlapsLink(frame.Player))
                     return;
+                frame.Player.MoveLocalRespawnOffShutter(
+                    _room, PackedPosition, _record.SubId);
+                if (_controlledByTrigger)
+                {
+                    _state = DoorState.WatchingTrigger;
+                    DecideTriggerAction();
+                    return;
+                }
+                // Without the room's complete enemy stream, closing the only
+                // crossed route would strand Link behind a puzzle that cannot
+                // be solved. Retain that one substituted floor tile for safe
+                // backtracking; all non-entry shutters remain closed.
+                if (!_enemyCompletionSupported)
+                {
+                    _state = DoorState.WaitingForEnemies;
+                    return;
+                }
                 // The script checks the enemy count only after Link clears the
                 // doorway. If it reached zero while the entry shutter was
                 // already open, there is nothing left to close or solve.
@@ -205,6 +539,10 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
                     return;
                 }
                 _state = DoorState.ReadyToClose;
+                return;
+
+            case DoorState.WatchingTrigger:
+                DecideTriggerAction();
                 return;
 
             case DoorState.ReadyToClose:
@@ -226,15 +564,25 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
                 _counter--;
                 if (_counter != 0)
                     return;
+                if (_room.GetPackedPosition(frame.Player.Position) == PackedPosition)
+                    frame.Player.BeginFloorDoorRespawn();
                 _room.SetPositionTileAndCollision(
                     Position, (byte)_data.ClosedTile(_record.SubId), null,
                     _animationTick());
                 PlayDoorSoundIfVisible();
-                _state = DoorState.WaitingForEnemies;
+                if (_controlledByTrigger)
+                {
+                    _state = DoorState.WatchingTrigger;
+                    DecideTriggerAction();
+                }
+                else
+                {
+                    _state = DoorState.WaitingForEnemies;
+                }
                 return;
 
             case DoorState.WaitingForEnemies:
-                if (_roomEnemyCount() != 0)
+                if (!_enemyCompletionSupported || _roomEnemyCount() != 0)
                     return;
                 _playSound(_data.SolveSound);
                 _counter = _data.SolveWait;
@@ -250,7 +598,10 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
             case DoorState.ReadyToOpen:
                 if (!_room.IsSolid(Position))
                 {
-                    Finished = true;
+                    if (_controlledByTrigger)
+                        _state = DoorState.WatchingTrigger;
+                    else
+                        Finished = true;
                     return;
                 }
                 PlayDoorSoundIfVisible();
@@ -269,7 +620,15 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
                 _room.SetPositionTileAndCollision(
                     Position, (byte)_data.OpenTile, null, _animationTick());
                 PlayDoorSoundIfVisible();
-                Finished = true;
+                if (_controlledByTrigger)
+                {
+                    _state = DoorState.WatchingTrigger;
+                    DecideTriggerAction();
+                }
+                else
+                {
+                    Finished = true;
+                }
                 return;
 
             default:
@@ -288,6 +647,22 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
         {
             _playSound(_data.DoorSound);
         }
+    }
+
+    private void DecideTriggerAction()
+    {
+        bool active = _triggerActive(_record.Parameter & 0x07);
+        if (active)
+        {
+            if (!_room.IsSolid(Position))
+                return;
+            _playSound(_data.SolveSound);
+            _state = DoorState.ReadyToOpen;
+            return;
+        }
+
+        if (!_room.IsSolid(Position))
+            _state = DoorState.ReadyToClose;
     }
 
     private bool OverlapsLink(Player player)
@@ -321,6 +696,6 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
                 nameof(placementContext), placementContext.ScrollDirection,
                 "Scroll direction must be cardinal.")
         };
-        return record.SubId - 0x08 == incomingDoorDirection;
+        return (record.SubId & 0x03) == incomingDoorDirection;
     }
 }

@@ -71,6 +71,7 @@ public sealed class InteractionController
         _kidNameEntry.Active;
     public bool GameplayMenuActive => _kidNameEntry.Active;
     internal bool ChestRewardActive => _chestTreasure is not null;
+    internal ChestTreasureEffect? ChestReward => _chestTreasure;
     internal GroundTreasurePickup? GroundTreasureForValidation => _groundTreasure;
 
     public InteractionController(
@@ -148,16 +149,22 @@ public sealed class InteractionController
             // treasure.s:@m3State1 gives the treasure and opens its text after
             // the 32-frame rise, then falls through to @m3State2 without
             // deleting the still-visible interaction.
-            _inventory.GiveTreasure(new TreasureDatabase.TreasureObjectRecord(
+            var treasureObject = new TreasureDatabase.TreasureObjectRecord(
                 _pendingChest.TreasureObject,
                 _pendingChest.TreasureId,
                 _pendingChest.SubId,
                 _pendingChest.Parameter,
                 _pendingChest.TextId,
                 _pendingChest.Graphic,
-                _pendingChest.Message));
+                _pendingChest.Message);
+            _inventory.GiveTreasure(treasureObject);
+            int collectionSound = _treasures.GetBehaviour(
+                treasureObject.TreasureId).Sound;
+            if (collectionSound != 0)
+                _playSound(collectionSound);
             if (!string.IsNullOrEmpty(_pendingChest.Message))
                 _dialogue.ShowMessage(_pendingChest.Message, _worldToScreen(player.Position).Y);
+            _playSound(OracleSoundEngine.SndGetItem);
             return;
         }
 
@@ -556,11 +563,12 @@ public sealed class InteractionController
         _rooms.SaveData.SetRoomFlag(
             _rooms.ActiveGroup, room.Id, OracleSaveData.RoomFlagItem);
         _roomView.QueueRedraw();
+        _playSound(OracleSoundEngine.SndOpenChest);
         _pendingChest = chest;
         _chestTreasure = new ChestTreasureEffect { ZIndex = 12 };
         _chestTreasure.Initialize(
             PointForPackedPosition(position) + new Vector2(0, -8),
-            _treasures.GetTreasureDisplay(chest.TreasureId, chest.Parameter, _inventory));
+            _treasures.GetObjectVisual(chest.Graphic));
         _worldRoot.AddChild(_chestTreasure);
         return true;
     }
@@ -572,8 +580,12 @@ public sealed class InteractionController
 
         foreach (ChestDatabase.ChestRecord chest in _chests.GetRoomRecords(group, room.Id))
         {
-            room.ReplaceMetatile(
-                PointForPackedPosition(chest.Position), 0xf1, 0xf0, _animationTick());
+            // loadChestData places the opened chest at every imported chest
+            // position when ROOMFLAG_ITEM is set. Trigger-created chests such
+            // as room 4:08 start over a floor tile, so this cannot require a
+            // closed $f1 tile in the source layout.
+            room.SetPositionTileAndCollision(
+                PointForPackedPosition(chest.Position), 0xf0, null, _animationTick());
         }
     }
 

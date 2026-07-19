@@ -24,6 +24,7 @@ public sealed class RoomEntityManager
     private readonly OracleRuntimeState _runtimeState;
     private readonly Func<long> _animationTick;
     private readonly RecentEnemyDefeats _recentEnemyDefeats = new();
+    private byte _activeTriggers;
     private readonly NpcVisibilityRuleDatabase _npcVisibility = new();
     private readonly NpcDialogueRuleDatabase _npcDialogue = new();
     private readonly NpcPositionRuleDatabase _npcPositions = new();
@@ -44,6 +45,7 @@ public sealed class RoomEntityManager
 
     public bool ScreenTransitionActive => _screenTransitionActive;
     public OracleRuntimeState RuntimeState => _runtimeState;
+    internal int ActiveTriggers => _activeTriggers;
     internal int FrameCounter => _enemyFrameCounter;
     internal int RandomCalls => _random.Calls;
     internal byte NextRandomValue() => _random.Next().Value;
@@ -107,6 +109,7 @@ public sealed class RoomEntityManager
             OnItemDropEnteredHazard,
             OnSoundRequested, CountRoomEnemies,
             enemyIndex => _recentEnemyDefeats.WasKilled(enemyIndex),
+            TriggerIsActive, () => _activeTriggers, SetTrigger,
             position => WorldToScreen(position), _animationTick);
         if (_saveData is not null)
             _saveData.Changed += RefreshNpcState;
@@ -338,6 +341,8 @@ public sealed class RoomEntityManager
         OracleRoomData room,
         EnemyPlacementContext placementContext)
     {
+        // wActiveTriggers is room-local scratch state cleared by room loading.
+        _activeTriggers = 0;
         // parseObjectData loads wEnemyPlacement.killedEnemiesBitset from the
         // last-eight-room list before rebuilding w4RandomBuffer.
         _recentEnemyDefeats.BeginRoom(room.Id);
@@ -366,6 +371,23 @@ public sealed class RoomEntityManager
                 count++;
         }
         return count;
+    }
+
+    private bool TriggerIsActive(int bit)
+    {
+        if (bit is < 0 or > 7)
+            throw new ArgumentOutOfRangeException(nameof(bit));
+        return (_activeTriggers & (1 << bit)) != 0;
+    }
+
+    private void SetTrigger(int bit, bool active)
+    {
+        if (bit is < 0 or > 7)
+            throw new ArgumentOutOfRangeException(nameof(bit));
+        int mask = 1 << bit;
+        _activeTriggers = active
+            ? (byte)(_activeTriggers | mask)
+            : (byte)(_activeTriggers & ~mask);
     }
 
     private void RefreshNpcState(IEnumerable<IRoomEntity> entities)

@@ -14,6 +14,7 @@ public partial class Hud : Node2D
 
     private Texture2D _background = null!;
     private Image _hudTiles = null!;
+    private Image _keyTile = null!;
     private Image _itemIcons1 = null!;
     private Image _itemIcons2 = null!;
     private Image _itemIcons3 = null!;
@@ -26,10 +27,13 @@ public partial class Hud : Node2D
     public int MaxHealthQuarters { get; set; } = 12;
     public int EquippedB { get; set; }
     public int EquippedA { get; set; }
+    public int DungeonIndex { get; set; } = -1;
+    public byte TilesetFlags { get; set; }
 
     public override void _Ready()
     {
         _hudTiles = LoadPng("res://assets/oracle/gfx/gfx_hud.png");
+        _keyTile = LoadPng("res://assets/oracle/gfx/gfx_key.png");
         _itemIcons1 = LoadPng("res://assets/oracle/gfx/spr_item_icons_1.png");
         _itemIcons2 = LoadPng("res://assets/oracle/gfx/spr_item_icons_2.png");
         _itemIcons3 = LoadPng("res://assets/oracle/gfx/spr_item_icons_3.png");
@@ -73,15 +77,10 @@ public partial class Hud : Node2D
     {
         Image partialHearts = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/gfx_partial_hearts.png");
-        byte[] map = Godot.FileAccess.GetFileAsBytes("res://assets/oracle/hud/map_hud_normal.bin");
+        byte[] map = BuildStatusMap();
         byte[] flags = Godot.FileAccess.GetFileAsBytes("res://assets/oracle/hud/flg_hud_normal.bin");
-        if (map.Length != 64 || flags.Length != 64)
+        if (flags.Length != 64)
             throw new InvalidOperationException("Normal HUD maps must contain 64 bytes.");
-
-        // updateStatusBar_body always restores the overworld rupee icon.
-        map[0x0a] = 0x04;
-        WriteRupeeDigits(map);
-        WriteHearts(map);
 
         Image output = Image.CreateEmpty(160, 16, false, Image.Format.Rgba8);
         for (int row = 0; row < 2; row++)
@@ -93,12 +92,36 @@ public partial class Hud : Node2D
                 _hudTiles,
                 partialHearts,
                 HealthQuarters % 4,
+                DungeonKeyDisplayActive && mapOffset == 0x0a ? _keyTile : null,
                 map[mapOffset],
                 flags[mapOffset],
                 column * 8,
                 row * 8);
         }
         return ImageTexture.CreateFromImage(output);
+    }
+
+    private byte[] BuildStatusMap()
+    {
+        byte[] map = Godot.FileAccess.GetFileAsBytes(
+            "res://assets/oracle/hud/map_hud_normal.bin");
+        if (map.Length != 64)
+            throw new InvalidOperationException("Normal HUD map must contain 64 bytes.");
+
+        map[0x0a] = 0x04;
+        // updateStatusBar_body writes the displayed rupee digits at $2a-$2c
+        // independently of the dungeon-only key field at $0a-$0c.
+        WriteRupeeDigits(map);
+        if (DungeonKeyDisplayActive)
+        {
+            // A real dungeon dynamically replaces HUD tile $04 with gfx_key,
+            // then writes the X and current-dungeon key digit alongside it.
+            map[0x0b] = 0x1b;
+            map[0x0c] = (byte)(0x10 + Mathf.Clamp(
+                _inventory?.GetDungeonSmallKeys(DungeonIndex) ?? 0, 0, 9));
+        }
+        WriteHearts(map);
+        return map;
     }
 
     private void WriteRupeeDigits(byte[] map)
@@ -131,15 +154,16 @@ public partial class Hud : Node2D
         Image source,
         Image partialHearts,
         int partialQuarters,
+        Image? tileOverride,
         byte tile,
         byte flags,
         int destinationX,
         int destinationY)
     {
-        Image tileSource = source;
-        int tileX = tile % 16 * 8;
-        int tileY = tile / 16 * 8;
-        if (tile == 0x0b && partialQuarters is >= 1 and <= 3)
+        Image tileSource = tileOverride ?? source;
+        int tileX = tileOverride is null ? tile % 16 * 8 : 0;
+        int tileY = tileOverride is null ? tile / 16 * 8 : 0;
+        if (tileOverride is null && tile == 0x0b && partialQuarters is >= 1 and <= 3)
         {
             // updateStatusBar_body dynamically loads one of the first three
             // tiles from gfx_partial_hearts into HUD tile $0b.
@@ -212,6 +236,16 @@ public partial class Hud : Node2D
         return level > 0
             ? (0x1a, 0x10 + (level & 0x0f), isA ? new Vector2(56, 8) : new Vector2(16, 8))
             : null;
+    }
+
+    internal bool DungeonKeyDisplayActive =>
+        DungeonIndex is >= 0 and < 16 && (TilesetFlags & 0x10) == 0;
+
+    internal byte StatusMapTileForValidation(int offset)
+    {
+        if (offset is < 0 or >= 64)
+            throw new ArgumentOutOfRangeException(nameof(offset));
+        return BuildStatusMap()[offset];
     }
 
     private void DrawItemSprite(int sprite, int palette, Vector2 position)

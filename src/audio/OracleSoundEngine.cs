@@ -18,6 +18,7 @@ public partial class OracleSoundEngine : Node
     public const int MusNayru = 0x08;
     public const int MusEssenceRoom = 0x0d;
     public const int MusFairyFountain = 0x0f;
+    public const int MusGetEssence = 0x10;
     public const int MusFileSelect = 0x11;
     public const int MusRoomOfRites = 0x1d;
     public const int MusSadness = 0x1f;
@@ -35,7 +36,9 @@ public partial class OracleSoundEngine : Node
     public const int SndSelectItem = 0x56;
     public const int SndGainHeart = 0x57;
     public const int SndClink2 = 0x58;
+    public const int SndFallInHole = 0x59;
     public const int SndError = 0x5a;
+    public const int SndGetSeed = 0x5e;
     public const int SndDamageLink = 0x5f;
     public const int SndRupee = 0x61;
     public const int SndLinkFall = 0x65;
@@ -43,9 +46,11 @@ public partial class OracleSoundEngine : Node
     public const int SndBossDead = 0x67;
     public const int SndSlash = 0x6a;
     public const int SndSwordSpin = 0x6b;
+    public const int SndOpenChest = 0x6c;
     public const int SndCutGrass = 0x6d;
     public const int SndEnterCave = 0x6e;
     public const int SndDoorClose = 0x70;
+    public const int SndMoveBlock = 0x71;
     public const int SndKillEnemy = 0x73;
     public const int SndSwordSlash = 0x74;
     public const int SndUnknown5 = 0x75;
@@ -58,6 +63,7 @@ public partial class OracleSoundEngine : Node
     public const int SndTeleport = 0x8d;
     public const int SndFairyCutscene = 0x91;
     public const int SndWarpStart = 0x95;
+    public const int SndPoof = 0x98;
     public const int SndDig = 0xa9;
     public const int SndSwordObtained = 0xab;
     public const int SndMakuDisappear = 0xb2;
