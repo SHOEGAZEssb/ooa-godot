@@ -25,6 +25,7 @@ public partial class GameRoot : Node2D
     private BraceletController _bracelet = null!;
     internal ShovelController _shovel = null!;
     private DebugWarpController _debugWarps = null!;
+    internal DebugCollisionController _debugCollision = null!;
     internal MapMenuController _mapMenu = null!;
     internal InventoryMenuController _inventoryMenu = null!;
     internal DebugFlagMenuController _debugFlagMenu = null!;
@@ -269,6 +270,7 @@ public partial class GameRoot : Node2D
         if (UpdateNewGameArrival(delta))
             return;
 
+        _debugCollision.Update();
         _debugFlagMenu.Update();
         if (_debugFlagMenu.IsActive)
             return;
@@ -426,10 +428,11 @@ public partial class GameRoot : Node2D
         _combat = new CombatController(
             _scene.WorldRoot, _rooms, _roomView, _entities, new BreakableTileDatabase(), _sound,
             () => (long)_animationTicks);
+        _debugCollision = new DebugCollisionController();
         _playerWorld = new PlayerWorld(
             _transitions, _interactions, _collision, _pushBlocks, _terrain, _combat, _entities,
             _bracelet, _shovel, _roomEvents,
-            _inventory, _sound);
+            _inventory, _sound, () => _debugCollision.CollisionsDisabled);
         _debugWarps = new DebugWarpController(
             _rooms, _player, LoadDebugRoom, FindSpawn, () => (long)_animationTicks,
             _interactions.ResetChestForTesting);
@@ -465,9 +468,11 @@ public partial class GameRoot : Node2D
             _roomView.QueueRedraw();
     }
 
-    private void UpdateRoomDebugLabel()
+    internal void UpdateRoomDebugLabel()
     {
         string roomText = $"{_rooms.ActiveGroup:x1}:{_rooms.CurrentRoom.Id:x2}";
+        if (_debugCollision.CollisionsDisabled)
+            roomText += " NOCLIP";
         if (_roomDebug.Text != roomText)
             _roomDebug.Text = roomText;
     }

@@ -208,6 +208,7 @@ public sealed class ValidationGameRoot : GameRoot
         ValidateSoundEngine();
         ValidateGraphicsCache();
         ValidateDebugFlagMenu();
+        ValidateDebugCollision();
         ValidateDeathRespawnCheckpoints();
 
         LoadValidationRoom(0, 0x11);
@@ -2360,6 +2361,59 @@ public sealed class ValidationGameRoot : GameRoot
 
         GD.Print("Validated F1 global/room flag editor, linked-game toggle, imported " +
             "treasure grants, navigation, mutation, and gameplay freezing.");
+    }
+
+    private void ValidateDebugCollision()
+    {
+        bool hasF2Binding = InputMap.HasAction("debug_collision") &&
+            InputMap.ActionGetEvents("debug_collision")
+                .OfType<InputEventKey>()
+                .Any(input => input.PhysicalKeycode == Key.F2);
+        if (!hasF2Binding || _debugCollision.CollisionsDisabled)
+        {
+            throw new InvalidOperationException(
+                "The disabled-by-default F2 debug_collision input action was not registered.");
+        }
+
+        LoadValidationRoom(4, 0x09);
+        Vector2 wallApproach = new(20, 24);
+        _player.WarpTo(wallApproach);
+        _player.Face(Vector2I.Left);
+        if (_playerWorld.ResolveMovement(
+                wallApproach, Vector2.Left, allowWallSlide: true) != Vector2.Zero)
+        {
+            throw new InvalidOperationException(
+                "Room 4:09's left wall was not available for debug collision validation.");
+        }
+
+        _player.UpdatePushingState(Vector2.Left);
+        if (!_player.IsPushing)
+            throw new InvalidOperationException("Link did not detect the wall before noclip was enabled.");
+
+        _debugCollision.ToggleForValidation();
+        _player.UpdatePushingState(Vector2.Left);
+        UpdateRoomDebugLabel();
+        if (!_debugCollision.CollisionsDisabled ||
+            _playerWorld.ResolveMovement(
+                wallApproach, Vector2.Left, allowWallSlide: true) != Vector2.Left ||
+            _player.IsPushing || _roomDebug.Text != "4:09 NOCLIP")
+        {
+            throw new InvalidOperationException(
+                "F2 noclip did not bypass Link's wall resolution and pushing state or expose its status.");
+        }
+
+        _debugCollision.ToggleForValidation();
+        UpdateRoomDebugLabel();
+        if (_debugCollision.CollisionsDisabled ||
+            _playerWorld.ResolveMovement(
+                wallApproach, Vector2.Left, allowWallSlide: true) != Vector2.Zero ||
+            _roomDebug.Text != "4:09")
+        {
+            throw new InvalidOperationException(
+                "Disabling F2 noclip did not restore ordinary Link collision and debug status.");
+        }
+
+        GD.Print("Validated F2 Link noclip toggle, wall bypass, push suppression, and status label.");
     }
 
     private void ValidateTimePortals()

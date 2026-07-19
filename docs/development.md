@@ -65,6 +65,7 @@ Development controls are intentionally separate from game behavior:
 | --- | --- |
 | F | Fully revealed map and room fast travel; F cycles present, past, and interior groups 2-5 while open |
 | F1 | Live global/room flag, linked-game, and item grant editor |
+| F2 | Toggle Link collision; `NOCLIP` appears beside the room ID while disabled |
 | T | Sign test warp |
 | Y | Animated water/lava test rooms |
 | B | Sword and bush test warp |

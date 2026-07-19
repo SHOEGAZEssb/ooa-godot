@@ -1,4 +1,5 @@
 using Godot;
+using System;
 
 namespace oracleofages;
 
@@ -16,6 +17,7 @@ public sealed class PlayerWorld : IPlayerWorld
     private readonly RoomEventController _roomEvents;
     private readonly InventoryState _inventory;
     private readonly OracleSoundEngine _sound;
+    private readonly Func<bool> _collisionsDisabled;
 
     public bool IsTransitioning => _transitions.IsTransitioning;
     public bool DialogueOpen => _interactions.DialogueOpen;
@@ -34,7 +36,8 @@ public sealed class PlayerWorld : IPlayerWorld
         ShovelController shovel,
         RoomEventController roomEvents,
         InventoryState inventory,
-        OracleSoundEngine sound)
+        OracleSoundEngine sound,
+        Func<bool> collisionsDisabled)
     {
         _transitions = transitions;
         _interactions = interactions;
@@ -48,6 +51,7 @@ public sealed class PlayerWorld : IPlayerWorld
         _roomEvents = roomEvents;
         _inventory = inventory;
         _sound = sound;
+        _collisionsDisabled = collisionsDisabled;
     }
 
     public bool ApplySwordHit(Player player, Rect2 hitbox) => _combat.ApplySwordHit(player, hitbox);
@@ -58,20 +62,24 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool TryUseBracelet(Player player) => _bracelet.TryUse(player);
     public bool DigWithShovel(Vector2 point, Vector2I direction) =>
         _shovel.TryDig(point, direction);
-    public bool Collides(Vector2 position) => _collision.Collides(position);
+    public bool Collides(Vector2 position) =>
+        !_collisionsDisabled() && _collision.Collides(position);
     public Vector2 ResolveMovement(Vector2 position, Vector2 movement, bool allowWallSlide) =>
-        _collision.ResolveMovement(position, movement, allowWallSlide);
+        _collisionsDisabled()
+            ? movement
+            : _collision.ResolveMovement(position, movement, allowWallSlide);
     public bool IsPushingAgainstWall(
         Vector2 position,
         Vector2I facing,
         Vector2 movementInput) =>
+        !_collisionsDisabled() &&
         _collision.IsPushingAgainstWall(position, facing, movementInput);
     public void UpdatePushableBlocks(
         Vector2 position,
         Vector2I facing,
         Vector2 movementInput) =>
         _pushBlocks.UpdatePushAttempt(
-            position, facing, movementInput,
+            position, facing, _collisionsDisabled() ? Vector2.Zero : movementInput,
             _inventory.HasTreasure(TreasureDatabase.TreasureBracelet));
     public ActiveTerrainInfo GetActiveTerrain(Vector2 position) => _terrain.GetActiveTerrain(position);
     public Vector2 GetTerrainPush(Vector2 position) => _terrain.GetTerrainPush(position);
