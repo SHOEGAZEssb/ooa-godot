@@ -50,6 +50,7 @@ public partial class OracleSoundEngine : Node
     public const int SndCutGrass = 0x6d;
     public const int SndEnterCave = 0x6e;
     public const int SndDoorClose = 0x70;
+    public const int SndDing = 0xc8;
     public const int SndMoveBlock = 0x71;
     public const int SndKillEnemy = 0x73;
     public const int SndSwordSlash = 0x74;

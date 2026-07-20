@@ -29,6 +29,8 @@ public sealed class EnemyDatabase
     public int GelInstanceCount { get; }
     public int RoomObjectRecordCount { get; }
     public OctorokProjectileRecord OctorokProjectile { get; }
+    public MaskedMoblinRecord MaskedMoblin { get; }
+    public EnemyArrowRecord EnemyArrow { get; }
     public GelDefinition Gel { get; }
 
     public EnemyDatabase()
@@ -345,6 +347,29 @@ public sealed class EnemyDatabase
         }
         OctorokProjectile = projectile ?? throw new InvalidOperationException(
             "Octorok projectile data is empty.");
+
+        string maskedLine = FirstDataRow(
+            "res://assets/oracle/objects/masked_moblin.tsv");
+        string[] masked = maskedLine.Split('\t');
+        if (masked.Length != 17)
+            throw new InvalidOperationException($"Malformed masked Moblin row: {maskedLine}");
+        MaskedMoblin = new MaskedMoblinRecord(
+            Convert.ToInt32(masked[0], 16), Convert.ToInt32(masked[1], 16),
+            masked[2], int.Parse(masked[3]), int.Parse(masked[4]),
+            int.Parse(masked[5]), int.Parse(masked[6]), int.Parse(masked[7]),
+            int.Parse(masked[8]), int.Parse(masked[9]), int.Parse(masked[10]),
+            int.Parse(masked[11]), int.Parse(masked[12]),
+            masked[13], masked[14], masked[15], masked[16]);
+
+        string arrowLine = FirstDataRow(
+            "res://assets/oracle/effects/enemy_arrow.tsv");
+        string[] arrow = arrowLine.Split('\t');
+        if (arrow.Length != 10)
+            throw new InvalidOperationException($"Malformed enemy arrow row: {arrowLine}");
+        EnemyArrow = new EnemyArrowRecord(
+            arrow[0], int.Parse(arrow[1]), int.Parse(arrow[2]),
+            int.Parse(arrow[3]), int.Parse(arrow[4]),
+            arrow[5], arrow[6], arrow[7], arrow[8], arrow[9]);
     }
 
     public IReadOnlyList<EnemyRecord> GetRoomKeese(int group, int room)
@@ -474,6 +499,18 @@ public sealed class EnemyDatabase
     private static int ParsePosition(string value) =>
         value == "-1" ? -1 : Convert.ToInt32(value, 16);
 
+    private static string FirstDataRow(string path)
+    {
+        foreach (string raw in FileAccess.GetFileAsString(path).Split(
+            '\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            string line = raw.TrimEnd('\r');
+            if (!line.StartsWith('#'))
+                return line;
+        }
+        throw new InvalidOperationException($"{path} is empty.");
+    }
+
     private static RoomObjectKind ParseRoomObjectKind(string value) => value switch
     {
         "R" => RoomObjectKind.RandomEnemy,
@@ -559,6 +596,37 @@ public sealed class EnemyDatabase
         int DamageQuarters,
         int SpeedRaw,
         string NormalAnimation,
+        string BounceAnimation);
+
+    public readonly record struct MaskedMoblinRecord(
+        int Id,
+        int SubId,
+        string SpriteName,
+        int TileBase,
+        int Palette,
+        int CollisionRadiusY,
+        int CollisionRadiusX,
+        int DamageQuarters,
+        int Health,
+        int SpeedRaw,
+        int MoveCounterBase,
+        int MoveCounterMask,
+        int TurnWait,
+        string UpAnimation,
+        string RightAnimation,
+        string DownAnimation,
+        string LeftAnimation);
+
+    public readonly record struct EnemyArrowRecord(
+        string SpriteName,
+        int TileBase,
+        int Palette,
+        int DamageQuarters,
+        int SpeedRaw,
+        string UpAnimation,
+        string RightAnimation,
+        string DownAnimation,
+        string LeftAnimation,
         string BounceAnimation);
 
     public readonly record struct StalfosRecord(

@@ -145,6 +145,16 @@ scheduler preserves that order and must not compact or reorder active lanes.
 Do not merge independent actor scripts into one counter merely because their
 visible actions overlap.
 
+When one script creates another script owner in a later original object slot,
+start the new runner from the creating native command and advance it later in
+the same fixed-update pass. Room `1:38` is the reference: the placed sprout is
+updated before its `$6b:$04` controller, which is updated before the two
+`$96` Moblin lanes it creates. Each runner keeps its own command state while
+the event host exposes only the shared `wTmpcfc0`/`wccd4` bindings. A scripted
+actor that replaces itself with an enemy ends its lane after requesting the
+ordinary combat spawn; subsequent `wNumEnemies` gates must query the entity
+manager's live enemy counter, not a cutscene-local survivor count.
+
 ## Native handlers
 
 Keep behavior in a native handler when it comes from object code rather than a

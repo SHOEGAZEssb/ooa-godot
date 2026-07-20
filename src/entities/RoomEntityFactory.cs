@@ -286,6 +286,8 @@ internal sealed class RoomEntityFactory(
     public IRoomEntity Create(RoomEntitySpawn spawn, OracleRoomData room) => spawn switch
     {
         OctorokRockSpawn rock => CreateRock(rock, room),
+        MaskedMoblinSpawn moblin => CreateMaskedMoblin(moblin, room),
+        EnemyArrowSpawn arrow => CreateEnemyArrow(arrow, room),
         GelSpawn gel => CreateGel(gel, room),
         EnemyDeathPuffSpawn puff => CreateDeathPuff(puff),
         KillEnemyPuffSpawn puff => CreateKillPuff(puff),
@@ -430,14 +432,26 @@ internal sealed class RoomEntityFactory(
         yield return new Room149BallRoomEntity(ball, family);
     }
 
-    private static bool StartsActive(int subId)
+    private bool StartsActive(int subId)
     {
-        // Bit 7 means always active. Subid $01 is active until the Maku Tree
-        // is saved. Ordinary subid $00 portals normally wait for the Tune of
-        // Echoes; until harp playback exists, exposed `$d7 markers use the
-        // deterministic active fallback so they are usable instead of inert.
+        // timeportalSpawner.s sets bit 7 for subtype $01 until the Maku Tree
+        // is saved and for subtype $02 until the Seed Satchel is obtained.
+        // Bit 7 in object data is already-active unconditionally. Ordinary
+        // subtype $00 portals normally wait for the Tune of Echoes; until harp
+        // playback exists, exposed `$d7 markers use the deterministic active
+        // fallback so they are usable instead of inert.
         int type = subId & 0x0f;
-        return (subId & 0x80) != 0 || type is 0 or 1;
+        if ((subId & 0x80) != 0)
+            return true;
+        return type switch
+        {
+            0 => true,
+            1 => saveData is null ||
+                !saveData.HasGlobalFlag(OracleSaveData.GlobalFlagMakuTreeSaved),
+            2 => saveData is null ||
+                !saveData.HasTreasure(TreasureDatabase.TreasureSeedSatchel),
+            _ => false
+        };
     }
 
     private IRoomEntity CreateRock(OctorokRockSpawn spawn, OracleRoomData room)
@@ -445,6 +459,25 @@ internal sealed class RoomEntityFactory(
         var rock = new OctorokRockProjectile { Name = "OctorokRock", ZIndex = 10 };
         rock.Initialize(enemies.OctorokProjectile, room, spawn.Position, spawn.Angle);
         return new OctorokRockRoomEntity(rock);
+    }
+
+    private IRoomEntity CreateMaskedMoblin(
+        MaskedMoblinSpawn spawn, OracleRoomData room)
+    {
+        var moblin = new MaskedMoblinCharacter
+        {
+            Name = "MaskedMoblin",
+            ZIndex = 10
+        };
+        moblin.Initialize(enemies.MaskedMoblin, room, spawn.Position, random);
+        return new MaskedMoblinRoomEntity(moblin, soundRequested);
+    }
+
+    private IRoomEntity CreateEnemyArrow(EnemyArrowSpawn spawn, OracleRoomData room)
+    {
+        var arrow = new EnemyArrowProjectile { Name = "EnemyArrow", ZIndex = 10 };
+        arrow.Initialize(enemies.EnemyArrow, room, spawn.Position, spawn.Angle);
+        return new EnemyArrowRoomEntity(arrow);
     }
 
     private IRoomEntity CreateGel(

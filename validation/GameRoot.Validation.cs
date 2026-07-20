@@ -230,6 +230,7 @@ public sealed class ValidationGameRoot : GameRoot
         ValidateBipinBlossomNaming();
         ValidateImpaIntroEncounter();
         ValidateMakuTreeDisappearanceCutscene();
+        ValidateMakuSproutRescueCutscene();
         ValidateNayruIntroCutscene();
         ValidateRalphPortalDepartureEvent();
         ValidateAnimations();
@@ -12614,6 +12615,289 @@ public sealed class ValidationGameRoot : GameRoot
             _roomEvents.Update(1.0 / 60.0);
             _sound.Tick();
         }
+    }
+
+    private void ValidateMakuSproutRescueCutscene()
+    {
+        const int group = 1;
+        const int roomId = 0x38;
+        MakuSproutRescueEvent rescue = _roomEvents.MakuSproutRescue;
+        MakuSproutRescueDatabase database = rescue.Database;
+        MakuSproutRescueDatabase.EventRecord record = database.Record;
+        int originalState = _saveData.MakuTreeState;
+        int originalMapText = _saveData.MakuMapTextPast;
+        bool originalSaved = _saveData.HasGlobalFlag(record.SavedFlag);
+        bool originalAdvice = _saveData.HasGlobalFlag(record.AdviceFlag);
+        bool originalRoom80 = _saveData.HasRoomFlag(group, roomId, (byte)record.RoomFlag);
+        bool originalPresentSwap = _saveData.HasRoomFlag(
+            0, 0x38, OracleSaveData.RoomFlagLayoutSwap);
+        bool originalPastSwap = _saveData.HasRoomFlag(
+            1, 0x48, OracleSaveData.RoomFlagLayoutSwap);
+
+        _saveData.SetGlobalFlag(record.SavedFlag, false);
+        _saveData.SetGlobalFlag(record.AdviceFlag, false);
+        _saveData.SetRoomFlag(group, roomId, (byte)record.RoomFlag, false);
+        _saveData.SetMakuTreeState(0);
+        LoadValidationRoom(group, roomId);
+        if (rescue.HasState || _roomEvents.Active)
+            throw new InvalidOperationException(
+                "Room 1:38 rescue ignored its wMakuTreeState $01/$02 predicate.");
+
+        _saveData.SetMakuTreeState(1);
+        var trace = new ValidationCutsceneTrace();
+        _roomEvents.CommandTraceSink = trace;
+        _sound.ClearPlayRequestAudit();
+        LoadValidationRoom(group, roomId);
+        if (!rescue.HasState || rescue.Stage != MakuSproutRescueEvent.EventStage.Running)
+            throw new InvalidOperationException(
+                "Room 1:38 did not start the unsaved Maku Sprout rescue at state $01.");
+
+        MakuSproutRescueDatabase.ActorRecord sproutActor = database.Actors["Sprout"];
+        MakuSproutRescueDatabase.ActorRecord leftActor = database.Actors["MoblinLeft"];
+        MakuSproutRescueDatabase.ActorRecord rightActor = database.Actors["MoblinRight"];
+        NpcCharacter? initialSprout = _entities.Entities<NpcCharacter>().SingleOrDefault(
+            npc => npc.Record.Id == sproutActor.Id && npc.Record.SubId == sproutActor.SubId);
+        NpcCharacter? initialLeft = _entities.Entities<NpcCharacter>().SingleOrDefault(
+            npc => npc.Record.Id == leftActor.Id && npc.Record.SubId == leftActor.SubId);
+        NpcCharacter? initialRight = _entities.Entities<NpcCharacter>().SingleOrDefault(
+            npc => npc.Record.Id == rightActor.Id && npc.Record.SubId == rightActor.SubId);
+        if (initialSprout is null || initialLeft is null || initialRight is null ||
+            database.FearfulSproutAnimation == sproutActor.DownAnimation ||
+            initialSprout.CurrentScriptAnimationSource != database.FearfulSproutAnimation ||
+            initialLeft.CurrentScriptAnimationSource != leftActor.LeftAnimation ||
+            initialRight.CurrentScriptAnimationSource != rightActor.RightAnimation ||
+            !_player.CutsceneControlled || !rescue.ScreenTransitionsDisabled ||
+            rescue.CutsceneState != 0 ||
+            _entities.Entities<MaskedMoblinCharacter>().Count != 0)
+        {
+            throw new InvalidOperationException(
+                "Room 1:38 exposed its ordinary sprout frame before the rescue's " +
+                "state-0 sprout/controller/Moblin initialization completed.");
+        }
+
+        bool movedToTrigger = false;
+        bool killedFirst = false;
+        bool killedSecond = false;
+        bool sawOneEnemyText = false;
+        bool movedToEdge = false;
+        bool sawUpFacingMakuDialogue = false;
+        bool sawBottomExitDialogue = false;
+        var textIds = new HashSet<int>();
+        for (int frame = 0; frame < 5000 && rescue.HasState; frame++)
+        {
+            _entities.Update(1.0 / 60.0, _player);
+            _roomEvents.Update(1.0 / 60.0);
+            _sound.Tick();
+
+            if (!movedToTrigger && rescue.CutsceneState == 5)
+            {
+                _player.WarpTo(new Vector2(record.ControllerX, record.ControllerY));
+                movedToTrigger = true;
+            }
+
+            List<MaskedMoblinCharacter> moblins =
+                _entities.Entities<MaskedMoblinCharacter>();
+            if (!killedFirst && moblins.Count == 2)
+            {
+                MaskedMoblinCharacter moblin = moblins[0];
+                _entities.ApplySwordHit(moblin.CollisionBounds.Grow(1), moblin.Position);
+                killedFirst = true;
+            }
+            if (sawOneEnemyText && !killedSecond && moblins.Count == 1)
+            {
+                MaskedMoblinCharacter moblin = moblins[0];
+                _entities.ApplySwordHit(moblin.CollisionBounds.Grow(1), moblin.Position);
+                killedSecond = true;
+            }
+
+            if (_dialogue.IsOpen)
+            {
+                CutsceneCommandTraceEntry? textStart = trace.Entries.LastOrDefault(
+                    entry => entry.Phase == CutsceneCommandTracePhase.Started &&
+                        entry.Source.Opcode == "showtext");
+                if (textStart.HasValue)
+                {
+                    int command = textStart.Value.Source.CommandIndex;
+                    int textId = command switch
+                    {
+                        11 => 0x1202,
+                        16 => 0x05d0,
+                        27 => 0x1203,
+                        36 => 0x05d1,
+                        39 => 0x05d2,
+                        54 => 0x05d3,
+                        60 => 0x05d6,
+                        68 => 0x05d4,
+                        _ => 0
+                    };
+                    if (textId != 0)
+                    {
+                        textIds.Add(textId);
+                        sawOneEnemyText |= textId == 0x05d1;
+                        if (textId == 0x05d3)
+                        {
+                            sawUpFacingMakuDialogue =
+                                _player.FacingVector == Vector2I.Up;
+                        }
+                        if (textId == 0x05d4)
+                        {
+                            sawBottomExitDialogue =
+                                _dialogue.Position.Y == 80;
+                        }
+                    }
+                }
+                _dialogue.Close();
+            }
+
+            if (!movedToEdge && _saveData.HasGlobalFlag(record.SavedFlag))
+            {
+                _player.WarpTo(new Vector2(0x50, 0x7a));
+                movedToEdge = true;
+            }
+        }
+
+        int[] requiredTextIds =
+        [
+            0x1202, 0x05d0, 0x1203, 0x05d1, 0x05d2,
+            0x05d3, 0x05d6, 0x05d4
+        ];
+        Vector2 GatePoint(int packed) => new(
+            (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
+            (packed >> 4) * OracleRoomData.MetatileSize + 8);
+        if (rescue.HasState || rescue.Stage != MakuSproutRescueEvent.EventStage.Completed ||
+            !movedToTrigger || !killedFirst || !killedSecond || !movedToEdge ||
+            !sawUpFacingMakuDialogue || !sawBottomExitDialogue ||
+            requiredTextIds.Any(id => !textIds.Contains(id)) ||
+            !_saveData.HasGlobalFlag(record.SavedFlag) ||
+            !_saveData.HasGlobalFlag(record.AdviceFlag) ||
+            _saveData.MakuTreeState != 2 || _saveData.MakuMapTextPast != record.MapTextLow ||
+            !_saveData.HasRoomFlag(group, roomId, (byte)record.RoomFlag) ||
+            _saveData.HasRoomFlag(0, 0x38, OracleSaveData.RoomFlagLayoutSwap) ||
+            !_saveData.HasRoomFlag(1, 0x48, OracleSaveData.RoomFlagLayoutSwap) ||
+            _currentRoom.GetMetatile(GatePoint(record.GateLeft)) != record.ClearTile ||
+            _currentRoom.GetMetatile(GatePoint(record.GateInnerLeft)) != record.ClearTile ||
+            _currentRoom.GetMetatile(GatePoint(record.GateInnerRight)) != record.ClearTile ||
+            _currentRoom.GetMetatile(GatePoint(record.GateRight)) != record.ClearTile ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDing) != 4 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 4 ||
+            _roomCamera.Offset != Vector2.Zero)
+        {
+            throw new InvalidOperationException(
+                "Room 1:38 did not complete its Moblin fight, dialogue, four gate phases, " +
+                "up-facing Link handoff, lower exit textbox, music/flag/layout mutations, " +
+                "or final screen-edge release.");
+        }
+
+        CheckRoomExit(_player);
+        if (!IsTransitioning || _transitions.ScrollActive ||
+            _activeGroup != group || _currentRoom.Id != roomId)
+        {
+            throw new InvalidOperationException(
+                "Room 1:38's unlocked bottom edge did not start its $03 exit warp.");
+        }
+        UpdateRoomWarpTransition(WarpLeaveFrames / 60.0);
+        if (_activeGroup != group || _currentRoom.Id != 0x48)
+            throw new InvalidOperationException(
+                "Room 1:38's bottom exit did not load past room 1:48.");
+        UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
+        _entities.Update(1.0 / 60.0, _player);
+        TimePortal? returnPortal = _entities.Entities<TimePortal>().SingleOrDefault();
+        if (IsTransitioning || _activeGroup != group || _currentRoom.Id != 0x48 ||
+            returnPortal is null || returnPortal.Record.SubId != 0x02 ||
+            returnPortal.Position != new Vector2(0x58, 0x48) ||
+            !returnPortal.Active ||
+            _currentRoom.GetMetatile(returnPortal.Position) != 0xd7 ||
+            _saveData.HasTreasure(TreasureDatabase.TreasureSeedSatchel))
+        {
+            throw new InvalidOperationException(
+                "The post-rescue layout swap did not expose and activate room 1:48's " +
+                "$e1:$02 portal for a Seed-Satchel-less Link.");
+        }
+
+        string[] scripts = trace.Entries
+            .Where(entry => entry.Phase == CutsceneCommandTracePhase.Started)
+            .Select(entry => entry.Source.Script)
+            .Distinct()
+            .ToArray();
+        string[] requiredScripts =
+        [
+            "makuSprout_subid01Script", "interaction6b_subid04Script",
+            "moblin_subid00Script", "moblin_subid01Script"
+        ];
+        if (requiredScripts.Any(script => !scripts.Contains(script)) ||
+            trace.Entries.Any(entry => entry.Source.SourceLine <= 0))
+        {
+            throw new InvalidOperationException(
+                "Room 1:38 importer-generated command trace lost source ownership.");
+        }
+
+        LoadValidationRoom(group, roomId);
+        NpcCharacter? savedSprout = _npcNodes.Find(npc =>
+            npc.Record.Id == record.SproutId && npc.Record.SubId == record.SproutSubId);
+        if (rescue.HasState || _roomEvents.Active || savedSprout is null ||
+            savedSprout.TextId != record.PostTextId ||
+            savedSprout.Message != record.PostText ||
+            _currentRoom.GetMetatile(GatePoint(record.GateLeft)) != record.ClearTile)
+        {
+            throw new InvalidOperationException(
+                "Room 1:38 saved re-entry retriggered or lost TX_05d5/the cleared gate.");
+        }
+
+        var enemyDatabase = new EnemyDatabase();
+        EnemyDatabase.MaskedMoblinRecord masked = enemyDatabase.MaskedMoblin;
+        EnemyDatabase.EnemyArrowRecord arrowRecord = enemyDatabase.EnemyArrow;
+        if (masked is not
+            { Id: 0x20, SubId: 0, CollisionRadiusY: 6, CollisionRadiusX: 6,
+              DamageQuarters: 2, Health: 2, SpeedRaw: 0x14,
+              MoveCounterBase: 0x30, MoveCounterMask: 0x3f, TurnWait: 8 } ||
+            arrowRecord is not
+            { DamageQuarters: 2, SpeedRaw: 0x50 })
+        {
+            throw new InvalidOperationException(
+                "The dynamically-created masked Moblin/enemy-arrow records diverged from source.");
+        }
+        var deflectedArrow = new EnemyArrowProjectile();
+        deflectedArrow.Initialize(
+            arrowRecord, _currentRoom, new Vector2(0x50, 0x40), 0x08);
+        if (!deflectedArrow.DeflectWithSword() ||
+            deflectedArrow.State != EnemyArrowProjectile.ArrowState.Bouncing ||
+            deflectedArrow.Counter != 0x20)
+        {
+            throw new InvalidOperationException(
+                "PART_ENEMY_ARROW did not enter its shared 32-update sword-bounce state.");
+        }
+        for (int frame = 0; frame < 31; frame++)
+            deflectedArrow.UpdateFrame(_player);
+        if (deflectedArrow.Finished || deflectedArrow.Counter != 1 ||
+            deflectedArrow.ZFixed == 0)
+        {
+            throw new InvalidOperationException(
+                "PART_ENEMY_ARROW ended before its $20 SPEED_40 -$00e0/$0e bounce completed.");
+        }
+        deflectedArrow.UpdateFrame(_player);
+        if (!deflectedArrow.Finished)
+            throw new InvalidOperationException(
+                "PART_ENEMY_ARROW did not delete on bounce counter zero.");
+        deflectedArrow.Free();
+
+        _saveData.SetMakuTreeState(originalState);
+        _saveData.SetMakuMapTextPast(originalMapText);
+        _saveData.SetGlobalFlag(record.SavedFlag, originalSaved);
+        _saveData.SetGlobalFlag(record.AdviceFlag, originalAdvice);
+        _saveData.SetRoomFlag(group, roomId, (byte)record.RoomFlag, originalRoom80);
+        _saveData.SetRoomFlag(
+            0, 0x38, OracleSaveData.RoomFlagLayoutSwap, originalPresentSwap);
+        _saveData.SetRoomFlag(
+            1, 0x48, OracleSaveData.RoomFlagLayoutSwap, originalPastSwap);
+        _roomEvents.CommandTraceSink = null;
+
+        GD.Print("Validated room 1:38 Maku Sprout rescue: exact state/flag predicate, " +
+            "pre-display state-0 actor initialization, four typed script owners, " +
+            "synchronized jumping Moblins, dynamic masked-Moblin " +
+            "combat and one-enemy branch, Link approach/reposition, four interleaved gate " +
+            "bursts with shake/sounds, advice/saved/map-text/layout persistence, room music " +
+            "restore, final DIR_UP waypoint, lower TX_05d4, screen-edge transition lock, " +
+            "bottom exit to the active 1:48 $e1:$02 portal, TX_05d5, and completed re-entry.");
     }
 
     private void ValidateNayruIntroCutscene()

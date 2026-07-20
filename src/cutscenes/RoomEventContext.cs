@@ -22,7 +22,8 @@ internal sealed class RoomEventContext(
     Hud hud,
     InventoryState inventory,
     TreasureDatabase treasures,
-    OracleSoundEngine sound)
+    OracleSoundEngine sound,
+    Camera2D roomCamera)
 {
     private readonly DialogueBox _dialogue = dialogue;
     private readonly Func<Vector2, Vector2> _worldToScreen = worldToScreen;
@@ -39,6 +40,7 @@ internal sealed class RoomEventContext(
     public InventoryState Inventory { get; } = inventory;
     public TreasureDatabase Treasures { get; } = treasures;
     public OracleSoundEngine Sound { get; } = sound;
+    public Camera2D RoomCamera { get; } = roomCamera;
     public bool DialogueOpen => _dialogue.IsOpen;
     internal ICutsceneCommandTraceSink? CommandTraceSink { get; set; }
 

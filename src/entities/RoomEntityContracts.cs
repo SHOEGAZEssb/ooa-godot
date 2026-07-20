@@ -102,6 +102,10 @@ internal readonly record struct RoomEntityFrame(
 internal abstract record RoomEntitySpawn(bool UpdateThisFrame = false);
 internal sealed record OctorokRockSpawn(Vector2 Position, int Angle)
     : RoomEntitySpawn(UpdateThisFrame: true);
+internal sealed record MaskedMoblinSpawn(Vector2 Position)
+    : RoomEntitySpawn(UpdateThisFrame: true);
+internal sealed record EnemyArrowSpawn(Vector2 Position, int Angle)
+    : RoomEntitySpawn(UpdateThisFrame: true);
 internal sealed record GelSpawn(
     Vector2 Position,
     string Name = "Gel",

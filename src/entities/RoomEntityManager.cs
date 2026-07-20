@@ -373,6 +373,8 @@ public sealed class RoomEntityManager
         return count;
     }
 
+    internal int RoomEnemyCount => CountRoomEnemies();
+
     private bool TriggerIsActive(int bit)
     {
         if (bit is < 0 or > 7)

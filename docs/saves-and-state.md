@@ -62,6 +62,17 @@ position at save time. Imported warp destinations and room-specific checkpoint
 code decide when the checkpoint changes. Ordinary room scrolling and time
 portals retain the existing checkpoint unless the original says otherwise.
 
+Story-owned map advice remains in its original file-image bytes. The first
+Maku Sprout rescue writes low text byte `$d6` to `wMakuMapTextPast` at `$c6e7`,
+sets global advice flag `$3f` and saved flag `$12`, increments
+`wMakuTreeState` at `$c6e8`, clears present room `0:38` layout bit `$01`, sets
+past room `1:48` layout bit `$01`, and retains room `1:38` gate bit `$80`.
+Keep these writes separate: they select different map, room, and dialogue
+re-entry behavior even though the rescue performs them in one completion path.
+In particular, the past `1:48` layout bit exposes the `$d7` spot used by
+`INTERAC_TIMEPORTAL_SPAWNER $e1:$02`; before the Seed Satchel is obtained, that
+subtype activates immediately on the bottom exit from the rescue room.
+
 ## Inventory and treasure transactions
 
 `InventoryState` is a typed view over imported treasure behavior and the save

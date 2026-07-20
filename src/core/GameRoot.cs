@@ -424,7 +424,7 @@ public partial class GameRoot : Node2D
             _rooms, _entities, _transitions, _dialogue, _player, _roomView,
             _transitions.WorldToScreen, () => (long)_animationTicks,
             _scene.InterfaceLayer, _warpFade, _hud, _inventory, _treasures,
-            _sound);
+            _sound, _roomCamera);
         _interactions.NpcInteractionOverride = _roomEvents.TryInteractNpc;
         _bracelet = new BraceletController(
             _rooms, new BreakableTileDatabase(), _roomView, () => (long)_animationTicks);
@@ -596,7 +596,11 @@ public partial class GameRoot : Node2D
     internal bool TryStartLedgeHop(Player player, Vector2 from, Vector2 movement) =>
         _terrain.TryStartLedgeHop(player, from, movement);
     internal bool CheckTileWarp(Player player) => _transitions.CheckTileWarp(player);
-    internal void CheckRoomExit(Player player) => _transitions.CheckRoomExit(player);
+    internal void CheckRoomExit(Player player)
+    {
+        if (!_roomEvents.ScreenTransitionsDisabled)
+            _transitions.CheckRoomExit(player);
+    }
 
     internal Vector2 FindSpawn()
     {

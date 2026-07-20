@@ -555,6 +555,42 @@ follower or the first-past arrival overlap. Completion must be represented by
 the original global/room/WRAM write so room re-entry naturally selects the
 correct state.
 
+Room `1:38` is the reference for an event whose interaction scripts create
+more script owners and later hand combat back to the entity system. Keep the
+sprout, `$6b:$04` controller, left `$96:$00` Moblin, right `$96:$01` Moblin,
+and `$76:$01` gate opener in original update order. Their runners share only
+the imported `wTmpcfc0` state, `wccd4` synchronization byte, and live
+`wNumEnemies` view. The Moblin lanes replace their own actors with normal
+masked-Moblin enemies; the event must not retain a parallel kill counter.
+The sprout's state-0 handler immediately runs its script, and the newly created
+controller and Moblins occupy later interaction slots that initialize in the
+same object pass. Prime that one pass synchronously when the room entities are
+loaded: a warp must already contain the distressed sprout and both Moblins
+under its fade, and a scrolling destination must contain them at its first
+visible edge. Stop at the controller's installed 60-update wait; subsequent
+event time remains frozen with ordinary destination events during transition.
+The original room-loading loop advances the sprout's following animation `$02`
+command beneath the warp fade. Because the runtime event clock freezes during
+the host transition, stage that imported visual without consuming the command
+runner or decrementing the controller wait; otherwise the ordinary happy pose
+flashes as the fade clears. Read this pose from the command's encoded animation
+payload, not from the sprout actor's ordinary directional animation fields;
+those fields all describe animation `$00` and therefore reproduce the flash.
+Likewise, `wDisableScreenTransitions` blocks only edge scrolling while Link is
+playable during the approach, fight, and final edge wait. The four gate phases
+own their mapping-interleaved tiles, collision completion, four-puff bursts,
+two-axis RNG shake, and persistent room bit `$80`.
+The post-fight Link path must retain its apparently redundant final Y=`$38`
+waypoint: `linkCutscene_updateAngleOnPath` uses it to select DIR_UP before
+restoring ordinary Link. TX `$05d4` separately carries `\pos(2)` and therefore
+opens at the bottom even though the preceding edge test accepts any room edge.
+The completion layout bit for past room `1:48` exposes tile `$d7` beneath its
+placed `$e1:$02` time-portal spawner. `timeportalSpawner.s` sets that subtype's
+active bit while `TREASURE_SEED_SATCHEL` is absent, so leaving the rescue room
+through the bottom must preload an already-active portal at `$48/$58`; do not
+drop subtype `$02` merely because later, Satchel-owning visits require the Tune
+of Echoes.
+
 ## Validation pattern
 
 NPC and event regressions live in `validation/GameRoot.Validation.cs`, not in
@@ -638,6 +674,8 @@ production behavior; it must not drive it.
 - `src/cutscenes/BlackTowerEntranceEvent.cs`
 - `src/cutscenes/BlackTowerEntranceEventDatabase.cs`
 - `src/cutscenes/BlackTowerExplanationScreen.cs`
+- `src/cutscenes/MakuSproutRescueEvent.cs`
+- `src/cutscenes/MakuSproutRescueDatabase.cs`
 - `validation/GameRoot.Validation.cs`
 
 See [Rooms and entities](rooms-and-entities.md) for room lifetime and capability

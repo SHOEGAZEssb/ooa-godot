@@ -12,7 +12,7 @@ internal sealed class EnemyTerrainMovement(Node2D entity, OracleRoomData room)
         room.GetTerrainInfo(entity.Position).Hazard;
     public bool IsOnHazard => Hazard != OracleRoomData.HazardType.None;
 
-    public void MoveAtAngle(int angle, float speed, bool allowHoles)
+    public bool MoveAtAngle(int angle, float speed, bool allowHoles)
     {
         Vector2 movement = OracleObjectMath.VectorFromAngle32(angle) * speed;
         Vector2 destination = entity.Position + movement;
@@ -22,7 +22,10 @@ internal sealed class EnemyTerrainMovement(Node2D entity, OracleRoomData room)
             entity.Position += new Vector2(movement.X, 0);
         else if (CanOccupy(entity.Position + new Vector2(0, movement.Y), allowHoles))
             entity.Position += new Vector2(0, movement.Y);
+        else
+            return false;
         entity.QueueRedraw();
+        return true;
     }
 
     private bool CanOccupy(Vector2 center, bool allowHoles)

@@ -19,6 +19,7 @@ public sealed class RoomEventController
     private readonly EnterPastEvent _enterPast;
     private readonly ImpaIntroEvent _impa;
     private readonly NayruIntroEvent _nayru;
+    private readonly MakuSproutRescueEvent _makuSproutRescue;
     private readonly IRoomEvent[] _eventsByPriority;
     private double _frameAccumulator;
     private double _transitionFrameAccumulator;
@@ -37,7 +38,8 @@ public sealed class RoomEventController
         Hud hud,
         InventoryState inventory,
         TreasureDatabase treasures,
-        OracleSoundEngine sound)
+        OracleSoundEngine sound,
+        Camera2D roomCamera)
     {
         _context = new RoomEventContext(
             rooms,
@@ -53,7 +55,8 @@ public sealed class RoomEventController
             hud,
             inventory,
             treasures,
-            sound);
+            sound,
+            roomCamera);
         _makuTree = new MakuTreeDisappearanceEvent(_context);
         _ralph = new RalphPortalEvent(_context);
         _preBlackTower = new PreBlackTowerEvent(_context);
@@ -62,9 +65,11 @@ public sealed class RoomEventController
         _enterPast = new EnterPastEvent(_context);
         _impa = new ImpaIntroEvent(_context);
         _nayru = new NayruIntroEvent(_context, _impa);
+        _makuSproutRescue = new MakuSproutRescueEvent(_context);
         _eventsByPriority =
         [
             _nayru,
+            _makuSproutRescue,
             _makuTree,
             _ralph,
             _preBlackTower,
@@ -110,6 +115,9 @@ public sealed class RoomEventController
     internal EnterPastEvent EnterPast => _enterPast;
     internal ImpaIntroEvent Impa => _impa;
     internal NayruIntroEvent Nayru => _nayru;
+    internal MakuSproutRescueEvent MakuSproutRescue => _makuSproutRescue;
+    internal bool ScreenTransitionsDisabled =>
+        _makuSproutRescue.ScreenTransitionsDisabled;
     internal ICutsceneCommandTraceSink? CommandTraceSink
     {
         set => _context.CommandTraceSink = value;
@@ -150,7 +158,8 @@ public sealed class RoomEventController
 
     public bool TryInteractNpc(NpcCharacter npc) =>
         _nayru.TryInteractNpc(npc) ||
-        _blackTowerEntrance.TryInteractNpc(npc);
+        _blackTowerEntrance.TryInteractNpc(npc) ||
+        _makuSproutRescue.TryInteractNpc(npc);
 
     /// <summary>
     /// Destination interactions continue updating during TRANSITION_DEST_TIMEWARP.
@@ -172,6 +181,7 @@ public sealed class RoomEventController
     private void OnRoomEntitiesLoaded(int group, OracleRoomData room)
     {
         _nayru.RestoreCompletedPortal(group, room);
+        _makuSproutRescue.RestoreCompletedSprout(group, room);
         if (_nayru.HasState && !_nayru.Matches(group, room))
         {
             // $6b:$01 recreates its dynamic object list on every pre-intro

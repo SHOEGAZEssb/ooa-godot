@@ -103,6 +103,11 @@ function Get-AssemblySourceLine {
 # INTERAC_TIMEPORTAL_SPAWNER ($e1) is a scenery interaction rather than an
 # NPC, but it uses the same interaction graphics, animation, and OAM tables.
 # Export every placed portal spot so runtime activation stays data-driven.
+$portalSpawnerSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\timeportalSpawner.s')
+if ($portalSpawnerSource -notmatch '(?ms)^@subid1Init:.*?GLOBALFLAG_MAKU_TREE_SAVED.*?jr nz,@commonInit\s+jr @setSubidBit7\s+^@subid2Init:.*?TREASURE_SEED_SATCHEL.*?jr c,@commonInit\s+^@setSubidBit7:.*?set 7,\(hl\)') {
+    throw 'INTERAC_TIMEPORTAL_SPAWNER subtype $01/$02 activation predicates changed.'
+}
 $portalGraphic = $interactionGraphics['225:0']
 if ($null -eq $portalGraphic) {
     throw 'Could not resolve INTERAC_TIMEPORTAL_SPAWNER graphics.'
@@ -141,8 +146,9 @@ if ($portalLoopStart -ne 3) {
     throw "INTERAC_TIMEPORTAL_SPAWNER animation loop moved from frame 3 to $portalLoopStart."
 }
 $initialPortal = $portalRows | Where-Object { $_ -match '^0\t39\t01\t28\t28\t' }
-if (-not $initialPortal) {
-    throw 'The initial active portal in room 0:39 was not extracted.'
+$makuReturnPortal = $portalRows | Where-Object { $_ -match '^1\t48\t02\t48\t58\t' }
+if (-not $initialPortal -or -not $makuReturnPortal) {
+    throw 'The initial 0:39 or post-rescue 1:48 active portal was not extracted.'
 }
 Copy-GeneratedFile `
     'gfx_compressible\ages\spr_makuflower_book_seedling_weirdswirl_block.png' `
@@ -2451,3 +2457,219 @@ $towerDoorRows = @(
     (Join-Path $destination 'cutscenes\black_tower_doorway_event.tsv'),
     $towerDoorRows,
     [Text.UTF8Encoding]::new($false))
+
+# Room $1:$38 is the first Maku Sprout rescue. Its placed sprout creates a
+# native controller, which in turn creates two scripted Moblin interactions;
+# those actors replace themselves with ordinary masked-Moblin enemies. Keep
+# all four source script lanes distinct so their original object update order
+# and shared wTmpcfc0/wccd4 synchronization remain observable at runtime.
+$makuObjectSource = Get-Content -Raw (
+    Join-Path $Disassembly 'objects\ages\mainData.s')
+$makuPlacement = [regex]::Match(
+    $makuObjectSource,
+    '(?ms)^group1Map38ObjectData:\s*obj_Interaction \$88 \$00 \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2})\s*obj_Interaction \$6b \$15')
+$makuObjectDataSource = Get-Content -Raw (
+    Join-Path $Disassembly 'objects\ages\extraData3.s')
+$makuMoblins = [regex]::Match(
+    $makuObjectDataSource,
+    '(?ms)^moblinsAttackingMakuSprout:\s*obj_Interaction \$96 \$00 \$(?<y>[0-9a-f]{2}) \$(?<leftx>[0-9a-f]{2})\s*obj_Interaction \$96 \$01 \$[0-9a-f]{2} \$(?<rightx>[0-9a-f]{2})')
+if (-not $makuMoblins.Success) {
+    # Some disassembly revisions keep dynamic lists in mainData.s.
+    $makuMoblins = [regex]::Match(
+        $makuObjectSource,
+        '(?ms)^moblinsAttackingMakuSprout:\s*obj_Interaction \$96 \$00 \$(?<y>[0-9a-f]{2}) \$(?<leftx>[0-9a-f]{2})\s*obj_Interaction \$96 \$01 \$[0-9a-f]{2} \$(?<rightx>[0-9a-f]{2})')
+}
+if (-not $makuPlacement.Success -or -not $makuMoblins.Success -or
+    $makuPlacement.Groups['y'].Value -ne '28' -or
+    $makuPlacement.Groups['x'].Value -ne '50' -or
+    $makuMoblins.Groups['y'].Value -ne '30' -or
+    $makuMoblins.Groups['leftx'].Value -ne '68' -or
+    $makuMoblins.Groups['rightx'].Value -ne '38') {
+    throw 'Room 1:38 Maku Sprout/Moblin placements changed.'
+}
+
+$makuScriptsSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\scripts.s')
+$makuHelperSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+$makuInteractionSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\makuSprout.s')
+$makuGateSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\makuGateOpening.s')
+if ($makuScriptsSource -notmatch '(?ms)^makuSprout_subid01Script:.*?GLOBALFLAG_MAKU_TREE_SAVED.*?INTERAC_MISCELLANEOUS_1, \$04, \$40, \$50.*?TX_05d5' -or
+    $makuScriptsSource -notmatch '(?ms)^moblin_subid00Script:.*?moblin_spawnEnemyHere.*?^moblin_subid01Script:' -or
+    $makuHelperSource -notmatch '(?ms)^interaction6b_subid04Script:.*?wDisableScreenTransitions, \$01.*?INTERAC_MAKU_GATE_OPENING.*?GLOBALFLAG_MAKU_TREE_SAVED.*?wDisableScreenTransitions, \$00') {
+    throw 'Room 1:38 rescue script ownership or completion predicates changed.'
+}
+
+$makuSproutGraphic = $interactionGraphics['136:0']
+$makuMoblinGraphic = $interactionGraphics['150:0']
+if ($null -eq $makuSproutGraphic -or $null -eq $makuMoblinGraphic -or
+    $makuSproutGraphic.Gfx -ne 0x67 -or $makuMoblinGraphic.Gfx -ne 0x90) {
+    throw 'Maku Sprout or scripted Moblin graphics changed.'
+}
+$makuSproutAnimations = @(0..2 | ForEach-Object {
+    Resolve-NpcAnimation 0x88 $_
+})
+$makuMoblinAnimations = @(0..3 | ForEach-Object {
+    Resolve-NpcAnimation 0x96 $_
+})
+if (-not $allTextPositions.ContainsKey(0x05d4) -or
+    $allTextPositions[0x05d4] -ne 2) {
+    throw 'TX_05d4 no longer explicitly selects textbox position 2.'
+}
+
+$makuActorRows = @(
+    "# actor`tid`tsubid`ty`tx`tsprite`ttile-base`tpalette`tup-animation`tright-animation`tdown-animation`tleft-animation",
+    (@('Sprout','88','00','28','50',$gfxNames[0x67],$makuSproutGraphic.TileBase,$makuSproutGraphic.Palette,
+        $makuSproutAnimations[0],$makuSproutAnimations[0],$makuSproutAnimations[0],$makuSproutAnimations[0]) -join "`t"),
+    (@('MoblinLeft','96','00','30','68',$gfxNames[0x90],$makuMoblinGraphic.TileBase,$makuMoblinGraphic.Palette,
+        $makuMoblinAnimations[0],$makuMoblinAnimations[1],$makuMoblinAnimations[2],$makuMoblinAnimations[3]) -join "`t"),
+    (@('MoblinRight','96','01','30','38',$gfxNames[0x90],$makuMoblinGraphic.TileBase,$makuMoblinGraphic.Palette,
+        $makuMoblinAnimations[0],$makuMoblinAnimations[1],$makuMoblinAnimations[2],$makuMoblinAnimations[3]) -join "`t")
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\maku_sprout_rescue_actors.tsv'),
+    $makuActorRows, [Text.UTF8Encoding]::new($false))
+
+$makuEventRows = @(
+    "# group`troom`tsprout-id`tsprout-subid`tcontroller-y`tcontroller-x`tmoblin-id`tmoblin-y`tleft-x`tright-x`tinitial-gate-position`tclear-tile`tgate-left`tgate-inner-left`tgate-inner-right`tgate-right`troom-flag`tadvice-flag`tsaved-flag`tstate-min`tstate-max`tmap-text-low`ttrigger-radius-y`ttrigger-radius-x`tjump-speed-z`tjump-gravity`tjump-sound`tgate-counter`tshake-counter`tfinal-text-position`tpost-text-id`tpost-text-base64",
+    (@('1','38','88','00','40','50','96','30','68','38','52','f9','73','74','75','76','80','3f','12','01','02','d6','04','50','-512','30','53','30','06',
+        $allTextPositions[0x05d4].ToString(),'05d5',
+        (ConvertTo-CutsceneCommandPayload $allTexts[0x05d5])) -join "`t")
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\maku_sprout_rescue_event.tsv'),
+    $makuEventRows, [Text.UTF8Encoding]::new($false))
+
+function Write-MakuRescueCommands {
+    param(
+        [string]$file,
+        [string]$script,
+        [string]$label,
+        [string]$sourceText,
+        [object[]]$specs)
+    $line = Get-AssemblySourceLine $sourceText "(?m)^$([regex]::Escape($label))\s*:" $label
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
+    for ($index = 0; $index -lt $specs.Count; $index++) {
+        $spec = $specs[$index]
+        $rows.Add((New-CutsceneCommandRow $script $index $label $line `
+            $spec[0] $spec[1] $spec[2] $spec[3] $spec[4]))
+    }
+    [IO.File]::WriteAllLines(
+        (Join-Path $destination "cutscenes\$file"),
+        $rows, [Text.UTF8Encoding]::new($false))
+}
+function Maku-Text([int]$id) { return $allTexts[$id] }
+
+$sproutSpecs = @(
+    @('nativeyield','','','','SpawnController'),
+    @('setanimation','Sprout','02','',$makuSproutAnimations[2]),
+    @('setcollisionradii','Sprout','08','08',''),
+    @('checkmemoryeq','','09','','CutsceneState'),
+    @('wait','','2','',''),
+    @('nativeblock','','1','','WaitForAtMostOneEnemy'),
+    @('jumpifmemoryeq','','00','12','RoomEnemyCount'),
+    @('setanimation','Sprout','01','',$makuSproutAnimations[1]),
+    @('wait','','90','',''),
+    @('setanimation','Sprout','00','',$makuSproutAnimations[0]),
+    @('wait','','60','',''),
+    @('checkmemoryeq','','00','','RoomEnemyCount'),
+    @('setanimation','Sprout','01','',$makuSproutAnimations[1]),
+    @('wait','','90','',''),
+    @('setanimation','Sprout','00','',$makuSproutAnimations[0]),
+    @('setcollisionradii','Sprout','08','08',''),
+    @('makeabuttonsensitive','Sprout','','',''),
+    @('native','','','','EnterNpcLoop'),
+    @('scriptend','','','','')
+)
+Write-MakuRescueCommands 'maku_sprout_rescue_sprout.tsv' `
+    'makuSprout_subid01Script' 'makuSprout_subid01Script' `
+    $makuScriptsSource $sproutSpecs
+
+$controllerSpecs = @(
+    @('disableinput','','','',''), @('native','','','','RestartSound'),
+    @('native','','','','DisableScreenTransitions'), @('native','','','','LoadMoblins'),
+    @('wait','','60','',''), @('nativeyield','','','','SpawnInitialPuff'),
+    @('wait','','4','',''), @('native','','','','SetInitialGateTile'),
+    @('writememory','','01','','CutsceneState'), @('checkmemoryeq','','02','','CutsceneState'),
+    @('wait','','30','',''), @('showtext','','1202','',(Maku-Text 0x1202)),
+    @('wait','','30','',''), @('writememory','','03','','CutsceneState'),
+    @('checkmemoryeq','','04','','CutsceneState'), @('wait','','30','',''),
+    @('showtext','','05d0','',(Maku-Text 0x05d0)), @('wait','','30','',''),
+    @('nativeyield','','','','PlayDisasterMusic'), @('writememory','','05','','CutsceneState'),
+    @('enableinput','','','',''), @('nativeblock','','1','','WaitForLinkCollision'),
+    @('disableinput','','','',''), @('native','','','','SetLinkUp'),
+    @('writememory','','06','','CutsceneState'), @('checkmemoryeq','','08','','CutsceneState'),
+    @('wait','','30','',''), @('showtext','','1203','',(Maku-Text 0x1203)),
+    @('playsound','','c8','',''), @('wait','','40','',''),
+    @('writememory','','09','','CutsceneState'), @('wait','','2','',''),
+    @('enableinput','','','',''), @('nativeblock','','1','','WaitForAtMostOneEnemy'),
+    @('jumpifmemoryeq','','00','39','RoomEnemyCount'), @('wait','','20','',''),
+    @('showtext','','05d1','',(Maku-Text 0x05d1)), @('checkmemoryeq','','00','','RoomEnemyCount'),
+    @('wait','','20','',''), @('showtext','','05d2','',(Maku-Text 0x05d2)),
+    @('wait','','30','',''), @('disableinput','','','',''),
+    @('native','','','','RestartSound'), @('wait','','20','',''),
+    @('playsound','','c8','',''), @('wait','','20','',''),
+    @('playsound','','c8','',''), @('wait','','20','',''),
+    @('playsound','','c8','',''), @('wait','','30','',''),
+    @('nativeblock','','1','','MoveLinkToPosition'), @('wait','','1','',''),
+    @('checkmemoryeq','','01','','PlayerMoveComplete'), @('wait','','30','',''),
+    @('showtext','','05d3','',(Maku-Text 0x05d3)), @('wait','','30','',''),
+    @('nativeyield','','','','SpawnGateOpening'), @('checkmemoryeq','','01','','RoomGateOpen'),
+    @('wait','','40','',''), @('setglobalflag','','3f','',''),
+    @('showtext','','05d6','',(Maku-Text 0x05d6)), @('native','','','','WriteMakuMapText'),
+    @('setglobalflag','','12','',''), @('native','','','','IncMakuState'),
+    @('native','','','','LayoutSwap'), @('native','','','','ResetMusic'),
+    @('enableinput','','','',''), @('nativeblock','','1','','WaitForScreenEdge'),
+    @('showtext','','05d4','',(Maku-Text 0x05d4)),
+    @('native','','','','EnableScreenTransitions'), @('scriptend','','','','')
+)
+Write-MakuRescueCommands 'maku_sprout_rescue_controller.tsv' `
+    'interaction6b_subid04Script' 'interaction6b_subid04Script' `
+    $makuHelperSource $controllerSpecs
+
+$leftMoblinSpecs = @(
+    @('setanimation','MoblinLeft','03','',$makuMoblinAnimations[3]),
+    @('checkmemoryeq','','01','','CutsceneState'),
+    @('writeobjectbyte','MoblinLeft','3f','01',''),
+    @('jump','MoblinLeft','-512','30','53'),
+    @('writeobjectbyte','MoblinLeft','3f','00',''),
+    @('writememory','','02','','CutsceneState'),
+    @('checkmemoryeq','','05','','CutsceneState'),
+    @('writeobjectbyte','MoblinLeft','3f','01',''),
+    @('jump','MoblinLeft','-512','30','53'),
+    @('writeobjectbyte','MoblinLeft','3f','00',''),
+    @('jumpifmemoryeq','','06','13','CutsceneState'),
+    @('wait','','30','',''), @('scriptjump','','7','',''),
+    @('native','','','','FaceMoblinLeft'), @('native','','','','AddMoblinSync'),
+    @('checkmemoryeq','','02','','MoblinSync'), @('native','','','','IncrementCutsceneState'),
+    @('checkmemoryeq','','09','','CutsceneState'), @('native','','','','SpawnMaskedMoblinLeft'),
+    @('wait','','1','',''), @('scriptend','','','','')
+)
+Write-MakuRescueCommands 'maku_sprout_rescue_moblin_left.tsv' `
+    'moblin_subid00Script' 'moblin_subid00Script' `
+    $makuScriptsSource $leftMoblinSpecs
+
+$rightMoblinSpecs = @(
+    @('setanimation','MoblinRight','01','',$makuMoblinAnimations[1]),
+    @('checkmemoryeq','','03','','CutsceneState'),
+    @('writeobjectbyte','MoblinRight','3f','01',''),
+    @('jump','MoblinRight','-512','30','53'),
+    @('writeobjectbyte','MoblinRight','3f','00',''),
+    @('writememory','','04','','CutsceneState'),
+    @('checkmemoryeq','','05','','CutsceneState'), @('wait','','30','',''),
+    @('writeobjectbyte','MoblinRight','3f','01',''),
+    @('jump','MoblinRight','-512','30','53'),
+    @('writeobjectbyte','MoblinRight','3f','00',''),
+    @('jumpifmemoryeq','','06','14','CutsceneState'),
+    @('wait','','30','',''), @('scriptjump','','8','',''),
+    @('native','','','','FaceMoblinRight'), @('native','','','','AddMoblinSync'),
+    @('checkmemoryeq','','02','','MoblinSync'), @('native','','','','IncrementCutsceneState'),
+    @('checkmemoryeq','','09','','CutsceneState'), @('native','','','','SpawnMaskedMoblinRight'),
+    @('wait','','1','',''), @('scriptend','','','','')
+)
+Write-MakuRescueCommands 'maku_sprout_rescue_moblin_right.tsv' `
+    'moblin_subid01Script' 'moblin_subid01Script' `
+    $makuScriptsSource $rightMoblinSpecs

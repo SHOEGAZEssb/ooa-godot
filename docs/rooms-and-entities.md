@@ -201,6 +201,16 @@ one ownership point. Red Zols instead request it with their special
 the kill cue; a hole is retained separately on the enemy until lifetime removal
 requests `SND_FALLINHOLE`, while water/lava remain silent on that path.
 
+Script-created combat replacements use the same contracts as placed enemies.
+Room `1:38`'s `$96` Moblin interactions are solid animated cutscene actors only
+until `moblin_spawnEnemyHere`; each then deactivates and creates an
+`ENEMY_MASKED_MOBLIN $20:$00` through `RoomEntitySpawn`. The replacement owns
+normal contact/sword/hazard/death/drop behavior and contributes through
+`IRoomEnemyCounterEntity`, so both the controller script and the sprout script
+observe the shared live `wNumEnemies` equivalent. Projectile children such as
+`PART_ENEMY_ARROW $1a` are separate update-this-frame spawn records and never
+contribute to that count.
+
 Scrolling placement context also carries Link's final packed destination.
 Directional shutter controllers use it with the scroll direction to mirror
 `replaceShutterForLinkEntering`: only the crossed shutter is preloaded as open

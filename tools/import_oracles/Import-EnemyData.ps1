@@ -1113,6 +1113,169 @@ $octorokProjectilePath = Join-Path $destination 'effects\octorok_projectile.tsv'
 [IO.File]::WriteAllLines(
     $octorokProjectilePath, $octorokProjectileRows, [Text.UTF8Encoding]::new($false))
 
+# ENEMY_MASKED_MOBLIN (`$20:`$00) is created dynamically by the room 1:38
+# Maku Sprout rescue script. Export its shared four-direction animation table
+# and PART_ENEMY_ARROW (`$1a) here so the cutscene does not need room-local
+# approximations of ordinary combat objects.
+$maskedMoblinData = [regex]::Match(
+    $enemyDataSource,
+    '(?m)^\s*/\* 0x20 \*/ m_EnemyData \$(?<gfx>[0-9a-f]{2}) \$(?<collision>[0-9a-f]{2}) enemy20SubidData')
+$maskedSubidStart = $enemyDataSource.IndexOf(
+    'enemy20SubidData:', [StringComparison]::Ordinal)
+$maskedSubidEnd = $enemyDataSource.IndexOf(
+    'enemy21SubidData:', [StringComparison]::Ordinal)
+$maskedMoblinSubid = @([regex]::Matches(
+    $enemyDataSource.Substring(
+        $maskedSubidStart, $maskedSubidEnd - $maskedSubidStart),
+    '(?m)^\s*m_EnemySubidData \$(?<extra>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'))[0]
+if (-not $maskedMoblinData.Success -or $null -eq $maskedMoblinSubid -or
+    [Convert]::ToInt32($maskedMoblinData.Groups['gfx'].Value, 16) -ne 0x90 -or
+    ([Convert]::ToInt32($maskedMoblinData.Groups['collision'].Value, 16) -band 0x7f) -ne 0x11 -or
+    [Convert]::ToInt32($maskedMoblinSubid.Groups['extra'].Value, 16) -ne 0x0a) {
+    throw 'ENEMY_MASKED_MOBLIN `$20:`$00 data changed.'
+}
+$maskedMoblinExtra = $extraEnemyRows[0x0a]
+$maskedMoblinFlags = [Convert]::ToInt32(
+    $maskedMoblinSubid.Groups['flags'].Value, 16)
+$maskedAnimationStart = $enemyAnimationSource.IndexOf(
+    'enemy20Animations:', [StringComparison]::Ordinal)
+$maskedAnimationEnd = $enemyAnimationSource.IndexOf(
+    'enemy0bAnimations:', [StringComparison]::Ordinal)
+$maskedMoblinAnimationLabels = @([regex]::Matches(
+    $enemyAnimationSource.Substring(
+        $maskedAnimationStart, $maskedAnimationEnd - $maskedAnimationStart),
+    '(?m)^\s*\.dw\s+(?<label>enemyAnimation[0-9a-f]+)') |
+    ForEach-Object { $_.Groups['label'].Value })
+$maskedOamStart = $enemyAnimationSource.IndexOf(
+    'enemy20OamDataPointers:', [StringComparison]::Ordinal)
+$maskedOamEnd = $enemyAnimationSource.IndexOf(
+    'enemy0bOamDataPointers:', [StringComparison]::Ordinal)
+$maskedMoblinOamLabels = @([regex]::Matches(
+    $enemyAnimationSource.Substring(
+        $maskedOamStart, $maskedOamEnd - $maskedOamStart),
+    '(?m)^\s*\.dw\s+(?<label>enemyOamData[0-9a-f]+)') |
+    ForEach-Object { $_.Groups['label'].Value })
+if ($maskedMoblinAnimationLabels.Count -lt 4 -or $maskedMoblinOamLabels.Count -lt 8) {
+    throw 'ENEMY_MASKED_MOBLIN animation/OAM pointer tables are incomplete.'
+}
+function Resolve-MaskedMoblinAnimation([string]$label) {
+    $frames = [Collections.Generic.List[string]]::new()
+    foreach ($frame in [regex]::Matches(
+        (Get-AssemblyLabelBody $script:enemyAnimationSource $label),
+        '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})')) {
+        $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
+        $pointerIndex = [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2
+        if ($pointerIndex -ge $script:maskedMoblinOamLabels.Count) {
+            throw "$label references missing masked-Moblin OAM pointer $pointerIndex."
+        }
+        $frames.Add("$duration@$(Resolve-EnemyOam $script:maskedMoblinOamLabels[$pointerIndex])")
+    }
+    return $frames -join '|'
+}
+$maskedMoblinAnimations = @($maskedMoblinAnimationLabels[0..3] |
+    ForEach-Object { Resolve-MaskedMoblinAnimation $_ })
+$maskedMoblinDamageByte = [Convert]::ToInt32(
+    $maskedMoblinExtra.Groups['damage'].Value, 16)
+$maskedMoblinTileBase = ($maskedMoblinFlags -band 0x0f) * 2
+$maskedMoblinPalette = ($maskedMoblinFlags -shr 4) -band 7
+$maskedMoblinRadiusY = [Convert]::ToInt32(
+    $maskedMoblinExtra.Groups['y'].Value, 16)
+$maskedMoblinRadiusX = [Convert]::ToInt32(
+    $maskedMoblinExtra.Groups['x'].Value, 16)
+$maskedMoblinDamage = (0x100 - $maskedMoblinDamageByte) / 2
+$maskedMoblinHealth = [Convert]::ToInt32(
+    $maskedMoblinExtra.Groups['health'].Value, 16)
+$maskedMoblinRows = @(
+    "# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tspeed-raw`tmove-base`tmove-mask`tturn-wait`tup-animation`tright-animation`tdown-animation`tleft-animation",
+    (@(
+        '20', '00', $gfxNames[0x90], $maskedMoblinTileBase,
+        $maskedMoblinPalette, $maskedMoblinRadiusY, $maskedMoblinRadiusX,
+        $maskedMoblinDamage, $maskedMoblinHealth,
+        0x14, 0x30, 0x3f, 0x08,
+        $maskedMoblinAnimations[0], $maskedMoblinAnimations[1],
+        $maskedMoblinAnimations[2], $maskedMoblinAnimations[3]
+    ) -join "`t")
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\masked_moblin.tsv'),
+    $maskedMoblinRows, [Text.UTF8Encoding]::new($false))
+
+$enemyArrowData = [regex]::Match(
+    $partDataSource,
+    '(?m)^\s*\.db \$(?<gfx>[0-9a-f]{2}) \$(?<collision>[0-9a-f]{2}) \$(?<radius>[0-9a-f]{2}) \$(?<damage>[0-9a-f]{2}) \$40 \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2}) \$00\s*; \$1a')
+if (-not $enemyArrowData.Success -or
+    [Convert]::ToInt32($enemyArrowData.Groups['gfx'].Value, 16) -ne 0x8e -or
+    [Convert]::ToInt32($enemyArrowData.Groups['collision'].Value, 16) -ne 0x86 -or
+    [Convert]::ToInt32($enemyArrowData.Groups['damage'].Value, 16) -ne 0xfc) {
+    throw 'PART_ENEMY_ARROW `$1a data changed.'
+}
+$arrowAnimationStart = $partAnimationSource.IndexOf(
+    'part1aAnimations:', [StringComparison]::Ordinal)
+$arrowAnimationEnd = $partAnimationSource.IndexOf(
+    'part13Animations:', [StringComparison]::Ordinal)
+$enemyArrowAnimationLabels = @([regex]::Matches(
+    $partAnimationSource.Substring(
+        $arrowAnimationStart, $arrowAnimationEnd - $arrowAnimationStart),
+    '(?m)^\s*\.dw\s+(?<label>partAnimation[0-9a-f]+)') |
+    ForEach-Object { $_.Groups['label'].Value })
+$arrowOamStart = $partAnimationSource.IndexOf(
+    'part1aOamDataPointers:', [StringComparison]::Ordinal)
+$arrowOamEnd = $partAnimationSource.IndexOf(
+    'part19OamDataPointers:', [StringComparison]::Ordinal)
+$enemyArrowOamLabels = @([regex]::Matches(
+    $partAnimationSource.Substring(
+        $arrowOamStart, $arrowOamEnd - $arrowOamStart),
+    '(?m)^\s*\.dw\s+(?<label>partOamData[0-9a-f]+)') |
+    ForEach-Object { $_.Groups['label'].Value })
+if ($enemyArrowAnimationLabels.Count -lt 4 -or $enemyArrowOamLabels.Count -ne 4) {
+    throw 'PART_ENEMY_ARROW animation/OAM pointer tables are incomplete.'
+}
+function Resolve-EnemyArrowAnimation([string]$label) {
+    $frames = [Collections.Generic.List[string]]::new()
+    foreach ($frame in [regex]::Matches(
+        (Get-AssemblyLabelBody $script:partAnimationSource $label),
+        '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})')) {
+        $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
+        $pointerIndex = [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2
+        if ($pointerIndex -ge $script:enemyArrowOamLabels.Count) {
+            throw "$label references missing enemy-arrow OAM pointer $pointerIndex."
+        }
+        $frames.Add("$duration@$(Resolve-PartOam $script:enemyArrowOamLabels[$pointerIndex])")
+    }
+    return $frames -join '|'
+}
+$enemyArrowAnimations = @($enemyArrowAnimationLabels[0..4] |
+    ForEach-Object { Resolve-EnemyArrowAnimation $_ })
+$enemyArrowDamageByte = [Convert]::ToInt32(
+    $enemyArrowData.Groups['damage'].Value, 16)
+$enemyArrowTileBase = [Convert]::ToInt32(
+    $enemyArrowData.Groups['tile'].Value, 16)
+$enemyArrowPalette = [Convert]::ToInt32(
+    $enemyArrowData.Groups['flags'].Value, 16) -band 7
+$enemyArrowDamage = (0x100 - $enemyArrowDamageByte) / 2
+$enemyArrowRows = @(
+    "# sprite`ttile-base`tpalette`tdamage-quarters`tspeed-raw`tup-animation`tright-animation`tdown-animation`tleft-animation`tbounce-animation",
+    (@(
+        $gfxNames[0x8e],
+        $enemyArrowTileBase, $enemyArrowPalette, $enemyArrowDamage, 0x50,
+        $enemyArrowAnimations[0], $enemyArrowAnimations[1],
+        $enemyArrowAnimations[2], $enemyArrowAnimations[3],
+        $enemyArrowAnimations[4]
+    ) -join "`t")
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'effects\enemy_arrow.tsv'),
+    $enemyArrowRows, [Text.UTF8Encoding]::new($false))
+
+foreach ($spriteName in @($gfxNames[0x90], $gfxNames[0x8e])) {
+    $sourceSprite = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
+        ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Filter "$spriteName.png" } |
+        Select-Object -First 1
+    if ($null -eq $sourceSprite) { throw "Dynamic Maku rescue sprite not found: $spriteName.png" }
+    Copy-Item -LiteralPath $sourceSprite.FullName `
+        -Destination (Join-Path $destination "gfx\$spriteName.png") -Force
+}
+
 # Preserve the complete Ages enemy item-drop selection data used by
 # decideItemDrop. The fixed binary layout is 144 enemy records, eight 8-byte
 # probability masks, and sixteen 32-byte item sets (720 bytes total).

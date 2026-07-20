@@ -51,7 +51,8 @@ claim that the entire surrounding game is complete.
   the moving path-blocking villager, unconditional construction soldiers,
   per-talk random worker text, left/right pickaxe strikes and dirt chips,
   half-pixel hardhat patrols, and the exact Shovel grant/held-item sequence.
-- Keese, Octoroks/projectiles, ordinary Stalfos `$31:$00`, Zols, and Gels using
+- Keese, Octoroks/projectiles, masked Moblins `$20:$00` and their arrows,
+  ordinary Stalfos `$31:$00`, Zols, and Gels using
   ordered room-object placement, original spawn restrictions, shared RNG,
   combat, common/split kill sounds, hole-fall sounds, and drop paths. All 34
   ordinary-Stalfos records (37 instances) use their source SPEED_80 walk,
@@ -98,6 +99,16 @@ claim that the entire surrounding game is complete.
   first arrival in the past, the Maku Tree disappearance, and Nayru's
   introduction/aftermath. Script-driven portions use the typed command runner;
   native transition/presentation objects retain specialized controllers.
+- Room `1:38`'s complete Maku Sprout rescue, including the exact
+  `wMakuTreeState`/saved-flag predicate, synchronized jumping interaction
+  Moblins, replacement by two ordinary masked-Moblin enemies, live enemy-count
+  dialogue branches, Link approach and post-fight repositioning, four-phase
+  interleaved gate opening with puffs/shake/sounds, transition locking, room
+  music restoration, pre-display initialization of the distressed sprout and
+  both Moblins, the final zero-distance DIR_UP waypoint, TX `$05d4`'s explicit
+  lower textbox, advice/saved/map-text/layout writes, the active `$e1:$02` time
+  portal on the bottom exit to room `1:48`, and completed TX `$05d5` re-entry
+  state.
 - Room `1:75`'s complete linked and unlinked pre-Black Tower sequences,
   including Ralph's departure, the heritage scene, coordinated Impa/Nayru/Zelda
   lanes, Link movement, spawned effects, and persistent completion state.
