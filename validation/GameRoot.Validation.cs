@@ -231,6 +231,7 @@ public sealed class ValidationGameRoot : GameRoot
         ValidateImpaIntroEncounter();
         ValidateMakuTreeDisappearanceCutscene();
         ValidateMakuSproutRescueCutscene();
+        ValidateMakuTreeSavedCutscene();
         ValidateNayruIntroCutscene();
         ValidateRalphPortalDepartureEvent();
         ValidateAnimations();
@@ -12898,6 +12899,269 @@ public sealed class ValidationGameRoot : GameRoot
             "bursts with shake/sounds, advice/saved/map-text/layout persistence, room music " +
             "restore, final DIR_UP waypoint, lower TX_05d4, screen-edge transition lock, " +
             "bottom exit to the active 1:48 $e1:$02 portal, TX_05d5, and completed re-entry.");
+    }
+
+    private void ValidateMakuTreeSavedCutscene()
+    {
+        const int group = 0;
+        const int room = 0x38;
+        MakuTreeSavedEvent savedEvent = _roomEvents.MakuTreeSaved;
+        MakuTreeSavedDatabase database = savedEvent.Database;
+        MakuTreeSavedDatabase.SavedEventRecord record = database.Record;
+        int originalState = _saveData.MakuTreeState;
+        int originalMapText = _saveData.MakuMapTextPresent;
+        int originalSatchelX = _saveData.MakuTreeSeedSatchelXPosition;
+        byte originalRoomFlags = _saveData.GetRoomFlags(group, room);
+        bool originalAdvice = _saveData.HasGlobalFlag(record.AdviceFlag);
+        var inventorySnapshot = new byte[0x36];
+        _saveData.ReadWramBytes(0xc688, inventorySnapshot);
+
+        _saveData.SetMakuTreeState(1);
+        _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlagLayoutSwap, false);
+        _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlagItem, false);
+        _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlag80, false);
+        _saveData.SetGlobalFlag(record.AdviceFlag, false);
+        _saveData.SetMakuMapTextPresent(0);
+        LoadValidationRoom(group, room);
+        if (savedEvent.HasState)
+        {
+            throw new InvalidOperationException(
+                "Room 0:38 adult Maku Tree event ignored its wMakuTreeState=$02 predicate.");
+        }
+
+        _saveData.SetMakuTreeState(2);
+        var trace = new ValidationCutsceneTrace();
+        _roomEvents.CommandTraceSink = trace;
+        _sound.ClearPlayRequestAudit();
+        LoadValidationRoom(group, room);
+        _player.WarpTo(new Vector2(0x50, 0x4d));
+        _player.Face(Vector2I.Up);
+        NpcCharacter tree = _entities.Entities<NpcCharacter>().Single(npc =>
+            npc.Record.Id == record.InteractionId && npc.Record.SubId == record.SubId);
+        if (!savedEvent.HasState || savedEvent.BlocksGameplay || !tree.Active ||
+            tree.Position != new Vector2(0x50, 0x40) ||
+            tree.CurrentAnimationTextureSize.X <= 32 ||
+            tree.CurrentAnimationTextureSize.Y <= 32)
+        {
+            throw new InvalidOperationException(
+                "Room 0:38 did not initialize the state-$02 adult tree with its full OAM.");
+        }
+
+        StepRoomEventFrames(3);
+        if (!savedEvent.ButtonSensitive || savedEvent.CurrentCommandIndex != 6 ||
+            savedEvent.BlocksGameplay || _sound.ActiveMusic != record.Music)
+        {
+            throw new InvalidOperationException(
+                "makuTree_subid02Script_body did not reach its initial A-button wait with Maku music.");
+        }
+        if (!_interactions.TryInteract(_player))
+            throw new InvalidOperationException(
+                "The normal A-button target path could not reach the adult Maku Tree.");
+        // Exercise the helper's lower Link-X band after the real centered
+        // interaction point has routed A to pressedAButton.
+        _player.WarpTo(new Vector2(0x45, 0x4d));
+
+        var textIds = new List<int>();
+        int handledTextStarts = 0;
+        int choiceCount = 0;
+        for (int frame = 0; frame < 5000; frame++)
+        {
+            StepRoomEventFrames(1);
+            CutsceneCommandTraceEntry[] textStarts = trace.Entries.Where(entry =>
+                entry.Phase == CutsceneCommandTracePhase.Started &&
+                entry.Source.Opcode == "showtext").ToArray();
+            if (_dialogue.IsOpen && textStarts.Length > handledTextStarts)
+            {
+                CutsceneCommandTraceEntry started = textStarts[handledTextStarts++];
+                if (database.Commands[started.Source.CommandIndex]
+                    is not CutsceneShowTextCommand text)
+                {
+                    throw new InvalidOperationException(
+                        "Saved Maku Tree showtext trace did not resolve to typed text metadata.");
+                }
+                textIds.Add(text.TextId);
+                if (_dialogue.Position.Y != 80)
+                {
+                    throw new InvalidOperationException(
+                        $"Saved Maku Tree TX_{text.TextId:x4} ignored its \\pos(2) textbox.");
+                }
+                if (text.TextId == 0x054a)
+                {
+                    _dialogue.SubmitChoiceForValidation(choiceCount++ == 0 ? 0 : 1);
+                }
+                else
+                {
+                    _dialogue.Close();
+                }
+            }
+
+            GroundTreasurePickup? falling =
+                _entities.Entities<GroundTreasurePickup>().SingleOrDefault();
+            if (savedEvent.CurrentCommandIndex == 60 &&
+                !savedEvent.BlocksGameplay && falling?.State ==
+                    GroundTreasurePickup.PickupState.Waiting)
+            {
+                break;
+            }
+        }
+
+        int[] expectedTexts =
+        [
+            0x0542, 0x0543, 0x0544, 0x0545, 0x0546, 0x0547,
+            0x0548, 0x0549, 0x054a,
+            0x0548, 0x0549, 0x054a,
+            0x054b, 0x054c, 0x054d, 0x054e, 0x054f, 0x0550, 0x0561
+        ];
+        GroundTreasurePickup dropped =
+            _entities.Entities<GroundTreasurePickup>().Single();
+        if (!textIds.SequenceEqual(expectedTexts) || choiceCount != 2 ||
+            savedEvent.CurrentCommandIndex != 60 || savedEvent.BlocksGameplay ||
+            _player.CutsceneControlled ||
+            !_saveData.HasGlobalFlag(record.AdviceFlag) ||
+            _saveData.MakuMapTextPresent != record.MapTextLow ||
+            !_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag80) ||
+            _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagItem) ||
+            _saveData.MakuTreeSeedSatchelXPosition != record.LowerBandX ||
+            dropped.Record.TreasureObject != record.FallingTreasureObject ||
+            dropped.Position != new Vector2(record.LowerBandX, record.DropY) ||
+            dropped.Record.SpawnMode != 2 || dropped.Record.GrabMode != 1 ||
+            dropped.State != GroundTreasurePickup.PickupState.Waiting ||
+            dropped.ZFixed != 0 ||
+            _sound.PlayRequestsFor(record.SpawnSound) != 1 ||
+            _sound.PlayRequestsFor(record.LandingSound) != record.BounceCount)
+        {
+            throw new InvalidOperationException(
+                "Room 0:38 did not preserve the explanation repeat, advice state, " +
+                "dynamic Satchel X selection, 40-update fall, or two landing cues.");
+        }
+
+        _player.WarpTo(new Vector2(0x50, 0x4d));
+        _player.Face(Vector2I.Up);
+        if (!_interactions.TryInteract(_player))
+            throw new InvalidOperationException(
+                "The normal A-button target path could not reach the adult Maku Tree NPC loop.");
+        StepRoomEventFrames(1);
+        if (!_dialogue.IsOpen || _dialogue.Position.Y != 80 ||
+            database.Commands[savedEvent.CurrentCommandIndex - 1]
+                is not CutsceneShowTextCommand { TextId: 0x054f })
+        {
+            throw new InvalidOperationException(
+                "The completed adult Maku Tree NPC loop did not repeat bottom TX_054f.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(31);
+
+        // Leave before collecting. Room bit $80 and wMakuTreeSeedSatchelXPosition
+        // must recreate var03=$03 instantly at $58 on the next entry.
+        LoadValidationRoom(0, 0x39);
+        LoadValidationRoom(group, room);
+        StepRoomEventFrames(1);
+        GroundTreasurePickup respawned =
+            _entities.Entities<GroundTreasurePickup>().Single();
+        if (respawned.Record.TreasureObject != record.RespawnTreasureObject ||
+            respawned.Position != new Vector2(record.LowerBandX, record.RespawnY) ||
+            respawned.Record.SpawnMode != 0 || respawned.Record.GrabMode != 1)
+        {
+            throw new InvalidOperationException(
+                "The uncollected Seed Satchel did not respawn from persisted room bit $80/X data.");
+        }
+        StepRoomEventFrames(2);
+        if (savedEvent.CurrentCommandIndex != 60 ||
+            respawned.State != GroundTreasurePickup.PickupState.Waiting ||
+            _dialogue.IsOpen)
+        {
+            throw new InvalidOperationException(
+                "Satchel re-entry retriggered the full adult-tree conversation or delayed var03=$03.");
+        }
+
+        int emberSeedsBefore = _inventory.EmberSeeds;
+        _sound.ClearPlayRequestAudit();
+        _player.WarpTo(respawned.Position);
+        _entities.Update(1.0 / 60.0, _player);
+        if (_interactions.GroundTreasureForValidation != respawned ||
+            !_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagItem) ||
+            _inventory.SeedSatchelLevel != 1 ||
+            _inventory.EmberSeeds != Math.Max(emberSeedsBefore, 0x20) ||
+            !_dialogue.IsOpen ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 1)
+        {
+            throw new InvalidOperationException(
+                "Touching the respawned Satchel did not grant its level, 20 Ember Seeds, " +
+                $"$20, text, and sound (tracked={ReferenceEquals(_interactions.GroundTreasureForValidation, respawned)}, " +
+                $"flag={_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagItem)}, " +
+                $"level={_inventory.SeedSatchelLevel}, seeds={_inventory.EmberSeeds}/" +
+                $"{emberSeedsBefore}, dialogue={_dialogue.IsOpen}, " +
+                $"sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndGetItem)})." );
+        }
+        _interactions.Update(1.0 / 60.0, _player);
+        _entities.Update(1.0 / 60.0, _player);
+        if (!respawned.Held || !_player.IsHoldingItemOneHand ||
+            respawned.Position != _player.Position + new Vector2(-4, -14) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2)
+        {
+            throw new InvalidOperationException(
+                "Seed Satchel collection did not use grab mode $01 and its -4/-14 offset.");
+        }
+        _dialogue.Close();
+        _interactions.Update(1.0 / 60.0, _player);
+        _entities.Update(1.0 / 60.0, _player);
+        if (_player.IsHoldingItemOneHand ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0)
+        {
+            throw new InvalidOperationException(
+                "Closing the Seed Satchel text did not release Link and delete INTERAC_TREASURE.");
+        }
+        LoadValidationRoom(group, room);
+        StepRoomEventFrames(3);
+        if (_entities.Entities<GroundTreasurePickup>().Count != 0 ||
+            savedEvent.CurrentCommandIndex != 60 || _dialogue.IsOpen)
+        {
+            throw new InvalidOperationException(
+                "Collected room-$20 Satchel respawned or retriggered the first conversation.");
+        }
+
+        CutsceneCommandTraceEntry[] commandStarts = trace.Entries.Where(entry =>
+            entry.Phase == CutsceneCommandTracePhase.Started &&
+            entry.Source.Script == "makuTree_subid02Script_body").ToArray();
+        if (commandStarts.Any(entry => entry.Source.SourceLine <= 0) ||
+            !commandStarts.Any(entry => entry.Source.Opcode == "jumpifroomflagset") ||
+            !commandStarts.Any(entry => entry.Source.Opcode == "jumpiftextoptioneq") ||
+            !commandStarts.Any(entry => entry.Source.Opcode == "checkabutton") ||
+            !commandStarts.Any(entry => entry.Source.Opcode == "setmusic"))
+        {
+            throw new InvalidOperationException(
+                "Saved Maku Tree typed trace lost its source lines or new branch/input/music opcodes.");
+        }
+        LoadValidationRoom(0, 0x39);
+        _saveData.WriteWramBytes(0xc688, inventorySnapshot);
+        _saveData.CommitInventoryChange();
+        System.Reflection.MethodInfo? reloadInventory = typeof(InventoryState).GetMethod(
+            "LoadFromSaveData",
+            System.Reflection.BindingFlags.Instance |
+            System.Reflection.BindingFlags.NonPublic);
+        if (reloadInventory is null)
+            throw new InvalidOperationException("Could not restore validation inventory state.");
+        reloadInventory.Invoke(_inventory, null);
+        _saveData.SetMakuTreeState(originalState);
+        _saveData.SetMakuMapTextPresent(originalMapText);
+        _saveData.SetMakuTreeSeedSatchelXPosition(originalSatchelX);
+        _saveData.SetGlobalFlag(record.AdviceFlag, originalAdvice);
+        _saveData.SetRoomFlag(
+            group, room, OracleSaveData.RoomFlagLayoutSwap,
+            (originalRoomFlags & OracleSaveData.RoomFlagLayoutSwap) != 0);
+        _saveData.SetRoomFlag(
+            group, room, OracleSaveData.RoomFlagItem,
+            (originalRoomFlags & OracleSaveData.RoomFlagItem) != 0);
+        _saveData.SetRoomFlag(
+            group, room, OracleSaveData.RoomFlag80,
+            (originalRoomFlags & OracleSaveData.RoomFlag80) != 0);
+        _roomEvents.CommandTraceSink = null;
+
+        GD.Print("Validated room 0:38 Maku Tree $87:$02: exact state predicate, " +
+            "68-command typed NPC loop, fixed-bottom TX_0542-$0550/$0561 sequence, " +
+            "Yes repeat/No continuation, five face animations, present-map advice state, " +
+            "Link-relative Satchel X, persistent $80/X respawn, 40-update falling bounce, " +
+            "SND_SOLVEPUZZLE/two SND_DROPESSENCE cues, room-$20 suppression, and one-hand collection.");
     }
 
     private void ValidateNayruIntroCutscene()

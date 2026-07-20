@@ -144,6 +144,14 @@ internal sealed record CutsceneMakeAButtonSensitiveCommand(
     public CutsceneActorId ActorId { get; } = new(Actor);
 }
 
+internal sealed record CutsceneCheckAButtonCommand(
+    CutsceneCommandSource Source,
+    string Actor)
+    : CutsceneCommand(Source)
+{
+    public CutsceneActorId ActorId { get; } = new(Actor);
+}
+
 internal sealed record CutsceneGateCommand(
     CutsceneCommandSource Source,
     string Gate)
@@ -158,6 +166,18 @@ internal sealed record CutsceneMemoryGateCommand(
 internal sealed record CutsceneMemoryBranchCommand(
     CutsceneCommandSource Source,
     string Binding,
+    int Value,
+    int TargetCommand)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneRoomFlagBranchCommand(
+    CutsceneCommandSource Source,
+    int Flag,
+    int TargetCommand)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneTextOptionBranchCommand(
+    CutsceneCommandSource Source,
     int Value,
     int TargetCommand)
     : CutsceneCommand(Source);
@@ -251,6 +271,11 @@ internal sealed record CutsceneWriteMemoryCommand(
 internal sealed record CutscenePlaySoundCommand(
     CutsceneCommandSource Source,
     int Sound)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneSetMusicCommand(
+    CutsceneCommandSource Source,
+    int Music)
     : CutsceneCommand(Source);
 
 /// <summary>
@@ -400,6 +425,15 @@ internal interface ICutsceneCommandHost
     void SetDisabledObjects(int value);
     bool GateOpen(string gate);
     bool MemoryEquals(string binding, int value);
+    bool RoomFlagSet(int flag) =>
+        throw new InvalidOperationException(
+            $"This cutscene host cannot read room flag ${flag:x2}.");
+    bool TextOptionEquals(int value) =>
+        throw new InvalidOperationException(
+            $"This cutscene host cannot read text option ${value:x2}.");
+    bool TryConsumeActorButton(CutsceneActorId actor) =>
+        throw new InvalidOperationException(
+            $"This cutscene host cannot consume A for actor '{actor}'.");
     void ShowText(int textId, string message);
     void SetActorAnimation(string actor, int animation, string encodedAnimation);
     void SetActorMovementAnimation(string actor, int angle, string encodedAnimation);
@@ -426,6 +460,9 @@ internal interface ICutsceneCommandHost
         throw new InvalidOperationException($"Actor '{actor}' does not support deletion.");
     void WriteMemory(string binding, int value);
     void PlaySound(int sound);
+    void SetMusic(int music) =>
+        throw new InvalidOperationException(
+            $"This cutscene host cannot set music ${music:x2}.");
     void SetGlobalFlag(int flag);
     void OrRoomFlag(int flag);
     void RunNativeHandler(string handler);

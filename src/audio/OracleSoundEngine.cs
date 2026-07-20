@@ -21,6 +21,7 @@ public partial class OracleSoundEngine : Node
     public const int MusGetEssence = 0x10;
     public const int MusFileSelect = 0x11;
     public const int MusRoomOfRites = 0x1d;
+    public const int MusMakuTree = 0x1e;
     public const int MusSadness = 0x1f;
     public const int MusDisaster = 0x21;
     public const int MusLadxSideview = 0x2f;
@@ -55,6 +56,7 @@ public partial class OracleSoundEngine : Node
     public const int SndKillEnemy = 0x73;
     public const int SndSwordSlash = 0x74;
     public const int SndUnknown5 = 0x75;
+    public const int SndDropEssence = 0x77;
     public const int SndBoomerang = 0x78;
     public const int SndMysterySeed = 0x7b;
     public const int SndMenuMove = 0x84;

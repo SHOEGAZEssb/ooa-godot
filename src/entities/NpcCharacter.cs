@@ -46,6 +46,7 @@ public partial class NpcCharacter : Node2D
     private bool _flagVisible = true;
     private float _collisionRadiusY = CollisionRadius;
     private float _collisionRadiusX = CollisionRadius;
+    private bool _scriptButtonSensitive;
     private int? _fixedDrawPriority;
     private int _textPosition;
 
@@ -219,6 +220,13 @@ public partial class NpcCharacter : Node2D
         _collisionRadiusX = radiusX;
     }
 
+    /// <summary>
+    /// Mirrors objectAddToAButtonSensitiveObjectList for scripts whose pressed-A
+    /// byte is their interaction trigger instead of an ordinary NPC text ID.
+    /// </summary>
+    internal void SetScriptButtonSensitive(bool sensitive) =>
+        _scriptButtonSensitive = sensitive;
+
     internal void SetStatePosition(Vector2 position)
     {
         if (Position == position)
@@ -244,7 +252,8 @@ public partial class NpcCharacter : Node2D
 
     public bool CanTalkTo(Player player)
     {
-        if (!Active || TextId == 0 || string.IsNullOrEmpty(Message))
+        if (!Active || (!_scriptButtonSensitive &&
+            (TextId == 0 || string.IsNullOrEmpty(Message))))
             return false;
         Vector2 talkPoint = player.Position + (Vector2)player.FacingVector * 8.0f;
         return InteractionBounds.HasPoint(talkPoint);

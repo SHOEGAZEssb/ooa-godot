@@ -30,6 +30,7 @@ public sealed class OracleSaveData
     public const int GlobalFlagMakuTreeDisappeared = 0x0c;
     public const int GlobalFlagSavedNayru = 0x11;
     public const int GlobalFlagMakuTreeSaved = 0x12;
+    public const int GlobalFlagMakuGivesAdviceFromPresentMap = 0x3e;
     public const int GlobalFlagMakuGivesAdviceFromPastMap = 0x3f;
     public const int GlobalFlagSawTwinrovaBeforeEndgame = 0x13;
     public const int GlobalFlagFinishedGame = 0x14;
@@ -68,7 +69,9 @@ public sealed class OracleSaveData
     public int MinimapGroup => ReadWramByte(0xc63a);
     public int MinimapRoom => ReadWramByte(0xc63b);
     public int MakuTreeState => ReadWramByte(0xc6e8);
+    public int MakuMapTextPresent => ReadWramByte(0xc6e6);
     public int MakuMapTextPast => ReadWramByte(0xc6e7);
+    public int MakuTreeSeedSatchelXPosition => ReadWramByte(0xc6eb);
     public string ChildName => ReadName(ChildNameAddress, 6);
     public bool ChildNamed => (ReadWramByte(ChildFlagsAddress) & 0x01) != 0;
     public string LinkName
@@ -187,6 +190,22 @@ public sealed class OracleSaveData
         if (textLow is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(textLow));
         if (WriteWramByte(0xc6e7, (byte)textLow))
+            Changed?.Invoke();
+    }
+
+    public void SetMakuMapTextPresent(int textLow)
+    {
+        if (textLow is < 0 or > 0xff)
+            throw new ArgumentOutOfRangeException(nameof(textLow));
+        if (WriteWramByte(0xc6e6, (byte)textLow))
+            Changed?.Invoke();
+    }
+
+    public void SetMakuTreeSeedSatchelXPosition(int x)
+    {
+        if (x is < 0 or > 0xff)
+            throw new ArgumentOutOfRangeException(nameof(x));
+        if (WriteWramByte(0xc6eb, (byte)x))
             Changed?.Invoke();
     }
 

@@ -37,6 +37,8 @@ claim that the entire surrounding game is complete.
   piece's inline 2x2 diagram changes from the previous quarter count on the
   30th update, clears the piece counter, then hands off to TX `$0049` while
   granting and refilling the four-quarter Heart Container.
+  The same reusable treasure entity now also supports falling spawn mode `$02`
+  and one-hand grab mode `$01`, used by the adult Maku Tree's Seed Satchel.
 
 ### NPCs and enemies
 
@@ -109,6 +111,14 @@ claim that the entire surrounding game is complete.
   lower textbox, advice/saved/map-text/layout writes, the active `$e1:$02` time
   portal on the bottom exit to room `1:48`, and completed TX `$05d5` re-entry
   state.
+- Room `0:38`'s immediate post-rescue adult Maku Tree event, selected by
+  `wMakuTreeState=$02`: the complete 68-command dialogue/NPC loop, all five
+  expressions, bottom text, Yes-to-repeat/No-to-continue choice, present-map
+  advice writes, Maku Tree music, and the Link-relative Seed Satchel drop. The
+  Satchel waits 40 updates, falls from above the screen, bounces once with both
+  landing cues, persists room bit `$80` and its selected X coordinate when
+  left behind, respawns at Y `$58`, uses the one-hand item pose, and is
+  suppressed by room item bit `$20` after collection.
 - Room `1:75`'s complete linked and unlinked pre-Black Tower sequences,
   including Ralph's departure, the heritage scene, coordinated Impa/Nayru/Zelda
   lanes, Link movement, spawned effects, and persistent completion state.

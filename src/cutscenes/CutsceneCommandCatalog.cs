@@ -104,6 +104,8 @@ internal static class CutsceneCommandCatalog
                 Hex(path, physicalLine, "arg1", arg1)),
             "makeabuttonsensitive" => new CutsceneMakeAButtonSensitiveCommand(
                 source, Required(path, physicalLine, "actor", actor)),
+            "checkabutton" => new CutsceneCheckAButtonCommand(
+                source, Required(path, physicalLine, "actor", actor)),
             "gate" => new CutsceneGateCommand(
                 source, Required(path, physicalLine, "payload", payload)),
             "checkmemoryeq" => new CutsceneMemoryGateCommand(
@@ -113,6 +115,14 @@ internal static class CutsceneCommandCatalog
             "jumpifmemoryeq" => new CutsceneMemoryBranchCommand(
                 source,
                 Required(path, physicalLine, "payload", payload),
+                Hex(path, physicalLine, "arg0", arg0),
+                Decimal(path, physicalLine, "arg1", arg1)),
+            "jumpifroomflagset" => new CutsceneRoomFlagBranchCommand(
+                source,
+                Hex(path, physicalLine, "arg0", arg0),
+                Decimal(path, physicalLine, "arg1", arg1)),
+            "jumpiftextoptioneq" => new CutsceneTextOptionBranchCommand(
+                source,
                 Hex(path, physicalLine, "arg0", arg0),
                 Decimal(path, physicalLine, "arg1", arg1)),
             "scriptjump" => new CutsceneBranchCommand(
@@ -154,6 +164,8 @@ internal static class CutsceneCommandCatalog
                 Required(path, physicalLine, "payload", payload),
                 Hex(path, physicalLine, "arg0", arg0)),
             "playsound" => new CutscenePlaySoundCommand(
+                source, Hex(path, physicalLine, "arg0", arg0)),
+            "setmusic" => new CutsceneSetMusicCommand(
                 source, Hex(path, physicalLine, "arg0", arg0)),
             "flicker" => new CutsceneFlickerCommand(
                 source,

@@ -135,3 +135,5 @@ internal sealed record CutsceneNpcSpawn(
     bool Talkable = false,
     bool Solid = false)
     : RoomEntitySpawn;
+internal sealed record GroundTreasureSpawn(GroundTreasureDatabase.Record Record)
+    : RoomEntitySpawn;

@@ -591,6 +591,31 @@ through the bottom must preload an already-active portal at `$48/$58`; do not
 drop subtype `$02` merely because later, Satchel-owning visits require the Tune
 of Echoes.
 
+Present room `0:38` is the reference for a talk-triggered event that keeps an
+infinite original NPC script active without blocking ordinary gameplay:
+
+- `wMakuTreeState=$02` selects `makuTree_subid02Script_body`; place this event
+  ahead of the earlier disappearance handler in room-event priority. `HasState`
+  remains true for the script's NPC loop, while `BlocksGameplay` follows only
+  `disableinput`/`enableinput`.
+- `makeabuttonsensitive` arms the placed `$87:$00` actor and `checkabutton`
+  consumes its routed talk press. This actor has no ordinary NPC text ID, so
+  target acquisition must honor its script-sensitive state before applying the
+  usual nonzero-text requirement. The initial room-bit `$80` branch skips the
+  first conversation on re-entry. TX `$054a` is a real choice: option `$00`
+  returns to `@explainAgain`; option `$01` continues.
+- Keep `makuTree_dropSeedSatchel` and `makuTree_checkSpawnSeedSatchel` as native
+  commands at their source boundaries. The drop chooses X `$50` outside
+  Link-X `$3c-$63`, X `$60` for `$3c-$4f`, and X `$40` for `$50-$63`; it stores
+  that byte at `$c6eb` and sets room bit `$80` before creating the treasure.
+- The created `INTERAC_TREASURE $60` is still the reusable ground-treasure
+  entity. Var03 `$02` means spawn mode `$02`, grab mode `$01`: wait 40 updates,
+  begin immediately above the screen, integrate Z with gravity `$10`, play
+  `SND_DROPESSENCE` on two landings, and bounce once at speed `-$00aa`.
+  Var03 `$03` respawns instantly at Y `$58`. Collection uses Link's one-hand
+  pose at offset `(-4,-14)` and sets room item bit `$20`, which suppresses all
+  later respawns.
+
 ## Validation pattern
 
 NPC and event regressions live in `validation/GameRoot.Validation.cs`, not in

@@ -67,11 +67,15 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
             int target = commands[index] switch
             {
                 CutsceneMemoryBranchCommand branch => branch.TargetCommand,
+                CutsceneRoomFlagBranchCommand branch => branch.TargetCommand,
+                CutsceneTextOptionBranchCommand branch => branch.TargetCommand,
                 CutsceneBranchCommand branch => branch.TargetCommand,
                 CutsceneCallCommand call => call.TargetCommand,
                 _ => -1
             };
             if (commands[index] is CutsceneMemoryBranchCommand or
+                    CutsceneRoomFlagBranchCommand or
+                    CutsceneTextOptionBranchCommand or
                     CutsceneBranchCommand or CutsceneCallCommand &&
                 (target < 0 || target >= commands.Count))
             {
@@ -256,6 +260,16 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                     _nextInstruction = branch.TargetCommand;
                 return CommandResult.Continue;
 
+            case CutsceneRoomFlagBranchCommand branch:
+                if (host.RoomFlagSet(branch.Flag))
+                    _nextInstruction = branch.TargetCommand;
+                return CommandResult.Continue;
+
+            case CutsceneTextOptionBranchCommand branch:
+                if (host.TextOptionEquals(branch.Value))
+                    _nextInstruction = branch.TargetCommand;
+                return CommandResult.Continue;
+
             case CutsceneBranchCommand branch:
                 _nextInstruction = branch.TargetCommand;
                 return CommandResult.Continue;
@@ -294,6 +308,11 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
             case CutsceneMakeAButtonSensitiveCommand button:
                 host.SetActorButtonSensitive(button.Actor);
                 return CommandResult.Continue;
+
+            case CutsceneCheckAButtonCommand button:
+                return host.TryConsumeActorButton(button.ActorId)
+                    ? CommandResult.Continue
+                    : CommandResult.Block;
 
             case CutsceneSetSpeedCommand speed:
                 _speeds[speed.Actor] = speed.Speed;
@@ -383,6 +402,11 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
             case CutscenePlaySoundCommand sound:
                 host.PlaySound(sound.Sound);
                 Observe(command, "Sound", value: sound.Sound);
+                return CommandResult.Yield;
+
+            case CutsceneSetMusicCommand music:
+                host.SetMusic(music.Music);
+                Observe(command, "Music", value: music.Music);
                 return CommandResult.Yield;
 
             case CutsceneFlickerCommand flicker:
@@ -568,6 +592,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
             case CutsceneSetAnimationContinueCommand value: yield return value.Actor; break;
             case CutsceneSetCollisionRadiiCommand value: yield return value.Actor; break;
             case CutsceneMakeAButtonSensitiveCommand value: yield return value.Actor; break;
+            case CutsceneCheckAButtonCommand value: yield return value.Actor; break;
             case CutsceneSetSpeedCommand value: yield return value.Actor; break;
             case CutsceneSetAngleCommand value: yield return value.Actor; break;
             case CutsceneApplySpeedCommand value: yield return value.Actor; break;

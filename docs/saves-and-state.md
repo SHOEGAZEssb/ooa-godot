@@ -73,6 +73,13 @@ In particular, the past `1:48` layout bit exposes the `$d7` spot used by
 `INTERAC_TIMEPORTAL_SPAWNER $e1:$02`; before the Seed Satchel is obtained, that
 subtype activates immediately on the bottom exit from the rescue room.
 
+The following present-room conversation writes low text byte `$4f` to
+`wMakuMapTextPresent` at `$c6e6` and global advice flag `$3e`. Dropping the
+Seed Satchel sets room `0:38` bit `$80` and stores the Link-relative drop X in
+`wMakuTreeSeedSatchelXPosition` at `$c6eb`. Until room item bit `$20` is set,
+re-entry recreates `TREASURE_OBJECT_SEED_SATCHEL_03` at that X and Y `$58`.
+These bytes are authoritative save-image state, not event-local recovery data.
+
 ## Inventory and treasure transactions
 
 `InventoryState` is a typed view over imported treasure behavior and the save

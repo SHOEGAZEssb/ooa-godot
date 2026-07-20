@@ -92,5 +92,14 @@ internal sealed class GroundTreasureDatabase
         string Animation,
         int CompletionTextId,
         string CompletionMessage,
-        string Source);
+        string Source,
+        int SpawnMode = 0,
+        int GrabMode = 2,
+        int SpawnDelayFrames = 0,
+        int InitialZPixels = 0,
+        int BounceCount = 0,
+        int Gravity = 0,
+        int BounceSpeed = 0,
+        int SpawnSound = 0,
+        int LandingSound = 0);
 }

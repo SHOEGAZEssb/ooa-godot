@@ -80,6 +80,19 @@ internal sealed class RoomEventContext(
             _dialogue.ShowMessage(message, playerScreenY);
     }
 
+    public void ShowChoiceDialogue(
+        string message,
+        int initialChoice = 0,
+        int? textboxPosition = null)
+    {
+        float playerScreenY = _worldToScreen(Player.Position).Y;
+        _dialogue.ShowChoiceMessage(
+            message, playerScreenY, initialChoice, textboxPosition);
+    }
+
+    public bool TryTakeDialogueChoice(out int choice) =>
+        _dialogue.TryTakeChoiceResult(out choice);
+
     private static bool Matches(NpcCharacter npc, int interactionId, int subId) =>
         npc.Record.Id == interactionId && npc.Record.SubId == subId;
 }

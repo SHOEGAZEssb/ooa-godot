@@ -297,6 +297,7 @@ internal sealed class RoomEntityFactory(
         FallingDownHoleSpawn fall => CreateFallingDownHole(fall),
         DungeonKeyUseSpawn key => CreateDungeonKeyUse(key),
         CutsceneNpcSpawn npc => CreateCutsceneNpc(npc),
+        GroundTreasureSpawn treasure => CreateGroundTreasure(treasure.Record),
         Room148DebrisSpawn debris => CreateRoom148Debris(debris),
         _ => throw new ArgumentOutOfRangeException(nameof(spawn), spawn, "Unknown room-entity spawn request.")
     };
@@ -593,6 +594,19 @@ internal sealed class RoomEntityFactory(
         };
         npc.Initialize(spawn.Record);
         return new CutsceneNpcRoomEntity(npc, spawn.Talkable, spawn.Solid);
+    }
+
+    private IRoomEntity CreateGroundTreasure(GroundTreasureDatabase.Record record)
+    {
+        var treasure = new GroundTreasurePickup
+        {
+            Name = $"GroundTreasure_{record.TreasureObject}",
+            ZIndex = 12
+        };
+        treasure.Initialize(record, soundRequested);
+        return new GroundTreasureRoomEntity(
+            treasure, groundTreasureCollectionAllowed,
+            groundTreasureCollected);
     }
 
     internal IEnumerable<IRoomEntity> CreateTimePortals(int group, OracleRoomData room)

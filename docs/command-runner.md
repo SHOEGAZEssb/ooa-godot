@@ -25,6 +25,7 @@ Current examples:
 | Ralph's portal departure | Typed command runner |
 | First-past arrival | Typed command runner |
 | Maku Tree disappearance | Typed command runner |
+| Adult Maku Tree post-rescue conversation | Typed command runner with native Seed Satchel create/respawn handlers |
 | Impa encounter and stone scripts | Typed runner with native follower, rock, and fake-Octorok handlers |
 | Nayru introduction and aftermath | Imported command stream with native object/effect handlers |
 | New-game intro | Specialized pregame timeline and native sprite presentation |
@@ -107,6 +108,11 @@ Preserve the separate counter behaviors:
   do not necessarily share their first or final update boundaries.
 - `callscript` and `retscript` retain their own yielded boundaries.
 - Dialogue commands must reproduce both opening and post-close boundaries.
+- `checkabutton` blocks on the actor binding and consumes that actor's pending
+  talk press when satisfied. `jumpifroomflagset` and `jumpiftextoptioneq`
+  branch and continue in the same update; the latter consumes the completed
+  choice result from the host. `setmusic` yields after selecting the imported
+  track. Keep these distinct from generic memory gates or sound effects.
 
 Never use `Tween` or frame-time interpolation as the authoritative source for
 ROM-timed movement.

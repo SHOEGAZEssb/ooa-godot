@@ -169,9 +169,13 @@ public partial class DialogueBox : Node2D
     internal void ShowChoiceMessage(
         string message,
         float linkY,
-        int initialChoice = 0)
+        int initialChoice = 0,
+        int? textPosition = null)
     {
-        ShowMessage(message, linkY);
+        if (textPosition.HasValue)
+            ShowMessage(message, linkY, textPosition.Value);
+        else
+            ShowMessage(message, linkY);
         _choiceActive = true;
         _selectedChoice = Math.Max(0, initialChoice);
     }

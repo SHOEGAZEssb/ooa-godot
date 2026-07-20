@@ -477,6 +477,240 @@ $makuCommandRows = @(
     $makuCommandRows,
     [Text.UTF8Encoding]::new($false))
 
+# Immediately after the young Maku Tree is saved, wMakuTreeState=$02 selects
+# the adult-tree script in present room 0:38. Export the complete looping
+# script, including its choice branch and the persistent falling Seed Satchel,
+# rather than reducing the event to a one-shot dialogue/reward.
+$makuSavedScriptMatch = [regex]::Match(
+    $makuScriptSource,
+    '(?ms)^makuTree_subid02Script_body:(?<body>.*?)(?=^makuTree_subid06Script_part1_body:)')
+if (-not $makuSavedScriptMatch.Success) {
+    throw 'Could not parse makuTree_subid02Script_body.'
+}
+$makuSavedTextIds = @(0x0542..0x0550) + @(0x0561)
+foreach ($textId in $makuSavedTextIds) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve saved Maku Tree text TX_$($textId.ToString('x4'))."
+    }
+    if (-not $allTextPositions.ContainsKey($textId) -or
+        $allTextPositions[$textId] -ne 2) {
+        throw "Expected saved Maku Tree TX_$($textId.ToString('x4')) to use \\pos(2)."
+    }
+}
+if ($allTexts[0x054a] -notmatch '\\opt\(\).*\\opt\(\)') {
+    throw 'Saved Maku Tree TX_054a no longer contains its Yes/No options.'
+}
+
+$makuSavedOpcodes = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @(
+    'asm15', 'setmusic', 'setcollisionradii', 'makeabuttonsensitive',
+    'jumpifroomflagset', 'checkabutton', 'disableinput',
+    'showtextlowindex', 'wait', 'jumpiftextoptioneq', 'setglobalflag',
+    'writememory', 'enableinput', 'scriptjump')) {
+    [void]$makuSavedOpcodes.Add($opcode)
+}
+$makuSavedParsed = @(Read-AssemblyCutsceneCommands `
+    (Join-Path $Disassembly 'scripts\ages\scriptHelper.s') `
+    $makuScriptSource 'makuTree_subid02Script_body' `
+    $makuSavedScriptMatch.Groups['body'].Index `
+    $makuSavedScriptMatch.Groups['body'].Length $makuSavedOpcodes)
+if ($makuSavedParsed.Count -ne 68) {
+    throw "Expected 68 saved Maku Tree commands, parsed $($makuSavedParsed.Count)."
+}
+$makuSavedTargets = @{}
+foreach ($command in $makuSavedParsed) {
+    if (-not $makuSavedTargets.ContainsKey($command.Label)) {
+        $makuSavedTargets[$command.Label] = $command.Index
+    }
+}
+if ($makuSavedTargets['@explainAgain'] -ne 26 -or
+    $makuSavedTargets['@npcLoop'] -ne 60) {
+    throw 'Saved Maku Tree branch labels no longer begin at commands 26 and 60.'
+}
+
+$makuTreeMusicMatch = [regex]::Match(
+    $makuMusicSource,
+    '(?m)^\s*MUS_MAKU_TREE\s+db\s*;\s*\$(?<value>[0-9a-f]{2})')
+$makuSolveSoundMatch = [regex]::Match(
+    $makuMusicSource,
+    '(?m)^\s*SND_SOLVEPUZZLE\s+db\s*;\s*\$(?<value>[0-9a-f]{2})')
+$makuLandingSoundMatch = [regex]::Match(
+    $makuMusicSource,
+    '(?m)^\s*SND_DROPESSENCE\s+db\s*;\s*\$(?<value>[0-9a-f]{2})')
+$globalFlagSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\globalFlags.s')
+$makuAdviceFlagMatch = [regex]::Match(
+    $globalFlagSource,
+    '(?m)^\s*GLOBALFLAG_MAKU_GIVES_ADVICE_FROM_PRESENT_MAP\s+db\s*;\s*\$(?<value>[0-9a-f]{2})')
+if (-not $makuTreeMusicMatch.Success -or
+    $makuTreeMusicMatch.Groups['value'].Value -ne '1e' -or
+    -not $makuSolveSoundMatch.Success -or
+    $makuSolveSoundMatch.Groups['value'].Value -ne '4d' -or
+    -not $makuLandingSoundMatch.Success -or
+    $makuLandingSoundMatch.Groups['value'].Value -ne '77' -or
+    -not $makuAdviceFlagMatch.Success -or
+    $makuAdviceFlagMatch.Groups['value'].Value -ne '3e') {
+    throw 'Could not resolve saved Maku Tree music, Satchel sounds, or advice flag.'
+}
+
+$makuSavedCommandRows = [Collections.Generic.List[string]]::new()
+$makuSavedCommandRows.Add(
+    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
+foreach ($command in $makuSavedParsed) {
+    $opcode = $command.Opcode
+    $actor = ''
+    $arg0 = ''
+    $arg1 = ''
+    $payload = ''
+    switch ($command.Opcode) {
+        'asm15' {
+            if ($command.Operands -match '^makuTree_setAnimation,\s*\$(?<animation>[0-4][0-9a-f]?)$') {
+                $animation = [Convert]::ToInt32($Matches['animation'], 16)
+                if ($animation -gt 4) { throw "Invalid Maku Tree animation at source line $($command.Line)." }
+                $opcode = 'setanimationcontinue'
+                $actor = 'MakuTree'
+                $arg0 = $animation.ToString('x2')
+                $payload = $makuAnimations[$animation]
+            }
+            elseif ($command.Operands -eq 'makuTree_checkSpawnSeedSatchel') {
+                $opcode = 'native'
+                $payload = 'makuTree_checkSpawnSeedSatchel'
+            }
+            elseif ($command.Operands -eq 'makuTree_dropSeedSatchel') {
+                $opcode = 'native'
+                $payload = 'makuTree_dropSeedSatchel'
+            }
+            else {
+                throw "Unsupported saved Maku Tree asm15 '$($command.Operands)' at source line $($command.Line)."
+            }
+        }
+        'setmusic' {
+            if ($command.Operands -ne 'MUS_MAKU_TREE') {
+                throw "Unexpected saved Maku Tree music '$($command.Operands)'."
+            }
+            $arg0 = $makuTreeMusicMatch.Groups['value'].Value
+        }
+        'setcollisionradii' {
+            if ($command.Operands -notmatch '^\$(?<y>[0-9a-f]{2}),\s*\$(?<x>[0-9a-f]{2})$') {
+                throw "Malformed saved Maku Tree collision radii at source line $($command.Line)."
+            }
+            $actor = 'MakuTree'
+            $arg0 = $Matches['y']
+            $arg1 = $Matches['x']
+        }
+        'makeabuttonsensitive' { $actor = 'MakuTree' }
+        'checkabutton' { $actor = 'MakuTree' }
+        'jumpifroomflagset' {
+            if ($command.Operands -notmatch '^\$(?<flag>[0-9a-f]{2}),\s*(?<target>@[A-Za-z0-9_]+)$') {
+                throw "Malformed saved Maku Tree room-flag branch at source line $($command.Line)."
+            }
+            $arg0 = $Matches['flag']
+            $arg1 = $makuSavedTargets[$Matches['target']].ToString()
+        }
+        'showtextlowindex' {
+            if ($command.Operands -notmatch '^<TX_(?<id>[0-9a-f]{4})$') {
+                throw "Malformed saved Maku Tree text at source line $($command.Line)."
+            }
+            $textId = [Convert]::ToInt32($Matches['id'], 16)
+            if (-not $makuSavedTextIds.Contains($textId)) {
+                throw "Unexpected saved Maku Tree text TX_$($Matches['id'])."
+            }
+            $opcode = 'showtext'
+            $arg0 = $Matches['id']
+            $payload = $allTexts[$textId]
+        }
+        'wait' { $arg0 = [int]$command.Operands }
+        'jumpiftextoptioneq' {
+            if ($command.Operands -notmatch '^\$(?<value>[0-9a-f]{2}),\s*(?<target>@[A-Za-z0-9_]+)$') {
+                throw "Malformed saved Maku Tree text-option branch at source line $($command.Line)."
+            }
+            $arg0 = $Matches['value']
+            $arg1 = $makuSavedTargets[$Matches['target']].ToString()
+        }
+        'setglobalflag' {
+            if ($command.Operands -ne 'GLOBALFLAG_MAKU_GIVES_ADVICE_FROM_PRESENT_MAP') {
+                throw "Unexpected saved Maku Tree global flag '$($command.Operands)'."
+            }
+            $arg0 = $makuAdviceFlagMatch.Groups['value'].Value
+        }
+        'writememory' {
+            if ($command.Operands -ne 'wMakuMapTextPresent, <TX_054f') {
+                throw "Unexpected saved Maku Tree WRAM write '$($command.Operands)'."
+            }
+            $arg0 = '4f'
+            $payload = 'wMakuMapTextPresent'
+        }
+        'scriptjump' {
+            if (-not $makuSavedTargets.ContainsKey($command.Operands)) {
+                throw "Unknown saved Maku Tree branch target '$($command.Operands)'."
+            }
+            $arg0 = $makuSavedTargets[$command.Operands].ToString()
+        }
+    }
+    $makuSavedCommandRows.Add((New-CutsceneCommandRow `
+        $command.Script $command.Index $command.Label $command.Line `
+        $opcode $actor "$arg0" "$arg1" $payload))
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\maku_tree_saved_commands.tsv'),
+    $makuSavedCommandRows,
+    [Text.UTF8Encoding]::new($false))
+
+$makuHelpers = $makuScriptSource.Substring(
+    $makuScriptSource.IndexOf('makuTree_dropSeedSatchel:'),
+    $makuScriptSource.IndexOf('makuTree_spawnMakuSeed:') -
+        $makuScriptSource.IndexOf('makuTree_dropSeedSatchel:'))
+if ($makuHelpers -notmatch '(?ms)makuTree_dropSeedSatchel:.*?bit 7,a.*?set 7,\(hl\).*?TREASURE_SEED_SATCHEL.*?ld \(hl\),\$02.*?ld \(hl\),\$60.*?ld b,\$50.*?cp \$64.*?cp \$3c.*?ld b,\$40.*?cp \$50.*?ld b,\$60.*?wMakuTreeSeedSatchelXPosition' -or
+    $makuHelpers -notmatch '(?ms)makuTree_checkSpawnSeedSatchel:.*?bit 5,a.*?bit 7,a.*?TREASURE_SEED_SATCHEL.*?ld \(hl\),\$03.*?ld a,\$58.*?wMakuTreeSeedSatchelXPosition') {
+    throw 'Saved Maku Tree Seed Satchel drop/respawn helpers changed.'
+}
+$seedSatchel02 = $treasureObjectRecords['TREASURE_OBJECT_SEED_SATCHEL_02']
+$seedSatchel03 = $treasureObjectRecords['TREASURE_OBJECT_SEED_SATCHEL_03']
+if ($null -eq $seedSatchel02 -or $null -eq $seedSatchel03 -or
+    $seedSatchel02.Treasure -ne 0x19 -or $seedSatchel03.Treasure -ne 0x19 -or
+    $seedSatchel02.Graphic -ne 0x20 -or $seedSatchel03.Graphic -ne 0x20) {
+    throw 'Could not resolve both Seed Satchel treasure-object records.'
+}
+$treasureObjectSourceText = $treasureObjectSource -join "`n"
+if ($treasureObjectSourceText -notmatch 'm_TreasureSubid \$29, \$00, \$2d, \$20, TREASURE_OBJECT_SEED_SATCHEL_02' -or
+    $treasureObjectSourceText -notmatch 'm_TreasureSubid \$09, \$00, \$2d, \$20, TREASURE_OBJECT_SEED_SATCHEL_03') {
+    throw 'Seed Satchel falling/respawn treasure modes changed.'
+}
+$treasureInteractionSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\treasure.s')
+if ($treasureInteractionSource -notmatch '(?ms)^@spawnMode2:.*?@@substate0:.*?ld \(hl\),40.*?SND_SOLVEPUZZLE.*?@@substate1:.*?ld \(hl\),\$02\s+inc l\s+ld \(hl\),\$02.*?objectGetZAboveScreen.*?@@substate2:.*?ld c,\$10\s+call objectUpdateSpeedZ_paramC.*?SND_DROPESSENCE.*?interactionDecCounter1.*?ld bc,-\$aa' -or
+    $treasureInteractionSource -notmatch '(?ms)^@grabMode1:\s*ldbc \$80,\$fc.*?ld b,\$f2\s+call objectTakePositionWithOffset') {
+    throw 'INTERAC_TREASURE falling spawn mode $02 or one-hand grab mode $01 changed.'
+}
+$objectMathSource = Get-Content -Raw (Join-Path $Disassembly 'code\bank0.s')
+if ($objectMathSource -notmatch '(?ms)^objectGetZAboveScreen:.*?ldh a,\(<hCameraY\)\s+sub b\s+sub \$08\s+cp \$80\s+ret nc\s+ld a,\$80\s+ret') {
+    throw 'objectGetZAboveScreen no longer uses cameraY-Y-$08 clamped to -$80.'
+}
+# Room 0:38 is one screen tall, so hCameraY is zero. Y=$60 therefore starts
+# at signed Z -$68, immediately above the screen as the native helper specifies.
+$makuSatchelInitialZ = [Math]::Max(-0x80, -0x60 - 0x08)
+$makuSavedEventRows = @(
+    "# group`troom`tid`tsubid`tanimation0`tanimation1`tanimation2`tanimation3`tanimation4`textra-sprite`ttextbox-position`tmusic`tadvice-flag`tmap-text-low`tfalling-object`trespawn-object`tdrop-y`trespawn-y`tdefault-x`tlower-bound`tmiddle-bound`tupper-bound`tlower-band-x`tupper-band-x`tinitial-z`tdrop-delay`tbounce-count`tgravity`tbounce-speed`tspawn-sound`tlanding-sound",
+    (@(
+        '0', '38', '87', '00',
+        $makuAnimations[0], $makuAnimations[1], $makuAnimations[2],
+        $makuAnimations[3], $makuAnimations[4], $makuExtraSprite,
+        '2', $makuTreeMusicMatch.Groups['value'].Value,
+        $makuAdviceFlagMatch.Groups['value'].Value, '4f',
+        'TREASURE_OBJECT_SEED_SATCHEL_02',
+        'TREASURE_OBJECT_SEED_SATCHEL_03',
+        '60', '58', '50', '3c', '50', '64', '60', '40',
+        $makuSatchelInitialZ.ToString(), '40', '2', '10', '-170',
+        $makuSolveSoundMatch.Groups['value'].Value,
+        $makuLandingSoundMatch.Groups['value'].Value
+    ) -join "`t")
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\maku_tree_saved_event.tsv'),
+    $makuSavedEventRows,
+    [Text.UTF8Encoding]::new($false))
+
 $makuPaletteLabels = [Collections.Generic.List[string]]::new()
 foreach ($symbol in $makuPaletteSymbols) {
     $headerMatch = [regex]::Match(
@@ -1726,6 +1960,8 @@ $cutsceneVocabularyRows = @(
     "setspeed`t2`tyield`tWrite Interaction.speed.",
     "applyspeed`t1-or-2`tblock`tWait for counter2; apply speed while nonzero.",
     "setcollisionradii`t3`tyield`tWrite collision radius Y/X.",
+    "makeabuttonsensitive`t1`tcontinue`tRegister the actor as a talk target.",
+    "checkabutton`t1`tblock`tHold until the registered actor consumes an A press.",
     "writeobjectbyte`t3`tyield`tWrite an Interaction byte.",
     "setanimation`t2-or-3`tyield`tSelect a literal, angle, or object-byte animation.",
     "writememory`t4`tcontinue`tWrite one WRAM byte and continue dispatch.",
@@ -1738,8 +1974,11 @@ $cutsceneVocabularyRows = @(
     "callscript`t3`tyield`tStore return address and transfer on the next update.",
     "retscript`t1`tyield`tRestore return address on the next update.",
     "jumpifmemoryeq`t6`tcontinue`tConditionally branch and continue dispatch.",
+    "jumpifroomflagset`t4`tcontinue`tBranch when a current-room flag is set.",
+    "jumpiftextoptioneq`t4`tcontinue`tBranch on the last selected text option.",
     "checkmemoryeq`t4`tgate`tHold until the WRAM byte equals the operand.",
     "playsound`t2`tyield`tQueue a sound effect.",
+    "setmusic`t2`tyield`tSelect the active music track.",
     "moveup/moveright/movedown/moveleft`t2`tblock`tSet direction/animation and install counter2.",
     "wait`t1-or-more`tblock`tPseudo-op selecting delay or setcounter1 records.",
     "asm15`t3-or-4`tcontinue`tRun an object-code handler; carry is forced on return."

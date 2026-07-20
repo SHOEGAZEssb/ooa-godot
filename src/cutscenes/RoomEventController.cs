@@ -12,6 +12,7 @@ public sealed class RoomEventController
 {
     private readonly RoomEventContext _context;
     private readonly MakuTreeDisappearanceEvent _makuTree;
+    private readonly MakuTreeSavedEvent _makuTreeSaved;
     private readonly RalphPortalEvent _ralph;
     private readonly PreBlackTowerEvent _preBlackTower;
     private readonly BlackTowerDoorwayEvent _blackTowerDoorway;
@@ -58,6 +59,7 @@ public sealed class RoomEventController
             sound,
             roomCamera);
         _makuTree = new MakuTreeDisappearanceEvent(_context);
+        _makuTreeSaved = new MakuTreeSavedEvent(_context);
         _ralph = new RalphPortalEvent(_context);
         _preBlackTower = new PreBlackTowerEvent(_context);
         _blackTowerDoorway = new BlackTowerDoorwayEvent(_context);
@@ -70,6 +72,7 @@ public sealed class RoomEventController
         [
             _nayru,
             _makuSproutRescue,
+            _makuTreeSaved,
             _makuTree,
             _ralph,
             _preBlackTower,
@@ -108,6 +111,7 @@ public sealed class RoomEventController
     }
 
     internal MakuTreeDisappearanceEvent MakuTree => _makuTree;
+    internal MakuTreeSavedEvent MakuTreeSaved => _makuTreeSaved;
     internal RalphPortalEvent Ralph => _ralph;
     internal PreBlackTowerEvent PreBlackTower => _preBlackTower;
     internal BlackTowerDoorwayEvent BlackTowerDoorway => _blackTowerDoorway;
@@ -159,7 +163,8 @@ public sealed class RoomEventController
     public bool TryInteractNpc(NpcCharacter npc) =>
         _nayru.TryInteractNpc(npc) ||
         _blackTowerEntrance.TryInteractNpc(npc) ||
-        _makuSproutRescue.TryInteractNpc(npc);
+        _makuSproutRescue.TryInteractNpc(npc) ||
+        _makuTreeSaved.TryInteractNpc(npc);
 
     /// <summary>
     /// Destination interactions continue updating during TRANSITION_DEST_TIMEWARP.
