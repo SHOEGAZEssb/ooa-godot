@@ -15,6 +15,7 @@ public sealed class PlayerWorld : IPlayerWorld
     private readonly RoomEntityManager _entities;
     private readonly BraceletController _bracelet;
     private readonly ShovelController _shovel;
+    private readonly SeedSatchelController _seedSatchel;
     private readonly RoomEventController _roomEvents;
     private readonly InventoryState _inventory;
     private readonly OracleSoundEngine _sound;
@@ -36,6 +37,7 @@ public sealed class PlayerWorld : IPlayerWorld
         RoomEntityManager entities,
         BraceletController bracelet,
         ShovelController shovel,
+        SeedSatchelController seedSatchel,
         RoomEventController roomEvents,
         InventoryState inventory,
         OracleSoundEngine sound,
@@ -51,6 +53,7 @@ public sealed class PlayerWorld : IPlayerWorld
         _entities = entities;
         _bracelet = bracelet;
         _shovel = shovel;
+        _seedSatchel = seedSatchel;
         _roomEvents = roomEvents;
         _inventory = inventory;
         _sound = sound;
@@ -63,6 +66,7 @@ public sealed class PlayerWorld : IPlayerWorld
     public void PlaySound(int soundId) => _sound.PlaySound(soundId);
     public bool TryInteract(Player player) => _interactions.TryInteract(player);
     public bool TryUseBracelet(Player player) => _bracelet.TryUse(player);
+    public int TryUseSeedSatchel(Player player) => _seedSatchel.TryUse(player);
     public bool DigWithShovel(Vector2 point, Vector2I direction) =>
         _shovel.TryDig(point, direction);
     public bool Collides(Vector2 position) =>

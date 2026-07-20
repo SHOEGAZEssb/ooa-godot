@@ -29,7 +29,8 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     Func<bool>? marksEnemyKilled = null,
     Action? finished = null)
     : RoomEntityAdapter<T>(entity, setTransitionDrawOffset),
-        ILinkContactEntity, ISwordHittableRoomEntity, IRoomEntityLifetime,
+        ILinkContactEntity, ISwordHittableRoomEntity, ISeedHittableRoomEntity,
+        IRoomEntityLifetime,
         IRoomEnemyCounterEntity, IRoomKillTrackedEnemy
     where T : Node2D
 {
@@ -44,7 +45,98 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         Vector2 sourcePosition,
         ICollection<RoomEntitySpawn> spawns) =>
         combat.ApplySwordHit(hitbox, sourcePosition, spawns);
+    public bool ApplySeedHit(
+        Rect2 hitbox,
+        Vector2 sourcePosition,
+        ICollection<RoomEntitySpawn> spawns) =>
+        combat.ApplySwordHit(hitbox, sourcePosition, spawns);
     public void OnFinished(ICollection<RoomEntitySpawn> spawns) => finished?.Invoke();
+}
+
+internal sealed class EmberSeedRoomEntity(EmberSeedEffect seed)
+    : RoomEntityAdapter<EmberSeedEffect>(seed, seed.SetTransitionDrawOffset),
+        IFixedRoomEntity, ISeedProjectileRoomEntity, IRoomEntityLifetime
+{
+    public bool Finished => Entity.Finished;
+    public bool CollisionEnabled => Entity.CollisionEnabled;
+    public Rect2 CollisionBounds => Entity.CollisionBounds;
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
+        Entity.UpdateFrame(spawns);
+    public void OnEnemyCollision() => Entity.OnEnemyCollision();
+    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
+}
+
+internal sealed class RoomTileChangeWatcherRoomEntity
+    : RoomEntityAdapter<Node2D>, IFixedRoomEntity, IRoomEntityLifetime
+{
+    private readonly RoomTileChangeWatcherDatabase.Record _record;
+    private readonly OracleRoomData _room;
+    private readonly OracleSaveData _save;
+    private readonly Vector2 _tilePoint;
+    private byte _initialTile;
+
+    internal bool Initialized { get; private set; }
+    public bool Finished { get; private set; }
+
+    internal RoomTileChangeWatcherRoomEntity(
+        RoomTileChangeWatcherDatabase.Record record,
+        OracleRoomData room,
+        OracleSaveData save)
+        : base(CreateNode(record), static _ => { })
+    {
+        _record = record;
+        _room = room;
+        _save = save;
+        int x = record.Position & 0x0f;
+        int y = record.Position >> 4;
+        if (x >= room.WidthInTiles || y >= room.HeightInTiles)
+        {
+            throw new InvalidOperationException(
+                $"{record.Source} watches invalid position ${record.Position:x2} " +
+                $"in room {record.Group:x1}:{record.Room:x2}.");
+        }
+        _tilePoint = new Vector2(
+            x * OracleRoomData.MetatileSize + 8,
+            y * OracleRoomData.MetatileSize + 8);
+    }
+
+    public void UpdateFrame(
+        RoomEntityFrame frame,
+        ICollection<RoomEntitySpawn> spawns)
+    {
+        if (Finished)
+            return;
+
+        if (!Initialized)
+        {
+            // State 0 checks the flag before reading wRoomLayout. A watcher
+            // whose persistent change was already applied deletes itself.
+            if (_save.HasRoomFlag(
+                _record.Group, _record.Room, _record.RoomFlag))
+            {
+                Finished = true;
+                return;
+            }
+            _initialTile = _room.GetMetatile(_tilePoint);
+            Initialized = true;
+            return;
+        }
+
+        if (_room.GetMetatile(_tilePoint) == _initialTile)
+            return;
+
+        _save.SetRoomFlag(
+            _record.Group, _record.Room, _record.RoomFlag);
+        Finished = true;
+    }
+
+    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
+
+    private static Node2D CreateNode(
+        RoomTileChangeWatcherDatabase.Record record) => new()
+    {
+        Name = $"TileChangeWatcher_{record.Order}"
+    };
 }
 
 internal sealed class NpcRoomEntity(NpcCharacter npc)

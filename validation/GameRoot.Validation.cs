@@ -237,6 +237,7 @@ public sealed class ValidationGameRoot : GameRoot
         ValidateAnimations();
         ValidateSwordBush();
         ValidateShovel();
+        ValidateSeedSatchel();
         ValidateEnemyPlacementRules();
         ValidateEnemyObjectPlacementOrder();
         ValidateKeese();
@@ -569,6 +570,7 @@ public sealed class ValidationGameRoot : GameRoot
             () => animationTick = 0,
             save);
         var changes = new RoomTileChangeDatabase();
+        var singleTileChanges = new SingleTileChangeDatabase();
         var warps = new WarpDatabase();
         static Vector2 Point(int position) => new(
             (position & 0x0f) * OracleRoomData.MetatileSize + 8,
@@ -578,6 +580,7 @@ public sealed class ValidationGameRoot : GameRoot
         OracleRoomData room = rooms.CurrentRoom;
 
         if (changes.RuleCount != 44 || changes.RoomCount != 35 ||
+            singleTileChanges.RecordCount != 56 ||
             room.GetPackedPosition(doorPoint) != 0x23 ||
             room.GetOriginalMetatile(doorPoint) != 0xa7 ||
             room.GetMetatile(doorPoint) != 0xa7 || !room.IsSolid(doorPoint) ||
@@ -604,6 +607,27 @@ public sealed class ValidationGameRoot : GameRoot
             throw new InvalidOperationException(
                 "Reloading room 0:3a without GLOBALFLAG_INTRO_DONE did not restore door $23/$a7.");
         }
+
+        // applySingleTileChanges treats $f0/$f1 as unlinked/linked predicates
+        // and $f2 as the executed GLOBALFLAG_FINISHEDGAME check.
+        var predicateSave = OracleSaveData.CreateStandardGame();
+        var predicateRooms = new RoomSession(
+            0, 0x48, () => 0, () => { }, predicateSave);
+        if (predicateRooms.CurrentRoom.GetMetatile(Point(0x28)) != 0x64)
+            throw new InvalidOperationException(
+                "Single-tile predicate $f0 did not apply room 0:48's unlinked-only write.");
+        predicateSave.WriteWramByte(0xc612, 1);
+        room = predicateRooms.Load(0, 0x48);
+        if (room.GetMetatile(Point(0x28)) != room.GetOriginalMetatile(Point(0x28)) ||
+            predicateRooms.Load(3, 0xd6).GetMetatile(Point(0x55)) != 0xe9)
+        {
+            throw new InvalidOperationException(
+                "Single-tile predicates $f0/$f1 did not switch with wIsLinkedGame.");
+        }
+        predicateSave.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        if (predicateRooms.Load(0, 0x47).GetMetatile(Point(0x36)) != 0xf2)
+            throw new InvalidOperationException(
+                "Single-tile predicate $f2 did not follow GLOBALFLAG_FINISHEDGAME.");
 
         // Current-room set/clear conditions and arbitrary direct writes.
         room = rooms.Load(0, 0x73);
@@ -699,7 +723,8 @@ public sealed class ValidationGameRoot : GameRoot
             throw new InvalidOperationException(
                 "Room 4:60 item flag $20 did not select the opened chest under the D3 global flag.");
 
-        GD.Print("Validated 44 imported rules for 35 room-specific tile changers: " +
+        GD.Print("Validated 56 single-tile changes and 44 imported rules for 35 " +
+            "room-specific tile changers: " +
             "global/current/specific-room/essence/WRAM conditions, set/fill/draw/replace/copy " +
             "operations, and room 0:3a's closed-to-open Nayru-house warp.");
     }
@@ -5317,7 +5342,7 @@ public sealed class ValidationGameRoot : GameRoot
             "30-update selection delay, A/B storage swaps, and gameplay freezing.");
     }
 
-    private static void ValidateItemIconShadeMapping()
+    private void ValidateItemIconShadeMapping()
     {
         if (ItemIconAtlas.ShadeFromPng(Color.Color8(0, 0, 0), out bool transparent) != 0 || !transparent ||
             ItemIconAtlas.ShadeFromPng(Color.Color8(85, 85, 85), out transparent) != 1 || transparent ||
@@ -5347,6 +5372,39 @@ public sealed class ValidationGameRoot : GameRoot
         {
             throw new InvalidOperationException(
                 "Standard sprite palettes no longer match bracelet palette `$05 and sword palette `$00.");
+        }
+
+        ulong storedSheetHash = OracleGraphicsCache.PixelHash(
+            OracleGraphicsCache.LoadImage(
+                "res://assets/oracle/gfx/spr_item_icons_1_spr.png"));
+        ulong equippedSheetHash = OracleGraphicsCache.PixelHash(
+            OracleGraphicsCache.LoadImage(
+                "res://assets/oracle/gfx/spr_item_icons_1.png"));
+        Image storedSheet = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_item_icons_1_spr.png");
+        Image equippedSheet = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_item_icons_1.png");
+        ItemIconAtlas.ShadeFromPng(
+            storedSheet.GetPixel(0, 0), out bool storedBackgroundTransparent);
+        int equippedBackgroundShade = ItemIconAtlas.ShadeFromPng(
+            equippedSheet.GetPixel(0, 0), out bool equippedBackgroundTransparent);
+        ulong expectedEquippedSatchelHash = ItemIconAtlas.DecodedCellHash(
+            equippedSheet, 0);
+        if (storedSheetHash == equippedSheetHash ||
+            _inventoryScreen.StoredItemIconSheet1HashForValidation != storedSheetHash ||
+            _inventoryScreen.EquippedItemIconSheet1HashForValidation != equippedSheetHash ||
+            !storedBackgroundTransparent || equippedBackgroundTransparent ||
+            equippedBackgroundShade != 3 ||
+            ItemIconAtlas.EquippedLeftPalette(0x80, 0x05) != 0x03 ||
+            ItemIconAtlas.EquippedLeftPalette(0x86, 0x05) != 0x05 ||
+            ItemIconAtlas.EquippedLeftPalette(0x8a, 0x05) != 0x03 ||
+            _inventoryScreen.EquippedItemIconShadeHashForValidation(0x80) !=
+                expectedEquippedSatchelHash ||
+            _hud.ItemIconShadeHashForValidation(0x80) != expectedEquippedSatchelHash)
+        {
+            throw new InvalidOperationException(
+                "The Start-menu and equipped Satchel icon paths did not preserve their " +
+                "distinct sheets, sprite color indices, or equipped-left palette transform.");
         }
     }
 
@@ -5797,6 +5855,367 @@ public sealed class ValidationGameRoot : GameRoot
 
         GD.Print("Validated ITEM_SHOVEL timing, invisible child offsets, tile effects, " +
             "gasha maturity, debris, and clink/success sounds.");
+    }
+
+    private void ValidateSeedSatchel()
+    {
+        var database = new SeedSatchelDatabase();
+        SeedSatchelDatabase.SeedRecord record = database.Ember;
+        if (record.ParentItem != 0x19 || record.SeedItem != 0x20 ||
+            record.TreasureId != 0x20 || record.Sprite != "spr_common_items" ||
+            record.TileBase != 0x12 || record.Palette != 2 ||
+            record.Collision != 0x9b || record.CollisionRadiusY != 4 ||
+            record.CollisionRadiusX != 4 || record.Damage != 0xfe ||
+            record.InitialZ != -2 || record.SpeedZ != -0x20 ||
+            record.Gravity != 0x1c || record.SpeedRaw != 0x1e ||
+            record.LinkFrames != 8 || record.FlameSprite != "spr_common_sprites" ||
+            record.FlameTileBase != 0x06 || record.FlameOamFlags != 0x0a ||
+            record.FlamePalette != 2 || record.FlameCounter != 0x3a ||
+            record.LandingSound != 0x52 || record.FlameSound != 0x72)
+        {
+            throw new InvalidOperationException(
+                "The imported ITEM_SEED_SATCHEL/ITEM_EMBER_SEED record diverged from its source tables.");
+        }
+
+        Vector2I[] directions =
+            { Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left };
+        Vector2I[] offsets =
+            { new(0, -4), new(4, 1), new(0, 5), new(-5, 1) };
+        for (int index = 0; index < directions.Length; index++)
+        {
+            if (record.Offset(directions[index]) != offsets[index])
+                throw new InvalidOperationException(
+                    $"Satchel direction {index} lost its signed Y/X child offset.");
+        }
+
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var inventory = new InventoryState(_treasures, save);
+        int grantInventoryChanges = 0;
+        int grantSaveChanges = 0;
+        inventory.Changed += () => grantInventoryChanges++;
+        save.Changed += () => grantSaveChanges++;
+        inventory.GiveTreasure(new TreasureDatabase.TreasureObjectRecord(
+            "VALIDATION_SATCHEL", 0x19, 0, 1, 0xff, 0, string.Empty));
+        if (inventory.EmberSeeds != 0x20 || grantInventoryChanges != 1 ||
+            grantSaveChanges != 1)
+        {
+            throw new InvalidOperationException(
+                "The Seed Satchel did not expose its initial BCD 20 Ember Seeds in the grant transaction.");
+        }
+        OracleGraphicsCache.AnimationDefinition emberAnimation =
+            OracleGraphicsCache.GetAnimationDefinition(record.Animation);
+        string[] expectedOam =
+        {
+            "8,4,0,0",
+            "8,4,0,0",
+            "8,0,2,0;8,8,2,32",
+            "8,0,4,7;8,8,4,39",
+            "8,0,4,0;8,8,4,32"
+        };
+        if (emberAnimation.LoopStart != 2 || emberAnimation.Frames.Length != 5 ||
+            !emberAnimation.Frames.Select(frame => frame.EncodedOam)
+                .SequenceEqual(expectedOam))
+        {
+            throw new InvalidOperationException(
+                "itemAnimation1e818 did not resolve its item20OamDataPointers compositions.");
+        }
+        int inventoryChanges = 0;
+        int saveChanges = 0;
+        inventory.Changed += () => inventoryChanges++;
+        save.Changed += () => saveChanges++;
+        if (!inventory.TryConsumeSelectedSatchelSeed(out int seedItem) ||
+            seedItem != 0x20 || inventory.EmberSeeds != 0x19 ||
+            save.ReadWramByte(0xc6b9) != 0x19 ||
+            inventoryChanges != 1 || saveChanges != 1)
+        {
+            throw new InvalidOperationException(
+                "decNumActiveSeeds did not decrement/persist the selected Satchel count as packed BCD once.");
+        }
+        for (int count = 0; count < 19; count++)
+            inventory.TryConsumeSelectedSatchelSeed(out _);
+        if (inventory.EmberSeeds != 0 || inventory.TryConsumeSelectedSatchelSeed(out _))
+            throw new InvalidOperationException(
+                "The Satchel consumed a seed at zero or failed to reach BCD $00 from $20.");
+
+        WarpToBushTest();
+        Vector2 linkPosition = new(80, 80);
+        // State 0 consumes one update. Eight moving/gravity updates put this
+        // up-facing throw at (80,70), where its flame expires.
+        Vector2 flamePoint = new(80, 70);
+        _currentRoom.SetPositionTileAndCollision(
+            flamePoint, 0xc5, null, (long)_animationTicks);
+        var sounds = new List<int>();
+        var hazards = new List<OracleRoomData.HazardType>();
+        var emberSpawns = new List<RoomEntitySpawn>();
+        int tileChanges = 0;
+        var ember = new EmberSeedEffect();
+        ember.Initialize(
+            record, _currentRoom, new BreakableTileDatabase(), linkPosition,
+            Vector2I.Up, sounds.Add, (_, hazard) => hazards.Add(hazard),
+            () => tileChanges++, () => (long)_animationTicks,
+            _ => null, _saveData, _activeGroup);
+        Image flameSource = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_common_sprites.png");
+        Texture2D expectedFlameTexture = NpcCharacter.BuildOamTextureUncachedForValidation(
+            flameSource, emberAnimation.Frames[2].EncodedOam,
+            record.FlameTileBase, record.FlamePalette);
+        ulong expectedFlameHash = OracleGraphicsCache.PixelHash(
+            expectedFlameTexture.GetImage());
+        expectedFlameTexture.Dispose();
+        if (ember.FlameTextureHashForValidation(2) != expectedFlameHash)
+        {
+            throw new InvalidOperationException(
+                "ITEM_EMBER_SEED ignition did not switch OAM flag `$0a to " +
+                "GFXH_COMMON_SPRITES bank-1 flame tiles `$06/`$08/`$0a.");
+        }
+        ember.UpdateFrame(emberSpawns);
+        if (ember.State != EmberSeedEffect.EmberState.Flying ||
+            ember.ElapsedFrames != 1 || ember.ZFixed != -0x200 ||
+            ember.PrecisePosition != linkPosition + (Vector2)record.UpOffset)
+        {
+            throw new InvalidOperationException(
+                "ITEM_EMBER_SEED state 0 did not preserve the setup-only update and initial Z/offset.");
+        }
+        for (int frame = 0; frame < 7; frame++)
+            ember.UpdateFrame(emberSpawns);
+        if (ember.State != EmberSeedEffect.EmberState.Flying ||
+            ember.ZFixed != -0x94 || ember.SpeedZ != 0xa4)
+        {
+            throw new InvalidOperationException(
+                "ITEM_EMBER_SEED did not retain its SPEED_c0/$1c 8.8 flight arc before landing.");
+        }
+        ember.UpdateFrame(emberSpawns);
+        if (ember.State != EmberSeedEffect.EmberState.Burning ||
+            ember.ElapsedFrames != 9 || ember.ZFixed != 0 ||
+            ember.PrecisePosition != flamePoint || ember.FlameCounter != 0x3a ||
+            ember.AnimationFrame != 1 ||
+            !sounds.SequenceEqual(new[] { 0x52, 0x72 }) || hazards.Count != 0)
+        {
+            throw new InvalidOperationException(
+                "The Satchel Ember Seed did not land on update 9 and initialize its flame/sounds exactly.");
+        }
+        ember.UpdateFrame(emberSpawns);
+        if (ember.FlameCounter != 0x39 || ember.AnimationFrame != 1)
+            throw new InvalidOperationException(
+                "emberSeedBurn did not decrement before advancing itemAnimation1e818.");
+        for (int frame = 1; frame < 58; frame++)
+            ember.UpdateFrame(emberSpawns);
+        if (!ember.Finished || ember.ElapsedFrames != 67 ||
+            _currentRoom.GetMetatile(flamePoint) != 0x3a || tileChanges != 1)
+        {
+            throw new InvalidOperationException(
+                "The Ember flame did not apply BREAKABLETILESOURCE_EMBER_SEED on counter $3a expiry.");
+        }
+        ember.Free();
+
+        var standardSubstitutions = new StandardTileSubstitutionDatabase();
+        if (standardSubstitutions.RecordCount != 50)
+        {
+            throw new InvalidOperationException(
+                "The imported standard tile-substitution table did not retain all 50 Ages rows.");
+        }
+
+        OracleSaveData watchedTreeSave = OracleSaveData.CreateStandardGame();
+        var watchedTreeRooms = new RoomSession(
+            0, 0x48, () => 0, () => { }, watchedTreeSave);
+        OracleRoomData watchedTreeRoom = watchedTreeRooms.CurrentRoom;
+        Vector2 watchedTreePoint = new(0x88, 0x68);
+        var watcherDatabase = new RoomTileChangeWatcherDatabase();
+        RoomTileChangeWatcherDatabase.Record[] watcherRecords = watcherDatabase
+            .GetRoomRecords(0, 0x48).ToArray();
+        if (watcherDatabase.RecordCount != 8 || watcherRecords is not
+            [{ Position: 0x68, RoomFlag: 0x02, Order: 1 }] ||
+            watchedTreeRoom.GetPackedPosition(watchedTreePoint) != 0x68 ||
+            watchedTreeRoom.GetMetatile(watchedTreePoint) != 0xce)
+        {
+            throw new InvalidOperationException(
+                "Room 0:48 did not retain its imported $dc:$08 watcher and burnable tree $68/$ce.");
+        }
+
+        var watcherRoot = new Node();
+        AddChild(watcherRoot);
+        var watcherManager = new RoomEntityManager(
+            watcherRoot, new NpcDatabase(), new EnemyDatabase(), watchedTreeSave);
+        watcherManager.LoadRoom(0, watchedTreeRoom);
+        if (!watcherManager.Entities<Node2D>().Any(
+                node => node.Name == "TileChangeWatcher_1"))
+        {
+            throw new InvalidOperationException(
+                "RoomEntityFactory did not instantiate room 0:48's imported $dc:$08 watcher.");
+        }
+        var watchedTreeSpawns = new List<RoomEntitySpawn>();
+        watcherManager.Update(1.0 / 60.0, _player);
+        if (watchedTreeSave.HasRoomFlag(0, 0x48, 0x02))
+            throw new InvalidOperationException(
+                "Room 0:48's $dc:$08 watcher set flag $02 during its snapshot state.");
+
+        var watchedTreeSeed = new EmberSeedEffect();
+        watchedTreeSeed.Initialize(
+            record, watchedTreeRoom, new BreakableTileDatabase(),
+            watchedTreePoint + new Vector2(0, 10), Vector2I.Up,
+            _ => { }, (_, _) => { }, () => { }, () => 0,
+            _ => null, watchedTreeSave, 0);
+        for (int frame = 0; frame < 67; frame++)
+            watchedTreeSeed.UpdateFrame(watchedTreeSpawns);
+        if (!watchedTreeSeed.Finished ||
+            watchedTreeRoom.GetMetatile(watchedTreePoint) != 0x3a ||
+            watchedTreeSave.HasRoomFlag(0, 0x48, 0x02))
+        {
+            throw new InvalidOperationException(
+                "Room 0:48's tree did not burn to $3a before its watcher update.");
+        }
+        watcherManager.Update(1.0 / 60.0, _player);
+        if (!watchedTreeSave.HasRoomFlag(0, 0x48, 0x02) ||
+            watcherManager.Entities<Node2D>().Any(
+                node => node.Name == "TileChangeWatcher_1"))
+        {
+            throw new InvalidOperationException(
+                "Room 0:48's $dc:$08 watcher did not set room flag $02 after tile $68 changed.");
+        }
+        watchedTreeSeed.Free();
+        watcherManager.Clear();
+        RemoveChild(watcherRoot);
+        watcherRoot.Free();
+        watchedTreeRooms.Load(0, 0x47);
+        if (watchedTreeRooms.Load(0, 0x48).GetMetatile(watchedTreePoint) != 0x3a)
+            throw new InvalidOperationException(
+                "Room 0:48's single-tile change did not preserve burnt tree $68/$3a on re-entry.");
+        if (!OracleSaveData.TryDeserialize(
+                watchedTreeSave.Serialize(), out OracleSaveData? reloadedTreeSave) ||
+            new RoomSession(0, 0x48, () => 0, () => { }, reloadedTreeSave!)
+                .CurrentRoom.GetMetatile(watchedTreePoint) != 0x3a)
+        {
+            throw new InvalidOperationException(
+                "Room 0:48's burnt tree did not remain removed after save serialization and reload.");
+        }
+
+        OracleSaveData persistentSave = OracleSaveData.CreateStandardGame();
+        var persistentRooms = new RoomSession(
+            0, 0x8a, () => 0, () => { }, persistentSave);
+        int burnGroup = -1;
+        int burnRoomId = -1;
+        Vector2 burnPoint = Vector2.Zero;
+        for (int group = 0; group <= 3 && burnRoomId < 0; group++)
+        for (int roomId = 0; roomId <= 0xff && burnRoomId < 0; roomId++)
+        {
+            if (!persistentRooms.World.HasRoom(group, roomId))
+                continue;
+            OracleRoomData candidate = persistentRooms.World.LoadRoom(group, roomId);
+            if (candidate.ActiveCollisions != 0)
+                continue;
+            for (int y = 0; y < candidate.HeightInTiles && burnRoomId < 0; y++)
+            for (int x = 0; x < candidate.WidthInTiles; x++)
+            {
+                Vector2 point = new(
+                    x * OracleRoomData.MetatileSize + 8,
+                    y * OracleRoomData.MetatileSize + 8);
+                if (candidate.GetMetatile(point) != 0xcf)
+                    continue;
+                burnGroup = group;
+                burnRoomId = roomId;
+                burnPoint = point;
+                break;
+            }
+        }
+        if (burnRoomId < 0)
+            throw new InvalidOperationException("Could not find an overworld burnable tree tile $cf.");
+
+        OracleRoomData burnRoom = persistentRooms.Load(burnGroup, burnRoomId);
+        var burnSounds = new List<int>();
+        var burnSpawns = new List<RoomEntitySpawn>();
+        var burningTreeSeed = new EmberSeedEffect();
+        burningTreeSeed.Initialize(
+            record, burnRoom, new BreakableTileDatabase(),
+            burnPoint + new Vector2(0, 10), Vector2I.Up,
+            burnSounds.Add, (_, _) => { }, () => { }, () => 0,
+            _ => null, persistentSave, burnGroup);
+        for (int frame = 0; frame < 67; frame++)
+            burningTreeSeed.UpdateFrame(burnSpawns);
+        if (!burningTreeSeed.Finished || burnRoom.GetMetatile(burnPoint) != 0xdc ||
+            !persistentSave.HasRoomFlag(burnGroup, burnRoomId, OracleSaveData.RoomFlag80) ||
+            persistentSave.GashaMaturity != 30 ||
+            burnSounds.Count(sound => sound == OracleSoundEngine.SndSolvePuzzle) != 1)
+        {
+            throw new InvalidOperationException(
+                "Burning overworld tree $cf did not set room flag $80, add 30 maturity, " +
+                "play SND_SOLVEPUZZLE, and become $dc.");
+        }
+        burningTreeSeed.Free();
+
+        int otherRoomId = Enumerable.Range(0, 0x100).First(roomId =>
+            roomId != burnRoomId && persistentRooms.World.HasRoom(burnGroup, roomId));
+        persistentRooms.Load(burnGroup, otherRoomId);
+        OracleRoomData sameSessionReload = persistentRooms.Load(burnGroup, burnRoomId);
+        if (sameSessionReload.GetMetatile(burnPoint) != 0xdc)
+        {
+            throw new InvalidOperationException(
+                "ROOMFLAG $80 did not retain standard substitution $cf->$dc after live re-entry.");
+        }
+
+        if (!OracleSaveData.TryDeserialize(
+                persistentSave.Serialize(), out OracleSaveData? restoredPersistentSave))
+        {
+            throw new InvalidOperationException(
+                "The burnable-tree room flag did not survive save-image serialization.");
+        }
+        var reloadedRooms = new RoomSession(
+            burnGroup, burnRoomId, () => 0, () => { }, restoredPersistentSave!);
+        if (reloadedRooms.CurrentRoom.GetMetatile(burnPoint) != 0xdc)
+        {
+            throw new InvalidOperationException(
+                "ROOMFLAG $80 did not reapply standard substitution $cf->$dc after saved re-entry.");
+        }
+
+        if (_inventory.EmberSeeds == 0)
+        {
+            _inventory.GiveTreasure(new TreasureDatabase.TreasureObjectRecord(
+                "VALIDATION_EMBER_SEED", 0x20, 0, 1, 0xff, 0, string.Empty));
+        }
+        _inventory.SelectSatchelSeeds(0);
+        int beforeAmount = _inventory.EmberSeeds;
+        int beforeEntities = _entities.Entities<EmberSeedEffect>().Count;
+        _player.WarpTo(linkPosition);
+        _player.StartSeedSatchelActionForValidation(Vector2.Right);
+        int expectedAmount = ((beforeAmount >> 4) * 10 + (beforeAmount & 0x0f)) - 1;
+        expectedAmount = ((expectedAmount / 10) << 4) | expectedAmount % 10;
+        if (!_player.IsUsingSeedSatchel || _player.SeedSatchelFrame != 0 ||
+            _player.FacingVector != Vector2I.Right ||
+            _inventory.EmberSeeds != expectedAmount ||
+            _entities.Entities<EmberSeedEffect>().Count != beforeEntities + 1)
+        {
+            throw new InvalidOperationException(
+                "ITEM_SEED_SATCHEL did not allocate its child, decrement BCD ammo, and lock Link.");
+        }
+
+        var hudQuantity = _hud.QuantityOverlayForValidation(
+            InventoryState.ItemSeedSatchel, isA: false);
+        var inventoryQuantity = _inventoryScreen.QuantityOverlayForValidation(
+            InventoryState.ItemSeedSatchel);
+        int expectedTens = 0x10 + ((expectedAmount >> 4) & 0x0f);
+        int expectedOnes = 0x10 + (expectedAmount & 0x0f);
+        if (hudQuantity is not { } hud || hud.TensTile != expectedTens ||
+            hud.OnesTile != expectedOnes || hud.Position != new Vector2(16, 8) ||
+            inventoryQuantity is not { } menu || menu.TensTile != expectedTens ||
+            menu.OnesTile != expectedOnes || menu.Attributes != 0x07)
+        {
+            throw new InvalidOperationException(
+                "drawTreasureExtraTiles mode $01 did not expose both selected-seed BCD digits.");
+        }
+
+        _player.AdvanceSeedSatchelForValidation(7);
+        if (!_player.IsUsingSeedSatchel || _player.SeedSatchelFrame != 7)
+            throw new InvalidOperationException(
+                "LINK_ANIM_MODE_21 ended before its eighth update.");
+        _player.AdvanceSeedSatchelForValidation(1);
+        if (_player.IsUsingSeedSatchel)
+            throw new InvalidOperationException(
+                "LINK_ANIM_MODE_21 did not end on update 8.");
+
+        GD.Print("Validated ITEM_SEED_SATCHEL immediate BCD-20 grant/persistence, quantity overlays, " +
+            "distinct inventory/equipped icon sheets and equipped palette transform, " +
+            "four offsets, Link pose, Ember flight/Z, " +
+            "fixed-bank-1 flame OAM/sounds, break effects, direct ROOMFLAG-$80 tree ignition, " +
+            "and room 0:48's watcher-backed permanent tree removal across re-entry/save reload.");
     }
 
     private void ValidateSwordBush()

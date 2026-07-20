@@ -80,17 +80,18 @@ public sealed class RoomTileChangeDatabase
         OracleWorldData world,
         long animationTick)
     {
-        if (!_rules.TryGetValue((group, room.Id), out List<Rule>? rules))
-            return;
-
         var writes = new Dictionary<int, byte>();
-        foreach (Rule rule in rules)
+        if (_rules.TryGetValue((group, room.Id), out List<Rule>? rules))
         {
-            if (!Matches(rule.Conditions, group, room.Id, save))
-                continue;
-            foreach (Operation operation in rule.Operations)
-                ApplyOperation(operation, group, room, world, writes);
+            foreach (Rule rule in rules)
+            {
+                if (!Matches(rule.Conditions, group, room.Id, save))
+                    continue;
+                foreach (Operation operation in rule.Operations)
+                    ApplyOperation(operation, group, room, world, writes);
+            }
         }
+
         room.ApplyRoomInitializationChanges(writes, animationTick);
     }
 
@@ -163,7 +164,7 @@ public sealed class RoomTileChangeDatabase
                     int position = (y << 4) | x;
                     byte current = writes.TryGetValue(position, out byte written)
                         ? written
-                        : room.GetOriginalMetatile(PointFor(position));
+                        : room.GetMetatile(PointFor(position));
                     if (current == values[0])
                         writes[position] = (byte)values[1];
                 }

@@ -67,24 +67,8 @@ public sealed class ShovelController
             return false;
         }
 
-        // updateRoomFlagsForBrokenTile is selected by effect bit 7. For the
-        // shovel source in Ages this is overworld/underwater tile $cb: the
-        // source tables add 50 maturity and set current-room flag bit 7.
-        if ((record.Effect & 0x80) != 0)
-        {
-            if (room.ActiveCollisions is 0 or 4 && tile == 0xcb)
-            {
-                _saveData.AddGashaMaturity(50);
-                _saveData.SetRoomFlag(
-                    _rooms.ActiveGroup, room.Id, OracleSaveData.RoomFlag80);
-            }
-            else
-            {
-                throw new InvalidOperationException(
-                    $"Unsupported shovel room-flag update for collision set " +
-                    $"${room.ActiveCollisions:x2}, tile ${tile:x2}.");
-            }
-        }
+        record.ApplyPersistentEffects(
+            _saveData, _rooms.ActiveGroup, room.Id);
 
         if ((record.Effect & 0x40) != 0)
             _playSound(OracleSoundEngine.SndSolvePuzzle);

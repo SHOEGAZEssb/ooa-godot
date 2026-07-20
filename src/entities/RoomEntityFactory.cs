@@ -23,6 +23,7 @@ internal sealed class RoomEntityFactory(
     Func<int, bool> triggerActive,
     Func<int> triggerState,
     Action<int, bool> setTrigger,
+    Action roomTileChanged,
     Func<Vector2, Vector2> worldToScreen,
     Func<long> animationTick)
 {
@@ -32,6 +33,8 @@ internal sealed class RoomEntityFactory(
     private readonly EnemySpawnTileDatabase _enemySpawnTiles = new();
     private readonly GroundTreasureDatabase _groundTreasures = new();
     private readonly DungeonMechanicDatabase _dungeonMechanics = new();
+    private readonly RoomTileChangeWatcherDatabase _tileChangeWatchers = new();
+    private readonly BreakableTileDatabase _breakables = new();
 
     public IEnumerable<IRoomEntity> CreateRoomEntities(
         int group,
@@ -81,6 +84,16 @@ internal sealed class RoomEntityFactory(
                     $"Unsupported dungeon interaction ${record.Id:x2}:" +
                     $"${record.SubId:x2} in room {group:x1}:{room.Id:x2}.")
             };
+        }
+
+        if (saveData is not null)
+        {
+            foreach (RoomTileChangeWatcherDatabase.Record record in
+                _tileChangeWatchers.GetRoomRecords(group, room.Id))
+            {
+                yield return new RoomTileChangeWatcherRoomEntity(
+                    record, room, saveData);
+            }
         }
 
         IReadOnlyList<NpcDatabase.NpcRecord> roomNpcs =
@@ -293,6 +306,7 @@ internal sealed class RoomEntityFactory(
         KillEnemyPuffSpawn puff => CreateKillPuff(puff),
         ItemDropSpawn drop => CreateItemDrop(drop, room),
         ShovelDebrisSpawn debris => CreateShovelDebris(debris),
+        EmberSeedSpawn seed => CreateEmberSeed(seed, room),
         PuzzlePuffSpawn puff => CreatePuzzlePuff(puff),
         FallingDownHoleSpawn fall => CreateFallingDownHole(fall),
         DungeonKeyUseSpawn key => CreateDungeonKeyUse(key),
@@ -523,6 +537,21 @@ internal sealed class RoomEntityFactory(
         };
         debris.Initialize(spawn.Position, spawn.Direction);
         return new ShovelDebrisRoomEntity(debris);
+    }
+
+    private IRoomEntity CreateEmberSeed(EmberSeedSpawn spawn, OracleRoomData room)
+    {
+        var seed = new EmberSeedEffect
+        {
+            Name = "EmberSeed",
+            ZIndex = 11
+        };
+        seed.Initialize(
+            spawn.Record, room, _breakables, spawn.LinkPosition, spawn.Direction,
+            soundRequested, itemDropEnteredHazard, roomTileChanged, animationTick,
+            drop => itemDrops.DecideBreakableDrop(drop, random), saveData,
+            spawn.Group);
+        return new EmberSeedRoomEntity(seed);
     }
 
     private IRoomEntity CreatePuzzlePuff(PuzzlePuffSpawn spawn)

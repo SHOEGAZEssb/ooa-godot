@@ -155,6 +155,139 @@ if ($treasureIds['TREASURE_SWORD'] -ne 0x05 -or $itemIds['ITEM_SWORD'] -ne 0x05)
     throw "Treasure/item constants no longer match the expected first-32 inventory ID identity."
 }
 
+# ITEM_SEED_SATCHEL ($19) creates the selected $20-$24 child item. Preserve
+# the complete Ember child used by the first Satchel rather than duplicating
+# its item tables and native constants in the runtime.
+$itemDataSource = Get-Content -Raw (Join-Path $Disassembly 'data\ages\itemData.s')
+$itemAttributesSource = Get-Content -Raw (Join-Path $Disassembly 'data\ages\itemAttributes.s')
+$itemAnimationsSource = Get-Content -Raw (Join-Path $Disassembly 'data\itemAnimations.s')
+$itemOamDataSource = Get-Content -Raw (Join-Path $Disassembly 'data\itemOamData.s')
+$itemUsageSource = Get-Content -Raw (Join-Path $Disassembly 'data\ages\itemUsageTables.s')
+$specialObjectAnimationsSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
+$objectGfxHeadersSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\objectGfxHeaders.s')
+$gfxHeadersSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\gfxHeaders.s')
+$seedCodeSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\items\seeds.s')
+$seedParentSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\itemParents\seedsParent.s')
+$soundIds = Read-ConstantIds (Join-Path $Disassembly 'constants\common\music.s') 'SND_'
+
+$emberData = [regex]::Match(
+    $itemDataSource,
+    '(?m)^\s*\.db\s+\$(?<gfx>[0-9a-f]{2})\s+\$(?<tile>[0-9a-f]{2})\s+\$(?<palette>[0-9a-f]{2})\s*;\s*\$20:\s*ITEM_EMBER_SEED')
+$emberAttributes = [regex]::Match(
+    $itemAttributesSource,
+    '(?m)^\s*\.db\s+\$(?<collision>[0-9a-f]{2})\s+\$(?<radius>[0-9a-f]{2})\s+\$(?<damage>[0-9a-f]{2})\s+\$[0-9a-f]{2}\s*;\s*\$20:\s*ITEM_EMBER_SEED')
+if (-not $emberData.Success -or -not $emberAttributes.Success) {
+    throw 'Could not parse ITEM_EMBER_SEED item data/attributes.'
+}
+
+$gfxIndex = [Convert]::ToInt32($emberData.Groups['gfx'].Value, 16)
+$tileBase = [Convert]::ToInt32($emberData.Groups['tile'].Value, 16)
+$palette = [Convert]::ToInt32($emberData.Groups['palette'].Value, 16)
+$collision = [Convert]::ToInt32($emberAttributes.Groups['collision'].Value, 16)
+$radius = [Convert]::ToInt32($emberAttributes.Groups['radius'].Value, 16)
+$damage = [Convert]::ToInt32($emberAttributes.Groups['damage'].Value, 16)
+if ($gfxIndex -ne 0x78 -or
+    $objectGfxHeadersSource -notmatch '(?m)^\s*/\*\s*\$78\s*\*/\s*m_ObjectGfxHeader\s+spr_common_items') {
+    throw 'ITEM_EMBER_SEED no longer resolves object GFX header $78 to spr_common_items.'
+}
+
+$emberFlameData = [regex]::Match(
+    $seedCodeSource,
+    '(?m)^@data:\s*\r?\n\s*\.db\s+\$(?<flags>[0-9a-f]{2})\s+\$(?<tile>[0-9a-f]{2})\s+\$(?<counter>[0-9a-f]{2})\s+SND_LIGHTTORCH')
+if (-not $emberFlameData.Success) {
+    throw 'Could not parse ITEM_EMBER_SEED ignition graphics data.'
+}
+$flameFlags = [Convert]::ToInt32($emberFlameData.Groups['flags'].Value, 16)
+$flameTileBase = [Convert]::ToInt32($emberFlameData.Groups['tile'].Value, 16)
+$flameCounter = [Convert]::ToInt32($emberFlameData.Groups['counter'].Value, 16)
+if (($flameFlags -band 0x08) -eq 0 -or
+    $gfxHeadersSource -notmatch '(?m)^\s*m_GfxHeader\s+spr_common_sprites,\s*\$8001') {
+    throw 'ITEM_EMBER_SEED ignition no longer selects spr_common_sprites in fixed VRAM bank 1.'
+}
+
+$expectedSourceFragments = @(
+    @{ Source = $itemUsageSource; Pattern = '(?m)^\s*\.db\s+\$02,\s*<wGameKeysJustPressed\s*;\s*ITEM_SEED_SATCHEL'; Name = 'Satchel usage parameter' },
+    @{ Source = $itemUsageSource; Pattern = '(?m)^\s*\.db\s+\$a0,\s*LINK_ANIM_MODE_21\s*;\s*ITEM_SEED_SATCHEL'; Name = 'Satchel Link animation' },
+    @{ Source = $specialObjectAnimationsSource; Pattern = '(?ms)^animationData19fe9:\s*\.db\s+\$08\s+\$b0\s+\$06\s*\.db\s+\$7f\s+\$b0\s+\$86'; Name = 'Satchel Link pose timing' },
+    @{ Source = $seedParentSource; Pattern = '(?ms)^parentItemCode_satchel:.*?ld c,\$00\s*ld e,\$01\s*call itemCreateChildWithID.*?jp c,clearParentItem.*?ld a,b\s*jp decNumActiveSeeds'; Name = 'Satchel child allocation/decrement order' },
+    @{ Source = $seedCodeSource; Pattern = '(?ms)^\s*ld bc,\$ffe0\s*call objectSetSpeedZ.*?@satchelPositionOffsets:\s*\.db \$fc \$00 \$fe.*?\.db \$01 \$04 \$fe.*?\.db \$05 \$00 \$fe.*?\.db \$01 \$fb \$fe'; Name = 'Satchel seed Z and directional offsets' },
+    @{ Source = $seedCodeSource; Pattern = '(?ms)call objectApplySpeed\s*ld c,\$1c\s*call itemUpdateThrowingVerticallyAndCheckHazards.*?ld a,SND_BOMB_LAND'; Name = 'Satchel flight and landing' },
+    @{ Source = $seedCodeSource; Pattern = '(?ms)@data:\s*\.db \$0a \$06 \$3a SND_LIGHTTORCH'; Name = 'Ember flame data' },
+    @{ Source = $seedCodeSource; Pattern = '(?ms)emberSeedBurn:.*?dec \(hl\).*?ld a,BREAKABLETILESOURCE_EMBER_SEED\s*call itemTryToBreakTile'; Name = 'Ember burn counter and break source' })
+foreach ($fragment in $expectedSourceFragments) {
+    if ($fragment.Source -notmatch $fragment.Pattern) {
+        throw "Could not verify $($fragment.Name) in the supported disassembly."
+    }
+}
+
+$emberAnimation = [regex]::Match(
+    $itemAnimationsSource,
+    '(?ms)^itemAnimation1e818:\s*\.db \$(?<d0>[0-9a-f]{2}) \$(?<t0>[0-9a-f]{2}) \$(?<p0>[0-9a-f]{2})\s*\.db \$(?<d1>[0-9a-f]{2}) \$(?<t1>[0-9a-f]{2}) \$(?<p1>[0-9a-f]{2})\s*^itemAnimation1e818Loop:\s*\.db \$(?<d2>[0-9a-f]{2}) \$(?<t2>[0-9a-f]{2}) \$(?<p2>[0-9a-f]{2})\s*\.db \$(?<d3>[0-9a-f]{2}) \$(?<t3>[0-9a-f]{2}) \$(?<p3>[0-9a-f]{2})\s*\.db \$(?<d4>[0-9a-f]{2}) \$(?<t4>[0-9a-f]{2}) \$(?<p4>[0-9a-f]{2})\s*m_AnimationLoop itemAnimation1e818Loop')
+if (-not $emberAnimation.Success) {
+    throw 'Could not parse itemAnimation1e818 for ITEM_EMBER_SEED.'
+}
+$animationParts = [Collections.Generic.List[string]]::new()
+$emberOamPointers = [regex]::Match(
+    $itemAnimationsSource,
+    '(?ms)^item20OamDataPointers:.*?\r?\n(?<body>(?:\s*\.dw\s+itemOamData[0-9a-f]+\s*\r?\n){4})')
+if (-not $emberOamPointers.Success) {
+    throw 'Could not parse item20OamDataPointers for ITEM_EMBER_SEED.'
+}
+$emberOamLabels = @([regex]::Matches(
+    $emberOamPointers.Groups['body'].Value,
+    '(?m)^\s*\.dw\s+(?<label>itemOamData[0-9a-f]+)') |
+    ForEach-Object { $_.Groups['label'].Value })
+if ($emberOamLabels.Count -ne 4) {
+    throw "Expected four ITEM_EMBER_SEED OAM pointers, parsed $($emberOamLabels.Count)."
+}
+
+function Read-ItemOamComposition([string]$label) {
+    $block = [regex]::Match(
+        $itemOamDataSource,
+        "(?ms)^${label}:\s*(?<body>.*?)(?=^itemOamData[0-9a-f]+:|\z)")
+    if (-not $block.Success) { throw "Could not resolve item OAM label $label." }
+    $bytes = @([regex]::Matches(
+        $block.Groups['body'].Value,
+        '\$(?<value>[0-9a-f]{2})') |
+        ForEach-Object { [Convert]::ToInt32($_.Groups['value'].Value, 16) })
+    if ($bytes.Count -lt 1 -or $bytes.Count -ne 1 + $bytes[0] * 4) {
+        throw "Malformed item OAM composition $label."
+    }
+    $parts = [Collections.Generic.List[string]]::new()
+    for ($part = 0; $part -lt $bytes[0]; $part++) {
+        $offset = 1 + $part * 4
+        $parts.Add("$($bytes[$offset]),$($bytes[$offset + 1]),$($bytes[$offset + 2]),$($bytes[$offset + 3])")
+    }
+    return $parts -join ';'
+}
+
+for ($index = 0; $index -lt 5; $index++) {
+    $duration = [Convert]::ToInt32($emberAnimation.Groups["d$index"].Value, 16)
+    $oamIndex = [Convert]::ToInt32($emberAnimation.Groups["t$index"].Value, 16)
+    $parameter = [Convert]::ToInt32($emberAnimation.Groups["p$index"].Value, 16)
+    if (($oamIndex -band 1) -ne 0 -or ($oamIndex / 2) -ge $emberOamLabels.Count) {
+        throw "ITEM_EMBER_SEED animation referenced invalid OAM pointer offset `$$($oamIndex.ToString('x2'))."
+    }
+    $encodedOam = Read-ItemOamComposition $emberOamLabels[$oamIndex / 2]
+    $animationParts.Add("$duration,$parameter@$encodedOam")
+}
+$encodedEmberAnimation = ($animationParts -join '|') + '~2'
+$radiusY = ($radius -shr 4) -band 0x0f
+$radiusX = $radius -band 0x0f
+$seedRows = [Collections.Generic.List[string]]::new()
+$seedRows.Add('# parent-item`tseed-item`ttreasure-id`tsprite`ttile-base`tpalette`tcollision`tradius-y`tradius-x`tdamage`tinitial-z`tspeed-z`tgravity`tspeed-raw`tup-y`tup-x`tright-y`tright-x`tdown-y`tdown-x`tleft-y`tleft-x`tlink-frames`tflame-sprite`tflame-tile-base`tflame-oam-flags`tflame-counter`tlanding-sound`tflame-sound`tanimation`tsource')
+$seedRows.Add(
+    "$($itemIds['ITEM_SEED_SATCHEL'].ToString('x2'))`t$($itemIds['ITEM_EMBER_SEED'].ToString('x2'))`t$($treasureIds['TREASURE_EMBER_SEEDS'].ToString('x2'))`tspr_common_items`t$($tileBase.ToString('x2'))`t$($palette.ToString('x2'))`t$($collision.ToString('x2'))`t$radiusY`t$radiusX`t$($damage.ToString('x2'))`t-2`t-32`t28`t1e`t-4`t0`t1`t4`t5`t0`t1`t-5`t8`tspr_common_sprites`t$($flameTileBase.ToString('x2'))`t$($flameFlags.ToString('x2'))`t$flameCounter`t$($soundIds['SND_BOMB_LAND'].ToString('x2'))`t$($soundIds['SND_LIGHTTORCH'].ToString('x2'))`t$encodedEmberAnimation`tobject_code/common/items/seeds.s:itemCode20")
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'metadata\seed_satchel.tsv'),
+    $seedRows,
+    [Text.UTF8Encoding]::new($false))
+
 # Preserve the common giveTreasure lookup data so the runtime can update
 # inventory variables from original treasure IDs and parameters.
 $behaviourRows = [Collections.Generic.List[string]]::new()
@@ -337,6 +470,8 @@ if (($inventoryTextRows | Where-Object { $_ -match '^item\t23\t0923\t' }).Count 
 
 # Export the breakable tile tables used by tryToBreakTile. The source masks
 # retain the disassembly's left-to-right bit order from breakableTileSources.s.
+# Effect bit 7 calls updateRoomFlagsForBrokenTile, whose collision-indexed
+# room-flag and Gasha-maturity tables are retained on each applicable row.
 $breakableSource = Get-Content (Join-Path $Disassembly "data\ages\tile_properties\breakableTiles.s")
 $breakableModes = @{}
 foreach ($line in $breakableSource) {
@@ -365,8 +500,51 @@ $breakableCollisionModes = @{
     underwater = 4
     five = 5
 }
+
+function Read-BreakableCollisionValueTable([string]$path) {
+    $result = @{}
+    $activeLabels = [Collections.Generic.List[string]]::new()
+    foreach ($line in Get-Content $path) {
+        if ($line -match '^\s*@(?<label>[A-Za-z0-9_]+):') {
+            $label = $Matches['label']
+            if ($breakableCollisionModes.ContainsKey($label)) {
+                $activeLabels.Add($label)
+            }
+            continue
+        }
+        if ($activeLabels.Count -eq 0 -or
+            $line -notmatch '^\s*\.db\s+\$(?<tile>[0-9a-f]{2})(?:\s+(?<value>\$[0-9a-f]{2}|[0-9]+))?') {
+            continue
+        }
+        $tile = [Convert]::ToInt32($Matches['tile'], 16)
+        if (-not $Matches.ContainsKey('value') -or $Matches['value'] -eq '') {
+            if ($tile -ne 0) { throw "Unexpected collision-value terminator `$$($tile.ToString('x2'))." }
+            $activeLabels.Clear()
+            continue
+        }
+        $rawValue = $Matches['value']
+        $value = if ($rawValue.StartsWith('$')) {
+            [Convert]::ToInt32($rawValue.Substring(1), 16)
+        } else {
+            [int]$rawValue
+        }
+        foreach ($label in $activeLabels) {
+            $key = $breakableCollisionModes[$label] * 256 + $tile
+            if ($result.ContainsKey($key)) {
+                throw "Duplicate collision-value row $label`:$$($tile.ToString('x2'))."
+            }
+            $result[$key] = $value
+        }
+    }
+    return $result
+}
+
+$breakableRoomFlagActions = Read-BreakableCollisionValueTable (
+    Join-Path $Disassembly 'data\ages\tile_properties\breakableTileRoomFlags.s')
+$breakableGashaMaturity = Read-BreakableCollisionValueTable (
+    Join-Path $Disassembly 'data\ages\tile_properties\breakableTileGashaMaturity.s')
 $breakableRows = [Collections.Generic.List[string]]::new()
-$breakableRows.Add("# active-collisions`ttile`tmode`tsource-mask`tdrop`teffect`treplacement")
+$breakableRows.Add("# active-collisions`ttile`tmode`tsource-mask`tdrop`teffect`treplacement`troom-flag-action`tgasha-maturity")
 $activeLabels = [Collections.Generic.List[string]]::new()
 foreach ($line in $breakableSource) {
     if ($line -match '^\s*@(?<label>[A-Za-z0-9_]+):') {
@@ -392,10 +570,19 @@ foreach ($line in $breakableSource) {
     $mode = $breakableModes[$modeIndex]
     foreach ($label in $activeLabels) {
         $collisionMode = $breakableCollisionModes[$label]
-        $breakableRows.Add("$collisionMode`t$($tile.ToString('x2'))`t$($modeIndex.ToString('x2'))`t$($mode.SourceMask.ToString('x5'))`t$($mode.Drop.ToString('x1'))`t$($mode.Effect.ToString('x2'))`t$($mode.Replacement.ToString('x2'))")
+        $key = $collisionMode * 256 + $tile
+        $roomFlagAction = if ($breakableRoomFlagActions.ContainsKey($key)) {
+            $breakableRoomFlagActions[$key]
+        } else { 0xff }
+        $gashaMaturity = if ($breakableGashaMaturity.ContainsKey($key)) {
+            $breakableGashaMaturity[$key]
+        } else { 0 }
+        $breakableRows.Add("$collisionMode`t$($tile.ToString('x2'))`t$($modeIndex.ToString('x2'))`t$($mode.SourceMask.ToString('x5'))`t$($mode.Drop.ToString('x1'))`t$($mode.Effect.ToString('x2'))`t$($mode.Replacement.ToString('x2'))`t$($roomFlagAction.ToString('x2'))`t$gashaMaturity")
     }
 }
-if (($breakableRows | Where-Object { $_ -eq "2`t10`t1d`t00125`t2`t06`ta0" }).Count -ne 1) {
+if (($breakableRows | Where-Object { $_ -eq "2`t10`t1d`t00125`t2`t06`ta0`tff`t0" }).Count -ne 1 -or
+    ($breakableRows | Where-Object { $_ -eq "0`tc6`t04`t6b1b7`t0`tc0`tdc`t07`t30" }).Count -ne 1 -or
+    ($breakableRows | Where-Object { $_ -eq "0`tcb`t12`t00040`t0`tca`td2`t07`t50" }).Count -ne 1) {
     throw 'Could not export dungeon moving pot tile $10 as bracelet-breakable mode $1d.'
 }
 [IO.File]::WriteAllLines(

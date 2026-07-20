@@ -791,6 +791,54 @@ if ($keyDoorRows.Count -ne 5 -or
     throw "Expected four imported small-key doors `$70-`$73 including left door `$73, parsed $($keyDoorRows.Count - 1)."
 }
 
+# applyStandardTileSubstitutions selects one replacement list for each set room
+# flag bit and wActiveCollisions value. Preserve the complete Ages table so
+# persistent broken overworld tiles and the existing door paths share the same
+# load-time mechanism.
+$standardCollisionModes = @{
+    Overworld = 0
+    Indoors = 1
+    Dungeons = 2
+    Sidescrolling = 3
+    Underwater = 4
+    Five = 5
+}
+$standardTileRows = [Collections.Generic.List[string]]::new()
+$standardTileRows.Add('# room-flag`tactive-collisions`treplacement`toriginal`tsource')
+$activeStandardLabels = [Collections.Generic.List[hashtable]]::new()
+foreach ($line in $standardTileSubstitutionSource -split "`r?`n") {
+    if ($line -match '^\s*@bit(?<bit>[01237])(?<mode>Overworld|Indoors|Dungeons|Sidescrolling|Underwater|Five):') {
+        $activeStandardLabels.Add(@{
+            Flag = 1 -shl [Convert]::ToInt32($Matches['bit'], 10)
+            Collisions = $standardCollisionModes[$Matches['mode']]
+            Label = "bit$($Matches['bit'])$($Matches['mode'])"
+        })
+        continue
+    }
+    if ($activeStandardLabels.Count -eq 0 -or
+        $line -notmatch '^\s*\.db\s+\$(?<replacement>[0-9a-f]{2})(?:\s+\$(?<original>[0-9a-f]{2}))?') {
+        continue
+    }
+    $replacement = [Convert]::ToInt32($Matches['replacement'], 16)
+    if (-not $Matches.ContainsKey('original') -or $Matches['original'] -eq '') {
+        if ($replacement -ne 0) {
+            throw "Unexpected standard tile-substitution terminator `$$($replacement.ToString('x2'))."
+        }
+        $activeStandardLabels.Clear()
+        continue
+    }
+    $original = [Convert]::ToInt32($Matches['original'], 16)
+    foreach ($active in $activeStandardLabels) {
+        $standardTileRows.Add(
+            "$($active.Flag.ToString('x2'))`t$($active.Collisions)`t$($replacement.ToString('x2'))`t$($original.ToString('x2'))`tstandardTileSubstitutions@$($active.Label)")
+    }
+}
+if ($standardTileRows.Count -ne 51 -or
+    -not ($standardTileRows -contains "80`t0`tdc`tc6`tstandardTileSubstitutions@bit7Overworld") -or
+    -not ($standardTileRows -contains "01`t2`ta0`t70`tstandardTileSubstitutions@bit0Dungeons")) {
+    throw "Expected 50 standard tile substitutions including bit-7 tree and bit-0 key-door rows, parsed $($standardTileRows.Count - 1)."
+}
+
 $conditionalDungeonEnemyRooms = [Collections.Generic.HashSet[string]]::new()
 foreach ($block in [regex]::Matches(
     $mainObjectSource,
@@ -1693,6 +1741,57 @@ $treasureSource = Get-Content -Raw (
     Join-Path $Disassembly 'object_code\common\interactions\treasure.s')
 $treasureObjectSource = Get-Content -Raw (
     Join-Path $Disassembly 'data\ages\treasureObjectData.s')
+if ($miscellaneous2Source -notmatch
+        '(?ms)^interactiondc_subid08:\s+call checkInteractionState\s+jr z,@state0.*?^@state1:.*?Interaction\.yh.*?>wRoomLayout.*?Interaction\.var03.*?cp l\s+ret z.*?call getThisRoomFlags.*?Interaction\.xh.*?or \(hl\).*?ld \(hl\),a.*?^@state0:.*?call getThisRoomFlags.*?Interaction\.xh.*?and \(hl\).*?jp nz,interactionDelete.*?Interaction\.yh.*?>wRoomLayout.*?Interaction\.var03.*?ld \(de\),a\s+jp interactionIncState') {
+    throw 'INTERAC_MISCELLANEOUS_2 $dc:$08 tile-change watcher behavior changed.'
+}
+
+# INTERAC_MISCELLANEOUS_2 $dc:$08 treats its nominal Y/X bytes as a packed
+# wRoomLayout position and a room-flag mask. It snapshots that tile in state 0,
+# then ORs the mask into the room flags after the tile changes. Every placement
+# must join the matching applySingleTileChanges row that persists the result.
+$tileChangeWatcherRows = [Collections.Generic.List[string]]::new()
+$tileChangeWatcherRows.Add(
+    "# group`troom`torder`tposition`troom-flag`tsource")
+$currentGroup = -1
+$currentRoom = -1
+$objectOrder = 0
+foreach ($line in $mainObjectLines) {
+    if ($line -match '^group(?<group>[0-7])Map(?<room>[0-9a-f]{2})ObjectData:') {
+        $currentGroup = [Convert]::ToInt32($Matches['group'], 10)
+        $currentRoom = [Convert]::ToInt32($Matches['room'], 16)
+        $objectOrder = 0
+        continue
+    }
+    if ($currentGroup -lt 0 -or $line -notmatch '^\s+obj_(?!End)') { continue }
+    if ($line -match
+        'obj_Interaction\s+\$dc\s+\$08\s+\$(?<position>[0-9a-f]{2})\s+\$(?<mask>[0-9a-f]{2})') {
+        $position = [Convert]::ToInt32($Matches['position'], 16)
+        $mask = [Convert]::ToInt32($Matches['mask'], 16)
+        $persistentRows = @($singleTileChangeRecords | Where-Object {
+            $_.Group -eq $currentGroup -and
+            $_.Room -eq $currentRoom -and
+            $_.Mask -eq $mask -and
+            $_.Position -eq $position
+        })
+        if ($persistentRows.Count -ne 1) {
+            throw "Tile-change watcher in room $currentGroup`:$($currentRoom.ToString('x2')) " +
+                "at `$$($position.ToString('x2')) / flag `$$($mask.ToString('x2')) " +
+                "matched $($persistentRows.Count) singleTileChanges rows."
+        }
+        $tileChangeWatcherRows.Add(
+            "$currentGroup`t$($currentRoom.ToString('x2'))`t$objectOrder`t$($position.ToString('x2'))`t$($mask.ToString('x2'))`tmiscellaneous2.s:interactiondc_subid08")
+    }
+    $objectOrder++
+}
+if ($tileChangeWatcherRows.Count -ne 9) {
+    throw "Expected eight tile-change watchers, got $($tileChangeWatcherRows.Count - 1)."
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\tile_change_watchers.tsv'),
+    $tileChangeWatcherRows,
+    [Text.UTF8Encoding]::new($false))
+
 if ($miscellaneous2Source -notmatch '(?ms)^interactiondc_subid07:\s+call getThisRoomFlags\s+and ROOMFLAG_ITEM\s+jp nz,interactionDelete\s+ld bc,TREASURE_OBJECT_HEART_PIECE_00\s+call createTreasure\s+call objectCopyPosition\s+jp interactionDelete' -or
     $treasureObjectSource -notmatch '(?m)^\s*m_TreasureSubid \$0a, \$01, \$17, \$3a, TREASURE_OBJECT_HEART_PIECE_00\s*$' -or
     $treasureSource -notmatch '(?ms)^@spawnMode0:.*?@checkLinkTouched.*?^@grabMode2:\s+ldbc \$81,\$00') {
@@ -2693,6 +2792,11 @@ $keyDoorPath = Join-Path $destination "objects\dungeon_key_doors.tsv"
 [IO.File]::WriteAllLines(
     $keyDoorPath,
     $keyDoorRows,
+    [Text.UTF8Encoding]::new($false))
+$standardTilePath = Join-Path $destination "metadata\standard_tile_substitutions.tsv"
+[IO.File]::WriteAllLines(
+    $standardTilePath,
+    $standardTileRows,
     [Text.UTF8Encoding]::new($false))
 $treasureObjectVisualPath = Join-Path $destination "metadata\treasure_object_visuals.tsv"
 [IO.File]::WriteAllLines(

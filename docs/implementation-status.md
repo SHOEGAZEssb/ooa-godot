@@ -20,7 +20,17 @@ claim that the entire surrounding game is complete.
 ### Player, combat, and items
 
 - Link movement, level-1 sword combat, terrain hazards, push blocks, signs,
-  chests, item drops, basic bracelet interactions, and the active Shovel. The
+  chests, item drops, basic bracelet interactions, the active Shovel, and the
+  first Seed Satchel's active Ember Seed path. The Satchel uses its selected
+  packed-BCD counter, grants and immediately displays the original initial 20
+  Ember Seeds, uses the distinct storage/equipped inventory icon sheets, exact
+  four directional child offsets, eight-update Link pose,
+  `SPEED_c0`/speedZ/gravity flight, hazard disposal, enemy contact, 58-update
+  bank-1 `spr_common_sprites` multi-cell OAM flame, imported source-`$0c` tile
+  ignition, persistent room-flag substitutions, all eight `$dc:$08` tile-change
+  watchers, all 56 single-tile reload changes (including room `0:48`'s
+  permanent tree removal), landing/flame sounds, and
+  two-digit HUD/inventory ammo display. The
   shared chest path renders all reward objects from imported
   `INTERAC_TREASURE $60` graphics/OAM (including room `4:08`'s small key) and
   preserves the open/collection/get-item sound boundaries. Push blocks request their move
@@ -162,6 +172,10 @@ claim that the entire surrounding game is complete.
 
 - Full active-item behavior, held objects, lifting/throwing, swimming/diving,
   ledges, terrain-specific Link states, and complete low-health/death handling.
+- Satchel selection and the active Scent, Pegasus, Gale, and Mystery Seed
+  state machines remain deferred; the first acquired Satchel's Ember path is
+  implemented and unsupported selected child IDs report a source-aware error
+  without consuming ammo.
 - Shovel drop `$0f` consumes its third RNG value and supports the 100-Rupee
   branch; its rope/beetle branches remain suppressed until those enemies are
   implemented.
@@ -170,7 +184,8 @@ claim that the entire surrounding game is complete.
 
 ### Graphics and audio
 
-- Remaining dynamic inventory count overlays and specialized item OAM.
+- Remaining dynamic inventory count overlays outside the implemented selected
+  Satchel seed quantity and specialized item OAM.
 - Sound calls owned by interactions and objects that have not yet been ported.
 - A possible cell-based room renderer; the current full-room texture path remains
   authoritative until a staged migration proves parity.

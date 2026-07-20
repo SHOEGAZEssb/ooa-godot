@@ -12,6 +12,7 @@ public sealed class InventoryState
     public const int ItemSword = 0x05;
     public const int ItemShovel = 0x15;
     public const int ItemBracelet = 0x16;
+    public const int ItemSeedSatchel = 0x19;
     public const int TreasurePunch = 0x02;
 
     private const int UnappraisedRingsAddress = 0xc5c0;
@@ -198,6 +199,52 @@ public sealed class InventoryState
         TreasureDatabase.TreasureFeather => FeatherLevel,
         _ => 0
     };
+
+    internal int BcdAmountForInventoryDisplay(int treasure) => treasure switch
+    {
+        TreasureDatabase.TreasureBombs => Bombs,
+        0x0d => Bombchus,
+        TreasureDatabase.TreasureEmberSeeds => EmberSeeds,
+        0x21 => ScentSeeds,
+        0x22 => PegasusSeeds,
+        0x23 => GaleSeeds,
+        0x24 => MysterySeeds,
+        TreasureDatabase.TreasureRing => ToBcd(UnappraisedRingCount),
+        0x34 => GashaSeeds,
+        _ => 0
+    };
+
+    internal bool HasSelectedSatchelSeed()
+    {
+        int selected = _satchelSelectedSeeds;
+        return selected is >= 0 and < 5 &&
+            BcdAmountForInventoryDisplay(TreasureDatabase.TreasureEmberSeeds + selected) != 0;
+    }
+
+    internal bool TryConsumeSelectedSatchelSeed(out int seedItem)
+    {
+        seedItem = TreasureDatabase.TreasureEmberSeeds + _satchelSelectedSeeds;
+        TreasureDatabase.TreasureVariable? variable = _satchelSelectedSeeds switch
+        {
+            0 => TreasureDatabase.TreasureVariable.EmberSeeds,
+            1 => TreasureDatabase.TreasureVariable.ScentSeeds,
+            2 => TreasureDatabase.TreasureVariable.PegasusSeeds,
+            3 => TreasureDatabase.TreasureVariable.GaleSeeds,
+            4 => TreasureDatabase.TreasureVariable.MysterySeeds,
+            _ => null
+        };
+        if (!variable.HasValue)
+            return false;
+        int count = GetVariable(variable.Value);
+        if (count == 0)
+            return false;
+
+        int decimalCount = (count >> 4) * 10 + (count & 0x0f);
+        decimalCount--;
+        SetVariable(variable.Value, ((decimalCount / 10) << 4) | decimalCount % 10);
+        NotifyChanged();
+        return true;
+    }
 
     public void SelectSatchelSeeds(int seeds) =>
         SetSelectedSeeds(ref _satchelSelectedSeeds,
@@ -427,7 +474,7 @@ public sealed class InventoryState
         if (treasure == TreasureDatabase.TreasureSeedSatchel)
         {
             GiveTreasureCore(treasure, parameter);
-            GiveTreasureCore(TreasureDatabase.TreasureBombs + 0x1d, 0x20);
+            GiveTreasureCore(TreasureDatabase.TreasureEmberSeeds, 0x20);
         }
         else if (treasure == TreasureDatabase.TreasureHeartContainer)
         {

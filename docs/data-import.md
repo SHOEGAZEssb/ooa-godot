@@ -45,6 +45,35 @@ those resolved low bytes in `treasure_display.tsv` and emits
 `inventory_text.tsv`, including the 64 ring name/description pairs used by the
 inventory marquee.
 
+The same stage emits `metadata/seed_satchel.tsv` for the first Satchel's
+`ITEM_EMBER_SEED $20` child. It joins `itemData.s`, `itemAttributes.s`,
+`itemAnimations.s`, the item-usage/Link-animation tables, object GFX header
+`$78`, `itemOamData.s`, the native Satchel/seed handlers, and the sound
+constants. Animation parameter bytes are offsets into `item20OamDataPointers`,
+not raw graphics-tile offsets; the importer resolves them to the complete OAM
+composition for each frame. It also checks the parent allocation/decrement
+order, signed directional offsets, 8.8 Z/gravity constants, flame data, loop
+point, and Ember break source before writing the typed runtime record. The
+ignition row retains its full OAM flags `$0a`: bit 3 selects fixed VRAM bank 1,
+whose `GFXH_COMMON_SPRITES` header maps tile base `$06` to
+`spr_common_sprites`, rather than back into the flying seed's
+`spr_common_items` sheet. Extend this table from the corresponding native
+handler when another seed effect becomes active; do not infer one seed's
+behavior from the Ember row.
+
+`Import-MapAndItemData.ps1` joins every breakable-tile row with its room-flag
+action and Gasha-maturity side effects. `Import-WorldAssets.ps1` emits all 56
+rows from `singleTileChanges.s`, including the `$f0-$f2` linked/completion
+predicates. `Import-NpcData.ps1` emits the complete 50-row
+`standard_tile_substitutions.tsv` and all eight placed `$dc:$08` tile-change
+watchers. Each watcher retains its source object order, packed layout position,
+and room-flag mask, and the importer requires a matching single-tile change.
+Room loading follows the original ordering: single-tile changes, standard
+flag-driven substitutions, opened chest/key-door state, then room-specific
+changes. A normal breakable row can persist directly through standard
+substitution; room `0:48` instead uses its watcher at `$68` to set flag `$02`,
+whose single-tile row restores `$3a` on later entries.
+
 Treasure-object sprites are a different source path from those inventory BG
 displays. `Import-NpcData.ps1` follows each treasure object's graphic byte into
 the contiguous `INTERAC_TREASURE $60` subid, animation, and OAM pointer tables

@@ -1861,6 +1861,11 @@ internal sealed class NayruIntroEvent : IRoomEvent, ICutsceneCommandHost
     private void LoadNayruCutsceneRoom(int group, int room, bool includeTimePortals)
     {
         OracleRoomData loaded = _rooms.LoadCutsceneRoom(group, room);
+        // LoadCutsceneRoom intentionally bypasses the ordinary entity-loaded
+        // notification. Reapply the completed $0:$39 portal explicitly when
+        // the vignette sequence returns to the source room, just as the
+        // ordinary entry path does.
+        RestoreCompletedPortal(group, loaded);
         _nayruRoom = loaded;
         _roomView.SetRoom(loaded.Texture);
         _entities.LoadCutsceneRoom(group, loaded, includeTimePortals);

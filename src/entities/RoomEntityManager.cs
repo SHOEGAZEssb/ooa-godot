@@ -16,6 +16,7 @@ public sealed class RoomEntityManager
     internal event Action<GroundTreasurePickup, Player>? GroundTreasureCollected;
     internal event Action<Vector2, OracleRoomData.HazardType>? ItemDropEnteredHazard;
     public event Action<int>? SoundRequested;
+    public event Action? RoomTileChanged;
     private readonly Node _worldRoot;
     private readonly RoomEntityFactory _factory;
     private readonly OracleRandom _random;
@@ -110,6 +111,7 @@ public sealed class RoomEntityManager
             OnSoundRequested, CountRoomEnemies,
             enemyIndex => _recentEnemyDefeats.WasKilled(enemyIndex),
             TriggerIsActive, () => _activeTriggers, SetTrigger,
+            OnRoomTileChanged,
             position => WorldToScreen(position), _animationTick);
         if (_saveData is not null)
             _saveData.Changed += RefreshNpcState;
@@ -229,6 +231,8 @@ public sealed class RoomEntityManager
                     fixedEntity.UpdateFrame(frame, _pendingSpawns);
                 ProcessSpawns(frame);
             }
+            ResolveSeedCollisions();
+            ProcessSpawns(frame);
             anyButtonJustPressed = false;
         }
 
@@ -299,6 +303,32 @@ public sealed class RoomEntityManager
         }
         RemoveFinishedEntities();
         return hit;
+    }
+
+    private void ResolveSeedCollisions()
+    {
+        foreach (IRoomEntity entity in _activeEntities.ToArray())
+        {
+            if (entity is not ISeedProjectileRoomEntity
+                { CollisionEnabled: true } seed)
+            {
+                continue;
+            }
+            foreach (IRoomEntity target in _activeEntities.ToArray())
+            {
+                if (target is not ISeedHittableRoomEntity hittable)
+                    continue;
+                if (!hittable.ApplySeedHit(
+                    seed.CollisionBounds,
+                    seed.CollisionBounds.GetCenter(),
+                    _pendingSpawns))
+                {
+                    continue;
+                }
+                seed.OnEnemyCollision();
+                break;
+            }
+        }
     }
 
     internal T Spawn<T>(RoomEntitySpawn spawn) where T : Node2D
@@ -480,6 +510,8 @@ public sealed class RoomEntityManager
     private void OnItemDropEnteredHazard(
         Vector2 position,
         OracleRoomData.HazardType hazard) => ItemDropEnteredHazard?.Invoke(position, hazard);
+
+    private void OnRoomTileChanged() => RoomTileChanged?.Invoke();
     private void OnSoundRequested(int sound) => SoundRequested?.Invoke(sound);
 
     private static List<T> SelectNodes<T>(IEnumerable<IRoomEntity> entities) where T : Node2D

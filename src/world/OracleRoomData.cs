@@ -424,19 +424,37 @@ public sealed class OracleRoomData
         ((ImageTexture)Texture).Update(RenderRoom(activeHeaders));
     }
 
+    internal void ResetAndApplyRoomInitializationChanges(
+        IReadOnlyDictionary<int, byte> changes,
+        long animationTick)
+    {
+        ApplyRoomInitializationChanges(changes, animationTick, resetToOriginal: true);
+    }
+
     internal void ApplyRoomInitializationChanges(
         IReadOnlyDictionary<int, byte> changes,
         long animationTick)
     {
+        ApplyRoomInitializationChanges(changes, animationTick, resetToOriginal: false);
+    }
+
+    private void ApplyRoomInitializationChanges(
+        IReadOnlyDictionary<int, byte> changes,
+        long animationTick,
+        bool resetToOriginal)
+    {
         bool redraw = false;
-        for (int index = 0; index < Layout.Length; index++)
-            redraw |= Layout[index] != _originalLayout[index];
-        Array.Copy(_originalLayout, Layout, Layout.Length);
-        _positionCollisionOverrides.Clear();
-        redraw |= _positionMappingOverrides.Count != 0;
-        _positionMappingOverrides.Clear();
-        redraw |= _positionVisualOverrides.Count != 0;
-        _positionVisualOverrides.Clear();
+        if (resetToOriginal)
+        {
+            for (int index = 0; index < Layout.Length; index++)
+                redraw |= Layout[index] != _originalLayout[index];
+            Array.Copy(_originalLayout, Layout, Layout.Length);
+            _positionCollisionOverrides.Clear();
+            redraw |= _positionMappingOverrides.Count != 0;
+            _positionMappingOverrides.Clear();
+            redraw |= _positionVisualOverrides.Count != 0;
+            _positionVisualOverrides.Clear();
+        }
 
         foreach ((int position, byte tile) in changes)
         {
@@ -447,6 +465,9 @@ public sealed class OracleRoomData
             int index = y * _layoutStride + x;
             redraw |= Layout[index] != tile;
             Layout[index] = tile;
+            _positionCollisionOverrides.Remove(index);
+            redraw |= _positionMappingOverrides.Remove(index);
+            redraw |= _positionVisualOverrides.Remove(index);
         }
 
         if (!redraw)

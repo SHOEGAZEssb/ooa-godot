@@ -25,6 +25,7 @@ public partial class GameRoot : Node2D
     internal CombatController _combat = null!;
     private BraceletController _bracelet = null!;
     internal ShovelController _shovel = null!;
+    internal SeedSatchelController _seedSatchel = null!;
     private DebugWarpController _debugWarps = null!;
     internal DebugCollisionController _debugCollision = null!;
     internal MapMenuController _mapMenu = null!;
@@ -409,6 +410,7 @@ public partial class GameRoot : Node2D
         _entities.TimePortalEntered += portal =>
             _transitions.ApplyTimePortalWarp(_player, portal.Position);
         _entities.SoundRequested += _sound.PlaySound;
+        _entities.RoomTileChanged += _roomView.QueueRedraw;
         _interactions = new InteractionController(
             _rooms, _entities, new SignDatabase(), new ChestDatabase(), _treasures, _dialogue,
             _scene.WorldRoot, _roomView, _transitions.WorldToScreen, () => (long)_animationTicks,
@@ -431,6 +433,8 @@ public partial class GameRoot : Node2D
         _shovel = new ShovelController(
             _rooms, new BreakableTileDatabase(), _roomView, _entities, _saveData,
             _sound.PlaySound, () => (long)_animationTicks);
+        _seedSatchel = new SeedSatchelController(
+            _inventory, _entities, new SeedSatchelDatabase(), _rooms);
         _terrain = new TerrainController(
             _scene.WorldRoot, _rooms, _collision.Collides, _sound.PlaySound);
         _entities.ItemDropEnteredHazard += _terrain.SpawnSplash;
@@ -449,7 +453,7 @@ public partial class GameRoot : Node2D
         _playerWorld = new PlayerWorld(
             _transitions, _interactions, _collision, _pushBlocks, _keyDoors,
             _terrain, _combat, _entities,
-            _bracelet, _shovel, _roomEvents,
+            _bracelet, _shovel, _seedSatchel, _roomEvents,
             _inventory, _sound, () => _debugCollision.CollisionsDisabled);
         _debugWarps = new DebugWarpController(
             _rooms, _player, LoadDebugRoom, FindSpawn, () => (long)_animationTicks,

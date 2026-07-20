@@ -42,6 +42,62 @@ $globalFlagPath = Join-Path $destination 'metadata\global_flags.tsv'
 New-Item -ItemType Directory -Force -Path (Split-Path $globalFlagPath -Parent) | Out-Null
 [IO.File]::WriteAllLines($globalFlagPath, $globalFlagRows, [Text.UTF8Encoding]::new($false))
 
+# applySingleTileChanges is a separate, ordered room-load pass. Most rows test
+# a room-flag mask; $f0-$f2 are the three Ages-specific linked/completion
+# predicates handled by commonTileSubstitutions.s.
+$singleTileChangeSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\singleTileChanges.s')
+$commonTileSubstitutionSource = Get-Content -Raw (
+    Join-Path $Disassembly 'code\commonTileSubstitutions.s')
+if ($commonTileSubstitutionSource -notmatch
+        '(?ms)^applySingleTileChanges:.*?cp \$f0.*?jr z,@unlinkedOnly.*?cp \$f1.*?jr z,@linkedOnly.*?cp \$f2.*?jr z,@finishedGameOnly.*?and c.*?@match:.*?ld \(de\),a' -or
+    $commonTileSubstitutionSource -notmatch
+        '(?ms)^@unlinkedOnly:.*?call checkIsLinkedGame.*?^@linkedOnly:.*?call checkIsLinkedGame.*?^@finishedGameOnly:.*?GLOBALFLAG_FINISHEDGAME') {
+    throw 'applySingleTileChanges linked/completion predicate behavior changed.'
+}
+$singleTileChangeRows = [Collections.Generic.List[string]]::new()
+$singleTileChangeRows.Add("# group`troom`tmask`tposition`ttile`tsource")
+$singleTileChangeRecords = [Collections.Generic.List[object]]::new()
+for ($group = 0; $group -lt 8; $group++) {
+    $label = "singleTileChangeGroup${group}Data"
+    $block = [regex]::Match(
+        $singleTileChangeSource,
+        "(?ms)^${label}:\s*(?<body>.*?)(?=^singleTileChangeGroup[0-7]Data:|\z)")
+    if (-not $block.Success) {
+        throw "Could not parse $label."
+    }
+    foreach ($entry in [regex]::Matches(
+        $block.Groups['body'].Value,
+        '(?m)^\s*\.db\s+\$(?<room>[0-9a-f]{2})\s+\$(?<mask>[0-9a-f]{2})\s+\$(?<position>[0-9a-f]{2})\s+\$(?<tile>[0-9a-f]{2})\s*$')) {
+        $room = [Convert]::ToInt32($entry.Groups['room'].Value, 16)
+        $mask = [Convert]::ToInt32($entry.Groups['mask'].Value, 16)
+        $position = [Convert]::ToInt32($entry.Groups['position'].Value, 16)
+        $tile = [Convert]::ToInt32($entry.Groups['tile'].Value, 16)
+        if ($mask -eq 0 -or ($mask -gt 0x80 -and $mask -notin 0xf0, 0xf1, 0xf2)) {
+            throw "$label room `$$($room.ToString('x2')) has unsupported mask `$$($mask.ToString('x2'))."
+        }
+        $source = "singleTileChanges.s:$label"
+        $singleTileChangeRows.Add(
+            "$group`t$($room.ToString('x2'))`t$($mask.ToString('x2'))`t$($position.ToString('x2'))`t$($tile.ToString('x2'))`t$source")
+        $singleTileChangeRecords.Add([pscustomobject]@{
+            Group = $group
+            Room = $room
+            Mask = $mask
+            Position = $position
+            Tile = $tile
+            Source = $source
+        })
+    }
+}
+if ($singleTileChangeRecords.Count -ne 56) {
+    throw "Expected 56 Ages single-tile changes, parsed $($singleTileChangeRecords.Count)."
+}
+$singleTileChangePath = Join-Path $destination 'metadata\single_tile_changes.tsv'
+[IO.File]::WriteAllLines(
+    $singleTileChangePath,
+    $singleTileChangeRows,
+    [Text.UTF8Encoding]::new($false))
+
 # Import the save-backed subset of applyRoomSpecificTileChanges as declarative
 # conditions and layout operations. The dispatcher is parsed rather than
 # repeating group/room IDs, so shared routines automatically expand to every

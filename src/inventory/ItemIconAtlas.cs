@@ -8,13 +8,30 @@ public static class ItemIconAtlas
 
     public static int ShadeFromPng(Color sourceColor, out bool transparent)
     {
-        int shade = sourceColor.R < 0.1f ? 0
-            : sourceColor.R < 0.5f ? 1
-            : sourceColor.R < 0.9f ? 2
-            : 3;
+        // spr_* sources use the disassembly converter's default `invert: true`:
+        // black/gray/white map directly to Game Boy color indices 0/1-2/3.
+        int shade = Mathf.Clamp(Mathf.RoundToInt(sourceColor.R * 3.0f), 0, 3);
         transparent = shade == 0;
         return shade;
     }
+
+    internal static ulong DecodedCellHash(Image source, int cell)
+    {
+        ulong hash = 14695981039346656037UL;
+        for (int y = 0; y < 16; y++)
+        for (int x = 0; x < 8; x++)
+        {
+            int shade = ShadeFromPng(source.GetPixel(cell * 8 + x, y), out _);
+            hash ^= (byte)shade;
+            hash *= 1099511628211UL;
+        }
+        return hash;
+    }
+
+    // bank2.s:loadEquippedItemSpriteData changes only the left OAM palette for
+    // the Satchel, shooters, and slingshots before setting VRAM-bank bit 3.
+    public static int EquippedLeftPalette(int sprite, int palette) =>
+        sprite == 0x8a || sprite < 0x86 ? ((palette - 3) | 1) & 7 : palette & 7;
 
     public static bool Select(
         int sprite,

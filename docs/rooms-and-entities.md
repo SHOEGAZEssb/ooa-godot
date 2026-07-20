@@ -85,6 +85,7 @@ single universal entity base class:
 | `IFixedRoomEntity` | One original-engine update with deterministic spawn output |
 | `ILinkContactEntity` | Post-update Link contact handling |
 | `ISwordHittableRoomEntity` | Sword collision and hit response |
+| `ISeedHittableRoomEntity` / `ISeedProjectileRoomEntity` | Active seed hit response and one-shot projectile collision ownership |
 | `IRoomBlocker` / `ITalkTarget` | Collision or interaction capability |
 | `IOrdinaryNpcEntity` | A placed NPC eligible for live imported save-predicate refresh |
 | `IPlayerRestriction` | Native interaction-owned sword and/or movement input suppression |
@@ -104,6 +105,30 @@ update-4 child probe to `ShovelController`. The controller reads
 applies replacement/drop/effect ordering, and spawns fixed-update
 `ShovelDebrisEffect` through `RoomEntityManager`. Do not duplicate shovel dirt
 lists or encode room-specific dig coordinates.
+
+Active Seed Satchel use follows the same parent/child ownership boundary.
+`Player` owns `LINK_ANIM_MODE_21`'s eight-update input/movement lock;
+`SeedSatchelController` checks the selected BCD counter, allocates the child
+through `RoomEntityManager`, and only then performs `decNumActiveSeeds`.
+`EmberSeedEffect` owns `ITEM_EMBER_SEED $20` subid `$00`: the setup-only first
+update, signed Link-relative offset, `SPEED_c0` motion, speedZ `-$20`, gravity
+`$1c`, ground/hazard landing, item animation, and the `$3a`-update flame. On
+expiry it probes `BreakableTileDatabase` with source `$0c` and applies the
+imported replacement, drop, room-flag, Gasha-maturity, and solve-sound effects.
+Cached `OracleRoomData` instances restore their source layout on every entry,
+then run the original substitution order: `SingleTileChangeDatabase`,
+`StandardTileSubstitutionDatabase`, chest/key-door state, and room-specific
+changes. Room flag `$80` therefore restores a directly persistent burnt tree
+`$cf` as `$dc`. Visually similar tree `$ce` has no direct breakable-table flag,
+but may still be permanent when the room places `INTERAC_MISCELLANEOUS_2
+$dc:$08`: that invisible entity snapshots its imported packed position and ORs
+its imported mask into the room flags when the tile changes. Room `0:48` watches
+position `$68` with mask `$02`; its matching `singleTileChanges.s` row restores
+`$3a` on re-entry and after save reload. Unwatched `$ce` tiles remain transient.
+Enemy adapters share their accepted hit/death path with the seed
+capability; the projectile disables its collision after the first accepted hit
+and changes to the flame state. Keep later Scent, Pegasus, Gale, and Mystery
+state machines distinct when they are implemented.
 
 `PART_ITEM_DROP` spawn records distinguish ordinary stationary enemy drops from
 Shovel-created drops. A dug-up drop copies Link's cardinal angle and applies

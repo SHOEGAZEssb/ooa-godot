@@ -8,8 +8,10 @@ public sealed class RoomSession
     private readonly Func<long> _animationTick;
     private readonly Action _resetAnimationTick;
     private readonly OracleSaveData _saveData;
+    private readonly SingleTileChangeDatabase _singleTileChanges;
     private readonly RoomTileChangeDatabase _tileChanges;
     private readonly DungeonKeyDoorDatabase _keyDoors;
+    private readonly StandardTileSubstitutionDatabase _standardTileSubstitutions;
 
     public event Action<int, OracleRoomData>? RoomChanged;
     public OracleWorldData World { get; }
@@ -33,8 +35,10 @@ public sealed class RoomSession
         _resetAnimationTick = resetAnimationTick;
         _saveData = saveData;
         World = new OracleWorldData();
+        _singleTileChanges = new SingleTileChangeDatabase();
         _tileChanges = new RoomTileChangeDatabase();
         _keyDoors = new DungeonKeyDoorDatabase();
+        _standardTileSubstitutions = new StandardTileSubstitutionDatabase();
         DungeonMaps = new DungeonMapDatabase();
         ActiveGroup = startingGroup;
         CurrentRoom = GetRoom(startingGroup, startingRoom);
@@ -98,9 +102,13 @@ public sealed class RoomSession
             ? group + 2
             : group;
         OracleRoomData loaded = World.LoadRoom(group, room, dataGroup);
-        _tileChanges.Apply(group, loaded, _saveData, World, _animationTick());
+        byte roomFlags = _saveData.GetRoomFlags(group, room);
+        _singleTileChanges.Apply(
+            group, loaded, _saveData, _animationTick());
+        _standardTileSubstitutions.Apply(loaded, roomFlags, _animationTick());
         _keyDoors.ApplyOpenedDoorState(
-            loaded, _saveData.GetRoomFlags(group, room), _animationTick());
+            loaded, roomFlags, _animationTick());
+        _tileChanges.Apply(group, loaded, _saveData, World, _animationTick());
         return loaded;
     }
 

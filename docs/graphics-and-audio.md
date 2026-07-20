@@ -49,7 +49,35 @@ tentative TileMapLayer migration is documented in [TODO.md](../TODO.md).
 Inventory treasures, the era symbol, and Heart Piece quarters pass their source
 attribute bytes through `drawTreasureDisplayDataToBg`: its two increments shift
 sprite palettes 0-5 into BG palette slots 2-7 while preserving flip bits. Do not
-apply their table attributes directly to the inventory BG layer.
+apply their table attributes directly to the inventory BG layer. The inventory
+storage cells source their first item sheet from `spr_item_icons_1_spr`, while
+the equipped A/B displays source `spr_item_icons_1`; these similarly named
+sheets are distinct and must not share an atlas. Both retain the `spr_*`
+converter's direct black/gray/white color-index mapping. The storage sheet has
+black color-0 transparency; the uncompressed equipped sheet deliberately uses
+opaque white color 3 to fill the icon cell with the HUD tan. In addition,
+`loadEquippedItemSpriteData` changes the left palette for sprite indices below
+`$86` and `$8a` (the Satchel, shooters, and slingshots); storage cells continue
+to use the raw display-table palette.
+
+`drawTreasureExtraTiles` mode `$01` draws a packed-BCD quantity as two HUD
+digit tiles. The selected Satchel display resolves treasure `$20-$24`, so both
+the gameplay status bar and inventory A/B/storage rendering read the selected
+seed counter and retain its leading zero. Equipped extras use attribute `$80`:
+their nonzero BG pixels have priority over item OAM, including the tens digit
+which overlaps the icon's lower-right cell. Godot composition must therefore
+draw equipped OAM before these digit tiles. This is separate from mode `$00`'s
+`L-` plus level overlay.
+
+The thrown Ember Seed uses object GFX header `$78`
+(`spr_common_items`), tile base `$12`, palette 2, and the imported five-frame
+item animation. Ignition writes OAM flags `$0a`, whose bank bit switches the
+same animation clock to fixed bank-1 `spr_common_sprites`, tile base `$06`, and
+palette 2. Each animation parameter selects a full OAM record; the later flame
+frames are two-cell compositions with their source palette and flip overrides,
+rather than a single tile advanced by that parameter. Satchel landing and
+ignition request
+`SND_BOMB_LAND $52` and `SND_LIGHTTORCH $72` at their native state boundaries.
 
 Chest rewards and held treasure interactions do not use that inventory table.
 Their treasure-object `graphic` byte becomes the subid of `INTERAC_TREASURE

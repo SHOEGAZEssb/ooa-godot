@@ -61,10 +61,12 @@ public partial class Hud : Node2D
             _treasures.GetButtonDisplay(EquippedB, _inventory);
         TreasureDatabase.DisplayRecord equippedA =
             _treasures.GetButtonDisplay(EquippedA, _inventory);
-        DrawItemLevel(equippedB, new Vector2(16, 8));
-        DrawItemLevel(equippedA, new Vector2(56, 8));
         DrawItemIcon(equippedB, new Vector2(8, 0));
         DrawItemIcon(equippedA, new Vector2(48, 0));
+        // drawTreasureExtraTiles writes attribute $80. Nonzero BG pixels
+        // therefore have priority over the overlapping equipped-item OAM.
+        DrawItemExtra(equippedB, new Vector2(16, 8));
+        DrawItemExtra(equippedA, new Vector2(56, 8));
     }
 
     public void Refresh()
@@ -190,21 +192,34 @@ public partial class Hud : Node2D
         if (!display.HasIcon)
             return;
 
-        DrawItemSprite(display.LeftSprite, display.LeftPalette, position);
+        DrawItemSprite(display.LeftSprite,
+            ItemIconAtlas.EquippedLeftPalette(display.LeftSprite, display.LeftPalette),
+            position);
         if (display.RightSprite != 0)
             DrawItemSprite(display.RightSprite, display.RightPalette, position + new Vector2(8, 0));
     }
 
-    private void DrawItemLevel(TreasureDatabase.DisplayRecord display, Vector2 position)
+    private void DrawItemExtra(TreasureDatabase.DisplayRecord display, Vector2 position)
     {
-        int level = display.ExtraMode == 0 && _inventory != null
+        if (_inventory == null)
+            return;
+
+        if (display.ExtraMode == 1)
+        {
+            int amount = _inventory.BcdAmountForInventoryDisplay(display.TreasureId);
+            DrawHudOverlayTile(0x10 + ((amount >> 4) & 0x0f), position);
+            DrawHudOverlayTile(0x10 + (amount & 0x0f), position + new Vector2(8, 0));
+            return;
+        }
+
+        int level = display.ExtraMode == 0
             ? _inventory.LevelForInventoryDisplay(display.TreasureId)
             : 0;
         if (level <= 0)
             return;
 
         // updateStatusBar uses drawTreasureExtraTiles with c=$80. Palette 0
-        // matches the tan HUD and bit 7 places these BG tiles behind item OAM.
+        // matches the tan HUD and bit 7 places nonzero BG pixels above item OAM.
         DrawHudOverlayTile(0x1a, position);
         DrawHudOverlayTile(0x10 + (level & 0x0f), position + new Vector2(8, 0));
     }
@@ -238,6 +253,19 @@ public partial class Hud : Node2D
             : null;
     }
 
+    internal (int TensTile, int OnesTile, Vector2 Position)?
+        QuantityOverlayForValidation(int item, bool isA)
+    {
+        if (_treasures == null || _inventory == null)
+            return null;
+        TreasureDatabase.DisplayRecord display = _treasures.GetButtonDisplay(item, _inventory);
+        if (display.ExtraMode != 1)
+            return null;
+        int amount = _inventory.BcdAmountForInventoryDisplay(display.TreasureId);
+        return (0x10 + ((amount >> 4) & 0x0f), 0x10 + (amount & 0x0f),
+            isA ? new Vector2(56, 8) : new Vector2(16, 8));
+    }
+
     internal bool DungeonKeyDisplayActive =>
         DungeonIndex is >= 0 and < 16 && (TilesetFlags & 0x10) == 0;
 
@@ -246,6 +274,17 @@ public partial class Hud : Node2D
         if (offset is < 0 or >= 64)
             throw new ArgumentOutOfRangeException(nameof(offset));
         return BuildStatusMap()[offset];
+    }
+
+    internal ulong ItemIconShadeHashForValidation(int sprite)
+    {
+        if (!ItemIconAtlas.Select(
+                sprite, _itemIcons1, _itemIcons2, _itemIcons3,
+                out Image source, out int cell))
+        {
+            return 0;
+        }
+        return ItemIconAtlas.DecodedCellHash(source, cell);
     }
 
     private void DrawItemSprite(int sprite, int palette, Vector2 position)

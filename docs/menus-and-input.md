@@ -51,6 +51,11 @@ Treasure display mode `$00` uses the original inventory HUD tiles to draw
 A/B items. This applies to every imported level-mode record, including swords,
 bracelets, switch hooks, boomerangs, and feathers.
 
+Treasure display mode `$01` draws the live packed-BCD amount as two digit
+tiles, including a leading zero. Satchel records first resolve their selected
+seed treasure, so the same rule keeps the HUD, equipped A/B icons, and stored
+inventory icon synchronized after every accepted seed use.
+
 ## Gameplay pause lease
 
 `GameplayPauseController` provides exclusive pause/input ownership. Its lease

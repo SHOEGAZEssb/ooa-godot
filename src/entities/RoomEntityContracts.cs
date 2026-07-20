@@ -32,6 +32,21 @@ internal interface ISwordHittableRoomEntity
         ICollection<RoomEntitySpawn> spawns);
 }
 
+internal interface ISeedHittableRoomEntity
+{
+    bool ApplySeedHit(
+        Rect2 hitbox,
+        Vector2 sourcePosition,
+        ICollection<RoomEntitySpawn> spawns);
+}
+
+internal interface ISeedProjectileRoomEntity
+{
+    bool CollisionEnabled { get; }
+    Rect2 CollisionBounds { get; }
+    void OnEnemyCollision();
+}
+
 internal interface IRoomBlocker
 {
     bool BlocksLink(Vector2 linkCenter);
@@ -123,6 +138,12 @@ internal sealed record ItemDropSpawn(
     bool DugUp = false) : RoomEntitySpawn;
 internal sealed record ShovelDebrisSpawn(Vector2 Position, Vector2I Direction)
     : RoomEntitySpawn(UpdateThisFrame: true);
+internal sealed record EmberSeedSpawn(
+    Vector2 LinkPosition,
+    Vector2I Direction,
+    SeedSatchelDatabase.SeedRecord Record,
+    int Group)
+    : RoomEntitySpawn;
 internal sealed record PuzzlePuffSpawn(Vector2 Position, int Sound)
     : RoomEntitySpawn(UpdateThisFrame: true);
 internal sealed record FallingDownHoleSpawn(Vector2 Position) : RoomEntitySpawn;

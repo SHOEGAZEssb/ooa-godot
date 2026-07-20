@@ -50,6 +50,7 @@ public partial class Player : Node2D
     private float _walkTime;
     private double _swordFrameAccumulator;
     private double _shovelFrameAccumulator;
+    private double _seedSatchelFrameAccumulator;
     private float _drownTime;
     private float _drownInvisibleTime;
     private float _hazardRecoveryTime;
@@ -68,6 +69,9 @@ public partial class Player : Node2D
     private string? _swordButtonAction;
     private int _shovelFrame;
     private bool _usingShovel;
+    private bool _usingSeedSatchel;
+    private int _seedSatchelFrame;
+    private int _seedSatchelActionFrames;
     private Vector2 _lastMovementInput;
     private bool _walking;
     private bool _pushing;
@@ -107,7 +111,8 @@ public partial class Player : Node2D
     };
     public bool IsAttacking => _swordState != SwordActionState.None;
     public bool IsUsingShovel => _usingShovel;
-    private bool IsUsingItem => IsAttacking || IsUsingShovel;
+    public bool IsUsingSeedSatchel => _usingSeedSatchel;
+    private bool IsUsingItem => IsAttacking || IsUsingShovel || IsUsingSeedSatchel;
     internal bool IsPushing => _pushing;
     internal SwordActionState SwordState => _swordState;
     internal int SwordStateFrame => _swordStateFrame;
@@ -517,6 +522,8 @@ public partial class Player : Node2D
                 StartSwordAttack("attack", input);
             else if (_inventory.EquippedA == InventoryState.ItemShovel)
                 StartShovelAction(input);
+            else if (_inventory.EquippedA == InventoryState.ItemSeedSatchel)
+                StartSeedSatchelAction(input);
         }
         else if (Input.IsActionJustPressed("item") && !_world.SwordDisabled)
         {
@@ -531,6 +538,10 @@ public partial class Player : Node2D
             else if (_inventory.EquippedB == InventoryState.ItemShovel)
             {
                 StartShovelAction(input);
+            }
+            else if (_inventory.EquippedB == InventoryState.ItemSeedSatchel)
+            {
+                StartSeedSatchelAction(input);
             }
         }
 
@@ -771,6 +782,17 @@ public partial class Player : Node2D
             }
             QueueRedraw();
         }
+        if (IsUsingSeedSatchel)
+        {
+            _seedSatchelFrameAccumulator += delta * 60.0;
+            while (_seedSatchelFrameAccumulator + 0.000001 >= 1.0 &&
+                IsUsingSeedSatchel)
+            {
+                _seedSatchelFrameAccumulator -= 1.0;
+                AdvanceSeedSatchelFrame();
+            }
+            QueueRedraw();
+        }
     }
 
     public override void _Draw()
@@ -838,6 +860,14 @@ public partial class Player : Node2D
                 _shovelLinkTexture,
                 new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(phase * 16, (int)_facing * 16, 16, 16));
+        }
+        else if (IsUsingSeedSatchel)
+        {
+            // LINK_ANIM_MODE_21 uses graphics $b0-$b3 for eight updates.
+            DrawTextureRectRegion(
+                _attackTexture,
+                new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
+                new Rect2(16, (int)_facing * 16, 16, 16));
         }
         else if (_pushing)
         {
@@ -1219,7 +1249,7 @@ public partial class Player : Node2D
 
     private void StartSwordAttack(string? buttonAction, Vector2 facingInput)
     {
-        if (IsUsingShovel)
+        if (IsUsingShovel || IsUsingSeedSatchel)
             return;
         if (IsAttacking && !SwordCanRestart)
             return;
@@ -1275,7 +1305,56 @@ public partial class Player : Node2D
         _shovelFrameAccumulator = 0.0;
         if (changed)
             QueueRedraw();
+        CancelSeedSatchelAction();
     }
+
+    internal void StartSeedSatchelActionForValidation(Vector2 facingInput) =>
+        StartSeedSatchelAction(facingInput);
+
+    private void StartSeedSatchelAction(Vector2 facingInput)
+    {
+        if (IsUsingItem)
+            return;
+        if (facingInput.LengthSquared() > 0.01f)
+            UpdateFacing(facingInput);
+        int actionFrames = _world.TryUseSeedSatchel(this);
+        if (actionFrames <= 0)
+            return;
+        _usingSeedSatchel = true;
+        _seedSatchelFrame = 0;
+        _seedSatchelActionFrames = actionFrames;
+        _seedSatchelFrameAccumulator = 0.0;
+        _walking = false;
+        _pushing = false;
+        QueueRedraw();
+    }
+
+    private void AdvanceSeedSatchelFrame()
+    {
+        _seedSatchelFrame++;
+        if (_seedSatchelFrame >= _seedSatchelActionFrames)
+            CancelSeedSatchelAction();
+    }
+
+    private void CancelSeedSatchelAction()
+    {
+        bool changed = IsUsingSeedSatchel;
+        _usingSeedSatchel = false;
+        _seedSatchelFrame = 0;
+        _seedSatchelActionFrames = 0;
+        _seedSatchelFrameAccumulator = 0.0;
+        if (changed)
+            QueueRedraw();
+    }
+
+    internal void AdvanceSeedSatchelForValidation(int frames)
+    {
+        for (int frame = 0; frame < frames && IsUsingSeedSatchel; frame++)
+            AdvanceSeedSatchelFrame();
+        QueueRedraw();
+    }
+
+    internal int SeedSatchelFrame => _seedSatchelFrame;
 
     internal void AdvanceShovelForValidation(int frames)
     {

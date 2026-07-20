@@ -69,6 +69,7 @@ public partial class InventoryScreen : Node2D
     private Image _ringTiles = null!;
     private Image _inventoryHud2 = null!;
     private Image _itemIcons1 = null!;
+    private Image _equippedItemIcons1 = null!;
     private Image _itemIcons2 = null!;
     private Image _itemIcons3 = null!;
     private Image _essenceTiles = null!;
@@ -128,6 +129,30 @@ public partial class InventoryScreen : Node2D
             ? (0x1a, 0x10 + (level & 0x0f), 0x07, new Vector2(8, 8))
             : null;
     }
+    internal (int TensTile, int OnesTile, int Attributes, Vector2 Offset)?
+        QuantityOverlayForValidation(int item)
+    {
+        TreasureDatabase.DisplayRecord display = _treasures.GetButtonDisplay(item, _inventory);
+        if (display.ExtraMode != 1)
+            return null;
+        int amount = _inventory.BcdAmountForInventoryDisplay(display.TreasureId);
+        return (0x10 + ((amount >> 4) & 0x0f), 0x10 + (amount & 0x0f),
+            0x07, new Vector2(8, 8));
+    }
+    internal ulong StoredItemIconSheet1HashForValidation =>
+        OracleGraphicsCache.PixelHash(_itemIcons1);
+    internal ulong EquippedItemIconSheet1HashForValidation =>
+        OracleGraphicsCache.PixelHash(_equippedItemIcons1);
+    internal ulong EquippedItemIconShadeHashForValidation(int sprite)
+    {
+        if (!ItemIconAtlas.Select(
+                sprite, _equippedItemIcons1, _itemIcons2, _itemIcons3,
+                out Image source, out int cell))
+        {
+            return 0;
+        }
+        return ItemIconAtlas.DecodedCellHash(source, cell);
+    }
     internal Color EquippedLevelSymbolBackgroundColorForValidation =>
         HudBackgroundTileColor(0x1a, 0, 0);
     internal (int NormalAttributes, int FlippedAttributes, Color Shade2, Color Shade3)
@@ -153,7 +178,10 @@ public partial class InventoryScreen : Node2D
         _blankTiles = LoadPng("res://assets/oracle/inventory/gfx_blank.png");
         _ringTiles = LoadPng("res://assets/oracle/inventory/gfx_rings.png");
         _inventoryHud2 = LoadPng("res://assets/oracle/inventory/gfx_inventory_hud_2.png");
-        _itemIcons1 = LoadPng("res://assets/oracle/gfx/spr_item_icons_1.png");
+        // GFXH_INVENTORY_SCREEN loads the distinct BG-encoded first sheet;
+        // equipped A/B sprites continue to copy from spr_item_icons_1.
+        _itemIcons1 = LoadPng("res://assets/oracle/gfx/spr_item_icons_1_spr.png");
+        _equippedItemIcons1 = LoadPng("res://assets/oracle/gfx/spr_item_icons_1.png");
         _itemIcons2 = LoadPng("res://assets/oracle/gfx/spr_item_icons_2.png");
         _itemIcons3 = LoadPng("res://assets/oracle/gfx/spr_item_icons_3.png");
         _essenceTiles = LoadPng("res://assets/oracle/inventory/spr_essences.png");
@@ -191,9 +219,18 @@ public partial class InventoryScreen : Node2D
 
     public void Initialize(TreasureDatabase treasures, InventoryState inventory, Func<bool>? isPast = null)
     {
+        if (_inventory is not null)
+            _inventory.Changed -= OnInventoryChanged;
         _treasures = treasures;
         _inventory = inventory;
         _isPast = isPast ?? (() => false);
+        _inventory.Changed += OnInventoryChanged;
+    }
+
+    public override void _ExitTree()
+    {
+        if (_inventory is not null)
+            _inventory.Changed -= OnInventoryChanged;
     }
 
     public void Open()
@@ -847,11 +884,14 @@ public partial class InventoryScreen : Node2D
             return;
         if (spritePalette)
         {
-            DrawTreasureLevel(display, position + new Vector2(8, 8), equipped: true);
             DrawLogicalOamSprite(display.LeftSprite,
-                EquippedLeftSpritePalette(display.LeftSprite, display.LeftPalette), position);
+                ItemIconAtlas.EquippedLeftPalette(display.LeftSprite, display.LeftPalette),
+                position);
             if (display.RightSprite != 0)
                 DrawLogicalOamSprite(display.RightSprite, display.RightPalette & 7, position + new Vector2(8, 0));
+            // Equipped extras use BG attribute $80 and cover the lower-right
+            // item OAM cell where the tens digit overlaps it.
+            DrawTreasureLevel(display, position + new Vector2(8, 8), equipped: true);
             return;
         }
         DrawTreasureBackgroundSprite(display.LeftSprite, display.LeftPalette, position);
@@ -868,6 +908,24 @@ public partial class InventoryScreen : Node2D
         Vector2 position,
         bool equipped)
     {
+        if (display.ExtraMode == 1)
+        {
+            int amount = _inventory.BcdAmountForInventoryDisplay(display.TreasureId);
+            int tens = 0x10 + ((amount >> 4) & 0x0f);
+            int ones = 0x10 + (amount & 0x0f);
+            if (equipped)
+            {
+                DrawHudBackgroundTile(tens, position);
+                DrawHudBackgroundTile(ones, position + new Vector2(8, 0));
+            }
+            else
+            {
+                DrawVramBackgroundTile(0, tens, 0x07, position);
+                DrawVramBackgroundTile(0, ones, 0x07, position + new Vector2(8, 0));
+            }
+            return;
+        }
+
         if (!TryGetLevelOverlay(display, out int level))
             return;
 
@@ -931,19 +989,25 @@ public partial class InventoryScreen : Node2D
 
     private void DrawLogicalOamSprite(int sprite, int palette, Vector2 position)
     {
-        int bank = sprite >= 0x80 ? 1 : 0;
-        int firstTile = sprite * 2 & 0xff;
+        if (!ItemIconAtlas.Select(
+                sprite, _equippedItemIcons1, _itemIcons2, _itemIcons3,
+                out Image source, out int cell))
+        {
+            return;
+        }
+        palette = Math.Clamp(palette & 7, 0, _spritePalette.GetLength(0) - 1);
         for (int y = 0; y < 16; y++)
         for (int x = 0; x < 8; x++)
         {
-            if (!TryGetVramPixel(bank, firstTile + y / 8, x, y & 7, out Color pixel, out _))
-                continue;
-            int shade = ItemIconAtlas.ShadeFromPng(pixel, out bool transparent);
+            int shade = ItemIconAtlas.ShadeFromPng(
+                source.GetPixel(cell * 8 + x, y), out bool transparent);
             if (!transparent)
                 DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
-                    _spritePalette[palette & 7, shade]);
+                    _spritePalette[palette, shade]);
         }
     }
+
+    private void OnInventoryChanged() => QueueRedraw();
 
     private void DrawRawOamTile(int bank, int tile, int palette, Vector2 position, bool flipX = false)
     {
@@ -1087,9 +1151,6 @@ public partial class InventoryScreen : Node2D
 
     private static void Overlay(byte[] destination, byte[] source, int offset, int? count = null) =>
         Array.Copy(source, 0, destination, offset, count ?? source.Length);
-
-    private static int EquippedLeftSpritePalette(int sprite, int palette) =>
-        sprite == 0x8a || sprite < 0x86 ? ((palette - 3) | 1) & 7 : palette & 7;
 
     private static int TwoBitShade(Color sourceColor) =>
         Math.Clamp(Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f), 0, 3);

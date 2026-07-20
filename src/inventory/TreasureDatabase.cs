@@ -20,6 +20,7 @@ public sealed class TreasureDatabase
     public const int TreasureBracelet = 0x16;
     public const int TreasureFeather = 0x17;
     public const int TreasureSeedSatchel = 0x19;
+    public const int TreasureEmberSeeds = 0x20;
     public const int TreasureRupees = 0x28;
     public const int TreasureHeartRefill = 0x29;
     public const int TreasureHeartContainer = 0x2a;
