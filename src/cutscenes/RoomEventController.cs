@@ -18,6 +18,7 @@ public sealed class RoomEventController
     private readonly BlackTowerDoorwayEvent _blackTowerDoorway;
     private readonly BlackTowerEntranceEvent _blackTowerEntrance;
     private readonly EnterPastEvent _enterPast;
+    private readonly GraveyardGhostKidsEvent _graveyardGhostKids;
     private readonly ImpaIntroEvent _impa;
     private readonly NayruIntroEvent _nayru;
     private readonly MakuSproutRescueEvent _makuSproutRescue;
@@ -67,6 +68,7 @@ public sealed class RoomEventController
         _blackTowerDoorway = new BlackTowerDoorwayEvent(_context);
         _blackTowerEntrance = new BlackTowerEntranceEvent(_context);
         _enterPast = new EnterPastEvent(_context);
+        _graveyardGhostKids = new GraveyardGhostKidsEvent(_context);
         _impa = new ImpaIntroEvent(_context);
         _nayru = new NayruIntroEvent(_context, _impa);
         _makuSproutRescue = new MakuSproutRescueEvent(_context);
@@ -85,6 +87,7 @@ public sealed class RoomEventController
             _blackTowerDoorway,
             _blackTowerEntrance,
             _enterPast,
+            _graveyardGhostKids,
             _impa,
         ];
         entities.RoomEntitiesLoaded += OnRoomEntitiesLoaded;
@@ -123,6 +126,7 @@ public sealed class RoomEventController
     internal BlackTowerDoorwayEvent BlackTowerDoorway => _blackTowerDoorway;
     internal BlackTowerEntranceEvent BlackTowerEntrance => _blackTowerEntrance;
     internal EnterPastEvent EnterPast => _enterPast;
+    internal GraveyardGhostKidsEvent GraveyardGhostKids => _graveyardGhostKids;
     internal ImpaIntroEvent Impa => _impa;
     internal NayruIntroEvent Nayru => _nayru;
     internal MakuSproutRescueEvent MakuSproutRescue => _makuSproutRescue;

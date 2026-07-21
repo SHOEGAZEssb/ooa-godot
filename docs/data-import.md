@@ -169,6 +169,15 @@ source file, pointer table, animation terminator, and parameter semantics.
 through one label/routine/count check before its progress-1 and progress-2
 exporters apply their distinct state and linked-game rules.
 
+For concurrent native interaction scenes, `Import-CutsceneData.ps1` emits the
+native parameters and dialogue rather than inventing a linear command stream.
+Room `0:7b` uses `graveyard_ghost_kids_event.tsv` plus
+`graveyard_ghost_kids_text.tsv`; the importer checks the complete room object
+order, all three handler branches, their shared script tail, palette override,
+RNG helper, jump/speed/sound constants, and automatic textbox positioning.
+Runtime retains the original per-object update order when consuming that typed
+record.
+
 NPC placement, state predicates, linked native interactions, and story event
 records follow the ownership and validation workflow in
 [NPCs and room events](npcs-and-events.md).

@@ -283,6 +283,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateRoom186NpcInteractions();
         ValidateLowerBlackTowerInteractions();
         ValidateNpcFlagVisibility();
+        ValidateGraveyardGhostKidsCutscene();
         ValidateBipinBlossomNaming();
         ValidateImpaIntroEncounter();
         ValidateMakuTreeDisappearanceCutscene();

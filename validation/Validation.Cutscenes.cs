@@ -625,6 +625,344 @@ public sealed partial class ValidationRoot
             "and 30/16/30 arrival.");
     }
 
+    private void ValidateGraveyardGhostKidsCutscene()
+    {
+        GraveyardGhostKidsEvent ghostKids = _roomEvents.GraveyardGhostKids;
+        GraveyardGhostKidsEventDatabase.EventRecord record = ghostKids.Record;
+        bool originalRoomFlag = _saveData.HasRoomFlag(
+            record.Group, record.Room, (byte)record.RoomFlag);
+        _saveData.SetRoomFlag(
+            record.Group, record.Room, (byte)record.RoomFlag, value: false);
+        _dialogue.Close();
+        _sound.ClearPlayRequestAudit();
+        LoadValidationRoom(record.Group, record.Room);
+
+        NpcCharacter red = _npcNodes.Single(npc =>
+            npc.Record.Id == record.RedId && npc.Record.SubId == record.RedSubId);
+        NpcCharacter green = _npcNodes.Single(npc =>
+            npc.Record.Id == record.GreenId && npc.Record.SubId == record.GreenSubId);
+        NpcCharacter blue = _npcNodes.Single(npc =>
+            npc.Record.Id == record.BlueId && npc.Record.SubId == record.BlueSubId);
+        int randomCallsBeforeShake = _entities.RandomCalls;
+
+        if (record is not
+            {
+                Group: 0,
+                Room: 0x7b,
+                RoomFlag: OracleSaveData.RoomFlag40,
+                RedPalette: 0x02,
+                GreenInitialWait: 60,
+                JumpSpeedZ: -0x1c0,
+                JumpGravity: 0x20,
+                JumpSound: OracleSoundEngine.SndJump,
+                PostJumpWait: 30,
+                GreenPostTextWait: 30,
+                RedFreezeWait: 32,
+                RedPostTextWait: 30,
+                RedFinalWait: 60,
+                ShakeFrames: 120,
+                FleeSpeed: 0x50,
+                FleeCounter: 0x38,
+                FleeAngle: 0x08,
+                FleeSound: 0x51
+            } ||
+            ghostKids.Database.Texts.Count != 5 ||
+            !ghostKids.HasState || ghostKids.Completed || ghostKids.Signal != 0 ||
+            ghostKids.RedStage != GraveyardGhostKidsEvent.ChildStage.WaitForSignal ||
+            ghostKids.GreenStage != GraveyardGhostKidsEvent.ChildStage.InitialWait ||
+            ghostKids.BlueStage != GraveyardGhostKidsEvent.ChildStage.WaitForSignal ||
+            ghostKids.GreenCounter != record.GreenInitialWait ||
+            red.Position != new Vector2(0x48, 0x48) ||
+            green.Position != new Vector2(0x68, 0x48) ||
+            blue.Position != new Vector2(0x58, 0x38) ||
+            red.Record.Palette != record.RedPalette ||
+            red.CurrentScriptAnimationSource != red.Record.DownAnimation ||
+            green.CurrentScriptAnimationSource != green.Record.UpAnimation ||
+            blue.CurrentScriptAnimationSource != blue.Record.DownAnimation ||
+            red.AnimationRate != 0.0f || green.AnimationRate != 0.0f ||
+            blue.AnimationRate != 0.0f || !_player.CutsceneControlled)
+        {
+            throw new InvalidOperationException(
+                "Room 0:7b did not start the three-child event with its imported " +
+                "positions, red palette, animations, input lock, and room-flag predicate.");
+        }
+
+        StepRoomEventFrames(record.GreenInitialWait - 1);
+        if (ghostKids.GreenCounter != 1 ||
+            ghostKids.GreenStage != GraveyardGhostKidsEvent.ChildStage.InitialWait ||
+            _sound.PlayRequestsFor(record.JumpSound) != 0)
+        {
+            throw new InvalidOperationException(
+                "The green child's initial $3c counter ended before 60 updates.");
+        }
+        StepRoomEventFrames(1);
+        if (ghostKids.GreenStage != GraveyardGhostKidsEvent.ChildStage.Jumping ||
+            ghostKids.GreenZFixed != 0 ||
+            _sound.PlayRequestsFor(record.JumpSound) != 1)
+        {
+            throw new InvalidOperationException(
+                "The green child did not start speedZ -$01c0 with SND_JUMP after update 60.");
+        }
+        StepRoomEventFrames(28);
+        if (ghostKids.GreenStage != GraveyardGhostKidsEvent.ChildStage.Jumping ||
+            ghostKids.GreenZFixed != -0x1c0 || green.ScriptDrawOffset.Y != -2)
+        {
+            throw new InvalidOperationException(
+                "The green child's $20-gravity jump diverged before update 29.");
+        }
+        StepRoomEventFrames(1);
+        if (ghostKids.GreenStage !=
+                GraveyardGhostKidsEvent.ChildStage.InstallPostJumpWait ||
+            ghostKids.GreenZFixed != 0 || green.ScriptDrawOffset != Vector2.Zero)
+        {
+            throw new InvalidOperationException(
+                "The green child did not land on the 29th gravity update.");
+        }
+        StepRoomEventFrames(1);
+        if (ghostKids.GreenStage != GraveyardGhostKidsEvent.ChildStage.PostJumpWait ||
+            ghostKids.GreenCounter != record.PostJumpWait)
+        {
+            throw new InvalidOperationException(
+                "boySubid04Script did not install wait 30 on its post-landing update.");
+        }
+        StepRoomEventFrames(record.PostJumpWait - 1);
+        if (ghostKids.GreenCounter != 1 || _dialogue.IsOpen)
+            throw new InvalidOperationException("The green child's wait 30 ended early.");
+        StepRoomEventFrames(1);
+        const string greenText =
+            "No way! It's too\nscary! It's\npitch black\ninside that\ngrave beneath\nthe tree!";
+        if (!_dialogue.IsOpen || _dialogue.CurrentMessage != greenText ||
+            ghostKids.GreenStage != GraveyardGhostKidsEvent.ChildStage.Dialogue)
+        {
+            throw new InvalidOperationException(
+                "TX_2511 did not open with the exact Spirit's Grave text.");
+        }
+
+        StepRoomEventFrames(2);
+        if (ghostKids.Signal != 0 ||
+            ghostKids.BlueStage != GraveyardGhostKidsEvent.ChildStage.WaitForSignal)
+        {
+            throw new InvalidOperationException(
+                "The open TX_2511 box failed to hold the green script and blue child.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        if (ghostKids.GreenStage !=
+                GraveyardGhostKidsEvent.ChildStage.PostDialogueWait ||
+            ghostKids.GreenCounter != record.GreenPostTextWait)
+        {
+            throw new InvalidOperationException(
+                "The green child did not install its post-TX_2511 wait on close.");
+        }
+        StepRoomEventFrames(record.GreenPostTextWait - 1);
+        if (ghostKids.GreenCounter != 1 || ghostKids.Signal != 0)
+            throw new InvalidOperationException("The green post-text wait ended early.");
+        StepRoomEventFrames(1);
+        if (ghostKids.Signal != 1 ||
+            ghostKids.GreenStage != GraveyardGhostKidsEvent.ChildStage.WaitForSignal ||
+            ghostKids.BlueStage != GraveyardGhostKidsEvent.ChildStage.Jumping ||
+            ghostKids.BlueZFixed != 0 ||
+            _sound.PlayRequestsFor(record.JumpSound) != 2)
+        {
+            throw new InvalidOperationException(
+                "cfd1=$01 did not start the blue child's jump later in the same object update pass.");
+        }
+
+        StepRoomEventFrames(28);
+        if (ghostKids.BlueStage != GraveyardGhostKidsEvent.ChildStage.Jumping ||
+            ghostKids.BlueZFixed != -0x1c0 || blue.ScriptDrawOffset.Y != -2)
+        {
+            throw new InvalidOperationException(
+                "The blue child's $20-gravity jump diverged before update 29.");
+        }
+        StepRoomEventFrames(1);
+        if (ghostKids.BlueStage !=
+                GraveyardGhostKidsEvent.ChildStage.InstallPostJumpWait ||
+            ghostKids.BlueZFixed != 0 || blue.ScriptDrawOffset != Vector2.Zero)
+        {
+            throw new InvalidOperationException(
+                "The blue child did not land on the 29th gravity update.");
+        }
+        StepRoomEventFrames(1);
+        StepRoomEventFrames(record.PostJumpWait);
+        const string blueText = "Shut up! It's no\ngood if you get\nscared!";
+        if (!_dialogue.IsOpen || _dialogue.CurrentMessage != blueText ||
+            ghostKids.BlueStage != GraveyardGhostKidsEvent.ChildStage.Dialogue)
+        {
+            throw new InvalidOperationException(
+                "boy2Subid2Script did not show exact TX_2911 after wait 30.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        if (ghostKids.Signal != 2 ||
+            ghostKids.RedStage != GraveyardGhostKidsEvent.ChildStage.WaitForSignal)
+        {
+            throw new InvalidOperationException(
+                "The blue child did not write cfd1=$02 after TX_2911 closed.");
+        }
+        StepRoomEventFrames(1);
+        if (ghostKids.RedStage != GraveyardGhostKidsEvent.ChildStage.RedFreezeWait ||
+            ghostKids.RedCounter != record.RedFreezeWait)
+        {
+            throw new InvalidOperationException(
+                "The red child did not freeze and install the first wait 32 on cfd1=$02.");
+        }
+        StepRoomEventFrames(record.RedFreezeWait);
+        if (!_dialogue.IsOpen || _dialogue.CurrentMessage != "Besides..." ||
+            red.CurrentScriptAnimationSource != red.Record.DownAnimation)
+        {
+            throw new InvalidOperationException(
+                "The first frozen wait did not show TX_2512 while facing down.");
+        }
+
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        if (ghostKids.RedStage !=
+                GraveyardGhostKidsEvent.ChildStage.RedPostFirstWait ||
+            ghostKids.RedCounter != record.RedPostTextWait)
+        {
+            throw new InvalidOperationException("TX_2512 did not install wait 30 on close.");
+        }
+        StepRoomEventFrames(record.RedPostTextWait);
+        if (ghostKids.RedStage != GraveyardGhostKidsEvent.ChildStage.RedTurnLeftWait ||
+            ghostKids.RedCounter != record.RedFreezeWait ||
+            red.CurrentScriptAnimationSource != red.Record.LeftAnimation)
+        {
+            throw new InvalidOperationException(
+                "The red child did not turn left and install the second wait 32.");
+        }
+        StepRoomEventFrames(record.RedFreezeWait);
+        if (!_dialogue.IsOpen || _dialogue.CurrentMessage != "It might come\nout...")
+            throw new InvalidOperationException("The second frozen wait did not show TX_2513.");
+
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        StepRoomEventFrames(record.RedPostTextWait);
+        if (ghostKids.RedStage != GraveyardGhostKidsEvent.ChildStage.RedTurnUpWait ||
+            ghostKids.RedCounter != record.RedFreezeWait ||
+            red.CurrentScriptAnimationSource != red.Record.UpAnimation)
+        {
+            throw new InvalidOperationException(
+                "The red child did not turn up and install the third wait 32.");
+        }
+        StepRoomEventFrames(record.RedFreezeWait);
+        if (!_dialogue.IsOpen || _dialogue.CurrentMessage != "...The ghost.")
+            throw new InvalidOperationException("The third frozen wait did not show TX_2514.");
+
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        if (ghostKids.RedStage != GraveyardGhostKidsEvent.ChildStage.RedFinalWait ||
+            ghostKids.RedCounter != record.RedFinalWait)
+        {
+            throw new InvalidOperationException("TX_2514 did not install the final wait 60.");
+        }
+        StepRoomEventFrames(record.RedFinalWait - 1);
+        if (ghostKids.RedCounter != 1 || ghostKids.Signal != 2 ||
+            _entities.RandomCalls != randomCallsBeforeShake)
+        {
+            throw new InvalidOperationException(
+                "The final wait ended or consumed shared RNG before update 60.");
+        }
+        StepRoomEventFrames(1);
+        if (ghostKids.Signal != 3 ||
+            ghostKids.RedStage != GraveyardGhostKidsEvent.ChildStage.Shaking ||
+            ghostKids.GreenStage != GraveyardGhostKidsEvent.ChildStage.Shaking ||
+            ghostKids.BlueStage != GraveyardGhostKidsEvent.ChildStage.Shaking ||
+            ghostKids.RedCounter != record.ShakeFrames - 1 ||
+            ghostKids.GreenCounter != record.ShakeFrames - 1 ||
+            ghostKids.BlueCounter != record.ShakeFrames - 1 ||
+            _entities.RandomCalls != randomCallsBeforeShake + 3)
+        {
+            throw new InvalidOperationException(
+                "cfd1=$03 did not start all three source-ordered fear shakes in one update.");
+        }
+
+        StepRoomEventFrames(record.ShakeFrames - 2);
+        if (ghostKids.RedCounter != 1 || ghostKids.GreenCounter != 1 ||
+            ghostKids.BlueCounter != 1 ||
+            _entities.RandomCalls != randomCallsBeforeShake + 3 * (record.ShakeFrames - 1) ||
+            _sound.PlayRequestsFor(record.FleeSound) != 0)
+        {
+            throw new InvalidOperationException(
+                "The 120-update three-child RNG shake ended before its final sample.");
+        }
+        StepRoomEventFrames(1);
+        Vector2 redFleeStart = red.Position;
+        Vector2 greenFleeStart = green.Position;
+        Vector2 blueFleeStart = blue.Position;
+        if (ghostKids.RedStage != GraveyardGhostKidsEvent.ChildStage.Fleeing ||
+            ghostKids.GreenStage != GraveyardGhostKidsEvent.ChildStage.Fleeing ||
+            ghostKids.BlueStage != GraveyardGhostKidsEvent.ChildStage.Fleeing ||
+            ghostKids.RedCounter != record.FleeCounter ||
+            ghostKids.GreenCounter != record.FleeCounter ||
+            ghostKids.BlueCounter != record.FleeCounter ||
+            _entities.RandomCalls != randomCallsBeforeShake + 3 * record.ShakeFrames ||
+            _sound.PlayRequestsFor(record.FleeSound) != 3 ||
+            red.CurrentScriptAnimationSource != red.Record.RightAnimation ||
+            green.CurrentScriptAnimationSource != green.Record.RightAnimation ||
+            blue.CurrentScriptAnimationSource != blue.Record.RightAnimation ||
+            redFleeStart.X is < 0x47 or > 0x48 ||
+            greenFleeStart.X is < 0x67 or > 0x68 ||
+            blueFleeStart.X is < 0x57 or > 0x58)
+        {
+            throw new InvalidOperationException(
+                "The final shake sample did not start three SND_THROW/SPEED_200 rightward escapes.");
+        }
+
+        StepRoomEventFrames(record.FleeCounter - 1);
+        if (ghostKids.RedCounter != 1 || ghostKids.GreenCounter != 1 ||
+            ghostKids.BlueCounter != 1 ||
+            red.Position != redFleeStart + Vector2.Right * 110 ||
+            green.Position != greenFleeStart + Vector2.Right * 110 ||
+            blue.Position != blueFleeStart + Vector2.Right * 110)
+        {
+            throw new InvalidOperationException(
+                "moveright $38 did not apply SPEED_200 on exactly 55 nonzero counter updates.");
+        }
+        StepRoomEventFrames(1);
+        if (ghostKids.RedStage != GraveyardGhostKidsEvent.ChildStage.FleeEndPending ||
+            ghostKids.GreenStage != GraveyardGhostKidsEvent.ChildStage.FleeEndPending ||
+            ghostKids.BlueStage != GraveyardGhostKidsEvent.ChildStage.FleeEndPending ||
+            red.Position != redFleeStart + Vector2.Right * 110 ||
+            green.Position != greenFleeStart + Vector2.Right * 110 ||
+            blue.Position != blueFleeStart + Vector2.Right * 110)
+        {
+            throw new InvalidOperationException(
+                "counter2's zero update moved a child or dispatched scriptend too soon.");
+        }
+        StepRoomEventFrames(1);
+        if (ghostKids.HasState || !ghostKids.Completed || _player.CutsceneControlled ||
+            ! _saveData.HasRoomFlag(
+                record.Group, record.Room, (byte)record.RoomFlag) ||
+            red.Active || green.Active || blue.Active)
+        {
+            throw new InvalidOperationException(
+                "The off-screen children did not set room flag $40, delete, and restore input.");
+        }
+
+        LoadValidationRoom(record.Group, record.Room);
+        List<NpcCharacter> reloadedChildren = _npcNodes.Where(npc =>
+            (npc.Record.Id == record.RedId && npc.Record.SubId == record.RedSubId) ||
+            (npc.Record.Id == record.GreenId && npc.Record.SubId == record.GreenSubId) ||
+            (npc.Record.Id == record.BlueId && npc.Record.SubId == record.BlueSubId)).ToList();
+        if (ghostKids.HasState || reloadedChildren.Count != 3 ||
+            reloadedChildren.Any(child => child.Active || child.Visible) ||
+            _player.CutsceneControlled)
+        {
+            throw new InvalidOperationException(
+                "Room flag $40 did not suppress the full 0:7b event and all children on re-entry.");
+        }
+
+        _saveData.SetRoomFlag(
+            record.Group, record.Room, (byte)record.RoomFlag, originalRoomFlag);
+        LoadValidationRoom(0, 0x11);
+        GD.Print("Validated room 0:7b's native three-child ghost cutscene: room flag $40 " +
+            "predicate, red palette $02, object-order cfd1 handoffs, 60/30/30 child waits, " +
+            "two 29-update jumps, five exact dialogues, 32/30/32/30/32/60 red waits, " +
+            "360 shared RNG calls, three SND_THROW cues, SPEED_200 moveright $38 cadence, " +
+            "input restore, deletion, and persistent re-entry suppression.");
+    }
+
     private void ValidateEnterPastEvent()
     {
         EnterPastEvent enterPast = _roomEvents.EnterPast;

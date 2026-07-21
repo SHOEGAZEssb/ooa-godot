@@ -466,6 +466,43 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         QueueRedraw();
     }
 
+    /// <summary>
+    /// Applies an interaction's explicit oamFlags palette bits. Most NPCs use
+    /// their graphics record's base palette, but native handlers can replace
+    /// those bits after interactionInitGraphics (for example $3c:$03).
+    /// </summary>
+    internal void SetBasePalette(int palette)
+    {
+        if (palette is < 0 or > 7)
+            throw new ArgumentOutOfRangeException(nameof(palette));
+        if (Record.Palette == palette)
+            return;
+
+        int frame = _animationFrame;
+        double ticks = _animationTicks;
+        Record = Record with { Palette = palette };
+        RebuildFacingAnimations();
+        if (_scriptAnimationActive && !string.IsNullOrEmpty(_scriptAnimationSource))
+        {
+            string encodedAnimation = _scriptAnimationSource;
+            _scriptAnimation.Clear();
+            _scriptAnimationLoopStart = AnimationLoopStart(encodedAnimation);
+            _scriptAnimation.AddRange(BuildPositionedAnimation(
+                _sourceImage,
+                encodedAnimation,
+                Record.TileBase,
+                Record.Palette,
+                _paletteOverride,
+                _sourceGrayscaleInverted));
+            _scriptAnimationActive = _scriptAnimation.Count > 0;
+            _animationFrame = _scriptAnimation.Count == 0
+                ? 0
+                : Math.Min(frame, _scriptAnimation.Count - 1);
+            _animationTicks = ticks;
+        }
+        QueueRedraw();
+    }
+
     internal void SetScriptPaletteOverride(Color[]? palette)
     {
         _paletteOverride = palette is null ? null : (Color[])palette.Clone();

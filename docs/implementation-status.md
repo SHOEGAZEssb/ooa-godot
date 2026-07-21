@@ -228,6 +228,14 @@ remains the single runtime policy table.
   first arrival in the past, the Maku Tree disappearance, and Nayru's
   introduction/aftermath. Script-driven portions use the typed command runner;
   native transition/presentation objects retain specialized controllers.
+- Present room `0:7b`'s complete one-time Spirit's Grave children scene. The
+  three placed `$3c:$03`, `$3c:$04`, and `$3f:$02` interactions retain their
+  source object order, red/green/blue visuals, two delayed jumps, five dialogue
+  boxes, shared `cfd1` handoffs, 120-update fear shake with 360 shared-RNG
+  calls, three throw cues, and simultaneous `SPEED_200` escapes. Current-room
+  bit `$40` suppresses all three children and the event on re-entry. The
+  unrelated `$b6:$03` Gasha spot in the same object stream remains part of the
+  deferred Gasha planting/reward system.
 - Room `1:38`'s complete Maku Sprout rescue, including the exact
   `wMakuTreeState`/saved-flag predicate, synchronized jumping interaction
   Moblins, replacement by two ordinary masked-Moblin enemies, live enemy-count

@@ -691,6 +691,34 @@ follower or the first-past arrival overlap. Completion must be represented by
 the original global/room/WRAM write so room re-entry naturally selects the
 correct state.
 
+Present room `0:7b` is the reference for several native NPC handlers whose
+scripts run concurrently rather than forming one controller script:
+
+- Preserve `group0Map7bObjectData` order: red `$3c:$03`, green `$3c:$04`, blue
+  `$3f:$02`, then the unrelated `$b6:$03` Gasha spot. Update the three child
+  lanes in that order because green's `cfd1=$01`, blue's `cfd1=$02`, and red's
+  `cfd1=$03` writes become visible to later interaction slots in the same
+  original object pass.
+- Keep the scene as a native `IRoomEntryEvent`. Each child combines a native
+  jump/animation/boundary handler with an `interactionRunScript` lane, and the
+  shared `boyShakeWithFearThenRun` loop consumes one global RNG value per child
+  per update. Flattening these into one command stream would change same-frame
+  handoffs and all 360 RNG calls.
+- Import the checked waits, jump physics, animation indices, palette bits,
+  dialogue, speed, movement counter, sounds, and room predicate into
+  `graveyard_ghost_kids_event.tsv` and `graveyard_ghost_kids_text.tsv`. The red
+  child explicitly writes OAM palette bits `$02` after graphics initialization;
+  that override is event behavior, not the common `$3c` base visual.
+- `boyRunSubid03` clears object/menu disabling and sets current-room bit `$40`
+  only after the children finish `moveright $38` and fail the screen-boundary
+  test. Both event selection and ordinary NPC visibility read that same saved
+  room bit, so completed re-entry needs no clone-only state.
+
+This pattern applies only when native handlers really execute as independent
+interaction slots. A single source script still belongs in the typed command
+runner, and an unrelated object later in the room stream must not be absorbed
+into the event merely because it shares the room.
+
 Room `1:38` is the reference for an event whose interaction scripts create
 more script owners and later hand combat back to the entity system. Keep the
 sprout, `$6b:$04` controller, left `$96:$00` Moblin, right `$96:$01` Moblin,
