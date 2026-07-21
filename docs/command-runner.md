@@ -46,7 +46,7 @@ animation. Match the mechanism used by the disassembly.
   independent actor scripts.
 - `tools/import_oracles/Import-CutsceneData.ps1`: disassembly parsing and
   generated command streams.
-- `validation/GameRoot.Validation.cs`: complete-path and branch validation.
+- `validation/Validation.Cutscenes.cs`: complete-path and branch validation.
 
 Generated files under `assets/oracle/` must never be hand-edited. Change the
 importer and regenerate them with:

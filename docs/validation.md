@@ -8,6 +8,14 @@ Headless regression orchestration lives in the separate
 The validation assembly references the built game assembly and receives a narrow
 internal surface through `InternalsVisibleTo`.
 
+`ValidationRoot` is one partial class organized by subsystem. Keep lifecycle,
+shared test doubles, and the ordered `ValidateAll` entry point in
+`Validation.cs`; place scenarios in the matching
+`Validation.<Category>.cs` file. Cross-category helpers remain private
+members of the same partial class. The validation project includes the complete
+`Validation*.cs` family explicitly so production compilation continues
+to exclude it.
+
 Do not add validation-only state machines, audit masks, trace lists, or public
 compatibility accessors to production classes. Observe externally meaningful
 state or provide a small internal operation that is also a truthful view of the

@@ -13,7 +13,7 @@ namespace oracleofages;
 public partial class ValidationSceneHost : Node
 {
     private const string ValidationAssemblyName = "oracle-of-ages.validation.dll";
-    private const string ValidationRootType = "oracleofages.ValidationGameRoot";
+    private const string ValidationRootType = "oracleofages.ValidationRoot";
 
     public override void _Ready()
     {

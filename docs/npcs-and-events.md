@@ -754,7 +754,7 @@ infinite original NPC script active without blocking ordinary gameplay:
 
 ## Validation pattern
 
-NPC and event regressions live in `validation/GameRoot.Validation.cs`, not in
+NPC and event regressions live in the `validation/Validation*.cs` family, not in
 production classes. Build a canonical-room scenario through the same public or
 internal lifecycle used by gameplay.
 
@@ -837,7 +837,7 @@ production behavior; it must not drive it.
 - `src/cutscenes/BlackTowerExplanationScreen.cs`
 - `src/cutscenes/MakuSproutRescueEvent.cs`
 - `src/cutscenes/MakuSproutRescueDatabase.cs`
-- `validation/GameRoot.Validation.cs`
+- `validation/Validation.Npcs.cs`
 
 See [Rooms and entities](rooms-and-entities.md) for room lifetime and capability
 contracts, [Saves and runtime state](saves-and-state.md) for flag ownership, and
