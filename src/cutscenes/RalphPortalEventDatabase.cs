@@ -1,7 +1,5 @@
-using Godot;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace oracleofages;
 
@@ -16,43 +14,35 @@ internal sealed class RalphPortalEventDatabase
 
     public RalphPortalEventDatabase()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/cutscenes/ralph_portal_event.tsv");
-        string? row = null;
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = rawLine.TrimEnd('\r');
-            if (!line.StartsWith('#'))
-            {
-                row = line;
-                break;
-            }
-        }
-        if (row is null)
-            throw new InvalidOperationException("Ralph portal event data is empty.");
-
-        string[] columns = row.Split('\t');
-        if (columns.Length != 16)
-            throw new InvalidOperationException(
-                $"Ralph portal event row should contain 16 columns, got {columns.Length}.");
+        GeneratedTableRow row = GeneratedTable.Load(
+            "res://assets/oracle/cutscenes/ralph_portal_event.tsv",
+            new GeneratedTableSchema(
+                "Ralph portal event",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "group", "room", "id", "subid", "entry-direction", "intro-delay",
+                    "post-text", "applyspeed-counter", "flicker-frames", "speed", "angle",
+                    "global-flag", "text-id", "move-animation", "portal-animation", "text-base64"
+                ],
+                headerRequired: true)).SingleRow();
 
         Record = new RalphPortalEventRecord(
-            int.Parse(columns[0]),
-            Convert.ToInt32(columns[1], 16),
-            Convert.ToInt32(columns[2], 16),
-            Convert.ToInt32(columns[3], 16),
-            Convert.ToInt32(columns[4], 16),
-            int.Parse(columns[5]),
-            int.Parse(columns[6]),
-            int.Parse(columns[7]),
-            int.Parse(columns[8]),
-            Convert.ToInt32(columns[9], 16),
-            Convert.ToInt32(columns[10], 16),
-            Convert.ToInt32(columns[11], 16),
-            Convert.ToInt32(columns[12], 16),
-            columns[13],
-            columns[14],
-            Encoding.UTF8.GetString(Convert.FromBase64String(columns[15])));
+            row.Decimal(0, 0, 7),
+            row.HexByte(1),
+            row.HexByte(2),
+            row.HexByte(3),
+            row.HexByte(4),
+            row.UnsignedDecimal(5),
+            row.UnsignedDecimal(6),
+            row.UnsignedDecimal(7),
+            row.UnsignedDecimal(8),
+            row.HexByte(9),
+            row.HexByte(10),
+            row.HexByte(11),
+            row.HexWord(12),
+            row.RequiredString(13),
+            row.RequiredString(14),
+            row.Base64Utf8(15));
 
         Commands = CutsceneCommandCatalog.Load(
             "res://assets/oracle/cutscenes/ralph_portal_commands.tsv");

@@ -1,7 +1,5 @@
-using Godot;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace oracleofages;
 
@@ -13,18 +11,22 @@ public sealed class NpcDatabase
 
     public NpcDatabase()
     {
-        string source = FileAccess.GetFileAsString("res://assets/oracle/objects/npcs.tsv");
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        GeneratedTable npcs = GeneratedTable.Load(
+            "res://assets/oracle/objects/npcs.tsv",
+            new GeneratedTableSchema(
+                "room NPCs",
+                GeneratedTableKeySemantics.Grouped,
+                [
+                    "group", "room", "id", "subid", "y", "x", "var03", "text-id",
+                    "sprite", "tile-base", "palette", "default-animation", "can-face",
+                    "up-animation", "right-animation", "down-animation", "left-animation",
+                    "utf8-base64"
+                ],
+                ["group", "room"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in npcs.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] columns = line.Split('\t');
-            if (columns.Length != 18)
-                throw new InvalidOperationException($"Malformed NPC data row: {line}");
-
-            NpcRecord record = ParseNpcRecord(columns, selectorColumns: 0);
+            NpcRecord record = ParseNpcRecord(row, selectorColumns: 0);
 
             int key = MakeKey(record.Group, record.Room);
             if (!_byRoom.TryGetValue(key, out List<NpcRecord>? records))
@@ -35,22 +37,25 @@ public sealed class NpcDatabase
             records.Add(record);
         }
 
-        source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/bipin_blossom_family.tsv");
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        GeneratedTable family = GeneratedTable.Load(
+            "res://assets/oracle/objects/bipin_blossom_family.tsv",
+            new GeneratedTableSchema(
+                "Bipin and Blossom family NPCs",
+                GeneratedTableKeySemantics.Grouped,
+                [
+                    "group", "room", "stage", "personality", "id", "subid", "y", "x",
+                    "var03", "text-id", "sprite", "tile-base", "palette",
+                    "default-animation", "can-face", "up-animation", "right-animation",
+                    "down-animation", "left-animation", "utf8-base64"
+                ],
+                ["group", "room"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in family.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] columns = line.Split('\t');
-            if (columns.Length != 20)
-                throw new InvalidOperationException($"Malformed family NPC data row: {line}");
-
-            NpcRecord record = ParseNpcRecord(columns, selectorColumns: 2);
+            NpcRecord record = ParseNpcRecord(row, selectorColumns: 2);
             var familyRecord = new FamilyNpcRecord(
-                int.Parse(columns[2]),
-                int.Parse(columns[3]),
+                row.UnsignedDecimal(2),
+                row.Decimal(3),
                 record);
             int key = MakeKey(record.Group, record.Room);
             if (!_familyByRoom.TryGetValue(key, out List<FamilyNpcRecord>? records))
@@ -211,28 +216,30 @@ public sealed class NpcDatabase
         return count;
     }
 
-    private static NpcRecord ParseNpcRecord(string[] columns, int selectorColumns)
+    private static NpcRecord ParseNpcRecord(
+        GeneratedTableRow row,
+        int selectorColumns)
     {
         int offset = selectorColumns;
         return new NpcRecord(
-            int.Parse(columns[0]),
-            Convert.ToInt32(columns[1], 16),
-            Convert.ToInt32(columns[2 + offset], 16),
-            Convert.ToInt32(columns[3 + offset], 16),
-            Convert.ToInt32(columns[4 + offset], 16),
-            Convert.ToInt32(columns[5 + offset], 16),
-            Convert.ToInt32(columns[6 + offset], 16),
-            Convert.ToInt32(columns[7 + offset], 16),
-            columns[8 + offset],
-            int.Parse(columns[9 + offset]),
-            int.Parse(columns[10 + offset]),
-            int.Parse(columns[11 + offset]),
-            columns[12 + offset] == "1",
-            columns[13 + offset],
-            columns[14 + offset],
-            columns[15 + offset],
-            columns[16 + offset],
-            Encoding.UTF8.GetString(Convert.FromBase64String(columns[17 + offset])));
+            row.Decimal(0, 0, 7),
+            row.HexByte(1),
+            row.HexByte(2 + offset),
+            row.HexByte(3 + offset),
+            row.HexByte(4 + offset),
+            row.HexByte(5 + offset),
+            row.HexByte(6 + offset),
+            row.HexWord(7 + offset),
+            row.RequiredString(8 + offset),
+            row.UnsignedDecimal(9 + offset),
+            row.UnsignedDecimal(10 + offset),
+            row.UnsignedDecimal(11 + offset),
+            row.Boolean01(12 + offset),
+            row.RequiredString(13 + offset),
+            row.RequiredString(14 + offset),
+            row.RequiredString(15 + offset),
+            row.RequiredString(16 + offset),
+            row.Base64Utf8(17 + offset));
     }
 
     private static int MakeKey(int group, int room)

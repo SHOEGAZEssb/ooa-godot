@@ -26,34 +26,29 @@ public sealed class NpcPositionRuleDatabase
 
     public NpcPositionRuleDatabase()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/npc_positions.tsv");
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/npc_positions.tsv",
+            new GeneratedTableSchema(
+                "NPC position rules",
+                GeneratedTableKeySemantics.Grouped,
+                ["id", "subid", "var03", "kind", "value", "y", "x", "source"],
+                ["id", "subid"],
+                headerRequired: true));
         var uniqueRules = new HashSet<(
             int Id,
             int SubId,
             int Var03,
             NpcStoryStateKind Kind,
             int Value)>();
-        foreach (string rawLine in source.Split(
-            '\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-            string[] fields = line.Split('\t');
-            if (fields.Length != 8)
-                throw new InvalidOperationException(
-                    $"Malformed NPC position row: {line}");
-
-            int id = Convert.ToInt32(fields[0], 16);
-            int subId = Convert.ToInt32(fields[1], 16);
-            int var03 = fields[2] == "*"
-                ? -1
-                : Convert.ToInt32(fields[2], 16);
-            NpcStoryStateKind kind = NpcStoryState.ParseKind(fields[3], "position");
-            int value = Convert.ToInt32(fields[4], 16);
-            int y = Convert.ToInt32(fields[5], 16);
-            int x = Convert.ToInt32(fields[6], 16);
+            int id = row.HexByte(0);
+            int subId = row.HexByte(1);
+            int var03 = row.HexByteOrSentinel(2, "*", -1);
+            NpcStoryStateKind kind = NpcStoryState.ParseKind(row.RequiredString(3), "position");
+            int value = row.HexByte(4);
+            int y = row.HexByte(5);
+            int x = row.HexByte(6);
             if (value is < 0 or > 0xff ||
                 kind == NpcStoryStateKind.GameProgress1 ||
                 kind == NpcStoryStateKind.GameProgress2 && value > 7 ||
@@ -63,7 +58,7 @@ public sealed class NpcPositionRuleDatabase
                 !uniqueRules.Add((id, subId, var03, kind, value)))
             {
                 throw new InvalidOperationException(
-                    $"Invalid NPC position rule: {line}");
+                    $"Invalid NPC position rule at {row.Path}:{row.LineNumber}.");
             }
 
             int key = NpcStoryState.InteractionKey(id, subId);
@@ -73,7 +68,7 @@ public sealed class NpcPositionRuleDatabase
                 _byInteraction.Add(key, rules);
             }
             rules.Add(new Rule(
-                var03, kind, value, y, x, fields[7]));
+                var03, kind, value, y, x, row.RequiredString(7)));
             RuleCount++;
         }
     }

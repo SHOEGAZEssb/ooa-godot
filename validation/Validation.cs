@@ -248,6 +248,7 @@ public sealed partial class ValidationRoot : GameRoot
     private void ValidateAll()
     {
         ValidateGameplaySceneGraph();
+        ValidateGeneratedTableReader();
         ValidateMenuLifecycleFoundation();
         _world.ValidateRepresentativeRooms();
         ValidateOracleObjectMath();

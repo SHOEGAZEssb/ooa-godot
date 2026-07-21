@@ -48,6 +48,13 @@ Review generated diffs and, when practical, rerun to verify deterministic
 output. A change is ready only with zero build warnings/errors, a passing full
 suite, a clean `git diff --check`, and unrelated worktree changes preserved.
 
+The suite exercises the shared generated-table reader with actual and escaped
+tab headers, CRLF input, comments, trailing empty cells, every supported
+primitive/sentinel parser, malformed cells, duplicate unique keys, and ordered
+grouped/aliased/repeated rows. It also validates the checked-in manifest's exact
+TSV inventory plus every schema version, record count, and SHA-256, alongside
+focused failure cases for stale versions, counts, and checksums.
+
 ## Regression design
 
 Every fixed bug or new gameplay system gets a focused headless regression. A

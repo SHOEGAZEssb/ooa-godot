@@ -41,25 +41,22 @@ public sealed class RoomTileChangeDatabase
 
     public RoomTileChangeDatabase()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/metadata/room_tile_changes.tsv");
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/metadata/room_tile_changes.tsv",
+            new GeneratedTableSchema(
+                "room-specific tile changes",
+                GeneratedTableKeySemantics.Grouped,
+                ["group", "room", "conditions", "operations", "source"],
+                ["group", "room"],
+                headerRequired: true));
         int count = 0;
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] columns = line.Split('\t');
-            if (columns.Length != 5)
-                throw new InvalidOperationException($"Malformed room tile-change row: {line}");
-
-            int group = int.Parse(columns[0]);
-            int room = Convert.ToInt32(columns[1], 16);
-            Condition[] conditions = ParseConditions(columns[2]);
-            Operation[] operations = ParseOperations(columns[3]);
-            if (string.IsNullOrWhiteSpace(columns[4]))
-                throw new InvalidOperationException($"Room tile-change row has no source label: {line}");
+            int group = row.Decimal(0, 0, 7);
+            int room = row.HexByte(1);
+            Condition[] conditions = ParseConditions(row.RequiredString(2));
+            Operation[] operations = ParseOperations(row.RequiredString(3));
+            row.RequiredString(4);
 
             var key = (group, room);
             if (!_rules.TryGetValue(key, out List<Rule>? roomRules))

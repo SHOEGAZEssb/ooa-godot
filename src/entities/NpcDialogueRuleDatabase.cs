@@ -1,8 +1,6 @@
-using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace oracleofages;
 
@@ -30,8 +28,17 @@ public sealed class NpcDialogueRuleDatabase
 
     public NpcDialogueRuleDatabase()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/npc_dialogue.tsv");
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/npc_dialogue.tsv",
+            new GeneratedTableSchema(
+                "NPC dialogue rules",
+                GeneratedTableKeySemantics.Grouped,
+                [
+                    "id", "subid", "var03", "kind", "value", "linked",
+                    "text-id", "source", "utf8-base64"
+                ],
+                ["id", "subid"],
+                headerRequired: true));
         var uniqueRules = new HashSet<(
             int Id,
             int SubId,
@@ -39,30 +46,22 @@ public sealed class NpcDialogueRuleDatabase
             NpcStoryStateKind Kind,
             int Value,
             int Linked)>();
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-            string[] fields = line.Split('\t');
-            if (fields.Length != 9)
-                throw new InvalidOperationException($"Malformed NPC dialogue row: {line}");
-
-            int id = Convert.ToInt32(fields[0], 16);
-            int subId = Convert.ToInt32(fields[1], 16);
-            int var03 = fields[2] == "*" ? -1 : Convert.ToInt32(fields[2], 16);
-            NpcStoryStateKind kind = NpcStoryState.ParseKind(fields[3], "dialogue");
-            int value = Convert.ToInt32(fields[4], 16);
-            int linked = fields[5] switch
+            int id = row.HexByte(0);
+            int subId = row.HexByte(1);
+            int var03 = row.HexByteOrSentinel(2, "*", -1);
+            NpcStoryStateKind kind = NpcStoryState.ParseKind(row.RequiredString(3), "dialogue");
+            int value = row.HexByte(4);
+            int linked = row.String(5) switch
             {
                 "*" => -1,
                 "0" => 0,
                 "1" => 1,
-                _ => throw new InvalidOperationException(
-                    $"NPC dialogue linked selector must be *, 0, or 1: {line}")
+                _ => throw row.Invalid(5, "one of *, 0, 1")
             };
-            int textId = Convert.ToInt32(fields[6], 16);
-            string message = Encoding.UTF8.GetString(Convert.FromBase64String(fields[8]));
+            int textId = row.HexWord(6);
+            string message = row.Base64Utf8(8);
             if (value < 0 ||
                 kind == NpcStoryStateKind.GameProgress1 && value > 5 ||
                 kind == NpcStoryStateKind.GameProgress2 && value > 7 ||
@@ -70,7 +69,8 @@ public sealed class NpcDialogueRuleDatabase
                 textId == 0 || string.IsNullOrEmpty(message) ||
                 !uniqueRules.Add((id, subId, var03, kind, value, linked)))
             {
-                throw new InvalidOperationException($"Invalid NPC dialogue rule: {line}");
+                throw new InvalidOperationException(
+                    $"Invalid NPC dialogue rule at {row.Path}:{row.LineNumber}.");
             }
 
             int key = NpcStoryState.InteractionKey(id, subId);
@@ -80,7 +80,7 @@ public sealed class NpcDialogueRuleDatabase
                 _byInteraction.Add(key, rules);
             }
             rules.Add(new Rule(
-                var03, kind, value, linked, textId, message, fields[7]));
+                var03, kind, value, linked, textId, message, row.RequiredString(7)));
             RuleCount++;
         }
     }

@@ -1,4 +1,3 @@
-using Godot;
 using System;
 using System.Collections.Generic;
 
@@ -22,28 +21,31 @@ public sealed class TimePortalDatabase
 
     public TimePortalDatabase()
     {
-        string source = FileAccess.GetFileAsString("res://assets/oracle/objects/timePortals.tsv");
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/timePortals.tsv",
+            new GeneratedTableSchema(
+                "time portals",
+                GeneratedTableKeySemantics.Grouped,
+                [
+                    "group", "room", "subid", "y", "x", "sprite",
+                    "tile-base", "palette", "loop-start", "animation"
+                ],
+                ["group", "room"],
+                headerRequired: true));
         int count = 0;
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] columns = line.Split('\t');
-            if (columns.Length != 10)
-                throw new InvalidOperationException($"Malformed time-portal data row: {line}");
             var record = new PortalRecord(
-                int.Parse(columns[0]),
-                Convert.ToInt32(columns[1], 16),
-                Convert.ToInt32(columns[2], 16),
-                Convert.ToInt32(columns[3], 16),
-                Convert.ToInt32(columns[4], 16),
-                columns[5],
-                int.Parse(columns[6]),
-                int.Parse(columns[7]),
-                int.Parse(columns[8]),
-                columns[9]);
+                row.Decimal(0, 0, 7),
+                row.HexByte(1),
+                row.HexByte(2),
+                row.HexByte(3),
+                row.HexByte(4),
+                row.RequiredString(5),
+                row.UnsignedDecimal(6),
+                row.UnsignedDecimal(7),
+                row.UnsignedDecimal(8),
+                row.RequiredString(9));
             int key = MakeKey(record.Group, record.Room);
             if (!_byRoom.TryGetValue(key, out List<PortalRecord>? records))
             {

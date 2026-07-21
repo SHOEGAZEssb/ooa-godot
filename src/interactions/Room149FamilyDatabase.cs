@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace oracleofages;
 
@@ -18,34 +17,37 @@ internal sealed class Room149FamilyDatabase
 
     public Room149FamilyDatabase()
     {
-        foreach (string line in ReadRows(
-            "res://assets/oracle/objects/room149_family_visuals.tsv"))
+        GeneratedTable visuals = GeneratedTable.Load(
+            "res://assets/oracle/objects/room149_family_visuals.tsv",
+            new GeneratedTableSchema(
+                "room 1:49 family visuals",
+                GeneratedTableKeySemantics.Unique,
+                ["key", "sprite", "tile-base", "palette", "animation"],
+                ["key"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in visuals.Rows)
         {
-            string[] columns = line.Split('\t');
-            if (columns.Length != 5)
-                throw new InvalidOperationException(
-                    $"Malformed room 1:49 visual row: {line}");
-            _visuals.Add(columns[0], new VisualRecord(
-                columns[0],
-                columns[1],
-                int.Parse(columns[2]),
-                int.Parse(columns[3]),
-                columns[4]));
+            string key = row.RequiredString(0);
+            _visuals.Add(key, new VisualRecord(
+                key, row.RequiredString(1), row.UnsignedDecimal(2),
+                row.UnsignedDecimal(3), row.RequiredString(4)));
         }
         if (_visuals.Count != 6)
             throw new InvalidOperationException(
                 $"Expected six room 1:49 visuals, got {_visuals.Count}.");
 
-        foreach (string line in ReadRows(
-            "res://assets/oracle/objects/room149_family_texts.tsv"))
+        GeneratedTable texts = GeneratedTable.Load(
+            "res://assets/oracle/objects/room149_family_texts.tsv",
+            new GeneratedTableSchema(
+                "room 1:49 family text",
+                GeneratedTableKeySemantics.Unique,
+                ["text-id", "utf8-base64"],
+                ["text-id"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in texts.Rows)
         {
-            string[] columns = line.Split('\t');
-            if (columns.Length != 2)
-                throw new InvalidOperationException(
-                    $"Malformed room 1:49 text row: {line}");
-            int id = Convert.ToInt32(columns[0], 16);
-            _texts.Add(id, Encoding.UTF8.GetString(
-                Convert.FromBase64String(columns[1])));
+            int id = row.HexWord(0);
+            _texts.Add(id, row.Base64Utf8(1));
         }
         if (_texts.Count != 6)
             throw new InvalidOperationException(
@@ -78,18 +80,6 @@ internal sealed class Room149FamilyDatabase
         ? text
         : throw new InvalidOperationException(
             $"Room 1:49 text TX_{id:x4} was not imported.");
-
-    private static IEnumerable<string> ReadRows(string path)
-    {
-        string source = FileAccess.GetFileAsString(path);
-        foreach (string rawLine in source.Split(
-            '\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = rawLine.TrimEnd('\r');
-            if (!line.StartsWith('#'))
-                yield return line;
-        }
-    }
 
     internal readonly record struct VisualRecord(
         string Key,

@@ -42,22 +42,24 @@ public sealed class NpcVisibilityRuleDatabase
 
     public NpcVisibilityRuleDatabase()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/npc_visibility.tsv");
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/npc_visibility.tsv",
+            new GeneratedTableSchema(
+                "NPC visibility rules",
+                GeneratedTableKeySemantics.Grouped,
+                [
+                    "id", "subid", "var03", "alternative", "kind", "group",
+                    "room", "value", "expected-set", "source"
+                ],
+                ["id", "subid"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-            string[] fields = line.Split('\t');
-            if (fields.Length != 10)
-                throw new InvalidOperationException($"Malformed NPC visibility row: {line}");
-
-            int id = Convert.ToInt32(fields[0], 16);
-            int subId = Convert.ToInt32(fields[1], 16);
-            int var03 = fields[2] == "*" ? -1 : Convert.ToInt32(fields[2], 16);
-            int alternative = int.Parse(fields[3]);
-            FlagKind kind = fields[4] switch
+            int id = row.HexByte(0);
+            int subId = row.HexByte(1);
+            int var03 = row.HexByteOrSentinel(2, "*", -1);
+            int alternative = row.UnsignedDecimal(3);
+            FlagKind kind = row.RequiredString(4) switch
             {
                 "global" => FlagKind.Global,
                 "current-room" => FlagKind.CurrentRoom,
@@ -69,19 +71,12 @@ public sealed class NpcVisibilityRuleDatabase
                 "runtime-equals" => FlagKind.RuntimeEquals,
                 "game-progress-1" => FlagKind.GameProgress1,
                 "game-progress-2" => FlagKind.GameProgress2,
-                _ => throw new InvalidOperationException(
-                    $"Unknown NPC visibility flag kind '{fields[4]}'.")
+                _ => throw row.Invalid(4, "a supported NPC visibility kind")
             };
-            int group = fields[5] == "-" ? -1 : int.Parse(fields[5]);
-            int room = fields[6] == "-" ? -1 : Convert.ToInt32(fields[6], 16);
-            int value = Convert.ToInt32(fields[7], 16);
-            bool expectedSet = fields[8] switch
-            {
-                "0" => false,
-                "1" => true,
-                _ => throw new InvalidOperationException(
-                    $"NPC visibility expected-set value must be 0 or 1: {line}")
-            };
+            int group = row.DecimalOrSentinel(5, "-", -1);
+            int room = row.HexWordOrSentinel(6, "-", -1);
+            int value = row.HexByte(7);
+            bool expectedSet = row.Boolean01(8);
             if (alternative < 0 || value is < 0 or > 0xff ||
                 kind == FlagKind.Global && value >= OracleSaveData.GlobalFlagCount ||
                 kind is FlagKind.CurrentRoom or FlagKind.SpecificRoom && value == 0 ||
@@ -96,7 +91,8 @@ public sealed class NpcVisibilityRuleDatabase
                 kind == FlagKind.GameProgress2 && value > 7 ||
                 kind == FlagKind.SpecificRoom && (group is < 0 or > 7 || room is < 0 or > 0xff))
             {
-                throw new InvalidOperationException($"Invalid NPC visibility rule: {line}");
+                throw new InvalidOperationException(
+                    $"Invalid NPC visibility rule at {row.Path}:{row.LineNumber}.");
             }
 
             int key = NpcStoryState.InteractionKey(id, subId);
@@ -106,7 +102,8 @@ public sealed class NpcVisibilityRuleDatabase
                 _byInteraction.Add(key, rules);
             }
             rules.Add(new Rule(
-                var03, alternative, kind, group, room, value, expectedSet, fields[9]));
+                var03, alternative, kind, group, room, value, expectedSet,
+                row.RequiredString(9)));
             RuleCount++;
         }
     }

@@ -1,7 +1,5 @@
-using Godot;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace oracleofages;
 
@@ -135,21 +133,26 @@ public sealed class TreasureDatabase
 
     private void LoadObjects()
     {
-        string source = FileAccess.GetFileAsString("res://assets/oracle/metadata/treasure_objects.tsv");
-        foreach (string line in DataLines(source))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/metadata/treasure_objects.tsv",
+            new GeneratedTableSchema(
+                "treasure objects",
+                GeneratedTableKeySemantics.Aliased,
+                [
+                    "treasure-object", "treasure-id", "subid", "parameter", "text-id",
+                    "graphic", "message-base64"
+                ],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string[] fields = line.Split('\t');
-            if (fields.Length != 7)
-                throw new InvalidOperationException($"Malformed treasure object row: {line}");
-
             var record = new TreasureObjectRecord(
-                fields[0],
-                Convert.ToInt32(fields[1], 16),
-                Convert.ToInt32(fields[2], 16),
-                Convert.ToInt32(fields[3], 16),
-                Convert.ToInt32(fields[4], 16),
-                Convert.ToInt32(fields[5], 16),
-                Encoding.UTF8.GetString(Convert.FromBase64String(fields[6])));
+                row.RequiredString(0),
+                row.HexByte(1),
+                row.HexByte(2),
+                row.HexByte(3),
+                row.HexByteOrSentinel(4, "ffffffff", -1),
+                row.HexByte(5),
+                row.Base64Utf8(6));
             if (!_objects.ContainsKey(record.Name))
             {
                 _objects.Add(record.Name, record);
@@ -160,28 +163,25 @@ public sealed class TreasureDatabase
 
     private void LoadObjectVisuals()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/metadata/treasure_object_visuals.tsv");
-        foreach (string line in DataLines(source))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/metadata/treasure_object_visuals.tsv",
+            new GeneratedTableSchema(
+                "treasure object visuals",
+                GeneratedTableKeySemantics.Unique,
+                ["graphic", "sprite", "tile-base", "palette", "default-animation", "animation"],
+                ["graphic"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string[] fields = line.Split('\t');
-            if (fields.Length != 6)
-                throw new InvalidOperationException(
-                    $"Malformed treasure object visual row: {line}");
-
-            int graphic = Convert.ToInt32(fields[0], 16);
+            int graphic = row.HexByte(0);
             var record = new TreasureObjectVisualRecord(
                 graphic,
-                fields[1],
-                Convert.ToInt32(fields[2], 16),
-                Convert.ToInt32(fields[3], 16),
-                Convert.ToInt32(fields[4], 16),
-                fields[5]);
-            if (!_objectVisuals.TryAdd(graphic, record))
-            {
-                throw new InvalidOperationException(
-                    $"Duplicate treasure object visual graphic ${graphic:x2}.");
-            }
+                row.RequiredString(1),
+                row.HexByte(2),
+                row.HexByte(3),
+                row.HexByte(4),
+                row.RequiredString(5));
+            _objectVisuals.Add(graphic, record);
         }
 
         if (_objectVisuals.Count != 91 ||
@@ -197,24 +197,28 @@ public sealed class TreasureDatabase
 
     private void LoadBehaviours()
     {
-        string source = FileAccess.GetFileAsString("res://assets/oracle/metadata/treasure_behaviours.tsv");
-        foreach (string line in DataLines(source))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/metadata/treasure_behaviours.tsv",
+            new GeneratedTableSchema(
+                "treasure collection behaviours",
+                GeneratedTableKeySemantics.Unique,
+                ["treasure-id", "variable", "mode", "sound"],
+                ["treasure-id"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string[] fields = line.Split('\t');
-            if (fields.Length != 4)
-                throw new InvalidOperationException($"Malformed treasure behaviour row: {line}");
-
-            int treasure = Convert.ToInt32(fields[0], 16);
-            int rawMode = Convert.ToInt32(fields[2], 16);
-            CollectionMode mode = ParseCollectionMode(treasure, fields[1], rawMode);
-            TreasureVariable variable = ParseTreasureVariable(treasure, fields[1], rawMode);
-            ValidateBehaviourBinding(treasure, fields[1], rawMode, variable, mode);
+            int treasure = row.HexByte(0);
+            string sourceVariable = row.RequiredString(1);
+            int rawMode = row.HexByte(2);
+            CollectionMode mode = ParseCollectionMode(treasure, sourceVariable, rawMode);
+            TreasureVariable variable = ParseTreasureVariable(treasure, sourceVariable, rawMode);
+            ValidateBehaviourBinding(treasure, sourceVariable, rawMode, variable, mode);
             _behaviours.Add(treasure, new BehaviourRecord(
                 treasure,
                 variable,
                 mode,
                 rawMode,
-                ParseSound(fields[3])));
+                ParseSound(row.RequiredString(3))));
         }
     }
 
@@ -319,28 +323,35 @@ public sealed class TreasureDatabase
 
     private void LoadDisplayRows()
     {
-        string source = FileAccess.GetFileAsString("res://assets/oracle/metadata/treasure_display.tsv");
-        foreach (string line in DataLines(source))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/metadata/treasure_display.tsv",
+            new GeneratedTableSchema(
+                "treasure display rows",
+                GeneratedTableKeySemantics.Grouped,
+                [
+                    "table", "index", "treasure-id", "left-sprite", "left-palette",
+                    "right-sprite", "right-palette", "extra-mode", "text-low"
+                ],
+                ["table"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string[] fields = line.Split('\t');
-            if (fields.Length != 9)
-                throw new InvalidOperationException($"Malformed treasure display row: {line}");
-
             var record = new DisplayRecord(
-                Convert.ToInt32(fields[2], 16),
-                Convert.ToInt32(fields[3], 16),
-                Convert.ToInt32(fields[4], 16),
-                Convert.ToInt32(fields[5], 16),
-                Convert.ToInt32(fields[6], 16),
-                Convert.ToInt32(fields[7], 16),
-                Convert.ToInt32(fields[8], 16));
-            if (!_displayRows.TryGetValue(fields[0], out List<DisplayRecord>? rows))
+                row.HexByte(2),
+                row.HexByte(3),
+                row.HexByte(4),
+                row.HexByte(5),
+                row.HexByte(6),
+                row.HexByte(7),
+                row.HexByte(8));
+            string tableName = row.RequiredString(0);
+            if (!_displayRows.TryGetValue(tableName, out List<DisplayRecord>? rows))
             {
                 rows = new List<DisplayRecord>();
-                _displayRows.Add(fields[0], rows);
+                _displayRows.Add(tableName, rows);
             }
 
-            int index = int.Parse(fields[1]);
+            int index = row.UnsignedDecimal(1);
             while (rows.Count < index)
                 rows.Add(DisplayRecord.Empty);
             rows.Add(record);
@@ -349,31 +360,33 @@ public sealed class TreasureDatabase
 
     private void LoadInventoryTexts()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/metadata/inventory_text.tsv");
-        foreach (string line in DataLines(source))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/metadata/inventory_text.tsv",
+            new GeneratedTableSchema(
+                "inventory text",
+                GeneratedTableKeySemantics.Unique,
+                ["kind", "index", "name-text-id", "description-text-id", "message-base64"],
+                ["kind", "index"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string[] fields = line.Split('\t');
-            if (fields.Length != 5)
-                throw new InvalidOperationException($"Malformed inventory text row: {line}");
-
-            int index = Convert.ToInt32(fields[1], 16);
+            string kind = row.RequiredString(0);
+            int index = row.HexByte(1);
             var record = new InventoryTextRecord(
-                fields[0],
+                kind,
                 index,
-                Convert.ToInt32(fields[2], 16),
-                Convert.ToInt32(fields[3], 16),
-                Encoding.UTF8.GetString(Convert.FromBase64String(fields[4])));
-            Dictionary<int, InventoryTextRecord> destination = fields[0] switch
+                row.HexWord(2),
+                row.HexWord(3),
+                row.Base64Utf8(4));
+            Dictionary<int, InventoryTextRecord> destination = kind switch
             {
                 "item" => _inventoryTexts,
                 "ring" => _ringTexts,
-                _ => throw new InvalidOperationException(
-                    $"Unknown inventory text kind '{fields[0]}' in row: {line}")
+                _ => throw row.Invalid(0, "one of item, ring")
             };
             if (!destination.TryAdd(index, record))
                 throw new InvalidOperationException(
-                    $"Duplicate {fields[0]} inventory text index ${index:x2}.");
+                    $"Duplicate {kind} inventory text index ${index:x2}.");
         }
 
         if (!_inventoryTexts.ContainsKey(0x00) || !_inventoryTexts.ContainsKey(0x65) ||
@@ -381,16 +394,6 @@ public sealed class TreasureDatabase
         {
             throw new InvalidOperationException(
                 "Inventory text data must include TX_0900, TX_0965, and all 64 rings.");
-        }
-    }
-
-    private static IEnumerable<string> DataLines(string source)
-    {
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = rawLine.TrimEnd('\r');
-            if (!line.StartsWith('#'))
-                yield return line;
         }
     }
 

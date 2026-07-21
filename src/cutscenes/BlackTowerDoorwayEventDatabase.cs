@@ -1,4 +1,3 @@
-using Godot;
 using System;
 
 namespace oracleofages;
@@ -13,21 +12,27 @@ internal sealed class BlackTowerDoorwayEventDatabase
 
     public BlackTowerDoorwayEventDatabase()
     {
-        string row = FirstDataRow();
-        string[] fields = row.Split('\t');
-        if (fields.Length != 22)
-        {
-            throw new InvalidOperationException(
-                $"Black Tower doorway row should have 22 fields, got {fields.Length}.");
-        }
+        GeneratedTableRow row = GeneratedTable.Load(
+            Path,
+            new GeneratedTableSchema(
+                "Black Tower doorway event",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "group", "room", "id", "subid", "y", "x", "clear-position-a",
+                    "clear-position-b", "object-radius-y", "object-radius-x", "link-radius-y",
+                    "link-radius-x", "room-flag-mask", "clear-dest-group", "clear-dest-room",
+                    "set-dest-group", "set-dest-room", "warp-transition", "dest-position",
+                    "warp-transition2", "sound", "source"
+                ],
+                headerRequired: true)).SingleRow();
 
         Data = new Record(
-            int.Parse(fields[0]), Hex(fields[1]), Hex(fields[2]), Hex(fields[3]),
-            Hex(fields[4]), Hex(fields[5]), Hex(fields[6]), Hex(fields[7]),
-            Hex(fields[8]), Hex(fields[9]), Hex(fields[10]), Hex(fields[11]),
-            Hex(fields[12]), Hex(fields[13]), Hex(fields[14]), Hex(fields[15]),
-            Hex(fields[16]), Hex(fields[17]), Hex(fields[18]), Hex(fields[19]),
-            Hex(fields[20]), fields[21]);
+            row.Decimal(0, 0, 7), row.HexByte(1), row.HexByte(2), row.HexByte(3),
+            row.HexByte(4), row.HexByte(5), row.HexByte(6), row.HexByte(7),
+            row.HexByte(8), row.HexByte(9), row.HexByte(10), row.HexByte(11),
+            row.HexByte(12), row.HexByte(13), row.HexByte(14), row.HexByte(15),
+            row.HexByte(16), row.HexByte(17), row.HexByte(18), row.HexByte(19),
+            row.HexByte(20), row.RequiredString(21));
         Validate();
     }
 
@@ -49,20 +54,6 @@ internal sealed class BlackTowerDoorwayEventDatabase
                 "Room 1:76 doorway data diverges from interactiondc_subid10.");
         }
     }
-
-    private static string FirstDataRow()
-    {
-        foreach (string raw in FileAccess.GetFileAsString(Path).Split(
-            '\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = raw.TrimEnd('\r');
-            if (!line.StartsWith('#'))
-                return line;
-        }
-        throw new InvalidOperationException($"{Path} is empty.");
-    }
-
-    private static int Hex(string value) => Convert.ToInt32(value, 16);
 
     internal readonly record struct Record(
         int Group,

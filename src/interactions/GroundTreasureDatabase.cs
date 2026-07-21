@@ -1,7 +1,5 @@
-using Godot;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace oracleofages;
 
@@ -16,34 +14,35 @@ internal sealed class GroundTreasureDatabase
 
     public GroundTreasureDatabase()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/ground_treasures.tsv");
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/ground_treasures.tsv",
+            new GeneratedTableSchema(
+                "ground treasures",
+                GeneratedTableKeySemantics.Grouped,
+                [
+                    "group", "room", "order", "y", "x", "treasure-object", "sprite",
+                    "tile-base", "palette", "animation", "completion-text-id",
+                    "completion-text-base64", "source"
+                ],
+                ["group", "room"],
+                headerRequired: true));
         int count = 0;
-        foreach (string rawLine in source.Split(
-            '\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-            string[] fields = line.Split('\t');
-            if (fields.Length != 13)
-                throw new InvalidOperationException(
-                    $"Malformed ground-treasure row: {line}");
-
             var record = new Record(
-                int.Parse(fields[0]),
-                Convert.ToInt32(fields[1], 16),
-                int.Parse(fields[2]),
-                Convert.ToInt32(fields[3], 16),
-                Convert.ToInt32(fields[4], 16),
-                fields[5],
-                fields[6],
-                int.Parse(fields[7]),
-                int.Parse(fields[8]),
-                fields[9],
-                Convert.ToInt32(fields[10], 16),
-                Encoding.UTF8.GetString(Convert.FromBase64String(fields[11])),
-                fields[12]);
+                row.Decimal(0, 0, 7),
+                row.HexByte(1),
+                row.UnsignedDecimal(2),
+                row.HexByte(3),
+                row.HexByte(4),
+                row.RequiredString(5),
+                row.RequiredString(6),
+                row.UnsignedDecimal(7),
+                row.UnsignedDecimal(8),
+                row.RequiredString(9),
+                row.HexWord(10),
+                row.Base64Utf8(11),
+                row.RequiredString(12));
             if (record.Group is < 0 or > 7 || record.Room is < 0 or > 0xff ||
                 record.Order < 0 || record.Y is < 0 or > 0xff ||
                 record.X is < 0 or > 0xff ||
@@ -54,7 +53,7 @@ internal sealed class GroundTreasureDatabase
                 string.IsNullOrWhiteSpace(record.CompletionMessage))
             {
                 throw new InvalidOperationException(
-                    $"Invalid ground-treasure row: {line}");
+                    $"Invalid ground-treasure row at {row.Path}:{row.LineNumber}.");
             }
 
             if (!_byRoom.TryGetValue(

@@ -34,6 +34,7 @@ The entry script dot-sources these stages in dependency order:
 | `Import-EnemyData.ps1` | Ordered room objects, enemies, spawn restrictions, and drops |
 | `Import-WorldNavigation.ps1` | Warps, dungeon layouts, neighbors, and room navigation |
 | `Import-AudioData.ps1` | Sound IDs, descriptors, channel programs, and room music |
+| `Write-GeneratedTableManifest.ps1` | Deterministic TSV schema-version, record-count, and SHA-256 manifest |
 
 Stages share parsed state in one PowerShell process. Add a new stage only when
 its ownership is genuinely distinct and place it after every stage that
@@ -141,10 +142,24 @@ unsupported reservations/completion evidence.
   validate its exact expected size/version.
 
 TSV files are an intermediate runtime format, not permission for permissive
-string dispatch. Readers should convert rows into typed records at startup and
-fail with source-aware diagnostics. The planned catalog consolidation is tracked
-in [TODO.md](../TODO.md); new formats should use a shared schema-aware reader or
-a typed catalog instead of adding another ad hoc split/comment/hex parser.
+string dispatch. Every production TSV consumer loads through
+`GeneratedTableReader`: its schema declares the exact header and column count,
+schema version, key columns, and whether keys are unique, grouped, ordered,
+aliased, or intentionally repeated. Rows stay in generated source order and
+typed databases retain ownership of record construction and original-engine
+semantic checks. Unique schemas reject duplicate raw keys; grouped, ordered,
+aliased, and repeated schemas preserve their declared multiplicity for the
+owning database to interpret.
+
+`Write-GeneratedTableManifest.ps1` is the final importer stage. It ordinal-sorts
+the generated TSV paths and records manifest format version, per-table schema
+version, data-row count, and SHA-256. Before the first production table is
+accepted, runtime verifies the manifest itself, the exact generated TSV set,
+and every declared version/count/checksum. A stale, incomplete, unexpected, or
+modified generated table therefore fails startup with its asset path and
+expected/actual metadata. Update the importer, runtime schema, and manifest
+version together when a generated table contract changes; never edit the
+manifest or its tables by hand.
 
 ## Adding imported behavior
 

@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace oracleofages;
 
@@ -19,18 +18,26 @@ internal sealed class BlackTowerEntranceEventDatabase
 
     public BlackTowerEntranceEventDatabase()
     {
-        string row = FirstDataRow(Root + "black_tower_entrance_event.tsv");
-        string[] fields = row.Split('\t');
-        if (fields.Length != 21)
-            throw new InvalidOperationException(
-                $"Black Tower entrance row should have 21 fields, got {fields.Length}.");
+        GeneratedTableRow row = GeneratedTable.Load(
+            Root + "black_tower_entrance_event.tsv",
+            new GeneratedTableSchema(
+                "Black Tower entrance event",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "group", "room", "guard-id", "guard-subid", "essence-mask", "item-flag",
+                    "aftermath-flag", "complete-flag", "initial-y", "initial-x", "completed-y",
+                    "completed-x", "move-speed", "move-counter", "screen-offset-y", "intro-wait",
+                    "post-wait", "source-transition", "destination-transition", "explanation-text-id",
+                    "explanation-text-base64"
+                ],
+                headerRequired: true)).SingleRow();
         Record = new EventRecord(
-            int.Parse(fields[0]), Hex(fields[1]), Hex(fields[2]), Hex(fields[3]),
-            Hex(fields[4]), Hex(fields[5]), Hex(fields[6]), Hex(fields[7]),
-            Hex(fields[8]), Hex(fields[9]), Hex(fields[10]), Hex(fields[11]),
-            Hex(fields[12]), Hex(fields[13]), Hex(fields[14]), int.Parse(fields[15]),
-            int.Parse(fields[16]), Hex(fields[17]), Hex(fields[18]), Hex(fields[19]),
-            Encoding.UTF8.GetString(Convert.FromBase64String(fields[20])));
+            row.Decimal(0, 0, 7), row.HexByte(1), row.HexByte(2), row.HexByte(3),
+            row.HexByte(4), row.HexByte(5), row.HexByte(6), row.HexByte(7),
+            row.HexByte(8), row.HexByte(9), row.HexByte(10), row.HexByte(11),
+            row.HexByte(12), row.HexByte(13), row.HexByte(14), row.UnsignedDecimal(15),
+            row.UnsignedDecimal(16), row.HexByte(17), row.HexByte(18), row.HexWord(19),
+            row.Base64Utf8(20));
 
         First = CutsceneCommandCatalog.Load(
             Root + "black_tower_guard_first.tsv");
@@ -74,19 +81,21 @@ internal sealed class BlackTowerEntranceEventDatabase
     private static IReadOnlyList<OamRecord> LoadOam()
     {
         var result = new List<OamRecord>();
-        string source = FileAccess.GetFileAsString(
-            Root + "black_tower_stage_0_oam.tsv");
-        foreach (string raw in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        GeneratedTable table = GeneratedTable.Load(
+            Root + "black_tower_stage_0_oam.tsv",
+            new GeneratedTableSchema(
+                "Black Tower stage-zero OAM",
+                GeneratedTableKeySemantics.Unique,
+                ["index", "y", "x", "tile", "flags", "source"],
+                ["index"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = raw.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-            string[] fields = line.Split('\t');
-            if (fields.Length != 6 || int.Parse(fields[0]) != result.Count)
-                throw new InvalidOperationException($"Malformed Black Tower OAM row: {line}");
+            if (row.UnsignedDecimal(0) != result.Count)
+                throw row.Invalid(0, $"sequential index {result.Count}");
             result.Add(new OamRecord(
-                Hex(fields[1]), Hex(fields[2]), Hex(fields[3]),
-                Hex(fields[4]), fields[5]));
+                row.HexByte(1), row.HexByte(2), row.HexByte(3),
+                row.HexByte(4), row.RequiredString(5)));
         }
         return result;
     }
@@ -115,20 +124,6 @@ internal sealed class BlackTowerEntranceEventDatabase
         }
         return result;
     }
-
-    private static string FirstDataRow(string path)
-    {
-        foreach (string raw in FileAccess.GetFileAsString(path).Split(
-            '\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = raw.TrimEnd('\r');
-            if (!line.StartsWith('#'))
-                return line;
-        }
-        throw new InvalidOperationException($"{path} is empty.");
-    }
-
-    private static int Hex(string value) => Convert.ToInt32(value, 16);
 
     internal readonly record struct OamRecord(
         int Y, int X, int Tile, int Flags, string Source);

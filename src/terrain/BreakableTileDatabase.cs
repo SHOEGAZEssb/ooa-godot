@@ -1,4 +1,3 @@
-using Godot;
 using System;
 using System.Collections.Generic;
 
@@ -17,30 +16,32 @@ public sealed class BreakableTileDatabase
 
     public BreakableTileDatabase()
     {
-        string source = FileAccess.GetFileAsString("res://assets/oracle/metadata/breakable_tiles.tsv");
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/metadata/breakable_tiles.tsv",
+            new GeneratedTableSchema(
+                "breakable tiles",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "active-collisions", "tile", "mode", "source-mask", "drop",
+                    "effect", "replacement", "room-flag-action", "gasha-maturity"
+                ],
+                ["active-collisions", "tile"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] columns = line.Split('\t');
-            if (columns.Length != 9)
-                throw new InvalidOperationException($"Malformed breakable tile row: {line}");
-
-            int activeCollisions = int.Parse(columns[0]);
-            int tile = Convert.ToInt32(columns[1], 16);
+            int activeCollisions = row.Decimal(0, 0, 0xff);
+            int tile = row.HexByte(1);
             var record = new BreakableTileRecord(
                 activeCollisions,
                 tile,
-                Convert.ToInt32(columns[2], 16),
-                Convert.ToInt32(columns[3], 16),
-                Convert.ToInt32(columns[4], 16),
-                Convert.ToInt32(columns[5], 16),
-                Convert.ToInt32(columns[6], 16),
-                Convert.ToInt32(columns[7], 16),
-                int.Parse(columns[8]));
-            _records[(activeCollisions << 8) | tile] = record;
+                row.HexByte(2),
+                row.HexInt(3),
+                row.HexByte(4),
+                row.HexByte(5),
+                row.HexByte(6),
+                row.HexByte(7),
+                row.UnsignedDecimal(8));
+            _records.Add((activeCollisions << 8) | tile, record);
         }
     }
 

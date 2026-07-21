@@ -1,8 +1,6 @@
-using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace oracleofages;
 
@@ -16,37 +14,38 @@ public sealed class NewGameIntroDatabase
 
     public NewGameIntroDatabase()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/cutscenes/new_game_intro.tsv");
-        string? row = source.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(line => line.TrimEnd('\r'))
-            .FirstOrDefault(line => !line.StartsWith('#'));
-        if (row is null)
-            throw new InvalidOperationException("New-game intro data is empty.");
-
-        string[] columns = row.Split('\t');
-        if (columns.Length != 17)
-            throw new InvalidOperationException(
-                $"New-game intro row should contain 17 columns, got {columns.Length}.");
+        GeneratedTableRow row = GeneratedTable.Load(
+            "res://assets/oracle/cutscenes/new_game_intro.tsv",
+            new GeneratedTableSchema(
+                "new-game intro",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "initial-wait", "voice-wait", "post-vanish-wait", "summon-frames",
+                    "link-x", "link-y", "link-summoned-flag", "pregame-done-flag",
+                    "textbox-position", "text-id", "spin-duration", "spin-graphics",
+                    "vanish-durations", "vanish-graphics", "descend-oscillation",
+                    "hover-oscillation", "text-base64"
+                ],
+                headerRequired: true)).SingleRow();
 
         Record = new NewGameIntroRecord(
-            int.Parse(columns[0]),
-            int.Parse(columns[1]),
-            int.Parse(columns[2]),
-            int.Parse(columns[3]),
-            int.Parse(columns[4]),
-            int.Parse(columns[5]),
-            Convert.ToInt32(columns[6], 16),
-            Convert.ToInt32(columns[7], 16),
-            int.Parse(columns[8]),
-            int.Parse(columns[9]),
-            int.Parse(columns[10]),
-            ParseCsv(columns[11]),
-            ParseCsv(columns[12]),
-            ParseCsv(columns[13]),
-            ParseSignedCsv(columns[14]),
-            ParseSignedCsv(columns[15]),
-            Encoding.UTF8.GetString(Convert.FromBase64String(columns[16])));
+            row.UnsignedDecimal(0),
+            row.UnsignedDecimal(1),
+            row.UnsignedDecimal(2),
+            row.UnsignedDecimal(3),
+            row.UnsignedDecimal(4),
+            row.UnsignedDecimal(5),
+            row.HexByte(6),
+            row.HexByte(7),
+            row.UnsignedDecimal(8),
+            row.UnsignedDecimal(9),
+            row.UnsignedDecimal(10),
+            ParseCsv(row.RequiredString(11)),
+            ParseCsv(row.RequiredString(12)),
+            ParseCsv(row.RequiredString(13)),
+            ParseSignedCsv(row.RequiredString(14)),
+            ParseSignedCsv(row.RequiredString(15)),
+            row.Base64Utf8(16));
 
         LoadSpriteFrames();
     }
@@ -58,22 +57,20 @@ public sealed class NewGameIntroDatabase
 
     private void LoadSpriteFrames()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/cutscenes/new_game_intro_sprites.tsv");
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/cutscenes/new_game_intro_sprites.tsv",
+            new GeneratedTableSchema(
+                "new-game intro sprites",
+                GeneratedTableKeySemantics.Grouped,
+                ["kind", "index", "duration", "source-offset", "base-palette", "oam-parts"],
+                ["kind"],
+                headerRequired: true));
         var grouped = new Dictionary<string, List<IntroSpriteFrame>>();
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-            string[] columns = line.Split('\t');
-            if (columns.Length != 6)
-                throw new InvalidOperationException(
-                    $"New-game intro sprite row should contain 6 columns, got {columns.Length}.");
-
-            string kind = columns[0];
-            int index = int.Parse(columns[1]);
-            var parts = columns[5].Split(';').Select(value =>
+            string kind = row.RequiredString(0);
+            int index = row.UnsignedDecimal(1);
+            var parts = row.RequiredString(5).Split(';').Select(value =>
             {
                 string[] fields = value.Split(',');
                 if (fields.Length != 4)
@@ -93,9 +90,9 @@ public sealed class NewGameIntroDatabase
                 throw new InvalidOperationException(
                     $"New-game intro sprite {kind} expected frame {frames.Count}, got {index}.");
             frames.Add(new IntroSpriteFrame(
-                int.Parse(columns[2]),
-                Convert.ToInt32(columns[3], 16),
-                int.Parse(columns[4]),
+                row.UnsignedDecimal(2),
+                row.HexWord(3),
+                row.UnsignedDecimal(4),
                 parts));
         }
         foreach ((string kind, List<IntroSpriteFrame> frames) in grouped)

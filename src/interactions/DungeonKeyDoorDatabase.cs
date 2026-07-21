@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace oracleofages;
 
@@ -31,36 +30,39 @@ internal sealed class DungeonKeyDoorDatabase
 
     internal DungeonKeyDoorDatabase()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/dungeon_key_doors.tsv");
-        foreach (string raw in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/dungeon_key_doors.tsv",
+            new GeneratedTableSchema(
+                "dungeon small-key doors",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "closed-tile", "direction", "open-tile", "room-flag",
+                    "opposite-room-flag", "push-counter", "door-frame-wait",
+                    "door-sound", "key-sound", "no-key-text-id", "no-key-utf8-base64"
+                ],
+                ["closed-tile"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = raw.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] fields = line.Split('\t');
-            if (fields.Length != 11)
-                throw Malformed(line);
             var record = new Record(
-                Convert.ToByte(fields[0], 16),
-                fields[1] switch
+                (byte)row.HexByte(0),
+                row.RequiredString(1) switch
                 {
                     "up" => Vector2I.Up,
                     "right" => Vector2I.Right,
                     "down" => Vector2I.Down,
                     "left" => Vector2I.Left,
-                    _ => throw Malformed(line)
+                    _ => throw row.Invalid(1, "one of up, right, down, left")
                 },
-                Convert.ToByte(fields[2], 16),
-                Convert.ToByte(fields[3], 16),
-                Convert.ToByte(fields[4], 16),
-                int.Parse(fields[5]),
-                int.Parse(fields[6]),
-                int.Parse(fields[7]),
-                int.Parse(fields[8]),
-                Convert.ToInt32(fields[9], 16),
-                Encoding.UTF8.GetString(Convert.FromBase64String(fields[10])));
+                (byte)row.HexByte(2),
+                (byte)row.HexByte(3),
+                (byte)row.HexByte(4),
+                row.UnsignedDecimal(5),
+                row.UnsignedDecimal(6),
+                row.UnsignedDecimal(7),
+                row.UnsignedDecimal(8),
+                row.HexWord(9),
+                row.Base64Utf8(10));
             if (!_records.TryAdd(record.ClosedTile, record))
                 throw new InvalidOperationException(
                     $"Duplicate small-key door tile ${record.ClosedTile:x2}.");
@@ -103,6 +105,4 @@ internal sealed class DungeonKeyDoorDatabase
         room.ApplyMetatileSubstitutions(substitutions, animationTick);
     }
 
-    private static InvalidOperationException Malformed(string line) =>
-        new($"Malformed dungeon small-key door row: {line}");
 }

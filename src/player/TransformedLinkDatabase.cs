@@ -35,29 +35,29 @@ internal sealed class TransformedLinkDatabase
     internal TransformedLinkDatabase(
         string path = "res://assets/oracle/metadata/transformed_link.tsv")
     {
-        string text = FileAccess.GetFileAsString(path);
-        if (string.IsNullOrWhiteSpace(text))
-            throw new InvalidOperationException($"Missing transformed-Link data: {path}");
-
-        foreach (string rawLine in text.Split('\n'))
+        GeneratedTable table = GeneratedTable.Load(
+            path,
+            new GeneratedTableSchema(
+                "transformed Link frames",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "ring", "special-object", "direction", "frame", "sprite",
+                    "tile-base", "oam", "initial-duration", "loop-duration"
+                ],
+                ["special-object", "direction", "frame"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.Length == 0 || line[0] == '#')
-                continue;
-            string[] fields = line.Split('\t');
-            if (fields.Length != 9)
-                throw new InvalidOperationException(
-                    $"Malformed transformed-Link row in {path}: {line}");
             var record = new FrameRecord(
-                ParseHex(fields[0], "ring"),
-                ParseHex(fields[1], "special object"),
-                ParseDecimal(fields[2], "direction"),
-                ParseDecimal(fields[3], "frame"),
-                fields[4],
-                ParseDecimal(fields[5], "tile base"),
-                fields[6],
-                ParseDecimal(fields[7], "initial duration"),
-                ParseDecimal(fields[8], "loop duration"));
+                row.HexByte(0),
+                row.HexByte(1),
+                row.Decimal(2, 0, 3),
+                row.Decimal(3, 0, 1),
+                row.RequiredString(4),
+                row.UnsignedDecimal(5),
+                row.RequiredString(6),
+                row.UnsignedDecimal(7),
+                row.UnsignedDecimal(8));
             ValidateRecord(record);
             if (!_records.TryAdd(
                 (record.SpecialObject, record.Direction, record.Frame), record))
@@ -130,15 +130,4 @@ internal sealed class TransformedLinkDatabase
         }
     }
 
-    private static int ParseHex(string value, string name) =>
-        int.TryParse(value, System.Globalization.NumberStyles.HexNumber, null, out int parsed)
-            ? parsed
-            : throw new InvalidOperationException(
-                $"Invalid transformed-Link {name} value '{value}'.");
-
-    private static int ParseDecimal(string value, string name) =>
-        int.TryParse(value, out int parsed)
-            ? parsed
-            : throw new InvalidOperationException(
-                $"Invalid transformed-Link {name} value '{value}'.");
 }

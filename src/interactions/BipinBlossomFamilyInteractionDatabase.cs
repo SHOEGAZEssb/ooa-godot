@@ -1,7 +1,5 @@
-using Godot;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace oracleofages;
 
@@ -15,21 +13,18 @@ internal sealed class BipinBlossomFamilyInteractionDatabase
 
     public BipinBlossomFamilyInteractionDatabase()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/bipin_blossom_family_texts.tsv");
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/bipin_blossom_family_texts.tsv",
+            new GeneratedTableSchema(
+                "Bipin and Blossom interaction text",
+                GeneratedTableKeySemantics.Unique,
+                ["text-id", "utf8-base64"],
+                ["text-id"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] columns = line.Split('\t');
-            if (columns.Length != 2)
-                throw new InvalidOperationException($"Malformed family interaction text row: {line}");
-            int textId = Convert.ToInt32(columns[0], 16);
-            _texts.Add(
-                textId,
-                Encoding.UTF8.GetString(Convert.FromBase64String(columns[1])));
+            int textId = row.HexWord(0);
+            _texts.Add(textId, row.Base64Utf8(1));
         }
 
         if (_texts.Count != 5)

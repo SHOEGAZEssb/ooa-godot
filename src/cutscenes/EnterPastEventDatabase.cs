@@ -1,7 +1,5 @@
-using Godot;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace oracleofages;
 
@@ -16,53 +14,46 @@ internal sealed class EnterPastEventDatabase
 
     public EnterPastEventDatabase()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/cutscenes/enter_past_event.tsv");
-        string? row = null;
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = rawLine.TrimEnd('\r');
-            if (!line.StartsWith('#'))
-            {
-                row = line;
-                break;
-            }
-        }
-        if (row is null)
-            throw new InvalidOperationException("Enter-past event data is empty.");
-
-        string[] columns = row.Split('\t');
-        if (columns.Length != 24)
-        {
-            throw new InvalidOperationException(
-                $"Enter-past event row should contain 24 columns, got {columns.Length}.");
-        }
+        GeneratedTableRow row = GeneratedTable.Load(
+            "res://assets/oracle/cutscenes/enter_past_event.tsv",
+            new GeneratedTableSchema(
+                "enter-past event",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "group", "room", "id", "subid", "intro-wait", "pre-jump-wait",
+                    "post-jump-wait", "post-text-wait", "jump-speed-z", "jump-gravity",
+                    "fast-speed", "slow-speed", "first-down-counter", "right-counter",
+                    "second-down-counter", "slow-down-counter", "final-down-counter",
+                    "global-flag", "text-id", "right-animation", "down-animation",
+                    "text-base64", "jump-sound", "expected-arrival-counter"
+                ],
+                headerRequired: true)).SingleRow();
 
         Record = new EnterPastEventRecord(
-            int.Parse(columns[0]),
-            Convert.ToInt32(columns[1], 16),
-            Convert.ToInt32(columns[2], 16),
-            Convert.ToInt32(columns[3], 16),
-            int.Parse(columns[4]),
-            int.Parse(columns[5]),
-            int.Parse(columns[6]),
-            int.Parse(columns[7]),
-            int.Parse(columns[8]),
-            int.Parse(columns[9]),
-            Convert.ToInt32(columns[10], 16),
-            Convert.ToInt32(columns[11], 16),
-            int.Parse(columns[12]),
-            int.Parse(columns[13]),
-            int.Parse(columns[14]),
-            int.Parse(columns[15]),
-            int.Parse(columns[16]),
-            Convert.ToInt32(columns[17], 16),
-            Convert.ToInt32(columns[18], 16),
-            columns[19],
-            columns[20],
-            Encoding.UTF8.GetString(Convert.FromBase64String(columns[21])),
-            Convert.ToInt32(columns[22], 16),
-            int.Parse(columns[23]));
+            row.Decimal(0, 0, 7),
+            row.HexByte(1),
+            row.HexByte(2),
+            row.HexByte(3),
+            row.UnsignedDecimal(4),
+            row.UnsignedDecimal(5),
+            row.UnsignedDecimal(6),
+            row.UnsignedDecimal(7),
+            row.Decimal(8),
+            row.Decimal(9),
+            row.HexByte(10),
+            row.HexByte(11),
+            row.UnsignedDecimal(12),
+            row.UnsignedDecimal(13),
+            row.UnsignedDecimal(14),
+            row.UnsignedDecimal(15),
+            row.UnsignedDecimal(16),
+            row.HexByte(17),
+            row.HexWord(18),
+            row.RequiredString(19),
+            row.RequiredString(20),
+            row.Base64Utf8(21),
+            row.HexByte(22),
+            row.UnsignedDecimal(23));
 
         Commands = CutsceneCommandCatalog.Load(
             "res://assets/oracle/cutscenes/enter_past_commands.tsv");

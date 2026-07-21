@@ -35,35 +35,38 @@ public sealed class EnemyDatabase
 
     public EnemyDatabase()
     {
-        string source = FileAccess.GetFileAsString("res://assets/oracle/objects/keese.tsv");
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/keese.tsv",
+            new GeneratedTableSchema(
+                "Keese room records",
+                GeneratedTableKeySemantics.Grouped,
+                [
+                    "group", "room", "id", "subid", "flags", "count", "sprite",
+                    "tile-base", "palette", "radius-y", "radius-x", "damage-quarters",
+                    "health", "idle-animation", "fly-animation"
+                ],
+                ["group", "room"],
+                headerRequired: true));
         int records = 0;
         int instances = 0;
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] columns = line.Split('\t');
-            if (columns.Length != 15)
-                throw new InvalidOperationException($"Malformed Keese data row: {line}");
-
             var record = new EnemyRecord(
-                int.Parse(columns[0]),
-                Convert.ToInt32(columns[1], 16),
-                Convert.ToInt32(columns[2], 16),
-                Convert.ToInt32(columns[3], 16),
-                Convert.ToInt32(columns[4], 16),
-                int.Parse(columns[5]),
-                columns[6],
-                int.Parse(columns[7]),
-                int.Parse(columns[8]),
-                int.Parse(columns[9]),
-                int.Parse(columns[10]),
-                int.Parse(columns[11]),
-                int.Parse(columns[12]),
-                columns[13],
-                columns[14]);
+                row.Decimal(0, 0, 7),
+                row.HexByte(1),
+                row.HexByte(2),
+                row.HexByte(3),
+                row.HexByte(4),
+                row.UnsignedDecimal(5),
+                row.RequiredString(6),
+                row.UnsignedDecimal(7),
+                row.UnsignedDecimal(8),
+                row.UnsignedDecimal(9),
+                row.UnsignedDecimal(10),
+                row.UnsignedDecimal(11),
+                row.UnsignedDecimal(12),
+                row.RequiredString(13),
+                row.RequiredString(14));
 
             int key = MakeKey(record.Group, record.Room);
             if (!_keeseByRoom.TryGetValue(key, out List<EnemyRecord>? roomRecords))
@@ -80,42 +83,46 @@ public sealed class EnemyDatabase
         KeeseRecordCount = records;
         KeeseInstanceCount = instances;
 
-        source = FileAccess.GetFileAsString("res://assets/oracle/objects/octoroks.tsv");
+        table = GeneratedTable.Load(
+            "res://assets/oracle/objects/octoroks.tsv",
+            new GeneratedTableSchema(
+                "Octorok room records",
+                GeneratedTableKeySemantics.Grouped,
+                [
+                    "group", "room", "id", "subid", "flags", "count", "position-mode",
+                    "y", "x", "sprite", "tile-base", "palette", "radius-y", "radius-x",
+                    "damage-quarters", "health", "speed-raw", "counter-mask", "up-animation",
+                    "right-animation", "down-animation", "left-animation"
+                ],
+                ["group", "room"],
+                headerRequired: true));
         records = 0;
         instances = 0;
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] columns = line.Split('\t');
-            if (columns.Length != 22)
-                throw new InvalidOperationException($"Malformed Octorok data row: {line}");
-
             var record = new OctorokRecord(
-                int.Parse(columns[0]),
-                Convert.ToInt32(columns[1], 16),
-                Convert.ToInt32(columns[2], 16),
-                Convert.ToInt32(columns[3], 16),
-                Convert.ToInt32(columns[4], 16),
-                int.Parse(columns[5]),
-                columns[6] == "F",
-                ParsePosition(columns[7]),
-                ParsePosition(columns[8]),
-                columns[9],
-                int.Parse(columns[10]),
-                int.Parse(columns[11]),
-                int.Parse(columns[12]),
-                int.Parse(columns[13]),
-                int.Parse(columns[14]),
-                int.Parse(columns[15]),
-                int.Parse(columns[16]),
-                int.Parse(columns[17]),
-                columns[18],
-                columns[19],
-                columns[20],
-                columns[21]);
+                row.Decimal(0, 0, 7),
+                row.HexByte(1),
+                row.HexByte(2),
+                row.HexByte(3),
+                row.HexByte(4),
+                row.UnsignedDecimal(5),
+                FixedPosition(row, 6),
+                row.HexByteOrSentinel(7, "-1", -1),
+                row.HexByteOrSentinel(8, "-1", -1),
+                row.RequiredString(9),
+                row.UnsignedDecimal(10),
+                row.UnsignedDecimal(11),
+                row.UnsignedDecimal(12),
+                row.UnsignedDecimal(13),
+                row.UnsignedDecimal(14),
+                row.UnsignedDecimal(15),
+                row.UnsignedDecimal(16),
+                row.UnsignedDecimal(17),
+                row.RequiredString(18),
+                row.RequiredString(19),
+                row.RequiredString(20),
+                row.RequiredString(21));
 
             int key = MakeKey(record.Group, record.Room);
             if (!_octoroksByRoom.TryGetValue(key, out List<OctorokRecord>? roomRecords))
@@ -131,39 +138,42 @@ public sealed class EnemyDatabase
         OctorokRecordCount = records;
         OctorokInstanceCount = instances;
 
-        source = FileAccess.GetFileAsString("res://assets/oracle/objects/stalfos.tsv");
+        table = GeneratedTable.Load(
+            "res://assets/oracle/objects/stalfos.tsv",
+            new GeneratedTableSchema(
+                "Stalfos room records",
+                GeneratedTableKeySemantics.Grouped,
+                [
+                    "group", "room", "id", "subid", "flags", "count", "position-mode",
+                    "y", "x", "sprite", "tile-base", "palette", "radius-y", "radius-x",
+                    "damage-quarters", "health", "speed-raw", "walk-animation", "jump-animation"
+                ],
+                ["group", "room"],
+                headerRequired: true));
         records = 0;
         instances = 0;
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] columns = line.Split('\t');
-            if (columns.Length != 19)
-                throw new InvalidOperationException($"Malformed Stalfos data row: {line}");
-
             var record = new StalfosRecord(
-                int.Parse(columns[0]),
-                Convert.ToInt32(columns[1], 16),
-                Convert.ToInt32(columns[2], 16),
-                Convert.ToInt32(columns[3], 16),
-                Convert.ToInt32(columns[4], 16),
-                int.Parse(columns[5]),
-                columns[6] == "F",
-                ParsePosition(columns[7]),
-                ParsePosition(columns[8]),
-                columns[9],
-                int.Parse(columns[10]),
-                int.Parse(columns[11]),
-                int.Parse(columns[12]),
-                int.Parse(columns[13]),
-                int.Parse(columns[14]),
-                int.Parse(columns[15]),
-                int.Parse(columns[16]),
-                columns[17],
-                columns[18]);
+                row.Decimal(0, 0, 7),
+                row.HexByte(1),
+                row.HexByte(2),
+                row.HexByte(3),
+                row.HexByte(4),
+                row.UnsignedDecimal(5),
+                FixedPosition(row, 6),
+                row.HexByteOrSentinel(7, "-1", -1),
+                row.HexByteOrSentinel(8, "-1", -1),
+                row.RequiredString(9),
+                row.UnsignedDecimal(10),
+                row.UnsignedDecimal(11),
+                row.UnsignedDecimal(12),
+                row.UnsignedDecimal(13),
+                row.UnsignedDecimal(14),
+                row.UnsignedDecimal(15),
+                row.UnsignedDecimal(16),
+                row.RequiredString(17),
+                row.RequiredString(18));
             int key = MakeKey(record.Group, record.Room);
             if (!_stalfosByRoom.TryGetValue(key, out List<StalfosRecord>? roomRecords))
             {
@@ -178,42 +188,46 @@ public sealed class EnemyDatabase
         StalfosRecordCount = records;
         StalfosInstanceCount = instances;
 
-        source = FileAccess.GetFileAsString("res://assets/oracle/objects/zols.tsv");
+        table = GeneratedTable.Load(
+            "res://assets/oracle/objects/zols.tsv",
+            new GeneratedTableSchema(
+                "Zol room records",
+                GeneratedTableKeySemantics.Grouped,
+                [
+                    "group", "room", "id", "subid", "flags", "count", "position-mode",
+                    "y", "x", "sprite", "tile-base", "palette", "radius-y", "radius-x",
+                    "damage-quarters", "health", "animation-0", "animation-1", "animation-2",
+                    "animation-3", "animation-4", "animation-5"
+                ],
+                ["group", "room"],
+                headerRequired: true));
         records = 0;
         instances = 0;
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] columns = line.Split('\t');
-            if (columns.Length != 22)
-                throw new InvalidOperationException($"Malformed Zol data row: {line}");
-
             var record = new ZolRecord(
-                int.Parse(columns[0]),
-                Convert.ToInt32(columns[1], 16),
-                Convert.ToInt32(columns[2], 16),
-                Convert.ToInt32(columns[3], 16),
-                Convert.ToInt32(columns[4], 16),
-                int.Parse(columns[5]),
-                columns[6] == "F",
-                ParsePosition(columns[7]),
-                ParsePosition(columns[8]),
-                columns[9],
-                int.Parse(columns[10]),
-                int.Parse(columns[11]),
-                int.Parse(columns[12]),
-                int.Parse(columns[13]),
-                int.Parse(columns[14]),
-                int.Parse(columns[15]),
-                columns[16],
-                columns[17],
-                columns[18],
-                columns[19],
-                columns[20],
-                columns[21]);
+                row.Decimal(0, 0, 7),
+                row.HexByte(1),
+                row.HexByte(2),
+                row.HexByte(3),
+                row.HexByte(4),
+                row.UnsignedDecimal(5),
+                FixedPosition(row, 6),
+                row.HexByteOrSentinel(7, "-1", -1),
+                row.HexByteOrSentinel(8, "-1", -1),
+                row.RequiredString(9),
+                row.UnsignedDecimal(10),
+                row.UnsignedDecimal(11),
+                row.UnsignedDecimal(12),
+                row.UnsignedDecimal(13),
+                row.UnsignedDecimal(14),
+                row.UnsignedDecimal(15),
+                row.RequiredString(16),
+                row.RequiredString(17),
+                row.RequiredString(18),
+                row.RequiredString(19),
+                row.RequiredString(20),
+                row.RequiredString(21));
             int key = MakeKey(record.Group, record.Room);
             if (!_zolsByRoom.TryGetValue(key, out List<ZolRecord>? roomRecords))
             {
@@ -228,44 +242,47 @@ public sealed class EnemyDatabase
         ZolRecordCount = records;
         ZolInstanceCount = instances;
 
-        source = FileAccess.GetFileAsString("res://assets/oracle/objects/gels.tsv");
+        table = GeneratedTable.Load(
+            "res://assets/oracle/objects/gels.tsv",
+            new GeneratedTableSchema(
+                "Gel room records",
+                GeneratedTableKeySemantics.Grouped,
+                [
+                    "group", "room", "id", "subid", "flags", "count", "position-mode",
+                    "y", "x", "sprite", "tile-base", "palette", "radius-y", "radius-x",
+                    "damage-quarters", "health", "animation-0", "animation-1", "animation-2"
+                ],
+                ["group", "room"],
+                headerRequired: true));
         records = 0;
         instances = 0;
         GelDefinition? gelDefinition = null;
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] columns = line.Split('\t');
-            if (columns.Length != 19)
-                throw new InvalidOperationException($"Malformed Gel data row: {line}");
-
             var definition = new GelDefinition(
-                Convert.ToInt32(columns[2], 16),
-                columns[9],
-                int.Parse(columns[10]),
-                int.Parse(columns[11]),
-                int.Parse(columns[12]),
-                int.Parse(columns[13]),
-                int.Parse(columns[14]),
-                int.Parse(columns[15]),
-                columns[16],
-                columns[17],
-                columns[18]);
+                row.HexByte(2),
+                row.RequiredString(9),
+                row.UnsignedDecimal(10),
+                row.UnsignedDecimal(11),
+                row.UnsignedDecimal(12),
+                row.UnsignedDecimal(13),
+                row.UnsignedDecimal(14),
+                row.UnsignedDecimal(15),
+                row.RequiredString(16),
+                row.RequiredString(17),
+                row.RequiredString(18));
             gelDefinition ??= definition;
             if (gelDefinition.Value != definition)
                 throw new InvalidOperationException("Room Gel records disagree on their shared definition.");
 
             var record = new GelRecord(
-                int.Parse(columns[0]),
-                Convert.ToInt32(columns[1], 16),
-                Convert.ToInt32(columns[4], 16),
-                int.Parse(columns[5]),
-                columns[6] == "F",
-                ParsePosition(columns[7]),
-                ParsePosition(columns[8]));
+                row.Decimal(0, 0, 7),
+                row.HexByte(1),
+                row.HexByte(4),
+                row.UnsignedDecimal(5),
+                FixedPosition(row, 6),
+                row.HexByteOrSentinel(7, "-1", -1),
+                row.HexByteOrSentinel(8, "-1", -1));
             int key = MakeKey(record.Group, record.Room);
             if (!_gelsByRoom.TryGetValue(key, out List<GelRecord>? roomRecords))
             {
@@ -280,31 +297,33 @@ public sealed class EnemyDatabase
         GelRecordCount = records;
         GelInstanceCount = instances;
 
-        source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/enemy_object_stream.tsv");
+        table = GeneratedTable.Load(
+            "res://assets/oracle/objects/enemy_object_stream.tsv",
+            new GeneratedTableSchema(
+                "ordered enemy object stream",
+                GeneratedTableKeySemantics.Grouped,
+                [
+                    "group", "room", "order", "kind", "id", "subid", "flags", "count",
+                    "y", "x", "packed-position", "condition-mask"
+                ],
+                ["group", "room"],
+                headerRequired: true));
         records = 0;
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-            string[] columns = line.Split('\t');
-            if (columns.Length != 12)
-                throw new InvalidOperationException($"Malformed ordered room-object row: {line}");
-
             var record = new RoomObjectRecord(
-                int.Parse(columns[0]),
-                Convert.ToInt32(columns[1], 16),
-                int.Parse(columns[2]),
-                ParseRoomObjectKind(columns[3]),
-                Convert.ToInt32(columns[4], 16),
-                Convert.ToInt32(columns[5], 16),
-                Convert.ToInt32(columns[6], 16),
-                int.Parse(columns[7]),
-                ParsePosition(columns[8]),
-                ParsePosition(columns[9]),
-                ParsePosition(columns[10]),
-                Convert.ToInt32(columns[11], 16));
+                row.Decimal(0, 0, 7),
+                row.HexByte(1),
+                row.UnsignedDecimal(2),
+                ParseRoomObjectKind(row, 3),
+                row.HexByte(4),
+                row.HexByte(5),
+                row.HexByte(6),
+                row.UnsignedDecimal(7),
+                row.HexByteOrSentinel(8, "-1", -1),
+                row.HexByteOrSentinel(9, "-1", -1),
+                row.HexByteOrSentinel(10, "-1", -1),
+                row.HexByte(11));
             int key = MakeKey(record.Group, record.Room);
             if (!_roomObjectsByRoom.TryGetValue(key, out List<RoomObjectRecord>? roomRecords))
             {
@@ -322,54 +341,77 @@ public sealed class EnemyDatabase
         }
         RoomObjectRecordCount = records;
 
-        string[] projectileRows = FileAccess.GetFileAsString(
-                "res://assets/oracle/effects/octorok_projectile.tsv")
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        OctorokProjectileRecord? projectile = null;
-        foreach (string rawLine in projectileRows)
+        table = GeneratedTable.Load(
+            "res://assets/oracle/effects/octorok_projectile.tsv",
+            new GeneratedTableSchema(
+                "Octorok projectile",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "sprite", "tile-base", "palette", "radius-y", "radius-x",
+                    "damage-quarters", "speed-raw", "normal-animation", "bounce-animation"
+                ],
+                headerRequired: true));
+        if (table.Rows.Count != 1)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-            string[] columns = line.Split('\t');
-            if (columns.Length != 9)
-                throw new InvalidOperationException($"Malformed Octorok projectile row: {line}");
-            projectile = new OctorokProjectileRecord(
-                columns[0],
-                int.Parse(columns[1]),
-                int.Parse(columns[2]),
-                int.Parse(columns[3]),
-                int.Parse(columns[4]),
-                int.Parse(columns[5]),
-                int.Parse(columns[6]),
-                columns[7],
-                columns[8]);
+            throw new InvalidOperationException(
+                $"Octorok projectile data should have one row, got {table.Rows.Count}.");
         }
-        OctorokProjectile = projectile ?? throw new InvalidOperationException(
-            "Octorok projectile data is empty.");
+        GeneratedTableRow projectile = table.Rows[0];
+        OctorokProjectile = new OctorokProjectileRecord(
+            projectile.RequiredString(0),
+            projectile.UnsignedDecimal(1),
+            projectile.UnsignedDecimal(2),
+            projectile.UnsignedDecimal(3),
+            projectile.UnsignedDecimal(4),
+            projectile.UnsignedDecimal(5),
+            projectile.UnsignedDecimal(6),
+            projectile.RequiredString(7),
+            projectile.RequiredString(8));
 
-        string maskedLine = FirstDataRow(
-            "res://assets/oracle/objects/masked_moblin.tsv");
-        string[] masked = maskedLine.Split('\t');
-        if (masked.Length != 17)
-            throw new InvalidOperationException($"Malformed masked Moblin row: {maskedLine}");
+        table = GeneratedTable.Load(
+            "res://assets/oracle/objects/masked_moblin.tsv",
+            new GeneratedTableSchema(
+                "masked Moblin",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "id", "subid", "sprite", "tile-base", "palette", "radius-y", "radius-x",
+                    "damage-quarters", "health", "speed-raw", "move-base", "move-mask",
+                    "turn-wait", "up-animation", "right-animation", "down-animation", "left-animation"
+                ],
+                headerRequired: true));
+        if (table.Rows.Count != 1)
+            throw new InvalidOperationException(
+                $"Masked Moblin data should have one row, got {table.Rows.Count}.");
+        GeneratedTableRow masked = table.Rows[0];
         MaskedMoblin = new MaskedMoblinRecord(
-            Convert.ToInt32(masked[0], 16), Convert.ToInt32(masked[1], 16),
-            masked[2], int.Parse(masked[3]), int.Parse(masked[4]),
-            int.Parse(masked[5]), int.Parse(masked[6]), int.Parse(masked[7]),
-            int.Parse(masked[8]), int.Parse(masked[9]), int.Parse(masked[10]),
-            int.Parse(masked[11]), int.Parse(masked[12]),
-            masked[13], masked[14], masked[15], masked[16]);
+            masked.HexByte(0), masked.HexByte(1),
+            masked.RequiredString(2), masked.UnsignedDecimal(3), masked.UnsignedDecimal(4),
+            masked.UnsignedDecimal(5), masked.UnsignedDecimal(6), masked.UnsignedDecimal(7),
+            masked.UnsignedDecimal(8), masked.UnsignedDecimal(9), masked.UnsignedDecimal(10),
+            masked.UnsignedDecimal(11), masked.UnsignedDecimal(12),
+            masked.RequiredString(13), masked.RequiredString(14),
+            masked.RequiredString(15), masked.RequiredString(16));
 
-        string arrowLine = FirstDataRow(
-            "res://assets/oracle/effects/enemy_arrow.tsv");
-        string[] arrow = arrowLine.Split('\t');
-        if (arrow.Length != 10)
-            throw new InvalidOperationException($"Malformed enemy arrow row: {arrowLine}");
+        table = GeneratedTable.Load(
+            "res://assets/oracle/effects/enemy_arrow.tsv",
+            new GeneratedTableSchema(
+                "enemy arrow",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "sprite", "tile-base", "palette", "damage-quarters", "speed-raw",
+                    "up-animation", "right-animation", "down-animation", "left-animation",
+                    "bounce-animation"
+                ],
+                headerRequired: true));
+        if (table.Rows.Count != 1)
+            throw new InvalidOperationException(
+                $"Enemy arrow data should have one row, got {table.Rows.Count}.");
+        GeneratedTableRow arrow = table.Rows[0];
         EnemyArrow = new EnemyArrowRecord(
-            arrow[0], int.Parse(arrow[1]), int.Parse(arrow[2]),
-            int.Parse(arrow[3]), int.Parse(arrow[4]),
-            arrow[5], arrow[6], arrow[7], arrow[8], arrow[9]);
+            arrow.RequiredString(0), arrow.UnsignedDecimal(1), arrow.UnsignedDecimal(2),
+            arrow.UnsignedDecimal(3), arrow.UnsignedDecimal(4),
+            arrow.RequiredString(5), arrow.RequiredString(6), arrow.RequiredString(7),
+            arrow.RequiredString(8), arrow.RequiredString(9));
     }
 
     public IReadOnlyList<EnemyRecord> GetRoomKeese(int group, int room)
@@ -496,22 +538,17 @@ public sealed class EnemyDatabase
 
     private static int MakeKey(int group, int room) => (group << 8) | room;
 
-    private static int ParsePosition(string value) =>
-        value == "-1" ? -1 : Convert.ToInt32(value, 16);
-
-    private static string FirstDataRow(string path)
-    {
-        foreach (string raw in FileAccess.GetFileAsString(path).Split(
-            '\n', StringSplitOptions.RemoveEmptyEntries))
+    private static bool FixedPosition(GeneratedTableRow row, int column) =>
+        row.RequiredString(column) switch
         {
-            string line = raw.TrimEnd('\r');
-            if (!line.StartsWith('#'))
-                return line;
-        }
-        throw new InvalidOperationException($"{path} is empty.");
-    }
+            "F" => true,
+            "R" => false,
+            _ => throw row.Invalid(column, "position mode F or R")
+        };
 
-    private static RoomObjectKind ParseRoomObjectKind(string value) => value switch
+    private static RoomObjectKind ParseRoomObjectKind(
+        GeneratedTableRow row,
+        int column) => row.RequiredString(column) switch
     {
         "R" => RoomObjectKind.RandomEnemy,
         "F" => RoomObjectKind.FixedEnemy,
@@ -519,7 +556,7 @@ public sealed class EnemyDatabase
         "P" => RoomObjectKind.ReservingPart,
         "Q" => RoomObjectKind.ParameterPart,
         "I" => RoomObjectKind.ItemDrop,
-        _ => throw new InvalidOperationException($"Unknown ordered room-object kind: {value}")
+        _ => throw row.Invalid(column, "one of R, F, B, P, Q, I")
     };
 
     public enum RoomObjectKind

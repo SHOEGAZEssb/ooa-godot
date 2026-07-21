@@ -1,4 +1,3 @@
-using Godot;
 using System;
 using System.Collections.Generic;
 
@@ -17,25 +16,22 @@ public sealed class StandardTileSubstitutionDatabase
 
     public StandardTileSubstitutionDatabase()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/metadata/standard_tile_substitutions.tsv");
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/metadata/standard_tile_substitutions.tsv",
+            new GeneratedTableSchema(
+                "standard tile substitutions",
+                GeneratedTableKeySemantics.Grouped,
+                ["room-flag", "active-collisions", "replacement", "original", "source"],
+                ["room-flag", "active-collisions"],
+                headerRequired: true));
         int count = 0;
-        foreach (string rawLine in source.Split(
-            '\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] columns = line.Split('\t');
-            if (columns.Length != 5 || string.IsNullOrWhiteSpace(columns[4]))
-                throw new InvalidOperationException(
-                    $"Malformed standard tile-substitution row: {line}");
-
-            int flag = Convert.ToInt32(columns[0], 16);
-            int collisions = int.Parse(columns[1]);
-            byte replacement = Convert.ToByte(columns[2], 16);
-            byte original = Convert.ToByte(columns[3], 16);
+            int flag = row.HexByte(0);
+            int collisions = row.Decimal(1, 0, 0xff);
+            byte replacement = (byte)row.HexByte(2);
+            byte original = (byte)row.HexByte(3);
+            row.RequiredString(4);
             var key = (flag, collisions);
             if (!_substitutions.TryGetValue(key, out Dictionary<byte, byte>? records))
             {

@@ -1,4 +1,3 @@
-using Godot;
 using System;
 
 namespace oracleofages;
@@ -10,17 +9,20 @@ public sealed class GlobalFlagDatabase
 
     public GlobalFlagDatabase()
     {
-        string source = FileAccess.GetFileAsString("res://assets/oracle/metadata/global_flags.tsv");
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/metadata/global_flags.tsv",
+            new GeneratedTableSchema(
+                "global flags",
+                GeneratedTableKeySemantics.Unique,
+                ["flag", "name"],
+                ["flag"]));
         int count = 0;
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string[] fields = rawLine.TrimEnd('\r').Split('\t');
-            if (fields.Length != 2)
-                throw new InvalidOperationException($"Malformed global flag row: {rawLine}");
-            int flag = Convert.ToInt32(fields[0], 16);
-            if (flag < 0 || flag >= _names.Length || _names[flag] is not null)
+            int flag = row.HexByte(0);
+            if (flag >= _names.Length || _names[flag] is not null)
                 throw new InvalidOperationException($"Invalid or duplicate global flag ${flag:x2}.");
-            _names[flag] = fields[1];
+            _names[flag] = row.RequiredString(1);
             count++;
         }
 

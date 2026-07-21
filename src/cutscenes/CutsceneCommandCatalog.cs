@@ -2,7 +2,6 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Text;
 
 namespace oracleofages;
 
@@ -13,46 +12,36 @@ namespace oracleofages;
 /// </summary>
 internal static class CutsceneCommandCatalog
 {
-    private const int ColumnCount = 9;
-
     public static IReadOnlyList<CutsceneCommand> Load(string path)
     {
+        GeneratedTable table = GeneratedTable.Load(
+            path,
+            new GeneratedTableSchema(
+                "cutscene command stream",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "script", "label", "index", "source-line", "opcode", "actor",
+                    "arg0", "arg1", "payload-base64"
+                ],
+                headerRequired: true));
         var commands = new List<CutsceneCommand>();
-        string source = FileAccess.GetFileAsString(path);
-        string[] lines = source.Split('\n');
-        for (int physicalLine = 1; physicalLine <= lines.Length; physicalLine++)
-        {
-            string line = lines[physicalLine - 1].TrimEnd('\r');
-            if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
-                continue;
-
-            string[] columns = line.Split('\t');
-            if (columns.Length != ColumnCount)
-            {
-                throw Error(
-                    path,
-                    physicalLine,
-                    $"expected {ColumnCount} columns, got {columns.Length}");
-            }
-
-            commands.Add(ParseCommand(path, physicalLine, columns));
-        }
+        foreach (GeneratedTableRow row in table.Rows)
+            commands.Add(ParseCommand(row));
 
         if (commands.Count == 0)
             throw new InvalidOperationException($"Cutscene command stream is empty: {path}");
         return commands.AsReadOnly();
     }
 
-    private static CutsceneCommand ParseCommand(
-        string path,
-        int physicalLine,
-        IReadOnlyList<string> columns)
+    private static CutsceneCommand ParseCommand(GeneratedTableRow row)
     {
-        string script = Required(path, physicalLine, "script", columns[0]);
-        string label = Required(path, physicalLine, "label", columns[1]);
-        int commandIndex = Decimal(path, physicalLine, "index", columns[2]);
-        int sourceLine = Decimal(path, physicalLine, "source-line", columns[3]);
-        string opcode = Required(path, physicalLine, "opcode", columns[4]);
+        string path = row.Path;
+        int physicalLine = row.LineNumber;
+        string script = row.RequiredString(0);
+        string label = row.RequiredString(1);
+        int commandIndex = row.UnsignedDecimal(2);
+        int sourceLine = row.UnsignedDecimal(3);
+        string opcode = row.RequiredString(4);
         if (commandIndex < 0)
             throw Error(path, physicalLine, "index cannot be negative");
         if (sourceLine <= 0)
@@ -60,10 +49,10 @@ internal static class CutsceneCommandCatalog
 
         var source = new CutsceneCommandSource(
             script, label, commandIndex, sourceLine, opcode);
-        string actor = columns[5];
-        string arg0 = columns[6];
-        string arg1 = columns[7];
-        string payload = DecodePayload(path, physicalLine, columns[8]);
+        string actor = row.String(5);
+        string arg0 = row.String(6);
+        string arg1 = row.String(7);
+        string payload = row.Base64Utf8(8);
 
         return opcode switch
         {
@@ -387,23 +376,6 @@ internal static class CutsceneCommandCatalog
             throw Error(path, physicalLine, $"{field} is not hexadecimal: '{value}'");
         }
         return result;
-    }
-
-    private static string DecodePayload(
-        string path,
-        int physicalLine,
-        string value)
-    {
-        if (string.IsNullOrEmpty(value))
-            return string.Empty;
-        try
-        {
-            return Encoding.UTF8.GetString(Convert.FromBase64String(value));
-        }
-        catch (FormatException exception)
-        {
-            throw Error(path, physicalLine, "payload-base64 is malformed", exception);
-        }
     }
 
     private static string Required(

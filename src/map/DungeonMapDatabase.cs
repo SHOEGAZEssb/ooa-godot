@@ -11,28 +11,28 @@ public sealed class DungeonMapDatabase
 
     public DungeonMapDatabase()
     {
-        string source = FileAccess.GetFileAsString("res://assets/oracle/objects/dungeon_adjacency.tsv");
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        GeneratedTable adjacency = GeneratedTable.Load(
+            "res://assets/oracle/objects/dungeon_adjacency.tsv",
+            new GeneratedTableSchema(
+                "dungeon adjacency",
+                GeneratedTableKeySemantics.Unique,
+                ["dungeon", "room", "direction", "neighbor"],
+                ["dungeon", "room", "direction"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in adjacency.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-            string[] columns = line.Split('\t');
-            if (columns.Length != 4)
-                throw new InvalidOperationException($"Malformed dungeon adjacency row: {line}");
-
-            int dungeon = int.Parse(columns[0]);
-            int room = Convert.ToInt32(columns[1], 16);
-            int neighbor = Convert.ToInt32(columns[3], 16);
-            Vector2I direction = columns[2] switch
+            int dungeon = row.UnsignedDecimal(0);
+            int room = row.HexByte(1);
+            int neighbor = row.HexByte(3);
+            Vector2I direction = row.RequiredString(2) switch
             {
                 "up" => Vector2I.Up,
                 "right" => Vector2I.Right,
                 "down" => Vector2I.Down,
                 "left" => Vector2I.Left,
-                _ => throw new InvalidOperationException($"Unknown dungeon direction: {columns[2]}")
+                _ => throw row.Invalid(2, "one of up, right, down, left")
             };
-            _neighbors[(dungeon, room, direction)] = neighbor;
+            _neighbors.Add((dungeon, room, direction), neighbor);
         }
 
         LoadMapLayouts();
@@ -52,26 +52,29 @@ public sealed class DungeonMapDatabase
 
     private void LoadMapLayouts()
     {
-        string source = FileAccess.GetFileAsString("res://assets/oracle/objects/dungeon_maps.tsv");
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        GeneratedTable maps = GeneratedTable.Load(
+            "res://assets/oracle/objects/dungeon_maps.tsv",
+            new GeneratedTableSchema(
+                "dungeon map layouts",
+                GeneratedTableKeySemantics.Grouped,
+                [
+                    "dungeon", "group", "floors", "base-floor", "compass-floors",
+                    "floor", "x", "y", "room", "properties"
+                ],
+                ["dungeon"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in maps.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-            string[] columns = line.Split('\t');
-            if (columns.Length != 10)
-                throw new InvalidOperationException($"Malformed dungeon map row: {line}");
-
-            int dungeon = int.Parse(columns[0]);
-            int group = int.Parse(columns[1]);
-            int floorCount = int.Parse(columns[2]);
-            int baseFloor = int.Parse(columns[3]);
-            byte compassFloors = Convert.ToByte(columns[4], 16);
-            int floor = int.Parse(columns[5]);
-            int x = int.Parse(columns[6]);
-            int y = int.Parse(columns[7]);
-            int room = Convert.ToInt32(columns[8], 16);
-            byte properties = Convert.ToByte(columns[9], 16);
+            int dungeon = row.UnsignedDecimal(0);
+            int group = row.Decimal(1, 0, 7);
+            int floorCount = row.UnsignedDecimal(2);
+            int baseFloor = row.UnsignedDecimal(3);
+            byte compassFloors = (byte)row.HexByte(4);
+            int floor = row.UnsignedDecimal(5);
+            int x = row.UnsignedDecimal(6);
+            int y = row.UnsignedDecimal(7);
+            int room = row.HexByte(8);
+            byte properties = (byte)row.HexByte(9);
 
             if (!_dungeons.TryGetValue(dungeon, out DungeonInfo? info))
             {

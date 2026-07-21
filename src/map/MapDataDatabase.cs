@@ -1,7 +1,5 @@
-using Godot;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace oracleofages;
 
@@ -86,16 +84,19 @@ public sealed class MapDataDatabase
 
     private void LoadCells()
     {
-        foreach (string line in DataLines("res://assets/oracle/map/overworld.tsv"))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/map/overworld.tsv",
+            new GeneratedTableSchema(
+                "overworld map cells",
+                GeneratedTableKeySemantics.Unique,
+                ["room", "present-text", "past-text", "present-popup", "past-popup"],
+                ["room"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string[] columns = line.Split('\t');
-            if (columns.Length != 5)
-                throw new InvalidOperationException($"Malformed overworld map row: {line}");
-            int room = Convert.ToInt32(columns[0], 16);
-            _cells[(0, room)] = new MapCell(
-                Convert.ToInt32(columns[1], 16), Convert.ToInt32(columns[3], 16));
-            _cells[(1, room)] = new MapCell(
-                Convert.ToInt32(columns[2], 16), Convert.ToInt32(columns[4], 16));
+            int room = row.HexByte(0);
+            _cells.Add((0, room), new MapCell(row.HexByte(1), row.HexByte(3)));
+            _cells.Add((1, room), new MapCell(row.HexByte(2), row.HexByte(4)));
         }
         if (_cells.Count != 392)
             throw new InvalidOperationException($"Expected 392 era/map cells, got {_cells.Count}.");
@@ -103,56 +104,58 @@ public sealed class MapDataDatabase
 
     private void LoadTexts()
     {
-        foreach (string line in DataLines("res://assets/oracle/map/texts.tsv"))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/map/texts.tsv",
+            new GeneratedTableSchema(
+                "map text",
+                GeneratedTableKeySemantics.Unique,
+                ["text-id", "position", "message-base64"],
+                ["text-id"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string[] columns = line.Split('\t');
-            if (columns.Length != 3)
-                throw new InvalidOperationException($"Malformed map text row: {line}");
-            int textId = Convert.ToInt32(columns[0], 16);
-            _texts[textId] = new MapText(
-                textId,
-                Encoding.UTF8.GetString(Convert.FromBase64String(columns[2])),
-                int.Parse(columns[1]));
+            int textId = row.HexWord(0);
+            _texts.Add(textId, new MapText(textId, row.Base64Utf8(2), row.UnsignedDecimal(1)));
         }
     }
 
     private void LoadTreeWarps()
     {
-        foreach (string line in DataLines("res://assets/oracle/map/tree_warps.tsv"))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/map/tree_warps.tsv",
+            new GeneratedTableSchema(
+                "map tree warps",
+                GeneratedTableKeySemantics.Unique,
+                ["group", "room", "popup"],
+                ["group", "room"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string[] columns = line.Split('\t');
-            if (columns.Length != 3)
-                throw new InvalidOperationException($"Malformed map tree row: {line}");
-            _treePopups[(int.Parse(columns[0]), Convert.ToInt32(columns[1], 16))] =
-                Convert.ToInt32(columns[2], 16);
+            _treePopups.Add(
+                (row.Decimal(0, 0, 7), row.HexByte(1)), row.HexByte(2));
         }
     }
 
     private void LoadDungeonEntrances()
     {
-        foreach (string line in DataLines("res://assets/oracle/map/dungeon_entrances.tsv"))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/map/dungeon_entrances.tsv",
+            new GeneratedTableSchema(
+                "map dungeon entrances",
+                GeneratedTableKeySemantics.Unique,
+                ["dungeon", "group", "room", "fallback-text"],
+                ["dungeon"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string[] columns = line.Split('\t');
-            if (columns.Length != 4)
-                throw new InvalidOperationException($"Malformed dungeon entrance row: {line}");
-            _dungeonEntrances[int.Parse(columns[0])] = new DungeonEntrance(
-                int.Parse(columns[1]), Convert.ToInt32(columns[2], 16),
-                Convert.ToInt32(columns[3], 16));
+            _dungeonEntrances.Add(
+                row.UnsignedDecimal(0),
+                new DungeonEntrance(
+                    row.Decimal(1, 0, 7), row.HexByte(2), row.HexByte(3)));
         }
         if (_dungeonEntrances.Count != 16)
             throw new InvalidOperationException(
                 $"Expected 16 dungeon entrance text records, got {_dungeonEntrances.Count}.");
-    }
-
-    private static IEnumerable<string> DataLines(string path)
-    {
-        foreach (string rawLine in FileAccess.GetFileAsString(path)
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = rawLine.TrimEnd('\r');
-            if (!line.StartsWith('#'))
-                yield return line;
-        }
     }
 
     private readonly record struct MapCell(int Text, int Popup);

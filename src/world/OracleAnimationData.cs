@@ -106,19 +106,22 @@ public sealed class OracleAnimationData
 
     private static Header[] LoadHeaders()
     {
-        string source = FileAccess.GetFileAsString("res://assets/oracle/animations/headers.tsv");
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/animations/headers.tsv",
+            new GeneratedTableSchema(
+                "animation DMA headers",
+                GeneratedTableKeySemantics.Unique,
+                ["index", "sheet", "destination-tile", "tile-count", "source-tile"],
+                ["index"],
+                headerRequired: true));
         var headers = new List<Header>();
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-            string[] columns = line.Split('\t');
-            if (columns.Length != 5 || int.Parse(columns[0]) != headers.Count)
-                throw new InvalidOperationException($"Malformed animation header row: {line}");
+            if (row.UnsignedDecimal(0) != headers.Count)
+                throw row.Invalid(0, $"sequential index {headers.Count}");
             headers.Add(new Header(
-                int.Parse(columns[1]), int.Parse(columns[2]),
-                int.Parse(columns[3]), int.Parse(columns[4])));
+                row.UnsignedDecimal(1), row.UnsignedDecimal(2),
+                row.UnsignedDecimal(3), row.UnsignedDecimal(4)));
         }
         if (headers.Count != 112)
             throw new InvalidOperationException($"Expected 112 animation headers, loaded {headers.Count}.");
@@ -127,19 +130,19 @@ public sealed class OracleAnimationData
 
     private void LoadTracks()
     {
-        string source = FileAccess.GetFileAsString("res://assets/oracle/animations/tracks.tsv");
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/animations/tracks.tsv",
+            new GeneratedTableSchema(
+                "animation tracks",
+                GeneratedTableKeySemantics.Grouped,
+                ["group", "track", "frames(duration:gfx-index)"],
+                ["group"],
+                headerRequired: true));
         var tracksByGroup = new Dictionary<int, List<Frame[]>>();
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-            string[] columns = line.Split('\t');
-            if (columns.Length != 3)
-                throw new InvalidOperationException($"Malformed animation track row: {line}");
-
-            int group = int.Parse(columns[0]);
-            int track = int.Parse(columns[1]);
+            int group = row.UnsignedDecimal(0);
+            int track = row.UnsignedDecimal(1);
             if (!tracksByGroup.TryGetValue(group, out List<Frame[]>? tracks))
             {
                 tracks = new List<Frame[]>();
@@ -148,12 +151,19 @@ public sealed class OracleAnimationData
             if (track != tracks.Count)
                 throw new InvalidOperationException($"Animation group {group:x2} has nonsequential tracks.");
 
-            string[] encodedFrames = columns[2].Split(',');
+            string[] encodedFrames = row.RequiredString(2).Split(',');
             var frames = new Frame[encodedFrames.Length];
             for (int index = 0; index < encodedFrames.Length; index++)
             {
                 string[] pair = encodedFrames[index].Split(':');
-                frames[index] = new Frame(int.Parse(pair[0]), int.Parse(pair[1]));
+                if (pair.Length != 2 ||
+                    !int.TryParse(pair[0], out int duration) || duration <= 0 ||
+                    !int.TryParse(pair[1], out int header) ||
+                    header < 0 || header >= _headers.Length)
+                {
+                    throw row.Invalid(2, "comma-separated positive duration:header-index pairs");
+                }
+                frames[index] = new Frame(duration, header);
             }
             tracks.Add(frames);
         }

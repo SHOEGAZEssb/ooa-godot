@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace oracleofages;
 
@@ -24,58 +23,80 @@ public sealed class ImpaIntroEventDatabase
 
     public ImpaIntroEventDatabase()
     {
-        string row = ReadSingleRow(
+        GeneratedTableRow row = GeneratedTable.Load(
             "res://assets/oracle/cutscenes/impa_intro_event.tsv",
-            "Impa intro event");
-        string[] columns = row.Split('\t');
-        if (columns.Length != 23)
-        {
-            throw new InvalidOperationException(
-                $"Impa intro event row should contain 23 columns, got {columns.Length}.");
-        }
+            new GeneratedTableSchema(
+                "Impa intro event",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "group", "room", "id", "subid", "room-flag", "link-wait", "target-x",
+                    "center-wait", "approach-frames", "link-speed", "impa-wait", "text-id",
+                    "post-text", "impa-speed", "impa-move-frames", "follow-lag", "up-animation",
+                    "right-animation", "down-animation", "left-animation", "text-base64",
+                    "linked-text-id", "linked-text-base64"
+                ],
+                headerRequired: true)).SingleRow();
 
         Record = new ImpaIntroEventRecord(
-            int.Parse(columns[0]),
-            Convert.ToInt32(columns[1], 16),
-            Convert.ToInt32(columns[2], 16),
-            Convert.ToInt32(columns[3], 16),
-            Convert.ToInt32(columns[4], 16),
-            int.Parse(columns[5]),
-            int.Parse(columns[6]),
-            int.Parse(columns[7]),
-            int.Parse(columns[8]),
-            Convert.ToInt32(columns[9], 16),
-            int.Parse(columns[10]),
-            Convert.ToInt32(columns[11], 16),
-            int.Parse(columns[12]),
-            Convert.ToInt32(columns[13], 16),
-            int.Parse(columns[14]),
-            int.Parse(columns[15]),
-            columns[16],
-            columns[17],
-            columns[18],
-            columns[19],
-            Encoding.UTF8.GetString(Convert.FromBase64String(columns[20])),
-            Convert.ToInt32(columns[21], 16),
-            Encoding.UTF8.GetString(Convert.FromBase64String(columns[22])));
+            row.Decimal(0, 0, 7),
+            row.HexByte(1),
+            row.HexByte(2),
+            row.HexByte(3),
+            row.HexByte(4),
+            row.UnsignedDecimal(5),
+            row.UnsignedDecimal(6),
+            row.UnsignedDecimal(7),
+            row.UnsignedDecimal(8),
+            row.HexByte(9),
+            row.UnsignedDecimal(10),
+            row.HexWord(11),
+            row.UnsignedDecimal(12),
+            row.HexByte(13),
+            row.UnsignedDecimal(14),
+            row.UnsignedDecimal(15),
+            row.RequiredString(16),
+            row.RequiredString(17),
+            row.RequiredString(18),
+            row.RequiredString(19),
+            row.Base64Utf8(20),
+            row.HexWord(21),
+            row.Base64Utf8(22));
 
         EncounterCommands = CutsceneCommandCatalog.Load(
             "res://assets/oracle/cutscenes/impa_intro_commands.tsv");
         ValidateEncounterCommands();
 
-        string stoneRow = ReadSingleRow(
+        GeneratedTableRow stone = GeneratedTable.Load(
             "res://assets/oracle/cutscenes/impa_stone_event.tsv",
-            "Impa stone event");
-        string[] stone = stoneRow.Split('\t');
-        if (stone.Length != 91)
-        {
-            throw new InvalidOperationException(
-                $"Impa stone event row should contain 91 columns, got {stone.Length}.");
-        }
-        static int Decimal(string[] values, int index) => int.Parse(values[index]);
-        static int Hex(string[] values, int index) => Convert.ToInt32(values[index], 16);
-        static string Text(string[] values, int index) =>
-            Encoding.UTF8.GetString(Convert.FromBase64String(values[index]));
+            new GeneratedTableSchema(
+                "Impa stone event",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "group", "room", "id", "subid", "initial-y", "initial-x", "moved-y",
+                    "left-x", "right-x", "radius-y", "radius-x", "left-flag", "right-flag",
+                    "approach-y", "approach-x", "target-y", "target-x", "close-radius",
+                    "spot-hold", "spot-speed-z", "gravity", "first-land-wait", "first-text",
+                    "first-post", "approach-speed", "stone-wait", "second-hold", "second-speed-z",
+                    "second-land-wait", "sign-text", "sign-post", "link-axis-wait", "link-target-wait",
+                    "link-face-wait", "link-speed", "request-lead", "request-text", "request-post",
+                    "back-speed", "back-frames-1", "between-back-1", "hesitation-text",
+                    "hesitation-post", "back-frames-2", "between-back-2", "failure-text",
+                    "failure-post", "push-hold", "stone-move-frames", "stone-speed",
+                    "link-push-speed", "reaction-lead", "left-correct-frames", "left-correct-speed",
+                    "right-branch-wait", "common-wait", "response-right-frames", "response-right-speed",
+                    "response-wait-1", "response-up-frames", "response-wait-2", "pose-wait",
+                    "thanks-text", "thanks-post", "final-speed", "final-frames", "leave-y", "leave-x",
+                    "leave-text", "talk-text", "spot-sound", "push-sound", "stop-sound", "solve-sound",
+                    "stone-sprite", "stone-tile-base", "stone-palette", "stone-animation",
+                    "final-layout-tile", "final-collision", "link-target-y", "link-target-x",
+                    "first-text-base64", "sign-text-base64", "request-text-base64",
+                    "hesitation-text-base64", "failure-text-base64", "thanks-text-base64",
+                    "leave-text-base64", "talk-text-base64", "stone-source-inverted"
+                ],
+                headerRequired: true)).SingleRow();
+        static int Decimal(GeneratedTableRow values, int index) => values.Decimal(index);
+        static int Hex(GeneratedTableRow values, int index) => values.HexInt(index);
+        static string Text(GeneratedTableRow values, int index) => values.Base64Utf8(index);
 
         StoneRecord = new ImpaStoneEventRecord(
             new ImpaStoneActorRecord(
@@ -85,8 +106,8 @@ public sealed class ImpaIntroEventDatabase
                 Decimal(stone, 10), Hex(stone, 11), Hex(stone, 12),
                 Decimal(stone, 13), Decimal(stone, 14), Decimal(stone, 15),
                 Decimal(stone, 16), Decimal(stone, 17), Decimal(stone, 66),
-                Decimal(stone, 67), stone[74], Decimal(stone, 75),
-                Decimal(stone, 76), stone[77], Hex(stone, 78), Hex(stone, 79),
+                Decimal(stone, 67), stone.RequiredString(74), Decimal(stone, 75),
+                Decimal(stone, 76), stone.RequiredString(77), Hex(stone, 78), Hex(stone, 79),
                 Decimal(stone, 80), Decimal(stone, 81), Decimal(stone, 90) != 0),
             new ImpaStoneTimingRecord(
                 Decimal(stone, 18), Decimal(stone, 19), Decimal(stone, 20),
@@ -121,61 +142,63 @@ public sealed class ImpaIntroEventDatabase
             "res://assets/oracle/cutscenes/impa_stone_postpush_commands.tsv");
         ValidateStonePostPushCommands();
 
-        string helpRow = ReadSingleRow(
+        GeneratedTableRow help = GeneratedTable.Load(
             "res://assets/oracle/cutscenes/impa_help_event.tsv",
-            "Impa help event");
-        string[] help = helpRow.Split('\t');
-        if (help.Length != 11)
-        {
-            throw new InvalidOperationException(
-                $"Impa help event row should contain 11 columns, got {help.Length}.");
-        }
+            new GeneratedTableSchema(
+                "Impa help event",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "group", "room", "id", "subid", "room-flag", "edge-y", "post-text",
+                    "input-up", "text-id", "textbox-position", "text-base64"
+                ],
+                headerRequired: true)).SingleRow();
         HelpRecord = new ImpaHelpEventRecord(
-            int.Parse(help[0]),
-            Convert.ToInt32(help[1], 16),
-            Convert.ToInt32(help[2], 16),
-            Convert.ToInt32(help[3], 16),
-            Convert.ToInt32(help[4], 16),
-            int.Parse(help[5]),
-            int.Parse(help[6]),
-            int.Parse(help[7]),
-            Convert.ToInt32(help[8], 16),
-            int.Parse(help[9]),
-            Encoding.UTF8.GetString(Convert.FromBase64String(help[10])));
+            help.Decimal(0, 0, 7),
+            help.HexByte(1),
+            help.HexByte(2),
+            help.HexByte(3),
+            help.HexByte(4),
+            help.UnsignedDecimal(5),
+            help.UnsignedDecimal(6),
+            help.UnsignedDecimal(7),
+            help.HexWord(8),
+            help.UnsignedDecimal(9),
+            help.Base64Utf8(10));
         HelpCommands = CutsceneCommandCatalog.Load(
             "res://assets/oracle/cutscenes/impa_help_commands.tsv");
         ValidateHelpCommands();
 
         var octoroks = new List<FakeOctorokRecord>();
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/cutscenes/impa_intro_octoroks.tsv");
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        GeneratedTable octorokTable = GeneratedTable.Load(
+            "res://assets/oracle/cutscenes/impa_intro_octoroks.tsv",
+            new GeneratedTableSchema(
+                "Impa intro fake Octoroks",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "index", "id", "subid", "y", "x", "var03", "sprite", "tile-base",
+                    "palette", "initial-animation", "flee-animation", "signal-wait",
+                    "flee-counter", "angle", "speed"
+                ],
+                ["index"],
+                headerRequired: true));
+        foreach (GeneratedTableRow actor in octorokTable.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-            string[] actor = line.Split('\t');
-            if (actor.Length != 15)
-            {
-                throw new InvalidOperationException(
-                    $"Fake Octorok row should contain 15 columns, got {actor.Length}.");
-            }
             octoroks.Add(new FakeOctorokRecord(
-                int.Parse(actor[0]),
-                Convert.ToInt32(actor[1], 16),
-                Convert.ToInt32(actor[2], 16),
-                Convert.ToInt32(actor[3], 16),
-                Convert.ToInt32(actor[4], 16),
-                Convert.ToInt32(actor[5], 16),
-                actor[6],
-                int.Parse(actor[7]),
-                int.Parse(actor[8]),
-                actor[9],
-                actor[10],
-                int.Parse(actor[11]),
-                int.Parse(actor[12]),
-                Convert.ToInt32(actor[13], 16),
-                Convert.ToInt32(actor[14], 16)));
+                actor.UnsignedDecimal(0),
+                actor.HexByte(1),
+                actor.HexByte(2),
+                actor.HexByte(3),
+                actor.HexByte(4),
+                actor.HexByte(5),
+                actor.RequiredString(6),
+                actor.UnsignedDecimal(7),
+                actor.UnsignedDecimal(8),
+                actor.RequiredString(9),
+                actor.RequiredString(10),
+                actor.UnsignedDecimal(11),
+                actor.UnsignedDecimal(12),
+                actor.HexByte(13),
+                actor.HexByte(14)));
         }
         if (octoroks.Count != 3)
             throw new InvalidOperationException($"Expected three fake Octoroks, got {octoroks.Count}.");
@@ -469,18 +492,6 @@ public sealed class ImpaIntroEventDatabase
                     $"Malformed impaScript_rockJustMoved source metadata at command {index}.");
             }
         }
-    }
-
-    private static string ReadSingleRow(string path, string description)
-    {
-        string source = FileAccess.GetFileAsString(path);
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = rawLine.TrimEnd('\r');
-            if (!line.StartsWith('#'))
-                return line;
-        }
-        throw new InvalidOperationException($"{description} data is empty.");
     }
 
     public readonly record struct ImpaIntroEventRecord(

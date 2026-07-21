@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 
 namespace oracleofages;
 
@@ -34,33 +33,33 @@ internal sealed class SwordBeamDatabase
     internal SwordBeamDatabase(
         string path = "res://assets/oracle/metadata/sword_beam.tsv")
     {
-        string text = FileAccess.GetFileAsString(path);
-        if (string.IsNullOrWhiteSpace(text))
-            throw new InvalidOperationException($"Missing sword-beam data: {path}");
-
+        GeneratedTable table = GeneratedTable.Load(
+            path,
+            new GeneratedTableSchema(
+                "sword beam",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "direction", "offset-y", "offset-x", "sprite", "tile-base",
+                    "palette", "radius-y", "radius-x", "damage", "speed-raw", "sound", "oam"
+                ],
+                ["direction"],
+                headerRequired: true));
         int count = 0;
-        foreach (string rawLine in text.Split('\n'))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.Length == 0 || line[0] == '#')
-                continue;
-            string[] columns = line.Split('\t');
-            if (columns.Length != 12)
-                throw new InvalidOperationException(
-                    $"Malformed sword-beam row in {path}: {line}");
             var record = new Record(
-                ParseDecimal(columns[0], "direction"),
-                ParseDecimal(columns[1], "offset Y"),
-                ParseDecimal(columns[2], "offset X"),
-                columns[3],
-                ParseDecimal(columns[4], "tile base"),
-                ParseDecimal(columns[5], "palette"),
-                ParseDecimal(columns[6], "radius Y"),
-                ParseDecimal(columns[7], "radius X"),
-                ParseDecimal(columns[8], "damage"),
-                ParseHex(columns[9], "speed"),
-                ParseHex(columns[10], "sound"),
-                columns[11],
+                row.Decimal(0, 0, 3),
+                row.Decimal(1),
+                row.Decimal(2),
+                row.RequiredString(3),
+                row.UnsignedDecimal(4),
+                row.UnsignedDecimal(5),
+                row.UnsignedDecimal(6),
+                row.UnsignedDecimal(7),
+                row.UnsignedDecimal(8),
+                row.HexByte(9),
+                row.HexByte(10),
+                row.RequiredString(11),
                 "object_code/common/items/swordBeam.s:itemCode27");
             Validate(record);
             if (_records[record.Direction].Sprite is not null)
@@ -112,17 +111,6 @@ internal sealed class SwordBeamDatabase
         }
     }
 
-    private static int ParseDecimal(string value, string name) =>
-        int.TryParse(value, out int parsed)
-            ? parsed
-            : throw new InvalidOperationException(
-                $"Invalid sword-beam {name} value '{value}'.");
-
-    private static int ParseHex(string value, string name) =>
-        int.TryParse(value, NumberStyles.HexNumber, null, out int parsed)
-            ? parsed
-            : throw new InvalidOperationException(
-                $"Invalid sword-beam {name} value '{value}'.");
 }
 
 /// <summary>

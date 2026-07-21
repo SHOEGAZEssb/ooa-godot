@@ -1,4 +1,3 @@
-using Godot;
 using System;
 using System.Collections.Generic;
 
@@ -23,50 +22,43 @@ internal sealed class PreBlackTowerEventDatabase
 
     public PreBlackTowerEventDatabase()
     {
-        string source = FileAccess.GetFileAsString(Root + "pre_black_tower_event.tsv");
-        string? row = null;
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = rawLine.TrimEnd('\r');
-            if (!line.StartsWith('#'))
-            {
-                row = line;
-                break;
-            }
-        }
-        if (row is null)
-            throw new InvalidOperationException("Pre-Black Tower event data is empty.");
-
-        string[] columns = row.Split('\t');
-        if (columns.Length != 23)
-        {
-            throw new InvalidOperationException(
-                $"Pre-Black Tower event row should contain 23 columns, got {columns.Length}.");
-        }
+        GeneratedTableRow row = GeneratedTable.Load(
+            Root + "pre_black_tower_event.tsv",
+            new GeneratedTableSchema(
+                "pre-Black Tower event",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "group", "room", "maku-seed", "completion-flag", "ralph-entered-flag",
+                    "clink-sound", "gravity", "ralph-id", "ralph-subid", "impa-id",
+                    "impa-unlinked-subid", "impa-linked-subid", "nayru-id", "nayru-linked-subid",
+                    "nayru-spawned-subid", "zelda-id", "zelda-subid", "effect-id", "effect-subid",
+                    "effect-sprite", "effect-tile-base", "effect-palette", "effect-animation"
+                ],
+                headerRequired: true)).SingleRow();
         Record = new EventRecord(
-            int.Parse(columns[0]),
-            Hex(columns[1]),
-            Hex(columns[2]),
-            Hex(columns[3]),
-            Hex(columns[4]),
-            Hex(columns[5]),
-            Hex(columns[6]),
-            Hex(columns[7]),
-            Hex(columns[8]),
-            Hex(columns[9]),
-            Hex(columns[10]),
-            Hex(columns[11]),
-            Hex(columns[12]),
-            Hex(columns[13]),
-            Hex(columns[14]),
-            Hex(columns[15]),
-            Hex(columns[16]),
-            Hex(columns[17]),
-            Hex(columns[18]),
-            columns[19],
-            int.Parse(columns[20]),
-            int.Parse(columns[21]),
-            columns[22]);
+            row.Decimal(0, 0, 7),
+            row.HexByte(1),
+            row.HexByte(2),
+            row.HexByte(3),
+            row.HexByte(4),
+            row.HexByte(5),
+            row.HexByte(6),
+            row.HexByte(7),
+            row.HexByte(8),
+            row.HexByte(9),
+            row.HexByte(10),
+            row.HexByte(11),
+            row.HexByte(12),
+            row.HexByte(13),
+            row.HexByte(14),
+            row.HexByte(15),
+            row.HexByte(16),
+            row.HexByte(17),
+            row.HexByte(18),
+            row.RequiredString(19),
+            row.UnsignedDecimal(20),
+            row.UnsignedDecimal(21),
+            row.RequiredString(22));
 
         RalphUnlinked = Load("pre_black_tower_ralph_unlinked.tsv");
         RalphLinked = Load("pre_black_tower_ralph_linked.tsv");
@@ -129,8 +121,6 @@ internal sealed class PreBlackTowerEventDatabase
                 "Pre-Black Tower command lanes diverge from the imported actor scripts.");
         }
     }
-
-    private static int Hex(string value) => Convert.ToInt32(value, 16);
 
     internal readonly record struct EventRecord(
         int Group,

@@ -1,4 +1,3 @@
-using Godot;
 using System;
 using System.Collections.Generic;
 
@@ -53,36 +52,39 @@ internal sealed class DungeonMechanicDatabase
     public DungeonMechanicDatabase()
     {
         int count = 0;
-        foreach (string line in DataLines("dungeon_mechanics.tsv"))
+        GeneratedTable mechanics = GeneratedTable.Load(
+            "res://assets/oracle/objects/dungeon_mechanics.tsv",
+            new GeneratedTableSchema(
+                "dungeon mechanics",
+                GeneratedTableKeySemantics.Grouped,
+                [
+                    "group", "room", "order", "id", "subid", "position", "parameter",
+                    "trigger-predicate", "count-source-complete"
+                ],
+                ["group", "room"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in mechanics.Rows)
         {
-            string[] fields = line.Split('\t');
-            if (fields.Length != 9)
-                throw Malformed("placement", line);
             var record = new Record(
-                int.Parse(fields[0]),
-                Convert.ToInt32(fields[1], 16),
-                int.Parse(fields[2]),
-                Convert.ToInt32(fields[3], 16),
-                Convert.ToInt32(fields[4], 16),
-                Convert.ToInt32(fields[5], 16),
-                Convert.ToInt32(fields[6], 16),
-                fields[7] switch
+                row.Decimal(0, 0, 7),
+                row.HexByte(1),
+                row.UnsignedDecimal(2),
+                row.HexByte(3),
+                row.HexByte(4),
+                row.HexByte(5),
+                row.HexByte(6),
+                row.RequiredString(7) switch
                 {
                     "none" => TriggerPredicate.None,
                     "bit" => TriggerPredicate.BitSet,
                     "exact" => TriggerPredicate.Exact,
-                    _ => throw Malformed("trigger-predicate", line)
+                    _ => throw row.Invalid(7, "one of none, bit, exact")
                 },
-                fields[8] switch
-                {
-                    "0" => false,
-                    "1" => true,
-                    _ => throw Malformed("count-source", line)
-                });
+                row.Boolean01(8));
             if (record.Id is not (0x09 or 0x13 or 0x1e or 0x20 or 0x21) ||
                 record.Id == 0x20 && record.SubId != 0x00 ||
                 record.Id == 0x21 && record.SubId != 0x17)
-                throw Malformed("interaction", line);
+                throw row.Invalid(3, "a supported dungeon mechanic interaction id");
             int key = MakeKey(record.Group, record.Room);
             if (!_recordsByRoom.TryGetValue(key, out List<Record>? records))
             {
@@ -100,12 +102,17 @@ internal sealed class DungeonMechanicDatabase
         }
         RecordCount = count;
 
-        foreach (string line in DataLines("dungeon_mechanic_constants.tsv"))
+        GeneratedTable constants = GeneratedTable.Load(
+            "res://assets/oracle/objects/dungeon_mechanic_constants.tsv",
+            new GeneratedTableSchema(
+                "dungeon mechanic constants",
+                GeneratedTableKeySemantics.Unique,
+                ["key", "value"],
+                ["key"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in constants.Rows)
         {
-            string[] fields = line.Split('\t');
-            if (fields.Length != 2)
-                throw Malformed("constant", line);
-            _constants.Add(fields[0], int.Parse(fields[1]));
+            _constants.Add(row.RequiredString(0), row.Decimal(1));
         }
 
         IReadOnlyList<Record> room0c = GetRoomRecords(4, 0x0c);
@@ -190,19 +197,4 @@ internal sealed class DungeonMechanicDatabase
 
     private static int MakeKey(int group, int room) => (group << 8) | room;
 
-    private static IEnumerable<string> DataLines(string file)
-    {
-        string source = FileAccess.GetFileAsString(
-            $"res://assets/oracle/objects/{file}");
-        foreach (string raw in source.Split(
-            '\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = raw.TrimEnd('\r');
-            if (!line.StartsWith('#'))
-                yield return line;
-        }
-    }
-
-    private static InvalidOperationException Malformed(string kind, string line) =>
-        new($"Malformed dungeon mechanic {kind} row: {line}");
 }

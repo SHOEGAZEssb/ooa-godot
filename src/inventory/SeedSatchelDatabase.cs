@@ -15,31 +15,37 @@ public sealed class SeedSatchelDatabase
 
     public SeedSatchelDatabase()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/metadata/seed_satchel.tsv");
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/metadata/seed_satchel.tsv",
+            new GeneratedTableSchema(
+                "seed satchel",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "parent-item", "seed-item", "treasure-id", "sprite", "tile-base",
+                    "palette", "collision", "radius-y", "radius-x", "damage", "initial-z",
+                    "speed-z", "gravity", "speed-raw", "up-y", "up-x", "right-y",
+                    "right-x", "down-y", "down-x", "left-y", "left-x", "link-frames",
+                    "flame-sprite", "flame-tile-base", "flame-oam-flags", "flame-counter",
+                    "landing-sound", "flame-sound", "animation", "source"
+                ],
+                ["seed-item"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-            string[] columns = line.Split('\t');
-            if (columns.Length != 31)
-                throw new InvalidOperationException($"Malformed Seed Satchel row: {line}");
-
-            int seedItem = Hex(columns[1]);
+            int seedItem = row.HexByte(1);
             _records.Add(seedItem, new SeedRecord(
-                Hex(columns[0]), seedItem, Hex(columns[2]), columns[3],
-                Hex(columns[4]), Hex(columns[5]), Hex(columns[6]),
-                int.Parse(columns[7]), int.Parse(columns[8]), Hex(columns[9]),
-                int.Parse(columns[10]), int.Parse(columns[11]), int.Parse(columns[12]),
-                Hex(columns[13]),
-                new Vector2I(int.Parse(columns[15]), int.Parse(columns[14])),
-                new Vector2I(int.Parse(columns[17]), int.Parse(columns[16])),
-                new Vector2I(int.Parse(columns[19]), int.Parse(columns[18])),
-                new Vector2I(int.Parse(columns[21]), int.Parse(columns[20])),
-                int.Parse(columns[22]), columns[23], Hex(columns[24]),
-                Hex(columns[25]), int.Parse(columns[26]), Hex(columns[27]),
-                Hex(columns[28]), columns[29], columns[30]));
+                row.HexByte(0), seedItem, row.HexByte(2), row.RequiredString(3),
+                row.HexByte(4), row.HexByte(5), row.HexByte(6),
+                row.UnsignedDecimal(7), row.UnsignedDecimal(8), row.HexByte(9),
+                row.Decimal(10), row.Decimal(11), row.Decimal(12),
+                row.HexByte(13),
+                new Vector2I(row.Decimal(15), row.Decimal(14)),
+                new Vector2I(row.Decimal(17), row.Decimal(16)),
+                new Vector2I(row.Decimal(19), row.Decimal(18)),
+                new Vector2I(row.Decimal(21), row.Decimal(20)),
+                row.UnsignedDecimal(22), row.RequiredString(23), row.HexByte(24),
+                row.HexByte(25), row.UnsignedDecimal(26), row.HexByte(27),
+                row.HexByte(28), row.RequiredString(29), row.RequiredString(30)));
         }
         if (_records.Count != 1 || !_records.ContainsKey(0x20))
             throw new InvalidOperationException(
@@ -50,8 +56,6 @@ public sealed class SeedSatchelDatabase
         _records.TryGetValue(seedItem, out record);
 
     public SeedRecord Ember => _records[0x20];
-
-    private static int Hex(string value) => Convert.ToInt32(value, 16);
 
     public readonly record struct SeedRecord(
         int ParentItem,

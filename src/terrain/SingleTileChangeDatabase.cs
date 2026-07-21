@@ -1,4 +1,3 @@
-using Godot;
 using System;
 using System.Collections.Generic;
 
@@ -24,34 +23,31 @@ public sealed class SingleTileChangeDatabase
 
     public SingleTileChangeDatabase()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/metadata/single_tile_changes.tsv");
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/metadata/single_tile_changes.tsv",
+            new GeneratedTableSchema(
+                "single-tile changes",
+                GeneratedTableKeySemantics.Grouped,
+                ["group", "room", "mask", "position", "tile", "source"],
+                ["group", "room"],
+                headerRequired: true));
         int count = 0;
-        foreach (string rawLine in source.Split(
-            '\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] columns = line.Split('\t');
-            if (columns.Length != 6 || string.IsNullOrWhiteSpace(columns[5]))
-                throw new InvalidOperationException(
-                    $"Malformed single-tile change row: {line}");
-
             var record = new Record(
-                int.Parse(columns[0]),
-                Convert.ToInt32(columns[1], 16),
-                Convert.ToByte(columns[2], 16),
-                Convert.ToInt32(columns[3], 16),
-                Convert.ToByte(columns[4], 16),
-                columns[5]);
+                row.Decimal(0, 0, 7),
+                row.HexByte(1),
+                (byte)row.HexByte(2),
+                row.HexByte(3),
+                (byte)row.HexByte(4),
+                row.RequiredString(5));
             if (record.Group is < 0 or > 7 || record.Room is < 0 or > 0xff ||
                 record.Mask == 0 ||
                 (record.Mask > 0x80 && record.Mask is not (0xf0 or 0xf1 or 0xf2)))
             {
                 throw new InvalidOperationException(
-                    $"Invalid single-tile change at {record.Source}: {line}");
+                    $"Invalid single-tile change at {record.Source}: " +
+                    $"{row.Path}:{row.LineNumber}.");
             }
 
             var key = (record.Group, record.Room);

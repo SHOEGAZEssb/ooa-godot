@@ -1,7 +1,5 @@
-using Godot;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace oracleofages;
 
@@ -31,31 +29,45 @@ internal sealed class BlackTowerWorkerDatabase
 
     public BlackTowerWorkerDatabase()
     {
-        foreach (string line in DataLines("black_tower_texts.tsv"))
+        GeneratedTable texts = GeneratedTable.Load(
+            "res://assets/oracle/objects/black_tower_texts.tsv",
+            new GeneratedTableSchema(
+                "lower Black Tower text",
+                GeneratedTableKeySemantics.Unique,
+                ["text-id", "utf8-base64"],
+                ["text-id"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in texts.Rows)
         {
-            string[] fields = line.Split('\t');
-            if (fields.Length != 2)
-                throw Malformed("text", line);
-            _texts.Add(
-                Convert.ToInt32(fields[0], 16),
-                Encoding.UTF8.GetString(Convert.FromBase64String(fields[1])));
+            _texts.Add(row.HexWord(0), row.Base64Utf8(1));
         }
 
-        foreach (string line in DataLines("black_tower_visuals.tsv"))
+        GeneratedTable visuals = GeneratedTable.Load(
+            "res://assets/oracle/objects/black_tower_visuals.tsv",
+            new GeneratedTableSchema(
+                "lower Black Tower visuals",
+                GeneratedTableKeySemantics.Unique,
+                ["key", "sprite", "tile-base", "palette", "animation"],
+                ["key"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in visuals.Rows)
         {
-            string[] fields = line.Split('\t');
-            if (fields.Length != 5)
-                throw Malformed("visual", line);
-            _visuals.Add(fields[0], new VisualRecord(
-                fields[1], int.Parse(fields[2]), int.Parse(fields[3]), fields[4]));
+            _visuals.Add(row.RequiredString(0), new VisualRecord(
+                row.RequiredString(1), row.UnsignedDecimal(2),
+                row.UnsignedDecimal(3), row.RequiredString(4)));
         }
 
-        foreach (string line in DataLines("black_tower_patrols.tsv"))
+        GeneratedTable patrols = GeneratedTable.Load(
+            "res://assets/oracle/objects/black_tower_patrols.tsv",
+            new GeneratedTableSchema(
+                "lower Black Tower patrols",
+                GeneratedTableKeySemantics.Unique,
+                ["var03", "direction:counter,..."],
+                ["var03"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in patrols.Rows)
         {
-            string[] fields = line.Split('\t');
-            if (fields.Length != 2)
-                throw Malformed("patrol", line);
-            string[] encodedLegs = fields[1].Split(',');
+            string[] encodedLegs = row.RequiredString(1).Split(',');
             var legs = new PatrolLeg[encodedLegs.Length];
             for (int index = 0; index < encodedLegs.Length; index++)
             {
@@ -65,15 +77,20 @@ internal sealed class BlackTowerWorkerDatabase
                 legs[index] = new PatrolLeg(
                     int.Parse(values[0]), int.Parse(values[1]));
             }
-            _patrols.Add(int.Parse(fields[0]), legs);
+            _patrols.Add(row.UnsignedDecimal(0), legs);
         }
 
-        foreach (string line in DataLines("black_tower_constants.tsv"))
+        GeneratedTable constants = GeneratedTable.Load(
+            "res://assets/oracle/objects/black_tower_constants.tsv",
+            new GeneratedTableSchema(
+                "lower Black Tower constants",
+                GeneratedTableKeySemantics.Unique,
+                ["key", "value"],
+                ["key"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in constants.Rows)
         {
-            string[] fields = line.Split('\t');
-            if (fields.Length != 2)
-                throw Malformed("constant", line);
-            _constants.Add(fields[0], int.Parse(fields[1]));
+            _constants.Add(row.RequiredString(0), row.Decimal(1));
         }
 
         if (_texts.Count != 17 || _visuals.Count != 12 ||
@@ -112,19 +129,6 @@ internal sealed class BlackTowerWorkerDatabase
         ? value
         : throw new KeyNotFoundException(
             $"Black Tower constant '{key}' was not imported.");
-
-    private static IEnumerable<string> DataLines(string file)
-    {
-        string source = FileAccess.GetFileAsString(
-            $"res://assets/oracle/objects/{file}");
-        foreach (string raw in source.Split(
-            '\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = raw.TrimEnd('\r');
-            if (!line.StartsWith('#'))
-                yield return line;
-        }
-    }
 
     private static InvalidOperationException Malformed(string kind, string line) =>
         new($"Malformed Black Tower {kind} row: {line}");

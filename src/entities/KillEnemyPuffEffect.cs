@@ -67,40 +67,36 @@ public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
 
     private static List<FrameRecord> LoadDefinition()
     {
-        foreach (string rawLine in FileAccess.GetFileAsString(
-            "res://assets/oracle/effects/kill_enemy_puff.tsv")
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/effects/kill_enemy_puff.tsv",
+            new GeneratedTableSchema(
+                "kill-enemy puff",
+                GeneratedTableKeySemantics.Ordered,
+                ["tile-base", "palette", "animation"],
+                headerRequired: true));
+        if (table.Rows.Count != 1)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] fields = line.Split('\t');
-            if (fields.Length != 3 ||
-                !int.TryParse(fields[0], out int tileBase) ||
-                !int.TryParse(fields[1], out int palette))
-            {
-                throw new InvalidOperationException(
-                    $"Malformed INTERAC_KILLENEMYPUFF data row: {line}");
-            }
-
-            Image source = OracleGraphicsCache.LoadImage(
-                "res://assets/oracle/gfx/spr_common_sprites.png");
-
-            var animation = new List<FrameRecord>();
-            foreach (OracleGraphicsCache.AnimationFrameDefinition frame in
-                OracleGraphicsCache.GetAnimationDefinition(fields[2]).Frames)
-            {
-                animation.Add(new FrameRecord(
-                    NpcCharacter.BuildOamTexture(
-                        source, frame.EncodedOam, tileBase, palette),
-                    frame.Duration));
-            }
-            if (animation.Count == 0)
-                throw new InvalidOperationException("INTERAC_KILLENEMYPUFF has no frames.");
-            return animation;
+            throw new InvalidOperationException(
+                $"INTERAC_KILLENEMYPUFF should have one row, got {table.Rows.Count}.");
         }
+        GeneratedTableRow row = table.Rows[0];
+        int tileBase = row.UnsignedDecimal(0);
+        int palette = row.UnsignedDecimal(1);
 
-        throw new InvalidOperationException("INTERAC_KILLENEMYPUFF data is empty.");
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_common_sprites.png");
+
+        var animation = new List<FrameRecord>();
+        foreach (OracleGraphicsCache.AnimationFrameDefinition frame in
+            OracleGraphicsCache.GetAnimationDefinition(row.RequiredString(2)).Frames)
+        {
+            animation.Add(new FrameRecord(
+                NpcCharacter.BuildOamTexture(
+                    source, frame.EncodedOam, tileBase, palette),
+                frame.Duration));
+        }
+        if (animation.Count == 0)
+            throw new InvalidOperationException("INTERAC_KILLENEMYPUFF has no frames.");
+        return animation;
     }
 }

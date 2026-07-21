@@ -1,7 +1,5 @@
-using Godot;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace oracleofages;
 
@@ -177,43 +175,48 @@ internal sealed class LynnaShopDatabase
 
     private void LoadConstants()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/lynna_shop_constants.tsv");
-        foreach (string line in DataLines(source))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/lynna_shop_constants.tsv",
+            new GeneratedTableSchema(
+                "Lynna shop constants",
+                GeneratedTableKeySemantics.Unique,
+                ["key", "value"],
+                ["key"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string[] fields = line.Split('\t');
-            if (fields.Length != 2 ||
-                !_constants.TryAdd(fields[0], int.Parse(fields[1])))
-            {
-                throw new InvalidOperationException(
-                    $"Malformed Lynna shop constant: {line}");
-            }
+            _constants.Add(row.RequiredString(0), row.Decimal(1));
         }
     }
 
     private void LoadItems()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/lynna_shop_items.tsv");
-        foreach (string line in DataLines(source))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/lynna_shop_items.tsv",
+            new GeneratedTableSchema(
+                "Lynna shop items",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "subid", "order", "y", "x", "price-tile", "price", "treasure",
+                    "parameter", "prompt-text", "item-text", "sprite", "tile-base",
+                    "palette", "animation-index", "encoded-animation", "replacement-address",
+                    "replacement-mask", "replacement-subid", "replacement-x-offset"
+                ],
+                ["subid"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string[] fields = line.Split('\t');
-            if (fields.Length != 19)
-                throw new InvalidOperationException($"Malformed Lynna shop item: {line}");
             var item = new ItemRecord(
-                Convert.ToInt32(fields[0], 16),
-                int.Parse(fields[1]), int.Parse(fields[2]), int.Parse(fields[3]),
-                Convert.ToInt32(fields[4], 16), int.Parse(fields[5]),
-                Convert.ToInt32(fields[6], 16), Convert.ToInt32(fields[7], 16),
-                Convert.ToInt32(fields[8], 16), Convert.ToInt32(fields[9], 16),
-                fields[10], Convert.ToInt32(fields[11], 16),
-                Convert.ToInt32(fields[12], 16), Convert.ToInt32(fields[13], 16),
-                fields[14], Convert.ToInt32(fields[15], 16),
-                Convert.ToInt32(fields[16], 16), Convert.ToInt32(fields[17], 16),
-                int.Parse(fields[18]));
-            if (!_items.TryAdd(item.SubId, item))
-                throw new InvalidOperationException(
-                    $"Duplicate Lynna shop item $47:${item.SubId:x2}.");
+                row.HexByte(0),
+                row.Decimal(1), row.Decimal(2), row.Decimal(3),
+                row.HexByte(4), row.UnsignedDecimal(5),
+                row.HexByte(6), row.HexByte(7),
+                row.HexWord(8), row.HexWord(9),
+                row.RequiredString(10), row.HexByte(11),
+                row.HexByte(12), row.HexByte(13),
+                row.RequiredString(14), row.HexWord(15),
+                row.HexByte(16), row.HexByte(17), row.Decimal(18));
+            _items.Add(item.SubId, item);
             if (item.Order >= 0)
                 _placements.Add(item);
         }
@@ -222,35 +225,38 @@ internal sealed class LynnaShopDatabase
 
     private void LoadTexts()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/lynna_shop_texts.tsv");
-        foreach (string line in DataLines(source))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/lynna_shop_texts.tsv",
+            new GeneratedTableSchema(
+                "Lynna shop text",
+                GeneratedTableKeySemantics.Unique,
+                ["text-id", "utf8-base64"],
+                ["text-id"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string[] fields = line.Split('\t');
-            if (fields.Length != 2)
-                throw new InvalidOperationException($"Malformed Lynna shop text: {line}");
-            int textId = Convert.ToInt32(fields[0], 16);
-            string message = Encoding.UTF8.GetString(Convert.FromBase64String(fields[1]));
-            if (!_texts.TryAdd(textId, message) || string.IsNullOrWhiteSpace(message))
+            int textId = row.HexWord(0);
+            string message = row.Base64Utf8(1);
+            if (string.IsNullOrWhiteSpace(message))
                 throw new InvalidOperationException($"Invalid Lynna shop text TX_{textId:x4}.");
+            _texts.Add(textId, message);
         }
     }
 
     private void LoadAnimations()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/lynna_shop_animations.tsv");
-        foreach (string line in DataLines(source))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/lynna_shop_animations.tsv",
+            new GeneratedTableSchema(
+                "Lynna shop animations",
+                GeneratedTableKeySemantics.Unique,
+                ["interaction-id", "animation", "encoded-animation"],
+                ["interaction-id", "animation"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string[] fields = line.Split('\t');
-            if (fields.Length != 3 ||
-                !_animations.TryAdd(
-                    (Convert.ToInt32(fields[0], 16), Convert.ToInt32(fields[1], 16)),
-                    fields[2]))
-            {
-                throw new InvalidOperationException(
-                    $"Malformed Lynna shop animation: {line}");
-            }
+            _animations.Add(
+                (row.HexByte(0), row.HexByte(1)), row.RequiredString(2));
         }
     }
 
@@ -279,14 +285,4 @@ internal sealed class LynnaShopDatabase
         }
     }
 
-    private static IEnumerable<string> DataLines(string source)
-    {
-        foreach (string rawLine in source.Split(
-            '\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = rawLine.TrimEnd('\r');
-            if (!line.StartsWith('#'))
-                yield return line;
-        }
-    }
 }

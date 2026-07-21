@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace oracleofages;
 
@@ -32,39 +31,50 @@ public sealed class NayruIntroEventDatabase
 
     public NayruIntroEventDatabase()
     {
-        string[] eventColumns = ReadSingleRow(
-            "res://assets/oracle/cutscenes/nayru_intro_event.tsv").Split('\t');
-        if (eventColumns.Length != 27)
-            throw new InvalidOperationException(
-                $"Initial Nayru event row should contain 27 columns, got {eventColumns.Length}.");
+        GeneratedTableRow eventRow = GeneratedTable.Load(
+            "res://assets/oracle/cutscenes/nayru_intro_event.tsv",
+            new GeneratedTableSchema(
+                "initial Nayru event",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "group", "room", "intro-flag", "completion-room-flag", "bear-room-flag",
+                    "trigger-x", "trigger-y", "bear-delay", "post-bear-text", "singing-frames",
+                    "skip-window", "sprite-scroll-period", "sprite-scroll-steps",
+                    "possession-fade-hold", "portal-position", "portal-tile", "vignette-count",
+                    "npc-jump-speed-z", "npc-jump-gravity", "dark-fade-frames",
+                    "white-fade-out-frames", "white-fade-in-frames", "nayru-ascent-speed-z",
+                    "nayru-transfer-z", "nayru-landing-delay", "nayru-fall-speed-z",
+                    "nayru-fall-gravity"
+                ],
+                headerRequired: true)).SingleRow();
         Event = new EventRecord(
-            int.Parse(eventColumns[0]),
-            Convert.ToInt32(eventColumns[1], 16),
-            Convert.ToInt32(eventColumns[2], 16),
-            Convert.ToInt32(eventColumns[3], 16),
-            Convert.ToInt32(eventColumns[4], 16),
-            int.Parse(eventColumns[5]),
-            int.Parse(eventColumns[6]),
-            int.Parse(eventColumns[7]),
-            int.Parse(eventColumns[8]),
-            int.Parse(eventColumns[9]),
-            int.Parse(eventColumns[10]),
-            int.Parse(eventColumns[11]),
-            int.Parse(eventColumns[12]),
-            int.Parse(eventColumns[13]),
-            Convert.ToInt32(eventColumns[14], 16),
-            Convert.ToInt32(eventColumns[15], 16),
-            int.Parse(eventColumns[16]),
-            int.Parse(eventColumns[17]),
-            int.Parse(eventColumns[18]),
-            int.Parse(eventColumns[19]),
-            int.Parse(eventColumns[20]),
-            int.Parse(eventColumns[21]),
-            int.Parse(eventColumns[22]),
-            int.Parse(eventColumns[23]),
-            int.Parse(eventColumns[24]),
-            int.Parse(eventColumns[25]),
-            int.Parse(eventColumns[26]));
+            eventRow.Decimal(0, 0, 7),
+            eventRow.HexByte(1),
+            eventRow.HexByte(2),
+            eventRow.HexByte(3),
+            eventRow.HexByte(4),
+            eventRow.Decimal(5),
+            eventRow.Decimal(6),
+            eventRow.UnsignedDecimal(7),
+            eventRow.UnsignedDecimal(8),
+            eventRow.UnsignedDecimal(9),
+            eventRow.UnsignedDecimal(10),
+            eventRow.UnsignedDecimal(11),
+            eventRow.UnsignedDecimal(12),
+            eventRow.UnsignedDecimal(13),
+            eventRow.HexByte(14),
+            eventRow.HexByte(15),
+            eventRow.UnsignedDecimal(16),
+            eventRow.Decimal(17),
+            eventRow.Decimal(18),
+            eventRow.UnsignedDecimal(19),
+            eventRow.UnsignedDecimal(20),
+            eventRow.UnsignedDecimal(21),
+            eventRow.Decimal(22),
+            eventRow.Decimal(23),
+            eventRow.UnsignedDecimal(24),
+            eventRow.Decimal(25),
+            eventRow.Decimal(26));
         Commands = CutsceneCommandCatalog.Load(
             "res://assets/oracle/cutscenes/nayru_intro_commands.tsv");
         if (Commands.Count != 235 || Commands[^1] is not CutsceneEndCommand)
@@ -74,143 +84,179 @@ public sealed class NayruIntroEventDatabase
                 $"got {Commands.Count}.");
         }
 
-        foreach (string line in ReadRows(
-            "res://assets/oracle/cutscenes/nayru_intro_actors.tsv"))
+        GeneratedTable actorTable = GeneratedTable.Load(
+            "res://assets/oracle/cutscenes/nayru_intro_actors.tsv",
+            new GeneratedTableSchema(
+                "initial Nayru actors",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "index", "id", "subid", "y", "x", "var03", "name", "sprite",
+                    "tile-base", "palette", "default-animation", "animation-0", "animation-1",
+                    "animation-2", "animation-3", "animation-4", "animation-5", "animation-6",
+                    "animation-7", "animation-8", "animation-9", "animation-10",
+                    "initial-animation", "extra-sprite"
+                ],
+                ["name"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in actorTable.Rows)
         {
-            string[] columns = line.Split('\t');
-            if (columns.Length != 24)
-                throw new InvalidOperationException(
-                    $"Initial Nayru actor row should contain 24 columns, got {columns.Length}.");
             string[] animations = new string[11];
-            Array.Copy(columns, 11, animations, 0, animations.Length);
+            for (int index = 0; index < animations.Length; index++)
+                animations[index] = row.String(11 + index);
             var actor = new ActorRecord(
-                int.Parse(columns[0]),
-                Convert.ToInt32(columns[1], 16),
-                Convert.ToInt32(columns[2], 16),
-                Convert.ToInt32(columns[3], 16),
-                Convert.ToInt32(columns[4], 16),
-                Convert.ToInt32(columns[5], 16),
-                columns[6],
-                columns[7],
-                int.Parse(columns[8]),
-                int.Parse(columns[9]),
-                int.Parse(columns[10]),
+                row.UnsignedDecimal(0),
+                row.HexByte(1),
+                row.HexByte(2),
+                row.HexByte(3),
+                row.HexByte(4),
+                row.HexByte(5),
+                row.RequiredString(6),
+                row.RequiredString(7),
+                row.UnsignedDecimal(8),
+                row.UnsignedDecimal(9),
+                row.UnsignedDecimal(10),
                 animations,
-                int.Parse(columns[22]),
-                columns[23]);
+                row.UnsignedDecimal(22),
+                row.String(23));
             _actors.Add(actor.Name, actor);
         }
         if (_actors.Count != 18)
             throw new InvalidOperationException(
                 $"Expected 18 initial Nayru cutscene actor templates, got {_actors.Count}.");
 
-        foreach (string line in ReadRows(
-            "res://assets/oracle/cutscenes/nayru_intro_vignettes.tsv"))
+        GeneratedTable vignetteTable = GeneratedTable.Load(
+            "res://assets/oracle/cutscenes/nayru_intro_vignettes.tsv",
+            new GeneratedTableSchema(
+                "initial Nayru vignettes",
+                GeneratedTableKeySemantics.Unique,
+                ["index", "group", "room", "duration"],
+                ["index"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in vignetteTable.Rows)
         {
-            string[] columns = line.Split('\t');
-            if (columns.Length != 4)
-                throw new InvalidOperationException($"Malformed initial Nayru vignette row: {line}");
             var vignette = new VignetteRecord(
-                int.Parse(columns[0]),
-                int.Parse(columns[1]),
-                Convert.ToInt32(columns[2], 16),
-                int.Parse(columns[3]));
+                row.UnsignedDecimal(0),
+                row.Decimal(1, 0, 7),
+                row.HexByte(2),
+                row.UnsignedDecimal(3));
             _vignettes.Add(vignette.Index, vignette);
         }
         if (_vignettes.Count != 3)
             throw new InvalidOperationException(
                 $"Expected three initial Nayru vignette records, got {_vignettes.Count}.");
 
-        foreach (string line in ReadRows(
-            "res://assets/oracle/cutscenes/nayru_intro_vignette_monkeys.tsv"))
+        GeneratedTable monkeyTable = GeneratedTable.Load(
+            "res://assets/oracle/cutscenes/nayru_intro_vignette_monkeys.tsv",
+            new GeneratedTableSchema(
+                "initial Nayru vignette monkeys",
+                GeneratedTableKeySemantics.Unique,
+                ["index", "y", "x", "stone-counter", "animation"],
+                ["index"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in monkeyTable.Rows)
         {
-            string[] columns = line.Split('\t');
-            if (columns.Length != 5)
-                throw new InvalidOperationException(
-                    $"Malformed initial Nayru vignette monkey row: {line}");
             _vignetteMonkeys.Add(new VignetteMonkeyRecord(
-                int.Parse(columns[0]),
-                Convert.ToInt32(columns[1], 16),
-                Convert.ToInt32(columns[2], 16),
-                int.Parse(columns[3]),
-                int.Parse(columns[4])));
+                row.UnsignedDecimal(0),
+                row.HexByte(1),
+                row.HexByte(2),
+                row.UnsignedDecimal(3),
+                row.UnsignedDecimal(4)));
         }
         if (_vignetteMonkeys.Count != 10)
             throw new InvalidOperationException(
                 $"Expected ten initial Nayru vignette monkeys, got {_vignetteMonkeys.Count}.");
 
-        foreach (string line in ReadRows(
-            "res://assets/oracle/cutscenes/nayru_intro_flee.tsv"))
+        GeneratedTable fleeTable = GeneratedTable.Load(
+            "res://assets/oracle/cutscenes/nayru_intro_flee.tsv",
+            new GeneratedTableSchema(
+                "initial Nayru audience escape",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "actor", "delay", "angle", "speed", "wait-jump-speed-z", "wait-gravity",
+                    "repeat-wait-jump", "escape-jump-speed-z", "escape-gravity",
+                    "repeat-escape-jump", "wait-for-landing", "wait-animation", "escape-animation"
+                ],
+                ["actor"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in fleeTable.Rows)
         {
-            string[] columns = line.Split('\t');
-            if (columns.Length != 13)
-                throw new InvalidOperationException(
-                    $"Initial Nayru flee row should contain 13 columns, got {columns.Length}.");
             var record = new FleeRecord(
-                columns[0], int.Parse(columns[1]), int.Parse(columns[2]),
-                float.Parse(columns[3], System.Globalization.CultureInfo.InvariantCulture),
-                int.Parse(columns[4]), int.Parse(columns[5]), columns[6] == "1",
-                int.Parse(columns[7]), int.Parse(columns[8]), columns[9] == "1",
-                columns[10] == "1", int.Parse(columns[11]), int.Parse(columns[12]));
+                row.RequiredString(0), row.UnsignedDecimal(1), row.Decimal(2),
+                row.FiniteFloat(3), row.Decimal(4), row.Decimal(5), row.Boolean01(6),
+                row.Decimal(7), row.Decimal(8), row.Boolean01(9),
+                row.Boolean01(10), row.UnsignedDecimal(11), row.UnsignedDecimal(12));
             _flee.Add(record.Actor, record);
         }
         if (_flee.Count != 5)
             throw new InvalidOperationException(
                 $"Expected five initial Nayru audience escape records, got {_flee.Count}.");
 
-        foreach (string line in ReadRows(
-            "res://assets/oracle/cutscenes/nayru_intro_effects.tsv"))
+        GeneratedTable effectTable = GeneratedTable.Load(
+            "res://assets/oracle/cutscenes/nayru_intro_effects.tsv",
+            new GeneratedTableSchema(
+                "initial Nayru effects",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "name", "sprite", "tile-base", "palette", "duration", "speed", "angle",
+                    "sway", "velocity-x-fixed", "velocity-y-fixed", "animation"
+                ],
+                ["name"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in effectTable.Rows)
         {
-            string[] columns = line.Split('\t');
-            if (columns.Length != 11)
-                throw new InvalidOperationException(
-                    $"Initial Nayru effect row should contain 11 columns, got {columns.Length}.");
             var effect = new EffectRecord(
-                columns[0],
-                columns[1],
-                int.Parse(columns[2]),
-                int.Parse(columns[3]),
-                int.Parse(columns[4]),
-                float.Parse(columns[5], System.Globalization.CultureInfo.InvariantCulture),
-                int.Parse(columns[6]),
-                columns[7] == "1",
-                int.Parse(columns[8]),
-                int.Parse(columns[9]),
-                columns[10]);
+                row.RequiredString(0),
+                row.RequiredString(1),
+                row.UnsignedDecimal(2),
+                row.UnsignedDecimal(3),
+                row.UnsignedDecimal(4),
+                row.FiniteFloat(5),
+                row.Decimal(6),
+                row.Boolean01(7),
+                row.Decimal(8),
+                row.Decimal(9),
+                row.RequiredString(10));
             _effects.Add(effect.Name, effect);
         }
         if (_effects.Count != 2)
             throw new InvalidOperationException(
                 $"Expected 2 initial Nayru cutscene effect templates, got {_effects.Count}.");
 
-        foreach (string line in ReadRows(
-            "res://assets/oracle/cutscenes/nayru_intro_text.tsv"))
+        GeneratedTable textTable = GeneratedTable.Load(
+            "res://assets/oracle/cutscenes/nayru_intro_text.tsv",
+            new GeneratedTableSchema(
+                "initial Nayru text",
+                GeneratedTableKeySemantics.Unique,
+                ["text-id", "textbox-position", "utf8-base64"],
+                ["text-id"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in textTable.Rows)
         {
-            string[] columns = line.Split('\t');
-            if (columns.Length != 3)
-                throw new InvalidOperationException($"Malformed initial Nayru text row: {line}");
-            int id = Convert.ToInt32(columns[0], 16);
+            int id = row.HexWord(0);
             _texts.Add(id, new TextRecord(
                 id,
-                int.Parse(columns[1]),
-                Encoding.UTF8.GetString(Convert.FromBase64String(columns[2]))));
+                row.Decimal(1),
+                row.Base64Utf8(2)));
         }
         if (_texts.Count != 30)
             throw new InvalidOperationException(
                 $"Expected 30 initial Nayru cutscene texts, got {_texts.Count}.");
 
         var oam = new List<SingingOamRecord>();
-        foreach (string line in ReadRows(
-            "res://assets/oracle/cutscenes/nayru_singing_oam.tsv"))
+        GeneratedTable oamTable = GeneratedTable.Load(
+            "res://assets/oracle/cutscenes/nayru_singing_oam.tsv",
+            new GeneratedTableSchema(
+                "Nayru singing OAM",
+                GeneratedTableKeySemantics.Repeated,
+                ["y", "x", "tile", "flags"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in oamTable.Rows)
         {
-            string[] columns = line.Split('\t');
-            if (columns.Length != 4)
-                throw new InvalidOperationException($"Malformed Nayru singing OAM row: {line}");
             oam.Add(new SingingOamRecord(
-                Convert.ToInt32(columns[0], 16),
-                Convert.ToInt32(columns[1], 16),
-                Convert.ToInt32(columns[2], 16),
-                Convert.ToInt32(columns[3], 16)));
+                row.HexByte(0),
+                row.HexByte(1),
+                row.HexByte(2),
+                row.HexByte(3)));
         }
         if (oam.Count != 39)
             throw new InvalidOperationException(
@@ -262,24 +308,6 @@ public sealed class NayruIntroEventDatabase
             ? record
             : throw new InvalidOperationException(
                 $"Unknown initial Nayru vignette index {index}.");
-
-    private static IEnumerable<string> ReadRows(string path)
-    {
-        string source = FileAccess.GetFileAsString(path);
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = rawLine.TrimEnd('\r');
-            if (!line.StartsWith('#'))
-                yield return line;
-        }
-    }
-
-    private static string ReadSingleRow(string path)
-    {
-        foreach (string row in ReadRows(path))
-            return row;
-        throw new InvalidOperationException($"Cutscene data is empty: {path}");
-    }
 
     private static Color[,] ReadPalettes(string path, int count, bool transparentZero)
     {

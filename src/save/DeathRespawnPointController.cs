@@ -20,17 +20,17 @@ public sealed class DeathRespawnPointController
         _rooms = rooms;
         _player = player;
 
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/metadata/continuous_death_respawn_rooms.tsv");
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/metadata/continuous_death_respawn_rooms.tsv",
+            new GeneratedTableSchema(
+                "continuous death-respawn rooms",
+                GeneratedTableKeySemantics.Unique,
+                ["group", "room"],
+                ["group", "room"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-            string[] columns = line.Split('\t');
-            if (columns.Length != 2)
-                throw new InvalidOperationException($"Malformed continuous respawn row: {line}");
-            _continuousRooms.Add((int.Parse(columns[0]), Convert.ToInt32(columns[1], 16)));
+            _continuousRooms.Add((row.Decimal(0, 0, 7), row.HexByte(1)));
         }
         if (_continuousRooms.Count != 2)
             throw new InvalidOperationException(

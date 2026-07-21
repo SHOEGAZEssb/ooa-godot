@@ -1,7 +1,5 @@
-using Godot;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace oracleofages;
 
@@ -20,18 +18,31 @@ internal sealed class MakuSproutRescueDatabase
 
     public MakuSproutRescueDatabase()
     {
-        string[] f = FirstDataRow(Root + "maku_sprout_rescue_event.tsv").Split('\t');
-        if (f.Length != 32)
-            throw new InvalidOperationException(
-                $"Maku Sprout rescue row should have 32 fields, got {f.Length}.");
+        GeneratedTableRow row = GeneratedTable.Load(
+            Root + "maku_sprout_rescue_event.tsv",
+            new GeneratedTableSchema(
+                "Maku Sprout rescue event",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "group", "room", "sprout-id", "sprout-subid", "controller-y", "controller-x",
+                    "moblin-id", "moblin-y", "left-x", "right-x", "initial-gate-position",
+                    "clear-tile", "gate-left", "gate-inner-left", "gate-inner-right", "gate-right",
+                    "room-flag", "advice-flag", "saved-flag", "state-min", "state-max",
+                    "map-text-low", "trigger-radius-y", "trigger-radius-x", "jump-speed-z",
+                    "jump-gravity", "jump-sound", "gate-counter", "shake-counter",
+                    "final-text-position", "post-text-id", "post-text-base64"
+                ],
+                headerRequired: true)).SingleRow();
         Record = new EventRecord(
-            int.Parse(f[0]), Hex(f[1]), Hex(f[2]), Hex(f[3]),
-            Hex(f[4]), Hex(f[5]), Hex(f[6]), Hex(f[7]), Hex(f[8]), Hex(f[9]),
-            Hex(f[10]), Hex(f[11]), Hex(f[12]), Hex(f[13]), Hex(f[14]), Hex(f[15]),
-            Hex(f[16]), Hex(f[17]), Hex(f[18]), Hex(f[19]), Hex(f[20]), Hex(f[21]),
-            Hex(f[22]), Hex(f[23]), int.Parse(f[24]), Hex(f[25]), Hex(f[26]),
-            int.Parse(f[27]), Hex(f[28]), int.Parse(f[29]), Hex(f[30]),
-            Encoding.UTF8.GetString(Convert.FromBase64String(f[31])));
+            row.Decimal(0, 0, 7), row.HexByte(1), row.HexByte(2), row.HexByte(3),
+            row.HexByte(4), row.HexByte(5), row.HexByte(6), row.HexByte(7),
+            row.HexByte(8), row.HexByte(9), row.HexByte(10), row.HexByte(11),
+            row.HexByte(12), row.HexByte(13), row.HexByte(14), row.HexByte(15),
+            row.HexByte(16), row.HexByte(17), row.HexByte(18), row.HexByte(19),
+            row.HexByte(20), row.HexByte(21), row.HexByte(22), row.HexByte(23),
+            row.Decimal(24), row.HexByte(25), row.HexByte(26),
+            row.UnsignedDecimal(27), row.HexByte(28), row.UnsignedDecimal(29),
+            row.HexWord(30), row.Base64Utf8(31));
         Actors = LoadActors();
         Sprout = CutsceneCommandCatalog.Load(Root + "maku_sprout_rescue_sprout.tsv");
         Controller = CutsceneCommandCatalog.Load(Root + "maku_sprout_rescue_controller.tsv");
@@ -49,19 +60,25 @@ internal sealed class MakuSproutRescueDatabase
     private static IReadOnlyDictionary<string, ActorRecord> LoadActors()
     {
         var result = new Dictionary<string, ActorRecord>(StringComparer.Ordinal);
-        foreach (string raw in FileAccess.GetFileAsString(
-            Root + "maku_sprout_rescue_actors.tsv").Split(
-                '\n', StringSplitOptions.RemoveEmptyEntries))
+        GeneratedTable table = GeneratedTable.Load(
+            Root + "maku_sprout_rescue_actors.tsv",
+            new GeneratedTableSchema(
+                "Maku Sprout rescue actors",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "actor", "id", "subid", "y", "x", "sprite", "tile-base", "palette",
+                    "up-animation", "right-animation", "down-animation", "left-animation"
+                ],
+                ["actor"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = raw.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-            string[] f = line.Split('\t');
-            if (f.Length != 12)
-                throw new InvalidOperationException($"Malformed Maku rescue actor row: {line}");
-            result.Add(f[0], new ActorRecord(
-                f[0], Hex(f[1]), Hex(f[2]), Hex(f[3]), Hex(f[4]), f[5],
-                int.Parse(f[6]), int.Parse(f[7]), f[8], f[9], f[10], f[11]));
+            string actor = row.RequiredString(0);
+            result.Add(actor, new ActorRecord(
+                actor, row.HexByte(1), row.HexByte(2), row.HexByte(3), row.HexByte(4),
+                row.RequiredString(5), row.UnsignedDecimal(6), row.UnsignedDecimal(7),
+                row.RequiredString(8), row.RequiredString(9), row.RequiredString(10),
+                row.RequiredString(11)));
         }
         return result;
     }
@@ -96,20 +113,6 @@ internal sealed class MakuSproutRescueDatabase
                 "Room 1:38 rescue data diverges from its sprout/controller/Moblin scripts.");
         }
     }
-
-    private static string FirstDataRow(string path)
-    {
-        foreach (string raw in FileAccess.GetFileAsString(path).Split(
-            '\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = raw.TrimEnd('\r');
-            if (!line.StartsWith('#'))
-                return line;
-        }
-        throw new InvalidOperationException($"{path} is empty.");
-    }
-
-    private static int Hex(string value) => Convert.ToInt32(value, 16);
 
     internal readonly record struct ActorRecord(
         string Actor, int Id, int SubId, int Y, int X,

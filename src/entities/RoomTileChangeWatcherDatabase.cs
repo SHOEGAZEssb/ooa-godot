@@ -1,4 +1,3 @@
-using Godot;
 using System;
 using System.Collections.Generic;
 
@@ -24,33 +23,30 @@ internal sealed class RoomTileChangeWatcherDatabase
 
     internal RoomTileChangeWatcherDatabase()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/tile_change_watchers.tsv");
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/tile_change_watchers.tsv",
+            new GeneratedTableSchema(
+                "room tile-change watchers",
+                GeneratedTableKeySemantics.Grouped,
+                ["group", "room", "order", "position", "room-flag", "source"],
+                ["group", "room"],
+                headerRequired: true));
         int count = 0;
-        foreach (string rawLine in source.Split(
-            '\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] columns = line.Split('\t');
-            if (columns.Length != 6 || string.IsNullOrWhiteSpace(columns[5]))
-                throw new InvalidOperationException(
-                    $"Malformed tile-change watcher row: {line}");
-
             var record = new Record(
-                int.Parse(columns[0]),
-                Convert.ToInt32(columns[1], 16),
-                int.Parse(columns[2]),
-                Convert.ToInt32(columns[3], 16),
-                Convert.ToByte(columns[4], 16),
-                columns[5]);
+                row.Decimal(0, 0, 7),
+                row.HexByte(1),
+                row.UnsignedDecimal(2),
+                row.HexByte(3),
+                (byte)row.HexByte(4),
+                row.RequiredString(5));
             if (record.Group is < 0 or > 7 || record.Room is < 0 or > 0xff ||
                 record.Order < 0 || record.RoomFlag == 0)
             {
                 throw new InvalidOperationException(
-                    $"Invalid tile-change watcher at {record.Source}: {line}");
+                    $"Invalid tile-change watcher at {record.Source}: " +
+                    $"{row.Path}:{row.LineNumber}.");
             }
 
             var key = (record.Group, record.Room);

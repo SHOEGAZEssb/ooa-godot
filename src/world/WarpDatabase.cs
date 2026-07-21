@@ -22,23 +22,27 @@ public sealed class WarpDatabase
 
     public WarpDatabase()
     {
-        string source = FileAccess.GetFileAsString("res://assets/oracle/objects/warps.tsv");
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/warps.tsv",
+            new GeneratedTableSchema(
+                "warps",
+                GeneratedTableKeySemantics.Grouped,
+                [
+                    "source-group", "source-room", "source-position", "edge-mask",
+                    "source-transition", "dest-group", "dest-room", "dest-position",
+                    "dest-parameter", "dest-transition"
+                ],
+                ["source-group", "source-room"],
+                headerRequired: true));
         int count = 0;
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-            string[] columns = line.Split('\t');
-            if (columns.Length != 10)
-                throw new InvalidOperationException($"Malformed warp data row: {line}");
-
             var warp = new Warp(
-                int.Parse(columns[0]), Convert.ToInt32(columns[1], 16),
-                columns[2] == "*" ? -1 : Convert.ToInt32(columns[2], 16),
-                int.Parse(columns[3]), int.Parse(columns[4]), int.Parse(columns[5]),
-                Convert.ToInt32(columns[6], 16), Convert.ToInt32(columns[7], 16),
-                int.Parse(columns[8]), int.Parse(columns[9]));
+                row.Decimal(0, 0, 7), row.HexByte(1),
+                row.HexByteOrSentinel(2, "*", -1),
+                row.UnsignedDecimal(3), row.UnsignedDecimal(4),
+                row.Decimal(5, 0, 7), row.HexByte(6), row.HexByte(7),
+                row.UnsignedDecimal(8), row.UnsignedDecimal(9));
             var key = (warp.SourceGroup, warp.SourceRoom);
             if (!_warps.TryGetValue(key, out List<Warp>? roomWarps))
             {

@@ -21,6 +21,7 @@ $importScripts = @(
     'Import-EnemyData.ps1'
     'Import-WorldNavigation.ps1'
     'Import-AudioData.ps1'
+    'Write-GeneratedTableManifest.ps1'
 )
 foreach ($importScript in $importScripts) {
     . (Join-Path $importModuleRoot $importScript)

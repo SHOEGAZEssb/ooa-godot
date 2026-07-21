@@ -92,37 +92,37 @@ public partial class EnemyDeathPuffEffect : TransitionOffsetNode2D
 
     private static Definition LoadDefinition()
     {
-        string[] lines = FileAccess.GetFileAsString(
-                "res://assets/oracle/effects/enemy_death_puff.tsv")
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        foreach (string rawLine in lines)
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/effects/enemy_death_puff.tsv",
+            new GeneratedTableSchema(
+                "enemy death puff",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "tile-base", "palette-a", "palette-b", "normal-animation",
+                    "high-knockback-animation"
+                ],
+                headerRequired: true));
+        if (table.Rows.Count != 1)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] fields = line.Split('\t');
-            if (fields.Length != 5 ||
-                !int.TryParse(fields[0], out int tileBase) ||
-                !int.TryParse(fields[1], out int paletteA) ||
-                !int.TryParse(fields[2], out int paletteB))
-            {
-                throw new InvalidOperationException(
-                    $"Malformed PART_ENEMY_DESTROYED data row: {line}");
-            }
-
-            Image source = OracleGraphicsCache.LoadImage(
-                "res://assets/oracle/gfx/spr_common_sprites.png");
-
-            int[] palettes = { paletteA, paletteB };
-            List<FrameRecord> normal = BuildAnimation(source, fields[3], tileBase, palettes);
-            List<FrameRecord> highKnockback = BuildAnimation(source, fields[4], tileBase, palettes);
-            if (normal.Count == 0 || highKnockback.Count == 0)
-                throw new InvalidOperationException("PART_ENEMY_DESTROYED has no animation frames.");
-            return new Definition(palettes, normal, highKnockback);
+            throw new InvalidOperationException(
+                $"PART_ENEMY_DESTROYED should have one row, got {table.Rows.Count}.");
         }
+        GeneratedTableRow row = table.Rows[0];
+        int tileBase = row.UnsignedDecimal(0);
+        int paletteA = row.UnsignedDecimal(1);
+        int paletteB = row.UnsignedDecimal(2);
 
-        throw new InvalidOperationException("PART_ENEMY_DESTROYED data is empty.");
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_common_sprites.png");
+
+        int[] palettes = { paletteA, paletteB };
+        List<FrameRecord> normal = BuildAnimation(
+            source, row.RequiredString(3), tileBase, palettes);
+        List<FrameRecord> highKnockback = BuildAnimation(
+            source, row.RequiredString(4), tileBase, palettes);
+        if (normal.Count == 0 || highKnockback.Count == 0)
+            throw new InvalidOperationException("PART_ENEMY_DESTROYED has no animation frames.");
+        return new Definition(palettes, normal, highKnockback);
     }
 
     private static List<FrameRecord> BuildAnimation(

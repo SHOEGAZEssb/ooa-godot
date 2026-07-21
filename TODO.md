@@ -7,23 +7,26 @@ semantics.
 
 ## Consolidate generated-data parsing
 
-Status: Planned  
-Consolidation value: High  
-Fidelity risk: Moderate if incremental; high as a single format migration
+Status: Complete
+
+Consolidation value: High
+
+Fidelity risk: Addressed incrementally with full-suite regressions and
+byte-for-byte deterministic import checks
 
 ### Finding
 
-Runtime code currently contains 40 `FileAccess.GetFileAsString` calls across 28
-C# files. The readers repeatedly implement top-level line splitting, comment
+The completed inventory found 51 production reader classes consuming 115
+generated TSV files. They previously repeated top-level line splitting, comment
 filtering, tab-separated column indexing, hexadecimal and decimal conversion,
-sentinel handling, and malformed-row checks. Representative readers include
+sentinel handling, and malformed-row checks. Representative readers included
 `src/world/WarpDatabase.cs` and `src/inventory/TreasureDatabase.cs`.
 
-The duplication produces inconsistent failure behavior. Many errors report the
-row but not its asset path, line, column, or expected type. Duplicate handling is
-also inconsistent: some dictionaries reject duplicates without source context,
-some readers group repeated keys intentionally, and treasure-object names are
-currently ignored when already present.
+That duplication produced inconsistent failure behavior. Many errors reported
+the row but not its asset path, line, column, or expected type. Duplicate
+handling was also inconsistent: some dictionaries rejected duplicates without
+source context, some readers grouped repeated keys intentionally, and
+treasure-object aliases used first-definition-wins behavior.
 
 The importer already validates many source counts and original records. Runtime
 databases also expose typed records and perform important subsystem-specific
@@ -47,22 +50,20 @@ not replace those table-specific types or semantic validations.
 - Keep record construction and original-engine semantic validation in the
   existing typed databases.
 
-### Migration plan
+### Completed migration
 
-1. Inventory every generated text table, its importer source, runtime consumer,
-   schema, key multiplicity, order requirements, expected count, and existing
-   headless coverage.
-2. Add the shared reader and tests for line endings, comments, empty fields,
-   malformed numbers, sentinels, ranges, duplicate policies, and diagnostics.
-3. Migrate one table family at a time. For each migration, compare record count,
-   key sequence, field values, and ordering against the previous reader before
-   removing it.
-4. Start with small unique-key metadata tables, then grouped room tables, and
-   migrate ordered/aliased object streams last.
-5. Add an importer-generated manifest containing schema versions, record counts,
-   and content checksums so incomplete or stale generated assets fail at startup.
-6. Run the complete importer, build, and headless validation suite after every
-   table family.
+- [x] Inventoried every production generated text consumer and classified its
+  key multiplicity and ordering requirements.
+- [x] Added the shared schema-aware reader and malformed-input regressions for
+  line endings, comments, empty fields, primitive types, sentinels, ranges,
+  duplicate policies, and source-aware diagnostics.
+- [x] Migrated unique metadata, grouped room tables, ordered command/object
+  streams, aliases, and intentionally repeated records incrementally.
+- [x] Added the deterministic generated-table manifest with schema version,
+  record count, and SHA-256 for every TSV asset.
+- [x] Removed the production handwritten split/comment/primitive parsing paths.
+- [x] Ran deterministic imports, a zero-warning build, the complete headless
+  validation suite, and `git diff --check` after the migration.
 
 ### Format decision
 
@@ -80,15 +81,15 @@ serialization.
 
 ### Acceptance criteria
 
-- All top-level generated TSV parsing uses the shared reader; databases no
+- [x] All top-level generated TSV parsing uses the shared reader; databases no
   longer hand-roll line/comment/column/primitive parsing.
-- Every table has explicit schema, count, range, order, and key-multiplicity
+- [x] Every table has explicit schema, count, range, order, and key-multiplicity
   validation.
-- Intentional repeated keys and aliases remain intact and in source order.
-- Unknown columns, malformed values, duplicate unique keys, and stale schema
+- [x] Intentional repeated keys and aliases remain intact and in source order.
+- [x] Unknown columns, malformed values, duplicate unique keys, and stale schema
   versions fail with actionable path-and-line diagnostics.
-- Imported record values and sequence are unchanged by the migration.
-- `tools/import_oracles.ps1`, `dotnet build`, the complete headless `--validate`
+- [x] Imported record values and sequence are unchanged by the migration.
+- [x] `tools/import_oracles.ps1`, `dotnet build`, the complete headless `--validate`
   suite, and `git diff --check` all pass.
 
 ## Parse the disassembly once

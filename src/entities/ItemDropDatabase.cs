@@ -31,22 +31,22 @@ public sealed class ItemDropDatabase
                 $"Item-drop selection data is {_selectionData.Length} bytes; expected {SelectionDataSize}.");
         }
 
-        string source = FileAccess.GetFileAsString("res://assets/oracle/effects/item_drops.tsv");
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/effects/item_drops.tsv",
+            new GeneratedTableSchema(
+                "item-drop visuals",
+                GeneratedTableKeySemantics.Unique,
+                ["subid", "tile-base", "palette", "animation"],
+                ["subid"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] fields = line.Split('\t');
-            if (fields.Length != 4 ||
-                !int.TryParse(fields[0], out int subId) ||
-                !int.TryParse(fields[1], out int tileBase) ||
-                !int.TryParse(fields[2], out int palette))
-            {
-                throw new InvalidOperationException($"Malformed PART_ITEM_DROP visual row: {line}");
-            }
-            _visuals.Add(subId, new VisualRecord(subId, tileBase, palette, fields[3]));
+            int subId = row.UnsignedDecimal(0);
+            _visuals.Add(
+                subId,
+                new VisualRecord(
+                    subId, row.UnsignedDecimal(1), row.UnsignedDecimal(2),
+                    row.RequiredString(3)));
         }
 
         if (_visuals.Count != 16)

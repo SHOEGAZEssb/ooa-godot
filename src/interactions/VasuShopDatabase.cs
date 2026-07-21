@@ -1,7 +1,5 @@
-using Godot;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace oracleofages;
 
@@ -77,48 +75,60 @@ internal sealed class VasuShopDatabase
 
     private void LoadConstants()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/vasu_shop_constants.tsv");
-        foreach (string line in DataLines(source))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/vasu_shop_constants.tsv",
+            new GeneratedTableSchema(
+                "Vasu Jewelers constants",
+                GeneratedTableKeySemantics.Unique,
+                ["key", "value"],
+                ["key"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string[] fields = line.Split('\t');
-            if (fields.Length != 2 || !_constants.TryAdd(fields[0], int.Parse(fields[1])))
-                throw new InvalidOperationException($"Malformed Vasu Jewelers constant: {line}");
+            _constants.Add(row.RequiredString(0), row.Decimal(1));
         }
     }
 
     private void LoadTexts()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/vasu_shop_texts.tsv");
-        foreach (string line in DataLines(source))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/vasu_shop_texts.tsv",
+            new GeneratedTableSchema(
+                "Vasu Jewelers text",
+                GeneratedTableKeySemantics.Unique,
+                ["text-id", "utf8-base64"],
+                ["text-id"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string[] fields = line.Split('\t');
-            if (fields.Length != 2)
-                throw new InvalidOperationException($"Malformed Vasu Jewelers text: {line}");
-            int textId = Convert.ToInt32(fields[0], 16);
-            string message = Encoding.UTF8.GetString(Convert.FromBase64String(fields[1]));
-            if (!_texts.TryAdd(textId, message) || string.IsNullOrWhiteSpace(message))
-                throw new InvalidOperationException($"Invalid Vasu Jewelers text: {line}");
+            int textId = row.HexWord(0);
+            string message = row.Base64Utf8(1);
+            if (string.IsNullOrWhiteSpace(message))
+                throw row.Invalid(1, "nonempty base64-encoded UTF-8 text");
+            _texts.Add(textId, message);
         }
     }
 
     private void LoadAnimations()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/vasu_shop_animations.tsv");
-        foreach (string line in DataLines(source))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/vasu_shop_animations.tsv",
+            new GeneratedTableSchema(
+                "Vasu Jewelers animations",
+                GeneratedTableKeySemantics.Unique,
+                ["interaction-id", "animation", "encoded-animation"],
+                ["interaction-id", "animation"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string[] fields = line.Split('\t');
-            if (fields.Length != 3)
-                throw new InvalidOperationException($"Malformed Vasu Jewelers animation: {line}");
-            int interactionId = Convert.ToInt32(fields[0], 16);
-            int animation = Convert.ToInt32(fields[1], 16);
-            if (!_animations.TryAdd((interactionId, animation), fields[2]) ||
-                OracleGraphicsCache.GetAnimationDefinition(fields[2]).Frames.Length == 0)
+            int interactionId = row.HexByte(0);
+            int animation = row.HexByte(1);
+            string encoded = row.RequiredString(2);
+            if (OracleGraphicsCache.GetAnimationDefinition(encoded).Frames.Length == 0)
             {
-                throw new InvalidOperationException($"Invalid Vasu Jewelers animation: {line}");
+                throw row.Invalid(2, "a nonempty encoded animation");
             }
+            _animations.Add((interactionId, animation), encoded);
         }
     }
 
@@ -151,14 +161,4 @@ internal sealed class VasuShopDatabase
         }
     }
 
-    private static IEnumerable<string> DataLines(string source)
-    {
-        foreach (string rawLine in source.Split(
-            '\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = rawLine.TrimEnd('\r');
-            if (!line.StartsWith('#'))
-                yield return line;
-        }
-    }
 }

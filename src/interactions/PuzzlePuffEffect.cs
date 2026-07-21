@@ -96,45 +96,42 @@ internal partial class PuzzlePuffEffect : TransitionOffsetNode2D
 
     private static List<FrameRecord> LoadDefinition()
     {
-        foreach (string rawLine in FileAccess.GetFileAsString(
-            "res://assets/oracle/effects/puzzle_puff.tsv")
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/effects/puzzle_puff.tsv",
+            new GeneratedTableSchema(
+                "puzzle puff",
+                GeneratedTableKeySemantics.Ordered,
+                ["tile-base", "palette", "animation"],
+                headerRequired: true));
+        if (table.Rows.Count != 1)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] fields = line.Split('\t');
-            if (fields.Length != 3 ||
-                !int.TryParse(fields[0], out int tileBase) ||
-                !int.TryParse(fields[1], out int palette) ||
-                tileBase != 0x16 || palette != 3)
-            {
-                throw new InvalidOperationException(
-                    $"Malformed INTERAC_PUFF data row: {line}");
-            }
-
-            Image source = OracleGraphicsCache.LoadImage(
-                "res://assets/oracle/gfx/spr_common_sprites.png");
-            var animation = new List<FrameRecord>();
-            foreach (OracleGraphicsCache.AnimationFrameDefinition frame in
-                OracleGraphicsCache.GetAnimationDefinition(fields[2]).Frames)
-            {
-                animation.Add(new FrameRecord(
-                    NpcCharacter.BuildOamTexture(
-                        source, frame.EncodedOam, tileBase, palette),
-                    frame.Duration,
-                    frame.Parameter));
-            }
-            if (animation.Count < 2 ||
-                (animation[^1].Parameter & 0x80) == 0)
-            {
-                throw new InvalidOperationException(
-                    "INTERAC_PUFF animation 0 has no terminal parameter.");
-            }
-            return animation;
+            throw new InvalidOperationException(
+                $"INTERAC_PUFF should have one row, got {table.Rows.Count}.");
         }
+        GeneratedTableRow row = table.Rows[0];
+        int tileBase = row.UnsignedDecimal(0);
+        int palette = row.UnsignedDecimal(1);
+        if (tileBase != 0x16 || palette != 3)
+            throw new InvalidOperationException("Imported INTERAC_PUFF constants are invalid.");
 
-        throw new InvalidOperationException("INTERAC_PUFF data is empty.");
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_common_sprites.png");
+        var animation = new List<FrameRecord>();
+        foreach (OracleGraphicsCache.AnimationFrameDefinition frame in
+            OracleGraphicsCache.GetAnimationDefinition(row.RequiredString(2)).Frames)
+        {
+            animation.Add(new FrameRecord(
+                NpcCharacter.BuildOamTexture(
+                    source, frame.EncodedOam, tileBase, palette),
+                frame.Duration,
+                frame.Parameter));
+        }
+        if (animation.Count < 2 ||
+            (animation[^1].Parameter & 0x80) == 0)
+        {
+            throw new InvalidOperationException(
+                "INTERAC_PUFF animation 0 has no terminal parameter.");
+        }
+        return animation;
     }
 }

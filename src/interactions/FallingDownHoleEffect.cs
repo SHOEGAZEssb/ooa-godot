@@ -107,52 +107,54 @@ internal partial class FallingDownHoleEffect : TransitionOffsetNode2D
 
     private static Definition LoadDefinition()
     {
-        foreach (string raw in FileAccess.GetFileAsString(
-            "res://assets/oracle/effects/fall_down_hole.tsv")
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/effects/fall_down_hole.tsv",
+            new GeneratedTableSchema(
+                "fall-down-hole effect",
+                GeneratedTableKeySemantics.Ordered,
+                ["tile-base", "palette", "speed-raw", "animation"],
+                headerRequired: true));
+        if (table.Rows.Count != 1)
         {
-            string line = raw.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-            string[] fields = line.Split('\t');
-            if (fields.Length != 4 ||
-                !int.TryParse(fields[0], out int tileBase) ||
-                !int.TryParse(fields[1], out int palette) ||
-                !int.TryParse(fields[2], out int speedRaw) ||
-                tileBase != 0x16 || palette != 3 || speedRaw != 0x0f)
-            {
-                throw new InvalidOperationException(
-                    $"Malformed INTERAC_FALLDOWNHOLE data row: {line}");
-            }
-
-            Image source = OracleGraphicsCache.LoadImage(
-                "res://assets/oracle/gfx/spr_common_sprites.png");
-            OracleGraphicsCache.AnimationDefinition animation =
-                OracleGraphicsCache.GetAnimationDefinition(fields[3]);
-            var frames = new List<FrameRecord>();
-            foreach (OracleGraphicsCache.AnimationFrameDefinition frame in animation.Frames)
-            {
-                (Texture2D texture, Vector2 offset) =
-                    NpcCharacter.BuildPositionedOamTexture(
-                        source,
-                        frame.EncodedOam,
-                        tileBase,
-                        palette,
-                        paletteOverride: null,
-                        sourceGrayscaleInverted: true);
-                frames.Add(new FrameRecord(
-                    texture, offset, frame.Duration, frame.Parameter));
-            }
-            if (frames.Count != 4 ||
-                frames[0].Duration != 8 || frames[1].Duration != 12 ||
-                frames[2].Duration != 12 ||
-                (frames[^1].Parameter & 0x80) == 0)
-            {
-                throw new InvalidOperationException(
-                    "INTERAC_FALLDOWNHOLE animation 0 no longer has its 8/12/12 terminal sequence.");
-            }
-            return new Definition(frames.ToArray(), speedRaw / 40.0f);
+            throw new InvalidOperationException(
+                $"INTERAC_FALLDOWNHOLE should have one row, got {table.Rows.Count}.");
         }
-        throw new InvalidOperationException("INTERAC_FALLDOWNHOLE data is empty.");
+        GeneratedTableRow row = table.Rows[0];
+        int tileBase = row.UnsignedDecimal(0);
+        int palette = row.UnsignedDecimal(1);
+        int speedRaw = row.UnsignedDecimal(2);
+        if (tileBase != 0x16 || palette != 3 || speedRaw != 0x0f)
+        {
+            throw new InvalidOperationException(
+                "Imported INTERAC_FALLDOWNHOLE constants do not match the supported handler.");
+        }
+
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_common_sprites.png");
+        OracleGraphicsCache.AnimationDefinition animation =
+            OracleGraphicsCache.GetAnimationDefinition(row.RequiredString(3));
+        var frames = new List<FrameRecord>();
+        foreach (OracleGraphicsCache.AnimationFrameDefinition frame in animation.Frames)
+        {
+            (Texture2D texture, Vector2 offset) =
+                NpcCharacter.BuildPositionedOamTexture(
+                    source,
+                    frame.EncodedOam,
+                    tileBase,
+                    palette,
+                    paletteOverride: null,
+                    sourceGrayscaleInverted: true);
+            frames.Add(new FrameRecord(
+                texture, offset, frame.Duration, frame.Parameter));
+        }
+        if (frames.Count != 4 ||
+            frames[0].Duration != 8 || frames[1].Duration != 12 ||
+            frames[2].Duration != 12 ||
+            (frames[^1].Parameter & 0x80) == 0)
+        {
+            throw new InvalidOperationException(
+                "INTERAC_FALLDOWNHOLE animation 0 no longer has its 8/12/12 terminal sequence.");
+        }
+        return new Definition(frames.ToArray(), speedRaw / 40.0f);
     }
 }

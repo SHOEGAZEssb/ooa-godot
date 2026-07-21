@@ -1,7 +1,5 @@
-using Godot;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace oracleofages;
 
@@ -11,22 +9,22 @@ public sealed class SignDatabase
 
     public SignDatabase()
     {
-        string source = FileAccess.GetFileAsString("res://assets/oracle/objects/signs.tsv");
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/signs.tsv",
+            new GeneratedTableSchema(
+                "signs",
+                GeneratedTableKeySemantics.Unique,
+                ["group", "room", "position", "text-id", "utf8-base64"],
+                ["group", "room", "position"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] columns = line.Split('\t');
-            if (columns.Length != 5)
-                throw new InvalidOperationException($"Malformed sign data row: {line}");
-
-            int group = int.Parse(columns[0]);
-            int room = Convert.ToInt32(columns[1], 16);
-            int position = Convert.ToInt32(columns[2], 16);
+            int group = row.Decimal(0, 0, 7);
+            int room = row.HexByte(1);
+            int position = row.HexByte(2);
+            row.HexByte(3);
             int key = MakeKey(group, room, position);
-            _messages[key] = Encoding.UTF8.GetString(Convert.FromBase64String(columns[4]));
+            _messages.Add(key, row.Base64Utf8(4));
         }
 
         if (_messages.Count != 42)

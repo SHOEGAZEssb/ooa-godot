@@ -1,4 +1,3 @@
-using Godot;
 using System;
 using System.Collections.Generic;
 
@@ -15,54 +14,47 @@ internal sealed class MakuTreeSavedDatabase
 
     public MakuTreeSavedDatabase()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/cutscenes/maku_tree_saved_event.tsv");
-        string? row = null;
-        foreach (string rawLine in source.Split(
-            '\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = rawLine.TrimEnd('\r');
-            if (!line.StartsWith('#'))
-            {
-                row = line;
-                break;
-            }
-        }
-        if (row is null)
-            throw new InvalidOperationException("Saved Maku Tree event data is empty.");
-
-        string[] fields = row.Split('\t');
-        if (fields.Length != 31)
-        {
-            throw new InvalidOperationException(
-                $"Saved Maku Tree event row should contain 31 columns, got {fields.Length}.");
-        }
+        GeneratedTableRow row = GeneratedTable.Load(
+            "res://assets/oracle/cutscenes/maku_tree_saved_event.tsv",
+            new GeneratedTableSchema(
+                "saved Maku Tree event",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "group", "room", "id", "subid", "animation0", "animation1",
+                    "animation2", "animation3", "animation4", "extra-sprite", "textbox-position",
+                    "music", "advice-flag", "map-text-low", "falling-object", "respawn-object",
+                    "drop-y", "respawn-y", "default-x", "lower-bound", "middle-bound",
+                    "upper-bound", "lower-band-x", "upper-band-x", "initial-z", "drop-delay",
+                    "bounce-count", "gravity", "bounce-speed", "spawn-sound", "landing-sound"
+                ],
+                headerRequired: true)).SingleRow();
         Record = new SavedEventRecord(
-            int.Parse(fields[0]),
-            Convert.ToInt32(fields[1], 16),
-            Convert.ToInt32(fields[2], 16),
-            Convert.ToInt32(fields[3], 16),
-            fields[4], fields[5], fields[6], fields[7], fields[8], fields[9],
-            int.Parse(fields[10]),
-            Convert.ToInt32(fields[11], 16),
-            Convert.ToInt32(fields[12], 16),
-            Convert.ToInt32(fields[13], 16),
-            fields[14], fields[15],
-            Convert.ToInt32(fields[16], 16),
-            Convert.ToInt32(fields[17], 16),
-            Convert.ToInt32(fields[18], 16),
-            Convert.ToInt32(fields[19], 16),
-            Convert.ToInt32(fields[20], 16),
-            Convert.ToInt32(fields[21], 16),
-            Convert.ToInt32(fields[22], 16),
-            Convert.ToInt32(fields[23], 16),
-            int.Parse(fields[24]),
-            int.Parse(fields[25]),
-            int.Parse(fields[26]),
-            Convert.ToInt32(fields[27], 16),
-            int.Parse(fields[28]),
-            Convert.ToInt32(fields[29], 16),
-            Convert.ToInt32(fields[30], 16));
+            row.Decimal(0, 0, 7),
+            row.HexByte(1),
+            row.HexByte(2),
+            row.HexByte(3),
+            row.RequiredString(4), row.RequiredString(5), row.RequiredString(6),
+            row.RequiredString(7), row.RequiredString(8), row.RequiredString(9),
+            row.UnsignedDecimal(10),
+            row.HexByte(11),
+            row.HexByte(12),
+            row.HexByte(13),
+            row.RequiredString(14), row.RequiredString(15),
+            row.HexByte(16),
+            row.HexByte(17),
+            row.HexByte(18),
+            row.HexByte(19),
+            row.HexByte(20),
+            row.HexByte(21),
+            row.HexByte(22),
+            row.HexByte(23),
+            row.Decimal(24),
+            row.UnsignedDecimal(25),
+            row.UnsignedDecimal(26),
+            row.HexByte(27),
+            row.Decimal(28),
+            row.HexByte(29),
+            row.HexByte(30));
 
         ValidateRecord();
         Commands = CutsceneCommandCatalog.Load(

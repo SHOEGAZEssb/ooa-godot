@@ -48,62 +48,65 @@ public sealed class TimeWarpEffectDatabase
 
     public TimeWarpEffectDatabase()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/timeWarpEffects.tsv");
-        string? row = null;
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = rawLine.TrimEnd('\r');
-            if (!line.StartsWith('#'))
-            {
-                if (row is not null)
-                    throw new InvalidOperationException("Time-warp effect data contains multiple rows.");
-                row = line;
-            }
-        }
-        if (row is null)
-            throw new InvalidOperationException("Time-warp effect data is empty.");
-
-        string[] columns = row.Split('\t');
-        if (columns.Length != 31)
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/timeWarpEffects.tsv",
+            new GeneratedTableSchema(
+                "time-warp effects",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "timewarp-sprite", "common-sprite", "sparkle-sprite",
+                    "primary-tile-base", "primary-palette", "beam-palette",
+                    "trail-tile-base", "trail-palette", "particle-tile-base",
+                    "particle-palette", "sparkle-tile-base", "sparkle-palette",
+                    "primary-priority", "beam-priority", "trail-priority",
+                    "particle-priority", "sparkle-priority", "dissolve-frames",
+                    "source-effect-frames", "source-trail-frames", "arrival-wait-frames",
+                    "arrival-effect-frames", "arrival-flicker-frames", "expand-animation",
+                    "contract-animation", "beam-intro-animation", "beam-loop-animation",
+                    "beam-contract-animation", "trail-animation", "sparkle-animation",
+                    "particles"
+                ],
+                headerRequired: true));
+        if (table.Rows.Count != 1)
         {
             throw new InvalidOperationException(
-                $"Time-warp effect row should contain 31 columns, got {columns.Length}.");
+                $"Time-warp effect data should contain one row, got {table.Rows.Count}.");
         }
+        GeneratedTableRow row = table.Rows[0];
 
-        TimeWarpSprite = columns[0];
-        CommonSprite = columns[1];
-        SparkleSprite = columns[2];
-        PrimaryTileBase = int.Parse(columns[3]);
-        PrimaryPalette = int.Parse(columns[4]);
-        BeamPalette = int.Parse(columns[5]);
-        TrailTileBase = int.Parse(columns[6]);
-        TrailPalette = int.Parse(columns[7]);
-        ParticleTileBase = int.Parse(columns[8]);
-        ParticlePalette = int.Parse(columns[9]);
-        SparkleTileBase = int.Parse(columns[10]);
-        SparklePalette = int.Parse(columns[11]);
-        PrimaryPriority = int.Parse(columns[12]);
-        BeamPriority = int.Parse(columns[13]);
-        TrailPriority = int.Parse(columns[14]);
-        ParticlePriority = int.Parse(columns[15]);
-        SparklePriority = int.Parse(columns[16]);
-        DissolveFrames = int.Parse(columns[17]);
-        SourceEffectFrames = int.Parse(columns[18]);
-        SourceTrailFrames = int.Parse(columns[19]);
-        ArrivalWaitFrames = int.Parse(columns[20]);
-        ArrivalEffectFrames = int.Parse(columns[21]);
-        ArrivalFlickerFrames = int.Parse(columns[22]);
-        ExpandAnimation = columns[23];
-        ContractAnimation = columns[24];
-        BeamIntroAnimation = columns[25];
-        BeamLoopAnimation = columns[26];
-        BeamContractAnimation = columns[27];
-        TrailAnimation = columns[28];
-        SparkleAnimation = columns[29];
+        TimeWarpSprite = row.RequiredString(0);
+        CommonSprite = row.RequiredString(1);
+        SparkleSprite = row.RequiredString(2);
+        PrimaryTileBase = row.UnsignedDecimal(3);
+        PrimaryPalette = row.UnsignedDecimal(4);
+        BeamPalette = row.UnsignedDecimal(5);
+        TrailTileBase = row.UnsignedDecimal(6);
+        TrailPalette = row.UnsignedDecimal(7);
+        ParticleTileBase = row.UnsignedDecimal(8);
+        ParticlePalette = row.UnsignedDecimal(9);
+        SparkleTileBase = row.UnsignedDecimal(10);
+        SparklePalette = row.UnsignedDecimal(11);
+        PrimaryPriority = row.UnsignedDecimal(12);
+        BeamPriority = row.UnsignedDecimal(13);
+        TrailPriority = row.UnsignedDecimal(14);
+        ParticlePriority = row.UnsignedDecimal(15);
+        SparklePriority = row.UnsignedDecimal(16);
+        DissolveFrames = row.UnsignedDecimal(17);
+        SourceEffectFrames = row.UnsignedDecimal(18);
+        SourceTrailFrames = row.UnsignedDecimal(19);
+        ArrivalWaitFrames = row.UnsignedDecimal(20);
+        ArrivalEffectFrames = row.UnsignedDecimal(21);
+        ArrivalFlickerFrames = row.UnsignedDecimal(22);
+        ExpandAnimation = row.RequiredString(23);
+        ContractAnimation = row.RequiredString(24);
+        BeamIntroAnimation = row.RequiredString(25);
+        BeamLoopAnimation = row.RequiredString(26);
+        BeamContractAnimation = row.RequiredString(27);
+        TrailAnimation = row.RequiredString(28);
+        SparkleAnimation = row.RequiredString(29);
 
         var particles = new List<ParticleRecord>();
-        foreach (string encoded in columns[30].Split('|', StringSplitOptions.RemoveEmptyEntries))
+        foreach (string encoded in row.RequiredString(30).Split('|', StringSplitOptions.RemoveEmptyEntries))
         {
             string[] fields = encoded.Split(',');
             if (fields.Length != 3)

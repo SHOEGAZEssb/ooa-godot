@@ -1,6 +1,4 @@
-using Godot;
 using System;
-using System.Text;
 
 namespace oracleofages;
 
@@ -35,49 +33,43 @@ internal sealed class Room148PickaxeDatabase
 
     public Room148PickaxeDatabase()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/objects/room148_pickaxe.tsv");
-        string? row = null;
-        foreach (string rawLine in source.Split(
-            '\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-            if (row is not null)
-                throw new InvalidOperationException(
-                    "Room 1:48 pickaxe data contains more than one record.");
-            row = line;
-        }
-
-        if (row is null)
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/room148_pickaxe.tsv",
+            new GeneratedTableSchema(
+                "room 1:48 pickaxe worker",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "worker-sprite", "worker-tile-base", "worker-palette", "work-animation",
+                    "talk-animation", "debris-sprite", "debris-tile-base", "debris-animation",
+                    "text-id", "utf8-base64", "sound", "debris-count", "offset-y",
+                    "offset-x", "speed", "speed-z", "gravity", "angle-0", "angle-1"
+                ],
+                headerRequired: true));
+        if (table.Rows.Count != 1)
             throw new InvalidOperationException(
-                "Room 1:48 pickaxe data contains no record.");
-        string[] columns = row.Split('\t');
-        if (columns.Length != 19)
-            throw new InvalidOperationException(
-                $"Malformed room 1:48 pickaxe row: {row}");
+                $"Room 1:48 pickaxe data should have one row, got {table.Rows.Count}.");
+        GeneratedTableRow row = table.Rows[0];
 
         Record = new PickaxeRecord(
-            columns[0],
-            int.Parse(columns[1]),
-            int.Parse(columns[2]),
-            columns[3],
-            columns[4],
-            columns[5],
-            int.Parse(columns[6]),
-            columns[7],
-            Convert.ToInt32(columns[8], 16),
-            Encoding.UTF8.GetString(Convert.FromBase64String(columns[9])),
-            int.Parse(columns[10]),
-            int.Parse(columns[11]),
-            int.Parse(columns[12]),
-            int.Parse(columns[13]),
-            int.Parse(columns[14]),
-            int.Parse(columns[15]),
-            int.Parse(columns[16]),
-            int.Parse(columns[17]),
-            int.Parse(columns[18]));
+            row.RequiredString(0),
+            row.UnsignedDecimal(1),
+            row.UnsignedDecimal(2),
+            row.RequiredString(3),
+            row.RequiredString(4),
+            row.RequiredString(5),
+            row.UnsignedDecimal(6),
+            row.RequiredString(7),
+            row.HexWord(8),
+            row.Base64Utf8(9),
+            row.UnsignedDecimal(10),
+            row.UnsignedDecimal(11),
+            row.Decimal(12),
+            row.Decimal(13),
+            row.UnsignedDecimal(14),
+            row.Decimal(15),
+            row.UnsignedDecimal(16),
+            row.UnsignedDecimal(17),
+            row.UnsignedDecimal(18));
 
         OracleGraphicsCache.AnimationDefinition work =
             OracleGraphicsCache.GetAnimationDefinition(Record.WorkAnimation);

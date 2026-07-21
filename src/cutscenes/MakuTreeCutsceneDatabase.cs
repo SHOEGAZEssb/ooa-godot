@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace oracleofages;
 
@@ -17,59 +16,55 @@ internal sealed class MakuTreeCutsceneDatabase
 
     public MakuTreeCutsceneDatabase()
     {
-        string source = FileAccess.GetFileAsString(
-            "res://assets/oracle/cutscenes/maku_tree_cutscene.tsv");
-        string? row = null;
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = rawLine.TrimEnd('\r');
-            if (!line.StartsWith('#'))
-            {
-                row = line;
-                break;
-            }
-        }
-        if (row is null)
-            throw new InvalidOperationException("Maku Tree cutscene data is empty.");
-
-        string[] columns = row.Split('\t');
-        if (columns.Length != 32)
-            throw new InvalidOperationException(
-                $"Maku Tree cutscene row should contain 32 columns, got {columns.Length}.");
+        GeneratedTableRow row = GeneratedTable.Load(
+            "res://assets/oracle/cutscenes/maku_tree_cutscene.tsv",
+            new GeneratedTableSchema(
+                "Maku Tree disappearance cutscene",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "group", "room", "id", "subid", "initial-palette", "input-idle",
+                    "input-right", "input-stop", "input-up", "input-tail", "intro-delay",
+                    "post-intro", "frown-delay", "disappearance", "post-ahh", "finish-delay",
+                    "source-transition", "destination-group", "destination-room",
+                    "destination-position", "destination-parameter", "destination-transition",
+                    "animation0", "animation1", "animation2", "animation3", "animation4",
+                    "extra-sprite", "textbox-position", "intro-base64", "ahh-base64", "help-base64"
+                ],
+                headerRequired: true)).SingleRow();
 
         Record = new MakuTreeCutsceneRecord(
-            int.Parse(columns[0]),
-            Convert.ToInt32(columns[1], 16),
-            Convert.ToInt32(columns[2], 16),
-            Convert.ToInt32(columns[3], 16),
-            int.Parse(columns[4]),
-            int.Parse(columns[5]),
-            int.Parse(columns[6]),
-            int.Parse(columns[7]),
-            int.Parse(columns[8]),
-            int.Parse(columns[9]),
-            int.Parse(columns[10]),
-            int.Parse(columns[11]),
-            int.Parse(columns[12]),
-            int.Parse(columns[13]),
-            int.Parse(columns[14]),
-            int.Parse(columns[15]),
-            int.Parse(columns[16]),
-            int.Parse(columns[17]),
-            Convert.ToInt32(columns[18], 16),
-            Convert.ToInt32(columns[19], 16),
-            int.Parse(columns[20]),
-            int.Parse(columns[21]),
-            columns[22],
-            columns[23],
-            columns[24],
-            columns[25],
-            columns[26],
-            columns[27],
-            int.Parse(columns[28]),
-            Decode(columns[29]),
-            Decode(columns[30]),
-            Decode(columns[31]));
+            row.Decimal(0, 0, 7),
+            row.HexByte(1),
+            row.HexByte(2),
+            row.HexByte(3),
+            row.UnsignedDecimal(4),
+            row.UnsignedDecimal(5),
+            row.UnsignedDecimal(6),
+            row.UnsignedDecimal(7),
+            row.UnsignedDecimal(8),
+            row.UnsignedDecimal(9),
+            row.UnsignedDecimal(10),
+            row.UnsignedDecimal(11),
+            row.UnsignedDecimal(12),
+            row.UnsignedDecimal(13),
+            row.UnsignedDecimal(14),
+            row.UnsignedDecimal(15),
+            row.UnsignedDecimal(16),
+            row.Decimal(17, 0, 7),
+            row.HexByte(18),
+            row.HexByte(19),
+            row.UnsignedDecimal(20),
+            row.UnsignedDecimal(21),
+            row.RequiredString(22),
+            row.RequiredString(23),
+            row.RequiredString(24),
+            row.RequiredString(25),
+            row.RequiredString(26),
+            row.RequiredString(27),
+            row.UnsignedDecimal(28),
+            row.Base64Utf8(29),
+            row.Base64Utf8(30),
+            row.Base64Utf8(31));
 
         byte[] bytes = FileAccess.GetFileAsBytes(
             "res://assets/oracle/metadata/maku_tree_disappear_palettes.bin");
@@ -158,9 +153,6 @@ internal sealed class MakuTreeCutsceneDatabase
         command is CutsceneShowTextCommand
             { TextId: var actualId, Message: var actualMessage } &&
         actualId == textId && actualMessage == message;
-
-    private static string Decode(string encoded) =>
-        Encoding.UTF8.GetString(Convert.FromBase64String(encoded));
 
     internal readonly record struct MakuTreeCutsceneRecord(
         int Group,

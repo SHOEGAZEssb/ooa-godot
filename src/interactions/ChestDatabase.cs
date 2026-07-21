@@ -1,7 +1,5 @@
-using Godot;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace oracleofages;
 
@@ -25,29 +23,31 @@ public sealed class ChestDatabase
 
     public ChestDatabase()
     {
-        string source = FileAccess.GetFileAsString("res://assets/oracle/objects/chests.tsv");
-        foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/chests.tsv",
+            new GeneratedTableSchema(
+                "chests",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "group", "room", "position", "treasure-object", "treasure-id",
+                    "subid", "parameter", "text-id", "graphic", "amount", "utf8-base64"
+                ],
+                ["group", "room", "position"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
         {
-            string line = rawLine.TrimEnd('\r');
-            if (line.StartsWith('#'))
-                continue;
-
-            string[] columns = line.Split('\t');
-            if (columns.Length != 11)
-                throw new InvalidOperationException($"Malformed chest data row: {line}");
-
             var record = new ChestRecord(
-                int.Parse(columns[0]),
-                Convert.ToInt32(columns[1], 16),
-                Convert.ToInt32(columns[2], 16),
-                columns[3],
-                Convert.ToInt32(columns[4], 16),
-                Convert.ToInt32(columns[5], 16),
-                Convert.ToInt32(columns[6], 16),
-                Convert.ToInt32(columns[7], 16),
-                Convert.ToInt32(columns[8], 16),
-                int.Parse(columns[9]),
-                Encoding.UTF8.GetString(Convert.FromBase64String(columns[10])));
+                row.Decimal(0, 0, 7),
+                row.HexByte(1),
+                row.HexByte(2),
+                row.RequiredString(3),
+                row.HexByte(4),
+                row.HexByte(5),
+                row.HexByte(6),
+                row.HexByte(7),
+                row.HexByte(8),
+                row.UnsignedDecimal(9),
+                row.Base64Utf8(10));
             _records.Add(MakeKey(record.Group, record.Room, record.Position), record);
 
             int roomKey = MakeRoomKey(record.Group, record.Room);
