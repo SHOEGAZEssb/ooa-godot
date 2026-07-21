@@ -8,7 +8,7 @@ namespace oracleofages;
 /// INTERAC_KILLENEMYPUFF ($08), used by a red Zol before it splits.
 /// Unlike PART_ENEMY_DESTROYED, this effect never resolves an item drop.
 /// </summary>
-public partial class KillEnemyPuffEffect : Node2D
+public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
 {
     private sealed record FrameRecord(Texture2D Texture, int Duration);
 
@@ -16,13 +16,11 @@ public partial class KillEnemyPuffEffect : Node2D
     private List<FrameRecord> _animation = null!;
     private int _animationFrame;
     private int _animationCounter;
-    private Vector2 _transitionDrawOffset;
 
     public bool Finished { get; private set; }
     internal int ElapsedFrames { get; private set; }
     internal int DurationFrames { get; private set; }
     internal int AnimationFrame => Math.Min(_animationFrame, _animation.Count - 1);
-    internal Vector2 TransitionDrawOffset => _transitionDrawOffset;
 
     internal void Initialize(Vector2 position)
     {
@@ -57,21 +55,13 @@ public partial class KillEnemyPuffEffect : Node2D
         QueueRedraw();
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        if (_transitionDrawOffset.IsEqualApprox(offset))
-            return;
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     public override void _Draw()
     {
         if (!Finished && _animation.Count > 0)
         {
             DrawTexture(
                 _animation[_animationFrame].Texture,
-                new Vector2(-16, -16) + _transitionDrawOffset);
+                new Vector2(-16, -16) + TransitionDrawOffset);
         }
     }
 

@@ -7,7 +7,7 @@ namespace oracleofages;
 /// Shared ENEMY_MASKED_MOBLIN $20:$00 walk/turn/arrow state machine. Room
 /// $1:$38 creates two of these after the scripted interaction actors finish.
 /// </summary>
-public partial class MaskedMoblinCharacter : Node2D
+public partial class MaskedMoblinCharacter : TransitionOffsetNode2D
 {
     internal enum MoblinState { Uninitialized, Moving, Turning }
 
@@ -20,7 +20,6 @@ public partial class MaskedMoblinCharacter : Node2D
     private int _angle;
     private int _moveCycles;
     private int _health;
-    private Vector2 _transitionDrawOffset;
 
     public EnemyDatabase.MaskedMoblinRecord Record => _record;
     public bool IsDead { get; private set; }
@@ -126,17 +125,11 @@ public partial class MaskedMoblinCharacter : Node2D
         return true;
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     public override void _Draw()
     {
         if (!IsDead && _animation.HasFrames)
             DrawTexture(_animation.CurrentTexture,
-                new Vector2(-16, -16) + _transitionDrawOffset);
+                new Vector2(-16, -16) + TransitionDrawOffset);
     }
 
     private void BeginMoving()

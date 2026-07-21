@@ -3,7 +3,7 @@ using System;
 
 namespace oracleofages;
 
-public partial class OctorokRockProjectile : Node2D
+public partial class OctorokRockProjectile : TransitionOffsetNode2D
 {
     internal enum RockState { Initializing, Flying, CollisionPending, Bouncing }
 
@@ -20,7 +20,6 @@ public partial class OctorokRockProjectile : Node2D
     private int _counter;
     private int _zFixed;
     private int _speedZ;
-    private Vector2 _transitionDrawOffset;
 
     public bool Finished { get; private set; }
     internal RockState State => _state;
@@ -28,7 +27,6 @@ public partial class OctorokRockProjectile : Node2D
     internal int Counter => _counter;
     internal int ZFixed => _zFixed;
     internal int ElapsedFrames { get; private set; }
-    internal Vector2 TransitionDrawOffset => _transitionDrawOffset;
     public Rect2 CollisionBounds => new(
         Position - new Vector2(_record.CollisionRadiusX, _record.CollisionRadiusY),
         new Vector2(_record.CollisionRadiusX * 2, _record.CollisionRadiusY * 2));
@@ -118,20 +116,13 @@ public partial class OctorokRockProjectile : Node2D
         return true;
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        if (_transitionDrawOffset.IsEqualApprox(offset))
-            return;
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     public override void _Draw()
     {
         if (Finished)
             return;
         Texture2D texture = _state == RockState.Bouncing ? _bounceTexture : _normalTexture;
-        DrawTexture(texture, new Vector2(-16, -16 + (_zFixed >> 8)) + _transitionDrawOffset);
+        DrawTexture(texture,
+            new Vector2(-16, -16 + (_zFixed >> 8)) + TransitionDrawOffset);
     }
 
     private void BeginBounce()

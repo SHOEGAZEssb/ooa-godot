@@ -21,7 +21,7 @@ internal sealed class PuzzlePuffRoomEntity(PuzzlePuffEffect puff)
 /// updates run animation 0 and delete one update after its terminal bit-$80
 /// animation parameter becomes active.
 /// </summary>
-internal partial class PuzzlePuffEffect : Node2D
+internal partial class PuzzlePuffEffect : TransitionOffsetNode2D
 {
     private sealed record FrameRecord(Texture2D Texture, int Duration, int Parameter);
 
@@ -32,7 +32,6 @@ internal partial class PuzzlePuffEffect : Node2D
     private int _animationFrame;
     private int _animationCounter;
     private bool _initialized;
-    private Vector2 _transitionDrawOffset;
 
     internal bool Finished { get; private set; }
     internal int ElapsedUpdates { get; private set; }
@@ -85,21 +84,13 @@ internal partial class PuzzlePuffEffect : Node2D
         QueueRedraw();
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        if (_transitionDrawOffset.IsEqualApprox(offset))
-            return;
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     public override void _Draw()
     {
         if (!Finished)
         {
             DrawTexture(
                 _animation[AnimationFrame].Texture,
-                new Vector2(-16, -16) + _transitionDrawOffset);
+                new Vector2(-16, -16) + TransitionDrawOffset);
         }
     }
 

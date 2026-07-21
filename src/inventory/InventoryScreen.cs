@@ -1,5 +1,7 @@
 using Godot;
 using System;
+using static oracleofages.OracleGraphicsData;
+using static oracleofages.OracleTileRenderer;
 
 namespace oracleofages;
 
@@ -1108,36 +1110,6 @@ public partial class InventoryScreen : Node2D
         return true;
     }
 
-    private static void DrawTileToImage(Image output, Image source, int sourceTile, byte flags,
-        Color[,] palette, int destinationX, int destinationY,
-        bool interleaved, bool spriteEncoding)
-    {
-        bool flipX = (flags & 0x20) != 0;
-        bool flipY = (flags & 0x40) != 0;
-        int paletteIndex = flags & 7;
-        int columns = source.GetWidth() / 8;
-        int tileX;
-        int tileY;
-        if (interleaved)
-        {
-            int cell = sourceTile / 2;
-            tileX = cell % columns * 8;
-            tileY = cell / columns * 16 + (sourceTile & 1) * 8;
-        }
-        else
-        {
-            tileX = sourceTile % columns * 8;
-            tileY = sourceTile / columns * 8;
-        }
-        for (int y = 0; y < 8; y++)
-        for (int x = 0; x < 8; x++)
-        {
-            Color pixel = source.GetPixel(tileX + (flipX ? 7 - x : x), tileY + (flipY ? 7 - y : y));
-            output.SetPixel(destinationX + x, destinationY + y,
-                palette[paletteIndex, PaletteShade(pixel, spriteEncoding)]);
-        }
-    }
-
     private static void FillRectangle(byte[] map, byte[] flags, int offset,
         int height, int width, byte tile, byte attributes)
     {
@@ -1147,20 +1119,6 @@ public partial class InventoryScreen : Node2D
             map[offset + y * TilemapStride + x] = tile;
             flags[offset + y * TilemapStride + x] = attributes;
         }
-    }
-
-    private static void Overlay(byte[] destination, byte[] source, int offset, int? count = null) =>
-        Array.Copy(source, 0, destination, offset, count ?? source.Length);
-
-    private static int TwoBitShade(Color sourceColor) =>
-        Math.Clamp(Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f), 0, 3);
-
-    private static int PaletteShade(Color sourceColor, bool spriteEncoding) =>
-        spriteEncoding ? ItemIconAtlas.ShadeFromPng(sourceColor, out _) : TwoBitShade(sourceColor);
-
-    private static Image LoadPng(string path)
-    {
-        return OracleGraphicsCache.LoadImage(path);
     }
 
     private static Texture2D BuildFontTexture(string path)
@@ -1175,28 +1133,6 @@ public partial class InventoryScreen : Node2D
             output.SetPixel(x, y, pixel.R > 0.5f ? Colors.White : Colors.Transparent);
         }
         return ImageTexture.CreateFromImage(output);
-    }
-
-    private static byte[] ReadBytes(string path, int expectedLength)
-    {
-        byte[] data = FileAccess.GetFileAsBytes(path);
-        if (data.Length != expectedLength)
-            throw new InvalidOperationException($"{path} should contain {expectedLength} bytes, got {data.Length}.");
-        return data;
-    }
-
-    private static Color[,] LoadPalette(string path, int count, int firstPalette)
-    {
-        byte[] bytes = ReadBytes(path, count * 4 * 3);
-        var result = new Color[8, 4];
-        for (int palette = 0; palette < count; palette++)
-        for (int shade = 0; shade < 4; shade++)
-        {
-            int offset = (palette * 4 + shade) * 3;
-            result[firstPalette + palette, shade] = new Color(
-                bytes[offset] / 31.0f, bytes[offset + 1] / 31.0f, bytes[offset + 2] / 31.0f);
-        }
-        return result;
     }
 
     private static Vector2 Slot(int tileMapOffset) => new(

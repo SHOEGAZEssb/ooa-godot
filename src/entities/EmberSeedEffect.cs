@@ -9,7 +9,7 @@ namespace oracleofages;
 /// animation advances happen on original 60 Hz updates, including the state-0
 /// setup update and the 58-update flame counter.
 /// </summary>
-public partial class EmberSeedEffect : Node2D
+public partial class EmberSeedEffect : TransitionOffsetNode2D
 {
     internal enum EmberState { Initializing, Flying, Burning, Finished }
 
@@ -28,7 +28,6 @@ public partial class EmberSeedEffect : Node2D
     private Texture2D[] _flameTextures = null!;
     private Vector2 _precisePosition;
     private Vector2I _direction;
-    private Vector2 _transitionDrawOffset;
     private EmberState _state;
     private int _zFixed;
     private int _speedZ;
@@ -172,12 +171,6 @@ public partial class EmberSeedEffect : Node2D
             Finish();
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     public override void _Draw()
     {
         if (Finished || !Visible)
@@ -186,7 +179,7 @@ public partial class EmberSeedEffect : Node2D
             ? _flameTextures[_frameIndex]
             : _flyingTextures[_frameIndex];
         DrawTexture(texture,
-            new Vector2(-16, -16 + (_zFixed >> 8)) + _transitionDrawOffset);
+            new Vector2(-16, -16 + (_zFixed >> 8)) + TransitionDrawOffset);
     }
 
     private void BeginBurning()

@@ -8,7 +8,7 @@ namespace oracleofages;
 /// drops additionally copy Link's angle and SPEED_a0 until they finish
 /// bouncing. Grounded drops wait for 240 alternating-frame countdown ticks.
 /// </summary>
-public partial class ItemDropEffect : Node2D
+public partial class ItemDropEffect : TransitionOffsetNode2D
 {
     internal enum DropState { Initializing, Bouncing, Grounded }
 
@@ -28,7 +28,6 @@ public partial class ItemDropEffect : Node2D
     private int _speedZ;
     private int _counter;
     private bool _collisionEnabled;
-    private Vector2 _transitionDrawOffset;
     private Vector2 _precisePosition;
     private int _angle;
     private int _speed;
@@ -43,7 +42,6 @@ public partial class ItemDropEffect : Node2D
     internal int Counter => _counter;
     internal bool CollisionEnabled => _collisionEnabled;
     internal int ElapsedFrames { get; private set; }
-    internal Vector2 TransitionDrawOffset => _transitionDrawOffset;
     internal Vector2 PrecisePosition => _precisePosition;
     internal int Angle => _angle;
     internal int Speed => _speed;
@@ -124,20 +122,12 @@ public partial class ItemDropEffect : Node2D
             Visible = !Visible;
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        if (_transitionDrawOffset.IsEqualApprox(offset))
-            return;
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     public override void _Draw()
     {
         if (Finished)
             return;
         int zPixel = _zFixed >> 8;
-        DrawTexture(_texture, new Vector2(-16, -16 + zPixel) + _transitionDrawOffset);
+        DrawTexture(_texture, new Vector2(-16, -16 + zPixel) + TransitionDrawOffset);
     }
 
     private void UpdateBounce()

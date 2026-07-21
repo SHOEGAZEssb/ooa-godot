@@ -47,6 +47,25 @@ function Get-AssemblyLabelBody([string]$source, [string]$label) {
     return $match.Groups['body'].Value
 }
 
+function Resolve-Oam([string]$source, [string]$label) {
+    $body = Get-AssemblyLabelBody $source $label
+    $countMatch = [regex]::Match($body, '(?m)^\s*\.db\s+\$(?<count>[0-9a-f]{2})')
+    if (-not $countMatch.Success) { throw "OAM count missing for $label." }
+    $count = [Convert]::ToInt32($countMatch.Groups['count'].Value, 16)
+    $parts = @(
+        [regex]::Matches(
+            $body,
+            '(?m)^\s*\.db\s+\$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
+        ) | ForEach-Object {
+            "$([Convert]::ToInt32($_.Groups['y'].Value, 16)),$([Convert]::ToInt32($_.Groups['x'].Value, 16)),$([Convert]::ToInt32($_.Groups['tile'].Value, 16)),$([Convert]::ToInt32($_.Groups['flags'].Value, 16))"
+        }
+    )
+    if ($parts.Count -ne $count) {
+        throw "$label declares $count OAM parts but contains $($parts.Count)."
+    }
+    return $parts -join ';'
+}
+
 $enemyAnimationSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\enemyAnimations.s")
 $enemyOamSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\enemyOamData.s")
 $keeseAnimationLabels = @(
@@ -65,23 +84,6 @@ if ($keeseAnimationLabels.Count -ne 2 -or $keeseOamLabels.Count -ne 2) {
     throw "Expected two Keese animations and two Keese OAM pointers."
 }
 
-function Resolve-EnemyOam([string]$label) {
-    $body = Get-AssemblyLabelBody $script:enemyOamSource $label
-    $countMatch = [regex]::Match($body, '(?m)^\s*\.db\s+\$(?<count>[0-9a-f]{2})')
-    if (-not $countMatch.Success) { throw "OAM count missing for $label." }
-    $count = [Convert]::ToInt32($countMatch.Groups['count'].Value, 16)
-    $parts = @(
-        [regex]::Matches(
-            $body,
-            '(?m)^\s*\.db\s+\$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
-        ) | ForEach-Object {
-            "$([Convert]::ToInt32($_.Groups['y'].Value, 16)),$([Convert]::ToInt32($_.Groups['x'].Value, 16)),$([Convert]::ToInt32($_.Groups['tile'].Value, 16)),$([Convert]::ToInt32($_.Groups['flags'].Value, 16))"
-        }
-    )
-    if ($parts.Count -ne $count) { throw "$label declares $count OAM parts but contains $($parts.Count)." }
-    return $parts -join ';'
-}
-
 function Resolve-KeeseAnimation([string]$label) {
     $frames = [Collections.Generic.List[string]]::new()
     foreach ($frame in [regex]::Matches(
@@ -93,7 +95,7 @@ function Resolve-KeeseAnimation([string]$label) {
         if ($pointerIndex -ge $script:keeseOamLabels.Count) {
             throw "$label references missing OAM pointer byte offset $($frame.Groups['offset'].Value)."
         }
-        $frames.Add("$duration@$(Resolve-EnemyOam $script:keeseOamLabels[$pointerIndex])")
+        $frames.Add("$duration@$(Resolve-Oam $script:enemyOamSource $script:keeseOamLabels[$pointerIndex])")
     }
     return $frames -join '|'
 }
@@ -207,7 +209,7 @@ function Resolve-OctorokAnimation([string]$label) {
         if ($pointerIndex -ge $script:octorokOamLabels.Count) {
             throw "$label references missing Octorok OAM pointer $pointerIndex."
         }
-        $frames.Add("$duration@$(Resolve-EnemyOam $script:octorokOamLabels[$pointerIndex])")
+        $frames.Add("$duration@$(Resolve-Oam $script:enemyOamSource $script:octorokOamLabels[$pointerIndex])")
     }
     return $frames -join '|'
 }
@@ -376,7 +378,7 @@ function Resolve-StalfosAnimation([string]$label) {
         if ($pointerIndex -ge $script:stalfosOamLabels.Count) {
             throw "$label references missing Stalfos OAM pointer $pointerIndex."
         }
-        $frames.Add("$duration@$(Resolve-EnemyOam $script:stalfosOamLabels[$pointerIndex])")
+        $frames.Add("$duration@$(Resolve-Oam $script:enemyOamSource $script:stalfosOamLabels[$pointerIndex])")
     }
     return $frames -join '|'
 }
@@ -552,7 +554,7 @@ function Resolve-ParameterizedEnemyAnimation(
         if ($pointerIndex -ge $oamLabels.Count) {
             throw "$label references missing enemy OAM pointer $pointerIndex."
         }
-        $frames.Add("$duration,$parameter@$(Resolve-EnemyOam $oamLabels[$pointerIndex])")
+        $frames.Add("$duration,$parameter@$(Resolve-Oam $script:enemyOamSource $oamLabels[$pointerIndex])")
     }
     return $frames -join '|'
 }
@@ -913,23 +915,6 @@ if ($deathPuffAnimationLabels.Count -ne 2 -or $deathPuffOamLabels.Count -ne 7) {
     throw "Expected two death-puff animations and seven death-puff OAM pointers."
 }
 
-function Resolve-PartOam([string]$label) {
-    $body = Get-AssemblyLabelBody $script:partOamSource $label
-    $countMatch = [regex]::Match($body, '(?m)^\s*\.db\s+\$(?<count>[0-9a-f]{2})')
-    if (-not $countMatch.Success) { throw "OAM count missing for $label." }
-    $count = [Convert]::ToInt32($countMatch.Groups['count'].Value, 16)
-    $parts = @(
-        [regex]::Matches(
-            $body,
-            '(?m)^\s*\.db\s+\$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
-        ) | ForEach-Object {
-            "$([Convert]::ToInt32($_.Groups['y'].Value, 16)),$([Convert]::ToInt32($_.Groups['x'].Value, 16)),$([Convert]::ToInt32($_.Groups['tile'].Value, 16)),$([Convert]::ToInt32($_.Groups['flags'].Value, 16))"
-        }
-    )
-    if ($parts.Count -ne $count) { throw "$label declares $count OAM parts but contains $($parts.Count)." }
-    return $parts -join ';'
-}
-
 function Resolve-DeathPuffAnimation([string]$label) {
     $frames = [Collections.Generic.List[string]]::new()
     foreach ($frame in [regex]::Matches(
@@ -943,7 +928,7 @@ function Resolve-DeathPuffAnimation([string]$label) {
         if ($pointerIndex -ge $script:deathPuffOamLabels.Count) {
             throw "$label references missing OAM pointer byte offset $($frame.Groups['offset'].Value)."
         }
-        $frames.Add("$duration@$(Resolve-PartOam $script:deathPuffOamLabels[$pointerIndex])")
+        $frames.Add("$duration@$(Resolve-Oam $script:partOamSource $script:deathPuffOamLabels[$pointerIndex])")
     }
     return $frames -join '|'
 }
@@ -1000,22 +985,6 @@ $killPuffOamLabels = @(
 if ($killPuffAnimationLabel.Count -ne 1 -or $killPuffOamLabels.Count -ne 6) {
     throw "Expected one INTERAC_KILLENEMYPUFF animation and six OAM pointers, got $($killPuffAnimationLabel.Count) / $($killPuffOamLabels.Count)."
 }
-function Resolve-InteractionOam([string]$label) {
-    $body = Get-AssemblyLabelBody $script:interactionOamSource $label
-    $countMatch = [regex]::Match($body, '(?m)^\s*\.db\s+\$(?<count>[0-9a-f]{2})')
-    if (-not $countMatch.Success) { throw "OAM count missing for $label." }
-    $count = [Convert]::ToInt32($countMatch.Groups['count'].Value, 16)
-    $parts = @(
-        [regex]::Matches(
-            $body,
-            '(?m)^\s*\.db\s+\$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
-        ) | ForEach-Object {
-            "$([Convert]::ToInt32($_.Groups['y'].Value, 16)),$([Convert]::ToInt32($_.Groups['x'].Value, 16)),$([Convert]::ToInt32($_.Groups['tile'].Value, 16)),$([Convert]::ToInt32($_.Groups['flags'].Value, 16))"
-        }
-    )
-    if ($parts.Count -ne $count) { throw "$label declares $count OAM parts but contains $($parts.Count)." }
-    return $parts -join ';'
-}
 $killPuffFrames = [Collections.Generic.List[string]]::new()
 foreach ($frame in [regex]::Matches(
     (Get-AssemblyLabelBody $interactionAnimationSource $killPuffAnimationLabel[0]),
@@ -1028,7 +997,7 @@ foreach ($frame in [regex]::Matches(
         throw "INTERAC_KILLENEMYPUFF references missing OAM pointer $pointerIndex."
     }
     $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
-    $killPuffFrames.Add("$duration@$(Resolve-InteractionOam $killPuffOamLabels[$pointerIndex])")
+    $killPuffFrames.Add("$duration@$(Resolve-Oam $interactionOamSource $killPuffOamLabels[$pointerIndex])")
 }
 $killPuffAnimation = $killPuffFrames -join '|'
 $killPuffDuration = ($killPuffFrames | ForEach-Object {
@@ -1091,7 +1060,7 @@ function Resolve-OctorokProjectileAnimation([string]$label) {
         if ($pointerIndex -ge $script:part18OamLabels.Count) {
             throw "$label references missing Octorok-projectile OAM pointer $pointerIndex."
         }
-        $frames.Add("$duration@$(Resolve-PartOam $script:part18OamLabels[$pointerIndex])")
+        $frames.Add("$duration@$(Resolve-Oam $script:partOamSource $script:part18OamLabels[$pointerIndex])")
     }
     return $frames -join '|'
 }
@@ -1168,7 +1137,7 @@ function Resolve-MaskedMoblinAnimation([string]$label) {
         if ($pointerIndex -ge $script:maskedMoblinOamLabels.Count) {
             throw "$label references missing masked-Moblin OAM pointer $pointerIndex."
         }
-        $frames.Add("$duration@$(Resolve-EnemyOam $script:maskedMoblinOamLabels[$pointerIndex])")
+        $frames.Add("$duration@$(Resolve-Oam $script:enemyOamSource $script:maskedMoblinOamLabels[$pointerIndex])")
     }
     return $frames -join '|'
 }
@@ -1240,7 +1209,7 @@ function Resolve-EnemyArrowAnimation([string]$label) {
         if ($pointerIndex -ge $script:enemyArrowOamLabels.Count) {
             throw "$label references missing enemy-arrow OAM pointer $pointerIndex."
         }
-        $frames.Add("$duration@$(Resolve-PartOam $script:enemyArrowOamLabels[$pointerIndex])")
+        $frames.Add("$duration@$(Resolve-Oam $script:partOamSource $script:enemyArrowOamLabels[$pointerIndex])")
     }
     return $frames -join '|'
 }
@@ -1407,7 +1376,7 @@ function Resolve-ItemDropAnimation([string]$label) {
             throw "$label references missing PART_ITEM_DROP OAM pointer $pointerIndex."
         }
         $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
-        $frames.Add("$duration@$(Resolve-PartOam $script:part01OamLabels[$pointerIndex])")
+        $frames.Add("$duration@$(Resolve-Oam $script:partOamSource $script:part01OamLabels[$pointerIndex])")
     }
     return $frames -join '|'
 }

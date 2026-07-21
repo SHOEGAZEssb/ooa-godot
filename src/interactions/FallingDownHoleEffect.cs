@@ -20,7 +20,7 @@ internal sealed class FallingDownHoleRoomEntity(FallingDownHoleEffect effect)
 /// INTERAC_FALLDOWNHOLE $0f:$00. It moves at SPEED_60 toward the metatile
 /// center while playing the imported 8/12/12-update terminal animation.
 /// </summary>
-internal partial class FallingDownHoleEffect : Node2D
+internal partial class FallingDownHoleEffect : TransitionOffsetNode2D
 {
     private sealed record FrameRecord(
         Texture2D Texture,
@@ -33,7 +33,6 @@ internal partial class FallingDownHoleEffect : Node2D
     private static Definition? _definition;
     private Definition _activeDefinition = null!;
     private Vector2 _precisePosition;
-    private Vector2 _transitionDrawOffset;
     private int _animationFrame;
     private int _animationCounter;
 
@@ -84,20 +83,12 @@ internal partial class FallingDownHoleEffect : Node2D
         QueueRedraw();
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        if (_transitionDrawOffset.IsEqualApprox(offset))
-            return;
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     public override void _Draw()
     {
         if (Finished)
             return;
         FrameRecord frame = _activeDefinition.Frames[AnimationFrame];
-        DrawTexture(frame.Texture, frame.TextureOffset + _transitionDrawOffset);
+        DrawTexture(frame.Texture, frame.TextureOffset + TransitionDrawOffset);
     }
 
     private void MoveTowardHoleCenter()

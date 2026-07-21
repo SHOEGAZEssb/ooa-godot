@@ -7,7 +7,7 @@ namespace oracleofages;
 /// Common ENEMY_STALFOS $31 state machine for ordinary subid $00. The other
 /// source subids extend these states with jumps and bone/stomp attacks.
 /// </summary>
-public partial class StalfosCharacter : Node2D
+public partial class StalfosCharacter : TransitionOffsetNode2D
 {
     internal enum StalfosState { Uninitialized = 0, Deciding = 8, Walking = 9 }
 
@@ -41,7 +41,6 @@ public partial class StalfosCharacter : Node2D
     private int _counter1;
     private int _angle;
     private int _health;
-    private Vector2 _transitionDrawOffset;
 
     public EnemyDatabase.StalfosRecord Record { get; private set; }
     public bool IsDead { get; private set; }
@@ -56,7 +55,6 @@ public partial class StalfosCharacter : Node2D
     internal int Health => _health;
     internal int AnimationIndex => _animation.AnimationIndex;
     internal int CurrentAnimationFrame => _animation.FrameIndex;
-    internal Vector2 TransitionDrawOffset => _transitionDrawOffset;
 
     internal void Initialize(
         EnemyDatabase.StalfosRecord record,
@@ -155,21 +153,13 @@ public partial class StalfosCharacter : Node2D
         return true;
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        if (_transitionDrawOffset.IsEqualApprox(offset))
-            return;
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     public override void _Draw()
     {
         if (!IsDead && _animation.HasFrames)
         {
             DrawTexture(
                 _animation.CurrentTexture,
-                new Vector2(-16, -16) + _transitionDrawOffset);
+                new Vector2(-16, -16) + TransitionDrawOffset);
         }
     }
 

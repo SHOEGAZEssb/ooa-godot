@@ -130,14 +130,13 @@ internal sealed class SwordBeamDatabase
 /// 60 Hz updates apply damage, move at SPEED_300, test tiles, flip palette on
 /// global four-update boundaries, and enforce the original screen boundary.
 /// </summary>
-public partial class SwordBeamEffect : Node2D
+public partial class SwordBeamEffect : TransitionOffsetNode2D
 {
     private SwordBeamDatabase _database = null!;
     private SwordBeamDatabase.Record _record;
     private OracleRoomData _room = null!;
     private Func<Vector2, Vector2> _worldToScreen = null!;
     private Vector2 _precisePosition;
-    private Vector2 _transitionDrawOffset;
     private bool _initialized;
     private int _palettePhase;
 
@@ -213,19 +212,13 @@ public partial class SwordBeamEffect : Node2D
     internal void OnEnemyCollision(ICollection<RoomEntitySpawn> spawns) =>
         Collide(spawns);
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     public override void _Draw()
     {
         if (!Finished && Visible)
         {
             DrawTexture(
                 _database.Texture(_record.Direction, _palettePhase),
-                new Vector2(-16, -16) + _transitionDrawOffset);
+                new Vector2(-16, -16) + TransitionDrawOffset);
         }
     }
 

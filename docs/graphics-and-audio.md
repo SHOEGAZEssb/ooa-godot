@@ -24,6 +24,12 @@ during root shutdown so native Godot resources do not remain retained.
 `LoadRawPngForValidation` is for independent validation decoding only. It must
 not become a production loading path.
 
+`OracleGraphicsData` owns length-checked binary reads, GBC palette conversion,
+tilemap overlays, and common two-bit shade decoding. `OracleTileRenderer` owns
+shared linear/interleaved 8x8 background addressing and 8x16 OAM cell drawing.
+Menus supply their source-specific VRAM maps and palette attributes to these
+helpers instead of carrying private copies of the pixel loops.
+
 ## OAM and animation composition
 
 A generated sprite sheet may represent interleaved 8x16 OBJ cells, not a simple

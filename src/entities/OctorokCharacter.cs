@@ -1,22 +1,16 @@
 using Godot;
 using System;
-using System.Collections.Generic;
 
 namespace oracleofages;
 
-public partial class OctorokCharacter : Node2D
+public partial class OctorokCharacter : TransitionOffsetNode2D
 {
     internal enum OctorokState { Deciding = 8, Standing = 9, Walking = 10, Shooting = 11 }
-
-    private sealed record AnimationFrame(Texture2D Texture, int Duration);
 
     private static readonly int[] Counter1Values = { 30, 45, 60, 75, 45, 60, 75, 90 };
     private static readonly int[] WalkCounterValues = { 0x19, 0x21, 0x29, 0x31 };
 
-    private readonly List<AnimationFrame>[] _animations =
-    {
-        new(), new(), new(), new()
-    };
+    private EnemyAnimationPlayer _animation = null!;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
     private OctorokState _state;
@@ -27,10 +21,6 @@ public partial class OctorokCharacter : Node2D
     private int _invincibilityCounter;
     private int _knockbackCounter;
     private int _knockbackAngle;
-    private int _animationDirection;
-    private int _animationFrame;
-    private int _animationCounter;
-    private Vector2 _transitionDrawOffset;
 
     public EnemyDatabase.OctorokRecord Record { get; private set; }
     public bool IsDead { get; private set; }
@@ -46,8 +36,7 @@ public partial class OctorokCharacter : Node2D
     internal int Health => _health;
     internal int InvincibilityCounter => _invincibilityCounter;
     internal int KnockbackCounter => _knockbackCounter;
-    internal int CurrentAnimationFrame => _animationFrame;
-    internal Vector2 TransitionDrawOffset => _transitionDrawOffset;
+    internal int CurrentAnimationFrame => _animation.FrameIndex;
 
     internal void Initialize(
         EnemyDatabase.OctorokRecord record,
@@ -70,11 +59,8 @@ public partial class OctorokCharacter : Node2D
             record.DownAnimation,
             record.LeftAnimation
         };
-        for (int direction = 0; direction < encodedAnimations.Length; direction++)
-        {
-            _animations[direction].AddRange(BuildAnimation(
-                source, encodedAnimations[direction], record.TileBase, record.Palette));
-        }
+        _animation = new EnemyAnimationPlayer(this, encodedAnimations.Length);
+        _animation.Load(source, encodedAnimations, record.TileBase, record.Palette);
 
         OracleRandom.Result initial = _random.Next();
         _counter1 = Counter1Values[initial.Value & record.CounterMask];
@@ -144,14 +130,6 @@ public partial class OctorokCharacter : Node2D
         return true;
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        if (_transitionDrawOffset.IsEqualApprox(offset))
-            return;
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     internal void SetStateForValidation(
         OctorokState state,
         int counter1 = 0,
@@ -167,12 +145,10 @@ public partial class OctorokCharacter : Node2D
 
     public override void _Draw()
     {
-        List<AnimationFrame> animation = _animations[_animationDirection];
-        if (IsDead || animation.Count == 0)
+        if (IsDead || !_animation.HasFrames)
             return;
-        DrawTexture(
-            animation[_animationFrame % animation.Count].Texture,
-            new Vector2(-16, -16) + _transitionDrawOffset);
+        DrawTexture(_animation.CurrentTexture,
+            new Vector2(-16, -16) + TransitionDrawOffset);
     }
 
     private void DecideNextAction(Vector2 linkPosition)
@@ -300,39 +276,8 @@ public partial class OctorokCharacter : Node2D
 
     private void SetAnimationFromAngle()
     {
-        _animationDirection = (_angle & 0x18) >> 3;
-        _animationFrame = 0;
-        List<AnimationFrame> animation = _animations[_animationDirection];
-        _animationCounter = animation.Count > 0 ? animation[0].Duration : 1;
-        QueueRedraw();
+        _animation.SetAnimation((_angle & 0x18) >> 3);
     }
 
-    private void AdvanceAnimation()
-    {
-        List<AnimationFrame> animation = _animations[_animationDirection];
-        if (animation.Count <= 1)
-            return;
-        _animationCounter--;
-        if (_animationCounter > 0)
-            return;
-        _animationFrame = (_animationFrame + 1) % animation.Count;
-        _animationCounter = animation[_animationFrame].Duration;
-        QueueRedraw();
-    }
-
-    private static IEnumerable<AnimationFrame> BuildAnimation(
-        Image source,
-        string encodedAnimation,
-        int tileBase,
-        int palette)
-    {
-        foreach (OracleGraphicsCache.AnimationFrameDefinition frame in
-            OracleGraphicsCache.GetAnimationDefinition(encodedAnimation).Frames)
-        {
-            yield return new AnimationFrame(
-                NpcCharacter.BuildOamTexture(
-                    source, frame.EncodedOam, tileBase, palette),
-                frame.Duration);
-        }
-    }
+    private void AdvanceAnimation() => _animation.Advance();
 }

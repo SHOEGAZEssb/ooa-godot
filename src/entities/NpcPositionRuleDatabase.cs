@@ -12,15 +12,9 @@ namespace oracleofages;
 /// </summary>
 public sealed class NpcPositionRuleDatabase
 {
-    private enum StateKind
-    {
-        GameProgress2,
-        CurrentRoomFlag
-    }
-
     private readonly record struct Rule(
         int Var03,
-        StateKind Kind,
+        NpcStoryStateKind Kind,
         int Value,
         int Y,
         int X,
@@ -38,7 +32,7 @@ public sealed class NpcPositionRuleDatabase
             int Id,
             int SubId,
             int Var03,
-            StateKind Kind,
+            NpcStoryStateKind Kind,
             int Value)>();
         foreach (string rawLine in source.Split(
             '\n', StringSplitOptions.RemoveEmptyEntries))
@@ -56,19 +50,14 @@ public sealed class NpcPositionRuleDatabase
             int var03 = fields[2] == "*"
                 ? -1
                 : Convert.ToInt32(fields[2], 16);
-            StateKind kind = fields[3] switch
-            {
-                "game-progress-2" => StateKind.GameProgress2,
-                "current-room-flag" => StateKind.CurrentRoomFlag,
-                _ => throw new InvalidOperationException(
-                    $"Unknown NPC position state kind '{fields[3]}'.")
-            };
+            NpcStoryStateKind kind = NpcStoryState.ParseKind(fields[3], "position");
             int value = Convert.ToInt32(fields[4], 16);
             int y = Convert.ToInt32(fields[5], 16);
             int x = Convert.ToInt32(fields[6], 16);
             if (value is < 0 or > 0xff ||
-                kind == StateKind.GameProgress2 && value > 7 ||
-                kind == StateKind.CurrentRoomFlag && value == 0 ||
+                kind == NpcStoryStateKind.GameProgress1 ||
+                kind == NpcStoryStateKind.GameProgress2 && value > 7 ||
+                kind == NpcStoryStateKind.CurrentRoomFlag && value == 0 ||
                 y is < 0 or > 0xff ||
                 x is < 0 or > 0xff ||
                 !uniqueRules.Add((id, subId, var03, kind, value)))
@@ -77,7 +66,7 @@ public sealed class NpcPositionRuleDatabase
                     $"Invalid NPC position rule: {line}");
             }
 
-            int key = MakeKey(id, subId);
+            int key = NpcStoryState.InteractionKey(id, subId);
             if (!_byInteraction.TryGetValue(key, out List<Rule>? rules))
             {
                 rules = new List<Rule>();
@@ -96,7 +85,7 @@ public sealed class NpcPositionRuleDatabase
     {
         position = new Vector2(npc.X, npc.Y);
         if (!_byInteraction.TryGetValue(
-            MakeKey(npc.Id, npc.SubId), out List<Rule>? rules))
+            NpcStoryState.InteractionKey(npc.Id, npc.SubId), out List<Rule>? rules))
         {
             return false;
         }
@@ -107,7 +96,7 @@ public sealed class NpcPositionRuleDatabase
             return false;
 
         List<Rule> matches = applicable.Where(rule =>
-            GetState(rule, npc, save) == rule.Value).ToList();
+            NpcStoryState.GetState(rule.Kind, rule.Value, npc, save) == rule.Value).ToList();
         if (matches.Count > 1)
         {
             throw new InvalidOperationException(
@@ -119,19 +108,4 @@ public sealed class NpcPositionRuleDatabase
         return true;
     }
 
-    private static int GetState(
-        Rule rule,
-        NpcDatabase.NpcRecord npc,
-        OracleSaveData save) =>
-        rule.Kind switch
-        {
-            StateKind.GameProgress2 =>
-                NpcVisibilityRuleDatabase.GetGameProgress2(save),
-            StateKind.CurrentRoomFlag => save.HasRoomFlag(
-                npc.Group, npc.Room, (byte)rule.Value) ? rule.Value : 0,
-            _ => throw new InvalidOperationException(
-                $"Unhandled NPC position rule from {rule.Source}.")
-        };
-
-    private static int MakeKey(int id, int subId) => (id << 8) | subId;
 }

@@ -3,7 +3,7 @@ using Godot;
 namespace oracleofages;
 
 /// <summary>PART_ENEMY_ARROW $1a fired by masked Moblins.</summary>
-public partial class EnemyArrowProjectile : Node2D
+public partial class EnemyArrowProjectile : TransitionOffsetNode2D
 {
     internal enum ArrowState { Flying, Bouncing }
     private const int BounceSpeedZ = -0xe0;
@@ -24,7 +24,6 @@ public partial class EnemyArrowProjectile : Node2D
     private Texture2D _bounceTexture = null!;
     private int _angle;
     private Vector2 _radii;
-    private Vector2 _transitionDrawOffset;
     private ArrowState _state;
     private int _counter;
     private int _zFixed;
@@ -121,18 +120,12 @@ public partial class EnemyArrowProjectile : Node2D
         return true;
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     public override void _Draw()
     {
         if (!Finished)
             DrawTexture(
                 _state == ArrowState.Bouncing ? _bounceTexture : _texture,
-                new Vector2(-16, -16 + (_zFixed >> 8)) + _transitionDrawOffset);
+                new Vector2(-16, -16 + (_zFixed >> 8)) + TransitionDrawOffset);
     }
 
     private void BeginBounce()

@@ -252,7 +252,7 @@ internal sealed class Room149BallRoomEntity(
 }
 
 /// <summary>INTERAC_BALL $95, including its exact 8.8 parabolic flight.</summary>
-internal partial class Room149Ball : Node2D
+internal partial class Room149Ball : TransitionOffsetNode2D
 {
     private const int InitialY = 0x4a;
     private const int BoyX = 0x75;
@@ -262,7 +262,6 @@ internal partial class Room149Ball : Node2D
     private const int Gravity = 0x20;
 
     private Texture2D _texture = null!;
-    private Vector2 _transitionDrawOffset;
     private int _direction;
     private float _preciseX;
     private int _zFixed;
@@ -343,12 +342,6 @@ internal partial class Room149Ball : Node2D
         QueueRedraw();
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     public override void _Draw()
     {
         if (_active)
@@ -356,7 +349,7 @@ internal partial class Room149Ball : Node2D
             DrawTexture(
                 _texture,
                 new Vector2(-16, -16 + (_zFixed >> 8)) +
-                    _transitionDrawOffset);
+                    TransitionDrawOffset);
         }
     }
 }

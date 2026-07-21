@@ -1036,12 +1036,7 @@ internal sealed class ImpaIntroEvent : IRoomEvent, ICutsceneCommandHost
         }
     }
 
-    bool ICutsceneCommandHost.DialogueOpen => _context.DialogueOpen;
-    bool ICutsceneCommandHost.IsLinkedGame =>
-        _context.Rooms.SaveData.IsLinkedGame;
-    int ICutsceneCommandHost.FrameCounter => _context.Entities.FrameCounter;
-    ICutsceneCommandTraceSink? ICutsceneCommandHost.TraceSink =>
-        _context.CommandTraceSink;
+    RoomEventContext ICutsceneCommandHost.Context => _context;
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value == "Impa";
 
@@ -1234,9 +1229,6 @@ internal sealed class ImpaIntroEvent : IRoomEvent, ICutsceneCommandHost
         throw new InvalidOperationException(
             $"The active Impa command stream cannot write '{binding}'=${value:x2}.");
     }
-
-    void ICutsceneCommandHost.PlaySound(int sound) =>
-        _context.Sound.PlaySound(sound);
 
     void ICutsceneCommandHost.SetGlobalFlag(int flag) =>
         throw new InvalidOperationException(

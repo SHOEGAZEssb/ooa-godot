@@ -61,7 +61,8 @@ public partial class PushBlockController : Node2D
         if (_active)
             return;
 
-        if (!TryGetCardinalInput(movementInput, out Vector2I direction) || direction != facing ||
+        if (!InteractableTilePushGeometry.TryGetCardinalInput(
+                movementInput, out Vector2I direction) || direction != facing ||
             !TryGetCandidate(linkPosition, direction, hasBracelet, out int position,
                 out Vector2 topLeft, out byte tile,
                 out PushableTileDatabase.PushableTileRecord record))
@@ -128,14 +129,15 @@ public partial class PushBlockController : Node2D
     {
         OracleRoomData room = _rooms.CurrentRoom;
         record = default;
-        if (!IsAlignedForPush(linkPosition))
+        if (!InteractableTilePushGeometry.IsAlignedForPush(linkPosition))
         {
             position = -1;
             topLeft = Vector2.Zero;
             tile = 0xff;
             return false;
         }
-        Vector2 frontPoint = linkPosition + FrontTileOffset(direction);
+        Vector2 frontPoint = linkPosition +
+            InteractableTilePushGeometry.FrontTileOffset(direction);
         position = room.GetPackedPosition(frontPoint);
         int tileX = position & 0x0f;
         int tileY = position >> 4;
@@ -145,7 +147,8 @@ public partial class PushBlockController : Node2D
         tile = room.GetMetatile(frontPoint);
         if (tile == 0xff || !_tiles.TryGet(room.ActiveCollisions, tile, out record) ||
             (record.RequiresBracelet && !hasBracelet) ||
-            (!record.AllowsEveryDirection && record.RequiredDirection != DirectionIndex(direction)))
+            (!record.AllowsEveryDirection && record.RequiredDirection !=
+                InteractableTilePushGeometry.DirectionIndex(direction)))
         {
             return false;
         }
@@ -219,50 +222,4 @@ public partial class PushBlockController : Node2D
         _candidateDirection = Vector2I.Zero;
     }
 
-    private static bool TryGetCardinalInput(Vector2 input, out Vector2I direction)
-    {
-        const float threshold = 0.01f;
-        bool horizontal = Mathf.Abs(input.X) > threshold;
-        bool vertical = Mathf.Abs(input.Y) > threshold;
-        if (horizontal == vertical)
-        {
-            direction = Vector2I.Zero;
-            return false;
-        }
-        direction = horizontal
-            ? (input.X > 0 ? Vector2I.Right : Vector2I.Left)
-            : (input.Y > 0 ? Vector2I.Down : Vector2I.Up);
-        return true;
-    }
-
-    private static bool IsAlignedForPush(Vector2 position)
-    {
-        static bool AxisIsAwayFromCorner(float coordinate)
-        {
-            int withinTile = Mathf.PosMod(Mathf.FloorToInt(coordinate),
-                OracleRoomData.MetatileSize);
-            return withinTile is >= 3 and <= 13;
-        }
-
-        // interactableTiles.s:@func_433f accepts the push when at least one
-        // coordinate is in $03-$0d, preventing Link from pushing while both
-        // coordinates place him in a metatile corner.
-        return AxisIsAwayFromCorner(position.Y) || AxisIsAwayFromCorner(position.X);
-    }
-
-    private static Vector2 FrontTileOffset(Vector2I direction) => direction switch
-    {
-        var d when d == Vector2I.Up => new Vector2(0, -4),
-        var d when d == Vector2I.Right => new Vector2(7, 0),
-        var d when d == Vector2I.Down => new Vector2(0, 8),
-        _ => new Vector2(-8, 0)
-    };
-
-    private static int DirectionIndex(Vector2I direction) => direction switch
-    {
-        var d when d == Vector2I.Up => 0,
-        var d when d == Vector2I.Right => 1,
-        var d when d == Vector2I.Down => 2,
-        _ => 3
-    };
 }

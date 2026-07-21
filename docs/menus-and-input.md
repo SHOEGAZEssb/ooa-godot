@@ -143,3 +143,8 @@ background colors. Entering either erase selection or erase confirmation swaps
 background palettes 2-6 to `PALH_06` (`paletteData58a0`); this includes the
 live heart and death-counter tiles. File-menu sprite palettes are unchanged.
 Returning from erase mode restores `PALH_05`.
+
+`FileMenuPresentation` assembles the shared top/middle/bottom file-menu
+tilemaps and draws the common decorative OAM list used by file select and the
+in-game save/quit screen. Page-specific maps, cursor coordinates, palette
+selection, and live file data remain owned by their screens.

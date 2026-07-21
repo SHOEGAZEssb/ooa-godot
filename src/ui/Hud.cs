@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using static oracleofages.OracleGraphicsData;
 
 namespace oracleofages;
 
@@ -306,11 +307,6 @@ public partial class Hud : Node2D
                 DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
                     _itemPalettes[palette, shade]);
         }
-    }
-
-    private static Image LoadPng(string path)
-    {
-        return OracleGraphicsCache.LoadImage(path);
     }
 
     // paletteData48e0, background palette 0 used by the status bar.

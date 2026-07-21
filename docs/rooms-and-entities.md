@@ -99,6 +99,11 @@ Shared combat, terrain movement, vertical motion, and animation components may
 remove mechanical duplication. Species state machines stay separate so their
 counter order and branch behavior remain traceable to the source. Spawn records
 state whether a child updates in the creation frame; preserve that distinction.
+Drawable room nodes inherit `TransitionOffsetNode2D`; it owns only the
+presentation offset applied during scrolling and never changes logical
+room/world coordinates. Enemies with ordinary imported frame clocks use
+`EnemyAnimationPlayer`, while each species retains its own decisions, counters,
+movement, and RNG consumption.
 
 Active Shovel use keeps parent-item timing in `Player` and delegates the
 update-4 child probe to `ShovelController`. The controller reads
@@ -188,7 +193,8 @@ the next update. These mechanics do not depend on save/story predicates.
 
 Small-key doors are tile interactions, not placed `$1e` room objects.
 `DungeonKeyDoorController` probes imported tiles `$70-$73` through the same
-front-tile push path as blocks. `nextToKeyDoor` initializes its shared counter
+front-tile push geometry as blocks, centralized in
+`InteractableTilePushGeometry`. `nextToKeyDoor` initializes its shared counter
 to 20 but decrements it twice per qualifying update, so the key check occurs on
 the tenth continuous push. Success consumes exactly one key from the current
 dungeon, spawns `INTERAC_DUNGEON_KEY_SPRITE $17`, and sets the directional room

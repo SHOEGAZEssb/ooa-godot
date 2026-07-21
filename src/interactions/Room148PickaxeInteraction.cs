@@ -108,10 +108,9 @@ internal sealed class Room148DebrisRoomEntity(Room148PickaxeDebris debris)
 /// integration. OAM flag bit 3 addresses fixed VRAM bank 1, so tile base $02
 /// comes from spr_common_sprites rather than the worker's dynamic sprite slot.
 /// </summary>
-internal partial class Room148PickaxeDebris : Node2D
+internal partial class Room148PickaxeDebris : TransitionOffsetNode2D
 {
     private Texture2D _texture = null!;
-    private Vector2 _transitionDrawOffset;
     private Vector2 _precisePosition;
     private int _speed;
     private int _gravity;
@@ -184,12 +183,6 @@ internal partial class Room148PickaxeDebris : Node2D
         QueueRedraw();
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     public override void _Draw()
     {
         if (!Finished)
@@ -197,7 +190,7 @@ internal partial class Room148PickaxeDebris : Node2D
             DrawTexture(
                 _texture,
                 new Vector2(-16, -16 + (ZFixed >> 8)) +
-                    _transitionDrawOffset);
+                    TransitionDrawOffset);
         }
     }
 }

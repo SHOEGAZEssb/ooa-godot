@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using static oracleofages.OracleGraphicsData;
 
 namespace oracleofages;
 
@@ -167,14 +168,6 @@ public sealed class OracleWorldData
             result[shade] = Color.Color8(r, g, b);
         }
         return result;
-    }
-
-    private static byte[] ReadBytes(string path, int expectedLength)
-    {
-        byte[] data = Godot.FileAccess.GetFileAsBytes(path);
-        if (data.Length != expectedLength)
-            throw new InvalidOperationException($"{path} should contain {expectedLength} bytes, got {data.Length}.");
-        return data;
     }
 
     private static string GetRoomPath(int layoutGroup, int room)

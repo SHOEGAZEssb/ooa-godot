@@ -203,6 +203,12 @@ The event implements `ICutsceneCommandHost`. Host methods must validate that
 the requested operation is legal for the active script instead of silently
 ignoring unsupported behavior.
 
+Room-backed hosts expose their `RoomEventContext` once. The interface supplies
+the identical dialogue/link/frame/trace reads plus ordinary sound, input, and
+global-flag forwarding. An event overrides those defaults whenever its source
+stream rejects an operation, validates a specific operand, or performs extra
+state changes; shared forwarding must not weaken those source-aware checks.
+
 Always clear runners when an event is cancelled, a room unload invalidates its
 actors, or native completion takes ownership. Do not accumulate ordinary event
 updates during scrolling unless the original object is explicitly updated

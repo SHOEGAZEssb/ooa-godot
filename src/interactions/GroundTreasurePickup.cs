@@ -8,7 +8,7 @@ namespace oracleofages;
 /// State 0 initializes graphics, state 1 performs the selected spawn, and
 /// collection holds the object above Link until its textbox closes.
 /// </summary>
-public partial class GroundTreasurePickup : Node2D
+public partial class GroundTreasurePickup : TransitionOffsetNode2D
 {
     internal enum PickupState
     {
@@ -21,7 +21,6 @@ public partial class GroundTreasurePickup : Node2D
     private const float CombinedCollisionRadius = 12.0f;
     private Texture2D _texture = null!;
     private Vector2 _textureOffset;
-    private Vector2 _transitionDrawOffset;
     private Action<int> _soundRequested = static _ => { };
     private PickupState _state;
     private int _spawnSubstate;
@@ -167,21 +166,13 @@ public partial class GroundTreasurePickup : Node2D
         QueueRedraw();
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        if (_transitionDrawOffset.IsEqualApprox(offset))
-            return;
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     public override void _Draw()
     {
         if (!Finished)
         {
             DrawTexture(
                 _texture,
-                _textureOffset + _transitionDrawOffset +
+                _textureOffset + TransitionDrawOffset +
                 new Vector2(0, _zFixed >> 8));
         }
     }

@@ -61,8 +61,10 @@ public partial class DungeonKeyDoorController : Node
         if (_opening)
             return;
 
-        if (!TryGetCardinalInput(movementInput, out Vector2I direction) ||
-            direction != facing || !IsAlignedForPush(linkPosition) ||
+        if (!InteractableTilePushGeometry.TryGetCardinalInput(
+                movementInput, out Vector2I direction) ||
+            direction != facing ||
+            !InteractableTilePushGeometry.IsAlignedForPush(linkPosition) ||
             !TryGetDoor(linkPosition, direction, out int position,
                 out Vector2 center, out DungeonKeyDoorDatabase.Record door))
         {
@@ -130,7 +132,8 @@ public partial class DungeonKeyDoorController : Node
         out DungeonKeyDoorDatabase.Record door)
     {
         OracleRoomData room = _rooms.CurrentRoom;
-        Vector2 frontPoint = linkPosition + FrontTileOffset(direction);
+        Vector2 frontPoint = linkPosition +
+            InteractableTilePushGeometry.FrontTileOffset(direction);
         position = room.GetPackedPosition(frontPoint);
         int tileX = position & 0x0f;
         int tileY = position >> 4;
@@ -173,7 +176,7 @@ public partial class DungeonKeyDoorController : Node
         _door = door;
         _rooms.CurrentRoom.SetInterleavedMetatile(
             center, door.OpenTile, door.ClosedTile,
-            DirectionIndex(door.Direction), _animationTick());
+            InteractableTilePushGeometry.DirectionIndex(door.Direction), _animationTick());
         _playSound(door.DoorSound);
         _openingCounter = door.DoorFrameWait;
         _openingTicks = 0.0;
@@ -188,48 +191,4 @@ public partial class DungeonKeyDoorController : Node
         _candidateDirection = Vector2I.Zero;
     }
 
-    private static bool TryGetCardinalInput(Vector2 input, out Vector2I direction)
-    {
-        const float threshold = 0.01f;
-        bool horizontal = Mathf.Abs(input.X) > threshold;
-        bool vertical = Mathf.Abs(input.Y) > threshold;
-        if (horizontal == vertical)
-        {
-            direction = Vector2I.Zero;
-            return false;
-        }
-        direction = horizontal
-            ? (input.X > 0 ? Vector2I.Right : Vector2I.Left)
-            : (input.Y > 0 ? Vector2I.Down : Vector2I.Up);
-        return true;
-    }
-
-    private static bool IsAlignedForPush(Vector2 position)
-    {
-        static bool AxisIsAwayFromCorner(float coordinate)
-        {
-            int withinTile = Mathf.PosMod(Mathf.FloorToInt(coordinate),
-                OracleRoomData.MetatileSize);
-            return withinTile is >= 3 and <= 13;
-        }
-
-        return AxisIsAwayFromCorner(position.Y) ||
-            AxisIsAwayFromCorner(position.X);
-    }
-
-    private static Vector2 FrontTileOffset(Vector2I direction) => direction switch
-    {
-        var d when d == Vector2I.Up => new Vector2(0, -4),
-        var d when d == Vector2I.Right => new Vector2(7, 0),
-        var d when d == Vector2I.Down => new Vector2(0, 8),
-        _ => new Vector2(-8, 0)
-    };
-
-    private static int DirectionIndex(Vector2I direction) => direction switch
-    {
-        var d when d == Vector2I.Up => 0,
-        var d when d == Vector2I.Right => 1,
-        var d when d == Vector2I.Down => 2,
-        _ => 3
-    };
 }

@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using static oracleofages.OracleGraphicsData;
 
 namespace oracleofages;
 
@@ -126,16 +127,4 @@ public partial class NayruSingingScreen : Control
             tiles[bank, (firstTile + tile) & 0xff] = (source, tile);
     }
 
-    private static Image LoadPng(string path)
-    {
-        return OracleGraphicsCache.LoadImage(path);
-    }
-
-    private static byte[] ReadBytes(string path, int expected)
-    {
-        byte[] bytes = FileAccess.GetFileAsBytes(path);
-        if (bytes.Length != expected)
-            throw new InvalidOperationException($"{path} should contain {expected} bytes, got {bytes.Length}.");
-        return bytes;
-    }
 }

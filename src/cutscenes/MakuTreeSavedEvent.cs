@@ -90,12 +90,7 @@ internal sealed class MakuTreeSavedEvent : IRoomEntryEvent, ICutsceneCommandHost
         _runner.Clear();
     }
 
-    bool ICutsceneCommandHost.DialogueOpen => _context.DialogueOpen;
-    bool ICutsceneCommandHost.IsLinkedGame =>
-        _context.Rooms.SaveData.IsLinkedGame;
-    int ICutsceneCommandHost.FrameCounter => _context.Entities.FrameCounter;
-    ICutsceneCommandTraceSink? ICutsceneCommandHost.TraceSink =>
-        _context.CommandTraceSink;
+    RoomEventContext ICutsceneCommandHost.Context => _context;
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value == MakuTreeActor;
 
@@ -219,9 +214,6 @@ internal sealed class MakuTreeSavedEvent : IRoomEntryEvent, ICutsceneCommandHost
         }
         _context.Rooms.SaveData.SetMakuMapTextPresent(value);
     }
-
-    void ICutsceneCommandHost.PlaySound(int sound) =>
-        _context.Sound.PlaySound(sound);
 
     void ICutsceneCommandHost.SetMusic(int music)
     {

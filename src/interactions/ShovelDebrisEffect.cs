@@ -18,7 +18,7 @@ internal sealed class ShovelDebrisRoomEntity(ShovelDebrisEffect debris)
 /// INTERAC_SHOVELDEBRIS ($0a): one 14-update directional frame moving at
 /// SPEED_80 with speedZ=-$240 and gravity $60.
 /// </summary>
-internal partial class ShovelDebrisEffect : Node2D
+internal partial class ShovelDebrisEffect : TransitionOffsetNode2D
 {
     private const int LifetimeFrames = 14;
     private const int InitialSpeedZ = -0x240;
@@ -34,7 +34,6 @@ internal partial class ShovelDebrisEffect : Node2D
     };
 
     private Texture2D _texture = null!;
-    private Vector2 _transitionDrawOffset;
     private Vector2 _precisePosition;
     private Vector2I _direction;
     private int _zFixed;
@@ -79,12 +78,6 @@ internal partial class ShovelDebrisEffect : Node2D
         QueueRedraw();
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     public override void _Draw()
     {
         if (!Finished)
@@ -92,7 +85,7 @@ internal partial class ShovelDebrisEffect : Node2D
             DrawTexture(
                 _texture,
                 new Vector2(-16, -16 + (_zFixed >> 8)) +
-                    _transitionDrawOffset);
+                    TransitionDrawOffset);
         }
     }
 

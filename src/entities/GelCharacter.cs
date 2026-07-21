@@ -3,7 +3,7 @@ using System;
 
 namespace oracleofages;
 
-public partial class GelCharacter : Node2D
+public partial class GelCharacter : TransitionOffsetNode2D
 {
     internal enum GelState
     {
@@ -29,7 +29,6 @@ public partial class GelCharacter : Node2D
     private int _angle;
     private int _health;
     private bool _collisionEnabled;
-    private Vector2 _transitionDrawOffset;
 
     public bool IsDead { get; private set; }
     public bool DiedInHazard { get; private set; }
@@ -47,7 +46,6 @@ public partial class GelCharacter : Node2D
     internal int AnimationIndex => _animation.AnimationIndex;
     internal int CurrentAnimationFrame => _animation.FrameIndex;
     internal bool CollisionEnabled => _collisionEnabled;
-    internal Vector2 TransitionDrawOffset => _transitionDrawOffset;
 
     internal void Initialize(
         EnemyDatabase.GelDefinition definition,
@@ -197,14 +195,6 @@ public partial class GelCharacter : Node2D
         return true;
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        if (_transitionDrawOffset.IsEqualApprox(offset))
-            return;
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     internal void SetStateForValidation(
         GelState state,
         int counter1 = 0,
@@ -225,7 +215,7 @@ public partial class GelCharacter : Node2D
         DrawTexture(
             _animation.CurrentTexture,
             new Vector2(-16, -16 + (_verticalMotion.ZFixed >> 8)) +
-                _transitionDrawOffset);
+                TransitionDrawOffset);
     }
 
     private void BeginHop(int angle)

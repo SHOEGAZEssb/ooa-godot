@@ -2031,23 +2031,11 @@ internal sealed class NayruIntroEvent : IRoomEvent, ICutsceneCommandHost
                 value,
                 position));
 
-    bool ICutsceneCommandHost.DialogueOpen => _context.DialogueOpen;
-    bool ICutsceneCommandHost.IsLinkedGame => _rooms.SaveData.IsLinkedGame;
-    int ICutsceneCommandHost.FrameCounter => _entities.FrameCounter;
-    ICutsceneCommandTraceSink? ICutsceneCommandHost.TraceSink =>
-        _context.CommandTraceSink;
+    RoomEventContext ICutsceneCommandHost.Context => _context;
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value is "Player" or "Impa" or "GhostVeran" or "HumanVeran" or
             "RalphSword" or "AftermathRalph" or "AftermathImpa" ||
         _nayruDatabase.HasActor(actor.Value);
-
-    void ICutsceneCommandHost.SetInputEnabled(bool enabled)
-    {
-        if (enabled)
-            _player.EndCutsceneControl();
-        else
-            _player.BeginCutsceneControl();
-    }
 
     void ICutsceneCommandHost.SetMenuEnabled(bool enabled)
     {
@@ -2128,12 +2116,6 @@ internal sealed class NayruIntroEvent : IRoomEvent, ICutsceneCommandHost
     void ICutsceneCommandHost.WriteMemory(string binding, int value) =>
         throw new InvalidOperationException(
             $"Unknown Nayru cutscene memory binding '{binding}'.");
-
-    void ICutsceneCommandHost.PlaySound(int sound) =>
-        _context.Sound.PlaySound(sound);
-
-    void ICutsceneCommandHost.SetGlobalFlag(int flag) =>
-        _rooms.SaveData.SetGlobalFlag(flag);
 
     void ICutsceneCommandHost.OrRoomFlag(int flag) =>
         _rooms.SaveData.SetRoomFlag(

@@ -13,16 +13,9 @@ namespace oracleofages;
 /// </summary>
 public sealed class NpcDialogueRuleDatabase
 {
-    private enum StateKind
-    {
-        GameProgress1,
-        GameProgress2,
-        CurrentRoomFlag
-    }
-
     private readonly record struct Rule(
         int Var03,
-        StateKind Kind,
+        NpcStoryStateKind Kind,
         int Value,
         int Linked,
         int TextId,
@@ -43,7 +36,7 @@ public sealed class NpcDialogueRuleDatabase
             int Id,
             int SubId,
             int Var03,
-            StateKind Kind,
+            NpcStoryStateKind Kind,
             int Value,
             int Linked)>();
         foreach (string rawLine in source.Split('\n', StringSplitOptions.RemoveEmptyEntries))
@@ -58,14 +51,7 @@ public sealed class NpcDialogueRuleDatabase
             int id = Convert.ToInt32(fields[0], 16);
             int subId = Convert.ToInt32(fields[1], 16);
             int var03 = fields[2] == "*" ? -1 : Convert.ToInt32(fields[2], 16);
-            StateKind kind = fields[3] switch
-            {
-                "game-progress-1" => StateKind.GameProgress1,
-                "game-progress-2" => StateKind.GameProgress2,
-                "current-room-flag" => StateKind.CurrentRoomFlag,
-                _ => throw new InvalidOperationException(
-                    $"Unknown NPC dialogue state kind '{fields[3]}'.")
-            };
+            NpcStoryStateKind kind = NpcStoryState.ParseKind(fields[3], "dialogue");
             int value = Convert.ToInt32(fields[4], 16);
             int linked = fields[5] switch
             {
@@ -78,16 +64,16 @@ public sealed class NpcDialogueRuleDatabase
             int textId = Convert.ToInt32(fields[6], 16);
             string message = Encoding.UTF8.GetString(Convert.FromBase64String(fields[8]));
             if (value < 0 ||
-                kind == StateKind.GameProgress1 && value > 5 ||
-                kind == StateKind.GameProgress2 && value > 7 ||
-                kind == StateKind.CurrentRoomFlag && value == 0 ||
+                kind == NpcStoryStateKind.GameProgress1 && value > 5 ||
+                kind == NpcStoryStateKind.GameProgress2 && value > 7 ||
+                kind == NpcStoryStateKind.CurrentRoomFlag && value == 0 ||
                 textId == 0 || string.IsNullOrEmpty(message) ||
                 !uniqueRules.Add((id, subId, var03, kind, value, linked)))
             {
                 throw new InvalidOperationException($"Invalid NPC dialogue rule: {line}");
             }
 
-            int key = MakeKey(id, subId);
+            int key = NpcStoryState.InteractionKey(id, subId);
             if (!_byInteraction.TryGetValue(key, out List<Rule>? rules))
             {
                 rules = new List<Rule>();
@@ -105,13 +91,14 @@ public sealed class NpcDialogueRuleDatabase
         out Dialogue dialogue)
     {
         dialogue = default;
-        if (!_byInteraction.TryGetValue(MakeKey(npc.Id, npc.SubId), out List<Rule>? rules))
+        if (!_byInteraction.TryGetValue(
+            NpcStoryState.InteractionKey(npc.Id, npc.SubId), out List<Rule>? rules))
             return false;
 
         List<Rule> matches = rules.Where(rule =>
             (rule.Var03 < 0 || rule.Var03 == npc.Var03) &&
             (rule.Linked < 0 || rule.Linked == (save.IsLinkedGame ? 1 : 0)) &&
-            GetState(rule, npc, save) == rule.Value).ToList();
+            NpcStoryState.GetState(rule.Kind, rule.Value, npc, save) == rule.Value).ToList();
         if (matches.Count > 1)
         {
             throw new InvalidOperationException(
@@ -124,18 +111,4 @@ public sealed class NpcDialogueRuleDatabase
         return true;
     }
 
-    private static int GetState(
-        Rule rule,
-        NpcDatabase.NpcRecord npc,
-        OracleSaveData save) => rule.Kind switch
-    {
-        StateKind.GameProgress1 => NpcVisibilityRuleDatabase.GetGameProgress1(save),
-        StateKind.GameProgress2 => NpcVisibilityRuleDatabase.GetGameProgress2(save),
-        StateKind.CurrentRoomFlag => save.HasRoomFlag(
-            npc.Group, npc.Room, (byte)rule.Value) ? rule.Value : 0,
-        _ => throw new InvalidOperationException(
-            $"Unhandled NPC dialogue rule from {rule.Source}.")
-    };
-
-    private static int MakeKey(int id, int subId) => (id << 8) | subId;
 }

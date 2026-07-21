@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using static oracleofages.OracleGraphicsData;
 
 namespace oracleofages;
 
@@ -146,15 +147,6 @@ internal partial class BlackTowerExplanationScreen : Control
         int count = source.GetWidth() / 8 * (source.GetHeight() / 8);
         for (int tile = 0; tile < count; tile++)
             tiles[bank, (firstTile + tile) & 0xff] = (source, tile);
-    }
-
-    private static byte[] ReadBytes(string path, int expected)
-    {
-        byte[] result = FileAccess.GetFileAsBytes(path);
-        if (result.Length != expected)
-            throw new InvalidOperationException(
-                $"{path} should contain {expected} bytes, got {result.Length}.");
-        return result;
     }
 
     private static ulong Hash(Image image)

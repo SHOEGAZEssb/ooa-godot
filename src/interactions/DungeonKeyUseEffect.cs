@@ -19,11 +19,10 @@ internal sealed class DungeonKeyUseRoomEntity(DungeonKeyUseEffect effect)
 /// INTERAC_DUNGEON_KEY_SPRITE $17, small-key subid $00. The key stays four
 /// pixels above the door for eight updates, then eight pixels above it for 20.
 /// </summary>
-internal partial class DungeonKeyUseEffect : Node2D
+internal partial class DungeonKeyUseEffect : TransitionOffsetNode2D
 {
     private Texture2D _texture = null!;
     private Vector2 _textureOffset;
-    private Vector2 _transitionDrawOffset;
     private int _phase;
     private int _counter;
     private int _z;
@@ -80,19 +79,11 @@ internal partial class DungeonKeyUseEffect : Node2D
         Visible = false;
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        if (_transitionDrawOffset.IsEqualApprox(offset))
-            return;
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     public override void _Draw()
     {
         if (!Finished)
             DrawTexture(
                 _texture,
-                _textureOffset + new Vector2(0, _z) + _transitionDrawOffset);
+                _textureOffset + new Vector2(0, _z) + TransitionDrawOffset);
     }
 }

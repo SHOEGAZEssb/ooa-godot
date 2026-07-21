@@ -133,6 +133,11 @@ reproduce different original effects:
   coordinates without introducing per-update motion. A living actor without a
   matching state uses its original room-object coordinates.
 
+The databases keep these three semantic outputs separate, but share
+`NpcStoryState` for interaction keys, current-room-flag evaluation, and the
+exact `getGameProgress_1`/`getGameProgress_2` state domains. Add a new shared
+state selector there rather than copying progress logic between rule readers.
+
 `RoomEntityManager` reevaluates these rules when `OracleSaveData` or
 `OracleRuntimeState` changes. Ordinary visibility uses `SetFlagVisible` rather
 than destroying the Godot node, allowing mutually exclusive imported variants

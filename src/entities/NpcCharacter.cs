@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-public partial class NpcCharacter : Node2D
+public partial class NpcCharacter : TransitionOffsetNode2D
 {
     // objectSetPriorityRelativeToLink compares the NPC's yh against
     // w1Link.yh+$0b. Interactions are queued before Link, so matching Link's
@@ -33,7 +33,6 @@ public partial class NpcCharacter : Node2D
     private int _animationFrame;
     private double _animationTicks;
     private double _faceCooldownFrames;
-    private Vector2 _transitionDrawOffset;
     private Vector2 _scriptDrawOffset;
     private bool _scriptAnimationActive;
     private int _scriptAnimationLoopStart;
@@ -127,7 +126,6 @@ public partial class NpcCharacter : Node2D
     internal string CurrentScriptAnimationSource => _scriptAnimationSource;
     internal float AnimationRate => _animationRate;
     internal int SourceGraphicsWidth => _sourceImage.GetWidth();
-    public Vector2 TransitionDrawOffset => _transitionDrawOffset;
     public Vector2I FacingVector => _facing switch
     {
         Facing.Up => Vector2I.Up,
@@ -331,15 +329,6 @@ public partial class NpcCharacter : Node2D
 
     internal void ClearFixedDrawPriority() => _fixedDrawPriority = null;
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        if (_transitionDrawOffset.IsEqualApprox(offset))
-            return;
-
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     internal void SetScriptDrawOffset(Vector2 offset)
     {
         if (_scriptDrawOffset.IsEqualApprox(offset))
@@ -536,7 +525,7 @@ public partial class NpcCharacter : Node2D
         if (animation.Count > 0)
         {
             AnimationFrame frame = animation[_animationFrame % animation.Count];
-            DrawTexture(frame.Texture, frame.Offset + _transitionDrawOffset + _scriptDrawOffset);
+            DrawTexture(frame.Texture, frame.Offset + TransitionDrawOffset + _scriptDrawOffset);
         }
     }
 

@@ -157,6 +157,13 @@ offset, 8x16 interleaving, flips, palette flags, and priority. Parsed OAM text
 alone does not prove an assembled sprite is correct. See
 [Graphics and audio](graphics-and-audio.md).
 
+Within `Import-EnemyData.ps1`, all enemy, part, and interaction OAM labels pass
+through one count-checked `Resolve-Oam` parser; callers still select their own
+source file, pointer table, animation terminator, and parameter semantics.
+`Import-NpcData.ps1` likewise resolves progress-indexed dialogue table bodies
+through one label/routine/count check before its progress-1 and progress-2
+exporters apply their distinct state and linked-game rules.
+
 NPC placement, state predicates, linked native interactions, and story event
 records follow the ownership and validation workflow in
 [NPCs and room events](npcs-and-events.md).

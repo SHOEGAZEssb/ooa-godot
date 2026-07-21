@@ -3,7 +3,7 @@ using System;
 
 namespace oracleofages;
 
-public partial class ZolCharacter : Node2D
+public partial class ZolCharacter : TransitionOffsetNode2D
 {
     internal enum ZolState
     {
@@ -38,7 +38,6 @@ public partial class ZolCharacter : Node2D
     private int _angle;
     private int _health;
     private bool _collisionEnabled;
-    private Vector2 _transitionDrawOffset;
 
     public EnemyDatabase.ZolRecord Record { get; private set; }
     public bool IsDead { get; private set; }
@@ -57,7 +56,6 @@ public partial class ZolCharacter : Node2D
     internal int AnimationIndex => _animation.AnimationIndex;
     internal int CurrentAnimationFrame => _animation.FrameIndex;
     internal int AnimationParameter => _animation.CurrentParameter;
-    internal Vector2 TransitionDrawOffset => _transitionDrawOffset;
 
     internal void Initialize(
         EnemyDatabase.ZolRecord record,
@@ -285,14 +283,6 @@ public partial class ZolCharacter : Node2D
         return true;
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        if (_transitionDrawOffset.IsEqualApprox(offset))
-            return;
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     internal void SetStateForValidation(
         ZolState state,
         int counter1 = 0,
@@ -316,7 +306,7 @@ public partial class ZolCharacter : Node2D
         DrawTexture(
             _animation.CurrentTexture,
             new Vector2(-16, -16 + (_verticalMotion.ZFixed >> 8)) +
-                _transitionDrawOffset);
+                TransitionDrawOffset);
     }
 
     private void BounceOffScreenBoundary()

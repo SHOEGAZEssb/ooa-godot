@@ -1,14 +1,11 @@
 using Godot;
 using System;
-using System.Collections.Generic;
 
 namespace oracleofages;
 
-public partial class KeeseCharacter : Node2D
+public partial class KeeseCharacter : TransitionOffsetNode2D
 {
     internal enum KeeseState { Resting, Moving, Decelerating }
-
-    private sealed record AnimationFrame(Texture2D Texture, int Duration);
 
     private const float SpeedC0 = 0.75f;
     private const float Speed100 = 1.0f;
@@ -46,8 +43,7 @@ public partial class KeeseCharacter : Node2D
         0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01
     };
 
-    private readonly List<AnimationFrame> _idleAnimation = new();
-    private readonly List<AnimationFrame> _flyAnimation = new();
+    private EnemyAnimationPlayer _animation = null!;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
     private KeeseState _state = KeeseState.Resting;
@@ -56,11 +52,8 @@ public partial class KeeseCharacter : Node2D
     private int _angle;
     private int _turnAmount;
     private float _speed;
-    private int _animationFrame;
-    private int _animationCounter;
     private int _health;
     private bool _flying;
-    private Vector2 _transitionDrawOffset;
 
     public EnemyDatabase.EnemyRecord Record { get; private set; }
     public bool IsDead { get; private set; }
@@ -72,9 +65,8 @@ public partial class KeeseCharacter : Node2D
     internal int Counter2 => _counter2;
     internal int Angle => _angle;
     internal bool Flying => _flying;
-    internal int CurrentAnimationFrame => _animationFrame;
+    internal int CurrentAnimationFrame => _animation.FrameIndex;
     internal int SpriteHeight => Record.SubId == 1 ? -1 : 0;
-    internal Vector2 TransitionDrawOffset => _transitionDrawOffset;
 
     internal void Initialize(
         EnemyDatabase.EnemyRecord record,
@@ -92,11 +84,11 @@ public partial class KeeseCharacter : Node2D
 
         Image source = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{record.SpriteName}.png");
-        _idleAnimation.AddRange(BuildAnimation(
-            source, record.IdleAnimation, record.TileBase, record.Palette));
-        _flyAnimation.AddRange(BuildAnimation(
-            source, record.FlyAnimation, record.TileBase, record.Palette));
-        ResetAnimation();
+        _animation = new EnemyAnimationPlayer(this, 2);
+        _animation.Load(source,
+            new[] { record.IdleAnimation, record.FlyAnimation },
+            record.TileBase, record.Palette);
+        _animation.SetAnimation(0);
         QueueRedraw();
     }
 
@@ -135,20 +127,11 @@ public partial class KeeseCharacter : Node2D
         return true;
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        if (_transitionDrawOffset.IsEqualApprox(offset))
-            return;
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     public override void _Draw()
     {
-        List<AnimationFrame> animation = _flying ? _flyAnimation : _idleAnimation;
-        if (!IsDead && animation.Count > 0)
-            DrawTexture(animation[_animationFrame % animation.Count].Texture,
-                new Vector2(-16, -16 + SpriteHeight) + _transitionDrawOffset);
+        if (!IsDead && _animation.HasFrames)
+            DrawTexture(_animation.CurrentTexture,
+                new Vector2(-16, -16 + SpriteHeight) + TransitionDrawOffset);
     }
 
     private void UpdateNormalKeese(int frameCounter)
@@ -285,43 +268,8 @@ public partial class KeeseCharacter : Node2D
         if (_flying == flying)
             return;
         _flying = flying;
-        ResetAnimation();
-        QueueRedraw();
+        _animation.SetAnimation(flying ? 1 : 0);
     }
 
-    private void ResetAnimation()
-    {
-        _animationFrame = 0;
-        List<AnimationFrame> animation = _flying ? _flyAnimation : _idleAnimation;
-        _animationCounter = animation.Count > 0 ? animation[0].Duration : 1;
-    }
-
-    private void AdvanceAnimation()
-    {
-        List<AnimationFrame> animation = _flying ? _flyAnimation : _idleAnimation;
-        if (animation.Count <= 1)
-            return;
-        _animationCounter--;
-        if (_animationCounter > 0)
-            return;
-        _animationFrame = (_animationFrame + 1) % animation.Count;
-        _animationCounter = animation[_animationFrame].Duration;
-        QueueRedraw();
-    }
-
-    private static IEnumerable<AnimationFrame> BuildAnimation(
-        Image source,
-        string encodedAnimation,
-        int tileBase,
-        int palette)
-    {
-        foreach (OracleGraphicsCache.AnimationFrameDefinition frame in
-            OracleGraphicsCache.GetAnimationDefinition(encodedAnimation).Frames)
-        {
-            yield return new AnimationFrame(
-                NpcCharacter.BuildOamTexture(
-                    source, frame.EncodedOam, tileBase, palette),
-                frame.Duration);
-        }
-    }
+    private void AdvanceAnimation() => _animation.Advance();
 }

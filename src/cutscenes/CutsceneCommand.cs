@@ -413,14 +413,22 @@ internal interface ICutsceneCommandTraceSink
 
 internal interface ICutsceneCommandHost
 {
-    bool DialogueOpen { get; }
-    bool IsLinkedGame { get; }
-    int FrameCounter { get; }
-    ICutsceneCommandTraceSink? TraceSink { get; }
+    RoomEventContext Context => throw new InvalidOperationException(
+        "This cutscene command host has no room-event context.");
+    bool DialogueOpen => Context.DialogueOpen;
+    bool IsLinkedGame => Context.Rooms.SaveData.IsLinkedGame;
+    int FrameCounter => Context.Entities.FrameCounter;
+    ICutsceneCommandTraceSink? TraceSink => Context.CommandTraceSink;
 
     bool HasActorBinding(CutsceneActorId actor) => true;
 
-    void SetInputEnabled(bool enabled);
+    void SetInputEnabled(bool enabled)
+    {
+        if (enabled)
+            Context.Player.EndCutsceneControl();
+        else
+            Context.Player.BeginCutsceneControl();
+    }
     void SetMenuEnabled(bool enabled);
     void SetDisabledObjects(int value);
     bool GateOpen(string gate);
@@ -459,11 +467,11 @@ internal interface ICutsceneCommandHost
     void DeleteActor(CutsceneActorId actor) =>
         throw new InvalidOperationException($"Actor '{actor}' does not support deletion.");
     void WriteMemory(string binding, int value);
-    void PlaySound(int sound);
+    void PlaySound(int sound) => Context.Sound.PlaySound(sound);
     void SetMusic(int music) =>
         throw new InvalidOperationException(
             $"This cutscene host cannot set music ${music:x2}.");
-    void SetGlobalFlag(int flag);
+    void SetGlobalFlag(int flag) => Context.Rooms.SaveData.SetGlobalFlag(flag);
     void OrRoomFlag(int flag);
     void RunNativeHandler(string handler);
     bool UpdateNativeHandler(

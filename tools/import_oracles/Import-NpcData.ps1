@@ -1733,18 +1733,18 @@ if ($npcRows.Count -ne 389) {
 $npcDialogueRows = [Collections.Generic.List[string]]::new()
 $npcDialogueRows.Add(
     "# id`tsubid`tvar03`tkind`tvalue`tlinked`ttext-id`tsource`tutf8-base64")
-function Add-NpcGameProgress1DialogueTable(
-    [int]$id, [int[]]$subids, [int]$var03,
+
+function Get-NpcDialogueTableEntries(
     [string]$sourceFile, [string]$tableLabel,
-    [int]$entryOffset = 0, [bool]$subidPerState = $false
+    [string]$progressRoutine, [int]$expectedCount
 ) {
     $sourcePath = Join-Path $Disassembly "object_code\ages\interactions\$sourceFile"
     if (-not (Test-Path -LiteralPath $sourcePath)) {
         throw "NPC dialogue source not found: $sourceFile"
     }
     $source = Get-Content -Raw $sourcePath
-    if ($source -notmatch 'getGameProgress_1') {
-        throw "$sourceFile no longer selects $tableLabel with getGameProgress_1."
+    if ($source -notmatch [regex]::Escape($progressRoutine)) {
+        throw "$sourceFile no longer selects $tableLabel with $progressRoutine."
     }
     $tableMatch = [regex]::Match(
         $source,
@@ -1755,8 +1755,20 @@ function Add-NpcGameProgress1DialogueTable(
     $entries = @([regex]::Matches(
         $tableMatch.Groups['body'].Value,
         '(?m)^\s*\.dw\s+mainScripts\.(?<label>[A-Za-z0-9_@]+)'))
-    if ($entries.Count -ne 6 + $entryOffset -or
-        ($subidPerState -and $subids.Count -ne 6)) {
+    if ($entries.Count -ne $expectedCount) {
+        throw "$sourceFile`:$tableLabel no longer matches its $expectedCount $progressRoutine states."
+    }
+    return $entries
+}
+
+function Add-NpcGameProgress1DialogueTable(
+    [int]$id, [int[]]$subids, [int]$var03,
+    [string]$sourceFile, [string]$tableLabel,
+    [int]$entryOffset = 0, [bool]$subidPerState = $false
+) {
+    $entries = @(Get-NpcDialogueTableEntries `
+        $sourceFile $tableLabel 'getGameProgress_1' (6 + $entryOffset))
+    if ($subidPerState -and $subids.Count -ne 6) {
         throw "$sourceFile`:$tableLabel no longer matches its six getGameProgress_1 states."
     }
 
@@ -1782,26 +1794,8 @@ function Add-NpcGameProgress2DialogueTable(
     [int]$id, [int[]]$subids, [int]$var03,
     [string]$sourceFile, [string]$tableLabel
 ) {
-    $sourcePath = Join-Path $Disassembly "object_code\ages\interactions\$sourceFile"
-    if (-not (Test-Path -LiteralPath $sourcePath)) {
-        throw "NPC dialogue source not found: $sourceFile"
-    }
-    $source = Get-Content -Raw $sourcePath
-    if ($source -notmatch 'getGameProgress_2') {
-        throw "$sourceFile no longer selects $tableLabel with getGameProgress_2."
-    }
-    $tableMatch = [regex]::Match(
-        $source,
-        "(?ms)^$([regex]::Escape($tableLabel)):\r?\n(?<body>.*?)(?=^[A-Za-z0-9_@]+:|\z)")
-    if (-not $tableMatch.Success) {
-        throw "Could not resolve NPC dialogue table $sourceFile`:$tableLabel."
-    }
-    $entries = @([regex]::Matches(
-        $tableMatch.Groups['body'].Value,
-        '(?m)^\s*\.dw\s+mainScripts\.(?<label>[A-Za-z0-9_@]+)'))
-    if ($entries.Count -ne 8) {
-        throw "$sourceFile`:$tableLabel no longer matches its eight getGameProgress_2 states."
-    }
+    $entries = @(Get-NpcDialogueTableEntries `
+        $sourceFile $tableLabel 'getGameProgress_2' 8)
 
     $variant = if ($var03 -lt 0) { '*' } else { $var03.ToString('x2') }
     for ($state = 0; $state -lt 8; $state++) {

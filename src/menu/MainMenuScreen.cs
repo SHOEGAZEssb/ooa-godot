@@ -1,5 +1,7 @@
 using Godot;
 using System;
+using static oracleofages.OracleGraphicsData;
+using static oracleofages.OracleTileRenderer;
 
 namespace oracleofages;
 
@@ -126,7 +128,8 @@ public partial class MainMenuScreen : Node2D
             _ => _fileMenu
         };
         DrawTexture(background, Vector2.Zero);
-        DrawFileDecorations();
+        FileMenuPresentation.DrawDecorations(
+            this, _fileSprites, _fileSpritePalette);
         switch (CurrentPage)
         {
             case Page.FileSelect: DrawFileSelect(showActorAndSummary: true); break;
@@ -556,19 +559,6 @@ public partial class MainMenuScreen : Node2D
         DrawOamList(_titleSprites, 0x38, _titleSpritePalette, sprites);
     }
 
-    private void DrawFileDecorations()
-    {
-        int[,] sprites = {
-            {0x23,0x0a,0x20,5},{0x23,0x12,0x22,5},{0x33,0x06,0x20,5},
-            {0x33,0x0e,0x22,5},{0x0f,0x07,0x26,5},{0x3b,0x16,0x20,0x25},
-            {0x3b,0x0e,0x22,0x25},{0x17,0x0a,0x24,0x25},{0x21,0x96,0x20,5},
-            {0x21,0x9e,0x22,5},{0x17,0x9b,0x26,0x65},{0x14,0x9d,0x24,5},
-            {0x31,0xa2,0x20,0x25},{0x31,0x9a,0x22,0x25},{0x39,0x92,0x20,5},
-            {0x39,0x9a,0x22,5}
-        };
-        DrawOamList(_fileSprites, 0x20, _fileSpritePalette, sprites, inverted: false);
-    }
-
     private void DrawAcorn(Vector2 position) =>
         DrawOamTile(_fileSprites, 0x20, 0x28, 4, position, false, false,
             _fileSpritePalette, inverted: false);
@@ -689,7 +679,7 @@ public partial class MainMenuScreen : Node2D
 
     private Texture2D BuildFileMenuTexture()
     {
-        (byte[] map, byte[] flags) = BuildFileLayout(
+        (byte[] map, byte[] flags) = FileMenuPresentation.BuildLayout(
             "map_file_menu_middle.bin", "flags_file_menu_middle.bin",
             "map_file_menu_bottom.bin", "flags_file_menu_bottom.bin");
         return BuildScreenTexture(map, flags, _fileBgPalette,
@@ -704,7 +694,7 @@ public partial class MainMenuScreen : Node2D
 
     private Texture2D BuildCopyMenuTexture()
     {
-        (byte[] map, byte[] flags) = BuildFileLayout(
+        (byte[] map, byte[] flags) = FileMenuPresentation.BuildLayout(
             "map_file_menu_copy.bin", "flags_file_menu_copy.bin",
             "map_file_menu_bottom.bin", "flags_file_menu_bottom.bin");
         return BuildScreenTexture(map, flags, _fileBgPalette,
@@ -719,7 +709,7 @@ public partial class MainMenuScreen : Node2D
 
     private Texture2D BuildEraseMenuTexture()
     {
-        (byte[] map, byte[] flags) = BuildFileLayout(
+        (byte[] map, byte[] flags) = FileMenuPresentation.BuildLayout(
             "map_file_menu_middle.bin", "flags_file_menu_middle.bin",
             "map_file_menu_bottom.bin", "flags_file_menu_bottom.bin");
         return BuildScreenTexture(map, flags, _eraseBgPalette,
@@ -734,7 +724,7 @@ public partial class MainMenuScreen : Node2D
 
     private Texture2D BuildNewFileMenuTexture()
     {
-        (byte[] map, byte[] flags) = BuildFileLayout(
+        (byte[] map, byte[] flags) = FileMenuPresentation.BuildLayout(
             "map_save_menu_middle.bin", "flags_save_menu_middle.bin",
             "map_save_menu_bottom.bin", "flags_save_menu_bottom.bin", bottomLength: 128);
         return BuildScreenTexture(map, flags, _fileBgPalette,
@@ -790,7 +780,7 @@ public partial class MainMenuScreen : Node2D
 
     private Texture2D BuildTextSpeedMenuTexture()
     {
-        (byte[] map, byte[] flags) = BuildFileLayout(
+        (byte[] map, byte[] flags) = FileMenuPresentation.BuildLayout(
             "map_file_menu_middle.bin", "flags_file_menu_middle.bin",
             "map_file_menu_bottom.bin", "flags_file_menu_bottom.bin");
         Overlay(map, ReadBytes(
@@ -807,39 +797,6 @@ public partial class MainMenuScreen : Node2D
             ("res://assets/oracle/menu/gfx_erase.png", 0x8aa0, 1, true));
     }
 
-    private static (byte[] Map, byte[] Flags) BuildFileLayout(
-        string middleMap, string middleFlags, string bottomMap, string bottomFlags,
-        int bottomLength = 96)
-    {
-        byte[] map = new byte[576];
-        byte[] flags = new byte[576];
-        Overlay(map, ReadBytes("res://assets/oracle/menu/map_file_menu_top.bin", 160), 0);
-        Overlay(flags, ReadBytes("res://assets/oracle/menu/flags_file_menu_top.bin", 160), 0);
-        Overlay(map, ReadBytes($"res://assets/oracle/menu/{middleMap}", 320), 0xa0);
-        Overlay(flags, ReadBytes($"res://assets/oracle/menu/{middleFlags}", 320), 0xa0);
-        // The save-menu data includes a fourth, off-screen row; the visible 160x144
-        // background ends after the first three rows beginning at tilemap offset $1e0.
-        Overlay(map, ReadBytes($"res://assets/oracle/menu/{bottomMap}", bottomLength), 0x1e0, 96);
-        Overlay(flags, ReadBytes($"res://assets/oracle/menu/{bottomFlags}", bottomLength), 0x1e0, 96);
-        return (map, flags);
-    }
-
-    private static void DrawBackgroundTile(Image output, Image source, int sourceTile,
-        byte flags, Color[,] palette, int destinationX, int destinationY)
-    {
-        bool flipX = (flags & 0x20) != 0;
-        bool flipY = (flags & 0x40) != 0;
-        int paletteIndex = flags & 7;
-        int columns = source.GetWidth() / 8;
-        for (int y = 0; y < 8; y++)
-        for (int x = 0; x < 8; x++)
-        {
-            Color pixel = source.GetPixel(sourceTile % columns * 8 + (flipX ? 7 - x : x),
-                sourceTile / columns * 8 + (flipY ? 7 - y : y));
-            output.SetPixel(destinationX + x, destinationY + y, palette[paletteIndex, Shade(pixel)]);
-        }
-    }
-
     private static Texture2D BuildFontTexture(Color color)
     {
         Image source = LoadPng("res://assets/oracle/gfx/gfx_font.png");
@@ -850,36 +807,4 @@ public partial class MainMenuScreen : Node2D
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static int Shade(Color pixel) =>
-        Math.Clamp(Mathf.RoundToInt((1.0f - pixel.R) * 3.0f), 0, 3);
-
-    private static Image LoadPng(string path)
-    {
-        return OracleGraphicsCache.LoadImage(path);
-    }
-
-    private static byte[] ReadBytes(string path, int expected)
-    {
-        byte[] bytes = FileAccess.GetFileAsBytes(path);
-        if (bytes.Length != expected)
-            throw new InvalidOperationException($"{path} should contain {expected} bytes, got {bytes.Length}.");
-        return bytes;
-    }
-
-    private static Color[,] LoadPalette(string path)
-    {
-        byte[] bytes = ReadBytes(path, 8 * 4 * 3);
-        var result = new Color[8, 4];
-        for (int palette = 0; palette < 8; palette++)
-        for (int shade = 0; shade < 4; shade++)
-        {
-            int offset = (palette * 4 + shade) * 3;
-            result[palette, shade] = new Color(bytes[offset] / 31.0f,
-                bytes[offset + 1] / 31.0f, bytes[offset + 2] / 31.0f);
-        }
-        return result;
-    }
-
-    private static void Overlay(byte[] destination, byte[] source, int offset, int? count = null) =>
-        Array.Copy(source, 0, destination, offset, count ?? source.Length);
 }

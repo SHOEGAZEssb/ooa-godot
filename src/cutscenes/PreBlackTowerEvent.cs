@@ -530,20 +530,9 @@ internal sealed class PreBlackTowerEvent : IRoomEntryEvent, ICutsceneCommandHost
         }
     }
 
-    bool ICutsceneCommandHost.DialogueOpen => _context.DialogueOpen;
-    bool ICutsceneCommandHost.IsLinkedGame => _context.Rooms.SaveData.IsLinkedGame;
-    int ICutsceneCommandHost.FrameCounter => _context.Entities.FrameCounter;
-    ICutsceneCommandTraceSink? ICutsceneCommandHost.TraceSink => _context.CommandTraceSink;
+    RoomEventContext ICutsceneCommandHost.Context => _context;
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value is "Ralph" or "Impa" or "Nayru" or "Zelda";
-
-    void ICutsceneCommandHost.SetInputEnabled(bool enabled)
-    {
-        if (enabled)
-            _context.Player.EndCutsceneControl();
-        else
-            _context.Player.BeginCutsceneControl();
-    }
 
     void ICutsceneCommandHost.SetMenuEnabled(bool enabled) =>
         throw Unsupported($"set menu enabled={enabled}");
@@ -619,8 +608,6 @@ internal sealed class PreBlackTowerEvent : IRoomEntryEvent, ICutsceneCommandHost
                 throw Unsupported($"write '{binding}'=${value:x2}");
         }
     }
-
-    void ICutsceneCommandHost.PlaySound(int sound) => _context.Sound.PlaySound(sound);
 
     void ICutsceneCommandHost.SetGlobalFlag(int flag)
     {

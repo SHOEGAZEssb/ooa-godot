@@ -168,12 +168,7 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEntryEvent, ICutsceneCom
         _context.Transitions.ApplyWarpWithDelayedFadeOut(_context.Player, warp);
     }
 
-    bool ICutsceneCommandHost.DialogueOpen => _context.DialogueOpen;
-    bool ICutsceneCommandHost.IsLinkedGame =>
-        _context.Rooms.SaveData.IsLinkedGame;
-    int ICutsceneCommandHost.FrameCounter => _context.Entities.FrameCounter;
-    ICutsceneCommandTraceSink? ICutsceneCommandHost.TraceSink =>
-        _context.CommandTraceSink;
+    RoomEventContext ICutsceneCommandHost.Context => _context;
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value == "MakuTree";
 
@@ -283,9 +278,6 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEntryEvent, ICutsceneCom
                     $"Maku Tree script cannot write '{binding}'=${value:x2}.");
         }
     }
-
-    void ICutsceneCommandHost.PlaySound(int sound) =>
-        _context.Sound.PlaySound(sound);
 
     void ICutsceneCommandHost.SetGlobalFlag(int flag) =>
         throw new InvalidOperationException(

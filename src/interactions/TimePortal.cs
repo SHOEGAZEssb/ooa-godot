@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-public partial class TimePortal : Node2D
+public partial class TimePortal : TransitionOffsetNode2D
 {
     private sealed record AnimationFrame(Texture2D Texture, int Duration);
 
@@ -16,7 +16,6 @@ public partial class TimePortal : Node2D
     private int _frame;
     private int _frameTicks;
     private int _loopStart;
-    private Vector2 _transitionDrawOffset;
     private OracleRoomData _room = null!;
     private bool _linkWasOutside;
 
@@ -95,15 +94,10 @@ public partial class TimePortal : Node2D
         return true;
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     public override void _Draw()
     {
         if (_frames.Count > 0)
-            DrawTexture(_frames[_frame].Texture, new Vector2(-16, -16) + _transitionDrawOffset);
+            DrawTexture(_frames[_frame].Texture,
+                new Vector2(-16, -16) + TransitionDrawOffset);
     }
 }

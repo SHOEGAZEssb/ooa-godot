@@ -1,5 +1,7 @@
 using Godot;
 using System;
+using static oracleofages.OracleGraphicsData;
+using static oracleofages.OracleTileRenderer;
 
 namespace oracleofages;
 
@@ -509,7 +511,8 @@ public partial class MapScreen : Node2D
         for (int column = 0; column < ScreenColumns; column++)
         {
             int offset = row * TilemapStride + column;
-            DrawTile(output, SelectTileSource(map[offset], blurb, out int sourceTile),
+            DrawTileToImage(output,
+                SelectTileSource(map[offset], blurb, out int sourceTile),
                 sourceTile, flags[offset], palette, column * 8, row * 8);
         }
         return ImageTexture.CreateFromImage(output);
@@ -539,25 +542,6 @@ public partial class MapScreen : Node2D
         }
         sourceTile = tile - 0x80;
         return Mode == MapMode.Present ? _presentTiles1 : _pastTiles1;
-    }
-
-    private static void DrawTile(Image output, Image source, int sourceTile, byte flags,
-        Color[,] palette, int destinationX, int destinationY)
-    {
-        int tileX = sourceTile % 16 * 8;
-        int tileY = sourceTile / 16 * 8;
-        bool flipX = (flags & 0x20) != 0;
-        bool flipY = (flags & 0x40) != 0;
-        int paletteIndex = Mathf.Clamp(flags & 0x07, 0, 7);
-        for (int y = 0; y < 8; y++)
-        for (int x = 0; x < 8; x++)
-        {
-            int readX = tileX + (flipX ? 7 - x : x);
-            int readY = tileY + (flipY ? 7 - y : y);
-            Color sourceColor = source.GetPixel(readX, readY);
-            int shade = Mathf.Clamp(Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f), 0, 3);
-            output.SetPixel(destinationX + x, destinationY + y, palette[paletteIndex, shade]);
-        }
     }
 
     private void DrawOverworldMarkers()
@@ -1018,14 +1002,6 @@ public partial class MapScreen : Node2D
         if (image == null || image.IsEmpty())
             throw new InvalidOperationException($"Could not load map image {path}.");
         return image;
-    }
-
-    private static byte[] ReadBytes(string path, int expectedLength)
-    {
-        byte[] data = FileAccess.GetFileAsBytes(path);
-        if (data.Length != expectedLength)
-            throw new InvalidOperationException($"{path} should contain {expectedLength} bytes, got {data.Length}.");
-        return data;
     }
 
     private static Color[,] LoadPalette(string path, int count, int firstPalette)

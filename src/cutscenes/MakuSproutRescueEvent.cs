@@ -301,11 +301,7 @@ internal sealed class MakuSproutRescueEvent : IRoomEntryEvent, ICutsceneCommandH
         };
     }
 
-    bool ICutsceneCommandHost.DialogueOpen => _context.DialogueOpen;
-    bool ICutsceneCommandHost.IsLinkedGame => _context.Rooms.SaveData.IsLinkedGame;
-    int ICutsceneCommandHost.FrameCounter => _context.Entities.FrameCounter;
-    ICutsceneCommandTraceSink? ICutsceneCommandHost.TraceSink =>
-        _context.CommandTraceSink;
+    RoomEventContext ICutsceneCommandHost.Context => _context;
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value is "Sprout" or "MoblinLeft" or "MoblinRight";
 
@@ -392,12 +388,6 @@ internal sealed class MakuSproutRescueEvent : IRoomEntryEvent, ICutsceneCommandH
             throw Unsupported($"write '{binding}'=${value:x2}");
         _cutsceneState = value;
     }
-
-    void ICutsceneCommandHost.PlaySound(int sound) =>
-        _context.Sound.PlaySound(sound);
-
-    void ICutsceneCommandHost.SetGlobalFlag(int flag) =>
-        _context.Rooms.SaveData.SetGlobalFlag(flag);
 
     void ICutsceneCommandHost.OrRoomFlag(int flag) =>
         _context.Rooms.SaveData.SetRoomFlag(

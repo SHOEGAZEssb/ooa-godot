@@ -8,7 +8,7 @@ namespace oracleofages;
 /// Common PART_ENEMY_DESTROYED ($02) effect used when an enemy is defeated.
 /// The room entity manager advances it on the same 60 Hz counter as enemies.
 /// </summary>
-public partial class EnemyDeathPuffEffect : Node2D
+public partial class EnemyDeathPuffEffect : TransitionOffsetNode2D
 {
     private sealed record FrameRecord(Texture2D[] PaletteTextures, int Duration);
 
@@ -24,7 +24,6 @@ public partial class EnemyDeathPuffEffect : Node2D
     private int _animationFrame;
     private int _animationCounter;
     private int _paletteIndex;
-    private Vector2 _transitionDrawOffset;
 
     public bool HighKnockback { get; private set; }
     public bool Finished { get; private set; }
@@ -33,7 +32,6 @@ public partial class EnemyDeathPuffEffect : Node2D
     internal int DurationFrames { get; private set; }
     internal int ElapsedFrames { get; private set; }
     internal int CurrentPalette => _palettes[_paletteIndex];
-    internal Vector2 TransitionDrawOffset => _transitionDrawOffset;
 
     internal void Initialize(
         Vector2 position,
@@ -83,21 +81,13 @@ public partial class EnemyDeathPuffEffect : Node2D
         QueueRedraw();
     }
 
-    internal void SetTransitionDrawOffset(Vector2 offset)
-    {
-        if (_transitionDrawOffset.IsEqualApprox(offset))
-            return;
-        _transitionDrawOffset = offset;
-        QueueRedraw();
-    }
-
     public override void _Draw()
     {
         if (Finished || _animation.Count == 0)
             return;
         DrawTexture(
             _animation[_animationFrame].PaletteTextures[_paletteIndex],
-            new Vector2(-16, -16) + _transitionDrawOffset);
+            new Vector2(-16, -16) + TransitionDrawOffset);
     }
 
     private static Definition LoadDefinition()
