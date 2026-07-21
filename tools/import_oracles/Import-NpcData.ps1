@@ -3145,6 +3145,7 @@ $dungeonMechanicConstantsPath = Join-Path $destination "objects\dungeon_mechanic
     $dungeonMechanicConstantRows,
     [Text.UTF8Encoding]::new($false))
 $puzzlePuffPath = Join-Path $destination "effects\puzzle_puff.tsv"
+New-Item -ItemType Directory -Force -Path (Split-Path $puzzlePuffPath -Parent) | Out-Null
 [IO.File]::WriteAllLines(
     $puzzlePuffPath,
     $puzzlePuffRows,
