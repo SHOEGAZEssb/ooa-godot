@@ -219,6 +219,75 @@ Animation records retain a frame's nonzero `animParameter` as
 `duration@oam` form. A native owner must inspect the parameter at the same point
 relative to `interactionAnimate` as the original handler.
 
+Room `2:5e` is the reference for a retail shop whose visible stock, NPC,
+screen-tile prices, and invisible entry helper have separate source owners:
+
+- Preserve the complete `mainData.s` order: three `$47` placements, then
+  shopkeeper `$46:$00`, then invisible companion helper `$71:$0c`. A product
+  deleted by its state-0 predicate leaves a hole in that stream; surviving
+  products do not get renumbered.
+- Import every `$47` subid reachable through `shopItemReplacementTable`, not
+  only the three placed subids. Room `2:5e` can reach `$01/$03/$04/$0d/$11/
+  $12/$13`; each record retains price, price-tile destination, treasure and
+  parameter, prompt/item text, GFX header, animation, replacement address,
+  mask, successor, and X adjustment.
+- Apply state-0 predicates in source order. Bombs `$04` delete themselves until
+  `TREASURE_BOMBS` is owned. Linked state changes placed shield `$03` to Gasha
+  Seed `$13` before replacement-table evaluation. The flute-availability bit
+  in `wBoughtShopItems2` is recomputed from no flute plus
+  `GLOBALFLAG_CAN_BUY_FLUTE`; `$01` then becomes `$0d` and moves right four
+  pixels. Shield `$03 -> $11 -> $12` follows the two `wShieldLevel` bits, and
+  bought Gasha bit `$20` changes `$13` back to `$03`.
+- Shop prices are not labels or object sprites. Room graphics change `$04`
+  loads `TREE_GFXH_03`, whose `gfx_inventory_hud_1` data begins at the `$9200`
+  tree slot; price base `$30` therefore selects that sheet's tile `$10`.
+  `$47` writes two or three digits to `w3VramTiles` using BG attribute `$06`,
+  and `UNCMP_GFXH_11` uploads the changed row. Render those digits through the
+  room's background-palette path at tilemap row 3/gameplay Y `$18`; the HUD's
+  presentation offset is already applied by the world view and must not be
+  subtracted again. Clear the digits while their product is held.
+- `LynnaShopItem` owns its initialized source OAM frame, shelf/held position,
+  price visibility, and strict shelf return test: A or B, Link Y below `$3d`,
+  X strictly inside shelf X +/- `$0d`, facing up. States 1 and 2 never call
+  `interactionAnimate`, so the merchandise frame stays fixed both on the shelf
+  and while carried. `LynnaShopEvent` owns only the shared purchase/theft
+  state.
+- Initial pickup uses the shared grabbable-object test, not the shopkeeper's
+  A-sensitive point test. Offset Link's high-byte position by `$fa/$05` for
+  negative/positive directions and combine Link's `$06/$06` collision radii
+  with the product's `$07/$07` radii, preserving the original asymmetric
+  `[-radius,+radius)` boundaries. Route both real A and B input through this
+  test even though ordinary equipped-item use is disabled by `wInShop`.
+- Completed pickup writes `wLinkGrabState=$83` and `wLinkGrabState2=$08`; it is
+  not a `LINK_ANIM_MODE_GETITEM2HAND` presentation. Link remains in walk mode,
+  whose held-object variant adds `$08` to frames `$54/$80` and renders the
+  directional `$5c-$5f/$88-$8b` bodies. The shared lifted-position table keeps
+  stock at Z `-$0d`, except the first right/left walk phase uses `-$0e`, with no
+  X offset. Standing uses the first held-walk frame and walking retains the
+  ordinary walk cadence.
+- Shopkeeper talk uses the original `$06/$14` counter collision and the point
+  ten pixels ahead of Link. Empty-handed talk selects TX `$0e00` or `$0e26`.
+  Held stock selects its imported prompt, checks current health/Bombs or owned
+  Shield/Flute as appropriate, substitutes the price, returns rejected stock,
+  deducts Rupees only on confirmation, grants the exact treasure parameter,
+  and deletes the product only after its item textbox closes. The normal-shop
+  Gasha purchase writes `wBoughtShopItems1` bit `$20`.
+- Crossing Link Y `$69` while carrying stock clamps Link to `$69`, narrows the
+  shopkeeper collision to `$06/$06`, plays `SND_CLINK`, and runs the source
+  down-8/left-24/dialogue/right-24/up-8 route at `SPEED_200`. Carrying remains
+  active afterward so Link can return the product.
+- The shop state disables equipped-item use and ring transformations while
+  leaving A/B stock interaction and Start/Select menus available. Represent
+  that separately from cutscene input blocking: retail `wInShop` redirects
+  item buttons through `checkShopInput` without setting `wMenuDisabled`.
+- `$71:$0c` is an entry side effect, not a visible NPC. If `wDimitriState` bit
+  5 is set, set bit 6 and delete the helper. Keep this write after the visible
+  shop objects in construction order even though it has no node.
+- Shop prompt TX blocks use assembler-time `\jump` or unterminated fallthrough
+  into TX `$0e2b`. Flatten that control flow during import, retain `\stop`,
+  `\col`, and `\opt`, and remove only the source choice-handler opcode already
+  owned by `DialogueBox`.
+
 Room `2:ee` is the reference for talkable native handlers that hand control to
 gameplay-owned modal ring menus and, separately, an unavailable serial link:
 

@@ -110,6 +110,7 @@ internal interface IRoomKillTrackedEnemy
 internal interface IPlayerRestriction
 {
     bool DisablesSword { get; }
+    bool DisablesItems => false;
     bool DisablesMovement => false;
     bool DisablesRingTransformations => false;
 }

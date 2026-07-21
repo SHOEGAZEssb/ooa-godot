@@ -21,6 +21,7 @@ public sealed class RoomEventController
     private readonly ImpaIntroEvent _impa;
     private readonly NayruIntroEvent _nayru;
     private readonly MakuSproutRescueEvent _makuSproutRescue;
+    private readonly LynnaShopEvent _lynnaShop;
     private readonly VasuShopEvent _vasuShop;
     private readonly IRoomEvent[] _eventsByPriority;
     private double _frameAccumulator;
@@ -69,11 +70,13 @@ public sealed class RoomEventController
         _impa = new ImpaIntroEvent(_context);
         _nayru = new NayruIntroEvent(_context, _impa);
         _makuSproutRescue = new MakuSproutRescueEvent(_context);
+        _lynnaShop = new LynnaShopEvent(_context);
         _vasuShop = new VasuShopEvent(_context);
         _eventsByPriority =
         [
             _nayru,
             _makuSproutRescue,
+            _lynnaShop,
             _vasuShop,
             _makuTreeSaved,
             _makuTree,
@@ -123,6 +126,7 @@ public sealed class RoomEventController
     internal ImpaIntroEvent Impa => _impa;
     internal NayruIntroEvent Nayru => _nayru;
     internal MakuSproutRescueEvent MakuSproutRescue => _makuSproutRescue;
+    internal LynnaShopEvent LynnaShop => _lynnaShop;
     internal VasuShopEvent VasuShop => _vasuShop;
     internal void SetRingMenuOpener(Func<RingMenuMode, Action, bool> opener) =>
         _vasuShop.SetRingMenuOpener(opener);
@@ -167,11 +171,15 @@ public sealed class RoomEventController
     }
 
     public bool TryInteractNpc(NpcCharacter npc) =>
+        _lynnaShop.TryInteractNpc(npc) ||
         _vasuShop.TryInteractNpc(npc) ||
         _nayru.TryInteractNpc(npc) ||
         _blackTowerEntrance.TryInteractNpc(npc) ||
         _makuSproutRescue.TryInteractNpc(npc) ||
         _makuTreeSaved.TryInteractNpc(npc);
+
+    public bool TryInteractPlayer(Player player) =>
+        _lynnaShop.TryInteractPlayer(player);
 
     /// <summary>
     /// Destination interactions continue updating during TRANSITION_DEST_TIMEWARP.

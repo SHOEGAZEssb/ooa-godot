@@ -62,6 +62,7 @@ public sealed class InteractionController
     private double _hardhatWaitTicks;
 
     public Func<NpcCharacter, bool>? NpcInteractionOverride { get; set; }
+    public Func<Player, bool>? PlayerInteractionOverride { get; set; }
 
     public bool DialogueOpen => _dialogue.BlocksPlayerInput ||
         _chestTreasure is not null ||
@@ -222,6 +223,9 @@ public sealed class InteractionController
                 npc.TextPosition);
             return true;
         }
+
+        if (PlayerInteractionOverride?.Invoke(player) == true)
+            return true;
 
         OracleRoomData room = _rooms.CurrentRoom;
         Vector2 tilePoint = player.Position + (Vector2)player.FacingVector * 8.0f;

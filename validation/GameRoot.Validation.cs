@@ -34,6 +34,7 @@ public sealed class ValidationGameRoot : GameRoot
         public bool IsTransitioning => false;
         public bool DialogueOpen => false;
         public bool SwordDisabled => false;
+        public bool ItemUsageDisabled => false;
         public bool MovementDisabled => false;
         public bool RingTransformationsAllowed { get; set; } = true;
         public int SwordHitCalls { get; private set; }
@@ -63,6 +64,7 @@ public sealed class ValidationGameRoot : GameRoot
         }
         public void PlaySound(int soundId) => Sounds.Add(soundId);
         public bool TryInteract(Player player) => false;
+        public bool TrySecondaryInteract(Player player) => false;
         public bool TryUseBracelet(Player player) => false;
         public int TryUseSeedSatchel(Player player) => 0;
         public bool DigWithShovel(Vector2 point, Vector2I direction) => false;
@@ -314,6 +316,7 @@ public sealed class ValidationGameRoot : GameRoot
         ValidateDungeonMechanics();
         ValidateDungeonKeyDoors();
         ValidateMapScreen();
+        ValidateLynnaShopInteractions();
         ValidateVasuShopInteractions();
         ValidateSaveAndQuitToTitle();
 
@@ -10712,6 +10715,305 @@ public sealed class ValidationGameRoot : GameRoot
         GD.Print("Validated room 1:76 INTERAC_MISCELLANEOUS_2 $dc:$10 nonvisual layout clears, " +
             "initial-overlap exit latch, strict $04/$10+$06/$06 collision, current-room " +
             "flag $01 destinations 4:e7/4:f3, $93/$ff/$01 entrance, and SND_ENTERCAVE.");
+    }
+
+    private void ValidateLynnaShopInteractions()
+    {
+        const int group = 2;
+        const int roomId = 0x5e;
+        var database = new LynnaShopDatabase();
+
+        static void SetTreasure(OracleSaveData save, int treasure, bool value)
+        {
+            int address = 0xc69a + treasure / 8;
+            byte mask = (byte)(1 << (treasure & 7));
+            byte previous = save.ReadWramByte(address);
+            byte next = value ? (byte)(previous | mask) : (byte)(previous & ~mask);
+            if (save.WriteWramByte(address, next))
+                save.CommitInventoryChange();
+        }
+
+        // Exercise each stock predicate independently of accumulated gameplay
+        // validation state.
+        OracleSaveData predicateSave = OracleSaveData.CreateStandardGame();
+        SetTreasure(predicateSave, TreasureDatabase.TreasureBombs, value: false);
+        SetTreasure(predicateSave, 0x0b, value: false);
+        SetTreasure(predicateSave, 0x0e, value: false);
+        predicateSave.SetGlobalFlag(database.GlobalCanBuyFlute, value: false);
+        predicateSave.SetLinkedGame(false);
+        predicateSave.WriteWramByte(database.BoughtItems1Address, 0);
+        predicateSave.WriteWramByte(database.BoughtItems2Address, 0);
+        predicateSave.WriteWramByte(0xc6af, 0);
+        IReadOnlyList<LynnaShopDatabase.StockRecord> stock =
+            database.ResolveStock(predicateSave);
+        if (stock.Count != 2 || stock[0].Item.SubId != 0x01 ||
+            stock[1].Item.SubId != 0x03 ||
+            (predicateSave.ReadWramByte(database.BoughtItems2Address) &
+                database.BombchuMissingMask) == 0)
+        {
+            throw new InvalidOperationException(
+                "Room 2:5e base stock did not hide bombs or record missing Bombchus.");
+        }
+
+        SetTreasure(predicateSave, TreasureDatabase.TreasureBombs, value: true);
+        stock = database.ResolveStock(predicateSave);
+        if (stock.Count != 3 || stock[2].Item.SubId != 0x04)
+            throw new InvalidOperationException(
+                "Owning TREASURE_BOMBS did not reveal $47:$04 in room 2:5e.");
+
+        predicateSave.SetGlobalFlag(database.GlobalCanBuyFlute);
+        stock = database.ResolveStock(predicateSave);
+        if (stock[0].Item.SubId != 0x0d || stock[0].X != 0x84 ||
+            (predicateSave.ReadWramByte(database.BoughtItems2Address) &
+                database.FluteStockMask) == 0)
+        {
+            throw new InvalidOperationException(
+                "GLOBALFLAG_CAN_BUY_FLUTE did not replace hearts with the X+4 Strange Flute.");
+        }
+        SetTreasure(predicateSave, 0x0e, value: true);
+        stock = database.ResolveStock(predicateSave);
+        if (stock[0].Item.SubId != 0x01 ||
+            (predicateSave.ReadWramByte(database.BoughtItems2Address) &
+                database.FluteStockMask) != 0)
+        {
+            throw new InvalidOperationException(
+                "Obtaining TREASURE_FLUTE did not restore the recurring heart stock.");
+        }
+
+        predicateSave.SetLinkedGame(true);
+        stock = database.ResolveStock(predicateSave);
+        if (stock[1].Item.SubId != 0x13)
+            throw new InvalidOperationException(
+                "Linked-game state did not replace the normal shield with Gasha Seed $13.");
+        predicateSave.WriteWramByte(
+            database.BoughtItems1Address, (byte)database.NormalGashaBoughtMask);
+        stock = database.ResolveStock(predicateSave);
+        if (stock[1].Item.SubId != 0x03)
+            throw new InvalidOperationException(
+                "Bought normal-shop Gasha bit $20 did not restore shield stock.");
+
+        predicateSave.SetLinkedGame(false);
+        predicateSave.WriteWramByte(0xc6af, 0x02);
+        stock = database.ResolveStock(predicateSave);
+        if (stock[1].Item.SubId != 0x11)
+            throw new InvalidOperationException(
+                "wShieldLevel bit 1 did not replace L1 with the L2 shield.");
+        predicateSave.WriteWramByte(0xc6af, 0x03);
+        stock = database.ResolveStock(predicateSave);
+        if (stock[1].Item.SubId != 0x12)
+            throw new InvalidOperationException(
+                "wShieldLevel bits 1+0 did not follow the L1 -> L2 -> L3 chain.");
+
+        predicateSave.WriteWramByte(
+            database.DimitriStateAddress, (byte)database.DimitriSavedMask);
+        database.ApplyCompanionEntryState(predicateSave);
+        if (predicateSave.ReadWramByte(database.DimitriStateAddress) !=
+            (database.DimitriSavedMask | database.DimitriDisappearMask))
+        {
+            throw new InvalidOperationException(
+                "$71:$0c did not promote wDimitriState bit 5 to bit 6 on shop entry.");
+        }
+
+        // Instantiate the real room and drive the native lift, theft, reject,
+        // and successful recurring-heart purchase paths.
+        bool linkedBefore = _saveData.IsLinkedGame;
+        bool fluteFlagBefore = _saveData.HasGlobalFlag(database.GlobalCanBuyFlute);
+        byte bought1Before = _saveData.ReadWramByte(database.BoughtItems1Address);
+        byte bought2Before = _saveData.ReadWramByte(database.BoughtItems2Address);
+        byte dimitriBefore = _saveData.ReadWramByte(database.DimitriStateAddress);
+        byte shieldBefore = _saveData.ReadWramByte(0xc6af);
+        int bombsFlagAddress = 0xc69a + TreasureDatabase.TreasureBombs / 8;
+        byte bombsFlagsBefore = _saveData.ReadWramByte(bombsFlagAddress);
+
+        _saveData.SetLinkedGame(false);
+        _saveData.SetGlobalFlag(database.GlobalCanBuyFlute, value: false);
+        _saveData.WriteWramByte(database.BoughtItems1Address, 0);
+        _saveData.WriteWramByte(database.BoughtItems2Address, 0);
+        _saveData.WriteWramByte(database.DimitriStateAddress, 0);
+        _saveData.WriteWramByte(0xc6af, 0);
+        SetTreasure(_saveData, TreasureDatabase.TreasureBombs, value: false);
+        LoadValidationRoom(group, roomId);
+
+        LynnaShopEvent shop = _roomEvents.LynnaShop;
+        List<LynnaShopItem> products = _entities.Entities<LynnaShopItem>();
+        NpcCharacter shopkeeper = _entities.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x46, SubId: 0x00 });
+        if (products.Count != 2 ||
+            products[0].Record.SubId != 0x01 || products[0].Position != new Vector2(0x80, 0x28) ||
+            products[0].PricePosition != new Vector2(0x78, 0x18) ||
+            products[1].Record.SubId != 0x03 || products[1].Position != new Vector2(0x68, 0x28) ||
+            products[1].PricePosition != new Vector2(0x60, 0x18) ||
+            products.Any(item => item.CurrentPixelHash == 0 ||
+                item.DigitPixelHash == 0 || item.DigitColorCount != 2) ||
+            shopkeeper.CurrentScriptAnimationSource != database.Animation(0x46, 3) ||
+            shopkeeper.TextId != 0 || !_entities.PlayerItemUsageDisabled ||
+            !_entities.PlayerRingTransformationsDisabled ||
+            _entities.PlayerSwordDisabled)
+        {
+            throw new InvalidOperationException(
+                "Room 2:5e did not instantiate its surviving $47 stock, BG prices, " +
+                "$46:$00 shopkeeper, or retail shop input restrictions in source order.");
+        }
+        StepRoomEventFrames(130);
+        if (products.Any(item => item.AnimationFrame != 0))
+        {
+            throw new InvalidOperationException(
+                "INTERAC_SHOP_ITEM advanced its initialized graphics even though states 1/2 " +
+                "never call interactionAnimate.");
+        }
+
+        if (!shop.TryInteractNpc(shopkeeper) ||
+            shop.Stage != LynnaShopEvent.EventStage.ShopkeeperText ||
+            !_dialogue.CurrentMessage.StartsWith("Welcome, sir!", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Lynna shopkeeper did not run the empty-handed TX_0e00 welcome script.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+
+        LynnaShopItem hearts = products[0];
+        _player.WarpTo(hearts.ShelfPosition + Vector2.Down * 20, recordSafe: false);
+        _player.Face(Vector2I.Up);
+        if (shop.TryInteractPlayer(_player))
+        {
+            throw new InvalidOperationException(
+                "$07+$06 shop-item collision accepted the first point beyond its source boundary.");
+        }
+        _player.WarpTo(hearts.ShelfPosition + Vector2.Down * 19, recordSafe: false);
+        if (!_playerWorld.TryInteract(_player))
+        {
+            throw new InvalidOperationException(
+                "PlayerWorld's normal A-button interaction route did not accept shop stock.");
+        }
+        if (shop.Stage != LynnaShopEvent.EventStage.Holding ||
+            !hearts.Held || !_player.IsCarryingObject ||
+            _player.IsHoldingItemTwoHands ||
+            hearts.Position != _player.Position + new Vector2(0, -13))
+        {
+            throw new InvalidOperationException(
+                "Normal A-button input did not lift $47:$01 with wLinkGrabState=$83, " +
+                "wLinkGrabState2=$08, and the held-walk pose at the source boundary.");
+        }
+        _player.Face(Vector2I.Right);
+        hearts.UpdateFrame(_player);
+        if (hearts.Position != _player.Position + new Vector2(0, -14))
+        {
+            throw new InvalidOperationException(
+                "Held shop stock did not use the source's side-facing walk-phase-2 Z=-$0e.");
+        }
+        _player.Face(Vector2I.Up);
+        hearts.UpdateFrame(_player);
+
+        Vector2 shopkeeperStart = shopkeeper.Position;
+        _player.WarpTo(new Vector2(_player.Position.X, database.TheftLinkY + 1),
+            recordSafe: false);
+        StepRoomEventFrames(1);
+        if (shop.Stage != LynnaShopEvent.EventStage.TheftDown ||
+            _player.Position.Y != database.TheftLinkY || !_player.CutsceneControlled ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) == 0)
+        {
+            throw new InvalidOperationException(
+                "Crossing shop Y=$69 with held stock did not clamp Link and start theft prevention.");
+        }
+        StepRoomEventFrames(4 + 12);
+        if (shop.Stage != LynnaShopEvent.EventStage.TheftText ||
+            shopkeeper.Position != shopkeeperStart + new Vector2(-24, 8) ||
+            !_dialogue.CurrentMessage.StartsWith("Hey! Don't just", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Shopkeeper did not complete the SPEED_200 down-8/left-24 theft approach.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1 + 12 + 4);
+        if (shop.Stage != LynnaShopEvent.EventStage.Holding ||
+            shopkeeper.Position != shopkeeperStart || _player.CutsceneControlled || !hearts.Held)
+        {
+            throw new InvalidOperationException(
+                "Shopkeeper theft script did not return right-24/up-8 and restore Link's held item.");
+        }
+
+        _player.WarpTo(hearts.ShelfPosition + Vector2.Down * 16, recordSafe: false);
+        _player.Face(Vector2I.Up);
+        if (!_playerWorld.TrySecondaryInteract(_player))
+        {
+            throw new InvalidOperationException(
+                "PlayerWorld's normal B-button interaction route did not return shop stock.");
+        }
+        if (shop.HasState || hearts.Held ||
+            _player.IsCarryingObject || _player.IsHoldingItemTwoHands)
+        {
+            throw new InvalidOperationException(
+                "Normal B-button input did not return held shop stock at the strict " +
+                "Y<$3d/X+-$0d/up-facing boundary.");
+        }
+
+        // Full health maps to shopkeeperCantBuy/TX_0e05 and returns the item.
+        _inventory.RefillHealth();
+        if (!shop.TryInteractPlayer(_player) || !shop.TryInteractNpc(shopkeeper))
+            throw new InvalidOperationException("Could not lift and present the heart stock.");
+        _dialogue.SubmitChoiceForValidation(0);
+        StepRoomEventFrames(1);
+        if (shop.Stage != LynnaShopEvent.EventStage.PurchaseRejected ||
+            !_dialogue.CurrentMessage.StartsWith("You have it.", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Full-health 3-Hearts purchase did not select shopkeeperCantBuy TX_0e05.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        if (shop.HasState || hearts.Held || _player.IsCarryingObject)
+            throw new InvalidOperationException("Rejected shop stock did not return to its shelf.");
+
+        int rupeesBefore = _inventory.Rupees;
+        _inventory.AddRupees(200);
+        _inventory.ApplyDamage(12);
+        int damagedHealth = _inventory.HealthQuarters;
+        _player.WarpTo(hearts.ShelfPosition + Vector2.Down * 16, recordSafe: false);
+        _player.Face(Vector2I.Up);
+        if (!shop.TryInteractPlayer(_player) || !shop.TryInteractNpc(shopkeeper))
+            throw new InvalidOperationException("Could not retry the heart purchase.");
+        if (!_dialogue.CurrentMessage.Contains("10 Rupees", StringComparison.Ordinal) ||
+            _dialogue.CurrentMessage.Contains("\\num1", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "TX_0e02 did not substitute the imported 10-Rupee price.");
+        }
+        int purchaseRupees = _inventory.Rupees;
+        _dialogue.SubmitChoiceForValidation(0);
+        StepRoomEventFrames(1);
+        if (shop.Stage != LynnaShopEvent.EventStage.ItemText ||
+            _inventory.Rupees != purchaseRupees - 10 ||
+            _inventory.HealthQuarters != Math.Min(
+                _inventory.MaxHealthQuarters, damagedHealth + 12) ||
+            !_dialogue.CurrentMessage.StartsWith("You got three", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Successful $47:$01 purchase did not deduct 10, heal 12 quarters, and show TX_004c.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        if (shop.HasState || !hearts.Removed || hearts.Visible ||
+            _player.IsCarryingObject || _player.IsHoldingItemTwoHands)
+        {
+            throw new InvalidOperationException(
+                "Purchased shop stock did not delete after its item textbox closed.");
+        }
+
+        _inventory.AddRupees(rupeesBefore - _inventory.Rupees);
+        _saveData.SetLinkedGame(linkedBefore);
+        _saveData.SetGlobalFlag(database.GlobalCanBuyFlute, fluteFlagBefore);
+        _saveData.WriteWramByte(database.BoughtItems1Address, bought1Before);
+        _saveData.WriteWramByte(database.BoughtItems2Address, bought2Before);
+        _saveData.WriteWramByte(database.DimitriStateAddress, dimitriBefore);
+        _saveData.WriteWramByte(0xc6af, shieldBefore);
+        _saveData.WriteWramByte(bombsFlagAddress, bombsFlagsBefore);
+        _saveData.CommitInventoryChange();
+
+        GD.Print("Validated room 2:5e exact stock predicates/replacements, Dimitri $20->$60 " +
+            "entry helper, source OAM/TREE_GFXH_03 BG prices, static stock graphics, " +
+            "$5c-$5f/$88-$8b held-walk pose, A/B lift/return, full-item denial, " +
+            "10-Rupee heart purchase, and SPEED_200 theft-prevention route.");
     }
 
     private void ValidateVasuShopInteractions()

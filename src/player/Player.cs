@@ -37,6 +37,7 @@ public partial class Player : Node2D
     private Texture2D _texture = null!;
     private Texture2D _getItemOneHandTexture = null!;
     private Texture2D _getItemTwoHandTexture = null!;
+    private Texture2D _carriedObjectTexture = null!;
     private Texture2D _pushTexture = null!;
     private Texture2D _attackTexture = null!;
     private Texture2D _swordTexture = null!;
@@ -99,6 +100,7 @@ public partial class Player : Node2D
     private bool _cutsceneControlled;
     private bool _getItemOneHandPose;
     private bool _getItemTwoHandPose;
+    private bool _carriedObjectPose;
     private CutsceneSpriteRenderer? _newGameFallRenderer;
     private NewGameIntroDatabase.IntroSpriteFrame[]? _newGameFallFrames;
     private int _newGameFallFrame;
@@ -161,6 +163,8 @@ public partial class Player : Node2D
     internal int NewGameSlowFallZ => _newGameFallZFixed >> 8;
     internal bool IsHoldingItemOneHand => _getItemOneHandPose;
     internal bool IsHoldingItemTwoHands => _getItemTwoHandPose;
+    internal bool IsCarryingObject => _carriedObjectPose;
+    internal int CarriedObjectAnimationFrame => GetWalkAnimationFrame();
     internal int ShovelFrame => _shovelFrame;
     internal bool ShovelChildActive =>
         IsUsingShovel && _shovelFrame is >= ShovelDigFrame and < ShovelSecondPoseFrame;
@@ -181,6 +185,7 @@ public partial class Player : Node2D
         _texture = BuildLinkTexture();
         _getItemOneHandTexture = BuildGetItemOneHandTexture();
         _getItemTwoHandTexture = BuildGetItemTwoHandTexture();
+        _carriedObjectTexture = BuildCarriedObjectLinkTexture();
         _pushTexture = BuildPushLinkTexture();
         _attackTexture = BuildAttackLinkTexture();
         _swordTexture = BuildSwordTexture(chargedPalette: false);
@@ -228,6 +233,7 @@ public partial class Player : Node2D
         _floorDoorRecoveryCounter = 0;
         _getItemOneHandPose = false;
         _getItemTwoHandPose = false;
+        _carriedObjectPose = false;
         _precisePosition = position;
         if (recordSafe)
             _lastSafePosition = position;
@@ -559,11 +565,13 @@ public partial class Player : Node2D
         {
             if (!IsUsingItem)
             {
-                if (_inventory.EquippedA == InventoryState.ItemBracelet && _world.TryUseBracelet(this))
+                if (!_world.ItemUsageDisabled &&
+                    _inventory.EquippedA == InventoryState.ItemBracelet &&
+                    _world.TryUseBracelet(this))
                     return;
                 if (_world.TryInteract(this))
                     return;
-                if (RingEffects.CanPunch(
+                if (!_world.ItemUsageDisabled && RingEffects.CanPunch(
                     _inventory,
                     _inventory.EquippedA == InventoryState.ItemNone &&
                     _inventory.EquippedB == InventoryState.ItemNone))
@@ -572,7 +580,12 @@ public partial class Player : Node2D
                     return;
                 }
             }
-            if (_inventory.EquippedA == InventoryState.ItemSword)
+            if (_world.ItemUsageDisabled)
+            {
+                // wInShop routes A/B to checkShopInput instead of updating
+                // either equipped parent item. Interaction remains available.
+            }
+            else if (_inventory.EquippedA == InventoryState.ItemSword)
                 StartSwordAttack("attack", input);
             else if (_inventory.EquippedA == InventoryState.ItemShovel)
                 StartShovelAction(input);
@@ -582,7 +595,15 @@ public partial class Player : Node2D
         else if (_activeTransformation == 0 &&
             Input.IsActionJustPressed("item") && !_world.SwordDisabled)
         {
-            if (!IsUsingItem && RingEffects.CanPunch(
+            if (!IsUsingItem && _world.TrySecondaryInteract(this))
+            {
+                return;
+            }
+            if (_world.ItemUsageDisabled)
+            {
+                // The secondary button can still lift or return shop stock.
+            }
+            else if (!IsUsingItem && RingEffects.CanPunch(
                 _inventory,
                 _inventory.EquippedA == InventoryState.ItemNone &&
                 _inventory.EquippedB == InventoryState.ItemNone))
@@ -693,6 +714,21 @@ public partial class Player : Node2D
         if (!_getItemTwoHandPose)
             return;
         _getItemTwoHandPose = false;
+        QueueRedraw();
+    }
+
+    internal void BeginCarriedObjectPose()
+    {
+        _carriedObjectPose = true;
+        _pushing = false;
+        QueueRedraw();
+    }
+
+    internal void EndCarriedObjectPose()
+    {
+        if (!_carriedObjectPose)
+            return;
+        _carriedObjectPose = false;
         QueueRedraw();
     }
 
@@ -903,6 +939,14 @@ public partial class Player : Node2D
         else if (_getItemOneHandPose)
         {
             DrawTexture(_getItemOneHandTexture, NormalSpriteOrigin);
+        }
+        else if (_carriedObjectPose)
+        {
+            int frame = GetWalkAnimationFrame();
+            DrawTextureRectRegion(
+                _carriedObjectTexture,
+                new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
+                new Rect2(frame * 16, (int)_facing * 16, 16, 16));
         }
         else if (_activeTransformation != 0)
         {
@@ -1922,6 +1966,27 @@ public partial class Player : Node2D
         // LINK_ANIM_MODE_GETITEM2HAND ($0f) is static graphics frame $06:
         // OAM $04 mirrors the single spr_link+$0de0 cell into a 16-pixel body.
         WriteSymmetricLinkCell(output, source, 0, 0, 0x0de0);
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private static Texture2D BuildCarriedObjectLinkTexture()
+    {
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
+        Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
+
+        // A finished grab leaves LINK_ANIM_MODE_WALK active. func_4553 adds
+        // held-object variant $08 to its $54/$80 graphics frames, producing
+        // the direction-aware $5c-$5f/$88-$8b frames below.
+        WriteLinkFrame(output, source, 0, (int)Facing.Up * 16, 0x0040, false);       // $5c, OAM $00
+        WriteLinkFrame(output, source, 0, (int)Facing.Right * 16, 0x01c0, true);    // $5d, OAM $01
+        WriteLinkFrame(output, source, 0, (int)Facing.Down * 16, 0x0180, false);    // $5e, OAM $00
+        WriteLinkFrame(output, source, 0, (int)Facing.Left * 16, 0x01c0, false);    // $5f, OAM $00
+        WriteLinkFrame(output, source, 16, (int)Facing.Up * 16, 0x0040, true);      // $88, OAM $01
+        WriteLinkFrame(output, source, 16, (int)Facing.Right * 16, 0x1140, true);  // $89, OAM $01
+        WriteLinkFrame(output, source, 16, (int)Facing.Down * 16, 0x0180, true);   // $8a, OAM $01
+        WriteLinkFrame(output, source, 16, (int)Facing.Left * 16, 0x1140, false);  // $8b, OAM $00
+
         return ImageTexture.CreateFromImage(output);
     }
 

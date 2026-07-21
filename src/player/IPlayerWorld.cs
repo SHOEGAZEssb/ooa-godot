@@ -7,6 +7,7 @@ public interface IPlayerWorld
     bool IsTransitioning { get; }
     bool DialogueOpen { get; }
     bool SwordDisabled { get; }
+    bool ItemUsageDisabled { get; }
     bool MovementDisabled { get; }
     bool RingTransformationsAllowed { get; }
     bool ApplySwordHit(Player player, Rect2 hitbox);
@@ -15,6 +16,7 @@ public interface IPlayerWorld
     bool TryCreateSwordBeam(Player player, int direction);
     void PlaySound(int soundId);
     bool TryInteract(Player player);
+    bool TrySecondaryInteract(Player player);
     bool TryUseBracelet(Player player);
     int TryUseSeedSatchel(Player player);
     bool DigWithShovel(Vector2 point, Vector2I direction);

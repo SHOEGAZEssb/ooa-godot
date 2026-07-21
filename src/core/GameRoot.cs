@@ -441,6 +441,7 @@ public partial class GameRoot : Node2D
             _scene.InterfaceLayer, _warpFade, _hud, _inventory, _treasures,
             _sound, _roomCamera);
         _interactions.NpcInteractionOverride = _roomEvents.TryInteractNpc;
+        _interactions.PlayerInteractionOverride = _roomEvents.TryInteractPlayer;
         _bracelet = new BraceletController(
             _rooms, new BreakableTileDatabase(), _roomView, () => (long)_animationTicks);
         _shovel = new ShovelController(

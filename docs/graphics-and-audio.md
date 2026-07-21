@@ -52,6 +52,11 @@ palette threads, waves, and fades advance on their original fixed updates. A
 future cell renderer must preserve those effects and custom collision; the
 tentative TileMapLayer migration is documented in [TODO.md](../TODO.md).
 
+Normal-shop price digits are dynamically loaded background graphics, not HUD
+tiles or object sprites. Room graphics change `$04` loads `TREE_GFXH_03`
+(`gfx_inventory_hud_1`) at the `$9200` tree slot, so `$47`'s tile base `$30`
+selects source tile `$10`; its tilemap writes use BG palette attribute `$06`.
+
 Inventory treasures, the era symbol, and Heart Piece quarters pass their source
 attribute bytes through `drawTreasureDisplayDataToBg`: its two increments shift
 sprite palettes 0-5 into BG palette slots 2-7 while preserving flip bits. Do not

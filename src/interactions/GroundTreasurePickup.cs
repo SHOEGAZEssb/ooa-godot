@@ -124,7 +124,8 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
             (_state == PickupState.Spawning && _spawnSubstate == 2 &&
              Math.Abs(_zFixed >> 8) < 7);
         if (!collectible || Finished || player.CutsceneControlled ||
-            player.IsHoldingItemOneHand || player.IsHoldingItemTwoHands)
+            player.IsHoldingItemOneHand || player.IsHoldingItemTwoHands ||
+            player.IsCarryingObject)
         {
             return false;
         }

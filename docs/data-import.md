@@ -51,6 +51,11 @@ list maps/flags plus their ring, quest-item, inventory-HUD, and palette inputs.
 source constants for appraisal prices, duplicate refunds, fixed waits, ring
 storage addresses, and completion flags. Runtime code must consume these
 generated assets and typed values rather than parse bank 2 or text sources.
+The same stage emits room `2:5e`'s reachable `$47` shop-item replacement graph,
+product OAM, BG price destinations, prompts/item text, `$46` animations, WRAM
+addresses/masks, and `$71:$0c` Dimitri entry constants. Shop text `\jump` and
+unterminated fallthrough are flattened while `\stop`, `\col`, and `\opt`
+remain runtime commands.
 
 The same stage emits `metadata/seed_satchel.tsv` for the first Satchel's
 `ITEM_EMBER_SEED $20` child. It joins `itemData.s`, `itemAttributes.s`,

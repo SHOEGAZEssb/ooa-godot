@@ -24,6 +24,7 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool IsTransitioning => _transitions.IsTransitioning;
     public bool DialogueOpen => _interactions.DialogueOpen;
     public bool SwordDisabled => _roomEvents.Active || _entities.PlayerSwordDisabled;
+    public bool ItemUsageDisabled => _entities.PlayerItemUsageDisabled;
     public bool MovementDisabled => _roomEvents.Active || _entities.PlayerMovementDisabled;
     public bool RingTransformationsAllowed =>
         !_roomEvents.Active &&
@@ -73,6 +74,8 @@ public sealed class PlayerWorld : IPlayerWorld
         _entities.TrySpawnSwordBeam(player.Position, direction);
     public void PlaySound(int soundId) => _sound.PlaySound(soundId);
     public bool TryInteract(Player player) => _interactions.TryInteract(player);
+    public bool TrySecondaryInteract(Player player) =>
+        _roomEvents.TryInteractPlayer(player);
     public bool TryUseBracelet(Player player) => _bracelet.TryUse(player);
     public int TryUseSeedSatchel(Player player) => _seedSatchel.TryUse(player);
     public bool DigWithShovel(Vector2 point, Vector2I direction) =>

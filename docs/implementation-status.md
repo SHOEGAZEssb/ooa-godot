@@ -155,6 +155,13 @@ remains the single runtime policy table.
   the moving path-blocking villager, unconditional construction soldiers,
   per-talk random worker text, left/right pickaxe strikes and dirt chips,
   half-pixel hardhat patrols, and the exact Shovel grant/held-item sequence.
+- Past Lynna shop room `2:5e`, including source-ordered `$47` liftable stock,
+  `$46:$00` counter collision and talk behavior, exact BG price digits,
+  A/B pickup and shelf return, welcome/purchase/denial/item dialogue, Rupee and
+  treasure transactions, and the shopkeeper's `SPEED_200` theft-prevention
+  route. Stock follows the original Bomb, Strange Flute, linked Gasha Seed,
+  bought-item, and shield-level predicates; invisible `$71:$0c` also promotes
+  Dimitri state bit `$20` to `$40` on entry.
 - Vasu Jewelers room `2:ee` instantiates Vasu, Blue Snake, Red Snake, and both
   help books in source order with imported sprites, palettes, OAM animations,
   bottom text, collision, and snake `$18` proximity behavior. Both books and

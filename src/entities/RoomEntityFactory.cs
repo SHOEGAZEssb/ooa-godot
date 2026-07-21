@@ -30,6 +30,7 @@ internal sealed class RoomEntityFactory(
     private readonly Room148PickaxeDatabase _room148 = new();
     private readonly Room149FamilyDatabase _room149 = new();
     private readonly VasuShopDatabase _vasuShop = new();
+    private readonly LynnaShopDatabase _lynnaShop = new();
     private readonly BlackTowerWorkerDatabase _blackTower = new();
     private readonly EnemySpawnTileDatabase _enemySpawnTiles = new();
     private readonly GroundTreasureDatabase _groundTreasures = new();
@@ -116,6 +117,11 @@ internal sealed class RoomEntityFactory(
         else if (group == 1 && room.Id == 0x49)
         {
             foreach (IRoomEntity entity in CreateRoom149Family(roomNpcs))
+                yield return entity;
+        }
+        else if (group == _lynnaShop.Group && room.Id == _lynnaShop.Room)
+        {
+            foreach (IRoomEntity entity in CreateLynnaShop(room, roomNpcs))
                 yield return entity;
         }
         else if (group == _vasuShop.Group && room.Id == _vasuShop.Room)
@@ -387,6 +393,45 @@ internal sealed class RoomEntityFactory(
             npc.Initialize(record);
             yield return new VasuShopNpcRoomEntity(npc, _vasuShop);
         }
+    }
+
+    private IEnumerable<IRoomEntity> CreateLynnaShop(
+        OracleRoomData room,
+        IReadOnlyList<NpcDatabase.NpcRecord> records)
+    {
+        if (records.Count != 1 || records[0] is not { Id: 0x46, SubId: 0x00 })
+        {
+            throw new InvalidOperationException(
+                $"Room 2:5e must contain shopkeeper $46:$00, got {records.Count} NPC records.");
+        }
+
+        // The three $47 placements precede $46:$00 in mainData.s. Stock
+        // replacement can delete a placement, but surviving objects retain
+        // that source order.
+        foreach (LynnaShopDatabase.StockRecord stock in
+            _lynnaShop.ResolveStock(saveData))
+        {
+            var item = new LynnaShopItem
+            {
+                Name = $"ShopItem_{stock.Order}_{stock.Item.SubId:x2}",
+                ZIndex = NpcCharacter.FixedLowPriorityZIndex
+            };
+            item.Initialize(stock, room);
+            yield return new LynnaShopItemRoomEntity(item);
+        }
+
+        NpcDatabase.NpcRecord record = records[0];
+        var shopkeeper = new NpcCharacter
+        {
+            Name = "Npc_46_00",
+            ZIndex = NpcCharacter.BehindLinkZIndex
+        };
+        shopkeeper.Initialize(record);
+        yield return new LynnaShopkeeperRoomEntity(shopkeeper, _lynnaShop);
+
+        // The final $71:$0c object is invisible and deletes itself after this
+        // one entry-side effect.
+        _lynnaShop.ApplyCompanionEntryState(saveData);
     }
 
     private IEnumerable<IRoomEntity> CreateBlackTowerNpcs(

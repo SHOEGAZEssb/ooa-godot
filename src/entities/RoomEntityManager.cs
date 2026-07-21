@@ -63,6 +63,18 @@ public sealed class RoomEntityManager
             return false;
         }
     }
+    public bool PlayerItemUsageDisabled
+    {
+        get
+        {
+            foreach (IRoomEntity entity in _activeEntities)
+            {
+                if (entity is IPlayerRestriction { DisablesItems: true })
+                    return true;
+            }
+            return false;
+        }
+    }
     public bool PlayerMovementDisabled
     {
         get

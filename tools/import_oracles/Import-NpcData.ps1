@@ -1120,7 +1120,7 @@ if (-not $vasuShopRoomMatch.Success -or
     throw 'Room 2:ee Vasu Jewelers placement, predicates, scripts, or constants changed in the disassembly.'
 }
 
-function Resolve-VasuShopText(
+function Resolve-ShopText(
     [int]$textId,
     [Collections.Generic.HashSet[int]]$visited
 ) {
@@ -1136,7 +1136,7 @@ function Resolve-VasuShopText(
         $call = [regex]::Match($message, '\\call\(TX_(?<id>[0-9a-f]{4})\)')
         if (-not $call.Success) { break }
         $calledId = [Convert]::ToInt32($call.Groups['id'].Value, 16)
-        $calledText = Resolve-VasuShopText $calledId $visited
+        $calledText = Resolve-ShopText $calledId $visited
         $message = $message.Substring(0, $call.Index) + $calledText +
             $message.Substring($call.Index + $call.Length)
     }
@@ -1144,7 +1144,7 @@ function Resolve-VasuShopText(
     if ($jump.Success) {
         $jumpedId = [Convert]::ToInt32($jump.Groups['id'].Value, 16)
         $message = $message.Substring(0, $jump.Index) +
-            (Resolve-VasuShopText $jumpedId $visited)
+            (Resolve-ShopText $jumpedId $visited)
     }
     [void]$visited.Remove($textId)
     return $message
@@ -1162,7 +1162,7 @@ $vasuShopTextIds = @(
 $vasuShopTextRows = [Collections.Generic.List[string]]::new()
 $vasuShopTextRows.Add("# text-id`tutf8-base64")
 foreach ($textId in $vasuShopTextIds) {
-    $message = Resolve-VasuShopText $textId ([Collections.Generic.HashSet[int]]::new())
+    $message = Resolve-ShopText $textId ([Collections.Generic.HashSet[int]]::new())
     $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message))
     $vasuShopTextRows.Add("$($textId.ToString('x4'))`t$encoded")
 }
@@ -1217,6 +1217,182 @@ $vasuShopConstantRows = @(
     "ring-wealth`t53",
     "ring-victory`t54",
     "ring-hundredth`t56"
+)
+
+# Past room 2:5e is the normal Lynna shop. INTERAC_SHOP_ITEM $47 owns the
+# stock substitutions and product graphics while INTERAC_SHOPKEEPER $46 owns
+# the prompts, purchase result, and theft-prevention script. Export every item
+# reachable from this room's three placements so the runtime follows the
+# source replacement chain instead of encoding a room-specific stock list.
+$shopItemSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\shopItem.s')
+$shopkeeperSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\shopkeeper.s')
+$companionScriptsSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\companionScripts.s')
+$roomGfxChangesSource = Get-Content -Raw (
+    Join-Path $Disassembly 'code\ages\roomGfxChanges.s')
+$treeGfxHeadersSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\treeGfxHeaders.s')
+$linkSpecialObjectSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\specialObjects\link.s')
+$linkAnimationSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
+$linkAnimationLogicSource = Get-Content -Raw (
+    Join-Path $Disassembly 'code\specialObjectAnimationsAndDamage.s')
+$parentItemUsageSource = Get-Content -Raw (
+    Join-Path $Disassembly 'code\parentItemUsage.s')
+$grabbedObjectSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\itemParents\commonCode.s')
+$linkGfxPointerBlock = [regex]::Match(
+    $linkAnimationSource,
+    '(?ms)^specialObject00GfxPointers:(?<body>.*?)(?=^specialObject00AnimationDataPointers:)')
+$linkGfxEntries = if ($linkGfxPointerBlock.Success) {
+    @([regex]::Matches(
+        $linkGfxPointerBlock.Groups['body'].Value,
+        'm_SpecialObjectGfxPointer \$(?<oam>[0-9a-f]{2}) spr_link \$(?<offset>[0-9a-f]{4}) \$[0-9a-f]{2}'))
+} else { @() }
+$expectedHeldLinkGfx = @{
+    0x5c = @(0x00, 0x0040); 0x5d = @(0x01, 0x01c0)
+    0x5e = @(0x00, 0x0180); 0x5f = @(0x00, 0x01c0)
+    0x88 = @(0x01, 0x0040); 0x89 = @(0x01, 0x1140)
+    0x8a = @(0x01, 0x0180); 0x8b = @(0x00, 0x1140)
+}
+$heldLinkGfxValid = $linkGfxEntries.Count -gt 0x8b
+if ($heldLinkGfxValid) {
+    foreach ($index in $expectedHeldLinkGfx.Keys) {
+        $entry = $linkGfxEntries[$index]
+        $expected = $expectedHeldLinkGfx[$index]
+        if ([Convert]::ToInt32($entry.Groups['oam'].Value, 16) -ne $expected[0] -or
+            [Convert]::ToInt32($entry.Groups['offset'].Value, 16) -ne $expected[1]) {
+            $heldLinkGfxValid = $false
+            break
+        }
+    }
+}
+$lynnaShopRoomMatch = [regex]::Match(
+    $mainObjectSource,
+    '(?ms)^group2Map5eObjectData:\s+obj_Interaction \$47 \$01 \$28 \$80\s+obj_Interaction \$47 \$03 \$28 \$68\s+obj_Interaction \$47 \$04 \$28 \$50\s+obj_Interaction \$46 \$00 \$58 \$88\s+obj_Interaction \$71 \$0c\s+obj_End')
+if (-not $lynnaShopRoomMatch.Success -or
+    $shopItemSource -notmatch '(?ms)^shopItemState0:.*?TREASURE_BOMBS.*?shopItemPopStackAndDeleteSelf.*?cp \$03.*?checkIsLinkedGame.*?ld a,\$13.*?GLOBALFLAG_CAN_BUY_FLUTE.*?wBoughtShopItems2.*?shopItemReplacementTable' -or
+    $shopItemSource -notmatch '(?ms)^shopItemCheckGrabbed:.*?BTN_A\|BTN_B.*?sub \$0d.*?cp \$3d.*?w1Link\.direction' -or
+    $shopItemSource -notmatch '(?ms)^shopItemGetTilesForRupeeDisplay:.*?ld e,\$06.*?ld d,\$30.*?@drawDigit' -or
+    $bank0Source -notmatch '(?ms)^checkGrabbableObjects:.*?call _getLinkPositionPlusDirectionOffset.*?call _checkCollisionWithHAndD.*?^_getLinkPositionPlusDirectionOffset:.*?^@positionOffsets:\s+\.dw \$00fa ; DIR_UP\s+\.dw \$0500 ; DIR_RIGHT\s+\.dw \$0005 ; DIR_DOWN\s+\.dw \$fa00 ; DIR_LEFT' -or
+    $linkSpecialObjectSource -notmatch '(?ms)^linkState00:.*?SpecialObject\.collisionType.*?ld a,\$80\s+ldi \(hl\),a.*?inc l\s+ld a,\$06\s+ldi \(hl\),a\s+ldi \(hl\),a' -or
+    -not $heldLinkGfxValid -or
+    $linkAnimationLogicSource -notmatch '(?ms)^@notUnderwater:\s*ld c,\$00\s*ld a,\(wLinkGrabState\)\s*bit 6,a\s*ret nz\s*; Check if he.s holding something\s*or a\s*jr z,\+\s*ld c,\$02' -or
+    $parentItemUsageSource -notmatch '(?ms)^checkShopInput:.*?ld a,\(wGameKeysJustPressed\).*?and \$03.*?call checkGrabbableObjects.*?ld a,\$83\s*ld \(wLinkGrabState\),a' -or
+    $grabbedObjectSource -notmatch '(?ms)^updateGrabbedObjectPosition:.*?cp \$83.*?w1Link\.animParameter.*?and \$0f.*?add b.*?^@liftedObjectPositions:.*?; Weight 0.*?\.db \$f3 \$00 \$f2 \$00 \$f3 \$00 \$f2 \$00 ; Frame 2.*?\.db \$f3 \$00 \$f3 \$00 \$f3 \$00 \$f3 \$00 ; Frame 3' -or
+    $shopItemSource -notmatch '(?ms)^shopItemState2:.*?^@substate0:\s*ld a,\$01\s*ld \(de\),a.*?ld a,\$08\s*ld \(wLinkGrabState2\),a\s*call objectSetVisible80' -or
+    $roomGfxChangesSource -notmatch '(?ms)^roomTileChangesAfterLoad04:.*?wInShop.*?TREE_GFXH_03.*?loadTreeGfx' -or
+    $treeGfxHeadersSource -notmatch '(?m)^\s*/\* \$03 \*/ m_ObjectGfxHeader gfx_inventory_hud_1\s*$' -or
+    $shopkeeperSource -notmatch '(?ms)^shopkeeperState0:.*?ld bc,\$0614.*?ld a,>TX_0e00.*?^shopkeeperState1:.*?ld c,\$69.*?wLinkGrabState.*?shopkeeperTheftPreventionScriptTable' -or
+    $shopkeeperSource -notmatch '(?ms)^shopkeeperCheckLinkHasItemAlready:.*?cp \$13.*?cp \$03.*?cp \$0d.*?wNumBombs.*?wLinkHealth.*?TREASURE_SHIELD.*?TREASURE_FLUTE' -or
+    $vasuShopScriptsSource -notmatch '(?ms)^shopkeeperScript_lynnaShopWelcome:.*?<TX_0e00.*?^shopkeeperScript_boughtEverything:.*?<TX_0e26.*?^shopkeeperScript_purchaseItem:.*?@buy3Hearts:.*?<TX_0e02.*?@buyL1Shield:.*?<TX_0e03.*?@buy10Bombs:.*?<TX_0e04.*?@buyStrangeFlute:.*?<TX_0e1b.*?@buyNormalShopGashaSeed:.*?<TX_0e1d' -or
+    $companionScriptsSource -notmatch '(?ms)^companionScript_subid0c:.*?wDimitriState.*?bit 5,a.*?or \$40.*?wDimitriState') {
+    throw 'Room 2:5e Lynna shop placement, graphics, predicates, scripts, or companion state changed in the disassembly.'
+}
+
+$lynnaShopDefinitions = @(
+    # subid, price tile, price, treasure, parameter, prompt, item text,
+    # replacement address, mask, replacement subid, x offset
+    @(0x01, 0x6f,  10, 0x29, 0x0c, 0x0e02, 0x004c, 0xc643, 0x08, 0x0d, 4),
+    @(0x03, 0x6c,  30, 0x01, 0x01, 0x0e03, 0x001f, 0xc6af, 0x02, 0x11, 0),
+    @(0x04, 0x69,  20, 0x03, 0x10, 0x0e04, 0x004d, 0xc642, 0x00, 0xff, 0),
+    @(0x0d, 0x67, 150, 0x0e, 0x0c, 0x0e1b, 0x003b, 0xc643, 0x00, 0xff, 0),
+    @(0x11, 0x6f,  50, 0x01, 0x02, 0x0e29, 0x0020, 0xc6af, 0x01, 0x12, 0),
+    @(0x12, 0x6c,  80, 0x01, 0x03, 0x0e2a, 0x0021, 0xc6af, 0x00, 0xff, 0),
+    @(0x13, 0x6c,  30, 0x34, 0x01, 0x0e1d, 0x004b, 0xc642, 0x20, 0x03, 0)
+)
+$lynnaShopPlacementBySubId = @{
+    0x01 = @(0, 0x28, 0x80)
+    0x03 = @(1, 0x28, 0x68)
+    0x04 = @(2, 0x28, 0x50)
+}
+$lynnaShopItemRows = [Collections.Generic.List[string]]::new()
+$lynnaShopItemRows.Add(
+    "# subid`torder`ty`tx`tprice-tile`tprice`ttreasure`tparameter`tprompt-text`titem-text`tsprite`ttile-base`tpalette`tanimation-index`tencoded-animation`treplacement-address`treplacement-mask`treplacement-subid`treplacement-x-offset")
+foreach ($definition in $lynnaShopDefinitions) {
+    $subid = [int]$definition[0]
+    $placement = $lynnaShopPlacementBySubId[$subid]
+    $order = if ($null -eq $placement) { -1 } else { [int]$placement[0] }
+    $y = if ($null -eq $placement) { 0 } else { [int]$placement[1] }
+    $x = if ($null -eq $placement) { 0 } else { [int]$placement[2] }
+    $graphic = $interactionGraphics["71:$subid"]
+    if ($null -eq $graphic) {
+        throw "Could not resolve Lynna shop item `$47:`$$($subid.ToString('x2'))."
+    }
+    $animationIndex = $graphic.DefaultAnimation
+    # INTERAC_SHOP_ITEM aliases INTERAC_TREASURE's animation and contiguous
+    # OAM-pointer bases; some stock frames intentionally index beyond the
+    # first labeled four-word block.
+    $animation = Resolve-TreasureAnimation $animationIndex
+    if ([string]::IsNullOrWhiteSpace($animation)) {
+        throw "Could not resolve Lynna shop item `$47:`$$($subid.ToString('x2')) animation."
+    }
+    $spriteName = $gfxNames[$graphic.Gfx]
+    [void]$npcSpriteNames.Add($spriteName)
+    $lynnaShopItemRows.Add(
+        "$($subid.ToString('x2'))`t$order`t$y`t$x`t$(([int]$definition[1]).ToString('x2'))`t$([int]$definition[2])`t$(([int]$definition[3]).ToString('x2'))`t$(([int]$definition[4]).ToString('x2'))`t$(([int]$definition[5]).ToString('x4'))`t$(([int]$definition[6]).ToString('x4'))`t$spriteName`t$($graphic.TileBase.ToString('x2'))`t$($graphic.Palette.ToString('x2'))`t$($animationIndex.ToString('x2'))`t$animation`t$(([int]$definition[7]).ToString('x4'))`t$(([int]$definition[8]).ToString('x2'))`t$(([int]$definition[9]).ToString('x2'))`t$([int]$definition[10])")
+}
+
+$lynnaShopTextIds = @(
+    0x0e00, 0x0e02, 0x0e03, 0x0e04, 0x0e05, 0x0e06, 0x0e07,
+    0x0e1b, 0x0e1d, 0x0e26, 0x0e29, 0x0e2a,
+    0x004b, 0x004c, 0x004d, 0x001f, 0x0020, 0x0021, 0x003b)
+$lynnaShopTextRows = [Collections.Generic.List[string]]::new()
+$lynnaShopTextRows.Add("# text-id`tutf8-base64")
+foreach ($textId in $lynnaShopTextIds) {
+    $message = Resolve-ShopText $textId ([Collections.Generic.HashSet[int]]::new())
+    if ($textId -eq 0x0e2a) {
+        # TX_0e2a deliberately has no terminator and falls through to the
+        # adjacent TX_0e2b option body in the compiled text bank.
+        $message += Resolve-ShopText 0x0e2b ([Collections.Generic.HashSet[int]]::new())
+    }
+    # cmd8 $0f installs the source choice handler. DialogueBox already owns
+    # the two imported \opt markers, so retaining it would render a raw token.
+    $message = $message.Replace('\cmd8(0x0f)', '')
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message))
+    $lynnaShopTextRows.Add("$($textId.ToString('x4'))`t$encoded")
+}
+
+$lynnaShopAnimationRows = [Collections.Generic.List[string]]::new()
+$lynnaShopAnimationRows.Add("# interaction-id`tanimation`tencoded-animation")
+foreach ($animationIndex in 0..3) {
+    $animation = Resolve-NpcAnimation 0x46 $animationIndex
+    if ([string]::IsNullOrWhiteSpace($animation)) {
+        throw 'Could not resolve a Lynna shopkeeper animation from the disassembly.'
+    }
+    $lynnaShopAnimationRows.Add(
+        "46`t$($animationIndex.ToString('x2'))`t$animation")
+}
+
+$lynnaShopConstantRows = @(
+    "# key`tvalue",
+    "group`t2",
+    "room`t94",
+    "textbox-position`t0",
+    "item-collision-radius`t7",
+    "link-collision-radius`t6",
+    "grab-negative-point-offset`t6",
+    "grab-positive-point-offset`t5",
+    "shopkeeper-radius-y`t6",
+    "shopkeeper-radius-x`t20",
+    "a-button-point-offset`t10",
+    "selection-link-y-limit`t61",
+    "selection-x-radius`t13",
+    "theft-link-y`t105",
+    "bought-items-1-address`t50754",
+    "bought-items-2-address`t50755",
+    "dimitri-state-address`t50759",
+    "dimitri-saved-mask`t32",
+    "dimitri-disappear-mask`t64",
+    "global-can-buy-flute`t29",
+    "normal-gasha-bought-mask`t32",
+    "flute-stock-mask`t8",
+    "bombchu-owned-mask`t16",
+    "bombchu-missing-mask`t32",
+    "specialobject-dimitri`t12"
 )
 
 # Past room 1:48's pickaxe worker is a native room interaction. Animation $02
@@ -2937,6 +3113,26 @@ $vasuShopConstantsPath = Join-Path $destination "objects\vasu_shop_constants.tsv
 [IO.File]::WriteAllLines(
     $vasuShopConstantsPath,
     $vasuShopConstantRows,
+    [Text.UTF8Encoding]::new($false))
+$lynnaShopItemPath = Join-Path $destination "objects\lynna_shop_items.tsv"
+[IO.File]::WriteAllLines(
+    $lynnaShopItemPath,
+    $lynnaShopItemRows,
+    [Text.UTF8Encoding]::new($false))
+$lynnaShopTextPath = Join-Path $destination "objects\lynna_shop_texts.tsv"
+[IO.File]::WriteAllLines(
+    $lynnaShopTextPath,
+    $lynnaShopTextRows,
+    [Text.UTF8Encoding]::new($false))
+$lynnaShopAnimationPath = Join-Path $destination "objects\lynna_shop_animations.tsv"
+[IO.File]::WriteAllLines(
+    $lynnaShopAnimationPath,
+    $lynnaShopAnimationRows,
+    [Text.UTF8Encoding]::new($false))
+$lynnaShopConstantsPath = Join-Path $destination "objects\lynna_shop_constants.tsv"
+[IO.File]::WriteAllLines(
+    $lynnaShopConstantsPath,
+    $lynnaShopConstantRows,
     [Text.UTF8Encoding]::new($false))
 $dungeonMechanicPath = Join-Path $destination "objects\dungeon_mechanics.tsv"
 [IO.File]::WriteAllLines(

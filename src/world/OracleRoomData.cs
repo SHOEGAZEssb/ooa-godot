@@ -190,6 +190,39 @@ public sealed class OracleRoomData
         ((ImageTexture)Texture).Update(RenderRoom(_activeAnimationHeaders));
     }
 
+    /// <summary>
+    /// Builds one dynamically loaded BG tile with this room's active tileset
+    /// palette. Shop prices use this path because $47 writes tile and
+    /// attribute bytes directly into w3VramTiles instead of creating OAM.
+    /// </summary>
+    internal Texture2D BuildBackgroundTileTexture(
+        Image source,
+        int tile,
+        int rawPalette)
+    {
+        if (tile < 0 || rawPalette is < 0 or > 7)
+            throw new ArgumentOutOfRangeException(nameof(tile));
+        int sourceX = tile % 16 * 8;
+        int sourceY = tile / 16 * 8;
+        if (sourceX + 8 > source.GetWidth() || sourceY + 8 > source.GetHeight())
+            throw new ArgumentOutOfRangeException(nameof(tile));
+
+        Image output = Image.CreateEmpty(8, 8, false, Image.Format.Rgba8);
+        int paletteIndex = Mathf.Clamp(rawPalette - 2, 0, 5);
+        for (int y = 0; y < 8; y++)
+        for (int x = 0; x < 8; x++)
+        {
+            Color sourceColor = source.GetPixel(sourceX + x, sourceY + y);
+            int shade = Mathf.Clamp(
+                Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f), 0, 3);
+            Color color = rawPalette == 0
+                ? _commonBgPalette0[shade]
+                : _palette[paletteIndex, shade];
+            output.SetPixel(x, y, color);
+        }
+        return ImageTexture.CreateFromImage(output);
+    }
+
     public ulong GetAnimationChecksum(long tick)
     {
         byte[] pixels = RenderRoom(_animations.GetActiveHeaders(AnimationGroup, tick)).GetData();
