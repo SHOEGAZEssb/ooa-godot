@@ -92,6 +92,8 @@ public sealed class OracleSaveData
     public bool IsCompleted => ReadWramByte(0xc614) != 0;
     public int GashaMaturity =>
         ReadWramByte(0xc65f) | (ReadWramByte(0xc660) << 8);
+    internal bool HasHarvestedFirstGashaNut => (ReadWramByte(0xc64c) & 0x01) != 0;
+    internal bool HasHarvestedGashaHeartPiece => (ReadWramByte(0xc64c) & 0x02) != 0;
 
     private OracleSaveData(byte[] data)
     {
@@ -261,6 +263,64 @@ public sealed class OracleSaveData
         changed |= WriteWramByte(0xc660, (byte)(next >> 8));
         if (changed)
             Changed?.Invoke();
+    }
+
+    internal void SubtractGashaMaturity(int amount)
+    {
+        if (amount is < 0 or > 0xffff)
+            throw new ArgumentOutOfRangeException(nameof(amount));
+        int next = Math.Max(0, GashaMaturity - amount);
+        bool changed = WriteWramByte(0xc65f, (byte)next);
+        changed |= WriteWramByte(0xc660, (byte)(next >> 8));
+        if (changed)
+            Changed?.Invoke();
+    }
+
+    internal bool IsGashaSpotPlanted(int subId)
+    {
+        ValidateGashaSpot(subId);
+        return (ReadWramByte(0xc64d + subId / 8) & (1 << (subId & 7))) != 0;
+    }
+
+    internal void SetGashaSpotPlanted(int subId, bool planted)
+    {
+        ValidateGashaSpot(subId);
+        int address = 0xc64d + subId / 8;
+        int mask = 1 << (subId & 7);
+        byte value = ReadWramByte(address);
+        value = planted ? (byte)(value | mask) : (byte)(value & ~mask);
+        if (WriteWramByte(address, value))
+            Changed?.Invoke();
+    }
+
+    internal int GetGashaSpotKillCounter(int subId)
+    {
+        ValidateGashaSpot(subId);
+        return ReadWramByte(0xc64f + subId);
+    }
+
+    internal void SetGashaSpotKillCounter(int subId, int count)
+    {
+        ValidateGashaSpot(subId);
+        if (count is < 0 or > 0xff)
+            throw new ArgumentOutOfRangeException(nameof(count));
+        if (WriteWramByte(0xc64f + subId, (byte)count))
+            Changed?.Invoke();
+    }
+
+    internal void SetGashaHarvestFlag(int bit)
+    {
+        if (bit is < 0 or > 1)
+            throw new ArgumentOutOfRangeException(nameof(bit));
+        byte value = (byte)(ReadWramByte(0xc64c) | (1 << bit));
+        if (WriteWramByte(0xc64c, value))
+            Changed?.Invoke();
+    }
+
+    private static void ValidateGashaSpot(int subId)
+    {
+        if (subId is < 0 or >= 16)
+            throw new ArgumentOutOfRangeException(nameof(subId));
     }
 
     public void SetDeathRespawnPoint(

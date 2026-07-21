@@ -12,6 +12,7 @@ public sealed class RoomSession
     private readonly RoomTileChangeDatabase _tileChanges;
     private readonly DungeonKeyDoorDatabase _keyDoors;
     private readonly StandardTileSubstitutionDatabase _standardTileSubstitutions;
+    private readonly GashaSpotDatabase _gashaSpots;
 
     public event Action<int, OracleRoomData>? RoomChanged;
     public OracleWorldData World { get; }
@@ -39,8 +40,10 @@ public sealed class RoomSession
         _tileChanges = new RoomTileChangeDatabase();
         _keyDoors = new DungeonKeyDoorDatabase();
         _standardTileSubstitutions = new StandardTileSubstitutionDatabase();
+        _gashaSpots = new GashaSpotDatabase();
         DungeonMaps = new DungeonMapDatabase();
         ActiveGroup = startingGroup;
+        _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         CurrentRoom = GetRoom(startingGroup, startingRoom);
         MarkRoomVisited(startingGroup, startingRoom);
         CurrentRoom.UpdateAnimation(_animationTick());
@@ -49,6 +52,7 @@ public sealed class RoomSession
     public OracleRoomData Load(int group, int room)
     {
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
+        _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         ActiveGroup = group;
         CurrentRoom = GetRoom(group, room);
         MarkRoomVisited(group, room);
@@ -74,6 +78,7 @@ public sealed class RoomSession
     public void SetLoadedRoom(int group, OracleRoomData room)
     {
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
+        _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         ActiveGroup = group;
         CurrentRoom = room;
         MarkRoomVisited(group, room.Id);
@@ -109,6 +114,8 @@ public sealed class RoomSession
         _keyDoors.ApplyOpenedDoorState(
             loaded, roomFlags, _animationTick());
         _tileChanges.Apply(group, loaded, _saveData, World, _animationTick());
+        _gashaSpots.ApplyRoomState(
+            group, loaded, _saveData, _animationTick());
         return loaded;
     }
 

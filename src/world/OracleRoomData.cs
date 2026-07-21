@@ -85,11 +85,13 @@ public sealed class OracleRoomData
     private readonly Dictionary<int, byte> _positionCollisionOverrides = new();
     private readonly Dictionary<int, byte[]> _positionMappingOverrides = new();
     private readonly Dictionary<int, byte> _positionVisualOverrides = new();
+    private readonly Dictionary<int, DynamicBackgroundTile> _dynamicBackgroundTiles = new();
     private int _animationSignature;
     private int[] _activeAnimationHeaders;
 
     internal int CurrentAnimationSignature => _animationSignature;
     internal float TemporaryBackgroundPaletteBlend => _temporaryFullBackgroundPaletteBlend;
+    internal readonly record struct DynamicBackgroundTile(Image Source, int Tile);
 
     internal OracleRoomData(
         int group,
@@ -488,6 +490,8 @@ public sealed class OracleRoomData
             _positionMappingOverrides.Clear();
             redraw |= _positionVisualOverrides.Count != 0;
             _positionVisualOverrides.Clear();
+            redraw |= _dynamicBackgroundTiles.Count != 0;
+            _dynamicBackgroundTiles.Clear();
         }
 
         foreach ((int position, byte tile) in changes)
@@ -535,6 +539,149 @@ public sealed class OracleRoomData
 
         if (!redraw)
             return;
+        int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
+        _activeAnimationHeaders = activeHeaders;
+        _animationSignature = GetAnimationSignature(activeHeaders);
+        ((ImageTexture)Texture).Update(RenderRoom(activeHeaders));
+    }
+
+    /// <summary>
+    /// Applies a source-style copyRectangleToRoomLayoutAndCollisions block in
+    /// one redraw. Gasha growth uses this because its 2x2 tree changes both
+    /// layout and collision bytes after ordinary room initialization.
+    /// </summary>
+    internal void SetMetatileRectangle(
+        Vector2 localTopLeft,
+        int width,
+        IReadOnlyList<byte> tiles,
+        IReadOnlyList<byte> collisions,
+        long animationTick)
+    {
+        if (width <= 0 || tiles.Count == 0 || tiles.Count != collisions.Count ||
+            tiles.Count % width != 0)
+        {
+            throw new ArgumentException("Invalid metatile rectangle.", nameof(tiles));
+        }
+
+        int startX = Mathf.FloorToInt(localTopLeft.X / MetatileSize);
+        int startY = Mathf.FloorToInt(localTopLeft.Y / MetatileSize);
+        int height = tiles.Count / width;
+        if (startX < 0 || startY < 0 || startX + width > WidthInTiles ||
+            startY + height > HeightInTiles)
+        {
+            throw new ArgumentOutOfRangeException(nameof(localTopLeft));
+        }
+
+        for (int offset = 0; offset < tiles.Count; offset++)
+        {
+            int x = startX + offset % width;
+            int y = startY + offset / width;
+            int index = y * _layoutStride + x;
+            Layout[index] = tiles[offset];
+            _positionCollisionOverrides[index] = collisions[offset];
+            _positionMappingOverrides.Remove(index);
+            _positionVisualOverrides.Remove(index);
+        }
+        Redraw(animationTick);
+    }
+
+    /// <summary>
+    /// Replaces the 4x4 background-subtile block covering a 2x2 metatile
+    /// object. Flip/bank bits are retained while the requested BG palette
+    /// replaces the low bits, matching the Gasha disappearance code.
+    /// </summary>
+    internal void SetSubtileRectangle(
+        Vector2 localTopLeft,
+        IReadOnlyList<byte> tileIds,
+        int rawPalette,
+        byte collision,
+        long animationTick)
+    {
+        if (tileIds.Count != 16 || rawPalette is < 0 or > 7)
+            throw new ArgumentException("A 2x2 metatile override requires 16 subtiles.", nameof(tileIds));
+
+        int startX = Mathf.FloorToInt(localTopLeft.X / MetatileSize);
+        int startY = Mathf.FloorToInt(localTopLeft.Y / MetatileSize);
+        if (startX < 0 || startY < 0 || startX + 2 > WidthInTiles ||
+            startY + 2 > HeightInTiles)
+        {
+            throw new ArgumentOutOfRangeException(nameof(localTopLeft));
+        }
+
+        for (int metatileY = 0; metatileY < 2; metatileY++)
+        for (int metatileX = 0; metatileX < 2; metatileX++)
+        {
+            int index = (startY + metatileY) * _layoutStride + startX + metatileX;
+            int mappingOffset = Layout[index] * 8;
+            var mapping = new byte[8];
+            for (int quarterY = 0; quarterY < 2; quarterY++)
+            for (int quarterX = 0; quarterX < 2; quarterX++)
+            {
+                int quarter = quarterY * 2 + quarterX;
+                int sourceRow = metatileY * 2 + quarterY;
+                int sourceColumn = metatileX * 2 + quarterX;
+                mapping[quarter] = tileIds[sourceRow * 4 + sourceColumn];
+                byte attributes = _positionMappingOverrides.TryGetValue(
+                    index, out byte[]? previous)
+                    ? previous[4 + quarter]
+                    : _mappings[mappingOffset + 4 + quarter];
+                mapping[4 + quarter] = (byte)((attributes & 0xf0) | rawPalette);
+            }
+            _positionMappingOverrides[index] = mapping;
+            _positionVisualOverrides.Remove(index);
+            _positionCollisionOverrides[index] = collision;
+        }
+        Redraw(animationTick);
+    }
+
+    internal void SetDynamicBackgroundTiles(
+        IReadOnlyDictionary<int, DynamicBackgroundTile> tiles,
+        long animationTick)
+    {
+        _dynamicBackgroundTiles.Clear();
+        foreach ((int destination, DynamicBackgroundTile tile) in tiles)
+        {
+            int columns = tile.Source.GetWidth() / 8;
+            int rows = tile.Source.GetHeight() / 8;
+            if (destination is < 0 or > 0xff || tile.Tile < 0 ||
+                tile.Source.GetWidth() % 8 != 0 ||
+                tile.Source.GetHeight() % 8 != 0 ||
+                columns == 0 || rows == 0 || tile.Tile >= columns * rows)
+            {
+                throw new ArgumentOutOfRangeException(nameof(tiles));
+            }
+            _dynamicBackgroundTiles.Add(destination, tile);
+        }
+        Redraw(animationTick);
+    }
+
+    internal void CompleteGashaHarvest(
+        Vector2 localTopLeft,
+        byte replacement,
+        long animationTick)
+    {
+        int startX = Mathf.FloorToInt(localTopLeft.X / MetatileSize);
+        int startY = Mathf.FloorToInt(localTopLeft.Y / MetatileSize);
+        if (startX < 0 || startY < 0 || startX + 2 > WidthInTiles ||
+            startY + 2 > HeightInTiles)
+        {
+            throw new ArgumentOutOfRangeException(nameof(localTopLeft));
+        }
+        for (int y = 0; y < 2; y++)
+        for (int x = 0; x < 2; x++)
+        {
+            int index = (startY + y) * _layoutStride + startX + x;
+            Layout[index] = replacement;
+            _positionCollisionOverrides.Remove(index);
+            _positionMappingOverrides.Remove(index);
+            _positionVisualOverrides.Remove(index);
+        }
+        _dynamicBackgroundTiles.Clear();
+        Redraw(animationTick);
+    }
+
+    private void Redraw(long animationTick)
+    {
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
         _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
@@ -641,14 +788,21 @@ public sealed class OracleRoomData
                 int sourceIndex = tileId >= 0x80 ? tileId - 0x80 : tileId + 0x80;
                 Image tileSource = _source;
                 int sourceTile = sourceIndex;
-                if (_animations.TryGetOverride(
+                if (_dynamicBackgroundTiles.TryGetValue(
+                    sourceIndex, out DynamicBackgroundTile dynamicTile))
+                {
+                    tileSource = dynamicTile.Source;
+                    sourceTile = dynamicTile.Tile;
+                }
+                else if (_animations.TryGetOverride(
                     activeHeaders, sourceIndex, out Image overrideSource, out int overrideTile))
                 {
                     tileSource = overrideSource;
                     sourceTile = overrideTile;
                 }
-                int sourceX = (sourceTile % 16) * 8;
-                int sourceY = (sourceTile / 16) * 8;
+                int sourceColumns = tileSource.GetWidth() / 8;
+                int sourceX = (sourceTile % sourceColumns) * 8;
+                int sourceY = (sourceTile / sourceColumns) * 8;
                 bool flipX = (attributes & 0x20) != 0;
                 bool flipY = (attributes & 0x40) != 0;
                 int rawPalette = attributes & 0x07;

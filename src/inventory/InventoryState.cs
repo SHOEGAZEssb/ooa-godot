@@ -423,6 +423,16 @@ public sealed class InventoryState
         GiveTreasure(TreasureDatabase.TreasureRing, ring);
     }
 
+    internal bool ConsumeGashaSeed()
+    {
+        int count = FromBcd(GashaSeeds);
+        if (count == 0)
+            return false;
+        GashaSeeds = ToBcd(count - 1);
+        NotifyChanged();
+        return true;
+    }
+
     public bool ApplyDamage(int quarters)
     {
         if (quarters <= 0 || HealthQuarters <= 0)
@@ -672,7 +682,7 @@ public sealed class InventoryState
         Changed?.Invoke();
     }
 
-    private void GiveTreasure(int treasure, int parameter)
+    internal void GiveTreasure(int treasure, int parameter)
     {
         if (treasure == TreasureDatabase.TreasureSeedSatchel)
         {
@@ -693,6 +703,9 @@ public sealed class InventoryState
 
     private void GiveTreasureCore(int treasure, int parameter)
     {
+        int maturity = _treasures.GetGashaMaturityGain(treasure, parameter);
+        if (maturity != 0)
+            _saveData?.AddGashaMaturity(maturity);
         if (treasure == TreasureDatabase.TreasureRingBox && RingBoxLevel == 0)
         {
             Array.Fill(_ringBoxContents, (byte)0xff);

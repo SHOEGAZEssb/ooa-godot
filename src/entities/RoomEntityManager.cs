@@ -14,6 +14,8 @@ public sealed class RoomEntityManager
     public event Action<TimePortal>? TimePortalEntered;
     internal event Action<int, string>? DungeonEntranceTriggered;
     internal event Action<GroundTreasurePickup, Player>? GroundTreasureCollected;
+    internal event Action<GashaSpotInteraction, Player>? GashaInteractionRequested;
+    internal event Action<GashaSpotInteraction, Player>? GashaNutCaught;
     internal event Action<Vector2, OracleRoomData.HazardType>? ItemDropEnteredHazard;
     public event Action<int>? SoundRequested;
     public event Action? RoomTileChanged;
@@ -87,6 +89,18 @@ public sealed class RoomEntityManager
             return PlayerSwordDisabled && (_enemyFrameCounter & 1) != 0;
         }
     }
+    public bool PlayerMenusDisabled
+    {
+        get
+        {
+            foreach (IRoomEntity entity in _activeEntities)
+            {
+                if (entity is IPlayerRestriction { DisablesMenus: true })
+                    return true;
+            }
+            return false;
+        }
+    }
     public bool PlayerRingTransformationsDisabled
     {
         get
@@ -122,6 +136,7 @@ public sealed class RoomEntityManager
         OracleRandom random,
         OracleSaveData? saveData = null,
         OracleRuntimeState? runtimeState = null,
+        InventoryState? inventory = null,
         Func<long>? animationTick = null)
     {
         _worldRoot = worldRoot;
@@ -135,6 +150,7 @@ public sealed class RoomEntityManager
             _saveData, _runtimeState, OnTimePortalEntered,
             () => GroundTreasureCollectionAllowed(),
             OnGroundTreasureCollected, OnDungeonEntranceTriggered,
+            OnGashaInteractionRequested, OnGashaNutCaught, inventory,
             OnItemDropEnteredHazard,
             OnSoundRequested, CountRoomEnemies,
             enemyIndex => _recentEnemyDefeats.WasKilled(enemyIndex),
@@ -292,6 +308,19 @@ public sealed class RoomEntityManager
                 return target;
         }
         return null;
+    }
+
+    internal bool TryInteract(Player player)
+    {
+        foreach (IRoomEntity entity in _activeEntities)
+        {
+            if (entity is IPlayerInteractable interactable &&
+                interactable.TryInteract(player))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     internal bool BeginNpcTalk(NpcCharacter npc)
@@ -492,6 +521,14 @@ public sealed class RoomEntityManager
             ? (byte)(_activeTriggers | mask)
             : (byte)(_activeTriggers & ~mask);
     }
+
+    private void OnGashaInteractionRequested(
+        GashaSpotInteraction interaction,
+        Player player) => GashaInteractionRequested?.Invoke(interaction, player);
+
+    private void OnGashaNutCaught(
+        GashaSpotInteraction interaction,
+        Player player) => GashaNutCaught?.Invoke(interaction, player);
 
     private void RefreshNpcState(IEnumerable<IRoomEntity> entities)
     {

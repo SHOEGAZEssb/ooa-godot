@@ -150,6 +150,16 @@ for the exact six-update half-door frame. The final ordinary tile write removes
 both mapping and collision overrides, renders the complete destination
 metatile, and only then makes the doorway passable.
 
+Gasha trees use a third dynamic-background path. Room-load growth installs the
+first 16 tiles from `gfx_gasha_tree` at the `$a0-$af` BG destinations before
+writing the solid 2-by-2 tree layout. Harvest reloads the source 4-by-4 tile
+map with BG palette 4, then advances nine imported maps every eight original
+updates. Each phase replaces only the active tail of the tree graphics and
+fills the exposed leading tiles from `spr_grass_tuft`, `gfx_dirt`, or
+`gfx_sand`. Dynamic BG tiles take precedence over ordinary tileset-animation
+overrides and are cleared with the completed room replacement; they are not
+OAM sprites and must remain visible while the reward object itself is hidden.
+
 ## Audio determinism and lifecycle
 
 `OracleSoundData` imports all 223 sound/music IDs and their banked channel

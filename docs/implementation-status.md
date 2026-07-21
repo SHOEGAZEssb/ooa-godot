@@ -40,6 +40,14 @@ claim that the entire surrounding game is complete.
   imported breakable-tile replacements and drops, directional dirt debris,
   `SPEED_a0` cardinal drop launch, sounds, room flags, and WRAM-backed gasha
   maturity.
+- Complete Ages Gasha Seed planting and Gasha Tree behavior across all 16
+  source spots: buried-soil Discovery Ring cues, no-seed/Yes/No dialogue,
+  packed-BCD consumption, persisted planted bits and kill counters, 20/40-kill
+  sprout/tree/nut thresholds, source collision and nut launch, exact shared-RNG
+  rank/maturity reward distributions and ring tiers, first-nut/repeated-Heart-
+  Piece/Potion exceptions, all maturity sources and debit, two-hand reward
+  text, displayed Heart/Rupee wait, nine shrink frames, grass/dirt/sand ground
+  restoration, reusable soft soil on re-entry, and planted-spot map popups.
 - The Shield is an active held-button parent item on either A or B. Wooden,
   Iron, and Mirror Shield ownership use `wShieldLevel`; equipped-but-lowered
   and raised states select the original level-aware Link frames in all four
@@ -123,7 +131,7 @@ remains the single runtime policy table.
 | `$25` | Blue Joy Ring | Implemented | Doubles Hearts collected from implemented enemy/item drops. |
 | `$26` | Gold Joy Ring | Partial | Doubles the currently supported Heart and Rupee drops; the other source drop kinds are not implemented. |
 | `$27` | Green Joy Ring | Deferred | Ore-doubling policy exists; Ore Chunk drops do not. |
-| `$28` | Discovery Ring | Deferred | Soft-soil detection policy exists; the nearby-soft-earth detector does not. |
+| `$28` | Discovery Ring | Implemented | Requests the source compass cue when a Gasha interaction receives its first enabled update in a room containing its buried or exposed spot. |
 | `$29` | Rang Ring L-2 | Deferred | Level-2 boomerang-damage policy exists; active Boomerang behavior does not. |
 | `$2a` | Octo Ring | Implemented | Uses the Octorok Link disguise and transformed-Link restrictions. |
 | `$2b` | Moblin Ring | Implemented | Uses the Moblin Link disguise and transformed-Link restrictions. |
@@ -141,7 +149,7 @@ remains the single runtime policy table.
 | `$37` | Sign Ring | Correct no-op | It is an achievement ring, not a modifier. The 100-broken-sign acquisition path is absent. |
 | `$38` | 100th Ring | Correct no-op | It is an achievement ring, not a modifier. The appraisal counter and award are implemented. |
 | `$39` | Whisp Ring | Deferred | Jinx immunity is encoded; jinx status behavior is absent. |
-| `$3a` | Gasha Ring | Partial | Enemy kills grant double persisted planted-spot credits while worn; planting, growth, and Gasha Tree rewards are absent. |
+| `$3a` | Gasha Ring | Implemented | Enemy kills grant the source double increment to all persisted Gasha-spot counters; planting, growth, and reward consumers are active. |
 | `$3b` | Peace Ring | Deferred | Held-Bomb explosion suppression is encoded; active held Bombs do not exist. |
 | `$3c` | Zora Ring | Deferred | Unlimited-dive policy exists; swimming and diving do not. |
 | `$3d` | Fist Ring | Implemented | Enables the ordinary unarmed punch, including collision, animation, and sound. |
@@ -234,8 +242,8 @@ remains the single runtime policy table.
   boxes, shared `cfd1` handoffs, 120-update fear shake with 360 shared-RNG
   calls, three throw cues, and simultaneous `SPEED_200` escapes. Current-room
   bit `$40` suppresses all three children and the event on re-entry. The
-  unrelated `$b6:$03` Gasha spot in the same object stream remains part of the
-  deferred Gasha planting/reward system.
+  unrelated `$b6:$03` Gasha spot follows those actors in the same source object
+  order and uses the complete shared planting/growth/reward system.
 - Room `1:38`'s complete Maku Sprout rescue, including the exact
   `wMakuTreeState`/saved-flag predicate, synchronized jumping interaction
   Moblins, replacement by two ordinary masked-Moblin enemies, live enemy-count

@@ -136,6 +136,31 @@ capability; the projectile disables its collision after the first accepted hit
 and changes to the flame state. Keep later Scent, Pegasus, Gale, and Mystery
 state machines distinct when they are implemented.
 
+`INTERAC_GASHA_SPOT $b6` is split between room initialization and one native
+interaction entity. `GashaSpotDatabase` applies the planted `$f5` sprout below
+20 kills or the solid `$4e/$4f/$5e/$5f` 2-by-2 tree from 20 kills onward.
+Only an unplanted, exposed `$d2` tile becomes A-button-sensitive; the Discovery
+Ring cue occurs on the interaction's first enabled update even while the spot
+is still buried. At 40 kills the interaction creates the nut at the source
+offset. A sword hit changes its radius, applies speed `$28`, speedZ `-$140`,
+gravity `$20`, and aims at Link. From that hit until the tree is gone, Link's
+movement/items/sword and ordinary menus remain disabled as by
+`DISABLE_ALL_BUT_INTERACTIONS` plus `wMenuDisabled`.
+
+Reward resolution consumes the shared RNG at exactly the source distribution
+and ring-tier calls. The first nut forces a tier-3 ring without maturity debit;
+later nuts select by the five maturity ranges and spot rank, debit 200, replace
+a repeated Heart Piece with a tier-0 ring, and fully heal for an already-owned
+Potion while retaining the Potion reward. The held two-hand reward and text
+remain interaction-owned until displayed Hearts/Rupees catch up. Then the
+tree makes its four metatiles walkable, runs the nine eight-update 4-by-4 BG
+shrink frames over the spot-specific grass/dirt/sand source, clears the planted
+bit, and writes the imported 2-by-2 ground replacement. Emit the Gasha entity
+after placed actors and before the enemy stream; this preserves room `0:7b`'s
+three-child-before-Gasha source order. The replacement is transient: the next
+ordinary entry resets the cached room to its source layout, restoring the soft
+soil and allowing the cleared spot to be planted again.
+
 Active Shield use is a held-input parent, not a one-shot item action. `Player`
 retains which equipped button allocated the parent, plays `SND_SHIELD` only on
 its state-0 initialization, and writes the effective `wUsingShield` state only

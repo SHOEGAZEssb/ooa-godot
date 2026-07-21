@@ -17,6 +17,7 @@ internal sealed class StatusBarController : IDisposable
     private int _frameCounter;
 
     internal int DisplayedRupees => _hud.Rupees;
+    internal int DisplayedHealth => _hud.HealthQuarters;
 
     internal StatusBarController(
         InventoryState inventory,

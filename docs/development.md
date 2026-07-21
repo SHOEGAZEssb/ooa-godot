@@ -103,3 +103,19 @@ Use `rg` to search the repository and disassembly. Do not hand-edit files under
 `assets/oracle/`, discard unrelated dirty-worktree changes, or approximate a
 behavior that can be traced. The project renders at the GBC's 160 by 144
 resolution and should be tested at integer scale when inspecting pixels.
+
+## Continuous validation
+
+[The validation workflow](../.github/workflows/validation.yml) runs on every
+push and can also be started manually from GitHub Actions. A clean runner
+rebuilds the supported US ROM from the pinned public `oracles-disasm` `master`
+revision, verifies its MD5, switches the disassembly checkout to the pinned
+`hack-base` revision used by the importer, and regenerates the ignored runtime
+assets. It then downloads the checksum-pinned Godot 4.6 .NET build, treats C#
+warnings as errors, runs the complete headless validation suite, rejects Godot
+engine warnings or errors, and runs `git diff --check`.
+
+The temporary source ROM is neither committed nor uploaded as an artifact. When
+the project deliberately adopts a newer Godot, WLA-DX, or disassembly revision,
+update its version, commit, and archive checksum pins in the workflow together
+and confirm the full workflow remains green.

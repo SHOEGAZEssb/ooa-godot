@@ -24,6 +24,11 @@ internal interface ILinkContactEntity
     void HandleLinkContact(Player player);
 }
 
+internal interface IPlayerInteractable
+{
+    bool TryInteract(Player player);
+}
+
 internal interface ISwordHittableRoomEntity
 {
     bool ApplySwordHit(
@@ -112,6 +117,7 @@ internal interface IPlayerRestriction
     bool DisablesSword { get; }
     bool DisablesItems => false;
     bool DisablesMovement => false;
+    bool DisablesMenus => false;
     bool DisablesRingTransformations => false;
 }
 

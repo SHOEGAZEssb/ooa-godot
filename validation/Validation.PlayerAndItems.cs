@@ -604,6 +604,7 @@ public sealed partial class ValidationRoot
             throw new InvalidOperationException("Could not find an overworld burnable tree tile $cf.");
 
         OracleRoomData burnRoom = persistentRooms.Load(burnGroup, burnRoomId);
+        int maturityBeforeBurn = persistentSave.GashaMaturity;
         var burnSounds = new List<int>();
         var burnSpawns = new List<RoomEntitySpawn>();
         var burningTreeSeed = new EmberSeedEffect();
@@ -616,7 +617,7 @@ public sealed partial class ValidationRoot
             burningTreeSeed.UpdateFrame(burnSpawns);
         if (!burningTreeSeed.Finished || burnRoom.GetMetatile(burnPoint) != 0xdc ||
             !persistentSave.HasRoomFlag(burnGroup, burnRoomId, OracleSaveData.RoomFlag80) ||
-            persistentSave.GashaMaturity != 30 ||
+            persistentSave.GashaMaturity != maturityBeforeBurn + 30 ||
             burnSounds.Count(sound => sound == OracleSoundEngine.SndSolvePuzzle) != 1)
         {
             throw new InvalidOperationException(

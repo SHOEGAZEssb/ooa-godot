@@ -394,6 +394,7 @@ public partial class GameRoot : Node2D
         _entities = new RoomEntityManager(
             _scene.WorldRoot, new NpcDatabase(), new EnemyDatabase(),
             new ItemDropDatabase(), new TimePortalDatabase(), _random, _saveData,
+            inventory: _inventory,
             animationTick: () => (long)_animationTicks);
         _pushBlocks = new PushBlockController(
             _rooms, new PushableTileDatabase(), _roomView,
@@ -427,7 +428,9 @@ public partial class GameRoot : Node2D
             _rooms, _entities, new SignDatabase(), new ChestDatabase(), _treasures, _dialogue,
             _scene.WorldRoot, _roomView, _transitions.WorldToGameplayScreen,
             () => (long)_animationTicks,
-            _inventory, _scene.InterfaceLayer, _sound.PlaySound);
+            _inventory, _scene.InterfaceLayer, _sound.PlaySound,
+            () => _statusBar.DisplayedRupees == _inventory.Rupees &&
+                _statusBar.DisplayedHealth == _inventory.HealthQuarters);
         _keyDoors.MessageRequested += message =>
             _interactions.ShowRoomInteractionMessage(message, _player);
         _entities.DungeonEntranceTriggered += (_, message) =>
@@ -476,14 +479,16 @@ public partial class GameRoot : Node2D
         _menuLifecycle = new OracleMenuLifecycle(_scene.MenuFade, _gameplayPause);
         _mapMenu = new MapMenuController(
             _mapScreen, _dialogue, _menuLifecycle,
-            () => !IsTransitioning && !DialogueOpen && !InventoryMenuOpen && !_roomEvents.Active,
+            () => !IsTransitioning && !DialogueOpen && !InventoryMenuOpen &&
+                !_roomEvents.Active && !_entities.PlayerMenusDisabled,
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone),
             FastTravelFromMap, _sound.PlaySound);
         _inventoryMenu = new InventoryMenuController(
             _inventoryScreen, _saveQuitScreen, _menuLifecycle,
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone),
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone) &&
-                !IsTransitioning && !DialogueOpen && !MapMenuOpen && !_roomEvents.Active,
+                !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
+                !_roomEvents.Active && !_entities.PlayerMenusDisabled,
             SaveActiveFile, ReturnToTitle, _sound.PlaySound);
         _ringMenu = new RingMenuController(
             _ringMenuScreen, _dialogue, _menuLifecycle, _inventory, _saveData,

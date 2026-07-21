@@ -70,6 +70,7 @@ public partial class OracleSoundEngine : Node
     public const int SndFilledHeartContainer = 0x8b;
     public const int SndTeleport = 0x8d;
     public const int SndFairyCutscene = 0x91;
+    public const int SndCompass = 0xa2;
     public const int SndWarpStart = 0x95;
     public const int SndPoof = 0x98;
     public const int SndStrike = 0xa6;

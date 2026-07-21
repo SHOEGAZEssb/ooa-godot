@@ -33,10 +33,23 @@ Transient state that was outside the file image, such as `wUpgradesObtained`,
 belongs in `OracleRuntimeState` or another explicit runtime owner. Do not place
 it at an invented save offset merely to make persistence convenient.
 
-Gasha maturity is the original little-endian 16-bit field at `$c65f-$c660`.
-`OracleSaveData.AddGashaMaturity` performs the original saturating update;
-successful Shovel digs add one, while breakable-tile effect bit 7 may apply the
-source table's additional maturity before that item-owned increment.
+Gasha state is retained in its original contiguous save fields. Harvest flags
+are at `$c64c` (bit 0: first nut harvested; bit 1: Gasha Heart Piece already
+awarded), the 16 planted bits are `$c64d-$c64e`, per-spot kill counters are
+`$c64f-$c65e`, and little-endian maturity is `$c65f-$c660`. Planting consumes
+one packed-BCD seed, sets the selected planted bit, and resets that spot's
+counter; completing the shrink animation clears the planted bit but retains
+the grass/dirt/sand ground replacement only for the current room instance.
+Ordinary re-entry restores the source soft-soil tile, so the spot is reusable.
+
+`OracleSaveData.AddGashaMaturity` performs the original saturating update.
+Ordinary room entry adds 5 (destination preloading and cutscene-only room swaps
+do not), enemy kills add 3, successful Shovel digs add 1, and breakable-tile
+effect bit 7 may apply its source-table addition before the Shovel increment.
+`giveTreasure` also adds the imported amounts: Essence 150, an Ages Heart Piece
+36, a trade item 100, and the requested Heart-refill parameter. A non-first
+Gasha harvest subtracts 200 with an underflow clamp before its treasure grant;
+therefore a Fairy or five-Hearts result can immediately add 24 or 20 again.
 
 ## Flags, rooms, and dungeons
 

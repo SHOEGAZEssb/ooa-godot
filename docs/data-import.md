@@ -30,6 +30,7 @@ The entry script dot-sources these stages in dependency order:
 | `Import-DialogueAndIntro.ps1` | Fonts, text, and new-game introduction records |
 | `Import-MapAndItemData.ps1` | Map metadata, treasure data, flags, and item tables |
 | `Import-NpcData.ps1` | NPC definitions, visibility, dialogue, and animation inputs |
+| `Import-GashaData.ps1` | Gasha spots, growth/reward tables, native timing, text, OAM, and disappearance graphics |
 | `Import-CutsceneData.ps1` | Typed script commands and cutscene-specific records |
 | `Import-EnemyData.ps1` | Ordered room objects, enemies, spawn restrictions, and drops |
 | `Import-WorldNavigation.ps1` | Warps, dungeon layouts, neighbors, and room navigation |
@@ -73,6 +74,18 @@ whose `GFXH_COMMON_SPRITES` header maps tile base `$06` to
 `spr_common_items` sheet. Extend this table from the corresponding native
 handler when another seed effect becomes active; do not infer one seed's
 behavior from the Ember row.
+
+`Import-GashaData.ps1` owns the complete Ages `INTERAC_GASHA_SPOT $b6`
+closure. It emits all 16 group/room/subid placements and their source ranks,
+the 25 rank/maturity probability rows, five random-ring tiers, all ten reward
+treasure/text/OAM records, the nut visual, planting/growth/motion/timing
+constants, and the nine 4-by-4 disappearance maps. It also copies the original
+tree plus grass/dirt/sand replacement graphics and emits the four
+`giveTreasure` maturity sources. These records preserve distribution and ring
+table order because each random byte is consumed by subtracting weights in
+source order; sorting either table changes the reward. The runtime must not
+derive a rank from the room ID or substitute an inventory icon for a held
+reward object.
 
 That item stage also emits `metadata/sword_beam.tsv` for `ITEM_SWORD_BEAM
 $27`, retaining its four signed Link-relative offsets, collision/damage

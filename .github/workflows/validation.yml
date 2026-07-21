@@ -1,0 +1,146 @@
+name: Validation
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validation-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  GODOT_VERSION: 4.6-stable
+  GODOT_ARCHIVE_SHA256: 0fb7695215317eb42f6ed6b348905e180eaf4b61369d5e8597a3cc1468cfda61
+  WLA_DX_VERSION: '10.6'
+  WLA_DX_ARCHIVE_SHA256: cbb3f8878f8028e6c2fb5cccd79dc9746518ee99def533c8e0b77cbd46a66091
+  ORACLES_DISASM_REPOSITORY: https://github.com/stewmath/oracles-disasm.git
+  ORACLES_DISASM_MASTER_SHA: dfaba5238b102fa2b70f737a977a32219ba80c6b
+  ORACLES_DISASM_HACK_BASE_SHA: aa4cb96df22a7bd452db090dd0b32eccebe42cf3
+  ORACLE_OF_AGES_MD5: c4639cc61c049e5a085526bb6cac03bb
+
+jobs:
+  validate:
+    name: Build and headless validation
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Set up ROM build environment
+        uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2
+        with:
+          update: true
+          install: >-
+            git
+            make
+            python
+            python-yaml
+            unzip
+
+      - name: Rebuild verified Oracle of Ages source ROM
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+
+          runner_temp="$(cygpath -u "$RUNNER_TEMP")"
+          wla_archive="$runner_temp/wla-dx.zip"
+          wla_root="$runner_temp/wla-dx"
+          disassembly="$runner_temp/oracles-disasm"
+          source_rom="$runner_temp/oracle-of-ages-us.gbc"
+
+          curl --fail --location --silent --show-error \
+            "https://github.com/vhelin/wla-dx/releases/download/v${WLA_DX_VERSION}/wla_dx_v${WLA_DX_VERSION}_Win64.zip" \
+            --output "$wla_archive"
+          echo "${WLA_DX_ARCHIVE_SHA256} *${wla_archive}" | sha256sum --check --strict
+          mkdir -p "$wla_root"
+          unzip -q "$wla_archive" -d "$wla_root"
+          export PATH="$wla_root/wla_dx_v${WLA_DX_VERSION}_Win64:$PATH"
+
+          mkdir -p "$disassembly"
+          git -C "$disassembly" init --quiet
+          git -C "$disassembly" remote add origin "$ORACLES_DISASM_REPOSITORY"
+          git -C "$disassembly" fetch --quiet --depth 1 origin "$ORACLES_DISASM_MASTER_SHA"
+          git -C "$disassembly" checkout --quiet --detach FETCH_HEAD
+          make -C "$disassembly" ages
+
+          actual_md5="$(md5sum "$disassembly/ages.gbc" | cut -d ' ' -f 1)"
+          if [[ "$actual_md5" != "$ORACLE_OF_AGES_MD5" ]]; then
+            echo "Expected Oracle of Ages MD5 $ORACLE_OF_AGES_MD5, got $actual_md5." >&2
+            exit 1
+          fi
+          mv "$disassembly/ages.gbc" "$source_rom"
+
+          git -C "$disassembly" reset --hard --quiet
+          git -C "$disassembly" clean -ffdx --quiet
+          git -C "$disassembly" fetch --quiet --depth 1 origin "$ORACLES_DISASM_HACK_BASE_SHA"
+          git -C "$disassembly" checkout --quiet --detach FETCH_HEAD
+
+          {
+            echo "ORACLES_DISASSEMBLY=$(cygpath -w "$disassembly")"
+            echo "ORACLES_ROM=$(cygpath -w "$source_rom")"
+          } >> "$(cygpath -u "$GITHUB_ENV")"
+
+      - name: Import generated assets
+        shell: pwsh
+        run: >-
+          & .\tools\import_oracles.ps1
+          -Disassembly $env:ORACLES_DISASSEMBLY
+          -Rom $env:ORACLES_ROM
+
+      - name: Install verified Godot 4.6 .NET build
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'godot.zip'
+          $installRoot = Join-Path $env:RUNNER_TEMP 'godot'
+          $url = "https://github.com/godotengine/godot-builds/releases/download/$env:GODOT_VERSION/Godot_v$env:GODOT_VERSION`_mono_win64.zip"
+
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          $actualHash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualHash -ne $env:GODOT_ARCHIVE_SHA256) {
+              throw "Expected Godot archive SHA256 $env:GODOT_ARCHIVE_SHA256, got $actualHash."
+          }
+
+          Expand-Archive -LiteralPath $archive -DestinationPath $installRoot
+          $console = Get-ChildItem -LiteralPath $installRoot -Recurse -File -Filter '*_console.exe' |
+              Select-Object -First 1
+          if ($null -eq $console) {
+              throw 'Godot console executable was not present in the verified archive.'
+          }
+          "GODOT_CONSOLE=$($console.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Build with zero warnings
+        shell: pwsh
+        run: dotnet build --configuration Debug --warnaserror
+
+      - name: Run complete headless validation suite
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP 'headless-validation.log'
+          & $env:GODOT_CONSOLE --headless --path . --quit-after 10 -- --validate 2>&1 |
+              Tee-Object -FilePath $log
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -ne 0) {
+              throw "Headless validation exited with code $exitCode."
+          }
+
+          $engineDiagnostics = Select-String -LiteralPath $log -Pattern '^\s*(ERROR|WARNING):'
+          if ($engineDiagnostics) {
+              $engineDiagnostics | ForEach-Object { Write-Error $_.Line }
+              throw 'Godot emitted engine errors or warnings during validation.'
+          }
+
+      - name: Check patch whitespace
+        shell: pwsh
+        run: git diff --check

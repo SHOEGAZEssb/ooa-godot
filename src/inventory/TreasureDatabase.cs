@@ -23,8 +23,11 @@ public sealed class TreasureDatabase
     public const int TreasureRupees = 0x28;
     public const int TreasureHeartRefill = 0x29;
     public const int TreasureHeartContainer = 0x2a;
+    public const int TreasureHeartPiece = 0x2b;
     public const int TreasureRingBox = 0x2c;
     public const int TreasureRing = 0x2d;
+    public const int TreasurePotion = 0x2f;
+    public const int TreasureGashaSeed = 0x34;
     public const int TreasureMakuSeed = 0x36;
     public const int TreasureEssence = 0x40;
     public const int TreasureTradeItem = 0x41;
@@ -34,6 +37,7 @@ public sealed class TreasureDatabase
     private readonly List<TreasureObjectRecord> _objectRows = new();
     private readonly Dictionary<int, TreasureObjectVisualRecord> _objectVisuals = new();
     private readonly Dictionary<int, BehaviourRecord> _behaviours = new();
+    private readonly Dictionary<int, GashaMaturityRecord> _gashaMaturity = new();
     private readonly Dictionary<string, List<DisplayRecord>> _displayRows = new();
     private readonly Dictionary<int, InventoryTextRecord> _inventoryTexts = new();
     private readonly Dictionary<int, InventoryTextRecord> _ringTexts = new();
@@ -46,6 +50,7 @@ public sealed class TreasureDatabase
         LoadObjects();
         LoadObjectVisuals();
         LoadBehaviours();
+        LoadGashaMaturity();
         LoadDisplayRows();
         LoadInventoryTexts();
     }
@@ -63,6 +68,13 @@ public sealed class TreasureDatabase
     public BehaviourRecord GetBehaviour(int treasureId) => _behaviours.TryGetValue(treasureId, out BehaviourRecord record)
         ? record
         : throw new KeyNotFoundException($"Treasure ${treasureId:x2} has no collection behaviour.");
+
+    internal int GetGashaMaturityGain(int treasureId, int parameter)
+    {
+        if (!_gashaMaturity.TryGetValue(treasureId, out GashaMaturityRecord record))
+            return 0;
+        return record.ParameterAmount ? parameter : record.Amount;
+    }
 
     public DisplayRecord GetButtonDisplay(int itemId, InventoryState inventory)
     {
@@ -219,6 +231,42 @@ public sealed class TreasureDatabase
                 mode,
                 rawMode,
                 ParseSound(row.RequiredString(3))));
+        }
+    }
+
+    private void LoadGashaMaturity()
+    {
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/metadata/treasure_gasha_maturity.tsv",
+            new GeneratedTableSchema(
+                "treasure Gasha maturity",
+                GeneratedTableKeySemantics.Unique,
+                ["treasure-id", "mode", "amount"],
+                ["treasure-id"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
+        {
+            string mode = row.RequiredString(1);
+            bool parameterAmount = mode switch
+            {
+                "fixed" => false,
+                "parameter" => true,
+                _ => throw row.Invalid(1, "one of fixed, parameter")
+            };
+            int treasure = row.HexByte(0);
+            _gashaMaturity.Add(
+                treasure,
+                new GashaMaturityRecord(
+                    treasure, parameterAmount, row.UnsignedDecimal(2)));
+        }
+        if (_gashaMaturity.Count != 4 ||
+            GetGashaMaturityGain(TreasureEssence, 0) != 150 ||
+            GetGashaMaturityGain(0x2b, 0) != 36 ||
+            GetGashaMaturityGain(TreasureTradeItem, 0) != 100 ||
+            GetGashaMaturityGain(TreasureHeartRefill, 0x18) != 0x18)
+        {
+            throw new InvalidOperationException(
+                "Treasure Gasha maturity table is incomplete.");
         }
     }
 
@@ -413,6 +461,9 @@ public sealed class TreasureDatabase
         int Palette,
         int DefaultAnimation,
         string Animation);
+
+    private readonly record struct GashaMaturityRecord(
+        int TreasureId, bool ParameterAmount, int Amount);
 
     public enum CollectionMode
     {

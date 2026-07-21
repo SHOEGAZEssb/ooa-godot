@@ -17,6 +17,7 @@ $importScripts = @(
     'Import-DialogueAndIntro.ps1'
     'Import-MapAndItemData.ps1'
     'Import-NpcData.ps1'
+    'Import-GashaData.ps1'
     'Import-CutsceneData.ps1'
     'Import-EnemyData.ps1'
     'Import-WorldNavigation.ps1'

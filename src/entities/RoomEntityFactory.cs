@@ -16,6 +16,9 @@ internal sealed class RoomEntityFactory(
     Func<bool> groundTreasureCollectionAllowed,
     Action<GroundTreasurePickup, Player> groundTreasureCollected,
     Action<int, string> dungeonEntranceTriggered,
+    Action<GashaSpotInteraction, Player> gashaInteractionRequested,
+    Action<GashaSpotInteraction, Player> gashaNutCaught,
+    InventoryState? inventory,
     Action<Vector2, OracleRoomData.HazardType> itemDropEnteredHazard,
     Action<int> soundRequested,
     Func<int> roomEnemyCount,
@@ -38,6 +41,7 @@ internal sealed class RoomEntityFactory(
     private readonly RoomTileChangeWatcherDatabase _tileChangeWatchers = new();
     private readonly BreakableTileDatabase _breakables = new();
     private readonly SwordBeamDatabase _swordBeam = new();
+    private readonly GashaSpotDatabase _gashaSpots = new();
 
     public IEnumerable<IRoomEntity> CreateRoomEntities(
         int group,
@@ -97,6 +101,7 @@ internal sealed class RoomEntityFactory(
                 yield return new RoomTileChangeWatcherRoomEntity(
                     record, room, saveData);
             }
+
         }
 
         IReadOnlyList<NpcDatabase.NpcRecord> roomNpcs =
@@ -143,6 +148,26 @@ internal sealed class RoomEntityFactory(
                     ? new RunningBipinRoomEntity(npc)
                     : new NpcRoomEntity(npc);
             }
+        }
+
+        // Every Ages Gasha placement precedes the room's enemy pointer. In
+        // 0:7b it follows all three child interactions, so emit it after the
+        // placed NPC/interaction set and before parts/enemies.
+        if (saveData is not null &&
+            _gashaSpots.TryGetSpot(group, room.Id, out var spot) &&
+            (!saveData.IsGashaSpotPlanted(spot.SubId) ||
+             saveData.GetGashaSpotKillCounter(spot.SubId) >= _gashaSpots.NutKills))
+        {
+            var gasha = new GashaSpotInteraction
+            {
+                Name = $"GashaSpot_{spot.SubId:x2}",
+                ZIndex = 12
+            };
+            gasha.Initialize(
+                _gashaSpots, spot, room, saveData, inventory,
+                gashaInteractionRequested, gashaNutCaught,
+                soundRequested, roomTileChanged, animationTick);
+            yield return new GashaSpotRoomEntity(gasha);
         }
 
         foreach (GroundTreasureDatabase.Record record in

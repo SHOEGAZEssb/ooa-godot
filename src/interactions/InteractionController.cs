@@ -28,6 +28,17 @@ public sealed class InteractionController
         AwaitSimpleClose
     }
 
+    private enum GashaState
+    {
+        None,
+        AwaitNoSeedsClose,
+        AwaitPlantChoice,
+        AwaitNutIntroClose,
+        AwaitRewardClose,
+        AwaitDisplayedCounters,
+        AwaitDisappearance
+    }
+
     private readonly RoomSession _rooms;
     private readonly RoomEntityManager _entities;
     private readonly SignDatabase _signs;
@@ -40,6 +51,7 @@ public sealed class InteractionController
     private readonly Func<long> _animationTick;
     private readonly InventoryState _inventory;
     private readonly Action<int> _playSound;
+    private readonly Func<bool> _gashaCountersCaughtUp;
     private readonly BipinBlossomFamilyInteractionDatabase _familyInteractions = new();
     private readonly BlackTowerWorkerDatabase _blackTower = new();
     private readonly KidNameEntryController _kidNameEntry;
@@ -60,6 +72,11 @@ public sealed class InteractionController
     private Player? _hardhatPlayer;
     private GroundTreasurePickup? _hardhatTreasure;
     private double _hardhatWaitTicks;
+    private GashaState _gashaState;
+    private GashaSpotInteraction? _gashaSpot;
+    private Player? _gashaPlayer;
+    private bool _gashaCompletesHeartContainer;
+    private bool _gashaShowingHeartContainer;
 
     public Func<NpcCharacter, bool>? NpcInteractionOverride { get; set; }
     public Func<Player, bool>? PlayerInteractionOverride { get; set; }
@@ -67,6 +84,7 @@ public sealed class InteractionController
     public bool DialogueOpen => _dialogue.BlocksPlayerInput ||
         _chestTreasure is not null ||
         _groundTreasure is not null ||
+        _gashaState != GashaState.None ||
         _hardhatShovelState != HardhatShovelState.None ||
         _familyNamingState != FamilyNamingState.None ||
         _kidNameEntry.Active;
@@ -88,7 +106,8 @@ public sealed class InteractionController
         Func<long> animationTick,
         InventoryState inventory,
         Node interfaceLayer,
-        Action<int>? playSound = null)
+        Action<int>? playSound = null,
+        Func<bool>? gashaCountersCaughtUp = null)
     {
         _rooms = rooms;
         _entities = entities;
@@ -102,12 +121,15 @@ public sealed class InteractionController
         _animationTick = animationTick;
         _inventory = inventory;
         _playSound = playSound ?? (static _ => { });
+        _gashaCountersCaughtUp = gashaCountersCaughtUp ?? (static () => true);
         _kidNameEntry = new KidNameEntryController(interfaceLayer, playSound);
         _dialogue.SetHeartPieceCountProvider(() => _inventory.HeartPieces);
         _dialogue.HeartPieceSetFilled += OnHeartPieceSetFilled;
         _dialogue.HeartPieceSetAccepted += OnHeartPieceSetAccepted;
         _rooms.RoomChanged += OnRoomChanged;
         _entities.GroundTreasureCollected += OnGroundTreasureCollected;
+        _entities.GashaInteractionRequested += OnGashaInteractionRequested;
+        _entities.GashaNutCaught += OnGashaNutCaught;
         _entities.GroundTreasureCollectionAllowed = () => !DialogueOpen;
         ApplyOpenedChestState(_rooms.ActiveGroup, _rooms.CurrentRoom);
     }
@@ -123,6 +145,7 @@ public sealed class InteractionController
         _kidNameEntry.Update();
         UpdateFamilyNaming(delta);
         UpdateHardhatShovel(delta);
+        UpdateGasha();
 
         if (_groundTreasure is not null)
         {
@@ -183,6 +206,12 @@ public sealed class InteractionController
 
     private void OnHeartPieceSetFilled()
     {
+        if (_gashaSpot is not null && _gashaCompletesHeartContainer &&
+            !_gashaShowingHeartContainer)
+        {
+            _inventory.ResetCompletedHeartPieceSet();
+            return;
+        }
         if (_groundTreasure is null || !_groundTreasureCompletesHeartContainer ||
             _groundTreasureShowingHeartContainer)
             return;
@@ -191,6 +220,18 @@ public sealed class InteractionController
 
     private void OnHeartPieceSetAccepted()
     {
+        if (_gashaSpot is not null && _gashaCompletesHeartContainer &&
+            !_gashaShowingHeartContainer)
+        {
+            _inventory.GiveCompletedHeartContainer(
+                _treasures.GetObject("TREASURE_OBJECT_HEART_CONTAINER_00"));
+            _playSound(OracleSoundEngine.SndFilledHeartContainer);
+            _dialogue.ShowGameplayMessage(
+                _gashaSpot.Database.Text(0x0049),
+                _worldToScreen(_gashaPlayer!.Position).Y);
+            _gashaShowingHeartContainer = true;
+            return;
+        }
         if (_groundTreasure is null || !_groundTreasureCompletesHeartContainer ||
             _groundTreasureShowingHeartContainer)
             return;
@@ -225,6 +266,9 @@ public sealed class InteractionController
         }
 
         if (PlayerInteractionOverride?.Invoke(player) == true)
+            return true;
+
+        if (_entities.TryInteract(player))
             return true;
 
         OracleRoomData room = _rooms.CurrentRoom;
@@ -635,7 +679,118 @@ public sealed class InteractionController
         _groundTreasurePlayer = null;
         _groundTreasureCompletesHeartContainer = false;
         _groundTreasureShowingHeartContainer = false;
+        ResetGashaInteraction();
         ApplyOpenedChestState(group, room);
+    }
+
+    private void OnGashaInteractionRequested(
+        GashaSpotInteraction interaction,
+        Player player)
+    {
+        if (_gashaState != GashaState.None)
+            return;
+        _gashaSpot = interaction;
+        _gashaPlayer = player;
+        if (_inventory.GashaSeeds == 0)
+        {
+            _gashaState = GashaState.AwaitNoSeedsClose;
+            _dialogue.ShowGameplayMessage(
+                interaction.Database.Text(0x3509),
+                _worldToScreen(player.Position).Y);
+            return;
+        }
+        _gashaState = GashaState.AwaitPlantChoice;
+        _dialogue.ShowGameplayChoiceMessage(
+            interaction.Database.Text(0x3500),
+            _worldToScreen(player.Position).Y);
+    }
+
+    private void OnGashaNutCaught(
+        GashaSpotInteraction interaction,
+        Player player)
+    {
+        if (_gashaState != GashaState.None)
+            return;
+        _gashaSpot = interaction;
+        _gashaPlayer = player;
+        _gashaState = GashaState.AwaitNutIntroClose;
+        _dialogue.ShowGameplayMessage(
+            interaction.Database.Text(0x3501),
+            _worldToScreen(player.Position).Y);
+    }
+
+    private void UpdateGasha()
+    {
+        if (_gashaState == GashaState.None || _gashaSpot is null ||
+            _gashaPlayer is null)
+        {
+            return;
+        }
+
+        switch (_gashaState)
+        {
+            case GashaState.AwaitNoSeedsClose:
+                if (!_dialogue.IsOpen)
+                    ResetGashaInteraction();
+                return;
+
+            case GashaState.AwaitPlantChoice:
+                if (!_dialogue.TryTakeChoiceResult(out int choice))
+                    return;
+                if (choice == 0)
+                    _gashaSpot.Plant();
+                ResetGashaInteraction();
+                return;
+
+            case GashaState.AwaitNutIntroClose:
+                if (_dialogue.IsOpen)
+                    return;
+                GiveGashaReward();
+                return;
+
+            case GashaState.AwaitRewardClose:
+                if (_dialogue.IsOpen)
+                    return;
+                _gashaState = GashaState.AwaitDisplayedCounters;
+                return;
+
+            case GashaState.AwaitDisplayedCounters:
+                if (!_gashaCountersCaughtUp())
+                    return;
+                _gashaSpot.BeginDisappearance();
+                _gashaState = GashaState.AwaitDisappearance;
+                return;
+
+            case GashaState.AwaitDisappearance:
+                if (_gashaSpot.Finished)
+                    ResetGashaInteraction();
+                return;
+        }
+    }
+
+    private void GiveGashaReward()
+    {
+        GashaSpotDatabase database = _gashaSpot!.Database;
+        GashaRewardResolver.Result result = GashaRewardResolver.Give(
+            database, _gashaSpot.Spot, _gashaSpot.Save, _inventory,
+            _entities.NextRandomValue);
+        GashaSpotDatabase.RewardRecord reward = result.Reward;
+        _gashaCompletesHeartContainer = result.CompletesHeartContainer;
+        _gashaShowingHeartContainer = false;
+        _gashaSpot.BeginReward(result.RewardType, reward, _gashaPlayer!);
+        _dialogue.ShowGameplayMessage(
+            database.Text(reward.TextId),
+            _worldToScreen(_gashaPlayer!.Position).Y);
+        _gashaState = GashaState.AwaitRewardClose;
+    }
+
+    private void ResetGashaInteraction()
+    {
+        _gashaState = GashaState.None;
+        _gashaSpot = null;
+        _gashaPlayer = null;
+        _gashaCompletesHeartContainer = false;
+        _gashaShowingHeartContainer = false;
     }
 
     private static Vector2 PointForPackedPosition(int position) => new(

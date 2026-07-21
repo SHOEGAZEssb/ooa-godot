@@ -64,6 +64,7 @@ public partial class MapScreen : Node2D
     private RoomSession _rooms = null!;
     private InventoryState _inventory = null!;
     private MapDataDatabase _mapData = null!;
+    private readonly GashaSpotDatabase _gashaSpots = new();
     private Texture2D _background = null!;
     private Image _commonTiles = null!;
     private Image _presentTiles1 = null!;
@@ -792,8 +793,8 @@ public partial class MapScreen : Node2D
                 return _mapData.TryResolveAreaText(_rooms, group, room, out var text) &&
                     (text.TextId >> 8) == 0x02 ? 0x08 : 0;
             case 9:
-                // Gasha planting/growth is not yet an active gameplay system.
-                return 0;
+                return _gashaSpots.TryGetSpot(group, room, out var spot) &&
+                    _rooms.SaveData.IsGashaSpotPlanted(spot.SubId) ? 0x09 : 0;
             case 0x0a:
                 return _rooms.SaveData.HasRoomFlag(
                     group, room, OracleSaveData.RoomFlagPortalSpotDiscovered) ? 0x0a : 0;
@@ -817,6 +818,9 @@ public partial class MapScreen : Node2D
                 return 0;
         }
     }
+
+    internal int ResolvePopupTypeForValidation(int type, int group, int room) =>
+        ResolvePopupType(type, group, room);
 
     private void UpdatePopupAnimation()
     {
