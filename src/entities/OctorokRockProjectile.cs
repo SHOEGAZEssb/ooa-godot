@@ -73,6 +73,12 @@ public partial class OctorokRockProjectile : TransitionOffsetNode2D
             return;
         }
 
+        if (player.TryBlockWithShield(CollisionBounds))
+        {
+            BeginBounce();
+            return;
+        }
+
         if (OverlapsLink(player.Position))
         {
             player.ApplyEnemyContactDamage(

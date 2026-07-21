@@ -86,6 +86,11 @@ public partial class EnemyArrowProjectile : TransitionOffsetNode2D
             QueueRedraw();
             return;
         }
+        if (player.TryBlockWithShield(CollisionBounds))
+        {
+            BeginBounce();
+            return;
+        }
         if (CollisionBounds.Intersects(new Rect2(
             player.Position - Vector2.One * 6, Vector2.One * 12)))
         {

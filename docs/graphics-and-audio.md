@@ -71,6 +71,25 @@ opaque white color 3 to fill the icon cell with the HUD tan. In addition,
 `$86` and `$8a` (the Satchel, shooters, and slingshots); storage cells continue
 to use the raw display-table palette.
 
+Multi-level inventory items must select their dedicated display table before
+either renderer sees them; their rows in `treasureDisplayData_standard` are
+unused placeholders. In particular, `TREASURE_SHIELD $01` selects
+`treasureDisplayData_shield[wShieldLevel-1]`: Wooden Shield uses sprite `$93`
+and palette `$00`, Iron Shield `$94/$05`, and Mirror Shield `$95/$04`. The
+selected row is shared by inventory storage and equipped A/B rendering; only
+the destination-specific BG/OAM palette conversion differs. Its display mode
+`$00` reads `wShieldLevel` for the shared `L-` plus level overlay in both
+destinations.
+
+The Shield changes Link's body graphics rather than drawing a separate child
+sprite. `func_4553` adds variants `$05/$06` for an equipped-but-lowered level-1
+or level-2/3 shield and `$07/$08` for the raised equivalents to ordinary walk
+frames `$54/$80`. Runtime composition therefore uses the exact `spr_link`
+entries `$68-$77` and `$94-$a3`, including their direction-specific source
+offsets. Parent initialization requests `SND_SHIELD $76`; a supported
+projectile collision requests `SND_CLINK2 $58` once and hands the projectile to
+its native bounce animation.
+
 `drawTreasureExtraTiles` mode `$01` draws a packed-BCD quantity as two HUD
 digit tiles. The selected Satchel display resolves treasure `$20-$24`, so both
 the gameplay status bar and inventory A/B/storage rendering read the selected

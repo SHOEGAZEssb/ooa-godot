@@ -8,6 +8,7 @@ namespace oracleofages;
 public sealed class TreasureDatabase
 {
     public const int TreasureNone = 0x00;
+    public const int TreasureShield = 0x01;
     public const int TreasureBombs = 0x03;
     public const int TreasureSword = 0x05;
     public const int TreasureBoomerang = 0x06;
@@ -72,6 +73,8 @@ public sealed class TreasureDatabase
 
         return itemId switch
         {
+            TreasureShield => GetDisplay(
+                "treasureDisplayData_shield", Math.Max(0, inventory.ShieldLevel - 1)),
             TreasureSword => GetDisplay("treasureDisplayData_sword", Math.Max(0, inventory.SwordLevel - 1)),
             TreasureBracelet => GetDisplay("treasureDisplayData_bracelet", Math.Max(0, inventory.BraceletLevel - 1)),
             TreasureSwitchHook => GetDisplay("treasureDisplayData_switchHook", Math.Max(0, inventory.SwitchHookLevel - 1)),
@@ -97,6 +100,8 @@ public sealed class TreasureDatabase
         int level = Math.Max(0, parameter - 1);
         return treasureId switch
         {
+            TreasureShield when parameter > 0 =>
+                GetDisplay("treasureDisplayData_shield", level),
             TreasureSword when parameter > 0 => GetDisplay("treasureDisplayData_sword", level),
             TreasureBracelet when parameter > 0 => GetDisplay("treasureDisplayData_bracelet", level),
             TreasureSwitchHook when parameter > 0 => GetDisplay("treasureDisplayData_switchHook", level),

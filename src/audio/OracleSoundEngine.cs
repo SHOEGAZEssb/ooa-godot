@@ -60,6 +60,7 @@ public partial class OracleSoundEngine : Node
     public const int SndKillEnemy = 0x73;
     public const int SndSwordSlash = 0x74;
     public const int SndUnknown5 = 0x75;
+    public const int SndShield = 0x76;
     public const int SndDropEssence = 0x77;
     public const int SndBoomerang = 0x78;
     public const int SndMysterySeed = 0x7b;

@@ -40,6 +40,12 @@ claim that the entire surrounding game is complete.
   imported breakable-tile replacements and drops, directional dirt debris,
   `SPEED_a0` cardinal drop launch, sounds, room flags, and WRAM-backed gasha
   maturity.
+- The Shield is an active held-button parent item on either A or B. Wooden,
+  Iron, and Mirror Shield ownership use `wShieldLevel`; equipped-but-lowered
+  and raised states select the original level-aware Link frames in all four
+  directions. Raising it uses the source directional collision rectangle and
+  `SND_SHIELD`, while implemented Octorok rocks and masked-Moblin arrows use
+  their original `COLLISIONEFFECT_$1f` clink and 32-update bounce paths.
 - Typed treasure behavior for imported collection modes and WRAM-backed
   inventory fields currently consumed by the game. Static `$dc:$07` ground
   Heart Pieces use their original two-hand pickup, text, sound, and room-item
@@ -303,6 +309,9 @@ remains the single runtime policy table.
 - Remaining dynamic inventory count overlays outside the implemented selected
   Satchel seed quantity and specialized item OAM.
 - Sound calls owned by interactions and objects that have not yet been ported.
+- Shield responses owned by enemy-body collisions and projectile species that
+  are not yet present in production remain deferred. The implemented rock and
+  arrow paths are explicitly covered above and by headless regression.
 - A possible cell-based room renderer; the current full-room texture path remains
   authoritative until a staged migration proves parity.
 

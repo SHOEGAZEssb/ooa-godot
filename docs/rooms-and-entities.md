@@ -136,6 +136,17 @@ capability; the projectile disables its collision after the first accepted hit
 and changes to the flame state. Keep later Scent, Pegasus, Gale, and Mystery
 state machines distinct when they are implemented.
 
+Active Shield use is a held-input parent, not a one-shot item action. `Player`
+retains which equipped button allocated the parent, plays `SND_SHIELD` only on
+its state-0 initialization, and writes the effective `wUsingShield` state only
+while no other parent item owns Link. Scrolling temporarily lowers the shield
+without deleting that parent, so a continuously held button raises it again
+after the scroll without replaying the sound. Dialogue, warps, damage, and
+cutscene control delete the parent. Collision uses the source per-direction
+`wShieldY/X` center and radii before Link's ordinary body rectangle. Supported
+enemy projectiles own their resulting bounce state; `Player` owns only the
+shield predicate, overlap test, and `LINKDMG_$20` clink.
+
 Sword beams use the same parent/child split. `Player` creates the single
 object-capped `ITEM_SWORD_BEAM $27` on the sword animation's bit-5 update or
 when the Energy Ring charge counter underflows. `SwordBeamEffect` owns its

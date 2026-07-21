@@ -9,6 +9,7 @@ public sealed class InventoryState
     public const int InventoryCapacity = 16;
     public const int NumInventoryItems = 0x20;
     public const int ItemNone = 0x00;
+    public const int ItemShield = 0x01;
     public const int ItemSword = 0x05;
     public const int ItemShovel = 0x15;
     public const int ItemBracelet = 0x16;
@@ -313,6 +314,7 @@ public sealed class InventoryState
 
     internal int LevelForInventoryDisplay(int treasure) => treasure switch
     {
+        TreasureDatabase.TreasureShield => ShieldLevel,
         TreasureDatabase.TreasureSword => SwordLevel,
         TreasureDatabase.TreasureBracelet => BraceletLevel,
         TreasureDatabase.TreasureSwitchHook => SwitchHookLevel,

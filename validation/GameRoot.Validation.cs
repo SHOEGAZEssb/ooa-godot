@@ -292,6 +292,7 @@ public sealed class ValidationGameRoot : GameRoot
         ValidateRalphPortalDepartureEvent();
         ValidateAnimations();
         ValidateSwordBush();
+        ValidateShield();
         ValidateShovel();
         ValidateSeedSatchel();
         ValidateEnemyPlacementRules();
@@ -6395,6 +6396,206 @@ public sealed class ValidationGameRoot : GameRoot
         {
             throw new InvalidOperationException(
                 $"The 4:{destinationRoom:x2} padded 16th large-room column allowed Link out of bounds.");
+        }
+    }
+
+    private void ValidateShield()
+    {
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var inventory = new InventoryState(_treasures, save);
+        inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SHIELD_00"));
+        inventory.EquipA(InventoryState.ItemShield);
+        if (inventory.ShieldLevel != 1 ||
+            inventory.EquippedA != InventoryState.ItemShield ||
+            save.ReadWramByte(0xc6af) != 1)
+        {
+            throw new InvalidOperationException(
+                "TREASURE_SHIELD mode $08 did not persist/equip its level-1 item.");
+        }
+        ValidateShieldDisplay(inventory, level: 1, sprite: 0x93,
+            palette: 0x00, textLow: 0x20);
+
+        var world = new ValidationRingPlayerWorld();
+        var player = new Player { Name = "ShieldValidationPlayer" };
+        AddChild(player);
+        player.Initialize(world, inventory, new Vector2(80, 80), new OracleRandom());
+        if (!player.IsShieldEquipped || player.IsUsingShield ||
+            player.ShieldAtlasPixelHash == 0)
+        {
+            throw new InvalidOperationException(
+                "An equipped Wooden Shield did not select the source Link pose atlas.");
+        }
+
+        Vector2I[] directions =
+            { Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left };
+        Vector2[] centers =
+            { new(81, 73), new(86, 80), new(79, 86), new(73, 80) };
+        Vector2[] radii =
+            { new(6, 1), new(1, 7), new(6, 1), new(1, 7) };
+        for (int direction = 0; direction < directions.Length; direction++)
+        {
+            player.Face(directions[direction]);
+            Rect2 bounds = player.ShieldCollisionBounds;
+            if (bounds.GetCenter() != centers[direction] ||
+                bounds.Size / 2.0f != radii[direction] ||
+                player.ShieldGraphicsIndex != 0x68 + direction)
+            {
+                throw new InvalidOperationException(
+                    $"ITEM_SHIELD direction {direction} lost its source center, radius, or equipped graphics.");
+            }
+        }
+
+        player.Face(Vector2I.Up);
+        player.UpdateShieldForValidation(attackHeld: true, itemHeld: false);
+        if (!player.IsUsingShield || player.ShieldGraphicsIndex != 0x70 ||
+            world.Sounds.Count(sound => sound == OracleSoundEngine.SndShield) != 1)
+        {
+            throw new InvalidOperationException(
+                "Holding the equipped A-button shield did not select wUsingShield level 1 or SND_SHIELD.");
+        }
+        player.UpdateShieldForValidation(attackHeld: true, itemHeld: false);
+        if (world.Sounds.Count(sound => sound == OracleSoundEngine.SndShield) != 1)
+        {
+            throw new InvalidOperationException(
+                "ITEM_SHIELD replayed SND_SHIELD while its parent item remained held.");
+        }
+        player.BeginScrollingTransition(player.Position, Vector2I.Right);
+        if (player.IsUsingShield || player.ShieldGraphicsIndex != 0x69)
+            throw new InvalidOperationException(
+                "wScrollMode $08 did not lower the shield while retaining its parent item.");
+        player.FinishScrollingTransition(player.Position);
+        player.UpdateShieldForValidation(attackHeld: true, itemHeld: false);
+        if (!player.IsUsingShield || player.ShieldGraphicsIndex != 0x71 ||
+            world.Sounds.Count(sound => sound == OracleSoundEngine.SndShield) != 1)
+        {
+            throw new InvalidOperationException(
+                "The retained shield parent did not resume silently after scrolling.");
+        }
+
+        WarpToBushTest();
+        player.Face(Vector2I.Up);
+        var enemies = new EnemyDatabase();
+        Vector2 shieldCenter = player.ShieldCollisionBounds.GetCenter();
+        var rock = new OctorokRockProjectile();
+        rock.Initialize(
+            enemies.OctorokProjectile, _currentRoom, shieldCenter, angle: 0);
+        rock.UpdateFrame(player); // State 0 setup-only update.
+        int healthBeforeBlock = player.HealthQuarters;
+        rock.UpdateFrame(player);
+        if (rock.State != OctorokRockProjectile.RockState.Bouncing ||
+            rock.Angle != 0x10 || rock.Counter != 0x20 || rock.ZFixed != 0 ||
+            player.HealthQuarters != healthBeforeBlock ||
+            world.Sounds.Count(sound => sound == OracleSoundEngine.SndClink2) != 1)
+        {
+            throw new InvalidOperationException(
+                "A raised shield did not send PART_OCTOROK_PROJECTILE through ENEMYDMG_$34/LINKDMG_$20.");
+        }
+
+        var arrow = new EnemyArrowProjectile();
+        arrow.Initialize(enemies.EnemyArrow, _currentRoom, Vector2.Zero, angle: 0);
+        arrow.Position = shieldCenter;
+        arrow.UpdateFrame(player);
+        if (arrow.State != EnemyArrowProjectile.ArrowState.Bouncing ||
+            arrow.Counter != 0x20 || player.HealthQuarters != healthBeforeBlock ||
+            world.Sounds.Count(sound => sound == OracleSoundEngine.SndClink2) != 2)
+        {
+            throw new InvalidOperationException(
+                "A raised shield did not deflect PART_ENEMY_ARROW with the shared bounce path.");
+        }
+
+        player.UpdateShieldForValidation(attackHeld: false, itemHeld: false);
+        if (player.IsUsingShield || player.ShieldGraphicsIndex != 0x68)
+            throw new InvalidOperationException(
+                "Releasing ITEM_SHIELD did not restore the equipped-but-lowered pose.");
+
+        var unblockedRock = new OctorokRockProjectile();
+        unblockedRock.Initialize(
+            enemies.OctorokProjectile, _currentRoom, player.Position, angle: 0);
+        unblockedRock.UpdateFrame(player);
+        unblockedRock.UpdateFrame(player);
+        if (!unblockedRock.Finished || player.HealthQuarters >= healthBeforeBlock ||
+            world.Sounds.Count(sound => sound == OracleSoundEngine.SndDamageLink) != 1)
+        {
+            throw new InvalidOperationException(
+                "An equipped but lowered shield incorrectly blocked an Octorok projectile.");
+        }
+
+        inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SHIELD_01"));
+        if (inventory.ShieldLevel != 2 || player.ShieldGraphicsIndex != 0x6c)
+            throw new InvalidOperationException(
+                "The Iron Shield upgrade did not select the level-2 equipped pose.");
+        ValidateShieldDisplay(inventory, level: 2, sprite: 0x94,
+            palette: 0x05, textLow: 0x21);
+        player.UpdateShieldForValidation(attackHeld: true, itemHeld: false);
+        if (!player.IsUsingShield || player.ShieldGraphicsIndex != 0x74)
+            throw new InvalidOperationException(
+                "The raised Iron Shield did not select the shared level-2/3 pose.");
+        player.UpdateShieldForValidation(attackHeld: false, itemHeld: false);
+        inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SHIELD_02"));
+        ValidateShieldDisplay(inventory, level: 3, sprite: 0x95,
+            palette: 0x04, textLow: 0x22);
+        inventory.EquipB(InventoryState.ItemShield);
+        player.UpdateShieldForValidation(attackHeld: false, itemHeld: true);
+        if (inventory.ShieldLevel != 3 ||
+            inventory.EquippedB != InventoryState.ItemShield ||
+            inventory.EquippedA == InventoryState.ItemShield ||
+            !player.IsUsingShield || player.ShieldGraphicsIndex != 0x74 ||
+            world.Sounds.Count(sound => sound == OracleSoundEngine.SndShield) != 3)
+        {
+            throw new InvalidOperationException(
+                "The Mirror Shield upgrade/B-button parent did not preserve the level-3 shared pose and activation.");
+        }
+
+        rock.Free();
+        arrow.Free();
+        unblockedRock.Free();
+        player.Free();
+
+        GD.Print("Validated ITEM_SHIELD's held-button parent, level-aware equipped/raised " +
+            "Link and inventory/HUD frames, directional hitbox, sounds, and " +
+            "Octorok-rock/Moblin-arrow deflection.");
+    }
+
+    private void ValidateShieldDisplay(
+        InventoryState inventory,
+        int level,
+        int sprite,
+        int palette,
+        int textLow)
+    {
+        TreasureDatabase.DisplayRecord display =
+            _treasures.GetButtonDisplay(InventoryState.ItemShield, inventory);
+        TreasureDatabase.DisplayRecord parameterDisplay =
+            _treasures.GetTreasureDisplay(
+                TreasureDatabase.TreasureShield, level, inventory);
+        if (display != parameterDisplay ||
+            display.TreasureId != TreasureDatabase.TreasureShield ||
+            display.LeftSprite != sprite || display.LeftPalette != palette ||
+            display.RightSprite != 0 || display.RightPalette != 0 ||
+            display.ExtraMode != 0 || display.TextLow != textLow ||
+            inventory.LevelForInventoryDisplay(
+                TreasureDatabase.TreasureShield) != level ||
+            ItemIconAtlas.EquippedLeftPalette(
+                display.LeftSprite, display.LeftPalette) != palette)
+        {
+            throw new InvalidOperationException(
+                $"Shield level {level} did not select its exact inventory/equipped display row.");
+        }
+
+        Image icons1 = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_item_icons_1_spr.png");
+        Image icons2 = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_item_icons_2.png");
+        Image icons3 = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_item_icons_3.png");
+        if (!ItemIconAtlas.Select(
+                display.LeftSprite, icons1, icons2, icons3,
+                out Image source, out int cell) ||
+            source != icons2 || cell != sprite - 0x90 ||
+            ItemIconAtlas.DecodedCellHash(source, cell) == 0)
+        {
+            throw new InvalidOperationException(
+                $"Shield level {level} did not resolve to its source item-icons-2 cell.");
         }
     }
 

@@ -38,6 +38,7 @@ public partial class Player : Node2D
     private Texture2D _getItemOneHandTexture = null!;
     private Texture2D _getItemTwoHandTexture = null!;
     private Texture2D _carriedObjectTexture = null!;
+    private Texture2D _shieldLinkTexture = null!;
     private Texture2D _pushTexture = null!;
     private Texture2D _attackTexture = null!;
     private Texture2D _swordTexture = null!;
@@ -88,6 +89,9 @@ public partial class Player : Node2D
     private bool _expertPunch;
     private int _punchFrame;
     private int _punchDamage;
+    private int _shieldParentButton;
+    private bool _shieldParentInitialized;
+    private bool _usingShield;
     private Vector2 _lastMovementInput;
     private bool _walking;
     private bool _pushing;
@@ -129,6 +133,7 @@ public partial class Player : Node2D
     public bool IsAttacking => _swordState != SwordActionState.None;
     public bool IsUsingShovel => _usingShovel;
     public bool IsUsingSeedSatchel => _usingSeedSatchel;
+    public bool IsUsingShield => _usingShield;
     internal bool IsUsingPunch => _usingPunch;
     private bool IsUsingItem =>
         IsAttacking || IsUsingShovel || IsUsingSeedSatchel || IsUsingPunch;
@@ -172,6 +177,33 @@ public partial class Player : Node2D
     internal int ActiveTransformation => _activeTransformation;
     internal int TransformationFrame => _transformationFrame;
     internal int PunchFrame => _punchFrame;
+    internal bool IsShieldEquipped => _inventory.ShieldLevel > 0 &&
+        (_inventory.EquippedA == InventoryState.ItemShield ||
+         _inventory.EquippedB == InventoryState.ItemShield);
+    internal int ShieldGraphicsIndex
+    {
+        get
+        {
+            if (!IsShieldEquipped)
+                return -1;
+            int variant = (_usingShield ? 2 : 0) +
+                (_inventory.ShieldLevel >= 2 ? 1 : 0);
+            int phaseBase = GetWalkAnimationFrame() == 0 ? 0x68 : 0x94;
+            return phaseBase + variant * 4 + (int)_facing;
+        }
+    }
+    internal Rect2 ShieldCollisionBounds
+    {
+        get
+        {
+            Vector2 center = OracleObjectMath.ToPixelPosition(Position) +
+                ShieldCenterOffsets[(int)_facing];
+            Vector2 radius = ShieldCollisionRadii[(int)_facing];
+            return new Rect2(center - radius, radius * 2.0f);
+        }
+    }
+    internal ulong ShieldAtlasPixelHash =>
+        OracleGraphicsCache.PixelHash(_shieldLinkTexture.GetImage());
 
     internal void Initialize(
         IPlayerWorld world,
@@ -186,6 +218,7 @@ public partial class Player : Node2D
         _getItemOneHandTexture = BuildGetItemOneHandTexture();
         _getItemTwoHandTexture = BuildGetItemTwoHandTexture();
         _carriedObjectTexture = BuildCarriedObjectLinkTexture();
+        _shieldLinkTexture = BuildShieldLinkTexture();
         _pushTexture = BuildPushLinkTexture();
         _attackTexture = BuildAttackLinkTexture();
         _swordTexture = BuildSwordTexture(chargedPalette: false);
@@ -208,7 +241,8 @@ public partial class Player : Node2D
     public void WarpTo(
         Vector2 position,
         bool recordSafe = true,
-        bool preserveSword = false)
+        bool preserveSword = false,
+        bool preserveShield = false)
     {
         if (!preserveSword)
             CancelSwordAttack();
@@ -234,6 +268,10 @@ public partial class Player : Node2D
         _getItemOneHandPose = false;
         _getItemTwoHandPose = false;
         _carriedObjectPose = false;
+        if (preserveShield)
+            SuspendShield();
+        else
+            ClearShieldParent();
         _precisePosition = position;
         if (recordSafe)
             _lastSafePosition = position;
@@ -316,6 +354,9 @@ public partial class Player : Node2D
         // transition moves Link without changing his parent-item-locked direction.
         if (!IsUsingItem)
             Face(direction);
+        // updateItems clears wUsingShield before returning for wScrollMode
+        // $08, but leaves the parent item allocated until scrolling ends.
+        SuspendShield();
         _walking = false;
         QueueRedraw();
     }
@@ -329,7 +370,7 @@ public partial class Player : Node2D
 
     public void FinishScrollingTransition(Vector2 position)
     {
-        WarpTo(position, preserveSword: true);
+        WarpTo(position, preserveSword: true, preserveShield: true);
         _walking = false;
         QueueRedraw();
     }
@@ -338,6 +379,7 @@ public partial class Player : Node2D
     {
         _cutsceneControlled = false;
         _walking = false;
+        ClearShieldParent();
         CancelSwordAttack();
         CancelShovelAction();
         QueueRedraw();
@@ -436,6 +478,7 @@ public partial class Player : Node2D
         _enemyKnockbackDirection = OracleObjectMath.VectorFromAngle32(angle);
         _walking = false;
         _pushing = false;
+        ClearShieldParent();
         CancelSwordAttack();
         CancelShovelAction();
         QueueRedraw();
@@ -528,6 +571,7 @@ public partial class Player : Node2D
 
         if (_enemyKnockbackFrames > 0.0f)
         {
+            ClearShieldParent();
             float frameDelta = (float)delta * 60.0f;
             Vector2 movement = _enemyKnockbackDirection * EnemyKnockbackSpeed * frameDelta;
             TryMove(movement, allowWallSlide: false);
@@ -547,6 +591,7 @@ public partial class Player : Node2D
 
         if (_world.DialogueOpen)
         {
+            ClearShieldParent();
             _walking = false;
             CancelSwordAttack();
             CancelShovelAction();
@@ -628,6 +673,10 @@ public partial class Player : Node2D
             }
         }
 
+        UpdateShieldState(
+            Input.IsActionPressed("attack"),
+            Input.IsActionPressed("item"));
+
         bool movementAllowed = !IsUsingItem || SwordAllowsMovement;
         _walking = input.LengthSquared() > 0.01f && movementAllowed;
         if (_walking)
@@ -671,6 +720,7 @@ public partial class Player : Node2D
     internal void BeginCutsceneControl()
     {
         _cutsceneControlled = true;
+        ClearShieldParent();
         _walking = false;
         _pushing = false;
         CancelSwordAttack();
@@ -1005,6 +1055,10 @@ public partial class Player : Node2D
                 new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(16, (int)_facing * 16, 16, 16));
         }
+        else if (IsUsingShield)
+        {
+            DrawShieldPose();
+        }
         else if (_pushing)
         {
             int frame = GetWalkAnimationFrame();
@@ -1012,6 +1066,10 @@ public partial class Player : Node2D
                 _pushTexture,
                 new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(frame * 16, (int)_facing * 16, 16, 16));
+        }
+        else if (IsShieldEquipped)
+        {
+            DrawShieldPose();
         }
         else
         {
@@ -1047,6 +1105,104 @@ public partial class Player : Node2D
     }
 
     private int GetWalkAnimationFrame() => GetWalkAnimationFrame(_walking, _walkTime);
+
+    internal bool TryBlockWithShield(Rect2 targetBounds, int minimumLevel = 1)
+    {
+        if (!IsUsingShield || _inventory.ShieldLevel < minimumLevel)
+            return false;
+
+        Rect2 shield = ShieldCollisionBounds;
+        Vector2 shieldCenter = shield.GetCenter();
+        Vector2 shieldRadius = shield.Size / 2.0f;
+        Vector2 targetCenter = OracleObjectMath.ToPixelPosition(targetBounds.GetCenter());
+        Vector2 targetRadius = targetBounds.Size / 2.0f;
+        if (Mathf.Abs(targetCenter.X - shieldCenter.X) >=
+                targetRadius.X + shieldRadius.X ||
+            Mathf.Abs(targetCenter.Y - shieldCenter.Y) >=
+                targetRadius.Y + shieldRadius.Y)
+        {
+            return false;
+        }
+
+        // Projectile modes $06/$07 select COLLISIONEFFECT_$1f for shield
+        // collision types $01-$03. LINKDMG_$20 contributes only SND_CLINK2;
+        // the projectile receives ENEMYDMG_$34 and enters its bounce state.
+        _world.PlaySound(OracleSoundEngine.SndClink2);
+        return true;
+    }
+
+    internal void UpdateShieldForValidation(bool attackHeld, bool itemHeld) =>
+        UpdateShieldState(attackHeld, itemHeld);
+
+    private void UpdateShieldState(bool attackHeld, bool itemHeld)
+    {
+        if ((_shieldParentButton == 1 &&
+                (!attackHeld || _inventory.EquippedA != InventoryState.ItemShield)) ||
+            (_shieldParentButton == 2 &&
+                (!itemHeld || _inventory.EquippedB != InventoryState.ItemShield)))
+        {
+            ClearShieldParent();
+        }
+
+        bool shieldUsable = _activeTransformation == 0 &&
+            !_world.ItemUsageDisabled && !_cutsceneControlled &&
+            !_drowning && !_fallingInHole && !_ledgeHopping &&
+            !IsFloorDoorRespawning && _inventory.ShieldLevel > 0;
+        if (!shieldUsable)
+        {
+            ClearShieldParent();
+            return;
+        }
+
+        if (_shieldParentButton == 0)
+        {
+            if (attackHeld && _inventory.EquippedA == InventoryState.ItemShield)
+                _shieldParentButton = 1;
+            else if (itemHeld && _inventory.EquippedB == InventoryState.ItemShield)
+                _shieldParentButton = 2;
+        }
+
+        bool next = _shieldParentButton != 0 && !IsUsingItem;
+        if (next && !_shieldParentInitialized)
+        {
+            _shieldParentInitialized = true;
+            _world.PlaySound(OracleSoundEngine.SndShield);
+        }
+        if (_usingShield == next)
+            return;
+        _usingShield = next;
+        QueueRedraw();
+    }
+
+    private void ClearShieldParent()
+    {
+        bool redraw = _usingShield;
+        _shieldParentButton = 0;
+        _shieldParentInitialized = false;
+        _usingShield = false;
+        if (redraw)
+            QueueRedraw();
+    }
+
+    private void SuspendShield()
+    {
+        if (!_usingShield)
+            return;
+        _usingShield = false;
+        QueueRedraw();
+    }
+
+    private void DrawShieldPose()
+    {
+        int variant = (IsUsingShield ? 2 : 0) +
+            (_inventory.ShieldLevel >= 2 ? 1 : 0);
+        int frame = GetWalkAnimationFrame();
+        DrawTextureRectRegion(
+            _shieldLinkTexture,
+            new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
+            new Rect2(variant * 32 + frame * 16,
+                (int)_facing * 16, 16, 16));
+    }
 
     private int GetHeldSwordBodyAnimationFrame() =>
         GetHeldSwordBodyAnimationFrame(_swordState, _walking, _walkTime);
@@ -1990,6 +2146,39 @@ public partial class Player : Node2D
         return ImageTexture.CreateFromImage(output);
     }
 
+    private static Texture2D BuildShieldLinkTexture()
+    {
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
+        Image output = Image.CreateEmpty(128, 64, false, Image.Format.Rgba8);
+        int[,,] offsets =
+        {
+            { { 0x0400, 0x0440 }, { 0x0500, 0x0540 },
+              { 0x0480, 0x04c0 }, { 0x0080, 0x00c0 } },
+            { { 0x0400, 0x0440 }, { 0x0580, 0x05c0 },
+              { 0x0480, 0x04c0 }, { 0x0080, 0x00c0 } },
+            { { 0x0600, 0x0640 }, { 0x0780, 0x07c0 },
+              { 0x0680, 0x06c0 }, { 0x0700, 0x0740 } },
+            { { 0x0600, 0x0640 }, { 0x0780, 0x07c0 },
+              { 0x0880, 0x08c0 }, { 0x0700, 0x0740 } }
+        };
+
+        // func_4553 selects variants $05/$06 while the shield is merely
+        // equipped and $07/$08 while wUsingShield is nonzero. Added to walk
+        // frames $54/$80, these are $68-$77 and $94-$a3. Every entry uses
+        // special-object OAM $00, so each source pair retains its native order.
+        for (int variant = 0; variant < 4; variant++)
+        for (int facing = 0; facing < 4; facing++)
+        for (int phase = 0; phase < 2; phase++)
+        {
+            WriteLinkFrame(
+                output, source,
+                variant * 32 + phase * 16, facing * 16,
+                offsets[variant, facing, phase], false);
+        }
+        return ImageTexture.CreateFromImage(output);
+    }
+
     private static Texture2D BuildPushLinkTexture()
     {
         Image source = OracleGraphicsCache.LoadImage(
@@ -2254,6 +2443,18 @@ public partial class Player : Node2D
     {
         // shovelParent.itemOffsets, stored as signed Y/X pairs.
         new(0, -8), new(6, 4), new(0, 7), new(-7, 4)
+    };
+
+    private static readonly Vector2[] ShieldCenterOffsets =
+    {
+        // checkEnemyAndPartCollisions.@shieldPositionOffsets, converted from
+        // signed Y/X to Godot X/Y coordinates.
+        new(1, -7), new(6, 0), new(-1, 6), new(-7, 0)
+    };
+
+    private static readonly Vector2[] ShieldCollisionRadii =
+    {
+        new(6, 1), new(1, 7), new(6, 1), new(1, 7)
     };
 
     private static readonly int[,] SwordAnimationIndices =

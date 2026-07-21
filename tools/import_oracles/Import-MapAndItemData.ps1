@@ -165,6 +165,8 @@ $itemOamDataSource = Get-Content -Raw (Join-Path $Disassembly 'data\itemOamData.
 $itemUsageSource = Get-Content -Raw (Join-Path $Disassembly 'data\ages\itemUsageTables.s')
 $specialObjectAnimationsSource = Get-Content -Raw (
     Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
+$specialObjectAnimationLogicSource = Get-Content -Raw (
+    Join-Path $Disassembly 'code\specialObjectAnimationsAndDamage.s')
 $objectGfxHeadersSource = Get-Content -Raw (
     Join-Path $Disassembly 'data\ages\objectGfxHeaders.s')
 $gfxHeadersSource = Get-Content -Raw (
@@ -175,7 +177,85 @@ $seedParentSource = Get-Content -Raw (
     Join-Path $Disassembly 'object_code\common\itemParents\seedsParent.s')
 $swordBeamSource = Get-Content -Raw (
     Join-Path $Disassembly 'object_code\common\items\swordBeam.s')
+$shieldParentSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\itemParents\shieldParent.s')
+$collisionEffectsSource = Get-Content -Raw (
+    Join-Path $Disassembly 'code\collisionEffects.s')
+$objectCollisionTableSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\objectCollisionTable.s')
+$partDataSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\partData.s')
+$partActiveCollisionsSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\partActiveCollisions.s')
 $soundIds = Read-ConstantIds (Join-Path $Disassembly 'constants\common\music.s') 'SND_'
+
+# ITEM_SHIELD ($01) uses the held-input parent slot and changes Link's ordinary
+# walking graphics directly. Keep the exact source offsets and collision table
+# boundary asserted here so runtime shield behavior cannot silently drift from
+# the supported disassembly.
+$linkGfxPointerBlock = [regex]::Match(
+    $specialObjectAnimationsSource,
+    '(?ms)^specialObject00GfxPointers:(?<body>.*?)(?=^specialObject00AnimationDataPointers:)')
+$linkGfxEntries = if ($linkGfxPointerBlock.Success) {
+    @([regex]::Matches(
+        $linkGfxPointerBlock.Groups['body'].Value,
+        'm_SpecialObjectGfxPointer \$(?<oam>[0-9a-f]{2}) spr_link \$(?<offset>[0-9a-f]{4}) \$[0-9a-f]{2}'))
+} else { @() }
+$expectedShieldLinkGfx = @{
+    0x68 = 0x0400; 0x69 = 0x0500; 0x6a = 0x0480; 0x6b = 0x0080
+    0x6c = 0x0400; 0x6d = 0x0580; 0x6e = 0x0480; 0x6f = 0x0080
+    0x70 = 0x0600; 0x71 = 0x0780; 0x72 = 0x0680; 0x73 = 0x0700
+    0x74 = 0x0600; 0x75 = 0x0780; 0x76 = 0x0880; 0x77 = 0x0700
+    0x94 = 0x0440; 0x95 = 0x0540; 0x96 = 0x04c0; 0x97 = 0x00c0
+    0x98 = 0x0440; 0x99 = 0x05c0; 0x9a = 0x04c0; 0x9b = 0x00c0
+    0x9c = 0x0640; 0x9d = 0x07c0; 0x9e = 0x06c0; 0x9f = 0x0740
+    0xa0 = 0x0640; 0xa1 = 0x07c0; 0xa2 = 0x08c0; 0xa3 = 0x0740
+}
+$shieldLinkGfxValid = $linkGfxEntries.Count -gt 0xa3
+if ($shieldLinkGfxValid) {
+    foreach ($index in $expectedShieldLinkGfx.Keys) {
+        $entry = $linkGfxEntries[$index]
+        if ([Convert]::ToInt32($entry.Groups['oam'].Value, 16) -ne 0 -or
+            [Convert]::ToInt32($entry.Groups['offset'].Value, 16) -ne
+                $expectedShieldLinkGfx[$index]) {
+            $shieldLinkGfxValid = $false
+            break
+        }
+    }
+}
+if ($itemIds['ITEM_SHIELD'] -ne 0x01 -or
+    $treasureIds['TREASURE_SHIELD'] -ne 0x01 -or
+    $soundIds['SND_SHIELD'] -ne 0x76 -or
+    $soundIds['SND_CLINK2'] -ne 0x58 -or
+    -not $shieldLinkGfxValid -or
+    $itemUsageSource -notmatch
+        '(?m)^\s*\.db\s+\$05,\s*<wGameKeysPressed\s*;\s*ITEM_SHIELD' -or
+    $itemUsageSource -notmatch
+        '(?m)^\s*\.db\s+\$00,\s*LINK_ANIM_MODE_NONE\s*;\s*ITEM_SHIELD' -or
+    $itemAttributesSource -notmatch
+        '(?m)^\s*\.db\s+\$01\s+\$00\s+\$00\s+\$00\s*;\s*\$01:\s*ITEM_SHIELD' -or
+    $shieldParentSource -notmatch
+        '(?ms)^parentItemCode_shield:.*?call @checkShieldIsUsable.*?call checkNoOtherParentItemsInUse.*?^@state0:.*?SND_SHIELD.*?^@state1:.*?wShieldLevel.*?wUsingShield.*?^@checkShieldIsUsable:.*?wLinkSwimmingState.*?call isLinkUnderwater.*?parentItemCheckButtonPressed' -or
+    $specialObjectAnimationsSource -notmatch
+        '(?m)^specialObject00GfxPointers:' -or
+    $specialObjectAnimationLogicSource -notmatch
+        '(?ms)Check if he.s holding out the shield, and what level.*?wUsingShield.*?ld c,\$07.*?cp \$02.*?inc c.*?@shieldEquipped:.*?ld c,\$05.*?wShieldLevel.*?cp \$01.*?ld c,\$06' -or
+    $collisionEffectsSource -notmatch
+        '(?ms)^@shieldPositionOffsets:\s*\.db \$f9 \$01 \$01 \$06 ; DIR_UP\s*\.db \$00 \$06 \$07 \$01 ; DIR_RIGHT\s*\.db \$06 \$ff \$01 \$06 ; DIR_DOWN\s*\.db \$00 \$f9 \$07 \$01 ; DIR_LEFT' -or
+    $collisionEffectsSource -notmatch
+        '(?ms)^collisionEffect1f:\s*ldhl LINKDMG_20, ENEMYDMG_34' -or
+    $objectCollisionTableSource -notmatch
+        '(?ms)ENEMYCOLLISION_PROJECTILE \(0x06\).*?\.db \$02 \$1f \$1f \$1f.*?ENEMYCOLLISION_PROJECTILE_WITH_RING_MOD \(0x07\).*?\.db \$3c \$1f \$1f \$1f' -or
+    $partDataSource -notmatch
+        '(?m)^\s*\.db \$8f \$87 \$22 \$fc \$40 \$0c \$03 \$00 ; \$18' -or
+    $partDataSource -notmatch
+        '(?m)^\s*\.db \$8e \$86 \$22 \$fc \$40 \$00 \$02 \$00 ; \$1a' -or
+    $partActiveCollisionsSource -notmatch
+        '(?m)^\s*dbrev %11111111 %10000010 %00001000 %00000000 ; 0x18' -or
+    $partActiveCollisionsSource -notmatch
+        '(?m)^\s*dbrev %11111111 %10000010 %00001000 %00000000 ; 0x1a') {
+    throw 'ITEM_SHIELD usage, Link graphics, hitbox, sounds, or supported projectile collisions changed in the disassembly.'
+}
 
 $emberData = [regex]::Match(
     $itemDataSource,
@@ -491,6 +571,16 @@ foreach ($line in $displaySource) {
 }
 if (($displayRows | Where-Object { $_ -match '^treasureDisplayData_sword\t0\t05\t90\t' }).Count -ne 1) {
     throw "Could not export the level-1 sword display icon row."
+}
+$expectedShieldDisplayRows = @(
+    "treasureDisplayData_shield`t0`t01`t93`t00`t00`t00`t00`t20"
+    "treasureDisplayData_shield`t1`t01`t94`t05`t00`t00`t00`t21"
+    "treasureDisplayData_shield`t2`t01`t95`t04`t00`t00`t00`t22"
+)
+foreach ($expectedRow in $expectedShieldDisplayRows) {
+    if (-not $displayRows.Contains($expectedRow)) {
+        throw "Could not export exact shield display row '$expectedRow'."
+    }
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination "metadata\treasure_display.tsv"),
