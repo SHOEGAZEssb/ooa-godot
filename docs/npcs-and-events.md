@@ -214,6 +214,68 @@ Animation records retain a frame's nonzero `animParameter` as
 `duration@oam` form. A native owner must inspect the parameter at the same point
 relative to `interactionAnimate` as the original handler.
 
+Room `2:ee` is the reference for talkable native handlers that hand control to
+gameplay-owned modal ring menus and, separately, an unavailable serial link:
+
+- Import all five positioned interactions in `mainData.s` order: Vasu and the
+  two snakes are `$89:$00/$01/$06`; the Blue- and Red-Snake help books are
+  `$e5:$00/$01`. Interaction `$e5` belongs in the ordinary visible-character
+  extraction set even though its handler is a book rather than a person.
+- State-0 visual overrides remain distinct. The snakes select their subids as
+  animations `$01/$06`; both books retain default animation `$00`, while book
+  subid `$01` increments only its OAM palette. Do not infer animation from the
+  book subid. Import all `$89` talk/retreat animation parameters because state
+  3 returns to idle on the first nonzero `animParameter`.
+- `VasuShopNpcRoomEntity` owns only native per-update object behavior: Vasu's
+  `$12/$06` collision and object-side Link separation, common drawing, and the
+  snakes' strict Manhattan-distance `$18` emergence. Outside the radius the
+  handler calls `interactionSetAnimation` every update, pinning the first
+  hidden idle frame; inside it advances normally. Its talk target also uses
+  `linkInteractWithAButtonSensitiveObjects` directly: the point is ten pixels
+  ahead of Link and must lie strictly inside the actor's collision radii. This
+  lets Vasu's `$12` vertical radius reach across his counter without widening
+  global NPC talk bounds. Dialogue graph, choices, rewards, flags, and serial
+  waits belong to `VasuShopEvent`.
+- Resolve text `\call(TX_XXXX)` and `\jump(TX_XXXX)` control flow during import.
+  A call returns and retains following text; a jump replaces the remaining
+  source block. Preserve runtime `\stop`, `\col`, and `\opt` commands. This is
+  required for TX `$3000 -> $303a`, `$300b/$300c -> $3016`, and the special-ring
+  congratulation prefixes.
+- The snake script-table predicate is exactly Ring Box obtained AND
+  (`GLOBALFLAG_FINISHEDGAME` OR linked save). A finished or linked save without
+  the Ring Box still uses the prelinked tutorial. Red Snake waits 30 original
+  updates before the topic prompt. Blue Snake initializes its low counter to
+  zero and high counter to two; absent serial interrupts, decrementing the
+  resulting 16-bit counter shows TX `$300f` on update 512.
+- Script-created Ring Box and ring interactions reuse `GroundTreasurePickup`
+  in granted mode. Play the treasure behavior sound before grab-mode
+  `SND_GETITEM`, use the two-hand pose for the box and one-hand pose for rings,
+  and override the Ring treasure's `$ff` table parameter with the concrete
+  ring ID as `giveRingToLink` does through `Interaction.var38`.
+- Preserve Vasu's predicate/write timing. Special-ring received flags `$04-$06`
+  are written before TX `$3036/$3037/$3039`; the linked first-time branch writes
+  global `$08` and `wObtainedRingBox` bit `$01` only after its optional Ring Box
+  reward. The ordinary path writes them only after the forced appraisal and
+  list menus. `VasuShopEvent` must remain paused while `RingMenuController` owns
+  the gameplay pause lease; resume its callback only after `closeMenu` has
+  completed, then commit both fields so another same-room talk cannot duplicate
+  the Friendship Ring.
+- Appraisal is a two-phase inventory transaction. The selection first removes
+  the source cost, increments `wNumRingsAppraised`, and clears the unidentified
+  bit for the reveal. Only after the name and description close does it remove
+  the queue entry and set the corresponding `wRingsObtained` bit; duplicates
+  instead receive the source refund after the result wait. The first Vasu flow
+  uses a zero cost, then opens the list menu before its script resumes.
+- The list menu is the sole owner of Ring Box transfers. Keep a ring unique
+  across its one/three/five available slots, remove it when selected in the
+  same slot, and clear `wActiveRing` if the equipped ring is no longer in the
+  box. A-button equip/unequip in the ordinary Inventory screen changes only
+  `wActiveRing` and requires a populated slot.
+- Unsupported serial boundaries remain explicit and safe. Actual Game Link
+  transfer and linked secret input/generation emit source-addressed diagnostics
+  without manufacturing a successful transfer or secret. Retail dialogue and
+  the authentic no-cable branch before those boundaries remain implemented.
+
 Lower Black Tower rooms `4:e0`, `4:e1`, `4:e2`, `4:e7`, and `4:e8` are the
 reference for several native NPC handlers sharing one room slice:
 

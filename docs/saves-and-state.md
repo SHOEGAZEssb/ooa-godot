@@ -100,10 +100,28 @@ them by one per original update until they match the wallet.
 Live health is authoritative under the same split. The HUD's transient displayed
 health catches up using the original damage and healing cadence and is not saved.
 
+Ring state remains in the original save image: the 64 unappraised entries begin
+at `$c5c0`, the eight-byte `wRingsObtained` bitset begins at `$c616`, the five
+Ring Box slots are `$c6c6-$c6ca`, `wActiveRing` is `$c6cb`, the Ring Box level
+is `$c6cc`, the packed-BCD unappraised count is `$c6cd`, and
+`wNumRingsAppraised` is `$c6ce`. Appraisal, list transfer, and equip operations
+must update these fields as one live transaction and notify UI observers only
+after their state is internally consistent.
+
+Ring award counters also retain their source representation. Enemy kills use
+the binary word at `$c620-$c621`, collected rupees use the two-byte BCD value at
+`$c627-$c628`, Maple's counter is `$c641`, and all 16 Gasha-spot counters occupy
+`$c64f-$c65e`. Reaching 1,000 kills or carrying the 10,000th collected rupee
+sets global flag `$00` or `$01`; the rupee counter wraps as the BCD addition
+does. The Slayer counter stops after its flag is set, but Maple/Gasha counters
+and the three-point enemy-kill Gasha-maturity increment continue. The Gasha
+Ring increments every spot twice rather than once.
+
 The F1 debug editor follows the same ownership boundaries: linked-game state is
-written through the typed `$c612` save accessor, and item grants select an
-imported treasure object and pass it through `InventoryState`. Debug changes do
-not bypass the live image or trigger an automatic disk save.
+written through the typed `$c612` save accessor, item grants select an imported
+treasure object, and ring grants set the corresponding appraised-ring bit
+through `InventoryState`. Debug changes do not bypass the live image or trigger
+an automatic disk save.
 
 When adding a state field:
 

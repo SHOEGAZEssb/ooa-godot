@@ -45,6 +45,13 @@ those resolved low bytes in `treasure_display.tsv` and emits
 `inventory_text.tsv`, including the 64 ring name/description pairs used by the
 inventory marquee.
 
+`Import-MenuAssets.ps1` also copies the original appraised and unappraised ring
+list maps/flags plus their ring, quest-item, inventory-HUD, and palette inputs.
+`Import-NpcData.ps1` emits Vasu's complete TX `$3000-$30c1` text closure and
+source constants for appraisal prices, duplicate refunds, fixed waits, ring
+storage addresses, and completion flags. Runtime code must consume these
+generated assets and typed values rather than parse bank 2 or text sources.
+
 The same stage emits `metadata/seed_satchel.tsv` for the first Satchel's
 `ITEM_EMBER_SEED $20` child. It joins `itemData.s`, `itemAttributes.s`,
 `itemAnimations.s`, the item-usage/Link-animation tables, object GFX header
@@ -60,6 +67,15 @@ whose `GFXH_COMMON_SPRITES` header maps tile base `$06` to
 `spr_common_items` sheet. Extend this table from the corresponding native
 handler when another seed effect becomes active; do not infer one seed's
 behavior from the Ember row.
+
+That item stage also emits `metadata/sword_beam.tsv` for `ITEM_SWORD_BEAM
+$27`, retaining its four signed Link-relative offsets, collision/damage
+attributes, `SPEED_300`, sound, tile base/palette, and directional OAM. The
+world stage emits `metadata/transformed_link.tsv` from special objects
+`$03-$07`, joining each transformation ring to its eight source GFX/OAM
+records and the shared 2/6/6-update animation. Both importers assert their
+native handler branches so runtime code does not infer disguise frames or
+sword-beam constants.
 
 `Import-MapAndItemData.ps1` joins every breakable-tile row with its room-flag
 action and Gasha-maturity side effects. `Import-WorldAssets.ps1` emits all 56

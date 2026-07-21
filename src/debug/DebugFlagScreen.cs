@@ -7,7 +7,7 @@ namespace oracleofages;
 
 public partial class DebugFlagScreen : Control
 {
-    public enum FlagPage { Global, Room, Inventory }
+    public enum FlagPage { Global, Room, Inventory, Rings }
 
     private const int GlobalVisibleRows = 12;
     private const int InventoryVisibleRows = 11;
@@ -27,6 +27,7 @@ public partial class DebugFlagScreen : Control
     private OracleSaveData _saveData = null!;
     private GlobalFlagDatabase _globalFlags = null!;
     private InventoryState _inventory = null!;
+    private TreasureDatabase _treasures = null!;
     private readonly List<TreasureDatabase.TreasureObjectRecord> _treasureObjects = new();
     private Label _text = null!;
     private int _globalCursor;
@@ -34,6 +35,7 @@ public partial class DebugFlagScreen : Control
     private int _room;
     private int _roomCursor = 2;
     private int _inventoryCursor;
+    private int _ringCursor;
 
     public FlagPage Page { get; private set; }
     public int GlobalCursor => _globalCursor;
@@ -44,6 +46,7 @@ public partial class DebugFlagScreen : Control
 
     public override void _Ready()
     {
+        Position = new Vector2(0, OracleRoomData.GameplayScreenTop);
         Size = new Vector2(OracleRoomData.ViewportWidth, OracleRoomData.ViewportHeight);
         MouseFilter = MouseFilterEnum.Ignore;
 
@@ -89,6 +92,7 @@ public partial class DebugFlagScreen : Control
     {
         _saveData = saveData;
         _globalFlags = globalFlags;
+        _treasures = treasures;
         _inventory = inventory;
         _treasureObjects.Clear();
         foreach (TreasureDatabase.TreasureObjectRecord record in treasures.Objects)
@@ -117,6 +121,7 @@ public partial class DebugFlagScreen : Control
         {
             FlagPage.Global => FlagPage.Room,
             FlagPage.Room => FlagPage.Inventory,
+            FlagPage.Inventory => FlagPage.Rings,
             _ => FlagPage.Global
         };
         Refresh();
@@ -138,6 +143,9 @@ public partial class DebugFlagScreen : Control
                 _inventoryCursor = Math.Clamp(
                     _inventoryCursor + step, 0, _treasureObjects.Count);
                 break;
+            case FlagPage.Rings:
+                _ringCursor = Math.Clamp(_ringCursor + step, 0, 0x3f);
+                break;
         }
         Refresh();
     }
@@ -156,6 +164,11 @@ public partial class DebugFlagScreen : Control
                 _inventoryCursor + step * InventoryVisibleRows,
                 0,
                 _treasureObjects.Count);
+        }
+        else if (Page == FlagPage.Rings)
+        {
+            _ringCursor = Math.Clamp(
+                _ringCursor + step * InventoryVisibleRows, 0, 0x3f);
         }
         else if (_roomCursor == 0)
         {
@@ -190,6 +203,9 @@ public partial class DebugFlagScreen : Control
                 break;
             case FlagPage.Inventory:
                 _inventory.GiveTreasure(_treasureObjects[_inventoryCursor - 1]);
+                break;
+            case FlagPage.Rings:
+                _inventory.GrantAppraisedRingForDebug(_ringCursor);
                 break;
         }
         Refresh();
@@ -233,6 +249,13 @@ public partial class DebugFlagScreen : Control
         throw new KeyNotFoundException($"Debug treasure {name} was not imported.");
     }
 
+    internal void SelectRingForValidation(int ring)
+    {
+        _ringCursor = Math.Clamp(ring, 0, 0x3f);
+        Page = FlagPage.Rings;
+        Refresh();
+    }
+
     private void Refresh()
     {
         if (_text is null || _saveData is null || _globalFlags is null)
@@ -241,7 +264,8 @@ public partial class DebugFlagScreen : Control
         {
             FlagPage.Global => BuildGlobalText(),
             FlagPage.Room => BuildRoomText(),
-            _ => BuildInventoryText()
+            FlagPage.Inventory => BuildInventoryText(),
+            _ => BuildRingText()
         };
     }
 
@@ -332,6 +356,35 @@ public partial class DebugFlagScreen : Control
         }
         text.Append("LEFT/RIGHT PAGE  A ")
             .Append(_inventoryCursor == 0 ? "TOGGLE" : "GIVE").Append('\n');
+        text.Append("F1 CLOSE  TAB RINGS");
+        return text.ToString();
+    }
+
+    private string BuildRingText()
+    {
+        var text = new StringBuilder();
+        text.Append("APPRAISED RINGS  $").Append(_ringCursor.ToString("x2"))
+            .Append("/$3f").Append('\n');
+        string selected = DialogueBox.PlainText(
+            _treasures.GetRingText(_ringCursor).Message).Replace("\r", string.Empty);
+        int newline = selected.IndexOf('\n');
+        text.Append(TrimName(newline < 0 ? selected : selected[..newline], 34)).Append('\n');
+
+        int first = Math.Clamp(
+            _ringCursor - InventoryVisibleRows / 2, 0, 0x40 - InventoryVisibleRows);
+        for (int ring = first; ring < first + InventoryVisibleRows; ring++)
+        {
+            string message = DialogueBox.PlainText(
+                _treasures.GetRingText(ring).Message).Replace("\r", string.Empty);
+            int lineEnd = message.IndexOf('\n');
+            if (lineEnd >= 0)
+                message = message[..lineEnd];
+            text.Append(ring == _ringCursor ? '>' : ' ')
+                .Append('$').Append(ring.ToString("x2"))
+                .Append(_inventory.HasAppraisedRing(ring) ? " [1] " : " [0] ")
+                .Append(TrimName(message, 26)).Append('\n');
+        }
+        text.Append("LEFT/RIGHT PAGE  A GIVE").Append('\n');
         text.Append("F1 CLOSE  TAB GLOBAL FLAGS");
         return text.ToString();
     }

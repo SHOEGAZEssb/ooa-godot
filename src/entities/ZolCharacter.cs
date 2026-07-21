@@ -263,12 +263,15 @@ public partial class ZolCharacter : Node2D
     }
 
     public bool TakeSwordHit()
+        => TakeSwordHit(2);
+
+    internal bool TakeSwordHit(int damage)
     {
         if (IsDead || !_collisionEnabled || _state is
             ZolState.RedSplitting or ZolState.RedSplitDelay)
             return false;
 
-        _health = Math.Max(0, _health - 2);
+        _health = Math.Max(0, _health - Math.Max(1, damage));
         if (Record.SubId == 1)
         {
             _state = ZolState.RedSplitting;

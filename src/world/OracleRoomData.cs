@@ -9,6 +9,7 @@ public sealed class OracleRoomData
     public const int ViewportWidth = 160;
     public const int ViewportHeight = 128;
     public const int StatusBarHeight = 16;
+    public const int GameplayScreenTop = StatusBarHeight;
     public const int ScreenHeight = ViewportHeight + StatusBarHeight;
     public const int MetatileSize = 16;
     public const int LargeRoomWidthInTiles = 15;

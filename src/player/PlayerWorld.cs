@@ -25,6 +25,10 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool DialogueOpen => _interactions.DialogueOpen;
     public bool SwordDisabled => _roomEvents.Active || _entities.PlayerSwordDisabled;
     public bool MovementDisabled => _roomEvents.Active || _entities.PlayerMovementDisabled;
+    public bool RingTransformationsAllowed =>
+        !_roomEvents.Active &&
+        (_terrain.CurrentTilesetFlags & 0x60) == 0 &&
+        !_entities.PlayerRingTransformationsDisabled;
 
     public PlayerWorld(
         RoomTransitionController transitions,
@@ -63,6 +67,10 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool ApplySwordHit(Player player, Rect2 hitbox) => _combat.ApplySwordHit(player, hitbox);
     public bool ApplySwordTileHit(Player player, int direction, bool swordPoke) =>
         _combat.ApplySwordTileHit(player, direction, swordPoke);
+    public bool ApplyExpertsRingTileHit(Player player, int direction) =>
+        _combat.ApplyExpertsRingTileHit(player, direction);
+    public bool TryCreateSwordBeam(Player player, int direction) =>
+        _entities.TrySpawnSwordBeam(player.Position, direction);
     public void PlaySound(int soundId) => _sound.PlaySound(soundId);
     public bool TryInteract(Player player) => _interactions.TryInteract(player);
     public bool TryUseBracelet(Player player) => _bracelet.TryUse(player);

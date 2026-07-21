@@ -59,6 +59,7 @@ public partial class DialogueBox : Node2D
     private bool _consumeClosingInput;
     private bool _scrollingText;
     private bool _choiceActive;
+    private bool _passive;
     private int _selectedChoice;
     private int? _choiceResult;
     private Action<int> _playSound = static _ => { };
@@ -92,6 +93,7 @@ public partial class DialogueBox : Node2D
     internal float TextScrollOffset => _textScrollOffset;
     internal string CurrentMessage => _currentMessage;
     internal bool ChoiceActive => _choiceActive;
+    internal bool PassiveMessage => _passive;
     internal int SelectedChoice => _selectedChoice;
     internal bool HeartPieceDisplayActive => _heartPieceLine >= 0;
     internal int HeartPieceDisplayCount => _heartPieceDisplayCount;
@@ -132,6 +134,24 @@ public partial class DialogueBox : Node2D
         ShowMessage(message, linkY, 0);
     }
 
+    /// <summary>
+    /// Opens ordinary room dialogue in the display area below the top status
+    /// bar. <paramref name="linkY"/> remains relative to the original 128-pixel
+    /// gameplay field so initTextbox's $48 side-selection boundary is unchanged.
+    /// </summary>
+    internal void ShowGameplayMessage(string message, float linkY)
+    {
+        ShowMessage(message, linkY);
+        OffsetIntoGameplayField();
+    }
+
+    internal void ShowGameplayMessage(
+        string message, float linkY, int textPosition)
+    {
+        ShowMessage(message, linkY, textPosition);
+        OffsetIntoGameplayField();
+    }
+
     public void ShowMessage(string message, float linkY, int textPosition)
     {
         ArgumentNullException.ThrowIfNull(message);
@@ -146,6 +166,7 @@ public partial class DialogueBox : Node2D
         _consumeClosingInput = false;
         _scrollingText = false;
         _choiceActive = false;
+        _passive = false;
         _selectedChoice = 0;
         _choiceResult = null;
         _arrowFrameCounter = 0.0;
@@ -161,7 +182,19 @@ public partial class DialogueBox : Node2D
         // $0140 (y=80); otherwise it uses $0020 (y=8).
         // Text command \pos(2) explicitly selects the lower textbox. Without
         // a command, initTextbox chooses the side opposite Link.
-        Position = new Vector2(0, textPosition == 2 || linkY < 0x48 ? 80 : 8);
+        int textboxY = textPosition switch
+        {
+            1 => 40,
+            2 => 80,
+            3 => 96,
+            // Ring-list TX_30c1 descriptions begin at w4TileMap+$0160.
+            // With the menu's SCY=$f0 split, source row 11 appears at y=104.
+            4 => 104,
+            5 => 48,
+            6 => 24,
+            _ => linkY < 0x48 ? 80 : 8
+        };
+        Position = new Vector2(0, textboxY);
         Visible = true;
         QueueRedraw();
     }
@@ -179,6 +212,30 @@ public partial class DialogueBox : Node2D
         _choiceActive = true;
         _selectedChoice = Math.Max(0, initialChoice);
     }
+
+    internal void ShowGameplayChoiceMessage(
+        string message,
+        float linkY,
+        int initialChoice = 0,
+        int? textPosition = null)
+    {
+        ShowChoiceMessage(message, linkY, initialChoice, textPosition);
+        OffsetIntoGameplayField();
+    }
+
+    /// <summary>
+    /// Opens a showItemText2-style message whose lifetime and input belong to
+    /// the surrounding menu. It still uses the ordinary textbox printer but
+    /// A/B and direction input cannot advance or dismiss it.
+    /// </summary>
+    internal void ShowPassiveMessage(string message, float linkY, int textPosition)
+    {
+        ShowMessage(message, linkY, textPosition);
+        _passive = true;
+    }
+
+    private void OffsetIntoGameplayField() =>
+        Position += new Vector2(0, OracleRoomData.GameplayScreenTop);
 
     internal bool TryTakeChoiceResult(out int choice)
     {
@@ -202,6 +259,7 @@ public partial class DialogueBox : Node2D
         _open = false;
         _scrollingText = false;
         _choiceActive = false;
+        _passive = false;
         ResetHeartPieceDisplay();
         Visible = false;
     }
@@ -240,6 +298,8 @@ public partial class DialogueBox : Node2D
         }
 
         QueueRedraw();
+        if (_passive)
+            return;
         if (Engine.GetProcessFrames() == _openedFrame ||
             (!Input.IsActionJustPressed("attack") && !Input.IsActionJustPressed("item") &&
              !Input.IsActionJustPressed("move_left") && !Input.IsActionJustPressed("move_right") &&

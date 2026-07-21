@@ -119,11 +119,14 @@ public partial class KeeseCharacter : Node2D
     }
 
     public bool TakeSwordHit()
+        => TakeSwordHit(1);
+
+    internal bool TakeSwordHit(int damage)
     {
         if (IsDead)
             return false;
 
-        _health--;
+        _health = Math.Max(0, _health - Math.Max(1, damage));
         if (_health > 0)
             return true;
 

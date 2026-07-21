@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://src/core/GameSceneGraph.cs" id="1_gameplay"]
 [ext_resource type="Script" path="res://src/world/RoomView.cs" id="2_room_view"]
@@ -9,6 +9,7 @@
 [ext_resource type="Script" path="res://src/inventory/InventoryScreen.cs" id="7_inventory"]
 [ext_resource type="Script" path="res://src/menu/SaveQuitScreen.cs" id="8_save_quit"]
 [ext_resource type="Script" path="res://src/debug/DebugFlagScreen.cs" id="9_debug_flags"]
+[ext_resource type="Script" path="res://src/inventory/RingMenuScreen.cs" id="10_ring_menu"]
 
 [node name="Gameplay" type="Node2D"]
 script = ExtResource("1_gameplay")
@@ -37,14 +38,14 @@ layer = 10
 
 [node name="Hud" type="Node2D" parent="Interface"]
 unique_name_in_owner = true
-position = Vector2(0, 128)
 z_index = 20
 script = ExtResource("4_hud")
 
 [node name="RoomWarpFade" type="ColorRect" parent="Interface"]
 unique_name_in_owner = true
 offset_right = 160.0
-offset_bottom = 128.0
+offset_top = 16.0
+offset_bottom = 144.0
 mouse_filter = 2
 color = Color(1, 1, 1, 0)
 z_index = 15
@@ -73,6 +74,12 @@ visible = false
 z_index = 46
 script = ExtResource("8_save_quit")
 
+[node name="RingMenuScreen" type="Node2D" parent="Interface"]
+unique_name_in_owner = true
+visible = false
+z_index = 47
+script = ExtResource("10_ring_menu")
+
 [node name="MenuFade" type="ColorRect" parent="Interface"]
 unique_name_in_owner = true
 offset_right = 160.0
@@ -92,6 +99,7 @@ script = ExtResource("9_debug_flags")
 [node name="RoomDebug" type="Label" parent="Interface"]
 unique_name_in_owner = true
 offset_left = 2.0
+offset_top = 16.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.972549, 0.811765, 1)
 theme_override_colors/font_outline_color = Color(0.0784314, 0.0941176, 0.0784314, 1)

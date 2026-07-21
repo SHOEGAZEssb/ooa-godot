@@ -203,16 +203,20 @@ public partial class ItemDropEffect : Node2D
         switch (SubId)
         {
             case ItemDropDatabase.Heart:
-                player.Heal(4);
+                player.Heal(4 * RingEffects.DropMultiplier(
+                    player.Inventory, RingDropKind.Heart));
                 break;
             case ItemDropDatabase.OneRupee:
-                player.AddRupees(1);
+                player.AddRupees(RingEffects.DropMultiplier(
+                    player.Inventory, RingDropKind.Rupee));
                 break;
             case ItemDropDatabase.FiveRupees:
-                player.AddRupees(5);
+                player.AddRupees(5 * RingEffects.DropMultiplier(
+                    player.Inventory, RingDropKind.Rupee));
                 break;
             case ItemDropDatabase.OneHundredRupeesOrEnemy:
-                player.AddRupees(100);
+                player.AddRupees(100 * RingEffects.DropMultiplier(
+                    player.Inventory, RingDropKind.Rupee));
                 break;
             default:
                 return;

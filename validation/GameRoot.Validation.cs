@@ -29,6 +29,60 @@ public sealed class ValidationGameRoot : GameRoot
         public void LifecycleClosed() => ClosedCalls++;
     }
 
+    private sealed class ValidationRingPlayerWorld : IPlayerWorld
+    {
+        public bool IsTransitioning => false;
+        public bool DialogueOpen => false;
+        public bool SwordDisabled => false;
+        public bool MovementDisabled => false;
+        public bool RingTransformationsAllowed { get; set; } = true;
+        public int SwordHitCalls { get; private set; }
+        public int LastSwordDamage { get; private set; }
+        public int ExpertTileHitCalls { get; private set; }
+        public int SwordBeamCalls { get; private set; }
+        public int LastSwordBeamDirection { get; private set; } = -1;
+        public List<int> Sounds { get; } = new();
+
+        public bool ApplySwordHit(Player player, Rect2 hitbox)
+        {
+            SwordHitCalls++;
+            LastSwordDamage = player.SwordDamage;
+            return false;
+        }
+        public bool ApplySwordTileHit(Player player, int direction, bool swordPoke) => false;
+        public bool ApplyExpertsRingTileHit(Player player, int direction)
+        {
+            ExpertTileHitCalls++;
+            return true;
+        }
+        public bool TryCreateSwordBeam(Player player, int direction)
+        {
+            SwordBeamCalls++;
+            LastSwordBeamDirection = direction;
+            return true;
+        }
+        public void PlaySound(int soundId) => Sounds.Add(soundId);
+        public bool TryInteract(Player player) => false;
+        public bool TryUseBracelet(Player player) => false;
+        public int TryUseSeedSatchel(Player player) => 0;
+        public bool DigWithShovel(Vector2 point, Vector2I direction) => false;
+        public bool Collides(Vector2 playerPosition) => false;
+        public Vector2 ResolveMovement(
+            Vector2 playerPosition, Vector2 movement, bool allowWallSlide) => movement;
+        public bool IsPushingAgainstWall(
+            Vector2 playerPosition, Vector2I facing, Vector2 movementInput) => false;
+        public void UpdatePushableBlocks(
+            Vector2 playerPosition, Vector2I facing, Vector2 movementInput) { }
+        public ActiveTerrainInfo GetActiveTerrain(Vector2 playerPosition) => default;
+        public Vector2 GetTerrainPush(Vector2 playerPosition) => Vector2.Zero;
+        public bool TryStartLedgeHop(
+            Player player, Vector2 from, Vector2 attemptedMovement) => false;
+        public void SpawnDrowningSplash(
+            Vector2 position, OracleRoomData.HazardType hazard) { }
+        public bool CheckTileWarp(Player player) => false;
+        public void CheckRoomExit(Player player) { }
+    }
+
     private sealed class ValidationCutsceneTrace : ICutsceneCommandTraceSink
     {
         public List<CutsceneCommandTraceEntry> Entries { get; } = new();
@@ -254,11 +308,13 @@ public sealed class ValidationGameRoot : GameRoot
         ValidateChests();
         ValidateInventoryFoundation();
         ValidateInventoryMenu();
+        ValidateRingFunctionality();
         ValidateBraceletChestAndPushGate();
         ValidatePushBlocks();
         ValidateDungeonMechanics();
         ValidateDungeonKeyDoors();
         ValidateMapScreen();
+        ValidateVasuShopInteractions();
         ValidateSaveAndQuitToTitle();
 
         GD.Print("Validated all gameplay and world-data scenarios.");
@@ -291,7 +347,8 @@ public sealed class ValidationGameRoot : GameRoot
             _scene.InterfaceLayer.Layer != 10 ||
             _roomView.ZIndex != 0 || _player.ZIndex != 10 ||
             !_roomCamera.Enabled || _roomCamera.PositionSmoothingEnabled ||
-            _hud.Position != new Vector2(0, 128) || _hud.ZIndex != 20 ||
+            _hud.Position != Vector2.Zero || _hud.ZIndex != 20 ||
+            _warpFade.Position != new Vector2(0, OracleRoomData.GameplayScreenTop) ||
             _warpFade.Size != roomViewportSize || _warpFade.ZIndex != 15 ||
             _warpFade.MouseFilter != Control.MouseFilterEnum.Ignore ||
             _warpFade.Color != new Color(1, 1, 1, 0) ||
@@ -303,7 +360,10 @@ public sealed class ValidationGameRoot : GameRoot
             _inventoryScreen.Visible || _inventoryScreen.ZIndex != 45 ||
             _saveQuitScreen.Visible || _saveQuitScreen.ZIndex != 46 ||
             _debugFlagScreen.Visible || _debugFlagScreen.ZIndex != 110 ||
-            _roomDebug.Position != new Vector2(2, 0) || _roomDebug.ZIndex != 100 ||
+            _debugFlagScreen.Position !=
+                new Vector2(0, OracleRoomData.GameplayScreenTop) ||
+            _roomDebug.Position != new Vector2(2, OracleRoomData.GameplayScreenTop) ||
+            _roomDebug.ZIndex != 100 ||
             _roomDebug.MouseFilter != Control.MouseFilterEnum.Ignore ||
             _roomDebug.GetThemeFontSize("font_size") != 8 ||
             _roomDebug.GetThemeConstant("outline_size") != 1)
@@ -312,8 +372,17 @@ public sealed class ValidationGameRoot : GameRoot
                 $"{GameSceneGraph.ScenePath} no longer preserves the fixed camera, UI, or draw-order values.");
         }
 
+        Vector2 gameplayPosition =
+            _transitions.WorldToGameplayScreen(_player.Position);
+        if (!_transitions.WorldToScreen(_player.Position).IsEqualApprox(
+            gameplayPosition + new Vector2(0, OracleRoomData.GameplayScreenTop)))
+        {
+            throw new InvalidOperationException(
+                "WorldToScreen did not preserve gameplay coordinates while adding the top-HUD offset.");
+        }
+
         GD.Print("Validated main/gameplay PackedScene ownership, unique typed bindings, " +
-            "world-node containment, and fixed camera/UI presentation values.");
+            "world-node containment, top-HUD camera offset, and fixed UI presentation values.");
     }
 
     private void ValidateMenuLifecycleFoundation()
@@ -2312,6 +2381,14 @@ public sealed class ValidationGameRoot : GameRoot
             Keycode = Key.Tab,
             Pressed = true
         });
+        if (_debugFlagScreen.Page != DebugFlagScreen.FlagPage.Rings)
+            throw new InvalidOperationException(
+                "Tab did not switch the debug editor from items to appraised rings.");
+        _debugFlagScreen._Input(new InputEventKey
+        {
+            Keycode = Key.Tab,
+            Pressed = true
+        });
         if (_debugFlagScreen.Page != DebugFlagScreen.FlagPage.Global)
             throw new InvalidOperationException(
                 "Tab did not cycle the debug editor back to global flags.");
@@ -2379,6 +2456,20 @@ public sealed class ValidationGameRoot : GameRoot
             throw new InvalidOperationException(
                 "The debug item grant did not use the imported treasure transaction.");
         }
+        itemScreen.SelectRingForValidation((int)RingId.Protection);
+        if (!itemScreen.RenderedText.Contains("Protection Ring", StringComparison.Ordinal) ||
+            itemInventory.HasAppraisedRing((int)RingId.Protection))
+        {
+            throw new InvalidOperationException(
+                "The debug appraised-ring browser did not display the imported ring text.");
+        }
+        itemScreen.ActivateSelection();
+        if (!itemInventory.HasAppraisedRing((int)RingId.Protection) ||
+            (itemSave.ReadWramByte(0xc61d) & 0x80) == 0)
+        {
+            throw new InvalidOperationException(
+                "The debug appraised-ring grant did not update wRingsObtained.");
+        }
         itemScreen.QueueFree();
 
         _debugFlagMenu.CloseImmediatelyForValidation();
@@ -2390,7 +2481,7 @@ public sealed class ValidationGameRoot : GameRoot
         }
 
         GD.Print("Validated F1 global/room flag editor, linked-game toggle, imported " +
-            "treasure grants, navigation, mutation, and gameplay freezing.");
+            "treasure/appraised-ring grants, navigation, mutation, and gameplay freezing.");
     }
 
     private void ValidateDebugCollision()
@@ -4356,7 +4447,7 @@ public sealed class ValidationGameRoot : GameRoot
         LoadValidationRoom(4, 0x09);
         _player.WarpTo(new Vector2(0x78, 0x08));
         _sound.ClearPlayRequestAudit();
-        _entities.WorldToScreen = _transitions.WorldToScreen;
+        _entities.WorldToScreen = _transitions.WorldToGameplayScreen;
         _transitions.BeginScroll(_player, Vector2I.Up, 0x06);
         OracleRoomData scrollingRoom406 = _world.LoadRoom(4, 0x06);
         Vector2 room406DownDoor = new(0x78, 0xa8);
@@ -4889,7 +4980,7 @@ public sealed class ValidationGameRoot : GameRoot
                 $"tile=${room.GetMetatile(bit0Chest.Position):x2}, " +
                 $"solve={_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)}.");
         }
-        _entities.WorldToScreen = _transitions.WorldToScreen;
+        _entities.WorldToScreen = _transitions.WorldToGameplayScreen;
 
         GD.Print("Validated all 155 imported button/trigger-chest/$13:$01/$1e:$04-$0b " +
             "placements, 49 buttons, seven delayed and six retractable trigger chests, " +
@@ -5408,6 +5499,585 @@ public sealed class ValidationGameRoot : GameRoot
         }
     }
 
+    private void ValidateRingFunctionality()
+    {
+        RingId[] ids = Enum.GetValues<RingId>();
+        if (ids.Length != 0x40 ||
+            ids.Select(id => (int)id).Distinct().Count() != 0x40 ||
+            ids.Min(id => (int)id) != 0 || ids.Max(id => (int)id) != 0x3f)
+        {
+            throw new InvalidOperationException(
+                "The imported ring index contract no longer covers exactly $00-$3f.");
+        }
+
+        var transformedLink = new TransformedLinkDatabase();
+        foreach (int specialObject in new[] { 3, 4, 5, 6, 7 })
+        for (int direction = 0; direction < 4; direction++)
+        for (int frame = 0; frame < 2; frame++)
+        {
+            TransformedLinkDatabase.FrameRecord record =
+                transformedLink.Record(specialObject, direction, frame);
+            Image image = transformedLink.Texture(
+                specialObject, direction, frame).GetImage();
+            bool hasOpaquePixel = false;
+            for (int y = 0; y < image.GetHeight() && !hasOpaquePixel; y++)
+            for (int x = 0; x < image.GetWidth(); x++)
+            {
+                if (image.GetPixel(x, y).A > 0.1f)
+                {
+                    hasOpaquePixel = true;
+                    break;
+                }
+            }
+            if (record.InitialDuration != 2 || record.LoopDuration != 6 ||
+                image.GetSize() != new Vector2I(32, 32) || !hasOpaquePixel)
+            {
+                throw new InvalidOperationException(
+                    $"Transformed-Link frame {specialObject:x2}:{direction}:{frame} regressed.");
+            }
+        }
+
+        var swordBeamData = new SwordBeamDatabase();
+        if (swordBeamData.Records.Count != 4)
+            throw new InvalidOperationException("ITEM_SWORD_BEAM did not import four directions.");
+        for (int direction = 0; direction < 4; direction++)
+        for (int palettePhase = 0; palettePhase < 2; palettePhase++)
+        {
+            Image image = swordBeamData.Texture(direction, palettePhase).GetImage();
+            if (image.GetSize() != new Vector2I(32, 32) ||
+                OracleGraphicsCache.PixelHash(image) == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Sword-beam direction {direction}/palette {palettePhase} did not render.");
+            }
+        }
+        OracleRoomData beamRoom = _world.LoadRoom(0, 0x00);
+        SwordBeamDatabase.Record rightBeam = swordBeamData.Get(1);
+        Vector2 beamLinkPosition = Vector2.Zero;
+        bool foundBeamPath = false;
+        for (int y = 16; y < beamRoom.Height - 16 && !foundBeamPath; y++)
+        for (int x = 16; x < beamRoom.Width - 24; x++)
+        {
+            Vector2 candidate = new(x, y);
+            Vector2 origin = candidate + new Vector2(
+                rightBeam.OffsetX, rightBeam.OffsetY);
+            if (!beamRoom.IsSolid(origin) && !beamRoom.IsSolid(origin + Vector2.Right * 3))
+            {
+                beamLinkPosition = candidate;
+                foundBeamPath = true;
+                break;
+            }
+        }
+        if (!foundBeamPath)
+            throw new InvalidOperationException("Could not find a clear sword-beam validation path.");
+        var beamSounds = new List<int>();
+        var beamSpawns = new List<RoomEntitySpawn>();
+        var beam = new SwordBeamEffect();
+        beam.Initialize(
+            swordBeamData, beamRoom, beamLinkPosition, 1,
+            static point => point, beamSounds.Add);
+        Vector2 initialBeamPosition = beamLinkPosition + new Vector2(
+            rightBeam.OffsetX, rightBeam.OffsetY);
+        beam.UpdateFrame(3, beamSpawns);
+        if (!beam.CollisionEnabled || beam.PrecisePosition != initialBeamPosition ||
+            beamSounds.Count != 1 || beamSounds[0] != OracleSoundEngine.SndSwordBeam)
+        {
+            throw new InvalidOperationException(
+                "Sword-beam state 0 offset, collision enable, or sound regressed.");
+        }
+        beam.UpdateFrame(4, beamSpawns);
+        if (beam.Finished || beam.PrecisePosition != initialBeamPosition + Vector2.Right * 3 ||
+            beam.PalettePhase != 1)
+        {
+            throw new InvalidOperationException(
+                "Sword beam did not move at SPEED_300 or toggle palette on a four-update boundary.");
+        }
+        beam.OnEnemyCollision(beamSpawns);
+        if (!beam.Finished || beamSpawns.Count != 1 ||
+            beamSpawns[0] is not SwordBeamClinkSpawn { Position: var clinkPosition } ||
+            clinkPosition != beam.Position)
+        {
+            throw new InvalidOperationException(
+                "Sword-beam collision did not create INTERAC_CLINK:$81 and delete the item.");
+        }
+        beam.Free();
+
+        var beamRoot = new Node();
+        var beamManager = new RoomEntityManager(
+            beamRoot, new NpcDatabase(), new EnemyDatabase());
+        beamManager.LoadRoom(0, beamRoom);
+        if (!beamManager.TrySpawnSwordBeam(beamLinkPosition, 1) ||
+            beamManager.TrySpawnSwordBeam(beamLinkPosition, 1) ||
+            beamManager.Entities<SwordBeamEffect>().Count != 1)
+        {
+            throw new InvalidOperationException(
+                "ITEM_SWORD_BEAM did not retain its one-object cap.");
+        }
+        beamManager.Clear();
+        beamRoot.Free();
+
+        ulong[] ringBoxLayoutHashes = new ulong[3];
+        for (int level = 1; level <= 3; level++)
+        {
+            OracleSaveData layoutSave = OracleSaveData.CreateStandardGame();
+            layoutSave.WriteWramByte(0xc6cc, (byte)level);
+            var layoutInventory = new InventoryState(_treasures, layoutSave);
+            var layoutScreen = new RingMenuScreen
+            {
+                Name = $"RingBoxL{level}LayoutValidation"
+            };
+            AddChild(layoutScreen);
+            layoutScreen.Initialize(layoutInventory);
+            layoutScreen.Open(RingMenuMode.List);
+            ringBoxLayoutHashes[level - 1] = layoutScreen.BackgroundHashForValidation;
+            layoutScreen.Free();
+        }
+        ulong[] expectedRingBoxLayoutHashes =
+        [
+            0xe266f7d27924bb95UL,
+            0xf6a1e59462846015UL,
+            0x1a58a1235c7d5e95UL
+        ];
+        if (!ringBoxLayoutHashes.SequenceEqual(expectedRingBoxLayoutHashes))
+        {
+            throw new InvalidOperationException(
+                "The source L-1/L-2/L-3 Ring Box substitutions no longer expose " +
+                $"their 1/3/5-slot layouts ({string.Join(", ",
+                    ringBoxLayoutHashes.Select(hash => $"{hash:x16}"))}).");
+        }
+
+        _ringMenu.OpenImmediatelyForValidation(RingMenuMode.List, static () => { });
+        _ringMenuScreen.SetSelectingList(true);
+        if (_ringMenuScreen.BackgroundHashForValidation == 0 ||
+            _ringMenuScreen.ListCursorPositionForValidation != new Vector2(20, 42))
+        {
+            throw new InvalidOperationException(
+                $"GFXH_APPRAISED_RING_LIST failed to build or used the wrong " +
+                $"upper cursor OAM position " +
+                $"(hash {_ringMenuScreen.BackgroundHashForValidation:x16}, " +
+                $"cursor {_ringMenuScreen.ListCursorPositionForValidation}).");
+        }
+        _ringMenuScreen.SetPageAndCursor(0, 8);
+        _ringMenuScreen.SetRingName("Power Ring L-1");
+        if (_ringMenuScreen.ListCursorPositionForValidation != new Vector2(20, 66) ||
+            _ringMenuScreen.DisplayedRingNameForValidation != "Power Ring L-1" ||
+            _ringMenuScreen.RingNamePositionForValidation != new Vector2(24, 88))
+        {
+            throw new InvalidOperationException(
+                "The lower ring-list cursor or centered showItemText2 name line regressed.");
+        }
+
+        var ringDescriptionDialogue = new DialogueBox();
+        ringDescriptionDialogue.ShowPassiveMessage("Ring description", 0, 4);
+        if (ringDescriptionDialogue.Position != new Vector2(0, 104))
+        {
+            throw new InvalidOperationException(
+                "Ring-list text position 4 did not begin immediately below the y=88 name line.");
+        }
+        ringDescriptionDialogue.Free();
+        _ringMenuScreen.SetPageAndCursor(0, 0);
+        if (!_ringMenuScreen.BeginPageTransition(1, 0, 1))
+            throw new InvalidOperationException("The ring list did not begin its rightward page scroll.");
+        for (int update = 1; update < RingMenuScreen.PageScrollUpdates; update++)
+        {
+            _ringMenuScreen.AdvanceAnimation(1.0 / 60.0, out bool completedEarly);
+            if (completedEarly || !_ringMenuScreen.PageTransitionActive ||
+                _ringMenuScreen.Page != 0)
+            {
+                throw new InvalidOperationException(
+                    "The ring-list page arrived before its original 19 movement updates.");
+            }
+        }
+        _ringMenuScreen.AdvanceAnimation(1.0 / 60.0, out bool completedScroll);
+        if (!completedScroll || _ringMenuScreen.PageTransitionActive ||
+            _ringMenuScreen.Page != 1 || _ringMenuScreen.ListCursor != 0)
+        {
+            throw new InvalidOperationException(
+                "The ring-list page did not finish after 19 8-pixel updates.");
+        }
+        _ringMenu.CloseImmediatelyForValidation();
+
+        Vector2 hudPositionBeforeAppraisal = _hud.Position;
+        bool hudVisibleBeforeAppraisal = _hud.Visible;
+        _ringMenu.OpenImmediatelyForValidation(
+            RingMenuMode.Appraisal, static () => { });
+        if (_ringMenuScreen.BackgroundSizeForValidation !=
+                new Vector2I(OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight) ||
+            !Mathf.IsZeroApprox(_ringMenuScreen.BackgroundAlphaForValidation(
+                new Vector2I(80, 8))) ||
+            Mathf.IsZeroApprox(_ringMenuScreen.BackgroundAlphaForValidation(
+                new Vector2I(80, 16))) ||
+            _hud.Position != Vector2.Zero ||
+            _hud.Visible != hudVisibleBeforeAppraisal ||
+            _dialogue.Position != new Vector2(0, 96))
+        {
+            throw new InvalidOperationException(
+                "GFXH_UNAPPRAISED_RING_LIST did not preserve the status bar at y=0-15, " +
+                "draw its full map at y=16-143, or place textbox position $02 at y=96.");
+        }
+        _ringMenu.CloseImmediatelyForValidation();
+        if (_hud.Position != hudPositionBeforeAppraisal ||
+            _hud.Visible != hudVisibleBeforeAppraisal)
+        {
+            throw new InvalidOperationException(
+                "Ring appraisal mutated the global top-HUD placement or visibility.");
+        }
+
+        OracleSaveData appraisalSave = OracleSaveData.CreateStandardGame();
+        var appraisal = new InventoryState(_treasures, appraisalSave);
+        appraisal.AddRupees(100);
+        appraisal.GiveUnappraisedRing((int)RingId.PowerL1);
+        if (!appraisal.TryBeginRingAppraisal(0, 20, out int firstRing) ||
+            firstRing != (int)RingId.PowerL1 || appraisal.Rupees != 80 ||
+            appraisal.RingsAppraised != 1 || appraisal.UnappraisedRingAt(0) != firstRing)
+        {
+            throw new InvalidOperationException(
+                "Paid appraisal did not debit 20 rupees, increment c6ce, and reveal bit 6.");
+        }
+        InventoryState.RingAppraisalResult first =
+            appraisal.CompleteRingAppraisal(0, 30);
+        if (first.Duplicate || first.Refund != 0 ||
+            !appraisal.HasAppraisedRing(firstRing) || appraisal.UnappraisedRingCount != 0)
+        {
+            throw new InvalidOperationException(
+                "A newly appraised ring did not move from c5c0 into the c616 bitset.");
+        }
+        appraisal.GiveUnappraisedRing(firstRing);
+        if (!appraisal.TryBeginRingAppraisal(0, 20, out _) || appraisal.Rupees != 60)
+            throw new InvalidOperationException("Duplicate appraisal did not charge 20 rupees.");
+        InventoryState.RingAppraisalResult duplicate =
+            appraisal.CompleteRingAppraisal(0, 30);
+        if (!duplicate.Duplicate || duplicate.Refund != 30 || appraisal.Rupees != 60)
+            throw new InvalidOperationException("Duplicate appraisal did not defer its 30-rupee refund.");
+        appraisal.ApplyRingAppraisalRefund(duplicate.Refund);
+        if (appraisal.Rupees != 90 || appraisal.RingsAppraised != 2 ||
+            appraisalSave.ReadWramByte(0xc6ce) != 2)
+        {
+            throw new InvalidOperationException(
+                "Duplicate refund or wNumRingsAppraised persistence regressed.");
+        }
+
+        OracleSaveData boxSave = OracleSaveData.CreateStandardGame();
+        boxSave.WriteWramByte(0xc6cc, 2);
+        var box = new InventoryState(_treasures, boxSave);
+        box.GrantAppraisedRingForDebug((int)RingId.Red);
+        box.GrantAppraisedRingForDebug((int)RingId.Blue);
+        if (!box.SetRingBoxSlotFromList(0, (int)RingId.Red) ||
+            !box.SetRingBoxSlotFromList(1, (int)RingId.Red) ||
+            box.RingAt(0) != 0xff || box.RingAt(1) != (int)RingId.Red ||
+            !box.SetRingBoxSlotFromList(0, (int)RingId.Blue) ||
+            !box.EquipRingAt(0) || box.ActiveRing != (int)RingId.Blue ||
+            !box.SetRingBoxSlotFromList(0, (int)RingId.Blue) ||
+            box.RingAt(0) != 0xff || !box.DeactivateRingIfMissingFromBox() ||
+            box.ActiveRing != 0xff)
+        {
+            throw new InvalidOperationException(
+                "Ring-list move/toggle uniqueness or active-ring cleanup regressed.");
+        }
+        box.SetRingBoxSlotFromList(2, (int)RingId.Blue);
+        box.EquipRingAt(2);
+        if (!OracleSaveData.TryDeserialize(boxSave.Serialize(), out OracleSaveData? restored) ||
+            new InventoryState(_treasures, restored!).ActiveRing != (int)RingId.Blue ||
+            !new InventoryState(_treasures, restored).HasAppraisedRing((int)RingId.Red))
+        {
+            throw new InvalidOperationException(
+                "Ring list, box, and equipped selection did not survive save serialization.");
+        }
+
+        InventoryState Wearing(RingId ring)
+        {
+            OracleSaveData save = OracleSaveData.CreateStandardGame();
+            save.WriteWramByte(0xc6cc, 1);
+            save.WriteWramByte(0xc6c6, (byte)ring);
+            var inventory = new InventoryState(_treasures, save);
+            if (!inventory.EquipRingAt(0))
+                throw new InvalidOperationException($"Could not equip ring ${(int)ring:x2} for validation.");
+            return inventory;
+        }
+
+        (Player Player, ValidationRingPlayerWorld World) RingPlayer(
+            RingId ring,
+            int swordLevel = 0,
+            int health = 12,
+            int maxHealth = 12)
+        {
+            OracleSaveData save = OracleSaveData.CreateStandardGame();
+            save.WriteWramByte(0xc6cc, 1);
+            save.WriteWramByte(0xc6c6, (byte)ring);
+            save.WriteWramByte(0xc6aa, (byte)health);
+            save.WriteWramByte(0xc6ab, (byte)maxHealth);
+            save.WriteWramByte(0xc6b2, (byte)swordLevel);
+            var inventory = new InventoryState(_treasures, save);
+            if (!inventory.EquipRingAt(0))
+                throw new InvalidOperationException(
+                    $"Could not equip ring ${(int)ring:x2} for Player validation.");
+            var world = new ValidationRingPlayerWorld();
+            var player = new Player();
+            player.Initialize(world, inventory, new Vector2(80, 80), new OracleRandom());
+            return (player, world);
+        }
+
+        InventoryState friendship = Wearing(RingId.Friendship);
+        if (RingEffects.BaseSwordDamage(1) != 2 || RingEffects.BaseSwordDamage(2) != 3 ||
+            RingEffects.BaseSwordDamage(3) != 5 ||
+            RingEffects.SwordDamage(Wearing(RingId.PowerL1), 1, 0xff) != 3 ||
+            RingEffects.SwordDamage(Wearing(RingId.PowerL2), 1, 0xff) != 4 ||
+            RingEffects.SwordDamage(Wearing(RingId.PowerL3), 1, 0xff) != 5 ||
+            RingEffects.SwordDamage(Wearing(RingId.ArmorL1), 1, 0xff) != 1 ||
+            RingEffects.SwordDamage(Wearing(RingId.Red), 1, 0xff) != 4 ||
+            RingEffects.SwordDamage(Wearing(RingId.Green), 1, 0xff) != 3 ||
+            RingEffects.SwordDamage(Wearing(RingId.Cursed), 1, 0xff) != 1 ||
+            RingEffects.SwordDamage(Wearing(RingId.DoubleEdged), 1, 0xff) != 10 ||
+            RingEffects.SwordDamage(Wearing(RingId.Whimsical), 1, 1) != 1 ||
+            RingEffects.SwordDamage(Wearing(RingId.Whimsical), 1, 0) != 12)
+        {
+            throw new InvalidOperationException(
+                "Sword damage did not match commonCode2.s and sword.s ring arithmetic.");
+        }
+
+        if (RingEffects.IncomingDamageQuarters(friendship, 4, RingDamageSource.Generic) != 4 ||
+            RingEffects.IncomingDamageQuarters(Wearing(RingId.PowerL1), 4, RingDamageSource.Generic) != 5 ||
+            RingEffects.IncomingDamageQuarters(Wearing(RingId.PowerL2), 4, RingDamageSource.Generic) != 6 ||
+            RingEffects.IncomingDamageQuarters(Wearing(RingId.PowerL3), 4, RingDamageSource.Generic) != 8 ||
+            RingEffects.IncomingDamageQuarters(Wearing(RingId.ArmorL1), 4, RingDamageSource.Generic) != 4 ||
+            RingEffects.IncomingDamageQuarters(Wearing(RingId.ArmorL2), 4, RingDamageSource.Generic) != 3 ||
+            RingEffects.IncomingDamageQuarters(Wearing(RingId.ArmorL3), 4, RingDamageSource.Generic) != 3 ||
+            RingEffects.IncomingDamageQuarters(Wearing(RingId.Blue), 4, RingDamageSource.Generic) != 2 ||
+            RingEffects.IncomingDamageQuarters(Wearing(RingId.Green), 4, RingDamageSource.Generic) != 3 ||
+            RingEffects.IncomingDamageQuarters(Wearing(RingId.Cursed), 4, RingDamageSource.Generic) != 8 ||
+            RingEffects.IncomingDamageQuarters(Wearing(RingId.Protection), 1, RingDamageSource.Generic) != 4)
+        {
+            throw new InvalidOperationException(
+                "Incoming damage did not match linkUpdateDamageToApplyForRings.");
+        }
+
+        if (RingEffects.IncomingDamageQuarters(Wearing(RingId.GreenLuck), 4, RingDamageSource.BladeTrap) != 2 ||
+            RingEffects.IncomingDamageQuarters(Wearing(RingId.BlueLuck), 4, RingDamageSource.Beam) != 2 ||
+            RingEffects.IncomingDamageQuarters(Wearing(RingId.GoldLuck), 4, RingDamageSource.Hole) != 2 ||
+            RingEffects.IncomingDamageQuarters(Wearing(RingId.RedLuck), 4, RingDamageSource.Spike) != 2 ||
+            RingEffects.IncomingDamageQuarters(Wearing(RingId.RedHoly), 4, RingDamageSource.OctorokProjectile) != 0 ||
+            RingEffects.IncomingDamageQuarters(Wearing(RingId.BlueHoly), 4, RingDamageSource.ZoraFire) != 0 ||
+            RingEffects.IncomingDamageQuarters(Wearing(RingId.GreenHoly), 4, RingDamageSource.Electric) != 0 ||
+            RingEffects.IncomingDamageQuarters(Wearing(RingId.Bombproof), 4, RingDamageSource.OwnBomb) != 0)
+        {
+            throw new InvalidOperationException(
+                "Luck/Holy/Bombproof source-specific protection table regressed.");
+        }
+
+        (int l1Distance, int l1Heal) = RingEffects.HeartRefill(Wearing(RingId.HeartL1));
+        (int l2Distance, int l2Heal) = RingEffects.HeartRefill(Wearing(RingId.HeartL2));
+        if (RingEffects.KnockbackFrames(Wearing(RingId.Steadfast), 40) != 20 ||
+            RingEffects.SwordChargeStep(Wearing(RingId.Charge)) != 4 ||
+            RingEffects.SwordSpinCounter(Wearing(RingId.Spin)) != 9 ||
+            RingEffects.SwordSpinFrames(Wearing(RingId.Spin), 20) != 36 ||
+            l1Distance != 2 << 16 || l1Heal != 0x08 ||
+            l2Distance != 3 << 16 || l2Heal != 0x10 ||
+            !RingEffects.EnergyBeamOnCharge(Wearing(RingId.Energy)) ||
+            RingEffects.SwordBeamMaximumMissingQuarters(Wearing(RingId.LightL1)) != 8 ||
+            RingEffects.SwordBeamMaximumMissingQuarters(Wearing(RingId.LightL2)) != 12)
+        {
+            throw new InvalidOperationException(
+                "Steadfast/Charge/Spin/Heart/Energy/Light ring policy regressed.");
+        }
+
+        if (RingEffects.BombDamage(4, Wearing(RingId.Blast)) != 6 ||
+            RingEffects.BoomerangDamage(1, Wearing(RingId.RangL1)) != 2 ||
+            RingEffects.BoomerangDamage(1, Wearing(RingId.RangL2)) != 3 ||
+            RingEffects.BombsPlacedPerUse(Wearing(RingId.Bombers)) != 2 ||
+            RingEffects.BombsExplode(Wearing(RingId.Peace)) ||
+            RingEffects.MapleKillThreshold(Wearing(RingId.Maples)) != 15 ||
+            RingEffects.PegasusSeedTimerDecrement(Wearing(RingId.Pegasus)) != 1 ||
+            !RingEffects.UsesStrongThrow(Wearing(RingId.Toss)) ||
+            !RingEffects.UsesFastSwim(Wearing(RingId.Swimmers)))
+        {
+            throw new InvalidOperationException(
+                "Blast/Rang/Bomber/Peace/Maple/Pegasus/Toss/Swimmer policy regressed.");
+        }
+
+        if (!RingEffects.IgnoresIce(Wearing(RingId.Snowshoe)) ||
+            !RingEffects.ProtectsCrackedFloor(Wearing(RingId.Rocs)) ||
+            !RingEffects.IgnoresQuicksand(Wearing(RingId.Quicksand)) ||
+            RingEffects.DropMultiplier(Wearing(RingId.RedJoy), RingDropKind.Rupee) != 2 ||
+            RingEffects.DropMultiplier(Wearing(RingId.BlueJoy), RingDropKind.Heart) != 2 ||
+            RingEffects.DropMultiplier(Wearing(RingId.GreenJoy), RingDropKind.Ore) != 2 ||
+            RingEffects.DropMultiplier(Wearing(RingId.GoldJoy), RingDropKind.Other) != 2 ||
+            !RingEffects.DetectsSoftSoil(Wearing(RingId.Discovery)))
+        {
+            throw new InvalidOperationException(
+                "Terrain/Joy/Discovery ring policy regressed.");
+        }
+
+        if (RingEffects.LinkTransformation(Wearing(RingId.Octo)) != 5 ||
+            RingEffects.LinkTransformation(Wearing(RingId.Moblin)) != 6 ||
+            RingEffects.LinkTransformation(Wearing(RingId.LikeLike)) != 7 ||
+            RingEffects.LinkTransformation(Wearing(RingId.Subrosian)) != 3 ||
+            RingEffects.LinkTransformation(Wearing(RingId.FirstGen)) != 4 ||
+            !RingEffects.PreventsJinx(Wearing(RingId.Whisp)) ||
+            RingEffects.GashaKillCredits(Wearing(RingId.Gasha)) != 2 ||
+            !RingEffects.RemovesDiveTimer(Wearing(RingId.Zora)) ||
+            !RingEffects.CanPunch(Wearing(RingId.Fist), bothButtonsEmpty: true) ||
+            !RingEffects.CanPunch(Wearing(RingId.Experts), bothButtonsEmpty: true) ||
+            !RingEffects.UsesExpertPunch(Wearing(RingId.Experts)))
+        {
+            throw new InvalidOperationException(
+                "Transformation/Whisp/Gasha/Zora/Fist/Expert ring policy regressed.");
+        }
+
+        Rect2[] expectedPunchHitboxes =
+        [
+            new(new Vector2(92, 83), new Vector2(10, 10)),
+            new(new Vector2(107, 95), new Vector2(10, 10)),
+            new(new Vector2(98, 107), new Vector2(10, 10)),
+            new(new Vector2(83, 95), new Vector2(10, 10))
+        ];
+        for (int direction = 0; direction < 4; direction++)
+        {
+            if (Player.GetSwordHitboxForValidation(
+                    new Vector2(100, 100), 24 + direction) !=
+                expectedPunchHitboxes[direction])
+            {
+                throw new InvalidOperationException(
+                    $"Punch collision arc ${24 + direction:x2} regressed.");
+            }
+        }
+
+        (Player fistPlayer, ValidationRingPlayerWorld fistWorld) =
+            RingPlayer(RingId.Fist);
+        fistPlayer.StartPunchActionForValidation(Vector2.Up);
+        if (!fistPlayer.IsUsingPunch || fistPlayer.SwordDamage != 1 ||
+            fistWorld.SwordHitCalls != 1 || fistWorld.LastSwordDamage != 1 ||
+            !fistWorld.Sounds.Contains(OracleSoundEngine.SndStrike))
+        {
+            throw new InvalidOperationException(
+                "Fist Ring did not begin its four-update, one-damage punch collision.");
+        }
+        fistPlayer.AdvancePunchForValidation(3);
+        if (fistWorld.SwordHitCalls != 4 || !fistPlayer.IsUsingPunch)
+            throw new InvalidOperationException("Fist Ring punch collision duration regressed.");
+        fistPlayer.AdvancePunchForValidation(5);
+        if (fistPlayer.IsUsingPunch || fistPlayer.PunchFrame != 0)
+            throw new InvalidOperationException("Fist Ring LINK_ANIM_MODE_21 did not end at update 8.");
+
+        (Player expertPlayer, ValidationRingPlayerWorld expertWorld) =
+            RingPlayer(RingId.Experts);
+        expertPlayer.StartPunchActionForValidation(Vector2.Right);
+        if (!expertPlayer.IsUsingPunch || expertPlayer.SwordDamage != 4 ||
+            expertWorld.ExpertTileHitCalls != 1 || expertWorld.SwordHitCalls != 1 ||
+            !expertWorld.Sounds.Contains(OracleSoundEngine.SndExplosion))
+        {
+            throw new InvalidOperationException(
+                "Expert's Ring did not apply source $03 tile breakage and four damage.");
+        }
+        expertPlayer.AdvancePunchForValidation(14);
+        if (expertPlayer.IsUsingPunch)
+            throw new InvalidOperationException(
+                "Expert's Ring LINK_ANIM_MODE_34 did not end at update 14.");
+
+        (Player transformedPlayer, ValidationRingPlayerWorld transformedWorld) =
+            RingPlayer(RingId.Octo);
+        transformedPlayer.RefreshTransformationForValidation();
+        transformedPlayer.AdvanceTransformationForValidation(walking: true, frames: 2);
+        if (transformedPlayer.ActiveTransformation != 5 ||
+            transformedPlayer.TransformationFrame != 1)
+        {
+            throw new InvalidOperationException(
+                "Octo Ring did not select SPECIALOBJECT_LINK_AS_OCTOROK or honor 2/6 timing.");
+        }
+        transformedWorld.RingTransformationsAllowed = false;
+        transformedPlayer.RefreshTransformationForValidation();
+        if (transformedPlayer.ActiveTransformation != 0)
+            throw new InvalidOperationException(
+                "Transformation suppression did not restore ordinary Link.");
+
+        (Player fullBeamPlayer, ValidationRingPlayerWorld fullBeamWorld) =
+            RingPlayer(RingId.Friendship, swordLevel: 2);
+        fullBeamPlayer.Face(Vector2I.Up);
+        fullBeamPlayer.StartSwordAttackForValidation(Vector2.Zero);
+        fullBeamPlayer.AdvanceSwordForValidation(6, buttonHeld: false);
+        if (fullBeamWorld.SwordBeamCalls != 1 ||
+            fullBeamWorld.LastSwordBeamDirection != 0)
+        {
+            throw new InvalidOperationException(
+                "Level-2 sword did not create a full-health beam on swing marker bit 5.");
+        }
+
+        (Player hurtBeamPlayer, ValidationRingPlayerWorld hurtBeamWorld) =
+            RingPlayer(RingId.Friendship, swordLevel: 2, health: 11, maxHealth: 12);
+        hurtBeamPlayer.StartSwordAttackForValidation(Vector2.Zero);
+        hurtBeamPlayer.AdvanceSwordForValidation(6, buttonHeld: false);
+        (Player lightBeamPlayer, ValidationRingPlayerWorld lightBeamWorld) =
+            RingPlayer(RingId.LightL1, swordLevel: 2, health: 12, maxHealth: 20);
+        lightBeamPlayer.StartSwordAttackForValidation(Vector2.Zero);
+        lightBeamPlayer.AdvanceSwordForValidation(6, buttonHeld: false);
+        (Player weakSwordPlayer, ValidationRingPlayerWorld weakSwordWorld) =
+            RingPlayer(RingId.LightL2, swordLevel: 1, health: 12, maxHealth: 12);
+        weakSwordPlayer.StartSwordAttackForValidation(Vector2.Zero);
+        weakSwordPlayer.AdvanceSwordForValidation(6, buttonHeld: false);
+        if (hurtBeamWorld.SwordBeamCalls != 0 || lightBeamWorld.SwordBeamCalls != 1 ||
+            weakSwordWorld.SwordBeamCalls != 0)
+        {
+            throw new InvalidOperationException(
+                "Base/Light Ring health thresholds or the level-2 sword beam gate regressed.");
+        }
+
+        (Player energyPlayer, ValidationRingPlayerWorld energyWorld) =
+            RingPlayer(RingId.Energy, swordLevel: 1);
+        energyPlayer.StartSwordAttackForValidation(Vector2.Zero);
+        energyPlayer.AdvanceSwordForValidation(17, buttonHeld: true);
+        energyPlayer.AdvanceSwordForValidation(41, buttonHeld: true);
+        if (energyWorld.SwordBeamCalls != 1 ||
+            energyPlayer.SwordState != Player.SwordActionState.Poke ||
+            energyWorld.Sounds.Contains(OracleSoundEngine.SndChargeSword))
+        {
+            throw new InvalidOperationException(
+                "Energy Ring did not replace completed charge with a beam and sword poke.");
+        }
+        foreach (Player validationPlayer in new[]
+        {
+            fistPlayer, expertPlayer, transformedPlayer, fullBeamPlayer,
+            hurtBeamPlayer, lightBeamPlayer, weakSwordPlayer, energyPlayer
+        })
+        {
+            validationPlayer.Free();
+        }
+
+        OracleSaveData slayerSave = OracleSaveData.CreateStandardGame();
+        slayerSave.WriteWramByte(0xc620, 0xe7);
+        slayerSave.WriteWramByte(0xc621, 0x03);
+        var slayer = new InventoryState(_treasures, slayerSave);
+        slayer.RecordEnemyKill();
+        slayer.RecordEnemyKill();
+        OracleSaveData gashaSave = OracleSaveData.CreateStandardGame();
+        gashaSave.WriteWramByte(0xc6cc, 1);
+        gashaSave.WriteWramByte(0xc6c6, (byte)RingId.Gasha);
+        var gasha = new InventoryState(_treasures, gashaSave);
+        gasha.EquipRingAt(0);
+        gasha.RecordEnemyKill();
+        OracleSaveData wealthSave = OracleSaveData.CreateStandardGame();
+        wealthSave.WriteWramByte(0xc627, 0x99);
+        wealthSave.WriteWramByte(0xc628, 0x99);
+        var wealth = new InventoryState(_treasures, wealthSave);
+        wealth.AddRupees(1);
+        if (slayer.TotalEnemiesKilled != 1000 || !slayerSave.HasGlobalFlag(0x00) ||
+            slayerSave.ReadWramByte(0xc641) != 2 ||
+            slayerSave.ReadWramByte(0xc64f) != 2 || slayerSave.GashaMaturity != 6 ||
+            gashaSave.ReadWramByte(0xc641) != 1 ||
+            Enumerable.Range(0, 0x10).Any(
+                spot => gashaSave.ReadWramByte(0xc64f + spot) != 2) ||
+            gashaSave.GashaMaturity != 3 ||
+            wealth.TotalRupeesCollected != 0 || !wealthSave.HasGlobalFlag(0x01))
+        {
+            throw new InvalidOperationException(
+                "Slayer/Rupee awards or Maple/Gasha enemy counters regressed.");
+        }
+
+        GD.Print("Validated all 64 ring IDs, appraisal/list/box/equip persistence, " +
+            "L-1/L-2/L-3 slot substitutions, LCD-split selection/name rows, " +
+            "cleared name-buffer tiles, centered name text, source OAM cursor rows, " +
+            "damage arithmetic, protections, native punches/transformations/sword beams, " +
+            "movement/item/drop policies, and Vasu/Maple/Gasha award counters.");
+    }
+
     private void ValidateBraceletChestAndPushGate()
     {
         var chests = new ChestDatabase();
@@ -5668,7 +6338,7 @@ public sealed class ValidationGameRoot : GameRoot
             throw new InvalidOperationException("Large-room vertical scrolling did not use the 128px playfield distance.");
 
         FinishActiveScrollingTransitionForValidation();
-        if (Mathf.Abs(WorldToScreen(_player.Position).Y - 118.0f) > 0.01f)
+        if (Mathf.Abs(WorldToScreen(_player.Position).Y - 134.0f) > 0.01f)
             throw new InvalidOperationException("Link did not finish 4:04 -> 4:03 at the lower playfield edge.");
     }
 
@@ -5696,14 +6366,14 @@ public sealed class ValidationGameRoot : GameRoot
                 $"Expected the original large-room entry coordinate $b0/$78, got {_player.Position}.");
 
         UpdateRoomCamera();
-        if (WorldToScreen(_player.Position).DistanceSquaredTo(new Vector2(80, 128)) > 0.01f)
+        if (WorldToScreen(_player.Position).DistanceSquaredTo(new Vector2(80, 144)) > 0.01f)
             throw new InvalidOperationException(
-                $"Link did not begin the 4:{destinationRoom:x2} cave entry at screen position (80,128).");
+                $"Link did not begin the 4:{destinationRoom:x2} cave entry at screen position (80,144).");
         UpdateRoomWarpTransition(WarpEnterFrames / 60.0);
         UpdateRoomCamera();
-        if (WorldToScreen(_player.Position).DistanceSquaredTo(new Vector2(80, 100)) > 0.01f)
+        if (WorldToScreen(_player.Position).DistanceSquaredTo(new Vector2(80, 116)) > 0.01f)
             throw new InvalidOperationException(
-                $"Link did not finish the 28-frame 4:{destinationRoom:x2} cave entry at screen position (80,100).");
+                $"Link did not finish the 28-frame 4:{destinationRoom:x2} cave entry at screen position (80,116).");
         UpdateRoomWarpTransition((WarpFadeFrames - WarpEnterFrames) / 60.0);
         if (IsTransitioning)
             throw new InvalidOperationException($"The 4:{destinationRoom:x2} cave fade did not finish.");
@@ -10044,6 +10714,406 @@ public sealed class ValidationGameRoot : GameRoot
             "flag $01 destinations 4:e7/4:f3, $93/$ff/$01 entrance, and SND_ENTERCAVE.");
     }
 
+    private void ValidateVasuShopInteractions()
+    {
+        const int group = 2;
+        const int roomId = 0xee;
+        VasuShopEvent shop = _roomEvents.VasuShop;
+        VasuShopDatabase database = shop.Database;
+
+        _saveData.SetGlobalFlag(database.GlobalObtainedRingBox, value: false);
+        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
+        _saveData.SetLinkedGame(false);
+        if (_saveData.WriteWramByte(database.ObtainedRingBoxAddress, 0))
+            _saveData.CommitInventoryChange();
+        LoadValidationRoom(group, roomId);
+
+        List<NpcCharacter> actors = _entities.Entities<NpcCharacter>();
+        if (actors.Count != 5 ||
+            actors[0].Record is not { Id: 0x89, SubId: 0x00, Y: 0x28, X: 0x50 } ||
+            actors[1].Record is not { Id: 0x89, SubId: 0x01, Y: 0x38, X: 0x38 } ||
+            actors[2].Record is not { Id: 0x89, SubId: 0x06, Y: 0x38, X: 0x68 } ||
+            actors[3].Record is not { Id: 0xe5, SubId: 0x00, Y: 0x48, X: 0x28,
+                Palette: 1 } ||
+            actors[4].Record is not { Id: 0xe5, SubId: 0x01, Y: 0x48, X: 0x78,
+                Palette: 2 } ||
+            actors.Any(actor => actor.TextId != 0 || actor.TextPosition != 2 ||
+                actor.CurrentAnimationOpaquePixels == 0))
+        {
+            throw new InvalidOperationException(
+                "Room 2:ee did not instantiate Vasu, both snakes, and both palette-distinct " +
+                "ring-help books in original object order.");
+        }
+
+        NpcCharacter vasu = actors[0];
+        NpcCharacter blue = actors[1];
+        NpcCharacter red = actors[2];
+        NpcCharacter basicsBook = actors[3];
+        NpcCharacter secretsBook = actors[4];
+        if (vasu.CurrentScriptAnimationSource != database.Animation(0x89, 0) ||
+            blue.CurrentScriptAnimationSource != database.Animation(0x89, 1) ||
+            red.CurrentScriptAnimationSource != database.Animation(0x89, 6) ||
+            basicsBook.CurrentScriptAnimationSource != database.Animation(0xe5, 0) ||
+            secretsBook.CurrentScriptAnimationSource != database.Animation(0xe5, 0) ||
+            database.Text(0x3000).Contains("\\jump", StringComparison.Ordinal) ||
+            database.Text(0x300b).Contains("\\jump", StringComparison.Ordinal) ||
+            !database.Text(0x300b).Contains("Do you want\nto hear more?", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Room 2:ee animations or assembler-time TX_30XX call/jump expansion diverged.");
+        }
+
+        // Vasu is behind the counter. The generic sprite-grown talk box ends
+        // too early here; the retail A-sensitive path probes ten pixels ahead
+        // and tests his strict $12/$06 collision radii.
+        _player.WarpTo(new Vector2(vasu.Position.X, vasu.Position.Y + 27), recordSafe: false);
+        _player.Face(Vector2I.Up);
+        if (!TryInteract(_player) ||
+            shop.Stage != VasuShopEvent.EventStage.VasuFirstExplanation)
+        {
+            throw new InvalidOperationException(
+                "Vasu could not be talked to across his counter at the final valid $12 boundary.");
+        }
+        shop.Cancel();
+        _dialogue.Close();
+        _player.WarpTo(new Vector2(vasu.Position.X, vasu.Position.Y + 28), recordSafe: false);
+        _player.Face(Vector2I.Up);
+        if (_entities.FindTalkTarget(_player) is not null)
+        {
+            throw new InvalidOperationException(
+                "Vasu's strict $12 A-sensitive boundary accepted the first outside point.");
+        }
+
+        // The snake's state-1 NC branch resets its idle animation every update
+        // outside the strict $18 Manhattan radius, then permits it to emerge
+        // and animate when Link enters that radius.
+        _player.WarpTo(new Vector2(0x78, 0x70), recordSafe: false);
+        StepRoomEventFrames(20);
+        if (blue.CurrentAnimationFrame != 0)
+            throw new InvalidOperationException(
+                "Blue Snake was not pinned to its hidden first frame outside distance $18.");
+        _player.WarpTo(blue.Position + new Vector2(0, 0x10), recordSafe: false);
+        StepRoomEventFrames(18);
+        if (blue.CurrentAnimationFrame == 0)
+            throw new InvalidOperationException(
+                "Blue Snake did not emerge and animate inside distance $18.");
+
+        // Both books retain their source loops and choices. Subid $00 can
+        // revisit either topic; subid $01 is a single read/don't-read prompt.
+        if (!shop.TryInteractNpc(basicsBook) ||
+            shop.Stage != VasuShopEvent.EventStage.BookBasicsInitial ||
+            !_dialogue.CurrentMessage.Contains("Ring Link\nBasics", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("The blue-snake help book did not open TX_3020.");
+        }
+        _dialogue.SubmitChoiceForValidation(0);
+        StepRoomEventFrames(1);
+        _dialogue.SubmitChoiceForValidation(0);
+        StepRoomEventFrames(1);
+        if (shop.Stage != VasuShopEvent.EventStage.BookBasicsFortune ||
+            !_dialogue.CurrentMessage.Contains("Ring Fortunes", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "The Ring Link Basics book did not select its Fortune topic.");
+        }
+        _dialogue.SubmitChoiceForValidation(1);
+        StepRoomEventFrames(1);
+        if (shop.HasState)
+            throw new InvalidOperationException("The Ring Link Basics book did not reset on Don't.");
+
+        if (!shop.TryInteractNpc(secretsBook))
+            throw new InvalidOperationException("The ring-secret help book was not button-sensitive.");
+        _dialogue.SubmitChoiceForValidation(0);
+        StepRoomEventFrames(1);
+        if (shop.Stage != VasuShopEvent.EventStage.BookSecretsText ||
+            !_dialogue.CurrentMessage.Contains("Red\nSnake", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "The ring-secret help book did not show TX_301a after Read.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+
+        // Red Snake's nonlinked tutorial waits exactly 30 updates between the
+        // outer and inner choices, expands the TX_3016 jump, and uses its talk
+        // and parameter-terminated retreat animations.
+        if (!shop.TryInteractNpc(red) ||
+            shop.Stage != VasuShopEvent.EventStage.RedInitial ||
+            red.CurrentScriptAnimationSource != database.Animation(0x89, 7))
+        {
+            throw new InvalidOperationException(
+                "Red Snake did not select the prelinked TX_3009/talk-animation path.");
+        }
+        _dialogue.SubmitChoiceForValidation(0);
+        StepRoomEventFrames(1);
+        StepRoomEventFrames(database.RedSnakeWait - 1);
+        if (_dialogue.IsOpen || shop.Counter != 1)
+            throw new InvalidOperationException("Red Snake's wait completed before update 30.");
+        StepRoomEventFrames(1);
+        if (!_dialogue.IsOpen || shop.Stage != VasuShopEvent.EventStage.RedTopic)
+            throw new InvalidOperationException("Red Snake did not open TX_300a on update 30.");
+        _dialogue.SubmitChoiceForValidation(0);
+        StepRoomEventFrames(1);
+        if (!_dialogue.CurrentMessage.Contains("Do you want\nto hear more?", StringComparison.Ordinal))
+            throw new InvalidOperationException("Red Snake did not jump from TX_300b to TX_3016.");
+        _dialogue.SubmitChoiceForValidation(1);
+        StepRoomEventFrames(1);
+        if (shop.Stage != VasuShopEvent.EventStage.SnakeRetreat ||
+            red.CurrentScriptAnimationSource != database.Animation(0x89, 8))
+        {
+            throw new InvalidOperationException("Red Snake did not begin animation $08 cleanup.");
+        }
+        StepRoomEventFrames(16);
+        if (shop.HasState || red.CurrentScriptAnimationSource != database.Animation(0x89, 6))
+            throw new InvalidOperationException(
+                "Red Snake did not return to idle when animation $08 set animParameter.");
+
+        // Without a Ring Box, FINISHEDGAME alone must not select the linked
+        // snake table. The blue fortune then performs the original 16-bit
+        // $0200 counter before reporting the absent cable.
+        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        if (!shop.TryInteractNpc(blue) ||
+            shop.Stage != VasuShopEvent.EventStage.BlueInitial)
+        {
+            throw new InvalidOperationException(
+                "FINISHEDGAME incorrectly selected Blue Snake's linked script without a Ring Box.");
+        }
+        _dialogue.SubmitChoiceForValidation(0);
+        StepRoomEventFrames(1);
+        _dialogue.SubmitChoiceForValidation(0);
+        StepRoomEventFrames(1);
+        StepRoomEventFrames(database.BlueSnakeCableTimeout - 1);
+        if (_dialogue.IsOpen || shop.Counter != 1)
+            throw new InvalidOperationException(
+                "Blue Snake reported a missing cable before 512 serial-wait updates.");
+        StepRoomEventFrames(1);
+        if (!_dialogue.IsOpen ||
+            !_dialogue.CurrentMessage.Contains("Is your cable\nconnected?", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Blue Snake did not show TX_300f on the 512th no-cable update.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1 + 16);
+        if (shop.HasState || blue.CurrentScriptAnimationSource != database.Animation(0x89, 1))
+            throw new InvalidOperationException("Blue Snake did not complete animation $03 cleanup.");
+        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
+
+        // Exercise the ordinary first-time Vasu reward chain through both
+        // mandatory ring menus, including the free appraisal and box move.
+        int unappraisedBefore = _inventory.UnappraisedRingCount;
+        _sound.ClearPlayRequestAudit();
+        if (!shop.TryInteractNpc(vasu) ||
+            shop.Stage != VasuShopEvent.EventStage.VasuFirstExplanation ||
+            !_dialogue.CurrentMessage.Contains("Understood?", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Vasu did not open expanded TX_3000/TX_303a.");
+        }
+        _dialogue.SubmitChoiceForValidation(1);
+        StepRoomEventFrames(1);
+        if (shop.Stage != VasuShopEvent.EventStage.VasuFirstExplanation ||
+            !_dialogue.CurrentMessage.StartsWith("Rings made from", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Vasu's No answer did not repeat TX_303a.");
+        }
+        _dialogue.SubmitChoiceForValidation(0);
+        StepRoomEventFrames(1);
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        if (shop.Stage != VasuShopEvent.EventStage.VasuRingBoxReward ||
+            _inventory.RingBoxLevel != 1 || !_player.IsHoldingItemTwoHands ||
+            _entities.Entities<GroundTreasurePickup>().Count == 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2)
+        {
+            throw new InvalidOperationException(
+                "vasu_giveRingBox did not grant/show the L-1 Ring Box with two-hand audio.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        if (shop.Stage != VasuShopEvent.EventStage.VasuFriendshipReward ||
+            _inventory.UnappraisedRingCount != unappraisedBefore + 1 ||
+            _inventory.UnappraisedRingAt(unappraisedBefore) != 0x40 ||
+            !_player.IsHoldingItemOneHand ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed) != 1)
+        {
+            throw new InvalidOperationException(
+                "vasu_giveFriendshipRing did not grant ring $00 through one-hand TREASURE_RING.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        if (shop.Stage != VasuShopEvent.EventStage.VasuAppraisalHandoff ||
+            !_dialogue.CurrentMessage.Contains("Let's appraise", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Vasu did not reach the forced appraisal prompt TX_3033.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        if (shop.Stage != VasuShopEvent.EventStage.VasuFirstAppraisalMenu ||
+            !_ringMenu.IsActive)
+        {
+            throw new InvalidOperationException(
+                "Vasu did not open the mandatory first appraisal menu.");
+        }
+        _ringMenu.Update(22.0 / 60.0);
+        if (!_ringMenuScreen.Visible ||
+            _ringMenuScreen.Mode != RingMenuMode.Appraisal ||
+            _ringMenuScreen.BackgroundHashForValidation == 0 ||
+            !_inventory.TryBeginRingAppraisal(unappraisedBefore, 0, out int friendship) ||
+            friendship != database.RingFriendship)
+        {
+            throw new InvalidOperationException(
+                "The mandatory appraisal menu did not render or begin the free Friendship Ring appraisal.");
+        }
+        InventoryState.RingAppraisalResult firstResult =
+            _inventory.CompleteRingAppraisal(
+                unappraisedBefore, database.DuplicateRefund);
+        if (firstResult.Duplicate ||
+            !_inventory.HasAppraisedRing(database.RingFriendship) ||
+            _inventory.RingsAppraised != 1)
+        {
+            throw new InvalidOperationException(
+                "The free Friendship Ring appraisal did not update c616/c6ce.");
+        }
+        _ringMenu.CloseImmediatelyForValidation();
+        StepRoomEventFrames(database.MenuCloseWait);
+        if (shop.Stage != VasuShopEvent.EventStage.VasuFirstListIntroduction ||
+            !_dialogue.CurrentMessage.Contains("Now, the List!", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Vasu did not resume at TX_3013 ten updates after appraisal close " +
+                $"(stage {shop.Stage}, counter {shop.Counter}, text '{_dialogue.CurrentMessage}').");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        _ringMenu.Update(22.0 / 60.0);
+        if (shop.Stage != VasuShopEvent.EventStage.VasuFirstListMenu ||
+            _ringMenuScreen.Mode != RingMenuMode.List ||
+            _ringMenuScreen.BackgroundHashForValidation == 0 ||
+            !_inventory.SetRingBoxSlotFromList(0, database.RingFriendship))
+        {
+            throw new InvalidOperationException(
+                "Vasu's mandatory ring list did not render or accept the Friendship Ring into slot 0.");
+        }
+        _ringMenu.CloseImmediatelyForValidation();
+        StepRoomEventFrames(database.MenuCloseWait);
+        if (shop.Stage != VasuShopEvent.EventStage.VasuFirstFinalText ||
+            !_dialogue.CurrentMessage.Contains("do nothing", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Vasu did not resume at TX_3008 ten updates after ring-list close.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        if (shop.HasState ||
+            !_saveData.HasGlobalFlag(database.GlobalObtainedRingBox) ||
+            (_saveData.ReadWramByte(database.ObtainedRingBoxAddress) &
+                database.LinkedFirstMask) == 0 ||
+            _inventory.RingAt(0) != database.RingFriendship)
+        {
+            throw new InvalidOperationException(
+                "The completed mandatory ring menus did not commit Vasu's flag, bit, and box contents.");
+        }
+
+        // Re-entry recreates Vasu. A linked save with bit 0 clear uses the
+        // short TX_303e branch, skips the Friendship Ring, then commits both
+        // redundant completion indicators after its Ring Box check.
+        _saveData.SetGlobalFlag(database.GlobalObtainedRingBox, value: false);
+        _saveData.WriteWramByte(database.ObtainedRingBoxAddress, 0);
+        _saveData.SetLinkedGame(true);
+        LoadValidationRoom(group, roomId);
+        vasu = _entities.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x89, SubId: 0x00 });
+        if (!shop.TryInteractNpc(vasu) ||
+            shop.Stage != VasuShopEvent.EventStage.VasuLinkedGreeting ||
+            !_dialogue.CurrentMessage.StartsWith("Good to see you", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Linked wObtainedRingBox bit-$01-clear state did not select TX_303e.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        if (shop.HasState ||
+            !_saveData.HasGlobalFlag(database.GlobalObtainedRingBox) ||
+            (_saveData.ReadWramByte(database.ObtainedRingBoxAddress) &
+                database.LinkedFirstMask) == 0 ||
+            _inventory.UnappraisedRingCount != unappraisedBefore)
+        {
+            throw new InvalidOperationException(
+                "Vasu's linked first-time branch did not commit its flag/bit without another ring.");
+        }
+
+        // Ring Box plus linked/completed state selects the linked snake table;
+        // removing both linked predicates returns to the tutorial table.
+        blue = _entities.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x89, SubId: 0x01 });
+        if (!shop.TryInteractNpc(blue) ||
+            shop.Stage != VasuShopEvent.EventStage.BlueLinkedMenu)
+        {
+            throw new InvalidOperationException(
+                "Ring Box + linked save did not select Blue Snake's TX_3024 table.");
+        }
+        shop.Cancel();
+        _dialogue.Close();
+        _saveData.SetLinkedGame(false);
+        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
+        if (!shop.TryInteractNpc(blue) ||
+            shop.Stage != VasuShopEvent.EventStage.BlueInitial)
+        {
+            throw new InvalidOperationException(
+                "Clearing both linked predicates did not restore Blue Snake's prelinked script.");
+        }
+        shop.Cancel();
+        _dialogue.Close();
+
+        // With Vasu initialized and no unappraised rings, Appraise reaches
+        // TX_3014; earned special-ring flags are claimed in source priority and grant
+        // the concrete ring index before returning to the NPC loop.
+        if (!shop.TryInteractNpc(vasu))
+            throw new InvalidOperationException("Initialized Vasu was no longer talkable.");
+        _dialogue.SubmitChoiceForValidation(0);
+        StepRoomEventFrames(1);
+        if (shop.Stage != VasuShopEvent.EventStage.VasuFinalText ||
+            !_dialogue.CurrentMessage.Contains("have been\nappraised", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Vasu's empty unappraised-ring list did not select TX_3014.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+
+        _saveData.SetGlobalFlag(database.GlobalEarnedSlayer);
+        _saveData.SetGlobalFlag(database.GlobalGotSlayer, value: false);
+        int ringsBeforeSpecial = _inventory.UnappraisedRingCount;
+        if (!shop.TryInteractNpc(vasu) ||
+            shop.Stage != VasuShopEvent.EventStage.VasuSpecialText ||
+            !_saveData.HasGlobalFlag(database.GlobalGotSlayer))
+        {
+            throw new InvalidOperationException(
+                "Vasu did not claim the first earned unreceived special ring before TX_3036.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        if (_inventory.UnappraisedRingCount != ringsBeforeSpecial + 1 ||
+            _inventory.UnappraisedRingAt(ringsBeforeSpecial) !=
+                (database.RingSlayer | 0x40))
+        {
+            throw new InvalidOperationException(
+                "Vasu did not pass SLAYERS_RING $34 through giveRingToLink.");
+        }
+        _dialogue.Close();
+        StepRoomEventFrames(2);
+        if (shop.HasState)
+            throw new InvalidOperationException("Vasu's special-ring reward did not return to idle.");
+
+        GD.Print("Validated room 2:ee's five ordered actors, exact book palettes/visuals, " +
+            "snake $18 proximity/talk/retreat animations, 30-update red tutorial loop, " +
+            "512-update blue no-cable result, Vasu first/linked introductions, Ring Box/" +
+            "Friendship/special-ring rewards, forced appraisal/list UI, and Ring Box + " +
+            "finished/linked predicates; only Game Link remains a deferred boundary.");
+    }
+
     private void ValidateRoom186NpcInteractions()
     {
         const int group = 1;
@@ -10288,6 +11358,7 @@ public sealed class ValidationGameRoot : GameRoot
                 sawExplanation = true;
                 if (screen.BackgroundPixelHash == 0 || _hud.Visible ||
                     _sound.ActiveMusic != OracleSoundEngine.MusDisaster ||
+                    _warpFade.Position != Vector2.Zero ||
                     _warpFade.Size != new Vector2(
                         OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight) ||
                     screen.Size != new Vector2(
@@ -10332,6 +11403,8 @@ public sealed class ValidationGameRoot : GameRoot
             !_saveData.HasRoomFlag(group, roomId, OracleSaveData.RoomFlag80) ||
             guard.Position != new Vector2(0x58, 0x38) ||
             guard.TextId != 0x1004 || _player.CutsceneControlled ||
+            _warpFade.Position !=
+                new Vector2(0, OracleRoomData.GameplayScreenTop) ||
             _warpFade.Size != new Vector2(
                 OracleRoomData.ViewportWidth, OracleRoomData.ViewportHeight) ||
             _warpFade.ZIndex != 15 ||
@@ -11624,7 +12697,7 @@ public sealed class ValidationGameRoot : GameRoot
         _player.WarpTo(new Vector2(0x38, 0x06));
         impaEvent.UpdateHelpFrame(upPressed: true);
         if (!_dialogue.IsOpen || _dialogue.CurrentMessage != "HELLLLP!!!" ||
-            _dialogue.Position.Y != 80 || !_player.CutsceneControlled ||
+            _dialogue.Position.Y != 96 || !_player.CutsceneControlled ||
             impaEvent.Counter != 30 ||
             _saveData.HasRoomFlag(0, 0x7a, OracleSaveData.RoomFlag40))
         {
@@ -11758,7 +12831,7 @@ public sealed class ValidationGameRoot : GameRoot
         if (_dialogue.IsOpen || impaEvent.Counter != 1)
             throw new InvalidOperationException("Impa's 210-update post-signal wait ended early.");
         StepRoomEventFrames(1);
-        if (!_dialogue.IsOpen || _dialogue.Position.Y != 8 ||
+        if (!_dialogue.IsOpen || _dialogue.Position.Y != 24 ||
             !_dialogue.CurrentMessage.StartsWith("That was\nfrightening!") ||
             !_dialogue.CurrentMessage.EndsWith("with you nearby.") ||
             octoroks[0].Active || octoroks[1].Active || octoroks[2].Active ||
@@ -12822,7 +13895,7 @@ public sealed class ValidationGameRoot : GameRoot
                 "The Maku Tree script preamble did not retain its collision/gate update boundaries.");
         }
         StepRoomEventFrames(3);
-        if (!_dialogue.IsOpen || _dialogue.Position.Y != 80 ||
+        if (!_dialogue.IsOpen || _dialogue.Position.Y != 96 ||
             !_dialogue.CurrentMessage.StartsWith("Pleased to meet\nyou, young hero."))
         {
             throw new InvalidOperationException(
@@ -12863,7 +13936,7 @@ public sealed class ValidationGameRoot : GameRoot
             throw new InvalidOperationException(
                 "The $9a/$c4/$8f/$c5 Maku Tree palettes did not cycle within eight updates.");
         StepRoomEventFrames(202);
-        if (!_dialogue.IsOpen || _dialogue.Position.Y != 80 || _dialogue.CurrentMessage != "Ahh...")
+        if (!_dialogue.IsOpen || _dialogue.Position.Y != 96 || _dialogue.CurrentMessage != "Ahh...")
             throw new InvalidOperationException("TX_0540 did not open after 210 disappearance updates.");
 
         _dialogue.Close();
@@ -12875,7 +13948,7 @@ public sealed class ValidationGameRoot : GameRoot
                 "TX_0540 did not replay SND_MAKUDISAPPEAR when its textbox closed.");
         }
         StepRoomEventFrames(211);
-        if (!_dialogue.IsOpen || _dialogue.Position.Y != 80 ||
+        if (!_dialogue.IsOpen || _dialogue.Position.Y != 96 ||
             !_dialogue.CurrentMessage.StartsWith("I feel so weird.\nI'm vanishing!"))
             throw new InvalidOperationException("TX_0541 did not follow the original 210-update pause.");
 
@@ -13162,7 +14235,7 @@ public sealed class ValidationGameRoot : GameRoot
                         if (textId == 0x05d4)
                         {
                             sawBottomExitDialogue =
-                                _dialogue.Position.Y == 80;
+                                _dialogue.Position.Y == 96;
                         }
                     }
                 }
@@ -13399,7 +14472,7 @@ public sealed class ValidationGameRoot : GameRoot
                         "Saved Maku Tree showtext trace did not resolve to typed text metadata.");
                 }
                 textIds.Add(text.TextId);
-                if (_dialogue.Position.Y != 80)
+                if (_dialogue.Position.Y != 96)
                 {
                     throw new InvalidOperationException(
                         $"Saved Maku Tree TX_{text.TextId:x4} ignored its \\pos(2) textbox.");
@@ -13460,7 +14533,7 @@ public sealed class ValidationGameRoot : GameRoot
             throw new InvalidOperationException(
                 "The normal A-button target path could not reach the adult Maku Tree NPC loop.");
         StepRoomEventFrames(1);
-        if (!_dialogue.IsOpen || _dialogue.Position.Y != 80 ||
+        if (!_dialogue.IsOpen || _dialogue.Position.Y != 96 ||
             database.Commands[savedEvent.CurrentCommandIndex - 1]
                 is not CutsceneShowTextCommand { TextId: 0x054f })
         {
@@ -13911,7 +14984,9 @@ public sealed class ValidationGameRoot : GameRoot
         NayruSingingScreen? singing =
             _scene.InterfaceLayer.GetNodeOrNull<NayruSingingScreen>("NayruSingingScreen");
         if (nayruIntro.CurrentStage != 10 || singing is null || singing.ScrollX != 0 ||
-            _hud.Visible ||
+            _hud.Visible || _warpFade.Position != Vector2.Zero ||
+            _warpFade.Size != new Vector2(
+                OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndCloseMenu) != 1)
         {
             throw new InvalidOperationException(
@@ -13927,6 +15002,10 @@ public sealed class ValidationGameRoot : GameRoot
         StepRoomEventFrames(280);
         StepRoomEventFrames(11);
         if (nayruIntro.CurrentStage != 12 || !_hud.Visible ||
+            _warpFade.Position !=
+                new Vector2(0, OracleRoomData.GameplayScreenTop) ||
+            _warpFade.Size != new Vector2(
+                OracleRoomData.ViewportWidth, OracleRoomData.ViewportHeight) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndCloseMenu) != 2)
         {
             throw new InvalidOperationException(

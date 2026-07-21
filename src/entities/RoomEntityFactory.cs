@@ -29,12 +29,14 @@ internal sealed class RoomEntityFactory(
 {
     private readonly Room148PickaxeDatabase _room148 = new();
     private readonly Room149FamilyDatabase _room149 = new();
+    private readonly VasuShopDatabase _vasuShop = new();
     private readonly BlackTowerWorkerDatabase _blackTower = new();
     private readonly EnemySpawnTileDatabase _enemySpawnTiles = new();
     private readonly GroundTreasureDatabase _groundTreasures = new();
     private readonly DungeonMechanicDatabase _dungeonMechanics = new();
     private readonly RoomTileChangeWatcherDatabase _tileChangeWatchers = new();
     private readonly BreakableTileDatabase _breakables = new();
+    private readonly SwordBeamDatabase _swordBeam = new();
 
     public IEnumerable<IRoomEntity> CreateRoomEntities(
         int group,
@@ -114,6 +116,11 @@ internal sealed class RoomEntityFactory(
         else if (group == 1 && room.Id == 0x49)
         {
             foreach (IRoomEntity entity in CreateRoom149Family(roomNpcs))
+                yield return entity;
+        }
+        else if (group == _vasuShop.Group && room.Id == _vasuShop.Room)
+        {
+            foreach (IRoomEntity entity in CreateVasuShopNpcs(roomNpcs))
                 yield return entity;
         }
         else
@@ -313,6 +320,8 @@ internal sealed class RoomEntityFactory(
         CutsceneNpcSpawn npc => CreateCutsceneNpc(npc),
         GroundTreasureSpawn treasure => CreateGroundTreasure(treasure.Record),
         Room148DebrisSpawn debris => CreateRoom148Debris(debris),
+        SwordBeamSpawn beam => CreateSwordBeam(beam, room),
+        SwordBeamClinkSpawn clink => CreateSwordBeamClink(clink),
         _ => throw new ArgumentOutOfRangeException(nameof(spawn), spawn, "Unknown room-entity spawn request.")
     };
 
@@ -350,6 +359,34 @@ internal sealed class RoomEntityFactory(
         if (!foundWorker)
             throw new InvalidOperationException(
                 "Room 1:48 is missing interaction $57:$00.");
+    }
+
+    private IEnumerable<IRoomEntity> CreateVasuShopNpcs(
+        IReadOnlyList<NpcDatabase.NpcRecord> records)
+    {
+        if (records.Count != 5)
+        {
+            throw new InvalidOperationException(
+                $"Room 2:ee must contain five Vasu Jewelers actors, got {records.Count}.");
+        }
+
+        foreach (NpcDatabase.NpcRecord record in records)
+        {
+            bool supported = record.Id == 0x89 && record.SubId is 0x00 or 0x01 or 0x06 ||
+                record.Id == 0xe5 && record.SubId is 0x00 or 0x01;
+            if (!supported)
+            {
+                throw new InvalidOperationException(
+                    $"Unsupported Vasu Jewelers interaction ${record.Id:x2}:${record.SubId:x2}.");
+            }
+            var npc = new NpcCharacter
+            {
+                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+                ZIndex = NpcCharacter.BehindLinkZIndex
+            };
+            npc.Initialize(record);
+            yield return new VasuShopNpcRoomEntity(npc, _vasuShop);
+        }
     }
 
     private IEnumerable<IRoomEntity> CreateBlackTowerNpcs(
@@ -552,6 +589,34 @@ internal sealed class RoomEntityFactory(
             drop => itemDrops.DecideBreakableDrop(drop, random), saveData,
             spawn.Group);
         return new EmberSeedRoomEntity(seed);
+    }
+
+    private IRoomEntity CreateSwordBeam(
+        SwordBeamSpawn spawn, OracleRoomData room)
+    {
+        var beam = new SwordBeamEffect
+        {
+            Name = "SwordBeam",
+            ZIndex = 11
+        };
+        beam.Initialize(
+            _swordBeam, room, spawn.LinkPosition, spawn.Direction,
+            worldToScreen, soundRequested);
+        return new SwordBeamRoomEntity(beam);
+    }
+
+    private static IRoomEntity CreateSwordBeamClink(SwordBeamClinkSpawn spawn)
+    {
+        var clink = new ClinkEffect
+        {
+            Name = "SwordBeamClink",
+            ZIndex = 11
+        };
+        // Subid $81 requests the flickering variant; unlike sword-on-wall
+        // clinks, the beam collision does not play a second sound.
+        clink.Initialize(spawn.Position, flickers: true);
+        clink.SetPhysicsProcess(false);
+        return new SwordBeamClinkRoomEntity(clink);
     }
 
     private IRoomEntity CreatePuzzlePuff(PuzzlePuffSpawn spawn)

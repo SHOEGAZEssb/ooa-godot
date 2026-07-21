@@ -37,19 +37,22 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     public bool Finished => combat.Finished;
     public bool CountsAsEnemy => countsAsEnemy && !combat.Finished;
     public int KillableEnemyIndex => killableEnemyIndex;
-    public bool MarksEnemyKilled =>
-        killableEnemyIndex != 0 && (marksEnemyKilled?.Invoke() ?? true);
+    // enemyDie and enemyDie_uncounted both advance the lifetime/special-ring
+    // counters. Only the separate recent-defeat reservation requires a
+    // nonzero wKillableEnemyIndex.
+    public bool MarksEnemyKilled => marksEnemyKilled?.Invoke() ?? true;
     public void HandleLinkContact(Player player) => combat.HandleLinkContact(player);
     public bool ApplySwordHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
+        int damage,
         ICollection<RoomEntitySpawn> spawns) =>
-        combat.ApplySwordHit(hitbox, sourcePosition, spawns);
+        combat.ApplySwordHit(hitbox, sourcePosition, damage, spawns);
     public bool ApplySeedHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
         ICollection<RoomEntitySpawn> spawns) =>
-        combat.ApplySwordHit(hitbox, sourcePosition, spawns);
+        combat.ApplySwordHit(hitbox, sourcePosition, 2, spawns);
     public void OnFinished(ICollection<RoomEntitySpawn> spawns) => finished?.Invoke();
 }
 
@@ -63,6 +66,33 @@ internal sealed class EmberSeedRoomEntity(EmberSeedEffect seed)
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(spawns);
     public void OnEnemyCollision() => Entity.OnEnemyCollision();
+    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
+}
+
+internal sealed class SwordBeamRoomEntity(SwordBeamEffect beam)
+    : RoomEntityAdapter<SwordBeamEffect>(beam, beam.SetTransitionDrawOffset),
+        IFixedRoomEntity, IPlayerProjectileRoomEntity, IRoomEntityLifetime
+{
+    public bool Finished => Entity.Finished;
+    public bool CollisionEnabled => Entity.CollisionEnabled;
+    public Rect2 CollisionBounds => Entity.CollisionBounds;
+    public int Damage => Entity.Damage;
+    public void UpdateFrame(
+        RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
+        Entity.UpdateFrame(frame.Counter, spawns);
+    public void OnEnemyCollision(ICollection<RoomEntitySpawn> spawns) =>
+        Entity.OnEnemyCollision(spawns);
+    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
+}
+
+internal sealed class SwordBeamClinkRoomEntity(ClinkEffect clink)
+    : RoomEntityAdapter<ClinkEffect>(clink, static _ => { }),
+        IFixedRoomEntity, IRoomEntityLifetime
+{
+    public bool Finished => Entity.Finished;
+    public void UpdateFrame(
+        RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
+        Entity.AdvanceFrameForEntityManager();
     public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }
 
@@ -147,6 +177,95 @@ internal sealed class NpcRoomEntity(NpcCharacter npc)
     public void Update(double delta, Player player) => Entity.UpdateNpc(delta, player.Position);
     public bool BlocksLink(Vector2 linkCenter) => Entity.BlocksLinkCenter(linkCenter);
     public NpcCharacter? FindTalkTarget(Player player) => Entity.CanTalkTo(player) ? Entity : null;
+}
+
+/// <summary>
+/// Native update behavior shared by the five placed actors in Vasu Jewelers.
+/// Vasu uses the original asymmetric solid radius and object-side separation;
+/// snakes restart their hidden idle frame while Link is outside the source's
+/// $18 Manhattan-distance check.
+/// </summary>
+internal sealed class VasuShopNpcRoomEntity
+    : RoomEntityAdapter<NpcCharacter>, IVariableRoomEntity, IFixedRoomEntity,
+        IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity, IPlayerRestriction
+{
+    private readonly VasuShopDatabase _database;
+    private readonly bool _vasu;
+    private readonly bool _snake;
+    private readonly string _idleAnimation;
+
+    public VasuShopNpcRoomEntity(
+        NpcCharacter npc,
+        VasuShopDatabase database)
+        : base(npc, npc.SetTransitionDrawOffset)
+    {
+        _database = database;
+        _vasu = npc.Record is { Id: 0x89, SubId: 0x00 };
+        _snake = npc.Record.Id == 0x89 && npc.Record.SubId != 0;
+        npc.SetDialogue(0, string.Empty, canFace: false, database.TextboxPosition);
+        npc.SetScriptButtonSensitive(true);
+        if (_vasu)
+        {
+            npc.SetCollisionRadii(database.VasuRadiusY, database.VasuRadiusX);
+            _idleAnimation = database.Animation(0x89, 0);
+            npc.SetScriptAnimation(_idleAnimation);
+        }
+        else if (_snake)
+        {
+            npc.SetCollisionRadii(database.SnakeRadius, database.SnakeRadius);
+            _idleAnimation = database.Animation(0x89, npc.Record.SubId);
+            npc.SetScriptAnimation(_idleAnimation);
+        }
+        else
+        {
+            npc.SetCollisionRadii(database.SnakeRadius, database.SnakeRadius);
+            // interactionInitGraphics leaves both books on the graphics
+            // record's default animation $00. Subid $01 changes only palette.
+            _idleAnimation = database.Animation(0xe5, 0);
+            npc.SetScriptAnimation(_idleAnimation);
+        }
+    }
+
+    public NpcCharacter Npc => Entity;
+    public bool DisablesSword => false;
+    public bool DisablesRingTransformations => true;
+
+    public void Update(double delta, Player player) =>
+        Entity.UpdateNpc(delta, player.Position);
+
+    public void UpdateFrame(
+        RoomEntityFrame frame,
+        ICollection<RoomEntitySpawn> spawns)
+    {
+        if (_vasu)
+        {
+            Entity.PreventPlayerPassing(frame.Player);
+            Entity.UpdateDrawPriority(frame.Player.Position);
+            return;
+        }
+
+        if (!_snake || Entity.CurrentScriptAnimationSource != _idleAnimation)
+            return;
+        Vector2 delta = frame.Player.Position - Entity.Position;
+        if (Mathf.Abs(delta.X) + Mathf.Abs(delta.Y) >=
+            _database.SnakeProximityRadius)
+        {
+            // interactionSetAnimation runs on every out-of-range update,
+            // pinning the snake to the first (hidden) idle frame.
+            Entity.SetScriptAnimation(_idleAnimation);
+        }
+    }
+
+    public bool BlocksLink(Vector2 linkCenter) => Entity.BlocksLinkCenter(linkCenter);
+
+    public NpcCharacter? FindTalkTarget(Player player) =>
+        Entity.CanScriptTalkTo(
+            player,
+            _vasu ? _database.VasuRadiusY : _database.SnakeRadius,
+            _vasu ? _database.VasuRadiusX : _database.SnakeRadius,
+            _database.AButtonPointOffset)
+            ? Entity
+            : null;
 }
 
 // INTERAC_BIPIN $28:$00 starts at SPEED_100/angle $18 and reverses whenever
@@ -265,7 +384,7 @@ internal sealed class KeeseRoomEntity
         EnemyCombatComponent.WithContactDamage(
             () => keese.IsDead,
             () => keese.CollisionBounds,
-            _ => keese.TakeSwordHit(),
+            (_, damage) => keese.TakeSwordHit(damage),
             keese.OverlapsLink,
             () => keese.Position,
             keese.Record.DamageQuarters,
@@ -317,7 +436,7 @@ internal sealed class OctorokRockRoomEntity(OctorokRockProjectile rock)
     public bool Finished => Entity.Finished;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Player);
-    public bool ApplySwordHit(Rect2 hitbox, Vector2 sourcePosition, ICollection<RoomEntitySpawn> spawns) =>
+    public bool ApplySwordHit(Rect2 hitbox, Vector2 sourcePosition, int damage, ICollection<RoomEntitySpawn> spawns) =>
         hitbox.Intersects(Entity.CollisionBounds) && Entity.DeflectWithSword();
     public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }
@@ -366,6 +485,7 @@ internal sealed class EnemyArrowRoomEntity(EnemyArrowProjectile arrow)
     public bool ApplySwordHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
+        int damage,
         ICollection<RoomEntitySpawn> spawns) =>
         hitbox.Intersects(Entity.CollisionBounds) && Entity.DeflectWithSword();
     public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
@@ -439,7 +559,7 @@ internal sealed class ZolRoomEntity
         EnemyCombatComponent.WithContactDamage(
             () => zol.IsDead,
             () => zol.CollisionBounds,
-            _ => zol.TakeSwordHit(),
+            (_, damage) => zol.TakeSwordHit(damage),
             zol.OverlapsLink,
             () => zol.Position,
             zol.Record.DamageQuarters,
@@ -471,7 +591,7 @@ internal sealed class GelRoomEntity
         new(
             () => gel.IsDead,
             () => gel.CollisionBounds,
-            _ => gel.TakeSwordHit(),
+            (_, damage) => gel.TakeSwordHit(damage),
             player =>
             {
                 if (gel.OverlapsLink(player.Position))

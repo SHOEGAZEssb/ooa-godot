@@ -79,6 +79,15 @@ rather than a single tile advanced by that parameter. Satchel landing and
 ignition request
 `SND_BOMB_LAND $52` and `SND_LIGHTTORCH $72` at their native state boundaries.
 
+The five transformation rings render Link through imported special objects
+`$03-$07`, not recolored Link frames. Each disguise keeps its own sprite sheet,
+tile base, OAM composition, and 2-update initial/6-update walking cadence; room
+tileset flags `$40/$20`, menu-disabled events, and shop restrictions restore
+ordinary Link. `ITEM_SWORD_BEAM $27` similarly uses its four imported
+`spr_common_items` OAM records and alternates standard OBJ palettes 4 and 5 on
+global four-update boundaries. Creation requests `SND_SWORDBEAM $5d`; its
+flickering collision clink does not issue an additional sound.
+
 Chest rewards and held treasure interactions do not use that inventory table.
 Their treasure-object `graphic` byte becomes the subid of `INTERAC_TREASURE
 $60`; render the first frame from its imported sprite header, tile base,

@@ -139,11 +139,14 @@ public partial class StalfosCharacter : Node2D
     }
 
     public bool TakeSwordHit(Vector2 sourcePosition)
+        => TakeSwordHit(sourcePosition, 2);
+
+    internal bool TakeSwordHit(Vector2 sourcePosition, int damage)
     {
         if (IsDead)
             return false;
 
-        _health = Math.Max(0, _health - 2);
+        _health = Math.Max(0, _health - Math.Max(1, damage));
         if (_health > 0)
             return true;
 

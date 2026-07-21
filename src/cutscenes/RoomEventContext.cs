@@ -75,9 +75,10 @@ internal sealed class RoomEventContext(
     {
         float playerScreenY = _worldToScreen(Player.Position).Y;
         if (textboxPosition.HasValue)
-            _dialogue.ShowMessage(message, playerScreenY, textboxPosition.Value);
+            _dialogue.ShowGameplayMessage(
+                message, playerScreenY, textboxPosition.Value);
         else
-            _dialogue.ShowMessage(message, playerScreenY);
+            _dialogue.ShowGameplayMessage(message, playerScreenY);
     }
 
     public void ShowChoiceDialogue(
@@ -86,7 +87,7 @@ internal sealed class RoomEventContext(
         int? textboxPosition = null)
     {
         float playerScreenY = _worldToScreen(Player.Position).Y;
-        _dialogue.ShowChoiceMessage(
+        _dialogue.ShowGameplayChoiceMessage(
             message, playerScreenY, initialChoice, textboxPosition);
     }
 

@@ -536,6 +536,103 @@ if ($joinedPushableRecords -ne 33) {
 $pushablePath = Join-Path $destination 'metadata\pushableTiles.bin'
 [IO.File]::WriteAllBytes($pushablePath, $pushableBytes)
 
+# Transformation rings replace Link with special objects $03-$07. Export the
+# eight source GFX/OAM combinations for each disguise instead of reconstructing
+# their tile offsets or mirroring rules in gameplay code.
+$specialObjectAnimationSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
+$specialObjectOamSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\specialObjectOamData.s')
+$specialObjectDamageSource = Get-Content -Raw (
+    Join-Path $Disassembly 'code\specialObjectAnimationsAndDamage.s')
+if ($specialObjectDamageSource -notmatch
+        '(?ms)^@ringToID:\s*\.db OCTO_RING\s+SPECIALOBJECT_LINK_AS_OCTOROK\s*\.db MOBLIN_RING\s+SPECIALOBJECT_LINK_AS_MOBLIN\s*\.db LIKE_LIKE_RING\s+SPECIALOBJECT_LINK_AS_LIKELIKE\s*\.db SUBROSIAN_RING\s+SPECIALOBJECT_LINK_AS_SUBROSIAN\s*\.db FIRST_GEN_RING\s+SPECIALOBJECT_LINK_AS_RETRO\s*\.db \$00' -or
+    $specialObjectAnimationSource -notmatch
+        '(?ms)^animationData1a1a6:\s*\.db \$02 \$00 \$00\s*animationLoop1a1a9:\s*\.db \$06 \$04 \$84\s*\.db \$06 \$00 \$00\s*m_AnimationLoop animationLoop1a1a9') {
+    throw 'Transformed-Link ring mapping or 2/6/6 animation cadence changed.'
+}
+$specialObjectOamPointerBlock = [regex]::Match(
+    $specialObjectAnimationSource,
+    '(?ms)^specialObject03OamDataPointers:\s*(?:specialObject0[4-9]OamDataPointers:\s*)*(?<body>(?:\s*\.dw\s+oamData4c[0-9a-f]+\s*)+?)(?=^specialObject02GfxPointers:)')
+if (-not $specialObjectOamPointerBlock.Success) {
+    throw 'Could not parse the shared transformed-Link OAM pointer table.'
+}
+$specialObjectOamLabels = @(
+    [regex]::Matches(
+        $specialObjectOamPointerBlock.Groups['body'].Value,
+        '(?m)^\s*\.dw\s+(?<label>oamData4c[0-9a-f]+)') |
+        ForEach-Object { $_.Groups['label'].Value })
+if ($specialObjectOamLabels.Count -lt 6) {
+    throw 'The transformed-Link OAM pointer table has fewer than six entries.'
+}
+
+function Resolve-TransformedLinkOam([int]$index) {
+    if ($index -lt 0 -or $index -ge $specialObjectOamLabels.Count) {
+        throw "Transformed-Link OAM index `$$($index.ToString('x2')) is out of range."
+    }
+    $label = $specialObjectOamLabels[$index]
+    $block = [regex]::Match(
+        $specialObjectOamSource,
+        ('(?ms)^{0}:\s*\.db \$(?<count>[0-9a-f]{{2}})(?<body>.*?)(?=^oamData4c[0-9a-f]+:|\z)' -f
+            [regex]::Escape($label)))
+    if (-not $block.Success) { throw "Could not parse $label." }
+    $count = [Convert]::ToInt32($block.Groups['count'].Value, 16)
+    $entries = @(
+        [regex]::Matches(
+            $block.Groups['body'].Value,
+            '\.db \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})') |
+            ForEach-Object {
+                $oamEntry = $_
+                $values = @('y', 'x', 'tile', 'flags') | ForEach-Object {
+                    [Convert]::ToInt32($oamEntry.Groups[$_].Value, 16)
+                }
+                $values -join ','
+            })
+    if ($entries.Count -ne $count) {
+        throw "$label declares $count OAM entries but contains $($entries.Count)."
+    }
+    return $entries -join ';'
+}
+
+$transformedRingBySpecialObject = @{
+    3 = 0x2d # SUBROSIAN_RING
+    4 = 0x2e # FIRST_GEN_RING
+    5 = 0x2a # OCTO_RING
+    6 = 0x2b # MOBLIN_RING
+    7 = 0x2c # LIKE_LIKE_RING
+}
+$transformedLinkRows = [Collections.Generic.List[string]]::new()
+$transformedLinkRows.Add(
+    "# ring`tspecial-object`tdirection`tframe`tsprite`ttile-base`toam`tinitial-duration`tloop-duration")
+foreach ($specialObject in 3..7) {
+    $block = [regex]::Match(
+        $specialObjectAnimationSource,
+        "(?ms)^specialObject0${specialObject}GfxPointers:\s*(?<body>(?:\s*m_SpecialObjectGfxPointer[^\r\n]+\r?\n){8})")
+    if (-not $block.Success) {
+        throw "Could not parse specialObject0${specialObject}GfxPointers."
+    }
+    $entries = @([regex]::Matches(
+        $block.Groups['body'].Value,
+        'm_SpecialObjectGfxPointer \$(?<oam>[0-9a-f]{2}) (?<sprite>[A-Za-z0-9_]+) \$(?<offset>[0-9a-f]{4}) \$(?<tiles>[0-9a-f]{2})'))
+    if ($entries.Count -ne 8) {
+        throw "Expected eight transformed-Link GFX entries for special object `$$($specialObject.ToString('x2'))."
+    }
+    for ($index = 0; $index -lt 8; $index++) {
+        $entry = $entries[$index]
+        $oamIndex = [Convert]::ToInt32($entry.Groups['oam'].Value, 16)
+        $offset = [Convert]::ToInt32($entry.Groups['offset'].Value, 16)
+        $tiles = [Convert]::ToInt32($entry.Groups['tiles'].Value, 16)
+        if ($tiles -ne 4 -or ($offset % 16) -ne 0) {
+            throw "Special object `$$($specialObject.ToString('x2')) has an unsupported GFX span."
+        }
+        $transformedLinkRows.Add(
+            "$($transformedRingBySpecialObject[$specialObject].ToString('x2'))`t$($specialObject.ToString('x2'))`t$($index % 4)`t$([Math]::Floor($index / 4))`t$($entry.Groups['sprite'].Value)`t$($offset / 16)`t$(Resolve-TransformedLinkOam $oamIndex)`t2`t6")
+    }
+}
+$transformedLinkPath = Join-Path $destination 'metadata\transformed_link.tsv'
+[IO.File]::WriteAllLines(
+    $transformedLinkPath, $transformedLinkRows, [Text.UTF8Encoding]::new($false))
+
 # The expanded tileset table is indexed by tileset ID, even though byte 5 in
 # tilesets.s still records the original/shared mapping index. Copy the expanded
 # mapping and collision pair for every concrete tileset.
@@ -552,6 +649,11 @@ Copy-GeneratedFile "rooms\ages\roomPacksPresent.bin" "groups\roomPacksPresent.bi
 Copy-GeneratedFile "rooms\ages\roomPacksPast.bin" "groups\roomPacksPast.bin"
 Copy-GeneratedFile "gfx\common\spr_link.png" "gfx\spr_link.png"
 Copy-GeneratedFile "gfx\common\spr_swords.png" "gfx\spr_swords.png"
+Copy-GeneratedFile "gfx\ages\spr_subrosian.png" "gfx\spr_subrosian.png"
+Copy-GeneratedFile "gfx\common\spr_link_retro.png" "gfx\spr_link_retro.png"
+Copy-GeneratedFile "gfx\common\spr_octorok_leever_tektite_zora.png" "gfx\spr_octorok_leever_tektite_zora.png"
+Copy-GeneratedFile "gfx\common\spr_moblin.png" "gfx\spr_moblin.png"
+Copy-GeneratedFile "gfx\common\spr_ballandchain_likelike.png" "gfx\spr_ballandchain_likelike.png"
 Copy-GeneratedFile "gfx_compressible\common\spr_common_sprites.png" "gfx\spr_common_sprites.png"
 Copy-GeneratedFile "gfx_compressible\ages\spr_syrup_teenager.png" "gfx\spr_syrup_teenager.png"
 Copy-GeneratedFile "gfx_compressible\common\gfx_hud.png" "gfx\gfx_hud.png"

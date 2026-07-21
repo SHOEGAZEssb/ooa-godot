@@ -163,7 +163,8 @@ public sealed class InteractionController
             if (collectionSound != 0)
                 _playSound(collectionSound);
             if (!string.IsNullOrEmpty(_pendingChest.Message))
-                _dialogue.ShowMessage(_pendingChest.Message, _worldToScreen(player.Position).Y);
+                _dialogue.ShowGameplayMessage(
+                    _pendingChest.Message, _worldToScreen(player.Position).Y);
             _playSound(OracleSoundEngine.SndGetItem);
             return;
         }
@@ -195,7 +196,7 @@ public sealed class InteractionController
         _inventory.GiveCompletedHeartContainer(
             _treasures.GetObject("TREASURE_OBJECT_HEART_CONTAINER_00"));
         _playSound(OracleSoundEngine.SndFilledHeartContainer);
-        _dialogue.ShowMessage(
+        _dialogue.ShowGameplayMessage(
             _groundTreasure.Record.CompletionMessage,
             _worldToScreen(_groundTreasurePlayer!.Position).Y);
         _groundTreasureShowingHeartContainer = true;
@@ -215,7 +216,7 @@ public sealed class InteractionController
                 return TryStartHardhatShovel(npc, player);
             if (_entities.BeginNpcTalk(npc))
                 _activeNpcTalkLifecycle = npc;
-            _dialogue.ShowMessage(
+            _dialogue.ShowGameplayMessage(
                 npc.Message,
                 _worldToScreen(player.Position).Y,
                 npc.TextPosition);
@@ -237,7 +238,7 @@ public sealed class InteractionController
             _rooms.ActiveGroup, room.Id, room.GetPackedPosition(tilePoint), out message!))
             message = "Nothing is written\nhere."; // TX_0901 fallback
 
-        _dialogue.ShowMessage(message, _worldToScreen(player.Position).Y);
+        _dialogue.ShowGameplayMessage(message, _worldToScreen(player.Position).Y);
         return true;
     }
 
@@ -269,7 +270,7 @@ public sealed class InteractionController
             _hardhatShovelState = HardhatShovelState.AwaitOpeningClose;
         }
         npc.SetDialogue(textId, _blackTower.Text(textId), canFace: true);
-        _dialogue.ShowMessage(
+        _dialogue.ShowGameplayMessage(
             npc.Message, _worldToScreen(player.Position).Y, npc.TextPosition);
         return true;
     }
@@ -313,7 +314,7 @@ public sealed class InteractionController
                 _hardhatWaitTicks += delta * 60.0;
                 if (_hardhatWaitTicks < _blackTower.TalkWait)
                     return;
-                _dialogue.ShowMessage(
+                _dialogue.ShowGameplayMessage(
                     _blackTower.Text(0x1002),
                     _worldToScreen(_hardhatPlayer!.Position).Y);
                 _hardhatShovelState = HardhatShovelState.AwaitFinalClose;
@@ -367,7 +368,7 @@ public sealed class InteractionController
         _hardhatTreasure.Initialize(record, _playSound);
         _worldRoot.AddChild(_hardhatTreasure);
         _hardhatTreasure.BeginGranted(_hardhatPlayer);
-        _dialogue.ShowMessage(
+        _dialogue.ShowGameplayMessage(
             shovel.Message, _worldToScreen(_hardhatPlayer.Position).Y);
     }
 
@@ -395,7 +396,7 @@ public sealed class InteractionController
     }
 
     internal void ShowRoomInteractionMessage(string message, Player player) =>
-        _dialogue.ShowMessage(message, _worldToScreen(player.Position).Y);
+        _dialogue.ShowGameplayMessage(message, _worldToScreen(player.Position).Y);
 
     private bool TryStartFamilyNaming(NpcCharacter npc, Player player)
     {
@@ -408,7 +409,7 @@ public sealed class InteractionController
 
         npc.FaceToward(player.Position);
         _familyLinkScreenY = _worldToScreen(player.Position).Y;
-        _dialogue.ShowMessage(npc.Message, _familyLinkScreenY);
+        _dialogue.ShowGameplayMessage(npc.Message, _familyLinkScreenY);
         _familyNamingState = FamilyNamingState.AwaitOpeningClose;
         return true;
     }
@@ -433,14 +434,15 @@ public sealed class InteractionController
                 if (string.IsNullOrEmpty(name))
                 {
                     var invalid = _familyInteractions.Text(0x440a, _rooms.SaveData);
-                    _dialogue.ShowMessage(invalid.Message, _familyLinkScreenY);
+                    _dialogue.ShowGameplayMessage(invalid.Message, _familyLinkScreenY);
                     _familyNamingState = FamilyNamingState.AwaitInvalidClose;
                     return;
                 }
                 _pendingChildName = name;
                 var confirmation = _familyInteractions.Text(
                     0x4407, _rooms.SaveData, _pendingChildName);
-                _dialogue.ShowChoiceMessage(confirmation.Message, _familyLinkScreenY);
+                _dialogue.ShowGameplayChoiceMessage(
+                    confirmation.Message, _familyLinkScreenY);
                 _familyNamingState = FamilyNamingState.AwaitConfirmation;
                 return;
 
@@ -469,7 +471,7 @@ public sealed class InteractionController
                 if (_familyWaitTicks < 30.0)
                     return;
                 var thanks = _familyInteractions.Text(0x4408, _rooms.SaveData);
-                _dialogue.ShowMessage(thanks.Message, _familyLinkScreenY);
+                _dialogue.ShowGameplayMessage(thanks.Message, _familyLinkScreenY);
                 _familyNamingState = FamilyNamingState.AwaitThanksClose;
                 return;
 
@@ -541,7 +543,8 @@ public sealed class InteractionController
     {
         if (player.FacingVector != Vector2I.Up)
         {
-            _dialogue.ShowMessage("It won't open\nfrom this side!", _worldToScreen(player.Position).Y); // TX_510d
+            _dialogue.ShowGameplayMessage(
+                "It won't open\nfrom this side!", _worldToScreen(player.Position).Y); // TX_510d
             return true;
         }
 
@@ -612,7 +615,7 @@ public sealed class InteractionController
         _groundTreasurePlayer = player;
         if (!string.IsNullOrEmpty(treasureObject.Message))
         {
-            _dialogue.ShowMessage(
+            _dialogue.ShowGameplayMessage(
                 treasureObject.Message,
                 _worldToScreen(player.Position).Y);
         }

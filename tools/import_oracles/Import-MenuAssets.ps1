@@ -59,6 +59,10 @@ foreach ($questSheet in 1..4) {
     Copy-GeneratedFile "gfx_compressible\ages\spr_quest_items_${questSheet}.png" "inventory\spr_quest_items_${questSheet}.png"
 }
 Copy-GeneratedFile "gfx\common\map_rings.bin" "inventory\map_rings.bin"
+Copy-GeneratedFile "gfx_compressible\common\map_unappraised_ring_list.bin" "inventory\map_unappraised_ring_list.bin"
+Copy-GeneratedFile "gfx_compressible\common\flg_unappraised_ring_list.bin" "inventory\flg_unappraised_ring_list.bin"
+Copy-GeneratedFile "gfx_compressible\common\map_appraised_ring_list.bin" "inventory\map_appraised_ring_list.bin"
+Copy-GeneratedFile "gfx_compressible\common\flg_appraised_ring_list.bin" "inventory\flg_appraised_ring_list.bin"
 Copy-GeneratedFile "gfx_compressible\common\map_inventory_screen_1.bin" "inventory\map_inventory_screen_1.bin"
 Copy-GeneratedFile "gfx_compressible\common\flg_inventory_screen_1.bin" "inventory\flg_inventory_screen_1.bin"
 Copy-GeneratedFile "gfx_compressible\common\map_inventory_screen_2.bin" "inventory\map_inventory_screen_2.bin"

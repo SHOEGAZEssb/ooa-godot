@@ -135,6 +135,9 @@ internal sealed class NayruIntroEvent : IRoomEvent, ICutsceneCommandHost
     private NayruStage _nayruStage;
     private OracleRoomData? _nayruRoom;
     private NayruSingingScreen? _nayruSingingScreen;
+    private Vector2 _nayruFadePositionBeforeSinging;
+    private Vector2 _nayruFadeSizeBeforeSinging;
+    private bool _nayruSingingOwnsFullScreenFade;
     private int _nayruAudienceMask;
     private int _nayruSingingElapsed;
     private int _nayruSingingScrollCounter;
@@ -538,6 +541,12 @@ internal sealed class NayruIntroEvent : IRoomEvent, ICutsceneCommandHost
         _context.Sound.PlaySound(OracleSoundEngine.SndCloseMenu);
         _nayruSingingScreen = new NayruSingingScreen(_nayruDatabase);
         _nayruInterfaceLayer.AddChild(_nayruSingingScreen);
+        _nayruFadePositionBeforeSinging = _nayruFade.Position;
+        _nayruFadeSizeBeforeSinging = _nayruFade.Size;
+        _nayruSingingOwnsFullScreenFade = true;
+        _nayruFade.Position = Vector2.Zero;
+        _nayruFade.Size = new Vector2(
+            OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight);
         _nayruHud.Visible = false;
         _nayruFade.Color = Colors.White;
         _counter = (int)InventoryMenuController.FastFadeFrames;
@@ -563,6 +572,7 @@ internal sealed class NayruIntroEvent : IRoomEvent, ICutsceneCommandHost
         _nayruFade.Color = Colors.White;
         _nayruSingingScreen?.QueueFree();
         _nayruSingingScreen = null;
+        RestoreFadeAfterSinging();
         _nayruHud.Visible = true;
         BuildNayruScript();
         _nayruStage = NayruStage.Script;
@@ -585,6 +595,15 @@ internal sealed class NayruIntroEvent : IRoomEvent, ICutsceneCommandHost
         _context.Sound.PlaySound(OracleSoundEngine.SndCloseMenu);
         _counter = (int)InventoryMenuController.FastFadeFrames;
         _nayruStage = NayruStage.SingingFadeOut;
+    }
+
+    private void RestoreFadeAfterSinging()
+    {
+        if (!_nayruSingingOwnsFullScreenFade)
+            return;
+        _nayruFade.Position = _nayruFadePositionBeforeSinging;
+        _nayruFade.Size = _nayruFadeSizeBeforeSinging;
+        _nayruSingingOwnsFullScreenFade = false;
     }
 
     private void BuildNayruScript() =>
@@ -1914,6 +1933,7 @@ internal sealed class NayruIntroEvent : IRoomEvent, ICutsceneCommandHost
         ClearNayruActors();
         RemoveNayruSwordEffect();
         _nayruFade.Color = new Color(1, 1, 1, 0);
+        RestoreFadeAfterSinging();
         _nayruHud.Visible = true;
         _player.Visible = true;
         _player.EndCutsceneControl();
@@ -1964,6 +1984,7 @@ internal sealed class NayruIntroEvent : IRoomEvent, ICutsceneCommandHost
     {
         _nayruSingingScreen?.QueueFree();
         _nayruSingingScreen = null;
+        RestoreFadeAfterSinging();
         _nayruFade?.Set("color", new Color(1, 1, 1, 0));
         if (_nayruHud is not null)
             _nayruHud.Visible = true;

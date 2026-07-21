@@ -485,18 +485,34 @@ if ($preBlackTowerImpaSource -notmatch '(?ms)^@init4:.*?checkIsLinkedGame.*?xor 
 $npcInitialAnimationBySubid['49:5'] = 3
 $npcInitialAnimationBySubid['54:10'] = 1
 
+# Vasu's two snakes select their subid as the initial animation. The blue
+# snake uses $01 and the red snake uses $06; animation $00 belongs to Vasu.
+$vasuSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\vasu.s')
+if ($vasuSource -notmatch '(?ms)ld e,Interaction\.subid\s+ld a,\(de\)\s+or a\s+jr z,@@initVasu\s+^@@initSnake:.*?ld a,\(de\)\s+call interactionSetAnimation') {
+    throw 'INTERAC_VASU snake initialization changed in the disassembly.'
+}
+$npcInitialAnimationBySubid['137:1'] = 1
+$npcInitialAnimationBySubid['137:6'] = 6
+
 # Room 1:57's female villager overwrites the palette loaded from interaction
 # data after interactionInitGraphics. Pin the full initializer and table shape
 # so the ordinary NPC row receives the final OAM palette used for drawing.
 $room157VillagerSource = Get-Content -Raw (
     Join-Path $Disassembly 'object_code\ages\interactions\femaleVillager.s')
+$ringHelpBookSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\ringHelpBook.s')
 if ($room157VillagerSource -notmatch '(?ms)^@initSubid05:\s+ld a,\$01\s+ld e,Interaction\.oamFlags\s+ld \(de\),a\s+callab agesInteractionsBank09\.getGameProgress_2\s+ld c,\$05\s+ld a,\$02\s+call checkNpcShouldExistAtGameStage\s+jp nz,interactionDelete.*?ld hl,@subid5ScriptTable.*?jp objectSetVisible82' -or
     $room157VillagerSource -notmatch '(?ms)^@runScriptAndAnimateFacingLink:\s+call interactionRunScript\s+jp npcFaceLinkAndAnimate' -or
-    $room157VillagerSource -notmatch '(?ms)^@subid5ScriptTable:\s+\.dw mainScripts\.villagerGalSubid05Script_befored2\s+\.dw mainScripts\.villagerGalSubid05Script_afterd2\s+\.dw mainScripts\.villagerGalSubid05Script_afterd4\s+\.dw mainScripts\.villagerGalSubid05Script_afterNayruSaved\s+\.dw mainScripts\.villagerGalSubid05Script_afterd7\s+\.dw mainScripts\.villagerGalSubid05Script_afterd7\s+\.dw mainScripts\.villagerGalSubid05Script_twinrovaKidnappedZelda\s+\.dw mainScripts\.villagerGalSubid05Script_twinrovaKidnappedZelda') {
-    throw 'Room 1:57 female villager $3b:$05 initialization changed in the disassembly.'
+    $room157VillagerSource -notmatch '(?ms)^@subid5ScriptTable:\s+\.dw mainScripts\.villagerGalSubid05Script_befored2\s+\.dw mainScripts\.villagerGalSubid05Script_afterd2\s+\.dw mainScripts\.villagerGalSubid05Script_afterd4\s+\.dw mainScripts\.villagerGalSubid05Script_afterNayruSaved\s+\.dw mainScripts\.villagerGalSubid05Script_afterd7\s+\.dw mainScripts\.villagerGalSubid05Script_afterd7\s+\.dw mainScripts\.villagerGalSubid05Script_twinrovaKidnappedZelda\s+\.dw mainScripts\.villagerGalSubid05Script_twinrovaKidnappedZelda' -or
+    $ringHelpBookSource -notmatch '(?ms)^@state0:.*?ld e,Interaction\.subid\s+ld a,\(de\).*?or a\s+jr z,\+\+\s+ld e,Interaction\.oamFlags\s+ld a,\(de\)\s+inc a\s+ld \(de\),a\s+ld hl,mainScripts\.ringHelpBookSubid1Script') {
+    throw 'Room 1:57 villager or ring-help-book palette initialization changed in the disassembly.'
 }
 $npcPaletteBySubid = @{
     '59:5' = 1
+    # The second ring-help book increments the palette loaded by
+    # interactionInitGraphics before selecting its script.
+    '229:1' = 2
 }
 
 # Room 1:58's late-story Impa and Nayru select their fixed text in assembly
@@ -1035,8 +1051,8 @@ foreach ($line in $mainObjectLines) {
     $row = New-NpcDataRow $currentGroup $currentRoom $id $subid $y $x $var03
     if ($row) { $npcRows.Add($row) }
 }
-if ($npcRows.Count -ne 378) {
-    throw "Expected 377 positioned NPC/character records from Ages mainData.s, parsed $($npcRows.Count - 1)."
+if ($npcRows.Count -ne 380) {
+    throw "Expected 379 positioned NPC/character records from Ages mainData.s, parsed $($npcRows.Count - 1)."
 }
 $villagerRow = $npcRows | Where-Object { $_ -match '^0\t48\t3a\t03\t' } | Select-Object -First 1
 if (-not $villagerRow) { throw "The canonical room 0:48 villager record was not extracted." }
@@ -1057,6 +1073,151 @@ if ($introMonkeyRows.Count -ne 2 -or
     ($introMonkeyRows[1] -split "`t")[11] -ne '7') {
     throw "Room 0:5a's intro monkeys no longer resolve TX_5700/TX_5701 and animations `$06/`$07."
 }
+
+# Room 2:ee is Vasu Jewelers. Preserve the complete placed object order, the
+# non-Game-Link dialogue graph, and the animations used by Vasu, both snakes,
+# and both help books. Text \call/\jump commands are assembler-time control
+# flow, so flatten them here while the complete TX table is available; inline
+# DialogueBox commands such as \stop, \col, and \opt remain intact.
+$vasuShopScriptsSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\common\commonScripts.s')
+$vasuShopScriptHelperSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\common\scriptHelper.s')
+$globalFlagsSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\globalFlags.s')
+$ringsSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\rings.s')
+$wramSource = Get-Content -Raw (Join-Path $Disassembly 'include\wram.s')
+$vasuTreasureObjectSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\treasureObjectData.s')
+$ringMenuSource = Get-Content -Raw (Join-Path $Disassembly 'code\bank2.s')
+$vasuShopRoomMatch = [regex]::Match(
+    $mainObjectSource,
+    '(?ms)^group2MapeeObjectData:\s+obj_Interaction \$89 \$00 \$28 \$50\s+obj_Interaction \$89 \$01 \$38 \$38\s+obj_Interaction \$89 \$06 \$38 \$68\s+obj_Interaction \$e5 \$00 \$48 \$28\s+obj_Interaction \$e5 \$01 \$48 \$78\s+obj_End')
+if (-not $vasuShopRoomMatch.Success -or
+    $vasuSource -notmatch '(?ms)^@state1:.*?ld c,\$18\s+call objectCheckLinkWithinDistance.*?jp nc,interactionSetAnimation.*?^@state2:.*?Interaction\.var36.*?GLOBALFLAG_FINISHEDGAME.*?wFileIsLinkedGame.*?^@scriptTable:\s+\.dw mainScripts\.blueSnakeScript_linked\s+\.dw mainScripts\.blueSnakeScript_preLinked\s+\.dw mainScripts\.redSnakeScript_linked\s+\.dw mainScripts\.redSnakeScript_preLinked' -or
+    $vasuSource -notmatch '(?ms)^@state5Substate0:.*?Interaction\.counter1\s+ld \(hl\),a\s+ld l,Interaction\.counter2\s+ld \(hl\),\$02.*?^@state5Substate1:.*?blueSnakeExitScript_cableNotConnected' -or
+    $ringHelpBookSource -notmatch '(?ms)^@state0:.*?ld a,\$06\s+call objectSetCollideRadius.*?ringHelpBookSubid0Script.*?ringHelpBookSubid1Script' -or
+    $vasuShopScriptsSource -notmatch '(?ms)^vasuScript:.*?GLOBALFLAG_OBTAINED_RING_BOX.*?wIsLinkedGame.*?wObtainedRingBox.*?vasu_openRingMenu, \$00.*?vasu_openRingMenu, \$01.*?^redSnakeScript_preLinked:.*?wait 30.*?<TX_300a.*?^blueSnakeScript_preLinked:.*?<TX_301f.*?^ringHelpBookSubid1Script:.*?<TX_3019.*?<TX_301a.*?^ringHelpBookSubid0Script:.*?<TX_3020.*?<TX_3025.*?<TX_303d.*?<TX_3026' -or
+    $vasuShopScriptHelperSource -notmatch '(?ms)^vasu_giveRingBox:.*?TREASURE_RING_BOX, \$00.*?w1Link\.yh.*?w1Link\.xh.*?^vasu_checkEarnedSpecialRing:.*?GLOBALFLAG_1000_ENEMIES_KILLED.*?GLOBALFLAG_10000_RUPEES_COLLECTED.*?GLOBALFLAG_BEAT_GANON.*?sub SLAYERS_RING.*?^vasu_giveFriendshipRing:\s+ld a,FRIENDSHIP_RING.*?^vasu_giveRingInVar3a:.*?jp giveRingToLink' -or
+    $bank0Source -notmatch '(?ms)^linkInteractWithAButtonSensitiveObjects:.*?SpecialObject\.direction.*?call objectHCheckContainsPoint.*?^@positionOffsets:\s+\.db \$f6 \$00 ; DIR_UP\s+\.db \$00 \$0a ; DIR_RIGHT\s+\.db \$0a \$00 ; DIR_DOWN\s+\.db \$00 \$f6 ; DIR_LEFT' -or
+    $bank0Source -notmatch '(?ms)^objectHCheckContainsPoint:.*?Object\.collisionRadiusY-Object\.xh.*?sub \(hl\)\s+ret nc\s+inc l\s+ld a,c\s+sub \(hl\)\s+ret' -or
+    $bank0Source -notmatch '(?ms)^giveRingToLink:.*?call createRingTreasure.*?w1Link\.yh.*?^createRingTreasure:.*?TREASURE_RING.*?Interaction\.var38\s+set 6,b\s+ld \(hl\),b' -or
+    $ringMenuSource -notmatch '(?ms)^ringMenu_unappraisedRings_state1:.*?RUPEEVAL_020.*?cpRupeeValue.*?RUPEEVAL_020.*?removeRupeeValue.*?wNumRingsAppraised.*?incHlRefWithCap.*?res 6,\(hl\).*?TX_301c' -or
+    $ringMenuSource -notmatch '(?ms)^ringMenu_unappraisedRings_state3:.*?wRingsObtained.*?checkFlag.*?RUPEEVAL_030.*?ld a,40.*?^ringMenu_unappraisedRings_state4:.*?giveTreasure.*?wNumRingsAppraised.*?cp 100.*?GLOBALFLAG_APPRAISED_HUNDREDTH_RING.*?ld b,<TX_303c' -or
+    $ringMenuSource -notmatch '(?ms)^ringMenu_unappraisedRings_gotoState5:.*?ld a,\$3c.*?^ringMenu_ringList_substate0:.*?wRingBoxContents.*?^@bPressed:.*?wActiveRing.*?ringMenu_checkRingIsInBox.*?closeMenu.*?^ringMenu_selectedRingFromList:.*?SND_SELECTITEM.*?wRingsObtained.*?ringMenu_checkRingIsInBox.*?wRingBoxContents' -or
+    $vasuTreasureObjectSource -notmatch '(?m)^\s*m_TreasureSubid \$02, \$01, \$57, \$33, TREASURE_OBJECT_RING_BOX_00\s*$' -or
+    $vasuTreasureObjectSource -notmatch '(?m)^\s*m_TreasureSubid \$09, \$ff, \$54, \$0e, TREASURE_OBJECT_RING_00\s*$' -or
+    $globalFlagsSource -notmatch '(?m)^\s*GLOBALFLAG_1000_ENEMIES_KILLED\s+db ; \$00$' -or
+    $globalFlagsSource -notmatch '(?m)^\s*GLOBALFLAG_OBTAINED_RING_BOX\s+db ; \$08$' -or
+    $ringsSource -notmatch '(?m)^\s*FRIENDSHIP_RING\s+db ; \$00$' -or
+    $ringsSource -notmatch '(?m)^\s*SLAYERS_RING\s+db ; \$34$' -or
+    $ringsSource -notmatch '(?m)^\s*RUPEE_RING\s+db ; \$35$' -or
+    $ringsSource -notmatch '(?m)^\s*VICTORY_RING\s+db ; \$36$' -or
+    $wramSource -notmatch '(?m)^wObtainedRingBox: ; \$c615$' -or
+    $wramSource -notmatch '(?m)^wRingsObtained: ; \$c616$' -or
+    $wramSource -notmatch '(?m)^wNumRingsAppraised: ; \$c6ce$') {
+    throw 'Room 2:ee Vasu Jewelers placement, predicates, scripts, or constants changed in the disassembly.'
+}
+
+function Resolve-VasuShopText(
+    [int]$textId,
+    [Collections.Generic.HashSet[int]]$visited
+) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve Vasu Jewelers text TX_$($textId.ToString('x4'))."
+    }
+    if ($visited.Contains($textId)) {
+        throw "Vasu Jewelers text TX_$($textId.ToString('x4')) has recursive control flow."
+    }
+    [void]$visited.Add($textId)
+    $message = [string]$allTexts[$textId]
+    while ($true) {
+        $call = [regex]::Match($message, '\\call\(TX_(?<id>[0-9a-f]{4})\)')
+        if (-not $call.Success) { break }
+        $calledId = [Convert]::ToInt32($call.Groups['id'].Value, 16)
+        $calledText = Resolve-VasuShopText $calledId $visited
+        $message = $message.Substring(0, $call.Index) + $calledText +
+            $message.Substring($call.Index + $call.Length)
+    }
+    $jump = [regex]::Match($message, '\\jump\(TX_(?<id>[0-9a-f]{4})\)')
+    if ($jump.Success) {
+        $jumpedId = [Convert]::ToInt32($jump.Groups['id'].Value, 16)
+        $message = $message.Substring(0, $jump.Index) +
+            (Resolve-VasuShopText $jumpedId $visited)
+    }
+    [void]$visited.Remove($textId)
+    return $message
+}
+
+$vasuShopTextIds = @(
+    0x3000, 0x3002, 0x3003, 0x3004, 0x3005, 0x3006, 0x3007, 0x3008,
+    0x3009, 0x300a, 0x300b, 0x300c,
+    0x300e, 0x300f, 0x3010, 0x3014, 0x3015, 0x3016, 0x3018,
+    0x3011, 0x3012, 0x3013, 0x3017, 0x3019, 0x301a, 0x301c,
+    0x301f, 0x3020, 0x3024, 0x3025, 0x3026,
+    0x3028, 0x302e, 0x3033, 0x3036, 0x3037, 0x3039, 0x303a, 0x303b,
+    0x3038, 0x303c, 0x303d, 0x303e, 0x303f
+)
+$vasuShopTextRows = [Collections.Generic.List[string]]::new()
+$vasuShopTextRows.Add("# text-id`tutf8-base64")
+foreach ($textId in $vasuShopTextIds) {
+    $message = Resolve-VasuShopText $textId ([Collections.Generic.HashSet[int]]::new())
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message))
+    $vasuShopTextRows.Add("$($textId.ToString('x4'))`t$encoded")
+}
+
+$vasuShopAnimationRows = [Collections.Generic.List[string]]::new()
+$vasuShopAnimationRows.Add("# interaction-id`tanimation`tencoded-animation")
+foreach ($spec in @(@(0x89, 9), @(0xe5, 2))) {
+    for ($animationIndex = 0; $animationIndex -lt $spec[1]; $animationIndex++) {
+        $animation = Resolve-NpcAnimation $spec[0] $animationIndex
+        if ([string]::IsNullOrWhiteSpace($animation)) {
+            throw "Could not resolve a Vasu Jewelers animation from the disassembly."
+        }
+        $vasuShopAnimationRows.Add(
+            "$(([int]$spec[0]).ToString('x2'))`t$($animationIndex.ToString('x2'))`t$animation")
+    }
+}
+
+$vasuShopConstantRows = @(
+    "# key`tvalue",
+    "group`t2",
+    "room`t238",
+    "textbox-position`t2",
+    "snake-proximity-radius`t24",
+    "red-snake-wait`t30",
+    "blue-snake-cable-timeout`t512",
+    "vasu-radius-y`t18",
+    "vasu-radius-x`t6",
+    "snake-radius`t6",
+    "a-button-point-offset`t10",
+    "ring-box-grab-mode`t2",
+    "ring-grab-mode`t1",
+    "obtained-ring-box-address`t50709",
+    "rings-obtained-address`t50710",
+    "rings-obtained-byte-count`t8",
+    "rings-appraised-address`t50894",
+    "linked-first-mask`t1",
+    "appraisal-cost`t20",
+    "duplicate-refund`t30",
+    "menu-close-wait`t10",
+    "appraisal-result-wait`t40",
+    "menu-exit-wait`t60",
+    "global-earned-slayer`t0",
+    "global-earned-wealth`t1",
+    "global-earned-victory`t2",
+    "global-got-slayer`t4",
+    "global-got-wealth`t5",
+    "global-got-victory`t6",
+    "global-obtained-ring-box`t8",
+    "global-appraised-hundredth`t9",
+    "ring-friendship`t0",
+    "ring-slayer`t52",
+    "ring-wealth`t53",
+    "ring-victory`t54",
+    "ring-hundredth`t56"
+)
 
 # Past room 1:48's pickaxe worker is a native room interaction. Animation $02
 # carries one-update strike parameters which play SND_CLINK and create two
@@ -1562,8 +1723,8 @@ foreach ($variant in $impaHouseVariants) {
     $npcRows.Add(
         "3`t9e`t4f`t00`t$(([int]$variant[1]).ToString('x2'))`t$(([int]$variant[2]).ToString('x2'))`t$(([int]$variant[0]).ToString('x2'))`t$($textId.ToString('x4'))`t$impaSpriteName`t$($impaGraphic.TileBase)`t$($impaGraphic.Palette)`t2`t$([int][bool]$variant[4])`t$impaUpOam`t$impaRightOam`t$impaDownOam`t$impaLeftOam`t$encoded")
 }
-if ($npcRows.Count -ne 387) {
-    throw "Expected 377 positioned and 9 state-derived NPC records, got $($npcRows.Count - 1)."
+if ($npcRows.Count -ne 389) {
+    throw "Expected 379 positioned and 9 state-derived NPC records, got $($npcRows.Count - 1)."
 }
 
 # Ordinary NPC scripts can replace their dialogue without replacing the room
@@ -2768,6 +2929,21 @@ foreach ($spriteName in $npcSpriteNames) {
 }
 $npcPath = Join-Path $destination "objects\npcs.tsv"
 [IO.File]::WriteAllLines($npcPath, $npcRows, [Text.UTF8Encoding]::new($false))
+$vasuShopTextPath = Join-Path $destination "objects\vasu_shop_texts.tsv"
+[IO.File]::WriteAllLines(
+    $vasuShopTextPath,
+    $vasuShopTextRows,
+    [Text.UTF8Encoding]::new($false))
+$vasuShopAnimationPath = Join-Path $destination "objects\vasu_shop_animations.tsv"
+[IO.File]::WriteAllLines(
+    $vasuShopAnimationPath,
+    $vasuShopAnimationRows,
+    [Text.UTF8Encoding]::new($false))
+$vasuShopConstantsPath = Join-Path $destination "objects\vasu_shop_constants.tsv"
+[IO.File]::WriteAllLines(
+    $vasuShopConstantsPath,
+    $vasuShopConstantRows,
+    [Text.UTF8Encoding]::new($false))
 $dungeonMechanicPath = Join-Path $destination "objects\dungeon_mechanics.tsv"
 [IO.File]::WriteAllLines(
     $dungeonMechanicPath,

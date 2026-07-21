@@ -78,8 +78,11 @@ ordering. Presentation-only interpolation must not advance gameplay counters.
 Rooms, Link, entities, collision, terrain, and transient world effects use
 original room/world coordinates and follow `RoomCamera`. HUD, dialogue, menu
 screens, fades, and debug overlays live under the `Interface` canvas and use
-160 by 144 screen coordinates. The gameplay field occupies the top 160 by 128;
-the HUD occupies the bottom 16 pixels.
+160 by 144 screen coordinates. The HUD occupies screen y=0-15 and the 160 by
+128 gameplay field occupies y=16-143, matching the original LCD status-bar
+split. `WorldToGameplayScreen` retains the original field-relative y=0-127
+space used by object bounds and textbox-side decisions; `WorldToScreen` adds
+the presentation offset and returns physical display coordinates.
 
 Do not apply camera offsets to persistent room positions. Transition draw
 offsets are presentation state supplied to entities while their logical room

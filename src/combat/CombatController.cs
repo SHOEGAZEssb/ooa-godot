@@ -63,10 +63,25 @@ public sealed class CombatController
 
     public bool ApplySwordHit(Player player, Rect2 hitbox)
     {
-        return _entities.ApplySwordHit(hitbox, player.Position);
+        return _entities.ApplySwordHit(
+            hitbox, player.Position, player.SwordDamage);
     }
 
     public bool ApplySwordTileHit(Player player, int direction, bool swordPoke)
+    {
+        int source = player.Inventory.SwordLevel <= 1
+            ? BreakableTileDatabase.SourceSwordLevel1
+            : BreakableTileDatabase.SourceSwordLevel2;
+        return ApplyTileHit(player, direction, source, swordPoke);
+    }
+
+    public bool ApplyExpertsRingTileHit(Player player, int direction) =>
+        ApplyTileHit(
+            player, direction, BreakableTileDatabase.SourceExpertsRing,
+            swordPoke: true);
+
+    private bool ApplyTileHit(
+        Player player, int direction, int breakableSource, bool swordPoke)
     {
         if ((uint)direction >= SwordTileOffsets.Length)
             throw new ArgumentOutOfRangeException(nameof(direction));
@@ -74,11 +89,8 @@ public sealed class CombatController
         OracleRoomData room = _rooms.CurrentRoom;
         Vector2 point = player.Position + SwordTileOffsets[direction];
         byte tile = room.GetMetatile(point);
-        int swordSource = player.Inventory.SwordLevel <= 1
-            ? BreakableTileDatabase.SourceSwordLevel1
-            : BreakableTileDatabase.SourceSwordLevel2;
         if (_breakables.TryGet(room.ActiveCollisions, tile, out BreakableTileDatabase.BreakableTileRecord record) &&
-            record.AllowsSource(swordSource))
+            record.AllowsSource(breakableSource))
         {
             bool changed = record.Replacement == 0 ||
                 room.ReplaceMetatile(point, tile, (byte)record.Replacement, _animationTick());

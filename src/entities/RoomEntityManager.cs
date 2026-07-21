@@ -17,6 +17,7 @@ public sealed class RoomEntityManager
     internal event Action<Vector2, OracleRoomData.HazardType>? ItemDropEnteredHazard;
     public event Action<int>? SoundRequested;
     public event Action? RoomTileChanged;
+    public event Action? EnemyDefeated;
     private readonly Node _worldRoot;
     private readonly RoomEntityFactory _factory;
     private readonly OracleRandom _random;
@@ -72,6 +73,21 @@ public sealed class RoomEntityManager
                     return true;
             }
             return PlayerSwordDisabled && (_enemyFrameCounter & 1) != 0;
+        }
+    }
+    public bool PlayerRingTransformationsDisabled
+    {
+        get
+        {
+            foreach (IRoomEntity entity in _activeEntities)
+            {
+                if (entity is IPlayerRestriction
+                    { DisablesRingTransformations: true })
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 
@@ -225,6 +241,8 @@ public sealed class RoomEntityManager
             _enemyFrameAccumulator -= 1.0;
             _enemyFrameCounter = (_enemyFrameCounter + 1) & 0xff;
             var frame = new RoomEntityFrame(player, _enemyFrameCounter, anyButtonJustPressed);
+            ResolvePlayerProjectileCollisions();
+            ProcessSpawns(frame);
             foreach (IRoomEntity entity in _activeEntities.ToArray())
             {
                 if (entity is IFixedRoomEntity fixedEntity)
@@ -291,14 +309,16 @@ public sealed class RoomEntityManager
         }
     }
 
-    public bool ApplySwordHit(Rect2 hitbox, Vector2? sourcePosition = null)
+    public bool ApplySwordHit(
+        Rect2 hitbox, Vector2? sourcePosition = null, int damage = 2)
     {
         bool hit = false;
         Vector2 source = sourcePosition ?? hitbox.GetCenter();
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
             if (entity is ISwordHittableRoomEntity swordHittable)
-                hit |= swordHittable.ApplySwordHit(hitbox, source, _pendingSpawns);
+                hit |= swordHittable.ApplySwordHit(
+                    hitbox, source, damage, _pendingSpawns);
             ProcessSpawns();
         }
         RemoveFinishedEntities();
@@ -329,6 +349,45 @@ public sealed class RoomEntityManager
                 break;
             }
         }
+    }
+
+    private void ResolvePlayerProjectileCollisions()
+    {
+        foreach (IRoomEntity entity in _activeEntities.ToArray())
+        {
+            if (entity is not IPlayerProjectileRoomEntity
+                { CollisionEnabled: true } projectile)
+            {
+                continue;
+            }
+            foreach (IRoomEntity target in _activeEntities.ToArray())
+            {
+                if (target is not ISwordHittableRoomEntity hittable)
+                    continue;
+                if (!hittable.ApplySwordHit(
+                    projectile.CollisionBounds,
+                    projectile.CollisionBounds.GetCenter(),
+                    projectile.Damage,
+                    _pendingSpawns))
+                {
+                    continue;
+                }
+                projectile.OnEnemyCollision(_pendingSpawns);
+                break;
+            }
+        }
+    }
+
+    internal bool TrySpawnSwordBeam(Vector2 linkPosition, int direction)
+    {
+        foreach (IRoomEntity entity in _activeEntities)
+        {
+            if (entity is SwordBeamRoomEntity { Finished: false })
+                return false;
+        }
+        _pendingSpawns.Add(new SwordBeamSpawn(linkPosition, direction));
+        ProcessSpawns();
+        return true;
     }
 
     internal T Spawn<T>(RoomEntitySpawn spawn) where T : Node2D
@@ -474,11 +533,12 @@ public sealed class RoomEntityManager
                 continue;
             if (entity is IRoomKillTrackedEnemy
                 {
-                    MarksEnemyKilled: true,
-                    KillableEnemyIndex: > 0
+                    MarksEnemyKilled: true
                 } killedEnemy)
             {
-                _recentEnemyDefeats.MarkKilled(killedEnemy.KillableEnemyIndex);
+                if (killedEnemy.KillableEnemyIndex > 0)
+                    _recentEnemyDefeats.MarkKilled(killedEnemy.KillableEnemyIndex);
+                EnemyDefeated?.Invoke();
             }
             lifetime.OnFinished(_pendingSpawns);
             _activeEntities.RemoveAt(index);

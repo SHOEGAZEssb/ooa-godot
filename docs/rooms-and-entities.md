@@ -86,6 +86,7 @@ single universal entity base class:
 | `ILinkContactEntity` | Post-update Link contact handling |
 | `ISwordHittableRoomEntity` | Sword collision and hit response |
 | `ISeedHittableRoomEntity` / `ISeedProjectileRoomEntity` | Active seed hit response and one-shot projectile collision ownership |
+| `IPlayerProjectileRoomEntity` | Player-owned projectile bounds, damage, and accepted-hit completion |
 | `IRoomBlocker` / `ITalkTarget` | Collision or interaction capability |
 | `IOrdinaryNpcEntity` | A placed NPC eligible for live imported save-predicate refresh |
 | `IPlayerRestriction` | Native interaction-owned sword and/or movement input suppression |
@@ -129,6 +130,15 @@ Enemy adapters share their accepted hit/death path with the seed
 capability; the projectile disables its collision after the first accepted hit
 and changes to the flame state. Keep later Scent, Pegasus, Gale, and Mystery
 state machines distinct when they are implemented.
+
+Sword beams use the same parent/child split. `Player` creates the single
+object-capped `ITEM_SWORD_BEAM $27` on the sword animation's bit-5 update or
+when the Energy Ring charge counter underflows. `SwordBeamEffect` owns its
+setup-only first update, signed direction offset, `SPEED_300` motion, 2-by-2
+collision radius, global four-update palette toggle, tile/screen termination,
+and flickering `INTERAC_CLINK $81` collision result. `RoomEntityManager`
+applies projectile damage before movement on each fixed update and freezes the
+beam with the rest of the destination entity set during scrolling.
 
 `PART_ITEM_DROP` spawn records distinguish ordinary stationary enemy drops from
 Shovel-created drops. A dug-up drop copies Link's cardinal angle and applies

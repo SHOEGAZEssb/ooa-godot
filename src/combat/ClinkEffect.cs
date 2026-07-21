@@ -14,6 +14,7 @@ public partial class ClinkEffect : Node2D
     private double _frames;
 
     internal bool Flickers { get; private set; }
+    internal bool Finished { get; private set; }
     internal int AnimationFrame => Mathf.Min((int)(_frames / FrameDuration), FrameCount - 1);
     internal int ElapsedFrames => Mathf.Min((int)_frames, DurationFrames);
     internal int DurationFrames => FrameDuration * FrameCount;
@@ -30,14 +31,19 @@ public partial class ClinkEffect : Node2D
     public override void _PhysicsProcess(double delta) => Advance(delta);
 
     internal void AdvanceForValidation(double delta) => Advance(delta);
+    internal void AdvanceFrameForEntityManager() => Advance(1.0 / 60.0, false);
 
-    private void Advance(double delta)
+    private void Advance(double delta, bool queueFree = true)
     {
+        if (Finished)
+            return;
         _frames += delta * 60.0;
         if (_frames >= DurationFrames)
         {
+            Finished = true;
             Visible = false;
-            QueueFree();
+            if (queueFree)
+                QueueFree();
             return;
         }
         QueueRedraw();

@@ -21,6 +21,7 @@ public sealed class RoomEventController
     private readonly ImpaIntroEvent _impa;
     private readonly NayruIntroEvent _nayru;
     private readonly MakuSproutRescueEvent _makuSproutRescue;
+    private readonly VasuShopEvent _vasuShop;
     private readonly IRoomEvent[] _eventsByPriority;
     private double _frameAccumulator;
     private double _transitionFrameAccumulator;
@@ -68,10 +69,12 @@ public sealed class RoomEventController
         _impa = new ImpaIntroEvent(_context);
         _nayru = new NayruIntroEvent(_context, _impa);
         _makuSproutRescue = new MakuSproutRescueEvent(_context);
+        _vasuShop = new VasuShopEvent(_context);
         _eventsByPriority =
         [
             _nayru,
             _makuSproutRescue,
+            _vasuShop,
             _makuTreeSaved,
             _makuTree,
             _ralph,
@@ -120,6 +123,9 @@ public sealed class RoomEventController
     internal ImpaIntroEvent Impa => _impa;
     internal NayruIntroEvent Nayru => _nayru;
     internal MakuSproutRescueEvent MakuSproutRescue => _makuSproutRescue;
+    internal VasuShopEvent VasuShop => _vasuShop;
+    internal void SetRingMenuOpener(Func<RingMenuMode, Action, bool> opener) =>
+        _vasuShop.SetRingMenuOpener(opener);
     internal bool ScreenTransitionsDisabled =>
         _makuSproutRescue.ScreenTransitionsDisabled;
     internal ICutsceneCommandTraceSink? CommandTraceSink
@@ -161,6 +167,7 @@ public sealed class RoomEventController
     }
 
     public bool TryInteractNpc(NpcCharacter npc) =>
+        _vasuShop.TryInteractNpc(npc) ||
         _nayru.TryInteractNpc(npc) ||
         _blackTowerEntrance.TryInteractNpc(npc) ||
         _makuSproutRescue.TryInteractNpc(npc) ||

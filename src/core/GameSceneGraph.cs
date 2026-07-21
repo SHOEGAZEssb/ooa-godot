@@ -24,6 +24,7 @@ public partial class GameSceneGraph : Node2D
     public MapScreen MapScreen { get; private set; } = null!;
     public InventoryScreen InventoryScreen { get; private set; } = null!;
     public SaveQuitScreen SaveQuitScreen { get; private set; } = null!;
+    public RingMenuScreen RingMenuScreen { get; private set; } = null!;
     public DebugFlagScreen DebugFlagScreen { get; private set; } = null!;
     public ColorRect MenuFade { get; private set; } = null!;
 
@@ -41,6 +42,7 @@ public partial class GameSceneGraph : Node2D
         MapScreen = Unique<MapScreen>("MapScreen");
         InventoryScreen = Unique<InventoryScreen>("InventoryScreen");
         SaveQuitScreen = Unique<SaveQuitScreen>("SaveQuitScreen");
+        RingMenuScreen = Unique<RingMenuScreen>("RingMenuScreen");
         DebugFlagScreen = Unique<DebugFlagScreen>("DebugFlagScreen");
         MenuFade = Unique<ColorRect>("MenuFade");
 
@@ -51,6 +53,7 @@ public partial class GameSceneGraph : Node2D
             RoomDebug.GetParent() != InterfaceLayer || MapScreen.GetParent() != InterfaceLayer ||
             InventoryScreen.GetParent() != InterfaceLayer ||
             SaveQuitScreen.GetParent() != InterfaceLayer ||
+            RingMenuScreen.GetParent() != InterfaceLayer ||
             DebugFlagScreen.GetParent() != InterfaceLayer ||
             MenuFade.GetParent() != InterfaceLayer)
         {

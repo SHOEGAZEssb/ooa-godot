@@ -259,6 +259,26 @@ public partial class NpcCharacter : Node2D
         return InteractionBounds.HasPoint(talkPoint);
     }
 
+    /// <summary>
+    /// Exact linkInteractWithAButtonSensitiveObjects point test for native
+    /// script actors. Link probes ten pixels in his facing direction and the
+    /// object's collision radii use strict high-byte comparisons.
+    /// </summary>
+    internal bool CanScriptTalkTo(
+        Player player,
+        float collisionRadiusY,
+        float collisionRadiusX,
+        int pointOffset)
+    {
+        if (!Active || !_scriptButtonSensitive)
+            return false;
+        Vector2 link = OracleObjectMath.ToPixelPosition(player.Position);
+        Vector2 target = OracleObjectMath.ToPixelPosition(Position);
+        Vector2 point = link + (Vector2)player.FacingVector * pointOffset;
+        return Mathf.Abs(target.Y - point.Y) < collisionRadiusY &&
+            Mathf.Abs(target.X - point.X) < collisionRadiusX;
+    }
+
     public void FaceToward(Vector2 target)
     {
         if (!Record.CanFace)

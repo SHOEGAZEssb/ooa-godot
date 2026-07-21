@@ -8,8 +8,11 @@ public interface IPlayerWorld
     bool DialogueOpen { get; }
     bool SwordDisabled { get; }
     bool MovementDisabled { get; }
+    bool RingTransformationsAllowed { get; }
     bool ApplySwordHit(Player player, Rect2 hitbox);
     bool ApplySwordTileHit(Player player, int direction, bool swordPoke);
+    bool ApplyExpertsRingTileHit(Player player, int direction);
+    bool TryCreateSwordBeam(Player player, int direction);
     void PlaySound(int soundId);
     bool TryInteract(Player player);
     bool TryUseBracelet(Player player);

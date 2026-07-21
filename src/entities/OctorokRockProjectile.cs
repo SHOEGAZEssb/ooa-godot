@@ -77,7 +77,9 @@ public partial class OctorokRockProjectile : Node2D
 
         if (OverlapsLink(player.Position))
         {
-            player.ApplyEnemyContactDamage(Position, _record.DamageQuarters);
+            player.ApplyEnemyContactDamage(
+                Position, _record.DamageQuarters,
+                RingDamageSource.OctorokProjectile);
             Finish();
             return;
         }

@@ -29,6 +29,7 @@ internal interface ISwordHittableRoomEntity
     bool ApplySwordHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
+        int damage,
         ICollection<RoomEntitySpawn> spawns);
 }
 
@@ -45,6 +46,14 @@ internal interface ISeedProjectileRoomEntity
     bool CollisionEnabled { get; }
     Rect2 CollisionBounds { get; }
     void OnEnemyCollision();
+}
+
+internal interface IPlayerProjectileRoomEntity
+{
+    bool CollisionEnabled { get; }
+    Rect2 CollisionBounds { get; }
+    int Damage { get; }
+    void OnEnemyCollision(ICollection<RoomEntitySpawn> spawns);
 }
 
 internal interface IRoomBlocker
@@ -102,6 +111,7 @@ internal interface IPlayerRestriction
 {
     bool DisablesSword { get; }
     bool DisablesMovement => false;
+    bool DisablesRingTransformations => false;
 }
 
 internal interface IRoomSaveStateEntity
@@ -157,4 +167,8 @@ internal sealed record CutsceneNpcSpawn(
     bool Solid = false)
     : RoomEntitySpawn;
 internal sealed record GroundTreasureSpawn(GroundTreasureDatabase.Record Record)
+    : RoomEntitySpawn;
+internal sealed record SwordBeamSpawn(Vector2 LinkPosition, int Direction)
+    : RoomEntitySpawn;
+internal sealed record SwordBeamClinkSpawn(Vector2 Position)
     : RoomEntitySpawn;

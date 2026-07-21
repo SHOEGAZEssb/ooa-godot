@@ -18,10 +18,18 @@ public sealed class InventoryState
     private const int UnappraisedRingsAddress = 0xc5c0;
     private const int DummyC608Address = 0xc608;
     private const int AnimalCompanionAddress = 0xc610;
+    private const int RingsObtainedAddress = 0xc616;
+    private const int RingsObtainedByteCount = 8;
+    private const int TotalEnemiesKilledAddress = 0xc620;
+    private const int TotalRupeesCollectedAddress = 0xc627;
+    private const int MapleKillCounterAddress = 0xc641;
+    private const int GashaSpotKillCountersAddress = 0xc64f;
+    private const int GashaSpotCount = 0x10;
     private const int RememberedCompanionIdAddress = 0xc631;
     private const int BombchusAddress = 0xc6b3;
     private const int EmberSeedsAddress = 0xc6b9;
     private const int UnappraisedRingCountAddress = 0xc6cd;
+    private const int RingsAppraisedAddress = 0xc6ce;
     private const int MagnetGlovePolarityAddress = 0xc6f0;
     private const int ShortSecretIndexAddress = 0xc6fb;
     private const int SlingshotLevelAddress = 0xc6ff;
@@ -49,6 +57,7 @@ public sealed class InventoryState
     private readonly byte[] _dungeonCompasses = new byte[2];
     private readonly byte[] _dungeonMaps = new byte[2];
     private readonly byte[] _ringBoxContents = new byte[5];
+    private readonly byte[] _ringsObtained = new byte[RingsObtainedByteCount];
     private readonly byte[] _unappraisedRings = new byte[UnappraisedRingCapacity];
     private readonly HashSet<TreasureDatabase.TreasureVariable> _dirtyAuxiliaryVariables = new();
     private byte _upgradesObtained;
@@ -101,12 +110,16 @@ public sealed class InventoryState
     public int TuniNutState { get; private set; }
     public int ActiveRing { get; private set; }
     public int RingBoxLevel { get; private set; }
+    public int RingsAppraised { get; private set; }
+    public int TotalEnemiesKilled { get; private set; }
+    public int TotalRupeesCollected { get; private set; }
     public int RingBoxCapacity => RingBoxLevel switch { 1 => 1, 2 => 3, >= 3 => 5, _ => 0 };
     public int AnimalCompanion { get; private set; }
     public int RememberedCompanionId { get; private set; }
     public int ObtainedSeasons { get; private set; }
     public int MagnetGlovePolarity { get; private set; }
     public int UnappraisedRingCount => CountUnappraisedRings();
+    public bool IsRingActive(RingId ring) => ActiveRing == (int)ring;
 
     public int GetDungeonSmallKeys(int dungeon) =>
         dungeon is >= 0 and < 16 ? _dungeonSmallKeys[dungeon] : 0;
@@ -186,6 +199,114 @@ public sealed class InventoryState
 
     public int UnappraisedRingAt(int index) =>
         index >= 0 && index < UnappraisedRingCapacity ? _unappraisedRings[index] : 0xff;
+
+    public bool HasAppraisedRing(int ring) =>
+        ring is >= 0 and < 0x40 &&
+        (_ringsObtained[ring >> 3] & (1 << (ring & 7))) != 0;
+
+    internal void GrantAppraisedRingForDebug(int ring)
+    {
+        if (ring is < 0 or >= 0x40)
+            throw new ArgumentOutOfRangeException(nameof(ring));
+        _ringsObtained[ring >> 3] |= (byte)(1 << (ring & 7));
+        NotifyChanged();
+    }
+
+    /// <summary>
+    /// Performs the paid portion of bank 2's ringMenu_unappraisedRings_state1:
+    /// debit the appraisal price, count the appraisal, and reveal the selected
+    /// entry by clearing its $40 unidentified bit. The entry remains in the
+    /// appraisal list until its name and description have both closed.
+    /// </summary>
+    internal bool TryBeginRingAppraisal(int index, int cost, out int ring)
+    {
+        ring = UnappraisedRingAt(index);
+        if (ring == 0xff || cost < 0 || Rupees < cost)
+            return false;
+
+        ring &= 0x3f;
+        AddRupeesCore(-cost);
+        RingsAppraised = Math.Min(0xff, RingsAppraised + 1);
+        _unappraisedRings[index] = (byte)ring;
+        NotifyChanged();
+        return true;
+    }
+
+    /// <summary>
+    /// Ports ringMenu_addRingToList: remove the selected appraisal entry,
+    /// register a new ring in wRingsObtained, or issue the duplicate refund.
+    /// </summary>
+    internal RingAppraisalResult CompleteRingAppraisal(int index, int duplicateRefund)
+    {
+        int ring = UnappraisedRingAt(index);
+        if (ring == 0xff || (ring & 0x40) != 0)
+            throw new InvalidOperationException(
+                "Only a revealed unappraised ring can be added to the ring list.");
+
+        ring &= 0x3f;
+        bool duplicate = HasAppraisedRing(ring);
+        _unappraisedRings[index] = 0xff;
+        RealignUnappraisedRings();
+        if (!duplicate)
+            _ringsObtained[ring >> 3] |= (byte)(1 << (ring & 7));
+        NotifyChanged();
+        return new RingAppraisalResult(ring, duplicate,
+            duplicate ? Math.Max(0, duplicateRefund) : 0);
+    }
+
+    internal void ApplyRingAppraisalRefund(int amount)
+    {
+        if (amount <= 0)
+            return;
+        AddRupeesCore(amount);
+        NotifyChanged();
+    }
+
+    /// <summary>
+    /// Implements the ring-list A-button transaction. A ring may occur in at
+    /// most one box slot; selecting it in its current destination removes it.
+    /// </summary>
+    internal bool SetRingBoxSlotFromList(int slot, int ring)
+    {
+        if (slot < 0 || slot >= RingBoxCapacity)
+            return false;
+        if (ring != 0xff && !HasAppraisedRing(ring))
+            return false;
+
+        int previousSlot = -1;
+        if (ring != 0xff)
+        {
+            for (int index = 0; index < _ringBoxContents.Length; index++)
+            {
+                if (_ringBoxContents[index] == ring)
+                {
+                    previousSlot = index;
+                    _ringBoxContents[index] = 0xff;
+                    break;
+                }
+            }
+        }
+        _ringBoxContents[slot] = previousSlot == slot ? (byte)0xff : (byte)ring;
+        NotifyChanged();
+        return true;
+    }
+
+    internal bool DeactivateRingIfMissingFromBox()
+    {
+        if (ActiveRing == 0xff)
+            return false;
+        for (int slot = 0; slot < RingBoxCapacity; slot++)
+        {
+            if (_ringBoxContents[slot] == ActiveRing)
+                return false;
+        }
+        ActiveRing = 0xff;
+        NotifyChanged();
+        return true;
+    }
+
+    internal readonly record struct RingAppraisalResult(
+        int Ring, bool Duplicate, int Refund);
 
     public bool HasUpgrade(int bit) =>
         bit is >= 0 and < 8 && (_upgradesObtained & (1 << bit)) != 0;
@@ -288,6 +409,18 @@ public sealed class InventoryState
         GiveTreasure(treasureObject.TreasureId, treasureObject.Parameter);
     }
 
+    /// <summary>
+    /// The original giveRingToLink overrides INTERAC_TREASURE's var34 with
+    /// the concrete ring index before the ordinary TREASURE_RING behavior
+    /// runs. Treasure-object rows keep $ff there as a placeholder.
+    /// </summary>
+    internal void GiveUnappraisedRing(int ring)
+    {
+        if (ring is < 0 or >= 0x40)
+            throw new ArgumentOutOfRangeException(nameof(ring));
+        GiveTreasure(TreasureDatabase.TreasureRing, ring);
+    }
+
     public bool ApplyDamage(int quarters)
     {
         if (quarters <= 0 || HealthQuarters <= 0)
@@ -340,6 +473,7 @@ public sealed class InventoryState
 
     private bool AddRupeesCore(int amount)
     {
+        bool totalChanged = amount > 0 && RecordCollectedRupees(amount);
         int previous = Rupees;
         long result = (long)Rupees + amount;
         Rupees = (int)Math.Clamp(result, 0, 999);
@@ -350,9 +484,58 @@ public sealed class InventoryState
             RupeeCapExceeded?.Invoke();
         }
         if (previous == Rupees)
-            return false;
+            return totalChanged;
 
         RupeesChanged?.Invoke();
+        return true;
+    }
+
+    internal void RecordEnemyKill()
+    {
+        // enemyDie stops only the lifetime Slayer counter after its award flag
+        // is set. Maple, every planted Gasha spot, and Gasha maturity continue
+        // advancing for every counted enemy death.
+        if (_saveData?.HasGlobalFlag(0x00) != true)
+        {
+            TotalEnemiesKilled = Math.Min(0xffff, TotalEnemiesKilled + 1);
+            if (TotalEnemiesKilled >= 1000)
+                _saveData?.SetGlobalFlag(0x00);
+        }
+        if (_saveData is not null)
+        {
+            int maple = _saveData.ReadWramByte(MapleKillCounterAddress);
+            _saveData.WriteWramByte(
+                MapleKillCounterAddress, (byte)Math.Min(0xff, maple + 1));
+
+            int credits = RingEffects.GashaKillCredits(this);
+            for (int spot = 0; spot < GashaSpotCount; spot++)
+            {
+                int address = GashaSpotKillCountersAddress + spot;
+                int count = _saveData.ReadWramByte(address);
+                _saveData.WriteWramByte(
+                    address, (byte)Math.Min(0xff, count + credits));
+            }
+            _saveData.AddGashaMaturity(3);
+        }
+        NotifyChanged();
+    }
+
+    private bool RecordCollectedRupees(int amount)
+    {
+        if (_saveData?.HasGlobalFlag(0x01) == true)
+            return false;
+        long total = (long)TotalRupeesCollected + amount;
+        if (total >= 10000)
+        {
+            // addDecimalToHlRef is a two-byte BCD addition. Its carry sets
+            // GLOBALFLAG_10000_RUPEES_COLLECTED while the counter itself wraps.
+            TotalRupeesCollected = (int)(total % 10000);
+            _saveData?.SetGlobalFlag(0x01);
+        }
+        else
+        {
+            TotalRupeesCollected = (int)total;
+        }
         return true;
     }
 
@@ -379,6 +562,12 @@ public sealed class InventoryState
         _saveData.ReadWramBytes(0xc684, _dungeonCompasses);
         _saveData.ReadWramBytes(0xc686, _dungeonMaps);
         _saveData.ReadWramBytes(0xc6c6, _ringBoxContents);
+        _saveData.ReadWramBytes(RingsObtainedAddress, _ringsObtained);
+        TotalEnemiesKilled = _saveData.ReadWramByte(TotalEnemiesKilledAddress) |
+            _saveData.ReadWramByte(TotalEnemiesKilledAddress + 1) << 8;
+        TotalRupeesCollected = FromBcdWord(
+            _saveData.ReadWramByte(TotalRupeesCollectedAddress) |
+            _saveData.ReadWramByte(TotalRupeesCollectedAddress + 1) << 8);
         _saveData.ReadWramBytes(UnappraisedRingsAddress, _unappraisedRings);
         _dummyC608 = _saveData.ReadWramByte(DummyC608Address);
         AnimalCompanion = _saveData.ReadWramByte(AnimalCompanionAddress);
@@ -409,6 +598,7 @@ public sealed class InventoryState
         Slates = _saveData.ReadWramByte(0xc6c3);
         ActiveRing = _saveData.ReadWramByte(0xc6cb);
         RingBoxLevel = _saveData.ReadWramByte(0xc6cc);
+        RingsAppraised = _saveData.ReadWramByte(RingsAppraisedAddress);
         MagnetGlovePolarity = _saveData.ReadWramByte(MagnetGlovePolarityAddress);
         _shortSecretIndex = _saveData.ReadWramByte(ShortSecretIndexAddress);
         _slingshotLevel = _saveData.ReadWramByte(SlingshotLevelAddress);
@@ -433,6 +623,16 @@ public sealed class InventoryState
             _saveData.WriteWramBytes(0xc684, _dungeonCompasses);
             _saveData.WriteWramBytes(0xc686, _dungeonMaps);
             _saveData.WriteWramBytes(0xc6c6, _ringBoxContents);
+            _saveData.WriteWramBytes(RingsObtainedAddress, _ringsObtained);
+            _saveData.WriteWramByte(
+                TotalEnemiesKilledAddress, (byte)TotalEnemiesKilled);
+            _saveData.WriteWramByte(
+                TotalEnemiesKilledAddress + 1, (byte)(TotalEnemiesKilled >> 8));
+            int totalRupeesBcd = ToBcdWord(TotalRupeesCollected);
+            _saveData.WriteWramByte(
+                TotalRupeesCollectedAddress, (byte)totalRupeesBcd);
+            _saveData.WriteWramByte(
+                TotalRupeesCollectedAddress + 1, (byte)(totalRupeesBcd >> 8));
             _saveData.WriteWramBytes(UnappraisedRingsAddress, _unappraisedRings);
             _saveData.WriteWramByte(0xc6aa, (byte)HealthQuarters);
             _saveData.WriteWramByte(0xc6ab, (byte)MaxHealthQuarters);
@@ -461,6 +661,7 @@ public sealed class InventoryState
             _saveData.WriteWramByte(0xc6c3, (byte)Slates);
             _saveData.WriteWramByte(0xc6cb, (byte)ActiveRing);
             _saveData.WriteWramByte(0xc6cc, (byte)RingBoxLevel);
+            _saveData.WriteWramByte(RingsAppraisedAddress, (byte)RingsAppraised);
             _saveData.WriteWramByte(
                 UnappraisedRingCountAddress, (byte)ToBcd(UnappraisedRingCount));
             PersistAuxiliaryVariables();

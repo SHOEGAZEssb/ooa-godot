@@ -30,6 +30,7 @@ public partial class GameRoot : Node2D
     internal DebugCollisionController _debugCollision = null!;
     internal MapMenuController _mapMenu = null!;
     internal InventoryMenuController _inventoryMenu = null!;
+    internal RingMenuController _ringMenu = null!;
     internal DebugFlagMenuController _debugFlagMenu = null!;
     internal GameplayPauseController _gameplayPause = null!;
     internal OracleMenuLifecycle _menuLifecycle = null!;
@@ -69,6 +70,7 @@ public partial class GameRoot : Node2D
     internal DialogueBox _dialogue => _scene.Dialogue;
     internal MapScreen _mapScreen => _scene.MapScreen;
     internal InventoryScreen _inventoryScreen => _scene.InventoryScreen;
+    internal RingMenuScreen _ringMenuScreen => _scene.RingMenuScreen;
     internal SaveQuitScreen _saveQuitScreen => _scene.SaveQuitScreen;
     internal DebugFlagScreen _debugFlagScreen => _scene.DebugFlagScreen;
 
@@ -76,6 +78,7 @@ public partial class GameRoot : Node2D
     public bool DialogueOpen => _interactions?.DialogueOpen ?? false;
     public bool MapMenuOpen => _mapMenu?.IsActive ?? false;
     public bool InventoryMenuOpen => _inventoryMenu?.IsActive ?? false;
+    public bool RingMenuOpen => _ringMenu?.IsActive ?? false;
     public bool DebugFlagMenuOpen => _debugFlagMenu?.IsActive ?? false;
 
     // Compatibility accessors used only by the friend validation assembly.
@@ -219,6 +222,7 @@ public partial class GameRoot : Node2D
         _mapScreen.Initialize(_rooms, _inventory);
         _inventoryScreen.Initialize(_treasures, _inventory,
             () => _rooms.ActiveGroup is 1 or 3);
+        _ringMenuScreen.Initialize(_inventory);
         _debugFlagScreen.Initialize(
             _saveData, new GlobalFlagDatabase(), _treasures, _inventory);
         CreateControllers();
@@ -276,6 +280,13 @@ public partial class GameRoot : Node2D
         _debugCollision.Update();
         _debugFlagMenu.Update();
         if (_debugFlagMenu.IsActive)
+            return;
+        bool ringMenuOwnedFrame = _ringMenu.IsActive;
+        _ringMenu.Update(delta);
+        // A close callback resumes Vasu's native script. The original menu
+        // consumes that update, so do not also decrement his post-menu wait
+        // on the frame where ownership is released.
+        if (ringMenuOwnedFrame || _ringMenu.IsActive)
             return;
         _inventoryMenu.Update(delta);
         if (_mainMenu is not null)
@@ -355,7 +366,7 @@ public partial class GameRoot : Node2D
             if (update == slowFallStartFrame)
             {
                 int screenY = Mathf.FloorToInt(
-                    _transitions.WorldToScreen(_player.Position).Y);
+                    _transitions.WorldToGameplayScreen(_player.Position).Y);
                 _player.BeginNewGameSlowFall(
                     Player.NewGameSlowFallInitialZ(screenY));
             }
@@ -405,15 +416,17 @@ public partial class GameRoot : Node2D
             _rooms, new WarpDatabase(), _roomView, _player, _roomCamera,
             _warpFade, _hud, _dialogue, _entities, _collision.Collides,
             _deathRespawnPoints, _sound);
-        _entities.WorldToScreen = _transitions.WorldToScreen;
+        _entities.WorldToScreen = _transitions.WorldToGameplayScreen;
         _transitions.ScrollingTransitionFinished += _ => ApplyDeferredIntroMusic();
         _entities.TimePortalEntered += portal =>
             _transitions.ApplyTimePortalWarp(_player, portal.Position);
         _entities.SoundRequested += _sound.PlaySound;
+        _entities.EnemyDefeated += _inventory.RecordEnemyKill;
         _entities.RoomTileChanged += _roomView.QueueRedraw;
         _interactions = new InteractionController(
             _rooms, _entities, new SignDatabase(), new ChestDatabase(), _treasures, _dialogue,
-            _scene.WorldRoot, _roomView, _transitions.WorldToScreen, () => (long)_animationTicks,
+            _scene.WorldRoot, _roomView, _transitions.WorldToGameplayScreen,
+            () => (long)_animationTicks,
             _inventory, _scene.InterfaceLayer, _sound.PlaySound);
         _keyDoors.MessageRequested += message =>
             _interactions.ShowRoomInteractionMessage(message, _player);
@@ -424,7 +437,7 @@ public partial class GameRoot : Node2D
         };
         _roomEvents = new RoomEventController(
             _rooms, _entities, _transitions, _dialogue, _player, _roomView,
-            _transitions.WorldToScreen, () => (long)_animationTicks,
+            _transitions.WorldToGameplayScreen, () => (long)_animationTicks,
             _scene.InterfaceLayer, _warpFade, _hud, _inventory, _treasures,
             _sound, _roomCamera);
         _interactions.NpcInteractionOverride = _roomEvents.TryInteractNpc;
@@ -471,6 +484,10 @@ public partial class GameRoot : Node2D
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone) &&
                 !IsTransitioning && !DialogueOpen && !MapMenuOpen && !_roomEvents.Active,
             SaveActiveFile, ReturnToTitle, _sound.PlaySound);
+        _ringMenu = new RingMenuController(
+            _ringMenuScreen, _dialogue, _menuLifecycle, _inventory, _saveData,
+            _treasures, _roomEvents.VasuShop.Database, _sound.PlaySound);
+        _roomEvents.SetRingMenuOpener(_ringMenu.Open);
         _debugFlagMenu = new DebugFlagMenuController(
             _debugFlagScreen, _rooms, _gameplayPause,
             () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&

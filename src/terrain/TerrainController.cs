@@ -12,6 +12,7 @@ public sealed class TerrainController
     private SplashEffect? _activeSplash;
 
     internal SplashEffect? ActiveSplash => _activeSplash;
+    internal byte CurrentTilesetFlags => _rooms.CurrentRoom.TilesetFlags;
 
     public TerrainController(
         Node worldRoot,

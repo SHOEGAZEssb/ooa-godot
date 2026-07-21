@@ -111,10 +111,13 @@ public partial class MaskedMoblinCharacter : Node2D
         Mathf.Abs(linkPosition.Y - Position.Y) < _record.CollisionRadiusY + 6;
 
     public bool TakeSwordHit(Vector2 _)
+        => TakeSwordHit(Vector2.Zero, 2);
+
+    internal bool TakeSwordHit(Vector2 _, int damage)
     {
         if (IsDead)
             return false;
-        _health = Math.Max(0, _health - 2);
+        _health = Math.Max(0, _health - Math.Max(1, damage));
         if (_health == 0)
         {
             IsDead = true;

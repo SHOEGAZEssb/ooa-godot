@@ -815,13 +815,27 @@ void fragment() {
         if (_scrollActive)
             return;
         Vector2 origin = GetCameraOrigin(_rooms.CurrentRoom, _player.Position);
-        _camera.Position = origin + new Vector2(OracleRoomData.ViewportWidth / 2.0f, 72.0f);
+        _camera.Position = origin + GameplayCameraOffset;
     }
 
-    public Vector2 WorldToScreen(Vector2 worldPosition) => worldPosition - CurrentCameraOrigin;
+    /// <summary>Returns physical 160x144 display coordinates below the HUD.</summary>
+    public Vector2 WorldToScreen(Vector2 worldPosition) =>
+        WorldToGameplayScreen(worldPosition) +
+        new Vector2(0, OracleRoomData.GameplayScreenTop);
+
+    /// <summary>
+    /// Returns the original engine's 160x128 gameplay-field coordinates.
+    /// Object bounds and textbox-side selection use this coordinate space.
+    /// </summary>
+    internal Vector2 WorldToGameplayScreen(Vector2 worldPosition) =>
+        worldPosition - CurrentCameraOrigin;
 
     private Vector2 CurrentCameraOrigin => _camera.Position -
-        new Vector2(OracleRoomData.ViewportWidth / 2.0f, 72.0f);
+        GameplayCameraOffset;
+
+    private static Vector2 GameplayCameraOffset => new(
+        OracleRoomData.ViewportWidth / 2.0f,
+        OracleRoomData.ScreenHeight / 2.0f - OracleRoomData.GameplayScreenTop);
 
     private static Vector2 GetCameraOrigin(OracleRoomData room, Vector2 playerPosition)
     {

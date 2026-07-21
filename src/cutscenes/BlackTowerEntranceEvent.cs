@@ -38,6 +38,7 @@ internal sealed class BlackTowerEntranceEvent : IRoomEntryEvent, ICutsceneComman
     private int _simulatedTailPhase;
     private int _simulatedTailFrames;
     private Vector2 _fadeOriginalSize;
+    private Vector2 _fadeOriginalPosition;
     private int _fadeOriginalZIndex;
     private bool _explanationPending;
 
@@ -179,7 +180,9 @@ internal sealed class BlackTowerEntranceEvent : IRoomEntryEvent, ICutsceneComman
         _screen = new BlackTowerExplanationScreen(_database);
         _context.InterfaceLayer.AddChild(_screen);
         _fadeOriginalSize = _context.Fade.Size;
+        _fadeOriginalPosition = _context.Fade.Position;
         _fadeOriginalZIndex = _context.Fade.ZIndex;
+        _context.Fade.Position = Vector2.Zero;
         _context.Fade.Size = new Vector2(
             OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight);
         _context.Fade.ZIndex = _context.Hud.ZIndex + 1;
@@ -244,6 +247,7 @@ internal sealed class BlackTowerEntranceEvent : IRoomEntryEvent, ICutsceneComman
         _screen.QueueFree();
         _screen = null;
         _context.Hud.Visible = true;
+        _context.Fade.Position = _fadeOriginalPosition;
         _context.Fade.Size = _fadeOriginalSize;
         _context.Fade.ZIndex = _fadeOriginalZIndex;
     }

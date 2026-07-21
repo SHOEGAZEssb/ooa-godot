@@ -40,6 +40,7 @@ public partial class OracleSoundEngine : Node
     public const int SndClink2 = 0x58;
     public const int SndFallInHole = 0x59;
     public const int SndError = 0x5a;
+    public const int SndSwordBeam = 0x5d;
     public const int SndGetSeed = 0x5e;
     public const int SndDamageLink = 0x5f;
     public const int SndRupee = 0x61;
@@ -51,6 +52,7 @@ public partial class OracleSoundEngine : Node
     public const int SndOpenChest = 0x6c;
     public const int SndCutGrass = 0x6d;
     public const int SndEnterCave = 0x6e;
+    public const int SndExplosion = 0x6f;
     public const int SndDoorClose = 0x70;
     public const int SndDing = 0xc8;
     public const int SndMoveBlock = 0x71;
@@ -69,6 +71,7 @@ public partial class OracleSoundEngine : Node
     public const int SndFairyCutscene = 0x91;
     public const int SndWarpStart = 0x95;
     public const int SndPoof = 0x98;
+    public const int SndStrike = 0xa6;
     public const int SndDig = 0xa9;
     public const int SndSwordObtained = 0xab;
     public const int SndMakuDisappear = 0xb2;

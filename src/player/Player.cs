@@ -17,6 +17,9 @@ public partial class Player : Node2D
     private const int ShovelActionFrames = 23;
     private const int ShovelDigFrame = 4;
     private const int ShovelSecondPoseFrame = 8;
+    private const int PunchCollisionFrames = 4;
+    private const int FistPunchFrames = 8;
+    private const int ExpertPunchFrames = 14;
     private const float DrownAnimationDuration = 22.0f / 60.0f;
     private const float DrownInvisibleDuration = 2.0f / 60.0f;
     private const float FallInHoleAnimationDuration = 36.0f / 60.0f;
@@ -41,6 +44,7 @@ public partial class Player : Node2D
     private Texture2D _shovelLinkTexture = null!;
     private Texture2D _drownTexture = null!;
     private Texture2D _fallInHoleTexture = null!;
+    private TransformedLinkDatabase _transformedLink = null!;
     private Vector2 _precisePosition;
     private Vector2 _lastSafePosition;
     private Vector2 _ledgeStart;
@@ -51,6 +55,7 @@ public partial class Player : Node2D
     private double _swordFrameAccumulator;
     private double _shovelFrameAccumulator;
     private double _seedSatchelFrameAccumulator;
+    private double _punchFrameAccumulator;
     private float _drownTime;
     private float _drownInvisibleTime;
     private float _hazardRecoveryTime;
@@ -66,12 +71,22 @@ public partial class Player : Node2D
     private SwordActionState _swordState;
     private int _swordStateFrame;
     private int _swordChargeCounter;
+    private int _currentSwordDamage;
+    private bool _doubleEdgedDamagePending;
+    private int _heartRingDistanceFixed;
+    private int _activeTransformation;
+    private int _transformationFrame;
+    private int _transformationTicks;
     private string? _swordButtonAction;
     private int _shovelFrame;
     private bool _usingShovel;
     private bool _usingSeedSatchel;
     private int _seedSatchelFrame;
     private int _seedSatchelActionFrames;
+    private bool _usingPunch;
+    private bool _expertPunch;
+    private int _punchFrame;
+    private int _punchDamage;
     private Vector2 _lastMovementInput;
     private bool _walking;
     private bool _pushing;
@@ -112,10 +127,15 @@ public partial class Player : Node2D
     public bool IsAttacking => _swordState != SwordActionState.None;
     public bool IsUsingShovel => _usingShovel;
     public bool IsUsingSeedSatchel => _usingSeedSatchel;
-    private bool IsUsingItem => IsAttacking || IsUsingShovel || IsUsingSeedSatchel;
+    internal bool IsUsingPunch => _usingPunch;
+    private bool IsUsingItem =>
+        IsAttacking || IsUsingShovel || IsUsingSeedSatchel || IsUsingPunch;
     internal bool IsPushing => _pushing;
     internal SwordActionState SwordState => _swordState;
     internal int SwordStateFrame => _swordStateFrame;
+    internal int SwordDamage => _swordState == SwordActionState.Spin
+        ? _currentSwordDamage * 2
+        : IsUsingPunch ? _punchDamage : _currentSwordDamage;
     internal int SwordArcIndex => IsAttacking ? GetSwordArcIndex() : -1;
     internal bool SwordAllowsMovement =>
         _swordState is SwordActionState.Held or SwordActionState.Charged;
@@ -145,6 +165,9 @@ public partial class Player : Node2D
     internal bool ShovelChildActive =>
         IsUsingShovel && _shovelFrame is >= ShovelDigFrame and < ShovelSecondPoseFrame;
     internal Vector2 ShovelChildOffset => ShovelOffsets[(int)_facing];
+    internal int ActiveTransformation => _activeTransformation;
+    internal int TransformationFrame => _transformationFrame;
+    internal int PunchFrame => _punchFrame;
 
     internal void Initialize(
         IPlayerWorld world,
@@ -165,10 +188,15 @@ public partial class Player : Node2D
         _shovelLinkTexture = BuildShovelLinkTexture();
         _drownTexture = BuildDrownTexture();
         _fallInHoleTexture = BuildFallInHoleTexture();
+        _transformedLink = new TransformedLinkDatabase();
         EndNewGameSlowFall();
         _precisePosition = spawn;
         _lastSafePosition = spawn;
         Position = OracleObjectMath.ToPixelPosition(spawn);
+        // Room entities/events are already initialized before Link. Select a
+        // saved active disguise here so the ordinary Link frame is never
+        // exposed for one render before the first physics update.
+        RefreshTransformationState();
         QueueRedraw();
     }
 
@@ -365,14 +393,27 @@ public partial class Player : Node2D
 
     public bool ApplyDamage(int quarters)
     {
-        return _inventory.ApplyDamage(quarters);
+        return ApplyDamage(quarters, RingDamageSource.Generic);
     }
 
-    public bool ApplyEnemyContactDamage(Vector2 sourcePosition, int quarters)
+    internal bool ApplyDamage(int quarters, RingDamageSource source)
+    {
+        int modified = RingEffects.IncomingDamageQuarters(_inventory, quarters, source);
+        return modified > 0 && _inventory.ApplyDamage(modified);
+    }
+
+    public bool ApplyEnemyContactDamage(Vector2 sourcePosition, int quarters) =>
+        ApplyEnemyContactDamage(
+            sourcePosition, quarters, RingDamageSource.Generic);
+
+    internal bool ApplyEnemyContactDamage(
+        Vector2 sourcePosition,
+        int quarters,
+        RingDamageSource source)
     {
         if (_enemyInvincibilityFrames > 0.0f || quarters <= 0)
             return false;
-        if (!ApplyDamage(quarters))
+        if (!ApplyDamage(quarters, source))
             return false;
 
         // LINKDMG_04 selects SND_DAMAGE_LINK ($5f) when the collision is
@@ -380,7 +421,8 @@ public partial class Player : Node2D
         // enqueue another request.
         _world.PlaySound(OracleSoundEngine.SndDamageLink);
         _enemyInvincibilityFrames = EnemyInvincibilityFrames;
-        _enemyKnockbackFrames = EnemyKnockbackFrames;
+        _enemyKnockbackFrames = RingEffects.KnockbackFrames(
+            _inventory, EnemyKnockbackFrames);
         _enemyKnockbackDirection = Position - sourcePosition;
         if (_enemyKnockbackDirection.LengthSquared() < 0.01f)
             _enemyKnockbackDirection = -(Vector2)FacingVector;
@@ -495,6 +537,8 @@ public partial class Player : Node2D
         if (_world.IsTransitioning)
             return;
 
+        RefreshTransformationState();
+
         if (_world.DialogueOpen)
         {
             _walking = false;
@@ -504,12 +548,14 @@ public partial class Player : Node2D
             return;
         }
 
+        Vector2 movementStart = _precisePosition;
         Vector2 input = Input.GetVector("move_left", "move_right", "move_up", "move_down");
         if (_world.MovementDisabled)
             input = Vector2.Zero;
         _lastMovementInput = input;
 
-        if (Input.IsActionJustPressed("attack") && !_world.SwordDisabled)
+        if (_activeTransformation == 0 &&
+            Input.IsActionJustPressed("attack") && !_world.SwordDisabled)
         {
             if (!IsUsingItem)
             {
@@ -517,6 +563,14 @@ public partial class Player : Node2D
                     return;
                 if (_world.TryInteract(this))
                     return;
+                if (RingEffects.CanPunch(
+                    _inventory,
+                    _inventory.EquippedA == InventoryState.ItemNone &&
+                    _inventory.EquippedB == InventoryState.ItemNone))
+                {
+                    StartPunchAction(input);
+                    return;
+                }
             }
             if (_inventory.EquippedA == InventoryState.ItemSword)
                 StartSwordAttack("attack", input);
@@ -525,9 +579,17 @@ public partial class Player : Node2D
             else if (_inventory.EquippedA == InventoryState.ItemSeedSatchel)
                 StartSeedSatchelAction(input);
         }
-        else if (Input.IsActionJustPressed("item") && !_world.SwordDisabled)
+        else if (_activeTransformation == 0 &&
+            Input.IsActionJustPressed("item") && !_world.SwordDisabled)
         {
-            if (!IsUsingItem && _inventory.EquippedB == InventoryState.ItemBracelet)
+            if (!IsUsingItem && RingEffects.CanPunch(
+                _inventory,
+                _inventory.EquippedA == InventoryState.ItemNone &&
+                _inventory.EquippedB == InventoryState.ItemNone))
+            {
+                StartPunchAction(input);
+            }
+            else if (!IsUsingItem && _inventory.EquippedB == InventoryState.ItemBracelet)
             {
                 _world.TryUseBracelet(this);
             }
@@ -574,11 +636,14 @@ public partial class Player : Node2D
             TryMove(terrainPush, allowWallSlide: false);
         }
 
+        UpdateHeartRingCounter(_precisePosition - movementStart);
+
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         if (!_world.CheckTileWarp(this))
             _world.CheckRoomExit(this);
         if (!_world.IsTransitioning)
             ApplyTerrainAtFeet();
+        AdvanceTransformationAnimation(_walking);
         QueueRedraw();
     }
 
@@ -793,6 +858,16 @@ public partial class Player : Node2D
             }
             QueueRedraw();
         }
+        if (IsUsingPunch)
+        {
+            _punchFrameAccumulator += delta * 60.0;
+            while (_punchFrameAccumulator + 0.000001 >= 1.0 && IsUsingPunch)
+            {
+                _punchFrameAccumulator -= 1.0;
+                AdvancePunchFrame();
+            }
+            QueueRedraw();
+        }
     }
 
     public override void _Draw()
@@ -828,6 +903,23 @@ public partial class Player : Node2D
         else if (_getItemOneHandPose)
         {
             DrawTexture(_getItemOneHandTexture, NormalSpriteOrigin);
+        }
+        else if (_activeTransformation != 0)
+        {
+            DrawTexture(
+                _transformedLink.Texture(
+                    _activeTransformation, (int)_facing, _transformationFrame),
+                new Vector2(-16, -16));
+        }
+        else if (IsUsingPunch)
+        {
+            Vector2 offset = _expertPunch && _punchFrame is >= 3 and < 11
+                ? AttackPoseOffsets[(int)_facing]
+                : Vector2.Zero;
+            DrawTextureRectRegion(
+                _attackTexture,
+                new Rect2(NormalSpriteOrigin + offset, new Vector2(16, 16)),
+                new Rect2(16, (int)_facing * 16, 16, 16));
         }
         else if (IsAttacking)
         {
@@ -1144,7 +1236,9 @@ public partial class Player : Node2D
         if (_drownInvisibleTime > 0.0f)
             return;
 
-        ApplyDamage(GetTerrainHazardDamageQuarters(_drowningHazard));
+        ApplyDamage(
+            GetTerrainHazardDamageQuarters(_drowningHazard),
+            RingDamageSource.TerrainHazard);
         WarpTo(_lastSafePosition);
         _hazardRecoveryTime = HazardRecoveryDuration;
         _walking = false;
@@ -1182,7 +1276,9 @@ public partial class Player : Node2D
         if (_fallInHoleInvisibleTime > 0.0f)
             return;
 
-        ApplyDamage(GetTerrainHazardDamageQuarters(OracleRoomData.HazardType.Hole));
+        ApplyDamage(
+            GetTerrainHazardDamageQuarters(OracleRoomData.HazardType.Hole),
+            RingDamageSource.Hole);
         WarpTo(_lastSafePosition);
         _hazardRecoveryTime = HazardRecoveryDuration;
         _walking = false;
@@ -1263,6 +1359,18 @@ public partial class Player : Node2D
         _walking = false;
         int sound = SwordSlashSounds[_random.Next().Value & 0x07];
         _world.PlaySound(sound);
+        byte whimsicalRoll = 0xff;
+        if (_inventory.IsRingActive(RingId.Whimsical))
+        {
+            whimsicalRoll = _random.Next().Value;
+            if (whimsicalRoll == 0)
+                _world.PlaySound(OracleSoundEngine.SndLightning);
+        }
+        _currentSwordDamage = RingEffects.SwordDamage(
+            _inventory, _inventory.SwordLevel, whimsicalRoll);
+        _doubleEdgedDamagePending =
+            _inventory.IsRingActive(RingId.DoubleEdged) &&
+            _inventory.HealthQuarters >= 5;
         QueueRedraw();
     }
 
@@ -1274,6 +1382,8 @@ public partial class Player : Node2D
         _swordChargeCounter = 0;
         _swordFrameAccumulator = 0.0;
         _swordButtonAction = null;
+        _currentSwordDamage = 0;
+        _doubleEdgedDamagePending = false;
         if (changed)
             QueueRedraw();
     }
@@ -1306,6 +1416,74 @@ public partial class Player : Node2D
         if (changed)
             QueueRedraw();
         CancelSeedSatchelAction();
+        CancelPunchAction();
+    }
+
+    internal void StartPunchActionForValidation(Vector2 facingInput) =>
+        StartPunchAction(facingInput);
+
+    private void StartPunchAction(Vector2 facingInput)
+    {
+        if (IsUsingItem || !RingEffects.CanPunch(
+            _inventory,
+            _inventory.EquippedA == InventoryState.ItemNone &&
+            _inventory.EquippedB == InventoryState.ItemNone))
+        {
+            return;
+        }
+        if (facingInput.LengthSquared() > 0.01f)
+            UpdateFacing(facingInput);
+        _usingPunch = true;
+        _expertPunch = RingEffects.UsesExpertPunch(_inventory);
+        _punchFrame = 0;
+        _punchDamage = _expertPunch ? 4 : 1;
+        _punchFrameAccumulator = 0.0;
+        _walking = false;
+        _pushing = false;
+        if (_expertPunch)
+            _world.ApplyExpertsRingTileHit(this, (int)_facing * 2);
+        _world.PlaySound(_expertPunch
+            ? OracleSoundEngine.SndExplosion
+            : OracleSoundEngine.SndStrike);
+        ApplyPunchCollision();
+        QueueRedraw();
+    }
+
+    private void AdvancePunchFrame()
+    {
+        _punchFrame++;
+        if (_punchFrame < PunchCollisionFrames)
+            ApplyPunchCollision();
+        int duration = _expertPunch ? ExpertPunchFrames : FistPunchFrames;
+        if (_punchFrame >= duration)
+            CancelPunchAction();
+    }
+
+    private void ApplyPunchCollision()
+    {
+        if (!IsUsingPunch || _punchFrame >= PunchCollisionFrames)
+            return;
+        _world.ApplySwordHit(
+            this, GetSwordHitbox(Position, 24 + (int)_facing));
+    }
+
+    private void CancelPunchAction()
+    {
+        bool changed = IsUsingPunch;
+        _usingPunch = false;
+        _expertPunch = false;
+        _punchFrame = 0;
+        _punchDamage = 0;
+        _punchFrameAccumulator = 0.0;
+        if (changed)
+            QueueRedraw();
+    }
+
+    internal void AdvancePunchForValidation(int frames)
+    {
+        for (int frame = 0; frame < frames && IsUsingPunch; frame++)
+            AdvancePunchFrame();
+        QueueRedraw();
     }
 
     internal void StartSeedSatchelActionForValidation(Vector2 facingInput) =>
@@ -1401,7 +1579,10 @@ public partial class Player : Node2D
             case SwordActionState.Swing:
                 _swordStateFrame++;
                 if (_swordStateFrame == 6)
+                {
                     _world.ApplySwordTileHit(this, (int)_facing * 2, swordPoke: false);
+                    TryCreateSwordBeamFromSwing();
+                }
                 if (_swordStateFrame >= SwordSwingFrames)
                 {
                     if (!buttonHeld)
@@ -1423,9 +1604,15 @@ public partial class Player : Node2D
                     CancelSwordAttack();
                     return;
                 }
-                _swordChargeCounter--;
+                _swordChargeCounter -= RingEffects.SwordChargeStep(_inventory);
                 if (_swordChargeCounter < 0)
                 {
+                    if (RingEffects.EnergyBeamOnCharge(_inventory))
+                    {
+                        _world.TryCreateSwordBeam(this, (int)_facing);
+                        TriggerEnergySwordPoke();
+                        break;
+                    }
                     _swordState = SwordActionState.Charged;
                     _swordStateFrame = 0;
                     _world.PlaySound(OracleSoundEngine.SndChargeSword);
@@ -1455,7 +1642,8 @@ public partial class Player : Node2D
             case SwordActionState.Spin:
                 int previousPhase = GetSpinArcPhase();
                 _swordStateFrame++;
-                if (_swordStateFrame >= SwordSpinFrames)
+                if (_swordStateFrame >= RingEffects.SwordSpinFrames(
+                    _inventory, SwordSpinFrames))
                 {
                     _world.ApplySwordTileHit(this, 8, swordPoke: false);
                     CancelSwordAttack();
@@ -1490,6 +1678,29 @@ public partial class Player : Node2D
         return true;
     }
 
+    private void TriggerEnergySwordPoke()
+    {
+        // ENERGY_RING branches directly to @triggerSwordPoke after attempting
+        // to allocate ITEM_SWORD_BEAM. It does so even when the one-beam
+        // object cap prevents allocation, and does not play the charge sound.
+        _swordState = SwordActionState.Poke;
+        _swordStateFrame = 0;
+        _walking = false;
+    }
+
+    private void TryCreateSwordBeamFromSwing()
+    {
+        if (_inventory.SwordLevel < 2)
+            return;
+        int missingHealth = _inventory.MaxHealthQuarters -
+            _inventory.HealthQuarters;
+        if (missingHealth <=
+            RingEffects.SwordBeamMaximumMissingQuarters(_inventory))
+        {
+            _world.TryCreateSwordBeam(this, (int)_facing);
+        }
+    }
+
     private void BeginSwordSpin()
     {
         _swordState = SwordActionState.Spin;
@@ -1503,8 +1714,86 @@ public partial class Player : Node2D
     private void ApplySwordCollision()
     {
         Rect2 hitbox = GetSwordHitbox();
-        if (hitbox.Size != Vector2.Zero)
-            _world.ApplySwordHit(this, hitbox);
+        if (hitbox.Size == Vector2.Zero || !_world.ApplySwordHit(this, hitbox) ||
+            !_doubleEdgedDamagePending)
+            return;
+        // swordParent.s applies $f8 (four quarter-hearts) once after the first
+        // accepted enemy contact, and clears var3a so later overlap frames do
+        // not hurt Link again. The health >= $05 check occurs at swing start.
+        _inventory.ApplyDamage(4);
+        _doubleEdgedDamagePending = false;
+    }
+
+    private void UpdateHeartRingCounter(Vector2 movement)
+    {
+        (int threshold, int heal) = RingEffects.HeartRefill(_inventory);
+        if (threshold == 0)
+        {
+            _heartRingDistanceFixed = 0;
+            return;
+        }
+        int distanceFixed = Mathf.RoundToInt(
+            (Mathf.Abs(movement.X) + Mathf.Abs(movement.Y)) * 256.0f);
+        _heartRingDistanceFixed = Math.Min(
+            int.MaxValue, _heartRingDistanceFixed + distanceFixed);
+        if (_heartRingDistanceFixed < threshold)
+            return;
+        _inventory.Heal(heal);
+        _heartRingDistanceFixed = 0;
+    }
+
+    private void RefreshTransformationState()
+    {
+        int transformation = _world.RingTransformationsAllowed
+            ? RingEffects.LinkTransformation(_inventory)
+            : 0;
+        if (transformation == _activeTransformation)
+            return;
+        _activeTransformation = transformation;
+        _transformationFrame = 0;
+        _transformationTicks = transformation == 0
+            ? 0
+            : _transformedLink.Record(
+                transformation, (int)_facing, 0).InitialDuration;
+        if (transformation != 0)
+        {
+            // transformedLink state 0 drops held objects and clears every
+            // parent item before making the replacement special object live.
+            CancelSwordAttack();
+            CancelShovelAction();
+            _pushing = false;
+        }
+        QueueRedraw();
+    }
+
+    private void AdvanceTransformationAnimation(bool walking)
+    {
+        if (_activeTransformation == 0)
+            return;
+        TransformedLinkDatabase.FrameRecord record = _transformedLink.Record(
+            _activeTransformation, (int)_facing, _transformationFrame);
+        if (!walking)
+        {
+            _transformationFrame = 0;
+            _transformationTicks = record.InitialDuration;
+            return;
+        }
+        if (_transformationTicks > 0)
+            _transformationTicks--;
+        if (_transformationTicks != 0)
+            return;
+        _transformationFrame ^= 1;
+        _transformationTicks = record.LoopDuration;
+    }
+
+    internal void RefreshTransformationForValidation() =>
+        RefreshTransformationState();
+
+    internal void AdvanceTransformationForValidation(bool walking, int frames)
+    {
+        for (int frame = 0; frame < frames; frame++)
+            AdvanceTransformationAnimation(walking);
+        QueueRedraw();
     }
 
     private void DrawSword()
@@ -1929,7 +2218,10 @@ public partial class Player : Node2D
         new(9, 6, -17, -4), new(6, 9, 2, 19), new(9, 6, 21, 3), new(6, 9, 2, -19),
         new(9, 6, -10, -4), new(4, 9, 2, 12), new(9, 6, 16, 3), new(6, 9, 2, -12),
         new(9, 9, -17, -4), new(9, 9, -14, 16), new(9, 9, 2, 19), new(9, 9, 18, 16),
-        new(9, 9, 21, 3), new(9, 9, 17, -13), new(9, 9, 2, -19), new(9, 9, -11, -13)
+        new(9, 9, 21, 3), new(9, 9, 17, -13), new(9, 9, 2, -19), new(9, 9, -11, -13),
+        // itemCode02Post selects swordArcData direction+$18 for punches.
+        new(5, 5, -12, -3), new(5, 5, 0, 12),
+        new(5, 5, 12, 3), new(5, 5, 0, -12)
     };
 
     private static readonly SwordPart[][] SwordOam =

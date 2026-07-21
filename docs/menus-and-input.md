@@ -19,6 +19,12 @@ The common fast fade lasts exactly 11 original updates in each direction. The
 swap occurs at full white. Timing-critical fade state uses the fixed-update
 controller, not a generic Tween.
 
+The ordinary room-warp fade covers only the gameplay field at screen y=16-143;
+the status bar remains above it. Ordinary room dialogue likewise converts its
+field-relative textbox positions into that display region: the source's upper
+y=8 and lower y=80 placements appear at screen y=24 and y=96. Full-screen
+menus and pregame screens use their own unshifted screen-space text layouts.
+
 A menu-to-menu switch such as Inventory to Save & Quit can reuse ownership and
 begin the new fade-in while already white. It must not release gameplay between
 the two screens.
@@ -55,6 +61,42 @@ Treasure display mode `$01` draws the live packed-BCD amount as two digit
 tiles, including a leading zero. Satchel records first resolve their selected
 seed treasure, so the same rule keeps the HUD, equipped A/B icons, and stored
 inventory icon synchronized after every accepted seed use.
+
+## Vasu ring menus
+
+`RingMenuController` owns `MENU_RING_APPRAISAL` and `MENU_RING_LIST` through
+the shared lifecycle; `VasuShopEvent` waits for its completion callback. The
+appraisal view retains the status bar at screen y=0-15, and graphics-register
+state `$0f` draws the 16-row appraisal map at y=16-143. Its
+textbox position `$02` consequently begins at screen y=96, between the map's
+y=88 and y=136 borders. The ring-list view hides the status bar, occupies the
+full 160 by 144 screen, and uses the special top two tile rows for the Ring Box.
+
+Both views render the imported unappraised/appraised maps, flags, ring graphics,
+inventory graphics, and original palettes. Sixteen rings occupy each page.
+The `$0f/$10` graphics-register states put the main `w4TileMap` 16 pixels below
+the screen origin: the list's Ring Box comes from the off-screen `$0200`
+segment at the top, while selection row 2 appears at screen y=32. The original
+`mapMenu_tileSubstitutionTable` entries copy the alternate off-screen layout so
+L-1, L-2, and L-3 Ring Boxes expose exactly one, three, and five slots.
+The list's centered ring-name line uses the cleared bank-1 `$9200-$93ff`
+`showItemText2` graphics buffer above the separate description box; it must not
+resolve those tile numbers through a static inventory sheet. Ring-menu sprite
+coordinates are converted from stored OAM coordinates by the hardware X/Y
+biases, including the `$3e/$56` list-cursor rows.
+Select starts the adjacent page, requests `SND_OPENMENU` on its initialization
+update, then moves both pages eight pixels on each of 19 original updates. The
+list cursor flickers while choosing a ring; the Ring Box cursor remains visible
+during that choice and flickers only while choosing a box slot. Page arrows,
+Ring Box membership markers, the equipped `E`, page counts, ring number, and
+TX `$3040+id` name / `$3080+id` description all derive from live inventory
+state.
+
+Appraisal debits the source price before revealing a ring. A new ring is added
+to the obtained bitset after its description; a duplicate is removed and its
+refund is applied only after the result wait. Ring-list selection moves or
+removes a ring in the selected box slot without permitting duplicate slots.
+Closing the list deactivates an equipped ring that is no longer in the box.
 
 ## Gameplay pause lease
 

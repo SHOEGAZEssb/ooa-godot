@@ -49,6 +49,98 @@ claim that the entire surrounding game is complete.
   granting and refilling the four-quarter Heart Container.
   The same reusable treasure entity now also supports falling spawn mode `$02`
   and one-hand grab mode `$01`, used by the adult Maku Tree's Seed Satchel.
+- The complete 64-entry ring catalog, unappraised queue, obtained-ring bitset,
+  Ring Box levels/slots, equipped-ring state, and appraisal count use their
+  original WRAM fields. Vasu's appraisal and ring-list screens use the imported
+  tilemaps, graphics, palettes, and TX `$30xx` text, including 16-ring pages,
+  19-update page scrolls, cursor/marker behavior, appraisal costs, duplicate
+  refunds, the hundredth-ring award flag, box transfers, equip/unequip, and
+  save persistence. The active-ring dispatcher defines the source policy for
+  every ring ID, but a policy is counted as implemented only when its production
+  gameplay consumer is reachable; the per-ring table below records that
+  distinction. Punches retain their source collision/damage/animation/sound
+  paths, sword beams use their one-object cap and imported directional OAM, and
+  transformations are suppressed by underwater/side-scrolling tilesets,
+  menu-disabled events, and shop entities as in the original.
+
+#### Ring-effect coverage
+
+This table covers the effect of *wearing* every ring, independently of whether
+the ring's ordinary acquisition location is currently reachable. **Implemented**
+means that the effect has a production gameplay consumer. **Partial** means that
+some exact behavior is connected but another required item, drop, or world
+system is absent. **Deferred** means that the source policy is encoded and
+validated but the base system does not call it yet. **Correct no-op** identifies
+collector or achievement rings that intentionally have no worn effect; these
+are not missing implementations. [`RingEffects.cs`](../src/inventory/RingEffects.cs)
+remains the single runtime policy table.
+
+| ID | Ring | Coverage | Current behavior or missing consumer |
+| --- | --- | --- | --- |
+| `$00` | Friendship Ring | Correct no-op | Wearing it intentionally does nothing. Vasu's initial award path is implemented. |
+| `$01` | Power Ring L-1 | Implemented | Applies the level-1 sword increase and incoming-damage increase. |
+| `$02` | Power Ring L-2 | Implemented | Applies the level-2 sword increase and incoming-damage increase. |
+| `$03` | Power Ring L-3 | Implemented | Applies the level-3 sword increase and incoming-damage increase. |
+| `$04` | Armor Ring L-1 | Implemented | Applies the level-1 incoming-damage reduction and sword reduction. |
+| `$05` | Armor Ring L-2 | Implemented | Applies the level-2 incoming-damage reduction and sword reduction. |
+| `$06` | Armor Ring L-3 | Implemented | Applies the level-3 incoming-damage reduction and sword reduction. |
+| `$07` | Red Ring | Implemented | Doubles sword damage. |
+| `$08` | Blue Ring | Implemented | Halves incoming damage using the original signed arithmetic. |
+| `$09` | Green Ring | Implemented | Increases sword damage and reduces incoming damage. |
+| `$0a` | Cursed Ring | Implemented | Halves sword damage and doubles incoming damage. |
+| `$0b` | Expert's Ring | Implemented | Enables the stronger unarmed punch, including tile hits, collision, animation, and sound. |
+| `$0c` | Blast Ring | Deferred | Bomb-damage policy exists; active Bomb behavior does not. |
+| `$0d` | Rang Ring L-1 | Deferred | Level-1 boomerang-damage policy exists; active Boomerang behavior does not. |
+| `$0e` | GBA Time Ring | Correct no-op | Wearing it intentionally does nothing. Its Game Link/GBA acquisition path is unavailable. |
+| `$0f` | Maple's Ring | Deferred | The 15-kill meeting threshold is encoded and the kill counter advances, but Maple encounters do not consume it. |
+| `$10` | Steadfast Ring | Implemented | Halves Link's enemy-contact knockback duration. |
+| `$11` | Pegasus Ring | Deferred | Extended-duration policy exists; active Pegasus Seed behavior does not. |
+| `$12` | Toss Ring | Deferred | Strong-throw policy exists; lifted-object carrying and throwing do not. |
+| `$13` | Heart Ring L-1 | Implemented | Restores the source amount after the level-1 movement-distance threshold. |
+| `$14` | Heart Ring L-2 | Implemented | Restores the source amount after the level-2 movement-distance threshold. |
+| `$15` | Swimmer's Ring | Deferred | Fast-swim policy exists; swimming does not. |
+| `$16` | Charge Ring | Implemented | Advances the sword charge counter four times as fast. |
+| `$17` | Light Ring L-1 | Implemented | Extends sword-beam eligibility to two Hearts below full health. |
+| `$18` | Light Ring L-2 | Implemented | Extends sword-beam eligibility to three Hearts below full health. |
+| `$19` | Bomber's Ring | Deferred | Two-Bomb placement policy exists; active Bomb behavior does not. |
+| `$1a` | Green Luck Ring | Deferred | Half-damage policy exists; blade-trap damage has no production consumer. |
+| `$1b` | Blue Luck Ring | Deferred | Half-damage policy exists; enemy-beam damage has no production consumer. |
+| `$1c` | Gold Luck Ring | Implemented | Halves damage from the implemented hole-fall path. |
+| `$1d` | Red Luck Ring | Deferred | Half-damage policy exists; spiked-floor damage has no production consumer. |
+| `$1e` | Green Holy Ring | Deferred | Electricity immunity is encoded; electricity damage has no production consumer. |
+| `$1f` | Blue Holy Ring | Deferred | Zora-fire immunity is encoded; Zora fire has no production consumer. |
+| `$20` | Red Holy Ring | Implemented | Prevents damage from implemented Octorok rock projectiles. |
+| `$21` | Snowshoe Ring | Deferred | Ice-slip immunity is encoded; ice movement does not yet slide Link. |
+| `$22` | Roc's Ring | Deferred | Cracked-floor protection is encoded; crumbling floors are absent. |
+| `$23` | Quicksand Ring | Deferred | Quicksand immunity is encoded; quicksand movement is absent. |
+| `$24` | Red Joy Ring | Implemented | Doubles Rupees collected from implemented enemy/item drops. |
+| `$25` | Blue Joy Ring | Implemented | Doubles Hearts collected from implemented enemy/item drops. |
+| `$26` | Gold Joy Ring | Partial | Doubles the currently supported Heart and Rupee drops; the other source drop kinds are not implemented. |
+| `$27` | Green Joy Ring | Deferred | Ore-doubling policy exists; Ore Chunk drops do not. |
+| `$28` | Discovery Ring | Deferred | Soft-soil detection policy exists; the nearby-soft-earth detector does not. |
+| `$29` | Rang Ring L-2 | Deferred | Level-2 boomerang-damage policy exists; active Boomerang behavior does not. |
+| `$2a` | Octo Ring | Implemented | Uses the Octorok Link disguise and transformed-Link restrictions. |
+| `$2b` | Moblin Ring | Implemented | Uses the Moblin Link disguise and transformed-Link restrictions. |
+| `$2c` | Like Like Ring | Implemented | Uses the Like Like Link disguise and transformed-Link restrictions. |
+| `$2d` | Subrosian Ring | Implemented | Uses the Subrosian Link disguise and transformed-Link restrictions. |
+| `$2e` | First Gen Ring | Implemented | Uses the first-generation Link disguise and transformed-Link restrictions. |
+| `$2f` | Spin Ring | Implemented | Extends the sword action to the source double-spin duration and collision arcs. |
+| `$30` | Bombproof Ring | Deferred | Own-Bomb immunity is encoded; active Bomb behavior does not exist. |
+| `$31` | Energy Ring | Implemented | Replaces the charged Spin Attack with the implemented sword beam and poke handoff. |
+| `$32` | Dbl. Edged Ring | Implemented | Adds the source sword damage and hurts Link once after the first accepted hit. |
+| `$33` | GBA Nature Ring | Correct no-op | Wearing it intentionally does nothing. Its Game Link/GBA acquisition path is unavailable. |
+| `$34` | Slayer's Ring | Correct no-op | It is an achievement ring, not a modifier. The 1,000-kill counter and Vasu award are implemented. |
+| `$35` | Rupee Ring | Correct no-op | It is an achievement ring, not a modifier. The 10,000-Rupee counter and Vasu award are implemented. |
+| `$36` | Victory Ring | Correct no-op | It is an achievement ring, not a modifier. Vasu can honor its earned flag, but the Ganon victory path is absent. |
+| `$37` | Sign Ring | Correct no-op | It is an achievement ring, not a modifier. The 100-broken-sign acquisition path is absent. |
+| `$38` | 100th Ring | Correct no-op | It is an achievement ring, not a modifier. The appraisal counter and award are implemented. |
+| `$39` | Whisp Ring | Deferred | Jinx immunity is encoded; jinx status behavior is absent. |
+| `$3a` | Gasha Ring | Partial | Enemy kills grant double persisted planted-spot credits while worn; planting, growth, and Gasha Tree rewards are absent. |
+| `$3b` | Peace Ring | Deferred | Held-Bomb explosion suppression is encoded; active held Bombs do not exist. |
+| `$3c` | Zora Ring | Deferred | Unlimited-dive policy exists; swimming and diving do not. |
+| `$3d` | Fist Ring | Implemented | Enables the ordinary unarmed punch, including collision, animation, and sound. |
+| `$3e` | Whimsical Ring | Implemented | Uses the source RNG roll for usually weak and occasionally deadly sword damage and its lightning cue. |
+| `$3f` | Protection Ring | Implemented | Forces implemented incoming attacks and terrain falls to one Heart of damage. |
 
 ### NPCs and enemies
 
@@ -63,6 +155,18 @@ claim that the entire surrounding game is complete.
   the moving path-blocking villager, unconditional construction soldiers,
   per-talk random worker text, left/right pickaxe strikes and dirt chips,
   half-pixel hardhat patrols, and the exact Shovel grant/held-item sequence.
+- Vasu Jewelers room `2:ee` instantiates Vasu, Blue Snake, Red Snake, and both
+  help books in source order with imported sprites, palettes, OAM animations,
+  bottom text, collision, and snake `$18` proximity behavior. Both books and
+  the unlinked Red Snake tutorial are complete. Blue Snake supports the
+  fortune setup and original 512-update no-cable failure, while linked-secret
+  and transfer choices stop at their explicit Game Link boundary. Vasu
+  supports his ordinary and linked introductions, Ring Box/Friendship Ring
+  held-item grants, special-ring predicate priority/rewards, paid and free
+  appraisal, duplicate refunds, ring-list/Ring Box management, Quit, empty-list
+  responses, and the forced first appraisal/list sequence. Completion flag
+  `$08` and `wObtainedRingBox` bit `$01` are committed only after the source
+  menu handoffs complete.
 - Keese, Octoroks/projectiles, masked Moblins `$20:$00` and their arrows,
   ordinary Stalfos `$31:$00`, Zols, and Gels using
   ordered room-object placement, original spawn restrictions, shared RNG,
@@ -149,9 +253,10 @@ claim that the entire surrounding game is complete.
 - Title/file select, three save slots, new-file name/message-speed setup, the
   new-game intro, original save image/checksum, previous-generation backups,
   death checkpoints, and explicit Save & Quit flows.
-- HUD (including simultaneous rupee digits and the dungeon-only
+- Top-screen HUD (including simultaneous rupee digits and the dungeon-only
   `gfx_key`/X/key-count field), dialogue, inventory pages, map/dungeon map,
-  live flag editor, and shared fixed-update menu lifecycle.
+  Vasu's appraisal/ring-list interface, live flag/item/ring editor, and shared
+  fixed-update menu lifecycle.
 
 ### Audio
 
@@ -179,8 +284,12 @@ claim that the entire surrounding game is complete.
 - Shovel drop `$0f` consumes its third RNG value and supports the 100-Rupee
   branch; its rope/beetle branches remain suppressed until those enemies are
   implemented.
-- Secret entry, linked-game/Game Link behavior, ring appraisal and the wider
-  ring-effect system beyond the currently represented inventory state.
+- Secret entry and actual Game Link transport/linked ring-secret menus remain
+  unavailable. Room `2:ee` retains the source dialogue, predicates, no-cable
+  result, and non-serial rewards around that explicit external boundary.
+- The ring-effect coverage table above explicitly identifies every deferred or
+  partial effect. Add each missing consumer when its base subsystem is
+  implemented; do not create a second ring-effect table.
 
 ### Graphics and audio
 

@@ -73,13 +73,17 @@ Development controls are intentionally separate from game behavior:
 | C | Chest test |
 | G | Power Bracelet chest test |
 
-In the F1 editor, Tab cycles through global flags, room flags, and linked/items.
+In the F1 editor, Tab cycles through global flags, room flags, linked/items,
+and appraised rings.
 Use Up/Down to select a row, Left/Right to jump through global flags or imported
 treasure variants (and to change the selected room/table on the room page), and
 A to toggle a flag or the linked-game bit. On an item row, A grants that exact
-imported treasure variant and parameter through the live inventory transaction.
-These changes affect the live WRAM-style state and follow the normal explicit
-save rules.
+imported treasure variant and parameter through the live inventory transaction;
+on the ring page, Left/Right selects one of the 64 imported names and A grants
+it to the appraised list. These changes affect the live WRAM-style state and
+follow the normal explicit save rules. Grant a Ring Box on the item page, grant
+the desired rings on the ring page, then use Vasu's list menu to place them in
+the box before equipping them from the normal Inventory screen.
 
 The F fast-travel screen uses the overworld map for present and past, then a
 16-by-16 hexadecimal room grid for each interior group. Use the movement keys

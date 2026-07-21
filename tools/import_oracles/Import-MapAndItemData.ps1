@@ -173,6 +173,8 @@ $seedCodeSource = Get-Content -Raw (
     Join-Path $Disassembly 'object_code\common\items\seeds.s')
 $seedParentSource = Get-Content -Raw (
     Join-Path $Disassembly 'object_code\common\itemParents\seedsParent.s')
+$swordBeamSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\items\swordBeam.s')
 $soundIds = Read-ConstantIds (Join-Path $Disassembly 'constants\common\music.s') 'SND_'
 
 $emberData = [regex]::Match(
@@ -286,6 +288,66 @@ $seedRows.Add(
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'metadata\seed_satchel.tsv'),
     $seedRows,
+    [Text.UTF8Encoding]::new($false))
+
+# ITEM_SWORD_BEAM ($27) is created by a level-2 sword at the source health
+# threshold and by the Energy Ring when charging completes. Preserve its four
+# directional OAM compositions and native movement/collision constants.
+$swordBeamData = [regex]::Match(
+    $itemDataSource,
+    '(?m)^\s*\.db\s+\$(?<gfx>[0-9a-f]{2})\s+\$(?<tile>[0-9a-f]{2})\s+\$(?<palette>[0-9a-f]{2})\s*;\s*\$27:\s*ITEM_SWORD_BEAM')
+$swordBeamAttributes = [regex]::Match(
+    $itemAttributesSource,
+    '(?m)^\s*\.db\s+\$(?<collision>[0-9a-f]{2})\s+\$(?<radius>[0-9a-f]{2})\s+\$(?<damage>[0-9a-f]{2})\s+\$[0-9a-f]{2}\s*;\s*\$27:\s*ITEM_SWORD_BEAM')
+$swordBeamOffsets = [regex]::Match(
+    $swordBeamSource,
+    '(?ms)^@initialOffsetsTable:\s*\.db \$(?<uy>[0-9a-f]{2}) \$(?<ux>[0-9a-f]{2}) \$00.*?\.db \$(?<ry>[0-9a-f]{2}) \$(?<rx>[0-9a-f]{2}) \$00.*?\.db \$(?<dy>[0-9a-f]{2}) \$(?<dx>[0-9a-f]{2}) \$00.*?\.db \$(?<ly>[0-9a-f]{2}) \$(?<lx>[0-9a-f]{2}) \$00')
+$swordBeamOamPointers = [regex]::Match(
+    $itemAnimationsSource,
+    '(?ms)^item27OamDataPointers:[^\r\n]*\r?\n(?<body>(?:\s*\.dw\s+itemOamData[0-9a-f]+\s*\r?\n){4})')
+if (-not $swordBeamData.Success -or -not $swordBeamAttributes.Success -or
+    -not $swordBeamOffsets.Success -or -not $swordBeamOamPointers.Success -or
+    $swordBeamSource -notmatch
+        '(?ms)^@state0:.*?ld \(hl\),SPEED_300.*?ld a,SND_SWORDBEAM.*?^@state1:.*?call itemUpdateDamageToApply.*?call objectApplySpeed.*?call objectCheckTileCollision_allowHoles.*?call itemCheckCanPassSolidTile.*?and \$03.*?xor \$01.*?ldbc INTERAC_CLINK, \$81') {
+    throw 'Could not verify ITEM_SWORD_BEAM data and native behavior.'
+}
+$swordBeamOamLabels = @(
+    [regex]::Matches(
+        $swordBeamOamPointers.Groups['body'].Value,
+        '(?m)^\s*\.dw\s+(?<label>itemOamData[0-9a-f]+)') |
+        ForEach-Object { $_.Groups['label'].Value })
+if ($swordBeamOamLabels.Count -ne 4) {
+    throw "Expected four ITEM_SWORD_BEAM OAM pointers, parsed $($swordBeamOamLabels.Count)."
+}
+function Convert-SignedItemByte([string]$value) {
+    $parsed = [Convert]::ToInt32($value, 16)
+    if ($parsed -ge 0x80) { return $parsed - 0x100 }
+    return $parsed
+}
+$swordBeamTileBase = [Convert]::ToInt32(
+    $swordBeamData.Groups['tile'].Value, 16)
+$swordBeamPalette = [Convert]::ToInt32(
+    $swordBeamData.Groups['palette'].Value, 16) -band 7
+$swordBeamRadius = [Convert]::ToInt32(
+    $swordBeamAttributes.Groups['radius'].Value, 16)
+$swordBeamDamage = -(Convert-SignedItemByte $swordBeamAttributes.Groups['damage'].Value)
+if ($swordBeamDamage -le 0) {
+    throw "Expected ITEM_SWORD_BEAM to have negative source damage, parsed $swordBeamDamage."
+}
+$swordBeamRows = [Collections.Generic.List[string]]::new()
+$swordBeamRows.Add(
+    "# direction`toffset-y`toffset-x`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage`tspeed-raw`tsound`toam")
+$directionPrefixes = @('u', 'r', 'd', 'l')
+for ($direction = 0; $direction -lt 4; $direction++) {
+    $prefix = $directionPrefixes[$direction]
+    $offsetY = Convert-SignedItemByte $swordBeamOffsets.Groups["${prefix}y"].Value
+    $offsetX = Convert-SignedItemByte $swordBeamOffsets.Groups["${prefix}x"].Value
+    $swordBeamRows.Add(
+        "$direction`t$offsetY`t$offsetX`tspr_common_items`t$swordBeamTileBase`t$swordBeamPalette`t$(($swordBeamRadius -shr 4) -band 0x0f)`t$($swordBeamRadius -band 0x0f)`t$swordBeamDamage`t78`t$($soundIds['SND_SWORDBEAM'].ToString('x2'))`t$(Read-ItemOamComposition $swordBeamOamLabels[$direction])")
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'metadata\sword_beam.tsv'),
+    $swordBeamRows,
     [Text.UTF8Encoding]::new($false))
 
 # Preserve the common giveTreasure lookup data so the runtime can update
