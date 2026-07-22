@@ -27,8 +27,11 @@ public sealed class SeedSatchelController
 
     public int TryUse(Player player)
     {
-        if (!_inventory.HasSelectedSatchelSeed())
+        if (_entities.HasActiveSeedProjectile ||
+            !_inventory.HasSelectedSatchelSeed())
+        {
             return 0;
+        }
         int seedItem = TreasureDatabase.TreasureEmberSeeds +
             _inventory.SatchelSelectedSeeds;
         if (!_database.TryGet(seedItem, out SeedSatchelDatabase.SeedRecord record))

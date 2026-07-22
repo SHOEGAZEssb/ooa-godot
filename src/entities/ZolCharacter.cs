@@ -283,6 +283,22 @@ public partial class ZolCharacter : TransitionOffsetNode2D
         return true;
     }
 
+    internal bool TakeBurnHit(int damage)
+    {
+        if (IsDead || !_collisionEnabled || _state is
+            ZolState.RedSplitting or ZolState.RedSplitDelay)
+        {
+            return false;
+        }
+        _health = Math.Max(0, _health - Math.Max(1, damage));
+        if (_health == 0)
+        {
+            IsDead = true;
+            Visible = false;
+        }
+        return true;
+    }
+
     internal void SetStateForValidation(
         ZolState state,
         int counter1 = 0,

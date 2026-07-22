@@ -370,6 +370,115 @@ public sealed partial class ValidationRoot
             throw new InvalidOperationException(
                 "Keese/death-puff transition ownership and offsets were not normalized after scrolling.");
 
+        KeeseCharacter burningKeese = _entities.Entities<KeeseCharacter>()[0];
+        burningKeese.Position = new Vector2(64, 64);
+        _player.WarpTo(new Vector2(152, 112), recordSafe: false);
+        int keeseBeforeBurn = _entities.Entities<KeeseCharacter>().Count;
+        int killSoundsBeforeBurn =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy);
+        SeedSatchelDatabase.SeedRecord emberRecord =
+            new SeedSatchelDatabase().Ember;
+        EmberSeedEffect attachedFlame = _entities.Spawn<EmberSeedEffect>(
+            new EmberSeedSpawn(
+                burningKeese.Position - emberRecord.RightOffset,
+                Vector2I.Right, emberRecord, 4));
+        _entities.Update(1.0 / 60.0, _player);
+        if (!burningKeese.IsVisibleInTree() ||
+            attachedFlame.State != EmberSeedEffect.EmberState.Burning ||
+            attachedFlame.FlameCounter != 59 ||
+            attachedFlame.Position != burningKeese.Position ||
+            _entities.Entities<KeeseCharacter>().Count != keeseBeforeBurn ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 0)
+        {
+            throw new InvalidOperationException(
+                "COLLISIONEFFECT_BURN did not attach PART_BURNING_ENEMY to the live Keese before damage resolution.");
+        }
+        KeeseCharacter.KeeseState burningState = burningKeese.State;
+        int burningCounter1 = burningKeese.Counter1;
+        int burningCounter2 = burningKeese.Counter2;
+
+        burningKeese.Position += new Vector2(3, 2);
+        _entities.Update(1.0 / 60.0, _player);
+        if (attachedFlame.Position != burningKeese.Position ||
+            attachedFlame.FlameCounter != 58)
+        {
+            throw new InvalidOperationException(
+                "PART_BURNING_ENEMY did not follow its related enemy on the first burn update.");
+        }
+        for (int update = 1; update < 58; update++)
+            _entities.Update(1.0 / 60.0, _player);
+        if (attachedFlame.FlameCounter != 1 || burningKeese.State != burningState ||
+            burningKeese.Counter1 != burningCounter1 ||
+            burningKeese.Counter2 != burningCounter2 ||
+            _entities.Entities<KeeseCharacter>().Count != keeseBeforeBurn)
+        {
+            throw new InvalidOperationException(
+                "PART_BURNING_ENEMY did not stun Keese through counter1 value 1 without killing it.");
+        }
+        _entities.Update(1.0 / 60.0, _player);
+        if (_entities.Entities<EmberSeedEffect>().Count != 0 ||
+            _entities.Entities<KeeseCharacter>().Count != keeseBeforeBurn - 1 ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
+                killSoundsBeforeBurn + 1)
+        {
+            throw new InvalidOperationException(
+                "PART_BURNING_ENEMY did not resolve Ember damage and enemy death on update 59.");
+        }
+
+        // Reproduce the edge case where the moving seed narrowly misses but
+        // its already-landed flame overlaps the enemy on a later collision pass.
+        KeeseCharacter edgeKeese = _entities.Entities<KeeseCharacter>().Single();
+        edgeKeese.Position = new Vector2(180, 120);
+        _player.WarpTo(new Vector2(220, 150), recordSafe: false);
+        EmberSeedEffect landedFlame = _entities.Spawn<EmberSeedEffect>(
+            new EmberSeedSpawn(
+                new Vector2(80, 80), Vector2I.Up, emberRecord, 4));
+        for (int update = 0; update < 9; update++)
+            _entities.Update(1.0 / 60.0, _player);
+        if (landedFlame.State != EmberSeedEffect.EmberState.Burning ||
+            landedFlame.FlameCounter != 0x3a ||
+            !landedFlame.CollisionEnabled)
+        {
+            throw new InvalidOperationException(
+                "The edge-hit regression could not establish an active landed Ember flame.");
+        }
+
+        float edgeOverlap = emberRecord.CollisionRadiusX +
+            edgeKeese.Record.CollisionRadiusX - 1.0f;
+        edgeKeese.Position = landedFlame.Position + Vector2.Right * edgeOverlap;
+        int edgeKillSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy);
+        _entities.Update(1.0 / 60.0, _player);
+        KeeseCharacter.KeeseState edgeState = edgeKeese.State;
+        int edgeCounter1 = edgeKeese.Counter1;
+        int edgeCounter2 = edgeKeese.Counter2;
+        if (landedFlame.FlameCounter != 59 ||
+            landedFlame.Position != edgeKeese.Position)
+        {
+            throw new InvalidOperationException(
+                "A landed Ember flame touching the edge of ENEMY_KEESE did not adopt its burn target.");
+        }
+        for (int update = 1; update < 59; update++)
+            _entities.Update(1.0 / 60.0, _player);
+        if (landedFlame.FlameCounter != 1 || edgeKeese.State != edgeState ||
+            edgeKeese.Counter1 != edgeCounter1 ||
+            edgeKeese.Counter2 != edgeCounter2)
+        {
+            throw new InvalidOperationException(
+                "The edge-contact Ember flame did not retain its enemy through burn counter 1.");
+        }
+        _entities.Update(1.0 / 60.0, _player);
+        if (_entities.Entities<EmberSeedEffect>().Count != 0 ||
+            _entities.Entities<KeeseCharacter>().Count != 0 ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
+                edgeKillSounds + 1)
+        {
+            throw new InvalidOperationException(
+                "An edge-contact Ember burn left ENEMY_KEESE inactive instead of resolving its death.");
+        }
+
         var normalPuff = new EnemyDeathPuffEffect();
         normalPuff.Initialize(Vector2.Zero);
         for (int frame = 1; frame <= 20; frame++)
@@ -412,7 +521,8 @@ public sealed partial class ValidationRoot
 
         GD.Print("Validated 53 imported ENEMY_KEESE room records, subid `$00/`$01 timing, " +
             "original RNG-driven flight, 4-update wing animation, collision radii, contact damage, " +
-            "invincibility/knockback counters, one-hit level-1 sword defeat, common 20/28-update " +
+            "invincibility/knockback counters, flying and landed-edge 59-update Ember burn/stun, " +
+            "one-hit level-1 sword defeat, common 20/28-update " +
             "death puffs with SND_KILLENEMY and palette toggling, and retained/preloaded scrolling.");
     }
 

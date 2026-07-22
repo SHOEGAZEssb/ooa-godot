@@ -243,15 +243,15 @@ internal sealed partial class LightableTorchRoomEntity : Node2D,
         Finished = true;
     }
 
-    public bool ApplySeedHit(
+    public SeedHitResult ApplySeedHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
         ICollection<RoomEntitySpawn> spawns)
     {
         if (!_initialized || _hit || Finished || !hitbox.Intersects(CollisionBounds))
-            return false;
+            return SeedHitResult.None;
         _hit = true;
-        return true;
+        return SeedHitResult.Consume;
     }
 
     public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }

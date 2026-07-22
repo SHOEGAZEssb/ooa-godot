@@ -90,13 +90,19 @@ public sealed partial class ValidationRoot
 
         var noSpawns = new List<RoomEntitySpawn>();
         LightableTorchRoomEntity left = torches[0];
-        if (!left.ApplySeedHit(
-                left.CollisionBounds, left.Position, noSpawns) ||
+        SeedSatchelDatabase.SeedRecord emberRecord =
+            new SeedSatchelDatabase().Ember;
+        _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
+            left.Position - emberRecord.RightOffset,
+            Vector2I.Right, emberRecord, group));
+        _entities.Update(1.0 / 60.0, _player);
+        if (_entities.Entities<EmberSeedEffect>().Count != 0 ||
             !left.HitPending || handler.State.LitCount != 0 ||
             room.Layout[0x33] != 0x08)
         {
             throw new InvalidOperationException(
-                "The first 5:ed torch did not retain the original hit-to-state-2 update delay.");
+                "The first 5:ed torch did not consume its Ember Seed without a fire animation " +
+                "and retain the original hit-to-state-2 update delay.");
         }
         _entities.Update(1.0 / 60.0, _player);
         if (handler.State.LitCount != 1 || room.Layout[0x33] != 0x09 ||
@@ -130,8 +136,9 @@ public sealed partial class ValidationRoot
 
         LightableTorchRoomEntity right =
             _entities.Entities<LightableTorchRoomEntity>().Single();
-        if (right.PackedPosition != 0x3b || !right.ApplySeedHit(
-                right.CollisionBounds, right.Position, noSpawns))
+        if (right.PackedPosition != 0x3b || right.ApplySeedHit(
+                right.CollisionBounds, right.Position, noSpawns) !=
+                SeedHitResult.Consume)
         {
             throw new InvalidOperationException("The second 5:ed torch rejected an Ember Seed collision.");
         }

@@ -695,9 +695,20 @@ public sealed partial class ValidationRoot
             throw new InvalidOperationException(
                 "LINK_ANIM_MODE_21 did not end on update 8.");
 
+        int activeSeedAmount = _inventory.EmberSeeds;
+        int activeSeedCount = _entities.Entities<EmberSeedEffect>().Count;
+        _player.StartSeedSatchelActionForValidation(Vector2.Left);
+        if (_player.IsUsingSeedSatchel ||
+            _inventory.EmberSeeds != activeSeedAmount ||
+            _entities.Entities<EmberSeedEffect>().Count != activeSeedCount)
+        {
+            throw new InvalidOperationException(
+                "ITEM_SEED_SATCHEL allocated or consumed ammo while its first seed was still active.");
+        }
+
         GD.Print("Validated ITEM_SEED_SATCHEL immediate BCD-20 grant/persistence, quantity overlays, " +
             "distinct inventory/equipped icon sheets and equipped palette transform, " +
-            "four offsets, Link pose, Ember flight/Z, " +
+            "four offsets, Link pose, one-active-seed cap, Ember flight/Z, " +
             "fixed-bank-1 flame OAM/sounds, break effects, direct ROOMFLAG-$80 tree ignition, " +
             "and room 0:48's watcher-backed permanent tree removal across re-entry/save reload.");
     }

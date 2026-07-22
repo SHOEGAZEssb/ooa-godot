@@ -36,6 +36,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     private int _frameCounter;
     private int _loopStart;
     private bool _collisionEnabled;
+    private ISeedBurnTarget? _burnTarget;
 
     public bool Finished => _state == EmberState.Finished;
     internal EmberState State => _state;
@@ -152,11 +153,30 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         BeginBurning();
     }
 
-    internal void OnEnemyCollision()
+    internal void OnCollision(
+        SeedHitResult result,
+        ISeedBurnTarget? burnTarget = null)
     {
-        if (!CollisionEnabled)
+        if (!CollisionEnabled || result == SeedHitResult.None)
             return;
         _collisionEnabled = false;
+        if (result == SeedHitResult.Consume)
+        {
+            Finish();
+            return;
+        }
+        if (burnTarget is not null)
+        {
+            bool wasFlying = _state == EmberState.Flying;
+            if (wasFlying)
+            {
+                // seedItemState1 performs one itemAnimate call before
+                // COLLISIONEFFECT_BURN.
+                AdvanceAnimation();
+            }
+            BeginEnemyBurn(burnTarget, playSound: wasFlying);
+            return;
+        }
         if (_state == EmberState.Flying)
         {
             // seedItemState1 branches to @seedCollidedWithEnemy before its
@@ -190,12 +210,38 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         QueueRedraw();
     }
 
+    private void BeginEnemyBurn(ISeedBurnTarget target, bool playSound)
+    {
+        _burnTarget = target;
+        _state = EmberState.Burning;
+        // PART_BURNING_ENEMY $12 initializes counter1 to 59. Its final
+        // update restores the post-hit health and releases the target.
+        _flameCounter = 59;
+        _zFixed = 0;
+        FollowBurnTarget();
+        if (playSound)
+            _playSound(_record.FlameSound);
+        QueueRedraw();
+    }
+
     private void UpdateBurning(ICollection<RoomEntitySpawn> spawns)
     {
+        if (_burnTarget is not null)
+        {
+            if (!_burnTarget.IsSeedBurning)
+            {
+                Finish();
+                return;
+            }
+            FollowBurnTarget();
+        }
         _flameCounter--;
         if (_flameCounter == 0)
         {
-            TryBreakTile(spawns);
+            if (_burnTarget is null)
+                TryBreakTile(spawns);
+            else
+                _burnTarget.CompleteSeedBurn(spawns);
             Finish();
             return;
         }
@@ -215,6 +261,14 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             return;
         }
         QueueRedraw();
+    }
+
+    private void FollowBurnTarget()
+    {
+        if (_burnTarget is null)
+            return;
+        _precisePosition = _burnTarget.SeedBurnPosition;
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
     }
 
     private void TryBreakTile(ICollection<RoomEntitySpawn> spawns)

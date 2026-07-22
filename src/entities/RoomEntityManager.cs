@@ -52,6 +52,21 @@ public sealed class RoomEntityManager
     internal int ActiveTriggers => _activeTriggers;
     internal int FrameCounter => _enemyFrameCounter;
     internal int RandomCalls => _random.Calls;
+    internal bool HasActiveSeedProjectile
+    {
+        get
+        {
+            foreach (IRoomEntity entity in _activeEntities)
+            {
+                if (entity is ISeedProjectileRoomEntity &&
+                    entity is not IRoomEntityLifetime { Finished: true })
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
     internal byte NextRandomValue() => _random.Next().Value;
     public bool PlayerSwordDisabled
     {
@@ -275,6 +290,8 @@ public sealed class RoomEntityManager
             ProcessSpawns(frame);
             foreach (IRoomEntity entity in _activeEntities.ToArray())
             {
+                if (entity is ISeedBurnTarget { IsSeedBurning: true })
+                    continue;
                 if (entity is IFixedRoomEntity fixedEntity)
                     fixedEntity.UpdateFrame(frame, _pendingSpawns);
                 ProcessSpawns(frame);
@@ -381,14 +398,15 @@ public sealed class RoomEntityManager
             {
                 if (target is not ISeedHittableRoomEntity hittable)
                     continue;
-                if (!hittable.ApplySeedHit(
+                SeedHitResult result = hittable.ApplySeedHit(
                     seed.CollisionBounds,
                     seed.CollisionBounds.GetCenter(),
-                    _pendingSpawns))
+                    _pendingSpawns);
+                if (result == SeedHitResult.None)
                 {
                     continue;
                 }
-                seed.OnEnemyCollision();
+                seed.OnCollision(result, hittable as ISeedBurnTarget);
                 break;
             }
         }

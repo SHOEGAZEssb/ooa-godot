@@ -40,17 +40,31 @@ internal interface ISwordHittableRoomEntity
 
 internal interface ISeedHittableRoomEntity
 {
-    bool ApplySeedHit(
+    SeedHitResult ApplySeedHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
         ICollection<RoomEntitySpawn> spawns);
+}
+
+internal enum SeedHitResult
+{
+    None,
+    Ignite,
+    Consume
 }
 
 internal interface ISeedProjectileRoomEntity
 {
     bool CollisionEnabled { get; }
     Rect2 CollisionBounds { get; }
-    void OnEnemyCollision();
+    void OnCollision(SeedHitResult result, ISeedBurnTarget? burnTarget);
+}
+
+internal interface ISeedBurnTarget
+{
+    bool IsSeedBurning { get; }
+    Vector2 SeedBurnPosition { get; }
+    void CompleteSeedBurn(ICollection<RoomEntitySpawn> spawns);
 }
 
 internal interface IPlayerProjectileRoomEntity

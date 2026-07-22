@@ -30,29 +30,54 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     Action? finished = null)
     : RoomEntityAdapter<T>(entity, setTransitionDrawOffset),
         ILinkContactEntity, ISwordHittableRoomEntity, ISeedHittableRoomEntity,
-        IRoomEntityLifetime,
+        ISeedBurnTarget, IRoomEntityLifetime,
         IRoomEnemyCounterEntity, IRoomKillTrackedEnemy
     where T : Node2D
 {
+    private bool _seedBurning;
+
     public bool Finished => combat.Finished;
     public bool CountsAsEnemy => countsAsEnemy && !combat.Finished;
+    public bool IsSeedBurning => _seedBurning;
+    public Vector2 SeedBurnPosition => Entity.Position;
     public int KillableEnemyIndex => killableEnemyIndex;
     // enemyDie and enemyDie_uncounted both advance the lifetime/special-ring
     // counters. Only the separate recent-defeat reservation requires a
     // nonzero wKillableEnemyIndex.
     public bool MarksEnemyKilled => marksEnemyKilled?.Invoke() ?? true;
-    public void HandleLinkContact(Player player) => combat.HandleLinkContact(player);
+    public void HandleLinkContact(Player player)
+    {
+        if (!_seedBurning)
+            combat.HandleLinkContact(player);
+    }
     public bool ApplySwordHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
         int damage,
         ICollection<RoomEntitySpawn> spawns) =>
-        combat.ApplySwordHit(hitbox, sourcePosition, damage, spawns);
-    public bool ApplySeedHit(
+        !_seedBurning && combat.ApplySwordHit(hitbox, sourcePosition, damage, spawns);
+    public SeedHitResult ApplySeedHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
         ICollection<RoomEntitySpawn> spawns) =>
-        combat.ApplySwordHit(hitbox, sourcePosition, 2, spawns);
+        ApplySeedHit(hitbox);
+
+    private SeedHitResult ApplySeedHit(Rect2 hitbox)
+    {
+        if (_seedBurning || !combat.Intersects(hitbox))
+        {
+            return SeedHitResult.None;
+        }
+        _seedBurning = true;
+        return SeedHitResult.Ignite;
+    }
+    public void CompleteSeedBurn(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!_seedBurning)
+            return;
+        _seedBurning = false;
+        combat.ApplyBurnHit(2, spawns);
+    }
     public void OnFinished(ICollection<RoomEntitySpawn> spawns) => finished?.Invoke();
 }
 
@@ -65,7 +90,8 @@ internal sealed class EmberSeedRoomEntity(EmberSeedEffect seed)
     public Rect2 CollisionBounds => Entity.CollisionBounds;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(spawns);
-    public void OnEnemyCollision() => Entity.OnEnemyCollision();
+    public void OnCollision(SeedHitResult result, ISeedBurnTarget? burnTarget) =>
+        Entity.OnCollision(result, burnTarget);
     public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }
 
@@ -446,6 +472,7 @@ internal sealed class KeeseRoomEntity
             () => keese.IsDead,
             () => keese.CollisionBounds,
             (_, damage) => keese.TakeSwordHit(damage),
+            keese.TakeSwordHit,
             keese.OverlapsLink,
             () => keese.Position,
             keese.Record.DamageQuarters,
@@ -481,6 +508,7 @@ internal sealed class OctorokRoomEntity
             () => octorok.IsDead,
             () => octorok.CollisionBounds,
             octorok.TakeSwordHit,
+            octorok.TakeBurnHit,
             octorok.OverlapsLink,
             () => octorok.Position,
             octorok.Record.DamageQuarters,
@@ -527,6 +555,7 @@ internal sealed class MaskedMoblinRoomEntity
             () => moblin.IsDead,
             () => moblin.CollisionBounds,
             moblin.TakeSwordHit,
+            damage => moblin.TakeSwordHit(Vector2.Zero, damage),
             moblin.OverlapsLink,
             () => moblin.Position,
             moblin.Record.DamageQuarters,
@@ -574,6 +603,7 @@ internal sealed class StalfosRoomEntity
             () => stalfos.IsDead,
             () => stalfos.CollisionBounds,
             stalfos.TakeSwordHit,
+            damage => stalfos.TakeSwordHit(Vector2.Zero, damage),
             stalfos.OverlapsLink,
             () => stalfos.Position,
             stalfos.Record.DamageQuarters,
@@ -621,6 +651,7 @@ internal sealed class ZolRoomEntity
             () => zol.IsDead,
             () => zol.CollisionBounds,
             (_, damage) => zol.TakeSwordHit(damage),
+            zol.TakeBurnHit,
             zol.OverlapsLink,
             () => zol.Position,
             zol.Record.DamageQuarters,
@@ -653,6 +684,7 @@ internal sealed class GelRoomEntity
             () => gel.IsDead,
             () => gel.CollisionBounds,
             (_, damage) => gel.TakeSwordHit(damage),
+            gel.TakeSwordHit,
             player =>
             {
                 if (gel.OverlapsLink(player.Position))

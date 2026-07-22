@@ -114,8 +114,9 @@ lists or encode room-specific dig coordinates.
 
 Active Seed Satchel use follows the same parent/child ownership boundary.
 `Player` owns `LINK_ANIM_MODE_21`'s eight-update input/movement lock;
-`SeedSatchelController` checks the selected BCD counter, allocates the child
-through `RoomEntityManager`, and only then performs `decNumActiveSeeds`.
+`SeedSatchelController` rejects use while a prior seed child remains active,
+checks the selected BCD counter, allocates the child through
+`RoomEntityManager`, and only then performs `decNumActiveSeeds`.
 `EmberSeedEffect` owns `ITEM_EMBER_SEED $20` subid `$00`: the setup-only first
 update, signed Link-relative offset, `SPEED_c0` motion, speedZ `-$20`, gravity
 `$1c`, ground/hazard landing, item animation, and the `$3a`-update flame. On
@@ -133,8 +134,13 @@ position `$68` with mask `$02`; its matching `singleTileChanges.s` row restores
 `$3a` on re-entry and after save reload. Unwatched `$ce` tiles remain transient.
 Enemy adapters share their accepted hit/death path with the seed
 capability; the projectile disables its collision after the first accepted hit
-and changes to the flame state. Keep later Scent, Pegasus, Gale, and Mystery
-state machines distinct when they are implemented.
+and changes to the flame state. Enemy contact mirrors `COLLISIONEFFECT_BURN`
+and `PART_BURNING_ENEMY $12`: contact during either flight or the landed flame
+adopts the related enemy, follows it, suppresses its updates and contact, and
+resolves the two-damage hit after the part's 59-update counter. A lightable torch
+instead consumes the Ember Seed immediately without creating that flame
+animation, then lights on its following object update. Keep later Scent,
+Pegasus, Gale, and Mystery state machines distinct when they are implemented.
 
 `INTERAC_GASHA_SPOT $b6` is split between room initialization and one native
 interaction entity. `GashaSpotDatabase` applies the planted `$f5` sprout below

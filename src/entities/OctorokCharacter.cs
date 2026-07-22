@@ -116,17 +116,29 @@ public partial class OctorokCharacter : TransitionOffsetNode2D
         if (IsDead || _invincibilityCounter > 0)
             return false;
 
+        if (!TakeRawDamage(damage))
+            return false;
+        if (IsDead)
+            return true;
+
+        _invincibilityCounter = 0x10;
+        _knockbackCounter = 0x08;
+        _knockbackAngle = GetCardinalAngleAwayFrom(sourcePosition);
+        return true;
+    }
+
+    internal bool TakeBurnHit(int damage) => TakeRawDamage(damage);
+
+    private bool TakeRawDamage(int damage)
+    {
+        if (IsDead)
+            return false;
         _health = Math.Max(0, _health - Math.Max(1, damage));
         if (_health == 0)
         {
             IsDead = true;
             Visible = false;
-            return true;
         }
-
-        _invincibilityCounter = 0x10;
-        _knockbackCounter = 0x08;
-        _knockbackAngle = GetCardinalAngleAwayFrom(sourcePosition);
         return true;
     }
 
