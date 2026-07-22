@@ -3069,3 +3069,106 @@ $rightMoblinSpecs = @(
 Write-MakuRescueCommands 'maku_sprout_rescue_moblin_right.tsv' `
     'moblin_subid01Script' 'moblin_subid01Script' `
     $makuScriptsSource $rightMoblinSpecs
+
+# Room 0:5c's INTERAC_MISCELLANEOUS_2 $dc:$01 waits on the signal written by
+# nextToOverworldKeyhole, then runs a compact script around two native tile
+# removal helpers. Keep the command boundaries sourced from scripts.s while
+# preserving the helper's ordered ordinary/interleaved writes and puff spawns.
+$graveyardScriptPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
+$graveyardScriptSource = Get-Content -Raw $graveyardScriptPath
+$graveyardHelperSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+$graveyardControllerSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous2.s')
+$graveyardObjectSource = Get-Content -Raw (
+    Join-Path $Disassembly 'objects\ages\mainData.s')
+
+if ($graveyardControllerSource -notmatch '(?ms)^interactiondc_subid01:.*?checkInteractionState\s+jp nz,interactionRunScript.*?getThisRoomFlags\s+and \$80\s+jp nz,interactionDelete.*?mainScripts\.interactiondcSubid01Script.*?interactionSetAlwaysUpdateBit' -or
+    $graveyardObjectSource -notmatch '(?ms)^group0Map5cObjectData:\s+obj_Interaction \$71 \$05 \$40 \$98\s+obj_Interaction \$dc \$01\s+obj_End' -or
+    $graveyardHelperSource -notmatch '(?ms)^interactiondc_removeGraveyardGateTiles1:\s+ld a,\$0a\s+call setScreenShakeCounter\s+ld a,\$3a\s+ld c,\$34\s+call setTile\s+ld a,\$3a\s+ld c,\$44\s+call setTile.*?^@interleavedTiles:\s+\.db \$33 \$3a \$89 \$01\s+\.db \$35 \$3a \$89 \$03\s+\.db \$43 \$98 \$ec \$01\s+\.db \$45 \$9a \$ec \$03' -or
+    $graveyardHelperSource -notmatch '(?ms)^interactiondc_removeGraveyardGateTiles2:\s+ld a,\$0a\s+call setScreenShakeCounter\s+ld a,\$3a\s+ld c,\$33\s+call setTile\s+ld a,\$3a\s+ld c,\$35\s+call setTile\s+ld a,\$3a\s+ld c,\$43\s+call setTile\s+ld a,\$3a\s+ld c,\$45\s+call setTile\s+ld bc,\$4830\s+call interactiondc_spawnPuff\s+ld bc,\$4860\s+jp interactiondc_spawnPuff' -or
+    $graveyardHelperSource -notmatch '(?ms)^interactiondc_spawnPuff:.*?INTERAC_PUFF.*?Interaction\.yh\s+ld \(hl\),b.*?Interaction\.xh\s+ld \(hl\),c') {
+    throw 'Room 0:5c graveyard-gate controller, object order, tile phases, or puff helper changed.'
+}
+
+$graveyardScriptMatch = [regex]::Match(
+    $graveyardScriptSource,
+    '(?ms)^interactiondcSubid01Script:\s*(?<body>.*?)(?=^; =|^\S[^:\r\n]*:)')
+if (-not $graveyardScriptMatch.Success) {
+    throw 'Could not isolate interactiondcSubid01Script.'
+}
+$graveyardSupportedOpcodes = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @(
+    'checkcfc0bit', 'setmusic', 'wait', 'asm15', 'resetmusic',
+    'playsound', 'enableinput', 'scriptend')) {
+    [void]$graveyardSupportedOpcodes.Add($opcode)
+}
+$graveyardParsed = @(Read-AssemblyCutsceneCommands `
+    $graveyardScriptPath $graveyardScriptSource 'interactiondcSubid01Script' `
+    $graveyardScriptMatch.Groups['body'].Index `
+    $graveyardScriptMatch.Groups['body'].Length `
+    $graveyardSupportedOpcodes)
+$graveyardExpected = @(
+    @('checkcfc0bit', '0'),
+    @('setmusic', 'SNDCTRL_STOPMUSIC'),
+    @('wait', '60'),
+    @('asm15', 'scriptHelp.interactiondc_removeGraveyardGateTiles1'),
+    @('wait', '45'),
+    @('asm15', 'scriptHelp.interactiondc_removeGraveyardGateTiles2'),
+    @('wait', '60'),
+    @('resetmusic', ''),
+    @('playsound', 'SND_SOLVEPUZZLE'),
+    @('enableinput', ''),
+    @('scriptend', '')
+)
+if ($graveyardParsed.Count -ne $graveyardExpected.Count) {
+    throw "interactiondcSubid01Script expected 11 commands, parsed $($graveyardParsed.Count)."
+}
+for ($index = 0; $index -lt $graveyardExpected.Count; $index++) {
+    $actualOperands = if ($null -eq $graveyardParsed[$index].Operands) {
+        ''
+    } else {
+        ([string]$graveyardParsed[$index].Operands).Trim()
+    }
+    if ($graveyardParsed[$index].Opcode -ne $graveyardExpected[$index][0] -or
+        $actualOperands -ne $graveyardExpected[$index][1]) {
+        throw "interactiondcSubid01Script command $index changed from $($graveyardExpected[$index] -join ' ')."
+    }
+}
+
+$graveyardEventRows = @(
+    "# group`troom`tid`tsubid`troom-flag`tclear-tile`tshake-frames`tphase1-ordinary`tphase1-interleaved`tphase1-puffs`tphase2-ordinary`tphase2-puffs`tsource"
+    "0`t5c`tdc`t01`t80`t3a`t10`t34,44`t33:3a:89:1,35:3a:89:3,43:98:ec:1,45:9a:ec:3`t48:40,48:50`t33,35,43,45`t48:30,48:60`tinteractiondcSubid01Script;scriptHelper.s:interactiondc_removeGraveyardGateTiles1/2"
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\graveyard_gate_event.tsv'),
+    $graveyardEventRows, [Text.UTF8Encoding]::new($false))
+
+$graveyardCommandRows = [Collections.Generic.List[string]]::new()
+$graveyardCommandRows.Add(
+    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
+$graveyardSpecs = @(
+    @('setmusic', '', 'f0', '', ''),
+    @('wait', '', '60', '', ''),
+    @('native', '', '', '', 'RemoveGateTiles1'),
+    @('wait', '', '45', '', ''),
+    @('native', '', '', '', 'RemoveGateTiles2'),
+    @('wait', '', '60', '', ''),
+    @('setmusic', '', 'ff', '', ''),
+    @('playsound', '', '4d', '', ''),
+    @('enableinput', '', '', '', ''),
+    @('scriptend', '', '', '', '')
+)
+for ($index = 0; $index -lt $graveyardSpecs.Count; $index++) {
+    # Skip the leading checkcfc0bit: the room event remains armed until the
+    # reusable keyhole controller supplies that exact signal.
+    $sourceCommand = $graveyardParsed[$index + 1]
+    $spec = $graveyardSpecs[$index]
+    $graveyardCommandRows.Add((New-CutsceneCommandRow `
+        'interactiondcSubid01Script' $index $sourceCommand.Label `
+        $sourceCommand.Line $spec[0] $spec[1] $spec[2] $spec[3] $spec[4]))
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\graveyard_gate_commands.tsv'),
+    $graveyardCommandRows, [Text.UTF8Encoding]::new($false))

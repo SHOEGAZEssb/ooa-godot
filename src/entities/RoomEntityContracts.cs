@@ -181,6 +181,10 @@ internal sealed record FallingDownHoleSpawn(Vector2 Position) : RoomEntitySpawn;
 internal sealed record DungeonKeyUseSpawn(
     Vector2 Position,
     TreasureDatabase.TreasureObjectVisualRecord Visual) : RoomEntitySpawn;
+internal sealed record OverworldKeyUseSpawn(
+    Vector2 Position,
+    OverworldKeyholeDatabase.Record Visual,
+    OverworldKeyholeDatabase.ConstantsRecord Constants) : RoomEntitySpawn;
 internal sealed record CutsceneNpcSpawn(
     NpcDatabase.NpcRecord Record,
     string Name,

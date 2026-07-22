@@ -133,6 +133,18 @@ large-room dungeon-property bits, torch tiles and collision data, treasure
 object, falling motion, and sound IDs rather than deriving any of them from
 room `5:ed` at runtime.
 
+Overworld named-key locks are also imported as a reusable source closure.
+`Import-NpcData.ps1` emits all six keyhole locations, their treasure IDs and
+per-key `$18` object visuals, the three collision-set/tile mappings, and the
+shared push, flag, text, sound, Z-motion, gravity, and hold constants. This
+metadata is broader than current gameplay coverage: only room `0:5c`'s
+Graveyard Key consequence is active, while the other five records remain typed
+inputs for their eventual room events. `Import-CutsceneData.ps1` separately
+emits room `0:5c`'s `$dc:$01` placement and parsed script command stream, while
+asserting the native two-phase gate helper. Keeping the reusable keyhole
+predicate separate from the room-specific consequence avoids encoding a
+one-room key test or pretending that the other five locks already work.
+
 Enemy species records remain separate from the ordered room-object stream.
 `Import-EnemyData.ps1` resolves ordinary `ENEMY_STALFOS $31:$00` subid data,
 walk/jump animation pointers, aliased OAM pointers, graphics header `$9b`, and

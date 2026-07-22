@@ -755,6 +755,30 @@ interaction slots. A single source script still belongs in the typed command
 runner, and an unrelated object later in the room stream must not be absorbed
 into the event merely because it shares the room.
 
+Present room `0:5c` is the reference for a reusable named-key interaction that
+signals a separate room-specific event:
+
+- `OverworldKeyholeController` consumes the imported six-location keyhole
+  table and collision-set/tile mappings. At the Graveyard lock, Link must face
+  up from below while pushing the keyhole. The source initializes counter `$20`
+  and decrements it in both the common push handler and the keyhole handler, so
+  the lock opens after exactly 10 updates; do not normalize that to 20.
+- A missing Graveyard Key shows TX `$5109` once per room through information
+  mask `$20`. A successful attempt plays `SND_OPENCHEST`, sets current-room bit
+  `$80`, signals the waiting `$dc:$01` interaction, and creates the matching
+  `$18` key sprite. Named overworld keys are retained rather than consumed.
+- `GraveyardGateEvent` begins as a non-blocking waiting interaction. The
+  keyhole signal starts the imported 60/45/60-update script, whose two native
+  helpers retain their source-order tile writes, puff coordinates and sounds,
+  and Y-then-X shared-RNG shake calls. The script owns music stop/restore, the
+  solve cue, and input release; current-room bit `$80` selects the persistent
+  opened layout and suppresses the controller on re-entry.
+- The room's other placement, `$71:$05`, is not part of the gate. It clamps the
+  east edge only for a mounted companion and is deliberately dormant for
+  ordinary Link while companion actors remain unavailable. The other five
+  imported named-key rows likewise supply shared metadata but must not become
+  active until their distinct room consequences are traced and implemented.
+
 Room `1:38` is the reference for an event whose interaction scripts create
 more script owners and later hand combat back to the entity system. Keep the
 sprout, `$6b:$04` controller, left `$96:$00` Moblin, right `$96:$01` Moblin,

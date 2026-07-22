@@ -253,6 +253,14 @@ remains the single runtime policy table.
   bit `$40` suppresses all three children and the event on re-entry. The
   unrelated `$b6:$03` Gasha spot follows those actors in the same source object
   order and uses the complete shared planting/growth/reward system.
+- Present room `0:5c`'s Graveyard Key gate, including the source doubled
+  20-count push test (10 updates), retained named key, one-time missing-key TX
+  `$5109`, rising `$18` key visual, room bit `$80`, and the typed
+  60/45/60-update opening sequence. The two native phases preserve their
+  interleaved tile writes, puff positions and sounds, two-axis shared-RNG
+  shaking, music stop/restore, solve cue, input lock, and completed re-entry
+  layout. The unrelated `$71:$05` east-boundary interaction applies only while
+  riding a companion and remains dormant until mounted companion actors exist.
 - Room `1:38`'s complete Maku Sprout rescue, including the exact
   `wMakuTreeState`/saved-flag predicate, synchronized jumping interaction
   Moblins, replacement by two ordinary masked-Moblin enemies, live enemy-count

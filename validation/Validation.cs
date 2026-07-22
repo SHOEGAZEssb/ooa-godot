@@ -318,6 +318,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateBraceletChestAndPushGate();
         ValidatePushBlocks();
         ValidateDungeonMechanics();
+        ValidateOverworldKeyholeAndGraveyardGate();
         ValidateDarkRoomInteractions();
         ValidateDungeonKeyDoors();
         ValidateMapScreen();

@@ -10,6 +10,7 @@ public sealed class PlayerWorld : IPlayerWorld
     private readonly RoomCollision _collision;
     private readonly PushBlockController _pushBlocks;
     private readonly DungeonKeyDoorController _keyDoors;
+    private readonly OverworldKeyholeController _keyholes;
     private readonly TerrainController _terrain;
     private readonly CombatController _combat;
     private readonly RoomEntityManager _entities;
@@ -37,6 +38,7 @@ public sealed class PlayerWorld : IPlayerWorld
         RoomCollision collision,
         PushBlockController pushBlocks,
         DungeonKeyDoorController keyDoors,
+        OverworldKeyholeController keyholes,
         TerrainController terrain,
         CombatController combat,
         RoomEntityManager entities,
@@ -53,6 +55,7 @@ public sealed class PlayerWorld : IPlayerWorld
         _collision = collision;
         _pushBlocks = pushBlocks;
         _keyDoors = keyDoors;
+        _keyholes = keyholes;
         _terrain = terrain;
         _combat = combat;
         _entities = entities;
@@ -104,6 +107,7 @@ public sealed class PlayerWorld : IPlayerWorld
             position, facing, resolvedInput,
             _inventory.HasTreasure(TreasureDatabase.TreasureBracelet));
         _keyDoors.UpdatePushAttempt(position, facing, resolvedInput);
+        _keyholes.UpdatePushAttempt(position, facing, resolvedInput);
     }
     public ActiveTerrainInfo GetActiveTerrain(Vector2 position) => _terrain.GetActiveTerrain(position);
     public Vector2 GetTerrainPush(Vector2 position) => _terrain.GetTerrainPush(position);

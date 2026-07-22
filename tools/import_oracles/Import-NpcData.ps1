@@ -665,6 +665,10 @@ $keyDoorGraphicSource = Get-Content -Raw (
     Join-Path $Disassembly 'data\ages\tile_properties\keydoorTiles.s')
 $dungeonKeySpriteSource = Get-Content -Raw (
     Join-Path $Disassembly 'object_code\common\interactions\dungeonKeySprite.s')
+$overworldKeySpriteSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\overworldKeySprite.s')
+$miscellaneous2Source = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous2.s')
 $treasureInteractionSource = Get-Content -Raw (
     Join-Path $Disassembly 'object_code\common\interactions\treasure.s')
 $treasureAndDropsSource = Get-Content -Raw (
@@ -729,6 +733,34 @@ if ($interactableTilesSource -notmatch '(?ms)^nextToKeyDoor:.*?call decPushingAg
     $objectSpeedSource -notmatch '(?m)^\s*SPEED_60\s+dsb 5 ; 0x0f') {
     throw 'Small-key door push, paired flag, key-sprite, animation, or timing contract changed.'
 }
+
+# nextToOverworldKeyhole is shared by every named overworld/dungeon-entrance
+# key. It retains the named key, sets ROOMFLAG_BIT_KEYBLOCK ($80), signals the
+# associated room script through cfc0 bit 0, and replaces the ordinary key
+# sprite with INTERAC_OVERWORLD_KEY_SPRITE ($18).
+if ($interactableTilesSource -notmatch '(?ms)^nextToOverworldKeyhole:.*?getThisRoomFlags\s+and \$80\s+ret nz.*?specialObjectCheckPushingAgainstTile.*?checkFacingBottomOfTile.*?decPushingAgainstTileCounter\s+jr z,\+\s+dec \(hl\)\s+ret nz.*?@roomsWithKeyholesTable.*?checkTreasureObtained\s+jr nc,jumpToShowInfoText.*?SND_OPENCHEST.*?set 7,\(hl\).*?ld hl,\$cfc0\s+set 0,\(hl\).*?createKeySpriteInteraction.*?INTERAC_OVERWORLD_KEY_SPRITE.*?sub TREASURE_FIRST_KEY.*?ld a,\$81\s+ld \(wDisabledObjects\),a\s+ld \(wMenuDisabled\),a' -or
+    $interactableTilesSource -notmatch '(?ms)^@group0:\s+\.db <ROOM_AGES_05c TREASURE_GRAVEYARD_KEY\s+\.db <ROOM_AGES_00a TREASURE_CROWN_KEY\s+\.db <ROOM_AGES_0a5 TREASURE_LIBRARY_KEY.*?^@group1:\s+\.db <ROOM_AGES_10e TREASURE_OLD_MERMAID_KEY\s+\.db <ROOM_AGES_1a5 TREASURE_LIBRARY_KEY.*?^@group3:\s+\.db <ROOM_AGES_30f TREASURE_MERMAID_KEY' -or
+    $interactableTileDataSource -notmatch '(?ms)^@overworld:\s+^@underwater:.*?\.db \$ec \$06.*?^@indoors:\s+\.db \$ae \$06' -or
+    $overworldKeySpriteSource -notmatch '(?ms)^@state0:.*?ld bc,-\$200.*?interactionInitGraphics.*?^@state1:.*?ld c,\$28.*?objectUpdateSpeedZ_paramC.*?bit 7,a\s+ret nz.*?ld a,\$3c.*?^@state2:.*?interactionDecCounter1.*?interactionDelete' -or
+    $miscellaneous2Source -notmatch '(?ms)^interactiondc_subid01:.*?checkInteractionState\s+jp nz,interactionRunScript.*?getThisRoomFlags\s+and \$80\s+jp nz,interactionDelete.*?mainScripts\.interactiondcSubid01Script.*?interactionSetAlwaysUpdateBit' -or
+    $mainObjectSource -notmatch '(?ms)^group0Map5cObjectData:\s+obj_Interaction \$71 \$05 \$40 \$98\s+obj_Interaction \$dc \$01\s+obj_End') {
+    throw 'Overworld keyhole table, room 0:5c controller, tile mapping, or key-sprite contract changed.'
+}
+
+$overworldKeyholeLocations = @(
+    @{ Group = 0; Room = 0x5c; Treasure = 0x42; Source = 'interactableTiles.s:@group0/ROOM_AGES_05c' },
+    @{ Group = 0; Room = 0x0a; Treasure = 0x43; Source = 'interactableTiles.s:@group0/ROOM_AGES_00a' },
+    @{ Group = 0; Room = 0xa5; Treasure = 0x46; Source = 'interactableTiles.s:@group0/ROOM_AGES_0a5' },
+    @{ Group = 1; Room = 0x0e; Treasure = 0x45; Source = 'interactableTiles.s:@group1/ROOM_AGES_10e' },
+    @{ Group = 1; Room = 0xa5; Treasure = 0x46; Source = 'interactableTiles.s:@group1/ROOM_AGES_1a5' },
+    @{ Group = 3; Room = 0x0f; Treasure = 0x44; Source = 'interactableTiles.s:@group3/ROOM_AGES_30f' }
+)
+$overworldKeyholeTileRows = @(
+    "# active-collisions`ttile`tparameter`tsource"
+    "0`tec`t06`tinteractableTiles.s:@overworld"
+    "1`tae`t06`tinteractableTiles.s:@indoors"
+    "4`tec`t06`tinteractableTiles.s:@underwater"
+)
 
 $puzzlePuffGraphic = $interactionGraphics['5:0']
 $puzzlePuffAnimation = Resolve-NpcAnimation 0x05 0
@@ -993,6 +1025,47 @@ $dungeonMechanicConstantRows = @(
 $currentGroup = -1
 $currentRoom = -1
 $npcSpriteNames = [Collections.Generic.HashSet[string]]::new()
+
+$overworldKeyholeRows = [Collections.Generic.List[string]]::new()
+$overworldKeyholeRows.Add(
+    "# group`troom`ttreasure`tsubid`tsprite`ttile-base`tpalette`tanimation`tsource")
+foreach ($location in $overworldKeyholeLocations) {
+    $subid = [int]$location.Treasure - 0x42
+    $graphic = $interactionGraphics["24`:$subid"]
+    if ($null -eq $graphic -or -not $gfxNames.ContainsKey($graphic.Gfx)) {
+        throw "Could not resolve INTERAC_OVERWORLD_KEY_SPRITE `$18 subid `$$($subid.ToString('x2'))."
+    }
+    $animation = Resolve-NpcAnimation 0x18 $graphic.DefaultAnimation
+    if ([string]::IsNullOrWhiteSpace($animation)) {
+        throw "Could not resolve INTERAC_OVERWORLD_KEY_SPRITE `$18 subid `$$($subid.ToString('x2')) animation."
+    }
+    $spriteName = $gfxNames[$graphic.Gfx]
+    [void]$npcSpriteNames.Add($spriteName)
+    $overworldKeyholeRows.Add((@(
+        ([int]$location.Group).ToString(),
+        ([int]$location.Room).ToString('x2'),
+        ([int]$location.Treasure).ToString('x2'),
+        $subid.ToString('x2'),
+        $spriteName,
+        ([int]$graphic.TileBase).ToString('x2'),
+        ([int]$graphic.Palette).ToString('x2'),
+        $animation,
+        [string]$location.Source
+    ) -join "`t"))
+}
+$graveyardKeyholeRow = @($overworldKeyholeRows | Where-Object {
+    $_ -match '^0\t5c\t42\t00\t'
+})
+if ($overworldKeyholeRows.Count -ne 7 -or $graveyardKeyholeRow.Count -ne 1 -or
+    $graveyardKeyholeRow[0] -notmatch '^0\t5c\t42\t00\tspr_map_compass_keys_bookofseals\t0e\t05\t') {
+    throw "Expected six named Ages keyholes with Graveyard Key visual `$7a/`$0e/`$05."
+}
+$keyholeText = [Convert]::ToBase64String(
+    [Text.Encoding]::UTF8.GetBytes($allTexts[0x5109]))
+$overworldKeyholeConstantRows = @(
+    "# room-flag`tinformative-mask`tpush-counter`topen-sound`tno-key-text-id`tno-key-utf8-base64`tinteraction-id`tfirst-key`tinitial-speed-z`tgravity`thold-frames`tsource"
+    "80`t20`t20`t108`t5109`t$keyholeText`t18`t42`t-512`t40`t60`tinteractableTiles.s:nextToOverworldKeyhole;overworldKeySprite.s"
+)
 
 # INTERAC_TREASURE $60 overwrites its subid with the treasure object's graphic
 # byte, then initializes that interaction's graphics. Export the corresponding
@@ -3247,6 +3320,21 @@ $keyDoorPath = Join-Path $destination "objects\dungeon_key_doors.tsv"
 [IO.File]::WriteAllLines(
     $keyDoorPath,
     $keyDoorRows,
+    [Text.UTF8Encoding]::new($false))
+$overworldKeyholePath = Join-Path $destination "objects\overworld_keyholes.tsv"
+[IO.File]::WriteAllLines(
+    $overworldKeyholePath,
+    $overworldKeyholeRows,
+    [Text.UTF8Encoding]::new($false))
+$overworldKeyholeTilePath = Join-Path $destination "metadata\overworld_keyhole_tiles.tsv"
+[IO.File]::WriteAllLines(
+    $overworldKeyholeTilePath,
+    $overworldKeyholeTileRows,
+    [Text.UTF8Encoding]::new($false))
+$overworldKeyholeConstantPath = Join-Path $destination "objects\overworld_keyhole_constants.tsv"
+[IO.File]::WriteAllLines(
+    $overworldKeyholeConstantPath,
+    $overworldKeyholeConstantRows,
     [Text.UTF8Encoding]::new($false))
 $standardTilePath = Join-Path $destination "metadata\standard_tile_substitutions.tsv"
 [IO.File]::WriteAllLines(

@@ -21,6 +21,7 @@ public partial class GameRoot : Node2D
     internal RoomEventController _roomEvents = null!;
     internal PushBlockController _pushBlocks = null!;
     internal DungeonKeyDoorController _keyDoors = null!;
+    internal OverworldKeyholeController _keyholes = null!;
     internal TerrainController _terrain = null!;
     internal CombatController _combat = null!;
     private BraceletController _bracelet = null!;
@@ -411,6 +412,13 @@ public partial class GameRoot : Node2D
             Name = "DungeonKeyDoors"
         };
         _scene.WorldRoot.AddChild(_keyDoors);
+        _keyholes = new OverworldKeyholeController(
+            _rooms, _inventory, _entities, new OverworldKeyholeDatabase(),
+            _sound.PlaySound)
+        {
+            Name = "OverworldKeyholes"
+        };
+        _scene.WorldRoot.AddChild(_keyholes);
         _collision = new RoomCollision(
             _rooms, _entities, _pushBlocks, point => _transitions.HasNeighborFor(point));
         _deathRespawnPoints = new DeathRespawnPointController(_rooms, _player);
@@ -434,6 +442,8 @@ public partial class GameRoot : Node2D
                 _statusBar.DisplayedHealth == _inventory.HealthQuarters);
         _keyDoors.MessageRequested += message =>
             _interactions.ShowRoomInteractionMessage(message, _player);
+        _keyholes.MessageRequested += message =>
+            _interactions.ShowRoomInteractionMessage(message, _player);
         _entities.DungeonEntranceTriggered += (_, message) =>
         {
             _interactions.ShowRoomInteractionMessage(message, _player);
@@ -444,6 +454,9 @@ public partial class GameRoot : Node2D
             _transitions.WorldToGameplayScreen, () => (long)_animationTicks,
             _scene.InterfaceLayer, _warpFade, _hud, _inventory, _treasures,
             _sound, _roomCamera);
+        _keyholes.SetEventHandler(
+            _roomEvents.SupportsOverworldKeyhole,
+            _roomEvents.TriggerOverworldKeyhole);
         _interactions.NpcInteractionOverride = _roomEvents.TryInteractNpc;
         _interactions.PlayerInteractionOverride = _roomEvents.TryInteractPlayer;
         _bracelet = new BraceletController(
@@ -469,7 +482,7 @@ public partial class GameRoot : Node2D
             () => (long)_animationTicks);
         _debugCollision = new DebugCollisionController();
         _playerWorld = new PlayerWorld(
-            _transitions, _interactions, _collision, _pushBlocks, _keyDoors,
+            _transitions, _interactions, _collision, _pushBlocks, _keyDoors, _keyholes,
             _terrain, _combat, _entities,
             _bracelet, _shovel, _seedSatchel, _roomEvents,
             _inventory, _sound, () => _debugCollision.CollisionsDisabled);

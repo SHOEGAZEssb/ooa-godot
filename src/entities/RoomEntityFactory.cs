@@ -371,6 +371,7 @@ internal sealed class RoomEntityFactory(
         PuzzlePuffSpawn puff => CreatePuzzlePuff(puff),
         FallingDownHoleSpawn fall => CreateFallingDownHole(fall),
         DungeonKeyUseSpawn key => CreateDungeonKeyUse(key),
+        OverworldKeyUseSpawn key => CreateOverworldKeyUse(key),
         CutsceneNpcSpawn npc => CreateCutsceneNpc(npc),
         GroundTreasureSpawn treasure => CreateGroundTreasure(treasure.Record),
         LightableTorchSpawn torch => CreateLightableTorch(torch, room),
@@ -746,6 +747,17 @@ internal sealed class RoomEntityFactory(
         effect.Initialize(spawn.Position, spawn.Visual);
         soundRequested(OracleSoundEngine.SndGetSeed);
         return new DungeonKeyUseRoomEntity(effect);
+    }
+
+    private static IRoomEntity CreateOverworldKeyUse(OverworldKeyUseSpawn spawn)
+    {
+        var effect = new OverworldKeyUseEffect
+        {
+            Name = "OverworldKeyUse",
+            ZIndex = 10
+        };
+        effect.Initialize(spawn.Position, spawn.Visual, spawn.Constants);
+        return new OverworldKeyUseRoomEntity(effect);
     }
 
     private IRoomEntity CreateDeathPuff(EnemyDeathPuffSpawn spawn)

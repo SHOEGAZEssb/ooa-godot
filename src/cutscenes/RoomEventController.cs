@@ -18,6 +18,7 @@ public sealed class RoomEventController
     private readonly BlackTowerDoorwayEvent _blackTowerDoorway;
     private readonly BlackTowerEntranceEvent _blackTowerEntrance;
     private readonly EnterPastEvent _enterPast;
+    private readonly GraveyardGateEvent _graveyardGate;
     private readonly GraveyardGhostKidsEvent _graveyardGhostKids;
     private readonly ImpaIntroEvent _impa;
     private readonly NayruIntroEvent _nayru;
@@ -68,6 +69,7 @@ public sealed class RoomEventController
         _blackTowerDoorway = new BlackTowerDoorwayEvent(_context);
         _blackTowerEntrance = new BlackTowerEntranceEvent(_context);
         _enterPast = new EnterPastEvent(_context);
+        _graveyardGate = new GraveyardGateEvent(_context);
         _graveyardGhostKids = new GraveyardGhostKidsEvent(_context);
         _impa = new ImpaIntroEvent(_context);
         _nayru = new NayruIntroEvent(_context, _impa);
@@ -77,6 +79,7 @@ public sealed class RoomEventController
         _eventsByPriority =
         [
             _nayru,
+            _graveyardGate,
             _makuSproutRescue,
             _lynnaShop,
             _vasuShop,
@@ -126,6 +129,7 @@ public sealed class RoomEventController
     internal BlackTowerDoorwayEvent BlackTowerDoorway => _blackTowerDoorway;
     internal BlackTowerEntranceEvent BlackTowerEntrance => _blackTowerEntrance;
     internal EnterPastEvent EnterPast => _enterPast;
+    internal GraveyardGateEvent GraveyardGate => _graveyardGate;
     internal GraveyardGhostKidsEvent GraveyardGhostKids => _graveyardGhostKids;
     internal ImpaIntroEvent Impa => _impa;
     internal NayruIntroEvent Nayru => _nayru;
@@ -134,6 +138,10 @@ public sealed class RoomEventController
     internal VasuShopEvent VasuShop => _vasuShop;
     internal void SetRingMenuOpener(Func<RingMenuMode, Action, bool> opener) =>
         _vasuShop.SetRingMenuOpener(opener);
+    internal bool SupportsOverworldKeyhole(int group, int room) =>
+        _graveyardGate.CanTrigger(group, room);
+    internal void TriggerOverworldKeyhole(int group, int room) =>
+        _graveyardGate.Trigger(group, room);
     internal bool ScreenTransitionsDisabled =>
         _makuSproutRescue.ScreenTransitionsDisabled;
     internal ICutsceneCommandTraceSink? CommandTraceSink
@@ -204,6 +212,7 @@ public sealed class RoomEventController
 
     private void OnRoomEntitiesLoaded(int group, OracleRoomData room)
     {
+        _graveyardGate.RetireCompletedControllerOnRoomLoad();
         _nayru.RestoreCompletedPortal(group, room);
         _makuSproutRescue.RestoreCompletedSprout(group, room);
         if (_nayru.HasState && !_nayru.Matches(group, room))
