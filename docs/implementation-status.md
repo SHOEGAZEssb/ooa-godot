@@ -196,6 +196,17 @@ remains the single runtime policy table.
   two-call direction/counter decision, wall/hole bounce, animation, damage,
   health, and drop path. Evasive, bone-throwing, and stomping Stalfos subids
   remain deferred.
+- Graveyard rooms `0:5d` and `0:6d` include all three fixed `$41:$00` Crows,
+  with their perched facing, inclusive Link trigger rectangle, six-pixel rise,
+  one-call randomized charge, steering, contact damage, and silent off-screen
+  deletion. Their `$fa` placements are invisible tile-change producers: the
+  room `0:5d` watcher reveals Bombs and the two room `0:6d` watchers reveal
+  Ember Seeds only after Link owns the corresponding treasure. Room `0:7d`
+  retains its intentionally empty object stream.
+- Room `0:5d` also includes the linked-game Ghini after D1. Its solid/talkable
+  palette-2 actor, all five TX `$4d05-$4d09` choice branches, repeated
+  explanation/secret prompts, began flag, and original five-symbol Graveyard
+  secret packing, checksum, cipher, and text substitution are implemented.
 - Reusable dungeon buttons `$09`, trigger shutters `$1e:$04-$07`, permanent
   trigger chests `$20:$00`, retractable trigger chests `$21:$17`, push-block
   triggers `$13:$01`, and enemy shutters `$1e:$08-$0b`, with all 155 direct

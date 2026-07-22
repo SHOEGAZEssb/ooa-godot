@@ -124,6 +124,7 @@ internal interface IRoomKillTrackedEnemy
 {
     int KillableEnemyIndex { get; }
     bool MarksEnemyKilled { get; }
+    bool CountsAsDefeat => true;
 }
 
 internal interface IPlayerRestriction
@@ -166,7 +167,8 @@ internal sealed record ItemDropSpawn(
     int SubId,
     Vector2 Position,
     int Angle = 0,
-    bool DugUp = false) : RoomEntitySpawn;
+    bool DugUp = false,
+    bool UpdateThisFrame = false) : RoomEntitySpawn(UpdateThisFrame);
 internal sealed record ShovelDebrisSpawn(Vector2 Position, Vector2I Direction)
     : RoomEntitySpawn(UpdateThisFrame: true);
 internal sealed record EmberSeedSpawn(

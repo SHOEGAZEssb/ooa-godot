@@ -704,6 +704,101 @@ Copy-Item -LiteralPath $zolSourceSprite.FullName -Destination (Join-Path $destin
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\gels.tsv'), $gelRows, [Text.UTF8Encoding]::new($false))
 
+# Perched Crows (`$41:$00) are fixed-position enemies. Their shared graphics
+# header, standard attributes, and four directional/flight animations are
+# resolved here; the off-screen flock subid `$01 remains outside this slice.
+$crowDataMatch = [regex]::Match(
+    $enemyDataSource,
+    '(?m)^\s*/\* 0x41 \*/ m_EnemyData \$(?<gfx>[0-9a-f]{2}) \$(?<collision>[0-9a-f]{2}) \$(?<extra>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
+)
+if (-not $crowDataMatch.Success -or
+    [Convert]::ToInt32($crowDataMatch.Groups['gfx'].Value, 16) -ne 0x93 -or
+    [Convert]::ToInt32($crowDataMatch.Groups['collision'].Value, 16) -ne 0x31 -or
+    [Convert]::ToInt32($crowDataMatch.Groups['extra'].Value, 16) -ne 0x3d -or
+    [Convert]::ToInt32($crowDataMatch.Groups['flags'].Value, 16) -ne 0x30) {
+    throw 'ENEMY_CROW no longer resolves to gfx `$93 / collision `$31 / extra `$3d / flags `$30.'
+}
+$crowGfx = [Convert]::ToInt32($crowDataMatch.Groups['gfx'].Value, 16)
+$crowExtra = $extraEnemyRows[0x3d]
+$crowDamageByte = [Convert]::ToInt32($crowExtra.Groups['damage'].Value, 16)
+$crowRadiusY = [Convert]::ToInt32($crowExtra.Groups['y'].Value, 16)
+$crowRadiusX = [Convert]::ToInt32($crowExtra.Groups['x'].Value, 16)
+$crowDamageQuarters = (0x100 - $crowDamageByte) / 2
+$crowHealth = [Convert]::ToInt32($crowExtra.Groups['health'].Value, 16)
+if ($crowRadiusY -ne 6 -or $crowRadiusX -ne 6 -or
+    $crowDamageQuarters -ne 2 -or $crowHealth -ne 1) {
+    throw 'ENEMY_CROW attributes no longer match radius 6x6, half-heart damage, and one health.'
+}
+$crowAnimationLabels = @(
+    [regex]::Matches(
+        (Get-AssemblyLabelBody $enemyAnimationSource 'enemy4cAnimations'),
+        '(?m)^\s*\.dw\s+(?<label>enemyAnimation[0-9a-f]+)'
+    ) | ForEach-Object { $_.Groups['label'].Value }
+)
+$crowOamLabels = @(
+    [regex]::Matches(
+        (Get-AssemblyLabelBody $enemyAnimationSource 'enemy4cOamDataPointers'),
+        '(?m)^\s*\.dw\s+(?<label>enemyOamData[0-9a-f]+)'
+    ) | ForEach-Object { $_.Groups['label'].Value }
+)
+if ($crowAnimationLabels.Count -ne 4 -or $crowOamLabels.Count -ne 4) {
+    throw 'Expected four ENEMY_CROW animations and OAM pointers.'
+}
+$crowAnimations = @($crowAnimationLabels | ForEach-Object {
+    Resolve-ParameterizedEnemyAnimation $_ $crowOamLabels
+})
+if ($crowAnimations[0] -ne '127,0@8,0,0,0;8,8,2,0' -or
+    $crowAnimations[1] -ne '127,0@8,0,2,32;8,8,0,32' -or
+    $crowAnimations[2] -ne '16,0@8,0,0,0;8,8,2,0|16,1@8,0,4,0;8,8,6,0' -or
+    $crowAnimations[3] -ne '16,0@8,0,2,32;8,8,0,32|16,1@8,0,6,32;8,8,4,32') {
+    throw "ENEMY_CROW animation/OAM data no longer matches the original records: $($crowAnimations -join '; ')"
+}
+
+$crowRows = [Collections.Generic.List[string]]::new()
+$crowRows.Add("# group`troom`tid`tsubid`tflags`tcount`tposition-mode`ty`tx`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tspeed-raw`tperched-right`tperched-left`tflight-right`tflight-left")
+$crowAliases = [Collections.Generic.List[object]]::new()
+$crowLastSpecificFlags = '00'
+foreach ($line in Get-Content (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
+    if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})EnemyObjectData:') {
+        $crowAliases.Add(@{ Group = [int]$Matches['group']; Room = $Matches['room'] })
+        continue
+    }
+    if ($crowAliases.Count -eq 0) { continue }
+    if ($line -match '^\s*obj_SpecificEnemyA\s+(?<values>(?:\$[0-9a-f]{2}\s*)+)$') {
+        $values = @([regex]::Matches($Matches['values'], '\$(?<value>[0-9a-f]{2})') |
+            ForEach-Object { $_.Groups['value'].Value })
+        if ($values.Count -eq 5) {
+            $crowLastSpecificFlags = $values[0]
+            $id, $subid, $y, $x = $values[1..4]
+        } elseif ($values.Count -eq 4) {
+            $id, $subid, $y, $x = $values
+        } else {
+            throw "Malformed Crow obj_SpecificEnemyA row: $line"
+        }
+        if ($id -eq '41' -and $subid -eq '00') {
+            foreach ($alias in $crowAliases) {
+                $crowRows.Add("$($alias.Group)`t$($alias.Room)`t41`t00`t$crowLastSpecificFlags`t1`tF`t$y`t$x`t$($gfxNames[$crowGfx])`t0`t3`t$crowRadiusY`t$crowRadiusX`t$crowDamageQuarters`t$crowHealth`t50`t$($crowAnimations -join "`t")")
+            }
+        }
+        continue
+    }
+    if ($line -match '^\s*obj_EndPointer') { $crowAliases.Clear(); continue }
+    if ($line -match '^[A-Za-z0-9_@]+:') { $crowAliases.Clear() }
+}
+if ($crowRows.Count -ne 4 -or
+    ($crowRows | Where-Object { $_ -match '^0\t5d\t41\t00\t00\t1\tF\t78\t78\t' }).Count -ne 1 -or
+    ($crowRows | Where-Object { $_ -match '^0\t6d\t41\t00\t00\t1\tF\t38\t(18|88)\t' }).Count -ne 2) {
+    throw "Expected the three fixed subid-0 Crows in rooms 0:5d/0:6d, got $($crowRows.Count - 1)."
+}
+$crowSpriteName = $gfxNames[$crowGfx]
+$crowSourceSprite = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
+    ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Filter "$crowSpriteName.png" } |
+    Select-Object -First 1
+if ($null -eq $crowSourceSprite) { throw "Crow sprite not found: $crowSpriteName.png" }
+Copy-Item -LiteralPath $crowSourceSprite.FullName -Destination (Join-Path $destination "gfx\$crowSpriteName.png") -Force
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\crows.tsv'), $crowRows, [Text.UTF8Encoding]::new($false))
+
 # Preserve parseObjectData order independently of the currently implemented
 # enemy species. Random/fixed enemies, reserving parts, and item-drop producers
 # all affect wPlacedEnemyPositions; parameterized enemies/parts consume their

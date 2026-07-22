@@ -194,6 +194,15 @@ the allow-holes front/current tile probes before movement. Horizontal movement
 ends with the bounce; it must not leak into ordinary drops or grounded lifetime
 updates.
 
+Object-data opcode `$fa` does not place `PART_ITEM_DROP` directly. It allocates
+an invisible `ENEMY_ITEM_DROP_PRODUCER $59`, reserves the packed position and a
+killable-enemy index, and snapshots the underlying metatile on its first update.
+Only a later tile change deletes the producer and, when Link owns the matching
+Bomb or seed treasure, creates the drop for an immediate same-update advance.
+The producer never contributes to `wNumEnemies`, but a successful production
+marks its transient recent-defeat index so short re-entry cannot repeat it.
+Rooms `0:5d` and `0:6d` are the canonical Bomb/Ember cases.
+
 Item drops use `objectCheckIsOnHazard`, so water, lava, and holes do not consume
 them while their Z high byte is negative. On the first ground-height hazard
 update, water and lava replace the drop with their corresponding splash
@@ -288,6 +297,17 @@ one ownership point. Red Zols instead request it with their special
 `INTERAC_KILLENEMYPUFF` split. Hazard deaths suppress both death/drop puffs and
 the kill cue; a hole is retained separately on the enemy until lifetime removal
 requests `SND_FALLINHOLE`, while water/lava remain silent on that path.
+
+`ENEMY_CROW $41:$00` is a fixed-position combat enemy with a species-specific
+native state machine. While perched it has no collision and faces Link, using
+the source's unsigned inclusive Y=`$30`/X=`$18` approach test. It then rises for
+25 updates to Z=`-$06`, enables collision, consumes one shared RNG value for a
+`+/-$04` angle offset, and charges at `SPEED_140`; for the first 90 charge
+updates it steers one angle step every eight updates. A charge that crosses the
+original Y=`$88` or X=`$a8` screen bounds uses `enemyDelete`, so it creates no
+death puff, item drop, kill sound, or recent-defeat mark. Rooms `0:5d` and
+`0:6d` provide the three currently imported subid-0 records; flock subid `$01`
+remains outside this slice.
 
 Script-created combat replacements use the same contracts as placed enemies.
 Room `1:38`'s `$96` Moblin interactions are solid animated cutscene actors only

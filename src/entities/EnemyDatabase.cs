@@ -11,11 +11,13 @@ public sealed class EnemyDatabase
     private readonly Dictionary<int, List<StalfosRecord>> _stalfosByRoom = new();
     private readonly Dictionary<int, List<ZolRecord>> _zolsByRoom = new();
     private readonly Dictionary<int, List<GelRecord>> _gelsByRoom = new();
+    private readonly Dictionary<int, List<CrowRecord>> _crowsByRoom = new();
     private readonly Dictionary<int, List<RoomObjectRecord>> _roomObjectsByRoom = new();
     private readonly Dictionary<int, EnemyRecord> _keeseDefinitions = new();
     private readonly Dictionary<int, OctorokRecord> _octorokDefinitions = new();
     private readonly Dictionary<int, StalfosRecord> _stalfosDefinitions = new();
     private readonly Dictionary<int, ZolRecord> _zolDefinitions = new();
+    private readonly Dictionary<int, CrowRecord> _crowDefinitions = new();
 
     public int KeeseRecordCount { get; }
     public int KeeseInstanceCount { get; }
@@ -27,6 +29,8 @@ public sealed class EnemyDatabase
     public int ZolInstanceCount { get; }
     public int GelRecordCount { get; }
     public int GelInstanceCount { get; }
+    public int CrowRecordCount { get; }
+    public int CrowInstanceCount { get; }
     public int RoomObjectRecordCount { get; }
     public OctorokProjectileRecord OctorokProjectile { get; }
     public MaskedMoblinRecord MaskedMoblin { get; }
@@ -82,6 +86,59 @@ public sealed class EnemyDatabase
 
         KeeseRecordCount = records;
         KeeseInstanceCount = instances;
+
+        table = GeneratedTable.Load(
+            "res://assets/oracle/objects/crows.tsv",
+            new GeneratedTableSchema(
+                "Crow room records",
+                GeneratedTableKeySemantics.Grouped,
+                [
+                    "group", "room", "id", "subid", "flags", "count",
+                    "position-mode", "y", "x", "sprite", "tile-base", "palette",
+                    "radius-y", "radius-x", "damage-quarters", "health", "speed-raw",
+                    "perched-right", "perched-left", "flight-right", "flight-left"
+                ],
+                ["group", "room"],
+                headerRequired: true));
+        records = 0;
+        instances = 0;
+        foreach (GeneratedTableRow row in table.Rows)
+        {
+            var record = new CrowRecord(
+                row.Decimal(0, 0, 7),
+                row.HexByte(1),
+                row.HexByte(2),
+                row.HexByte(3),
+                row.HexByte(4),
+                row.UnsignedDecimal(5),
+                FixedPosition(row, 6),
+                row.HexByteOrSentinel(7, "-1", -1),
+                row.HexByteOrSentinel(8, "-1", -1),
+                row.RequiredString(9),
+                row.UnsignedDecimal(10),
+                row.UnsignedDecimal(11),
+                row.UnsignedDecimal(12),
+                row.UnsignedDecimal(13),
+                row.UnsignedDecimal(14),
+                row.UnsignedDecimal(15),
+                row.UnsignedDecimal(16),
+                row.RequiredString(17),
+                row.RequiredString(18),
+                row.RequiredString(19),
+                row.RequiredString(20));
+            int key = MakeKey(record.Group, record.Room);
+            if (!_crowsByRoom.TryGetValue(key, out List<CrowRecord>? roomRecords))
+            {
+                roomRecords = new List<CrowRecord>();
+                _crowsByRoom.Add(key, roomRecords);
+            }
+            roomRecords.Add(record);
+            _crowDefinitions.TryAdd(record.SubId, record);
+            records++;
+            instances += record.Count;
+        }
+        CrowRecordCount = records;
+        CrowInstanceCount = instances;
 
         table = GeneratedTable.Load(
             "res://assets/oracle/objects/octoroks.tsv",
@@ -451,6 +508,14 @@ public sealed class EnemyDatabase
             : Array.Empty<GelRecord>();
     }
 
+    public IReadOnlyList<CrowRecord> GetRoomCrows(int group, int room)
+    {
+        return _crowsByRoom.TryGetValue(
+            MakeKey(group, room), out List<CrowRecord>? records)
+            ? records
+            : Array.Empty<CrowRecord>();
+    }
+
     public IReadOnlyList<RoomObjectRecord> GetRoomObjects(int group, int room)
     {
         return _roomObjectsByRoom.TryGetValue(
@@ -536,6 +601,26 @@ public sealed class EnemyDatabase
         return true;
     }
 
+    public bool TryGetCrowDefinition(RoomObjectRecord source, out CrowRecord record)
+    {
+        if (!_crowDefinitions.TryGetValue(source.SubId, out CrowRecord template))
+        {
+            record = default;
+            return false;
+        }
+        record = template with
+        {
+            Group = source.Group,
+            Room = source.Room,
+            Flags = source.Flags,
+            Count = source.Count,
+            FixedPosition = source.Kind == RoomObjectKind.FixedEnemy,
+            Y = source.Y,
+            X = source.X
+        };
+        return true;
+    }
+
     private static int MakeKey(int group, int room) => (group << 8) | room;
 
     private static bool FixedPosition(GeneratedTableRow row, int column) =>
@@ -599,6 +684,29 @@ public sealed class EnemyDatabase
         int Health,
         string IdleAnimation,
         string FlyAnimation);
+
+    public readonly record struct CrowRecord(
+        int Group,
+        int Room,
+        int Id,
+        int SubId,
+        int Flags,
+        int Count,
+        bool FixedPosition,
+        int Y,
+        int X,
+        string SpriteName,
+        int TileBase,
+        int Palette,
+        int CollisionRadiusY,
+        int CollisionRadiusX,
+        int DamageQuarters,
+        int Health,
+        int SpeedRaw,
+        string PerchedRightAnimation,
+        string PerchedLeftAnimation,
+        string FlightRightAnimation,
+        string FlightLeftAnimation);
 
     public readonly record struct OctorokRecord(
         int Group,

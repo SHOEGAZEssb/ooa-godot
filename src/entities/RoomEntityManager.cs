@@ -607,7 +607,8 @@ public sealed class RoomEntityManager
             {
                 if (killedEnemy.KillableEnemyIndex > 0)
                     _recentEnemyDefeats.MarkKilled(killedEnemy.KillableEnemyIndex);
-                EnemyDefeated?.Invoke();
+                if (killedEnemy.CountsAsDefeat)
+                    EnemyDefeated?.Invoke();
             }
             lifetime.OnFinished(_pendingSpawns);
             _activeEntities.RemoveAt(index);

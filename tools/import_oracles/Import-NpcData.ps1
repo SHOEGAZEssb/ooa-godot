@@ -513,6 +513,9 @@ $npcPaletteBySubid = @{
     # The second ring-help book increments the palette loaded by
     # interactionInitGraphics before selecting its script.
     '229:1' = 2
+    # INTERAC_LINKED_GAME_GHINI overwrites oamFlags with `$02 after
+    # interactionInitGraphics.
+    '203:0' = 2
 }
 
 # Room 1:58's late-story Impa and Nayru select their fixed text in assembly
@@ -536,6 +539,7 @@ if ($room158HoboSource -notmatch '(?ms)^@subid4:.*?getGameProgress_2.*?cp \$03\s
 }
 $npcTextBySubid['79:2'] = 0x012f
 $npcTextBySubid['54:13'] = 0x1d17
+$npcTextBySubid['203:0'] = 0x4d05
 $npcTextByVariant = @{
     '88:1:0' = 0x1007
     '88:1:1' = 0x1008
@@ -1126,6 +1130,12 @@ foreach ($line in $mainObjectLines) {
 }
 if ($npcRows.Count -ne 380) {
     throw "Expected 379 positioned NPC/character records from Ages mainData.s, parsed $($npcRows.Count - 1)."
+}
+$linkedGhiniRow = @($npcRows | Where-Object { $_ -match '^0\t5d\tcb\t00\t68\t88\t' })
+if ($linkedGhiniRow.Count -ne 1 -or
+    ($linkedGhiniRow[0] -split "`t")[7] -ne '4d05' -or
+    ($linkedGhiniRow[0] -split "`t")[10] -ne '2') {
+    throw 'Room 0:5d linked-game Ghini no longer resolves TX_4d05 and oamFlags `$02.'
 }
 $villagerRow = $npcRows | Where-Object { $_ -match '^0\t48\t3a\t03\t' } | Select-Object -First 1
 if (-not $villagerRow) { throw "The canonical room 0:48 villager record was not extracted." }
@@ -2123,6 +2133,43 @@ if ($npcDialogueRows.Count -ne 101) {
     $npcDialogueRows,
     [Text.UTF8Encoding]::new($false))
 
+# INTERAC_LINKED_GAME_GHINI `$cb installs linkedGameNpcScript with secret
+# index `$01. Export its complete five-text choice loop and progression
+# constants; the runtime substitutes the generated five-character secret for
+# the text engine's \secret1 command.
+$linkedGhiniSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\linkedGameGhini.s')
+$linkedNpcScriptSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\scripts.s')
+if ($linkedGhiniSource -notmatch '(?ms)^interactionCodecb:.*?Interaction\.oamFlags\s+ld \(hl\),\$02.*?Interaction\.var3f\s+ld \(hl\),GRAVEYARD_SECRET & \$0f.*?mainScripts\.linkedGameNpcScript' -or
+    $linkedGhiniSource -notmatch '(?ms)^@initialize:.*?interactionInitGraphics.*?objectMarkSolidPosition.*?interactionIncState' -or
+    $linkedNpcScriptSource -notmatch '(?ms)^linkedGameNpcScript:.*?linkedNpc_checkShouldSpawn.*?@offerSecret:.*?linkedNpc_calcLowTextIndex, \$00.*?jumpiftextoptioneq \$00, @answeredYes.*?addobjectbyte Interaction\.textID, \$01.*?@showExtraText:.*?linkedNpc_calcLowTextIndex, \$02.*?@generateSecret:.*?linkedNpc_generateSecret.*?linkedNpc_calcLowTextIndex, \$03.*?@tellSecret:.*?jumpiftextoptioneq \$01, @tellSecret.*?linkedNpc_calcLowTextIndex, \$04' -or
+    $linkedNpcScriptHelperSource -notmatch '(?ms)^linkedNpc_generateSecret:.*?GLOBALFLAG_FIRST_AGES_BEGAN_SECRET.*?ld a,\$20.*?ld \(wShortSecretIndex\),a.*?ld bc,\$0003') {
+    throw 'Room 0:5d linked-game Ghini script graph changed in the disassembly.'
+}
+$linkedGhiniTextIds = @(0x4d05, 0x4d06, 0x4d07, 0x4d08, 0x4d09)
+foreach ($textId in $linkedGhiniTextIds) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve linked-game Ghini text TX_$($textId.ToString('x4'))."
+    }
+}
+$linkedGhiniColumns = @(
+    '01',
+    '21',
+    $globalFlagValues['GLOBALFLAG_BEGAN_GRAVEYARD_SECRET'].ToString('x2')
+) + @($linkedGhiniTextIds | ForEach-Object { $_.ToString('x4') }) +
+    @($linkedGhiniTextIds | ForEach-Object {
+        [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$_]))
+    }) + @('linkedGameGhini.s;linkedGameNpcScript;scriptHelper.s:linkedNpc_generateSecret')
+$linkedGhiniRows = @(
+    "# secret-index`tshort-secret-index`tbegan-flag`toffer-text-id`trefusal-text-id`texplanation-text-id`tsecret-text-id`tfinal-text-id`toffer-utf8-base64`trefusal-utf8-base64`texplanation-utf8-base64`tsecret-utf8-base64`tfinal-utf8-base64`tsource",
+    ($linkedGhiniColumns -join "`t")
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\linked_game_ghini.tsv'),
+    $linkedGhiniRows,
+    [Text.UTF8Encoding]::new($false))
+
 # State-selected position overrides remain separate from visibility and text.
 # INTERAC_MISC_MAN_2 $44:$04 moves only in getGameProgress_2 state $06;
 # every other living state uses its object-data position $48,$48.
@@ -2645,6 +2692,10 @@ Add-NpcEssenceVisibility 0x3d 0x04 -1 0 0x08 $true 'scriptHelper.s:@checkd4' '@c
 Add-NpcLinkedVisibility 0x3d 0x05 -1 0 $true 'scriptHelper.s:linkedNpc_checkShouldSpawn'
 Add-NpcEssenceVisibility 0x3d 0x05 -1 0 0x02 $true 'scriptHelper.s:@checkd2_2' '@checkd2_2'
 
+# Room 0:5d's Ghini is secret index `$01: linked files only, after D1.
+Add-NpcLinkedVisibility 0xcb 0x00 -1 0 $true 'scriptHelper.s:linkedNpc_checkShouldSpawn'
+Add-NpcEssenceVisibility 0xcb 0x00 -1 0 0x01 $true 'scriptHelper.s:@checkd1' '@checkd1'
+
 # Lynna City's paired villager placements use the original
 # checkNpcShouldExistAtGameStage table. Import every phase listed for each
 # subid, including the three actors placed together in room 0:68.
@@ -2808,8 +2859,8 @@ Add-NpcCurrentRoomVisibility 0xab 0x12 -1 0 0x40 $false 'zora.s:@deleteIfFlagSet
 
 Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symmetryNpc.s:@subid0cInit'
 
-if ($npcVisibilityRows.Count -ne 329) {
-    throw "Expected 328 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 331) {
+    throw "Expected 330 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\npc_visibility.tsv'),

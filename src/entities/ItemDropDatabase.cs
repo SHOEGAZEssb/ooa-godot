@@ -17,6 +17,12 @@ public sealed class ItemDropDatabase
     public const int Heart = 0x01;
     public const int OneRupee = 0x02;
     public const int FiveRupees = 0x03;
+    public const int Bombs = 0x04;
+    public const int EmberSeeds = 0x05;
+    public const int ScentSeeds = 0x06;
+    public const int PegasusSeeds = 0x07;
+    public const int GaleSeeds = 0x08;
+    public const int MysterySeeds = 0x09;
     public const int OneHundredRupeesOrEnemy = 0x0f;
 
     private readonly byte[] _selectionData;
@@ -59,6 +65,29 @@ public sealed class ItemDropDatabase
     public VisualRecord GetVisual(int subId) => _visuals.TryGetValue(subId, out VisualRecord record)
         ? record
         : throw new KeyNotFoundException($"PART_ITEM_DROP subid ${subId:x2} has no visual record.");
+
+    internal static bool IsRuntimeSupported(int subId) =>
+        subId is >= Heart and <= MysterySeeds or OneHundredRupeesOrEnemy;
+
+    internal static int TreasureForDrop(int subId) => subId switch
+    {
+        Heart => TreasureDatabase.TreasureHeartRefill,
+        OneRupee or FiveRupees or OneHundredRupeesOrEnemy =>
+            TreasureDatabase.TreasureRupees,
+        Bombs => TreasureDatabase.TreasureBombs,
+        >= EmberSeeds and <= MysterySeeds =>
+            TreasureDatabase.TreasureEmberSeeds + subId - EmberSeeds,
+        _ => TreasureDatabase.TreasureNone
+    };
+
+    internal static bool IsAvailable(int subId, OracleSaveData? save)
+    {
+        if (subId is >= Heart and <= FiveRupees or OneHundredRupeesOrEnemy)
+            return true;
+        int treasure = TreasureForDrop(subId);
+        return treasure != TreasureDatabase.TreasureNone &&
+            save?.HasTreasure(treasure) == true;
+    }
 
     internal int? DecideDrop(int enemyId, OracleRandom random)
     {

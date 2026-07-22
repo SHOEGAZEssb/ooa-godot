@@ -39,6 +39,16 @@ public sealed class InteractionController
         AwaitDisappearance
     }
 
+    private enum LinkedGhiniState
+    {
+        None,
+        AwaitOfferChoice,
+        AwaitRefusalClose,
+        AwaitExplanationChoice,
+        AwaitSecretChoice,
+        AwaitFinalClose
+    }
+
     private readonly RoomSession _rooms;
     private readonly RoomEntityManager _entities;
     private readonly SignDatabase _signs;
@@ -54,6 +64,7 @@ public sealed class InteractionController
     private readonly Func<bool> _gashaCountersCaughtUp;
     private readonly BipinBlossomFamilyInteractionDatabase _familyInteractions = new();
     private readonly BlackTowerWorkerDatabase _blackTower = new();
+    private readonly LinkedGameGhiniDatabase _linkedGhini = new();
     private readonly KidNameEntryController _kidNameEntry;
     private readonly Dictionary<int, ChestDatabase.ChestRecord> _debugChestOverrides = new();
     private ChestTreasureEffect? _chestTreasure;
@@ -77,6 +88,10 @@ public sealed class InteractionController
     private Player? _gashaPlayer;
     private bool _gashaCompletesHeartContainer;
     private bool _gashaShowingHeartContainer;
+    private LinkedGhiniState _linkedGhiniState;
+    private NpcCharacter? _linkedGhiniNpc;
+    private Player? _linkedGhiniPlayer;
+    private string _linkedGhiniSecret = string.Empty;
 
     public Func<NpcCharacter, bool>? NpcInteractionOverride { get; set; }
     public Func<Player, bool>? PlayerInteractionOverride { get; set; }
@@ -85,6 +100,7 @@ public sealed class InteractionController
         _chestTreasure is not null ||
         _groundTreasure is not null ||
         _gashaState != GashaState.None ||
+        _linkedGhiniState != LinkedGhiniState.None ||
         _hardhatShovelState != HardhatShovelState.None ||
         _familyNamingState != FamilyNamingState.None ||
         _kidNameEntry.Active;
@@ -137,7 +153,8 @@ public sealed class InteractionController
     public void Update(double delta, Player player)
     {
         if (_activeNpcTalkLifecycle is not null && !_dialogue.IsOpen &&
-            _hardhatShovelState == HardhatShovelState.None)
+            _hardhatShovelState == HardhatShovelState.None &&
+            _linkedGhiniState == LinkedGhiniState.None)
         {
             _entities.EndNpcTalk(_activeNpcTalkLifecycle);
             _activeNpcTalkLifecycle = null;
@@ -146,6 +163,7 @@ public sealed class InteractionController
         UpdateFamilyNaming(delta);
         UpdateHardhatShovel(delta);
         UpdateGasha();
+        UpdateLinkedGhini();
 
         if (_groundTreasure is not null)
         {
@@ -253,6 +271,8 @@ public sealed class InteractionController
                 return true;
             if (NpcInteractionOverride?.Invoke(npc) == true)
                 return true;
+            if (npc.Record is { Id: 0xcb, SubId: 0x00 })
+                return TryStartLinkedGhini(npc, player);
             npc.FaceToward(player.Position);
             if (npc.Record is { Id: 0x58, SubId: 0x00 })
                 return TryStartHardhatShovel(npc, player);
@@ -321,6 +341,122 @@ public sealed class InteractionController
         _dialogue.ShowGameplayMessage(
             npc.Message, _worldToScreen(player.Position).Y, npc.TextPosition);
         return true;
+    }
+
+    private bool TryStartLinkedGhini(NpcCharacter npc, Player player)
+    {
+        if (_linkedGhiniState != LinkedGhiniState.None)
+            return false;
+        if (_entities.BeginNpcTalk(npc))
+            _activeNpcTalkLifecycle = npc;
+        _linkedGhiniNpc = npc;
+        _linkedGhiniPlayer = player;
+        _linkedGhiniState = LinkedGhiniState.AwaitOfferChoice;
+        _dialogue.ShowGameplayChoiceMessage(
+            _linkedGhini.Data.OfferMessage,
+            _worldToScreen(player.Position).Y,
+            textPosition: npc.TextPosition);
+        return true;
+    }
+
+    private void UpdateLinkedGhini()
+    {
+        if (_linkedGhiniState == LinkedGhiniState.None ||
+            _linkedGhiniNpc is null || _linkedGhiniPlayer is null)
+        {
+            return;
+        }
+
+        float linkY = _worldToScreen(_linkedGhiniPlayer.Position).Y;
+        int textPosition = _linkedGhiniNpc.TextPosition;
+        switch (_linkedGhiniState)
+        {
+            case LinkedGhiniState.AwaitOfferChoice:
+                if (!_dialogue.TryTakeChoiceResult(out int offerChoice))
+                    return;
+                if (offerChoice != 0)
+                {
+                    _linkedGhiniState = LinkedGhiniState.AwaitRefusalClose;
+                    _dialogue.ShowGameplayMessage(
+                        _linkedGhini.Data.RefusalMessage, linkY, textPosition);
+                    return;
+                }
+                _linkedGhiniState = LinkedGhiniState.AwaitExplanationChoice;
+                _dialogue.ShowGameplayChoiceMessage(
+                    _linkedGhini.Data.ExplanationMessage, linkY,
+                    textPosition: textPosition);
+                return;
+
+            case LinkedGhiniState.AwaitRefusalClose:
+                if (!_dialogue.IsOpen)
+                    FinishLinkedGhini();
+                return;
+
+            case LinkedGhiniState.AwaitExplanationChoice:
+                if (!_dialogue.TryTakeChoiceResult(out int explanationChoice))
+                    return;
+                if (explanationChoice != 0)
+                {
+                    _dialogue.ShowGameplayChoiceMessage(
+                        _linkedGhini.Data.ExplanationMessage, linkY,
+                        initialChoice: 1,
+                        textPosition: textPosition);
+                    return;
+                }
+                GenerateLinkedGhiniSecret();
+                _linkedGhiniState = LinkedGhiniState.AwaitSecretChoice;
+                ShowLinkedGhiniSecret(linkY, textPosition);
+                return;
+
+            case LinkedGhiniState.AwaitSecretChoice:
+                if (!_dialogue.TryTakeChoiceResult(out int secretChoice))
+                    return;
+                if (secretChoice != 0)
+                {
+                    ShowLinkedGhiniSecret(linkY, textPosition, initialChoice: 1);
+                    return;
+                }
+                _linkedGhiniState = LinkedGhiniState.AwaitFinalClose;
+                _dialogue.ShowGameplayMessage(
+                    _linkedGhini.Data.FinalMessage, linkY, textPosition);
+                return;
+
+            case LinkedGhiniState.AwaitFinalClose:
+                if (!_dialogue.IsOpen)
+                    FinishLinkedGhini();
+                return;
+        }
+    }
+
+    private void GenerateLinkedGhiniSecret()
+    {
+        _rooms.SaveData.SetGlobalFlag(_linkedGhini.Data.BeganFlag);
+        _linkedGhiniSecret = _linkedGhini.GenerateSecret(_rooms.SaveData);
+    }
+
+    private void ShowLinkedGhiniSecret(
+        float linkY,
+        int textPosition,
+        int initialChoice = 0)
+    {
+        string message = _linkedGhini.Data.SecretMessage.Replace(
+            "\\secret1", _linkedGhiniSecret, StringComparison.OrdinalIgnoreCase);
+        _dialogue.ShowGameplayChoiceMessage(
+            message, linkY, initialChoice, textPosition);
+    }
+
+    private void FinishLinkedGhini()
+    {
+        if (_linkedGhiniNpc is not null &&
+            _activeNpcTalkLifecycle == _linkedGhiniNpc)
+        {
+            _entities.EndNpcTalk(_linkedGhiniNpc);
+            _activeNpcTalkLifecycle = null;
+        }
+        _linkedGhiniState = LinkedGhiniState.None;
+        _linkedGhiniNpc = null;
+        _linkedGhiniPlayer = null;
+        _linkedGhiniSecret = string.Empty;
     }
 
     private void UpdateHardhatShovel(double delta)
@@ -680,6 +816,10 @@ public sealed class InteractionController
         _groundTreasureCompletesHeartContainer = false;
         _groundTreasureShowingHeartContainer = false;
         ResetGashaInteraction();
+        _linkedGhiniState = LinkedGhiniState.None;
+        _linkedGhiniNpc = null;
+        _linkedGhiniPlayer = null;
+        _linkedGhiniSecret = string.Empty;
         ApplyOpenedChestState(group, room);
     }
 

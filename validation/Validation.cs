@@ -301,6 +301,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateEnemyPlacementRules();
         ValidateEnemyObjectPlacementOrder();
         ValidateKeese();
+        ValidateGraveyardCrowsAndDropProducers();
         ValidateOctoroks();
         ValidateStalfos();
         ValidateZolsAndGels();

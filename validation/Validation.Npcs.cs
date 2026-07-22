@@ -2948,11 +2948,11 @@ public sealed partial class ValidationRoot
         var manager = new RoomEntityManager(
             validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
 
-        if (new NpcVisibilityRuleDatabase().RuleCount != 328 ||
+        if (new NpcVisibilityRuleDatabase().RuleCount != 330 ||
             new NpcDialogueRuleDatabase().RuleCount != 100 ||
             new NpcPositionRuleDatabase().RuleCount != 2)
             throw new InvalidOperationException(
-                "Expected 328 NPC visibility, 100 NPC dialogue, and two NPC " +
+                "Expected 330 NPC visibility, 100 NPC dialogue, and two NPC " +
                 "position state predicates.");
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x5a));
@@ -3602,7 +3602,7 @@ public sealed partial class ValidationRoot
             "$20-frame animation loops, rooms 2:ea/2:eb's 72-record family spawner, " +
             "Bipin $28:$00's SPEED_100 X=$28/$58 patrol, $04/$05 animation reversal, " +
             "and moving objectPreventLinkFromPassing collision, " +
-            "328 visibility, 100 dialogue, and two position predicates, roaming-dog " +
+            "330 visibility, 100 dialogue, and two position predicates, roaming-dog " +
             "location selection, rooms 0:68/0:78's phased and linked talkable cast, " +
             "room 3:9e's post-intro Impa, var03 selection, compound and alternative gates, " +
             "live refresh, and lifecycle-safe hiding.");

@@ -279,6 +279,20 @@ internal sealed class RoomEntityFactory(
                         break;
                     enemySlots++;
                     reservations.Add(source.PackedPosition);
+                    if (ItemDropDatabase.IsRuntimeSupported(source.SubId))
+                    {
+                        var producer = new ItemDropProducer
+                        {
+                            Name = $"ItemDropProducer_{source.Order}_{source.SubId:x2}"
+                        };
+                        producer.Initialize(
+                            source.SubId,
+                            PointForPackedPosition(source.PackedPosition),
+                            room,
+                            saveData);
+                        yield return new ItemDropProducerRoomEntity(
+                            producer, itemKillableEnemyIndex);
+                    }
                     break;
 
                 case EnemyDatabase.RoomObjectKind.ReservingPart:
@@ -312,6 +326,18 @@ internal sealed class RoomEntityFactory(
             };
             keese.Initialize(keeseRecord, room, position, random);
             return new KeeseRoomEntity(keese, killableEnemyIndex);
+        }
+
+        if (source.Id == 0x41 &&
+            enemies.TryGetCrowDefinition(source, out EnemyDatabase.CrowRecord crowRecord))
+        {
+            var crow = new CrowCharacter
+            {
+                Name = $"Crow_{source.SubId:x2}_{source.Order}_{instance}",
+                ZIndex = 10
+            };
+            crow.Initialize(crowRecord, position, random);
+            return new CrowRoomEntity(crow, killableEnemyIndex);
         }
 
         if (source.Id == 0x09 &&
@@ -779,9 +805,13 @@ internal sealed class RoomEntityFactory(
     private IRoomEntity CreateItemDrop(ItemDropSpawn spawn, OracleRoomData room)
     {
         var drop = new ItemDropEffect { Name = $"ItemDrop_{spawn.SubId:x2}", ZIndex = 10 };
+        int treasure = ItemDropDatabase.TreasureForDrop(spawn.SubId);
+        int collectionSound = treasure == TreasureDatabase.TreasureNone
+            ? 0
+            : treasures.GetBehaviour(treasure).Sound;
         drop.Initialize(
             spawn.SubId, spawn.Position, room, itemDrops.GetVisual(spawn.SubId),
-            spawn.Angle, spawn.DugUp);
+            spawn.Angle, spawn.DugUp, soundRequested, collectionSound);
         return new ItemDropRoomEntity(drop, itemDropEnteredHazard);
     }
 
@@ -838,6 +868,10 @@ internal sealed class RoomEntityFactory(
         return (record.ConditionMask & (1 << stateModifier)) != 0;
     }
 
+    private static Vector2 PointForPackedPosition(int position) => new(
+        (position & 0x0f) * OracleRoomData.MetatileSize + 8,
+        (position >> 4) * OracleRoomData.MetatileSize + 8);
+
     private bool DungeonEnemyCountIsComplete(int group, OracleRoomData room)
     {
         foreach (EnemyDatabase.RoomObjectRecord source in
@@ -860,6 +894,7 @@ internal sealed class RoomEntityFactory(
                         0x31 => enemies.TryGetStalfosDefinition(source, out _),
                         0x32 => enemies.TryGetKeeseDefinition(source, out _),
                         0x34 => enemies.TryGetZolDefinition(source, out _),
+                        0x41 => enemies.TryGetCrowDefinition(source, out _),
                         0x43 => source.SubId == 0,
                         _ => false
                     };

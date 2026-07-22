@@ -181,6 +181,23 @@ Room `1:49` is the current reference pattern:
 - `IRoomSaveStateEntity` refreshes the tableau immediately when live save state
   changes.
 
+Room `0:5d` is the reference for a single linked-secret NPC implemented through
+an ordinary placed actor plus a specialized dialogue owner:
+
+- `INTERAC_LINKED_GAME_GHINI $cb:$00` is visible only when the save is linked
+  and essence bit `$01` (D1) is set. Both predicates are imported independently;
+  later essence bits or the began-secret flag do not substitute for either.
+- Initialization applies OAM palette bits `$02`, marks the placed position
+  solid, and leaves ordinary talk targeting active across the table between
+  Link and the Ghini.
+- The `linkedGameNpcScript` TX `$4d05-$4d09` graph is a native choice loop: No
+  rejects the offer, Yes opens an explanation confirmation, No repeats that
+  confirmation, and the generated secret repeats until its Yes confirmation.
+- Secret index `$01` writes short-secret index `$21` and
+  `GLOBALFLAG_BEGAN_GRAVEYARD_SECRET`. Preserve the original game-ID fields,
+  20-byte bit insertion, checksum nibble, XOR cipher, five 6-bit symbols, and
+  `\secret1` substitution; it is not a random clone-only password.
+
 `RunningBipinRoomEntity` is the smaller reference: it adds the original
 fixed-update patrol and reversal behavior while continuing to use
 `NpcCharacter` for rendering, talking, and collision.

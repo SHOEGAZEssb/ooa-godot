@@ -216,6 +216,14 @@ source file, pointer table, animation terminator, and parameter semantics.
 through one label/routine/count check before its progress-1 and progress-2
 exporters apply their distinct state and linked-game rules.
 
+The same stages emit two narrow records for Graveyard rooms `0:5d`-`0:7d`.
+`objects/crows.tsv` resolves the fixed `$41:$00` placements together with their
+source enemy attributes and four parameterized animation/OAM streams.
+`objects/linked_game_ghini.tsv` retains the Ghini's five text IDs and decoded
+messages plus the secret index, short-secret index, began flag, and traced
+source graph. The ordinary `npc_visibility.tsv` still owns its separate linked
+and D1 predicates; do not hide those conditions inside the dialogue record.
+
 For concurrent native interaction scenes, `Import-CutsceneData.ps1` emits the
 native parameters and dialogue rather than inventing a linear command stream.
 Room `0:7b` uses `graveyard_ghost_kids_event.tsv` plus

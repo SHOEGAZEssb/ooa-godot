@@ -483,6 +483,37 @@ internal sealed class KeeseRoomEntity
                 : null);
 }
 
+internal sealed class CrowRoomEntity
+    : CombatEnemyRoomEntityAdapter<CrowCharacter>, IFixedRoomEntity
+{
+    public CrowRoomEntity(CrowCharacter crow, int killableEnemyIndex = 0)
+        : base(
+            crow, crow.SetTransitionDrawOffset, CreateCombat(crow),
+            (crow.Record.Flags & 0x02) == 0, killableEnemyIndex,
+            () => !crow.DeletedOutOfBounds)
+    { }
+
+    public void UpdateFrame(
+        RoomEntityFrame frame,
+        ICollection<RoomEntitySpawn> spawns) =>
+        Entity.UpdateFrame(frame.Player.Position);
+
+    private static EnemyCombatComponent CreateCombat(CrowCharacter crow) =>
+        EnemyCombatComponent.WithContactDamage(
+            () => crow.IsDead,
+            () => crow.CollisionBounds,
+            (_, damage) => crow.TakeSwordHit(damage),
+            damage => crow.TakeSwordHit(damage),
+            crow.OverlapsLink,
+            () => crow.Position,
+            crow.Record.DamageQuarters,
+            () => crow.IsDead && !crow.DeletedOutOfBounds
+                ? new EnemyDeathPuffSpawn(
+                    crow.Position + Vector2.Down * crow.Z,
+                    EnemyId: crow.Record.Id)
+                : null);
+}
+
 internal sealed class OctorokRoomEntity
     : CombatEnemyRoomEntityAdapter<OctorokCharacter>, IFixedRoomEntity
 {
@@ -750,4 +781,22 @@ internal sealed class ItemDropRoomEntity(
             enteredHazard(Entity.Position, Entity.FinishedHazard);
         }
     }
+}
+
+internal sealed class ItemDropProducerRoomEntity(
+    ItemDropProducer producer,
+    int killableEnemyIndex)
+    : RoomEntityAdapter<ItemDropProducer>(producer, static _ => { }),
+        IFixedRoomEntity, IRoomEntityLifetime, IRoomKillTrackedEnemy
+{
+    public bool Finished => Entity.Finished;
+    public int KillableEnemyIndex => killableEnemyIndex;
+    public bool MarksEnemyKilled => Entity.SpawnedDrop;
+    public bool CountsAsDefeat => false;
+
+    public void UpdateFrame(
+        RoomEntityFrame frame,
+        ICollection<RoomEntitySpawn> spawns) => Entity.UpdateFrame(spawns);
+
+    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

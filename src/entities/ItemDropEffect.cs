@@ -31,6 +31,8 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
     private Vector2 _precisePosition;
     private int _angle;
     private int _speed;
+    private Action<int> _soundRequested = static _ => { };
+    private int _collectionSound;
 
     public int SubId { get; private set; }
     public bool Finished { get; private set; }
@@ -52,7 +54,9 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         OracleRoomData room,
         ItemDropDatabase.VisualRecord visual,
         int angle = 0,
-        bool dugUp = false)
+        bool dugUp = false,
+        Action<int>? soundRequested = null,
+        int collectionSound = 0)
     {
         if (angle is < 0 or >= 0x20)
             throw new ArgumentOutOfRangeException(nameof(angle));
@@ -62,6 +66,8 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         _room = room;
         _angle = angle;
         _speed = dugUp && subId != 0 ? DugUpSpeed : 0;
+        _soundRequested = soundRequested ?? (static _ => { });
+        _collectionSound = collectionSound;
         _speedZ = InitialSpeedZ;
         _state = DropState.Initializing;
         _texture = BuildTexture(visual);
@@ -208,10 +214,26 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
                 player.AddRupees(100 * RingEffects.DropMultiplier(
                     player.Inventory, RingDropKind.Rupee));
                 break;
+            case ItemDropDatabase.Bombs:
+                player.Inventory.GiveTreasure(
+                    TreasureDatabase.TreasureBombs,
+                    RingEffects.DropMultiplier(player.Inventory, RingDropKind.Other) == 2
+                        ? 0x08
+                        : 0x04);
+                break;
+            case >= ItemDropDatabase.EmberSeeds and <= ItemDropDatabase.MysterySeeds:
+                player.Inventory.GiveTreasure(
+                    TreasureDatabase.TreasureEmberSeeds + SubId - ItemDropDatabase.EmberSeeds,
+                    RingEffects.DropMultiplier(player.Inventory, RingDropKind.Other) == 2
+                        ? 0x0a
+                        : 0x05);
+                break;
             default:
                 return;
         }
 
+        if (_collectionSound != 0)
+            _soundRequested(_collectionSound);
         Collected = true;
         Finished = true;
         Visible = false;
