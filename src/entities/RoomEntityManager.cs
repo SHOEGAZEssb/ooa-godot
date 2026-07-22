@@ -137,7 +137,8 @@ public sealed class RoomEntityManager
         OracleSaveData? saveData = null,
         OracleRuntimeState? runtimeState = null,
         InventoryState? inventory = null,
-        Func<long>? animationTick = null)
+        Func<long>? animationTick = null,
+        TreasureDatabase? treasures = null)
     {
         _worldRoot = worldRoot;
         _random = random;
@@ -151,6 +152,7 @@ public sealed class RoomEntityManager
             () => GroundTreasureCollectionAllowed(),
             OnGroundTreasureCollected, OnDungeonEntranceTriggered,
             OnGashaInteractionRequested, OnGashaNutCaught, inventory,
+            treasures ?? new TreasureDatabase(),
             OnItemDropEnteredHazard,
             OnSoundRequested, CountRoomEnemies,
             enemyIndex => _recentEnemyDefeats.WasKilled(enemyIndex),

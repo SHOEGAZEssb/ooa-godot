@@ -28,6 +28,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
     private int _zFixed;
     private int _speedZ;
     private int _bouncesRemaining;
+    private Func<Vector2, Vector2> _worldToScreen = static position => position;
 
     internal GroundTreasureDatabase.Record Record { get; private set; }
     internal PickupState State => _state;
@@ -39,7 +40,8 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
 
     internal void Initialize(
         GroundTreasureDatabase.Record record,
-        Action<int> soundRequested)
+        Action<int> soundRequested,
+        Func<Vector2, Vector2>? worldToScreen = null)
     {
         Record = record;
         if (record.SpawnMode is not (0 or 2) || record.GrabMode is not (1 or 2))
@@ -49,7 +51,10 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
                 $"spawn/grab mode ${record.SpawnMode:x2}/${record.GrabMode:x2}.");
         }
         if (record.SpawnMode == 2 &&
-            (record.SpawnDelayFrames <= 0 || record.InitialZPixels >= 0 ||
+            (record.SpawnDelayFrames <= 0 ||
+             record.InitialZAboveScreen &&
+                 (record.AboveScreenMargin < 0 || record.AboveScreenFallback >= 0) ||
+             !record.InitialZAboveScreen && record.InitialZPixels >= 0 ||
              record.BounceCount <= 0 || record.Gravity <= 0 ||
              record.BounceSpeed >= 0))
         {
@@ -58,6 +63,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
         }
         Position = new Vector2(record.X, record.Y);
         _soundRequested = soundRequested;
+        _worldToScreen = worldToScreen ?? (static position => position);
         Image source = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{record.Sprite}.png");
         OracleGraphicsCache.AnimationDefinition definition =
@@ -193,7 +199,9 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
                 if (_spawnCounter > 0)
                     return;
                 _spawnSubstate = 2;
-                _zFixed = Record.InitialZPixels << 8;
+                _zFixed = (Record.InitialZAboveScreen
+                    ? GetZAboveScreen(Position)
+                    : Record.InitialZPixels) << 8;
                 _speedZ = 0;
                 _bouncesRemaining = Record.BounceCount;
                 UpdateAirborneVisibility();
@@ -223,6 +231,15 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
     {
         Visible = OracleObjectMath.IsInsideOriginalScreenBoundary(
             Position + new Vector2(0, _zFixed >> 8));
+    }
+
+    private int GetZAboveScreen(Vector2 worldPosition)
+    {
+        int screenY = Mathf.FloorToInt(_worldToScreen(worldPosition).Y);
+        int candidate = -screenY - Record.AboveScreenMargin;
+        return candidate >= 0
+            ? Record.AboveScreenFallback
+            : Math.Max(Record.AboveScreenFallback, candidate);
     }
 
     private static ulong HashImage(Image image)

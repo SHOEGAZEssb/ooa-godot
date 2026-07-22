@@ -2170,6 +2170,94 @@ if ($groundTreasureRows.Count -ne 9) {
     $groundTreasureRows,
     [Text.UTF8Encoding]::new($false))
 
+# PART_DARK_ROOM_HANDLER $08 scans the complete 16-byte-stride large-room
+# layout and creates a permanent PART_LIGHTABLE_TORCH $06 for every unlit
+# torch metatile. INTERAC_MISCELLANEOUS_2 $dc:$00 in room 5:ed precedes that
+# handler and creates the falling Graveyard Key when exactly two torches are
+# lit, unless ROOMFLAG_ITEM already records its collection. Export these
+# placements together so the runtime can retain their source order.
+$darkRoomHandlerSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\parts\darkRoomHandler.s')
+$lightableTorchSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\parts\lightableTorch.s')
+$group5DungeonProperties = [IO.File]::ReadAllBytes(
+    (Join-Path $Disassembly 'rooms\ages\group5DungeonProperties.bin'))
+if ($miscellaneous2Source -notmatch '(?ms)^interactiondc_subid00:\s+call getThisRoomFlags\s+and ROOMFLAG_ITEM\s+jp nz,interactionDelete\s+ld a,\(wNumTorchesLit\)\s+cp \$02\s+ret nz\s+ld bc,TREASURE_OBJECT_GRAVEYARD_KEY_00\s+call createTreasure\s+call objectCopyPosition\s+jp interactionDelete' -or
+    $darkRoomHandlerSource -notmatch '(?ms)^partCode08:.*?wPaletteThread_mode.*?wScrollMode.*?^@state1:.*?wNumTorchesLit.*?jp z,darkenRoom.*?jp z,brightenRoom.*?cp \$f7.*?jp nc,brightenRoomLightly.*?jp darkenRoomLightly.*?^@state0:.*?ld hl,wRoomLayout\s+ld b,LARGE_ROOM_HEIGHT << 4.*?TILEINDEX_UNLIT_TORCH.*?@spawnLightableTorch' -or
+    $lightableTorchSource -notmatch '(?ms)^@subid0:.*?^@subid0State2:\s+ld hl,wNumTorchesLit\s+inc \(hl\)\s+ld a,SND_LIGHTTORCH\s+call playSound.*?ld a,TILEINDEX_LIT_TORCH.*?call setTile\s+jp partDelete' -or
+    $partDataSource -notmatch '(?m)^\s*\.db \$00 \$82 \$44 \$ff \$40 \$00 \$00 \$00 ; \$06' -or
+    $tileIndexSource -notmatch '(?m)^\.define TILEINDEX_UNLIT_TORCH\s+\$08' -or
+    $tileIndexSource -notmatch '(?m)^\.define TILEINDEX_LIT_TORCH\s+\$09' -or
+    $musicIdSource -notmatch '(?m)^\s*SND_LIGHTTORCH\s+db\s+; \$72' -or
+    $musicIdSource -notmatch '(?m)^\s*SND_DROPESSENCE\s+db\s+; \$77' -or
+    $treasureObjectSource -notmatch '(?m)^\s*/\* \$42 \*/ m_TreasureSubid\s+\$29, \$00, \$23, \$44, TREASURE_OBJECT_GRAVEYARD_KEY_00\s*$' -or
+    $treasureSource -notmatch '(?ms)^@spawnMode2:.*?ld \(hl\),40.*?SND_SOLVEPUZZLE.*?objectGetZAboveScreen.*?ld c,\$10.*?SND_DROPESSENCE.*?ld bc,-\$aa' -or
+    $group5DungeonProperties.Length -ne 256 -or
+    ($group5DungeonProperties[0xa8] -band 0x80) -eq 0 -or
+    ($group5DungeonProperties[0xed] -band 0x80) -eq 0) {
+    throw 'Dark-room handler, permanent torch, Graveyard Key, dungeon-property, tile, motion, or sound contract changed.'
+}
+
+$darkRoomRows = [Collections.Generic.List[string]]::new()
+$darkRoomRows.Add(
+    "# group`troom`torder`tkind`tid`tsubid`ty`tx`tparameter`trequired-count`ttreasure-object`tsource")
+$darkGroup = -1
+$darkRoom = -1
+$darkOrder = 0
+foreach ($line in $mainObjectLines) {
+    if ($line -match '^group(?<group>[0-7])Map(?<room>[0-9a-f]{2})ObjectData:') {
+        $darkGroup = [Convert]::ToInt32($Matches['group'], 10)
+        $darkRoom = [Convert]::ToInt32($Matches['room'], 16)
+        $darkOrder = 0
+        continue
+    }
+    if ($darkGroup -lt 0 -or $line -notmatch '^\s+obj_(?!End)') { continue }
+    if ($line -match '^\s*obj_Part\s+\$08\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})\s*$') {
+        $darkRoomRows.Add(
+            "$darkGroup`t$($darkRoom.ToString('x2'))`t$darkOrder`thandler`t08`t$($Matches['subid'])`t-`t-`t$($Matches['parameter'])`t0`t-`tdarkRoomHandler.s:partCode08")
+    } elseif ($line -match '^\s*obj_Interaction\s+\$dc\s+\$00\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})\s*$') {
+        $darkRoomRows.Add(
+            "$darkGroup`t$($darkRoom.ToString('x2'))`t$darkOrder`treward`tdc`t00`t$($Matches['y'])`t$($Matches['x'])`t00`t2`tTREASURE_OBJECT_GRAVEYARD_KEY_00`tmiscellaneous2.s:interactiondc_subid00")
+    }
+    $darkOrder++
+}
+if ($darkRoomRows.Count -ne 4 -or
+    -not ($darkRoomRows -contains "5`ta8`t0`thandler`t08`t00`t-`t-`t00`t0`t-`tdarkRoomHandler.s:partCode08") -or
+    -not ($darkRoomRows -contains "5`ted`t0`treward`tdc`t00`t48`t78`t00`t2`tTREASURE_OBJECT_GRAVEYARD_KEY_00`tmiscellaneous2.s:interactiondc_subid00") -or
+    -not ($darkRoomRows -contains "5`ted`t1`thandler`t08`t00`t-`t-`t50`t0`t-`tdarkRoomHandler.s:partCode08")) {
+    throw "Expected ordered dark-room placements in 5:a8 and 5:ed, parsed $($darkRoomRows.Count - 1)."
+}
+$darkRoomConstantRows = @(
+    "# key`tvalue"
+    "unlit-tile`t8"
+    "lit-tile`t9"
+    "torch-collision-mode`t130"
+    "torch-radius-y`t4"
+    "torch-radius-x`t4"
+    "full-dark-parameter`t240"
+    "partial-dark-parameter`t247"
+    "fade-speed`t1"
+    "light-sound`t114"
+    "reward-spawn-mode`t2"
+    "reward-grab-mode`t1"
+    "spawn-delay`t40"
+    "bounce-count`t2"
+    "gravity`t16"
+    "bounce-speed`t-170"
+    "spawn-sound`t77"
+    "landing-sound`t119"
+    "above-screen-margin`t8"
+    "above-screen-fallback`t-128"
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\dark_room_interactions.tsv'),
+    $darkRoomRows,
+    [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\dark_room_constants.tsv'),
+    $darkRoomConstantRows,
+    [Text.UTF8Encoding]::new($false))
+
 # Room interactions frequently delete their placed NPC during state 0 based
 # on global flags or room flags. Export those predicates separately from the
 # visual NPC record. Rules in one alternative are ANDed; alternatives are

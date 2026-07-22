@@ -79,6 +79,7 @@ public sealed class OracleRoomData
     private int _temporaryBackgroundPaletteHeader;
     private Color[,]? _temporaryFullBackgroundPalette;
     private float _temporaryFullBackgroundPaletteBlend;
+    private int? _temporaryBackgroundPaletteOffset;
     private readonly Color[] _commonBgPalette0;
     private readonly OracleAnimationData _animations;
     private readonly int _layoutStride;
@@ -91,6 +92,7 @@ public sealed class OracleRoomData
 
     internal int CurrentAnimationSignature => _animationSignature;
     internal float TemporaryBackgroundPaletteBlend => _temporaryFullBackgroundPaletteBlend;
+    internal int? TemporaryBackgroundPaletteOffset => _temporaryBackgroundPaletteOffset;
     internal readonly record struct DynamicBackgroundTile(Image Source, int Tile);
 
     internal OracleRoomData(
@@ -189,6 +191,21 @@ public sealed class OracleRoomData
         _temporaryFullBackgroundPaletteBlend = 0.0f;
         _activeAnimationHeaders = _animations.GetActiveHeaders(AnimationGroup, tick);
         _animationSignature = GetAnimationSignature(_activeAnimationHeaders);
+        ((ImageTexture)Texture).Update(RenderRoom(_activeAnimationHeaders));
+    }
+
+    /// <summary>
+    /// Applies the signed GBC component offset used by the room-darkening
+    /// palette thread to BG palettes 2-7. BG palettes 0-1, sprites, and the
+    /// screen-space HUD remain unchanged.
+    /// </summary>
+    internal void SetTemporaryBackgroundPaletteOffset(int offset)
+    {
+        if (offset is < -31 or > 31)
+            throw new ArgumentOutOfRangeException(nameof(offset));
+        if (_temporaryBackgroundPaletteOffset == offset)
+            return;
+        _temporaryBackgroundPaletteOffset = offset;
         ((ImageTexture)Texture).Update(RenderRoom(_activeAnimationHeaders));
     }
 
@@ -840,6 +857,12 @@ public sealed class OracleRoomData
                         color = _temporaryBackgroundPalettes[
                             _temporaryBackgroundPaletteHeader, rawPalette - 2, shade];
                     }
+                    else if (_temporaryBackgroundPaletteOffset.HasValue && rawPalette is >= 2 and <= 7)
+                    {
+                        color = OffsetGbcColor(
+                            _palette[tilesetPaletteIndex, shade],
+                            _temporaryBackgroundPaletteOffset.Value);
+                    }
                     else
                     {
                         color = _palette[tilesetPaletteIndex, shade];
@@ -850,6 +873,14 @@ public sealed class OracleRoomData
         }
 
         return output;
+    }
+
+    private static Color OffsetGbcColor(Color color, int offset)
+    {
+        int red = Mathf.Clamp(Mathf.RoundToInt(color.R * 31.0f) + offset, 0, 31);
+        int green = Mathf.Clamp(Mathf.RoundToInt(color.G * 31.0f) + offset, 0, 31);
+        int blue = Mathf.Clamp(Mathf.RoundToInt(color.B * 31.0f) + offset, 0, 31);
+        return new Color(red / 31.0f, green / 31.0f, blue / 31.0f, color.A);
     }
 
     private byte GetRenderedMetatile(int layoutIndex) =>

@@ -100,5 +100,8 @@ internal sealed class GroundTreasureDatabase
         int Gravity = 0,
         int BounceSpeed = 0,
         int SpawnSound = 0,
-        int LandingSound = 0);
+        int LandingSound = 0,
+        bool InitialZAboveScreen = false,
+        int AboveScreenMargin = 8,
+        int AboveScreenFallback = -128);
 }

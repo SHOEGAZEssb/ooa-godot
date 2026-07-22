@@ -19,6 +19,7 @@ internal sealed class RoomEntityFactory(
     Action<GashaSpotInteraction, Player> gashaInteractionRequested,
     Action<GashaSpotInteraction, Player> gashaNutCaught,
     InventoryState? inventory,
+    TreasureDatabase treasures,
     Action<Vector2, OracleRoomData.HazardType> itemDropEnteredHazard,
     Action<int> soundRequested,
     Func<int> roomEnemyCount,
@@ -42,12 +43,34 @@ internal sealed class RoomEntityFactory(
     private readonly BreakableTileDatabase _breakables = new();
     private readonly SwordBeamDatabase _swordBeam = new();
     private readonly GashaSpotDatabase _gashaSpots = new();
+    private readonly DarkRoomDatabase _darkRooms = new();
 
     public IEnumerable<IRoomEntity> CreateRoomEntities(
         int group,
         OracleRoomData room,
         EnemyPlacementContext placementContext)
     {
+        IReadOnlyList<DarkRoomDatabase.Record> darkRoomRecords =
+            _darkRooms.GetRoomRecords(group, room.Id);
+        if (darkRoomRecords.Count > 0)
+        {
+            var darkRoomState = new DarkRoomState(room, _darkRooms);
+            foreach (DarkRoomDatabase.Record record in darkRoomRecords)
+            {
+                yield return record.Kind switch
+                {
+                    DarkRoomDatabase.ObjectKind.Reward =>
+                        new DarkRoomRewardRoomEntity(
+                            record, _darkRooms, darkRoomState, saveData, treasures),
+                    DarkRoomDatabase.ObjectKind.Handler =>
+                        new DarkRoomHandlerRoomEntity(
+                            record, room, _darkRooms, darkRoomState),
+                    _ => throw new InvalidOperationException(
+                        $"Unsupported dark-room object kind in {record.Source}.")
+                };
+            }
+        }
+
         // Buttons and trigger-controlled shutters use wActiveTriggers without
         // depending on the enemy roster. Push triggers require a complete live
         // wNumEnemies equivalent. Enemy-shutter controllers are retained even
@@ -183,7 +206,7 @@ internal sealed class RoomEntityFactory(
                 Name = $"GroundTreasure_{record.Order}",
                 ZIndex = 12
             };
-            treasure.Initialize(record, soundRequested);
+            treasure.Initialize(record, soundRequested, worldToScreen);
             yield return new GroundTreasureRoomEntity(
                 treasure, groundTreasureCollectionAllowed,
                 groundTreasureCollected);
@@ -350,6 +373,7 @@ internal sealed class RoomEntityFactory(
         DungeonKeyUseSpawn key => CreateDungeonKeyUse(key),
         CutsceneNpcSpawn npc => CreateCutsceneNpc(npc),
         GroundTreasureSpawn treasure => CreateGroundTreasure(treasure.Record),
+        LightableTorchSpawn torch => CreateLightableTorch(torch, room),
         Room148DebrisSpawn debris => CreateRoom148Debris(debris),
         SwordBeamSpawn beam => CreateSwordBeam(beam, room),
         SwordBeamClinkSpawn clink => CreateSwordBeamClink(clink),
@@ -767,11 +791,17 @@ internal sealed class RoomEntityFactory(
             Name = $"GroundTreasure_{record.TreasureObject}",
             ZIndex = 12
         };
-        treasure.Initialize(record, soundRequested);
+        treasure.Initialize(record, soundRequested, worldToScreen);
         return new GroundTreasureRoomEntity(
             treasure, groundTreasureCollectionAllowed,
             groundTreasureCollected);
     }
+
+    private IRoomEntity CreateLightableTorch(
+        LightableTorchSpawn spawn,
+        OracleRoomData room) => new LightableTorchRoomEntity(
+            spawn.State, spawn.PackedPosition, room, _darkRooms,
+            soundRequested, roomTileChanged, animationTick);
 
     internal IEnumerable<IRoomEntity> CreateTimePortals(int group, OracleRoomData room)
     {

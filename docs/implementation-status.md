@@ -229,6 +229,15 @@ remains the single runtime policy table.
   threshold, key sprite, and six-update mapping-interleaved opening. Room
   `4:0a` exercises the left-facing `$73` path and persistent re-entry tile
   substitution.
+- Reusable dark-room handler `$08:$00` and permanent lightable torches
+  `$06:$00` in both source placements, rooms `5:a8` and `5:ed`. The handler
+  scans the complete 176-byte large-room layout, creates torches in packed
+  address order, accepts Ember Seed collisions, changes metatiles `$08->$09`,
+  and reproduces the BG-2-through-BG-7 partial/full component-offset fades.
+  Room `5:ed` also preserves the source-ordered `$dc:$00` consumer: exactly two
+  lit torches create the falling, twice-bouncing Graveyard Key with its
+  one-hand pickup, sounds, text, treasure grant, and room-item-bit `$20`
+  suppression on re-entry. Other bits in the room byte do not suppress it.
 
 ### Story and events
 

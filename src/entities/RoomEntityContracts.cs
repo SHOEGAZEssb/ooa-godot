@@ -175,6 +175,10 @@ internal sealed record CutsceneNpcSpawn(
     : RoomEntitySpawn;
 internal sealed record GroundTreasureSpawn(GroundTreasureDatabase.Record Record)
     : RoomEntitySpawn;
+internal sealed record LightableTorchSpawn(
+    DarkRoomState State,
+    int PackedPosition)
+    : RoomEntitySpawn(UpdateThisFrame: true);
 internal sealed record SwordBeamSpawn(Vector2 LinkPosition, int Direction)
     : RoomEntitySpawn;
 internal sealed record SwordBeamClinkSpawn(Vector2 Position)

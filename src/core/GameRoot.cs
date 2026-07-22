@@ -395,7 +395,8 @@ public partial class GameRoot : Node2D
             _scene.WorldRoot, new NpcDatabase(), new EnemyDatabase(),
             new ItemDropDatabase(), new TimePortalDatabase(), _random, _saveData,
             inventory: _inventory,
-            animationTick: () => (long)_animationTicks);
+            animationTick: () => (long)_animationTicks,
+            treasures: _treasures);
         _pushBlocks = new PushBlockController(
             _rooms, new PushableTileDatabase(), _roomView,
             () => (long)_animationTicks, _sound.PlaySound)

@@ -215,6 +215,11 @@ exceptions. `$dc:$07` ground treasures are emitted after placed NPCs and before
 portals/enemies in original object order, expose collision through
 `ILinkContactEntity`, and use `IRoomEntityLifetime` to disappear only after the
 pickup textbox closes. Their room-item bit is checked on every room parse.
+The same treasure entity supports source spawn mode `$02`: after its imported
+delay, `objectGetZAboveScreen` derives Z from the current gameplay-screen Y
+rather than a fixed room coordinate, then shared 8.8 gravity and bounce
+metadata drive it to the floor. This is used by both event-created rewards and
+room `5:ed`'s Graveyard Key.
 
 `RoomEntityManager` owns the room-local `wActiveTriggers` equivalent and clears
 all eight bits before every ordinary room parse or destination preload.

@@ -125,6 +125,13 @@ combines `interactableTilesTable`, standard room-flag substitutions,
 `fall_down_hole.tsv`, including its common sprite header, `SPEED_60`, and
 terminal animation. `Import-WorldAssets.ps1` copies the dedicated 8x8
 `gfx_key.png` tile used when the dungeon HUD dynamically replaces tile `$04`.
+The NPC stage also emits the filtered, source-ordered
+`dark_room_interactions.tsv` closure for every direct
+`PART_DARK_ROOM_HANDLER $08` and `$dc:$00` Graveyard Key consumer, plus
+`dark_room_constants.tsv`. It verifies the handler/torch native branches,
+large-room dungeon-property bits, torch tiles and collision data, treasure
+object, falling motion, and sound IDs rather than deriving any of them from
+room `5:ed` at runtime.
 
 Enemy species records remain separate from the ordered room-object stream.
 `Import-EnemyData.ps1` resolves ordinary `ENEMY_STALFOS $31:$00` subid data,

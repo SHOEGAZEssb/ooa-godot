@@ -31,6 +31,7 @@ public sealed class TreasureDatabase
     public const int TreasureMakuSeed = 0x36;
     public const int TreasureEssence = 0x40;
     public const int TreasureTradeItem = 0x41;
+    public const int TreasureGraveyardKey = 0x42;
     public const int TreasureTuniNut = 0x4c;
 
     private readonly Dictionary<string, TreasureObjectRecord> _objects = new();

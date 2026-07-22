@@ -497,6 +497,42 @@ reusable invisible dungeon interactions whose shared state is
   Link is fully inside. Red Zol split Gels inherit their parent's index,
   matching the original `Enemy.enabled` transfer.
 
+Rooms `5:a8` and `5:ed` are the references for the reusable dark-room object
+family rather than a room-specific torch puzzle:
+
+- The importer filters every direct `PART_DARK_ROOM_HANDLER $08` placement and
+  `INTERAC_MISCELLANEOUS_2 $dc:$00` consumer from `mainData.s`, retaining their
+  group, room, source order, subid, parameter, position, exact torch-count
+  predicate, treasure object, and source label. The complete Ages placement
+  set is handler-only `5:a8`, then reward-before-handler in `5:ed`.
+- Handler state 0 scans all `LARGE_ROOM_HEIGHT << 4` (176) bytes of
+  `wRoomLayout`, including the padding stride, and creates one
+  `PART_LIGHTABLE_TORCH $06` for each unlit metatile `$08` in address order.
+  Both imported handlers use child subid `$00`, so a lit torch is permanent for
+  the current room parse. A hit marks state 2 during item collision; the next
+  object update increments the shared count, requests `SND_LIGHTTORCH`, writes
+  lit metatile `$09`, and deletes the child. Room re-entry restores source
+  layout, count zero, and both generated parts.
+- The handler observes count changes before its later child slots update, so a
+  newly lit torch affects palette/reward consumers on the following object
+  pass. Zero torches targets parameter `$f0`, an intermediate count targets
+  `$f7`, and the complete count targets `$00`. While the palette thread is
+  active the handler returns; component offsets advance one step per original
+  update.
+- Room `5:ed`'s `$dc:$00` is an independent earlier slot. It first checks only
+  current-room `ROOMFLAG_ITEM` (`$20`), then requires
+  `wNumTorchesLit == $02`; unrelated room flags, global flags, essence state,
+  linked-game state, and ownership of another key are not predicates. Once
+  qualified it creates `TREASURE_OBJECT_GRAVEYARD_KEY_00` at `$48,$78` and
+  deletes itself.
+- The resulting `INTERAC_TREASURE $60` uses spawn mode `$02` and grab mode
+  `$01`: `SND_SOLVEPUZZLE`, a 40-update hidden wait, Z from
+  `objectGetZAboveScreen`, gravity `$10`, two landings with
+  `SND_DROPESSENCE`, and bounce speed `-$aa`. Collection grants treasure `$42`,
+  sets room bit `$20`, shows TX `$0023`, and uses Link's one-hand held-item
+  pose. On re-entry only the reward stays suppressed; the dark-room handler
+  still recreates its torches and initial darkness.
+
 Room `1:57` is the minimal ordinary-predicate reference. Female villager
 `$3b:$05` imports its `getGameProgress_2` existence set and complete eight-entry
 dialogue table. Its initializer's final `oamFlags = $01` palette replaces the

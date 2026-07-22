@@ -109,6 +109,17 @@ rather than a single tile advanced by that parameter. Satchel landing and
 ignition request
 `SND_BOMB_LAND $52` and `SND_LIGHTTORCH $72` at their native state boundaries.
 
+Dark dungeon rooms use the Ages room-darkening palette thread, not a
+screen-space translucent overlay. The `$fc` dirty/source masks apply the signed
+five-bit RGB component offset only to BG palettes 2-7; BG palettes 0-1, sprite
+palettes, dialogue, and the HUD are unchanged. Full darkness targets `$f0`.
+With one of two torches lit, `brightenRoomLightly` advances from `$f0` through
+rendered offsets `$f1-$f6` and stops before drawing target `$f7`; the final
+brighten similarly stops before drawing `$00`, retaining rendered `$ff` until
+a later ordinary palette refresh. Room `5:ed` couples that visual path to
+`SND_LIGHTTORCH`, then its falling key requests `SND_SOLVEPUZZLE` once and
+`SND_DROPESSENCE` on both landings.
+
 The five transformation rings render Link through imported special objects
 `$03-$07`, not recolored Link frames. Each disguise keeps its own sprite sheet,
 tile base, OAM composition, and 2-update initial/6-update walking cadence; room
