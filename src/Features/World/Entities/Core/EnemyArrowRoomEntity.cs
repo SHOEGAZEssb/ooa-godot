@@ -1,0 +1,21 @@
+using Godot;
+using System;
+using System.Collections.Generic;
+
+namespace oracleofages;
+
+internal sealed class EnemyArrowRoomEntity(EnemyArrowProjectile arrow)
+    : RoomEntityAdapter<EnemyArrowProjectile>(arrow, arrow.SetTransitionDrawOffset),
+        IFixedRoomEntity, ISwordHittableRoomEntity, IRoomEntityLifetime
+{
+    public bool Finished => Entity.Finished;
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
+        Entity.UpdateFrame(frame.Player);
+    public bool ApplySwordHit(
+        Rect2 hitbox,
+        Vector2 sourcePosition,
+        int damage,
+        ICollection<RoomEntitySpawn> spawns) =>
+        hitbox.Intersects(Entity.CollisionBounds) && Entity.DeflectWithSword();
+    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
+}

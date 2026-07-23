@@ -1,0 +1,48 @@
+using Godot;
+using System;
+
+namespace oracleofages;
+internal enum EventStage
+{
+    Inactive,
+    VasuFirstExplanation,
+    VasuRingBoxOffer,
+    VasuRingBoxReward,
+    VasuFriendshipOffer,
+    VasuFriendshipReward,
+    VasuAppraisalHandoff,
+    VasuFirstAppraisalMenu,
+    VasuFirstAppraisalWait,
+    VasuFirstListIntroduction,
+    VasuFirstListMenu,
+    VasuFirstListWait,
+    VasuFirstFinalText,
+    VasuLinkedGreeting,
+    VasuLinkedRingBoxOffer,
+    VasuLinkedRingBoxReward,
+    VasuNormalMenu,
+    VasuNormalMenuActive,
+    VasuNormalMenuWait,
+    VasuFinalText,
+    VasuHundredthText,
+    VasuSpecialText,
+    VasuSpecialReward,
+    RedInitial,
+    RedDelay,
+    RedTopic,
+    RedMore,
+    RedLinkedMenu,
+    BlueInitial,
+    BlueLinkedMenu,
+    BlueFortuneSetup,
+    BlueLinkSetup,
+    BlueCableTimeout,
+    SnakeFinalText,
+    SnakeRetreat,
+    BookSecretsInitial,
+    BookSecretsText,
+    BookBasicsInitial,
+    BookBasicsTopic,
+    BookBasicsFortune,
+    BookBasicsLink
+}

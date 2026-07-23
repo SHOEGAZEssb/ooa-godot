@@ -31,6 +31,32 @@ Stable UI/world nodes belong here so their lifecycle, draw order, and editor
 layout are visible. Room entities, transient effects, cutscene actors, and other
 content-dependent nodes are spawned by their owning controllers.
 
+## Source organization
+
+Production C# is organized by use case rather than by technical type:
+
+```text
+src/
+|-- Application/       top-level composition and gameplay pause ownership
+|-- Features/
+|   |-- Menus/         inventory, map, and file/menu shell flows
+|   |-- Story/         command runtime and story-event families
+|   `-- World/         rooms, terrain, transitions, entities, and interactions
+|-- Infrastructure/    generated-data readers and other external boundaries
+`-- Shared/            small behavior-neutral primitives
+```
+
+Feature folders may contain narrower mechanic folders such as `Chests`,
+`DarkRooms`, `Gasha`, or `SpiritsGrave`. Put a type with the use case that owns
+its behavior; do not recreate catch-all `entities`, `interactions`, or
+`cutscenes` folders at the source root.
+
+Every C# file contains at most one named type declaration, including nested
+implementation types, records, and enums. The filename matches the declared
+type, with partial validation scenario files as the deliberate exception.
+Types remain in the shared `oracleofages` namespace so folder moves do not
+change runtime identity or Godot script bindings.
+
 ## Runtime owners
 
 | Owner | Responsibility |

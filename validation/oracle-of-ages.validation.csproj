@@ -16,6 +16,6 @@
       <HintPath>..\.godot\mono\temp\bin\Debug\oracle-of-ages.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Compile Include="Validation*.cs" />
+    <Compile Include="**\*.cs" Exclude="bin\**\*.cs;obj\**\*.cs" />
   </ItemGroup>
 </Project>
