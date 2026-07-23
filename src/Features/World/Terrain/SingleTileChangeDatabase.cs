@@ -102,3 +102,5 @@ public sealed class SingleTileChangeDatabase
         _ => (save.GetRoomFlags(group, room) & mask) != 0
     };
 }
+
+internal readonly record struct Record(int Group, int Room, byte Mask, int Position, byte Tile, string Source);

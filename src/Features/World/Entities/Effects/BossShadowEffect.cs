@@ -132,3 +132,5 @@ public partial class BossShadowEffect : TransitionOffsetNode2D
         return new BossShadowEffectDefinition(sprite, tileBase, palette, textures);
     }
 }
+
+internal sealed record BossShadowEffectDefinition(string Sprite, int TileBase, int Palette, Texture2D[] Textures);

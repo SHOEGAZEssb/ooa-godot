@@ -638,3 +638,46 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
             value,
             position));
 }
+
+internal enum CutsceneCommandTracePhase
+{
+    Started,
+    Updated,
+    Completed
+}
+
+internal readonly record struct CutsceneCommandTraceEntry(
+    int ScriptUpdate,
+    CutsceneCommandSource Source,
+    CutsceneCommandTracePhase Phase,
+    int Counter,
+    int NextCommandIndex);
+
+internal enum CommandResult
+{
+    Block,
+    Yield,
+    Continue,
+    End
+}
+
+internal readonly record struct CutsceneObservationTraceEntry(
+    int Frame,
+    string Event,
+    string Observation,
+    CutsceneActorId? Actor,
+    int Value,
+    Vector2 Position);
+
+internal abstract record CutsceneCommand(CutsceneCommandSource Source);
+
+internal readonly record struct CutsceneCommandSource(
+    string Script,
+    string Label,
+    int CommandIndex,
+    int SourceLine,
+    string Opcode)
+{
+    public override string ToString() =>
+        $"{Script}:{Label}[{CommandIndex}] line {SourceLine} ({Opcode})";
+}

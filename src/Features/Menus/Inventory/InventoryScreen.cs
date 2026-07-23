@@ -1137,3 +1137,29 @@ public partial class InventoryScreen : Node2D
     private static Vector2 Slot(int tileMapOffset) => new(
         (tileMapOffset & 0x1f) * 8, (tileMapOffset >> 5) * 8);
 }
+
+internal readonly record struct InventoryScreenVramSource(int FirstTile, Image Image, bool Interleaved, bool SpriteEncoding = false)
+{
+    public int TileCount => Image.GetWidth() / 8 * (Image.GetHeight() / 8);
+}
+
+public enum InventorySubscreen
+{
+    Items,
+    SecondaryItems,
+    EssencesAndSave
+}
+
+internal readonly record struct PassiveTreasure(int Id, int Position, int Slot);
+
+internal enum InventoryTextPhase
+{
+    Hidden,
+    NamePause,
+    Description,
+    TrailingSpaces,
+    NameReplay,
+    NamePadding,
+    FullNameLeadWait,
+    FullNamePause
+}

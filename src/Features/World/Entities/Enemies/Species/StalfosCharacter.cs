@@ -215,3 +215,10 @@ public partial class StalfosCharacter : TransitionOffsetNode2D
             _room.GetTerrainInfo(sample).Hazard == HazardType.Hole;
     }
 }
+
+internal enum StalfosState
+{
+    Uninitialized = 0,
+    Deciding = 8,
+    Walking = 9
+}

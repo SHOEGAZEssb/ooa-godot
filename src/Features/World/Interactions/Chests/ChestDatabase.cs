@@ -64,3 +64,5 @@ public sealed class ChestDatabase
 
     private static int MakeRoomKey(int group, int room) => (group << 8) | room;
 }
+
+public readonly record struct ChestRecord(int Group, int Room, int Position, string TreasureObject, int TreasureId, int SubId, int Parameter, int TextId, int Graphic, int Amount, string Message);

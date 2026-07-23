@@ -187,3 +187,7 @@ public sealed class OracleAnimationData
         }
     }
 }
+
+public readonly record struct Header(int Sheet, int DestinationTile, int TileCount, int SourceTile);
+
+public readonly record struct Frame(int Duration, int HeaderIndex);

@@ -644,3 +644,35 @@ public sealed class EnemyDatabase
         _ => throw row.Invalid(column, "one of R, F, B, P, Q, I")
     };
 }
+
+public readonly record struct CrowRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string PerchedRightAnimation, string PerchedLeftAnimation, string FlightRightAnimation, string FlightLeftAnimation);
+
+public readonly record struct EnemyArrowRecord(string SpriteName, int TileBase, int Palette, int DamageQuarters, int SpeedRaw, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation, string BounceAnimation);
+
+public readonly record struct EnemyDatabaseEnemyRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string IdleAnimation, string FlyAnimation);
+
+public readonly record struct GelRecord(int Group, int Room, int Flags, int Count, bool FixedPosition, int Y, int X);
+
+public readonly record struct GelDefinition(int Id, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string NormalAnimation, string AttachedAnimation, string ShakeAnimation);
+
+public readonly record struct MaskedMoblinRecord(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, int MoveCounterBase, int MoveCounterMask, int TurnWait, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation);
+
+public readonly record struct OctorokProjectileRecord(string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int SpeedRaw, string NormalAnimation, string BounceAnimation);
+
+public readonly record struct ZolRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string EmergeAnimation, string WaitAnimation, string HopAnimation, string DisappearAnimation, string RedIdleAnimation, string RedShakeAnimation);
+
+public readonly record struct StalfosRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string WalkAnimation, string JumpAnimation);
+
+public readonly record struct RoomObjectRecord(int Group, int Room, int Order, RoomObjectKind Kind, int Id, int SubId, int Flags, int Count, int Y, int X, int PackedPosition, int ConditionMask);
+
+public enum RoomObjectKind
+{
+    RandomEnemy,
+    FixedEnemy,
+    ParameterEnemy,
+    ReservingPart,
+    ParameterPart,
+    ItemDrop
+}
+
+public readonly record struct OctorokRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, int CounterMask, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation);

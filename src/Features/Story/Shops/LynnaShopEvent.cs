@@ -370,3 +370,18 @@ internal sealed class LynnaShopEvent : IRoomEvent
                 "\\num1", price.ToString(), StringComparison.Ordinal),
             textboxPosition: _database.TextboxPosition);
 }
+
+internal enum LynnaShopEventEventStage
+{
+    Inactive,
+    Holding,
+    ShopkeeperText,
+    PurchasePrompt,
+    PurchaseRejected,
+    ItemText,
+    TheftDown,
+    TheftLeft,
+    TheftText,
+    TheftRight,
+    TheftUp
+}

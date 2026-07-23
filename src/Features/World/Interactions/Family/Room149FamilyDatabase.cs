@@ -81,3 +81,5 @@ internal sealed class Room149FamilyDatabase
         : throw new InvalidOperationException(
             $"Room 1:49 text TX_{id:x4} was not imported.");
 }
+
+internal readonly record struct Room149FamilyDatabaseVisualRecord(string Key, string SpriteName, int TileBase, int Palette, string Animation);

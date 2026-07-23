@@ -55,3 +55,5 @@ internal static class GashaRewardResolver
                 previousHeartPieces == 3);
     }
 }
+
+internal readonly record struct Result(int RewardType, RewardRecord Reward, int Parameter, bool CompletesHeartContainer);

@@ -38,3 +38,6 @@ internal sealed class MaskedMoblinRoomEntity
                     moblin.Position, EnemyId: moblin.Record.Id)
                 : null);
 }
+
+internal sealed record EnemyArrowSpawn(Vector2 Position, int Angle)
+    : RoomEntitySpawn(UpdateThisFrame: true);

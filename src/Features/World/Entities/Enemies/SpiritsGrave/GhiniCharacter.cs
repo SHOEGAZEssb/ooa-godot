@@ -78,3 +78,10 @@ internal partial class GhiniCharacter : SpiritsGraveEnemyCharacter
         SetAnimation(_angle < 0x10 ? 1 : 0);
     }
 }
+
+internal enum GhiniState
+{
+    Uninitialized,
+    Choosing,
+    Moving
+}

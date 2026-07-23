@@ -120,3 +120,7 @@ internal sealed class GraveyardGhostKidsEventDatabase
         }
     }
 }
+
+internal readonly record struct GraveyardGhostKidsEventDatabaseTextRecord(int Order, string Actor, int TextId, string Message);
+
+internal readonly record struct GraveyardGhostKidsEventDatabaseEventRecord(int Group, int Room, int RoomFlag, int RedId, int RedSubId, int RedPalette, int RedInitialAnimation, int GreenId, int GreenSubId, int GreenInitialAnimation, int BlueId, int BlueSubId, int BlueInitialAnimation, int GreenInitialWait, int JumpSpeedZ, int JumpGravity, int JumpSound, int PostJumpWait, int GreenPostTextWait, int RedFreezeWait, int RedPostTextWait, int RedLeftAnimation, int RedUpAnimation, int RedFinalWait, int ShakeFrames, int FleeSpeed, int FleeCounter, int FleeAngle, int FleeAnimation, int FleeSound);

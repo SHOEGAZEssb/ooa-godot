@@ -142,3 +142,5 @@ public sealed class TimeWarpEffectDatabase
         return palette;
     }
 }
+
+public readonly record struct ParticleRecord(int SpeedFixed, int XOffset, int SubId);

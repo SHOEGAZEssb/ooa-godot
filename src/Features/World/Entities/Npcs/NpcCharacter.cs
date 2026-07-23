@@ -971,3 +971,15 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         return new Color(red / 31.0f, green / 31.0f, blue / 31.0f);
     }
 }
+
+internal readonly record struct OamFrame(Texture2D Texture, Vector2 Offset);
+
+internal enum NpcCharacterFacing
+{
+    Up,
+    Right,
+    Down,
+    Left
+}
+
+internal sealed record NpcCharacterAnimationFrame(Texture2D Texture, int Duration, int Parameter, Vector2 Offset);

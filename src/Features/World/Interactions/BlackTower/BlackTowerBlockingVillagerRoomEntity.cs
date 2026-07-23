@@ -125,3 +125,10 @@ internal sealed class BlackTowerBlockingVillagerRoomEntity : BlackTowerNpcRoomEn
         _talkWait = _state == BlockState.Watching ? _data.BlockerWait : 0;
     }
 }
+
+internal enum BlockState
+{
+    Watching,
+    Moving,
+    Waiting
+}

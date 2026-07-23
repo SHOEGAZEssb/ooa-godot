@@ -247,3 +247,7 @@ public sealed class NpcDatabase
         return (group << 8) | room;
     }
 }
+
+internal readonly record struct FamilyNpcRecord(int Stage, int Personality, NpcRecord Record);
+
+public readonly record struct NpcRecord(int Group, int Room, int Id, int SubId, int Y, int X, int Var03, int TextId, string SpriteName, int TileBase, int Palette, int DefaultAnimation, bool CanFace, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation, string Message);

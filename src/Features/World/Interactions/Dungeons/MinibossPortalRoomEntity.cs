@@ -125,3 +125,12 @@ internal sealed class MinibossPortalRoomEntity :
         : direction == Vector2I.Down ? Vector2I.Left
         : Vector2I.Up;
 }
+
+internal enum PortalState
+{
+    Initialize,
+    Ready,
+    WaitForLinkToLeave,
+    Spinning,
+    WarpRequested
+}

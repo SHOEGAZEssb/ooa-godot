@@ -151,3 +151,7 @@ internal sealed class OverworldKeyholeDatabase
         }
     }
 }
+
+internal readonly record struct OverworldKeyholeDatabaseRecord(int Group, int Room, int Treasure, int SubId, string Sprite, int TileBase, int Palette, string Animation, string Source);
+
+internal readonly record struct ConstantsRecord(byte RoomFlag, byte InformativeMask, int PushCounter, int OpenSound, int NoKeyTextId, string NoKeyMessage, int InteractionId, int FirstKey, int InitialSpeedZ, int Gravity, int HoldFrames, string Source);

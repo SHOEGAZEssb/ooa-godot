@@ -117,3 +117,5 @@ internal sealed class EnemyAnimationPlayer
         _entity.QueueRedraw();
     }
 }
+
+internal sealed record EnemyAnimationPlayerAnimationFrame(Texture2D Texture, Texture2D? DamageTexture, int Duration, int Parameter);

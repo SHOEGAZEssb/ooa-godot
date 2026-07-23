@@ -311,3 +311,28 @@ public sealed class RoomTileChangeDatabase
 
     private static int Hex(string value) => Convert.ToInt32(value, 16);
 }
+
+internal readonly record struct Rule(Condition[] Conditions, Operation[] Operations);
+
+internal enum OperationKind
+{
+    Set,
+    Fill,
+    Draw,
+    Replace,
+    CopyOriginal
+}
+
+internal readonly record struct Operation(OperationKind Kind, int[] Values);
+
+internal enum ConditionKind
+{
+    GlobalSet,
+    CurrentRoomSet,
+    CurrentRoomClear,
+    RoomSet,
+    EssenceSet,
+    WramMaskEquals
+}
+
+internal readonly record struct Condition(ConditionKind Kind, int A, int B, int C);

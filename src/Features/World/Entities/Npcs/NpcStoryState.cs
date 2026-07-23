@@ -83,3 +83,10 @@ internal static class NpcStoryState
         return bit;
     }
 }
+
+internal enum NpcStoryStateKind
+{
+    GameProgress1,
+    GameProgress2,
+    CurrentRoomFlag
+}

@@ -458,3 +458,32 @@ internal sealed class GraveyardGhostKidsEvent : IRoomEntryEvent
     private static void Animate(ChildLane lane, int updates) =>
         lane.Actor.AdvanceAnimationUpdates(updates);
 }
+
+internal enum ChildStage
+{
+    Inactive,
+    WaitForSignal,
+    InitialWait,
+    Jumping,
+    InstallPostJumpWait,
+    PostJumpWait,
+    Dialogue,
+    PostDialogueWait,
+    RedFreezeWait,
+    RedPostFirstWait,
+    RedTurnLeftWait,
+    RedPostSecondWait,
+    RedTurnUpWait,
+    RedFinalWait,
+    Shaking,
+    Fleeing,
+    FleeEndPending,
+    Finished
+}
+
+internal enum ChildRole
+{
+    Red,
+    Green,
+    Blue
+}

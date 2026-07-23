@@ -1364,3 +1364,64 @@ internal sealed class ImpaIntroEvent : IRoomEvent, ICutsceneCommandHost
         }
     }
 }
+
+internal enum StoneStage
+{
+    None,
+    Inert,
+    Moved,
+    WaitingForApproach,
+    SpotJumpHold,
+    SpotJumpAir,
+    FirstLandingWait,
+    FirstText,
+    FirstTextPost,
+    ApproachStone,
+    AtStoneWait,
+    SecondJumpHold,
+    SecondJumpAir,
+    SecondLandingWait,
+    SignText,
+    SignTextPost,
+    LinkSelect,
+    LinkFirstAxis,
+    LinkAxisWait,
+    LinkSecondAxis,
+    LinkTargetWait,
+    LinkFaceWait,
+    PrePushScript,
+    WaitingForPush,
+    PushStarted,
+    PostPushScript
+}
+
+internal readonly record struct LinkPathEntry(Vector2I Direction, Vector2 Position);
+
+internal enum ImpaIntroEventStage
+{
+    None,
+    LinkInitialize,
+    LinkInitialWait,
+    LinkHorizontal,
+    LinkCenterWait,
+    LinkApproach,
+    WaitingForScript,
+    Following
+}
+
+internal enum HelpStage
+{
+    None,
+    WaitingAtEdge,
+    Script,
+    SimulatedInput
+}
+
+internal enum FakeOctorokStage
+{
+    WaitingForSignal,
+    SignalWait,
+    FleeDelay,
+    Moving,
+    Finished
+}

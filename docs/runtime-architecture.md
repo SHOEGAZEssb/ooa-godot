@@ -51,11 +51,12 @@ Feature folders may contain narrower mechanic folders such as `Chests`,
 its behavior; do not recreate catch-all `entities`, `interactions`, or
 `cutscenes` folders at the source root.
 
-Every C# file contains at most one named type declaration, including nested
-implementation types, records, and enums. The filename matches the declared
-type, with partial validation scenario files as the deliberate exception.
-Types remain in the shared `oracleofages` namespace so folder moves do not
-change runtime identity or Godot script bindings.
+Every C# file contains at most one class or interface, and its filename matches
+that implementation type; partial validation scenario files are the deliberate
+exception. Narrow records and enums live in the main class/interface file for
+the use case that constructs or owns them. Do not create record-only or
+enum-only source files. Types remain in the shared `oracleofages` namespace so
+folder moves do not change runtime identity or Godot script bindings.
 
 ## Runtime owners
 

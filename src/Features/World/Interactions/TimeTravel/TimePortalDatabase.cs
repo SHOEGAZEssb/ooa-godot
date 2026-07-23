@@ -56,3 +56,5 @@ public sealed class TimePortalDatabase
 
     private static int MakeKey(int group, int room) => (group << 8) | room;
 }
+
+public readonly record struct PortalRecord(int Group, int Room, int SubId, int Y, int X, string SpriteName, int TileBase, int Palette, int LoopStart, string Animation);

@@ -1036,3 +1036,13 @@ public partial class MapScreen : Node2D
 
     private static Color GbcColor(int r, int g, int b) => new(r / 31.0f, g / 31.0f, b / 31.0f);
 }
+
+internal readonly record struct MapIcon(int LeftTile, int RightTile, int Palette, bool RightFlipX = false, bool RightFlipY = false);
+
+public enum MapMode
+{
+    Present,
+    Past,
+    Interior,
+    Dungeon
+}

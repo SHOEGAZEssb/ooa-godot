@@ -216,3 +216,18 @@ internal sealed class DungeonEntranceInteractionDatabase
 
     private static int MakeKey(int group, int room) => (group << 8) | room;
 }
+
+internal readonly record struct PortalPair(int Dungeon, int MinibossRoom, int EntranceRoom);
+
+internal readonly record struct PlacementRecord(int Group, int Room, int Order, DungeonEntranceInteractionDatabaseObjectKind Kind, int Id, int SubId, int Y, int X, int Dungeon, string Source);
+
+internal readonly record struct EntryRecord(int Dungeon, int TextId, string Message, int SpinnerState);
+
+internal readonly record struct DungeonEntranceInteractionDatabaseVisualRecord(string Kind, int Index, string Sprite, int TileBase, int Palette, string Animation, int LowY, int LowX);
+
+internal enum DungeonEntranceInteractionDatabaseObjectKind
+{
+    Entry,
+    EyeSpawner,
+    MinibossPortal
+}

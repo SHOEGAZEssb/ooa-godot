@@ -337,3 +337,36 @@ public sealed class NayruIntroEventDatabase
         return palette;
     }
 }
+
+public readonly record struct VignetteRecord(int Index, int Group, int Room, int Duration);
+
+public readonly record struct VignetteMonkeyRecord(int Index, int Y, int X, int StoneCounter, int Animation);
+
+public readonly record struct TextRecord(int Id, int TextboxPosition, string Message);
+
+public readonly record struct SingingOamRecord(int Y, int X, int Tile, int Flags);
+
+public readonly record struct NayruIntroEventDatabaseEventRecord(int Group, int Room, int IntroFlag, int CompletionRoomFlag, int BearRoomFlag, int TriggerX, int TriggerY, int BearDelayFrames, int PostBearTextFrames, int SingingFrames, int SingingSkipWindow, int SingingScrollPeriod, int SingingScrollSteps, int PossessionFadeHoldFrames, int PortalPosition, int PortalTile, int VignetteCount, int NpcJumpSpeedZ, int NpcJumpGravity, int DarkFadeFrames, int WhiteFadeOutFrames, int WhiteFadeInFrames, int NayruAscentSpeedZ, int NayruTransferZ, int NayruLandingDelay, int NayruFallSpeedZ, int NayruFallGravity);
+
+public readonly record struct FleeRecord(string Actor, int Delay, int Angle, float Speed, int WaitJumpSpeedZ, int WaitGravity, bool RepeatWaitJump, int EscapeJumpSpeedZ, int EscapeGravity, bool RepeatEscapeJump, bool WaitForLanding, int WaitAnimation, int EscapeAnimation);
+
+public readonly record struct EffectRecord(string Name, string SpriteName, int TileBase, int Palette, int Duration, float Speed, int Angle, bool Sway, int VelocityXFixed, int VelocityYFixed, string Animation)
+{
+    public NpcRecord ToNpcRecord(int group, int room, int y, int x) => new(group, room, 0, 0, y, x, 0, 0, SpriteName, TileBase, Palette, 0, false, Animation, Animation, Animation, Animation, string.Empty);
+}
+
+public readonly record struct ActorRecord(int Index, int Id, int SubId, int Y, int X, int Var03, string Name, string SpriteName, int TileBase, int Palette, int DefaultAnimation, string[] Animations, int InitialAnimation, string ExtraSprite)
+{
+    public string Animation(int index)
+    {
+        if (index < 0 || index >= Animations.Length || string.IsNullOrEmpty(Animations[index]))
+            throw new InvalidOperationException($"Initial Nayru actor {Name} ${Id:x2}:${SubId:x2} has no animation ${index:x2}.");
+        return Animations[index];
+    }
+
+    public NpcRecord ToNpcRecord(int group, int room)
+    {
+        string animation = Animation(DefaultAnimation);
+        return new NpcRecord(group, room, Id, SubId, Y, X, Var03, 0, SpriteName, TileBase, Palette, DefaultAnimation, false, animation, animation, animation, animation, string.Empty);
+    }
+}

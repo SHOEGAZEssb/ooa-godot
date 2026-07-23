@@ -201,3 +201,5 @@ internal partial class LynnaShopItem : TransitionOffsetNode2D
         return colors.Count;
     }
 }
+
+internal sealed record LynnaShopItemFrame(Texture2D Texture, Vector2 Offset, int Duration);

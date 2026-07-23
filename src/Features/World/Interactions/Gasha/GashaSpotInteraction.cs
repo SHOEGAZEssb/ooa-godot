@@ -285,3 +285,14 @@ internal partial class GashaSpotInteraction : TransitionOffsetNode2D
         }
     }
 }
+
+internal enum InteractionState
+{
+    WaitingForPlant,
+    NutReady,
+    NutAirborne,
+    AwaitingNutText,
+    RewardHeld,
+    Disappearing,
+    Finished
+}

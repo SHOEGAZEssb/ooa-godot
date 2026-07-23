@@ -669,3 +669,14 @@ public partial class RingMenuScreen : Node2D
 
     private void OnInventoryChanged() => QueueRedraw();
 }
+
+internal readonly record struct VramSource(int FirstTile, Image Image, bool Interleaved, bool SpriteEncoding = false)
+{
+    public int TileCount => Image.GetWidth() / 8 * (Image.GetHeight() / 8);
+}
+
+internal enum RingMenuMode
+{
+    Appraisal,
+    List
+}

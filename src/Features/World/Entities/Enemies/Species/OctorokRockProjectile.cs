@@ -190,3 +190,11 @@ public partial class OctorokRockProjectile : TransitionOffsetNode2D
             source, frames[0].EncodedOam, tileBase, palette);
     }
 }
+
+internal enum RockState
+{
+    Initializing,
+    Flying,
+    CollisionPending,
+    Bouncing
+}

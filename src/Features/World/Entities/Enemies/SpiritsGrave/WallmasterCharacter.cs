@@ -193,3 +193,11 @@ internal partial class WallmasterCharacter : SpiritsGraveEnemyCharacter
             Visible = true;
     }
 }
+
+internal enum WallmasterState
+{
+    Waiting,
+    Falling,
+    Grounded,
+    Rising
+}

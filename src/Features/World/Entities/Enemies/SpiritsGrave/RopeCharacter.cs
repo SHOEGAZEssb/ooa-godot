@@ -97,3 +97,9 @@ internal partial class RopeCharacter : SpiritsGraveEnemyCharacter
     private void SetAnimationFromAngle() =>
         SetAnimation((_angle & 0x10) != 0 ? 0 : 1);
 }
+
+internal enum RopeState
+{
+    Wandering,
+    Charging
+}

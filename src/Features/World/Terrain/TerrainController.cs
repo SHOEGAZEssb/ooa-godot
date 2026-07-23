@@ -101,3 +101,9 @@ public sealed class TerrainController
         return direction == Vector2I.Right && tile is 0x0b or 0xb3 or 0xc4;
     }
 }
+
+public readonly record struct ActiveTerrainInfo(
+    TerrainInfo Terrain,
+    Vector2 SamplePoint,
+    Vector2 TileCenter,
+    int PackedPosition);

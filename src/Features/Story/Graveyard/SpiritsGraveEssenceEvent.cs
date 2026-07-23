@@ -120,3 +120,13 @@ internal sealed class SpiritsGraveEssenceEvent : IRoomEvent
         _phase = SpiritsGraveEssenceEventPhase.Inactive;
     }
 }
+
+internal enum SpiritsGraveEssenceEventPhase
+{
+    Inactive,
+    AwaitingHeldPose,
+    Dialogue,
+    Swirl,
+    FadeCadence,
+    WarpDelay
+}

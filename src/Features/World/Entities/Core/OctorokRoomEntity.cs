@@ -38,3 +38,6 @@ internal sealed class OctorokRoomEntity
                     octorok.Position, EnemyId: octorok.Record.Id)
                 : null);
 }
+
+internal sealed record OctorokRockSpawn(Vector2 Position, int Angle)
+    : RoomEntitySpawn(UpdateThisFrame: true);

@@ -107,3 +107,9 @@ public sealed class NewGameIntroDatabase
         .Select(part => part >= 0x80 ? part - 0x100 : part)
         .ToArray();
 }
+
+public readonly record struct NewGameIntroRecord(int InitialWaitFrames, int VoiceWaitFrames, int PostVanishWaitFrames, int SummonFrames, int LinkX, int LinkY, int LinkSummonedFlag, int PregameIntroDoneFlag, int TextPosition, int TextId, int SpinFrameDuration, int[] SpinGraphics, int[] VanishDurations, int[] VanishGraphics, int[] DescendOscillation, int[] HoverOscillation, string Text);
+
+public readonly record struct IntroSpriteFrame(int Duration, int SourceOffset, int BasePalette, IntroOamPart[] Parts);
+
+public readonly record struct IntroOamPart(int Y, int X, int Tile, int Flags);

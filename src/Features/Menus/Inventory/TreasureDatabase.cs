@@ -446,3 +446,19 @@ public sealed class TreasureDatabase
         }
     }
 }
+
+internal readonly record struct GashaMaturityRecord(int TreasureId, bool ParameterAmount, int Amount);
+
+public readonly record struct DisplayRecord(int TreasureId, int LeftSprite, int LeftPalette, int RightSprite, int RightPalette, int ExtraMode, int TextLow)
+{
+    public static readonly DisplayRecord Empty = new(0, 0, 0, 0, 0, 0xff, 0x00);
+    public bool HasIcon => LeftSprite != 0 || RightSprite != 0;
+}
+
+public readonly record struct BehaviourRecord(int TreasureId, TreasureVariable Variable, CollectionMode Mode, int RawMode, int Sound);
+
+public readonly record struct InventoryTextRecord(string Kind, int Index, int NameTextId, int DescriptionTextId, string Message);
+
+public readonly record struct TreasureObjectVisualRecord(int Graphic, string Sprite, int TileBase, int Palette, int DefaultAnimation, string Animation);
+
+public readonly record struct TreasureObjectRecord(string Name, int TreasureId, int SubId, int Parameter, int TextId, int Graphic, string Message);

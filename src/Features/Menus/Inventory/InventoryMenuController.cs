@@ -357,3 +357,9 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         ResetSaveDelay();
     }
 }
+
+internal enum OpenMenu
+{
+    Inventory,
+    SaveQuit
+}

@@ -258,3 +258,10 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
             source, frames[0].EncodedOam, visual.TileBase, visual.Palette);
     }
 }
+
+internal enum DropState
+{
+    Initializing,
+    Bouncing,
+    Grounded
+}

@@ -60,3 +60,5 @@ internal sealed class OracleRandom
         (values[first], values[second]) = (values[second], values[first]);
     }
 }
+
+internal readonly record struct OracleRandomResult(byte Value, byte High, byte Low);

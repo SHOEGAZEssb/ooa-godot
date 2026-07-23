@@ -803,3 +803,18 @@ public partial class MainMenuScreen : Node2D
     }
 
 }
+
+public enum Page
+{
+    Title,
+    FileSelect,
+    NewFileOptions,
+    NameEntry,
+    TextSpeed,
+    CopySource,
+    CopyDestination,
+    CopyConfirm,
+    EraseSelect,
+    EraseConfirm,
+    Notice
+}

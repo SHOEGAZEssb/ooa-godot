@@ -563,3 +563,11 @@ internal sealed class MakuSproutRescueEvent : IRoomEntryEvent, ICutsceneCommandH
     private static InvalidOperationException Unsupported(string operation) =>
         new($"Room 1:38 Maku rescue cannot {operation}.");
 }
+
+internal enum MakuSproutRescueEventEventStage
+{
+    Inactive,
+    Running,
+    NpcLoop,
+    Completed
+}

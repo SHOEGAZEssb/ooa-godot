@@ -297,3 +297,11 @@ internal sealed partial class GiantGhiniBoss : SpiritsGraveEnemyCharacter
         (packed & 0x0f) * 16 + 8,
         (packed >> 4) * 16 + 8);
 }
+
+internal enum GiantGhiniBossBossState
+{
+    IntroWait,
+    IntroFlicker,
+    Moving,
+    Charging
+}

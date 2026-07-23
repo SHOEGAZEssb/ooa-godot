@@ -869,6 +869,21 @@ public sealed partial class ValidationRoot
                 "miniboss music with its source PART_SHADOW after state 0, " +
                 "shutter completion, and the 120/60-update entrance.");
         }
+        var respawnPuffSpawns = new List<RoomEntitySpawn>();
+        var respawnedChild = new GiantGhiniChild();
+        respawnedChild.Initialize(
+            _entities.Entities<GiantGhiniChild>().First().Record, giant, 0);
+        respawnedChild.UpdateFrame(
+            _player, anyButtonJustPressed: false, frameCounter: 0,
+            respawnPuffSpawns);
+        if (respawnPuffSpawns is not
+            [PuzzlePuffSpawn { Sound: OracleSoundEngine.SndPoof }])
+        {
+            throw new InvalidOperationException(
+                "A respawned Giant Ghini child did not create the source " +
+                "INTERAC_PUFF/SND_POOF appearance effect.");
+        }
+        respawnedChild.Free();
         giant.ChildAttached(_player);
         StepEntities(7);
         ulong chargingVisualHash = OracleGraphicsCache.PixelHash(
@@ -909,6 +924,8 @@ public sealed partial class ValidationRoot
         }
         StepEntities();
         _sound.ClearPlayRequestAudit();
+        int childrenAtBossDeath =
+            _entities.Entities<GiantGhiniChild>().Count;
         giant.TakeSwordHit(giant.Position, damage: 20);
         if (!giant.Defeated ||
             !giant.DrawEnabled ||
@@ -920,7 +937,24 @@ public sealed partial class ValidationRoot
             throw new InvalidOperationException(
                 "Giant Ghini did not enter the common 120-update boss death phase.");
         }
-        StepEntities(120);
+        StepEntities();
+        if (_entities.Entities<EnemyDeathPuffEffect>().Count != childrenAtBossDeath ||
+            _entities.Entities<PuzzlePuffEffect>().Count != 0 ||
+            _entities.Entities<KillEnemyPuffEffect>().Count != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
+                childrenAtBossDeath)
+        {
+            throw new InvalidOperationException(
+                "Giant Ghini's parent-death cleanup did not route every live " +
+                "child through the ordinary enemy death puff " +
+                $"(before={childrenAtBossDeath}, " +
+                $"children={_entities.Entities<GiantGhiniChild>().Count}, " +
+                $"death={_entities.Entities<EnemyDeathPuffEffect>().Count}, " +
+                $"puzzle={_entities.Entities<PuzzlePuffEffect>().Count}, " +
+                $"kill={_entities.Entities<KillEnemyPuffEffect>().Count}, " +
+                $"sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy)}).");
+        }
+        StepEntities(119);
         BossDeathExplosionEffect giantExplosion =
             _entities.Entities<BossDeathExplosionEffect>().Single();
         if (_entities.Entities<GiantGhiniBoss>().Count != 0 ||
@@ -928,6 +962,8 @@ public sealed partial class ValidationRoot
             _entities.Entities<BossShadowEffect>().Count != 0 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
             giantExplosion.BossId != 0x70 || giantExplosion.AnimationDuration != 78 ||
+            giantExplosion.CurrentTextureSize != new Vector2(48, 48) ||
+            giantExplosion.CurrentDrawOffset != new Vector2(-24, -24) ||
             _saveData.HasRoomFlag(4, 0x18, OracleSaveData.RoomFlag80) ||
             _entities.Entities<MinibossPortal>().Count != 0 ||
             !_entities.LinkCollisionsAndMenuDisabled ||
@@ -937,7 +973,7 @@ public sealed partial class ValidationRoot
         {
             throw new InvalidOperationException(
                 "Giant Ghini did not enter the source 78-update, enemy-counting " +
-                "boss explosion before its reward wait.");
+                "boss explosion with the complete 48x48 source OAM before its reward wait.");
         }
         StepEntities(78);
         if (_entities.Entities<BossDeathExplosionEffect>().Count != 1 ||
@@ -1117,12 +1153,17 @@ public sealed partial class ValidationRoot
                 "Pumpkin Head's source 32-update invincibility ended early.");
         }
         StepEntities();
+        var bodyDestructionSpawns = new List<RoomEntitySpawn>();
         pumpkin.ApplySwordHit(
-            pumpkin.CollisionBounds, pumpkin.Position, damage: 20);
-        if (pumpkin.State != BossState.HeadExposed)
+            pumpkin.CollisionBounds, pumpkin.Position, damage: 20,
+            bodyDestructionSpawns);
+        if (pumpkin.State != BossState.HeadExposed ||
+            bodyDestructionSpawns is not
+                [PuzzlePuffSpawn { Sound: OracleSoundEngine.SndPoof }])
         {
             throw new InvalidOperationException(
-                "Pumpkin Head's body did not expose its grabbable head at zero health.");
+                "Pumpkin Head's body did not expose its grabbable head with " +
+                "the source INTERAC_PUFF/SND_POOF disappearance effect.");
         }
         // The head and ghost first launch with speed -$120 and separate
         // gravities. The head only joins the grabbable buffer after landing.
@@ -1246,11 +1287,14 @@ public sealed partial class ValidationRoot
         }
         if (pumpkin.State != BossState.Active ||
             pumpkin.Position != firstHeadLandingPosition ||
-            pumpkin.GhostHealth != 6)
+            pumpkin.GhostHealth != 6 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndPoof) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 0)
         {
             throw new InvalidOperationException(
                 "Pumpkin Head did not regenerate its full body at the landed " +
-                "head's copied position while preserving ghost health " +
+                "head's copied position with INTERAC_PUFF/SND_POOF while " +
+                "preserving ghost health " +
                 $"(body={pumpkin.Position}, head={firstHeadLandingPosition}, " +
                 $"ghostHealth={pumpkin.GhostHealth}, state={pumpkin.State}).");
         }
@@ -1367,6 +1411,8 @@ public sealed partial class ValidationRoot
             _entities.Entities<BossDeathExplosionEffect>().Single();
         if (_entities.Entities<PumpkinHeadBoss>().Count != 0 ||
             pumpkinExplosion.BossId != 0x78 || pumpkinExplosion.AnimationDuration != 78 ||
+            pumpkinExplosion.CurrentTextureSize != new Vector2(48, 48) ||
+            pumpkinExplosion.CurrentDrawOffset != new Vector2(-24, -24) ||
             _saveData.HasRoomFlag(4, 0x13, OracleSaveData.RoomFlag80) ||
             _entities.Entities<GroundTreasurePickup>().Count != 0 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||

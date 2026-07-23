@@ -286,3 +286,37 @@ internal sealed class SpiritsGraveDatabase
         return values;
     }
 }
+
+internal readonly record struct VisualRecord(string Key, string[] Sprites, int TileBase, int Palette, bool SourceGrayscaleInverted, string[] Animations);
+
+internal enum SpiritsGraveDatabaseCondition
+{
+    Always,
+    ItemClear,
+    Flag80Clear
+}
+
+internal readonly record struct ObjectRecord(int Group, int Room, int Order, ObjectKind Kind, int Id, int SubId, int Y, int X, SpiritsGraveDatabaseCondition Predicate, string Source)
+{
+    internal Vector2 Position => new(X, Y);
+}
+
+internal enum ObjectKind
+{
+    BraceletReward,
+    Essence,
+    BossReward,
+    PumpkinHead,
+    MovingPlatform,
+    SpawnMovingPlatform,
+    MinibossReward,
+    GiantGhini,
+    TorchStairs,
+    EnemySmallKey,
+    ColoredCube,
+    CubeFlame,
+    CubeLightSensor,
+    CubeTriggerSensor
+}
+
+internal readonly record struct EnemyRecord(int Id, int SubId, string[] Sprites, int TileBase, int Palette, bool SourceGrayscaleInverted, int RadiusY, int RadiusX, int DamageQuarters, int Health, string[] Animations);

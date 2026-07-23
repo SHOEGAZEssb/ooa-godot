@@ -246,3 +246,11 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
         return hash;
     }
 }
+
+internal enum PickupState
+{
+    Initializing,
+    Spawning,
+    Waiting,
+    Collected
+}

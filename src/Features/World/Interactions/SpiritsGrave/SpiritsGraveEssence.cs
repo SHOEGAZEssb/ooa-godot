@@ -277,3 +277,12 @@ internal sealed partial class SpiritsGraveEssence : TransitionOffsetNode2D,
         }
     }
 }
+
+internal enum MotionState
+{
+    Waiting,
+    Approaching,
+    Falling,
+    Delay,
+    Held
+}

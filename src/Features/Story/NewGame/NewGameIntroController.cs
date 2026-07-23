@@ -157,3 +157,12 @@ public sealed class NewGameIntroController
             _clock, _motionClock, _stageFrame, vanishing, visible);
     }
 }
+
+internal enum Stage
+{
+    WaitingForVoice,
+    Dialogue,
+    Vanishing,
+    PostVanish,
+    Complete
+}

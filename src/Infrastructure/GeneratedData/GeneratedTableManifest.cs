@@ -268,3 +268,5 @@ internal static class GeneratedTableManifest
     private static bool IsHexDigit(char value) =>
         value is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F';
 }
+
+internal sealed record Entry(int SchemaVersion, int RecordCount, string Sha256);

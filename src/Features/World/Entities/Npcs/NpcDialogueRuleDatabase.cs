@@ -102,3 +102,7 @@ public sealed class NpcDialogueRuleDatabase
     }
 
 }
+
+internal readonly record struct NpcDialogueRuleDatabaseRule(int Var03, NpcStoryStateKind Kind, int Value, int Linked, int TextId, string Message, string Source);
+
+public readonly record struct NpcDialogueRuleDatabaseDialogue(int TextId, string Message);

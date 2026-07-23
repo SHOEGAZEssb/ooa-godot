@@ -970,3 +970,41 @@ public sealed class OracleRoomData
         return signature;
     }
 }
+
+public enum TerrainType
+{
+    Normal,
+    Hole,
+    WarpHole,
+    CrackedFloor,
+    Vines,
+    Grass,
+    Stairs,
+    Water,
+    Stump,
+    UpConveyor,
+    RightConveyor,
+    DownConveyor,
+    LeftConveyor,
+    Spike,
+    Ice,
+    Lava,
+    Puddle,
+    UpCurrent,
+    RightCurrent,
+    DownCurrent,
+    LeftCurrent,
+    RaisableFloor,
+    SeaWater,
+    Whirlpool
+}
+
+public readonly record struct TerrainInfo(byte Tile, byte Collision, TerrainType Type, HazardType Hazard);
+
+public enum HazardType
+{
+    None,
+    Water,
+    Hole,
+    Lava
+}

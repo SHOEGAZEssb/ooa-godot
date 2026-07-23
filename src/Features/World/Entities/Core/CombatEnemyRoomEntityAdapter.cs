@@ -67,3 +67,12 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     }
     public void OnFinished(ICollection<RoomEntitySpawn> spawns) => finished?.Invoke();
 }
+
+internal enum SeedHitResult
+{
+    None,
+    Ignite,
+    Consume
+}
+
+internal abstract record RoomEntitySpawn(bool UpdateThisFrame = false);

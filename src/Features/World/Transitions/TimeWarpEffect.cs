@@ -445,3 +445,5 @@ public partial class TimeWarpEffect : Node2D
             $"res://assets/oracle/gfx/{sprite}.png");
     }
 }
+
+internal sealed record TimeWarpEffectFrame(Texture2D Texture, Vector2 Offset, int Duration);

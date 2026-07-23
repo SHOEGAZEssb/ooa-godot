@@ -155,3 +155,11 @@ internal sealed class DarkRoomDatabase
 
     private static int MakeKey(int group, int room) => (group << 8) | room;
 }
+
+internal readonly record struct DarkRoomDatabaseRecord(int Group, int Room, int Order, DarkRoomDatabaseObjectKind Kind, int Id, int SubId, int Y, int X, int Parameter, int RequiredCount, string TreasureObject, string Source);
+
+internal enum DarkRoomDatabaseObjectKind
+{
+    Handler,
+    Reward
+}

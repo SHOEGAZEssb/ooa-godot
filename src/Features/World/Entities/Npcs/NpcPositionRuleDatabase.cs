@@ -97,3 +97,5 @@ public sealed class NpcPositionRuleDatabase
     }
 
 }
+
+internal readonly record struct NpcPositionRuleDatabaseRule(int Var03, NpcStoryStateKind Kind, int Value, int Y, int X, string Source);

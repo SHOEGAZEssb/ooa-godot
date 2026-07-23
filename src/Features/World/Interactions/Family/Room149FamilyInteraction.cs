@@ -207,3 +207,16 @@ internal sealed class Room149FamilyInteraction
         _ball.Reset();
     }
 }
+
+internal enum ScriptPhase
+{
+    SetAnimation,
+    Throw
+}
+
+internal enum FamilyState
+{
+    PlayingBeforeD7,
+    FatherStone,
+    PlayingAfterVeran
+}

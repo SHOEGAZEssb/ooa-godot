@@ -843,3 +843,20 @@ public sealed class RoomEntityManager
         Input.IsActionJustPressed("move_down") ||
         Input.IsActionJustPressed("move_left");
 }
+
+internal readonly record struct RoomEntityFrame(
+    Player Player,
+    int Counter,
+    bool AnyButtonJustPressed);
+
+internal sealed record SwordBeamSpawn(Vector2 LinkPosition, int Direction)
+    : RoomEntitySpawn;
+
+internal sealed record ItemDropSpawn(
+    int SubId,
+    Vector2 Position,
+    int Angle = 0,
+    bool DugUp = false,
+    bool UpdateThisFrame = false) : RoomEntitySpawn(UpdateThisFrame);
+
+internal sealed record FallingDownHoleSpawn(Vector2 Position) : RoomEntitySpawn;

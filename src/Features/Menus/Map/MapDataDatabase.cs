@@ -158,3 +158,9 @@ public sealed class MapDataDatabase
                 $"Expected 16 dungeon entrance text records, got {_dungeonEntrances.Count}.");
     }
 }
+
+internal readonly record struct DungeonEntrance(int Group, int Room, int FallbackText);
+
+internal readonly record struct MapCell(int Text, int Popup);
+
+public readonly record struct MapText(int TextId, string Message, int Position);

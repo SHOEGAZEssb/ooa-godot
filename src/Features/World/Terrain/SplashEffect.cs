@@ -121,3 +121,5 @@ public partial class SplashEffect : Node2D
         { new(31, 31, 31), new(31, 22, 6), new(27, 0, 0), new(0, 0, 0) }
     };
 }
+
+internal readonly record struct SplashPart(int Y, int X, int PaletteXor = 0, bool FlipX = false);

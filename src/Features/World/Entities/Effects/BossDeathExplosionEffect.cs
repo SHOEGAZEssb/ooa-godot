@@ -23,6 +23,8 @@ public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
     internal int BossId { get; private set; }
     internal int AnimationFrame => Math.Min(_frame, _animation.Count - 1);
     internal int AnimationDuration { get; private set; }
+    internal Vector2 CurrentTextureSize => _animation[_frame].Texture.GetSize();
+    internal Vector2 CurrentDrawOffset => _animation[_frame].Offset;
 
     internal void Initialize(Vector2 position, int bossId, Action<int> playSound)
     {
@@ -77,7 +79,7 @@ public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
         {
             DrawTexture(
                 _animation[_frame].Texture,
-                new Vector2(-16, -16) + TransitionDrawOffset);
+                _animation[_frame].Offset + TransitionDrawOffset);
         }
     }
 
@@ -104,9 +106,13 @@ public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
         foreach (AnimationFrameDefinition frame in
             OracleGraphicsCache.GetAnimationDefinition(row.RequiredString(2)).Frames)
         {
+            (Texture2D texture, Vector2 offset) =
+                NpcCharacter.BuildPositionedOamTexture(
+                    source, frame.EncodedOam, tileBase, palette,
+                    paletteOverride: null, sourceGrayscaleInverted: true);
             animation.Add(new BossDeathExplosionEffectFrameRecord(
-                NpcCharacter.BuildOamTexture(
-                    source, frame.EncodedOam, tileBase, palette),
+                texture,
+                offset,
                 frame.Duration));
         }
         if (animation.Count != 13)
@@ -117,3 +123,8 @@ public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
         return animation;
     }
 }
+
+internal sealed record BossDeathExplosionEffectFrameRecord(
+    Texture2D Texture,
+    Vector2 Offset,
+    int Duration);

@@ -100,3 +100,5 @@ public partial class TimePortal : TransitionOffsetNode2D
                 new Vector2(-16, -16) + TransitionDrawOffset);
     }
 }
+
+internal sealed record AnimationFrame(Texture2D Texture, int Duration);

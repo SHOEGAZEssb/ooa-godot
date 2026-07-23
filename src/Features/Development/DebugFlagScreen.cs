@@ -415,3 +415,11 @@ public partial class DebugFlagScreen : Control
         return name.StartsWith(prefix, StringComparison.Ordinal) ? name[prefix.Length..] : name;
     }
 }
+
+public enum FlagPage
+{
+    Global,
+    Room,
+    Inventory,
+    Rings
+}

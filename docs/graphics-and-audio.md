@@ -275,6 +275,19 @@ combat callback at its ordinary sword collision-effect boundary, including a
 lethal accepted hit. Enemy death and its later puff sound remain separate;
 rejected invincibility contacts do not replay the hit cue.
 
+Mini-boss and boss teardown render the shared imported
+`PART_BOSS_DEATH_EXPLOSION` OAM at its per-frame bounds. Its largest frames are
+48 by 48 pixels around the part origin; they must not be clipped through the
+ordinary fixed 32-by-32 sprite compositor.
+
+Giant Ghini child appearance and Pumpkin Head body disappearance/regeneration
+call `objectCreatePuff`, so they use `INTERAC_PUFF` with `SND_POOF`, not
+`INTERAC_KILLENEMYPUFF`. Live Giant Ghini children take a different path when
+their parent dies: `enemyDie` creates the ordinary `PART_ENEMY_DESTROYED` puff
+and `SND_KILLENEMY`. A detached child that completes its fade deletes silently,
+and Pumpkin Head's ghost becomes invisible without a puff when it rejoins the
+head.
+
 Accepted enemy contact requests `SND_DAMAGE_LINK` (`$5f`) once; invincibility
 rejects both the damage and a repeated request. Drowning requests that same
 sound when the drowning animation and splash begin, not when respawn damage is

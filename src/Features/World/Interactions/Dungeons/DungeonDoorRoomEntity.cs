@@ -269,3 +269,16 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
         DungeonShutterEntry.Matches(
             placementContext, record.PackedPosition, record.SubId & 0x03);
 }
+
+internal enum DoorState
+{
+    Initialize,
+    WaitingForLinkClear,
+    WatchingTrigger,
+    ReadyToClose,
+    ClosingInterleaved,
+    WaitingForEnemies,
+    SolveDelay,
+    ReadyToOpen,
+    OpeningInterleaved
+}

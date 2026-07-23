@@ -351,7 +351,8 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         if (_bodyHealth == 0)
         {
             ExposeHead();
-            spawns?.Add(new KillEnemyPuffSpawn(Position));
+            spawns?.Add(new PuzzlePuffSpawn(
+                Position, OracleSoundEngine.SndPoof));
         }
         return true;
     }
@@ -706,7 +707,8 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
                 return;
 
             case RegenerationPhase.BodyPuff:
-                spawns.Add(new KillEnemyPuffSpawn(Position));
+                spawns.Add(new PuzzlePuffSpawn(
+                    Position, OracleSoundEngine.SndPoof));
                 _counter = 8;
                 _regenerationPhase = RegenerationPhase.BodyAppearDelay;
                 return;
@@ -948,4 +950,41 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         player.SetAnimation(initial);
         return player;
     }
+}
+
+internal enum BossState
+{
+    WaitingForDoors,
+    Falling,
+    Active,
+    PreparingStomp,
+    Stomping,
+    StompLanded,
+    Firing,
+    HeadExposed,
+    Regenerating,
+    Dying,
+    Dead
+}
+
+internal enum ExposedPhase
+{
+    LaunchInit,
+    Airborne,
+    Grabbable,
+    GhostFleeInit,
+    GhostFlee,
+    GhostWaitInit,
+    GhostWait,
+    GhostRoam,
+    GhostSeek
+}
+
+internal enum RegenerationPhase
+{
+    Delay,
+    Rising,
+    BodyPuff,
+    BodyAppearDelay,
+    BodyResumeDelay
 }

@@ -54,3 +54,5 @@ internal sealed class BipinBlossomFamilyInteractionDatabase
         return message.Replace("\\Child", childName, StringComparison.Ordinal);
     }
 }
+
+internal readonly record struct Dialogue(int TextId, string Message);

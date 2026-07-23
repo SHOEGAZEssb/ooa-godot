@@ -139,3 +139,10 @@ public partial class MaskedMoblinCharacter : TransitionOffsetNode2D
         _animation.SetAnimation((_angle & 0x18) / 8);
     }
 }
+
+internal enum MoblinState
+{
+    Uninitialized,
+    Moving,
+    Turning
+}

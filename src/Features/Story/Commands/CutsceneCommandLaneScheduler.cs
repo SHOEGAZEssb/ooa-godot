@@ -70,3 +70,5 @@ internal sealed class CutsceneCommandLaneScheduler(ICutsceneCommandHost host)
         _byName.Clear();
     }
 }
+
+internal sealed record Lane(string Name, CutsceneCommandRunner Runner);

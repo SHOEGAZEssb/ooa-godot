@@ -238,3 +238,12 @@ public partial class GelCharacter : TransitionOffsetNode2D
         _animation.SetAnimation(index);
     }
 }
+
+internal enum GelState
+{
+    Waiting = 8,
+    Inching = 9,
+    Shaking = 10,
+    Hopping = 11,
+    Attached = 13
+}

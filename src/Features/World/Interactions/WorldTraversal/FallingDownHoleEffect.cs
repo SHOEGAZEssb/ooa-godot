@@ -139,3 +139,7 @@ internal partial class FallingDownHoleEffect : TransitionOffsetNode2D
         return new FallingDownHoleEffectDefinition(frames.ToArray(), speedRaw / 40.0f);
     }
 }
+
+internal sealed record FallingDownHoleEffectFrameRecord(Texture2D Texture, Vector2 TextureOffset, int Duration, int Parameter);
+
+internal sealed record FallingDownHoleEffectDefinition(FallingDownHoleEffectFrameRecord[] Frames, float Speed);

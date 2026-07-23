@@ -402,3 +402,346 @@ internal static class CutsceneCommandCatalog
         Exception? innerException = null) =>
         new($"{path}:{physicalLine}: {message}.", innerException);
 }
+
+internal sealed record CutsceneApplySpeedCommand(
+    CutsceneCommandSource Source,
+    string Actor,
+    int Counter)
+    : CutsceneCommand(Source)
+{
+    public CutsceneActorId ActorId { get; } = new(Actor);
+}
+
+internal sealed record CutsceneMemoryBranchCommand(
+    CutsceneCommandSource Source,
+    string Binding,
+    int Value,
+    int TargetCommand)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneMakeAButtonSensitiveCommand(
+    CutsceneCommandSource Source,
+    string Actor)
+    : CutsceneCommand(Source)
+{
+    public CutsceneActorId ActorId { get; } = new(Actor);
+}
+
+/// <summary>
+/// Typed expansion of the shared jumpAndWaitUntilLanded subscript. The first
+/// update retains the callscript boundary; gravity begins on the next update.
+/// </summary>
+internal sealed record CutsceneJumpCommand(
+    CutsceneCommandSource Source,
+    string Actor,
+    int InitialSpeedZ,
+    int Gravity,
+    int Sound)
+    : CutsceneCommand(Source)
+{
+    public CutsceneActorId ActorId { get; } = new(Actor);
+}
+
+internal sealed record CutsceneGateCommand(
+    CutsceneCommandSource Source,
+    string Gate)
+    : CutsceneCommand(Source);
+
+/// <summary>
+/// Recognized native objectFlickerVisibility/dec-counter script loop. The
+/// counter byte and frame mask remain explicit imported operands.
+/// </summary>
+internal sealed record CutsceneFlickerCommand(
+    CutsceneCommandSource Source,
+    string Actor,
+    int CounterAddress,
+    int FrameMask)
+    : CutsceneCommand(Source)
+{
+    public CutsceneActorId ActorId { get; } = new(Actor);
+}
+
+internal sealed record CutsceneEndCommand(CutsceneCommandSource Source)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneEnableInputCommand(CutsceneCommandSource Source)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneDisableMenuCommand(CutsceneCommandSource Source)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneDisableInputCommand(CutsceneCommandSource Source)
+    : CutsceneCommand(Source);
+
+/// <summary>
+/// Opens dialogue, blocks until it closes, then yields its completion update.
+/// Used by imported multi-object orchestration whose controller owned that
+/// extra command boundary.
+/// </summary>
+internal sealed record CutsceneDialogueCommand(
+    CutsceneCommandSource Source,
+    int TextId,
+    string Message)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneDeleteActorCommand(
+    CutsceneCommandSource Source,
+    string Actor)
+    : CutsceneCommand(Source)
+{
+    public CutsceneActorId ActorId { get; } = new(Actor);
+}
+
+internal sealed record CutsceneCheckAButtonCommand(
+    CutsceneCommandSource Source,
+    string Actor)
+    : CutsceneCommand(Source)
+{
+    public CutsceneActorId ActorId { get; } = new(Actor);
+}
+
+internal sealed record CutsceneCallCommand(
+    CutsceneCommandSource Source,
+    int TargetCommand)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneBranchCommand(
+    CutsceneCommandSource Source,
+    int TargetCommand)
+    : CutsceneCommand(Source);
+
+internal sealed record CutscenePlaySoundCommand(
+    CutsceneCommandSource Source,
+    int Sound)
+    : CutsceneCommand(Source);
+
+/// <summary>
+/// Two independently timed actor displacements dispatched in stable actor
+/// order. The command completes after the longer lane has completed.
+/// </summary>
+internal sealed record CutsceneParallelTranslateCommand(
+    CutsceneCommandSource Source,
+    string Actor,
+    Vector2 Delta,
+    int Frames,
+    string Actor2,
+    Vector2 Delta2,
+    int Frames2)
+    : CutsceneCommand(Source)
+{
+    public CutsceneActorId ActorId { get; } = new(Actor);
+    public CutsceneActorId Actor2Id { get; } = new(Actor2);
+}
+
+/// <summary>
+/// Native object-code room-flag mutation that remains in the same object
+/// update. This is deliberately distinct from scriptCmd_orRoomFlags, whose
+/// no-carry return yields the interaction script.
+/// </summary>
+internal sealed record CutsceneOrRoomFlagContinueCommand(
+    CutsceneCommandSource Source,
+    int Flag)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneOrRoomFlagCommand(
+    CutsceneCommandSource Source,
+    int Flag)
+    : CutsceneCommand(Source);
+
+/// <summary>A native controller mutation that owns one fixed update.</summary>
+internal sealed record CutsceneNativeYieldCommand(
+    CutsceneCommandSource Source,
+    string Handler)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneNativeCommand(
+    CutsceneCommandSource Source,
+    string Handler)
+    : CutsceneCommand(Source);
+
+/// <summary>
+/// A bespoke object-code handler retained outside the script interpreter. The
+/// shared runner owns its command boundary while the event host owns its state.
+/// </summary>
+internal sealed record CutsceneNativeBlockingCommand(
+    CutsceneCommandSource Source,
+    string Handler,
+    CutsceneActorId? Actor,
+    int Frames,
+    string Payload)
+    : CutsceneCommand(Source);
+
+/// <summary>
+/// Cardinal NPC movement opcodes set angle, select the corresponding
+/// animation, and install counter2 in one script update.
+/// </summary>
+internal sealed record CutsceneMoveCommand(
+    CutsceneCommandSource Source,
+    string Actor,
+    int Angle,
+    int Counter,
+    string EncodedAnimation)
+    : CutsceneCommand(Source)
+{
+    public CutsceneActorId ActorId { get; } = new(Actor);
+}
+
+internal sealed record CutsceneMemoryGateCommand(
+    CutsceneCommandSource Source,
+    string Binding,
+    int Value)
+    : CutsceneCommand(Source);
+
+/// <summary>An asm helper animation change that carries into the next command.</summary>
+internal sealed record CutsceneSetAnimationContinueCommand(
+    CutsceneCommandSource Source,
+    string Actor,
+    int Animation,
+    string EncodedAnimation)
+    : CutsceneCommand(Source)
+{
+    public CutsceneActorId ActorId { get; } = new(Actor);
+}
+
+internal sealed record CutsceneSetAnimationCommand(
+    CutsceneCommandSource Source,
+    string Actor,
+    int Animation,
+    string EncodedAnimation)
+    : CutsceneCommand(Source)
+{
+    public CutsceneActorId ActorId { get; } = new(Actor);
+}
+
+internal sealed record CutsceneSetAngleCommand(
+    CutsceneCommandSource Source,
+    string Actor,
+    int Angle)
+    : CutsceneCommand(Source)
+{
+    public CutsceneActorId ActorId { get; } = new(Actor);
+}
+
+internal sealed record CutsceneRoomFlagBranchCommand(
+    CutsceneCommandSource Source,
+    int Flag,
+    int TargetCommand)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneReturnCommand(CutsceneCommandSource Source)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneSetDisabledObjectsCommand(
+    CutsceneCommandSource Source,
+    int Value)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneSetCounterCommand(
+    CutsceneCommandSource Source,
+    int Frames)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneSetCollisionRadiiCommand(
+    CutsceneCommandSource Source,
+    string Actor,
+    int RadiusY,
+    int RadiusX)
+    : CutsceneCommand(Source)
+{
+    public CutsceneActorId ActorId { get; } = new(Actor);
+}
+
+internal sealed record CutsceneSetGlobalFlagCommand(
+    CutsceneCommandSource Source,
+    int Flag)
+    : CutsceneCommand(Source);
+
+/// <summary>A native WRAM write that carries into the next operation.</summary>
+internal sealed record CutsceneSetDisabledObjectsContinueCommand(
+    CutsceneCommandSource Source,
+    int Value)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneSetMusicCommand(
+    CutsceneCommandSource Source,
+    int Music)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneSetSpeedCommand(
+    CutsceneCommandSource Source,
+    string Actor,
+    int Speed)
+    : CutsceneCommand(Source)
+{
+    public CutsceneActorId ActorId { get; } = new(Actor);
+}
+
+internal sealed record CutsceneShowTextVariantsCommand(
+    CutsceneCommandSource Source,
+    int StandardTextId,
+    string StandardMessage,
+    int LinkedTextId,
+    string LinkedMessage)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneShowTextCommand(
+    CutsceneCommandSource Source,
+    int TextId,
+    string Message)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneTextOptionBranchCommand(
+    CutsceneCommandSource Source,
+    int Value,
+    int TargetCommand)
+    : CutsceneCommand(Source);
+
+/// <summary>Exact fixed-update displacement used by imported controller lanes.</summary>
+internal sealed record CutsceneTranslateCommand(
+    CutsceneCommandSource Source,
+    string Actor,
+    Vector2 Delta,
+    int Frames,
+    int Animation,
+    bool SetAnimationOnStart)
+    : CutsceneCommand(Source)
+{
+    public CutsceneActorId ActorId { get; } = new(Actor);
+}
+
+internal sealed record CutsceneWaitCommand(CutsceneCommandSource Source, int Frames)
+    : CutsceneCommand(Source);
+
+/// <summary>
+/// Fixed-update orchestration wait whose first dispatch consumes frame one and
+/// whose completion yields. This matches RoomEventTimeline's established
+/// duration without changing the interaction-script wait opcode above.
+/// </summary>
+internal sealed record CutsceneWaitFramesCommand(
+    CutsceneCommandSource Source,
+    int Frames)
+    : CutsceneCommand(Source);
+
+/// <summary>
+/// Decrements a counter installed by an earlier native operation. Unlike
+/// <see cref="CutsceneWaitCommand"/>, the first runner update consumes a frame.
+/// </summary>
+internal sealed record CutsceneWaitPreloadedCounterCommand(
+    CutsceneCommandSource Source)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneWriteMemoryCommand(
+    CutsceneCommandSource Source,
+    string Binding,
+    int Value)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneWriteObjectByteCommand(
+    CutsceneCommandSource Source,
+    string Actor,
+    int Address,
+    int Value)
+    : CutsceneCommand(Source)
+{
+    public CutsceneActorId ActorId { get; } = new(Actor);
+}

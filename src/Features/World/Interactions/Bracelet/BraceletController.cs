@@ -612,3 +612,15 @@ public sealed class BraceletController
         return (byte)record.Replacement;
     }
 }
+
+internal enum BraceletState
+{
+    Idle,
+    SeekingWall,
+    GrabbingWall,
+    Lifting,
+    LiftingEntity,
+    Holding,
+    Throwing,
+    Projectile
+}

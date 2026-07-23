@@ -856,3 +856,22 @@ void fragment() {
         else player.Face(Vector2I.Down);
     }
 }
+
+internal enum WarpPhase
+{
+    None,
+    FadeOut,
+    LeaveScreen,
+    FadeIn,
+    TimeWarpInitialize,
+    TimeWarpDissolve,
+    TimeWarpSetup,
+    TimeWarpSourceEffect,
+    TimeWarpSourceTrail,
+    TimeWarpBlackFadeIn,
+    TimeWarpWhiteFadeOut,
+    TimeWarpArrivalFadeIn,
+    TimeWarpArrivalWait,
+    TimeWarpArrivalEffect,
+    TimeWarpArrivalFlicker
+}

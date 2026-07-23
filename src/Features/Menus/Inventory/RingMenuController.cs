@@ -500,3 +500,13 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
             _lifecycle.CloseImmediately(this);
     }
 }
+
+internal enum AppraisalState
+{
+    Browse,
+    Confirm,
+    RingName,
+    RingDescription,
+    ResultDelay,
+    ExitDelay
+}

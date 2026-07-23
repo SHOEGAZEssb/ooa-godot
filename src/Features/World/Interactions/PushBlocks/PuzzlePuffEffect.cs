@@ -122,3 +122,5 @@ internal partial class PuzzlePuffEffect : TransitionOffsetNode2D
         return animation;
     }
 }
+
+internal sealed record PuzzlePuffEffectFrameRecord(Texture2D Texture, int Duration, int Parameter);

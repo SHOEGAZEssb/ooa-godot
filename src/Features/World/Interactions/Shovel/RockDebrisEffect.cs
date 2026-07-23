@@ -167,3 +167,7 @@ internal partial class RockDebrisEffect : TransitionOffsetNode2D
         return definitions;
     }
 }
+
+internal sealed record RockDebrisEffectFrameRecord(Texture2D Texture, int Duration, int Parameter);
+
+internal sealed record Definition(int InteractionId, int Sound, List<RockDebrisEffectFrameRecord> Animation);

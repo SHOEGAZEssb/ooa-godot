@@ -37,13 +37,13 @@ animation. Match the mechanism used by the disassembly.
 
 ## Relevant files
 
-- `src/cutscenes/CutsceneCommand.cs`: typed records, source metadata, actor
-  identifiers, host contract, and trace records.
-- `src/cutscenes/CutsceneCommandCatalog.cs`: schema validation and conversion
-  from generated rows to typed commands.
-- `src/cutscenes/CutsceneCommandRunner.cs`: fixed-update command interpreter.
-- `src/cutscenes/CutsceneCommandLaneScheduler.cs`: stable-order scheduler for
-  independent actor scripts.
+- `src/Features/Story/Commands/CutsceneCommandCatalog.cs`: schema validation,
+  conversion from generated rows, and the typed command records it constructs.
+- `src/Features/Story/Commands/CutsceneCommandRunner.cs`: fixed-update command
+  interpreter plus its command base, source metadata, result, and trace records.
+- `src/Features/Story/Commands/ICutsceneCommandHost.cs`: host contract.
+- `src/Features/Story/Commands/CutsceneCommandLaneScheduler.cs`: stable-order
+  scheduler for independent actor scripts.
 - `tools/import_oracles/Import-CutsceneData.ps1`: disassembly parsing and
   generated command streams.
 - `validation/Validation.Cutscenes.cs`: complete-path and branch validation.

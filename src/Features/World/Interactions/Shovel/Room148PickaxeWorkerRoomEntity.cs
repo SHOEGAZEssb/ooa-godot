@@ -81,3 +81,10 @@ internal sealed class Room148PickaxeWorkerRoomEntity(
         Entity.AdvanceAnimationUpdates(1);
     }
 }
+
+internal sealed record Room148DebrisSpawn(
+    Vector2 Position,
+    int Palette,
+    int Angle,
+    int DrawPriority)
+    : RoomEntitySpawn(UpdateThisFrame: true);

@@ -367,3 +367,18 @@ internal sealed class GashaSpotDatabase
         }
     }
 }
+
+internal readonly record struct DynamicBackgroundTile(Image Source, int Tile);
+
+internal readonly record struct SpotRecord(int Group, int Room, int SubId, int Y, int X, int Rank, string Ground, int ReplacementTile)
+{
+    internal Vector2 Position => new(X, Y);
+    internal Vector2 TreeTopLeft => new(X, Y - 16);
+    internal int PackedPosition => (Y & 0xf0) | (X >> 4);
+}
+
+internal readonly record struct RewardRecord(int Type, int TreasureId, int Parameter, int TextId, GashaSpotDatabaseVisualRecord Visual);
+
+internal readonly record struct GashaSpotDatabaseVisualRecord(string Sprite, int TileBase, int Palette, string Animation);
+
+internal readonly record struct DisappearanceRecord(int Phase, int SourceStart, int SourceCount, int DestinationStart, byte[] TileMap);

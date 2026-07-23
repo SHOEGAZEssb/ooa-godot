@@ -1231,3 +1231,69 @@ public sealed class InventoryState
     private static int ToBcdWord(int value) =>
         ToBcd(value % 100) | ToBcd(value / 100) << 8;
 }
+
+public enum CollectionMode
+{
+    None = 0x0,
+    SetBit = 0x1,
+    Increment = 0x2,
+    IncrementBcd = 0x3,
+    AddBcd = 0x4,
+    Set = 0x5,
+    SetDungeonBit = 0x6,
+    IncrementDungeonKey = 0x7,
+    SetMinimum = 0x8,
+    AddUnappraisedRing = 0x9,
+    Add = 0xa,
+    SetUpgradeBit = 0xb,
+    AddCapped = 0xc,
+    AddBcdCapped = 0xd,
+    AddRupees = 0xe,
+    AddSeeds = 0xf
+}
+
+internal readonly record struct RingAppraisalResult(int Ring, bool Duplicate, int Refund);
+
+public enum TreasureVariable
+{
+    ShortSecretIndex,
+    DummyC608,
+    AnimalCompanion,
+    RememberedCompanionId,
+    Bombchus,
+    LinkHealth,
+    LinkMaxHealth,
+    HeartPieces,
+    Rupees,
+    ShieldLevel,
+    Bombs,
+    SwordLevel,
+    SeedSatchelLevel,
+    SwitchHookLevel,
+    SelectedHarpSong,
+    BraceletLevel,
+    EmberSeeds,
+    ScentSeeds,
+    PegasusSeeds,
+    GaleSeeds,
+    MysterySeeds,
+    GashaSeeds,
+    EssencesObtained,
+    TradeItem,
+    TuniNutState,
+    Slates,
+    RingBoxLevel,
+    UnappraisedRings,
+    DungeonSmallKeys,
+    DungeonBossKeys,
+    DungeonCompasses,
+    DungeonMaps,
+    ObtainedSeasons,
+    BoomerangLevel,
+    MagnetGlovePolarity,
+    SlingshotLevel,
+    FeatherLevel,
+    SatchelSelectedSeeds,
+    ShooterSelectedSeeds,
+    SlingshotSelectedSeeds
+}

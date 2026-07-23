@@ -175,3 +175,9 @@ public static class OracleSaveStore
             throw new ArgumentOutOfRangeException(nameof(slot));
     }
 }
+
+public readonly record struct SaveResult(bool Success, string ErrorMessage)
+{
+    public static readonly SaveResult Succeeded = new(true, string.Empty);
+    public static SaveResult Failed(string message) => new(false, string.IsNullOrWhiteSpace(message) ? "Unknown save error." : message);
+}

@@ -51,3 +51,11 @@ internal sealed class ZolRoomEntity
                 ? new EnemyDeathPuffSpawn(zol.Position, EnemyId: zol.Record.Id)
                 : null);
 }
+
+internal sealed record KillEnemyPuffSpawn(Vector2 Position) : RoomEntitySpawn;
+
+internal sealed record GelSpawn(
+    Vector2 Position,
+    string Name = "Gel",
+    int KillableEnemyIndex = 0)
+    : RoomEntitySpawn;

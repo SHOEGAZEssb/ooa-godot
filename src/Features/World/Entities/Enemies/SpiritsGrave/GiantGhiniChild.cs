@@ -69,7 +69,8 @@ internal sealed partial class GiantGhiniChild : SpiritsGraveEnemyCharacter
         if (_spawnPuffPending)
         {
             _spawnPuffPending = false;
-            spawns.Add(new KillEnemyPuffSpawn(Position));
+            spawns.Add(new PuzzlePuffSpawn(
+                Position, OracleSoundEngine.SndPoof));
         }
         switch (_state)
         {
@@ -167,4 +168,13 @@ internal sealed partial class GiantGhiniChild : SpiritsGraveEnemyCharacter
         return clockwise == 0 ? current
             : (current + (clockwise < 0x10 ? 1 : -1)) & 0x1f;
     }
+}
+
+internal enum ChildState
+{
+    Waiting,
+    SpawnDelay,
+    Charging,
+    Attached,
+    Fading
 }

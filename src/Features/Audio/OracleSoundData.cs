@@ -149,3 +149,7 @@ public sealed class OracleSoundData
         return data;
     }
 }
+
+public readonly record struct NoiseRecord(byte Note, byte Envelope, byte Frequency);
+
+public readonly record struct ChannelStart(int Channel, int Priority, int Bank, int Offset);

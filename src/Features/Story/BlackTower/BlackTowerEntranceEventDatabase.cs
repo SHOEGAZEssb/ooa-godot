@@ -125,3 +125,7 @@ internal sealed class BlackTowerEntranceEventDatabase
         return result;
     }
 }
+
+internal readonly record struct OamRecord(int Y, int X, int Tile, int Flags, string Source);
+
+internal readonly record struct BlackTowerEntranceEventDatabaseEventRecord(int Group, int Room, int GuardId, int GuardSubId, int EssenceMask, int ItemFlag, int AftermathFlag, int CompleteFlag, int InitialY, int InitialX, int CompletedY, int CompletedX, int MoveSpeed, int MoveCounter, int ScreenOffsetY, int IntroWait, int PostWait, int SourceTransition, int DestinationTransition, int ExplanationTextId, string ExplanationText);

@@ -136,3 +136,19 @@ public sealed class NpcVisibilityRuleDatabase
     internal static int GetGameProgress2(OracleSaveData save) =>
         NpcStoryState.GetGameProgress2(save);
 }
+
+internal enum FlagKind
+{
+    Global,
+    CurrentRoom,
+    SpecificRoom,
+    Treasure,
+    Linked,
+    Essence,
+    Wram,
+    RuntimeEquals,
+    GameProgress1,
+    GameProgress2
+}
+
+internal readonly record struct NpcVisibilityRuleDatabaseRule(int Var03, int Alternative, FlagKind Kind, int Group, int Room, int Value, bool ExpectedSet, string Source);

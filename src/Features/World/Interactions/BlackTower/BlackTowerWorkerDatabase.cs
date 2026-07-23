@@ -125,3 +125,7 @@ internal sealed class BlackTowerWorkerDatabase
     private static InvalidOperationException Malformed(string kind, string line) =>
         new($"Malformed Black Tower {kind} row: {line}");
 }
+
+internal readonly record struct BlackTowerWorkerDatabaseVisualRecord(string Sprite, int TileBase, int Palette, string Animation);
+
+internal readonly record struct PatrolLeg(int Direction, int Counter);

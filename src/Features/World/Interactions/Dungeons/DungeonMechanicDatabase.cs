@@ -181,3 +181,12 @@ internal sealed class DungeonMechanicDatabase
     private static int MakeKey(int group, int room) => (group << 8) | room;
 
 }
+
+internal enum TriggerPredicate
+{
+    None,
+    BitSet,
+    Exact
+}
+
+internal readonly record struct DungeonMechanicDatabaseRecord(int Group, int Room, int Order, int Id, int SubId, int PackedPosition, int Parameter, TriggerPredicate Predicate, bool CountSourceComplete);

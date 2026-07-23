@@ -144,3 +144,12 @@ internal sealed class GeneratedTable
         string[] columns) => string.Join(", ", schema.KeyColumns.Select(index =>
             $"{schema.Columns[index]}='{columns[index]}'"));
 }
+
+internal enum GeneratedTableKeySemantics
+{
+    Unique,
+    Grouped,
+    Ordered,
+    Aliased,
+    Repeated
+}

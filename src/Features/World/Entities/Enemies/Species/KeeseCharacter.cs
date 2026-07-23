@@ -272,3 +272,10 @@ public partial class KeeseCharacter : TransitionOffsetNode2D
 
     private void AdvanceAnimation() => _animation.Advance();
 }
+
+internal enum KeeseState
+{
+    Resting,
+    Moving,
+    Decelerating
+}

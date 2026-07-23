@@ -745,3 +745,48 @@ internal sealed class VasuShopEvent : IRoomEvent
             $"Vasu Jewelers reached deferred source boundary '{source}'; " +
             "the ring-menu/Game Link subsystem is not implemented.");
 }
+
+internal enum EventStage
+{
+    Inactive,
+    VasuFirstExplanation,
+    VasuRingBoxOffer,
+    VasuRingBoxReward,
+    VasuFriendshipOffer,
+    VasuFriendshipReward,
+    VasuAppraisalHandoff,
+    VasuFirstAppraisalMenu,
+    VasuFirstAppraisalWait,
+    VasuFirstListIntroduction,
+    VasuFirstListMenu,
+    VasuFirstListWait,
+    VasuFirstFinalText,
+    VasuLinkedGreeting,
+    VasuLinkedRingBoxOffer,
+    VasuLinkedRingBoxReward,
+    VasuNormalMenu,
+    VasuNormalMenuActive,
+    VasuNormalMenuWait,
+    VasuFinalText,
+    VasuHundredthText,
+    VasuSpecialText,
+    VasuSpecialReward,
+    RedInitial,
+    RedDelay,
+    RedTopic,
+    RedMore,
+    RedLinkedMenu,
+    BlueInitial,
+    BlueLinkedMenu,
+    BlueFortuneSetup,
+    BlueLinkSetup,
+    BlueCableTimeout,
+    SnakeFinalText,
+    SnakeRetreat,
+    BookSecretsInitial,
+    BookSecretsText,
+    BookBasicsInitial,
+    BookBasicsTopic,
+    BookBasicsFortune,
+    BookBasicsLink
+}

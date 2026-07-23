@@ -140,3 +140,7 @@ public partial class EnemyDeathPuffEffect : TransitionOffsetNode2D
         return animation;
     }
 }
+
+internal sealed record EnemyDeathPuffEffectFrameRecord(Texture2D[] PaletteTextures, int Duration);
+
+internal sealed record EnemyDeathPuffEffectDefinition(int[] Palettes, List<EnemyDeathPuffEffectFrameRecord> NormalAnimation, List<EnemyDeathPuffEffectFrameRecord> HighKnockbackAnimation);

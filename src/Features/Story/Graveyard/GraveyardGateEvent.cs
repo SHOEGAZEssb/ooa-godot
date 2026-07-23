@@ -250,3 +250,11 @@ internal sealed class GraveyardGateEvent : IRoomEntryEvent, ICutsceneCommandHost
     private static InvalidOperationException Unsupported(string operation) =>
         new($"Room 0:5c graveyard gate cannot {operation}.");
 }
+
+internal enum GraveyardGateEventEventStage
+{
+    Inactive,
+    WaitingForKeyhole,
+    Running,
+    Completed
+}

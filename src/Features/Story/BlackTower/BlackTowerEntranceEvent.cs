@@ -451,3 +451,14 @@ internal sealed class BlackTowerEntranceEvent : IRoomEntryEvent, ICutsceneComman
     private static InvalidOperationException Unsupported(string operation) =>
         new($"Room 1:86 hardhat script cannot {operation}.");
 }
+
+internal enum BlackTowerEntranceEventEventStage
+{
+    Inactive,
+    FirstScript,
+    ExplanationFadeIn,
+    ExplanationIntroWait,
+    ExplanationDialogue,
+    ExplanationPostWait,
+    Aftermath
+}

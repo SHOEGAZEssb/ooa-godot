@@ -218,3 +218,10 @@ public partial class CrowCharacter : TransitionOffsetNode2D
         return y is >= 0 and < ScreenBottom && x is >= 0 and < ScreenRight;
     }
 }
+
+internal enum CrowState
+{
+    Perched,
+    Rising,
+    Charging
+}

@@ -2690,3 +2690,32 @@ public partial class Player : Node2D
         new[] { new SwordPart(8, 0, 6), new SwordPart(8, 8, 8) }
     };
 }
+
+internal readonly record struct SwordPart(int Y, int X, int Tile, bool FlipX = false, bool FlipY = false);
+
+internal readonly record struct SwordArc(int RadiusY, int RadiusX, int OffsetY, int OffsetX);
+
+internal enum SwordActionState
+{
+    None,
+    Swing,
+    Held,
+    Charged,
+    Poke,
+    Spin
+}
+
+internal enum Facing
+{
+    Up,
+    Right,
+    Down,
+    Left
+}
+
+internal enum BraceletActionPose
+{
+    Pull,
+    PullStrain,
+    Throw
+}

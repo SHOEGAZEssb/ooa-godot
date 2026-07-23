@@ -87,3 +87,10 @@ internal partial class BoomerangMoblinCharacter : SpiritsGraveEnemyCharacter
         SetAnimation(_angle >> 3);
     }
 }
+
+internal enum BoomerangMoblinCharacterMoblinState
+{
+    Moving,
+    Deciding,
+    WaitingForBoomerang
+}

@@ -34,3 +34,13 @@ internal sealed class BoomerangMoblinRoomEntity
             spawns.Add(new MoblinBoomerangSpawn(Entity, Entity.Position, angle));
     }
 }
+
+internal sealed record EnemyDeathPuffSpawn(
+    Vector2 Position,
+    bool HighKnockback = false,
+    int EnemyId = -1) : RoomEntitySpawn;
+
+internal sealed record MoblinBoomerangSpawn(
+    BoomerangMoblinCharacter Owner,
+    Vector2 Position,
+    int Angle) : RoomEntitySpawn(UpdateThisFrame: true);

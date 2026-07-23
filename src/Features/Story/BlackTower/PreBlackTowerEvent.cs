@@ -705,3 +705,15 @@ internal sealed class PreBlackTowerEvent : IRoomEntryEvent, ICutsceneCommandHost
         new($"Pre-Black Tower command stream cannot {operation}.");
 
 }
+
+internal enum PreBlackTowerEventEventStage
+{
+    Inactive,
+    RalphUnlinkedNative,
+    RalphUnlinkedScript,
+    WaitingForImpa,
+    ImpaUnlinked,
+    Linked
+}
+
+internal sealed record TimedEffect(NpcCharacter Actor, int Frames);

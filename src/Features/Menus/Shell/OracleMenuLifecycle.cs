@@ -170,3 +170,19 @@ internal sealed class OracleMenuLifecycle
                 $"{client.MenuName} requested an open-state transition during {CurrentPhase}.");
     }
 }
+
+internal enum Direction
+{
+    ToWhite,
+    FromWhite
+}
+
+internal enum Phase
+{
+    Closed,
+    OpeningFadeOut,
+    OpeningFadeIn,
+    Open,
+    ClosingFadeOut,
+    ClosingFadeIn
+}

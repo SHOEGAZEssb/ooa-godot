@@ -90,3 +90,5 @@ public sealed class DungeonMapDatabase
             throw new InvalidOperationException($"Expected 16 dungeon map layouts, got {_dungeons.Count}.");
     }
 }
+
+public readonly record struct DungeonCell(int Floor, int X, int Y, int Room, byte Properties);

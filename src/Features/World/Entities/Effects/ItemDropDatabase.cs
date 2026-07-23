@@ -145,3 +145,5 @@ public sealed class ItemDropDatabase
     private static bool IsCurrentlyAvailable(int subId) =>
         subId is Heart or OneRupee or FiveRupees or OneHundredRupeesOrEnemy;
 }
+
+public readonly record struct ItemDropDatabaseVisualRecord(int SubId, int TileBase, int Palette, string Animation);

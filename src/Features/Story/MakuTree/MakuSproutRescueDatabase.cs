@@ -114,3 +114,10 @@ internal sealed class MakuSproutRescueDatabase
         }
     }
 }
+
+internal readonly record struct MakuSproutRescueDatabaseEventRecord(int Group, int Room, int SproutId, int SproutSubId, int ControllerY, int ControllerX, int MoblinId, int MoblinY, int LeftX, int RightX, int InitialGatePosition, int ClearTile, int GateLeft, int GateInnerLeft, int GateInnerRight, int GateRight, int RoomFlag, int AdviceFlag, int SavedFlag, int StateMin, int StateMax, int MapTextLow, int TriggerRadiusY, int TriggerRadiusX, int JumpSpeedZ, int JumpGravity, int JumpSound, int GateCounter, int ShakeCounter, int FinalTextPosition, int PostTextId, string PostText);
+
+internal readonly record struct MakuSproutRescueDatabaseActorRecord(string Actor, int Id, int SubId, int Y, int X, string SpriteName, int TileBase, int Palette, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation)
+{
+    public NpcRecord ToNpcRecord(int group, int room) => new(group, room, Id, SubId, Y, X, 0, 0, SpriteName, TileBase, Palette, 0, false, UpAnimation, RightAnimation, DownAnimation, LeftAnimation, string.Empty);
+}

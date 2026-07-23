@@ -125,3 +125,11 @@ internal sealed class BlackTowerDoorwayEvent : IRoomEntryEvent
         (position & 0x0f) * OracleRoomData.MetatileSize + 8,
         (position >> 4) * OracleRoomData.MetatileSize + 8);
 }
+
+internal enum BlackTowerDoorwayEventEventStage
+{
+    Inactive,
+    Initialize,
+    WaitForExit,
+    Armed
+}

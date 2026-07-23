@@ -163,3 +163,9 @@ public partial class EnemyArrowProjectile : TransitionOffsetNode2D
         Visible = false;
     }
 }
+
+internal enum ArrowState
+{
+    Flying,
+    Bouncing
+}

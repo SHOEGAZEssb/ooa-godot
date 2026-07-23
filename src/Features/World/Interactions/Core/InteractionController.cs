@@ -901,3 +901,46 @@ public sealed class InteractionController
     private static int MakeChestKey(int group, int room, int position) =>
         (group << 16) | (room << 8) | position;
 }
+
+internal enum GashaState
+{
+    None,
+    AwaitNoSeedsClose,
+    AwaitPlantChoice,
+    AwaitNutIntroClose,
+    AwaitRewardClose,
+    AwaitDisplayedCounters,
+    AwaitDisappearance
+}
+
+internal enum FamilyNamingState
+{
+    None,
+    AwaitOpeningClose,
+    NameEntry,
+    AwaitConfirmation,
+    AwaitInvalidClose,
+    ThanksDelay,
+    AwaitThanksClose
+}
+
+internal enum HardhatShovelState
+{
+    None,
+    AwaitOpeningClose,
+    PreRewardWait,
+    AwaitRewardClose,
+    PostRewardWait,
+    AwaitFinalClose,
+    AwaitSimpleClose
+}
+
+internal enum LinkedGhiniState
+{
+    None,
+    AwaitOfferChoice,
+    AwaitRefusalClose,
+    AwaitExplanationChoice,
+    AwaitSecretChoice,
+    AwaitFinalClose
+}

@@ -344,3 +344,11 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         Visible = false;
     }
 }
+
+internal enum EmberState
+{
+    Initializing,
+    Flying,
+    Burning,
+    Finished
+}

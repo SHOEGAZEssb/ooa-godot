@@ -292,3 +292,11 @@ public partial class OctorokCharacter : TransitionOffsetNode2D
 
     private void AdvanceAnimation() => _animation.Advance();
 }
+
+internal enum OctorokState
+{
+    Deciding = 8,
+    Standing = 9,
+    Walking = 10,
+    Shooting = 11
+}

@@ -99,3 +99,5 @@ public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
         return animation;
     }
 }
+
+internal sealed record KillEnemyPuffEffectFrameRecord(Texture2D Texture, int Duration);

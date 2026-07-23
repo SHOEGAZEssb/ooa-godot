@@ -1109,3 +1109,11 @@ public partial class DialogueBox : Node2D
         return new Color(red / 31.0f, green / 31.0f, blue / 31.0f);
     }
 }
+
+internal readonly record struct TextGlyph(int Code, FontSource Source, int ColorIndex, int CharacterSound, int SoundEffect);
+
+internal enum FontSource
+{
+    Main,
+    Symbol
+}

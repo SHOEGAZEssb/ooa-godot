@@ -379,3 +379,10 @@ public sealed class MainMenuController
         _startGame(_pendingSlot, _pendingSave!);
     }
 }
+
+internal enum FadeDestination
+{
+    None,
+    FileSelect,
+    Gameplay
+}
