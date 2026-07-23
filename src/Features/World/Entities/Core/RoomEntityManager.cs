@@ -8,7 +8,7 @@ namespace oracleofages;
 /// Owns the active and outgoing room-entity sets. Per-type behavior is exposed
 /// through small capability interfaces and constructed by RoomEntityFactory.
 /// </summary>
-public sealed class RoomEntityManager
+public sealed class RoomEntityManager : IDisposable
 {
     public event Action<int, OracleRoomData>? RoomEntitiesLoaded;
     public event Action<TimePortal>? TimePortalEntered;
@@ -46,6 +46,7 @@ public sealed class RoomEntityManager
     private int _enemyFrameCounter;
     private int _screenShakeCounter;
     private bool _linkCollisionsAndMenuDisabled;
+    private bool _disposed;
 
     internal Func<bool> GameButtonJustPressedSource { get; set; } =
         ReadGameButtonJustPressed;
@@ -62,6 +63,7 @@ public sealed class RoomEntityManager
     internal int ScreenShakeCounter => _screenShakeCounter;
     internal bool LinkCollisionsAndMenuDisabled =>
         _linkCollisionsAndMenuDisabled;
+    internal bool IsDisposed => _disposed;
     internal bool PlayerRidingObject
     {
         get
@@ -209,6 +211,17 @@ public sealed class RoomEntityManager
         if (_saveData is not null)
             _saveData.Changed += RefreshNpcState;
         _runtimeState.Changed += RefreshNpcState;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+        _disposed = true;
+
+        if (_saveData is not null)
+            _saveData.Changed -= RefreshNpcState;
+        _runtimeState.Changed -= RefreshNpcState;
     }
 
     public List<T> Entities<T>() where T : Node2D => SelectNodes<T>(_activeEntities);

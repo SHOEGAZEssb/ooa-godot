@@ -1218,6 +1218,192 @@ public sealed partial class ValidationRoot
             "per-update damage display, and delayed half-heart terrain damage.");
     }
 
+    private void ValidatePlayerDamageAndDeath()
+    {
+        OracleSaveData damageSave = OracleSaveData.CreateStandardGame();
+        var damageInventory = new InventoryState(_treasures, damageSave);
+        var damageWorld = new ValidationRingPlayerWorld { FrameCounter = 0 };
+        var damagePlayer = new Player { Name = "DamageBlinkValidationPlayer" };
+        AddChild(damagePlayer);
+        damagePlayer.Initialize(
+            damageWorld,
+            damageInventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+
+        int healthBefore = damagePlayer.HealthQuarters;
+        if (!damagePlayer.ApplyEnemyContactDamage(
+                new Vector2(64, 80), quarters: 1) ||
+            damagePlayer.HealthQuarters != healthBefore - 1 ||
+            !damagePlayer.DamagePaletteActive ||
+            damagePlayer.LinkAtlasPixelHash == damagePlayer.DamageLinkAtlasPixelHash ||
+            Player.RecolorLinkPixel(
+                Color.Color8(85, 85, 85),
+                damagePalette: true) !=
+                new Color(0x1f / 31.0f, 0x16 / 31.0f, 0x06 / 31.0f) ||
+            damageWorld.Sounds.Count(
+                sound => sound == OracleSoundEngine.SndDamageLink) != 1)
+        {
+            throw new InvalidOperationException(
+                "Accepted Link damage did not select standard sprite palette 5 " +
+                "or request SND_DAMAGE_LINK $5f.");
+        }
+        damageWorld.FrameCounter = 4;
+        if (damagePlayer.DamagePaletteActive ||
+            damagePlayer.ApplyEnemyContactDamage(
+                new Vector2(64, 80), quarters: 1) ||
+            damageWorld.Sounds.Count(
+                sound => sound == OracleSoundEngine.SndDamageLink) != 1)
+        {
+            throw new InvalidOperationException(
+                "Link's source bit-2 damage flash or contact invincibility regressed.");
+        }
+        damagePlayer.Free();
+
+        OracleSaveData potionSave = OracleSaveData.CreateStandardGame();
+        var potionInventory = new InventoryState(_treasures, potionSave);
+        potionInventory.GiveTreasure(TreasureDatabase.TreasurePotion, 1);
+        var potionWorld = new ValidationRingPlayerWorld();
+        var potionPlayer = new Player { Name = "PotionDeathValidationPlayer" };
+        AddChild(potionPlayer);
+        potionPlayer.Initialize(
+            potionWorld,
+            potionInventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+        if (!potionPlayer.ApplyDamage(potionPlayer.MaxHealthQuarters) ||
+            potionPlayer.IsDying ||
+            potionPlayer.HealthQuarters != potionPlayer.MaxHealthQuarters ||
+            potionInventory.HasTreasure(TreasureDatabase.TreasurePotion))
+        {
+            throw new InvalidOperationException(
+                "TREASURE_POTION $2f did not refill Link and clear itself " +
+                "before wLinkDeathTrigger.");
+        }
+        potionPlayer.Free();
+
+        OracleSaveData deathSave = OracleSaveData.CreateStandardGame();
+        var deathInventory = new InventoryState(_treasures, deathSave);
+        var deathWorld = new ValidationRingPlayerWorld();
+        var deathPlayer = new Player { Name = "DeathValidationPlayer" };
+        AddChild(deathPlayer);
+        deathPlayer.Initialize(
+            deathWorld,
+            deathInventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+        int gameOverRequests = 0;
+        deathPlayer.GameOverRequested += () => gameOverRequests++;
+        if (!deathPlayer.ApplyEnemyContactDamage(
+                new Vector2(64, 80),
+                deathPlayer.MaxHealthQuarters) ||
+            !deathPlayer.IsDying ||
+            deathPlayer.DeathAnimationActive)
+        {
+            throw new InvalidOperationException(
+                "Lethal accepted contact did not arm LINK_STATE_DYING.");
+        }
+
+        for (int update = 0; update < 15; update++)
+            deathPlayer._PhysicsProcess(1.0 / 60.0);
+        if (deathPlayer.DeathAnimationActive ||
+            deathPlayer.KnockbackFrames != 0 ||
+            deathWorld.Sounds.Count(
+                sound => sound == OracleSoundEngine.SndCtrlSlowFadeOut) != 1 ||
+            deathWorld.Sounds.Count(
+                sound => sound == OracleSoundEngine.SndLinkDead) != 0)
+        {
+            throw new InvalidOperationException(
+                "LINK_STATE_DYING did not wait through all 15 knockback updates " +
+                "after starting SNDCTRL_SLOW_FADEOUT.");
+        }
+
+        deathPlayer._PhysicsProcess(1.0 / 60.0);
+        if (!deathPlayer.DeathAnimationActive ||
+            deathPlayer.DeathAnimationFrame != 2 ||
+            deathPlayer.DeathAnimationCounter != 8 ||
+            deathPlayer.DeathSpinLoopsRemaining != 4 ||
+            deathPlayer.DeathAtlasPixelHash == 0 ||
+            deathWorld.Sounds.Count(
+                sound => sound == OracleSoundEngine.SndLinkDead) != 1)
+        {
+            throw new InvalidOperationException(
+                "Link's death spin did not initialize graphics $02 for eight " +
+                "updates with SND_LINK_DEAD $64.");
+        }
+
+        var displayedTwirlFrames = new List<int>
+        {
+            deathPlayer.DeathAnimationFrame
+        };
+        for (int update = 1; update < 135; update++)
+        {
+            deathPlayer._PhysicsProcess(1.0 / 60.0);
+            displayedTwirlFrames.Add(deathPlayer.DeathAnimationFrame);
+        }
+        var expectedTwirlFrames = new List<int>();
+        expectedTwirlFrames.AddRange(Enumerable.Repeat(2, 8));
+        for (int loop = 0; loop < 3; loop++)
+        {
+            expectedTwirlFrames.AddRange(Enumerable.Repeat(1, 8));
+            expectedTwirlFrames.AddRange(Enumerable.Repeat(0, 8));
+            expectedTwirlFrames.AddRange(Enumerable.Repeat(3, 8));
+            expectedTwirlFrames.AddRange(Enumerable.Repeat(2, 8));
+        }
+        expectedTwirlFrames.AddRange(Enumerable.Repeat(1, 8));
+        expectedTwirlFrames.AddRange(Enumerable.Repeat(0, 8));
+        expectedTwirlFrames.AddRange(Enumerable.Repeat(3, 8));
+        expectedTwirlFrames.AddRange(Enumerable.Repeat(2, 7));
+        if (!displayedTwirlFrames.SequenceEqual(expectedTwirlFrames) ||
+            deathPlayer.DeathAnimationFrame == 4 ||
+            deathPlayer.DeathAnimationSequenceIndex != 4 ||
+            deathPlayer.DeathAnimationCounter != 1 ||
+            deathPlayer.DeathSpinLoopsRemaining != 1 ||
+            gameOverRequests != 0)
+        {
+            throw new InvalidOperationException(
+                "animationData19e7b did not display its initial eight-update " +
+                "$02 frame, three complete 8/8/8/(7+1) loops, and the final " +
+                "8/8/8/7 pre-marker loop.");
+        }
+        deathPlayer._PhysicsProcess(1.0 / 60.0);
+        if (deathPlayer.DeathAnimationFrame != 4 ||
+            deathPlayer.DeathAnimationCounter != 0x4c ||
+            deathPlayer.DeathSpinLoopsRemaining != 0 ||
+            gameOverRequests != 0)
+        {
+            throw new InvalidOperationException(
+                "The fourth Link spin marker on animation update 135 did not " +
+                "select the 76-update LINK_ANIM_MODE_COLLAPSED frame.");
+        }
+
+        for (int update = 0; update < 75; update++)
+            deathPlayer._PhysicsProcess(1.0 / 60.0);
+        if (gameOverRequests != 0 ||
+            deathPlayer.DeathAnimationCounter != 1)
+        {
+            throw new InvalidOperationException(
+                "The collapsed Link pose ended before its 76th update.");
+        }
+        deathPlayer._PhysicsProcess(1.0 / 60.0);
+        if (gameOverRequests != 1)
+        {
+            throw new InvalidOperationException(
+                "The collapsed Link pose did not request the game-over menu " +
+                "on its terminal $ff animation parameter.");
+        }
+        deathPlayer._PhysicsProcess(1.0);
+        if (gameOverRequests != 1)
+            throw new InvalidOperationException("Link requested game over more than once.");
+        deathPlayer.Free();
+
+        GD.Print(
+            "Validated Link's palette-5 damage flash, contact invincibility, " +
+            "Potion revival, 15-update lethal knockback, SND_LINK_DEAD, " +
+            "the exact 135-update four-marker twirl cadence, 76-update collapse, " +
+            "and one-shot game-over handoff.");
+    }
+
     private void ValidateAnimations()
     {
         OracleRoomData water = _world.LoadRoom(0, 0xb8);

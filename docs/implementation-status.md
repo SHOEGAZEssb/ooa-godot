@@ -41,6 +41,11 @@ claim that the entire surrounding game is complete.
   imported breakable-tile replacements and drops, directional dirt debris,
   `SPEED_a0` cardinal drop launch, sounds, room flags, and WRAM-backed gasha
   maturity.
+- Accepted damage uses Link's global-frame-bit-2 OBJ-palette-5 blink across
+  ordinary and transformation poses. Lethal damage supports the Potion
+  interception, slow music fade, post-knockback `SND_LINK_DEAD` four-loop spin,
+  exact update-135 collapse and 76-update hold, then the forced game-over menu
+  and checkpoint restart.
 - Complete Ages Gasha Seed planting and Gasha Tree behavior across all 16
   source spots: buried-soil Discovery Ring cues, no-seed/Yes/No dialogue,
   packed-BCD consumption, persisted planted bits and kill counters, 20/40-kill
@@ -385,7 +390,9 @@ remains the single runtime policy table.
 
 - Title/file select, three save slots, new-file name/message-speed setup, the
   new-game intro, original save image/checksum, previous-generation backups,
-  death checkpoints, and explicit Save & Quit flows.
+  death checkpoints, packed-BCD death count, explicit Save & Quit flows, and
+  the `gfx_gameover`/`PALH_06` Continue, Save and Continue, and Save and Quit
+  lifecycle.
 - Top-screen HUD (including simultaneous rupee digits and the dungeon-only
   `gfx_key`/X/key-count field), dialogue, inventory pages, map/dungeon map,
   Vasu's appraisal/ring-list interface, live flag/item/ring editor, and shared
@@ -410,7 +417,7 @@ remains the single runtime policy table.
 
 - Remaining active items and grabbable object species (including Bombs and
   companions), swimming/diving, terrain-specific Link states, and complete
-  low-health/death handling.
+  low-health warning behavior.
 - Satchel selection and the active Scent, Pegasus, Gale, and Mystery Seed
   state machines remain deferred; the first acquired Satchel's Ember path is
   implemented and unsupported selected child IDs report a source-aware error

@@ -8,6 +8,120 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateGameOverRestart()
+    {
+        const int respawnGroup = 0;
+        const int respawnRoom = 0x11;
+        const int respawnFacing = 3;
+        const int respawnY = 0x48;
+        const int respawnX = 0x38;
+
+        _saveData.SetDeathRespawnPoint(
+            respawnGroup,
+            respawnRoom,
+            stateModifier: 0,
+            respawnFacing,
+            respawnY,
+            respawnX);
+        _saveData.WriteWramByte(0xc6aa, 0);
+        int deathCount = _saveData.DeathCount;
+        int saveWrites = _saveWriteRequests;
+        int musicRequests =
+            _sound.PlayRequestsFor(OracleSoundEngine.MusGameOver);
+        GameSceneGraph dyingScene = _scene;
+        RoomEntityManager dyingEntities = _entities;
+
+        BeginGameOverForValidation();
+        if (_saveData.DeathCount != Math.Min(999, deathCount + 1) ||
+            _sound.ActiveMusic != OracleSoundEngine.MusGameOver ||
+            _sound.PlayRequestsFor(OracleSoundEngine.MusGameOver) !=
+                musicRequests + 1 ||
+            !_inventoryMenu.GameOver ||
+            !_saveQuitScreen.Visible ||
+            !_saveQuitScreen.IsGameOver)
+        {
+            throw new InvalidOperationException(
+                "The collapsed-Link handoff did not restart sound, increment " +
+                "the BCD death count, play MUS_GAMEOVER, and open the forced menu.");
+        }
+
+        for (int update = 0;
+            update < InventoryMenuController.FastFadeFrames;
+            update++)
+        {
+            _inventoryMenu.Update(1.0 / 60.0);
+        }
+        _inventoryMenu.SelectSaveOptionForValidation();
+        for (int update = 0;
+            update < InventoryMenuController.SaveSelectionDelayFrames;
+            update++)
+        {
+            _inventoryMenu.Update(1.0 / 60.0);
+        }
+
+        if (ReferenceEquals(_scene, dyingScene) ||
+            !dyingScene.IsQueuedForDeletion() ||
+            !dyingEntities.IsDisposed ||
+            _scene.IsQueuedForDeletion() ||
+            _scene.GetParent() != this ||
+            _saveWriteRequests != saveWrites ||
+            _inventory.HealthQuarters != _inventory.MaxHealthQuarters ||
+            _rooms.ActiveGroup != respawnGroup ||
+            _rooms.CurrentRoom.Id != respawnRoom ||
+            _player.Position != new Vector2(respawnX, respawnY) ||
+            _player.FacingVector != Vector2I.Left ||
+            _inventoryMenu.IsActive ||
+            _saveQuitScreen.Visible)
+        {
+            throw new InvalidOperationException(
+                "Game-over Continue did not preserve the live unsaved image, " +
+                "replace one gameplay scene, refill health, and restart at the " +
+                "maintained death checkpoint.");
+        }
+
+        ValidateDisposedRoomEntitySaveSubscription();
+
+        GD.Print(
+            "Validated collapsed-Link root handoff, MUS_GAMEOVER and BCD death " +
+            "count, unsaved Continue, one-root scene replacement, full-health " +
+            "initialization, maintained-checkpoint respawn, and disposed entity " +
+            "subscription cleanup.");
+    }
+
+    private void ValidateDisposedRoomEntitySaveSubscription()
+    {
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var worldRoot = new Node2D
+        {
+            Name = "DisposedRoomEntitySubscriptionValidation"
+        };
+        AddChild(worldRoot);
+        var entities = new RoomEntityManager(
+            worldRoot, new NpcDatabase(), new EnemyDatabase(), save);
+        entities.LoadRoom(0, _world.LoadRoom(0, 0x66));
+        if (entities.Entities<NpcCharacter>().Count == 0)
+        {
+            entities.Dispose();
+            worldRoot.Free();
+            throw new InvalidOperationException(
+                "Disposed room-entity subscription validation room 0:66 " +
+                "did not create an NPC fixture.");
+        }
+
+        entities.Dispose();
+        worldRoot.Free();
+
+        // This reproduces the Maku Tree checkpoint write after Continue. The
+        // disposed manager must no longer refresh its freed NPC nodes.
+        save.SetDeathRespawnPoint(
+            group: 0,
+            room: 0x66,
+            stateModifier: 0,
+            facing: 2,
+            y: 0x48,
+            x: 0x50);
+    }
+
     private void ValidateSaveAndQuitToTitle()
     {
         GameSceneGraph gameplayScene = _scene;
@@ -159,9 +273,31 @@ public sealed partial class ValidationRoot
         if (OracleSaveData.TryDeserialize(encoded, out _))
             throw new InvalidOperationException("A corrupted Ages save checksum was accepted.");
 
+        OracleSaveData deathSave = OracleSaveData.CreateStandardGame();
+        deathSave.WriteWramByte(0xc61e, 0x98);
+        deathSave.WriteWramByte(0xc61f, 0x09);
+        deathSave.IncrementDeathCount();
+        deathSave.IncrementDeathCount();
+        deathSave.WriteWramByte(0xc6aa, 0x00);
+        byte[] depletedImage = deathSave.Serialize();
+        deathSave.ResetHealthIfDepleted();
+        if (deathSave.DeathCount != 999 ||
+            deathSave.ReadWramByte(0xc61e) != 0x99 ||
+            deathSave.ReadWramByte(0xc61f) != 0x09 ||
+            deathSave.ReadWramByte(0xc6aa) != deathSave.MaxHealthQuarters ||
+            !OracleSaveData.TryDeserialize(
+                depletedImage,
+                out OracleSaveData? persistedDepleted) ||
+            persistedDepleted!.ReadWramByte(0xc6aa) != 0)
+        {
+            throw new InvalidOperationException(
+                "The live BCD death counter, $999 saturation, or zero-health " +
+                "save/load reset boundary regressed.");
+        }
+
         GD.Print("Validated original $550-byte save signature/checksum, 128 global flags, " +
             "four aliased room-flag tables, initial/current death checkpoint, inventory fields, " +
-            "swordless standard-game state, and BCD rupee round trip.");
+            "swordless standard-game state, BCD rupee/death counters, and depleted-health reload.");
     }
 
     private static void ValidateSaveStore()

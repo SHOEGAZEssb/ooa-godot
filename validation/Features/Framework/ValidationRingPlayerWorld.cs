@@ -7,6 +7,7 @@ using System.Linq;
 namespace oracleofages;
 internal sealed class ValidationRingPlayerWorld : IPlayerWorld
 {
+    public int FrameCounter { get; set; }
     public bool IsTransitioning => false;
     public bool DialogueOpen => false;
     public bool SwordDisabled => false;

@@ -161,6 +161,40 @@ public sealed partial class ValidationRoot
         }
         lifecycle.CloseImmediately(map);
 
+        ValidationMenuClient gameOver =
+            new ValidationMenuClient("MENU_GAMEOVER_VALIDATION");
+        if (!lifecycle.TryBeginOpeningFromWhite(gameOver) ||
+            gameOver.OpenAtWhiteCalls != 1 ||
+            lifecycle.CurrentPhase != Phase.OpeningFadeIn ||
+            !Mathf.IsEqualApprox(fade.Color.A, 1.0f) ||
+            !pause.IsOwnedBy(gameOver))
+        {
+            throw new InvalidOperationException(
+                "The forced game-over menu did not open at white and begin " +
+                "with only the 11-update fade-in half.");
+        }
+        for (int update = 0;
+            update < OracleMenuLifecycle.FastFadeUpdates - 1;
+            update++)
+        {
+            lifecycle.Update(gameOver, 1.0 / 60.0);
+        }
+        if (lifecycle.IsOpenFor(gameOver) ||
+            gameOver.OpenAtWhiteCalls != 1 ||
+            Mathf.IsZeroApprox(fade.Color.A))
+        {
+            throw new InvalidOperationException(
+                "The forced game-over screen finished its white fade-in early.");
+        }
+        lifecycle.Update(gameOver, 1.0 / 60.0);
+        if (!lifecycle.IsOpenFor(gameOver) ||
+            !Mathf.IsZeroApprox(fade.Color.A))
+        {
+            throw new InvalidOperationException(
+                "The forced game-over screen did not finish its fade-in on update 11.");
+        }
+        lifecycle.CloseImmediately(gameOver);
+
         _player.SetProcess(false);
         _player.SetPhysicsProcess(true);
         _roomDebug.Visible = false;
@@ -179,7 +213,7 @@ public sealed partial class ValidationRoot
 
         GD.Print("Validated one shared Oracle menu load state, exclusive pause ownership, " +
             "fractional fixed-update accumulation, exact 11-update white swap boundaries, " +
-            "and captured-state restoration.");
+            "forced game-over fade-in from white, and captured-state restoration.");
     }
 
     private static void ValidateOracleObjectMath()

@@ -33,6 +33,15 @@ Transient state that was outside the file image, such as `wUpgradesObtained`,
 belongs in `OracleRuntimeState` or another explicit runtime owner. Do not place
 it at an invented save offset merely to make persistence convenient.
 
+On game over, the packed-BCD death count at `$c61e-$c61f` increments and
+saturates at 999. The live save image still contains zero health when the
+forced menu appears. Continue restarts from the maintained death checkpoint
+without committing that image. Save and Continue commits the zero-health image
+before restarting, and Save and Quit commits it before returning to file
+select. In every restart/load case, `initializeGame` semantics restore depleted
+health to the saved maximum in live state; no separate recovery checkpoint or
+clone-only autosave is introduced.
+
 Gasha state is retained in its original contiguous save fields. Harvest flags
 are at `$c64c` (bit 0: first nut harvested; bit 1: Gasha Heart Piece already
 awarded), the 16 planted bits are `$c64d-$c64e`, per-spot kill counters are

@@ -346,6 +346,24 @@ public sealed class OracleSaveData
             Changed?.Invoke();
     }
 
+    public void IncrementDeathCount()
+    {
+        int next = Math.Min(999, DeathCount + 1);
+        bool changed = WriteWramByte(0xc61e, ToBcd(next % 100));
+        changed |= WriteWramByte(0xc61f, (byte)(next / 100));
+        if (changed)
+            Changed?.Invoke();
+    }
+
+    internal void ResetHealthIfDepleted()
+    {
+        byte health = ReadWramByte(0xc6aa);
+        if (health != 0 && (health & 0x80) == 0)
+            return;
+        if (WriteWramByte(0xc6aa, ReadWramByte(0xc6ab)))
+            Changed?.Invoke();
+    }
+
     public byte[] Serialize()
     {
         byte[] output = (byte[])_data.Clone();
@@ -417,6 +435,9 @@ public sealed class OracleSaveData
     }
 
     private static int FromBcd(byte value) => (value >> 4) * 10 + (value & 0x0f);
+
+    private static byte ToBcd(int value) =>
+        (byte)((value / 10 << 4) | value % 10);
 
     private string ReadName(int address, int byteCount)
     {

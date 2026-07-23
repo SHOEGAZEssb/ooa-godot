@@ -52,6 +52,23 @@ internal sealed class OracleMenuLifecycle
         return true;
     }
 
+    internal bool TryBeginOpeningFromWhite(IOracleMenuLifecycleClient client)
+    {
+        if (_owner is not null)
+            return false;
+        PauseLease? lease = _pause.TryAcquire(client);
+        if (lease is null)
+            return false;
+
+        _owner = client;
+        _pauseLease = lease;
+        client.OpenAtWhite();
+        CurrentPhase = Phase.OpeningFadeIn;
+        _updates.Reset();
+        _fade.Begin(Direction.FromWhite);
+        return true;
+    }
+
     internal void BeginClosing(IOracleMenuLifecycleClient client)
     {
         RequireOpenOwner(client);

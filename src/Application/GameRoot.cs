@@ -190,17 +190,25 @@ public partial class GameRoot : Node2D
         _player.SetProcess(false);
     }
 
-    private void InitializeGameplay(OracleSaveData save)
+    private void InitializeGameplay(
+        OracleSaveData save,
+        bool forceDeathRespawn = false)
     {
+        // initializeGame restores depleted saved/live health before Link is
+        // constructed. Save and Continue deliberately leaves the disk image
+        // at zero health until the next explicit save.
+        save.ResetHealthIfDepleted();
         _saveData = save;
         _random = new OracleRandom();
         _treasures = new TreasureDatabase();
-        int startingGroup = _launchOptions.HasWorldOverride || !_persistSaveData
-            ? _launchOptions.StartingGroup
-            : _saveData.RespawnGroup;
-        int startingRoom = _launchOptions.HasWorldOverride || !_persistSaveData
-            ? _launchOptions.StartingRoom
-            : _saveData.RespawnRoom;
+        bool useSavedSpawn = forceDeathRespawn ||
+            (!_launchOptions.HasWorldOverride && _persistSaveData);
+        int startingGroup = useSavedSpawn
+            ? _saveData.RespawnGroup
+            : _launchOptions.StartingGroup;
+        int startingRoom = useSavedSpawn
+            ? _saveData.RespawnRoom
+            : _launchOptions.StartingRoom;
         _rooms = new RoomSession(
             startingGroup, startingRoom,
             () => (long)_animationTicks,
@@ -228,7 +236,6 @@ public partial class GameRoot : Node2D
             _saveData, new GlobalFlagDatabase(), _treasures, _inventory);
         CreateControllers();
 
-        bool useSavedSpawn = !_launchOptions.HasWorldOverride && _persistSaveData;
         Vector2 spawn = new(_saveData.RespawnX, _saveData.RespawnY);
         EnemyPlacementContext placementContext = useSavedSpawn
             ? EnemyPlacementContext.Warp(_rooms.CurrentRoom.GetPackedPosition(spawn))
@@ -238,6 +245,7 @@ public partial class GameRoot : Node2D
         if (!useSavedSpawn)
             spawn = FindSpawn();
         _player.Initialize(_playerWorld, _inventory, spawn, _random);
+        _player.GameOverRequested += BeginGameOver;
         if (useSavedSpawn)
         {
             _player.Face(_saveData.RespawnFacing switch
@@ -502,7 +510,8 @@ public partial class GameRoot : Node2D
         _mapMenu = new MapMenuController(
             _mapScreen, _dialogue, _menuLifecycle,
             () => !IsTransitioning && !DialogueOpen && !InventoryMenuOpen &&
-                !_roomEvents.Active && !_entities.PlayerMenusDisabled,
+                !_player.IsDying && !_roomEvents.Active &&
+                !_entities.PlayerMenusDisabled,
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone),
             FastTravelFromMap, _sound.PlaySound);
         _inventoryMenu = new InventoryMenuController(
@@ -510,8 +519,10 @@ public partial class GameRoot : Node2D
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone),
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone) &&
                 !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
-                !_roomEvents.Active && !_entities.PlayerMenusDisabled,
-            SaveActiveFile, ReturnToTitle, _sound.PlaySound);
+                !_player.IsDying && !_roomEvents.Active &&
+                !_entities.PlayerMenusDisabled,
+            SaveActiveFile, ReturnToTitle, _sound.PlaySound,
+            RestartGameplayAfterDeath);
         _ringMenu = new RingMenuController(
             _ringMenuScreen, _dialogue, _menuLifecycle, _inventory, _saveData,
             _treasures, _roomEvents.VasuShop.Database, _sound.PlaySound);
@@ -519,7 +530,8 @@ public partial class GameRoot : Node2D
         _debugFlagMenu = new DebugFlagMenuController(
             _debugFlagScreen, _rooms, _gameplayPause,
             () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
-                !InventoryMenuOpen && !_roomEvents.Active);
+                !InventoryMenuOpen && !_player.IsDying &&
+                !_roomEvents.Active);
     }
 
     internal void UpdateAnimatedTiles(double delta)
@@ -567,8 +579,38 @@ public partial class GameRoot : Node2D
         return SaveResult.Succeeded;
     }
 
+    private void BeginGameOver()
+    {
+        _sound.RestartSound();
+        _saveData.IncrementDeathCount();
+        _sound.PlaySound(OracleSoundEngine.MusGameOver);
+        _inventoryMenu.BeginGameOver();
+    }
+
+    internal void BeginGameOverForValidation() => BeginGameOver();
+
+    private void RestartGameplayAfterDeath()
+    {
+        OracleSaveData liveSave = _saveData;
+        ReleaseGameplayScene();
+        _sound.RestartSound();
+        InitializeGameplay(liveSave, forceDeathRespawn: true);
+    }
+
     private void ReturnToTitle()
     {
+        ReleaseGameplayScene();
+
+        _mainMenuScreen = new MainMenuScreen { Name = "MainMenu", ZIndex = 200 };
+        AddChild(_mainMenuScreen);
+        _mainMenu = new MainMenuController(
+            _mainMenuScreen, StartSelectedFile, playSound: _sound.PlaySound);
+    }
+
+    private void ReleaseGameplayScene()
+    {
+        if (_player is not null)
+            _player.GameOverRequested -= BeginGameOver;
         if (_inventory is not null)
             _inventory.Changed -= SyncHudToInventory;
         _statusBar?.Dispose();
@@ -577,16 +619,12 @@ public partial class GameRoot : Node2D
             _rooms.RoomChanged -= ApplyRoomMusic;
             _rooms.RoomChanged -= SyncHudToRoom;
         }
+        _entities?.Dispose();
 
         // gameplay.tscn owns every persistent and transient gameplay node.
         // Freeing this one root leaves the application-owned sound engine in
         // place for the title screen and the next selected file.
         _scene.QueueFree();
-
-        _mainMenuScreen = new MainMenuScreen { Name = "MainMenu", ZIndex = 200 };
-        AddChild(_mainMenuScreen);
-        _mainMenu = new MainMenuController(
-            _mainMenuScreen, StartSelectedFile, playSound: _sound.PlaySound);
     }
 
     private void ApplyRoomMusic(int group, OracleRoomData room)

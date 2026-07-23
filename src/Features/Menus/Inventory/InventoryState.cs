@@ -440,6 +440,16 @@ public sealed class InventoryState
         if (previous == HealthQuarters)
             return false;
 
+        // linkApplyDamage consumes TREASURE_POTION $2f at zero health before
+        // wLinkDeathTrigger is armed. The potion is not an inventory slot
+        // item, so loseTreasure clears only its obtained flag.
+        if (HealthQuarters == 0 &&
+            HasTreasure(TreasureDatabase.TreasurePotion))
+        {
+            HealthQuarters = MaxHealthQuarters;
+            ClearTreasureFlag(TreasureDatabase.TreasurePotion);
+        }
+
         HealthChanged?.Invoke();
         NotifyChanged();
         return true;
@@ -870,6 +880,14 @@ public sealed class InventoryState
         if (treasure < 0 || treasure >= 0x80)
             return;
         _obtainedTreasureFlags[treasure >> 3] |= (byte)(1 << (treasure & 7));
+    }
+
+    private void ClearTreasureFlag(int treasure)
+    {
+        if (treasure < 0 || treasure >= 0x80)
+            return;
+        _obtainedTreasureFlags[treasure >> 3] &=
+            (byte)~(1 << (treasure & 7));
     }
 
     private void SetBitVariable(TreasureVariable variable, int bit)

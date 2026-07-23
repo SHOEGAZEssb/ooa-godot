@@ -22,6 +22,7 @@ public sealed class PlayerWorld : IPlayerWorld
     private readonly OracleSoundEngine _sound;
     private readonly Func<bool> _collisionsDisabled;
 
+    public int FrameCounter => _entities.FrameCounter;
     public bool IsTransitioning => _transitions.IsTransitioning;
     public bool DialogueOpen => _interactions.DialogueOpen;
     public bool SwordDisabled => _roomEvents.Active || _entities.PlayerSwordDisabled;

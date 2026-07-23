@@ -22,6 +22,7 @@ foreach ($menuAsset in @(
     @{ Source = 'gfx_compressible\common\gfx_copy.png'; Destination = 'menu\gfx_copy.png' },
     @{ Source = 'gfx_compressible\common\gfx_erase.png'; Destination = 'menu\gfx_erase.png' },
     @{ Source = 'gfx_compressible\common\gfx_savescreen.png'; Destination = 'menu\gfx_savescreen.png' },
+    @{ Source = 'gfx_compressible\common\gfx_gameover.png'; Destination = 'menu\gfx_gameover.png' },
     @{ Source = 'gfx_compressible\common\spr_fileselect_decorations.png'; Destination = 'menu\spr_fileselect_decorations.png' },
     @{ Source = 'gfx_compressible\ages\spr_nayru_1.png'; Destination = 'menu\spr_nayru_1.png' },
     @{ Source = 'gfx_compressible\common\map_file_menu_top.bin'; Destination = 'menu\map_file_menu_top.bin' },

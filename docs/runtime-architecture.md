@@ -31,6 +31,12 @@ Stable UI/world nodes belong here so their lifecycle, draw order, and editor
 layout are visible. Room entities, transient effects, cutscene actors, and other
 content-dependent nodes are spawned by their owning controllers.
 
+Freeing a Godot scene does not detach managed event handlers from longer-lived
+publishers. Before replacing gameplay after Continue or returning to the title,
+`GameRoot` disposes gameplay-scoped owners with those subscriptions.
+`RoomEntityManager.Dispose` detaches the live save and runtime-state change
+handlers before its NPC nodes are queued for deletion.
+
 ## Source organization
 
 Production C# is organized by use case rather than by technical type:

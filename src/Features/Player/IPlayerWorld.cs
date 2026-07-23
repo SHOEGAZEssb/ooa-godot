@@ -4,6 +4,7 @@ namespace oracleofages;
 
 public interface IPlayerWorld
 {
+    int FrameCounter { get; }
     bool IsTransitioning { get; }
     bool DialogueOpen { get; }
     bool SwordDisabled { get; }

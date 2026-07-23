@@ -16,7 +16,9 @@ internal sealed class TransformedLinkDatabase
     private readonly Dictionary<(int SpecialObject, int Direction, int Frame), FrameRecord>
         _records = new();
     private readonly Dictionary<string, Image> _images = new(StringComparer.Ordinal);
-    private readonly Dictionary<(int SpecialObject, int Direction, int Frame), Texture2D>
+    private readonly Dictionary<
+        (int SpecialObject, int Direction, int Frame, bool DamagePalette),
+        Texture2D>
         _textures = new();
 
     internal IReadOnlyCollection<FrameRecord> Records => _records.Values;
@@ -79,9 +81,13 @@ internal sealed class TransformedLinkDatabase
                 nameof(specialObject),
                 $"Unknown transformed-Link frame {specialObject:x2}:{direction}:{frame}.");
 
-    internal Texture2D Texture(int specialObject, int direction, int frame)
+    internal Texture2D Texture(
+        int specialObject,
+        int direction,
+        int frame,
+        bool damagePalette = false)
     {
-        var key = (specialObject, direction & 3, frame & 1);
+        var key = (specialObject, direction & 3, frame & 1, damagePalette);
         if (_textures.TryGetValue(key, out Texture2D? texture))
             return texture;
         FrameRecord record = Record(key.Item1, key.Item2, key.Item3);
@@ -92,7 +98,10 @@ internal sealed class TransformedLinkDatabase
             _images.Add(record.Sprite, image);
         }
         texture = NpcCharacter.BuildOamTexture(
-            image, record.Oam, record.TileBase, basePalette: 0);
+            image,
+            record.Oam,
+            record.TileBase,
+            basePalette: damagePalette ? 5 : 0);
         _textures.Add(key, texture);
         return texture;
     }

@@ -1775,9 +1775,11 @@ public sealed partial class ValidationRoot
             throw new InvalidOperationException(
                 $"{terrainName} did not return Link to the last safe tile after drowning.");
         }
-        if (_player.HealthQuarters != healthBeforeDrowning - 2)
+        if (_player.HealthQuarters != healthBeforeDrowning - 2 ||
+            _player.InvincibilityFrames != 0x3c)
             throw new InvalidOperationException(
-                $"{terrainName} did not apply one half-heart after Link reappeared.");
+                $"{terrainName} did not apply one half-heart and the source " +
+                "$3c damage-blink counter after Link reappeared.");
         if (_sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1)
             throw new InvalidOperationException($"{terrainName} respawn replayed SND_DAMAGE_LINK $5f.");
     }

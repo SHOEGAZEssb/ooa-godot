@@ -1034,12 +1034,186 @@ public sealed partial class ValidationRoot
             throw new InvalidOperationException("Start+Select did not open the save menu through the shared fast fade.");
         _inventoryMenu.CloseImmediatelyForValidation();
 
+        _saveQuitScreen.Open();
+        ulong standardSaveBackground = _saveQuitScreen.BackgroundPixelHash;
+        if (!_saveQuitScreen.BackgroundIsOpaque)
+        {
+            throw new InvalidOperationException(
+                "The ordinary save-menu background exposed transparent VRAM cells.");
+        }
+        _saveQuitScreen.Close();
+        int gameOverSaveWrites = 0;
+        int gameOverContinues = 0;
+        int gameOverQuits = 0;
+        int gameOverMoveRequests =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
+        int gameOverSelectRequests =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem);
+        var gameOverMenu = new InventoryMenuController(
+            _inventoryScreen,
+            _saveQuitScreen,
+            _menuLifecycle,
+            () => true,
+            () => true,
+            () =>
+            {
+                gameOverSaveWrites++;
+                return SaveResult.Succeeded;
+            },
+            () => gameOverQuits++,
+            _sound.PlaySound,
+            () => gameOverContinues++);
+
+        gameOverMenu.BeginGameOverForValidation();
+        if (!gameOverMenu.GameOver ||
+            !_saveQuitScreen.Visible ||
+            !_saveQuitScreen.IsGameOver ||
+            !_saveQuitScreen.BackgroundIsOpaque ||
+            _saveQuitScreen.BackgroundPixelHash == standardSaveBackground ||
+            _saveQuitScreen.Cursor != 0 ||
+            !Mathf.IsEqualApprox(_scene.MenuFade.Color.A, 1.0f) ||
+            !_gameplayPause.IsOwnedBy(gameOverMenu) ||
+            gameOverMenu.CancelSaveMenuForValidation())
+        {
+            throw new InvalidOperationException(
+                "Forced game over did not open gfx_gameover with PALH_06 at " +
+                "white, retain the save-option graphics without transparent " +
+                "cells, select Continue, freeze gameplay, and block B.");
+        }
+        for (int update = 0;
+            update < InventoryMenuController.FastFadeFrames - 1;
+            update++)
+        {
+            gameOverMenu.Update(1.0 / 60.0);
+        }
+        if (gameOverMenu.IsOpen ||
+            Mathf.IsZeroApprox(_scene.MenuFade.Color.A))
+        {
+            throw new InvalidOperationException(
+                "Forced game over finished its fade-in before update 11.");
+        }
+        gameOverMenu.Update(1.0 / 60.0);
+        if (!gameOverMenu.IsOpen ||
+            !Mathf.IsZeroApprox(_scene.MenuFade.Color.A))
+        {
+            throw new InvalidOperationException(
+                "Forced game over did not finish its fade-in on update 11.");
+        }
+
+        gameOverMenu.SelectSaveOptionForValidation();
+        if (gameOverSaveWrites != 0 ||
+            gameOverMenu.SaveRequests != 0 ||
+            _saveQuitScreen.DelayCounter !=
+                InventoryMenuController.SaveSelectionDelayFrames ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) !=
+                gameOverSelectRequests + 1)
+        {
+            throw new InvalidOperationException(
+                "Game-over Continue saved the file or missed SND_SELECTITEM " +
+                "and its 30-update delay.");
+        }
+        for (int update = 0;
+            update < InventoryMenuController.SaveSelectionDelayFrames - 1;
+            update++)
+        {
+            gameOverMenu.Update(1.0 / 60.0);
+        }
+        if (!gameOverMenu.IsActive || gameOverContinues != 0)
+            throw new InvalidOperationException(
+                "Game-over Continue resumed before its 30-update delay.");
+        gameOverMenu.Update(1.0 / 60.0);
+        if (gameOverMenu.IsActive ||
+            gameOverContinues != 1 ||
+            gameOverQuits != 0 ||
+            _saveQuitScreen.Visible ||
+            !_player.IsPhysicsProcessing() ||
+            !_player.IsProcessing())
+        {
+            throw new InvalidOperationException(
+                "Game-over Continue did not close immediately and resume at " +
+                "the death checkpoint after 30 updates.");
+        }
+
+        gameOverMenu.BeginGameOverForValidation();
+        for (int update = 0;
+            update < InventoryMenuController.FastFadeFrames;
+            update++)
+        {
+            gameOverMenu.Update(1.0 / 60.0);
+        }
+        if (!gameOverMenu.MoveSaveCursorForValidation(1) ||
+            _saveQuitScreen.Cursor != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) !=
+                gameOverMoveRequests + 1)
+        {
+            throw new InvalidOperationException(
+                "Game-over Save and Continue cursor movement missed SND_MENU_MOVE.");
+        }
+        gameOverMenu.SelectSaveOptionForValidation();
+        for (int update = 0;
+            update < InventoryMenuController.SaveSelectionDelayFrames;
+            update++)
+        {
+            gameOverMenu.Update(1.0 / 60.0);
+        }
+        if (gameOverSaveWrites != 1 ||
+            gameOverMenu.SaveRequests != 1 ||
+            gameOverContinues != 2 ||
+            gameOverQuits != 0 ||
+            gameOverMenu.IsActive)
+        {
+            throw new InvalidOperationException(
+                "Game-over Save and Continue did not save once and then " +
+                "resume after 30 updates.");
+        }
+
+        gameOverMenu.BeginGameOverForValidation();
+        for (int update = 0;
+            update < InventoryMenuController.FastFadeFrames;
+            update++)
+        {
+            gameOverMenu.Update(1.0 / 60.0);
+        }
+        if (!gameOverMenu.MoveSaveCursorForValidation(1) ||
+            !gameOverMenu.MoveSaveCursorForValidation(1) ||
+            _saveQuitScreen.Cursor != 2 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) !=
+                gameOverMoveRequests + 3)
+        {
+            throw new InvalidOperationException(
+                "Game-over Save and Quit cursor movement missed its two " +
+                "SND_MENU_MOVE requests.");
+        }
+        gameOverMenu.SelectSaveOptionForValidation();
+        for (int update = 0;
+            update < InventoryMenuController.SaveSelectionDelayFrames;
+            update++)
+        {
+            gameOverMenu.Update(1.0 / 60.0);
+        }
+        if (gameOverSaveWrites != 2 ||
+            gameOverMenu.SaveRequests != 2 ||
+            gameOverMenu.QuitRequests != 1 ||
+            gameOverContinues != 2 ||
+            gameOverQuits != 1 ||
+            gameOverMenu.IsActive ||
+            _saveQuitScreen.BackgroundPixelHash != standardSaveBackground ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) !=
+                gameOverSelectRequests + 3)
+        {
+            throw new InvalidOperationException(
+                "Game-over Save and Quit did not save, delay, close, restore " +
+                "the ordinary background, and request title exactly once.");
+        }
+
         GD.Print("Validated inventory SND_OPENMENU boundaries, 11-update fast white fades, " +
             "13-update three-page scrolling, SND_SELECTITEM equip/unequip and " +
             "SND_MENU_MOVE cursor boundaries, TX_09XX/ring marquee text and 40/8-update counters, " +
             "mode-$00 item level tiles, " +
             "secondary cursor/ring persistence, essence/save navigation, Start+Select, three save choices, " +
-            "30-update selection delay, A/B storage swaps, and gameplay freezing.");
+            "forced gfx_gameover/PALH_06 presentation and blocked B, all three " +
+            "game-over choices, 30-update selection delay, A/B storage swaps, " +
+            "and gameplay freezing.");
     }
 
     private void ValidateItemIconShadeMapping()

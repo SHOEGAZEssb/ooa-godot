@@ -26,6 +26,7 @@ public partial class Player : Node2D
     private const float EnemyKnockbackSpeed = 1.25f;
     private const int EnemyInvincibilityFrames = 0x22;
     private const int EnemyKnockbackFrames = 0x0f;
+    private const int DeathCollapsedFrames = 0x4c;
     private const int NewGameSlowFallGravity = 0x0c;
     private static readonly Vector2 DrownSpriteOrigin = new(-8, -4);
     private const int TerrainHazardDamageQuarters = 2;
@@ -33,18 +34,30 @@ public partial class Player : Node2D
     private InventoryState _inventory = null!;
     private OracleRandom _random = null!;
     private Texture2D _texture = null!;
+    private Texture2D _damageTexture = null!;
     private Texture2D _getItemOneHandTexture = null!;
+    private Texture2D _damageGetItemOneHandTexture = null!;
     private Texture2D _getItemTwoHandTexture = null!;
+    private Texture2D _damageGetItemTwoHandTexture = null!;
     private Texture2D _carriedObjectTexture = null!;
+    private Texture2D _damageCarriedObjectTexture = null!;
     private Texture2D[,] _braceletActionTextures = null!;
+    private Texture2D[,] _damageBraceletActionTextures = null!;
     private Texture2D _shieldLinkTexture = null!;
+    private Texture2D _damageShieldLinkTexture = null!;
     private Texture2D _pushTexture = null!;
+    private Texture2D _damagePushTexture = null!;
     private Texture2D _attackTexture = null!;
+    private Texture2D _damageAttackTexture = null!;
     private Texture2D _swordTexture = null!;
     private Texture2D _chargedSwordTexture = null!;
     private Texture2D _shovelLinkTexture = null!;
+    private Texture2D _damageShovelLinkTexture = null!;
     private Texture2D _drownTexture = null!;
+    private Texture2D _damageDrownTexture = null!;
     private Texture2D _fallInHoleTexture = null!;
+    private Texture2D _damageFallInHoleTexture = null!;
+    private Texture2D _deathTexture = null!;
     private TransformedLinkDatabase _transformedLink = null!;
     private Vector2 _precisePosition;
     private Vector2 _lastSafePosition;
@@ -66,6 +79,15 @@ public partial class Player : Node2D
     private float _enemyInvincibilityFrames;
     private float _enemyKnockbackFrames;
     private Vector2 _enemyKnockbackDirection;
+    private double _deathUpdateAccumulator;
+    private bool _deathPending;
+    private bool _deathAnimationActive;
+    private bool _deathSlowFadeRequested;
+    private bool _gameOverRequested;
+    private int _deathAnimationFrame;
+    private int _deathAnimationCounter;
+    private int _deathSequenceIndex;
+    private int _deathSpinLoopsRemaining;
     private Vector2 _holePullCenter;
     private int _holePullCounter;
     private int _holePullPackedPosition = -1;
@@ -119,6 +141,7 @@ public partial class Player : Node2D
     public int HealthQuarters => _inventory.HealthQuarters;
     public int Rupees => _inventory.Rupees;
     public int MaxHealthQuarters => _inventory.MaxHealthQuarters;
+    public bool IsDying => _deathPending || _deathAnimationActive;
     internal bool BraceletLiftCollisionsDisabled =>
         _braceletLiftCollisionsDisabled;
     public InventoryState Inventory => _inventory;
@@ -159,6 +182,20 @@ public partial class Player : Node2D
         _swordState == SwordActionState.Charged && (_swordStateFrame & 0x04) != 0;
     internal float InvincibilityFrames => _enemyInvincibilityFrames;
     internal float KnockbackFrames => _enemyKnockbackFrames;
+    internal bool DamagePaletteActive =>
+        !_deathAnimationActive && _enemyInvincibilityFrames > 0.0f &&
+        (_world.FrameCounter & 0x04) == 0;
+    internal bool DeathAnimationActive => _deathAnimationActive;
+    internal int DeathAnimationFrame => _deathAnimationFrame;
+    internal int DeathAnimationCounter => _deathAnimationCounter;
+    internal int DeathAnimationSequenceIndex => _deathSequenceIndex;
+    internal int DeathSpinLoopsRemaining => _deathSpinLoopsRemaining;
+    internal ulong DeathAtlasPixelHash =>
+        OracleGraphicsCache.PixelHash(_deathTexture.GetImage());
+    internal ulong LinkAtlasPixelHash =>
+        OracleGraphicsCache.PixelHash(_texture.GetImage());
+    internal ulong DamageLinkAtlasPixelHash =>
+        OracleGraphicsCache.PixelHash(_damageTexture.GetImage());
     internal bool IsNewGameSlowFalling => _newGameSlowFalling;
     internal bool IsGroundedForFloorButton =>
         !_ledgeHopping && !_newGameSlowFalling &&
@@ -210,6 +247,8 @@ public partial class Player : Node2D
     internal ulong ShieldAtlasPixelHash =>
         OracleGraphicsCache.PixelHash(_shieldLinkTexture.GetImage());
 
+    public event Action? GameOverRequested;
+
     internal void Initialize(
         IPlayerWorld world,
         InventoryState inventory,
@@ -219,19 +258,31 @@ public partial class Player : Node2D
         _world = world;
         _inventory = inventory;
         _random = random;
-        _texture = BuildLinkTexture();
-        _getItemOneHandTexture = BuildGetItemOneHandTexture();
-        _getItemTwoHandTexture = BuildGetItemTwoHandTexture();
-        _carriedObjectTexture = BuildCarriedObjectLinkTexture();
-        _braceletActionTextures = BuildBraceletActionTextures();
-        _shieldLinkTexture = BuildShieldLinkTexture();
-        _pushTexture = BuildPushLinkTexture();
-        _attackTexture = BuildAttackLinkTexture();
+        _texture = BuildLinkTexture(damagePalette: false);
+        _damageTexture = BuildLinkTexture(damagePalette: true);
+        _getItemOneHandTexture = BuildGetItemOneHandTexture(damagePalette: false);
+        _damageGetItemOneHandTexture = BuildGetItemOneHandTexture(damagePalette: true);
+        _getItemTwoHandTexture = BuildGetItemTwoHandTexture(damagePalette: false);
+        _damageGetItemTwoHandTexture = BuildGetItemTwoHandTexture(damagePalette: true);
+        _carriedObjectTexture = BuildCarriedObjectLinkTexture(damagePalette: false);
+        _damageCarriedObjectTexture = BuildCarriedObjectLinkTexture(damagePalette: true);
+        _braceletActionTextures = BuildBraceletActionTextures(damagePalette: false);
+        _damageBraceletActionTextures = BuildBraceletActionTextures(damagePalette: true);
+        _shieldLinkTexture = BuildShieldLinkTexture(damagePalette: false);
+        _damageShieldLinkTexture = BuildShieldLinkTexture(damagePalette: true);
+        _pushTexture = BuildPushLinkTexture(damagePalette: false);
+        _damagePushTexture = BuildPushLinkTexture(damagePalette: true);
+        _attackTexture = BuildAttackLinkTexture(damagePalette: false);
+        _damageAttackTexture = BuildAttackLinkTexture(damagePalette: true);
         _swordTexture = BuildSwordTexture(chargedPalette: false);
         _chargedSwordTexture = BuildSwordTexture(chargedPalette: true);
-        _shovelLinkTexture = BuildShovelLinkTexture();
-        _drownTexture = BuildDrownTexture();
-        _fallInHoleTexture = BuildFallInHoleTexture();
+        _shovelLinkTexture = BuildShovelLinkTexture(damagePalette: false);
+        _damageShovelLinkTexture = BuildShovelLinkTexture(damagePalette: true);
+        _drownTexture = BuildDrownTexture(damagePalette: false);
+        _damageDrownTexture = BuildDrownTexture(damagePalette: true);
+        _fallInHoleTexture = BuildFallInHoleTexture(damagePalette: false);
+        _damageFallInHoleTexture = BuildFallInHoleTexture(damagePalette: true);
+        _deathTexture = BuildDeathTexture();
         _transformedLink = new TransformedLinkDatabase();
         EndNewGameSlowFall();
         _precisePosition = spawn;
@@ -456,7 +507,15 @@ public partial class Player : Node2D
     internal bool ApplyDamage(int quarters, RingDamageSource source)
     {
         int modified = RingEffects.IncomingDamageQuarters(_inventory, quarters, source);
-        return modified > 0 && _inventory.ApplyDamage(modified);
+        return ApplyUnmodifiedDamage(modified);
+    }
+
+    private bool ApplyUnmodifiedDamage(int quarters)
+    {
+        bool applied = quarters > 0 && _inventory.ApplyDamage(quarters);
+        if (applied && _inventory.HealthQuarters == 0)
+            _deathPending = true;
+        return applied;
     }
 
     public bool ApplyEnemyContactDamage(Vector2 sourcePosition, int quarters) =>
@@ -469,7 +528,7 @@ public partial class Player : Node2D
         RingDamageSource source)
     {
         if (_braceletLiftCollisionsDisabled ||
-            _enemyInvincibilityFrames > 0.0f || quarters <= 0)
+            IsDying || _enemyInvincibilityFrames > 0.0f || quarters <= 0)
             return false;
         if (!ApplyDamage(quarters, source))
             return false;
@@ -540,6 +599,11 @@ public partial class Player : Node2D
                 _floorDoorRecoveryCounter = 0x10;
                 QueueRedraw();
             }
+            return;
+        }
+        if (IsDying)
+        {
+            UpdateDeath(delta);
             return;
         }
         if (_floorDoorRecoveryCounter != 0)
@@ -752,6 +816,134 @@ public partial class Player : Node2D
             ApplyTerrainAtFeet();
         AdvanceTransformationAnimation(_walking);
         QueueRedraw();
+    }
+
+    private void UpdateDeath(double delta)
+    {
+        if (delta < 0.0)
+            throw new ArgumentOutOfRangeException(nameof(delta));
+
+        _deathUpdateAccumulator += delta * 60.0;
+        while (_deathUpdateAccumulator + 0.000001 >= 1.0 &&
+            !_gameOverRequested)
+        {
+            _deathUpdateAccumulator -= 1.0;
+            AdvanceDeathUpdate();
+        }
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        QueueRedraw();
+    }
+
+    private void AdvanceDeathUpdate()
+    {
+        if (!_deathSlowFadeRequested)
+        {
+            // standardGameState replaces wLinkDeathTrigger $ff with $e7 and
+            // starts SNDCTRL_SLOW_FADEOUT on the first dying update.
+            _deathSlowFadeRequested = true;
+            _world.PlaySound(OracleSoundEngine.SndCtrlSlowFadeOut);
+        }
+
+        if (_deathPending)
+        {
+            // LINK_STATE_DYING substate 0 retains ordinary knockback until its
+            // counter reaches zero. The spin begins on the following update.
+            if (_enemyKnockbackFrames > 0.0f)
+            {
+                ClearShieldParent();
+                Vector2 movement =
+                    _enemyKnockbackDirection * EnemyKnockbackSpeed;
+                TryMove(movement, allowWallSlide: false);
+                _enemyKnockbackFrames = Mathf.Max(
+                    0.0f, _enemyKnockbackFrames - 1.0f);
+                _walking = false;
+                _pushing = false;
+                CancelSwordAttack();
+                CancelShovelAction();
+                return;
+            }
+
+            StartDeathAnimation();
+            return;
+        }
+
+        if (!_deathAnimationActive)
+            return;
+
+        _enemyInvincibilityFrames = 0.0f;
+        _deathAnimationCounter--;
+        if (_deathAnimationCounter != 0)
+            return;
+
+        switch (_deathSequenceIndex)
+        {
+            case 0:
+                SetDeathFrame(sequenceIndex: 1, frame: 1, duration: 8);
+                break;
+            case 1:
+                SetDeathFrame(sequenceIndex: 2, frame: 0, duration: 8);
+                break;
+            case 2:
+                SetDeathFrame(sequenceIndex: 3, frame: 3, duration: 8);
+                break;
+            case 3:
+                // animationData19e7b holds graphics $02 for seven ordinary
+                // updates before its visually identical one-update marker.
+                SetDeathFrame(sequenceIndex: 4, frame: 2, duration: 7);
+                break;
+            case 4:
+                _deathSpinLoopsRemaining--;
+                if (_deathSpinLoopsRemaining == 0)
+                {
+                    // LINK_ANIM_MODE_COLLAPSED holds gfx frame $04 for $4c
+                    // updates before its terminal $ff parameter.
+                    SetDeathFrame(
+                        sequenceIndex: 6,
+                        frame: 4,
+                        duration: DeathCollapsedFrames);
+                }
+                else
+                {
+                    // The one-update $80 marker reuses spin frame $02.
+                    SetDeathFrame(sequenceIndex: 5, frame: 2, duration: 1);
+                }
+                break;
+            case 5:
+                // animationData19e7b loops to frame $01, not its initial
+                // eight-update frame $02.
+                SetDeathFrame(sequenceIndex: 1, frame: 1, duration: 8);
+                break;
+            case 6:
+                _gameOverRequested = true;
+                GameOverRequested?.Invoke();
+                break;
+            default:
+                throw new InvalidOperationException(
+                    $"Invalid Link death animation sequence {_deathSequenceIndex}.");
+        }
+    }
+
+    private void StartDeathAnimation()
+    {
+        _deathPending = false;
+        _deathAnimationActive = true;
+        _enemyInvincibilityFrames = 0.0f;
+        _walking = false;
+        _pushing = false;
+        _world.InterruptBracelet(this, discard: true);
+        ClearShieldParent();
+        CancelSwordAttack();
+        CancelShovelAction();
+        _deathSpinLoopsRemaining = 4;
+        SetDeathFrame(sequenceIndex: 0, frame: 2, duration: 8);
+        _world.PlaySound(OracleSoundEngine.SndLinkDead);
+    }
+
+    private void SetDeathFrame(int sequenceIndex, int frame, int duration)
+    {
+        _deathSequenceIndex = sequenceIndex;
+        _deathAnimationFrame = frame;
+        _deathAnimationCounter = duration;
     }
 
     internal void BeginCutsceneControl()
@@ -999,6 +1191,9 @@ public partial class Player : Node2D
             QueueRedraw();
         }
 
+        if (IsDying)
+            return;
+
         if (IsFloorDoorRespawning)
             return;
 
@@ -1066,7 +1261,14 @@ public partial class Player : Node2D
 
     public override void _Draw()
     {
-        if (_newGameSlowFalling &&
+        if (_deathAnimationActive)
+        {
+            DrawTextureRectRegion(
+                _deathTexture,
+                new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
+                new Rect2(_deathAnimationFrame * 16, 0, 16, 16));
+        }
+        else if (_newGameSlowFalling &&
             _newGameFallRenderer is not null && _newGameFallFrames is not null)
         {
             _newGameFallRenderer.DrawRelativeFrame(
@@ -1078,7 +1280,7 @@ public partial class Player : Node2D
         {
             int frame = GetDrownAnimationFrame();
             DrawTextureRectRegion(
-                _drownTexture,
+                DamagePaletteActive ? _damageDrownTexture : _drownTexture,
                 new Rect2(DrownSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(frame * 16, (int)_facing * 16, 16, 16));
         }
@@ -1086,29 +1288,41 @@ public partial class Player : Node2D
         {
             int frame = GetFallInHoleFrame();
             DrawTextureRectRegion(
-                _fallInHoleTexture,
+                DamagePaletteActive ? _damageFallInHoleTexture : _fallInHoleTexture,
                 new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(frame * 16, 0, 16, 16));
         }
         else if (_getItemTwoHandPose)
         {
-            DrawTexture(_getItemTwoHandTexture, NormalSpriteOrigin);
+            DrawTexture(
+                DamagePaletteActive
+                    ? _damageGetItemTwoHandTexture
+                    : _getItemTwoHandTexture,
+                NormalSpriteOrigin);
         }
         else if (_getItemOneHandPose)
         {
-            DrawTexture(_getItemOneHandTexture, NormalSpriteOrigin);
+            DrawTexture(
+                DamagePaletteActive
+                    ? _damageGetItemOneHandTexture
+                    : _getItemOneHandTexture,
+                NormalSpriteOrigin);
         }
         else if (_braceletActionPose is BraceletActionPose braceletPose)
         {
             DrawTexture(
-                _braceletActionTextures[(int)braceletPose, (int)_facing],
+                (DamagePaletteActive
+                    ? _damageBraceletActionTextures
+                    : _braceletActionTextures)[(int)braceletPose, (int)_facing],
                 new Vector2(-16, -16));
         }
         else if (_carriedObjectPose)
         {
             int frame = GetWalkAnimationFrame();
             DrawTextureRectRegion(
-                _carriedObjectTexture,
+                DamagePaletteActive
+                    ? _damageCarriedObjectTexture
+                    : _carriedObjectTexture,
                 new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(frame * 16, (int)_facing * 16, 16, 16));
         }
@@ -1116,7 +1330,10 @@ public partial class Player : Node2D
         {
             DrawTexture(
                 _transformedLink.Texture(
-                    _activeTransformation, (int)_facing, _transformationFrame),
+                    _activeTransformation,
+                    (int)_facing,
+                    _transformationFrame,
+                    DamagePaletteActive),
                 new Vector2(-16, -16));
         }
         else if (IsUsingPunch)
@@ -1125,7 +1342,7 @@ public partial class Player : Node2D
                 ? AttackPoseOffsets[(int)_facing]
                 : Vector2.Zero;
             DrawTextureRectRegion(
-                _attackTexture,
+                DamagePaletteActive ? _damageAttackTexture : _attackTexture,
                 new Rect2(NormalSpriteOrigin + offset, new Vector2(16, 16)),
                 new Rect2(16, (int)_facing * 16, 16, 16));
         }
@@ -1138,7 +1355,7 @@ public partial class Player : Node2D
             if (heldBodyFrame >= 0)
             {
                 DrawTextureRectRegion(
-                    _texture,
+                    DamagePaletteActive ? _damageTexture : _texture,
                     new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                     GetFrame(_facing, heldBodyFrame));
             }
@@ -1148,7 +1365,7 @@ public partial class Player : Node2D
                 int phase = GetSwordPosePhase();
                 int texturePhase = _swordState == SwordActionState.Spin || phase == 3 ? 1 : phase;
                 DrawTextureRectRegion(
-                    _attackTexture,
+                    DamagePaletteActive ? _damageAttackTexture : _attackTexture,
                     new Rect2(AttackSpriteOrigin, new Vector2(16, 16)),
                     new Rect2(texturePhase * 16, (int)poseFacing * 16, 16, 16));
             }
@@ -1157,7 +1374,9 @@ public partial class Player : Node2D
         {
             int phase = _shovelFrame < ShovelSecondPoseFrame ? 0 : 1;
             DrawTextureRectRegion(
-                _shovelLinkTexture,
+                DamagePaletteActive
+                    ? _damageShovelLinkTexture
+                    : _shovelLinkTexture,
                 new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(phase * 16, (int)_facing * 16, 16, 16));
         }
@@ -1165,7 +1384,7 @@ public partial class Player : Node2D
         {
             // LINK_ANIM_MODE_21 uses graphics $b0-$b3 for eight updates.
             DrawTextureRectRegion(
-                _attackTexture,
+                DamagePaletteActive ? _damageAttackTexture : _attackTexture,
                 new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(16, (int)_facing * 16, 16, 16));
         }
@@ -1177,7 +1396,7 @@ public partial class Player : Node2D
         {
             int frame = GetWalkAnimationFrame();
             DrawTextureRectRegion(
-                _pushTexture,
+                DamagePaletteActive ? _damagePushTexture : _pushTexture,
                 new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(frame * 16, (int)_facing * 16, 16, 16));
         }
@@ -1190,7 +1409,7 @@ public partial class Player : Node2D
             int frame = GetWalkAnimationFrame();
             Rect2 source = GetFrame(_facing, frame);
             DrawTextureRectRegion(
-                _texture,
+                DamagePaletteActive ? _damageTexture : _texture,
                 new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                 source);
         }
@@ -1331,7 +1550,9 @@ public partial class Player : Node2D
             (_inventory.ShieldLevel >= 2 ? 1 : 0);
         int frame = GetWalkAnimationFrame();
         DrawTextureRectRegion(
-            _shieldLinkTexture,
+            DamagePaletteActive
+                ? _damageShieldLinkTexture
+                : _shieldLinkTexture,
             new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
             new Rect2(variant * 32 + frame * 16,
                 (int)_facing * 16, 16, 16));
@@ -1587,6 +1808,7 @@ public partial class Player : Node2D
             GetTerrainHazardDamageQuarters(_drowningHazard),
             RingDamageSource.TerrainHazard);
         WarpTo(_lastSafePosition);
+        _enemyInvincibilityFrames = 0x3c;
         _hazardRecoveryTime = HazardRecoveryDuration;
         _walking = false;
         CancelSwordAttack();
@@ -1627,6 +1849,7 @@ public partial class Player : Node2D
             GetTerrainHazardDamageQuarters(HazardType.Hole),
             RingDamageSource.Hole);
         WarpTo(_lastSafePosition);
+        _enemyInvincibilityFrames = 0x3c;
         _hazardRecoveryTime = HazardRecoveryDuration;
         _walking = false;
         CancelSwordAttack();
@@ -2067,7 +2290,7 @@ public partial class Player : Node2D
         // swordParent.s applies $f8 (four quarter-hearts) once after the first
         // accepted enemy contact, and clears var3a so later overlap frames do
         // not hurt Link again. The health >= $05 check occurs at swing start.
-        _inventory.ApplyDamage(4);
+        ApplyUnmodifiedDamage(4);
         _doubleEdgedDamagePending = false;
     }
 
@@ -2224,7 +2447,7 @@ public partial class Player : Node2D
             : 0;
     }
 
-    private static Texture2D BuildLinkTexture()
+    private static Texture2D BuildLinkTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_link.png");
@@ -2235,19 +2458,19 @@ public partial class Player : Node2D
         // OAM compositions below in specialObjectAnimationData.s. Up/down
         // alternate a mirrored composition of the same source tiles; they are
         // not neighboring 16x16 crops.
-        WriteWalkFrame(output, source, Facing.Up, 0, 0x0000, false); // gfx $54, OAM $00
-        WriteWalkFrame(output, source, Facing.Up, 1, 0x0000, true);  // gfx $80, OAM $01
-        WriteWalkFrame(output, source, Facing.Right, 0, 0x0080, true); // gfx $55
-        WriteWalkFrame(output, source, Facing.Right, 1, 0x00c0, true); // gfx $81
-        WriteWalkFrame(output, source, Facing.Down, 0, 0x0200, false); // gfx $56
-        WriteWalkFrame(output, source, Facing.Down, 1, 0x0200, true);  // gfx $82
-        WriteWalkFrame(output, source, Facing.Left, 0, 0x0080, false); // gfx $57
-        WriteWalkFrame(output, source, Facing.Left, 1, 0x00c0, false); // gfx $83
+        WriteWalkFrame(output, source, Facing.Up, 0, 0x0000, false, damagePalette); // gfx $54, OAM $00
+        WriteWalkFrame(output, source, Facing.Up, 1, 0x0000, true, damagePalette);  // gfx $80, OAM $01
+        WriteWalkFrame(output, source, Facing.Right, 0, 0x0080, true, damagePalette); // gfx $55
+        WriteWalkFrame(output, source, Facing.Right, 1, 0x00c0, true, damagePalette); // gfx $81
+        WriteWalkFrame(output, source, Facing.Down, 0, 0x0200, false, damagePalette); // gfx $56
+        WriteWalkFrame(output, source, Facing.Down, 1, 0x0200, true, damagePalette);  // gfx $82
+        WriteWalkFrame(output, source, Facing.Left, 0, 0x0080, false, damagePalette); // gfx $57
+        WriteWalkFrame(output, source, Facing.Left, 1, 0x00c0, false, damagePalette); // gfx $83
 
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildGetItemOneHandTexture()
+    private static Texture2D BuildGetItemOneHandTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_link.png");
@@ -2256,11 +2479,11 @@ public partial class Player : Node2D
         // LINK_ANIM_MODE_GETITEM1HAND ($0e) is the static graphics frame $05:
         // OAM $00, spr_link+$0da0, four tiles. The frame is below $54, so
         // loadLinkAndCompanionAnimationFrame_body does not add Link's direction.
-        WriteLinkFrame(output, source, 0, 0, 0x0da0, false);
+        WriteLinkFrame(output, source, 0, 0, 0x0da0, false, damagePalette);
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildGetItemTwoHandTexture()
+    private static Texture2D BuildGetItemTwoHandTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_link.png");
@@ -2268,11 +2491,11 @@ public partial class Player : Node2D
 
         // LINK_ANIM_MODE_GETITEM2HAND ($0f) is static graphics frame $06:
         // OAM $04 mirrors the single spr_link+$0de0 cell into a 16-pixel body.
-        WriteSymmetricLinkCell(output, source, 0, 0, 0x0de0);
+        WriteSymmetricLinkCell(output, source, 0, 0, 0x0de0, damagePalette);
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildCarriedObjectLinkTexture()
+    private static Texture2D BuildCarriedObjectLinkTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_link.png");
@@ -2281,19 +2504,19 @@ public partial class Player : Node2D
         // A finished grab leaves LINK_ANIM_MODE_WALK active. func_4553 adds
         // held-object variant $08 to its $54/$80 graphics frames, producing
         // the direction-aware $5c-$5f/$88-$8b frames below.
-        WriteLinkFrame(output, source, 0, (int)Facing.Up * 16, 0x0040, false);       // $5c, OAM $00
-        WriteLinkFrame(output, source, 0, (int)Facing.Right * 16, 0x01c0, true);    // $5d, OAM $01
-        WriteLinkFrame(output, source, 0, (int)Facing.Down * 16, 0x0180, false);    // $5e, OAM $00
-        WriteLinkFrame(output, source, 0, (int)Facing.Left * 16, 0x01c0, false);    // $5f, OAM $00
-        WriteLinkFrame(output, source, 16, (int)Facing.Up * 16, 0x0040, true);      // $88, OAM $01
-        WriteLinkFrame(output, source, 16, (int)Facing.Right * 16, 0x1140, true);  // $89, OAM $01
-        WriteLinkFrame(output, source, 16, (int)Facing.Down * 16, 0x0180, true);   // $8a, OAM $01
-        WriteLinkFrame(output, source, 16, (int)Facing.Left * 16, 0x1140, false);  // $8b, OAM $00
+        WriteLinkFrame(output, source, 0, (int)Facing.Up * 16, 0x0040, false, damagePalette);       // $5c, OAM $00
+        WriteLinkFrame(output, source, 0, (int)Facing.Right * 16, 0x01c0, true, damagePalette);    // $5d, OAM $01
+        WriteLinkFrame(output, source, 0, (int)Facing.Down * 16, 0x0180, false, damagePalette);    // $5e, OAM $00
+        WriteLinkFrame(output, source, 0, (int)Facing.Left * 16, 0x01c0, false, damagePalette);    // $5f, OAM $00
+        WriteLinkFrame(output, source, 16, (int)Facing.Up * 16, 0x0040, true, damagePalette);      // $88, OAM $01
+        WriteLinkFrame(output, source, 16, (int)Facing.Right * 16, 0x1140, true, damagePalette);  // $89, OAM $01
+        WriteLinkFrame(output, source, 16, (int)Facing.Down * 16, 0x0180, true, damagePalette);   // $8a, OAM $01
+        WriteLinkFrame(output, source, 16, (int)Facing.Left * 16, 0x1140, false, damagePalette);  // $8b, OAM $00
 
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D[,] BuildBraceletActionTextures()
+    private static Texture2D[,] BuildBraceletActionTextures(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_link.png");
@@ -2332,12 +2555,12 @@ public partial class Player : Node2D
                 source,
                 oam[pose, direction],
                 offsets[pose, direction] / 16,
-                basePalette: 0);
+                basePalette: damagePalette ? 5 : 0);
         }
         return result;
     }
 
-    private static Texture2D BuildShieldLinkTexture()
+    private static Texture2D BuildShieldLinkTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_link.png");
@@ -2365,12 +2588,12 @@ public partial class Player : Node2D
             WriteLinkFrame(
                 output, source,
                 variant * 32 + phase * 16, facing * 16,
-                offsets[variant, facing, phase], false);
+                offsets[variant, facing, phase], false, damagePalette);
         }
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildPushLinkTexture()
+    private static Texture2D BuildPushLinkTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_link.png");
@@ -2379,19 +2602,19 @@ public partial class Player : Node2D
         // The pushing walking variant adds $10 to LINK_ANIM_MODE_WALK's
         // gfx indices, producing frames $64-$67 and $90-$93. The source
         // offsets and compositions below come from specialObjectAnimationData.s.
-        WriteLinkFrame(output, source, 0, (int)Facing.Up * 16, 0x0a00, false);       // $64, OAM $00
-        WriteLinkFrame(output, source, 0, (int)Facing.Right * 16, 0x0b00, true);    // $65, OAM $01
-        WriteSymmetricLinkCell(output, source, 0, (int)Facing.Down * 16, 0x0aa0);   // $66, OAM $04
-        WriteLinkFrame(output, source, 0, (int)Facing.Left * 16, 0x0b00, false);    // $67, OAM $00
-        WriteLinkFrame(output, source, 16, (int)Facing.Up * 16, 0x0a40, false);     // $90, OAM $00
-        WriteLinkFrame(output, source, 16, (int)Facing.Right * 16, 0x0b40, true);  // $91, OAM $01
-        WriteSymmetricLinkCell(output, source, 16, (int)Facing.Down * 16, 0x0ac0); // $92, OAM $04
-        WriteLinkFrame(output, source, 16, (int)Facing.Left * 16, 0x0b40, false);  // $93, OAM $00
+        WriteLinkFrame(output, source, 0, (int)Facing.Up * 16, 0x0a00, false, damagePalette);       // $64, OAM $00
+        WriteLinkFrame(output, source, 0, (int)Facing.Right * 16, 0x0b00, true, damagePalette);    // $65, OAM $01
+        WriteSymmetricLinkCell(output, source, 0, (int)Facing.Down * 16, 0x0aa0, damagePalette);   // $66, OAM $04
+        WriteLinkFrame(output, source, 0, (int)Facing.Left * 16, 0x0b00, false, damagePalette);    // $67, OAM $00
+        WriteLinkFrame(output, source, 16, (int)Facing.Up * 16, 0x0a40, false, damagePalette);     // $90, OAM $00
+        WriteLinkFrame(output, source, 16, (int)Facing.Right * 16, 0x0b40, true, damagePalette);  // $91, OAM $01
+        WriteSymmetricLinkCell(output, source, 16, (int)Facing.Down * 16, 0x0ac0, damagePalette); // $92, OAM $04
+        WriteLinkFrame(output, source, 16, (int)Facing.Left * 16, 0x0b40, false, damagePalette);  // $93, OAM $00
 
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildAttackLinkTexture()
+    private static Texture2D BuildAttackLinkTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_link.png");
@@ -2409,12 +2632,12 @@ public partial class Player : Node2D
         {
             WriteLinkFrame(
                 output, source, phase * 16, facing * 16,
-                offsets[facing, phase], mirrored[facing]);
+                offsets[facing, phase], mirrored[facing], damagePalette);
         }
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildShovelLinkTexture()
+    private static Texture2D BuildShovelLinkTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_link.png");
@@ -2435,7 +2658,7 @@ public partial class Player : Node2D
         {
             WriteLinkFrame(
                 output, source, phase * 16, facing * 16,
-                offsets[facing, phase], mirrored[facing]);
+                offsets[facing, phase], mirrored[facing], damagePalette);
         }
         return ImageTexture.CreateFromImage(output);
     }
@@ -2465,7 +2688,7 @@ public partial class Player : Node2D
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildDrownTexture()
+    private static Texture2D BuildDrownTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_link.png");
@@ -2474,18 +2697,19 @@ public partial class Player : Node2D
         // LINK_ANIM_MODE_DROWN ($0a) uses directional graphics $d4-$d7 for
         // six updates. Their OAM records $10-$12 place both 8x16 cells at
         // y=$0c. The final sixteen updates use graphics $0b with OAM $12.
-        WriteLinkFrame(output, source, 0, (int)Facing.Up * 16, 0x0e00, false);    // $d4, OAM $10
-        WriteLinkFrame(output, source, 0, (int)Facing.Right * 16, 0x0ec0, true); // $d5, OAM $11
-        WriteSymmetricLinkCell(output, source, 0, (int)Facing.Down * 16, 0x0e80); // $d6, OAM $12
-        WriteLinkFrame(output, source, 0, (int)Facing.Left * 16, 0x0ec0, false); // $d7, OAM $10
+        WriteLinkFrame(output, source, 0, (int)Facing.Up * 16, 0x0e00, false, damagePalette);    // $d4, OAM $10
+        WriteLinkFrame(output, source, 0, (int)Facing.Right * 16, 0x0ec0, true, damagePalette); // $d5, OAM $11
+        WriteSymmetricLinkCell(output, source, 0, (int)Facing.Down * 16, 0x0e80, damagePalette); // $d6, OAM $12
+        WriteLinkFrame(output, source, 0, (int)Facing.Left * 16, 0x0ec0, false, damagePalette); // $d7, OAM $10
 
         for (int facing = 0; facing < 4; facing++)
-            WriteSymmetricLinkCell(output, source, 16, facing * 16, 0x0f40); // $0b, OAM $12
+            WriteSymmetricLinkCell(
+                output, source, 16, facing * 16, 0x0f40, damagePalette); // $0b, OAM $12
 
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildFallInHoleTexture()
+    private static Texture2D BuildFallInHoleTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_link.png");
@@ -2496,9 +2720,28 @@ public partial class Player : Node2D
         //   $08: OAM $00, spr_link+$0100, 4 tiles, duration $10
         //   $09: OAM $06, spr_link+$0140, 2 tiles, duration $0a
         //   $0a: OAM $06, spr_link+$0160, 2 tiles, duration $0a
-        WriteLinkFrame(output, source, 0, 0, 0x0100, false);
-        WriteCenteredSingleLinkCell(output, source, 16, 0, 0x0140);
-        WriteCenteredSingleLinkCell(output, source, 32, 0, 0x0160);
+        WriteLinkFrame(output, source, 0, 0, 0x0100, false, damagePalette);
+        WriteCenteredSingleLinkCell(
+            output, source, 16, 0, 0x0140, damagePalette);
+        WriteCenteredSingleLinkCell(
+            output, source, 32, 0, 0x0160, damagePalette);
+
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private static Texture2D BuildDeathTexture()
+    {
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
+        Image output = Image.CreateEmpty(80, 16, false, Image.Format.Rgba8);
+
+        // LINK_ANIM_MODE_SPIN ($01) uses graphics $02,$01,$00,$03 and
+        // LINK_ANIM_MODE_COLLAPSED ($02) uses frame $04.
+        WriteLinkFrame(output, source, 0, 0, 0x0000, false, false); // $00
+        WriteLinkFrame(output, source, 16, 0, 0x0080, true, false); // $01
+        WriteLinkFrame(output, source, 32, 0, 0x0200, false, false); // $02
+        WriteLinkFrame(output, source, 48, 0, 0x0080, false, false); // $03
+        WriteSymmetricLinkCell(output, source, 64, 0, 0x03e0, false); // $04
 
         return ImageTexture.CreateFromImage(output);
     }
@@ -2509,11 +2752,14 @@ public partial class Player : Node2D
         Facing facing,
         int frame,
         int byteOffset,
-        bool mirroredOam)
+        bool mirroredOam,
+        bool damagePalette)
     {
         // spr_link.png is interleaved as 8x16 cells (32 bytes each). OAM $00
         // draws cells 0/1 normally; OAM $01 swaps them and flips both on X.
-        WriteLinkFrame(output, source, frame * 16, (int)facing * 16, byteOffset, mirroredOam);
+        WriteLinkFrame(
+            output, source, frame * 16, (int)facing * 16,
+            byteOffset, mirroredOam, damagePalette);
     }
 
     private static void WriteLinkFrame(
@@ -2522,7 +2768,8 @@ public partial class Player : Node2D
         int destinationX,
         int destinationY,
         int byteOffset,
-        bool mirroredOam)
+        bool mirroredOam,
+        bool damagePalette)
     {
         int firstCell = byteOffset / 32;
 
@@ -2541,7 +2788,7 @@ public partial class Player : Node2D
                 output.SetPixel(
                     destinationX + destinationPart * 8 + x,
                     destinationY + y,
-                    RecolorLinkPixel(sourceColor));
+                    RecolorLinkPixel(sourceColor, damagePalette));
             }
         }
     }
@@ -2551,7 +2798,8 @@ public partial class Player : Node2D
         Image source,
         int destinationX,
         int destinationY,
-        int byteOffset)
+        int byteOffset,
+        bool damagePalette)
     {
         int cell = byteOffset / 32;
         int cellX = (cell % 16) * 8;
@@ -2561,7 +2809,10 @@ public partial class Player : Node2D
         for (int x = 0; x < 8; x++)
         {
             Color sourceColor = source.GetPixel(cellX + x, cellY + y);
-            output.SetPixel(destinationX + 4 + x, destinationY + y, RecolorLinkPixel(sourceColor));
+            output.SetPixel(
+                destinationX + 4 + x,
+                destinationY + y,
+                RecolorLinkPixel(sourceColor, damagePalette));
         }
     }
 
@@ -2570,7 +2821,8 @@ public partial class Player : Node2D
         Image source,
         int destinationX,
         int destinationY,
-        int byteOffset)
+        int byteOffset,
+        bool damagePalette)
     {
         int cell = byteOffset / 32;
         int cellX = (cell % 16) * 8;
@@ -2585,13 +2837,25 @@ public partial class Player : Node2D
             output.SetPixel(
                 destinationX + destinationPart * 8 + x,
                 destinationY + y,
-                RecolorLinkPixel(sourceColor));
+                RecolorLinkPixel(sourceColor, damagePalette));
         }
     }
 
-    internal static Color RecolorLinkPixel(Color source)
+    internal static Color RecolorLinkPixel(
+        Color source,
+        bool damagePalette = false)
     {
         float value = source.R;
+        if (damagePalette)
+        {
+            // updateLinkInvincibilityCounter replaces Link's OAM palette 0
+            // with standardSpritePaletteData palette 5 while frame-counter
+            // bit 2 is clear.
+            return value < 0.1f ? Colors.Transparent
+                : value < 0.5f ? GbcColor(0x1f, 0x16, 0x06)
+                : value < 0.9f ? GbcColor(0x1b, 0x00, 0x00)
+                : Colors.Black;
+        }
         return value < 0.1f ? Colors.Transparent
             // specialObjectSetOamVariables gives Link OAM flags $08, selecting
             // standardSpritePaletteData palette 0. Color 0 is transparent.

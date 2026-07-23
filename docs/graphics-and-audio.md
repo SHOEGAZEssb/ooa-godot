@@ -325,6 +325,25 @@ sound when the drowning animation and splash begin, not when respawn damage is
 applied. Hole pull-in stays silent until Link enters the fall animation, which
 requests `SND_LINK_FALL` (`$65`) once; respawning does not replay it.
 
+While the positive Link invincibility counter is nonzero, global frame-counter
+bit 2 selects the damage flash: clear uses standard OBJ palette 5
+(`$1f/$1f/$1f`, `$1f/$16/$06`, `$1b/$00/$00`, black), and set restores
+ordinary Link palette 0. The alternate atlas applies to every active ordinary
+Link body/item pose and to the five transformation-ring forms; it is not a
+visibility toggle or a host-time animation.
+
+Lethal damage first gives `TREASURE_POTION $2f` the source opportunity to
+refill Link and consume itself. Without a Potion, the first dying update
+requests `SNDCTRL_SLOW_FADEOUT` (`$fc`) and waits for accepted-contact
+knockback to finish. Link then cancels held items, requests `SND_LINK_DEAD`
+(`$64`), and uses the imported `$02/$01/$00/$03` spin sequence for four
+terminal-marker loops. Each loop holds `$01`, `$00`, and `$03` for eight
+updates, then `$02` for seven updates plus its visually identical one-update
+`$80` marker. The fourth marker selects the symmetric collapsed graphic on
+death-animation update 135; its `$4c`-update hold requests game over on the
+terminal `$ff` parameter. Preserve these fixed counters and source OAM frames
+rather than substituting an `AnimationPlayer`.
+
 `DialogueBox` requests `SND_TEXT` for revealed non-space glyphs with the
 original four-update cooldown, applies inline `\sfx()`/`\charsfx()` commands,
 and requests `SND_TEXT_2`, `SND_MENU_MOVE`, and `SND_SELECTITEM` at continuation,

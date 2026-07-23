@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 using static oracleofages.OracleGraphicsData;
 using static oracleofages.OracleTileRenderer;
 
@@ -11,6 +12,8 @@ namespace oracleofages;
 public partial class SaveQuitScreen : Node2D
 {
     private const int MapStride = 32;
+    private Texture2D _standardBackground = null!;
+    private Texture2D _gameOverBackground = null!;
     private Texture2D _background = null!;
     private Image _fileSprites = null!;
     private Color[,] _spritePalette = null!;
@@ -18,7 +21,24 @@ public partial class SaveQuitScreen : Node2D
     private int _delayCounter;
 
     public int Cursor { get; private set; }
+    public bool IsGameOver { get; private set; }
     public bool SaveErrorVisible => _saveError.Visible;
+    internal ulong BackgroundPixelHash =>
+        OracleGraphicsCache.PixelHash(_background.GetImage());
+    internal bool BackgroundIsOpaque
+    {
+        get
+        {
+            using Image image = _background.GetImage();
+            for (int y = 0; y < image.GetHeight(); y++)
+            for (int x = 0; x < image.GetWidth(); x++)
+            {
+                if (image.GetPixel(x, y).A < 0.99f)
+                    return false;
+            }
+            return true;
+        }
+    }
     public int DelayCounter
     {
         get => _delayCounter;
@@ -33,7 +53,9 @@ public partial class SaveQuitScreen : Node2D
     {
         _fileSprites = LoadPng("res://assets/oracle/menu/spr_fileselect_decorations.png");
         _spritePalette = LoadPalette("res://assets/oracle/menu/palette_file_sprites.bin");
-        _background = BuildBackground();
+        _standardBackground = BuildBackground(gameOver: false);
+        _gameOverBackground = BuildBackground(gameOver: true);
+        _background = _standardBackground;
         _saveError = new Label
         {
             Text = "SAVE FAILED\nCHECK STORAGE\nA/B: RETRY",
@@ -47,8 +69,12 @@ public partial class SaveQuitScreen : Node2D
         AddChild(_saveError);
     }
 
-    public void Open()
+    public void Open(bool gameOver = false)
     {
+        IsGameOver = gameOver;
+        _background = gameOver
+            ? _gameOverBackground
+            : _standardBackground;
         Cursor = 0;
         DelayCounter = 0;
         _saveError.Visible = false;
@@ -59,17 +85,20 @@ public partial class SaveQuitScreen : Node2D
     public void Close()
     {
         Visible = false;
+        IsGameOver = false;
+        _background = _standardBackground;
         DelayCounter = 0;
         _saveError.Visible = false;
     }
 
-    public void Move(int direction)
+    public bool Move(int direction)
     {
         int next = Cursor + Math.Sign(direction);
         if (next is < 0 or > 2)
-            return;
+            return false;
         Cursor = next;
         QueueRedraw();
+        return true;
     }
 
     public void ShowSaveError()
@@ -100,21 +129,36 @@ public partial class SaveQuitScreen : Node2D
         }
     }
 
-    private Texture2D BuildBackground()
+    private Texture2D BuildBackground(bool gameOver)
     {
         (byte[] map, byte[] flags) = FileMenuPresentation.BuildLayout(
             "map_save_menu_middle.bin", "flags_save_menu_middle.bin",
             "map_save_menu_bottom.bin", "flags_save_menu_bottom.bin",
             bottomLength: 128);
 
-        Color[,] palette = LoadPalette("res://assets/oracle/menu/palette_file_bg.bin");
-        var sources = new (Image Image, int FirstTile, int Bank, bool Interleaved)[]
+        Color[,] palette = LoadPalette(gameOver
+            ? "res://assets/oracle/menu/palette_file_erase_bg.bin"
+            : "res://assets/oracle/menu/palette_file_bg.bin");
+        var sources = new List<
+            (Image Image, int FirstTile, int Bank, bool Interleaved)>
         {
             (LoadPng("res://assets/oracle/gfx/gfx_hud.png"), 0x00, 0, false),
             (LoadPng("res://assets/oracle/gfx/gfx_hud.png"), 0x00, 1, false),
-            (LoadPng("res://assets/oracle/menu/gfx_savescreen.png"), 0x80, 1, true),
+            (LoadPng("res://assets/oracle/menu/gfx_savescreen.png"),
+                0x80, 1, true),
             (LoadPng("res://assets/oracle/menu/gfx_fileselect.png"), 0x20, 1, false)
         };
+        if (gameOver)
+        {
+            // saveQuitMenu_state0 loads GFXH_SAVE_MENU_GFX at $8801 first,
+            // then GFXH_GAME_OVER_GFX at the same address. gfx_gameover is
+            // only $20 tiles long: it replaces the title tiles $80-$9f while
+            // the option graphics $a0-$ff remain from gfx_savescreen.
+            sources.Insert(
+                3,
+                (LoadPng("res://assets/oracle/menu/gfx_gameover.png"),
+                    0x80, 1, true));
+        }
         Image output = Image.CreateEmpty(160, 144, false, Image.Format.Rgba8);
         for (int row = 0; row < 18; row++)
         for (int column = 0; column < 20; column++)

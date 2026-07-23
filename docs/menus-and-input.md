@@ -104,6 +104,26 @@ refund is applied only after the result wait. Ring-list selection moves or
 removes a ring in the selected box slot without permitting duplicate slots.
 Closing the list deactivates an equipped ring that is no longer in the box.
 
+## Forced game-over save menu
+
+The terminal collapsed-Link animation enters the save/quit screen as the
+original forced game-over variant. The death sequence has already faded the
+screen, so `OracleMenuLifecycle` opens `gfx_gameover` at full white and runs
+only the 11-update fade-in half. The screen reuses the save-menu maps and
+decorative OAM. It first loads `gfx_savescreen` at `$8801`, then overwrites only
+title tiles `$80-$9f` with the shorter `gfx_gameover`; option tiles `$a0-$ff`
+must remain from the first load rather than becoming transparent. The variant
+selects `PALH_06` instead of the ordinary `PALH_05` background and begins on
+Continue.
+
+The three choices are Continue, Save and Continue, and Save and Quit. Continue
+does not write the file; the other two save immediately. Every successful
+choice requests `SND_SELECTITEM` (`$56`) and waits 30 original updates before
+resuming at the maintained death checkpoint or returning to file select.
+Accepted cursor movement requests `SND_MENU_MOVE` (`$84`). B cancellation is
+disabled in game-over mode, while the ordinary in-game save menu retains its
+closing path.
+
 ## Gameplay pause lease
 
 `GameplayPauseController` provides exclusive pause/input ownership. Its lease

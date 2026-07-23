@@ -140,6 +140,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateCaveWarps();
         ValidateTerrain();
         ValidateHealth();
+        ValidatePlayerDamageAndDeath();
         ValidateChests();
         ValidateInventoryFoundation();
         ValidateInventoryMenu();
@@ -155,6 +156,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateMapScreen();
         ValidateLynnaShopInteractions();
         ValidateVasuShopInteractions();
+        ValidateGameOverRestart();
         ValidateSaveAndQuitToTitle();
 
         GD.Print("Validated all gameplay and world-data scenarios.");

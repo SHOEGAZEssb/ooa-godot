@@ -17,6 +17,7 @@ public partial class OracleSoundEngine : Node
     public const int MusOverworld = 0x03;
     public const int MusEssence = 0x06;
     public const int MusNayru = 0x08;
+    public const int MusGameOver = 0x09;
     public const int MusEssenceRoom = 0x0d;
     public const int MusFairyFountain = 0x0f;
     public const int MusGetEssence = 0x10;
@@ -51,6 +52,7 @@ public partial class OracleSoundEngine : Node
     public const int SndDamageLink = 0x5f;
     public const int SndRupee = 0x61;
     public const int SndBossDamage = 0x63;
+    public const int SndLinkDead = 0x64;
     public const int SndLinkFall = 0x65;
     public const int SndText = 0x66;
     public const int SndBossDead = 0x67;

@@ -20,16 +20,19 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     private readonly Func<bool> _canOpen;
     private readonly Func<SaveResult> _save;
     private readonly Action _quitToTitle;
+    private readonly Action _continueAfterGameOver;
     private readonly Action<int> _playSound;
     private readonly FixedUpdateAccumulator _saveDelayUpdates = new();
     private OpenMenu _openMenu;
     private bool _saveSelectionDelay;
+    private bool _gameOver;
     private int _saveDelayElapsed;
 
     public bool IsActive => _lifecycle.IsOwnedBy(this);
     public bool IsOpen => _lifecycle.IsOpenFor(this) && !_saveSelectionDelay;
     public bool SaveMenuOpen =>
         _lifecycle.IsOpenFor(this) && _openMenu == OpenMenu.SaveQuit;
+    internal bool GameOver => _gameOver;
     internal bool CanOpenForValidation => _lifecycle.IsIdle && _canOpen();
     internal int SaveRequests { get; private set; }
     internal int QuitRequests { get; private set; }
@@ -45,7 +48,8 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         Func<bool> canOpen,
         Func<SaveResult> save,
         Action quitToTitle,
-        Action<int> playSound)
+        Action<int> playSound,
+        Action? continueAfterGameOver = null)
     {
         _screen = screen;
         _saveScreen = saveScreen;
@@ -55,6 +59,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         _save = save;
         _quitToTitle = quitToTitle;
         _playSound = playSound;
+        _continueAfterGameOver = continueAfterGameOver ?? (() => { });
     }
 
     public void Update(double delta)
@@ -102,9 +107,13 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
 
     internal void BeginOpeningForValidation() => BeginOpening(openSaveMenu: false);
     internal void BeginSaveOpeningForValidation() => BeginOpening(openSaveMenu: true);
+    internal void BeginGameOverForValidation() => BeginGameOver();
     internal void BeginClosingForValidation() => BeginClosing();
     internal void OpenSaveMenuFromInventoryForValidation() => OpenSaveMenuFromInventory();
     internal void SelectSaveOptionForValidation() => SelectSaveOption();
+    internal bool CancelSaveMenuForValidation() => CancelSaveMenu();
+    internal bool MoveSaveCursorForValidation(int direction) =>
+        MoveSaveCursor(direction);
     internal bool BeginNextSubscreenForValidation() => BeginNextSubscreen();
     internal bool MoveCursorForValidation(Vector2I direction) => MoveCursor(direction);
     internal bool EquipToAForValidation() => EquipToA();
@@ -113,6 +122,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     internal void OpenImmediatelyForValidation()
     {
         _openMenu = OpenMenu.Inventory;
+        _gameOver = false;
         ResetSaveDelay();
         _lifecycle.OpenImmediately(this);
     }
@@ -120,6 +130,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     internal void OpenSaveImmediatelyForValidation()
     {
         _openMenu = OpenMenu.SaveQuit;
+        _gameOver = false;
         ResetSaveDelay();
         _lifecycle.OpenImmediately(this);
     }
@@ -176,7 +187,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         }
         if (Input.IsActionJustPressed("item"))
         {
-            BeginClosing();
+            CancelSaveMenu();
             return;
         }
         if (Input.IsActionJustPressed("attack") || Input.IsActionJustPressed("inventory"))
@@ -185,9 +196,9 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             return;
         }
         if (Input.IsActionJustPressed("move_up"))
-            _saveScreen.Move(-1);
+            MoveSaveCursor(-1);
         else if (Input.IsActionJustPressed("move_down"))
-            _saveScreen.Move(1);
+            MoveSaveCursor(1);
     }
 
     private void UpdateSaveSelectionDelay(double delta)
@@ -202,6 +213,18 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
                 continue;
 
             _saveSelectionDelay = false;
+            if (_gameOver)
+            {
+                bool quit = _saveScreen.Cursor == 2;
+                if (quit)
+                    QuitRequests++;
+                _lifecycle.CloseImmediately(this);
+                if (quit)
+                    _quitToTitle();
+                else
+                    _continueAfterGameOver();
+                return;
+            }
             if (_saveScreen.Cursor == 2)
             {
                 QuitRequests++;
@@ -219,8 +242,22 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     private void BeginOpening(bool openSaveMenu)
     {
         _openMenu = openSaveMenu ? OpenMenu.SaveQuit : OpenMenu.Inventory;
+        _gameOver = false;
         ResetSaveDelay();
         _lifecycle.TryBeginOpening(this);
+    }
+
+    internal void BeginGameOver()
+    {
+        _openMenu = OpenMenu.SaveQuit;
+        _gameOver = true;
+        ResetSaveDelay();
+        if (!_lifecycle.TryBeginOpeningFromWhite(this))
+        {
+            _gameOver = false;
+            throw new InvalidOperationException(
+                "Game over could not acquire MENU_SAVEQUIT ownership.");
+        }
     }
 
     private bool BeginNextSubscreen()
@@ -241,6 +278,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             throw new InvalidOperationException(
                 "MENU_INVENTORY attempted to open MENU_SAVEQUIT outside its active state.");
         _screen.Close();
+        _gameOver = false;
         _saveScreen.Open();
         _openMenu = OpenMenu.SaveQuit;
         ResetSaveDelay();
@@ -269,10 +307,39 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             LastSaveError = null;
         }
 
+        _playSound(OracleSoundEngine.SndSelectItem);
         _saveScreen.DelayCounter = SaveSelectionDelayFrames;
         _saveSelectionDelay = true;
         _saveDelayElapsed = 0;
         _saveDelayUpdates.Reset();
+    }
+
+    private bool CancelSaveMenu()
+    {
+        if (_gameOver ||
+            !_lifecycle.IsOpenFor(this) ||
+            _openMenu != OpenMenu.SaveQuit ||
+            _saveSelectionDelay)
+        {
+            return false;
+        }
+
+        BeginClosing();
+        return true;
+    }
+
+    private bool MoveSaveCursor(int direction)
+    {
+        if (!_lifecycle.IsOpenFor(this) ||
+            _openMenu != OpenMenu.SaveQuit ||
+            _saveSelectionDelay ||
+            !_saveScreen.Move(direction))
+        {
+            return false;
+        }
+
+        _playSound(OracleSoundEngine.SndMenuMove);
+        return true;
     }
 
     private void HandleDirectionInput()
@@ -333,7 +400,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         if (_openMenu == OpenMenu.SaveQuit)
         {
             _screen.Close();
-            _saveScreen.Open();
+            _saveScreen.Open(_gameOver);
         }
         else
         {
@@ -354,6 +421,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     void IOracleMenuLifecycleClient.LifecycleClosed()
     {
         _openMenu = OpenMenu.Inventory;
+        _gameOver = false;
         ResetSaveDelay();
     }
 }
