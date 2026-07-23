@@ -15,12 +15,24 @@ internal sealed class EnemyTerrainMovement(Node2D entity, OracleRoomData room)
     public bool MoveAtAngle(int angle, float speed, bool allowHoles)
     {
         Vector2 movement = OracleObjectMath.VectorFromAngle32(angle) * speed;
+        // The source velocity table has exact zero components for cardinal
+        // angles. Trigonometric conversion leaves tiny perpendicular values,
+        // which must not turn a blocked cardinal move into a successful slide.
+        if (Mathf.IsZeroApprox(movement.X))
+            movement.X = 0;
+        if (Mathf.IsZeroApprox(movement.Y))
+            movement.Y = 0;
+        if (movement == Vector2.Zero)
+            return false;
+
         Vector2 destination = entity.Position + movement;
         if (CanOccupy(destination, allowHoles))
             entity.Position = destination;
-        else if (CanOccupy(entity.Position + new Vector2(movement.X, 0), allowHoles))
+        else if (movement.X != 0 && movement.Y != 0 &&
+            CanOccupy(entity.Position + new Vector2(movement.X, 0), allowHoles))
             entity.Position += new Vector2(movement.X, 0);
-        else if (CanOccupy(entity.Position + new Vector2(0, movement.Y), allowHoles))
+        else if (movement.X != 0 && movement.Y != 0 &&
+            CanOccupy(entity.Position + new Vector2(0, movement.Y), allowHoles))
             entity.Position += new Vector2(0, movement.Y);
         else
             return false;

@@ -794,7 +794,10 @@ public sealed class InteractionController
             treasure.Record.Group,
             treasure.Record.Room,
             OracleSaveData.RoomFlagItem);
-        _playSound(OracleSoundEngine.SndGetItem);
+        int collectionSound = _treasures.GetBehaviour(
+            treasureObject.TreasureId).Sound;
+        if (collectionSound != 0)
+            _playSound(collectionSound);
         _groundTreasure = treasure;
         _groundTreasurePlayer = player;
         if (!string.IsNullOrEmpty(treasureObject.Message))

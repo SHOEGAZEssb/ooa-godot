@@ -179,6 +179,18 @@ $swordBeamSource = Get-Content -Raw (
     Join-Path $Disassembly 'object_code\common\items\swordBeam.s')
 $shieldParentSource = Get-Content -Raw (
     Join-Path $Disassembly 'object_code\common\itemParents\shieldParent.s')
+$braceletParentSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\itemParents\bombsBraceletParent.s')
+$braceletItemSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\items\bracelet.s')
+$braceletThrowSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\items\commonBombAndBraceletCode.s')
+$pushBlockSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\pushblock.s')
+$objectSpeedsSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\objectSpeeds.s')
+$parentItemCommonSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\itemParents\commonCode.s')
 $collisionEffectsSource = Get-Content -Raw (
     Join-Path $Disassembly 'code\collisionEffects.s')
 $objectCollisionTableSource = Get-Content -Raw (
@@ -256,6 +268,93 @@ if ($itemIds['ITEM_SHIELD'] -ne 0x01 -or
         '(?m)^\s*dbrev %11111111 %10000010 %00001000 %00000000 ; 0x1a') {
     throw 'ITEM_SHIELD usage, Link graphics, hitbox, sounds, or supported projectile collisions changed in the disassembly.'
 }
+
+# ITEM_BRACELET ($16) is a held-input parent item. It first grabs the wall in
+# front of Link, waits for the opposite direction, lifts a metatile into an
+# ITEM_BRACELET child, and later releases that child through the common
+# weight-0 throwing path. Export the native constants as one typed record.
+$braceletAttributes = [regex]::Match(
+    $itemAttributesSource,
+    '(?m)^\s*\.db\s+\$(?<collision>[0-9a-f]{2})\s+\$(?<radius>[0-9a-f]{2})\s+\$(?<damage>[0-9a-f]{2})\s+\$[0-9a-f]{2}\s*;\s*\$16:\s*ITEM_BRACELET')
+$braceletWeight = [regex]::Match(
+    $braceletThrowSource,
+    '(?ms)^itemWeights:\s*\.db\s+\$(?<gravity>[0-9a-f]{2})\s+\$(?<speedz>[0-9a-f]{2})\s+SPEED_180\s+SPEED_280')
+$expectedBraceletLinkGfx = @{
+    0x5c = @(0x00, 0x0040); 0x5d = @(0x01, 0x01c0)
+    0x5e = @(0x00, 0x0180); 0x5f = @(0x00, 0x01c0)
+    0xb0 = @(0x00, 0x1040); 0xb1 = @(0x01, 0x02c0)
+    0xb2 = @(0x00, 0x10c0); 0xb3 = @(0x00, 0x02c0)
+    0xdc = @(0x00, 0x0a40); 0xdd = @(0x01, 0x0b80)
+    0xde = @(0x04, 0x0ac0); 0xdf = @(0x00, 0x0b80)
+    0xe0 = @(0x0c, 0x0a80); 0xe1 = @(0x0d, 0x0bc0)
+    0xe2 = @(0x0e, 0x0ae0); 0xe3 = @(0x0f, 0x0bc0)
+}
+$braceletLinkGfxValid = $linkGfxEntries.Count -gt 0xe3
+if ($braceletLinkGfxValid) {
+    foreach ($index in $expectedBraceletLinkGfx.Keys) {
+        $entry = $linkGfxEntries[$index]
+        $expected = $expectedBraceletLinkGfx[$index]
+        if ([Convert]::ToInt32($entry.Groups['oam'].Value, 16) -ne $expected[0] -or
+            [Convert]::ToInt32($entry.Groups['offset'].Value, 16) -ne $expected[1]) {
+            $braceletLinkGfxValid = $false
+            break
+        }
+    }
+}
+if (-not $braceletAttributes.Success -or -not $braceletWeight.Success -or
+    [Convert]::ToInt32($braceletAttributes.Groups['collision'].Value, 16) -ne 0x16 -or
+    [Convert]::ToInt32($braceletAttributes.Groups['radius'].Value, 16) -ne 0x00 -or
+    [Convert]::ToInt32($braceletAttributes.Groups['damage'].Value, 16) -ne 0xfd -or
+    $itemIds['ITEM_BRACELET'] -ne 0x16 -or
+    $treasureIds['TREASURE_BRACELET'] -ne 0x16 -or
+    $soundIds['SND_PICKUP'] -ne 0x9c -or
+    $soundIds['SND_THROW'] -ne 0x51 -or
+    -not $braceletLinkGfxValid -or
+    $itemUsageSource -notmatch
+        '(?m)^\s*\.db\s+\$13,\s*<wGameKeysPressed\s*;\s*ITEM_BRACELET' -or
+    $itemUsageSource -notmatch
+        '(?m)^\s*\.db\s+\$40,\s*LINK_ANIM_MODE_LIFT_3\s*;\s*ITEM_BRACELET' -or
+    $braceletParentSource -notmatch
+        '(?ms)^parentItemCode_bracelet:.*?^@state0:.*?call checkLinkOnGround.*?call @checkWallInFrontOfLink.*?^@state1:.*?@counterDirections.*?lda BREAKABLETILESOURCE_BRACELET.*?call tryToBreakTile.*?SND_PICKUP.*?^@state2:.*?^@state3:.*?SND_THROW.*?^@state4:' -or
+    $braceletParentSource -notmatch
+        '(?ms)^@checkWallInFrontOfLink:.*?w1Link\.adjacentWallsBitset.*?^@@data:\s*\.db \$c0 \$fb \$00 ; DIR_UP\s*\.db \$03 \$00 \$07 ; DIR_RIGHT\s*\.db \$30 \$07 \$00 ; DIR_DOWN\s*\.db \$0c \$00 \$f8 ; DIR_LEFT' -or
+    $braceletItemSource -notmatch
+        '(?ms)^itemCode16:.*?call itemMimicBgTile.*?ld a,\$06\s*ldd \(hl\),a\s*ldd \(hl\),a.*?call itemBeginThrow.*?call itemUpdateThrowingLaterally.*?call itemUpdateThrowingVertically.*?itemMakeInteractionForBreakableTile' -or
+    $parentItemCommonSource -notmatch
+        '(?ms)^@liftedObjectPositions:.*?Weight 0\s*\.db \$f8 \$00 \$00 \$07 \$06 \$00 \$00 \$f8.*?\.db \$fa \$00 \$f8 \$03 \$04 \$00 \$f8 \$fc.*?\.db \$f3 \$00 \$f2 \$00 \$f3 \$00 \$f2 \$00.*?\.db \$f3 \$00 \$f3 \$00 \$f3 \$00 \$f3 \$00' -or
+    $specialObjectAnimationsSource -notmatch
+        '(?ms)^animationData19f47:\s*\.db \$01 \$dc \$00.*?\.db \$0a \$e0 \$00\s*\.db \$6e \$e0 \$ff.*?^animationData19f5b:\s*\.db \$03 \$e0 \$00\s*^animationData19f5e:\s*\.db \$04 \$e0 \$00\s*\.db \$04 \$dc \$04\s*\.db \$02 \$5c \$08\s*\.db \$7f \$5c \$ff.*?^animationData19f6a:\s*\.db \$08 \$b0 \$04\s*\.db \$7f \$b0 \$ff' -or
+    $objectCollisionTableSource -notmatch
+        '(?ms)ENEMYCOLLISION_STANDARD_ENEMY \(0x10\)\s*\.db [^\r\n]+\s*\.db \$00 \$00 \$00 \$22 \$0d \$2f \$09' -or
+    $collisionEffectsSource -notmatch
+        '(?ms)^collisionEffect09:\s*ld e,ENEMYDMG_04\s*j[rp] label_07_027.*?^label_07_027:.*?jp applyDamageToEnemyOrPart' -or
+    $collisionEffectsSource -notmatch
+        '(?ms)ld bc,\$0e07.*?cp ITEMCOLLISION_BOMB.*?ld l,Item\.zh.*?sub \(hl\).*?add c.*?cp b.*?jr nc,@nextItem.*?ld l,Item\.yh.*?ld b,\(hl\).*?ld l,Item\.xh' -or
+    $pushBlockSource -notmatch
+        '(?ms)Determine speed to push with.*?ldbc SPEED_80, \$20.*?wBraceletLevel.*?cp \$02.*?bit 5,\(hl\).*?ldbc SPEED_c0, \$15' -or
+    $objectSpeedsSource -notmatch
+        '(?m)^\s*SPEED_80\s+dsb 5 ; 0x14$' -or
+    $objectSpeedsSource -notmatch
+        '(?m)^\s*SPEED_c0\s+dsb 5 ; 0x1e$') {
+    throw 'ITEM_BRACELET usage, Link graphics, lift offsets, sounds, or weight-0 throwing behavior changed in the disassembly.'
+}
+$braceletDamageRaw = [Convert]::ToInt32(
+    $braceletAttributes.Groups['damage'].Value, 16)
+$braceletDamage = 0x100 - $braceletDamageRaw
+$braceletGravity = [Convert]::ToInt32(
+    $braceletWeight.Groups['gravity'].Value, 16)
+$braceletSpeedZLow = [Convert]::ToInt32(
+    $braceletWeight.Groups['speedz'].Value, 16)
+$braceletInitialSpeedZ = 0xff00 + $braceletSpeedZLow - 0x10000
+$braceletRows = [Collections.Generic.List[string]]::new()
+$braceletRows.Add(
+    '# item`tpickup-sound`tthrow-sound`tdamage`tradius-y`tradius-x`tcollision-z-radius`tgravity`tinitial-speed-z`tspeed-raw`ttoss-speed-raw`tpush-speed-raw`tpush-frames`tpower-glove-push-speed-raw`tpower-glove-push-frames`theavy-property-mask`tgrab-pull-frames`tlift-low-frames`tlift-mid-frames`tlift-high-frames`tthrow-frames`tsource')
+$braceletRows.Add(
+    "$($itemIds['ITEM_BRACELET'].ToString('x2'))`t$($soundIds['SND_PICKUP'].ToString('x2'))`t$($soundIds['SND_THROW'].ToString('x2'))`t$braceletDamage`t6`t6`t7`t$braceletGravity`t$braceletInitialSpeedZ`t3c`t64`t14`t32`t1e`t21`t20`t11`t7`t4`t2`t8`tobject_code/common/itemParents/bombsBraceletParent.s:parentItemCode_bracelet")
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'metadata\bracelet.tsv'),
+    $braceletRows,
+    [Text.UTF8Encoding]::new($false))
 
 $emberData = [regex]::Match(
     $itemDataSource,

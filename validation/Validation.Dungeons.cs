@@ -233,14 +233,17 @@ public sealed partial class ValidationRoot
         const byte neighborDoorFlag = 0x02;
         const double update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
         var database = new DungeonKeyDoorDatabase();
-        if (database.Count != 4 ||
+        if (database.Count != 8 ||
             !database.TryGet(0x73, out DungeonKeyDoorDatabase.Record leftDoor) ||
+            !database.TryGet(0x75, out DungeonKeyDoorDatabase.Record bossRight) ||
             leftDoor.Direction != Vector2I.Left || leftDoor.OpenTile != 0xa0 ||
             leftDoor.PushCounter != 20 || leftDoor.DoorFrameWait != 6 ||
-            leftDoor.NoKeyTextId != 0x5100)
+            leftDoor.NoKeyTextId != 0x5100 || leftDoor.UsesBossKey ||
+            !bossRight.UsesBossKey || bossRight.KeyGraphic != 0x43 ||
+            bossRight.NoKeyTextId != 0x5101)
         {
             throw new InvalidOperationException(
-                "The imported $70-$73 small-key door table is incomplete.");
+                "The imported $70-$77 small-key/boss-key door table is incomplete.");
         }
 
         byte originalRoomFlags = _saveData.GetRoomFlags(group, roomId);
@@ -387,11 +390,275 @@ public sealed partial class ValidationRoot
             _saveData.SetRoomFlag(group, neighborRoomId, neighborDoorFlag);
         LoadValidationRoom(group, roomId);
 
-        GD.Print("Validated imported small-key doors, TX_5100 no-key handling, " +
+        // Spirit's Grave room $12 uses the corresponding right-facing boss
+        // door. Exercise it against an isolated D1 inventory: unlike a small
+        // key, the Boss Key remains owned after the paired flags are set.
+        var bossRoot = new Node { Name = "DungeonBossKeyDoorValidation" };
+        AddChild(bossRoot);
+        OracleSaveData bossSave = OracleSaveData.CreateStandardGame();
+        var bossRooms = new RoomSession(4, 0x12, () => 0, () => { }, bossSave);
+        var bossTreasures = new TreasureDatabase();
+        var bossInventory = new InventoryState(
+            bossTreasures, bossSave, () => bossRooms.CurrentDungeonIndex);
+        var bossEntities = new RoomEntityManager(
+            bossRoot, new NpcDatabase(), new EnemyDatabase(), bossSave);
+        bossEntities.LoadRoom(4, bossRooms.CurrentRoom);
+        var bossSounds = new List<int>();
+        bossEntities.SoundRequested += bossSounds.Add;
+        var bossController = new DungeonKeyDoorController(
+            bossRooms, bossInventory, bossEntities, bossTreasures,
+            () => 0, bossSounds.Add);
+        string bossMessage = string.Empty;
+        bossController.MessageRequested += message => bossMessage = message;
+
+        Vector2 bossDoorCenter = Vector2.Zero;
+        int bossDoorCount = 0;
+        for (int y = 0; y < bossRooms.CurrentRoom.Height;
+             y += OracleRoomData.MetatileSize)
+        for (int x = 0; x < bossRooms.CurrentRoom.Width;
+             x += OracleRoomData.MetatileSize)
+        {
+            Vector2 center = new(x + 8, y + 8);
+            if (bossRooms.CurrentRoom.GetMetatile(center) != 0x75)
+                continue;
+            bossDoorCenter = center;
+            bossDoorCount++;
+        }
+        if (bossRooms.CurrentDungeonIndex != 1 || bossDoorCount != 1 ||
+            bossInventory.HasDungeonBossKey(1))
+        {
+            throw new InvalidOperationException(
+                "Spirit's Grave room 4:12 did not expose one right-facing boss door without a starting Boss Key.");
+        }
+
+        Vector2 linkLeftOfBossDoor = bossDoorCenter + Vector2.Left * 10;
+        for (int frame = 0; frame < 10; frame++)
+        {
+            bossController.UpdatePushAttempt(
+                linkLeftOfBossDoor, Vector2I.Right, Vector2.Right);
+        }
+        if (bossMessage != bossRight.NoKeyMessage || bossController.Opening ||
+            bossRooms.CurrentRoom.GetMetatile(bossDoorCenter) != 0x75)
+        {
+            throw new InvalidOperationException(
+                "Room 4:12's boss door did not show imported TX_5101 while the D1 Boss Key was absent.");
+        }
+
+        bossInventory.GiveTreasure(
+            bossTreasures.GetObject("TREASURE_OBJECT_BOSS_KEY_03"));
+        bossSounds.Clear();
+        for (int frame = 0; frame < 10; frame++)
+        {
+            bossController.UpdatePushAttempt(
+                linkLeftOfBossDoor, Vector2I.Right, Vector2.Right);
+        }
+        if (!bossController.Opening || !bossInventory.HasDungeonBossKey(1) ||
+            !bossSave.HasRoomFlag(4, 0x12, 0x02) ||
+            !bossSave.HasRoomFlag(4, 0x13, 0x08) ||
+            bossEntities.Entities<DungeonKeyUseEffect>() is not
+                [{ Graphic: 0x43, Phase: 0, Counter: 8, Z: -4 }] ||
+            bossSounds.Count(sound => sound == OracleSoundEngine.SndGetSeed) != 1)
+        {
+            throw new InvalidOperationException(
+                "Room 4:12 did not retain the D1 Boss Key, set both door flags, and create its graphic-$43 key effect.");
+        }
+        for (int frame = 0; frame < bossRight.DoorFrameWait; frame++)
+            bossController.Advance(update);
+        if (bossController.Opening ||
+            bossRooms.CurrentRoom.GetMetatile(bossDoorCenter) != 0xa0 ||
+            bossRooms.CurrentRoom.IsSolid(bossDoorCenter))
+        {
+            throw new InvalidOperationException(
+                "Room 4:12's boss door did not finish its six-update opening path.");
+        }
+        bossEntities.Clear();
+        bossController.Free();
+        RemoveChild(bossRoot);
+        bossRoot.QueueFree();
+
+        GD.Print("Validated imported small-key and boss-key doors, TX_5100/TX_5101 " +
+            "no-key handling, retained Boss Key ownership, " +
             "10-update push activation, per-dungeon key consumption and HUD " +
             "key/rupee coexistence, " +
             "paired dungeon-layout flags, INTERAC_DUNGEON_KEY_SPRITE 8+20 timing, " +
             "six-update interleaved opening, and re-entry substitution.");
+    }
+
+    private void ValidateSpiritsGraveEntranceInteractions()
+    {
+        const double update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
+        var data = new DungeonEntranceInteractionDatabase();
+        IReadOnlyList<DungeonEntranceInteractionDatabase.PlacementRecord> placements =
+            data.GetRoomRecords(4, 0x24);
+        if (data.PlacementCount != 42 || placements.Count != 3 ||
+            placements[0] is not
+                { Order: 0, Kind: DungeonEntranceInteractionDatabase.ObjectKind.Entry } ||
+            placements[1] is not
+                { Order: 1, Kind: DungeonEntranceInteractionDatabase.ObjectKind.EyeSpawner } ||
+            placements[2] is not
+                { Order: 2, Kind: DungeonEntranceInteractionDatabase.ObjectKind.MinibossPortal } ||
+            data.PortalPairFor(1) is not { MinibossRoom: 0x18, EntranceRoom: 0x24 })
+        {
+            throw new InvalidOperationException(
+                "Room 4:24's shared dungeon interactions were not imported in source order.");
+        }
+
+        var root = new Node { Name = "SpiritsGraveEntranceValidation" };
+        AddChild(root);
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var runtime = new OracleRuntimeState();
+        var manager = new RoomEntityManager(
+            root, new NpcDatabase(), new EnemyDatabase(), save, runtime);
+        OracleRoomData room = _world.LoadRoom(4, 0x24);
+        _player.EndCutsceneControl();
+        _player.WarpTo(new Vector2(0x48, 0x88));
+
+        // A direct/debug room load retains all three source slots until their
+        // first updates. Dungeon-stuff then rejects the non-whiteout entry,
+        // the eye spawner creates children in descending packed-position
+        // order, and the undefeated miniboss suppresses the portal.
+        manager.LoadRoom(4, room);
+        if (manager.Entities<Node2D>().Count != 3)
+            throw new InvalidOperationException(
+                "Room 4:24 did not initially retain its three placed source interactions.");
+        manager.Update(update, _player);
+        List<StatueEyeball> eyes = manager.Entities<StatueEyeball>();
+        Vector2[] initialEyePositions =
+        [
+            new(0x98, 0x76), new(0x58, 0x76),
+            new(0x98, 0x46), new(0x58, 0x46),
+            new(0x98, 0x16), new(0x58, 0x16)
+        ];
+        if (eyes.Count != initialEyePositions.Length ||
+            manager.Entities<MinibossPortal>().Count != 0)
+        {
+            throw new InvalidOperationException(
+                "Room 4:24 did not create exactly six eyes or suppress its uncleared portal.");
+        }
+        for (int index = 0; index < eyes.Count; index++)
+        {
+            if (eyes[index].Position != initialEyePositions[index] ||
+                !eyes[index].Visible || !eyes[index].Initialized ||
+                eyes[index].Direction != 4 || eyes[index].AnimationIndex != 4 ||
+                eyes[index].PixelHash == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Statue eye {index} did not preserve descending spawn order, " +
+                    "setup-only first update, default direction, or imported OAM.");
+            }
+        }
+        ulong fixedEyePixelHash = eyes[0].PixelHash;
+        Vector2 firstEyeTileCenter = new(0x98, 0x78);
+        for (int direction = 0; direction < 8; direction++)
+        {
+            _player.WarpTo(
+                firstEyeTileCenter + OracleObjectMath.VectorFromAngle32(direction * 4) * 32);
+            manager.Update(update, _player);
+            DungeonEntranceInteractionDatabase.VisualRecord visual =
+                data.EyeVisuals[direction];
+            Vector2 expectedPosition = new(0x90 + visual.LowX, 0x70 + visual.LowY);
+            if (eyes[0].Direction != direction || eyes[0].AnimationIndex != 4 ||
+                eyes[0].PixelHash != fixedEyePixelHash ||
+                eyes[0].Position != expectedPosition ||
+                visual.Animation != data.EyeVisuals[4].Animation)
+            {
+                throw new InvalidOperationException(
+                    $"Room 4:24's upper statue eye did not preserve fixed " +
+                    $"animation-$04 OAM at aiming direction {direction}.");
+            }
+        }
+
+        // The whiteout-only handler clears the three dungeon session fields,
+        // applies D1's spinner byte, then shows TX_0201 at strict collision.
+        int entryText = 0;
+        string entryMessage = string.Empty;
+        manager.DungeonEntranceTriggered += (textId, message) =>
+        {
+            entryText = textId;
+            entryMessage = message;
+        };
+        runtime.SetWramByte(OracleRuntimeState.ToggleBlocksStateAddress, 0x55);
+        runtime.SetWramByte(OracleRuntimeState.SwitchStateAddress, 0xaa);
+        runtime.SetWramByte(OracleRuntimeState.SpinnerStateAddress, 0xff);
+        _player.WarpTo(new Vector2(0x78, 0x88));
+        manager.LoadRoom(
+            4, room, EnemyPlacementContext.FromWarpDestination(0xff));
+        manager.Update(update, _player);
+        if (entryText != 0x0201 || entryMessage != data.Entry(1).Message ||
+            runtime.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress) != 0 ||
+            runtime.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != 0 ||
+            runtime.ReadWramByte(OracleRuntimeState.SpinnerStateAddress) != 0)
+        {
+            throw new InvalidOperationException(
+                "Room 4:24 dungeon-stuff did not initialize D1 state and show TX_0201.");
+        }
+
+        // Bit 7 belongs to the miniboss room ($18), not the entrance. Starting
+        // on an enabled portal must wait for Link to leave; a fresh contact
+        // then pins/spins Link for exactly $30 updates and requests the shared
+        // fadeout warp back to $18 at packed position $57.
+        save.SetRoomFlag(4, 0x18, OracleSaveData.RoomFlag80);
+        var sounds = new List<int>();
+        WarpDatabase.Warp? requestedWarp = null;
+        manager.SoundRequested += sounds.Add;
+        manager.RoomWarpRequested += warp => requestedWarp = warp;
+        Vector2 portalPosition = new(0x78, 0x58);
+        _player.WarpTo(portalPosition);
+        manager.LoadRoom(4, room);
+        manager.Update(update, _player);
+        if (manager.Entities<MinibossPortal>() is not [{ Visible: true }] ||
+            sounds.Count != 0 || _player.CutsceneControlled)
+        {
+            throw new InvalidOperationException(
+                "Enabled room 4:24 portal did not enter its initial-overlap wait state.");
+        }
+        manager.Update(update, _player);
+        if (sounds.Count != 0)
+            throw new InvalidOperationException(
+                "Room 4:24 portal retriggered while Link remained on its destination.");
+        _player.WarpTo(new Vector2(0x78, 0x70));
+        manager.Update(update, _player);
+        _player.WarpTo(portalPosition);
+        manager.Update(update, _player);
+        if (!_player.CutsceneControlled || sounds is not [OracleSoundEngine.SndTeleport] ||
+            requestedWarp.HasValue)
+        {
+            throw new InvalidOperationException(
+                "Room 4:24 portal did not start its fresh-contact teleport state and sound.");
+        }
+        for (int frame = 0; frame < data.PortalSpinUpdates - 1; frame++)
+            manager.Update(update, _player);
+        if (requestedWarp.HasValue || _player.Position != portalPosition)
+        {
+            throw new InvalidOperationException(
+                "Room 4:24 portal warped early or failed to pin Link during its $30 counter.");
+        }
+        manager.Update(update, _player);
+        if (requestedWarp is not
+            {
+                SourceGroup: 4,
+                SourceRoom: 0x24,
+                SourcePosition: 0x57,
+                SourceTransition: 2,
+                DestinationGroup: 4,
+                DestinationRoom: 0x18,
+                DestinationPosition: 0x57,
+                DestinationParameter: 0,
+                DestinationTransition: 0
+            })
+        {
+            throw new InvalidOperationException(
+                "Room 4:24 portal did not request the exact D1 miniboss-room fadeout warp.");
+        }
+
+        _player.EndCutsceneControl();
+        manager.Clear();
+        RemoveChild(root);
+        root.QueueFree();
+        GD.Print("Validated room 4:24 dungeon-entry TX_0201/session state, six " +
+            "source-ordered eyes with fixed animation-$04 OAM and all eight position " +
+            "offsets, miniboss-room flag gate, destination-overlap guard, teleport " +
+            "sound, $30 Link spin, and bidirectional portal metadata.");
     }
 
     private void ValidateDungeonMechanics()
@@ -1253,14 +1520,15 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(4, 0x13);
         if (_entities.Entities<DungeonDoorRoomEntity>() is not
             [
-                { EnemyCompletionSupported: false },
-                { EnemyCompletionSupported: false }
+                { EnemyCompletionSupported: true },
+                { EnemyCompletionSupported: true }
             ] ||
+            _entities.Entities<PumpkinHeadBoss>().Count != 1 ||
             _currentRoom.GetMetatile(new Vector2(0x78, 0x08)) != 0x78 ||
             _currentRoom.GetMetatile(new Vector2(0x08, 0x78)) != 0x7b)
         {
             throw new InvalidOperationException(
-                "Room 4:13 did not retain inert closed shutters for its unresolved before-event enemy.");
+                "Room 4:13 did not bind both enemy shutters to Pumpkin Head.");
         }
         // Room 4:09 is the canonical one-shot button: PART_BUTTON $09:$00 at
         // $14 sets trigger bit 0 after its state-0 initialization update. Both
@@ -1607,6 +1875,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateBraceletChestAndPushGate()
     {
+        BraceletDatabase.Record braceletData = new BraceletDatabase().Data;
         var chests = new ChestDatabase();
         if (!chests.TryGet(5, 0xa6, 0x37, out ChestDatabase.ChestRecord braceletChest) ||
             braceletChest.TreasureObject != "TREASURE_OBJECT_BRACELET_02" ||
@@ -1681,15 +1950,260 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         _interactions.Update(0.0, _player);
 
+        // linkInteractWithAButtonSensitiveObjects/interactWithTileBeforeLink
+        // run before checkUseItems. Exercise Player's actual A input path so
+        // an equipped Bracelet cannot consume the chest press.
+        _interactions.ResetChestForTesting(
+            4, 0xce, 0x67, "TREASURE_OBJECT_BRACELET_00");
+        _inventory.EquipA(InventoryState.ItemBracelet);
+        _player.WarpTo(new Vector2(
+            debugBraceletChest.X, debugBraceletChest.Y + 12));
+        _player.Face(Vector2I.Up);
+        Input.ActionPress("attack");
+        try
+        {
+            _player._PhysicsProcess(1.0 / 60.0);
+        }
+        finally
+        {
+            Input.ActionRelease("attack");
+        }
+        if (!_interactions.ChestRewardActive ||
+            _currentRoom.GetMetatile(debugBraceletChest) != 0xf0 ||
+            _bracelet.State != BraceletController.BraceletState.Idle)
+        {
+            throw new InvalidOperationException(
+                "The 4:ce/$67 chest did not retain A-button priority over an " +
+                "equipped ITEM_BRACELET parent.");
+        }
+        _interactions.Update(32.0 / 60.0, _player);
+        _dialogue.Close();
+        _interactions.Update(0.0, _player);
+        _inventory.EquipB(InventoryState.ItemBracelet);
+
+        LoadValidationRoom(4, 0x08);
+        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
+            _playerWorld.UpdatePushableBlocks(linkBelow, Vector2I.Up, Vector2.Up);
+        if (!_pushBlocks.Active ||
+            _pushBlocks.ActiveMoveFrames != 0x20 ||
+            !Mathf.IsEqualApprox(_pushBlocks.ActiveMoveSpeedPerFrame, 0.5f))
+        {
+            throw new InvalidOperationException(
+                "The level-1 Power Bracelet did not retain the source " +
+                "SPEED_80/$20 push-block movement.");
+        }
+        _pushBlocks.Cancel();
+        if (!_currentRoom.ReplaceMetatile(
+                blockCenter, 0xa0, 0x10, (long)_animationTicks))
+        {
+            throw new InvalidOperationException(
+                "Could not restore the level-1 Bracelet push-speed test block.");
+        }
+
+        LoadValidationRoom(4, 0xce);
+        Vector2 fixedWallCenter = new(
+            2 * OracleRoomData.MetatileSize + 8,
+            OracleRoomData.MetatileSize / 2);
+        if (_currentRoom.GetMetatile(fixedWallCenter) != 0xb0)
+        {
+            throw new InvalidOperationException(
+                "The 4:ce/$02 unbreakable Bracelet wall was not tile $b0.");
+        }
+        _player.WarpTo(fixedWallCenter + Vector2.Down * 10);
+        _player.Face(Vector2I.Up);
+        if (!_playerWorld.TryUseBracelet(_player, primaryButton: false) ||
+            _bracelet.State != BraceletController.BraceletState.GrabbingWall)
+        {
+            throw new InvalidOperationException(
+                "ITEM_BRACELET did not grab the unbreakable 4:ce/$02 wall.");
+        }
+        for (int frame = 0; frame < 23; frame++)
+        {
+            if (!_playerWorld.UpdateBracelet(
+                    _player, Vector2.Down,
+                    primaryHeld: false, secondaryHeld: true,
+                    itemButtonJustPressed: false))
+            {
+                throw new InvalidOperationException(
+                    "ITEM_BRACELET released the unbreakable 4:ce/$02 wall while pulling.");
+            }
+        }
+        if (_bracelet.State != BraceletController.BraceletState.GrabbingWall ||
+            _bracelet.Counter != braceletData.GrabPullFrames ||
+            _currentRoom.GetMetatile(fixedWallCenter) != 0xb0)
+        {
+            throw new InvalidOperationException(
+                "Failed tryToBreakTile retries restarted LINK_ANIM_MODE_LIFT_3 " +
+                "instead of holding its terminal strain frame.");
+        }
+        if (_playerWorld.UpdateBracelet(
+                _player, Vector2.Zero,
+                primaryHeld: false, secondaryHeld: false,
+                itemButtonJustPressed: false) ||
+            _bracelet.State != BraceletController.BraceletState.Idle)
+        {
+            throw new InvalidOperationException(
+                "Releasing ITEM_BRACELET did not clear the unbreakable wall grab.");
+        }
+
         Vector2 liftPoint = new(7 * OracleRoomData.MetatileSize + 8, 2 * OracleRoomData.MetatileSize + 8);
         if (_currentRoom.GetMetatile(liftPoint) != 0x10)
             throw new InvalidOperationException("The 4:ce bracelet-use test tile was not dungeon tile $10.");
-        _player.WarpTo(new Vector2(liftPoint.X, liftPoint.Y + 12));
+        // The original parent requires both $c0 top-edge wall bits. Link's
+        // collision endpoint sits ten pixels below this metatile center.
+        _player.WarpTo(new Vector2(liftPoint.X, liftPoint.Y + 10));
         _player.Face(Vector2I.Up);
-        if (!_playerWorld.TryUseBracelet(_player) || _currentRoom.GetMetatile(liftPoint) != 0xa0)
+        _sound.ClearPlayRequestAudit();
+        if (!_playerWorld.TryUseBracelet(_player, primaryButton: false) ||
+            _bracelet.State != BraceletController.BraceletState.GrabbingWall ||
+            _currentRoom.GetMetatile(liftPoint) != 0x10)
         {
             throw new InvalidOperationException(
-                "Equipped bracelet use did not break/lift the tile in front using BREAKABLETILESOURCE_BRACELET.");
+                "Equipped Bracelet did not enter its held-button wall-grab " +
+                $"state without removing the tile (collision=" +
+                $"${_currentRoom.GetCollision(0x10):x2}, " +
+                $"left={_currentRoom.IsSolid(_player.Position + new Vector2(-3, -3))}, " +
+                $"right={_currentRoom.IsSolid(_player.Position + new Vector2(2, -3))}, " +
+                $"state={_bracelet.State}).");
+        }
+        for (int frame = 0; frame < 10; frame++)
+        {
+            if (!_playerWorld.UpdateBracelet(
+                    _player, Vector2.Down,
+                    primaryHeld: false, secondaryHeld: true,
+                    itemButtonJustPressed: false) ||
+                _currentRoom.GetMetatile(liftPoint) != 0x10)
+            {
+                throw new InvalidOperationException(
+                    "Bracelet removed the tile before LINK_ANIM_MODE_LIFT_3 reached its 11-update pull boundary.");
+            }
+        }
+        if (!_playerWorld.UpdateBracelet(
+                _player, Vector2.Down,
+                primaryHeld: false, secondaryHeld: true,
+                itemButtonJustPressed: false) ||
+            _bracelet.State != BraceletController.BraceletState.Lifting ||
+            _currentRoom.GetMetatile(liftPoint) != 0xa0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndPickup) != 1 ||
+            _bracelet.LiftedObject is null ||
+            !_player.BraceletLiftCollisionsDisabled)
+        {
+            throw new InvalidOperationException(
+                "Bracelet did not remove/mimic tile $10, request SND_PICKUP, " +
+                "and disable Link collisions at the native pull boundary.");
+        }
+        using (Image liftedImage = _bracelet.LiftedObject.Texture.GetImage())
+        {
+            bool foundTransparent = false;
+            bool foundOpaque = false;
+            for (int y = 0; y < liftedImage.GetHeight(); y++)
+            for (int x = 0; x < liftedImage.GetWidth(); x++)
+            {
+                float alpha = liftedImage.GetPixel(x, y).A;
+                foundTransparent |= alpha < 0.01f;
+                foundOpaque |= alpha > 0.99f;
+            }
+            if (!foundTransparent || !foundOpaque)
+            {
+                throw new InvalidOperationException(
+                    "Bracelet itemMimicBgTile output did not preserve opaque " +
+                    "metatile pixels while making source color 0 transparent.");
+            }
+        }
+        for (int frame = 0; frame < 12; frame++)
+        {
+            if (!_playerWorld.UpdateBracelet(
+                    _player, Vector2.Zero,
+                    primaryHeld: false, secondaryHeld: false,
+                    itemButtonJustPressed: false))
+            {
+                throw new InvalidOperationException(
+                    "Bracelet re-enabled Link before the 13-update LINK_ANIM_MODE_LIFT_4/LIFT sequence finished.");
+            }
+        }
+        if (_playerWorld.UpdateBracelet(
+                _player, Vector2.Zero,
+                primaryHeld: false, secondaryHeld: false,
+                itemButtonJustPressed: false) ||
+            !_bracelet.HoldingTile || !_player.IsCarryingObject ||
+            _bracelet.LiftedObject?.GetParent() != _player ||
+            _player.BraceletLiftCollisionsDisabled)
+        {
+            throw new InvalidOperationException(
+                "Bracelet did not re-enable Link collisions and enter the " +
+                "carried-object walk pose after the native lift sequence.");
+        }
+
+        if (!_playerWorld.UpdateBracelet(
+                _player, Vector2.Zero,
+                primaryHeld: false, secondaryHeld: true,
+                itemButtonJustPressed: true) ||
+            _bracelet.State != BraceletController.BraceletState.Throwing ||
+            _bracelet.LiftedObject is not
+                { Thrown: true, SpeedRaw: 0x3c, SpeedZ: < 0 } ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndThrow) != 1 ||
+            _player.IsCarryingObject)
+        {
+            throw new InvalidOperationException(
+                "Bracelet did not release the tile at weight-0 SPEED_180 with SND_THROW and Link's throw pose.");
+        }
+        BraceletLiftedObject thrown = _bracelet.LiftedObject ??
+            throw new InvalidOperationException(
+                "ITEM_BRACELET lost its tile immediately after throw setup.");
+        Vector2 groundCenter =
+            OracleObjectMath.ToPixelPosition(thrown.GroundPosition);
+        if (!thrown.CollisionBounds(
+                braceletData.RadiusX,
+                braceletData.RadiusY).GetCenter().IsEqualApprox(groundCenter) ||
+            Mathf.IsEqualApprox(thrown.Position.Y, groundCenter.Y))
+        {
+            throw new InvalidOperationException(
+                "Thrown ITEM_BRACELET did not keep its yh/xh collision center " +
+                "separate from the airborne zh draw offset.");
+        }
+        for (int frame = 0;
+             frame < 80 && _bracelet.State != BraceletController.BraceletState.Idle;
+             frame++)
+        {
+            _playerWorld.UpdateBracelet(
+                _player, Vector2.Zero,
+                primaryHeld: false, secondaryHeld: false,
+                itemButtonJustPressed: false);
+        }
+        if (_bracelet.State != BraceletController.BraceletState.Idle ||
+            _bracelet.LiftedObject is not null ||
+            _entities.Entities<RockDebrisEffect>().Count != 1)
+        {
+            throw new InvalidOperationException(
+                "Thrown Bracelet tile did not break into its stored INTERAC_ROCKDEBRIS effect.");
+        }
+        _entities.Update(1.0 / 60.0, _player);
+        if (_sound.PlayRequestsFor(OracleSoundEngine.SndBreakRock) != 1)
+        {
+            throw new InvalidOperationException(
+                "Thrown Bracelet tile's INTERAC_ROCKDEBRIS did not request SND_BREAK_ROCK.");
+        }
+
+        if (RoomEntityManager.ObjectCollisionZOverlaps(
+                targetZ: 0,
+                itemZ: -braceletData.CollisionZRadius,
+                radius: braceletData.CollisionZRadius) ||
+            !RoomEntityManager.ObjectCollisionZOverlaps(
+                targetZ: 0,
+                itemZ: 1 - braceletData.CollisionZRadius,
+                radius: braceletData.CollisionZRadius) ||
+            !RoomEntityManager.ObjectCollisionZOverlaps(
+                targetZ: -braceletData.CollisionZRadius,
+                itemZ: 0,
+                radius: braceletData.CollisionZRadius) ||
+            RoomEntityManager.ObjectCollisionZOverlaps(
+                targetZ: -braceletData.CollisionZRadius - 1,
+                itemZ: 0,
+                radius: braceletData.CollisionZRadius))
+        {
+            throw new InvalidOperationException(
+                "ITEM_BRACELET did not preserve collisionEffects.s's one-byte " +
+                "$0e/$07 enemy/item zh window.");
         }
 
         LoadValidationRoom(5, 0xa6);
@@ -1731,16 +2245,24 @@ public sealed partial class ValidationRoot
 
         for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
             _playerWorld.UpdatePushableBlocks(linkBelow, Vector2I.Up, Vector2.Up);
-        if (!_pushBlocks.Active || _currentRoom.GetMetatile(blockCenter) != 0xa0)
+        if (!_pushBlocks.Active ||
+            _currentRoom.GetMetatile(blockCenter) != 0xa0 ||
+            _pushBlocks.ActiveMoveFrames != 0x15 ||
+            !Mathf.IsEqualApprox(_pushBlocks.ActiveMoveSpeedPerFrame, 0.75f))
         {
             throw new InvalidOperationException(
-                "Bracelet-required tile $10 did not start moving after TREASURE_BRACELET was obtained.");
+                "The level-2 Power Glove did not move bracelet-required tile " +
+                "$10 with the source SPEED_c0/$15 path.");
         }
         _pushBlocks.Cancel();
         _currentRoom.ReplaceMetatile(blockCenter, 0xa0, 0x1c, (long)_animationTicks);
 
         GD.Print("Validated debug Power Bracelet chest TREASURE_OBJECT_BRACELET_00, " +
-            "bracelet tile use via BREAKABLETILESOURCE_BRACELET, original Power Glove upgrade, " +
+            "A-button chest priority, terminal unbreakable-wall strain, 11-update pull, " +
+            "metatile-mimic lift, 13-update carry pose, weight-0 throw/debris, ground-space " +
+            "Y/X plus strict seven-pixel Z enemy collision, " +
+            "SND_PICKUP/SND_THROW, level-1 SPEED_80/$20 and level-2 " +
+            "SPEED_c0/$15 push movement, original Power Glove upgrade, " +
             "and bracelet-required pushblock tile $10.");
     }
 }

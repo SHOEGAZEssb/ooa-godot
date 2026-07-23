@@ -68,7 +68,9 @@ observers immediately. The unlocked state is stored in directional room-flag
 bits `$01/$02/$04/$08`; dungeon doors set both the active room's direction bit
 and the opposite bit in the neighbor resolved from the imported dungeon floor
 layout. Re-entry derives tile `$a0` from those flags rather than an event-local
-"opened" boolean.
+"opened" boolean. Dungeon breakable-wall actions with bit 7 set use the same
+paired directional flags and layout neighbor; this includes Spirit's Grave's
+`$68/$69` Ember walls.
 
 Death respawn fields store the maintained checkpoint, not Link's arbitrary
 position at save time. Imported warp destinations and room-specific checkpoint

@@ -24,9 +24,6 @@ internal sealed class BlackTowerWorkerDatabase
     internal int TalkWait => Constant("talk-wait");
     internal int BlockerDistance => Constant("blocker-distance");
     internal int BlockerWait => Constant("blocker-wait");
-    internal int EntranceMinimumY => Constant("entrance-y-min");
-    internal int EntranceRadius => Constant("entrance-radius");
-
     public BlackTowerWorkerDatabase()
     {
         GeneratedTable texts = GeneratedTable.Load(
@@ -93,15 +90,13 @@ internal sealed class BlackTowerWorkerDatabase
             _constants.Add(row.RequiredString(0), row.Decimal(1));
         }
 
-        if (_texts.Count != 17 || _visuals.Count != 12 ||
-            _patrols.Count != 5 || _constants.Count != 8 ||
-            Text(0x020f) != " The Black Tower" ||
+        if (_texts.Count != 16 || _visuals.Count != 12 ||
+            _patrols.Count != 5 || _constants.Count != 6 ||
             Visual("hardhat-work").Animation.Length == 0 ||
             Visual("shovel").Animation.Length == 0 ||
             Speed80 != 0x14 || Speed100 != 0x28 ||
             PatrolWait != 20 || TalkWait != 30 ||
-            BlockerDistance != 16 || BlockerWait != 10 ||
-            EntranceMinimumY != 0x78 || EntranceRadius != 8)
+            BlockerDistance != 16 || BlockerWait != 10)
         {
             throw new InvalidOperationException(
                 "Imported lower Black Tower interaction contract is incomplete.");

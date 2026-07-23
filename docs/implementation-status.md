@@ -20,7 +20,7 @@ claim that the entire surrounding game is complete.
 ### Player, combat, and items
 
 - Link movement, level-1 sword combat, terrain hazards, push blocks, signs,
-  chests, item drops, basic bracelet interactions, the active Shovel, and the
+  chests, item drops, the active Shovel, and the
   first Seed Satchel's active Ember Seed path. The Satchel uses its selected
   packed-BCD counter, grants and immediately displays the original initial 20
   Ember Seeds, uses the distinct storage/equipped inventory icon sheets, exact
@@ -54,6 +54,24 @@ claim that the entire surrounding game is complete.
   directions. Raising it uses the source directional collision rectangle and
   `SND_SHIELD`, while implemented Octorok rocks and masked-Moblin arrows use
   their original `COLLISIONEFFECT_$1f` clink and 32-update bounce paths.
+- The Power Bracelet is an active held-button parent on either A or B. It
+  requires the original paired directional wall bits, retains the button while
+  searching, waits for the opposite-direction pull through
+  `LINK_ANIM_MODE_LIFT_3`, and uses the exact pull/strain Link OAM. An accepted
+  `BREAKABLETILESOURCE_BRACELET` metatile is removed at the 11-update boundary,
+  preserves its replacement/drop/room-flag effects, and becomes a transparent
+  OBJ-palette mimic of its live BG mapping, flips, animation, and palette. The
+  13-update lift, temporary Link-collision disable, held walking offsets,
+  either-button release, eight-update throw pose, weight-0 8.8 gravity and
+  `SPEED_180` motion are implemented,
+  including `SND_PICKUP`/`SND_THROW`, wall/landing/hazard results, enemy damage
+  without consuming the thrown tile, and imported `$06/$0c` rock-debris
+  variants. The Toss Ring selects the source `SPEED_280` path. Power Glove
+  ownership remains the level-2 upgrade of the same inventory item and
+  accelerates non-heavy push blocks from `SPEED_80/$20` to
+  `SPEED_c0/$15`, while
+  grabbable native entities such as Pumpkin Head use the shared lift/throw
+  parent instead of bypassing its poses and sounds.
 - Typed treasure behavior for imported collection modes and WRAM-backed
   inventory fields currently consumed by the game. Static `$dc:$07` ground
   Heart Pieces use their original two-hand pickup, text, sound, and room-item
@@ -109,7 +127,7 @@ remains the single runtime policy table.
 | `$0f` | Maple's Ring | Deferred | The 15-kill meeting threshold is encoded and the kill counter advances, but Maple encounters do not consume it. |
 | `$10` | Steadfast Ring | Implemented | Halves Link's enemy-contact knockback duration. |
 | `$11` | Pegasus Ring | Deferred | Extended-duration policy exists; active Pegasus Seed behavior does not. |
-| `$12` | Toss Ring | Deferred | Strong-throw policy exists; lifted-object carrying and throwing do not. |
+| `$12` | Toss Ring | Implemented | Raises the implemented Bracelet weight-0 throw from `SPEED_180` to `SPEED_280`. |
 | `$13` | Heart Ring L-1 | Implemented | Restores the source amount after the level-1 movement-distance threshold. |
 | `$14` | Heart Ring L-2 | Implemented | Restores the source amount after the level-2 movement-distance threshold. |
 | `$15` | Swimmer's Ring | Deferred | Fast-swim policy exists; swimming does not. |
@@ -155,6 +173,47 @@ remains the single runtime policy table.
 | `$3d` | Fist Ring | Implemented | Enables the ordinary unarmed punch, including collision, animation, and sound. |
 | `$3e` | Whimsical Ring | Implemented | Uses the source RNG roll for usually weak and occasionally deadly sword damage and its lightning cue. |
 | `$3f` | Protection Ring | Implemented | Forces implemented incoming attacks and terrain falls to one Heart of damage. |
+
+### Dungeons
+
+- Spirit's Grave (dungeon `$01`, rooms `4:10-$25`) is playable end to end.
+  Its complete ordered room streams include Keese, Zols, ordinary Stalfos,
+  Boomerang Moblins and their returning projectiles, Ropes, Ghini, and the
+  delayed five-Wallmaster spawner/capture warp. Native dungeon interactions
+  cover the bracelet reward, two moving-platform scripts with imported strict
+  collision sizes, riding-object terrain suppression, and 8.8 Link movement,
+  the two-torch staircase, falling small key, rotating colored cube/flames,
+  pressure buttons, trigger and enemy shutters, small-key doors, the linked
+  Ember-burnable wall and layout-only right-entry shutter in room `4:1d`, the
+  retained D1 Boss Key and boss door, and all eight source chests (including
+  Map, Compass, rings, Gasha Seed, keys, and Boss Key).
+  Room `4:1b`'s revealed staircase follows its source warp into side-scrolling
+  room `6:10`; groups `$06/$07` retain their active identity while sharing the
+  original `$04/$05` tileset and object data, so the Bracelet reward and return
+  warp are present.
+  The cube uses PALH `$89`'s mixed OBJ palettes and source 20-update cardinal
+  push test, while the Ghini/key room retains ordinary enemy-hit audio and the
+  falling key's collection-behavior/get-item sound ordering. Room `4:1c`'s
+  Ropes use the inclusive ten-pixel axis lock, fixed cardinal charge, collision
+  release, `$40` cooldown, and source random wander reset. Its breakable rock
+  metatiles use the imported four-stage `INTERAC_ROCKDEBRIS` chip animation,
+  terminal-frame lifetime, and `SND_BREAK_ROCK`.
+- Giant Ghini and its three linked children implement the room `4:18`
+  miniboss encounter, including the source `$16` forced Link entry before its
+  crossed shutter closes, and persistent bidirectional portal. Pumpkin Head in
+  room `4:13` implements the separately timed body/ghost/head ceiling entry,
+  impact and boss-music handoff, body movement/stomps/projectile attack,
+  exposed grabbable head, ordinary-sword and thrown-head ghost damage,
+  persistent eight-point ghost health, Bracelet weight-0 throw, regeneration
+  at the landed head, source body/ghost/head palettes, death phase, and Heart
+  Container reward. Both encounters include the source-scaled,
+  alternating boss shadow; the common 120-update death flicker; the
+  78-update enemy-counting large explosion; Link-collision/menu lock; and
+  Spirit's Grave music restoration before their ordered rewards. Room `4:11`
+  implements the Eternal Spirit's
+  approach, fall and two-hand collection, imported TX `$000e`, energy-bead
+  sequence, room/essence flags, music and fade cues, and delayed white exit
+  warp to `0:8d`.
 
 ### NPCs and enemies
 
@@ -235,6 +294,15 @@ remains the single runtime policy table.
   stay closed. Room `4:06` covers both entry directions, delayed crossed-door
   closure, its two ordinary Stalfos, the all-direction source push block, and
   the complete 30/8/6-update block-trigger/shutter solve.
+- Shared dungeon-entry interactions are imported across all direct source
+  placements: 14 whiteout-only `$12:$00` dungeon handlers, 12 `$e2:$01`
+  statue-eye scanners, and 16 `$7e:$00` miniboss portals. Spirit's Grave room
+  `4:24` initializes TX `$0201` and its dungeon session bytes, creates all six
+  `$ee`-tile eyes in source order with the fixed animation `$04` OAM moved by
+  the exact eight-direction low-nibble offsets, and
+  gates its portal on room `4:18` flag `$80`. An enabled portal rejects initial
+  overlap, then uses `SND_TELEPORT`, pins and spins Link for `$30` updates, and
+  performs the source fadeout warp between `4:24` and `4:18` at position `$57`.
 - Reusable small-key door tiles `$70-$73`, including current-dungeon key
   consumption, TX `$5100`, paired dungeon-layout room flags, the 10-update push
   threshold, key sprite, and six-update mapping-interleaved opening. Room
@@ -332,8 +400,9 @@ remains the single runtime policy table.
 
 ### Player and inventory
 
-- Full active-item behavior, held objects, lifting/throwing, swimming/diving,
-  ledges, terrain-specific Link states, and complete low-health/death handling.
+- Remaining active items and grabbable object species (including Bombs and
+  companions), swimming/diving, terrain-specific Link states, and complete
+  low-health/death handling.
 - Satchel selection and the active Scent, Pegasus, Gale, and Mystery Seed
   state machines remain deferred; the first acquired Satchel's Ember path is
   implemented and unsupported selected child IDs report a source-aware error

@@ -8,7 +8,7 @@ public sealed class LaunchOptions
 {
     private readonly string[] _arguments = OS.GetCmdlineUserArgs();
 
-    public int StartingGroup => ParseHex("--group=", GetDefaultGroup(), 0, 5);
+    public int StartingGroup => ParseHex("--group=", GetDefaultGroup(), 0, 7);
     public int StartingRoom => ParseHex("--room=", GetDefaultRoom(), 0, 0xff);
     public bool HasWorldOverride => HasArgument("--group=") || HasArgument("--room=");
     public bool ShowMainMenu => !HasValidationFlag() && !HasWorldOverride && !Has("--skip-menu");

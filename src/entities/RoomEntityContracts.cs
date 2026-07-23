@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 
 namespace oracleofages;
@@ -19,6 +20,15 @@ internal interface IFixedRoomEntity
     void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns);
 }
 
+/// <summary>
+/// Runs Link-owned forced state before ordinary room objects on an original
+/// update. Boss initialization arms this on its preceding enemy update.
+/// </summary>
+internal interface IPlayerForcedMovement
+{
+    void UpdatePlayerForcedMovement(Player player);
+}
+
 internal interface ILinkContactEntity
 {
     void HandleLinkContact(Player player);
@@ -36,6 +46,15 @@ internal interface ISwordHittableRoomEntity
         Vector2 sourcePosition,
         int damage,
         ICollection<RoomEntitySpawn> spawns);
+}
+
+/// <summary>
+/// Object.zh used by the original item/enemy collision pass. Entities without
+/// this capability are ordinary ground-height targets (Z = 0).
+/// </summary>
+internal interface IObjectCollisionHeightRoomEntity
+{
+    int CollisionZ { get; }
 }
 
 internal interface ISeedHittableRoomEntity
@@ -117,6 +136,15 @@ internal interface IRoomEnemyCounterEntity
 }
 
 /// <summary>
+/// Exposes the low-bit shutter completion represented by wcc93. Native bosses
+/// wait for every enemy shutter to finish closing before starting their intro.
+/// </summary>
+internal interface IBossShutterState
+{
+    bool BossIntroReady { get; }
+}
+
+/// <summary>
 /// Retains the source object's one-based enemy index from Enemy.enabled. The
 /// original uses indices $01-$07 to suppress recently defeated placements.
 /// </summary>
@@ -141,6 +169,20 @@ internal interface IRoomSaveStateEntity
     void RefreshSaveState();
 }
 
+internal interface IBraceletInteractableRoomEntity
+{
+    bool TryUseBracelet(Player player);
+}
+
+/// <summary>
+/// Contributes to the single wLinkRidingObject-style support state consumed
+/// by Link's terrain handlers.
+/// </summary>
+internal interface IPlayerRideableRoomEntity
+{
+    bool LinkRiding { get; }
+}
+
 internal readonly record struct RoomEntityFrame(
     Player Player,
     int Counter,
@@ -153,6 +195,10 @@ internal sealed record MaskedMoblinSpawn(Vector2 Position)
     : RoomEntitySpawn(UpdateThisFrame: true);
 internal sealed record EnemyArrowSpawn(Vector2 Position, int Angle)
     : RoomEntitySpawn(UpdateThisFrame: true);
+internal sealed record MoblinBoomerangSpawn(
+    BoomerangMoblinCharacter Owner,
+    Vector2 Position,
+    int Angle) : RoomEntitySpawn(UpdateThisFrame: true);
 internal sealed record GelSpawn(
     Vector2 Position,
     string Name = "Gel",
@@ -162,6 +208,14 @@ internal sealed record EnemyDeathPuffSpawn(
     Vector2 Position,
     bool HighKnockback = false,
     int EnemyId = -1) : RoomEntitySpawn;
+internal sealed record BossDeathExplosionSpawn(Vector2 Position, int BossId)
+    : RoomEntitySpawn(UpdateThisFrame: true);
+internal sealed record BossShadowSpawn(
+    Func<Vector2> ParentPosition,
+    Func<int> ParentZ,
+    Func<bool> ParentExists,
+    int Size,
+    int YOffset) : RoomEntitySpawn(UpdateThisFrame: true);
 internal sealed record KillEnemyPuffSpawn(Vector2 Position) : RoomEntitySpawn;
 internal sealed record ItemDropSpawn(
     int SubId,
@@ -170,6 +224,10 @@ internal sealed record ItemDropSpawn(
     bool DugUp = false,
     bool UpdateThisFrame = false) : RoomEntitySpawn(UpdateThisFrame);
 internal sealed record ShovelDebrisSpawn(Vector2 Position, Vector2I Direction)
+    : RoomEntitySpawn(UpdateThisFrame: true);
+internal sealed record RockDebrisSpawn(
+    Vector2 Position,
+    int InteractionId = 0x06)
     : RoomEntitySpawn(UpdateThisFrame: true);
 internal sealed record EmberSeedSpawn(
     Vector2 LinkPosition,
@@ -202,4 +260,13 @@ internal sealed record LightableTorchSpawn(
 internal sealed record SwordBeamSpawn(Vector2 LinkPosition, int Direction)
     : RoomEntitySpawn;
 internal sealed record SwordBeamClinkSpawn(Vector2 Position)
+    : RoomEntitySpawn;
+internal sealed record StatueEyeballSpawn(Vector2 Position)
+    : RoomEntitySpawn(UpdateThisFrame: true);
+internal sealed record SpiritsGraveMovingPlatformSpawn(Vector2 Position, int SubId)
+    : RoomEntitySpawn(UpdateThisFrame: true);
+internal sealed record SpiritsGraveMinibossPortalSpawn : RoomEntitySpawn;
+internal sealed record GiantGhiniChildSpawn(GiantGhiniBoss Owner, int Index)
+    : RoomEntitySpawn(UpdateThisFrame: true);
+internal sealed record PumpkinHeadProjectileSpawn(Vector2 Position, int Angle)
     : RoomEntitySpawn;

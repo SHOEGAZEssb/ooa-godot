@@ -20,6 +20,7 @@ $importScripts = @(
     'Import-GashaData.ps1'
     'Import-CutsceneData.ps1'
     'Import-EnemyData.ps1'
+    'Import-SpiritsGrave.ps1'
     'Import-WorldNavigation.ps1'
     'Import-AudioData.ps1'
     'Write-GeneratedTableManifest.ps1'
@@ -29,4 +30,4 @@ foreach ($importScript in $importScripts) {
 }
 
 Write-Host "Validated clean US ROM: $hash"
-Write-Host "Imported $($tilesets.Count) tilesets, 1536 rooms, 42 signs, $($npcRows.Count - 1) NPCs, $($dungeonMechanicRows.Count - 1) dungeon button/trigger/chest/shutter placements, $keeseInstanceCount Keese, $($crowRows.Count - 1) fixed Crows, $octorokInstanceCount Octoroks, $stalfosInstanceCount ordinary Stalfos, $zolInstanceCount Zols, $gelInstanceCount direct Gels, $($orderedObjectRows.Count - 1) ordered placement records, $enemyUnspawnableTileCount enemy-unspawnable tile records, 133 chests, 529 warps, 22 animation groups, and 223 sound IDs into $destination"
+Write-Host "Imported $($tilesets.Count) tilesets, 1536 rooms, 42 signs, $($npcRows.Count - 1) NPCs, $($dungeonMechanicRows.Count - 1) dungeon button/trigger/chest/shutter placements, $($dungeonSharedPlacementRows.Count - 1) shared dungeon-entry placements, $keeseInstanceCount Keese, $($crowRows.Count - 1) fixed Crows, $octorokInstanceCount Octoroks, $stalfosInstanceCount ordinary Stalfos, $zolInstanceCount Zols, $gelInstanceCount direct Gels, $($orderedObjectRows.Count - 1) ordered placement records, $enemyUnspawnableTileCount enemy-unspawnable tile records, 133 chests, 529 warps, 22 animation groups, and 223 sound IDs into $destination"

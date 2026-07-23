@@ -25,6 +25,7 @@ public sealed class RoomEventController
     private readonly MakuSproutRescueEvent _makuSproutRescue;
     private readonly LynnaShopEvent _lynnaShop;
     private readonly VasuShopEvent _vasuShop;
+    private readonly SpiritsGraveEssenceEvent _spiritsGraveEssence;
     private readonly IRoomEvent[] _eventsByPriority;
     private double _frameAccumulator;
     private double _transitionFrameAccumulator;
@@ -76,8 +77,10 @@ public sealed class RoomEventController
         _makuSproutRescue = new MakuSproutRescueEvent(_context);
         _lynnaShop = new LynnaShopEvent(_context);
         _vasuShop = new VasuShopEvent(_context);
+        _spiritsGraveEssence = new SpiritsGraveEssenceEvent(_context);
         _eventsByPriority =
         [
+            _spiritsGraveEssence,
             _nayru,
             _graveyardGate,
             _makuSproutRescue,
@@ -94,6 +97,7 @@ public sealed class RoomEventController
             _impa,
         ];
         entities.RoomEntitiesLoaded += OnRoomEntitiesLoaded;
+        entities.SpiritsGraveEssenceTriggered += _spiritsGraveEssence.Begin;
     }
 
     public bool Active
@@ -136,6 +140,7 @@ public sealed class RoomEventController
     internal MakuSproutRescueEvent MakuSproutRescue => _makuSproutRescue;
     internal LynnaShopEvent LynnaShop => _lynnaShop;
     internal VasuShopEvent VasuShop => _vasuShop;
+    internal SpiritsGraveEssenceEvent SpiritsGraveEssence => _spiritsGraveEssence;
     internal void SetRingMenuOpener(Func<RingMenuMode, Action, bool> opener) =>
         _vasuShop.SetRingMenuOpener(opener);
     internal bool SupportsOverworldKeyhole(int group, int room) =>

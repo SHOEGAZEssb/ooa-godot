@@ -242,6 +242,117 @@ public sealed class OracleRoomData
         return ImageTexture.CreateFromImage(output);
     }
 
+    /// <summary>
+    /// Mirrors itemMimicBgTile for a lifted metatile. The four current BG
+    /// quarters retain their mapping, flips, animation replacement, and
+    /// active palette, while graphics color 0 becomes transparent as it does
+    /// after that BG palette is copied into OBJ palette 7.
+    /// </summary>
+    internal Texture2D BuildMimickedMetatileTexture(Vector2 point)
+    {
+        int tileX = Mathf.FloorToInt(point.X / MetatileSize);
+        int tileY = Mathf.FloorToInt(point.Y / MetatileSize);
+        if (tileX < 0 || tileX >= WidthInTiles ||
+            tileY < 0 || tileY >= HeightInTiles)
+        {
+            throw new ArgumentOutOfRangeException(nameof(point));
+        }
+
+        int layoutIndex = tileY * _layoutStride + tileX;
+        byte[]? mappingOverride = _positionMappingOverrides.TryGetValue(
+            layoutIndex, out byte[]? value) ? value : null;
+        int mappingOffset = GetRenderedMetatile(layoutIndex) * 8;
+        Image output = Image.CreateEmpty(16, 16, false, Image.Format.Rgba8);
+
+        for (int quarter = 0; quarter < 4; quarter++)
+        {
+            byte tileId = mappingOverride is null
+                ? _mappings[mappingOffset + quarter]
+                : mappingOverride[quarter];
+            byte attributes = mappingOverride is null
+                ? _mappings[mappingOffset + 4 + quarter]
+                : mappingOverride[4 + quarter];
+            int sourceIndex = tileId >= 0x80 ? tileId - 0x80 : tileId + 0x80;
+            Image tileSource = _source;
+            int sourceTile = sourceIndex;
+            if (_dynamicBackgroundTiles.TryGetValue(
+                    sourceIndex, out DynamicBackgroundTile dynamicTile))
+            {
+                tileSource = dynamicTile.Source;
+                sourceTile = dynamicTile.Tile;
+            }
+            else if (_animations.TryGetOverride(
+                         _activeAnimationHeaders, sourceIndex,
+                         out Image overrideSource, out int overrideTile))
+            {
+                tileSource = overrideSource;
+                sourceTile = overrideTile;
+            }
+
+            int sourceColumns = tileSource.GetWidth() / 8;
+            int sourceX = sourceTile % sourceColumns * 8;
+            int sourceY = sourceTile / sourceColumns * 8;
+            bool flipX = (attributes & 0x20) != 0;
+            bool flipY = (attributes & 0x40) != 0;
+            int rawPalette = attributes & 0x07;
+            int paletteIndex = Mathf.Clamp(rawPalette - 2, 0, 5);
+            int quarterX = quarter % 2;
+            int quarterY = quarter / 2;
+
+            for (int pixelY = 0; pixelY < 8; pixelY++)
+            for (int pixelX = 0; pixelX < 8; pixelX++)
+            {
+                int readX = sourceX + (flipX ? 7 - pixelX : pixelX);
+                int readY = sourceY + (flipY ? 7 - pixelY : pixelY);
+                Color sourceColor = tileSource.GetPixel(readX, readY);
+                int shade = Mathf.Clamp(
+                    Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f), 0, 3);
+                Color color;
+                if (shade == 0)
+                {
+                    color = Colors.Transparent;
+                }
+                else if (rawPalette == 0)
+                {
+                    color = _commonBgPalette0[shade];
+                }
+                else if (_temporaryFullBackgroundPalette is not null &&
+                         rawPalette is >= 2 and <= 7)
+                {
+                    color = _palette[paletteIndex, shade].Lerp(
+                        _temporaryFullBackgroundPalette[paletteIndex, shade],
+                        _temporaryFullBackgroundPaletteBlend);
+                }
+                else if (_temporaryBackgroundPalettes is not null &&
+                         rawPalette is >= 2 and <= 7)
+                {
+                    color = _temporaryBackgroundPalettes[
+                        _temporaryBackgroundPaletteHeader,
+                        rawPalette - 2,
+                        shade];
+                }
+                else if (_temporaryBackgroundPaletteOffset.HasValue &&
+                         rawPalette is >= 2 and <= 7)
+                {
+                    color = OffsetGbcColor(
+                        _palette[paletteIndex, shade],
+                        _temporaryBackgroundPaletteOffset.Value);
+                }
+                else
+                {
+                    color = _palette[paletteIndex, shade];
+                }
+
+                output.SetPixel(
+                    quarterX * 8 + pixelX,
+                    quarterY * 8 + pixelY,
+                    color);
+            }
+        }
+
+        return ImageTexture.CreateFromImage(output);
+    }
+
     public ulong GetAnimationChecksum(long tick)
     {
         byte[] pixels = RenderRoom(_animations.GetActiveHeaders(AnimationGroup, tick)).GetData();

@@ -13,13 +13,17 @@ public sealed class RoomEntityManager
     public event Action<int, OracleRoomData>? RoomEntitiesLoaded;
     public event Action<TimePortal>? TimePortalEntered;
     internal event Action<int, string>? DungeonEntranceTriggered;
+    internal event Action<WarpDatabase.Warp>? RoomWarpRequested;
     internal event Action<GroundTreasurePickup, Player>? GroundTreasureCollected;
     internal event Action<GashaSpotInteraction, Player>? GashaInteractionRequested;
     internal event Action<GashaSpotInteraction, Player>? GashaNutCaught;
     internal event Action<Vector2, OracleRoomData.HazardType>? ItemDropEnteredHazard;
+    internal event Action<SpiritsGraveEssence, Player>? SpiritsGraveEssenceTriggered;
     public event Action<int>? SoundRequested;
+    public event Action<int, int>? RoomMusicRequested;
     public event Action? RoomTileChanged;
     public event Action? EnemyDefeated;
+    public event Action<Vector2>? ScreenShakeChanged;
     private readonly Node _worldRoot;
     private readonly RoomEntityFactory _factory;
     private readonly OracleRandom _random;
@@ -35,10 +39,13 @@ public sealed class RoomEntityManager
     private readonly List<IRoomEntity> _activeEntities = new();
     private readonly List<IRoomEntity> _outgoingEntities = new();
     private readonly List<RoomEntitySpawn> _pendingSpawns = new();
+    private WarpDatabase.Warp? _pendingRoomWarp;
     private OracleRoomData _roomForActiveEntities = null!;
     private bool _screenTransitionActive;
     private double _enemyFrameAccumulator;
     private int _enemyFrameCounter;
+    private int _screenShakeCounter;
+    private bool _linkCollisionsAndMenuDisabled;
 
     internal Func<bool> GameButtonJustPressedSource { get; set; } =
         ReadGameButtonJustPressed;
@@ -52,6 +59,21 @@ public sealed class RoomEntityManager
     internal int ActiveTriggers => _activeTriggers;
     internal int FrameCounter => _enemyFrameCounter;
     internal int RandomCalls => _random.Calls;
+    internal int ScreenShakeCounter => _screenShakeCounter;
+    internal bool LinkCollisionsAndMenuDisabled =>
+        _linkCollisionsAndMenuDisabled;
+    internal bool PlayerRidingObject
+    {
+        get
+        {
+            foreach (IRoomEntity entity in _activeEntities)
+            {
+                if (entity is IPlayerRideableRoomEntity { LinkRiding: true })
+                    return true;
+            }
+            return false;
+        }
+    }
     internal bool HasActiveSeedProjectile
     {
         get
@@ -108,6 +130,8 @@ public sealed class RoomEntityManager
     {
         get
         {
+            if (_linkCollisionsAndMenuDisabled)
+                return true;
             foreach (IRoomEntity entity in _activeEntities)
             {
                 if (entity is IPlayerRestriction { DisablesMenus: true })
@@ -153,7 +177,8 @@ public sealed class RoomEntityManager
         OracleRuntimeState? runtimeState = null,
         InventoryState? inventory = null,
         Func<long>? animationTick = null,
-        TreasureDatabase? treasures = null)
+        TreasureDatabase? treasures = null,
+        RoomSession? rooms = null)
     {
         _worldRoot = worldRoot;
         _random = random;
@@ -166,6 +191,7 @@ public sealed class RoomEntityManager
             _saveData, _runtimeState, OnTimePortalEntered,
             () => GroundTreasureCollectionAllowed(),
             OnGroundTreasureCollected, OnDungeonEntranceTriggered,
+            OnRoomWarpRequested,
             OnGashaInteractionRequested, OnGashaNutCaught, inventory,
             treasures ?? new TreasureDatabase(),
             OnItemDropEnteredHazard,
@@ -173,7 +199,13 @@ public sealed class RoomEntityManager
             enemyIndex => _recentEnemyDefeats.WasKilled(enemyIndex),
             TriggerIsActive, () => _activeTriggers, SetTrigger,
             OnRoomTileChanged,
-            position => WorldToScreen(position), _animationTick);
+            OnSpiritsGraveEssenceTriggered,
+            BossShuttersClosed,
+            BeginScreenShake,
+            DisableLinkCollisionsAndMenu,
+            EnableLinkCollisionsAndMenu,
+            OnRoomMusicRequested,
+            position => WorldToScreen(position), _animationTick, rooms);
         if (_saveData is not null)
             _saveData.Changed += RefreshNpcState;
         _runtimeState.Changed += RefreshNpcState;
@@ -286,6 +318,11 @@ public sealed class RoomEntityManager
             _enemyFrameAccumulator -= 1.0;
             _enemyFrameCounter = (_enemyFrameCounter + 1) & 0xff;
             var frame = new RoomEntityFrame(player, _enemyFrameCounter, anyButtonJustPressed);
+            foreach (IRoomEntity entity in _activeEntities.ToArray())
+            {
+                if (entity is IPlayerForcedMovement forcedMovement)
+                    forcedMovement.UpdatePlayerForcedMovement(player);
+            }
             ResolvePlayerProjectileCollisions();
             ProcessSpawns(frame);
             foreach (IRoomEntity entity in _activeEntities.ToArray())
@@ -298,15 +335,18 @@ public sealed class RoomEntityManager
             }
             ResolveSeedCollisions();
             ProcessSpawns(frame);
+            UpdateScreenShake();
             anyButtonJustPressed = false;
         }
 
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
-            if (entity is ILinkContactEntity contactEntity)
+            if (!_linkCollisionsAndMenuDisabled &&
+                entity is ILinkContactEntity contactEntity)
                 contactEntity.HandleLinkContact(player);
         }
         RemoveFinishedEntities();
+        DispatchPendingRoomWarp();
     }
 
     public bool BlocksLink(Vector2 linkCenter)
@@ -335,6 +375,19 @@ public sealed class RoomEntityManager
         {
             if (entity is IPlayerInteractable interactable &&
                 interactable.TryInteract(player))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    internal bool TryUseBracelet(Player player)
+    {
+        foreach (IRoomEntity entity in _activeEntities.ToArray())
+        {
+            if (entity is IBraceletInteractableRoomEntity bracelet &&
+                bracelet.TryUseBracelet(player))
             {
                 return true;
             }
@@ -383,6 +436,46 @@ public sealed class RoomEntityManager
         }
         RemoveFinishedEntities();
         return hit;
+    }
+
+    internal void ApplyThrownObjectHit(
+        Rect2 hitbox,
+        int itemZ,
+        int collisionZRadius,
+        int damage)
+    {
+        Vector2 source = hitbox.GetCenter();
+        foreach (IRoomEntity entity in _activeEntities.ToArray())
+        {
+            if (entity is ISwordHittableRoomEntity hittable)
+            {
+                int targetZ =
+                    entity is IObjectCollisionHeightRoomEntity height
+                        ? height.CollisionZ
+                        : 0;
+                if (!ObjectCollisionZOverlaps(
+                        targetZ, itemZ, collisionZRadius))
+                {
+                    continue;
+                }
+                hittable.ApplySwordHit(
+                    hitbox, source, damage, _pendingSpawns);
+            }
+            ProcessSpawns();
+        }
+        RemoveFinishedEntities();
+    }
+
+    internal static bool ObjectCollisionZOverlaps(
+        int targetZ,
+        int itemZ,
+        int radius)
+    {
+        if (radius is <= 0 or > 0x7f)
+            return false;
+        // collisionEffects.s performs this in one-byte arithmetic:
+        // enemyZ - itemZ + $07 must be below $0e.
+        return ((targetZ - itemZ + radius) & 0xff) < radius * 2;
     }
 
     private void ResolveSeedCollisions()
@@ -475,13 +568,43 @@ public sealed class RoomEntityManager
         }
     }
 
+    internal void SpawnBreakableDrop(int dropType, Vector2 position)
+    {
+        int? subId = _itemDrops.DecideBreakableDrop(dropType, _random);
+        if (subId.HasValue)
+        {
+            Spawn<ItemDropEffect>(new ItemDropSpawn(
+                subId.Value, position));
+        }
+    }
+
+    internal void SpawnItemHazardEffect(
+        Vector2 position,
+        OracleRoomData.HazardType hazard)
+    {
+        if (hazard is OracleRoomData.HazardType.Water or
+            OracleRoomData.HazardType.Lava)
+        {
+            ItemDropEnteredHazard?.Invoke(position, hazard);
+        }
+        else if (hazard == OracleRoomData.HazardType.Hole)
+        {
+            Spawn<FallingDownHoleEffect>(
+                new FallingDownHoleSpawn(position));
+        }
+    }
+
     public void Clear()
     {
         ClearEntities(_outgoingEntities);
         ClearEntities(_activeEntities);
         _pendingSpawns.Clear();
+        _pendingRoomWarp = null;
         _screenTransitionActive = false;
         _enemyFrameAccumulator = 0.0;
+        _screenShakeCounter = 0;
+        _linkCollisionsAndMenuDisabled = false;
+        ScreenShakeChanged?.Invoke(Vector2.Zero);
     }
 
     internal void ClearRecentEnemyDefeats() => _recentEnemyDefeats.Clear();
@@ -491,6 +614,10 @@ public sealed class RoomEntityManager
         OracleRoomData room,
         EnemyPlacementContext placementContext)
     {
+        // loadTilesetAndRoomLayout runs the common tile substitutions before
+        // parseObjectData. Ordinary $78-$7b shutters can exist only in that
+        // layout and therefore must be opened before placed entities are read.
+        _factory.ApplyEntryShutterSubstitution(room, placementContext);
         // wActiveTriggers is room-local scratch state cleared by room loading.
         _activeTriggers = 0;
         // parseObjectData loads wEnemyPlacement.killedEnemiesBitset from the
@@ -521,6 +648,43 @@ public sealed class RoomEntityManager
                 count++;
         }
         return count;
+    }
+
+    private bool BossShuttersClosed()
+    {
+        foreach (IRoomEntity entity in _activeEntities)
+        {
+            if (entity is IBossShutterState { BossIntroReady: false })
+                return false;
+        }
+        return true;
+    }
+
+    private void BeginScreenShake(int updates)
+    {
+        if (updates <= 0)
+            throw new ArgumentOutOfRangeException(nameof(updates));
+        _screenShakeCounter = updates;
+    }
+
+    private void DisableLinkCollisionsAndMenu() =>
+        _linkCollisionsAndMenuDisabled = true;
+
+    private void EnableLinkCollisionsAndMenu() =>
+        _linkCollisionsAndMenuDisabled = false;
+
+    private void UpdateScreenShake()
+    {
+        if (_screenShakeCounter == 0)
+            return;
+        int[] amounts = { -2, -1, 1, 2 };
+        int y = amounts[_random.Next().Value & 3];
+        int x = amounts[_random.Next().Value & 3];
+        Vector2 offset = new(x, y);
+        ScreenShakeChanged?.Invoke(offset);
+        _screenShakeCounter--;
+        if (_screenShakeCounter == 0)
+            ScreenShakeChanged?.Invoke(Vector2.Zero);
     }
 
     internal int RoomEnemyCount => CountRoomEnemies();
@@ -637,12 +801,28 @@ public sealed class RoomEntityManager
         Player player) => GroundTreasureCollected?.Invoke(treasure, player);
     private void OnDungeonEntranceTriggered(int textId, string message) =>
         DungeonEntranceTriggered?.Invoke(textId, message);
+    private void OnRoomWarpRequested(WarpDatabase.Warp warp) =>
+        _pendingRoomWarp = warp;
     private void OnItemDropEnteredHazard(
         Vector2 position,
         OracleRoomData.HazardType hazard) => ItemDropEnteredHazard?.Invoke(position, hazard);
 
+    private void OnSpiritsGraveEssenceTriggered(
+        SpiritsGraveEssence essence,
+        Player player) => SpiritsGraveEssenceTriggered?.Invoke(essence, player);
+
     private void OnRoomTileChanged() => RoomTileChanged?.Invoke();
     private void OnSoundRequested(int sound) => SoundRequested?.Invoke(sound);
+    private void OnRoomMusicRequested(int group, int room) =>
+        RoomMusicRequested?.Invoke(group, room);
+
+    private void DispatchPendingRoomWarp()
+    {
+        if (_pendingRoomWarp is not { } warp)
+            return;
+        _pendingRoomWarp = null;
+        RoomWarpRequested?.Invoke(warp);
+    }
 
     private static List<T> SelectNodes<T>(IEnumerable<IRoomEntity> entities) where T : Node2D
     {

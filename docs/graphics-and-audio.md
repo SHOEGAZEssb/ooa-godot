@@ -47,6 +47,27 @@ Changing a scripted animation selects cached immutable definitions/frames; it
 does not rebuild every texture for that entity. Validate assembled frame pixels
 and offsets, not just parsed record counts.
 
+An OAM composition may select several effective OBJ palettes in one frame.
+Palette overrides are therefore keyed by the effective `base XOR flags`
+palette, included in the immutable OAM cache key, and applied per OAM cell.
+Spirit's Grave's colored cube is the canonical case: its imported PALH `$89`
+installs `paletteData5908` and `paletteData5910` in OBJ slots 6 and 7 while its
+rolling frames also retain ordinary palette 5. Its `spr_colored_cube` sheet is
+also black-on-white, unlike the usual black-background `spr_*` sheets, so the
+generated visual record explicitly selects the opposite grayscale
+interpretation before OAM composition. Enemy records carry the same
+source-polarity field: Giant Ghini `$70` and its children `$3f` share the
+black-on-white `spr_giantghini_1/2` chain and must select white as transparent,
+while the other currently imported Spirit's Grave enemies retain the ordinary
+black-background interpretation.
+
+Multipart enemies may override the base enemy-record palette per child object.
+Pumpkin Head `$78` is the canonical boss case: its head retains the enemy
+record's OBJ palette 3, body initialization writes OAM flags `$01`, and ghost
+initialization writes `$05`. Import those explicit initialization writes and
+compose three independent cached animation sets; applying the base palette to
+the whole boss gives the rebuilt body and exposed ghost the wrong colors.
+
 Room backgrounds retain original GBC palette and attribute behavior. Dynamic
 palette threads, waves, and fades advance on their original fixed updates. A
 future cell renderer must preserve those effects and custom collision; the
@@ -188,6 +209,24 @@ chooses a variation with the global game RNG (for example sword sounds), consume
 `OracleRandom`; never use a separate nondeterministic RNG because it changes
 later enemies and drops.
 
+Breaking a metatile whose stored effect is `INTERAC_ROCKDEBRIS` `$06` or
+`INTERAC_ROCKDEBRIS2` `$0c` creates the common-sprite interaction at the
+metatile center. Both use four imported four-update OAM compositions that
+spread four chips outward and a terminal `$ff` frame that deletes on the
+following update. `$06` uses tile base `$02` and OBJ palette 3; `$0c` uses tile
+base `$40` and OBJ palette 5. Their state-0 update requests `SND_BREAK_ROCK`
+`$a5`; the tile-breaking or Bracelet caller does not substitute a generic puff
+or sound.
+
+`itemMimicBgTile` is not an inventory icon lookup. A Bracelet-lifted metatile
+copies the four currently rendered BG quarters into an object texture before
+the room layout is replaced, preserving position overrides, animation
+replacement, flips, and temporary palette state. Source color 0 becomes
+transparent, matching the BG-to-OBJ palette-7 copy. Link's pull, strain, held,
+and throw bodies use the exact `spr_link` entries `$dc-$e3`, `$5c-$5f`,
+`$88-$8b`, and `$b0-$b3`; `SND_PICKUP` `$9c` begins the lift and `SND_THROW`
+`$51` begins the release.
+
 The live rupee wallet and `wDisplayedRupees` are distinct. The wallet changes
 immediately, while the status bar moves one rupee toward it on each original
 update and requests `SND_RUPEE` (`$61`) for every step. A grant that exceeds the
@@ -216,6 +255,11 @@ with `$f0`; the reward requests `SND_GETITEM` (`$4c`) when its 32-update rise
 finishes and the treasure/text are handed to Link. The treasure collection
 table's own nonzero sound is requested first; room `4:08` therefore requests
 `SND_GETSEED` (`$5e`) for the small key immediately before `SND_GETITEM`.
+Touched ground treasures use the same imported collection behavior on the
+contact update, then request `SND_GETITEM` when `INTERAC_TREASURE` enters its
+held pose on the following update. Room `4:1e`'s falling key consequently uses
+the same `$5e`, then `$4c`, sequence rather than replacing the behavior sound
+with an early generic get-item cue.
 Accepted push-block movement
 requests `SND_MOVEBLOCK` (`$71`) at movement start. A block or supported enemy
 resolved over a hole requests `SND_FALLINHOLE` (`$59`); a block also renders
@@ -225,6 +269,11 @@ Opening a small-key door requests `SND_GETSEED` (`$5e`) with its key sprite and
 an ordinary enemy death puff requests
 `SND_KILLENEMY` (`$73`); the red-Zol split puff requests the same cue without
 creating an ordinary death/drop puff.
+
+The room `4:1e` Ghini requests `SND_DAMAGE_ENEMY` (`$4e`) through the shared
+combat callback at its ordinary sword collision-effect boundary, including a
+lethal accepted hit. Enemy death and its later puff sound remain separate;
+rejected invincibility contacts do not replay the hit cue.
 
 Accepted enemy contact requests `SND_DAMAGE_LINK` (`$5f`) once; invincibility
 rejects both the damage and a repeated request. Drowning requests that same

@@ -15,19 +15,24 @@ public partial class OracleSoundEngine : Node
 
     public const int MusTitlescreen = 0x01;
     public const int MusOverworld = 0x03;
+    public const int MusEssence = 0x06;
     public const int MusNayru = 0x08;
     public const int MusEssenceRoom = 0x0d;
     public const int MusFairyFountain = 0x0f;
     public const int MusGetEssence = 0x10;
     public const int MusFileSelect = 0x11;
+    public const int MusSpiritsGrave = 0x13;
     public const int MusRoomOfRites = 0x1d;
     public const int MusMakuTree = 0x1e;
     public const int MusSadness = 0x1f;
     public const int MusDisaster = 0x21;
+    public const int MusMiniboss = 0x2d;
+    public const int MusBoss = 0x2e;
     public const int MusLadxSideview = 0x2f;
     public const int MusBlackTowerEntrance = 0x46;
-    public const int SndSolvePuzzle = 0x4d;
     public const int SndGetItem = 0x4c;
+    public const int SndSolvePuzzle = 0x4d;
+    public const int SndDamageEnemy = 0x4e;
     public const int SndChargeSword = 0x4f;
     public const int SndClink = 0x50;
     public const int SndThrow = 0x51;
@@ -41,9 +46,11 @@ public partial class OracleSoundEngine : Node
     public const int SndFallInHole = 0x59;
     public const int SndError = 0x5a;
     public const int SndSwordBeam = 0x5d;
+    public const int SndEnergyThing = 0x5c;
     public const int SndGetSeed = 0x5e;
     public const int SndDamageLink = 0x5f;
     public const int SndRupee = 0x61;
+    public const int SndBossDamage = 0x63;
     public const int SndLinkFall = 0x65;
     public const int SndText = 0x66;
     public const int SndBossDead = 0x67;
@@ -63,6 +70,7 @@ public partial class OracleSoundEngine : Node
     public const int SndShield = 0x76;
     public const int SndDropEssence = 0x77;
     public const int SndBoomerang = 0x78;
+    public const int SndBigExplosion = 0x79;
     public const int SndMysterySeed = 0x7b;
     public const int SndMenuMove = 0x84;
     public const int SndSplash = 0x87;
@@ -73,7 +81,10 @@ public partial class OracleSoundEngine : Node
     public const int SndCompass = 0xa2;
     public const int SndWarpStart = 0x95;
     public const int SndPoof = 0x98;
+    public const int SndPickup = 0x9c;
+    public const int SndBreakRock = 0xa5;
     public const int SndStrike = 0xa6;
+    public const int SndVeranFairyAttack = 0xa8;
     public const int SndDig = 0xa9;
     public const int SndSwordObtained = 0xab;
     public const int SndMakuDisappear = 0xb2;
@@ -88,6 +99,7 @@ public partial class OracleSoundEngine : Node
     public const int SndCtrlEnable = 0xf6;
     public const int SndCtrlFastFadeOut = 0xfa;
     public const int SndCtrlMediumFadeOut = 0xfb;
+    public const int SndCtrlSlowFadeOut = 0xfc;
 
     private static readonly float[] SquareDuty = { 0.125f, 0.25f, 0.5f, 0.75f };
     private static readonly double CgbHighPassFactor =

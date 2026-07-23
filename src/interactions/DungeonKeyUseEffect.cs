@@ -16,8 +16,9 @@ internal sealed class DungeonKeyUseRoomEntity(DungeonKeyUseEffect effect)
 }
 
 /// <summary>
-/// INTERAC_DUNGEON_KEY_SPRITE $17, small-key subid $00. The key stays four
-/// pixels above the door for eight updates, then eight pixels above it for 20.
+/// INTERAC_DUNGEON_KEY_SPRITE $17, small-key subid $00 or boss-key subid $01.
+/// The key stays four pixels above the door for eight updates, then eight
+/// pixels above it for 20.
 /// </summary>
 internal partial class DungeonKeyUseEffect : TransitionOffsetNode2D
 {
@@ -31,6 +32,7 @@ internal partial class DungeonKeyUseEffect : TransitionOffsetNode2D
     internal int Phase => _phase;
     internal int Counter => _counter;
     internal int Z => _z;
+    internal int Graphic { get; private set; }
 
     internal void Initialize(
         Vector2 position,
@@ -41,11 +43,13 @@ internal partial class DungeonKeyUseEffect : TransitionOffsetNode2D
             $"res://assets/oracle/gfx/{visual.Sprite}.png");
         OracleGraphicsCache.AnimationDefinition definition =
             OracleGraphicsCache.GetAnimationDefinition(visual.Animation);
-        if (visual.Graphic != 0x42 || visual.TileBase != 0x0c ||
-            visual.Palette != 5 || definition.Frames.Length == 0)
+        bool validSmallKey = visual.Graphic == 0x42 && visual.TileBase == 0x0c;
+        bool validBossKey = visual.Graphic == 0x43 && visual.TileBase == 0x08;
+        if ((!validSmallKey && !validBossKey) || visual.Palette != 5 ||
+            definition.Frames.Length == 0)
         {
             throw new System.InvalidOperationException(
-                "INTERAC_DUNGEON_KEY_SPRITE small-key visual no longer matches treasure graphic $42.");
+                "INTERAC_DUNGEON_KEY_SPRITE visual no longer matches treasure graphic $42/$43.");
         }
         (_texture, _textureOffset) = NpcCharacter.BuildPositionedOamTexture(
             source,
@@ -54,6 +58,7 @@ internal partial class DungeonKeyUseEffect : TransitionOffsetNode2D
             visual.Palette,
             paletteOverride: null,
             sourceGrayscaleInverted: true);
+        Graphic = visual.Graphic;
         _phase = 0;
         _counter = 8;
         _z = -4;

@@ -35,7 +35,7 @@ public sealed class OracleWorldData
 
     public bool HasRoom(int group, int room)
     {
-        if (group < 0 || group > 5 || room < 0 || room > 0xff)
+        if (group < 0 || group > 7 || room < 0 || room > 0xff)
             return false;
 
         int tileset = GetTilesetId(group, room);
@@ -125,7 +125,7 @@ public sealed class OracleWorldData
 
     public void ValidateRepresentativeRooms()
     {
-        for (int group = 0; group <= 5; group++)
+        for (int group = 0; group <= 7; group++)
         {
             for (int room = 0; room <= 0xff; room++)
             {

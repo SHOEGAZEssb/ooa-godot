@@ -642,8 +642,19 @@ foreach ($tilesetId in $usedTilesets) {
     Copy-GeneratedFile "tileset_layouts_expanded\ages\tilesetCollisions${hex}.bin" "layouts\tilesetCollisions${hex}.bin"
 }
 
-foreach ($group in 0..5) {
-    Copy-GeneratedFile "rooms\ages\group${group}Tilesets.bin" "groups\group${group}Tilesets.bin"
+$tilesetAssignmentSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\tilesetAssignments.s')
+if ($tilesetAssignmentSource -notmatch
+        '(?ms)^group4Tilesets:.*?^group6Tilesets:\s*\r?\n\s*\.incbin "rooms/ages/group4Tilesets\.bin"' -or
+    $tilesetAssignmentSource -notmatch
+        '(?ms)^group5Tilesets:.*?^group7Tilesets:\s*\r?\n\s*\.incbin "rooms/ages/group5Tilesets\.bin"') {
+    throw 'Side-scrolling tileset aliases no longer map group 6/7 to group 4/5.'
+}
+$tilesetSourceGroups = @(0, 1, 2, 3, 4, 5, 4, 5)
+foreach ($group in 0..7) {
+    $sourceGroup = $tilesetSourceGroups[$group]
+    Copy-GeneratedFile "rooms\ages\group${sourceGroup}Tilesets.bin" `
+        "groups\group${group}Tilesets.bin"
 }
 Copy-GeneratedFile "rooms\ages\roomPacksPresent.bin" "groups\roomPacksPresent.bin"
 Copy-GeneratedFile "rooms\ages\roomPacksPast.bin" "groups\roomPacksPast.bin"

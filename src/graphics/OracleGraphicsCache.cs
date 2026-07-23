@@ -40,6 +40,7 @@ internal static class OracleGraphicsCache
         bool HasPaletteOverride,
         ulong PaletteColors01,
         ulong PaletteColors23,
+        string PaletteOverrides,
         bool SourceGrayscaleInverted,
         CompositionMode Composition);
 
@@ -135,6 +136,7 @@ internal static class OracleGraphicsCache
         int tileBase,
         int basePalette,
         Color[]? paletteOverride,
+        IReadOnlyDictionary<int, Color[]>? paletteOverrides,
         bool sourceGrayscaleInverted,
         CompositionMode composition,
         Func<OamFrame> factory)
@@ -159,6 +161,7 @@ internal static class OracleGraphicsCache
             paletteOverride is not null,
             colors01,
             colors23,
+            PaletteOverridesKey(paletteOverrides),
             sourceGrayscaleInverted,
             composition);
         if (OamFrames.TryGetValue(key, out OamFrame cached))
@@ -275,6 +278,29 @@ internal static class OracleGraphicsCache
         ulong colors01 = palette[0].ToRgba32() | (ulong)palette[1].ToRgba32() << 32;
         ulong colors23 = palette[2].ToRgba32() | (ulong)palette[3].ToRgba32() << 32;
         return (colors01, colors23);
+    }
+
+    private static string PaletteOverridesKey(
+        IReadOnlyDictionary<int, Color[]>? palettes)
+    {
+        if (palettes is null || palettes.Count == 0)
+            return string.Empty;
+        var keys = new List<int>(palettes.Keys);
+        keys.Sort();
+        var parts = new List<string>(keys.Count);
+        foreach (int key in keys)
+        {
+            Color[] palette = palettes[key];
+            if (palette.Length != 4)
+            {
+                throw new ArgumentException(
+                    $"Cached GBC OBJ palette {key} must contain four colors.",
+                    nameof(palettes));
+            }
+            parts.Add($"{key}:" + string.Join(',', Array.ConvertAll(
+                palette, color => color.ToRgba32().ToString("x8"))));
+        }
+        return string.Join(';', parts);
     }
 
     private static void Hash(ref ulong hash, int value)

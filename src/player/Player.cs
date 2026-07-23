@@ -7,6 +7,7 @@ public partial class Player : Node2D
 {
     private enum Facing { Up, Right, Down, Left }
     internal enum SwordActionState { None, Swing, Held, Charged, Poke, Spin }
+    internal enum BraceletActionPose { Pull, PullStrain, Throw }
 
     private const float Speed = 60.0f;
     private static readonly Vector2 NormalSpriteOrigin = new(-8, -8);
@@ -38,6 +39,7 @@ public partial class Player : Node2D
     private Texture2D _getItemOneHandTexture = null!;
     private Texture2D _getItemTwoHandTexture = null!;
     private Texture2D _carriedObjectTexture = null!;
+    private Texture2D[,] _braceletActionTextures = null!;
     private Texture2D _shieldLinkTexture = null!;
     private Texture2D _pushTexture = null!;
     private Texture2D _attackTexture = null!;
@@ -105,6 +107,8 @@ public partial class Player : Node2D
     private bool _getItemOneHandPose;
     private bool _getItemTwoHandPose;
     private bool _carriedObjectPose;
+    private BraceletActionPose? _braceletActionPose;
+    private bool _braceletLiftCollisionsDisabled;
     private CutsceneSpriteRenderer? _newGameFallRenderer;
     private NewGameIntroDatabase.IntroSpriteFrame[]? _newGameFallFrames;
     private int _newGameFallFrame;
@@ -118,6 +122,8 @@ public partial class Player : Node2D
     public int HealthQuarters => _inventory.HealthQuarters;
     public int Rupees => _inventory.Rupees;
     public int MaxHealthQuarters => _inventory.MaxHealthQuarters;
+    internal bool BraceletLiftCollisionsDisabled =>
+        _braceletLiftCollisionsDisabled;
     public InventoryState Inventory => _inventory;
     public bool IsPullingIntoHole => _pullingIntoHole;
     public bool IsDrowning => _drowning;
@@ -169,7 +175,9 @@ public partial class Player : Node2D
     internal bool IsHoldingItemOneHand => _getItemOneHandPose;
     internal bool IsHoldingItemTwoHands => _getItemTwoHandPose;
     internal bool IsCarryingObject => _carriedObjectPose;
+    internal Vector2 PrecisePosition => _precisePosition;
     internal int CarriedObjectAnimationFrame => GetWalkAnimationFrame();
+    internal Vector2I? BraceletEntityOffset { get; private set; }
     internal int ShovelFrame => _shovelFrame;
     internal bool ShovelChildActive =>
         IsUsingShovel && _shovelFrame is >= ShovelDigFrame and < ShovelSecondPoseFrame;
@@ -218,6 +226,7 @@ public partial class Player : Node2D
         _getItemOneHandTexture = BuildGetItemOneHandTexture();
         _getItemTwoHandTexture = BuildGetItemTwoHandTexture();
         _carriedObjectTexture = BuildCarriedObjectLinkTexture();
+        _braceletActionTextures = BuildBraceletActionTextures();
         _shieldLinkTexture = BuildShieldLinkTexture();
         _pushTexture = BuildPushLinkTexture();
         _attackTexture = BuildAttackLinkTexture();
@@ -244,6 +253,7 @@ public partial class Player : Node2D
         bool preserveSword = false,
         bool preserveShield = false)
     {
+        _world?.InterruptBracelet(this, discard: true);
         if (!preserveSword)
             CancelSwordAttack();
         CancelShovelAction();
@@ -268,6 +278,8 @@ public partial class Player : Node2D
         _getItemOneHandPose = false;
         _getItemTwoHandPose = false;
         _carriedObjectPose = false;
+        _braceletActionPose = null;
+        _braceletLiftCollisionsDisabled = false;
         if (preserveShield)
             SuspendShield();
         else
@@ -459,7 +471,8 @@ public partial class Player : Node2D
         int quarters,
         RingDamageSource source)
     {
-        if (_enemyInvincibilityFrames > 0.0f || quarters <= 0)
+        if (_braceletLiftCollisionsDisabled ||
+            _enemyInvincibilityFrames > 0.0f || quarters <= 0)
             return false;
         if (!ApplyDamage(quarters, source))
             return false;
@@ -478,6 +491,7 @@ public partial class Player : Node2D
         _enemyKnockbackDirection = OracleObjectMath.VectorFromAngle32(angle);
         _walking = false;
         _pushing = false;
+        _world.InterruptBracelet(this, discard: false);
         ClearShieldParent();
         CancelSwordAttack();
         CancelShovelAction();
@@ -560,6 +574,8 @@ public partial class Player : Node2D
             return;
         }
 
+        if (_pullingIntoHole && _world.RidingObject)
+            CancelHolePull();
         if (_pullingIntoHole && UpdatePullIntoHole())
             return;
 
@@ -605,16 +621,39 @@ public partial class Player : Node2D
             input = Vector2.Zero;
         _lastMovementInput = input;
 
+        bool primaryPressed = Input.IsActionPressed("attack");
+        bool secondaryPressed = Input.IsActionPressed("item");
+        bool itemButtonJustPressed =
+            Input.IsActionJustPressed("attack") ||
+            Input.IsActionJustPressed("item");
+        if (_world.UpdateBracelet(
+                this,
+                input,
+                primaryPressed,
+                secondaryPressed,
+                itemButtonJustPressed))
+        {
+            _walking = false;
+            _pushing = false;
+            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+            QueueRedraw();
+            return;
+        }
+
         if (_activeTransformation == 0 &&
             Input.IsActionJustPressed("attack") && !_world.SwordDisabled)
         {
             if (!IsUsingItem)
             {
+                // Link's standing-state handler checks A-button-sensitive
+                // objects and interactWithTileBeforeLink before checkUseItems.
+                // A chest/sign/keyhole therefore wins over an equipped
+                // Bracelet when both probes accept the same press.
+                if (_world.TryInteract(this))
+                    return;
                 if (!_world.ItemUsageDisabled &&
                     _inventory.EquippedA == InventoryState.ItemBracelet &&
-                    _world.TryUseBracelet(this))
-                    return;
-                if (_world.TryInteract(this))
+                    _world.TryUseBracelet(this, primaryButton: true))
                     return;
                 if (!_world.ItemUsageDisabled && RingEffects.CanPunch(
                     _inventory,
@@ -657,7 +696,8 @@ public partial class Player : Node2D
             }
             else if (!IsUsingItem && _inventory.EquippedB == InventoryState.ItemBracelet)
             {
-                _world.TryUseBracelet(this);
+                if (_world.TryUseBracelet(this, primaryButton: false))
+                    return;
             }
             else if (_inventory.EquippedB == InventoryState.ItemSword)
             {
@@ -719,6 +759,7 @@ public partial class Player : Node2D
 
     internal void BeginCutsceneControl()
     {
+        _world.InterruptBracelet(this, discard: true);
         _cutsceneControlled = true;
         ClearShieldParent();
         _walking = false;
@@ -774,6 +815,30 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
+    internal void SetBraceletActionPose(BraceletActionPose pose)
+    {
+        _braceletActionPose = pose;
+        _walking = false;
+        _pushing = false;
+        CancelSwordAttack();
+        CancelShovelAction();
+        QueueRedraw();
+    }
+
+    internal void SetBraceletEntityOffset(Vector2I? offset) =>
+        BraceletEntityOffset = offset;
+
+    internal void SetBraceletLiftCollisionsDisabled(bool disabled) =>
+        _braceletLiftCollisionsDisabled = disabled;
+
+    internal void ClearBraceletActionPose()
+    {
+        if (!_braceletActionPose.HasValue)
+            return;
+        _braceletActionPose = null;
+        QueueRedraw();
+    }
+
     internal void EndCarriedObjectPose()
     {
         if (!_carriedObjectPose)
@@ -811,11 +876,57 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
+    internal void BeginForcedRoomEntryMovement(Vector2I direction)
+    {
+        if (direction != Vector2I.Up && direction != Vector2I.Right &&
+            direction != Vector2I.Down && direction != Vector2I.Left)
+        {
+            throw new ArgumentOutOfRangeException(nameof(direction));
+        }
+        ClearShieldParent();
+        CancelSwordAttack();
+        CancelShovelAction();
+        _pushing = false;
+        _walking = true;
+        Face(direction);
+        QueueRedraw();
+    }
+
+    internal void AdvanceForcedRoomEntryMovement(Vector2I direction)
+    {
+        _walking = true;
+        Face(direction);
+        // LINK_STATE_FORCE_MOVEMENT clears adjacentWallsBitset before each
+        // standard-speed update, so this deliberately bypasses room blockers.
+        _precisePosition += (Vector2)direction;
+        _walkTime += 1.0f / 60.0f;
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        QueueRedraw();
+    }
+
+    internal void EndForcedRoomEntryMovement()
+    {
+        _walking = false;
+        QueueRedraw();
+    }
+
     internal void SetScriptedPosition(Vector2 position)
     {
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
         QueueRedraw();
+    }
+
+    internal void ApplyMovingPlatformDisplacement(Vector2 displacement)
+    {
+        _precisePosition += displacement;
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        QueueRedraw();
+    }
+
+    internal void ResetEnemyInvincibility()
+    {
+        _enemyInvincibilityFrames = 0.0f;
     }
 
     internal void SetScriptedCoordinateHigh(bool horizontal, int coordinate)
@@ -990,6 +1101,12 @@ public partial class Player : Node2D
         {
             DrawTexture(_getItemOneHandTexture, NormalSpriteOrigin);
         }
+        else if (_braceletActionPose is BraceletActionPose braceletPose)
+        {
+            DrawTexture(
+                _braceletActionTextures[(int)braceletPose, (int)_facing],
+                new Vector2(-16, -16));
+        }
         else if (_carriedObjectPose)
         {
             int frame = GetWalkAnimationFrame();
@@ -1100,8 +1217,27 @@ public partial class Player : Node2D
 
     internal void UpdatePushingState(Vector2 movementInput)
     {
+        _lastMovementInput = movementInput;
         _pushing = movementInput.LengthSquared() > 0.01f && !IsUsingItem &&
             _world.IsPushingAgainstWall(_precisePosition, FacingVector, movementInput);
+    }
+
+    internal bool IsAttemptingObjectPush(Vector2I direction)
+    {
+        if (direction == Vector2I.Zero || direction != FacingVector ||
+            IsUsingItem || IsCarryingObject || IsHoldingItemOneHand ||
+            IsHoldingItemTwoHands || !IsGroundedForFloorButton ||
+            Input.IsActionPressed("attack") || Input.IsActionPressed("item"))
+        {
+            return false;
+        }
+
+        // The source rejects wLinkAngle diagonals before comparing Link's
+        // direction with the direction from Link to the cube.
+        bool horizontal = Mathf.Abs(_lastMovementInput.X) > 0.01f;
+        bool vertical = Mathf.Abs(_lastMovementInput.Y) > 0.01f;
+        return horizontal != vertical &&
+            _lastMovementInput.Dot((Vector2)direction) > 0.01f;
     }
 
     private int GetWalkAnimationFrame() => GetWalkAnimationFrame(_walking, _walkTime);
@@ -1263,6 +1399,8 @@ public partial class Player : Node2D
 
     private float GetTerrainSpeedMultiplier()
     {
+        if (_world.RidingObject)
+            return 1.0f;
         OracleRoomData.TerrainType terrain = _world.GetActiveTerrain(Position).Terrain.Type;
         return terrain switch
         {
@@ -1274,6 +1412,11 @@ public partial class Player : Node2D
 
     private void ApplyTerrainAtFeet()
     {
+        if (_world.RidingObject)
+        {
+            CancelHolePull();
+            return;
+        }
         ActiveTerrainInfo activeTerrain = _world.GetActiveTerrain(Position);
         OracleRoomData.TerrainInfo terrain = activeTerrain.Terrain;
         if (terrain.Hazard != OracleRoomData.HazardType.None)
@@ -1287,6 +1430,13 @@ public partial class Player : Node2D
             _pullingIntoHole = false;
             _holePullPackedPosition = -1;
         }
+    }
+
+    private void CancelHolePull()
+    {
+        _pullingIntoHole = false;
+        _holePullCounter = 0;
+        _holePullPackedPosition = -1;
     }
 
     private void StartPullIntoHole(ActiveTerrainInfo activeTerrain)
@@ -2144,6 +2294,50 @@ public partial class Player : Node2D
         WriteLinkFrame(output, source, 16, (int)Facing.Left * 16, 0x1140, false);  // $8b, OAM $00
 
         return ImageTexture.CreateFromImage(output);
+    }
+
+    private static Texture2D[,] BuildBraceletActionTextures()
+    {
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
+        var result = new Texture2D[3, 4];
+        int[,] offsets =
+        {
+            { 0x0a40, 0x0b80, 0x0ac0, 0x0b80 },
+            { 0x0a80, 0x0bc0, 0x0ae0, 0x0bc0 },
+            { 0x1040, 0x02c0, 0x10c0, 0x02c0 }
+        };
+        string[,] oam =
+        {
+            {
+                "8,0,0,0;8,8,2,0",
+                "8,0,2,32;8,8,0,32",
+                "8,0,0,0;8,8,0,32",
+                "8,0,0,0;8,8,2,0"
+            },
+            {
+                "10,0,0,0;10,8,0,32",
+                "8,252,2,32;8,4,0,32",
+                "7,0,0,0;7,8,0,32",
+                "8,4,0,0;8,12,2,0"
+            },
+            {
+                "8,0,0,0;8,8,2,0",
+                "8,0,2,32;8,8,0,32",
+                "8,0,0,0;8,8,2,0",
+                "8,0,0,0;8,8,2,0"
+            }
+        };
+        for (int pose = 0; pose < result.GetLength(0); pose++)
+        for (int direction = 0; direction < result.GetLength(1); direction++)
+        {
+            result[pose, direction] = NpcCharacter.BuildOamTexture(
+                source,
+                oam[pose, direction],
+                offsets[pose, direction] / 16,
+                basePalette: 0);
+        }
+        return result;
     }
 
     private static Texture2D BuildShieldLinkTexture()

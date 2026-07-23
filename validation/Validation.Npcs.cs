@@ -2537,6 +2537,7 @@ public sealed partial class ValidationRoot
     {
         const double frame = 1.0 / 60.0;
         var data = new BlackTowerWorkerDatabase();
+        var dungeonEntries = new DungeonEntranceInteractionDatabase();
         var strike = new Room148PickaxeDatabase();
 
         (int Room, (int Id, int SubId, int Var03, int Y, int X)[] Actors,
@@ -2790,7 +2791,8 @@ public sealed partial class ValidationRoot
             throw new InvalidOperationException(
                 "Room 4:e7's screen warp did not insert dungeon-stuff second in its object stream.");
         entranceManager.Update(frame, _player);
-        if (entranceText != 0x020f || entranceMessage != data.Text(0x020f) ||
+        if (entranceText != 0x020f ||
+            entranceMessage != dungeonEntries.Entry(15).Message ||
             entranceManager.Entities<Node2D>().Count != 5 ||
             entranceSave.RespawnGroup != 4 || entranceSave.RespawnRoom != 0xe7 ||
             entranceSave.RespawnY != 0x88 || entranceSave.RespawnX != 0x78)

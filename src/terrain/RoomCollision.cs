@@ -95,6 +95,23 @@ public sealed class RoomCollision
         return (walls & requiredWalls) == requiredWalls;
     }
 
+    /// <summary>
+    /// Matches bombsBraceletParent's full directional
+    /// w1Link.adjacentWallsBitset test. The Bracelet requires both endpoint
+    /// bits on the faced edge before it derives the metatile probe position.
+    /// </summary>
+    internal bool HasFullWall(Vector2 playerPosition, Vector2I facing)
+    {
+        int requiredWalls = facing == Vector2I.Up ? 0xc0
+            : facing == Vector2I.Right ? 0x03
+            : facing == Vector2I.Down ? 0x30
+            : facing == Vector2I.Left ? 0x0c
+            : 0;
+        return requiredWalls != 0 &&
+            (CalculateAdjacentWallsBitset(playerPosition) & requiredWalls) ==
+                requiredWalls;
+    }
+
     private static int GetMovementAngle(Vector2 movement)
     {
         int horizontal = Mathf.Sign(movement.X);

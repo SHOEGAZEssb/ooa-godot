@@ -16,6 +16,7 @@ internal sealed class RoomEntityFactory(
     Func<bool> groundTreasureCollectionAllowed,
     Action<GroundTreasurePickup, Player> groundTreasureCollected,
     Action<int, string> dungeonEntranceTriggered,
+    Action<WarpDatabase.Warp> roomWarpRequested,
     Action<GashaSpotInteraction, Player> gashaInteractionRequested,
     Action<GashaSpotInteraction, Player> gashaNutCaught,
     InventoryState? inventory,
@@ -28,14 +29,23 @@ internal sealed class RoomEntityFactory(
     Func<int> triggerState,
     Action<int, bool> setTrigger,
     Action roomTileChanged,
+    Action<SpiritsGraveEssence, Player> spiritsGraveEssenceTriggered,
+    Func<bool> bossShuttersClosed,
+    Action<int> screenShakeRequested,
+    Action disableLinkCollisionsAndMenu,
+    Action enableLinkCollisionsAndMenu,
+    Action<int, int> roomMusicRequested,
     Func<Vector2, Vector2> worldToScreen,
-    Func<long> animationTick)
+    Func<long> animationTick,
+    RoomSession? rooms)
 {
     private readonly Room148PickaxeDatabase _room148 = new();
     private readonly Room149FamilyDatabase _room149 = new();
     private readonly VasuShopDatabase _vasuShop = new();
     private readonly LynnaShopDatabase _lynnaShop = new();
     private readonly BlackTowerWorkerDatabase _blackTower = new();
+    private readonly DungeonEntranceInteractionDatabase _dungeonEntrances = new();
+    private readonly SpiritsGraveDatabase _spiritsGrave = new();
     private readonly EnemySpawnTileDatabase _enemySpawnTiles = new();
     private readonly GroundTreasureDatabase _groundTreasures = new();
     private readonly DungeonMechanicDatabase _dungeonMechanics = new();
@@ -45,11 +55,53 @@ internal sealed class RoomEntityFactory(
     private readonly GashaSpotDatabase _gashaSpots = new();
     private readonly DarkRoomDatabase _darkRooms = new();
 
+    /// <summary>
+    /// Mirrors replaceShutterForLinkEntering for ordinary layout shutters
+    /// $78-$7b. Those source table rows replace only the shutter under Link
+    /// with floor $a0 and set bit 7, so no auto-close interaction is created.
+    /// </summary>
+    internal void ApplyEntryShutterSubstitution(
+        OracleRoomData room,
+        EnemyPlacementContext placementContext)
+    {
+        if (placementContext.Kind != EnemyPlacementEntryKind.Scrolling ||
+            placementContext.EntryPackedPosition < 0)
+        {
+            return;
+        }
+
+        int packedPosition = placementContext.EntryPackedPosition;
+        Vector2 position = PointForPackedPosition(packedPosition);
+        int tile = room.GetMetatile(position);
+        if (tile is < DungeonShutterEntry.FirstNormalShutterTile or
+            > DungeonShutterEntry.LastNormalShutterTile ||
+            !DungeonShutterEntry.Matches(
+                placementContext,
+                packedPosition,
+                tile - DungeonShutterEntry.FirstNormalShutterTile))
+        {
+            return;
+        }
+
+        room.SetPositionTileAndCollision(
+            position, (byte)_dungeonMechanics.OpenTile, null, animationTick());
+    }
+
     public IEnumerable<IRoomEntity> CreateRoomEntities(
         int group,
         OracleRoomData room,
         EnemyPlacementContext placementContext)
     {
+        // The original object-pointer and tileset tables alias side-scrolling
+        // groups $06/$07 to dungeon/interior groups $04/$05. Keep ActiveGroup
+        // on the RoomSession, but resolve every placed object through the
+        // shared source group just as getObjectDataAddress does.
+        group = group switch
+        {
+            6 => 4,
+            7 => 5,
+            _ => group
+        };
         IReadOnlyList<DarkRoomDatabase.Record> darkRoomRecords =
             _darkRooms.GetRoomRecords(group, room.Id);
         if (darkRoomRecords.Count > 0)
@@ -79,41 +131,65 @@ internal sealed class RoomEntityFactory(
         // safe backtracking; solving and non-entry shutters stay disabled.
         IReadOnlyList<DungeonMechanicDatabase.Record> dungeonRecords =
             _dungeonMechanics.GetRoomRecords(group, room.Id);
+        IReadOnlyList<DungeonEntranceInteractionDatabase.PlacementRecord>
+            sharedDungeonRecords = _dungeonEntrances.GetRoomRecords(group, room.Id);
+        IReadOnlyList<SpiritsGraveDatabase.ObjectRecord> spiritsGraveRecords =
+            _spiritsGrave.GetRoomRecords(group, room.Id);
+        SpiritsGravePuzzleState? spiritsGravePuzzle =
+            group == 4 && room.Id == 0x20 ? new SpiritsGravePuzzleState() : null;
         bool enemyMechanicsSupported = DungeonEnemyMechanicsAreSupported(
             dungeonRecords, group, room);
-        foreach (DungeonMechanicDatabase.Record record in dungeonRecords)
+        int mechanicIndex = 0;
+        int sharedIndex = 0;
+        int spiritsGraveIndex = 0;
+        while (mechanicIndex < dungeonRecords.Count ||
+               sharedIndex < sharedDungeonRecords.Count ||
+               spiritsGraveIndex < spiritsGraveRecords.Count)
         {
-            if (record.Id == 0x09)
+            int mechanicOrder = mechanicIndex < dungeonRecords.Count
+                ? dungeonRecords[mechanicIndex].Order : int.MaxValue;
+            int sharedOrder = sharedIndex < sharedDungeonRecords.Count
+                ? sharedDungeonRecords[sharedIndex].Order : int.MaxValue;
+            int spiritsGraveOrder = spiritsGraveIndex < spiritsGraveRecords.Count
+                ? spiritsGraveRecords[spiritsGraveIndex].Order : int.MaxValue;
+            bool useShared = sharedOrder < mechanicOrder &&
+                sharedOrder < spiritsGraveOrder;
+            if (useShared)
             {
-                yield return new GroundButtonRoomEntity(
-                    record, room, _dungeonMechanics, setTrigger,
-                    animationTick, soundRequested);
+                DungeonEntranceInteractionDatabase.PlacementRecord record =
+                    sharedDungeonRecords[sharedIndex++];
+                // Room 4:e7 places a construction soldier before its dungeon
+                // entry handler. CreateBlackTowerNpcs inserts this one record
+                // after that first actor; every other shared record is emitted
+                // here at its imported source order.
+                if (group == 4 && room.Id == 0xe7 &&
+                    record.Kind == DungeonEntranceInteractionDatabase.ObjectKind.Entry)
+                {
+                    continue;
+                }
+                yield return CreateSharedDungeonInteraction(
+                    record, room, placementContext);
                 continue;
             }
-            if (record.Id is 0x20 or 0x21)
+
+            if (spiritsGraveOrder < mechanicOrder)
             {
-                yield return new TriggerChestRoomEntity(
-                    record, room, _dungeonMechanics, triggerState,
-                    () => saveData?.HasRoomFlag(
-                        group, room.Id, OracleSaveData.RoomFlagItem) == true,
-                    animationTick, soundRequested);
+                SpiritsGraveDatabase.ObjectRecord record =
+                    spiritsGraveRecords[spiritsGraveIndex++];
+                if (!SpiritsGraveConditionMet(record))
+                    continue;
+                IRoomEntity? entity = CreateSpiritsGraveInteraction(
+                    record, room, spiritsGravePuzzle, placementContext);
+                if (entity is not null)
+                    yield return entity;
                 continue;
             }
-            if (record.Id == 0x13 && !enemyMechanicsSupported)
-                continue;
-            yield return record.Id switch
-            {
-                0x13 => new PushBlockTriggerRoomEntity(
-                    record, room, _dungeonMechanics,
-                    roomEnemyCount, animationTick),
-                0x1e => new DungeonDoorRoomEntity(
-                    record, room, _dungeonMechanics, roomEnemyCount,
-                    triggerActive, worldToScreen, animationTick,
-                    soundRequested, placementContext, enemyMechanicsSupported),
-                _ => throw new InvalidOperationException(
-                    $"Unsupported dungeon interaction ${record.Id:x2}:" +
-                    $"${record.SubId:x2} in room {group:x1}:{room.Id:x2}.")
-            };
+
+            DungeonMechanicDatabase.Record mechanic = dungeonRecords[mechanicIndex++];
+            IRoomEntity? mechanicEntity = CreateDungeonMechanic(
+                mechanic, room, group, enemyMechanicsSupported, placementContext);
+            if (mechanicEntity is not null)
+                yield return mechanicEntity;
         }
 
         if (saveData is not null)
@@ -132,7 +208,7 @@ internal sealed class RoomEntityFactory(
         if (group == 4 && room.Id is 0xe0 or 0xe1 or 0xe2 or 0xe7 or 0xe8)
         {
             foreach (IRoomEntity entity in CreateBlackTowerNpcs(
-                room.Id, roomNpcs, placementContext))
+                room, roomNpcs, placementContext))
             {
                 yield return entity;
             }
@@ -310,6 +386,232 @@ internal sealed class RoomEntityFactory(
         }
     }
 
+    private IRoomEntity? CreateSpiritsGraveInteraction(
+        SpiritsGraveDatabase.ObjectRecord record,
+        OracleRoomData room,
+        SpiritsGravePuzzleState? puzzle,
+        EnemyPlacementContext placementContext)
+    {
+        switch (record.Kind)
+        {
+            case SpiritsGraveDatabase.ObjectKind.BraceletReward:
+                return CreateSpiritsGraveReward(
+                    record, "TREASURE_OBJECT_BRACELET_00", falling: false);
+            case SpiritsGraveDatabase.ObjectKind.EnemySmallKey:
+                return CreateSpiritsGraveReward(
+                    record, "TREASURE_OBJECT_SMALL_KEY_01", falling: true);
+            case SpiritsGraveDatabase.ObjectKind.BossReward:
+                return CreateSpiritsGraveReward(
+                    record, "TREASURE_OBJECT_HEART_CONTAINER_00", falling: false);
+            case SpiritsGraveDatabase.ObjectKind.MinibossReward:
+                return new SpiritsGraveRewardController(
+                    record, saveData, roomEnemyCount, treasure: null,
+                    enableLinkCollisionsAndMenu);
+            case SpiritsGraveDatabase.ObjectKind.MovingPlatform:
+                return new SpiritsGraveMovingPlatform(
+                    _spiritsGrave.Visual("platform-05"),
+                    record.Position,
+                    record.SubId,
+                    _spiritsGrave.MovingPlatformCollisionRadii(record.SubId));
+            case SpiritsGraveDatabase.ObjectKind.SpawnMovingPlatform:
+                return new SpiritsGraveMovingPlatformSpawner(
+                    triggerActive, soundRequested);
+            case SpiritsGraveDatabase.ObjectKind.TorchStairs:
+                return new SpiritsGraveTorchStairs(
+                    record, room, saveData, soundRequested,
+                    roomTileChanged, animationTick);
+            case SpiritsGraveDatabase.ObjectKind.ColoredCube:
+                return new SpiritsGraveColoredCube(
+                    record, _spiritsGrave.Visual("colored-cube"), room,
+                    RequireSpiritsGravePuzzle(puzzle, record),
+                    _spiritsGrave.CubePalettes,
+                    soundRequested, roomTileChanged, animationTick);
+            case SpiritsGraveDatabase.ObjectKind.CubeFlame:
+                return new SpiritsGraveCubeFlame(
+                    record, _spiritsGrave.Visual("cube-flame"),
+                    RequireSpiritsGravePuzzle(puzzle, record));
+            case SpiritsGraveDatabase.ObjectKind.CubeLightSensor:
+            case SpiritsGraveDatabase.ObjectKind.CubeTriggerSensor:
+                return new SpiritsGraveCubeSensor(
+                    record, room, RequireSpiritsGravePuzzle(puzzle, record),
+                    setTrigger, soundRequested);
+            case SpiritsGraveDatabase.ObjectKind.GiantGhini:
+                var giantGhini = new GiantGhiniBoss
+                {
+                    Name = "GiantGhini",
+                    ZIndex = 10
+                };
+                giantGhini.Initialize(
+                    _spiritsGrave.Enemy(0x70), room, record.Position, random,
+                    soundRequested, bossShuttersClosed,
+                    disableLinkCollisionsAndMenu,
+                    () => roomMusicRequested(record.Group, record.Room));
+                return new GiantGhiniBossRoomEntity(
+                    giantGhini, BossEntryDirection(placementContext));
+            case SpiritsGraveDatabase.ObjectKind.PumpkinHead:
+                SpiritsGraveDatabase.EnemyRecord pumpkin = _spiritsGrave.Enemy(0x78);
+                return new PumpkinHeadBossRoomEntity(
+                    new PumpkinHeadBoss(
+                        pumpkin, room, record.Position, random, soundRequested,
+                        bossShuttersClosed, screenShakeRequested,
+                        disableLinkCollisionsAndMenu,
+                        () => roomMusicRequested(record.Group, record.Room),
+                        _spiritsGrave.Constant("pumpkin-body-palette"),
+                        _spiritsGrave.Constant("pumpkin-ghost-palette")),
+                    pumpkin.DamageQuarters,
+                    BossEntryDirection(placementContext));
+            case SpiritsGraveDatabase.ObjectKind.Essence:
+                return new SpiritsGraveEssence(
+                    record,
+                    _spiritsGrave.Visual("eternal-spirit"),
+                    _spiritsGrave.Visual("essence-pedestal"),
+                    _spiritsGrave.Visual("essence-glow"),
+                    _spiritsGrave.Visual("energy-bead"),
+                    room,
+                    saveData?.HasRoomFlag(
+                        record.Group, record.Room, OracleSaveData.RoomFlagItem) == true,
+                    animationTick,
+                    random,
+                    spiritsGraveEssenceTriggered);
+            default:
+                throw new ArgumentOutOfRangeException(
+                    nameof(record), record, "Unsupported Spirit's Grave object.");
+        }
+    }
+
+    private static Vector2I BossEntryDirection(
+        EnemyPlacementContext placementContext) =>
+        placementContext.Kind == EnemyPlacementEntryKind.Scrolling
+            ? placementContext.ScrollDirection
+            : Vector2I.Zero;
+
+    private SpiritsGraveRewardController CreateSpiritsGraveReward(
+        SpiritsGraveDatabase.ObjectRecord record,
+        string treasureName,
+        bool falling)
+    {
+        TreasureDatabase.TreasureObjectRecord treasure = treasures.GetObject(treasureName);
+        TreasureDatabase.TreasureObjectVisualRecord visual =
+            treasures.GetObjectVisual(treasure.Graphic);
+        var ground = new GroundTreasureDatabase.Record(
+            record.Group,
+            record.Room,
+            record.Order,
+            record.Y,
+            record.X,
+            treasure.Name,
+            visual.Sprite,
+            visual.TileBase,
+            visual.Palette,
+            visual.Animation,
+            treasure.TextId,
+            treasure.Message,
+            record.Source,
+            SpawnMode: falling ? 2 : 0,
+            GrabMode: 2,
+            SpawnDelayFrames: falling ? 40 : 0,
+            InitialZPixels: 0,
+            BounceCount: falling ? 2 : 0,
+            Gravity: falling ? 0x10 : 0,
+            BounceSpeed: falling ? -0xaa : 0,
+            SpawnSound: falling ? OracleSoundEngine.SndSolvePuzzle : 0,
+            LandingSound: falling ? OracleSoundEngine.SndDropEssence : 0,
+            InitialZAboveScreen: falling);
+        return new SpiritsGraveRewardController(
+            record, saveData, roomEnemyCount, ground,
+            enableLinkCollisionsAndMenu);
+    }
+
+    private static SpiritsGravePuzzleState RequireSpiritsGravePuzzle(
+        SpiritsGravePuzzleState? puzzle,
+        SpiritsGraveDatabase.ObjectRecord record) =>
+        puzzle ?? throw new InvalidOperationException(
+            $"{record.Source} is missing its room-local rotating-cube state.");
+
+    private bool SpiritsGraveConditionMet(
+        SpiritsGraveDatabase.ObjectRecord record) => record.Predicate switch
+    {
+        SpiritsGraveDatabase.Condition.Always => true,
+        SpiritsGraveDatabase.Condition.ItemClear =>
+            saveData?.HasRoomFlag(
+                record.Group, record.Room, OracleSaveData.RoomFlagItem) != true,
+        SpiritsGraveDatabase.Condition.Flag80Clear =>
+            saveData?.HasRoomFlag(
+                record.Group, record.Room, OracleSaveData.RoomFlag80) != true,
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(record), record, "Unknown Spirit's Grave predicate.")
+    };
+
+    private IRoomEntity? CreateDungeonMechanic(
+        DungeonMechanicDatabase.Record record,
+        OracleRoomData room,
+        int group,
+        bool enemyMechanicsSupported,
+        EnemyPlacementContext placementContext)
+    {
+        if (record.Id == 0x09)
+        {
+            return new GroundButtonRoomEntity(
+                record, room, _dungeonMechanics, setTrigger,
+                animationTick, soundRequested);
+        }
+        if (record.Id is 0x20 or 0x21)
+        {
+            return new TriggerChestRoomEntity(
+                record, room, _dungeonMechanics, triggerState,
+                () => saveData?.HasRoomFlag(
+                    group, room.Id, OracleSaveData.RoomFlagItem) == true,
+                animationTick, soundRequested);
+        }
+        if (record.Id == 0x13 && !enemyMechanicsSupported)
+            return null;
+        return record.Id switch
+        {
+            0x13 => new PushBlockTriggerRoomEntity(
+                record, room, _dungeonMechanics,
+                roomEnemyCount, animationTick),
+            0x1e => new DungeonDoorRoomEntity(
+                record, room, _dungeonMechanics, roomEnemyCount,
+                triggerActive, worldToScreen, animationTick,
+                soundRequested, placementContext, enemyMechanicsSupported),
+            _ => throw new InvalidOperationException(
+                $"Unsupported dungeon interaction ${record.Id:x2}:" +
+                $"${record.SubId:x2} in room {group:x1}:{room.Id:x2}.")
+        };
+    }
+
+    private IRoomEntity CreateSharedDungeonInteraction(
+        DungeonEntranceInteractionDatabase.PlacementRecord record,
+        OracleRoomData room,
+        EnemyPlacementContext placementContext)
+    {
+        switch (record.Kind)
+        {
+            case DungeonEntranceInteractionDatabase.ObjectKind.Entry:
+                return new DungeonEntranceRoomEntity(
+                    new Vector2(record.X, record.Y),
+                    _dungeonEntrances.Entry(record.Dungeon),
+                    _dungeonEntrances,
+                    runtimeState,
+                    placementContext.Kind == EnemyPlacementEntryKind.ScreenWarp,
+                    dungeonEntranceTriggered);
+
+            case DungeonEntranceInteractionDatabase.ObjectKind.EyeSpawner:
+                return new StatueEyeballSpawnerRoomEntity(room, _dungeonEntrances);
+
+            case DungeonEntranceInteractionDatabase.ObjectKind.MinibossPortal:
+                var portal = new MinibossPortal();
+                portal.Initialize(_dungeonEntrances);
+                return new MinibossPortalRoomEntity(
+                    portal, record, _dungeonEntrances, saveData,
+                    roomWarpRequested, soundRequested);
+
+            default:
+                throw new InvalidOperationException(
+                    $"Unsupported shared dungeon interaction kind in {record.Source}.");
+        }
+    }
+
     private IRoomEntity? CreateOrderedEnemy(
         EnemyDatabase.RoomObjectRecord source,
         OracleRoomData room,
@@ -376,6 +678,56 @@ internal sealed class RoomEntityFactory(
             return new ZolRoomEntity(zol, soundRequested, killableEnemyIndex);
         }
 
+        bool spiritsGraveEnemy = source.Group == 4 &&
+            source.Room is >= 0x10 and <= 0x25;
+        if (spiritsGraveEnemy && source.Id == 0x0a)
+        {
+            var moblin = new BoomerangMoblinCharacter
+            {
+                Name = $"BoomerangMoblin_{source.Order}_{instance}",
+                ZIndex = 10
+            };
+            moblin.Initialize(_spiritsGrave.Enemy(0x0a, source.SubId), room, position, random);
+            return new BoomerangMoblinRoomEntity(moblin, killableEnemyIndex);
+        }
+
+        if (spiritsGraveEnemy && source.Id == 0x10)
+        {
+            var rope = new RopeCharacter
+            {
+                Name = $"Rope_{source.Order}_{instance}",
+                ZIndex = 10
+            };
+            rope.Initialize(_spiritsGrave.Enemy(0x10, source.SubId), room, position, random);
+            return new RopeRoomEntity(rope, killableEnemyIndex);
+        }
+
+        if (spiritsGraveEnemy && source.Id == 0x17)
+        {
+            var ghini = new GhiniCharacter
+            {
+                Name = $"Ghini_{source.Order}_{instance}",
+                ZIndex = 10
+            };
+            ghini.Initialize(_spiritsGrave.Enemy(0x17, source.SubId), room, position, random);
+            return new GhiniRoomEntity(
+                ghini, killableEnemyIndex, soundRequested);
+        }
+
+        if (spiritsGraveEnemy && source.Id == 0x28)
+        {
+            var wallmaster = new WallmasterCharacter
+            {
+                Name = $"Wallmaster_{source.Order}_{instance}",
+                ZIndex = 10
+            };
+            wallmaster.Initialize(
+                _spiritsGrave.Enemy(0x28, source.SubId), room, position);
+            return new WallmasterRoomEntity(
+                wallmaster, soundRequested, roomWarpRequested,
+                source.Group, source.Room, killableEnemyIndex);
+        }
+
         return source.Id == 0x43 && source.SubId == 0
             ? CreateGel(
                 new GelSpawn(position, $"RoomGel_{source.Order}_{instance}"),
@@ -388,11 +740,15 @@ internal sealed class RoomEntityFactory(
         OctorokRockSpawn rock => CreateRock(rock, room),
         MaskedMoblinSpawn moblin => CreateMaskedMoblin(moblin, room),
         EnemyArrowSpawn arrow => CreateEnemyArrow(arrow, room),
+        MoblinBoomerangSpawn boomerang => CreateMoblinBoomerang(boomerang, room),
         GelSpawn gel => CreateGel(gel, room),
         EnemyDeathPuffSpawn puff => CreateDeathPuff(puff),
+        BossDeathExplosionSpawn explosion => CreateBossDeathExplosion(explosion),
+        BossShadowSpawn shadow => CreateBossShadow(shadow),
         KillEnemyPuffSpawn puff => CreateKillPuff(puff),
         ItemDropSpawn drop => CreateItemDrop(drop, room),
         ShovelDebrisSpawn debris => CreateShovelDebris(debris),
+        RockDebrisSpawn debris => CreateRockDebris(debris),
         EmberSeedSpawn seed => CreateEmberSeed(seed, room),
         PuzzlePuffSpawn puff => CreatePuzzlePuff(puff),
         FallingDownHoleSpawn fall => CreateFallingDownHole(fall),
@@ -404,8 +760,85 @@ internal sealed class RoomEntityFactory(
         Room148DebrisSpawn debris => CreateRoom148Debris(debris),
         SwordBeamSpawn beam => CreateSwordBeam(beam, room),
         SwordBeamClinkSpawn clink => CreateSwordBeamClink(clink),
+        StatueEyeballSpawn eye => CreateStatueEyeball(eye),
+        SpiritsGraveMovingPlatformSpawn platform =>
+            CreateSpiritsGraveMovingPlatform(platform),
+        SpiritsGraveMinibossPortalSpawn => CreateSpiritsGraveMinibossPortal(room),
+        GiantGhiniChildSpawn child => CreateGiantGhiniChild(child),
+        PumpkinHeadProjectileSpawn projectile =>
+            CreatePumpkinHeadProjectile(projectile, room),
         _ => throw new ArgumentOutOfRangeException(nameof(spawn), spawn, "Unknown room-entity spawn request.")
     };
+
+    private IRoomEntity CreateSpiritsGraveMovingPlatform(
+        SpiritsGraveMovingPlatformSpawn spawn) =>
+        new SpiritsGraveMovingPlatform(
+            _spiritsGrave.Visual(
+                (spawn.SubId >> 3) == 0 ? "platform-05" : "platform-09"),
+            spawn.Position,
+            spawn.SubId,
+            _spiritsGrave.MovingPlatformCollisionRadii(spawn.SubId));
+
+    private IRoomEntity CreateGiantGhiniChild(GiantGhiniChildSpawn spawn)
+    {
+        var child = new GiantGhiniChild
+        {
+            Name = $"GiantGhiniChild_{spawn.Index}",
+            ZIndex = 10
+        };
+        child.Initialize(_spiritsGrave.Enemy(0x3f), spawn.Owner, spawn.Index);
+        return new GiantGhiniChildRoomEntity(child);
+    }
+
+    private IRoomEntity CreatePumpkinHeadProjectile(
+        PumpkinHeadProjectileSpawn spawn,
+        OracleRoomData room) =>
+        new PumpkinHeadProjectileRoomEntity(
+            new PumpkinHeadProjectile(
+                _spiritsGrave.Visual("pumpkin-projectile"),
+                room,
+                spawn.Position,
+                spawn.Angle));
+
+    private IRoomEntity CreateSpiritsGraveMinibossPortal(OracleRoomData room)
+    {
+        foreach (DungeonEntranceInteractionDatabase.PlacementRecord record in
+            _dungeonEntrances.GetRoomRecords(4, room.Id))
+        {
+            if (record.Kind ==
+                DungeonEntranceInteractionDatabase.ObjectKind.MinibossPortal)
+            {
+                return CreateSharedDungeonInteraction(
+                    record, room, EnemyPlacementContext.Unrestricted);
+            }
+        }
+        throw new InvalidOperationException(
+            $"Spirit's Grave room 4:{room.Id:x2} has no miniboss portal placement.");
+    }
+
+    private StatueEyeballRoomEntity CreateStatueEyeball(StatueEyeballSpawn spawn)
+    {
+        var eye = new StatueEyeball();
+        eye.Initialize(spawn.Position, _dungeonEntrances);
+        return new StatueEyeballRoomEntity(eye);
+    }
+
+    private MoblinBoomerangRoomEntity CreateMoblinBoomerang(
+        MoblinBoomerangSpawn spawn,
+        OracleRoomData room)
+    {
+        var boomerang = new MoblinBoomerangProjectile(
+            spawn.Owner,
+            room,
+            spawn.Position,
+            spawn.Angle,
+            _spiritsGrave.Visual("moblin-boomerang"))
+        {
+            Name = "MoblinBoomerang",
+            ZIndex = 11
+        };
+        return new MoblinBoomerangRoomEntity(boomerang);
+    }
 
     private IEnumerable<IRoomEntity> CreateRoom148Npcs(
         IReadOnlyList<NpcDatabase.NpcRecord> records)
@@ -511,10 +944,11 @@ internal sealed class RoomEntityFactory(
     }
 
     private IEnumerable<IRoomEntity> CreateBlackTowerNpcs(
-        int room,
+        OracleRoomData roomData,
         IReadOnlyList<NpcDatabase.NpcRecord> records,
         EnemyPlacementContext placementContext)
     {
+        int room = roomData.Id;
         for (int index = 0; index < records.Count; index++)
         {
             NpcDatabase.NpcRecord record = records[index];
@@ -549,10 +983,27 @@ internal sealed class RoomEntityFactory(
             // intentionally absent from the ordinary visible-NPC table.
             if (room == 0xe7 && index == 0)
             {
-                yield return new BlackTowerEntranceRoomEntity(
-                    new Vector2(0x78, 0x88), _blackTower,
-                    placementContext.Kind == EnemyPlacementEntryKind.ScreenWarp,
-                    dungeonEntranceTriggered);
+                DungeonEntranceInteractionDatabase.PlacementRecord entrance = default;
+                bool foundEntrance = false;
+                foreach (DungeonEntranceInteractionDatabase.PlacementRecord candidate in
+                    _dungeonEntrances.GetRoomRecords(4, 0xe7))
+                {
+                    if (candidate.Kind !=
+                        DungeonEntranceInteractionDatabase.ObjectKind.Entry)
+                    {
+                        continue;
+                    }
+                    entrance = candidate;
+                    foundEntrance = true;
+                    break;
+                }
+                if (!foundEntrance)
+                {
+                    throw new InvalidOperationException(
+                        "Room 4:e7 is missing INTERAC_DUNGEON_STUFF $12:$00.");
+                }
+                yield return CreateSharedDungeonInteraction(
+                    entrance, roomData, placementContext);
             }
         }
     }
@@ -697,6 +1148,20 @@ internal sealed class RoomEntityFactory(
         return new ShovelDebrisRoomEntity(debris);
     }
 
+    private IRoomEntity CreateRockDebris(RockDebrisSpawn spawn)
+    {
+        var debris = new RockDebrisEffect
+        {
+            Name = spawn.InteractionId == 0x0c
+                ? "RockDebris2"
+                : "RockDebris",
+            ZIndex = 9
+        };
+        debris.Initialize(
+            spawn.Position, spawn.InteractionId, soundRequested);
+        return new RockDebrisRoomEntity(debris);
+    }
+
     private IRoomEntity CreateEmberSeed(EmberSeedSpawn spawn, OracleRoomData room)
     {
         var seed = new EmberSeedEffect
@@ -708,7 +1173,13 @@ internal sealed class RoomEntityFactory(
             spawn.Record, room, _breakables, spawn.LinkPosition, spawn.Direction,
             soundRequested, itemDropEnteredHazard, roomTileChanged, animationTick,
             drop => itemDrops.DecideBreakableDrop(drop, random), saveData,
-            spawn.Group);
+            spawn.Group,
+            rooms is null
+                ? null
+                : direction => rooms.TryGetNeighbor(
+                    spawn.Group, room.Id, direction, out int neighbor)
+                    ? neighbor
+                    : null);
         return new EmberSeedRoomEntity(seed);
     }
 
@@ -792,6 +1263,33 @@ internal sealed class RoomEntityFactory(
         puff.Initialize(spawn.Position, spawn.HighKnockback, spawn.EnemyId);
         soundRequested(OracleSoundEngine.SndKillEnemy);
         return new DeathPuffRoomEntity(puff, itemDrops, random);
+    }
+
+    private IRoomEntity CreateBossDeathExplosion(BossDeathExplosionSpawn spawn)
+    {
+        var explosion = new BossDeathExplosionEffect
+        {
+            Name = "BossDeathExplosion",
+            ZIndex = 10
+        };
+        explosion.Initialize(spawn.Position, spawn.BossId, soundRequested);
+        return new BossDeathExplosionRoomEntity(explosion);
+    }
+
+    private static IRoomEntity CreateBossShadow(BossShadowSpawn spawn)
+    {
+        var shadow = new BossShadowEffect
+        {
+            Name = "BossShadow",
+            ZIndex = NpcCharacter.FixedLowPriorityZIndex
+        };
+        shadow.Initialize(
+            spawn.ParentPosition,
+            spawn.ParentZ,
+            spawn.ParentExists,
+            spawn.Size,
+            spawn.YOffset);
+        return new BossShadowRoomEntity(shadow);
     }
 
     private IRoomEntity CreateKillPuff(KillEnemyPuffSpawn spawn)
@@ -891,6 +1389,8 @@ internal sealed class RoomEntityFactory(
                     bool supported = source.Id switch
                     {
                         0x09 => enemies.TryGetOctorokDefinition(source, out _),
+                        0x0a or 0x10 or 0x17 or 0x28 =>
+                            group == 4 && room.Id is >= 0x10 and <= 0x25,
                         0x31 => enemies.TryGetStalfosDefinition(source, out _),
                         0x32 => enemies.TryGetKeeseDefinition(source, out _),
                         0x34 => enemies.TryGetZolDefinition(source, out _),
@@ -914,6 +1414,21 @@ internal sealed class RoomEntityFactory(
         int group,
         OracleRoomData room)
     {
+        bool hasSupportedNativeBossRecord = false;
+        foreach (SpiritsGraveDatabase.ObjectRecord native in
+            _spiritsGrave.GetRoomRecords(group, room.Id))
+        {
+            if (native.Kind is SpiritsGraveDatabase.ObjectKind.GiantGhini or
+                SpiritsGraveDatabase.ObjectKind.PumpkinHead)
+            {
+                // A completed boss's BeforeEvent record is suppressed by
+                // ROOMFLAG_80. That is still a complete zero-enemy stream:
+                // the original shutter script sees wNumEnemies == 0 and
+                // opens every enemy shutter while the room initializes.
+                hasSupportedNativeBossRecord = true;
+                break;
+            }
+        }
         bool hasSupportedDoor = false;
         foreach (DungeonMechanicDatabase.Record record in records)
         {
@@ -923,7 +1438,7 @@ internal sealed class RoomEntityFactory(
                 hasSupportedDoor = true;
             if (record.Id == 0x1e && record.SubId <= 0x07)
                 continue;
-            if (!record.CountSourceComplete)
+            if (!record.CountSourceComplete && !hasSupportedNativeBossRecord)
                 return false;
         }
         return hasSupportedDoor && DungeonEnemyCountIsComplete(group, room);

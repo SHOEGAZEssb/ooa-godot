@@ -587,6 +587,10 @@ public sealed class RoomTransitionController
         WarpDatabase.Warp warp = _pendingWarp;
         OracleRoomData room = _rooms.Load(warp.DestinationGroup, warp.DestinationRoom);
         _roomView.SetRoom(room.Texture);
+        // Room-palette darkening belongs to the source room. Time-warp already
+        // clears it above; ordinary/delayed warps must not carry it into the
+        // destination either (notably after an Essence get sequence).
+        _roomView.ClearBackgroundFade();
         // Standard warp loading clears wEnemiesKilledList only when the
         // destination's wDungeonIndex is $ff. Dungeon-to-dungeon warps retain
         // the same transient last-eight-room suppression as scrolling.

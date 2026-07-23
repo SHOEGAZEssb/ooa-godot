@@ -713,12 +713,40 @@ public partial class NpcCharacter : TransitionOffsetNode2D
             tileBase,
             basePalette,
             paletteOverride,
+            paletteOverrides: null,
             sourceGrayscaleInverted,
             OracleGraphicsCache.CompositionMode.Fixed32,
             () => new OracleGraphicsCache.OamFrame(
                 BuildOamTextureUncached(
                     source, encodedOam, tileBase, basePalette,
-                    paletteOverride, sourceGrayscaleInverted),
+                    paletteOverride, paletteOverrides: null,
+                    sourceGrayscaleInverted),
+                new Vector2(-16, -16)));
+        return frame.Texture;
+    }
+
+    internal static Texture2D BuildOamTextureWithPaletteOverrides(
+        Image source,
+        string encodedOam,
+        int tileBase,
+        int basePalette,
+        IReadOnlyDictionary<int, Color[]> paletteOverrides,
+        bool sourceGrayscaleInverted = true)
+    {
+        OracleGraphicsCache.OamFrame frame = OracleGraphicsCache.GetOrCreateOamFrame(
+            source,
+            encodedOam,
+            tileBase,
+            basePalette,
+            paletteOverride: null,
+            paletteOverrides,
+            sourceGrayscaleInverted,
+            OracleGraphicsCache.CompositionMode.Fixed32,
+            () => new OracleGraphicsCache.OamFrame(
+                BuildOamTextureUncached(
+                    source, encodedOam, tileBase, basePalette,
+                    paletteOverride: null, paletteOverrides,
+                    sourceGrayscaleInverted),
                 new Vector2(-16, -16)));
         return frame.Texture;
     }
@@ -731,7 +759,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         Color[]? paletteOverride = null,
         bool sourceGrayscaleInverted = true) => BuildOamTextureUncached(
             source, encodedOam, tileBase, basePalette,
-            paletteOverride, sourceGrayscaleInverted);
+            paletteOverride, paletteOverrides: null, sourceGrayscaleInverted);
 
     private static Texture2D BuildOamTextureUncached(
         Image source,
@@ -739,6 +767,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         int tileBase,
         int basePalette,
         Color[]? paletteOverride,
+        IReadOnlyDictionary<int, Color[]>? paletteOverrides,
         bool sourceGrayscaleInverted)
     {
         // Imported NPC animations may suffix their final OAM frame with the
@@ -771,6 +800,10 @@ public partial class NpcCharacter : TransitionOffsetNode2D
             bool flipX = (flags & 0x20) != 0;
             bool flipY = (flags & 0x40) != 0;
             int palette = basePalette ^ (flags & 0x07);
+            Color[]? blockPalette = paletteOverrides is not null &&
+                paletteOverrides.TryGetValue(palette, out Color[]? overridePalette)
+                    ? overridePalette
+                    : paletteOverride;
 
             for (int y = 0; y < 16; y++)
             for (int x = 0; x < 8; x++)
@@ -783,7 +816,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
                     writeX < 0 || writeX >= output.GetWidth() || writeY < 0 || writeY >= output.GetHeight())
                     continue;
                 Color pixel = RecolorSpritePixel(
-                    source.GetPixel(readX, readY), palette, paletteOverride,
+                    source.GetPixel(readX, readY), palette, blockPalette,
                     sourceGrayscaleInverted);
                 if (pixel.A > 0.1f)
                     output.SetPixel(writeX, writeY, pixel);
@@ -807,6 +840,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
             tileBase,
             basePalette,
             paletteOverride,
+            paletteOverrides: null,
             sourceGrayscaleInverted,
             OracleGraphicsCache.CompositionMode.Positioned,
             () =>
@@ -858,7 +892,8 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         if (minX == int.MaxValue)
             return (BuildOamTextureUncached(
                 source, encodedOam, tileBase, basePalette, paletteOverride,
-                sourceGrayscaleInverted), new Vector2(-16, -16));
+                paletteOverrides: null, sourceGrayscaleInverted),
+                new Vector2(-16, -16));
 
         Image output = Image.CreateEmpty(maxX - minX, maxY - minY, false, Image.Format.Rgba8);
         // Preserve Game Boy OAM priority: lower indices cover later entries.
@@ -931,6 +966,13 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         new[] { Colors.Transparent, GbcColor(0x0e, 0x15, 0x1f), GbcColor(0x00, 0x00, 0x1f), GbcColor(0x00, 0x00, 0x00) },
         new[] { Colors.Transparent, GbcColor(0x1f, 0x16, 0x06), GbcColor(0x1b, 0x00, 0x00), GbcColor(0x00, 0x00, 0x00) }
     };
+
+    internal static Color[] GetStandardSpritePalette(int palette)
+    {
+        if (palette < 0 || palette >= StandardSpritePalettes.Length)
+            palette = 1;
+        return (Color[])StandardSpritePalettes[palette].Clone();
+    }
 
     private static Color GbcColor(int red, int green, int blue)
     {

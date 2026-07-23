@@ -27,6 +27,7 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool SwordDisabled => _roomEvents.Active || _entities.PlayerSwordDisabled;
     public bool ItemUsageDisabled => _entities.PlayerItemUsageDisabled;
     public bool MovementDisabled => _roomEvents.Active || _entities.PlayerMovementDisabled;
+    public bool RidingObject => _entities.PlayerRidingObject;
     public bool RingTransformationsAllowed =>
         !_roomEvents.Active &&
         (_terrain.CurrentTilesetFlags & 0x60) == 0 &&
@@ -79,7 +80,22 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool TryInteract(Player player) => _interactions.TryInteract(player);
     public bool TrySecondaryInteract(Player player) =>
         _roomEvents.TryInteractPlayer(player);
-    public bool TryUseBracelet(Player player) => _bracelet.TryUse(player);
+    public bool TryUseBracelet(Player player, bool primaryButton) =>
+        _bracelet.TryUse(player, primaryButton);
+    public bool UpdateBracelet(
+        Player player,
+        Vector2 movementInput,
+        bool primaryHeld,
+        bool secondaryHeld,
+        bool itemButtonJustPressed) =>
+        _bracelet.Update(
+            player,
+            movementInput,
+            primaryHeld,
+            secondaryHeld,
+            itemButtonJustPressed);
+    public void InterruptBracelet(Player player, bool discard) =>
+        _bracelet.Interrupt(player, discard);
     public int TryUseSeedSatchel(Player player) => _seedSatchel.TryUse(player);
     public bool DigWithShovel(Vector2 point, Vector2I direction) =>
         _shovel.TryDig(point, direction);
@@ -105,12 +121,13 @@ public sealed class PlayerWorld : IPlayerWorld
             : movementInput;
         _pushBlocks.UpdatePushAttempt(
             position, facing, resolvedInput,
-            _inventory.HasTreasure(TreasureDatabase.TreasureBracelet));
+            _inventory.BraceletLevel);
         _keyDoors.UpdatePushAttempt(position, facing, resolvedInput);
         _keyholes.UpdatePushAttempt(position, facing, resolvedInput);
     }
     public ActiveTerrainInfo GetActiveTerrain(Vector2 position) => _terrain.GetActiveTerrain(position);
-    public Vector2 GetTerrainPush(Vector2 position) => _terrain.GetTerrainPush(position);
+    public Vector2 GetTerrainPush(Vector2 position) =>
+        RidingObject ? Vector2.Zero : _terrain.GetTerrainPush(position);
     public bool TryStartLedgeHop(Player player, Vector2 from, Vector2 movement) =>
         _terrain.TryStartLedgeHop(player, from, movement);
     public void SpawnDrowningSplash(Vector2 position, OracleRoomData.HazardType hazard) =>

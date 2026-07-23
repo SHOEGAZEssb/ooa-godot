@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Imported small-key door tile behavior from interactableTilesTable and the
+/// Imported small-key and boss-key door behavior from interactableTilesTable and the
 /// matching standard room-flag substitutions. Directional flags are retained
 /// for both sides of a dungeon-layout adjacency.
 /// </summary>
@@ -14,6 +14,8 @@ internal sealed class DungeonKeyDoorDatabase
     internal readonly record struct Record(
         byte ClosedTile,
         Vector2I Direction,
+        bool UsesBossKey,
+        int KeyGraphic,
         byte OpenTile,
         byte RoomFlag,
         byte OppositeRoomFlag,
@@ -33,10 +35,11 @@ internal sealed class DungeonKeyDoorDatabase
         GeneratedTable table = GeneratedTable.Load(
             "res://assets/oracle/objects/dungeon_key_doors.tsv",
             new GeneratedTableSchema(
-                "dungeon small-key doors",
+                "dungeon key doors",
                 GeneratedTableKeySemantics.Unique,
                 [
-                    "closed-tile", "direction", "open-tile", "room-flag",
+                    "closed-tile", "direction", "key-kind", "key-graphic",
+                    "open-tile", "room-flag",
                     "opposite-room-flag", "push-counter", "door-frame-wait",
                     "door-sound", "key-sound", "no-key-text-id", "no-key-utf8-base64"
                 ],
@@ -54,25 +57,36 @@ internal sealed class DungeonKeyDoorDatabase
                     "left" => Vector2I.Left,
                     _ => throw row.Invalid(1, "one of up, right, down, left")
                 },
-                (byte)row.HexByte(2),
-                (byte)row.HexByte(3),
+                row.RequiredString(2) switch
+                {
+                    "small" => false,
+                    "boss" => true,
+                    _ => throw row.Invalid(2, "small or boss")
+                },
+                row.HexByte(3),
                 (byte)row.HexByte(4),
-                row.UnsignedDecimal(5),
-                row.UnsignedDecimal(6),
+                (byte)row.HexByte(5),
+                (byte)row.HexByte(6),
                 row.UnsignedDecimal(7),
                 row.UnsignedDecimal(8),
-                row.HexWord(9),
-                row.Base64Utf8(10));
+                row.UnsignedDecimal(9),
+                row.UnsignedDecimal(10),
+                row.HexWord(11),
+                row.Base64Utf8(12));
             if (!_records.TryAdd(record.ClosedTile, record))
                 throw new InvalidOperationException(
-                    $"Duplicate small-key door tile ${record.ClosedTile:x2}.");
+                    $"Duplicate dungeon-key door tile ${record.ClosedTile:x2}.");
         }
 
-        if (_records.Count != 4 ||
+        if (_records.Count != 8 ||
             !_records.TryGetValue(0x70, out Record up) ||
             !_records.TryGetValue(0x71, out Record right) ||
             !_records.TryGetValue(0x72, out Record down) ||
             !_records.TryGetValue(0x73, out Record left) ||
+            !_records.TryGetValue(0x74, out Record bossUp) ||
+            !_records.TryGetValue(0x75, out Record bossRight) ||
+            !_records.TryGetValue(0x76, out Record bossDown) ||
+            !_records.TryGetValue(0x77, out Record bossLeft) ||
             up.Direction != Vector2I.Up || up.RoomFlag != 0x01 ||
             right.Direction != Vector2I.Right || right.RoomFlag != 0x02 ||
             down.Direction != Vector2I.Down || down.RoomFlag != 0x04 ||
@@ -80,11 +94,17 @@ internal sealed class DungeonKeyDoorDatabase
             left.OppositeRoomFlag != 0x02 ||
             left.OpenTile != 0xa0 || left.PushCounter != 20 ||
             left.DoorFrameWait != 6 || left.DoorSound != 0x70 ||
+            left.UsesBossKey || left.KeyGraphic != 0x42 ||
             left.KeySound != 0x5e || left.NoKeyTextId != 0x5100 ||
+            !bossUp.UsesBossKey || bossUp.Direction != Vector2I.Up ||
+            !bossRight.UsesBossKey || bossRight.Direction != Vector2I.Right ||
+            !bossDown.UsesBossKey || bossDown.Direction != Vector2I.Down ||
+            !bossLeft.UsesBossKey || bossLeft.Direction != Vector2I.Left ||
+            bossRight.KeyGraphic != 0x43 || bossRight.NoKeyTextId != 0x5101 ||
             string.IsNullOrWhiteSpace(left.NoKeyMessage))
         {
             throw new InvalidOperationException(
-                "Imported small-key door $70-$73 contract is incomplete.");
+                "Imported dungeon-key door $70-$77 contract is incomplete.");
         }
     }
 

@@ -145,12 +145,21 @@ public sealed class RoomSession
 
     public bool TryGetNeighbor(Vector2I direction, out int room)
     {
-        int dungeon = CurrentDungeonIndex;
-        if (dungeon >= 0)
-            return DungeonMaps.TryGetNeighbor(dungeon, CurrentRoom.Id, direction, out room);
+        return TryGetNeighbor(ActiveGroup, CurrentRoom.Id, direction, out room);
+    }
 
-        int x = CurrentRoom.Id & 0x0f;
-        int y = (CurrentRoom.Id >> 4) & 0x0f;
+    public bool TryGetNeighbor(
+        int group,
+        int sourceRoom,
+        Vector2I direction,
+        out int room)
+    {
+        int dungeon = World.GetDungeonIndex(group, sourceRoom);
+        if (dungeon >= 0)
+            return DungeonMaps.TryGetNeighbor(dungeon, sourceRoom, direction, out room);
+
+        int x = sourceRoom & 0x0f;
+        int y = (sourceRoom >> 4) & 0x0f;
         x += direction.X;
         y += direction.Y;
         if (x < 0 || x > 15 || y < 0 || y > 15)

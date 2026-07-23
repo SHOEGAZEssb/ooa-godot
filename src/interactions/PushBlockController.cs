@@ -27,14 +27,19 @@ public partial class PushBlockController : Node2D
     private byte _destinationBackground;
     private PushableTileDatabase.PushableTileRecord _record;
     private Texture2D? _blockTexture;
+    private readonly BraceletDatabase.Record _bracelet = new BraceletDatabase().Data;
+    private int _activeMoveFrames = MoveFrames;
+    private float _activeMoveSpeedPerFrame = MoveSpeedPerFrame;
 
     public event Action<Vector2, OracleRoomData.HazardType>? EnteredHazard;
 
     public bool Active => _active;
     internal int RemainingPushFrames => _pushCounter;
     internal float MoveFrame => _moveFrame;
+    internal int ActiveMoveFrames => _activeMoveFrames;
+    internal float ActiveMoveSpeedPerFrame => _activeMoveSpeedPerFrame;
     internal Vector2 BlockTopLeft => _sourceTopLeft + (Vector2)_moveDirection *
-        (_moveFrame * MoveSpeedPerFrame);
+        (_moveFrame * _activeMoveSpeedPerFrame);
 
     public PushBlockController(
         RoomSession rooms,
@@ -56,14 +61,14 @@ public partial class PushBlockController : Node2D
         Vector2 linkPosition,
         Vector2I facing,
         Vector2 movementInput,
-        bool hasBracelet = false)
+        int braceletLevel = 0)
     {
         if (_active)
             return;
 
         if (!InteractableTilePushGeometry.TryGetCardinalInput(
                 movementInput, out Vector2I direction) || direction != facing ||
-            !TryGetCandidate(linkPosition, direction, hasBracelet, out int position,
+            !TryGetCandidate(linkPosition, direction, braceletLevel > 0, out int position,
                 out Vector2 topLeft, out byte tile,
                 out PushableTileDatabase.PushableTileRecord record))
         {
@@ -82,7 +87,7 @@ public partial class PushBlockController : Node2D
         if (_pushCounter > 0)
             return;
 
-        StartMovement(topLeft, tile, direction, record);
+        StartMovement(topLeft, tile, direction, record, braceletLevel);
     }
 
     public override void _PhysicsProcess(double delta) => Advance(delta);
@@ -163,7 +168,8 @@ public partial class PushBlockController : Node2D
         Vector2 topLeft,
         byte tile,
         Vector2I direction,
-        PushableTileDatabase.PushableTileRecord record)
+        PushableTileDatabase.PushableTileRecord record,
+        int braceletLevel)
     {
         OracleRoomData room = _rooms.CurrentRoom;
         Image image = room.Texture.GetImage().GetRegion(
@@ -174,6 +180,15 @@ public partial class PushBlockController : Node2D
         _collisionCenter = topLeft + new Vector2(8, 6);
         _moveDirection = direction;
         _record = record;
+        bool usePowerGloveSpeed = braceletLevel >= 2 &&
+            (record.PropertyFlags & _bracelet.HeavyPropertyMask) == 0;
+        _activeMoveFrames = usePowerGloveSpeed
+            ? _bracelet.PowerGlovePushFrames
+            : _bracelet.PushFrames;
+        int speedRaw = usePowerGloveSpeed
+            ? _bracelet.PowerGlovePushSpeedRaw
+            : _bracelet.PushSpeedRaw;
+        _activeMoveSpeedPerFrame = speedRaw / 40.0f;
         _destinationBackground = room.GetMetatile(_destinationTopLeft + Vector2.One * 8.0f);
         _moveFrame = 0.0f;
         _active = true;
@@ -192,11 +207,12 @@ public partial class PushBlockController : Node2D
 
     private void AdvanceMovement(double delta)
     {
-        _moveFrame = Mathf.Min(MoveFrames, _moveFrame + (float)(delta * 60.0));
+        _moveFrame = Mathf.Min(
+            _activeMoveFrames, _moveFrame + (float)(delta * 60.0));
         _collisionCenter = _sourceTopLeft + new Vector2(8, 6) +
-            (Vector2)_moveDirection * (_moveFrame * MoveSpeedPerFrame);
+            (Vector2)_moveDirection * (_moveFrame * _activeMoveSpeedPerFrame);
         QueueRedraw();
-        if (_moveFrame < MoveFrames)
+        if (_moveFrame < _activeMoveFrames)
             return;
 
         OracleRoomData room = _rooms.CurrentRoom;

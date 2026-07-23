@@ -139,13 +139,28 @@ public sealed class CombatController
         ClinkEffectsSpawned++;
     }
 
-    private void SpawnBreakEffect(Vector2 point, int effect)
+    internal void SpawnBreakEffect(Vector2 point, int effect)
     {
         // INTERAC_GRASSDEBRIS ($00) and INTERAC_BUSHLEAF ($01) share
-        // SND_CUTGRASS. Other imported debris records remain owned by their
-        // respective interaction slices, but their tile replacement is still
-        // applied here.
-        if ((effect & 0x1f) is not (0x00 or 0x01))
+        // SND_CUTGRASS. INTERAC_ROCKDEBRIS ($06/$0c) owns its imported
+        // animation, palette, and sound through the room-entity path.
+        int interaction = effect & 0x1f;
+        if (interaction is 0x06 or 0x0c)
+        {
+            int rockTileX = Mathf.FloorToInt(
+                point.X / OracleRoomData.MetatileSize);
+            int rockTileY = Mathf.FloorToInt(
+                point.Y / OracleRoomData.MetatileSize);
+            _entities.Spawn<RockDebrisEffect>(new RockDebrisSpawn(
+                new Vector2(
+                    rockTileX * OracleRoomData.MetatileSize +
+                        OracleRoomData.MetatileSize / 2.0f,
+                    rockTileY * OracleRoomData.MetatileSize +
+                        OracleRoomData.MetatileSize / 2.0f),
+                interaction));
+            return;
+        }
+        if (interaction is not (0x00 or 0x01))
             return;
 
         int tileX = Mathf.FloorToInt(point.X / OracleRoomData.MetatileSize);

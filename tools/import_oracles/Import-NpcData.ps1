@@ -681,6 +681,8 @@ $pushblockSource = Get-Content -Raw (
     Join-Path $Disassembly 'object_code\common\interactions\pushblock.s')
 $fallDownHoleSource = Get-Content -Raw (
     Join-Path $Disassembly 'object_code\common\interactions\fallDownHole.s')
+$breakTileDebrisSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\breakTileDebris.s')
 $bank0Source = Get-Content -Raw (Join-Path $Disassembly 'code\bank0.s')
 $zolEnemySource = Get-Content -Raw (
     Join-Path $Disassembly 'object_code\common\enemies\zol.s')
@@ -779,6 +781,34 @@ $puzzlePuffRows = @(
     "$($puzzlePuffGraphic.TileBase)`t$($puzzlePuffGraphic.Palette)`t$puzzlePuffAnimation"
 )
 
+$rockDebrisGraphic = $interactionGraphics['6:0']
+$rockDebrisAnimation = Resolve-NpcAnimation 0x06 0
+$rockDebris2Graphic = $interactionGraphics['12:0']
+$rockDebris2Animation = Resolve-NpcAnimation 0x0c 0
+if (-not $rockDebrisGraphic -or
+    $rockDebrisGraphic.Gfx -ne 0 -or
+    $rockDebrisGraphic.TileBase -ne 0x02 -or
+    $rockDebrisGraphic.Palette -ne 3 -or
+    $rockDebrisGraphic.DefaultAnimation -ne 0 -or
+    [string]::IsNullOrWhiteSpace($rockDebrisAnimation) -or
+    -not $rockDebris2Graphic -or
+    $rockDebris2Graphic.Gfx -ne 0 -or
+    $rockDebris2Graphic.TileBase -ne 0x40 -or
+    $rockDebris2Graphic.Palette -ne 5 -or
+    $rockDebris2Graphic.DefaultAnimation -ne 0 -or
+    [string]::IsNullOrWhiteSpace($rockDebris2Animation) -or
+    $rockDebris2Animation -ne $rockDebrisAnimation -or
+    $soundIds['SND_BREAK_ROCK'] -ne 0xa5 -or
+    $breakTileDebrisSource -notmatch '(?ms)^@state0:.*?interactionInitGraphics.*?^@soundAndPriorityTable:.*?\.db SND_BREAK_ROCK\s+\$00\s*;\s*0x06.*?\.db SND_BREAK_ROCK\s+\$00\s*;\s*0x0c' -or
+    $breakTileDebrisSource -notmatch '(?ms)^@state1:.*?Interaction\.animParameter\s+bit 7,\(hl\)\s+jp nz,interactionDelete.*?jp interactionAnimate') {
+    throw 'INTERAC_ROCKDEBRIS $06/$0c graphics, terminal animation, or SND_BREAK_ROCK changed.'
+}
+$rockDebrisRows = @(
+    "# interaction-id`tsprite`ttile-base`tpalette`tsound`tanimation"
+    "06`tspr_common_sprites`t$($rockDebrisGraphic.TileBase)`t$($rockDebrisGraphic.Palette)`t$($soundIds['SND_BREAK_ROCK'].ToString('x2'))`t$rockDebrisAnimation"
+    "0c`tspr_common_sprites`t$($rockDebris2Graphic.TileBase)`t$($rockDebris2Graphic.Palette)`t$($soundIds['SND_BREAK_ROCK'].ToString('x2'))`t$rockDebris2Animation"
+)
+
 $fallDownHoleGraphic = $interactionGraphics['15:0']
 $fallDownHoleAnimation = Resolve-NpcAnimation 0x0f 0
 if (-not $fallDownHoleGraphic -or
@@ -798,10 +828,10 @@ $fallDownHoleRows = @(
 $keyDoorOpenTiles = @{}
 foreach ($entry in [regex]::Matches(
     $standardTileSubstitutionSource,
-    '(?m)^\s*\.db \$(?<open>[0-9a-f]{2}) \$(?<closed>7[0-3])(?:\s|;)')) {
+    '(?m)^\s*\.db \$(?<open>[0-9a-f]{2}) \$(?<closed>7[0-7])(?:\s|;)')) {
     $closedTile = $entry.Groups['closed'].Value
     if ($keyDoorOpenTiles.ContainsKey($closedTile)) {
-        throw "Duplicate standard small-key door substitution for `$$closedTile."
+        throw "Duplicate standard dungeon-key door substitution for `$$closedTile."
     }
     $keyDoorOpenTiles[$closedTile] = $entry.Groups['open'].Value
 }
@@ -819,16 +849,24 @@ foreach ($entry in [regex]::Matches(
 }
 $keyDoorRows = [Collections.Generic.List[string]]::new()
 $keyDoorRows.Add(
-    "# closed-tile`tdirection`topen-tile`troom-flag`topposite-room-flag`tpush-counter`tdoor-frame-wait`tdoor-sound`tkey-sound`tno-key-text-id`tno-key-utf8-base64")
-$noKeyText = [Convert]::ToBase64String(
-    [Text.Encoding]::UTF8.GetBytes($allTexts[0x5100]))
+    "# closed-tile`tdirection`tkey-kind`tkey-graphic`topen-tile`troom-flag`topposite-room-flag`tpush-counter`tdoor-frame-wait`tdoor-sound`tkey-sound`tno-key-text-id`tno-key-utf8-base64")
+$noKeyTexts = @{
+    small = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($allTexts[0x5100]))
+    boss = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($allTexts[0x5101]))
+}
 foreach ($entry in [regex]::Matches(
     $interactableTileDataSource,
-    '(?m)^\s*\.db \$(?<tile>7[0-3]) \$(?<direction>[0-3])2\s*$')) {
+    '(?m)^\s*\.db \$(?<tile>7[0-7]) \$(?<parameter>[0-7])2\s*$')) {
     $tile = $entry.Groups['tile'].Value
-    $direction = [Convert]::ToInt32($entry.Groups['direction'].Value, 16)
+    $parameter = [Convert]::ToInt32($entry.Groups['parameter'].Value, 16)
+    $direction = $parameter -band 3
+    $keyKind = if ($parameter -ge 4) { 'boss' } else { 'small' }
+    $keyGraphic = if ($keyKind -eq 'boss') { '43' } else { '42' }
+    $noKeyTextId = if ($keyKind -eq 'boss') { '5101' } else { '5100' }
     if (-not $keyDoorOpenTiles.ContainsKey($tile)) {
-        throw "Small-key door `$$tile has no standard opened-tile substitution."
+        throw "Dungeon-key door `$$tile has no standard opened-tile substitution."
     }
     $directionName = @('up', 'right', 'down', 'left')[$direction]
     if (-not $keyDoorFlags.ContainsKey($directionName)) {
@@ -836,11 +874,12 @@ foreach ($entry in [regex]::Matches(
     }
     $roomFlag, $oppositeFlag = $keyDoorFlags[$directionName]
     $keyDoorRows.Add(
-        "$tile`t$directionName`t$($keyDoorOpenTiles[$tile])`t$roomFlag`t$oppositeFlag`t20`t6`t112`t94`t5100`t$noKeyText")
+        "$tile`t$directionName`t$keyKind`t$keyGraphic`t$($keyDoorOpenTiles[$tile])`t$roomFlag`t$oppositeFlag`t20`t6`t112`t94`t$noKeyTextId`t$($noKeyTexts[$keyKind])")
 }
-if ($keyDoorRows.Count -ne 5 -or
-    -not ($keyDoorRows -contains "73`tleft`ta0`t08`t02`t20`t6`t112`t94`t5100`t$noKeyText")) {
-    throw "Expected four imported small-key doors `$70-`$73 including left door `$73, parsed $($keyDoorRows.Count - 1)."
+if ($keyDoorRows.Count -ne 9 -or
+    -not ($keyDoorRows -contains "73`tleft`tsmall`t42`ta0`t08`t02`t20`t6`t112`t94`t5100`t$($noKeyTexts.small)") -or
+    -not ($keyDoorRows -contains "75`tright`tboss`t43`ta0`t02`t08`t20`t6`t112`t94`t5101`t$($noKeyTexts.boss)")) {
+    throw "Expected eight imported dungeon-key doors `$70-`$77, parsed $($keyDoorRows.Count - 1)."
 }
 
 # applyStandardTileSubstitutions selects one replacement list for each set room
@@ -1558,6 +1597,187 @@ $room148PickaxeRows = @(
     "$room148SpriteName`t$($room148WorkerGraphic.TileBase)`t$($room148WorkerGraphic.Palette)`t$room148WorkAnimation`t$room148TalkAnimation`t$room148DebrisSpriteName`t$($room148DebrisGraphic.TileBase)`t$room148DebrisAnimation`t1b00`t$room148Text`t$([Convert]::ToInt32($room148SoundMatch.Groups['value'].Value, 16))`t2`t4`t14`t$([Convert]::ToInt32($room148SpeedMatch.Groups['value'].Value, 16))`t-192`t24`t8`t24"
 )
 
+# Dungeon entry handlers, statue-eye spawners, and miniboss portals are shared
+# native interactions. Preserve every direct placement and the source tables
+# which select their dungeon text, initial spinner state, portal destination,
+# graphics, offsets, collision, timing, and sound. This keeps room 4:24 from
+# becoming a one-room reconstruction and lets the runtime merge these records
+# with the existing ordered dungeon-mechanic stream.
+$dungeonStuffSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\dungeonStuff.s')
+$statueEyeballSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\statueEyeball.s')
+$minibossPortalSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\minibossPortal.s')
+
+if ($dungeonStuffSource -notmatch '(?ms)^@subid00:.*?SCROLLMODE_02.*?cp \$78.*?ld a,\$08\s+call objectSetCollideRadius.*?call initializeDungeonStuff.*?call setDeathRespawnPoint' -or
+    $statueEyeballSource -notmatch '(?ms)^@subid2:.*?@centerOnTileAndGetDirectionToFace.*?@lowPositionValues:.*?\.db \$05 \$08.*?\.db \$07 \$07.*?\.db \$06 \$07.*?\.db \$05 \$07' -or
+    $statueEyeballSource -notmatch '(?ms)^@subid1:.*?ld e,\$02.*?wRoomLayout \+ LARGE_ROOM_WIDTH-1 \+ \(LARGE_ROOM_HEIGHT-1\)\*16.*?TILEINDEX_EYE_STATUE.*?convertShortToLongPosition_paramC.*?dec b\s+dec b' -or
+    $minibossPortalSource -notmatch '(?ms)^@minibossState0:.*?@dungeonRoomTable.*?and \$80.*?ld c,\$57.*?ld a,\$03\s+call objectSetCollideRadius' -or
+    $minibossPortalSource -notmatch '(?ms)^@state1:.*?ld a,\$30.*?setLinkForceStateToState08.*?SND_TELEPORT.*?^@minibossState3:.*?wWarpDestGroup.*?wActiveGroup.*?or \$80.*?TRANSITION_DEST_BASIC.*?ld \(hl\),\$57.*?ld \(hl\),\$03' -or
+    $tileIndexSource -notmatch '(?m)^\.define TILEINDEX_EYE_STATUE\s+\$ee' -or
+    $musicIdSource -notmatch '(?m)^\s*SND_TELEPORT\s+db\s+; \$8d') {
+    throw 'Dungeon entry, statue-eyeball, or miniboss-portal behavior changed in the disassembly.'
+}
+
+$dungeonTextBlock = [regex]::Match(
+    $dungeonStuffSource,
+    '(?ms)^@dungeonTextIndices:\s*\.ifdef ROM_AGES(?<body>.*?)\.else; ROM_SEASONS')
+$spinnerBlock = [regex]::Match(
+    $dungeonStuffSource,
+    '(?ms)^@initialSpinnerValues:\s*(?<body>.*?)\.endif')
+$dungeonTextMatches = @([regex]::Matches(
+    $dungeonTextBlock.Groups['body'].Value, 'TX_(?<id>[0-9a-f]{4})'))
+$spinnerMatches = @([regex]::Matches(
+    $spinnerBlock.Groups['body'].Value, '\$(?<value>[0-9a-f]{2})'))
+if (-not $dungeonTextBlock.Success -or -not $spinnerBlock.Success -or
+    $dungeonTextMatches.Count -ne 16 -or $spinnerMatches.Count -ne 16) {
+    throw 'Expected 16 Ages dungeon-entry text and spinner-state records.'
+}
+$dungeonEntryRows = [Collections.Generic.List[string]]::new()
+$dungeonEntryRows.Add("# dungeon`ttext-id`tutf8-base64`tspinner-state")
+for ($dungeon = 0; $dungeon -lt 16; $dungeon++) {
+    $textId = [Convert]::ToInt32(
+        $dungeonTextMatches[$dungeon].Groups['id'].Value, 16)
+    # text.yaml aliases TX_020f to the TX_020e payload.
+    $sourceTextId = if ($textId -eq 0x020f) { 0x020e } else { $textId }
+    if (-not $allTexts.ContainsKey($sourceTextId)) {
+        throw "Could not resolve dungeon-entry text TX_$($textId.ToString('x4'))."
+    }
+    $encoded = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($allTexts[$sourceTextId]))
+    $spinner = [Convert]::ToInt32(
+        $spinnerMatches[$dungeon].Groups['value'].Value, 16)
+    $dungeonEntryRows.Add(
+        "$dungeon`t$($textId.ToString('x4'))`t$encoded`t$($spinner.ToString('x2'))")
+}
+
+$portalTableBlock = [regex]::Match(
+    $minibossPortalSource,
+    '(?ms)^@dungeonRoomTable:\s*\.ifdef ROM_AGES(?<body>.*?)\.else')
+$portalPairMatches = @([regex]::Matches(
+    $portalTableBlock.Groups['body'].Value,
+    '(?m)^\s*\.db\s+\$(?<miniboss>[0-9a-f]{2})\s+\$(?<entrance>[0-9a-f]{2})'))
+if (-not $portalTableBlock.Success -or $portalPairMatches.Count -ne 9) {
+    throw 'Expected nine Ages miniboss portal room pairs.'
+}
+$minibossPortalPairRows = [Collections.Generic.List[string]]::new()
+$minibossPortalPairRows.Add("# dungeon`tminiboss-room`tentrance-room")
+for ($dungeon = 0; $dungeon -lt $portalPairMatches.Count; $dungeon++) {
+    $pair = $portalPairMatches[$dungeon]
+    $minibossPortalPairRows.Add(
+        "$dungeon`t$($pair.Groups['miniboss'].Value)`t$($pair.Groups['entrance'].Value)")
+}
+
+$dungeonSharedPlacementRows = [Collections.Generic.List[string]]::new()
+$dungeonSharedPlacementRows.Add(
+    "# group`troom`torder`tkind`tid`tsubid`ty`tx`tdungeon`tsource")
+$sharedGroup = -1
+$sharedRoom = -1
+$sharedOrder = 0
+foreach ($line in $mainObjectLines) {
+    if ($line -match '^group(?<group>[0-7])Map(?<room>[0-9a-f]{2})ObjectData:') {
+        $sharedGroup = [Convert]::ToInt32($Matches['group'], 10)
+        $sharedRoom = [Convert]::ToInt32($Matches['room'], 16)
+        $sharedOrder = 0
+        continue
+    }
+    if ($sharedGroup -lt 0 -or $line -notmatch '^\s*obj_') { continue }
+    if ($line -match '^\s*obj_End') {
+        $sharedGroup = -1
+        continue
+    }
+    if ($line -match '^\s*obj_Interaction\s+\$(?<id>12|e2|7e)\s+\$(?<subid>00|01)(?:\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2}))?') {
+        $id = [Convert]::ToInt32($Matches['id'], 16)
+        $subid = [Convert]::ToInt32($Matches['subid'], 16)
+        $kind = if ($id -eq 0x12 -and $subid -eq 0x00) {
+            'entry'
+        } elseif ($id -eq 0xe2 -and $subid -eq 0x01) {
+            'eye-spawner'
+        } elseif ($id -eq 0x7e -and $subid -eq 0x00) {
+            'miniboss-portal'
+        } else {
+            ''
+        }
+        if ($kind -ne '') {
+            $y = if ($Matches.ContainsKey('y') -and $Matches['y'] -ne '') {
+                $Matches['y']
+            } else { '--' }
+            $x = if ($Matches.ContainsKey('x') -and $Matches['x'] -ne '') {
+                $Matches['x']
+            } else { '--' }
+            $dungeon = Resolve-DungeonMechanicDungeonIndex $sharedGroup $sharedRoom
+            if ($dungeon -eq 0xff) {
+                throw "Shared dungeon interaction in non-dungeon room $sharedGroup`:$($sharedRoom.ToString('x2'))."
+            }
+            $dungeonSharedPlacementRows.Add(
+                "$sharedGroup`t$($sharedRoom.ToString('x2'))`t$sharedOrder`t$kind`t$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$y`t$x`t$dungeon`tmainData.s:group${sharedGroup}Map$($sharedRoom.ToString('x2'))ObjectData")
+        }
+    }
+    $sharedOrder++
+}
+if ($dungeonSharedPlacementRows.Count -ne 43 -or
+    -not ($dungeonSharedPlacementRows -contains
+        "4`t24`t0`tentry`t12`t00`t88`t78`t1`tmainData.s:group4Map24ObjectData") -or
+    -not ($dungeonSharedPlacementRows -contains
+        "4`t24`t1`teye-spawner`te2`t01`t--`t--`t1`tmainData.s:group4Map24ObjectData") -or
+    -not ($dungeonSharedPlacementRows -contains
+        "4`t24`t2`tminiboss-portal`t7e`t00`t--`t--`t1`tmainData.s:group4Map24ObjectData")) {
+    throw "Expected 42 shared dungeon interaction placements including ordered room 4:24, parsed $($dungeonSharedPlacementRows.Count - 1)."
+}
+
+$eyeGraphic = $interactionGraphics['226:0']
+$portalGraphic = $interactionGraphics['126:0']
+$eyeLowPositionBlock = [regex]::Match(
+    $statueEyeballSource,
+    '(?ms)^@lowPositionValues:\s*(?<body>.*?)(?=^;;)')
+$eyeLowPositionMatches = @([regex]::Matches(
+    $eyeLowPositionBlock.Groups['body'].Value,
+    '(?m)^\s*\.db\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})'))
+$eyeDefaultAnimation = if ($null -ne $eyeGraphic) {
+    Resolve-NpcAnimation 0xe2 $eyeGraphic.DefaultAnimation
+} else { '' }
+$portalAnimation = Resolve-NpcAnimation 0x7e 0
+if ($null -eq $eyeGraphic -or $eyeGraphic.Gfx -ne 0x8c -or
+    $eyeGraphic.TileBase -ne 0x1e -or $eyeGraphic.Palette -ne 0 -or
+    $eyeGraphic.DefaultAnimation -ne 4 -or -not $gfxNames.ContainsKey(0x8c) -or
+    $null -eq $portalGraphic -or $portalGraphic.Gfx -ne 0 -or
+    $portalGraphic.TileBase -ne 0x16 -or $portalGraphic.Palette -ne 2 -or
+    $portalGraphic.DefaultAnimation -ne 0 -or
+    -not $eyeLowPositionBlock.Success -or $eyeLowPositionMatches.Count -ne 8 -or
+    [string]::IsNullOrWhiteSpace($eyeDefaultAnimation) -or
+    [string]::IsNullOrWhiteSpace($portalAnimation)) {
+    throw 'Could not resolve statue-eyeball or miniboss-portal graphics and offsets.'
+}
+$eyeSpriteName = $gfxNames[0x8c]
+[void]$npcSpriteNames.Add($eyeSpriteName)
+[void]$npcSpriteNames.Add('spr_common_sprites')
+$dungeonSharedVisualRows = [Collections.Generic.List[string]]::new()
+$dungeonSharedVisualRows.Add(
+    "# kind`tindex`tsprite`ttile-base`tpalette`tanimation`tlow-y`tlow-x")
+for ($direction = 0; $direction -lt 8; $direction++) {
+    $offset = $eyeLowPositionMatches[$direction]
+    $dungeonSharedVisualRows.Add(
+        "eye`t$direction`t$eyeSpriteName`t$($eyeGraphic.TileBase)`t$($eyeGraphic.Palette)`t$eyeDefaultAnimation`t$([Convert]::ToInt32($offset.Groups['y'].Value, 16))`t$([Convert]::ToInt32($offset.Groups['x'].Value, 16))")
+}
+$dungeonSharedVisualRows.Add(
+    "portal`t0`tspr_common_sprites`t$($portalGraphic.TileBase)`t$($portalGraphic.Palette)`t$portalAnimation`t-1`t-1")
+
+$dungeonSharedConstantRows = @(
+    "# key`tvalue"
+    "entry-min-y`t120"
+    "entry-radius`t8"
+    "eye-statue-tile`t238"
+    "eye-initial-y-offset`t-2"
+    "portal-position`t87"
+    "portal-radius`t3"
+    "portal-spin-updates`t48"
+    "portal-sound`t141"
+    "portal-source-transition`t2"
+    "portal-destination-transition`t0"
+    "portal-destination-parameter`t0"
+)
+
 # The lower Black Tower construction rooms share four native handlers whose
 # behavior is selected by placement var03 and the game-wide RNG. Pin the five
 # complete object streams and export the script tables, extra animation, item
@@ -1567,8 +1787,6 @@ $blackTowerHardhatSource = Get-Content -Raw (
     Join-Path $Disassembly 'object_code\ages\interactions\hardhatWorker.s')
 $blackTowerSoldierSource = Get-Content -Raw (
     Join-Path $Disassembly 'object_code\ages\interactions\soldier.s')
-$blackTowerDungeonSource = Get-Content -Raw (
-    Join-Path $Disassembly 'object_code\common\interactions\dungeonStuff.s')
 $agesScriptHelperSource = Get-Content -Raw (
     Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
 $blackTowerRooms = @{
@@ -1595,26 +1813,22 @@ if ($room148WorkerSource -notmatch '(?ms)^@subid00:\s*^@subid03:.*?SND_CLINK.*?@
     $blackTowerSoldierSource -notmatch '(?ms)^soldierSubid00:\s*^soldierSubid01:.*?GLOBALFLAG_FINISHEDGAME.*?GLOBALFLAG_0b.*?jr soldierSubid0c.*?^soldierSubid0c:.*?soldierInitGraphicsAndLoadScript.*?npcFaceLinkAndAnimate' -or
     $agesScriptHelperSource -notmatch '(?ms)^soldierGetRandomVar32Val:.*?getRandomNumber.*?and \$03.*?@data:\s+\.db \$0d \$0e \$0f \$0d' -or
     $room148VillagerSource -notmatch '(?ms)^@runSubid02:.*?objectSetCollideRadii.*?ld b,\$11.*?ld b,\$ef.*?objectCheckCollidedWithLink_ignoreZ.*?villagerSubid02Script_part2.*?Interaction\.var39.*?Interaction\.var3d' -or
-    $agesMainScriptSource -notmatch '(?ms)^villagerSubid02Script_part2:.*?disableinput.*?SPEED_100.*?moveleft \$10.*?moveright \$10.*?villager_setLinkYToVar39.*?wait 10.*?enableinput' -or
-    $blackTowerDungeonSource -notmatch '(?ms)^@subid00:.*?SCROLLMODE_02.*?cp \$78.*?objectSetCollideRadius.*?@dungeonTextIndices:.*?<TX_020f.*?@initialSpinnerValues:.*?\.db \$01 \$00 \$00 \$00 \$01 \$00 \$00 \$00') {
+    $agesMainScriptSource -notmatch '(?ms)^villagerSubid02Script_part2:.*?disableinput.*?SPEED_100.*?moveleft \$10.*?moveright \$10.*?villager_setLinkYToVar39.*?wait 10.*?enableinput') {
     throw 'Black Tower worker, soldier, blocker, or entrance behavior changed in the disassembly.'
 }
 
 $blackTowerTextRows = [Collections.Generic.List[string]]::new()
 $blackTowerTextRows.Add("# text-id`tutf8-base64")
 foreach ($textId in @(
-    0x0025, 0x020f, 0x1000, 0x1001, 0x1002,
+    0x0025, 0x1000, 0x1001, 0x1002,
     0x100a, 0x100b, 0x100c, 0x100d,
     0x1b01, 0x1b02, 0x1b03, 0x1b04, 0x1b05,
     0x590d, 0x590e, 0x590f)) {
-    # text.yaml intentionally aliases dungeon labels TX_020e/TX_020f to one
-    # payload; the generic text loader keys that payload by its first label.
-    $sourceTextId = if ($textId -eq 0x020f) { 0x020e } else { $textId }
-    if (-not $allTexts.ContainsKey($sourceTextId)) {
+    if (-not $allTexts.ContainsKey($textId)) {
         throw "Could not resolve Black Tower text TX_$($textId.ToString('x4'))."
     }
     $encoded = [Convert]::ToBase64String(
-        [Text.Encoding]::UTF8.GetBytes($allTexts[$sourceTextId]))
+        [Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
     $blackTowerTextRows.Add("$($textId.ToString('x4'))`t$encoded")
 }
 
@@ -1673,9 +1887,7 @@ $blackTowerConstantsRows = @(
     "patrol-wait`t20",
     "talk-wait`t30",
     "blocker-distance`t16",
-    "blocker-wait`t10",
-    "entrance-y-min`t120",
-    "entrance-radius`t8"
+    "blocker-wait`t10"
 )
 
 # Past room 1:49's three placed characters are one shared interaction: the
@@ -3362,6 +3574,11 @@ New-Item -ItemType Directory -Force -Path (Split-Path $puzzlePuffPath -Parent) |
     $puzzlePuffPath,
     $puzzlePuffRows,
     [Text.UTF8Encoding]::new($false))
+$rockDebrisPath = Join-Path $destination "effects\rock_debris.tsv"
+[IO.File]::WriteAllLines(
+    $rockDebrisPath,
+    $rockDebrisRows,
+    [Text.UTF8Encoding]::new($false))
 $fallDownHolePath = Join-Path $destination "effects\fall_down_hole.tsv"
 [IO.File]::WriteAllLines(
     $fallDownHolePath,
@@ -3411,6 +3628,31 @@ $room148PickaxePath = Join-Path $destination "objects\room148_pickaxe.tsv"
 [IO.File]::WriteAllLines(
     $room148PickaxePath,
     $room148PickaxeRows,
+    [Text.UTF8Encoding]::new($false))
+$dungeonEntryPath = Join-Path $destination "objects\dungeon_entry_data.tsv"
+[IO.File]::WriteAllLines(
+    $dungeonEntryPath,
+    $dungeonEntryRows,
+    [Text.UTF8Encoding]::new($false))
+$dungeonSharedPlacementPath = Join-Path $destination "objects\dungeon_shared_placements.tsv"
+[IO.File]::WriteAllLines(
+    $dungeonSharedPlacementPath,
+    $dungeonSharedPlacementRows,
+    [Text.UTF8Encoding]::new($false))
+$dungeonSharedVisualPath = Join-Path $destination "objects\dungeon_shared_visuals.tsv"
+[IO.File]::WriteAllLines(
+    $dungeonSharedVisualPath,
+    $dungeonSharedVisualRows,
+    [Text.UTF8Encoding]::new($false))
+$dungeonSharedConstantPath = Join-Path $destination "objects\dungeon_shared_constants.tsv"
+[IO.File]::WriteAllLines(
+    $dungeonSharedConstantPath,
+    $dungeonSharedConstantRows,
+    [Text.UTF8Encoding]::new($false))
+$minibossPortalPairPath = Join-Path $destination "objects\miniboss_portal_pairs.tsv"
+[IO.File]::WriteAllLines(
+    $minibossPortalPairPath,
+    $minibossPortalPairRows,
     [Text.UTF8Encoding]::new($false))
 $blackTowerTextPath = Join-Path $destination "objects\black_tower_texts.tsv"
 [IO.File]::WriteAllLines(

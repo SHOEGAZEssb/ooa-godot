@@ -37,6 +37,7 @@ public sealed partial class ValidationRoot : GameRoot
         public bool ItemUsageDisabled => false;
         public bool MovementDisabled => false;
         public bool RingTransformationsAllowed { get; set; } = true;
+        public bool RidingObject => false;
         public int SwordHitCalls { get; private set; }
         public int LastSwordDamage { get; private set; }
         public int ExpertTileHitCalls { get; private set; }
@@ -65,7 +66,14 @@ public sealed partial class ValidationRoot : GameRoot
         public void PlaySound(int soundId) => Sounds.Add(soundId);
         public bool TryInteract(Player player) => false;
         public bool TrySecondaryInteract(Player player) => false;
-        public bool TryUseBracelet(Player player) => false;
+        public bool TryUseBracelet(Player player, bool primaryButton) => false;
+        public bool UpdateBracelet(
+            Player player,
+            Vector2 movementInput,
+            bool primaryHeld,
+            bool secondaryHeld,
+            bool itemButtonJustPressed) => false;
+        public void InterruptBracelet(Player player, bool discard) { }
         public int TryUseSeedSatchel(Player player) => 0;
         public bool DigWithShovel(Vector2 point, Vector2I direction) => false;
         public bool Collides(Vector2 playerPosition) => false;
@@ -319,9 +327,11 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateBraceletChestAndPushGate();
         ValidatePushBlocks();
         ValidateDungeonMechanics();
+        ValidateSpiritsGraveEntranceInteractions();
         ValidateOverworldKeyholeAndGraveyardGate();
         ValidateDarkRoomInteractions();
         ValidateDungeonKeyDoors();
+        ValidateSpiritsGrave();
         ValidateMapScreen();
         ValidateLynnaShopInteractions();
         ValidateVasuShopInteractions();

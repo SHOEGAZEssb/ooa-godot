@@ -409,6 +409,36 @@ internal sealed partial class PushBlockTriggerRoomEntity : DungeonMechanicRoomEn
     public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }
 
+internal static class DungeonShutterEntry
+{
+    internal const int FirstNormalShutterTile = 0x78;
+    internal const int LastNormalShutterTile = 0x7b;
+
+    internal static bool Matches(
+        EnemyPlacementContext placementContext,
+        int packedPosition,
+        int doorDirection)
+    {
+        if (placementContext.Kind != EnemyPlacementEntryKind.Scrolling ||
+            placementContext.EntryPackedPosition != packedPosition)
+        {
+            return false;
+        }
+
+        int incomingDoorDirection = placementContext.ScrollDirection switch
+        {
+            var direction when direction == Vector2I.Up => 2,
+            var direction when direction == Vector2I.Right => 3,
+            var direction when direction == Vector2I.Down => 0,
+            var direction when direction == Vector2I.Left => 1,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(placementContext), placementContext.ScrollDirection,
+                "Scroll direction must be cardinal.")
+        };
+        return doorDirection == incomingDoorDirection;
+    }
+}
+
 /// <summary>
 /// Common shutter variants $1e:$04-$0b. Trigger-controlled doors observe one
 /// wActiveTriggers bit; enemy shutters read the live room enemy count. Both
@@ -418,7 +448,7 @@ internal sealed partial class PushBlockTriggerRoomEntity : DungeonMechanicRoomEn
 /// backtracking instead of trapping Link or falsely solving the room.
 /// </summary>
 internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
-    IFixedRoomEntity, IRoomEntityLifetime
+    IFixedRoomEntity, IRoomEntityLifetime, IBossShutterState
 {
     private enum DoorState
     {
@@ -451,6 +481,10 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
     internal int PackedPosition => _record.PackedPosition;
     internal bool EnteredThroughThisDoor => _enteredThroughThisDoor;
     internal bool EnemyCompletionSupported => _enemyCompletionSupported;
+    public bool BossIntroReady => _record.SubId < 0x08 ||
+        _room.IsSolid(Position) && _state is
+            DoorState.WaitingForEnemies or DoorState.SolveDelay or
+            DoorState.ReadyToOpen;
     public bool Finished { get; private set; }
 
     internal DungeonDoorRoomEntity(
@@ -678,24 +712,7 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
 
     private static bool IsEnteredShutter(
         DungeonMechanicDatabase.Record record,
-        EnemyPlacementContext placementContext)
-    {
-        if (placementContext.Kind != EnemyPlacementEntryKind.Scrolling ||
-            placementContext.EntryPackedPosition != record.PackedPosition)
-        {
-            return false;
-        }
-
-        int incomingDoorDirection = placementContext.ScrollDirection switch
-        {
-            var direction when direction == Vector2I.Up => 2,
-            var direction when direction == Vector2I.Right => 3,
-            var direction when direction == Vector2I.Down => 0,
-            var direction when direction == Vector2I.Left => 1,
-            _ => throw new ArgumentOutOfRangeException(
-                nameof(placementContext), placementContext.ScrollDirection,
-                "Scroll direction must be cardinal.")
-        };
-        return (record.SubId & 0x03) == incomingDoorDirection;
-    }
+        EnemyPlacementContext placementContext) =>
+        DungeonShutterEntry.Matches(
+            placementContext, record.PackedPosition, record.SubId & 0x03);
 }

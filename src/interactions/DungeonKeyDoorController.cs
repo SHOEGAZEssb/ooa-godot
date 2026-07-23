@@ -4,16 +4,17 @@ using System;
 namespace oracleofages;
 
 /// <summary>
-/// Implements nextToKeyDoor for the imported dungeon tiles $70-$73. A door
-/// consumes the active dungeon's small key, records both sides of the dungeon
-/// layout adjacency, and uses the ordinary six-update interleaved-door frame.
+/// Implements nextToKeyDoor for imported small-key tiles $70-$73 and boss-key
+/// tiles $74-$77. A door checks the active dungeon's corresponding key,
+/// records both sides of the dungeon-layout adjacency, and uses the ordinary
+/// six-update interleaved-door frame. Only a small key is consumed.
 /// </summary>
 public partial class DungeonKeyDoorController : Node
 {
     private readonly RoomSession _rooms;
     private readonly InventoryState _inventory;
     private readonly RoomEntityManager _entities;
-    private readonly TreasureDatabase.TreasureObjectVisualRecord _keyVisual;
+    private readonly TreasureDatabase _treasures;
     private readonly Func<long> _animationTick;
     private readonly Action<int> _playSound;
     private int _pushCounter;
@@ -42,7 +43,7 @@ public partial class DungeonKeyDoorController : Node
         _rooms = rooms;
         _inventory = inventory;
         _entities = entities;
-        _keyVisual = treasures.GetObjectVisual(0x42);
+        _treasures = treasures;
         _animationTick = animationTick;
         _playSound = playSound;
         _pushCounter = DefaultPushCounter;
@@ -151,7 +152,10 @@ public partial class DungeonKeyDoorController : Node
         DungeonKeyDoorDatabase.Record door)
     {
         int dungeon = _rooms.CurrentDungeonIndex;
-        if (!_inventory.TryUseDungeonSmallKey(dungeon))
+        bool hasKey = door.UsesBossKey
+            ? _inventory.HasDungeonBossKey(dungeon)
+            : _inventory.TryUseDungeonSmallKey(dungeon);
+        if (!hasKey)
         {
             MessageRequested?.Invoke(door.NoKeyMessage);
             ResetPushCounter();
@@ -163,14 +167,15 @@ public partial class DungeonKeyDoorController : Node
         if (!_rooms.TryGetNeighbor(door.Direction, out int neighbor))
         {
             throw new InvalidOperationException(
-                $"Small-key door ${door.ClosedTile:x2} in room {group:x1}:{room:x2} " +
+                $"Dungeon-key door ${door.ClosedTile:x2} in room {group:x1}:{room:x2} " +
                 "has no matching dungeon-layout neighbor.");
         }
 
         _rooms.SaveData.SetRoomFlag(group, room, door.RoomFlag);
         _rooms.SaveData.SetRoomFlag(group, neighbor, door.OppositeRoomFlag);
         _entities.Spawn<DungeonKeyUseEffect>(
-            new DungeonKeyUseSpawn(center, _keyVisual));
+            new DungeonKeyUseSpawn(
+                center, _treasures.GetObjectVisual(door.KeyGraphic)));
 
         _doorCenter = center;
         _door = door;

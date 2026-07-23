@@ -15,7 +15,8 @@ internal sealed class EnemyCombatComponent(
     Func<Vector2, int, bool> takeSwordHit,
     Func<int, bool> takeBurnHit,
     Action<Player> handleLinkContact,
-    Func<EnemyDeathPuffSpawn?> createDeathPuff)
+    Func<EnemyDeathPuffSpawn?> createDeathPuff,
+    Action? acceptedSwordHit = null)
 {
     public static EnemyCombatComponent WithContactDamage(
         Func<bool> isDead,
@@ -25,7 +26,8 @@ internal sealed class EnemyCombatComponent(
         Func<Vector2, bool> overlapsLink,
         Func<Vector2> contactOrigin,
         int damageQuarters,
-        Func<EnemyDeathPuffSpawn?> createDeathPuff)
+        Func<EnemyDeathPuffSpawn?> createDeathPuff,
+        Action? acceptedSwordHit = null)
     {
         return new EnemyCombatComponent(
             isDead,
@@ -37,7 +39,8 @@ internal sealed class EnemyCombatComponent(
                 if (overlapsLink(player.Position))
                     player.ApplyEnemyContactDamage(contactOrigin(), damageQuarters);
             },
-            createDeathPuff);
+            createDeathPuff,
+            acceptedSwordHit);
     }
 
     public bool Finished => isDead();
@@ -55,6 +58,8 @@ internal sealed class EnemyCombatComponent(
         if (!Intersects(hitbox))
             return false;
         bool struck = takeSwordHit(sourcePosition, damage);
+        if (struck)
+            acceptedSwordHit?.Invoke();
         if (struck && createDeathPuff() is { } deathPuff)
             spawns.Add(deathPuff);
         return struck;

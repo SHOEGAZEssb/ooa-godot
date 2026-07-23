@@ -21,6 +21,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     private Action _roomTileChanged = null!;
     private Func<long> _animationTick = null!;
     private Func<int, int?> _decideBreakableDrop = null!;
+    private Func<Vector2I, int?>? _linkedRoomNeighbor;
     private OracleSaveData? _saveData;
     private int _group;
     private OracleGraphicsCache.AnimationFrameDefinition[] _frames = null!;
@@ -65,7 +66,8 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         Func<long> animationTick,
         Func<int, int?> decideBreakableDrop,
         OracleSaveData? saveData,
-        int group)
+        int group,
+        Func<Vector2I, int?>? linkedRoomNeighbor = null)
     {
         _record = record;
         _room = room;
@@ -75,6 +77,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         _roomTileChanged = roomTileChanged;
         _animationTick = animationTick;
         _decideBreakableDrop = decideBreakableDrop;
+        _linkedRoomNeighbor = linkedRoomNeighbor;
         _saveData = saveData;
         _group = group;
         _direction = direction;
@@ -290,7 +293,8 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         if (!changed)
             return;
 
-        breakable.ApplyPersistentEffects(_saveData, _group, _room.Id);
+        breakable.ApplyPersistentEffects(
+            _saveData, _group, _room.Id, _linkedRoomNeighbor);
         if ((breakable.Effect & 0x40) != 0)
             _playSound(OracleSoundEngine.SndSolvePuzzle);
         if (breakable.Drop != 0 &&

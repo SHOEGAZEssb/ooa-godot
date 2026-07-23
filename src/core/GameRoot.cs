@@ -24,7 +24,7 @@ public partial class GameRoot : Node2D
     internal OverworldKeyholeController _keyholes = null!;
     internal TerrainController _terrain = null!;
     internal CombatController _combat = null!;
-    private BraceletController _bracelet = null!;
+    internal BraceletController _bracelet = null!;
     internal ShovelController _shovel = null!;
     internal SeedSatchelController _seedSatchel = null!;
     private DebugWarpController _debugWarps = null!;
@@ -397,7 +397,8 @@ public partial class GameRoot : Node2D
             new ItemDropDatabase(), new TimePortalDatabase(), _random, _saveData,
             inventory: _inventory,
             animationTick: () => (long)_animationTicks,
-            treasures: _treasures);
+            treasures: _treasures,
+            rooms: _rooms);
         _pushBlocks = new PushBlockController(
             _rooms, new PushableTileDatabase(), _roomView,
             () => (long)_animationTicks, _sound.PlaySound)
@@ -430,7 +431,11 @@ public partial class GameRoot : Node2D
         _transitions.ScrollingTransitionFinished += _ => ApplyDeferredIntroMusic();
         _entities.TimePortalEntered += portal =>
             _transitions.ApplyTimePortalWarp(_player, portal.Position);
+        _entities.RoomWarpRequested += warp =>
+            _transitions.ApplyWarp(_player, warp);
         _entities.SoundRequested += _sound.PlaySound;
+        _entities.RoomMusicRequested += _sound.PlayRoomMusic;
+        _entities.ScreenShakeChanged += offset => _roomCamera.Offset = offset;
         _entities.EnemyDefeated += _inventory.RecordEnemyKill;
         _entities.RoomTileChanged += _roomView.QueueRedraw;
         _interactions = new InteractionController(
@@ -459,8 +464,14 @@ public partial class GameRoot : Node2D
             _roomEvents.TriggerOverworldKeyhole);
         _interactions.NpcInteractionOverride = _roomEvents.TryInteractNpc;
         _interactions.PlayerInteractionOverride = _roomEvents.TryInteractPlayer;
+        _combat = new CombatController(
+            _scene.WorldRoot, _rooms, _roomView, _entities,
+            new BreakableTileDatabase(), _sound,
+            () => (long)_animationTicks);
         _bracelet = new BraceletController(
-            _rooms, new BreakableTileDatabase(), _roomView, () => (long)_animationTicks);
+            _scene.WorldRoot, _rooms, new BreakableTileDatabase(), _roomView,
+            _entities, _combat, _saveData, _sound.PlaySound,
+            () => (long)_animationTicks, _collision.HasFullWall);
         _shovel = new ShovelController(
             _rooms, new BreakableTileDatabase(), _roomView, _entities, _saveData,
             _sound.PlaySound, () => (long)_animationTicks);
@@ -477,9 +488,6 @@ public partial class GameRoot : Node2D
                 _entities.Spawn<FallingDownHoleEffect>(
                     new FallingDownHoleSpawn(position));
         };
-        _combat = new CombatController(
-            _scene.WorldRoot, _rooms, _roomView, _entities, new BreakableTileDatabase(), _sound,
-            () => (long)_animationTicks);
         _debugCollision = new DebugCollisionController();
         _playerWorld = new PlayerWorld(
             _transitions, _interactions, _collision, _pushBlocks, _keyDoors, _keyholes,

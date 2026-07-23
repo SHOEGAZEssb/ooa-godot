@@ -1048,6 +1048,146 @@ $deathPuffPath = Join-Path $destination "effects\enemy_death_puff.tsv"
 New-Item -ItemType Directory -Force -Path (Split-Path $deathPuffPath -Parent) | Out-Null
 [IO.File]::WriteAllLines($deathPuffPath, $deathPuffRows, [Text.UTF8Encoding]::new($false))
 
+# PART_BOSS_DEATH_EXPLOSION (`$04) keeps wNumEnemies occupied until its
+# terminal `$ff animation parameter. Boss reward scripts therefore cannot
+# advance while the large explosion is still visible.
+$bossExplosionData = [regex]::Match(
+    $partDataSource,
+    '(?m)^\s*\.db \$00 \$00 \$00 \$00 \$40 \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2}) \$00\s*; \$04'
+)
+if (-not $bossExplosionData.Success) {
+    throw 'Could not resolve PART_BOSS_DEATH_EXPLOSION (`$04) data.'
+}
+$bossExplosionTileBase = [Convert]::ToInt32(
+    $bossExplosionData.Groups['tile'].Value, 16)
+$bossExplosionPalette = [Convert]::ToInt32(
+    $bossExplosionData.Groups['flags'].Value, 16) -band 7
+$bossExplosionAnimationLabels = @(
+    [regex]::Matches(
+        (Get-AssemblyLabelBody $partAnimationSource 'part04Animations'),
+        '(?m)^\s*\.dw\s+(?<label>partAnimation[0-9a-f]+)'
+    ) | ForEach-Object { $_.Groups['label'].Value }
+)
+$bossExplosionOamLabels = @(
+    [regex]::Matches(
+        (Get-AssemblyLabelBody $partAnimationSource 'part04OamDataPointers'),
+        '(?m)^\s*\.dw\s+(?<label>partOamData[0-9a-f]+)'
+    ) | ForEach-Object { $_.Groups['label'].Value }
+)
+if ($bossExplosionAnimationLabels.Count -ne 1 -or
+    $bossExplosionOamLabels.Count -ne 13) {
+    throw 'Expected one boss-explosion animation and 13 OAM pointers.'
+}
+$bossExplosionFrames = [Collections.Generic.List[string]]::new()
+foreach ($frame in [regex]::Matches(
+    (Get-AssemblyLabelBody $partAnimationSource $bossExplosionAnimationLabels[0]),
+    '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})'
+)) {
+    $parameter = [Convert]::ToInt32($frame.Groups['parameter'].Value, 16)
+    if ($parameter -eq 0xff) { break }
+    if ($parameter -ne 0) {
+        throw "Boss explosion has unexpected animation parameter `$$($frame.Groups['parameter'].Value)."
+    }
+    $pointerIndex = [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2
+    if ($pointerIndex -ge $bossExplosionOamLabels.Count) {
+        throw "Boss explosion references missing OAM pointer $pointerIndex."
+    }
+    $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
+    $bossExplosionFrames.Add(
+        "$duration@$(Resolve-Oam $partOamSource $bossExplosionOamLabels[$pointerIndex])")
+}
+$bossExplosionDuration = ($bossExplosionFrames | ForEach-Object {
+    [int](($_ -split '@')[0])
+} | Measure-Object -Sum).Sum
+if ($bossExplosionTileBase -ne 0x0c -or $bossExplosionPalette -ne 2 -or
+    $bossExplosionFrames.Count -ne 13 -or $bossExplosionDuration -ne 78) {
+    throw 'PART_BOSS_DEATH_EXPLOSION no longer matches tile `$0c, palette 2, or its 13-frame/78-update animation.'
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'effects\boss_death_explosion.tsv'),
+    @(
+        "# tile-base`tpalette`tanimation",
+        "$bossExplosionTileBase`t$bossExplosionPalette`t$($bossExplosionFrames -join '|')"
+    ),
+    [Text.UTF8Encoding]::new($false))
+
+# PART_SHADOW (`$07) is attached to both Spirit's Grave bosses. The source
+# selects one of four static OAM records from the parent's Z byte and flickers
+# the part every update while the parent is airborne.
+$bossShadowData = [regex]::Match(
+    $partDataSource,
+    '(?m)^\s*\.db \$(?<gfx>[0-9a-f]{2}) \$00 \$00 \$00 \$40 \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2}) \$00\s*; \$07'
+)
+if (-not $bossShadowData.Success) {
+    throw 'Could not resolve PART_SHADOW (`$07) data.'
+}
+$bossShadowGfx = [Convert]::ToInt32($bossShadowData.Groups['gfx'].Value, 16)
+$bossShadowTileBase = [Convert]::ToInt32($bossShadowData.Groups['tile'].Value, 16)
+$bossShadowPalette = [Convert]::ToInt32($bossShadowData.Groups['flags'].Value, 16) -band 7
+$bossShadowAnimationStart = $partAnimationSource.IndexOf(
+    'part07Animations:', [StringComparison]::Ordinal)
+$bossShadowAnimationEnd = $partAnimationSource.IndexOf(
+    'part13Animations:', $bossShadowAnimationStart, [StringComparison]::Ordinal)
+$bossShadowAnimationLabels = @(
+    [regex]::Matches(
+        $partAnimationSource.Substring(
+            $bossShadowAnimationStart,
+            $bossShadowAnimationEnd - $bossShadowAnimationStart),
+        '(?m)^\s*\.dw\s+(?<label>partAnimation[0-9a-f]+)'
+    ) | ForEach-Object { $_.Groups['label'].Value }
+)
+$bossShadowOamStart = $partAnimationSource.IndexOf(
+    'part07OamDataPointers:', [StringComparison]::Ordinal)
+$bossShadowOamEnd = $partAnimationSource.IndexOf(
+    'part11OamDataPointers:', $bossShadowOamStart, [StringComparison]::Ordinal)
+$bossShadowOamLabels = @(
+    [regex]::Matches(
+        $partAnimationSource.Substring(
+            $bossShadowOamStart, $bossShadowOamEnd - $bossShadowOamStart),
+        '(?m)^\s*\.dw\s+(?<label>partOamData[0-9a-f]+)'
+    ) | ForEach-Object { $_.Groups['label'].Value }
+)
+if ($bossShadowAnimationLabels.Count -lt 4 -or $bossShadowOamLabels.Count -ne 4) {
+    throw 'Expected at least four PART_SHADOW animations and exactly four OAM pointers.'
+}
+$bossShadowFrames = [Collections.Generic.List[string]]::new()
+foreach ($index in 0..3) {
+    $frame = [regex]::Match(
+        (Get-AssemblyLabelBody $partAnimationSource $bossShadowAnimationLabels[$index]),
+        '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$00'
+    )
+    if (-not $frame.Success -or
+        [Convert]::ToInt32($frame.Groups['duration'].Value, 16) -ne 0x7f -or
+        [Convert]::ToInt32($frame.Groups['offset'].Value, 16) -ne $index * 2) {
+        throw "PART_SHADOW animation $index no longer contains its static source frame."
+    }
+    $bossShadowFrames.Add((
+        Resolve-Oam $partOamSource $bossShadowOamLabels[$index]))
+}
+$bossShadowSprite = $gfxNames[$bossShadowGfx]
+if ($bossShadowGfx -ne 0xa7 -or $bossShadowSprite -ne 'spr_projectiles_3' -or
+    $bossShadowTileBase -ne 0 -or $bossShadowPalette -ne 0 -or
+    $bossShadowFrames[0] -ne '8,4,0,0' -or
+    $bossShadowFrames[3] -ne '8,248,4,0;8,0,6,0;8,8,6,32;8,16,4,32') {
+    throw 'PART_SHADOW no longer matches gfx `$a7, tile/palette 0, or its small/large OAM records.'
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'effects\boss_shadow.tsv'),
+    @(
+        "# sprite`ttile-base`tpalette`tanimation-0`tanimation-1`tanimation-2`tanimation-3",
+        "$bossShadowSprite`t$bossShadowTileBase`t$bossShadowPalette`t$($bossShadowFrames -join "`t")"
+    ),
+    [Text.UTF8Encoding]::new($false))
+$bossShadowSpriteSource = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
+    ForEach-Object {
+        Get-ChildItem $_.FullName -Recurse -File -Filter "$bossShadowSprite.png"
+    } | Select-Object -First 1
+if ($null -eq $bossShadowSpriteSource) {
+    throw "PART_SHADOW sprite not found: $bossShadowSprite.png"
+}
+Copy-Item -LiteralPath $bossShadowSpriteSource.FullName `
+    -Destination (Join-Path $destination "gfx\$bossShadowSprite.png") -Force
+
 # INTERAC_KILLENEMYPUFF (`$08) is the non-dropping burst used when a red Zol
 # splits. It is visually and semantically distinct from PART_ENEMY_DESTROYED.
 $interactionDataSource = Get-Content -Raw (Join-Path $Disassembly 'data\ages\interactionData.s')

@@ -27,11 +27,13 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     bool countsAsEnemy,
     int killableEnemyIndex,
     Func<bool>? marksEnemyKilled = null,
-    Action? finished = null)
+    Action? finished = null,
+    Func<int>? collisionZ = null)
     : RoomEntityAdapter<T>(entity, setTransitionDrawOffset),
         ILinkContactEntity, ISwordHittableRoomEntity, ISeedHittableRoomEntity,
         ISeedBurnTarget, IRoomEntityLifetime,
-        IRoomEnemyCounterEntity, IRoomKillTrackedEnemy
+        IRoomEnemyCounterEntity, IRoomKillTrackedEnemy,
+        IObjectCollisionHeightRoomEntity
     where T : Node2D
 {
     private bool _seedBurning;
@@ -45,6 +47,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     // counters. Only the separate recent-defeat reservation requires a
     // nonzero wKillableEnemyIndex.
     public bool MarksEnemyKilled => marksEnemyKilled?.Invoke() ?? true;
+    public int CollisionZ => collisionZ?.Invoke() ?? 0;
     public void HandleLinkContact(Player player)
     {
         if (!_seedBurning)
@@ -483,6 +486,157 @@ internal sealed class KeeseRoomEntity
                 : null);
 }
 
+internal sealed class BoomerangMoblinRoomEntity
+    : CombatEnemyRoomEntityAdapter<BoomerangMoblinCharacter>, IFixedRoomEntity
+{
+    public BoomerangMoblinRoomEntity(
+        BoomerangMoblinCharacter moblin,
+        int killableEnemyIndex)
+        : base(
+            moblin, moblin.SetTransitionDrawOffset,
+            EnemyCombatComponent.WithContactDamage(
+                () => moblin.IsDead,
+                () => moblin.CollisionBounds,
+                moblin.TakeSwordHit,
+                moblin.TakeBurnHit,
+                moblin.OverlapsLink,
+                () => moblin.Position,
+                moblin.Record.DamageQuarters,
+                () => moblin.IsDead
+                    ? new EnemyDeathPuffSpawn(moblin.Position, EnemyId: moblin.Record.Id)
+                    : null),
+            countsAsEnemy: true,
+            killableEnemyIndex)
+    { }
+
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
+    {
+        int angle = Entity.UpdateFrame(frame.Player.Position);
+        if (angle >= 0)
+            spawns.Add(new MoblinBoomerangSpawn(Entity, Entity.Position, angle));
+    }
+}
+
+internal sealed class MoblinBoomerangRoomEntity(MoblinBoomerangProjectile boomerang)
+    : RoomEntityAdapter<MoblinBoomerangProjectile>(
+        boomerang, boomerang.SetTransitionDrawOffset),
+        IFixedRoomEntity, ISwordHittableRoomEntity, IRoomEntityLifetime
+{
+    public bool Finished => Entity.Finished;
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
+        Entity.UpdateFrame(frame.Player, frame.Counter);
+    public bool ApplySwordHit(
+        Rect2 hitbox,
+        Vector2 sourcePosition,
+        int damage,
+        ICollection<RoomEntitySpawn> spawns) =>
+        hitbox.Intersects(Entity.CollisionBounds) && Entity.Deflect();
+    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
+}
+
+internal sealed class RopeRoomEntity
+    : CombatEnemyRoomEntityAdapter<RopeCharacter>, IFixedRoomEntity
+{
+    public RopeRoomEntity(RopeCharacter rope, int killableEnemyIndex)
+        : base(
+            rope, rope.SetTransitionDrawOffset,
+            EnemyCombatComponent.WithContactDamage(
+                () => rope.IsDead,
+                () => rope.CollisionBounds,
+                rope.TakeSwordHit,
+                rope.TakeBurnHit,
+                rope.OverlapsLink,
+                () => rope.Position,
+                rope.Record.DamageQuarters,
+                () => rope.IsDead
+                    ? new EnemyDeathPuffSpawn(rope.Position, EnemyId: rope.Record.Id)
+                    : null),
+            countsAsEnemy: true,
+            killableEnemyIndex)
+    { }
+
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
+        Entity.UpdateFrame(frame.Player.Position);
+}
+
+internal sealed class GhiniRoomEntity
+    : CombatEnemyRoomEntityAdapter<GhiniCharacter>, IFixedRoomEntity
+{
+    public GhiniRoomEntity(
+        GhiniCharacter ghini,
+        int killableEnemyIndex,
+        Action<int> soundRequested)
+        : base(
+            ghini, ghini.SetTransitionDrawOffset,
+            EnemyCombatComponent.WithContactDamage(
+                () => ghini.IsDead,
+                () => ghini.CollisionBounds,
+                ghini.TakeSwordHit,
+                ghini.TakeBurnHit,
+                ghini.OverlapsLink,
+                () => ghini.Position,
+                ghini.Record.DamageQuarters,
+                () => ghini.IsDead
+                    ? new EnemyDeathPuffSpawn(ghini.Position, EnemyId: ghini.Record.Id)
+                    : null,
+                () => soundRequested(OracleSoundEngine.SndDamageEnemy)),
+            countsAsEnemy: true,
+            killableEnemyIndex)
+    { }
+
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
+        Entity.UpdateFrame();
+}
+
+internal sealed class WallmasterRoomEntity
+    : CombatEnemyRoomEntityAdapter<WallmasterCharacter>, IFixedRoomEntity
+{
+    private readonly Action<int> _soundRequested;
+    private readonly Action<WarpDatabase.Warp> _warpRequested;
+    private readonly int _group;
+    private readonly int _room;
+
+    public WallmasterRoomEntity(
+        WallmasterCharacter wallmaster,
+        Action<int> soundRequested,
+        Action<WarpDatabase.Warp> warpRequested,
+        int group,
+        int room,
+        int killableEnemyIndex)
+        : base(
+            wallmaster, wallmaster.SetTransitionDrawOffset,
+            new EnemyCombatComponent(
+                () => wallmaster.IsDead,
+                () => wallmaster.CollisionBounds,
+                wallmaster.TakeSwordHit,
+                wallmaster.TakeBurnHit,
+                player =>
+                {
+                    if (wallmaster.HandleLinkContact(player))
+                        soundRequested(OracleSoundEngine.SndBossDead);
+                },
+                wallmaster.TakeDeathPuff),
+            countsAsEnemy: true,
+            killableEnemyIndex,
+            collisionZ: () => wallmaster.ZFixed >> 8)
+    {
+        _soundRequested = soundRequested;
+        _warpRequested = warpRequested;
+        _group = group;
+        _room = room;
+    }
+
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
+    {
+        Entity.UpdateFrame(frame.Player, _soundRequested);
+        if (Entity.TakeWarpedPlayer() is null)
+            return;
+        _warpRequested(new WarpDatabase.Warp(
+            _group, _room, -1, 0, 0,
+            4, 0x24, 0x87, 0, 3));
+    }
+}
+
 internal sealed class CrowRoomEntity
     : CombatEnemyRoomEntityAdapter<CrowCharacter>, IFixedRoomEntity
 {
@@ -490,7 +644,8 @@ internal sealed class CrowRoomEntity
         : base(
             crow, crow.SetTransitionDrawOffset, CreateCombat(crow),
             (crow.Record.Flags & 0x02) == 0, killableEnemyIndex,
-            () => !crow.DeletedOutOfBounds)
+            () => !crow.DeletedOutOfBounds,
+            collisionZ: () => crow.Z)
     { }
 
     public void UpdateFrame(
@@ -656,7 +811,8 @@ internal sealed class ZolRoomEntity
             (zol.Record.Flags & 0x02) == 0, killableEnemyIndex,
             () => zol.Record.SubId != 1 || zol.DiedInHazard,
             () => EnemyHazardSounds.PlayHoleSound(
-                zol.DeathHazard, soundRequested))
+                zol.DeathHazard, soundRequested),
+            () => zol.ZFixed >> 8)
     { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
@@ -703,7 +859,8 @@ internal sealed class GelRoomEntity
             gel, gel.SetTransitionDrawOffset, CreateCombat(gel),
             countsAsEnemy, killableEnemyIndex,
             finished: () => EnemyHazardSounds.PlayHoleSound(
-                gel.DeathHazard, soundRequested))
+                gel.DeathHazard, soundRequested),
+            collisionZ: () => gel.ZFixed >> 8)
     { }
 
     public bool DisablesSword => Entity.IsAttached;
@@ -753,6 +910,28 @@ internal sealed class DeathPuffRoomEntity(
         if (subId.HasValue)
             spawns.Add(new ItemDropSpawn(subId.Value, Entity.Position));
     }
+}
+
+internal sealed class BossDeathExplosionRoomEntity(BossDeathExplosionEffect explosion)
+    : RoomEntityAdapter<BossDeathExplosionEffect>(
+        explosion, explosion.SetTransitionDrawOffset),
+        IFixedRoomEntity, IRoomEntityLifetime, IRoomEnemyCounterEntity
+{
+    public bool Finished => Entity.Finished;
+    public bool CountsAsEnemy => !Entity.Finished;
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
+        Entity.UpdateFrame();
+    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
+}
+
+internal sealed class BossShadowRoomEntity(BossShadowEffect shadow)
+    : RoomEntityAdapter<BossShadowEffect>(shadow, shadow.SetTransitionDrawOffset),
+        IFixedRoomEntity, IRoomEntityLifetime
+{
+    public bool Finished => Entity.Finished;
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
+        Entity.UpdateFrame();
+    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }
 
 internal sealed class KillPuffRoomEntity(KillEnemyPuffEffect puff)

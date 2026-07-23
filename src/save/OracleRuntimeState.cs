@@ -12,6 +12,10 @@ public sealed class OracleRuntimeState
     public const int WramEnd = 0xdfff;
     public const int SeedTreeRefilledBitsetAddress = 0xcc4d;
     public const int MamamuDogLocationAddress = 0xcde2;
+    // Ages WRAM addresses (the shared labels are $cdd2-$cdd4 in Seasons).
+    public const int ToggleBlocksStateAddress = 0xcc31;
+    public const int SwitchStateAddress = 0xcc32;
+    public const int SpinnerStateAddress = 0xcc33;
 
     private readonly byte[] _wram = new byte[WramEnd - WramStart + 1];
 

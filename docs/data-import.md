@@ -75,6 +75,18 @@ whose `GFXH_COMMON_SPRITES` header maps tile base `$06` to
 handler when another seed effect becomes active; do not infer one seed's
 behavior from the Ember row.
 
+`Import-MapAndItemData.ps1` emits `metadata/bracelet.tsv` for
+`ITEM_BRACELET $16`. It joins the item attributes, held-button usage table,
+`bombsBraceletParent.s`, `bracelet.s`, the common throw-weight table, Link's
+special-object graphics/animation entries, lifted-object offsets, object
+collision table, and pickup/throw sounds. The importer asserts the paired
+directional wall masks, 11-update pull boundary, 7/4/2 lift phases,
+eight-update throw pose, weight-0 gravity/Z and normal/Toss Ring speeds, rather
+than deriving those values from a convenient room. Bracelet break visuals
+reuse `effects/rock_debris.tsv`; that table contains both source interactions
+`$06` and `$0c` because liftable metatiles can retain either tile
+base/palette combination for their eventual impact.
+
 `Import-GashaData.ps1` owns the complete Ages `INTERAC_GASHA_SPOT $b6`
 closure. It emits all 16 group/room/subid placements and their source ranks,
 the 25 rank/maturity probability rows, five random-ring tiers, all ten reward

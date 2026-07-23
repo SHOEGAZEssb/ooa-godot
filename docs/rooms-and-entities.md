@@ -8,9 +8,13 @@ stride; only 15 by 11 metatiles (240 by 176 pixels) are playable, and column 16
 is padding.
 
 A room is identified by group and hexadecimal room ID. Group aliases in save
-tables do not make their runtime rooms interchangeable. Dungeon neighbors come
-from imported dungeon floor layouts, not room-ID arithmetic. `RoomSession` owns
-the active identity and must be used for neighbor and layout resolution.
+tables do not by themselves make runtime rooms interchangeable. The original
+tileset and object-pointer tables explicitly alias side-scrolling groups `$06`
+and `$07` to source groups `$04` and `$05`; retain the active side-scrolling
+identity while resolving their room tilesets and placed objects through that
+source alias. Dungeon neighbors come from imported dungeon floor layouts, not
+room-ID arithmetic. `RoomSession` owns the active identity and must be used for
+neighbor and layout resolution.
 
 ## Transition lifetime
 
@@ -85,6 +89,7 @@ single universal entity base class:
 | `IFixedRoomEntity` | One original-engine update with deterministic spawn output |
 | `ILinkContactEntity` | Post-update Link contact handling |
 | `ISwordHittableRoomEntity` | Sword collision and hit response |
+| `IObjectCollisionHeightRoomEntity` | Optional object `zh` for item/enemy collision; absent means ground height |
 | `ISeedHittableRoomEntity` / `ISeedProjectileRoomEntity` | Active seed hit response and one-shot projectile collision ownership |
 | `IPlayerProjectileRoomEntity` | Player-owned projectile bounds, damage, and accepted-hit completion |
 | `IRoomBlocker` / `ITalkTarget` | Collision or interaction capability |
@@ -105,6 +110,179 @@ room/world coordinates. Enemies with ordinary imported frame clocks use
 `EnemyAnimationPlayer`, while each species retains its own decisions, counters,
 movement, and RNG consumption.
 
+Side-view terrain movement must preserve the source velocity table's exact zero
+components for cardinal angles. A blocked cardinal move returns zero; it must
+not test the unchanged perpendicular coordinate and report success. Rope
+`$10:$00` depends on that return value: `objectCheckCenteredWithLink` accepts an
+inclusive ten-pixel match on either axis, the Rope takes one fixed cardinal
+`SPEED_140` lock, and only a wall/hole collision ends the charge. That collision
+restores `SPEED_60`, sets `counter2` to `$40`, and calls
+`rope_changeDirection`; the charge does not continuously retarget Link.
+
+## Bracelet tile and entity ownership
+
+`BraceletController` owns `ITEM_BRACELET $16`'s parent/child lifetime rather
+than treating a lift as an immediate tile deletion. Its wall test consumes the
+same paired `w1Link.adjacentWallsBitset` edge used by movement collision; a
+single solid point is insufficient. The controller then owns the opposite-
+direction pull gate, Link animation modes, movement/turning lock, carried
+offsets, either-button throw, weight-0 8.8 flight, and interruption cleanup.
+`BreakableTileDatabase` remains the authority for whether the active collision
+set accepts `BREAKABLETILESOURCE_BRACELET`, the replacement tile, drop,
+persistent flags, and stored impact interaction.
+
+Build the lifted graphic before replacing the room metatile. It is a live
+`itemMimicBgTile` snapshot, so it must retain position mapping overrides,
+animated/dynamic BG tile sources, X/Y flips, and the active room palette while
+making BG color 0 transparent in OBJ palette 7. The room layout changes at the
+successful lift boundary; the stored interaction is not created until the
+thrown tile lands or collides with a wall. Water, lava, and holes run the item
+hazard replacement first and suppress that debris.
+
+Native grabbable entities implement `IBraceletInteractableRoomEntity`, but do
+not own a second Link item state machine. The shared controller wraps their
+accepted lift and release in the same 13-update lift, eight-update throw,
+offset, and sound boundaries. The entity continues to own its body-specific
+motion and outcome; Pumpkin Head's head/ghost collision is the current example.
+Thrown metatiles use enemy/part collision capabilities for damage and continue
+flying when the original object-collision table applies damage only to the
+target. Their planar collision remains centered on the item's ground-space
+`yh/xh`; rendered Z never shifts that rectangle. After lateral and vertical
+item motion, the enemy pass separately accepts only target/item `zh` values
+within the source's strict seven-pixel range. A landing tile is replaced before
+that pass and cannot apply one final airborne hit.
+
+Link's standing-state A-button arbitration checks button-sensitive entities and
+`interactWithTileBeforeLink` before allocating an equipped parent item. Chests,
+signs, and keyholes therefore retain priority when the Bracelet is equipped to
+A. A failed Bracelet pull against an unbreakable wall holds
+`LINK_ANIM_MODE_LIFT_3`'s terminal strain frame while retrying the tile probe;
+it does not restart the 11-update pull animation.
+
+## Dungeon-specific native objects
+
+Keep a dungeon's native handlers in a typed generated stream when its ordinary
+object list contains script or interaction subids whose state machines are not
+shared globally. Spirit's Grave uses `spirits_grave_objects.tsv`,
+`spirits_grave_enemies.tsv`, `spirits_grave_visuals.tsv`, and
+`spirits_grave_constants.tsv`. The importer resolves source object order,
+predicates, enemy attributes, graphics, OAM, animation loops, text, and timing
+constants; runtime code must not reconstruct those records from room IDs or
+parse disassembly text.
+
+Merge these records with shared dungeon mechanics and entrance interactions by
+their imported `order`. Before-event bosses are gated by their source room flag
+before they contribute to `wNumEnemies`; their reward script remains a separate
+ordered controller that observes the same live enemy count. Child enemies and
+projectiles use explicit spawn records so update-this-frame behavior is not
+lost. Boss completion owns the persistent room flag, while the ordered reward
+controller owns the Heart Container or miniboss portal.
+
+Common boss initialization arms Link's `LINK_STATE_FORCE_MOVEMENT` only after
+the boss's first enemy update. On the next update Link initializes the forced
+state; its Ages `$16` countdown then performs 21 standard-speed one-pixel
+updates before returning to the standing state. Run that Link-owned movement
+before doors and enemies and bypass adjacent-wall collision, so the incoming
+shutter observes Link fully inside before closing. Both Giant Ghini and Pumpkin
+Head consume this shared entry contract; direct-room validation loads have no
+scroll direction and therefore do not synthesize an entry walk.
+
+Completed boss rooms retain a complete enemy-count source even though room flag
+`$80` suppresses their before-event boss record. On re-entry, the two enemy
+shutter controllers therefore observe zero enemies and run their ordinary
+six-update interleaved opening animations; suppressing the boss must not leave
+those doors in the fallback state used for genuinely unsupported enemy streams.
+
+Common boss teardown is a chain, not an ordinary enemy deletion. The boss
+sets the room-wide Link-collision/menu lock for its 120-update flicker, restores
+the saved room music when it creates `PART_BOSS_DEATH_EXPLOSION`, and leaves
+that imported 78-update part in `wNumEnemies`. The reward controller clears the
+lock only after the explosion releases the enemy count and the source reward
+script reaches its enable step. Do not route bosses through the ordinary death
+puff/drop producer. Airborne bosses attach the reusable imported `PART_SHADOW`;
+its size comes from the parent's raw Z high byte and its visibility alternates
+every update.
+
+Pumpkin Head's body and exposed ghost do not share one combat record. The body
+resets to eight health each time its head is exposed, while the ghost retains
+the enemy record's eight health across every regeneration. Collision mode
+`$5e` applies ordinary item damage to both sword collision rows and the
+Bracelet proxy; the weight-0 thrown head therefore deals the Bracelet record's
+three damage and uses its separate planar radii plus strict Z test. The common
+32-update enemy invincibility and `SND_BOSS_DAMAGE` response apply to either
+accepted ghost hit. During state `$15`, `objectCopyPosition` copies the active
+head's final X/Y into its related body before resetting body Z, so the rebuilt
+boss belongs at the landed head rather than the previous body or fleeing ghost.
+
+Spirit's Grave room `4:20` shares one transient puzzle state across its cube,
+four flames, light sensor, and trigger sensor. The cube selects from all 30
+imported roll/orientation animations and updates the shared color/position only
+after a complete 16-pixel roll. After its one-time initialization separation,
+the source handles solidity through the cube cell's `wRoomCollisions` `$0f`,
+clears that byte during the roll, and restores it at the centered destination;
+the runtime must not also apply a continuous entity-radius blocker, which would
+stop Link before his adjacent-wall probes select the push pose. The cube's own
+20-update push test reads Link's cardinal movement intent, facing, grounded and
+item/button state directly. Flame actors apply the cube's current color and bit
+7 visibility during construction, after the earlier ordered cube initializes
+the shared state, so a room-entry render cannot expose the previous solved
+appearance before the first fixed update. Room `4:16` similarly keeps its
+button trigger separate from the native 30-update moving-platform spawn script.
+This avoids encoding either puzzle as a room-load shortcut and preserves source
+ordering.
+
+Top-down `INTERAC_MOVING_PLATFORM` `$79` owns the shared
+`wLinkRidingObject`-style support state. It tests Link's point at Y+5 against
+the imported strict collision radii before advancing the platform, suppresses
+Link's underlying hole/water/lava/conveyor terrain while claimed, and applies
+the same `SPEED_80` 8.8 displacement to Link while his ordinary ground state
+allows it. Keep the platform and Link fractional coordinates independent from
+their floored draw coordinates; reconstructing either movement from a rendered
+position loses or doubles half-pixel travel. Room `4:15` uses size subid `$05`
+(`$10` by `$10` radii), while room `4:16` spawns subid `$09` (size `$01`,
+`$08` by `$10` radii).
+
+The Eternal Spirit remains a room entity until its exact approach predicate is
+met, then hands control to `RoomEventController`. The event owns input lock,
+dialogue, room/essence flags, music and sound cadence, full-screen fades, and
+the final delayed warp; the entity owns pedestal, glow, collectible, and bead
+presentation. Clear any room-local background fade when the transition loads
+the destination so a source-room effect cannot leak into ordinary gameplay.
+
+## Shared dungeon entrance interactions
+
+The importer keeps `$12:$00`, `$e2:$01`, and `$7e:$00` placements in one
+`dungeon_shared_placements.tsv` stream with their original room-object indices.
+`RoomEntityFactory` merges that stream with `dungeon_mechanics.tsv` by the
+imported `order` field; do not append either family by type, because doors,
+chests, entry handlers, eyes, and portals can share a room and observe one
+another's update order. Room `4:e7` retains its source NPC/handler interleave by
+inserting the handler after the first construction soldier.
+
+`INTERAC_DUNGEON_STUFF $12:$00` exists for one enabled update only when the room
+was entered through the `$ff` whiteout screen warp and Link's Y is at least
+`$78`. Initialization clears the Ages `wToggleBlocksState`, `wSwitchState`, and
+`wSpinnerState` session bytes, then applies the imported per-dungeon spinner
+value. Strict-radius contact shows the imported TX `$0200-$020f` label, records
+the death checkpoint through the shared event, and deletes the interaction.
+
+`INTERAC_STATUE_EYEBALL $e2:$01` scans large-room layout bytes from `$ae` down
+through `$01` for tile `$ee`. Each child receives a same-update setup at the
+tile center minus two Y pixels. Starting on its following update, it recenters,
+quantizes `objectGetAngleTowardLink` to the source eight directions, applies the
+imported low-nibble Y/X offset, and retains the default animation `$04` OAM.
+The direction is represented by moving that one fixed eye sprite around the
+statue; the other animation indices belong to `$e2:$00` and must not be selected
+for the scanner's `$e2:$02` children.
+
+`INTERAC_MINIBOSS_PORTAL $7e:$00` reads flag `$80` from the imported miniboss
+room pair, not from whichever portal room is active. Its initial-overlap state
+requires Link to leave before contact can trigger. Fresh contact plays
+`SND_TELEPORT`, pins Link at packed position `$57`, rotates his direction every
+fourth global update for exactly `$30` updates, and requests the imported basic
+destination/fadeout warp to the other room in the pair. The transition
+controller remains the owner of the actual room swap and fade.
+
 Active Shovel use keeps parent-item timing in `Player` and delegates the
 update-4 child probe to `ShovelController`. The controller reads
 `BreakableTileDatabase` source `$06`, normalizes the hit to the metatile center,
@@ -122,6 +300,12 @@ update, signed Link-relative offset, `SPEED_c0` motion, speedZ `-$20`, gravity
 `$1c`, ground/hazard landing, item animation, and the `$3a`-update flame. On
 expiry it probes `BreakableTileDatabase` with source `$0c` and applies the
 imported replacement, drop, room-flag, Gasha-maturity, and solve-sound effects.
+Breakable-room actions with bit 7 set use the low-nibble direction to set both
+the active room's directional flag and the opposite flag in the neighbor from
+the imported dungeon layout. For example, Spirit's Grave tile `$69` uses
+action `$8c`: burning room `4:1d`'s left wall sets flag `$08` there and flag
+`$02` in room `4:1c`, then plays `SND_SOLVEPUZZLE` and terminates the Ember
+child. Do not reduce linked breakable actions to a current-room-only flag.
 Cached `OracleRoomData` instances restore their source layout on every entry,
 then run the original substitution order: `SingleTileChangeDatabase`,
 `StandardTileSubstitutionDatabase`, chest/key-door state, and room-specific
@@ -211,6 +395,9 @@ routed through the splash effect.
 
 Common push blocks request `SND_MOVEBLOCK` only after the push delay succeeds,
 the source tile has been replaced, and the moving object becomes visible.
+Their movement uses the imported Bracelet contract: level 0/1 uses
+`SPEED_80` for `$20` updates, while the level-2 Power Glove uses `SPEED_c0`
+for `$15` updates unless property bit 5 marks the block heavy.
 Their completion event retains the destination hazard type: water/lava create
 the splash interaction, while a hole creates `INTERAC_FALLDOWNHOLE $0f:$00`
 without changing the hole tile. That interaction requests `SND_FALLINHOLE`,
@@ -332,6 +519,16 @@ sentinel; killing both Stalfos restores source block `$1c`, and moving that
 block starts the normal delayed two-shutter solve. In an incomplete room, the
 crossed route instead remains open for safe backtracking without synthesizing a
 solve.
+
+`replaceShutterForLinkEntering` is a layout substitution, not a property of
+placed door-controller records. Before destination object parsing, ordinary
+layout tiles `$78-$7b` must also compare their encoded direction and packed
+position with the scrolling entry context. The matching tile becomes `$a0`;
+the corresponding source table row has bit 7 set, so no auto-close controller
+is created. Room `4:1d`'s right tile `$79` is the canonical layout-only case:
+scrolling left from `4:1e` opens packed position `$5e`, while a direct room load
+retains the closed source tile. Minecart shutters `$7c-$7f` use different
+replacement tiles and auto-close interactions and remain a separate mechanic.
 
 Do not infer the entry shutter from a room edge alone, because the original
 substitution also requires Link's packed row or column to match that door.
