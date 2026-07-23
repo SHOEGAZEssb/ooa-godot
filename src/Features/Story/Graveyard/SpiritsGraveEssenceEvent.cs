@@ -53,6 +53,10 @@ internal sealed class SpiritsGraveEssenceEvent : IRoomEvent
                 _context.Rooms.SaveData.SetRoomFlag(
                     4, 0x11, OracleSaveData.RoomFlagItem);
                 _context.Inventory.GiveTreasure(TreasureDatabase.TreasureEssence, 0);
+                // TREASURE_ESSENCE's collection row requests
+                // MUS_GET_ESSENCE while TX_000e is open. The later native
+                // script deliberately replaces it with MUS_ESSENCE.
+                _context.Sound.PlaySound(OracleSoundEngine.MusGetEssence);
                 _phase = SpiritsGraveEssenceEventPhase.Dialogue;
                 return;
 

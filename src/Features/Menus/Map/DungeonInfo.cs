@@ -9,15 +9,23 @@ public sealed class DungeonInfo
     private readonly Dictionary<(int Floor, int X, int Y), DungeonCell> _positionCells = new();
     public int Index { get; }
     public int Group { get; }
+    public int WallmasterDestinationRoom { get; }
     public int FloorCount { get; }
     public int BaseFloor { get; }
     public byte CompassFloors { get; }
     public IEnumerable<DungeonCell> Cells => _positionCells.Values;
 
-    internal DungeonInfo(int index, int group, int floorCount, int baseFloor, byte compassFloors)
+    internal DungeonInfo(
+        int index,
+        int group,
+        int wallmasterDestinationRoom,
+        int floorCount,
+        int baseFloor,
+        byte compassFloors)
     {
         Index = index;
         Group = group;
+        WallmasterDestinationRoom = wallmasterDestinationRoom;
         FloorCount = floorCount;
         BaseFloor = baseFloor;
         CompassFloors = compassFloors;

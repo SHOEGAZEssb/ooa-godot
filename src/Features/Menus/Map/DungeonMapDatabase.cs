@@ -8,6 +8,7 @@ public sealed class DungeonMapDatabase
 {
     private readonly Dictionary<(int Dungeon, int Room, Vector2I Direction), int> _neighbors = new();
     private readonly Dictionary<int, DungeonInfo> _dungeons = new();
+    private readonly Dictionary<(int Group, int Room), int> _dungeonByRoom = new();
 
     public DungeonMapDatabase()
     {
@@ -50,6 +51,21 @@ public sealed class DungeonMapDatabase
         return result;
     }
 
+    public bool TryGetDungeonForRoom(
+        int group,
+        int room,
+        out DungeonInfo dungeon)
+    {
+        if (_dungeonByRoom.TryGetValue((group, room), out int index) &&
+            index >= 0)
+        {
+            dungeon = GetDungeon(index);
+            return true;
+        }
+        dungeon = null!;
+        return false;
+    }
+
     private void LoadMapLayouts()
     {
         GeneratedTable maps = GeneratedTable.Load(
@@ -58,8 +74,9 @@ public sealed class DungeonMapDatabase
                 "dungeon map layouts",
                 GeneratedTableKeySemantics.Grouped,
                 [
-                    "dungeon", "group", "floors", "base-floor", "compass-floors",
-                    "floor", "x", "y", "room", "properties"
+                    "dungeon", "group", "wallmaster-destination", "floors",
+                    "base-floor", "compass-floors", "floor", "x", "y", "room",
+                    "properties"
                 ],
                 ["dungeon"],
                 headerRequired: true));
@@ -67,24 +84,36 @@ public sealed class DungeonMapDatabase
         {
             int dungeon = row.UnsignedDecimal(0);
             int group = row.Decimal(1, 0, 7);
-            int floorCount = row.UnsignedDecimal(2);
-            int baseFloor = row.UnsignedDecimal(3);
-            byte compassFloors = (byte)row.HexByte(4);
-            int floor = row.UnsignedDecimal(5);
-            int x = row.UnsignedDecimal(6);
-            int y = row.UnsignedDecimal(7);
-            int room = row.HexByte(8);
-            byte properties = (byte)row.HexByte(9);
+            int wallmasterDestination = row.HexByte(2);
+            int floorCount = row.UnsignedDecimal(3);
+            int baseFloor = row.UnsignedDecimal(4);
+            byte compassFloors = (byte)row.HexByte(5);
+            int floor = row.UnsignedDecimal(6);
+            int x = row.UnsignedDecimal(7);
+            int y = row.UnsignedDecimal(8);
+            int room = row.HexByte(9);
+            byte properties = (byte)row.HexByte(10);
 
             if (!_dungeons.TryGetValue(dungeon, out DungeonInfo? info))
             {
-                info = new DungeonInfo(dungeon, group, floorCount, baseFloor, compassFloors);
+                info = new DungeonInfo(
+                    dungeon, group, wallmasterDestination,
+                    floorCount, baseFloor, compassFloors);
                 _dungeons.Add(dungeon, info);
             }
             if (info.Group != group || info.FloorCount != floorCount ||
+                info.WallmasterDestinationRoom != wallmasterDestination ||
                 info.BaseFloor != baseFloor || info.CompassFloors != compassFloors)
                 throw new InvalidOperationException($"Inconsistent metadata for dungeon {dungeon:x2}.");
             info.AddCell(new DungeonCell(floor, x, y, room, properties));
+            if (!_dungeonByRoom.TryAdd((group, room), dungeon) &&
+                _dungeonByRoom[(group, room)] != dungeon)
+            {
+                // The source includes alternate dungeon layouts that share a
+                // room ID. Callers requiring an unambiguous reverse lookup
+                // must use RoomSession's active tileset dungeon index there.
+                _dungeonByRoom[(group, room)] = -1;
+            }
         }
         if (_dungeons.Count != 16)
             throw new InvalidOperationException($"Expected 16 dungeon map layouts, got {_dungeons.Count}.");

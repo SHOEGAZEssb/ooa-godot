@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-internal sealed partial class GiantGhiniChild : SpiritsGraveEnemyCharacter
+internal sealed partial class GiantGhiniChild : EnemyCharacter
 {
 
     private GiantGhiniBoss _owner = null!;
@@ -16,6 +16,7 @@ internal sealed partial class GiantGhiniChild : SpiritsGraveEnemyCharacter
     private bool _slowsLink;
     private const float Z = -4.0f;
 
+    internal ImportedEnemyDefinition Record { get; private set; }
     internal ChildState State => _state;
     internal int Counter => _counter;
     internal override bool CollisionEnabled =>
@@ -25,13 +26,16 @@ internal sealed partial class GiantGhiniChild : SpiritsGraveEnemyCharacter
     internal bool DisablesItems => _state == ChildState.Attached;
 
     internal void Initialize(
-        EnemyRecord record,
+        ImportedEnemyDefinition record,
         GiantGhiniBoss owner,
         int index)
     {
         Vector2[] offsets = { Vector2.Right * 24, Vector2.Up * 24, Vector2.Left * 24 };
         _owner = owner;
-        InitializeEnemy(record, owner.Position + offsets[index]);
+        Record = record;
+        InitializeEnemy(
+            owner.Position + offsets[index],
+            EnemyCharacterConfiguration.FromImported(record));
         if (owner.State is GiantGhiniBossBossState.IntroWait or
             GiantGhiniBossBossState.IntroFlicker)
         {

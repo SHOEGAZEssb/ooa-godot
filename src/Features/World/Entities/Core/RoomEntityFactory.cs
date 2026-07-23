@@ -54,6 +54,8 @@ internal sealed class RoomEntityFactory(
     private readonly SwordBeamDatabase _swordBeam = new();
     private readonly GashaSpotDatabase _gashaSpots = new();
     private readonly DarkRoomDatabase _darkRooms = new();
+    private readonly DungeonMapDatabase _dungeonMaps =
+        rooms?.DungeonMaps ?? new DungeonMapDatabase();
 
     /// <summary>
     /// Mirrors replaceShutterForLinkEntering for ordinary layout shutters
@@ -449,7 +451,7 @@ internal sealed class RoomEntityFactory(
                 return new GiantGhiniBossRoomEntity(
                     giantGhini, BossEntryDirection(placementContext));
             case ObjectKind.PumpkinHead:
-                EnemyRecord pumpkin = _spiritsGrave.Enemy(0x78);
+                ImportedEnemyDefinition pumpkin = _spiritsGrave.Enemy(0x78);
                 return new PumpkinHeadBossRoomEntity(
                     new PumpkinHeadBoss(
                         pumpkin, room, record.Position, random, soundRequested,
@@ -678,43 +680,49 @@ internal sealed class RoomEntityFactory(
             return new ZolRoomEntity(zol, soundRequested, killableEnemyIndex);
         }
 
-        bool spiritsGraveEnemy = source.Group == 4 &&
-            source.Room is >= 0x10 and <= 0x25;
-        if (spiritsGraveEnemy && source.Id == 0x0a)
+        if (source.Id == 0x0a &&
+            enemies.TryGetImportedEnemyDefinition(
+                source, out ImportedEnemyDefinition moblinRecord))
         {
             var moblin = new BoomerangMoblinCharacter
             {
                 Name = $"BoomerangMoblin_{source.Order}_{instance}",
                 ZIndex = 10
             };
-            moblin.Initialize(_spiritsGrave.Enemy(0x0a, source.SubId), room, position, random);
+            moblin.Initialize(moblinRecord, room, position, random);
             return new BoomerangMoblinRoomEntity(moblin, killableEnemyIndex);
         }
 
-        if (spiritsGraveEnemy && source.Id == 0x10)
+        if (source.Id == 0x10 &&
+            enemies.TryGetImportedEnemyDefinition(
+                source, out ImportedEnemyDefinition ropeRecord))
         {
             var rope = new RopeCharacter
             {
                 Name = $"Rope_{source.Order}_{instance}",
                 ZIndex = 10
             };
-            rope.Initialize(_spiritsGrave.Enemy(0x10, source.SubId), room, position, random);
+            rope.Initialize(ropeRecord, room, position, random);
             return new RopeRoomEntity(rope, killableEnemyIndex);
         }
 
-        if (spiritsGraveEnemy && source.Id == 0x17)
+        if (source.Id == 0x17 &&
+            enemies.TryGetImportedEnemyDefinition(
+                source, out ImportedEnemyDefinition ghiniRecord))
         {
             var ghini = new GhiniCharacter
             {
                 Name = $"Ghini_{source.Order}_{instance}",
                 ZIndex = 10
             };
-            ghini.Initialize(_spiritsGrave.Enemy(0x17, source.SubId), room, position, random);
+            ghini.Initialize(ghiniRecord, room, position, random);
             return new GhiniRoomEntity(
                 ghini, killableEnemyIndex, soundRequested);
         }
 
-        if (spiritsGraveEnemy && source.Id == 0x28)
+        if (source.Id == 0x28 &&
+            enemies.TryGetImportedEnemyDefinition(
+                source, out ImportedEnemyDefinition wallmasterRecord))
         {
             var wallmaster = new WallmasterCharacter
             {
@@ -722,10 +730,14 @@ internal sealed class RoomEntityFactory(
                 ZIndex = 10
             };
             wallmaster.Initialize(
-                _spiritsGrave.Enemy(0x28, source.SubId), room, position);
+                wallmasterRecord, room, position);
+            (int destinationGroup, int destinationRoom) =
+                ResolveWallmasterDestination(source);
             return new WallmasterRoomEntity(
                 wallmaster, soundRequested, roomWarpRequested,
-                source.Group, source.Room, killableEnemyIndex);
+                source.Group, source.Room,
+                destinationGroup, destinationRoom,
+                killableEnemyIndex);
         }
 
         return source.Id == 0x43 && source.SubId == 0
@@ -832,7 +844,7 @@ internal sealed class RoomEntityFactory(
             room,
             spawn.Position,
             spawn.Angle,
-            _spiritsGrave.Visual("moblin-boomerang"))
+            enemies.MoblinBoomerang)
         {
             Name = "MoblinBoomerang",
             ZIndex = 11
@@ -1366,6 +1378,31 @@ internal sealed class RoomEntityFactory(
         return (record.ConditionMask & (1 << stateModifier)) != 0;
     }
 
+    private (int Group, int Room) ResolveWallmasterDestination(
+        RoomObjectRecord source)
+    {
+        int dungeon = rooms?.World.GetDungeonIndex(source.Group, source.Room) ?? -1;
+        DungeonInfo info;
+        if (dungeon >= 0)
+        {
+            info = _dungeonMaps.GetDungeon(dungeon);
+        }
+        else if (!_dungeonMaps.TryGetDungeonForRoom(
+            source.Group, source.Room, out info))
+        {
+            throw new InvalidOperationException(
+                $"Wallmaster room {source.Group:x1}:{source.Room:x2} has no " +
+                "unambiguous imported dungeon metadata.");
+        }
+        if (info.Group != source.Group)
+        {
+            throw new InvalidOperationException(
+                $"Wallmaster room {source.Group:x1}:{source.Room:x2} resolved " +
+                $"dungeon ${info.Index:x2} in group ${info.Group:x1}.");
+        }
+        return (info.Group, info.WallmasterDestinationRoom);
+    }
+
     private static Vector2 PointForPackedPosition(int position) => new(
         (position & 0x0f) * OracleRoomData.MetatileSize + 8,
         (position >> 4) * OracleRoomData.MetatileSize + 8);
@@ -1390,7 +1427,7 @@ internal sealed class RoomEntityFactory(
                     {
                         0x09 => enemies.TryGetOctorokDefinition(source, out _),
                         0x0a or 0x10 or 0x17 or 0x28 =>
-                            group == 4 && room.Id is >= 0x10 and <= 0x25,
+                            enemies.TryGetImportedEnemyDefinition(source, out _),
                         0x31 => enemies.TryGetStalfosDefinition(source, out _),
                         0x32 => enemies.TryGetKeeseDefinition(source, out _),
                         0x34 => enemies.TryGetZolDefinition(source, out _),

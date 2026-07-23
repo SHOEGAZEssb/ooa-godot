@@ -4,213 +4,17 @@
 # of their own. Resolve graphics/OAM here while all shared importer tables are
 # still in scope; runtime code never reads assembly source.
 
-function Read-SpiritsGraveDwTables(
-    [string]$source,
-    [string]$labelPattern,
-    [string]$entryPattern) {
-    $tables = @{}
-    $aliases = [Collections.Generic.List[string]]::new()
-    $entries = [Collections.Generic.List[string]]::new()
-    foreach ($line in ($source -split '\r?\n')) {
-        $label = [regex]::Match($line, "^(?<label>$labelPattern):")
-        if ($label.Success) {
-            if ($entries.Count -gt 0) {
-                foreach ($alias in $aliases) { $tables[$alias] = @($entries) }
-                $aliases.Clear()
-                $entries.Clear()
-            }
-            $aliases.Add($label.Groups['label'].Value)
-            continue
-        }
-        if ($aliases.Count -eq 0) { continue }
-        $entry = [regex]::Match($line, "^\s*\.dw\s+(?<entry>$entryPattern)")
-        if ($entry.Success) {
-            $entries.Add($entry.Groups['entry'].Value)
-            continue
-        }
-        if ($entries.Count -gt 0 -and $line -match '^[A-Za-z0-9_@]+:') {
-            foreach ($alias in $aliases) { $tables[$alias] = @($entries) }
-            $aliases.Clear()
-            $entries.Clear()
-        }
-    }
-    if ($entries.Count -gt 0) {
-        foreach ($alias in $aliases) { $tables[$alias] = @($entries) }
-    }
-    return $tables
-}
-
-function Read-SpiritsGraveEnemyAnimationFrames([string]$source) {
-    $script:sgAnimResult = @{}
-    $script:sgAnimAliases = [Collections.Generic.List[string]]::new()
-    $script:sgAnimFrames = [Collections.Generic.List[object]]::new()
-    $script:sgAnimFrameOffsets = @{}
-    $script:sgAnimLoopStart = 0
-
-    function Complete-SpiritsGraveEnemyAnimation {
-        if ($script:sgAnimAliases.Count -eq 0 -or $script:sgAnimFrames.Count -eq 0) { return }
-        $record = @{
-            Frames = @($script:sgAnimFrames)
-            LoopStart = $script:sgAnimLoopStart
-        }
-        foreach ($alias in $script:sgAnimAliases) { $script:sgAnimResult[$alias] = $record }
-        $script:sgAnimAliases.Clear()
-        $script:sgAnimFrames.Clear()
-        $script:sgAnimFrameOffsets.Clear()
-        $script:sgAnimLoopStart = 0
-    }
-
-    foreach ($line in ($source -split '\r?\n')) {
-        $label = [regex]::Match($line, '^(?<label>enemyAnimation[0-9a-f]+(?:Loop)?):')
-        if ($label.Success) {
-            $name = $label.Groups['label'].Value
-            if ($name.EndsWith('Loop') -and $script:sgAnimAliases.Count -gt 0) {
-                $script:sgAnimFrameOffsets[$name] = $script:sgAnimFrames.Count
-            } else {
-                if ($script:sgAnimFrames.Count -gt 0) { Complete-SpiritsGraveEnemyAnimation }
-                $script:sgAnimAliases.Add($name)
-                $script:sgAnimFrameOffsets[$name] = 0
-            }
-            continue
-        }
-        if ($script:sgAnimAliases.Count -eq 0) { continue }
-        $frame = [regex]::Match(
-            $line,
-            '^\s*\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<offset>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})')
-        if ($frame.Success) {
-            $script:sgAnimFrames.Add(@{
-                Duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
-                PointerOffset = [Convert]::ToInt32($frame.Groups['offset'].Value, 16)
-                Parameter = [Convert]::ToInt32($frame.Groups['parameter'].Value, 16)
-            })
-            continue
-        }
-        $loop = [regex]::Match($line, '^\s*m_AnimationLoop\s+(?<target>enemyAnimation[0-9a-f]+(?:Loop)?)')
-        if ($loop.Success) {
-            $target = $loop.Groups['target'].Value
-            if (-not $script:sgAnimFrameOffsets.ContainsKey($target)) {
-                throw "Enemy animation loop target not found: $target"
-            }
-            $script:sgAnimLoopStart = $script:sgAnimFrameOffsets[$target]
-            Complete-SpiritsGraveEnemyAnimation
-        }
-    }
-    Complete-SpiritsGraveEnemyAnimation
-    $result = $script:sgAnimResult
-    Remove-Variable sgAnimResult,sgAnimAliases,sgAnimFrames,sgAnimFrameOffsets,sgAnimLoopStart `
-        -Scope Script
-    return $result
-}
-
-$sgEnemyAnimationTables = Read-SpiritsGraveDwTables `
-    $enemyAnimationSource 'enemy[0-9a-f]{2}Animations' 'enemyAnimation[0-9a-f]+'
-$sgEnemyOamTables = Read-SpiritsGraveDwTables `
-    $enemyAnimationSource 'enemy[0-9a-f]{2}OamDataPointers' 'enemyOamData[0-9a-f]+'
-$sgEnemyAnimationFrames = Read-SpiritsGraveEnemyAnimationFrames $enemyAnimationSource
 $enemyObjectSource = Get-Content -Raw (
     Join-Path $Disassembly 'objects\ages\enemyData.s')
 $pumpkinHeadSource = Get-Content -Raw (
     Join-Path $Disassembly 'object_code\ages\enemies\pumpkinHead.s')
 
-function Resolve-SpiritsGraveEnemyAnimations([int]$id) {
-    $hex = $id.ToString('x2')
-    $animationKey = "enemy${hex}Animations"
-    $oamKey = "enemy${hex}OamDataPointers"
-    if (-not $sgEnemyAnimationTables.ContainsKey($animationKey) -or
-        -not $sgEnemyOamTables.ContainsKey($oamKey)) {
-        throw "Enemy `$$hex animation/OAM table is missing."
-    }
-    $pointers = $sgEnemyOamTables[$oamKey]
-    $encoded = [Collections.Generic.List[string]]::new()
-    foreach ($animationLabel in $sgEnemyAnimationTables[$animationKey]) {
-        if (-not $sgEnemyAnimationFrames.ContainsKey($animationLabel)) {
-            throw "Enemy `$$hex animation body is missing: $animationLabel"
-        }
-        $definition = $sgEnemyAnimationFrames[$animationLabel]
-        $frames = [Collections.Generic.List[string]]::new()
-        $valid = $true
-        foreach ($frame in $definition.Frames) {
-            $pointerIndex = [int]($frame.PointerOffset / 2)
-            if ($pointerIndex -lt 0 -or $pointerIndex -ge $pointers.Count) {
-                # Several alias animation tables intentionally run into the
-                # following enemy's entries. The current enemy can only use
-                # the prefix addressable by its own OAM pointer table.
-                $valid = $false
-                break
-            }
-            $metadata = if ($frame.Parameter -eq 0) {
-                "$($frame.Duration)"
-            } else {
-                "$($frame.Duration),$($frame.Parameter)"
-            }
-            $frames.Add("$metadata@$(Resolve-Oam $enemyOamSource $pointers[$pointerIndex])")
-        }
-        if (-not $valid) { break }
-        $value = $frames -join '|'
-        if ($definition.LoopStart -gt 0) { $value += "~$($definition.LoopStart)" }
-        $encoded.Add($value)
-    }
-    return @($encoded)
-}
-
-function Get-SpiritsGraveEnemyDefinition([int]$id, [int]$subid = 0) {
-    $hex = $id.ToString('x2')
-    $line = [regex]::Match(
-        $enemyDataSource,
-        ('(?m)^\s*/\* 0x{0} \*/ m_EnemyData \$(?<gfx>[0-9a-f]{{2}}) \$(?<collision>[0-9a-f]{{2}}) (?:(?:\$(?<extra>[0-9a-f]{{2}}) \$(?<flags>[0-9a-f]{{2}}))|(?<subids>enemy[0-9a-f]{{2}}SubidData))' -f $hex))
-    if (-not $line.Success) { throw "Enemy data row `$$hex is missing." }
-    $extra = 0
-    $flags = 0
-    if ($line.Groups['subids'].Success) {
-        $rows = @([regex]::Matches(
-            (Get-AssemblyLabelBody $enemyDataSource $line.Groups['subids'].Value),
-            '(?m)^\s*m_EnemySubidData \$(?<extra>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'))
-        if ($subid -ge $rows.Count) { throw "Enemy `$$hex subid `$$($subid.ToString('x2')) has no data row." }
-        $extra = [Convert]::ToInt32($rows[$subid].Groups['extra'].Value, 16) -band 0x7f
-        $flags = [Convert]::ToInt32($rows[$subid].Groups['flags'].Value, 16)
-    } else {
-        $extra = [Convert]::ToInt32($line.Groups['extra'].Value, 16) -band 0x7f
-        $flags = [Convert]::ToInt32($line.Groups['flags'].Value, 16)
-    }
-    if ($extra -ge $extraEnemyRows.Count) { throw "Enemy `$$hex extra-data index is out of range." }
-    $extraRow = $extraEnemyRows[$extra]
-    $damageByte = [Convert]::ToInt32($extraRow.Groups['damage'].Value, 16)
-    return @{
-        Id = $id
-        Gfx = [Convert]::ToInt32($line.Groups['gfx'].Value, 16)
-        TileBase = ($flags -band 0x0f) * 2
-        Palette = ($flags -shr 4) -band 7
-        RadiusY = [Convert]::ToInt32($extraRow.Groups['y'].Value, 16)
-        RadiusX = [Convert]::ToInt32($extraRow.Groups['x'].Value, 16)
-        Damage = (0x100 - $damageByte) / 2
-        Health = [Convert]::ToInt32($extraRow.Groups['health'].Value, 16)
-        Animations = Resolve-SpiritsGraveEnemyAnimations $id
-    }
-}
-
-function Copy-SpiritsGraveSprite([string]$name) {
-    $source = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
-        ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Filter "$name.png" } |
-        Select-Object -First 1
-    if ($null -eq $source) { throw "Spirit's Grave sprite not found: $name.png" }
-    Copy-Item -LiteralPath $source.FullName `
-        -Destination (Join-Path $destination "gfx\$name.png") -Force
-}
-
 $sgEnemySpriteSequences = @{
-    0x0a = @($gfxNames[0x91])
-    0x10 = @($gfxNames[0x9b])
-    0x17 = @($gfxNames[0x90])
-    0x28 = @($gfxNames[0xa0])
     0x3f = @($gfxNames[0xad], $gfxNames[0xae])
     0x70 = @($gfxNames[0xad], $gfxNames[0xae])
     0x78 = @($gfxNames[0xbc], $gfxNames[0xbd], $gfxNames[0xbe])
 }
 $sgEnemySourceGrayscaleInverted = @{
-    0x0a = $true
-    0x10 = $true
-    0x17 = $true
-    0x28 = $true
     # Giant Ghini's two source sheets use white as color 0, unlike the
     # ordinary black-background enemy sheets.
     0x3f = $false
@@ -220,26 +24,24 @@ $sgEnemySourceGrayscaleInverted = @{
 $sgEnemyRows = [Collections.Generic.List[string]]::new()
 $sgEnemyRows.Add('# id`tsubid`tsprites`ttile-base`tpalette`tsource-grayscale-inverted`tradius-y`tradius-x`tdamage-quarters`thealth`tanimations-base64'.Replace('`t', "`t"))
 foreach ($spec in @(
-    @(0x0a, 0), @(0x10, 0), @(0x17, 0), @(0x28, 0),
     @(0x3f, 0), @(0x70, 0), @(0x78, 0)
 )) {
     $id = [int]$spec[0]
     $subid = [int]$spec[1]
-    $definition = Get-SpiritsGraveEnemyDefinition $id $subid
+    $definition = Get-EnemyDefinition $id $subid
     $sprites = $sgEnemySpriteSequences[$id]
-    foreach ($sprite in $sprites) { Copy-SpiritsGraveSprite $sprite }
+    foreach ($sprite in $sprites) { Copy-EnemySprite $sprite }
     $animations = [Convert]::ToBase64String(
         [Text.Encoding]::UTF8.GetBytes($definition.Animations -join "`n"))
     $sourceGrayscaleInverted = if ($sgEnemySourceGrayscaleInverted[$id]) { 1 } else { 0 }
     $sgEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($sgEnemyRows.Count -ne 8 -or
-    -not ($sgEnemyRows | Where-Object { $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t' }) -or
+if ($sgEnemyRows.Count -ne 4 -or
     -not ($sgEnemyRows | Where-Object { $_ -match '^3f\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t2\t2\t128\t2\t' }) -or
     -not ($sgEnemyRows | Where-Object { $_ -match '^70\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t10\t10\t1\t12\t' }) -or
     -not ($sgEnemyRows | Where-Object { $_ -match '^78\t00\tspr_pumpkinhead_1,spr_pumpkinhead_2,spr_pumpkinhead_3\t0\t3\t1\t6\t12\t2\t8\t' })) {
-    throw "Spirit's Grave enemy definitions no longer match the traced ordinary/boss records:`n$($sgEnemyRows -join "`n")"
+    throw "Spirit's Grave boss definitions no longer match the traced records:`n$($sgEnemyRows -join "`n")"
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\spirits_grave_enemies.tsv'),
@@ -331,7 +133,7 @@ function Add-SpiritsGraveInteractionVisual(
         throw "Spirit's Grave interaction visual $key (`$$($id.ToString('x2')):`$$($subid.ToString('x2'))) is missing."
     }
     $sprite = $gfxNames[$graphic.Gfx]
-    Copy-SpiritsGraveSprite $sprite
+    Copy-EnemySprite $sprite
     $resolved = @($animations | ForEach-Object {
         Resolve-SpiritsGraveInteractionAnimation $id $_
     })
@@ -377,9 +179,30 @@ $cubePaletteBytes = [byte[]]::new(24)
     $cubePaletteBytes)
 
 # D1's @essenceOamData row adds tile 0, palette 1, and chooses layout/animation 1.
+# The separately created pedestal and glow retain their subid-data defaults:
+# $76/$00/$40 selects animation 0, while $76/$06/$43 selects the four-frame
+# animation 3 glow. Using animation 0 for both draws the pedestal OAM twice.
+$essenceSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\essence.s')
+$essencePedestalGraphic = $interactionGraphics['127:1']
+$essenceGlowGraphic = $interactionGraphics['127:2']
+if ($essenceSource -notmatch
+        '(?ms)^@essenceOamData:.*?\.db \$00 \$01 \$01' -or
+    $null -eq $essencePedestalGraphic -or
+    $essencePedestalGraphic.Gfx -ne 0x76 -or
+    $essencePedestalGraphic.TileBase -ne 0 -or
+    $essencePedestalGraphic.Palette -ne 4 -or
+    $essencePedestalGraphic.DefaultAnimation -ne 0 -or
+    $null -eq $essenceGlowGraphic -or
+    $essenceGlowGraphic.Gfx -ne 0x76 -or
+    $essenceGlowGraphic.TileBase -ne 6 -or
+    $essenceGlowGraphic.Palette -ne 4 -or
+    $essenceGlowGraphic.DefaultAnimation -ne 3) {
+    throw 'INTERAC_ESSENCE D1/pedestal/glow graphics initialization changed.'
+}
 Add-SpiritsGraveInteractionVisual 'eternal-spirit' 0x7f 0 @(1) 0 1
 Add-SpiritsGraveInteractionVisual 'essence-pedestal' 0x7f 1 @(0)
-Add-SpiritsGraveInteractionVisual 'essence-glow' 0x7f 2 @(0)
+Add-SpiritsGraveInteractionVisual 'essence-glow' 0x7f 2 @(3)
 
 # PART_BLUE_ENERGY_BEAD $53 supplies the eight inward-swirl variants used by
 # the common essence script. Part data $53 selects gfx $87, tile base 0,
@@ -428,46 +251,10 @@ $energyAnimations = @($energyAnimationLabels[0..7] | ForEach-Object {
     Resolve-SpiritsGraveEnergyAnimation $_
 })
 $energySprite = $gfxNames[0x87]
-Copy-SpiritsGraveSprite $energySprite
+Copy-EnemySprite $energySprite
 $energyAnimationData = [Convert]::ToBase64String(
     [Text.Encoding]::UTF8.GetBytes($energyAnimations -join "`n"))
 $sgVisualRows.Add("energy-bead`t$energySprite`t0`t4`t1`t$energyAnimationData")
-
-# PART_MOBLIN_BOOMERANG $21 uses gfx $8e with tile base $0a and palette 4.
-# Its four OAM frames rotate the projectile; retain the source animation rather
-# than drawing a runtime approximation.
-$boomerangAnimationLabels = @([regex]::Matches(
-    (Get-AssemblyLabelBody $partAnimationSource 'part21Animations'),
-    '(?m)^\s*\.dw\s+(?<label>partAnimation[0-9a-f]+)') |
-    ForEach-Object { $_.Groups['label'].Value })
-$boomerangOamLabels = @([regex]::Matches(
-    (Get-AssemblyLabelBody $partAnimationSource 'part21OamDataPointers'),
-    '(?m)^\s*\.dw\s+(?<label>partOamData[0-9a-f]+)') |
-    ForEach-Object { $_.Groups['label'].Value })
-if ($boomerangAnimationLabels.Count -ne 1 -or $boomerangOamLabels.Count -ne 4) {
-    throw 'PART_MOBLIN_BOOMERANG animation/OAM tables changed.'
-}
-$boomerangFrames = [Collections.Generic.List[string]]::new()
-foreach ($frame in [regex]::Matches(
-    (Get-AssemblyLabelBody $partAnimationSource $boomerangAnimationLabels[0]),
-    '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<offset>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})')) {
-    $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
-    $offset = [Convert]::ToInt32($frame.Groups['offset'].Value, 16)
-    $pointerIndex = [int]($offset / 2)
-    if ($pointerIndex -ge $boomerangOamLabels.Count) {
-        throw "Moblin boomerang OAM pointer $pointerIndex is out of range."
-    }
-    $boomerangFrames.Add(
-        "$duration@$(Resolve-Oam $partOamSource $boomerangOamLabels[$pointerIndex])")
-}
-if ($boomerangFrames.Count -ne 4) {
-    throw 'PART_MOBLIN_BOOMERANG must retain four animation frames.'
-}
-$boomerangSprite = $gfxNames[0x8e]
-Copy-SpiritsGraveSprite $boomerangSprite
-$boomerangAnimationData = [Convert]::ToBase64String(
-    [Text.Encoding]::UTF8.GetBytes($boomerangFrames -join '|'))
-$sgVisualRows.Add("moblin-boomerang`t$boomerangSprite`t10`t4`t1`t$boomerangAnimationData")
 
 # PART_PUMPKIN_HEAD_PROJECTILE $42 uses gfx $a6, tile base $1e, palette 2.
 $pumpkinProjectileAnimationLabels = @([regex]::Matches(
@@ -499,12 +286,12 @@ if ($pumpkinProjectileFrames.Count -ne 3) {
     throw 'PART_PUMPKIN_HEAD_PROJECTILE must retain three animation frames.'
 }
 $pumpkinProjectileSprite = $gfxNames[0xa6]
-Copy-SpiritsGraveSprite $pumpkinProjectileSprite
+Copy-EnemySprite $pumpkinProjectileSprite
 $pumpkinProjectileAnimationData = [Convert]::ToBase64String(
     [Text.Encoding]::UTF8.GetBytes($pumpkinProjectileFrames -join '|'))
 $sgVisualRows.Add(
     "pumpkin-projectile`t$pumpkinProjectileSprite`t30`t2`t1`t$pumpkinProjectileAnimationData")
-if ($sgVisualRows.Count -ne 11) { throw "Expected ten Spirit's Grave interaction visuals." }
+if ($sgVisualRows.Count -ne 10) { throw "Expected nine Spirit's Grave interaction visuals." }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\spirits_grave_visuals.tsv'),
     $sgVisualRows,

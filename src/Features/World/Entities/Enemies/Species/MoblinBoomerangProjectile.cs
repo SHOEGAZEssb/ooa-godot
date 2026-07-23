@@ -20,7 +20,7 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
         OracleRoomData room,
         Vector2 position,
         int angle,
-        VisualRecord visual)
+        EnemyProjectileVisualRecord visual)
     {
         _owner = owner;
         _room = room;
@@ -31,7 +31,8 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
             EnemyVisualSource.LoadComposite(visual.Sprites),
             visual.Animations,
             visual.TileBase,
-            visual.Palette);
+            visual.Palette,
+            sourceGrayscaleInverted: visual.SourceGrayscaleInverted);
         _animation.SetAnimation(0);
     }
 

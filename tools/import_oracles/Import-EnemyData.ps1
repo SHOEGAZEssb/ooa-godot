@@ -68,6 +68,268 @@ function Resolve-Oam([string]$source, [string]$label) {
 
 $enemyAnimationSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\enemyAnimations.s")
 $enemyOamSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\enemyOamData.s")
+
+# Common enemy definitions are independent of the room or dungeon that first
+# exposes their runtime implementation. Resolve their shared data/animation/OAM
+# tables once here; dungeon-specific import stages may reuse the same helpers
+# for native bosses without owning ordinary species data.
+function Read-EnemyDwTables(
+    [string]$source,
+    [string]$labelPattern,
+    [string]$entryPattern) {
+    $tables = @{}
+    $aliases = [Collections.Generic.List[string]]::new()
+    $entries = [Collections.Generic.List[string]]::new()
+    foreach ($line in ($source -split '\r?\n')) {
+        $label = [regex]::Match($line, "^(?<label>$labelPattern):")
+        if ($label.Success) {
+            if ($entries.Count -gt 0) {
+                foreach ($alias in $aliases) { $tables[$alias] = @($entries) }
+                $aliases.Clear()
+                $entries.Clear()
+            }
+            $aliases.Add($label.Groups['label'].Value)
+            continue
+        }
+        if ($aliases.Count -eq 0) { continue }
+        $entry = [regex]::Match($line, "^\s*\.dw\s+(?<entry>$entryPattern)")
+        if ($entry.Success) {
+            $entries.Add($entry.Groups['entry'].Value)
+            continue
+        }
+        if ($entries.Count -gt 0 -and $line -match '^[A-Za-z0-9_@]+:') {
+            foreach ($alias in $aliases) { $tables[$alias] = @($entries) }
+            $aliases.Clear()
+            $entries.Clear()
+        }
+    }
+    if ($entries.Count -gt 0) {
+        foreach ($alias in $aliases) { $tables[$alias] = @($entries) }
+    }
+    return $tables
+}
+
+function Read-EnemyAnimationFrames([string]$source) {
+    $script:enemyAnimResult = @{}
+    $script:enemyAnimAliases = [Collections.Generic.List[string]]::new()
+    $script:enemyAnimFrames = [Collections.Generic.List[object]]::new()
+    $script:enemyAnimFrameOffsets = @{}
+    $script:enemyAnimLoopStart = 0
+
+    function Complete-EnemyAnimation {
+        if ($script:enemyAnimAliases.Count -eq 0 -or
+            $script:enemyAnimFrames.Count -eq 0) {
+            return
+        }
+        $record = @{
+            Frames = @($script:enemyAnimFrames)
+            LoopStart = $script:enemyAnimLoopStart
+        }
+        foreach ($alias in $script:enemyAnimAliases) {
+            $script:enemyAnimResult[$alias] = $record
+        }
+        $script:enemyAnimAliases.Clear()
+        $script:enemyAnimFrames.Clear()
+        $script:enemyAnimFrameOffsets.Clear()
+        $script:enemyAnimLoopStart = 0
+    }
+
+    foreach ($line in ($source -split '\r?\n')) {
+        $label = [regex]::Match(
+            $line, '^(?<label>enemyAnimation[0-9a-f]+(?:Loop)?):')
+        if ($label.Success) {
+            $name = $label.Groups['label'].Value
+            if ($name.EndsWith('Loop') -and $script:enemyAnimAliases.Count -gt 0) {
+                $script:enemyAnimFrameOffsets[$name] =
+                    $script:enemyAnimFrames.Count
+            } else {
+                if ($script:enemyAnimFrames.Count -gt 0) {
+                    Complete-EnemyAnimation
+                }
+                $script:enemyAnimAliases.Add($name)
+                $script:enemyAnimFrameOffsets[$name] = 0
+            }
+            continue
+        }
+        if ($script:enemyAnimAliases.Count -eq 0) { continue }
+        $frame = [regex]::Match(
+            $line,
+            '^\s*\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<offset>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})')
+        if ($frame.Success) {
+            $script:enemyAnimFrames.Add(@{
+                Duration = [Convert]::ToInt32(
+                    $frame.Groups['duration'].Value, 16)
+                PointerOffset = [Convert]::ToInt32(
+                    $frame.Groups['offset'].Value, 16)
+                Parameter = [Convert]::ToInt32(
+                    $frame.Groups['parameter'].Value, 16)
+            })
+            continue
+        }
+        $loop = [regex]::Match(
+            $line,
+            '^\s*m_AnimationLoop\s+(?<target>enemyAnimation[0-9a-f]+(?:Loop)?)')
+        if ($loop.Success) {
+            $target = $loop.Groups['target'].Value
+            if (-not $script:enemyAnimFrameOffsets.ContainsKey($target)) {
+                throw "Enemy animation loop target not found: $target"
+            }
+            $script:enemyAnimLoopStart =
+                $script:enemyAnimFrameOffsets[$target]
+            Complete-EnemyAnimation
+        }
+    }
+    Complete-EnemyAnimation
+    $result = $script:enemyAnimResult
+    Remove-Variable enemyAnimResult,enemyAnimAliases,enemyAnimFrames,enemyAnimFrameOffsets,enemyAnimLoopStart `
+        -Scope Script
+    return $result
+}
+
+$enemyAnimationTables = Read-EnemyDwTables `
+    $enemyAnimationSource 'enemy[0-9a-f]{2}Animations' 'enemyAnimation[0-9a-f]+'
+$enemyOamTables = Read-EnemyDwTables `
+    $enemyAnimationSource 'enemy[0-9a-f]{2}OamDataPointers' 'enemyOamData[0-9a-f]+'
+$enemyAnimationFrames = Read-EnemyAnimationFrames $enemyAnimationSource
+
+function Resolve-EnemyAnimations([int]$id) {
+    $hex = $id.ToString('x2')
+    $animationKey = "enemy${hex}Animations"
+    $oamKey = "enemy${hex}OamDataPointers"
+    if (-not $enemyAnimationTables.ContainsKey($animationKey) -or
+        -not $enemyOamTables.ContainsKey($oamKey)) {
+        throw "Enemy `$$hex animation/OAM table is missing."
+    }
+    $pointers = $enemyOamTables[$oamKey]
+    $encoded = [Collections.Generic.List[string]]::new()
+    foreach ($animationLabel in $enemyAnimationTables[$animationKey]) {
+        if (-not $enemyAnimationFrames.ContainsKey($animationLabel)) {
+            throw "Enemy `$$hex animation body is missing: $animationLabel"
+        }
+        $definition = $enemyAnimationFrames[$animationLabel]
+        $frames = [Collections.Generic.List[string]]::new()
+        $valid = $true
+        foreach ($frame in $definition.Frames) {
+            $pointerIndex = [int]($frame.PointerOffset / 2)
+            if ($pointerIndex -lt 0 -or $pointerIndex -ge $pointers.Count) {
+                # Some alias animation tables deliberately continue into the
+                # next enemy's entries. Keep only the prefix addressable by
+                # this enemy's own OAM pointer table.
+                $valid = $false
+                break
+            }
+            $metadata = if ($frame.Parameter -eq 0) {
+                "$($frame.Duration)"
+            } else {
+                "$($frame.Duration),$($frame.Parameter)"
+            }
+            $frames.Add(
+                "$metadata@$(Resolve-Oam $enemyOamSource $pointers[$pointerIndex])")
+        }
+        if (-not $valid) { break }
+        $value = $frames -join '|'
+        if ($definition.LoopStart -gt 0) {
+            $value += "~$($definition.LoopStart)"
+        }
+        $encoded.Add($value)
+    }
+    return @($encoded)
+}
+
+function Get-EnemyDefinition([int]$id, [int]$subid = 0) {
+    $hex = $id.ToString('x2')
+    $line = [regex]::Match(
+        $enemyDataSource,
+        ('(?m)^\s*/\* 0x{0} \*/ m_EnemyData \$(?<gfx>[0-9a-f]{{2}}) \$(?<collision>[0-9a-f]{{2}}) (?:(?:\$(?<extra>[0-9a-f]{{2}}) \$(?<flags>[0-9a-f]{{2}}))|(?<subids>enemy[0-9a-f]{{2}}SubidData))' -f $hex))
+    if (-not $line.Success) { throw "Enemy data row `$$hex is missing." }
+    if ($line.Groups['subids'].Success) {
+        $rows = @([regex]::Matches(
+            (Get-AssemblyLabelBody $enemyDataSource $line.Groups['subids'].Value),
+            '(?m)^\s*m_EnemySubidData \$(?<extra>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'))
+        if ($subid -ge $rows.Count) {
+            throw "Enemy `$$hex subid `$$($subid.ToString('x2')) has no data row."
+        }
+        $extra = [Convert]::ToInt32(
+            $rows[$subid].Groups['extra'].Value, 16) -band 0x7f
+        $flags = [Convert]::ToInt32(
+            $rows[$subid].Groups['flags'].Value, 16)
+    } else {
+        $extra = [Convert]::ToInt32(
+            $line.Groups['extra'].Value, 16) -band 0x7f
+        $flags = [Convert]::ToInt32(
+            $line.Groups['flags'].Value, 16)
+    }
+    if ($extra -ge $extraEnemyRows.Count) {
+        throw "Enemy `$$hex extra-data index is out of range."
+    }
+    $extraRow = $extraEnemyRows[$extra]
+    $damageByte = [Convert]::ToInt32(
+        $extraRow.Groups['damage'].Value, 16)
+    return @{
+        Id = $id
+        Gfx = [Convert]::ToInt32($line.Groups['gfx'].Value, 16)
+        TileBase = ($flags -band 0x0f) * 2
+        Palette = ($flags -shr 4) -band 7
+        RadiusY = [Convert]::ToInt32($extraRow.Groups['y'].Value, 16)
+        RadiusX = [Convert]::ToInt32($extraRow.Groups['x'].Value, 16)
+        Damage = (0x100 - $damageByte) / 2
+        Health = [Convert]::ToInt32($extraRow.Groups['health'].Value, 16)
+        Animations = Resolve-EnemyAnimations $id
+    }
+}
+
+function Copy-EnemySprite([string]$name) {
+    $source = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
+        ForEach-Object {
+            Get-ChildItem $_.FullName -Recurse -File -Filter "$name.png"
+        } |
+        Select-Object -First 1
+    if ($null -eq $source) {
+        throw "Enemy sprite not found: $name.png"
+    }
+    Copy-Item -LiteralPath $source.FullName `
+        -Destination (Join-Path $destination "gfx\$name.png") -Force
+}
+
+$commonEnemySprites = @{
+    0x0a = @($gfxNames[0x91])
+    0x10 = @($gfxNames[0x9b])
+    0x17 = @($gfxNames[0x90])
+    0x28 = @($gfxNames[0xa0])
+}
+$commonEnemyRows = [Collections.Generic.List[string]]::new()
+$commonEnemyRows.Add(
+    '# id`tsubid`tsprites`ttile-base`tpalette`tsource-grayscale-inverted`tradius-y`tradius-x`tdamage-quarters`thealth`tanimations-base64'.Replace(
+        '`t', "`t"))
+foreach ($id in @(0x0a, 0x10, 0x17, 0x28)) {
+    $definition = Get-EnemyDefinition $id 0
+    $sprites = $commonEnemySprites[$id]
+    foreach ($sprite in $sprites) { Copy-EnemySprite $sprite }
+    $animations = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes(
+            $definition.Animations -join "`n"))
+    $commonEnemyRows.Add(
+        "$($id.ToString('x2'))`t00`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t1`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
+}
+if ($commonEnemyRows.Count -ne 5 -or
+    -not ($commonEnemyRows | Where-Object {
+        $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
+    }) -or
+    -not ($commonEnemyRows | Where-Object {
+        $_ -match '^10\t00\tspr_gibdo_stalfos_rope_whisp_spark_bubble_beetle\t12\t0\t1\t6\t6\t2\t2\t'
+    }) -or
+    -not ($commonEnemyRows | Where-Object {
+        $_ -match '^17\t00\tspr_moblin_ghini\t22\t2\t1\t6\t6\t2\t10\t'
+    }) -or
+    -not ($commonEnemyRows | Where-Object {
+        $_ -match '^28\t00\tspr_ironmask\t24\t2\t1\t6\t6\t2\t5\t'
+    })) {
+    throw "Common enemy definitions no longer match the traced records:`n$($commonEnemyRows -join "`n")"
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\common_enemies.tsv'),
+    $commonEnemyRows,
+    [Text.UTF8Encoding]::new($false))
 $keeseAnimationLabels = @(
     [regex]::Matches(
         (Get-AssemblyLabelBody $enemyAnimationSource 'enemy32Animations'),
@@ -994,6 +1256,53 @@ if ($deathPuffTileBase -ne 0x0c -or $deathPuffOamFlags -ne 0x0a) {
 
 $partAnimationSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\partAnimations.s")
 $partOamSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\partOamData.s")
+
+# PART_MOBLIN_BOOMERANG $21 belongs to the common Boomerang Moblin species,
+# not to the first dungeon. Retain its four rotating OAM frames in a shared
+# projectile record.
+$boomerangAnimationLabels = @([regex]::Matches(
+    (Get-AssemblyLabelBody $partAnimationSource 'part21Animations'),
+    '(?m)^\s*\.dw\s+(?<label>partAnimation[0-9a-f]+)') |
+    ForEach-Object { $_.Groups['label'].Value })
+$boomerangOamLabels = @([regex]::Matches(
+    (Get-AssemblyLabelBody $partAnimationSource 'part21OamDataPointers'),
+    '(?m)^\s*\.dw\s+(?<label>partOamData[0-9a-f]+)') |
+    ForEach-Object { $_.Groups['label'].Value })
+if ($boomerangAnimationLabels.Count -ne 1 -or
+    $boomerangOamLabels.Count -ne 4) {
+    throw 'PART_MOBLIN_BOOMERANG animation/OAM tables changed.'
+}
+$boomerangFrames = [Collections.Generic.List[string]]::new()
+foreach ($frame in [regex]::Matches(
+    (Get-AssemblyLabelBody $partAnimationSource $boomerangAnimationLabels[0]),
+    '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<offset>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})')) {
+    $duration = [Convert]::ToInt32(
+        $frame.Groups['duration'].Value, 16)
+    $pointerIndex = [int](
+        [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2)
+    if ($pointerIndex -ge $boomerangOamLabels.Count) {
+        throw "Moblin boomerang OAM pointer $pointerIndex is out of range."
+    }
+    $boomerangFrames.Add(
+        "$duration@$(Resolve-Oam $partOamSource $boomerangOamLabels[$pointerIndex])")
+}
+if ($boomerangFrames.Count -ne 4) {
+    throw 'PART_MOBLIN_BOOMERANG must retain four animation frames.'
+}
+$boomerangSprite = $gfxNames[0x8e]
+Copy-EnemySprite $boomerangSprite
+$boomerangAnimationData = [Convert]::ToBase64String(
+    [Text.Encoding]::UTF8.GetBytes($boomerangFrames -join '|'))
+$boomerangRows = @(
+    '# sprites`ttile-base`tpalette`tsource-grayscale-inverted`tanimations-base64'.Replace(
+        '`t', "`t")
+    "$boomerangSprite`t10`t4`t1`t$boomerangAnimationData"
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'effects\moblin_boomerang.tsv'),
+    $boomerangRows,
+    [Text.UTF8Encoding]::new($false))
+
 $deathPuffAnimationLabels = @(
     [regex]::Matches(
         (Get-AssemblyLabelBody $partAnimationSource 'part02Animations'),

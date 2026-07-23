@@ -7,30 +7,23 @@ namespace oracleofages;
 /// Shared ENEMY_MASKED_MOBLIN $20:$00 walk/turn/arrow state machine. Room
 /// $1:$38 creates two of these after the scripted interaction actors finish.
 /// </summary>
-public partial class MaskedMoblinCharacter : TransitionOffsetNode2D
+public partial class MaskedMoblinCharacter : EnemyCharacter
 {
 
     private MaskedMoblinRecord _record;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
-    private EnemyAnimationPlayer _animation = null!;
     private MoblinState _state;
     private int _counter;
     private int _angle;
     private int _moveCycles;
-    private int _health;
 
     public MaskedMoblinRecord Record => _record;
-    public bool IsDead { get; private set; }
     public bool DiedInHazard { get; private set; }
     public HazardType DeathHazard { get; private set; }
-    public Rect2 CollisionBounds => new(
-        Position - new Vector2(_record.CollisionRadiusX, _record.CollisionRadiusY),
-        new Vector2(_record.CollisionRadiusX * 2, _record.CollisionRadiusY * 2));
     internal MoblinState State => _state;
     internal int Counter => _counter;
     internal int Angle => _angle;
-    internal int Health => _health;
 
     internal void Initialize(
         MaskedMoblinRecord record,
@@ -41,18 +34,19 @@ public partial class MaskedMoblinCharacter : TransitionOffsetNode2D
         _record = record;
         _random = random;
         _movement = new EnemyTerrainMovement(this, room);
-        _animation = new EnemyAnimationPlayer(this, 4);
-        Position = position;
-        _health = record.Health;
         _state = MoblinState.Uninitialized;
-        Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{record.SpriteName}.png");
-        _animation.Load(source,
-            [record.UpAnimation, record.RightAnimation,
-             record.DownAnimation, record.LeftAnimation],
-            record.TileBase, record.Palette);
-        _animation.SetAnimation(0);
-        QueueRedraw();
+        InitializeEnemy(
+            position,
+            EnemyCharacterConfiguration.FromSprite(
+                record.Health,
+                record.CollisionRadiusX,
+                record.CollisionRadiusY,
+                record.SpriteName,
+                [record.UpAnimation, record.RightAnimation,
+                 record.DownAnimation, record.LeftAnimation],
+                record.TileBase,
+                record.Palette));
+        RestartAnimation(0);
     }
 
     /// <returns>The cardinal angle of an arrow to create, or -1.</returns>
@@ -64,8 +58,7 @@ public partial class MaskedMoblinCharacter : TransitionOffsetNode2D
         {
             DeathHazard = _movement.Hazard;
             DiedInHazard = true;
-            IsDead = true;
-            Visible = false;
+            Finish();
             return -1;
         }
 
@@ -80,7 +73,7 @@ public partial class MaskedMoblinCharacter : TransitionOffsetNode2D
                 _counter--;
                 bool moved = _movement.MoveAtAngle(
                     _angle, _record.SpeedRaw / 40.0f, allowHoles: false);
-                _animation.Advance();
+                AdvanceAnimation();
                 if (_counter == 0 || !moved)
                 {
                     _state = MoblinState.Turning;
@@ -103,32 +96,14 @@ public partial class MaskedMoblinCharacter : TransitionOffsetNode2D
         }
     }
 
-    public bool OverlapsLink(Vector2 linkPosition) =>
-        !IsDead &&
-        Mathf.Abs(linkPosition.X - Position.X) < _record.CollisionRadiusX + 6 &&
-        Mathf.Abs(linkPosition.Y - Position.Y) < _record.CollisionRadiusY + 6;
-
     public bool TakeSwordHit(Vector2 _)
         => TakeSwordHit(Vector2.Zero, 2);
 
-    internal bool TakeSwordHit(Vector2 _, int damage)
+    internal override bool TakeSwordHit(Vector2 _, int damage)
     {
         if (IsDead)
             return false;
-        _health = Math.Max(0, _health - Math.Max(1, damage));
-        if (_health == 0)
-        {
-            IsDead = true;
-            Visible = false;
-        }
-        return true;
-    }
-
-    public override void _Draw()
-    {
-        if (!IsDead && _animation.HasFrames)
-            DrawTexture(_animation.CurrentTexture,
-                new Vector2(-16, -16) + TransitionDrawOffset);
+        return ApplyDamage(damage, invincibilityFrames: 0);
     }
 
     private void BeginMoving()
@@ -136,7 +111,7 @@ public partial class MaskedMoblinCharacter : TransitionOffsetNode2D
         _counter = _record.MoveCounterBase +
             (_random.Next().Value & _record.MoveCounterMask);
         _state = MoblinState.Moving;
-        _animation.SetAnimation((_angle & 0x18) / 8);
+        RestartAnimation((_angle & 0x18) / 8);
     }
 }
 

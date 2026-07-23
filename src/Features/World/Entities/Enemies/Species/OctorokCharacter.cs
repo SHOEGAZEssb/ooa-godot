@@ -3,39 +3,31 @@ using System;
 
 namespace oracleofages;
 
-public partial class OctorokCharacter : TransitionOffsetNode2D
+public partial class OctorokCharacter : EnemyCharacter
 {
 
     private static readonly int[] Counter1Values = { 30, 45, 60, 75, 45, 60, 75, 90 };
     private static readonly int[] WalkCounterValues = { 0x19, 0x21, 0x29, 0x31 };
 
-    private EnemyAnimationPlayer _animation = null!;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
     private OctorokState _state;
     private int _counter1;
     private int _walkCounter;
     private int _angle;
-    private int _health;
-    private int _invincibilityCounter;
     private int _knockbackCounter;
     private int _knockbackAngle;
 
     public OctorokRecord Record { get; private set; }
-    public bool IsDead { get; private set; }
     public bool DiedInHazard { get; private set; }
     public HazardType DeathHazard { get; private set; }
-    public Rect2 CollisionBounds => new(
-        Position - new Vector2(Record.CollisionRadiusX, Record.CollisionRadiusY),
-        new Vector2(Record.CollisionRadiusX * 2, Record.CollisionRadiusY * 2));
     internal OctorokState State => _state;
     internal int Counter1 => _counter1;
     internal int WalkCounter => _walkCounter;
     internal int Angle => _angle;
-    internal int Health => _health;
-    internal int InvincibilityCounter => _invincibilityCounter;
     internal int KnockbackCounter => _knockbackCounter;
-    internal int CurrentAnimationFrame => _animation.FrameIndex;
+    internal int CurrentAnimationFrame => AnimationFrame;
+    internal override bool CollisionEnabled => !IsDead;
 
     internal void Initialize(
         OctorokRecord record,
@@ -46,11 +38,7 @@ public partial class OctorokCharacter : TransitionOffsetNode2D
         Record = record;
         _room = room;
         _random = random;
-        Position = position;
-        _health = record.Health;
 
-        Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{record.SpriteName}.png");
         string[] encodedAnimations =
         {
             record.UpAnimation,
@@ -58,8 +46,16 @@ public partial class OctorokCharacter : TransitionOffsetNode2D
             record.DownAnimation,
             record.LeftAnimation
         };
-        _animation = new EnemyAnimationPlayer(this, encodedAnimations.Length);
-        _animation.Load(source, encodedAnimations, record.TileBase, record.Palette);
+        InitializeEnemy(
+            position,
+            EnemyCharacterConfiguration.FromSprite(
+                record.Health,
+                record.CollisionRadiusX,
+                record.CollisionRadiusY,
+                record.SpriteName,
+                encodedAnimations,
+                record.TileBase,
+                record.Palette));
 
         OracleRandomResult initial = _random.Next();
         _counter1 = Counter1Values[initial.Value & record.CounterMask];
@@ -100,19 +96,12 @@ public partial class OctorokCharacter : TransitionOffsetNode2D
         return false;
     }
 
-    public bool OverlapsLink(Vector2 linkPosition)
-    {
-        return !IsDead &&
-            Mathf.Abs(linkPosition.X - Position.X) < Record.CollisionRadiusX + 6 &&
-            Mathf.Abs(linkPosition.Y - Position.Y) < Record.CollisionRadiusY + 6;
-    }
-
     public bool TakeSwordHit(Vector2 sourcePosition)
         => TakeSwordHit(sourcePosition, 2);
 
-    internal bool TakeSwordHit(Vector2 sourcePosition, int damage)
+    internal override bool TakeSwordHit(Vector2 sourcePosition, int damage)
     {
-        if (IsDead || _invincibilityCounter > 0)
+        if (IsDead || InvincibilityCounter > 0)
             return false;
 
         if (!TakeRawDamage(damage))
@@ -120,25 +109,19 @@ public partial class OctorokCharacter : TransitionOffsetNode2D
         if (IsDead)
             return true;
 
-        _invincibilityCounter = 0x10;
+        InvincibilityCounter = 0x10;
         _knockbackCounter = 0x08;
         _knockbackAngle = GetCardinalAngleAwayFrom(sourcePosition);
         return true;
     }
 
-    internal bool TakeBurnHit(int damage) => TakeRawDamage(damage);
+    internal override bool TakeBurnHit(int damage) => TakeRawDamage(damage);
 
     private bool TakeRawDamage(int damage)
     {
         if (IsDead)
             return false;
-        _health = Math.Max(0, _health - Math.Max(1, damage));
-        if (_health == 0)
-        {
-            IsDead = true;
-            Visible = false;
-        }
-        return true;
+        return ApplyDamage(damage, invincibilityFrames: 0);
     }
 
     internal void SetStateForValidation(
@@ -152,14 +135,6 @@ public partial class OctorokCharacter : TransitionOffsetNode2D
         _walkCounter = walkCounter;
         _angle = angle & 0x18;
         SetAnimationFromAngle();
-    }
-
-    public override void _Draw()
-    {
-        if (IsDead || !_animation.HasFrames)
-            return;
-        DrawTexture(_animation.CurrentTexture,
-            new Vector2(-16, -16) + TransitionDrawOffset);
     }
 
     private void DecideNextAction(Vector2 linkPosition)
@@ -235,8 +210,7 @@ public partial class OctorokCharacter : TransitionOffsetNode2D
         {
             DeathHazard = _room.GetTerrainInfo(Position).Hazard;
             DiedInHazard = true;
-            IsDead = true;
-            Visible = false;
+            Finish();
         }
         QueueRedraw();
         return true;
@@ -267,10 +241,10 @@ public partial class OctorokCharacter : TransitionOffsetNode2D
 
     private void UpdateInvincibility()
     {
-        if (_invincibilityCounter <= 0)
+        if (InvincibilityCounter <= 0)
             return;
-        _invincibilityCounter--;
-        Visible = _invincibilityCounter == 0 || (_invincibilityCounter & 1) == 0;
+        InvincibilityCounter--;
+        Visible = InvincibilityCounter == 0 || (InvincibilityCounter & 1) == 0;
         QueueRedraw();
     }
 
@@ -287,10 +261,8 @@ public partial class OctorokCharacter : TransitionOffsetNode2D
 
     private void SetAnimationFromAngle()
     {
-        _animation.SetAnimation((_angle & 0x18) >> 3);
+        RestartAnimation((_angle & 0x18) >> 3);
     }
-
-    private void AdvanceAnimation() => _animation.Advance();
 }
 
 internal enum OctorokState

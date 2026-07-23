@@ -3,7 +3,7 @@ using System;
 
 namespace oracleofages;
 
-internal partial class RopeCharacter : SpiritsGraveEnemyCharacter
+internal partial class RopeCharacter : EnemyCharacter
 {
 
     private OracleRandom _random = null!;
@@ -15,6 +15,7 @@ internal partial class RopeCharacter : SpiritsGraveEnemyCharacter
     private float _speed;
     private bool _initialized;
 
+    internal ImportedEnemyDefinition Record { get; private set; }
     internal RopeState State => _state;
     internal int Counter => _counter;
     internal int Cooldown => _cooldown;
@@ -22,12 +23,15 @@ internal partial class RopeCharacter : SpiritsGraveEnemyCharacter
     internal float Speed => _speed;
 
     internal void Initialize(
-        EnemyRecord record,
+        ImportedEnemyDefinition record,
         OracleRoomData room,
         Vector2 position,
         OracleRandom random)
     {
-        InitializeEnemy(record, position);
+        Record = record;
+        InitializeEnemy(
+            position,
+            EnemyCharacterConfiguration.FromImported(record));
         _random = random;
         _movement = new EnemyTerrainMovement(this, room);
         _speed = 0.5f;

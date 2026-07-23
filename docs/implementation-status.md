@@ -198,6 +198,12 @@ remains the single runtime policy table.
   release, `$40` cooldown, and source random wander reset. Its breakable rock
   metatiles use the imported four-stage `INTERAC_ROCKDEBRIS` chip animation,
   terminal-frame lifetime, and `SND_BREAK_ROCK`.
+- Boomerang Moblin `$0a:$00`, Rope `$10:$00`, Ghini `$17:$00`, and
+  Wallmaster `$28:$00` are shared species rather than D1-only adapters.
+  Matching source placements instantiate outside rooms `4:10-$25` (including
+  room `4:ed`'s six Ropes and room `4:c5`'s Wallmaster), while unsupported
+  Rope/Ghini subids remain deferred. Wallmaster captures use each dungeon's
+  imported destination (`$24` for dungeon `$01`, `$ce` for dungeon `$0b`).
 - Giant Ghini and its three linked children implement the room `4:18`
   miniboss encounter, including the source `$16` forced Link entry before its
   crossed shutter closes, and persistent bidirectional portal. Pumpkin Head in
@@ -211,9 +217,10 @@ remains the single runtime policy table.
   78-update enemy-counting large explosion; Link-collision/menu lock; and
   Spirit's Grave music restoration before their ordered rewards. Room `4:11`
   implements the Eternal Spirit's
-  approach, fall and two-hand collection, imported TX `$000e`, energy-bead
-  sequence, room/essence flags, music and fade cues, and delayed white exit
-  warp to `0:8d`.
+  approach, fall and two-hand collection, separate source essence/pedestal/
+  parameter-flickering glow OAM, imported TX `$000e`, `MUS_GET_ESSENCE` text
+  music, `MUS_ESSENCE` energy-bead sequence, room/essence flags, fade cues, and
+  delayed white exit warp to `0:8d`.
 
 ### NPCs and enemies
 

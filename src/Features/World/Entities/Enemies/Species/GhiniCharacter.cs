@@ -3,7 +3,7 @@ using System;
 
 namespace oracleofages;
 
-internal partial class GhiniCharacter : SpiritsGraveEnemyCharacter
+internal partial class GhiniCharacter : EnemyCharacter
 {
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
@@ -11,17 +11,21 @@ internal partial class GhiniCharacter : SpiritsGraveEnemyCharacter
     private int _angle;
     private GhiniState _state;
 
+    internal ImportedEnemyDefinition Record { get; private set; }
     internal int Counter => _counter;
     internal int Angle => _angle;
     internal GhiniState State => _state;
 
     internal void Initialize(
-        EnemyRecord record,
+        ImportedEnemyDefinition record,
         OracleRoomData room,
         Vector2 position,
         OracleRandom random)
     {
-        InitializeEnemy(record, position);
+        Record = record;
+        InitializeEnemy(
+            position,
+            EnemyCharacterConfiguration.FromImported(record));
         _random = random;
         _room = room;
     }

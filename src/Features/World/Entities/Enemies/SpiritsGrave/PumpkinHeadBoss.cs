@@ -122,7 +122,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
     }
 
     internal PumpkinHeadBoss(
-        EnemyRecord record,
+        ImportedEnemyDefinition record,
         OracleRoomData room,
         Vector2 position,
         OracleRandom random,
@@ -936,7 +936,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
 
     private EnemyAnimationPlayer BuildAnimation(
         Image source,
-        EnemyRecord record,
+        ImportedEnemyDefinition record,
         int palette,
         int initial)
     {

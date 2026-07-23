@@ -68,6 +68,14 @@ initialization writes `$05`. Import those explicit initialization writes and
 compose three independent cached animation sets; applying the base palette to
 the whole boss gives the rebuilt body and exposed ghost the wrong colors.
 
+`INTERAC_ESSENCE $7f` similarly composes three interaction objects rather than
+reusing one frame. Dungeon 1's essence overrides its base to tile `$00`, OBJ
+palette 1, animation 1; the pedestal uses `$76/$00/$40` and animation 0; and
+the glow uses `$76/$06/$43` and animation 3. The glow's four two-update,
+eight-cell OAM frames carry parameters `0/1/0/1`; each nonzero frame toggles
+only the glow's visibility. Substituting animation 0 draws a second pedestal
+where the glow belongs.
+
 Room backgrounds retain original GBC palette and attribute behavior. Dynamic
 palette threads, waves, and fades advance on their original fixed updates. A
 future cell renderer must preserve those effects and custom collision; the
@@ -208,6 +216,12 @@ Gameplay code requests original sound IDs at the original update. If the source
 chooses a variation with the global game RNG (for example sword sounds), consume
 `OracleRandom`; never use a separate nondeterministic RNG because it changes
 later enemies and drops.
+
+Collecting an Essence applies `TREASURE_ESSENCE`'s collection behavior in the
+same update that its get text opens, so `MUS_GET_ESSENCE $10` plays throughout
+that text. Only after the text closes does
+`essenceScript_essenceGetCutscene` replace it with `MUS_ESSENCE $06` and create
+the inward energy swirl with `SND_ENERGYTHING`.
 
 Breaking a metatile whose stored effect is `INTERAC_ROCKDEBRIS` `$06` or
 `INTERAC_ROCKDEBRIS2` `$0c` creates the common-sprite interaction at the

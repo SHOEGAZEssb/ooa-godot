@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Typed native-object, visual, and enemy records needed by Spirit's Grave.
+/// Typed native-object, visual, and boss records needed by Spirit's Grave.
 /// Room placement and every OAM frame are generated from the supported Ages
 /// disassembly; this class only enforces the runtime contract.
 /// </summary>
@@ -13,7 +13,7 @@ internal sealed class SpiritsGraveDatabase
 {
 
     private readonly Dictionary<(int Group, int Room), List<ObjectRecord>> _objects = new();
-    private readonly Dictionary<(int Id, int SubId), EnemyRecord> _enemies = new();
+    private readonly Dictionary<(int Id, int SubId), ImportedEnemyDefinition> _enemies = new();
     private readonly Dictionary<string, VisualRecord> _visuals = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _constants = new(StringComparer.Ordinal);
     private readonly Dictionary<int, Color[]> _cubePalettes = new();
@@ -35,11 +35,11 @@ internal sealed class SpiritsGraveDatabase
             ? records
             : Array.Empty<ObjectRecord>();
 
-    internal EnemyRecord Enemy(int id, int subId = 0) =>
-        _enemies.TryGetValue((id, subId), out EnemyRecord record)
+    internal ImportedEnemyDefinition Enemy(int id, int subId = 0) =>
+        _enemies.TryGetValue((id, subId), out ImportedEnemyDefinition record)
             ? record
             : throw new KeyNotFoundException(
-                $"Spirit's Grave enemy ${id:x2}:${subId:x2} was not imported.");
+                $"Spirit's Grave boss ${id:x2}:${subId:x2} was not imported.");
 
     internal VisualRecord Visual(string key) =>
         _visuals.TryGetValue(key, out VisualRecord record)
@@ -118,7 +118,7 @@ internal sealed class SpiritsGraveDatabase
                 headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
         {
-            EnemyRecord record = new EnemyRecord(
+            ImportedEnemyDefinition record = new ImportedEnemyDefinition(
                 row.HexByte(0),
                 row.HexByte(1),
                 SplitRequired(row, 2, ','),
@@ -132,7 +132,7 @@ internal sealed class SpiritsGraveDatabase
                 SplitDecoded(row, 10));
             if (!_enemies.TryAdd((record.Id, record.SubId), record))
                 throw new InvalidOperationException(
-                    $"Duplicate Spirit's Grave enemy ${record.Id:x2}:${record.SubId:x2}.");
+                    $"Duplicate Spirit's Grave boss ${record.Id:x2}:${record.SubId:x2}.");
         }
     }
 
@@ -215,14 +215,20 @@ internal sealed class SpiritsGraveDatabase
         int objectCount = 0;
         foreach (List<ObjectRecord> records in _objects.Values)
             objectCount += records.Count;
-        if (objectCount != 17 || _enemies.Count != 7 || _visuals.Count != 10 ||
+        if (objectCount != 17 || _enemies.Count != 3 || _visuals.Count != 9 ||
             _constants.Count != 25 ||
-            Enemy(0x0a) is not { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
+            Enemy(0x3f) is not
+                { Health: 2, DamageQuarters: 128, Sprites.Length: 2 } ||
             Enemy(0x70) is not { Health: 12, DamageQuarters: 1, Sprites.Length: 2 } ||
             Enemy(0x78) is not { Health: 8, Sprites.Length: 3 } ||
             Visual("colored-cube").Animations.Length != 30 ||
+            Visual("eternal-spirit") is not
+                { TileBase: 0, Palette: 1, Animations.Length: 1 } ||
+            Visual("essence-pedestal") is not
+                { TileBase: 0, Palette: 4, Animations.Length: 1 } ||
+            Visual("essence-glow") is not
+                { TileBase: 6, Palette: 4, Animations.Length: 1 } ||
             Visual("energy-bead").Animations.Length != 8 ||
-            Visual("moblin-boomerang").Animations.Length != 1 ||
             Visual("pumpkin-projectile").Animations.Length != 1 ||
             _cubePalettes.Count != 2 ||
             string.IsNullOrWhiteSpace(_essenceMessage) ||
@@ -318,5 +324,3 @@ internal enum ObjectKind
     CubeLightSensor,
     CubeTriggerSensor
 }
-
-internal readonly record struct EnemyRecord(int Id, int SubId, string[] Sprites, int TileBase, int Palette, bool SourceGrayscaleInverted, int RadiusY, int RadiusX, int DamageQuarters, int Health, string[] Animations);

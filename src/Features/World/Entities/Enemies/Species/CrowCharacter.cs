@@ -8,7 +8,7 @@ namespace oracleofages;
 /// 25 updates when approached, then charges with the original 32-step angle,
 /// SPEED_140 movement, random four-step aim offset, and eight-update steering.
 /// </summary>
-public partial class CrowCharacter : TransitionOffsetNode2D
+public partial class CrowCharacter : EnemyCharacter
 {
 
     private const int ApproachRadiusY = 0x30;
@@ -19,7 +19,6 @@ public partial class CrowCharacter : TransitionOffsetNode2D
     private const int ScreenBottom = 0x88;
     private const int ScreenRight = 0xa8;
 
-    private EnemyAnimationPlayer _animation = null!;
     private OracleRandom _random = null!;
     private Vector2 _precisePosition;
     private CrowState _state;
@@ -27,13 +26,11 @@ public partial class CrowCharacter : TransitionOffsetNode2D
     private int _counter2;
     private int _angle;
     private int _z;
-    private int _health;
     private bool _collisionEnabled;
 
     public CrowRecord Record { get; private set; }
-    public bool IsDead { get; private set; }
     internal bool DeletedOutOfBounds { get; private set; }
-    public Rect2 CollisionBounds => _collisionEnabled && !IsDead
+    public override Rect2 CollisionBounds => CollisionEnabled && !IsDead
         ? new Rect2(
             Position - new Vector2(Record.CollisionRadiusX, Record.CollisionRadiusY),
             new Vector2(Record.CollisionRadiusX * 2, Record.CollisionRadiusY * 2))
@@ -43,10 +40,12 @@ public partial class CrowCharacter : TransitionOffsetNode2D
     internal int Counter2 => _counter2;
     internal int Angle => _angle;
     internal int Z => _z;
-    internal bool CollisionEnabled => _collisionEnabled;
-    internal int CurrentAnimation => _animation.AnimationIndex;
-    internal int CurrentAnimationFrame => _animation.FrameIndex;
+    internal override bool CollisionEnabled => _collisionEnabled;
+    internal int CurrentAnimation => AnimationIndex;
+    internal int CurrentAnimationFrame => AnimationFrame;
     internal Vector2 PrecisePosition => _precisePosition;
+    protected override bool DrawsAnimation => !IsDead && Visible;
+    protected override Vector2 AnimationDrawOffset => new(-16, -16 + _z);
 
     internal void Initialize(
         CrowRecord record,
@@ -60,24 +59,23 @@ public partial class CrowCharacter : TransitionOffsetNode2D
         Record = record;
         _random = random;
         _precisePosition = position;
-        Position = OracleObjectMath.ToPixelPosition(position);
-        _health = record.Health;
 
-        Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{record.SpriteName}.png");
-        _animation = new EnemyAnimationPlayer(this, 4);
-        _animation.Load(
-            source,
-            [
-                record.PerchedRightAnimation,
-                record.PerchedLeftAnimation,
-                record.FlightRightAnimation,
-                record.FlightLeftAnimation
-            ],
-            record.TileBase,
-            record.Palette);
-        _animation.SetAnimation(0);
-        QueueRedraw();
+        InitializeEnemy(
+            OracleObjectMath.ToPixelPosition(position),
+            EnemyCharacterConfiguration.FromSprite(
+                record.Health,
+                record.CollisionRadiusX,
+                record.CollisionRadiusY,
+                record.SpriteName,
+                [
+                    record.PerchedRightAnimation,
+                    record.PerchedLeftAnimation,
+                    record.FlightRightAnimation,
+                    record.FlightLeftAnimation
+                ],
+                record.TileBase,
+                record.Palette));
+        RestartAnimation(0);
     }
 
     internal void UpdateFrame(Vector2 linkPosition)
@@ -106,15 +104,14 @@ public partial class CrowCharacter : TransitionOffsetNode2D
                 {
                     _z--;
                 }
-                _animation.Advance();
+                AdvanceAnimation();
                 return;
 
             case CrowState.Charging:
                 if (!WithinChargeScreenBounds())
                 {
                     DeletedOutOfBounds = true;
-                    IsDead = true;
-                    Visible = false;
+                    Finish();
                     return;
                 }
 
@@ -131,36 +128,16 @@ public partial class CrowCharacter : TransitionOffsetNode2D
                 _precisePosition += OracleObjectMath.VectorFromAngle32(_angle) *
                     (Record.SpeedRaw / 40.0f);
                 Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-                _animation.Advance();
+                AdvanceAnimation();
                 return;
         }
     }
 
-    public bool OverlapsLink(Vector2 linkPosition) =>
-        _collisionEnabled && !IsDead &&
-        Mathf.Abs(linkPosition.X - Position.X) < Record.CollisionRadiusX + 6 &&
-        Mathf.Abs(linkPosition.Y - Position.Y) < Record.CollisionRadiusY + 6;
-
     internal bool TakeSwordHit(int damage)
     {
-        if (IsDead || !_collisionEnabled)
+        if (IsDead || !CollisionEnabled)
             return false;
-        _health = Math.Max(0, _health - Math.Max(1, damage));
-        if (_health > 0)
-            return true;
-        IsDead = true;
-        Visible = false;
-        return true;
-    }
-
-    public override void _Draw()
-    {
-        if (!IsDead && _animation.HasFrames)
-        {
-            DrawTexture(
-                _animation.CurrentTexture,
-                new Vector2(-16, -16 + _z) + TransitionDrawOffset);
-        }
+        return ApplyDamage(damage, invincibilityFrames: 0);
     }
 
     private bool WithinUnsignedApproachRange(Vector2 target)
@@ -197,8 +174,8 @@ public partial class CrowCharacter : TransitionOffsetNode2D
         if ((_angle & 0x0f) == 0)
             return;
         int animation = (flight ? 2 : 0) + ((_angle & 0x10) == 0 ? 1 : 0);
-        if (_animation.AnimationIndex != animation)
-            _animation.SetAnimation(animation);
+        if (AnimationIndex != animation)
+            RestartAnimation(animation);
     }
 
     private void NudgeAngleToward(int target)

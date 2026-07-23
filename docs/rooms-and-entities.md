@@ -101,14 +101,26 @@ single universal entity base class:
 | `IRoomSaveStateEntity` | Refresh from changed live save state |
 
 Shared combat, terrain movement, vertical motion, and animation components may
-remove mechanical duplication. Species state machines stay separate so their
-counter order and branch behavior remain traceable to the source. Spawn records
-state whether a child updates in the creation frame; preserve that distinction.
-Drawable room nodes inherit `TransitionOffsetNode2D`; it owns only the
-presentation offset applied during scrolling and never changes logical
-room/world coordinates. Enemies with ordinary imported frame clocks use
-`EnemyAnimationPlayer`, while each species retains its own decisions, counters,
-movement, and RNG consumption.
+remove mechanical duplication. Single-body enemies inherit the record-neutral
+`EnemyCharacter`, which owns health/lifetime state, collision radii, the
+`EnemyAnimationPlayer`, and optional invulnerability rendering. Each species
+still owns its typed imported record, decisions, counters, movement, hit/death
+policy, and RNG consumption. Multi-part enemies whose independently animated
+parts have different health or collision state, such as Pumpkin Head, compose
+those mechanics directly instead of forcing them into one character tuple.
+Spawn records state whether a child updates in the creation frame; preserve
+that distinction. Drawable room nodes ultimately inherit
+`TransitionOffsetNode2D`; it owns only the presentation offset applied during
+scrolling and never changes logical room/world coordinates.
+
+Ordinary enemy species are not owned by the first room or dungeon that makes
+them playable. Boomerang Moblin, Rope, Ghini, and Wallmaster live with the
+other species and resolve their subid-0 definitions through `EnemyDatabase`
+for every matching ordered room record. Unsupported Rope/Ghini subids remain
+explicit reservations rather than silently receiving the wrong state machine.
+Wallmaster capture resolves the active dungeon's imported
+`wDungeonWallmasterDestRoom`; it does not encode Spirit's Grave room `4:24` in
+the entity adapter.
 
 Side-view terrain movement must preserve the source velocity table's exact zero
 components for cardinal angles. A blocked cardinal move returns zero; it must
@@ -164,7 +176,8 @@ it does not restart the 11-update pull animation.
 Keep a dungeon's native handlers in a typed generated stream when its ordinary
 object list contains script or interaction subids whose state machines are not
 shared globally. Spirit's Grave uses `spirits_grave_objects.tsv`,
-`spirits_grave_enemies.tsv`, `spirits_grave_visuals.tsv`, and
+`spirits_grave_enemies.tsv` for its three native boss records,
+`spirits_grave_visuals.tsv`, and
 `spirits_grave_constants.tsv`. The importer resolves source object order,
 predicates, enemy attributes, graphics, OAM, animation loops, text, and timing
 constants; runtime code must not reconstruct those records from room IDs or
@@ -244,10 +257,12 @@ position loses or doubles half-pixel travel. Room `4:15` uses size subid `$05`
 
 The Eternal Spirit remains a room entity until its exact approach predicate is
 met, then hands control to `RoomEventController`. The event owns input lock,
-dialogue, room/essence flags, music and sound cadence, full-screen fades, and
-the final delayed warp; the entity owns pedestal, glow, collectible, and bead
-presentation. Clear any room-local background fade when the transition loads
-the destination so a source-room effect cannot leak into ordinary gameplay.
+dialogue, room/essence flags, `MUS_GET_ESSENCE` during the get text, the later
+`MUS_ESSENCE`/energy-swirl cadence, full-screen fades, and the final delayed
+warp. The entity owns the separately imported pedestal, animation-3 flickering
+glow, collectible, and bead presentation. Clear any room-local background fade
+when the transition loads the destination so a source-room effect cannot leak
+into ordinary gameplay.
 
 ## Shared dungeon entrance interactions
 

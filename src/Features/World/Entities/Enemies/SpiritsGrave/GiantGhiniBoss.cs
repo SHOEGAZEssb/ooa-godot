@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-internal sealed partial class GiantGhiniBoss : SpiritsGraveEnemyCharacter
+internal sealed partial class GiantGhiniBoss : EnemyCharacter
 {
 
     private OracleRandom _random = null!;
@@ -31,6 +31,7 @@ internal sealed partial class GiantGhiniBoss : SpiritsGraveEnemyCharacter
     private bool _dying;
     private int _deathCounter;
 
+    internal ImportedEnemyDefinition Record { get; private set; }
     internal GiantGhiniBossBossState State => _state;
     internal int Counter => _counter;
     internal int ChildrenAlive => _childrenAlive;
@@ -44,7 +45,7 @@ internal sealed partial class GiantGhiniBoss : SpiritsGraveEnemyCharacter
         (_state is GiantGhiniBossBossState.Moving or GiantGhiniBossBossState.Charging);
 
     internal void Initialize(
-        EnemyRecord record,
+        ImportedEnemyDefinition record,
         OracleRoomData room,
         Vector2 position,
         OracleRandom random,
@@ -53,7 +54,10 @@ internal sealed partial class GiantGhiniBoss : SpiritsGraveEnemyCharacter
         Action disableLinkCollisionsAndMenu,
         Action restoreRoomMusic)
     {
-        InitializeEnemy(record, position);
+        Record = record;
+        InitializeEnemy(
+            position,
+            EnemyCharacterConfiguration.FromImported(record));
         _room = room;
         _random = random;
         _playSound = playSound;

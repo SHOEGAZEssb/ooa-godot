@@ -33,6 +33,8 @@ internal sealed partial class SpiritsGraveEssence : TransitionOffsetNode2D,
     private bool _swirl;
     private bool _beadsInitialized;
     private bool _triggerSent;
+    private bool _glowVisible = true;
+    private int _glowFrameIndex;
 
     private static readonly int[] FloatOffsets =
     {
@@ -46,6 +48,8 @@ internal sealed partial class SpiritsGraveEssence : TransitionOffsetNode2D,
     internal int Motion => (int)_state;
     internal int Delay => _delay;
     internal bool Collected => _collected;
+    internal bool GlowVisible => _glowVisible;
+    internal int GlowFrameIndex => _glow.FrameIndex;
 
     internal SpiritsGraveEssence(
         ObjectRecord record,
@@ -100,6 +104,16 @@ internal sealed partial class SpiritsGraveEssence : TransitionOffsetNode2D,
         }
         _essence.Advance();
         _glow.Advance();
+        if (_glow.FrameIndex != _glowFrameIndex)
+        {
+            _glowFrameIndex = _glow.FrameIndex;
+            // interaction7f_subid02 consumes a nonzero animation parameter
+            // and flips Object.visible bit 7 once on that frame. The source
+            // animation's two parameter-$01 frames therefore alternate the
+            // glow between visible and hidden without affecting the essence.
+            if (_glow.CurrentParameter != 0)
+                _glowVisible = !_glowVisible;
+        }
 
         switch (_state)
         {
@@ -199,7 +213,8 @@ internal sealed partial class SpiritsGraveEssence : TransitionOffsetNode2D,
 
         int z = _zFixed >> 8;
         Vector2 itemOffset = new Vector2(-16, -16 + z) + transition;
-        DrawTexture(_glow.CurrentTexture, itemOffset);
+        if (_glowVisible)
+            DrawTexture(_glow.CurrentTexture, itemOffset);
         DrawTexture(_essence.CurrentTexture, itemOffset);
 
         if (!_swirl)

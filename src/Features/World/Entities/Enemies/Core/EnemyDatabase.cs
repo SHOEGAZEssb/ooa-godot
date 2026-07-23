@@ -18,6 +18,8 @@ public sealed class EnemyDatabase
     private readonly Dictionary<int, StalfosRecord> _stalfosDefinitions = new();
     private readonly Dictionary<int, ZolRecord> _zolDefinitions = new();
     private readonly Dictionary<int, CrowRecord> _crowDefinitions = new();
+    private readonly Dictionary<(int Id, int SubId), ImportedEnemyDefinition>
+        _importedDefinitions = new();
 
     public int KeeseRecordCount { get; }
     public int KeeseInstanceCount { get; }
@@ -35,11 +37,90 @@ public sealed class EnemyDatabase
     public OctorokProjectileRecord OctorokProjectile { get; }
     public MaskedMoblinRecord MaskedMoblin { get; }
     public EnemyArrowRecord EnemyArrow { get; }
+    internal EnemyProjectileVisualRecord MoblinBoomerang { get; }
     public GelDefinition Gel { get; }
 
     public EnemyDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/common_enemies.tsv",
+            new GeneratedTableSchema(
+                "common enemy definitions",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "id", "subid", "sprites", "tile-base", "palette",
+                    "source-grayscale-inverted", "radius-y", "radius-x",
+                    "damage-quarters", "health", "animations-base64"
+                ],
+                ["id", "subid"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
+        {
+            ImportedEnemyDefinition record = new ImportedEnemyDefinition(
+                row.HexByte(0),
+                row.HexByte(1),
+                SplitRequired(row, 2, ','),
+                row.UnsignedDecimal(3),
+                row.UnsignedDecimal(4),
+                row.Boolean01(5),
+                row.UnsignedDecimal(6),
+                row.UnsignedDecimal(7),
+                row.UnsignedDecimal(8),
+                row.UnsignedDecimal(9),
+                SplitDecoded(row, 10));
+            if (!_importedDefinitions.TryAdd((record.Id, record.SubId), record))
+            {
+                throw new InvalidOperationException(
+                    $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
+            }
+        }
+        if (_importedDefinitions.Count != 4 ||
+            ImportedEnemy(0x0a) is not
+                { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
+            ImportedEnemy(0x10) is not { Health: 2, DamageQuarters: 2 } ||
+            ImportedEnemy(0x17) is not { Health: 10, DamageQuarters: 2 } ||
+            ImportedEnemy(0x28) is not { Health: 5, DamageQuarters: 2 })
+        {
+            throw new InvalidOperationException(
+                "Imported common-enemy contract is incomplete.");
+        }
+
+        table = GeneratedTable.Load(
+            "res://assets/oracle/effects/moblin_boomerang.tsv",
+            new GeneratedTableSchema(
+                "Moblin boomerang",
+                GeneratedTableKeySemantics.Ordered,
+                [
+                    "sprites", "tile-base", "palette",
+                    "source-grayscale-inverted", "animations-base64"
+                ],
+                headerRequired: true));
+        if (table.Rows.Count != 1)
+        {
+            throw new InvalidOperationException(
+                $"Moblin boomerang data should have one row, got {table.Rows.Count}.");
+        }
+        GeneratedTableRow boomerang = table.Rows[0];
+        MoblinBoomerang = new EnemyProjectileVisualRecord(
+            SplitRequired(boomerang, 0, ','),
+            boomerang.UnsignedDecimal(1),
+            boomerang.UnsignedDecimal(2),
+            boomerang.Boolean01(3),
+            SplitDecoded(boomerang, 4));
+        if (MoblinBoomerang is not
+            {
+                Sprites: ["spr_projectiles_1"],
+                TileBase: 10,
+                Palette: 4,
+                SourceGrayscaleInverted: true,
+                Animations.Length: 1
+            })
+        {
+            throw new InvalidOperationException(
+                "Imported PART_MOBLIN_BOOMERANG $21 visual is incomplete.");
+        }
+
+        table = GeneratedTable.Load(
             "res://assets/oracle/objects/keese.tsv",
             new GeneratedTableSchema(
                 "Keese room records",
@@ -621,6 +702,17 @@ public sealed class EnemyDatabase
         return true;
     }
 
+    internal ImportedEnemyDefinition ImportedEnemy(int id, int subId = 0) =>
+        _importedDefinitions.TryGetValue((id, subId), out ImportedEnemyDefinition record)
+            ? record
+            : throw new KeyNotFoundException(
+                $"Common enemy ${id:x2}:${subId:x2} was not imported.");
+
+    internal bool TryGetImportedEnemyDefinition(
+        RoomObjectRecord source,
+        out ImportedEnemyDefinition record) =>
+        _importedDefinitions.TryGetValue((source.Id, source.SubId), out record);
+
     private static int MakeKey(int group, int room) => (group << 8) | room;
 
     private static bool FixedPosition(GeneratedTableRow row, int column) =>
@@ -630,6 +722,29 @@ public sealed class EnemyDatabase
             "R" => false,
             _ => throw row.Invalid(column, "position mode F or R")
         };
+
+    private static string[] SplitRequired(
+        GeneratedTableRow row,
+        int column,
+        char separator)
+    {
+        string[] values = row.RequiredString(column).Split(
+            separator,
+            StringSplitOptions.RemoveEmptyEntries |
+            StringSplitOptions.TrimEntries);
+        if (values.Length == 0)
+            throw row.Invalid(column, "one or more values");
+        return values;
+    }
+
+    private static string[] SplitDecoded(GeneratedTableRow row, int column)
+    {
+        string[] values = row.Base64Utf8(column).Split(
+            '\n', StringSplitOptions.RemoveEmptyEntries);
+        if (values.Length == 0)
+            throw row.Invalid(column, "one or more encoded animations");
+        return values;
+    }
 
     private static RoomObjectKind ParseRoomObjectKind(
         GeneratedTableRow row,
@@ -650,6 +765,10 @@ public readonly record struct CrowRecord(int Group, int Room, int Id, int SubId,
 public readonly record struct EnemyArrowRecord(string SpriteName, int TileBase, int Palette, int DamageQuarters, int SpeedRaw, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation, string BounceAnimation);
 
 public readonly record struct EnemyDatabaseEnemyRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string IdleAnimation, string FlyAnimation);
+
+internal readonly record struct ImportedEnemyDefinition(int Id, int SubId, string[] Sprites, int TileBase, int Palette, bool SourceGrayscaleInverted, int RadiusY, int RadiusX, int DamageQuarters, int Health, string[] Animations);
+
+internal readonly record struct EnemyProjectileVisualRecord(string[] Sprites, int TileBase, int Palette, bool SourceGrayscaleInverted, string[] Animations);
 
 public readonly record struct GelRecord(int Group, int Room, int Flags, int Count, bool FixedPosition, int Y, int X);
 

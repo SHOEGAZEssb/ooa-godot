@@ -3,7 +3,7 @@ using System;
 
 namespace oracleofages;
 
-public partial class KeeseCharacter : TransitionOffsetNode2D
+public partial class KeeseCharacter : EnemyCharacter
 {
 
     private const float SpeedC0 = 0.75f;
@@ -42,7 +42,6 @@ public partial class KeeseCharacter : TransitionOffsetNode2D
         0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01
     };
 
-    private EnemyAnimationPlayer _animation = null!;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
     private KeeseState _state = KeeseState.Resting;
@@ -51,21 +50,18 @@ public partial class KeeseCharacter : TransitionOffsetNode2D
     private int _angle;
     private int _turnAmount;
     private float _speed;
-    private int _health;
     private bool _flying;
 
     public EnemyDatabaseEnemyRecord Record { get; private set; }
-    public bool IsDead { get; private set; }
-    public Rect2 CollisionBounds => new(
-        Position - new Vector2(Record.CollisionRadiusX, Record.CollisionRadiusY),
-        new Vector2(Record.CollisionRadiusX * 2, Record.CollisionRadiusY * 2));
     internal KeeseState State => _state;
     internal int Counter1 => _counter1;
     internal int Counter2 => _counter2;
     internal int Angle => _angle;
     internal bool Flying => _flying;
-    internal int CurrentAnimationFrame => _animation.FrameIndex;
+    internal int CurrentAnimationFrame => AnimationFrame;
     internal int SpriteHeight => Record.SubId == 1 ? -1 : 0;
+    protected override Vector2 AnimationDrawOffset =>
+        new(-16, -16 + SpriteHeight);
 
     internal void Initialize(
         EnemyDatabaseEnemyRecord record,
@@ -76,19 +72,20 @@ public partial class KeeseCharacter : TransitionOffsetNode2D
         Record = record;
         _room = room;
         _random = random;
-        Position = position;
-        _health = record.Health;
         _counter1 = record.SubId == 0 ? InitialRestFrames : 0;
         _turnAmount = record.SubId == 1 ? 2 : 0;
 
-        Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{record.SpriteName}.png");
-        _animation = new EnemyAnimationPlayer(this, 2);
-        _animation.Load(source,
-            new[] { record.IdleAnimation, record.FlyAnimation },
-            record.TileBase, record.Palette);
-        _animation.SetAnimation(0);
-        QueueRedraw();
+        InitializeEnemy(
+            position,
+            EnemyCharacterConfiguration.FromSprite(
+                record.Health,
+                record.CollisionRadiusX,
+                record.CollisionRadiusY,
+                record.SpriteName,
+                new[] { record.IdleAnimation, record.FlyAnimation },
+                record.TileBase,
+                record.Palette));
+        RestartAnimation(0);
     }
 
     internal void UpdateFrame(Vector2 linkPosition, int frameCounter)
@@ -102,13 +99,6 @@ public partial class KeeseCharacter : TransitionOffsetNode2D
             UpdateNormalKeese(frameCounter);
     }
 
-    public bool OverlapsLink(Vector2 linkPosition)
-    {
-        return !IsDead &&
-            Mathf.Abs(linkPosition.X - Position.X) < Record.CollisionRadiusX + 6 &&
-            Mathf.Abs(linkPosition.Y - Position.Y) < Record.CollisionRadiusY + 6;
-    }
-
     public bool TakeSwordHit()
         => TakeSwordHit(1);
 
@@ -116,21 +106,7 @@ public partial class KeeseCharacter : TransitionOffsetNode2D
     {
         if (IsDead)
             return false;
-
-        _health = Math.Max(0, _health - Math.Max(1, damage));
-        if (_health > 0)
-            return true;
-
-        IsDead = true;
-        Visible = false;
-        return true;
-    }
-
-    public override void _Draw()
-    {
-        if (!IsDead && _animation.HasFrames)
-            DrawTexture(_animation.CurrentTexture,
-                new Vector2(-16, -16 + SpriteHeight) + TransitionDrawOffset);
+        return ApplyDamage(damage, invincibilityFrames: 0);
     }
 
     private void UpdateNormalKeese(int frameCounter)
@@ -267,10 +243,9 @@ public partial class KeeseCharacter : TransitionOffsetNode2D
         if (_flying == flying)
             return;
         _flying = flying;
-        _animation.SetAnimation(flying ? 1 : 0);
+        RestartAnimation(flying ? 1 : 0);
     }
 
-    private void AdvanceAnimation() => _animation.Advance();
 }
 
 internal enum KeeseState

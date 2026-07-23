@@ -11,6 +11,8 @@ internal sealed class WallmasterRoomEntity
     private readonly Action<Warp> _warpRequested;
     private readonly int _group;
     private readonly int _room;
+    private readonly int _destinationGroup;
+    private readonly int _destinationRoom;
 
     public WallmasterRoomEntity(
         WallmasterCharacter wallmaster,
@@ -18,6 +20,8 @@ internal sealed class WallmasterRoomEntity
         Action<Warp> warpRequested,
         int group,
         int room,
+        int destinationGroup,
+        int destinationRoom,
         int killableEnemyIndex)
         : base(
             wallmaster, wallmaster.SetTransitionDrawOffset,
@@ -40,6 +44,8 @@ internal sealed class WallmasterRoomEntity
         _warpRequested = warpRequested;
         _group = group;
         _room = room;
+        _destinationGroup = destinationGroup;
+        _destinationRoom = destinationRoom;
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
@@ -49,6 +55,6 @@ internal sealed class WallmasterRoomEntity
             return;
         _warpRequested(new Warp(
             _group, _room, -1, 0, 0,
-            4, 0x24, 0x87, 0, 3));
+            _destinationGroup, _destinationRoom, 0x87, 0, 3));
     }
 }

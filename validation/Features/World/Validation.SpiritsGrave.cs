@@ -50,14 +50,25 @@ public sealed partial class ValidationRoot
         }
 
         var data = new SpiritsGraveDatabase();
+        var enemyData = new EnemyDatabase();
+        RoomObjectRecord fallingRope = enemyData.GetRoomObjects(4, 0x73)
+            .Single(record => record.Id == 0x10);
+        RoomObjectRecord linkedGhini = enemyData.GetRoomObjects(5, 0x99)
+            .Single(record => record.Id == 0x17);
+        VisualRecord essenceGlow = data.Visual("essence-glow");
+        AnimationDefinition essenceGlowAnimation =
+            OracleGraphicsCache.GetAnimationDefinition(
+                essenceGlow.Animations.Single());
         int nativeCount = dungeonRooms.Sum(
             room => data.GetRoomRecords(4, room).Count);
         if (nativeCount != 17 ||
             data.GetRoomRecords(4, 0x20).Count != 7 ||
-            data.Enemy(0x0a) is not { Health: 3, DamageQuarters: 2 } ||
-            data.Enemy(0x10) is not { Health: 2, DamageQuarters: 2 } ||
-            data.Enemy(0x17) is not { Health: 10, DamageQuarters: 2 } ||
-            data.Enemy(0x28) is not { Health: 5, DamageQuarters: 2 } ||
+            enemyData.ImportedEnemy(0x0a) is not { Health: 3, DamageQuarters: 2 } ||
+            enemyData.ImportedEnemy(0x10) is not { Health: 2, DamageQuarters: 2 } ||
+            enemyData.ImportedEnemy(0x17) is not { Health: 10, DamageQuarters: 2 } ||
+            enemyData.ImportedEnemy(0x28) is not { Health: 5, DamageQuarters: 2 } ||
+            enemyData.TryGetImportedEnemyDefinition(fallingRope, out _) ||
+            enemyData.TryGetImportedEnemyDefinition(linkedGhini, out _) ||
             data.Enemy(0x3f) is not
                 { Health: 2, DamageQuarters: 128, SourceGrayscaleInverted: false } ||
             data.Enemy(0x70) is not
@@ -66,8 +77,24 @@ public sealed partial class ValidationRoot
             data.Visual("colored-cube").Animations.Length != 30 ||
             data.Visual("colored-cube").SourceGrayscaleInverted ||
             data.Visual("energy-bead").Animations.Length != 8 ||
-            data.Visual("moblin-boomerang").Animations.Length != 1 ||
+            enemyData.MoblinBoomerang is not
+                { TileBase: 10, Palette: 4, Animations.Length: 1 } ||
             data.Visual("pumpkin-projectile").Animations.Length != 1 ||
+            essenceGlow is not
+                {
+                    Sprites: ["spr_pedestal_flame_crystal"],
+                    TileBase: 6,
+                    Palette: 4,
+                    SourceGrayscaleInverted: true
+                } ||
+            essenceGlowAnimation.Frames.Length != 4 ||
+            essenceGlowAnimation.LoopStart != 0 ||
+            essenceGlowAnimation.Frames.Any(frame => frame.Duration != 2) ||
+            !essenceGlowAnimation.Frames
+                .Select(frame => frame.Parameter)
+                .SequenceEqual([0, 1, 0, 1]) ||
+            essenceGlowAnimation.Frames.Any(
+                frame => frame.EncodedOam.Split(';').Length != 8) ||
             !IsGbcColor(data.CubePalettes[6][1], 0x1b, 0x00, 0x00) ||
             !IsGbcColor(data.CubePalettes[6][2], 0x03, 0x10, 0x1f) ||
             !IsGbcColor(data.CubePalettes[7][1], 0x03, 0x10, 0x1f) ||
@@ -1522,6 +1549,25 @@ public sealed partial class ValidationRoot
         PrepareRoom(0x11);
         SpiritsGraveEssence essence =
             _entities.Entities<SpiritsGraveEssence>().Single();
+        bool observedHiddenGlow = false;
+        bool observedVisibleGlowAfterToggle = false;
+        for (int frame = 0; frame < 8; frame++)
+        {
+            StepEntities();
+            if (!essence.GlowVisible && essence.GlowFrameIndex == 1)
+                observedHiddenGlow = true;
+            if (observedHiddenGlow &&
+                essence.GlowVisible && essence.GlowFrameIndex == 3)
+            {
+                observedVisibleGlowAfterToggle = true;
+            }
+        }
+        if (!observedHiddenGlow || !observedVisibleGlowAfterToggle)
+        {
+            throw new InvalidOperationException(
+                "The Eternal Spirit glow did not use animation 3's two-update " +
+                "eight-cell frames and parameter-driven visibility toggles.");
+        }
         _player.WarpTo(new Vector2(0x78, 0x3a));
         _player.Face(Vector2I.Up);
         _sound.ClearPlayRequestAudit();
@@ -1533,10 +1579,13 @@ public sealed partial class ValidationRoot
         if (!_dialogue.IsOpen || !essence.ReadyForDialogue ||
             !_player.IsHoldingItemTwoHands ||
             !_saveData.HasRoomFlag(4, 0x11, OracleSaveData.RoomFlagItem) ||
-            (_inventory.Essences & 0x01) == 0)
+            (_inventory.Essences & 0x01) == 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.MusGetEssence) != 1 ||
+            _sound.ActiveMusic != OracleSoundEngine.MusGetEssence)
         {
             throw new InvalidOperationException(
-                "The Eternal Spirit did not fall, enter the two-hand pose, show TX_000e, and set D1's item bit.");
+                "The Eternal Spirit did not fall, enter the two-hand pose, show " +
+                "TX_000e, set D1's item bit, and start MUS_GET_ESSENCE.");
         }
         _dialogue.Close();
         for (int frame = 0; frame < 520 && !_transitions.IsTransitioning; frame++)
@@ -1547,6 +1596,7 @@ public sealed partial class ValidationRoot
         if (!_transitions.IsTransitioning || essence.SwirlActive ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDropEssence) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlSlowFadeOut) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.MusGetEssence) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.MusEssence) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndEnergyThing) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndFadeOut) != 4 ||
@@ -1578,6 +1628,65 @@ public sealed partial class ValidationRoot
                 "and packed-position $0f collision while deleting only the essence/glow.");
         }
 
+        // Common subid-$00 species are not owned by D1. Room 4:ed is outside
+        // the old 4:10-$25 factory gate and contains six fixed Ropes.
+        PrepareRoom(0xed);
+        if (_entities.Entities<RopeCharacter>().Count != 6)
+        {
+            throw new InvalidOperationException(
+                "Common ENEMY_ROPE $10:$00 did not instantiate outside " +
+                "Spirit's Grave in room 4:ed.");
+        }
+
+        // Dungeon $0b's room 4:c5 uses the same common Wallmaster handler but
+        // dungeonData0b sends Link to $ce, not Spirit's Grave entrance $24.
+        if (_rooms.DungeonMaps.GetDungeon(1).WallmasterDestinationRoom != 0x24 ||
+            _rooms.DungeonMaps.GetDungeon(0x0b).WallmasterDestinationRoom != 0xce)
+        {
+            throw new InvalidOperationException(
+                "Imported dungeon Wallmaster destinations lost dungeon01=$24 " +
+                "or dungeon0b=$ce.");
+        }
+        PrepareRoom(0xc5);
+        WallmasterCharacter laterWallmaster =
+            _entities.Entities<WallmasterCharacter>().Single();
+        Vector2 laterOpenTile = (
+            from y in Enumerable.Range(0, _currentRoom.HeightInTiles)
+            from x in Enumerable.Range(0, _currentRoom.WidthInTiles)
+            let center = new Vector2(x * 16 + 8, y * 16 + 8)
+            where !_currentRoom.IsSolid(center)
+            select center).First();
+        _player.WarpTo(laterOpenTile);
+        StepEntities(181);
+        for (int frame = 0; frame < 180 &&
+             laterWallmaster.State != WallmasterState.Grounded;
+             frame++)
+        {
+            StepEntities();
+        }
+        StepEntities(12);
+        for (int frame = 0;
+             frame < 120 && _rooms.CurrentRoom.Id == 0xc5;
+             frame++)
+        {
+            StepEntities();
+        }
+        if (_rooms.ActiveGroup != 4 || _rooms.CurrentRoom.Id != 0xce ||
+            !_transitions.IsTransitioning)
+        {
+            throw new InvalidOperationException(
+                "Common Wallmaster in dungeon $0b room 4:c5 did not request " +
+                $"its imported $ce destination (group={_rooms.ActiveGroup:x1}, " +
+                $"room=${_rooms.CurrentRoom.Id:x2}).");
+        }
+        for (int frame = 0; frame < 40 && _transitions.IsTransitioning; frame++)
+            _transitions.Update(update);
+        if (_transitions.IsTransitioning || !_player.Visible)
+        {
+            throw new InvalidOperationException(
+                "Dungeon $0b Wallmaster destination transition did not finish.");
+        }
+
         RestoreFlags();
         _player.EndCutsceneControl();
         _player.EndGetItemTwoHandPose();
@@ -1589,6 +1698,6 @@ public sealed partial class ValidationRoot
             "platforms, torch/side-room/cube puzzles, linked burnable wall, layout-only entry " +
             "shutter, falling rewards, " +
             "Giant Ghini, Pumpkin Head, Heart Container, Eternal Spirit sequence, " +
-            "and exit warp.");
+            "exit warp, shared room 4:ed Ropes, and dungeon0b Wallmaster destination $ce.");
     }
 }

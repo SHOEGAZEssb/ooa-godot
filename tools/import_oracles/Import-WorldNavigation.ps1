@@ -129,10 +129,12 @@ $dungeonDataSource = Get-Content -Raw (Join-Path $Disassembly 'data\ages\dungeon
 $dungeonMetadata = @{}
 foreach ($record in [regex]::Matches(
     $dungeonDataSource,
-    '(?ms)^dungeonData(?<index>[0-9a-f]{2}):\s*\r?\n\s*m_DungeonData\s+>wGroup(?<group>[45])RoomFlags,\s*\$[0-9a-f]{2},\s*dungeon[0-9a-f]{2}Layout,\s*\$(?<floors>[0-9a-f]{2}),\s*\$(?<base>[0-9a-f]{2}),\s*\$(?<compass>[0-9a-f]{2})')) {
+    '(?ms)^dungeonData(?<index>[0-9a-f]{2}):\s*\r?\n\s*m_DungeonData\s+>wGroup(?<group>[45])RoomFlags,\s*\$(?<wallmaster>[0-9a-f]{2}),\s*dungeon[0-9a-f]{2}Layout,\s*\$(?<floors>[0-9a-f]{2}),\s*\$(?<base>[0-9a-f]{2}),\s*\$(?<compass>[0-9a-f]{2})')) {
     $index = [Convert]::ToInt32($record.Groups['index'].Value, 16)
     $dungeonMetadata[$index] = @{
         Group = [Convert]::ToInt32($record.Groups['group'].Value, 16)
+        WallmasterDestination = [Convert]::ToInt32(
+            $record.Groups['wallmaster'].Value, 16)
         Floors = [Convert]::ToInt32($record.Groups['floors'].Value, 16)
         BaseFloor = [Convert]::ToInt32($record.Groups['base'].Value, 16)
         CompassFloors = [Convert]::ToInt32($record.Groups['compass'].Value, 16)
@@ -146,7 +148,7 @@ $dungeonProperties = @{
     5 = [IO.File]::ReadAllBytes((Join-Path $Disassembly 'rooms\ages\group5DungeonProperties.bin'))
 }
 $dungeonMapRows = [Collections.Generic.List[string]]::new()
-$dungeonMapRows.Add('# dungeon`tgroup`tfloors`tbase-floor`tcompass-floors`tfloor`tx`ty`troom`tproperties')
+$dungeonMapRows.Add('# dungeon`tgroup`twallmaster-destination`tfloors`tbase-floor`tcompass-floors`tfloor`tx`ty`troom`tproperties')
 foreach ($block in $dungeonBlocks) {
     $dungeon = [Convert]::ToInt32($block.Groups['index'].Value, 16)
     $metadataRecord = $dungeonMetadata[$dungeon]
@@ -165,7 +167,7 @@ foreach ($block in $dungeonBlocks) {
         $floorCell = $cell % 64
         $properties = $dungeonProperties[$metadataRecord.Group][$room]
         $dungeonMapRows.Add(
-            "$dungeon`t$($metadataRecord.Group)`t$($metadataRecord.Floors)`t$($metadataRecord.BaseFloor)`t$($metadataRecord.CompassFloors)`t$([Math]::Floor($cell / 64))`t$($floorCell % 8)`t$([Math]::Floor($floorCell / 8))`t$($room.ToString('x2'))`t$($properties.ToString('x2'))")
+            "$dungeon`t$($metadataRecord.Group)`t$($metadataRecord.WallmasterDestination.ToString('x2'))`t$($metadataRecord.Floors)`t$($metadataRecord.BaseFloor)`t$($metadataRecord.CompassFloors)`t$([Math]::Floor($cell / 64))`t$($floorCell % 8)`t$([Math]::Floor($floorCell / 8))`t$($room.ToString('x2'))`t$($properties.ToString('x2'))")
     }
 }
 $dungeonMapPath = Join-Path $destination 'objects\dungeon_maps.tsv'
@@ -278,4 +280,3 @@ $importedRoomCount = (Get-ChildItem (Join-Path $destination 'rooms') -Recurse -F
 if ($importedRoomCount -ne 1536) {
     throw "Expected 1536 expanded room layouts, imported $importedRoomCount."
 }
-

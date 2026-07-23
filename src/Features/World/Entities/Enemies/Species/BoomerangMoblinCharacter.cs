@@ -3,7 +3,7 @@ using System;
 
 namespace oracleofages;
 
-internal partial class BoomerangMoblinCharacter : SpiritsGraveEnemyCharacter
+internal partial class BoomerangMoblinCharacter : EnemyCharacter
 {
 
     private OracleRandom _random = null!;
@@ -14,17 +14,21 @@ internal partial class BoomerangMoblinCharacter : SpiritsGraveEnemyCharacter
     private bool _initialized;
     private bool _boomerangReturned;
 
+    internal ImportedEnemyDefinition Record { get; private set; }
     internal BoomerangMoblinCharacterMoblinState State => _state;
     internal int Counter => _counter;
     internal int Angle => _angle;
 
     internal void Initialize(
-        EnemyRecord record,
+        ImportedEnemyDefinition record,
         OracleRoomData room,
         Vector2 position,
         OracleRandom random)
     {
-        InitializeEnemy(record, position);
+        Record = record;
+        InitializeEnemy(
+            position,
+            EnemyCharacterConfiguration.FromImported(record));
         _random = random;
         _movement = new EnemyTerrainMovement(this, room);
     }

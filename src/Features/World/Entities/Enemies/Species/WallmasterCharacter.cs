@@ -3,7 +3,7 @@ using System;
 
 namespace oracleofages;
 
-internal partial class WallmasterCharacter : SpiritsGraveEnemyCharacter
+internal partial class WallmasterCharacter : EnemyCharacter
 {
 
     private WallmasterState _state;
@@ -18,6 +18,7 @@ internal partial class WallmasterCharacter : SpiritsGraveEnemyCharacter
     private bool _deathPuffPending;
     private bool _initialized;
 
+    internal ImportedEnemyDefinition Record { get; private set; }
     internal WallmasterState State => _state;
     internal int Counter => _counter;
     internal int Remaining => _remaining;
@@ -28,11 +29,14 @@ internal partial class WallmasterCharacter : SpiritsGraveEnemyCharacter
         Math.Abs(_zFixed >> 8) < 7;
 
     internal void Initialize(
-        EnemyRecord record,
+        ImportedEnemyDefinition record,
         OracleRoomData room,
         Vector2 position)
     {
-        InitializeEnemy(record, position);
+        Record = record;
+        InitializeEnemy(
+            position,
+            EnemyCharacterConfiguration.FromImported(record));
         _room = room;
         Visible = false;
     }

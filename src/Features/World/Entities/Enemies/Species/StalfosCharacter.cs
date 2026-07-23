@@ -7,7 +7,7 @@ namespace oracleofages;
 /// Common ENEMY_STALFOS $31 state machine for ordinary subid $00. The other
 /// source subids extend these states with jumps and bone/stomp attacks.
 /// </summary>
-public partial class StalfosCharacter : TransitionOffsetNode2D
+public partial class StalfosCharacter : EnemyCharacter
 {
 
     private static readonly Vector2I[,] SideviewCollisionOffsets =
@@ -35,25 +35,17 @@ public partial class StalfosCharacter : TransitionOffsetNode2D
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
-    private EnemyAnimationPlayer _animation = null!;
     private StalfosState _state;
     private int _counter1;
     private int _angle;
-    private int _health;
 
     public StalfosRecord Record { get; private set; }
-    public bool IsDead { get; private set; }
     public bool DiedInHazard { get; private set; }
     public HazardType DeathHazard { get; private set; }
-    public Rect2 CollisionBounds => new(
-        Position - new Vector2(Record.CollisionRadiusX, Record.CollisionRadiusY),
-        new Vector2(Record.CollisionRadiusX * 2, Record.CollisionRadiusY * 2));
     internal StalfosState State => _state;
     internal int Counter1 => _counter1;
     internal int Angle => _angle;
-    internal int Health => _health;
-    internal int AnimationIndex => _animation.AnimationIndex;
-    internal int CurrentAnimationFrame => _animation.FrameIndex;
+    internal int CurrentAnimationFrame => AnimationFrame;
 
     internal void Initialize(
         StalfosRecord record,
@@ -70,20 +62,19 @@ public partial class StalfosCharacter : TransitionOffsetNode2D
         _room = room;
         _random = random;
         _movement = new EnemyTerrainMovement(this, room);
-        _animation = new EnemyAnimationPlayer(this, animationCount: 2);
-        Position = position;
-        _health = record.Health;
         _state = StalfosState.Uninitialized;
 
-        Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{record.SpriteName}.png");
-        _animation.Load(
-            source,
-            new[] { record.WalkAnimation, record.JumpAnimation },
-            record.TileBase,
-            record.Palette);
-        _animation.SetAnimation(0);
-        QueueRedraw();
+        InitializeEnemy(
+            position,
+            EnemyCharacterConfiguration.FromSprite(
+                record.Health,
+                record.CollisionRadiusX,
+                record.CollisionRadiusY,
+                record.SpriteName,
+                new[] { record.WalkAnimation, record.JumpAnimation },
+                record.TileBase,
+                record.Palette));
+        RestartAnimation(0);
     }
 
     internal void UpdateFrame(Vector2 linkPosition)
@@ -95,8 +86,7 @@ public partial class StalfosCharacter : TransitionOffsetNode2D
         {
             DeathHazard = _movement.Hazard;
             DiedInHazard = true;
-            IsDead = true;
-            Visible = false;
+            Finish();
             return;
         }
 
@@ -123,43 +113,19 @@ public partial class StalfosCharacter : TransitionOffsetNode2D
                 Position += OracleObjectMath.VectorFromAngle32(_angle) *
                     (Record.SpeedRaw / 40.0f);
                 QueueRedraw();
-                _animation.Advance();
+                AdvanceAnimation();
                 return;
         }
-    }
-
-    public bool OverlapsLink(Vector2 linkPosition)
-    {
-        return !IsDead &&
-            Mathf.Abs(linkPosition.X - Position.X) < Record.CollisionRadiusX + 6 &&
-            Mathf.Abs(linkPosition.Y - Position.Y) < Record.CollisionRadiusY + 6;
     }
 
     public bool TakeSwordHit(Vector2 sourcePosition)
         => TakeSwordHit(sourcePosition, 2);
 
-    internal bool TakeSwordHit(Vector2 sourcePosition, int damage)
+    internal override bool TakeSwordHit(Vector2 sourcePosition, int damage)
     {
         if (IsDead)
             return false;
-
-        _health = Math.Max(0, _health - Math.Max(1, damage));
-        if (_health > 0)
-            return true;
-
-        IsDead = true;
-        Visible = false;
-        return true;
-    }
-
-    public override void _Draw()
-    {
-        if (!IsDead && _animation.HasFrames)
-        {
-            DrawTexture(
-                _animation.CurrentTexture,
-                new Vector2(-16, -16) + TransitionDrawOffset);
-        }
+        return ApplyDamage(damage, invincibilityFrames: 0);
     }
 
     private void BeginRandomWalk(Vector2 linkPosition)
@@ -170,7 +136,7 @@ public partial class StalfosCharacter : TransitionOffsetNode2D
             ? OracleObjectMath.AngleToward(Position, linkPosition)
             : result.High & 0x1f;
         _state = StalfosState.Walking;
-        _animation.SetAnimation(0);
+        RestartAnimation(0);
     }
 
     private void BounceOffWallsAndHoles()

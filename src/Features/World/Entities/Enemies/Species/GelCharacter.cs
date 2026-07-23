@@ -3,41 +3,36 @@ using System;
 
 namespace oracleofages;
 
-public partial class GelCharacter : TransitionOffsetNode2D
+public partial class GelCharacter : EnemyCharacter
 {
 
     private const int InitialSpeedZ = -0x200;
     private const int Gravity = 0x28;
     private const int AttachedFrames = 120;
 
-    private GelDefinition _definition;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
     private EnemyVerticalMotion _verticalMotion = null!;
-    private EnemyAnimationPlayer _animation = null!;
     private GelState _state;
     private int _counter1;
     private int _counter2;
     private int _angle;
-    private int _health;
     private bool _collisionEnabled;
 
-    public bool IsDead { get; private set; }
     public bool DiedInHazard { get; private set; }
     public HazardType DeathHazard { get; private set; }
     public bool IsAttached => !IsDead && _state == GelState.Attached;
-    public Rect2 CollisionBounds => new(
-        Position - new Vector2(_definition.CollisionRadiusX, _definition.CollisionRadiusY),
-        new Vector2(_definition.CollisionRadiusX * 2, _definition.CollisionRadiusY * 2));
-    internal GelDefinition Definition => _definition;
+    internal GelDefinition Definition { get; private set; }
     internal GelState State => _state;
     internal int Counter1 => _counter1;
     internal int Counter2 => _counter2;
     internal int Angle => _angle;
     internal int ZFixed => _verticalMotion.ZFixed;
-    internal int AnimationIndex => _animation.AnimationIndex;
-    internal int CurrentAnimationFrame => _animation.FrameIndex;
-    internal bool CollisionEnabled => _collisionEnabled;
+    internal int CurrentAnimationFrame => AnimationFrame;
+    internal override bool CollisionEnabled => _collisionEnabled;
+    protected override bool DrawsAnimation => !IsDead && Visible;
+    protected override Vector2 AnimationDrawOffset =>
+        new(-16, -16 + (_verticalMotion.ZFixed >> 8));
 
     internal void Initialize(
         GelDefinition definition,
@@ -45,28 +40,31 @@ public partial class GelCharacter : TransitionOffsetNode2D
         Vector2 position,
         OracleRandom random)
     {
-        _definition = definition;
+        Definition = definition;
         _random = random;
         _movement = new EnemyTerrainMovement(this, room);
         _verticalMotion = new EnemyVerticalMotion(this, Gravity);
-        _animation = new EnemyAnimationPlayer(this, animationCount: 3);
-        Position = position;
-        _health = definition.Health;
         _state = GelState.Waiting;
         _counter1 = 0x10;
         _collisionEnabled = true;
 
-        Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{definition.SpriteName}.png");
         string[] encodedAnimations =
         {
             definition.NormalAnimation,
             definition.AttachedAnimation,
             definition.ShakeAnimation
         };
-        _animation.Load(source, encodedAnimations, definition.TileBase, definition.Palette);
-        SetAnimation(0);
-        QueueRedraw();
+        InitializeEnemy(
+            position,
+            EnemyCharacterConfiguration.FromSprite(
+                definition.Health,
+                definition.CollisionRadiusX,
+                definition.CollisionRadiusY,
+                definition.SpriteName,
+                encodedAnimations,
+                definition.TileBase,
+                definition.Palette));
+        RestartAnimation(0);
     }
 
     internal void UpdateFrame(
@@ -90,7 +88,7 @@ public partial class GelCharacter : TransitionOffsetNode2D
                 _counter2 = Math.Max(1, _counter2 - 3);
             if ((_counter2 & 0x03) == 0)
                 ZIndex = ZIndex <= 10 ? 11 : 9;
-            _animation.Advance();
+            AdvanceAnimation();
             QueueRedraw();
             return;
         }
@@ -99,22 +97,21 @@ public partial class GelCharacter : TransitionOffsetNode2D
         {
             DeathHazard = _movement.Hazard;
             DiedInHazard = true;
-            IsDead = true;
-            Visible = false;
+            Finish();
             return;
         }
 
         switch (_state)
         {
             case GelState.Waiting:
-                _animation.Advance();
+                AdvanceAnimation();
                 if (--_counter1 > 0)
                     return;
                 if ((_random.Next().Value & 0x07) == 0)
                 {
                     _state = GelState.Shaking;
                     _counter1 = 0x30;
-                    SetAnimation(2);
+                    RestartAnimation(2);
                 }
                 else
                 {
@@ -126,7 +123,7 @@ public partial class GelCharacter : TransitionOffsetNode2D
 
             case GelState.Inching:
                 _movement.MoveAtAngle(_angle, 0.25f, allowHoles: false);
-                _animation.Advance();
+                AdvanceAnimation();
                 if (--_counter1 > 0)
                     return;
                 _state = GelState.Waiting;
@@ -134,7 +131,7 @@ public partial class GelCharacter : TransitionOffsetNode2D
                 return;
 
             case GelState.Shaking:
-                _animation.Advance();
+                AdvanceAnimation();
                 if (--_counter1 > 0)
                     return;
                 BeginHop(OracleObjectMath.AngleToward(Position, linkPosition));
@@ -147,16 +144,9 @@ public partial class GelCharacter : TransitionOffsetNode2D
                 _state = GelState.Waiting;
                 _counter1 = 0x10;
                 _collisionEnabled = true;
-                SetAnimation(0);
+                RestartAnimation(0);
                 return;
         }
-    }
-
-    public bool OverlapsLink(Vector2 linkPosition)
-    {
-        return !IsDead && _collisionEnabled && !IsAttached &&
-            Mathf.Abs(linkPosition.X - Position.X) < _definition.CollisionRadiusX + 6 &&
-            Mathf.Abs(linkPosition.Y - Position.Y) < _definition.CollisionRadiusY + 6;
     }
 
     internal void AttachToLink(Vector2 linkPosition)
@@ -168,7 +158,7 @@ public partial class GelCharacter : TransitionOffsetNode2D
         _counter2 = AttachedFrames;
         _verticalMotion.Reset();
         _collisionEnabled = false;
-        SetAnimation(1);
+        RestartAnimation(1);
         ZIndex = 11;
     }
 
@@ -179,12 +169,7 @@ public partial class GelCharacter : TransitionOffsetNode2D
     {
         if (IsDead || IsAttached)
             return false;
-        _health = Math.Max(0, _health - Math.Max(1, damage));
-        if (_health > 0)
-            return true;
-        IsDead = true;
-        Visible = false;
-        return true;
+        return ApplyDamage(damage, invincibilityFrames: 0);
     }
 
     internal void SetStateForValidation(
@@ -197,17 +182,7 @@ public partial class GelCharacter : TransitionOffsetNode2D
         _counter1 = counter1;
         _counter2 = counter2;
         if (animation >= 0)
-            SetAnimation(animation);
-    }
-
-    public override void _Draw()
-    {
-        if (IsDead || !_animation.HasFrames)
-            return;
-        DrawTexture(
-            _animation.CurrentTexture,
-            new Vector2(-16, -16 + (_verticalMotion.ZFixed >> 8)) +
-                TransitionDrawOffset);
+            RestartAnimation(animation);
     }
 
     private void BeginHop(int angle)
@@ -219,7 +194,7 @@ public partial class GelCharacter : TransitionOffsetNode2D
         // therefore stays enabled, while a Gel whose Link collision disabled
         // it stays disabled until state $0b restores bit 7 on landing.
         ZIndex = 10;
-        SetAnimation(0);
+        RestartAnimation(0);
     }
 
     private int AngleAwayFromFacing(Vector2I facing)
@@ -233,10 +208,6 @@ public partial class GelCharacter : TransitionOffsetNode2D
         return (linkAngle + 0x10) & 0x1f;
     }
 
-    private void SetAnimation(int index)
-    {
-        _animation.SetAnimation(index);
-    }
 }
 
 internal enum GelState

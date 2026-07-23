@@ -166,6 +166,21 @@ additional state machines are not implemented are intentionally absent from
 the typed species table while their ordered source records remain available as
 unsupported reservations/completion evidence.
 
+The same shared stage emits `common_enemies.tsv` for the implemented
+`ENEMY_BOOMERANG_MOBLIN $0a:$00`, `ENEMY_ROPE $10:$00`,
+`ENEMY_GHINI $17:$00`, and `ENEMY_WALLMASTER $28:$00` definitions, plus
+`moblin_boomerang.tsv` for `PART_MOBLIN_BOOMERANG $21`. These records are not
+owned by Spirit's Grave: the runtime joins them by enemy ID/subid anywhere in
+the ordered object stream. Rope `$10:$01` and Ghini `$17:$01/$02` remain absent
+until their distinct native state machines are implemented; they must not be
+routed through the subid-0 behavior.
+
+`Import-WorldNavigation.ps1` retains byte 1 of every `m_DungeonData` row as the
+Wallmaster destination in `dungeon_maps.tsv`. `DungeonMapDatabase` exposes that
+per-dungeon value, so a common Wallmaster capture returns Link to `$24` in
+dungeon `$01`, `$ce` in dungeon `$0b`, and the corresponding imported room for
+every other dungeon instead of using a first-dungeon constant.
+
 ## Generated-data rules
 
 - Never hand-edit `assets/oracle/`. Fix the parser or source mapping and rerun
