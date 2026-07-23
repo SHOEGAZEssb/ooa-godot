@@ -27,7 +27,7 @@ public partial class GameRoot : Node2D
     internal BraceletController _bracelet = null!;
     internal ShovelController _shovel = null!;
     internal SeedSatchelController _seedSatchel = null!;
-    private DebugWarpController _debugWarps = null!;
+    internal DebugWarpController _debugWarps = null!;
     internal DebugCollisionController _debugCollision = null!;
     internal MapMenuController _mapMenu = null!;
     internal InventoryMenuController _inventoryMenu = null!;
@@ -495,8 +495,8 @@ public partial class GameRoot : Node2D
             _bracelet, _shovel, _seedSatchel, _roomEvents,
             _inventory, _sound, () => _debugCollision.CollisionsDisabled);
         _debugWarps = new DebugWarpController(
-            _rooms, _player, LoadDebugRoom, FindSpawn, () => (long)_animationTicks,
-            _interactions.ResetChestForTesting);
+            _player, LoadDebugRoom, FindSpawn,
+            _launchOptions.DebugWarpGroup, _launchOptions.DebugWarpRoom);
         _gameplayPause = new GameplayPauseController(_player, _roomDebug);
         _menuLifecycle = new OracleMenuLifecycle(_scene.MenuFade, _gameplayPause);
         _mapMenu = new MapMenuController(
@@ -691,13 +691,6 @@ public partial class GameRoot : Node2D
         _player.Face(Vector2I.Down);
     }
 
-    // Validation compatibility wrappers.
-    internal void WarpToSignTest() => _debugWarps.WarpToSign();
-    private void WarpToAnimationTest() => _debugWarps.WarpToAnimation();
-    internal void WarpToBushTest() => _debugWarps.WarpToBush();
-    internal void WarpToHouseTest() => _debugWarps.WarpToHouse();
-    internal void WarpToNpcTest() => _debugWarps.WarpToNpc();
-    internal void WarpToChestTest() => _debugWarps.WarpToChest();
     internal void ClearDeactivatedWarp() => _transitions.ClearDeactivatedWarp();
     internal void RefreshRoomObjects() => _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom);
     private void ClearRoomObjects() => _entities.Clear();

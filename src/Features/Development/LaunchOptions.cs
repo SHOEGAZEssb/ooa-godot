@@ -10,6 +10,8 @@ public sealed class LaunchOptions
 
     public int StartingGroup => ParseHex("--group=", GetDefaultGroup(), 0, 7);
     public int StartingRoom => ParseHex("--room=", GetDefaultRoom(), 0, 0xff);
+    public int DebugWarpGroup => ParseHex("--debug-warp-group=", 4, 0, 7);
+    public int DebugWarpRoom => ParseHex("--debug-warp-room=", 0x11, 0, 0xff);
     public bool HasWorldOverride => HasArgument("--group=") || HasArgument("--room=");
     public bool ShowMainMenu => !HasValidationFlag() && !HasWorldOverride && !Has("--skip-menu");
     public bool Has(string flag) => Array.Exists(

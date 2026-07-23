@@ -1794,7 +1794,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateChests()
     {
-        WarpToChestTest();
+        LoadChestValidationRoom();
         _sound.ClearPlayRequestAudit();
         const int chestPosition = 0x51;
         Vector2 chestPoint = new(24, 88);

@@ -15,9 +15,48 @@ public sealed partial class ValidationRoot
         _player.Face(Vector2I.Down);
     }
 
+    private void LoadSignValidationRoom()
+    {
+        LoadDebugRoom(0, 0x2a);
+        _player.WarpTo(new Vector2(5 * OracleRoomData.MetatileSize + 8, 70));
+        _player.Face(Vector2I.Up);
+    }
+
+    private void LoadBushValidationRoom()
+    {
+        LoadDebugRoom(0, 0x69);
+        Vector2 bushPoint = new(24, 56);
+        _rooms.CurrentRoom.ReplaceMetatile(
+            bushPoint, 0x3a, 0xc5, (long)_animationTicks);
+        _player.WarpTo(new Vector2(bushPoint.X, 70));
+        _player.Face(Vector2I.Up);
+    }
+
+    private void LoadHouseValidationRoom()
+    {
+        LoadDebugRoom(0, 0x47);
+        _player.WarpTo(new Vector2(5 * OracleRoomData.MetatileSize + 8, 54));
+        _player.Face(Vector2I.Up);
+    }
+
+    private void LoadNpcValidationRoom()
+    {
+        LoadDebugRoom(0, 0x48);
+        _player.WarpTo(new Vector2(0x38, 0x58));
+        _player.Face(Vector2I.Up);
+    }
+
+    private void LoadChestValidationRoom()
+    {
+        LoadDebugRoom(0, 0x49);
+        _interactions.ResetChestForTesting(0, 0x49, 0x51);
+        _player.WarpTo(new Vector2(24, 100));
+        _player.Face(Vector2I.Up);
+    }
+
     private void ValidateHouseWarp()
     {
-        WarpToHouseTest();
+        LoadHouseValidationRoom();
         for (float y = 54; y >= 47; y--)
         {
             if (Collides(new Vector2(88, y)))
@@ -142,7 +181,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateLargeRoomCaveWarp(int sourcePosition, int destinationRoom)
     {
-        WarpToNpcTest();
+        LoadNpcValidationRoom();
         int tileX = sourcePosition & 0x0f;
         int tileY = (sourcePosition >> 4) & 0x0f;
         _player.WarpTo(new Vector2(

@@ -74,7 +74,14 @@ palette 1, animation 1; the pedestal uses `$76/$00/$40` and animation 0; and
 the glow uses `$76/$06/$43` and animation 3. The glow's four two-update,
 eight-cell OAM frames carry parameters `0/1/0/1`; each nonzero frame toggles
 only the glow's visibility. Substituting animation 0 draws a second pedestal
-where the glow belongs.
+where the glow belongs. The eight `PART_BLUE_ENERGY_BEAD $53` inward
+animations retain their terminal `$ff` parameters: each bead disappears at
+that boundary, consumes another shared-RNG delay, and restarts from the
+perimeter. Their `spr_circlebeads` source explicitly uses `invert: false`, so
+white is transparent and its black outlines plus two blue shades remain
+visible; treating it like an ordinary black-background `spr_*` sheet produces
+broken white shapes. Link keeps the two-hand Essence pose through the
+source-room white fade; the full-white destination load clears it.
 
 Room backgrounds retain original GBC palette and attribute behavior. Dynamic
 palette threads, waves, and fades advance on their original fixed updates. A

@@ -235,12 +235,13 @@ function Resolve-SpiritsGraveEnergyAnimation([string]$label) {
         '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<offset>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})')) {
         $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
         $offset = [Convert]::ToInt32($frame.Groups['offset'].Value, 16)
+        $parameter = [Convert]::ToInt32($frame.Groups['parameter'].Value, 16)
         $pointerIndex = [int]($offset / 2)
         if ($pointerIndex -ge $script:energyOamLabels.Count) {
             throw "$label references missing energy-bead OAM pointer $pointerIndex."
         }
-        $frames.Add("$duration@$(Resolve-Oam $script:partOamSource $script:energyOamLabels[$pointerIndex])")
-        if ([Convert]::ToInt32($frame.Groups['parameter'].Value, 16) -band 0x80) {
+        $frames.Add("$duration,$parameter@$(Resolve-Oam $script:partOamSource $script:energyOamLabels[$pointerIndex])")
+        if ($parameter -band 0x80) {
             break
         }
     }
@@ -251,10 +252,21 @@ $energyAnimations = @($energyAnimationLabels[0..7] | ForEach-Object {
     Resolve-SpiritsGraveEnergyAnimation $_
 })
 $energySprite = $gfxNames[0x87]
+$energySpritePropertiesPath = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
+    ForEach-Object {
+        Get-ChildItem $_.FullName -Recurse -File -Filter "$energySprite.properties"
+    } |
+    Select-Object -First 1
+if ($energySprite -ne 'spr_circlebeads' -or
+    $null -eq $energySpritePropertiesPath -or
+    (Get-Content -Raw $energySpritePropertiesPath.FullName) -notmatch
+        '(?m)^\s*invert:\s*false\s*$') {
+    throw 'PART_BLUE_ENERGY_BEAD source graphics polarity changed.'
+}
 Copy-EnemySprite $energySprite
 $energyAnimationData = [Convert]::ToBase64String(
     [Text.Encoding]::UTF8.GetBytes($energyAnimations -join "`n"))
-$sgVisualRows.Add("energy-bead`t$energySprite`t0`t4`t1`t$energyAnimationData")
+$sgVisualRows.Add("energy-bead`t$energySprite`t0`t4`t0`t$energyAnimationData")
 
 # PART_PUMPKIN_HEAD_PROJECTILE $42 uses gfx $a6, tile base $1e, palette 2.
 $pumpkinProjectileAnimationLabels = @([regex]::Matches(

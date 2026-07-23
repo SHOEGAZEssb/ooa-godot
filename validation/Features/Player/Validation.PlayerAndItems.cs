@@ -81,7 +81,7 @@ public sealed partial class ValidationRoot
                 "The retained shield parent did not resume silently after scrolling.");
         }
 
-        WarpToBushTest();
+        LoadBushValidationRoom();
         player.Face(Vector2I.Up);
         var enemies = new EnemyDatabase();
         Vector2 shieldCenter = player.ShieldCollisionBounds.GetCenter();
@@ -210,7 +210,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateShovel()
     {
-        WarpToBushTest();
+        LoadBushValidationRoom();
         Vector2 tileCenter = new(24, 56);
         _player.WarpTo(tileCenter + Vector2.Down * 8.0f);
         _player.Face(Vector2I.Up);
@@ -420,7 +420,7 @@ public sealed partial class ValidationRoot
             throw new InvalidOperationException(
                 "The Satchel consumed a seed at zero or failed to reach BCD $00 from $20.");
 
-        WarpToBushTest();
+        LoadBushValidationRoom();
         Vector2 linkPosition = new(80, 80);
         // State 0 consumes one update. Eight moving/gravity updates put this
         // up-facing throw at (80,70), where its flame expires.
@@ -730,7 +730,7 @@ public sealed partial class ValidationRoot
             _ => OracleSoundEngine.SndBoomerang
         };
 
-        WarpToBushTest();
+        LoadBushValidationRoom();
         Vector2 bushPoint = new(24, 56);
         if (_currentRoom.GetMetatile(bushPoint) != 0xc5)
             throw new InvalidOperationException("Expected overworld bush $c5 in room 69 at $31.");

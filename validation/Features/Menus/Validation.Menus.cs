@@ -386,6 +386,52 @@ public sealed partial class ValidationRoot
         GD.Print("Validated F2 Link noclip toggle, wall bypass, push suppression, and status label.");
     }
 
+    private void ValidateDebugRoomWarp()
+    {
+        string[] removedActions =
+        [
+            "debug_sign",
+            "debug_animation",
+            "debug_bush",
+            "debug_house",
+            "debug_chest",
+            "debug_bracelet_chest"
+        ];
+        if (removedActions.Any(action => InputMap.HasAction(action)))
+        {
+            throw new InvalidOperationException(
+                "A fixed test-room input action remained registered.");
+        }
+
+        InputEventKey[] bindings = InputMap.HasAction("debug_room_warp")
+            ? InputMap.ActionGetEvents("debug_room_warp").OfType<InputEventKey>().ToArray()
+            : [];
+        if (bindings.Length != 1 || bindings[0].PhysicalKeycode != Key.V)
+        {
+            throw new InvalidOperationException(
+                "The configurable debug room warp was not bound exclusively to physical V.");
+        }
+        if (_debugWarps.TargetGroup != 4 || _debugWarps.TargetRoom != 0x11)
+        {
+            throw new InvalidOperationException(
+                $"Expected the default debug target 4:11, got " +
+                $"{_debugWarps.TargetGroup:x1}:{_debugWarps.TargetRoom:x2}.");
+        }
+
+        LoadValidationRoom(0, 0x11);
+        _debugWarps.WarpToTarget();
+        if (_activeGroup != 4 || _currentRoom.Id != 0x11 ||
+            _player.Position != FindSpawn() ||
+            _player.FacingVector != Vector2I.Down)
+        {
+            throw new InvalidOperationException(
+                "The configurable debug warp did not load and place Link in 4:11.");
+        }
+
+        GD.Print("Validated the sole fixed-key room shortcut: V to configurable " +
+            "debug target 4:11.");
+    }
+
     private void ValidateMapScreen()
     {
         if (!Mathf.IsEqualApprox(MapMenuController.FastFadeFrames, 11.0f))
@@ -500,8 +546,15 @@ public sealed partial class ValidationRoot
         }
         LoadValidationRoom(4, 0x09);
         _mapMenu.OpenImmediatelyForValidation();
-        if (_mapScreen.Mode != MapMode.Dungeon || _mapScreen.DisplayedDungeonFloor != 0)
-            throw new InvalidOperationException("Dungeon 0d map did not open on room 09's floor.");
+        if (_mapScreen.Mode != MapMode.Dungeon ||
+            _mapScreen.DisplayedDungeonFloor != 0 ||
+            _mapScreen.DungeonLinkIconPosition != new Vector2(96, 48))
+        {
+            throw new InvalidOperationException(
+                "Dungeon 0d room 09 did not open on floor 0 with Link's 8x16 " +
+                $"map icon at source position (96,48); got " +
+                $"{_mapScreen.DungeonLinkIconPosition}.");
+        }
         _mapMenu.CloseImmediatelyForValidation();
 
         byte oldCompasses = _saveData.ReadWramByte(0xc684);
@@ -627,7 +680,7 @@ public sealed partial class ValidationRoot
 
         GD.Print("Validated original present/past/dungeon map tilemaps, imported TX_03XX area " +
             "text, source-specific color-0 OAM transparency, arrow Y-flip, 7-update popup " +
-            "expansion, map/compass floor and " +
+            "expansion, dungeon Link-icon OAM bias, map/compass floor and " +
             "boss/treasure reveals, SND_OPENMENU/SND_MENU_MOVE boundaries, 14x14 cursor " +
             "wrapping, 32-update marker blink, 11-update " +
             "fast fades, Link input freezing, 16x16 group 2-5 interior browsing, per-page " +

@@ -17,6 +17,17 @@ public sealed partial class ValidationRoot
                 Mathf.Abs(color.G - green / 31.0f) <= textureTolerance &&
                 Mathf.Abs(color.B - blue / 31.0f) <= textureTolerance;
         }
+        static int CountOpaquePixels(Image image)
+        {
+            int result = 0;
+            for (int y = 0; y < image.GetHeight(); y++)
+            for (int x = 0; x < image.GetWidth(); x++)
+            {
+                if (image.GetPixel(x, y).A > 0.1f)
+                    result++;
+            }
+            return result;
+        }
         int[] dungeonRooms = Enumerable.Range(0x10, 0x16).ToArray();
         byte[] originalFlags = dungeonRooms
             .Select(room => _saveData.GetRoomFlags(4, room))
@@ -59,6 +70,33 @@ public sealed partial class ValidationRoot
         AnimationDefinition essenceGlowAnimation =
             OracleGraphicsCache.GetAnimationDefinition(
                 essenceGlow.Animations.Single());
+        VisualRecord energyBead = data.Visual("energy-bead");
+        AnimationDefinition[] energyBeadAnimations = energyBead.Animations
+            .Select(OracleGraphicsCache.GetAnimationDefinition)
+            .ToArray();
+        Image energyBeadSource = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_circlebeads.png");
+        using Texture2D energyBeadFirstTexture =
+            NpcCharacter.BuildOamTextureUncachedForValidation(
+                energyBeadSource,
+                energyBeadAnimations[0].Frames[0].EncodedOam,
+                energyBead.TileBase,
+                energyBead.Palette,
+                sourceGrayscaleInverted: false);
+        using Image energyBeadFirstImage = energyBeadFirstTexture.GetImage();
+        int energyBeadFirstOpaquePixels =
+            CountOpaquePixels(energyBeadFirstImage);
+        int[][] expectedEnergyBeadDurations =
+        [
+            [6, 6, 5, 1],
+            [6, 6, 5, 1],
+            [6, 6, 5, 1],
+            [6, 6, 6, 1],
+            [6, 6, 5, 1],
+            [6, 6, 5, 1],
+            [6, 6, 5, 1],
+            [6, 6, 6, 1]
+        ];
         int nativeCount = dungeonRooms.Sum(
             room => data.GetRoomRecords(4, room).Count);
         if (nativeCount != 17 ||
@@ -76,7 +114,24 @@ public sealed partial class ValidationRoot
             data.Enemy(0x78) is not { Health: 8, DamageQuarters: 2 } ||
             data.Visual("colored-cube").Animations.Length != 30 ||
             data.Visual("colored-cube").SourceGrayscaleInverted ||
-            data.Visual("energy-bead").Animations.Length != 8 ||
+            energyBead is not
+                {
+                    Sprites: ["spr_circlebeads"],
+                    TileBase: 0,
+                    Palette: 4,
+                    SourceGrayscaleInverted: false,
+                    Animations.Length: 8
+                } ||
+            energyBeadFirstOpaquePixels != 100 ||
+            energyBeadAnimations.Where((animation, index) =>
+                animation.Frames.Length != 4 ||
+                !animation.Frames
+                    .Select(frame => frame.Duration)
+                    .SequenceEqual(expectedEnergyBeadDurations[index]) ||
+                !animation.Frames
+                    .Select(frame => frame.Parameter)
+                    .SequenceEqual([0, 0, 0, 0xff]))
+                .Any() ||
             enemyData.MoblinBoomerang is not
                 { TileBase: 10, Palette: 4, Animations.Length: 1 } ||
             data.Visual("pumpkin-projectile").Animations.Length != 1 ||
@@ -1549,6 +1604,14 @@ public sealed partial class ValidationRoot
         PrepareRoom(0x11);
         SpiritsGraveEssence essence =
             _entities.Entities<SpiritsGraveEssence>().Single();
+        using Image liveEnergyBeadImage = essence.EnergyBeadTexture(0).GetImage();
+        if (!liveEnergyBeadImage.GetData().AsSpan().SequenceEqual(
+                energyBeadFirstImage.GetData()))
+        {
+            throw new InvalidOperationException(
+                "The live Eternal Spirit energy-bead compositor ignored " +
+                "spr_circlebeads' white-background source polarity.");
+        }
         bool observedHiddenGlow = false;
         bool observedVisibleGlowAfterToggle = false;
         for (int frame = 0; frame < 8; frame++)
@@ -1588,12 +1651,35 @@ public sealed partial class ValidationRoot
                 "TX_000e, set D1's item bit, and start MUS_GET_ESSENCE.");
         }
         _dialogue.Close();
+        bool[] observedEnergyBead = new bool[8];
+        bool[] observedEnergyBeadRestart = new bool[8];
+        for (int frame = 0; frame < 64; frame++)
+        {
+            StepEntities();
+            _roomEvents.Update(update);
+            for (int index = 0; index < observedEnergyBead.Length; index++)
+            {
+                if (essence.EnergyBeadVisible(index))
+                    observedEnergyBead[index] = true;
+                else if (observedEnergyBead[index])
+                    observedEnergyBeadRestart[index] = true;
+            }
+        }
+        if (!essence.SwirlActive ||
+            observedEnergyBead.Any(observed => !observed) ||
+            observedEnergyBeadRestart.Any(observed => !observed))
+        {
+            throw new InvalidOperationException(
+                "The Eternal Spirit's eight inward energy beads did not consume " +
+                "their terminal $ff frames, disappear, and restart from the perimeter.");
+        }
         for (int frame = 0; frame < 520 && !_transitions.IsTransitioning; frame++)
         {
             StepEntities();
             _roomEvents.Update(update);
         }
         if (!_transitions.IsTransitioning || essence.SwirlActive ||
+            !_player.IsHoldingItemTwoHands ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDropEssence) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlSlowFadeOut) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.MusGetEssence) != 1 ||
@@ -1603,14 +1689,22 @@ public sealed partial class ValidationRoot
             _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1)
         {
             throw new InvalidOperationException(
-                "The Eternal Spirit's 360/20/20/40/30 sequence or sound cadence diverged.");
+                "The Eternal Spirit's 360/20/20/40/30 sequence, held pose, or " +
+                "sound cadence diverged.");
+        }
+        _transitions.Update(update);
+        if (!_player.IsHoldingItemTwoHands)
+        {
+            throw new InvalidOperationException(
+                "Link released the Eternal Spirit pose during the source-room white fade.");
         }
         for (int frame = 0; frame < 170 && _transitions.IsTransitioning; frame++)
             _transitions.Update(update);
         if (_transitions.IsTransitioning || _rooms.ActiveGroup != 0 ||
             _rooms.CurrentRoom.Id != 0x8d ||
             _currentRoom.Id != 0x8d ||
-            _roomView.BackgroundFadeAlpha != 0.0f)
+            _roomView.BackgroundFadeAlpha != 0.0f ||
+            _player.IsHoldingItemTwoHands)
         {
             throw new InvalidOperationException(
                 "D1's Essence did not finish the delayed white warp to 0:8d/$26 cleanly.");

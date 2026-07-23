@@ -114,7 +114,6 @@ internal sealed class SpiritsGraveEssenceEvent : IRoomEvent
 
     private void Finish()
     {
-        _essence?.ReleasePlayerPose();
         _context.Player.EndCutsceneControl();
         _context.Sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
         Warp warp = new Warp(

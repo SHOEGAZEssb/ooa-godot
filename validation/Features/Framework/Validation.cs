@@ -93,6 +93,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateGraphicsCache();
         ValidateDebugFlagMenu();
         ValidateDebugCollision();
+        ValidateDebugRoomWarp();
         ValidateDeathRespawnCheckpoints();
 
         LoadValidationRoom(0, 0x11);

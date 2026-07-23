@@ -105,6 +105,9 @@ public partial class MapScreen : Node2D
     public bool LocationArrowVisible => (((int)_frameCounter >> 5) & 1) == 0;
     internal int PopupSize => _popupSize;
     internal int PopupPrimary => _popup1;
+    internal Vector2 DungeonLinkIconPosition => new(
+        10 * 8 + _dungeonLinkCell.X * 8,
+        5 * 8 + _dungeonLinkCell.Y * 8 - 8);
 
     public override void _Ready()
     {
@@ -632,7 +635,10 @@ public partial class MapScreen : Node2D
         Vector2 cell = new(10 * 8 + _dungeonLinkCell.X * 8, 5 * 8 + _dungeonLinkCell.Y * 8);
         if (_dungeonLinkCell.Floor == _dungeonFloor && !LocationArrowVisible)
         {
-            DrawMapSprite(0x80, 0, cell + new Vector2(0, -16));
+            // dungeonMap_getLinkIconPosition advances one tile before
+            // converting to OAM Y. After the hardware's 16-pixel OBJ bias,
+            // the 8x16 Link icon begins eight pixels above its room cell.
+            DrawMapSprite(0x80, 0, DungeonLinkIconPosition);
         }
         else if (_dungeonLinkCell.Floor == _dungeonFloor)
         {

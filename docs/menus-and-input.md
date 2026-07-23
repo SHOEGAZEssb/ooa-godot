@@ -35,6 +35,12 @@ switches request that same sound when their 13-update scroll begins. Accepted
 overworld cursor moves and dungeon-floor changes request `SND_MENU_MOVE`
 (`$84`); a blocked dungeon-floor direction remains silent.
 
+On the dungeon map, the selected-room cursor and Link icon alternate on the
+32-update flicker boundary. The cursor surrounds the room's 8-by-8 map cell.
+Link's 8-by-16 icon starts eight pixels above that cell, matching
+`dungeonMap_getLinkIconPosition` after the Game Boy OAM Y bias; it must not
+jump into the cell above when the flicker changes phase.
+
 Every accepted directional input on each of the three inventory subscreens
 requests `SND_MENU_MOVE` (`$84`). An A/B storage-slot swap, including an
 unequip into an empty slot, requests `SND_SELECTITEM` (`$56`); successfully

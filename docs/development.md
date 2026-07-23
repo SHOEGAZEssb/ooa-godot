@@ -66,12 +66,14 @@ Development controls are intentionally separate from game behavior:
 | F | Fully revealed map and room fast travel; F cycles present, past, and interior groups 2-5 while open |
 | F1 | Live global/room flag, linked-game, and item grant editor |
 | F2 | Toggle Link collision; `NOCLIP` appears beside the room ID while disabled |
-| T | Sign test warp |
-| Y | Animated water/lava test rooms |
-| B | Sword and bush test warp |
-| H | House warp test |
-| C | Chest test |
-| G | Power Bracelet chest test |
+| V | Warp to the configurable debug room; defaults to the D1 Essence room `4:11` |
+
+The V target uses hexadecimal launch arguments and is independent of the
+initial room override:
+
+```powershell
+& 'E:\Stuff\Gamedev\Godot_v4.6-stable_mono_win64\Godot_v4.6-stable_mono_win64.exe' --path . -- --debug-warp-group=4 --debug-warp-room=11
+```
 
 In the F1 editor, Tab cycles through global flags, room flags, linked/items,
 and appraised rings.

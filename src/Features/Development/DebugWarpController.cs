@@ -5,96 +5,46 @@ namespace oracleofages;
 
 public sealed class DebugWarpController
 {
-    private readonly RoomSession _rooms;
     private readonly Player _player;
     private readonly Action<int, int> _loadRoom;
     private readonly Func<Vector2> _findSpawn;
-    private readonly Func<long> _animationTick;
-    private readonly Action<int, int, int, string?> _resetChest;
 
     public DebugWarpController(
-        RoomSession rooms,
         Player player,
         Action<int, int> loadRoom,
         Func<Vector2> findSpawn,
-        Func<long> animationTick,
-        Action<int, int, int, string?> resetChest)
+        int targetGroup,
+        int targetRoom)
     {
-        _rooms = rooms;
         _player = player;
         _loadRoom = loadRoom;
         _findSpawn = findSpawn;
-        _animationTick = animationTick;
-        _resetChest = resetChest;
+        ConfigureTarget(targetGroup, targetRoom);
     }
+
+    public int TargetGroup { get; private set; }
+    public int TargetRoom { get; private set; }
 
     public void Update()
     {
-        if (Input.IsActionJustPressed("debug_sign")) WarpToSign();
-        if (Input.IsActionJustPressed("debug_animation")) WarpToAnimation();
-        if (Input.IsActionJustPressed("debug_bush")) WarpToBush();
-        if (Input.IsActionJustPressed("debug_house")) WarpToHouse();
-        if (Input.IsActionJustPressed("debug_chest")) WarpToChest();
-        if (Input.IsActionJustPressed("debug_bracelet_chest")) WarpToBraceletChest();
+        if (Input.IsActionJustPressed("debug_room_warp"))
+            WarpToTarget();
     }
 
-    public void WarpToSign()
+    public void ConfigureTarget(int group, int room)
     {
-        _loadRoom(0, 0x2a);
-        _player.WarpTo(new Vector2(5 * OracleRoomData.MetatileSize + 8, 70));
-        _player.Face(Vector2I.Up);
+        ArgumentOutOfRangeException.ThrowIfNegative(group);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(group, 7);
+        ArgumentOutOfRangeException.ThrowIfNegative(room);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(room, 0xff);
+        TargetGroup = group;
+        TargetRoom = room;
     }
 
-    public void WarpToAnimation()
+    public void WarpToTarget()
     {
-        int targetRoom = _rooms.CurrentRoom.Id == 0xb8 ? 0x03 : 0xb8;
-        _loadRoom(0, targetRoom);
+        _loadRoom(TargetGroup, TargetRoom);
         _player.WarpTo(_findSpawn());
         _player.Face(Vector2I.Down);
-    }
-
-    public void WarpToBush()
-    {
-        _loadRoom(0, 0x69);
-        Vector2 bushPoint = new(24, 56);
-        _rooms.CurrentRoom.ReplaceMetatile(bushPoint, 0x3a, 0xc5, _animationTick());
-        _player.WarpTo(new Vector2(bushPoint.X, 70));
-        _player.Face(Vector2I.Up);
-    }
-
-    public void WarpToHouse()
-    {
-        _loadRoom(0, 0x47);
-        _player.WarpTo(new Vector2(5 * OracleRoomData.MetatileSize + 8, 54));
-        _player.Face(Vector2I.Up);
-    }
-
-    public void WarpToNpc()
-    {
-        _loadRoom(0, 0x48);
-        _player.WarpTo(new Vector2(0x38, 0x58));
-        _player.Face(Vector2I.Up);
-    }
-
-    public void WarpToChest()
-    {
-        const int group = 0;
-        const int room = 0x49;
-        const int position = 0x51;
-        _loadRoom(group, room);
-        _resetChest(group, room, position, null);
-        _player.WarpTo(new Vector2(24, 100));
-        _player.Face(Vector2I.Up);
-    }
-
-    public void WarpToBraceletChest()
-    {
-        const int group = 4;
-        const int room = 0xce;
-        const int position = 0x67;
-        _loadRoom(group, room);
-        _resetChest(group, room, position, "TREASURE_OBJECT_BRACELET_00");
-        _player.WarpTo(new Vector2(7 * OracleRoomData.MetatileSize + 8, 7 * OracleRoomData.MetatileSize + 4));
-        _player.Face(Vector2I.Up);
     }
 }

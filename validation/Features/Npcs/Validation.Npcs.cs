@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSigns()
     {
-        WarpToSignTest();
+        LoadSignValidationRoom();
         if (_dialogue.MessageSpeed != _saveData.TextSpeed)
             throw new InvalidOperationException(
                 "Gameplay dialogue did not consume the selected save's wTextSpeed value.");
@@ -216,7 +216,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateNpcs()
     {
-        WarpToNpcTest();
+        LoadNpcValidationRoom();
         NpcCharacter? villager = _npcNodes.Find(npc => npc.Record.Id == 0x3a && npc.Record.SubId == 0x03);
         if (villager is null)
             throw new InvalidOperationException($"Expected the room 0:48 villager among {_npcNodes.Count} extracted NPCs.");

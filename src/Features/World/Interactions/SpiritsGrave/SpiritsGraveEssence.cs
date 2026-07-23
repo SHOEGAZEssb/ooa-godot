@@ -50,6 +50,9 @@ internal sealed partial class SpiritsGraveEssence : TransitionOffsetNode2D,
     internal bool Collected => _collected;
     internal bool GlowVisible => _glowVisible;
     internal int GlowFrameIndex => _glow.FrameIndex;
+    internal bool EnergyBeadVisible(int index) => _beadVisible[index];
+    internal Texture2D EnergyBeadTexture(int index) =>
+        _beads[index].CurrentTexture;
 
     internal SpiritsGraveEssence(
         ObjectRecord record,
@@ -225,7 +228,8 @@ internal sealed partial class SpiritsGraveEssence : TransitionOffsetNode2D,
                 continue;
             DrawTexture(
                 _beads[index].CurrentTexture,
-                _beadPosition[index] + new Vector2(-16, -16) + transition);
+                OracleObjectMath.ToPixelPosition(_beadPosition[index]) +
+                new Vector2(-16, -16) + transition);
         }
     }
 
@@ -238,7 +242,8 @@ internal sealed partial class SpiritsGraveEssence : TransitionOffsetNode2D,
             EnemyVisualSource.LoadComposite(visual.Sprites),
             visual.Animations,
             visual.TileBase,
-            visual.Palette);
+            visual.Palette,
+            sourceGrayscaleInverted: visual.SourceGrayscaleInverted);
         player.SetAnimation(animation);
         return player;
     }
