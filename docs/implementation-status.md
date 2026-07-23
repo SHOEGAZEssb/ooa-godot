@@ -20,7 +20,8 @@ claim that the entire surrounding game is complete.
 ### Player, combat, and items
 
 - Link movement, level-1 sword combat, terrain hazards, push blocks, signs,
-  chests, item drops, the active Shovel, and the
+  chests, item drops, exact imported grass/bush cut debris OAM, timing, sound,
+  underwater palette, and grass subid flicker, the active Shovel, and the
   first Seed Satchel's active Ember Seed path. The Satchel uses its selected
   packed-BCD counter, grants and immediately displays the original initial 20
   Ember Seeds, uses the distinct storage/equipped inventory icon sheets, exact

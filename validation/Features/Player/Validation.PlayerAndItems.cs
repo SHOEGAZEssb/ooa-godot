@@ -730,6 +730,12 @@ public sealed partial class ValidationRoot
             _ => OracleSoundEngine.SndBoomerang
         };
 
+        void StepEntities(int count = 1)
+        {
+            for (int frame = 0; frame < count; frame++)
+                _entities.Update(1.0 / 60.0, _player);
+        }
+
         LoadBushValidationRoom();
         Vector2 bushPoint = new(24, 56);
         if (_currentRoom.GetMetatile(bushPoint) != 0xc5)
@@ -820,8 +826,139 @@ public sealed partial class ValidationRoot
             throw new InvalidOperationException("The level-1 sword did not replace bush $c5 with ground $3a.");
         if (_currentRoom.IsSolid(bushPoint))
             throw new InvalidOperationException("The cut bush's replacement tile remained solid.");
-        if (_sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass) != 1)
-            throw new InvalidOperationException("INTERAC_GRASSDEBRIS did not request SND_CUTGRASS once.");
+        if (_entities.Entities<GrassDebrisEffect>() is not
+            [{ Position: var debrisPosition }])
+        {
+            throw new InvalidOperationException(
+                "Cutting overworld bush $c5 did not create one " +
+                "INTERAC_GRASSDEBRIS $00.");
+        }
+        GrassDebrisEffect bushDebris =
+            _entities.Entities<GrassDebrisEffect>().Single();
+        using (Image firstGrassDebrisFrame = bushDebris.CurrentTexture.GetImage())
+        {
+            ulong firstGrassDebrisHash =
+                OracleGraphicsCache.PixelHash(firstGrassDebrisFrame);
+            if (debrisPosition != bushPoint ||
+                firstGrassDebrisHash != 0xb2317fc7033b5eb0UL)
+            {
+                throw new InvalidOperationException(
+                    "INTERAC_GRASSDEBRIS $00 did not use its tile-centered " +
+                    "first four-piece OAM frame " +
+                    $"(position={debrisPosition}, hash={firstGrassDebrisHash:x16}).");
+            }
+        }
+        var underwaterDebris = new GrassDebrisEffect();
+        underwaterDebris.Initialize(bushPoint, underwater: true);
+        using (Image underwaterGrassDebrisFrame =
+            underwaterDebris.CurrentTexture.GetImage())
+        {
+            ulong underwaterGrassDebrisHash =
+                OracleGraphicsCache.PixelHash(underwaterGrassDebrisFrame);
+            if (underwaterGrassDebrisHash != 0x00748b1a794afda4UL)
+            {
+                throw new InvalidOperationException(
+                    "Underwater INTERAC_GRASSDEBRIS $00 did not apply " +
+                    "its specialized OBJ palette 6 " +
+                    $"(hash={underwaterGrassDebrisHash:x16}).");
+            }
+        }
+        underwaterDebris.Free();
+        if (bushDebris.Flickers ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass) != 0)
+        {
+            throw new InvalidOperationException(
+                "The bush's non-flickering debris updated before its " +
+                "interaction state-0 update.");
+        }
+        StepEntities();
+        if (bushDebris.ElapsedUpdates != 1 ||
+            bushDebris.AnimationFrame != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass) != 1)
+        {
+            throw new InvalidOperationException(
+                "INTERAC_GRASSDEBRIS state 0 did not request SND_CUTGRASS " +
+                "without advancing animation 0.");
+        }
+        for (int frame = 1; frame <= 8; frame++)
+        {
+            StepEntities(4);
+            if (bushDebris.AnimationFrame != frame || bushDebris.Finished)
+            {
+                throw new InvalidOperationException(
+                    $"INTERAC_GRASSDEBRIS did not enter animation frame " +
+                    $"{frame} after {frame * 4} state-1 updates.");
+            }
+        }
+        if ((bushDebris.CurrentParameter & 0x80) == 0 ||
+            bushDebris.ElapsedUpdates != 33)
+        {
+            throw new InvalidOperationException(
+                "INTERAC_GRASSDEBRIS did not expose terminal parameter $ff " +
+                "after its eight 4-update frames.");
+        }
+        StepEntities();
+        if (!bushDebris.Finished ||
+            bushDebris.ElapsedUpdates != 34 ||
+            _entities.Entities<GrassDebrisEffect>().Count != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass) != 1)
+        {
+            throw new InvalidOperationException(
+                "INTERAC_GRASSDEBRIS did not delete one update after its " +
+                "terminal frame without replaying SND_CUTGRASS.");
+        }
+
+        // Breakable mode $00 is cuttable grass $f8. Effect bit 4 becomes
+        // subid bit 0 on INTERAC_GRASSDEBRIS and flickers every update.
+        _currentRoom.SetPositionTileAndCollision(
+            bushPoint, 0xf8, null, (long)_animationTicks);
+        _sound.ClearPlayRequestAudit();
+        if (!_combat.ApplySwordTileHit(
+                _player, direction: 0, swordPoke: false) ||
+            _currentRoom.GetMetatile(bushPoint) != 0x3a ||
+            _entities.Entities<GrassDebrisEffect>() is not
+                [{ Flickers: true }])
+        {
+            throw new InvalidOperationException(
+                "Cutting grass $f8 did not apply effect $10 as flickering " +
+                "INTERAC_GRASSDEBRIS $00.");
+        }
+        GrassDebrisEffect grassDebris =
+            _entities.Entities<GrassDebrisEffect>().Single();
+        StepEntities();
+        if (_sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass) != 1 ||
+            grassDebris.ElapsedUpdates != 1)
+        {
+            throw new InvalidOperationException(
+                "Flickering grass debris did not retain the state-0 " +
+                "SND_CUTGRASS boundary.");
+        }
+        StepEntities();
+        bool firstFlickerVisibility = grassDebris.Visible;
+        StepEntities();
+        if (grassDebris.Visible == firstFlickerVisibility ||
+            grassDebris.AnimationFrame != 0)
+        {
+            throw new InvalidOperationException(
+                "INTERAC_GRASSDEBRIS subid $01 did not toggle visibility " +
+                "on consecutive original updates.");
+        }
+        StepEntities(30);
+        if ((grassDebris.CurrentParameter & 0x80) == 0 ||
+            grassDebris.ElapsedUpdates != 33)
+        {
+            throw new InvalidOperationException(
+                "Flickering grass debris changed the shared 32-update " +
+                "animation boundary.");
+        }
+        StepEntities();
+        if (_entities.Entities<GrassDebrisEffect>().Count != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass) != 1)
+        {
+            throw new InvalidOperationException(
+                "Flickering grass debris did not delete silently after its " +
+                "terminal update.");
+        }
 
         // Complete LINK_ANIM_MODE_22 while preserving the initiating button.
         // State 6 must re-enable movement but keep turning disabled and expose
@@ -1031,7 +1168,7 @@ public sealed partial class ValidationRoot
             "41-update charge, " +
             "held/charged standing/walking body, child-item Z/layer rendering, charged palette cadence, " +
             "12-update wall poke/clinks with 8-update INTERAC_CLINK sprites, 23-update swordspin, " +
-            "shared-RNG slash sounds, blocked-restart RNG preservation, grass break, " +
+            "shared-RNG slash sounds, blocked-restart RNG preservation, exact grass/bush debris, " +
             "and all 24 swordArcData hitboxes.");
     }
 

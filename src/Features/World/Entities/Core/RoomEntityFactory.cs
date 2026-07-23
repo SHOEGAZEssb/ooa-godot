@@ -760,6 +760,7 @@ internal sealed class RoomEntityFactory(
         KillEnemyPuffSpawn puff => CreateKillPuff(puff),
         ItemDropSpawn drop => CreateItemDrop(drop, room),
         ShovelDebrisSpawn debris => CreateShovelDebris(debris),
+        GrassDebrisSpawn debris => CreateGrassDebris(debris),
         RockDebrisSpawn debris => CreateRockDebris(debris),
         EmberSeedSpawn seed => CreateEmberSeed(seed, room),
         PuzzlePuffSpawn puff => CreatePuzzlePuff(puff),
@@ -1158,6 +1159,24 @@ internal sealed class RoomEntityFactory(
         };
         debris.Initialize(spawn.Position, spawn.Direction);
         return new ShovelDebrisRoomEntity(debris);
+    }
+
+    private IRoomEntity CreateGrassDebris(GrassDebrisSpawn spawn)
+    {
+        var debris = new GrassDebrisEffect
+        {
+            Name = spawn.InteractionId == 0x01
+                ? "RedGrassDebris"
+                : "GrassDebris",
+            ZIndex = 12
+        };
+        debris.Initialize(
+            spawn.Position,
+            spawn.InteractionId,
+            spawn.Flickers,
+            spawn.Underwater,
+            soundRequested);
+        return new GrassDebrisRoomEntity(debris);
     }
 
     private IRoomEntity CreateRockDebris(RockDebrisSpawn spawn)
@@ -1663,6 +1682,13 @@ internal sealed record SpiritsGraveMovingPlatformSpawn(Vector2 Position, int Sub
 internal sealed record SpiritsGraveMinibossPortalSpawn : RoomEntitySpawn;
 
 internal sealed record ShovelDebrisSpawn(Vector2 Position, Vector2I Direction)
+    : RoomEntitySpawn(UpdateThisFrame: true);
+
+internal sealed record GrassDebrisSpawn(
+    Vector2 Position,
+    int InteractionId = 0x00,
+    bool Flickers = false,
+    bool Underwater = false)
     : RoomEntitySpawn(UpdateThisFrame: true);
 
 internal sealed record RockDebrisSpawn(

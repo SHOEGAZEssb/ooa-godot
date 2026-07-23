@@ -230,6 +230,16 @@ that text. Only after the text closes does
 `essenceScript_essenceGetCutscene` replace it with `MUS_ESSENCE $06` and create
 the inward energy swirl with `SND_ENERGYTHING`.
 
+Cut grass and bushes create `INTERAC_GRASSDEBRIS` `$00` (or the red variant
+`$01`) at the metatile center. The imported animation uses eight four-update,
+four-piece OAM compositions followed by its terminal frame. The breakable-tile
+effect byte's low nibble selects the interaction; bit 4 becomes subid bit 0,
+so ordinary grass (`$f8`, effect `$10`) flickers every update while bushes
+(`$c5`, effect `$00`) remain visible. State 0 requests `SND_CUTGRASS` once,
+and the entity deletes on the update after reaching the terminal parameter,
+for a 34-update managed lifetime. Ages normally applies OBJ palette 0; an
+underwater tileset changes interaction `$00` to the source's palette 6.
+
 Breaking a metatile whose stored effect is `INTERAC_ROCKDEBRIS` `$06` or
 `INTERAC_ROCKDEBRIS2` `$0c` creates the common-sprite interaction at the
 metatile center. Both use four imported four-update OAM compositions that

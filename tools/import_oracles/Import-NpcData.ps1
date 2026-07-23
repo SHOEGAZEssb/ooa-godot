@@ -781,6 +781,34 @@ $puzzlePuffRows = @(
     "$($puzzlePuffGraphic.TileBase)`t$($puzzlePuffGraphic.Palette)`t$puzzlePuffAnimation"
 )
 
+$grassDebrisGraphic = $interactionGraphics['0:0']
+$redGrassDebrisGraphic = $interactionGraphics['1:0']
+$grassDebrisAnimation = Resolve-NpcAnimation 0x00 0
+$redGrassDebrisAnimation = Resolve-NpcAnimation 0x01 0
+if (-not $grassDebrisGraphic -or
+    $grassDebrisGraphic.Gfx -ne 0 -or
+    $grassDebrisGraphic.TileBase -ne 0x00 -or
+    $grassDebrisGraphic.Palette -ne 0 -or
+    $grassDebrisGraphic.DefaultAnimation -ne 0 -or
+    [string]::IsNullOrWhiteSpace($grassDebrisAnimation) -or
+    -not $redGrassDebrisGraphic -or
+    $redGrassDebrisGraphic.Gfx -ne 0 -or
+    $redGrassDebrisGraphic.TileBase -ne 0x00 -or
+    $redGrassDebrisGraphic.Palette -ne 0 -or
+    $redGrassDebrisGraphic.DefaultAnimation -ne 0 -or
+    [string]::IsNullOrWhiteSpace($redGrassDebrisAnimation) -or
+    $soundIds['SND_CUTGRASS'] -ne 0x6d -or
+    $breakTileDebrisSource -notmatch '(?ms)^@state0:.*?interactionInitGraphics.*?^@soundAndPriorityTable:.*?\.db SND_CUTGRASS\s+\$03\s*;\s*0x00.*?\.db SND_CUTGRASS\s+\$03\s*;\s*0x01' -or
+    $breakTileDebrisSource -notmatch '(?ms)^@state1:.*?Interaction\.animParameter\s+bit 7,\(hl\)\s+jp nz,interactionDelete.*?jp interactionAnimate' -or
+    $breakTileDebrisSource -notmatch '(?ms)^@interac00:.*?wTilesetFlags.*?TILESETFLAG_UNDERWATER.*?ld a,\$0e.*?wGrassAnimationModifier.*?and \$03\s+or \$08.*?Interaction\.oamFlagsBackup') {
+    throw 'INTERAC_GRASSDEBRIS $00/$01 graphics, palette, terminal animation, or SND_CUTGRASS changed.'
+}
+$grassDebrisRows = @(
+    "# interaction-id`tsprite`ttile-base`tpalette`tunderwater-palette`tsound`tanimation"
+    "00`tspr_common_sprites`t$($grassDebrisGraphic.TileBase)`t$($grassDebrisGraphic.Palette)`t6`t$($soundIds['SND_CUTGRASS'].ToString('x2'))`t$grassDebrisAnimation"
+    "01`tspr_common_sprites`t$($redGrassDebrisGraphic.TileBase)`t$($redGrassDebrisGraphic.Palette)`t$($redGrassDebrisGraphic.Palette)`t$($soundIds['SND_CUTGRASS'].ToString('x2'))`t$redGrassDebrisAnimation"
+)
+
 $rockDebrisGraphic = $interactionGraphics['6:0']
 $rockDebrisAnimation = Resolve-NpcAnimation 0x06 0
 $rockDebris2Graphic = $interactionGraphics['12:0']
@@ -3573,6 +3601,11 @@ New-Item -ItemType Directory -Force -Path (Split-Path $puzzlePuffPath -Parent) |
 [IO.File]::WriteAllLines(
     $puzzlePuffPath,
     $puzzlePuffRows,
+    [Text.UTF8Encoding]::new($false))
+$grassDebrisPath = Join-Path $destination "effects\grass_debris.tsv"
+[IO.File]::WriteAllLines(
+    $grassDebrisPath,
+    $grassDebrisRows,
     [Text.UTF8Encoding]::new($false))
 $rockDebrisPath = Join-Path $destination "effects\rock_debris.tsv"
 [IO.File]::WriteAllLines(

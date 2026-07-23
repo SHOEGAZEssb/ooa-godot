@@ -305,6 +305,13 @@ applies replacement/drop/effect ordering, and spawns fixed-update
 `ShovelDebrisEffect` through `RoomEntityManager`. Do not duplicate shovel dirt
 lists or encode room-specific dig coordinates.
 
+Sword-cut grass and bushes follow the same imported breakable-tile metadata.
+`CombatController` decodes the effect byte's low nibble as the debris
+interaction and bit 4 as its flicker subid, normalizes the spawn to the tile
+center, and creates a fixed-update room entity. This keeps its OAM animation,
+normal/underwater palette choice, sound, transition offset, scrolling freeze,
+and deletion order in the same managed lifecycle as other room entities.
+
 Active Seed Satchel use follows the same parent/child ownership boundary.
 `Player` owns `LINK_ANIM_MODE_21`'s eight-update input/movement lock;
 `SeedSatchelController` rejects use while a prior seed child remains active,

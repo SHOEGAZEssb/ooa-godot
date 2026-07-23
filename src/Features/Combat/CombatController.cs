@@ -141,10 +141,11 @@ public sealed class CombatController
 
     internal void SpawnBreakEffect(Vector2 point, int effect)
     {
-        // INTERAC_GRASSDEBRIS ($00) and INTERAC_BUSHLEAF ($01) share
-        // SND_CUTGRASS. INTERAC_ROCKDEBRIS ($06/$0c) owns its imported
-        // animation, palette, and sound through the room-entity path.
-        int interaction = effect & 0x1f;
+        // INTERAC_GRASSDEBRIS ($00), INTERAC_REDGRASSDEBRIS ($01), and
+        // INTERAC_ROCKDEBRIS ($06/$0c) own their imported animation,
+        // palette, timing, and sound through the room-entity path.
+        int interaction = effect & 0x0f;
+        bool flickers = (effect & 0x10) != 0;
         if (interaction is 0x06 or 0x0c)
         {
             int rockTileX = Mathf.FloorToInt(
@@ -165,17 +166,14 @@ public sealed class CombatController
 
         int tileX = Mathf.FloorToInt(point.X / OracleRoomData.MetatileSize);
         int tileY = Mathf.FloorToInt(point.Y / OracleRoomData.MetatileSize);
-        Rect2 tileBounds = new(
-            tileX * OracleRoomData.MetatileSize,
-            tileY * OracleRoomData.MetatileSize,
-            OracleRoomData.MetatileSize,
-            OracleRoomData.MetatileSize);
-
-        _worldRoot.AddChild(new BushCutEffect
-        {
-            Position = tileBounds.GetCenter(),
-            ZIndex = 12
-        });
-        _sound.PlaySound(OracleSoundEngine.SndCutGrass);
+        _entities.Spawn<GrassDebrisEffect>(new GrassDebrisSpawn(
+            new Vector2(
+                tileX * OracleRoomData.MetatileSize +
+                    OracleRoomData.MetatileSize / 2.0f,
+                tileY * OracleRoomData.MetatileSize +
+                    OracleRoomData.MetatileSize / 2.0f),
+            interaction,
+            flickers,
+            (_rooms.CurrentRoom.TilesetFlags & 0x40) != 0));
     }
 }

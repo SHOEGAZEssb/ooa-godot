@@ -87,6 +87,13 @@ reuse `effects/rock_debris.tsv`; that table contains both source interactions
 `$06` and `$0c` because liftable metatiles can retain either tile
 base/palette combination for their eventual impact.
 
+`Import-NpcData.ps1` similarly emits `effects/grass_debris.tsv` by resolving
+interaction IDs `$00` and `$01` through their graphics, animation, OAM,
+normal/underwater palette, and sound records. The runtime decodes a
+breakable-tile effect byte's low nibble as the interaction ID and bit 4 as the
+spawned interaction's flicker subid; it does not treat effect `$10` as another
+interaction.
+
 `Import-GashaData.ps1` owns the complete Ages `INTERAC_GASHA_SPOT $b6`
 closure. It emits all 16 group/room/subid placements and their source ranks,
 the 25 rank/maturity probability rows, five random-ring tiers, all ten reward
