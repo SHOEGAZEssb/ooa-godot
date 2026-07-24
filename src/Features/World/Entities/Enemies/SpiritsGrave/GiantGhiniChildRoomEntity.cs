@@ -19,7 +19,8 @@ internal sealed class GiantGhiniChildRoomEntity
                 child.HandleLinkContact,
                 () => child.IsDead
                     ? new EnemyDeathPuffSpawn(child.Position, EnemyId: child.Record.Id)
-                    : null),
+                    : null,
+                child.ApplySwordKnockback),
             countsAsEnemy: true,
             killableEnemyIndex: 0)
     { }

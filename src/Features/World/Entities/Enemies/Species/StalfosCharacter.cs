@@ -40,8 +40,6 @@ public partial class StalfosCharacter : EnemyCharacter
     private int _angle;
 
     public StalfosRecord Record { get; private set; }
-    public bool DiedInHazard { get; private set; }
-    public HazardType DeathHazard { get; private set; }
     internal StalfosState State => _state;
     internal int Counter1 => _counter1;
     internal int Angle => _angle;
@@ -74,6 +72,10 @@ public partial class StalfosCharacter : EnemyCharacter
                 new[] { record.WalkAnimation, record.JumpAnimation },
                 record.TileBase,
                 record.Palette));
+        ConfigureSwordKnockback(
+            room,
+            EnemyKnockbackMotion.Terrain,
+            checksHazards: true);
         RestartAnimation(0);
     }
 
@@ -81,14 +83,10 @@ public partial class StalfosCharacter : EnemyCharacter
     {
         if (IsDead)
             return;
-
-        if (_movement.IsOnHazard)
-        {
-            DeathHazard = _movement.Hazard;
-            DiedInHazard = true;
-            Finish();
+        if (BeginFrame())
             return;
-        }
+        if (CheckHazards())
+            return;
 
         switch (_state)
         {
@@ -123,7 +121,7 @@ public partial class StalfosCharacter : EnemyCharacter
 
     internal override bool TakeSwordHit(Vector2 sourcePosition, int damage)
     {
-        if (IsDead)
+        if (IsDead || !CollisionEnabled || InvincibilityCounter > 0)
             return false;
         return ApplyDamage(damage, invincibilityFrames: 0);
     }

@@ -64,7 +64,10 @@ public sealed class CombatController
     public bool ApplySwordHit(Player player, Rect2 hitbox)
     {
         return _entities.ApplySwordHit(
-            hitbox, player.Position, player.SwordDamage);
+            hitbox,
+            player.Position,
+            player.SwordDamage,
+            player.SwordKnockbackStrength);
     }
 
     public bool ApplySwordTileHit(Player player, int direction, bool swordPoke)

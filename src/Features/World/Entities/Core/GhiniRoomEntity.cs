@@ -24,7 +24,11 @@ internal sealed class GhiniRoomEntity
                 () => ghini.IsDead
                     ? new EnemyDeathPuffSpawn(ghini.Position, EnemyId: ghini.Record.Id)
                     : null,
-                () => soundRequested(OracleSoundEngine.SndDamageEnemy)),
+                (sourcePosition, strength) =>
+                {
+                    ghini.ApplySwordKnockback(sourcePosition, strength);
+                    soundRequested(OracleSoundEngine.SndDamageEnemy);
+                }),
             countsAsEnemy: true,
             killableEnemyIndex)
     { }

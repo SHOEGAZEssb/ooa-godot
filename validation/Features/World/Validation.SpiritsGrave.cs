@@ -518,18 +518,23 @@ public sealed partial class ValidationRoot
         StepEntities(21);
         if (!_entities.ApplySwordHit(
                 new Rect2(Vector2.Zero, new Vector2(240, 176)), damage: 20) ||
+            !ghini.PendingKnockbackDeath ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) != 2)
         {
             throw new InvalidOperationException(
                 "The room 4:1e Ghini did not retain its collision-effect sound " +
-                "on the lethal sword hit.");
+                "and begin recoil on the lethal sword hit.");
         }
+        while (ghini.KnockbackCounter > 0)
+            ghini.UpdateFrame();
+        ghini.UpdateFrame();
         StepEntities();
         if (_entities.Entities<GroundTreasurePickup>() is not
             [{ Record.TreasureObject: "TREASURE_OBJECT_SMALL_KEY_01" }])
         {
             throw new InvalidOperationException(
-                "Room 4:1e did not spawn its above-screen two-bounce small key after combat.");
+                "Room 4:1e did not spawn its above-screen two-bounce small " +
+                "key after the Ghini's lethal recoil.");
         }
         GroundTreasurePickup fallingKey =
             _entities.Entities<GroundTreasurePickup>().Single();
@@ -954,7 +959,10 @@ public sealed partial class ValidationRoot
         var respawnPuffSpawns = new List<RoomEntitySpawn>();
         var respawnedChild = new GiantGhiniChild();
         respawnedChild.Initialize(
-            _entities.Entities<GiantGhiniChild>().First().Record, giant, 0);
+            _entities.Entities<GiantGhiniChild>().First().Record,
+            giant,
+            _currentRoom,
+            0);
         respawnedChild.UpdateFrame(
             _player, anyButtonJustPressed: false, frameCounter: 0,
             respawnPuffSpawns);

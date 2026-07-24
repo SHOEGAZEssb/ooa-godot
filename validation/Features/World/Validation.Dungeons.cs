@@ -1340,12 +1340,29 @@ public sealed partial class ValidationRoot
             if (!_entities.ApplySwordHit(
                     enemy.CollisionBounds.Grow(1.0f),
                     enemy.Position + Vector2.Down * 16.0f) ||
+                !enemy.PendingKnockbackDeath ||
                 _entities.Entities<StalfosCharacter>().Count !=
+                    room406Stalfos.Length - index ||
+                _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != index)
+            {
+                throw new InvalidOperationException(
+                    $"Room 4:06 Stalfos {index + 1} did not begin lethal sword recoil.");
+            }
+            for (int frame = 0;
+                frame < 0x08 && enemy.KnockbackCounter > 0;
+                frame++)
+            {
+                enemy.UpdateFrame(_player.Position);
+            }
+            enemy.UpdateFrame(_player.Position);
+            _entities.Update(0.0, _player);
+            if (_entities.Entities<StalfosCharacter>().Count !=
                     room406Stalfos.Length - index - 1 ||
                 _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != index + 1)
             {
                 throw new InvalidOperationException(
-                    $"Room 4:06 Stalfos {index + 1} did not die through the shared sword/death-puff path.");
+                    $"Room 4:06 Stalfos {index + 1} did not die through the " +
+                    "shared post-recoil death-puff path.");
             }
             Step();
         }

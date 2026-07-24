@@ -33,5 +33,6 @@ internal sealed class CrowRoomEntity
                 ? new EnemyDeathPuffSpawn(
                     crow.Position + Vector2.Down * crow.Z,
                     EnemyId: crow.Record.Id)
-                : null);
+                : null,
+            crow.ApplySwordKnockback);
 }

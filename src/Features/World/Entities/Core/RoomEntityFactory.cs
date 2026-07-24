@@ -640,7 +640,7 @@ internal sealed class RoomEntityFactory(
                 Name = $"Crow_{source.SubId:x2}_{source.Order}_{instance}",
                 ZIndex = 10
             };
-            crow.Initialize(crowRecord, position, random);
+            crow.Initialize(crowRecord, room, position, random);
             return new CrowRoomEntity(crow, killableEnemyIndex);
         }
 
@@ -653,7 +653,7 @@ internal sealed class RoomEntityFactory(
                 ZIndex = 10
             };
             octorok.Initialize(octorokRecord, room, position, random);
-            return new OctorokRoomEntity(octorok, soundRequested, killableEnemyIndex);
+            return new OctorokRoomEntity(octorok, killableEnemyIndex);
         }
 
         if (source.Id == 0x31 &&
@@ -665,7 +665,7 @@ internal sealed class RoomEntityFactory(
                 ZIndex = 10
             };
             stalfos.Initialize(stalfosRecord, room, position, random);
-            return new StalfosRoomEntity(stalfos, soundRequested, killableEnemyIndex);
+            return new StalfosRoomEntity(stalfos, killableEnemyIndex);
         }
 
         if (source.Id == 0x34 &&
@@ -677,7 +677,7 @@ internal sealed class RoomEntityFactory(
                 ZIndex = 10
             };
             zol.Initialize(zolRecord, room, position, random);
-            return new ZolRoomEntity(zol, soundRequested, killableEnemyIndex);
+            return new ZolRoomEntity(zol, killableEnemyIndex);
         }
 
         if (source.Id == 0x0a &&
@@ -764,6 +764,7 @@ internal sealed class RoomEntityFactory(
         RockDebrisSpawn debris => CreateRockDebris(debris),
         EmberSeedSpawn seed => CreateEmberSeed(seed, room),
         PuzzlePuffSpawn puff => CreatePuzzlePuff(puff),
+        EnemySplashSpawn splash => CreateEnemySplash(splash),
         FallingDownHoleSpawn fall => CreateFallingDownHole(fall),
         DungeonKeyUseSpawn key => CreateDungeonKeyUse(key),
         OverworldKeyUseSpawn key => CreateOverworldKeyUse(key),
@@ -777,7 +778,7 @@ internal sealed class RoomEntityFactory(
         SpiritsGraveMovingPlatformSpawn platform =>
             CreateSpiritsGraveMovingPlatform(platform),
         SpiritsGraveMinibossPortalSpawn => CreateSpiritsGraveMinibossPortal(room),
-        GiantGhiniChildSpawn child => CreateGiantGhiniChild(child),
+        GiantGhiniChildSpawn child => CreateGiantGhiniChild(child, room),
         PumpkinHeadProjectileSpawn projectile =>
             CreatePumpkinHeadProjectile(projectile, room),
         _ => throw new ArgumentOutOfRangeException(nameof(spawn), spawn, "Unknown room-entity spawn request.")
@@ -792,14 +793,17 @@ internal sealed class RoomEntityFactory(
             spawn.SubId,
             _spiritsGrave.MovingPlatformCollisionRadii(spawn.SubId));
 
-    private IRoomEntity CreateGiantGhiniChild(GiantGhiniChildSpawn spawn)
+    private IRoomEntity CreateGiantGhiniChild(
+        GiantGhiniChildSpawn spawn,
+        OracleRoomData room)
     {
         var child = new GiantGhiniChild
         {
             Name = $"GiantGhiniChild_{spawn.Index}",
             ZIndex = 10
         };
-        child.Initialize(_spiritsGrave.Enemy(0x3f), spawn.Owner, spawn.Index);
+        child.Initialize(
+            _spiritsGrave.Enemy(0x3f), spawn.Owner, room, spawn.Index);
         return new GiantGhiniChildRoomEntity(child);
     }
 
@@ -1107,7 +1111,7 @@ internal sealed class RoomEntityFactory(
             ZIndex = 10
         };
         moblin.Initialize(enemies.MaskedMoblin, room, spawn.Position, random);
-        return new MaskedMoblinRoomEntity(moblin, soundRequested);
+        return new MaskedMoblinRoomEntity(moblin);
     }
 
     private IRoomEntity CreateEnemyArrow(EnemyArrowSpawn spawn, OracleRoomData room)
@@ -1126,7 +1130,7 @@ internal sealed class RoomEntityFactory(
         var gel = new GelCharacter { Name = spawn.Name, ZIndex = 10 };
         gel.Initialize(enemies.Gel, room, spawn.Position, random);
         return new GelRoomEntity(
-            gel, soundRequested, countsAsEnemy,
+            gel, countsAsEnemy,
             killableEnemyIndex ?? spawn.KillableEnemyIndex);
     }
 
@@ -1251,6 +1255,29 @@ internal sealed class RoomEntityFactory(
         };
         puff.Initialize(spawn.Position, spawn.Sound, soundRequested);
         return new PuzzlePuffRoomEntity(puff);
+    }
+
+    private IRoomEntity CreateEnemySplash(EnemySplashSpawn spawn)
+    {
+        if (spawn.Hazard is not (HazardType.Water or HazardType.Lava))
+        {
+            throw new InvalidOperationException(
+                $"Enemy splash cannot represent hazard {spawn.Hazard}.");
+        }
+        var effect = new SplashEffect
+        {
+            Name = spawn.Hazard == HazardType.Lava
+                ? "EnemyLavaSplash"
+                : "EnemyWaterSplash",
+            ZIndex = 11
+        };
+        effect.Initialize(
+            spawn.Position,
+            spawn.Hazard,
+            autoFree: false);
+        effect.SetPhysicsProcess(false);
+        soundRequested(OracleSoundEngine.SndSplash);
+        return new SplashRoomEntity(effect);
     }
 
     private IRoomEntity CreateFallingDownHole(FallingDownHoleSpawn spawn)

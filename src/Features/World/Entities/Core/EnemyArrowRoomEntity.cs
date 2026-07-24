@@ -15,6 +15,7 @@ internal sealed class EnemyArrowRoomEntity(EnemyArrowProjectile arrow)
         Rect2 hitbox,
         Vector2 sourcePosition,
         int damage,
+        EnemyKnockbackStrength knockbackStrength,
         ICollection<RoomEntitySpawn> spawns) =>
         hitbox.Intersects(Entity.CollisionBounds) && Entity.DeflectWithSword();
     public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }

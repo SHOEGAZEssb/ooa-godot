@@ -9,14 +9,11 @@ internal sealed class GelRoomEntity
 {
     public GelRoomEntity(
         GelCharacter gel,
-        Action<int> soundRequested,
         bool countsAsEnemy = true,
         int killableEnemyIndex = 0)
         : base(
             gel, gel.SetTransitionDrawOffset, CreateCombat(gel),
             countsAsEnemy, killableEnemyIndex,
-            finished: () => EnemyHazardSounds.PlayHoleSound(
-                gel.DeathHazard, soundRequested),
             collisionZ: () => gel.ZFixed >> 8)
     { }
 
@@ -37,5 +34,6 @@ internal sealed class GelRoomEntity
             },
             () => gel.IsDead && !gel.DiedInHazard
                 ? new EnemyDeathPuffSpawn(gel.Position, EnemyId: gel.Definition.Id)
-                : null);
+                : null,
+            gel.ApplySwordNoKnockback);
 }

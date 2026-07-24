@@ -34,6 +34,10 @@ internal partial class RopeCharacter : EnemyCharacter
             EnemyCharacterConfiguration.FromImported(record));
         _random = random;
         _movement = new EnemyTerrainMovement(this, room);
+        ConfigureSwordKnockback(
+            room,
+            EnemyKnockbackMotion.Terrain,
+            checksHazards: true);
         _speed = 0.5f;
     }
 
@@ -41,7 +45,10 @@ internal partial class RopeCharacter : EnemyCharacter
     {
         if (IsDead)
             return;
-        BeginFrame();
+        if (BeginFrame())
+            return;
+        if (CheckHazards())
+            return;
         if (!_initialized)
         {
             // State 0 sets direction $ff/SPEED_80 and advances to state 8.

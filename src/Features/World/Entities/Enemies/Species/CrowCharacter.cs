@@ -40,7 +40,8 @@ public partial class CrowCharacter : EnemyCharacter
     internal int Counter2 => _counter2;
     internal int Angle => _angle;
     internal int Z => _z;
-    internal override bool CollisionEnabled => _collisionEnabled;
+    internal override bool CollisionEnabled =>
+        base.CollisionEnabled && _collisionEnabled;
     internal int CurrentAnimation => AnimationIndex;
     internal int CurrentAnimationFrame => AnimationFrame;
     internal Vector2 PrecisePosition => _precisePosition;
@@ -49,6 +50,7 @@ public partial class CrowCharacter : EnemyCharacter
 
     internal void Initialize(
         CrowRecord record,
+        OracleRoomData room,
         Vector2 position,
         OracleRandom random)
     {
@@ -75,12 +77,19 @@ public partial class CrowCharacter : EnemyCharacter
                 ],
                 record.TileBase,
                 record.Palette));
+        ConfigureSwordKnockback(
+            room,
+            EnemyKnockbackMotion.ScreenBoundary,
+            precisePosition: () => _precisePosition,
+            setPrecisePosition: SetKnockbackPosition);
         RestartAnimation(0);
     }
 
     internal void UpdateFrame(Vector2 linkPosition)
     {
         if (IsDead)
+            return;
+        if (BeginFrame())
             return;
 
         switch (_state)
@@ -135,7 +144,7 @@ public partial class CrowCharacter : EnemyCharacter
 
     internal bool TakeSwordHit(int damage)
     {
-        if (IsDead || !CollisionEnabled)
+        if (IsDead || InvincibilityCounter > 0 || !CollisionEnabled)
             return false;
         return ApplyDamage(damage, invincibilityFrames: 0);
     }
@@ -193,6 +202,12 @@ public partial class CrowCharacter : EnemyCharacter
         int y = (int)Mathf.Floor(_precisePosition.Y);
         int x = (int)Mathf.Floor(_precisePosition.X);
         return y is >= 0 and < ScreenBottom && x is >= 0 and < ScreenRight;
+    }
+
+    private void SetKnockbackPosition(Vector2 position)
+    {
+        _precisePosition = position;
+        Position = OracleObjectMath.ToPixelPosition(position);
     }
 }
 

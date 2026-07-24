@@ -29,5 +29,6 @@ internal sealed class KeeseRoomEntity
                 ? new EnemyDeathPuffSpawn(
                     keese.Position + Vector2.Down * keese.SpriteHeight,
                     EnemyId: keese.Record.Id)
-                : null);
+                : null,
+            keese.ApplySwordKnockback);
 }

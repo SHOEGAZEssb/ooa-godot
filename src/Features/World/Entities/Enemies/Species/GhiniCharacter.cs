@@ -28,13 +28,17 @@ internal partial class GhiniCharacter : EnemyCharacter
             EnemyCharacterConfiguration.FromImported(record));
         _random = random;
         _room = room;
+        ConfigureSwordKnockback(
+            room,
+            EnemyKnockbackMotion.ScreenBoundary);
     }
 
     internal void UpdateFrame()
     {
         if (IsDead)
             return;
-        BeginFrame();
+        if (BeginFrame())
+            return;
         if (_state == GhiniState.Uninitialized)
         {
             _state = GhiniState.Choosing;
@@ -67,7 +71,7 @@ internal partial class GhiniCharacter : EnemyCharacter
 
     public override void _Draw()
     {
-        if (!CollisionEnabled)
+        if (IsDead || !Visible)
             return;
         DrawSetTransform(Vector2.Up * 2.0f);
         base._Draw();

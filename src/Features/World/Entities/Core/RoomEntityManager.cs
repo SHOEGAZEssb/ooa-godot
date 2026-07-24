@@ -343,7 +343,10 @@ public sealed class RoomEntityManager : IDisposable
                 if (entity is ISeedBurnTarget { IsSeedBurning: true })
                     continue;
                 if (entity is IFixedRoomEntity fixedEntity)
+                {
+                    SynchronizeEnemyFrameCounter(entity, frame.Counter);
                     fixedEntity.UpdateFrame(frame, _pendingSpawns);
+                }
                 ProcessSpawns(frame);
             }
             ResolveSeedCollisions();
@@ -436,7 +439,20 @@ public sealed class RoomEntityManager : IDisposable
     }
 
     public bool ApplySwordHit(
-        Rect2 hitbox, Vector2? sourcePosition = null, int damage = 2)
+        Rect2 hitbox,
+        Vector2? sourcePosition = null,
+        int damage = 2) =>
+        ApplySwordHit(
+            hitbox,
+            sourcePosition,
+            damage,
+            EnemyKnockbackStrength.Low);
+
+    internal bool ApplySwordHit(
+        Rect2 hitbox,
+        Vector2? sourcePosition,
+        int damage,
+        EnemyKnockbackStrength knockbackStrength)
     {
         bool hit = false;
         Vector2 source = sourcePosition ?? hitbox.GetCenter();
@@ -444,7 +460,11 @@ public sealed class RoomEntityManager : IDisposable
         {
             if (entity is ISwordHittableRoomEntity swordHittable)
                 hit |= swordHittable.ApplySwordHit(
-                    hitbox, source, damage, _pendingSpawns);
+                    hitbox,
+                    source,
+                    damage,
+                    knockbackStrength,
+                    _pendingSpawns);
             ProcessSpawns();
         }
         RemoveFinishedEntities();
@@ -472,7 +492,11 @@ public sealed class RoomEntityManager : IDisposable
                     continue;
                 }
                 hittable.ApplySwordHit(
-                    hitbox, source, damage, _pendingSpawns);
+                    hitbox,
+                    source,
+                    damage,
+                    EnemyKnockbackStrength.Normal,
+                    _pendingSpawns);
             }
             ProcessSpawns();
         }
@@ -535,6 +559,7 @@ public sealed class RoomEntityManager : IDisposable
                     projectile.CollisionBounds,
                     projectile.CollisionBounds.GetCenter(),
                     projectile.Damage,
+                    EnemyKnockbackStrength.Normal,
                     _pendingSpawns))
                 {
                     continue;
@@ -766,8 +791,19 @@ public sealed class RoomEntityManager : IDisposable
             _pendingSpawns.RemoveAt(0);
             IRoomEntity entity = AddEntity(_factory.Create(spawn, _roomForActiveEntities));
             if (spawn.UpdateThisFrame && frame.HasValue && entity is IFixedRoomEntity fixedEntity)
+            {
+                SynchronizeEnemyFrameCounter(entity, frame.Value.Counter);
                 fixedEntity.UpdateFrame(frame.Value, _pendingSpawns);
+            }
         }
+    }
+
+    private static void SynchronizeEnemyFrameCounter(
+        IRoomEntity entity,
+        int frameCounter)
+    {
+        if (entity.Node is EnemyCharacter enemy)
+            enemy.SetGlobalFrameCounter(frameCounter);
     }
 
     private void RemoveFinishedEntities()
@@ -873,3 +909,7 @@ internal sealed record ItemDropSpawn(
     bool UpdateThisFrame = false) : RoomEntitySpawn(UpdateThisFrame);
 
 internal sealed record FallingDownHoleSpawn(Vector2 Position) : RoomEntitySpawn;
+
+internal sealed record EnemySplashSpawn(
+    Vector2 Position,
+    HazardType Hazard) : RoomEntitySpawn;

@@ -19,8 +19,6 @@ public partial class MaskedMoblinCharacter : EnemyCharacter
     private int _moveCycles;
 
     public MaskedMoblinRecord Record => _record;
-    public bool DiedInHazard { get; private set; }
-    public HazardType DeathHazard { get; private set; }
     internal MoblinState State => _state;
     internal int Counter => _counter;
     internal int Angle => _angle;
@@ -46,6 +44,10 @@ public partial class MaskedMoblinCharacter : EnemyCharacter
                  record.DownAnimation, record.LeftAnimation],
                 record.TileBase,
                 record.Palette));
+        ConfigureSwordKnockback(
+            room,
+            EnemyKnockbackMotion.Terrain,
+            checksHazards: true);
         RestartAnimation(0);
     }
 
@@ -54,13 +56,10 @@ public partial class MaskedMoblinCharacter : EnemyCharacter
     {
         if (IsDead)
             return -1;
-        if (_movement.IsOnHazard)
-        {
-            DeathHazard = _movement.Hazard;
-            DiedInHazard = true;
-            Finish();
+        if (BeginFrame())
             return -1;
-        }
+        if (CheckHazards())
+            return -1;
 
         switch (_state)
         {
@@ -101,7 +100,7 @@ public partial class MaskedMoblinCharacter : EnemyCharacter
 
     internal override bool TakeSwordHit(Vector2 _, int damage)
     {
-        if (IsDead)
+        if (IsDead || !CollisionEnabled || InvincibilityCounter > 0)
             return false;
         return ApplyDamage(damage, invincibilityFrames: 0);
     }

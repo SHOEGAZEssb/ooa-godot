@@ -21,14 +21,13 @@ public partial class ZolCharacter : EnemyCharacter
     private bool _collisionEnabled;
 
     public ZolRecord Record { get; private set; }
-    public bool DiedInHazard { get; private set; }
-    public HazardType DeathHazard { get; private set; }
     internal ZolState State => _state;
     internal int Counter1 => _counter1;
     internal int Counter2 => _counter2;
     internal int Angle => _angle;
     internal int ZFixed => _verticalMotion.ZFixed;
-    internal override bool CollisionEnabled => _collisionEnabled;
+    internal override bool CollisionEnabled =>
+        _collisionEnabled && base.CollisionEnabled;
     internal int CurrentAnimationFrame => AnimationFrame;
     protected override bool DrawsAnimation => !IsDead && Visible;
     protected override Vector2 AnimationDrawOffset =>
@@ -65,6 +64,10 @@ public partial class ZolCharacter : EnemyCharacter
                 encodedAnimations,
                 record.TileBase,
                 record.Palette));
+        ConfigureHazards(
+            room,
+            animateWhileFallingInHole: false,
+            zPosition: () => _verticalMotion.ZFixed);
 
         if (record.SubId == 0)
         {
@@ -88,14 +91,10 @@ public partial class ZolCharacter : EnemyCharacter
     {
         if (IsDead)
             return UpdateEvent.None;
-
-        if (_verticalMotion.ZFixed == 0 && _collisionEnabled && _movement.IsOnHazard)
-        {
-            DeathHazard = _movement.Hazard;
-            DiedInHazard = true;
-            Finish();
+        if (BeginFrame())
             return UpdateEvent.None;
-        }
+        if (CheckHazards())
+            return UpdateEvent.None;
 
         switch (_state)
         {
@@ -238,7 +237,8 @@ public partial class ZolCharacter : EnemyCharacter
 
     internal bool TakeSwordHit(int damage)
     {
-        if (IsDead || !_collisionEnabled || _state is
+        if (IsDead || !CollisionEnabled || InvincibilityCounter > 0 ||
+            _state is
             ZolState.RedSplitting or ZolState.RedSplitDelay)
             return false;
 
@@ -257,7 +257,7 @@ public partial class ZolCharacter : EnemyCharacter
 
     internal override bool TakeBurnHit(int damage)
     {
-        if (IsDead || !_collisionEnabled || _state is
+        if (IsDead || !CollisionEnabled || _state is
             ZolState.RedSplitting or ZolState.RedSplitDelay)
         {
             return false;

@@ -28,6 +28,7 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
     internal void Initialize(
         ImportedEnemyDefinition record,
         GiantGhiniBoss owner,
+        OracleRoomData room,
         int index)
     {
         Vector2[] offsets = { Vector2.Right * 24, Vector2.Up * 24, Vector2.Left * 24 };
@@ -36,6 +37,9 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
         InitializeEnemy(
             owner.Position + offsets[index],
             EnemyCharacterConfiguration.FromImported(record));
+        ConfigureSwordKnockback(
+            room,
+            EnemyKnockbackMotion.ScreenBoundary);
         if (owner.State is GiantGhiniBossBossState.IntroWait or
             GiantGhiniBossBossState.IntroFlicker)
         {
@@ -68,7 +72,12 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
             ReportFinished();
             return;
         }
-        BeginFrame();
+        if (BeginFrame())
+        {
+            if (IsDead)
+                ReportFinished();
+            return;
+        }
         _slowsLink = false;
         if (_spawnPuffPending)
         {
@@ -150,13 +159,8 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
         _owner.ChildAttached(player);
     }
 
-    internal override bool TakeSwordHit(Vector2 sourcePosition, int damage)
-    {
-        bool hit = base.TakeSwordHit(sourcePosition, damage);
-        if (hit && IsDead)
-            ReportFinished();
-        return hit;
-    }
+    internal override bool TakeSwordHit(Vector2 sourcePosition, int damage) =>
+        base.TakeSwordHit(sourcePosition, damage);
 
     private void ReportFinished()
     {

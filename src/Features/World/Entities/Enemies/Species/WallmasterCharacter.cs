@@ -38,6 +38,9 @@ internal partial class WallmasterCharacter : EnemyCharacter
             position,
             EnemyCharacterConfiguration.FromImported(record));
         _room = room;
+        ConfigureSwordKnockback(
+            room,
+            EnemyKnockbackMotion.Terrain);
         Visible = false;
     }
 
@@ -45,7 +48,8 @@ internal partial class WallmasterCharacter : EnemyCharacter
     {
         if (IsDead)
             return;
-        BeginFrame();
+        if (BeginFrame())
+            return;
         if (!_initialized)
         {
             // The subid-$00 spawner installs its 180-update counter in state
@@ -114,19 +118,19 @@ internal partial class WallmasterCharacter : EnemyCharacter
     }
 
     internal override bool TakeSwordHit(Vector2 sourcePosition, int damage)
-    {
-        if (!base.TakeSwordHit(sourcePosition, damage))
-            return false;
-        if (!IsDead)
-            return true;
+        => base.TakeSwordHit(sourcePosition, damage);
 
+    protected override void CompleteKnockbackDeath()
+    {
         _deathPuffPending = true;
         _remaining--;
         if (_remaining == 0)
-            return true;
+        {
+            Finish();
+            return;
+        }
         Revive(Record.Health);
         HideAndReset(120);
-        return true;
     }
 
     internal bool HandleLinkContact(Player player)

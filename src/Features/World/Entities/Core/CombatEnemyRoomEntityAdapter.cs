@@ -18,7 +18,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         ISeedBurnTarget, IRoomEntityLifetime,
         IRoomEnemyCounterEntity, IRoomKillTrackedEnemy,
         IObjectCollisionHeightRoomEntity
-    where T : Node2D
+    where T : EnemyCharacter
 {
     private bool _seedBurning;
 
@@ -41,8 +41,14 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         Rect2 hitbox,
         Vector2 sourcePosition,
         int damage,
+        EnemyKnockbackStrength knockbackStrength,
         ICollection<RoomEntitySpawn> spawns) =>
-        !_seedBurning && combat.ApplySwordHit(hitbox, sourcePosition, damage, spawns);
+        !_seedBurning && combat.ApplySwordHit(
+            hitbox,
+            sourcePosition,
+            damage,
+            knockbackStrength,
+            spawns);
     public SeedHitResult ApplySeedHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
@@ -51,7 +57,8 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
 
     private SeedHitResult ApplySeedHit(Rect2 hitbox)
     {
-        if (_seedBurning || !combat.Intersects(hitbox))
+        if (_seedBurning || !Entity.CollisionEnabled ||
+            !combat.Intersects(hitbox))
         {
             return SeedHitResult.None;
         }
@@ -65,7 +72,28 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         _seedBurning = false;
         combat.ApplyBurnHit(2, spawns);
     }
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) => finished?.Invoke();
+    public void OnFinished(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (Entity.TakeCompletedKnockbackDeath() &&
+            combat.CreateDeathPuff() is { } deathPuff)
+        {
+            spawns.Add(deathPuff);
+        }
+        if (Entity.TakeHazardEffect() is { } hazardEffect)
+        {
+            spawns.Add(hazardEffect.Hazard switch
+            {
+                HazardType.Water or HazardType.Lava =>
+                    new EnemySplashSpawn(
+                        hazardEffect.Position, hazardEffect.Hazard),
+                HazardType.Hole =>
+                    new FallingDownHoleSpawn(hazardEffect.Position),
+                _ => throw new InvalidOperationException(
+                    "A completed enemy hazard must be water, hole, or lava.")
+            });
+        }
+        finished?.Invoke();
+    }
 }
 
 internal enum SeedHitResult

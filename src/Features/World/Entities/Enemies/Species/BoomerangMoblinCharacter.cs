@@ -31,13 +31,20 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
             EnemyCharacterConfiguration.FromImported(record));
         _random = random;
         _movement = new EnemyTerrainMovement(this, room);
+        ConfigureSwordKnockback(
+            room,
+            EnemyKnockbackMotion.Terrain,
+            checksHazards: true);
     }
 
     internal int UpdateFrame(Vector2 linkPosition)
     {
         if (IsDead)
             return -1;
-        BeginFrame();
+        if (BeginFrame())
+            return -1;
+        if (CheckHazards())
+            return -1;
         if (!_initialized)
         {
             // State 0 initializes SPEED_80 and chooses the first route on the

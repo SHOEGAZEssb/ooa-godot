@@ -35,7 +35,8 @@ internal sealed class WallmasterRoomEntity
                     if (wallmaster.HandleLinkContact(player))
                         soundRequested(OracleSoundEngine.SndBossDead);
                 },
-                wallmaster.TakeDeathPuff),
+                wallmaster.TakeDeathPuff,
+                wallmaster.ApplySwordKnockback),
             countsAsEnemy: true,
             killableEnemyIndex,
             collisionZ: () => wallmaster.ZFixed >> 8)
@@ -51,6 +52,8 @@ internal sealed class WallmasterRoomEntity
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
         Entity.UpdateFrame(frame.Player, _soundRequested);
+        if (Entity.TakeDeathPuff() is { } deathPuff)
+            spawns.Add(deathPuff);
         if (Entity.TakeWarpedPlayer() is null)
             return;
         _warpRequested(new Warp(

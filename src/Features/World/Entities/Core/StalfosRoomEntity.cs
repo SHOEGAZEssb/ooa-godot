@@ -9,13 +9,10 @@ internal sealed class StalfosRoomEntity
 {
     public StalfosRoomEntity(
         StalfosCharacter stalfos,
-        Action<int> soundRequested,
         int killableEnemyIndex = 0)
         : base(
             stalfos, stalfos.SetTransitionDrawOffset, CreateCombat(stalfos),
-            (stalfos.Record.Flags & 0x02) == 0, killableEnemyIndex,
-            finished: () => EnemyHazardSounds.PlayHoleSound(
-                stalfos.DeathHazard, soundRequested))
+            (stalfos.Record.Flags & 0x02) == 0, killableEnemyIndex)
     { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
@@ -33,5 +30,6 @@ internal sealed class StalfosRoomEntity
             () => stalfos.IsDead && !stalfos.DiedInHazard
                 ? new EnemyDeathPuffSpawn(
                     stalfos.Position, EnemyId: stalfos.Record.Id)
-                : null);
+                : null,
+            stalfos.ApplySwordKnockback);
 }

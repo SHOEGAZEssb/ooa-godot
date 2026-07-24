@@ -16,7 +16,7 @@ internal sealed class EnemyCombatComponent(
     Func<int, bool> takeBurnHit,
     Action<Player> handleLinkContact,
     Func<EnemyDeathPuffSpawn?> createDeathPuff,
-    Action? acceptedSwordHit = null)
+    Action<Vector2, EnemyKnockbackStrength>? acceptedSwordHit = null)
 {
     public static EnemyCombatComponent WithContactDamage(
         Func<bool> isDead,
@@ -27,7 +27,7 @@ internal sealed class EnemyCombatComponent(
         Func<Vector2> contactOrigin,
         int damageQuarters,
         Func<EnemyDeathPuffSpawn?> createDeathPuff,
-        Action? acceptedSwordHit = null)
+        Action<Vector2, EnemyKnockbackStrength>? acceptedSwordHit = null)
     {
         return new EnemyCombatComponent(
             isDead,
@@ -53,14 +53,15 @@ internal sealed class EnemyCombatComponent(
         Rect2 hitbox,
         Vector2 sourcePosition,
         int damage,
+        EnemyKnockbackStrength knockbackStrength,
         ICollection<RoomEntitySpawn> spawns)
     {
         if (!Intersects(hitbox))
             return false;
         bool struck = takeSwordHit(sourcePosition, damage);
         if (struck)
-            acceptedSwordHit?.Invoke();
-        if (struck && createDeathPuff() is { } deathPuff)
+            acceptedSwordHit?.Invoke(sourcePosition, knockbackStrength);
+        if (struck && CreateDeathPuff() is { } deathPuff)
             spawns.Add(deathPuff);
         return struck;
     }
@@ -71,7 +72,9 @@ internal sealed class EnemyCombatComponent(
     {
         if (isDead() || !takeBurnHit(damage))
             return;
-        if (createDeathPuff() is { } deathPuff)
+        if (CreateDeathPuff() is { } deathPuff)
             spawns.Add(deathPuff);
     }
+
+    public EnemyDeathPuffSpawn? CreateDeathPuff() => createDeathPuff();
 }

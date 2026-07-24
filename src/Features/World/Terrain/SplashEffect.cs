@@ -2,7 +2,7 @@ using Godot;
 
 namespace oracleofages;
 
-public partial class SplashEffect : Node2D
+public partial class SplashEffect : TransitionOffsetNode2D
 {
     private const int WaterFrameDuration = 4;
     private const int LavaFrameDuration = 2;
@@ -10,15 +10,24 @@ public partial class SplashEffect : Node2D
     private double _frames;
     private int _frameCount;
     private int _frameDuration;
+    private bool _autoFree;
 
     public bool IsLava { get; private set; }
+    internal bool Finished { get; private set; }
     internal int AnimationFrame => Mathf.Min((int)(_frames / _frameDuration), _frameCount - 1);
     internal int DurationFrames => _frameCount * _frameDuration;
 
-    public void Initialize(Vector2 position, HazardType hazard)
+    public void Initialize(
+        Vector2 position,
+        HazardType hazard,
+        bool autoFree = true)
     {
         Position = position;
         IsLava = hazard == HazardType.Lava;
+        Finished = false;
+        Visible = true;
+        _frames = 0;
+        _autoFree = autoFree;
         _frameCount = IsLava ? LavaParts.Length : WaterParts.Length;
         _frameDuration = IsLava ? LavaFrameDuration : WaterFrameDuration;
         _texture = BuildTexture(IsLava);
@@ -29,10 +38,15 @@ public partial class SplashEffect : Node2D
 
     internal void Advance(double delta)
     {
+        if (Finished)
+            return;
         _frames += delta * 60.0;
         if (_frames >= DurationFrames)
         {
-            QueueFree();
+            Finished = true;
+            Visible = false;
+            if (_autoFree)
+                QueueFree();
             return;
         }
         QueueRedraw();
@@ -42,7 +56,9 @@ public partial class SplashEffect : Node2D
     {
         DrawTextureRectRegion(
             _texture,
-            new Rect2(-16, -16, 32, 32),
+            new Rect2(
+                new Vector2(-16, -16) + TransitionDrawOffset,
+                new Vector2(32, 32)),
             new Rect2(AnimationFrame * 32, 0, 32, 32));
     }
 

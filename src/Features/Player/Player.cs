@@ -169,6 +169,20 @@ public partial class Player : Node2D
     internal int SwordDamage => _swordState == SwordActionState.Spin
         ? _currentSwordDamage * 2
         : IsUsingPunch ? _punchDamage : _currentSwordDamage;
+    internal EnemyKnockbackStrength SwordKnockbackStrength =>
+        IsUsingPunch
+            ? (_expertPunch
+                ? EnemyKnockbackStrength.High
+                : EnemyKnockbackStrength.Low)
+            : _swordState switch
+            {
+                SwordActionState.Spin => EnemyKnockbackStrength.High,
+                SwordActionState.Held or SwordActionState.Charged =>
+                    EnemyKnockbackStrength.Low,
+                _ when _inventory.SwordLevel <= 1 =>
+                    EnemyKnockbackStrength.Low,
+                _ => EnemyKnockbackStrength.Normal
+            };
     internal int SwordArcIndex => IsAttacking ? GetSwordArcIndex() : -1;
     internal bool SwordAllowsMovement =>
         _swordState is SwordActionState.Held or SwordActionState.Charged;

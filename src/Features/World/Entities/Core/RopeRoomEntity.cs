@@ -20,7 +20,8 @@ internal sealed class RopeRoomEntity
                 rope.Record.DamageQuarters,
                 () => rope.IsDead
                     ? new EnemyDeathPuffSpawn(rope.Position, EnemyId: rope.Record.Id)
-                    : null),
+                    : null,
+                rope.ApplySwordKnockback),
             countsAsEnemy: true,
             killableEnemyIndex)
     { }

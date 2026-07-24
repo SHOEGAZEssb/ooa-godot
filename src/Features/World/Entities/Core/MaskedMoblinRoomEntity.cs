@@ -8,13 +8,10 @@ internal sealed class MaskedMoblinRoomEntity
     : CombatEnemyRoomEntityAdapter<MaskedMoblinCharacter>, IFixedRoomEntity
 {
     public MaskedMoblinRoomEntity(
-        MaskedMoblinCharacter moblin,
-        Action<int> soundRequested)
+        MaskedMoblinCharacter moblin)
         : base(
             moblin, moblin.SetTransitionDrawOffset, CreateCombat(moblin),
-            countsAsEnemy: true, killableEnemyIndex: 0,
-            finished: () => EnemyHazardSounds.PlayHoleSound(
-                moblin.DeathHazard, soundRequested))
+            countsAsEnemy: true, killableEnemyIndex: 0)
     { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
@@ -36,7 +33,8 @@ internal sealed class MaskedMoblinRoomEntity
             () => moblin.IsDead && !moblin.DiedInHazard
                 ? new EnemyDeathPuffSpawn(
                     moblin.Position, EnemyId: moblin.Record.Id)
-                : null);
+                : null,
+            moblin.ApplySwordKnockback);
 }
 
 internal sealed record EnemyArrowSpawn(Vector2 Position, int Angle)

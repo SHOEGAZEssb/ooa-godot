@@ -22,7 +22,8 @@ internal sealed class BoomerangMoblinRoomEntity
                 moblin.Record.DamageQuarters,
                 () => moblin.IsDead
                     ? new EnemyDeathPuffSpawn(moblin.Position, EnemyId: moblin.Record.Id)
-                    : null),
+                    : null,
+                moblin.ApplySwordKnockback),
             countsAsEnemy: true,
             killableEnemyIndex)
     { }

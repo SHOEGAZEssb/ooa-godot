@@ -50,6 +50,7 @@ internal sealed class PumpkinHeadBossRoomEntity : IRoomEntity, IFixedRoomEntity,
         Rect2 hitbox,
         Vector2 sourcePosition,
         int damage,
+        EnemyKnockbackStrength knockbackStrength,
         ICollection<RoomEntitySpawn> spawns) =>
         _boss.ApplySwordHit(hitbox, sourcePosition, damage, spawns);
     public SeedHitResult ApplySeedHit(

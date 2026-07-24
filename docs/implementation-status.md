@@ -60,6 +60,29 @@ claim that the entire surrounding game is complete.
   directions. Raising it uses the source directional collision rectangle and
   `SND_SHIELD`, while implemented Octorok rocks and masked-Moblin arrows use
   their original `COLLISIONEFFECT_$1f` clink and 32-update bounce paths.
+- Sword hits select the source low/normal/high enemy-recoil profiles for
+  level-1, level-2/3, held, Spin Attack, sword-beam, Fist Ring, and Expert's
+  Ring collisions. Implemented vulnerable species move away from the attack at
+  `SPEED_200` for the exact `$08/$0b/$0f` counter, stop on the handler's
+  terrain or screen boundary, pause ordinary AI, and retain handler-specific
+  hazard checks. Lethal hits disable collision, finish recoil while still
+  visible, and run the death effect on the following update at the final
+  position. Zols and Gels use their table-defined `$20`-invincibility no-recoil
+  response; implemented bosses retain their separate no-recoil collision
+  policies. Positive enemy invincibility also uses global-frame-bit-2
+  four-update damage blinking through OBJ palette `$05` (or `$02` when the
+  source palette is already `$05`) across both typed-sprite and generic
+  imported definitions.
+- Octoroks, Boomerang Moblins, Ropes, ordinary Stalfos, masked Moblins, Zols,
+  and Gels use the common left-first `yh+$05,xh-$01` /
+  `yh+$05,xh+$01` grounded hazard probes in
+  normal movement and after recoil. Water/lava create their imported
+  12/20-update splash and `SND_SPLASH` immediately. Holes disable collision
+  while retaining the visible enemy for the source 60-update pull, applying a
+  signed-8.8 `SPEED_80` center step every eight updates before handing off to
+  imported `INTERAC_FALLDOWNHOLE` and `SND_FALLINHOLE`; Zols and Gels freeze
+  their current frame while the other supported species use the accelerated
+  pull animation clock.
 - The Power Bracelet is an active held-button parent on either A or B. It
   requires the original paired directional wall bits, retains the button while
   searching, waits for the opposite-direction pull through
@@ -263,7 +286,7 @@ remains the single runtime policy table.
 - Keese, Octoroks/projectiles, masked Moblins `$20:$00` and their arrows,
   ordinary Stalfos `$31:$00`, Zols, and Gels using
   ordered room-object placement, original spawn restrictions, shared RNG,
-  combat, common/split kill sounds, hole-fall sounds, and drop paths. All 34
+  combat, common/split kill sounds, common hazard effects, and drop paths. All 34
   ordinary-Stalfos records (37 instances) use their source SPEED_80 walk,
   two-call direction/counter decision, wall/hole bounce, animation, damage,
   health, and drop path. Evasive, bone-throwing, and stomping Stalfos subids

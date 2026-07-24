@@ -113,6 +113,47 @@ that distinction. Drawable room nodes ultimately inherit
 `TransitionOffsetNode2D`; it owns only the presentation offset applied during
 scrolling and never changes logical room/world coordinates.
 
+Sword recoil is selected by the original item-collision and enemy-collision
+tables, not by damage. Level-1 swings, the held sword, and Fist Ring punches
+use the low profile; level-2/3 swings and sword beams use normal; Spin Attacks
+and Expert's Ring punches use high. For enemy modes that map those collisions
+to `COLLISIONEFFECT_SWORD_*_KNOCKBACK`, the accepted hit writes
+invincibility/knockback counters `$10/$08`, `$15/$0b`, or `$1a/$0f`, aims from
+the attack source away through the enemy, and runs `SPEED_200` movement after
+the counter's pre-handler decrement. Movement uses the signed 8.8
+`bank3.objectSpeedTable` components and the cumulative
+`ecom_sideviewAdjacentWallOffsetTable` probes even for top-down enemies. A
+blocked movement clears the remaining counter. Species whose handler calls the
+solid form use terrain collision and perform their usual post-movement hazard
+check; Ghini, Keese, Crow, and Giant Ghini children use the
+screen-boundary-only form. A health-zero hit disables collision immediately
+but remains visible through every recoil update; the death handler and puff
+run on the update after the counter reaches zero, at the final position. Zols
+and Gels map sword rows to
+`COLLISIONEFFECT_SWORD_NO_KNOCKBACK`: they receive `$20` invincibility updates
+without a recoil counter. Boss-specific collision modes retain their own
+no-recoil response. While a positive `invincibilityCounter` remains, ordinary
+enemies select OBJ palette `$05` whenever global `wFrameCounter` bit 2 is
+clear, restoring their source palette when it is set or the counter reaches
+zero. An enemy whose source palette is already `$05` flashes with palette
+`$02`, matching the common post-update palette path.
+
+Enemy hazard handling follows `ecom_checkHazards` rather than sampling only
+the object's center. Grounded supported species test `yh+$05,xh-$01` first and
+`yh+$05,xh+$01` second, nudge `xh` one pixel toward the accepted side, clear
+invincibility and recoil, and disable collision. Water and lava delete the
+enemy immediately into `INTERAC_SPLASH` or `INTERAC_LAVASPLASH` with
+`SND_SPLASH`. Holes keep the enemy visible for a 60-update `counter1`: every
+eighth update it takes one signed-8.8 `SPEED_80` step toward the metatile
+center and may finish early when both high-byte coordinates are centered.
+Only then is the enemy replaced by `INTERAC_FALLDOWNHOLE $0f:$00`, which owns
+the imported terminal animation and `SND_FALLINHOLE`. The ordinary helper
+subtracts three from `animCounter` on every pull update; Zols and Gels use the
+source no-animation variant and remain on their last frame. A negative `zh`
+suppresses the initial hazard test until the enemy lands. The same path runs
+after accepted sword recoil, so hazard disposal never creates a normal enemy
+death puff or item drop.
+
 Ordinary enemy species are not owned by the first room or dungeon that makes
 them playable. Boomerang Moblin, Rope, Ghini, and Wallmaster live with the
 other species and resolve their subid-0 definitions through `EnemyDatabase`

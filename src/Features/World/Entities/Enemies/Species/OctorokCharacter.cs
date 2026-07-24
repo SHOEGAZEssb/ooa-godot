@@ -15,19 +15,13 @@ public partial class OctorokCharacter : EnemyCharacter
     private int _counter1;
     private int _walkCounter;
     private int _angle;
-    private int _knockbackCounter;
-    private int _knockbackAngle;
 
     public OctorokRecord Record { get; private set; }
-    public bool DiedInHazard { get; private set; }
-    public HazardType DeathHazard { get; private set; }
     internal OctorokState State => _state;
     internal int Counter1 => _counter1;
     internal int WalkCounter => _walkCounter;
     internal int Angle => _angle;
-    internal int KnockbackCounter => _knockbackCounter;
     internal int CurrentAnimationFrame => AnimationFrame;
-    internal override bool CollisionEnabled => !IsDead;
 
     internal void Initialize(
         OctorokRecord record,
@@ -56,6 +50,10 @@ public partial class OctorokCharacter : EnemyCharacter
                 encodedAnimations,
                 record.TileBase,
                 record.Palette));
+        ConfigureSwordKnockback(
+            room,
+            EnemyKnockbackMotion.Terrain,
+            checksHazards: true);
 
         OracleRandomResult initial = _random.Next();
         _counter1 = Counter1Values[initial.Value & record.CounterMask];
@@ -71,13 +69,10 @@ public partial class OctorokCharacter : EnemyCharacter
         if (IsDead)
             return false;
 
-        UpdateInvincibility();
-        if (_knockbackCounter > 0)
-        {
-            _knockbackCounter--;
-            MoveAtAngle(_knockbackAngle, 2.0f, allowHazards: true);
+        if (BeginFrame())
             return false;
-        }
+        if (CheckHazards())
+            return false;
 
         switch (_state)
         {
@@ -101,17 +96,11 @@ public partial class OctorokCharacter : EnemyCharacter
 
     internal override bool TakeSwordHit(Vector2 sourcePosition, int damage)
     {
-        if (IsDead || InvincibilityCounter > 0)
+        if (IsDead || !CollisionEnabled || InvincibilityCounter > 0)
             return false;
 
         if (!TakeRawDamage(damage))
             return false;
-        if (IsDead)
-            return true;
-
-        InvincibilityCounter = 0x10;
-        _knockbackCounter = 0x08;
-        _knockbackAngle = GetCardinalAngleAwayFrom(sourcePosition);
         return true;
     }
 
@@ -119,7 +108,7 @@ public partial class OctorokCharacter : EnemyCharacter
 
     private bool TakeRawDamage(int damage)
     {
-        if (IsDead)
+        if (IsDead || !CollisionEnabled)
             return false;
         return ApplyDamage(damage, invincibilityFrames: 0);
     }
@@ -206,12 +195,6 @@ public partial class OctorokCharacter : EnemyCharacter
         if (!CanOccupy(destination, allowHazards))
             return false;
         Position = destination;
-        if (allowHazards && _room.GetTerrainInfo(Position).Hazard != HazardType.None)
-        {
-            DeathHazard = _room.GetTerrainInfo(Position).Hazard;
-            DiedInHazard = true;
-            Finish();
-        }
         QueueRedraw();
         return true;
     }
@@ -238,18 +221,6 @@ public partial class OctorokCharacter : EnemyCharacter
         }
         return true;
     }
-
-    private void UpdateInvincibility()
-    {
-        if (InvincibilityCounter <= 0)
-            return;
-        InvincibilityCounter--;
-        Visible = InvincibilityCounter == 0 || (InvincibilityCounter & 1) == 0;
-        QueueRedraw();
-    }
-
-    private int GetCardinalAngleAwayFrom(Vector2 source) =>
-        (GetCardinalAngleToward(source) + 0x10) & 0x1f;
 
     private int GetCardinalAngleToward(Vector2 target)
     {

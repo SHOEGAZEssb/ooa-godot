@@ -11,7 +11,12 @@ internal sealed class OctorokRockRoomEntity(OctorokRockProjectile rock)
     public bool Finished => Entity.Finished;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Player);
-    public bool ApplySwordHit(Rect2 hitbox, Vector2 sourcePosition, int damage, ICollection<RoomEntitySpawn> spawns) =>
+    public bool ApplySwordHit(
+        Rect2 hitbox,
+        Vector2 sourcePosition,
+        int damage,
+        EnemyKnockbackStrength knockbackStrength,
+        ICollection<RoomEntitySpawn> spawns) =>
         hitbox.Intersects(Entity.CollisionBounds) && Entity.DeflectWithSword();
     public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

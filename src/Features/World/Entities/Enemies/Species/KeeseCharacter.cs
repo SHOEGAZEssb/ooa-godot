@@ -85,12 +85,17 @@ public partial class KeeseCharacter : EnemyCharacter
                 new[] { record.IdleAnimation, record.FlyAnimation },
                 record.TileBase,
                 record.Palette));
+        ConfigureSwordKnockback(
+            room,
+            EnemyKnockbackMotion.ScreenBoundary);
         RestartAnimation(0);
     }
 
     internal void UpdateFrame(Vector2 linkPosition, int frameCounter)
     {
         if (IsDead)
+            return;
+        if (BeginFrame())
             return;
 
         if (Record.SubId == 1)
@@ -104,7 +109,7 @@ public partial class KeeseCharacter : EnemyCharacter
 
     internal bool TakeSwordHit(int damage)
     {
-        if (IsDead)
+        if (IsDead || InvincibilityCounter > 0)
             return false;
         return ApplyDamage(damage, invincibilityFrames: 0);
     }

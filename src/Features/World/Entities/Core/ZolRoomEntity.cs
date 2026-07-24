@@ -9,15 +9,12 @@ internal sealed class ZolRoomEntity
 {
     public ZolRoomEntity(
         ZolCharacter zol,
-        Action<int> soundRequested,
         int killableEnemyIndex = 0)
         : base(
             zol, zol.SetTransitionDrawOffset, CreateCombat(zol),
             (zol.Record.Flags & 0x02) == 0, killableEnemyIndex,
             () => zol.Record.SubId != 1 || zol.DiedInHazard,
-            () => EnemyHazardSounds.PlayHoleSound(
-                zol.DeathHazard, soundRequested),
-            () => zol.ZFixed >> 8)
+            collisionZ: () => zol.ZFixed >> 8)
     { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
@@ -49,7 +46,8 @@ internal sealed class ZolRoomEntity
             zol.Record.DamageQuarters,
             () => zol.IsDead && !zol.DiedInHazard
                 ? new EnemyDeathPuffSpawn(zol.Position, EnemyId: zol.Record.Id)
-                : null);
+                : null,
+            zol.ApplySwordNoKnockback);
 }
 
 internal sealed record KillEnemyPuffSpawn(Vector2 Position) : RoomEntitySpawn;

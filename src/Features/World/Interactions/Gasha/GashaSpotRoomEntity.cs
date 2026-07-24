@@ -24,6 +24,7 @@ internal sealed class GashaSpotRoomEntity(GashaSpotInteraction interaction)
         Rect2 hitbox,
         Vector2 sourcePosition,
         int damage,
+        EnemyKnockbackStrength knockbackStrength,
         ICollection<RoomEntitySpawn> spawns) =>
         Entity.ApplySwordHit(hitbox, sourcePosition);
 

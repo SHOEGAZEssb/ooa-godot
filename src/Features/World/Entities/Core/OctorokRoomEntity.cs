@@ -9,13 +9,10 @@ internal sealed class OctorokRoomEntity
 {
     public OctorokRoomEntity(
         OctorokCharacter octorok,
-        Action<int> soundRequested,
         int killableEnemyIndex = 0)
         : base(
             octorok, octorok.SetTransitionDrawOffset, CreateCombat(octorok),
-            (octorok.Record.Flags & 0x02) == 0, killableEnemyIndex,
-            finished: () => EnemyHazardSounds.PlayHoleSound(
-                octorok.DeathHazard, soundRequested))
+            (octorok.Record.Flags & 0x02) == 0, killableEnemyIndex)
     { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
@@ -36,7 +33,8 @@ internal sealed class OctorokRoomEntity
             () => octorok.IsDead && !octorok.DiedInHazard
                 ? new EnemyDeathPuffSpawn(
                     octorok.Position, EnemyId: octorok.Record.Id)
-                : null);
+                : null,
+            octorok.ApplySwordKnockback);
 }
 
 internal sealed record OctorokRockSpawn(Vector2 Position, int Angle)

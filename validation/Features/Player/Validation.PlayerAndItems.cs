@@ -750,6 +750,7 @@ public sealed partial class ValidationRoot
             _sound.PlayRequestsFor(OracleSoundEngine.SndBoomerang);
         if (slashRequests != 1 || _player.SwordState != SwordActionState.Swing ||
             _player.SwordStateFrame != 0 || _player.SwordArcIndex != 0 ||
+            _player.SwordKnockbackStrength != EnemyKnockbackStrength.Low ||
             _random.Calls != randomCalls + 1 || _random.LastResult != expectedRandom ||
             _sound.PlayRequestsFor(SoundFor(expectedRandom)) != 1)
         {
@@ -970,6 +971,7 @@ public sealed partial class ValidationRoot
         _player.AdvanceSwordForValidation(1, buttonHeld: true);
         if (_player.SwordState != SwordActionState.Held ||
             !_player.SwordAllowsMovement || !_player.SwordCanRestart || _player.SwordArcIndex != 12 ||
+            _player.SwordKnockbackStrength != EnemyKnockbackStrength.Low ||
             _player.SwordSpritePosition != new Vector2(-4, -12))
         {
             throw new InvalidOperationException(
@@ -1004,6 +1006,7 @@ public sealed partial class ValidationRoot
         _player.AdvanceSwordForValidation(1, buttonHeld: true);
         if (_player.SwordState != SwordActionState.Charged ||
             _player.SwordCanRestart || _player.SwordUsesChargedPalette ||
+            _player.SwordKnockbackStrength != EnemyKnockbackStrength.Low ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndChargeSword) != 1)
             throw new InvalidOperationException("The 41st held update did not enter the charged state with SND_CHARGE_SWORD.");
         _player.AdvanceSwordForValidation(3, buttonHeld: true);
@@ -1017,6 +1020,7 @@ public sealed partial class ValidationRoot
         if (_player.SwordState != SwordActionState.Spin ||
             _player.SwordStateFrame != 0 || _player.SwordAllowsMovement ||
             _player.SwordArcIndex != 16 ||
+            _player.SwordKnockbackStrength != EnemyKnockbackStrength.High ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSpin) != 1)
         {
             throw new InvalidOperationException(

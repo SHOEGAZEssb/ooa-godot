@@ -326,16 +326,42 @@ public sealed partial class ValidationRoot
 
         _player.WarpTo(normalKeese.Position + Vector2.Down * 16.0f);
         Vector2 expectedPuffPosition = normalKeese.Position +
+            Vector2.Right * 2.0f * 0x08 +
             Vector2.Down * normalKeese.SpriteHeight;
         int countBeforeSword = _entities.Entities<KeeseCharacter>().Count;
         int killSoundsBeforeSword =
             _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy);
-        if (!_entities.ApplySwordHit(normalKeese.CollisionBounds.Grow(1.0f)) ||
-            _entities.Entities<KeeseCharacter>().Count != countBeforeSword - 1 ||
+        if (!_entities.ApplySwordHit(
+                normalKeese.CollisionBounds.Grow(1.0f),
+                normalKeese.Position + Vector2.Left * 16.0f) ||
+            !normalKeese.PendingKnockbackDeath ||
+            normalKeese.CollisionEnabled ||
+            _entities.Entities<KeeseCharacter>().Count != countBeforeSword ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
+                killSoundsBeforeSword)
+            throw new InvalidOperationException(
+                "The lethal level-1 sword hit did not retain ENEMY_KEESE for " +
+                "its collision-disabled recoil.");
+        for (int frame = 0; frame < 0x08; frame++)
+            normalKeese.UpdateFrame(_player.Position, frame);
+        if (_entities.Entities<KeeseCharacter>().Count != countBeforeSword ||
+            normalKeese.KnockbackCounter != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
+                killSoundsBeforeSword)
+        {
+            throw new InvalidOperationException(
+                "Lethal ENEMY_KEESE recoil did not complete before the death update.");
+        }
+        normalKeese.UpdateFrame(_player.Position, 0x08);
+        _entities.Update(0.0, _player);
+        if (_entities.Entities<KeeseCharacter>().Count != countBeforeSword - 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
                 killSoundsBeforeSword + 1)
+        {
             throw new InvalidOperationException(
-                "The level-1 sword did not defeat ENEMY_KEESE with one SND_KILLENEMY request.");
+                "ENEMY_KEESE did not die with one SND_KILLENEMY request on " +
+                "the update after recoil.");
+        }
         if (_entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
             _entities.Entities<EnemyDeathPuffEffect>()[0].Position != expectedPuffPosition ||
             _entities.Entities<EnemyDeathPuffEffect>()[0].HighKnockback ||
@@ -559,12 +585,25 @@ public sealed partial class ValidationRoot
 
         int redCount = _entities.Entities<OctorokCharacter>().Count;
         if (!_entities.ApplySwordHit(red.CollisionBounds.Grow(1.0f), red.Position + Vector2.Down * 16.0f) ||
-            _entities.Entities<OctorokCharacter>().Count != redCount - 1 ||
-            _entities.Entities<EnemyDeathPuffEffect>().Count != 1 || _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x09)
+            !red.PendingKnockbackDeath ||
+            _entities.Entities<OctorokCharacter>().Count != redCount ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 0)
         {
             throw new InvalidOperationException(
-                "The level-1 sword did not defeat a two-health red Octorok in one hit and " +
-                "create its ordinary ENEMY_OCTOROK `$09 death puff.");
+                "A lethal level-1 sword hit did not retain the two-health red " +
+                "Octorok for recoil.");
+        }
+        while (red.KnockbackCounter > 0)
+            red.UpdateFrame(_player.Position);
+        red.UpdateFrame(_player.Position);
+        _entities.Update(0.0, _player);
+        if (_entities.Entities<OctorokCharacter>().Count != redCount - 1 ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
+            _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x09)
+        {
+            throw new InvalidOperationException(
+                "The red Octorok did not create its ordinary ENEMY_OCTOROK " +
+                "`$09 death puff after lethal recoil.");
         }
 
         LoadValidationRoom(1, 0xbc);
@@ -689,12 +728,27 @@ public sealed partial class ValidationRoot
         for (int frame = 0; frame < 0x10; frame++)
             blue.UpdateFrame(_player.Position);
         if (blue.InvincibilityCounter != 0 || blue.KnockbackCounter != 0 ||
-            !_entities.ApplySwordHit(blue.CollisionBounds.Grow(1.0f), _player.Position) ||
-            _entities.Entities<OctorokCharacter>().Count != blueCount - 1 ||
-            _entities.Entities<EnemyDeathPuffEffect>().Count != 1 || _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x09)
+            !_entities.ApplySwordHit(
+                blue.CollisionBounds.Grow(1.0f),
+                blue.Position + Vector2.Left * 16.0f) ||
+            !blue.PendingKnockbackDeath ||
+            _entities.Entities<OctorokCharacter>().Count != blueCount ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 0)
         {
             throw new InvalidOperationException(
-                "A blue Octorok did not become vulnerable after 16 updates and die on the second sword hit.");
+                "A blue Octorok did not become vulnerable after 16 updates " +
+                "and begin lethal recoil on the second sword hit.");
+        }
+        while (blue.KnockbackCounter > 0)
+            blue.UpdateFrame(_player.Position);
+        blue.UpdateFrame(_player.Position);
+        _entities.Update(0.0, _player);
+        if (_entities.Entities<OctorokCharacter>().Count != blueCount - 1 ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
+            _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x09)
+        {
+            throw new InvalidOperationException(
+                "The blue Octorok did not die after its lethal recoil.");
         }
 
         OctorokCharacter transitionOctorok = _entities.Entities<OctorokCharacter>()[0];
@@ -742,6 +796,498 @@ public sealed partial class ValidationRoot
         GD.Print("Validated 33 imported ENEMY_OCTOROK room records / 48 instances, random and fixed " +
             "red/fast-red/blue subids, movement/combat attributes, 16-update firing, SPEED_200 rocks, " +
             "sword deflection, 32-update bounce, two-hit blue combat, scrolling, and `$8e item drops.");
+    }
+
+    private void ValidateEnemySwordKnockback()
+    {
+        static bool CanOccupy(OracleRoomData room, Vector2 center)
+        {
+            Vector2[] samples =
+            [
+                center + new Vector2(-5, -4),
+                center + new Vector2(5, -4),
+                center + new Vector2(-5, 6),
+                center + new Vector2(5, 6)
+            ];
+            return samples.All(sample =>
+                sample.X >= 0 && sample.X < room.Width &&
+                sample.Y >= 0 && sample.Y < room.Height &&
+                !room.IsSolid(sample));
+        }
+
+        LoadValidationRoom(1, 0xbc);
+        OctorokCharacter blocked =
+            _entities.Entities<OctorokCharacter>()[0];
+        _entities.Entities<OctorokCharacter>()[1].Position =
+            new Vector2(-100, -100);
+        Vector2 blockedOrigin = Vector2.Zero;
+        bool foundBlockedOrigin = false;
+        for (int y = 4; y < _currentRoom.Height - 6 &&
+            !foundBlockedOrigin; y++)
+        {
+            for (int x = 5; x < _currentRoom.Width - 7; x++)
+            {
+                var origin = new Vector2(x, y);
+                if (CanOccupy(_currentRoom, origin) &&
+                    (_currentRoom.IsSolid(
+                        origin + new Vector2(6, -1)) ||
+                     _currentRoom.IsSolid(
+                        origin + new Vector2(6, 5))))
+                {
+                    blockedOrigin = origin;
+                    foundBlockedOrigin = true;
+                    break;
+                }
+            }
+        }
+        if (!foundBlockedOrigin)
+        {
+            throw new InvalidOperationException(
+                "Room 1:bc has no usable enemy knockback collision edge.");
+        }
+
+        (EnemyKnockbackStrength Strength, int Invincibility, int Counter)[]
+            profiles =
+            [
+                (EnemyKnockbackStrength.Low, 0x10, 0x08),
+                (EnemyKnockbackStrength.Normal, 0x15, 0x0b),
+                (EnemyKnockbackStrength.High, 0x1a, 0x0f)
+            ];
+        foreach ((EnemyKnockbackStrength strength, int invincibility, int counter)
+            in profiles)
+        {
+            blocked.Position = blockedOrigin;
+            blocked.Health = 0x40;
+            blocked.InvincibilityCounter = 0;
+            blocked.SetStateForValidation(
+                OctorokState.Standing,
+                counter1: 1000);
+            if (!_entities.ApplySwordHit(
+                    blocked.CollisionBounds.Grow(1),
+                    blockedOrigin + Vector2.Left * 16.0f,
+                    damage: 1,
+                    knockbackStrength: strength) ||
+                blocked.Health != 0x3f ||
+                blocked.InvincibilityCounter != invincibility ||
+                blocked.KnockbackCounter != counter ||
+                blocked.KnockbackAngle != 0x08)
+            {
+                throw new InvalidOperationException(
+                    $"{strength} sword response did not produce " +
+                    $"{invincibility}/{counter} invincibility/knockback " +
+                    "counters and an away-from-source angle.");
+            }
+
+            blocked.UpdateFrame(_player.Position);
+            if (blocked.Position != blockedOrigin ||
+                blocked.KnockbackCounter != 0 ||
+                blocked.InvincibilityCounter != invincibility - 1 ||
+                blocked.Counter1 != 1000)
+            {
+                throw new InvalidOperationException(
+                    $"{strength} sword knockback did not stop immediately " +
+                    "at solid terrain while pausing the enemy handler.");
+            }
+        }
+
+        LoadValidationRoom(4, 0x1e);
+        GhiniCharacter ghini =
+            _entities.Entities<GhiniCharacter>().Single();
+        Vector2 ghiniOrigin = new(80, 80);
+        Vector2 ghiniSource = new(64, 96);
+        ghini.Position = ghiniOrigin;
+        ghini.Health = 0x40;
+        if (!_entities.ApplySwordHit(
+                ghini.CollisionBounds.Grow(1),
+                ghiniSource,
+                damage: 1,
+                knockbackStrength: EnemyKnockbackStrength.Low) ||
+            ghini.KnockbackAngle != 0x04 ||
+            ghini.KnockbackCounter != 0x08)
+        {
+            throw new InvalidOperationException(
+                "The Ghini did not begin low sword knockback on the " +
+                "source-to-enemy angle.");
+        }
+        for (int frame = 1; frame < 0x08; frame++)
+            ghini.UpdateFrame();
+        if (ghini.KnockbackCounter != 1 ||
+            ghini.State != GhiniState.Uninitialized)
+        {
+            throw new InvalidOperationException(
+                "Low sword knockback did not retain its final counter update " +
+                "or fully pause the Ghini handler.");
+        }
+        ghini.UpdateFrame();
+        Vector2 expectedGhiniPosition = ghiniOrigin +
+            new Vector2(0x16a, -0x16a) / 256.0f * 0x08;
+        if (ghini.KnockbackCounter != 0 ||
+            !ghini.Position.IsEqualApprox(expectedGhiniPosition) ||
+            ghini.State != GhiniState.Uninitialized)
+        {
+            throw new InvalidOperationException(
+                "Low sword knockback did not move for exactly eight " +
+                "SPEED_200 updates.");
+        }
+        ghini.UpdateFrame();
+        if (ghini.State != GhiniState.Choosing)
+        {
+            throw new InvalidOperationException(
+                "The Ghini handler did not resume on the update after " +
+                "knockback counter zero.");
+        }
+
+        ghini.Position = ghiniOrigin;
+        ghini.Health = 1;
+        ghini.InvincibilityCounter = 0;
+        int ghiniCount = _entities.Entities<GhiniCharacter>().Count;
+        int puffCount = _entities.Entities<EnemyDeathPuffEffect>().Count;
+        if (!_entities.ApplySwordHit(
+                ghini.CollisionBounds.Grow(1),
+                ghiniOrigin + Vector2.Left * 16.0f,
+                damage: 1,
+                knockbackStrength: EnemyKnockbackStrength.Normal) ||
+            ghini.Health != 0 ||
+            !ghini.PendingKnockbackDeath ||
+            ghini.CollisionEnabled ||
+            !ghini.Visible ||
+            ghini.KnockbackCounter != 0x0b ||
+            _entities.Entities<GhiniCharacter>().Count != ghiniCount ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != puffCount)
+        {
+            throw new InvalidOperationException(
+                "A lethal sword hit did not disable Ghini collision while " +
+                "retaining its visible object for normal knockback.");
+        }
+        for (int frame = 0; frame < 0x0b; frame++)
+            ghini.UpdateFrame();
+        Vector2 lethalKnockbackPosition =
+            ghiniOrigin + Vector2.Right * 2.0f * 0x0b;
+        if (!ghini.PendingKnockbackDeath ||
+            ghini.KnockbackCounter != 0 ||
+            !ghini.Position.IsEqualApprox(lethalKnockbackPosition) ||
+            _entities.Entities<GhiniCharacter>().Count != ghiniCount ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != puffCount)
+        {
+            throw new InvalidOperationException(
+                "A lethal sword hit did not complete all 11 normal " +
+                "knockback updates before death.");
+        }
+        ghini.UpdateFrame();
+        _entities.Update(0.0, _player);
+        if (_entities.Entities<GhiniCharacter>().Count != ghiniCount - 1 ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != puffCount + 1 ||
+            !_entities.Entities<EnemyDeathPuffEffect>()[^1].Position
+                .IsEqualApprox(lethalKnockbackPosition))
+        {
+            throw new InvalidOperationException(
+                "The lethal Ghini death handler did not run on the update " +
+                "after knockback and create its puff at the final position.");
+        }
+
+        LoadValidationRoom(4, 0xcc);
+        ZolCharacter zol = _entities.Entities<ZolCharacter>()
+            .First(enemy => enemy.Record.SubId == 0);
+        zol.SetStateForValidation(
+            ZolState.GreenWaiting,
+            counter1: 1000,
+            animation: 1);
+        zol.Health = 3;
+        Vector2 zolOrigin = zol.Position;
+        if (!_entities.ApplySwordHit(
+                zol.CollisionBounds.Grow(1),
+                zol.Position + Vector2.Left * 16.0f,
+                damage: 1,
+                knockbackStrength: EnemyKnockbackStrength.High) ||
+            zol.Health != 2 ||
+            zol.InvincibilityCounter != 0x20 ||
+            zol.KnockbackCounter != 0)
+        {
+            throw new InvalidOperationException(
+                "ENEMYCOLLISION_ZOL did not apply its sword-no-knockback " +
+                "$20 invincibility response.");
+        }
+        if (_entities.ApplySwordHit(
+                zol.CollisionBounds.Grow(1),
+                zol.Position,
+                damage: 1,
+                knockbackStrength: EnemyKnockbackStrength.Low))
+        {
+            throw new InvalidOperationException(
+                "The Zol no-knockback invincibility window accepted an " +
+                "immediate second sword hit.");
+        }
+        zol.UpdateFrame(_player.Position);
+        if (zol.Position != zolOrigin ||
+            zol.InvincibilityCounter != 0x1f ||
+            zol.KnockbackCounter != 0 ||
+            zol.Counter1 != 999)
+        {
+            throw new InvalidOperationException(
+                "A sword-hit Zol recoiled or paused despite collision effect $0b.");
+        }
+
+        GD.Print("Validated collisionEffects.s low/normal/high sword responses " +
+            "($10/$15/$1a invincibility, $08/$0b/$0f knockback), " +
+            "away-from-source angles, exact SPEED_200 duration, blocked-terrain " +
+            "cancellation, handler pause/resume, lethal-hit ordering, and Zol " +
+            "no-knockback effect $0b.");
+    }
+
+    private void ValidateEnemyHazards()
+    {
+        var database = new EnemyDatabase();
+        OctorokRecord record = database.GetRoomOctoroks(0, 0x74)[0];
+
+        const int waterGroup = 0;
+        const int waterRoomId = 0xb8;
+        var waterCenter = new Vector2(8, 8);
+        OracleRoomData waterRoom = _world.LoadRoom(
+            waterGroup, waterRoomId);
+        if (waterRoom.GetTerrainInfo(
+                waterCenter + new Vector2(-1, 5)).Hazard != HazardType.Water)
+        {
+            throw new InvalidOperationException(
+                "Canonical room 0:b8 position `$00 is not water for enemy hazard validation.");
+        }
+
+        var waterEnemy = new OctorokCharacter();
+        waterEnemy.Initialize(
+            record, waterRoom, waterCenter, new OracleRandom());
+        waterEnemy.SetStateForValidation(
+            OctorokState.Standing, counter1: 1000);
+        var waterAdapter = new OctorokRoomEntity(waterEnemy);
+        waterEnemy.UpdateFrame(_player.Position);
+        if (!waterEnemy.IsDead || !waterEnemy.DiedInHazard ||
+            waterEnemy.DeathHazard != HazardType.Water ||
+            waterEnemy.Visible || waterEnemy.CollisionEnabled ||
+            waterEnemy.Position != waterCenter + Vector2.Left)
+        {
+            throw new InvalidOperationException(
+                "ENEMY_OCTOROK did not use ecom_checkHazards' left-first " +
+                "y+$05 probe, one-pixel nudge, and immediate water deletion.");
+        }
+
+        var waterSpawns = new List<RoomEntitySpawn>();
+        waterAdapter.OnFinished(waterSpawns);
+        if (waterSpawns is not
+            [
+                EnemySplashSpawn
+                {
+                    Hazard: HazardType.Water
+                } waterSplash
+            ] ||
+            waterSplash.Position != waterEnemy.Position)
+        {
+            throw new InvalidOperationException(
+                "A water-deleted enemy did not request INTERAC_SPLASH at its final position.");
+        }
+        int splashSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash);
+        SplashEffect splash = _entities.Spawn<SplashEffect>(waterSplash);
+        if (splash.IsLava || splash.Position != waterEnemy.Position ||
+            splash.DurationFrames != 12 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) !=
+                splashSounds + 1)
+        {
+            throw new InvalidOperationException(
+                "Enemy water deletion did not create the 12-update " +
+                "INTERAC_SPLASH with one SND_SPLASH `$87 request.");
+        }
+        waterEnemy.Free();
+
+        if (!TryFindTerrainSample(
+            HazardType.Hole,
+            out int holeGroup,
+            out int holeRoomId,
+            out Vector2 holeCenter,
+            out _))
+        {
+            throw new InvalidOperationException(
+                "Could not find a canonical hole for enemy hazard validation.");
+        }
+        OracleRoomData holeRoom = _world.LoadRoom(
+            holeGroup, holeRoomId);
+        Vector2 holeEntry = holeCenter + new Vector2(7, -8);
+        if (holeRoom.GetTerrainInfo(
+                holeEntry + new Vector2(-1, 5)).Hazard != HazardType.Hole)
+        {
+            throw new InvalidOperationException(
+                $"Canonical room {holeGroup:x1}:{holeRoomId:x2} hole entry " +
+                "does not satisfy ecom_checkHazards' first probe.");
+        }
+
+        var holeEnemy = new OctorokCharacter();
+        holeEnemy.Initialize(
+            record, holeRoom, holeEntry, new OracleRandom());
+        holeEnemy.SetStateForValidation(
+            OctorokState.Standing, counter1: 1000);
+        var holeAdapter = new OctorokRoomEntity(holeEnemy);
+        int initialAnimationFrame = holeEnemy.CurrentAnimationFrame;
+        int fallSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole);
+
+        holeEnemy.UpdateFrame(_player.Position);
+        Vector2 pullOrigin = holeEntry + Vector2.Left;
+        if (holeEnemy.IsDead || !holeEnemy.IsFallingIntoHole ||
+            !holeEnemy.DiedInHazard ||
+            holeEnemy.DeathHazard != HazardType.Hole ||
+            !holeEnemy.Visible || holeEnemy.CollisionEnabled ||
+            holeEnemy.Position != pullOrigin ||
+            holeEnemy.TakeSwordHit(Vector2.Zero) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) !=
+                fallSounds)
+        {
+            throw new InvalidOperationException(
+                "A hole-touching enemy did not remain visible, disable collision, " +
+                "clear combat, and defer SND_FALLINHOLE `$59 during its pull.");
+        }
+
+        holeEnemy.UpdateFrame(_player.Position);
+        if (holeEnemy.Position != pullOrigin)
+        {
+            throw new InvalidOperationException(
+                "Enemy hole pull moved before counter1 reached an eight-update boundary.");
+        }
+        holeEnemy.UpdateFrame(_player.Position);
+        if (holeEnemy.CurrentAnimationFrame == initialAnimationFrame)
+        {
+            throw new InvalidOperationException(
+                "The animated ecom_fallingInHole variant did not subtract three " +
+                "from animCounter on every pull update.");
+        }
+        holeEnemy.UpdateFrame(_player.Position);
+        Vector2 pullUnit = OracleObjectMath.VectorFromAngle32(
+            OracleObjectMath.AngleToward(
+                OracleObjectMath.ToPixelPosition(pullOrigin),
+                holeCenter));
+        var expectedFirstPull = pullOrigin + new Vector2(
+            (int)(pullUnit.X * 0x80) / 256.0f,
+            (int)(pullUnit.Y * 0x80) / 256.0f);
+        if (holeEnemy.Position != expectedFirstPull)
+        {
+            throw new InvalidOperationException(
+                "Enemy hole pull did not apply one signed-8.8 SPEED_80 step " +
+                "when counter1 reached `$38.");
+        }
+
+        for (int update = 5; update <= 59; update++)
+            holeEnemy.UpdateFrame(_player.Position);
+        if (holeEnemy.IsDead || !holeEnemy.IsFallingIntoHole ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) !=
+                fallSounds)
+        {
+            throw new InvalidOperationException(
+                "Enemy hole pull ended or played SND_FALLINHOLE before update 60.");
+        }
+        holeEnemy.UpdateFrame(_player.Position);
+        if (!holeEnemy.IsDead || holeEnemy.Visible ||
+            holeEnemy.IsFallingIntoHole)
+        {
+            throw new InvalidOperationException(
+                "Enemy hole pull did not finish on counter1 update 60.");
+        }
+
+        var holeSpawns = new List<RoomEntitySpawn>();
+        holeAdapter.OnFinished(holeSpawns);
+        if (holeSpawns is not [FallingDownHoleSpawn falling] ||
+            falling.Position != holeEnemy.Position)
+        {
+            throw new InvalidOperationException(
+                "Completed enemy hole pull did not request " +
+                "INTERAC_FALLDOWNHOLE `$0f:$00 at its final position.");
+        }
+        FallingDownHoleEffect fallingEffect =
+            _entities.Spawn<FallingDownHoleEffect>(falling);
+        if (fallingEffect.Position !=
+                OracleObjectMath.ToPixelPosition(holeEnemy.Position) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) !=
+                fallSounds + 1)
+        {
+            throw new InvalidOperationException(
+                "Completed enemy hole pull did not begin its imported falling " +
+                "animation and request SND_FALLINHOLE `$59 exactly once.");
+        }
+
+        var gel = new GelCharacter();
+        gel.Initialize(
+            database.Gel, holeRoom, holeEntry, new OracleRandom());
+        gel.SetStateForValidation(
+            GelState.Waiting,
+            counter1: 1000,
+            animation: 0);
+        int gelFrame = gel.CurrentAnimationFrame;
+        for (int update = 0; update < 4; update++)
+            gel.UpdateFrame(_player.Position, Vector2I.Down, false);
+        if (!gel.IsFallingIntoHole ||
+            gel.CurrentAnimationFrame != gelFrame)
+        {
+            throw new InvalidOperationException(
+                "ENEMY_GEL did not use the no-animation falling-hole variant.");
+        }
+
+        gel.Free();
+        holeEnemy.Free();
+        GD.Print(
+            "Validated enemy water splash deletion and 60-update hole pull: " +
+            "left-first y+$05 probes, one-pixel nudge, collision suppression, " +
+            "SPEED_80/8-update centering, animated and frozen variants, " +
+            "INTERAC_SPLASH / INTERAC_FALLDOWNHOLE, and exact sounds.");
+    }
+
+    private void ValidateEnemyDamageBlink()
+    {
+        var database = new EnemyDatabase();
+        OctorokRecord record = database.GetRoomOctoroks(0, 0x74)[0];
+        var enemy = new OctorokCharacter();
+        enemy.Initialize(
+            record,
+            _world.LoadRoom(0, 0x74),
+            new Vector2(80, 80),
+            new OracleRandom());
+        enemy.SetStateForValidation(
+            OctorokState.Standing,
+            counter1: 1000);
+
+        Texture2D normal = enemy.CurrentAnimationTexture;
+        Texture2D damage = enemy.Animation.DamageTexture;
+        if (ReferenceEquals(normal, damage) ||
+            normal.GetImage().GetData().SequenceEqual(
+                damage.GetImage().GetData()))
+        {
+            throw new InvalidOperationException(
+                "Typed-sprite ENEMY_OCTOROK did not build a visibly distinct " +
+                "OBJ-palette-5 damage texture.");
+        }
+
+        enemy.InvincibilityCounter = 9;
+        for (int frame = 0; frame <= 8; frame++)
+        {
+            enemy.SetGlobalFrameCounter(frame);
+            bool expectedDamagePalette = (frame & 4) == 0;
+            bool usesDamagePalette =
+                ReferenceEquals(enemy.CurrentDrawTexture, damage);
+            if (usesDamagePalette != expectedDamagePalette)
+            {
+                throw new InvalidOperationException(
+                    $"Enemy damage blink global update {frame} used " +
+                    $"{(usesDamagePalette ? "damage" : "normal")} palette; " +
+                    $"expected {(expectedDamagePalette ? "damage" : "normal")}.");
+            }
+        }
+
+        enemy.InvincibilityCounter = 0;
+        if (!ReferenceEquals(enemy.CurrentDrawTexture, normal))
+        {
+            throw new InvalidOperationException(
+                "Enemy damage blink did not restore its normal OBJ palette " +
+                "when invincibilityCounter reached zero.");
+        }
+        enemy.Free();
+
+        GD.Print(
+            "Validated typed-sprite enemy damage textures and the global " +
+            "wFrameCounter bit-2 OBJ-palette-5 blink/restoration cadence.");
     }
 
     private void ValidateStalfos()
@@ -1109,20 +1655,52 @@ public sealed partial class ValidationRoot
             new GelSpawn(holeCenter, "HoleSoundGel"));
         _sound.ClearPlayRequestAudit();
         _entities.Update(1.0 / 60.0, _player);
+        if (!_entities.Entities<GelCharacter>().Contains(holeGel) ||
+            !holeGel.IsFallingIntoHole || !holeGel.Visible ||
+            holeGel.CollisionEnabled ||
+            _entities.Entities<FallingDownHoleEffect>().Count != 0 ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 0)
+        {
+            throw new InvalidOperationException(
+                "A Gel entering a hole did not remain visible/collisionless " +
+                "and defer its fall interaction and sound during pull update 1.");
+        }
+        for (int update = 2; update < 20; update++)
+            holeGel.UpdateFrame(
+                _player.Position,
+                _player.FacingVector,
+                anyButtonJustPressed: false);
+        if (!_entities.Entities<GelCharacter>().Contains(holeGel) ||
+            _entities.Entities<FallingDownHoleEffect>().Count != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 0)
+        {
+            throw new InvalidOperationException(
+                "The centered Gel completed its eight-update SPEED_80 hole " +
+                "pull before the update-20 center check.");
+        }
+        holeGel.UpdateFrame(
+            _player.Position,
+            _player.FacingVector,
+            anyButtonJustPressed: false);
+        _entities.Update(0.0, _player);
         if (_entities.Entities<GelCharacter>().Contains(holeGel) ||
+            _entities.Entities<FallingDownHoleEffect>().Count != 1 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 0)
         {
             throw new InvalidOperationException(
-                "A Gel entering a hole did not request only SND_FALLINHOLE on hazard death.");
+                "A centered Gel did not become INTERAC_FALLDOWNHOLE with only " +
+                "SND_FALLINHOLE on pull update 20.");
         }
 
         _player.RefillHealth();
         GD.Print("Validated 61 ENEMY_ZOL records / 79 instances, room 4:cc fixed placements, " +
             "strict `$28 emergence, 32/27/48-update green timing, four-hop disappearance, " +
             "red 18-update splitting with INTERAC_KILLENEMYPUFF/SND_KILLENEMY, +/-4 Gel " +
-            "spawning, hole SND_FALLINHOLE, direct " +
+            "spawning, centered 20-update hole pull/SND_FALLINHOLE, direct " +
             "room Gels, non-damaging 120-update latch/button release, collision-safe hop-off, " +
             "alternating movement suppression, " +
             "sword disabling, combat, drops, and retained/preloaded scrolling.");

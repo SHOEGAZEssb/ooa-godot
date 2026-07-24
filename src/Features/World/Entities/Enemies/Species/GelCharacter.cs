@@ -19,8 +19,6 @@ public partial class GelCharacter : EnemyCharacter
     private int _angle;
     private bool _collisionEnabled;
 
-    public bool DiedInHazard { get; private set; }
-    public HazardType DeathHazard { get; private set; }
     public bool IsAttached => !IsDead && _state == GelState.Attached;
     internal GelDefinition Definition { get; private set; }
     internal GelState State => _state;
@@ -29,7 +27,8 @@ public partial class GelCharacter : EnemyCharacter
     internal int Angle => _angle;
     internal int ZFixed => _verticalMotion.ZFixed;
     internal int CurrentAnimationFrame => AnimationFrame;
-    internal override bool CollisionEnabled => _collisionEnabled;
+    internal override bool CollisionEnabled =>
+        _collisionEnabled && base.CollisionEnabled;
     protected override bool DrawsAnimation => !IsDead && Visible;
     protected override Vector2 AnimationDrawOffset =>
         new(-16, -16 + (_verticalMotion.ZFixed >> 8));
@@ -64,6 +63,10 @@ public partial class GelCharacter : EnemyCharacter
                 encodedAnimations,
                 definition.TileBase,
                 definition.Palette));
+        ConfigureHazards(
+            room,
+            animateWhileFallingInHole: false,
+            zPosition: () => _verticalMotion.ZFixed);
         RestartAnimation(0);
     }
 
@@ -73,6 +76,10 @@ public partial class GelCharacter : EnemyCharacter
         bool anyButtonJustPressed)
     {
         if (IsDead)
+            return;
+        if (BeginFrame())
+            return;
+        if (CheckHazards())
             return;
 
         if (_state == GelState.Attached)
@@ -90,14 +97,6 @@ public partial class GelCharacter : EnemyCharacter
                 ZIndex = ZIndex <= 10 ? 11 : 9;
             AdvanceAnimation();
             QueueRedraw();
-            return;
-        }
-
-        if (_verticalMotion.ZFixed == 0 && _collisionEnabled && _movement.IsOnHazard)
-        {
-            DeathHazard = _movement.Hazard;
-            DiedInHazard = true;
-            Finish();
             return;
         }
 
@@ -167,7 +166,7 @@ public partial class GelCharacter : EnemyCharacter
 
     internal bool TakeSwordHit(int damage)
     {
-        if (IsDead || IsAttached)
+        if (IsDead || !CollisionEnabled || InvincibilityCounter > 0 || IsAttached)
             return false;
         return ApplyDamage(damage, invincibilityFrames: 0);
     }
