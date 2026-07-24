@@ -1883,6 +1883,42 @@ public sealed partial class ValidationRoot
         }
         bounceDrop.Free();
 
+        int swordRupeesBefore = _player.Rupees;
+        ItemDropEffect swordDrop = _entities.Spawn<ItemDropEffect>(
+            new ItemDropSpawn(ItemDropDatabase.OneRupee, dropPosition));
+        for (int frame = 1; frame <= 36; frame++)
+            _entities.Update(1.0 / 60.0, _player);
+        _player.WarpTo(
+            dropPosition - new Vector2(16, -2),
+            recordSafe: false);
+        _player.StartSwordAttackForValidation(Vector2.Up);
+        Rect2 swordHitbox = _player.GetSwordHitbox();
+        if (!swordHitbox.Intersects(swordDrop.CollisionBounds) ||
+            swordDrop.Collected ||
+            swordDrop.State != DropState.Grounded)
+        {
+            throw new InvalidOperationException(
+                "Could not place Link's initial up-sword arc over a grounded item drop.");
+        }
+        bool swordReportedEnemyContact = _entities.ApplySwordHit(
+            swordHitbox, _player.Position);
+        if (swordDrop.Collected || swordDrop.Finished)
+        {
+            // COLLISIONEFFECT_23 is observed by partCode01 on its next update.
+            throw new InvalidOperationException(
+                "The sword granted PART_ITEM_DROP before the part's next update.");
+        }
+        _entities.Update(1.0 / 60.0, _player);
+        if (!swordDrop.Collected || !swordDrop.Finished ||
+            _player.Rupees != swordRupeesBefore + 1 ||
+            swordReportedEnemyContact)
+        {
+            throw new InvalidOperationException(
+                "Sword collision types $04-$0b did not collect PART_ITEM_DROP " +
+                "through COLLISIONEFFECT_23 without reporting enemy contact.");
+        }
+        _player.WarpTo(farPosition, recordSafe: false);
+
         _player.RefillHealth();
         _player.ApplyDamage(4);
         _statusBar.SynchronizeHealth();
@@ -2010,6 +2046,7 @@ public sealed partial class ValidationRoot
         GD.Print("Validated all 144 enemy drop records, Keese `$ae probability/set data, " +
             "PART_ITEM_DROP heart/1/5/100-rupee visuals, shovel SPEED_a0 launch, " +
             "-`$160 fixed-point bounce, heart `$57 and rupee `$61 pickup sounds, " +
+            "sword COLLISIONEFFECT_23 collection without enemy contact, " +
             "ground-height INTERAC_SPLASH/`$87 water disposal, one-per-update rupee display and " +
             "SND_RUPEE `$61 requests including the `$0999 cap, " +
             "240 alternating-frame lifetime ticks, final flicker, and frozen scrolling ownership.");

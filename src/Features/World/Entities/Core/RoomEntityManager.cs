@@ -19,6 +19,8 @@ public sealed class RoomEntityManager : IDisposable
     internal event Action<GashaSpotInteraction, Player>? GashaNutCaught;
     internal event Action<Vector2, HazardType>? ItemDropEnteredHazard;
     internal event Action<SpiritsGraveEssence, Player>? SpiritsGraveEssenceTriggered;
+    internal event Action<int, string, Player>? MapleDialogueRequested;
+    internal event Action<MapleItemRecord, Player>? MapleItemCollected;
     public event Action<int>? SoundRequested;
     public event Action<int, int>? RoomMusicRequested;
     public event Action? RoomTileChanged;
@@ -45,6 +47,7 @@ public sealed class RoomEntityManager : IDisposable
     private double _enemyFrameAccumulator;
     private int _enemyFrameCounter;
     private int _screenShakeCounter;
+    private int _horizontalScreenShakeCounter;
     private bool _linkCollisionsAndMenuDisabled;
     private bool _disposed;
 
@@ -54,6 +57,8 @@ public sealed class RoomEntityManager : IDisposable
         static () => true;
     internal Func<Vector2, Vector2> WorldToScreen { get; set; } =
         static position => position;
+    internal Func<bool> DialogueOpenSource { get; set; } =
+        static () => false;
 
     public bool ScreenTransitionActive => _screenTransitionActive;
     public OracleRuntimeState RuntimeState => _runtimeState;
@@ -61,6 +66,8 @@ public sealed class RoomEntityManager : IDisposable
     internal int FrameCounter => _enemyFrameCounter;
     internal int RandomCalls => _random.Calls;
     internal int ScreenShakeCounter => _screenShakeCounter;
+    internal int HorizontalScreenShakeCounter =>
+        _horizontalScreenShakeCounter;
     internal bool LinkCollisionsAndMenuDisabled =>
         _linkCollisionsAndMenuDisabled;
     internal bool IsDisposed => _disposed;
@@ -157,6 +164,21 @@ public sealed class RoomEntityManager : IDisposable
             return false;
         }
     }
+    public bool ScreenTransitionsDisabled
+    {
+        get
+        {
+            foreach (IRoomEntity entity in _activeEntities)
+            {
+                if (entity is IPlayerRestriction
+                    { DisablesScreenTransitions: true })
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
 
     public RoomEntityManager(
         Node worldRoot,
@@ -207,6 +229,10 @@ public sealed class RoomEntityManager : IDisposable
             DisableLinkCollisionsAndMenu,
             EnableLinkCollisionsAndMenu,
             OnRoomMusicRequested,
+            OnMapleDialogueRequested,
+            () => DialogueOpenSource(),
+            OnMapleItemCollected,
+            BeginHorizontalScreenShake,
             position => WorldToScreen(position), _animationTick, rooms);
         if (_saveData is not null)
             _saveData.Changed += RefreshNpcState;
@@ -446,18 +472,27 @@ public sealed class RoomEntityManager : IDisposable
             hitbox,
             sourcePosition,
             damage,
-            EnemyKnockbackStrength.Low);
+            EnemyKnockbackStrength.Low,
+            collectItemDrops: true);
 
     internal bool ApplySwordHit(
         Rect2 hitbox,
         Vector2? sourcePosition,
         int damage,
-        EnemyKnockbackStrength knockbackStrength)
+        EnemyKnockbackStrength knockbackStrength,
+        bool collectItemDrops = false)
     {
         bool hit = false;
         Vector2 source = sourcePosition ?? hitbox.GetCenter();
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
+            if (collectItemDrops &&
+                entity is ILinkSwordCollectibleRoomEntity collectible)
+            {
+                // COLLISIONEFFECT_23 does not write Item.var2a, so collecting
+                // a drop must not count as enemy contact for the sword.
+                collectible.TryCollectWithSword(hitbox);
+            }
             if (entity is ISwordHittableRoomEntity swordHittable)
                 hit |= swordHittable.ApplySwordHit(
                     hitbox,
@@ -641,6 +676,7 @@ public sealed class RoomEntityManager : IDisposable
         _screenTransitionActive = false;
         _enemyFrameAccumulator = 0.0;
         _screenShakeCounter = 0;
+        _horizontalScreenShakeCounter = 0;
         _linkCollisionsAndMenuDisabled = false;
         ScreenShakeChanged?.Invoke(Vector2.Zero);
     }
@@ -705,6 +741,13 @@ public sealed class RoomEntityManager : IDisposable
         _screenShakeCounter = updates;
     }
 
+    private void BeginHorizontalScreenShake(int updates)
+    {
+        if (updates <= 0)
+            throw new ArgumentOutOfRangeException(nameof(updates));
+        _horizontalScreenShakeCounter = updates;
+    }
+
     private void DisableLinkCollisionsAndMenu() =>
         _linkCollisionsAndMenuDisabled = true;
 
@@ -713,15 +756,27 @@ public sealed class RoomEntityManager : IDisposable
 
     private void UpdateScreenShake()
     {
-        if (_screenShakeCounter == 0)
+        if (_screenShakeCounter == 0 &&
+            _horizontalScreenShakeCounter == 0)
             return;
         int[] amounts = { -2, -1, 1, 2 };
-        int y = amounts[_random.Next().Value & 3];
-        int x = amounts[_random.Next().Value & 3];
+        int y = 0;
+        int x = 0;
+        if (_screenShakeCounter != 0)
+        {
+            y = amounts[_random.Next().Value & 3];
+            x = amounts[_random.Next().Value & 3];
+            _screenShakeCounter--;
+        }
+        if (_horizontalScreenShakeCounter != 0)
+        {
+            x = amounts[_random.Next().Value & 3];
+            _horizontalScreenShakeCounter--;
+        }
         Vector2 offset = new(x, y);
         ScreenShakeChanged?.Invoke(offset);
-        _screenShakeCounter--;
-        if (_screenShakeCounter == 0)
+        if (_screenShakeCounter == 0 &&
+            _horizontalScreenShakeCounter == 0)
             ScreenShakeChanged?.Invoke(Vector2.Zero);
     }
 
@@ -859,6 +914,17 @@ public sealed class RoomEntityManager : IDisposable
     private void OnSpiritsGraveEssenceTriggered(
         SpiritsGraveEssence essence,
         Player player) => SpiritsGraveEssenceTriggered?.Invoke(essence, player);
+
+    private void OnMapleDialogueRequested(
+        int textId,
+        string message,
+        Player player) =>
+        MapleDialogueRequested?.Invoke(textId, message, player);
+
+    private void OnMapleItemCollected(
+        MapleItemRecord item,
+        Player player) =>
+        MapleItemCollected?.Invoke(item, player);
 
     private void OnRoomTileChanged() => RoomTileChanged?.Invoke();
     private void OnSoundRequested(int sound) => SoundRequested?.Invoke(sound);

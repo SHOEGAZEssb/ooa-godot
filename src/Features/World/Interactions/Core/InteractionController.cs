@@ -30,6 +30,7 @@ public sealed class InteractionController
     private Player? _groundTreasurePlayer;
     private bool _groundTreasureCompletesHeartContainer;
     private bool _groundTreasureShowingHeartContainer;
+    private bool _groundTreasureSetsRoomFlag = true;
     private ChestRecord _pendingChest;
     private FamilyNamingState _familyNamingState;
     private string _pendingChildName = string.Empty;
@@ -104,7 +105,10 @@ public sealed class InteractionController
         _entities.GroundTreasureCollected += OnGroundTreasureCollected;
         _entities.GashaInteractionRequested += OnGashaInteractionRequested;
         _entities.GashaNutCaught += OnGashaNutCaught;
+        _entities.MapleDialogueRequested += OnMapleDialogueRequested;
+        _entities.MapleItemCollected += OnMapleItemCollected;
         _entities.GroundTreasureCollectionAllowed = () => !DialogueOpen;
+        _entities.DialogueOpenSource = () => DialogueOpen;
         ApplyOpenedChestState(_rooms.ActiveGroup, _rooms.CurrentRoom);
     }
 
@@ -135,6 +139,7 @@ public sealed class InteractionController
             _groundTreasurePlayer = null;
             _groundTreasureCompletesHeartContainer = false;
             _groundTreasureShowingHeartContainer = false;
+            _groundTreasureSetsRoomFlag = true;
         }
 
         if (_chestTreasure is null)
@@ -748,10 +753,13 @@ public sealed class InteractionController
         _groundTreasureCompletesHeartContainer =
             treasureObject.TreasureId == 0x2b && _inventory.HeartPieces == 4;
         _groundTreasureShowingHeartContainer = false;
-        _rooms.SaveData.SetRoomFlag(
-            treasure.Record.Group,
-            treasure.Record.Room,
-            OracleSaveData.RoomFlagItem);
+        if (_groundTreasureSetsRoomFlag)
+        {
+            _rooms.SaveData.SetRoomFlag(
+                treasure.Record.Group,
+                treasure.Record.Room,
+                OracleSaveData.RoomFlagItem);
+        }
         int collectionSound = _treasures.GetBehaviour(
             treasureObject.TreasureId).Sound;
         if (collectionSound != 0)
@@ -776,12 +784,108 @@ public sealed class InteractionController
         _groundTreasurePlayer = null;
         _groundTreasureCompletesHeartContainer = false;
         _groundTreasureShowingHeartContainer = false;
+        _groundTreasureSetsRoomFlag = true;
         ResetGashaInteraction();
         _linkedGhiniState = LinkedGhiniState.None;
         _linkedGhiniNpc = null;
         _linkedGhiniPlayer = null;
         _linkedGhiniSecret = string.Empty;
         ApplyOpenedChestState(group, room);
+    }
+
+    private void OnMapleDialogueRequested(
+        int textId,
+        string message,
+        Player player)
+    {
+        _ = textId;
+        _dialogue.ShowGameplayMessage(
+            message, _worldToScreen(player.Position).Y);
+    }
+
+    private void OnMapleItemCollected(
+        MapleItemRecord item,
+        Player player)
+    {
+        if (item.Index == 0)
+        {
+            BeginMapleHeartPiece(item, player);
+            return;
+        }
+
+        int parameter =
+            _inventory.IsRingActive(RingId.GoldJoy) ||
+            item.BoostRing >= 0 &&
+                _inventory.ActiveRing == item.BoostRing
+                ? item.BoostedParameter
+                : item.NormalParameter;
+        if (item.Treasure == TreasureDatabase.TreasureRing)
+        {
+            int ring = new GashaSpotDatabase().SelectRing(
+                parameter, _entities.NextRandomValue());
+            _inventory.GiveUnappraisedRing(ring);
+        }
+        else
+        {
+            _inventory.GiveTreasure(item.Treasure, parameter);
+        }
+
+        int collectionSound = item.Treasure == TreasureDatabase.TreasurePotion
+            ? OracleSoundEngine.SndGetSeed
+            : _treasures.GetBehaviour(item.Treasure).Sound;
+        if (collectionSound != 0)
+            _playSound(collectionSound);
+    }
+
+    private void BeginMapleHeartPiece(
+        MapleItemRecord item,
+        Player player)
+    {
+        if (_groundTreasure is not null || _chestTreasure is not null)
+        {
+            throw new InvalidOperationException(
+                "Maple's heart piece was collected while another reward was active.");
+        }
+
+        TreasureObjectRecord treasureObject =
+            _treasures.GetObject("TREASURE_OBJECT_HEART_PIECE_02");
+        TreasureObjectVisualRecord visual =
+            _treasures.GetObjectVisual(treasureObject.Graphic);
+        var record = new GroundTreasureDatabaseRecord(
+            _rooms.ActiveGroup,
+            _rooms.CurrentRoom.Id,
+            item.Index,
+            Mathf.FloorToInt(player.Position.Y),
+            Mathf.FloorToInt(player.Position.X),
+            treasureObject.Name,
+            visual.Sprite,
+            visual.TileBase,
+            visual.Palette,
+            visual.Animation,
+            treasureObject.TextId,
+            treasureObject.Message,
+            "itemFromMaple.s:@func_4e6e");
+        GroundTreasurePickup pickup =
+            _entities.Spawn<GroundTreasurePickup>(
+                new GroundTreasureSpawn(record));
+
+        _inventory.GiveTreasure(treasureObject);
+        _rooms.SaveData.SetMapleState(
+            _rooms.SaveData.MapleState | 0x80);
+        _groundTreasureCompletesHeartContainer =
+            _inventory.HeartPieces == 4;
+        _groundTreasureShowingHeartContainer = false;
+        _groundTreasureSetsRoomFlag = false;
+        _groundTreasure = pickup;
+        _groundTreasurePlayer = player;
+        pickup.BeginGranted(player);
+        int collectionSound =
+            _treasures.GetBehaviour(treasureObject.TreasureId).Sound;
+        if (collectionSound != 0)
+            _playSound(collectionSound);
+        _dialogue.ShowGameplayMessage(
+            treasureObject.Message,
+            _worldToScreen(player.Position).Y);
     }
 
     private void OnGashaInteractionRequested(

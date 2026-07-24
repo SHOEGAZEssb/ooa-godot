@@ -430,6 +430,88 @@ public sealed class InventoryState
         return true;
     }
 
+    /// <summary>
+    /// Mirrors mapleCheckLinkCanDropItem, including its original mistaken
+    /// treasure-index checks and the one-rupee-to-five-rupee output bug.
+    /// Values stored in WRAM remain packed BCD where the source uses DAA.
+    /// </summary>
+    internal bool TryTakeMapleDrop(int selectedIndex, out int actualIndex)
+    {
+        actualIndex = selectedIndex;
+        bool changed;
+        switch (selectedIndex)
+        {
+            case >= 5 and <= 9:
+            {
+                // The bug checks treasure IDs $05-$09 rather than the seed
+                // treasure IDs $20-$24.
+                if (!HasTreasure(selectedIndex))
+                    return false;
+                int value = selectedIndex switch
+                {
+                    5 => EmberSeeds,
+                    6 => ScentSeeds,
+                    7 => PegasusSeeds,
+                    8 => GaleSeeds,
+                    _ => MysterySeeds
+                };
+                int count = FromBcd(value);
+                if (count < 5)
+                    return false;
+                int next = ToBcd(count - 5);
+                switch (selectedIndex)
+                {
+                    case 5: EmberSeeds = next; break;
+                    case 6: ScentSeeds = next; break;
+                    case 7: PegasusSeeds = next; break;
+                    case 8: GaleSeeds = next; break;
+                    default: MysterySeeds = next; break;
+                }
+                changed = true;
+                break;
+            }
+
+            case 10:
+            {
+                // $0a is TREASURE_SWITCH_HOOK in this mistaken check.
+                if (!HasTreasure(0x0a))
+                    return false;
+                int count = FromBcd(Bombs);
+                if (count < 4)
+                    return false;
+                Bombs = ToBcd(count - 4);
+                changed = true;
+                break;
+            }
+
+            case 11 or 12:
+                if (HealthQuarters < 12)
+                    return false;
+                HealthQuarters -= 4;
+                HealthChanged?.Invoke();
+                actualIndex = 11;
+                changed = true;
+                break;
+
+            case 13:
+                if (Rupees <= 0)
+                    return false;
+                AddRupeesCore(-1);
+                // The routine writes $0c, so Link loses one rupee but scatters
+                // the five-rupee Maple item.
+                actualIndex = 12;
+                changed = true;
+                break;
+
+            default:
+                return false;
+        }
+
+        if (changed)
+            NotifyChanged();
+        return changed;
+    }
+
     public bool ApplyDamage(int quarters)
     {
         if (quarters <= 0 || HealthQuarters <= 0)

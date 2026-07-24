@@ -8,7 +8,8 @@ internal sealed class ItemDropRoomEntity(
     ItemDropEffect drop,
     Action<Vector2, HazardType> enteredHazard)
     : RoomEntityAdapter<ItemDropEffect>(drop, drop.SetTransitionDrawOffset),
-        IFixedRoomEntity, IRoomEntityLifetime
+        IFixedRoomEntity, IRoomEntityLifetime,
+        ILinkSwordCollectibleRoomEntity
 {
     public bool Finished => Entity.Finished;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
@@ -21,4 +22,7 @@ internal sealed class ItemDropRoomEntity(
             enteredHazard(Entity.Position, Entity.FinishedHazard);
         }
     }
+
+    public bool TryCollectWithSword(Rect2 hitbox) =>
+        Entity.TryCollectWithSword(hitbox);
 }

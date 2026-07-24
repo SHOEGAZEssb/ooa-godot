@@ -11,4 +11,5 @@ internal interface IPlayerRestriction
     bool DisablesMovement => false;
     bool DisablesMenus => false;
     bool DisablesRingTransformations => false;
+    bool DisablesScreenTransitions => false;
 }

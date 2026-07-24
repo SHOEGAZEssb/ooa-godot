@@ -67,7 +67,8 @@ public sealed class CombatController
             hitbox,
             player.Position,
             player.SwordDamage,
-            player.SwordKnockbackStrength);
+            player.SwordKnockbackStrength,
+            collectItemDrops: true);
     }
 
     public bool ApplySwordTileHit(Player player, int direction, bool swordPoke)

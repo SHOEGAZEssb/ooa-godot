@@ -35,6 +35,10 @@ internal sealed class RoomEntityFactory(
     Action disableLinkCollisionsAndMenu,
     Action enableLinkCollisionsAndMenu,
     Action<int, int> roomMusicRequested,
+    Action<int, string, Player> mapleDialogueRequested,
+    Func<bool> dialogueOpen,
+    Action<MapleItemRecord, Player> mapleItemCollected,
+    Action<int> horizontalScreenShakeRequested,
     Func<Vector2, Vector2> worldToScreen,
     Func<long> animationTick,
     RoomSession? rooms)
@@ -54,6 +58,7 @@ internal sealed class RoomEntityFactory(
     private readonly SwordBeamDatabase _swordBeam = new();
     private readonly GashaSpotDatabase _gashaSpots = new();
     private readonly DarkRoomDatabase _darkRooms = new();
+    private readonly MapleEventDatabase _maple = new();
     private readonly DungeonMapDatabase _dungeonMaps =
         rooms?.DungeonMaps ?? new DungeonMapDatabase();
 
@@ -94,6 +99,17 @@ internal sealed class RoomEntityFactory(
         OracleRoomData room,
         EnemyPlacementContext placementContext)
     {
+        int activeGroup = group;
+        bool spawnMaple =
+            saveData is not null &&
+            inventory is not null &&
+            _maple.IsEligibleLocation(
+                activeGroup, room.Id, inventory.AnimalCompanion) &&
+            saveData.MapleKillCounter >=
+                RingEffects.MapleKillThreshold(inventory);
+        if (spawnMaple)
+            saveData!.SetMapleKillCounter(0);
+
         // The original object-pointer and tileset tables alias side-scrolling
         // groups $06/$07 to dungeon/interior groups $04/$05. Keep ActiveGroup
         // on the RoomSession, but resolve every placed object through the
@@ -292,6 +308,37 @@ internal sealed class RoomEntityFactory(
 
         foreach (IRoomEntity portal in CreateTimePortals(group, room))
             yield return portal;
+
+        if (spawnMaple)
+        {
+            var encounterState = new MapleEncounterState();
+            var maple = new MapleEncounter
+            {
+                Name = "Maple",
+                ZIndex = 11
+            };
+            maple.Initialize(
+                activeGroup,
+                _maple,
+                encounterState,
+                room,
+                random,
+                saveData!,
+                inventory!,
+                treasures,
+                mapleDialogueRequested,
+                dialogueOpen,
+                mapleItemCollected,
+                soundRequested,
+                horizontalScreenShakeRequested,
+                roomMusicRequested);
+            yield return new MapleEncounterRoomEntity(maple);
+
+            // checkAndSpawnMaple writes wcc85=$01. checkSkipPointer then
+            // suppresses this room's entire enemy/item-drop pointer while
+            // preserving every ordinary interaction emitted above.
+            yield break;
+        }
 
         var reservations = new EnemyPlacementReservations();
         int enemySlots = 0;
@@ -770,6 +817,7 @@ internal sealed class RoomEntityFactory(
         OverworldKeyUseSpawn key => CreateOverworldKeyUse(key),
         CutsceneNpcSpawn npc => CreateCutsceneNpc(npc),
         GroundTreasureSpawn treasure => CreateGroundTreasure(treasure.Record),
+        MapleDroppedItemSpawn item => CreateMapleDroppedItem(item, room),
         LightableTorchSpawn torch => CreateLightableTorch(torch, room),
         Room148DebrisSpawn debris => CreateRoom148Debris(debris),
         SwordBeamSpawn beam => CreateSwordBeam(beam, room),
@@ -1395,6 +1443,28 @@ internal sealed class RoomEntityFactory(
             groundTreasureCollected);
     }
 
+    private IRoomEntity CreateMapleDroppedItem(
+        MapleDroppedItemSpawn spawn,
+        OracleRoomData room)
+    {
+        var item = new MapleDroppedItem
+        {
+            Name = $"MapleItem_{spawn.Slot}_{spawn.Record.Index:x2}",
+            ZIndex = 12
+        };
+        item.Initialize(
+            spawn.Record,
+            spawn.Encounter,
+            room,
+            random,
+            spawn.Slot,
+            spawn.SourcePosition,
+            spawn.SourceZFixed,
+            mapleItemCollected);
+        spawn.Encounter.Register(item);
+        return new MapleDroppedItemRoomEntity(item);
+    }
+
     private IRoomEntity CreateLightableTorch(
         LightableTorchSpawn spawn,
         OracleRoomData room) => new LightableTorchRoomEntity(
@@ -1744,6 +1814,14 @@ internal sealed record LightableTorchSpawn(
 
 internal sealed record GroundTreasureSpawn(GroundTreasureDatabaseRecord Record)
     : RoomEntitySpawn;
+
+internal sealed record MapleDroppedItemSpawn(
+    MapleItemRecord Record,
+    MapleEncounterState Encounter,
+    int Slot,
+    Vector2 SourcePosition,
+    int SourceZFixed,
+    bool UpdateThisFrame = false) : RoomEntitySpawn(UpdateThisFrame);
 
 internal sealed record GiantGhiniChildSpawn(GiantGhiniBoss Owner, int Index)
     : RoomEntitySpawn(UpdateThisFrame: true);

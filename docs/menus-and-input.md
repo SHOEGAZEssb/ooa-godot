@@ -58,6 +58,14 @@ one character per 8 updates. Re-selecting the same text index does not restart
 the marquee. Starting a 13-update page scroll clears the text bar, and the new
 page's selection appears on its first normal menu update after the scroll.
 
+Gameplay dialogue has three font sources. Ordinary characters use
+`gfx_font`, `\sym` uses `gfx_font_jp`, and `\item($00-$0f)` occupies one
+character cell from the imported 2bpp `gfx_font_tradeitems`. The item control
+retains its direct `$84` attribute and therefore resolves all four shades
+through the active room background palette 4; it is never printed as literal
+reference text. Maple's TX `$070e` Touching Book glyph `$09` is the canonical
+Ages case.
+
 Treasure display mode `$00` uses the original inventory HUD tiles to draw
 `L-` plus the live low-nibble level beneath stored items and beside equipped
 A/B items. This applies to every imported level-mode record, including swords,

@@ -432,6 +432,66 @@ public sealed partial class ValidationRoot
             "debug target 4:11.");
     }
 
+    private void ValidateDebugMapleShortcut()
+    {
+        InputEventKey[] bindings = InputMap.HasAction("debug_maple")
+            ? InputMap.ActionGetEvents("debug_maple")
+                .OfType<InputEventKey>()
+                .ToArray()
+            : [];
+        if (bindings.Length != 1 ||
+            bindings[0].PhysicalKeycode != Key.F3)
+        {
+            throw new InvalidOperationException(
+                "The Maple encounter shortcut was not bound exclusively to physical F3.");
+        }
+
+        var database = new MapleEventDatabase();
+        (int expectedGroup, int expectedRoom) = database.DebugLocation(
+            4, _inventory.AnimalCompanion);
+        _saveData.SetMapleKillCounter(0);
+        LoadValidationRoom(4, 0x09);
+        if (!_debugMaple.ActivateForValidation() ||
+            _activeGroup != expectedGroup ||
+            _currentRoom.Id != expectedRoom ||
+            _player.Position != FindSpawn() ||
+            _player.FacingVector != Vector2I.Down ||
+            _saveData.MapleKillCounter != 0 ||
+            _entities.Entities<MapleEncounter>().Count != 1)
+        {
+            throw new InvalidOperationException(
+                "F3 did not move from an ineligible room to the imported canonical " +
+                "location and start Maple through the normal threshold path.");
+        }
+
+        if (_debugMaple.ActivateForValidation() ||
+            _entities.Entities<MapleEncounter>().Count != 1)
+        {
+            throw new InvalidOperationException(
+                "F3 started a duplicate Maple encounter while one was already active.");
+        }
+
+        _saveData.SetMapleKillCounter(0);
+        LoadValidationRoom(expectedGroup, expectedRoom);
+        Vector2 retainedPosition = new(24, 24);
+        _player.WarpTo(retainedPosition);
+        if (!_debugMaple.ActivateForValidation() ||
+            _activeGroup != expectedGroup ||
+            _currentRoom.Id != expectedRoom ||
+            _player.Position != retainedPosition ||
+            _saveData.MapleKillCounter != 0 ||
+            _entities.Entities<MapleEncounter>().Count != 1)
+        {
+            throw new InvalidOperationException(
+                "F3 did not reload an already eligible room in place and start Maple.");
+        }
+
+        _saveData.SetMapleKillCounter(0);
+        LoadValidationRoom(4, 0x09);
+        GD.Print("Validated F3 Maple activation, imported-location fallback, " +
+            "normal threshold reset, in-place eligible-room reload, and duplicate prevention.");
+    }
+
     private void ValidateMapScreen()
     {
         if (!Mathf.IsEqualApprox(MapMenuController.FastFadeFrames, 11.0f))

@@ -27,6 +27,8 @@ public partial class OracleSoundEngine : Node
     public const int MusMakuTree = 0x1e;
     public const int MusSadness = 0x1f;
     public const int MusDisaster = 0x21;
+    public const int MusMapleTheme = 0x2b;
+    public const int MusMapleGame = 0x2c;
     public const int MusMiniboss = 0x2d;
     public const int MusBoss = 0x2e;
     public const int MusLadxSideview = 0x2f;
@@ -76,6 +78,7 @@ public partial class OracleSoundEngine : Node
     public const int SndMysterySeed = 0x7b;
     public const int SndMagicPowder = 0x83;
     public const int SndMenuMove = 0x84;
+    public const int SndScentSeed = 0x85;
     public const int SndSplash = 0x87;
     public const int SndText2 = 0x89;
     public const int SndFilledHeartContainer = 0x8b;

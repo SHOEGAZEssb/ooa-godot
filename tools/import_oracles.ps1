@@ -20,6 +20,7 @@ $importScripts = @(
     'Import-GashaData.ps1'
     'Import-CutsceneData.ps1'
     'Import-EnemyData.ps1'
+    'Import-MapleData.ps1'
     'Import-SpiritsGrave.ps1'
     'Import-WorldNavigation.ps1'
     'Import-AudioData.ps1'

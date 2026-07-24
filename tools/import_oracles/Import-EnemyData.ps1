@@ -1497,6 +1497,23 @@ if ($null -eq $bossShadowSpriteSource) {
 Copy-Item -LiteralPath $bossShadowSpriteSource.FullName `
     -Destination (Join-Path $destination "gfx\$bossShadowSprite.png") -Force
 
+# Objects with visible bit 6 set use the fixed terrain-effect shadow, not
+# PART_SHADOW. Its raw OAM selects tile $20 from VRAM bank 1, where the common
+# sprite sheet is loaded at tile zero.
+$terrainEffectSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\terrainEffects.s')
+$terrainShadowOam = Resolve-Oam $terrainEffectSource 'shadowAnimation'
+if ($terrainShadowOam -ne '19,4,32,8') {
+    throw "The default terrain shadow no longer matches OAM `$13/`$04, tile `$20, flags `$08."
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'effects\terrain_shadow.tsv'),
+    @(
+        "# sprite`ttile-base`tpalette`toam`tsource",
+        "spr_common_sprites`t0`t0`t$terrainShadowOam`tdata/terrainEffects.s:shadowAnimation"
+    ),
+    [Text.UTF8Encoding]::new($false))
+
 # INTERAC_KILLENEMYPUFF (`$08) is the non-dropping burst used when a red Zol
 # splits. It is visually and semantically distinct from PART_ENEMY_DESTROYED.
 $interactionDataSource = Get-Content -Raw (Join-Path $Disassembly 'data\ages\interactionData.s')

@@ -78,6 +78,51 @@ Do not infer the context from Link's eventual position after entities have
 already been parsed. Pass it from the transition/load operation that owns the
 entry.
 
+## Maple encounters
+
+`checkAndSpawnMaple` runs before the room enemy/item pointer. In one of the 119
+imported group `$00/$01` locations, `wMapleKillCounter` reaching 30 creates
+Maple and resets the counter; an equipped Maple's Ring lowers that exact
+boundary to 15. Ordinary interactions, ground treasure, and portals already
+emitted for the room remain, but Maple suppresses the complete enemy/item
+pointer through the original `wcc85` skip. Do not approximate eligible rooms
+from geography or suppress the entire room entity set.
+
+`MapleEncounter` owns the native special-object states: the invisible
+animation-`$19` shadow route, meeting-count-based broom/vacuum/UFO and movement
+variation, collision recoil, 15-update horizontal-only shared-RNG shake,
+120-update ground wait, greeting, item race, score dialogue, and departure.
+Visible bit 6 gives her the fixed one-cell terrain-effect shadow on alternating
+updates while airborne; do not substitute the larger `PART_SHADOW` actor.
+Flight positions remain unsigned 8.8 object coordinates: paths starting near
+`$f0` intentionally wrap across `$ff->$00` before Maple enters the viewport.
+Do not replace that wrap with unbounded world coordinates.
+Screen transitions are disabled from collision through departure. Ordinary
+objects remain enabled during Link's initial 24-update knockback, then the
+encounter freezes Link and ordinary object input for Maple's recovery and
+greeting before releasing the item race. The shared screen-transition handler
+still clamps Link's high coordinate to `$06` or the far room boundary before
+honoring that lock, matching `screenTransitionState2`; disabling the transition
+must not let Link walk beyond the current screen.
+
+Scattered `PART_ITEM_FROM_MAPLE $14/$15` records are independent fixed-update
+entities sharing one encounter slot list and the game-wide RNG. Each consumes
+two RNG values on its creation update, follows the source 8.8 bounce and screen
+clamp, becomes collectible by Link only after settling, and can disappear on a
+terrain hazard. Maple selects unique IDs `$00-$04` first in ascending order,
+then normal IDs `$05-$0d`; equal-distance normal items select the later part
+slot. Reward collection preserves tier-ring RNG, Joy Ring quantities, the
+Potion sound override, and the held Heart Piece path without setting the
+room-item flag.
+
+The Ages Touching Book branch replaces all scattered drops. It retains
+`wMapleState` bit 4 while active, runs TX `$070d-$0711` through the separate
+book flight/chase, grants and presents the Magic Oar, sets completion bit 5,
+then clears the temporary bit and increments the capped meeting count on
+departure. The vacuum's live-Bomb suction/stun entry remains dependent on the
+deferred active Bomb item actor; its internal stun states must stay source
+timed when that actor is connected.
+
 ## Entity contracts
 
 `RoomEntityManager` composes behavior through small capabilities rather than a
@@ -440,6 +485,13 @@ Shovel-created drops. A dug-up drop copies Link's cardinal angle and applies
 the allow-holes front/current tile probes before movement. Horizontal movement
 ends with the bounce; it must not leak into ordinary drops or grounded lifetime
 updates.
+
+Grounded/low airborne drops retain part collision mode `$01`. Link's sword
+collision types `$04-$0b` select `COLLISIONEFFECT_23`, zeroing the part's health
+so its next update grants the item directly to Link. This applies to ordinary
+`PART_ITEM_DROP` and Maple's scattered parts. It does not write sword
+`Item.var2a`, so collection is not enemy contact and must not trigger
+Double-Edged Ring recoil.
 
 Object-data opcode `$fa` does not place `PART_ITEM_DROP` directly. It allocates
 an invisible `ENEMY_ITEM_DROP_PRODUCER $59`, reserves the packed position and a

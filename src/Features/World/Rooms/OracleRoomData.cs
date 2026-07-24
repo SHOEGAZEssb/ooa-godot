@@ -167,6 +167,44 @@ public sealed class OracleRoomData
     }
 
     /// <summary>
+    /// Resolves one active Game Boy background-palette color. Text control
+    /// <c>\item</c> writes raw attribute $84, so its 2bpp trade-item glyphs
+    /// use room BG palette 4 rather than either ordinary textbox palette.
+    /// </summary>
+    internal Color ResolveBackgroundPaletteColor(int rawPalette, int shade)
+    {
+        if (rawPalette is < 0 or > 7 || shade is < 0 or > 3)
+            throw new ArgumentOutOfRangeException(nameof(rawPalette));
+        if (rawPalette == 0)
+            return _commonBgPalette0[shade];
+
+        int paletteIndex = Mathf.Clamp(rawPalette - 2, 0, 5);
+        if (_temporaryFullBackgroundPalette is not null &&
+            rawPalette is >= 2 and <= 7)
+        {
+            return _palette[paletteIndex, shade].Lerp(
+                _temporaryFullBackgroundPalette[paletteIndex, shade],
+                _temporaryFullBackgroundPaletteBlend);
+        }
+        if (_temporaryBackgroundPalettes is not null &&
+            rawPalette is >= 2 and <= 7)
+        {
+            return _temporaryBackgroundPalettes[
+                _temporaryBackgroundPaletteHeader,
+                rawPalette - 2,
+                shade];
+        }
+        if (_temporaryBackgroundPaletteOffset.HasValue &&
+            rawPalette is >= 2 and <= 7)
+        {
+            return OffsetGbcColor(
+                _palette[paletteIndex, shade],
+                _temporaryBackgroundPaletteOffset.Value);
+        }
+        return _palette[paletteIndex, shade];
+    }
+
+    /// <summary>
     /// Builds one dynamically loaded BG tile with this room's active tileset
     /// palette. Shop prices use this path because $47 writes tile and
     /// attribute bytes directly into w3VramTiles instead of creating OAM.

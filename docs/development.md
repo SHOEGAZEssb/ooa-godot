@@ -66,7 +66,16 @@ Development controls are intentionally separate from game behavior:
 | F | Fully revealed map and room fast travel; F cycles present, past, and interior groups 2-5 while open |
 | F1 | Live global/room flag, linked-game, and item grant editor |
 | F2 | Toggle Link collision; `NOCLIP` appears beside the room ID while disabled |
+| F3 | Start a Maple encounter; uses the current eligible room or moves to an imported location in the current era |
 | V | Warp to the configurable debug room; defaults to the D1 Essence room `4:11` |
+
+F3 reloads an eligible current room in place. From any other room, it moves
+Link to the first imported past location when currently in group 1, or to the
+first imported present location otherwise. It raises the live kill counter to
+the equipped-ring threshold and lets the normal room parser spawn Maple and
+reset the counter; the encounter's meeting count, rewards, and other resulting
+state therefore follow the normal explicit-save rules. F3 is ignored while an
+encounter, transition, dialogue, menu, or room event is already active.
 
 The V target uses hexadecimal launch arguments and is independent of the
 initial room override:

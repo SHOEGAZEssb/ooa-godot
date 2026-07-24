@@ -18,7 +18,9 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
     private const int LifetimeTicks = 240;
     private const int FlickerTicks = 60;
     private const int CombinedCollisionRadius = 10;
+    private const int CollisionRadius = 4;
     private const int ZCollisionRadius = 7;
+    private const int SwordZ = -2;
 
     private OracleRoomData _room = null!;
     private Texture2D _texture = null!;
@@ -32,6 +34,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
     private int _speed;
     private Action<int> _soundRequested = static _ => { };
     private int _collectionSound;
+    private bool _swordCollectionPending;
 
     public int SubId { get; private set; }
     public bool Finished { get; private set; }
@@ -46,6 +49,9 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
     internal Vector2 PrecisePosition => _precisePosition;
     internal int Angle => _angle;
     internal int Speed => _speed;
+    internal Rect2 CollisionBounds => new(
+        Position - new Vector2(CollisionRadius, CollisionRadius),
+        new Vector2(CollisionRadius * 2, CollisionRadius * 2));
 
     internal void Initialize(
         int subId,
@@ -79,6 +85,11 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
             return;
 
         ElapsedFrames++;
+        if (_swordCollectionPending)
+        {
+            Collect(player);
+            return;
+        }
         if (_state == DropState.Initializing)
         {
             _state = DropState.Bouncing;
@@ -191,6 +202,23 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         return Mathf.Abs(zPixel) < ZCollisionRadius &&
             Mathf.Abs(linkPosition.X - Position.X) < CombinedCollisionRadius &&
             Mathf.Abs(linkPosition.Y - Position.Y) < CombinedCollisionRadius;
+    }
+
+    internal bool TryCollectWithSword(Rect2 hitbox)
+    {
+        if (Finished || _swordCollectionPending || !_collisionEnabled ||
+            !RoomEntityManager.ObjectCollisionZOverlaps(
+                _zFixed >> 8, SwordZ, ZCollisionRadius) ||
+            !hitbox.Intersects(CollisionBounds))
+        {
+            return false;
+        }
+
+        // ENEMYCOLLISION_ITEM + sword collision types $04-$0b selects
+        // COLLISIONEFFECT_23. The original part observes zero health and
+        // grants the treasure at the start of its next update.
+        _swordCollectionPending = true;
+        return true;
     }
 
     private void Collect(Player player)

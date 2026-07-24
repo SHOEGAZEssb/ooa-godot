@@ -42,6 +42,7 @@ public sealed class OracleSaveData
     public const int GlobalFlagReturnedDog = 0x3b;
     public const int GlobalFlagRalphEnteredPortal = 0x40;
     public const int GlobalFlagEnterPastCutsceneDone = 0x41;
+    public const int GlobalFlagMapleMetInPast = 0x44;
     public const int GlobalFlagRalphEnteredBlackTower = 0x45;
 
     public const int ChildNameAddress = 0xc609;
@@ -90,6 +91,8 @@ public sealed class OracleSaveData
     public int RespawnX => ReadWramByte(0xc630);
     public bool IsLinkedGame => ReadWramByte(0xc612) != 0;
     public bool IsCompleted => ReadWramByte(0xc614) != 0;
+    public int MapleKillCounter => ReadWramByte(0xc641);
+    public int MapleState => ReadWramByte(0xc644);
     public int GashaMaturity =>
         ReadWramByte(0xc65f) | (ReadWramByte(0xc660) << 8);
     internal bool HasHarvestedFirstGashaNut => (ReadWramByte(0xc64c) & 0x01) != 0;
@@ -314,6 +317,22 @@ public sealed class OracleSaveData
             throw new ArgumentOutOfRangeException(nameof(bit));
         byte value = (byte)(ReadWramByte(0xc64c) | (1 << bit));
         if (WriteWramByte(0xc64c, value))
+            Changed?.Invoke();
+    }
+
+    internal void SetMapleKillCounter(int value)
+    {
+        if (value is < 0 or > 0xff)
+            throw new ArgumentOutOfRangeException(nameof(value));
+        if (WriteWramByte(0xc641, (byte)value))
+            Changed?.Invoke();
+    }
+
+    internal void SetMapleState(int value)
+    {
+        if (value is < 0 or > 0xff)
+            throw new ArgumentOutOfRangeException(nameof(value));
+        if (WriteWramByte(0xc644, (byte)value))
             Changed?.Invoke();
     }
 

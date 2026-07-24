@@ -47,6 +47,16 @@ Changing a scripted animation selects cached immutable definitions/frames; it
 does not rebuild every texture for that entity. Validate assembled frame pixels
 and offsets, not just parsed record counts.
 
+Maple uses positioned OAM composition instead of the fixed 32-by-32 enemy
+frame. Of her 76 imported animation frames, 48 place at least one 8-by-16 cell
+outside that fixed box; vacuum/UFO, recoil, and low broom poses otherwise lose
+whole cells or several edge rows. Retain each frame's signed minimum X/Y as its
+draw offset so the variable-size texture remains anchored to Maple's object
+origin. The invisible animation `$19` remains the sole blank fixed-size frame.
+Her airborne shadow comes from the universal `terrainEffects.shadowAnimation`,
+not `PART_SHADOW`: one 8-by-16 `spr_common_sprites` cell at relative offset
+`(-4,+3)`, drawn on alternating updates while Z is negative.
+
 An OAM composition may select several effective OBJ palettes in one frame.
 Palette overrides are therefore keyed by the effective `base XOR flags`
 palette, included in the immutable OAM cache key, and applied per OAM cell.

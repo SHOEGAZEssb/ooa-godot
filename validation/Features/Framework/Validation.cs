@@ -94,6 +94,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateDebugFlagMenu();
         ValidateDebugCollision();
         ValidateDebugRoomWarp();
+        ValidateDebugMapleShortcut();
         ValidateDeathRespawnCheckpoints();
 
         LoadValidationRoom(0, 0x11);
@@ -126,6 +127,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateShovel();
         ValidateSeedSatchel();
         ValidateGashaSpots();
+        ValidateMapleEvents();
         ValidateEnemyPlacementRules();
         ValidateEnemyObjectPlacementOrder();
         ValidateKeese();

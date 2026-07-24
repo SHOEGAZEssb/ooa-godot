@@ -1959,7 +1959,9 @@ public sealed partial class ValidationRoot
             _inventory.BraceletLevel != 1 ||
             _inventory.EquippedB != InventoryState.ItemBracelet ||
             !_dialogue.IsOpen ||
-            _dialogue.CurrentMessage != "You got the\nPower Bracelet!\nHold the button\nand press \\item(0x00)\nto lift heavy\nobjects!")
+            _dialogue.CurrentMessage != DialogueBox.PlainText(
+                "You got the\nPower Bracelet!\nHold the button\n" +
+                "and press \\item(0x00)\nto lift heavy\nobjects!"))
         {
             throw new InvalidOperationException(
                 "TREASURE_OBJECT_BRACELET_00 did not set obtained flags, wBraceletLevel, wInventoryB, and TX_0026.");

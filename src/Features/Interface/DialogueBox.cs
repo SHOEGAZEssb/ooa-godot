@@ -34,6 +34,8 @@ public partial class DialogueBox : Node2D
     private readonly List<TextSegment> _segments = new();
     private Texture2D _fontTexture = null!;
     private Texture2D _symbolTexture = null!;
+    private Image? _tradeItemSource;
+    private Texture2D? _tradeItemTexture;
     private Texture2D _continueMarkerTexture = null!;
     private Texture2D[] _heartPieceTextures = null!;
     private string _currentMessage = string.Empty;
@@ -65,6 +67,12 @@ public partial class DialogueBox : Node2D
     private int? _choiceResult;
     private Action<int> _playSound = static _ => { };
     private Func<int> _heartPieceCount = static () => 0;
+    private Func<int, int, Color> _backgroundPaletteColor =
+        static (_, shade) =>
+        {
+            float component = 1.0f - shade / 3.0f;
+            return new Color(component, component, component);
+        };
 
     internal event Action? HeartPieceSetFilled;
     internal event Action? HeartPieceSetAccepted;
@@ -117,6 +125,8 @@ public partial class DialogueBox : Node2D
     {
         _fontTexture = BuildFontTexture("res://assets/oracle/gfx/gfx_font.png");
         _symbolTexture = BuildFontTexture("res://assets/oracle/gfx/gfx_font_jp.png");
+        _tradeItemSource = LoadSourceImage(
+            "res://assets/oracle/gfx/gfx_font_tradeitems.png");
         _continueMarkerTexture = BuildContinueMarkerTexture();
         _heartPieceTextures = BuildHeartPieceTextures();
     }
@@ -131,6 +141,13 @@ public partial class DialogueBox : Node2D
     {
         ArgumentNullException.ThrowIfNull(heartPieceCount);
         _heartPieceCount = heartPieceCount;
+    }
+
+    internal void SetBackgroundPaletteProvider(
+        Func<int, int, Color> backgroundPaletteColor)
+    {
+        ArgumentNullException.ThrowIfNull(backgroundPaletteColor);
+        _backgroundPaletteColor = backgroundPaletteColor;
     }
 
     public void ShowMessage(string message, float linkY)
@@ -180,6 +197,8 @@ public partial class DialogueBox : Node2D
         ArgumentNullException.ThrowIfNull(message);
         _segments.Clear();
         _segments.AddRange(ParseMessage(message));
+        if (ContainsTradeItemGlyph())
+            _tradeItemTexture = BuildTradeItemTexture();
         _currentMessage = PlainText(message);
         _segmentIndex = 0;
         _firstLineIndex = 0;
@@ -507,8 +526,33 @@ public partial class DialogueBox : Node2D
     internal bool GlyphUsesSymbolFontForValidation(int segment, int line, int column) =>
         _segments[segment].Lines[line].Glyphs[column].Source == FontSource.Symbol;
 
+    internal bool GlyphUsesTradeItemFontForValidation(
+        int segment,
+        int line,
+        int column) =>
+        _segments[segment].Lines[line].Glyphs[column].Source ==
+            FontSource.TradeItem;
+
     internal int GlyphCodeForValidation(int segment, int line, int column) =>
         _segments[segment].Lines[line].Glyphs[column].Code;
+
+    internal int TradeItemNonBackgroundPixelCountForValidation(int itemIndex)
+    {
+        Image source = TradeItemSource();
+        if (itemIndex is < 0 or > 0x0f)
+            throw new ArgumentOutOfRangeException(nameof(itemIndex));
+        int count = 0;
+        for (int y = 0; y < 16; y++)
+        for (int x = 0; x < 8; x++)
+        {
+            if (OracleGraphicsData.TwoBitShade(
+                    source.GetPixel(itemIndex * 8 + x, y)) != 3)
+            {
+                count++;
+            }
+        }
+        return count;
+    }
 
     internal int ContinueMarkerOpaquePixelCountForValidation()
     {
@@ -538,7 +582,7 @@ public partial class DialogueBox : Node2D
         return Regex.Replace(
             text,
             @"\\(?:stop(?:\(\))?|pos\([^)]*\)|col\([^)]*\)|opt\([^)]*\)|" +
-            @"sfx\([^)]*\)|charsfx\([^)]*\))",
+            @"item\([^)]*\)|sfx\([^)]*\)|charsfx\([^)]*\))",
             string.Empty,
             RegexOptions.IgnoreCase);
     }
@@ -808,7 +852,7 @@ public partial class DialogueBox : Node2D
                 8,
                 visibleHeight);
             DrawTextureRectRegion(
-                TextureFor(glyph), target, source, ColorFor(glyph.ColorIndex));
+                TextureFor(glyph), target, source, ModulationFor(glyph));
         }
     }
 
@@ -830,7 +874,7 @@ public partial class DialogueBox : Node2D
                 TextureFor(glyph),
                 new Rect2(destination + new Vector2(column * 8, 0), new Vector2(8, 16)),
                 source,
-                ColorFor(glyph.ColorIndex));
+                ModulationFor(glyph));
         }
     }
 
@@ -846,8 +890,19 @@ public partial class DialogueBox : Node2D
         DrawTexture(_heartPieceTextures[_heartPieceDisplayCount], destination);
     }
 
-    private Texture2D TextureFor(TextGlyph glyph) =>
-        glyph.Source == FontSource.Symbol ? _symbolTexture : _fontTexture;
+    private Texture2D TextureFor(TextGlyph glyph) => glyph.Source switch
+    {
+        FontSource.Symbol => _symbolTexture,
+        FontSource.TradeItem => _tradeItemTexture ??
+            throw new InvalidOperationException(
+                "Trade-item text glyphs were not composed before drawing."),
+        _ => _fontTexture
+    };
+
+    private Color ModulationFor(TextGlyph glyph) =>
+        glyph.Source == FontSource.TradeItem
+            ? Colors.White
+            : ColorFor(glyph.ColorIndex);
 
     private Color ColorFor(int colorIndex) => colorIndex switch
     {
@@ -979,6 +1034,13 @@ public partial class DialogueBox : Node2D
                     if (TryParseCommandNumber(argument, out int symbolCode))
                         AddGlyph(symbolCode, FontSource.Symbol);
                     break;
+                case "item":
+                    if (TryParseCommandNumber(argument, out int itemCode) &&
+                        itemCode is >= 0 and <= 0x0f)
+                    {
+                        AddGlyph(itemCode, FontSource.TradeItem);
+                    }
+                    break;
                 case "circle": AddGlyph(0x10); break;
                 case "club": AddGlyph(0x11); break;
                 case "diamond": AddGlyph(0x12); break;
@@ -1059,6 +1121,44 @@ public partial class DialogueBox : Node2D
             output.SetPixel(x, y, pixel.R > 0.5f ? Colors.White : Colors.Transparent);
         }
 
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private bool ContainsTradeItemGlyph()
+    {
+        foreach (TextSegment segment in _segments)
+        foreach (TextLine line in segment.Lines)
+        foreach (TextGlyph glyph in line.Glyphs)
+        {
+            if (glyph.Source == FontSource.TradeItem)
+                return true;
+        }
+        return false;
+    }
+
+    private Image TradeItemSource()
+    {
+        _tradeItemSource ??= LoadSourceImage(
+            "res://assets/oracle/gfx/gfx_font_tradeitems.png");
+        if (_tradeItemSource.GetWidth() != 128 ||
+            _tradeItemSource.GetHeight() != 16)
+        {
+            throw new InvalidOperationException(
+                "gfx_font_tradeitems must contain sixteen horizontal 8x16 glyphs.");
+        }
+        return _tradeItemSource;
+    }
+
+    private Texture2D BuildTradeItemTexture()
+    {
+        Image source = TradeItemSource();
+        Image output = Image.CreateEmpty(128, 16, false, Image.Format.Rgba8);
+        for (int y = 0; y < source.GetHeight(); y++)
+        for (int x = 0; x < source.GetWidth(); x++)
+        {
+            int shade = OracleGraphicsData.TwoBitShade(source.GetPixel(x, y));
+            output.SetPixel(x, y, _backgroundPaletteColor(4, shade));
+        }
         return ImageTexture.CreateFromImage(output);
     }
 
@@ -1147,5 +1247,6 @@ internal readonly record struct TextGlyph(int Code, FontSource Source, int Color
 internal enum FontSource
 {
     Main,
-    Symbol
+    Symbol,
+    TradeItem
 }

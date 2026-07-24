@@ -33,6 +33,7 @@ internal sealed class EnemyAnimationPlayer
     public int FrameIndex => _frameIndex;
     public int CurrentParameter => CurrentFrame.Parameter;
     public Texture2D CurrentTexture => CurrentFrame.Texture;
+    public Vector2 CurrentOffset => CurrentFrame.Offset;
     public Texture2D DamageTexture =>
         CurrentFrame.DamageTexture ?? CurrentFrame.Texture;
     public bool HasFrames => _animations[_animationIndex].Count > 0;
@@ -46,12 +47,18 @@ internal sealed class EnemyAnimationPlayer
         int palette,
         int? damagePalette = null,
         IReadOnlyDictionary<int, Color[]>? paletteOverrides = null,
-        bool sourceGrayscaleInverted = true)
+        bool sourceGrayscaleInverted = true,
+        bool positionedOam = false)
     {
         if (encodedAnimations.Count != _animations.Length)
         {
             throw new InvalidOperationException(
                 $"Expected {_animations.Length} enemy animations, got {encodedAnimations.Count}.");
+        }
+        if (positionedOam && paletteOverrides is not null)
+        {
+            throw new InvalidOperationException(
+                "Positioned OAM does not support per-cell palette overrides.");
         }
 
         for (int index = 0; index < encodedAnimations.Count; index++)
@@ -63,24 +70,63 @@ internal sealed class EnemyAnimationPlayer
             foreach (AnimationFrameDefinition frame in
                 definition.Frames)
             {
-                Texture2D? damageTexture = damagePalette.HasValue
-                    ? NpcCharacter.BuildOamTexture(
-                        source,
-                        frame.EncodedOam,
-                        tileBase,
-                        palette,
-                        NpcCharacter.GetStandardSpritePalette(damagePalette.Value),
-                        sourceGrayscaleInverted)
-                    : null;
-                _animations[index].Add(new EnemyAnimationPlayerAnimationFrame(
-                    paletteOverrides is null
+                Texture2D texture;
+                Texture2D? damageTexture = null;
+                Vector2 offset;
+                if (positionedOam)
+                {
+                    (texture, offset) =
+                        NpcCharacter.BuildPositionedOamTexture(
+                            source,
+                            frame.EncodedOam,
+                            tileBase,
+                            palette,
+                            paletteOverride: null,
+                            sourceGrayscaleInverted);
+                    if (damagePalette.HasValue)
+                    {
+                        Vector2 damageOffset;
+                        (damageTexture, damageOffset) =
+                            NpcCharacter.BuildPositionedOamTexture(
+                                source,
+                                frame.EncodedOam,
+                                tileBase,
+                                palette,
+                                NpcCharacter.GetStandardSpritePalette(
+                                    damagePalette.Value),
+                                sourceGrayscaleInverted);
+                        if (damageOffset != offset)
+                        {
+                            throw new InvalidOperationException(
+                                "Positioned damage OAM changed the frame origin.");
+                        }
+                    }
+                }
+                else
+                {
+                    offset = new Vector2(-16, -16);
+                    texture = paletteOverrides is null
                         ? NpcCharacter.BuildOamTexture(
                             source, frame.EncodedOam, tileBase, palette,
                             sourceGrayscaleInverted: sourceGrayscaleInverted)
                         : NpcCharacter.BuildOamTextureWithPaletteOverrides(
                             source, frame.EncodedOam, tileBase, palette,
-                            paletteOverrides, sourceGrayscaleInverted),
+                            paletteOverrides, sourceGrayscaleInverted);
+                    damageTexture = damagePalette.HasValue
+                        ? NpcCharacter.BuildOamTexture(
+                            source,
+                            frame.EncodedOam,
+                            tileBase,
+                            palette,
+                            NpcCharacter.GetStandardSpritePalette(
+                                damagePalette.Value),
+                            sourceGrayscaleInverted)
+                        : null;
+                }
+                _animations[index].Add(new EnemyAnimationPlayerAnimationFrame(
+                    texture,
                     damageTexture,
+                    offset,
                     frame.Duration,
                     frame.Parameter));
             }
@@ -118,4 +164,9 @@ internal sealed class EnemyAnimationPlayer
     }
 }
 
-internal sealed record EnemyAnimationPlayerAnimationFrame(Texture2D Texture, Texture2D? DamageTexture, int Duration, int Parameter);
+internal sealed record EnemyAnimationPlayerAnimationFrame(
+    Texture2D Texture,
+    Texture2D? DamageTexture,
+    Vector2 Offset,
+    int Duration,
+    int Parameter);

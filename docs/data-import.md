@@ -33,6 +33,7 @@ The entry script dot-sources these stages in dependency order:
 | `Import-GashaData.ps1` | Gasha spots, growth/reward tables, native timing, text, OAM, and disappearance graphics |
 | `Import-CutsceneData.ps1` | Typed script commands and cutscene-specific records |
 | `Import-EnemyData.ps1` | Ordered room objects, enemies, spawn restrictions, and drops |
+| `Import-MapleData.ps1` | Maple locations, paths, item distributions, dialogue, OAM, and Touching Book assets |
 | `Import-WorldNavigation.ps1` | Warps, dungeon layouts, neighbors, and room navigation |
 | `Import-AudioData.ps1` | Sound IDs, descriptors, channel programs, and room music |
 | `Write-GeneratedTableManifest.ps1` | Deterministic TSV schema-version, record-count, and SHA-256 manifest |
@@ -105,6 +106,20 @@ table order because each random byte is consumed by subtracting weights in
 source order; sorting either table changes the reward. The runtime must not
 derive a rank from the room ID or substitute an inventory icon for a held
 reward object.
+
+`Import-MapleData.ps1` owns the recurring `SPECIALOBJECT_MAPLE $0e` closure.
+It expands all 119 eligible present/past location bits, preserves the two
+shadow and eight movement paths in source order, resolves all 32 Maple
+animations and 14 `PART_ITEM_FROM_MAPLE` visuals/rewards, and emits TX
+`$0700-$0713`. It also resolves Ages' `INTERAC_TOUCHING_BOOK $a5` visual and
+the constants used by the kill threshold, entrance, race, departure, and
+horizontal shake. Each `m_SpecialObjectGfxPointer` replaces only its declared
+count of 8x8 OBJ tiles; higher slots retain the preceding frame's contents, and
+a two-argument pointer replaces none. The importer must resolve that virtual
+VRAM state per tile instead of applying one source offset to the whole OAM
+frame. Runtime must consume these records directly: movement-path order and
+each probability row affect shared RNG use, while the item table's
+normal/boosted parameters retain Gold/Red/Blue Joy Ring behavior.
 
 That item stage also emits `metadata/sword_beam.tsv` for `ITEM_SWORD_BEAM
 $27`, retaining its four signed Link-relative offsets, collision/damage

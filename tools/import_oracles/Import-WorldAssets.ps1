@@ -677,4 +677,5 @@ Copy-GeneratedFile "gfx_compressible\ages\spr_common_items.png" "gfx\spr_common_
 Copy-GeneratedFile "gfx\common\gfx_partial_hearts.png" "gfx\gfx_partial_hearts.png"
 Copy-GeneratedFile "gfx\common\gfx_font.png" "gfx\gfx_font.png"
 Copy-GeneratedFile "gfx\common\gfx_font_jp.png" "gfx\gfx_font_jp.png"
+Copy-GeneratedFile "gfx\ages\gfx_font_tradeitems.png" "gfx\gfx_font_tradeitems.png"
 Copy-GeneratedFile "gfx\common\gfx_font_heartpiece.png" "gfx\gfx_font_heartpiece.png"

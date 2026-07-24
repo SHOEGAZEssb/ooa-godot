@@ -29,6 +29,7 @@ public partial class GameRoot : Node2D
     internal SeedSatchelController _seedSatchel = null!;
     internal DebugWarpController _debugWarps = null!;
     internal DebugCollisionController _debugCollision = null!;
+    internal DebugMapleController _debugMaple = null!;
     internal MapMenuController _mapMenu = null!;
     internal InventoryMenuController _inventoryMenu = null!;
     internal RingMenuController _ringMenu = null!;
@@ -224,6 +225,10 @@ public partial class GameRoot : Node2D
         _scene = gameplayScene.Instantiate<GameSceneGraph>();
         AddChild(_scene);
         _dialogue.SetSoundPlayer(_sound.PlaySound);
+        _dialogue.SetBackgroundPaletteProvider(
+            (palette, shade) =>
+                _rooms.CurrentRoom.ResolveBackgroundPaletteColor(
+                    palette, shade));
         _dialogue.MessageSpeed = _saveData.TextSpeed;
         _hud.Initialize(_treasures, _inventory);
         _rooms.RoomChanged += SyncHudToRoom;
@@ -290,6 +295,7 @@ public partial class GameRoot : Node2D
         _debugFlagMenu.Update();
         if (_debugFlagMenu.IsActive)
             return;
+        _debugMaple.Update();
         bool ringMenuOwnedFrame = _ringMenu.IsActive;
         _ringMenu.Update(delta);
         // A close callback resumes Vasu's native script. The original menu
@@ -467,6 +473,9 @@ public partial class GameRoot : Node2D
             _transitions.WorldToGameplayScreen, () => (long)_animationTicks,
             _scene.InterfaceLayer, _warpFade, _hud, _inventory, _treasures,
             _sound, _roomCamera);
+        _transitions.ScreenTransitionsDisabledSource = () =>
+            _roomEvents.ScreenTransitionsDisabled ||
+            _entities.ScreenTransitionsDisabled;
         _keyholes.SetEventHandler(
             _roomEvents.SupportsOverworldKeyhole,
             _roomEvents.TriggerOverworldKeyhole);
@@ -505,6 +514,14 @@ public partial class GameRoot : Node2D
         _debugWarps = new DebugWarpController(
             _player, LoadDebugRoom, FindSpawn,
             _launchOptions.DebugWarpGroup, _launchOptions.DebugWarpRoom);
+        _debugMaple = new DebugMapleController(
+            _entities, _rooms, _saveData, _inventory, _player,
+            LoadDebugRoom, FindSpawn,
+            () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
+                !InventoryMenuOpen && !RingMenuOpen &&
+                !_player.IsDying && !_roomEvents.Active &&
+                !_interactions.GameplayMenuActive &&
+                !_entities.PlayerMenusDisabled);
         _gameplayPause = new GameplayPauseController(_player, _roomDebug);
         _menuLifecycle = new OracleMenuLifecycle(_scene.MenuFade, _gameplayPause);
         _mapMenu = new MapMenuController(
@@ -684,10 +701,7 @@ public partial class GameRoot : Node2D
         _terrain.TryStartLedgeHop(player, from, movement);
     internal bool CheckTileWarp(Player player) => _transitions.CheckTileWarp(player);
     internal void CheckRoomExit(Player player)
-    {
-        if (!_roomEvents.ScreenTransitionsDisabled)
-            _transitions.CheckRoomExit(player);
-    }
+        => _transitions.CheckRoomExit(player);
 
     internal Vector2 FindSpawn()
     {

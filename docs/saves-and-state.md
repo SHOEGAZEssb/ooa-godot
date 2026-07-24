@@ -141,6 +141,14 @@ does. The Slayer counter stops after its flag is set, but Maple/Gasha counters
 and the three-point enemy-kill Gasha-maturity increment continue. The Gasha
 Ring increments every spot twice rather than once.
 
+Maple's persistent encounter byte is `wMapleState` at `$c644`. Its low nibble
+is the capped meeting count used for movement variation and vehicle selection;
+bit 4 marks the active Touching Book exchange, bit 5 marks that exchange
+complete, and bit 7 records Maple's one-time Heart Piece. Global flag `$44`
+distinguishes the first past-world greeting. A qualifying room load resets only
+the kill counter at `$c641`; the meeting count increments only when a collided
+encounter reaches its normal departure, not when Maple finishes an unhit flight.
+
 The F1 debug editor follows the same ownership boundaries: linked-game state is
 written through the typed `$c612` save accessor, item grants select an imported
 treasure object, and ring grants set the corresponding appraised-ring bit

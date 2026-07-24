@@ -54,6 +54,18 @@ claim that the entire surrounding game is complete.
   Piece/Potion exceptions, all maturity sources and debit, two-hand reward
   text, displayed Heart/Rupee wait, nine shrink frames, grass/dirt/sand ground
   restoration, reusable soft soil on re-entry, and planted-spot map popups.
+- Recurring Maple encounters across all 119 imported present/past locations:
+  exact 30-kill and Maple's Ring 15-kill thresholds, enemy/item-pointer
+  suppression, shared-RNG shadow and movement paths, meeting-count-based
+  broom/vacuum/UFO selection, collision/knockback/horizontal shake, screen and
+  menu locks, five-plus-five source loot distributions, original Link-drop
+  inventory bugs, 8.8 scattered-item bounce/hazards, ordered target race and
+  scoring, all greeting/result dialogue, capped meeting state, first-past
+  flag, room-music restoration, Joy Ring quantities, tier-ring RNG, Potion
+  sound, and Maple's held Heart Piece. Ages' Touching Book branch includes its
+  separate flying visual, TX `$070d-$0711`, Magic Oar presentation, persistent
+  completion bits, and departure. The vacuum's optional interaction with an
+  active live Bomb remains gated by the deferred Bomb item actor.
 - The Shield is an active held-button parent item on either A or B. Wooden,
   Iron, and Mirror Shield ownership use `wShieldLevel`; equipped-but-lowered
   and raised states select the original level-aware Link frames in all four
@@ -153,7 +165,7 @@ remains the single runtime policy table.
 | `$0c` | Blast Ring | Deferred | Bomb-damage policy exists; active Bomb behavior does not. |
 | `$0d` | Rang Ring L-1 | Deferred | Level-1 boomerang-damage policy exists; active Boomerang behavior does not. |
 | `$0e` | GBA Time Ring | Correct no-op | Wearing it intentionally does nothing. Its Game Link/GBA acquisition path is unavailable. |
-| `$0f` | Maple's Ring | Deferred | The 15-kill meeting threshold is encoded and the kill counter advances, but Maple encounters do not consume it. |
+| `$0f` | Maple's Ring | Implemented | Lowers the active Maple encounter threshold from 30 enemy kills to 15. |
 | `$10` | Steadfast Ring | Implemented | Halves Link's enemy-contact knockback duration. |
 | `$11` | Pegasus Ring | Deferred | Extended-duration policy exists; active Pegasus Seed behavior does not. |
 | `$12` | Toss Ring | Implemented | Raises the implemented Bracelet weight-0 throw from `SPEED_180` to `SPEED_280`. |
@@ -174,9 +186,9 @@ remains the single runtime policy table.
 | `$21` | Snowshoe Ring | Deferred | Ice-slip immunity is encoded; ice movement does not yet slide Link. |
 | `$22` | Roc's Ring | Deferred | Cracked-floor protection is encoded; crumbling floors are absent. |
 | `$23` | Quicksand Ring | Deferred | Quicksand immunity is encoded; quicksand movement is absent. |
-| `$24` | Red Joy Ring | Implemented | Doubles Rupees collected from implemented enemy/item drops. |
-| `$25` | Blue Joy Ring | Implemented | Doubles Hearts collected from implemented enemy/item drops. |
-| `$26` | Gold Joy Ring | Partial | Doubles the currently supported Heart and Rupee drops; the other source drop kinds are not implemented. |
+| `$24` | Red Joy Ring | Implemented | Doubles Rupees collected from implemented enemy/item drops and Maple's Rupee rewards. |
+| `$25` | Blue Joy Ring | Implemented | Doubles Hearts collected from implemented enemy/item drops and Maple's Heart rewards. |
+| `$26` | Gold Joy Ring | Partial | Doubles every applicable Maple reward and the currently supported ordinary Heart/Rupee drops; other ordinary source drop kinds remain incomplete. |
 | `$27` | Green Joy Ring | Deferred | Ore-doubling policy exists; Ore Chunk drops do not. |
 | `$28` | Discovery Ring | Implemented | Requests the source compass cue when a Gasha interaction receives its first enabled update in a room containing its buried or exposed spot. |
 | `$29` | Rang Ring L-2 | Deferred | Level-2 boomerang-damage policy exists; active Boomerang behavior does not. |

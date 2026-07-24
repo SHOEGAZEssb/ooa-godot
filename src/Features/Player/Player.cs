@@ -569,6 +569,31 @@ public partial class Player : Node2D
         return true;
     }
 
+    /// <summary>
+    /// Maple writes Link's knockback counter/angle directly without damage,
+    /// invincibility, or Steadfast Ring adjustment.
+    /// </summary>
+    internal bool ApplyMapleKnockback(Vector2 sourcePosition)
+    {
+        if (_braceletLiftCollisionsDisabled || IsDying)
+            return false;
+
+        int angle = sourcePosition == Position
+            ? ((OracleObjectMath.AngleToward(
+                Vector2.Zero, -(Vector2)FacingVector)) & 0x18)
+            : (OracleObjectMath.AngleToward(sourcePosition, Position) & 0x18);
+        _enemyKnockbackFrames = 0x18;
+        _enemyKnockbackDirection = OracleObjectMath.StrictCardinalVector(angle);
+        _walking = false;
+        _pushing = false;
+        _world.InterruptBracelet(this, discard: false);
+        ClearShieldParent();
+        CancelSwordAttack();
+        CancelShovelAction();
+        QueueRedraw();
+        return true;
+    }
+
     public bool Heal(int quarters)
     {
         if (quarters <= 0)
@@ -1136,6 +1161,21 @@ public partial class Player : Node2D
     {
         // preventObjectHFromPassingObjectD overwrites only Object.xh/yh. Keep
         // the 8.8 fractional byte accumulated by linkCutscene6 intact.
+        SetCoordinateHigh(horizontal, coordinate);
+    }
+
+    internal void SetScreenTransitionBoundaryCoordinate(
+        bool horizontal,
+        int coordinate)
+    {
+        // screenTransitionState2 clamps the high coordinate to the original
+        // edge before checking wDisableScreenTransitions. Preserve the low
+        // coordinate exactly as the source write does.
+        SetCoordinateHigh(horizontal, coordinate);
+    }
+
+    private void SetCoordinateHigh(bool horizontal, int coordinate)
+    {
         if (horizontal)
         {
             float fraction = _precisePosition.X - Mathf.Floor(_precisePosition.X);

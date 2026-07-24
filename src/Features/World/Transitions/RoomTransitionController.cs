@@ -86,6 +86,8 @@ public sealed class RoomTransitionController
         _scrollLinkStart + _scrollLinkStep * _scrollFrame + _scrollFinishOffset;
     public float ScrollDistance => _scrollDistance;
     public int ScrollFrames => _scrollFrames;
+    internal Func<bool> ScreenTransitionsDisabledSource { get; set; } =
+        static () => false;
     internal bool TimeWarpActive => _timeWarp && _warpActive;
     internal int TimeWarpPhaseFrame => _timeWarpPhaseFrame;
     internal int TimeWarpDissolveStep => _timeWarpDissolveStep;
@@ -173,6 +175,17 @@ public sealed class RoomTransitionController
             : position.X > room.Width - 6 ? Vector2I.Right
             : Vector2I.Zero;
         if (direction == Vector2I.Zero)
+            return;
+
+        // screenTransitionState2 writes Link's boundary coordinate before
+        // checking wDisableScreenTransitions. This prevents Link from walking
+        // past the current screen while an encounter such as Maple is active.
+        bool horizontal = direction.X != 0;
+        int boundary = direction == Vector2I.Up || direction == Vector2I.Left
+            ? 6
+            : horizontal ? room.Width - 6 : room.Height - 7;
+        player.SetScreenTransitionBoundaryCoordinate(horizontal, boundary);
+        if (ScreenTransitionsDisabledSource())
             return;
 
         if (_warps.TryGetEdgeWarp(
