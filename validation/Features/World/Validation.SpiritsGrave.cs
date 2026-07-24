@@ -655,6 +655,170 @@ public sealed partial class ValidationRoot
                 "collectible TREASURE_OBJECT_BRACELET_00 reward.");
         }
 
+        var sideScroll = new SideScrollPlayerDatabase();
+        SideScrollPlayerParameters sideParameters = sideScroll.Parameters;
+        SideScrollTerrainState entranceTerrain =
+            _terrain.GetSideScrollTerrain(new Vector2(0x28, 0x08));
+        if (sideScroll.TileType(0x18) != SideScrollTileType.Ladder ||
+            sideScroll.TileType(0x19) !=
+                (SideScrollTileType.Ladder | SideScrollTileType.LadderTop) ||
+            sideScroll.TileType(0x1a) !=
+                (SideScrollTileType.Ladder | SideScrollTileType.Water) ||
+            sideScroll.TileType(0xf4) != SideScrollTileType.Hole ||
+            sideParameters is not
+            {
+                Gravity: 0x24,
+                ReducedGravity: 0x0e,
+                MaximumFallSpeed: 0x0300,
+                JumpSpeedZ: -0x0230,
+                GroundWallMask: 0x30,
+                CeilingWallMask: 0xc0,
+                LandingHighMask: 0xf8,
+                LandingHighOffset: 1,
+                BelowTileOffset: 8,
+                BottomBoundary: 0xa9,
+                SpikeTile: 0x02,
+                JumpSound: OracleSoundEngine.SndJump,
+                LandSound: OracleSoundEngine.SndLand
+            } ||
+            !sideParameters.AnimationPhaseDurations.SequenceEqual([9, 9, 6]) ||
+            entranceTerrain.ActiveTile != 0x18 ||
+            entranceTerrain.BelowTile != 0x18 ||
+            entranceTerrain.ActiveType != SideScrollTileType.Ladder ||
+            entranceTerrain.BelowType != SideScrollTileType.Ladder)
+        {
+            throw new InvalidOperationException(
+                "Imported side-scrolling tile flags, active/below sampling, " +
+                "8.8 gravity, collision masks, or jump/landing constants diverged.");
+        }
+
+        // The left entrance ladder must retain full vertical input instead of
+        // the ordinary side-view horizontal-only angle adjustment.
+        _player.WarpTo(new Vector2(0x28, 0x08), recordSafe: false);
+        _sound.ClearPlayRequestAudit();
+        for (int frame = 0; frame < 32; frame++)
+            _player.AdvanceSideScrollUpdateForValidation(Vector2.Down);
+        if (_player.PrecisePosition != new Vector2(0x28, 0x28) ||
+            _player.SideScrollAirborne || !_player.SideScrollClimbing ||
+            _player.SideScrollSpeedZ != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 0)
+        {
+            throw new InvalidOperationException(
+                "D1's left side-view ladder did not move Link down exactly one " +
+                "pixel per update without starting gravity.");
+        }
+
+        // Stepping into empty side-view space initializes speedZ at zero,
+        // applies $24 gravity in 8.8 coordinates, ignores vertical input while
+        // airborne, and snaps only the high Y byte to the floor's ninth pixel.
+        _player.WarpTo(new Vector2(0x58, 0x48), recordSafe: false);
+        _sound.ClearPlayRequestAudit();
+        for (int frame = 0; frame < 16; frame++)
+            _player.AdvanceSideScrollUpdateForValidation(Vector2.Up);
+        if (!_player.SideScrollAirborne ||
+            _player.SideScrollSpeedZ != 0x0240 ||
+            _player.SideScrollYFixed != 0x58e0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 0)
+        {
+            throw new InvalidOperationException(
+                "Side-view falling did not preserve the source zero-speed " +
+                "initial update, vertical-input lock, or $24 gravity sequence.");
+        }
+        _player.AdvanceSideScrollUpdateForValidation(Vector2.Up);
+        if (_player.SideScrollAirborne ||
+            _player.SideScrollSpeedZ != 0 ||
+            _player.SideScrollYFixed != 0x5920 ||
+            _player.PrecisePosition.Y != 0x59 + 0x20 / 256.0f ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 1)
+        {
+            throw new InvalidOperationException(
+                "Side-view falling did not land on update 17 at Y $59.20 with " +
+                "one SND_LAND request and a cleared speedZ.");
+        }
+
+        // ITEM_FEATHER uses the side-view-only -$0230 launch. Its first update
+        // applies that displacement before adding gravity and permits one
+        // horizontal pixel of air control.
+        _player.WarpTo(new Vector2(0x58, 0x59), recordSafe: false);
+        _sound.ClearPlayRequestAudit();
+        _player.AdvanceSideScrollUpdateForValidation(
+            Vector2.Right, startJump: true);
+        if (!_player.SideScrollAirborne ||
+            _player.SideScrollSpeedZ != -0x020c ||
+            _player.SideScrollYFixed != 0x56d0 ||
+            _player.PrecisePosition.X != 0x59 ||
+            _player.SideScrollAnimationPhase != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 0)
+        {
+            throw new InvalidOperationException(
+                "The side-view Feather launch did not use -$0230 speedZ, $24 " +
+                "gravity, horizontal air control, jump animation, and SND_JUMP.");
+        }
+
+        // Exercise the complete dry route: descend the left ladder, cross the
+        // lower corridor, climb the right ladder through its top tile, and
+        // step onto the upper chamber floor beside the Bracelet.
+        _player.WarpTo(new Vector2(0x28, 0x08), recordSafe: false);
+        for (int frame = 0; frame < 160; frame++)
+            _player.AdvanceSideScrollUpdateForValidation(Vector2.Down);
+        if (_player.PrecisePosition.Y != 0x89)
+            throw new InvalidOperationException(
+                $"D1's entrance ladder did not stop on the lower floor at Y $89 (actual={_player.PrecisePosition.Y}).");
+        for (int frame = 0; frame < 200; frame++)
+            _player.AdvanceSideScrollUpdateForValidation(Vector2.Right);
+        float rightLadderX = _player.PrecisePosition.X;
+        if (rightLadderX is < 0xc8 or > 0xcc)
+        {
+            throw new InvalidOperationException(
+                $"D1's lower corridor did not stop Link on the right ladder (X={rightLadderX}).");
+        }
+        for (int frame = 0; frame < 80; frame++)
+            _player.AdvanceSideScrollUpdateForValidation(Vector2.Up);
+        if (_player.PrecisePosition.Y != 0x59)
+        {
+            throw new InvalidOperationException(
+                $"D1's right ladder/top clamp did not place Link at upper-floor Y $59 (actual={_player.PrecisePosition.Y}).");
+        }
+        for (int frame = 0; frame < 160; frame++)
+            _player.AdvanceSideScrollUpdateForValidation(Vector2.Left);
+        if (_player.PrecisePosition != new Vector2(0x54, 0x59))
+        {
+            throw new InvalidOperationException(
+                "D1's dry side-scrolling route did not stop beside the Bracelet " +
+                $"at $54,$59 (actual={_player.PrecisePosition}).");
+        }
+
+        // Side groups never resolve an uncovered edge through the aliased D1
+        // dungeon layout. Only the source edge-warp bit for the left top exit
+        // may return to room 4:1b.
+        _player.WarpTo(new Vector2(0xc8, 0x05), recordSafe: false);
+        _player.Face(Vector2I.Up);
+        _transitions.CheckRoomExit(_player);
+        if (_transitions.IsTransitioning ||
+            _rooms.ActiveGroup != 6 || _currentRoom.Id != 0x10)
+        {
+            throw new InvalidOperationException(
+                "Side room 6:10 treated its uncovered upper-right edge as a " +
+                "top-down D1 neighbor.");
+        }
+        _player.WarpTo(new Vector2(0x28, 0x05), recordSafe: false);
+        _player.Face(Vector2I.Up);
+        _transitions.CheckRoomExit(_player);
+        if (!_transitions.IsTransitioning)
+        {
+            throw new InvalidOperationException(
+                "Side room 6:10 did not accept its imported upper-left return warp.");
+        }
+        for (int frame = 0; frame < 120 && _transitions.IsTransitioning; frame++)
+            _transitions.Update(update);
+        if (_transitions.IsTransitioning ||
+            _rooms.ActiveGroup != 4 || _currentRoom.Id != 0x1b)
+        {
+            throw new InvalidOperationException(
+                "D1's side passage did not complete its edge-only return to room 4:1b.");
+        }
+
         PrepareRoom(0x20);
         SpiritsGraveColoredCube cube =
             _entities.Entities<SpiritsGraveColoredCube>().Single();
@@ -1798,7 +1962,7 @@ public sealed partial class ValidationRoot
 
         GD.Print("Validated complete Spirit's Grave dungeon01 coverage: all 22 rooms, " +
             "eight chests, small/boss doors, Moblins/Ropes/Ghini/Wallmasters, " +
-            "platforms, torch/side-room/cube puzzles, linked burnable wall, layout-only entry " +
+            "platforms, torch/dry side-passage traversal/cube puzzles, linked burnable wall, layout-only entry " +
             "shutter, falling rewards, " +
             "Giant Ghini, Pumpkin Head, Heart Container, Eternal Spirit sequence, " +
             "exit warp, shared room 4:ed Ropes, and dungeon0b Wallmaster destination $ce.");

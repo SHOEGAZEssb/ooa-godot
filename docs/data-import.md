@@ -154,6 +154,17 @@ eight-pixel scan, and 9/9/6-update jump animation. The importer validates the
 source handler branches and object-speed aliases instead of deriving those
 values from the current room layout.
 
+That stage also preserves the separate side-view Link contract.
+`side_scroll_tiles.tsv` contains all 16 explicit
+`tileTypesTable@sidescrolling` rows as bitwise flags, including combined
+ladder-top and ladder-water values. `side_scroll_constants.tsv` retains
+`sidescrollUpdateActiveTile`'s eight-pixel lower sample,
+`linkUpdateInAir_sidescroll`'s `$24/$0e` gravity, `$0300` fall cap, wall masks,
+high-byte landing snap, bottom boundary, sounds and 9/9/6-update animation, and
+the side-view Feather launch speed from `parentItemCode_feather`. Runtime must
+use those generated records; side-view tile flags are not ordinary top-down
+terrain enum values and must not be reconstructed from graphics or collision.
+
 Treasure-object sprites are a different source path from those inventory BG
 displays. `Import-NpcData.ps1` follows each treasure object's graphic byte into
 the contiguous `INTERAC_TREASURE $60` subid, animation, and OAM pointer tables

@@ -195,6 +195,12 @@ public sealed class RoomTransitionController
             ApplyWarp(player, warp);
             return;
         }
+        // checkWarpsSidescrolling consults screen-edge warps only. Group
+        // $06/$07 retains the source room ID for objects and tilesets, but it
+        // must not reinterpret that ID through the aliased dungeon layout and
+        // begin an ordinary top-down scroll.
+        if ((room.TilesetFlags & 0x20) != 0)
+            return;
         if (!_rooms.TryGetNeighbor(direction, out int targetId) ||
             !_rooms.World.HasRoom(_rooms.ActiveGroup, targetId))
             return;
@@ -210,7 +216,16 @@ public sealed class RoomTransitionController
             : point.X >= room.Width ? Vector2I.Right
             : point.Y < 0 ? Vector2I.Up
             : Vector2I.Down;
-        return _warps.HasEdgeWarp(_rooms.ActiveGroup, room.Id, direction) ||
+        bool hasEdgeWarp = _warps.TryGetEdgeWarp(
+            _rooms.ActiveGroup,
+            room.Id,
+            direction,
+            point,
+            new Vector2(room.Width, room.Height),
+            out _);
+        if ((room.TilesetFlags & 0x20) != 0)
+            return hasEdgeWarp;
+        return hasEdgeWarp ||
             (_rooms.TryGetNeighbor(direction, out int id) && _rooms.World.HasRoom(_rooms.ActiveGroup, id));
     }
 

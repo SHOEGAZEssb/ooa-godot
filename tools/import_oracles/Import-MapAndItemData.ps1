@@ -859,6 +859,174 @@ $soundSource = Get-Content (
 $linkAnimationSource = Get-Content -Raw (
     Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
 
+# Export the bitwise tile types and fixed 8.8 Link physics used by
+# linkState01_sidescroll. These are not ordinary TerrainType values: a tile can
+# combine ladder, water, ice, and ladder-top behavior in one byte.
+$sideTileTypeSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\tile_properties\tileTypeMappings.s')
+$tileTypeConstantSource = Get-Content (
+    Join-Path $Disassembly 'constants\common\tileTypes.s')
+$sideCommonSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\specialObjects\commonCode.s')
+$featherParentSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\itemParents\featherParent.s')
+
+$sideTileTypeConstants = @{}
+foreach ($line in $tileTypeConstantSource) {
+    if ($line -match '^\s*\.define\s+(?<name>TILETYPE_SS_[A-Za-z0-9_]+)\s+\$(?<value>[0-9a-f]{2})') {
+        $sideTileTypeConstants[$Matches['name']] =
+            [Convert]::ToInt32($Matches['value'], 16)
+    }
+}
+if ($sideTileTypeConstants.Count -ne 6) {
+    throw "Expected six side-scrolling tile-type constants, parsed $($sideTileTypeConstants.Count)."
+}
+
+$sideTileBlock = [regex]::Match(
+    $sideTileTypeSource,
+    '(?ms)^@sidescrolling:\s*(?<body>.*?)(?=^\s*\.db\s+\$00\s*$)')
+if (-not $sideTileBlock.Success) {
+    throw 'Could not parse tileTypesTable@sidescrolling.'
+}
+$sideTileRows = [Collections.Generic.List[string]]::new()
+$sideTileRows.Add("# tile`tflags`tsource")
+foreach ($line in ($sideTileBlock.Groups['body'].Value -split "`r?`n")) {
+    if ($line -notmatch '^\s*\.db\s+\$(?<tile>[0-9a-f]{2})\s+(?<expression>[^;]+?)\s*$') {
+        continue
+    }
+    $sideTile = $Matches['tile']
+    $sideExpression = $Matches['expression']
+    $flags = 0
+    foreach ($token in ($sideExpression -split '\|')) {
+        $name = $token.Trim()
+        if ($name -match '^\$(?<value>[0-9a-f]{2})$') {
+            $flags = $flags -bor [Convert]::ToInt32($Matches['value'], 16)
+        }
+        elseif ($sideTileTypeConstants.ContainsKey($name)) {
+            $flags = $flags -bor $sideTileTypeConstants[$name]
+        }
+        else {
+            throw "Unknown side-scrolling tile-type expression '$name'."
+        }
+    }
+    $sideTileRows.Add(
+        "$sideTile`t$($flags.ToString('x2'))`ttileTypeMappings.s:@sidescrolling")
+}
+if ($sideTileRows.Count -ne 17 -or
+    ($sideTileRows | Where-Object { $_ -eq "18`t10`ttileTypeMappings.s:@sidescrolling" }).Count -ne 1 -or
+    ($sideTileRows | Where-Object { $_ -eq "17`t90`ttileTypeMappings.s:@sidescrolling" }).Count -ne 1 -or
+    ($sideTileRows | Where-Object { $_ -eq "1a`t30`ttileTypeMappings.s:@sidescrolling" }).Count -ne 1 -or
+    ($sideTileRows | Where-Object { $_ -eq "f4`t01`ttileTypeMappings.s:@sidescrolling" }).Count -ne 1) {
+    throw 'Could not export all 16 side-scrolling tile-type rows.'
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'metadata\side_scroll_tiles.tsv'),
+    $sideTileRows,
+    [Text.UTF8Encoding]::new($false))
+
+$sidePhysicsBlock = [regex]::Match(
+    $linkSource,
+    '(?ms)^linkUpdateInAir_sidescroll:.*?(?=^initLinkState:)')
+$sideActiveTileMatch = [regex]::Match(
+    $sideCommonSource,
+    '(?ms)^sidescrollUpdateActiveTile:.*?ld bc,\$(?<below>[0-9a-f]{4}).*?(?=^\s*;;)')
+$sideJumpMatch = [regex]::Match(
+    $featherParentSource,
+    '(?ms)^\s*; Jump higher in sidescrolling rooms.*?ld bc,\$fe20.*?cp FIRST_SIDESCROLL_GROUP.*?ld bc,\$(?<speed>[0-9a-f]{4})')
+$sideJumpAnimationMatch = [regex]::Match(
+    $linkAnimationSource,
+    '(?ms)^animationData19f78:\s+\.db \$(?<d0>[0-9a-f]{2}) \$e4 \$00\s+\.db \$(?<d1>[0-9a-f]{2}) \$e8 \$00\s+\.db \$(?<d2>[0-9a-f]{2}) \$ec \$00\s+\.db \$7f \$80 \$ff')
+if (-not $sidePhysicsBlock.Success -or
+    -not $sideActiveTileMatch.Success -or
+    -not $sideJumpMatch.Success -or
+    -not $sideJumpAnimationMatch.Success -or
+    $sidePhysicsBlock.Groups[0].Value -notmatch
+        '(?ms)ld c,\$(?<gravity>[0-9a-f]{2}).*?bit 5,a.*?ld c,\$(?<reduced>[0-9a-f]{2})' -or
+    $sidePhysicsBlock.Groups[0].Value -notmatch
+        '(?ms)and \$(?<snapMask>[0-9a-f]{2})\s+add \$(?<snapOffset>[0-9a-f]{2})' -or
+    $sidePhysicsBlock.Groups[0].Value -notmatch
+        '(?ms)If speedZ is negative.*?and \$(?<ceilingMask>[0-9a-f]{2}).*?@positiveSpeedZ:.*?and \$(?<groundMask>[0-9a-f]{2})' -or
+    $sidePhysicsBlock.Groups[0].Value -notmatch
+        '(?ms)Cap Link''s speedZ to \$(?<maximum>[0-9a-f]{4}).*?cp \$(?<maximumHigh>[0-9a-f]{2})' -or
+    $sidePhysicsBlock.Groups[0].Value -notmatch
+        '(?ms)reached the bottom boundary.*?cp \$(?<bottom>[0-9a-f]{2})') {
+    throw 'Could not verify linkUpdateInAir_sidescroll physics constants.'
+}
+
+function Resolve-SideScrollSound([string]$name) {
+    foreach ($line in $soundSource) {
+        if ($line -match "^\s*$name\s+db\s*;\s*\`$(?<value>[0-9a-f]{2})") {
+            return [Convert]::ToInt32($Matches['value'], 16)
+        }
+    }
+    throw "Could not resolve side-scrolling sound constant $name."
+}
+
+$sidePhysicsText = $sidePhysicsBlock.Groups[0].Value
+$null = $sidePhysicsText -match
+    '(?ms)ld c,\$(?<gravity>[0-9a-f]{2}).*?bit 5,a.*?ld c,\$(?<reduced>[0-9a-f]{2})'
+$sideGravity = [Convert]::ToInt32($Matches['gravity'], 16)
+$sideReducedGravity = [Convert]::ToInt32($Matches['reduced'], 16)
+$null = $sidePhysicsText -match
+    '(?ms)and \$(?<snapMask>[0-9a-f]{2})\s+add \$(?<snapOffset>[0-9a-f]{2})'
+$sideSnapMask = [Convert]::ToInt32($Matches['snapMask'], 16)
+$sideSnapOffset = [Convert]::ToInt32($Matches['snapOffset'], 16)
+$null = $sidePhysicsText -match
+    '(?ms)If speedZ is negative.*?and \$(?<ceilingMask>[0-9a-f]{2}).*?@positiveSpeedZ:.*?and \$(?<groundMask>[0-9a-f]{2})'
+$sideCeilingMask = [Convert]::ToInt32($Matches['ceilingMask'], 16)
+$sideGroundMask = [Convert]::ToInt32($Matches['groundMask'], 16)
+$null = $sidePhysicsText -match
+    '(?ms)Cap Link''s speedZ to \$(?<maximum>[0-9a-f]{4}).*?cp \$(?<maximumHigh>[0-9a-f]{2})'
+$sideMaximumSpeed = [Convert]::ToInt32($Matches['maximum'], 16)
+if (($sideMaximumSpeed -shr 8) -ne
+    [Convert]::ToInt32($Matches['maximumHigh'], 16)) {
+    throw 'Side-scrolling maximum fall speed disagrees with its high-byte cap.'
+}
+$null = $sidePhysicsText -match
+    '(?ms)reached the bottom boundary.*?cp \$(?<bottom>[0-9a-f]{2})'
+$sideBottomBoundary = [Convert]::ToInt32($Matches['bottom'], 16)
+$belowOffset = [Convert]::ToInt32(
+    $sideActiveTileMatch.Groups['below'].Value, 16) -shr 8
+$jumpSpeedUnsigned = [Convert]::ToInt32(
+    $sideJumpMatch.Groups['speed'].Value, 16)
+$jumpSpeed = if ($jumpSpeedUnsigned -ge 0x8000) {
+    $jumpSpeedUnsigned - 0x10000
+} else {
+    $jumpSpeedUnsigned
+}
+$spikeTileMatch = [regex]::Match(
+    ($tileIndexSource -join "`n"),
+    '(?m)^\s*\.define\s+TILEINDEX_SS_SPIKE\s+\$(?<value>[0-9a-f]{2})')
+if (-not $spikeTileMatch.Success) {
+    throw 'Could not resolve TILEINDEX_SS_SPIKE.'
+}
+$sideConstantRows = @(
+    "# key`tvalue`tsource",
+    "gravity`t$sideGravity`tlink.s:linkUpdateInAir_sidescroll",
+    "reduced-gravity`t$sideReducedGravity`tlink.s:linkUpdateInAir_sidescroll",
+    "maximum-fall-speed`t$sideMaximumSpeed`tlink.s:linkUpdateInAir_sidescroll",
+    "jump-speed-z`t$jumpSpeed`tfeatherParent.s:parentItemCode_feather",
+    "ground-wall-mask`t$sideGroundMask`tlink.s:linkUpdateInAir_sidescroll",
+    "ceiling-wall-mask`t$sideCeilingMask`tlink.s:linkUpdateInAir_sidescroll",
+    "landing-high-mask`t$sideSnapMask`tlink.s:linkUpdateInAir_sidescroll",
+    "landing-high-offset`t$sideSnapOffset`tlink.s:linkUpdateInAir_sidescroll",
+    "below-tile-offset`t$belowOffset`tcommonCode.s:sidescrollUpdateActiveTile",
+    "bottom-boundary`t$sideBottomBoundary`tlink.s:linkUpdateInAir_sidescroll",
+    "spike-tile`t$([Convert]::ToInt32($spikeTileMatch.Groups['value'].Value, 16))`ttileIndices.s:TILEINDEX_SS_SPIKE",
+    "jump-sound`t$(Resolve-SideScrollSound 'SND_JUMP')`tlink.s:linkUpdateInAir_sidescroll",
+    "land-sound`t$(Resolve-SideScrollSound 'SND_LAND')`tlink.s:linkUpdateInAir_sidescroll",
+    "animation-phase-0`t$([Convert]::ToInt32($sideJumpAnimationMatch.Groups['d0'].Value, 16))`tspecialObjectAnimationData.s:animationData19f78",
+    "animation-phase-1`t$([Convert]::ToInt32($sideJumpAnimationMatch.Groups['d1'].Value, 16))`tspecialObjectAnimationData.s:animationData19f78",
+    "animation-phase-2`t$([Convert]::ToInt32($sideJumpAnimationMatch.Groups['d2'].Value, 16))`tspecialObjectAnimationData.s:animationData19f78"
+)
+if ($sideConstantRows.Count -ne 17) {
+    throw 'Side-scrolling player constants lost an expected row.'
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'metadata\side_scroll_constants.tsv'),
+    $sideConstantRows,
+    [Text.UTF8Encoding]::new($false))
+
 $ledgeCollisionModes = @{
     overworld = 0
     indoors = 1

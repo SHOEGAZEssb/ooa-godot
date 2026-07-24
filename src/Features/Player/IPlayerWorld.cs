@@ -12,6 +12,8 @@ public interface IPlayerWorld
     bool MovementDisabled { get; }
     bool RingTransformationsAllowed { get; }
     bool RidingObject { get; }
+    bool SideScrolling { get; }
+    SideScrollPlayerParameters SideScrollParameters { get; }
     bool ApplySwordHit(Player player, Rect2 hitbox);
     bool ApplySwordTileHit(Player player, int direction, bool swordPoke);
     bool ApplyExpertsRingTileHit(Player player, int direction);
@@ -40,6 +42,8 @@ public interface IPlayerWorld
         Vector2I facing,
         Vector2 movementInput);
     ActiveTerrainInfo GetActiveTerrain(Vector2 playerPosition);
+    SideScrollTerrainState GetSideScrollTerrain(Vector2 playerPosition);
+    int GetAdjacentWallsBitset(Vector2 playerPosition);
     Vector2 GetTerrainPush(Vector2 playerPosition);
     bool TryStartLedgeHop(Player player, Vector2 from, Vector2 attemptedMovement);
     bool ApplyLandedTileHit(Vector2 playerPosition);

@@ -11,12 +11,15 @@ public sealed class TerrainController
     private readonly RoomSession _rooms;
     private readonly BreakableTileDatabase _breakables;
     private readonly LedgeJumpDatabase _ledges;
+    private readonly SideScrollPlayerDatabase _sideScroll;
     private readonly Func<Vector2, int> _adjacentWallsBitset;
     private readonly Action<int> _playSound;
     private SplashEffect? _activeSplash;
 
     internal SplashEffect? ActiveSplash => _activeSplash;
     internal byte CurrentTilesetFlags => _rooms.CurrentRoom.TilesetFlags;
+    internal SideScrollPlayerParameters SideScrollParameters =>
+        _sideScroll.Parameters;
 
     public TerrainController(
         Node worldRoot,
@@ -29,6 +32,7 @@ public sealed class TerrainController
         _rooms = rooms;
         _breakables = breakables;
         _ledges = new LedgeJumpDatabase();
+        _sideScroll = new SideScrollPlayerDatabase();
         _adjacentWallsBitset = adjacentWallsBitset;
         _playSound = playSound;
     }
@@ -49,6 +53,19 @@ public sealed class TerrainController
             tileY * OracleRoomData.MetatileSize + 8);
         return new ActiveTerrainInfo(
             room.GetTerrainInfo(sample), sample, center, (tileY << 4) | tileX);
+    }
+
+    internal SideScrollTerrainState GetSideScrollTerrain(Vector2 playerPosition)
+    {
+        OracleRoomData room = _rooms.CurrentRoom;
+        byte activeTile = room.GetMetatile(playerPosition);
+        byte belowTile = room.GetMetatile(
+            playerPosition + new Vector2(0, _sideScroll.Parameters.BelowTileOffset));
+        return new SideScrollTerrainState(
+            activeTile,
+            belowTile,
+            _sideScroll.TileType(activeTile),
+            _sideScroll.TileType(belowTile));
     }
 
     public Vector2 GetTerrainPush(Vector2 playerPosition)

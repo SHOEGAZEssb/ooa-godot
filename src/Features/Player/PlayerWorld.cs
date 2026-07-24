@@ -29,6 +29,10 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool ItemUsageDisabled => _entities.PlayerItemUsageDisabled;
     public bool MovementDisabled => _roomEvents.Active || _entities.PlayerMovementDisabled;
     public bool RidingObject => _entities.PlayerRidingObject;
+    public bool SideScrolling =>
+        (_terrain.CurrentTilesetFlags & 0x20) != 0;
+    public SideScrollPlayerParameters SideScrollParameters =>
+        _terrain.SideScrollParameters;
     public bool RingTransformationsAllowed =>
         !_roomEvents.Active &&
         (_terrain.CurrentTilesetFlags & 0x60) == 0 &&
@@ -127,6 +131,10 @@ public sealed class PlayerWorld : IPlayerWorld
         _keyholes.UpdatePushAttempt(position, facing, resolvedInput);
     }
     public ActiveTerrainInfo GetActiveTerrain(Vector2 position) => _terrain.GetActiveTerrain(position);
+    public SideScrollTerrainState GetSideScrollTerrain(Vector2 position) =>
+        _terrain.GetSideScrollTerrain(position);
+    public int GetAdjacentWallsBitset(Vector2 position) =>
+        _collision.AdjacentWallsBitset(position);
     public Vector2 GetTerrainPush(Vector2 position) =>
         RidingObject ? Vector2.Zero : _terrain.GetTerrainPush(position);
     public bool TryStartLedgeHop(Player player, Vector2 from, Vector2 movement) =>

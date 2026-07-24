@@ -16,6 +16,29 @@ source alias. Dungeon neighbors come from imported dungeon floor layouts, not
 room-ID arithmetic. `RoomSession` owns the active identity and must be used for
 neighbor and layout resolution.
 
+## Side-scrolling passages
+
+A tileset with `TILESETFLAG_SIDESCROLL` routes Link through the fixed-update
+side-view controller. It samples the metatile at Link's center and eight pixels
+below through the imported bitwise side-tile table. Ordinary dry movement is
+horizontal only. Either sample carrying the ladder bit retains full directional
+input, and a ladder-top sample applies the source ninth-pixel upward clamp.
+
+Empty space starts an airborne state at speedZ zero. Each original update
+applies signed 8.8 Y displacement, adds gravity `$24`, caps downward speed at
+`$0300`, permits horizontal-only air control, and uses adjacent-wall masks
+`$c0/$30` for ceilings and floors. Landing preserves the Y subpixel while
+snapping the high byte with `(yh & $f8) + 1`, plays `SND_LAND`, and clears the
+air state. The side-view Feather branch launches at `-$0230`, plays `SND_JUMP`
+on its first airborne update, and uses the shared 9/9/6-update jump animation.
+
+Groups `$06/$07` check imported vertical edge warps only. An uncovered edge
+must not resolve through the aliased `$04/$05` dungeon layout or begin an
+ordinary room scroll. Aquatic/lava/ice Link states and side-view moving or
+disappearing platforms remain separate native systems; the dry controller
+rejects those tile modes with a source-aware diagnostic until their handlers
+are implemented.
+
 ## Transition lifetime
 
 A scrolling transition keeps an active room/entity set and an outgoing set.

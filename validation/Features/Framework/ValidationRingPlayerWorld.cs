@@ -15,6 +15,8 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     public bool MovementDisabled => false;
     public bool RingTransformationsAllowed { get; set; } = true;
     public bool RidingObject => false;
+    public bool SideScrolling => false;
+    public SideScrollPlayerParameters SideScrollParameters => default;
     public int SwordHitCalls { get; private set; }
     public int LastSwordDamage { get; private set; }
     public int ExpertTileHitCalls { get; private set; }
@@ -62,6 +64,9 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     }
 
     public ActiveTerrainInfo GetActiveTerrain(Vector2 playerPosition) => default;
+    public SideScrollTerrainState GetSideScrollTerrain(Vector2 playerPosition) =>
+        default;
+    public int GetAdjacentWallsBitset(Vector2 playerPosition) => 0;
     public Vector2 GetTerrainPush(Vector2 playerPosition) => Vector2.Zero;
     public bool TryStartLedgeHop(Player player, Vector2 from, Vector2 attemptedMovement) => false;
     public bool ApplyLandedTileHit(Vector2 playerPosition) => false;

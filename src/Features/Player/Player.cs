@@ -78,6 +78,7 @@ public partial class Player : Node2D
     private float _fallInHoleTime;
     private float _fallInHoleInvisibleTime;
     private double _ledgeUpdateAccumulator;
+    private double _sideScrollUpdateAccumulator;
     private int _ledgeGroundYFixed;
     private int _ledgeGroundXFixed;
     private int _ledgeZFixed;
@@ -92,6 +93,13 @@ public partial class Player : Node2D
     private Vector2I _ledgeDirection;
     private LedgeJumpState _ledgeJumpState;
     private bool _ledgeCrossedScreen;
+    private int _sideScrollYFixed;
+    private int _sideScrollSpeedZ;
+    private int _sideScrollAnimationPhase;
+    private int _sideScrollAnimationCounter;
+    private bool _sideScrollAirborne;
+    private bool _sideScrollJumpSoundPending;
+    private bool _sideScrollClimbing;
     private float _enemyInvincibilityFrames;
     private float _enemyKnockbackFrames;
     private Vector2 _enemyKnockbackDirection;
@@ -228,7 +236,7 @@ public partial class Player : Node2D
     internal bool IsNewGameSlowFalling => _newGameSlowFalling;
     internal bool IsGroundedForFloorButton =>
         _ledgeJumpState == LedgeJumpState.None && !_newGameSlowFalling &&
-        !_drowning && !_fallingInHole;
+        !_sideScrollAirborne && !_drowning && !_fallingInHole;
     internal bool IsJumpingDownLedge =>
         _ledgeJumpState != LedgeJumpState.None;
     internal bool AcceptsRoomEntityContact =>
@@ -238,6 +246,11 @@ public partial class Player : Node2D
     internal int LedgeSpeedRaw => _ledgeSpeedRaw;
     internal int LedgeCliffLength => _ledgeCliffLength;
     internal int LedgeAnimationPhase => _ledgeAnimationPhase;
+    internal bool SideScrollAirborne => _sideScrollAirborne;
+    internal bool SideScrollClimbing => _sideScrollClimbing;
+    internal int SideScrollSpeedZ => _sideScrollSpeedZ;
+    internal int SideScrollYFixed => _sideScrollYFixed;
+    internal int SideScrollAnimationPhase => _sideScrollAnimationPhase;
     internal LedgeJumpState LedgeJumpPhase => _ledgeJumpState;
     internal bool LedgeShadowDrawn =>
         _ledgeZFixed < 0 &&
@@ -381,6 +394,7 @@ public partial class Player : Node2D
         _carriedObjectPose = false;
         _braceletActionPose = null;
         _braceletLiftCollisionsDisabled = false;
+        ClearSideScrollState(position);
         if (preserveShield)
             SuspendShield();
         else
@@ -884,6 +898,8 @@ public partial class Player : Node2D
                 StartSwordAttack("attack", input);
             else if (_inventory.EquippedA == InventoryState.ItemShovel)
                 StartShovelAction(input);
+            else if (_inventory.EquippedA == InventoryState.ItemFeather)
+                TryStartSideScrollJump();
             else if (_inventory.EquippedA == InventoryState.ItemSeedSatchel)
                 StartSeedSatchelAction(input);
         }
@@ -918,6 +934,10 @@ public partial class Player : Node2D
             {
                 StartShovelAction(input);
             }
+            else if (_inventory.EquippedB == InventoryState.ItemFeather)
+            {
+                TryStartSideScrollJump();
+            }
             else if (_inventory.EquippedB == InventoryState.ItemSeedSatchel)
             {
                 StartSeedSatchelAction(input);
@@ -929,6 +949,24 @@ public partial class Player : Node2D
             Input.IsActionPressed("item"));
 
         bool movementAllowed = !IsUsingItem || SwordAllowsMovement;
+        if (_world.SideScrolling)
+        {
+            UpdateSideScrollMovement(delta, input, movementAllowed);
+            UpdatePushingState(input);
+            _world.UpdatePushableBlocks(
+                _precisePosition,
+                FacingVector,
+                _walking ? input : Vector2.Zero);
+            UpdateHeartRingCounter(_precisePosition - movementStart);
+
+            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+            if (!_world.CheckTileWarp(this))
+                _world.CheckRoomExit(this);
+            AdvanceTransformationAnimation(_walking);
+            QueueRedraw();
+            return;
+        }
+
         _walking = input.LengthSquared() > 0.01f && movementAllowed;
         if (_walking)
         {
@@ -1460,6 +1498,19 @@ public partial class Player : Node2D
                 new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(frame * 16, 0, 16, 16));
         }
+        else if (_sideScrollAirborne)
+        {
+            DrawTextureRectRegion(
+                DamagePaletteActive
+                    ? _damageLedgeJumpTexture
+                    : _ledgeJumpTexture,
+                new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
+                new Rect2(
+                    _sideScrollAnimationPhase * 16,
+                    (int)_facing * 16,
+                    16,
+                    16));
+        }
         else if (_ledgeJumpState != LedgeJumpState.None)
         {
             DrawTextureRectRegion(
@@ -1612,6 +1663,341 @@ public partial class Player : Node2D
 
         if (!IsUsingItem && _world.TryStartLedgeHop(this, _precisePosition, movement))
             return;
+    }
+
+    private void UpdateSideScrollMovement(
+        double delta,
+        Vector2 input,
+        bool movementAllowed)
+    {
+        _sideScrollUpdateAccumulator += delta * 60.0;
+        while (_sideScrollUpdateAccumulator + 0.000001 >= 1.0)
+        {
+            _sideScrollUpdateAccumulator -= 1.0;
+            AdvanceSideScrollUpdate(input, movementAllowed);
+        }
+    }
+
+    internal void AdvanceSideScrollUpdateForValidation(
+        Vector2 input,
+        bool startJump = false)
+    {
+        if (!_world.SideScrolling)
+        {
+            throw new InvalidOperationException(
+                "A side-scrolling Link update was requested outside a side-scrolling tileset.");
+        }
+        if (startJump)
+        {
+            if (_sideScrollAirborne)
+                throw new InvalidOperationException(
+                    "The validation side-scrolling jump began while Link was already airborne.");
+            BeginSideScrollAirborne(
+                jumped: true,
+                _world.SideScrollParameters);
+        }
+        AdvanceSideScrollUpdate(input, movementAllowed: true);
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        QueueRedraw();
+    }
+
+    private void AdvanceSideScrollUpdate(Vector2 input, bool movementAllowed)
+    {
+        SideScrollPlayerParameters parameters = _world.SideScrollParameters;
+        SideScrollTerrainState terrain = _world.GetSideScrollTerrain(
+            _precisePosition);
+        if ((terrain.ActiveType &
+                (SideScrollTileType.Water |
+                 SideScrollTileType.Lava |
+                 SideScrollTileType.Ice)) != 0)
+        {
+            throw new InvalidOperationException(
+                "linkState01_sidescroll reached aquatic, lava, or ice behavior " +
+                $"on tile ${terrain.ActiveTile:x2}; that separate side-view state machine is not supported.");
+        }
+
+        int walls = _world.GetAdjacentWallsBitset(_precisePosition);
+        if (_sideScrollAirborne)
+        {
+            AdvanceSideScrollAirborne(
+                input, movementAllowed, terrain, walls, parameters);
+            return;
+        }
+
+        bool grounded = (walls & parameters.GroundWallMask) != 0;
+        bool onLadder =
+            (terrain.CombinedType & SideScrollTileType.Ladder) != 0;
+        if (!_world.RidingObject && !grounded && !onLadder)
+        {
+            BeginSideScrollAirborne(jumped: false, parameters);
+            AdvanceSideScrollAirborne(
+                input, movementAllowed, terrain, walls, parameters);
+            return;
+        }
+
+        if (terrain.ActiveTile == parameters.SpikeTile)
+            ApplySideScrollSpikeDamage(input);
+        AdvanceGroundedSideScroll(
+            input, movementAllowed, terrain, parameters);
+    }
+
+    private void AdvanceGroundedSideScroll(
+        Vector2 input,
+        bool movementAllowed,
+        SideScrollTerrainState terrain,
+        SideScrollPlayerParameters parameters)
+    {
+        bool onLadder =
+            (terrain.CombinedType & SideScrollTileType.Ladder) != 0;
+        Vector2 movementInput = movementAllowed ? input : Vector2.Zero;
+        if (!onLadder)
+        {
+            movementInput = Mathf.Abs(movementInput.X) > 0.01f
+                ? new Vector2(Mathf.Sign(movementInput.X), 0)
+                : Vector2.Zero;
+        }
+        else if (movementInput.LengthSquared() > 1.0f)
+        {
+            movementInput = movementInput.Normalized();
+        }
+
+        _walking = movementInput.LengthSquared() > 0.01f;
+        if (_walking)
+        {
+            if (!IsUsingItem)
+                UpdateFacing(movementInput);
+            Vector2 resolved = _world.ResolveMovement(
+                _precisePosition, movementInput, allowWallSlide: true);
+            if (resolved != Vector2.Zero)
+                _precisePosition += resolved;
+            _walkTime += 1.0f / 60.0f;
+        }
+
+        // The ladder-top clamp writes only Link's high Y byte. It prevents an
+        // upward input from crossing the top half of a ladder-top metatile
+        // until Link has reached its source-defined ninth pixel.
+        if (movementInput.Y < 0.0f &&
+            terrain.ActiveType == SideScrollTileType.None &&
+            terrain.BelowType ==
+                (SideScrollTileType.Ladder | SideScrollTileType.LadderTop))
+        {
+            int high = Mathf.FloorToInt(_precisePosition.Y);
+            if ((high & 0x0f) < 9)
+            {
+                high = (high & 0xf0) + 9;
+                _precisePosition.Y = high +
+                    (_sideScrollYFixed & 0xff) / 256.0f;
+            }
+        }
+
+        _sideScrollYFixed =
+            Mathf.FloorToInt(_precisePosition.Y * 256.0f);
+        int walls = _world.GetAdjacentWallsBitset(_precisePosition);
+        SideScrollTerrainState currentTerrain =
+            _world.GetSideScrollTerrain(_precisePosition);
+        _sideScrollClimbing =
+            (walls & parameters.GroundWallMask) == 0 &&
+            (currentTerrain.ActiveType & SideScrollTileType.Ladder) != 0;
+    }
+
+    private void AdvanceSideScrollAirborne(
+        Vector2 input,
+        bool movementAllowed,
+        SideScrollTerrainState terrain,
+        int walls,
+        SideScrollPlayerParameters parameters)
+    {
+        if (_sideScrollJumpSoundPending)
+        {
+            _sideScrollJumpSoundPending = false;
+            _world.PlaySound(parameters.JumpSound);
+        }
+
+        if (_sideScrollSpeedZ >= 0)
+        {
+            if ((walls & parameters.GroundWallMask) != 0)
+            {
+                LandFromSideScrollAir(parameters, snapToGround: true);
+                return;
+            }
+            if ((terrain.ActiveType & SideScrollTileType.Ladder) != 0 &&
+                input.Y < -0.01f)
+            {
+                LandFromSideScrollAir(parameters, snapToGround: false);
+                return;
+            }
+
+            int highY = _sideScrollYFixed >> 8;
+            if ((highY & 0x08) != 0 &&
+                terrain.BelowType ==
+                    (SideScrollTileType.Ladder |
+                     SideScrollTileType.LadderTop))
+            {
+                LandFromSideScrollAir(parameters, snapToGround: true);
+                return;
+            }
+            if ((terrain.ActiveType & SideScrollTileType.Hole) != 0 &&
+                terrain.BelowType == SideScrollTileType.None)
+            {
+                _world.PlaySound(OracleSoundEngine.SndDamageLink);
+                ApplyDamage(
+                    TerrainHazardDamageQuarters,
+                    RingDamageSource.Hole);
+                WarpTo(_lastSafePosition);
+                return;
+            }
+        }
+
+        bool ceilingBlocked =
+            _sideScrollSpeedZ < 0 &&
+            (walls & parameters.CeilingWallMask) != 0;
+        if (!ceilingBlocked)
+        {
+            _sideScrollYFixed += _sideScrollSpeedZ;
+            _precisePosition.Y = _sideScrollYFixed / 256.0f;
+        }
+
+        _sideScrollSpeedZ = Math.Min(
+            parameters.MaximumFallSpeed,
+            _sideScrollSpeedZ + parameters.Gravity);
+
+        walls = _world.GetAdjacentWallsBitset(_precisePosition);
+        if ((walls & parameters.GroundWallMask) != 0)
+        {
+            LandFromSideScrollAir(parameters, snapToGround: true);
+            return;
+        }
+
+        Vector2 horizontalInput =
+            movementAllowed && Mathf.Abs(input.X) > 0.01f
+                ? new Vector2(Mathf.Sign(input.X), 0)
+                : Vector2.Zero;
+        if (horizontalInput != Vector2.Zero)
+        {
+            if (!IsUsingItem)
+                UpdateFacing(horizontalInput);
+            Vector2 resolved = _world.ResolveMovement(
+                _precisePosition, horizontalInput, allowWallSlide: false);
+            if (resolved != Vector2.Zero)
+                _precisePosition += resolved;
+        }
+
+        if ((_sideScrollYFixed >> 8) >= parameters.BottomBoundary)
+        {
+            LandFromSideScrollAir(parameters, snapToGround: true);
+            return;
+        }
+
+        _walking = false;
+        AdvanceSideScrollAirAnimation(parameters);
+    }
+
+    private bool TryStartSideScrollJump()
+    {
+        if (!_world.SideScrolling || _sideScrollAirborne ||
+            _world.RidingObject || _drowning || _fallingInHole ||
+            _inventory.FeatherLevel <= 0)
+        {
+            return false;
+        }
+
+        SideScrollTerrainState terrain =
+            _world.GetSideScrollTerrain(_precisePosition);
+        if ((terrain.ActiveType &
+                (SideScrollTileType.Water | SideScrollTileType.Hole)) != 0)
+        {
+            return false;
+        }
+
+        BeginSideScrollAirborne(
+            jumped: true,
+            _world.SideScrollParameters);
+        return true;
+    }
+
+    private void BeginSideScrollAirborne(
+        bool jumped,
+        SideScrollPlayerParameters parameters)
+    {
+        _sideScrollYFixed =
+            Mathf.FloorToInt(_precisePosition.Y * 256.0f);
+        _sideScrollSpeedZ = jumped ? parameters.JumpSpeedZ : 0;
+        _sideScrollAirborne = true;
+        _sideScrollJumpSoundPending = jumped;
+        _sideScrollClimbing = false;
+        _sideScrollAnimationPhase = 0;
+        _sideScrollAnimationCounter =
+            parameters.AnimationPhaseDurations[0];
+        _walking = false;
+    }
+
+    private void LandFromSideScrollAir(
+        SideScrollPlayerParameters parameters,
+        bool snapToGround)
+    {
+        if (snapToGround)
+        {
+            int high = _sideScrollYFixed >> 8;
+            high = (high & parameters.LandingHighMask) +
+                parameters.LandingHighOffset;
+            _sideScrollYFixed =
+                (high << 8) | (_sideScrollYFixed & 0xff);
+            _precisePosition.Y = _sideScrollYFixed / 256.0f;
+        }
+
+        _sideScrollSpeedZ = 0;
+        _sideScrollAirborne = false;
+        _sideScrollJumpSoundPending = false;
+        _sideScrollClimbing = false;
+        _sideScrollAnimationPhase = 0;
+        _sideScrollAnimationCounter = 0;
+        _walking = false;
+        _world.PlaySound(parameters.LandSound);
+    }
+
+    private void ApplySideScrollSpikeDamage(Vector2 input)
+    {
+        if (_world.RidingObject || _enemyInvincibilityFrames > 0.0f ||
+            !ApplyDamage(4, RingDamageSource.Spike))
+        {
+            return;
+        }
+
+        _enemyInvincibilityFrames = 40.0f;
+        _enemyKnockbackFrames += 10.0f;
+        _enemyKnockbackDirection =
+            Mathf.Abs(input.X) > 0.01f
+                ? new Vector2(-Mathf.Sign(input.X), 0)
+                : Vector2.Zero;
+        _world.PlaySound(OracleSoundEngine.SndDamageLink);
+    }
+
+    private void AdvanceSideScrollAirAnimation(
+        SideScrollPlayerParameters parameters)
+    {
+        if (_sideScrollAnimationPhase >=
+            parameters.AnimationPhaseDurations.Length - 1)
+        {
+            return;
+        }
+        if (--_sideScrollAnimationCounter > 0)
+            return;
+
+        _sideScrollAnimationPhase++;
+        _sideScrollAnimationCounter =
+            parameters.AnimationPhaseDurations[_sideScrollAnimationPhase];
+    }
+
+    private void ClearSideScrollState(Vector2 position)
+    {
+        _sideScrollUpdateAccumulator = 0.0;
+        _sideScrollYFixed = Mathf.FloorToInt(position.Y * 256.0f);
+        _sideScrollSpeedZ = 0;
+        _sideScrollAnimationPhase = 0;
+        _sideScrollAnimationCounter = 0;
+        _sideScrollAirborne = false;
+        _sideScrollJumpSoundPending = false;
+        _sideScrollClimbing = false;
     }
 
     internal void UpdatePushingState(Vector2 movementInput)

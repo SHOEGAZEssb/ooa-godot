@@ -237,8 +237,12 @@ remains the single runtime policy table.
   Map, Compass, rings, Gasha Seed, keys, and Boss Key).
   Room `4:1b`'s revealed staircase follows its source warp into side-scrolling
   room `6:10`; groups `$06/$07` retain their active identity while sharing the
-  original `$04/$05` tileset and object data, so the Bracelet reward and return
-  warp are present.
+  original `$04/$05` tileset and object data. Link uses imported side-tile
+  flags, fixed `$24` 8.8 gravity, horizontal air control, ladder and ladder-top
+  movement, landing/jump animation and sounds, and edge-warp-only exits. The
+  complete dry route descends the left ladder, crosses the lower corridor,
+  climbs into the Bracelet chamber, and returns through the upper-left warp;
+  uncovered edges cannot alias into the D1 floor layout.
   The cube uses PALH `$89`'s mixed OBJ palettes and source 20-update cardinal
   push test, while the Ghini/key room retains ordinary enemy-hit audio and the
   falling key's collection-behavior/get-item sound ordering. Room `4:1c`'s
@@ -468,7 +472,12 @@ remains the single runtime policy table.
 
 - Remaining active items and grabbable object species (including Bombs and
   companions), swimming/diving, terrain-specific Link states, and complete
-  low-health warning behavior.
+  low-health warning behavior. The Feather's side-view level-1 launch is
+  active; its top-down behavior and level-2 Roc's Cape continuation remain
+  deferred.
+- Aquatic, lava, and ice side-view Link handlers plus moving, conveyor,
+  circular, and disappearing side-scroll platforms remain deferred. Dry
+  passage gravity, ladders, Feather launch, and edge warps are implemented.
 - Satchel selection and the active Scent, Pegasus, Gale, and Mystery Seed
   state machines remain deferred; the first acquired Satchel's Ember path is
   implemented and unsupported selected child IDs report a source-aware error
