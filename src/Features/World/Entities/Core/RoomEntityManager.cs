@@ -384,6 +384,7 @@ public sealed class RoomEntityManager : IDisposable
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
             if (!_linkCollisionsAndMenuDisabled &&
+                player.AcceptsRoomEntityContact &&
                 entity is ILinkContactEntity contactEntity)
                 contactEntity.HandleLinkContact(player);
         }

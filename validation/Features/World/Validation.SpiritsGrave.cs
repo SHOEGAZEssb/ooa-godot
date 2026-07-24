@@ -102,6 +102,7 @@ public sealed partial class ValidationRoot
         if (nativeCount != 17 ||
             data.GetRoomRecords(4, 0x20).Count != 7 ||
             enemyData.ImportedEnemy(0x0a) is not { Health: 3, DamageQuarters: 2 } ||
+            enemyData.ImportedEnemy(0x0c) is not { Health: 3, DamageQuarters: 2 } ||
             enemyData.ImportedEnemy(0x10) is not { Health: 2, DamageQuarters: 2 } ||
             enemyData.ImportedEnemy(0x17) is not { Health: 10, DamageQuarters: 2 } ||
             enemyData.ImportedEnemy(0x28) is not { Health: 5, DamageQuarters: 2 } ||

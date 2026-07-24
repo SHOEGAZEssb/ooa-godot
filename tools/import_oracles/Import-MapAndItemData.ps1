@@ -841,6 +841,250 @@ if (($breakableRows | Where-Object { $_ -eq "2`t10`t1d`t00125`t2`t06`ta0`tff`t0"
     $breakableRows,
     [Text.UTF8Encoding]::new($false))
 
+# Export LINK_STATE_JUMPING_DOWN_LEDGE's collision-set-specific cliff and
+# landing tables together with the exact edge probes, length speeds, physics,
+# animation timing, and sounds consumed by checkLinkJumpingOffCliff/linkState12.
+$linkSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\specialObjects\link.s')
+$cliffTileSource = Get-Content (
+    Join-Path $Disassembly 'data\ages\tile_properties\cliffTiles.s')
+$landableTileSource = Get-Content (
+    Join-Path $Disassembly 'data\ages\tile_properties\landableTilesFromCliffs.s')
+$tileIndexSource = Get-Content (
+    Join-Path $Disassembly 'constants\common\tileIndices.s')
+$objectSpeedSource = Get-Content (
+    Join-Path $Disassembly 'constants\common\objectSpeeds.s')
+$soundSource = Get-Content (
+    Join-Path $Disassembly 'constants\common\music.s')
+$linkAnimationSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
+
+$ledgeCollisionModes = @{
+    overworld = 0
+    indoors = 1
+    dungeons = 2
+    sidescrolling = 3
+    underwater = 4
+    five = 5
+}
+$ledgeAngles = @{
+    UP = 0x00
+    RIGHT = 0x08
+    DOWN = 0x10
+    LEFT = 0x18
+}
+
+$ledgeCliffRows = [Collections.Generic.List[string]]::new()
+$ledgeCliffRows.Add("# active-collisions`ttile`tangle")
+$activeLabels = [Collections.Generic.List[string]]::new()
+foreach ($line in $cliffTileSource) {
+    if ($line -match '^\s*@(?<label>[A-Za-z0-9_]+):') {
+        $label = $Matches['label']
+        if ($ledgeCollisionModes.ContainsKey($label)) {
+            $activeLabels.Add($label)
+        }
+        continue
+    }
+    if ($activeLabels.Count -eq 0) { continue }
+    if ($line -match '^\s*\.db\s+\$00\s*$') {
+        $activeLabels.Clear()
+        continue
+    }
+    if ($line -notmatch '^\s*\.db\s+\$(?<tile>[0-9a-f]{2})\s*,\s*ANGLE_(?<direction>UP|RIGHT|DOWN|LEFT)\s*$') {
+        continue
+    }
+    $tile = [Convert]::ToInt32($Matches['tile'], 16)
+    $angle = $ledgeAngles[$Matches['direction']]
+    foreach ($label in $activeLabels) {
+        $ledgeCliffRows.Add(
+            "$($ledgeCollisionModes[$label])`t$($tile.ToString('x2'))`t$($angle.ToString('x2'))")
+    }
+}
+if ($ledgeCliffRows.Count -ne 39 -or
+    ($ledgeCliffRows | Where-Object { $_ -eq "0`t05`t10" }).Count -ne 1 -or
+    ($ledgeCliffRows | Where-Object { $_ -eq "4`tff`t10" }).Count -ne 1 -or
+    ($ledgeCliffRows | Where-Object { $_ -eq "2`tc4`t08" }).Count -ne 1) {
+    throw 'Could not export all 38 collision-set-specific Ages cliff tile rows.'
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'metadata\ledge_cliff_tiles.tsv'),
+    $ledgeCliffRows,
+    [Text.UTF8Encoding]::new($false))
+
+$tileIndices = @{}
+foreach ($line in $tileIndexSource) {
+    if ($line -match '^\s*\.define\s+(?<name>[A-Za-z0-9_]+)\s+\$(?<value>[0-9a-f]{2})') {
+        $tileIndices[$Matches['name']] =
+            [Convert]::ToInt32($Matches['value'], 16)
+    }
+}
+$ledgeLandableRows = [Collections.Generic.List[string]]::new()
+$ledgeLandableRows.Add("# active-collisions`ttile")
+$activeLabels = [Collections.Generic.List[string]]::new()
+foreach ($line in $landableTileSource) {
+    if ($line -match '^\s*@(?<label>[A-Za-z0-9_]+):') {
+        $label = $Matches['label']
+        if ($ledgeCollisionModes.ContainsKey($label)) {
+            $activeLabels.Add($label)
+        }
+        continue
+    }
+    if ($activeLabels.Count -eq 0) { continue }
+    if ($line -match '^\s*\.db\s+\$00\s*$') {
+        $activeLabels.Clear()
+        continue
+    }
+    if ($line -notmatch '^\s*\.db\s+(?<tiles>[A-Za-z0-9_\s]+)\s*$') {
+        continue
+    }
+    $tokens = @($Matches['tiles'] -split '\s+' |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    foreach ($token in $tokens) {
+        if (-not $tileIndices.ContainsKey($token)) {
+            throw "Unknown landable-from-cliff tile constant '$token'."
+        }
+        $tile = $tileIndices[$token]
+        foreach ($label in $activeLabels) {
+            $ledgeLandableRows.Add(
+                "$($ledgeCollisionModes[$label])`t$($tile.ToString('x2'))")
+        }
+    }
+}
+if ($ledgeLandableRows.Count -ne 7 -or
+    ($ledgeLandableRows | Where-Object { $_ -eq "1`t0e" }).Count -ne 1 -or
+    ($ledgeLandableRows | Where-Object { $_ -eq "5`t0f" }).Count -ne 1) {
+    throw 'Could not export the six raisable-floor cliff landing exceptions.'
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'metadata\ledge_landable_tiles.tsv'),
+    $ledgeLandableRows,
+    [Text.UTF8Encoding]::new($false))
+
+$wallDirectionMatch = [regex]::Match(
+    $linkSource,
+    '(?ms)^@wallDirections:\s*(?<body>(?:\s*\.db\s+\$[0-9a-f]{2}(?:\s+\$[0-9a-f]{2}){4}\s*;\s*DIR_(?:UP|RIGHT|DOWN|LEFT)\s*){4})')
+if (-not $wallDirectionMatch.Success) {
+    throw 'Could not parse checkLinkJumpingOffCliff@wallDirections.'
+}
+$ledgeDirectionRows = [Collections.Generic.List[string]]::new()
+$ledgeDirectionRows.Add(
+    "# direction`tangle`twall-mask`tprobe1-y`tprobe1-x`tprobe2-y`tprobe2-x")
+$directionIndex = 0
+foreach ($line in ($wallDirectionMatch.Groups['body'].Value -split "`r?`n")) {
+    if ($line -notmatch '^\s*\.db\s+\$(?<mask>[0-9a-f]{2})\s+\$(?<y1>[0-9a-f]{2})\s+\$(?<x1>[0-9a-f]{2})\s+\$(?<y2>[0-9a-f]{2})\s+\$(?<x2>[0-9a-f]{2})\s*;\s*DIR_(?<direction>UP|RIGHT|DOWN|LEFT)\s*$') {
+        continue
+    }
+    if ($directionIndex -ne @('UP', 'RIGHT', 'DOWN', 'LEFT').IndexOf(
+            $Matches['direction'])) {
+        throw 'Ledge wall-direction rows were not in source direction order.'
+    }
+    $signed = foreach ($field in @('y1', 'x1', 'y2', 'x2')) {
+        $value = [Convert]::ToInt32($Matches[$field], 16)
+        if ($value -ge 0x80) { $value - 0x100 } else { $value }
+    }
+    $ledgeDirectionRows.Add(
+        "$directionIndex`t$($ledgeAngles[$Matches['direction']].ToString('x2'))" +
+        "`t$($Matches['mask'])`t$($signed[0])`t$($signed[1])`t$($signed[2])`t$($signed[3])")
+    $directionIndex++
+}
+if ($directionIndex -ne 4) {
+    throw 'Could not export all four ledge wall-direction probe rows.'
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'metadata\ledge_jump_directions.tsv'),
+    $ledgeDirectionRows,
+    [Text.UTF8Encoding]::new($false))
+
+$objectSpeeds = @{}
+foreach ($line in $objectSpeedSource) {
+    if ($line -match '^\s*(?<name>SPEED_[A-Za-z0-9]+)\s+dsb\s+5\s*;\s*0x(?<value>[0-9a-f]{2})') {
+        $objectSpeeds[$Matches['name']] =
+            [Convert]::ToInt32($Matches['value'], 16)
+    }
+}
+foreach ($line in $objectSpeedSource) {
+    if ($line -match '^\s*\.define\s+(?<alias>SPEED_[A-Za-z0-9]+)\s+(?<name>SPEED_[A-Za-z0-9]+)\s*$') {
+        if (-not $objectSpeeds.ContainsKey($Matches['name'])) {
+            throw "Unknown object-speed alias target '$($Matches['name'])'."
+        }
+        $objectSpeeds[$Matches['alias']] = $objectSpeeds[$Matches['name']]
+    }
+}
+$cliffSpeedMatch = [regex]::Match(
+    $linkSource,
+    '(?ms)^@cliffSpeedTable:\s*(?<body>.*?)(?=^\s*; In the process of falling down the cliff)')
+if (-not $cliffSpeedMatch.Success) {
+    throw 'Could not parse linkState12@cliffSpeedTable.'
+}
+$speedNames = [regex]::Matches(
+    $cliffSpeedMatch.Groups['body'].Value,
+    'SPEED_[0-9a-f]+') | ForEach-Object { $_.Value }
+if ($speedNames.Count -ne 11) {
+    throw "Expected 11 ledge cliff speeds, got $($speedNames.Count)."
+}
+$ledgeSpeedRows = [Collections.Generic.List[string]]::new()
+$ledgeSpeedRows.Add("# length`tspeed-raw")
+for ($index = 0; $index -lt $speedNames.Count; $index++) {
+    $name = $speedNames[$index]
+    if (-not $objectSpeeds.ContainsKey($name)) {
+        throw "Unknown ledge object speed '$name'."
+    }
+    $ledgeSpeedRows.Add(
+        "$($index + 1)`t$($objectSpeeds[$name].ToString('x2'))")
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'metadata\ledge_jump_speeds.tsv'),
+    $ledgeSpeedRows,
+    [Text.UTF8Encoding]::new($false))
+
+function Resolve-SoundValue([string]$name) {
+    foreach ($line in $soundSource) {
+        if ($line -match "^\s*$name\s+db\s*;\s*\`$(?<value>[0-9a-f]{2})") {
+            return [Convert]::ToInt32($Matches['value'], 16)
+        }
+    }
+    throw "Could not resolve sound constant $name."
+}
+
+$initialSpeedMatch = [regex]::Match(
+    $linkSource,
+    '(?ms)^checkLinkJumpingOffCliff:.*?ld bc,-\$(?<value>[0-9a-f]{3})\s+call objectSetSpeedZ')
+$scanMatch = [regex]::Match(
+    $linkSource,
+    '(?ms)^@getLengthOfCliff:.*?ldi a,\(hl\)\s+add \$(?<feet>[0-9a-f]{2}).*?cp \$(?<max>[0-9a-f]{2}).*?@offsets:\s+\.db \$(?<up>[0-9a-f]{2}) \$00')
+if (-not $initialSpeedMatch.Success -or
+    $linkSource -notmatch '(?ms)^@willTransition:.*?ld l,SpecialObject\.speedZ\s+ldi \(hl\),a\s+ld \(hl\),\$ff' -or
+    $linkSource -notmatch '(?ms)^@substate1:.*?ld c,\$20\s+call objectUpdateSpeedZ_paramC' -or
+    $linkSource -notmatch '(?ms)^@substate2:.*?ld c,\$20\s+call objectUpdateSpeedZ_paramC' -or
+    -not $scanMatch.Success -or
+    [Convert]::ToInt32($scanMatch.Groups['up'].Value, 16) -ne 0xf8) {
+    throw 'Could not verify linkState12 ledge Z physics and eight-pixel landing scan.'
+}
+$jumpAnimationMatch = [regex]::Match(
+    $linkAnimationSource,
+    '(?ms)^animationData19f78:\s+\.db \$(?<d0>[0-9a-f]{2}) \$e4 \$00\s+\.db \$(?<d1>[0-9a-f]{2}) \$e8 \$00\s+\.db \$(?<d2>[0-9a-f]{2}) \$ec \$00\s+\.db \$7f \$80 \$ff')
+if (-not $jumpAnimationMatch.Success) {
+    throw 'Could not verify LINK_ANIM_MODE_JUMP animationData19f78.'
+}
+$ledgeConstantRows = @(
+    "# key`tvalue",
+    "initial-speed-z`t-$([Convert]::ToInt32($initialSpeedMatch.Groups['value'].Value, 16))",
+    "transition-speed-z`t-256",
+    "gravity`t32",
+    "jump-sound`t$(Resolve-SoundValue 'SND_JUMP')",
+    "land-sound`t$(Resolve-SoundValue 'SND_LAND')",
+    "feet-offset`t$([Convert]::ToInt32($scanMatch.Groups['feet'].Value, 16))",
+    "scan-step`t8",
+    "max-speed-length`t$([Convert]::ToInt32($scanMatch.Groups['max'].Value, 16))",
+    "animation-phase-0`t$([Convert]::ToInt32($jumpAnimationMatch.Groups['d0'].Value, 16))",
+    "animation-phase-1`t$([Convert]::ToInt32($jumpAnimationMatch.Groups['d1'].Value, 16))",
+    "animation-phase-2`t$([Convert]::ToInt32($jumpAnimationMatch.Groups['d2'].Value, 16))"
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'metadata\ledge_jump_constants.tsv'),
+    $ledgeConstantRows,
+    [Text.UTF8Encoding]::new($false))
+
 # Preserve checkTileValidForEnemySpawn's collision-mode-specific exceptions.
 # The routine rejects every nonzero collision byte first, then consults this
 # table for metatiles which remain forbidden despite having collision $00.

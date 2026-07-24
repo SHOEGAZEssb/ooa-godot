@@ -131,7 +131,9 @@ public partial class MapleEncounter : TransitionOffsetNode2D
             visual.TileBase,
             visual.Palette,
             positionedOam: true);
-        (_shadowTexture, _shadowOffset) = LoadShadowTexture();
+        TerrainShadowDefinition shadow = TerrainShadow.Load();
+        _shadowTexture = shadow.Texture;
+        _shadowOffset = shadow.Offset;
         _bookTexture = LoadBookTexture(database.BookVisual);
         Stage = MapleEncounterStage.Initializing;
         Visible = true;
@@ -1055,30 +1057,6 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         Finished = true;
         Visible = false;
         QueueRedraw();
-    }
-
-    private static (Texture2D Texture, Vector2 Offset) LoadShadowTexture()
-    {
-        GeneratedTableRow row = GeneratedTable.Load(
-            "res://assets/oracle/effects/terrain_shadow.tsv",
-            new GeneratedTableSchema(
-                "default terrain-effect shadow",
-                GeneratedTableKeySemantics.Ordered,
-                [
-                    "sprite", "tile-base", "palette", "oam", "source"
-                ],
-                headerRequired: true)).SingleRow();
-        (Texture2D texture, Vector2 offset) =
-            NpcCharacter.BuildPositionedOamTexture(
-            OracleGraphicsCache.LoadImage(
-                $"res://assets/oracle/gfx/{row.RequiredString(0)}.png"),
-            row.RequiredString(3),
-            row.UnsignedDecimal(1),
-            row.UnsignedDecimal(2),
-            paletteOverride: null,
-            sourceGrayscaleInverted: true);
-        _ = row.RequiredString(4);
-        return (texture, offset);
     }
 
     private static Texture2D LoadBookTexture(MapleBookVisualRecord visual)

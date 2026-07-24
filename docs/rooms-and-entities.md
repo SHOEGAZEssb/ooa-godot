@@ -200,13 +200,25 @@ after accepted sword recoil, so hazard disposal never creates a normal enemy
 death puff or item drop.
 
 Ordinary enemy species are not owned by the first room or dungeon that makes
-them playable. Boomerang Moblin, Rope, Ghini, and Wallmaster live with the
-other species and resolve their subid-0 definitions through `EnemyDatabase`
-for every matching ordered room record. Unsupported Rope/Ghini subids remain
-explicit reservations rather than silently receiving the wrong state machine.
-Wallmaster capture resolves the active dungeon's imported
+them playable. Boomerang Moblin, Arrow Moblin, Rope, Ghini, and Wallmaster live
+with the other species and resolve their subid-0 definitions through
+`EnemyDatabase` for every matching ordered room record. Unsupported
+Arrow Moblin, Rope, and Ghini subids remain explicit reservations rather than
+silently receiving the wrong state machine. Wallmaster capture resolves the
+active dungeon's imported
 `wDungeonWallmasterDestRoom`; it does not encode Spirit's Grave room `4:24` in
 the entity adapter.
+
+`ENEMY_ARROW_MOBLIN $0c:$00` selects a cardinal direction and then a
+`$30+(RNG&$3f)` movement duration on its first update. It moves at `SPEED_80`
+without entering holes, stands for eight updates when the counter expires or
+movement is blocked, and repeats the direction-then-duration RNG order.
+`var30` makes only odd-numbered route changes eligible to fire, and even those
+create `PART_ENEMY_ARROW $1a` only when the selected direction faces Link.
+The child receives its directional offset, collision radii, animation, and
+visibility on the creation update without moving; its `SPEED_200` flight begins
+on the following update. Room `0:84` is the canonical single-red-Moblin
+placement.
 
 Side-view terrain movement must preserve the source velocity table's exact zero
 components for cardinal angles. A blocked cardinal move returns zero; it must
@@ -216,6 +228,46 @@ inclusive ten-pixel match on either axis, the Rope takes one fixed cardinal
 `SPEED_140` lock, and only a wall/hole collision ends the charge. That collision
 restores `SPEED_60`, sets `counter2` to `$40`, and calls
 `rope_changeDirection`; the charge does not continuously retarget Link.
+
+## Ledge-jump ownership
+
+`LedgeJumpDatabase` is the typed runtime authority for
+`checkLinkJumpingOffCliff`, the collision-set-specific cliff and solid-landing
+exceptions, and `LINK_STATE_JUMPING_DOWN_LEDGE`. `TerrainController` accepts
+only cardinal motion whose movement angle matches Link's facing, requires both
+imported adjacent-wall bits, and tests both imported signed cliff probes.
+Landing search starts at Link `yh+$05`, advances eight pixels in the movement
+direction, allows holes through the collision query, and treats a solid tile
+as landable only when source `$05` can break it or the active collision set
+lists it as a raisable-floor exception. A zero tile or room boundary selects
+the original transition branch; do not replace the scan with a fixed
+two-metatile destination.
+
+`Player` owns the resulting fixed-update state. An in-room jump begins at
+speedZ `-$1c0`, applies gravity `$20`, and selects one of the 11 imported
+planar speeds from the capped cliff length. It uses
+`LINK_ANIM_MODE_JUMP`'s 9/9/6-update phases followed by the terminal frame,
+requests `SND_JUMP` on initialization, and draws the universal alternating
+terrain shadow while Z is negative. Room-entity contact and floor-button
+weight remain disabled for the entire bit-7 airborne state.
+
+When the landing scan reaches a boundary, preserve the original special case:
+snap Link's ground Y to `wScreenTransitionBoundaryY`, retain the signed
+difference in Z, set planar speed to zero and speedZ to `-$100`, disable the
+shadow, and force transition `$82` only when that fall reaches Z zero. Link's
+ledge physics and animation remain frozen throughout the ordinary scrolling
+transition. After destination scrolling completes, scan downward again, move
+the ground coordinate to that landing, restore the equivalent signed Z and
+shadow, and continue with the retained positive speedZ. Only this cross-screen
+landing updates the local respawn position.
+
+Every landing probes `yh+$05` through
+`BREAKABLETILESOURCE_LANDED $05` before clearing the airborne state and
+requesting `SND_LAND $a3`. Replacement, drops, debris, solve sound, Gasha
+maturity, and linked room flags remain owned by the shared breakable-tile
+record. The source's original-layout restoration for diamond switches and
+collision-set-1/2 moving pots applies to this path as it does to Bracelet
+breakage.
 
 ## Bracelet tile and entity ownership
 

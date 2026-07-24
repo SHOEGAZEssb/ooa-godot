@@ -483,7 +483,7 @@ public partial class GameRoot : Node2D
         _interactions.PlayerInteractionOverride = _roomEvents.TryInteractPlayer;
         _combat = new CombatController(
             _scene.WorldRoot, _rooms, _roomView, _entities,
-            new BreakableTileDatabase(), _sound,
+            new BreakableTileDatabase(), _saveData, _sound,
             () => (long)_animationTicks);
         _bracelet = new BraceletController(
             _scene.WorldRoot, _rooms, new BreakableTileDatabase(), _roomView,
@@ -495,7 +495,8 @@ public partial class GameRoot : Node2D
         _seedSatchel = new SeedSatchelController(
             _inventory, _entities, new SeedSatchelDatabase(), _rooms);
         _terrain = new TerrainController(
-            _scene.WorldRoot, _rooms, _collision.Collides, _sound.PlaySound);
+            _scene.WorldRoot, _rooms, new BreakableTileDatabase(),
+            _collision.AdjacentWallsBitset, _sound.PlaySound);
         _entities.ItemDropEnteredHazard += _terrain.SpawnSplash;
         _pushBlocks.EnteredHazard += (position, hazard) =>
         {

@@ -10,6 +10,7 @@ public sealed class CombatController
     private readonly RoomView _roomView;
     private readonly RoomEntityManager _entities;
     private readonly BreakableTileDatabase _breakables;
+    private readonly OracleSaveData _saveData;
     private readonly OracleSoundEngine _sound;
     private readonly Func<long> _animationTick;
 
@@ -49,6 +50,7 @@ public sealed class CombatController
         RoomView roomView,
         RoomEntityManager entities,
         BreakableTileDatabase breakables,
+        OracleSaveData saveData,
         OracleSoundEngine sound,
         Func<long> animationTick)
     {
@@ -57,6 +59,7 @@ public sealed class CombatController
         _roomView = roomView;
         _entities = entities;
         _breakables = breakables;
+        _saveData = saveData;
         _sound = sound;
         _animationTick = animationTick;
     }
@@ -83,6 +86,51 @@ public sealed class CombatController
         ApplyTileHit(
             player, direction, BreakableTileDatabase.SourceExpertsRing,
             swordPoke: true);
+
+    public bool ApplyLandedTileHit(Vector2 linkPosition)
+    {
+        OracleRoomData room = _rooms.CurrentRoom;
+        Vector2 point = linkPosition + new Vector2(0, 5);
+        byte tile = room.GetMetatile(point);
+        if (!_breakables.TryGet(
+                room.ActiveCollisions,
+                tile,
+                out BreakableTileRecord record) ||
+            !record.AllowsSource(BreakableTileDatabase.SourceLanded))
+        {
+            return false;
+        }
+
+        int packedPosition = room.GetPackedPosition(point);
+        Vector2 tileCenter = new(
+            (packedPosition & 0x0f) * OracleRoomData.MetatileSize + 8,
+            (packedPosition >> 4) * OracleRoomData.MetatileSize + 8);
+        byte replacement = record.ReplacementFor(room, tileCenter);
+        bool changed = record.Replacement == 0 ||
+            room.ReplaceMetatile(
+                tileCenter,
+                tile,
+                replacement,
+                _animationTick());
+        if (!changed)
+            return false;
+
+        record.ApplyPersistentEffects(
+            _saveData,
+            _rooms.ActiveGroup,
+            room.Id,
+            direction => _rooms.TryGetNeighbor(direction, out int neighbor)
+                ? neighbor
+                : null);
+        if ((record.Effect & 0x40) != 0)
+            _sound.PlaySound(OracleSoundEngine.SndSolvePuzzle);
+        if (record.Drop != 0)
+            _entities.SpawnBreakableDrop(record.Drop, tileCenter);
+
+        SpawnBreakEffect(tileCenter, record.Effect);
+        _roomView.QueueRedraw();
+        return true;
+    }
 
     private bool ApplyTileHit(
         Player player, int direction, int breakableSource, bool swordPoke)

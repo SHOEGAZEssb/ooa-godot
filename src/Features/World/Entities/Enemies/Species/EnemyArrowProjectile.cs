@@ -2,7 +2,7 @@ using Godot;
 
 namespace oracleofages;
 
-/// <summary>PART_ENEMY_ARROW $1a fired by masked Moblins.</summary>
+/// <summary>PART_ENEMY_ARROW $1a fired by Moblin archers.</summary>
 public partial class EnemyArrowProjectile : TransitionOffsetNode2D
 {
     private const int BounceSpeedZ = -0xe0;
@@ -33,6 +33,7 @@ public partial class EnemyArrowProjectile : TransitionOffsetNode2D
     internal ArrowState State => _state;
     internal int Counter => _counter;
     internal int ZFixed => _zFixed;
+    internal int ElapsedFrames { get; private set; }
 
     internal void Initialize(
         EnemyArrowRecord record,
@@ -64,7 +65,8 @@ public partial class EnemyArrowProjectile : TransitionOffsetNode2D
                 record.BounceAnimation).Frames[0];
         _bounceTexture = NpcCharacter.BuildOamTexture(
             source, bounceFrame.EncodedOam, record.TileBase, record.Palette);
-        _state = ArrowState.Flying;
+        _state = ArrowState.Initializing;
+        ElapsedFrames = 0;
         QueueRedraw();
     }
 
@@ -72,6 +74,14 @@ public partial class EnemyArrowProjectile : TransitionOffsetNode2D
     {
         if (Finished)
             return;
+        ElapsedFrames++;
+        if (_state == ArrowState.Initializing)
+        {
+            // PART_ENEMY_ARROW state 0 applies its direction-specific offset,
+            // radii, animation, and visibility without moving.
+            _state = ArrowState.Flying;
+            return;
+        }
         if (_state == ArrowState.Bouncing)
         {
             if (--_counter == 0)
@@ -97,22 +107,20 @@ public partial class EnemyArrowProjectile : TransitionOffsetNode2D
             Finish();
             return;
         }
-        Vector2 next = Position + OracleObjectMath.CardinalVector(_angle) *
-            (_record.SpeedRaw / 40.0f);
         if (!WithinVisibleBoundary(player.Position) ||
-            next.X < 0 || next.X >= _room.Width ||
-            next.Y < 0 || next.Y >= _room.Height)
+            Position.X < 0 || Position.X >= _room.Width ||
+            Position.Y < 0 || Position.Y >= _room.Height)
         {
             Finish();
             return;
         }
-        if (_room.IsSolid(next))
+        if (_room.IsSolid(Position))
         {
-            Position = next;
             BeginBounce();
             return;
         }
-        Position = next;
+        Position += OracleObjectMath.CardinalVector(_angle) *
+            (_record.SpeedRaw / 40.0f);
         QueueRedraw();
     }
 
@@ -166,6 +174,7 @@ public partial class EnemyArrowProjectile : TransitionOffsetNode2D
 
 internal enum ArrowState
 {
+    Initializing,
     Flying,
     Bouncing
 }

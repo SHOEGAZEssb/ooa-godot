@@ -64,6 +64,13 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     public ActiveTerrainInfo GetActiveTerrain(Vector2 playerPosition) => default;
     public Vector2 GetTerrainPush(Vector2 playerPosition) => Vector2.Zero;
     public bool TryStartLedgeHop(Player player, Vector2 from, Vector2 attemptedMovement) => false;
+    public bool ApplyLandedTileHit(Vector2 playerPosition) => false;
+    public void BeginLedgeScreenTransition(Player player)
+    {
+    }
+    public void ResumeLedgeHopAfterScroll(Player player)
+    {
+    }
     public void SpawnDrowningSplash(Vector2 position, HazardType hazard)
     {
     }

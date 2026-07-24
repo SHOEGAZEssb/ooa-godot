@@ -55,7 +55,11 @@ draw offset so the variable-size texture remains anchored to Maple's object
 origin. The invisible animation `$19` remains the sole blank fixed-size frame.
 Her airborne shadow comes from the universal `terrainEffects.shadowAnimation`,
 not `PART_SHADOW`: one 8-by-16 `spr_common_sprites` cell at relative offset
-`(-4,+3)`, drawn on alternating updates while Z is negative.
+`(-4,+3)`, drawn on alternating updates while Z is negative. `TerrainShadow`
+owns that immutable positioned-OAM texture for every consumer. Link's ordinary
+ledge fall uses the same cell on the Link-object parity; the special
+cross-screen pre-fall disables it until the destination landing scan restores
+terrain effects.
 
 An OAM composition may select several effective OBJ palettes in one frame.
 Palette overrides are therefore keyed by the effective `base XOR flags`

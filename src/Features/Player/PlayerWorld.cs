@@ -131,6 +131,12 @@ public sealed class PlayerWorld : IPlayerWorld
         RidingObject ? Vector2.Zero : _terrain.GetTerrainPush(position);
     public bool TryStartLedgeHop(Player player, Vector2 from, Vector2 movement) =>
         _terrain.TryStartLedgeHop(player, from, movement);
+    public bool ApplyLandedTileHit(Vector2 position) =>
+        _combat.ApplyLandedTileHit(position);
+    public void BeginLedgeScreenTransition(Player player) =>
+        _transitions.BeginLedgeScroll(player);
+    public void ResumeLedgeHopAfterScroll(Player player) =>
+        _terrain.ResumeLedgeHopAfterScroll(player);
     public void SpawnDrowningSplash(Vector2 position, HazardType hazard) =>
         _terrain.SpawnSplash(position, hazard);
     public bool CheckTileWarp(Player player) => _transitions.CheckTileWarp(player);

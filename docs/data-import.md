@@ -143,6 +143,17 @@ changes. A normal breakable row can persist directly through standard
 substitution; room `0:48` instead uses its watcher at `$68` to set flag `$02`,
 whose single-tile row restores `$3a` on later entries.
 
+The map/item stage also emits the complete ledge-jump closure from
+`checkLinkJumpingOffCliff`, `cliffTilesTable`,
+`landableTileFromCliffExceptions`, and `LINK_STATE_JUMPING_DOWN_LEDGE`.
+`ledge_cliff_tiles.tsv` and `ledge_landable_tiles.tsv` retain the active
+collision set; `ledge_jump_directions.tsv` retains each wall mask, angle, and
+two signed Link-relative probes; and `ledge_jump_speeds.tsv` plus
+`ledge_jump_constants.tsv` retain the 11 length speeds, Z physics, sounds,
+eight-pixel scan, and 9/9/6-update jump animation. The importer validates the
+source handler branches and object-speed aliases instead of deriving those
+values from the current room layout.
+
 Treasure-object sprites are a different source path from those inventory BG
 displays. `Import-NpcData.ps1` follows each treasure object's graphic byte into
 the contiguous `INTERAC_TREASURE $60` subid, animation, and OAM pointer tables
@@ -189,13 +200,15 @@ the typed species table while their ordered source records remain available as
 unsupported reservations/completion evidence.
 
 The same shared stage emits `common_enemies.tsv` for the implemented
-`ENEMY_BOOMERANG_MOBLIN $0a:$00`, `ENEMY_ROPE $10:$00`,
-`ENEMY_GHINI $17:$00`, and `ENEMY_WALLMASTER $28:$00` definitions, plus
-`moblin_boomerang.tsv` for `PART_MOBLIN_BOOMERANG $21`. These records are not
-owned by Spirit's Grave: the runtime joins them by enemy ID/subid anywhere in
-the ordered object stream. Rope `$10:$01` and Ghini `$17:$01/$02` remain absent
-until their distinct native state machines are implemented; they must not be
-routed through the subid-0 behavior.
+`ENEMY_BOOMERANG_MOBLIN $0a:$00`, `ENEMY_ARROW_MOBLIN $0c:$00`,
+`ENEMY_ROPE $10:$00`, `ENEMY_GHINI $17:$00`, and
+`ENEMY_WALLMASTER $28:$00` definitions, plus `moblin_boomerang.tsv` for
+`PART_MOBLIN_BOOMERANG $21`. These records are not owned by Spirit's Grave:
+the runtime joins them by enemy ID/subid anywhere in the ordered object stream.
+Rope `$10:$01`, Arrow Moblin `$0c:$01/$02`, and Ghini `$17:$01/$02` remain
+absent until their distinct attributes, native state machines, or golden-enemy
+persistence behavior are implemented; they must not be routed through the
+subid-0 definition.
 
 `Import-WorldNavigation.ps1` retains byte 1 of every `m_DungeonData` row as the
 Wallmaster destination in `dungeon_maps.tsv`. `DungeonMapDatabase` exposes that

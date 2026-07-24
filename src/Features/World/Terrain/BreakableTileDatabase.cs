@@ -10,6 +10,7 @@ public sealed class BreakableTileDatabase
     public const int SourceSwordLevel1 = 0x01;
     public const int SourceSwordLevel2 = 0x02;
     public const int SourceExpertsRing = 0x03;
+    public const int SourceLanded = 0x05;
     public const int SourceShovel = 0x06;
     public const int SourceEmberSeed = 0x0c;
 
@@ -53,6 +54,23 @@ public sealed class BreakableTileDatabase
 public readonly record struct BreakableTileRecord(int ActiveCollisions, int Tile, int Mode, int SourceMask, int Drop, int Effect, int Replacement, int RoomFlagAction, int GashaMaturity)
 {
     public bool AllowsSource(int source) => (SourceMask & (1 << source)) != 0;
+
+    public byte ReplacementFor(OracleRoomData room, Vector2 tilePoint)
+    {
+        bool useOriginalLayout =
+            Tile == 0xdb ||
+            (Tile == 0x10 && room.ActiveCollisions is 1 or 2);
+        if (useOriginalLayout)
+        {
+            byte original = room.GetOriginalMetatile(tilePoint);
+            byte collision = room.GetCollision(original);
+            if (collision == 0 || collision >= 0x10)
+                return original;
+        }
+
+        return (byte)Replacement;
+    }
+
     public void ApplyPersistentEffects(OracleSaveData? saveData, int group, int room, Func<Vector2I, int?>? linkedRoomNeighbor = null)
     {
         if ((Effect & 0x80) == 0)

@@ -798,6 +798,202 @@ public sealed partial class ValidationRoot
             "sword deflection, 32-update bounce, two-hit blue combat, scrolling, and `$8e item drops.");
     }
 
+    private void ValidateArrowMoblins()
+    {
+        var database = new EnemyDatabase();
+        ImportedEnemyDefinition definition = database.ImportedEnemy(0x0c);
+        IReadOnlyList<RoomObjectRecord> roomRecords =
+            database.GetRoomObjects(0, 0x84);
+        if (definition is not
+            {
+                Id: 0x0c,
+                SubId: 0x00,
+                Sprites: ["spr_moblin"],
+                TileBase: 0,
+                Palette: 2,
+                RadiusY: 6,
+                RadiusX: 6,
+                DamageQuarters: 2,
+                Health: 3,
+                Animations.Length: 4
+            } ||
+            roomRecords.Count != 1 ||
+            roomRecords[0] is not
+            {
+                Order: 0,
+                Kind: RoomObjectKind.RandomEnemy,
+                Id: 0x0c,
+                SubId: 0x00,
+                Flags: 0x20,
+                Count: 1
+            })
+        {
+            throw new InvalidOperationException(
+                "Room 0:84 did not retain its one imported random-position " +
+                "ENEMY_ARROW_MOBLIN $0c:$00 record and red-Moblin definition.");
+        }
+
+        OracleRoomData room = _world.LoadRoom(0, 0x84);
+        var random = new OracleRandom();
+        var predictor = new OracleRandom();
+        predictor.BeginRoomParse();
+        int expectedInitialAngle = predictor.Next().Value & 0x18;
+        int expectedInitialCounter =
+            0x30 + (predictor.Next().Value & 0x3f);
+
+        var validationRoot = new Node
+        {
+            Name = "ArrowMoblinValidation"
+        };
+        AddChild(validationRoot);
+        var manager = new RoomEntityManager(
+            validationRoot,
+            new NpcDatabase(),
+            database,
+            new ItemDropDatabase(),
+            new TimePortalDatabase(),
+            random);
+        manager.LoadRoom(0, room);
+
+        List<ArrowMoblinCharacter> moblins =
+            manager.Entities<ArrowMoblinCharacter>();
+        if (moblins.Count != 1 || manager.RoomEnemyCount != 1 ||
+            moblins[0].State != ArrowMoblinState.Uninitialized ||
+            manager.RandomCalls != 256)
+        {
+            throw new InvalidOperationException(
+                "Room 0:84 did not instantiate exactly one counted " +
+                "ENEMY_ARROW_MOBLIN after the original 256-call placement shuffle.");
+        }
+
+        Vector2 originalPlayerPosition = _player.Position;
+        _player.WarpTo(new Vector2(-0x100, -0x100), recordSafe: false);
+        manager.Update(1.0 / 60.0, _player);
+        ArrowMoblinCharacter moblin = moblins[0];
+        if (moblin.State != ArrowMoblinState.Moving ||
+            moblin.Angle != expectedInitialAngle ||
+            moblin.Counter != expectedInitialCounter ||
+            manager.RandomCalls != 258)
+        {
+            throw new InvalidOperationException(
+                "ENEMY_ARROW_MOBLIN state 0 did not consume direction then duration " +
+                "RNG and enter its imported cardinal SPEED_80 route.");
+        }
+
+        for (int update = 0;
+             update < 0x80 && moblin.State == ArrowMoblinState.Moving;
+             update++)
+        {
+            manager.Update(1.0 / 60.0, _player);
+        }
+        if (moblin.State != ArrowMoblinState.Turning ||
+            moblin.Counter != 0x08 ||
+            manager.Entities<EnemyArrowProjectile>().Count != 0)
+        {
+            throw new InvalidOperationException(
+                "ENEMY_ARROW_MOBLIN did not enter its eight-update stand without " +
+                "firing at the end of the initial route.");
+        }
+
+        int expectedFirstShotAngle = predictor.Next().Value & 0x18;
+        int expectedFirstShotCounter =
+            0x30 + (predictor.Next().Value & 0x3f);
+        for (int update = 0; update < 7; update++)
+            manager.Update(1.0 / 60.0, _player);
+        if (moblin.State != ArrowMoblinState.Turning ||
+            moblin.Counter != 1 ||
+            manager.Entities<EnemyArrowProjectile>().Count != 0 ||
+            manager.RandomCalls != 258)
+        {
+            throw new InvalidOperationException(
+                "ENEMY_ARROW_MOBLIN consumed RNG or fired before the eighth standing update.");
+        }
+
+        Vector2 firstShotOrigin = moblin.Position;
+        _player.WarpTo(
+            firstShotOrigin +
+            OracleObjectMath.CardinalVector(expectedFirstShotAngle) * 64.0f,
+            recordSafe: false);
+        manager.Update(1.0 / 60.0, _player);
+        Vector2 expectedArrowOffset = expectedFirstShotAngle switch
+        {
+            0x00 => new Vector2(-5, -8),
+            0x08 => new Vector2(8, 2),
+            0x10 => new Vector2(5, 8),
+            0x18 => new Vector2(-8, 2),
+            _ => throw new InvalidOperationException(
+                $"Invalid cardinal Arrow Moblin angle ${expectedFirstShotAngle:x2}.")
+        };
+        List<EnemyArrowProjectile> arrows =
+            manager.Entities<EnemyArrowProjectile>();
+        if (moblin.State != ArrowMoblinState.Moving ||
+            moblin.Angle != expectedFirstShotAngle ||
+            moblin.Counter != expectedFirstShotCounter ||
+            moblin.MoveCycles != 1 ||
+            manager.RandomCalls != 260 ||
+            arrows.Count != 1 ||
+            arrows[0].State != ArrowState.Flying ||
+            arrows[0].ElapsedFrames != 1 ||
+            arrows[0].Position != firstShotOrigin + expectedArrowOffset)
+        {
+            throw new InvalidOperationException(
+                "ENEMY_ARROW_MOBLIN did not fire PART_ENEMY_ARROW on its first " +
+                "eligible facing route, or the child moved during its state-0 update.");
+        }
+
+        _player.WarpTo(new Vector2(-0x100, -0x100), recordSafe: false);
+        for (int update = 0;
+             update < 0x80 && moblin.State == ArrowMoblinState.Moving;
+             update++)
+        {
+            manager.Update(1.0 / 60.0, _player);
+        }
+        if (moblin.State != ArrowMoblinState.Turning ||
+            moblin.Counter != 0x08)
+        {
+            throw new InvalidOperationException(
+                "ENEMY_ARROW_MOBLIN did not finish its second route.");
+        }
+
+        int expectedSecondAngle = predictor.Next().Value & 0x18;
+        int expectedSecondCounter =
+            0x30 + (predictor.Next().Value & 0x3f);
+        for (int update = 0; update < 7; update++)
+            manager.Update(1.0 / 60.0, _player);
+        HashSet<EnemyArrowProjectile> arrowsBeforeEvenCycle =
+            manager.Entities<EnemyArrowProjectile>().ToHashSet();
+        _player.WarpTo(
+            moblin.Position +
+            OracleObjectMath.CardinalVector(expectedSecondAngle) * 64.0f,
+            recordSafe: false);
+        manager.Update(1.0 / 60.0, _player);
+        List<EnemyArrowProjectile> arrowsAfterEvenCycle =
+            manager.Entities<EnemyArrowProjectile>();
+        if (moblin.State != ArrowMoblinState.Moving ||
+            moblin.Angle != expectedSecondAngle ||
+            moblin.Counter != expectedSecondCounter ||
+            moblin.MoveCycles != 2 ||
+            manager.RandomCalls != 262 ||
+            arrowsAfterEvenCycle.Any(arrow =>
+                !arrowsBeforeEvenCycle.Contains(arrow)))
+        {
+            throw new InvalidOperationException(
+                "ENEMY_ARROW_MOBLIN did not suppress PART_ENEMY_ARROW on its " +
+                "second, even-numbered route change.");
+        }
+
+        _player.WarpTo(originalPlayerPosition, recordSafe: false);
+        manager.Clear();
+        manager.Dispose();
+        RemoveChild(validationRoot);
+        validationRoot.Free();
+
+        GD.Print("Validated room 0:84's imported ENEMY_ARROW_MOBLIN $0c:$00, " +
+            "256-call placement parse, direction/duration RNG order, SPEED_80 route, " +
+            "eight-update stand, alternate facing-only shots, and same-update " +
+            "PART_ENEMY_ARROW state-0 offset without premature movement.");
+    }
+
     private void ValidateEnemySwordKnockback()
     {
         static bool CanOccupy(OracleRoomData room, Vector2 center)
@@ -2280,23 +2476,11 @@ public sealed partial class ValidationRoot
             throw new InvalidOperationException("Hole respawn replayed SND_LINK_FALL $65.");
 
         ValidateRoom01HoleBoundaryCase();
-
-        _activeGroup = 0;
-        _currentRoom = _world.LoadRoom(_activeGroup, 0x11);
-        _roomView.SetRoom(_currentRoom.Texture);
-        Vector2 ledgeStart = new(24, 56);
-        _player.WarpTo(ledgeStart);
-        _player.Face(Vector2I.Down);
-        if (!TryStartLedgeHop(_player, _player.Position, Vector2.Down))
-            throw new InvalidOperationException("Room 11's south cliff did not start a ledge hop.");
-        for (int i = 0; i < 30; i++)
-            _player._PhysicsProcess(1.0 / 60.0);
-        if (_player.Position.Y <= ledgeStart.Y + OracleRoomData.MetatileSize)
-            throw new InvalidOperationException("The ledge hop did not carry Link down across the cliff.");
+        ValidateLedgeJumping();
 
         ValidateRoom56TileEdgeSlide();
 
-        GD.Print("Validated terrain hazards, hole fall/respawn, ledge hop, and original tile-edge sliding.");
+        GD.Print("Validated terrain hazards, hole fall/respawn, exact ledge jumps, and original tile-edge sliding.");
     }
 
     private void ValidateDrowningSequence(
@@ -2398,6 +2582,347 @@ public sealed partial class ValidationRoot
         if (_sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1)
             throw new InvalidOperationException($"{terrainName} respawn replayed SND_DAMAGE_LINK $5f.");
     }
+
+    private void ValidateLedgeJumping()
+    {
+        OracleRandomValidationSnapshot randomSnapshot =
+            CaptureOracleRandomForValidation();
+        var ledges = new LedgeJumpDatabase();
+        LedgeJumpDirectionRecord up = ledges.Direction(Vector2I.Up);
+        LedgeJumpDirectionRecord right = ledges.Direction(Vector2I.Right);
+        LedgeJumpDirectionRecord down = ledges.Direction(Vector2I.Down);
+        LedgeJumpDirectionRecord left = ledges.Direction(Vector2I.Left);
+        if (up != new LedgeJumpDirectionRecord(
+                0, 0x00, 0xc0, new Vector2I(-3, -4), new Vector2I(2, -4)) ||
+            right != new LedgeJumpDirectionRecord(
+                1, 0x08, 0x03, new Vector2I(4, 0), new Vector2I(4, 5)) ||
+            down != new LedgeJumpDirectionRecord(
+                2, 0x10, 0x30, new Vector2I(-3, 8), new Vector2I(2, 8)) ||
+            left != new LedgeJumpDirectionRecord(
+                3, 0x18, 0x0c, new Vector2I(-5, 0), new Vector2I(-5, 5)) ||
+            !ledges.IsCliffTile(0, 0x05, 0x10) ||
+            ledges.IsCliffTile(3, 0x05, 0x10) ||
+            ledges.IsCliffTile(0, 0x05, 0x08) ||
+            !ledges.IsCliffTile(2, 0xc4, 0x08) ||
+            !ledges.IsLandableSolidTile(1, 0x0e) ||
+            ledges.IsLandableSolidTile(0, 0x0e) ||
+            ledges.SpeedRaw(1) != 0x14 ||
+            ledges.SpeedRaw(3) != 0x23 ||
+            ledges.SpeedRaw(11) != 0x78 ||
+            ledges.SpeedRaw(20) != 0x78 ||
+            ledges.InitialSpeedZ != -0x1c0 ||
+            ledges.TransitionSpeedZ != -0x100 ||
+            ledges.Gravity != 0x20 ||
+            ledges.JumpSound != OracleSoundEngine.SndJump ||
+            ledges.LandSound != OracleSoundEngine.SndLand ||
+            !ledges.AnimationPhaseDurations.AsSpan().SequenceEqual([9, 9, 6]))
+        {
+            throw new InvalidOperationException(
+                "Imported ledge collision, probe, speed, physics, sound, or animation data changed.");
+        }
+
+        LoadValidationRoom(0, 0x11);
+        Vector2 ledgeStart = new(24, 56);
+        _player.WarpTo(ledgeStart);
+        _player.Face(Vector2I.Right);
+        if (TryStartLedgeHop(_player, _player.Position, Vector2.Down))
+            throw new InvalidOperationException(
+                "A ledge jump ignored the source movement-angle/facing equality check.");
+        _player.Face(Vector2I.Down);
+        if (TryStartLedgeHop(
+                _player,
+                _player.Position,
+                new Vector2(1, 1)))
+        {
+            throw new InvalidOperationException(
+                "A diagonal movement attempt incorrectly started a ledge jump.");
+        }
+
+        int jumpSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndJump);
+        int landSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndLand);
+        if (!TryStartLedgeHop(_player, _player.Position, Vector2.Down))
+            throw new InvalidOperationException(
+                "Room 0:11's two $64 south-cliff probes did not start a ledge jump.");
+        if (_player.LedgeJumpPhase != LedgeJumpState.Airborne ||
+            _player.LedgeCliffLength != 3 ||
+            _player.LedgeSpeedRaw != 0x23 ||
+            _player.LedgeSpeedZ != -0x1c0 ||
+            _player.LedgeZ != 0 ||
+            _player.LedgeAnimationPhase != 0 ||
+            _player.IsGroundedForFloorButton ||
+            _player.AcceptsRoomEntityContact ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != jumpSounds + 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds)
+        {
+            throw new InvalidOperationException(
+                "Room 0:11 did not initialize LINK_STATE_JUMPING_DOWN_LEDGE exactly.");
+        }
+
+        int healthBeforeContact = _player.HealthQuarters;
+        if (_player.ApplyEnemyContactDamage(
+                ledgeStart,
+                2,
+                RingDamageSource.Generic) ||
+            _player.HealthQuarters != healthBeforeContact)
+        {
+            throw new InvalidOperationException(
+                "wLinkInAir bit 7 semantics did not suppress room-entity contact.");
+        }
+
+        _player._PhysicsProcess(1.0 / 60.0);
+        if (!_player.PrecisePosition.IsEqualApprox(new Vector2(24, 56.875f)) ||
+            _player.Position != new Vector2(24, 56) ||
+            _player.LedgeZ != -2 ||
+            _player.LedgeSpeedZ != -0x1a0 ||
+            _player.LedgeAnimationPhase != 0 ||
+            _player.LedgeShadowDrawn !=
+                ((_entities.FrameCounter & 1) != 0))
+        {
+            throw new InvalidOperationException(
+                "The first ledge update lost SPEED_0e0, 8.8 position, Z, or animation timing.");
+        }
+
+        _player._PhysicsProcess(7.0 / 60.0);
+        if (_player.LedgeAnimationPhase != 0)
+            throw new InvalidOperationException(
+                "LINK_ANIM_MODE_JUMP did not hold graphics $e4-$e7 for nine updates.");
+        _player._PhysicsProcess(1.0 / 60.0);
+        if (_player.LedgeAnimationPhase != 1)
+            throw new InvalidOperationException(
+                "LINK_ANIM_MODE_JUMP did not select graphics $e8-$eb on update 9.");
+        _player._PhysicsProcess(9.0 / 60.0);
+        if (_player.LedgeAnimationPhase != 2)
+            throw new InvalidOperationException(
+                "LINK_ANIM_MODE_JUMP did not select graphics $ec-$ef on update 18.");
+        _player._PhysicsProcess(6.0 / 60.0);
+        if (_player.LedgeAnimationPhase != 3)
+            throw new InvalidOperationException(
+                "LINK_ANIM_MODE_JUMP did not select terminal graphics $80-$83 on update 24.");
+        _player._PhysicsProcess(4.0 / 60.0);
+        if (_player.LedgeJumpPhase != LedgeJumpState.Airborne ||
+            !_player.PrecisePosition.IsEqualApprox(new Vector2(24, 80.5f)) ||
+            _player.Position != new Vector2(24, 80) ||
+            _player.LedgeZ != -2 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds)
+        {
+            throw new InvalidOperationException(
+                "The ledge jump landed before the original 29th airborne update.");
+        }
+        _player._PhysicsProcess(1.0 / 60.0);
+        Vector2 ordinaryLanding = new(24, 81.375f);
+        if (_player.LedgeJumpPhase != LedgeJumpState.None ||
+            !_player.PrecisePosition.IsEqualApprox(ordinaryLanding) ||
+            _player.Position != new Vector2(24, 81) ||
+            _player.LocalRespawnPosition != ledgeStart ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds + 1 ||
+            _sound.LastPlayRequest != OracleSoundEngine.SndLand)
+        {
+            throw new InvalidOperationException(
+                "The in-room ledge jump did not land on update 29 with SND_LAND $a3.");
+        }
+
+        _player.WarpTo(ledgeStart);
+        _player.Face(Vector2I.Down);
+        if (!TryStartLedgeHop(_player, _player.Position, Vector2.Down))
+            throw new InvalidOperationException(
+                "The deterministic long-frame ledge replay did not start.");
+        _player._PhysicsProcess(29.0 / 60.0);
+        if (_player.LedgeJumpPhase != LedgeJumpState.None ||
+            !_player.PrecisePosition.IsEqualApprox(ordinaryLanding))
+        {
+            throw new InvalidOperationException(
+                "A long rendered update changed the ledge jump's 60-update boundaries.");
+        }
+
+        Vector2 breakableLandingCenter = new(24, 88);
+        byte originalLandingTile =
+            _currentRoom.GetMetatile(breakableLandingCenter);
+        _currentRoom.SetPositionTileAndCollision(
+            breakableLandingCenter,
+            0xc3,
+            null,
+            (long)_animationTicks);
+        int rockDebrisBefore =
+            _entities.Entities<RockDebrisEffect>().Count;
+        _player.WarpTo(ledgeStart);
+        _player.Face(Vector2I.Down);
+        if (!TryStartLedgeHop(_player, _player.Position, Vector2.Down) ||
+            _player.LedgeCliffLength != 3)
+        {
+            throw new InvalidOperationException(
+                "Source $05 breakable tile $c3 was not accepted as a ledge landing.");
+        }
+        _player._PhysicsProcess(29.0 / 60.0);
+        if (_currentRoom.GetMetatile(breakableLandingCenter) != 0x3a ||
+            _entities.Entities<RockDebrisEffect>().Count !=
+                rockDebrisBefore + 1)
+        {
+            throw new InvalidOperationException(
+                "Landing did not break tile $c3 through BREAKABLETILESOURCE_LANDED $05.");
+        }
+        _currentRoom.SetPositionTileAndCollision(
+            breakableLandingCenter,
+            originalLandingTile,
+            null,
+            (long)_animationTicks);
+
+        LoadValidationRoom(0, 0x00);
+        Vector2 transitionStart = new(80, 120);
+        _player.WarpTo(transitionStart);
+        _player.Face(Vector2I.Down);
+        jumpSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndJump);
+        landSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndLand);
+        if (!TryStartLedgeHop(_player, _player.Position, Vector2.Down) ||
+            _player.LedgeJumpPhase != LedgeJumpState.AirborneBeforeScroll ||
+            _player.LedgeCliffLength != 0 ||
+            _player.LedgeSpeedRaw != 0 ||
+            _player.LedgeSpeedZ != -0x100 ||
+            _player.LedgeZ != -1 ||
+            _player.PrecisePosition != new Vector2(80, 121) ||
+            _player.LedgeShadowDrawn ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != jumpSounds + 1)
+        {
+            throw new InvalidOperationException(
+                "Room 0:00 did not initialize the source's down-cliff screen-transition branch.");
+        }
+
+        _player._PhysicsProcess(17.0 / 60.0);
+        if (_player.LedgeJumpPhase != LedgeJumpState.AirborneBeforeScroll ||
+            _player.LedgeZ != -1 ||
+            _player.LedgeSpeedZ != 0x120 ||
+            _scrollTransitionActive)
+        {
+            throw new InvalidOperationException(
+                "The transition ledge did not preserve its 18-update pre-scroll fall.");
+        }
+        _player._PhysicsProcess(1.0 / 60.0);
+        if (_player.LedgeJumpPhase != LedgeJumpState.WaitingForScroll ||
+            !_scrollTransitionActive ||
+            _scrollTransitionDirection != Vector2I.Down ||
+            _scrollTransitionFrames != 32 ||
+            _currentRoom.Group != 0 ||
+            _currentRoom.Id != 0x10)
+        {
+            throw new InvalidOperationException(
+                "The ledge landing did not force source transition $82 into room 0:10.");
+        }
+
+        Vector2 waitingPosition = _player.PrecisePosition;
+        int waitingAnimation = _player.LedgeAnimationPhase;
+        _player._PhysicsProcess(10.0 / 60.0);
+        if (_player.PrecisePosition != waitingPosition ||
+            _player.LedgeAnimationPhase != waitingAnimation ||
+            _player.LedgeJumpPhase != LedgeJumpState.WaitingForScroll)
+        {
+            throw new InvalidOperationException(
+                "Link's ledge state advanced while wScrollMode froze destination gameplay.");
+        }
+
+        for (int frame = 0; frame < 31; frame++)
+            UpdateScrollingTransition(1.0 / 60.0);
+        if (!_scrollTransitionActive ||
+            _player.LedgeJumpPhase != LedgeJumpState.WaitingForScroll)
+        {
+            throw new InvalidOperationException(
+                "The ledge scroll ended before the original 32 transition updates.");
+        }
+        UpdateScrollingTransition(1.0 / 60.0);
+        if (_scrollTransitionActive ||
+            _player.LedgeJumpPhase != LedgeJumpState.AirborneAfterScroll ||
+            _player.PrecisePosition != new Vector2(80, 22) ||
+            _player.LedgeZ != -13 ||
+            _player.LedgeSpeedZ != 0x120 ||
+            _player.LedgeSpeedRaw != 0 ||
+            _player.LedgeCliffLength != 1 ||
+            _player.LedgeAnimationPhase != 1 ||
+            _player.LocalRespawnPosition != transitionStart ||
+            _player.AcceptsRoomEntityContact ||
+            _player.LedgeShadowDrawn !=
+                ((_entities.FrameCounter & 1) != 0))
+        {
+            throw new InvalidOperationException(
+                "The destination room did not resume the retained Z, speed, animation, and landing scan.");
+        }
+
+        _player._PhysicsProcess(8.0 / 60.0);
+        if (_player.LedgeJumpPhase != LedgeJumpState.AirborneAfterScroll ||
+            _player.PrecisePosition != new Vector2(80, 22) ||
+            _player.LedgeZ != -1 ||
+            _player.LedgeSpeedZ != 0x220 ||
+            _player.LedgeAnimationPhase != 3 ||
+            _player.LocalRespawnPosition != transitionStart ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds)
+        {
+            throw new InvalidOperationException(
+                "The post-scroll ledge fall landed before its ninth retained-speed update.");
+        }
+        _player._PhysicsProcess(1.0 / 60.0);
+        if (_player.LedgeJumpPhase != LedgeJumpState.None ||
+            _player.PrecisePosition != new Vector2(80, 22) ||
+            _player.LocalRespawnPosition != new Vector2(80, 22) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds + 1 ||
+            _sound.LastPlayRequest != OracleSoundEngine.SndLand)
+        {
+            throw new InvalidOperationException(
+                "The post-scroll ledge fall did not land, update local respawn, and play SND_LAND.");
+        }
+        RestoreOracleRandomForValidation(randomSnapshot);
+    }
+
+    private OracleRandomValidationSnapshot CaptureOracleRandomForValidation()
+    {
+        Type type = typeof(OracleRandom);
+        byte[] placementBuffer = (byte[])RequiredRandomField(
+            type, "_placementBuffer").GetValue(_random)!;
+        return new OracleRandomValidationSnapshot(
+            (byte)RequiredRandomField(type, "_rng1").GetValue(_random)!,
+            (byte)RequiredRandomField(type, "_rng2").GetValue(_random)!,
+            (byte[])placementBuffer.Clone(),
+            (byte)RequiredRandomField(type, "_placementIndex").GetValue(_random)!,
+            (bool)RequiredRandomField(type, "_placementBufferReady").GetValue(_random)!,
+            _random.Calls,
+            _random.LastResult);
+    }
+
+    private void RestoreOracleRandomForValidation(
+        OracleRandomValidationSnapshot snapshot)
+    {
+        Type type = typeof(OracleRandom);
+        RequiredRandomField(type, "_rng1").SetValue(_random, snapshot.Rng1);
+        RequiredRandomField(type, "_rng2").SetValue(_random, snapshot.Rng2);
+        byte[] placementBuffer = (byte[])RequiredRandomField(
+            type, "_placementBuffer").GetValue(_random)!;
+        snapshot.PlacementBuffer.CopyTo(placementBuffer, 0);
+        RequiredRandomField(type, "_placementIndex").SetValue(
+            _random, snapshot.PlacementIndex);
+        RequiredRandomField(type, "_placementBufferReady").SetValue(
+            _random, snapshot.PlacementBufferReady);
+        RequiredRandomProperty(type, nameof(OracleRandom.Calls)).SetValue(
+            _random, snapshot.Calls);
+        RequiredRandomProperty(type, nameof(OracleRandom.LastResult)).SetValue(
+            _random, snapshot.LastResult);
+    }
+
+    private static System.Reflection.FieldInfo RequiredRandomField(
+        Type type,
+        string name) =>
+        type.GetField(
+            name,
+            System.Reflection.BindingFlags.Instance |
+            System.Reflection.BindingFlags.NonPublic) ??
+        throw new InvalidOperationException(
+            $"OracleRandom validation field '{name}' was not found.");
+
+    private static System.Reflection.PropertyInfo RequiredRandomProperty(
+        Type type,
+        string name) =>
+        type.GetProperty(
+            name,
+            System.Reflection.BindingFlags.Instance |
+            System.Reflection.BindingFlags.NonPublic |
+            System.Reflection.BindingFlags.Public) ??
+        throw new InvalidOperationException(
+            $"OracleRandom validation property '{name}' was not found.");
 
     private void ValidateRoom56TileEdgeSlide()
     {
@@ -2629,3 +3154,12 @@ public sealed partial class ValidationRoot
         return false;
     }
 }
+
+internal readonly record struct OracleRandomValidationSnapshot(
+    byte Rng1,
+    byte Rng2,
+    byte[] PlacementBuffer,
+    byte PlacementIndex,
+    bool PlacementBufferReady,
+    int Calls,
+    OracleRandomResult LastResult);

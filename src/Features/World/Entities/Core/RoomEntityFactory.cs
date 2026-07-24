@@ -740,6 +740,19 @@ internal sealed class RoomEntityFactory(
             return new BoomerangMoblinRoomEntity(moblin, killableEnemyIndex);
         }
 
+        if (source.Id == 0x0c &&
+            enemies.TryGetImportedEnemyDefinition(
+                source, out ImportedEnemyDefinition arrowMoblinRecord))
+        {
+            var moblin = new ArrowMoblinCharacter
+            {
+                Name = $"ArrowMoblin_{source.Order}_{instance}",
+                ZIndex = 10
+            };
+            moblin.Initialize(arrowMoblinRecord, room, position, random);
+            return new ArrowMoblinRoomEntity(moblin, killableEnemyIndex);
+        }
+
         if (source.Id == 0x10 &&
             enemies.TryGetImportedEnemyDefinition(
                 source, out ImportedEnemyDefinition ropeRecord))
@@ -1542,7 +1555,7 @@ internal sealed class RoomEntityFactory(
                     bool supported = source.Id switch
                     {
                         0x09 => enemies.TryGetOctorokDefinition(source, out _),
-                        0x0a or 0x10 or 0x17 or 0x28 =>
+                        0x0a or 0x0c or 0x10 or 0x17 or 0x28 =>
                             enemies.TryGetImportedEnemyDefinition(source, out _),
                         0x31 => enemies.TryGetStalfosDefinition(source, out _),
                         0x32 => enemies.TryGetKeeseDefinition(source, out _),

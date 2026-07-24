@@ -292,8 +292,7 @@ public sealed class BraceletController
 
         Vector2 tileCenter = PackedPositionCenter(_targetPackedPosition);
         Texture2D texture = room.BuildMimickedMetatileTexture(tileCenter);
-        byte replacement = GetReplacement(
-            room, tileCenter, _targetTile, _targetRecord);
+        byte replacement = _targetRecord.ReplacementFor(room, tileCenter);
         bool changed = _targetRecord.Replacement == 0 ||
             room.ReplaceMetatile(
                 tileCenter, _targetTile, replacement, _animationTick());
@@ -596,21 +595,6 @@ public sealed class BraceletController
             (packedPosition & 0x0f) * OracleRoomData.MetatileSize + 8,
             (packedPosition >> 4) * OracleRoomData.MetatileSize + 8);
 
-    private static byte GetReplacement(
-        OracleRoomData room,
-        Vector2 tilePoint,
-        byte tile,
-        BreakableTileRecord record)
-    {
-        if (tile == 0x10 && room.ActiveCollisions is 1 or 2)
-        {
-            byte original = room.GetOriginalMetatile(tilePoint);
-            if (original != tile && room.GetCollision(original) < 0x20)
-                return original;
-        }
-
-        return (byte)record.Replacement;
-    }
 }
 
 internal enum BraceletState

@@ -42,6 +42,9 @@ public interface IPlayerWorld
     ActiveTerrainInfo GetActiveTerrain(Vector2 playerPosition);
     Vector2 GetTerrainPush(Vector2 playerPosition);
     bool TryStartLedgeHop(Player player, Vector2 from, Vector2 attemptedMovement);
+    bool ApplyLandedTileHit(Vector2 playerPosition);
+    void BeginLedgeScreenTransition(Player player);
+    void ResumeLedgeHopAfterScroll(Player player);
     void SpawnDrowningSplash(Vector2 position, HazardType hazard);
     bool CheckTileWarp(Player player);
     void CheckRoomExit(Player player);

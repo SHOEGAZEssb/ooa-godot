@@ -293,6 +293,7 @@ function Copy-EnemySprite([string]$name) {
 
 $commonEnemySprites = @{
     0x0a = @($gfxNames[0x91])
+    0x0c = @($gfxNames[0x91])
     0x10 = @($gfxNames[0x9b])
     0x17 = @($gfxNames[0x90])
     0x28 = @($gfxNames[0xa0])
@@ -301,7 +302,7 @@ $commonEnemyRows = [Collections.Generic.List[string]]::new()
 $commonEnemyRows.Add(
     '# id`tsubid`tsprites`ttile-base`tpalette`tsource-grayscale-inverted`tradius-y`tradius-x`tdamage-quarters`thealth`tanimations-base64'.Replace(
         '`t', "`t"))
-foreach ($id in @(0x0a, 0x10, 0x17, 0x28)) {
+foreach ($id in @(0x0a, 0x0c, 0x10, 0x17, 0x28)) {
     $definition = Get-EnemyDefinition $id 0
     $sprites = $commonEnemySprites[$id]
     foreach ($sprite in $sprites) { Copy-EnemySprite $sprite }
@@ -311,9 +312,12 @@ foreach ($id in @(0x0a, 0x10, 0x17, 0x28)) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t00`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t1`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($commonEnemyRows.Count -ne 5 -or
+if ($commonEnemyRows.Count -ne 6 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
+    }) -or
+    -not ($commonEnemyRows | Where-Object {
+        $_ -match '^0c\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
     }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^10\t00\tspr_gibdo_stalfos_rope_whisp_spark_bubble_beetle\t12\t0\t1\t6\t6\t2\t2\t'

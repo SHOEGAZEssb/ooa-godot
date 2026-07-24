@@ -112,6 +112,9 @@ public sealed class RoomCollision
                 requiredWalls;
     }
 
+    internal int AdjacentWallsBitset(Vector2 playerPosition) =>
+        CalculateAdjacentWallsBitset(playerPosition);
+
     private static int GetMovementAngle(Vector2 movement)
     {
         int horizontal = Mathf.Sign(movement.X);

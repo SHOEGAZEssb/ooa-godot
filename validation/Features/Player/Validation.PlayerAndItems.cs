@@ -103,6 +103,7 @@ public sealed partial class ValidationRoot
         var arrow = new EnemyArrowProjectile();
         arrow.Initialize(enemies.EnemyArrow, _currentRoom, Vector2.Zero, angle: 0);
         arrow.Position = shieldCenter;
+        arrow.UpdateFrame(player); // State 0 setup-only update.
         arrow.UpdateFrame(player);
         if (arrow.State != ArrowState.Bouncing ||
             arrow.Counter != 0x20 || player.HealthQuarters != healthBeforeBlock ||

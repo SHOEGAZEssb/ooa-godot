@@ -214,6 +214,28 @@ public sealed class RoomTransitionController
             (_rooms.TryGetNeighbor(direction, out int id) && _rooms.World.HasRoom(_rooms.ActiveGroup, id));
     }
 
+    internal void BeginLedgeScroll(Player player)
+    {
+        const int sourceDirection = 0x82;
+        if (IsTransitioning)
+        {
+            throw new InvalidOperationException(
+                "LINK_STATE_JUMPING_DOWN_LEDGE tried to start source " +
+                $"transition ${sourceDirection:x2} during another transition.");
+        }
+        if (!_rooms.TryGetNeighbor(Vector2I.Down, out int targetId) ||
+            !_rooms.World.HasRoom(_rooms.ActiveGroup, targetId))
+        {
+            throw new InvalidOperationException(
+                $"LINK_STATE_JUMPING_DOWN_LEDGE source transition " +
+                $"${sourceDirection:x2} from room {_rooms.ActiveGroup:x1}:" +
+                $"{_rooms.CurrentRoom.Id:x2} has no south destination.");
+        }
+
+        BeginScroll(player, Vector2I.Down, targetId);
+        _hud.Refresh();
+    }
+
     public void BeginScroll(Player player, Vector2I direction, int targetId)
     {
         OracleRoomData source = _rooms.CurrentRoom;

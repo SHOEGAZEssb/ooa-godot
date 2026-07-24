@@ -41,6 +41,13 @@ claim that the entire surrounding game is complete.
   imported breakable-tile replacements and drops, directional dirt debris,
   `SPEED_a0` cardinal drop launch, sounds, room flags, and WRAM-backed gasha
   maturity.
+- Jumping down ledges uses the imported collision-set cliff/landing tables,
+  paired wall bits and two directional probes, eight-pixel landing scan,
+  length-indexed planar speed, `-$1c0`/`$20` 8.8 Z physics, exact jump OAM
+  phases, alternating terrain shadow, and `SND_JUMP`/`SND_LAND`. Boundary
+  cliffs retain the source's forced `$82` downward scroll: Link freezes through
+  destination preload, resumes with the retained Z speed, updates the local
+  respawn only after landing, and applies `BREAKABLETILESOURCE_LANDED $05`.
 - Accepted damage uses Link's global-frame-bit-2 OBJ-palette-5 blink across
   ordinary and transformation poses. Lethal damage supports the Potion
   interception, slow music fade, post-knockback `SND_LINK_DEAD` four-loop spin,
@@ -70,8 +77,8 @@ claim that the entire surrounding game is complete.
   Iron, and Mirror Shield ownership use `wShieldLevel`; equipped-but-lowered
   and raised states select the original level-aware Link frames in all four
   directions. Raising it uses the source directional collision rectangle and
-  `SND_SHIELD`, while implemented Octorok rocks and masked-Moblin arrows use
-  their original `COLLISIONEFFECT_$1f` clink and 32-update bounce paths.
+  `SND_SHIELD`, while implemented Octorok rocks and masked-/Arrow-Moblin arrows
+  use their original `COLLISIONEFFECT_$1f` clink and 32-update bounce paths.
 - Sword hits select the source low/normal/high enemy-recoil profiles for
   level-1, level-2/3, held, Spin Attack, sword-beam, Fist Ring, and Expert's
   Ring collisions. Implemented vulnerable species move away from the attack at
@@ -85,8 +92,8 @@ claim that the entire surrounding game is complete.
   four-update damage blinking through OBJ palette `$05` (or `$02` when the
   source palette is already `$05`) across both typed-sprite and generic
   imported definitions.
-- Octoroks, Boomerang Moblins, Ropes, ordinary Stalfos, masked Moblins, Zols,
-  and Gels use the common left-first `yh+$05,xh-$01` /
+- Octoroks, Boomerang Moblins, Arrow Moblins, Ropes, ordinary Stalfos, masked
+  Moblins, Zols, and Gels use the common left-first `yh+$05,xh-$01` /
   `yh+$05,xh+$01` grounded hazard probes in
   normal movement and after recoil. Water/lava create their imported
   12/20-update splash and `SND_SPLASH` immediately. Holes disable collision

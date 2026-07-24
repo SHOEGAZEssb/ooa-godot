@@ -74,8 +74,10 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 4 ||
+        if (_importedDefinitions.Count != 5 ||
             ImportedEnemy(0x0a) is not
+                { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
+            ImportedEnemy(0x0c) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x10) is not { Health: 2, DamageQuarters: 2 } ||
             ImportedEnemy(0x17) is not { Health: 10, DamageQuarters: 2 } ||

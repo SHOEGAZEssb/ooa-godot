@@ -88,6 +88,7 @@ public partial class OracleSoundEngine : Node
     public const int SndWarpStart = 0x95;
     public const int SndPoof = 0x98;
     public const int SndPickup = 0x9c;
+    public const int SndLand = 0xa3;
     public const int SndBreakRock = 0xa5;
     public const int SndStrike = 0xa6;
     public const int SndVeranFairyAttack = 0xa8;

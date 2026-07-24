@@ -57,12 +57,14 @@ public partial class Player : Node2D
     private Texture2D _damageDrownTexture = null!;
     private Texture2D _fallInHoleTexture = null!;
     private Texture2D _damageFallInHoleTexture = null!;
+    private Texture2D _ledgeJumpTexture = null!;
+    private Texture2D _damageLedgeJumpTexture = null!;
+    private Texture2D _terrainShadowTexture = null!;
+    private Vector2 _terrainShadowOffset;
     private Texture2D _deathTexture = null!;
     private TransformedLinkDatabase _transformedLink = null!;
     private Vector2 _precisePosition;
     private Vector2 _lastSafePosition;
-    private Vector2 _ledgeStart;
-    private Vector2 _ledgeEnd;
     private HazardType _drowningHazard;
     private Facing _facing = Facing.Down;
     private float _walkTime;
@@ -75,7 +77,21 @@ public partial class Player : Node2D
     private float _hazardRecoveryTime;
     private float _fallInHoleTime;
     private float _fallInHoleInvisibleTime;
-    private float _ledgeHopTime;
+    private double _ledgeUpdateAccumulator;
+    private int _ledgeGroundYFixed;
+    private int _ledgeGroundXFixed;
+    private int _ledgeZFixed;
+    private int _ledgeSpeedZ;
+    private int _ledgeSpeedRaw;
+    private int _ledgeGravity;
+    private int _ledgeLandSound;
+    private int _ledgeCliffLength;
+    private int _ledgeAnimationPhase;
+    private int _ledgeAnimationCounter;
+    private int[] _ledgeAnimationDurations = [];
+    private Vector2I _ledgeDirection;
+    private LedgeJumpState _ledgeJumpState;
+    private bool _ledgeCrossedScreen;
     private float _enemyInvincibilityFrames;
     private float _enemyKnockbackFrames;
     private Vector2 _enemyKnockbackDirection;
@@ -116,7 +132,6 @@ public partial class Player : Node2D
     private Vector2 _lastMovementInput;
     private bool _walking;
     private bool _pushing;
-    private bool _ledgeHopping;
     private bool _pullingIntoHole;
     private bool _drowning;
     private bool _drownRespawning;
@@ -212,8 +227,24 @@ public partial class Player : Node2D
         OracleGraphicsCache.PixelHash(_damageTexture.GetImage());
     internal bool IsNewGameSlowFalling => _newGameSlowFalling;
     internal bool IsGroundedForFloorButton =>
-        !_ledgeHopping && !_newGameSlowFalling &&
+        _ledgeJumpState == LedgeJumpState.None && !_newGameSlowFalling &&
         !_drowning && !_fallingInHole;
+    internal bool IsJumpingDownLedge =>
+        _ledgeJumpState != LedgeJumpState.None;
+    internal bool AcceptsRoomEntityContact =>
+        _ledgeJumpState == LedgeJumpState.None;
+    internal int LedgeZ => _ledgeZFixed >> 8;
+    internal int LedgeSpeedZ => _ledgeSpeedZ;
+    internal int LedgeSpeedRaw => _ledgeSpeedRaw;
+    internal int LedgeCliffLength => _ledgeCliffLength;
+    internal int LedgeAnimationPhase => _ledgeAnimationPhase;
+    internal LedgeJumpState LedgeJumpPhase => _ledgeJumpState;
+    internal bool LedgeShadowDrawn =>
+        _ledgeZFixed < 0 &&
+        _ledgeJumpState is
+            LedgeJumpState.Airborne or
+            LedgeJumpState.AirborneAfterScroll &&
+        (_world.FrameCounter & 1) != 0;
     internal bool IsFloorDoorRespawning =>
         _floorDoorRespawnCounter != 0 || _floorDoorRecoveryCounter != 0;
     internal int FloorDoorRespawnCounter => _floorDoorRespawnCounter;
@@ -296,6 +327,11 @@ public partial class Player : Node2D
         _damageDrownTexture = BuildDrownTexture(damagePalette: true);
         _fallInHoleTexture = BuildFallInHoleTexture(damagePalette: false);
         _damageFallInHoleTexture = BuildFallInHoleTexture(damagePalette: true);
+        _ledgeJumpTexture = BuildLedgeJumpTexture(damagePalette: false);
+        _damageLedgeJumpTexture = BuildLedgeJumpTexture(damagePalette: true);
+        TerrainShadowDefinition terrainShadow = TerrainShadow.Load();
+        _terrainShadowTexture = terrainShadow.Texture;
+        _terrainShadowOffset = terrainShadow.Offset;
         _deathTexture = BuildDeathTexture();
         _transformedLink = new TransformedLinkDatabase();
         EndNewGameSlowFall();
@@ -313,7 +349,8 @@ public partial class Player : Node2D
         Vector2 position,
         bool recordSafe = true,
         bool preserveSword = false,
-        bool preserveShield = false)
+        bool preserveShield = false,
+        bool preserveLedgeJump = false)
     {
         _world?.InterruptBracelet(this, discard: true);
         if (!preserveSword)
@@ -325,6 +362,8 @@ public partial class Player : Node2D
         _hazardRecoveryTime = 0.0f;
         _fallInHoleTime = 0.0f;
         _fallInHoleInvisibleTime = 0.0f;
+        if (!preserveLedgeJump)
+            ClearLedgeHop();
         _enemyInvincibilityFrames = 0.0f;
         _enemyKnockbackFrames = 0.0f;
         _holePullCounter = 0;
@@ -444,7 +483,16 @@ public partial class Player : Node2D
 
     public void FinishScrollingTransition(Vector2 position)
     {
-        WarpTo(position, preserveSword: true, preserveShield: true);
+        bool resumeLedgeJump =
+            _ledgeJumpState == LedgeJumpState.WaitingForScroll;
+        WarpTo(
+            position,
+            recordSafe: !resumeLedgeJump,
+            preserveSword: true,
+            preserveShield: true,
+            preserveLedgeJump: resumeLedgeJump);
+        if (resumeLedgeJump)
+            _world.ResumeLedgeHopAfterScroll(this);
         _walking = false;
         QueueRedraw();
     }
@@ -541,7 +589,7 @@ public partial class Player : Node2D
         int quarters,
         RingDamageSource source)
     {
-        if (_braceletLiftCollisionsDisabled ||
+        if (_braceletLiftCollisionsDisabled || !AcceptsRoomEntityContact ||
             IsDying || _enemyInvincibilityFrames > 0.0f || quarters <= 0)
             return false;
         if (!ApplyDamage(quarters, source))
@@ -612,15 +660,78 @@ public partial class Player : Node2D
         _inventory.AddRupees(amount);
     }
 
-    public void StartLedgeHop(Vector2 destination)
+    internal void StartLedgeHop(LedgeJumpPlan plan)
     {
-        _ledgeStart = _precisePosition;
-        _ledgeEnd = destination;
-        _ledgeHopTime = 0.0f;
-        _ledgeHopping = true;
+        if (plan.AnimationPhaseDurations.Length != 3 ||
+            plan.Direction == Vector2I.Zero)
+        {
+            throw new ArgumentException(
+                "Invalid imported ledge-jump plan.",
+                nameof(plan));
+        }
+
+        _ledgeGroundYFixed = Mathf.FloorToInt(_precisePosition.Y * 256.0f);
+        _ledgeGroundXFixed = Mathf.FloorToInt(_precisePosition.X * 256.0f);
+        _ledgeZFixed = 0;
+        _ledgeSpeedZ = plan.InitialSpeedZ;
+        _ledgeSpeedRaw = plan.SpeedRaw;
+        _ledgeGravity = plan.Gravity;
+        _ledgeLandSound = plan.LandSound;
+        _ledgeCliffLength = plan.CliffLength;
+        _ledgeAnimationDurations = (int[])plan.AnimationPhaseDurations.Clone();
+        _ledgeAnimationPhase = 0;
+        _ledgeAnimationCounter = _ledgeAnimationDurations[0];
+        _ledgeDirection = plan.Direction;
+        _ledgeCrossedScreen = false;
+        _ledgeUpdateAccumulator = 0.0;
+        _ledgeJumpState = plan.CrossesScreen
+            ? LedgeJumpState.AirborneBeforeScroll
+            : LedgeJumpState.Airborne;
+
+        if (plan.CrossesScreen)
+        {
+            int sourceY = _ledgeGroundYFixed >> 8;
+            _ledgeGroundYFixed =
+                (plan.ScreenBoundaryY << 8) |
+                (_ledgeGroundYFixed & 0xff);
+            _ledgeZFixed = unchecked(
+                (sbyte)(byte)(sourceY - plan.ScreenBoundaryY)) << 8;
+            _ledgeSpeedZ = plan.TransitionSpeedZ;
+            _ledgeSpeedRaw = 0;
+            SetLedgeGroundPosition();
+        }
+
         _walking = false;
+        _pushing = false;
         CancelSwordAttack();
         CancelShovelAction();
+        _world.PlaySound(plan.JumpSound);
+        QueueRedraw();
+    }
+
+    internal void ResumeLedgeHopAfterScroll(
+        Vector2 landingPosition,
+        int cliffLength)
+    {
+        if (_ledgeJumpState != LedgeJumpState.WaitingForScroll)
+        {
+            throw new InvalidOperationException(
+                "A ledge jump can resume only after its scrolling transition.");
+        }
+
+        int currentYFixed = Mathf.FloorToInt(_precisePosition.Y * 256.0f);
+        _ledgeGroundYFixed =
+            (Mathf.FloorToInt(landingPosition.Y) << 8) |
+            (currentYFixed & 0xff);
+        _ledgeGroundXFixed = Mathf.FloorToInt(_precisePosition.X * 256.0f);
+        int currentY = currentYFixed >> 8;
+        int landingY = _ledgeGroundYFixed >> 8;
+        _ledgeZFixed = unchecked(
+            (sbyte)(byte)(currentY - landingY)) << 8;
+        _ledgeCliffLength = cliffLength;
+        _ledgeCrossedScreen = true;
+        _ledgeJumpState = LedgeJumpState.AirborneAfterScroll;
+        SetLedgeGroundPosition();
         QueueRedraw();
     }
 
@@ -679,9 +790,9 @@ public partial class Player : Node2D
         if (_pullingIntoHole && UpdatePullIntoHole())
             return;
 
-        if (_ledgeHopping)
+        if (_ledgeJumpState != LedgeJumpState.None)
         {
-            UpdateLedgeHop((float)delta);
+            UpdateLedgeHop(delta);
             return;
         }
 
@@ -1315,6 +1426,9 @@ public partial class Player : Node2D
 
     public override void _Draw()
     {
+        if (LedgeShadowDrawn)
+            DrawTexture(_terrainShadowTexture, _terrainShadowOffset);
+
         if (_deathAnimationActive)
         {
             DrawTextureRectRegion(
@@ -1345,6 +1459,21 @@ public partial class Player : Node2D
                 DamagePaletteActive ? _damageFallInHoleTexture : _fallInHoleTexture,
                 new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(frame * 16, 0, 16, 16));
+        }
+        else if (_ledgeJumpState != LedgeJumpState.None)
+        {
+            DrawTextureRectRegion(
+                DamagePaletteActive
+                    ? _damageLedgeJumpTexture
+                    : _ledgeJumpTexture,
+                new Rect2(
+                    NormalSpriteOrigin + new Vector2(0, _ledgeZFixed >> 8),
+                    new Vector2(16, 16)),
+                new Rect2(
+                    _ledgeAnimationPhase * 16,
+                    (int)_facing * 16,
+                    16,
+                    16));
         }
         else if (_getItemTwoHandPose)
         {
@@ -1552,7 +1681,8 @@ public partial class Player : Node2D
 
         bool shieldUsable = _activeTransformation == 0 &&
             !_world.ItemUsageDisabled && !_cutsceneControlled &&
-            !_drowning && !_fallingInHole && !_ledgeHopping &&
+            !_drowning && !_fallingInHole &&
+            _ledgeJumpState == LedgeJumpState.None &&
             !IsFloorDoorRespawning && _inventory.ShieldLevel > 0;
         if (!shieldUsable)
         {
@@ -1921,19 +2051,99 @@ public partial class Player : Node2D
         return 2;
     }
 
-    private void UpdateLedgeHop(float delta)
+    private void UpdateLedgeHop(double delta)
     {
-        _ledgeHopTime += delta;
-        float t = Mathf.Min(_ledgeHopTime / 0.32f, 1.0f);
-        float eased = t * t * (3.0f - 2.0f * t);
-        _precisePosition = _ledgeStart.Lerp(_ledgeEnd, eased);
-        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-        if (t >= 1.0f)
+        if (delta < 0.0)
+            throw new ArgumentOutOfRangeException(nameof(delta));
+        if (_ledgeJumpState == LedgeJumpState.WaitingForScroll)
+            return;
+
+        _ledgeUpdateAccumulator += delta * 60.0;
+        while (_ledgeUpdateAccumulator + 0.000001 >= 1.0 &&
+            _ledgeJumpState is not (
+                LedgeJumpState.None or LedgeJumpState.WaitingForScroll))
         {
-            _ledgeHopping = false;
-            ApplyTerrainAtFeet();
+            _ledgeUpdateAccumulator -= 1.0;
+            AdvanceLedgeHopUpdate();
         }
         QueueRedraw();
+    }
+
+    private void AdvanceLedgeHopUpdate()
+    {
+        int movementFixed = _ledgeSpeedRaw * 256 / 40;
+        _ledgeGroundYFixed += _ledgeDirection.Y * movementFixed;
+        _ledgeGroundXFixed += _ledgeDirection.X * movementFixed;
+        bool landed = OracleObjectMath.UpdateSpeedZ(
+            ref _ledgeZFixed,
+            ref _ledgeSpeedZ,
+            _ledgeGravity);
+        SetLedgeGroundPosition();
+
+        if (!landed)
+        {
+            AdvanceLedgeAnimation();
+            return;
+        }
+
+        if (_ledgeJumpState == LedgeJumpState.AirborneBeforeScroll)
+        {
+            _ledgeJumpState = LedgeJumpState.WaitingForScroll;
+            _ledgeUpdateAccumulator = 0.0;
+            _world.BeginLedgeScreenTransition(this);
+            return;
+        }
+
+        if (_ledgeCrossedScreen)
+            _lastSafePosition = _precisePosition;
+        _world.ApplyLandedTileHit(_precisePosition);
+        int landSound = _ledgeLandSound;
+        ClearLedgeHop();
+        _walking = false;
+        _pushing = false;
+        _world.PlaySound(landSound);
+    }
+
+    private void AdvanceLedgeAnimation()
+    {
+        if (_ledgeAnimationPhase >= _ledgeAnimationDurations.Length)
+            return;
+        _ledgeAnimationCounter--;
+        if (_ledgeAnimationCounter > 0)
+            return;
+
+        _ledgeAnimationPhase++;
+        _ledgeAnimationCounter =
+            _ledgeAnimationPhase < _ledgeAnimationDurations.Length
+                ? _ledgeAnimationDurations[_ledgeAnimationPhase]
+                : int.MaxValue;
+    }
+
+    private void SetLedgeGroundPosition()
+    {
+        _precisePosition = new Vector2(
+            _ledgeGroundXFixed / 256.0f,
+            _ledgeGroundYFixed / 256.0f);
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+    }
+
+    private void ClearLedgeHop()
+    {
+        _ledgeUpdateAccumulator = 0.0;
+        _ledgeGroundYFixed = 0;
+        _ledgeGroundXFixed = 0;
+        _ledgeZFixed = 0;
+        _ledgeSpeedZ = 0;
+        _ledgeSpeedRaw = 0;
+        _ledgeGravity = 0;
+        _ledgeLandSound = 0;
+        _ledgeCliffLength = 0;
+        _ledgeAnimationPhase = 0;
+        _ledgeAnimationCounter = 0;
+        _ledgeAnimationDurations = [];
+        _ledgeDirection = Vector2I.Zero;
+        _ledgeJumpState = LedgeJumpState.None;
+        _ledgeCrossedScreen = false;
     }
 
     private static Rect2 GetFrame(Facing facing, int frame)
@@ -2783,6 +2993,56 @@ public partial class Player : Node2D
         return ImageTexture.CreateFromImage(output);
     }
 
+    private static Texture2D BuildLedgeJumpTexture(bool damagePalette)
+    {
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
+        Image output = Image.CreateEmpty(64, 64, false, Image.Format.Rgba8);
+
+        // LINK_ANIM_MODE_JUMP ($18) is animationData19f78:
+        // 9 updates of $e4-$e7, 9 of $e8-$eb, 6 of $ec-$ef, then
+        // terminal frame $80-$83. The entries retain their source OAM flips.
+        WriteSymmetricLinkCell(
+            output, source, 0, 0, 0x0c00, damagePalette);
+        WriteLinkFrame(
+            output, source, 0, 16, 0x0c60, true, damagePalette);
+        WriteSymmetricLinkCell(
+            output, source, 0, 32, 0x0c40, damagePalette, flipY: true);
+        WriteLinkFrame(
+            output, source, 0, 48, 0x0c60, false, damagePalette);
+
+        WriteSymmetricLinkCell(
+            output, source, 16, 0, 0x0c20, damagePalette);
+        WriteLinkFrame(
+            output, source, 16, 16, 0x0ca0, true, damagePalette);
+        WriteSymmetricLinkCell(
+            output, source, 16, 32, 0x0c00, damagePalette, flipY: true);
+        WriteLinkFrame(
+            output, source, 16, 48, 0x0ca0, false, damagePalette);
+
+        WriteSymmetricLinkCell(
+            output, source, 32, 0, 0x0c40, damagePalette);
+        WriteLinkFrameWithFlips(
+            output, source, 32, 16, 0x0c60,
+            mirrorX: false, flipY: true, damagePalette: damagePalette);
+        WriteSymmetricLinkCell(
+            output, source, 32, 32, 0x0c20, damagePalette, flipY: true);
+        WriteLinkFrameWithFlips(
+            output, source, 32, 48, 0x0c60,
+            mirrorX: true, flipY: true, damagePalette: damagePalette);
+
+        WriteLinkFrame(
+            output, source, 48, 0, 0x0000, true, damagePalette);
+        WriteLinkFrame(
+            output, source, 48, 16, 0x00c0, true, damagePalette);
+        WriteLinkFrame(
+            output, source, 48, 32, 0x0200, true, damagePalette);
+        WriteLinkFrame(
+            output, source, 48, 48, 0x00c0, false, damagePalette);
+
+        return ImageTexture.CreateFromImage(output);
+    }
+
     private static Texture2D BuildDeathTexture()
     {
         Image source = OracleGraphicsCache.LoadImage(
@@ -2825,11 +3085,32 @@ public partial class Player : Node2D
         bool mirroredOam,
         bool damagePalette)
     {
+        WriteLinkFrameWithFlips(
+            output,
+            source,
+            destinationX,
+            destinationY,
+            byteOffset,
+            mirroredOam,
+            flipY: false,
+            damagePalette: damagePalette);
+    }
+
+    private static void WriteLinkFrameWithFlips(
+        Image output,
+        Image source,
+        int destinationX,
+        int destinationY,
+        int byteOffset,
+        bool mirrorX,
+        bool flipY,
+        bool damagePalette)
+    {
         int firstCell = byteOffset / 32;
 
         for (int destinationPart = 0; destinationPart < 2; destinationPart++)
         {
-            int sourcePart = mirroredOam ? 1 - destinationPart : destinationPart;
+            int sourcePart = mirrorX ? 1 - destinationPart : destinationPart;
             int cell = firstCell + sourcePart;
             int cellX = (cell % 16) * 8;
             int cellY = (cell / 16) * 16;
@@ -2837,8 +3118,9 @@ public partial class Player : Node2D
             for (int y = 0; y < 16; y++)
             for (int x = 0; x < 8; x++)
             {
-                int sourceX = cellX + (mirroredOam ? 7 - x : x);
-                Color sourceColor = source.GetPixel(sourceX, cellY + y);
+                int sourceX = cellX + (mirrorX ? 7 - x : x);
+                int sourceY = cellY + (flipY ? 15 - y : y);
+                Color sourceColor = source.GetPixel(sourceX, sourceY);
                 output.SetPixel(
                     destinationX + destinationPart * 8 + x,
                     destinationY + y,
@@ -2876,7 +3158,8 @@ public partial class Player : Node2D
         int destinationX,
         int destinationY,
         int byteOffset,
-        bool damagePalette)
+        bool damagePalette,
+        bool flipY = false)
     {
         int cell = byteOffset / 32;
         int cellX = (cell % 16) * 8;
@@ -2887,7 +3170,8 @@ public partial class Player : Node2D
         for (int x = 0; x < 8; x++)
         {
             int sourceX = cellX + (destinationPart == 0 ? x : 7 - x);
-            Color sourceColor = source.GetPixel(sourceX, cellY + y);
+            int sourceY = cellY + (flipY ? 15 - y : y);
+            Color sourceColor = source.GetPixel(sourceX, sourceY);
             output.SetPixel(
                 destinationX + destinationPart * 8 + x,
                 destinationY + y,
@@ -3036,4 +3320,13 @@ internal enum BraceletActionPose
     Pull,
     PullStrain,
     Throw
+}
+
+internal enum LedgeJumpState
+{
+    None,
+    Airborne,
+    AirborneBeforeScroll,
+    WaitingForScroll,
+    AirborneAfterScroll
 }
