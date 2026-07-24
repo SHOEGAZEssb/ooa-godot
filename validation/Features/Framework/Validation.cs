@@ -159,6 +159,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateMapScreen();
         ValidateLynnaShopInteractions();
         ValidateVasuShopInteractions();
+        ValidateRemoteMakuFirstEssenceCutscene();
         ValidateGameOverRestart();
         ValidateSaveAndQuitToTitle();
 

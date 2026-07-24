@@ -394,6 +394,15 @@ remains the single runtime policy table.
   landing cues, persists room bit `$80` and its selected X coordinate when
   left behind, respawns at Y `$58`, uses the one-hand item pose, and is
   suppressed by room item bit `$20` after collection.
+- Room `0:8d`'s remote Maku Tree sequence after the first Essence. Interaction
+  `$8a:$00` requires Essence bit `$01` and clear current-room bit `$40`, then
+  runs the imported 20-command lane: Maku Tree music, exact HUD and
+  palette-thread boundaries, a palette-0-black hidden status strip,
+  PALH `$0d` alternate dialogue colors, the five source `$62:$00` confetti
+  trajectories with `$84:$02` sparkles and `SND_MAGIC_POWDER`, standard/linked
+  TX `$05b0/$05c0` plus map-text `$b0/$c0`, full-screen white return,
+  room-music restoration, `wMakuTreeState` increment, and persistent re-entry
+  suppression.
 - Room `1:75`'s complete linked and unlinked pre-Black Tower sequences,
   including Ralph's departure, the heritage scene, coordinated Impa/Nayru/Zelda
   lanes, Link movement, spawned effects, and persistent completion state.

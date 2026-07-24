@@ -857,6 +857,38 @@ infinite original NPC script active without blocking ordinary gameplay:
   pose at offset `(-4,-14)` and sets room item bit `$20`, which suppresses all
   later respawns.
 
+Present room `0:8d` is the reference for a room-entry script whose native
+palette thread deliberately affects backgrounds and sprites differently:
+
+- Placed `INTERAC_REMOTE_MAKU_CUTSCENE $8a:$00` survives state 0 only when
+  `wEssencesObtained` bit `$01` is set and current-room bit `$40` is clear.
+  Keep those two source predicates independent; the destination room alone
+  does not prove that the event should run.
+- Import `remoteMakuCutsceneScript` as one typed command lane. Its
+  `disableinput`, 40-update wait, HUD lock byte `$77`, two 65-update palette
+  gates, 240+180 confetti hold, dialogue, `resetmusic`, room-bit write,
+  `incMakuTreeState`, and input release retain their original yield
+  boundaries. Linked games use the helper's `$10` text offset, changing
+  TX `$05b0/$b0` to TX `$05c0/$c0`.
+- `remoteMakuCutscene_fadeoutToBlackWithDelay` marks every BG palette dirty but
+  preserves OBJ palette 0. Represent that as a background-only black fade so
+  Link remains visible. `hideStatusBar` does not make the top strip
+  transparent: with `wDontUpdateStatusBar=$77` it clears the status tilemap and
+  attributes to palette-0 black, which must match the fully faded room. The
+  return fade starts as a full-screen white overlay above the restored top HUD;
+  clearing the black BG palette and installing that overlay happen in the same
+  command-runner update.
+- `TEXTBOXFLAG_ALTPALETTE1` loads PALH `$0d` and starts text on BG palette 1.
+  Normal text remains warm white and `\col(3)` remains blue, but `\col(2)`
+  resolves to red instead of orange and `\col(4)` returns to warm white instead
+  of green. Route the flag into `DialogueBox`; recording the WRAM write without
+  changing glyph colors is not sufficient.
+- Spawned `$62:$00` confetti remains a native fixed-update effect. Preserve its
+  six delay values, five signed-8.8 position/acceleration records, horizontal
+  animation reversal, 180-update sound counter, `$18`-update `$84:$02`
+  sparkle creation, and slot-order update behavior. The effect may outlive the
+  script owner only until all native children have deleted themselves.
+
 ## Validation pattern
 
 NPC and event regressions live in the `validation/Validation*.cs` family, not in

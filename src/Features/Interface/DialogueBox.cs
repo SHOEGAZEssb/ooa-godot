@@ -60,6 +60,7 @@ public partial class DialogueBox : Node2D
     private bool _scrollingText;
     private bool _choiceActive;
     private bool _passive;
+    private int _textboxFlags;
     private int _selectedChoice;
     private int? _choiceResult;
     private Action<int> _playSound = static _ => { };
@@ -94,11 +95,14 @@ public partial class DialogueBox : Node2D
     internal string CurrentMessage => _currentMessage;
     internal bool ChoiceActive => _choiceActive;
     internal bool PassiveMessage => _passive;
+    internal int TextboxFlagsForValidation => _textboxFlags;
     internal int SelectedChoice => _selectedChoice;
     internal bool HeartPieceDisplayActive => _heartPieceLine >= 0;
     internal int HeartPieceDisplayCount => _heartPieceDisplayCount;
     internal int HeartPieceDisplayTimer => _heartPieceTimer;
     internal static Color DefaultTextColorForValidation => NormalTextColor;
+    internal static Color RedTextColorForValidation => RedTextColor;
+    internal static Color BlueTextColorForValidation => BlueTextColor;
     internal static Rect2 ContinueMarkerRectForValidation => ContinueMarkerRect;
 
     private TextSegment CurrentSegment => _segments[_segmentIndex];
@@ -152,7 +156,26 @@ public partial class DialogueBox : Node2D
         OffsetIntoGameplayField();
     }
 
+    internal void ShowGameplayMessageWithFlags(
+        string message,
+        float linkY,
+        int textboxFlags,
+        int? textPosition = null)
+    {
+        ShowMessageCore(message, linkY, textPosition ?? 0, textboxFlags);
+        OffsetIntoGameplayField();
+    }
+
     public void ShowMessage(string message, float linkY, int textPosition)
+    {
+        ShowMessageCore(message, linkY, textPosition, textboxFlags: 0);
+    }
+
+    private void ShowMessageCore(
+        string message,
+        float linkY,
+        int textPosition,
+        int textboxFlags)
     {
         ArgumentNullException.ThrowIfNull(message);
         _segments.Clear();
@@ -167,6 +190,7 @@ public partial class DialogueBox : Node2D
         _scrollingText = false;
         _choiceActive = false;
         _passive = false;
+        _textboxFlags = textboxFlags;
         _selectedChoice = 0;
         _choiceResult = null;
         _arrowFrameCounter = 0.0;
@@ -260,6 +284,7 @@ public partial class DialogueBox : Node2D
         _scrollingText = false;
         _choiceActive = false;
         _passive = false;
+        _textboxFlags = 0;
         ResetHeartPieceDisplay();
         Visible = false;
     }
@@ -824,14 +849,21 @@ public partial class DialogueBox : Node2D
     private Texture2D TextureFor(TextGlyph glyph) =>
         glyph.Source == FontSource.Symbol ? _symbolTexture : _fontTexture;
 
-    private static Color ColorFor(int colorIndex) => colorIndex switch
+    private Color ColorFor(int colorIndex) => colorIndex switch
     {
         1 => RedTextColor,
+        2 when UsesAlternatePalette1 => RedTextColor,
         2 => SecondaryRedTextColor,
         3 => BlueTextColor,
+        4 when UsesAlternatePalette1 => NormalTextColor,
         4 => AlternateLightTextColor,
         _ => NormalTextColor
     };
+
+    private bool UsesAlternatePalette1 => (_textboxFlags & 0x04) != 0;
+
+    internal Color ResolvedTextColorForValidation(int colorIndex) =>
+        ColorFor(colorIndex);
 
     private static List<TextSegment> ParseMessage(string message)
     {

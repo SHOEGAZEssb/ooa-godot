@@ -22,6 +22,7 @@ public partial class Hud : Node2D
     private Color[,] _itemPalettes = null!;
     private TreasureDatabase? _treasures;
     private InventoryState? _inventory;
+    private bool _statusBarHidden;
 
     public int Rupees { get; set; }
     public int HealthQuarters { get; set; } = 12;
@@ -51,6 +52,18 @@ public partial class Hud : Node2D
 
     public override void _Draw()
     {
+        if (_statusBarHidden)
+        {
+            DrawRect(
+                new Rect2(
+                    Vector2.Zero,
+                    new Vector2(
+                        OracleRoomData.ViewportWidth,
+                        OracleRoomData.GameplayScreenTop)),
+                HudPalette[3]);
+            return;
+        }
+
         DrawTexture(_background, Vector2.Zero);
 
         if (_treasures == null || _inventory == null)
@@ -73,6 +86,25 @@ public partial class Hud : Node2D
     public void Refresh()
     {
         _background = BuildBackgroundTexture();
+        QueueRedraw();
+    }
+
+    /// <summary>
+    /// Mirrors hideStatusBar_body after wDontUpdateStatusBar has been set to
+    /// $77: the 20-by-2 status tilemap and attributes are cleared, leaving
+    /// palette-0 color 3 across the complete status-bar strip.
+    /// </summary>
+    public void HideStatusBar()
+    {
+        _statusBarHidden = true;
+        Visible = true;
+        QueueRedraw();
+    }
+
+    public void ShowStatusBar()
+    {
+        _statusBarHidden = false;
+        Visible = true;
         QueueRedraw();
     }
 
@@ -269,6 +301,8 @@ public partial class Hud : Node2D
 
     internal bool DungeonKeyDisplayActive =>
         DungeonIndex is >= 0 and < 16 && (TilesetFlags & 0x10) == 0;
+    internal bool StatusBarHidden => _statusBarHidden;
+    internal Color HiddenStatusBarColorForValidation => HudPalette[3];
 
     internal byte StatusMapTileForValidation(int offset)
     {

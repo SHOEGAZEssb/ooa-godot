@@ -71,9 +71,18 @@ internal sealed class RoomEventContext(
         }
     }
 
-    public void ShowDialogue(string message, int? textboxPosition = null)
+    public void ShowDialogue(
+        string message,
+        int? textboxPosition = null,
+        int textboxFlags = 0)
     {
         float playerScreenY = _worldToScreen(Player.Position).Y;
+        if (textboxFlags != 0)
+        {
+            _dialogue.ShowGameplayMessageWithFlags(
+                message, playerScreenY, textboxFlags, textboxPosition);
+            return;
+        }
         if (textboxPosition.HasValue)
             _dialogue.ShowGameplayMessage(
                 message, playerScreenY, textboxPosition.Value);

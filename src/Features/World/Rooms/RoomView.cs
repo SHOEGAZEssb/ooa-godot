@@ -95,6 +95,7 @@ public partial class RoomView : Node2D
     }
 
     internal float BackgroundFadeAlpha => _backgroundFade.A;
+    internal Color BackgroundFadeColorForValidation => _backgroundFade;
 
     public override void _Draw()
     {
