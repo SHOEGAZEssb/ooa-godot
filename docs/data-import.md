@@ -208,6 +208,17 @@ large-room dungeon-property bits, torch tiles and collision data, treasure
 object, falling motion, and sound IDs rather than deriving any of them from
 room `5:ed` at runtime.
 
+Present rooms `0:45` and `3:fb` add one native-dialogue closure to the same
+stage. `Import-NpcData.ps1` emits `troy_house.tsv` only after verifying both
+one-object room streams, boy `$3f:$01`'s exact game-progress gate, Troy
+`$ca:$01`'s finished-game deletion branch, the complete pre-ending script,
+and `troy_chooseRandomAnimalText`. Its 16 source-ordered rows preserve the
+low-nibble RNG aliases, TX `$2c11/$2c12` first/repeat wrappers, substituted
+TX `$2c13-$2c22` bodies, room flag `$40`, and their decoded text. Runtime
+therefore consumes one shared RNG value per talk and performs the original
+text substitution without parsing interaction source or collapsing duplicate
+animal strings.
+
 `Import-CutsceneData.ps1` also imports present room `0:56`'s
 `comedianScript` into `comedian_commands.tsv` and its actor constants into
 `comedian_event.tsv`. The stage verifies the room's two placed interactions,

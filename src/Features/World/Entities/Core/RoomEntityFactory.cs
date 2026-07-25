@@ -50,6 +50,7 @@ internal sealed class RoomEntityFactory(
     private readonly LynnaShopDatabase _lynnaShop = new();
     private readonly BlackTowerWorkerDatabase _blackTower = new();
     private readonly ComedianEventDatabase _comedian = new();
+    private readonly TroyHouseDatabase _troyHouse = new();
     private readonly DungeonEntranceInteractionDatabase _dungeonEntrances = new();
     private readonly SpiritsGraveDatabase _spiritsGrave = new();
     private readonly EnemySpawnTileDatabase _enemySpawnTiles = new();
@@ -301,6 +302,12 @@ internal sealed class RoomEntityFactory(
                     ZIndex = NpcCharacter.BehindLinkZIndex
                 };
                 npc.Initialize(record);
+                if (saveData is not null && _troyHouse.Matches(record))
+                {
+                    yield return new TroyHouseRoomEntity(
+                        npc, _troyHouse, saveData, random);
+                    continue;
+                }
                 yield return record is { Id: 0x28, SubId: 0x00 }
                     ? new RunningBipinRoomEntity(npc)
                     : new NpcRoomEntity(npc);

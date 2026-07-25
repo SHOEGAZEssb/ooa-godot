@@ -2985,11 +2985,11 @@ public sealed partial class ValidationRoot
         var manager = new RoomEntityManager(
             validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
 
-        if (new NpcVisibilityRuleDatabase().RuleCount != 330 ||
+        if (new NpcVisibilityRuleDatabase().RuleCount != 332 ||
             new NpcDialogueRuleDatabase().RuleCount != 100 ||
             new NpcPositionRuleDatabase().RuleCount != 2)
             throw new InvalidOperationException(
-                "Expected 330 NPC visibility, 100 NPC dialogue, and two NPC " +
+                "Expected 332 NPC visibility, 100 NPC dialogue, and two NPC " +
                 "position state predicates.");
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x5a));

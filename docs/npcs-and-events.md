@@ -892,6 +892,33 @@ trade-sequence NPC:
   `(0,-14)`, and sets current-room item bit `$20`. On re-entry that bit selects
   moustache animation `$05`, skips the trade, and routes A to TX `$0b32`.
 
+Present exterior `0:45` and interior `3:fb` are the reference for a paired
+ordinary-NPC slice whose dialogue wrapper is native:
+
+- Preserve the one-object room streams. Boy `$3f:$01` at `$58/$48` exists
+  only when `getGameProgress_1` returns `$03`; every other state deletes it.
+  Troy `$ca:$01` remains at `$38/$28` until `GLOBALFLAG_FINISHEDGAME`, when
+  his handler deletes him rather than merely disabling talk.
+- Room `0:45`'s wildcard warp triggers on metatile `$df` at packed position
+  `$32`, uses source transition `$04`, and enters `3:fb` at destination
+  position `$ff` with parameter `$09` and transition `$03`. The interior's
+  bottom-left edge warp uses direction mask `$04` and source transition `$03`,
+  returns to `0:45` at `$52` with parameter `$00` and transition `$01`, then
+  completes the exit step at `$62`.
+- Troy's pre-ending state installs `troySubid1Script` and reaches
+  `initcollisions`; the base actor has no fixed text ID. Keep its A-button
+  geometry under the ordinary interaction controller while a specialized
+  lifecycle supplies the dynamic text.
+- Every accepted talk calls the game-wide RNG exactly once and masks the value
+  with `$0f`. Preserve all 16 choices and TX `$2c13-$2c22` aliases even where
+  decoded bodies are duplicates. First talk while current-room flag `$40` is
+  clear displays TX `$2c11`, falls through TX `$2c12`, substitutes the chosen
+  animal text, and writes the flag only after the dialogue closes. Later talks
+  start at TX `$2c12`, choose again, and consume one new RNG value.
+- This remains an ordinary room entity, not a gameplay-blocking room event.
+  Visibility, collision, animation, talk targeting, transition freeze, room
+  flags, and shared RNG ownership continue through the common entity manager.
+
 Present room `0:8d` is the reference for a room-entry script whose native
 palette thread deliberately affects backgrounds and sprites differently:
 

@@ -296,6 +296,11 @@ remains the single runtime policy table.
   `1:75` includes both mutually exclusive Black Tower hardhat phases with
   exact `getBlackTowerProgress` predicates and text. Room `1:86` includes its
   entrance guard's essence/room-flag phases, dialogue, facing, and movement.
+- Present exterior `0:45` and Troy's house `3:fb`, including the boy's exact
+  game-progress-`$03` visibility, both directional doorway transitions,
+  Troy's finished-game removal, one shared low-nibble RNG call per talk, all
+  16 animal-text aliases, and the first-talk room-flag boundary after dialogue
+  closes.
 - Present room `0:56`'s ordered sidekick and comedian pair. The comedian keeps
   the original infinite 34-command NPC script, horizontal-only facing,
   pre-D2/post-D2/post-Moonlit-Grotto text, Cheesy Mustache Yes/No trade, exact

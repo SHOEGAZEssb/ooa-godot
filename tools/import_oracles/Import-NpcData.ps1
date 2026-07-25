@@ -2668,6 +2668,62 @@ $darkRoomConstantRows = @(
     $darkRoomConstantRows,
     [Text.UTF8Encoding]::new($false))
 
+# Present room 0:45 and interior 3:fb form Troy's house pair. The exterior
+# boy exists only in getGameProgress_1 state $03. Inside, Troy's first talk
+# falls through TX_2c11 into TX_2c12, whose \call($ff) is selected from
+# TX_2c13-$2c22 with one shared-RNG call. Closing that first textbox sets
+# current-room flag $40; later talks use TX_2c12 directly.
+$room045ObjectBlock = [regex]::Match(
+    $mainObjectSource,
+    '(?ms)^group0Map45ObjectData:\s*(?<body>.*?)(?=^group[0-7]Map[0-9a-f]{2}ObjectData:|\z)')
+$room3fbObjectBlock = [regex]::Match(
+    $mainObjectSource,
+    '(?ms)^group3MapfbObjectData:\s*(?<body>.*?)(?=^group[0-7]Map[0-9a-f]{2}ObjectData:|\z)')
+$room045BoySource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\boy2.s')
+$troyInteractionSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\troy.s')
+$troyScriptSource = Get-Content -Raw (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+if (-not $room045ObjectBlock.Success -or
+    ([regex]::Matches($room045ObjectBlock.Groups['body'].Value, 'obj_Interaction')).Count -ne 1 -or
+    $room045ObjectBlock.Groups['body'].Value -notmatch '(?m)^\s*obj_Interaction \$3f \$01 \$58 \$48\s*$' -or
+    -not $room3fbObjectBlock.Success -or
+    ([regex]::Matches($room3fbObjectBlock.Groups['body'].Value, 'obj_Interaction')).Count -ne 1 -or
+    $room3fbObjectBlock.Groups['body'].Value -notmatch '(?m)^\s*obj_Interaction \$ca \$01 \$38 \$28\s*$' -or
+    $room045BoySource -notmatch '(?ms)^@subid1:.*?getGameProgress_1\s+ld a,b\s+cp \$03\s+jp nz,interactionDelete.*?@initializeGraphicsAndScript' -or
+    $troyInteractionSource -notmatch '(?ms)^@subid1:.*?checkInteractionState\s+jr nz,@state1.*?jp @initialize.*?^@scriptTable:\s+\.dw mainScripts\.troySubid0Script\s+\.dw mainScripts\.troySubid1Script' -or
+    $troyScriptSource -notmatch '(?ms)^troy_chooseRandomAnimalText:\s+call getRandomNumber\s+and \$0f\s+add <TX_2c13\s+ld \(wTextSubstitutions\),a\s+ret' -or
+    $troyScriptSource -notmatch '(?ms)^troySubid1Script:\s+jumpifglobalflagset GLOBALFLAG_FINISHEDGAME, mainScripts\.stubScript\s+initcollisions\s+@loop:\s+checkabutton\s+jumpifroomflagset \$40, \+\+\s+asm15 troy_chooseRandomAnimalText\s+showtext TX_2c11\s+orroomflag \$40\s+scriptjump @loop\s+\+\+\s+asm15 troy_chooseRandomAnimalText\s+showtext TX_2c12\s+scriptjump @loop') {
+    throw 'Rooms 0:45/3:fb or Troy $ca:$01 behavior changed in the disassembly.'
+}
+$troyFirstTextId = 0x2c11
+$troyRepeatTextId = 0x2c12
+$troyAnimalTextIds = @(0x2c13..0x2c22)
+foreach ($textId in @($troyFirstTextId, $troyRepeatTextId) + $troyAnimalTextIds) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve Troy house text TX_$($textId.ToString('x4'))."
+    }
+}
+if ($allTexts[$troyRepeatTextId] -notmatch '\\call\(0xff\)') {
+    throw 'Troy house repeat text TX_2c12 no longer calls wTextSubstitutions through $ff.'
+}
+$troyHouseRows = [Collections.Generic.List[string]]::new()
+$troyHouseRows.Add(
+    "# group`troom`tid`tsubid`troom-flag`trandom-mask`tchoice`tfirst-text-id`trepeat-text-id`tanimal-text-id`tsource`tfirst-utf8-base64`trepeat-utf8-base64`tanimal-utf8-base64")
+for ($choice = 0; $choice -lt $troyAnimalTextIds.Count; $choice++) {
+    $animalTextId = $troyAnimalTextIds[$choice]
+    $troyHouseRows.Add(
+        "3`tfb`tca`t01`t40`t0f`t$($choice.ToString('x2'))`t$($troyFirstTextId.ToString('x4'))`t$($troyRepeatTextId.ToString('x4'))`t$($animalTextId.ToString('x4'))`tmainData.s:group3MapfbObjectData;troy.s:@subid1;scriptHelper.s:troySubid1Script`t" +
+        "$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$troyFirstTextId])))`t" +
+        "$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$troyRepeatTextId])))`t" +
+        "$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$animalTextId])))")
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\troy_house.tsv'),
+    $troyHouseRows,
+    [Text.UTF8Encoding]::new($false))
+
 # Room interactions frequently delete their placed NPC during state 0 based
 # on global flags or room flags. Export those predicates separately from the
 # visual NPC record. Rules in one alternative are ANDed; alternatives are
@@ -2882,7 +2938,9 @@ Add-NpcCurrentRoomVisibility 0x3c 0x04 -1 0 0x40 $false 'boy.s:@initSubid04'
 Add-NpcGlobalVisibility 0x3c 0x10 -1 0 'GLOBALFLAG_FINISHEDGAME' $true 'boy.s:@initSubid10'
 Add-NpcGlobalVisibility 0x3f 0x00 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'boy2.s:@@state0'
 Add-NpcGlobalVisibility 0x3f 0x00 -1 0 'GLOBALFLAG_0b' $false 'boy2.s:@@state0'
+Add-NpcGameProgress1Visibility 0x3f 0x01 -1 0 0x03 $true 'boy2.s:@subid1'
 Add-NpcCurrentRoomVisibility 0x3f 0x02 -1 0 0x40 $false 'boy2.s:@@state0'
+Add-NpcGlobalVisibility 0xca 0x01 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'scriptHelper.s:troySubid1Script'
 
 # Forest-fairy phases use global progress plus room $90's entrance-open flag.
 Add-NpcGlobalVisibility 0x49 0x07 -1 0 'GLOBALFLAG_WON_FAIRY_HIDING_GAME' $true 'forestFairy.s:forestFairy_subid07'
@@ -3149,8 +3207,8 @@ Add-NpcCurrentRoomVisibility 0xab 0x12 -1 0 0x40 $false 'zora.s:@deleteIfFlagSet
 
 Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symmetryNpc.s:@subid0cInit'
 
-if ($npcVisibilityRows.Count -ne 331) {
-    throw "Expected 330 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 333) {
+    throw "Expected 332 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\npc_visibility.tsv'),
