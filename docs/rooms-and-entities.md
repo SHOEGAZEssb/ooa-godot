@@ -58,6 +58,16 @@ Logical room coordinates stay in their original space. At completion, rebuild
 state that the original rebuilds (for example a follower path buffer) rather
 than carrying stale source-room history into the destination.
 
+Every full room load runs the original era-display predicate after destination
+entities are loaded. An outdoor, non-large-indoor room creates
+`INTERAC_ERA_OR_SEASON_INFO $e0` for the tileset's present/past bit unless
+global flag `$16` suppresses and clears that one display or
+`wSentBackByStrangeForce` equals `$01`. Its fixed-update controller starts at
+`$b0,$0a`, enters four pixels per update to X `$10`, holds for 40 updates, and
+exits six pixels per update for six updates. Scrolling transitions do not run
+this full-load path, but an existing display retains its native always-update
+behavior while outgoing objects scroll.
+
 ## Ordered room objects and enemy reservations
 
 Enemy placement executes one importer-generated ordered room-object stream. Do

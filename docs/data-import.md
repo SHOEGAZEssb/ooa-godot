@@ -96,6 +96,13 @@ breakable-tile effect byte's low nibble as the interaction ID and bit 4 as the
 spawned interaction's flicker subid; it does not treat effect `$10` as another
 interaction.
 
+The same stage emits `effects/era_info.tsv` for
+`INTERAC_ERA_OR_SEASON_INFO $e0`. It joins both present/past graphics records
+and their shared positioned OAM with the native fly-in state machine, outdoor
+and large-indoor tileset masks, one-shot global suppression flag, and
+`wSentBackByStrangeForce` predicate. Runtime uses this record only after a full
+room load; scrolling room changes do not create the display.
+
 `Import-EnemyData.ps1` emits `effects/link_terrain_effects.tsv` beside the
 universal terrain shadow from their shared `terrainEffects.s` source. The Link
 record retains Ages' exact grass `$f8` and puddle `$f9` metatiles, two green

@@ -1791,6 +1791,56 @@ for ($direction = 0; $direction -lt 8; $direction++) {
 $dungeonSharedVisualRows.Add(
     "portal`t0`tspr_common_sprites`t$($portalGraphic.TileBase)`t$($portalGraphic.Palette)`t$portalAnimation`t-1`t-1")
 
+$eraInfoSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\interactions\eraOrSeasonInfo.s')
+$tilesetFlagSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\tilesetFlags.s')
+$globalFlagSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\globalFlags.s')
+$wramSource = Get-Content -Raw (Join-Path $Disassembly 'include\wram.s')
+$eraPresentGraphic = $interactionGraphics['224:0']
+$eraPastGraphic = $interactionGraphics['224:1']
+$eraAnimation = Resolve-NpcAnimation 0xe0 0
+if ($null -eq $eraPresentGraphic -or
+    $eraPresentGraphic.Gfx -ne 0x70 -or
+    $eraPresentGraphic.TileBase -ne 0x00 -or
+    $eraPresentGraphic.Palette -ne 1 -or
+    $eraPresentGraphic.DefaultAnimation -ne 0 -or
+    $null -eq $eraPastGraphic -or
+    $eraPastGraphic.Gfx -ne 0x70 -or
+    $eraPastGraphic.TileBase -ne 0x08 -or
+    $eraPastGraphic.Palette -ne 3 -or
+    $eraPastGraphic.DefaultAnimation -ne 0 -or
+    -not $gfxNames.ContainsKey(0x70) -or
+    $eraAnimation -ne
+        '127@8,248,0,0;8,0,2,0;8,8,4,0;8,16,6,0' -or
+    $eraInfoSource -notmatch
+        '(?ms)@state0:.*?interactionSetAlwaysUpdateBit.*?ld \(hl\),\$0a.*?ld \(hl\),\$b0.*?objectSetVisible80.*?@state1:.*?sub \$04.*?cp \$10.*?ld \(hl\),40.*?@state2:.*?ld \(hl\),\$06.*?@state3:.*?sub \$06.*?dec \(hl\)' -or
+    $tilesetFlagSource -notmatch
+        '(?m)^\.define TILESETFLAG_PAST \$80' -or
+    $tilesetFlagSource -notmatch
+        '(?m)^\.define TILESETFLAG_LARGE_INDOORS \$10' -or
+    $tilesetFlagSource -notmatch
+        '(?m)^\.define TILESETFLAG_OUTDOORS \$01' -or
+    $globalFlagSource -notmatch
+        '(?m)^\s*GLOBALFLAG_16\s+db\s*;\s*\$16:' -or
+    $wramSource -notmatch
+        '(?m)^wSentBackByStrangeForce:\s*;\s*\$cdde') {
+    throw 'Could not resolve INTERAC_ERA_OR_SEASON_INFO $e0 visuals, timing, or display predicates.'
+}
+$eraSpriteName = $gfxNames[0x70]
+[void]$npcSpriteNames.Add($eraSpriteName)
+$eraInfoRows = [Collections.Generic.List[string]]::new()
+$eraInfoRows.Add(
+    "# subid`tsprite`ttile-base`tpalette`tanimation`tstart-y`tstart-x`tenter-step`ttarget-x`thold-updates`texit-step`texit-updates`toutdoors-mask`tlarge-indoors-mask`tpast-mask`tsuppress-global-flag`tsent-back-address`tsent-back-value`tsource")
+foreach ($eraSpec in @(
+    @{ SubId = 0; Graphic = $eraPresentGraphic },
+    @{ SubId = 1; Graphic = $eraPastGraphic }
+)) {
+    $eraInfoRows.Add(
+        "$($eraSpec.SubId.ToString('x2'))`t$eraSpriteName`t$($eraSpec.Graphic.TileBase.ToString('x2'))`t$($eraSpec.Graphic.Palette)`t$eraAnimation`t0a`tb0`t4`t10`t40`t6`t6`t01`t10`t80`t16`tcdde`t1`tinteractionData.s:interactione0SubidData/eraOrSeasonInfo.s")
+}
+
 $dungeonSharedConstantRows = @(
     "# key`tvalue"
     "entry-min-y`t120"
@@ -3616,6 +3666,11 @@ $fallDownHolePath = Join-Path $destination "effects\fall_down_hole.tsv"
 [IO.File]::WriteAllLines(
     $fallDownHolePath,
     $fallDownHoleRows,
+    [Text.UTF8Encoding]::new($false))
+$eraInfoPath = Join-Path $destination "effects\era_info.tsv"
+[IO.File]::WriteAllLines(
+    $eraInfoPath,
+    $eraInfoRows,
     [Text.UTF8Encoding]::new($false))
 $keyDoorPath = Join-Path $destination "objects\dungeon_key_doors.tsv"
 [IO.File]::WriteAllLines(

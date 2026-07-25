@@ -30,6 +30,7 @@ public sealed class OracleSaveData
     public const int GlobalFlagMakuTreeDisappeared = 0x0c;
     public const int GlobalFlagSavedNayru = 0x11;
     public const int GlobalFlagMakuTreeSaved = 0x12;
+    public const int GlobalFlagSuppressEraInfoOnce = 0x16;
     public const int GlobalFlagMakuGivesAdviceFromPresentMap = 0x3e;
     public const int GlobalFlagMakuGivesAdviceFromPastMap = 0x3f;
     public const int GlobalFlagSawTwinrovaBeforeEndgame = 0x13;

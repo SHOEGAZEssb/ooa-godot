@@ -39,6 +39,7 @@ public sealed class RoomTransitionController
     private readonly DeathRespawnPointController _deathRespawnPoints;
     private readonly OracleSoundEngine _sound;
     private readonly TimeWarpEffectDatabase _timeWarpEffects = new();
+    private readonly EraInfoDatabase _eraInfo = new();
 
     private bool _scrollActive;
     private Vector2I _scrollDirection;
@@ -95,6 +96,7 @@ public sealed class RoomTransitionController
     internal int TimeWarpAppliedDissolveStep => _timeWarpAppliedDissolveStep;
     internal string TimeWarpPhaseName => _warpPhase.ToString();
     internal TimeWarpEffect? ActiveTimeWarpEffect => _timeWarpEffect;
+    internal EraInfoDatabase EraInfo => _eraInfo;
     internal static (int Even, int Odd) TimeWarpDissolveMaskForValidation(int step) =>
         TimeWarpDissolveMasks[step];
 
@@ -630,6 +632,7 @@ public sealed class RoomTransitionController
         _entities.LoadRoom(
             _rooms.ActiveGroup, room,
             EnemyPlacementContext.FromWarpDestination(warp.DestinationPosition));
+        CheckDisplayEraInfoAfterFullRoomLoad();
 
         Vector2 spawn;
         if (warp.DestinationTransition == 3)
@@ -726,6 +729,38 @@ public sealed class RoomTransitionController
         _warpFrame = 0.0f;
         UpdateCamera();
         _hud.Refresh();
+    }
+
+    /// <summary>
+    /// Mirrors Ages' checkDisplayEraOrSeasonInfo. It is called only after a
+    /// full room load; ordinary scrolling keeps the current era display state.
+    /// </summary>
+    internal bool CheckDisplayEraInfoAfterFullRoomLoad()
+    {
+        EraInfoDatabaseRecord contract = _eraInfo.Present;
+        OracleSaveData save = _rooms.SaveData;
+        if (save.HasGlobalFlag(contract.SuppressGlobalFlag))
+        {
+            save.SetGlobalFlag(contract.SuppressGlobalFlag, value: false);
+            return false;
+        }
+
+        if (_entities.RuntimeState.ReadWramByte(contract.SentBackAddress) ==
+            contract.SentBackValue)
+        {
+            return false;
+        }
+
+        byte tilesetFlags = _rooms.CurrentRoom.TilesetFlags;
+        if ((tilesetFlags & contract.LargeIndoorsMask) != 0 ||
+            (tilesetFlags & contract.OutdoorsMask) == 0)
+        {
+            return false;
+        }
+
+        _entities.Spawn<EraInfoDisplay>(
+            new EraInfoSpawn(_eraInfo.ForTilesetFlags(tilesetFlags)));
+        return true;
     }
 
     private void FinishWarp()

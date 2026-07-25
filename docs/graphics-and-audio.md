@@ -130,6 +130,11 @@ Inventory treasures, the era symbol, and Heart Piece quarters pass their source
 attribute bytes through `drawTreasureDisplayDataToBg`: its two increments shift
 sprite palettes 0-5 into BG palette slots 2-7 while preserving flip bits. Do not
 apply their table attributes directly to the inventory BG layer. The inventory
+era symbol is a background rendering of the same
+`spr_present_past_symbols` source used by the outdoor
+`INTERAC_ERA_OR_SEASON_INFO $e0` sprite; the room display instead retains its
+four positioned OBJ cells, present/past sprite palettes, and priority-0
+`objectSetVisible80` placement in front of Link. The inventory
 storage cells source their first item sheet from `spr_item_icons_1_spr`, while
 the equipped A/B displays source `spr_item_icons_1`; these similarly named
 sheets are distinct and must not share an atlas. Both retain the `spr_*`

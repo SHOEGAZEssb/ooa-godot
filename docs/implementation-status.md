@@ -15,7 +15,9 @@ claim that the entire surrounding game is complete.
   warps, maps, object records, dialogue, sprites, and all 223 sound IDs.
 - Original-resolution room rendering, collision, animated terrain, scrolling
   and warp transitions, time portals, dungeon neighbor resolution, and
-  persistent visited/layout flags.
+  persistent visited/layout flags. Full loads into outdoor rooms also show the
+  imported present/past era symbol with its original fly-in, hold, fly-out,
+  tileset selection, and suppression predicates.
 
 ### Player, combat, and items
 

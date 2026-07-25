@@ -869,6 +869,7 @@ internal sealed class RoomEntityFactory(
         FallingDownHoleSpawn fall => CreateFallingDownHole(fall),
         DungeonKeyUseSpawn key => CreateDungeonKeyUse(key),
         OverworldKeyUseSpawn key => CreateOverworldKeyUse(key),
+        EraInfoSpawn era => CreateEraInfo(era),
         CutsceneNpcSpawn npc => CreateCutsceneNpc(npc),
         GroundTreasureSpawn treasure => CreateGroundTreasure(treasure.Record),
         MapleDroppedItemSpawn item => CreateMapleDroppedItem(item, room),
@@ -1468,6 +1469,13 @@ internal sealed class RoomEntityFactory(
         return new OverworldKeyUseRoomEntity(effect);
     }
 
+    private static IRoomEntity CreateEraInfo(EraInfoSpawn spawn)
+    {
+        var display = new EraInfoDisplay();
+        display.Initialize(spawn.Record);
+        return new EraInfoRoomEntity(display);
+    }
+
     private IRoomEntity CreateDeathPuff(EnemyDeathPuffSpawn spawn)
     {
         var puff = new EnemyDeathPuffEffect { Name = "EnemyDeathPuff", ZIndex = 10 };
@@ -1908,6 +1916,9 @@ internal sealed record OverworldKeyUseSpawn(
     Vector2 Position,
     OverworldKeyholeDatabaseRecord Visual,
     ConstantsRecord Constants) : RoomEntitySpawn;
+
+internal sealed record EraInfoSpawn(EraInfoDatabaseRecord Record)
+    : RoomEntitySpawn;
 
 internal sealed record MaskedMoblinSpawn(Vector2 Position)
     : RoomEntitySpawn(UpdateThisFrame: true);

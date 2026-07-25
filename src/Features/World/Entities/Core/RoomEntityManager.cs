@@ -46,6 +46,7 @@ public sealed class RoomEntityManager : IDisposable
     private OracleRoomData _roomForActiveEntities = null!;
     private bool _screenTransitionActive;
     private double _enemyFrameAccumulator;
+    private double _screenTransitionFrameAccumulator;
     private int _enemyFrameCounter;
     private int _screenShakeCounter;
     private int _horizontalScreenShakeCounter;
@@ -318,6 +319,7 @@ public sealed class RoomEntityManager : IDisposable
         _outgoingEntities.AddRange(_activeEntities);
         _activeEntities.Clear();
         _screenTransitionActive = true;
+        _screenTransitionFrameAccumulator = 0.0;
         _roomForActiveEntities = room;
         AddRoomEntities(group, room, placementContext);
         SetScreenTransitionOffsets(Vector2.Zero, incomingOffset);
@@ -341,14 +343,19 @@ public sealed class RoomEntityManager : IDisposable
         foreach (IRoomEntity entity in _activeEntities)
             entity.SetTransitionDrawOffset(Vector2.Zero);
         _screenTransitionActive = false;
+        _screenTransitionFrameAccumulator = 0.0;
     }
 
     public void Update(double delta, Player player)
     {
         // The original engine freezes both enabled $02 outgoing objects and
-        // enabled $01 destination objects until scrolling has completed.
+        // enabled $01 destination objects until scrolling has completed,
+        // except interactions carrying the explicit always-update bit.
         if (_screenTransitionActive)
+        {
+            UpdateAlwaysEntitiesDuringScreenTransition(delta);
             return;
+        }
 
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
@@ -682,6 +689,7 @@ public sealed class RoomEntityManager : IDisposable
         _pendingRoomWarp = null;
         _screenTransitionActive = false;
         _enemyFrameAccumulator = 0.0;
+        _screenTransitionFrameAccumulator = 0.0;
         _screenShakeCounter = 0;
         _horizontalScreenShakeCounter = 0;
         _linkCollisionsAndMenuDisabled = false;
@@ -890,6 +898,45 @@ public sealed class RoomEntityManager : IDisposable
             FreeEntity(entity);
         }
         ProcessSpawns();
+    }
+
+    private void UpdateAlwaysEntitiesDuringScreenTransition(double delta)
+    {
+        _screenTransitionFrameAccumulator += delta * 60.0;
+        while (_screenTransitionFrameAccumulator >= 1.0)
+        {
+            _screenTransitionFrameAccumulator -= 1.0;
+            UpdateAlwaysEntitiesDuringScreenTransition(_outgoingEntities);
+            UpdateAlwaysEntitiesDuringScreenTransition(_activeEntities);
+        }
+    }
+
+    private void UpdateAlwaysEntitiesDuringScreenTransition(
+        List<IRoomEntity> entities)
+    {
+        foreach (IRoomEntity entity in entities.ToArray())
+        {
+            if (entity is IAlwaysUpdateDuringScreenTransitionRoomEntity always)
+                always.UpdateDuringScreenTransition();
+        }
+
+        for (int index = entities.Count - 1; index >= 0; index--)
+        {
+            IRoomEntity entity = entities[index];
+            if (entity is not IAlwaysUpdateDuringScreenTransitionRoomEntity ||
+                entity is not IRoomEntityLifetime { Finished: true } lifetime)
+            {
+                continue;
+            }
+            lifetime.OnFinished(_pendingSpawns);
+            entities.RemoveAt(index);
+            FreeEntity(entity);
+        }
+        if (_pendingSpawns.Count != 0)
+        {
+            throw new InvalidOperationException(
+                "An always-updating screen-transition presentation tried to spawn a room entity.");
+        }
     }
 
     private void ClearEntities(List<IRoomEntity> entities)

@@ -94,12 +94,50 @@ public sealed partial class ValidationRoot
         UpdateRoomWarpTransition(WarpLeaveFrames / 60.0);
         if (_activeGroup != 0 || _currentRoom.Id != 0x47 || !IsTransitioning)
             throw new InvalidOperationException("The exterior was not loaded after the 16-frame exit walk.");
-        UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
+        EraInfoDisplay eraInfo =
+            _entities.Entities<EraInfoDisplay>().SingleOrDefault() ??
+            throw new InvalidOperationException(
+                "House 2:ea's exit did not create INTERAC_ERA_OR_SEASON_INFO $e0.");
+        if (eraInfo.SubId != 0 ||
+            eraInfo.Stage != EraInfoStage.Initializing ||
+            eraInfo.Visible ||
+            eraInfo.ZIndex != NpcCharacter.InFrontOfLinkZIndex ||
+            eraInfo.TextureSize != new Vector2I(32, 16) ||
+            eraInfo.TextureOffset != new Vector2(-16, -8) ||
+            eraInfo.PixelHash == 0)
+        {
+            throw new InvalidOperationException(
+                "The present-era display did not initialize from its imported four-cell OAM.");
+        }
+
+        _entities.Update(1.0 / 60.0, _player);
+        if (eraInfo.Stage != EraInfoStage.Entering ||
+            !eraInfo.Visible ||
+            eraInfo.Position != new Vector2(0xb0, 0x0a) ||
+            WorldToScreen(eraInfo.Position) + eraInfo.TextureOffset !=
+                new Vector2(160, 18))
+        {
+            throw new InvalidOperationException(
+                "INTERAC_ERA_OR_SEASON_INFO state 0 did not begin just off the right edge.");
+        }
+
+        for (int update = 0; update < WarpFadeFrames; update++)
+        {
+            UpdateRoomWarpTransition(1.0 / 60.0);
+            _entities.Update(1.0 / 60.0, _player);
+        }
         if (_activeGroup != 0 || _currentRoom.Id != 0x47 ||
             _currentRoom.GetPackedPosition(_player.Position) != 0x35)
             throw new InvalidOperationException(
                 $"Expected house 2:ea bottom exit to step out below 0:47/$25, got " +
                 $"{_activeGroup}:{_currentRoom.Id:x2}/${_currentRoom.GetPackedPosition(_player.Position):x2}.");
+        if (IsTransitioning ||
+            eraInfo.Stage != EraInfoStage.Entering ||
+            eraInfo.Position != new Vector2(0x30, 0x0a))
+        {
+            throw new InvalidOperationException(
+                "The era display did not advance on all 32 destination fade-in updates.");
+        }
         if (Collides(_player.Position + Vector2.Down))
             throw new InvalidOperationException("The exterior landing spot below 0:47/$25 is blocked.");
         if (_saveData.RespawnGroup != 0 || _saveData.RespawnRoom != 0x47 ||
@@ -112,6 +150,41 @@ public sealed partial class ValidationRoot
             throw new InvalidOperationException(
                 "TRANSITION_DEST_SET_RESPAWN did not persist exterior 0:47's stepped-out checkpoint.");
         }
+
+        for (int update = 0; update < 8; update++)
+            _entities.Update(1.0 / 60.0, _player);
+        if (eraInfo.Stage != EraInfoStage.Holding ||
+            eraInfo.Counter != 40 ||
+            eraInfo.Position != new Vector2(0x10, 0x0a) ||
+            WorldToScreen(eraInfo.Position) + eraInfo.TextureOffset !=
+                new Vector2(0, 18))
+        {
+            throw new InvalidOperationException(
+                "The era display did not finish its 40-update, four-pixel fly-in at x=$10.");
+        }
+        for (int update = 0; update < 39; update++)
+            _entities.Update(1.0 / 60.0, _player);
+        if (eraInfo.Stage != EraInfoStage.Holding || eraInfo.Counter != 1)
+            throw new InvalidOperationException("The era display ended its 40-update hold early.");
+        _entities.Update(1.0 / 60.0, _player);
+        if (eraInfo.Stage != EraInfoStage.Exiting || eraInfo.Counter != 6)
+            throw new InvalidOperationException("The era display did not arm its six-update exit.");
+        for (int update = 0; update < 5; update++)
+            _entities.Update(1.0 / 60.0, _player);
+        if (eraInfo.Stage != EraInfoStage.Exiting ||
+            eraInfo.Counter != 1 ||
+            eraInfo.Position != new Vector2(-14, 0x0a))
+        {
+            throw new InvalidOperationException("The era display finished its six-pixel exit early.");
+        }
+        _entities.Update(1.0 / 60.0, _player);
+        if (_entities.Entities<EraInfoDisplay>().Count != 0 ||
+            eraInfo.Position != new Vector2(-20, 0x0a))
+        {
+            throw new InvalidOperationException(
+                "The era display did not delete on the sixth fly-out update.");
+        }
+        ulong presentEraHash = eraInfo.PixelHash;
 
         int checkpointGroup = _saveData.RespawnGroup;
         int checkpointRoom = _saveData.RespawnRoom;
@@ -140,8 +213,82 @@ public sealed partial class ValidationRoot
                 "An ordinary scrolling transition incorrectly replaced the death checkpoint.");
         }
 
+        ValidateEraInfoDisplayPredicates(presentEraHash);
+
         GD.Print("Validated original house entry/exit fades, destination checkpoint updates, " +
-            "save-image round trip, and non-checkpoint 2:eb -> 2:ea scrolling.");
+            "save-image round trip, present/past era fly-in timing and predicates, " +
+            "and non-checkpoint 2:eb -> 2:ea scrolling.");
+    }
+
+    private void ValidateEraInfoDisplayPredicates(ulong presentEraHash)
+    {
+        LoadDebugRoom(1, 0x48);
+        if ((_currentRoom.TilesetFlags & 0x81) != 0x81 ||
+            !_transitions.CheckDisplayEraInfoAfterFullRoomLoad())
+        {
+            throw new InvalidOperationException(
+                "A full load of past overworld room 1:48 did not request its era display.");
+        }
+        EraInfoDisplay past =
+            _entities.Entities<EraInfoDisplay>().SingleOrDefault() ??
+            throw new InvalidOperationException("The past-era display was not created.");
+        if (past.SubId != 1 ||
+            past.PixelHash == 0 ||
+            past.PixelHash == presentEraHash)
+        {
+            throw new InvalidOperationException(
+                "wTilesetFlags bit 7 did not select the distinct past-era OAM and palette.");
+        }
+
+        if (!_rooms.TryGetNeighbor(Vector2I.Right, out int scrollTarget))
+            throw new InvalidOperationException("Past overworld room 1:48 has no right neighbor.");
+        _transitions.BeginScroll(_player, Vector2I.Right, scrollTarget);
+        _transitions.UpdateScroll(1.0 / 60.0);
+        _entities.Update(1.0 / 60.0, _player);
+        if (past.Stage != EraInfoStage.Entering ||
+            past.Position != new Vector2(0xb0, 0x0a) ||
+            _entities.OutgoingEntities<EraInfoDisplay>().SingleOrDefault() != past)
+        {
+            throw new InvalidOperationException(
+                "The era display's native always-update bit did not advance during scrolling.");
+        }
+        for (int update = 1; update < 40; update++)
+        {
+            _transitions.UpdateScroll(1.0 / 60.0);
+            _entities.Update(1.0 / 60.0, _player);
+        }
+        if (_transitions.ScrollActive)
+            throw new InvalidOperationException("The era always-update scroll did not finish.");
+
+        LoadDebugRoom(2, 0xea);
+        if (_transitions.CheckDisplayEraInfoAfterFullRoomLoad() ||
+            _entities.Entities<EraInfoDisplay>().Count != 0)
+        {
+            throw new InvalidOperationException(
+                "An indoor full room load incorrectly created the outdoor era display.");
+        }
+
+        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagSuppressEraInfoOnce);
+        if (_transitions.CheckDisplayEraInfoAfterFullRoomLoad() ||
+            _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagSuppressEraInfoOnce))
+        {
+            throw new InvalidOperationException(
+                "GLOBALFLAG_16 did not suppress and clear one era-display check before tileset tests.");
+        }
+
+        LoadDebugRoom(0, 0x47);
+        _entities.RuntimeState.SetWramByte(
+            OracleRuntimeState.SentBackByStrangeForceAddress,
+            1);
+        if (_transitions.CheckDisplayEraInfoAfterFullRoomLoad() ||
+            _entities.Entities<EraInfoDisplay>().Count != 0)
+        {
+            throw new InvalidOperationException(
+                "wSentBackByStrangeForce=$01 did not suppress the era display.");
+        }
+        _entities.RuntimeState.SetWramByte(
+            OracleRuntimeState.SentBackByStrangeForceAddress,
+            0);
     }
 
     private void ValidateCaveWarps()

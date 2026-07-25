@@ -246,6 +246,7 @@ public partial class GameRoot : Node2D
             ? EnemyPlacementContext.Warp(_rooms.CurrentRoom.GetPackedPosition(spawn))
             : EnemyPlacementContext.Unrestricted;
         _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom, placementContext);
+        _transitions.CheckDisplayEraInfoAfterFullRoomLoad();
         _roomView.SetRoom(_rooms.CurrentRoom.Texture);
         if (!useSavedSpawn)
             spawn = FindSpawn();
