@@ -40,6 +40,7 @@ public sealed class RoomTransitionController
     private readonly OracleSoundEngine _sound;
     private readonly TimeWarpEffectDatabase _timeWarpEffects = new();
     private readonly EraInfoDatabase _eraInfo = new();
+    private readonly FairiesWoodsScramblerDatabase _fairiesWoodsScrambler = new();
 
     private bool _scrollActive;
     private Vector2I _scrollDirection;
@@ -203,7 +204,7 @@ public sealed class RoomTransitionController
         // begin an ordinary top-down scroll.
         if ((room.TilesetFlags & 0x20) != 0)
             return;
-        if (!_rooms.TryGetNeighbor(direction, out int targetId) ||
+        if (!TryGetScreenTransitionDestination(direction, out int targetId) ||
             !_rooms.World.HasRoom(_rooms.ActiveGroup, targetId))
             return;
 
@@ -228,7 +229,8 @@ public sealed class RoomTransitionController
         if ((room.TilesetFlags & 0x20) != 0)
             return hasEdgeWarp;
         return hasEdgeWarp ||
-            (_rooms.TryGetNeighbor(direction, out int id) && _rooms.World.HasRoom(_rooms.ActiveGroup, id));
+            (TryGetScreenTransitionDestination(direction, out int id) &&
+                _rooms.World.HasRoom(_rooms.ActiveGroup, id));
     }
 
     internal void BeginLedgeScroll(Player player)
@@ -240,7 +242,7 @@ public sealed class RoomTransitionController
                 "LINK_STATE_JUMPING_DOWN_LEDGE tried to start source " +
                 $"transition ${sourceDirection:x2} during another transition.");
         }
-        if (!_rooms.TryGetNeighbor(Vector2I.Down, out int targetId) ||
+        if (!TryGetScreenTransitionDestination(Vector2I.Down, out int targetId) ||
             !_rooms.World.HasRoom(_rooms.ActiveGroup, targetId))
         {
             throw new InvalidOperationException(
@@ -252,6 +254,26 @@ public sealed class RoomTransitionController
         BeginScroll(player, Vector2I.Down, targetId);
         _hud.Refresh();
     }
+
+    private bool TryGetScreenTransitionDestination(
+        Vector2I direction,
+        out int targetId)
+    {
+        if (_rooms.ActiveGroup == 0 &&
+            !_rooms.SaveData.HasGlobalFlag(
+                OracleSaveData.GlobalFlagForestUnscrambled) &&
+            _fairiesWoodsScrambler.TryResolve(
+                _rooms.CurrentRoom.Id, direction, out targetId))
+        {
+            return true;
+        }
+        return _rooms.TryGetNeighbor(direction, out targetId);
+    }
+
+    internal bool TryGetScreenTransitionDestinationForValidation(
+        Vector2I direction,
+        out int targetId) =>
+        TryGetScreenTransitionDestination(direction, out targetId);
 
     public void BeginScroll(Player player, Vector2I direction, int targetId)
     {

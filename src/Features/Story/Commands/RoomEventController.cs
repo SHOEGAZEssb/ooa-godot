@@ -29,6 +29,7 @@ public sealed class RoomEventController
     private readonly VasuShopEvent _vasuShop;
     private readonly SpiritsGraveEssenceEvent _spiritsGraveEssence;
     private readonly RemoteMakuFirstEssenceEvent _remoteMakuFirstEssence;
+    private readonly FairiesWoodsEvent _fairiesWoods;
     private readonly IRoomEvent[] _eventsByPriority;
     private double _frameAccumulator;
     private double _transitionFrameAccumulator;
@@ -84,10 +85,12 @@ public sealed class RoomEventController
         _vasuShop = new VasuShopEvent(_context);
         _spiritsGraveEssence = new SpiritsGraveEssenceEvent(_context);
         _remoteMakuFirstEssence = new RemoteMakuFirstEssenceEvent(_context);
+        _fairiesWoods = new FairiesWoodsEvent(_context);
         _eventsByPriority =
         [
             _spiritsGraveEssence,
             _remoteMakuFirstEssence,
+            _fairiesWoods,
             _nayru,
             _graveyardGate,
             _makuSproutRescue,
@@ -154,6 +157,7 @@ public sealed class RoomEventController
     internal SpiritsGraveEssenceEvent SpiritsGraveEssence => _spiritsGraveEssence;
     internal RemoteMakuFirstEssenceEvent RemoteMakuFirstEssence =>
         _remoteMakuFirstEssence;
+    internal FairiesWoodsEvent FairiesWoods => _fairiesWoods;
     internal void SetRingMenuOpener(Func<RingMenuMode, Action, bool> opener) =>
         _vasuShop.SetRingMenuOpener(opener);
     internal bool SupportsOverworldKeyhole(int group, int room) =>
@@ -161,7 +165,8 @@ public sealed class RoomEventController
     internal void TriggerOverworldKeyhole(int group, int room) =>
         _graveyardGate.Trigger(group, room);
     internal bool ScreenTransitionsDisabled =>
-        _makuSproutRescue.ScreenTransitionsDisabled;
+        _makuSproutRescue.ScreenTransitionsDisabled ||
+        _fairiesWoods.ScreenTransitionsDisabled;
     internal ICutsceneCommandTraceSink? CommandTraceSink
     {
         set => _context.CommandTraceSink = value;
@@ -201,6 +206,7 @@ public sealed class RoomEventController
     }
 
     public bool TryInteractNpc(NpcCharacter npc) =>
+        _fairiesWoods.TryInteractNpc(npc) ||
         _lynnaShop.TryInteractNpc(npc) ||
         _vasuShop.TryInteractNpc(npc) ||
         _nayru.TryInteractNpc(npc) ||
@@ -232,9 +238,18 @@ public sealed class RoomEventController
 
     private void OnRoomEntitiesLoaded(int group, OracleRoomData room)
     {
+        _fairiesWoods.OnRoomLoaded(group, room);
         _graveyardGate.RetireCompletedControllerOnRoomLoad();
         _nayru.RestoreCompletedPortal(group, room);
         _makuSproutRescue.RestoreCompletedSprout(group, room);
+        if (_fairiesWoods.HasState &&
+            _context.Entities.ScreenTransitionActive)
+        {
+            // Dynamic $49:$01 fairies in room $0:$82 have already moved into
+            // the outgoing entity set. Release event ownership without hiding
+            // them; RoomEntityManager retires them after the scroll finishes.
+            _fairiesWoods.Cancel(deactivateDiscoveredActors: false);
+        }
         if (_nayru.HasState && !_nayru.Matches(group, room))
         {
             // $6b:$01 recreates its dynamic object list on every pre-intro

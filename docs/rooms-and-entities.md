@@ -48,6 +48,13 @@ finishes. Outgoing ordinary entities are likewise frozen while retained for
 drawing. This prevents destination AI, cutscenes, drops, and counters from
 fast-forwarding during the 32-update scroll.
 
+When a room event releases dynamic actors during the destination-load callback,
+it must drop its bookkeeping without deactivating nodes that
+`RoomEntityManager` has already transferred to the outgoing set. Those nodes
+remain visible and frozen until the scroll completes; the entity manager then
+retires them. Fairies' Woods room `$0:$82` uses this path for discovered
+`$49:$01` fairies and recreates them only when `$0:$82` becomes active again.
+
 An object may update during a transition only when the original explicitly does
 so. The retained Impa follower is one such behavior: it receives a separate
 transition update path instead of allowing accumulated ordinary event time to
@@ -57,6 +64,16 @@ The transition controller supplies draw offsets and updates the room camera.
 Logical room coordinates stay in their original space. At completion, rebuild
 state that the original rebuilds (for example a follower path buffer) rather
 than carrying stale source-room history into the destination.
+
+Present Fairies' Woods has a source table that overrides ordinary overworld
+neighbors while `GLOBALFLAG_FOREST_UNSCRAMBLED` is clear. Resolve that imported
+nine-room, four-direction table in `RoomTransitionController`, before the
+standard neighbor lookup. A zero table byte means "use the ordinary neighbor";
+it is not an absent exit. Edge checks, `HasNeighborFor`, and the forced
+southward ledge-scroll path must all call the same resolver so Link collision,
+scroll availability, destination preload, and the actual transition cannot
+disagree. After the completion flag is set, every direction delegates to the
+normal room layout without requiring a room reload.
 
 Every full room load runs the original era-display predicate after destination
 entities are loaded. An outdoor, non-large-indoor room creates

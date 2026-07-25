@@ -25,6 +25,7 @@ internal sealed class SpiritsGraveEssenceEvent : IRoomEvent
     public bool BlocksGameplay => HasState;
     internal int CurrentPhase => (int)_phase;
     internal int Counter => _counter;
+    internal bool TracksEssence => _essence is not null;
 
     internal void Begin(SpiritsGraveEssence essence, Player player)
     {
@@ -104,8 +105,12 @@ internal sealed class SpiritsGraveEssenceEvent : IRoomEvent
 
     public void Cancel()
     {
-        _essence?.StopEnergySwirl();
-        _essence?.ReleasePlayerPose();
+        if (_essence is not null &&
+            GodotObject.IsInstanceValid(_essence))
+        {
+            _essence.StopEnergySwirl();
+            _essence.ReleasePlayerPose();
+        }
         _essence = null;
         _phase = SpiritsGraveEssenceEventPhase.Inactive;
         _counter = 0;
@@ -120,6 +125,11 @@ internal sealed class SpiritsGraveEssenceEvent : IRoomEvent
             4, 0x11, -1, 0, 0,
             0, 0x8d, 0x26, 0, 1);
         _context.Transitions.ApplyWarpWithDelayedFadeOut(_context.Player, warp);
+        // The two-hand pose survives the source-room fade and Player.WarpTo
+        // clears it when the destination loads. The source interaction itself
+        // is freed there, so retaining it would leave CancelAll holding a
+        // disposed Godot object on the next ordinary room change.
+        _essence = null;
         _phase = SpiritsGraveEssenceEventPhase.Inactive;
     }
 }

@@ -751,6 +751,51 @@ follower or the first-past arrival overlap. Completion must be represented by
 the original global/room/WRAM write so room re-entry naturally selects the
 correct state.
 
+Fairies' Woods is the reference for a native room event whose state deliberately
+survives ordinary room loads and temporarily replaces neighbor resolution:
+
+- `INTERAC_FAIRY_HIDING_MINIGAME $6c:$00` starts in present room `0:82` only
+  after `TREASURE_ESSENCE` and before
+  `GLOBALFLAG_WON_FAIRY_HIDING_GAME`. Its imported script creates three
+  `$49:$00` actors at 20-update intervals, waits on shared signal `cfd2`, runs
+  TX `$1100-$1103`, releases their second movement legs, then hands off to the
+  native `CUTSCENE_FAIRIES_HIDE` owner. Acquire Link control on the same update
+  that the script starts; the dialogue and outbound flights are not playable.
+- The event's `cfd0` active byte, `cfd1` found mask, and `cfd2` signal are
+  session-local `OracleRuntimeState`, not save fields. They survive loads among
+  the nine forest rooms. Accepting the room-`0:92` quit prompt or entering
+  room `0:93` before completion clears the complete `cfd0-cfdf` scratch block,
+  matching the two source reset paths.
+- The three hiding vignettes load `0:81`, `0:80`, and `0:91` through the
+  cutscene-only room path. That path changes the visible room without parsing
+  its ordinary object stream or starting its room events. Link is disabled and
+  invisible in all three remote rooms, then restored at the saved position and
+  facing only after `0:82` has been loaded behind the final white fade. Preserve
+  the original 32-update fade-out/33-update fade-in boundaries.
+- `INTERAC_FOREST_FAIRY $49:$00` remains a native flight controller.
+  Import all 22 four-byte presets and the 32 signed `SPEED_200` 8.8 velocity
+  rows. Preserve unsigned high-byte target and off-screen tests,
+  `objectGetRelativeAngleWithTempVars`, one-step angle nudging, counter
+  halving, low-three-bit sparkle cadence, global-frame sound cadence, and the
+  exact 8.8 fractions. `CUTSCENE_FAIRIES_HIDE` allocates the three vignette
+  actors without writing their subid, so they remain `$49:$00` with presets
+  `$0c-$0e`; do not route them through the separate `$49:$03` variant. On
+  arrival, snap only the target coordinate high bytes, preserve both fractional
+  bytes, and increment `cfd2`. The cutscene clears `cfd2` and starts its white
+  fade on the next update; because those presets are at least `$06`, each fairy
+  then creates `INTERAC_PUFF $05` at the exact tile center and deletes itself.
+- Hidden controllers `$6c:$01` watch exact room/packed-position rows
+  `81:25/$03`, `80:54/$04`, and `91:32/$05`. Capture the entry tile, require
+  it to change for 12 original updates, then lock Link and screen scrolling
+  while the reveal actor, puff, TX `$1105-$1107`, and outbound flight finish.
+  The third found bit performs destination transition `$03` to packed position
+  `$64` in room `0:82`.
+- The completion controller owns the two 11-update white fades, both 12-update
+  holds, and the delayed 257-update fade. It writes
+  `GLOBALFLAG_WON_FAIRY_HIDING_GAME` and
+  `GLOBALFLAG_FOREST_UNSCRAMBLED` together only on the update after TX `$110b`
+  opens, then restores Link input and the ordinary room-fade rectangle.
+
 Present room `0:7b` is the reference for several native NPC handlers whose
 scripts run concurrently rather than forming one controller script:
 

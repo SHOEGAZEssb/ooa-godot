@@ -411,6 +411,19 @@ remains the single runtime policy table.
   first arrival in the past, the Maku Tree disappearance, and Nayru's
   introduction/aftermath. Script-driven portions use the typed command runner;
   native transition/presentation objects retain specialized controllers.
+- Present Fairies' Woods hide-and-seek beginning in room `0:82` after the first
+  Essence. The three `$49:$00` fairies use the source's 22 movement presets,
+  `SPEED_200` 8.8 velocity table, angle nudging, palettes, sparkles, sounds, and
+  shared `cfd2` handoffs. The full `$6c` controller includes TX
+  `$1100-$110c`, the cutscene-only `0:81/0:80/0:91` hiding vignettes, all three
+  tile-change hiding spots and their exact 12-update delays, discovered-fairy
+  dialogue, the `0:92` Yes/No exit loop, room `0:93` reset, last-fairy warp,
+  two 11-update white flashes with 12-update holds, the 257-update delayed
+  return, and both completion flags. Before completion, all nine forest rooms
+  use the imported direction-by-room scrambler table; completing the game
+  restores ordinary neighbors permanently. The later post-maze/Jabu,
+  companion-lost, linked-secret, and finished-game `$49:$05-$10` NPC phases
+  remain deferred and their placed variants stay safely suppressed.
 - Present room `0:7b`'s complete one-time Spirit's Grave children scene. The
   three placed `$3c:$03`, `$3c:$04`, and `$3f:$02` interactions retain their
   source object order, red/green/blue visuals, two delayed jumps, five dialogue

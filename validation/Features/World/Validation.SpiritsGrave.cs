@@ -1852,6 +1852,7 @@ public sealed partial class ValidationRoot
             _roomEvents.Update(update);
         }
         if (!_transitions.IsTransitioning || essence.SwirlActive ||
+            _roomEvents.SpiritsGraveEssence.TracksEssence ||
             !_player.IsHoldingItemTwoHands ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDropEssence) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlSlowFadeOut) != 1 ||
@@ -1863,7 +1864,8 @@ public sealed partial class ValidationRoot
         {
             throw new InvalidOperationException(
                 "The Eternal Spirit's 360/20/20/40/30 sequence, held pose, or " +
-                "sound cadence diverged.");
+                "sound cadence diverged, or its completed event retained the " +
+                "source interaction.");
         }
         _transitions.Update(update);
         if (!_player.IsHoldingItemTwoHands)
