@@ -33,6 +33,7 @@ The entry script dot-sources these stages in dependency order:
 | `Import-GashaData.ps1` | Gasha spots, growth/reward tables, native timing, text, OAM, and disappearance graphics |
 | `Import-CutsceneData.ps1` | Typed script commands and cutscene-specific records |
 | `Import-EnemyData.ps1` | Ordered room objects, enemies, spawn restrictions, and drops |
+| `Import-SeedTreeData.ps1` | Seed-tree controllers/parts, seed-type visuals/text, and the sixteen refill histories |
 | `Import-MapleData.ps1` | Maple locations, paths, item distributions, dialogue, OAM, and Touching Book assets |
 | `Import-WorldNavigation.ps1` | Warps, dungeon layouts, neighbors, and room navigation |
 | `Import-AudioData.ps1` | Sound IDs, descriptors, channel programs, and room music |
@@ -231,6 +232,17 @@ Rope `$10:$01`, Arrow Moblin `$0c:$01/$02`, and Ghini `$17:$01/$02` remain
 absent until their distinct attributes, native state machines, or golden-enemy
 persistence behavior are implemented; they must not be routed through the
 subid-0 definition.
+
+`Import-SeedTreeData.ps1` owns the common
+`ENEMY_SEEDS_ON_TREE $5a` / `PART_SEED_ON_TREE $10` closure. It retains all
+ten Ages main-object placements, decodes each subid's high nibble as seed type
+and low nibble as refill index, and resolves the `$78` part graphics,
+type-specific tile bases/palettes, animation/OAM, TX `$0029/$002a-$002c/$0035`,
+six-seed treasure parameter, motion, collision, and sound. The separate
+`seed_tree_refills.tsv` preserves all sixteen group/room rows from
+`seedTreeRefillData.s`, including rows shared with non-tree events and the
+dummy `$000` entries. Runtime refill state must keep each eight-room list in
+source order and store only room bytes, as the original banked WRAM does.
 
 `Import-WorldNavigation.ps1` retains byte 1 of every `m_DungeonData` row as the
 Wallmaster destination in `dungeon_maps.tsv`. `DungeonMapDatabase` exposes that

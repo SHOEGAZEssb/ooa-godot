@@ -509,6 +509,37 @@ instead consumes the Ember Seed immediately without creating that flame
 animation, then lights on its following object update. Keep later Scent,
 Pegasus, Gale, and Mystery state machines distinct when they are implemented.
 
+Mystical Seed Trees use a separate common room-object path.
+`SeedTreeDatabase` consumes all ten imported `ENEMY_SEEDS_ON_TREE $5a`
+placements. The subid's high nibble selects Ember/Scent/Pegasus/Gale/Mystery
+and its low nibble selects one of the sixteen refill bits. Destination parsing
+finds `TILEINDEX_MYSTICAL_TREE_TL $6e`, checks the refill bit, and prebuilds
+three visible `PART_SEED_ON_TREE $10` children in source order at offsets
+`(0,-8)`, `(-8,0)`, and `(8,0)` from the 2-by-2 tree center. This graphics
+setup happens before scrolling begins, so the children receive the incoming
+room's transition draw offset while their fixed updates remain frozen. Room
+`0:78` is the canonical `$5a:$06` Ember placement; emit its controller before
+the old-lady interaction.
+
+A slash without the Seed Satchel clears that child's collision and shows
+TX `$0035` without consuming the tree. With the Satchel, the child launches
+toward Link at `SPEED_100`, speedZ `-$140`, gravity `$20`, and the original
+two-update collision delay. Link contact or completion of the halving bounce
+gives six packed-BCD seeds through the normal treasure interpreter, plays
+`SND_GETSEED`, and shows the imported first-type text when needed. The child
+then notifies its controller; on the following controller update the refill bit
+is cleared and the controller deletes, while uncollected siblings remain live.
+
+Seed-tree refill history is session-local, not save data. Ages initializes the
+two refill bytes to `$f0,$ff` and keeps sixteen eight-byte histories in banked
+WRAM. Only an outdoor scrolling transition runs the update; direct loads and
+warps do not. For every clear refill bit, it records the incoming room byte
+unless already present, without storing its group. Entering that index's
+group/room sets the bit only when all eight bytes are nonzero, then clears the
+history even when it was incomplete. Keep the dummy and non-tree refill
+locations active because the source shares this mechanism with child/event
+progression.
+
 `INTERAC_GASHA_SPOT $b6` is split between room initialization and one native
 interaction entity. `GashaSpotDatabase` applies the planted `$f5` sprout below
 20 kills or the solid `$4e/$4f/$5e/$5f` 2-by-2 tree from 20 kills onward.
@@ -607,6 +638,10 @@ exceptions. `$dc:$07` ground treasures are emitted after placed NPCs and before
 portals/enemies in original object order, expose collision through
 `ILinkContactEntity`, and use `IRoomEntityLifetime` to disappear only after the
 pickup textbox closes. Their room-item bit is checked on every room parse.
+Static spawn mode `$00` builds and exposes its visual during destination
+parsing, so Heart Pieces scroll in at the destination draw offset even though
+their state-0/state-1 updates and collection remain frozen until transition
+completion.
 The same treasure entity supports source spawn mode `$02`: after its imported
 delay, `objectGetZAboveScreen` derives Z from the current gameplay-screen Y
 rather than a fixed room coordinate, then shared 8.8 gravity and bounce

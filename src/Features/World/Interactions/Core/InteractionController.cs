@@ -107,6 +107,7 @@ public sealed class InteractionController
         _entities.GashaNutCaught += OnGashaNutCaught;
         _entities.MapleDialogueRequested += OnMapleDialogueRequested;
         _entities.MapleItemCollected += OnMapleItemCollected;
+        _entities.SeedTreeMessageRequested += OnSeedTreeMessageRequested;
         _entities.GroundTreasureCollectionAllowed = () => !DialogueOpen;
         _entities.DialogueOpenSource = () => DialogueOpen;
         ApplyOpenedChestState(_rooms.ActiveGroup, _rooms.CurrentRoom);
@@ -197,6 +198,18 @@ public sealed class InteractionController
             _groundTreasureShowingHeartContainer)
             return;
         _inventory.ResetCompletedHeartPieceSet();
+    }
+
+    private void OnSeedTreeMessageRequested(
+        int textId,
+        string message,
+        Vector2 position)
+    {
+        if (!string.IsNullOrEmpty(message))
+        {
+            _dialogue.ShowGameplayMessage(
+                message, _worldToScreen(position).Y);
+        }
     }
 
     private void OnHeartPieceSetAccepted()

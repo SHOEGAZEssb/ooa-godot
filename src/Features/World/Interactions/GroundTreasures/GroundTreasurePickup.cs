@@ -80,7 +80,10 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
         _zFixed = 0;
         _speedZ = 0;
         _bouncesRemaining = 0;
-        Visible = false;
+        // parseObjectData initializes a static treasure's graphics before the
+        // destination room begins scrolling. Keep state 0 pending, but expose
+        // spawn-mode $00 at the incoming room's transition draw offset.
+        Visible = record.SpawnMode == 0;
         QueueRedraw();
     }
 

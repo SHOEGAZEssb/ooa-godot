@@ -36,6 +36,7 @@ internal sealed class RoomEntityFactory(
     Action enableLinkCollisionsAndMenu,
     Action<int, int> roomMusicRequested,
     Action<int, string, Player> mapleDialogueRequested,
+    Action<int, string, Vector2> seedTreeMessageRequested,
     Func<bool> dialogueOpen,
     Action<MapleItemRecord, Player> mapleItemCollected,
     Action<int> horizontalScreenShakeRequested,
@@ -59,6 +60,7 @@ internal sealed class RoomEntityFactory(
     private readonly GashaSpotDatabase _gashaSpots = new();
     private readonly DarkRoomDatabase _darkRooms = new();
     private readonly MapleEventDatabase _maple = new();
+    private readonly SeedTreeDatabase _seedTrees = new();
     private readonly DungeonMapDatabase _dungeonMaps =
         rooms?.DungeonMaps ?? new DungeonMapDatabase();
 
@@ -93,6 +95,12 @@ internal sealed class RoomEntityFactory(
         room.SetPositionTileAndCollision(
             position, (byte)_dungeonMechanics.OpenTile, null, animationTick());
     }
+
+    internal void UpdateSeedTreeRefillState(
+        int activeGroup,
+        int activeRoom) =>
+        _seedTrees.UpdateRefillState(
+            runtimeState, activeGroup, activeRoom);
 
     public IEnumerable<IRoomEntity> CreateRoomEntities(
         int group,
@@ -221,6 +229,22 @@ internal sealed class RoomEntityFactory(
 
         }
 
+        // ENEMY_SEEDS_ON_TREE is a main object. In room 0:78 it precedes the
+        // old-lady interaction, and every controller creates its parts before
+        // the remaining placed interactions receive their first update.
+        foreach (SeedTreePlacementRecord record in
+            _seedTrees.GetRoomRecords(group, room.Id))
+        {
+            if (record.Order == 0)
+            {
+                foreach (IRoomEntity entity in
+                    CreateSeedTreeEntities(record, room))
+                {
+                    yield return entity;
+                }
+            }
+        }
+
         IReadOnlyList<NpcRecord> roomNpcs =
             npcs.GetRoomNpcs(group, room.Id, saveData, runtimeState);
         if (group == 4 && room.Id is 0xe0 or 0xe1 or 0xe2 or 0xe7 or 0xe8)
@@ -308,6 +332,23 @@ internal sealed class RoomEntityFactory(
 
         foreach (IRoomEntity portal in CreateTimePortals(group, room))
             yield return portal;
+
+        // The two non-leading Ages placements follow their room's supported
+        // actors/portals and still precede the enemy pointer: 0:13 order 6
+        // follows four portals plus two native interactions, while 1:25 order
+        // 1 follows its construction soldier.
+        foreach (SeedTreePlacementRecord record in
+            _seedTrees.GetRoomRecords(group, room.Id))
+        {
+            if (record.Order != 0)
+            {
+                foreach (IRoomEntity entity in
+                    CreateSeedTreeEntities(record, room))
+                {
+                    yield return entity;
+                }
+            }
+        }
 
         if (spawnMaple)
         {
@@ -844,6 +885,57 @@ internal sealed class RoomEntityFactory(
             CreatePumpkinHeadProjectile(projectile, room),
         _ => throw new ArgumentOutOfRangeException(nameof(spawn), spawn, "Unknown room-entity spawn request.")
     };
+
+    private IRoomEntity CreateSeedOnTree(
+        SeedTreeController controller,
+        SeedTreeTypeRecord type,
+        Vector2 position,
+        int index)
+    {
+        var seed = new SeedOnTree
+        {
+            Name = $"SeedOnTree_{index}",
+            ZIndex = 10
+        };
+        seed.Initialize(
+            _seedTrees,
+            controller,
+            type,
+            position,
+            index,
+            inventory,
+            seedTreeMessageRequested,
+            dialogueOpen,
+            soundRequested);
+        return new SeedOnTreeRoomEntity(seed);
+    }
+
+    private IEnumerable<IRoomEntity> CreateSeedTreeEntities(
+        SeedTreePlacementRecord record,
+        OracleRoomData room)
+    {
+        var tree = new SeedTreeController
+        {
+            Name = $"SeedTree_{record.RefillIndex:x2}"
+        };
+        tree.Initialize(_seedTrees, record, room, runtimeState);
+        if (!tree.HasActiveSeeds)
+        {
+            tree.Free();
+            yield break;
+        }
+
+        yield return new SeedTreeControllerRoomEntity(tree);
+        SeedTreeTypeRecord type = _seedTrees.Type(record.SeedType);
+        for (int index = 0; index < _seedTrees.SeedCount; index++)
+        {
+            yield return CreateSeedOnTree(
+                tree,
+                type,
+                tree.SeedPosition(index),
+                index);
+        }
+    }
 
     private IRoomEntity CreateSpiritsGraveMovingPlatform(
         SpiritsGraveMovingPlatformSpawn spawn) =>

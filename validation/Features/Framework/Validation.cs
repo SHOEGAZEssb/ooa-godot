@@ -126,6 +126,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateShield();
         ValidateShovel();
         ValidateSeedSatchel();
+        ValidateSeedTrees();
         ValidateGashaSpots();
         ValidateMapleEvents();
         ValidateEnemyPlacementRules();

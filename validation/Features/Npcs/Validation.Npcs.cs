@@ -2313,7 +2313,12 @@ public sealed partial class ValidationRoot
         OracleSaveData isolatedSave = OracleSaveData.CreateStandardGame();
         var isolatedManager = new RoomEntityManager(
             validationRoot, new NpcDatabase(), new EnemyDatabase(), isolatedSave);
-        isolatedManager.LoadRoom(group, _world.LoadRoom(group, roomId));
+        OracleRoomData isolatedHeartRoom = _world.LoadRoom(group, roomId);
+        isolatedManager.LoadRoom(0, _world.LoadRoom(0, 0x00));
+        Vector2 isolatedHeartIncomingOffset =
+            Vector2.Left * isolatedHeartRoom.Width;
+        isolatedManager.BeginScreenTransition(
+            group, isolatedHeartRoom, isolatedHeartIncomingOffset);
         NpcCharacter isolatedGuard = isolatedManager.Entities<NpcCharacter>().Single(npc =>
             npc.Record is { Id: 0x58, SubId: 0x02 });
         GroundTreasurePickup isolatedHeart =
@@ -2321,11 +2326,25 @@ public sealed partial class ValidationRoot
         if (!isolatedGuard.Active || isolatedGuard.TextId != 0x1003 ||
             isolatedGuard.Position != new Vector2(0x48, 0x38) ||
             isolatedHeart.Position != new Vector2(0x78, 0x28) ||
-            isolatedHeart.PixelHash == 0)
+            isolatedHeart.PixelHash == 0 ||
+            isolatedHeart.State != PickupState.Initializing ||
+            !isolatedHeart.Visible ||
+            !isolatedHeart.TransitionDrawOffset.IsEqualApprox(
+                isolatedHeartIncomingOffset))
         {
             throw new InvalidOperationException(
-                "Room 1:86 did not create its initial guard and static Heart Piece visuals.");
+                "Room 1:86 did not preload its static Heart Piece at the incoming scroll offset.");
         }
+        isolatedManager.Update(1.0, _player);
+        if (isolatedHeart.State != PickupState.Initializing ||
+            !isolatedHeart.Visible ||
+            !isolatedHeart.TransitionDrawOffset.IsEqualApprox(
+                isolatedHeartIncomingOffset))
+        {
+            throw new InvalidOperationException(
+                "The destination Heart Piece advanced while scrolling was active.");
+        }
+        isolatedManager.FinishScreenTransition();
 
         isolatedSave.SetRoomFlag(
             group, roomId, OracleSaveData.RoomFlag80);
@@ -2349,6 +2368,7 @@ public sealed partial class ValidationRoot
             throw new InvalidOperationException(
                 "Essence bit $08 did not delete hardhat worker $58:$02.");
         isolatedManager.Clear();
+        isolatedManager.Dispose();
         RemoveChild(validationRoot);
         validationRoot.QueueFree();
 

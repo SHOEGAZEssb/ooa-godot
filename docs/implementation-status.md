@@ -42,6 +42,16 @@ claim that the entire surrounding game is complete.
   imported breakable-tile replacements and drops, directional dirt debris,
   `SPEED_a0` cardinal drop launch, sounds, room flags, and WRAM-backed gasha
   maturity.
+- All ten imported Ages Mystical Seed Tree controllers are active, including
+  room `0:78`'s `$5a:$06` Ember tree. Each locates the source `$6e` tree
+  metatile and preloads three type-correct `$10` seed parts visibly at the
+  incoming screen-transition offset while their behavior stays frozen, shows
+  TX `$0035` without the Satchel, launches slashed seeds with the original
+  Z/bounce motion, grants six packed-BCD seeds with first-type text and
+  `SND_GETSEED`, clears its refill bit after collection, and regrows only after
+  eight unique room bytes plus an outdoor scrolling revisit. The sixteen
+  session-local refill histories initialize from `$f0,$ff` and retain the
+  source's group-less room-byte and incomplete-visit reset behavior.
 - Jumping down ledges uses the imported collision-set cliff/landing tables,
   paired wall bits and two directional probes, eight-pixel landing scan,
   length-indexed planar speed, `-$1c0`/`$20` 8.8 Z physics, exact jump OAM

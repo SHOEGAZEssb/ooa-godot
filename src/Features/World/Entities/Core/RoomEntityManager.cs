@@ -21,6 +21,7 @@ public sealed class RoomEntityManager : IDisposable
     internal event Action<SpiritsGraveEssence, Player>? SpiritsGraveEssenceTriggered;
     internal event Action<int, string, Player>? MapleDialogueRequested;
     internal event Action<MapleItemRecord, Player>? MapleItemCollected;
+    internal event Action<int, string, Vector2>? SeedTreeMessageRequested;
     public event Action<int>? SoundRequested;
     public event Action<int, int>? RoomMusicRequested;
     public event Action? RoomTileChanged;
@@ -230,6 +231,7 @@ public sealed class RoomEntityManager : IDisposable
             EnableLinkCollisionsAndMenu,
             OnRoomMusicRequested,
             OnMapleDialogueRequested,
+            OnSeedTreeMessageRequested,
             () => DialogueOpenSource(),
             OnMapleItemCollected,
             BeginHorizontalScreenShake,
@@ -308,6 +310,10 @@ public sealed class RoomEntityManager : IDisposable
         Vector2 incomingOffset,
         EnemyPlacementContext placementContext)
     {
+        // updateSeedTreeRefillData runs after getNextActiveRoom only when the
+        // outgoing tileset is outdoors. Warp/direct loads bypass this path.
+        if ((_roomForActiveEntities.TilesetFlags & 0x01) != 0)
+            _factory.UpdateSeedTreeRefillState(group, room.Id);
         ClearEntities(_outgoingEntities);
         _outgoingEntities.AddRange(_activeEntities);
         _activeEntities.Clear();
@@ -926,6 +932,12 @@ public sealed class RoomEntityManager : IDisposable
         MapleItemRecord item,
         Player player) =>
         MapleItemCollected?.Invoke(item, player);
+
+    private void OnSeedTreeMessageRequested(
+        int textId,
+        string message,
+        Vector2 position) =>
+        SeedTreeMessageRequested?.Invoke(textId, message, position);
 
     private void OnRoomTileChanged() => RoomTileChanged?.Invoke();
     private void OnSoundRequested(int sound) => SoundRequested?.Invoke(sound);

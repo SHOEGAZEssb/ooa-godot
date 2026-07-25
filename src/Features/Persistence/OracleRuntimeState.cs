@@ -16,10 +16,22 @@ public sealed class OracleRuntimeState
     public const int ToggleBlocksStateAddress = 0xcc31;
     public const int SwitchStateAddress = 0xcc32;
     public const int SpinnerStateAddress = 0xcc33;
+    internal const int SeedTreeRefillLocationCount = 16;
+    internal const int SeedTreeRefillRoomsPerLocation = 8;
 
     private readonly byte[] _wram = new byte[WramEnd - WramStart + 1];
+    private readonly byte[] _seedTreeRefillRooms =
+        new byte[SeedTreeRefillLocationCount * SeedTreeRefillRoomsPerLocation];
 
     public event Action? Changed;
+
+    public OracleRuntimeState()
+    {
+        // initializeSeedTreeRefillData starts Ages with bits $04-$0f set and
+        // clears the sixteen eight-room refill histories.
+        _wram[SeedTreeRefilledBitsetAddress - WramStart] = 0xf0;
+        _wram[SeedTreeRefilledBitsetAddress + 1 - WramStart] = 0xff;
+    }
 
     public byte ReadWramByte(int address)
     {
@@ -37,9 +49,40 @@ public sealed class OracleRuntimeState
         Changed?.Invoke();
     }
 
+    internal byte ReadSeedTreeRefillRoom(int index, int slot)
+    {
+        ValidateSeedTreeRefillPosition(index, slot);
+        return _seedTreeRefillRooms[
+            index * SeedTreeRefillRoomsPerLocation + slot];
+    }
+
+    internal void SetSeedTreeRefillRoom(int index, int slot, byte room)
+    {
+        ValidateSeedTreeRefillPosition(index, slot);
+        _seedTreeRefillRooms[
+            index * SeedTreeRefillRoomsPerLocation + slot] = room;
+    }
+
+    internal void ClearSeedTreeRefillRooms(int index)
+    {
+        ValidateSeedTreeRefillPosition(index, 0);
+        Array.Clear(
+            _seedTreeRefillRooms,
+            index * SeedTreeRefillRoomsPerLocation,
+            SeedTreeRefillRoomsPerLocation);
+    }
+
     private static void ValidateAddress(int address)
     {
         if (address is < WramStart or > WramEnd)
             throw new ArgumentOutOfRangeException(nameof(address));
+    }
+
+    private static void ValidateSeedTreeRefillPosition(int index, int slot)
+    {
+        if (index is < 0 or >= SeedTreeRefillLocationCount)
+            throw new ArgumentOutOfRangeException(nameof(index));
+        if (slot is < 0 or >= SeedTreeRefillRoomsPerLocation)
+            throw new ArgumentOutOfRangeException(nameof(slot));
     }
 }
