@@ -26,6 +26,7 @@ Current examples:
 | First-past arrival | Typed command runner |
 | Maku Tree disappearance | Typed command runner |
 | Adult Maku Tree post-rescue conversation | Typed command runner with native Seed Satchel create/respawn handlers |
+| Room 0:56 comedian trade | Typed command runner with native progress/facing helpers and shared treasure presentation |
 | Impa encounter and stone scripts | Typed runner with native follower, rock, and fake-Octorok handlers |
 | Nayru introduction and aftermath | Imported command stream with native object/effect handlers |
 | New-game intro | Specialized pregame timeline and native sprite presentation |
@@ -113,6 +114,11 @@ Preserve the separate counter behaviors:
   branch and continue in the same update; the latter consumes the completed
   choice result from the host. `setmusic` yields after selecting the imported
   track. Keep these distinct from generic memory gates or sound effects.
+- `initcollisions` applies the source `$06/$06` radii and arms the actor in one
+  continuing command. Indexed actor-byte tables must use a bounds-checked typed
+  jump table. `jumpiftradeitemeq` checks both trade-item ownership and its
+  current parameter, while `giveitem` yields after creating the imported
+  treasure object at Link for the normal grab-mode presentation.
 
 Never use `Tween` or frame-time interpolation as the authoritative source for
 ROM-timed movement.

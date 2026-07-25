@@ -2118,6 +2118,7 @@ $cutsceneVocabularyRows = @(
     "applyspeed`t1-or-2`tblock`tWait for counter2; apply speed while nonzero.",
     "setcollisionradii`t3`tyield`tWrite collision radius Y/X.",
     "makeabuttonsensitive`t1`tcontinue`tRegister the actor as a talk target.",
+    "initcollisions`t1`tcontinue`tSet `$06/`$06 radii and register the actor as a talk target.",
     "checkabutton`t1`tblock`tHold until the registered actor consumes an A press.",
     "writeobjectbyte`t3`tyield`tWrite an Interaction byte.",
     "setanimation`t2-or-3`tyield`tSelect a literal, angle, or object-byte animation.",
@@ -2131,8 +2132,11 @@ $cutsceneVocabularyRows = @(
     "callscript`t3`tyield`tStore return address and transfer on the next update.",
     "retscript`t1`tyield`tRestore return address on the next update.",
     "jumpifmemoryeq`t6`tcontinue`tConditionally branch and continue dispatch.",
+    "jumptable_objectbyte`t2+table`tcontinue`tIndex an inline branch table with an actor byte.",
     "jumpifroomflagset`t4`tcontinue`tBranch when a current-room flag is set.",
+    "jumpiftradeitemeq`t4`tcontinue`tBranch when the obtained trade item matches.",
     "jumpiftextoptioneq`t4`tcontinue`tBranch on the last selected text option.",
+    "giveitem`t3`tyield`tCreate INTERAC_TREASURE at Link for immediate collection.",
     "checkmemoryeq`t4`tgate`tHold until the WRAM byte equals the operand.",
     "playsound`t2`tyield`tQueue a sound effect.",
     "setmusic`t2`tyield`tSelect the active music track.",
@@ -3369,3 +3373,241 @@ for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'cutscenes\remote_maku_first_essence_commands.tsv'),
     $remoteMakuCommandRows, [Text.UTF8Encoding]::new($false))
+
+# Room 0:56 comedian trade. INTERAC_COMEDIAN is a script-owned NPC whose
+# native wrapper initializes the script twice on its first update, then turns
+# horizontally toward Link and animates after every later script update.
+$comedianScriptPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
+$comedianScriptSource = Get-Content -Raw $comedianScriptPath
+$comedianBody = [regex]::Match(
+    $comedianScriptSource,
+    '(?ms)^comedianScript:(?<body>.*?)(?=^; =+\r?\n; INTERAC_GORON)')
+if (-not $comedianBody.Success) {
+    throw 'Could not locate comedianScript in scriptHelper.s.'
+}
+$comedianOpcodes = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @(
+    'asm15', 'jumpifroomflagset', 'setanimation', 'scriptjump',
+    'initcollisions', 'checkabutton', 'disableinput',
+    'jumptable_objectbyte', 'showtextlowindex', 'wait',
+    'jumpiftradeitemeq', 'jumpiftextoptioneq', 'giveitem', 'enableinput')) {
+    [void]$comedianOpcodes.Add($opcode)
+}
+$comedianCommands = Read-AssemblyCutsceneCommands `
+    $comedianScriptPath $comedianScriptSource 'comedianScript' `
+    $comedianBody.Groups['body'].Index $comedianBody.Groups['body'].Length `
+    $comedianOpcodes
+if ($comedianCommands.Count -ne 34) {
+    throw "comedianScript expected 34 commands, parsed $($comedianCommands.Count)."
+}
+
+$comedianTargets = @{}
+foreach ($command in $comedianCommands) {
+    if (-not $comedianTargets.ContainsKey($command.Label)) {
+        $comedianTargets[$command.Label] = $command.Index
+    }
+}
+$expectedComedianTargets = @{
+    '@hasMustache' = 5
+    '@initNpc' = 7
+    '@npcLoop' = 8
+    '@beforeBeatD2' = 12
+    '@afterBeatD2' = 14
+    '@afterBeatMoonlitGrotto' = 16
+    '@promptForTrade' = 20
+    '@noTrade' = 23
+    '@acceptedTrade' = 25
+    '@alreadyGaveMustache' = 30
+    '@enableInput' = 31
+}
+foreach ($entry in $expectedComedianTargets.GetEnumerator()) {
+    if (-not $comedianTargets.ContainsKey($entry.Key) -or
+        $comedianTargets[$entry.Key] -ne $entry.Value) {
+        throw "comedianScript label $($entry.Key) moved from command $($entry.Value)."
+    }
+}
+if ($comedianBody.Groups['body'].Value -notmatch
+    '(?ms)jumptable_objectbyte Interaction\.var3f\s+\.dw @beforeBeatD2\s+\.dw @afterBeatD2\s+\.dw @afterBeatMoonlitGrotto') {
+    throw 'comedianScript progress jump table changed.'
+}
+
+$comedianNativePath = Join-Path $Disassembly 'object_code\ages\interactions\comedian.s'
+$comedianNativeSource = Get-Content -Raw $comedianNativePath
+if ($comedianNativeSource -notmatch
+        '(?ms)^@state0:.*?@loadScriptAndInitGraphics.*?interactionRunScript.*?interactionRunScript.*?interactionAnimateAsNpc' -or
+    $comedianNativeSource -notmatch
+        '(?ms)^@state1:.*?interactionRunScript.*?comedian_turnToFaceLink.*?interactionAnimateAsNpc' -or
+    $comedianNativeSource -notmatch
+        '(?ms)^@loadScriptAndInitGraphics:.*?interactionInitGraphics.*?objectMarkSolidPosition.*?>TX_0b00.*?mainScripts\.comedianScript') {
+    throw 'INTERAC_COMEDIAN native initialization, facing, or update order changed.'
+}
+if ($comedianScriptSource -notmatch
+        '(?ms)^comedian_checkGameProgress:.*?wEssencesObtained.*?getHighestSetBit.*?cp \$03.*?ld a,\$02.*?Interaction\.var3f' -or
+    $comedianScriptSource -notmatch
+        '(?ms)^comedian_enableMustache:.*?ld a,\$04.*?^comedian_disableMustache:.*?ld a,\$00.*?Interaction\.var37.*?Interaction\.var3e.*?\$ff' -or
+    $comedianScriptSource -notmatch
+        '(?ms)^comedian_turnToFaceLink:.*?w1Link\.xh.*?cp \(hl\).*?ld a,\$01.*?Interaction\.var37.*?interactionSetAnimation') {
+    throw 'Comedian progress, moustache, or horizontal-facing helpers changed.'
+}
+if ($mainObjectSource -notmatch
+    '(?ms)^group0Map56ObjectData:\s+obj_Interaction \$3a \$04 \$48 \$68\s+obj_Interaction \$65 \$00 \$48 \$78\s+obj_End') {
+    throw 'Room 0:56 comedian/sidekick object order or coordinates changed.'
+}
+
+$comedianAnimations = @{
+    0 = Resolve-NpcAnimation 0x65 0
+    1 = Resolve-NpcAnimation 0x65 1
+    4 = Resolve-NpcAnimation 0x65 4
+    5 = Resolve-NpcAnimation 0x65 5
+}
+foreach ($animation in @(0, 1, 4, 5)) {
+    if ([string]::IsNullOrWhiteSpace($comedianAnimations[$animation])) {
+        throw "Could not resolve INTERAC_COMEDIAN animation `$$($animation.ToString('x2'))."
+    }
+}
+foreach ($textId in 0x0b2c..0x0b32) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve comedian text TX_$($textId.ToString('x4'))."
+    }
+}
+$comedianTreasure = $treasureObjectRecords['TREASURE_OBJECT_TRADEITEM_07']
+if ($null -eq $comedianTreasure -or
+    $comedianTreasure.Treasure -ne 0x41 -or
+    $comedianTreasure.SubId -ne 0x07 -or
+    $comedianTreasure.Parameter -ne 0x07 -or
+    $comedianTreasure.TextId -ne 0x0061 -or
+    $comedianTreasure.Graphic -ne 0x77) {
+    throw 'TREASURE_OBJECT_TRADEITEM_07 no longer grants the Funny Joke.'
+}
+$roomFlagSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\roomFlags.s')
+$tradeItemSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\tradeitems.s')
+if ($roomFlagSource -notmatch '\.define ROOMFLAG_ITEM\s+\$20' -or
+    $tradeItemSource -notmatch 'TRADEITEM_CHEESY_MUSTACHE\s+db ; \$06' -or
+    $tradeItemSource -notmatch 'TRADEITEM_FUNNY_JOKE\s+db ; \$07') {
+    throw 'Comedian room flag or trade-item constants changed.'
+}
+
+$comedianCommandRows = [Collections.Generic.List[string]]::new()
+$comedianCommandRows.Add(
+    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
+foreach ($command in $comedianCommands) {
+    $opcode = $command.Opcode
+    $actor = ''
+    $arg0 = ''
+    $arg1 = ''
+    $payload = ''
+    switch ($command.Opcode) {
+        'asm15' {
+            switch ($command.Operands) {
+                'comedian_checkGameProgress' {
+                    $opcode = 'native'
+                    $payload = 'comedian_checkGameProgress'
+                }
+                'comedian_disableMustache' {
+                    $opcode = 'native'
+                    $payload = 'comedian_disableMustache'
+                }
+                'comedian_enableMustache' {
+                    $opcode = 'native'
+                    $payload = 'comedian_enableMustache'
+                }
+                default {
+                    throw "Unsupported comedian asm15 '$($command.Operands)' at source line $($command.Line)."
+                }
+            }
+        }
+        'jumpifroomflagset' {
+            if ($command.Operands -notmatch
+                '^ROOMFLAG_ITEM,\s*(?<target>@[A-Za-z0-9_]+)$') {
+                throw "Malformed comedian room-flag branch at source line $($command.Line)."
+            }
+            $arg0 = '20'
+            $arg1 = $comedianTargets[$Matches['target']].ToString()
+        }
+        'setanimation' {
+            if ($command.Operands -notmatch '^\$(?<animation>0[15])$') {
+                throw "Unexpected comedian animation '$($command.Operands)'."
+            }
+            $animation = [Convert]::ToInt32($Matches['animation'], 16)
+            $actor = 'Comedian'
+            $arg0 = $Matches['animation']
+            $payload = $comedianAnimations[$animation]
+        }
+        'scriptjump' {
+            if (-not $comedianTargets.ContainsKey($command.Operands)) {
+                throw "Unknown comedian branch target '$($command.Operands)'."
+            }
+            $arg0 = $comedianTargets[$command.Operands].ToString()
+        }
+        'initcollisions' { $actor = 'Comedian' }
+        'checkabutton' { $actor = 'Comedian' }
+        'jumptable_objectbyte' {
+            if ($command.Operands -ne 'Interaction.var3f') {
+                throw "Unexpected comedian jump-table binding '$($command.Operands)'."
+            }
+            $opcode = 'jumptablememory'
+            $payload = "ComedianProgress|$($comedianTargets['@beforeBeatD2']),$($comedianTargets['@afterBeatD2']),$($comedianTargets['@afterBeatMoonlitGrotto'])"
+        }
+        'showtextlowindex' {
+            if ($command.Operands -notmatch '^<TX_(?<id>0b(?:2[c-f]|3[0-2]))$') {
+                throw "Unexpected comedian text '$($command.Operands)'."
+            }
+            $textId = [Convert]::ToInt32($Matches['id'], 16)
+            $opcode = 'showtext'
+            $arg0 = $Matches['id']
+            $payload = $allTexts[$textId]
+        }
+        'wait' {
+            if ($command.Operands -ne '30') {
+                throw "Unexpected comedian wait '$($command.Operands)'."
+            }
+            $arg0 = '30'
+        }
+        'jumpiftradeitemeq' {
+            if ($command.Operands -notmatch
+                '^TRADEITEM_CHEESY_MUSTACHE,\s*(?<target>@[A-Za-z0-9_]+)$') {
+                throw "Malformed comedian trade-item branch at source line $($command.Line)."
+            }
+            $arg0 = '06'
+            $arg1 = $comedianTargets[$Matches['target']].ToString()
+        }
+        'jumpiftextoptioneq' {
+            if ($command.Operands -notmatch
+                '^\$00,\s*(?<target>@[A-Za-z0-9_]+)$') {
+                throw "Malformed comedian choice branch at source line $($command.Line)."
+            }
+            $arg0 = '00'
+            $arg1 = $comedianTargets[$Matches['target']].ToString()
+        }
+        'giveitem' {
+            if ($command.Operands -ne 'TREASURE_TRADEITEM,$07') {
+                throw "Unexpected comedian reward '$($command.Operands)'."
+            }
+            $arg0 = '41'
+            $arg1 = '07'
+        }
+    }
+    $comedianCommandRows.Add((New-CutsceneCommandRow `
+        $command.Script $command.Index $command.Label $command.Line `
+        $opcode $actor "$arg0" "$arg1" $payload))
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\comedian_commands.tsv'),
+    $comedianCommandRows, [Text.UTF8Encoding]::new($false))
+
+$comedianEventRows = @(
+    "# group`troom`tid`tsubid`tanimation0`tanimation1`tanimation4`tanimation5`tcollision-y`tcollision-x`troom-flag`tprogress-binding`trequired-trade`treward-treasure`treward-parameter`treward-object`tinitial-script-updates"
+    (@(
+        '0', '56', '65', '00',
+        $comedianAnimations[0], $comedianAnimations[1],
+        $comedianAnimations[4], $comedianAnimations[5],
+        '06', '06', '20', 'ComedianProgress', '06', '41', '07',
+        'TREASURE_OBJECT_TRADEITEM_07', '2'
+    ) -join "`t")
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\comedian_event.tsv'),
+    $comedianEventRows, [Text.UTF8Encoding]::new($false))

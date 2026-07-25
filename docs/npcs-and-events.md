@@ -864,6 +864,34 @@ infinite original NPC script active without blocking ordinary gameplay:
   pose at offset `(-4,-14)` and sets room item bit `$20`, which suppresses all
   later respawns.
 
+Present room `0:56` uses the same infinite-script ownership for a smaller
+trade-sequence NPC:
+
+- Preserve `group0Map56ObjectData` order: sidekick `$3a:$04` at `$48/$68`,
+  then comedian `$65:$00` at `$48/$78`. The sidekick remains an ordinary
+  stage-selected NPC. The comedian uses a specialized actor because
+  `comedian_turnToFaceLink` compares only X and selects left/right animations
+  `$00/$01` or moustache animations `$04/$05`.
+- State 0 installs `comedianScript`, calls the script runner twice, then
+  animates once. Prime exactly those two source updates during room
+  construction so `initcollisions` has armed the actor before gameplay.
+  Later fixed updates run the script first, then the horizontal facing helper
+  and one `interactionAnimateAsNpc` equivalent.
+- `comedian_checkGameProgress` applies `getHighestSetBit` to
+  `wEssencesObtained`: results `$00`, `$01`, and `$02` select the before-D2,
+  after-D2, and after-Moonlit-Grotto branches; results `$03-$07` clamp to
+  `$02`. Do not replace this with an Essence count.
+- Import the 34 commands and TX `$0b2c-$0b32`. The `$06` Cheesy Mustache
+  branch includes both choice outcomes and all source 30-update waits. An
+  accepted trade enables the moustache bank before TX `$0b30`, then
+  `giveitem TREASURE_TRADEITEM,$07` creates
+  `TREASURE_OBJECT_TRADEITEM_07` at Link.
+- Reuse the shared ground-treasure handoff for that grant. Spawn mode `$00`,
+  grab mode `$02` gives the Funny Joke, plays the treasure behavior and
+  held-item get cues, shows its imported text, uses the two-hand pose at
+  `(0,-14)`, and sets current-room item bit `$20`. On re-entry that bit selects
+  moustache animation `$05`, skips the trade, and routes A to TX `$0b32`.
+
 Present room `0:8d` is the reference for a room-entry script whose native
 palette thread deliberately affects backgrounds and sprites differently:
 

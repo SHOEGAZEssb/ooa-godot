@@ -296,6 +296,11 @@ remains the single runtime policy table.
   `1:75` includes both mutually exclusive Black Tower hardhat phases with
   exact `getBlackTowerProgress` predicates and text. Room `1:86` includes its
   entrance guard's essence/room-flag phases, dialogue, facing, and movement.
+- Present room `0:56`'s ordered sidekick and comedian pair. The comedian keeps
+  the original infinite 34-command NPC script, horizontal-only facing,
+  pre-D2/post-D2/post-Moonlit-Grotto text, Cheesy Mustache Yes/No trade, exact
+  30-update waits, moustache animation bank, two-hand Funny Joke reward, and
+  room-item-bit `$20` re-entry dialogue.
 - Lower Black Tower rooms `4:e0`, `4:e1`, `4:e2`, `4:e7`, and `4:e8`, including
   the moving path-blocking villager, unconditional construction soldiers,
   per-talk random worker text, left/right pickaxe strikes and dirt chips,
@@ -430,6 +435,12 @@ remains the single runtime policy table.
   landing cues, persists room bit `$80` and its selected X coordinate when
   left behind, respawns at Y `$58`, uses the one-hand item pose, and is
   suppressed by room item bit `$20` after collection.
+- Room `0:56`'s `INTERAC_COMEDIAN $65:$00` conversation and trade. Its typed
+  script reads the highest obtained Essence, branches through TX
+  `$0b2c-$0b32`, tests trade item `$06`, and grants trade item `$07` through
+  the ordinary `INTERAC_TREASURE` two-hand pickup path. Room item bit `$20`
+  restores animations `$04/$05`, suppresses another reward, and selects the
+  completed dialogue after re-entry.
 - Room `0:8d`'s remote Maku Tree sequence after the first Essence. Interaction
   `$8a:$00` requires Essence bit `$01` and clear current-room bit `$40`, then
   runs the imported 20-command lane: Maku Tree music, exact HUD and

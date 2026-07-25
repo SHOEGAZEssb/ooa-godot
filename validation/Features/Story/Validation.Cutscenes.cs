@@ -3250,6 +3250,273 @@ public sealed partial class ValidationRoot
             "SND_SOLVEPUZZLE/two SND_DROPESSENCE cues, room-$20 suppression, and one-hand collection.");
     }
 
+    private void ValidateRoom056Comedian()
+    {
+        const int group = 0;
+        const int room = 0x56;
+        const int essencesAddress = 0xc6bf;
+        const int tradeItemAddress = 0xc6c0;
+        const int tradeObtainedAddress = 0xc69a +
+            (TreasureDatabase.TreasureTradeItem >> 3);
+        const int tradeObtainedMask =
+            1 << (TreasureDatabase.TreasureTradeItem & 7);
+
+        ComedianEvent comedianEvent = _roomEvents.Comedian;
+        ComedianEventDatabase database = comedianEvent.Database;
+        ComedianEventRecord record = database.Record;
+        byte originalRoomFlags = _saveData.GetRoomFlags(group, room);
+        var inventorySnapshot = new byte[0x39];
+        _saveData.ReadWramBytes(0xc688, inventorySnapshot);
+        System.Reflection.MethodInfo? reloadInventory = typeof(InventoryState).GetMethod(
+            "LoadFromSaveData",
+            System.Reflection.BindingFlags.Instance |
+            System.Reflection.BindingFlags.NonPublic);
+        if (reloadInventory is null)
+            throw new InvalidOperationException("Could not reload comedian validation inventory.");
+
+        void SetInventoryState(int essences, int tradeItem, bool obtained)
+        {
+            byte flags = _saveData.ReadWramByte(tradeObtainedAddress);
+            flags = obtained
+                ? (byte)(flags | tradeObtainedMask)
+                : (byte)(flags & ~tradeObtainedMask);
+            _saveData.WriteWramByte(essencesAddress, (byte)essences);
+            _saveData.WriteWramByte(tradeItemAddress, (byte)tradeItem);
+            _saveData.WriteWramByte(tradeObtainedAddress, flags);
+            _saveData.CommitInventoryChange();
+            reloadInventory.Invoke(_inventory, null);
+        }
+
+        CutsceneShowTextCommand Text(int textId) =>
+            database.Commands.OfType<CutsceneShowTextCommand>().Single(
+                text => text.TextId == textId);
+
+        void ExpectDialogue(int textId, string phase)
+        {
+            CutsceneShowTextCommand text = Text(textId);
+            if (!_dialogue.IsOpen ||
+                _dialogue.CurrentMessage != DialogueBox.PlainText(text.Message))
+            {
+                throw new InvalidOperationException(
+                    $"Room 0:56 {phase} did not show TX_{textId:x4}.");
+            }
+        }
+
+        void PositionForTalk()
+        {
+            _player.WarpTo(new Vector2(0x78, 0x55));
+            _player.Face(Vector2I.Up);
+        }
+
+        void BeginTalk()
+        {
+            PositionForTalk();
+            if (!_interactions.TryInteract(_player))
+            {
+                throw new InvalidOperationException(
+                    "Room 0:56 comedian was not reachable through the normal A-button path.");
+            }
+            StepRoomEventFrames(1);
+        }
+
+        void FinishSimpleTalk()
+        {
+            _dialogue.Close();
+            StepRoomEventFrames(31);
+            if (comedianEvent.BlocksGameplay || _player.CutsceneControlled ||
+                comedianEvent.CurrentCommandIndex != 8)
+            {
+                throw new InvalidOperationException(
+                    "comedianScript did not restore input and return to checkabutton.");
+            }
+        }
+
+        _saveData.SetRoomFlag(
+            group, room, OracleSaveData.RoomFlagItem, false);
+        SetInventoryState(essences: 0, tradeItem: 0, obtained: false);
+        var trace = new ValidationCutsceneTrace();
+        _roomEvents.CommandTraceSink = trace;
+        LoadValidationRoom(group, room);
+
+        List<NpcCharacter> actors = _entities.Entities<NpcCharacter>();
+        if (actors.Count != 2 ||
+            actors[0].Record is not { Id: 0x3a, SubId: 0x04 } ||
+            actors[0].Position != new Vector2(0x68, 0x48) ||
+            actors[1] is not ComedianCharacter comedian ||
+            comedian.Record is not { Id: 0x65, SubId: 0x00 } ||
+            comedian.Position != new Vector2(0x78, 0x48) ||
+            !comedianEvent.HasState || comedianEvent.BlocksGameplay ||
+            !comedianEvent.ButtonSensitive ||
+            comedianEvent.CurrentCommandIndex != 8 ||
+            comedianEvent.Progress != 0 ||
+            comedian.CurrentScriptAnimationSource != record.Animation1)
+        {
+            throw new InvalidOperationException(
+                "Room 0:56 did not preserve its ordered sidekick/comedian composition " +
+                "or two-update INTERAC_COMEDIAN initialization.");
+        }
+
+        _player.WarpTo(new Vector2(0x60, 0x48));
+        StepRoomEventFrames(1);
+        if (comedian.CurrentScriptAnimationSource != record.Animation0)
+        {
+            throw new InvalidOperationException(
+                "Comedian did not select no-moustache animation $00 for Link on his left.");
+        }
+        _player.WarpTo(new Vector2(0x90, 0x48));
+        StepRoomEventFrames(1);
+        if (comedian.CurrentScriptAnimationSource != record.Animation1)
+        {
+            throw new InvalidOperationException(
+                "Comedian did not select no-moustache animation $01 for Link on his right.");
+        }
+
+        BeginTalk();
+        ExpectDialogue(0x0b2c, "pre-D2 branch");
+        FinishSimpleTalk();
+
+        SetInventoryState(essences: 0x02, tradeItem: 0, obtained: false);
+        LoadValidationRoom(group, room);
+        if (comedianEvent.Progress != 1)
+            throw new InvalidOperationException("Essence bit 1 did not select comedian progress 1.");
+        BeginTalk();
+        ExpectDialogue(0x0b2d, "post-D2 branch");
+        FinishSimpleTalk();
+
+        SetInventoryState(essences: 0x04, tradeItem: 0, obtained: false);
+        LoadValidationRoom(group, room);
+        if (comedianEvent.Progress != 2)
+            throw new InvalidOperationException("Essence bit 2 did not select comedian progress 2.");
+        BeginTalk();
+        ExpectDialogue(0x0b2e, "post-Moonlit-Grotto branch");
+        _dialogue.Close();
+        StepRoomEventFrames(31);
+        ExpectDialogue(0x0b31, "missing-trade-item branch");
+        FinishSimpleTalk();
+
+        _inventory.GiveTreasure(
+            TreasureDatabase.TreasureTradeItem, record.RequiredTradeItem);
+        LoadValidationRoom(group, room);
+        BeginTalk();
+        ExpectDialogue(0x0b2e, "trade preamble");
+        _dialogue.Close();
+        StepRoomEventFrames(31);
+        ExpectDialogue(0x0b2f, "trade prompt");
+        _dialogue.SubmitChoiceForValidation(1);
+        StepRoomEventFrames(31);
+        ExpectDialogue(0x0b31, "declined-trade branch");
+        if (_inventory.TradeItem != record.RequiredTradeItem ||
+            _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagItem))
+        {
+            throw new InvalidOperationException(
+                "Declining the Cheesy Mustache trade mutated inventory or room flag $20.");
+        }
+        FinishSimpleTalk();
+
+        BeginTalk();
+        ExpectDialogue(0x0b2e, "accepted-trade preamble");
+        _dialogue.Close();
+        StepRoomEventFrames(31);
+        ExpectDialogue(0x0b2f, "accepted-trade prompt");
+        _dialogue.SubmitChoiceForValidation(0);
+        StepRoomEventFrames(31);
+        ExpectDialogue(0x0b30, "accepted-trade response");
+        comedian = _entities.Entities<ComedianCharacter>().Single();
+        if (!comedian.MustacheEnabled ||
+            comedian.CurrentScriptAnimationSource != record.Animation5)
+        {
+            throw new InvalidOperationException(
+                "Accepting the trade did not immediately enable the moustache animation bank.");
+        }
+
+        _sound.ClearPlayRequestAudit();
+        _dialogue.Close();
+        StepRoomEventFrames(31);
+        GroundTreasurePickup reward =
+            _entities.Entities<GroundTreasurePickup>().Single();
+        TreasureObjectRecord rewardObject =
+            _treasures.GetObject(record.RewardObject);
+        if (reward.Record.TreasureObject != record.RewardObject ||
+            reward.Record.SpawnMode != 0 || reward.Record.GrabMode != 2 ||
+            !reward.Held || !_player.IsHoldingItemTwoHands ||
+            reward.Position != _player.Position + new Vector2(0, -14) ||
+            _inventory.TradeItem != record.RewardParameter ||
+            !_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagItem) ||
+            !_dialogue.IsOpen ||
+            _dialogue.CurrentMessage != DialogueBox.PlainText(rewardObject.Message) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2)
+        {
+            throw new InvalidOperationException(
+                "comedianScript giveitem did not grant the Funny Joke through " +
+                "grab mode $02 with text, sounds, inventory, and room flag $20.");
+        }
+
+        _dialogue.Close();
+        _interactions.Update(1.0 / 60.0, _player);
+        _entities.Update(1.0 / 60.0, _player);
+        if (_player.IsHoldingItemTwoHands ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0)
+        {
+            throw new InvalidOperationException(
+                "Closing the Funny Joke text did not release Link and delete the reward.");
+        }
+        StepRoomEventFrames(31);
+        if (comedianEvent.BlocksGameplay || comedianEvent.CurrentCommandIndex != 8)
+        {
+            throw new InvalidOperationException(
+                "comedianScript did not finish its post-reward 30-update input wait.");
+        }
+
+        LoadValidationRoom(0, 0x55);
+        LoadValidationRoom(group, room);
+        comedian = _entities.Entities<ComedianCharacter>().Single();
+        if (!comedian.MustacheEnabled ||
+            comedian.CurrentScriptAnimationSource != record.Animation5 ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0)
+        {
+            throw new InvalidOperationException(
+                "Room flag $20 did not restore the moustache or suppressed reward on re-entry.");
+        }
+        BeginTalk();
+        ExpectDialogue(0x0b32, "completed-trade branch");
+        FinishSimpleTalk();
+
+        CutsceneCommandTraceEntry[] commandStarts = trace.Entries.Where(entry =>
+            entry.Phase == CutsceneCommandTracePhase.Started &&
+            entry.Source.Script == "comedianScript").ToArray();
+        string[] requiredOpcodes =
+        [
+            "jumptablememory",
+            "jumpiftradeitemeq",
+            "jumpiftextoptioneq",
+            "giveitem"
+        ];
+        if (commandStarts.Any(entry => entry.Source.SourceLine <= 0) ||
+            requiredOpcodes.Any(opcode =>
+                !commandStarts.Any(entry => entry.Source.Opcode == opcode)))
+        {
+            throw new InvalidOperationException(
+                "Comedian typed trace lost source lines or a room-specific script opcode.");
+        }
+
+        LoadValidationRoom(0, 0x55);
+        _saveData.WriteWramBytes(0xc688, inventorySnapshot);
+        _saveData.CommitInventoryChange();
+        reloadInventory.Invoke(_inventory, null);
+        foreach (byte flag in new byte[] { 1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80 })
+        {
+            _saveData.SetRoomFlag(
+                group, room, flag, (originalRoomFlags & flag) != 0);
+        }
+        _roomEvents.CommandTraceSink = null;
+
+        GD.Print("Validated room 0:56 ordered sidekick/comedian actors, two-update " +
+            "typed script initialization, horizontal $00/$01 and moustache $04/$05 " +
+            "facing, essence-progress TX_0b2c-$0b2e branches, missing/No/Yes trade " +
+            "paths, exact 30-update waits, two-hand Funny Joke reward, room flag $20, " +
+            "and completed re-entry TX_0b32.");
+    }
+
     private void ValidateNayruIntroCutscene()
     {
         NayruIntroEvent nayruIntro = _roomEvents.Nayru;

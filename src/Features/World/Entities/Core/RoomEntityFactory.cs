@@ -49,6 +49,7 @@ internal sealed class RoomEntityFactory(
     private readonly VasuShopDatabase _vasuShop = new();
     private readonly LynnaShopDatabase _lynnaShop = new();
     private readonly BlackTowerWorkerDatabase _blackTower = new();
+    private readonly ComedianEventDatabase _comedian = new();
     private readonly DungeonEntranceInteractionDatabase _dungeonEntrances = new();
     private readonly SpiritsGraveDatabase _spiritsGrave = new();
     private readonly EnemySpawnTileDatabase _enemySpawnTiles = new();
@@ -279,6 +280,21 @@ internal sealed class RoomEntityFactory(
         {
             foreach (NpcRecord record in roomNpcs)
             {
+                if (record.Group == _comedian.Record.Group &&
+                    record.Room == _comedian.Record.Room &&
+                    record.Id == _comedian.Record.InteractionId &&
+                    record.SubId == _comedian.Record.SubId)
+                {
+                    var comedian = new ComedianCharacter
+                    {
+                        Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+                        ZIndex = NpcCharacter.BehindLinkZIndex
+                    };
+                    comedian.InitializeComedian(record, _comedian.Record);
+                    yield return new ComedianRoomEntity(comedian);
+                    continue;
+                }
+
                 var npc = new NpcCharacter
                 {
                     Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",

@@ -93,6 +93,8 @@ internal static class CutsceneCommandCatalog
                 Hex(path, physicalLine, "arg1", arg1)),
             "makeabuttonsensitive" => new CutsceneMakeAButtonSensitiveCommand(
                 source, Required(path, physicalLine, "actor", actor)),
+            "initcollisions" => new CutsceneInitCollisionsCommand(
+                source, Required(path, physicalLine, "actor", actor)),
             "checkabutton" => new CutsceneCheckAButtonCommand(
                 source, Required(path, physicalLine, "actor", actor)),
             "gate" => new CutsceneGateCommand(
@@ -106,7 +108,13 @@ internal static class CutsceneCommandCatalog
                 Required(path, physicalLine, "payload", payload),
                 Hex(path, physicalLine, "arg0", arg0),
                 Decimal(path, physicalLine, "arg1", arg1)),
+            "jumptablememory" => ParseMemoryJumpTable(
+                path, physicalLine, source, payload),
             "jumpifroomflagset" => new CutsceneRoomFlagBranchCommand(
+                source,
+                Hex(path, physicalLine, "arg0", arg0),
+                Decimal(path, physicalLine, "arg1", arg1)),
+            "jumpiftradeitemeq" => new CutsceneTradeItemBranchCommand(
                 source,
                 Hex(path, physicalLine, "arg0", arg0),
                 Decimal(path, physicalLine, "arg1", arg1)),
@@ -152,6 +160,10 @@ internal static class CutsceneCommandCatalog
                 source,
                 Required(path, physicalLine, "payload", payload),
                 Hex(path, physicalLine, "arg0", arg0)),
+            "giveitem" => new CutsceneGiveItemCommand(
+                source,
+                Hex(path, physicalLine, "arg0", arg0),
+                Hex(path, physicalLine, "arg1", arg1)),
             "playsound" => new CutscenePlaySoundCommand(
                 source, Hex(path, physicalLine, "arg0", arg0)),
             "setmusic" => new CutsceneSetMusicCommand(
@@ -186,6 +198,38 @@ internal static class CutsceneCommandCatalog
                 physicalLine,
                 $"unsupported opcode '{opcode}' at {source}")
         };
+    }
+
+    private static CutsceneMemoryJumpTableCommand ParseMemoryJumpTable(
+        string path,
+        int physicalLine,
+        CutsceneCommandSource source,
+        string payload)
+    {
+        string[] sections = payload.Split('|');
+        if (sections.Length != 2)
+        {
+            throw Error(
+                path,
+                physicalLine,
+                "jumptablememory payload must be 'binding|target0,target1,...'");
+        }
+        string binding = Required(
+            path, physicalLine, "jump-table binding", sections[0]);
+        string[] encodedTargets = sections[1].Split(',');
+        if (encodedTargets.Length == 0)
+        {
+            throw Error(
+                path, physicalLine, "jumptablememory requires at least one target");
+        }
+        var targets = new List<int>(encodedTargets.Length);
+        foreach (string encodedTarget in encodedTargets)
+        {
+            targets.Add(Decimal(
+                path, physicalLine, "jump-table target", encodedTarget));
+        }
+        return new CutsceneMemoryJumpTableCommand(
+            source, binding, targets.AsReadOnly());
     }
 
     private static CutsceneTranslateCommand ParseTranslate(
@@ -419,7 +463,21 @@ internal sealed record CutsceneMemoryBranchCommand(
     int TargetCommand)
     : CutsceneCommand(Source);
 
+internal sealed record CutsceneMemoryJumpTableCommand(
+    CutsceneCommandSource Source,
+    string Binding,
+    IReadOnlyList<int> TargetCommands)
+    : CutsceneCommand(Source);
+
 internal sealed record CutsceneMakeAButtonSensitiveCommand(
+    CutsceneCommandSource Source,
+    string Actor)
+    : CutsceneCommand(Source)
+{
+    public CutsceneActorId ActorId { get; } = new(Actor);
+}
+
+internal sealed record CutsceneInitCollisionsCommand(
     CutsceneCommandSource Source,
     string Actor)
     : CutsceneCommand(Source)
@@ -628,6 +686,12 @@ internal sealed record CutsceneRoomFlagBranchCommand(
     int TargetCommand)
     : CutsceneCommand(Source);
 
+internal sealed record CutsceneTradeItemBranchCommand(
+    CutsceneCommandSource Source,
+    int Value,
+    int TargetCommand)
+    : CutsceneCommand(Source);
+
 internal sealed record CutsceneReturnCommand(CutsceneCommandSource Source)
     : CutsceneCommand(Source);
 
@@ -734,6 +798,12 @@ internal sealed record CutsceneWriteMemoryCommand(
     CutsceneCommandSource Source,
     string Binding,
     int Value)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneGiveItemCommand(
+    CutsceneCommandSource Source,
+    int TreasureId,
+    int Parameter)
     : CutsceneCommand(Source);
 
 internal sealed record CutsceneWriteObjectByteCommand(

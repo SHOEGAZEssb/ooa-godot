@@ -208,6 +208,14 @@ large-room dungeon-property bits, torch tiles and collision data, treasure
 object, falling motion, and sound IDs rather than deriving any of them from
 room `5:ed` at runtime.
 
+`Import-CutsceneData.ps1` also imports present room `0:56`'s
+`comedianScript` into `comedian_commands.tsv` and its actor constants into
+`comedian_event.tsv`. The stage verifies the room's two placed interactions,
+the native two-run initialization and horizontal-facing wrapper, the
+highest-Essence-bit helper, moustache animation bank, seven text records,
+trade-item constants, and `TREASURE_OBJECT_TRADEITEM_07`. Runtime does not
+parse `scriptHelper.s` or infer these operands from the visible NPC row.
+
 Overworld named-key locks are also imported as a reusable source closure.
 `Import-NpcData.ps1` emits all six keyhole locations, their treasure IDs and
 per-key `$18` object visuals, the three collision-set/tile mappings, and the

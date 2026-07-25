@@ -637,6 +637,17 @@ public sealed class RoomEntityManager : IDisposable
         return (T)entity.Node;
     }
 
+    internal GroundTreasurePickup GrantGroundTreasure(
+        GroundTreasureDatabaseRecord record,
+        Player player)
+    {
+        GroundTreasurePickup treasure =
+            Spawn<GroundTreasurePickup>(new GroundTreasureSpawn(record));
+        OnGroundTreasureCollected(treasure, player);
+        treasure.BeginGranted(player);
+        return treasure;
+    }
+
     internal void SpawnBreakableDrop(
         int dropType,
         Vector2 position,

@@ -25,9 +25,15 @@ internal interface ICutsceneCommandHost
     void SetDisabledObjects(int value);
     bool GateOpen(string gate);
     bool MemoryEquals(string binding, int value);
+    int ReadMemory(string binding) =>
+        throw new InvalidOperationException(
+            $"This cutscene host cannot read '{binding}'.");
     bool RoomFlagSet(int flag) =>
         throw new InvalidOperationException(
             $"This cutscene host cannot read room flag ${flag:x2}.");
+    bool TradeItemEquals(int value) =>
+        throw new InvalidOperationException(
+            $"This cutscene host cannot compare trade item ${value:x2}.");
     bool TextOptionEquals(int value) =>
         throw new InvalidOperationException(
             $"This cutscene host cannot read text option ${value:x2}.");
@@ -59,6 +65,9 @@ internal interface ICutsceneCommandHost
     void DeleteActor(CutsceneActorId actor) =>
         throw new InvalidOperationException($"Actor '{actor}' does not support deletion.");
     void WriteMemory(string binding, int value);
+    void GiveItem(int treasureId, int parameter) =>
+        throw new InvalidOperationException(
+            $"This cutscene host cannot give treasure ${treasureId:x2}:${parameter:x2}.");
     void PlaySound(int sound) => Context.Sound.PlaySound(sound);
     void SetMusic(int music) =>
         throw new InvalidOperationException(

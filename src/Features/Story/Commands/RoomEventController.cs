@@ -13,6 +13,7 @@ public sealed class RoomEventController
     private readonly RoomEventContext _context;
     private readonly MakuTreeDisappearanceEvent _makuTree;
     private readonly MakuTreeSavedEvent _makuTreeSaved;
+    private readonly ComedianEvent _comedian;
     private readonly RalphPortalEvent _ralph;
     private readonly PreBlackTowerEvent _preBlackTower;
     private readonly BlackTowerDoorwayEvent _blackTowerDoorway;
@@ -66,6 +67,7 @@ public sealed class RoomEventController
             roomCamera);
         _makuTree = new MakuTreeDisappearanceEvent(_context);
         _makuTreeSaved = new MakuTreeSavedEvent(_context);
+        _comedian = new ComedianEvent(_context);
         _ralph = new RalphPortalEvent(_context);
         _preBlackTower = new PreBlackTowerEvent(_context);
         _blackTowerDoorway = new BlackTowerDoorwayEvent(_context);
@@ -89,6 +91,7 @@ public sealed class RoomEventController
             _makuSproutRescue,
             _lynnaShop,
             _vasuShop,
+            _comedian,
             _makuTreeSaved,
             _makuTree,
             _ralph,
@@ -131,6 +134,7 @@ public sealed class RoomEventController
 
     internal MakuTreeDisappearanceEvent MakuTree => _makuTree;
     internal MakuTreeSavedEvent MakuTreeSaved => _makuTreeSaved;
+    internal ComedianEvent Comedian => _comedian;
     internal RalphPortalEvent Ralph => _ralph;
     internal PreBlackTowerEvent PreBlackTower => _preBlackTower;
     internal BlackTowerDoorwayEvent BlackTowerDoorway => _blackTowerDoorway;
@@ -198,7 +202,8 @@ public sealed class RoomEventController
         _nayru.TryInteractNpc(npc) ||
         _blackTowerEntrance.TryInteractNpc(npc) ||
         _makuSproutRescue.TryInteractNpc(npc) ||
-        _makuTreeSaved.TryInteractNpc(npc);
+        _makuTreeSaved.TryInteractNpc(npc) ||
+        _comedian.TryInteractNpc(npc);
 
     public bool TryInteractPlayer(Player player) =>
         _lynnaShop.TryInteractPlayer(player);

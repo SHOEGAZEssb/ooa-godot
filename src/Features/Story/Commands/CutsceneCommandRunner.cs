@@ -68,6 +68,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
             {
                 CutsceneMemoryBranchCommand branch => branch.TargetCommand,
                 CutsceneRoomFlagBranchCommand branch => branch.TargetCommand,
+                CutsceneTradeItemBranchCommand branch => branch.TargetCommand,
                 CutsceneTextOptionBranchCommand branch => branch.TargetCommand,
                 CutsceneBranchCommand branch => branch.TargetCommand,
                 CutsceneCallCommand call => call.TargetCommand,
@@ -75,6 +76,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
             };
             if (commands[index] is CutsceneMemoryBranchCommand or
                     CutsceneRoomFlagBranchCommand or
+                    CutsceneTradeItemBranchCommand or
                     CutsceneTextOptionBranchCommand or
                     CutsceneBranchCommand or CutsceneCallCommand &&
                 (target < 0 || target >= commands.Count))
@@ -82,6 +84,18 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                 throw new InvalidOperationException(
                     $"Cutscene branch target {target} is outside the command stream at " +
                     $"{commands[index].Source}.");
+            }
+            if (commands[index] is CutsceneMemoryJumpTableCommand jumpTable)
+            {
+                foreach (int jumpTarget in jumpTable.TargetCommands)
+                {
+                    if (jumpTarget < 0 || jumpTarget >= commands.Count)
+                    {
+                        throw new InvalidOperationException(
+                            $"Cutscene jump-table target {jumpTarget} is outside the " +
+                            $"command stream at {commands[index].Source}.");
+                    }
+                }
             }
 
             foreach (CutsceneActorId actor in Actors(commands[index]))
@@ -260,8 +274,24 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                     _nextInstruction = branch.TargetCommand;
                 return CommandResult.Continue;
 
+            case CutsceneMemoryJumpTableCommand jumpTable:
+                int jumpIndex = host.ReadMemory(jumpTable.Binding);
+                if (jumpIndex < 0 || jumpIndex >= jumpTable.TargetCommands.Count)
+                {
+                    throw new InvalidOperationException(
+                        $"{jumpTable.Source} read out-of-range jump-table index " +
+                        $"${jumpIndex:x2} from '{jumpTable.Binding}'.");
+                }
+                _nextInstruction = jumpTable.TargetCommands[jumpIndex];
+                return CommandResult.Continue;
+
             case CutsceneRoomFlagBranchCommand branch:
                 if (host.RoomFlagSet(branch.Flag))
+                    _nextInstruction = branch.TargetCommand;
+                return CommandResult.Continue;
+
+            case CutsceneTradeItemBranchCommand branch:
+                if (host.TradeItemEquals(branch.Value))
                     _nextInstruction = branch.TargetCommand;
                 return CommandResult.Continue;
 
@@ -307,6 +337,11 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
 
             case CutsceneMakeAButtonSensitiveCommand button:
                 host.SetActorButtonSensitive(button.Actor);
+                return CommandResult.Continue;
+
+            case CutsceneInitCollisionsCommand collisions:
+                host.SetActorCollisionRadii(collisions.Actor, 6, 6);
+                host.SetActorButtonSensitive(collisions.Actor);
                 return CommandResult.Continue;
 
             case CutsceneCheckAButtonCommand button:
@@ -398,6 +433,11 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                 host.WriteMemory(write.Binding, write.Value);
                 Observe(command, $"Memory:{write.Binding}", value: write.Value);
                 return CommandResult.Continue;
+
+            case CutsceneGiveItemCommand item:
+                host.GiveItem(item.TreasureId, item.Parameter);
+                Observe(command, "Treasure", value: item.TreasureId);
+                return CommandResult.Yield;
 
             case CutscenePlaySoundCommand sound:
                 host.PlaySound(sound.Sound);
@@ -592,6 +632,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
             case CutsceneSetAnimationContinueCommand value: yield return value.Actor; break;
             case CutsceneSetCollisionRadiiCommand value: yield return value.Actor; break;
             case CutsceneMakeAButtonSensitiveCommand value: yield return value.Actor; break;
+            case CutsceneInitCollisionsCommand value: yield return value.Actor; break;
             case CutsceneCheckAButtonCommand value: yield return value.Actor; break;
             case CutsceneSetSpeedCommand value: yield return value.Actor; break;
             case CutsceneSetAngleCommand value: yield return value.Actor; break;
@@ -619,7 +660,9 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
             phase,
             Counter,
             phase == CutsceneCommandTracePhase.Completed &&
-                command is CutsceneMemoryBranchCommand or CutsceneBranchCommand or
+                command is CutsceneMemoryBranchCommand or
+                    CutsceneMemoryJumpTableCommand or
+                    CutsceneTradeItemBranchCommand or CutsceneBranchCommand or
                     CutsceneCallCommand or CutsceneReturnCommand
                 ? _nextInstruction >= 0 ? _nextInstruction : _instruction + 1
                 : -1));
