@@ -1518,6 +1518,175 @@ if ($terrainShadowOam -ne '19,4,32,8') {
     ),
     [Text.UTF8Encoding]::new($false))
 
+# Grounded Link uses the same raw terrain-effect OAM path for grass and
+# puddles. Ages checks the exact metatile IDs, selects grass frame 0/1 from bit
+# 2 of (xh XOR yh), and selects one of four puddle frames with
+# (wFrameCounter >> 3) & 3.
+$tileIndexSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\tileIndices.s')
+$grassTileMatch = [regex]::Match(
+    $tileIndexSource,
+    '(?m)^\s*\.define TILEINDEX_GRASS\s+\$(?<value>[0-9a-f]{2})')
+$agesPuddleBlock = [regex]::Match(
+    $tileIndexSource,
+    '(?ms)^\s*\.ifdef ROM_AGES\r?\n(?<body>.*?TILEINDEX_PUDDLE.*?)^\s*\.else ; ROM_SEASONS')
+$puddleTileMatch = [regex]::Match(
+    $agesPuddleBlock.Groups['body'].Value,
+    '(?m)^\s*\.define TILEINDEX_PUDDLE\s+\$(?<value>[0-9a-f]{2})')
+if (-not $grassTileMatch.Success -or -not $agesPuddleBlock.Success -or
+    -not $puddleTileMatch.Success) {
+    throw 'Could not resolve Ages TILEINDEX_GRASS / TILEINDEX_PUDDLE.'
+}
+$grassTile = [Convert]::ToInt32(
+    $grassTileMatch.Groups['value'].Value, 16)
+$puddleTile = [Convert]::ToInt32(
+    $puddleTileMatch.Groups['value'].Value, 16)
+
+$terrainHandlerSource = Get-Content -Raw (
+    Join-Path $Disassembly 'code\bank0.s')
+$usesAgesTerrainTiles = [regex]::IsMatch(
+    $terrainHandlerSource,
+    '(?ms)\.ifdef ROM_AGES\r?\n\s*cp TILEINDEX_GRASS\r?\n\s*jr z,@walkingInGrass\r?\n\s*cp TILEINDEX_PUDDLE\r?\n\s*jr nz,@end')
+$usesPuddleFrameClock = [regex]::IsMatch(
+    $terrainHandlerSource,
+    '(?ms)ld a,\(wFrameCounter\)\r?\n\s*add a\r?\n\s*swap a\r?\n\s*and \$03\r?\n\s*ld hl,terrainEffects\.puddleAnimationFrames')
+$usesGrassPositionFrame = [regex]::IsMatch(
+    $terrainHandlerSource,
+    '(?ms)ld a,l\r?\n\s*xor b\r?\n\s*ld h,a.*?@walkingInGrass:\r?\n\s*bit 2,h\r?\n\s*ld a,\(wGrassAnimationModifier\)\r?\n\s*jr z,\+\r?\n\s*add \$24')
+$grassModifierSource = Get-Content -Raw (
+    Join-Path $Disassembly 'code\bank1.s')
+$usesAgesGreenGrass = [regex]::IsMatch(
+    $grassModifierSource,
+    '(?ms)updateGrassAnimationModifier:\s*\.ifdef ROM_AGES\r?\n\s*ld a,\$00\r?\n\s*ld \(wGrassAnimationModifier\),a\r?\n\s*ret')
+$suppressesTerrainEffects = [regex]::IsMatch(
+    $terrainHandlerSource,
+    '(?ms)_drawObjectTerrainEffects:.*?and TILESETFLAG_SIDESCROLL\r?\n\s*ret nz.*?@onGround:.*?ld a,\(wScrollMode\)\r?\n\s*cp \$08\r?\n\s*ret z')
+$terrainEffectsHaveOamPriority = [regex]::IsMatch(
+    $terrainHandlerSource,
+    '(?ms)_getObjectPositionOnScreen:.*?rlca\r?\n\s*call c,_drawObjectTerrainEffects\r?\n\s*; Account for Z position.*?; Point hl to the Object\.oamFlags variable')
+$linkTileTypeSource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\common\specialObjects\commonCode.s')
+$usesPuddleWalkSound = [regex]::IsMatch(
+    $linkTileTypeSource,
+    '(?ms)@tileType_puddle:\s*ld h,d\r?\n\s*ld l,SpecialObject\.animParameter\r?\n\s*bit 5,\(hl\)\r?\n\s*jr z,@tileType_normal\r?\n\s*res 5,\(hl\)\r?\n\s*ld a,\(wLinkImmobilized\)\r?\n\s*or a\r?\n\s*ld a,SND_SPLASH\r?\n\s*call z,playSound')
+$musicSource = Get-Content -Raw (
+    Join-Path $Disassembly 'constants\common\music.s')
+$splashSoundMatch = [regex]::Match(
+    $musicSource,
+    '(?m)^\s*SND_SPLASH\s+db\s+;\s+\$(?<value>[0-9a-f]{2})')
+if (-not $splashSoundMatch.Success) {
+    throw 'Could not resolve SND_SPLASH.'
+}
+$splashSound = [Convert]::ToInt32(
+    $splashSoundMatch.Groups['value'].Value, 16)
+
+# The puddle handler consumes bit 5 from Link's current animation parameter
+# before animateLinkWalking advances the table later in the update. Resolve the
+# exact sound phase from the Ages walking animation instead of approximating it
+# from the visible two-frame pose.
+$linkAnimationSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
+$walkAnimationMatch = [regex]::Match(
+    $linkAnimationSource,
+    '(?ms)^animationData19f0b:\r?\n(?<body>.*?m_AnimationLoop animationLoop19f0e)')
+if (-not $walkAnimationMatch.Success) {
+    throw 'Could not resolve Ages LINK_ANIM_MODE_WALK animation data.'
+}
+$walkAnimationRows = @(
+    [regex]::Matches(
+        $walkAnimationMatch.Groups['body'].Value,
+        '(?m)^\s*\.db \$(?<duration>[0-9a-f]{2}) \$(?<graphic>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})') |
+        ForEach-Object {
+            [pscustomobject]@{
+                Duration = [Convert]::ToInt32(
+                    $_.Groups['duration'].Value, 16)
+                Parameter = [Convert]::ToInt32(
+                    $_.Groups['parameter'].Value, 16)
+            }
+        }
+)
+$puddleSoundUpdates = [Collections.Generic.List[int]]::new()
+$puddleSoundDurations = [Collections.Generic.List[int]]::new()
+$walkElapsed = 0
+for ($row = 1; $row -lt $walkAnimationRows.Count; $row++) {
+    $walkElapsed += $walkAnimationRows[$row - 1].Duration
+    if (($walkAnimationRows[$row].Parameter -band 0x20) -ne 0) {
+        # linkApplyTileTypes observes the newly loaded parameter on the next
+        # original update.
+        $puddleSoundUpdates.Add($walkElapsed + 1)
+        $puddleSoundDurations.Add($walkAnimationRows[$row].Duration)
+    }
+}
+$walkLoopDuration = 0
+for ($row = 1; $row -lt $walkAnimationRows.Count; $row++) {
+    $walkLoopDuration += $walkAnimationRows[$row].Duration
+}
+$puddleSoundStart = 3
+$puddleSoundPeriod = 18
+$puddleSoundDuration = 6
+if ($grassTile -ne 0xf8 -or $puddleTile -ne 0xf9 -or
+    -not $usesAgesTerrainTiles -or -not $usesPuddleFrameClock -or
+    -not $usesGrassPositionFrame -or -not $usesAgesGreenGrass -or
+    -not $suppressesTerrainEffects -or -not $terrainEffectsHaveOamPriority -or
+    -not $usesPuddleWalkSound -or
+    $splashSound -ne 0x87 -or $walkAnimationRows.Count -ne 13 -or
+    ($puddleSoundUpdates -join ',') -ne '3,21,39,57' -or
+    ($puddleSoundDurations -join ',') -ne '6,6,6,6' -or
+    $walkLoopDuration -ne 72 -or
+    ($puddleSoundUpdates[0] + $walkLoopDuration -
+        $puddleSoundUpdates[$puddleSoundUpdates.Count - 1]) -ne
+        $puddleSoundPeriod) {
+    throw 'Link terrain-effect tile, frame, priority, suppression, or puddle-sound behavior changed.'
+}
+
+$grassTerrainLabels = @(
+    'greenGrassAnimationFrame0',
+    'greenGrassAnimationFrame1'
+)
+$expectedGrassTerrainOam = @(
+    '17,1,36,8;17,7,36,8',
+    '17,1,36,40;17,7,36,40'
+)
+$puddleTerrainLabels = @(
+    [regex]::Matches(
+        (Get-AssemblyLabelBody $terrainEffectSource 'puddleAnimationFrames'),
+        '(?m)^\s*\.dw\s+(?<label>puddleAnimationFrame[0-3])\s*$') |
+        ForEach-Object { $_.Groups['label'].Value }
+)
+if (($puddleTerrainLabels -join ',') -ne
+        'puddleAnimationFrame0,puddleAnimationFrame1,puddleAnimationFrame2,puddleAnimationFrame3') {
+    throw 'Link grass or puddle terrain-effect OAM tables changed.'
+}
+$expectedPuddleTerrainOam = @(
+    '22,3,34,8;22,5,34,40',
+    '22,2,34,8;22,6,34,40',
+    '23,1,34,8;23,7,34,40',
+    '24,0,34,8;24,8,34,40'
+)
+$linkTerrainEffectRows = [Collections.Generic.List[string]]::new()
+for ($frame = 0; $frame -lt $grassTerrainLabels.Count; $frame++) {
+    $oam = Resolve-Oam $terrainEffectSource $grassTerrainLabels[$frame]
+    if ($oam -ne $expectedGrassTerrainOam[$frame]) {
+        throw "Link grass terrain-effect frame $frame changed."
+    }
+    $linkTerrainEffectRows.Add(
+        "grass`t$($grassTile.ToString('x2'))`t$frame`t0`t00`t0`t0`t0`tspr_common_sprites`t0`t0`t$oam`tdata/terrainEffects.s:$($grassTerrainLabels[$frame])+code/bank0.s:_drawObjectTerrainEffects")
+}
+for ($frame = 0; $frame -lt $puddleTerrainLabels.Count; $frame++) {
+    $oam = Resolve-Oam $terrainEffectSource $puddleTerrainLabels[$frame]
+    if ($oam -ne $expectedPuddleTerrainOam[$frame]) {
+        throw "Link puddle terrain-effect frame $frame changed."
+    }
+    $linkTerrainEffectRows.Add(
+        "puddle`t$($puddleTile.ToString('x2'))`t$frame`t8`t$($splashSound.ToString('x2'))`t$puddleSoundStart`t$puddleSoundPeriod`t$puddleSoundDuration`tspr_common_sprites`t0`t0`t$oam`tdata/terrainEffects.s:$($puddleTerrainLabels[$frame])+object_code/common/specialObjects/commonCode.s:@tileType_puddle")
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'effects\link_terrain_effects.tsv'),
+    @(
+        "# kind`ttile`tframe`tduration`tsound`tsound-start`tsound-period`tsound-duration`tsprite`ttile-base`tpalette`toam`tsource"
+    ) + $linkTerrainEffectRows,
+    [Text.UTF8Encoding]::new($false))
+
 # INTERAC_KILLENEMYPUFF (`$08) is the non-dropping burst used when a red Zol
 # splits. It is visually and semantically distinct from PART_ENEMY_DESTROYED.
 $interactionDataSource = Get-Content -Raw (Join-Path $Disassembly 'data\ages\interactionData.s')

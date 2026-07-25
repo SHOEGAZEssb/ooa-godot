@@ -61,6 +61,9 @@ public partial class Player : Node2D
     private Texture2D _damageLedgeJumpTexture = null!;
     private Texture2D _terrainShadowTexture = null!;
     private Vector2 _terrainShadowOffset;
+    private LinkTerrainEffectDatabase _terrainEffects = null!;
+    private int _terrainWalkUpdates;
+    private bool _terrainWalkSoundParameter;
     private Texture2D _deathTexture = null!;
     private TransformedLinkDatabase _transformedLink = null!;
     private Vector2 _precisePosition;
@@ -258,6 +261,8 @@ public partial class Player : Node2D
             LedgeJumpState.Airborne or
             LedgeJumpState.AirborneAfterScroll &&
         (_world.FrameCounter & 1) != 0;
+    internal LinkTerrainEffectFrame? CurrentTerrainEffect =>
+        GetCurrentTerrainEffect();
     internal bool IsFloorDoorRespawning =>
         _floorDoorRespawnCounter != 0 || _floorDoorRecoveryCounter != 0;
     internal int FloorDoorRespawnCounter => _floorDoorRespawnCounter;
@@ -345,6 +350,7 @@ public partial class Player : Node2D
         TerrainShadowDefinition terrainShadow = TerrainShadow.Load();
         _terrainShadowTexture = terrainShadow.Texture;
         _terrainShadowOffset = terrainShadow.Offset;
+        _terrainEffects = new LinkTerrainEffectDatabase();
         _deathTexture = BuildDeathTexture();
         _transformedLink = new TransformedLinkDatabase();
         EndNewGameSlowFall();
@@ -840,6 +846,8 @@ public partial class Player : Node2D
             return;
         }
 
+        ApplyTerrainWalkSoundParameter();
+
         Vector2 movementStart = _precisePosition;
         Vector2 input = Input.GetVector("move_left", "move_right", "move_up", "move_down");
         if (_world.MovementDisabled)
@@ -963,6 +971,7 @@ public partial class Player : Node2D
             if (!_world.CheckTileWarp(this))
                 _world.CheckRoomExit(this);
             AdvanceTransformationAnimation(_walking);
+            AdvanceTerrainWalkAnimation(walking: false);
             QueueRedraw();
             return;
         }
@@ -1003,6 +1012,7 @@ public partial class Player : Node2D
         if (!_world.IsTransitioning)
             ApplyTerrainAtFeet();
         AdvanceTransformationAnimation(_walking);
+        AdvanceTerrainWalkAnimation(_walking);
         QueueRedraw();
     }
 
@@ -1462,11 +1472,39 @@ public partial class Player : Node2D
         }
     }
 
+    private static readonly PlayerGroundDrawPass[] GroundDrawOrder =
+    [
+        PlayerGroundDrawPass.Body,
+        PlayerGroundDrawPass.TerrainEffect
+    ];
+
+    internal static ReadOnlySpan<PlayerGroundDrawPass> GroundDrawPasses =>
+        GroundDrawOrder;
+
     public override void _Draw()
     {
         if (LedgeShadowDrawn)
             DrawTexture(_terrainShadowTexture, _terrainShadowOffset);
 
+        foreach (PlayerGroundDrawPass pass in GroundDrawOrder)
+        {
+            switch (pass)
+            {
+                case PlayerGroundDrawPass.Body:
+                    DrawBody();
+                    break;
+                case PlayerGroundDrawPass.TerrainEffect:
+                    DrawTerrainEffect();
+                    break;
+                default:
+                    throw new InvalidOperationException(
+                        $"Unsupported Link ground draw pass {pass}.");
+            }
+        }
+    }
+
+    private void DrawBody()
+    {
         if (_deathAnimationActive)
         {
             DrawTextureRectRegion(
@@ -1647,6 +1685,69 @@ public partial class Player : Node2D
                 new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                 source);
         }
+    }
+
+    private void DrawTerrainEffect()
+    {
+        LinkTerrainEffectFrame? terrainEffect = GetCurrentTerrainEffect();
+        if (terrainEffect is not null)
+        {
+            // The original queues terrain sprites before Link, giving their
+            // lower OAM indices priority where pixels overlap. Godot gives the
+            // later draw priority, so the equivalent composition is drawn last.
+            DrawTexture(terrainEffect.Texture, terrainEffect.Offset);
+        }
+    }
+
+    private LinkTerrainEffectFrame? GetCurrentTerrainEffect()
+    {
+        // _drawObjectTerrainEffects rejects side-view tilesets, grounded
+        // screen-scroll state, and negative Z. Ground effects otherwise remain
+        // present while standing, using an item, or riding an ordinary moving
+        // platform; they are not gated by the walk animation.
+        if (!Visible || _world.ScreenScrolling || _world.SideScrolling ||
+            !IsGroundedForFloorButton)
+        {
+            return null;
+        }
+
+        TerrainInfo terrain = _world.GetActiveTerrain(Position).Terrain;
+        return _terrainEffects.FrameFor(
+            terrain.Tile, Position, _world.FrameCounter);
+    }
+
+    internal void ApplyTerrainWalkSoundParameter()
+    {
+        if (!_terrainWalkSoundParameter)
+            return;
+
+        LinkTerrainEffectFrame? terrainEffect = GetCurrentTerrainEffect();
+        if (terrainEffect is not { Sound: > 0 })
+            return;
+
+        // @tileType_puddle consumes animParameter bit 5 even when
+        // wLinkImmobilized suppresses playback. On other terrain the bit
+        // remains available until the walking animation loads its next frame.
+        _terrainWalkSoundParameter = false;
+        if (!_world.MovementDisabled)
+            _world.PlaySound(terrainEffect.Sound);
+    }
+
+    internal void AdvanceTerrainWalkAnimation(bool walking)
+    {
+        if (!walking)
+        {
+            _terrainWalkUpdates = 0;
+            _terrainWalkSoundParameter = false;
+            return;
+        }
+
+        _terrainWalkUpdates++;
+        int nextUpdate = _terrainWalkUpdates + 1;
+        if (_terrainEffects.WalkSoundWindowStarts(nextUpdate))
+            _terrainWalkSoundParameter = true;
+        else if (!_terrainEffects.WalkSoundWindowContains(nextUpdate))
+            _terrainWalkSoundParameter = false;
     }
 
     private void TryMove(Vector2 movement, bool allowWallSlide = false)
@@ -3682,6 +3783,12 @@ public partial class Player : Node2D
 internal readonly record struct SwordPart(int Y, int X, int Tile, bool FlipX = false, bool FlipY = false);
 
 internal readonly record struct SwordArc(int RadiusY, int RadiusX, int OffsetY, int OffsetX);
+
+internal enum PlayerGroundDrawPass
+{
+    Body,
+    TerrainEffect
+}
 
 internal enum SwordActionState
 {

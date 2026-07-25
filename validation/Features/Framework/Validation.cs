@@ -145,6 +145,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateHouseWarp();
         ValidateCaveWarps();
         ValidateTerrain();
+        ValidateLinkTerrainEffects();
         ValidateHealth();
         ValidatePlayerDamageAndDeath();
         ValidateChests();

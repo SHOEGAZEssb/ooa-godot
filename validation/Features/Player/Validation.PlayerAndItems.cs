@@ -8,6 +8,272 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateLinkTerrainEffects()
+    {
+        Vector2 grassPosition = new(56, 120);
+        Vector2 puddlePosition = new(56, 72);
+        TerrainInfo grassTerrain =
+            _world.LoadRoom(0, 0x06).GetTerrainInfo(grassPosition);
+        TerrainInfo puddleTerrain =
+            _world.LoadRoom(0, 0x38).GetTerrainInfo(puddlePosition);
+        if (grassTerrain.Tile != 0xf8 ||
+            grassTerrain.Type != TerrainType.Grass ||
+            puddleTerrain.Tile != 0xf9 ||
+            puddleTerrain.Type != TerrainType.Puddle)
+        {
+            throw new InvalidOperationException(
+                "Canonical rooms 0:06 `$73 and 0:38 `$43 no longer expose " +
+                "Ages grass `$f8 and shallow water `$f9.");
+        }
+
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var inventory = new InventoryState(_treasures, save);
+        var world = new ValidationRingPlayerWorld
+        {
+            ActiveTerrain = new ActiveTerrainInfo(
+                grassTerrain, grassPosition, grassPosition, 0x73)
+        };
+        var player = new Player { Name = "TerrainEffectValidationPlayer" };
+        AddChild(player);
+        player.Initialize(
+            world, inventory, grassPosition, new OracleRandom());
+
+        ReadOnlySpan<PlayerGroundDrawPass> groundDrawPasses =
+            Player.GroundDrawPasses;
+        if (groundDrawPasses.Length != 2 ||
+            groundDrawPasses[0] != PlayerGroundDrawPass.Body ||
+            groundDrawPasses[1] != PlayerGroundDrawPass.TerrainEffect)
+        {
+            throw new InvalidOperationException(
+                "Link's grass/puddle OAM no longer has foreground priority " +
+                "over his body.");
+        }
+
+        LinkTerrainEffectFrame? grass = player.CurrentTerrainEffect;
+        if (grass is null ||
+            grass.Kind != LinkTerrainEffectKind.Grass ||
+            grass.Tile != 0xf8 || grass.Frame != 0 || grass.Duration != 0 ||
+            grass.Sound != 0 || grass.SoundStart != 0 ||
+            grass.SoundPeriod != 0 || grass.SoundDuration != 0 ||
+            grass.Offset != new Vector2(-7, 1) ||
+            grass.Texture.GetSize() != new Vector2(14, 16) ||
+            !grass.Source.Contains(
+                "greenGrassAnimationFrame0",
+                StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Link did not select green grass terrain-effect OAM frame 0 " +
+                "at its source `(-7,+1)` anchor in room 0:06.");
+        }
+        ulong grassFrame0Hash =
+            OracleGraphicsCache.PixelHash(grass.Texture.GetImage());
+        if (grassFrame0Hash != 0x75dc0350c7f62b4aUL)
+        {
+            throw new InvalidOperationException(
+                "Link grass terrain-effect frame 0 pixel hash changed: " +
+                $"{grassFrame0Hash:x16}.");
+        }
+
+        player.SetScriptedPosition(new Vector2(60, 120));
+        LinkTerrainEffectFrame? grassFrame1 = player.CurrentTerrainEffect;
+        if (grassFrame1 is null ||
+            grassFrame1.Kind != LinkTerrainEffectKind.Grass ||
+            grassFrame1.Frame != 1 || grassFrame1.Duration != 0 ||
+            grassFrame1.Sound != 0 ||
+            grassFrame1.Offset != new Vector2(-7, 1) ||
+            grassFrame1.Texture.GetSize() != new Vector2(14, 16) ||
+            !grassFrame1.Source.Contains(
+                "greenGrassAnimationFrame1",
+                StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Link's `(xh XOR yh) bit 2 did not select green grass " +
+                "terrain-effect OAM frame 1 within room 0:06 tile `$73.");
+        }
+        ulong grassFrame1Hash =
+            OracleGraphicsCache.PixelHash(grassFrame1.Texture.GetImage());
+        if (grassFrame1Hash != 0xe204832ae00b118aUL)
+        {
+            throw new InvalidOperationException(
+                "Link grass terrain-effect frame 1 pixel hash changed: " +
+                $"{grassFrame1Hash:x16}.");
+        }
+        player.SetScriptedPosition(puddlePosition);
+
+        world.ActiveTerrain = new ActiveTerrainInfo(
+            puddleTerrain, puddlePosition, puddlePosition, 0x43);
+        int[] counters = [0, 7, 8, 15, 16, 23, 24, 31, 32];
+        int[] expectedFrames = [0, 0, 1, 1, 2, 2, 3, 3, 0];
+        Vector2[] expectedOffsets =
+        [
+            new(-5, 6),
+            new(-6, 6),
+            new(-7, 7),
+            new(-8, 8)
+        ];
+        Vector2[] expectedSizes =
+        [
+            new(10, 16),
+            new(12, 16),
+            new(14, 16),
+            new(16, 16)
+        ];
+        ulong[] expectedPuddleHashes =
+        [
+            0x60764db388700bdaUL,
+            0x3a7d8efe3de45a9fUL,
+            0x4295bf38614c83beUL,
+            0xb5f1e08fe1b74228UL
+        ];
+        for (int index = 0; index < counters.Length; index++)
+        {
+            world.FrameCounter = counters[index];
+            LinkTerrainEffectFrame? puddle = player.CurrentTerrainEffect;
+            int expectedFrame = expectedFrames[index];
+            if (puddle is null ||
+                puddle.Kind != LinkTerrainEffectKind.Puddle ||
+                puddle.Tile != 0xf9 ||
+                puddle.Frame != expectedFrame ||
+                puddle.Duration != 8 ||
+                puddle.Sound != OracleSoundEngine.SndSplash ||
+                puddle.SoundStart != 3 ||
+                puddle.SoundPeriod != 18 ||
+                puddle.SoundDuration != 6 ||
+                puddle.Offset != expectedOffsets[expectedFrame] ||
+                puddle.Texture.GetSize() != expectedSizes[expectedFrame] ||
+                !puddle.Source.Contains(
+                    $"puddleAnimationFrame{expectedFrame}",
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Link shallow-water terrain effect selected the wrong " +
+                    $"OAM frame at global update ${counters[index]:x2}; " +
+                    $"expected frame {expectedFrame}.");
+            }
+            ulong puddleHash =
+                OracleGraphicsCache.PixelHash(puddle.Texture.GetImage());
+            if (puddleHash != expectedPuddleHashes[expectedFrame])
+            {
+                throw new InvalidOperationException(
+                    $"Link shallow-water terrain-effect frame {expectedFrame} " +
+                    $"pixel hash changed: {puddleHash:x16}.");
+            }
+        }
+
+        world.Sounds.Clear();
+        player.AdvanceTerrainWalkAnimation(walking: false);
+        int[] expectedSplashUpdates = [3, 21, 39, 57];
+        for (int update = 1; update <= expectedSplashUpdates[^1]; update++)
+        {
+            int soundsBefore = world.Sounds.Count;
+            player.ApplyTerrainWalkSoundParameter();
+            bool expectedSplash =
+                Array.IndexOf(expectedSplashUpdates, update) >= 0;
+            if ((world.Sounds.Count != soundsBefore) != expectedSplash ||
+                (expectedSplash &&
+                    world.Sounds[^1] != OracleSoundEngine.SndSplash))
+            {
+                throw new InvalidOperationException(
+                    $"Link's puddle walk animation selected the wrong sound " +
+                    $"cadence at update {update}; expected splash={expectedSplash}.");
+            }
+            player.AdvanceTerrainWalkAnimation(walking: true);
+        }
+
+        player.AdvanceTerrainWalkAnimation(walking: false);
+        world.Sounds.Clear();
+        world.ActiveTerrain = new ActiveTerrainInfo(
+            new TerrainInfo(0x00, 0x00, TerrainType.Normal, HazardType.None),
+            Vector2.Zero,
+            Vector2.Zero,
+            0);
+        for (int update = 1; update <= 3; update++)
+        {
+            player.ApplyTerrainWalkSoundParameter();
+            player.AdvanceTerrainWalkAnimation(walking: true);
+        }
+        world.ActiveTerrain = new ActiveTerrainInfo(
+            puddleTerrain, puddlePosition, puddlePosition, 0x43);
+        player.ApplyTerrainWalkSoundParameter();
+        player.ApplyTerrainWalkSoundParameter();
+        player.AdvanceTerrainWalkAnimation(walking: true);
+        player.ApplyTerrainWalkSoundParameter();
+        if (world.Sounds.Count != 1 ||
+            world.Sounds[0] != OracleSoundEngine.SndSplash)
+        {
+            throw new InvalidOperationException(
+                "Link's unconsumed walk-animation sound parameter did not " +
+                "survive until he entered shallow water, or played twice.");
+        }
+
+        player.AdvanceTerrainWalkAnimation(walking: false);
+        world.Sounds.Clear();
+        player.ApplyTerrainWalkSoundParameter();
+        player.AdvanceTerrainWalkAnimation(walking: true);
+        player.ApplyTerrainWalkSoundParameter();
+        player.AdvanceTerrainWalkAnimation(walking: true);
+        world.MovementDisabled = true;
+        player.ApplyTerrainWalkSoundParameter();
+        world.MovementDisabled = false;
+        player.ApplyTerrainWalkSoundParameter();
+        if (world.Sounds.Count != 0)
+        {
+            throw new InvalidOperationException(
+                "wLinkImmobilized did not consume and suppress the pending " +
+                "shallow-water step sound.");
+        }
+        player.AdvanceTerrainWalkAnimation(walking: false);
+
+        player.BeginForcedRoomEntryMovement(Vector2I.Right);
+        if (!player.Walking || player.CurrentTerrainEffect is null)
+        {
+            throw new InvalidOperationException(
+                "Walking Link lost the shallow-water terrain effect.");
+        }
+        player.EndForcedRoomEntryMovement();
+
+        world.ScreenScrolling = true;
+        if (player.CurrentTerrainEffect is not null)
+        {
+            throw new InvalidOperationException(
+                "wScrollMode `$08 did not suppress Link's grounded terrain effect.");
+        }
+        world.ScreenScrolling = false;
+        world.SideScrolling = true;
+        if (player.CurrentTerrainEffect is not null)
+        {
+            throw new InvalidOperationException(
+                "TILESETFLAG_SIDESCROLL did not suppress Link's grounded terrain effect.");
+        }
+        world.SideScrolling = false;
+        world.RidingObject = true;
+        if (player.CurrentTerrainEffect is null)
+        {
+            throw new InvalidOperationException(
+                "wLinkRidingObject incorrectly suppressed Link's grounded " +
+                "terrain effect without a source visible-bit-6 clear.");
+        }
+        world.RidingObject = false;
+        world.ActiveTerrain = new ActiveTerrainInfo(
+            new TerrainInfo(0x00, 0x00, TerrainType.Normal, HazardType.None),
+            Vector2.Zero,
+            Vector2.Zero,
+            0);
+        if (player.CurrentTerrainEffect is not null)
+        {
+            throw new InvalidOperationException(
+                "Ordinary terrain incorrectly selected a Link grass/puddle effect.");
+        }
+
+        player.Free();
+        GD.Print(
+            "Validated Link grass/shallow-water terrain effects: canonical " +
+            "`$f8/`$f9 probes, position-selected grass OAM, four eight-update " +
+            "puddle frames, foreground OAM priority, positioned pixels, " +
+            "18-update splash cadence/suppression, draw-state suppression, " +
+            "and walking.");
+    }
+
     private void ValidateShield()
     {
         OracleSaveData save = OracleSaveData.CreateStandardGame();

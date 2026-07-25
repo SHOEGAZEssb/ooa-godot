@@ -24,6 +24,7 @@ public sealed class PlayerWorld : IPlayerWorld
 
     public int FrameCounter => _entities.FrameCounter;
     public bool IsTransitioning => _transitions.IsTransitioning;
+    public bool ScreenScrolling => _transitions.ScrollActive;
     public bool DialogueOpen => _interactions.DialogueOpen;
     public bool SwordDisabled => _roomEvents.Active || _entities.PlayerSwordDisabled;
     public bool ItemUsageDisabled => _entities.PlayerItemUsageDisabled;

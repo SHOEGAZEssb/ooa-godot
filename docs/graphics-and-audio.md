@@ -61,6 +61,25 @@ ledge fall uses the same cell on the Link-object parity; the special
 cross-screen pre-fall disables it until the destination landing scan restores
 terrain effects.
 
+Grounded Link's other terrain effects use the same raw-OAM path. The original
+queues them before Link, so their lower OAM indices win overlapping pixels;
+Godot must draw the equivalent composition after Link to preserve that
+foreground priority. Ages samples `yh+$05`: exact metatile `$f8` draws
+`greenGrassAnimationFrame0/1` at `(-7,+1)`, selected by bit 2 of
+`(xh XOR yh)`, while shallow-water `$f9` selects the four
+`puddleAnimationFrame0-3` compositions with
+`(wFrameCounter >> 3) & 3`. The grass remains visible even while Link stands
+still; it is a terrain overlap, not a walking particle. Walking on `$f9` also
+consumes Link's walk-animation parameter bit 5 and requests `SND_SPLASH $87`
+on updates 3, 21, 39, 57, and every 18 walking updates thereafter. An
+unconsumed bit remains available for its six-update animation frame, so
+entering `$f9` during that window still plays the sound; an immobilized Link
+consumes the trigger without playing it. Side-view tilesets, screen scrolling,
+and negative Z suppress the ground composition. An ordinary moving platform's
+`wLinkRidingObject` does not; specialized owners such as the minecart must
+clear Link's terrain-effect visible bit explicitly when their runtime path is
+implemented.
+
 An OAM composition may select several effective OBJ palettes in one frame.
 Palette overrides are therefore keyed by the effective `base XOR flags`
 palette, included in the immutable OAM cache key, and applied per OAM cell.

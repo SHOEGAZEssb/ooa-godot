@@ -95,6 +95,17 @@ breakable-tile effect byte's low nibble as the interaction ID and bit 4 as the
 spawned interaction's flicker subid; it does not treat effect `$10` as another
 interaction.
 
+`Import-EnemyData.ps1` emits `effects/link_terrain_effects.tsv` beside the
+universal terrain shadow from their shared `terrainEffects.s` source. The Link
+record retains Ages' exact grass `$f8` and puddle `$f9` metatiles, two green
+grass frames selected by `(xh XOR yh)` bit 2, four positioned puddle OAM
+frames, the handler-derived eight-update visual cadence, and the
+`SND_SPLASH $87` walking trigger's first-update/18-update period from Link's
+animation parameters, including its six-update consumption window. The
+importer also verifies terrain OAM's foreground priority plus the side-view and
+`wScrollMode=$08` suppression branches; runtime must not replace these raw
+compositions with generic particles.
+
 `Import-GashaData.ps1` owns the complete Ages `INTERAC_GASHA_SPOT $b6`
 closure. It emits all 16 group/room/subid placements and their source ranks,
 the 25 rank/maturity probability rows, five random-ring tiers, all ten reward

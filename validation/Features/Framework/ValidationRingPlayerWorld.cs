@@ -8,14 +8,15 @@ namespace oracleofages;
 internal sealed class ValidationRingPlayerWorld : IPlayerWorld
 {
     public int FrameCounter { get; set; }
-    public bool IsTransitioning => false;
+    public bool IsTransitioning { get; set; }
+    public bool ScreenScrolling { get; set; }
     public bool DialogueOpen => false;
     public bool SwordDisabled => false;
     public bool ItemUsageDisabled => false;
-    public bool MovementDisabled => false;
+    public bool MovementDisabled { get; set; }
     public bool RingTransformationsAllowed { get; set; } = true;
-    public bool RidingObject => false;
-    public bool SideScrolling => false;
+    public bool RidingObject { get; set; }
+    public bool SideScrolling { get; set; }
     public SideScrollPlayerParameters SideScrollParameters => default;
     public int SwordHitCalls { get; private set; }
     public int LastSwordDamage { get; private set; }
@@ -63,7 +64,9 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     {
     }
 
-    public ActiveTerrainInfo GetActiveTerrain(Vector2 playerPosition) => default;
+    public ActiveTerrainInfo ActiveTerrain { get; set; }
+    public ActiveTerrainInfo GetActiveTerrain(Vector2 playerPosition) =>
+        ActiveTerrain;
     public SideScrollTerrainState GetSideScrollTerrain(Vector2 playerPosition) =>
         default;
     public int GetAdjacentWallsBitset(Vector2 playerPosition) => 0;
