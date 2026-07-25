@@ -2078,7 +2078,7 @@ public sealed partial class ValidationRoot
                 "horizontally by the combined $06+$06 collision radii.");
         }
 
-        _player.WarpTo(follower.Position + Vector2.Right * 16);
+        _player.WarpTo(follower.Position + Vector2.Right * 12);
         _player.Face(Vector2I.Left);
         if (!TryInteract(_player) || !_dialogue.IsOpen ||
             _dialogue.CurrentMessage != DialogueBox.PlainText(record.Texts.Talk.Message) ||
@@ -3459,7 +3459,7 @@ public sealed partial class ValidationRoot
         }
 
         NpcCharacter bird = actors["Bird"];
-        _player.WarpTo(bird.Position + Vector2.Left * 16, recordSafe: false);
+        _player.WarpTo(bird.Position + Vector2.Left * 12, recordSafe: false);
         _player.Face(Vector2I.Right);
         if (!TryInteract(_player) || !_dialogue.IsOpen ||
             _dialogue.CurrentMessage != "No! I have to\nhear Nayru's\nsong!" ||

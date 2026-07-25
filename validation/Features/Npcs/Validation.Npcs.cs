@@ -247,6 +247,20 @@ public sealed partial class ValidationRoot
         {
             throw new InvalidOperationException("The room 0:48 villager did not stop Link at the original bottom collision radius.");
         }
+
+        _player.WarpTo(new Vector2(0x28, 0x46));
+        _player.Face(Vector2I.Up);
+        if (_entities.FindTalkTarget(_player) is not null ||
+            !TryInteract(_player) ||
+            _dialogue.CurrentMessage != "Maku Path")
+        {
+            throw new InvalidOperationException(
+                "Room 0:48's sign $32 did not win after the exact 10px A-button " +
+                "probe missed villager $3a:$03 at $48,$38.");
+        }
+        _dialogue.Close();
+        _player.WarpTo(villager.Position + Vector2.Down * 12.0f);
+        _player.Face(Vector2I.Up);
         if (!TryInteract(_player) || !_dialogue.IsOpen)
             throw new InvalidOperationException("The room 0:48 villager did not open dialogue.");
         int frameBase = villager.Record.TileBase / 4;
@@ -348,8 +362,9 @@ public sealed partial class ValidationRoot
         }
 
         GD.Print("Validated villager idle animation, $28 Link awareness, 30-frame facing delay, " +
-            "TX_1420 dialogue, retained/preloaded NPC screen scrolling, room 0:66 " +
-            "Link-relative draw priority, and Link sprite palette 0.");
+            "TX_1420 dialogue, exact room 0:48 sign/NPC A-button geometry, " +
+            "retained/preloaded NPC screen scrolling, room 0:66 Link-relative draw " +
+            "priority, and Link sprite palette 0.");
     }
 
     private void ValidateRoom148NpcInteractions()
@@ -865,7 +880,7 @@ public sealed partial class ValidationRoot
 
         bool CanTalkToVillager()
         {
-            _player.WarpTo(villager.Position + Vector2.Down * 16.0f);
+            _player.WarpTo(villager.Position + Vector2.Down * 12.0f);
             _player.Face(Vector2I.Up);
             return villager.CanTalkTo(_player);
         }
@@ -1035,7 +1050,7 @@ public sealed partial class ValidationRoot
         }
         bool CanTalkTo(NpcCharacter npc)
         {
-            _player.WarpTo(npc.Position + Vector2.Down * 16.0f);
+            _player.WarpTo(npc.Position + Vector2.Down * 12.0f);
             _player.Face(Vector2I.Up);
             return npc.CanTalkTo(_player);
         }
@@ -2439,7 +2454,7 @@ public sealed partial class ValidationRoot
         _roomEvents.CommandTraceSink = trace;
         NpcCharacter guard = _entities.Entities<NpcCharacter>().Single(npc =>
             npc.Record is { Id: 0x58, SubId: 0x02 });
-        _player.WarpTo(new Vector2(0x5a, 0x38));
+        _player.WarpTo(new Vector2(0x54, 0x38));
         _player.Face(Vector2I.Left);
         _sound.ClearPlayRequestAudit();
         if (!_interactions.TryInteract(_player) ||
@@ -2526,7 +2541,7 @@ public sealed partial class ValidationRoot
                 "Room 1:86 did not complete its $40 explanation/$0c return/$80 aftermath sequence exactly.");
         }
 
-        _player.WarpTo(new Vector2(0x58, 0x48));
+        _player.WarpTo(new Vector2(0x58, 0x44));
         _player.Face(Vector2I.Up);
         if (!_interactions.TryInteract(_player) ||
             _dialogue.CurrentMessage != DialogueBox.PlainText(guard.Message))
@@ -2991,7 +3006,7 @@ public sealed partial class ValidationRoot
         }
         foreach (NpcCharacter monkey in introMonkeys)
         {
-            _player.WarpTo(monkey.Position + Vector2.Down * 16.0f);
+            _player.WarpTo(monkey.Position + Vector2.Down * 12.0f);
             _player.Face(Vector2I.Up);
             if (!monkey.CanTalkTo(_player))
                 throw new InvalidOperationException(
@@ -3374,7 +3389,7 @@ public sealed partial class ValidationRoot
 
         bool CanTalkTo(NpcCharacter npc)
         {
-            _player.WarpTo(npc.Position + Vector2.Down * 16.0f);
+            _player.WarpTo(npc.Position + Vector2.Down * 12.0f);
             _player.Face(Vector2I.Up);
             return manager.FindTalkTarget(_player) == npc;
         }
@@ -3654,7 +3669,7 @@ public sealed partial class ValidationRoot
             throw new InvalidOperationException(
                 "Room 2:ea did not provide Blossom $2b:$00 for child-name validation.");
 
-        _player.WarpTo(blossom.Position + Vector2.Down * 16.0f);
+        _player.WarpTo(blossom.Position + Vector2.Down * 12.0f);
         _player.Face(Vector2I.Up);
         if (!_interactions.TryInteract(_player) ||
             !_dialogue.CurrentMessage.Contains("would you call", StringComparison.Ordinal))

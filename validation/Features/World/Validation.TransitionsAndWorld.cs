@@ -42,7 +42,7 @@ public sealed partial class ValidationRoot
     private void LoadNpcValidationRoom()
     {
         LoadDebugRoom(0, 0x48);
-        _player.WarpTo(new Vector2(0x38, 0x58));
+        _player.WarpTo(new Vector2(0x38, 0x54));
         _player.Face(Vector2I.Up);
     }
 

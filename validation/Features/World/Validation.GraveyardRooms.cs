@@ -198,7 +198,7 @@ public sealed partial class ValidationRoot
         if (!liveGhini.Visible)
             throw new InvalidOperationException(
                 "The linked+D1 Ghini predicate did not survive actual room loading.");
-        _player.WarpTo(liveGhini.Position + Vector2.Down * 16.0f, recordSafe: false);
+        _player.WarpTo(liveGhini.Position + Vector2.Down * 12.0f, recordSafe: false);
         _player.Face(Vector2I.Up);
         if (!_interactions.TryInteract(_player) || !_dialogue.ChoiceActive ||
             !_dialogue.CurrentMessage.Contains("Do you?", StringComparison.Ordinal))

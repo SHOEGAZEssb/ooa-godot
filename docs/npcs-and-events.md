@@ -119,6 +119,13 @@ The ordinary path is intentionally small:
 5. `InteractionController` asks the entity manager for the first `ITalkTarget`,
    applies facing, and opens the imported text at the actor's textbox position.
 
+`rungenericnpc` reaches `initcollisions`, which installs strict `$06/$06`
+collision radii and adds the actor to the A-button-sensitive object list.
+Target acquisition tests the point ten pixels ahead of Link against those
+radii; it does not grow the visible sprite into a talk box. A-sensitive objects
+retain priority over `interactWithTileBeforeLink`, so this exact miss is what
+allows a nearby sign or chest to receive the same press.
+
 Visibility, dialogue, and state-selected position are separate because they
 reproduce different original effects:
 

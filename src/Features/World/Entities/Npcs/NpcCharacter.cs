@@ -48,6 +48,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     public int TextPosition => _textPosition;
     public const float CollisionRadius = 6.0f;
     public const float LinkCollisionRadius = 6.0f;
+    internal const int AButtonPointOffset = 10;
     public const float LinkBlockingRadius = CollisionRadius + LinkCollisionRadius;
     public Rect2 SpriteBounds => new(Position + new Vector2(-8, -8), new Vector2(16, 16));
     public int CurrentFrameColumn => GetFrameColumn();
@@ -137,8 +138,6 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         new Vector2(
             (_collisionRadiusX + LinkCollisionRadius) * 2.0f,
             (_collisionRadiusY + LinkCollisionRadius) * 2.0f));
-    public Rect2 InteractionBounds => SpriteBounds.Grow(8);
-
     public void Initialize(NpcRecord record)
     {
         Record = record;
@@ -245,8 +244,11 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         if (!Active || (!_scriptButtonSensitive &&
             (TextId == 0 || string.IsNullOrEmpty(Message))))
             return false;
-        Vector2 talkPoint = player.Position + (Vector2)player.FacingVector * 8.0f;
-        return InteractionBounds.HasPoint(talkPoint);
+        return ContainsAButtonPoint(
+            player,
+            _collisionRadiusY,
+            _collisionRadiusX,
+            AButtonPointOffset);
     }
 
     /// <summary>
@@ -262,6 +264,16 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     {
         if (!Active || !_scriptButtonSensitive)
             return false;
+        return ContainsAButtonPoint(
+            player, collisionRadiusY, collisionRadiusX, pointOffset);
+    }
+
+    private bool ContainsAButtonPoint(
+        Player player,
+        float collisionRadiusY,
+        float collisionRadiusX,
+        int pointOffset)
+    {
         Vector2 link = OracleObjectMath.ToPixelPosition(player.Position);
         Vector2 target = OracleObjectMath.ToPixelPosition(Position);
         Vector2 point = link + (Vector2)player.FacingVector * pointOffset;
