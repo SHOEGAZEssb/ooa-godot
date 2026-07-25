@@ -4,8 +4,8 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Dialogue used by the scripted parts of the Bipin/Blossom family which are
-/// not an actor's ordinary stage-selected talk loop.
+/// Dialogue used by scripted Bipin/Blossom interactions which are not an
+/// actor's ordinary stage-selected talk loop, including past Bipin $28:$0a.
 /// </summary>
 internal sealed class BipinBlossomFamilyInteractionDatabase
 {
@@ -27,9 +27,9 @@ internal sealed class BipinBlossomFamilyInteractionDatabase
             _texts.Add(textId, row.Base64Utf8(1));
         }
 
-        if (_texts.Count != 5)
+        if (_texts.Count != 8)
             throw new InvalidOperationException(
-                $"Expected five Bipin/Blossom interaction texts, got {_texts.Count}.");
+                $"Expected eight Bipin/Blossom interaction texts, got {_texts.Count}.");
     }
 
     public Dialogue Text(

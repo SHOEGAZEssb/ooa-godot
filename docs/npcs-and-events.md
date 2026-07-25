@@ -209,6 +209,15 @@ an ordinary placed actor plus a specialized dialogue owner:
 fixed-update patrol and reversal behavior while continuing to use
 `NpcCharacter` for rendering, talking, and collision.
 
+Past room `3:fc` uses the same narrow native-adapter pattern for
+`INTERAC_BIPIN $28:$0a`: animation `$09`, Link collision, and Link-relative
+priority remain fixed-update actor behavior. Its `bipinScript3` talk loop is
+owned by `InteractionController` because it sequences TX `$4311`, scripted
+`TREASURE_GASHA_SEED $08`, room-item flag `$20`, the two-hand TX `$004b`
+presentation, TX `$4312`, and repeat TX `$4313`. Preserve the script engine's
+`wait 1` boundary: while the reward textbox is active the delay counter cannot
+advance, then `checktext` and TX `$4312` run on the first update after it closes.
+
 A group/room branch in `RoomEntityFactory` is acceptable only when the original
 defines that exact linked composition. Prefer interaction ID/subid dispatch for
 behavior shared across placements, and import a general selector table when the
@@ -237,6 +246,13 @@ Room `1:48` is the reference for a single native NPC with ordinary neighbors:
   therefore tile base `$02` comes from `spr_common_sprites`, not the worker
   sheet. Preserve both the no-load index and bank bit when resolving such child
   effects to a source PNG.
+
+Past guy `$43:$01` in room `1:45` and `$43:$02` in room `1:68` are the smaller
+ordinary-predicate reference. Import the shared `getGameProgress_2` dialogue
+table for TX `$1701-$1704/$1707` and both source existence sets: subid `$01`
+exists only in states `$01/$02`, while subid `$02` exists only in states
+`$03/$04/$07`. Both state-0 initializers overwrite `oamFlags` with `$03`;
+represent that as a common palette override rather than a room exception.
 
 Room `2:0e` is the reference for placed native NPCs whose actors persist while
 one global story flag changes several state-0 and per-update properties:

@@ -459,6 +459,24 @@ $npcInitialAnimationBySubid['57:2'] =
 $npcInitialAnimationBySubid['57:3'] =
     [Convert]::ToInt32($introMonkeyAnimationMatch.Groups['subid3'].Value, 16)
 
+# INTERAC_BIPIN $28:$0a is the past-era one-time Gasha Seed giver in room
+# 3:fc. Its native state 0 selects animation $09, while the loaded helper
+# script installs collisions and owns the complete TX $4311/$4312/$4313,
+# room-item-bit, and TREASURE_GASHA_SEED $08 sequence.
+$pastBipinSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\interactions\bipin.s')
+$pastBipinScriptSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+if ($pastBipinSource -notmatch '(?ms)^@bipin3:.*?ld a,\$09\s+call interactionSetAnimation.*?^@runScriptAndAnimate:\s+call interactionRunScript\s+jp @updateAnimation.*?^@updateCollisionAndVisibility:\s+call objectPreventLinkFromPassing\s+jp objectSetPriorityRelativeToLink_withTerrainEffects' -or
+    $pastBipinScriptSource -notmatch '(?ms)^bipinScript3:\s+initcollisions.*?enableinput\s+checkabutton\s+disableinput\s+jumpifroomflagset \$20, @alreadyGaveSeed\s+showtext TX_4311\s+giveitem TREASURE_GASHA_SEED, \$08\s+wait 1\s+checktext\s+showtext TX_4312.*?^@alreadyGaveSeed:\s+showtext TX_4313' -or
+    -not $allTexts.ContainsKey(0x4311) -or
+    -not $allTexts.ContainsKey(0x4312) -or
+    -not $allTexts.ContainsKey(0x4313)) {
+    throw 'Past Bipin $28:$0a animation or Gasha Seed script changed in the disassembly.'
+}
+$npcInitialAnimationBySubid['40:10'] = 9
+$npcTextBySubid['40:10'] = 0x4311
+
 # Room 1:75 contains the pre-Black Tower ensemble and two var03-selected
 # hardhat workers. Pin the initial animation writes performed by the linked
 # Impa/Nayru initializers; their script lanes use all four facing animations.
@@ -510,6 +528,10 @@ if ($room157VillagerSource -notmatch '(?ms)^@initSubid05:\s+ld a,\$01\s+ld e,Int
 }
 $npcPaletteBySubid = @{
     '59:5' = 1
+    # INTERAC_PAST_GUY $43:$01/$02 overwrites oamFlags with `$03 after
+    # interactionInitGraphics.
+    '67:1' = 3
+    '67:2' = 3
     # The second ring-help book increments the palette loaded by
     # interactionInitGraphics before selecting its script.
     '229:1' = 2
@@ -623,6 +645,12 @@ $npcRows = [Collections.Generic.List[string]]::new()
 $npcRows.Add("# group`troom`tid`tsubid`ty`tx`tvar03`ttext-id`tsprite`ttile-base`tpalette`tdefault-animation`tcan-face`tup-animation`tright-animation`tdown-animation`tleft-animation`tutf8-base64")
 $mainObjectLines = Read-ImportLines (Join-Path $Disassembly "objects\ages\mainData.s")
 $mainObjectSource = $mainObjectLines -join "`n"
+if ($mainObjectSource -notmatch '(?ms)^group1Map45ObjectData:\s+obj_Interaction \$43 \$01 \$68 \$18\s+obj_End') {
+    throw 'Room 1:45 no longer contains past guy $43:$01 at $68,$18.'
+}
+if ($mainObjectSource -notmatch '(?ms)^group3MapfcObjectData:\s+obj_Interaction \$28 \$0a \$40 \$50\s+obj_End') {
+    throw 'Room 3:fc no longer contains past Bipin $28:$0a at $40,$50.'
+}
 if ($mainObjectSource -notmatch '(?ms)^group1Map57ObjectData:\s+obj_Interaction \$3b \$05 \$38 \$48\s+obj_End') {
     throw 'Room 1:57 no longer contains female villager $3b:$05 at $38,$48.'
 }
@@ -2230,6 +2258,7 @@ $childTextIds = @(
 )
 $familyInteractionTextIds = @(
     0x4301,
+    0x4311, 0x4312, 0x4313,
     0x4407, 0x4408, 0x4409, 0x440a
 )
 $familyScriptSource = Read-ImportText (
@@ -2497,6 +2526,7 @@ Add-NpcGameProgress2DialogueTable 0x3a @(0x06, 0x07) -1 'villager.s' '@subid6And
 Add-NpcGameProgress2DialogueTable 0x38 @(0x00) -1 'pastGirl.s' '@scriptTable'
 Add-NpcGameProgress2DialogueTable 0x3b @(0x05) -1 'femaleVillager.s' '@subid5ScriptTable'
 Add-NpcGameProgress2DialogueTable 0x44 @(0x04) -1 'miscMan2.s' 'pastHoboScriptTable'
+Add-NpcGameProgress2DialogueTable 0x43 @(0x01, 0x02) -1 'pastGuy.s' '@subid1And2ScriptTable'
 
 # hardhatWorkerSubid02Script checks room flag $80 before its A-button loop.
 # The initial TX_1003 remains in the base NPC row; only the completed phase
@@ -2510,8 +2540,8 @@ $hardhatCompletedEncoded = [Convert]::ToBase64String(
 $npcDialogueRows.Add(
     "58`t02`t*`tcurrent-room-flag`t80`t*`t1004`thardhatWorkerSubid02Script:@alreadySawCutscene`t$hardhatCompletedEncoded")
 
-if ($npcDialogueRows.Count -ne 101) {
-    throw "Expected 100 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
+if ($npcDialogueRows.Count -ne 117) {
+    throw "Expected 116 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\npc_dialogue.tsv'),
@@ -3146,6 +3176,7 @@ $npcStageSelectionSource = $npcVisibilitySources['miscMan2.s']
 foreach ($expectedTable in @(
     '(?ms)^@data0:.*?^@@subid1:\s*\r?\n\s*\.db \$00 \$01 \$02 \$ff\s*\r?\n^@@subid2:\s*\r?\n\s*\.db \$03 \$04 \$05 \$ff',
     '(?ms)^@data3:.*?^@@subid4:\s*\r?\n\s*\.db \$00 \$01 \$05 \$ff\s*\r?\n^@@subid5:\s*\r?\n\s*\.db \$04 \$ff',
+    '(?ms)^@data5:.*?^@@subid1:\s*\r?\n\s*\.db \$01 \$02 \$ff\s*\r?\n^@@subid2:\s*\r?\n\s*\.db \$03 \$04 \$07 \$ff',
     '(?ms)^@data6:.*?^@@subid2:\s*\r?\n\s*\.db \$00 \$01 \$02 \$ff\s*\r?\n^@@subid3:\s*\r?\n\s*\.db \$03 \$04 \$05 \$ff'
 )) {
     if ($npcStageSelectionSource -notmatch $expectedTable) {
@@ -3163,6 +3194,8 @@ Add-NpcGameProgress2SetVisibility 0x3b 0x05 -1 @(0, 1, 2, 3, 5, 6) 'femaleVillag
 Add-NpcGameProgress2SetVisibility 0x3a 0x06 -1 @(0, 1, 2) 'villager.s:@initSubid06'
 Add-NpcGameProgress2SetVisibility 0x3a 0x07 -1 @(3, 4, 5, 6, 7) 'villager.s:@initSubid07'
 Add-NpcGameProgress2SetVisibility 0x38 0x00 -1 @(0, 3, 4, 5, 6, 7) 'pastGirl.s:@subid0Init'
+Add-NpcGameProgress2SetVisibility 0x43 0x01 -1 @(1, 2) 'pastGuy.s:@subid1'
+Add-NpcGameProgress2SetVisibility 0x43 0x02 -1 @(3, 4, 7) 'pastGuy.s:@subid2'
 
 # Impa's shared story-state function controls her room NPC subids.
 # House subid $00 adds $09 in a linked game, selecting one of the exported
@@ -3302,8 +3335,8 @@ Add-NpcCurrentRoomVisibility 0xab 0x12 -1 0 0x40 $false 'zora.s:@deleteIfFlagSet
 
 Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symmetryNpc.s:@subid0cInit'
 
-if ($npcVisibilityRows.Count -ne 333) {
-    throw "Expected 332 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 338) {
+    throw "Expected 337 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\npc_visibility.tsv'),

@@ -587,6 +587,236 @@ public sealed partial class ValidationRoot
             "direction cooldown, live refresh, and re-entry.");
     }
 
+    private void ValidateRooms145And3fcNpcInteractions()
+    {
+        const double frame = 1.0 / 60.0;
+
+        var pastGuyRoot = new Node { Name = "Room145PastGuyValidation" };
+        AddChild(pastGuyRoot);
+        OracleSaveData pastGuySave = OracleSaveData.CreateStandardGame();
+        var pastGuyManager = new RoomEntityManager(
+            pastGuyRoot, new NpcDatabase(), new EnemyDatabase(), pastGuySave);
+        pastGuyManager.LoadRoom(1, _world.LoadRoom(1, 0x45));
+
+        NpcCharacter PastGuy1() =>
+            pastGuyManager.Entities<NpcCharacter>().Single(npc =>
+                npc.Record is { Id: 0x43, SubId: 0x01 });
+        void SetEssences(byte value)
+        {
+            if (pastGuySave.WriteWramByte(0xc6bf, value))
+                pastGuySave.CommitInventoryChange();
+        }
+
+        NpcCharacter pastGuy = PastGuy1();
+        if (pastGuyManager.Entities<NpcCharacter>().Count != 1 ||
+            pastGuy.Position != new Vector2(0x18, 0x68) ||
+            pastGuy.Record.Palette != 3 ||
+            pastGuy.Record.DefaultAnimation != 4 ||
+            pastGuy.Active || pastGuy.TextId != 0x1701)
+        {
+            throw new InvalidOperationException(
+                "Room 1:45 did not load hidden past guy $43:$01 at " +
+                "$68/$18 with oamFlags $03, animation $04, and TX_1701.");
+        }
+
+        SetEssences(0x02);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(pastGuySave) != 1 ||
+            !pastGuy.Active || pastGuy.TextId != 0x1701)
+        {
+            throw new InvalidOperationException(
+                "getGameProgress_2 state $01 did not expose room 1:45's " +
+                "$43:$01 with TX_1701.");
+        }
+        SetEssences(0x08);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(pastGuySave) != 2 ||
+            !pastGuy.Active || pastGuy.TextId != 0x1702)
+        {
+            throw new InvalidOperationException(
+                "getGameProgress_2 state $02 did not retain room 1:45's " +
+                "$43:$01 with TX_1702.");
+        }
+
+        pastGuySave.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(pastGuySave) != 3 ||
+            pastGuy.Active || pastGuy.TextId != 0x1703)
+        {
+            throw new InvalidOperationException(
+                "getGameProgress_2 state $03 did not hide room 1:45's " +
+                "$43:$01 while selecting TX_1703.");
+        }
+
+        pastGuyManager.LoadRoom(1, _world.LoadRoom(1, 0x68));
+        NpcCharacter PastGuy2() =>
+            pastGuyManager.Entities<NpcCharacter>().Single(npc =>
+                npc.Record is { Id: 0x43, SubId: 0x02 });
+        pastGuy = PastGuy2();
+        if (!pastGuy.Active || pastGuy.Position != new Vector2(0x28, 0x68) ||
+            pastGuy.Record.Palette != 3 || pastGuy.TextId != 0x1703)
+        {
+            throw new InvalidOperationException(
+                "Past guy $43:$02 did not replace the room 1:45 actor in " +
+                "state $03 at $68/$28 with oamFlags $03 and TX_1703.");
+        }
+
+        SetEssences(0x40);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(pastGuySave) != 4 ||
+            !pastGuy.Active || pastGuy.TextId != 0x1704)
+        {
+            throw new InvalidOperationException(
+                "getGameProgress_2 state $04 did not retain $43:$02 with TX_1704.");
+        }
+        pastGuySave.SetGlobalFlag(
+            OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(pastGuySave) != 5 ||
+            pastGuy.Active || pastGuy.TextId != 0x1707)
+        {
+            throw new InvalidOperationException(
+                "getGameProgress_2 state $05 did not hide $43:$02 while " +
+                "selecting TX_1707.");
+        }
+        pastGuySave.SetLinkedGame(linked: true);
+        pastGuySave.SetRoomFlag(
+            4, 0xfc, OracleSaveData.RoomFlag80);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(pastGuySave) != 6 ||
+            pastGuy.Active || pastGuy.TextId != 0x1707)
+        {
+            throw new InvalidOperationException(
+                "getGameProgress_2 state $06 did not keep $43:$02 hidden " +
+                "with TX_1707.");
+        }
+        pastGuySave.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        if (NpcVisibilityRuleDatabase.GetGameProgress2(pastGuySave) != 7 ||
+            !pastGuy.Active || pastGuy.TextId != 0x1707)
+        {
+            throw new InvalidOperationException(
+                "getGameProgress_2 state $07 did not restore $43:$02 with TX_1707.");
+        }
+        pastGuyManager.Clear();
+        RemoveChild(pastGuyRoot);
+        pastGuyRoot.QueueFree();
+
+        var bipinRoot = new Node { Name = "Room3fcBipinValidation" };
+        var bipinWorldRoot = new Node { Name = "World" };
+        var bipinInterface = new Node { Name = "Interface" };
+        var bipinView = new RoomView { Name = "RoomView" };
+        var bipinDialogue = new DialogueBox { Name = "Dialogue" };
+        bipinRoot.AddChild(bipinWorldRoot);
+        bipinRoot.AddChild(bipinInterface);
+        bipinRoot.AddChild(bipinView);
+        bipinRoot.AddChild(bipinDialogue);
+        AddChild(bipinRoot);
+        OracleSaveData bipinSave = OracleSaveData.CreateStandardGame();
+        long bipinTick = 0;
+        var bipinRooms = new RoomSession(
+            3, 0xfc, () => bipinTick, () => bipinTick = 0, bipinSave);
+        var bipinManager = new RoomEntityManager(
+            bipinWorldRoot, new NpcDatabase(), new EnemyDatabase(), bipinSave);
+        var bipinTreasures = new TreasureDatabase();
+        var bipinInventory = new InventoryState(
+            bipinTreasures, bipinSave, () => bipinRooms.CurrentDungeonIndex);
+        var bipinSounds = new List<int>();
+        var bipinInteractions = new InteractionController(
+            bipinRooms, bipinManager, new SignDatabase(), new ChestDatabase(),
+            bipinTreasures, bipinDialogue, bipinWorldRoot, bipinView,
+            static position => position, () => bipinTick, bipinInventory,
+            bipinInterface, bipinSounds.Add);
+        var family = new BipinBlossomFamilyInteractionDatabase();
+        bipinManager.LoadRoom(3, bipinRooms.CurrentRoom);
+        NpcCharacter bipin = bipinManager.Entities<NpcCharacter>().Single();
+        if (bipin.Record is not { Id: 0x28, SubId: 0x0a } ||
+            bipin.Position != new Vector2(0x50, 0x40) ||
+            bipin.Record.DefaultAnimation != 9 ||
+            !bipin.Active || bipin.TextId != 0x4311 ||
+            bipin.CurrentAnimationOpaquePixels == 0)
+        {
+            throw new InvalidOperationException(
+                "Room 3:fc did not load past Bipin $28:$0a at $40/$50 " +
+                "with animation $09 and the TX_4311 script entry.");
+        }
+        _player.WarpTo(bipin.Position + Vector2.Down * 12);
+        _player.Face(Vector2I.Up);
+        bipinManager.Update(frame, _player);
+        if (!bipinManager.BlocksLink(bipin.Position) ||
+            bipin.ZIndex != NpcCharacter.BehindLinkZIndex ||
+            !bipinInteractions.TryInteract(_player) ||
+            DialogueBox.PlainText(bipinDialogue.CurrentMessage) !=
+                DialogueBox.PlainText(
+                    family.Text(0x4311, bipinSave).Message))
+        {
+            throw new InvalidOperationException(
+                "Past Bipin did not run objectPreventLinkFromPassing, update " +
+                "priority, and open TX_4311 from his A-button script.");
+        }
+
+        bipinDialogue.Close();
+        bipinInteractions.Update(frame, _player);
+        GroundTreasurePickup? heldSeed =
+            bipinInteractions.PastBipinTreasureForValidation;
+        TreasureObjectRecord seed =
+            bipinTreasures.GetObject("TREASURE_OBJECT_GASHA_SEED_08");
+        if (bipinInventory.GashaSeeds != 1 ||
+            !bipinSave.HasRoomFlag(
+                3, 0xfc, OracleSaveData.RoomFlagItem) ||
+            heldSeed is null || !heldSeed.Held || heldSeed.PixelHash == 0 ||
+            heldSeed.Position != _player.Position + Vector2.Up * 14 ||
+            !_player.IsHoldingItemTwoHands ||
+            bipinSounds.Count(sound =>
+                sound == OracleSoundEngine.SndGetSeed) != 1 ||
+            bipinSounds.Count(sound =>
+                sound == OracleSoundEngine.SndGetItem) != 1 ||
+            DialogueBox.PlainText(bipinDialogue.CurrentMessage) !=
+                DialogueBox.PlainText(seed.Message))
+        {
+            throw new InvalidOperationException(
+                "bipinScript3 did not grant TREASURE_GASHA_SEED $08, set " +
+                "room flag $20, play SND_GETSEED/SND_GETITEM, and hold its " +
+                "grab-mode-$02 visual for TX_004b.");
+        }
+
+        bipinDialogue.Close();
+        bipinInteractions.Update(frame, _player);
+        if (bipinInteractions.PastBipinTreasureForValidation is not null ||
+            _player.IsHoldingItemTwoHands ||
+            DialogueBox.PlainText(bipinDialogue.CurrentMessage) !=
+                DialogueBox.PlainText(
+                    family.Text(0x4312, bipinSave).Message))
+        {
+            throw new InvalidOperationException(
+                "bipinScript3's wait 1/checktext boundary did not remove the " +
+                "held seed and open TX_4312 on the first update after TX_004b.");
+        }
+
+        bipinDialogue.Close();
+        bipinInteractions.Update(frame, _player);
+        int soundsAfterGrant = bipinSounds.Count;
+        if (!bipinInteractions.TryInteract(_player) ||
+            DialogueBox.PlainText(bipinDialogue.CurrentMessage) !=
+                DialogueBox.PlainText(
+                    family.Text(0x4313, bipinSave).Message))
+        {
+            throw new InvalidOperationException(
+                "Past Bipin's room-flag-$20 repeat branch did not open TX_4313.");
+        }
+        bipinDialogue.Close();
+        bipinInteractions.Update(frame, _player);
+        if (bipinInventory.GashaSeeds != 1 ||
+            bipinSounds.Count != soundsAfterGrant ||
+            bipinInteractions.DialogueOpen)
+        {
+            throw new InvalidOperationException(
+                "Past Bipin's TX_4313 repeat branch replayed the seed grant " +
+                "or failed to return to its A-button loop.");
+        }
+
+        bipinManager.Clear();
+        RemoveChild(bipinRoot);
+        bipinRoot.QueueFree();
+        GD.Print("Validated room 1:45's complete past-guy game-progress " +
+            "visibility/dialogue table and room 3:fc's collision, priority, " +
+            "animation $09, one-time Gasha Seed grant, exact held-item/text " +
+            "boundary, room flag $20, and TX_4311/TX_4312/TX_4313 loop.");
+    }
+
     private void ValidateRoom148NpcInteractions()
     {
         const double frame = 1.0 / 60.0;
@@ -3205,11 +3435,11 @@ public sealed partial class ValidationRoot
         var manager = new RoomEntityManager(
             validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
 
-        if (new NpcVisibilityRuleDatabase().RuleCount != 332 ||
-            new NpcDialogueRuleDatabase().RuleCount != 100 ||
+        if (new NpcVisibilityRuleDatabase().RuleCount != 337 ||
+            new NpcDialogueRuleDatabase().RuleCount != 116 ||
             new NpcPositionRuleDatabase().RuleCount != 2)
             throw new InvalidOperationException(
-                "Expected 332 NPC visibility, 100 NPC dialogue, and two NPC " +
+                "Expected 337 NPC visibility, 116 NPC dialogue, and two NPC " +
                 "position state predicates.");
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x5a));
@@ -3859,7 +4089,7 @@ public sealed partial class ValidationRoot
             "$20-frame animation loops, rooms 2:ea/2:eb's 72-record family spawner, " +
             "Bipin $28:$00's SPEED_100 X=$28/$58 patrol, $04/$05 animation reversal, " +
             "and moving objectPreventLinkFromPassing collision, " +
-            "330 visibility, 100 dialogue, and two position predicates, roaming-dog " +
+            "337 visibility, 116 dialogue, and two position predicates, roaming-dog " +
             "location selection, rooms 0:68/0:78's phased and linked talkable cast, " +
             "room 3:9e's post-intro Impa, var03 selection, compound and alternative gates, " +
             "live refresh, and lifecycle-safe hiding.");

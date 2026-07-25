@@ -330,9 +330,14 @@ internal sealed class RoomEntityFactory(
                         npc, _troyHouse, saveData, random);
                     continue;
                 }
-                yield return record is { Id: 0x28, SubId: 0x00 }
-                    ? new RunningBipinRoomEntity(npc)
-                    : new NpcRoomEntity(npc);
+                yield return record switch
+                {
+                    { Id: 0x28, SubId: 0x00 } =>
+                        new RunningBipinRoomEntity(npc),
+                    { Id: 0x28, SubId: 0x0a } =>
+                        new PastBipinRoomEntity(npc),
+                    _ => new NpcRoomEntity(npc)
+                };
             }
         }
 

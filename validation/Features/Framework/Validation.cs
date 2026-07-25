@@ -106,6 +106,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateNpcs();
         ValidateRoom20eNpcInteractions();
         ValidateTroyHouseRooms();
+        ValidateRooms145And3fcNpcInteractions();
         ValidateRoom148NpcInteractions();
         ValidateRoom149FamilyInteractions();
         ValidateRoom157NpcInteractions();

@@ -42,6 +42,10 @@ public sealed class InteractionController
     private Player? _hardhatPlayer;
     private GroundTreasurePickup? _hardhatTreasure;
     private double _hardhatWaitTicks;
+    private PastBipinState _pastBipinState;
+    private NpcCharacter? _pastBipinNpc;
+    private Player? _pastBipinPlayer;
+    private GroundTreasurePickup? _pastBipinTreasure;
     private GashaState _gashaState;
     private GashaSpotInteraction? _gashaSpot;
     private Player? _gashaPlayer;
@@ -61,12 +65,15 @@ public sealed class InteractionController
         _gashaState != GashaState.None ||
         _linkedGhiniState != LinkedGhiniState.None ||
         _hardhatShovelState != HardhatShovelState.None ||
+        _pastBipinState != PastBipinState.None ||
         _familyNamingState != FamilyNamingState.None ||
         _kidNameEntry.Active;
     public bool GameplayMenuActive => _kidNameEntry.Active;
     internal bool ChestRewardActive => _chestTreasure is not null;
     internal ChestTreasureEffect? ChestReward => _chestTreasure;
     internal GroundTreasurePickup? GroundTreasureForValidation => _groundTreasure;
+    internal GroundTreasurePickup? PastBipinTreasureForValidation =>
+        _pastBipinTreasure;
 
     public InteractionController(
         RoomSession rooms,
@@ -125,6 +132,7 @@ public sealed class InteractionController
         _kidNameEntry.Update();
         UpdateFamilyNaming(delta);
         UpdateHardhatShovel(delta);
+        UpdatePastBipin();
         UpdateGasha();
         UpdateLinkedGhini();
 
@@ -249,6 +257,8 @@ public sealed class InteractionController
                 return true;
             if (npc.Record is { Id: 0xcb, SubId: 0x00 })
                 return TryStartLinkedGhini(npc, player);
+            if (npc.Record is { Id: 0x28, SubId: 0x0a })
+                return TryStartPastBipin(npc, player);
             npc.FaceToward(player.Position);
             if (npc.Record is { Id: 0x58, SubId: 0x00 })
                 return TryStartHardhatShovel(npc, player);
@@ -555,6 +565,135 @@ public sealed class InteractionController
         _hardhatShovelState = HardhatShovelState.None;
     }
 
+    private bool TryStartPastBipin(NpcCharacter npc, Player player)
+    {
+        if (_pastBipinState != PastBipinState.None)
+            return false;
+
+        _pastBipinNpc = npc;
+        _pastBipinPlayer = player;
+        bool alreadyGaveSeed = _rooms.SaveData.HasRoomFlag(
+            _rooms.ActiveGroup,
+            _rooms.CurrentRoom.Id,
+            OracleSaveData.RoomFlagItem);
+        int textId = alreadyGaveSeed ? 0x4313 : 0x4311;
+        Dialogue dialogue = _familyInteractions.Text(textId, _rooms.SaveData);
+        _dialogue.ShowGameplayMessage(
+            dialogue.Message,
+            _worldToScreen(player.Position).Y,
+            npc.TextPosition);
+        _pastBipinState = alreadyGaveSeed
+            ? PastBipinState.AwaitRepeatClose
+            : PastBipinState.AwaitOpeningClose;
+        return true;
+    }
+
+    private void UpdatePastBipin()
+    {
+        switch (_pastBipinState)
+        {
+            case PastBipinState.None:
+                return;
+
+            case PastBipinState.AwaitOpeningClose:
+                if (_dialogue.IsOpen)
+                    return;
+                GivePastBipinSeed();
+                _pastBipinState = PastBipinState.AwaitRewardClose;
+                return;
+
+            case PastBipinState.AwaitRewardClose:
+                if (_dialogue.IsOpen)
+                    return;
+                RemovePastBipinTreasure();
+                Dialogue final = _familyInteractions.Text(
+                    0x4312, _rooms.SaveData);
+                _dialogue.ShowGameplayMessage(
+                    final.Message,
+                    _worldToScreen(_pastBipinPlayer!.Position).Y,
+                    _pastBipinNpc!.TextPosition);
+                _pastBipinState = PastBipinState.AwaitFinalClose;
+                return;
+
+            case PastBipinState.AwaitFinalClose:
+            case PastBipinState.AwaitRepeatClose:
+                if (!_dialogue.IsOpen)
+                    FinishPastBipin();
+                return;
+        }
+    }
+
+    private void GivePastBipinSeed()
+    {
+        TreasureObjectRecord seed =
+            _treasures.GetObject("TREASURE_OBJECT_GASHA_SEED_08");
+        if (seed.TreasureId != TreasureDatabase.TreasureGashaSeed ||
+            seed.SubId != 0x08 || seed.Parameter != 0x01 ||
+            seed.TextId != 0x4b || seed.Graphic != 0x0d)
+        {
+            throw new InvalidOperationException(
+                "TREASURE_OBJECT_GASHA_SEED_08 no longer matches " +
+                "bipinScript3's giveitem command.");
+        }
+
+        _inventory.GiveTreasure(seed);
+        _rooms.SaveData.SetRoomFlag(
+            _rooms.ActiveGroup,
+            _rooms.CurrentRoom.Id,
+            OracleSaveData.RoomFlagItem);
+        int collectionSound = _treasures.GetBehaviour(seed.TreasureId).Sound;
+        if (collectionSound != 0)
+            _playSound(collectionSound);
+
+        TreasureObjectVisualRecord visual =
+            _treasures.GetObjectVisual(seed.Graphic);
+        Vector2 position = _pastBipinPlayer!.Position;
+        var record = new GroundTreasureDatabaseRecord(
+            _rooms.ActiveGroup,
+            _rooms.CurrentRoom.Id,
+            0,
+            Mathf.FloorToInt(position.Y),
+            Mathf.FloorToInt(position.X),
+            seed.Name,
+            visual.Sprite,
+            visual.TileBase,
+            visual.Palette,
+            visual.Animation,
+            seed.TextId,
+            seed.Message,
+            "bipinScript3:giveitem TREASURE_GASHA_SEED,$08");
+        _pastBipinTreasure = new GroundTreasurePickup
+        {
+            Name = "PastBipinGashaSeed",
+            ZIndex = 12
+        };
+        _pastBipinTreasure.Initialize(record, _playSound);
+        _worldRoot.AddChild(_pastBipinTreasure);
+        _pastBipinTreasure.BeginGranted(_pastBipinPlayer);
+        _dialogue.ShowGameplayMessage(
+            seed.Message,
+            _worldToScreen(_pastBipinPlayer.Position).Y);
+    }
+
+    private void RemovePastBipinTreasure()
+    {
+        if (_pastBipinTreasure is null)
+            return;
+        _pastBipinTreasure.Finish(_pastBipinPlayer!);
+        if (_pastBipinTreasure.GetParent() == _worldRoot)
+            _worldRoot.RemoveChild(_pastBipinTreasure);
+        _pastBipinTreasure.QueueFree();
+        _pastBipinTreasure = null;
+    }
+
+    private void FinishPastBipin()
+    {
+        RemovePastBipinTreasure();
+        _pastBipinNpc = null;
+        _pastBipinPlayer = null;
+        _pastBipinState = PastBipinState.None;
+    }
+
     internal void ShowRoomInteractionMessage(string message, Player player) =>
         _dialogue.ShowGameplayMessage(message, _worldToScreen(player.Position).Y);
 
@@ -791,6 +930,8 @@ public sealed class InteractionController
     {
         if (_hardhatShovelState != HardhatShovelState.None)
             FinishHardhatShovel();
+        if (_pastBipinState != PastBipinState.None)
+            FinishPastBipin();
         if (_groundTreasure is not null && _groundTreasurePlayer is not null)
             _groundTreasure.Finish(_groundTreasurePlayer);
         _groundTreasure = null;
@@ -1050,6 +1191,15 @@ internal enum HardhatShovelState
     PostRewardWait,
     AwaitFinalClose,
     AwaitSimpleClose
+}
+
+internal enum PastBipinState
+{
+    None,
+    AwaitOpeningClose,
+    AwaitRewardClose,
+    AwaitFinalClose,
+    AwaitRepeatClose
 }
 
 internal enum LinkedGhiniState

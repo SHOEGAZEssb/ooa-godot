@@ -296,6 +296,13 @@ remains the single runtime policy table.
   `1:75` includes both mutually exclusive Black Tower hardhat phases with
   exact `getBlackTowerProgress` predicates and text. Room `1:86` includes its
   entrance guard's essence/room-flag phases, dialogue, facing, and movement.
+- Past room `1:45`'s `$43:$01` villager and its room `1:68` `$43:$02`
+  counterpart use their complete eight-state `getGameProgress_2`
+  visibility/dialogue table, including palette `$03` and TX
+  `$1701-$1704/$1707`. Past room `3:fc` includes Bipin `$28:$0a`'s animation
+  `$09`, collision/priority behavior, TX `$4311-$4313` loop, and one-time
+  scripted Gasha Seed `$08` grant with room-item flag `$20`, exact collection
+  sounds, and two-hand TX `$004b` presentation.
 - Present indoor room `2:0e` preserves its ordered boy `$3c:$0d` and old-lady
   `$3d:$00` interactions. `GLOBALFLAG_SAVED_NAYRU` switches their exact
   positions, TX `$251c/$3800/$3801`, palettes, initial animations, talkability,
