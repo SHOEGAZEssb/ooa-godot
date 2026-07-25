@@ -3611,3 +3611,206 @@ $comedianEventRows = @(
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'cutscenes\comedian_event.tsv'),
     $comedianEventRows, [Text.UTF8Encoding]::new($false))
+
+# Room 2:e6 Mask Salesman trade. INTERAC_MASK_SALESMAN is a script-owned NPC
+# whose native wrapper runs the script once on its initialization update,
+# enables always-update behavior, then animates after every later script update.
+$maskSalesmanScriptPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
+$maskSalesmanScriptSource = Get-Content -Raw $maskSalesmanScriptPath
+$maskSalesmanBody = [regex]::Match(
+    $maskSalesmanScriptSource,
+    '(?ms)^maskSalesmanScript:(?<body>.*?)(?=^; =+\r?\n; INTERAC_COMEDIAN)')
+if (-not $maskSalesmanBody.Success) {
+    throw 'Could not locate maskSalesmanScript in scriptHelper.s.'
+}
+$maskSalesmanOpcodes = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @(
+    'setcollisionradii', 'makeabuttonsensitive', 'checkabutton',
+    'disableinput', 'jumpifroomflagset', 'setanimation', 'showtext',
+    'wait', 'jumpiftradeitemeq', 'scriptjump', 'jumpiftextoptioneq',
+    'giveitem', 'enableinput')) {
+    [void]$maskSalesmanOpcodes.Add($opcode)
+}
+$maskSalesmanCommands = Read-AssemblyCutsceneCommands `
+    $maskSalesmanScriptPath $maskSalesmanScriptSource 'maskSalesmanScript' `
+    $maskSalesmanBody.Groups['body'].Index `
+    $maskSalesmanBody.Groups['body'].Length $maskSalesmanOpcodes
+if ($maskSalesmanCommands.Count -ne 44) {
+    throw "maskSalesmanScript expected 44 commands, parsed $($maskSalesmanCommands.Count)."
+}
+
+$maskSalesmanTargets = @{}
+foreach ($command in $maskSalesmanCommands) {
+    if (-not $maskSalesmanTargets.ContainsKey($command.Label)) {
+        $maskSalesmanTargets[$command.Label] = $command.Index
+    }
+}
+$expectedMaskSalesmanTargets = @{
+    '@npcLoop' = 2
+    '@promptForTrade' = 19
+    '@acceptedTrade' = 24
+    '@alreadyGaveDoggieMask' = 41
+    '@enableInput' = 42
+}
+foreach ($entry in $expectedMaskSalesmanTargets.GetEnumerator()) {
+    if (-not $maskSalesmanTargets.ContainsKey($entry.Key) -or
+        $maskSalesmanTargets[$entry.Key] -ne $entry.Value) {
+        throw "maskSalesmanScript label $($entry.Key) moved from command $($entry.Value)."
+    }
+}
+
+$maskSalesmanNativePath = Join-Path $Disassembly `
+    'object_code\ages\interactions\maskSalesman.s'
+$maskSalesmanNativeSource = Get-Content -Raw $maskSalesmanNativePath
+$maskSalesmanWrapperPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
+$maskSalesmanWrapperSource = Get-Content -Raw $maskSalesmanWrapperPath
+$maskSalesmanInteractionDataSource = Get-Content -Raw (
+    Join-Path $Disassembly 'data\ages\interactionData.s')
+if ($maskSalesmanNativeSource -notmatch
+        '(?ms)^@state0:\s+call @loadScriptAndInitGraphics\s+call interactionSetAlwaysUpdateBit\s+^@state1:\s+call interactionRunScript\s+jp c,interactionDelete\s+jp interactionAnimateAsNpc' -or
+    $maskSalesmanNativeSource -notmatch
+        '(?ms)^@loadScriptAndInitGraphics:\s+call interactionInitGraphics.*?interactionSetScript\s+jp interactionIncState.*?^@scriptTable:\s+\.dw mainScripts\.maskSalesmanScript' -or
+    $maskSalesmanWrapperSource -notmatch
+        '(?ms)^maskSalesmanScript:\s+loadscript scriptHelp\.maskSalesmanScript' -or
+    $maskSalesmanInteractionDataSource -notmatch
+        '(?m)^\s*/\* \$5c \*/ m_InteractionData \$5e \$00 \$00\s*$') {
+    throw 'INTERAC_MASK_SALESMAN native initialization, update order, or script wrapper changed.'
+}
+if ($mainObjectSource -notmatch
+    '(?ms)^group2Mape6ObjectData:\s+obj_Interaction \$5c \$00 \$38 \$70\s+obj_End') {
+    throw 'Room 2:e6 Mask Salesman object stream or coordinates changed.'
+}
+
+$maskSalesmanAnimations = @{
+    0 = Resolve-NpcAnimation 0x5c 0
+    1 = Resolve-NpcAnimation 0x5c 1
+}
+foreach ($animation in @(0, 1)) {
+    if ([string]::IsNullOrWhiteSpace($maskSalesmanAnimations[$animation])) {
+        throw "Could not resolve INTERAC_MASK_SALESMAN animation `$$($animation.ToString('x2'))."
+    }
+}
+$maskSalesmanTextIds = @(0x0b0d..0x0b15) + 0x0b45
+foreach ($textId in $maskSalesmanTextIds) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve Mask Salesman text TX_$($textId.ToString('x4'))."
+    }
+}
+$maskSalesmanTreasure = $treasureObjectRecords['TREASURE_OBJECT_TRADEITEM_04']
+if ($null -eq $maskSalesmanTreasure -or
+    $maskSalesmanTreasure.Treasure -ne 0x41 -or
+    $maskSalesmanTreasure.SubId -ne 0x04 -or
+    $maskSalesmanTreasure.Parameter -ne 0x04 -or
+    $maskSalesmanTreasure.TextId -ne 0x005e -or
+    $maskSalesmanTreasure.Graphic -ne 0x74) {
+    throw 'TREASURE_OBJECT_TRADEITEM_04 no longer grants the Doggie Mask.'
+}
+if ($roomFlagSource -notmatch '\.define ROOMFLAG_ITEM\s+\$20' -or
+    $tradeItemSource -notmatch 'TRADEITEM_TASTY_MEAT\s+db ; \$03' -or
+    $tradeItemSource -notmatch 'TRADEITEM_DOGGIE_MASK\s+db ; \$04') {
+    throw 'Mask Salesman room flag or trade-item constants changed.'
+}
+
+$maskSalesmanCommandRows = [Collections.Generic.List[string]]::new()
+$maskSalesmanCommandRows.Add(
+    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
+foreach ($command in $maskSalesmanCommands) {
+    $opcode = $command.Opcode
+    $actor = ''
+    $arg0 = ''
+    $arg1 = ''
+    $payload = ''
+    switch ($command.Opcode) {
+        'setcollisionradii' {
+            if ($command.Operands -notmatch '^\$04,\s*\$06$') {
+                throw "Unexpected Mask Salesman collision radii '$($command.Operands)'."
+            }
+            $actor = 'MaskSalesman'
+            $arg0 = '04'
+            $arg1 = '06'
+        }
+        'makeabuttonsensitive' { $actor = 'MaskSalesman' }
+        'checkabutton' { $actor = 'MaskSalesman' }
+        'jumpifroomflagset' {
+            if ($command.Operands -notmatch
+                '^ROOMFLAG_ITEM,\s*(?<target>@[A-Za-z0-9_]+)$') {
+                throw "Malformed Mask Salesman room-flag branch at source line $($command.Line)."
+            }
+            $arg0 = '20'
+            $arg1 = $maskSalesmanTargets[$Matches['target']].ToString()
+        }
+        'setanimation' {
+            if ($command.Operands -notmatch '^\$(?<animation>0[01])$') {
+                throw "Unexpected Mask Salesman animation '$($command.Operands)'."
+            }
+            $animation = [Convert]::ToInt32($Matches['animation'], 16)
+            $actor = 'MaskSalesman'
+            $arg0 = $Matches['animation']
+            $payload = $maskSalesmanAnimations[$animation]
+        }
+        'showtext' {
+            if ($command.Operands -notmatch
+                '^TX_(?<id>0b(?:0[d-f]|1[0-5]|45))$') {
+                throw "Unexpected Mask Salesman text '$($command.Operands)'."
+            }
+            $textId = [Convert]::ToInt32($Matches['id'], 16)
+            $arg0 = $Matches['id']
+            $payload = $allTexts[$textId]
+        }
+        'wait' {
+            if ($command.Operands -notin @('15', '30')) {
+                throw "Unexpected Mask Salesman wait '$($command.Operands)'."
+            }
+            $arg0 = $command.Operands
+        }
+        'jumpiftradeitemeq' {
+            if ($command.Operands -notmatch
+                '^TRADEITEM_TASTY_MEAT,\s*(?<target>@[A-Za-z0-9_]+)$') {
+                throw "Malformed Mask Salesman trade-item branch at source line $($command.Line)."
+            }
+            $arg0 = '03'
+            $arg1 = $maskSalesmanTargets[$Matches['target']].ToString()
+        }
+        'scriptjump' {
+            if (-not $maskSalesmanTargets.ContainsKey($command.Operands)) {
+                throw "Unknown Mask Salesman branch target '$($command.Operands)'."
+            }
+            $arg0 = $maskSalesmanTargets[$command.Operands].ToString()
+        }
+        'jumpiftextoptioneq' {
+            if ($command.Operands -notmatch
+                '^\$00,\s*(?<target>@[A-Za-z0-9_]+)$') {
+                throw "Malformed Mask Salesman choice branch at source line $($command.Line)."
+            }
+            $arg0 = '00'
+            $arg1 = $maskSalesmanTargets[$Matches['target']].ToString()
+        }
+        'giveitem' {
+            if ($command.Operands -ne 'TREASURE_TRADEITEM,$04') {
+                throw "Unexpected Mask Salesman reward '$($command.Operands)'."
+            }
+            $arg0 = '41'
+            $arg1 = '04'
+        }
+    }
+    $maskSalesmanCommandRows.Add((New-CutsceneCommandRow `
+        $command.Script $command.Index $command.Label $command.Line `
+        $opcode $actor "$arg0" "$arg1" $payload))
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\mask_salesman_commands.tsv'),
+    $maskSalesmanCommandRows, [Text.UTF8Encoding]::new($false))
+
+$maskSalesmanEventRows = @(
+    "# group`troom`tid`tsubid`tanimation0`tanimation1`tinitial-animation`tcollision-y`tcollision-x`troom-flag`trequired-trade`treward-treasure`treward-parameter`treward-object`tinitial-script-updates`talways-update"
+    (@(
+        '2', 'e6', '5c', '00',
+        $maskSalesmanAnimations[0], $maskSalesmanAnimations[1],
+        '00', '04', '06', '20', '03', '41', '04',
+        'TREASURE_OBJECT_TRADEITEM_04', '1', '1'
+    ) -join "`t")
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\mask_salesman_event.tsv'),
+    $maskSalesmanEventRows, [Text.UTF8Encoding]::new($false))

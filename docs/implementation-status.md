@@ -306,6 +306,11 @@ remains the single runtime policy table.
   pre-D2/post-D2/post-Moonlit-Grotto text, Cheesy Mustache Yes/No trade, exact
   30-update waits, moustache animation bank, two-hand Funny Joke reward, and
   room-item-bit `$20` re-entry dialogue.
+- Present room `2:e6`'s Mask Salesman, including its single-update native
+  initialization, `$04/$06` talk geometry, alternating animation and TX
+  `$0b0d-$0b15/$0b45` hunger sequence, exact 15/30-update waits, missing-item
+  and Tasty Meat Yes/No paths, two-hand Doggie Mask reward, room-item-bit `$20`
+  re-entry dialogue, and both directions of the `0:53` tree warp.
 - Lower Black Tower rooms `4:e0`, `4:e1`, `4:e2`, `4:e7`, and `4:e8`, including
   the moving path-blocking villager, unconditional construction soldiers,
   per-talk random worker text, left/right pickaxe strikes and dirt chips,
@@ -446,6 +451,13 @@ remains the single runtime policy table.
   the ordinary `INTERAC_TREASURE` two-hand pickup path. Room item bit `$20`
   restores animations `$04/$05`, suppresses another reward, and selects the
   completed dialogue after re-entry.
+- Room `2:e6`'s `INTERAC_MASK_SALESMAN $5c:$00` conversation and trade. Its
+  typed 44-command loop preserves the native one-update initialization,
+  `$04/$06` A-button geometry, alternating animations, exact 15/30-update
+  waits, and TX `$0b0d-$0b15/$0b45`; Tasty Meat `$03` can be exchanged for
+  Doggie Mask `$04` through the ordinary two-hand `INTERAC_TREASURE` path.
+  Room item bit `$20` suppresses another reward and selects the completed
+  dialogue after re-entry.
 - Room `0:8d`'s remote Maku Tree sequence after the first Essence. Interaction
   `$8a:$00` requires Essence bit `$01` and clear current-room bit `$40`, then
   runs the imported 20-command lane: Maku Tree music, exact HUD and

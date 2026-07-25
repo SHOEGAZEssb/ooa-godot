@@ -103,6 +103,46 @@ internal sealed class RoomEventContext(
     public bool TryTakeDialogueChoice(out int choice) =>
         _dialogue.TryTakeChoiceResult(out choice);
 
+    public GroundTreasurePickup GrantScriptTreasure(
+        int group,
+        int room,
+        int treasureId,
+        int parameter,
+        string treasureObject,
+        string source)
+    {
+        TreasureObjectRecord treasure = Treasures.GetObject(treasureObject);
+        if (treasure.TreasureId != treasureId ||
+            treasure.SubId != parameter ||
+            treasure.Parameter != parameter)
+        {
+            throw new InvalidOperationException(
+                $"{treasureObject} no longer matches {source}'s " +
+                $"giveitem ${treasureId:x2}:${parameter:x2}.");
+        }
+
+        TreasureObjectVisualRecord visual =
+            Treasures.GetObjectVisual(treasure.Graphic);
+        Vector2 position = Player.Position;
+        var record = new GroundTreasureDatabaseRecord(
+            group,
+            room,
+            0,
+            Mathf.FloorToInt(position.Y),
+            Mathf.FloorToInt(position.X),
+            treasure.Name,
+            visual.Sprite,
+            visual.TileBase,
+            visual.Palette,
+            visual.Animation,
+            treasure.TextId,
+            treasure.Message,
+            source,
+            SpawnMode: 0,
+            GrabMode: 2);
+        return Entities.GrantGroundTreasure(record, Player);
+    }
+
     private static bool Matches(NpcCharacter npc, int interactionId, int subId) =>
         npc.Record.Id == interactionId && npc.Record.SubId == subId;
 }

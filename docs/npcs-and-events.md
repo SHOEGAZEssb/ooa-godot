@@ -919,6 +919,36 @@ ordinary-NPC slice whose dialogue wrapper is native:
   Visibility, collision, animation, talk targeting, transition freeze, room
   flags, and shared RNG ownership continue through the common entity manager.
 
+Present room `2:e6` is the reference for the Mask Salesman's infinite native
+trade script and its paired overworld tree warp:
+
+- Preserve the one-object stream: `INTERAC_MASK_SALESMAN $5c:$00` at
+  `$38/$70`. State 0 installs `maskSalesmanScript`, enables the native
+  always-update bit, runs the script once, and animates once; the following
+  update reaches `makeabuttonsensitive`. Prime exactly that first source
+  update during room construction. `interactionInitGraphics` selects
+  interaction-data default animation `$00`; compose its signed Y=`-$10` OAM
+  cells with their positioned bounds so the initial 16-by-32 sprite is not
+  clipped before the script selects an animation.
+- The script installs collision radii `$04/$06`. Keep those exact A-button
+  bounds while the script waits at its check-A loop.
+- A fresh conversation disables input and alternates animations `$00/$01`
+  through TX `$0b0d`, `$0b0e`, `$0b0f`, and `$0b0e`, with the source 15, 15,
+  15, and 30-update waits. Without Tasty Meat `$03`, input is restored after
+  the preamble.
+- With Tasty Meat, TX `$0b10` supplies the Yes/No choice. No routes through TX
+  `$0b14`; Yes preserves TX `$0b45`, `$0b11`, `$0b12`, `$0b13`, and `$0b45`
+  with the intervening 30/15/15/15/15/30-update waits, then grants trade item
+  `$04` through the ordinary two-hand ground-treasure path. Current-room item
+  bit `$20` suppresses duplicate rewards and routes later conversations to TX
+  `$0b15`.
+- Exterior `0:53`'s wildcard source accepts tree metatiles `$ee/$ef` at packed
+  positions `$51/$52`, uses source transition `$04`, and enters `2:e6` at
+  `$f7` with parameter `$09` and transition `$03`. The interior bottom-right
+  edge warp uses direction mask `$08` and source transition `$03`, returns to
+  `0:53` at `$52` with parameter `$00` and destination transition `$0e`, then
+  completes the exit step at `$62`.
+
 Present room `0:8d` is the reference for a room-entry script whose native
 palette thread deliberately affects backgrounds and sprites differently:
 

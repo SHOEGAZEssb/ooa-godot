@@ -50,6 +50,7 @@ internal sealed class RoomEntityFactory(
     private readonly LynnaShopDatabase _lynnaShop = new();
     private readonly BlackTowerWorkerDatabase _blackTower = new();
     private readonly ComedianEventDatabase _comedian = new();
+    private readonly MaskSalesmanEventDatabase _maskSalesman = new();
     private readonly TroyHouseDatabase _troyHouse = new();
     private readonly DungeonEntranceInteractionDatabase _dungeonEntrances = new();
     private readonly SpiritsGraveDatabase _spiritsGrave = new();
@@ -293,6 +294,20 @@ internal sealed class RoomEntityFactory(
                     };
                     comedian.InitializeComedian(record, _comedian.Record);
                     yield return new ComedianRoomEntity(comedian);
+                    continue;
+                }
+                if (record.Group == _maskSalesman.Record.Group &&
+                    record.Room == _maskSalesman.Record.Room &&
+                    record.Id == _maskSalesman.Record.InteractionId &&
+                    record.SubId == _maskSalesman.Record.SubId)
+                {
+                    var salesman = new MaskSalesmanCharacter
+                    {
+                        Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+                        ZIndex = NpcCharacter.BehindLinkZIndex
+                    };
+                    salesman.InitializeMaskSalesman(record, _maskSalesman.Record);
+                    yield return new MaskSalesmanRoomEntity(salesman);
                     continue;
                 }
 

@@ -227,6 +227,15 @@ highest-Essence-bit helper, moustache animation bank, seven text records,
 trade-item constants, and `TREASURE_OBJECT_TRADEITEM_07`. Runtime does not
 parse `scriptHelper.s` or infer these operands from the visible NPC row.
 
+Present room `2:e6`'s Mask Salesman uses the same typed cutscene stage.
+`Import-CutsceneData.ps1` emits `mask_salesman_commands.tsv` and
+`mask_salesman_event.tsv` only after verifying the single `$5c:$00` room
+object, native always-update initialization, all 44 source commands, animation
+IDs, interaction-data default animation `$00`, TX `$0b0d-$0b15/$0b45`, Tasty
+Meat predicate, room-item bit `$20`, and `TREASURE_OBJECT_TRADEITEM_04`.
+Runtime therefore executes the imported infinite dialogue loop and grants the
+Doggie Mask without parsing interaction or script source.
+
 Overworld named-key locks are also imported as a reusable source closure.
 `Import-NpcData.ps1` emits all six keyhole locations, their treasure IDs and
 per-key `$18` object visuals, the three collision-set/tile mappings, and the

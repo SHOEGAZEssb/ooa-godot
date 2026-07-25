@@ -3,22 +3,21 @@ using System;
 namespace oracleofages;
 
 /// <summary>
-/// INTERAC_COMEDIAN $65:$00 and comedianScript in present room $0:$56.
+/// INTERAC_MASK_SALESMAN $5c:$00 and maskSalesmanScript in room $2:$e6.
 /// </summary>
-internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
+internal sealed class MaskSalesmanEvent : IRoomEntryEvent, ICutsceneCommandHost
 {
-    private const string ActorName = "Comedian";
+    private const string ActorName = "MaskSalesman";
     private readonly RoomEventContext _context;
-    private readonly ComedianEventDatabase _database = new();
-    private readonly ComedianEventRecord _record;
+    private readonly MaskSalesmanEventDatabase _database = new();
+    private readonly MaskSalesmanEventRecord _record;
     private readonly CutsceneCommandRunner _runner;
-    private ComedianCharacter? _comedian;
-    private int _progress;
+    private MaskSalesmanCharacter? _salesman;
     private bool _buttonSensitive;
     private bool _buttonPressed;
     private bool _inputDisabled;
 
-    public ComedianEvent(RoomEventContext context)
+    public MaskSalesmanEvent(RoomEventContext context)
     {
         _context = context;
         _record = _database.Record;
@@ -30,9 +29,8 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
     internal int CurrentCommandIndex =>
         _runner.CurrentCommand?.Source.CommandIndex ?? -1;
     internal int Counter => _runner.Counter;
-    internal int Progress => _progress;
     internal bool ButtonSensitive => _buttonSensitive;
-    internal ComedianEventDatabase Database => _database;
+    internal MaskSalesmanEventDatabase Database => _database;
 
     public bool Matches(int group, OracleRoomData room) =>
         group == _record.Group && room.Id == _record.Room;
@@ -46,33 +44,32 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
             _record.Room,
             _record.InteractionId,
             _record.SubId,
-            "INTERAC_COMEDIAN");
-        _comedian = actor as ComedianCharacter ??
+            "INTERAC_MASK_SALESMAN");
+        _salesman = actor as MaskSalesmanCharacter ??
             throw new InvalidOperationException(
-                "Room 0:56 instantiated INTERAC_COMEDIAN without its native actor.");
+                "Room 2:e6 instantiated INTERAC_MASK_SALESMAN without its native actor.");
         _buttonSensitive = false;
         _buttonPressed = false;
         _inputDisabled = false;
-        _progress = 0;
         _runner.Start(_database.Commands);
 
-        // interactionCode65 state 0 calls interactionRunScript twice before
-        // its single interactionAnimateAsNpc call.
+        // interactionCode5c state 0 falls through to state 1 and runs the
+        // newly installed script once before interactionAnimateAsNpc.
         for (int update = 0; update < _record.InitialScriptUpdates; update++)
             _runner.AdvanceFrame();
-        _comedian.AdvanceInitialUpdate(_context.Player);
+        _salesman.AdvanceMaskSalesman(_context.Player);
     }
 
     public void UpdateFrame()
     {
         _runner.AdvanceFrame();
-        _comedian?.UpdateComedian(_context.Player);
+        _salesman?.AdvanceMaskSalesman(_context.Player);
     }
 
     public bool TryInteractNpc(NpcCharacter npc)
     {
         if (!_runner.Active || !_buttonSensitive || _inputDisabled ||
-            !ReferenceEquals(npc, _comedian))
+            !ReferenceEquals(npc, _salesman))
         {
             return false;
         }
@@ -84,13 +81,12 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
     {
         if (_inputDisabled)
             _context.Player.EndCutsceneControl();
-        if (_comedian is not null)
+        if (_salesman is not null)
         {
-            _comedian.SetScriptButtonSensitive(false);
-            _comedian.SetAnimationRate(1.0f);
+            _salesman.SetScriptButtonSensitive(false);
+            _salesman.SetAnimationRate(1.0f);
         }
-        _comedian = null;
-        _progress = 0;
+        _salesman = null;
         _buttonSensitive = false;
         _buttonPressed = false;
         _inputDisabled = false;
@@ -119,27 +115,30 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
 
     void ICutsceneCommandHost.SetMenuEnabled(bool enabled) =>
         throw new InvalidOperationException(
-            $"comedianScript does not set menu enabled={enabled} independently.");
+            $"maskSalesmanScript does not set menu enabled={enabled} independently.");
 
     void ICutsceneCommandHost.SetDisabledObjects(int value) =>
         throw new InvalidOperationException(
-            $"comedianScript does not write wDisabledObjects=${value:x2}.");
+            $"maskSalesmanScript does not write wDisabledObjects=${value:x2}.");
 
     bool ICutsceneCommandHost.GateOpen(string gate) =>
         throw new InvalidOperationException(
-            $"comedianScript has no gate named '{gate}'.");
+            $"maskSalesmanScript has no gate named '{gate}'.");
 
     bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
-        ReadMemory(binding) == value;
+        throw new InvalidOperationException(
+            $"maskSalesmanScript cannot compare '{binding}'=${value:x2}.");
 
-    int ICutsceneCommandHost.ReadMemory(string binding) => ReadMemory(binding);
+    int ICutsceneCommandHost.ReadMemory(string binding) =>
+        throw new InvalidOperationException(
+            $"maskSalesmanScript cannot read '{binding}'.");
 
     bool ICutsceneCommandHost.RoomFlagSet(int flag)
     {
         if (flag != _record.RoomFlag)
         {
             throw new InvalidOperationException(
-                $"comedianScript cannot read room flag ${flag:x2}.");
+                $"maskSalesmanScript cannot read room flag ${flag:x2}.");
         }
         return _context.Rooms.SaveData.HasRoomFlag(
             _record.Group, _record.Room, (byte)flag);
@@ -150,7 +149,7 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
         if (value != _record.RequiredTradeItem)
         {
             throw new InvalidOperationException(
-                $"comedianScript cannot compare trade item ${value:x2}.");
+                $"maskSalesmanScript cannot compare trade item ${value:x2}.");
         }
         return _context.Inventory.HasTreasure(TreasureDatabase.TreasureTradeItem) &&
             _context.Inventory.TradeItem == value;
@@ -161,14 +160,14 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
         if (!_context.TryTakeDialogueChoice(out int choice))
         {
             throw new InvalidOperationException(
-                "comedianScript text-option branch has no completed choice result.");
+                "maskSalesmanScript text-option branch has no completed choice result.");
         }
         return choice == value;
     }
 
     bool ICutsceneCommandHost.TryConsumeActorButton(CutsceneActorId actor)
     {
-        _ = RequireComedian(actor.Value);
+        _ = RequireSalesman(actor.Value);
         if (!_buttonPressed)
             return false;
         _buttonPressed = false;
@@ -177,12 +176,12 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {
-        if (textId is < 0x0b2c or > 0x0b32)
+        if (textId != 0x0b45 && textId is < 0x0b0d or > 0x0b15)
         {
             throw new InvalidOperationException(
-                $"comedianScript requested unknown TX_{textId:x4}.");
+                $"maskSalesmanScript requested unknown TX_{textId:x4}.");
         }
-        if (textId == 0x0b2f)
+        if (textId == 0x0b10)
             _context.ShowChoiceDialogue(message);
         else
             _context.ShowDialogue(message);
@@ -196,9 +195,9 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
         if (encodedAnimation != _record.Animation(animation))
         {
             throw new InvalidOperationException(
-                $"Comedian animation ${animation:x2} payload diverged from metadata.");
+                $"Mask Salesman animation ${animation:x2} payload diverged from metadata.");
         }
-        RequireComedian(actor).SetScriptAnimation(encodedAnimation);
+        RequireSalesman(actor).SetScriptAnimation(encodedAnimation);
     }
 
     void ICutsceneCommandHost.SetActorMovementAnimation(
@@ -206,7 +205,7 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
         int angle,
         string encodedAnimation) =>
         throw new InvalidOperationException(
-            $"Comedian actor '{actor}' cannot use movement animation ${angle:x2}.");
+            $"Mask Salesman actor '{actor}' cannot use movement animation ${angle:x2}.");
 
     void ICutsceneCommandHost.SetActorCollisionRadii(
         string actor,
@@ -217,15 +216,15 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
             radiusX != _record.CollisionRadiusX)
         {
             throw new InvalidOperationException(
-                $"comedianScript initialized unexpected collision radii " +
+                $"maskSalesmanScript initialized unexpected collision radii " +
                 $"${radiusY:x2}/${radiusX:x2}.");
         }
-        RequireComedian(actor).SetCollisionRadii(radiusY, radiusX);
+        RequireSalesman(actor).SetCollisionRadii(radiusY, radiusX);
     }
 
     void ICutsceneCommandHost.SetActorButtonSensitive(string actor)
     {
-        RequireComedian(actor).SetScriptButtonSensitive(true);
+        RequireSalesman(actor).SetScriptButtonSensitive(true);
         _buttonSensitive = true;
     }
 
@@ -234,18 +233,18 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
         int speed,
         int angle) =>
         throw new InvalidOperationException(
-            $"Comedian actor '{actor}' cannot move at ${speed:x2}/${angle:x2}.");
+            $"Mask Salesman actor '{actor}' cannot move at ${speed:x2}/${angle:x2}.");
 
     void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>
         throw new InvalidOperationException(
-            $"Comedian actor '{actor}' cannot set Z to ${zFixed:x4}.");
+            $"Mask Salesman actor '{actor}' cannot set Z to ${zFixed:x4}.");
 
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
-        RequireComedian(actor).Visible = visible;
+        RequireSalesman(actor).Visible = visible;
 
     void ICutsceneCommandHost.WriteMemory(string binding, int value) =>
         throw new InvalidOperationException(
-            $"comedianScript cannot write '{binding}'=${value:x2}.");
+            $"maskSalesmanScript cannot write '{binding}'=${value:x2}.");
 
     void ICutsceneCommandHost.GiveItem(int treasureId, int parameter)
     {
@@ -253,7 +252,7 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
             parameter != _record.RewardParameter)
         {
             throw new InvalidOperationException(
-                $"comedianScript requested unexpected reward " +
+                $"maskSalesmanScript requested unexpected reward " +
                 $"${treasureId:x2}:${parameter:x2}.");
         }
 
@@ -263,64 +262,28 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
             treasureId,
             parameter,
             _record.RewardObject,
-            "scriptHelper.s:comedianScript giveitem TREASURE_TRADEITEM,$07");
+            "scriptHelper.s:maskSalesmanScript giveitem TREASURE_TRADEITEM,$04");
     }
 
     void ICutsceneCommandHost.OrRoomFlag(int flag) =>
         throw new InvalidOperationException(
-            $"comedianScript does not directly OR room flag ${flag:x2}.");
+            $"maskSalesmanScript does not directly OR room flag ${flag:x2}.");
 
-    void ICutsceneCommandHost.RunNativeHandler(string handler)
-    {
-        switch (handler)
-        {
-            case "comedian_checkGameProgress":
-                _progress = CalculateProgress(_context.Inventory.Essences);
-                break;
-            case "comedian_disableMustache":
-                RequireComedian(ActorName).SetMustacheEnabled(false);
-                break;
-            case "comedian_enableMustache":
-                RequireComedian(ActorName).SetMustacheEnabled(true);
-                break;
-            default:
-                throw new InvalidOperationException(
-                    $"Unknown comedian native handler '{handler}'.");
-        }
-    }
+    void ICutsceneCommandHost.RunNativeHandler(string handler) =>
+        throw new InvalidOperationException(
+            $"maskSalesmanScript has no native handler '{handler}'.");
 
     void ICutsceneCommandHost.ScriptEnded() =>
         throw new InvalidOperationException(
-            "comedianScript must remain in its NPC loop.");
+            "maskSalesmanScript must remain in its NPC loop.");
 
-    private int ReadMemory(string binding)
+    private MaskSalesmanCharacter RequireSalesman(string actor)
     {
-        if (binding != _record.ProgressBinding)
+        if (actor != ActorName || _salesman is null)
         {
             throw new InvalidOperationException(
-                $"comedianScript cannot read '{binding}'.");
+                $"Unknown Mask Salesman command actor '{actor}'.");
         }
-        return _progress;
-    }
-
-    private ComedianCharacter RequireComedian(string actor)
-    {
-        if (actor != ActorName || _comedian is null)
-        {
-            throw new InvalidOperationException(
-                $"Unknown comedian command actor '{actor}'.");
-        }
-        return _comedian;
-    }
-
-    private static int CalculateProgress(int essences)
-    {
-        if (essences == 0)
-            return 0;
-
-        int highestSetBit = 0;
-        while ((essences >>= 1) != 0)
-            highestSetBit++;
-        return highestSetBit >= 3 ? 2 : highestSetBit;
+        return _salesman;
     }
 }

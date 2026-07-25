@@ -47,6 +47,14 @@ Changing a scripted animation selects cached immutable definitions/frames; it
 does not rebuild every texture for that entity. Validate assembled frame pixels
 and offsets, not just parsed record counts.
 
+Room `2:e6`'s `INTERAC_MASK_SALESMAN $5c:$00` is a compact default-animation
+case for those positioned bounds. `interactionInitGraphics` selects animation
+`$00`, whose four OAM cells span signed Y=`-$10` through `+$0f`; the resulting
+16-by-32 texture draws at `(-8,-32)` relative to the interaction origin. Do not
+route that initial frame through the fixed 32-by-32 ordinary-NPC compositor,
+which discards the two negative-Y cells before the script first changes
+animation.
+
 Maple uses positioned OAM composition instead of the fixed 32-by-32 enemy
 frame. Of her 76 imported animation frames, 48 place at least one 8-by-16 cell
 outside that fixed box; vacuum/UFO, recoil, and low broom poses otherwise lose

@@ -121,6 +121,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateMakuSproutRescueCutscene();
         ValidateMakuTreeSavedCutscene();
         ValidateRoom056Comedian();
+        ValidateRoom2e6MaskSalesman();
         ValidateNayruIntroCutscene();
         ValidateRalphPortalDepartureEvent();
         ValidateAnimations();
