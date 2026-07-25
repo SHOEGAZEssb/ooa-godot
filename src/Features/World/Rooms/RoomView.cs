@@ -15,6 +15,9 @@ public partial class RoomView : Node2D
     private int _waveAmplitude;
     private int _wavePhase;
     private Color _backgroundFade = new(0, 0, 0, 0);
+    private bool _roomLoadColumnReveal;
+    private int _roomLoadRevealLoadedColumns;
+    private Texture2D? _roomLoadClearedTilemap;
 
     private static readonly int[] WaveQuarter =
     {
@@ -31,6 +34,9 @@ public partial class RoomView : Node2D
         _current = texture;
         _previous = null;
         _transitionFrame = 0.0f;
+        _roomLoadColumnReveal = false;
+        _roomLoadRevealLoadedColumns = 0;
+        _roomLoadClearedTilemap = null;
         QueueRedraw();
     }
 
@@ -94,8 +100,43 @@ public partial class RoomView : Node2D
         QueueRedraw();
     }
 
+    public void SetRoomLoadColumnReveal(
+        Texture2D clearedTilemap,
+        int loadedColumns)
+    {
+        _roomLoadColumnReveal = true;
+        _roomLoadClearedTilemap = clearedTilemap;
+        _roomLoadRevealLoadedColumns = Mathf.Clamp(
+            loadedColumns,
+            0,
+            RoomTransitionController.RoomLoadRevealColumnUpdates);
+        QueueRedraw();
+    }
+
+    public void SetRoomLoadRevealLoadedColumns(int loadedColumns)
+    {
+        if (!_roomLoadColumnReveal)
+            return;
+        _roomLoadRevealLoadedColumns = Mathf.Clamp(
+            loadedColumns,
+            0,
+            RoomTransitionController.RoomLoadRevealColumnUpdates);
+        QueueRedraw();
+    }
+
+    public void ClearRoomLoadColumnReveal()
+    {
+        _roomLoadColumnReveal = false;
+        _roomLoadRevealLoadedColumns = 0;
+        _roomLoadClearedTilemap = null;
+        QueueRedraw();
+    }
+
     internal float BackgroundFadeAlpha => _backgroundFade.A;
     internal Color BackgroundFadeColorForValidation => _backgroundFade;
+    internal bool RoomLoadColumnRevealActive => _roomLoadColumnReveal;
+    internal int RoomLoadRevealLoadedColumns => _roomLoadRevealLoadedColumns;
+    internal Texture2D? RoomLoadClearedTilemap => _roomLoadClearedTilemap;
 
     public override void _Draw()
     {
@@ -104,7 +145,9 @@ public partial class RoomView : Node2D
 
         if (_previous is null)
         {
-            if (_waveActive)
+            if (_roomLoadColumnReveal && _roomLoadClearedTilemap is not null)
+                DrawRoomLoadColumnReveal(_current, _roomLoadClearedTilemap);
+            else if (_waveActive)
                 DrawWavedTexture(_current);
             else
                 DrawTexture(_current, Vector2.Zero);
@@ -120,6 +163,25 @@ public partial class RoomView : Node2D
         DrawTexture(_previous, -scroll);
         DrawTexture(_current, _transitionTextureOffset + distance - scroll);
         DrawBackgroundFade();
+    }
+
+    private void DrawRoomLoadColumnReveal(
+        Texture2D texture,
+        Texture2D clearedTilemap)
+    {
+        DrawTexture(clearedTilemap, Vector2.Zero);
+        (int left, int right) =
+            RoomTransitionController.RoomLoadRevealBounds(
+                _roomLoadRevealLoadedColumns);
+        if (right <= left)
+            return;
+
+        var revealed = new Rect2(
+            left,
+            0,
+            right - left,
+            texture.GetHeight());
+        DrawTextureRectRegion(texture, revealed, revealed);
     }
 
     private void DrawBackgroundFade()

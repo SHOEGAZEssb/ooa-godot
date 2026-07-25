@@ -65,6 +65,25 @@ Logical room coordinates stay in their original space. At completion, rebuild
 state that the original rebuilds (for example a follower path buffer) rather
 than carrying stale source-room history into the destination.
 
+An imported edge warp with source transition `$03`, destination transition
+`$03`, and destination position `$ff` uses the Maku Tree courtyard's full-load
+tilemap reveal. `initializeVramMaps` first leaves the destination map blank.
+That cleared map is not a solid-color fade: every map entry is tile `$00` with
+attribute `$80`. Graphics-register state `$02` uses signed BG tile addressing,
+so tile `$00` reads VRAM `$9000` bank 0; `loadCommonGraphics` has just loaded
+`GFXH_HUD` there, making the clear tile `gfx_hud` tile 0 (solid shade 2)
+through BG palette 0, with BG-over-OBJ priority. The screen-space cleared
+columns must therefore cover world sprites such as the source Maku Tree face
+while remaining below the HUD. `screenTransitionState0/1` then waits through
+three initialization updates and copies one 8-pixel tile column per update for
+32 updates, starting with columns 9 and 10 and alternating left and right from
+there. The visible 20 columns are therefore complete after update 20, while
+the transition still loads the 12 offscreen ring-buffer columns. Destination
+transition `$03` keeps Link fixed offscreen until the column load completes,
+then begins its separate 28-update entry walk. Select this from the imported
+transition fields; do not key the effect to rooms `$38/$48`, substitute an
+arbitrary flat white, or approximate it with a continuous mask.
+
 Present Fairies' Woods has a source table that overrides ordinary overworld
 neighbors while `GLOBALFLAG_FOREST_UNSCRAMBLED` is clear. Resolve that imported
 nine-room, four-direction table in `RoomTransitionController`, before the

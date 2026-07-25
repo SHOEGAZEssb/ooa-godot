@@ -14,6 +14,12 @@ public sealed class RoomTransitionController
     public const float DelayedWarpFadeFrames = 125.0f;
     public const float WarpLeaveFrames = 16.0f;
     public const float WarpEnterFrames = 28.0f;
+    public const int RoomLoadRevealInitializationFrames = 3;
+    public const int RoomLoadRevealColumnUpdates = 32;
+    public const int RoomLoadRevealCompletionFrame =
+        RoomLoadRevealInitializationFrames + RoomLoadRevealColumnUpdates + 1;
+    public const int RoomLoadRevealVisibleColumns = 20;
+    public const int RoomLoadRevealColumnWidth = 8;
     public const float FastPaletteFadeFrames = 11.0f;
     public const int TimeWarpInitializeFrames = 1;
     public const int TimeWarpDissolveFrames = 48;
@@ -29,6 +35,7 @@ public sealed class RoomTransitionController
     private readonly RoomSession _rooms;
     private readonly WarpDatabase _warps;
     private readonly RoomView _roomView;
+    private readonly RoomLoadColumnRevealOverlay _roomLoadReveal;
     private readonly Player _player;
     private readonly Camera2D _camera;
     private readonly ColorRect _warpFade;
@@ -60,6 +67,8 @@ public sealed class RoomTransitionController
     private Warp _pendingWarp;
     private float _warpFrame;
     private float _warpFadeOutFrames = WarpFadeFrames;
+    private bool _roomLoadColumnReveal;
+    private int _roomLoadRevealLoadedColumns;
     private Vector2 _warpWalkStart;
     private Vector2 _warpWalkEnd;
     private bool _destinationWalk;
@@ -97,6 +106,8 @@ public sealed class RoomTransitionController
     internal int TimeWarpAppliedDissolveStep => _timeWarpAppliedDissolveStep;
     internal string TimeWarpPhaseName => _warpPhase.ToString();
     internal TimeWarpEffect? ActiveTimeWarpEffect => _timeWarpEffect;
+    internal bool RoomLoadColumnRevealActive => _roomLoadColumnReveal;
+    internal int RoomLoadRevealLoadedColumns => _roomLoadRevealLoadedColumns;
     internal EraInfoDatabase EraInfo => _eraInfo;
     internal static (int Even, int Odd) TimeWarpDissolveMaskForValidation(int step) =>
         TimeWarpDissolveMasks[step];
@@ -105,6 +116,7 @@ public sealed class RoomTransitionController
         RoomSession rooms,
         WarpDatabase warps,
         RoomView roomView,
+        RoomLoadColumnRevealOverlay roomLoadReveal,
         Player player,
         Camera2D camera,
         ColorRect warpFade,
@@ -118,6 +130,7 @@ public sealed class RoomTransitionController
         _rooms = rooms;
         _warps = warps;
         _roomView = roomView;
+        _roomLoadReveal = roomLoadReveal;
         _player = player;
         _camera = camera;
         _warpFade = warpFade;
@@ -382,6 +395,7 @@ public sealed class RoomTransitionController
         player.BeginTimeWarpTransition(portalPosition);
         _sound.RestartSound();
         _roomView.SetBackgroundFade(Colors.Black, 0.0f);
+        ClearRoomLoadColumnReveal();
         SetFade(0.0f);
     }
 
@@ -395,6 +409,9 @@ public sealed class RoomTransitionController
         _warpActive = true;
         _warpFrame = 0.0f;
         _warpFadeOutFrames = delayedFadeOut ? DelayedWarpFadeFrames : WarpFadeFrames;
+        ClearRoomLoadColumnReveal();
+        _roomLoadColumnReveal =
+            !delayedFadeOut && UsesRoomLoadColumnReveal(warp);
         _destinationWalk = false;
         player.BeginRoomWarpTransition();
         if (delayedFadeOut)
@@ -460,7 +477,7 @@ public sealed class RoomTransitionController
                     _warpWalkStart.Lerp(_warpWalkEnd, leaveFrame / WarpLeaveFrames), delta);
                 if (_warpFrame >= WarpLeaveFrames)
                 {
-                    SetFade(1.0f);
+                    SetFade(_roomLoadColumnReveal ? 0.0f : 1.0f);
                     LoadWarpDestination();
                 }
                 break;
@@ -473,6 +490,34 @@ public sealed class RoomTransitionController
                 }
                 SetFade(1.0f - _warpFrame / WarpFadeFrames);
                 if (_warpFrame >= WarpFadeFrames)
+                    FinishWarp();
+                break;
+            case WarpPhase.RoomLoadColumnReveal:
+                int loadedColumns = Mathf.Clamp(
+                    Mathf.FloorToInt(_warpFrame) -
+                        RoomLoadRevealInitializationFrames,
+                    0,
+                    RoomLoadRevealColumnUpdates);
+                SetFade(0.0f);
+                SetRoomLoadColumnReveal(true, loadedColumns);
+                if (_warpFrame >= RoomLoadRevealCompletionFrame)
+                {
+                    ClearRoomLoadColumnReveal();
+                    _warpFrame = 0.0f;
+                    if (_destinationWalk)
+                        _warpPhase = WarpPhase.EnterScreen;
+                    else
+                        FinishWarp();
+                }
+                break;
+            case WarpPhase.EnterScreen:
+                if (_destinationWalk)
+                {
+                    float enterFrame = Mathf.Min(_warpFrame, WarpEnterFrames);
+                    _player.SetRoomWarpWalkPosition(
+                        _warpWalkStart.Lerp(_warpWalkEnd, enterFrame / WarpEnterFrames), delta);
+                }
+                if (_warpFrame >= WarpEnterFrames)
                     FinishWarp();
                 break;
         }
@@ -642,6 +687,15 @@ public sealed class RoomTransitionController
         Warp warp = _pendingWarp;
         OracleRoomData room = _rooms.Load(warp.DestinationGroup, warp.DestinationRoom);
         _roomView.SetRoom(room.Texture);
+        if (_roomLoadColumnReveal)
+        {
+            _roomView.SetRoomLoadColumnReveal(
+                room.ClearedTilemapTexture,
+                0);
+            _roomLoadReveal.SetReveal(
+                room.ClearedTilemapTexture,
+                0);
+        }
         // Room-palette darkening belongs to the source room. Time-warp already
         // clears it above; ordinary/delayed warps must not carry it into the
         // destination either (notably after an Essence get sequence).
@@ -746,7 +800,9 @@ public sealed class RoomTransitionController
         }
         else
         {
-            _warpPhase = WarpPhase.FadeIn;
+            _warpPhase = _roomLoadColumnReveal
+                ? WarpPhase.RoomLoadColumnReveal
+                : WarpPhase.FadeIn;
         }
         _warpFrame = 0.0f;
         UpdateCamera();
@@ -803,6 +859,7 @@ public sealed class RoomTransitionController
         _warpActive = false;
         _warpPhase = WarpPhase.None;
         _player.Visible = true;
+        ClearRoomLoadColumnReveal();
         SetFade(0.0f);
     }
 
@@ -944,6 +1001,64 @@ void fragment() {
     private void SetFadeColor(Color color, float alpha) =>
         _warpFade.Color = new Color(color.R, color.G, color.B, Mathf.Clamp(alpha, 0.0f, 1.0f));
 
+    private void SetRoomLoadColumnReveal(bool active, int loadedColumns)
+    {
+        _roomLoadColumnReveal = active;
+        _roomLoadRevealLoadedColumns = Mathf.Clamp(
+            loadedColumns, 0, RoomLoadRevealColumnUpdates);
+        if (active)
+        {
+            _roomView.SetRoomLoadRevealLoadedColumns(
+                _roomLoadRevealLoadedColumns);
+            _roomLoadReveal.SetLoadedColumns(
+                _roomLoadRevealLoadedColumns);
+        }
+        else
+        {
+            _roomView.ClearRoomLoadColumnReveal();
+            _roomLoadReveal.ClearReveal();
+        }
+    }
+
+    private void ClearRoomLoadColumnReveal()
+    {
+        _roomLoadColumnReveal = false;
+        _roomLoadRevealLoadedColumns = 0;
+        _roomView.ClearRoomLoadColumnReveal();
+        _roomLoadReveal.ClearReveal();
+    }
+
+    private static bool UsesRoomLoadColumnReveal(Warp warp) =>
+        warp.EdgeMask != 0 &&
+        warp.SourceTransition == 3 &&
+        warp.DestinationTransition == 3 &&
+        warp.DestinationPosition == 0xff;
+
+    internal static (int Left, int Right) RoomLoadRevealBounds(
+        int loadedColumns)
+    {
+        int clamped = Mathf.Clamp(
+            loadedColumns, 0, RoomLoadRevealColumnUpdates);
+        int loadedLeft = (clamped + 1) / 2;
+        int loadedRight = clamped / 2;
+        int center = RoomLoadRevealVisibleColumns / 2;
+        return (
+            Math.Max(0, (center - loadedLeft) * RoomLoadRevealColumnWidth),
+            Math.Min(
+                OracleRoomData.ViewportWidth,
+                (center + loadedRight) * RoomLoadRevealColumnWidth));
+    }
+
+    internal static bool RoomLoadRevealIsClearedAtPixel(
+        int x,
+        int loadedColumns)
+    {
+        (int left, int right) =
+            RoomLoadRevealBounds(loadedColumns);
+        int pixel = Mathf.Clamp(x, 0, OracleRoomData.ViewportWidth - 1);
+        return pixel < left || pixel >= right;
+    }
+
     private bool ShouldStepOut(Warp warp, byte destinationTile, int tileX, int tileY)
     {
         if (warp.SourceTransition != 3 || _rooms.ActiveGroup is not (0 or 1) ||
@@ -970,6 +1085,8 @@ internal enum WarpPhase
     FadeOut,
     LeaveScreen,
     FadeIn,
+    RoomLoadColumnReveal,
+    EnterScreen,
     TimeWarpInitialize,
     TimeWarpDissolve,
     TimeWarpSetup,

@@ -36,6 +36,12 @@ public sealed partial class ValidationRoot
             _roomView.ZIndex != 0 || _player.ZIndex != 10 ||
             !_roomCamera.Enabled || _roomCamera.PositionSmoothingEnabled ||
             _hud.Position != Vector2.Zero || _hud.ZIndex != 20 ||
+            _scene.RoomLoadReveal.Position !=
+                new Vector2(0, OracleRoomData.GameplayScreenTop) ||
+            _scene.RoomLoadReveal.Size != roomViewportSize ||
+            _scene.RoomLoadReveal.ZIndex != 14 ||
+            _scene.RoomLoadReveal.MouseFilter != Control.MouseFilterEnum.Ignore ||
+            _scene.RoomLoadReveal.Visible ||
             _warpFade.Position != new Vector2(0, OracleRoomData.GameplayScreenTop) ||
             _warpFade.Size != roomViewportSize || _warpFade.ZIndex != 15 ||
             _warpFade.MouseFilter != Control.MouseFilterEnum.Ignore ||

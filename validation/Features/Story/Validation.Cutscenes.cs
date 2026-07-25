@@ -2886,7 +2886,9 @@ public sealed partial class ValidationRoot
         if (_activeGroup != group || _currentRoom.Id != 0x48)
             throw new InvalidOperationException(
                 "Room 1:38's bottom exit did not load past room 1:48.");
-        UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
+        UpdateRoomWarpTransition(
+            RoomTransitionController.RoomLoadRevealCompletionFrame / 60.0);
+        UpdateRoomWarpTransition(WarpEnterFrames / 60.0);
         _entities.Update(1.0 / 60.0, _player);
         TimePortal? returnPortal = _entities.Entities<TimePortal>().SingleOrDefault();
         if (IsTransitioning || _activeGroup != group || _currentRoom.Id != 0x48 ||

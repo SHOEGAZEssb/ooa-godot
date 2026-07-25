@@ -28,8 +28,10 @@ public sealed class OracleRoomData
     public byte[] Layout { get; }
     public byte[] Collisions { get; }
     public Texture2D Texture { get; }
+    public Texture2D ClearedTilemapTexture { get; }
 
     private readonly Image _source;
+    private readonly Image _hudGraphics;
     private readonly byte[] _originalLayout;
     private readonly byte[] _mappings;
     private readonly Color[,] _palette;
@@ -62,6 +64,7 @@ public sealed class OracleRoomData
         byte[] layout,
         byte[] collisions,
         Image source,
+        Image hudGraphics,
         byte[] mappings,
         Color[,] palette,
         Color[] commonBgPalette0,
@@ -77,6 +80,7 @@ public sealed class OracleRoomData
         _originalLayout = (byte[])layout.Clone();
         Collisions = collisions;
         _source = source;
+        _hudGraphics = hudGraphics;
         _mappings = mappings;
         _palette = palette;
         _commonBgPalette0 = commonBgPalette0;
@@ -95,6 +99,8 @@ public sealed class OracleRoomData
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, 0);
         _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
+        ClearedTilemapTexture =
+            ImageTexture.CreateFromImage(RenderClearedTilemap());
         Texture = ImageTexture.CreateFromImage(RenderRoom(activeHeaders));
     }
 
@@ -976,6 +982,33 @@ public sealed class OracleRoomData
                     output.SetPixel(writeX, writeY, color);
                 }
             }
+        }
+
+        return output;
+    }
+
+    private Image RenderClearedTilemap()
+    {
+        var output = Image.CreateEmpty(
+            Width,
+            Height,
+            false,
+            Image.Format.Rgba8);
+
+        // initializeVramMaps fills the BG map with tile $00 and attribute $80.
+        // Gfx register state $02 selects signed BG tile addressing, so tile $00
+        // reads VRAM $9000 in bank 0. loadCommonGraphics has just loaded
+        // GFXH_HUD there; consequently this is gfx_hud tile 0, not tileset
+        // source index $80. That HUD tile is the solid shade-2 clear tile.
+        for (int y = 0; y < Height; y++)
+        for (int x = 0; x < Width; x++)
+        {
+            Color sourceColor = _hudGraphics.GetPixel(x & 0x07, y & 0x07);
+            int shade = Mathf.Clamp(
+                Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f),
+                0,
+                3);
+            output.SetPixel(x, y, _commonBgPalette0[shade]);
         }
 
         return output;

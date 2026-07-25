@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://src/Application/GameSceneGraph.cs" id="1_gameplay"]
 [ext_resource type="Script" path="res://src/Features/World/Rooms/RoomView.cs" id="2_room_view"]
@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://src/Features/Menus/Shell/SaveQuitScreen.cs" id="8_save_quit"]
 [ext_resource type="Script" path="res://src/Features/Development/DebugFlagScreen.cs" id="9_debug_flags"]
 [ext_resource type="Script" path="res://src/Features/Menus/Inventory/RingMenuScreen.cs" id="10_ring_menu"]
+[ext_resource type="Script" path="res://src/Features/World/Transitions/RoomLoadColumnRevealOverlay.cs" id="11_room_load_reveal"]
 
 [node name="Gameplay" type="Node2D"]
 script = ExtResource("1_gameplay")
@@ -40,6 +41,16 @@ layer = 10
 unique_name_in_owner = true
 z_index = 20
 script = ExtResource("4_hud")
+
+[node name="RoomLoadColumnReveal" type="Control" parent="Interface"]
+unique_name_in_owner = true
+visible = false
+offset_top = 16.0
+offset_right = 160.0
+offset_bottom = 144.0
+mouse_filter = 2
+z_index = 14
+script = ExtResource("11_room_load_reveal")
 
 [node name="RoomWarpFade" type="ColorRect" parent="Interface"]
 unique_name_in_owner = true

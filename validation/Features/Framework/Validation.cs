@@ -149,6 +149,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateEnterPastEvent();
         ValidateHouseWarp();
         ValidateCaveWarps();
+        ValidateMakuTreeSouthExitReveal();
         ValidateTerrain();
         ValidateLinkTerrainEffects();
         ValidateHealth();

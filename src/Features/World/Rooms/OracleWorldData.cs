@@ -21,6 +21,7 @@ public sealed class OracleWorldData
     private readonly Dictionary<int, byte[]> _collisions = new();
     private readonly Dictionary<int, Color[,]> _palettes = new();
     private readonly Color[] _commonBgPalette0;
+    private readonly Image _hudGraphics;
     private readonly OracleAnimationData _animations;
 
     public int CachedRoomCount => _rooms.Count;
@@ -30,6 +31,8 @@ public sealed class OracleWorldData
         _tilesetMetadata = ReadBytes("res://assets/oracle/metadata/tilesets.bin", 128 * TilesetRecordSize);
         _commonBgPalette0 = LoadFourColorPalette(
             "res://assets/oracle/metadata/commonBgPalette0.bin");
+        _hudGraphics = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/gfx_hud.png");
         _animations = new OracleAnimationData();
     }
 
@@ -101,7 +104,7 @@ public sealed class OracleWorldData
         var result = new OracleRoomData(
             group, room, tileset, animationGroup, activeCollisions, tilesetFlags,
             layout, collisions,
-            graphics, mappings, palette, _commonBgPalette0, _animations);
+            graphics, _hudGraphics, mappings, palette, _commonBgPalette0, _animations);
         _rooms.Add(key, result);
         return result;
     }

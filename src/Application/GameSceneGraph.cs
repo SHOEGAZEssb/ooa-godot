@@ -18,6 +18,7 @@ public partial class GameSceneGraph : Node2D
     public Player Player { get; private set; } = null!;
     public Camera2D RoomCamera { get; private set; } = null!;
     public Hud Hud { get; private set; } = null!;
+    public RoomLoadColumnRevealOverlay RoomLoadReveal { get; private set; } = null!;
     public ColorRect WarpFade { get; private set; } = null!;
     public DialogueBox Dialogue { get; private set; } = null!;
     public Label RoomDebug { get; private set; } = null!;
@@ -36,6 +37,7 @@ public partial class GameSceneGraph : Node2D
         Player = Unique<Player>("Link");
         RoomCamera = Unique<Camera2D>("RoomCamera");
         Hud = Unique<Hud>("Hud");
+        RoomLoadReveal = Unique<RoomLoadColumnRevealOverlay>("RoomLoadColumnReveal");
         WarpFade = Unique<ColorRect>("RoomWarpFade");
         Dialogue = Unique<DialogueBox>("Dialogue");
         RoomDebug = Unique<Label>("RoomDebug");
@@ -49,6 +51,7 @@ public partial class GameSceneGraph : Node2D
         if (WorldRoot.GetParent() != this || InterfaceLayer.GetParent() != this ||
             RoomView.GetParent() != WorldRoot || Player.GetParent() != WorldRoot ||
             RoomCamera.GetParent() != WorldRoot || Hud.GetParent() != InterfaceLayer ||
+            RoomLoadReveal.GetParent() != InterfaceLayer ||
             WarpFade.GetParent() != InterfaceLayer || Dialogue.GetParent() != InterfaceLayer ||
             RoomDebug.GetParent() != InterfaceLayer || MapScreen.GetParent() != InterfaceLayer ||
             InventoryScreen.GetParent() != InterfaceLayer ||

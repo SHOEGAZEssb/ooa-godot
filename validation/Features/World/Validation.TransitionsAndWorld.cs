@@ -299,6 +299,172 @@ public sealed partial class ValidationRoot
         GD.Print("Validated 0:48 cave entries and dungeon00 room 4:04 -> 4:03 top transition.");
     }
 
+    private void ValidateMakuTreeSouthExitReveal()
+    {
+        const int group = 0;
+        const int sourceRoom = 0x38;
+        const int destinationRoom = 0x48;
+
+        LoadDebugRoom(group, sourceRoom);
+        _player.WarpTo(new Vector2(0x50, 0x70));
+        _player.Face(Vector2I.Down);
+
+        var warps = new WarpDatabase();
+        if (!warps.TryGetEdgeWarp(
+                group,
+                sourceRoom,
+                Vector2I.Down,
+                _player.Position,
+                new Vector2(_currentRoom.Width, _currentRoom.Height),
+                out Warp warp))
+        {
+            throw new InvalidOperationException(
+                "Room 0:38 is missing its imported south edge warp.");
+        }
+
+        _transitions.ApplyWarp(_player, warp);
+        if (!IsTransitioning ||
+            !_transitions.RoomLoadColumnRevealActive ||
+            _roomView.RoomLoadColumnRevealActive ||
+            _scene.RoomLoadReveal.Active ||
+            _scene.RoomLoadReveal.Visible ||
+            _warpFade.Color.A != 0.0f)
+        {
+            throw new InvalidOperationException(
+                "Room 0:38's south edge warp did not select the full-load column reveal.");
+        }
+
+        UpdateRoomWarpTransition(WarpLeaveFrames / 60.0);
+        if (_activeGroup != group ||
+            _currentRoom.Id != destinationRoom ||
+            !_transitions.RoomLoadColumnRevealActive ||
+            !_roomView.RoomLoadColumnRevealActive ||
+            !_scene.RoomLoadReveal.Active ||
+            !_scene.RoomLoadReveal.Visible ||
+            _transitions.RoomLoadRevealLoadedColumns != 0 ||
+            _roomView.RoomLoadRevealLoadedColumns != 0 ||
+            _scene.RoomLoadReveal.LoadedColumns != 0 ||
+            !ReferenceEquals(
+                _roomView.RoomLoadClearedTilemap,
+                _currentRoom.ClearedTilemapTexture) ||
+            !ReferenceEquals(
+                _scene.RoomLoadReveal.ClearedTilemap,
+                _currentRoom.ClearedTilemapTexture) ||
+            _scene.RoomLoadReveal.GetParent() != _scene.InterfaceLayer ||
+            _warpFade.Color.A != 0.0f ||
+            _player.Position != new Vector2(0x50, -0x10))
+        {
+            throw new InvalidOperationException(
+                "Room 0:38's south exit did not load 0:48 behind the cleared VRAM map.");
+        }
+
+        Image clearedTilemap = _currentRoom.ClearedTilemapTexture.GetImage();
+        Color clearedColor = Color.Color8(255, 214, 140);
+        if (clearedTilemap.GetPixel(0, 0) != clearedColor ||
+            clearedTilemap.GetPixel(7, 7) != clearedColor ||
+            clearedTilemap.GetPixel(8, 0) != clearedColor ||
+            clearedTilemap.GetPixel(159, 127) != clearedColor)
+        {
+            throw new InvalidOperationException(
+                "initializeVramMaps tile $00/attribute $80 did not repeat " +
+                "GFXH_HUD tile 0's solid shade 2 through PALH_0f BG palette 0.");
+        }
+
+        UpdateRoomWarpTransition(
+            RoomTransitionController.RoomLoadRevealInitializationFrames / 60.0);
+        if (_transitions.RoomLoadRevealLoadedColumns != 0 ||
+            _roomView.RoomLoadRevealLoadedColumns != 0 ||
+            _scene.RoomLoadReveal.LoadedColumns != 0 ||
+            _warpFade.Color.A != 0.0f ||
+            _player.Position != new Vector2(0x50, -0x10))
+        {
+            throw new InvalidOperationException(
+                "The room-load transition did not preserve its three blank initialization updates.");
+        }
+
+        UpdateRoomWarpTransition(1.0 / 60.0);
+        if (_transitions.RoomLoadRevealLoadedColumns != 1 ||
+            _roomView.RoomLoadRevealLoadedColumns != 1 ||
+            _scene.RoomLoadReveal.LoadedColumns != 1 ||
+            !RoomTransitionController.RoomLoadRevealIsClearedAtPixel(71, 1) ||
+            RoomTransitionController.RoomLoadRevealIsClearedAtPixel(72, 1) ||
+            RoomTransitionController.RoomLoadRevealIsClearedAtPixel(79, 1) ||
+            !RoomTransitionController.RoomLoadRevealIsClearedAtPixel(80, 1))
+        {
+            throw new InvalidOperationException(
+                "The first room-load update did not draw only 8-pixel column 9.");
+        }
+
+        UpdateRoomWarpTransition(1.0 / 60.0);
+        if (_transitions.RoomLoadRevealLoadedColumns != 2 ||
+            _roomView.RoomLoadRevealLoadedColumns != 2 ||
+            _scene.RoomLoadReveal.LoadedColumns != 2 ||
+            RoomTransitionController.RoomLoadRevealIsClearedAtPixel(80, 2) ||
+            RoomTransitionController.RoomLoadRevealIsClearedAtPixel(87, 2) ||
+            !RoomTransitionController.RoomLoadRevealIsClearedAtPixel(88, 2))
+        {
+            throw new InvalidOperationException(
+                "The second room-load update did not draw 8-pixel column 10.");
+        }
+
+        UpdateRoomWarpTransition(18.0 / 60.0);
+        if (_transitions.RoomLoadRevealLoadedColumns != 20 ||
+            _roomView.RoomLoadRevealLoadedColumns != 20 ||
+            _scene.RoomLoadReveal.LoadedColumns != 20 ||
+            RoomTransitionController.RoomLoadRevealIsClearedAtPixel(0, 20) ||
+            RoomTransitionController.RoomLoadRevealIsClearedAtPixel(159, 20) ||
+            _player.Position != new Vector2(0x50, -0x10))
+        {
+            throw new InvalidOperationException(
+                "The first 20 alternating column updates did not fill the visible 160-pixel room.");
+        }
+
+        UpdateRoomWarpTransition(12.0 / 60.0);
+        if (_transitions.RoomLoadRevealLoadedColumns !=
+                RoomTransitionController.RoomLoadRevealColumnUpdates ||
+            !IsTransitioning ||
+            _player.Position != new Vector2(0x50, -0x10))
+        {
+            throw new InvalidOperationException(
+                "The room-load transition did not finish all 32 VRAM-map column updates.");
+        }
+
+        UpdateRoomWarpTransition(1.0 / 60.0);
+        if (!IsTransitioning ||
+            _transitions.RoomLoadColumnRevealActive ||
+            _roomView.RoomLoadColumnRevealActive ||
+            _scene.RoomLoadReveal.Active ||
+            _scene.RoomLoadReveal.Visible ||
+            _warpFade.Color.A != 0.0f ||
+            _transitions.TimeWarpPhaseName != "EnterScreen" ||
+            _player.Position != new Vector2(0x50, -0x10))
+        {
+            throw new InvalidOperationException(
+                "The completed column load did not release destination transition $03.");
+        }
+
+        UpdateRoomWarpTransition((WarpEnterFrames - 1.0f) / 60.0);
+        if (!IsTransitioning ||
+            _player.Position != new Vector2(0x50, 0x0b))
+        {
+            throw new InvalidOperationException(
+                "Link did not begin his 28-update destination walk after the column load.");
+        }
+
+        UpdateRoomWarpTransition(1.0 / 60.0);
+        if (IsTransitioning ||
+            _player.Position != new Vector2(0x50, 0x0c))
+        {
+            throw new InvalidOperationException(
+                "Room 0:38's destination transition did not finish after Link's 28th walk update.");
+        }
+
+        LoadValidationRoom(0, 0x11);
+        GD.Print(
+            "Validated room 0:38 south exit exact HUD tile-$00/palette-0 priority map " +
+            "and alternating 8-pixel VRAM-column reveal.");
+    }
+
     private void ValidateLargeDungeonTopTransition()
     {
         float exitX = -1.0f;
