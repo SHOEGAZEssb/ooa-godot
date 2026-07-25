@@ -22,6 +22,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     private readonly List<NpcCharacterAnimationFrame> _scriptAnimation = new();
     private Image _sourceImage = null!;
     private NpcCharacterFacing _facing = NpcCharacterFacing.Down;
+    private NpcCharacterFacing _nativeNpcFacingAngle = NpcCharacterFacing.Up;
     private int _animationFrame;
     private double _animationTicks;
     private double _faceCooldownFrames;
@@ -310,6 +311,85 @@ public partial class NpcCharacter : TransitionOffsetNode2D
 
         SetFacing(desired);
         _faceCooldownFrames = 30.0;
+    }
+
+    /// <summary>
+    /// One original update of interactionPushLinkAwayAndUpdateDrawPriority.
+    /// Native interaction adapters use this instead of the variable-delta
+    /// ordinary-NPC presentation path.
+    /// </summary>
+    internal void PushPlayerAwayAndUpdateDrawPriority(Player player)
+    {
+        if (!Active)
+            return;
+        PreventPlayerPassing(player);
+        UpdateDrawPriority(player.Position);
+    }
+
+    /// <summary>
+    /// One original update of interactionAnimateAsNpc.
+    /// </summary>
+    internal void AnimateAsNpcOneUpdate(Player player)
+    {
+        if (!Active)
+            return;
+        AdvanceAnimationUpdates(1);
+        PushPlayerAwayAndUpdateDrawPriority(player);
+    }
+
+    /// <summary>
+    /// One original update of npcFaceLinkAndAnimate, including the same
+    /// post-change value $1d for its 30-update direction-change counter.
+    /// </summary>
+    internal void FaceLinkAndAnimateOneUpdate(Player player)
+    {
+        if (!Active)
+            return;
+
+        if (Record.CanFace)
+        {
+            if (_faceCooldownFrames > 0.0)
+            {
+                _faceCooldownFrames = Math.Max(
+                    0.0, _faceCooldownFrames - 1.0);
+            }
+            else
+            {
+                Vector2 link = OracleObjectMath.ToPixelPosition(player.Position);
+                Vector2 target = OracleObjectMath.ToPixelPosition(Position);
+                Vector2 difference = link - target;
+                float differenceX = Mathf.Abs(difference.X);
+                float differenceY = Mathf.Abs(difference.Y);
+                NpcCharacterFacing desired =
+                    differenceX + differenceY >= 0x28
+                        ? NpcCharacterFacing.Down
+                        : differenceX >= differenceY
+                            ? difference.X >= 0
+                                ? NpcCharacterFacing.Right
+                                : NpcCharacterFacing.Left
+                            : difference.Y >= 0
+                                ? NpcCharacterFacing.Down
+                                : NpcCharacterFacing.Up;
+                if (desired != _nativeNpcFacingAngle)
+                {
+                    _nativeNpcFacingAngle = desired;
+                    SetFacingAndRestartAnimation(desired);
+                    // The source loads 30, then falls through to DEC before
+                    // storing the counter.
+                    _faceCooldownFrames = 29.0;
+                }
+            }
+        }
+
+        AnimateAsNpcOneUpdate(player);
+    }
+
+    internal void ResetNativeNpcFacingState()
+    {
+        // Interaction.angle and Interaction.invincibilityCounter both begin
+        // at zero independently of the animation selected during state 0.
+        _nativeNpcFacingAngle = NpcCharacterFacing.Up;
+        _faceCooldownFrames = 0.0;
     }
 
     internal void UpdateDrawPriority(Vector2 linkPosition)
@@ -612,6 +692,14 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     {
         if (_facing == facing)
             return;
+        _facing = facing;
+        _animationFrame = 0;
+        _animationTicks = 0.0;
+        QueueRedraw();
+    }
+
+    private void SetFacingAndRestartAnimation(NpcCharacterFacing facing)
+    {
         _facing = facing;
         _animationFrame = 0;
         _animationTicks = 0.0;

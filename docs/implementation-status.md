@@ -296,6 +296,11 @@ remains the single runtime policy table.
   `1:75` includes both mutually exclusive Black Tower hardhat phases with
   exact `getBlackTowerProgress` predicates and text. Room `1:86` includes its
   entrance guard's essence/room-flag phases, dialogue, facing, and movement.
+- Present indoor room `2:0e` preserves its ordered boy `$3c:$0d` and old-lady
+  `$3d:$00` interactions. `GLOBALFLAG_SAVED_NAYRU` switches their exact
+  positions, TX `$251c/$3800/$3801`, palettes, initial animations, talkability,
+  and native idle-facing behavior; the pre-flag boy uses fixed animation `$0c`
+  with `PALH_a2` and remains a non-talkable solid stone.
 - Present exterior `0:45` and Troy's house `3:fb`, including the boy's exact
   game-progress-`$03` visibility, both directional doorway transitions,
   Troy's finished-game removal, one shared low-nibble RNG call per talk, all

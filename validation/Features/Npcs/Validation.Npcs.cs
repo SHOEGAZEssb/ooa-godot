@@ -367,6 +367,226 @@ public sealed partial class ValidationRoot
             "priority, and Link sprite palette 0.");
     }
 
+    private void ValidateRoom20eNpcInteractions()
+    {
+        const double frame = 1.0 / 60.0;
+        var validationRoot = new Node { Name = "Room20eNpcValidation" };
+        AddChild(validationRoot);
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        save.SetGlobalFlag(
+            OracleSaveData.GlobalFlagSavedNayru, value: false);
+        var manager = new RoomEntityManager(
+            validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
+        var database = new Room20eNpcDatabase();
+        manager.LoadRoom(2, _world.LoadRoom(2, 0x0e));
+
+        List<NpcCharacter> actors = manager.Entities<NpcCharacter>();
+        if (actors.Count != 2 ||
+            actors[0].Record is not { Id: 0x3c, SubId: 0x0d } ||
+            actors[1].Record is not { Id: 0x3d, SubId: 0x00 })
+        {
+            throw new InvalidOperationException(
+                "Room 2:0e did not preserve the source order " +
+                "$3c:$0d then $3d:$00.");
+        }
+        NpcCharacter boy = actors[0];
+        NpcCharacter oldLady = actors[1];
+        Room20eNpcStateRecord stoneBoy =
+            database.State(boy.Record, savedNayru: false);
+        Room20eNpcStateRecord waitingLady =
+            database.State(oldLady.Record, savedNayru: false);
+        if (stoneBoy is not
+            {
+                Y: 0x48,
+                X: 0x38,
+                PaletteKind: Room20ePaletteKind.PalhA2,
+                Palette: 0x06,
+                InitialAnimation: 0x0c,
+                AnimationMode: Room20eAnimationMode.Fixed,
+                Behavior: Room20eNpcBehavior.Push,
+                TextId: 0x0000
+            } ||
+            waitingLady is not
+            {
+                Y: 0x48,
+                X: 0x4a,
+                Palette: 0x03,
+                InitialAnimation: 0x03,
+                Behavior: Room20eNpcBehavior.Animate,
+                TextId: 0x3800
+            })
+        {
+            throw new InvalidOperationException(
+                "Room 2:0e imported states do not match the pre-SAVED_NAYRU " +
+                "positions, palettes, animations, behaviors, and text.");
+        }
+        if (boy.Position != new Vector2(0x38, 0x48) ||
+            boy.TextId != 0 ||
+            boy.CurrentScriptAnimationSource != stoneBoy.Animation ||
+            oldLady.Position != new Vector2(0x4a, 0x48) ||
+            oldLady.TextId != 0x3800 ||
+            oldLady.FacingVector != Vector2I.Left ||
+            oldLady.CurrentScriptAnimationSource.Length != 0 ||
+            !boy.BlocksLinkCenter(boy.Position) ||
+            !oldLady.BlocksLinkCenter(oldLady.Position) ||
+            !boy.CurrentAnimationUsesColor(database.StonePalette[1]) &&
+            !boy.CurrentAnimationUsesColor(database.StonePalette[2]) &&
+            !boy.CurrentAnimationUsesColor(database.StonePalette[3]))
+        {
+            throw new InvalidOperationException(
+                "Room 2:0e did not initialize the non-talkable stone boy with " +
+                "PALH_a2 or the left-facing TX_3800 old lady.");
+        }
+
+        _player.WarpTo(boy.Position + Vector2.Down * 12.0f);
+        _player.Face(Vector2I.Up);
+        if (manager.FindTalkTarget(_player) is not null)
+        {
+            throw new InvalidOperationException(
+                "Stone boy $3c:$0d incorrectly entered the A-button-sensitive list.");
+        }
+        _player.WarpTo(oldLady.Position + Vector2.Down * 12.0f);
+        _player.Face(Vector2I.Up);
+        if (!ReferenceEquals(manager.FindTalkTarget(_player), oldLady))
+        {
+            throw new InvalidOperationException(
+                "Old lady $3d:$00 did not expose TX_3800 at the original " +
+                "$06/$06 A-button geometry.");
+        }
+
+        _player.WarpTo(oldLady.Position + Vector2.Right * 20.0f);
+        for (int update = 0; update < 16; update++)
+            manager.Update(frame, _player);
+        if (oldLady.FacingVector != Vector2I.Left ||
+            oldLady.CurrentAnimationFrame != 1 ||
+            boy.CurrentAnimationFrame != 0)
+        {
+            throw new InvalidOperationException(
+                "Before SAVED_NAYRU, room 2:0e did not animate the old lady " +
+                "without facing Link while leaving animation $0c's stone boy fixed.");
+        }
+
+        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        Room20eNpcStateRecord restoredBoy =
+            database.State(boy.Record, savedNayru: true);
+        Room20eNpcStateRecord relievedLady =
+            database.State(oldLady.Record, savedNayru: true);
+        Color[] redPalette = NpcCharacter.GetStandardSpritePalette(2);
+        if (restoredBoy is not
+            {
+                Y: 0x48,
+                X: 0x68,
+                Palette: 0x02,
+                InitialAnimation: 0x02,
+                AnimationMode: Room20eAnimationMode.Directional,
+                Behavior: Room20eNpcBehavior.FaceAnimate,
+                TextId: 0x251c
+            } ||
+            relievedLady is not
+            {
+                Y: 0x48,
+                X: 0x78,
+                Palette: 0x03,
+                InitialAnimation: 0x03,
+                Behavior: Room20eNpcBehavior.FaceAnimate,
+                TextId: 0x3801
+            } ||
+            boy.Position != new Vector2(0x68, 0x48) ||
+            boy.TextId != 0x251c ||
+            boy.CurrentScriptAnimationSource.Length != 0 ||
+            boy.FacingVector != Vector2I.Down ||
+            oldLady.Position != new Vector2(0x78, 0x48) ||
+            oldLady.TextId != 0x3801 ||
+            oldLady.FacingVector != Vector2I.Left ||
+            !boy.CurrentAnimationUsesColor(redPalette[1]) &&
+            !boy.CurrentAnimationUsesColor(redPalette[2]) &&
+            !boy.CurrentAnimationUsesColor(redPalette[3]))
+        {
+            throw new InvalidOperationException(
+                "GLOBALFLAG_SAVED_NAYRU $11 did not live-restore room 2:0e's " +
+                "boy and move/update both actors to TX_251c/TX_3801.");
+        }
+
+        _player.WarpTo(boy.Position + Vector2.Down * 12.0f);
+        _player.Face(Vector2I.Up);
+        if (!ReferenceEquals(manager.FindTalkTarget(_player), boy))
+        {
+            throw new InvalidOperationException(
+                "Restored boy $3c:$0d did not become talkable through " +
+                "rungenericnpc TX_251c.");
+        }
+        _player.WarpTo(oldLady.Position + Vector2.Down * 12.0f);
+        _player.Face(Vector2I.Up);
+        if (!ReferenceEquals(manager.FindTalkTarget(_player), oldLady))
+        {
+            throw new InvalidOperationException(
+                "Restored old lady $3d:$00 did not expose TX_3801 at $48,$78.");
+        }
+
+        _player.WarpTo(boy.Position + Vector2.Up * 20.0f);
+        manager.Update(frame, _player);
+        if (boy.FacingVector != Vector2I.Down)
+        {
+            throw new InvalidOperationException(
+                "Restored boy $3c:$0d did not preserve the source's independent " +
+                "initial DIR_UP angle byte when the visible animation began down.");
+        }
+        _player.WarpTo(boy.Position + Vector2.Left * 20.0f);
+        manager.Update(frame, _player);
+        if (boy.FacingVector != Vector2I.Left)
+        {
+            throw new InvalidOperationException(
+                "Restored boy $3c:$0d did not face nearby Link on his first update.");
+        }
+        _player.WarpTo(boy.Position + Vector2.Right * 20.0f);
+        for (int update = 0; update < 29; update++)
+            manager.Update(frame, _player);
+        if (boy.FacingVector != Vector2I.Left)
+        {
+            throw new InvalidOperationException(
+                "npcFaceLinkAndAnimate changed the restored boy's direction " +
+                "before its $1d-to-$00 cooldown elapsed.");
+        }
+        manager.Update(frame, _player);
+        if (boy.FacingVector != Vector2I.Right)
+        {
+            throw new InvalidOperationException(
+                "npcFaceLinkAndAnimate did not allow the restored boy's " +
+                "direction change on the 30th following update.");
+        }
+
+        manager.LoadRoom(2, _world.LoadRoom(2, 0x0e));
+        actors = manager.Entities<NpcCharacter>();
+        if (actors.Count != 2 ||
+            actors[0].Position != new Vector2(0x68, 0x48) ||
+            actors[0].TextId != 0x251c ||
+            actors[1].Position != new Vector2(0x78, 0x48) ||
+            actors[1].TextId != 0x3801)
+        {
+            throw new InvalidOperationException(
+                "Re-entering room 2:0e lost its post-SAVED_NAYRU NPC state.");
+        }
+        save.SetGlobalFlag(
+            OracleSaveData.GlobalFlagSavedNayru, value: false);
+        if (actors[0].Position != new Vector2(0x38, 0x48) ||
+            actors[0].TextId != 0 ||
+            actors[1].Position != new Vector2(0x4a, 0x48) ||
+            actors[1].TextId != 0x3800)
+        {
+            throw new InvalidOperationException(
+                "Clearing GLOBALFLAG_SAVED_NAYRU did not restore room 2:0e's " +
+                "complete pre-save state during live predicate refresh.");
+        }
+
+        manager.Clear();
+        RemoveChild(validationRoot);
+        validationRoot.QueueFree();
+        GD.Print("Validated room 2:0e's ordered $3c:$0d/$3d:$00 interactions, " +
+            "PALH_a2 stone state, SAVED_NAYRU positions/palettes/TX_251c/TX_3800/" +
+            "TX_3801 talkability, native animation/facing behavior, 30-update " +
+            "direction cooldown, live refresh, and re-entry.");
+    }
+
     private void ValidateRoom148NpcInteractions()
     {
         const double frame = 1.0 / 60.0;

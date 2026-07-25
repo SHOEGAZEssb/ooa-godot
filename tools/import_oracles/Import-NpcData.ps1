@@ -1968,6 +1968,101 @@ $blackTowerConstantsRows = @(
     "blocker-wait`t10"
 )
 
+# Present indoor room 2:0e contains the stone boy and his grandmother. Both
+# placed interactions survive across GLOBALFLAG_SAVED_NAYRU, but their native
+# initializers change position, palette, animation, dialogue, and per-update
+# facing behavior in place. Export both phases instead of approximating them
+# with the base generic-NPC rows.
+$room20eBoySource = Get-Content -Raw (
+    Join-Path $Disassembly 'object_code\ages\interactions\boy.s')
+if ($mainObjectSource -notmatch
+        '(?ms)^group2Map0eObjectData:\s+obj_Interaction \$3c \$0d \$48 \$38\s+obj_Interaction \$3d \$00 \$48 \$4a\s+obj_End' -or
+    $room20eBoySource -notmatch
+        '(?ms)^@initSubid0d:.*?GLOBALFLAG_SAVED_NAYRU.*?jr nz,@@notStone.*?loadStoneNpcPalette.*?Interaction\.oamFlags\s+ld \(hl\),\$06.*?objectSetCollideRadius.*?Interaction\.var03\s+inc \(hl\).*?ld a,\$0c\s+jp interactionSetAnimation.*?^@@notStone:.*?ld bc,\$4868\s+call interactionSetPosition.*?Interaction\.oamFlags\s+ld \(hl\),\$02\s+jp boyLoadScript' -or
+    $room20eBoySource -notmatch
+        '(?ms)^boyRunSubid0d:.*?Interaction\.var03.*?jp nz,interactionPushLinkAwayAndUpdateDrawPriority.*?interactionRunScript\s+jp npcFaceLinkAndAnimate' -or
+    $oldLadyInteractionSource -notmatch
+        '(?ms)^@initSubid0:.*?ld a,\$03\s+call interactionSetAnimation.*?GLOBALFLAG_SAVED_NAYRU.*?jr z,@loadScript.*?ld a,\$01\s+ld e,Interaction\.var03\s+ld \(de\),a\s+ld bc,\$4878\s+call interactionSetPosition' -or
+    $oldLadyInteractionSource -notmatch
+        '(?ms)^@runSubid0:.*?interactionRunScript.*?Interaction\.var03.*?jp z,interactionAnimateAsNpc\s+jp npcFaceLinkAndAnimate' -or
+    $agesMainScriptSource -notmatch
+        '(?ms)^boySubid0dScript:\s+rungenericnpc TX_251c' -or
+    $agesMainScriptSource -notmatch
+        '(?ms)^oldLadySubid0Script:.*?GLOBALFLAG_SAVED_NAYRU, @notStone\s+rungenericnpc TX_3800\s+^@notStone:\s+rungenericnpc TX_3801') {
+    throw 'Room 2:0e boy/old-lady placement or SAVED_NAYRU behavior changed in the disassembly.'
+}
+
+$room20eStateRows = [Collections.Generic.List[string]]::new()
+$room20eStateRows.Add(
+    "# actor`tphase`tgroup`troom`tid`tsubid`ty`tx`tpalette-kind`tpalette`tinitial-animation`tanimation-mode`tbehavior`ttext-id`tanimation`tsource`tutf8-base64")
+$room20eStateSpecs = @(
+    @{
+        Actor = 'boy'; Phase = 'before-saved-nayru'; Id = 0x3c; Subid = 0x0d
+        Y = 0x48; X = 0x38; PaletteKind = 'palh-a2'; Palette = 0x06
+        InitialAnimation = 0x0c; AnimationMode = 'fixed'; Behavior = 'push'
+        TextId = 0x0000
+        Source = 'boy.s:@initSubid0d;boyRunSubid0d'
+    },
+    @{
+        Actor = 'boy'; Phase = 'after-saved-nayru'; Id = 0x3c; Subid = 0x0d
+        Y = 0x48; X = 0x68; PaletteKind = 'standard'; Palette = 0x02
+        InitialAnimation = 0x02; AnimationMode = 'directional'; Behavior = 'face-animate'
+        TextId = 0x251c
+        Source = 'boy.s:@@notStone;boySubid0dScript'
+    },
+    @{
+        Actor = 'old-lady'; Phase = 'before-saved-nayru'; Id = 0x3d; Subid = 0x00
+        Y = 0x48; X = 0x4a; PaletteKind = 'standard'; Palette = 0x03
+        InitialAnimation = 0x03; AnimationMode = 'directional'; Behavior = 'animate'
+        TextId = 0x3800
+        Source = 'oldLady.s:@initSubid0;oldLadySubid0Script'
+    },
+    @{
+        Actor = 'old-lady'; Phase = 'after-saved-nayru'; Id = 0x3d; Subid = 0x00
+        Y = 0x48; X = 0x78; PaletteKind = 'standard'; Palette = 0x03
+        InitialAnimation = 0x03; AnimationMode = 'directional'; Behavior = 'face-animate'
+        TextId = 0x3801
+        Source = 'oldLady.s:@initSubid0;oldLadySubid0Script'
+    }
+)
+foreach ($spec in $room20eStateSpecs) {
+    $animation = Resolve-NpcAnimation ([int]$spec.Id) ([int]$spec.InitialAnimation)
+    $textId = [int]$spec.TextId
+    if (-not $animation -or
+        $textId -ne 0 -and -not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve room 2:0e $($spec.Actor) $($spec.Phase) animation or text."
+    }
+    $message = if ($textId -eq 0) { '' } else { $allTexts[$textId] }
+    $encoded = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($message))
+    $room20eStateRows.Add(@(
+        $spec.Actor,
+        $spec.Phase,
+        '2',
+        '0e',
+        ([int]$spec.Id).ToString('x2'),
+        ([int]$spec.Subid).ToString('x2'),
+        ([int]$spec.Y).ToString('x2'),
+        ([int]$spec.X).ToString('x2'),
+        $spec.PaletteKind,
+        ([int]$spec.Palette).ToString('x2'),
+        ([int]$spec.InitialAnimation).ToString('x2'),
+        $spec.AnimationMode,
+        $spec.Behavior,
+        $textId.ToString('x4'),
+        $animation,
+        $spec.Source,
+        $encoded
+    ) -join "`t")
+}
+if ($room20eStateRows.Count -ne 5) {
+    throw "Expected four room 2:0e NPC state records, got $($room20eStateRows.Count - 1)."
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\room20e_npc_states.tsv'),
+    $room20eStateRows,
+    [Text.UTF8Encoding]::new($false))
+
 # Past room 1:49's three placed characters are one shared interaction: the
 # father and son play catch through wTmpcfc0.genericCutscene.cfd3 and
 # INTERAC_BALL, while D7's essence bit and D8/Veran's completion room flag

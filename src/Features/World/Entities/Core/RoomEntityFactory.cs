@@ -46,6 +46,7 @@ internal sealed class RoomEntityFactory(
 {
     private readonly Room148PickaxeDatabase _room148 = new();
     private readonly Room149FamilyDatabase _room149 = new();
+    private readonly Room20eNpcDatabase _room20e = new();
     private readonly VasuShopDatabase _vasuShop = new();
     private readonly LynnaShopDatabase _lynnaShop = new();
     private readonly BlackTowerWorkerDatabase _blackTower = new();
@@ -317,6 +318,12 @@ internal sealed class RoomEntityFactory(
                     ZIndex = NpcCharacter.BehindLinkZIndex
                 };
                 npc.Initialize(record);
+                if (_room20e.Matches(record))
+                {
+                    yield return new Room20eNpcRoomEntity(
+                        npc, _room20e, saveData);
+                    continue;
+                }
                 if (saveData is not null && _troyHouse.Matches(record))
                 {
                     yield return new TroyHouseRoomEntity(

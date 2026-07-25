@@ -238,6 +238,24 @@ Room `1:48` is the reference for a single native NPC with ordinary neighbors:
   sheet. Preserve both the no-load index and bank bit when resolving such child
   effects to a source PNG.
 
+Room `2:0e` is the reference for placed native NPCs whose actors persist while
+one global story flag changes several state-0 and per-update properties:
+
+- Preserve source order: `INTERAC_BOY $3c:$0d` at `$48,$38`, then
+  `INTERAC_OLD_LADY $3d:$00` at `$48,$4a`.
+- Before `GLOBALFLAG_SAVED_NAYRU`, the boy uses fixed animation `$0c`,
+  `PALH_a2` in OBJ palette slot `$06`, remains solid, and is not A-button
+  sensitive. The old lady stays at the placed position, faces left through
+  initial animation `$03`, animates without idle Link-facing, and shows TX
+  `$3800`.
+- After the flag, the boy moves to `$48,$68`, selects OAM palette `$02`,
+  resumes directional `npcFaceLinkAndAnimate`, and exposes TX `$251c`. The old
+  lady moves to `$48,$78`, keeps palette `$03`, enables the same native
+  Link-facing update, and exposes TX `$3801`.
+- Keep these as imported native states rather than visibility alternatives:
+  both interaction slots remain allocated, and solidity, position, palette,
+  animation, talkability, and the 30-update direction cooldown change in place.
+
 Animation records retain a frame's nonzero `animParameter` as
 `duration,parameter@oam`; frames with parameter zero keep the compact
 `duration@oam` form. A native owner must inspect the parameter at the same point
