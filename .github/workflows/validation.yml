@@ -92,10 +92,10 @@ jobs:
             echo "ORACLES_ROM=$(cygpath -w "$source_rom")"
           } >> "$(cygpath -u "$GITHUB_ENV")"
 
-      - name: Import generated assets
+      - name: Test importer and verify deterministic generated assets
         shell: pwsh
         run: >-
-          & .\tools\import_oracles.ps1
+          & .\tools\verify_oracle_import.ps1
           -Disassembly $env:ORACLES_DISASSEMBLY
           -Rom $env:ORACLES_ROM
 

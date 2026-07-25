@@ -6,3 +6,7 @@
 /.vs/ORACLE-OF-AGES
 /validation/bin
 /validation/obj
+/tools/OracleImporter/bin/
+/tools/OracleImporter/obj/
+/tools/OracleImporter.Tests/bin/
+/tools/OracleImporter.Tests/obj/

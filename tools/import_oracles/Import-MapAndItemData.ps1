@@ -2,7 +2,7 @@
 # tree icons, and every text bank the map resolver can select. Conditional
 # popup behavior remains a runtime concern because it reads live room/global
 # flags, but the table bytes and TX strings come directly from the disassembly.
-$mapDataSource = Get-Content -Raw (Join-Path $Disassembly 'data\ages\mapTextAndPopups.s')
+$mapDataSource = Read-ImportText (Join-Path $Disassembly 'data\ages\mapTextAndPopups.s')
 $mapDataSource = [regex]::Replace(
     $mapDataSource,
     '(?ms)\.ifdef REGION_JP\s*.*?\.else\s*(?<us>.*?)\.endif',
@@ -73,7 +73,7 @@ foreach ($textId in @($allTexts.Keys | Sort-Object)) {
 $mapTextsPath = Join-Path $destination 'map\texts.tsv'
 [IO.File]::WriteAllLines($mapTextsPath, $mapTextRows, [Text.UTF8Encoding]::new($false))
 
-$treeWarpSource = Get-Content -Raw (Join-Path $Disassembly 'data\ages\treeWarps.s')
+$treeWarpSource = Read-ImportText (Join-Path $Disassembly 'data\ages\treeWarps.s')
 $treeWarpRows = [Collections.Generic.List[string]]::new()
 $treeWarpRows.Add('# group`troom`tpopup')
 foreach ($treeGroup in @(
@@ -100,7 +100,7 @@ if ($treeWarpRows.Count -ne 11) {
 }
 [IO.File]::WriteAllLines($treeWarpsPath, $treeWarpRows, [Text.UTF8Encoding]::new($false))
 
-$mapMenuCode = Get-Content -Raw (Join-Path $Disassembly 'code\bank2.s')
+$mapMenuCode = Read-ImportText (Join-Path $Disassembly 'code\bank2.s')
 $entranceBlock = [regex]::Match(
     $mapMenuCode,
     '(?ms)^mapMenu_dungeonEntranceText:\s*\r?\n\s*\.ifdef ROM_AGES\s*(?<body>.*?)\s*\.else; ROM_SEASONS')
@@ -122,7 +122,7 @@ $entrancePath = Join-Path $destination 'map\dungeon_entrances.tsv'
 
 function Read-ConstantIds([string]$path, [string]$prefix) {
     $ids = @{}
-    foreach ($line in Get-Content $path) {
+    foreach ($line in Read-ImportLines $path) {
         if ($line -match "^\s*(?<name>${prefix}[A-Z0-9_]+)\s+(?:\.?db|db)\s*;\s*(?:0x|\$)(?<id>[0-9a-f]{2})") {
             $ids[$Matches['name']] = [Convert]::ToInt32($Matches['id'], 16)
         }
@@ -158,46 +158,46 @@ if ($treasureIds['TREASURE_SWORD'] -ne 0x05 -or $itemIds['ITEM_SWORD'] -ne 0x05)
 # ITEM_SEED_SATCHEL ($19) creates the selected $20-$24 child item. Preserve
 # the complete Ember child used by the first Satchel rather than duplicating
 # its item tables and native constants in the runtime.
-$itemDataSource = Get-Content -Raw (Join-Path $Disassembly 'data\ages\itemData.s')
-$itemAttributesSource = Get-Content -Raw (Join-Path $Disassembly 'data\ages\itemAttributes.s')
-$itemAnimationsSource = Get-Content -Raw (Join-Path $Disassembly 'data\itemAnimations.s')
-$itemOamDataSource = Get-Content -Raw (Join-Path $Disassembly 'data\itemOamData.s')
-$itemUsageSource = Get-Content -Raw (Join-Path $Disassembly 'data\ages\itemUsageTables.s')
-$specialObjectAnimationsSource = Get-Content -Raw (
+$itemDataSource = Read-ImportText (Join-Path $Disassembly 'data\ages\itemData.s')
+$itemAttributesSource = Read-ImportText (Join-Path $Disassembly 'data\ages\itemAttributes.s')
+$itemAnimationsSource = Read-ImportText (Join-Path $Disassembly 'data\itemAnimations.s')
+$itemOamDataSource = Read-ImportText (Join-Path $Disassembly 'data\itemOamData.s')
+$itemUsageSource = Read-ImportText (Join-Path $Disassembly 'data\ages\itemUsageTables.s')
+$specialObjectAnimationsSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
-$specialObjectAnimationLogicSource = Get-Content -Raw (
+$specialObjectAnimationLogicSource = Read-ImportText (
     Join-Path $Disassembly 'code\specialObjectAnimationsAndDamage.s')
-$objectGfxHeadersSource = Get-Content -Raw (
+$objectGfxHeadersSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\objectGfxHeaders.s')
-$gfxHeadersSource = Get-Content -Raw (
+$gfxHeadersSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\gfxHeaders.s')
-$seedCodeSource = Get-Content -Raw (
+$seedCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\items\seeds.s')
-$seedParentSource = Get-Content -Raw (
+$seedParentSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\itemParents\seedsParent.s')
-$swordBeamSource = Get-Content -Raw (
+$swordBeamSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\items\swordBeam.s')
-$shieldParentSource = Get-Content -Raw (
+$shieldParentSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\itemParents\shieldParent.s')
-$braceletParentSource = Get-Content -Raw (
+$braceletParentSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\itemParents\bombsBraceletParent.s')
-$braceletItemSource = Get-Content -Raw (
+$braceletItemSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\items\bracelet.s')
-$braceletThrowSource = Get-Content -Raw (
+$braceletThrowSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\items\commonBombAndBraceletCode.s')
-$pushBlockSource = Get-Content -Raw (
+$pushBlockSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\pushblock.s')
-$objectSpeedsSource = Get-Content -Raw (
+$objectSpeedsSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\objectSpeeds.s')
-$parentItemCommonSource = Get-Content -Raw (
+$parentItemCommonSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\itemParents\commonCode.s')
-$collisionEffectsSource = Get-Content -Raw (
+$collisionEffectsSource = Read-ImportText (
     Join-Path $Disassembly 'code\collisionEffects.s')
-$objectCollisionTableSource = Get-Content -Raw (
+$objectCollisionTableSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\objectCollisionTable.s')
-$partDataSource = Get-Content -Raw (
+$partDataSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\partData.s')
-$partActiveCollisionsSource = Get-Content -Raw (
+$partActiveCollisionsSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\partActiveCollisions.s')
 $soundIds = Read-ConstantIds (Join-Path $Disassembly 'constants\common\music.s') 'SND_'
 
@@ -533,7 +533,7 @@ for ($direction = 0; $direction -lt 4; $direction++) {
 # inventory variables from original treasure IDs and parameters.
 $behaviourRows = [Collections.Generic.List[string]]::new()
 $behaviourRows.Add("# treasure-id`tvariable`tmode`tsound")
-$behaviourSource = Get-Content (Join-Path $Disassembly "data\ages\treasureCollectionBehaviours.s")
+$behaviourSource = Read-ImportLines (Join-Path $Disassembly "data\ages\treasureCollectionBehaviours.s")
 $currentBehaviourTreasure = -1
 $behaviourFields = @()
 foreach ($line in $behaviourSource) {
@@ -571,7 +571,7 @@ if ($behaviourRows.Count -ne 105) {
 $treasureObjectRows = [Collections.Generic.List[string]]::new()
 $treasureObjectRows.Add("# treasure-object`ttreasure-id`tsubid`tparameter`ttext-id`tgraphic`tmessage-base64")
 $treasureObjectRecords = @{}
-$treasureObjectSource = Get-Content (Join-Path $Disassembly "data\ages\treasureObjectData.s")
+$treasureObjectSource = Read-ImportLines (Join-Path $Disassembly "data\ages\treasureObjectData.s")
 $currentTreasure = -1
 foreach ($line in $treasureObjectSource) {
     if ($line -match 'm_BeginTreasureSubids\s+(?<treasure>TREASURE_[A-Z0-9_]+)') {
@@ -631,7 +631,7 @@ if (-not $treasureObjectRecords.ContainsKey('TREASURE_OBJECT_SWORD_00') -or
 # data-driven for later menu/equipment slices.
 $displayRows = [Collections.Generic.List[string]]::new()
 $displayRows.Add("# table`tindex`ttreasure-id`tleft-sprite`tleft-palette`tright-sprite`tright-palette`textra-mode`ttext-low")
-$displaySource = Get-Content (Join-Path $Disassembly "data\ages\treasureDisplayData.s")
+$displaySource = Read-ImportLines (Join-Path $Disassembly "data\ages\treasureDisplayData.s")
 $displayTable = ''
 $displayIndex = 0
 foreach ($line in $displaySource) {
@@ -723,7 +723,7 @@ if (($inventoryTextRows | Where-Object { $_ -match '^item\t23\t0923\t' }).Count 
 # retain the disassembly's left-to-right bit order from breakableTileSources.s.
 # Effect bit 7 calls updateRoomFlagsForBrokenTile, whose collision-indexed
 # room-flag and Gasha-maturity tables are retained on each applicable row.
-$breakableSource = Get-Content (Join-Path $Disassembly "data\ages\tile_properties\breakableTiles.s")
+$breakableSource = Read-ImportLines (Join-Path $Disassembly "data\ages\tile_properties\breakableTiles.s")
 $breakableModes = @{}
 foreach ($line in $breakableSource) {
     if ($line -match 'm_BreakableTileData\s+%(?<m0>[01]{8})\s+%(?<m1>[01]{8})\s+%(?<m2>[01]{4})\s+\$(?<drop>[0-9a-f])\s+\$(?<effect>[0-9a-f]{2})\s+\$(?<replacement>[0-9a-f]{2})\s*;\s*\$(?<index>[0-9a-f]{2})') {
@@ -755,7 +755,7 @@ $breakableCollisionModes = @{
 function Read-BreakableCollisionValueTable([string]$path) {
     $result = @{}
     $activeLabels = [Collections.Generic.List[string]]::new()
-    foreach ($line in Get-Content $path) {
+    foreach ($line in Read-ImportLines $path) {
         if ($line -match '^\s*@(?<label>[A-Za-z0-9_]+):') {
             $label = $Matches['label']
             if ($breakableCollisionModes.ContainsKey($label)) {
@@ -844,31 +844,31 @@ if (($breakableRows | Where-Object { $_ -eq "2`t10`t1d`t00125`t2`t06`ta0`tff`t0"
 # Export LINK_STATE_JUMPING_DOWN_LEDGE's collision-set-specific cliff and
 # landing tables together with the exact edge probes, length speeds, physics,
 # animation timing, and sounds consumed by checkLinkJumpingOffCliff/linkState12.
-$linkSource = Get-Content -Raw (
+$linkSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\specialObjects\link.s')
-$cliffTileSource = Get-Content (
+$cliffTileSource = Read-ImportLines (
     Join-Path $Disassembly 'data\ages\tile_properties\cliffTiles.s')
-$landableTileSource = Get-Content (
+$landableTileSource = Read-ImportLines (
     Join-Path $Disassembly 'data\ages\tile_properties\landableTilesFromCliffs.s')
-$tileIndexSource = Get-Content (
+$tileIndexSource = Read-ImportLines (
     Join-Path $Disassembly 'constants\common\tileIndices.s')
-$objectSpeedSource = Get-Content (
+$objectSpeedSource = Read-ImportLines (
     Join-Path $Disassembly 'constants\common\objectSpeeds.s')
-$soundSource = Get-Content (
+$soundSource = Read-ImportLines (
     Join-Path $Disassembly 'constants\common\music.s')
-$linkAnimationSource = Get-Content -Raw (
+$linkAnimationSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
 
 # Export the bitwise tile types and fixed 8.8 Link physics used by
 # linkState01_sidescroll. These are not ordinary TerrainType values: a tile can
 # combine ladder, water, ice, and ladder-top behavior in one byte.
-$sideTileTypeSource = Get-Content -Raw (
+$sideTileTypeSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\tile_properties\tileTypeMappings.s')
-$tileTypeConstantSource = Get-Content (
+$tileTypeConstantSource = Read-ImportLines (
     Join-Path $Disassembly 'constants\common\tileTypes.s')
-$sideCommonSource = Get-Content -Raw (
+$sideCommonSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\specialObjects\commonCode.s')
-$featherParentSource = Get-Content -Raw (
+$featherParentSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\itemParents\featherParent.s')
 
 $sideTileTypeConstants = @{}
@@ -1256,7 +1256,7 @@ $ledgeConstantRows = @(
 # Preserve checkTileValidForEnemySpawn's collision-mode-specific exceptions.
 # The routine rejects every nonzero collision byte first, then consults this
 # table for metatiles which remain forbidden despite having collision $00.
-$enemyUnspawnableSource = Get-Content (
+$enemyUnspawnableSource = Read-ImportLines (
     Join-Path $Disassembly "data\ages\tile_properties\enemyUnspawnableTiles.s")
 $enemyUnspawnableModes = @{
     overworld = 0
@@ -1323,7 +1323,7 @@ $rupeeValues = @(
     25, 50, 100, 200, 400, 150, 300, 500, 900, 80
 )
 $rupeeRewards = @{}
-$treasureObjectSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\treasureObjectData.s")
+$treasureObjectSource = Read-ImportText (Join-Path $Disassembly "data\ages\treasureObjectData.s")
 foreach ($match in [regex]::Matches(
     $treasureObjectSource,
     'm_TreasureSubid\s+\$[0-9a-f]{2},\s*\$(?<parameter>[0-9a-f]{2}),\s*\$(?<text>[0-9a-f]{2}),\s*\$[0-9a-f]{2},\s*TREASURE_OBJECT_RUPEES_(?<subid>[0-9a-f]{2})'
@@ -1341,7 +1341,7 @@ foreach ($match in [regex]::Matches(
 $chestRows = [Collections.Generic.List[string]]::new()
 $chestRows.Add("# group`troom`tposition`ttreasure-object`ttreasure-id`tsubid`tparameter`ttext-id`tgraphic`tamount`tutf8-base64")
 $currentChestGroup = -1
-foreach ($line in Get-Content (Join-Path $Disassembly "data\ages\chestData.s")) {
+foreach ($line in Read-ImportLines (Join-Path $Disassembly "data\ages\chestData.s")) {
     if ($line -match '^chestGroup(?<group>[0-7])Data:') {
         $currentChestGroup = [int]$Matches['group']
         continue

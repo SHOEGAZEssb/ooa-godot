@@ -103,7 +103,7 @@ function Get-AssemblySourceLine {
 # INTERAC_TIMEPORTAL_SPAWNER ($e1) is a scenery interaction rather than an
 # NPC, but it uses the same interaction graphics, animation, and OAM tables.
 # Export every placed portal spot so runtime activation stays data-driven.
-$portalSpawnerSource = Get-Content -Raw (
+$portalSpawnerSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\timeportalSpawner.s')
 if ($portalSpawnerSource -notmatch '(?ms)^@subid1Init:.*?GLOBALFLAG_MAKU_TREE_SAVED.*?jr nz,@commonInit\s+jr @setSubidBit7\s+^@subid2Init:.*?TREASURE_SEED_SATCHEL.*?jr c,@commonInit\s+^@setSubidBit7:.*?set 7,\(hl\)') {
     throw 'INTERAC_TIMEPORTAL_SPAWNER subtype $01/$02 activation predicates changed.'
@@ -161,17 +161,17 @@ $portalPath = Join-Path $destination 'objects\timePortals.tsv'
 # to its center. Export the complete source/destination sprite records and the
 # two PALH_c1/PALH_c2 beam palettes; runtime should not approximate the effect
 # with a full-screen color fade.
-$timeWarpSource = Get-Content -Raw (
+$timeWarpSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\timewarp.s')
-$timeWarpCutsceneSource = Get-Content -Raw (
+$timeWarpCutsceneSource = Read-ImportText (
     Join-Path $Disassembly 'code\ages\cutscenes\miscCutscenes.s')
-$linkWarpSource = Get-Content -Raw (
+$linkWarpSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\specialObjects\link.s')
-$partDataSourceForTimeWarp = Get-Content -Raw (
+$partDataSourceForTimeWarp = Read-ImportText (
     Join-Path $Disassembly 'data\ages\partData.s')
-$timeWarpPartSource = Get-Content -Raw (
+$timeWarpPartSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\timewarpAnimation.s')
-$sparkleSourceForTimeWarp = Get-Content -Raw (
+$sparkleSourceForTimeWarp = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\sparkle.s')
 
 $timeWarpGraphics = @($interactionGraphics['221:0'], $interactionGraphics['221:1'])
@@ -294,11 +294,11 @@ $timeWarpRows = @(
 # animations, text, hardcoded destination, initial PALH_8f load, and four
 # cycling background-palette states instead of encoding disassembly-only
 # details in runtime code.
-$makuTreeSource = Get-Content -Raw (
+$makuTreeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\makuTree.s')
-$makuScriptSource = Get-Content -Raw (
+$makuScriptSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
-$makuCutsceneSource = Get-Content -Raw (
+$makuCutsceneSource = Read-ImportText (
     Join-Path $Disassembly 'code\ages\cutscenes\miscCutscenes.s')
 $makuInputMatch = [regex]::Match(
     $makuTreeSource,
@@ -350,7 +350,7 @@ if (($makuAnimations | Where-Object { -not $_ }).Count -ne 0) {
 # stop bit on $05, appending the second 16-tile sheet after the first.
 $makuGfxIndex = $interactionGraphics['135:0'].Gfx
 $makuExtraSprite = $gfxNames[$makuGfxIndex + 1]
-$objectGfxSource = Get-Content -Raw (
+$objectGfxSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\objectGfxHeaders.s')
 if ($makuGfxIndex -ne 0x04 -or $makuExtraSprite -ne 'spr_makuadultsprites_2' -or
     $objectGfxSource -notmatch '/\* \$05 \*/ m_ObjectGfxHeader spr_makuadultsprites_2, 1') {
@@ -406,7 +406,7 @@ $makuEventRows = @(
     $makuEventRows,
     [Text.UTF8Encoding]::new($false))
 
-$makuMusicSource = Get-Content -Raw (
+$makuMusicSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\music.s')
 $makuStopSound = [regex]::Match(
     $makuMusicSource,
@@ -414,7 +414,7 @@ $makuStopSound = [regex]::Match(
 $makuDisappearSound = [regex]::Match(
     $makuMusicSource,
     '(?m)^\s*SND_MAKUDISAPPEAR\s+db\s*;\s*\$(?<value>[0-9a-f]{2})')
-$makuCutsceneConstants = Get-Content -Raw (
+$makuCutsceneConstants = Read-ImportText (
     Join-Path $Disassembly 'constants\common\cutsceneIndices.s')
 $makuCutsceneIndex = [regex]::Match(
     $makuCutsceneConstants,
@@ -538,7 +538,7 @@ $makuSolveSoundMatch = [regex]::Match(
 $makuLandingSoundMatch = [regex]::Match(
     $makuMusicSource,
     '(?m)^\s*SND_DROPESSENCE\s+db\s*;\s*\$(?<value>[0-9a-f]{2})')
-$globalFlagSource = Get-Content -Raw (
+$globalFlagSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\globalFlags.s')
 $makuAdviceFlagMatch = [regex]::Match(
     $globalFlagSource,
@@ -677,13 +677,13 @@ if ($treasureObjectSourceText -notmatch 'm_TreasureSubid \$29, \$00, \$2d, \$20,
     $treasureObjectSourceText -notmatch 'm_TreasureSubid \$09, \$00, \$2d, \$20, TREASURE_OBJECT_SEED_SATCHEL_03') {
     throw 'Seed Satchel falling/respawn treasure modes changed.'
 }
-$treasureInteractionSource = Get-Content -Raw (
+$treasureInteractionSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\treasure.s')
 if ($treasureInteractionSource -notmatch '(?ms)^@spawnMode2:.*?@@substate0:.*?ld \(hl\),40.*?SND_SOLVEPUZZLE.*?@@substate1:.*?ld \(hl\),\$02\s+inc l\s+ld \(hl\),\$02.*?objectGetZAboveScreen.*?@@substate2:.*?ld c,\$10\s+call objectUpdateSpeedZ_paramC.*?SND_DROPESSENCE.*?interactionDecCounter1.*?ld bc,-\$aa' -or
     $treasureInteractionSource -notmatch '(?ms)^@grabMode1:\s*ldbc \$80,\$fc.*?ld b,\$f2\s+call objectTakePositionWithOffset') {
     throw 'INTERAC_TREASURE falling spawn mode $02 or one-hand grab mode $01 changed.'
 }
-$objectMathSource = Get-Content -Raw (Join-Path $Disassembly 'code\bank0.s')
+$objectMathSource = Read-ImportText (Join-Path $Disassembly 'code\bank0.s')
 if ($objectMathSource -notmatch '(?ms)^objectGetZAboveScreen:.*?ldh a,\(<hCameraY\)\s+sub b\s+sub \$08\s+cp \$80\s+ret nc\s+ld a,\$80\s+ret') {
     throw 'objectGetZAboveScreen no longer uses cameraY-Y-$08 clamped to -$80.'
 }
@@ -769,9 +769,9 @@ if ($makuPaletteBytes.Count -ne 288) {
 # Ralph's first portal departure is INTERAC_RALPH ($37) subid $0d in room
 # 0:39. Export the entry-direction guard, complete script timing/movement,
 # animations, one-shot global flag, and text from their original records.
-$ralphSource = Get-Content -Raw (
+$ralphSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\ralph.s')
-$ralphScriptSource = Get-Content -Raw (
+$ralphScriptSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scripts.s')
 $ralphInitMatch = [regex]::Match(
     $ralphSource,
@@ -799,7 +799,7 @@ if (-not $ralphCommandMatch.Success -or
     $ralphCommandMatch.Groups['flag'].Value -ne 'GLOBALFLAG_RALPH_ENTERED_PORTAL') {
     throw 'Could not parse the Ralph portal movement, flicker, and flag commands.'
 }
-$speedSource = Get-Content -Raw (
+$speedSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\objectSpeeds.s')
 $speedMatch = [regex]::Match(
     $speedSource,
@@ -807,7 +807,7 @@ $speedMatch = [regex]::Match(
 if (-not $speedMatch.Success -or $speedMatch.Groups['value'].Value -ne '28') {
     throw 'SPEED_100 no longer resolves to original object speed $28.'
 }
-$globalFlagSource = Get-Content -Raw (
+$globalFlagSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\globalFlags.s')
 $flagMatch = [regex]::Match(
     $globalFlagSource,
@@ -861,7 +861,7 @@ $ralphEventRows = @(
 # assembly script/label, normalized command index, and physical source line.
 # The recognized flicker loop remains one native-effect command, while its
 # counter byte and frame mask stay explicit operands.
-$ralphMusicSource = Get-Content -Raw (
+$ralphMusicSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\music.s')
 $ralphSoundMatch = [regex]::Match(
     $ralphMusicSource,
@@ -919,7 +919,7 @@ $ralphCommandRows = @(
 # 1:39. Its leading wait advances while TRANSITION_DEST_TIMEWARP finishes, so
 # export the script counters, jump physics, speeds, path, animations, text,
 # sound, completion flag, and expected arrival overlap as one checked record.
-$enterPastVillagerSource = Get-Content -Raw (
+$enterPastVillagerSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\villager.s')
 $enterPastScriptMatch = [regex]::Match(
     $ralphScriptSource,
@@ -972,7 +972,7 @@ if (-not $enterPastSlowSpeedMatch.Success -or
     throw 'SPEED_080 no longer aliases original object speed $14.'
 }
 
-$enterPastHelperSource = Get-Content -Raw (
+$enterPastHelperSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
 $enterPastJumpMatch = [regex]::Match(
     $enterPastHelperSource,
@@ -990,7 +990,7 @@ $enterPastGravity = [Convert]::ToInt32(
 if ($enterPastJumpRaw -ne -0x200 -or $enterPastGravity -ne 0x30) {
     throw 'The first-past-arrival jump changed from speedZ -$0200 and gravity $30.'
 }
-$enterPastMusicSource = Get-Content -Raw (
+$enterPastMusicSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\music.s')
 $enterPastSoundMatch = [regex]::Match(
     $enterPastMusicSource,
@@ -1101,15 +1101,15 @@ $enterPastCommandRows = @(
 # as three native interaction state machines synchronized through cfd1. Keep
 # this as native event metadata: the scripts run concurrently, and their
 # source-order RNG calls and same-update signal handoffs are observable.
-$graveyardBoySource = Get-Content -Raw (
+$graveyardBoySource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\boy.s')
-$graveyardBoy2Source = Get-Content -Raw (
+$graveyardBoy2Source = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\boy2.s')
-$graveyardScriptSource = Get-Content -Raw (
+$graveyardScriptSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scripts.s')
-$graveyardHelperSource = Get-Content -Raw (
+$graveyardHelperSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\ralph.s')
-$graveyardOscillationSource = Get-Content -Raw (
+$graveyardOscillationSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\impaInCutscene.s')
 
 if ($mainObjectSource -notmatch '(?ms)^group0Map7bObjectData:\s+obj_Interaction \$3c \$03 \$48 \$48\s+obj_Interaction \$3c \$04 \$48 \$68\s+obj_Interaction \$3f \$02 \$38 \$58\s+obj_Interaction \$b6 \$03 \$28 \$68\s+obj_End') {
@@ -1175,7 +1175,7 @@ $graveyardOscillation = [regex]::Match(
 $graveyardFastSpeed = [regex]::Match(
     $speedSource,
     '(?m)^\s*SPEED_200\s+dsb\s+\d+\s*;\s*0x(?<value>[0-9a-f]{2})')
-$graveyardMusicSource = Get-Content -Raw (
+$graveyardMusicSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\music.s')
 $graveyardJumpSound = [regex]::Match(
     $graveyardMusicSource,
@@ -1259,15 +1259,15 @@ for ($index = 0; $index -lt $graveyardTextIds.Count; $index++) {
 # Link with linkCutscene1, runs impaScript0, and finally installs Impa as the
 # 16-entry delayed follower. Export every event counter, actor record,
 # animation, text, and possessed PALH_97 sprite color used by that slice.
-$impaSource = Get-Content -Raw (
+$impaSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\impaInCutscene.s')
-$impaFakeSource = Get-Content -Raw (
+$impaFakeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\fakeOctorok.s')
-$impaLinkSource = Get-Content -Raw (
+$impaLinkSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\specialObjects\linkInCutscene.s')
-$impaScriptSource = Get-Content -Raw (
+$impaScriptSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scripts.s')
-$impaExtraObjects = Get-Content -Raw (
+$impaExtraObjects = Read-ImportText (
     Join-Path $Disassembly 'objects\ages\extraData3.s')
 
 $impaRoomRow = $npcRows | Where-Object { $_ -match '^0\t6a\t31\t00\t' } |
@@ -1430,13 +1430,13 @@ for ($index = 0; $index -lt $impaCommandDefinitions.Count; $index++) {
 # Export the complete two-object handshake: Impa subid $00/linkCutscene2,
 # INTERAC_TRIFORCE_STONE ($34:$00), the post-move PART_TRIFORCE_STONE
 # ($5a:$5a), and both Impa scripts on either side of the push.
-$impaStoneSource = Get-Content -Raw (
+$impaStoneSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\triforceStone.s')
-$impaStonePartSource = Get-Content -Raw (
+$impaStonePartSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\triforceStone.s')
-$impaScriptHelperSource = Get-Content -Raw (
+$impaScriptHelperSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
-$musicConstantSource = Get-Content -Raw (
+$musicConstantSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\music.s')
 
 $impaStoneRoomBlock = [regex]::Match(
@@ -1655,7 +1655,7 @@ if (-not (Test-Path -LiteralPath $impaStoneSpriteProperties)) {
     throw 'Triforce-stone sprite properties not found: spr_triforcestone.properties'
 }
 $stoneSourceInverted = [regex]::Match(
-    (Get-Content -Raw -LiteralPath $impaStoneSpriteProperties),
+    (Read-ImportText $impaStoneSpriteProperties),
     '(?m)^invert:\s*(?<value>true|false)\s*$')
 if (-not $stoneSourceInverted.Success -or
     $stoneSourceInverted.Groups['value'].Value -ne 'false') {
@@ -1907,7 +1907,7 @@ Copy-Item -LiteralPath $impaStoneSpriteSource.FullName -Destination (
 # "HELLLLP!!!" edge trigger immediately before the Impa encounter. Export its
 # edge check, textbox gate, post-text counter, simulated input, and separate
 # room flag instead of folding them into room $6a's interaction.
-$impaHelpSource = Get-Content -Raw (
+$impaHelpSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous1.s')
 $impaHelpBlock = [regex]::Match(
     $impaHelpSource,
@@ -2344,8 +2344,8 @@ if ($nayruCommandRows.Count -lt 200) {
 # them in placement order and preserves their cfc0/cfd0 gates.
 $preBlackTowerMainScriptPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
 $preBlackTowerHelperScriptPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
-$preBlackTowerMainScriptSource = Get-Content -Raw $preBlackTowerMainScriptPath
-$preBlackTowerHelperScriptSource = Get-Content -Raw $preBlackTowerHelperScriptPath
+$preBlackTowerMainScriptSource = Read-ImportText $preBlackTowerMainScriptPath
+$preBlackTowerHelperScriptSource = Read-ImportText $preBlackTowerHelperScriptPath
 $preBlackTowerOpcodes = [Collections.Generic.HashSet[string]]::new(
     [StringComparer]::OrdinalIgnoreCase)
 foreach ($opcode in @(
@@ -2599,7 +2599,7 @@ $preBlackTowerEventRows = @(
 # Room 1:86's guard starts stage 0 of CUTSCENE_BLACK_TOWER_EXPLANATION, then
 # resumes at @cutsceneAftermath after the cutscene's same-room transition $0c.
 $blackTowerScriptPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
-$blackTowerScriptSource = Get-Content -Raw $blackTowerScriptPath
+$blackTowerScriptSource = Read-ImportText $blackTowerScriptPath
 $blackTowerScriptMatch = [regex]::Match(
     $blackTowerScriptSource,
     '(?ms)^hardhatWorkerSubid02Script:(?<body>.*?)(?=^hardhatWorkerSubid03Script:)')
@@ -2680,14 +2680,14 @@ for ($index = 0; $index -lt $afterSpec.Count; $index++) {
     $blackTowerAfterRows,
     [Text.UTF8Encoding]::new($false))
 
-$blackTowerCutsceneSource = Get-Content -Raw (
+$blackTowerCutsceneSource = Read-ImportText (
     Join-Path $Disassembly 'code\ages\cutscenes\miscCutscenes.s')
 if ($blackTowerCutsceneSource -notmatch '(?ms)^blackTowerExplanationCutsceneHandler:.*?^@@table_6625:\s+\.db GFXH_BLACK_TOWER_STAGE_1_LAYOUT, GFXH_BLACK_TOWER_BASE' -or
     $blackTowerCutsceneSource -notmatch '(?ms)^func_6ef7:.*?and \$1f.*?call getRandomNumber.*?and \$07.*?SND_LIGHTNING' -or
     $blackTowerCutsceneSource -notmatch '(?ms)^func_6f44:.*?oamData_714c') {
     throw 'Black Tower explanation stage-0 presentation changed.'
 }
-$blackTowerOamSource = Get-Content -Raw (Join-Path $Disassembly 'ages.s')
+$blackTowerOamSource = Read-ImportText (Join-Path $Disassembly 'ages.s')
 $blackTowerOamMatch = [regex]::Match(
     $blackTowerOamSource,
     '(?ms)^oamData_714c:\s+\.db \$10(?<body>.*?)(?=^oamData_718d:)')
@@ -2745,7 +2745,7 @@ $blackTowerEventRows = @(
 # Keep the placement, state-machine inputs, flag predicate, raw warp bytes, and
 # sound tied to their disassembly definitions instead of encoding them in the
 # runtime controller.
-$towerDoorObjectSource = Get-Content -Raw (
+$towerDoorObjectSource = Read-ImportText (
     Join-Path $Disassembly 'objects\ages\mainData.s')
 $towerDoorPlacement = [regex]::Match(
     $towerDoorObjectSource,
@@ -2760,7 +2760,7 @@ if (-not $towerDoorPlacement.Success -or
     throw 'Could not resolve room 1:76 INTERAC_MISCELLANEOUS_2 $dc:$10 placement.'
 }
 
-$towerDoorSource = Get-Content -Raw (
+$towerDoorSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous2.s')
 $towerDoorHandler = [regex]::Match(
     $towerDoorSource,
@@ -2789,12 +2789,12 @@ if (-not $towerDoorClear.Success -or -not $towerDoorRadii.Success -or
     throw 'Room 1:76 tower-door collision handler changed.'
 }
 
-$linkSource = Get-Content -Raw (
+$linkSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\specialObjects\link.s')
 $linkRadii = [regex]::Match(
     $linkSource,
     '(?ms); Set collisionRadiusY,X\s*inc l\s*ld a,\$(?<radius>[0-9a-f]{2})\s*ldi \(hl\),a\s*ldi \(hl\),a')
-$musicConstantSource = Get-Content -Raw (
+$musicConstantSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\music.s')
 $enterCaveSound = [regex]::Match(
     $musicConstantSource,
@@ -2863,12 +2863,12 @@ $towerDoorRows = @(
 # those actors replace themselves with ordinary masked-Moblin enemies. Keep
 # all four source script lanes distinct so their original object update order
 # and shared wTmpcfc0/wccd4 synchronization remain observable at runtime.
-$makuObjectSource = Get-Content -Raw (
+$makuObjectSource = Read-ImportText (
     Join-Path $Disassembly 'objects\ages\mainData.s')
 $makuPlacement = [regex]::Match(
     $makuObjectSource,
     '(?ms)^group1Map38ObjectData:\s*obj_Interaction \$88 \$00 \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2})\s*obj_Interaction \$6b \$15')
-$makuObjectDataSource = Get-Content -Raw (
+$makuObjectDataSource = Read-ImportText (
     Join-Path $Disassembly 'objects\ages\extraData3.s')
 $makuMoblins = [regex]::Match(
     $makuObjectDataSource,
@@ -2888,13 +2888,13 @@ if (-not $makuPlacement.Success -or -not $makuMoblins.Success -or
     throw 'Room 1:38 Maku Sprout/Moblin placements changed.'
 }
 
-$makuScriptsSource = Get-Content -Raw (
+$makuScriptsSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scripts.s')
-$makuHelperSource = Get-Content -Raw (
+$makuHelperSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
-$makuInteractionSource = Get-Content -Raw (
+$makuInteractionSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\makuSprout.s')
-$makuGateSource = Get-Content -Raw (
+$makuGateSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\makuGateOpening.s')
 if ($makuScriptsSource -notmatch '(?ms)^makuSprout_subid01Script:.*?GLOBALFLAG_MAKU_TREE_SAVED.*?INTERAC_MISCELLANEOUS_1, \$04, \$40, \$50.*?TX_05d5' -or
     $makuScriptsSource -notmatch '(?ms)^moblin_subid00Script:.*?moblin_spawnEnemyHere.*?^moblin_subid01Script:' -or
@@ -3079,12 +3079,12 @@ Write-MakuRescueCommands 'maku_sprout_rescue_moblin_right.tsv' `
 # removal helpers. Keep the command boundaries sourced from scripts.s while
 # preserving the helper's ordered ordinary/interleaved writes and puff spawns.
 $graveyardScriptPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
-$graveyardScriptSource = Get-Content -Raw $graveyardScriptPath
-$graveyardHelperSource = Get-Content -Raw (
+$graveyardScriptSource = Read-ImportText $graveyardScriptPath
+$graveyardHelperSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
-$graveyardControllerSource = Get-Content -Raw (
+$graveyardControllerSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous2.s')
-$graveyardObjectSource = Get-Content -Raw (
+$graveyardObjectSource = Read-ImportText (
     Join-Path $Disassembly 'objects\ages\mainData.s')
 
 if ($graveyardControllerSource -notmatch '(?ms)^interactiondc_subid01:.*?checkInteractionState\s+jp nz,interactionRunScript.*?getThisRoomFlags\s+and \$80\s+jp nz,interactionDelete.*?mainScripts\.interactiondcSubid01Script.*?interactionSetAlwaysUpdateBit' -or
@@ -3182,16 +3182,16 @@ for ($index = 0; $index -lt $graveyardSpecs.Count; $index++) {
 # runs the present-day $62 confetti emitter, reports the next Essence through
 # TX_05b0 (TX_05c0 in a linked game), then updates the Maku map/state bytes.
 $remoteMakuScriptPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
-$remoteMakuScriptSource = Get-Content -Raw $remoteMakuScriptPath
+$remoteMakuScriptSource = Read-ImportText $remoteMakuScriptPath
 $remoteMakuHelperPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
-$remoteMakuHelperSource = Get-Content -Raw $remoteMakuHelperPath
-$remoteMakuInteractionSource = Get-Content -Raw (
+$remoteMakuHelperSource = Read-ImportText $remoteMakuHelperPath
+$remoteMakuInteractionSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\remoteMakuCutscene.s')
-$makuConfettiSource = Get-Content -Raw (
+$makuConfettiSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\makuConfetti.s')
-$sparkleSourceForRemoteMaku = Get-Content -Raw (
+$sparkleSourceForRemoteMaku = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\sparkle.s')
-$remoteMakuObjectSource = Get-Content -Raw (
+$remoteMakuObjectSource = Read-ImportText (
     Join-Path $Disassembly 'objects\ages\mainData.s')
 
 if ($remoteMakuObjectSource -notmatch '(?ms)^group0Map8dObjectData:\s+obj_Interaction \$8a \$00 \$00 \$00 \$00\s+obj_End' -or
@@ -3378,7 +3378,7 @@ for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
 # native wrapper initializes the script twice on its first update, then turns
 # horizontally toward Link and animates after every later script update.
 $comedianScriptPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
-$comedianScriptSource = Get-Content -Raw $comedianScriptPath
+$comedianScriptSource = Read-ImportText $comedianScriptPath
 $comedianBody = [regex]::Match(
     $comedianScriptSource,
     '(?ms)^comedianScript:(?<body>.*?)(?=^; =+\r?\n; INTERAC_GORON)')
@@ -3433,7 +3433,7 @@ if ($comedianBody.Groups['body'].Value -notmatch
 }
 
 $comedianNativePath = Join-Path $Disassembly 'object_code\ages\interactions\comedian.s'
-$comedianNativeSource = Get-Content -Raw $comedianNativePath
+$comedianNativeSource = Read-ImportText $comedianNativePath
 if ($comedianNativeSource -notmatch
         '(?ms)^@state0:.*?@loadScriptAndInitGraphics.*?interactionRunScript.*?interactionRunScript.*?interactionAnimateAsNpc' -or
     $comedianNativeSource -notmatch
@@ -3480,9 +3480,9 @@ if ($null -eq $comedianTreasure -or
     $comedianTreasure.Graphic -ne 0x77) {
     throw 'TREASURE_OBJECT_TRADEITEM_07 no longer grants the Funny Joke.'
 }
-$roomFlagSource = Get-Content -Raw (
+$roomFlagSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\roomFlags.s')
-$tradeItemSource = Get-Content -Raw (
+$tradeItemSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\tradeitems.s')
 if ($roomFlagSource -notmatch '\.define ROOMFLAG_ITEM\s+\$20' -or
     $tradeItemSource -notmatch 'TRADEITEM_CHEESY_MUSTACHE\s+db ; \$06' -or
@@ -3616,7 +3616,7 @@ $comedianEventRows = @(
 # whose native wrapper runs the script once on its initialization update,
 # enables always-update behavior, then animates after every later script update.
 $maskSalesmanScriptPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
-$maskSalesmanScriptSource = Get-Content -Raw $maskSalesmanScriptPath
+$maskSalesmanScriptSource = Read-ImportText $maskSalesmanScriptPath
 $maskSalesmanBody = [regex]::Match(
     $maskSalesmanScriptSource,
     '(?ms)^maskSalesmanScript:(?<body>.*?)(?=^; =+\r?\n; INTERAC_COMEDIAN)')
@@ -3662,10 +3662,10 @@ foreach ($entry in $expectedMaskSalesmanTargets.GetEnumerator()) {
 
 $maskSalesmanNativePath = Join-Path $Disassembly `
     'object_code\ages\interactions\maskSalesman.s'
-$maskSalesmanNativeSource = Get-Content -Raw $maskSalesmanNativePath
+$maskSalesmanNativeSource = Read-ImportText $maskSalesmanNativePath
 $maskSalesmanWrapperPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
-$maskSalesmanWrapperSource = Get-Content -Raw $maskSalesmanWrapperPath
-$maskSalesmanInteractionDataSource = Get-Content -Raw (
+$maskSalesmanWrapperSource = Read-ImportText $maskSalesmanWrapperPath
+$maskSalesmanInteractionDataSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\interactionData.s')
 if ($maskSalesmanNativeSource -notmatch
         '(?ms)^@state0:\s+call @loadScriptAndInitGraphics\s+call interactionSetAlwaysUpdateBit\s+^@state1:\s+call interactionRunScript\s+jp c,interactionDelete\s+jp interactionAnimateAsNpc' -or
@@ -3820,22 +3820,22 @@ $maskSalesmanEventRows = @(
 # exact table-driven flight used by both the introduction and each reveal.
 $fairyMinigamePath = Join-Path $Disassembly `
     'object_code\ages\interactions\fairyHidingMinigame.s'
-$fairyMinigameSource = Get-Content -Raw $fairyMinigamePath
+$fairyMinigameSource = Read-ImportText $fairyMinigamePath
 $forestFairyPath = Join-Path $Disassembly `
     'object_code\ages\interactions\forestFairy.s'
-$forestFairySource = Get-Content -Raw $forestFairyPath
+$forestFairySource = Read-ImportText $forestFairyPath
 $fairyScriptPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
-$fairyScriptSource = Get-Content -Raw $fairyScriptPath
+$fairyScriptSource = Read-ImportText $fairyScriptPath
 $forestFairyScriptPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
-$forestFairyScriptSource = Get-Content -Raw $forestFairyScriptPath
+$forestFairyScriptSource = Read-ImportText $forestFairyScriptPath
 $forestTransitionPath = Join-Path $Disassembly 'code\bank1.s'
-$forestTransitionSource = Get-Content -Raw $forestTransitionPath
+$forestTransitionSource = Read-ImportText $forestTransitionPath
 $paletteFadePath = Join-Path $Disassembly 'code\bank0.s'
-$paletteFadeSource = Get-Content -Raw $paletteFadePath
+$paletteFadeSource = Read-ImportText $paletteFadePath
 $miscCutscenePath = Join-Path $Disassembly 'code\ages\cutscenes\miscCutscenes.s'
-$miscCutsceneSource = Get-Content -Raw $miscCutscenePath
+$miscCutsceneSource = Read-ImportText $miscCutscenePath
 $roomSpecificPath = Join-Path $Disassembly 'code\ages\roomSpecificCode.s'
-$roomSpecificSource = Get-Content -Raw $roomSpecificPath
+$roomSpecificSource = Read-ImportText $roomSpecificPath
 
 if ($fairyMinigameSource -notmatch
         '(?ms)^@table:\s+\.db \$25 \$03\s+\.db \$54 \$04\s+\.db \$32 \$05\s+\.db \$00' -or

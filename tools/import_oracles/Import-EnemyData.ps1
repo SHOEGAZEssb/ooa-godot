@@ -2,7 +2,7 @@
 # enemy opcodes, while their attributes, animations, OAM, and graphics are in
 # the shared enemy tables. Export the resolved values so runtime code never
 # reparses assembly source.
-$enemyDataSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\enemyData.s")
+$enemyDataSource = Read-ImportText (Join-Path $Disassembly "data\ages\enemyData.s")
 $keeseDataMatch = [regex]::Match(
     $enemyDataSource,
     '(?m)^\s*/\* 0x32 \*/ m_EnemyData \$(?<gfx>[0-9a-f]{2}) \$(?<collision>[0-9a-f]{2}) \$(?<extra>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
@@ -38,6 +38,10 @@ if ($keeseRadiusY -ne 4 -or $keeseRadiusX -ne 6 -or
 }
 
 function Get-AssemblyLabelBody([string]$source, [string]$label) {
+    $sourcePath = Resolve-AssemblySourceTextPath $source
+    if ($null -ne $sourcePath) {
+        return Read-AssemblyLabelBlock $sourcePath $label
+    }
     $escaped = [regex]::Escape($label)
     $match = [regex]::Match(
         $source,
@@ -66,8 +70,8 @@ function Resolve-Oam([string]$source, [string]$label) {
     return $parts -join ';'
 }
 
-$enemyAnimationSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\enemyAnimations.s")
-$enemyOamSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\enemyOamData.s")
+$enemyAnimationSource = Read-ImportText (Join-Path $Disassembly "data\ages\enemyAnimations.s")
+$enemyOamSource = Read-ImportText (Join-Path $Disassembly "data\ages\enemyOamData.s")
 
 # Common enemy definitions are independent of the room or dungeon that first
 # exposes their runtime implementation. Resolve their shared data/animation/OAM
@@ -376,7 +380,7 @@ if ($keeseIdleAnimation -ne '127@8,4,2,0' -or
 $keeseRows = [Collections.Generic.List[string]]::new()
 $keeseRows.Add("# group`troom`tid`tsubid`tflags`tcount`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tidle-animation`tfly-animation")
 $keeseAliases = [Collections.Generic.List[object]]::new()
-foreach ($line in Get-Content (Join-Path $Disassembly "objects\ages\enemyData.s")) {
+foreach ($line in Read-ImportLines (Join-Path $Disassembly "objects\ages\enemyData.s")) {
     if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})EnemyObjectData:') {
         $keeseAliases.Add(@{
             Group = [int]$Matches['group']
@@ -521,7 +525,7 @@ $octorokRows = [Collections.Generic.List[string]]::new()
 $octorokRows.Add("# group`troom`tid`tsubid`tflags`tcount`tposition-mode`ty`tx`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tspeed-raw`tcounter-mask`tup-animation`tright-animation`tdown-animation`tleft-animation")
 $octorokAliases = [Collections.Generic.List[object]]::new()
 $octorokLastSpecificFlags = '00'
-foreach ($line in Get-Content (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
+foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
     if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})EnemyObjectData:') {
         $octorokAliases.Add(@{ Group = [int]$Matches['group']; Room = $Matches['room'] })
         continue
@@ -681,7 +685,7 @@ $stalfosRows = [Collections.Generic.List[string]]::new()
 $stalfosRows.Add("# group`troom`tid`tsubid`tflags`tcount`tposition-mode`ty`tx`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tspeed-raw`twalk-animation`tjump-animation")
 $stalfosAliases = [Collections.Generic.List[object]]::new()
 $stalfosLastSpecificFlags = '00'
-foreach ($line in Get-Content (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
+foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
     if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})EnemyObjectData:') {
         $stalfosAliases.Add(@{ Group = [int]$Matches['group']; Room = $Matches['room'] })
         continue
@@ -884,7 +888,7 @@ $gelRows = [Collections.Generic.List[string]]::new()
 $gelRows.Add("# group`troom`tid`tsubid`tflags`tcount`tposition-mode`ty`tx`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tanimation-0`tanimation-1`tanimation-2")
 $zolAliases = [Collections.Generic.List[object]]::new()
 $zolLastSpecificFlags = '00'
-foreach ($line in Get-Content (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
+foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
     if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})EnemyObjectData:') {
         $zolAliases.Add(@{ Group = [int]$Matches['group']; Room = $Matches['room'] })
         continue
@@ -1024,7 +1028,7 @@ $crowRows = [Collections.Generic.List[string]]::new()
 $crowRows.Add("# group`troom`tid`tsubid`tflags`tcount`tposition-mode`ty`tx`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tspeed-raw`tperched-right`tperched-left`tflight-right`tflight-left")
 $crowAliases = [Collections.Generic.List[object]]::new()
 $crowLastSpecificFlags = '00'
-foreach ($line in Get-Content (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
+foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
     if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})EnemyObjectData:') {
         $crowAliases.Add(@{ Group = [int]$Matches['group']; Room = $Matches['room'] })
         continue
@@ -1079,7 +1083,7 @@ $orderedActiveOpcode = ''
 $orderedSpecificFlags = '00'
 $orderedItemFlags = '00'
 
-foreach ($line in Get-Content (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
+foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
     if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})EnemyObjectData:') {
         if ($orderedAliases.Count -eq 0) {
             $orderedPendingCondition = 'ff'
@@ -1246,7 +1250,7 @@ if (-not ($orderedObjectRows | Where-Object { $_ -match '^5\tb0\t0\tF\t1b\t01\t0
 # animations: animation 0 is the ordinary 20-update puff, while animation 1
 # inserts the 8-update high-knockback burst selected by bit 7 of the defeated
 # enemy's knockback counter.
-$partDataSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\partData.s")
+$partDataSource = Read-ImportText (Join-Path $Disassembly "data\ages\partData.s")
 $deathPuffData = [regex]::Match(
     $partDataSource,
     '(?m)^\s*\.db \$00 \$00 \$00 \$00 \$40 \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2}) \$00\s*; \$02'
@@ -1258,8 +1262,8 @@ if ($deathPuffTileBase -ne 0x0c -or $deathPuffOamFlags -ne 0x0a) {
     throw "PART_ENEMY_DESTROYED no longer resolves to tile base `$0c / OAM flags `$0a."
 }
 
-$partAnimationSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\partAnimations.s")
-$partOamSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\partOamData.s")
+$partAnimationSource = Read-ImportText (Join-Path $Disassembly "data\ages\partAnimations.s")
+$partOamSource = Read-ImportText (Join-Path $Disassembly "data\ages\partOamData.s")
 
 # PART_MOBLIN_BOOMERANG $21 belongs to the common Boomerang Moblin species,
 # not to the first dungeon. Retain its four rotating OAM frames in a shared
@@ -1504,7 +1508,7 @@ Copy-Item -LiteralPath $bossShadowSpriteSource.FullName `
 # Objects with visible bit 6 set use the fixed terrain-effect shadow, not
 # PART_SHADOW. Its raw OAM selects tile $20 from VRAM bank 1, where the common
 # sprite sheet is loaded at tile zero.
-$terrainEffectSource = Get-Content -Raw (
+$terrainEffectSource = Read-ImportText (
     Join-Path $Disassembly 'data\terrainEffects.s')
 $terrainShadowOam = Resolve-Oam $terrainEffectSource 'shadowAnimation'
 if ($terrainShadowOam -ne '19,4,32,8') {
@@ -1522,7 +1526,7 @@ if ($terrainShadowOam -ne '19,4,32,8') {
 # puddles. Ages checks the exact metatile IDs, selects grass frame 0/1 from bit
 # 2 of (xh XOR yh), and selects one of four puddle frames with
 # (wFrameCounter >> 3) & 3.
-$tileIndexSource = Get-Content -Raw (
+$tileIndexSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\tileIndices.s')
 $grassTileMatch = [regex]::Match(
     $tileIndexSource,
@@ -1542,7 +1546,7 @@ $grassTile = [Convert]::ToInt32(
 $puddleTile = [Convert]::ToInt32(
     $puddleTileMatch.Groups['value'].Value, 16)
 
-$terrainHandlerSource = Get-Content -Raw (
+$terrainHandlerSource = Read-ImportText (
     Join-Path $Disassembly 'code\bank0.s')
 $usesAgesTerrainTiles = [regex]::IsMatch(
     $terrainHandlerSource,
@@ -1553,7 +1557,7 @@ $usesPuddleFrameClock = [regex]::IsMatch(
 $usesGrassPositionFrame = [regex]::IsMatch(
     $terrainHandlerSource,
     '(?ms)ld a,l\r?\n\s*xor b\r?\n\s*ld h,a.*?@walkingInGrass:\r?\n\s*bit 2,h\r?\n\s*ld a,\(wGrassAnimationModifier\)\r?\n\s*jr z,\+\r?\n\s*add \$24')
-$grassModifierSource = Get-Content -Raw (
+$grassModifierSource = Read-ImportText (
     Join-Path $Disassembly 'code\bank1.s')
 $usesAgesGreenGrass = [regex]::IsMatch(
     $grassModifierSource,
@@ -1564,12 +1568,12 @@ $suppressesTerrainEffects = [regex]::IsMatch(
 $terrainEffectsHaveOamPriority = [regex]::IsMatch(
     $terrainHandlerSource,
     '(?ms)_getObjectPositionOnScreen:.*?rlca\r?\n\s*call c,_drawObjectTerrainEffects\r?\n\s*; Account for Z position.*?; Point hl to the Object\.oamFlags variable')
-$linkTileTypeSource = Get-Content -Raw (
+$linkTileTypeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\specialObjects\commonCode.s')
 $usesPuddleWalkSound = [regex]::IsMatch(
     $linkTileTypeSource,
     '(?ms)@tileType_puddle:\s*ld h,d\r?\n\s*ld l,SpecialObject\.animParameter\r?\n\s*bit 5,\(hl\)\r?\n\s*jr z,@tileType_normal\r?\n\s*res 5,\(hl\)\r?\n\s*ld a,\(wLinkImmobilized\)\r?\n\s*or a\r?\n\s*ld a,SND_SPLASH\r?\n\s*call z,playSound')
-$musicSource = Get-Content -Raw (
+$musicSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\music.s')
 $splashSoundMatch = [regex]::Match(
     $musicSource,
@@ -1584,7 +1588,7 @@ $splashSound = [Convert]::ToInt32(
 # before animateLinkWalking advances the table later in the update. Resolve the
 # exact sound phase from the Ages walking animation instead of approximating it
 # from the visible two-frame pose.
-$linkAnimationSource = Get-Content -Raw (
+$linkAnimationSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
 $walkAnimationMatch = [regex]::Match(
     $linkAnimationSource,
@@ -1689,7 +1693,7 @@ for ($frame = 0; $frame -lt $puddleTerrainLabels.Count; $frame++) {
 
 # INTERAC_KILLENEMYPUFF (`$08) is the non-dropping burst used when a red Zol
 # splits. It is visually and semantically distinct from PART_ENEMY_DESTROYED.
-$interactionDataSource = Get-Content -Raw (Join-Path $Disassembly 'data\ages\interactionData.s')
+$interactionDataSource = Read-ImportText (Join-Path $Disassembly 'data\ages\interactionData.s')
 $killPuffData = [regex]::Match(
     $interactionDataSource,
     '(?m)^\s*/\* \$08 \*/ m_InteractionData \$(?<gfx>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
@@ -1700,9 +1704,9 @@ if (-not $killPuffData.Success -or
     [Convert]::ToInt32($killPuffData.Groups['flags'].Value, 16) -ne 0xb0) {
     throw 'INTERAC_KILLENEMYPUFF no longer resolves to gfx `$00 / tile `$10 / flags `$b0.'
 }
-$interactionAnimationSource = Get-Content -Raw (
+$interactionAnimationSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\interactionAnimations.s')
-$interactionOamSource = Get-Content -Raw (
+$interactionOamSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\interactionOamData.s')
 $killPuffAnimationLabel = @(
     [regex]::Matches(
@@ -1982,7 +1986,7 @@ foreach ($spriteName in @($gfxNames[0x90], $gfxNames[0x8e])) {
 # Preserve the complete Ages enemy item-drop selection data used by
 # decideItemDrop. The fixed binary layout is 144 enemy records, eight 8-byte
 # probability masks, and sixteen 32-byte item sets (720 bytes total).
-$treasureDropSource = Get-Content -Raw (Join-Path $Disassembly 'code\treasureAndDrops.s')
+$treasureDropSource = Read-ImportText (Join-Path $Disassembly 'code\treasureAndDrops.s')
 function Get-HexBytes([string]$body) {
     $result = [Collections.Generic.List[byte]]::new()
     foreach ($dataLine in [regex]::Matches($body, '(?m)^\s*\.db\s+(?<values>[^;\r\n]+)')) {
@@ -2061,7 +2065,7 @@ if (-not $itemDropPartData.Success -or
     throw 'PART_ITEM_DROP no longer resolves to gfx `$78, collision `$01, and radius `$44.'
 }
 $itemDropBaseTile = [Convert]::ToInt32($itemDropPartData.Groups['tile'].Value, 16)
-$itemDropCodeSource = Get-Content -Raw (Join-Path $Disassembly 'object_code\common\parts\itemDrop.s')
+$itemDropCodeSource = Read-ImportText (Join-Path $Disassembly 'object_code\common\parts\itemDrop.s')
 $itemDropSpriteBlock = [regex]::Match(
     $itemDropCodeSource,
     '(?ms)^@spriteData:\r?\n(?<body>.*?)(?=^;;)'

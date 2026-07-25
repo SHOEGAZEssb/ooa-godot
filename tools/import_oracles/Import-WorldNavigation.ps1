@@ -1,7 +1,7 @@
 # Resolve warp source indices to their destination records. A source position
 # of '*' is a standard whole-room tile warp; nonzero edge masks are the four
 # screen corners described by m_StandardWarp's first parameter.
-$warpDestinationLines = Get-Content (Join-Path $Disassembly "data\ages\warpDestinations.s")
+$warpDestinationLines = Read-ImportLines (Join-Path $Disassembly "data\ages\warpDestinations.s")
 $warpDestinations = @{}
 $currentWarpGroup = -1
 foreach ($line in $warpDestinationLines) {
@@ -20,7 +20,7 @@ foreach ($line in $warpDestinationLines) {
     }
 }
 
-$warpSourceLines = Get-Content (Join-Path $Disassembly "data\ages\warpSources.s")
+$warpSourceLines = Read-ImportLines (Join-Path $Disassembly "data\ages\warpSources.s")
 $pointerWarpOwners = @{}
 $currentWarpGroup = -1
 foreach ($line in $warpSourceLines) {
@@ -82,7 +82,7 @@ $warpPath = Join-Path $destination "objects\warps.tsv"
 # Dungeon rooms occupy arbitrary cells in one or more 8x8 floor maps. Screen
 # transitions use these cells rather than the overworld's hexadecimal room
 # coordinates (for example, dungeon00 room $03 is directly above room $04).
-$dungeonLayoutSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\dungeonLayouts.s")
+$dungeonLayoutSource = Read-ImportText (Join-Path $Disassembly "data\ages\dungeonLayouts.s")
 $dungeonBlocks = [regex]::Matches(
     $dungeonLayoutSource,
     '(?ms)^dungeon(?<index>[0-9a-f]{2})Layout:\s*(?<body>.*?)(?=^dungeon[0-9a-f]{2}Layout:|\z)')
@@ -125,7 +125,7 @@ $dungeonPath = Join-Path $destination "objects\dungeon_adjacency.tsv"
 
 # The full dungeon map screen needs floor/cell positions and the original room
 # property bits, not only the neighbor pairs used by screen transitions.
-$dungeonDataSource = Get-Content -Raw (Join-Path $Disassembly 'data\ages\dungeonData.s')
+$dungeonDataSource = Read-ImportText (Join-Path $Disassembly 'data\ages\dungeonData.s')
 $dungeonMetadata = @{}
 foreach ($record in [regex]::Matches(
     $dungeonDataSource,
@@ -176,7 +176,7 @@ $dungeonMapPath = Join-Path $destination 'objects\dungeon_maps.tsv'
 # Expand the animation engine's three linked tables into address-independent
 # records. Destinations are converted from VRAM addresses to the same signed
 # tile indices used by OracleRoomData's 128x128 tileset source images.
-$animationHeaderSource = Get-Content (Join-Path $Disassembly "data\ages\animationGfxHeaders.s")
+$animationHeaderSource = Read-ImportLines (Join-Path $Disassembly "data\ages\animationGfxHeaders.s")
 $animationHeaderRows = [Collections.Generic.List[string]]::new()
 $animationHeaderRows.Add("# index`tsheet`tdestination-tile`ttile-count`tsource-tile")
 $animationHeaderIndex = 0
@@ -199,7 +199,7 @@ if ($animationHeaderIndex -ne 112) {
     throw "Expected 112 animation graphics headers, parsed $animationHeaderIndex."
 }
 
-$animationDataSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\animationData.s")
+$animationDataSource = Read-ImportText (Join-Path $Disassembly "data\ages\animationData.s")
 $animationSequences = @{}
 $animationBlocks = [regex]::Matches(
     $animationDataSource,
@@ -214,7 +214,7 @@ foreach ($block in $animationBlocks) {
     $animationSequences[$block.Groups['label'].Value] = $sequence -join ','
 }
 
-$animationGroupLines = Get-Content (Join-Path $Disassembly "data\ages\animationGroups.s")
+$animationGroupLines = Read-ImportLines (Join-Path $Disassembly "data\ages\animationGroups.s")
 $animationGroups = @{}
 $pendingGroups = [Collections.Generic.List[int]]::new()
 $currentTracks = [Collections.Generic.List[string]]::new()

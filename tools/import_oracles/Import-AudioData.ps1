@@ -28,7 +28,7 @@ for ($group = 0; $group -lt 6; $group++) {
 
 # Expand the source waveform table by its explicit indices. The table's source
 # order is intentionally unrelated to the waveform IDs used by duty commands.
-$waveformSource = Get-Content -Raw (Join-Path $Disassembly 'audio\common\waveforms.s')
+$waveformSource = Read-ImportText (Join-Path $Disassembly 'audio\common\waveforms.s')
 $waveforms = [byte[]]::new(0x2e * 16)
 $waveformIds = [Collections.Generic.HashSet[int]]::new()
 $waveformMatches = [regex]::Matches(
@@ -50,7 +50,7 @@ if ($waveformIds.Count -ne 0x2e) {
 }
 [IO.File]::WriteAllBytes((Join-Path $soundDestination 'waveforms.bin'), $waveforms)
 
-$noiseSource = Get-Content -Raw (Join-Path $Disassembly 'audio\common\noise.s')
+$noiseSource = Read-ImportText (Join-Path $Disassembly 'audio\common\noise.s')
 $noiseRows = [regex]::Matches(
     $noiseSource,
     '(?m)^\s*\.db\s+\$(?<note>[0-9a-f]{2})\s+\$(?<envelope>[0-9a-f]{2})\s+\$(?<frequency>[0-9a-f]{2})')
@@ -65,7 +65,7 @@ if ($noiseRows.Count -ne 13) {
 }
 [IO.File]::WriteAllBytes((Join-Path $soundDestination 'noise_frequencies.bin'), $noiseData)
 
-$audioDriverSource = Get-Content -Raw (Join-Path $Disassembly 'code\audio.s')
+$audioDriverSource = Read-ImportText (Join-Path $Disassembly 'code\audio.s')
 $envelopeDelayBlock = [regex]::Match(
     $audioDriverSource,
     '(?ms)^data_4ad0:\s*(?<body>.*?)(?=^;;\s*; @param a The sound to play\.)')

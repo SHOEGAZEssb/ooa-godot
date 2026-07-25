@@ -9,6 +9,9 @@
   <ItemGroup>
     <!-- The validation runner is built by the friend test assembly. -->
     <Compile Remove="validation\**\*.cs" />
+    <!-- Import-time source models and their tests are separate tool projects. -->
+    <Compile Remove="tools\OracleImporter\**\*.cs" />
+    <Compile Remove="tools\OracleImporter.Tests\**\*.cs" />
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
       <_Parameter1>oracle-of-ages.validation</_Parameter1>
     </AssemblyAttribute>

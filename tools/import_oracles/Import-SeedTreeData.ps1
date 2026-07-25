@@ -3,19 +3,19 @@
 # of sixteen session-local refill bits when any child is collected. Export
 # every Ages placement and the common refill/part tables so the runtime does
 # not special-case room 0:78.
-$seedTreeEnemySource = Get-Content -Raw (
+$seedTreeEnemySource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\seedsOnTree.s')
-$seedTreePartSource = Get-Content -Raw (
+$seedTreePartSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\parts\seedOnTree.s')
-$seedTreeRefillSource = Get-Content -Raw (
+$seedTreeRefillSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\seedTreeRefillData.s')
-$seedTreeBank1Source = Get-Content -Raw (
+$seedTreeBank1Source = Read-ImportText (
     Join-Path $Disassembly 'code\bank1.s')
-$seedTreeTileSource = Get-Content -Raw (
+$seedTreeTileSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\tileIndices.s')
-$seedTreeSpeedSource = Get-Content -Raw (
+$seedTreeSpeedSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\objectSpeeds.s')
-$seedTreeMusicSource = Get-Content -Raw (
+$seedTreeMusicSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\music.s')
 
 if ($seedTreeEnemySource -notmatch

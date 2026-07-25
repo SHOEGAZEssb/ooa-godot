@@ -18,9 +18,10 @@ The expected MD5 is `C4639CC61C049E5A085526BB6CAC03BB`. A different ROM is
 not a close-enough input: addresses, banks, and data may differ, so the import
 must stop.
 
-## Import stages
+## Import session and stages
 
-The entry script dot-sources these stages in dependency order:
+The entry script creates one import session, starts the .NET source-model host,
+and then runs these stages in dependency order:
 
 | Stage | Responsibility |
 | --- | --- |
@@ -39,9 +40,74 @@ The entry script dot-sources these stages in dependency order:
 | `Import-AudioData.ps1` | Sound IDs, descriptors, channel programs, and room music |
 | `Write-GeneratedTableManifest.ps1` | Deterministic TSV schema-version, record-count, and SHA-256 manifest |
 
-Stages share parsed state in one PowerShell process. Add a new stage only when
-its ownership is genuinely distinct and place it after every stage that
-provides its inputs.
+Every stage has an `ImportStageContract` in `tools/import_oracles.ps1`. The
+contract names its variable inputs, variable outputs, helper-function inputs,
+and helper-function outputs. Before a stage runs, the entry script parses its
+PowerShell AST and rejects undeclared cross-stage variable or helper use. It
+then verifies the declared inputs, runs the stage, verifies the outputs, and
+stores them in a typed `ImportStageResult`. Add a stage only when its ownership
+is genuinely distinct; declare every dependency and place the stage after each
+producer.
+
+The stage scripts still execute in one PowerShell process because several
+domain resolvers intentionally share large typed tables. Their contracts make
+that sharing explicit and testable instead of depending on a variable or
+function that happens to have been created earlier.
+
+## Assembly source model
+
+`tools/OracleImporter/` is the only component allowed to open an assembly
+source file. `AssemblySourceRepository` canonicalizes paths beneath the
+configured disassembly root, reads each `.s` file once, and caches the parsed
+`AssemblySourceFile` for the complete import session. At successful shutdown,
+the importer asserts that every opened source has exactly one physical read.
+
+The source model retains:
+
+- the exact raw text, ordered lines, and line-start offsets;
+- path/line/column `SourceSpan` values;
+- ordered blank, comment, label, constant, directive, data, macro,
+  instruction, and unrecognized nodes;
+- label aliases and duplicates rather than dictionary last-write-wins;
+- indexes for labels, constants, directives, `.db`/`.dw` data, macros, and
+  instructions; and
+- active-branch state for the supported clean-US configuration
+  (`ROM_AGES`, `REGION_US`, `AGES_ENGINE`, and `BUILD_VANILLA`).
+
+Unknown syntax remains an ordered `Unrecognized` node. It is not discarded;
+when a resolver needs that syntax, it must either interpret it explicitly or
+fail with the node's source span.
+
+Windows PowerShell 5.1 cannot load the .NET 8 tool assembly directly, so the
+entry script starts the built tool once as a private redirected process.
+`Read-ImportText`, `Read-ImportLines`, and `Read-AssemblyLabelBlock` expose that
+single session to PowerShell. The latter resolves label bodies from the label
+index and is used by the shared OAM/animation resolvers. Direct `Get-Content`
+or `File.ReadAllText`/`ReadAllLines` calls for `.s` files are forbidden in
+stages and covered by the importer tests.
+
+Domain interpretation remains with the owning stage: rooms, ordered objects,
+scripts, animations, OAM, palettes, sounds, and other source formats retain
+their specialized checks and generated record types. The lexical model is not
+an assembler and does not flatten these formats into one universal AST.
+
+Run the focused source-model and boundary tests with:
+
+```powershell
+dotnet run --project .\tools\OracleImporter.Tests\OracleImporter.Tests.csproj
+```
+
+Run the complete deterministic-import check with:
+
+```powershell
+& .\tools\verify_oracle_import.ps1
+```
+
+The verifier runs the focused tests, imports twice, and captures a complete
+manifest after each pass. The manifest ordinal-sorts every importer-generated
+path except Godot `.import` cache metadata and records byte count and SHA-256;
+TSV rows also retain record count and a SHA-256 of the ordered first-field key
+sequence. Any added, missing, reordered, or changed output fails the check.
 
 `Import-DialogueAndIntro.ps1` resolves both numeric text names and the
 `index: auto` `TX_09_*` CROSSITEMS rows. `Import-MapAndItemData.ps1` retains

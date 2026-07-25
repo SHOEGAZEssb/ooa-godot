@@ -205,7 +205,7 @@ function Normalize-DialogueText([string]$text) {
 # Signs are map metatile $f2 rather than ordinary room objects. Preserve the
 # original group/room/position lookup table and resolve its TX_2eXX strings to
 # UTF-8 here, while the human-readable disassembly sources are available.
-$textYaml = Get-Content -Raw (Join-Path $Disassembly "text\ages\text.yaml")
+$textYaml = Read-ImportText (Join-Path $Disassembly "text\ages\text.yaml")
 $signTexts = @{}
 $textMatches = [regex]::Matches(
     $textYaml,
@@ -222,7 +222,7 @@ foreach ($match in $textMatches) {
     $signTexts[[Convert]::ToInt32($match.Groups['id'].Value, 16)] = $text
 }
 
-$signSource = Get-Content (Join-Path $Disassembly "data\ages\signText.s")
+$signSource = Read-ImportLines (Join-Path $Disassembly "data\ages\signText.s")
 $signRows = [Collections.Generic.List[string]]::new()
 $signRows.Add("# group`troom`tposition`ttext-id`tutf8-base64")
 $currentSignGroup = -1

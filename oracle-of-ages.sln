@@ -1,8 +1,12 @@
-﻿Microsoft Visual Studio Solution File, Format Version 12.00
+Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "oracle-of-ages", "oracle-of-ages.csproj", "{2F6BF0E1-7C1A-41C0-84F5-74C3888AE25B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "oracle-of-ages.validation", "validation\oracle-of-ages.validation.csproj", "{9AB8673A-C672-4BF9-A2A6-C4B05B7E31B2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OracleImporter", "tools\OracleImporter\OracleImporter.csproj", "{81596098-C124-40E0-BBA0-31D31D515F3B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OracleImporter.Tests", "tools\OracleImporter.Tests\OracleImporter.Tests.csproj", "{6E7AB4B7-F69C-4E47-9456-5B5E1D027682}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,5 +25,17 @@ Global
 		{9AB8673A-C672-4BF9-A2A6-C4B05B7E31B2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9AB8673A-C672-4BF9-A2A6-C4B05B7E31B2}.ExportDebug|Any CPU.ActiveCfg = Debug|Any CPU
 		{9AB8673A-C672-4BF9-A2A6-C4B05B7E31B2}.ExportRelease|Any CPU.ActiveCfg = Debug|Any CPU
+		{81596098-C124-40E0-BBA0-31D31D515F3B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{81596098-C124-40E0-BBA0-31D31D515F3B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{81596098-C124-40E0-BBA0-31D31D515F3B}.ExportDebug|Any CPU.ActiveCfg = Debug|Any CPU
+		{81596098-C124-40E0-BBA0-31D31D515F3B}.ExportDebug|Any CPU.Build.0 = Debug|Any CPU
+		{81596098-C124-40E0-BBA0-31D31D515F3B}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
+		{81596098-C124-40E0-BBA0-31D31D515F3B}.ExportRelease|Any CPU.Build.0 = Release|Any CPU
+		{6E7AB4B7-F69C-4E47-9456-5B5E1D027682}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6E7AB4B7-F69C-4E47-9456-5B5E1D027682}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6E7AB4B7-F69C-4E47-9456-5B5E1D027682}.ExportDebug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6E7AB4B7-F69C-4E47-9456-5B5E1D027682}.ExportDebug|Any CPU.Build.0 = Debug|Any CPU
+		{6E7AB4B7-F69C-4E47-9456-5B5E1D027682}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
+		{6E7AB4B7-F69C-4E47-9456-5B5E1D027682}.ExportRelease|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

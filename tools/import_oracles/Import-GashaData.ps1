@@ -3,19 +3,19 @@
 # tables, and the common random-ring tier table. Keep those source tables
 # together in generated records so runtime code never reconstructs them from
 # handwritten room exceptions.
-$gashaSource = Get-Content -Raw (
+$gashaSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\gashaSpot.s')
-$gashaRoomGfxSource = Get-Content -Raw (
+$gashaRoomGfxSource = Read-ImportText (
     Join-Path $Disassembly 'code\ages\roomGfxChanges.s')
-$gashaTreasureSource = Get-Content -Raw (
+$gashaTreasureSource = Read-ImportText (
     Join-Path $Disassembly 'code\treasureAndDrops.s')
-$gashaRingSource = Get-Content -Raw (
+$gashaRingSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\rings.s')
-$gashaTileSource = Get-Content -Raw (
+$gashaTileSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\tileIndices.s')
-$gashaMusicSource = Get-Content -Raw (
+$gashaMusicSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\music.s')
-$gashaBank1Source = Get-Content -Raw (
+$gashaBank1Source = Read-ImportText (
     Join-Path $Disassembly 'code\bank1.s')
 
 if ($gashaSource -notmatch '(?ms)^interactionCodeb6:.*?wGashaSpotsPlantedBitset.*?cp 40.*?PART_GASHA_TREE.*?TX_3509.*?TILEINDEX_SOFT_SOIL_PLANTED.*?sub \$01\s+daa.*?ld bc,-\$140.*?SPEED_100.*?TX_3501' -or

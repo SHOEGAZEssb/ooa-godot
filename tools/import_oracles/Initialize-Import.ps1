@@ -2,6 +2,135 @@ $ErrorActionPreference = "Stop"
 $project = Split-Path $importRoot -Parent
 $destination = Join-Path $project "assets\oracle"
 
+if (-not (Test-Path -LiteralPath $Disassembly -PathType Container)) {
+    throw "Disassembly root not found: $Disassembly"
+}
+
+$importerProject = Join-Path $project 'tools\OracleImporter\OracleImporter.csproj'
+$importerBuildOutput = @(
+    & dotnet build $importerProject --nologo --verbosity quiet 2>&1)
+if ($LASTEXITCODE -ne 0) {
+    throw "Could not build the importer source host:`n$($importerBuildOutput -join "`n")"
+}
+$importerHost = Join-Path $project `
+    'tools\OracleImporter\bin\Debug\net8.0\OracleOfAges.Importer.dll'
+if (-not (Test-Path -LiteralPath $importerHost -PathType Leaf)) {
+    throw "Importer source host build did not produce: $importerHost"
+}
+
+function Start-AssemblySourceHost {
+    $start = [Diagnostics.ProcessStartInfo]::new()
+    $start.FileName = 'dotnet'
+    $start.Arguments = "`"$importerHost`" serve"
+    $start.WorkingDirectory = $project
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    $start.RedirectStandardInput = $true
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    $start.EnvironmentVariables['OOA_DISASSEMBLY_ROOT'] = (
+        Resolve-Path -LiteralPath $Disassembly).Path
+    $start.EnvironmentVariables['OOA_ASSEMBLY_SYMBOLS'] = (
+        'ROM_AGES;REGION_US;AGES_ENGINE;BUILD_VANILLA')
+    $process = [Diagnostics.Process]::new()
+    $process.StartInfo = $start
+    if (-not $process.Start()) {
+        throw 'Could not start the importer source host.'
+    }
+    $ready = $process.StandardOutput.ReadLine()
+    if ($ready -ne "READY`t1") {
+        $errorText = $process.StandardError.ReadToEnd()
+        $process.Dispose()
+        throw "Importer source host did not start: '$ready' $errorText"
+    }
+    return $process
+}
+
+function Invoke-AssemblySourceHost(
+    [Diagnostics.Process]$HostProcess,
+    [string]$Command,
+    [string]$Payload = ''
+) {
+    if ($HostProcess.HasExited) {
+        throw "Importer source host exited with code $($HostProcess.ExitCode): " +
+            $HostProcess.StandardError.ReadToEnd()
+    }
+    $encoding = [Text.UTF8Encoding]::new($false, $true)
+    $encoded = [Convert]::ToBase64String($encoding.GetBytes($Payload))
+    $HostProcess.StandardInput.WriteLine("$Command`t$encoded")
+    $HostProcess.StandardInput.Flush()
+    $response = $HostProcess.StandardOutput.ReadLine()
+    if ($null -eq $response) {
+        throw 'Importer source host ended without a response: ' +
+            $HostProcess.StandardError.ReadToEnd()
+    }
+    $parts = $response.Split("`t", 2)
+    if ($parts.Count -ne 2) {
+        throw "Malformed importer source host response: '$response'"
+    }
+    $value = $encoding.GetString([Convert]::FromBase64String($parts[1]))
+    if ($parts[0] -eq 'ERR') {
+        throw $value
+    }
+    if ($parts[0] -ne 'OK') {
+        throw "Unknown importer source host response: '$response'"
+    }
+    return $value
+}
+
+$assemblySourceHost = Start-AssemblySourceHost
+$assemblyTextCache = @{}
+
+function Resolve-ImportReadPath([string]$path) {
+    if ([IO.Path]::IsPathRooted($path)) {
+        return [IO.Path]::GetFullPath($path)
+    }
+    return [IO.Path]::GetFullPath((Join-Path $Disassembly $path))
+}
+
+function Read-ImportText([string]$path) {
+    $fullPath = Resolve-ImportReadPath $path
+    if ([IO.Path]::GetExtension($fullPath) -ieq '.s') {
+        if (-not $assemblyTextCache.ContainsKey($fullPath)) {
+            $assemblyTextCache[$fullPath] = Invoke-AssemblySourceHost `
+                $assemblySourceHost 'TEXT' $fullPath
+        }
+        return $assemblyTextCache[$fullPath]
+    }
+    return [IO.File]::ReadAllText($fullPath)
+}
+
+function Read-ImportLines([string]$path) {
+    $fullPath = Resolve-ImportReadPath $path
+    if ([IO.Path]::GetExtension($fullPath) -ine '.s') {
+        return [IO.File]::ReadAllLines($fullPath)
+    }
+    $text = Read-ImportText $fullPath
+    $lines = [regex]::Split($text, "`r`n|`n|`r")
+    if ($lines.Count -gt 0 -and $lines[$lines.Count - 1] -eq '') {
+        return @($lines[0..($lines.Count - 2)])
+    }
+    return $lines
+}
+
+function Read-AssemblyLabelBlock([string]$path, [string]$label) {
+    $fullPath = Resolve-ImportReadPath $path
+    if ([IO.Path]::GetExtension($fullPath) -ine '.s') {
+        throw "Assembly label blocks require an .s source: $fullPath"
+    }
+    return Invoke-AssemblySourceHost `
+        $assemblySourceHost 'LABEL' "$fullPath`0$label"
+}
+
+function Resolve-AssemblySourceTextPath([string]$source) {
+    foreach ($entry in $assemblyTextCache.GetEnumerator()) {
+        if ([object]::ReferenceEquals($entry.Value, $source)) {
+            return $entry.Key
+        }
+    }
+    return $null
+}
+
 # Remove cutscene outputs from their former menu/object categories. They are
 # generated again below under cutscenes, which owns their runtime behavior.
 foreach ($legacyCutsceneAsset in @(
@@ -56,4 +185,3 @@ function Copy-GeneratedFile([string]$relativeSource, [string]$relativeDestinatio
     New-Item -ItemType Directory -Force -Path (Split-Path $target -Parent) | Out-Null
     Copy-Item -LiteralPath $source -Destination $target -Force
 }
-

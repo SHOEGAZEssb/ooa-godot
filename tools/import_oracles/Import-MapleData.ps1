@@ -1,11 +1,11 @@
 # Maple's recurring encounter is assembled from common special-object and part
 # code plus Ages-specific locations and dialogue. Export the traced tables so
 # the runtime never parses disassembly source while playing.
-$mapleSource = Get-Content -Raw (
+$mapleSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\specialObjects\maple.s')
-$mapleItemSource = Get-Content -Raw (
+$mapleItemSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\parts\itemFromMaple.s')
-$mapleLocationSource = Get-Content -Raw (
+$mapleLocationSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\mapleLocations.s')
 
 if ($mapleSource -notmatch '(?ms)^mapleSpawnItemDrops:.*?^mapleShadowPathsTable:' -or
@@ -190,9 +190,9 @@ foreach ($path in $maplePaths) {
 # OBJ tiles retain the preceding frame's contents. Resolve that virtual VRAM
 # state per tile before rendering directly from the complete PNG. A
 # two-argument graphics pointer loads nothing and retains every current tile.
-$specialAnimationSource = Get-Content -Raw (
+$specialAnimationSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
-$specialOamSource = Get-Content -Raw (
+$specialOamSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\specialObjectOamData.s')
 $gfxBodyStart = $specialAnimationSource.IndexOf(
     'specialObject0eGfxPointers:', [StringComparison]::Ordinal)

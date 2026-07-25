@@ -27,6 +27,13 @@ Import or refresh generated data:
 & .\tools\import_oracles.ps1
 ```
 
+Test the importer and prove two consecutive imports are byte-for-byte
+deterministic:
+
+```powershell
+& .\tools\verify_oracle_import.ps1
+```
+
 Build the production and validation projects:
 
 ```powershell
@@ -108,7 +115,8 @@ to select a room and A to travel after choosing the desired group page.
 1. Inspect `git status --short` and preserve unrelated work.
 2. Trace the relevant disassembly code and data.
 3. Change importer code before generated files when source data is missing.
-4. Regenerate assets and review unexpected generated changes.
+4. Regenerate assets and review unexpected generated changes. For importer
+   infrastructure or parsing changes, run `tools/verify_oracle_import.ps1`.
 5. Implement the runtime behavior and its headless regression together.
 6. Run the checks in [Validation](validation.md).
 7. Update documentation for changed contracts or player-visible coverage.
@@ -123,11 +131,12 @@ resolution and should be tested at integer scale when inspecting pixels.
 [The validation workflow](../.github/workflows/validation.yml) runs on every
 push and can also be started manually from GitHub Actions. A clean runner
 rebuilds the supported US ROM from the pinned public `oracles-disasm` `master`
-revision, verifies its MD5, switches the disassembly checkout to the pinned
-`hack-base` revision used by the importer, and regenerates the ignored runtime
-assets. It then downloads the checksum-pinned Godot 4.6 .NET build, treats C#
-warnings as errors, runs the complete headless validation suite, rejects Godot
-engine warnings or errors, and runs `git diff --check`.
+revision, verifies its MD5, and switches the disassembly checkout to the pinned
+`hack-base` revision used by the importer. It runs the importer unit/boundary
+tests and two-import full-asset parity check, then downloads the
+checksum-pinned Godot 4.6 .NET build, treats C# warnings as errors, runs the
+complete headless validation suite, rejects Godot engine warnings or errors,
+and runs `git diff --check`.
 
 The temporary source ROM is neither committed nor uploaded as an artifact. When
 the project deliberately adopts a newer Godot, WLA-DX, or disassembly revision,

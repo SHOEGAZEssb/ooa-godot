@@ -7,7 +7,7 @@ $globalFlagValue = 0
 $inGlobalFlagEnum = $false
 $includeGlobalFlagBranch = $true
 $globalFlagBranch = ''
-foreach ($line in Get-Content (Join-Path $Disassembly 'constants\common\globalFlags.s')) {
+foreach ($line in Read-ImportLines (Join-Path $Disassembly 'constants\common\globalFlags.s')) {
     if ($line -match '^\s*\.ENUM\s+\$0') {
         $inGlobalFlagEnum = $true
         continue
@@ -45,9 +45,9 @@ New-Item -ItemType Directory -Force -Path (Split-Path $globalFlagPath -Parent) |
 # applySingleTileChanges is a separate, ordered room-load pass. Most rows test
 # a room-flag mask; $f0-$f2 are the three Ages-specific linked/completion
 # predicates handled by commonTileSubstitutions.s.
-$singleTileChangeSource = Get-Content -Raw (
+$singleTileChangeSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\singleTileChanges.s')
-$commonTileSubstitutionSource = Get-Content -Raw (
+$commonTileSubstitutionSource = Read-ImportText (
     Join-Path $Disassembly 'code\commonTileSubstitutions.s')
 if ($commonTileSubstitutionSource -notmatch
         '(?ms)^applySingleTileChanges:.*?cp \$f0.*?jr z,@unlinkedOnly.*?cp \$f1.*?jr z,@linkedOnly.*?cp \$f2.*?jr z,@finishedGameOnly.*?and c.*?@match:.*?ld \(de\),a' -or
@@ -103,7 +103,7 @@ $singleTileChangePath = Join-Path $destination 'metadata\single_tile_changes.tsv
 # repeating group/room IDs, so shared routines automatically expand to every
 # room that calls them. Transient switch, water, vine, and encounter state is
 # kept out until its owning runtime systems exist.
-$roomTileChangeSource = Get-Content -Raw (
+$roomTileChangeSource = Read-ImportText (
     Join-Path $Disassembly 'code\ages\roomSpecificTileChanges.s')
 $tileChangeJumpBlock = [regex]::Match(
     $roomTileChangeSource,
@@ -297,7 +297,7 @@ $roomTileChangePath = Join-Path $destination 'metadata\room_tile_changes.tsv'
 
 # roomSpecificCode index $06 calls setDeathRespawnPoint every update. Preserve
 # that table instead of embedding the two Ages rooms in runtime code.
-$roomSpecificCodeSource = Get-Content -Raw (
+$roomSpecificCodeSource = Read-ImportText (
     Join-Path $Disassembly 'code\ages\roomSpecificCode.s')
 $continuousRespawnRows = [Collections.Generic.List[string]]::new()
 $continuousRespawnRows.Add("# group`troom")
@@ -327,7 +327,7 @@ $continuousRespawnPath = Join-Path $destination 'metadata\continuous_death_respa
 # Parse the 103 non-stub tileset records. The runtime needs the room-layout
 # group and resolved six-palette block; the original shared mapping index is
 # retained in metadata for provenance, but expanded mappings use tileset IDs.
-$tilesetSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\tilesets.s")
+$tilesetSource = Read-ImportText (Join-Path $Disassembly "data\ages\tilesets.s")
 $tilesetPattern = '(?ms);\s*0x(?<id>[0-9a-f]{2})\s*\r?\n' +
     '\s*\.db\s+\$(?<properties>[0-9a-f]{2}),\s*\$(?<flags>[0-9a-f]{2})[^\r\n]*\r?\n' +
     '\s*\.db[^\r\n]+\r?\n' +
@@ -339,7 +339,7 @@ if ($tilesets.Count -ne 103) {
     throw "Expected 103 concrete tileset records, parsed $($tilesets.Count)."
 }
 
-$paletteHeaderSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\paletteHeaders.s")
+$paletteHeaderSource = Read-ImportText (Join-Path $Disassembly "data\ages\paletteHeaders.s")
 $paletteBlocks = [regex]::Matches(
     $paletteHeaderSource,
     '(?ms)^m_PaletteHeaderStart\s+\$(?<id>[0-9a-f]{2}),[ \t]*(?<symbol>[A-Za-z0-9_]+)(?<body>.*?)(?=^m_PaletteHeaderStart|\z)'
@@ -358,7 +358,7 @@ foreach ($block in $paletteBlocks) {
     }
 }
 
-$paletteDataSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\paletteData.s")
+$paletteDataSource = Read-ImportText (Join-Path $Disassembly "data\ages\paletteData.s")
 
 # initializeGame loads PALH_0f before every gameplay room. Besides the standard
 # sprite palettes, that header installs paletteData48e0 as background palette
@@ -464,7 +464,7 @@ function Read-LocalHexByteTable([string]$path, [string]$tableLabel, [string]$poi
     $labels = @{}
     $pointers = [Collections.Generic.List[string]]::new()
     $reading = $false
-    foreach ($line in Get-Content $path) {
+    foreach ($line in Read-ImportLines $path) {
         if (-not $reading) {
             if ($line -match "^$([regex]::Escape($tableLabel))\s*:") { $reading = $true }
             continue
@@ -539,11 +539,11 @@ $pushablePath = Join-Path $destination 'metadata\pushableTiles.bin'
 # Transformation rings replace Link with special objects $03-$07. Export the
 # eight source GFX/OAM combinations for each disguise instead of reconstructing
 # their tile offsets or mirroring rules in gameplay code.
-$specialObjectAnimationSource = Get-Content -Raw (
+$specialObjectAnimationSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
-$specialObjectOamSource = Get-Content -Raw (
+$specialObjectOamSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\specialObjectOamData.s')
-$specialObjectDamageSource = Get-Content -Raw (
+$specialObjectDamageSource = Read-ImportText (
     Join-Path $Disassembly 'code\specialObjectAnimationsAndDamage.s')
 if ($specialObjectDamageSource -notmatch
         '(?ms)^@ringToID:\s*\.db OCTO_RING\s+SPECIALOBJECT_LINK_AS_OCTOROK\s*\.db MOBLIN_RING\s+SPECIALOBJECT_LINK_AS_MOBLIN\s*\.db LIKE_LIKE_RING\s+SPECIALOBJECT_LINK_AS_LIKELIKE\s*\.db SUBROSIAN_RING\s+SPECIALOBJECT_LINK_AS_SUBROSIAN\s*\.db FIRST_GEN_RING\s+SPECIALOBJECT_LINK_AS_RETRO\s*\.db \$00' -or
@@ -642,7 +642,7 @@ foreach ($tilesetId in $usedTilesets) {
     Copy-GeneratedFile "tileset_layouts_expanded\ages\tilesetCollisions${hex}.bin" "layouts\tilesetCollisions${hex}.bin"
 }
 
-$tilesetAssignmentSource = Get-Content -Raw (
+$tilesetAssignmentSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\tilesetAssignments.s')
 if ($tilesetAssignmentSource -notmatch
         '(?ms)^group4Tilesets:.*?^group6Tilesets:\s*\r?\n\s*\.incbin "rooms/ages/group4Tilesets\.bin"' -or

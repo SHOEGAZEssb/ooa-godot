@@ -6,7 +6,7 @@ $scriptSources = @(
 )
 $scriptBodies = @{}
 foreach ($scriptSourcePath in $scriptSources) {
-    $scriptSource = Get-Content -Raw $scriptSourcePath
+    $scriptSource = Read-ImportText $scriptSourcePath
     foreach ($labelMatch in [regex]::Matches($scriptSource, '(?ms)^(?<label>[A-Za-z0-9_@]+):\r?\n(?<body>.*?)(?=^[A-Za-z0-9_@]+:|\z)')) {
         $scriptBodies[$labelMatch.Groups['label'].Value] = $labelMatch.Groups['body'].Value
     }
@@ -42,7 +42,7 @@ $npcInteractionSourcePaths = @()
 $npcInteractionSourcePaths += Get-ChildItem (Join-Path $Disassembly "object_code\ages\interactions") -File -Filter '*.s'
 $npcInteractionSourcePaths += Get-ChildItem (Join-Path $Disassembly "object_code\common\interactions") -File -Filter '*.s'
 foreach ($interactionSourcePath in $npcInteractionSourcePaths) {
-    $interactionSource = Get-Content -Raw $interactionSourcePath.FullName
+    $interactionSource = Read-ImportText $interactionSourcePath.FullName
     # A few large interactions keep only a jpab trampoline in their primary
     # file and put the implementation in interactionCodeXX_body (for example,
     # monkeyMain.s). Treat that body as the same interaction so its exact
@@ -107,9 +107,9 @@ foreach ($interactionSourcePath in $npcInteractionSourcePaths) {
 # linkedGameNpcScript derives its initial text as TX_4d00 + var3f*5. Resolve
 # the two old-lady secret subids from that shared formula instead of leaving
 # them with text ID $0000 merely because the script uses showloadedtext.
-$linkedNpcScriptHelperSource = Get-Content -Raw (
+$linkedNpcScriptHelperSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
-$oldLadyInteractionSource = Get-Content -Raw (
+$oldLadyInteractionSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\oldLady.s')
 if ($linkedNpcScriptHelperSource -notmatch '(?ms)^linkedNpc_initHighTextIndex:.*?>TX_4d00.*?^linkedNpc_calcLowTextIndex:.*?add <TX_4d00.*?add a.*?add a.*?add b' -or
     $oldLadyInteractionSource -notmatch '(?ms)^@initSubid4:.*?ld a,\$00.*?^@initSubid5:.*?ld a,\$09.*?ld e,Interaction\.var3f.*?ld \(de\),a.*?mainScripts\.linkedGameNpcScript') {
@@ -129,7 +129,7 @@ foreach ($linkedSecretNpc in @(
 }
 
 # Parse the interaction graphics table, including pointer-backed subid data.
-$interactionDataSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\interactionData.s")
+$interactionDataSource = Read-ImportText (Join-Path $Disassembly "data\ages\interactionData.s")
 $interactionGraphics = @{}
 $interactionPointers = @{}
 foreach ($match in [regex]::Matches($interactionDataSource, '(?m)^\s*/\* \$(?<id>[0-9a-f]{2}) \*/ m_InteractionData\s+(?<gfx>\$[0-9a-f]{2}|[A-Za-z0-9_]+)(?:\s+(?<base>\$[0-9a-f]{2})\s+(?<flags>\$[0-9a-f]{2}))?')) {
@@ -228,7 +228,7 @@ if ($treasureGraphicIndex -ne 0x83) {
     throw "Expected 131 INTERAC_TREASURE subid graphics, parsed $treasureGraphicIndex."
 }
 $gfxNames = @{}
-foreach ($line in Get-Content (Join-Path $Disassembly "data\ages\objectGfxHeaders.s")) {
+foreach ($line in Read-ImportLines (Join-Path $Disassembly "data\ages\objectGfxHeaders.s")) {
     if ($line -match '/\* \$(?<id>[0-9a-f]{2}) \*/ m_ObjectGfxHeader (?<name>[A-Za-z0-9_]+)') {
         $gfxNames[[Convert]::ToInt32($Matches['id'], 16)] = $Matches['name']
     }
@@ -237,7 +237,7 @@ foreach ($line in Get-Content (Join-Path $Disassembly "data\ages\objectGfxHeader
 # Resolve animation indices through the original pointer tables. Animation
 # frame byte 1 is a byte offset into the interaction's OAM pointer table (the
 # engine adds it directly before reading a word), not a sprite-sheet column.
-$interactionAnimationSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\interactionAnimations.s")
+$interactionAnimationSource = Read-ImportText (Join-Path $Disassembly "data\ages\interactionAnimations.s")
 function Read-NpcDwTables([string]$source, [string]$tableLabelPattern, [string]$entryPattern) {
     $result = @{}
     $aliases = [Collections.Generic.List[string]]::new()
@@ -347,7 +347,7 @@ for ($labelIndex = 0; $labelIndex -lt $npcAnimationLabelMatches.Count; $labelInd
 }
 
 $npcOamBlocks = @{}
-$interactionOamSource = Get-Content -Raw (Join-Path $Disassembly "data\ages\interactionOamData.s")
+$interactionOamSource = Read-ImportText (Join-Path $Disassembly "data\ages\interactionOamData.s")
 foreach ($oam in [regex]::Matches($interactionOamSource, '(?ms)^(?<label>interactionOamData[0-9a-f]+):[^\r\n]*\r?\n(?<body>.*?)(?=^interactionOamData[0-9a-f]+:|\z)')) {
     $dataLines = [regex]::Matches($oam.Groups['body'].Value, '(?m)^\s*\.db\s+(?<bytes>[^;\r\n]+)')
     if ($dataLines.Count -eq 0) { continue }
@@ -446,7 +446,7 @@ function Resolve-TreasureAnimation([int]$animationIndex) {
 # exact initialized index in the runtime record. Parse these overrides from
 # their implementation instead of treating the graphics default as final.
 $npcInitialAnimationBySubid = @{}
-$monkeyMainSource = Get-Content -Raw (
+$monkeyMainSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\monkeyMain.s')
 $introMonkeyAnimationMatch = [regex]::Match(
     $monkeyMainSource,
@@ -462,17 +462,17 @@ $npcInitialAnimationBySubid['57:3'] =
 # Room 1:75 contains the pre-Black Tower ensemble and two var03-selected
 # hardhat workers. Pin the initial animation writes performed by the linked
 # Impa/Nayru initializers; their script lanes use all four facing animations.
-$preBlackTowerImpaSource = Get-Content -Raw (
+$preBlackTowerImpaSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\impaInCutscene.s')
-$preBlackTowerNayruSource = Get-Content -Raw (
+$preBlackTowerNayruSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\nayru.s')
-$preBlackTowerHardhatSource = Get-Content -Raw (
+$preBlackTowerHardhatSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\hardhatWorker.s')
-$preBlackTowerScriptsSource = Get-Content -Raw (
+$preBlackTowerScriptsSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scripts.s')
-$preBlackTowerScriptHelperSource = Get-Content -Raw (
+$preBlackTowerScriptHelperSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
-$blackTowerProgressSource = Get-Content -Raw (
+$blackTowerProgressSource = Read-ImportText (
     Join-Path $Disassembly 'code\bank0.s')
 if ($preBlackTowerImpaSource -notmatch '(?ms)^@init4:.*?checkIsLinkedGame.*?xor a\s+ld \(\$cfc0\),a.*?^@init5:.*?checkIsLinkedGame.*?ld a,\$03\s+call interactionSetAnimation' -or
     $preBlackTowerNayruSource -notmatch '(?ms)^@init09:.*?mainScripts\.nayruScript09.*?^@init0a:.*?checkIsLinkedGame.*?TREASURE_MAKU_SEED.*?GLOBALFLAG_PRE_BLACK_TOWER_CUTSCENE_DONE.*?ld a,\$01\s+call interactionSetAnimation\s+ld hl,mainScripts\.nayruScript0a' -or
@@ -487,7 +487,7 @@ $npcInitialAnimationBySubid['54:10'] = 1
 
 # Vasu's two snakes select their subid as the initial animation. The blue
 # snake uses $01 and the red snake uses $06; animation $00 belongs to Vasu.
-$vasuSource = Get-Content -Raw (
+$vasuSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\vasu.s')
 if ($vasuSource -notmatch '(?ms)ld e,Interaction\.subid\s+ld a,\(de\)\s+or a\s+jr z,@@initVasu\s+^@@initSnake:.*?ld a,\(de\)\s+call interactionSetAnimation') {
     throw 'INTERAC_VASU snake initialization changed in the disassembly.'
@@ -498,9 +498,9 @@ $npcInitialAnimationBySubid['137:6'] = 6
 # Room 1:57's female villager overwrites the palette loaded from interaction
 # data after interactionInitGraphics. Pin the full initializer and table shape
 # so the ordinary NPC row receives the final OAM palette used for drawing.
-$room157VillagerSource = Get-Content -Raw (
+$room157VillagerSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\femaleVillager.s')
-$ringHelpBookSource = Get-Content -Raw (
+$ringHelpBookSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\ringHelpBook.s')
 if ($room157VillagerSource -notmatch '(?ms)^@initSubid05:\s+ld a,\$01\s+ld e,Interaction\.oamFlags\s+ld \(de\),a\s+callab agesInteractionsBank09\.getGameProgress_2\s+ld c,\$05\s+ld a,\$02\s+call checkNpcShouldExistAtGameStage\s+jp nz,interactionDelete.*?ld hl,@subid5ScriptTable.*?jp objectSetVisible82' -or
     $room157VillagerSource -notmatch '(?ms)^@runScriptAndAnimateFacingLink:\s+call interactionRunScript\s+jp npcFaceLinkAndAnimate' -or
@@ -522,11 +522,11 @@ $npcPaletteBySubid = @{
 # before entering a generic NPC script. Preserve those selections and their
 # directional facing behavior instead of leaving the positioned records at the
 # TX_0000/can-face fallback used for unresolved controllers.
-$room158HoboSource = Get-Content -Raw (
+$room158HoboSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\miscMan2.s')
-$room158ImpaSource = Get-Content -Raw (
+$room158ImpaSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\impaNpc.s')
-$room158NayruSource = Get-Content -Raw (
+$room158NayruSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\nayru.s')
 if ($room158HoboSource -notmatch '(?ms)^@subid4:.*?getGameProgress_2.*?cp \$03\s+jp z,interactionDelete.*?cp \$06.*?ld bc,\$5878.*?pastHoboScriptTable' -or
     $room158ImpaSource -notmatch '(?ms)^impaNpc_subid02:.*?getImpaNpcState.*?cp \$08\s+jp nz,interactionDelete\s+ld a,<TX_012f.*?impaNpc_runScriptAndFaceLink' -or
@@ -621,7 +621,7 @@ function New-NpcDataRow(
 # position from save state are expanded below into mutually exclusive records.
 $npcRows = [Collections.Generic.List[string]]::new()
 $npcRows.Add("# group`troom`tid`tsubid`ty`tx`tvar03`ttext-id`tsprite`ttile-base`tpalette`tdefault-animation`tcan-face`tup-animation`tright-animation`tdown-animation`tleft-animation`tutf8-base64")
-$mainObjectLines = Get-Content (Join-Path $Disassembly "objects\ages\mainData.s")
+$mainObjectLines = Read-ImportLines (Join-Path $Disassembly "objects\ages\mainData.s")
 $mainObjectSource = $mainObjectLines -join "`n"
 if ($mainObjectSource -notmatch '(?ms)^group1Map57ObjectData:\s+obj_Interaction \$3b \$05 \$38 \$48\s+obj_End') {
     throw 'Room 1:57 no longer contains female villager $3b:$05 at $38,$48.'
@@ -643,56 +643,56 @@ if ($mainObjectSource -notmatch '(?ms)^group1Map86ObjectData:\s+obj_Interaction 
 # Export every supported direct placement in source order; rooms 4:08, 4:09,
 # 4:0b, and 4:0c are the canonical button-chest, button-door, combat-door, and
 # trigger-before-door cases.
-$pushblockTriggerSource = Get-Content -Raw (
+$pushblockTriggerSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\pushblockTrigger.s')
-$buttonSource = Get-Content -Raw (
+$buttonSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\parts\button.s')
-$doorControllerSource = Get-Content -Raw (
+$doorControllerSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\doorController.s')
-$dungeonScriptSource = Get-Content -Raw (
+$dungeonScriptSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\dungeonScript.s')
-$dungeonEventSource = Get-Content -Raw (
+$dungeonEventSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\dungeonEvents.s')
-$dungeonScriptCommandSource = Get-Content -Raw (
+$dungeonScriptCommandSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\dungeonScripts.s')
-$commonScriptSource = Get-Content -Raw (
+$commonScriptSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\common\commonScripts.s')
-$commonScriptHelperSource = Get-Content -Raw (
+$commonScriptHelperSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\common\scriptHelper.s')
-$interactableTilesSource = Get-Content -Raw (
+$interactableTilesSource = Read-ImportText (
     Join-Path $Disassembly 'code\interactableTiles.s')
-$interactableTileDataSource = Get-Content -Raw (
+$interactableTileDataSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\tile_properties\interactableTiles.s')
-$standardTileSubstitutionSource = Get-Content -Raw (
+$standardTileSubstitutionSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\tile_properties\standardTileSubstitutions.s')
-$keyDoorGraphicSource = Get-Content -Raw (
+$keyDoorGraphicSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\tile_properties\keydoorTiles.s')
-$dungeonKeySpriteSource = Get-Content -Raw (
+$dungeonKeySpriteSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\dungeonKeySprite.s')
-$overworldKeySpriteSource = Get-Content -Raw (
+$overworldKeySpriteSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\overworldKeySprite.s')
-$miscellaneous2Source = Get-Content -Raw (
+$miscellaneous2Source = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous2.s')
-$treasureInteractionSource = Get-Content -Raw (
+$treasureInteractionSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\treasure.s')
-$treasureAndDropsSource = Get-Content -Raw (
+$treasureAndDropsSource = Read-ImportText (
     Join-Path $Disassembly 'code\treasureAndDrops.s')
-$pushblockSource = Get-Content -Raw (
+$pushblockSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\pushblock.s')
-$fallDownHoleSource = Get-Content -Raw (
+$fallDownHoleSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\fallDownHole.s')
-$breakTileDebrisSource = Get-Content -Raw (
+$breakTileDebrisSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\breakTileDebris.s')
-$bank0Source = Get-Content -Raw (Join-Path $Disassembly 'code\bank0.s')
-$zolEnemySource = Get-Content -Raw (
+$bank0Source = Read-ImportText (Join-Path $Disassembly 'code\bank0.s')
+$zolEnemySource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\zol.s')
-$partDataSource = Get-Content -Raw (
+$partDataSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\partData.s')
-$tileIndexSource = Get-Content -Raw (
+$tileIndexSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\tileIndices.s')
-$musicIdSource = Get-Content -Raw (
+$musicIdSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\music.s')
-$objectSpeedSource = Get-Content -Raw (
+$objectSpeedSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\objectSpeeds.s')
 if ($pushblockTriggerSource -notmatch '(?ms)^@state0:.*?ld a,TILEINDEX_PUSHABLE_BLOCK.*?ld hl,wNumEnemies\s+inc \(hl\).*?^@state1:.*?^@state2:.*?cp \(hl\)\s+ret z.*?ld a,\$1e.*?^@state3:.*?interactionDecCounter1.*?xor a\s+ld \(wNumEnemies\),a' -or
     $buttonSource -notmatch '(?ms)^partCode09:.*?call z,@state0.*?checkObjectsCollided.*?@linkTouchedButton:.*?ld a,\(w1Link\.zh\).*?rlca\s+jr nc,@delete.*?@checkButtonPushed:.*?TILEINDEX_PRESSED_BUTTON.*?@setTriggerAndPlaySound:.*?wActiveTriggers.*?setFlag.*?SND_SPLASH.*?@state0:.*?and \$07' -or
@@ -1229,18 +1229,18 @@ if ($introMonkeyRows.Count -ne 2 -or
 # and both help books. Text \call/\jump commands are assembler-time control
 # flow, so flatten them here while the complete TX table is available; inline
 # DialogueBox commands such as \stop, \col, and \opt remain intact.
-$vasuShopScriptsSource = Get-Content -Raw (
+$vasuShopScriptsSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\common\commonScripts.s')
-$vasuShopScriptHelperSource = Get-Content -Raw (
+$vasuShopScriptHelperSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\common\scriptHelper.s')
-$globalFlagsSource = Get-Content -Raw (
+$globalFlagsSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\globalFlags.s')
-$ringsSource = Get-Content -Raw (
+$ringsSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\rings.s')
-$wramSource = Get-Content -Raw (Join-Path $Disassembly 'include\wram.s')
-$vasuTreasureObjectSource = Get-Content -Raw (
+$wramSource = Read-ImportText (Join-Path $Disassembly 'include\wram.s')
+$vasuTreasureObjectSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\treasureObjectData.s')
-$ringMenuSource = Get-Content -Raw (Join-Path $Disassembly 'code\bank2.s')
+$ringMenuSource = Read-ImportText (Join-Path $Disassembly 'code\bank2.s')
 $vasuShopRoomMatch = [regex]::Match(
     $mainObjectSource,
     '(?ms)^group2MapeeObjectData:\s+obj_Interaction \$89 \$00 \$28 \$50\s+obj_Interaction \$89 \$01 \$38 \$38\s+obj_Interaction \$89 \$06 \$38 \$68\s+obj_Interaction \$e5 \$00 \$48 \$28\s+obj_Interaction \$e5 \$01 \$48 \$78\s+obj_End')
@@ -1374,25 +1374,25 @@ $vasuShopConstantRows = @(
 # the prompts, purchase result, and theft-prevention script. Export every item
 # reachable from this room's three placements so the runtime follows the
 # source replacement chain instead of encoding a room-specific stock list.
-$shopItemSource = Get-Content -Raw (
+$shopItemSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\shopItem.s')
-$shopkeeperSource = Get-Content -Raw (
+$shopkeeperSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\shopkeeper.s')
-$companionScriptsSource = Get-Content -Raw (
+$companionScriptsSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\companionScripts.s')
-$roomGfxChangesSource = Get-Content -Raw (
+$roomGfxChangesSource = Read-ImportText (
     Join-Path $Disassembly 'code\ages\roomGfxChanges.s')
-$treeGfxHeadersSource = Get-Content -Raw (
+$treeGfxHeadersSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\treeGfxHeaders.s')
-$linkSpecialObjectSource = Get-Content -Raw (
+$linkSpecialObjectSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\specialObjects\link.s')
-$linkAnimationSource = Get-Content -Raw (
+$linkAnimationSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
-$linkAnimationLogicSource = Get-Content -Raw (
+$linkAnimationLogicSource = Read-ImportText (
     Join-Path $Disassembly 'code\specialObjectAnimationsAndDamage.s')
-$parentItemUsageSource = Get-Content -Raw (
+$parentItemUsageSource = Read-ImportText (
     Join-Path $Disassembly 'code\parentItemUsage.s')
-$grabbedObjectSource = Get-Content -Raw (
+$grabbedObjectSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\itemParents\commonCode.s')
 $linkGfxPointerBlock = [regex]::Match(
     $linkAnimationSource,
@@ -1552,23 +1552,23 @@ $lynnaShopConstantRows = @(
 # object graphics header and sets OAM flag bit 3, so tile $02 comes from the
 # fixed bank-1 spr_common_sprites sheet rather than the worker's dynamic slot.
 $room148ObjectSource = $mainObjectLines -join "`n"
-$room148WorkerSource = Get-Content -Raw (
+$room148WorkerSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\pickaxeWorker.s')
-$room148FallingRockSource = Get-Content -Raw (
+$room148FallingRockSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\fallingRock.s')
-$agesMainScriptSource = Get-Content -Raw (
+$agesMainScriptSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scripts.s')
-$room148VillagerSource = Get-Content -Raw (
+$room148VillagerSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\villager.s')
-$room148PastGirlSource = Get-Content -Raw (
+$room148PastGirlSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\pastGirl.s')
-$gameProgress2Source = Get-Content -Raw (
+$gameProgress2Source = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\miscMan2.s')
-$objectSpeedSource = Get-Content -Raw (
+$objectSpeedSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\objectSpeeds.s')
-$musicConstantSource = Get-Content -Raw (
+$musicConstantSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\music.s')
-$agesGfxHeaderSource = Get-Content -Raw (
+$agesGfxHeaderSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\gfxHeaders.s')
 if ($room148ObjectSource -notmatch '(?ms)^group1Map48ObjectData:\s+obj_Interaction \$57 \$00 \$58 \$38\s+obj_Interaction \$e1 \$02 \$48 \$58\s+obj_Interaction \$3a \$06 \$58 \$88\s+obj_Interaction \$38 \$00 \$38 \$78\s+obj_End' -or
     $room148WorkerSource -notmatch '(?ms)^@subid00:\s*^@subid03:.*?@loadScriptAndInitGraphics.*?interactionSetAlwaysUpdateBit.*?interactionRunScript.*?interactionAnimateAsNpc.*?Interaction\.animParameter.*?SND_CLINK.*?wScrollMode.*?and \$01.*?ld a,\$03.*?@createDirtChips' -or
@@ -1631,11 +1631,11 @@ $room148PickaxeRows = @(
 # graphics, offsets, collision, timing, and sound. This keeps room 4:24 from
 # becoming a one-room reconstruction and lets the runtime merge these records
 # with the existing ordered dungeon-mechanic stream.
-$dungeonStuffSource = Get-Content -Raw (
+$dungeonStuffSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\dungeonStuff.s')
-$statueEyeballSource = Get-Content -Raw (
+$statueEyeballSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\statueEyeball.s')
-$minibossPortalSource = Get-Content -Raw (
+$minibossPortalSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\minibossPortal.s')
 
 if ($dungeonStuffSource -notmatch '(?ms)^@subid00:.*?SCROLLMODE_02.*?cp \$78.*?ld a,\$08\s+call objectSetCollideRadius.*?call initializeDungeonStuff.*?call setDeathRespawnPoint' -or
@@ -1791,13 +1791,13 @@ for ($direction = 0; $direction -lt 8; $direction++) {
 $dungeonSharedVisualRows.Add(
     "portal`t0`tspr_common_sprites`t$($portalGraphic.TileBase)`t$($portalGraphic.Palette)`t$portalAnimation`t-1`t-1")
 
-$eraInfoSource = Get-Content -Raw (
+$eraInfoSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\eraOrSeasonInfo.s')
-$tilesetFlagSource = Get-Content -Raw (
+$tilesetFlagSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\tilesetFlags.s')
-$globalFlagSource = Get-Content -Raw (
+$globalFlagSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\globalFlags.s')
-$wramSource = Get-Content -Raw (Join-Path $Disassembly 'include\wram.s')
+$wramSource = Read-ImportText (Join-Path $Disassembly 'include\wram.s')
 $eraPresentGraphic = $interactionGraphics['224:0']
 $eraPastGraphic = $interactionGraphics['224:1']
 $eraAnimation = Resolve-NpcAnimation 0xe0 0
@@ -1861,11 +1861,11 @@ $dungeonSharedConstantRows = @(
 # complete object streams and export the script tables, extra animation, item
 # visual, text, and timing values used by those handlers. Runtime still uses
 # the ordinary NPC rows for positioned graphics and source ordering.
-$blackTowerHardhatSource = Get-Content -Raw (
+$blackTowerHardhatSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\hardhatWorker.s')
-$blackTowerSoldierSource = Get-Content -Raw (
+$blackTowerSoldierSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\soldier.s')
-$agesScriptHelperSource = Get-Content -Raw (
+$agesScriptHelperSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
 $blackTowerRooms = @{
     'e0' = 'obj_Interaction \$3a \$02 \$98 \$38\s+obj_End'
@@ -1973,7 +1973,7 @@ $blackTowerConstantsRows = @(
 # initializers change position, palette, animation, dialogue, and per-update
 # facing behavior in place. Export both phases instead of approximating them
 # with the base generic-NPC rows.
-$room20eBoySource = Get-Content -Raw (
+$room20eBoySource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\boy.s')
 if ($mainObjectSource -notmatch
         '(?ms)^group2Map0eObjectData:\s+obj_Interaction \$3c \$0d \$48 \$38\s+obj_Interaction \$3d \$00 \$48 \$4a\s+obj_End' -or
@@ -2070,17 +2070,17 @@ if ($room20eStateRows.Count -ne 5) {
 # selected by those handlers instead of leaving the two manual A-button
 # branches with the generic TX_0000 fallback.
 $room149ObjectSource = $mainObjectLines -join "`n"
-$room149BoySource = Get-Content -Raw (
+$room149BoySource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\boy.s')
-$room149FatherSource = Get-Content -Raw (
+$room149FatherSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\villager.s')
-$room149ObserverSource = Get-Content -Raw (
+$room149ObserverSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\pastGuy.s')
-$room149BallSource = Get-Content -Raw (
+$room149BallSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\ball.s')
-$room149ScriptSource = Get-Content -Raw (
+$room149ScriptSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scripts.s')
-$room149ScriptHelperSource = Get-Content -Raw (
+$room149ScriptHelperSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
 if ($room149ObjectSource -notmatch '(?ms)^group1Map49ObjectData:\s+obj_Interaction \$3c \$0e \$48 \$78\s+obj_Interaction \$3a \$0c \$48 \$38\s+obj_Interaction \$43 \$06 \$28 \$78\s+obj_End' -or
     $room149BoySource -notmatch '(?ms)^@initSubid0e:.*?wGroup4RoomFlags\+\$fc.*?bit 7.*?<TX_251e.*?wEssencesObtained.*?bit 6.*?<TX_251d.*?ld bc,\$4848.*?<TX_251b.*?ld bc,\$4a75' -or
@@ -2138,9 +2138,9 @@ foreach ($textId in @(0x1442, 0x1443, 0x1712, 0x251b, 0x251d, 0x251e)) {
 # the original family without hard-coding either room's occupants.
 $familySpawnerSourcePath = Join-Path $Disassembly `
     'object_code\common\interactions\bipinBlossomFamilySpawner.s'
-$familySpawnerSource = Get-Content -Raw $familySpawnerSourcePath
+$familySpawnerSource = Read-ImportText $familySpawnerSourcePath
 $mainObjectSource = $mainObjectLines -join "`n"
-$interactionConstantSource = Get-Content -Raw (
+$interactionConstantSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\interactions.s')
 $familyInteractionIds = @{
     INTERAC_BIPIN = 0x28
@@ -2232,9 +2232,9 @@ $familyInteractionTextIds = @(
     0x4301,
     0x4407, 0x4408, 0x4409, 0x440a
 )
-$familyScriptSource = Get-Content -Raw (
+$familyScriptSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scripts.s')
-$familyScriptHelperSource = Get-Content -Raw (
+$familyScriptHelperSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
 foreach ($textId in @($bipinTextIds + $childTextIds + $familyInteractionTextIds +
         ($blossomTextIds | ForEach-Object { $_ }))) {
@@ -2386,7 +2386,7 @@ function Get-NpcDialogueTableEntries(
     if (-not (Test-Path -LiteralPath $sourcePath)) {
         throw "NPC dialogue source not found: $sourceFile"
     }
-    $source = Get-Content -Raw $sourcePath
+    $source = Read-ImportText $sourcePath
     if ($source -notmatch [regex]::Escape($progressRoutine)) {
         throw "$sourceFile no longer selects $tableLabel with $progressRoutine."
     }
@@ -2522,9 +2522,9 @@ if ($npcDialogueRows.Count -ne 101) {
 # index `$01. Export its complete five-text choice loop and progression
 # constants; the runtime substitutes the generated five-character secret for
 # the text engine's \secret1 command.
-$linkedGhiniSource = Get-Content -Raw (
+$linkedGhiniSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\linkedGameGhini.s')
-$linkedNpcScriptSource = Get-Content -Raw (
+$linkedNpcScriptSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scripts.s')
 if ($linkedGhiniSource -notmatch '(?ms)^interactionCodecb:.*?Interaction\.oamFlags\s+ld \(hl\),\$02.*?Interaction\.var3f\s+ld \(hl\),GRAVEYARD_SECRET & \$0f.*?mainScripts\.linkedGameNpcScript' -or
     $linkedGhiniSource -notmatch '(?ms)^@initialize:.*?interactionInitGraphics.*?objectMarkSolidPosition.*?interactionIncState' -or
@@ -2571,11 +2571,11 @@ $npcPositionRows = @(
 # INTERAC_MISCELLANEOUS_2 $dc:$07 is a general static Heart Piece spawner.
 # Its state-0 handler deletes itself when ROOMFLAG_ITEM is set; otherwise it
 # creates TREASURE_OBJECT_HEART_PIECE_00 at the spawner's exact position.
-$miscellaneous2Source = Get-Content -Raw (
+$miscellaneous2Source = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous2.s')
-$treasureSource = Get-Content -Raw (
+$treasureSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\treasure.s')
-$treasureObjectSource = Get-Content -Raw (
+$treasureObjectSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\treasureObjectData.s')
 if ($miscellaneous2Source -notmatch
         '(?ms)^interactiondc_subid08:\s+call checkInteractionState\s+jr z,@state0.*?^@state1:.*?Interaction\.yh.*?>wRoomLayout.*?Interaction\.var03.*?cp l\s+ret z.*?call getThisRoomFlags.*?Interaction\.xh.*?or \(hl\).*?ld \(hl\),a.*?^@state0:.*?call getThisRoomFlags.*?Interaction\.xh.*?and \(hl\).*?jp nz,interactionDelete.*?Interaction\.yh.*?>wRoomLayout.*?Interaction\.var03.*?ld \(de\),a\s+jp interactionIncState') {
@@ -2681,9 +2681,9 @@ if ($groundTreasureRows.Count -ne 9) {
 # handler and creates the falling Graveyard Key when exactly two torches are
 # lit, unless ROOMFLAG_ITEM already records its collection. Export these
 # placements together so the runtime can retain their source order.
-$darkRoomHandlerSource = Get-Content -Raw (
+$darkRoomHandlerSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\parts\darkRoomHandler.s')
-$lightableTorchSource = Get-Content -Raw (
+$lightableTorchSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\parts\lightableTorch.s')
 $group5DungeonProperties = [IO.File]::ReadAllBytes(
     (Join-Path $Disassembly 'rooms\ages\group5DungeonProperties.bin'))
@@ -2774,11 +2774,11 @@ $room045ObjectBlock = [regex]::Match(
 $room3fbObjectBlock = [regex]::Match(
     $mainObjectSource,
     '(?ms)^group3MapfbObjectData:\s*(?<body>.*?)(?=^group[0-7]Map[0-9a-f]{2}ObjectData:|\z)')
-$room045BoySource = Get-Content -Raw (
+$room045BoySource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\boy2.s')
-$troyInteractionSource = Get-Content -Raw (
+$troyInteractionSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\troy.s')
-$troyScriptSource = Get-Content -Raw (
+$troyScriptSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
 if (-not $room045ObjectBlock.Success -or
     ([regex]::Matches($room045ObjectBlock.Groups['body'].Value, 'obj_Interaction')).Count -ne 1 -or
@@ -2839,7 +2839,7 @@ function Confirm-NpcVisibilitySource([string]$source, [string]$token) {
         if (-not $path) {
             throw "NPC visibility source not found: $file"
         }
-        $npcVisibilitySources[$file] = Get-Content -Raw $path
+        $npcVisibilitySources[$file] = Read-ImportText $path
     }
     if ($npcVisibilitySources[$file] -notmatch [regex]::Escape($token)) {
         throw "NPC visibility source $source no longer references $token."
@@ -3358,7 +3358,7 @@ foreach ($extraActor in @(
     @{ Id = 0x36; File = 'nayru.s'; Header = 0x26; ExtraHeader = 0x27 },
     @{ Id = 0x37; File = 'ralph.s'; Header = 0x24; ExtraHeader = 0x25 }
 )) {
-    $actorSource = Get-Content -Raw (
+    $actorSource = Read-ImportText (
         Join-Path $Disassembly "object_code\ages\interactions\$($extraActor.File)")
     $header = $extraActor.Header.ToString('x2')
     $extraHeader = $extraActor.ExtraHeader.ToString('x2')
@@ -3373,13 +3373,13 @@ foreach ($extraActor in @(
         throw "Could not resolve $extraSprite through the initial Nayru cutscene actor graphics chain."
     }
 }
-$nayruInitialSource = Get-Content -Raw (
+$nayruInitialSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\nayru.s')
-$ralphInitialSource = Get-Content -Raw (
+$ralphInitialSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\ralph.s')
-$boyInitialSource = Get-Content -Raw (
+$boyInitialSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\boy.s')
-$monkeyInitialSource = Get-Content -Raw (
+$monkeyInitialSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\monkeyMain.s')
 if ($nayruInitialSource -notmatch '(?ms)@init00:.*?@setSingingAnimation:\s*ld a,\$04\s*call interactionSetAnimation' -or
     $ralphInitialSource -notmatch '(?ms)@initSubid00:\s*@initSubid05:\s*xor a\s*@setAnimation:\s*call interactionSetAnimation' -or
@@ -3434,17 +3434,17 @@ for ($actorIndex = 0; $actorIndex -lt $nayruIntroActors.Count; $actorIndex++) {
 # $ff to cfdf, and only then advances to the next room. Export the room order,
 # exact interaction lifetime, and the ten-entry monkey initializer table used by
 # objectData7717 instead of duplicating them in the runtime.
-$nayruObjectData2Source = Get-Content -Raw (
+$nayruObjectData2Source = Read-ImportText (
     Join-Path $Disassembly 'objects\ages\extraData3.s')
-$nayruMiscInteractionSource = Get-Content -Raw (
+$nayruMiscInteractionSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous1.s')
-$nayruFemaleVillagerSource = Get-Content -Raw (
+$nayruFemaleVillagerSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\femaleVillager.s')
-$nayruOldLadySource = Get-Content -Raw (
+$nayruOldLadySource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\oldLady.s')
-$nayruVignetteCutsceneSource = Get-Content -Raw (
+$nayruVignetteCutsceneSource = Read-ImportText (
     Join-Path $Disassembly 'code\ages\cutscenes\miscCutscenes.s')
-$nayruVignetteMonkeySource = Get-Content -Raw (
+$nayruVignetteMonkeySource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\monkeyMain.s')
 if ($nayruObjectData2Source -notmatch '(?ms)^objectTable2:.*?objectData7705.*?objectData7717.*?objectData771b' -or
     $nayruObjectData2Source -notmatch '(?ms)^objectData7705:.*?obj_Interaction \$3a \$00 \$42 \$78.*?obj_Interaction \$44 \$01 \$42 \$78.*?obj_Interaction \$3b \$00 \$42 \$68.*?obj_Interaction \$6b \$05 \$48 \$88' -or
@@ -3504,7 +3504,7 @@ if (-not $nayruMusicNoteAnimation -or
     $interactionGraphics['160:1'].Palette -ne 1) {
     throw 'INTERAC_FLOATING_IMAGE $a0:$01 music-note graphics changed.'
 }
-$floatingImageSource = Get-Content -Raw (
+$floatingImageSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\floatingImage.s')
 if ($floatingImageSource -notmatch '(?s)ld b,\$03.*?ld b,\$1d' -or
     $floatingImageSource -notmatch 'ld \(hl\),SPEED_60' -or
@@ -3519,9 +3519,9 @@ $noteVelocityYFixed = [int][Math]::Truncate(
 if ($noteVelocityXFixed -ne 53 -or $noteVelocityYFixed -ne -79) {
     throw 'SPEED_60 angle $03 no longer resolves to signed 8.8 velocity 53,-79.'
 }
-$nayruPartAnimationSource = Get-Content -Raw (
+$nayruPartAnimationSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\partAnimations.s')
-$nayruPartOamSource = Get-Content -Raw (
+$nayruPartOamSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\partOamData.s')
 $part27PointersMatch = [regex]::Match(
     $nayruPartAnimationSource,
@@ -3626,25 +3626,25 @@ foreach ($textId in $nayruTextIds) {
     $nayruTextRows,
     [Text.UTF8Encoding]::new($false))
 
-$nayruMiscSource = Get-Content -Raw (
+$nayruMiscSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous1.s')
-$nayruObjectsSource = Get-Content -Raw (
+$nayruObjectsSource = Read-ImportText (
     Join-Path $Disassembly 'objects\ages\extraData3.s')
-$nayruBearSource = Get-Content -Raw (
+$nayruBearSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\bear.s')
-$nayruCutsceneSource = Get-Content -Raw (
+$nayruCutsceneSource = Read-ImportText (
     Join-Path $Disassembly 'code\ages\cutscenes\miscCutscenes.s')
-$nayruScriptSource = Get-Content -Raw (
+$nayruScriptSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scripts.s')
-$nayruScriptHelperSource = Get-Content -Raw (
+$nayruScriptHelperSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
-$nayruBirdSource = Get-Content -Raw (
+$nayruBirdSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\bird.s')
-$nayruRabbitSource = Get-Content -Raw (
+$nayruRabbitSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\rabbitMain.s')
-$nayruMonkeySource = Get-Content -Raw (
+$nayruMonkeySource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\monkeyMain.s')
-$nayruGhostSource = Get-Content -Raw (
+$nayruGhostSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\ghostVeran.s')
 if ($nayruMiscSource -notmatch '(?ms)^interaction6b_subid01:.*?GLOBALFLAG_INTRO_DONE.*?objectData\.nayruAndAnimalsInIntro' -or
     $nayruObjectsSource -notmatch '(?ms)^nayruAndAnimalsInIntro:.*?obj_Interaction \$36 \$00 \$18 \$78.*?obj_Interaction \$4c \$00 \$2c \$48.*?obj_End' -or
@@ -3715,7 +3715,7 @@ foreach ($asset in @(
 )) { Copy-GeneratedFile $asset.Source $asset.Destination }
 Export-PaletteBlock 'paletteData4430' 32 'cutscenes\nayru_singing_bg_palette.bin'
 Export-PaletteBlock 'paletteData4470' 28 'cutscenes\nayru_singing_sprite_palette.bin'
-$agesBank3f = Get-Content -Raw (Join-Path $Disassembly 'ages.s')
+$agesBank3f = Read-ImportText (Join-Path $Disassembly 'ages.s')
 $nayruOamBlock = [regex]::Match(
     $agesBank3f,
     '(?ms)^oamData_7249:\s*\.db \$(?<count>[0-9a-f]{2})(?<body>.*?)(?=^\s*$)')

@@ -105,12 +105,12 @@ foreach ($match in [regex]::Matches(
 # hero!") and then linkSummonedCutscene before loading the saved room. Export
 # its counters, Link animation records, flags, position, and text rather than
 # duplicating those disassembly values in the runtime controller.
-$introLinkSource = Get-Content -Raw (
+$introLinkSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\specialObjects\linkInCutscene.s')
-$introCutsceneSource = Get-Content -Raw (
+$introCutsceneSource = Read-ImportText (
     Join-Path $Disassembly 'code\ages\cutscenes\miscCutscenes.s')
-$introGameSource = Get-Content -Raw (Join-Path $Disassembly 'code\bank1.s')
-$introAnimationSource = Get-Content -Raw (
+$introGameSource = Read-ImportText (Join-Path $Disassembly 'code\bank1.s')
+$introAnimationSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
 
 $introLinkBlock = [regex]::Match(
@@ -245,15 +245,15 @@ New-Item -ItemType Directory -Force -Path (
 # pregame intro. Object coordinates and OAM offsets retain their original
 # unsigned bytes; the runtime applies the GBC's byte wrapping and hardware
 # sprite origin biases when drawing them.
-$specialOamSource = Get-Content -Raw (
+$specialOamSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\specialObjectOamData.s')
-$interactionDataSource = Get-Content -Raw (
+$interactionDataSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\interactionData.s')
-$interactionAnimationSource = Get-Content -Raw (
+$interactionAnimationSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\interactionAnimations.s')
-$interactionOamSource = Get-Content -Raw (
+$interactionOamSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\interactionOamData.s')
-$objectGfxHeaderSource = Get-Content -Raw (
+$objectGfxHeaderSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\objectGfxHeaders.s')
 
 function Read-IntroOamParts([string]$source, [string]$label) {

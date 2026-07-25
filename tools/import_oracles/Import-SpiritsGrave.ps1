@@ -4,9 +4,9 @@
 # of their own. Resolve graphics/OAM here while all shared importer tables are
 # still in scope; runtime code never reads assembly source.
 
-$enemyObjectSource = Get-Content -Raw (
+$enemyObjectSource = Read-ImportText (
     Join-Path $Disassembly 'objects\ages\enemyData.s')
-$pumpkinHeadSource = Get-Content -Raw (
+$pumpkinHeadSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\enemies\pumpkinHead.s')
 
 $sgEnemySpriteSequences = @{
@@ -182,7 +182,7 @@ $cubePaletteBytes = [byte[]]::new(24)
 # The separately created pedestal and glow retain their subid-data defaults:
 # $76/$00/$40 selects animation 0, while $76/$06/$43 selects the four-frame
 # animation 3 glow. Using animation 0 for both draws the pedestal OAM twice.
-$essenceSource = Get-Content -Raw (
+$essenceSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\essence.s')
 $essencePedestalGraphic = $interactionGraphics['127:1']
 $essenceGlowGraphic = $interactionGraphics['127:2']
@@ -259,7 +259,7 @@ $energySpritePropertiesPath = Get-ChildItem $Disassembly -Directory -Filter 'gfx
     Select-Object -First 1
 if ($energySprite -ne 'spr_circlebeads' -or
     $null -eq $energySpritePropertiesPath -or
-    (Get-Content -Raw $energySpritePropertiesPath.FullName) -notmatch
+    (Read-ImportText $energySpritePropertiesPath.FullName) -notmatch
         '(?m)^\s*invert:\s*false\s*$') {
     throw 'PART_BLUE_ENERGY_BEAD source graphics polarity changed.'
 }
@@ -358,9 +358,9 @@ $sgObjectRows = @(
     $sgObjectRows,
     [Text.UTF8Encoding]::new($false))
 
-$movingPlatformSource = Get-Content -Raw (
+$movingPlatformSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\movingPlatform.s')
-$linkCommonSource = Get-Content -Raw (
+$linkCommonSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\specialObjects\commonCode.s')
 $platformRadiusBlock = [regex]::Match(
     $movingPlatformSource,
