@@ -291,11 +291,12 @@ public sealed partial class ValidationRoot
 
         LoadValidationRoom(0, 0x3a);
         List<TimePortal> ordinaryPortals = _entities.Entities<TimePortal>();
-        if (ordinaryPortals.Count != 1 || !ordinaryPortals[0].Active ||
-            _currentRoom.GetMetatile(ordinaryPortals[0].Position) != 0xd7)
+        if (ordinaryPortals.Count != 0 ||
+            _currentRoom.GetMetatile(new Vector2(0x18, 0x28)) != 0xd7)
         {
             throw new InvalidOperationException(
-                "The exposed `$d7 marker in room 0:3a did not create an active ordinary portal.");
+                "Room 0:3a's exposed `$d7 marker auto-activated ordinary " +
+                "`$e1:$00 without a fresh Tune of Echoes.");
         }
 
         IReadOnlyList<PortalRecord> records = database.GetRoomPortals(0, 0x39);

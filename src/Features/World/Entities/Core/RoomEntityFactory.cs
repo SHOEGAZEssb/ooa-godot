@@ -1277,15 +1277,14 @@ internal sealed class RoomEntityFactory(
         // timeportalSpawner.s sets bit 7 for subtype $01 until the Maku Tree
         // is saved and for subtype $02 until the Seed Satchel is obtained.
         // Bit 7 in object data is already-active unconditionally. Ordinary
-        // subtype $00 portals normally wait for the Tune of Echoes; until harp
-        // playback exists, exposed `$d7 markers use the deterministic active
-        // fallback so they are usable instead of inert.
+        // subtype $00 portals wait for a fresh Tune of Echoes and must remain
+        // inactive until instrument playback supplies that activation.
         int type = subId & 0x0f;
         if ((subId & 0x80) != 0)
             return true;
         return type switch
         {
-            0 => true,
+            0 => false,
             1 => saveData is null ||
                 !saveData.HasGlobalFlag(OracleSaveData.GlobalFlagMakuTreeSaved),
             2 => saveData is null ||

@@ -533,7 +533,9 @@ remains the single runtime policy table.
   companions), swimming/diving, terrain-specific Link states, and complete
   low-health warning behavior. The Feather's side-view level-1 launch is
   active; its top-down behavior and level-2 Roc's Cape continuation remain
-  deferred.
+  deferred. Harp playback and Tune of Echoes portal activation remain
+  deferred; ordinary `$e1:$00` time portals stay inactive without a fresh tune
+  instead of using the former debug auto-activation.
 - Aquatic, lava, and ice side-view Link handlers plus moving, conveyor,
   circular, and disappearing side-scroll platforms remain deferred. Dry
   passage gravity, ladders, Feather launch, and edge warps are implemented.

@@ -80,10 +80,9 @@ public partial class TimePortal : TransitionOffsetNode2D
             _linkWasOutside = true;
             return false;
         }
-        // Ordinary `$e1:$00 spawners normally wait for a fresh Tune of Echoes
-        // activation after room load. The no-harp fallback keeps exposed spots
-        // usable, but still requires Link to leave a destination spot before
-        // re-entering so paired same-position portals cannot bounce forever.
+        // A destination portal can be created at Link's arrival position.
+        // Require Link to leave it before accepting fresh contact so paired
+        // same-position portals cannot bounce forever.
         if (!_linkWasOutside)
             return false;
         Entered = true;
