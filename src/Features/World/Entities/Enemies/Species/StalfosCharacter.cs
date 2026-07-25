@@ -10,16 +10,19 @@ namespace oracleofages;
 public partial class StalfosCharacter : EnemyCharacter
 {
 
+    // ecom_sideviewAdjacentWallOffsetTable stores every signed pair as Y, X.
+    // Vector2I uses X, Y; keep the source's cumulative probe deltas while
+    // transposing each pair into room-coordinate order.
     private static readonly Vector2I[,] SideviewCollisionOffsets =
     {
-        { new(-4, -5), new(0, 9), new(4, -4), new(0, 0) },
-        { new(-4, -5), new(0, 9), new(3, 2), new(6, 0) },
-        { new(0, 0), new(0, 0), new(-1, 6), new(6, 0) },
-        { new(7, -5), new(0, 9), new(-8, 2), new(6, 0) },
-        { new(7, -5), new(0, 9), new(-7, -4), new(0, 0) },
-        { new(7, -5), new(0, 9), new(-8, -11), new(6, 0) },
-        { new(0, 0), new(0, 0), new(-1, -7), new(6, 0) },
-        { new(-4, -5), new(0, 9), new(3, -11), new(6, 0) }
+        { new(-5, -4), new(9, 0), new(-4, 4), new(0, 0) },
+        { new(-5, -4), new(9, 0), new(2, 3), new(0, 6) },
+        { new(0, 0), new(0, 0), new(6, -1), new(0, 6) },
+        { new(-5, 7), new(9, 0), new(2, -8), new(0, 6) },
+        { new(-5, 7), new(9, 0), new(-4, -7), new(0, 0) },
+        { new(-5, 7), new(9, 0), new(-11, -8), new(0, 6) },
+        { new(0, 0), new(0, 0), new(-7, -1), new(0, 6) },
+        { new(-5, -4), new(9, 0), new(-11, 3), new(0, 6) }
     };
 
     private static readonly int[] BounceAngles =
@@ -34,7 +37,6 @@ public partial class StalfosCharacter : EnemyCharacter
 
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
-    private EnemyTerrainMovement _movement = null!;
     private StalfosState _state;
     private int _counter1;
     private int _angle;
@@ -59,7 +61,6 @@ public partial class StalfosCharacter : EnemyCharacter
         Record = record;
         _room = room;
         _random = random;
-        _movement = new EnemyTerrainMovement(this, room);
         _state = StalfosState.Uninitialized;
 
         InitializeEnemy(

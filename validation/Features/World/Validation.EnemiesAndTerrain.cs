@@ -1559,10 +1559,69 @@ public sealed partial class ValidationRoot
                 "The Stalfos did not move at SPEED_80 while advancing its four-update walk animation.");
         }
 
+        IReadOnlyList<StalfosRecord> room41f =
+            database.GetRoomStalfos(4, 0x1f);
+        OracleRoomData potRoom = _world.LoadRoom(4, 0x1f);
+        if (room41f.Count != 4 ||
+            potRoom.GetMetatile(new Vector2(136, 96)) != 0x10 ||
+            !potRoom.IsSolid(new Vector2(131, 96)) ||
+            !potRoom.IsSolid(new Vector2(140, 96)))
+        {
+            throw new InvalidOperationException(
+                "Room 4:1f did not retain the canonical dungeon-pot `$10 " +
+                "collision used by the Stalfos bounce regression.");
+        }
+
+        var potStalfos = new StalfosCharacter();
+        potStalfos.Initialize(
+            room41f[2], potRoom, new Vector2(136, 88),
+            new OracleRandom());
+        potStalfos.UpdateFrame(Vector2.Zero);
+        potStalfos.UpdateFrame(Vector2.Zero);
+        var potApproach = new Vector2(136, 89);
+        potStalfos.Position = potApproach;
+        potStalfos.UpdateFrame(Vector2.Zero);
+        Vector2 expectedPotBounce = potApproach +
+            OracleObjectMath.VectorFromAngle32(0x1a) *
+            (room41f[2].SpeedRaw / 40.0f);
+        if (potStalfos.Angle != 0x1a ||
+            !potStalfos.Position.IsEqualApprox(expectedPotBounce))
+        {
+            throw new InvalidOperationException(
+                $"Room 4:1f ENEMY_STALFOS did not reflect angle `$16 to " +
+                $"`$1a before entering dungeon pot `$10 (angle=" +
+                $"${potStalfos.Angle:x2}, position={potStalfos.Position}).");
+        }
+        potStalfos.Free();
+
+        var cornerRandom = new OracleRandom();
+        cornerRandom.Next();
+        var cornerStalfos = new StalfosCharacter();
+        cornerStalfos.Initialize(
+            room41f[2], potRoom, new Vector2(136, 88), cornerRandom);
+        cornerStalfos.UpdateFrame(Vector2.Zero);
+        cornerStalfos.UpdateFrame(Vector2.Zero);
+        var cornerApproach = new Vector2(122, 115);
+        cornerStalfos.Position = cornerApproach;
+        cornerStalfos.UpdateFrame(Vector2.Zero);
+        Vector2 expectedCornerBounce = cornerApproach +
+            OracleObjectMath.VectorFromAngle32(0x14) *
+            (room41f[2].SpeedRaw / 40.0f);
+        if (cornerStalfos.Angle != 0x14 ||
+            !cornerStalfos.Position.IsEqualApprox(expectedCornerBounce))
+        {
+            throw new InvalidOperationException(
+                $"Room 4:1f ENEMY_STALFOS did not reverse angle `$04 to " +
+                $"`$14 at the dungeon-pot L-corner (angle=" +
+                $"${cornerStalfos.Angle:x2}, position={cornerStalfos.Position}).");
+        }
+        cornerStalfos.Free();
+
         _entities.ClearRecentEnemyDefeats();
         GD.Print("Validated 34 imported ordinary ENEMY_STALFOS records / 37 instances, " +
             "room 4:06 fixed placement, two-call shared-RNG walk selection, " +
-            "32/48/64/80-update counters, SPEED_80 wall/hole-aware movement, and animation.");
+            "32/48/64/80-update counters, SPEED_80 wall/hole-aware movement, " +
+            "room 4:1f dungeon-pot edge/corner bounces, and animation.");
     }
 
     private void ValidateZolsAndGels()
