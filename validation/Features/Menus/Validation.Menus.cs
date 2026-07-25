@@ -305,6 +305,58 @@ public sealed partial class ValidationRoot
             throw new InvalidOperationException(
                 "The debug item grant did not use the imported treasure transaction.");
         }
+        itemScreen.ActivateSelection();
+        if (itemInventory.HasTreasure(TreasureDatabase.TreasureSword) ||
+            itemSave.HasTreasure(TreasureDatabase.TreasureSword) ||
+            itemInventory.SwordLevel != 2)
+        {
+            throw new InvalidOperationException(
+                "The debug item toggle did not apply loseTreasure semantics.");
+        }
+
+        itemScreen.SelectTreasureForValidation("TREASURE_OBJECT_TRADEITEM_02");
+        itemScreen.ActivateSelection();
+        if (!itemInventory.HasTreasure(TreasureDatabase.TreasureTradeItem) ||
+            itemInventory.TradeItem != 0x02 ||
+            itemSave.ReadWramByte(0xc6c0) != 0x02 ||
+            !itemScreen.RenderedText.Contains(
+                "$41 [1] TRADEITEM_02", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "The debug item toggle did not grant exact trade item $02.");
+        }
+
+        itemScreen.SelectTreasureForValidation("TREASURE_OBJECT_TRADEITEM_03");
+        if (!itemScreen.RenderedText.Contains(
+                "$41 [1] TRADEITEM_02", StringComparison.Ordinal) ||
+            !itemScreen.RenderedText.Contains(
+                "$41 [0] TRADEITEM_03", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "The debug item browser did not distinguish the live wTradeItem value.");
+        }
+        itemScreen.ActivateSelection();
+        if (!itemInventory.HasTreasure(TreasureDatabase.TreasureTradeItem) ||
+            itemInventory.TradeItem != 0x03 ||
+            !itemScreen.RenderedText.Contains(
+                "$41 [0] TRADEITEM_02", StringComparison.Ordinal) ||
+            !itemScreen.RenderedText.Contains(
+                "$41 [1] TRADEITEM_03", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "The debug item toggle did not switch to exact trade item $03.");
+        }
+        itemScreen.ActivateSelection();
+        if (itemInventory.HasTreasure(TreasureDatabase.TreasureTradeItem) ||
+            itemSave.HasTreasure(TreasureDatabase.TreasureTradeItem) ||
+            itemInventory.TradeItem != 0x03 ||
+            !itemScreen.RenderedText.Contains(
+                "$41 [0] TRADEITEM_03", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "The debug item toggle did not deactivate trade item $03.");
+        }
+
         itemScreen.SelectRingForValidation((int)RingId.Protection);
         if (!itemScreen.RenderedText.Contains("Protection Ring", StringComparison.Ordinal) ||
             itemInventory.HasAppraisedRing((int)RingId.Protection))
@@ -329,8 +381,9 @@ public sealed partial class ValidationRoot
                 "Closing the debug flag menu did not restore Link processing.");
         }
 
-        GD.Print("Validated F1 global/room flag editor, linked-game toggle, imported " +
-            "treasure/appraised-ring grants, navigation, mutation, and gameplay freezing.");
+        GD.Print("Validated F1 global/room flag editor, linked-game toggle, exact trade-item " +
+            "and ordinary treasure toggles, appraised-ring grants, navigation, mutation, " +
+            "and gameplay freezing.");
     }
 
     private void ValidateDebugCollision()

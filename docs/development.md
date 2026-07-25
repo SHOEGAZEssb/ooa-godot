@@ -89,7 +89,10 @@ and appraised rings.
 Use Up/Down to select a row, Left/Right to jump through global flags or imported
 treasure variants (and to change the selected room/table on the room page), and
 A to toggle a flag or the linked-game bit. On an item row, A grants that exact
-imported treasure variant and parameter through the live inventory transaction;
+imported treasure variant and parameter when it is inactive, or removes the
+active treasure through the live inventory transaction. Trade item rows combine
+the shared treasure flag `$41` with `wTradeItem`, so only the current variant is
+marked active and selecting another variant switches to it;
 on the ring page, Left/Right selects one of the 64 imported names and A grants
 it to the appraised list. These changes affect the live WRAM-style state and
 follow the normal explicit save rules. Grant a Ring Box on the item page, grant

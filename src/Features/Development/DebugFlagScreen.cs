@@ -201,7 +201,8 @@ public partial class DebugFlagScreen : Control
                 _saveData.SetLinkedGame(!_saveData.IsLinkedGame);
                 break;
             case FlagPage.Inventory:
-                _inventory.GiveTreasure(_treasureObjects[_inventoryCursor - 1]);
+                _inventory.ToggleTreasureObjectForDebug(
+                    _treasureObjects[_inventoryCursor - 1]);
                 break;
             case FlagPage.Rings:
                 _inventory.GrantAppraisedRingForDebug(_ringCursor);
@@ -350,11 +351,11 @@ public partial class DebugFlagScreen : Control
 
             TreasureObjectRecord record = _treasureObjects[cursor - 1];
             text.Append('$').Append(record.TreasureId.ToString("x2"))
-                .Append(_inventory.HasTreasure(record.TreasureId) ? " [1] " : " [0] ")
+                .Append(_inventory.HasTreasureObjectForDebug(record) ? " [1] " : " [0] ")
                 .Append(TrimName(ShortTreasureName(record.Name), 25)).Append('\n');
         }
         text.Append("LEFT/RIGHT PAGE  A ")
-            .Append(_inventoryCursor == 0 ? "TOGGLE" : "GIVE").Append('\n');
+            .Append("TOGGLE").Append('\n');
         text.Append("F1 CLOSE  TAB RINGS");
         return text.ToString();
     }

@@ -161,6 +161,11 @@ public sealed class InventoryState
         _ => false
     };
 
+    internal bool HasTreasureObjectForDebug(TreasureObjectRecord treasureObject) =>
+        HasTreasure(treasureObject.TreasureId) &&
+        (treasureObject.TreasureId != TreasureDatabase.TreasureTradeItem ||
+            TradeItem == treasureObject.Parameter);
+
     internal void CompleteHeartPieceSet(
         TreasureObjectRecord heartContainer)
     {
@@ -407,6 +412,31 @@ public sealed class InventoryState
     public void GiveTreasure(TreasureObjectRecord treasureObject)
     {
         GiveTreasure(treasureObject.TreasureId, treasureObject.Parameter);
+    }
+
+    internal void ToggleTreasureObjectForDebug(TreasureObjectRecord treasureObject)
+    {
+        if (!HasTreasureObjectForDebug(treasureObject))
+        {
+            GiveTreasure(treasureObject);
+            return;
+        }
+
+        int treasure = treasureObject.TreasureId;
+        ClearTreasureFlag(treasure);
+        if (treasure is >= 0x60 and < 0x68)
+            _upgradesObtained &= (byte)~(1 << (treasure & 7));
+
+        // Mirrors loseTreasure_helper: only ordinary inventory items are
+        // removed from the first matching A/B or storage slot. Related
+        // variables such as wTradeItem and wSwordLevel remain unchanged.
+        if (treasure is >= 0 and < NumInventoryItems)
+        {
+            int slot = FindInventoryItem(treasure);
+            if (slot >= 0)
+                SetInventorySlot(slot, ItemNone);
+        }
+        NotifyChanged();
     }
 
     /// <summary>

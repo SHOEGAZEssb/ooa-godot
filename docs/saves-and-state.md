@@ -150,10 +150,13 @@ the kill counter at `$c641`; the meeting count increments only when a collided
 encounter reaches its normal departure, not when Maple finishes an unhit flight.
 
 The F1 debug editor follows the same ownership boundaries: linked-game state is
-written through the typed `$c612` save accessor, item grants select an imported
-treasure object, and ring grants set the corresponding appraised-ring bit
-through `InventoryState`. Debug changes do not bypass the live image or trigger
-an automatic disk save.
+written through the typed `$c612` save accessor, item toggles select an imported
+treasure object, and ring grants set the corresponding appraised-ring bit through
+`InventoryState`. Clearing an item mirrors `loseTreasure`: it clears the source
+obtained bit and any ordinary inventory slot without resetting the related
+variable. Trade rows therefore combine the shared `$41` obtained bit with
+`wTradeItem` at `$c6c0` to identify the one active variant. Debug changes do not
+bypass the live image or trigger an automatic disk save.
 
 When adding a state field:
 
