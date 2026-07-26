@@ -45,13 +45,15 @@ public sealed partial class ValidationRoot
             MainMenuScreen.SpriteColorIndexForValidation(Colors.Black, inverted: false) != 3 ||
             MainMenuScreen.SpriteColorIndexForValidation(Colors.Black, inverted: true) != 0 ||
             MainMenuScreen.SpriteColorIndexForValidation(Colors.White, inverted: true) != 3 ||
+            !screen.TitleLogoSpritePixelForValidation(128, 80).IsEqualApprox(
+                new Color(0x09 / 31.0f, 0x0f / 31.0f, 0x05 / 31.0f)) ||
             MainMenuScreen.TextSpeedCursorPositionForValidation(0) != new Vector2(41, 128) ||
             MainMenuScreen.TextSpeedCursorPositionForValidation(4) != new Vector2(105, 128))
         {
             throw new InvalidOperationException(
                 "File-select tile interleave, normal/PALH_06 erase panel fill, " +
                 "filename/name-entry fields, " +
-                "name cursor priority mask, sprite inversion, " +
+                "name cursor priority mask, sprite inversion, title OAM priority, " +
                 "or original message-speed cursor coordinates regressed.");
         }
 

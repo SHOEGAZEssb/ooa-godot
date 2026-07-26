@@ -9,6 +9,20 @@ public partial class MainMenuScreen : Node2D
 {
 
     private const int MapStride = 32;
+    private static readonly int[,] TitleLogoSprites = {
+        {0x48,0x90,0x62,0x06},{0x42,0x8e,0x68,0x06},{0x51,0x7a,0x56,0x04},
+        {0x50,0x82,0x74,0x04},{0x58,0x7a,0x6a,0x07},{0x58,0x82,0x6c,0x07},
+        {0x58,0x8a,0x6e,0x07},{0x54,0x8a,0x54,0x03},{0x54,0x82,0x52,0x03},
+        {0x54,0x7a,0x50,0x03},{0x64,0x7a,0x70,0x03},{0x64,0x82,0x72,0x03},
+        {0x64,0x8a,0x70,0x23},{0x40,0x86,0x66,0x06},{0x40,0x7f,0x64,0x06},
+        {0x41,0x70,0x60,0x06},{0x55,0x76,0x5a,0x06},{0x44,0x68,0x5e,0x26}
+    };
+    private static readonly int[,] PressStartSprites = {
+        {0x80,0x2c,0x38,0},{0x80,0x34,0x3a,0},{0x80,0x3c,0x3c,0},
+        {0x80,0x44,0x3e,0},{0x80,0x4c,0x3e,0},{0x80,0x5c,0x3e,0},
+        {0x80,0x64,0x40,0},{0x80,0x6c,0x42,0},{0x80,0x74,0x3a,0},
+        {0x80,0x7c,0x40,0}
+    };
     private readonly OracleSaveData?[] _slots = new OracleSaveData?[3];
     private Texture2D _title = null!;
     private Texture2D _fileMenu = null!;
@@ -307,6 +321,9 @@ public partial class MainMenuScreen : Node2D
         new(41 + Math.Clamp(speed, 0, 4) * 16, 128);
     internal static int InterleavedSourceTileForValidation(int tile, int columns) =>
         SourceTileIndex(tile, columns, interleaved: true);
+    internal Color TitleLogoSpritePixelForValidation(int x, int y) =>
+        OamListPixel(
+            _titleSprites, 0x38, _titleSpritePalette, TitleLogoSprites, x, y);
 
     private void DrawFileSelect(bool showActorAndSummary)
     {
@@ -531,28 +548,12 @@ public partial class MainMenuScreen : Node2D
     }
 
     private void DrawTitleLogoSprites()
-    {
-        int[,] sprites = {
-            {0x48,0x90,0x62,0x06},{0x42,0x8e,0x68,0x06},{0x51,0x7a,0x56,0x04},
-            {0x50,0x82,0x74,0x04},{0x58,0x7a,0x6a,0x07},{0x58,0x82,0x6c,0x07},
-            {0x58,0x8a,0x6e,0x07},{0x54,0x8a,0x54,0x03},{0x54,0x82,0x52,0x03},
-            {0x54,0x7a,0x50,0x03},{0x64,0x7a,0x70,0x03},{0x64,0x82,0x72,0x03},
-            {0x64,0x8a,0x70,0x23},{0x40,0x86,0x66,0x06},{0x40,0x7f,0x64,0x06},
-            {0x41,0x70,0x60,0x06},{0x55,0x76,0x5a,0x06},{0x44,0x68,0x5e,0x26}
-        };
-        DrawOamList(_titleSprites, 0x38, _titleSpritePalette, sprites);
-    }
+        => DrawOamList(
+            _titleSprites, 0x38, _titleSpritePalette, TitleLogoSprites);
 
     private void DrawPressStartSprites()
-    {
-        int[,] sprites = {
-            {0x80,0x2c,0x38,0},{0x80,0x34,0x3a,0},{0x80,0x3c,0x3c,0},
-            {0x80,0x44,0x3e,0},{0x80,0x4c,0x3e,0},{0x80,0x5c,0x3e,0},
-            {0x80,0x64,0x40,0},{0x80,0x6c,0x42,0},{0x80,0x74,0x3a,0},
-            {0x80,0x7c,0x40,0}
-        };
-        DrawOamList(_titleSprites, 0x38, _titleSpritePalette, sprites);
-    }
+        => DrawOamList(
+            _titleSprites, 0x38, _titleSpritePalette, PressStartSprites);
 
     private void DrawAcorn(Vector2 position) =>
         DrawOamTile(_fileSprites, 0x20, 0x28, 4, position, false, false,
@@ -561,8 +562,12 @@ public partial class MainMenuScreen : Node2D
     private void DrawOamList(Image source, int tileBase, Color[,] palette, int[,] sprites,
         bool inverted = true)
     {
-        for (int index = 0; index < sprites.GetLength(0); index++)
+        // Lower OAM indices cover higher indices on the Game Boy. Godot gives
+        // later canvas draws priority, so submit the source list in reverse.
+        int count = sprites.GetLength(0);
+        for (int drawIndex = 0; drawIndex < count; drawIndex++)
         {
+            int index = OamDrawIndex(drawIndex, count);
             int flags = sprites[index, 3];
             DrawOamTile(source, tileBase, sprites[index, 2], flags & 7,
                 new Vector2(sprites[index, 1] - 8, sprites[index, 0] - 16),
@@ -580,20 +585,80 @@ public partial class MainMenuScreen : Node2D
     private void DrawOamTileFromSource(Image source, int sourceTile, int paletteIndex,
         Vector2 position, bool flipX, bool flipY, Color[,] palette, bool inverted = true)
     {
-        int columns = source.GetWidth() / 8;
-        int cell = sourceTile / 2;
         for (int y = 0; y < 16; y++)
         for (int x = 0; x < 8; x++)
         {
-            int sy = flipY ? 15 - y : y;
-            Color pixel = source.GetPixel(cell % columns * 8 + (flipX ? 7 - x : x),
-                cell / columns * 16 + sy);
-            int color = SpriteColorIndex(pixel, inverted);
-            if (pixel.A < 0.1f || color == 0)
+            if (!TryGetOamPixel(
+                    source, sourceTile, paletteIndex, x, y, flipX, flipY,
+                    palette, inverted, out Color pixel))
+            {
                 continue;
+            }
             DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
-                palette[paletteIndex, color]);
+                pixel);
         }
+    }
+
+    private static int OamDrawIndex(int drawIndex, int count) =>
+        count - 1 - drawIndex;
+
+    private static Color OamListPixel(
+        Image source,
+        int tileBase,
+        Color[,] palette,
+        int[,] sprites,
+        int screenX,
+        int screenY,
+        bool inverted = true)
+    {
+        Color result = Colors.Transparent;
+        int count = sprites.GetLength(0);
+        for (int drawIndex = 0; drawIndex < count; drawIndex++)
+        {
+            int index = OamDrawIndex(drawIndex, count);
+            int localX = screenX - (sprites[index, 1] - 8);
+            int localY = screenY - (sprites[index, 0] - 16);
+            if (localX is < 0 or >= 8 || localY is < 0 or >= 16)
+                continue;
+
+            int flags = sprites[index, 3];
+            if (TryGetOamPixel(
+                    source, sprites[index, 2] - tileBase, flags & 7,
+                    localX, localY, (flags & 0x20) != 0, (flags & 0x40) != 0,
+                    palette, inverted, out Color pixel))
+            {
+                result = pixel;
+            }
+        }
+        return result;
+    }
+
+    private static bool TryGetOamPixel(
+        Image source,
+        int sourceTile,
+        int paletteIndex,
+        int x,
+        int y,
+        bool flipX,
+        bool flipY,
+        Color[,] palette,
+        bool inverted,
+        out Color result)
+    {
+        int columns = source.GetWidth() / 8;
+        int cell = sourceTile / 2;
+        int sourceY = flipY ? 15 - y : y;
+        Color pixel = source.GetPixel(
+            cell % columns * 8 + (flipX ? 7 - x : x),
+            cell / columns * 16 + sourceY);
+        int color = SpriteColorIndex(pixel, inverted);
+        if (pixel.A < 0.1f || color == 0)
+        {
+            result = Colors.Transparent;
+            return false;
+        }
+        result = palette[paletteIndex, color];
+        return true;
     }
 
     internal static int SpriteColorIndexForValidation(Color pixel, bool inverted) =>
