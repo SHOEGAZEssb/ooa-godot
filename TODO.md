@@ -15,7 +15,9 @@ NPC/character records across 211 rooms, 72 generated Bipin/Blossom family
 variants, ordinary visibility/dialogue/position rules, specialized native NPC
 adapters, event-owned talk routes, shops, signs, chests, script-granted ground
 treasures, and their headless scenarios. Preserve the original object-slot and
-handler order while addressing these items.
+handler order while addressing these items. The room-by-room character record
+snapshot is maintained in
+[`docs/npc-interaction-coverage.md`](docs/npc-interaction-coverage.md).
 
 ### Fidelity and generated-data boundaries
 
