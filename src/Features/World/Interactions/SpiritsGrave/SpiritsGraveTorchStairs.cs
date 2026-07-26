@@ -91,7 +91,6 @@ internal sealed partial class SpiritsGraveTorchStairs : Node2D,
         Finished = true;
     }
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
     public void SetTransitionDrawOffset(Vector2 offset) { }
 
     private static Vector2 PositionFromPacked(int packed) => new(

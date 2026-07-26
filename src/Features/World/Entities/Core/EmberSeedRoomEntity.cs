@@ -15,5 +15,4 @@ internal sealed class EmberSeedRoomEntity(EmberSeedEffect seed)
         Entity.UpdateFrame(spawns);
     public void OnCollision(SeedHitResult result, ISeedBurnTarget? burnTarget) =>
         Entity.OnCollision(result, burnTarget);
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

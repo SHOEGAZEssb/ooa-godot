@@ -100,7 +100,6 @@ internal sealed partial class TriggerChestRoomEntity : DungeonMechanicRoomEntity
         _counter = _data.ChestWait;
     }
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 
     private void UpdateRetractable(ICollection<RoomEntitySpawn> spawns)
     {

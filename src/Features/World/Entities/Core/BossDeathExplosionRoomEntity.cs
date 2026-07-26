@@ -13,5 +13,4 @@ internal sealed class BossDeathExplosionRoomEntity(BossDeathExplosionEffect expl
     public bool CountsAsEnemy => !Entity.Finished;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame();
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

@@ -13,5 +13,4 @@ internal sealed class FallingDownHoleRoomEntity(FallingDownHoleEffect effect)
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame();
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

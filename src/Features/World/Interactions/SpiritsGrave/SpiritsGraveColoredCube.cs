@@ -116,7 +116,6 @@ internal sealed partial class SpiritsGraveColoredCube : SpiritsGraveVisualEntity
         ApplyAnimationParameter(AnimationParameter);
     }
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) =>
         SetTransitionDrawOffset(offset);
 

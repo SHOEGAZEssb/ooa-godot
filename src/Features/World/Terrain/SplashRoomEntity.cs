@@ -13,5 +13,4 @@ internal sealed class SplashRoomEntity(SplashEffect effect)
         ICollection<RoomEntitySpawn> spawns) =>
         Entity.Advance(1.0 / 60.0);
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

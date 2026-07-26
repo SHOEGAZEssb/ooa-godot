@@ -209,7 +209,7 @@ single universal entity base class:
 | `IRoomBlocker` / `ITalkTarget` | Collision or interaction capability |
 | `IOrdinaryNpcEntity` | A placed NPC eligible for live imported save-predicate refresh |
 | `IPlayerRestriction` | Native interaction-owned sword and/or movement input suppression |
-| `IRoomEntityLifetime` | Completion and final spawned effects |
+| `IRoomEntityLifetime` | Completion; `OnFinished` is an optional final spawn/effect hook |
 | `IRoomEnemyCounterEntity` | A live combat enemy or native puzzle sentinel contributing to `wNumEnemies` |
 | `IRoomKillTrackedEnemy` | A source enemy's transient `$01-$07` killed-list index and whether completion marks it |
 | `IRoomSaveStateEntity` | Refresh from changed live save state |

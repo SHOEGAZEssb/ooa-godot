@@ -12,5 +12,4 @@ internal sealed class PumpkinHeadProjectileRoomEntity(PumpkinHeadProjectile proj
     public bool Finished => Entity.Finished;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Player);
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

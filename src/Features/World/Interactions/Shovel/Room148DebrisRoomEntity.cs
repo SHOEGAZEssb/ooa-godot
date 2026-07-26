@@ -15,5 +15,4 @@ internal sealed class Room148DebrisRoomEntity(Room148PickaxeDebris debris)
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns) => Entity.UpdateFrame();
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

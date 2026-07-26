@@ -20,7 +20,4 @@ internal sealed class EraInfoRoomEntity(EraInfoDisplay display)
 
     public void UpdateDuringScreenTransition() => Entity.UpdateFrame();
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns)
-    {
-    }
 }

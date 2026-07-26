@@ -128,7 +128,6 @@ internal sealed partial class GroundButtonRoomEntity : DungeonMechanicRoomEntity
         _playSound(_data.ButtonSound);
     }
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 
     private bool TouchesLink(Player player)
     {

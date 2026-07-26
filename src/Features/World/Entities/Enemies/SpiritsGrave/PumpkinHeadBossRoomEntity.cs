@@ -63,6 +63,4 @@ internal sealed class PumpkinHeadBossRoomEntity : IRoomEntity, IFixedRoomEntity,
     public bool TryUseBracelet(Player player) => _boss.TryUseBracelet(player);
     public void SetTransitionDrawOffset(Vector2 offset) =>
         _boss.SetTransitionDrawOffset(offset);
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns)
-    { }
 }

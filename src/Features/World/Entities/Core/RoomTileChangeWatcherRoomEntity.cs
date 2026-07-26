@@ -68,8 +68,6 @@ internal sealed class RoomTileChangeWatcherRoomEntity
         Finished = true;
     }
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
-
     private static Node2D CreateNode(
         RoomTileChangeWatcherDatabaseRecord record) => new()
     {

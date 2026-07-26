@@ -19,5 +19,4 @@ internal sealed class ItemDropProducerRoomEntity(
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns) => Entity.UpdateFrame(spawns);
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

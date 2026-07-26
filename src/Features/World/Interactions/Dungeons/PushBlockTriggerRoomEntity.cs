@@ -88,5 +88,4 @@ internal sealed partial class PushBlockTriggerRoomEntity : DungeonMechanicRoomEn
         }
     }
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

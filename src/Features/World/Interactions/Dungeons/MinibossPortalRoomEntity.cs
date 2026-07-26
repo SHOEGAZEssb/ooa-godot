@@ -101,7 +101,6 @@ internal sealed class MinibossPortalRoomEntity :
             _data.PortalDestinationTransition));
     }
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 
     private void BeginSpin(Player player)
     {

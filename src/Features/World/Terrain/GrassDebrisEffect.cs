@@ -231,5 +231,4 @@ internal sealed class GrassDebrisRoomEntity(GrassDebrisEffect debris)
         ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Counter);
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

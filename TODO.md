@@ -106,12 +106,16 @@ handler order while addressing these items.
   API with explicit spawn/grab mode, visual override, flag timing, inventory
   write, sound order, dialogue, and completion ownership.
 
-- [ ] Remove room-entity adapter boilerplate without erasing capabilities.
-  Add a default no-op `IRoomEntityLifetime.OnFinished` for the many lifetime
-  entities that do not spawn a successor, and consider a narrow NPC adapter
-  base for repeated transition-offset, blocking, and talk-target forwarding.
-  Keep fixed/variable update, script-sensitive geometry, save refresh, player
-  restrictions, and talk lifecycle opt-in per concrete interaction.
+- [x] Remove room-entity adapter boilerplate without erasing capabilities.
+  `IRoomEntityLifetime.OnFinished` now defaults to no action; 42 empty
+  production overrides were deleted, while the three entities with real
+  combat, drop, hazard, or successor completion work retain explicit
+  implementations.
+  - A broader NPC adapter base was deliberately not added. The 11 current NPC
+    adapters divide across fixed/variable update, script-sensitive geometry,
+    save refresh, player restrictions, and talk lifecycle capabilities; only
+    the Black Tower family shares enough policy to keep its existing narrow
+    base without hiding those opt-ins.
 
 ## Enemy continuity audit
 

@@ -16,5 +16,4 @@ internal sealed class RockDebrisRoomEntity(RockDebrisEffect debris)
         ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame();
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

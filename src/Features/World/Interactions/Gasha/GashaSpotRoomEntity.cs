@@ -29,5 +29,4 @@ internal sealed class GashaSpotRoomEntity(GashaSpotInteraction interaction)
         Entity.ApplySwordHit(hitbox, sourcePosition);
 
     public bool TryInteract(Player player) => Entity.TryInteract(player);
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

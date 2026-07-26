@@ -21,5 +21,4 @@ internal sealed class MapleEncounterRoomEntity(MapleEncounter maple)
         ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Player, spawns, frame.Counter);
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

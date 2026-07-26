@@ -12,5 +12,4 @@ internal sealed class SwordBeamClinkRoomEntity(ClinkEffect clink)
     public void UpdateFrame(
         RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.AdvanceFrameForEntityManager();
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

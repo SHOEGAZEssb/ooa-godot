@@ -23,5 +23,4 @@ internal sealed class GroundTreasureRoomEntity(
             collected(Entity, player);
     }
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

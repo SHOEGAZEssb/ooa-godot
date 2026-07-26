@@ -64,5 +64,4 @@ internal sealed class DungeonEntranceRoomEntity : RoomEntityAdapter<Node2D>,
         _triggered(_record.TextId, _record.Message);
     }
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

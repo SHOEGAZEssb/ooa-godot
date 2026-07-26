@@ -17,5 +17,4 @@ internal sealed class SwordBeamRoomEntity(SwordBeamEffect beam)
         Entity.UpdateFrame(frame.Counter, spawns);
     public void OnEnemyCollision(ICollection<RoomEntitySpawn> spawns) =>
         Entity.OnEnemyCollision(spawns);
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

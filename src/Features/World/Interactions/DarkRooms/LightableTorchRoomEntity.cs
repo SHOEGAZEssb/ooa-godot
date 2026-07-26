@@ -80,7 +80,6 @@ internal sealed partial class LightableTorchRoomEntity : Node2D,
         return SeedHitResult.Consume;
     }
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 
     private static Vector2 PositionFromPacked(int packedPosition) => new(
         (packedPosition & 0x0f) * OracleRoomData.MetatileSize + 8,

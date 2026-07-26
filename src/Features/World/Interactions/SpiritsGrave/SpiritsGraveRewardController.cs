@@ -69,7 +69,6 @@ internal sealed partial class SpiritsGraveRewardController : Node2D,
         Finished = true;
     }
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
     public void SetTransitionDrawOffset(Vector2 offset) { }
 
     private void SpawnTreasure(ICollection<RoomEntitySpawn> spawns)

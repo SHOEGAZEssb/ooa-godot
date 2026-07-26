@@ -15,7 +15,6 @@ internal sealed class SeedTreeControllerRoomEntity(
         ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame();
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }
 
 internal sealed class SeedOnTreeRoomEntity(SeedOnTree seed)
@@ -34,5 +33,4 @@ internal sealed class SeedOnTreeRoomEntity(SeedOnTree seed)
     public bool TryCollectWithSword(Godot.Rect2 hitbox) =>
         Entity.TryCollectWithSword(hitbox);
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

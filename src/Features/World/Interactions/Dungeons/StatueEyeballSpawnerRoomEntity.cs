@@ -48,5 +48,4 @@ internal sealed class StatueEyeballSpawnerRoomEntity : RoomEntityAdapter<Node2D>
         Finished = true;
     }
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

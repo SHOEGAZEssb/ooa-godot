@@ -19,5 +19,4 @@ internal sealed class MoblinBoomerangRoomEntity(MoblinBoomerangProjectile boomer
         EnemyKnockbackStrength knockbackStrength,
         ICollection<RoomEntitySpawn> spawns) =>
         hitbox.Intersects(Entity.CollisionBounds) && Entity.Deflect();
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

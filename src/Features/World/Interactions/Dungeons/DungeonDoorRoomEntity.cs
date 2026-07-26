@@ -225,7 +225,6 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
         }
     }
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 
     private void PlayDoorSoundIfVisible()
     {

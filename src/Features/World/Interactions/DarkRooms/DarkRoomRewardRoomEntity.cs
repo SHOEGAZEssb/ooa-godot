@@ -90,5 +90,4 @@ internal sealed partial class DarkRoomRewardRoomEntity : Node2D,
         Finished = true;
     }
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }

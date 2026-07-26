@@ -21,5 +21,4 @@ internal sealed class MapleDroppedItemRoomEntity(MapleDroppedItem item)
     public bool TryCollectWithSword(Godot.Rect2 hitbox) =>
         Entity.TryCollectWithSword(hitbox);
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns) { }
 }
