@@ -63,6 +63,7 @@ public partial class MapScreen : Node2D
     private RoomSession _rooms = null!;
     private InventoryState _inventory = null!;
     private MapDataDatabase _mapData = null!;
+    private MapPresentationState _presentation = null!;
     private readonly GashaSpotDatabase _gashaSpots = new();
     private Texture2D _background = null!;
     private Image _commonTiles = null!;
@@ -133,6 +134,7 @@ public partial class MapScreen : Node2D
         _rooms = rooms;
         _inventory = inventory;
         _mapData = new MapDataDatabase();
+        _presentation = new MapPresentationState(rooms.SaveData, inventory);
     }
 
     public void Open(bool debugFastTravel = false)
@@ -285,7 +287,8 @@ public partial class MapScreen : Node2D
             return false;
         int group = Mode == MapMode.Past ? 1 : 0;
         return _rooms.HasVisited(group, _cursorRoom) &&
-            _mapData.TryResolveAreaText(_rooms, group, _cursorRoom, out text);
+            _mapData.TryResolveAreaText(
+                _rooms, _presentation, group, _cursorRoom, out text);
     }
 
     public float SelectedMarkerY => OverworldCellPosition(_cursorRoom).Y;
@@ -568,10 +571,9 @@ public partial class MapScreen : Node2D
             }
         }
 
-        int portalGroup = _rooms.SaveData.ReadWramByte(0xc63e);
-        if (portalGroup == (Mode == MapMode.Past ? 1 : 0))
+        int portalGroup = Mode == MapMode.Past ? 1 : 0;
+        if (_presentation.TryGetTimePortalRoom(portalGroup, out int portalRoom))
         {
-            int portalRoom = _rooms.SaveData.ReadWramByte(0xc63f);
             int portalFrame = (((int)_frameCounter >> 3) & 0x03) * 2;
             DrawMapSprite(0x18 + portalFrame, 7,
                 OverworldCellPosition(portalRoom) + new Vector2(0, -4));
@@ -727,7 +729,7 @@ public partial class MapScreen : Node2D
     {
         if (Mode == MapMode.Present)
         {
-            int companion = _rooms.SaveData.ReadWramByte(0xc610);
+            int companion = _presentation.AnimalCompanion;
             if (companion is 0x0c or 0x0d)
                 CopyMapRectangle(map, flags, 0x068, companion == 0x0c ? 0x075 : 0x078, 3, 3);
             if (_rooms.SaveData.HasRoomFlag(0, 0x13, OracleSaveData.RoomFlagLayoutSwap))
@@ -795,7 +797,8 @@ public partial class MapScreen : Node2D
             case 7:
                 return room == 0x5d ? 0x0c : 0x0d;
             case 8:
-                return _mapData.TryResolveAreaText(_rooms, group, room, out MapText text) &&
+                return _mapData.TryResolveAreaText(
+                    _rooms, _presentation, group, room, out MapText text) &&
                     (text.TextId >> 8) == 0x02 ? 0x08 : 0;
             case 9:
                 return _gashaSpots.TryGetSpot(group, room, out SpotRecord spot) &&

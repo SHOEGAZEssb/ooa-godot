@@ -571,6 +571,103 @@ public sealed partial class ValidationRoot
         if ((MapScreen.LocationArrowAttributes & 0x40) == 0)
             throw new InvalidOperationException("The map location arrow lost OAM Y-flip attribute $47.");
 
+        OracleSaveData presentationSave = OracleSaveData.CreateStandardGame();
+        var presentationInventory = new InventoryState(_treasures, presentationSave);
+        var presentation = new MapPresentationState(
+            presentationSave, presentationInventory);
+        var presentationRooms = new RoomSession(
+            0, 0x38, static () => 0, static () => { }, presentationSave);
+        var presentationData = new MapDataDatabase();
+
+        if (presentationSave.TimePortalGroup != 0xff ||
+            presentation.TryGetTimePortalRoom(0, out _) ||
+            presentation.TryGetTimePortalRoom(1, out _))
+        {
+            throw new InvalidOperationException(
+                "A standard game exposed a map time portal despite wPortalGroup=$ff.");
+        }
+        presentationSave.SetTimePortalLocation(0, 0x38);
+        if (!presentation.TryGetTimePortalRoom(0, out int portalRoom) ||
+            portalRoom != 0x38 || presentation.TryGetTimePortalRoom(1, out _))
+        {
+            throw new InvalidOperationException(
+                "The present-era time portal did not resolve through typed map state.");
+        }
+        presentationSave.SetTimePortalLocation(1, 0x48);
+        if (!presentation.TryGetTimePortalRoom(1, out portalRoom) ||
+            portalRoom != 0x48 || presentation.TryGetTimePortalRoom(0, out _))
+        {
+            throw new InvalidOperationException(
+                "The past-era time portal did not resolve through typed map state.");
+        }
+        presentationSave.ClearTimePortalLocation();
+        if (presentation.TryGetTimePortalRoom(0, out _) ||
+            presentation.TryGetTimePortalRoom(1, out _))
+        {
+            throw new InvalidOperationException(
+                "Clearing the typed time-portal location did not restore map absence.");
+        }
+
+        string[] companionObjects =
+        {
+            "TREASURE_OBJECT_FLUTE_00",
+            "TREASURE_OBJECT_FLUTE_01",
+            "TREASURE_OBJECT_FLUTE_02"
+        };
+        for (int companion = 0; companion < companionObjects.Length; companion++)
+        {
+            presentationInventory.GiveTreasure(
+                _treasures.GetObject(companionObjects[companion]));
+            if (presentation.AnimalCompanion != 0x0b + companion ||
+                presentation.AnimalCompanionAreaTextId != 0x032d + companion)
+            {
+                throw new InvalidOperationException(
+                    $"Animal companion {companion} did not select its typed map region.");
+            }
+        }
+
+        if (presentation.ResolveMakuAdviceTextId(0) != 0x0323 ||
+            presentation.ResolveMakuAdviceTextId(1) != 0x0324 ||
+            !presentationData.TryResolveAreaText(
+                presentationRooms, presentation, 0, 0x38, out MapText presentAdvice) ||
+            presentAdvice.TextId != 0x0323)
+        {
+            throw new InvalidOperationException(
+                "Unmet present/past Maku advice did not use TX_0323/TX_0324.");
+        }
+        presentationSave.SetMakuMapTextPresent(0x4f);
+        presentationSave.SetGlobalFlag(
+            OracleSaveData.GlobalFlagMakuGivesAdviceFromPresentMap);
+        if (!presentationData.TryResolveAreaText(
+                presentationRooms, presentation, 0, 0x38, out presentAdvice) ||
+            presentAdvice.TextId != 0x054f)
+        {
+            throw new InvalidOperationException(
+                "Present Maku advice did not observe the live typed $4f update.");
+        }
+        presentationSave.SetMakuMapTextPresent(0xb0);
+        if (presentation.ResolveMakuAdviceTextId(0) != 0x05b0)
+        {
+            throw new InvalidOperationException(
+                "Present Maku advice retained a stale resolved text.");
+        }
+        presentationSave.SetMakuMapTextPast(0xd6);
+        presentationSave.SetGlobalFlag(
+            OracleSaveData.GlobalFlagMakuGivesAdviceFromPastMap);
+        if (!presentationData.TryResolveAreaText(
+                presentationRooms, presentation, 1, 0x38, out MapText pastAdvice) ||
+            pastAdvice.TextId != 0x05d6)
+        {
+            throw new InvalidOperationException(
+                "Past Maku advice did not observe the live typed $d6 update.");
+        }
+        presentationSave.SetMakuMapTextPast(0xc0);
+        if (presentation.ResolveMakuAdviceTextId(1) != 0x05c0)
+        {
+            throw new InvalidOperationException(
+                "Past Maku advice retained a stale resolved text.");
+        }
+
         LoadValidationRoom(0, 0x11);
         int openMenuRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu);
         _mapMenu.BeginOpeningForValidation();
@@ -793,7 +890,8 @@ public sealed partial class ValidationRoot
 
         GD.Print("Validated original present/past/dungeon map tilemaps, imported TX_03XX area " +
             "text, source-specific color-0 OAM transparency, arrow Y-flip, 7-update popup " +
-            "expansion, dungeon Link-icon OAM bias, map/compass floor and " +
+            "expansion, typed portal/companion/Maku presentation state, " +
+            "dungeon Link-icon OAM bias, map/compass floor and " +
             "boss/treasure reveals, SND_OPENMENU/SND_MENU_MOVE boundaries, 14x14 cursor " +
             "wrapping, 32-update marker blink, 11-update " +
             "fast fades, Link input freezing, 16x16 group 2-5 interior browsing, per-page " +

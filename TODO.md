@@ -297,16 +297,16 @@ NPC- and enemy-specific findings remain in their sections above.
     callbacks and inspecting the complete save/inventory snapshot from inside
     the callback, not only after `GiveTreasure` returns.
 
-- [ ] Complete the typed boundary for named persistent map fields.
-  `MapScreen` reads time-portal group/room at `$c63e/$c63f` and animal
-  companion at `$c610` directly, while `MapDataDatabase` repeats `$c610` and
-  even bypasses the existing `MakuMapTextPresent`/`MakuMapTextPast`
+- [x] Complete the typed boundary for named persistent map fields.
+  Previously, `MapScreen` read time-portal group/room at `$c63e/$c63f` and
+  animal companion at `$c610` directly, while `MapDataDatabase` repeated
+  `$c610` and bypassed the existing `MakuMapTextPresent`/`MakuMapTextPast`
   properties with `$c6e6/$c6e7`.
-  - Add typed `OracleSaveData` accessors or pass the existing
-    `InventoryState` view, then use one map-presentation state resolver from
-    both map classes. Keep raw address access only for imported generic
+  - Added typed `OracleSaveData` accessors and passed the existing
+    `InventoryState` view through one map-presentation state resolver used by
+    both map classes. Raw address access remains limited to imported generic
     bindings whose address is itself source data.
-  - Validate portal absence (`$ff`), both eras, all three companion regions,
+  - Validated portal absence (`$ff`), both eras, all three companion regions,
     and live Maku advice changes without reconstructing addresses in the test.
 
 - [ ] Export the remaining table-shaped menu presentation data.

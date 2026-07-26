@@ -28,7 +28,11 @@ public sealed class MapDataDatabase
     public int GetTreePopup(int group, int room) =>
         _treePopups.TryGetValue((group, room), out int popup) ? popup : 0;
 
-    public bool TryResolveAreaText(RoomSession rooms, int group, int room,
+    public bool TryResolveAreaText(
+        RoomSession rooms,
+        MapPresentationState presentation,
+        int group,
+        int room,
         out MapText text)
     {
         text = default;
@@ -43,22 +47,22 @@ public sealed class MapDataDatabase
         }
         else
         {
-            textId = ResolveSpecialTextId(rooms, group, index);
+            textId = ResolveSpecialTextId(rooms, presentation, group, index);
         }
         return _texts.TryGetValue(textId, out text);
     }
 
-    private int ResolveSpecialTextId(RoomSession rooms, int group, int index)
+    private int ResolveSpecialTextId(
+        RoomSession rooms,
+        MapPresentationState presentation,
+        int group,
+        int index)
     {
         OracleSaveData save = rooms.SaveData;
         switch (index & 0x07)
         {
             case 0: // Maku Tree advice.
-                bool past = group == 1;
-                int metFlag = past ? 0x3f : 0x3e;
-                if (!save.HasGlobalFlag(metFlag))
-                    return past ? 0x0324 : 0x0323;
-                return 0x0500 | save.ReadWramByte(past ? 0xc6e7 : 0xc6e6);
+                return presentation.ResolveMakuAdviceTextId(group);
 
             case 1: // Dungeon entrance name after entering it once.
                 int dungeon = (index >> 3) & 0x0f;
@@ -72,7 +76,7 @@ public sealed class MapDataDatabase
                 return save.HasGlobalFlag(0x1a) ? 0x0317 : 0x0318;
 
             case 3: // Animal companion region.
-                return 0x032d + Math.Clamp(save.ReadWramByte(0xc610) - 0x0b, 0, 2);
+                return presentation.AnimalCompanionAreaTextId;
 
             case 4: // Advance Shop text changes after it is visited.
                 return rooms.HasVisited(1, 0xfe) ? 0x0325 : 0x0326;
@@ -156,6 +160,52 @@ public sealed class MapDataDatabase
         if (_dungeonEntrances.Count != 16)
             throw new InvalidOperationException(
                 $"Expected 16 dungeon entrance text records, got {_dungeonEntrances.Count}.");
+    }
+}
+
+public sealed class MapPresentationState
+{
+    private readonly OracleSaveData _save;
+    private readonly InventoryState _inventory;
+
+    public MapPresentationState(OracleSaveData save, InventoryState inventory)
+    {
+        _save = save;
+        _inventory = inventory;
+    }
+
+    public int AnimalCompanion => _inventory.AnimalCompanion;
+
+    public int AnimalCompanionAreaTextId =>
+        0x032d + Math.Clamp(AnimalCompanion - 0x0b, 0, 2);
+
+    public bool TryGetTimePortalRoom(int group, out int room)
+    {
+        if (group is not (0 or 1))
+            throw new ArgumentOutOfRangeException(nameof(group));
+
+        room = _save.TimePortalRoom;
+        return _save.TimePortalGroup == group;
+    }
+
+    public int ResolveMakuAdviceTextId(int group)
+    {
+        bool past = group switch
+        {
+            0 => false,
+            1 => true,
+            _ => throw new ArgumentOutOfRangeException(nameof(group))
+        };
+        int metFlag = past
+            ? OracleSaveData.GlobalFlagMakuGivesAdviceFromPastMap
+            : OracleSaveData.GlobalFlagMakuGivesAdviceFromPresentMap;
+        if (!_save.HasGlobalFlag(metFlag))
+            return past ? 0x0324 : 0x0323;
+
+        int textLow = past
+            ? _save.MakuMapTextPast
+            : _save.MakuMapTextPresent;
+        return 0x0500 | textLow;
     }
 }
 

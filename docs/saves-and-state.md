@@ -103,6 +103,11 @@ Seed Satchel sets room `0:38` bit `$80` and stores the Link-relative drop X in
 `wMakuTreeSeedSatchelXPosition` at `$c6eb`. Until room item bit `$20` is set,
 re-entry recreates `TREASURE_OBJECT_SEED_SATCHEL_03` at that X and Y `$58`.
 These bytes are authoritative save-image state, not event-local recovery data.
+`MapPresentationState` is the map menu's single live interpretation of them:
+it combines the typed Maku advice fields with `wPortalGroup`/`wPortalRoom` at
+`$c63e-$c63f` and `InventoryState`'s `wAnimalCompanion` view. Map rendering and
+special area-text selection use that same resolver, so neither reconstructs
+the persistent addresses independently.
 
 ## Inventory and treasure transactions
 

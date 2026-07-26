@@ -72,6 +72,8 @@ public sealed class OracleSaveData
 
     public int MinimapGroup => ReadWramByte(0xc63a);
     public int MinimapRoom => ReadWramByte(0xc63b);
+    public int TimePortalGroup => ReadWramByte(0xc63e);
+    public int TimePortalRoom => ReadWramByte(0xc63f);
     public int MakuTreeState => ReadWramByte(0xc6e8);
     public int MakuMapTextPresent => ReadWramByte(0xc6e6);
     public int MakuMapTextPast => ReadWramByte(0xc6e7);
@@ -182,6 +184,25 @@ public sealed class OracleSaveData
         bool changed = WriteWramByte(0xc63a, (byte)group);
         changed |= WriteWramByte(0xc63b, (byte)room);
         if (changed)
+            PublishChange();
+    }
+
+    public void SetTimePortalLocation(int group, int room)
+    {
+        if (group is not (0 or 1))
+            throw new ArgumentOutOfRangeException(nameof(group));
+        if (room is < 0 or >= RoomsPerFlagTable)
+            throw new ArgumentOutOfRangeException(nameof(room));
+
+        bool changed = WriteWramByte(0xc63e, (byte)group);
+        changed |= WriteWramByte(0xc63f, (byte)room);
+        if (changed)
+            PublishChange();
+    }
+
+    public void ClearTimePortalLocation()
+    {
+        if (WriteWramByte(0xc63e, 0xff))
             PublishChange();
     }
 
