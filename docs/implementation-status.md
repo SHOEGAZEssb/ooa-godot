@@ -318,6 +318,13 @@ remains the single runtime policy table.
   pre-D2/post-D2/post-Moonlit-Grotto text, Cheesy Mustache Yes/No trade, exact
   30-update waits, moustache animation bank, two-hand Funny Joke reward, and
   room-item-bit `$20` re-entry dialogue.
+- Present rooms `0:7c` and `2:2e`'s three Poe `$59:$00` records. Their var03
+  `$00/$01/$02` state-0 predicates select the first, tomb, or post-tomb
+  encounter once on entry; the typed script preserves TX `$0b00-$0b02`, each
+  room's bit `$40`, exact 30/40-update waits, the tomb path from `$20/$50`
+  through `$68/$50` to `$68/$88`, nonblocking var3f movement, 30-update
+  frame-mask flicker, two-hand Poe Clock reward, and item-bit `$20` re-entry
+  suppression.
 - Present room `2:e6`'s Mask Salesman, including its single-update native
   initialization, `$04/$06` talk geometry, alternating animation and TX
   `$0b0d-$0b15/$0b45` hunger sequence, exact 15/30-update waits, missing-item

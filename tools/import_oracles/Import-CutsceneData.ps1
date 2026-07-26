@@ -3612,6 +3612,203 @@ $comedianEventRows = @(
     (Join-Path $destination 'cutscenes\comedian_event.tsv'),
     $comedianEventRows, [Text.UTF8Encoding]::new($false))
 
+# Rooms 0:7c and 2:2e Poe encounters. All placed INTERAC_POE records use the
+# same poeScript; Interaction.var03 selects the first, tomb, or final meeting.
+# The native state-0 visibility predicates are imported with ordinary NPC
+# metadata, but the selected actor becomes script-owned after initialization
+# and must not be refreshed when poeScript sets the room's $40 flag.
+$poeScriptPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
+$poeScriptSource = Read-ImportText $poeScriptPath
+$poeBody = [regex]::Match(
+    $poeScriptSource,
+    '(?ms)^poeScript:(?<body>.*?)(?=^; =+\r?\n; INTERAC_OLD_ZORA)')
+if (-not $poeBody.Success) {
+    throw 'Could not locate poeScript in scriptHelper.s.'
+}
+$poeOpcodes = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @(
+    'initcollisions', 'checkabutton', 'disableinput',
+    'jumptable_objectbyte', 'showtext', 'orroomflag', 'wait',
+    'playsound', 'writeobjectbyte', 'asm15', 'jumpifmemoryset',
+    'scriptjump', 'enableinput', 'setspeed', 'setanimation',
+    'setangle', 'applyspeed', 'giveitem', 'scriptend')) {
+    [void]$poeOpcodes.Add($opcode)
+}
+$poeCommands = @(Read-AssemblyCutsceneCommands `
+    $poeScriptPath $poeScriptSource 'poeScript' `
+    $poeBody.Groups['body'].Index $poeBody.Groups['body'].Length `
+    $poeOpcodes)
+$poeExpectedCommands = @(
+    @('initcollisions', ''),
+    @('checkabutton', ''),
+    @('disableinput', ''),
+    @('jumptable_objectbyte', 'Interaction.var03'),
+    @('showtext', 'TX_0b00'),
+    @('orroomflag', '$40'),
+    @('wait', '40'),
+    @('playsound', 'SND_POOF'),
+    @('writeobjectbyte', 'Interaction.var3e, 30'),
+    @('asm15', 'poe_decCounterAndFlickerVisibility'),
+    @('jumpifmemoryset', 'wcddb, $80, @end'),
+    @('scriptjump', '@disappearLoop'),
+    @('enableinput', ''),
+    @('scriptend', ''),
+    @('showtext', 'TX_0b01'),
+    @('orroomflag', '$40'),
+    @('wait', '30'),
+    @('writeobjectbyte', 'Interaction.var3f, $01'),
+    @('setspeed', 'SPEED_100'),
+    @('setanimation', '$02'),
+    @('setangle', '$10'),
+    @('applyspeed', '$49'),
+    @('setanimation', '$01'),
+    @('setangle', '$08'),
+    @('applyspeed', '$39'),
+    @('scriptjump', '@disappear'),
+    @('showtext', 'TX_0b02'),
+    @('wait', '30'),
+    @('giveitem', 'TREASURE_TRADEITEM, $00'),
+    @('scriptjump', '@disappear')
+)
+if ($poeCommands.Count -ne $poeExpectedCommands.Count) {
+    throw "poeScript expected 30 commands, parsed $($poeCommands.Count)."
+}
+for ($index = 0; $index -lt $poeExpectedCommands.Count; $index++) {
+    $operands = if ($null -eq $poeCommands[$index].Operands) {
+        ''
+    } else {
+        ([string]$poeCommands[$index].Operands).Trim()
+    }
+    if ($poeCommands[$index].Opcode -ne $poeExpectedCommands[$index][0] -or
+        $operands -ne $poeExpectedCommands[$index][1]) {
+        throw "poeScript command $index changed from $($poeExpectedCommands[$index] -join ' ')."
+    }
+}
+
+$poeNativePath = Join-Path $Disassembly 'object_code\ages\interactions\poe.s'
+$poeNativeSource = Read-ImportText $poeNativePath
+$poeInteractionDataSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\interactionData.s')
+if ($poeNativeSource -notmatch
+        '(?ms)^@initSubid00:.*?getThisRoomFlags.*?bit 6,\(hl\).*?wPresentRoomFlags\+\$2e.*?bit 6,\(hl\).*?jr @init' -or
+    $poeNativeSource -notmatch
+        '(?ms)^@initSubid02:.*?getThisRoomFlags.*?ROOMFLAG_BIT_ITEM.*?bit 6,\(hl\).*?wPresentRoomFlags\+\$2e.*?bit 6,\(hl\).*?jr @init' -or
+    $poeNativeSource -notmatch
+        '(?ms)^@initSubid01:.*?wPresentRoomFlags\+\$7c.*?bit 6,\(hl\).*?getThisRoomFlags.*?bit 6,\(hl\).*?^@init:' -or
+    $poeNativeSource -notmatch
+        '(?ms)^@init:.*?@loadScriptAndInitGraphics\s+^@state1:.*?interactionRunScript.*?Interaction\.var3e.*?ret nz.*?Interaction\.var3f.*?npcFaceLinkAndAnimate.*?interactionAnimate.*?objectSetPriorityRelativeToLink_withTerrainEffects' -or
+    $poeNativeSource -notmatch
+        '(?ms)^@loadScriptAndInitGraphics:.*?interactionInitGraphics.*?objectMarkSolidPosition.*?interactionSetScript.*?interactionIncState.*?^@scriptTable:\s+\.dw mainScripts\.poeScript' -or
+    $poeInteractionDataSource -notmatch
+        '(?m)^\s*/\* \$59 \*/ m_InteractionData \$5d \$00 \$02\s*$') {
+    throw 'INTERAC_POE entry predicates, initialization, or update order changed.'
+}
+if ($poeScriptSource -notmatch
+        '(?ms)^poe_decCounterAndFlickerVisibility:\s+ld h,d\s+ld l,Interaction\.var3e\s+ld a,\(hl\)\s+or a\s+call writeFlagsTocddb\s+jr z,@setVisible\s+dec \(hl\)\s+ld a,\(wFrameCounter\)\s+rrca\s+rrca\s+jp nc,objectSetInvisible\s+^@setVisible:\s+jp objectSetVisible') {
+    throw 'Poe disappearance counter or frame-mask flicker helper changed.'
+}
+if ($mainObjectSource -notmatch
+    '(?ms)^group0Map7cObjectData:\s+obj_Interaction \$59 \$00 \$38 \$68 \$00\s+obj_Interaction \$59 \$00 \$38 \$68 \$02\s+obj_Pointer group0Map7cEnemyObjectData\s+obj_End') {
+    throw 'Room 0:7c Poe object order, coordinates, or variants changed.'
+}
+if ($mainObjectSource -notmatch
+    '(?ms)^group2Map2eObjectData:\s+obj_Interaction \$59 \$00 \$20 \$50 \$01\s+obj_End') {
+    throw 'Room 2:2e Poe object order, coordinates, or variant changed.'
+}
+
+$poeAnimations = @{}
+foreach ($animation in 0..3) {
+    $poeAnimations[$animation] = Resolve-NpcAnimation 0x59 $animation
+    if ([string]::IsNullOrWhiteSpace($poeAnimations[$animation])) {
+        throw "Could not resolve INTERAC_POE animation `$$($animation.ToString('x2'))."
+    }
+}
+foreach ($textId in 0x0b00..0x0b02) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve Poe text TX_$($textId.ToString('x4'))."
+    }
+}
+$poeTreasure = $treasureObjectRecords['TREASURE_OBJECT_TRADEITEM_00']
+if ($null -eq $poeTreasure -or
+    $poeTreasure.Treasure -ne 0x41 -or
+    $poeTreasure.SubId -ne 0x00 -or
+    $poeTreasure.Parameter -ne 0x00 -or
+    $poeTreasure.TextId -ne 0x005a -or
+    $poeTreasure.Graphic -ne 0x70) {
+    throw 'TREASURE_OBJECT_TRADEITEM_00 no longer grants the Poe Clock.'
+}
+$poeSpeedSource = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\objectSpeeds.s')
+$poeMusicSource = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\music.s')
+if ($roomFlagSource -notmatch '\.define ROOMFLAG_ITEM\s+\$20' -or
+    $tradeItemSource -notmatch 'TRADEITEM_POE_CLOCK\s+db ; \$00' -or
+    $poeSpeedSource -notmatch 'SPEED_100\s+dsb 5 ; 0x28' -or
+    $poeMusicSource -notmatch 'SND_POOF\s+db ; \$98') {
+    throw 'Poe room flag, trade-item, speed, or sound constants changed.'
+}
+
+# Collapse the recognized asm15/cddb/scriptjump disappearance loop into the
+# typed flicker command while retaining its source handler line and operands.
+$poeCommandSpecs = @(
+    @($poeCommands[0],  'initcollisions', 'Poe', '', '', ''),
+    @($poeCommands[1],  'checkabutton', 'Poe', '', '', ''),
+    @($poeCommands[2],  'disableinput', '', '', '', ''),
+    @($poeCommands[3],  'jumptablememory', '', '', '', 'PoeVariant|4,12,24'),
+    @($poeCommands[4],  'showtext', '', '0b00', '', $allTexts[0x0b00]),
+    @($poeCommands[5],  'orroomflag', '', '40', '', ''),
+    @($poeCommands[6],  'wait', '', '40', '', ''),
+    @($poeCommands[7],  'playsound', '', '98', '', ''),
+    @($poeCommands[8],  'writeobjectbyte', 'Poe', '3e', '1e', ''),
+    @($poeCommands[9],  'flicker', 'Poe', '3e', '02', ''),
+    @($poeCommands[12], 'enableinput', '', '', '', ''),
+    @($poeCommands[13], 'scriptend', '', '', '', ''),
+    @($poeCommands[14], 'showtext', '', '0b01', '', $allTexts[0x0b01]),
+    @($poeCommands[15], 'orroomflag', '', '40', '', ''),
+    @($poeCommands[16], 'wait', '', '30', '', ''),
+    @($poeCommands[17], 'writeobjectbyte', 'Poe', '3f', '01', ''),
+    @($poeCommands[18], 'setspeed', 'Poe', '28', '', ''),
+    @($poeCommands[19], 'setanimation', 'Poe', '02', '', $poeAnimations[2]),
+    @($poeCommands[20], 'setangle', 'Poe', '10', '', ''),
+    @($poeCommands[21], 'applyspeed', 'Poe', '49', '', ''),
+    @($poeCommands[22], 'setanimation', 'Poe', '01', '', $poeAnimations[1]),
+    @($poeCommands[23], 'setangle', 'Poe', '08', '', ''),
+    @($poeCommands[24], 'applyspeed', 'Poe', '39', '', ''),
+    @($poeCommands[25], 'scriptjump', '', '6', '', ''),
+    @($poeCommands[26], 'showtext', '', '0b02', '', $allTexts[0x0b02]),
+    @($poeCommands[27], 'wait', '', '30', '', ''),
+    @($poeCommands[28], 'giveitem', '', '41', '00', ''),
+    @($poeCommands[29], 'scriptjump', '', '6', '', '')
+)
+$poeCommandRows = [Collections.Generic.List[string]]::new()
+$poeCommandRows.Add(
+    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
+for ($index = 0; $index -lt $poeCommandSpecs.Count; $index++) {
+    $spec = $poeCommandSpecs[$index]
+    $sourceCommand = $spec[0]
+    $poeCommandRows.Add((New-CutsceneCommandRow `
+        'poeScript' $index $sourceCommand.Label $sourceCommand.Line `
+        $spec[1] $spec[2] $spec[3] $spec[4] $spec[5]))
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\poe_commands.tsv'),
+    $poeCommandRows, [Text.UTF8Encoding]::new($false))
+
+$poeEventRows = @(
+    "# group`troom`tid`tsubid`tfirst-var03`ttomb-var03`tfinal-var03`tprogress-flag`titem-flag`ttomb-group`ttomb-room`tcollision-y`tcollision-x`tdisappear-wait`tflicker-count`tflicker-address`tflicker-mask`tpoof-sound`treward-treasure`treward-parameter`treward-object`tspeed-100`tinitial-script-updates`tanimation0`tanimation1`tanimation2`tanimation3"
+    (@(
+        '0', '7c', '59', '00', '00', '01', '02', '40', '20', '2', '2e',
+        '06', '06', '40', '30', '3e', '02', '98', '41', '00',
+        'TREASURE_OBJECT_TRADEITEM_00', '28', '1',
+        $poeAnimations[0], $poeAnimations[1],
+        $poeAnimations[2], $poeAnimations[3]
+    ) -join "`t")
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\poe_event.tsv'),
+    $poeEventRows, [Text.UTF8Encoding]::new($false))
+
 # Room 2:e6 Mask Salesman trade. INTERAC_MASK_SALESMAN is a script-owned NPC
 # whose native wrapper runs the script once on its initialization update,
 # enables always-update behavior, then animates after every later script update.

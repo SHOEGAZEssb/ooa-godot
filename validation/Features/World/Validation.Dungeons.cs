@@ -216,12 +216,98 @@ public sealed partial class ValidationRoot
                 "Block $1c did not finish after 32 updates as destination tile $1d.");
         }
 
+        // The outdoor grave hiding a door is the one Ages push tile that
+        // writes wDisabledObjects=1 when movement starts. Its $85 property
+        // reveals staircase $dc immediately, then clears the lock and requests
+        // SND_SOLVEPUZZLE only after the movement counter reaches zero.
+        LoadValidationRoom(0, 0x7c);
+        room = _currentRoom;
+        Vector2 graveCenter = new(0x58, 0x28);
+        Vector2 gravePushPosition = new(0x58, 0x2f);
+        var pushableTiles = new PushableTileDatabase();
+        if (room.ActiveCollisions != 0 ||
+            room.GetPackedPosition(graveCenter) != 0x25 ||
+            room.GetMetatile(graveCenter) != 0xd9 ||
+            !pushableTiles.TryGet(
+                room.ActiveCollisions, 0xd9, out PushableTileRecord grave) ||
+            grave is not
+                {
+                    SourceReplacement: 0xdc,
+                    DestinationTile: 0x02,
+                    PropertyFlags: 0x85
+                })
+        {
+            throw new InvalidOperationException(
+                "Room 0:7c/$25 did not retain outdoor hidden grave $d9 and " +
+                "its imported $dc/$02/$85 push contract.");
+        }
+
+        _player.WarpTo(gravePushPosition);
+        _player.Face(Vector2I.Up);
+        _sound.ClearPlayRequestAudit();
+        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
+        {
+            _pushBlocks.UpdatePushAttempt(
+                gravePushPosition, Vector2I.Up, Vector2.Up);
+        }
+        if (!_pushBlocks.Active || !_pushBlocks.LinkMovementDisabled ||
+            !_playerWorld.MovementDisabled ||
+            room.GetMetatile(graveCenter) != 0xdc ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0 ||
+            _playerWorld.CheckTileWarp(_player) ||
+            _activeGroup != 0 || _currentRoom.Id != 0x7c || IsTransitioning)
+        {
+            throw new InvalidOperationException(
+                "Room 0:7c's upward $d9 push did not reveal staircase $dc " +
+                "while locking Link and suppressing its same-update warp.");
+        }
+
+        for (int frame = 0; frame < PushBlockController.MoveFrames - 1; frame++)
+            _pushBlocks.Advance(1.0 / 60.0);
+        if (!_pushBlocks.Active || !_pushBlocks.LinkMovementDisabled ||
+            !_playerWorld.MovementDisabled ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0)
+        {
+            throw new InvalidOperationException(
+                "Room 0:7c's hidden grave released Link before its first 31 " +
+                "SPEED_80 movement updates completed.");
+        }
+
+        _pushBlocks.Advance(1.0 / 60.0);
+        Vector2 graveDestination = graveCenter + Vector2.Up * 16;
+        if (_pushBlocks.Active || _pushBlocks.LinkMovementDisabled ||
+            _playerWorld.MovementDisabled ||
+            room.GetMetatile(graveCenter) != 0xdc ||
+            room.GetMetatile(graveDestination) != 0x02 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1 ||
+            _playerWorld.CheckTileWarp(_player) ||
+            !RoomTransitionController.LinkWithinTileWarpBounds(
+                room, 0, 0x25, graveCenter) ||
+            RoomTransitionController.LinkWithinTileWarpBounds(
+                room, 0, 0x25, new Vector2(0x53, 0x28)) ||
+            !RoomTransitionController.LinkWithinTileWarpBounds(
+                room, 0, 0x25, new Vector2(0x54, 0x20)) ||
+            !RoomTransitionController.LinkWithinTileWarpBounds(
+                room, 0, 0x25, new Vector2(0x5d, 0x29)) ||
+            RoomTransitionController.LinkWithinTileWarpBounds(
+                room, 0, 0x25, new Vector2(0x5e, 0x29)) ||
+            RoomTransitionController.LinkWithinTileWarpBounds(
+                room, 0, 0x25, new Vector2(0x58, 0x2a)))
+        {
+            throw new InvalidOperationException(
+                "Room 0:7c's hidden grave did not release Link, install " +
+                "stationary grave $02, request SND_SOLVEPUZZLE on update 32, " +
+                "and retain the original $54-$5d/$20-$29 staircase bounds.");
+        }
+
         GD.Print("Validated Link's wall/block pushing animation, directional/corner " +
             "restrictions, SND_MOVEBLOCK, hole SND_FALLINHOLE, imported " +
             "INTERAC_FALLDOWNHOLE timing/motion, hazard disposal, " +
             "4:08/$4b push delay reset, blocked " +
             "destination, source $a0 replacement, SPEED_80 movement, moving " +
-            "collision, and destination tile $1d.");
+            "collision, destination tile $1d, and 0:7c/$25 hidden-grave " +
+            "movement lock, completion solve cue, and centered staircase warp bounds.");
     }
 
     private void ValidateDungeonKeyDoors()

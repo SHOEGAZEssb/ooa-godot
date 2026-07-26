@@ -1,9 +1,12 @@
-# Engineering TODO
+# TODO
 
 The project's highest priority is a 1:1 reconstruction of *Oracle of Ages*.
 Consolidation is valuable only when it makes imported original behavior easier to
 validate without obscuring table order, aliases, identifiers, or game-specific
 semantics.
+
+# Small Stuff
+- [ ] During the first post-essence maku cutscene the hud fades faster to black than the rest of the screen
 
 ## NPC and interaction continuity audit
 

@@ -971,6 +971,46 @@ trade-sequence NPC:
   `(0,-14)`, and sets current-room item bit `$20`. On re-entry that bit selects
   moustache animation `$05`, skips the trade, and routes A to TX `$0b32`.
 
+Present rooms `0:7c` and `2:2e` are the reference for a shared script whose
+placed variants have room-specific native state-0 predicates:
+
+- Preserve `group0Map7cObjectData` order: Poe `$59:$00`, var03 `$00`, then
+  Poe `$59:$00`, var03 `$02`, both at `$38/$68`, before the enemy-object
+  pointer. Var03 `$00` survives only while current-room bit `$40` and present
+  tomb-room `2:2e` bit `$40` are both clear. Var03 `$02` requires both `$40`
+  bits and current-room item bit `$20` clear.
+- Preserve `group2Map2eObjectData` as the sole Poe `$59:$00`, var03 `$01`, at
+  `$20/$50`, followed directly by `obj_End`. It survives only when present
+  room `0:7c` bit `$40` is set and its own bit `$40` is clear; the overworld
+  item bit `$20` does not participate in this predicate.
+- Evaluate those predicates during state 0. Once one actor installs
+  `poeScript`, do not opt its adapter into ordinary live NPC visibility
+  refresh: the first branch sets room bit `$40` before its delayed
+  disappearance, the tomb branch sets its own bit `$40` before movement, and
+  the source does not rerun state 0 or replace/delete an initialized actor in
+  either interval.
+- State 0 initializes graphics and a solid position, runs the script once,
+  then executes `npcFaceLinkAndAnimate`. Later updates run the script first;
+  var3e nonzero suppresses native animation/collision work during
+  disappearance, while var3f selects animation-plus-priority without facing.
+  Keep collision and A-button probe radii `$06`, the native 30-update facing
+  counter, and directional animations `$00-$03`.
+- Import all three `poeScript` branches. The room `0:7c` branches show TX
+  `$0b00/$0b02`; the first sets bit `$40`, and the final waits 30 updates
+  before granting `TREASURE_OBJECT_TRADEITEM_00` through the shared two-hand
+  treasure path. The room `2:2e` branch shows TX `$0b01`, sets that room's bit
+  `$40`, waits 30 updates, writes var3f=`$01`, then moves at `SPEED_100` down
+  for `$48` pixels and right for `$38` pixels: `$20/$50` -> `$68/$50` ->
+  `$68/$88`. Var3f selects `interactionAnimate` plus relative priority and
+  terrain effects, so scripted movement no longer faces, blocks, talks to, or
+  pushes Link.
+- Both room branches share wait 40, `SND_POOF`, var3e=`30`, and
+  `poe_decCounterAndFlickerVisibility`. Represent the recognized helper loop
+  as a typed flicker command with counter address `$3e` and
+  `wFrameCounter & $02`; after the 30th decrement, input is restored and the
+  actor is deleted. The Poe Clock grant sets item bit `$20`, suppressing the
+  final actor on re-entry.
+
 Present exterior `0:45` and interior `3:fb` are the reference for a paired
 ordinary-NPC slice whose dialogue wrapper is native:
 

@@ -52,6 +52,7 @@ internal sealed class RoomEntityFactory(
     private readonly BlackTowerWorkerDatabase _blackTower = new();
     private readonly ComedianEventDatabase _comedian = new();
     private readonly MaskSalesmanEventDatabase _maskSalesman = new();
+    private readonly PoeEventDatabase _poe = new();
     private readonly TroyHouseDatabase _troyHouse = new();
     private readonly DungeonEntranceInteractionDatabase _dungeonEntrances = new();
     private readonly SpiritsGraveDatabase _spiritsGrave = new();
@@ -309,6 +310,27 @@ internal sealed class RoomEntityFactory(
                     };
                     salesman.InitializeMaskSalesman(record, _maskSalesman.Record);
                     yield return new MaskSalesmanRoomEntity(salesman);
+                    continue;
+                }
+                bool isOverworldPoe =
+                    record.Group == _poe.Record.Group &&
+                    record.Room == _poe.Record.Room &&
+                    record.Var03 is 0x00 or 0x02;
+                bool isTombPoe =
+                    record.Group == _poe.Record.TombGroup &&
+                    record.Room == _poe.Record.TombRoom &&
+                    record.Var03 == 0x01;
+                if ((isOverworldPoe || isTombPoe) &&
+                    record.Id == _poe.Record.InteractionId &&
+                    record.SubId == _poe.Record.SubId)
+                {
+                    var poe = new PoeCharacter
+                    {
+                        Name = $"Npc_{record.Id:x2}_{record.SubId:x2}_{record.Var03:x2}",
+                        ZIndex = NpcCharacter.BehindLinkZIndex
+                    };
+                    poe.InitializePoe(record, _poe.Record);
+                    yield return new PoeRoomEntity(poe);
                     continue;
                 }
 

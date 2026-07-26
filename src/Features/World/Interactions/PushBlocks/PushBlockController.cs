@@ -9,6 +9,8 @@ public partial class PushBlockController : Node2D
     public const int MoveFrames = 32;
     public const float MoveSpeedPerFrame = 0.5f;
     private const float CombinedLinkRadius = 12.0f;
+    private const byte GraveHidingDoorTile = 0xd9;
+    private const byte TilesetFlagOutdoors = 0x01;
 
     private readonly RoomSession _rooms;
     private readonly PushableTileDatabase _tiles;
@@ -27,6 +29,7 @@ public partial class PushBlockController : Node2D
     private byte _destinationBackground;
     private PushableTileRecord _record;
     private Texture2D? _blockTexture;
+    private bool _linkMovementDisabled;
     private readonly BraceletDatabaseRecord _bracelet = new BraceletDatabase().Data;
     private int _activeMoveFrames = MoveFrames;
     private float _activeMoveSpeedPerFrame = MoveSpeedPerFrame;
@@ -34,6 +37,7 @@ public partial class PushBlockController : Node2D
     public event Action<Vector2, HazardType>? EnteredHazard;
 
     public bool Active => _active;
+    internal bool LinkMovementDisabled => _active && _linkMovementDisabled;
     internal int RemainingPushFrames => _pushCounter;
     internal float MoveFrame => _moveFrame;
     internal int ActiveMoveFrames => _activeMoveFrames;
@@ -110,6 +114,7 @@ public partial class PushBlockController : Node2D
     public void Cancel()
     {
         _active = false;
+        _linkMovementDisabled = false;
         _moveFrame = 0.0f;
         _blockTexture = null;
         Visible = false;
@@ -180,6 +185,11 @@ public partial class PushBlockController : Node2D
         _collisionCenter = topLeft + new Vector2(8, 6);
         _moveDirection = direction;
         _record = record;
+        // interactableTiles.s disables Link when the outdoor
+        // TILEINDEX_GRAVE_HIDING_DOOR $d9 begins moving. The matching
+        // pushableTiles.s property $85 clears that lock at completion.
+        _linkMovementDisabled = tile == GraveHidingDoorTile &&
+            (room.TilesetFlags & TilesetFlagOutdoors) != 0;
         bool usePowerGloveSpeed = braceletLevel >= 2 &&
             (record.PropertyFlags & _bracelet.HeavyPropertyMask) == 0;
         _activeMoveFrames = usePowerGloveSpeed
@@ -228,6 +238,8 @@ public partial class PushBlockController : Node2D
                 destinationCenter, _destinationBackground, _record.DestinationTile, _animationTick());
             _roomView.QueueRedraw();
         }
+        if (hazard == HazardType.None && _record.PlaysSecretSound)
+            _playSound(OracleSoundEngine.SndSolvePuzzle);
         Cancel();
     }
 

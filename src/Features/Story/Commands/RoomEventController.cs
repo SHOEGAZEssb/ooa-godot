@@ -15,6 +15,7 @@ public sealed class RoomEventController
     private readonly MakuTreeSavedEvent _makuTreeSaved;
     private readonly ComedianEvent _comedian;
     private readonly MaskSalesmanEvent _maskSalesman;
+    private readonly PoeEvent _poe;
     private readonly RalphPortalEvent _ralph;
     private readonly PreBlackTowerEvent _preBlackTower;
     private readonly BlackTowerDoorwayEvent _blackTowerDoorway;
@@ -71,6 +72,7 @@ public sealed class RoomEventController
         _makuTreeSaved = new MakuTreeSavedEvent(_context);
         _comedian = new ComedianEvent(_context);
         _maskSalesman = new MaskSalesmanEvent(_context);
+        _poe = new PoeEvent(_context);
         _ralph = new RalphPortalEvent(_context);
         _preBlackTower = new PreBlackTowerEvent(_context);
         _blackTowerDoorway = new BlackTowerDoorwayEvent(_context);
@@ -98,6 +100,7 @@ public sealed class RoomEventController
             _vasuShop,
             _comedian,
             _maskSalesman,
+            _poe,
             _makuTreeSaved,
             _makuTree,
             _ralph,
@@ -142,6 +145,7 @@ public sealed class RoomEventController
     internal MakuTreeSavedEvent MakuTreeSaved => _makuTreeSaved;
     internal ComedianEvent Comedian => _comedian;
     internal MaskSalesmanEvent MaskSalesman => _maskSalesman;
+    internal PoeEvent Poe => _poe;
     internal RalphPortalEvent Ralph => _ralph;
     internal PreBlackTowerEvent PreBlackTower => _preBlackTower;
     internal BlackTowerDoorwayEvent BlackTowerDoorway => _blackTowerDoorway;
@@ -214,6 +218,7 @@ public sealed class RoomEventController
         _makuSproutRescue.TryInteractNpc(npc) ||
         _makuTreeSaved.TryInteractNpc(npc) ||
         _maskSalesman.TryInteractNpc(npc) ||
+        _poe.TryInteractNpc(npc) ||
         _comedian.TryInteractNpc(npc);
 
     public bool TryInteractPlayer(Player player) =>

@@ -338,6 +338,19 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     }
 
     /// <summary>
+    /// One original update of interactionAnimate followed by
+    /// objectSetPriorityRelativeToLink_withTerrainEffects, without the
+    /// objectPreventLinkFromPassing call made by interactionAnimateAsNpc.
+    /// </summary>
+    internal void AnimateAndUpdateDrawPriorityOneUpdate(Player player)
+    {
+        if (!Active)
+            return;
+        AdvanceAnimationUpdates(1);
+        UpdateDrawPriority(player.Position);
+    }
+
+    /// <summary>
     /// One original update of npcFaceLinkAndAnimate, including the same
     /// post-change value $1d for its 30-update direction-change counter.
     /// </summary>

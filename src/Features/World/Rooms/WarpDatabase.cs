@@ -114,7 +114,7 @@ public sealed class WarpDatabase
         return false;
     }
 
-    private static bool IsWarpTile(int group, byte metatile)
+    internal static bool IsWarpTile(int group, byte metatile)
     {
         return group switch
         {

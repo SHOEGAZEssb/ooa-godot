@@ -163,7 +163,9 @@ public sealed class RoomTransitionController
     public bool CheckTileWarp(Player player)
     {
         OracleRoomData room = _rooms.CurrentRoom;
-        int position = room.GetPackedPosition(player.Position);
+        Vector2 linkPosition = OracleObjectMath.ToPixelPosition(player.Position);
+        Vector2 standingPoint = linkPosition + new Vector2(0, 4);
+        int position = room.GetPackedPosition(standingPoint);
         if (_deactivatedWarpGroup == _rooms.ActiveGroup &&
             _deactivatedWarpRoom == room.Id && _deactivatedWarpPosition == position)
             return false;
@@ -171,12 +173,71 @@ public sealed class RoomTransitionController
         if (_deactivatedWarpGroup >= 0)
             ClearDeactivatedWarp();
 
-        byte tile = room.GetMetatile(player.Position);
-        if (!_warps.TryGetTileWarp(_rooms.ActiveGroup, room.Id, position, tile, out Warp warp))
+        byte tile = room.GetMetatile(standingPoint);
+        if (!_warps.TryGetTileWarp(
+                _rooms.ActiveGroup, room.Id, position, tile, out Warp warp) ||
+            !LinkWithinTileWarpBounds(
+                room, _rooms.ActiveGroup, position, linkPosition))
+        {
             return false;
+        }
         ApplyWarp(player, warp);
         return true;
     }
+
+    /// <summary>
+    /// Mirrors checkLinkCloseEnoughToWarpTileCenter and its horizontally
+    /// adjacent multi-tile-door branch. The original tests Link's high-byte
+    /// coordinates after selecting the standing tile at yh+4.
+    /// </summary>
+    internal static bool LinkWithinTileWarpBounds(
+        OracleRoomData room,
+        int activeGroup,
+        int packedPosition,
+        Vector2 linkPosition)
+    {
+        byte collision = room.GetTerrainInfo(
+            PackedPositionCenter(packedPosition)).Collision;
+        int yOffset = collision == 0 ? 4 : 2;
+        if (!WarpAxisWithinCenter(linkPosition.Y, yOffset))
+            return false;
+
+        bool multiTileDoor =
+            WarpDatabase.IsWarpTile(
+                activeGroup,
+                MetatileAtPackedPosition(room, packedPosition + 1)) ||
+            WarpDatabase.IsWarpTile(
+                activeGroup,
+                MetatileAtPackedPosition(room, packedPosition - 1));
+        return collision != 0 || multiTileDoor ||
+            WarpAxisWithinCenter(linkPosition.X, 0);
+    }
+
+    private static bool WarpAxisWithinCenter(float coordinate, int offset)
+    {
+        int withinTile = (Mathf.FloorToInt(coordinate) + offset) & 0x0f;
+        return withinTile is >= 4 and <= 13;
+    }
+
+    private static byte MetatileAtPackedPosition(
+        OracleRoomData room,
+        int packedPosition)
+    {
+        int x = packedPosition & 0x0f;
+        int y = packedPosition >> 4;
+        if (x < 0 || x >= room.WidthInTiles ||
+            y < 0 || y >= room.HeightInTiles)
+        {
+            return 0xff;
+        }
+        return room.GetMetatile(PackedPositionCenter(packedPosition));
+    }
+
+    private static Vector2 PackedPositionCenter(int packedPosition) => new(
+        (packedPosition & 0x0f) * OracleRoomData.MetatileSize +
+            OracleRoomData.MetatileSize / 2.0f,
+        (packedPosition >> 4) * OracleRoomData.MetatileSize +
+            OracleRoomData.MetatileSize / 2.0f);
 
     public void CheckRoomExit(Player player)
     {

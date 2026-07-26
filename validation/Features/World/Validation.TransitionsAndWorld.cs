@@ -57,12 +57,64 @@ public sealed partial class ValidationRoot
     private void ValidateHouseWarp()
     {
         LoadHouseValidationRoom();
-        for (float y = 54; y >= 47; y--)
+        OracleRoomData exteriorRoom = _currentRoom;
+        if (exteriorRoom.GetMetatile(new Vector2(0x58, 0x28)) != 0xde ||
+            exteriorRoom.GetTerrainInfo(new Vector2(0x58, 0x28)).Collision != 0x0c ||
+            !RoomTransitionController.LinkWithinTileWarpBounds(
+                exteriorRoom, 0, 0x25, new Vector2(0x50, 0x22)) ||
+            !RoomTransitionController.LinkWithinTileWarpBounds(
+                exteriorRoom, 0, 0x25, new Vector2(0x5f, 0x2b)) ||
+            RoomTransitionController.LinkWithinTileWarpBounds(
+                exteriorRoom, 0, 0x25, new Vector2(0x58, 0x21)) ||
+            RoomTransitionController.LinkWithinTileWarpBounds(
+                exteriorRoom, 0, 0x25, new Vector2(0x58, 0x2c)))
+        {
+            throw new InvalidOperationException(
+                "Exterior door 0:47/$25 did not retain collision-$0c's " +
+                "X-unbounded, Y=$22-$2b warp activation window.");
+        }
+
+        OracleRoomData multiDoorRoom = _world.LoadRoom(1, 0x0e);
+        var warps = new WarpDatabase();
+        byte multiLeftTile =
+            multiDoorRoom.GetMetatile(new Vector2(0x38, 0x38));
+        byte multiRightTile =
+            multiDoorRoom.GetMetatile(new Vector2(0x48, 0x38));
+        byte multiCollision =
+            multiDoorRoom.GetTerrainInfo(new Vector2(0x38, 0x38)).Collision;
+        bool multiWarp =
+            warps.TryGetTileWarp(1, 0x0e, 0x33, 0xef, out _);
+        bool multiLowerBound =
+            RoomTransitionController.LinkWithinTileWarpBounds(
+                multiDoorRoom, 1, 0x33, new Vector2(0x30, 0x30));
+        bool multiUpperBound =
+            RoomTransitionController.LinkWithinTileWarpBounds(
+                multiDoorRoom, 1, 0x33, new Vector2(0x3f, 0x39));
+        bool multiOutsideBound =
+            RoomTransitionController.LinkWithinTileWarpBounds(
+                multiDoorRoom, 1, 0x33, new Vector2(0x38, 0x3a));
+        if (multiLeftTile != 0xef ||
+            multiRightTile != 0xef ||
+            multiCollision != 0 ||
+            !multiWarp ||
+            !multiLowerBound ||
+            !multiUpperBound ||
+            multiOutsideBound)
+        {
+            throw new InvalidOperationException(
+                "Room 1:0e's adjacent walkable `$ef warp tiles did not retain " +
+                "their X-unbounded, Y=$30-$39 activation window " +
+                $"(tiles=${multiLeftTile:x2}/${multiRightTile:x2}, " +
+                $"collision=${multiCollision:x2}, warp={multiWarp}, " +
+                $"bounds={multiLowerBound}/{multiUpperBound}/{multiOutsideBound}).");
+        }
+
+        for (float y = 54; y >= 43; y--)
         {
             if (Collides(new Vector2(88, y)))
                 throw new InvalidOperationException($"The path into exterior door $25 is blocked at y={y}.");
         }
-        _player.WarpTo(new Vector2(88, 47));
+        _player.WarpTo(new Vector2(88, 43));
         if (!CheckTileWarp(_player) || _activeGroup != 2 || _currentRoom.Id != 0xea)
             throw new InvalidOperationException(
                 $"Expected exterior 0:47/$25 to enter house 2:ea, got {_activeGroup}:{_currentRoom.Id:x2}.");

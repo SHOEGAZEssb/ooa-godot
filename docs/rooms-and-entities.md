@@ -41,6 +41,13 @@ are implemented.
 
 ## Transition lifetime
 
+A top-down tile warp samples the metatile at Link's high-byte position
+`(yh+4,xh)`, then applies the source's ten-pixel center window on each required
+axis. A walkable single-tile warp checks both X and Y. A nonzero-collision warp
+checks Y with its two-pixel offset and ignores X; horizontally adjacent warp
+tiles likewise ignore X while retaining the collision-selected Y window. Do not
+treat the complete 16-by-16 metatile as the activation area.
+
 A scrolling transition keeps an active room/entity set and an outgoing set.
 The destination room and its entities may be created before the scroll starts,
 but ordinary destination entities and room events do not update until scrolling
@@ -665,6 +672,12 @@ the source tile has been replaced, and the moving object becomes visible.
 Their movement uses the imported Bracelet contract: level 0/1 uses
 `SPEED_80` for `$20` updates, while the level-2 Power Glove uses `SPEED_c0`
 for `$15` updates unless property bit 5 marks the block heavy.
+Outdoor grave `$d9` is the source-defined hidden-door special case: revealing
+its `$dc` staircase at movement start disables Link's movement until the grave
+finishes. The shared `(yh+4,xh)` centered warp probe keeps Link's adjacent push
+position outside that staircase while it moves. Property bit 7 then releases
+Link and requests `SND_SOLVEPUZZLE` on that completion update; there is no
+separate post-movement wait.
 Their completion event retains the destination hazard type: water/lava create
 the splash interaction, while a hole creates `INTERAC_FALLDOWNHOLE $0f:$00`
 without changing the hole tile. That interaction requests `SND_FALLINHOLE`,

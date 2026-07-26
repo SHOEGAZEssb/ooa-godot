@@ -28,7 +28,8 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool DialogueOpen => _interactions.DialogueOpen;
     public bool SwordDisabled => _roomEvents.Active || _entities.PlayerSwordDisabled;
     public bool ItemUsageDisabled => _entities.PlayerItemUsageDisabled;
-    public bool MovementDisabled => _roomEvents.Active || _entities.PlayerMovementDisabled;
+    public bool MovementDisabled => _roomEvents.Active ||
+        _entities.PlayerMovementDisabled || _pushBlocks.LinkMovementDisabled;
     public bool RidingObject => _entities.PlayerRidingObject;
     public bool SideScrolling =>
         (_terrain.CurrentTilesetFlags & 0x20) != 0;
