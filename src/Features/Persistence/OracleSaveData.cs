@@ -65,6 +65,8 @@ public sealed class OracleSaveData
     private static readonly byte[] VerificationString = "Z21216-0"u8.ToArray();
 
     private readonly byte[] _data;
+    private int _mutationDepth;
+    private bool _mutationDirty;
 
     public event Action? Changed;
 
@@ -180,7 +182,7 @@ public sealed class OracleSaveData
         bool changed = WriteWramByte(0xc63a, (byte)group);
         changed |= WriteWramByte(0xc63b, (byte)room);
         if (changed)
-            Changed?.Invoke();
+            PublishChange();
     }
 
     public void SetMakuTreeState(int state)
@@ -188,7 +190,7 @@ public sealed class OracleSaveData
         if (state is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(state));
         if (WriteWramByte(0xc6e8, (byte)state))
-            Changed?.Invoke();
+            PublishChange();
     }
 
     public void SetMakuMapTextPast(int textLow)
@@ -196,7 +198,7 @@ public sealed class OracleSaveData
         if (textLow is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(textLow));
         if (WriteWramByte(0xc6e7, (byte)textLow))
-            Changed?.Invoke();
+            PublishChange();
     }
 
     public void SetMakuMapTextPresent(int textLow)
@@ -204,7 +206,7 @@ public sealed class OracleSaveData
         if (textLow is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(textLow));
         if (WriteWramByte(0xc6e6, (byte)textLow))
-            Changed?.Invoke();
+            PublishChange();
     }
 
     public void SetMakuTreeSeedSatchelXPosition(int x)
@@ -212,13 +214,13 @@ public sealed class OracleSaveData
         if (x is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(x));
         if (WriteWramByte(0xc6eb, (byte)x))
-            Changed?.Invoke();
+            PublishChange();
     }
 
     public void SetLinkedGame(bool linked)
     {
         if (WriteWramByte(0xc612, linked ? (byte)0x01 : (byte)0x00))
-            Changed?.Invoke();
+            PublishChange();
     }
 
     public void SetLinkName(string name)
@@ -226,7 +228,7 @@ public sealed class OracleSaveData
         Span<byte> encoded = stackalloc byte[6];
         EncodeName(name, encoded, nameof(name));
         if (WriteWramBytes(0xc602, encoded))
-            Changed?.Invoke();
+            PublishChange();
     }
 
     public void NameChild(string name)
@@ -244,7 +246,7 @@ public sealed class OracleSaveData
             ChildFlagsAddress, (byte)(ReadWramByte(ChildFlagsAddress) | 0x01));
         changed |= WriteWramByte(NextChildStageAddress, 0x01);
         if (changed)
-            Changed?.Invoke();
+            PublishChange();
     }
 
     public void SetTextSpeed(int speed)
@@ -252,7 +254,7 @@ public sealed class OracleSaveData
         if (speed is < 0 or > 4)
             throw new ArgumentOutOfRangeException(nameof(speed));
         if (WriteWramByte(0xc629, (byte)speed))
-            Changed?.Invoke();
+            PublishChange();
     }
 
     /// <summary>
@@ -266,7 +268,7 @@ public sealed class OracleSaveData
         bool changed = WriteWramByte(0xc65f, (byte)next);
         changed |= WriteWramByte(0xc660, (byte)(next >> 8));
         if (changed)
-            Changed?.Invoke();
+            PublishChange();
     }
 
     internal void SubtractGashaMaturity(int amount)
@@ -277,7 +279,7 @@ public sealed class OracleSaveData
         bool changed = WriteWramByte(0xc65f, (byte)next);
         changed |= WriteWramByte(0xc660, (byte)(next >> 8));
         if (changed)
-            Changed?.Invoke();
+            PublishChange();
     }
 
     internal bool IsGashaSpotPlanted(int subId)
@@ -294,7 +296,7 @@ public sealed class OracleSaveData
         byte value = ReadWramByte(address);
         value = planted ? (byte)(value | mask) : (byte)(value & ~mask);
         if (WriteWramByte(address, value))
-            Changed?.Invoke();
+            PublishChange();
     }
 
     internal int GetGashaSpotKillCounter(int subId)
@@ -309,7 +311,7 @@ public sealed class OracleSaveData
         if (count is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(count));
         if (WriteWramByte(0xc64f + subId, (byte)count))
-            Changed?.Invoke();
+            PublishChange();
     }
 
     internal void SetGashaHarvestFlag(int bit)
@@ -318,7 +320,7 @@ public sealed class OracleSaveData
             throw new ArgumentOutOfRangeException(nameof(bit));
         byte value = (byte)(ReadWramByte(0xc64c) | (1 << bit));
         if (WriteWramByte(0xc64c, value))
-            Changed?.Invoke();
+            PublishChange();
     }
 
     internal void SetMapleKillCounter(int value)
@@ -326,7 +328,7 @@ public sealed class OracleSaveData
         if (value is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(value));
         if (WriteWramByte(0xc641, (byte)value))
-            Changed?.Invoke();
+            PublishChange();
     }
 
     internal void SetMapleState(int value)
@@ -334,7 +336,7 @@ public sealed class OracleSaveData
         if (value is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(value));
         if (WriteWramByte(0xc644, (byte)value))
-            Changed?.Invoke();
+            PublishChange();
     }
 
     private static void ValidateGashaSpot(int subId)
@@ -363,7 +365,7 @@ public sealed class OracleSaveData
         changed |= WriteWramByte(0xc62f, (byte)y);
         changed |= WriteWramByte(0xc630, (byte)x);
         if (changed)
-            Changed?.Invoke();
+            PublishChange();
     }
 
     public void IncrementDeathCount()
@@ -372,7 +374,7 @@ public sealed class OracleSaveData
         bool changed = WriteWramByte(0xc61e, ToBcd(next % 100));
         changed |= WriteWramByte(0xc61f, (byte)(next / 100));
         if (changed)
-            Changed?.Invoke();
+            PublishChange();
     }
 
     internal void ResetHealthIfDepleted()
@@ -381,7 +383,7 @@ public sealed class OracleSaveData
         if (health != 0 && (health & 0x80) == 0)
             return;
         if (WriteWramByte(0xc6aa, ReadWramByte(0xc6ab)))
-            Changed?.Invoke();
+            PublishChange();
     }
 
     public byte[] Serialize()
@@ -434,7 +436,36 @@ public sealed class OracleSaveData
         return true;
     }
 
-    internal void CommitInventoryChange() => Changed?.Invoke();
+    internal IDisposable BeginMutation()
+    {
+        _mutationDepth++;
+        return new MutationScope(this);
+    }
+
+    internal void CommitInventoryChange() => PublishChange();
+
+    private void PublishChange()
+    {
+        if (_mutationDepth != 0)
+        {
+            _mutationDirty = true;
+            return;
+        }
+        Changed?.Invoke();
+    }
+
+    private void EndMutation()
+    {
+        if (_mutationDepth <= 0)
+            throw new InvalidOperationException("Save mutation scopes must be disposed exactly once.");
+
+        _mutationDepth--;
+        if (_mutationDepth != 0 || !_mutationDirty)
+            return;
+
+        _mutationDirty = false;
+        Changed?.Invoke();
+    }
 
     private void SetMask(int offset, byte mask, bool value)
     {
@@ -443,7 +474,7 @@ public sealed class OracleSaveData
         if (next == previous)
             return;
         _data[offset] = next;
-        Changed?.Invoke();
+        PublishChange();
     }
 
     private static ushort CalculateChecksum(ReadOnlySpan<byte> data)
@@ -525,5 +556,25 @@ public sealed class OracleSaveData
         _ = GetRoomFlagTableOffset(group);
         if (room is < 0 or >= RoomsPerFlagTable)
             throw new ArgumentOutOfRangeException(nameof(room));
+    }
+
+    private sealed class MutationScope : IDisposable
+    {
+        private OracleSaveData? _owner;
+
+        public MutationScope(OracleSaveData owner)
+        {
+            _owner = owner;
+        }
+
+        public void Dispose()
+        {
+            OracleSaveData? owner = _owner;
+            if (owner is null)
+                return;
+
+            _owner = null;
+            owner.EndMutation();
+        }
     }
 }

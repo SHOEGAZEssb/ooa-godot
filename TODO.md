@@ -283,16 +283,17 @@ NPC- and enemy-specific findings remain in their sections above.
 
 ### State and generated-data boundaries
 
-- [ ] Make each compound inventory grant one atomic live-save transaction.
-  `InventoryState.GiveTreasureCore` calls `OracleSaveData.AddGashaMaturity`,
-  which raises `OracleSaveData.Changed` before the treasure flags, quantities,
-  health, and inventory slots are written; `NotifyChanged` then raises it a
-  second time.
-  - Add a scoped save mutation that records dirty state and publishes one
+- [x] Make each compound inventory grant one atomic live-save transaction.
+  Previously, `InventoryState.GiveTreasureCore` called
+  `OracleSaveData.AddGashaMaturity`, which raised `OracleSaveData.Changed`
+  before the treasure flags, quantities, health, and inventory slots were
+  written; `NotifyChanged` then raised it a second time.
+  - Added a scoped save mutation that records dirty state and publishes one
     notification only after every WRAM-style field and the `InventoryState`
-    cache agree. Preserve the original order of the actual field writes,
-    health/refill signals, and composite Seed Satchel/Heart Container grants.
-  - Regress maturity-bearing treasures and composite grants by counting
+    cache agree, while preserving the original order of the actual field
+    writes, health/refill signals, and composite Seed Satchel/Heart Container
+    grants.
+  - Regressed maturity-bearing treasures and composite grants by counting
     callbacks and inspecting the complete save/inventory snapshot from inside
     the callback, not only after `GiveTreasure` returns.
 

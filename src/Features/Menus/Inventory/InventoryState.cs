@@ -804,21 +804,24 @@ public sealed class InventoryState
 
     internal void GiveTreasure(int treasure, int parameter)
     {
-        if (treasure == TreasureDatabase.TreasureSeedSatchel)
+        using (_saveData?.BeginMutation())
         {
-            GiveTreasureCore(treasure, parameter);
-            GiveTreasureCore(TreasureDatabase.TreasureEmberSeeds, 0x20);
+            if (treasure == TreasureDatabase.TreasureSeedSatchel)
+            {
+                GiveTreasureCore(treasure, parameter);
+                GiveTreasureCore(TreasureDatabase.TreasureEmberSeeds, 0x20);
+            }
+            else if (treasure == TreasureDatabase.TreasureHeartContainer)
+            {
+                GiveTreasureCore(treasure, parameter);
+                GiveTreasureCore(TreasureDatabase.TreasureHeartRefill, 0x40);
+            }
+            else
+            {
+                GiveTreasureCore(treasure, parameter);
+            }
+            NotifyChanged();
         }
-        else if (treasure == TreasureDatabase.TreasureHeartContainer)
-        {
-            GiveTreasureCore(treasure, parameter);
-            GiveTreasureCore(TreasureDatabase.TreasureHeartRefill, 0x40);
-        }
-        else
-        {
-            GiveTreasureCore(treasure, parameter);
-        }
-        NotifyChanged();
     }
 
     private void GiveTreasureCore(int treasure, int parameter)

@@ -395,9 +395,33 @@ public sealed partial class ValidationRoot
         int inventoryCommits = 0;
         int saveCommits = 0;
         int rupeeNotifications = 0;
-        inventory.Changed += () => inventoryCommits++;
+        bool inspectSeedSatchelCommit = false;
+        bool inventorySeedSatchelSnapshotComplete = true;
+        bool saveSeedSatchelSnapshotComplete = true;
+
+        bool SeedSatchelSnapshotComplete() =>
+            inventory.SeedSatchelLevel == 1 &&
+            inventory.EmberSeeds == 0x20 &&
+            inventory.HasTreasure(TreasureDatabase.TreasureSeedSatchel) &&
+            inventory.HasTreasure(TreasureDatabase.TreasureEmberSeeds) &&
+            save.ReadWramByte(0xc6b4) == 1 &&
+            save.ReadWramByte(0xc6b9) == 0x20 &&
+            save.HasTreasure(TreasureDatabase.TreasureSeedSatchel) &&
+            save.HasTreasure(TreasureDatabase.TreasureEmberSeeds);
+
+        inventory.Changed += () =>
+        {
+            inventoryCommits++;
+            if (inspectSeedSatchelCommit)
+                inventorySeedSatchelSnapshotComplete &= SeedSatchelSnapshotComplete();
+        };
         inventory.RupeesChanged += () => rupeeNotifications++;
-        save.Changed += () => saveCommits++;
+        save.Changed += () =>
+        {
+            saveCommits++;
+            if (inspectSeedSatchelCommit)
+                saveSeedSatchelSnapshotComplete &= SeedSatchelSnapshotComplete();
+        };
 
         inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_RUPEES_04"));
         if (inventory.Rupees != 30 || inventoryCommits != 1 || saveCommits != 1 ||
@@ -408,12 +432,49 @@ public sealed partial class ValidationRoot
         }
 
         inventoryCommits = saveCommits = 0;
+        inspectSeedSatchelCommit = true;
         inventory.GiveTreasure(Reward(TreasureDatabase.TreasureSeedSatchel, 1));
+        inspectSeedSatchelCommit = false;
         if (inventory.SeedSatchelLevel != 1 || inventory.EmberSeeds != 0x20 ||
-            save.ReadWramByte(0xc6b9) != 0x20 || inventoryCommits != 1 || saveCommits != 1)
+            save.ReadWramByte(0xc6b9) != 0x20 || inventoryCommits != 1 ||
+            saveCommits != 1 || !inventorySeedSatchelSnapshotComplete ||
+            !saveSeedSatchelSnapshotComplete)
         {
             throw new InvalidOperationException(
-                "The Seed Satchel did not grant and persist its extra 20 Ember Seeds in one transaction.");
+                "The Seed Satchel did not expose and persist its complete compound grant in one callback.");
+        }
+
+        OracleSaveData maturitySave = OracleSaveData.CreateStandardGame();
+        var maturityInventory = new InventoryState(_treasures, maturitySave);
+        int maturityInventoryCommits = 0;
+        int maturitySaveCommits = 0;
+        bool maturityInventorySnapshotComplete = true;
+        bool maturitySaveSnapshotComplete = true;
+
+        bool MaturitySnapshotComplete() =>
+            maturityInventory.HeartPieces == 1 &&
+            maturityInventory.HasTreasure(TreasureDatabase.TreasureHeartPiece) &&
+            maturitySave.GashaMaturity == 36 &&
+            maturitySave.ReadWramByte(0xc6ac) == 1 &&
+            maturitySave.HasTreasure(TreasureDatabase.TreasureHeartPiece);
+
+        maturityInventory.Changed += () =>
+        {
+            maturityInventoryCommits++;
+            maturityInventorySnapshotComplete &= MaturitySnapshotComplete();
+        };
+        maturitySave.Changed += () =>
+        {
+            maturitySaveCommits++;
+            maturitySaveSnapshotComplete &= MaturitySnapshotComplete();
+        };
+        maturityInventory.GiveTreasure(
+            Reward(TreasureDatabase.TreasureHeartPiece, 1));
+        if (maturityInventoryCommits != 1 || maturitySaveCommits != 1 ||
+            !maturityInventorySnapshotComplete || !maturitySaveSnapshotComplete)
+        {
+            throw new InvalidOperationException(
+                "A maturity-bearing treasure exposed partial state or emitted duplicate callbacks.");
         }
 
         inventory.GiveTreasure(Reward(0x62, 0));
@@ -511,7 +572,7 @@ public sealed partial class ValidationRoot
 
         GD.Print("Validated all `$68 typed treasure behaviours, seed counters/capacities, " +
             "mode `$09 ring storage, linked item/selection aliases, transient upgrade bits, " +
-            "single-commit treasure transactions, and save persistence.");
+            "atomic callback-time treasure snapshots, and save persistence.");
     }
 
     private void ValidateDungeonCollectibles()
