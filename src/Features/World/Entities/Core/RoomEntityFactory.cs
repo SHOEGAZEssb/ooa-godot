@@ -1563,7 +1563,8 @@ internal sealed class RoomEntityFactory(
             ZIndex = 10
         };
         explosion.Initialize(spawn.Position, spawn.BossId, soundRequested);
-        return new BossDeathExplosionRoomEntity(explosion);
+        return new BossDeathExplosionRoomEntity(
+            explosion, itemDrops, random, roomEnemyCount);
     }
 
     private static IRoomEntity CreateBossShadow(BossShadowSpawn spawn)
@@ -1599,7 +1600,8 @@ internal sealed class RoomEntityFactory(
             : treasures.GetBehaviour(treasure).Sound;
         drop.Initialize(
             spawn.SubId, spawn.Position, room, itemDrops.GetVisual(spawn.SubId),
-            spawn.Angle, spawn.DugUp, soundRequested, collectionSound);
+            spawn.Angle, spawn.DugUp, soundRequested, collectionSound,
+            itemDrops, random);
         return new ItemDropRoomEntity(drop, itemDropEnteredHazard);
     }
 

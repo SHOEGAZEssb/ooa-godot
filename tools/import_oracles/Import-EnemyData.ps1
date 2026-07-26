@@ -2138,3 +2138,45 @@ if ($itemDropVisualRows[2] -ne "1`t2`t5`t127@11,4,0,0" -or
 $itemDropVisualPath = Join-Path $destination 'effects\item_drops.tsv'
 [IO.File]::WriteAllLines(
     $itemDropVisualPath, $itemDropVisualRows, [Text.UTF8Encoding]::new($false))
+
+# ITEM_DROP_FAIRY chooses one of four speeds and any even angle. Import the
+# exact signed 8.8 velocity components used by objectApplySpeed instead of
+# reconstructing them with host floating-point trigonometry. The clean US ROM
+# places bank3.objectSpeedTable at file offset $00c09b.
+if ($itemDropCodeSource -notmatch
+        '(?ms)^itemDrop_chooseRandomFairyMovement:.*?@speedTable:\s*\r?\n\s*\.db SPEED_40, SPEED_80, SPEED_c0, SPEED_100') {
+    throw 'ITEM_DROP_FAIRY no longer selects the expected four-speed source table.'
+}
+$speedTableRomOffset = 0x00c09b
+$speedTableSignature = @(
+    0xe0, 0xff, 0xe1, 0xff, 0xe3, 0xff, 0xe6, 0xff,
+    0xea, 0xff, 0xef, 0xff, 0xf4, 0xff, 0xfa, 0xff)
+for ($index = 0; $index -lt $speedTableSignature.Count; $index++) {
+    if ($romBytes[$speedTableRomOffset + $index] -ne
+        $speedTableSignature[$index]) {
+        throw 'Clean-ROM bank3.objectSpeedTable signature changed.'
+    }
+}
+$itemDropFairySpeeds = @(
+    [pscustomobject]@{ Code = 0x0a; Fixed = 0x040; Name = 'SPEED_40' }
+    [pscustomobject]@{ Code = 0x14; Fixed = 0x080; Name = 'SPEED_80' }
+    [pscustomobject]@{ Code = 0x1e; Fixed = 0x0c0; Name = 'SPEED_c0' }
+    [pscustomobject]@{ Code = 0x28; Fixed = 0x100; Name = 'SPEED_100' }
+)
+$itemDropFairyVelocityRows = [Collections.Generic.List[string]]::new()
+$itemDropFairyVelocityRows.Add(
+    "# speed-code`tangle`ty-fixed`tx-fixed`tsource")
+foreach ($speed in $itemDropFairySpeeds) {
+    $rowOffset = ($speed.Fixed / 0x20 - 1) * 0x50
+    foreach ($angle in 0..31) {
+        $offset = $speedTableRomOffset + $rowOffset + $angle * 2
+        $y = [BitConverter]::ToInt16($romBytes, $offset)
+        $x = [BitConverter]::ToInt16($romBytes, $offset + 0x10)
+        $itemDropFairyVelocityRows.Add((
+            "$($speed.Code.ToString('x2'))`t$($angle.ToString('x2'))" +
+            "`t$y`t$x`tbank3.objectSpeedTable:$($speed.Name)"))
+    }
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'effects\item_drop_fairy_velocities.tsv'),
+    $itemDropFairyVelocityRows, [Text.UTF8Encoding]::new($false))

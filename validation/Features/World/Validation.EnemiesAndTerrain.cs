@@ -1970,6 +1970,15 @@ public sealed partial class ValidationRoot
             throw new InvalidOperationException(
                 "ENEMY_KEESE `$32 did not retain item-drop record `$ae in the 720-byte selection data.");
         }
+        if (database.EnemyTableRecord(0x70) != 0xef ||
+            database.ChooseDrop(0x70, 0, 0) != ItemDropDatabase.Fairy ||
+            database.ChooseDrop(0x70, 0x3f, 0x1f) != ItemDropDatabase.Fairy ||
+            database.EnemyTableRecord(0x78) != 0xff)
+        {
+            throw new InvalidOperationException(
+                "Boss drop records no longer preserve Giant Ghini `$70 -> `$ef " +
+                "(guaranteed fairy) and Pumpkin Head `$78 -> `$ff (no drop).");
+        }
 
         int allowedProbabilityRolls = 0;
         int allowedRoll = -1;
@@ -2014,19 +2023,29 @@ public sealed partial class ValidationRoot
                 $"got {hearts}, {oneRupees}, and {fiveRupees}.");
         }
 
+        ItemDropDatabaseVisualRecord fairyVisual = database.GetVisual(ItemDropDatabase.Fairy);
         ItemDropDatabaseVisualRecord heartVisual = database.GetVisual(ItemDropDatabase.Heart);
         ItemDropDatabaseVisualRecord oneRupeeVisual = database.GetVisual(ItemDropDatabase.OneRupee);
         ItemDropDatabaseVisualRecord fiveRupeeVisual = database.GetVisual(ItemDropDatabase.FiveRupees);
         ItemDropDatabaseVisualRecord hundredRupeeVisual =
             database.GetVisual(ItemDropDatabase.OneHundredRupeesOrEnemy);
-        if (heartVisual.TileBase != 2 || heartVisual.Palette != 5 ||
+        if (fairyVisual.TileBase != 0 || fairyVisual.Palette != 2 ||
+            heartVisual.TileBase != 2 || heartVisual.Palette != 5 ||
             oneRupeeVisual.TileBase != 4 || oneRupeeVisual.Palette != 0 ||
             fiveRupeeVisual.TileBase != 6 || fiveRupeeVisual.Palette != 5 ||
             hundredRupeeVisual.TileBase != 8 || hundredRupeeVisual.Palette != 4)
         {
             throw new InvalidOperationException(
-                "Heart/rupee PART_ITEM_DROP visuals do not match spriteData tile bases " +
-                "`$02/`$04/`$06/`$08.");
+                "Fairy/heart/rupee PART_ITEM_DROP visuals do not match spriteData tile bases " +
+                "`$00/`$02/`$04/`$06/`$08.");
+        }
+        if (database.GetFairyVelocity(0x0a, 0x18) is not
+                { YFixed: 0, XFixed: -64 } ||
+            database.GetFairyVelocity(0x28, 0x04) is not
+                { YFixed: -181, XFixed: 181 })
+        {
+            throw new InvalidOperationException(
+                "ITEM_DROP_FAIRY velocities diverged from bank3.objectSpeedTable.");
         }
 
         var lifecycleRoot = new Node { Name = "ItemDropLifecycleValidation" };
@@ -2111,6 +2130,119 @@ public sealed partial class ValidationRoot
                 "An ordinary enemy item drop incorrectly inherited shovel launch velocity.");
         }
         stationaryDrop.Free();
+
+        Vector2 fairyPosition = FindOpenFairyDropPosition(_currentRoom);
+        _player.WarpTo(farPosition, recordSafe: false);
+        var fairyRandom = new OracleRandom();
+        var fairyDrop = new ItemDropEffect();
+        fairyDrop.Initialize(
+            ItemDropDatabase.Fairy, fairyPosition, _currentRoom, fairyVisual,
+            itemDrops: database, random: fairyRandom);
+        fairyDrop.UpdateFrame(_player, 1);
+        if (fairyRandom.Calls != 3 || fairyDrop.State != DropState.Bouncing ||
+            fairyDrop.FairyMovementCounter != 38 || fairyDrop.Speed != 0x0a ||
+            fairyDrop.Angle != 0x18 || fairyDrop.FlipX ||
+            fairyDrop.PrecisePosition != fairyPosition)
+        {
+            throw new InvalidOperationException(
+                "ITEM_DROP_FAIRY did not consume three global RNG values and select " +
+                "the source counter/SPEED_40/left-angle route during state 0.");
+        }
+        var rightFacingRandom = new OracleRandom();
+        rightFacingRandom.Next();
+        var rightFacingFairy = new ItemDropEffect();
+        rightFacingFairy.Initialize(
+            ItemDropDatabase.Fairy, fairyPosition, _currentRoom, fairyVisual,
+            itemDrops: database, random: rightFacingRandom);
+        rightFacingFairy.UpdateFrame(_player, 1);
+        Texture2D expectedRightFacingTexture = NpcCharacter.BuildOamTexture(
+            OracleGraphicsCache.LoadImage(
+                "res://assets/oracle/gfx/spr_common_items.png"),
+            "8,4,0,32",
+            fairyVisual.TileBase,
+            fairyVisual.Palette);
+        using (Image actualRightFacingImage =
+            rightFacingFairy.CurrentTexture.GetImage())
+        using (Image expectedRightFacingImage =
+            expectedRightFacingTexture.GetImage())
+        {
+            if (!rightFacingFairy.FlipX ||
+                rightFacingFairy.Angle != 0x04 ||
+                rightFacingFairy.Position != fairyPosition ||
+                !actualRightFacingImage.GetData().SequenceEqual(
+                    expectedRightFacingImage.GetData()))
+            {
+                throw new InvalidOperationException(
+                    "ITEM_DROP_FAIRY horizontal facing did not XOR OAM flag `$20 " +
+                    "inside the source `$08,$04 cell without shifting its object position.");
+            }
+        }
+        rightFacingFairy.Free();
+        fairyDrop.UpdateFrame(_player, 2);
+        if (fairyDrop.PrecisePosition != fairyPosition + Vector2.Left * 0.25f)
+        {
+            throw new InvalidOperationException(
+                "ITEM_DROP_FAIRY did not apply its exact SPEED_40 leftward velocity " +
+                "on the first bounce update.");
+        }
+        for (int frame = 3; frame < 32; frame++)
+        {
+            fairyDrop.UpdateFrame(_player, frame);
+            if (fairyDrop.State == DropState.Grounded)
+            {
+                throw new InvalidOperationException(
+                    "ITEM_DROP_FAIRY finished bouncing before update 32.");
+            }
+        }
+        fairyDrop.UpdateFrame(_player, 32);
+        if (fairyDrop.State != DropState.Grounded ||
+            fairyDrop.ZFixed != 0 || fairyDrop.SpeedZ != 0 ||
+            fairyDrop.Counter != 240 || fairyDrop.CollisionEnabled ||
+            fairyDrop.FairyCollisionDelayCounter != 5 ||
+            fairyDrop.FairyMovementCounter != 38 ||
+            fairyDrop.PrecisePosition != fairyPosition + Vector2.Left * 7.75f)
+        {
+            throw new InvalidOperationException(
+                "ITEM_DROP_FAIRY did not clamp to z=-6 while airborne, finish its " +
+                "shortened bounce on update 32, and retain the five-tick collision delay.");
+        }
+        for (int frame = 33; frame <= 40; frame++)
+            fairyDrop.UpdateFrame(_player, frame);
+        if (fairyDrop.CollisionEnabled ||
+            fairyDrop.FairyCollisionDelayCounter != 1 ||
+            fairyDrop.Counter != 240)
+        {
+            throw new InvalidOperationException(
+                "ITEM_DROP_FAIRY enabled collection or lifetime countdown before " +
+                "four alternating collision-delay ticks elapsed.");
+        }
+        fairyDrop.UpdateFrame(_player, 41);
+        if (!fairyDrop.CollisionEnabled ||
+            fairyDrop.FairyCollisionDelayCounter != 0 ||
+            fairyDrop.Counter != 239 ||
+            fairyDrop.FairyMovementCounter != 29 ||
+            fairyDrop.PrecisePosition != fairyPosition + Vector2.Left * 10.0f ||
+            fairyRandom.Calls != 3)
+        {
+            throw new InvalidOperationException(
+                "ITEM_DROP_FAIRY did not enable collision, begin its lifetime, and " +
+                "continue the same random route on the fifth alternating delay tick.");
+        }
+        _player.RefillHealth();
+        _player.ApplyDamage(Mathf.Min(8, _player.MaxHealthQuarters - 1));
+        int expectedFairyHealth =
+            Mathf.Min(_player.MaxHealthQuarters, _player.HealthQuarters + 24);
+        _player.WarpTo(fairyDrop.Position, recordSafe: false);
+        fairyDrop.UpdateFrame(_player, 42);
+        if (!fairyDrop.Collected || !fairyDrop.Finished ||
+            _player.HealthQuarters != expectedFairyHealth)
+        {
+            throw new InvalidOperationException(
+                "ITEM_DROP_FAIRY was not collectible on the update after collision " +
+                "enabled or did not grant its `$18-quarter heart refill.");
+        }
+        fairyDrop.Free();
+        _player.WarpTo(farPosition, recordSafe: false);
 
         var bounceDrop = new ItemDropEffect();
         bounceDrop.Initialize(
@@ -2298,8 +2430,11 @@ public sealed partial class ValidationRoot
         ValidateItemDropWaterSplash(oneRupeeVisual);
 
         _player.RefillHealth();
-        GD.Print("Validated all 144 enemy drop records, Keese `$ae probability/set data, " +
-            "PART_ITEM_DROP heart/1/5/100-rupee visuals, shovel SPEED_a0 launch, " +
+        GD.Print("Validated all 144 enemy drop records, Giant Ghini `$ef` guaranteed-fairy " +
+            "and Pumpkin Head `$ff` no-drop records, Keese `$ae probability/set data, " +
+            "PART_ITEM_DROP fairy/heart/1/5/100-rupee visuals, exact fairy global-RNG " +
+            "movement and in-place OAM facing, z=-6 clamp, delayed collision, `$18 refill, " +
+            "shovel SPEED_a0 launch, " +
             "-`$160 fixed-point bounce, heart `$57 and rupee `$61 pickup sounds, " +
             "sword COLLISIONEFFECT_23 collection without enemy contact, " +
             "ground-height INTERAC_SPLASH/`$87 water disposal, one-per-update rupee display and " +
@@ -2462,6 +2597,32 @@ public sealed partial class ValidationRoot
         }
         throw new InvalidOperationException(
             $"Room {room.Group:x1}:{room.Id:x2} has no open item-drop validation position.");
+    }
+
+    private static Vector2 FindOpenFairyDropPosition(OracleRoomData room)
+    {
+        for (int y = 1; y < room.HeightInTiles - 1; y++)
+        for (int x = 2; x < room.WidthInTiles - 1; x++)
+        {
+            Vector2 point = new(
+                x * OracleRoomData.MetatileSize + 8,
+                y * OracleRoomData.MetatileSize + 8);
+            bool routeIsOpen = true;
+            for (int xOffset = -16; xOffset <= 0; xOffset++)
+            {
+                Vector2 sample = point + Vector2.Right * xOffset;
+                if (room.IsSolid(sample) ||
+                    room.GetTerrainInfo(sample).Hazard != HazardType.None)
+                {
+                    routeIsOpen = false;
+                    break;
+                }
+            }
+            if (routeIsOpen)
+                return point;
+        }
+        throw new InvalidOperationException(
+            $"Room {room.Group:x1}:{room.Id:x2} has no open ITEM_DROP_FAIRY validation route.");
     }
 
     private void ValidateTerrain()

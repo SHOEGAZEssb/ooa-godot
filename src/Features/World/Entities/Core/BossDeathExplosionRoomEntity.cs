@@ -4,7 +4,11 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-internal sealed class BossDeathExplosionRoomEntity(BossDeathExplosionEffect explosion)
+internal sealed class BossDeathExplosionRoomEntity(
+    BossDeathExplosionEffect explosion,
+    ItemDropDatabase itemDrops,
+    OracleRandom random,
+    Func<int> roomEnemyCount)
     : RoomEntityAdapter<BossDeathExplosionEffect>(
         explosion, explosion.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomEntityLifetime, IRoomEnemyCounterEntity
@@ -13,4 +17,17 @@ internal sealed class BossDeathExplosionRoomEntity(BossDeathExplosionEffect expl
     public bool CountsAsEnemy => !Entity.Finished;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame();
+
+    public void OnFinished(ICollection<RoomEntitySpawn> spawns)
+    {
+        // bossDeathExplosion decrements wNumEnemies first. Only the explosion
+        // which brought that count to zero resolves the defeated boss ID
+        // through decideItemDrop.
+        if (roomEnemyCount() != 0)
+            return;
+
+        int? subId = itemDrops.DecideDrop(Entity.BossId, random);
+        if (subId.HasValue)
+            spawns.Add(new ItemDropSpawn(subId.Value, Entity.Position));
+    }
 }

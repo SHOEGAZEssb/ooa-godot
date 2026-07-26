@@ -14,6 +14,7 @@ public sealed class ItemDropDatabase
     public const int SelectionDataSize =
         EnemyRecordCount + ProbabilityCount * ProbabilityBytesPerRecord + SetCount * SetSize;
 
+    public const int Fairy = 0x00;
     public const int Heart = 0x01;
     public const int OneRupee = 0x02;
     public const int FiveRupees = 0x03;
@@ -27,6 +28,8 @@ public sealed class ItemDropDatabase
 
     private readonly byte[] _selectionData;
     private readonly Dictionary<int, ItemDropDatabaseVisualRecord> _visuals = new();
+    private readonly Dictionary<(int Speed, int Angle), ItemDropFairyVelocityRecord>
+        _fairyVelocities = new();
 
     public ItemDropDatabase()
     {
@@ -57,6 +60,30 @@ public sealed class ItemDropDatabase
 
         if (_visuals.Count != 16)
             throw new InvalidOperationException($"Expected 16 item-drop visual records, got {_visuals.Count}.");
+
+        GeneratedTable velocityTable = GeneratedTable.Load(
+            "res://assets/oracle/effects/item_drop_fairy_velocities.tsv",
+            new GeneratedTableSchema(
+                "item-drop fairy velocities",
+                GeneratedTableKeySemantics.Unique,
+                ["speed-code", "angle", "y-fixed", "x-fixed", "source"],
+                ["speed-code", "angle"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in velocityTable.Rows)
+        {
+            int speed = row.HexByte(0);
+            int angle = row.HexByte(1);
+            _fairyVelocities.Add(
+                (speed, angle),
+                new ItemDropFairyVelocityRecord(
+                    speed, angle, row.Decimal(2), row.Decimal(3)));
+        }
+
+        if (_fairyVelocities.Count != 4 * 32)
+        {
+            throw new InvalidOperationException(
+                $"Expected 128 item-drop fairy velocity records, got {_fairyVelocities.Count}.");
+        }
     }
 
     public int EnemyTableRecord(int enemyId) =>
@@ -66,12 +93,18 @@ public sealed class ItemDropDatabase
         ? record
         : throw new KeyNotFoundException($"PART_ITEM_DROP subid ${subId:x2} has no visual record.");
 
+    internal ItemDropFairyVelocityRecord GetFairyVelocity(int speed, int angle) =>
+        _fairyVelocities.TryGetValue((speed, angle), out ItemDropFairyVelocityRecord record)
+            ? record
+            : throw new KeyNotFoundException(
+                $"ITEM_DROP_FAIRY has no velocity for speed ${speed:x2}, angle ${angle:x2}.");
+
     internal static bool IsRuntimeSupported(int subId) =>
-        subId is >= Heart and <= MysterySeeds or OneHundredRupeesOrEnemy;
+        subId is >= Fairy and <= MysterySeeds or OneHundredRupeesOrEnemy;
 
     internal static int TreasureForDrop(int subId) => subId switch
     {
-        Heart => TreasureDatabase.TreasureHeartRefill,
+        Fairy or Heart => TreasureDatabase.TreasureHeartRefill,
         OneRupee or FiveRupees or OneHundredRupeesOrEnemy =>
             TreasureDatabase.TreasureRupees,
         Bombs => TreasureDatabase.TreasureBombs,
@@ -82,7 +115,7 @@ public sealed class ItemDropDatabase
 
     internal static bool IsAvailable(int subId, OracleSaveData? save)
     {
-        if (subId is >= Heart and <= FiveRupees or OneHundredRupeesOrEnemy)
+        if (subId is >= Fairy and <= FiveRupees or OneHundredRupeesOrEnemy)
             return true;
         int treasure = TreasureForDrop(subId);
         return treasure != TreasureDatabase.TreasureNone &&
@@ -143,7 +176,10 @@ public sealed class ItemDropDatabase
     }
 
     private static bool IsCurrentlyAvailable(int subId) =>
-        subId is Heart or OneRupee or FiveRupees or OneHundredRupeesOrEnemy;
+        subId is Fairy or Heart or OneRupee or FiveRupees or OneHundredRupeesOrEnemy;
 }
 
 public readonly record struct ItemDropDatabaseVisualRecord(int SubId, int TileBase, int Palette, string Animation);
+
+internal readonly record struct ItemDropFairyVelocityRecord(
+    int Speed, int Angle, int YFixed, int XFixed);

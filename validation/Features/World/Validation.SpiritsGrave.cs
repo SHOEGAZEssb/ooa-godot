@@ -1238,20 +1238,30 @@ public sealed partial class ValidationRoot
                 "Giant Ghini's terminal boss-explosion frame did not retain the " +
                 "enemy count for its complete source duration.");
         }
+        int giantDropRandomCalls = _entities.RandomCalls;
         StepEntities();
         if (_entities.Entities<BossDeathExplosionEffect>().Count != 0 ||
-            _saveData.HasRoomFlag(4, 0x18, OracleSaveData.RoomFlag80))
+            _saveData.HasRoomFlag(4, 0x18, OracleSaveData.RoomFlag80) ||
+            _entities.Entities<ItemDropEffect>() is not
+                [{ SubId: ItemDropDatabase.Fairy, ElapsedFrames: 0 }] ||
+            _entities.RandomCalls != giantDropRandomCalls + 2)
         {
             throw new InvalidOperationException(
                 "Giant Ghini's boss explosion did not release its enemy count on " +
-                "the update after the terminal frame.");
+                "the update after the terminal frame and resolve enemy record `$70 " +
+                "to its guaranteed ITEM_DROP_FAIRY.");
         }
         StepEntities();
         if (!_saveData.HasRoomFlag(4, 0x18, OracleSaveData.RoomFlag80) ||
-            _entities.Entities<MinibossPortal>().Count != 0)
+            _entities.Entities<MinibossPortal>().Count != 0 ||
+            _entities.Entities<ItemDropEffect>() is not
+                [{ SubId: ItemDropDatabase.Fairy, ElapsedFrames: 1,
+                    State: DropState.Bouncing }] ||
+            _entities.RandomCalls != giantDropRandomCalls + 5)
         {
             throw new InvalidOperationException(
-                "Room 4:18 did not begin its reward wait after the boss explosion ended.");
+                "Room 4:18 did not begin its reward wait while the spawned fairy " +
+                "initialized from three shared global RNG values.");
         }
         StepEntities(19);
         if (_entities.Entities<MinibossPortal>().Count != 0)
@@ -1694,17 +1704,21 @@ public sealed partial class ValidationRoot
                 "Pumpkin Head's terminal boss-explosion frame did not retain the " +
                 "enemy count for its complete source duration.");
         }
+        int pumpkinDropRandomCalls = _entities.RandomCalls;
         StepEntities(2);
         if (_entities.Entities<BossDeathExplosionEffect>().Count != 0 ||
             !_saveData.HasRoomFlag(4, 0x13, OracleSaveData.RoomFlag80) ||
             _entities.Entities<GroundTreasurePickup>() is not
                 [{ Record.TreasureObject: "TREASURE_OBJECT_HEART_CONTAINER_00" }] ||
+            _entities.Entities<ItemDropEffect>().Count != 0 ||
+            _entities.RandomCalls != pumpkinDropRandomCalls ||
             _entities.LinkCollisionsAndMenuDisabled ||
             _entities.PlayerMenusDisabled)
         {
             throw new InvalidOperationException(
                 "Pumpkin Head's boss explosion did not release its enemy count and " +
-                "create the Heart Container on the following reward update.");
+                "create the Heart Container without an item drop or RNG consumption " +
+                "from its source `$ff no-drop record.");
         }
 
         // The room-$12 spawner represents five hands. Verify its delayed drop,

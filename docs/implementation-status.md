@@ -22,7 +22,9 @@ claim that the entire surrounding game is complete.
 ### Player, combat, and items
 
 - Link movement, level-1 sword combat, terrain hazards, push blocks, signs,
-  chests, item drops, exact imported `$f8` grass overlap and four-frame `$f9`
+  chests, item drops (including the mobile `$00` fairy's imported velocities,
+  shared-RNG routes, delayed collision, and `$18` heart refill), exact imported
+  `$f8` grass overlap and four-frame `$f9`
   shallow-water ripple OAM/step sound, grass/bush cut debris OAM, timing, sound,
   underwater palette, and grass subid flicker, the active Shovel, and the
   first Seed Satchel's active Ember Seed path. The Satchel uses its selected
@@ -271,9 +273,11 @@ remains the single runtime policy table.
   imported destination (`$24` for dungeon `$01`, `$ce` for dungeon `$0b`).
 - Giant Ghini and its three linked children implement the room `4:18`
   miniboss encounter, including the source `$16` forced Link entry before its
-  crossed shutter closes, and persistent bidirectional portal. Pumpkin Head in
-  room `4:13` implements the separately timed body/ghost/head ceiling entry,
-  impact and boss-music handoff, body movement/stomps/projectile attack,
+  crossed shutter closes, guaranteed record-`$ef` fairy drop, and persistent
+  bidirectional portal. Pumpkin Head in room `4:13` preserves its separate
+  `$ff` no-drop record and implements the separately timed body/ghost/head
+  ceiling entry, impact and boss-music handoff, body
+  movement/stomps/projectile attack,
   exposed grabbable head, ordinary-sword and thrown-head ghost damage,
   persistent eight-point ghost health, Bracelet weight-0 throw, regeneration
   at the landed head, source body/ghost/head palettes, death phase, and Heart

@@ -426,9 +426,13 @@ the saved room music when it creates `PART_BOSS_DEATH_EXPLOSION`, and leaves
 that imported 78-update part in `wNumEnemies`. The reward controller clears the
 lock only after the explosion releases the enemy count and the source reward
 script reaches its enable step. Do not route bosses through the ordinary death
-puff/drop producer. Airborne bosses attach the reusable imported `PART_SHADOW`;
-its size comes from the parent's raw Z high byte and its visibility alternates
-every update.
+puff/drop producer. Instead, the final boss explosion separately calls the
+common drop selector with its defeated enemy ID after decrementing the live
+enemy count to zero. This preserves record `$70`'s guaranteed
+`ITEM_DROP_FAIRY` for Giant Ghini and record `$78`'s `$ff` no-drop result for
+Pumpkin Head. Airborne bosses attach the reusable imported `PART_SHADOW`; its
+size comes from the parent's raw Z high byte and its visibility alternates every
+update.
 
 Pumpkin Head's body and exposed ghost do not share one combat record. The body
 resets to eight health each time its head is exposed, while the ghost retains
@@ -644,6 +648,19 @@ Shovel-created drops. A dug-up drop copies Link's cardinal angle and applies
 the allow-holes front/current tile probes before movement. Horizontal movement
 ends with the bounce; it must not leak into ordinary drops or grounded lifetime
 updates.
+
+Subid `$00`, `ITEM_DROP_FAIRY`, is the exception to stationary grounded
+behavior. Its initialization consumes three values from the shared global RNG
+for an even `$00-$1e` angle, one of `SPEED_40/SPEED_80/SPEED_c0/SPEED_100`, and
+an 8-70-update route counter. Movement uses the imported signed 8.8 components
+from `bank3.objectSpeedTable`, retains the source front-probe boundary behavior,
+and rerolls through the same three-call sequence when the route expires. Its
+left/right facing XORs OAM flag `$20` within the fixed source cell; do not mirror
+the larger composed texture around the object origin. While bouncing, the fairy
+clamps its Z high byte to `$fa`; after landing it waits five alternating
+countdown ticks before enabling collision, while continuing to move every
+update. Collection grants `TREASURE_HEART_REFILL` amount `$18`, doubled to
+`$30` by the Gold or Blue Joy Ring.
 
 Grounded/low airborne drops retain part collision mode `$01`. Link's sword
 collision types `$04-$0b` select `COLLISIONEFFECT_23`, zeroing the part's health
