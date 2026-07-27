@@ -760,7 +760,7 @@ public sealed class RoomEntityManager : IDisposable
         return true;
     }
 
-    private void BeginScreenShake(int updates)
+    internal void BeginScreenShake(int updates)
     {
         if (updates <= 0)
             throw new ArgumentOutOfRangeException(nameof(updates));

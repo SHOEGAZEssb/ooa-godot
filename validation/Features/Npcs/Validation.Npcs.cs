@@ -222,9 +222,9 @@ public sealed partial class ValidationRoot
             new Dictionary<NpcImplementationClassification, int>
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 60,
-                [NpcImplementationClassification.SpecializedNative] = 110,
+                [NpcImplementationClassification.SpecializedNative] = 111,
                 [NpcImplementationClassification.EventOwned] = 14,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 276
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 275
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -238,7 +238,7 @@ public sealed partial class ValidationRoot
         {
             throw new InvalidOperationException(
                 "The generated NPC implementation manifest did not retain " +
-                "60 ordinary, 110 specialized, 14 event-owned, and 276 " +
+                "60 ordinary, 111 specialized, 14 event-owned, and 275 " +
                 $"unsupported records (total={records.Count}; " +
                 $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
         }
@@ -3541,11 +3541,11 @@ public sealed partial class ValidationRoot
         var manager = new RoomEntityManager(
             validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
 
-        if (new NpcVisibilityRuleDatabase().RuleCount != 337 ||
+        if (new NpcVisibilityRuleDatabase().RuleCount != 339 ||
             new NpcDialogueRuleDatabase().RuleCount != 116 ||
             new NpcPositionRuleDatabase().RuleCount != 2)
             throw new InvalidOperationException(
-                "Expected 337 NPC visibility, 116 NPC dialogue, and two NPC " +
+                "Expected 339 NPC visibility, 116 NPC dialogue, and two NPC " +
                 "position state predicates.");
 
         manager.LoadRoom(1, _world.LoadRoom(1, 0x86));
@@ -4135,7 +4135,7 @@ public sealed partial class ValidationRoot
             "$20-frame animation loops, rooms 2:ea/2:eb's 72-record family spawner, " +
             "Bipin $28:$00's SPEED_100 X=$28/$58 patrol, $04/$05 animation reversal, " +
             "and moving objectPreventLinkFromPassing collision, " +
-            "337 imported visibility, 116 dialogue, and two position predicates, " +
+            "339 imported visibility, 116 dialogue, and two position predicates, " +
             "room 0:68's phased talkable cast, room 3:9e's post-intro Impa " +
             "var03 selection, lifecycle-safe event hiding, and deliberate " +
             "suppression of unsupported native handlers.");

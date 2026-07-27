@@ -381,6 +381,21 @@ remains the single runtime policy table.
   palette-2 actor, all five TX `$4d05-$4d09` choice branches, repeated
   explanation/secret prompts, began flag, and original five-symbol Graveyard
   secret packing, checksum, cipher, and text substitution are implemented.
+- Room `0:83` includes the linked-game Great Fairy after D2 and its existing
+  Ancient Cave sign. The fairy remains invisible but solid through scrolling,
+  then uses the exact SND `$73`/puff, 32-update wait, Fairy Fountain music,
+  signed eight-step Z bob, TX `$4d1e-$4d22` choice loop, Temple began flag, and
+  short-secret `$26` encoding/substitution. Its independent `$dc:$02`
+  controller observes the real Bracelet lift of rock `$c3` at `$43`, exposes
+  dug dirt `$1c`, waits for completed grab state `$83`, then reproduces the
+  30-update held-rock reaction, 60-update exclamation/shake, four imported
+  6x6 collapsing façade maps at 30-update intervals, random `$97` dust puffs,
+  four `SND_DOORCLOSE` requests, and final 60-update hold. Room flags `$80`
+  for `$0:$83` and `$0:$73`, the collapsed 3x3 layout/collisions, and its
+  final BG map restore on re-entry. The terminal `objectData7e69` allocation
+  then runs the shared present-day remote-Maku lane with `$8a:$00/v$01`:
+  Maku music, HUD/palette fades, confetti, TX `$05b1/$05c1`, map text
+  `$b1/$c1`, room flag `$40`, Maku-state increment, and input/music restore.
 - Reusable dungeon buttons `$09`, trigger shutters `$1e:$04-$07`, permanent
   trigger chests `$20:$00`, retractable trigger chests `$21:$17`, push-block
   triggers `$13:$01`, and enemy shutters `$1e:$08-$0b`, with all 155 direct

@@ -373,6 +373,42 @@ public sealed class OracleRoomData
         return RenderRoom(_activeAnimationHeaders).GetPixel(point.X, point.Y);
     }
 
+    internal byte GetBackgroundSubtileForValidation(int tileX, int tileY)
+    {
+        if (tileX < 0 || tileX >= WidthInTiles * 2 ||
+            tileY < 0 || tileY >= HeightInTiles * 2)
+        {
+            throw new ArgumentOutOfRangeException(nameof(tileX));
+        }
+
+        int index = tileY / 2 * _layoutStride + tileX / 2;
+        int quarter = tileY % 2 * 2 + tileX % 2;
+        if (_positionMappingOverrides.TryGetValue(
+                index, out byte[]? mappingOverride))
+        {
+            return mappingOverride[quarter];
+        }
+        return _mappings[Layout[index] * 8 + quarter];
+    }
+
+    internal byte GetBackgroundAttributeForValidation(int tileX, int tileY)
+    {
+        if (tileX < 0 || tileX >= WidthInTiles * 2 ||
+            tileY < 0 || tileY >= HeightInTiles * 2)
+        {
+            throw new ArgumentOutOfRangeException(nameof(tileX));
+        }
+
+        int index = tileY / 2 * _layoutStride + tileX / 2;
+        int quarter = tileY % 2 * 2 + tileX % 2;
+        if (_positionMappingOverrides.TryGetValue(
+                index, out byte[]? mappingOverride))
+        {
+            return mappingOverride[4 + quarter];
+        }
+        return _mappings[Layout[index] * 8 + 4 + quarter];
+    }
+
     internal bool HasAnimationOverride(int destinationTile, long tick)
     {
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, tick);
@@ -684,7 +720,8 @@ public sealed class OracleRoomData
         int width,
         IReadOnlyList<byte> tiles,
         IReadOnlyList<byte> collisions,
-        long animationTick)
+        long animationTick,
+        bool preserveBackgroundMappings = false)
     {
         if (width <= 0 || tiles.Count == 0 || tiles.Count != collisions.Count ||
             tiles.Count % width != 0)
@@ -708,7 +745,8 @@ public sealed class OracleRoomData
             int index = y * _layoutStride + x;
             Layout[index] = tiles[offset];
             _positionCollisionOverrides[index] = collisions[offset];
-            _positionMappingOverrides.Remove(index);
+            if (!preserveBackgroundMappings)
+                _positionMappingOverrides.Remove(index);
             _positionVisualOverrides.Remove(index);
         }
         Redraw(animationTick);
@@ -759,6 +797,72 @@ public sealed class OracleRoomData
             _positionMappingOverrides[index] = mapping;
             _positionVisualOverrides.Remove(index);
             _positionCollisionOverrides[index] = collision;
+        }
+        Redraw(animationTick);
+    }
+
+    /// <summary>
+    /// Mirrors copyRectangleFromTmpGfxBuffer for an even-sized background
+    /// tilemap rectangle. The imported tile IDs replace only the four tile
+    /// bytes in each covered metatile; source attribute bytes remain intact.
+    /// </summary>
+    internal void SetBackgroundSubtileRectangle(
+        Vector2 localTopLeft,
+        int width,
+        IReadOnlyList<byte> tileIds,
+        long animationTick)
+    {
+        if (width <= 0 || tileIds.Count == 0 || tileIds.Count % width != 0)
+        {
+            throw new ArgumentException(
+                "Invalid background-subtile rectangle.", nameof(tileIds));
+        }
+        int height = tileIds.Count / width;
+        if ((width & 1) != 0 || (height & 1) != 0)
+        {
+            throw new ArgumentException(
+                "Background-subtile rectangles must cover whole metatiles.",
+                nameof(tileIds));
+        }
+
+        int pixelX = Mathf.RoundToInt(localTopLeft.X);
+        int pixelY = Mathf.RoundToInt(localTopLeft.Y);
+        if (pixelX % MetatileSize != 0 || pixelY % MetatileSize != 0)
+            throw new ArgumentException(
+                "Background-subtile rectangles must be metatile-aligned.",
+                nameof(localTopLeft));
+        int startX = pixelX / MetatileSize;
+        int startY = pixelY / MetatileSize;
+        int metatileWidth = width / 2;
+        int metatileHeight = height / 2;
+        if (startX < 0 || startY < 0 ||
+            startX + metatileWidth > WidthInTiles ||
+            startY + metatileHeight > HeightInTiles)
+        {
+            throw new ArgumentOutOfRangeException(nameof(localTopLeft));
+        }
+
+        for (int metatileY = 0; metatileY < metatileHeight; metatileY++)
+        for (int metatileX = 0; metatileX < metatileWidth; metatileX++)
+        {
+            int index =
+                (startY + metatileY) * _layoutStride + startX + metatileX;
+            int mappingOffset = Layout[index] * 8;
+            byte[] mapping = _positionMappingOverrides.TryGetValue(
+                    index, out byte[]? previous)
+                ? (byte[])previous.Clone()
+                : _mappings[mappingOffset..(mappingOffset + 8)];
+            for (int quarterY = 0; quarterY < 2; quarterY++)
+            for (int quarterX = 0; quarterX < 2; quarterX++)
+            {
+                int quarter = quarterY * 2 + quarterX;
+                int sourceRow = metatileY * 2 + quarterY;
+                int sourceColumn = metatileX * 2 + quarterX;
+                mapping[quarter] =
+                    tileIds[sourceRow * width + sourceColumn];
+            }
+            _positionMappingOverrides[index] = mapping;
+            _positionVisualOverrides.Remove(index);
         }
         Redraw(animationTick);
     }

@@ -562,6 +562,7 @@ if ($room158HoboSource -notmatch '(?ms)^@subid4:.*?getGameProgress_2.*?cp \$03\s
 $npcTextBySubid['79:2'] = 0x012f
 $npcTextBySubid['54:13'] = 0x1d17
 $npcTextBySubid['203:0'] = 0x4d05
+$npcTextBySubid['213:0'] = 0x4d1e
 $npcTextByVariant = @{
     '88:1:0' = 0x1007
     '88:1:1' = 0x1008
@@ -651,6 +652,7 @@ $specializedNpcImplementationKeys =
 foreach ($key in @(
     '0:56:65:00:00',
     '0:5d:cb:00:00',
+    '0:83:d5:00:00',
     '0:7c:59:00:00',
     '0:7c:59:00:02',
     '1:48:57:00:00',
@@ -717,7 +719,7 @@ foreach ($key in @(
 }
 
 if ($ordinaryNpcImplementationKeys.Count -ne 59 -or
-    $specializedNpcImplementationKeys.Count -ne 38 -or
+    $specializedNpcImplementationKeys.Count -ne 39 -or
     $eventOwnedNpcImplementationKeys.Count -ne 14) {
     throw 'NPC implementation registry key counts changed.'
 }
@@ -2599,9 +2601,9 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
         1 + [int]$npcImplementationCounts[$implementation]
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 60 -or
-    $npcImplementationCounts['specialized-native'] -ne 38 -or
+    $npcImplementationCounts['specialized-native'] -ne 39 -or
     $npcImplementationCounts['event-owned'] -ne 14 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 276 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 275 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -2759,41 +2761,76 @@ if ($npcDialogueRows.Count -ne 117) {
     $npcDialogueRows,
     [Text.UTF8Encoding]::new($false))
 
-# INTERAC_LINKED_GAME_GHINI `$cb installs linkedGameNpcScript with secret
-# index `$01. Export its complete five-text choice loop and progression
-# constants; the runtime substitutes the generated five-character secret for
-# the text engine's \secret1 command.
+# INTERAC_LINKED_GAME_GHINI `$cb and INTERAC_GREAT_FAIRY `$d5:$00 both
+# install linkedGameNpcScript. Export each complete five-text choice loop and
+# progression constants; the runtime substitutes the generated five-character
+# secret for the text engine's \secret1 command.
 $linkedGhiniSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\linkedGameGhini.s')
+$greatFairySource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\greatFairy.s')
 $linkedNpcScriptSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scripts.s')
 if ($linkedGhiniSource -notmatch '(?ms)^interactionCodecb:.*?Interaction\.oamFlags\s+ld \(hl\),\$02.*?Interaction\.var3f\s+ld \(hl\),GRAVEYARD_SECRET & \$0f.*?mainScripts\.linkedGameNpcScript' -or
     $linkedGhiniSource -notmatch '(?ms)^@initialize:.*?interactionInitGraphics.*?objectMarkSolidPosition.*?interactionIncState' -or
+    $greatFairySource -notmatch '(?ms)^greatFairy_subid0:.*?greatFairy_initialize.*?interactionSetAlwaysUpdateBit.*?Interaction\.zh\s+ld \(hl\),\$f0.*?Interaction\.var3f\s+ld \(hl\),TEMPLE_SECRET & \$0f' -or
+    $greatFairySource -notmatch '(?ms)^@state1:.*?returnIfScrollMode01Unset.*?interactionRunScript.*?Interaction\.var3e.*?interactionAnimateAsNpc.*?wFrameCounter.*?and \$07.*?and \$38.*?@zPositions:\s+\.db \$ff \$fe \$ff \$00 \$01 \$02 \$01 \$00' -or
+    $greatFairySource -notmatch '(?ms)^greatFairy_initialize:.*?interactionInitGraphics.*?objectMarkSolidPosition.*?@scriptTable:\s+\.dw mainScripts\.greatFairySubid0Script' -or
+    $linkedNpcScriptSource -notmatch '(?ms)^greatFairySubid0Script:.*?linkedNpc_checkShouldSpawn.*?objectSetInvisible.*?Interaction\.var3e, \$01.*?greatFairy_checkScreenIsScrolling.*?playsound SND_KILLENEMY.*?createpuff.*?wait 32.*?setmusic MUS_FAIRY_FOUNTAIN.*?objectSetVisible.*?Interaction\.var3e, \$00.*?scriptjump linkedGameNpcScript' -or
     $linkedNpcScriptSource -notmatch '(?ms)^linkedGameNpcScript:.*?linkedNpc_checkShouldSpawn.*?@offerSecret:.*?linkedNpc_calcLowTextIndex, \$00.*?jumpiftextoptioneq \$00, @answeredYes.*?addobjectbyte Interaction\.textID, \$01.*?@showExtraText:.*?linkedNpc_calcLowTextIndex, \$02.*?@generateSecret:.*?linkedNpc_generateSecret.*?linkedNpc_calcLowTextIndex, \$03.*?@tellSecret:.*?jumpiftextoptioneq \$01, @tellSecret.*?linkedNpc_calcLowTextIndex, \$04' -or
-    $linkedNpcScriptHelperSource -notmatch '(?ms)^linkedNpc_generateSecret:.*?GLOBALFLAG_FIRST_AGES_BEGAN_SECRET.*?ld a,\$20.*?ld \(wShortSecretIndex\),a.*?ld bc,\$0003') {
-    throw 'Room 0:5d linked-game Ghini script graph changed in the disassembly.'
+    $linkedNpcScriptHelperSource -notmatch '(?ms)^linkedNpc_checkShouldSpawn:.*?\.dw @checkd1.*?\.dw @checkd2.*?^@checkd1:\s+ld a,\$00.*?^@checkd2:\s+ld a,\$01' -or
+    $linkedNpcScriptHelperSource -notmatch '(?ms)^linkedNpc_checkHasExtraTextBox:.*?^@data:\s+\.db \$01 \$01 \$01 \$00 \$00 \$00 \$01 \$00 \$00 \$01' -or
+    $linkedNpcScriptHelperSource -notmatch '(?ms)^linkedNpc_generateSecret:.*?GLOBALFLAG_FIRST_AGES_BEGAN_SECRET.*?ld a,\$20.*?ld \(wShortSecretIndex\),a.*?ld bc,\$0003' -or
+    $musicIdSource -notmatch '(?m)^\s*MUS_FAIRY_FOUNTAIN\s+db\s+; \$0f' -or
+    $musicIdSource -notmatch '(?m)^\s*SND_KILLENEMY\s+db\s+; \$73' -or
+    $musicIdSource -notmatch '(?m)^\s*SND_POOF\s+db\s+; \$98') {
+    throw 'Linked-game Ghini or room 0:83 Great Fairy behavior changed in the disassembly.'
 }
-$linkedGhiniTextIds = @(0x4d05, 0x4d06, 0x4d07, 0x4d08, 0x4d09)
-foreach ($textId in $linkedGhiniTextIds) {
-    if (-not $allTexts.ContainsKey($textId)) {
-        throw "Could not resolve linked-game Ghini text TX_$($textId.ToString('x4'))."
+$linkedNpcRows = [Collections.Generic.List[string]]::new()
+$linkedNpcRows.Add(
+    "# group`troom`tid`tsubid`tsecret-index`tshort-secret-index`tbegan-flag`thas-extra-text`toffer-text-id`trefusal-text-id`texplanation-text-id`tsecret-text-id`tfinal-text-id`toffer-utf8-base64`trefusal-utf8-base64`texplanation-utf8-base64`tsecret-utf8-base64`tfinal-utf8-base64`tsource")
+foreach ($linkedNpc in @(
+    @{
+        Group = 0x00; Room = 0x5d; Id = 0xcb; SubId = 0x00
+        SecretIndex = 0x01; BeganFlag = 'GLOBALFLAG_BEGAN_GRAVEYARD_SECRET'
+        Source = 'linkedGameGhini.s;linkedGameNpcScript;scriptHelper.s:linkedNpc_generateSecret'
+    },
+    @{
+        Group = 0x00; Room = 0x83; Id = 0xd5; SubId = 0x00
+        SecretIndex = 0x06; BeganFlag = 'GLOBALFLAG_BEGAN_TEMPLE_SECRET'
+        Source = 'greatFairy.s:greatFairy_subid0;greatFairySubid0Script;linkedGameNpcScript;scriptHelper.s:linkedNpc_generateSecret'
     }
+)) {
+    $textIds = 0..4 | ForEach-Object {
+        0x4d00 + [int]$linkedNpc.SecretIndex * 5 + $_
+    }
+    foreach ($textId in $textIds) {
+        if (-not $allTexts.ContainsKey($textId)) {
+            throw "Could not resolve linked-game NPC text TX_$($textId.ToString('x4'))."
+        }
+    }
+    if (-not $globalFlagValues.ContainsKey($linkedNpc.BeganFlag)) {
+        throw "Could not resolve linked-game NPC flag $($linkedNpc.BeganFlag)."
+    }
+    $columns = @(
+        ([int]$linkedNpc.Group).ToString('x1'),
+        ([int]$linkedNpc.Room).ToString('x2'),
+        ([int]$linkedNpc.Id).ToString('x2'),
+        ([int]$linkedNpc.SubId).ToString('x2'),
+        ([int]$linkedNpc.SecretIndex).ToString('x2'),
+        (0x20 + [int]$linkedNpc.SecretIndex).ToString('x2'),
+        $globalFlagValues[$linkedNpc.BeganFlag].ToString('x2'),
+        '1'
+    ) + @($textIds | ForEach-Object { $_.ToString('x4') }) +
+        @($textIds | ForEach-Object {
+            [Convert]::ToBase64String(
+                [Text.Encoding]::UTF8.GetBytes($allTexts[$_]))
+        }) + @([string]$linkedNpc.Source)
+    $linkedNpcRows.Add($columns -join "`t")
 }
-$linkedGhiniColumns = @(
-    '01',
-    '21',
-    $globalFlagValues['GLOBALFLAG_BEGAN_GRAVEYARD_SECRET'].ToString('x2')
-) + @($linkedGhiniTextIds | ForEach-Object { $_.ToString('x4') }) +
-    @($linkedGhiniTextIds | ForEach-Object {
-        [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$_]))
-    }) + @('linkedGameGhini.s;linkedGameNpcScript;scriptHelper.s:linkedNpc_generateSecret')
-$linkedGhiniRows = @(
-    "# secret-index`tshort-secret-index`tbegan-flag`toffer-text-id`trefusal-text-id`texplanation-text-id`tsecret-text-id`tfinal-text-id`toffer-utf8-base64`trefusal-utf8-base64`texplanation-utf8-base64`tsecret-utf8-base64`tfinal-utf8-base64`tsource",
-    ($linkedGhiniColumns -join "`t")
-)
 [IO.File]::WriteAllLines(
-    (Join-Path $destination 'objects\linked_game_ghini.tsv'),
-    $linkedGhiniRows,
+    (Join-Path $destination 'objects\linked_game_npcs.tsv'),
+    $linkedNpcRows,
     [Text.UTF8Encoding]::new($false))
 
 # State-selected position overrides remain separate from visibility and text.
@@ -3380,6 +3417,10 @@ Add-NpcEssenceVisibility 0x3d 0x05 -1 0 0x02 $true 'scriptHelper.s:@checkd2_2' '
 Add-NpcLinkedVisibility 0xcb 0x00 -1 0 $true 'scriptHelper.s:linkedNpc_checkShouldSpawn'
 Add-NpcEssenceVisibility 0xcb 0x00 -1 0 0x01 $true 'scriptHelper.s:@checkd1' '@checkd1'
 
+# Room 0:83's Great Fairy is secret index `$06: linked files only, after D2.
+Add-NpcLinkedVisibility 0xd5 0x00 -1 0 $true 'scriptHelper.s:linkedNpc_checkShouldSpawn'
+Add-NpcEssenceVisibility 0xd5 0x00 -1 0 0x02 $true 'scriptHelper.s:@checkd2' '@checkd2'
+
 # Lynna City's paired villager placements use the original
 # checkNpcShouldExistAtGameStage table. Import every phase listed for each
 # subid, including the three actors placed together in room 0:68.
@@ -3546,8 +3587,8 @@ Add-NpcCurrentRoomVisibility 0xab 0x12 -1 0 0x40 $false 'zora.s:@deleteIfFlagSet
 
 Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symmetryNpc.s:@subid0cInit'
 
-if ($npcVisibilityRows.Count -ne 338) {
-    throw "Expected 337 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 340) {
+    throw "Expected 339 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\npc_visibility.tsv'),

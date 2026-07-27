@@ -3177,6 +3177,108 @@ for ($index = 0; $index -lt $graveyardSpecs.Count; $index++) {
     (Join-Path $destination 'cutscenes\graveyard_gate_commands.tsv'),
     $graveyardCommandRows, [Text.UTF8Encoding]::new($false))
 
+# Present room 0:83's $dc:$02 watches the unique $c3 Bracelet rock. Once
+# Link reaches grab state $83, it runs the native Wing Dungeon collapse,
+# including the 6x6 BG maps and the persistent 3x3 layout/collision rewrite.
+$wingInteractionSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous2.s')
+$wingCutsceneSource = Read-ImportText (
+    Join-Path $Disassembly 'code\ages\cutscenes\miscCutscenes.s')
+$wingRoomGfxSource = Read-ImportText (
+    Join-Path $Disassembly 'code\ages\roomGfxChanges.s')
+$wingGfxHeaderSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\gfxHeaders.s')
+$wingSingleTileSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\singleTileChanges.s')
+$wingObjectSource = Read-ImportText (
+    Join-Path $Disassembly 'objects\ages\mainData.s')
+$wingExtraObjectSource = Read-ImportText (
+    Join-Path $Disassembly 'objects\ages\extraData4.s')
+
+if ($wingObjectSource -notmatch '(?ms)^group0Map83ObjectData:\s+obj_Interaction \$d5 \$00 \$28 \$58\s+obj_Interaction \$dc \$02 \$48 \$38\s+obj_End') {
+    throw 'Room 0:83 Wing Dungeon object order changed.'
+}
+if ($wingInteractionSource -notmatch '(?ms)^interactiondc_subid02:.*?interactionDeleteAndRetIfEnabled02.*?objectGetTileAtPosition.*?TILEINDEX_OVERWORLD_STANDARD_GROUND.*?TILEINDEX_OVERWORLD_DUG_DIRT.*?wLinkGrabState.*?cp \$83.*?DIR_RIGHT.*?ld a,30.*?DISABLE_LINK.*?resetLinkInvincibility.*?SNDCTRL_STOPMUSIC.*?ld \(hl\),60.*?ld a,60.*?ld bc,\$f800.*?objectCreateExclamationMark.*?clearAllParentItems.*?dropLinkHeldItem.*?ld a,\$28.*?setScreenShakeCounter.*?CUTSCENE_D2_COLLAPSE') {
+    throw 'Room 0:83 interactiondc_subid02 changed.'
+}
+if ($wingCutsceneSource -notmatch '(?ms)^func_7168:.*?getThisRoomFlags.*?set 7,\(hl\).*?ROOM_AGES_073.*?set 7,\(hl\).*?ld a,\$3c.*?reloadTileMap.*?INTERAC_97.*?ld \(hl\),\$2c.*?ld \(hl\),\$58.*?GFXH_WING_DUNGEON_COLLAPSING_1.*?ld a,\$0f.*?setScreenShakeCounter.*?SND_DOORCLOSE.*?GFXH_WING_DUNGEON_COLLAPSING_2.*?GFXH_WING_DUNGEON_COLLAPSING_3.*?drawCollapsedWingDungeon.*?objectData7e69.*?wDisabledObjects.*?wMenuDisabled.*?wActiveMusic') {
+    throw 'CUTSCENE_D2_COLLAPSE changed.'
+}
+if ($wingRoomGfxSource -notmatch '(?ms)^roomTileChangesAfterLoad00:.*?and \$80.*?ret z.*?^drawCollapsedWingDungeon:.*?GFXH_WING_DUNGEON_COLLAPSED.*?^@tileReplacement:.*?\.db \$06 \$06.*?w3VramTiles\+\$08.*?w2TmpGfxBuffer.*?^@layoutReplacement:.*?wRoomLayout\+\$04.*?\.db \$03 \$03.*?\.db \$3b \$00 \$3b \$00 \$3b \$00.*?\.db \$3b \$00 \$3b \$00 \$3b \$00.*?\.db \$00 \$05 \$00 \$0f \$00 \$0a') {
+    throw 'drawCollapsedWingDungeon changed.'
+}
+if ($wingSingleTileSource -notmatch '(?m)^\s*\.db \$83 \$80 \$43 \$1c\s*$') {
+    throw 'Room 0:83 persistent single-tile change changed.'
+}
+if ($wingExtraObjectSource -notmatch '(?ms)^objectData7e69:\s+obj_Interaction \$8a \$00 \$00 \$00 \$01\s+obj_End') {
+    throw 'Wing Dungeon post-collapse remote Maku objectData7e69 changed.'
+}
+
+$wingGfxSpecs = @(
+    @(0, 0x50, 'map_wing_dungeon_collapsing_1'),
+    @(1, 0x51, 'map_wing_dungeon_collapsing_2'),
+    @(2, 0x52, 'map_wing_dungeon_collapsing_3'),
+    @(3, 0x53, 'map_wing_dungeon_collapsed')
+)
+$wingMapRows = [Collections.Generic.List[string]]::new()
+$wingMapRows.Add("# phase`tgfx-header`ttile-ids`tsource")
+foreach ($spec in $wingGfxSpecs) {
+    $phase = [int]$spec[0]
+    $header = [int]$spec[1]
+    $name = [string]$spec[2]
+    $headerPattern =
+        "(?ms)^m_GfxHeaderStart \`$$($header.ToString('x2')), GFXH_" +
+        "(?:WING_DUNGEON_COLLAPSING_$($phase + 1)|WING_DUNGEON_COLLAPSED)" +
+        "\s+m_GfxHeader $name, w2TmpGfxBuffer\s+m_GfxHeaderEnd"
+    if ($wingGfxHeaderSource -notmatch $headerPattern) {
+        throw "Could not verify Wing Dungeon GFX header `$$($header.ToString('x2'))."
+    }
+    $mapPath = Join-Path $Disassembly "gfx_compressible\ages\$name.bin"
+    $bytes = [IO.File]::ReadAllBytes($mapPath)
+    if ($bytes.Length -ne 192) {
+        throw "$mapPath expected 192 bytes, got $($bytes.Length)."
+    }
+    $tileIds = [Collections.Generic.List[string]]::new()
+    for ($row = 0; $row -lt 6; $row++) {
+        for ($column = 0; $column -lt 6; $column++) {
+            $tileIds.Add($bytes[$row * 32 + $column].ToString('x2'))
+        }
+    }
+    $wingMapRows.Add(
+        "$phase`t$($header.ToString('x2'))`t$($tileIds -join ',')`t" +
+        "gfxHeaders.s:GFXH_$($header.ToString('x2'));$name.bin")
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\wing_dungeon_collapse_maps.tsv'),
+    $wingMapRows, [Text.UTF8Encoding]::new($false))
+
+$wingExclamationGraphic = $interactionGraphics['159:0']
+$wingExclamationAnimation = Resolve-NpcAnimation 0x9f 0
+if ($null -eq $wingExclamationGraphic -or
+    -not $gfxNames.ContainsKey($wingExclamationGraphic.Gfx) -or
+    -not $wingExclamationAnimation) {
+    throw 'Could not resolve INTERAC_EXCLAMATION_MARK graphics for room 0:83.'
+}
+$wingEventRows = @(
+    "# group`troom`tid`tsubid`ty`tx`trock-position`trock-tile`tground-tile`tdug-tile`troom-flag`tlinked-room`tlinked-room-flag`tpickup-wait`texclamation-frames`tpre-collapse-shake`tcollapse-initial-wait`tphase-wait`tfinal-wait`tcollapse-shake`tdust-y`tdust-x`tdust-frames`tdust-interval`texclamation-id`texclamation-subid`texclamation-sprite`texclamation-tile-base`texclamation-palette`texclamation-animation`tfacade-position`tfacade-width`tfacade-height`tfinal-tiles`tfinal-collisions`tsource",
+    (@(
+        '0', '83', 'dc', '02', '48', '38', '43', 'c3', '3a', '1c',
+        '80', '73', '80', '30', '60', '40', '60', '30', '60', '15',
+        '2c', '58', '106', '3', '9f', '00',
+        $gfxNames[$wingExclamationGraphic.Gfx],
+        $wingExclamationGraphic.TileBase.ToString(),
+        $wingExclamationGraphic.Palette.ToString(),
+        $wingExclamationAnimation,
+        '04', '3', '3',
+        '3b,3b,3b,3b,3b,3b,00,00,00',
+        '00,00,00,00,00,00,05,0f,0a',
+        'miscellaneous2.s:interactiondc_subid02;miscCutscenes.s:CUTSCENE_D2_COLLAPSE;roomGfxChanges.s:drawCollapsedWingDungeon'
+    ) -join "`t")
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\wing_dungeon_collapse_event.tsv'),
+    $wingEventRows, [Text.UTF8Encoding]::new($false))
+
 # Room 0:8d owns INTERAC_REMOTE_MAKU_CUTSCENE $8a:$00. After the first
 # Essence, it preserves sprite palette 0 while the background fades to black,
 # runs the present-day $62 confetti emitter, reports the next Essence through
@@ -3301,8 +3403,10 @@ if ($null -eq $confettiGraphic -or $confettiGraphic.Gfx -ne 0x6c -or
     throw 'INTERAC_MAKU_CONFETTI or its $84:$02 sparkle graphics changed.'
 }
 if (-not $allTexts.ContainsKey(0x05b0) -or
-    -not $allTexts.ContainsKey(0x05c0)) {
-    throw 'Remote Maku text TX_05b0/TX_05c0 was not imported.'
+    -not $allTexts.ContainsKey(0x05c0) -or
+    -not $allTexts.ContainsKey(0x05b1) -or
+    -not $allTexts.ContainsKey(0x05c1)) {
+    throw 'Remote Maku text TX_05b0/TX_05c0/TX_05b1/TX_05c1 was not imported.'
 }
 
 $positionPayload = @($confettiPositions | ForEach-Object {
@@ -3320,6 +3424,13 @@ $remoteMakuEventRows = @(
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'cutscenes\remote_maku_first_essence_event.tsv'),
     $remoteMakuEventRows, [Text.UTF8Encoding]::new($false))
+$remoteMakuWingEventRows = @(
+    $remoteMakuEventRows[0]
+    "0`t83`t8a`t00`t01`t00`t40`t05b1`t05c1`tb1`tc1`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136"
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\remote_maku_wing_dungeon_event.tsv'),
+    $remoteMakuWingEventRows, [Text.UTF8Encoding]::new($false))
 
 $remoteMakuVisualRows = @(
     "# key`tsprite`ttile-base`tpalette`tanimation"
@@ -3373,6 +3484,29 @@ for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'cutscenes\remote_maku_first_essence_commands.tsv'),
     $remoteMakuCommandRows, [Text.UTF8Encoding]::new($false))
+
+$remoteMakuWingCommandRows = [Collections.Generic.List[string]]::new()
+$remoteMakuWingCommandRows.Add($remoteMakuCommandRows[0])
+for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
+    $spec = $remoteMakuCommandSpecs[$index]
+    $sourceCommand = $spec[0]
+    $opcode = $spec[1]
+    $actor = $spec[2]
+    $arg0 = $spec[3]
+    $arg1 = $spec[4]
+    $payload = $spec[5]
+    if ($index -eq 10) {
+        $arg0 = '05b1'
+        $arg1 = '05c1'
+        $payload = "$($allTexts[0x05b1])`0$($allTexts[0x05c1])"
+    }
+    $remoteMakuWingCommandRows.Add((New-CutsceneCommandRow `
+        'remoteMakuCutsceneScript' $index $sourceCommand.Label `
+        $sourceCommand.Line $opcode $actor $arg0 $arg1 $payload))
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\remote_maku_wing_dungeon_commands.tsv'),
+    $remoteMakuWingCommandRows, [Text.UTF8Encoding]::new($false))
 
 # Room 0:56 comedian trade. INTERAC_COMEDIAN is a script-owned NPC whose
 # native wrapper initializes the script twice on its first update, then turns

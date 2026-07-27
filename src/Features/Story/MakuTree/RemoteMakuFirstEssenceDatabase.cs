@@ -5,9 +5,10 @@ using System.Globalization;
 namespace oracleofages;
 
 /// <summary>
-/// Imported room 0:8d INTERAC_REMOTE_MAKU_CUTSCENE $8a:$00 data.
-/// The command stream owns the interaction script; this record owns the
-/// native present-day confetti object's fixed-point movement constants.
+/// Imported present-day INTERAC_REMOTE_MAKU_CUTSCENE $8a:$00 data for room
+/// 0:8d's first Essence and room 0:83's post-collapse warning. The command
+/// streams own their text variants; shared records own the native present-day
+/// confetti object's fixed-point movement constants.
 /// </summary>
 internal sealed class RemoteMakuFirstEssenceDatabase
 {
@@ -17,13 +18,33 @@ internal sealed class RemoteMakuFirstEssenceDatabase
 
     internal RemoteMakuFirstEssenceRecord Record { get; }
     internal IReadOnlyList<CutsceneCommand> Commands { get; }
+    internal RemoteMakuFirstEssenceRecord WingDungeonRecord { get; }
+    internal IReadOnlyList<CutsceneCommand> WingDungeonCommands { get; }
 
     internal RemoteMakuFirstEssenceDatabase()
     {
+        Record = LoadRecord(
+            "remote_maku_first_essence_event.tsv",
+            "first-Essence remote Maku event");
+        WingDungeonRecord = LoadRecord(
+            "remote_maku_wing_dungeon_event.tsv",
+            "Wing Dungeon remote Maku event");
+        LoadVisuals();
+        Commands = CutsceneCommandCatalog.Load(
+            Root + "remote_maku_first_essence_commands.tsv");
+        WingDungeonCommands = CutsceneCommandCatalog.Load(
+            Root + "remote_maku_wing_dungeon_commands.tsv");
+        Validate();
+    }
+
+    private static RemoteMakuFirstEssenceRecord LoadRecord(
+        string file,
+        string description)
+    {
         GeneratedTableRow row = GeneratedTable.Load(
-            Root + "remote_maku_first_essence_event.tsv",
+            Root + file,
             new GeneratedTableSchema(
-                "first-Essence remote Maku event",
+                description,
                 GeneratedTableKeySemantics.Ordered,
                 [
                     "group", "room", "id", "subid", "var03", "essence-mask",
@@ -38,7 +59,7 @@ internal sealed class RemoteMakuFirstEssenceDatabase
                     "x-speed-limit", "delete-y"
                 ],
                 headerRequired: true)).SingleRow();
-        Record = new RemoteMakuFirstEssenceRecord(
+        return new RemoteMakuFirstEssenceRecord(
             row.Decimal(0, 0, 7),
             row.HexByte(1),
             row.HexByte(2),
@@ -69,10 +90,6 @@ internal sealed class RemoteMakuFirstEssenceDatabase
             row.UnsignedDecimal(27),
             row.UnsignedDecimal(28),
             row.UnsignedDecimal(29));
-        LoadVisuals();
-        Commands = CutsceneCommandCatalog.Load(
-            Root + "remote_maku_first_essence_commands.tsv");
-        Validate();
     }
 
     internal RemoteMakuVisualRecord Visual(string key) =>
@@ -162,7 +179,22 @@ internal sealed class RemoteMakuFirstEssenceDatabase
             Commands[17] is not CutsceneNativeCommand
                 { Handler: "IncMakuTreeState" } ||
             Commands[18] is not CutsceneEnableInputCommand ||
-            Commands[19] is not CutsceneEndCommand)
+            Commands[19] is not CutsceneEndCommand ||
+            WingDungeonRecord is not
+            {
+                Group: 0, Room: 0x83, InteractionId: 0x8a,
+                SubId: 0, Var03: 1, EssenceMask: 0, RoomFlag: 0x40,
+                StandardTextId: 0x05b1, LinkedTextId: 0x05c1,
+                StandardMapText: 0xb1, LinkedMapText: 0xc1,
+                Music: 0x1e, HudLockByte: 0x77, FadeDelay: 2,
+                FadeFrames: 65, InitialWait: 40,
+                ConfettiHold1: 240, ConfettiHold2: 180,
+                PostTextWait: 1, ConfettiPieces: 5
+            } ||
+            WingDungeonCommands.Count != 20 ||
+            WingDungeonCommands[10] is not CutsceneShowTextVariantsCommand
+                { StandardTextId: 0x05b1, LinkedTextId: 0x05c1 } ||
+            WingDungeonCommands[19] is not CutsceneEndCommand)
         {
             throw new InvalidOperationException(
                 "Imported room 0:8d first-Essence remote Maku contract is incomplete.");

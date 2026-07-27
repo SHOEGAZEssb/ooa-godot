@@ -4,9 +4,10 @@ using System;
 namespace oracleofages;
 
 /// <summary>
-/// Room 0:8d's first INTERAC_REMOTE_MAKU_CUTSCENE $8a:$00. The imported
-/// interaction-script lane coordinates the HUD, palette threads, dialogue,
-/// music, room flag, and Maku state around the native $62 confetti object.
+/// Present-day INTERAC_REMOTE_MAKU_CUTSCENE $8a:$00 for room 0:8d's first
+/// Essence and room 0:83's post-collapse var03=$01 allocation. The selected
+/// imported lane coordinates the HUD, palette threads, dialogue, music, room
+/// flag, and Maku state around the shared native $62 confetti object.
 /// </summary>
 internal sealed class RemoteMakuFirstEssenceEvent :
     IRoomEntryEvent,
@@ -23,11 +24,13 @@ internal sealed class RemoteMakuFirstEssenceEvent :
     private Vector2 _fadeOriginalSize;
     private int _fadeOriginalZIndex;
     private bool _fadePresentationOwned;
+    private RemoteMakuFirstEssenceRecord _activeRecord;
 
     internal RemoteMakuFirstEssenceEvent(RoomEventContext context)
     {
         _context = context;
         _runner = new CutsceneCommandRunner(this);
+        _activeRecord = _database.Record;
     }
 
     public bool HasState => _stage != RemoteMakuFirstEssenceEventStage.Inactive;
@@ -40,6 +43,7 @@ internal sealed class RemoteMakuFirstEssenceEvent :
     internal int DontUpdateStatusBar => _dontUpdateStatusBar;
     internal RemoteMakuConfettiEffect? Confetti => _confetti;
     internal RemoteMakuFirstEssenceDatabase Database => _database;
+    internal RemoteMakuFirstEssenceRecord ActiveRecord => _activeRecord;
 
     public bool Matches(int group, OracleRoomData room)
     {
@@ -53,9 +57,31 @@ internal sealed class RemoteMakuFirstEssenceEvent :
 
     public void Start(OracleRoomData _)
     {
+        Start(_database.Record, _database.Commands);
+    }
+
+    internal bool StartWingDungeonWarning()
+    {
+        RemoteMakuFirstEssenceRecord record = _database.WingDungeonRecord;
+        if (_context.Rooms.ActiveGroup != record.Group ||
+            _context.Rooms.CurrentRoom.Id != record.Room ||
+            _context.Rooms.SaveData.HasRoomFlag(
+                record.Group, record.Room, (byte)record.RoomFlag))
+        {
+            return false;
+        }
+        Start(record, _database.WingDungeonCommands);
+        return true;
+    }
+
+    private void Start(
+        RemoteMakuFirstEssenceRecord record,
+        System.Collections.Generic.IReadOnlyList<CutsceneCommand> commands)
+    {
         Cancel();
+        _activeRecord = record;
         _stage = RemoteMakuFirstEssenceEventStage.Running;
-        _runner.Start(_database.Commands);
+        _runner.Start(commands);
     }
 
     public void UpdateFrame()
@@ -86,6 +112,7 @@ internal sealed class RemoteMakuFirstEssenceEvent :
         _textboxFlags = 0;
         _dontUpdateStatusBar = 0;
         _stage = RemoteMakuFirstEssenceEventStage.Inactive;
+        _activeRecord = _database.Record;
     }
 
     private void SpawnPresentConfetti()
@@ -179,7 +206,7 @@ internal sealed class RemoteMakuFirstEssenceEvent :
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {
-        RemoteMakuFirstEssenceRecord record = _database.Record;
+        RemoteMakuFirstEssenceRecord record = _activeRecord;
         int expectedText = _context.Rooms.SaveData.IsLinkedGame
             ? record.LinkedTextId
             : record.StandardTextId;
@@ -228,18 +255,18 @@ internal sealed class RemoteMakuFirstEssenceEvent :
 
     void ICutsceneCommandHost.SetMusic(int music)
     {
-        if (music != _database.Record.Music)
+        if (music != _activeRecord.Music)
             throw Unsupported($"set music ${music:x2}");
         _context.Sound.PlaySound(music);
     }
 
     void ICutsceneCommandHost.OrRoomFlag(int flag)
     {
-        if (flag != _database.Record.RoomFlag)
+        if (flag != _activeRecord.RoomFlag)
             throw Unsupported($"set room flag ${flag:x2}");
         _context.Rooms.SaveData.SetRoomFlag(
-            _database.Record.Group,
-            _database.Record.Room,
+            _activeRecord.Group,
+            _activeRecord.Room,
             (byte)flag);
     }
 
@@ -261,8 +288,8 @@ internal sealed class RemoteMakuFirstEssenceEvent :
                 break;
             case "ResetMusic":
                 _context.Sound.PlayRoomMusic(
-                    _database.Record.Group,
-                    _database.Record.Room);
+                    _activeRecord.Group,
+                    _activeRecord.Room);
                 break;
             case "IncMakuTreeState":
                 _context.Rooms.SaveData.SetMakuTreeState(Math.Min(
@@ -295,8 +322,9 @@ internal sealed class RemoteMakuFirstEssenceEvent :
             RemoveConfetti();
     }
 
-    private static InvalidOperationException Unsupported(string operation) =>
-        new($"Room 0:8d remote Maku event cannot {operation}.");
+    private InvalidOperationException Unsupported(string operation) =>
+        new($"Room {_activeRecord.Group:x}:{_activeRecord.Room:x2} " +
+            $"remote Maku event cannot {operation}.");
 }
 
 internal enum RemoteMakuFirstEssenceEventStage

@@ -27,6 +27,8 @@ internal sealed class RoomEventContext(
 {
     private readonly DialogueBox _dialogue = dialogue;
     private readonly Func<Vector2, Vector2> _worldToScreen = worldToScreen;
+    private Action<bool>? _interruptBracelet;
+    private Action? _advanceBracelet;
 
     public RoomSession Rooms { get; } = rooms;
     public RoomEntityManager Entities { get; } = entities;
@@ -43,6 +45,34 @@ internal sealed class RoomEventContext(
     public Camera2D RoomCamera { get; } = roomCamera;
     public bool DialogueOpen => _dialogue.IsOpen;
     internal ICutsceneCommandTraceSink? CommandTraceSink { get; set; }
+
+    internal void SetBraceletActions(
+        Action<bool> interruptBracelet,
+        Action advanceBracelet)
+    {
+        _interruptBracelet = interruptBracelet;
+        _advanceBracelet = advanceBracelet;
+    }
+
+    internal void InterruptBracelet(bool discard)
+    {
+        if (_interruptBracelet is null)
+        {
+            throw new InvalidOperationException(
+                "Room events have no Bracelet interruption binding.");
+        }
+        _interruptBracelet(discard);
+    }
+
+    internal void AdvanceBracelet()
+    {
+        if (_advanceBracelet is null)
+        {
+            throw new InvalidOperationException(
+                "Room events have no Bracelet update binding.");
+        }
+        _advanceBracelet();
+    }
 
     public NpcCharacter RequireNpc(
         int group,

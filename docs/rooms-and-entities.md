@@ -852,6 +852,20 @@ See [NPCs and room events](npcs-and-events.md) for deciding whether an imported
 interaction remains an ordinary NPC, receives a specialized room-entity
 adapter, or is coordinated by `RoomEventController`.
 
+Room-specific background-map rewrites retain a separate layer from layout
+mutation. `OracleRoomData.SetBackgroundSubtileRectangle` copies a
+metatile-aligned, even-sized rectangle of BG tile IDs while preserving each
+covered mapping's attribute bytes. A native event may therefore show
+intermediate tilemap-only phases without changing terrain. Room `0:83` is the
+canonical case: three 6x6 collapse maps replace only BG tile IDs, while the
+fourth applies its final 6x6 map before committing the imported 3x3
+metatile/collision rectangle. `UNCMP_GFXH_AGES_3c` uploads only `w3VramTiles`,
+so the mapping override preserves the original façade's attribute bytes even
+after its layout IDs change. Re-entry uses the same final operation order when
+room flag `$80` is already set. Do not approximate such a sequence by swapping
+only the triggering rock or by deriving collision or palette attributes from
+the phase graphics.
+
 ## Required regressions
 
 Room/entity changes should cover the reported room plus a general invariant:

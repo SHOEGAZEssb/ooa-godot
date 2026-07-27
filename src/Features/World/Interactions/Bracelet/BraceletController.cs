@@ -10,6 +10,8 @@ namespace oracleofages;
 /// </summary>
 public sealed class BraceletController
 {
+    internal event Action<BraceletTileLifted>? TileLifted;
+    internal event Action<BraceletTileLifted>? TileLiftCompleted;
 
     private static readonly Vector2I[] WallOffsets =
     [
@@ -324,6 +326,13 @@ public sealed class BraceletController
         player.SetBraceletLiftCollisionsDisabled(true);
         _playSound(_record.PickupSound);
         _roomView.QueueRedraw();
+        TileLifted?.Invoke(new BraceletTileLifted(
+            _rooms.ActiveGroup,
+            room.Id,
+            _targetPackedPosition,
+            _targetTile,
+            replacement,
+            tileCenter));
         return true;
     }
 
@@ -364,6 +373,15 @@ public sealed class BraceletController
         _state = BraceletState.Holding;
         _counter = 0;
         UpdateHeldPosition(player);
+        TileLiftCompleted?.Invoke(new BraceletTileLifted(
+            _rooms.ActiveGroup,
+            _rooms.CurrentRoom.Id,
+            _targetPackedPosition,
+            _targetTile,
+            _targetRecord.ReplacementFor(
+                _rooms.CurrentRoom,
+                PackedPositionCenter(_targetPackedPosition)),
+            PackedPositionCenter(_targetPackedPosition)));
     }
 
     private void BeginEntityLift(Player player, bool primaryButton)
@@ -596,6 +614,14 @@ public sealed class BraceletController
             (packedPosition >> 4) * OracleRoomData.MetatileSize + 8);
 
 }
+
+internal readonly record struct BraceletTileLifted(
+    int Group,
+    int Room,
+    int PackedPosition,
+    byte SourceTile,
+    byte ReplacementTile,
+    Vector2 Position);
 
 internal enum BraceletState
 {

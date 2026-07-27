@@ -1103,6 +1103,17 @@ internal sealed class RoomEntityFactory(
         if (record is
             {
                 Group: 0,
+                Room: 0x83,
+                Id: 0xd5,
+                SubId: 0x00,
+                Var03: 0x00
+            })
+        {
+            return new GreatFairyRoomEntity(npc, soundRequested);
+        }
+        if (record is
+            {
+                Group: 0,
                 Room: 0x5d,
                 Id: 0xcb,
                 SubId: 0x00,

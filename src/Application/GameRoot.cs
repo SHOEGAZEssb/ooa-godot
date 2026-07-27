@@ -491,6 +491,17 @@ public partial class GameRoot : Node2D
             _scene.WorldRoot, _rooms, new BreakableTileDatabase(), _roomView,
             _entities, _combat, _saveData, _sound.PlaySound,
             () => (long)_animationTicks, _collision.HasFullWall);
+        _roomEvents.SetBraceletActions(
+            discard => _bracelet.Interrupt(_player, discard),
+            () => _bracelet.Update(
+                _player,
+                Vector2.Zero,
+                primaryHeld: false,
+                secondaryHeld: false,
+                itemButtonJustPressed: false));
+        _bracelet.TileLifted += _roomEvents.NotifyBraceletTileLifted;
+        _bracelet.TileLiftCompleted +=
+            _roomEvents.NotifyBraceletTileLiftCompleted;
         _shovel = new ShovelController(
             _rooms, new BreakableTileDatabase(), _roomView, _entities, _saveData,
             _sound.PlaySound, () => (long)_animationTicks);

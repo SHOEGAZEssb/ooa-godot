@@ -222,8 +222,8 @@ Room `1:49` is the current reference pattern:
 - `IRoomSaveStateEntity` refreshes the tableau immediately when live save state
   changes.
 
-Room `0:5d` is the reference for a single linked-secret NPC implemented through
-an ordinary placed actor plus a specialized dialogue owner:
+Rooms `0:5d` and `0:83` are the reference for linked-secret NPCs implemented
+through placed actors plus one shared specialized dialogue/secret owner:
 
 - `INTERAC_LINKED_GAME_GHINI $cb:$00` is visible only when the save is linked
   and essence bit `$01` (D1) is set. Both predicates are imported independently;
@@ -238,6 +238,49 @@ an ordinary placed actor plus a specialized dialogue owner:
   `GLOBALFLAG_BEGAN_GRAVEYARD_SECRET`. Preserve the original game-ID fields,
   20-byte bit insertion, checksum nibble, XOR cipher, five 6-bit symbols, and
   `\secret1` substitution; it is not a random clone-only password.
+- `INTERAC_GREAT_FAIRY $d5:$00` in room `0:83` uses the same graph with secret
+  index `$06`, short-secret index `$26`, TX `$4d1e-$4d22`, and
+  `GLOBALFLAG_BEGAN_TEMPLE_SECRET`. It exists only in a linked file after D2.
+- The Great Fairy remains solid while script-hidden. Its explicit always-update
+  slot returns without advancing during room scrolling; the first normal update
+  plays SND `$73` and creates the SND `$98` puff. After 32 more updates it starts
+  `MUS_FAIRY_FOUNTAIN`, becomes talkable, and applies the source signed
+  `[-1,-2,-1,0,+1,+2,+1,0]` Z delta every eight global updates.
+- `LinkedGameNpcDatabase` keys the generated records by exact room and
+  interaction identity. `InteractionController` selects that record rather
+  than recognizing one hardcoded ID, while the Great Fairy's appearance remains
+  native room-entity behavior.
+
+Room `0:83` also demonstrates why a room's visible NPC work does not define
+its complete interaction closure. Its second object,
+`INTERAC_MISCELLANEOUS_2 $dc:$02`, has no character presentation or talk
+target. `WingDungeonCollapseEvent` remains armed without blocking gameplay and
+listens to typed notifications from the shared Bracelet parent:
+
+- Lifting the exact `$c3` rock at packed position `$43` first lets the common
+  breakable path write standard ground `$3a`; `$dc:$02` immediately changes
+  that position to dug dirt `$1c`, matching its state-0 tile watch.
+- Only the Bracelet's completed carry boundary corresponds to
+  `wLinkGrabState=$83`. That notification faces Link right, stops music, and
+  disables ordinary control without discarding the held rock. Thirty updates
+  later the event creates the `$9f` exclamation, drops and advances the rock
+  through the shared Bracelet physics, then refreshes shake `$28` for 60
+  updates.
+- `CUTSCENE_D2_COLLAPSE` remains a native state machine because the original is
+  native, not an interaction script. It writes room `$83/$73` flag `$80`,
+  consumes four imported 6x6 BG-map phases, preserves their 60/30/30/30/60
+  counter boundaries, emits the source `$97` random puff stream, and applies
+  the final imported 3x3 layout/collision rectangle.
+- The terminal state parses `objectData7e69`, so completion arms
+  `INTERAC_REMOTE_MAKU_CUTSCENE $8a:$00/v$01` after restoring ordinary room
+  input/music. On its following update, the shared typed remote-Maku lane
+  disables input again and runs the present confetti/fade sequence with
+  TX `$05b1/$05c1`, map text `$b1/$c1`, current-room flag `$40`, and the
+  source Maku-state increment.
+- On later room loads the same event database applies
+  `roomTileChangesAfterLoad00` before retiring the controller. The ordinary
+  single-tile table independently restores `$1c` at `$43`; neither persistent
+  result is inferred from the currently rendered doorway.
 
 `RunningBipinRoomEntity` is the smaller reference: it adds the original
 fixed-update patrol and reversal behavior while continuing to use

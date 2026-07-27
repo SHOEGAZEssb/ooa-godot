@@ -31,6 +31,7 @@ public sealed class RoomEventController
     private readonly SpiritsGraveEssenceEvent _spiritsGraveEssence;
     private readonly RemoteMakuFirstEssenceEvent _remoteMakuFirstEssence;
     private readonly FairiesWoodsEvent _fairiesWoods;
+    private readonly WingDungeonCollapseEvent _wingDungeonCollapse;
     private readonly IRoomEvent[] _eventsByPriority;
     private double _frameAccumulator;
     private double _transitionFrameAccumulator;
@@ -88,11 +89,15 @@ public sealed class RoomEventController
         _spiritsGraveEssence = new SpiritsGraveEssenceEvent(_context);
         _remoteMakuFirstEssence = new RemoteMakuFirstEssenceEvent(_context);
         _fairiesWoods = new FairiesWoodsEvent(_context);
+        _wingDungeonCollapse = new WingDungeonCollapseEvent(
+            _context,
+            () => _remoteMakuFirstEssence.StartWingDungeonWarning());
         _eventsByPriority =
         [
             _spiritsGraveEssence,
             _remoteMakuFirstEssence,
             _fairiesWoods,
+            _wingDungeonCollapse,
             _nayru,
             _graveyardGate,
             _makuSproutRescue,
@@ -162,6 +167,16 @@ public sealed class RoomEventController
     internal RemoteMakuFirstEssenceEvent RemoteMakuFirstEssence =>
         _remoteMakuFirstEssence;
     internal FairiesWoodsEvent FairiesWoods => _fairiesWoods;
+    internal WingDungeonCollapseEvent WingDungeonCollapse =>
+        _wingDungeonCollapse;
+    internal void SetBraceletActions(
+        Action<bool> interrupter,
+        Action advance) =>
+        _context.SetBraceletActions(interrupter, advance);
+    internal void NotifyBraceletTileLifted(BraceletTileLifted lifted) =>
+        _wingDungeonCollapse.OnTileLifted(lifted);
+    internal void NotifyBraceletTileLiftCompleted(BraceletTileLifted lifted) =>
+        _wingDungeonCollapse.OnTileLiftCompleted(lifted);
     internal void SetRingMenuOpener(Func<RingMenuMode, Action, bool> opener) =>
         _vasuShop.SetRingMenuOpener(opener);
     internal bool SupportsOverworldKeyhole(int group, int room) =>
@@ -243,6 +258,7 @@ public sealed class RoomEventController
 
     private void OnRoomEntitiesLoaded(int group, OracleRoomData room)
     {
+        _wingDungeonCollapse.RestoreCollapsedEntrance(group, room);
         _fairiesWoods.OnRoomLoaded(group, room);
         _graveyardGate.RetireCompletedControllerOnRoomLoad();
         _nayru.RestoreCompletedPortal(group, room);

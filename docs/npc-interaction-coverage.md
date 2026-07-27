@@ -46,9 +46,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 68 | Traced and covered by the current named NPC/event scenarios. |
+| **I** | 69 | Traced and covered by the current named NPC/event scenarios. |
 | **P** | 44 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
-| **D** | 276 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 275 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **388** | **211 rooms and 294 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -58,10 +58,10 @@ family remains **P** until its progression ownership and all per-variant
 behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
-The implementation manifest therefore contains 60 ordinary, 38 specialized,
-14 event-owned, and 276 deliberately unsupported positioned/state-derived
+The implementation manifest therefore contains 60 ordinary, 39 specialized,
+14 event-owned, and 275 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 460
-classified records and 110 specialized rows.
+classified records and 111 specialized rows.
 
 ### Important partial and deferred boundaries
 
@@ -144,7 +144,7 @@ well as record selection. The ownership/consolidation work in
 | `0:80` | [D] `$49:$06/v$00` forestFairy |
 | `0:81` | [D] `$49:$0d/v$00` forestFairy |
 | `0:82` | [D] `$49:$05/v$00` forestFairy<br>[D] `$49:$05/v$00` forestFairy<br>[D] `$49:$08/v$00` forestFairy<br>[D] `$49:$09/v$00` forestFairy<br>[D] `$49:$0a/v$00` forestFairy<br>[D] `$49:$0a/v$00` forestFairy<br>[D] `$49:$0e/v$00` forestFairy<br>[D] `$49:$0f/v$00` forestFairy<br>[D] `$49:$10/v$00` forestFairy |
-| `0:83` | [D] `$d5:$00/v$00` greatFairy |
+| `0:83` | [I] `$d5:$00/v$00` greatFairy<br>native non-character `$dc:$02` Wing Dungeon collapse |
 | `0:86` | [D] `$54:$01/v$00` mamamuDog |
 | `0:88` | [D] `$54:$01/v$02` mamamuDog |
 | `0:a0` | [D] `$cd:$00/v$00` masterDiver |

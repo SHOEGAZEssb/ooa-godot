@@ -167,11 +167,14 @@ public sealed partial class ValidationRoot
         RemoveChild(root);
         root.Free();
 
-        var ghiniData = new LinkedGameGhiniDatabase();
+        var linkedNpcData = new LinkedGameNpcDatabase();
+        LinkedGameNpcDatabaseRecord ghiniData =
+            linkedNpcData.Get(0, 0x5d, 0xcb, 0x00);
         var secretSave = OracleSaveData.CreateStandardGame();
         secretSave.WriteWramByte(0xc600, 0x34);
         secretSave.WriteWramByte(0xc601, 0x12);
-        byte[] secret = ghiniData.GenerateSecretValues(secretSave);
+        byte[] secret =
+            linkedNpcData.GenerateSecretValues(ghiniData, secretSave);
         if (!secret.SequenceEqual(new byte[] { 0x0b, 0x29, 0x13, 0x18, 0x2f }) ||
             secretSave.ReadWramByte(0xc6fb) != 0x21)
         {
@@ -184,12 +187,12 @@ public sealed partial class ValidationRoot
         byte gameIdLowBefore = _saveData.ReadWramByte(0xc600);
         byte gameIdHighBefore = _saveData.ReadWramByte(0xc601);
         byte shortSecretBefore = _saveData.ReadWramByte(0xc6fb);
-        bool beganBefore = _saveData.HasGlobalFlag(ghiniData.Data.BeganFlag);
+        bool beganBefore = _saveData.HasGlobalFlag(ghiniData.BeganFlag);
         _saveData.SetLinkedGame(true);
         _saveData.WriteWramByte(0xc6bf, (byte)(essencesBefore | 0x01));
         _saveData.WriteWramByte(0xc600, 0x34);
         _saveData.WriteWramByte(0xc601, 0x12);
-        _saveData.SetGlobalFlag(ghiniData.Data.BeganFlag, value: false);
+        _saveData.SetGlobalFlag(ghiniData.BeganFlag, value: false);
         _saveData.CommitInventoryChange();
 
         LoadValidationRoom(0, 0x5d);
@@ -239,7 +242,7 @@ public sealed partial class ValidationRoot
         _interactions.Update(0.0, _player);
         if (!_dialogue.ChoiceActive ||
             _dialogue.CurrentMessage.Contains("\\secret1", StringComparison.Ordinal) ||
-            !_saveData.HasGlobalFlag(ghiniData.Data.BeganFlag) ||
+            !_saveData.HasGlobalFlag(ghiniData.BeganFlag) ||
             _saveData.ReadWramByte(0xc6fb) != 0x21)
         {
             throw new InvalidOperationException(
@@ -266,7 +269,7 @@ public sealed partial class ValidationRoot
         _saveData.WriteWramByte(0xc600, gameIdLowBefore);
         _saveData.WriteWramByte(0xc601, gameIdHighBefore);
         _saveData.WriteWramByte(0xc6fb, shortSecretBefore);
-        _saveData.SetGlobalFlag(ghiniData.Data.BeganFlag, beganBefore);
+        _saveData.SetGlobalFlag(ghiniData.BeganFlag, beganBefore);
         _saveData.CommitInventoryChange();
 
         GD.Print("Validated rooms 0:5d/0:6d/0:7d: three perched Crows, hidden " +

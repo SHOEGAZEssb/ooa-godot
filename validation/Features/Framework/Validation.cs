@@ -177,6 +177,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateFairiesWoodsSequence();
         ValidateGameOverRestart();
         ValidateSaveAndQuitToTitle();
+        ValidateRoom083Interactions();
 
         GD.Print("Validated all gameplay and world-data scenarios.");
     }

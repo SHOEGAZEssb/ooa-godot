@@ -22,7 +22,7 @@ public sealed class InteractionController
     private readonly Func<bool> _gashaCountersCaughtUp;
     private readonly BipinBlossomFamilyInteractionDatabase _familyInteractions = new();
     private readonly BlackTowerWorkerDatabase _blackTower = new();
-    private readonly LinkedGameGhiniDatabase _linkedGhini = new();
+    private readonly LinkedGameNpcDatabase _linkedNpcs = new();
     private readonly KidNameEntryController _kidNameEntry;
     private readonly Dictionary<int, ChestRecord> _debugChestOverrides = new();
     private ChestTreasureEffect? _chestTreasure;
@@ -51,10 +51,11 @@ public sealed class InteractionController
     private Player? _gashaPlayer;
     private bool _gashaCompletesHeartContainer;
     private bool _gashaShowingHeartContainer;
-    private LinkedGhiniState _linkedGhiniState;
-    private NpcCharacter? _linkedGhiniNpc;
-    private Player? _linkedGhiniPlayer;
-    private string _linkedGhiniSecret = string.Empty;
+    private LinkedNpcState _linkedNpcState;
+    private NpcCharacter? _linkedNpc;
+    private Player? _linkedNpcPlayer;
+    private LinkedGameNpcDatabaseRecord _linkedNpcData;
+    private string _linkedNpcSecret = string.Empty;
 
     public Func<NpcCharacter, bool>? NpcInteractionOverride { get; set; }
     public Func<Player, bool>? PlayerInteractionOverride { get; set; }
@@ -63,7 +64,7 @@ public sealed class InteractionController
         _chestTreasure is not null ||
         _groundTreasure is not null ||
         _gashaState != GashaState.None ||
-        _linkedGhiniState != LinkedGhiniState.None ||
+        _linkedNpcState != LinkedNpcState.None ||
         _hardhatShovelState != HardhatShovelState.None ||
         _pastBipinState != PastBipinState.None ||
         _familyNamingState != FamilyNamingState.None ||
@@ -124,7 +125,7 @@ public sealed class InteractionController
     {
         if (_activeNpcTalkLifecycle is not null && !_dialogue.IsOpen &&
             _hardhatShovelState == HardhatShovelState.None &&
-            _linkedGhiniState == LinkedGhiniState.None)
+            _linkedNpcState == LinkedNpcState.None)
         {
             _entities.EndNpcTalk(_activeNpcTalkLifecycle);
             _activeNpcTalkLifecycle = null;
@@ -134,7 +135,7 @@ public sealed class InteractionController
         UpdateHardhatShovel(delta);
         UpdatePastBipin();
         UpdateGasha();
-        UpdateLinkedGhini();
+        UpdateLinkedNpc();
 
         if (_groundTreasure is not null)
         {
@@ -255,8 +256,11 @@ public sealed class InteractionController
                 return true;
             if (NpcInteractionOverride?.Invoke(npc) == true)
                 return true;
-            if (npc.Record is { Id: 0xcb, SubId: 0x00 })
-                return TryStartLinkedGhini(npc, player);
+            if (_linkedNpcs.TryGet(
+                    npc.Record, out LinkedGameNpcDatabaseRecord linkedNpc))
+            {
+                return TryStartLinkedNpc(npc, player, linkedNpc);
+            }
             if (npc.Record is { Id: 0x28, SubId: 0x0a })
                 return TryStartPastBipin(npc, player);
             npc.FaceToward(player.Position);
@@ -329,120 +333,136 @@ public sealed class InteractionController
         return true;
     }
 
-    private bool TryStartLinkedGhini(NpcCharacter npc, Player player)
+    private bool TryStartLinkedNpc(
+        NpcCharacter npc,
+        Player player,
+        LinkedGameNpcDatabaseRecord data)
     {
-        if (_linkedGhiniState != LinkedGhiniState.None)
+        if (_linkedNpcState != LinkedNpcState.None)
             return false;
         if (_entities.BeginNpcTalk(npc))
             _activeNpcTalkLifecycle = npc;
-        _linkedGhiniNpc = npc;
-        _linkedGhiniPlayer = player;
-        _linkedGhiniState = LinkedGhiniState.AwaitOfferChoice;
+        _linkedNpc = npc;
+        _linkedNpcPlayer = player;
+        _linkedNpcData = data;
+        _linkedNpcState = LinkedNpcState.AwaitOfferChoice;
         _dialogue.ShowGameplayChoiceMessage(
-            _linkedGhini.Data.OfferMessage,
+            _linkedNpcData.OfferMessage,
             _worldToScreen(player.Position).Y,
             textPosition: npc.TextPosition);
         return true;
     }
 
-    private void UpdateLinkedGhini()
+    private void UpdateLinkedNpc()
     {
-        if (_linkedGhiniState == LinkedGhiniState.None ||
-            _linkedGhiniNpc is null || _linkedGhiniPlayer is null)
+        if (_linkedNpcState == LinkedNpcState.None ||
+            _linkedNpc is null || _linkedNpcPlayer is null)
         {
             return;
         }
 
-        float linkY = _worldToScreen(_linkedGhiniPlayer.Position).Y;
-        int textPosition = _linkedGhiniNpc.TextPosition;
-        switch (_linkedGhiniState)
+        float linkY = _worldToScreen(_linkedNpcPlayer.Position).Y;
+        int textPosition = _linkedNpc.TextPosition;
+        switch (_linkedNpcState)
         {
-            case LinkedGhiniState.AwaitOfferChoice:
+            case LinkedNpcState.AwaitOfferChoice:
                 if (!_dialogue.TryTakeChoiceResult(out int offerChoice))
                     return;
                 if (offerChoice != 0)
                 {
-                    _linkedGhiniState = LinkedGhiniState.AwaitRefusalClose;
+                    _linkedNpcState = LinkedNpcState.AwaitRefusalClose;
                     _dialogue.ShowGameplayMessage(
-                        _linkedGhini.Data.RefusalMessage, linkY, textPosition);
+                        _linkedNpcData.RefusalMessage, linkY, textPosition);
                     return;
                 }
-                _linkedGhiniState = LinkedGhiniState.AwaitExplanationChoice;
-                _dialogue.ShowGameplayChoiceMessage(
-                    _linkedGhini.Data.ExplanationMessage, linkY,
-                    textPosition: textPosition);
+                if (_linkedNpcData.HasExtraText)
+                {
+                    _linkedNpcState =
+                        LinkedNpcState.AwaitExplanationChoice;
+                    _dialogue.ShowGameplayChoiceMessage(
+                        _linkedNpcData.ExplanationMessage, linkY,
+                        textPosition: textPosition);
+                    return;
+                }
+                GenerateLinkedNpcSecret();
+                _linkedNpcState = LinkedNpcState.AwaitSecretChoice;
+                ShowLinkedNpcSecret(linkY, textPosition);
                 return;
 
-            case LinkedGhiniState.AwaitRefusalClose:
+            case LinkedNpcState.AwaitRefusalClose:
                 if (!_dialogue.IsOpen)
-                    FinishLinkedGhini();
+                    FinishLinkedNpc();
                 return;
 
-            case LinkedGhiniState.AwaitExplanationChoice:
+            case LinkedNpcState.AwaitExplanationChoice:
                 if (!_dialogue.TryTakeChoiceResult(out int explanationChoice))
                     return;
                 if (explanationChoice != 0)
                 {
                     _dialogue.ShowGameplayChoiceMessage(
-                        _linkedGhini.Data.ExplanationMessage, linkY,
+                        _linkedNpcData.ExplanationMessage, linkY,
                         initialChoice: 1,
                         textPosition: textPosition);
                     return;
                 }
-                GenerateLinkedGhiniSecret();
-                _linkedGhiniState = LinkedGhiniState.AwaitSecretChoice;
-                ShowLinkedGhiniSecret(linkY, textPosition);
+                GenerateLinkedNpcSecret();
+                _linkedNpcState = LinkedNpcState.AwaitSecretChoice;
+                ShowLinkedNpcSecret(linkY, textPosition);
                 return;
 
-            case LinkedGhiniState.AwaitSecretChoice:
+            case LinkedNpcState.AwaitSecretChoice:
                 if (!_dialogue.TryTakeChoiceResult(out int secretChoice))
                     return;
                 if (secretChoice != 0)
                 {
-                    ShowLinkedGhiniSecret(linkY, textPosition, initialChoice: 1);
+                    ShowLinkedNpcSecret(
+                        linkY, textPosition, initialChoice: 1);
                     return;
                 }
-                _linkedGhiniState = LinkedGhiniState.AwaitFinalClose;
+                _linkedNpcState = LinkedNpcState.AwaitFinalClose;
                 _dialogue.ShowGameplayMessage(
-                    _linkedGhini.Data.FinalMessage, linkY, textPosition);
+                    _linkedNpcData.FinalMessage, linkY, textPosition);
                 return;
 
-            case LinkedGhiniState.AwaitFinalClose:
+            case LinkedNpcState.AwaitFinalClose:
                 if (!_dialogue.IsOpen)
-                    FinishLinkedGhini();
+                    FinishLinkedNpc();
                 return;
         }
     }
 
-    private void GenerateLinkedGhiniSecret()
+    private void GenerateLinkedNpcSecret()
     {
-        _rooms.SaveData.SetGlobalFlag(_linkedGhini.Data.BeganFlag);
-        _linkedGhiniSecret = _linkedGhini.GenerateSecret(_rooms.SaveData);
+        _rooms.SaveData.SetGlobalFlag(_linkedNpcData.BeganFlag);
+        _linkedNpcSecret =
+            _linkedNpcs.GenerateSecret(_linkedNpcData, _rooms.SaveData);
     }
 
-    private void ShowLinkedGhiniSecret(
+    private void ShowLinkedNpcSecret(
         float linkY,
         int textPosition,
         int initialChoice = 0)
     {
-        string message = _linkedGhini.Data.SecretMessage.Replace(
-            "\\secret1", _linkedGhiniSecret, StringComparison.OrdinalIgnoreCase);
+        string message = _linkedNpcData.SecretMessage.Replace(
+            "\\secret1", _linkedNpcSecret,
+            StringComparison.OrdinalIgnoreCase);
         _dialogue.ShowGameplayChoiceMessage(
             message, linkY, initialChoice, textPosition);
     }
 
-    private void FinishLinkedGhini()
+    private void FinishLinkedNpc()
     {
-        if (_linkedGhiniNpc is not null &&
-            _activeNpcTalkLifecycle == _linkedGhiniNpc)
+        if (_linkedNpc is not null &&
+            _activeNpcTalkLifecycle == _linkedNpc)
         {
-            _entities.EndNpcTalk(_linkedGhiniNpc);
+            _entities.EndNpcTalk(_linkedNpc);
             _activeNpcTalkLifecycle = null;
         }
-        _linkedGhiniState = LinkedGhiniState.None;
-        _linkedGhiniNpc = null;
-        _linkedGhiniPlayer = null;
-        _linkedGhiniSecret = string.Empty;
+        _linkedNpcState = LinkedNpcState.None;
+        _linkedNpc = null;
+        _linkedNpcPlayer = null;
+        _linkedNpcData = default;
+        _linkedNpcSecret = string.Empty;
     }
 
     private void UpdateHardhatShovel(double delta)
@@ -940,10 +960,11 @@ public sealed class InteractionController
         _groundTreasureShowingHeartContainer = false;
         _groundTreasureSetsRoomFlag = true;
         ResetGashaInteraction();
-        _linkedGhiniState = LinkedGhiniState.None;
-        _linkedGhiniNpc = null;
-        _linkedGhiniPlayer = null;
-        _linkedGhiniSecret = string.Empty;
+        _linkedNpcState = LinkedNpcState.None;
+        _linkedNpc = null;
+        _linkedNpcPlayer = null;
+        _linkedNpcData = default;
+        _linkedNpcSecret = string.Empty;
         ApplyOpenedChestState(group, room);
     }
 
@@ -1202,7 +1223,7 @@ internal enum PastBipinState
     AwaitRepeatClose
 }
 
-internal enum LinkedGhiniState
+internal enum LinkedNpcState
 {
     None,
     AwaitOfferChoice,

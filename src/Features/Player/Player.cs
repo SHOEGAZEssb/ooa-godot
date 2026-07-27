@@ -1144,9 +1144,10 @@ public partial class Player : Node2D
         _deathAnimationCounter = duration;
     }
 
-    internal void BeginCutsceneControl()
+    internal void BeginCutsceneControl(bool interruptBracelet = true)
     {
-        _world.InterruptBracelet(this, discard: true);
+        if (interruptBracelet)
+            _world.InterruptBracelet(this, discard: true);
         _cutsceneControlled = true;
         ClearShieldParent();
         _walking = false;

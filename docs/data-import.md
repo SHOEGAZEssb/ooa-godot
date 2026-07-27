@@ -419,13 +419,32 @@ source file, pointer table, animation terminator, and parameter semantics.
 through one label/routine/count check before its progress-1 and progress-2
 exporters apply their distinct state and linked-game rules.
 
-The same stages emit two narrow records for Graveyard rooms `0:5d`-`0:7d`.
+The same stages emit narrow records for Graveyard rooms `0:5d`-`0:7d` and the
+linked Temple Secret giver in room `0:83`.
 `objects/crows.tsv` resolves the fixed `$41:$00` placements together with their
 source enemy attributes and four parameterized animation/OAM streams.
-`objects/linked_game_ghini.tsv` retains the Ghini's five text IDs and decoded
-messages plus the secret index, short-secret index, began flag, and traced
-source graph. The ordinary `npc_visibility.tsv` still owns its separate linked
-and D1 predicates; do not hide those conditions inside the dialogue record.
+`objects/linked_game_npcs.tsv` retains the Ghini's and Great Fairy's exact room
+keys, five text IDs and decoded messages, extra-confirmation bit, secret index,
+short-secret index, began flag, and traced source graph. The ordinary
+`npc_visibility.tsv` still owns their separate linked plus D1/D2 predicates;
+do not hide those conditions inside the dialogue records.
+
+The same room's non-character controller is imported separately.
+`cutscenes/wing_dungeon_collapse_event.tsv` pins
+`INTERAC_MISCELLANEOUS_2 $dc:$02`, the `$c3 → $3a → $1c` Bracelet-rock
+handshake, exact 30/60-update waits, shake counters, linked room `$0:$73`
+flag, `INTERAC_97` dust emitter, and the final 3x3 layout/collision rewrite.
+`wing_dungeon_collapse_maps.tsv` extracts the visible 6x6 rectangle from each
+192-byte, 32-byte-stride `map_wing_dungeon_*` source into four ordered BG-map
+phases. The importer verifies `CUTSCENE_D2_COLLAPSE`,
+`drawCollapsedWingDungeon`, the GFX headers, room-object order, and the
+single-tile persistent change before emitting either table.
+The cutscene's final `objectData7e69` allocation is preserved by
+`remote_maku_wing_dungeon_event.tsv` and
+`remote_maku_wing_dungeon_commands.tsv`. They reuse the traced present-day
+remote-Maku presentation constants while selecting `var03=$01`, standard/linked
+TX `$05b1/$05c1`, and map-text bytes `$b1/$c1`; these values must not be
+borrowed from the first-Essence `$05b0/$05c0` record.
 
 For concurrent native interaction scenes, `Import-CutsceneData.ps1` emits the
 native parameters and dialogue rather than inventing a linear command stream.

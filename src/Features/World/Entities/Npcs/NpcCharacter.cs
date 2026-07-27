@@ -36,6 +36,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     private bool _blocksLink = true;
     private bool _active = true;
     private bool _flagVisible = true;
+    private bool _scriptVisible = true;
     private float _collisionRadiusY = CollisionRadius;
     private float _collisionRadiusX = CollisionRadius;
     private bool _scriptButtonSensitive;
@@ -63,6 +64,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         ? Vector2.Zero
         : CurrentAnimation[_animationFrame % CurrentAnimation.Count].Offset;
     internal Vector2 ScriptDrawOffset => _scriptDrawOffset;
+    internal bool ScriptVisible => _scriptVisible;
     internal Vector2I CurrentAnimationTextureSize => CurrentAnimation.Count == 0
         ? Vector2I.Zero
         : new Vector2I(
@@ -145,6 +147,11 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     {
         _baseRecord = record;
         Record = record;
+        _active = true;
+        _flagVisible = true;
+        _scriptVisible = true;
+        _scriptDrawOffset = Vector2.Zero;
+        Visible = true;
         _sourceImage = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{record.SpriteName}.png");
         _sourceGrayscaleInverted = true;
@@ -438,6 +445,13 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         QueueRedraw();
     }
 
+    internal void SetScriptVisible(bool visible)
+    {
+        _scriptVisible = visible;
+        Visible = Active && _scriptVisible;
+        QueueRedraw();
+    }
+
     internal void SetScriptAnimation(string encodedAnimation)
     {
         _scriptAnimationSource = encodedAnimation;
@@ -645,14 +659,14 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     internal void SetActive(bool active)
     {
         _active = active;
-        Visible = Active;
+        Visible = Active && _scriptVisible;
         QueueRedraw();
     }
 
     internal void SetFlagVisible(bool visible)
     {
         _flagVisible = visible;
-        Visible = Active;
+        Visible = Active && _scriptVisible;
         QueueRedraw();
     }
 
