@@ -166,6 +166,17 @@ public sealed partial class ValidationRoot
                 "The Great Fairy lost the source frame-$28 +2 Z-height step.");
         }
 
+        manager.TextActiveSource = static () => true;
+        for (int update = 0; update < 8; update++)
+            manager.Update(1.0 / 60.0, _player);
+        if (manager.FrameCounter != 48 ||
+            fairy.ScriptDrawOffset != new Vector2(0, -13))
+        {
+            throw new InvalidOperationException(
+                "INTERAC_GREAT_FAIRY's enabled bit 7 did not preserve its " +
+                "animation/Z update while wTextIsActive was set.");
+        }
+
         manager.Clear();
         RemoveChild(root);
         root.Free();

@@ -304,9 +304,9 @@ public sealed partial class ValidationRoot
             new Dictionary<NpcImplementationClassification, int>
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 51,
-                [NpcImplementationClassification.SpecializedNative] = 122,
+                [NpcImplementationClassification.SpecializedNative] = 123,
                 [NpcImplementationClassification.EventOwned] = 14,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 273
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 272
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -320,7 +320,7 @@ public sealed partial class ValidationRoot
         {
             throw new InvalidOperationException(
                 "The generated NPC implementation manifest did not retain " +
-                "51 ordinary, 122 specialized, 14 event-owned, and 273 " +
+                "51 ordinary, 123 specialized, 14 event-owned, and 272 " +
                 $"unsupported records (total={records.Count}; " +
                 $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
         }
@@ -454,6 +454,16 @@ public sealed partial class ValidationRoot
         int frameBase = villager.Record.TileBase / 4;
         if (villager.CurrentFrameColumn != frameBase)
             throw new InvalidOperationException("The room 0:48 villager did not face down toward Link after talking.");
+
+        int dialogueAnimationFrame = villager.CurrentAnimationFrame;
+        _entities.Update(16.0 / 60.0, _player);
+        if (villager.CurrentAnimationFrame != dialogueAnimationFrame)
+        {
+            throw new InvalidOperationException(
+                "wTextIsActive did not freeze the ordinary room 0:48 " +
+                "villager's interaction animation.");
+        }
+
         villager.UpdateNpc(16.0 / 60.0, _player.Position);
         if (villager.CurrentAnimationFrame != 1)
             throw new InvalidOperationException("The room 0:48 villager did not advance its original 16-frame idle animation.");
@@ -549,7 +559,8 @@ public sealed partial class ValidationRoot
                 "Link did not use standardSpritePaletteData palette 0 selected by OAM flags $08.");
         }
 
-        GD.Print("Validated villager idle animation, $28 Link awareness, 30-frame facing delay, " +
+        GD.Print("Validated villager idle animation and global textbox freeze, " +
+            "$28 Link awareness, 30-frame facing delay, " +
             "TX_1420 dialogue, exact room 0:48 sign/NPC A-button geometry, " +
             "retained/preloaded NPC screen scrolling, room 0:66 Link-relative draw " +
             "priority, and Link sprite palette 0.");

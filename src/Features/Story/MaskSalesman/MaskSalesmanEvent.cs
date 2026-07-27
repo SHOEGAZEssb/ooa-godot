@@ -5,7 +5,8 @@ namespace oracleofages;
 /// <summary>
 /// INTERAC_MASK_SALESMAN $5c:$00 and maskSalesmanScript in room $2:$e6.
 /// </summary>
-internal sealed class MaskSalesmanEvent : IRoomEntryEvent, ICutsceneCommandHost
+internal sealed class MaskSalesmanEvent : IRoomEntryEvent, ICutsceneCommandHost,
+    IUpdatesDuringDialogueRoomEvent
 {
     private const string ActorName = "MaskSalesman";
     private readonly RoomEventContext _context;
@@ -65,6 +66,9 @@ internal sealed class MaskSalesmanEvent : IRoomEntryEvent, ICutsceneCommandHost
         _runner.AdvanceFrame();
         _salesman?.AdvanceMaskSalesman(_context.Player);
     }
+
+    public void UpdateDuringDialogueFrame() =>
+        _salesman?.AdvanceMaskSalesman(_context.Player);
 
     public bool TryInteractNpc(NpcCharacter npc)
     {

@@ -46,9 +46,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 69 | Traced and covered by the current named NPC/event scenarios. |
+| **I** | 70 | Traced and covered by the current named NPC/event scenarios. |
 | **P** | 44 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
-| **D** | 275 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 274 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **388** | **211 rooms and 294 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -58,10 +58,10 @@ family remains **P** until its progression ownership and all per-variant
 behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
-The implementation manifest therefore contains 60 ordinary, 39 specialized,
-14 event-owned, and 275 deliberately unsupported positioned/state-derived
+The implementation manifest therefore contains 51 ordinary, 51 specialized,
+14 event-owned, and 272 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 460
-classified records and 111 specialized rows.
+classified records and 123 specialized rows.
 
 ### Important partial and deferred boundaries
 
@@ -80,8 +80,8 @@ classified records and 111 specialized rows.
 ### Highest-value missing clusters
 
 - Tokay interaction `$48` across the past and present trading/island rooms.
-- Goron interaction `$66`, Goron Elders `$8b`, and both shooting galleries
-  `$30` across groups 2, 3, and 5.
+- Goron interaction `$66`, Goron Elders `$8b`, and the Goron/Biggoron
+  shooting-gallery variants `$30:$01/$02` across groups 3 and 5.
 - Zora `$ab`, King Zora `$9c`, Old Zora `$5a`, and Jabu-Jabu child `$ba`.
 - Soldier `$40` and the surrounding palace, ending, and linked-game cast
   outside the implemented pre-Black-Tower and lower-Tower slices.
@@ -227,7 +227,7 @@ well as record selection. The ownership/consolidation work in
 | `2:e6` | [I] `$5c:$00/v$00` maskSalesman |
 | `2:e7` | [D] `$53:$00/v$00` mamamuYan<br>[D] `$54:$00/v$00` mamamuDog |
 | `2:e8` | [D] `$51:$00/v$00` dumbellMan |
-| `2:e9` | [D] `$30:$00/v$00` shootingGallery |
+| `2:e9` | [I] `$30:$00/v$00` shootingGallery |
 | `2:ee` | [P] `$89:$00/v$00` vasu<br>[P] `$89:$01/v$00` vasu<br>[P] `$89:$06/v$00` vasu<br>[P] `$e5:$00/v$00` ringHelpBook<br>[P] `$e5:$01/v$00` ringHelpBook |
 | `2:ef` | [D] `$66:$00/v$00` goron |
 | `2:f3` | [D] `$3c:$07/v$00` boy |

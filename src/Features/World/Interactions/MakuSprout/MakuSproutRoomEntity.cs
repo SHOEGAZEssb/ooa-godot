@@ -10,7 +10,8 @@ namespace oracleofages;
 internal sealed class MakuSproutRoomEntity
     : RoomEntityAdapter<NpcCharacter>, IFixedRoomEntity, IRoomBlocker,
         ITalkTarget, IOrdinaryNpcEntity, INpcTalkLifecycle,
-        IAlwaysUpdateDuringScreenTransitionRoomEntity
+        IAlwaysUpdateDuringScreenTransitionRoomEntity,
+        IUpdatesDuringDialogueRoomEntity
 {
     private readonly MakuSproutRoomDatabase _database;
     private readonly OracleSaveData _save;
@@ -38,6 +39,7 @@ internal sealed class MakuSproutRoomEntity
 
     public NpcCharacter Npc => Entity;
     public NpcCharacter TalkNpc => Entity;
+    bool IUpdatesDuringDialogueRoomEntity.UpdatesDuringDialogue => true;
 
     public void UpdateFrame(
         RoomEntityFrame frame,

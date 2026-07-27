@@ -119,7 +119,10 @@ public sealed class InteractionController
         _entities.MapleItemCollected += OnMapleItemCollected;
         _entities.SeedTreeMessageRequested += OnSeedTreeMessageRequested;
         _entities.GroundTreasureCollectionAllowed = () => !DialogueOpen;
-        _entities.DialogueOpenSource = () => DialogueOpen;
+        // wTextIsActive is narrower than this controller's aggregate
+        // DialogueOpen gameplay lease: held rewards and naming/menu states do
+        // not select the original reduced object dispatcher by themselves.
+        _entities.TextActiveSource = () => _dialogue.IsOpen;
         ApplyOpenedChestState(_rooms.ActiveGroup, _rooms.CurrentRoom);
     }
 

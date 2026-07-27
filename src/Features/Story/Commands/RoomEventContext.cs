@@ -140,12 +140,13 @@ internal sealed class RoomEventContext(
         int parameter,
         string treasureObject,
         string source,
-        int textboxFlags = 0)
+        int textboxFlags = 0,
+        int? objectParameter = null)
     {
         TreasureObjectRecord treasure = Treasures.GetObject(treasureObject);
         if (treasure.TreasureId != treasureId ||
             treasure.SubId != parameter ||
-            treasure.Parameter != parameter)
+            treasure.Parameter != (objectParameter ?? parameter))
         {
             throw new InvalidOperationException(
                 $"{treasureObject} no longer matches {source}'s " +

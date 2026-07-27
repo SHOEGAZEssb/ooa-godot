@@ -324,6 +324,48 @@ Room `1:48` is the reference for a single native NPC with ordinary neighbors:
   sheet. Preserve both the no-load index and bank bit when resolving such child
   effects to a source PNG.
 
+Room `2:e9` is the reference for a placed NPC script that hands control to a
+dynamically created native minigame:
+
+- `ShootingGalleryEvent` keeps the imported `$30:$00` main, result, cleanup,
+  reward, and retry streams as typed commands. It owns the temporary Sword
+  equip, Link positions/facings, entrance tiles, room music, and 32-update
+  full-screen white fades. The source equip helper saves both button bytes,
+  retains the Sword on A only when it was already there, otherwise puts it on
+  B, and clears the other button until cleanup restores both saved bytes.
+- `wDisabledObjects` and `wMenuDisabled` are not one boolean. Result text and
+  cleanup disable Link and menus together; `enableallobjects` restores Link
+  for the pitch while the menu remains disabled. `RoomEventController.Active`
+  therefore continues to mean Link/gameplay blocking, while its independent
+  menu restriction feeds the menu-opening predicates.
+- The prize sign remains A-button readable during a pitch:
+  `nextToSignTile` does not inspect `wMenuDisabled`. Its textbox sets
+  `wTextIsActive`, which routes both the `$30` interaction dispatcher and
+  `PART_BALL $38` through their reduced passes. Pause the keeper, controller,
+  and ball until that textbox closes; do not suppress the sign or let the
+  pitch continue behind it. `INTERAC_PUFF $05:$00` and
+  `INTERAC_FALLING_ROCK $92:$04/$05` set interaction enabled bit 7 during
+  state 0, so already-created target puffs and debris are deliberate
+  exceptions and keep updating behind the text.
+- Dynamic `$30:$03` is a fixed-update room entity. It preserves the source
+  `$78/$28/$0a/$5a/$14` counters, ten-entry without-replacement layout buffer,
+  one global RNG call per layout, exact target order, and score/result table.
+  The result script runs after the entity update and returns completion to the
+  controller on the following update, retaining original object ordering.
+- `PART_BALL $38` consumes its own global RNG call on its creation update,
+  keeps the `$64/$3c/$78` raw speeds, enters reflection only through a Sword
+  hit, and moves at the resulting full 32-step knockback angle. It ignores
+  solid partial collision shapes such as launcher collision `$0a`; only source
+  collision `$0f` produces a strike. It probes the two horizontal target
+  points and replaces at most two targets. Each hit creates four
+  update-on-creation-frame
+  `INTERAC_FALLING_ROCK $92:$04/$05` debris entities with source palette,
+  diagonal angles, SPEED `$28`, and 12-update lifetime.
+- Layouts, target positions/types, hit texts and deltas, result-script source
+  lines, reward thresholds/objects, the 16-entry random-ring table, ball
+  visual, and debris visual/physics are importer-generated. Runtime code does
+  not parse or reconstruct any of those disassembly tables.
+
 Past guy `$43:$01` in room `1:45` and `$43:$02` in room `1:68` are the smaller
 ordinary-predicate reference. Import the shared `getGameProgress_2` dialogue
 table for TX `$1701-$1704/$1707` and both source existence sets: subid `$01`
@@ -878,6 +920,36 @@ selection at load and validate exit/re-entry instead of adding invented live
 replacement behavior.
 
 ## Room events and cutscenes
+
+The common room-entity update path mirrors the source textbox dispatcher:
+
+- `updateInteractions`, `updateEnemies`, and `updateParts` test
+  `wTextIsActive` before their ordinary passes. While text is active, an
+  existing non-state-zero object receives no handler call, which also freezes
+  its movement, counters, facing, and animation.
+- This is the default for every `RoomEntityManager` entity, not an opt-in NPC
+  behavior. Variable NPC presentation, fixed interaction/enemy/part updates,
+  forced movement, projectile/seed collision passes, and Link-contact
+  callbacks all remain stopped until the textbox closes.
+- Event-owned interactions use the same default in `RoomEventController`.
+  Their command streams, native counters, and manually driven NPC animation
+  receive no ordinary update while text is active. A narrow
+  `IUpdatesDuringDialogueRoomEvent` callback represents only the portion
+  owned by a traced enabled-bit-7 interaction/effect or by a source cutscene
+  handler outside the object dispatchers; it must not advance sibling objects
+  that lack an exception.
+- A source `UpdateThisFrame` allocation still receives its state-0 creation
+  update. Existing objects bypass the freeze only through
+  `IUpdatesDuringDialogueRoomEntity`, which represents enabled bit 7. Trace
+  that exception to `interactionSetAlwaysUpdateBit` or the corresponding part
+  write; never add it merely to keep a presentation moving.
+- The same source bit also bypasses the scrolling and active-object reduced
+  passes. The port keeps the screen-transition callback separate because that
+  path may intentionally do less work (for example, Great Fairy
+  `returnIfScrollMode01Unset`), but both capabilities must cite the same
+  original object state. Following Impa is an event-owned example: her encounter
+  and stone scripts freeze with text, while `BeginFollowing` reaches
+  `interactionSetAlwaysUpdateBit` and permits only the follower update.
 
 `RoomEventController` owns room-entry and story sequences that coordinate more
 than ordinary entity behavior. It keeps an explicit priority list and advances

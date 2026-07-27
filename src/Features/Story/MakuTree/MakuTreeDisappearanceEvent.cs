@@ -4,7 +4,8 @@ using System;
 namespace oracleofages;
 
 /// <summary>Runs the one-shot Maku Tree disappearance in room $0:$38.</summary>
-internal sealed class MakuTreeDisappearanceEvent : IRoomEntryEvent, ICutsceneCommandHost
+internal sealed class MakuTreeDisappearanceEvent : IRoomEntryEvent,
+    ICutsceneCommandHost, IUpdatesDuringDialogueRoomEvent
 {
     private const string MakuTreeActor = "MakuTree";
     private const string PaletteFadeDoneGate = "palette-fade-done";
@@ -105,6 +106,29 @@ internal sealed class MakuTreeDisappearanceEvent : IRoomEntryEvent, ICutsceneCom
 
         AdvanceSimulatedInput();
         _runner.AdvanceFrame();
+        _makuTree?.AdvanceAnimationUpdates(1);
+    }
+
+    public void UpdateDuringDialogueFrame()
+    {
+        if (_finishPending)
+        {
+            Finish();
+            _makuTree?.AdvanceAnimationUpdates(1);
+            return;
+        }
+
+        // The cutscene handler is outside updateInteractions and keeps its
+        // palette thread alive. INTERAC_MAKU_TREE itself carries enabled bit
+        // 7, but Link's simulated-input object remains frozen by the textbox.
+        if (_paletteCycling && (_context.Entities.FrameCounter & 0x07) == 0)
+        {
+            _paletteCycleIndex = (_paletteCycleIndex + 1) & 0x03;
+            _paletteHeader = _paletteCycleIndex;
+            _eventRoom!.SetTemporaryBackgroundPalette(
+                _database.BackgroundPalettes, _paletteHeader);
+            _context.RoomView.QueueRedraw();
+        }
         _makuTree?.AdvanceAnimationUpdates(1);
     }
 

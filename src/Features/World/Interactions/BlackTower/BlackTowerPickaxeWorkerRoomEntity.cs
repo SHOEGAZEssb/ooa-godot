@@ -6,7 +6,7 @@ namespace oracleofages;
 
 /// <summary>INTERAC_PICKAXE_WORKER $57:$03.</summary>
 internal sealed class BlackTowerPickaxeWorkerRoomEntity : BlackTowerNpcRoomEntity,
-    IFixedRoomEntity, INpcTalkLifecycle
+    IFixedRoomEntity, INpcTalkLifecycle, IUpdatesDuringDialogueRoomEntity
 {
     private static readonly int[] AnimationTable = { 0, 1, 0, 1, 0, 1, 1, 1 };
     private static readonly int[] TextTable =
@@ -37,6 +37,7 @@ internal sealed class BlackTowerPickaxeWorkerRoomEntity : BlackTowerNpcRoomEntit
     }
 
     public NpcCharacter TalkNpc => Entity;
+    bool IUpdatesDuringDialogueRoomEntity.UpdatesDuringDialogue => true;
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {

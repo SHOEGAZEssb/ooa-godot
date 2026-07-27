@@ -7,7 +7,8 @@ namespace oracleofages;
 /// Adult Maku Tree conversation and Seed Satchel reward selected by
 /// wMakuTreeState=$02 in present room $0:$38.
 /// </summary>
-internal sealed class MakuTreeSavedEvent : IRoomEntryEvent, ICutsceneCommandHost
+internal sealed class MakuTreeSavedEvent : IRoomEntryEvent, ICutsceneCommandHost,
+    IUpdatesDuringDialogueRoomEvent
 {
     private const string MakuTreeActor = "MakuTree";
     private const string MapTextBinding = "wMakuMapTextPresent";
@@ -62,6 +63,9 @@ internal sealed class MakuTreeSavedEvent : IRoomEntryEvent, ICutsceneCommandHost
         _runner.AdvanceFrame();
         _makuTree?.AdvanceAnimationUpdates(1);
     }
+
+    public void UpdateDuringDialogueFrame() =>
+        _makuTree?.AdvanceAnimationUpdates(1);
 
     public bool TryInteractNpc(NpcCharacter npc)
     {

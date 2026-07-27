@@ -9,9 +9,11 @@ internal sealed class EraInfoRoomEntity(EraInfoDisplay display)
         display.SetTransitionDrawOffset),
         IFixedRoomEntity,
         IRoomEntityLifetime,
-        IAlwaysUpdateDuringScreenTransitionRoomEntity
+        IAlwaysUpdateDuringScreenTransitionRoomEntity,
+        IUpdatesDuringDialogueRoomEntity
 {
     public bool Finished => Entity.Finished;
+    bool IUpdatesDuringDialogueRoomEntity.UpdatesDuringDialogue => true;
 
     public void UpdateFrame(
         RoomEntityFrame frame,

@@ -60,7 +60,7 @@ public sealed class RoomEntityManager : IDisposable
         static () => true;
     internal Func<Vector2, Vector2> WorldToScreen { get; set; } =
         static position => position;
-    internal Func<bool> DialogueOpenSource { get; set; } =
+    internal Func<bool> TextActiveSource { get; set; } =
         static () => false;
     internal Func<int> PlayingInstrumentSource { get; set; } =
         static () => 0;
@@ -263,7 +263,7 @@ public sealed class RoomEntityManager : IDisposable
             OnRoomMusicRequested,
             OnMapleDialogueRequested,
             OnSeedTreeMessageRequested,
-            () => DialogueOpenSource(),
+            () => TextActiveSource(),
             OnMapleItemCollected,
             BeginHorizontalScreenShake,
             position => WorldToScreen(position), _animationTick, rooms);
@@ -387,8 +387,11 @@ public sealed class RoomEntityManager : IDisposable
             return;
         }
 
+        bool textActive = TextActiveSource();
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
+            if (textActive && !UpdatesDuringDialogue(entity))
+                continue;
             if (entity is IVariableRoomEntity variableEntity)
                 variableEntity.Update(delta, player);
         }
@@ -402,13 +405,23 @@ public sealed class RoomEntityManager : IDisposable
             var frame = new RoomEntityFrame(player, _enemyFrameCounter, anyButtonJustPressed);
             foreach (IRoomEntity entity in _activeEntities.ToArray())
             {
-                if (entity is IPlayerForcedMovement forcedMovement)
+                if ((!textActive || UpdatesDuringDialogue(entity)) &&
+                    entity is IPlayerForcedMovement forcedMovement)
+                {
                     forcedMovement.UpdatePlayerForcedMovement(player);
+                }
             }
-            ResolvePlayerProjectileCollisions();
+            if (!textActive)
+                ResolvePlayerProjectileCollisions();
+
+            // updateInteractions/updateParts still run newly allocated state
+            // 0 objects while wTextIsActive is set. UpdateThisFrame spawns
+            // model that creation update and therefore remain unconditional.
             ProcessSpawns(frame);
             foreach (IRoomEntity entity in _activeEntities.ToArray())
             {
+                if (textActive && !UpdatesDuringDialogue(entity))
+                    continue;
                 if (entity is ISeedBurnTarget { IsSeedBurning: true })
                     continue;
                 if (entity is IFixedRoomEntity fixedEntity)
@@ -418,7 +431,8 @@ public sealed class RoomEntityManager : IDisposable
                 }
                 ProcessSpawns(frame);
             }
-            ResolveSeedCollisions();
+            if (!textActive)
+                ResolveSeedCollisions();
             ProcessSpawns(frame);
             UpdateScreenShake();
             anyButtonJustPressed = false;
@@ -426,10 +440,13 @@ public sealed class RoomEntityManager : IDisposable
 
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
-            if (!_linkCollisionsAndMenuDisabled &&
+            if (!textActive &&
+                !_linkCollisionsAndMenuDisabled &&
                 player.AcceptsRoomEntityContact &&
                 entity is ILinkContactEntity contactEntity)
+            {
                 contactEntity.HandleLinkContact(player);
+            }
         }
         RemoveFinishedEntities();
         DispatchPendingRoomWarp();
@@ -951,6 +968,12 @@ public sealed class RoomEntityManager : IDisposable
         if (entity.Node is EnemyCharacter enemy)
             enemy.SetGlobalFrameCounter(frameCounter);
     }
+
+    private static bool UpdatesDuringDialogue(IRoomEntity entity) =>
+        entity is IUpdatesDuringDialogueRoomEntity
+        {
+            UpdatesDuringDialogue: true
+        };
 
     private void RemoveFinishedEntities()
     {

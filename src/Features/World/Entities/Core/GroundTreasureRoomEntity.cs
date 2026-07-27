@@ -10,9 +10,12 @@ internal sealed class GroundTreasureRoomEntity(
     Action<GroundTreasurePickup, Player> collected)
     : RoomEntityAdapter<GroundTreasurePickup>(
         treasure, treasure.SetTransitionDrawOffset),
-        IFixedRoomEntity, ILinkContactEntity, IRoomEntityLifetime
+        IFixedRoomEntity, ILinkContactEntity, IRoomEntityLifetime,
+        IUpdatesDuringDialogueRoomEntity
 {
     public bool Finished => Entity.Finished;
+    bool IUpdatesDuringDialogueRoomEntity.UpdatesDuringDialogue =>
+        Entity.UpdatesDuringDialogue;
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Player);

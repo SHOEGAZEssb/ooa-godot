@@ -6,8 +6,10 @@ namespace oracleofages;
 
 internal sealed class KillPuffRoomEntity(KillEnemyPuffEffect puff)
     : RoomEntityAdapter<KillEnemyPuffEffect>(puff, puff.SetTransitionDrawOffset),
-        IFixedRoomEntity, IRoomEntityLifetime
+        IFixedRoomEntity, IRoomEntityLifetime,
+        IUpdatesDuringDialogueRoomEntity
 {
     public bool Finished => Entity.Finished;
+    bool IUpdatesDuringDialogueRoomEntity.UpdatesDuringDialogue => true;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) => Entity.UpdateFrame();
 }

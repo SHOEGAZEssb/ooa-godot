@@ -50,6 +50,14 @@ claim that the entire surrounding game is complete.
   imported breakable-tile replacements and drops, directional dirt debris,
   `SPEED_a0` cardinal drop launch, sounds, room flags, and WRAM-backed gasha
   maturity.
+- Gameplay text now applies the original global object-dispatch rule:
+  non-state-zero NPCs, enemies, parts, and interactions stop their handlers,
+  collision callbacks, counters, facing, and animation while
+  `wTextIsActive` is represented, including interactions whose native
+  presentation is owned by the room-event scheduler. State-0 creation updates
+  and traced enabled bit-7 objects such as the era label, Great Fairy, Maku
+  Sprout, Maku Tree, Mask Salesman, Vasu, time portals, and common puff/debris
+  presentations remain explicit exceptions.
 - All ten imported Ages Mystical Seed Tree controllers are active, including
   room `0:78`'s `$5a:$06` Ember tree. Each locates the source `$6e` tree
   metatile and preloads three type-correct `$10` seed parts visibly at the
@@ -366,6 +374,17 @@ remains the single runtime policy table.
   `$0b0d-$0b15/$0b45` hunger sequence, exact 15/30-update waits, missing-item
   and Tasty Meat Yes/No paths, two-hand Doggie Mask reward, room-item-bit `$20`
   re-entry dialogue, and both directions of the `0:53` tree warp.
+- Present room `2:e9`'s Lynna shooting gallery, including its placed
+  `$30:$00` attendant, imported buy/explanation/retry and cleanup/reward
+  scripts, 10-Rupee debit, full-screen white transitions, temporary Sword
+  equip, entrance and Link-position restoration, and separate Link/menu input
+  locks during play. Dynamic `$30:$03` preserves all ten source layouts
+  without replacement, exact `$78/$28/$0a/$5a/$14` counters, one shared-RNG
+  layout selection and one shared-RNG ball-speed choice per pitch, BCD-domain
+  score clamping, all hit/strike/final text mappings, and the original flute,
+  ring, Gasha Seed, Rupee, and Heart prize thresholds. `PART_BALL $38`
+  supports sword reflection, two target probes, target replacement, and four
+  palette-selected `$92:$04/$05` debris objects per hit.
 - Lower Black Tower rooms `4:e0`, `4:e1`, `4:e2`, `4:e7`, and `4:e8`, including
   the moving path-blocking villager, unconditional construction soldiers,
   per-talk random worker text, left/right pickaxe strikes and dirt chips,

@@ -14,6 +14,7 @@ public partial class OracleSoundEngine : Node
     private const double ApuClock = 4194304.0;
 
     public const int MusTitlescreen = 0x01;
+    public const int MusMinigame = 0x02;
     public const int MusOverworld = 0x03;
     public const int MusEssence = 0x06;
     public const int MusNayru = 0x08;
@@ -65,6 +66,7 @@ public partial class OracleSoundEngine : Node
     public const int SndEnterCave = 0x6e;
     public const int SndExplosion = 0x6f;
     public const int SndDoorClose = 0x70;
+    public const int SndSwitch = 0x7e;
     public const int SndDing = 0xc8;
     public const int SndMoveBlock = 0x71;
     public const int SndLightTorch = 0x72;
@@ -87,6 +89,7 @@ public partial class OracleSoundEngine : Node
     public const int SndCompass = 0xa2;
     public const int SndWarpStart = 0x95;
     public const int SndPoof = 0x98;
+    public const int SndBaseball = 0x99;
     public const int SndPickup = 0x9c;
     public const int SndLand = 0xa3;
     public const int SndBreakRock = 0xa5;
@@ -100,6 +103,7 @@ public partial class OracleSoundEngine : Node
     public const int SndMakuDisappear = 0xb2;
     public const int SndFadeOut = 0xb4;
     public const int SndRumble2 = 0xb8;
+    public const int SndWhistle = 0xcc;
     public const int SndTimewarpInitiated = 0xd1;
     public const int SndLightning = 0xd2;
     public const int SndTimewarpCompleted = 0xd4;

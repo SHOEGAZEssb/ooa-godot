@@ -6,7 +6,7 @@ namespace oracleofages;
 
 /// <summary>INTERAC_HARDHAT_WORKER $58:$00.</summary>
 internal sealed class BlackTowerShovelWorkerRoomEntity : BlackTowerNpcRoomEntity,
-    IFixedRoomEntity, INpcTalkLifecycle
+    IFixedRoomEntity, INpcTalkLifecycle, IUpdatesDuringDialogueRoomEntity
 {
     private readonly string _workAnimation;
 
@@ -26,6 +26,7 @@ internal sealed class BlackTowerShovelWorkerRoomEntity : BlackTowerNpcRoomEntity
     }
 
     public NpcCharacter TalkNpc => Entity;
+    bool IUpdatesDuringDialogueRoomEntity.UpdatesDuringDialogue => true;
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {

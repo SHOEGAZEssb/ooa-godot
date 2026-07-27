@@ -250,8 +250,9 @@ internal sealed class NayruIntroEvent : IRoomEvent, ICutsceneCommandHost
                 break;
             case "Bird":
                 // birdScript_listeningToNayruGameStart adds two to cplinkx's
-                // result and repeatedly applies -$00c0/$0020 Z physics while
-                // the textbox is active.
+                // result. Its current handler applies one -$00c0/$0020 Z
+                // update before that same script opens the textbox; later
+                // handlers are suppressed by wTextIsActive.
                 _nayruActors.SetAnimation(
                     name, _player.Position.X <= npc.Position.X ? 2 : 3);
                 resetAnimation = 1;
@@ -269,8 +270,11 @@ internal sealed class NayruIntroEvent : IRoomEvent, ICutsceneCommandHost
                 resetDelay = 10;
                 break;
         }
-        _nayruAudienceTalkStates.Add(new NayruAudienceTalkState(
-            name, resetAnimation, resetDelay, hopping));
+        var talk = new NayruAudienceTalkState(
+            name, resetAnimation, resetDelay, hopping);
+        _nayruAudienceTalkStates.Add(talk);
+        if (hopping)
+            UpdateNayruTalkingBirdHop(talk, npc);
     }
 
     public void UpdateFrame()

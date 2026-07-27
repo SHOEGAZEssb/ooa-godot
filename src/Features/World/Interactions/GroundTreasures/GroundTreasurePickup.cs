@@ -30,6 +30,9 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
     internal ulong PixelHash { get; private set; }
     internal int ZFixed => _zFixed;
     internal int SpawnCounter => _spawnCounter;
+    internal bool UpdatesDuringDialogue =>
+        _state == PickupState.Collected ||
+        Record.SpawnMode == 2 && _state == PickupState.Waiting;
 
     internal void Initialize(
         GroundTreasureDatabaseRecord record,

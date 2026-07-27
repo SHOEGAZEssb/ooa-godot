@@ -11,7 +11,8 @@ namespace oracleofages;
 /// </summary>
 internal sealed class FairiesWoodsEvent :
     IRoomEntryEvent,
-    ICutsceneCommandHost
+    ICutsceneCommandHost,
+    IUpdatesDuringDialogueRoomEvent
 {
     private static readonly HashSet<int> ForestRooms =
         [0x70, 0x71, 0x72, 0x80, 0x81, 0x82, 0x90, 0x91, 0x92];
@@ -262,6 +263,16 @@ internal sealed class FairiesWoodsEvent :
         }
 
         UpdateFlights();
+    }
+
+    public void UpdateDuringDialogueFrame()
+    {
+        _sparkles?.UpdateFrame();
+        // CUTSCENE_FAIRIES_HIDE state 5 is a bank-3 cutscene handler outside
+        // updateInteractions. It commits both flags on the update after state
+        // 4 opens TX_110b, even though wTextIsActive is still nonzero.
+        if (_stage == FairiesWoodsStage.CompletionFinalize)
+            FinishCompletion();
     }
 
     internal bool TryInteractNpc(NpcCharacter npc)

@@ -8,7 +8,10 @@ namespace oracleofages;
 /// Owns the possessed-Impa encounter, its preceding room-edge prompt, and the
 /// following-Link behavior that persists across scrolling room transitions.
 /// </summary>
-internal sealed class ImpaIntroEvent : IRoomEvent, ICutsceneCommandHost
+internal sealed class ImpaIntroEvent :
+    IRoomEvent,
+    IUpdatesDuringDialogueRoomEvent,
+    ICutsceneCommandHost
 {
 
     private readonly RoomEventContext _context;
@@ -217,6 +220,15 @@ internal sealed class ImpaIntroEvent : IRoomEvent, ICutsceneCommandHost
     }
 
     public void UpdateFollower() => UpdateFollowingActor(_context.Player.Position);
+
+    public void UpdateDuringDialogueFrame()
+    {
+        // interactionSetAlwaysUpdateBit is reached only when Impa begins
+        // following Link. Her earlier encounter and stone scripts therefore
+        // remain in the ordinary wTextIsActive-suppressed dispatcher.
+        if (Following)
+            UpdateFollower();
+    }
 
     public void UpdateDuringTransition() =>
         UpdateFollowingActor(_context.Transitions.ScrollLinkPositionInDestination);

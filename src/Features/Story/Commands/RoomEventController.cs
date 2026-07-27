@@ -13,6 +13,7 @@ public sealed class RoomEventController
     private readonly RoomEventContext _context;
     private readonly MakuTreeDisappearanceEvent _makuTree;
     private readonly MakuTreeSavedEvent _makuTreeSaved;
+    private readonly ShootingGalleryEvent _shootingGallery;
     private readonly ComedianEvent _comedian;
     private readonly MaskSalesmanEvent _maskSalesman;
     private readonly PoeEvent _poe;
@@ -72,6 +73,7 @@ public sealed class RoomEventController
             roomCamera);
         _makuTree = new MakuTreeDisappearanceEvent(_context);
         _makuTreeSaved = new MakuTreeSavedEvent(_context);
+        _shootingGallery = new ShootingGalleryEvent(_context);
         _comedian = new ComedianEvent(_context);
         _maskSalesman = new MaskSalesmanEvent(_context);
         _poe = new PoeEvent(_context);
@@ -106,6 +108,7 @@ public sealed class RoomEventController
             _makuSproutRescue,
             _lynnaShop,
             _vasuShop,
+            _shootingGallery,
             _comedian,
             _maskSalesman,
             _poe,
@@ -151,6 +154,7 @@ public sealed class RoomEventController
 
     internal MakuTreeDisappearanceEvent MakuTree => _makuTree;
     internal MakuTreeSavedEvent MakuTreeSaved => _makuTreeSaved;
+    internal ShootingGalleryEvent ShootingGallery => _shootingGallery;
     internal ComedianEvent Comedian => _comedian;
     internal MaskSalesmanEvent MaskSalesman => _maskSalesman;
     internal PoeEvent Poe => _poe;
@@ -190,6 +194,7 @@ public sealed class RoomEventController
     internal bool ScreenTransitionsDisabled =>
         _makuSproutRescue.ScreenTransitionsDisabled ||
         _fairiesWoods.ScreenTransitionsDisabled;
+    internal bool MenusDisabled => _shootingGallery.MenusDisabled;
     internal ICutsceneCommandTraceSink? CommandTraceSink
     {
         set => _context.CommandTraceSink = value;
@@ -232,6 +237,7 @@ public sealed class RoomEventController
         _fairiesWoods.TryInteractNpc(npc) ||
         _lynnaShop.TryInteractNpc(npc) ||
         _vasuShop.TryInteractNpc(npc) ||
+        _shootingGallery.TryInteractNpc(npc) ||
         _nayru.TryInteractNpc(npc) ||
         _blackTowerEntrance.TryInteractNpc(npc) ||
         _makuSproutRescue.TryInteractNpc(npc) ||
@@ -353,6 +359,23 @@ public sealed class RoomEventController
         {
             if (!roomEvent.HasState)
                 continue;
+
+            // Event-owned interactions are outside RoomEntityManager but use
+            // the same wTextIsActive reduced pass. The callback contains only
+            // source-enabled objects or non-object cutscene-handler work.
+            if (_context.DialogueOpen)
+            {
+                if (roomEvent is IUpdatesDuringDialogueRoomEvent alwaysUpdate)
+                    alwaysUpdate.UpdateDuringDialogueFrame();
+                if (ReferenceEquals(roomEvent, _nayru) &&
+                    _nayru.CrowdActive && _impa.Following)
+                {
+                    // Nayru owns this composite room event, but following
+                    // Impa is still a distinct bit-7 interaction.
+                    _impa.UpdateFollower();
+                }
+                return;
+            }
 
             roomEvent.UpdateFrame();
             if (ReferenceEquals(roomEvent, _nayru) &&

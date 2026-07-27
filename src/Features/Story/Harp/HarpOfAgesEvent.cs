@@ -11,7 +11,8 @@ namespace oracleofages;
 /// </summary>
 internal sealed class HarpOfAgesEvent :
     IRoomEntryEvent,
-    ICutsceneCommandHost
+    ICutsceneCommandHost,
+    IUpdatesDuringDialogueRoomEvent
 {
     private static readonly int[] NoteSwaySteps =
         [-1, -2, -1, 0, 1, 2, 1, 0];
@@ -191,6 +192,8 @@ internal sealed class HarpOfAgesEvent :
                 throw Unsupported($"update stage {_stage}");
         }
     }
+
+    public void UpdateDuringDialogueFrame() => UpdateFrame();
 
     public void Cancel()
     {

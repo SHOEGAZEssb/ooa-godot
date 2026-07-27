@@ -9,7 +9,8 @@ namespace oracleofages;
 /// The controller arms on room entry, observes the shared Bracelet parent,
 /// and restores roomGfxChanges.roomTileChangesAfterLoad00 on later loads.
 /// </summary>
-internal sealed class WingDungeonCollapseEvent : IRoomEntryEvent
+internal sealed class WingDungeonCollapseEvent : IRoomEntryEvent,
+    IUpdatesDuringDialogueRoomEvent
 {
     private readonly RoomEventContext _context;
     private readonly WingDungeonCollapseDatabase _database = new();
@@ -198,6 +199,8 @@ internal sealed class WingDungeonCollapseEvent : IRoomEntryEvent
                     $"Unsupported Wing Dungeon collapse stage {_stage}.");
         }
     }
+
+    public void UpdateDuringDialogueFrame() => UpdateFrame();
 
     public void Cancel()
     {

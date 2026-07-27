@@ -12,7 +12,8 @@ namespace oracleofages;
 /// </summary>
 internal sealed class VasuShopNpcRoomEntity
     : RoomEntityAdapter<NpcCharacter>, IVariableRoomEntity, IFixedRoomEntity,
-        IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity, IPlayerRestriction
+        IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity, IPlayerRestriction,
+        IUpdatesDuringDialogueRoomEntity
 {
     private readonly VasuShopDatabase _database;
     private readonly bool _vasu;
@@ -52,6 +53,7 @@ internal sealed class VasuShopNpcRoomEntity
     }
 
     public NpcCharacter Npc => Entity;
+    bool IUpdatesDuringDialogueRoomEntity.UpdatesDuringDialogue => true;
     public bool DisablesSword => false;
     public bool DisablesItems => true;
     public bool DisablesRingTransformations => true;

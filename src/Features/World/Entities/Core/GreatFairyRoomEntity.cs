@@ -13,6 +13,7 @@ internal sealed class GreatFairyRoomEntity
     : RoomEntityAdapter<NpcCharacter>,
         IFixedRoomEntity,
         IAlwaysUpdateDuringScreenTransitionRoomEntity,
+        IUpdatesDuringDialogueRoomEntity,
         IRoomBlocker,
         ITalkTarget,
         IOrdinaryNpcEntity
@@ -29,6 +30,7 @@ internal sealed class GreatFairyRoomEntity
     private int _z = InitialZ;
 
     public NpcCharacter Npc => Entity;
+    bool IUpdatesDuringDialogueRoomEntity.UpdatesDuringDialogue => true;
 
     internal GreatFairyRoomEntity(
         NpcCharacter npc,

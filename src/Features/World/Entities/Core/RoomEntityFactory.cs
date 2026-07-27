@@ -53,6 +53,7 @@ internal sealed class RoomEntityFactory(
     private readonly VasuShopDatabase _vasuShop = new();
     private readonly LynnaShopDatabase _lynnaShop = new();
     private readonly BlackTowerWorkerDatabase _blackTower = new();
+    private readonly ShootingGalleryEventDatabase _shootingGallery = new();
     private readonly ComedianEventDatabase _comedian = new();
     private readonly MaskSalesmanEventDatabase _maskSalesman = new();
     private readonly PoeEventDatabase _poe = new();
@@ -964,6 +965,12 @@ internal sealed class RoomEntityFactory(
         MapleDroppedItemSpawn item => CreateMapleDroppedItem(item, room),
         LightableTorchSpawn torch => CreateLightableTorch(torch, room),
         Room148DebrisSpawn debris => CreateRoom148Debris(debris),
+        ShootingGalleryGameControllerSpawn controller =>
+            CreateShootingGalleryController(controller, room),
+        ShootingGalleryBallSpawn ball =>
+            CreateShootingGalleryBall(ball, room),
+        ShootingGalleryTargetDebrisSpawn debris =>
+            CreateShootingGalleryTargetDebris(debris),
         SwordBeamSpawn beam => CreateSwordBeam(beam, room),
         SwordBeamClinkSpawn clink => CreateSwordBeamClink(clink),
         StatueEyeballSpawn eye => CreateStatueEyeball(eye),
@@ -1105,6 +1112,19 @@ internal sealed class RoomEntityFactory(
         RequireNpcImplementation(
             record, NpcImplementationClassification.SpecializedNative);
 
+        if (record.Group == _shootingGallery.Record.Group &&
+            record.Room == _shootingGallery.Record.Room &&
+            record.Id == _shootingGallery.Record.InteractionId &&
+            record.SubId == _shootingGallery.Record.SubId)
+        {
+            var keeper = new ShootingGalleryCharacter
+            {
+                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+                ZIndex = NpcCharacter.BehindLinkZIndex
+            };
+            keeper.InitializeShootingGallery(record);
+            return new ShootingGalleryNpcRoomEntity(keeper);
+        }
         if (record.Group == _comedian.Record.Group &&
             record.Room == _comedian.Record.Room &&
             record.Id == _comedian.Record.InteractionId &&
@@ -1207,6 +1227,56 @@ internal sealed class RoomEntityFactory(
         throw new InvalidOperationException(
             $"{NpcSource(record)} is classified specialized-native but has " +
             "no native room-entity dispatch.");
+    }
+
+    private IRoomEntity CreateShootingGalleryController(
+        ShootingGalleryGameControllerSpawn spawn,
+        OracleRoomData room)
+    {
+        var controller = new ShootingGalleryGameController
+        {
+            Name = "ShootingGalleryController"
+        };
+        controller.Initialize(
+            _shootingGallery,
+            spawn.Session,
+            room,
+            random,
+            soundRequested,
+            animationTick);
+        return new ShootingGalleryGameControllerRoomEntity(controller);
+    }
+
+    private IRoomEntity CreateShootingGalleryBall(
+        ShootingGalleryBallSpawn spawn,
+        OracleRoomData room)
+    {
+        var ball = new ShootingGalleryBall
+        {
+            Name = "ShootingGalleryBall",
+            ZIndex = 10
+        };
+        ball.Initialize(
+            _shootingGallery,
+            spawn.Session,
+            room,
+            random,
+            spawn.Position,
+            soundRequested,
+            animationTick);
+        return new ShootingGalleryBallRoomEntity(ball);
+    }
+
+    private IRoomEntity CreateShootingGalleryTargetDebris(
+        ShootingGalleryTargetDebrisSpawn spawn)
+    {
+        var debris = new ShootingGalleryTargetDebris
+        {
+            Name = "ShootingGalleryTargetDebris",
+            ZIndex = 10
+        };
+        debris.Initialize(_shootingGallery.Debris, spawn);
+        return new ShootingGalleryTargetDebrisRoomEntity(debris);
     }
 
     private IEnumerable<IRoomEntity> CreateNayruHouseNpcs(

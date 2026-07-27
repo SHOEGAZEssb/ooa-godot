@@ -52,10 +52,19 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
         _angles[actor] = angle;
     }
 
-    public void Start(IReadOnlyList<CutsceneCommand> commands)
+    public void Start(
+        IReadOnlyList<CutsceneCommand> commands,
+        int firstCommand = 0)
     {
         if (commands.Count == 0)
             throw new InvalidOperationException("A cutscene command stream cannot be empty.");
+        if (firstCommand < 0 || firstCommand >= commands.Count)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(firstCommand),
+                firstCommand,
+                "The first cutscene command must be inside the command stream.");
+        }
         for (int index = 0; index < commands.Count; index++)
         {
             if (commands[index].Source.CommandIndex != index)
@@ -114,7 +123,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
         _speeds.Clear();
         _angles.Clear();
         _returns.Clear();
-        _instruction = 0;
+        _instruction = firstCommand;
         _commandUpdates = 0;
         _scriptUpdates = 0;
         _nextInstruction = -1;

@@ -23,6 +23,7 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
 
     internal bool Finished { get; private set; }
     internal bool Flickers { get; private set; }
+    internal bool UpdatesDuringDialogue { get; private set; }
     internal int InteractionId => _record.InteractionId;
     internal int ElapsedUpdates { get; private set; }
     internal int AnimationFrame =>
@@ -54,6 +55,9 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
             ? record.UnderwaterAnimation
             : record.Animation;
         Flickers = flickers;
+        // breakTileDebris.s leaves enabled bit 7 clear only when subid bit 1
+        // selects the underwater variant.
+        UpdatesDuringDialogue = !underwater;
         _playSound = playSound ?? (static _ => { });
         _animationFrame = 0;
         _animationCounter = _animation[0].Duration;
@@ -222,9 +226,12 @@ internal sealed record GrassDebrisDefinition(
 internal sealed class GrassDebrisRoomEntity(GrassDebrisEffect debris)
     : RoomEntityAdapter<GrassDebrisEffect>(
         debris, debris.SetTransitionDrawOffset),
-        IFixedRoomEntity, IRoomEntityLifetime
+        IFixedRoomEntity, IRoomEntityLifetime,
+        IUpdatesDuringDialogueRoomEntity
 {
     public bool Finished => Entity.Finished;
+    bool IUpdatesDuringDialogueRoomEntity.UpdatesDuringDialogue =>
+        Entity.UpdatesDuringDialogue;
 
     public void UpdateFrame(
         RoomEntityFrame frame,

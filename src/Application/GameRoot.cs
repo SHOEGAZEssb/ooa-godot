@@ -647,6 +647,7 @@ public partial class GameRoot : Node2D
             () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
                 !InventoryMenuOpen && !RingMenuOpen &&
                 !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
+                !_roomEvents.MenusDisabled &&
                 !_interactions.GameplayMenuActive &&
                 !_entities.PlayerMenusDisabled);
         _gameplayPause = new GameplayPauseController(_player, _roomDebug);
@@ -655,6 +656,7 @@ public partial class GameRoot : Node2D
             _mapScreen, _dialogue, _menuLifecycle,
             () => !IsTransitioning && !DialogueOpen && !InventoryMenuOpen &&
                 !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
+                !_roomEvents.MenusDisabled &&
                 !_entities.PlayerMenusDisabled,
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone),
             FastTravelFromMap, _sound.PlaySound);
@@ -664,6 +666,7 @@ public partial class GameRoot : Node2D
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone) &&
                 !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
                 !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
+                !_roomEvents.MenusDisabled &&
                 !_entities.PlayerMenusDisabled,
             SaveActiveFile, ReturnToTitle, _sound.PlaySound,
             RestartGameplayAfterDeath);
@@ -675,7 +678,7 @@ public partial class GameRoot : Node2D
             _debugFlagScreen, _rooms, _gameplayPause,
             () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
                 !InventoryMenuOpen && !_player.IsDying &&
-                !_roomEvents.Active);
+                !_roomEvents.Active && !_roomEvents.MenusDisabled);
     }
 
     internal void UpdateAnimatedTiles(double delta)
@@ -745,6 +748,7 @@ public partial class GameRoot : Node2D
         !_player.IsDying &&
         !_player.IsUsingHarp &&
         !_roomEvents.Active &&
+        !_roomEvents.MenusDisabled &&
         !_entities.PlayerMenusDisabled;
 
     internal DebugSavestateData CaptureDebugSavestate() =>

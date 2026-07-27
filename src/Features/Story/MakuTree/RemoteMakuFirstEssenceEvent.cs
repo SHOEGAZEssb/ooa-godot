@@ -11,7 +11,8 @@ namespace oracleofages;
 /// </summary>
 internal sealed class RemoteMakuFirstEssenceEvent :
     IRoomEntryEvent,
-    ICutsceneCommandHost
+    ICutsceneCommandHost,
+    IUpdatesDuringDialogueRoomEvent
 {
     private readonly RoomEventContext _context;
     private readonly RemoteMakuFirstEssenceDatabase _database = new();
@@ -100,6 +101,8 @@ internal sealed class RemoteMakuFirstEssenceEvent :
             _stage = RemoteMakuFirstEssenceEventStage.Inactive;
         }
     }
+
+    public void UpdateDuringDialogueFrame() => _confetti?.UpdateFrame();
 
     public void Cancel()
     {

@@ -423,6 +423,24 @@ public sealed class InventoryState
     public void EquipA(int item) => EquipButton(item, isA: true);
     public void EquipB(int item) => EquipButton(item, isA: false);
 
+    /// <summary>
+    /// Native minigame helpers write wInventoryB/A directly while preserving
+    /// the ordinary storage slots, then restore the saved button bytes.
+    /// </summary>
+    internal void SetScriptedEquippedItems(int equippedB, int equippedA)
+    {
+        if (equippedB is < ItemNone or >= NumInventoryItems ||
+            equippedA is < ItemNone or >= NumInventoryItems)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(equippedB),
+                $"Invalid scripted equips ${equippedB:x2}/${equippedA:x2}.");
+        }
+        EquippedB = equippedB;
+        EquippedA = equippedA;
+        NotifyChanged();
+    }
+
     public void SwapStorageSlotWithButton(int storageIndex, bool isA)
     {
         if (storageIndex < 0 || storageIndex >= InventoryCapacity)
