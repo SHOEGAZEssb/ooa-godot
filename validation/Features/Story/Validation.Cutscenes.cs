@@ -2985,7 +2985,7 @@ public sealed partial class ValidationRoot
         deflectedArrow.Initialize(
             arrowRecord, _currentRoom, new Vector2(0x50, 0x40), 0x08);
         if (!deflectedArrow.DeflectWithSword() ||
-            deflectedArrow.State != ArrowState.Bouncing ||
+            deflectedArrow.State != HostileProjectileState.Bouncing ||
             deflectedArrow.Counter != 0x20)
         {
             throw new InvalidOperationException(

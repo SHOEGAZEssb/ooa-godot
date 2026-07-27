@@ -3,32 +3,20 @@ using System;
 
 namespace oracleofages;
 
-public partial class OctorokRockProjectile : TransitionOffsetNode2D
+public partial class OctorokRockProjectile
+    : TransitionOffsetNode2D, IHostileProjectile
 {
-
-    private const int BounceSpeedZ = -0xe0;
-    private const int BounceGravity = 0x0e;
-    private const int BounceFrames = 0x20;
-
-    private OctorokProjectileRecord _record;
-    private OracleRoomData _room = null!;
     private Texture2D _normalTexture = null!;
     private Texture2D _bounceTexture = null!;
-    private RockState _state;
-    private int _angle;
-    private int _counter;
-    private int _zFixed;
-    private int _speedZ;
+    private HostileProjectileLifecycle _lifecycle = null!;
 
-    public bool Finished { get; private set; }
-    internal RockState State => _state;
-    internal int Angle => _angle;
-    internal int Counter => _counter;
-    internal int ZFixed => _zFixed;
-    internal int ElapsedFrames { get; private set; }
-    public Rect2 CollisionBounds => new(
-        Position - new Vector2(_record.CollisionRadiusX, _record.CollisionRadiusY),
-        new Vector2(_record.CollisionRadiusX * 2, _record.CollisionRadiusY * 2));
+    public bool Finished => _lifecycle.Finished;
+    internal HostileProjectileState State => _lifecycle.State;
+    internal int Angle => _lifecycle.Angle;
+    internal int Counter => _lifecycle.Counter;
+    internal int ZFixed => _lifecycle.ZFixed;
+    internal int ElapsedFrames => _lifecycle.ElapsedFrames;
+    public Rect2 CollisionBounds => _lifecycle.CollisionBounds;
 
     internal void Initialize(
         OctorokProjectileRecord record,
@@ -36,10 +24,23 @@ public partial class OctorokRockProjectile : TransitionOffsetNode2D
         Vector2 position,
         int angle)
     {
-        _record = record;
-        _room = room;
         Position = position;
-        _angle = angle & 0x18;
+        _lifecycle = new HostileProjectileLifecycle(
+            this,
+            room,
+            new HostileProjectileProfile(
+                "object_code/common/parts/octorokProjectile.s:partCode18",
+                record.DamageQuarters,
+                record.SpeedRaw,
+                RingDamageSource.OctorokProjectile,
+                new Vector2(
+                    record.CollisionRadiusX,
+                    record.CollisionRadiusY),
+                HostileProjectileTileProbe.DestinationWithPendingBounce,
+                HostileProjectileSwordWindow.BeforeBounce,
+                ClearCollisionOnBounce: false,
+                ResetZOnBounce: true),
+            angle);
         Image source = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{record.SpriteName}.png");
         _normalTexture = BuildFirstFrame(
@@ -51,129 +52,27 @@ public partial class OctorokRockProjectile : TransitionOffsetNode2D
 
     internal void UpdateFrame(Player player)
     {
-        if (Finished)
-            return;
-        ElapsedFrames++;
-
-        if (_state == RockState.Initializing)
-        {
-            _state = RockState.Flying;
-            return;
-        }
-
-        if (_state == RockState.CollisionPending)
-        {
-            BeginBounce();
-            return;
-        }
-        if (_state == RockState.Bouncing)
-        {
-            UpdateBounce();
-            return;
-        }
-
-        if (player.TryBlockWithShield(CollisionBounds))
-        {
-            BeginBounce();
-            return;
-        }
-
-        if (OverlapsLink(player.Position))
-        {
-            player.ApplyEnemyContactDamage(
-                Position, _record.DamageQuarters,
-                RingDamageSource.OctorokProjectile);
-            Finish();
-            return;
-        }
-        if (!WithinVisibleBoundary(player.Position))
-        {
-            Finish();
-            return;
-        }
-
-        Vector2 destination = Position +
-            OracleObjectMath.CardinalVector(_angle) * (_record.SpeedRaw / 40.0f);
-        if (destination.X < 0 || destination.X >= _room.Width ||
-            destination.Y < 0 || destination.Y >= _room.Height)
-        {
-            Finish();
-            return;
-        }
-        if (_room.IsSolid(destination))
-        {
-            // State 1 still calls objectApplySpeed after selecting state 2.
-            // The bounce is initialized by state 2 on the following update.
-            _state = RockState.CollisionPending;
-            Position = destination;
-            QueueRedraw();
-            return;
-        }
-        Position = destination;
-        QueueRedraw();
+        _lifecycle.UpdateFrame(player);
     }
 
-    internal bool DeflectWithSword()
-    {
-        if (Finished || _state is not (RockState.Initializing or RockState.Flying))
-            return false;
-        BeginBounce();
-        return true;
-    }
+    internal bool DeflectWithSword() => _lifecycle.DeflectWithSword();
+
+    void IHostileProjectile.UpdateFrame(Player player) =>
+        UpdateFrame(player);
+    bool IHostileProjectile.DeflectWithSword() =>
+        DeflectWithSword();
 
     public override void _Draw()
     {
         if (Finished)
             return;
-        Texture2D texture = _state == RockState.Bouncing ? _bounceTexture : _normalTexture;
+        Texture2D texture =
+            State == HostileProjectileState.Bouncing
+                ? _bounceTexture
+                : _normalTexture;
         DrawTexture(texture,
-            new Vector2(-16, -16 + (_zFixed >> 8)) + TransitionDrawOffset);
-    }
-
-    private void BeginBounce()
-    {
-        _state = RockState.Bouncing;
-        _angle ^= 0x10;
-        _counter = BounceFrames;
-        _zFixed = 0;
-        _speedZ = BounceSpeedZ;
-        QueueRedraw();
-    }
-
-    private void UpdateBounce()
-    {
-        _counter--;
-        if (_counter == 0)
-        {
-            Finish();
-            return;
-        }
-        OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, BounceGravity);
-        Position += OracleObjectMath.CardinalVector(_angle) * 0.25f;
-        QueueRedraw();
-    }
-
-    private bool OverlapsLink(Vector2 linkPosition)
-    {
-        return Mathf.Abs(linkPosition.X - Position.X) < _record.CollisionRadiusX + 6 &&
-            Mathf.Abs(linkPosition.Y - Position.Y) < _record.CollisionRadiusY + 6;
-    }
-
-    private bool WithinVisibleBoundary(Vector2 linkPosition)
-    {
-        float maxCameraX = Mathf.Max(0.0f, _room.Width - OracleRoomData.ViewportWidth);
-        float maxCameraY = Mathf.Max(0.0f, _room.Height - OracleRoomData.ViewportHeight);
-        Vector2 cameraOrigin = new(
-            Mathf.Clamp(linkPosition.X - OracleRoomData.ViewportWidth / 2.0f, 0.0f, maxCameraX),
-            Mathf.Clamp(linkPosition.Y - OracleRoomData.ViewportHeight / 2.0f, 0.0f, maxCameraY));
-        Vector2 screen = Position - cameraOrigin;
-        return OracleObjectMath.IsInsideOriginalScreenBoundary(screen);
-    }
-
-    private void Finish()
-    {
-        Finished = true;
-        Visible = false;
+            new Vector2(-16, -16 + (ZFixed >> 8)) +
+            TransitionDrawOffset);
     }
 
     private static Texture2D BuildFirstFrame(
@@ -189,12 +88,4 @@ public partial class OctorokRockProjectile : TransitionOffsetNode2D
         return NpcCharacter.BuildOamTexture(
             source, frames[0].EncodedOam, tileBase, palette);
     }
-}
-
-internal enum RockState
-{
-    Initializing,
-    Flying,
-    CollisionPending,
-    Bouncing
 }

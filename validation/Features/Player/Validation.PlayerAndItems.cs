@@ -357,7 +357,7 @@ public sealed partial class ValidationRoot
         rock.UpdateFrame(player); // State 0 setup-only update.
         int healthBeforeBlock = player.HealthQuarters;
         rock.UpdateFrame(player);
-        if (rock.State != RockState.Bouncing ||
+        if (rock.State != HostileProjectileState.Bouncing ||
             rock.Angle != 0x10 || rock.Counter != 0x20 || rock.ZFixed != 0 ||
             player.HealthQuarters != healthBeforeBlock ||
             world.Sounds.Count(sound => sound == OracleSoundEngine.SndClink2) != 1)
@@ -371,7 +371,7 @@ public sealed partial class ValidationRoot
         arrow.Position = shieldCenter;
         arrow.UpdateFrame(player); // State 0 setup-only update.
         arrow.UpdateFrame(player);
-        if (arrow.State != ArrowState.Bouncing ||
+        if (arrow.State != HostileProjectileState.Bouncing ||
             arrow.Counter != 0x20 || player.HealthQuarters != healthBeforeBlock ||
             world.Sounds.Count(sound => sound == OracleSoundEngine.SndClink2) != 2)
         {

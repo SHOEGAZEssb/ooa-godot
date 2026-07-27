@@ -387,6 +387,20 @@ visibility on the creation update without moving; its `SPEED_200` flight begins
 on the following update. Room `0:84` is the canonical single-red-Moblin
 placement.
 
+`HostileProjectileLifecycle` owns the common Octorok-rock and enemy-arrow
+visible-boundary check, Link/shield contact, room lifetime, and
+`partCommon_bounceWhenCollisionsEnabled` path. Its typed profile keeps behavior
+that is not common in explicit source order. `PART_OCTOROK_PROJECTILE $18`
+probes the destination, applies its last `SPEED_200` step into a solid tile,
+and initializes the reversed bounce from state 2 on the next update.
+`PART_ENEMY_ARROW $1a` probes its current tile and initializes the bounce
+immediately without that movement. Both then use `SPEED_40`, speedZ `-$00e0`,
+gravity `$0e`, and delete when the `$20`-update counter reaches zero. Their
+imported normal/directional and bounce animations stay with the concrete
+projectile nodes. The generic room adapter applies the same fixed-update,
+sword, scrolling-offset, and completion ownership to both; owner-returning
+Moblin boomerangs keep their specialized outbound/return state machine.
+
 Side-view terrain movement must preserve the source velocity table's exact zero
 components for cardinal angles. A blocked cardinal move returns zero; it must
 not test the unchanged perpendicular coordinate and report success. Rope

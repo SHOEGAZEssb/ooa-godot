@@ -227,13 +227,22 @@ and RNG consumption while addressing these items.
   Zol splitting, Wallmaster capture, Giant Ghini audio, and multipart-boss
   behavior remain explicit compositions or special descriptors.
 
-- [ ] Factor the shared hostile-projectile lifecycle used by Moblin arrows and
+- [x] Factor the shared hostile-projectile lifecycle used by Moblin arrows and
   Octorok rocks into a data-driven component. Their adapters and most of their
   visible-boundary, Link/shield contact, terrain collision, bounce, gravity,
   and lifetime handling are parallel implementations. Preserve their distinct
   source update order, collision-pending rules, damage source, speed, and
   animation, and leave owner-returning boomerangs as an explicit specialized
   path.
+  `HostileProjectileLifecycle` now consumes a typed per-part profile for
+  damage source, imported speed, collision radii, terrain-probe order,
+  sword window, and bounce collision policy. One generic adapter owns both
+  room-entity
+  lifecycles. Rocks retain their destination probe, final movement step, and
+  next-update state-2 bounce; arrows retain their current-tile immediate
+  bounce, direction-specific offset/radii/animation, and generic damage path.
+  Both share the exact `$20`-update `SPEED_40`, speedZ `-$00e0`, gravity `$0e`
+  bounce. Owner-returning Moblin boomerangs remain a separate state machine.
 
 ## Remaining repository continuity audit
 

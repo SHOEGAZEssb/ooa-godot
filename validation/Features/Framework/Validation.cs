@@ -147,6 +147,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateGraveyardCrowsAndDropProducers();
         ValidateOctoroks();
         ValidateArrowMoblins();
+        ValidateHostileProjectileLifecycle();
         ValidateEnemySwordKnockback();
         ValidateEnemyDamageBlink();
         ValidateEnemyHazards();

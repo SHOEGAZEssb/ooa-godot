@@ -1660,7 +1660,7 @@ internal sealed class RoomEntityFactory(
     {
         var rock = new OctorokRockProjectile { Name = "OctorokRock", ZIndex = 10 };
         rock.Initialize(enemies.OctorokProjectile, room, spawn.Position, spawn.Angle);
-        return new OctorokRockRoomEntity(rock);
+        return new HostileProjectileRoomEntity<OctorokRockProjectile>(rock);
     }
 
     private IRoomEntity CreateMaskedMoblin(
@@ -1689,7 +1689,7 @@ internal sealed class RoomEntityFactory(
     {
         var arrow = new EnemyArrowProjectile { Name = "EnemyArrow", ZIndex = 10 };
         arrow.Initialize(enemies.EnemyArrow, room, spawn.Position, spawn.Angle);
-        return new EnemyArrowRoomEntity(arrow);
+        return new HostileProjectileRoomEntity<EnemyArrowProjectile>(arrow);
     }
 
     private IRoomEntity CreateGel(

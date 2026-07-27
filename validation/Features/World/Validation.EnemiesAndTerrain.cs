@@ -1024,7 +1024,8 @@ public sealed partial class ValidationRoot
         Vector2 projectileOrigin = blue.Position;
         _entities.Update(1.0 / 60.0, _player);
         if (_entities.Entities<OctorokRockProjectile>().Count != 1 ||
-            _entities.Entities<OctorokRockProjectile>()[0].State != RockState.Flying ||
+            _entities.Entities<OctorokRockProjectile>()[0].State !=
+                HostileProjectileState.Flying ||
             _entities.Entities<OctorokRockProjectile>()[0].ElapsedFrames != 1 ||
             _entities.Entities<OctorokRockProjectile>()[0].Position != projectileOrigin ||
             blue.State != OctorokState.Standing || blue.Counter1 != 0x20)
@@ -1041,7 +1042,7 @@ public sealed partial class ValidationRoot
         for (int frame = 0; frame < 4; frame++)
             _entities.Update(1.0 / 60.0, _player);
         if (!_entities.ApplySwordHit(rock.CollisionBounds.Grow(1.0f), _player.Position) ||
-            rock.State != RockState.Bouncing ||
+            rock.State != HostileProjectileState.Bouncing ||
             rock.Angle != 0x08 || rock.Counter != 0x20)
         {
             throw new InvalidOperationException(
@@ -1078,14 +1079,14 @@ public sealed partial class ValidationRoot
         terrainRock.Initialize(projectile, _currentRoom, terrainCollisionOrigin, angle: 0x08);
         terrainRock.UpdateFrame(_player);
         terrainRock.UpdateFrame(_player);
-        if (terrainRock.State != RockState.CollisionPending ||
+        if (terrainRock.State != HostileProjectileState.CollisionPending ||
             terrainRock.Position != terrainCollisionOrigin + Vector2.Right * 2.0f)
         {
             throw new InvalidOperationException(
                 "A terrain-striking Octorok rock did not enter state 2 after applying its final flying step.");
         }
         terrainRock.UpdateFrame(_player);
-        if (terrainRock.State != RockState.Bouncing ||
+        if (terrainRock.State != HostileProjectileState.Bouncing ||
             terrainRock.Counter != 0x20 || terrainRock.Angle != 0x18)
         {
             throw new InvalidOperationException(
@@ -1316,7 +1317,7 @@ public sealed partial class ValidationRoot
             moblin.MoveCycles != 1 ||
             manager.RandomCalls != 260 ||
             arrows.Count != 1 ||
-            arrows[0].State != ArrowState.Flying ||
+            arrows[0].State != HostileProjectileState.Flying ||
             arrows[0].ElapsedFrames != 1 ||
             arrows[0].Position != firstShotOrigin + expectedArrowOffset)
         {
@@ -1376,6 +1377,131 @@ public sealed partial class ValidationRoot
             "256-call placement parse, direction/duration RNG order, SPEED_80 route, " +
             "eight-update stand, alternate facing-only shots, and same-update " +
             "PART_ENEMY_ARROW state-0 offset without premature movement.");
+    }
+
+    private void ValidateHostileProjectileLifecycle()
+    {
+        var database = new EnemyDatabase();
+        OracleRoomData room = _world.LoadRoom(1, 0xbc);
+        Vector2 originalPlayerPosition = _player.Position;
+        _player.WarpTo(new Vector2(-0x100, -0x100), recordSafe: false);
+
+        Vector2 rockOrigin = Vector2.Zero;
+        bool foundTerrainEdge = false;
+        for (int y = 8; y < room.Height - 8 && !foundTerrainEdge; y++)
+        for (int x = 8; x < room.Width - 2; x++)
+        {
+            Vector2 candidate = new(x, y);
+            if (!room.IsSolid(candidate) &&
+                room.IsSolid(candidate + Vector2.Right * 2.0f))
+            {
+                rockOrigin = candidate;
+                foundTerrainEdge = true;
+                break;
+            }
+        }
+        if (!foundTerrainEdge)
+        {
+            throw new InvalidOperationException(
+                "Room 1:bc has no edge for the hostile-projectile " +
+                "source-order regression.");
+        }
+
+        Vector2 collisionPosition =
+            rockOrigin + Vector2.Right * 2.0f;
+        var rock = new OctorokRockProjectile();
+        rock.Initialize(
+            database.OctorokProjectile,
+            room,
+            rockOrigin,
+            angle: 0x08);
+        var arrow = new EnemyArrowProjectile();
+        arrow.Initialize(
+            database.EnemyArrow,
+            room,
+            Vector2.Zero,
+            angle: 0x08);
+        arrow.Position = collisionPosition;
+
+        rock.UpdateFrame(_player);
+        arrow.UpdateFrame(_player);
+        rock.UpdateFrame(_player);
+        arrow.UpdateFrame(_player);
+        if (rock.State != HostileProjectileState.CollisionPending ||
+            rock.Position != collisionPosition ||
+            arrow.State != HostileProjectileState.Bouncing ||
+            arrow.Position != collisionPosition ||
+            arrow.Counter != 0x20 ||
+            arrow.Angle != 0x18)
+        {
+            throw new InvalidOperationException(
+                "PART_OCTOROK_PROJECTILE and PART_ENEMY_ARROW lost their " +
+                "distinct destination-pending versus current-tile-immediate " +
+                "collision order.");
+        }
+        if (rock.DeflectWithSword())
+        {
+            throw new InvalidOperationException(
+                "PART_OCTOROK_PROJECTILE accepted a sword collision after " +
+                "entering its collision-pending state.");
+        }
+
+        rock.UpdateFrame(_player);
+        if (rock.State != HostileProjectileState.Bouncing ||
+            rock.Counter != 0x20 ||
+            rock.Angle != 0x18 ||
+            rock.CollisionBounds.Size != new Vector2(4, 4) ||
+            arrow.CollisionBounds.Size != Vector2.Zero)
+        {
+            throw new InvalidOperationException(
+                "The shared hostile-projectile bounce did not preserve the " +
+                "rock/arrow collision-window distinction.");
+        }
+
+        rock.UpdateFrame(_player);
+        arrow.UpdateFrame(_player);
+        Vector2 firstBouncePosition =
+            collisionPosition + Vector2.Left * 0.25f;
+        if (rock.Position != firstBouncePosition ||
+            arrow.Position != firstBouncePosition ||
+            rock.Counter != 0x1f ||
+            arrow.Counter != 0x1f ||
+            rock.ZFixed != -0xe0 ||
+            arrow.ZFixed != -0xe0)
+        {
+            throw new InvalidOperationException(
+                "The shared partCommon bounce did not independently retain " +
+                "SPEED_40, speedZ -$00e0, gravity $0e, and the first counter " +
+                "decrement.");
+        }
+
+        for (int update = 0; update < 30; update++)
+        {
+            rock.UpdateFrame(_player);
+            arrow.UpdateFrame(_player);
+        }
+        if (rock.Finished || arrow.Finished ||
+            rock.Counter != 1 || arrow.Counter != 1)
+        {
+            throw new InvalidOperationException(
+                "The shared hostile-projectile bounce ended before update $20.");
+        }
+        rock.UpdateFrame(_player);
+        arrow.UpdateFrame(_player);
+        if (!rock.Finished || !arrow.Finished)
+        {
+            throw new InvalidOperationException(
+                "The shared hostile-projectile bounce survived counter zero.");
+        }
+
+        rock.Free();
+        arrow.Free();
+        _player.WarpTo(originalPlayerPosition, recordSafe: false);
+        GD.Print(
+            "Validated the data-driven hostile-projectile lifecycle: common " +
+            "Link/shield/lifetime plumbing and exact 32-update SPEED_40 bounce, " +
+            "plus PART_OCTOROK_PROJECTILE destination/pending and " +
+            "PART_ENEMY_ARROW current-tile/immediate collision order.");
     }
 
     private void ValidateEnemySwordKnockback()
