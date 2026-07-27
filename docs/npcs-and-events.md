@@ -26,7 +26,7 @@ Use the smallest owner that preserves the original mechanism and update order:
 
 | Original behavior | Runtime representation |
 | --- | --- |
-| Positioned character with ordinary animation, solidity, facing, and text | Imported `NpcRecord`, `NpcCharacter`, and `NpcRoomEntity` |
+| Positioned character with ordinary animation, solidity, facing, and text | `OrdinaryGeneric` imported `NpcRecord`, `NpcCharacter`, and `NpcRoomEntity` |
 | State-0 branch deletes or retains a placed interaction | Imported `NpcVisibilityRuleDatabase` predicate |
 | The actor remains but selects different text from story state | Imported `NpcDialogueRuleDatabase` rule |
 | Initialization selects a different static position from story state | Imported `NpcPositionRuleDatabase` rule |
@@ -78,7 +78,8 @@ streams and event records that span several systems.
 Prefer one of these generated forms:
 
 - A base NPC row for placement, `var03`, initial visual, directional
-  animations, text, and facing behavior.
+  animations, text, facing behavior, and explicit implementation
+  classification.
 - A visibility row for a state-0 deletion predicate.
 - A dialogue row when the same actor selects text from live story state.
 - A position row when initialization chooses a static coordinate from story
@@ -88,6 +89,24 @@ Prefer one of these generated forms:
 - A narrowly typed visual, physics, timing, or event record for native behavior
   not represented by the common NPC schema.
 - A source-addressed command stream for original interaction scripts.
+
+Every generated `NpcRecord` has exactly one `Implementation` value:
+
+- `OrdinaryGeneric` is allowed to use `NpcRoomEntity`.
+- `SpecializedNative` must resolve to a specialized room entity or a typed
+  native-controller adapter.
+- `EventOwned` retains the original placed object slot under an event-owned
+  adapter; dynamically created cutscene records also declare this value.
+- `DeliberatelyUnsupported` is not instantiated. Importable graphics,
+  visibility predicates, or an initial text do not make an unimplemented
+  native/script handler safe to display.
+
+`Import-NpcData.ps1` classifies positioned/state-derived rows by exact
+group/room/ID/subid/`var03` source identity and denies unregistered keys by
+default. All generated family variants are explicitly specialized. The stage
+asserts the category totals and rejects overlapping registries; `NpcDatabase`
+rejects missing or unknown values with generated-file line and column
+diagnostics.
 
 Do not encode dialogue strings, sprite choices, or parsed script operands in a
 runtime controller when they can be emitted by the importer. Do not invent a
@@ -110,8 +129,8 @@ after importer changes and keep row order deterministic.
 The ordinary path is intentionally small:
 
 1. `NpcDatabase` loads the generated room rows in source order.
-2. `RoomEntityFactory` creates one `NpcCharacter` and adapter for each selected
-   row.
+2. `RoomEntityFactory` creates `NpcRoomEntity` only for selected
+   `OrdinaryGeneric` rows.
 3. `RoomEntityManager` adds the adapters to the active entity list in that
    order.
 4. `NpcCharacter` owns rendering, common animation, Link awareness, facing,
@@ -165,6 +184,15 @@ transient runtime-WRAM, and `getGameProgress_1`/`getGameProgress_2` conditions.
 New kinds require a typed evaluator and strict importer validation; do not fold
 an unknown state function into a nearby flag that happens to match one save
 file.
+
+`RoomEntityFactory` dispatches on the implementation classification before
+constructing an actor. Specialized and event-owned paths have distinct
+adapters, and every specialized room-specific factory asserts its expected
+classification. `NpcRoomEntity` independently rejects non-ordinary records,
+so a specialized or event-owned key cannot re-enter the generic path through a
+later factory edit. Deliberately unsupported rows consume no runtime entity
+slot and cannot become solid idle actors merely because their OAM was
+importable.
 
 ## Native and linked room interactions
 

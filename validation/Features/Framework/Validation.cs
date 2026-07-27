@@ -103,6 +103,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateSymmetryTransition();
 
         ValidateSigns();
+        ValidateNpcImplementationManifest();
         ValidateNpcs();
         ValidateRoom20eNpcInteractions();
         ValidateTroyHouseRooms();

@@ -214,12 +214,118 @@ public sealed partial class ValidationRoot
             "and final-message input consumption.");
     }
 
+    private static void ValidateNpcImplementationManifest()
+    {
+        var database = new NpcDatabase();
+        IReadOnlyList<NpcRecord> records = database.AllRecords;
+        var expectedCounts =
+            new Dictionary<NpcImplementationClassification, int>
+            {
+                [NpcImplementationClassification.OrdinaryGeneric] = 60,
+                [NpcImplementationClassification.SpecializedNative] = 110,
+                [NpcImplementationClassification.EventOwned] = 14,
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 276
+            };
+        Dictionary<NpcImplementationClassification, int> actualCounts =
+            records
+                .GroupBy(record => record.Implementation)
+                .ToDictionary(group => group.Key, group => group.Count());
+        if (records.Count != 460 ||
+            actualCounts.Count != expectedCounts.Count ||
+            expectedCounts.Any(expected =>
+                !actualCounts.TryGetValue(expected.Key, out int count) ||
+                count != expected.Value))
+        {
+            throw new InvalidOperationException(
+                "The generated NPC implementation manifest did not retain " +
+                "60 ordinary, 110 specialized, 14 event-owned, and 276 " +
+                $"unsupported records (total={records.Count}; " +
+                $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
+        }
+
+        NpcRecord Find(
+            int group,
+            int room,
+            int id,
+            int subId,
+            int var03) =>
+            records.Single(record =>
+                record.Group == group &&
+                record.Room == room &&
+                record.Id == id &&
+                record.SubId == subId &&
+                record.Var03 == var03);
+
+        NpcRecord ordinary = Find(0, 0x48, 0x3a, 0x03, 0x00);
+        NpcRecord specialized = Find(0, 0x56, 0x65, 0x00, 0x00);
+        NpcRecord eventOwned = Find(0, 0x39, 0x37, 0x0d, 0x00);
+        NpcRecord unsupported = Find(0, 0x16, 0x9a, 0xb2, 0x00);
+        if (ordinary.Implementation !=
+                NpcImplementationClassification.OrdinaryGeneric ||
+            specialized.Implementation !=
+                NpcImplementationClassification.SpecializedNative ||
+            eventOwned.Implementation !=
+                NpcImplementationClassification.EventOwned ||
+            unsupported.Implementation !=
+                NpcImplementationClassification.DeliberatelyUnsupported)
+        {
+            throw new InvalidOperationException(
+                "Representative generated NPC source keys changed " +
+                "implementation classification.");
+        }
+
+        static NpcCharacter CreateCharacter(NpcRecord record)
+        {
+            var npc = new NpcCharacter();
+            npc.Initialize(record);
+            return npc;
+        }
+
+        NpcCharacter specializedNpc = CreateCharacter(specialized);
+        NpcCharacter eventOwnedNpc = CreateCharacter(eventOwned);
+        bool specializedRejected = false;
+        bool eventOwnedRejected = false;
+        try
+        {
+            _ = new NpcRoomEntity(specializedNpc);
+        }
+        catch (InvalidOperationException)
+        {
+            specializedRejected = true;
+        }
+        try
+        {
+            _ = new NpcRoomEntity(eventOwnedNpc);
+        }
+        catch (InvalidOperationException)
+        {
+            eventOwnedRejected = true;
+        }
+        specializedNpc.Free();
+        eventOwnedNpc.Free();
+        if (!specializedRejected || !eventOwnedRejected)
+        {
+            throw new InvalidOperationException(
+                "A specialized or event-owned NPC was accepted by the " +
+                "ordinary generic adapter.");
+        }
+
+        GD.Print(
+            "Validated all 460 generated NPC records have exactly one " +
+            "implementation classification and non-ordinary actors cannot " +
+            "enter the ordinary adapter.");
+    }
+
     private void ValidateNpcs()
     {
         LoadNpcValidationRoom();
         NpcCharacter? villager = _npcNodes.Find(npc => npc.Record.Id == 0x3a && npc.Record.SubId == 0x03);
-        if (villager is null)
-            throw new InvalidOperationException($"Expected the room 0:48 villager among {_npcNodes.Count} extracted NPCs.");
+        if (villager is null || _npcNodes.Count != 1)
+        {
+            throw new InvalidOperationException(
+                "Room 0:48 did not retain its ordinary villager while " +
+                $"suppressing the unsupported dog (NPCs={_npcNodes.Count}).");
+        }
         if (villager.TextId != 0x1420)
             throw new InvalidOperationException($"Expected room 0:48 villager to resolve TX_1420, got TX_{villager.TextId:x4}.");
         if (villager.Position != new Vector2(0x38, 0x48) ||
@@ -287,10 +393,10 @@ public sealed partial class ValidationRoot
         NpcCharacter? destinationNpc = _npcNodes.Find(npc =>
             npc.Record.Room == 0x58 && npc.Record.Id == 0x41 && npc.Record.SubId == 0x04);
         if (!_entities.ScreenTransitionActive || _currentRoom.Id != 0x58 ||
-            _entities.OutgoingEntities<NpcCharacter>().Count != 2 || destinationNpc is null)
+            _entities.OutgoingEntities<NpcCharacter>().Count != 1 || destinationNpc is null)
         {
             throw new InvalidOperationException(
-                $"The 0:48 -> 0:58 scroll did not retain two outgoing NPCs and preload the destination NPC " +
+                $"The 0:48 -> 0:58 scroll did not retain the ordinary outgoing NPC and preload the destination NPC " +
                 $"(active={_entities.ScreenTransitionActive}, room={_currentRoom.Id:x2}, " +
                 $"outgoing={_entities.OutgoingEntities<NpcCharacter>().Count}, incoming={_npcNodes.Count}, " +
                 $"destinationFound={destinationNpc is not null}).");
@@ -3713,21 +3819,12 @@ public sealed partial class ValidationRoot
             save.CommitInventoryChange();
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x3a));
-        NpcCharacter? finishedGameBoy = manager.Entities<NpcCharacter>().Find(npc =>
-            npc.Record.Id == 0x3c && npc.Record.SubId == 0x10);
-        NpcCharacter? postgameBear = manager.Entities<NpcCharacter>().Find(npc =>
-            npc.Record.Id == 0x5d && npc.Record.SubId == 0x02 && npc.Record.Var03 == 0x01);
-        NpcCharacter? postgameMonkey = manager.Entities<NpcCharacter>().Find(npc =>
-            npc.Record.Id == 0x39 && npc.Record.SubId == 0x07 && npc.Record.Var03 == 0x01);
-        if (finishedGameBoy is not { Active: false } ||
-            postgameBear is not { Active: false } ||
-            postgameMonkey is not { Active: false })
+        if (manager.Entities<NpcCharacter>().Count != 0)
+        {
             throw new InvalidOperationException(
-                "Room 0:3a's finished-game NPC variants appeared before GLOBALFLAG_FINISHEDGAME $14.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
-        if (!finishedGameBoy.Active || !postgameBear.Active || !postgameMonkey.Active)
-            throw new InvalidOperationException(
-                "Room 0:3a did not reveal its boy, bear, and monkey finished-game variants.");
+                "Room 0:3a instantiated deliberately unsupported postgame " +
+                "actors through the generic NPC path.");
+        }
 
         save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
         save.SetGlobalFlag(
@@ -3755,38 +3852,20 @@ public sealed partial class ValidationRoot
                 "A live flag refresh revived an NPC already retired by its interaction lifecycle.");
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x82));
-        List<NpcCharacter> forestFairies = manager.Entities<NpcCharacter>().Where(npc =>
-            npc.Record.Id == 0x49 && npc.Record.SubId == 0x0a).ToList();
-        if (forestFairies.Count != 2 || forestFairies.Any(npc => npc.Active))
+        if (manager.Entities<NpcCharacter>().Count != 0)
+        {
             throw new InvalidOperationException(
-                "Room 0:82's $49:$0a fairies ignored their initial compound flag gate.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagWonFairyHidingGame);
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagForestUnscrambled);
-        if (forestFairies.Any(npc => npc.Active))
-            throw new InvalidOperationException(
-                "Room 0:82's fairies appeared before specific room 0:90 flag $40 was set.");
-        save.SetRoomFlag(0, 0x90, OracleSaveData.RoomFlag40);
-        if (forestFairies.Any(npc => !npc.Active))
-            throw new InvalidOperationException(
-                "The global-and-specific-room predicate did not reveal room 0:82's fairies.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
-        if (forestFairies.Any(npc => npc.Active))
-            throw new InvalidOperationException(
-                "GLOBALFLAG_FINISHEDGAME $14 did not hide the pre-ending forest fairies.");
+                "Room 0:82 instantiated deliberately unsupported placed " +
+                "Forest Fairy phases.");
+        }
 
         manager.LoadRoom(2, _world.LoadRoom(2, 0xe7));
-        NpcCharacter? dog = manager.Entities<NpcCharacter>().Find(npc =>
-            npc.Record.Id == 0x54 && npc.Record.SubId == 0x00);
-        if (dog is null || !dog.Active)
-            throw new InvalidOperationException("Room 2:e7's Mamamu dog did not satisfy its room-item alternative.");
-        save.SetRoomFlag(2, 0xe7, OracleSaveData.RoomFlagItem);
-        if (dog.Active)
+        if (manager.Entities<NpcCharacter>().Count != 0)
+        {
             throw new InvalidOperationException(
-                "Mamamu's dog remained visible after every initialization alternative failed.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagReturnedDog);
-        if (!dog.Active)
-            throw new InvalidOperationException(
-                "GLOBALFLAG_RETURNED_DOG $3b did not satisfy Mamamu's alternative visibility branch.");
+                "Room 2:e7 instantiated the unsupported Mamamu interaction " +
+                "or dog as graphics-only NPCs.");
+        }
 
         void SetTreasure(int treasure, bool value)
         {
@@ -3818,33 +3897,18 @@ public sealed partial class ValidationRoot
         manager.RuntimeState.SetWramByte(
             OracleRuntimeState.MamamuDogLocationAddress, 0x03);
         manager.LoadRoom(0, _world.LoadRoom(0, 0x48));
-        NpcCharacter? roamingDog = manager.Entities<NpcCharacter>().Find(npc =>
-            npc.Record.Id == 0x54 && npc.Record.SubId == 0x01 && npc.Record.Var03 == 0x03);
-        if (roamingDog is not { Active: false })
+        if (manager.Entities<NpcCharacter>().Any(npc => npc.Record.Id == 0x54))
+        {
             throw new InvalidOperationException(
-                "Room 0:48's roaming dog appeared before Mamamu's search began.");
-        save.SetRoomFlag(0, 0xe7, OracleSaveData.RoomFlag80);
-        if (!roamingDog.Active)
-            throw new InvalidOperationException(
-                "Room 0:e7 flag $80 did not reveal location-$03 Mamamu dog in room 0:48.");
-        manager.RuntimeState.SetWramByte(
-            OracleRuntimeState.MamamuDogLocationAddress, 0x01);
-        if (roamingDog.Active)
-            throw new InvalidOperationException(
-                "Changing wMamamuDogLocation away from $03 did not hide room 0:48's dog.");
+                "Room 0:48 instantiated its unsupported roaming-dog handler.");
+        }
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x55));
-        NpcCharacter? relocatedDog = manager.Entities<NpcCharacter>().Find(npc =>
-            npc.Record.Id == 0x54 && npc.Record.SubId == 0x01 && npc.Record.Var03 == 0x01);
-        if (relocatedDog is not { Active: true })
+        if (manager.Entities<NpcCharacter>().Any(npc => npc.Record.Id == 0x54))
+        {
             throw new InvalidOperationException(
-                "wMamamuDogLocation $01 did not select the roaming dog in room 0:55.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagReturnedDog);
-        if (relocatedDog.Active)
-            throw new InvalidOperationException(
-                "GLOBALFLAG_RETURNED_DOG $3b did not remove the selected roaming dog.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagReturnedDog, value: false);
-        save.SetRoomFlag(0, 0xe7, OracleSaveData.RoomFlag80, value: false);
+                "Room 0:55 instantiated its unsupported roaming-dog handler.");
+        }
         manager.RuntimeState.SetWramByte(
             OracleRuntimeState.MamamuDogLocationAddress, 0x00);
 
@@ -3893,12 +3957,12 @@ public sealed partial class ValidationRoot
             save.CommitInventoryChange();
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x65));
-        List<NpcCharacter> kidnappedZeldaActors = manager.Entities<NpcCharacter>().Where(npc =>
-            (npc.Record.Id == 0x31 && npc.Record.SubId == 0x07) ||
-            (npc.Record.Id == 0x4c && npc.Record.SubId == 0x04)).ToList();
-        if (kidnappedZeldaActors.Count != 2 || kidnappedZeldaActors.Any(npc => npc.Active))
+        if (manager.Entities<NpcCharacter>().Count != 0)
+        {
             throw new InvalidOperationException(
-                "Room 0:65's linked kidnapped-Zelda Impa and bird appeared immediately after the intro.");
+                "Room 0:65 instantiated its unsupported kidnapped-Zelda " +
+                "actors through the generic NPC path.");
+        }
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x68));
         NpcCharacter? earlyLynnaMan = manager.Entities<NpcCharacter>().Find(npc =>
@@ -3981,130 +4045,40 @@ public sealed partial class ValidationRoot
                 "did not restore TX_1610 and the original state-$00 cast.");
         }
 
-        manager.LoadRoom(0, _world.LoadRoom(0, 0x78));
-        NpcCharacter? clockSecretLady = manager.Entities<NpcCharacter>().Find(npc =>
-            npc.Record.Id == 0x3d && npc.Record.SubId == 0x04);
-        if (clockSecretLady is not { Active: false } ||
-            clockSecretLady.TextId != 0x4d00)
-            throw new InvalidOperationException(
-                "Room 0:78's TX_4d00 linked-secret old lady appeared in an unlinked game.");
-        if (save.WriteWramByte(0xc6bf, 0x08))
-            save.CommitInventoryChange();
-        if (clockSecretLady.Active)
-            throw new InvalidOperationException(
-                "Room 0:78's old lady ignored the linked-game requirement after D4.");
-        save.SetLinkedGame(linked: true);
-        if (!clockSecretLady.Active || !CanTalkTo(clockSecretLady))
-            throw new InvalidOperationException(
-                "Linked-game plus D4 state did not reveal room 0:78's talkable TX_4d00 old lady.");
-
-        if (save.WriteWramByte(0xc6bf, 0x02))
-            save.CommitInventoryChange();
-        manager.LoadRoom(3, _world.LoadRoom(3, 0xf8));
-        NpcCharacter? ruulSecretLady = manager.Entities<NpcCharacter>().Find(npc =>
-            npc.Record.Id == 0x3d && npc.Record.SubId == 0x05);
-        if (ruulSecretLady is not { Active: true } ||
-            ruulSecretLady.TextId != 0x4d2d || !CanTalkTo(ruulSecretLady))
-            throw new InvalidOperationException(
-                "Linked-game plus D2 state did not reveal the paired talkable TX_4d2d old lady.");
-        save.SetLinkedGame(linked: false);
-        if (save.WriteWramByte(0xc6bf, 0))
-            save.CommitInventoryChange();
-
-        manager.LoadRoom(0, _world.LoadRoom(0, 0x25));
-        List<NpcCharacter> bridgeCarpenters = manager.Entities<NpcCharacter>().Where(npc =>
-            npc.Record.Id == 0x9a).ToList();
-        if (bridgeCarpenters.Count != 5 || bridgeCarpenters.Any(npc => !npc.Active))
-            throw new InvalidOperationException(
-                "Room 0:25 did not begin with its five unlinked pre-bridge carpenters.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSymmetryBridgeBuilt);
-        if (bridgeCarpenters.Any(npc => npc.Active))
-            throw new InvalidOperationException(
-                "GLOBALFLAG_SYMMETRY_BRIDGE_BUILT $25 did not hide room 0:25's carpenters.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSymmetryBridgeBuilt, value: false);
-
-        manager.LoadRoom(0, _world.LoadRoom(0, 0xaa));
-        NpcCharacter? dimitriTokay = manager.Entities<NpcCharacter>().Find(npc =>
-            npc.Record.Id == 0x48 && npc.Record.SubId == 0x10);
-        if (dimitriTokay is not { Active: false })
-            throw new InvalidOperationException(
-                "Room 0:aa's Dimitri-event Tokay appeared before D3.");
-
-        manager.LoadRoom(1, _world.LoadRoom(1, 0x46));
-        List<NpcCharacter> palaceActors = manager.Entities<NpcCharacter>().Where(npc =>
-            (npc.Record.Id == 0x37 && npc.Record.SubId == 0x09) ||
-            (npc.Record.Id == 0x40 && npc.Record.SubId == 0x0b)).ToList();
-        if (palaceActors.Count != 2 || palaceActors.Any(npc => npc.Active))
-            throw new InvalidOperationException(
-                "Room 1:46's essence/Mystery-Seed-gated Ralph and soldier appeared immediately after the intro.");
-
-        manager.LoadRoom(1, _world.LoadRoom(1, 0x65));
-        List<NpcCharacter> linkedFinaleActors = manager.Entities<NpcCharacter>().Where(npc =>
-            (npc.Record.Id == 0x4d && npc.Record.SubId == 0x0a) ||
-            (npc.Record.Id == 0x37 && npc.Record.SubId == 0x12)).ToList();
-        if (linkedFinaleActors.Count != 2 || linkedFinaleActors.Any(npc => npc.Active))
-            throw new InvalidOperationException(
-                "Room 1:65's linked finale Ambi and Ralph appeared in a standard post-intro game.");
-
-        manager.LoadRoom(1, _world.LoadRoom(1, 0x68));
-        NpcCharacter? linkedSubrosian = manager.Entities<NpcCharacter>().Find(npc =>
-            npc.Record.Id == 0x4e && npc.Record.SubId == 0x00);
-        if (linkedSubrosian is not { Active: false })
-            throw new InvalidOperationException(
-                "Room 1:68's late linked-game Subrosian appeared immediately after the intro.");
-
-        manager.LoadRoom(1, _world.LoadRoom(1, 0x75));
-        List<NpcCharacter> linkedEndingActors = manager.Entities<NpcCharacter>().Where(npc =>
-            (npc.Record.Id == 0x37 && npc.Record.SubId == 0x0a) ||
-            (npc.Record.Id == 0x31 && npc.Record.SubId is 0x04 or 0x05) ||
-            (npc.Record.Id == 0x36 && npc.Record.SubId == 0x0a) ||
-            (npc.Record.Id == 0xad && npc.Record.SubId == 0x04)).ToList();
-        if (linkedEndingActors.Count != 5 || linkedEndingActors.Any(npc => npc.Active))
-            throw new InvalidOperationException(
-                "Room 1:75's pre-tower/linked Impa, Ralph, Nayru, and Zelda variants appeared immediately after the intro.");
-
-        manager.LoadRoom(1, _world.LoadRoom(1, 0x47));
-        List<NpcCharacter> heritageActors = manager.Entities<NpcCharacter>().Where(npc =>
-            (npc.Record.Id == 0x4f && npc.Record.SubId == 0x01) ||
-            (npc.Record.Id == 0xad && npc.Record.SubId == 0x08)).ToList();
-        if (heritageActors.Count != 2 || heritageActors.Any(npc => npc.Active))
-            throw new InvalidOperationException(
-                "Room 1:47's late-story Impa and linked Zelda variants appeared immediately after the intro.");
-
-        manager.LoadRoom(1, _world.LoadRoom(1, 0x58));
-        List<NpcCharacter> flameActors = manager.Entities<NpcCharacter>().Where(npc =>
-            (npc.Record.Id == 0x4f && npc.Record.SubId == 0x02) ||
-            (npc.Record.Id == 0x36 && npc.Record.SubId == 0x0d)).ToList();
-        if (flameActors.Count != 2 || flameActors.Any(npc => npc.Active))
-            throw new InvalidOperationException(
-                "Room 1:58's flame-of-despair Impa and Nayru variants appeared immediately after the intro.");
-
-        manager.LoadRoom(1, _world.LoadRoom(1, 0xcb));
-        NpcCharacter? rosa = manager.Entities<NpcCharacter>().Find(npc =>
-            npc.Record.Id == 0x68 && npc.Record.SubId == 0x00);
-        if (rosa is not { Active: false })
-            throw new InvalidOperationException(
-                "Room 1:cb's linked pre-D3 Rosa appeared immediately after the intro.");
-
-        manager.LoadRoom(2, _world.LoadRoom(2, 0xa0));
-        NpcCharacter? d7Zora = manager.Entities<NpcCharacter>().Find(npc =>
-            npc.Record.Id == 0xab && npc.Record.SubId == 0x10);
-        if (d7Zora is not { Active: false })
-            throw new InvalidOperationException(
-                "Room 2:a0's D7-gated Zora appeared immediately after the intro.");
-
-        manager.LoadRoom(2, _world.LoadRoom(2, 0xd7));
-        NpcCharacter? linkedZora = manager.Entities<NpcCharacter>().Find(npc =>
-            npc.Record.Id == 0xab && npc.Record.SubId == 0x12);
-        if (linkedZora is not { Active: false })
-            throw new InvalidOperationException(
-                "Room 2:d7's linked-game Zora appeared in a standard post-intro game.");
+        foreach ((int Group, int Room) in new[]
+        {
+            (0, 0x78),
+            (3, 0xf8),
+            (0, 0x25),
+            (0, 0xaa),
+            (1, 0x46),
+            (1, 0x65),
+            (1, 0x68),
+            (1, 0x75),
+            (1, 0x47),
+            (1, 0x58),
+            (1, 0xcb),
+            (2, 0xa0),
+            (2, 0xd7)
+        })
+        {
+            manager.LoadRoom(Group, _world.LoadRoom(Group, Room));
+            if (manager.Entities<NpcCharacter>().Any(npc =>
+                npc.Record.Implementation ==
+                    NpcImplementationClassification.DeliberatelyUnsupported))
+            {
+                throw new InvalidOperationException(
+                    $"Room {Group}:{Room:x2} instantiated an unsupported " +
+                    "native interaction through the generic NPC path.");
+            }
+        }
 
         manager.LoadRoom(3, _world.LoadRoom(3, 0x9e));
-        List<NpcCharacter> nayruHouseActors = manager.Entities<NpcCharacter>().Where(npc =>
-            npc.Record.Id is 0x36 or 0x4f or 0xad).ToList();
+        List<NpcCharacter> nayruHouseActors = manager.Entities<NpcCharacter>()
+            .Where(npc => npc.Record.Id == 0x4f).ToList();
         List<NpcCharacter> activeHouseActors = nayruHouseActors.Where(npc => npc.Active).ToList();
-        if (nayruHouseActors.Count != 11 || activeHouseActors.Count != 1 ||
+        if (manager.Entities<NpcCharacter>().Count != 9 ||
+            nayruHouseActors.Count != 9 || activeHouseActors.Count != 1 ||
             activeHouseActors[0].Record.Id != 0x4f ||
             activeHouseActors[0].Record.SubId != 0x00 ||
             activeHouseActors[0].Record.Var03 != 0x00 ||
@@ -4153,22 +4127,6 @@ public sealed partial class ValidationRoot
         save.SetLinkedGame(linked: false);
         if (save.WriteWramByte(0xc6bf, 0))
             save.CommitInventoryChange();
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
-        NpcCharacter? houseNayru = nayruHouseActors.Find(npc =>
-            npc.Record.Id == 0x36 && npc.Record.SubId == 0x0b);
-        if (houseNayru is not { Active: true })
-            throw new InvalidOperationException(
-                "GLOBALFLAG_SAVED_NAYRU $11 did not reveal room 3:9e's pre-Maku-seed Nayru.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagGotRingFromZelda);
-        NpcCharacter? houseZelda = nayruHouseActors.Find(npc =>
-            npc.Record.Id == 0xad && npc.Record.SubId == 0x07);
-        if (houseZelda is not { Active: true })
-            throw new InvalidOperationException(
-                "GLOBALFLAG_GOT_RING_FROM_ZELDA $38 did not reveal room 3:9e's pre-Maku-seed Zelda.");
-        SetTreasure(TreasureDatabase.TreasureMakuSeed, value: true);
-        if (houseNayru.Active || houseZelda.Active)
-            throw new InvalidOperationException(
-                "Obtaining the Maku Seed did not remove Nayru and Zelda from room 3:9e.");
 
         manager.Clear();
         RemoveChild(validationRoot);
@@ -4177,10 +4135,10 @@ public sealed partial class ValidationRoot
             "$20-frame animation loops, rooms 2:ea/2:eb's 72-record family spawner, " +
             "Bipin $28:$00's SPEED_100 X=$28/$58 patrol, $04/$05 animation reversal, " +
             "and moving objectPreventLinkFromPassing collision, " +
-            "337 visibility, 116 dialogue, and two position predicates, roaming-dog " +
-            "location selection, rooms 0:68/0:78's phased and linked talkable cast, " +
-            "room 3:9e's post-intro Impa, var03 selection, compound and alternative gates, " +
-            "live refresh, and lifecycle-safe hiding.");
+            "337 imported visibility, 116 dialogue, and two position predicates, " +
+            "room 0:68's phased talkable cast, room 3:9e's post-intro Impa " +
+            "var03 selection, lifecycle-safe event hiding, and deliberate " +
+            "suppression of unsupported native handlers.");
     }
 
     private void ValidateBipinBlossomNaming()

@@ -40,18 +40,15 @@ snapshot is maintained in
   - Validate wrong-side sign/chest reads, an unmatched sign-table lookup, and
     the missing-chest-row default independently of the ordinary chest table.
 
-- [ ] Give every generated `NpcRecord` an explicit implementation
+- [x] Give every generated `NpcRecord` an explicit implementation
   classification: ordinary generic NPC, specialized native interaction,
   event-owned actor, or deliberately unsupported.
-  - Replace `RoomEntityFactory`'s unconditional `NpcRoomEntity` fallback with
-    typed dispatch or a source-aware rejection for records whose original
-    handler has not been implemented.
-  - Keep event actors in their original object slots, but do not silently turn
-    native/cutscene-only character codes into solid, idle, generic NPCs merely
-    because `npcInteractionIds` supplies graphics.
-  - Add a manifest validation proving all imported rows have exactly one
-    classification and that specialized/event-owned keys cannot fall through
-    to the ordinary path.
+  The importer now classifies all 388 positioned/state-derived rows and all 72
+  family variants. `RoomEntityFactory` dispatches ordinary, specialized, and
+  event-owned records through separate typed paths and suppresses deliberately
+  unsupported handlers; `NpcRoomEntity` itself rejects non-ordinary records
+  with source identity. Headless validation pins the four-category totals,
+  adapter boundary, event object slots, and graphics-only suppression.
 
 - [x] Preserve an immutable base NPC state and make live dialogue refresh
   reversible, matching the existing reversible visibility and position paths.

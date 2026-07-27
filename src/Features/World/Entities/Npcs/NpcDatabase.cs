@@ -7,7 +7,9 @@ public sealed class NpcDatabase
 {
     private readonly Dictionary<int, List<NpcRecord>> _byRoom = new();
     private readonly Dictionary<int, List<FamilyNpcRecord>> _familyByRoom = new();
+    private readonly List<NpcRecord> _allRecords = new();
     private readonly BipinBlossomFamilyInteractionDatabase _familyInteractions = new();
+    internal IReadOnlyList<NpcRecord> AllRecords => _allRecords;
 
     public NpcDatabase()
     {
@@ -20,13 +22,14 @@ public sealed class NpcDatabase
                     "group", "room", "id", "subid", "y", "x", "var03", "text-id",
                     "sprite", "tile-base", "palette", "default-animation", "can-face",
                     "up-animation", "right-animation", "down-animation", "left-animation",
-                    "utf8-base64"
+                    "utf8-base64", "implementation"
                 ],
                 ["group", "room"],
                 headerRequired: true));
         foreach (GeneratedTableRow row in npcs.Rows)
         {
             NpcRecord record = ParseNpcRecord(row, selectorColumns: 0);
+            _allRecords.Add(record);
 
             int key = MakeKey(record.Group, record.Room);
             if (!_byRoom.TryGetValue(key, out List<NpcRecord>? records))
@@ -46,13 +49,14 @@ public sealed class NpcDatabase
                     "group", "room", "stage", "personality", "id", "subid", "y", "x",
                     "var03", "text-id", "sprite", "tile-base", "palette",
                     "default-animation", "can-face", "up-animation", "right-animation",
-                    "down-animation", "left-animation", "utf8-base64"
+                    "down-animation", "left-animation", "utf8-base64", "implementation"
                 ],
                 ["group", "room"],
                 headerRequired: true));
         foreach (GeneratedTableRow row in family.Rows)
         {
             NpcRecord record = ParseNpcRecord(row, selectorColumns: 2);
+            _allRecords.Add(record);
             FamilyNpcRecord familyRecord = new FamilyNpcRecord(
                 row.UnsignedDecimal(2),
                 row.Decimal(3),
@@ -239,8 +243,28 @@ public sealed class NpcDatabase
             row.RequiredString(14 + offset),
             row.RequiredString(15 + offset),
             row.RequiredString(16 + offset),
-            row.Base64Utf8(17 + offset));
+            row.Base64Utf8(17 + offset),
+            ParseImplementation(row, 18 + offset));
     }
+
+    private static NpcImplementationClassification ParseImplementation(
+        GeneratedTableRow row,
+        int column) =>
+        row.RequiredString(column) switch
+        {
+            "ordinary-generic" =>
+                NpcImplementationClassification.OrdinaryGeneric,
+            "specialized-native" =>
+                NpcImplementationClassification.SpecializedNative,
+            "event-owned" =>
+                NpcImplementationClassification.EventOwned,
+            "deliberately-unsupported" =>
+                NpcImplementationClassification.DeliberatelyUnsupported,
+            _ => throw row.Invalid(
+                column,
+                "ordinary-generic, specialized-native, event-owned, or " +
+                "deliberately-unsupported")
+        };
 
     private static int MakeKey(int group, int room)
     {
@@ -250,4 +274,32 @@ public sealed class NpcDatabase
 
 internal readonly record struct FamilyNpcRecord(int Stage, int Personality, NpcRecord Record);
 
-public readonly record struct NpcRecord(int Group, int Room, int Id, int SubId, int Y, int X, int Var03, int TextId, string SpriteName, int TileBase, int Palette, int DefaultAnimation, bool CanFace, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation, string Message);
+public enum NpcImplementationClassification
+{
+    Unknown = 0,
+    OrdinaryGeneric,
+    SpecializedNative,
+    EventOwned,
+    DeliberatelyUnsupported
+}
+
+public readonly record struct NpcRecord(
+    int Group,
+    int Room,
+    int Id,
+    int SubId,
+    int Y,
+    int X,
+    int Var03,
+    int TextId,
+    string SpriteName,
+    int TileBase,
+    int Palette,
+    int DefaultAnimation,
+    bool CanFace,
+    string UpAnimation,
+    string RightAnimation,
+    string DownAnimation,
+    string LeftAnimation,
+    string Message,
+    NpcImplementationClassification Implementation);

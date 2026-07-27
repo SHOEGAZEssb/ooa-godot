@@ -30,7 +30,7 @@ and then runs these stages in dependency order:
 | `Import-MenuAssets.ps1` | Title, HUD, inventory, map, and menu graphics/tilemaps |
 | `Import-DialogueAndIntro.ps1` | Fonts, text, and new-game introduction records |
 | `Import-MapAndItemData.ps1` | Map metadata, treasure data, flags, and item tables |
-| `Import-NpcData.ps1` | NPC definitions, visibility, dialogue, and animation inputs |
+| `Import-NpcData.ps1` | NPC definitions, exact implementation classifications, visibility, dialogue, and animation inputs |
 | `Import-GashaData.ps1` | Gasha spots, growth/reward tables, native timing, text, OAM, and disappearance graphics |
 | `Import-CutsceneData.ps1` | Typed script commands and cutscene-specific records |
 | `Import-EnemyData.ps1` | Ordered room objects, enemies, spawn restrictions, and drops |
@@ -121,6 +121,12 @@ list maps/flags plus their ring, quest-item, inventory-HUD, and palette inputs.
 source constants for appraisal prices, duplicate refunds, fixed waits, ring
 storage addresses, and completion flags. Runtime code must consume these
 generated assets and typed values rather than parse bank 2 or text sources.
+The stage also assigns every positioned/state-derived NPC row exactly one
+implementation class keyed by group, room, ID, subid, and `var03`: ordinary
+generic, specialized native, event-owned, or deliberately unsupported.
+Unregistered placements are deliberately unsupported rather than gaining a
+graphics-only generic fallback, and overlapping class registries fail the
+import.
 The same stage emits room `2:5e`'s reachable `$47` shop-item replacement graph,
 product OAM, BG price destinations, prompts/item text, `$46` animations, WRAM
 addresses/masks, and `$71:$0c` Dimitri entry constants. Shop text `\jump` and

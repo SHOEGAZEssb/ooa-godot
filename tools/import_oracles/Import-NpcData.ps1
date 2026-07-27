@@ -574,6 +574,195 @@ $npcCanFaceBySubid = @{
     '88:1' = $true
 }
 
+# Every visible character row is denied the generic adapter unless its exact
+# source placement has a traced production owner. This prevents a newly added
+# native or cutscene-only interaction from becoming a solid idle NPC merely
+# because npcInteractionIds supplies graphics for it.
+$ordinaryNpcImplementationKeys =
+    [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+foreach ($key in @(
+    '0:45:3f:01:00',
+    '0:48:3a:03:00',
+    '0:56:3a:04:00',
+    '0:57:41:01:00',
+    '0:58:41:04:00',
+    '0:5a:39:02:00',
+    '0:5a:39:03:00',
+    '0:66:3b:01:00',
+    '0:68:44:02:00',
+    '0:68:3a:05:00',
+    '0:68:3b:02:00',
+    '0:68:3c:02:00',
+    '1:45:43:01:00',
+    '1:48:3a:06:00',
+    '1:48:38:00:00',
+    '1:57:3b:05:00',
+    '1:58:44:04:00',
+    '1:58:4f:02:00',
+    '1:58:36:0d:00',
+    '1:68:43:02:00',
+    '1:75:58:01:00',
+    '1:75:58:01:01',
+    '0:46:3d:02:00',
+    '1:03:bf:0c:00',
+    '1:47:3a:07:00',
+    '1:65:3b:04:00',
+    '1:65:4d:0a:00',
+    '1:65:37:12:00',
+    '1:66:3a:08:00',
+    '1:68:3b:03:00',
+    '1:72:40:00:00',
+    '1:73:40:00:01',
+    '1:74:45:00:00',
+    '1:77:45:01:00',
+    '1:82:3f:00:00',
+    '1:84:40:01:00',
+    '1:92:43:00:00',
+    '1:93:40:01:01',
+    '1:94:43:00:01',
+    '2:fd:68:01:00',
+    '3:7e:bf:0a:00',
+    '3:7f:bf:0b:00',
+    '3:8e:bf:04:00',
+    '3:9e:4f:00:00',
+    '3:9e:4f:00:01',
+    '3:9e:4f:00:02',
+    '3:9e:4f:00:05',
+    '3:9e:4f:00:09',
+    '3:9e:4f:00:0a',
+    '3:9e:4f:00:0b',
+    '3:9e:4f:00:0d',
+    '3:9e:4f:00:0e',
+    '3:ea:bf:00:00',
+    '3:eb:bf:02:00',
+    '3:ec:bf:02:00',
+    '5:f8:c4:00:00',
+    '5:f8:c4:01:00',
+    '5:f8:c4:02:00',
+    '5:f8:c4:03:00'
+)) {
+    if (-not $ordinaryNpcImplementationKeys.Add($key)) {
+        throw "Duplicate ordinary NPC implementation key $key."
+    }
+}
+
+$specializedNpcImplementationKeys =
+    [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+foreach ($key in @(
+    '0:56:65:00:00',
+    '0:5d:cb:00:00',
+    '0:7c:59:00:00',
+    '0:7c:59:00:02',
+    '1:48:57:00:00',
+    '1:49:3c:0e:00',
+    '1:49:3a:0c:00',
+    '1:49:43:06:00',
+    '2:0e:3c:0d:00',
+    '2:0e:3d:00:00',
+    '2:2e:59:00:01',
+    '2:5e:46:00:00',
+    '2:e6:5c:00:00',
+    '2:ee:89:00:00',
+    '2:ee:89:01:00',
+    '2:ee:89:06:00',
+    '2:ee:e5:00:00',
+    '2:ee:e5:01:00',
+    '3:fb:ca:01:00',
+    '3:fc:28:0a:00',
+    '4:e0:3a:02:00',
+    '4:e1:58:00:00',
+    '4:e1:40:0c:00',
+    '4:e1:57:03:00',
+    '4:e1:57:03:01',
+    '4:e2:40:0c:00',
+    '4:e2:58:00:01',
+    '4:e2:58:03:03',
+    '4:e2:57:03:02',
+    '4:e2:57:03:03',
+    '4:e7:40:0c:00',
+    '4:e7:58:03:00',
+    '4:e7:58:03:01',
+    '4:e7:57:03:04',
+    '4:e7:57:03:05',
+    '4:e8:58:03:02',
+    '4:e8:57:03:06',
+    '4:e8:57:03:07'
+)) {
+    if (-not $specializedNpcImplementationKeys.Add($key)) {
+        throw "Duplicate specialized NPC implementation key $key."
+    }
+}
+
+$eventOwnedNpcImplementationKeys =
+    [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+foreach ($key in @(
+    '0:38:87:00:00',
+    '0:39:37:0d:00',
+    '0:6a:31:00:00',
+    '0:7b:3c:03:00',
+    '0:7b:3c:04:00',
+    '0:7b:3f:02:00',
+    '1:38:88:00:00',
+    '1:39:3a:0d:00',
+    '1:75:37:0a:00',
+    '1:75:31:04:00',
+    '1:75:31:05:00',
+    '1:75:36:0a:00',
+    '1:75:ad:04:00',
+    '1:86:58:02:00'
+)) {
+    if (-not $eventOwnedNpcImplementationKeys.Add($key)) {
+        throw "Duplicate event-owned NPC implementation key $key."
+    }
+}
+
+if ($ordinaryNpcImplementationKeys.Count -ne 59 -or
+    $specializedNpcImplementationKeys.Count -ne 38 -or
+    $eventOwnedNpcImplementationKeys.Count -ne 14) {
+    throw 'NPC implementation registry key counts changed.'
+}
+
+function Resolve-NpcImplementation(
+    [int]$group,
+    [int]$room,
+    [int]$id,
+    [int]$subid,
+    [int]$var03,
+    [string]$override = ''
+) {
+    $key = "$group`:$($room.ToString('x2'))`:$($id.ToString('x2'))`:$($subid.ToString('x2'))`:$($var03.ToString('x2'))"
+    $matches = [int]$ordinaryNpcImplementationKeys.Contains($key) +
+        [int]$specializedNpcImplementationKeys.Contains($key) +
+        [int]$eventOwnedNpcImplementationKeys.Contains($key)
+    if ($matches -gt 1) {
+        throw "NPC implementation key $key has more than one classification."
+    }
+    if ($override) {
+        if ($override -notin @(
+            'ordinary-generic',
+            'specialized-native',
+            'event-owned',
+            'deliberately-unsupported'
+        )) {
+            throw "NPC implementation key $key has invalid override '$override'."
+        }
+        if ($matches -ne 0) {
+            throw "NPC implementation key $key has both a registry classification and override."
+        }
+        return $override
+    }
+    if ($ordinaryNpcImplementationKeys.Contains($key)) {
+        return 'ordinary-generic'
+    }
+    if ($specializedNpcImplementationKeys.Contains($key)) {
+        return 'specialized-native'
+    }
+    if ($eventOwnedNpcImplementationKeys.Contains($key)) {
+        return 'event-owned'
+    }
+    return 'deliberately-unsupported'
+}
+
 function New-NpcDataRow(
     [int]$group,
     [int]$room,
@@ -584,7 +773,8 @@ function New-NpcDataRow(
     [int]$var03,
     [int]$textIdOverride = -1,
     [int]$initialAnimationOverride = -1,
-    [int]$canFaceOverride = -1
+    [int]$canFaceOverride = -1,
+    [string]$implementationOverride = ''
 ) {
     $graphic = $interactionGraphics["$id`:$subid"]
     if ($null -eq $graphic) { $graphic = $interactionGraphics["$id`:0"] }
@@ -635,14 +825,16 @@ function New-NpcDataRow(
     if (-not $upOam) { $upOam = $downOam }
     if (-not $rightOam) { $rightOam = $downOam }
     if (-not $leftOam) { $leftOam = $downOam }
-    return "$group`t$($room.ToString('x2'))`t$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($y.ToString('x2'))`t$($x.ToString('x2'))`t$($var03.ToString('x2'))`t$($textId.ToString('x4'))`t$spriteName`t$($graphic.TileBase)`t$palette`t$initialAnimation`t$([int]$canFace)`t$upOam`t$rightOam`t$downOam`t$leftOam`t$encoded"
+    $implementation = Resolve-NpcImplementation `
+        $group $room $id $subid $var03 $implementationOverride
+    return "$group`t$($room.ToString('x2'))`t$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($y.ToString('x2'))`t$($x.ToString('x2'))`t$($var03.ToString('x2'))`t$($textId.ToString('x4'))`t$spriteName`t$($graphic.TileBase)`t$palette`t$initialAnimation`t$([int]$canFace)`t$upOam`t$rightOam`t$downOam`t$leftOam`t$encoded`t$implementation"
 }
 
 # Room object data is grouped by room label. Positioned interactions are
 # emitted directly. Unpositioned interactions which derive a visible actor's
 # position from save state are expanded below into mutually exclusive records.
 $npcRows = [Collections.Generic.List[string]]::new()
-$npcRows.Add("# group`troom`tid`tsubid`ty`tx`tvar03`ttext-id`tsprite`ttile-base`tpalette`tdefault-animation`tcan-face`tup-animation`tright-animation`tdown-animation`tleft-animation`tutf8-base64")
+$npcRows.Add("# group`troom`tid`tsubid`ty`tx`tvar03`ttext-id`tsprite`ttile-base`tpalette`tdefault-animation`tcan-face`tup-animation`tright-animation`tdown-animation`tleft-animation`tutf8-base64`timplementation")
 $mainObjectLines = Read-ImportLines (Join-Path $Disassembly "objects\ages\mainData.s")
 $mainObjectSource = $mainObjectLines -join "`n"
 if ($mainObjectSource -notmatch '(?ms)^group1Map45ObjectData:\s+obj_Interaction \$43 \$01 \$68 \$18\s+obj_End') {
@@ -2277,7 +2469,7 @@ foreach ($textId in @($bipinTextIds + $childTextIds + $familyInteractionTextIds 
 }
 
 $familyRows = [Collections.Generic.List[string]]::new()
-$familyRows.Add("# group`troom`tstage`tpersonality`tid`tsubid`ty`tx`tvar03`ttext-id`tsprite`ttile-base`tpalette`tdefault-animation`tcan-face`tup-animation`tright-animation`tdown-animation`tleft-animation`tutf8-base64")
+$familyRows.Add("# group`troom`tstage`tpersonality`tid`tsubid`ty`tx`tvar03`ttext-id`tsprite`ttile-base`tpalette`tdefault-animation`tcan-face`tup-animation`tright-animation`tdown-animation`tleft-animation`tutf8-base64`timplementation")
 $familyPersonalities = @{
     hyperactive = 0; shy = 1; curious = 2
     slacker = 0; warrior = 1; arborist = 2; singer = 3
@@ -2319,7 +2511,8 @@ foreach ($entry in ($familyBlocks.GetEnumerator() | Sort-Object Name)) {
             if ($subid -eq 5) { $initialAnimation += 3 }
         }
         $npcRow = New-NpcDataRow 2 $room $id $subid `
-            ([int]$actor.Y) ([int]$actor.X) $var03 $textId $initialAnimation 0
+            ([int]$actor.Y) ([int]$actor.X) $var03 $textId $initialAnimation 0 `
+            'specialized-native'
         if (-not $npcRow) {
             throw "Could not resolve family actor `$$($id.ToString('x2')):`$$($subid.ToString('x2'))."
         }
@@ -2394,10 +2587,28 @@ foreach ($variant in $impaHouseVariants) {
     $encoded = [Convert]::ToBase64String(
         [Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
     $npcRows.Add(
-        "3`t9e`t4f`t00`t$(([int]$variant[1]).ToString('x2'))`t$(([int]$variant[2]).ToString('x2'))`t$(([int]$variant[0]).ToString('x2'))`t$($textId.ToString('x4'))`t$impaSpriteName`t$($impaGraphic.TileBase)`t$($impaGraphic.Palette)`t2`t$([int][bool]$variant[4])`t$impaUpOam`t$impaRightOam`t$impaDownOam`t$impaLeftOam`t$encoded")
+        "3`t9e`t4f`t00`t$(([int]$variant[1]).ToString('x2'))`t$(([int]$variant[2]).ToString('x2'))`t$(([int]$variant[0]).ToString('x2'))`t$($textId.ToString('x4'))`t$impaSpriteName`t$($impaGraphic.TileBase)`t$($impaGraphic.Palette)`t2`t$([int][bool]$variant[4])`t$impaUpOam`t$impaRightOam`t$impaDownOam`t$impaLeftOam`t$encoded`tordinary-generic")
 }
 if ($npcRows.Count -ne 389) {
     throw "Expected 379 positioned and 9 state-derived NPC records, got $($npcRows.Count - 1)."
+}
+$npcImplementationCounts = @{}
+foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
+    $implementation = ($npcRow -split "`t")[-1]
+    $npcImplementationCounts[$implementation] =
+        1 + [int]$npcImplementationCounts[$implementation]
+}
+if ($npcImplementationCounts['ordinary-generic'] -ne 60 -or
+    $npcImplementationCounts['specialized-native'] -ne 38 -or
+    $npcImplementationCounts['event-owned'] -ne 14 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 276 -or
+    $npcImplementationCounts.Count -ne 4) {
+    throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
+}
+foreach ($familyRow in $familyRows | Select-Object -Skip 1) {
+    if (($familyRow -split "`t")[-1] -ne 'specialized-native') {
+        throw 'Every generated Bipin/Blossom family actor must be specialized-native.'
+    }
 }
 
 # Ordinary NPC scripts can replace their dialogue without replacing the room

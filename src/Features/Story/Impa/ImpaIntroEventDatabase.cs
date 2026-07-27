@@ -507,7 +507,7 @@ public readonly record struct ImpaStoneEventRecord(ImpaStoneActorRecord Actor, I
 
 public readonly record struct ImpaStoneActorRecord(int Group, int Room, int InteractionId, int SubId, int InitialY, int InitialX, int MovedY, int LeftX, int RightX, int CollisionRadiusY, int CollisionRadiusX, int LeftRoomFlag, int RightRoomFlag, int ApproachY, int ApproachX, int TargetY, int TargetX, int CloseRadius, int LeaveY, int LeaveX, string SpriteName, int TileBase, int Palette, string Animation, int FinalLayoutTile, int FinalCollision, int LinkTargetY, int LinkTargetX, bool SourceGrayscaleInverted)
 {
-    public NpcRecord ToNpcRecord(int y, int x) => new(Group, Room, InteractionId, SubId, y, x, 0, 0, SpriteName, TileBase, Palette, 0, false, Animation, Animation, Animation, Animation, string.Empty);
+    public NpcRecord ToNpcRecord(int y, int x) => new(Group, Room, InteractionId, SubId, y, x, 0, 0, SpriteName, TileBase, Palette, 0, false, Animation, Animation, Animation, Animation, string.Empty, NpcImplementationClassification.EventOwned);
 }
 
 public readonly record struct ImpaIntroEventRecord(int Group, int Room, int InteractionId, int SubId, int RoomFlag, int LinkWaitFrames, int TargetX, int CenterWaitFrames, int ApproachFrames, int LinkSpeed, int ImpaWaitFrames, int TextId, int PostTextFrames, int ImpaSpeed, int ImpaMoveFrames, int FollowLag, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation, string Text, int LinkedTextId, string LinkedText);
@@ -516,5 +516,5 @@ public readonly record struct ImpaHelpEventRecord(int Group, int Room, int Inter
 
 public readonly record struct FakeOctorokRecord(int Index, int Id, int SubId, int Y, int X, int Var03, string SpriteName, int TileBase, int Palette, string InitialAnimation, string FleeAnimation, int SignalWaitFrames, int FleeCounter, int Angle, int Speed)
 {
-    public NpcRecord ToNpcRecord(int group, int room) => new(group, room, Id, SubId, Y, X, Var03, 0, SpriteName, TileBase, Palette, 0, false, InitialAnimation, InitialAnimation, InitialAnimation, InitialAnimation, string.Empty);
+    public NpcRecord ToNpcRecord(int group, int room) => new(group, room, Id, SubId, Y, X, Var03, 0, SpriteName, TileBase, Palette, 0, false, InitialAnimation, InitialAnimation, InitialAnimation, InitialAnimation, string.Empty, NpcImplementationClassification.EventOwned);
 }

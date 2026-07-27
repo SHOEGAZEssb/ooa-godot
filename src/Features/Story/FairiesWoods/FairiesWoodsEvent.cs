@@ -607,7 +607,8 @@ internal sealed class FairiesWoodsEvent :
             _record.Animation0,
             _record.Animation0,
             _record.Animation0,
-            message);
+            message,
+            NpcImplementationClassification.EventOwned);
         return _context.Entities.Spawn<NpcCharacter>(
             new CutsceneNpcSpawn(
                 record,

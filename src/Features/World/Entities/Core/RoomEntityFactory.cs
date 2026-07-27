@@ -284,82 +284,24 @@ internal sealed class RoomEntityFactory(
         {
             foreach (NpcRecord record in roomNpcs)
             {
-                if (record.Group == _comedian.Record.Group &&
-                    record.Room == _comedian.Record.Room &&
-                    record.Id == _comedian.Record.InteractionId &&
-                    record.SubId == _comedian.Record.SubId)
+                switch (record.Implementation)
                 {
-                    var comedian = new ComedianCharacter
-                    {
-                        Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                        ZIndex = NpcCharacter.BehindLinkZIndex
-                    };
-                    comedian.InitializeComedian(record, _comedian.Record);
-                    yield return new ComedianRoomEntity(comedian);
-                    continue;
+                    case NpcImplementationClassification.OrdinaryGeneric:
+                        yield return new NpcRoomEntity(
+                            CreateNpcCharacter(record));
+                        break;
+                    case NpcImplementationClassification.SpecializedNative:
+                        yield return CreateSpecializedNpc(record);
+                        break;
+                    case NpcImplementationClassification.EventOwned:
+                        yield return new EventOwnedNpcRoomEntity(
+                            CreateNpcCharacter(record));
+                        break;
+                    case NpcImplementationClassification.DeliberatelyUnsupported:
+                        break;
+                    default:
+                        throw UnsupportedNpcClassification(record);
                 }
-                if (record.Group == _maskSalesman.Record.Group &&
-                    record.Room == _maskSalesman.Record.Room &&
-                    record.Id == _maskSalesman.Record.InteractionId &&
-                    record.SubId == _maskSalesman.Record.SubId)
-                {
-                    var salesman = new MaskSalesmanCharacter
-                    {
-                        Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                        ZIndex = NpcCharacter.BehindLinkZIndex
-                    };
-                    salesman.InitializeMaskSalesman(record, _maskSalesman.Record);
-                    yield return new MaskSalesmanRoomEntity(salesman);
-                    continue;
-                }
-                bool isOverworldPoe =
-                    record.Group == _poe.Record.Group &&
-                    record.Room == _poe.Record.Room &&
-                    record.Var03 is 0x00 or 0x02;
-                bool isTombPoe =
-                    record.Group == _poe.Record.TombGroup &&
-                    record.Room == _poe.Record.TombRoom &&
-                    record.Var03 == 0x01;
-                if ((isOverworldPoe || isTombPoe) &&
-                    record.Id == _poe.Record.InteractionId &&
-                    record.SubId == _poe.Record.SubId)
-                {
-                    var poe = new PoeCharacter
-                    {
-                        Name = $"Npc_{record.Id:x2}_{record.SubId:x2}_{record.Var03:x2}",
-                        ZIndex = NpcCharacter.BehindLinkZIndex
-                    };
-                    poe.InitializePoe(record, _poe.Record);
-                    yield return new PoeRoomEntity(poe);
-                    continue;
-                }
-
-                var npc = new NpcCharacter
-                {
-                    Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                    ZIndex = NpcCharacter.BehindLinkZIndex
-                };
-                npc.Initialize(record);
-                if (_room20e.Matches(record))
-                {
-                    yield return new Room20eNpcRoomEntity(
-                        npc, _room20e, saveData);
-                    continue;
-                }
-                if (saveData is not null && _troyHouse.Matches(record))
-                {
-                    yield return new TroyHouseRoomEntity(
-                        npc, _troyHouse, saveData, random);
-                    continue;
-                }
-                yield return record switch
-                {
-                    { Id: 0x28, SubId: 0x00 } =>
-                        new RunningBipinRoomEntity(npc),
-                    { Id: 0x28, SubId: 0x0a } =>
-                        new PastBipinRoomEntity(npc),
-                    _ => new NpcRoomEntity(npc)
-                };
             }
         }
 
@@ -1083,24 +1025,153 @@ internal sealed class RoomEntityFactory(
         return new MoblinBoomerangRoomEntity(boomerang);
     }
 
+    private IRoomEntity CreateSpecializedNpc(NpcRecord record)
+    {
+        RequireNpcImplementation(
+            record, NpcImplementationClassification.SpecializedNative);
+
+        if (record.Group == _comedian.Record.Group &&
+            record.Room == _comedian.Record.Room &&
+            record.Id == _comedian.Record.InteractionId &&
+            record.SubId == _comedian.Record.SubId)
+        {
+            var comedian = new ComedianCharacter
+            {
+                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+                ZIndex = NpcCharacter.BehindLinkZIndex
+            };
+            comedian.InitializeComedian(record, _comedian.Record);
+            return new ComedianRoomEntity(comedian);
+        }
+        if (record.Group == _maskSalesman.Record.Group &&
+            record.Room == _maskSalesman.Record.Room &&
+            record.Id == _maskSalesman.Record.InteractionId &&
+            record.SubId == _maskSalesman.Record.SubId)
+        {
+            var salesman = new MaskSalesmanCharacter
+            {
+                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+                ZIndex = NpcCharacter.BehindLinkZIndex
+            };
+            salesman.InitializeMaskSalesman(record, _maskSalesman.Record);
+            return new MaskSalesmanRoomEntity(salesman);
+        }
+
+        bool isOverworldPoe =
+            record.Group == _poe.Record.Group &&
+            record.Room == _poe.Record.Room &&
+            record.Var03 is 0x00 or 0x02;
+        bool isTombPoe =
+            record.Group == _poe.Record.TombGroup &&
+            record.Room == _poe.Record.TombRoom &&
+            record.Var03 == 0x01;
+        if ((isOverworldPoe || isTombPoe) &&
+            record.Id == _poe.Record.InteractionId &&
+            record.SubId == _poe.Record.SubId)
+        {
+            var poe = new PoeCharacter
+            {
+                Name =
+                    $"Npc_{record.Id:x2}_{record.SubId:x2}_{record.Var03:x2}",
+                ZIndex = NpcCharacter.BehindLinkZIndex
+            };
+            poe.InitializePoe(record, _poe.Record);
+            return new PoeRoomEntity(poe);
+        }
+
+        NpcCharacter npc = CreateNpcCharacter(record);
+        if (_room20e.Matches(record))
+        {
+            return new Room20eNpcRoomEntity(
+                npc, _room20e, saveData);
+        }
+        if (_troyHouse.Matches(record))
+        {
+            if (saveData is null)
+            {
+                throw new InvalidOperationException(
+                    $"{NpcSource(record)} requires save data for its " +
+                    "specialized Troy interaction.");
+            }
+            return new TroyHouseRoomEntity(
+                npc, _troyHouse, saveData, random);
+        }
+        if (record is { Id: 0x28, SubId: 0x00 })
+            return new RunningBipinRoomEntity(npc);
+        if (record is { Id: 0x28, SubId: 0x0a })
+            return new PastBipinRoomEntity(npc);
+        if (record is
+            {
+                Group: 0,
+                Room: 0x5d,
+                Id: 0xcb,
+                SubId: 0x00,
+                Var03: 0x00
+            })
+        {
+            return new SpecializedNpcRoomEntity(npc);
+        }
+        if (record.Group == 2 &&
+            record.Room is 0xea or 0xeb &&
+            record.Id is 0x28 or 0x2b or 0x35)
+        {
+            return new SpecializedNpcRoomEntity(npc);
+        }
+
+        throw new InvalidOperationException(
+            $"{NpcSource(record)} is classified specialized-native but has " +
+            "no native room-entity dispatch.");
+    }
+
+    private static NpcCharacter CreateNpcCharacter(NpcRecord record)
+    {
+        var npc = new NpcCharacter
+        {
+            Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+            ZIndex = NpcCharacter.BehindLinkZIndex
+        };
+        npc.Initialize(record);
+        return npc;
+    }
+
+    private static void RequireNpcImplementation(
+        NpcRecord record,
+        NpcImplementationClassification expected)
+    {
+        if (record.Implementation != expected)
+        {
+            throw new InvalidOperationException(
+                $"{NpcSource(record)} must be classified {expected}, got " +
+                $"{record.Implementation}.");
+        }
+    }
+
+    private static InvalidOperationException UnsupportedNpcClassification(
+        NpcRecord record) =>
+        new(
+            $"{NpcSource(record)} has invalid implementation classification " +
+            $"{record.Implementation}.");
+
+    private static string NpcSource(NpcRecord record) =>
+        $"NPC {record.Group}:{record.Room:x2} " +
+        $"${record.Id:x2}:${record.SubId:x2} var03=${record.Var03:x2}";
+
     private IEnumerable<IRoomEntity> CreateRoom148Npcs(
         IReadOnlyList<NpcRecord> records)
     {
         bool foundWorker = false;
         foreach (NpcRecord record in records)
         {
-            var npc = new NpcCharacter
-            {
-                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                ZIndex = NpcCharacter.BehindLinkZIndex
-            };
-            npc.Initialize(record);
             if (record is { Id: 0x57, SubId: 0x00 })
             {
+                RequireNpcImplementation(
+                    record,
+                    NpcImplementationClassification.SpecializedNative);
                 if (foundWorker)
                     throw new InvalidOperationException(
                         "Room 1:48 contains more than one pickaxe worker $57:$00.");
                 foundWorker = true;
+                NpcCharacter npc = CreateNpcCharacter(record);
                 PickaxeRecord pickaxe = _room148.Record;
                 npc.SetDialogue(
                     pickaxe.TextId, pickaxe.Message, canFace: false);
@@ -1110,7 +1181,11 @@ internal sealed class RoomEntityFactory(
             }
             else
             {
-                yield return new NpcRoomEntity(npc);
+                RequireNpcImplementation(
+                    record,
+                    NpcImplementationClassification.OrdinaryGeneric);
+                yield return new NpcRoomEntity(
+                    CreateNpcCharacter(record));
             }
         }
 
@@ -1130,6 +1205,9 @@ internal sealed class RoomEntityFactory(
 
         foreach (NpcRecord record in records)
         {
+            RequireNpcImplementation(
+                record,
+                NpcImplementationClassification.SpecializedNative);
             bool supported = record.Id == 0x89 && record.SubId is 0x00 or 0x01 or 0x06 ||
                 record.Id == 0xe5 && record.SubId is 0x00 or 0x01;
             if (!supported)
@@ -1137,12 +1215,7 @@ internal sealed class RoomEntityFactory(
                 throw new InvalidOperationException(
                     $"Unsupported Vasu Jewelers interaction ${record.Id:x2}:${record.SubId:x2}.");
             }
-            var npc = new NpcCharacter
-            {
-                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                ZIndex = NpcCharacter.BehindLinkZIndex
-            };
-            npc.Initialize(record);
+            NpcCharacter npc = CreateNpcCharacter(record);
             yield return new VasuShopNpcRoomEntity(npc, _vasuShop);
         }
     }
@@ -1173,12 +1246,10 @@ internal sealed class RoomEntityFactory(
         }
 
         NpcRecord record = records[0];
-        var shopkeeper = new NpcCharacter
-        {
-            Name = "Npc_46_00",
-            ZIndex = NpcCharacter.BehindLinkZIndex
-        };
-        shopkeeper.Initialize(record);
+        RequireNpcImplementation(
+            record,
+            NpcImplementationClassification.SpecializedNative);
+        NpcCharacter shopkeeper = CreateNpcCharacter(record);
         yield return new LynnaShopkeeperRoomEntity(shopkeeper, _lynnaShop);
 
         // The final $71:$0c object is invisible and deletes itself after this
@@ -1195,12 +1266,10 @@ internal sealed class RoomEntityFactory(
         for (int index = 0; index < records.Count; index++)
         {
             NpcRecord record = records[index];
-            var npc = new NpcCharacter
-            {
-                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                ZIndex = NpcCharacter.BehindLinkZIndex
-            };
-            npc.Initialize(record);
+            RequireNpcImplementation(
+                record,
+                NpcImplementationClassification.SpecializedNative);
+            NpcCharacter npc = CreateNpcCharacter(record);
 
             IRoomEntity entity = record switch
             {
@@ -1254,6 +1323,13 @@ internal sealed class RoomEntityFactory(
     private IEnumerable<IRoomEntity> CreateRoom149Family(
         IReadOnlyList<NpcRecord> records)
     {
+        foreach (NpcRecord record in records)
+        {
+            RequireNpcImplementation(
+                record,
+                NpcImplementationClassification.SpecializedNative);
+        }
+
         NpcRecord Find(int id, int subId)
         {
             foreach (NpcRecord record in records)
@@ -1266,15 +1342,7 @@ internal sealed class RoomEntityFactory(
         }
 
         NpcCharacter CreateNpc(NpcRecord record)
-        {
-            var npc = new NpcCharacter
-            {
-                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                ZIndex = NpcCharacter.BehindLinkZIndex
-            };
-            npc.Initialize(record);
-            return npc;
-        }
+            => CreateNpcCharacter(record);
 
         NpcCharacter boy = CreateNpc(Find(0x3c, 0x0e));
         NpcCharacter father = CreateNpc(Find(0x3a, 0x0c));
@@ -1607,6 +1675,9 @@ internal sealed class RoomEntityFactory(
 
     private static IRoomEntity CreateCutsceneNpc(CutsceneNpcSpawn spawn)
     {
+        RequireNpcImplementation(
+            spawn.Record,
+            NpcImplementationClassification.EventOwned);
         var npc = new NpcCharacter
         {
             Name = spawn.Name,

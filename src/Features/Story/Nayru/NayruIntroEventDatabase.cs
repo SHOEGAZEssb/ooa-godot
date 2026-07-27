@@ -352,7 +352,7 @@ public readonly record struct FleeRecord(string Actor, int Delay, int Angle, flo
 
 public readonly record struct EffectRecord(string Name, string SpriteName, int TileBase, int Palette, int Duration, float Speed, int Angle, bool Sway, int VelocityXFixed, int VelocityYFixed, string Animation)
 {
-    public NpcRecord ToNpcRecord(int group, int room, int y, int x) => new(group, room, 0, 0, y, x, 0, 0, SpriteName, TileBase, Palette, 0, false, Animation, Animation, Animation, Animation, string.Empty);
+    public NpcRecord ToNpcRecord(int group, int room, int y, int x) => new(group, room, 0, 0, y, x, 0, 0, SpriteName, TileBase, Palette, 0, false, Animation, Animation, Animation, Animation, string.Empty, NpcImplementationClassification.EventOwned);
 }
 
 public readonly record struct ActorRecord(int Index, int Id, int SubId, int Y, int X, int Var03, string Name, string SpriteName, int TileBase, int Palette, int DefaultAnimation, string[] Animations, int InitialAnimation, string ExtraSprite)
@@ -367,6 +367,6 @@ public readonly record struct ActorRecord(int Index, int Id, int SubId, int Y, i
     public NpcRecord ToNpcRecord(int group, int room)
     {
         string animation = Animation(DefaultAnimation);
-        return new NpcRecord(group, room, Id, SubId, Y, X, Var03, 0, SpriteName, TileBase, Palette, DefaultAnimation, false, animation, animation, animation, animation, string.Empty);
+        return new NpcRecord(group, room, Id, SubId, Y, X, Var03, 0, SpriteName, TileBase, Palette, DefaultAnimation, false, animation, animation, animation, animation, string.Empty, NpcImplementationClassification.EventOwned);
     }
 }

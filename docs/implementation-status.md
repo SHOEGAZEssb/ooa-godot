@@ -293,6 +293,11 @@ remains the single runtime policy table.
 
 ### NPCs and enemies
 
+- All 388 positioned/state-derived NPC records and 72 conditional family
+  records carry an explicit ordinary, specialized, event-owned, or deliberately
+  unsupported implementation classification. Runtime dispatch has no
+  graphics-only generic fallback: unsupported native/script handlers are
+  suppressed, while event-owned actors retain their original object slots.
 - Representative NPCs, including past Lynna room `1:48`'s pickaxe worker and
   story-selected cast, room `1:49`'s linked family tableau, room `1:57`'s
   palette- and story-selected female villager, and room `1:58`'s complete

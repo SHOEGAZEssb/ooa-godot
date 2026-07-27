@@ -89,7 +89,8 @@ internal sealed class PreBlackTowerEventDatabase
             Record.EffectAnimation,
             Record.EffectAnimation,
             Record.EffectAnimation,
-            string.Empty);
+            string.Empty,
+            NpcImplementationClassification.EventOwned);
 
     private static IReadOnlyList<CutsceneCommand> Load(string file) =>
         CutsceneCommandCatalog.Load(Root + file);
