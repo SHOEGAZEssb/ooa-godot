@@ -229,12 +229,40 @@ public sealed partial class ValidationRoot
                 "The summon wave did not restore Link control on frame 128.");
         }
 
+        int previousGroup = _rooms.ActiveGroup;
+        int previousRoom = _rooms.CurrentRoom.Id;
+        Vector2 previousPosition = _player.Position;
+        Vector2I previousFacing = _player.FacingVector;
+        LoadDebugRoom(0, 0x47);
+        _saveData.SetGlobalFlag(
+            OracleSaveData.GlobalFlagSuppressEraInfoOnce,
+            value: false);
+        _entities.RuntimeState.SetWramByte(
+            OracleRuntimeState.SentBackByStrangeForceAddress,
+            0);
+        if (TryDisplayEraInfoAfterInitialRoomLoad(
+                InitialRoomLoadKind.LinkSummonedCutscene) ||
+            _entities.Entities<EraInfoDisplay>().Count != 0)
+        {
+            throw new InvalidOperationException(
+                "The specialized linkSummonedCutscene room load displayed present-era info.");
+        }
+        if (!TryDisplayEraInfoAfterInitialRoomLoad(InitialRoomLoadKind.Ordinary) ||
+            _entities.Entities<EraInfoDisplay>().Count != 1)
+        {
+            throw new InvalidOperationException(
+                "The new-game exception suppressed an ordinary outdoor initial room load.");
+        }
+        LoadDebugRoom(previousGroup, previousRoom);
+        _player.WarpTo(previousPosition);
+        _player.Face(previousFacing);
+
         screen.QueueFree();
         GD.Print("Validated CUTSCENE_PREGAME_INTRO frame-96 top entrance, interleaved 8x16 OBJ cells, " +
             "hardware OAM priority, cumulative descend/hover Z tables, $0d/$06 blue-orb OAM and palette 4, " +
             "300/60 waits, TX_1213, 62-update vanish handoff, 60-update black hold, 65-update white-fade wait, " +
-            "SND_FAIRYCUTSCENE, MUS_ESSENCE_ROOM/STOPMUSIC handoff, 128-update wave, and transition $0b's three-pose " +
-            "4-update/59-gravity-update slow fall.");
+            "SND_FAIRYCUTSCENE, MUS_ESSENCE_ROOM/STOPMUSIC handoff, specialized arrival-room era-info suppression, " +
+            "128-update wave, and transition $0b's three-pose 4-update/59-gravity-update slow fall.");
     }
 
     private void ValidateTimePortals()

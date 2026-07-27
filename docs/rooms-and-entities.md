@@ -109,7 +109,11 @@ global flag `$16` suppresses and clears that one display or
 `$b0,$0a`, enters four pixels per update to X `$10`, holds for 40 updates, and
 exits six pixels per update for six updates. Scrolling transitions do not run
 this full-load path, but an existing display retains its native always-update
-behavior while outgoing objects scroll.
+behavior while outgoing objects scroll. The new-game
+`linkSummonedCutscene` is a distinct source load path: its state 0 loads the
+arrival room without calling `checkDisplayEraOrSeasonInfo`, so the port also
+skips the predicate for that one initial load instead of creating a transient
+era display behind the summon fade.
 
 ## Ordered room objects and enemy reservations
 

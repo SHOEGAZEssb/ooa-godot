@@ -7,7 +7,9 @@ semantics.
 
 ## Small Stuff
 - [ ] During the first post-essence maku cutscene the hud fades faster to black than the rest of the screen
-- [ ] When starting a new game, the era indicator is shown when link spawns. disable the era info during the intro.
+- [x] When starting a new game, the era indicator is shown when Link spawns.
+  The summon arrival now retains the original `linkSummonedCutscene` room-load
+  boundary, which does not call the ordinary era-info predicate.
 - [ ] Fairies (for example when dropped by a miniboss) have the same "drop" physics as a normal item drop, they should not have that
 - [ ] Boomerang moblins not making the damage sound when they are hit
       - [ ] Wallmasters too

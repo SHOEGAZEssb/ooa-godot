@@ -564,9 +564,10 @@ remains the single runtime policy table.
 ### Interface and persistence
 
 - Title/file select, three save slots, new-file name/message-speed setup, the
-  new-game intro, original save image/checksum, previous-generation backups,
-  death checkpoints, packed-BCD death count, explicit Save & Quit flows, and
-  the `gfx_gameover`/`PALH_06` Continue, Save and Continue, and Save and Quit
+  new-game intro and its era-info-free specialized summon-room load, original
+  save image/checksum, previous-generation backups, death checkpoints,
+  packed-BCD death count, explicit Save & Quit flows, and the
+  `gfx_gameover`/`PALH_06` Continue, Save and Continue, and Save and Quit
   lifecycle.
 - Top-screen HUD (including simultaneous rupee digits and the dungeon-only
   `gfx_key`/X/key-count field), dialogue, inventory pages, map/dungeon map,

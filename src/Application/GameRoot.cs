@@ -236,7 +236,9 @@ public partial class GameRoot : Node2D
         _newGameIntroScreen?.QueueFree();
         _newGameIntroScreen = null;
         _newGameIntro = null;
-        InitializeGameplay(save);
+        InitializeGameplay(
+            save,
+            initialRoomLoadKind: InitialRoomLoadKind.LinkSummonedCutscene);
 
         // linkSummonedCutscene state 0 starts SND_WARP_START when it loads the
         // arrival room and initializes the divisor-2 white fade/wave.
@@ -256,7 +258,8 @@ public partial class GameRoot : Node2D
     private void InitializeGameplay(
         OracleSaveData save,
         bool forceDeathRespawn = false,
-        DebugSavestateData? debugSavestate = null)
+        DebugSavestateData? debugSavestate = null,
+        InitialRoomLoadKind initialRoomLoadKind = InitialRoomLoadKind.Ordinary)
     {
         // initializeGame restores depleted saved/live health before Link is
         // constructed. Save and Continue deliberately leaves the disk image
@@ -322,7 +325,7 @@ public partial class GameRoot : Node2D
             ? EnemyPlacementContext.Warp(_rooms.CurrentRoom.GetPackedPosition(spawn))
             : EnemyPlacementContext.Unrestricted;
         _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom, placementContext);
-        _transitions.CheckDisplayEraInfoAfterFullRoomLoad();
+        TryDisplayEraInfoAfterInitialRoomLoad(initialRoomLoadKind);
         debugSavestate?.RestoreLiveState(
             _saveData,
             _runtimeState,
@@ -352,6 +355,21 @@ public partial class GameRoot : Node2D
         _transitions.UpdateCamera();
         ApplyRoomMusic(_rooms.ActiveGroup, _rooms.CurrentRoom);
     }
+
+    internal bool TryDisplayEraInfoAfterInitialRoomLoad(
+        InitialRoomLoadKind initialRoomLoadKind) =>
+        initialRoomLoadKind switch
+        {
+            // The original linkSummonedCutscene state 0 loads the arrival room
+            // through its own path and never calls checkDisplayEraOrSeasonInfo.
+            InitialRoomLoadKind.LinkSummonedCutscene => false,
+            InitialRoomLoadKind.Ordinary =>
+                _transitions.CheckDisplayEraInfoAfterFullRoomLoad(),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(initialRoomLoadKind),
+                initialRoomLoadKind,
+                "Unknown initial room-load kind.")
+        };
 
     public override void _ExitTree()
     {
@@ -950,4 +968,10 @@ public partial class GameRoot : Node2D
         }
     }
     internal void UpdateScrollingTransition(double delta) => _transitions.UpdateScroll(delta);
+}
+
+internal enum InitialRoomLoadKind
+{
+    Ordinary,
+    LinkSummonedCutscene
 }
