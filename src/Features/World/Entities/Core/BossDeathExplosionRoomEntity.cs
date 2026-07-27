@@ -8,6 +8,8 @@ internal sealed class BossDeathExplosionRoomEntity(
     BossDeathExplosionEffect explosion,
     ItemDropDatabase itemDrops,
     OracleRandom random,
+    InventoryState? inventory,
+    OracleSaveData? saveData,
     Func<int> roomEnemyCount)
     : RoomEntityAdapter<BossDeathExplosionEffect>(
         explosion, explosion.SetTransitionDrawOffset),
@@ -26,7 +28,8 @@ internal sealed class BossDeathExplosionRoomEntity(
         if (roomEnemyCount() != 0)
             return;
 
-        int? subId = itemDrops.DecideDrop(Entity.BossId, random);
+        int? subId = itemDrops.DecideDrop(
+            Entity.BossId, random, inventory, saveData);
         if (subId.HasValue)
             spawns.Add(new ItemDropSpawn(subId.Value, Entity.Position));
     }

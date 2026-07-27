@@ -32,6 +32,7 @@ public sealed class RoomEntityManager : IDisposable
     private readonly OracleRandom _random;
     private readonly ItemDropDatabase _itemDrops;
     private readonly OracleSaveData? _saveData;
+    private readonly InventoryState? _inventory;
     private readonly OracleRuntimeState _runtimeState;
     private readonly Func<long> _animationTick;
     private readonly RecentEnemyDefeats _recentEnemyDefeats = new();
@@ -237,6 +238,7 @@ public sealed class RoomEntityManager : IDisposable
         _random = random;
         _itemDrops = itemDrops;
         _saveData = saveData;
+        _inventory = inventory;
         _runtimeState = runtimeState ?? new OracleRuntimeState();
         _animationTick = animationTick ?? (() => 0);
         _factory = new RoomEntityFactory(
@@ -709,7 +711,8 @@ public sealed class RoomEntityManager : IDisposable
         Vector2 position,
         Vector2I shovelDirection)
     {
-        int? subId = _itemDrops.DecideBreakableDrop(dropType, _random);
+        int? subId = _itemDrops.DecideBreakableDrop(
+            dropType, _random, _inventory, _saveData);
         if (subId.HasValue)
         {
             int angle = shovelDirection == Vector2I.Up ? 0x00
@@ -724,7 +727,8 @@ public sealed class RoomEntityManager : IDisposable
 
     internal void SpawnBreakableDrop(int dropType, Vector2 position)
     {
-        int? subId = _itemDrops.DecideBreakableDrop(dropType, _random);
+        int? subId = _itemDrops.DecideBreakableDrop(
+            dropType, _random, _inventory, _saveData);
         if (subId.HasValue)
         {
             Spawn<ItemDropEffect>(new ItemDropSpawn(

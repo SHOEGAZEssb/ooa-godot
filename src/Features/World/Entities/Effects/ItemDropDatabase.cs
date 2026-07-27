@@ -113,16 +113,26 @@ public sealed class ItemDropDatabase
         _ => TreasureDatabase.TreasureNone
     };
 
-    internal static bool IsAvailable(int subId, OracleSaveData? save)
+    internal static bool IsAvailable(
+        int subId,
+        InventoryState? inventory,
+        OracleSaveData? saveData)
     {
+        // itemDropAvailabilityTable checks obtained-treasure flags, not the
+        // current quantity or capacity. Collection applies those limits later.
         if (subId is >= Fairy and <= FiveRupees or OneHundredRupeesOrEnemy)
             return true;
         int treasure = TreasureForDrop(subId);
         return treasure != TreasureDatabase.TreasureNone &&
-            save?.HasTreasure(treasure) == true;
+            (inventory?.HasTreasure(treasure) ??
+                saveData?.HasTreasure(treasure) == true);
     }
 
-    internal int? DecideDrop(int enemyId, OracleRandom random)
+    internal int? DecideDrop(
+        int enemyId,
+        OracleRandom random,
+        InventoryState? inventory = null,
+        OracleSaveData? saveData = null)
     {
         int record = EnemyTableRecord(enemyId);
         if (record == 0xff)
@@ -134,12 +144,17 @@ public sealed class ItemDropDatabase
 
         byte itemRoll = (byte)(random.Next().Value & 0x1f);
         int subId = DropSetValue(record & 0x1f, itemRoll);
-        return IsCurrentlyAvailable(subId) ? subId : null;
+        return IsAvailable(subId, inventory, saveData) ? subId : null;
     }
 
-    internal int? DecideBreakableDrop(int dropType, OracleRandom random)
+    internal int? DecideBreakableDrop(
+        int dropType,
+        OracleRandom random,
+        InventoryState? inventory = null,
+        OracleSaveData? saveData = null)
     {
-        int? subId = DecideDrop(0x80 | (dropType & 0x0f), random);
+        int? subId = DecideDrop(
+            0x80 | (dropType & 0x0f), random, inventory, saveData);
         if (subId != OneHundredRupeesOrEnemy)
             return subId;
 
@@ -148,14 +163,19 @@ public sealed class ItemDropDatabase
         return random.Next().Value >= 0xe0 ? OneHundredRupeesOrEnemy : null;
     }
 
-    internal int? ChooseDrop(int enemyId, byte probabilityRoll, byte itemRoll)
+    internal int? ChooseDrop(
+        int enemyId,
+        byte probabilityRoll,
+        byte itemRoll,
+        InventoryState? inventory = null,
+        OracleSaveData? saveData = null)
     {
         int record = EnemyTableRecord(enemyId);
         if (record == 0xff || !ProbabilityAllows(record >> 5, probabilityRoll & 0x3f))
             return null;
 
         int subId = DropSetValue(record & 0x1f, itemRoll & 0x1f);
-        return IsCurrentlyAvailable(subId) ? subId : null;
+        return IsAvailable(subId, inventory, saveData) ? subId : null;
     }
 
     internal bool ProbabilityAllows(int probability, int roll)
@@ -174,9 +194,6 @@ public sealed class ItemDropDatabase
             set * SetSize + roll;
         return _selectionData[offset];
     }
-
-    private static bool IsCurrentlyAvailable(int subId) =>
-        subId is Fairy or Heart or OneRupee or FiveRupees or OneHundredRupeesOrEnemy;
 }
 
 public readonly record struct ItemDropDatabaseVisualRecord(int SubId, int TileBase, int Palette, string Animation);

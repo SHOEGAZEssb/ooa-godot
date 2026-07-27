@@ -7,7 +7,9 @@ namespace oracleofages;
 internal sealed class DeathPuffRoomEntity(
     EnemyDeathPuffEffect puff,
     ItemDropDatabase itemDrops,
-    OracleRandom random)
+    OracleRandom random,
+    InventoryState? inventory,
+    OracleSaveData? saveData)
     : RoomEntityAdapter<EnemyDeathPuffEffect>(puff, puff.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomEntityLifetime
 {
@@ -16,7 +18,8 @@ internal sealed class DeathPuffRoomEntity(
         Entity.UpdateFrame(frame.Counter);
     public void OnFinished(ICollection<RoomEntitySpawn> spawns)
     {
-        int? subId = itemDrops.DecideDrop(Entity.EnemyId, random);
+        int? subId = itemDrops.DecideDrop(
+            Entity.EnemyId, random, inventory, saveData);
         if (subId.HasValue)
             spawns.Add(new ItemDropSpawn(subId.Value, Entity.Position));
     }

@@ -2023,6 +2023,8 @@ public sealed partial class ValidationRoot
                 $"got {hearts}, {oneRupees}, and {fiveRupees}.");
         }
 
+        ValidateInventoryDependentEnemyDrops(database);
+
         ItemDropDatabaseVisualRecord fairyVisual = database.GetVisual(ItemDropDatabase.Fairy);
         ItemDropDatabaseVisualRecord heartVisual = database.GetVisual(ItemDropDatabase.Heart);
         ItemDropDatabaseVisualRecord oneRupeeVisual = database.GetVisual(ItemDropDatabase.OneRupee);
@@ -2432,6 +2434,9 @@ public sealed partial class ValidationRoot
         _player.RefillHealth();
         GD.Print("Validated all 144 enemy drop records, Giant Ghini `$ef` guaranteed-fairy " +
             "and Pumpkin Head `$ff` no-drop records, Keese `$ae probability/set data, " +
+            "Boomerang Moblin `$0a/set `$06, Arrow Moblin `$0c/set `$0c, Rope `$10/set `$01, " +
+            "and Crow `$41/set `$0d live Bomb/all-seed availability with unchanged RNG order, " +
+            "capacity caps, and Red/Blue/Gold Joy Ring quantities, " +
             "PART_ITEM_DROP fairy/heart/1/5/100-rupee visuals, exact fairy global-RNG " +
             "movement and in-place OAM facing, z=-6 clamp, delayed collision, `$18 refill, " +
             "shovel SPEED_a0 launch, " +
@@ -2440,6 +2445,242 @@ public sealed partial class ValidationRoot
             "ground-height INTERAC_SPLASH/`$87 water disposal, one-per-update rupee display and " +
             "SND_RUPEE `$61 requests including the `$0999 cap, " +
             "240 alternating-frame lifetime ticks, final flicker, and frozen scrolling ownership.");
+    }
+
+    private void ValidateInventoryDependentEnemyDrops(ItemDropDatabase database)
+    {
+        var treasures = new TreasureDatabase();
+        var unowned = new InventoryState(treasures);
+        var owned = new InventoryState(treasures);
+        owned.GiveTreasure(TreasureDatabase.TreasureBombs, 0);
+        for (int seed = 0; seed < 5; seed++)
+        {
+            owned.GiveTreasure(
+                TreasureDatabase.TreasureEmberSeeds + seed, 0);
+        }
+
+        if (database.EnemyTableRecord(0x0a) != 0x86 ||
+            database.EnemyTableRecord(0x0c) != 0xac ||
+            database.EnemyTableRecord(0x10) != 0x81 ||
+            database.EnemyTableRecord(0x41) != 0x6d)
+        {
+            throw new InvalidOperationException(
+                "Inventory-dependent source records changed: Boomerang Moblin `$0a/`$86, " +
+                "Arrow Moblin `$0c/`$ac, Rope `$10/`$81, or Crow `$41/`$6d.");
+        }
+
+        (int Enemy, byte ProbabilityRoll, byte ItemRoll, int Expected)[] selections =
+        [
+            (0x0a, 0x00, 0x16, ItemDropDatabase.Bombs),
+            (0x0c, 0x01, 0x10, ItemDropDatabase.Bombs),
+            (0x10, 0x00, 0x18, ItemDropDatabase.ScentSeeds),
+            (0x41, 0x03, 0x10, ItemDropDatabase.MysterySeeds),
+            (0x41, 0x03, 0x12, ItemDropDatabase.GaleSeeds),
+            (0x41, 0x03, 0x15, ItemDropDatabase.PegasusSeeds),
+            (0x41, 0x03, 0x18, ItemDropDatabase.ScentSeeds),
+            (0x41, 0x03, 0x1b, ItemDropDatabase.EmberSeeds)
+        ];
+        foreach ((int enemy, byte probabilityRoll, byte itemRoll, int expected) in selections)
+        {
+            if (database.ChooseDrop(
+                    enemy, probabilityRoll, itemRoll, unowned).HasValue ||
+                database.ChooseDrop(
+                    enemy, probabilityRoll, itemRoll, owned) != expected)
+            {
+                throw new InvalidOperationException(
+                    $"Enemy ${enemy:x2} item roll ${itemRoll:x2} did not suppress " +
+                    $"unowned PART_ITEM_DROP ${expected:x2} and retain it once owned.");
+            }
+        }
+
+        var saveOnly = OracleSaveData.CreateStandardGame();
+        var saveOnlyInventory = new InventoryState(treasures, saveOnly);
+        saveOnlyInventory.GiveTreasure(TreasureDatabase.TreasureBombs, 0);
+        if (!ItemDropDatabase.IsAvailable(
+                ItemDropDatabase.Bombs, inventory: null, saveData: saveOnly))
+        {
+            throw new InvalidOperationException(
+                "The shared item-drop availability path lost its save-backed " +
+                "TREASURE_BOMBS fallback for placed producers.");
+        }
+
+        var unavailableRandom = new OracleRandom();
+        var availableRandom = new OracleRandom();
+        for (int advance = 0; advance < 10; advance++)
+        {
+            unavailableRandom.Next();
+            availableRandom.Next();
+        }
+        int unavailableCalls = unavailableRandom.Calls;
+        int availableCalls = availableRandom.Calls;
+        if (database.DecideDrop(0x0a, unavailableRandom, unowned).HasValue ||
+            unavailableRandom.Calls != unavailableCalls + 2 ||
+            database.DecideDrop(0x0a, availableRandom, owned) !=
+                ItemDropDatabase.Bombs ||
+            availableRandom.Calls != availableCalls + 2)
+        {
+            throw new InvalidOperationException(
+                "Boomerang Moblin `$0a/set `$06 did not consume probability and " +
+                "selection RNG before applying the Bomb obtained-bit predicate.");
+        }
+
+        ValidateDeathPuffInventoryDrop(database, treasures);
+        ValidateInventoryDropQuantities(database, treasures);
+    }
+
+    private void ValidateDeathPuffInventoryDrop(
+        ItemDropDatabase database,
+        TreasureDatabase treasures)
+    {
+        var targetRandom = new OracleRandom();
+        for (int advance = 0; advance < 10; advance++)
+            targetRandom.Next();
+        OracleRandomState targetState = targetRandom.CaptureState();
+
+        var root = new Node { Name = "InventoryEnemyDropValidation" };
+        AddChild(root);
+        var save = OracleSaveData.CreateStandardGame();
+        var inventory = new InventoryState(treasures, save);
+        var random = new OracleRandom();
+        var manager = new RoomEntityManager(
+            root, new NpcDatabase(), new EnemyDatabase(), database,
+            new TimePortalDatabase(), random, save, new OracleRuntimeState(),
+            inventory, treasures: treasures);
+        manager.LoadRoom(0, _world.LoadRoom(0, 0x00));
+        _player.WarpTo(new Vector2(140, 120), recordSafe: false);
+
+        random.RestoreState(targetState);
+        manager.Spawn<EnemyDeathPuffEffect>(
+            new EnemyDeathPuffSpawn(new Vector2(24, 24), EnemyId: 0x0a));
+        for (int update = 0; update < 20; update++)
+            manager.Update(1.0 / 60.0, _player);
+        if (manager.Entities<ItemDropEffect>().Count != 0 ||
+            random.Calls != 12)
+        {
+            throw new InvalidOperationException(
+                "The common death puff did not suppress Boomerang Moblin `$0a's " +
+                "selected Bomb after exactly two RNG calls while TREASURE_BOMBS was unowned.");
+        }
+
+        inventory.GiveTreasure(TreasureDatabase.TreasureBombs, 0);
+        random.RestoreState(targetState);
+        manager.Spawn<EnemyDeathPuffEffect>(
+            new EnemyDeathPuffSpawn(new Vector2(24, 24), EnemyId: 0x0a));
+        for (int update = 0; update < 20; update++)
+            manager.Update(1.0 / 60.0, _player);
+        if (manager.Entities<ItemDropEffect>().SingleOrDefault() is not
+                { SubId: ItemDropDatabase.Bombs, ElapsedFrames: 0 } ||
+            random.Calls != 12)
+        {
+            throw new InvalidOperationException(
+                "The common death puff did not create Boomerang Moblin `$0a's " +
+                "Bomb after exactly two RNG calls once TREASURE_BOMBS was owned.");
+        }
+
+        manager.Clear();
+        RemoveChild(root);
+        root.Free();
+    }
+
+    private void ValidateInventoryDropQuantities(
+        ItemDropDatabase database,
+        TreasureDatabase treasures)
+    {
+        OracleRoomData room = _world.LoadRoom(4, 0xcb);
+        Vector2 position = FindOpenItemDropPosition(room);
+        Vector2 farPosition = position.X <= room.Width - 48
+            ? position + Vector2.Right * 40
+            : position + Vector2.Left * 40;
+
+        InventoryState CreateInventory(
+            RingId? ring = null,
+            int health = 0x0c,
+            int maxHealth = 0x0c)
+        {
+            OracleSaveData save = OracleSaveData.CreateStandardGame();
+            save.WriteWramByte(0xc6aa, (byte)health);
+            save.WriteWramByte(0xc6ab, (byte)maxHealth);
+            if (ring.HasValue)
+            {
+                save.WriteWramByte(0xc6cc, 1);
+                save.WriteWramByte(0xc6c6, (byte)ring.Value);
+            }
+            var inventory = new InventoryState(treasures, save);
+            if (ring.HasValue && !inventory.EquipRingAt(0))
+            {
+                throw new InvalidOperationException(
+                    $"Could not equip Joy Ring ${(int)ring.Value:x2} for item-drop validation.");
+            }
+            return inventory;
+        }
+
+        void Collect(InventoryState inventory, int subId)
+        {
+            var player = new Player();
+            player.Initialize(
+                new ValidationRingPlayerWorld(), inventory, farPosition,
+                new OracleRandom());
+            var drop = new ItemDropEffect();
+            drop.Initialize(subId, position, room, database.GetVisual(subId));
+            for (int update = 1; update <= 36; update++)
+                drop.UpdateFrame(player, update);
+            player.WarpTo(position, recordSafe: false);
+            drop.UpdateFrame(player, 37);
+            if (!drop.Collected)
+            {
+                throw new InvalidOperationException(
+                    $"PART_ITEM_DROP ${subId:x2} was not collectible for inventory quantity validation.");
+            }
+            drop.Free();
+            player.Free();
+        }
+
+        InventoryState bombs = CreateInventory();
+        bombs.GiveTreasure(TreasureDatabase.TreasureBombs, 0);
+        Collect(bombs, ItemDropDatabase.Bombs);
+        InventoryState goldBombs = CreateInventory(RingId.GoldJoy);
+        goldBombs.GiveTreasure(TreasureDatabase.TreasureBombs, 0);
+        Collect(goldBombs, ItemDropDatabase.Bombs);
+        InventoryState fullBombs = CreateInventory();
+        fullBombs.GiveTreasure(TreasureDatabase.TreasureBombs, 0x10);
+        Collect(fullBombs, ItemDropDatabase.Bombs);
+        if (bombs.Bombs != 0x04 || goldBombs.Bombs != 0x08 ||
+            fullBombs.Bombs != fullBombs.MaxBombs)
+        {
+            throw new InvalidOperationException(
+                "ITEM_DROP_BOMBS did not grant 4/Gold-Joy 8 Bombs or retain " +
+                "the source capacity cap while remaining collectible.");
+        }
+
+        int mysteryTreasure = TreasureDatabase.TreasureEmberSeeds + 4;
+        InventoryState seeds = CreateInventory();
+        seeds.GiveTreasure(mysteryTreasure, 0);
+        Collect(seeds, ItemDropDatabase.MysterySeeds);
+        InventoryState goldSeeds = CreateInventory(RingId.GoldJoy);
+        goldSeeds.GiveTreasure(mysteryTreasure, 0);
+        Collect(goldSeeds, ItemDropDatabase.MysterySeeds);
+        InventoryState fullSeeds = CreateInventory();
+        fullSeeds.GiveTreasure(mysteryTreasure, 0x20);
+        Collect(fullSeeds, ItemDropDatabase.MysterySeeds);
+        if (seeds.MysterySeeds != 0x05 || goldSeeds.MysterySeeds != 0x10 ||
+            fullSeeds.MysterySeeds != 0x20)
+        {
+            throw new InvalidOperationException(
+                "ITEM_DROP_MYSTERY_SEEDS did not grant 5/Gold-Joy 10 seeds or " +
+                "retain the level-0 `$20 capacity while remaining collectible.");
+        }
+
+        InventoryState redJoy = CreateInventory(RingId.RedJoy);
+        Collect(redJoy, ItemDropDatabase.FiveRupees);
+        InventoryState blueJoy = CreateInventory(
+            RingId.BlueJoy, health: 0x04, maxHealth: 0x0c);
+        Collect(blueJoy, ItemDropDatabase.Heart);
+        if (redJoy.Rupees != 10 || blueJoy.HealthQuarters != 0x0c)
+        {
+            throw new InvalidOperationException(
+                "Red Joy did not double a five-Rupee drop to 10 or Blue Joy " +
+                "did not double a one-heart drop from 4 to 8 health quarters.");
+        }
     }
 
     private void ValidateRupeeItemDrop(

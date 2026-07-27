@@ -485,6 +485,7 @@ internal sealed class RoomEntityFactory(
                             source.SubId,
                             PointForPackedPosition(source.PackedPosition),
                             room,
+                            inventory,
                             saveData);
                         yield return new ItemDropProducerRoomEntity(
                             producer, itemKillableEnemyIndex);
@@ -1605,7 +1606,8 @@ internal sealed class RoomEntityFactory(
         seed.Initialize(
             spawn.Record, room, _breakables, spawn.LinkPosition, spawn.Direction,
             soundRequested, itemDropEnteredHazard, roomTileChanged, animationTick,
-            drop => itemDrops.DecideBreakableDrop(drop, random), saveData,
+            drop => itemDrops.DecideBreakableDrop(
+                drop, random, inventory, saveData), saveData,
             spawn.Group,
             rooms is null
                 ? null
@@ -1725,7 +1727,8 @@ internal sealed class RoomEntityFactory(
         var puff = new EnemyDeathPuffEffect { Name = "EnemyDeathPuff", ZIndex = 10 };
         puff.Initialize(spawn.Position, spawn.HighKnockback, spawn.EnemyId);
         soundRequested(OracleSoundEngine.SndKillEnemy);
-        return new DeathPuffRoomEntity(puff, itemDrops, random);
+        return new DeathPuffRoomEntity(
+            puff, itemDrops, random, inventory, saveData);
     }
 
     private IRoomEntity CreateBossDeathExplosion(BossDeathExplosionSpawn spawn)
@@ -1737,7 +1740,7 @@ internal sealed class RoomEntityFactory(
         };
         explosion.Initialize(spawn.Position, spawn.BossId, soundRequested);
         return new BossDeathExplosionRoomEntity(
-            explosion, itemDrops, random, roomEnemyCount);
+            explosion, itemDrops, random, inventory, saveData, roomEnemyCount);
     }
 
     private static IRoomEntity CreateBossShadow(BossShadowSpawn spawn)

@@ -12,6 +12,7 @@ public partial class ItemDropProducer : Node2D
 {
     private OracleRoomData _room = null!;
     private OracleSaveData? _save;
+    private InventoryState? _inventory;
     private int _subId;
     private byte _initialTile;
 
@@ -23,11 +24,13 @@ public partial class ItemDropProducer : Node2D
         int subId,
         Vector2 position,
         OracleRoomData room,
+        InventoryState? inventory,
         OracleSaveData? save)
     {
         _subId = subId;
         Position = position;
         _room = room;
+        _inventory = inventory;
         _save = save;
         Visible = false;
     }
@@ -45,7 +48,7 @@ public partial class ItemDropProducer : Node2D
         if (_room.GetMetatile(Position) == _initialTile)
             return;
 
-        if (ItemDropDatabase.IsAvailable(_subId, _save))
+        if (ItemDropDatabase.IsAvailable(_subId, _inventory, _save))
         {
             spawns.Add(new ItemDropSpawn(
                 _subId, Position, UpdateThisFrame: true));

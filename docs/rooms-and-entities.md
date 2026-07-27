@@ -692,6 +692,15 @@ the allow-holes front/current tile probes before movement. Horizontal movement
 ends with the bounce; it must not leak into ordinary drops or grounded lifetime
 updates.
 
+The common selector consumes its probability RNG value and, when that succeeds,
+its set-selection RNG value before testing availability. Hearts, Rupees, and
+Fairies are unconditional; Bombs and each of the five seed subids require their
+matching obtained-treasure bit. Use the live `InventoryState` as the primary
+view and the save image as the fallback for source-created producers, rather
+than maintaining a second enemy-only predicate. Current quantity and capacity
+do not affect spawning. Collection applies the Bomb/seed cap and Red, Blue, or
+Gold Joy Ring multiplier after the drop already exists.
+
 Subid `$00`, `ITEM_DROP_FAIRY`, is the exception to stationary grounded
 behavior. Its initialization consumes three values from the shared global RNG
 for an even `$00-$1e` angle, one of `SPEED_40/SPEED_80/SPEED_c0/SPEED_100`, and
@@ -831,6 +840,9 @@ one ownership point. Red Zols instead request it with their special
 `INTERAC_KILLENEMYPUFF` split. Hazard deaths suppress both death/drop puffs and
 the kill cue; a hole is retained separately on the enemy until lifetime removal
 requests `SND_FALLINHOLE`, while water/lava remain silent on that path.
+When the ordinary puff completes, its enemy ID enters the same source-table
+drop selector used by boss explosions and breakable tiles; do not filter its
+Bomb or seed result before the shared obtained-treasure check.
 
 `ENEMY_CROW $41:$00` is a fixed-position combat enemy with a species-specific
 native state machine. While perched it has no collision and faces Link, using

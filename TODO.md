@@ -167,15 +167,16 @@ and RNG consumption while addressing these items.
   cumulative probe/bounce helper and add horizontal, vertical, and corner
   regressions for Keese, Stalfos, and knockback.
 
-- [ ] Restore inventory-dependent enemy drops through one availability path.
-  `ItemDropDatabase.IsAvailable` and collection support Bombs and all five seed
-  types, but ordinary enemy `DecideDrop`/`ChooseDrop` uses a second predicate
-  that permits only Hearts and Rupees.
-  - Wire save/inventory eligibility into the common death-puff drop path
-    without changing table scans or RNG calls.
-  - Cover Boomerang Moblin `$0a` set `$06`, Arrow Moblin `$0c` set `$0c`, Rope
-    `$10` set `$01`, and Crow `$41` set `$0d`, including owned/unowned
-    treasures, capacity, and Joy Ring quantity behavior.
+- [x] Restore inventory-dependent enemy drops through one availability path.
+  `DecideDrop`, deterministic `ChooseDrop`, breakable drops, placed producers,
+  ordinary death puffs, and boss death explosions now all use the live
+  inventory/save-backed obtained-treasure predicate for Bombs and all five seed
+  types. Probability and selection RNG remain ahead of that predicate.
+  - Boomerang Moblin `$0a` set `$06`, Arrow Moblin `$0c` set `$0c`, Rope `$10`
+    set `$01`, and Crow `$41` set `$0d` regress owned/unowned results and the
+    common death-puff handoff.
+  - Full Bomb/seed capacity still permits collection without exceeding the
+    cap, while Red, Blue, and Gold Joy Ring pickup quantities remain doubled.
 
 - [ ] Represent source death outcomes separately from Godot entity lifetime.
   `IRoomKillTrackedEnemy.MarksEnemyKilled` currently gates both the

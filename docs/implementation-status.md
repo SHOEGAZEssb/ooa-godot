@@ -22,9 +22,10 @@ claim that the entire surrounding game is complete.
 ### Player, combat, and items
 
 - Link movement, level-1 sword combat, terrain hazards, push blocks, signs,
-  chests, item drops (including the mobile `$00` fairy's imported velocities,
-  shared-RNG routes, delayed collision, and `$18` heart refill), exact imported
-  `$f8` grass overlap and four-frame `$f9`
+  chests, item drops (including obtained-treasure-gated Bombs/all five seed
+  types, capacity-aware collection, and the mobile `$00` fairy's imported
+  velocities, shared-RNG routes, delayed collision, and `$18` heart refill),
+  exact imported `$f8` grass overlap and four-frame `$f9`
   shallow-water ripple OAM/step sound, grass/bush cut debris OAM, timing, sound,
   underwater palette, and grass subid flicker, the active Shovel, and the
   first Seed Satchel's active Ember Seed path. The Satchel uses its selected
@@ -221,7 +222,7 @@ remains the single runtime policy table.
 | `$23` | Quicksand Ring | Deferred | Quicksand immunity is encoded; quicksand movement is absent. |
 | `$24` | Red Joy Ring | Implemented | Doubles Rupees collected from implemented enemy/item drops and Maple's Rupee rewards. |
 | `$25` | Blue Joy Ring | Implemented | Doubles Hearts collected from implemented enemy/item drops and Maple's Heart rewards. |
-| `$26` | Gold Joy Ring | Partial | Doubles every applicable Maple reward and the currently supported ordinary Heart/Rupee drops; other ordinary source drop kinds remain incomplete. |
+| `$26` | Gold Joy Ring | Implemented | Doubles every applicable Maple reward and implemented Fairy, Heart, Rupee, Bomb, and seed drops. |
 | `$27` | Green Joy Ring | Deferred | Ore-doubling policy exists; Ore Chunk drops do not. |
 | `$28` | Discovery Ring | Implemented | Requests the source compass cue when a Gasha interaction receives its first enabled update in a room containing its buried or exposed spot. |
 | `$29` | Rang Ring L-2 | Deferred | Level-2 boomerang-damage policy exists; active Boomerang behavior does not. |
@@ -388,7 +389,8 @@ remains the single runtime policy table.
 - Keese, Octoroks/projectiles, masked Moblins `$20:$00` and their arrows,
   ordinary Stalfos `$31:$00`, Zols, and Gels using
   ordered room-object placement, original spawn restrictions, shared RNG,
-  combat, common/split kill sounds, common hazard effects, and drop paths. All 34
+  combat, common/split kill sounds, common hazard effects, and source-ordered
+  drop paths with live Bomb/seed ownership predicates. All 34
   ordinary-Stalfos records (37 instances) use their source SPEED_80 walk,
   two-call direction/counter decision, wall/hole bounce, animation, damage,
   health, and drop path. Evasive, bone-throwing, and stomping Stalfos subids
