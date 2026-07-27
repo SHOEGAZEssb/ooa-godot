@@ -175,21 +175,19 @@ and RNG consumption while addressing these items.
   - Full Bomb/seed capacity still permits collection without exceeding the
     cap, while Red, Blue, and Gold Joy Ring pickup quantities remain doubled.
 
-- [ ] Represent source death outcomes separately from Godot entity lifetime.
-  `IRoomKillTrackedEnemy.MarksEnemyKilled` currently gates both the
-  recent-defeat bit and the global `EnemyDefeated` counters, and both are
-  evaluated only when an entity becomes `Finished`.
-  - Model counted `enemyDie`, `enemyDie_uncounted`, room-count decrement,
-    `markEnemyAsKilledInRoom`, hazard deletion, replacement/split deletion, and
-    boss teardown as explicit independent outcomes.
-  - Fix hazard disposal: `ecom_decNumEnemiesAndDelete` decrements the room count
-    and creates the hazard effect but does not mark the recent-defeat bit or
-    advance Slayer/Maple/Gasha kill counters; the current ordinary adapter does
-    both.
-  - Preserve five `enemyDie_uncounted` counter events for Wallmaster hands and
-    one final recent-defeat mark from the spawner, rather than the current one
-    combined event. Regress that red Zol replacement itself and an escaped Crow
-    emit no death event, while the two spawned Gels still die independently.
+- [x] Represent source death outcomes separately from Godot entity lifetime.
+  `IRoomEnemyOutcomeSource` now emits explicit one-shot outcomes for counted
+  `enemyDie`, `enemyDie_uncounted`, room-count decrement, recent-defeat marking,
+  hazard and replacement deletion, silent deletion, boss teardown, and placed
+  producer consumption. Room-count retention, recent-defeat state, and the
+  shared Slayer/Maple/Gasha `EnemyDefeated` counters are independent effects.
+  - Counted ordinary and boss death effects retain the live room-count
+    contribution until their terminal update. Hazard disposal decrements it
+    without marking recent defeat or advancing kill counters.
+  - Wallmaster's five hand deaths each advance the counters without changing
+    room count or recent defeat; final spawner completion independently
+    decrements and marks. Red Zol replacement and an escaped Crow emit no death
+    event, while both spawned Gels die and finish their puffs independently.
 
 - [x] Replace implicit enemy support tests with one source-aware handler
   registry keyed by ID/subid.

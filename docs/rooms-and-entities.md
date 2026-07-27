@@ -267,8 +267,18 @@ single universal entity base class:
 | `IPlayerRestriction` | Native interaction-owned sword and/or movement input suppression |
 | `IRoomEntityLifetime` | Completion; `OnFinished` is an optional final spawn/effect hook |
 | `IRoomEnemyCounterEntity` | A live combat enemy or native puzzle sentinel contributing to `wNumEnemies` |
-| `IRoomKillTrackedEnemy` | A source enemy's transient `$01-$07` killed-list index and whether completion marks it |
+| `IRoomEnemyOutcomeSource` | One-shot source outcomes whose room-count, recent-defeat, and global kill-counter effects are independent |
 | `IRoomSaveStateEntity` | Refresh from changed live save state |
+
+Do not infer an enemy outcome from Godot entity removal. `RoomEnemyOutcome`
+represents the source paths separately: counted `enemyDie`,
+`enemyDie_uncounted`, room-count decrement, hazard or replacement deletion,
+silent deletion, Wallmaster spawner completion, boss teardown, and placement
+consumption. Each outcome states independently whether it removes a
+`wNumEnemies` contribution, marks the transient recent-defeat index, or
+advances the shared Slayer/Maple/Gasha kill counters. The manager drains
+pending outcomes every update before lifetime cleanup because an owner such as
+Wallmaster may emit hand-death outcomes while its spawner remains alive.
 
 Shared combat, terrain movement, vertical motion, and animation components may
 remove mechanical duplication. Single-body enemies inherit the record-neutral
@@ -877,9 +887,13 @@ one ownership point. Red Zols instead request it with their special
 `INTERAC_KILLENEMYPUFF` split. Hazard deaths suppress both death/drop puffs and
 the kill cue; a hole is retained separately on the enemy until lifetime removal
 requests `SND_FALLINHOLE`, while water/lava remain silent on that path.
-When the ordinary puff completes, its enemy ID enters the same source-table
-drop selector used by boss explosions and breakable tiles; do not filter its
-Bomb or seed result before the shared obtained-treasure check.
+An ordinary counted enemy transfers its `wNumEnemies` contribution to the
+death puff, so shutters and count-driven events cannot solve until the puff's
+terminal update. Hazard deletion instead releases that contribution with no
+recent-defeat mark or global kill-counter advance. When the ordinary puff
+completes, its enemy ID enters the same source-table drop selector used by boss
+explosions and breakable tiles; do not filter its Bomb or seed result before
+the shared obtained-treasure check.
 
 `ENEMY_CROW $41:$00` is a fixed-position combat enemy with a species-specific
 native state machine. While perched it has no collision and faces Link, using
@@ -936,11 +950,16 @@ then 16 recovery updates) before solid collision can strand him.
 Ordinary random and fixed enemy records without object flag `$01` advance the
 source `numKillableEnemies` counter before allocation. Only indices `$01-$07`
 are retained. `RecentEnemyDefeats` mirrors the original eight-entry
-`wEnemiesKilledList` ring by room ID; combat death marks the entity's bit,
-subsequent short re-entry skips that placement before slot allocation and
-random positioning, and visiting enough distinct rooms eventually evicts it.
-Red Zol split children retain the parent's index while the replaced parent does
-not mark it. This state is runtime-only: scrolling and dungeon warps retain it,
+`wEnemiesKilledList` ring by room ID; an explicit source outcome marks the
+entity's bit, subsequent short re-entry skips that placement before slot
+allocation and random positioning, and visiting enough distinct rooms
+eventually evicts it. Red Zol split children retain the parent's index while
+the replaced parent does not mark it; an escaped Crow deletes silently.
+Wallmaster's five hands each emit an `enemyDie_uncounted` counter event, while
+only the final spawner completion decrements the room count and marks recent
+defeat. Boss teardown marks recent defeat without synthesizing an ordinary kill
+counter event; its explosion retains the room-count contribution until it
+finishes. This state is runtime-only: scrolling and dungeon warps retain it,
 whereas standard warp loading to a non-dungeon destination clears it.
 
 See [NPCs and room events](npcs-and-events.md) for deciding whether an imported

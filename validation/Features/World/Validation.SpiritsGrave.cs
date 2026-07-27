@@ -306,13 +306,24 @@ public sealed partial class ValidationRoot
         }
         MoblinBoomerangProjectile moblinBoomerang =
             _entities.Entities<MoblinBoomerangProjectile>().Single();
+        moblinBoomerang.Position = (
+            from y in Enumerable.Range(0, _currentRoom.HeightInTiles)
+            from x in Enumerable.Range(0, _currentRoom.WidthInTiles)
+            let center = new Vector2(x * 16 + 8, y * 16 + 8)
+            where !_currentRoom.IsSolid(center) &&
+                  center.DistanceTo(_player.Position) >= 16.0f
+            select center).First();
         StepEntities();
         if (moblinBoomerang.Counter != 0x2c || moblinBoomerang.Speed != 2.0f ||
             moblinBoomerang.Returning ||
             moblinBoomerang.CollisionBounds.Size != new Vector2(4, 4))
         {
             throw new InvalidOperationException(
-                "The Moblin boomerang did not begin its source 6-update gradual slowdown.");
+                "The Moblin boomerang did not begin its source 6-update " +
+                $"gradual slowdown (counter=${moblinBoomerang.Counter:x2}, " +
+                $"speed={moblinBoomerang.Speed}, returning=" +
+                $"{moblinBoomerang.Returning}, bounds=" +
+                $"{moblinBoomerang.CollisionBounds.Size}).");
         }
 
         PrepareRoom(0x1c);
@@ -1181,6 +1192,9 @@ public sealed partial class ValidationRoot
         _sound.ClearPlayRequestAudit();
         int childrenAtBossDeath =
             _entities.Entities<GiantGhiniChild>().Count;
+        int giantDeathEvents = 0;
+        void RecordGiantDeath() => giantDeathEvents++;
+        _entities.EnemyDefeated += RecordGiantDeath;
         giant.TakeSwordHit(giant.Position, damage: 20);
         if (!giant.Defeated ||
             !giant.DrawEnabled ||
@@ -1196,6 +1210,7 @@ public sealed partial class ValidationRoot
         if (_entities.Entities<EnemyDeathPuffEffect>().Count != childrenAtBossDeath ||
             _entities.Entities<PuzzlePuffEffect>().Count != 0 ||
             _entities.Entities<KillEnemyPuffEffect>().Count != 0 ||
+            giantDeathEvents != childrenAtBossDeath ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
                 childrenAtBossDeath)
         {
@@ -1216,6 +1231,7 @@ public sealed partial class ValidationRoot
             _entities.Entities<GiantGhiniChild>().Count != 0 ||
             _entities.Entities<BossShadowEffect>().Count != 0 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
+            giantDeathEvents != childrenAtBossDeath ||
             giantExplosion.BossId != 0x70 || giantExplosion.AnimationDuration != 78 ||
             giantExplosion.CurrentTextureSize != new Vector2(48, 48) ||
             giantExplosion.CurrentDrawOffset != new Vector2(-24, -24) ||
@@ -1228,8 +1244,10 @@ public sealed partial class ValidationRoot
         {
             throw new InvalidOperationException(
                 "Giant Ghini did not enter the source 78-update, enemy-counting " +
-                "boss explosion with the complete 48x48 source OAM before its reward wait.");
+                "boss explosion without a boss kill-counter event and with the " +
+                "complete 48x48 source OAM before its reward wait.");
         }
+        _entities.EnemyDefeated -= RecordGiantDeath;
         StepEntities(78);
         if (_entities.Entities<BossDeathExplosionEffect>().Count != 1 ||
             _saveData.HasRoomFlag(4, 0x18, OracleSaveData.RoomFlag80))
@@ -1671,6 +1689,9 @@ public sealed partial class ValidationRoot
                 "Pumpkin Head's common boss-death path did not disable Link " +
                 "collisions and menus.");
         }
+        int pumpkinDeathEvents = 0;
+        void RecordPumpkinDeath() => pumpkinDeathEvents++;
+        _entities.EnemyDefeated += RecordPumpkinDeath;
         StepEntities(120);
         BossDeathExplosionEffect pumpkinExplosion =
             _entities.Entities<BossDeathExplosionEffect>().Single();
@@ -1681,6 +1702,7 @@ public sealed partial class ValidationRoot
             _saveData.HasRoomFlag(4, 0x13, OracleSaveData.RoomFlag80) ||
             _entities.Entities<GroundTreasurePickup>().Count != 0 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
+            pumpkinDeathEvents != 0 ||
             !_entities.LinkCollisionsAndMenuDisabled ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndBigExplosion) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.MusSpiritsGrave) != 1 ||
@@ -1696,6 +1718,7 @@ public sealed partial class ValidationRoot
                 $"treasures={_entities.Entities<GroundTreasurePickup>().Count}, " +
                 $"sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndBigExplosion)}).");
         }
+        _entities.EnemyDefeated -= RecordPumpkinDeath;
         StepEntities(78);
         if (_entities.Entities<BossDeathExplosionEffect>().Count != 1 ||
             _saveData.HasRoomFlag(4, 0x13, OracleSaveData.RoomFlag80))
@@ -1721,8 +1744,118 @@ public sealed partial class ValidationRoot
                 "from its source `$ff no-drop record.");
         }
 
-        // The room-$12 spawner represents five hands. Verify its delayed drop,
-        // Link capture, lift, and dungeon-entry warp rather than contact damage.
+        // The room-$12 subid-$00 object owns one room count and creates five
+        // subid-$01 hands. Each hand calls enemyDie_uncounted; only the
+        // exhausted spawner decrements that count and marks the placement.
+        PrepareRoom(0x12);
+        WallmasterCharacter defeatedWallmaster =
+            _entities.Entities<WallmasterCharacter>().Single();
+        Vector2[] wallmasterOpenTiles = (
+            from y in Enumerable.Range(0, _currentRoom.HeightInTiles)
+            from x in Enumerable.Range(0, _currentRoom.WidthInTiles)
+            let center = new Vector2(x * 16 + 8, y * 16 + 8)
+            where !_currentRoom.IsSolid(center)
+            select center).ToArray();
+        Vector2 wallmasterSpawnTile = wallmasterOpenTiles.First();
+        Vector2 wallmasterSafeTile = wallmasterOpenTiles
+            .First(position =>
+                position.DistanceTo(wallmasterSpawnTile) >= 64.0f);
+        int wallmasterRoomEnemyCount = _entities.RoomEnemyCount;
+        RecentEnemyDefeatsState wallmasterRecentBefore =
+            _entities.CaptureDebugState().RecentEnemyDefeats;
+        int wallmasterDeathEvents = 0;
+        void RecordWallmasterDeath() => wallmasterDeathEvents++;
+        _entities.EnemyDefeated += RecordWallmasterDeath;
+
+        for (int hand = 1; hand <= 5; hand++)
+        {
+            _player.WarpTo(wallmasterSpawnTile);
+            for (int frame = 0;
+                 frame < 240 &&
+                 defeatedWallmaster.State != WallmasterState.Falling;
+                 frame++)
+            {
+                StepEntities();
+            }
+            if (defeatedWallmaster.State != WallmasterState.Falling)
+            {
+                throw new InvalidOperationException(
+                    $"Wallmaster hand {hand} did not begin its delayed fall.");
+            }
+
+            _player.WarpTo(wallmasterSafeTile);
+            for (int frame = 0;
+                 frame < 180 &&
+                 defeatedWallmaster.State != WallmasterState.Grounded;
+                 frame++)
+            {
+                StepEntities();
+            }
+            int remainingBeforeHit = defeatedWallmaster.Remaining;
+            if (defeatedWallmaster.State != WallmasterState.Grounded ||
+                !_entities.ApplySwordHit(
+                    defeatedWallmaster.CollisionBounds.Grow(1.0f),
+                    defeatedWallmaster.Position + Vector2.Right * 16.0f,
+                    damage: 20))
+            {
+                throw new InvalidOperationException(
+                    $"Wallmaster hand {hand} was not hittable after landing.");
+            }
+            for (int frame = 0;
+                 frame < 60 &&
+                 defeatedWallmaster.Remaining == remainingBeforeHit;
+                 frame++)
+            {
+                StepEntities();
+            }
+
+            if (defeatedWallmaster.Remaining != 5 - hand ||
+                wallmasterDeathEvents != hand)
+            {
+                throw new InvalidOperationException(
+                    $"Wallmaster hand {hand} did not emit one " +
+                    $"enemyDie_uncounted event (remaining=" +
+                    $"{defeatedWallmaster.Remaining}, events=" +
+                    $"{wallmasterDeathEvents}).");
+            }
+
+            RecentEnemyDefeatsState handRecent =
+                _entities.CaptureDebugState().RecentEnemyDefeats;
+            if (hand < 5 &&
+                (_entities.RoomEnemyCount != wallmasterRoomEnemyCount ||
+                 !handRecent.KilledEnemies.AsSpan().SequenceEqual(
+                     wallmasterRecentBefore.KilledEnemies)))
+            {
+                throw new InvalidOperationException(
+                    $"Wallmaster hand {hand} changed the spawner room count " +
+                    "or recent-defeat bit before all five hands were gone.");
+            }
+        }
+
+        RecentEnemyDefeatsState wallmasterRecentAfter =
+            _entities.CaptureDebugState().RecentEnemyDefeats;
+        if (_entities.Entities<WallmasterCharacter>().Count != 0 ||
+            _entities.RoomEnemyCount != wallmasterRoomEnemyCount - 1 ||
+            wallmasterDeathEvents != 5 ||
+            wallmasterRecentAfter.KilledEnemies.AsSpan().SequenceEqual(
+                wallmasterRecentBefore.KilledEnemies))
+        {
+            throw new InvalidOperationException(
+                "The exhausted Wallmaster spawner did not independently " +
+                "decrement the room count and mark its recent-defeat bit " +
+                "after five counter events.");
+        }
+        _entities.EnemyDefeated -= RecordWallmasterDeath;
+        _entities.LoadRoom(4, _world.LoadRoom(4, 0x12));
+        if (_entities.Entities<WallmasterCharacter>().Count != 0)
+        {
+            throw new InvalidOperationException(
+                "The Wallmaster spawner recent-defeat mark did not suppress " +
+                "room 4:12 on immediate re-entry.");
+        }
+
+        // Reload without the transient mark and verify delayed drop, Link
+        // capture, lift, and dungeon-entry warp.
         PrepareRoom(0x12);
         WallmasterCharacter wallmaster =
             _entities.Entities<WallmasterCharacter>().Single();

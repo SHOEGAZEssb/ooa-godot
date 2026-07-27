@@ -957,23 +957,32 @@ public sealed class RoomEntityManager : IDisposable
         for (int index = _activeEntities.Count - 1; index >= 0; index--)
         {
             IRoomEntity entity = _activeEntities[index];
+            ApplyEnemyOutcomes(entity);
             if (entity is not IRoomEntityLifetime { Finished: true } lifetime)
                 continue;
-            if (entity is IRoomKillTrackedEnemy
-                {
-                    MarksEnemyKilled: true
-                } killedEnemy)
-            {
-                if (killedEnemy.KillableEnemyIndex > 0)
-                    _recentEnemyDefeats.MarkKilled(killedEnemy.KillableEnemyIndex);
-                if (killedEnemy.CountsAsDefeat)
-                    EnemyDefeated?.Invoke();
-            }
             lifetime.OnFinished(_pendingSpawns);
             _activeEntities.RemoveAt(index);
             FreeEntity(entity);
         }
         ProcessSpawns();
+    }
+
+    private void ApplyEnemyOutcomes(IRoomEntity entity)
+    {
+        if (entity is not IRoomEnemyOutcomeSource source)
+            return;
+
+        while (source.TryTakeEnemyOutcome(out RoomEnemyOutcome outcome))
+        {
+            if (outcome.MarksRecentDefeat &&
+                outcome.KillableEnemyIndex > 0)
+            {
+                _recentEnemyDefeats.MarkKilled(
+                    outcome.KillableEnemyIndex);
+            }
+            if (outcome.AdvancesKillCounters)
+                EnemyDefeated?.Invoke();
+        }
     }
 
     private void UpdateAlwaysEntitiesDuringScreenTransition(double delta)

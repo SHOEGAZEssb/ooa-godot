@@ -2172,11 +2172,13 @@ public sealed partial class ValidationRoot
             animation: 1);
         int greenCount = _entities.Entities<ZolCharacter>().Count;
         if (!_entities.ApplySwordHit(green.CollisionBounds.Grow(1.0f)) ||
-            _entities.Entities<ZolCharacter>().Count != greenCount - 1 || _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
+            _entities.Entities<ZolCharacter>().Count != greenCount - 1 ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
             _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x34)
         {
             throw new InvalidOperationException(
-                "The level-1 sword did not defeat a surfaced green Zol and create its normal `$34 death puff.");
+                "The level-1 sword did not defeat a surfaced green Zol and " +
+                "create its normal `$34 death puff.");
         }
 
         LoadValidationRoom(4, 0xcc);
@@ -2184,6 +2186,11 @@ public sealed partial class ValidationRoot
         ZolCharacter red = _entities.Entities<ZolCharacter>().Find(zol => zol.Record.SubId == 1)!;
         Vector2 splitPosition = red.Position;
         int redRoomCount = _entities.Entities<ZolCharacter>().Count;
+        int redDeathEvents = 0;
+        void RecordRedZolDeath() => redDeathEvents++;
+        _entities.EnemyDefeated += RecordRedZolDeath;
+        RecentEnemyDefeatsState splitRecentDefeats =
+            _entities.CaptureDebugState().RecentEnemyDefeats;
         _sound.ClearPlayRequestAudit();
         if (!_entities.ApplySwordHit(red.CollisionBounds.Grow(1.0f)) ||
             red.State != ZolState.RedSplitting ||
@@ -2208,12 +2215,19 @@ public sealed partial class ValidationRoot
         if (_entities.Entities<GelCharacter>().Count != 0 || red.Counter2 != 1)
             throw new InvalidOperationException("Red Zol spawned Gels before split delay update 18.");
         _entities.Update(1.0 / 60.0, _player);
-        if (_entities.Entities<ZolCharacter>().Count != redRoomCount - 1 || _entities.Entities<GelCharacter>().Count != 2 ||
+        RecentEnemyDefeatsState afterSplitDefeats =
+            _entities.CaptureDebugState().RecentEnemyDefeats;
+        if (_entities.Entities<ZolCharacter>().Count != redRoomCount - 1 ||
+            _entities.Entities<GelCharacter>().Count != 2 ||
             !_entities.Entities<GelCharacter>().Exists(gel => gel.Position == splitPosition + Vector2.Right * 4.0f) ||
-            !_entities.Entities<GelCharacter>().Exists(gel => gel.Position == splitPosition + Vector2.Left * 4.0f))
+            !_entities.Entities<GelCharacter>().Exists(gel => gel.Position == splitPosition + Vector2.Left * 4.0f) ||
+            redDeathEvents != 0 ||
+            !afterSplitDefeats.KilledEnemies.AsSpan().SequenceEqual(
+                splitRecentDefeats.KilledEnemies))
         {
             throw new InvalidOperationException(
-                "Red Zol did not replace itself with two Gels at the original +/-4 X offsets.");
+                "Red Zol replacement did not preserve silent deletion, recent-" +
+                "defeat state, and two +/-4 X Gels.");
         }
         _entities.Update(2.0 / 60.0, _player);
         if (_entities.Entities<KillEnemyPuffEffect>().Count != 0 || _entities.Entities<ItemDropEffect>().Count != 0)
@@ -2222,18 +2236,60 @@ public sealed partial class ValidationRoot
 
         GelCharacter defeatedGel = _entities.Entities<GelCharacter>()[0];
         int gelCount = _entities.Entities<GelCharacter>().Count;
+        int splitGelRoomEnemyCount = _entities.RoomEnemyCount;
         if (!_entities.ApplySwordHit(defeatedGel.CollisionBounds.Grow(1.0f)) ||
             _entities.Entities<GelCharacter>().Count != gelCount - 1 || _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
             _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x43 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 2)
+            _entities.RoomEnemyCount != splitGelRoomEnemyCount ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 2 ||
+            redDeathEvents != 1)
         {
             throw new InvalidOperationException(
-                "The one-health ENEMY_GEL did not die to one level-1 sword hit with a `$43 death puff.");
+                "The one-health ENEMY_GEL did not die to one level-1 sword " +
+                $"hit with a counted `$43 death puff (gels=" +
+                $"{_entities.Entities<GelCharacter>().Count}, puffs=" +
+                $"{_entities.Entities<EnemyDeathPuffEffect>().Count}, " +
+                $"puffId={_entities.Entities<EnemyDeathPuffEffect>().FirstOrDefault()?.EnemyId}, " +
+                "roomCount=" +
+                $"{_entities.RoomEnemyCount}/{splitGelRoomEnemyCount}, " +
+                $"sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy)}, " +
+                $"events={redDeathEvents}).");
         }
 
-        GelCharacter latchGel = _entities.Entities<GelCharacter>()[0];
+        GelCharacter secondDefeatedGel =
+            _entities.Entities<GelCharacter>().Single();
+        if (!_entities.ApplySwordHit(
+                secondDefeatedGel.CollisionBounds.Grow(1.0f)) ||
+            _entities.Entities<GelCharacter>().Count != 0 ||
+            _entities.RoomEnemyCount != splitGelRoomEnemyCount ||
+            redDeathEvents != 2)
+        {
+            throw new InvalidOperationException(
+                "The two Gels spawned by a red Zol did not emit two " +
+                "independent enemyDie counter events.");
+        }
+        _entities.EnemyDefeated -= RecordRedZolDeath;
+        for (int update = 0; update < 19; update++)
+            _entities.Update(1.0 / 60.0, _player);
+        if (_entities.Entities<EnemyDeathPuffEffect>().Count != 2 ||
+            _entities.RoomEnemyCount != splitGelRoomEnemyCount)
+        {
+            throw new InvalidOperationException(
+                "Counted Gel death puffs released the room enemy count " +
+                "before their terminal animation update.");
+        }
+        _entities.Update(1.0 / 60.0, _player);
+        if (_entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
+            _entities.RoomEnemyCount != splitGelRoomEnemyCount - 2)
+        {
+            throw new InvalidOperationException(
+                "The two counted Gel death puffs did not independently " +
+                "decrement the room enemy count on their terminal update.");
+        }
+
         Vector2 latchPosition = new(180, 140);
-        latchGel.Position = latchPosition;
+        GelCharacter latchGel = _entities.Spawn<GelCharacter>(
+            new GelSpawn(latchPosition, "LatchGel"));
         _player.WarpTo(latchPosition, recordSafe: false);
         _player.RefillHealth();
         int healthBeforeLatch = _player.HealthQuarters;
@@ -2294,6 +2350,7 @@ public sealed partial class ValidationRoot
             throw new InvalidOperationException(
                 "A button-released Gel immediately relatched before completing its hop.");
 
+        _entities.ClearRecentEnemyDefeats();
         LoadValidationRoom(4, 0x08);
         Vector2 holeCenter = new(0x0a * 16 + 8, 0x04 * 16 + 8);
         if (_currentRoom.GetTerrainInfo(holeCenter).Hazard !=
@@ -2303,8 +2360,23 @@ public sealed partial class ValidationRoot
                 "Room 4:08/$4a was not the expected hole for enemy hazard audio validation.");
         }
         _player.WarpTo(new Vector2(0x48, 0x78), recordSafe: false);
+        int hazardDeathEvents = 0;
+        void RecordHazardDeath() => hazardDeathEvents++;
+        _entities.EnemyDefeated += RecordHazardDeath;
+        int hazardRoomEnemyCount = _entities.RoomEnemyCount;
+        RecentEnemyDefeatsState hazardRecentDefeats =
+            _entities.CaptureDebugState().RecentEnemyDefeats;
         GelCharacter holeGel = _entities.Spawn<GelCharacter>(
-            new GelSpawn(holeCenter, "HoleSoundGel"));
+            new GelSpawn(
+                holeCenter,
+                "HoleSoundGel",
+                KillableEnemyIndex: 1));
+        if (_entities.RoomEnemyCount != hazardRoomEnemyCount + 1)
+        {
+            throw new InvalidOperationException(
+                "The counted hazard-validation Gel did not increment the live " +
+                "room enemy count.");
+        }
         _sound.ClearPlayRequestAudit();
         _entities.Update(1.0 / 60.0, _player);
         if (!_entities.Entities<GelCharacter>().Contains(holeGel) ||
@@ -2337,22 +2409,30 @@ public sealed partial class ValidationRoot
             _player.FacingVector,
             anyButtonJustPressed: false);
         _entities.Update(0.0, _player);
+        RecentEnemyDefeatsState afterHazardDefeats =
+            _entities.CaptureDebugState().RecentEnemyDefeats;
         if (_entities.Entities<GelCharacter>().Contains(holeGel) ||
             _entities.Entities<FallingDownHoleEffect>().Count != 1 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
+            _entities.RoomEnemyCount != hazardRoomEnemyCount ||
+            hazardDeathEvents != 0 ||
+            !afterHazardDefeats.KilledEnemies.AsSpan().SequenceEqual(
+                hazardRecentDefeats.KilledEnemies) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 0)
         {
             throw new InvalidOperationException(
-                "A centered Gel did not become INTERAC_FALLDOWNHOLE with only " +
-                "SND_FALLINHOLE on pull update 20.");
+                "ecom_decNumEnemiesAndDelete did not remove the centered Gel " +
+                "without a recent-defeat mark or Slayer/Maple/Gasha event.");
         }
+        _entities.EnemyDefeated -= RecordHazardDeath;
 
         _player.RefillHealth();
         GD.Print("Validated 61 ENEMY_ZOL records / 79 instances, room 4:cc fixed placements, " +
             "strict `$28 emergence, 32/27/48-update green timing, four-hop disappearance, " +
             "red 18-update splitting with INTERAC_KILLENEMYPUFF/SND_KILLENEMY, +/-4 Gel " +
-            "spawning, centered 20-update hole pull/SND_FALLINHOLE, direct " +
+            "spawning with two independent enemyDie outcomes, counted death-puff transfer, " +
+            "centered 20-update hole pull/SND_FALLINHOLE without kill counters, direct " +
             "room Gels, non-damaging 120-update latch/button release, collision-safe hop-off, " +
             "alternating movement suppression, " +
             "sword disabling, combat, drops, and retained/preloaded scrolling.");

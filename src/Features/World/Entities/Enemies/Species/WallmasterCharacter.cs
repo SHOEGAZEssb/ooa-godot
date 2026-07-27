@@ -16,6 +16,7 @@ internal partial class WallmasterCharacter : EnemyCharacter
     private Player? _grabbedPlayer;
     private bool _warpRequested;
     private bool _deathPuffPending;
+    private int _uncountedDeathsPending;
     private bool _initialized;
 
     internal ImportedEnemyDefinition Record { get; private set; }
@@ -123,6 +124,7 @@ internal partial class WallmasterCharacter : EnemyCharacter
     protected override void CompleteKnockbackDeath()
     {
         _deathPuffPending = true;
+        _uncountedDeathsPending++;
         _remaining--;
         if (_remaining == 0)
         {
@@ -152,6 +154,14 @@ internal partial class WallmasterCharacter : EnemyCharacter
             return null;
         _deathPuffPending = false;
         return new EnemyDeathPuffSpawn(Position, EnemyId: Record.Id);
+    }
+
+    internal bool TakeUncountedDeath()
+    {
+        if (_uncountedDeathsPending == 0)
+            return false;
+        _uncountedDeathsPending--;
+        return true;
     }
 
     internal Player? TakeWarpedPlayer()

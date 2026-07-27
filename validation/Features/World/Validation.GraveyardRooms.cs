@@ -59,6 +59,9 @@ public sealed partial class ValidationRoot
             root, npcs, enemies, new ItemDropDatabase(),
             new TimePortalDatabase(), new OracleRandom(), save,
             new OracleRuntimeState(), inventory, treasures: treasures);
+        int crowDeathEvents = 0;
+        void RecordCrowDeath() => crowDeathEvents++;
+        manager.EnemyDefeated += RecordCrowDeath;
 
         OracleRoomData room05d = _world.LoadRoom(0, 0x5d);
         manager.LoadRoom(0, room05d);
@@ -128,11 +131,14 @@ public sealed partial class ValidationRoot
         }
         if (!crow.DeletedOutOfBounds ||
             manager.Entities<CrowCharacter>().Count != 0 ||
-            manager.Entities<EnemyDeathPuffEffect>().Count != 0)
+            manager.Entities<EnemyDeathPuffEffect>().Count != 0 ||
+            crowDeathEvents != 0)
         {
             throw new InvalidOperationException(
-                "A charging Crow did not use silent enemyDelete at the source screen bounds.");
+                "A charging Crow did not use silent enemyDelete without a " +
+                "Slayer/Maple/Gasha event at the source screen bounds.");
         }
+        manager.EnemyDefeated -= RecordCrowDeath;
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x5d));
         if (manager.Entities<ItemDropProducer>().Count != 0 ||

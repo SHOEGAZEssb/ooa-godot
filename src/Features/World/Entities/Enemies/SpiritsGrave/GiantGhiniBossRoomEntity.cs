@@ -24,7 +24,9 @@ internal sealed class GiantGhiniBossRoomEntity
                 boss.Record.DamageQuarters,
                 () => null),
             countsAsEnemy: true,
-            killableEnemyIndex: 0)
+            killableEnemyIndex: 0,
+            completedOutcome: () =>
+                RoomEnemyOutcome.BossTeardown(killableEnemyIndex: 0))
     {
         _entryMovement = new BossEntryMovement(entryDirection);
     }

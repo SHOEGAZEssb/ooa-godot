@@ -39,7 +39,8 @@ internal sealed class BoomerangMoblinRoomEntity
 internal sealed record EnemyDeathPuffSpawn(
     Vector2 Position,
     bool HighKnockback = false,
-    int EnemyId = -1) : RoomEntitySpawn;
+    int EnemyId = -1,
+    bool DecrementsRoomCount = false) : RoomEntitySpawn;
 
 internal sealed record MoblinBoomerangSpawn(
     BoomerangMoblinCharacter Owner,

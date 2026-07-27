@@ -54,7 +54,8 @@ internal sealed class EnemyCombatComponent(
         Vector2 sourcePosition,
         int damage,
         EnemyKnockbackStrength knockbackStrength,
-        ICollection<RoomEntitySpawn> spawns)
+        ICollection<RoomEntitySpawn> spawns,
+        bool deathPuffDecrementsRoomCount)
     {
         if (!Intersects(hitbox))
             return false;
@@ -62,18 +63,29 @@ internal sealed class EnemyCombatComponent(
         if (struck)
             acceptedSwordHit?.Invoke(sourcePosition, knockbackStrength);
         if (struck && CreateDeathPuff() is { } deathPuff)
-            spawns.Add(deathPuff);
+        {
+            spawns.Add(deathPuff with
+            {
+                DecrementsRoomCount = deathPuffDecrementsRoomCount
+            });
+        }
         return struck;
     }
 
     public void ApplyBurnHit(
         int damage,
-        ICollection<RoomEntitySpawn> spawns)
+        ICollection<RoomEntitySpawn> spawns,
+        bool deathPuffDecrementsRoomCount)
     {
         if (isDead() || !takeBurnHit(damage))
             return;
         if (CreateDeathPuff() is { } deathPuff)
-            spawns.Add(deathPuff);
+        {
+            spawns.Add(deathPuff with
+            {
+                DecrementsRoomCount = deathPuffDecrementsRoomCount
+            });
+        }
     }
 
     public EnemyDeathPuffSpawn? CreateDeathPuff() => createDeathPuff();

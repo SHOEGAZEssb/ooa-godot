@@ -11,7 +11,10 @@ internal sealed class CrowRoomEntity
         : base(
             crow, crow.SetTransitionDrawOffset, CreateCombat(crow),
             (crow.Record.Flags & 0x02) == 0, killableEnemyIndex,
-            () => !crow.DeletedOutOfBounds,
+            () => crow.DeletedOutOfBounds
+                ? RoomEnemyOutcome.SilentDeletion(
+                    decrementsRoomCount: false)
+                : RoomEnemyOutcome.EnemyDie(killableEnemyIndex),
             collisionZ: () => crow.Z)
     { }
 

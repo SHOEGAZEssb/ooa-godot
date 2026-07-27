@@ -1207,18 +1207,34 @@ public sealed partial class ValidationRoot
                     $"Room 4:0b Gel {index + 1} did not die through the shared sword/combat path.");
             }
             Step();
-            if (index < room40bGels.Length - 1 &&
-                (_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0 ||
-                 room.GetMetatile(new Vector2(0x78, 0x08)) != 0x78 ||
-                 room.GetMetatile(new Vector2(0x08, 0x58)) != 0x7b))
+            if (_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0 ||
+                room.GetMetatile(new Vector2(0x78, 0x08)) != 0x78 ||
+                room.GetMetatile(new Vector2(0x08, 0x58)) != 0x7b)
             {
                 throw new InvalidOperationException(
-                    "Room 4:0b shutters released before all three counted Gels were defeated.");
+                    "Room 4:0b shutters released before every counted Gel " +
+                    "death puff decremented wNumEnemies.");
             }
         }
+        for (int frame = 0;
+             frame < 20 &&
+             _entities.Entities<EnemyDeathPuffEffect>().Count != 0;
+             frame++)
+        {
+            Step();
+        }
+        if (_entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0)
+        {
+            throw new InvalidOperationException(
+                "Room 4:0b did not retain each Gel room count through its " +
+                "complete PART_ENEMY_DESTROYED animation.");
+        }
+        Step();
         if (_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 2)
             throw new InvalidOperationException(
-                "Room 4:0b's two shutters did not observe the shared live enemy count.");
+                "Room 4:0b's two shutters did not observe the shared room " +
+                "count after the final Gel death puff completed.");
         for (int frame = 0; frame < database.SolveWait; frame++)
             Step();
         Step();
@@ -1454,19 +1470,48 @@ public sealed partial class ValidationRoot
         }
         Vector2 room406Block = new(0xa8, 0x78);
         if (_entities.Entities<PushBlockTriggerRoomEntity>().Count != 1 ||
-            scrollingRoom406.GetMetatile(room406Block) != 0x1c ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 2 ||
+            _entities.RoomEnemyCount != 3 ||
+            scrollingRoom406.GetMetatile(room406Block) != 0x1d ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0 ||
             !scrollingRoom406.IsSolid(room406DownDoor) ||
             !scrollingRoom406.IsSolid(room406RightDoor))
         {
             throw new InvalidOperationException(
-                "Room 4:06 opened before its remaining push-block trigger was completed: " +
+                "Room 4:06 did not retain its disabled block and closed " +
+                "shutters while two counted Stalfos death puffs remained: " +
                 $"triggers={_entities.Entities<PushBlockTriggerRoomEntity>().Count}, " +
                 $"Stalfos={_entities.Entities<StalfosCharacter>().Count}, " +
+                $"puffs={_entities.Entities<EnemyDeathPuffEffect>().Count}, " +
+                $"roomCount={_entities.RoomEnemyCount}, " +
                 $"block=${scrollingRoom406.GetMetatile(room406Block):x2}, " +
                 $"solve={_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)}, " +
                 $"downSolid={scrollingRoom406.IsSolid(room406DownDoor)}, " +
                 $"rightSolid={scrollingRoom406.IsSolid(room406RightDoor)}.");
+        }
+        for (int frame = 0;
+             frame < 30 &&
+             _entities.Entities<EnemyDeathPuffEffect>().Count != 0;
+             frame++)
+        {
+            Step();
+        }
+        if (_entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
+            _entities.RoomEnemyCount != 1 ||
+            scrollingRoom406.GetMetatile(room406Block) != 0x1d)
+        {
+            throw new InvalidOperationException(
+                "Room 4:06 did not release both Stalfos counts while retaining " +
+                "the disabled push-block sentinel through the terminal puff update.");
+        }
+        Step();
+        if (_entities.Entities<PushBlockTriggerRoomEntity>().Count != 1 ||
+            scrollingRoom406.GetMetatile(room406Block) != 0x1c ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0)
+        {
+            throw new InvalidOperationException(
+                "Room 4:06 did not restore its source all-direction block on " +
+                "the update after the final Stalfos death puff completed.");
         }
 
         var pushableTiles = new PushableTileDatabase();

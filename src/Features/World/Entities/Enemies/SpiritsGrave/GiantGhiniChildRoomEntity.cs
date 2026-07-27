@@ -22,7 +22,12 @@ internal sealed class GiantGhiniChildRoomEntity
                     : null,
                 child.ApplySwordKnockback),
             countsAsEnemy: true,
-            killableEnemyIndex: 0)
+            killableEnemyIndex: 0,
+            completedOutcome: () =>
+                child.State == ChildState.Fading
+                    ? RoomEnemyOutcome.SilentDeletion(
+                        decrementsRoomCount: true)
+                    : RoomEnemyOutcome.EnemyDie(killableEnemyIndex: 0))
     { }
 
     public bool DisablesSword => false;

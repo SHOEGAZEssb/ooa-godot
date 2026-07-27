@@ -1774,7 +1774,8 @@ internal sealed class RoomEntityFactory(
         puff.Initialize(spawn.Position, spawn.HighKnockback, spawn.EnemyId);
         soundRequested(OracleSoundEngine.SndKillEnemy);
         return new DeathPuffRoomEntity(
-            puff, itemDrops, random, inventory, saveData);
+            puff, itemDrops, random, inventory, saveData,
+            spawn.DecrementsRoomCount);
     }
 
     private IRoomEntity CreateBossDeathExplosion(BossDeathExplosionSpawn spawn)

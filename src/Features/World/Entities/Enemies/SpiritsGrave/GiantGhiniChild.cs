@@ -64,7 +64,10 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
         {
             Finish();
             ReportFinished();
-            spawns.Add(new EnemyDeathPuffSpawn(Position, EnemyId: Record.Id));
+            spawns.Add(new EnemyDeathPuffSpawn(
+                Position,
+                EnemyId: Record.Id,
+                DecrementsRoomCount: true));
             return;
         }
         if (IsDead)

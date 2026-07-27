@@ -6,7 +6,7 @@ namespace oracleofages;
 
 internal sealed class PumpkinHeadBossRoomEntity : IRoomEntity, IFixedRoomEntity,
     ILinkContactEntity, ISwordHittableRoomEntity, ISeedHittableRoomEntity,
-    IRoomEntityLifetime, IRoomEnemyCounterEntity, IRoomKillTrackedEnemy,
+    IRoomEntityLifetime, IRoomEnemyCounterEntity, IRoomEnemyOutcomeSource,
     IPlayerRestriction, IBraceletInteractableRoomEntity, IPlayerForcedMovement,
     IObjectCollisionHeightRoomEntity
 {
@@ -14,6 +14,7 @@ internal sealed class PumpkinHeadBossRoomEntity : IRoomEntity, IFixedRoomEntity,
     private readonly int _damage;
     private readonly BossEntryMovement _entryMovement;
     private bool _initialized;
+    private bool _outcomeTaken;
     internal PumpkinHeadBossRoomEntity(
         PumpkinHeadBoss boss,
         int damage,
@@ -27,8 +28,6 @@ internal sealed class PumpkinHeadBossRoomEntity : IRoomEntity, IFixedRoomEntity,
     public Node2D Node => _boss;
     public bool Finished => _boss.IsDead;
     public bool CountsAsEnemy => !_boss.IsDead;
-    public int KillableEnemyIndex => 0;
-    public bool MarksEnemyKilled => true;
     public bool DisablesSword => false;
     public bool DisablesItems => _boss.IntroActive;
     public bool DisablesMovement => _boss.IntroActive;
@@ -61,6 +60,20 @@ internal sealed class PumpkinHeadBossRoomEntity : IRoomEntity, IFixedRoomEntity,
             ? SeedHitResult.Consume
             : SeedHitResult.None;
     public bool TryUseBracelet(Player player) => _boss.TryUseBracelet(player);
+
+    public bool TryTakeEnemyOutcome(out RoomEnemyOutcome outcome)
+    {
+        if (!Finished || _outcomeTaken)
+        {
+            outcome = default;
+            return false;
+        }
+
+        _outcomeTaken = true;
+        outcome = RoomEnemyOutcome.BossTeardown(killableEnemyIndex: 0);
+        return true;
+    }
+
     public void SetTransitionDrawOffset(Vector2 offset) =>
         _boss.SetTransitionDrawOffset(offset);
 }

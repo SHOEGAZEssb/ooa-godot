@@ -10,27 +10,24 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     EnemyCombatComponent combat,
     bool countsAsEnemy,
     int killableEnemyIndex,
-    Func<bool>? marksEnemyKilled = null,
+    Func<RoomEnemyOutcome>? completedOutcome = null,
     Action? finished = null,
     Func<int>? collisionZ = null)
     : RoomEntityAdapter<T>(entity, setTransitionDrawOffset),
         ILinkContactEntity, ISwordHittableRoomEntity, ISeedHittableRoomEntity,
         ISeedBurnTarget, IRoomEntityLifetime,
-        IRoomEnemyCounterEntity, IRoomKillTrackedEnemy,
+        IRoomEnemyCounterEntity, IRoomEnemyOutcomeSource,
         IObjectCollisionHeightRoomEntity
     where T : EnemyCharacter
 {
     private bool _seedBurning;
+    private bool _completedOutcomeTaken;
 
     public bool Finished => combat.Finished;
     public bool CountsAsEnemy => countsAsEnemy && !combat.Finished;
     public bool IsSeedBurning => _seedBurning;
     public Vector2 SeedBurnPosition => Entity.Position;
-    public int KillableEnemyIndex => killableEnemyIndex;
-    // enemyDie and enemyDie_uncounted both advance the lifetime/special-ring
-    // counters. Only the separate recent-defeat reservation requires a
-    // nonzero wKillableEnemyIndex.
-    public bool MarksEnemyKilled => marksEnemyKilled?.Invoke() ?? true;
+    protected int KillableEnemyIndex => killableEnemyIndex;
     public int CollisionZ => collisionZ?.Invoke() ?? 0;
     public void HandleLinkContact(Player player)
     {
@@ -48,7 +45,8 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
             sourcePosition,
             damage,
             knockbackStrength,
-            spawns);
+            spawns,
+            deathPuffDecrementsRoomCount: countsAsEnemy);
     public SeedHitResult ApplySeedHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
@@ -70,14 +68,37 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         if (!_seedBurning)
             return;
         _seedBurning = false;
-        combat.ApplyBurnHit(2, spawns);
+        combat.ApplyBurnHit(
+            2,
+            spawns,
+            deathPuffDecrementsRoomCount: countsAsEnemy);
     }
+
+    public virtual bool TryTakeEnemyOutcome(out RoomEnemyOutcome outcome)
+    {
+        if (!combat.Finished || _completedOutcomeTaken)
+        {
+            outcome = default;
+            return false;
+        }
+
+        _completedOutcomeTaken = true;
+        outcome = completedOutcome?.Invoke() ??
+            (Entity.DiedInHazard
+                ? RoomEnemyOutcome.HazardDeletion(countsAsEnemy)
+                : RoomEnemyOutcome.EnemyDie(killableEnemyIndex));
+        return true;
+    }
+
     public void OnFinished(ICollection<RoomEntitySpawn> spawns)
     {
         if (Entity.TakeCompletedKnockbackDeath() &&
             combat.CreateDeathPuff() is { } deathPuff)
         {
-            spawns.Add(deathPuff);
+            spawns.Add(deathPuff with
+            {
+                DecrementsRoomCount = countsAsEnemy
+            });
         }
         if (Entity.TakeHazardEffect() is { } hazardEffect)
         {

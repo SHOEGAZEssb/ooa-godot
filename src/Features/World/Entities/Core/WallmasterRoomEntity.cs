@@ -39,6 +39,9 @@ internal sealed class WallmasterRoomEntity
                 wallmaster.ApplySwordKnockback),
             countsAsEnemy: true,
             killableEnemyIndex,
+            completedOutcome: () =>
+                RoomEnemyOutcome.WallmasterSpawnerCompletion(
+                    killableEnemyIndex),
             collisionZ: () => wallmaster.ZFixed >> 8)
     {
         _soundRequested = soundRequested;
@@ -59,5 +62,15 @@ internal sealed class WallmasterRoomEntity
         _warpRequested(new Warp(
             _group, _room, -1, 0, 0,
             _destinationGroup, _destinationRoom, 0x87, 0, 3));
+    }
+
+    public override bool TryTakeEnemyOutcome(out RoomEnemyOutcome outcome)
+    {
+        if (Entity.TakeUncountedDeath())
+        {
+            outcome = RoomEnemyOutcome.EnemyDieUncounted();
+            return true;
+        }
+        return base.TryTakeEnemyOutcome(out outcome);
     }
 }

@@ -13,7 +13,13 @@ internal sealed class ZolRoomEntity
         : base(
             zol, zol.SetTransitionDrawOffset, CreateCombat(zol),
             (zol.Record.Flags & 0x02) == 0, killableEnemyIndex,
-            () => zol.Record.SubId != 1 || zol.DiedInHazard,
+            () => zol.DiedInHazard
+                ? RoomEnemyOutcome.HazardDeletion(
+                    (zol.Record.Flags & 0x02) == 0)
+                : zol.Record.SubId == 1
+                    ? RoomEnemyOutcome.ReplacementDeletion(
+                        (zol.Record.Flags & 0x02) == 0)
+                    : RoomEnemyOutcome.EnemyDie(killableEnemyIndex),
             collisionZ: () => zol.ZFixed >> 8)
     { }
 
