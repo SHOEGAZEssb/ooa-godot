@@ -11,6 +11,7 @@ public sealed class InventoryState
     public const int ItemNone = 0x00;
     public const int ItemShield = 0x01;
     public const int ItemSword = 0x05;
+    public const int ItemHarp = 0x11;
     public const int ItemShovel = 0x15;
     public const int ItemBracelet = 0x16;
     public const int ItemFeather = 0x17;
@@ -383,6 +384,31 @@ public sealed class InventoryState
     public void SelectSlingshotSeeds(int seeds) =>
         SetSelectedSeeds(ref _slingshotSelectedSeeds,
             TreasureVariable.SlingshotSelectedSeeds, seeds);
+
+    public void SelectHarpSong(int song)
+    {
+        if (song is < 1 or > 3 ||
+            !HasTreasure(TreasureDatabase.TreasureTuneOfEchoes + song - 1))
+        {
+            throw new InvalidOperationException(
+                $"Cannot select unowned Harp song ${song:x2}.");
+        }
+        if (SelectedHarpSong == song)
+            return;
+        SelectedHarpSong = song;
+        NotifyChanged();
+    }
+
+    internal int[] ObtainedHarpSongs()
+    {
+        var songs = new List<int>(3);
+        for (int song = 1; song <= 3; song++)
+        {
+            if (HasTreasure(TreasureDatabase.TreasureTuneOfEchoes + song - 1))
+                songs.Add(song);
+        }
+        return songs.ToArray();
+    }
 
     public bool EquipRingAt(int index)
     {
@@ -815,6 +841,13 @@ public sealed class InventoryState
             {
                 GiveTreasureCore(treasure, parameter);
                 GiveTreasureCore(TreasureDatabase.TreasureHeartRefill, 0x40);
+            }
+            else if (treasure == TreasureDatabase.TreasureTuneOfEchoes)
+            {
+                // @extraItemsToAddTable grants TREASURE_HARP parameter $01;
+                // its normal Set behavior selects the newly learned tune.
+                GiveTreasureCore(treasure, parameter);
+                GiveTreasureCore(TreasureDatabase.TreasureHarp, 0x01);
             }
             else
             {

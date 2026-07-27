@@ -100,6 +100,72 @@ function Get-AssemblySourceLine {
     return [regex]::Matches($source.Substring(0, $match.Index), "`n").Count + 1
 }
 
+# ITEM_HARP ($11) uses the complete LINK_ANIM_MODE_HARP_2 sequence. Export
+# the parent-item contract and TX_5110 so playback, song effects, and the
+# no-effect message remain source-derived.
+$harpParentSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\itemParents\harpFluteParent.s')
+$harpAnimationSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
+if ($harpParentSource -notmatch '(?ms)^parentItemCode_harp:.*?ld a,\$ff ~ DISABLE_LINK ~ DISABLE_ALL_BUT_INTERACTIONS.*?and \$1f.*?objectCreateFloatingMusicNote.*?ld c,\$80.*?ld c,\$40' -or
+    $harpParentSource -notmatch '(?ms)^@harp:.*?and \(TILESETFLAG_UNDERWATER\|TILESETFLAG_SIDESCROLL\|TILESETFLAG_LARGE_INDOORS\|TILESETFLAG_DUNGEON\|TILESETFLAG_INDOORS\|TILESETFLAG_MAKU\).*?\.dw @tuneOfEchoes\s+\.dw @tuneOfCurrents\s+\.dw @tuneOfAges' -or
+    $harpParentSource -notmatch '(?ms)^@tuneOfEchoes:.*?ROOMFLAG_BIT_PORTALSPOT_DISCOVERED.*?@tuneOfCurrents:.*?TILESETFLAG_BIT_PAST.*?@tuneOfAges:.*?CUTSCENE_TIMEWARP' -or
+    $harpParentSource -notmatch '(?ms)^@sfxList:.*?SND_FILLED_HEART_CONTAINER.*?SND_TUNE_OF_ECHOES.*?SND_TUNE_OF_CURRENTS.*?SND_TUNE_OF_AGES') {
+    throw 'ITEM_HARP parent behavior no longer matches the imported playback contract.'
+}
+if (-not $allTexts.ContainsKey(0x5110)) {
+    throw 'ITEM_HARP no-effect text TX_5110 was not decoded.'
+}
+$harpAnimationMatch = [regex]::Match(
+    $harpAnimationSource,
+    '(?ms)^animationData19faa:\s*(?<body>.*?)^animationData19fdd:')
+if (-not $harpAnimationMatch.Success) {
+    throw 'Could not isolate LINK_ANIM_MODE_HARP_2 animationData19faa.'
+}
+$harpAnimationRows = @([regex]::Matches(
+    $harpAnimationMatch.Groups['body'].Value,
+    '(?m)^\s*\.db \$(?<duration>[0-9a-f]{2}) \$(?<graphic>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})\s*$'))
+$expectedHarpAnimation = @(
+    '14:34:00', '14:35:00', '0c:34:00',
+    '14:36:01', '14:37:01', '0c:36:01',
+    '14:34:00', '14:35:00', '0c:34:00',
+    '14:36:01', '14:37:01', '0c:36:01',
+    '14:36:01', '14:37:01', '0c:36:01',
+    '01:36:81', '7f:1c:ff')
+if ($harpAnimationRows.Count -ne $expectedHarpAnimation.Count) {
+    throw "LINK_ANIM_MODE_HARP_2 expected 17 frames, parsed $($harpAnimationRows.Count)."
+}
+for ($index = 0; $index -lt $expectedHarpAnimation.Count; $index++) {
+    $actual = @(
+        $harpAnimationRows[$index].Groups['duration'].Value,
+        $harpAnimationRows[$index].Groups['graphic'].Value,
+        $harpAnimationRows[$index].Groups['parameter'].Value) -join ':'
+    if ($actual -ne $expectedHarpAnimation[$index]) {
+        throw "LINK_ANIM_MODE_HARP_2 frame $index changed from $($expectedHarpAnimation[$index])."
+    }
+}
+$harpAnimationParameters = @($harpAnimationRows | ForEach-Object {
+    $_.Groups['parameter'].Value
+}) -join ','
+if ($treasureIds['TREASURE_HARP'] -ne 0x11 -or
+    $treasureIds['TREASURE_TUNE_OF_ECHOES'] -ne 0x25 -or
+    $treasureIds['TREASURE_TUNE_OF_CURRENTS'] -ne 0x26 -or
+    $treasureIds['TREASURE_TUNE_OF_AGES'] -ne 0x27 -or
+    $soundIds['SND_FILLED_HEART_CONTAINER'] -ne 0x8b -or
+    $soundIds['SND_TUNE_OF_ECHOES'] -ne 0xad -or
+    $soundIds['SND_TUNE_OF_CURRENTS'] -ne 0xae -or
+    $soundIds['SND_TUNE_OF_AGES'] -ne 0xaf) {
+    throw 'Harp item, tune treasure, or song sound constants changed.'
+}
+$harpItemRows = @(
+    "# item`tharp-treasure`techoes-treasure`tcurrents-treasure`tages-treasure`tsong-frames`tempty-song-frames`tnote-interval`tprohibited-tileset-mask`tpast-mask`tportal-room-flag`tempty-sound`techoes-sound`tcurrents-sound`tages-sound`tanimation-parameters`tno-effect-text",
+    "11`t$($treasureIds['TREASURE_HARP'].ToString('x2'))`t$($treasureIds['TREASURE_TUNE_OF_ECHOES'].ToString('x2'))`t$($treasureIds['TREASURE_TUNE_OF_CURRENTS'].ToString('x2'))`t$($treasureIds['TREASURE_TUNE_OF_AGES'].ToString('x2'))`t260`t261`t32`t7e`t80`t08`t$($soundIds['SND_FILLED_HEART_CONTAINER'].ToString('x2'))`t$($soundIds['SND_TUNE_OF_ECHOES'].ToString('x2'))`t$($soundIds['SND_TUNE_OF_CURRENTS'].ToString('x2'))`t$($soundIds['SND_TUNE_OF_AGES'].ToString('x2'))`t$harpAnimationParameters`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[0x5110])))"
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\harpItem.tsv'),
+    $harpItemRows,
+    [Text.UTF8Encoding]::new($false))
+
 # INTERAC_TIMEPORTAL_SPAWNER ($e1) is a scenery interaction rather than an
 # NPC, but it uses the same interaction graphics, animation, and OAM tables.
 # Export every placed portal spot so runtime activation stays data-driven.
@@ -155,6 +221,67 @@ Copy-GeneratedFile `
     'gfx\spr_makuflower_book_seedling_weirdswirl_block.png'
 $portalPath = Join-Path $destination 'objects\timePortals.tsv'
 [IO.File]::WriteAllLines($portalPath, $portalRows, [Text.UTF8Encoding]::new($false))
+
+# Direct Tune of Currents/Ages warps create INTERAC_TIMEPORTAL ($de) at the
+# arrival position. Unlike the placed $e1 spawner, it uses common sprites,
+# remains visible, cycles OBJ palettes, and is restored from wPortalPos when
+# its room is parsed again.
+$temporaryPortalSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\timeportal.s')
+$timewarpEntryTileSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\tile_properties\timewarpEntryTileReplacement.s')
+$timewarpReturnTileSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\tile_properties\timewarpReturnTileReplacement.s')
+$temporaryPortalGraphic = $interactionGraphics['222:0']
+if ($null -eq $temporaryPortalGraphic) {
+    throw 'Could not resolve INTERAC_TIMEPORTAL graphics.'
+}
+$temporaryPortalAnimation = Resolve-NpcAnimation `
+    0xde $temporaryPortalGraphic.DefaultAnimation
+if ($temporaryPortalGraphic.Gfx -ne 0 -or
+    $temporaryPortalGraphic.TileBase -ne 0x4a -or
+    $temporaryPortalGraphic.Palette -ne 1 -or
+    -not $temporaryPortalAnimation -or
+    $temporaryPortalSource -notmatch '(?ms)^interactionCodede:.*?ld a,\$03\s+call objectSetCollideRadius.*?ld a,\(wPortalPos\).*?ld a,\$ff\s+ld \(wPortalGroup\),a' -or
+    $temporaryPortalSource -notmatch '(?ms)^timeportal_updatePalette:.*?and \$01.*?inc a\s+and \$0b.*?interactionAnimate') {
+    throw 'INTERAC_TIMEPORTAL graphics, persistence, collision, or palette behavior changed.'
+}
+$readTimewarpTileReplacements = {
+    param([string]$source, [string]$label)
+    $block = [regex]::Match(
+        $source,
+        ('(?ms)^' + [regex]::Escape($label) +
+            ':\s*(?<body>.*?)^\s*\.db \$00\s*$'))
+    if (-not $block.Success) {
+        throw "Could not isolate $label."
+    }
+    $rows = @([regex]::Matches(
+        $block.Groups['body'].Value,
+        '(?m)^\s*\.db \$(?<source>[0-9a-f]{2}) \$(?<replacement>[0-9a-f]{2})(?:\s*;.*)?$'))
+    if ($rows.Count -eq 0) {
+        throw "$label contains no replacement rows."
+    }
+    return @($rows | ForEach-Object {
+        "$($_.Groups['source'].Value):$($_.Groups['replacement'].Value)"
+    }) -join ','
+}
+$entryTileReplacements = & $readTimewarpTileReplacements `
+    $timewarpEntryTileSource 'timewarpEntryTileReplacementDict'
+$returnTileReplacements = & $readTimewarpTileReplacements `
+    $timewarpReturnTileSource 'timewarpReturnTileReplacementDict'
+if ($entryTileReplacements -ne 'c5:3a,c8:3a,04:3a' -or
+    $returnTileReplacements -ne
+        'c0:3a,c3:3a,c5:3a,c8:3a,ce:3a,db:3a,f2:3a,cd:3a,04:3a') {
+    throw 'Time-warp entry/return breakable-tile dictionaries changed.'
+}
+$temporaryPortalRows = @(
+    "# sprite`ttile-base`tpalette`tcontact-radius`tanimation`tentry-tile-replacements`treturn-tile-replacements",
+    "spr_common_sprites`t$($temporaryPortalGraphic.TileBase)`t$($temporaryPortalGraphic.Palette)`t9`t$temporaryPortalAnimation`t$entryTileReplacements`t$returnTileReplacements"
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\temporaryTimePortal.tsv'),
+    $temporaryPortalRows,
+    [Text.UTF8Encoding]::new($false))
 
 # CUTSCENE_TIMEWARP uses INTERAC_TIMEWARP ($dd), PART_TIMEWARP_ANIMATION
 # ($2b), and INTERAC_SPARKLE ($84:$01) after a portal spawner transfers Link

@@ -363,6 +363,12 @@ $harpDurations = @($harpFrames | Select-Object -First 13 |
 $harpGraphics = @($harpFrames | Select-Object -First 13 |
     ForEach-Object { $_.Groups['graphic'].Value })
 Add-LinkIntroSpriteRows 'link-harp' $harpDurations $harpGraphics $true
+$playableHarpDurations = @($harpFrames | Select-Object -First 17 |
+    ForEach-Object { $_.Groups['duration'].Value })
+$playableHarpGraphics = @($harpFrames | Select-Object -First 17 |
+    ForEach-Object { $_.Groups['graphic'].Value })
+Add-LinkIntroSpriteRows `
+    'link-harp-item' $playableHarpDurations $playableHarpGraphics $true
 
 $sparkleSubids = [regex]::Match(
     $interactionDataSource,
@@ -437,8 +443,8 @@ function Add-SparkleIntroSpriteRows([string]$kind, [int]$subid) {
 }
 Add-SparkleIntroSpriteRows 'orb-descend' 0x0d
 Add-SparkleIntroSpriteRows 'orb-vanish' 0x06
-if ($introSpriteRows.Count -ne 35) {
-    throw "Expected 34 shared Link/intro sprite frames, exported $($introSpriteRows.Count - 1)."
+if ($introSpriteRows.Count -ne 52) {
+    throw "Expected 51 shared Link/intro sprite frames, exported $($introSpriteRows.Count - 1)."
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'cutscenes\new_game_intro_sprites.tsv'),

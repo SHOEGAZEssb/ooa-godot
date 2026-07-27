@@ -75,8 +75,12 @@ public partial class Hud : Node2D
             _treasures.GetButtonDisplay(EquippedB, _inventory);
         DisplayRecord equippedA =
             _treasures.GetButtonDisplay(EquippedA, _inventory);
-        DrawItemIcon(equippedB, new Vector2(8, 0));
-        DrawItemIcon(equippedA, new Vector2(48, 0));
+        DrawItemIcon(
+            equippedB,
+            new Vector2(EquippedB == InventoryState.ItemHarp ? 16 : 8, 0));
+        DrawItemIcon(
+            equippedA,
+            new Vector2(EquippedA == InventoryState.ItemHarp ? 56 : 48, 0));
         // drawTreasureExtraTiles writes attribute $80. Nonzero BG pixels
         // therefore have priority over the overlapping equipped-item OAM.
         DrawItemExtra(equippedB, new Vector2(16, 8));
@@ -237,6 +241,18 @@ public partial class Hud : Node2D
         if (_inventory == null)
             return;
 
+        if (display.ExtraMode == 5)
+        {
+            DrawHudOverlayTile(
+                0x0c, position + new Vector2(-8, -8), priorityOnly: true);
+            DrawHudOverlayTile(
+                0x0e, position + new Vector2(0, -8), priorityOnly: true);
+            DrawHudOverlayTile(
+                0x0d, position + new Vector2(-8, 0), priorityOnly: true);
+            DrawHudOverlayTile(0x0f, position, priorityOnly: true);
+            return;
+        }
+
         if (display.ExtraMode == 1)
         {
             int amount = _inventory.BcdAmountForInventoryDisplay(display.TreasureId);
@@ -257,7 +273,10 @@ public partial class Hud : Node2D
         DrawHudOverlayTile(0x10 + (level & 0x0f), position + new Vector2(8, 0));
     }
 
-    private void DrawHudOverlayTile(int tile, Vector2 position)
+    private void DrawHudOverlayTile(
+        int tile,
+        Vector2 position,
+        bool priorityOnly = false)
     {
         int sourceX = tile % 16 * 8;
         int sourceY = tile / 16 * 8;
@@ -267,8 +286,11 @@ public partial class Hud : Node2D
             Color sourceColor = _hudTiles.GetPixel(sourceX + x, sourceY + y);
             int shade = Mathf.Clamp(
                 Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f), 0, 3);
-            DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
-                HudPalette[shade]);
+            if (!priorityOnly || shade != 0)
+            {
+                DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
+                    HudPalette[shade]);
+            }
         }
     }
 

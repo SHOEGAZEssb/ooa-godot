@@ -76,6 +76,23 @@ tiles, including a leading zero. Satchel records first resolve their selected
 seed treasure, so the same rule keeps the HUD, equipped A/B icons, and stored
 inventory icon synchronized after every accepted seed use.
 
+## Harp tune submenu
+
+Equipping the Harp directly swaps it with A or B while only one tune is owned.
+With two or three tunes, that button opens `inventoryMenuState2`'s tune
+submenu instead. The opening update draws the first two columns; odd source
+updates then expand the panel, and one final expansion tick enters input:
+8 by 4 tiles is ready for two tunes on update 15, while 10 by 4 tiles is ready
+for three tunes on update 17. Input remains locked until then.
+
+The submenu compresses the three tune IDs to the obtained-treasure order.
+Left and right wrap within that list and request `SND_MENU_MOVE`; Start, A, or
+B confirms the highlighted tune, writes `wSelectedHarpSong`, performs the
+original requested A/B storage swap, and requests `SND_SELECTITEM`. Merely
+opening the submenu does not equip the Harp or play the selection sound. Its
+two-tune positions are x=56/88 and its three-tune positions are x=48/72/96;
+the panel is placed above storage rows 8-15 and below rows 0-7.
+
 ## Vasu ring menus
 
 `RingMenuController` owns `MENU_RING_APPRAISAL` and `MENU_RING_LIST` through

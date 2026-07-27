@@ -27,6 +27,7 @@ public partial class GameRoot : Node2D
     internal BraceletController _bracelet = null!;
     internal ShovelController _shovel = null!;
     internal SeedSatchelController _seedSatchel = null!;
+    internal HarpController _harp = null!;
     internal DebugWarpController _debugWarps = null!;
     internal DebugCollisionController _debugCollision = null!;
     internal DebugMapleController _debugMaple = null!;
@@ -323,7 +324,10 @@ public partial class GameRoot : Node2D
         if (!_transitions.TimeWarpActive)
         {
             _deathRespawnPoints.Update();
-            _entities.Update(delta, _player);
+            if (_harp.IsPlaying)
+                _entities.UpdateDuringHarp(delta, _player);
+            else
+                _entities.Update(delta, _player);
         }
         // A portal can begin the time warp from the contact pass above. The
         // original DISABLE_ALL_BUT_INTERACTIONS|DISABLE_LINK state freezes
@@ -338,6 +342,7 @@ public partial class GameRoot : Node2D
             _roomEvents.Update(delta);
             _interactions.Update(delta, _player);
         }
+        _harp.Update(delta);
         _statusBar.Update(delta);
         UpdateAnimatedTiles(delta);
         UpdateRoomDebugLabel();
@@ -407,9 +412,10 @@ public partial class GameRoot : Node2D
 
     private void CreateControllers()
     {
+        var timePortals = new TimePortalDatabase();
         _entities = new RoomEntityManager(
             _scene.WorldRoot, new NpcDatabase(), new EnemyDatabase(),
-            new ItemDropDatabase(), new TimePortalDatabase(), _random, _saveData,
+            new ItemDropDatabase(), timePortals, _random, _saveData,
             inventory: _inventory,
             animationTick: () => (long)_animationTicks,
             treasures: _treasures,
@@ -442,11 +448,11 @@ public partial class GameRoot : Node2D
             _rooms, new WarpDatabase(), _roomView, _scene.RoomLoadReveal,
             _player, _roomCamera,
             _warpFade, _hud, _dialogue, _entities, _collision.Collides,
-            _deathRespawnPoints, _sound);
+            _deathRespawnPoints, _sound, timePortals);
         _entities.WorldToScreen = _transitions.WorldToGameplayScreen;
         _transitions.ScrollingTransitionFinished += _ => ApplyDeferredIntroMusic();
         _entities.TimePortalEntered += portal =>
-            _transitions.ApplyTimePortalWarp(_player, portal.Position);
+            _transitions.ApplyTimePortalWarp(_player, portal);
         _entities.RoomWarpRequested += warp =>
             _transitions.ApplyWarp(_player, warp);
         _entities.SoundRequested += _sound.PlaySound;
@@ -507,6 +513,9 @@ public partial class GameRoot : Node2D
             _sound.PlaySound, () => (long)_animationTicks);
         _seedSatchel = new SeedSatchelController(
             _inventory, _entities, new SeedSatchelDatabase(), _rooms);
+        _harp = new HarpController(
+            _rooms, _entities, _transitions, _interactions, _sound);
+        _entities.PlayingInstrumentSource = () => _harp.PlayingSong;
         _terrain = new TerrainController(
             _scene.WorldRoot, _rooms, new BreakableTileDatabase(),
             _collision.AdjacentWallsBitset, _sound.PlaySound);
@@ -523,7 +532,7 @@ public partial class GameRoot : Node2D
         _playerWorld = new PlayerWorld(
             _transitions, _interactions, _collision, _pushBlocks, _keyDoors, _keyholes,
             _terrain, _combat, _entities,
-            _bracelet, _shovel, _seedSatchel, _roomEvents,
+            _bracelet, _shovel, _seedSatchel, _harp, _roomEvents,
             _inventory, _sound, () => _debugCollision.CollisionsDisabled);
         _debugWarps = new DebugWarpController(
             _player, LoadDebugRoom, FindSpawn,
@@ -533,7 +542,7 @@ public partial class GameRoot : Node2D
             LoadDebugRoom, FindSpawn,
             () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
                 !InventoryMenuOpen && !RingMenuOpen &&
-                !_player.IsDying && !_roomEvents.Active &&
+                !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
                 !_interactions.GameplayMenuActive &&
                 !_entities.PlayerMenusDisabled);
         _gameplayPause = new GameplayPauseController(_player, _roomDebug);
@@ -541,7 +550,7 @@ public partial class GameRoot : Node2D
         _mapMenu = new MapMenuController(
             _mapScreen, _dialogue, _menuLifecycle,
             () => !IsTransitioning && !DialogueOpen && !InventoryMenuOpen &&
-                !_player.IsDying && !_roomEvents.Active &&
+                !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
                 !_entities.PlayerMenusDisabled,
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone),
             FastTravelFromMap, _sound.PlaySound);
@@ -550,7 +559,7 @@ public partial class GameRoot : Node2D
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone),
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone) &&
                 !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
-                !_player.IsDying && !_roomEvents.Active &&
+                !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
                 !_entities.PlayerMenusDisabled,
             SaveActiveFile, ReturnToTitle, _sound.PlaySound,
             RestartGameplayAfterDeath);

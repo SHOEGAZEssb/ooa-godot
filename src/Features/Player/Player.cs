@@ -74,6 +74,7 @@ public partial class Player : Node2D
     private double _swordFrameAccumulator;
     private double _shovelFrameAccumulator;
     private double _seedSatchelFrameAccumulator;
+    private double _harpFrameAccumulator;
     private double _punchFrameAccumulator;
     private float _drownTime;
     private float _drownInvisibleTime;
@@ -131,6 +132,10 @@ public partial class Player : Node2D
     private int _shovelFrame;
     private bool _usingShovel;
     private bool _usingSeedSatchel;
+    private bool _usingHarp;
+    private int _harpActionUpdate;
+    private int _harpActionFrames;
+    private int _harpSong;
     private int _seedSatchelFrame;
     private int _seedSatchelActionFrames;
     private bool _usingPunch;
@@ -163,6 +168,8 @@ public partial class Player : Node2D
     private bool _newGameSlowFalling;
     private CutsceneSpriteRenderer? _harpRenderer;
     private IntroSpriteFrame[]? _harpFrames;
+    private IntroSpriteFrame[]? _cutsceneHarpFrames;
+    private IntroSpriteFrame[]? _itemHarpFrames;
     private int _harpFrame;
     private int _harpFrameTicks;
     private bool _harpPoseActive;
@@ -190,10 +197,12 @@ public partial class Player : Node2D
     public bool IsAttacking => _swordState != SwordActionState.None;
     public bool IsUsingShovel => _usingShovel;
     public bool IsUsingSeedSatchel => _usingSeedSatchel;
+    public bool IsUsingHarp => _usingHarp;
     public bool IsUsingShield => _usingShield;
     internal bool IsUsingPunch => _usingPunch;
     private bool IsUsingItem =>
-        IsAttacking || IsUsingShovel || IsUsingSeedSatchel || IsUsingPunch;
+        IsAttacking || IsUsingShovel || IsUsingSeedSatchel || IsUsingHarp ||
+        IsUsingPunch;
     internal bool IsPushing => _pushing;
     internal SwordActionState SwordState => _swordState;
     internal int SwordStateFrame => _swordStateFrame;
@@ -248,7 +257,7 @@ public partial class Player : Node2D
     internal bool IsJumpingDownLedge =>
         _ledgeJumpState != LedgeJumpState.None;
     internal bool AcceptsRoomEntityContact =>
-        _ledgeJumpState == LedgeJumpState.None;
+        _ledgeJumpState == LedgeJumpState.None && !IsUsingHarp;
     internal int LedgeZ => _ledgeZFixed >> 8;
     internal int LedgeSpeedZ => _ledgeSpeedZ;
     internal int LedgeSpeedRaw => _ledgeSpeedRaw;
@@ -483,11 +492,33 @@ public partial class Player : Node2D
     internal void BeginHarpPose()
     {
         _harpRenderer ??= new CutsceneSpriteRenderer();
-        _harpFrames ??= new NewGameIntroDatabase().SpriteFrames("link-harp");
+        _cutsceneHarpFrames ??=
+            new NewGameIntroDatabase().SpriteFrames("link-harp");
+        _harpFrames = _cutsceneHarpFrames;
         if (_harpFrames.Length != 13)
         {
             throw new InvalidOperationException(
                 "Expected thirteen LINK_ANIM_MODE_HARP_2 presentation frames.");
+        }
+
+        _harpFrame = 0;
+        _harpFrameTicks = _harpFrames[0].Duration;
+        _harpPoseActive = true;
+        _walking = false;
+        _pushing = false;
+        QueueRedraw();
+    }
+
+    private void BeginPlayableHarpPose()
+    {
+        _harpRenderer ??= new CutsceneSpriteRenderer();
+        _itemHarpFrames ??=
+            new NewGameIntroDatabase().SpriteFrames("link-harp-item");
+        _harpFrames = _itemHarpFrames;
+        if (_harpFrames.Length != 17)
+        {
+            throw new InvalidOperationException(
+                "Expected seventeen playable LINK_ANIM_MODE_HARP_2 frames.");
         }
 
         _harpFrame = 0;
@@ -965,6 +996,8 @@ public partial class Player : Node2D
                 TryStartSideScrollJump();
             else if (_inventory.EquippedA == InventoryState.ItemSeedSatchel)
                 StartSeedSatchelAction(input);
+            else if (_inventory.EquippedA == InventoryState.ItemHarp)
+                StartHarpAction();
         }
         else if (_activeTransformation == 0 &&
             Input.IsActionJustPressed("item") && !_world.SwordDisabled)
@@ -1004,6 +1037,10 @@ public partial class Player : Node2D
             else if (_inventory.EquippedB == InventoryState.ItemSeedSatchel)
             {
                 StartSeedSatchelAction(input);
+            }
+            else if (_inventory.EquippedB == InventoryState.ItemHarp)
+            {
+                StartHarpAction();
             }
         }
 
@@ -1523,6 +1560,16 @@ public partial class Player : Node2D
             {
                 _punchFrameAccumulator -= 1.0;
                 AdvancePunchFrame();
+            }
+            QueueRedraw();
+        }
+        if (IsUsingHarp)
+        {
+            _harpFrameAccumulator += delta * 60.0;
+            while (_harpFrameAccumulator + 0.000001 >= 1.0 && IsUsingHarp)
+            {
+                _harpFrameAccumulator -= 1.0;
+                AdvanceHarpAction();
             }
             QueueRedraw();
         }
@@ -2802,6 +2849,67 @@ public partial class Player : Node2D
             QueueRedraw();
         CancelSeedSatchelAction();
         CancelPunchAction();
+        CancelHarpAction();
+    }
+
+    internal void StartHarpActionForValidation() => StartHarpAction();
+
+    private void StartHarpAction()
+    {
+        if (IsUsingItem || !IsGroundedForFloorButton ||
+            _pullingIntoHole || _drowning || _fallingInHole)
+        {
+            return;
+        }
+        int frames = _world.BeginHarp(this);
+        if (frames <= 0)
+            return;
+        _usingHarp = true;
+        _harpSong = _inventory.SelectedHarpSong;
+        _harpActionUpdate = 0;
+        _harpActionFrames = frames;
+        _harpFrameAccumulator = 0.0;
+        BeginPlayableHarpPose();
+    }
+
+    private void AdvanceHarpAction()
+    {
+        _harpActionUpdate++;
+        _world.AdvanceHarp(this, _harpActionUpdate);
+        AdvanceHarpPose();
+        if (_harpActionUpdate < _harpActionFrames)
+            return;
+
+        int completedSong = _harpSong;
+        _usingHarp = false;
+        _harpSong = 0;
+        _harpActionUpdate = 0;
+        _harpActionFrames = 0;
+        _harpFrameAccumulator = 0.0;
+        EndHarpPose();
+        _world.CompleteHarp(this, completedSong);
+    }
+
+    private void CancelHarpAction()
+    {
+        bool changed = IsUsingHarp;
+        _usingHarp = false;
+        _harpSong = 0;
+        _harpActionUpdate = 0;
+        _harpActionFrames = 0;
+        _harpFrameAccumulator = 0.0;
+        if (changed)
+        {
+            _world.CancelHarp();
+            EndHarpPose();
+        }
+    }
+
+    internal void AdvanceHarpForValidation(int frames)
+    {
+        for (int frame = 0; frame < frames && IsUsingHarp; frame++)
+            AdvanceHarpAction();
+        QueueRedraw();
     }
 
     internal void StartPunchActionForValidation(Vector2 facingInput) =>

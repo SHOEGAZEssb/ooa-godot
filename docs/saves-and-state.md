@@ -109,6 +109,17 @@ it combines the typed Maku advice fields with `wPortalGroup`/`wPortalRoom` at
 special area-text selection use that same resolver, so neither reconstructs
 the persistent addresses independently.
 
+Harp state uses the original file-image fields as well.
+`wSelectedHarpSong` at `$c6b7` stores tune `$01-$03`. Learning Tune of Echoes
+performs the source compound award of `TREASURE_HARP` parameter `$01`, and
+later tune-submenu confirmation changes that field without inventing a
+parallel selection value. A direct Tune of Currents or Tune of Ages warp stores
+the destination era, room, and packed position in `wPortalGroup`,
+`wPortalRoom`, and `wPortalPos` at `$c63e-$c640`. Room parsing recreates the
+temporary `$de:$00` return portal only in that matching destination. Entering
+it clears `wPortalGroup` to `$ff` before the reverse warp, so re-entry cannot
+duplicate a consumed return portal.
+
 ## Inventory and treasure transactions
 
 `InventoryState` is a typed view over imported treasure behavior and the save

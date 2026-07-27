@@ -13,6 +13,7 @@ internal sealed class RoomEntityFactory(
     OracleSaveData? saveData,
     OracleRuntimeState runtimeState,
     Action<TimePortal> portalEntered,
+    Func<int> playingInstrument,
     Func<bool> groundTreasureCollectionAllowed,
     Action<GroundTreasurePickup, Player> groundTreasureCollected,
     Action<int, string> dungeonEntranceTriggered,
@@ -1465,16 +1466,22 @@ internal sealed class RoomEntityFactory(
         yield return new Room149BallRoomEntity(ball, family);
     }
 
-    private bool StartsActive(int subId)
+    private bool StartsActive(PortalRecord record, int group, int room)
     {
         // timeportalSpawner.s sets bit 7 for subtype $01 until the Maku Tree
         // is saved and for subtype $02 until the Seed Satchel is obtained.
         // Bit 7 in object data is already-active unconditionally. Ordinary
         // subtype $00 portals wait for a fresh Tune of Echoes and must remain
         // inactive until instrument playback supplies that activation.
+        int subId = record.SubId;
         int type = subId & 0x0f;
         if ((subId & 0x80) != 0)
             return true;
+        if ((subId & 0x40) != 0 &&
+            saveData?.HasRoomFlag(group, room, 0x02) != true)
+        {
+            return true;
+        }
         return type switch
         {
             0 => false,
@@ -1830,12 +1837,38 @@ internal sealed class RoomEntityFactory(
     {
         foreach (PortalRecord record in timePortals.GetRoomPortals(group, room.Id))
         {
-            if (!StartsActive(record.SubId))
-                continue;
             var portal = new TimePortal { Name = $"TimePortal_{record.SubId:x2}", ZIndex = 8 };
-            portal.Initialize(record, room);
+            portal.InitializePlaced(
+                record,
+                room,
+                StartsActive(record, group, room.Id),
+                saveData,
+                playingInstrument,
+                soundRequested);
             yield return new TimePortalRoomEntity(portal, portalEntered);
         }
+        if (saveData is not null &&
+            saveData.TimePortalGroup == group &&
+            saveData.TimePortalRoom == room.Id)
+        {
+            timePortals.ApplyEntryTileReplacement(
+                room, saveData.TimePortalPosition, animationTick());
+            yield return CreateTemporaryTimePortal(
+                room, PointForPackedPosition(saveData.TimePortalPosition));
+        }
+    }
+
+    internal IRoomEntity CreateTemporaryTimePortal(
+        OracleRoomData room,
+        Vector2 position)
+    {
+        var portal = new TimePortal
+        {
+            Name = "TemporaryTimePortal",
+            ZIndex = 8
+        };
+        portal.InitializeTemporary(timePortals.TemporaryVisual, room, position);
+        return new TimePortalRoomEntity(portal, portalEntered);
     }
 
     private bool RoomObjectConditionMet(

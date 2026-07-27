@@ -31,6 +31,10 @@ public interface IPlayerWorld
         bool itemButtonJustPressed);
     void InterruptBracelet(Player player, bool discard);
     int TryUseSeedSatchel(Player player);
+    int BeginHarp(Player player) => 0;
+    void AdvanceHarp(Player player, int actionUpdate) { }
+    void CompleteHarp(Player player, int song) { }
+    void CancelHarp() { }
     bool DigWithShovel(Vector2 point, Vector2I direction);
     bool Collides(Vector2 playerPosition);
     Vector2 ResolveMovement(Vector2 playerPosition, Vector2 movement, bool allowWallSlide);

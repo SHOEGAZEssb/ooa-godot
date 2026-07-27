@@ -17,6 +17,7 @@ public sealed class PlayerWorld : IPlayerWorld
     private readonly BraceletController _bracelet;
     private readonly ShovelController _shovel;
     private readonly SeedSatchelController _seedSatchel;
+    private readonly HarpController _harp;
     private readonly RoomEventController _roomEvents;
     private readonly InventoryState _inventory;
     private readonly OracleSoundEngine _sound;
@@ -53,6 +54,7 @@ public sealed class PlayerWorld : IPlayerWorld
         BraceletController bracelet,
         ShovelController shovel,
         SeedSatchelController seedSatchel,
+        HarpController harp,
         RoomEventController roomEvents,
         InventoryState inventory,
         OracleSoundEngine sound,
@@ -70,6 +72,7 @@ public sealed class PlayerWorld : IPlayerWorld
         _bracelet = bracelet;
         _shovel = shovel;
         _seedSatchel = seedSatchel;
+        _harp = harp;
         _roomEvents = roomEvents;
         _inventory = inventory;
         _sound = sound;
@@ -104,6 +107,16 @@ public sealed class PlayerWorld : IPlayerWorld
     public void InterruptBracelet(Player player, bool discard) =>
         _bracelet.Interrupt(player, discard);
     public int TryUseSeedSatchel(Player player) => _seedSatchel.TryUse(player);
+    public int BeginHarp(Player player)
+    {
+        int song = _harp.TryStart(player);
+        return song < 0 ? 0 : _harp.Database.FramesForSong(song);
+    }
+    public void AdvanceHarp(Player player, int actionUpdate) =>
+        _harp.Advance(player, actionUpdate);
+    public void CompleteHarp(Player player, int song) =>
+        _harp.Complete(player, song);
+    public void CancelHarp() => _harp.Cancel();
     public bool DigWithShovel(Vector2 point, Vector2I direction) =>
         _shovel.TryDig(point, direction);
     public bool Collides(Vector2 position) =>

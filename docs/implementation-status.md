@@ -94,6 +94,17 @@ claim that the entire surrounding game is complete.
   directions. Raising it uses the source directional collision rectangle and
   `SND_SHIELD`, while implemented Octorok rocks and masked-/Arrow-Moblin arrows
   use their original `COLLISIONEFFECT_$1f` clink and 32-update bounce paths.
+- The Harp of Ages is a playable A/B item. Tune of Echoes ownership awards and
+  selects the Harp, while the two- and three-tune inventory submenus preserve
+  source opening dimensions, timing, wraparound, tune graphics/text, sounds,
+  and `wSelectedHarpSong`. Playback holds Link in the full 17-record Harp
+  animation for 260 updates, emits eight floating notes through the shared RNG
+  stream, and applies the original `$7e` object-disable mask. Echoes discovers
+  dormant `$e1:$00` portal spots and persists their room flag; Currents warps
+  only from the past, and Ages warps from either era. Direct song warps use the
+  complete time-warp transition and create the source palette-cycling
+  `$de:$00` return portal at the paired-era destination, persisted by
+  `wPortalGroup`, `wPortalRoom`, and `wPortalPos`.
 - Sword hits select the source low/normal/high enemy-recoil profiles for
   level-1, level-2/3, held, Spin Attack, sword-beam, Fist Ring, and Expert's
   Ring collisions. Implemented vulnerable species move away from the attack at
@@ -583,10 +594,7 @@ remains the single runtime policy table.
   companions), swimming/diving, terrain-specific Link states, and complete
   low-health warning behavior. The Feather's side-view level-1 launch is
   active; its top-down behavior and level-2 Roc's Cape continuation remain
-  deferred. Player-initiated Harp playback and Tune of Echoes portal
-  activation remain deferred; room `3:ae`'s scripted teaching performance is
-  implemented. Ordinary `$e1:$00` time portals stay inactive without a fresh
-  tune instead of using the former debug auto-activation.
+  deferred.
 - Aquatic, lava, and ice side-view Link handlers plus moving, conveyor,
   circular, and disappearing side-scroll platforms remain deferred. Dry
   passage gravity, ladders, Feather launch, and edge warps are implemented.

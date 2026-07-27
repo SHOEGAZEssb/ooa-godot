@@ -45,6 +45,7 @@ public sealed class RoomTransitionController
     private readonly Func<Vector2, bool> _collides;
     private readonly DeathRespawnPointController _deathRespawnPoints;
     private readonly OracleSoundEngine _sound;
+    private readonly TimePortalDatabase _timePortals;
     private readonly TimeWarpEffectDatabase _timeWarpEffects = new();
     private readonly EraInfoDatabase _eraInfo = new();
     private readonly FairiesWoodsScramblerDatabase _fairiesWoodsScrambler = new();
@@ -80,6 +81,7 @@ public sealed class RoomTransitionController
     private int _timeWarpAppliedDissolveStep = -1;
     private double _timeWarpTickAccumulator;
     private bool _timeWarpUsesIndoorBeamPalette;
+    private bool _createTimePortalAtDestination;
     private TimeWarpEffect? _timeWarpEffect;
     private readonly Dictionary<CanvasItem, Material?> _dissolvedItems = new();
     private ShaderMaterial? _dissolveMaterial;
@@ -125,7 +127,8 @@ public sealed class RoomTransitionController
         RoomEntityManager entities,
         Func<Vector2, bool> collides,
         DeathRespawnPointController deathRespawnPoints,
-        OracleSoundEngine sound)
+        OracleSoundEngine sound,
+        TimePortalDatabase timePortals)
     {
         _rooms = rooms;
         _warps = warps;
@@ -140,6 +143,7 @@ public sealed class RoomTransitionController
         _collides = collides;
         _deathRespawnPoints = deathRespawnPoints;
         _sound = sound;
+        _timePortals = timePortals;
 
         if (_timeWarpEffects.DissolveFrames != TimeWarpDissolveFrames ||
             _timeWarpEffects.SourceEffectFrames != TimeWarpSourceEffectFrames ||
@@ -423,11 +427,44 @@ public sealed class RoomTransitionController
 
     public void ApplyTimePortalWarp(Player player, Vector2 portalPosition)
     {
+        BeginTimePortalWarp(
+            player,
+            portalPosition,
+            createDestinationPortal: false,
+            clearExistingPortal: false);
+    }
+
+    internal void ApplyTimePortalWarp(Player player, TimePortal portal)
+    {
+        BeginTimePortalWarp(
+            player,
+            portal.Position,
+            createDestinationPortal: false,
+            clearExistingPortal: portal.Temporary);
+    }
+
+    internal void ApplyHarpTimeWarp(Player player, Vector2 playerPosition)
+    {
+        BeginTimePortalWarp(
+            player,
+            playerPosition,
+            createDestinationPortal: true,
+            clearExistingPortal: false);
+    }
+
+    private void BeginTimePortalWarp(
+        Player player,
+        Vector2 portalPosition,
+        bool createDestinationPortal,
+        bool clearExistingPortal)
+    {
         int destinationGroup = _rooms.ActiveGroup ^ 0x01;
         if (_warpActive || _rooms.ActiveGroup is not (0 or 1) ||
             !_rooms.World.HasRoom(destinationGroup, _rooms.CurrentRoom.Id))
             return;
 
+        if (clearExistingPortal)
+            _rooms.SaveData.ClearTimePortalLocation();
         int position = _rooms.CurrentRoom.GetPackedPosition(portalPosition);
         _pendingWarp = new Warp(
             _rooms.ActiveGroup, _rooms.CurrentRoom.Id, position, 0, 0,
@@ -448,6 +485,7 @@ public sealed class RoomTransitionController
         // it after the era swap.
         _timeWarpUsesIndoorBeamPalette =
             (_rooms.CurrentRoom.TilesetFlags & 0x80) != 0;
+        _createTimePortalAtDestination = createDestinationPortal;
         _destinationWalk = false;
         _dialogue.Close();
         // interactionBeginTimewarp copies the portal's position into w1Link,
@@ -467,6 +505,7 @@ public sealed class RoomTransitionController
         _dialogue.Close();
         _pendingWarp = warp;
         _timeWarp = false;
+        _createTimePortalAtDestination = false;
         _warpActive = true;
         _warpFrame = 0.0f;
         _warpFadeOutFrames = delayedFadeOut ? DelayedWarpFadeFrames : WarpFadeFrames;
@@ -747,6 +786,19 @@ public sealed class RoomTransitionController
 
         Warp warp = _pendingWarp;
         OracleRoomData room = _rooms.Load(warp.DestinationGroup, warp.DestinationRoom);
+        if (_timeWarp)
+        {
+            if (_createTimePortalAtDestination)
+            {
+                _timePortals.ApplyEntryTileReplacement(
+                    room, warp.DestinationPosition, _entities.FrameCounter);
+            }
+            else
+            {
+                _timePortals.ApplyReturnTileReplacement(
+                    room, warp.DestinationPosition, _entities.FrameCounter);
+            }
+        }
         _roomView.SetRoom(room.Texture);
         if (_roomLoadColumnReveal)
         {
@@ -914,9 +966,22 @@ public sealed class RoomTransitionController
             EndTimeWarpDissolve();
             _roomView.ClearBackgroundFade();
             _hud.Visible = true;
+            if (_createTimePortalAtDestination)
+            {
+                int packed = _pendingWarp.DestinationPosition;
+                Vector2 position = new(
+                    (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
+                    (packed >> 4) * OracleRoomData.MetatileSize + 8);
+                _rooms.SaveData.SetTimePortalLocation(
+                    _rooms.ActiveGroup,
+                    _rooms.CurrentRoom.Id,
+                    packed);
+                _entities.SpawnTemporaryTimePortal(position);
+            }
         }
         _destinationWalk = false;
         _timeWarp = false;
+        _createTimePortalAtDestination = false;
         _warpActive = false;
         _warpPhase = WarpPhase.None;
         _player.Visible = true;

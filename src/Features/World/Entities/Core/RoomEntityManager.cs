@@ -61,6 +61,8 @@ public sealed class RoomEntityManager : IDisposable
         static position => position;
     internal Func<bool> DialogueOpenSource { get; set; } =
         static () => false;
+    internal Func<int> PlayingInstrumentSource { get; set; } =
+        static () => 0;
 
     public bool ScreenTransitionActive => _screenTransitionActive;
     public OracleRuntimeState RuntimeState => _runtimeState;
@@ -215,6 +217,7 @@ public sealed class RoomEntityManager : IDisposable
         _factory = new RoomEntityFactory(
             npcs, enemies, itemDrops, timePortals, random,
             _saveData, _runtimeState, OnTimePortalEntered,
+            () => PlayingInstrumentSource(),
             () => GroundTreasureCollectionAllowed(),
             OnGroundTreasureCollected, OnDungeonEntranceTriggered,
             OnRoomWarpRequested,
@@ -403,6 +406,27 @@ public sealed class RoomEntityManager : IDisposable
         }
         RemoveFinishedEntities();
         DispatchPendingRoomWarp();
+    }
+
+    internal void UpdateDuringHarp(double delta, Player player)
+    {
+        // ITEM_HARP writes $7e to wDisabledObjects: every ordinary object
+        // category is frozen. The dormant portal spawner explicitly carries
+        // the interaction always-update bit, as do the floating notes owned
+        // by HarpController.
+        _enemyFrameAccumulator += delta * 60.0;
+        while (_enemyFrameAccumulator >= 1.0)
+        {
+            _enemyFrameAccumulator -= 1.0;
+            _enemyFrameCounter = (_enemyFrameCounter + 1) & 0xff;
+            var frame = new RoomEntityFrame(
+                player, _enemyFrameCounter, AnyButtonJustPressed: false);
+            foreach (IRoomEntity entity in _activeEntities.ToArray())
+            {
+                if (entity is TimePortalRoomEntity portal)
+                    portal.UpdateFrame(frame, _pendingSpawns);
+            }
+        }
     }
 
     public bool BlocksLink(Vector2 linkCenter)
@@ -635,6 +659,13 @@ public sealed class RoomEntityManager : IDisposable
     {
         IRoomEntity entity = AddEntity(_factory.Create(spawn, _roomForActiveEntities));
         return (T)entity.Node;
+    }
+
+    internal TimePortal SpawnTemporaryTimePortal(Vector2 position)
+    {
+        IRoomEntity entity = AddEntity(
+            _factory.CreateTemporaryTimePortal(_roomForActiveEntities, position));
+        return (TimePortal)entity.Node;
     }
 
     internal GroundTreasurePickup GrantGroundTreasure(

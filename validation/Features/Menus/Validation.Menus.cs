@@ -993,10 +993,13 @@ public sealed partial class ValidationRoot
 
         if (_inventoryScreen.Cursor != 0 || _inventory.StorageItemAt(0) != InventoryState.ItemNone ||
             _inventory.EquippedA != InventoryState.ItemSword ||
+            _inventory.EquippedB != InventoryState.ItemHarp ||
             _inventoryScreen.ActiveTextKey != 0 ||
             _inventoryScreen.VisibleTextForValidation != new string(' ', 16))
         {
-            throw new InvalidOperationException("Inventory menu validation expected sword on A and slot 0 empty.");
+            throw new InvalidOperationException(
+                "Inventory menu validation expected the sword on A, the " +
+                "story-awarded Harp on B, and slot 0 empty.");
         }
 
         InventoryTextRecord woodenSwordText = _treasures.GetInventoryText(0x23);
@@ -1079,10 +1082,16 @@ public sealed partial class ValidationRoot
             _sound.LastPlayRequest != OracleSoundEngine.SndSelectItem ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectItemRequests + 2 ||
             _inventory.EquippedB != InventoryState.ItemSword ||
-            _inventory.StorageItemAt(0) != InventoryState.ItemNone)
+            _inventory.StorageItemAt(0) != InventoryState.ItemHarp)
         {
             throw new InvalidOperationException(
-                "Pressing B on storage slot 0 did not equip the sword to wInventoryB.");
+                "Pressing B on storage slot 0 did not equip the sword to " +
+                $"wInventoryB (lastSound=${_sound.LastPlayRequest:x2}, " +
+                $"selectRequests={_sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem)}, " +
+                $"expected={selectItemRequests + 2}, " +
+                $"equippedB=${_inventory.EquippedB:x2}, " +
+                $"slot0=${_inventory.StorageItemAt(0):x2}, " +
+                $"submenu={_inventoryScreen.ItemSubmenuActive}).");
         }
 
         if (!_inventoryMenu.MoveCursorForValidation(Vector2I.Left) ||
@@ -1094,13 +1103,19 @@ public sealed partial class ValidationRoot
             _inventoryScreen.Cursor != 0)
             throw new InvalidOperationException("Inventory cursor did not return to slot 0 after wrapping.");
 
-        if (!_inventoryMenu.EquipToBForValidation() ||
+        // The story-awarded Harp now occupies slot 0; with multiple tunes its
+        // original submenu intentionally intercepts A/B. Use the next empty
+        // slot to restore the sword without consuming a Harp selection.
+        if (!_inventoryMenu.MoveCursorForValidation(Vector2I.Right) ||
+            _inventoryScreen.Cursor != 1 ||
+            !_inventoryMenu.EquipToBForValidation() ||
             !_inventoryMenu.EquipToAForValidation() ||
             _sound.LastPlayRequest != OracleSoundEngine.SndSelectItem ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectItemRequests + 4 ||
             _inventory.EquippedA != InventoryState.ItemSword ||
             _inventory.EquippedB != InventoryState.ItemNone ||
-            _inventory.StorageItemAt(0) != InventoryState.ItemNone)
+            _inventory.StorageItemAt(0) != InventoryState.ItemHarp ||
+            _inventory.StorageItemAt(1) != InventoryState.ItemNone)
         {
             throw new InvalidOperationException("Inventory menu did not restore the sword to A through storage swaps.");
         }
@@ -1137,7 +1152,7 @@ public sealed partial class ValidationRoot
             _inventoryScreen.ActiveCursor != 14)
             throw new InvalidOperationException("The empty secondary page did not wrap 0 -> 14 to the left.");
         if (!_inventoryMenu.MoveCursorForValidation(Vector2I.Right) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != inventoryMoveRequests + 4)
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != inventoryMoveRequests + 5)
         {
             throw new InvalidOperationException(
                 "Secondary inventory cursor movement did not request SND_MENU_MOVE $84.");
@@ -1177,7 +1192,7 @@ public sealed partial class ValidationRoot
             !_inventoryMenu.MoveCursorForValidation(Vector2I.Down) ||
             !_inventoryMenu.MoveCursorForValidation(Vector2I.Down) ||
             _sound.LastPlayRequest != OracleSoundEngine.SndMenuMove ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != inventoryMoveRequests + 7 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != inventoryMoveRequests + 8 ||
             !_inventoryScreen.SaveAndQuitSelected || _inventoryScreen.ActiveCursor != 0x82 ||
             _inventoryScreen.ActiveTextKey != 0x60 ||
             _inventoryScreen.VisibleTextForValidation != "  Save Screen   ")

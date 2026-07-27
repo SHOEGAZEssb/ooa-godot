@@ -118,6 +118,12 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     internal bool MoveCursorForValidation(Vector2I direction) => MoveCursor(direction);
     internal bool EquipToAForValidation() => EquipToA();
     internal bool EquipToBForValidation() => EquipToB();
+    internal void UpdateItemSubmenuForValidation(double delta) =>
+        _screen.UpdateItemSubmenu(delta);
+    internal bool MoveItemSubmenuForValidation(int direction) =>
+        MoveItemSubmenu(direction);
+    internal bool ConfirmItemSubmenuForValidation() =>
+        ConfirmItemSubmenu();
 
     internal void OpenImmediatelyForValidation()
     {
@@ -142,6 +148,25 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         if (_screen.PageTransitionActive)
         {
             _screen.UpdatePageTransition(delta);
+            return;
+        }
+        if (_screen.ItemSubmenuActive)
+        {
+            _screen.UpdateItemSubmenu(delta);
+            if (!_screen.ItemSubmenuReady)
+                return;
+            _screen.UpdateInventoryText(delta);
+            if (Input.IsActionJustPressed("inventory") ||
+                Input.IsActionJustPressed("attack") ||
+                Input.IsActionJustPressed("item"))
+            {
+                ConfirmItemSubmenu();
+                return;
+            }
+            if (Input.IsActionJustPressed("move_right"))
+                MoveItemSubmenu(1);
+            else if (Input.IsActionJustPressed("move_left"))
+                MoveItemSubmenu(-1);
             return;
         }
         _screen.UpdateInventoryText(delta);
@@ -381,6 +406,22 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     private bool EquipSelectedRing()
     {
         if (!_screen.EquipSelectedRing())
+            return false;
+        _playSound(OracleSoundEngine.SndSelectItem);
+        return true;
+    }
+
+    private bool MoveItemSubmenu(int direction)
+    {
+        if (!_screen.MoveItemSubmenu(direction))
+            return false;
+        _playSound(OracleSoundEngine.SndMenuMove);
+        return true;
+    }
+
+    private bool ConfirmItemSubmenu()
+    {
+        if (!_screen.ConfirmItemSubmenu())
             return false;
         _playSound(OracleSoundEngine.SndSelectItem);
         return true;

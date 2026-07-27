@@ -95,6 +95,8 @@ public partial class OracleSoundEngine : Node
     public const int SndDig = 0xa9;
     public const int SndSwordObtained = 0xab;
     public const int SndTuneOfEchoes = 0xad;
+    public const int SndTuneOfCurrents = 0xae;
+    public const int SndTuneOfAges = 0xaf;
     public const int SndMakuDisappear = 0xb2;
     public const int SndFadeOut = 0xb4;
     public const int SndRumble2 = 0xb8;

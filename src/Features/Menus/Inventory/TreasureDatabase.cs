@@ -21,6 +21,8 @@ public sealed class TreasureDatabase
     public const int TreasureSeedSatchel = 0x19;
     public const int TreasureEmberSeeds = 0x20;
     public const int TreasureTuneOfEchoes = 0x25;
+    public const int TreasureTuneOfCurrents = 0x26;
+    public const int TreasureTuneOfAges = 0x27;
     public const int TreasureRupees = 0x28;
     public const int TreasureHeartRefill = 0x29;
     public const int TreasureHeartContainer = 0x2a;
@@ -103,6 +105,9 @@ public sealed class TreasureDatabase
             _ => GetDisplay("treasureDisplayData_standard", itemId)
         };
     }
+
+    internal DisplayRecord GetHarpSongDisplay(int song) =>
+        GetDisplay("treasureDisplayData_harp", Math.Clamp(song, 0, 3));
 
     public DisplayRecord GetTreasureDisplay(int treasureId, int parameter, InventoryState inventory)
     {

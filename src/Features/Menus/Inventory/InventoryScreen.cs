@@ -93,6 +93,7 @@ public partial class InventoryScreen : Node2D
     private InventorySubscreen _nextSubscreen;
     private float _pageScrollFrame;
     private readonly FixedUpdateAccumulator _inventoryTextUpdates = new();
+    private readonly FixedUpdateAccumulator _itemSubmenuUpdates = new();
     private readonly int[] _inventoryTextWindow = new int[InventoryTextColumns];
     private int[] _inventoryTextName = Array.Empty<int>();
     private int[] _inventoryTextDescription = Array.Empty<int>();
@@ -101,6 +102,14 @@ public partial class InventoryScreen : Node2D
     private int _inventoryTextTimer;
     private int _inventoryTextCursor;
     private int _inventoryTextSpaceCounter;
+    private bool _itemSubmenuActive;
+    private bool _itemSubmenuReady;
+    private bool _itemSubmenuEquipToA;
+    private int[] _itemSubmenuSongs = Array.Empty<int>();
+    private int _itemSubmenuIndex;
+    private int _itemSubmenuWidth;
+    private int _itemSubmenuHeight;
+    private int _itemSubmenuOpenUpdate;
 
     public int Cursor => _itemCursor;
     public int ActiveCursor => _subscreen switch
@@ -111,6 +120,11 @@ public partial class InventoryScreen : Node2D
     };
     public InventorySubscreen Subscreen => _subscreen;
     public bool PageTransitionActive => _pageScrollFrame > 0.0f;
+    public bool ItemSubmenuActive => _itemSubmenuActive;
+    public bool ItemSubmenuReady => _itemSubmenuReady;
+    internal int ItemSubmenuIndex => _itemSubmenuIndex;
+    internal int ItemSubmenuWidth => _itemSubmenuWidth;
+    internal int ItemSubmenuHeight => _itemSubmenuHeight;
     public bool SaveAndQuitSelected =>
         _subscreen == InventorySubscreen.EssencesAndSave && _rightSide && _rightCursor == 2;
     internal int ActiveTextKey => _inventoryTextKey;
@@ -243,6 +257,7 @@ public partial class InventoryScreen : Node2D
         _rightSide = false;
         _subscreen = InventorySubscreen.Items;
         _pageScrollFrame = 0.0f;
+        ResetItemSubmenu();
         _inventoryTextKey = -1;
         SetInventoryText(0);
         _backgrounds = new[] { BuildBackgroundTexture(0), BuildBackgroundTexture(1), BuildBackgroundTexture(2) };
@@ -254,11 +269,12 @@ public partial class InventoryScreen : Node2D
     {
         Visible = false;
         _pageScrollFrame = 0.0f;
+        ResetItemSubmenu();
     }
 
     public void BeginNextSubscreen()
     {
-        if (PageTransitionActive)
+        if (PageTransitionActive || ItemSubmenuActive)
             return;
         _nextSubscreen = (InventorySubscreen)(((int)_subscreen + 1) % 3);
         _pageScrollFrame = float.Epsilon;
@@ -281,6 +297,8 @@ public partial class InventoryScreen : Node2D
 
     public bool MoveCursor(Vector2I direction)
     {
+        if (ItemSubmenuActive)
+            return false;
         if (direction is not { X: 1, Y: 0 } and not { X: -1, Y: 0 } and
             not { X: 0, Y: 1 } and not { X: 0, Y: -1 })
         {
@@ -313,6 +331,8 @@ public partial class InventoryScreen : Node2D
     {
         if (_subscreen != InventorySubscreen.Items)
             return false;
+        if (TryBeginHarpSubmenu(isA: true))
+            return false;
         _inventory.SwapStorageSlotWithButton(_itemCursor, isA: true);
         RefreshSelectedText();
         QueueRedraw();
@@ -322,6 +342,8 @@ public partial class InventoryScreen : Node2D
     public bool EquipToB()
     {
         if (_subscreen != InventorySubscreen.Items)
+            return false;
+        if (TryBeginHarpSubmenu(isA: false))
             return false;
         _inventory.SwapStorageSlotWithButton(_itemCursor, isA: false);
         RefreshSelectedText();
@@ -352,7 +374,12 @@ public partial class InventoryScreen : Node2D
                 new Vector2(OracleRoomData.ViewportWidth - pixels, 0), drawCursor: false);
             return;
         }
-        DrawSubscreen(_subscreen, Vector2.Zero, drawCursor: true);
+        DrawSubscreen(
+            _subscreen,
+            Vector2.Zero,
+            drawCursor: !ItemSubmenuActive);
+        if (ItemSubmenuActive)
+            DrawHarpSubmenu();
     }
 
     private void DrawSubscreen(InventorySubscreen page, Vector2 drawOffset, bool drawCursor)
@@ -360,16 +387,30 @@ public partial class InventoryScreen : Node2D
         DrawTexture(_backgrounds[(int)page], drawOffset);
         DrawInventoryText(drawOffset);
         DrawTreasure(_treasures.GetButtonDisplay(_inventory.EquippedB, _inventory),
-            new Vector2(8, 0) + drawOffset, spritePalette: true);
+            new Vector2(
+                _inventory.EquippedB == InventoryState.ItemHarp ? 16 : 8,
+                0) + drawOffset,
+            spritePalette: true);
         DrawTreasure(_treasures.GetButtonDisplay(_inventory.EquippedA, _inventory),
-            new Vector2(48, 0) + drawOffset, spritePalette: true);
+            new Vector2(
+                _inventory.EquippedA == InventoryState.ItemHarp ? 56 : 48,
+                0) + drawOffset,
+            spritePalette: true);
 
         switch (page)
         {
             case InventorySubscreen.Items:
+                int harpSlot = -1;
                 for (int index = 0; index < InventoryState.InventoryCapacity; index++)
+                {
+                    int item = _inventory.StorageItemAt(index);
                     DrawTreasure(_treasures.GetButtonDisplay(_inventory.StorageItemAt(index), _inventory),
                         SlotPositions[index] + drawOffset, spritePalette: false);
+                    if (item == InventoryState.ItemHarp)
+                        harpSlot = index;
+                }
+                if (harpSlot >= 0)
+                    DrawStoredHarpSprite(SlotPositions[harpSlot] + drawOffset);
                 if (drawCursor)
                     DrawItemCursor(SlotPositions[_itemCursor]);
                 break;
@@ -415,6 +456,18 @@ public partial class InventoryScreen : Node2D
 
     private bool RefreshSelectedText()
     {
+        if (ItemSubmenuActive)
+        {
+            int submenuKey = 0;
+            if (ItemSubmenuReady && _itemSubmenuSongs.Length != 0)
+            {
+                int treasure = TreasureDatabase.TreasureTuneOfEchoes +
+                    _itemSubmenuSongs[_itemSubmenuIndex] - 1;
+                submenuKey =
+                    _treasures.GetButtonDisplay(treasure, _inventory).TextLow;
+            }
+            return SetInventoryText(submenuKey);
+        }
         int key = _subscreen switch
         {
             InventorySubscreen.Items =>
@@ -424,6 +477,136 @@ public partial class InventoryScreen : Node2D
             _ => 0
         };
         return SetInventoryText(key);
+    }
+
+    public void UpdateItemSubmenu(double delta)
+    {
+        if (!ItemSubmenuActive || ItemSubmenuReady)
+            return;
+        int updates = _itemSubmenuUpdates.Consume(delta);
+        int maxWidth = _itemSubmenuSongs.Length == 2 ? 8 : 10;
+        for (int update = 0; update < updates; update++)
+        {
+            _itemSubmenuOpenUpdate++;
+            if ((_itemSubmenuOpenUpdate & 1) == 0)
+                continue;
+            if (_itemSubmenuWidth < maxWidth)
+                _itemSubmenuWidth = Math.Min(maxWidth, _itemSubmenuWidth + 2);
+            else if (_itemSubmenuHeight < 4)
+                _itemSubmenuHeight++;
+            else
+            {
+                _itemSubmenuReady = true;
+                RefreshSelectedText();
+                break;
+            }
+        }
+        if (updates > 0)
+            QueueRedraw();
+    }
+
+    public bool MoveItemSubmenu(int direction)
+    {
+        if (!ItemSubmenuReady || direction is not (-1 or 1))
+            return false;
+        _itemSubmenuIndex =
+            (_itemSubmenuIndex + direction + _itemSubmenuSongs.Length) %
+            _itemSubmenuSongs.Length;
+        RefreshSelectedText();
+        QueueRedraw();
+        return true;
+    }
+
+    public bool ConfirmItemSubmenu()
+    {
+        if (!ItemSubmenuReady || _itemSubmenuSongs.Length == 0)
+            return false;
+        int song = _itemSubmenuSongs[_itemSubmenuIndex];
+        _inventory.SelectHarpSong(song);
+        _inventory.SwapStorageSlotWithButton(
+            _itemCursor, _itemSubmenuEquipToA);
+        ResetItemSubmenu();
+        RefreshSelectedText();
+        QueueRedraw();
+        return true;
+    }
+
+    private bool TryBeginHarpSubmenu(bool isA)
+    {
+        if (_inventory.StorageItemAt(_itemCursor) != InventoryState.ItemHarp)
+            return false;
+        int[] songs = _inventory.ObtainedHarpSongs();
+        if (songs.Length < 2)
+            return false;
+
+        _itemSubmenuActive = true;
+        _itemSubmenuReady = false;
+        _itemSubmenuEquipToA = isA;
+        _itemSubmenuSongs = songs;
+        _itemSubmenuIndex = Array.IndexOf(
+            songs, _inventory.SelectedHarpSong);
+        if (_itemSubmenuIndex < 0)
+            _itemSubmenuIndex = 0;
+        // The equip input only selects inventoryMenuState2. Its first update
+        // initializes substate 0 and falls through to draw two columns.
+        _itemSubmenuWidth = 0;
+        _itemSubmenuHeight = 1;
+        _itemSubmenuOpenUpdate = 0;
+        _itemSubmenuUpdates.Reset();
+        SetInventoryText(0);
+        QueueRedraw();
+        return true;
+    }
+
+    private void ResetItemSubmenu()
+    {
+        _itemSubmenuActive = false;
+        _itemSubmenuReady = false;
+        _itemSubmenuEquipToA = false;
+        _itemSubmenuSongs = Array.Empty<int>();
+        _itemSubmenuIndex = 0;
+        _itemSubmenuWidth = 0;
+        _itemSubmenuHeight = 0;
+        _itemSubmenuOpenUpdate = 0;
+        _itemSubmenuUpdates.Reset();
+    }
+
+    private void DrawHarpSubmenu()
+    {
+        bool above = _itemCursor >= 8;
+        float targetY = above ? 32 : 72;
+        float width = _itemSubmenuWidth * 8;
+        float height = _itemSubmenuHeight * 8;
+        Vector2 panelPosition = new(80 - width / 2, targetY);
+        int flags = _itemSubmenuHeight == 4 ? 0x01 : 0x81;
+        for (int y = 0; y < _itemSubmenuHeight; y++)
+        for (int x = 0; x < _itemSubmenuWidth; x++)
+        {
+            DrawVramBackgroundTile(
+                0x01,
+                flags,
+                panelPosition + new Vector2(x * 8, y * 8));
+        }
+        if (!ItemSubmenuReady)
+            return;
+
+        int[] xPositions = _itemSubmenuSongs.Length == 2
+            ? [56, 88]
+            : [48, 72, 96];
+        float iconY = above ? 36 : 76;
+        for (int index = 0; index < _itemSubmenuSongs.Length; index++)
+        {
+            DrawTreasure(
+                _treasures.GetHarpSongDisplay(_itemSubmenuSongs[index]),
+                new Vector2(xPositions[index], iconY),
+                spritePalette: true,
+                drawEquippedExtra: false);
+        }
+        DrawRawOamTile(
+            0,
+            0x0e,
+            3,
+            new Vector2(xPositions[_itemSubmenuIndex] + 4, iconY + 20));
     }
 
     private int SecondaryTextKey()
@@ -663,7 +846,7 @@ public partial class InventoryScreen : Node2D
         {
             byte tile = _ringMap[offset + cell * 2];
             byte flags = _ringMap[offset + cell * 2 + 1];
-            DrawVramBackgroundTile((flags & 0x08) != 0 ? 1 : 0, tile, flags,
+            DrawVramBackgroundTile(tile, flags,
                 position + new Vector2(cell % 2 * 8, cell / 2 * 8));
         }
     }
@@ -879,7 +1062,11 @@ public partial class InventoryScreen : Node2D
             interleaved, spriteEncoding);
     }
 
-    private void DrawTreasure(DisplayRecord display, Vector2 position, bool spritePalette)
+    private void DrawTreasure(
+        DisplayRecord display,
+        Vector2 position,
+        bool spritePalette,
+        bool drawEquippedExtra = true)
     {
         if (!display.HasIcon)
             return;
@@ -890,9 +1077,15 @@ public partial class InventoryScreen : Node2D
                 position);
             if (display.RightSprite != 0)
                 DrawLogicalOamSprite(display.RightSprite, display.RightPalette & 7, position + new Vector2(8, 0));
-            // Equipped extras use BG attribute $80 and cover the lower-right
-            // item OAM cell where the tens digit overlaps it.
-            DrawTreasureLevel(display, position + new Vector2(8, 8), equipped: true);
+            if (drawEquippedExtra)
+            {
+                // updateStatusBar shifts only the Harp's OAM cells. Its
+                // four fixed BG cells remain at the ordinary button origin.
+                Vector2 extraPosition = position + new Vector2(
+                    display.ExtraMode == 5 ? 0 : 8,
+                    8);
+                DrawTreasureLevel(display, extraPosition, equipped: true);
+            }
             return;
         }
         DrawTreasureBackgroundSprite(display.LeftSprite, display.LeftPalette, position);
@@ -904,11 +1097,61 @@ public partial class InventoryScreen : Node2D
         DrawTreasureLevel(display, position + new Vector2(8, 8), equipped: false);
     }
 
+    private void DrawStoredHarpSprite(Vector2 position)
+    {
+        DisplayRecord display =
+            _treasures.GetHarpSongDisplay(_inventory.SelectedHarpSong);
+        DrawLogicalOamSprite(
+            display.LeftSprite,
+            display.LeftPalette & 7,
+            position + new Vector2(10, 0));
+        DrawLogicalOamSprite(
+            display.RightSprite,
+            display.RightPalette & 7,
+            position + new Vector2(18, 0));
+
+        // The stored Harp is the inventory's one composite BG/OAM item.
+        // Its BG priority tiles mask the nonzero portions of the song sprite.
+        DrawVramBackgroundTile(0x1c, 0x84, position, priorityOnly: true);
+        DrawVramBackgroundTile(
+            0x1e, 0x84, position + new Vector2(8, 0), priorityOnly: true);
+        DrawVramBackgroundTile(
+            0x1d, 0x84, position + new Vector2(0, 8), priorityOnly: true);
+        DrawVramBackgroundTile(
+            0x1f, 0x84, position + new Vector2(8, 8), priorityOnly: true);
+    }
+
     private void DrawTreasureLevel(
         DisplayRecord display,
         Vector2 position,
         bool equipped)
     {
+        if (display.ExtraMode == 5)
+        {
+            if (equipped)
+            {
+                DrawHudBackgroundTile(
+                    0x0c, position + new Vector2(-8, -8), priorityOnly: true);
+                DrawHudBackgroundTile(
+                    0x0e, position + new Vector2(0, -8), priorityOnly: true);
+                DrawHudBackgroundTile(
+                    0x0d, position + new Vector2(-8, 0), priorityOnly: true);
+                DrawHudBackgroundTile(
+                    0x0f, position, priorityOnly: true);
+            }
+            else
+            {
+                DrawVramBackgroundTile(
+                    0x1c, 0x84, position + new Vector2(-8, -8));
+                DrawVramBackgroundTile(
+                    0x1e, 0x84, position + new Vector2(0, -8));
+                DrawVramBackgroundTile(
+                    0x1d, 0x84, position + new Vector2(-8, 0));
+                DrawVramBackgroundTile(0x1f, 0x84, position);
+            }
+            return;
+        }
+
         if (display.ExtraMode == 1)
         {
             int amount = _inventory.BcdAmountForInventoryDisplay(display.TreasureId);
@@ -921,8 +1164,8 @@ public partial class InventoryScreen : Node2D
             }
             else
             {
-                DrawVramBackgroundTile(0, tens, 0x07, position);
-                DrawVramBackgroundTile(0, ones, 0x07, position + new Vector2(8, 0));
+                DrawVramBackgroundTile(tens, 0x07, position);
+                DrawVramBackgroundTile(ones, 0x07, position + new Vector2(8, 0));
             }
             return;
         }
@@ -939,8 +1182,8 @@ public partial class InventoryScreen : Node2D
         }
         else
         {
-            DrawVramBackgroundTile(0, 0x1a, 0x07, position);
-            DrawVramBackgroundTile(0, 0x10 + (level & 0x0f), 0x07,
+            DrawVramBackgroundTile(0x1a, 0x07, position);
+            DrawVramBackgroundTile(0x10 + (level & 0x0f), 0x07,
                 position + new Vector2(8, 0));
         }
     }
@@ -1025,8 +1268,13 @@ public partial class InventoryScreen : Node2D
         }
     }
 
-    private void DrawVramBackgroundTile(int bank, int tile, int flags, Vector2 position)
+    private void DrawVramBackgroundTile(
+        int tile,
+        int flags,
+        Vector2 position,
+        bool priorityOnly = false)
     {
+        int bank = (flags & 0x08) != 0 ? 1 : 0;
         bool flipX = (flags & 0x20) != 0;
         bool flipY = (flags & 0x40) != 0;
         int palette = flags & 7;
@@ -1036,18 +1284,32 @@ public partial class InventoryScreen : Node2D
             if (!TryGetVramPixel(bank, tile, flipX ? 7 - x : x, flipY ? 7 - y : y,
                 out Color pixel, out bool spriteEncoding))
                 continue;
-            DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
-                _bgPalette[palette, PaletteShade(pixel, spriteEncoding)]);
+            int shade = PaletteShade(pixel, spriteEncoding);
+            if (!priorityOnly || shade != 0)
+            {
+                DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
+                    _bgPalette[palette, shade]);
+            }
         }
     }
 
-    private void DrawHudBackgroundTile(int tile, Vector2 position)
+    private void DrawHudBackgroundTile(
+        int tile,
+        Vector2 position,
+        bool priorityOnly = false)
     {
         for (int y = 0; y < 8; y++)
         for (int x = 0; x < 8; x++)
         {
-            DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
-                HudBackgroundTileColor(tile, x, y));
+            Color color = HudBackgroundTileColor(tile, x, y);
+            int shade = TwoBitShade(_hudTiles.GetPixel(
+                tile % (_hudTiles.GetWidth() / 8) * 8 + x,
+                tile / (_hudTiles.GetWidth() / 8) * 8 + y));
+            if (!priorityOnly || shade != 0)
+            {
+                DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
+                    color);
+            }
         }
     }
 

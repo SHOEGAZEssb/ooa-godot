@@ -154,6 +154,40 @@ Do not infer the context from Link's eventual position after entities have
 already been parsed. Pass it from the transition/load operation that owns the
 entry.
 
+## Harp and time portals
+
+`HarpController` owns playable `ITEM_HARP`, not the scripted teaching
+performance in room `3:ae`. It reads the imported 260-update song contract and
+full `LINK_ANIM_MODE_HARP_2` sequence, requests the selected tune sound once,
+and creates a floating note every 32 updates on the side selected by the live
+animation parameter. Each note consumes exactly one game-wide RNG value for
+its horizontal drift; note sway and the 70-update lifetime remain local effect
+state.
+
+During playback the source `wDisabledObjects=$7e` mask freezes ordinary room
+objects. `GameRoot` advances only the global frame, the Harp effect, and
+`TimePortal` observers; destination preloading, contacts, enemies, and other
+interactions do not update. At the song boundary, prohibited tileset bits
+`$7e`, a missing Echoes spot, or present-era Currents open imported TX `$5110`.
+Currents in the past and Ages in either era enter the normal time-warp
+controller.
+
+Ordinary `INTERAC_TIMEPORTAL_SPAWNER $e1:$00` records must be emitted in room
+object order even while invisible. Tune of Echoes sets room flag `$02`, waits
+for `wLinkPlayingInstrument` to clear, requests `SNDCTRL_STOP_SFX` and
+`SND_TELEPORT`, then exposes the portal. Its contact transition is the same
+placed-portal path already used by active subtypes.
+
+Direct song warps create `INTERAC_TIMEPORTAL $de:$00` at Link's packed
+destination position. The temporary portal uses common sprite tile base
+`$4a`, palette 1, an alternating palette cycle, and combined collision radius
+9. It first requires Link to leave its contact area, then clears the saved
+portal marker and returns through the paired time-warp transition. Ordinary
+room parsing recreates it from the saved group, room, and position, so its
+lifetime is not an event-local boolean. The imported entry and return
+replacement dictionaries clear the exact source breakable metatiles under
+direct arrivals, saved portals, and portal returns.
+
 ## Maple encounters
 
 `checkAndSpawnMaple` runs before the room enemy/item pointer. In one of the 119

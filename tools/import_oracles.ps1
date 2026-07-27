@@ -108,7 +108,7 @@ $stageContracts = @(
             'mainObjectLines', 'mainObjectSource', 'nayruCutsceneSource',
             'nayruScriptSource', 'npcAnimationTables', 'npcRows',
             'paletteDataSource', 'paletteHeaderSource', 'treasureObjectRecords',
-            'treasureObjectSource') `
+            'treasureObjectSource', 'soundIds', 'treasureIds') `
         -functionInputs @(
             'Export-PaletteBlock', 'Read-PaletteBytes', 'Resolve-NpcAnimation')
     New-ImportStageContract 'enemies' 'Import-EnemyData.ps1' `
