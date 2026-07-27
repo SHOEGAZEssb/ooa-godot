@@ -305,6 +305,11 @@ remains the single runtime policy table.
   `1:75` includes both mutually exclusive Black Tower hardhat phases with
   exact `getBlackTowerProgress` predicates and text. Room `1:86` includes its
   entrance guard's essence/room-flag phases, dialogue, facing, and movement.
+- Nayru's house `3:9e` includes all nine visible Impa story variants, Nayru,
+  Zelda, Zelda's saved-Nayru dialogue change, Impa's immediate and
+  passage-conversation-only facing modes, the concealed logical `$45`
+  staircase to `3:9f`, and the source-final `$dc:$08` watcher that persists
+  the `$31/$32` passage tiles through room flag `$80`.
 - Past room `1:45`'s `$43:$01` villager and its room `1:68` `$43:$02`
   counterpart use their complete eight-state `getGameProgress_2`
   visibility/dialogue table, including palette `$03` and TX

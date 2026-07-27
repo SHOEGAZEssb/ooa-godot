@@ -388,7 +388,7 @@ public sealed class OracleRoomData
         {
             return mappingOverride[quarter];
         }
-        return _mappings[Layout[index] * 8 + quarter];
+        return _mappings[GetRenderedMetatile(index) * 8 + quarter];
     }
 
     internal byte GetBackgroundAttributeForValidation(int tileX, int tileY)
@@ -406,7 +406,7 @@ public sealed class OracleRoomData
         {
             return mappingOverride[4 + quarter];
         }
-        return _mappings[Layout[index] * 8 + 4 + quarter];
+        return _mappings[GetRenderedMetatile(index) * 8 + 4 + quarter];
     }
 
     internal bool HasAnimationOverride(int destinationTile, long tick)

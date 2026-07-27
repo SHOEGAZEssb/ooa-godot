@@ -47,6 +47,7 @@ internal sealed class RoomEntityFactory(
     private readonly Room148PickaxeDatabase _room148 = new();
     private readonly Room149FamilyDatabase _room149 = new();
     private readonly Room20eNpcDatabase _room20e = new();
+    private readonly NayruHouseDatabase _nayruHouse = new();
     private readonly VasuShopDatabase _vasuShop = new();
     private readonly LynnaShopDatabase _lynnaShop = new();
     private readonly BlackTowerWorkerDatabase _blackTower = new();
@@ -225,13 +226,18 @@ internal sealed class RoomEntityFactory(
 
         if (saveData is not null)
         {
-            foreach (RoomTileChangeWatcherDatabaseRecord record in
-                _tileChangeWatchers.GetRoomRecords(group, room.Id))
+            // Room 3:9e places its watcher after Impa, Nayru, and Zelda.
+            // CreateNayruHouseNpcs emits it at that exact source position.
+            if (group != _nayruHouse.Record.Group ||
+                room.Id != _nayruHouse.Record.Room)
             {
-                yield return new RoomTileChangeWatcherRoomEntity(
-                    record, room, saveData);
+                foreach (RoomTileChangeWatcherDatabaseRecord record in
+                    _tileChangeWatchers.GetRoomRecords(group, room.Id))
+                {
+                    yield return new RoomTileChangeWatcherRoomEntity(
+                        record, room, saveData);
+                }
             }
-
         }
 
         // ENEMY_SEEDS_ON_TREE is a main object. In room 0:78 it precedes the
@@ -269,6 +275,15 @@ internal sealed class RoomEntityFactory(
         {
             foreach (IRoomEntity entity in CreateRoom149Family(roomNpcs))
                 yield return entity;
+        }
+        else if (group == _nayruHouse.Record.Group &&
+            room.Id == _nayruHouse.Record.Room)
+        {
+            foreach (IRoomEntity entity in
+                CreateNayruHouseNpcs(room, roomNpcs))
+            {
+                yield return entity;
+            }
         }
         else if (group == _lynnaShop.Group && room.Id == _lynnaShop.Room)
         {
@@ -1133,6 +1148,78 @@ internal sealed class RoomEntityFactory(
             $"{NpcSource(record)} is classified specialized-native but has " +
             "no native room-entity dispatch.");
     }
+
+    private IEnumerable<IRoomEntity> CreateNayruHouseNpcs(
+        OracleRoomData room,
+        IReadOnlyList<NpcRecord> roomNpcs)
+    {
+        List<NpcRecord> impas = new();
+        NpcRecord? nayru = null;
+        NpcRecord? zelda = null;
+        foreach (NpcRecord record in roomNpcs)
+        {
+            RequireNpcImplementation(
+                record, NpcImplementationClassification.SpecializedNative);
+            if (!_nayruHouse.Matches(record))
+            {
+                throw new InvalidOperationException(
+                    $"{NpcSource(record)} is not part of room 3:9e's " +
+                    "imported native interaction set.");
+            }
+            if (record is { Id: 0x4f, SubId: 0x00 })
+                impas.Add(record);
+            else if (record is { Id: 0x36, SubId: 0x0b })
+                nayru = record;
+            else if (record is { Id: 0xad, SubId: 0x07 })
+                zelda = record;
+        }
+
+        int[] expectedImpaVariants =
+            [0x00, 0x01, 0x02, 0x05, 0x09, 0x0a, 0x0b, 0x0d, 0x0e];
+        impas.Sort(static (left, right) => left.Var03.CompareTo(right.Var03));
+        if (impas.Count != expectedImpaVariants.Length ||
+            nayru is null ||
+            zelda is null)
+        {
+            throw new InvalidOperationException(
+                "Room 3:9e requires nine Impa states, Nayru $36:$0b, and " +
+                "Zelda $ad:$07.");
+        }
+        for (int index = 0; index < expectedImpaVariants.Length; index++)
+        {
+            if (impas[index].Var03 != expectedImpaVariants[index])
+            {
+                throw new InvalidOperationException(
+                    $"Room 3:9e Impa variant {index} should be " +
+                    $"${expectedImpaVariants[index]:x2}, got " +
+                    $"${impas[index].Var03:x2}.");
+            }
+            yield return CreateNayruHouseNpc(impas[index], room);
+        }
+        yield return CreateNayruHouseNpc(nayru.Value, room);
+        yield return CreateNayruHouseNpc(zelda.Value, room);
+
+        if (saveData is null)
+            yield break;
+        IReadOnlyList<RoomTileChangeWatcherDatabaseRecord> watchers =
+            _tileChangeWatchers.GetRoomRecords(
+                _nayruHouse.Record.Group, _nayruHouse.Record.Room);
+        if (watchers is not [{ Order: 3 }])
+        {
+            throw new InvalidOperationException(
+                "Room 3:9e requires one source-order-3 tile-change watcher.");
+        }
+        yield return new RoomTileChangeWatcherRoomEntity(
+            watchers[0], room, saveData);
+    }
+
+    private NayruHouseNpcRoomEntity CreateNayruHouseNpc(
+        NpcRecord record,
+        OracleRoomData room) => new(
+            CreateNpcCharacter(record),
+            _nayruHouse,
+            room,
+            animationTick);
 
     private static NpcCharacter CreateNpcCharacter(NpcRecord record)
     {

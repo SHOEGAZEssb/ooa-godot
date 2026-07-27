@@ -14,6 +14,7 @@ internal static class NpcStoryState
     {
         "game-progress-1" => NpcStoryStateKind.GameProgress1,
         "game-progress-2" => NpcStoryStateKind.GameProgress2,
+        "global-flag" => NpcStoryStateKind.GlobalFlag,
         "current-room-flag" => NpcStoryStateKind.CurrentRoomFlag,
         _ => throw new InvalidOperationException(
             $"Unknown NPC {context} state kind '{value}'.")
@@ -27,6 +28,9 @@ internal static class NpcStoryState
     {
         NpcStoryStateKind.GameProgress1 => GetGameProgress1(save),
         NpcStoryStateKind.GameProgress2 => GetGameProgress2(save),
+        NpcStoryStateKind.GlobalFlag => save.HasGlobalFlag(comparisonValue)
+            ? comparisonValue
+            : 0,
         NpcStoryStateKind.CurrentRoomFlag => save.HasRoomFlag(
             npc.Group, npc.Room, (byte)comparisonValue) ? comparisonValue : 0,
         _ => throw new InvalidOperationException($"Unhandled NPC story state {kind}.")
@@ -88,5 +92,6 @@ internal enum NpcStoryStateKind
 {
     GameProgress1,
     GameProgress2,
+    GlobalFlag,
     CurrentRoomFlag
 }

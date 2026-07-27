@@ -221,10 +221,10 @@ public sealed partial class ValidationRoot
         var expectedCounts =
             new Dictionary<NpcImplementationClassification, int>
             {
-                [NpcImplementationClassification.OrdinaryGeneric] = 60,
-                [NpcImplementationClassification.SpecializedNative] = 111,
+                [NpcImplementationClassification.OrdinaryGeneric] = 51,
+                [NpcImplementationClassification.SpecializedNative] = 122,
                 [NpcImplementationClassification.EventOwned] = 14,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 275
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 273
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -238,7 +238,7 @@ public sealed partial class ValidationRoot
         {
             throw new InvalidOperationException(
                 "The generated NPC implementation manifest did not retain " +
-                "60 ordinary, 111 specialized, 14 event-owned, and 275 " +
+                "51 ordinary, 122 specialized, 14 event-owned, and 273 " +
                 $"unsupported records (total={records.Count}; " +
                 $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
         }
@@ -3541,11 +3541,11 @@ public sealed partial class ValidationRoot
         var manager = new RoomEntityManager(
             validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
 
-        if (new NpcVisibilityRuleDatabase().RuleCount != 339 ||
-            new NpcDialogueRuleDatabase().RuleCount != 116 ||
+        if (new NpcVisibilityRuleDatabase().RuleCount != 341 ||
+            new NpcDialogueRuleDatabase().RuleCount != 117 ||
             new NpcPositionRuleDatabase().RuleCount != 2)
             throw new InvalidOperationException(
-                "Expected 339 NPC visibility, 116 NPC dialogue, and two NPC " +
+                "Expected 341 NPC visibility, 117 NPC dialogue, and two NPC " +
                 "position state predicates.");
 
         manager.LoadRoom(1, _world.LoadRoom(1, 0x86));
@@ -4073,61 +4073,6 @@ public sealed partial class ValidationRoot
             }
         }
 
-        manager.LoadRoom(3, _world.LoadRoom(3, 0x9e));
-        List<NpcCharacter> nayruHouseActors = manager.Entities<NpcCharacter>()
-            .Where(npc => npc.Record.Id == 0x4f).ToList();
-        List<NpcCharacter> activeHouseActors = nayruHouseActors.Where(npc => npc.Active).ToList();
-        if (manager.Entities<NpcCharacter>().Count != 9 ||
-            nayruHouseActors.Count != 9 || activeHouseActors.Count != 1 ||
-            activeHouseActors[0].Record.Id != 0x4f ||
-            activeHouseActors[0].Record.SubId != 0x00 ||
-            activeHouseActors[0].Record.Var03 != 0x00 ||
-            activeHouseActors[0].Position != new Vector2(0x38, 0x38) ||
-            activeHouseActors[0].TextId != 0x0120 ||
-            string.IsNullOrEmpty(activeHouseActors[0].Message))
-        {
-            throw new InvalidOperationException(
-                "Immediate-post-intro room 3:9e did not contain only talkable Impa $4f:$00 state $00 at $38,$38.");
-        }
-
-        save.SetRoomFlag(0, 0x83, OracleSaveData.RoomFlag80);
-        NpcCharacter? passageImpa = nayruHouseActors.Find(npc =>
-            npc.Record.Id == 0x4f && npc.Record.Var03 == 0x01);
-        if (passageImpa is not { Active: true } ||
-            nayruHouseActors.Count(npc => npc.Active) != 1 ||
-            passageImpa.Position != new Vector2(0x28, 0x48) ||
-            passageImpa.TextId != 0x0121)
-        {
-            throw new InvalidOperationException(
-                "Opening D2's passage did not live-swap Nayru's-house Impa to state $01 and TX_0121.");
-        }
-
-        SetTreasure(TreasureDatabase.TreasureHarp, value: true);
-        NpcCharacter? harpImpa = nayruHouseActors.Find(npc =>
-            npc.Record.Id == 0x4f && npc.Record.Var03 == 0x02);
-        if (harpImpa is not { Active: true } || nayruHouseActors.Count(npc => npc.Active) != 1 ||
-            harpImpa.Position != new Vector2(0x68, 0x28) || harpImpa.TextId != 0x0122)
-        {
-            throw new InvalidOperationException(
-                "Obtaining the harp did not live-swap Nayru's-house Impa to state $02 and TX_0122.");
-        }
-
-        save.SetLinkedGame(linked: true);
-        NpcCharacter? linkedD3Impa = nayruHouseActors.Find(npc =>
-            npc.Record.Id == 0x4f && npc.Record.Var03 == 0x0b);
-        if (linkedD3Impa is not { Active: true } || nayruHouseActors.Count(npc => npc.Active) != 1)
-            throw new InvalidOperationException(
-                "Linked-game state did not select Nayru's-house Impa behavior $0b before D3.");
-        if (save.WriteWramByte(0xc6bf, 0x04))
-            save.CommitInventoryChange();
-        if (nayruHouseActors.Any(npc => npc.Active))
-            throw new InvalidOperationException(
-                "D3 essence bit 2 did not delete linked Nayru's-house Impa state $0c.");
-
-        save.SetLinkedGame(linked: false);
-        if (save.WriteWramByte(0xc6bf, 0))
-            save.CommitInventoryChange();
-
         manager.Clear();
         RemoveChild(validationRoot);
         validationRoot.QueueFree();
@@ -4135,9 +4080,8 @@ public sealed partial class ValidationRoot
             "$20-frame animation loops, rooms 2:ea/2:eb's 72-record family spawner, " +
             "Bipin $28:$00's SPEED_100 X=$28/$58 patrol, $04/$05 animation reversal, " +
             "and moving objectPreventLinkFromPassing collision, " +
-            "339 imported visibility, 116 dialogue, and two position predicates, " +
-            "room 0:68's phased talkable cast, room 3:9e's post-intro Impa " +
-            "var03 selection, lifecycle-safe event hiding, and deliberate " +
+            "341 imported visibility, 117 dialogue, and two position predicates, " +
+            "room 0:68's phased talkable cast, lifecycle-safe event hiding, and deliberate " +
             "suppression of unsupported native handlers.");
     }
 

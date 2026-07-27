@@ -556,6 +556,11 @@ $dc:$08`: that invisible entity snapshots its imported packed position and ORs
 its imported mask into the room flags when the tile changes. Room `0:48` watches
 position `$68` with mask `$02`; its matching `singleTileChanges.s` row restores
 `$3a` on re-entry and after save reload. Unwatched `$ce` tiles remain transient.
+Room `3:9e` also demonstrates a native layout-only write: Impa replaces logical
+position `$22` with staircase `$45` while preserving the rendered `$e5`
+metatile. Use a position visual override for such direct `wRoomLayout` writes;
+collision, warp lookup, and gameplay read the replacement, while rendering and
+background-mapping inspection read the preserved visual.
 Enemy adapters share their accepted hit/death path with the seed
 capability; the projectile disables its collision after the first accepted hit
 and changes to the flame state. Enemy contact mirrors `COLLISIONEFFECT_BURN`

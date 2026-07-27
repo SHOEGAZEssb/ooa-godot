@@ -550,6 +550,10 @@ $room158ImpaSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\impaNpc.s')
 $room158NayruSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\nayru.s')
+$room39eZeldaSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\zelda.s')
+$room39eNpcScriptSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scripts.s')
 if ($room158HoboSource -notmatch '(?ms)^@subid4:.*?getGameProgress_2.*?cp \$03\s+jp z,interactionDelete.*?cp \$06.*?ld bc,\$5878.*?pastHoboScriptTable' -or
     $room158ImpaSource -notmatch '(?ms)^impaNpc_subid02:.*?getImpaNpcState.*?cp \$08\s+jp nz,interactionDelete\s+ld a,<TX_012f.*?impaNpc_runScriptAndFaceLink' -or
     $room158ImpaSource -notmatch '(?ms)^impaNpc_setTextIndexAndLoadGenericNpcScript:.*?Interaction\.var38.*?ld a,\$02.*?mainScripts\.genericNpcScript' -or
@@ -559,8 +563,23 @@ if ($room158HoboSource -notmatch '(?ms)^@subid4:.*?getGameProgress_2.*?cp \$03\s
     -not $allTexts.ContainsKey(0x1d17)) {
     throw 'Room 1:58 hobo, Impa, or Nayru initialization changed in the disassembly.'
 }
+if ($room158ImpaSource -notmatch '(?ms)^impaNpc_subid00:.*?^@state1:.*?interactionRunScript.*?Interaction\.var03.*?dec a\s+jr z,@animate\s+cp \$09\s+call nz,impaNpc_faceLinkIfClose.*?^@state0:.*?wRoomLayout\+\$22\s+ld \(hl\),TILEINDEX_INDOOR_DOWNSTAIRCASE.*?getImpaNpcState' -or
+    $room158ImpaSource -notmatch '(?ms)^impaNpc_determineTextAndPositionInHouse:.*?@val00:.*?@val09:.*?ld bc,\$3838.*?<TX_0120.*?@val01:.*?@val0a:.*?ld bc,\$4828.*?<TX_0121.*?impaNpcScript_lookingAtPassage.*?@val02:.*?@val0b:.*?ld bc,\$2868.*?<TX_0122.*?@val0d:.*?ld bc,\$2868.*?<TX_012c.*?@val05:.*?@val0e:.*?ld bc,\$2868.*?<TX_0123' -or
+    $room158ImpaSource -notmatch '(?ms)^@val01:\s*^@val0a:.*?ld a,<TX_0121\s+call @setTextAndPosition\s+ld \(de\),a.*?^@setTextAndPosition:.*?ld e,Interaction\.var38\s+ld a,\$02\s+ld \(de\),a.*?xor a\s+ret' -or
+    $room158ImpaSource -notmatch '(?ms)^impaNpc_faceLinkIfClose:.*?ld c,\$28\s+call objectCheckLinkWithinDistance.*?objectGetAngleTowardEnemyTarget.*?^@noChange:.*?Interaction\.var38.*?^@updateDirection:.*?Interaction\.direction.*?interactionSetAnimation' -or
+    $room158NayruSource -notmatch '(?ms)^@init0b:.*?GLOBALFLAG_FINISHEDGAME.*?jp nz,interactionDelete.*?GLOBALFLAG_SAVED_NAYRU.*?jp z,interactionDelete.*?TREASURE_MAKU_SEED.*?jp c,interactionDelete.*?<TX_1d14.*?^@runGenericNpc:.*?mainScripts\.genericNpcScript' -or
+    $room39eZeldaSource -notmatch '(?ms)^@initSubid07:.*?GLOBALFLAG_GOT_RING_FROM_ZELDA.*?jp z,interactionDeleteAndUnmarkSolidPosition.*?TREASURE_MAKU_SEED.*?jp c,interactionDeleteAndUnmarkSolidPosition.*?GLOBALFLAG_SAVED_NAYRU.*?<TX_0606\s+jr nz,@actAsGenericNpc\s+ld a,<TX_0605.*?mainScripts\.genericNpcScript' -or
+    $room39eZeldaSource -notmatch '(?ms)^zelda_state1:.*?\.dw @faceLinkAndRunScript.*?^@faceLinkAndRunScript:.*?interactionRunScript.*?npcFaceLinkAndAnimate' -or
+    $room39eNpcScriptSource -notmatch '(?ms)^impaNpcScript_lookingAtPassage:.*?initcollisions.*?^@npcLoop:.*?checkabutton.*?turntofacelink.*?writeobjectbyte Interaction\.direction, \$ff.*?showloadedtext.*?setanimation \$00.*?scriptjump @npcLoop' -or
+    -not $allTexts.ContainsKey(0x1d14) -or
+    -not $allTexts.ContainsKey(0x0605) -or
+    -not $allTexts.ContainsKey(0x0606)) {
+    throw 'Room 3:9e Impa, Nayru, Zelda, or passage-script behavior changed in the disassembly.'
+}
 $npcTextBySubid['79:2'] = 0x012f
 $npcTextBySubid['54:13'] = 0x1d17
+$npcTextBySubid['54:11'] = 0x1d14
+$npcTextBySubid['173:7'] = 0x0605
 $npcTextBySubid['203:0'] = 0x4d05
 $npcTextBySubid['213:0'] = 0x4d1e
 $npcTextByVariant = @{
@@ -570,6 +589,8 @@ $npcTextByVariant = @{
 $npcCanFaceBySubid = @{
     '79:2' = $true
     '54:13' = $true
+    '54:11' = $true
+    '173:7' = $true
     '49:4' = $true
     '49:5' = $true
     '88:1' = $true
@@ -625,15 +646,6 @@ foreach ($key in @(
     '3:7e:bf:0a:00',
     '3:7f:bf:0b:00',
     '3:8e:bf:04:00',
-    '3:9e:4f:00:00',
-    '3:9e:4f:00:01',
-    '3:9e:4f:00:02',
-    '3:9e:4f:00:05',
-    '3:9e:4f:00:09',
-    '3:9e:4f:00:0a',
-    '3:9e:4f:00:0b',
-    '3:9e:4f:00:0d',
-    '3:9e:4f:00:0e',
     '3:ea:bf:00:00',
     '3:eb:bf:02:00',
     '3:ec:bf:02:00',
@@ -669,6 +681,17 @@ foreach ($key in @(
     '2:ee:89:06:00',
     '2:ee:e5:00:00',
     '2:ee:e5:01:00',
+    '3:9e:4f:00:00',
+    '3:9e:4f:00:01',
+    '3:9e:4f:00:02',
+    '3:9e:4f:00:05',
+    '3:9e:4f:00:09',
+    '3:9e:4f:00:0a',
+    '3:9e:4f:00:0b',
+    '3:9e:4f:00:0d',
+    '3:9e:4f:00:0e',
+    '3:9e:36:0b:00',
+    '3:9e:ad:07:00',
     '3:fb:ca:01:00',
     '3:fc:28:0a:00',
     '4:e0:3a:02:00',
@@ -718,8 +741,8 @@ foreach ($key in @(
     }
 }
 
-if ($ordinaryNpcImplementationKeys.Count -ne 59 -or
-    $specializedNpcImplementationKeys.Count -ne 39 -or
+if ($ordinaryNpcImplementationKeys.Count -ne 50 -or
+    $specializedNpcImplementationKeys.Count -ne 50 -or
     $eventOwnedNpcImplementationKeys.Count -ne 14) {
     throw 'NPC implementation registry key counts changed.'
 }
@@ -856,6 +879,9 @@ if ($mainObjectSource -notmatch '(?ms)^group1Map75ObjectData:\s+obj_Interaction 
 }
 if ($mainObjectSource -notmatch '(?ms)^group1Map86ObjectData:\s+obj_Interaction \$58 \$02 \$38 \$48\s+obj_Interaction \$dc \$07 \$28 \$78\s+obj_End') {
     throw 'Room 1:86 no longer contains ordered hardhat $58:$02 and heart-piece spawner $dc:$07 placements.'
+}
+if ($mainObjectSource -notmatch '(?ms)^group3Map9eObjectData:\s+obj_Interaction \$4f \$00\s+obj_Interaction \$36 \$0b \$28 \$58\s+obj_Interaction \$ad \$07 \$38 \$78\s+obj_Interaction \$dc \$08 \$32 \$80\s+obj_End') {
+    throw 'Room 3:9e no longer contains ordered Impa, Nayru, Zelda, and tile-change watcher placements.'
 }
 
 # PART_BUTTON $09, its trigger-chest consumers $20:$00/$21:$17, the
@@ -2570,16 +2596,17 @@ if (-not $impaUpOam -or -not $impaRightOam -or -not $impaDownOam -or -not $impaL
     throw 'Could not resolve Impa NPC''s four original facing animations.'
 }
 $impaHouseVariants = @(
-    # var03, y, x, text, faces Link while idle
-    @(0x00, 0x38, 0x38, 0x0120, $true),
-    @(0x01, 0x48, 0x28, 0x0121, $false),
-    @(0x02, 0x28, 0x68, 0x0122, $true),
-    @(0x05, 0x28, 0x68, 0x0123, $true),
-    @(0x09, 0x38, 0x38, 0x0120, $true),
-    @(0x0a, 0x48, 0x28, 0x0121, $false),
-    @(0x0b, 0x28, 0x68, 0x0122, $true),
-    @(0x0d, 0x28, 0x68, 0x012c, $true),
-    @(0x0e, 0x28, 0x68, 0x0123, $true)
+    # var03, y, x, text, initial animation. @val01/@val0a overwrite var38
+    # with @setTextAndPosition's zero return, so passage Impa starts facing up.
+    @(0x00, 0x38, 0x38, 0x0120, 0x02),
+    @(0x01, 0x48, 0x28, 0x0121, 0x00),
+    @(0x02, 0x28, 0x68, 0x0122, 0x02),
+    @(0x05, 0x28, 0x68, 0x0123, 0x02),
+    @(0x09, 0x38, 0x38, 0x0120, 0x02),
+    @(0x0a, 0x48, 0x28, 0x0121, 0x00),
+    @(0x0b, 0x28, 0x68, 0x0122, 0x02),
+    @(0x0d, 0x28, 0x68, 0x012c, 0x02),
+    @(0x0e, 0x28, 0x68, 0x0123, 0x02)
 )
 foreach ($variant in $impaHouseVariants) {
     $textId = [int]$variant[3]
@@ -2589,7 +2616,7 @@ foreach ($variant in $impaHouseVariants) {
     $encoded = [Convert]::ToBase64String(
         [Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
     $npcRows.Add(
-        "3`t9e`t4f`t00`t$(([int]$variant[1]).ToString('x2'))`t$(([int]$variant[2]).ToString('x2'))`t$(([int]$variant[0]).ToString('x2'))`t$($textId.ToString('x4'))`t$impaSpriteName`t$($impaGraphic.TileBase)`t$($impaGraphic.Palette)`t2`t$([int][bool]$variant[4])`t$impaUpOam`t$impaRightOam`t$impaDownOam`t$impaLeftOam`t$encoded`tordinary-generic")
+        "3`t9e`t4f`t00`t$(([int]$variant[1]).ToString('x2'))`t$(([int]$variant[2]).ToString('x2'))`t$(([int]$variant[0]).ToString('x2'))`t$($textId.ToString('x4'))`t$impaSpriteName`t$($impaGraphic.TileBase)`t$($impaGraphic.Palette)`t$(([int]$variant[4]).ToString('x2'))`t1`t$impaUpOam`t$impaRightOam`t$impaDownOam`t$impaLeftOam`t$encoded`tspecialized-native")
 }
 if ($npcRows.Count -ne 389) {
     throw "Expected 379 positioned and 9 state-derived NPC records, got $($npcRows.Count - 1)."
@@ -2600,10 +2627,10 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
     $npcImplementationCounts[$implementation] =
         1 + [int]$npcImplementationCounts[$implementation]
 }
-if ($npcImplementationCounts['ordinary-generic'] -ne 60 -or
-    $npcImplementationCounts['specialized-native'] -ne 39 -or
+if ($npcImplementationCounts['ordinary-generic'] -ne 51 -or
+    $npcImplementationCounts['specialized-native'] -ne 50 -or
     $npcImplementationCounts['event-owned'] -ne 14 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 275 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 273 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -2612,6 +2639,21 @@ foreach ($familyRow in $familyRows | Select-Object -Skip 1) {
         throw 'Every generated Bipin/Blossom family actor must be specialized-native.'
     }
 }
+
+# Impa's state 0 replaces only wRoomLayout+$22. The rendered metatile remains
+# the original hidden-floor graphic while collision/warp logic sees indoor
+# down-staircase $45.
+if ($tileIndexSource -notmatch '(?m)^\.define TILEINDEX_INDOOR_DOWNSTAIRCASE\s+\$45\b') {
+    throw 'TILEINDEX_INDOOR_DOWNSTAIRCASE is no longer $45.'
+}
+$nayruHouseRows = @(
+    "# group`troom`tinteraction-id`tsubid`tstair-position`tstair-tile`tpreserve-rendered`tsource",
+    "3`t9e`t4f`t00`t22`t45`t1`timpaNpc.s:impaNpc_subid00"
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\nayru_house.tsv'),
+    $nayruHouseRows,
+    [Text.UTF8Encoding]::new($false))
 
 # Ordinary NPC scripts can replace their dialogue without replacing the room
 # object. Export the complete getGameProgress_1-indexed tables used by Lynna's
@@ -2741,6 +2783,15 @@ Add-NpcGameProgress2DialogueTable 0x3b @(0x05) -1 'femaleVillager.s' '@subid5Scr
 Add-NpcGameProgress2DialogueTable 0x44 @(0x04) -1 'miscMan2.s' 'pastHoboScriptTable'
 Add-NpcGameProgress2DialogueTable 0x43 @(0x01, 0x02) -1 'pastGuy.s' '@subid1And2ScriptTable'
 
+# Zelda remains in Nayru's house across the rescue flag transition, changing
+# only from TX_0605 to TX_0606.
+$savedNayruFlag = $globalFlagValues['GLOBALFLAG_SAVED_NAYRU']
+$zeldaSavedNayruText = 0x0606
+$zeldaSavedNayruEncoded = [Convert]::ToBase64String(
+    [Text.Encoding]::UTF8.GetBytes($allTexts[$zeldaSavedNayruText]))
+$npcDialogueRows.Add(
+    "ad`t07`t*`tglobal-flag`t$($savedNayruFlag.ToString('x2'))`t*`t0606`tzelda.s:@initSubid07`t$zeldaSavedNayruEncoded")
+
 # hardhatWorkerSubid02Script checks room flag $80 before its A-button loop.
 # The initial TX_1003 remains in the base NPC row; only the completed phase
 # needs a state-selected replacement.
@@ -2753,8 +2804,8 @@ $hardhatCompletedEncoded = [Convert]::ToBase64String(
 $npcDialogueRows.Add(
     "58`t02`t*`tcurrent-room-flag`t80`t*`t1004`thardhatWorkerSubid02Script:@alreadySawCutscene`t$hardhatCompletedEncoded")
 
-if ($npcDialogueRows.Count -ne 117) {
-    throw "Expected 116 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
+if ($npcDialogueRows.Count -ne 118) {
+    throw "Expected 117 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\npc_dialogue.tsv'),
@@ -3469,6 +3520,8 @@ Add-NpcTreasureVisibility 0x4f 0x00 0x01 0 'TREASURE_HARP' $false 'impaNpc.s:get
 Add-ImpaStateBase 0x00 0x02 $true 0
 Add-NpcTreasureVisibility 0x4f 0x00 0x02 0 'TREASURE_HARP' $true 'impaNpc.s:getImpaNpcState'
 Add-NpcGlobalVisibility 0x4f 0x00 0x02 0 'GLOBALFLAG_SAVED_NAYRU' $false 'impaNpc.s:getImpaNpcState'
+Add-NpcGlobalVisibility 0x4f 0x00 0x02 0 'GLOBALFLAG_GOT_RING_FROM_ZELDA' $false 'impaNpc.s:getImpaNpcState'
+Add-NpcEssenceVisibility 0x4f 0x00 0x02 0 0x04 $false 'impaNpc.s:getImpaNpcState'
 Add-ImpaStateBase 0x00 0x05 $true 0
 Add-NpcTreasureVisibility 0x4f 0x00 0x05 0 'TREASURE_HARP' $true 'impaNpc.s:getImpaNpcState'
 Add-NpcGlobalVisibility 0x4f 0x00 0x05 0 'GLOBALFLAG_SAVED_NAYRU' $true 'impaNpc.s:getImpaNpcState'
@@ -3587,8 +3640,8 @@ Add-NpcCurrentRoomVisibility 0xab 0x12 -1 0 0x40 $false 'zora.s:@deleteIfFlagSet
 
 Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symmetryNpc.s:@subid0cInit'
 
-if ($npcVisibilityRows.Count -ne 340) {
-    throw "Expected 339 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 342) {
+    throw "Expected 341 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\npc_visibility.tsv'),

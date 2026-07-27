@@ -407,6 +407,41 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         AnimateAsNpcOneUpdate(player);
     }
 
+    /// <summary>
+    /// One update of impaNpc_faceLinkIfClose followed by
+    /// interactionAnimateAsNpc. Unlike npcFaceLinkAndAnimate, this helper has
+    /// no direction-change cooldown and falls back to animation $02 when Link
+    /// is at least $28 pixels away.
+    /// </summary>
+    internal void FaceLinkImmediatelyAndAnimateAsNpcOneUpdate(Player player)
+    {
+        if (!Active)
+            return;
+
+        Vector2 link = OracleObjectMath.ToPixelPosition(player.Position);
+        Vector2 target = OracleObjectMath.ToPixelPosition(Position);
+        Vector2 difference = link - target;
+        float differenceX = Mathf.Abs(difference.X);
+        float differenceY = Mathf.Abs(difference.Y);
+        NpcCharacterFacing desired =
+            differenceX + differenceY >= 0x28
+                ? NpcCharacterFacing.Down
+                : differenceX >= differenceY
+                    ? difference.X >= 0
+                        ? NpcCharacterFacing.Right
+                        : NpcCharacterFacing.Left
+                    : difference.Y >= 0
+                        ? NpcCharacterFacing.Down
+                        : NpcCharacterFacing.Up;
+        if (desired != _nativeNpcFacingAngle)
+        {
+            _nativeNpcFacingAngle = desired;
+            SetFacingAndRestartAnimation(desired);
+        }
+
+        AnimateAsNpcOneUpdate(player);
+    }
+
     internal void ResetNativeNpcFacingState()
     {
         // Interaction.angle and Interaction.invincibilityCounter both begin

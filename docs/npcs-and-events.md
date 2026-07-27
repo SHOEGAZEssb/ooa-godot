@@ -690,6 +690,33 @@ specialized runtime owner:
   three handlers owns native movement, shared signals, or a per-update state
   machine after initialization.
 
+Room `3:9e` is the corresponding specialized reference for an unpositioned
+story-selected NPC that also owns native room initialization:
+
+- Source order is Impa `$4f:$00`, Nayru `$36:$0b`, Zelda `$ad:$07`, then
+  `INTERAC_MISCELLANEOUS_2 $dc:$08`. The factory expands Impa's nine visible
+  `var03` alternatives in the first slot, emits Nayru and Zelda, and leaves the
+  watcher last.
+- `getImpaNpcState` selects the exact unlinked/linked `$00/$01/$02/$05` and
+  `$09/$0a/$0b/$0d/$0e` variants. State `$02/$0b` requires the harp, no
+  saved-Nayru flag, no Zelda-ring flag, and D3 essence bit `$04` clear; beating
+  D3 therefore deletes Impa rather than leaving the harp phase alive.
+- Impa's ordinary house phases run `impaNpc_faceLinkIfClose` every update:
+  nearby facing changes have no 30-update cooldown and distance `$28` restores
+  down animation `$02`. Passage phases `$01/$0a` start in up animation `$00`
+  and animate without idle facing, face Link only when conversation begins,
+  and restore animation `$00` when the text closes.
+- Impa state 0 writes `$45` to logical `wRoomLayout+$22` without redrawing the
+  original `$e5` floor. Collision and warp lookup therefore expose the
+  staircase to room `3:9f`, while the background remains concealed.
+- Nayru uses TX `$1d14` only after `GLOBALFLAG_SAVED_NAYRU` and before the Maku
+  Seed. Zelda requires `GLOBALFLAG_GOT_RING_FROM_ZELDA`, disappears after the
+  Maku Seed, and changes from TX `$0605` to `$0606` when Nayru is saved. Both
+  retain `npcFaceLinkAndAnimate`.
+- The final `$dc:$08` snapshots packed position `$32`; after that tile changes
+  it ORs current-room flag `$80` and deletes itself. The matching imported
+  single-tile changes restore `$31=$1c` and `$32=$a0` on re-entry.
+
 Room `1:75` demonstrates the boundary between ordinary predicates and a
 coordinated event in one object stream:
 

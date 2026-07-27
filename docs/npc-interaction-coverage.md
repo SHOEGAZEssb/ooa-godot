@@ -249,7 +249,7 @@ well as record selection. The ownership/consolidation work in
 | `3:8e` | [P] `$bf:$04/v$00` symmetryNpc |
 | `3:8f` | [D] `$9d:$00/v$00` tokkey |
 | `3:90` | [D] `$ba:$00/v$00` childJabu |
-| `3:9e` | [D] `$36:$0b/v$00` nayru<br>[D] `$ad:$07/v$00` zelda<br>[P] `$4f:$00/v$00` impaNpc<br>[P] `$4f:$00/v$01` impaNpc<br>[P] `$4f:$00/v$02` impaNpc<br>[P] `$4f:$00/v$05` impaNpc<br>[P] `$4f:$00/v$09` impaNpc<br>[P] `$4f:$00/v$0a` impaNpc<br>[P] `$4f:$00/v$0b` impaNpc<br>[P] `$4f:$00/v$0d` impaNpc<br>[P] `$4f:$00/v$0e` impaNpc |
+| `3:9e` | [I] `$36:$0b/v$00` nayru<br>[I] `$ad:$07/v$00` zelda<br>[I] `$4f:$00/v$00` impaNpc<br>[I] `$4f:$00/v$01` impaNpc<br>[I] `$4f:$00/v$02` impaNpc<br>[I] `$4f:$00/v$05` impaNpc<br>[I] `$4f:$00/v$09` impaNpc<br>[I] `$4f:$00/v$0a` impaNpc<br>[I] `$4f:$00/v$0b` impaNpc<br>[I] `$4f:$00/v$0d` impaNpc<br>[I] `$4f:$00/v$0e` impaNpc |
 | `3:a0` | [D] `$ab:$17/v$00` zora |
 | `3:b1` | [D] `$ab:$18/v$00` zora |
 | `3:be` | [D] `$94:$00/v$00` patch |
