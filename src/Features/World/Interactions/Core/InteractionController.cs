@@ -940,6 +940,14 @@ public sealed class InteractionController
         _groundTreasurePlayer = player;
         if (!string.IsNullOrEmpty(treasureObject.Message))
         {
+            if (treasure.Record.TextboxFlags != 0)
+            {
+                _dialogue.ShowGameplayMessageWithFlags(
+                    treasureObject.Message,
+                    _worldToScreen(player.Position).Y,
+                    treasure.Record.TextboxFlags);
+                return;
+            }
             _dialogue.ShowGameplayMessage(
                 treasureObject.Message,
                 _worldToScreen(player.Position).Y);

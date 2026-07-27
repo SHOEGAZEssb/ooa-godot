@@ -181,6 +181,21 @@ $introVanishFrames = @([regex]::Matches(
 if (-not $introVanishAnimation.Success -or $introVanishFrames.Count -ne 4) {
     throw 'Unexpected CUTSCENE_PREGAME_INTRO vanish animation $05.'
 }
+$harpAnimation = [regex]::Match(
+    $introAnimationSource,
+    '(?ms)^animationData19faa:\s*(?<body>.*?)(?=^animationData19fdd:)')
+$harpFrames = @([regex]::Matches(
+    $harpAnimation.Groups['body'].Value,
+    '\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<graphic>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})'))
+if (-not $harpAnimation.Success -or $harpFrames.Count -ne 17 -or
+    (($harpFrames | Select-Object -First 13 | ForEach-Object {
+        $_.Groups['duration'].Value
+    }) -join ',') -ne '14,14,0c,14,14,0c,14,14,0c,14,14,0c,14' -or
+    (($harpFrames | Select-Object -First 13 | ForEach-Object {
+        $_.Groups['graphic'].Value
+    }) -join ',') -ne '34,35,34,36,37,36,34,35,34,36,37,36,36') {
+    throw 'Unexpected LINK_ANIM_MODE_HARP_2 response animation $1e.'
+}
 function Read-IntroOscillation([string]$label) {
     $pattern = '(?m)^' + [regex]::Escape($label) +
         ':\s*\r?\n\s*\.db\s+(?<values>(?:\$[0-9a-f]{2}\s*){8})'
@@ -281,7 +296,7 @@ $specialGfxBlock = [regex]::Match(
     '(?ms)^specialObject08GfxPointers:(?<body>.*?)(?=^specialObject02GfxPointers:)')
 $specialGfxRows = @([regex]::Matches(
     $specialGfxBlock.Groups['body'].Value,
-    'm_SpecialObjectGfxPointer\s+\$(?<oam>[0-9a-f]{2})\s+spr_link\s+\$(?<source>[0-9a-f]{4})\s+\$[0-9a-f]{2}'))
+    'm_SpecialObjectGfxPointer\s+\$(?<oam>[0-9a-f]{2})\s+spr_link\s+\$(?<source>[0-9a-f]{4})\s+\$(?<size>[0-9a-f]{2})'))
 $specialOamPointerBlock = [regex]::Match(
     $introAnimationSource,
     '(?ms)^specialObject08OamDataPointers:\s*(?:^specialObject09OamDataPointers:\s*)?(?<body>.*?)(?=^specialObject0aOamDataPointers:)')
@@ -296,21 +311,58 @@ if (-not $specialGfxBlock.Success -or $specialGfxRows.Count -lt 0xef -or
 
 $introSpriteRows = [Collections.Generic.List[string]]::new()
 $introSpriteRows.Add('# kind`tindex`tduration`tsource-offset`tbase-palette`toam-parts')
-function Add-LinkIntroSpriteRows([string]$kind, $durations, $graphics) {
+function Add-LinkIntroSpriteRows(
+    [string]$kind,
+    $durations,
+    $graphics,
+    [bool]$retainPartialGraphics = $false) {
+    $vramTiles = [int[]]::new(0x100)
+    for ($tile = 0; $tile -lt $vramTiles.Length; $tile++) {
+        $vramTiles[$tile] = -1
+    }
     for ($frame = 0; $frame -lt $graphics.Count; $frame++) {
         $graphic = [Convert]::ToInt32($graphics[$frame], 16)
         $gfx = $specialGfxRows[$graphic]
         $oamIndex = [Convert]::ToInt32($gfx.Groups['oam'].Value, 16)
         $parts = Read-IntroOamParts $specialOamSource $specialOamLabels[$oamIndex]
+        $sourceOffset = $gfx.Groups['source'].Value
+        if ($retainPartialGraphics) {
+            $sourceTile = [Convert]::ToInt32($sourceOffset, 16) / 16
+            $loadedTileCount = [Convert]::ToInt32(
+                $gfx.Groups['size'].Value, 16)
+            for ($tile = 0; $tile -lt $loadedTileCount; $tile++) {
+                $vramTiles[$tile] = $sourceTile + $tile
+            }
+            $parts = (@($parts -split ';' | ForEach-Object {
+                $fields = $_ -split ','
+                if ($fields.Count -ne 4) {
+                    throw "Malformed $kind OAM block: $_"
+                }
+                $vramTile = [Convert]::ToInt32($fields[2], 16) -band 0xfe
+                if ($vramTile -ge 0xff -or
+                    $vramTiles[$vramTile] -lt 0 -or
+                    $vramTiles[$vramTile + 1] -ne
+                        $vramTiles[$vramTile] + 1) {
+                    throw "$kind frame $frame graphic `$$($graphic.ToString('x2')) references unresolved VRAM tile `$$($vramTile.ToString('x2'))."
+                }
+                "$($fields[0]),$($fields[1]),$($vramTiles[$vramTile].ToString('x2')),$($fields[3])"
+            }) -join ';')
+            $sourceOffset = '0000'
+        }
         $duration = [Convert]::ToInt32($durations[$frame], 16)
         $introSpriteRows.Add(
-            "$kind`t$frame`t$duration`t$($gfx.Groups['source'].Value)`t0`t$parts")
+            "$kind`t$frame`t$duration`t$sourceOffset`t0`t$parts")
     }
 }
 $spinDurations = @(0..($introSpinGraphics.Count - 1) | ForEach-Object { '04' })
 Add-LinkIntroSpriteRows 'link-spin' $spinDurations $introSpinGraphics
 Add-LinkIntroSpriteRows 'link-vanish' $introVanishDurations $introVanishGraphics
 Add-LinkIntroSpriteRows 'link-arrival' $introArrivalDurations $introArrivalGraphics
+$harpDurations = @($harpFrames | Select-Object -First 13 |
+    ForEach-Object { $_.Groups['duration'].Value })
+$harpGraphics = @($harpFrames | Select-Object -First 13 |
+    ForEach-Object { $_.Groups['graphic'].Value })
+Add-LinkIntroSpriteRows 'link-harp' $harpDurations $harpGraphics $true
 
 $sparkleSubids = [regex]::Match(
     $interactionDataSource,
@@ -385,8 +437,8 @@ function Add-SparkleIntroSpriteRows([string]$kind, [int]$subid) {
 }
 Add-SparkleIntroSpriteRows 'orb-descend' 0x0d
 Add-SparkleIntroSpriteRows 'orb-vanish' 0x06
-if ($introSpriteRows.Count -ne 22) {
-    throw "Expected 21 new-game intro sprite frames, exported $($introSpriteRows.Count - 1)."
+if ($introSpriteRows.Count -ne 35) {
+    throw "Expected 34 shared Link/intro sprite frames, exported $($introSpriteRows.Count - 1)."
 }
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'cutscenes\new_game_intro_sprites.tsv'),

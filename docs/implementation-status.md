@@ -310,6 +310,13 @@ remains the single runtime policy table.
   passage-conversation-only facing modes, the concealed logical `$45`
   staircase to `3:9f`, and the source-final `$dc:$08` watcher that persists
   the `$31/$32` passage tiles through room flag `$80`.
+- The Harp chamber `3:ae` implements
+  `INTERAC_HARP_OF_AGES_SPAWNER $b3:$00`: the room-item predicate, static
+  Harp and attached `$84:$0c` sparkle, pickup dialogue, native black
+  fade/hold/Nayru flicker wrapper, complete typed `nayruScript07`, Nayru's
+  two-sheet idle and Tune of Echoes animations, music-note effects, Link's
+  exact four-part Harp response, the two-hand Tune of Echoes reward, room
+  music/input/HUD restoration, and the final delayed white fade.
 - Past room `1:45`'s `$43:$01` villager and its room `1:68` `$43:$02`
   counterpart use their complete eight-state `getGameProgress_2`
   visibility/dialogue table, including palette `$03` and TX
@@ -576,9 +583,10 @@ remains the single runtime policy table.
   companions), swimming/diving, terrain-specific Link states, and complete
   low-health warning behavior. The Feather's side-view level-1 launch is
   active; its top-down behavior and level-2 Roc's Cape continuation remain
-  deferred. Harp playback and Tune of Echoes portal activation remain
-  deferred; ordinary `$e1:$00` time portals stay inactive without a fresh tune
-  instead of using the former debug auto-activation.
+  deferred. Player-initiated Harp playback and Tune of Echoes portal
+  activation remain deferred; room `3:ae`'s scripted teaching performance is
+  implemented. Ordinary `$e1:$00` time portals stay inactive without a fresh
+  tune instead of using the former debug auto-activation.
 - Aquatic, lava, and ice side-view Link handlers plus moving, conveyor,
   circular, and disappearing side-scroll platforms remain deferred. Dry
   passage gravity, ladders, Feather launch, and edge warps are implemented.

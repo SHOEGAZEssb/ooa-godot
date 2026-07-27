@@ -161,6 +161,11 @@ public partial class Player : Node2D
     private int _newGameFallZFixed;
     private int _newGameFallSpeedZ;
     private bool _newGameSlowFalling;
+    private CutsceneSpriteRenderer? _harpRenderer;
+    private IntroSpriteFrame[]? _harpFrames;
+    private int _harpFrame;
+    private int _harpFrameTicks;
+    private bool _harpPoseActive;
     private int _floorDoorRespawnCounter;
     private int _floorDoorRecoveryCounter;
 
@@ -269,6 +274,8 @@ public partial class Player : Node2D
     internal Vector2 LocalRespawnPosition => _lastSafePosition;
     internal int NewGameSlowFallFrame => _newGameFallFrame;
     internal int NewGameSlowFallZ => _newGameFallZFixed >> 8;
+    internal bool HarpPoseActive => _harpPoseActive;
+    internal int HarpPoseFrame => _harpFrame;
     internal bool IsHoldingItemOneHand => _getItemOneHandPose;
     internal bool IsHoldingItemTwoHands => _getItemTwoHandPose;
     internal bool IsCarryingObject => _carriedObjectPose;
@@ -376,6 +383,7 @@ public partial class Player : Node2D
             CancelSwordAttack();
         CancelShovelAction();
         EndNewGameSlowFall();
+        EndHarpPose();
         _drownTime = 0.0f;
         _drownInvisibleTime = 0.0f;
         _hazardRecoveryTime = 0.0f;
@@ -464,6 +472,53 @@ public partial class Player : Node2D
         _newGameFallFrameTicks = 0;
         _newGameFallZFixed = 0;
         _newGameFallSpeedZ = 0;
+        QueueRedraw();
+    }
+
+    /// <summary>
+    /// Selects LINK_ANIM_MODE_HARP_2 ($1e). The imported frames include the
+    /// first frame entered after the fourth 52-update phrase, which remains
+    /// visible until INTERAC_PLAY_HARP_SONG reaches state 6 on the next update.
+    /// </summary>
+    internal void BeginHarpPose()
+    {
+        _harpRenderer ??= new CutsceneSpriteRenderer();
+        _harpFrames ??= new NewGameIntroDatabase().SpriteFrames("link-harp");
+        if (_harpFrames.Length != 13)
+        {
+            throw new InvalidOperationException(
+                "Expected thirteen LINK_ANIM_MODE_HARP_2 presentation frames.");
+        }
+
+        _harpFrame = 0;
+        _harpFrameTicks = _harpFrames[0].Duration;
+        _harpPoseActive = true;
+        _walking = false;
+        _pushing = false;
+        QueueRedraw();
+    }
+
+    internal void AdvanceHarpPose()
+    {
+        if (!_harpPoseActive || _harpFrames is null)
+            return;
+
+        _harpFrameTicks--;
+        if (_harpFrameTicks > 0)
+            return;
+        if (_harpFrame + 1 < _harpFrames.Length)
+            _harpFrame++;
+        _harpFrameTicks = _harpFrames[_harpFrame].Duration;
+        QueueRedraw();
+    }
+
+    internal void EndHarpPose()
+    {
+        if (!_harpPoseActive)
+            return;
+        _harpPoseActive = false;
+        _harpFrame = 0;
+        _harpFrameTicks = 0;
         QueueRedraw();
     }
 
@@ -1520,6 +1575,14 @@ public partial class Player : Node2D
                 this,
                 _newGameFallFrames[_newGameFallFrame],
                 _newGameFallZFixed >> 8);
+        }
+        else if (_harpPoseActive &&
+            _harpRenderer is not null && _harpFrames is not null)
+        {
+            _harpRenderer.DrawRelativeFrame(
+                this,
+                _harpFrames[_harpFrame],
+                z: 0);
         }
         else if (_drowning && !_drownRespawning)
         {

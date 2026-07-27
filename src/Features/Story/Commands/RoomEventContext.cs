@@ -139,7 +139,8 @@ internal sealed class RoomEventContext(
         int treasureId,
         int parameter,
         string treasureObject,
-        string source)
+        string source,
+        int textboxFlags = 0)
     {
         TreasureObjectRecord treasure = Treasures.GetObject(treasureObject);
         if (treasure.TreasureId != treasureId ||
@@ -169,7 +170,8 @@ internal sealed class RoomEventContext(
             treasure.Message,
             source,
             SpawnMode: 0,
-            GrabMode: 2);
+            GrabMode: 2,
+            TextboxFlags: textboxFlags);
         return Entities.GrantGroundTreasure(record, Player);
     }
 

@@ -1091,12 +1091,16 @@ public sealed partial class ValidationRoot
             source, encodedOam, 0, 1, overridePalette, true);
         Texture2D inversionVariant = NpcCharacter.BuildOamTexture(
             source, encodedOam, 0, 1, null, false);
+        Texture2D sourceOffsetVariant = NpcCharacter.BuildOamTexture(
+            source, encodedOam, 0, 1, null, true, sourceOffset: 0x20);
         if (ReferenceEquals(cached, positioned) ||
             ReferenceEquals(cached, paletteVariant) ||
-            ReferenceEquals(cached, inversionVariant))
+            ReferenceEquals(cached, inversionVariant) ||
+            ReferenceEquals(cached, sourceOffsetVariant))
         {
             throw new InvalidOperationException(
-                "OAM cache keys collapsed composition, palette, or grayscale variants.");
+                "OAM cache keys collapsed composition, palette, grayscale, " +
+                "or object-header source-offset variants.");
         }
 
         NpcRecord npcRecord = new NpcDatabase().GetRoomNpcs(0, 0x66).First();

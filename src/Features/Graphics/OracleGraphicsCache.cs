@@ -103,6 +103,7 @@ internal static class OracleGraphicsCache
         string encodedOam,
         int tileBase,
         int basePalette,
+        int sourceOffset,
         Color[]? paletteOverride,
         IReadOnlyDictionary<int, Color[]>? paletteOverrides,
         bool sourceGrayscaleInverted,
@@ -126,6 +127,7 @@ internal static class OracleGraphicsCache
             encodedOam,
             tileBase,
             basePalette,
+            sourceOffset,
             paletteOverride is not null,
             colors01,
             colors23,
@@ -291,6 +293,6 @@ internal enum CompositionMode : byte
 
 internal readonly record struct CompositeKey(ulong BaseImageId, ulong ExtraImageId, int ExtraOffset);
 
-internal readonly record struct OamKey(ulong SourceImageId, ulong SourceHash, string EncodedOam, int TileBase, int BasePalette, bool HasPaletteOverride, ulong PaletteColors01, ulong PaletteColors23, string PaletteOverrides, bool SourceGrayscaleInverted, CompositionMode Composition);
+internal readonly record struct OamKey(ulong SourceImageId, ulong SourceHash, string EncodedOam, int TileBase, int BasePalette, int SourceOffset, bool HasPaletteOverride, ulong PaletteColors01, ulong PaletteColors23, string PaletteOverrides, bool SourceGrayscaleInverted, CompositionMode Composition);
 
 internal sealed record AnimationDefinition(AnimationFrameDefinition[] Frames, int LoopStart);

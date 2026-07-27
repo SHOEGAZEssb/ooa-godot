@@ -717,6 +717,36 @@ story-selected NPC that also owns native room initialization:
   it ORs current-room flag `$80` and deletes itself. The matching imported
   single-tile changes restore `$31=$1c` and `$32=$a0` on re-entry.
 
+Room `3:ae` is the reference for a native room-entry interaction whose middle
+sequence is an original interaction script:
+
+- `INTERAC_HARP_OF_AGES_SPAWNER $b3:$00` deletes itself when
+  `ROOMFLAG_ITEM $20` is already set. Otherwise it creates static
+  `INTERAC_TREASURE $60` for `TREASURE_HARP` at `$38,$58` and an always-updating
+  related sparkle `$84:$0c` using inherited animation `$00`. Its 48-by-48 OAM
+  composition reads `spr_link` from object-graphics header `$3a`'s source
+  offset `$1c00`; the interaction tile base remains `$00`.
+- The spawner observes the treasure's flag on its following object update,
+  stops music and disables Link, faces Link up while TX `$0071` is active,
+  deletes the sparkle after the text closes, and owns the 65-update
+  background-only black fade plus 40-update black hold.
+- Created Nayru `$36:$07` flickers for 30 updates, composes
+  `spr_nayru_1` and `spr_nayru_2`, then runs imported `nayruScript07`.
+  The script retains its alternate textbox flags, TX `$1d10/$1d11`, exact
+  12/16/210/75/16/36/16 waits, animation `$07/$02` switches, temporary
+  animation pause, and `SND_TUNE_OF_ECHOES`/`MUS_NAYRU` cues.
+- `INTERAC_PLAY_HARP_SONG $b4:$00` remains a native blocking command. It keeps
+  the four-update setup and four 52-update phrases, imports Link's
+  `LINK_ANIM_MODE_HARP_2` frames including the one-update terminal pose,
+  retains the Harp tiles when graphics `$35/$37` reload only the four body
+  tiles loaded by `$34/$36`, creates alternating music notes on global-frame
+  `$20` boundaries, and signals completion on update 214.
+- `giveitem TREASURE_TUNE_OF_ECHOES,$00` reuses the shared two-hand ground
+  treasure lifecycle while carrying the script's active textbox flags into
+  TX `$0072`. Script completion restores room music, input, the HUD, and the
+  background palette before a 129-update full-screen white fade; room bit
+  `$20` suppresses the complete sequence on re-entry.
+
 Room `1:75` demonstrates the boundary between ordinary predicates and a
 coordinated event in one object stream:
 

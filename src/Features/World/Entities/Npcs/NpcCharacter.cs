@@ -39,6 +39,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     private bool _scriptVisible = true;
     private float _collisionRadiusY = CollisionRadius;
     private float _collisionRadiusX = CollisionRadius;
+    private int _graphicsSourceOffset;
     private bool _scriptButtonSensitive;
     private int? _fixedDrawPriority;
     private int _textPosition;
@@ -124,6 +125,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     internal string CurrentScriptAnimationSource => _scriptAnimationSource;
     internal float AnimationRate => _animationRate;
     internal int SourceGraphicsWidth => _sourceImage.GetWidth();
+    internal int GraphicsSourceOffset => _graphicsSourceOffset;
     public Vector2I FacingVector => _facing switch
     {
         NpcCharacterFacing.Up => Vector2I.Up,
@@ -154,6 +156,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         Visible = true;
         _sourceImage = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{record.SpriteName}.png");
+        _graphicsSourceOffset = 0;
         _sourceGrayscaleInverted = true;
         _collisionRadiusY = CollisionRadius;
         _collisionRadiusX = CollisionRadius;
@@ -494,6 +497,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         _scriptAnimationLoopStart = AnimationLoopStart(encodedAnimation);
         _scriptAnimation.AddRange(BuildPositionedAnimation(
             _sourceImage, encodedAnimation, Record.TileBase, Record.Palette,
+            _graphicsSourceOffset,
             _paletteOverride, _sourceGrayscaleInverted));
         _scriptAnimationActive = _scriptAnimation.Count > 0;
         _animationFrame = 0;
@@ -536,6 +540,49 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     }
 
     internal void SetBlocksLink(bool blocksLink) => _blocksLink = blocksLink;
+
+    /// <summary>
+    /// Applies m_ObjectGfxHeader's optional byte offset into an uncompressed
+    /// source sheet. The object's OAM tile base remains independent because it
+    /// describes the destination VRAM layout, not this source-file address.
+    /// </summary>
+    internal void SetGraphicsSourceOffset(int sourceOffset)
+    {
+        if (sourceOffset < 0 || (sourceOffset & 0x0f) != 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(sourceOffset),
+                "Object graphics source offsets must be non-negative and 8x8-tile aligned.");
+        }
+        if (_graphicsSourceOffset == sourceOffset)
+            return;
+
+        int frame = _animationFrame;
+        double ticks = _animationTicks;
+        _graphicsSourceOffset = sourceOffset;
+        RebuildFacingAnimations();
+        if (_scriptAnimationActive &&
+            !string.IsNullOrEmpty(_scriptAnimationSource))
+        {
+            string encodedAnimation = _scriptAnimationSource;
+            _scriptAnimation.Clear();
+            _scriptAnimationLoopStart = AnimationLoopStart(encodedAnimation);
+            _scriptAnimation.AddRange(BuildPositionedAnimation(
+                _sourceImage,
+                encodedAnimation,
+                Record.TileBase,
+                Record.Palette,
+                _graphicsSourceOffset,
+                _paletteOverride,
+                _sourceGrayscaleInverted));
+            _scriptAnimationActive = _scriptAnimation.Count > 0;
+        }
+        _animationFrame = CurrentAnimation.Count == 0
+            ? 0
+            : Math.Min(frame, CurrentAnimation.Count - 1);
+        _animationTicks = ticks;
+        QueueRedraw();
+    }
 
     internal void SetAnimationRate(float rate)
     {
@@ -583,6 +630,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
                 encodedAnimation,
                 Record.TileBase,
                 Record.Palette,
+                _graphicsSourceOffset,
                 _paletteOverride,
                 _sourceGrayscaleInverted));
             _scriptAnimationActive = _scriptAnimation.Count > 0;
@@ -641,6 +689,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
                 encodedAnimation,
                 Record.TileBase,
                 Record.Palette,
+                _graphicsSourceOffset,
                 _paletteOverride,
                 _sourceGrayscaleInverted));
             _scriptAnimationActive = _scriptAnimation.Count > 0;
@@ -671,6 +720,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
             encodedAnimation,
             Record.TileBase,
             Record.Palette,
+            _graphicsSourceOffset,
             _paletteOverride,
             _sourceGrayscaleInverted));
         _scriptAnimationActive = _scriptAnimation.Count > 0;
@@ -797,15 +847,19 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         _facingAnimationLoopStarts[(int)NpcCharacterFacing.Left] = AnimationLoopStart(left);
         _facingAnimations[(int)NpcCharacterFacing.Up].AddRange(BuildAnimation(
             _sourceImage, up, Record.TileBase, Record.Palette,
+            _graphicsSourceOffset,
             _paletteOverride, _sourceGrayscaleInverted));
         _facingAnimations[(int)NpcCharacterFacing.Right].AddRange(BuildAnimation(
             _sourceImage, right, Record.TileBase, Record.Palette,
+            _graphicsSourceOffset,
             _paletteOverride, _sourceGrayscaleInverted));
         _facingAnimations[(int)NpcCharacterFacing.Down].AddRange(BuildAnimation(
             _sourceImage, down, Record.TileBase, Record.Palette,
+            _graphicsSourceOffset,
             _paletteOverride, _sourceGrayscaleInverted));
         _facingAnimations[(int)NpcCharacterFacing.Left].AddRange(BuildAnimation(
             _sourceImage, left, Record.TileBase, Record.Palette,
+            _graphicsSourceOffset,
             _paletteOverride, _sourceGrayscaleInverted));
     }
 
@@ -819,6 +873,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         string encodedAnimation,
         int tileBase,
         int basePalette,
+        int sourceOffset,
         Color[]? paletteOverride,
         bool sourceGrayscaleInverted)
     {
@@ -829,7 +884,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
             yield return new NpcCharacterAnimationFrame(
                 BuildOamTexture(
                     source, frame.EncodedOam, tileBase, basePalette,
-                    paletteOverride, sourceGrayscaleInverted),
+                    paletteOverride, sourceGrayscaleInverted, sourceOffset),
                 frame.Duration,
                 frame.Parameter,
                 new Vector2(-16, -16));
@@ -841,6 +896,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         string encodedAnimation,
         int tileBase,
         int basePalette,
+        int sourceOffset,
         Color[]? paletteOverride,
         bool sourceGrayscaleInverted)
     {
@@ -850,7 +906,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         {
             (Texture2D texture, Vector2 offset) = BuildPositionedOamTexture(
                 source, frame.EncodedOam, tileBase, basePalette,
-                paletteOverride, sourceGrayscaleInverted);
+                paletteOverride, sourceGrayscaleInverted, sourceOffset);
             yield return new NpcCharacterAnimationFrame(
                 texture, frame.Duration, frame.Parameter, offset);
         }
@@ -862,13 +918,15 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         int tileBase,
         int basePalette,
         Color[]? paletteOverride = null,
-        bool sourceGrayscaleInverted = true)
+        bool sourceGrayscaleInverted = true,
+        int sourceOffset = 0)
     {
         OamFrame frame = OracleGraphicsCache.GetOrCreateOamFrame(
             source,
             encodedOam,
             tileBase,
             basePalette,
+            sourceOffset,
             paletteOverride,
             paletteOverrides: null,
             sourceGrayscaleInverted,
@@ -877,7 +935,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
                 BuildOamTextureUncached(
                     source, encodedOam, tileBase, basePalette,
                     paletteOverride, paletteOverrides: null,
-                    sourceGrayscaleInverted),
+                    sourceGrayscaleInverted, sourceOffset),
                 new Vector2(-16, -16)));
         return frame.Texture;
     }
@@ -888,13 +946,15 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         int tileBase,
         int basePalette,
         IReadOnlyDictionary<int, Color[]> paletteOverrides,
-        bool sourceGrayscaleInverted = true)
+        bool sourceGrayscaleInverted = true,
+        int sourceOffset = 0)
     {
         OamFrame frame = OracleGraphicsCache.GetOrCreateOamFrame(
             source,
             encodedOam,
             tileBase,
             basePalette,
+            sourceOffset,
             paletteOverride: null,
             paletteOverrides,
             sourceGrayscaleInverted,
@@ -903,7 +963,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
                 BuildOamTextureUncached(
                     source, encodedOam, tileBase, basePalette,
                     paletteOverride: null, paletteOverrides,
-                    sourceGrayscaleInverted),
+                    sourceGrayscaleInverted, sourceOffset),
                 new Vector2(-16, -16)));
         return frame.Texture;
     }
@@ -914,9 +974,11 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         int tileBase,
         int basePalette,
         Color[]? paletteOverride = null,
-        bool sourceGrayscaleInverted = true) => BuildOamTextureUncached(
+        bool sourceGrayscaleInverted = true,
+        int sourceOffset = 0) => BuildOamTextureUncached(
             source, encodedOam, tileBase, basePalette,
-            paletteOverride, paletteOverrides: null, sourceGrayscaleInverted);
+            paletteOverride, paletteOverrides: null, sourceGrayscaleInverted,
+            sourceOffset);
 
     private static Texture2D BuildOamTextureUncached(
         Image source,
@@ -925,7 +987,8 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         int basePalette,
         Color[]? paletteOverride,
         IReadOnlyDictionary<int, Color[]>? paletteOverrides,
-        bool sourceGrayscaleInverted)
+        bool sourceGrayscaleInverted,
+        int sourceOffset)
     {
         // Imported NPC animations may suffix their final OAM frame with the
         // nonzero animation-loop target (`~N`). Consumers that render one
@@ -948,7 +1011,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
             int oamX = ToSignedByte(int.Parse(fields[1]));
             int tile = int.Parse(fields[2]);
             int flags = int.Parse(fields[3]);
-            int cell = ((tileBase + tile) & 0xfe) / 2;
+            int cell = SourceCell(sourceOffset, tileBase, tile);
             int cellsPerRow = Math.Max(1, source.GetWidth() / 8);
             int sourceX = cell % cellsPerRow * 8;
             int sourceY = cell / cellsPerRow * 16;
@@ -989,13 +1052,15 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         int tileBase,
         int basePalette,
         Color[]? paletteOverride,
-        bool sourceGrayscaleInverted)
+        bool sourceGrayscaleInverted,
+        int sourceOffset = 0)
     {
         OamFrame frame = OracleGraphicsCache.GetOrCreateOamFrame(
             source,
             encodedOam,
             tileBase,
             basePalette,
+            sourceOffset,
             paletteOverride,
             paletteOverrides: null,
             sourceGrayscaleInverted,
@@ -1004,7 +1069,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
             {
                 (Texture2D texture, Vector2 offset) = BuildPositionedOamTextureUncached(
                     source, encodedOam, tileBase, basePalette,
-                    paletteOverride, sourceGrayscaleInverted);
+                    paletteOverride, sourceGrayscaleInverted, sourceOffset);
                 return new OamFrame(texture, offset);
             });
         return (frame.Texture, frame.Offset);
@@ -1017,9 +1082,10 @@ public partial class NpcCharacter : TransitionOffsetNode2D
             int tileBase,
             int basePalette,
             Color[]? paletteOverride,
-            bool sourceGrayscaleInverted) => BuildPositionedOamTextureUncached(
+            bool sourceGrayscaleInverted,
+            int sourceOffset = 0) => BuildPositionedOamTextureUncached(
                 source, encodedOam, tileBase, basePalette,
-                paletteOverride, sourceGrayscaleInverted);
+                paletteOverride, sourceGrayscaleInverted, sourceOffset);
 
     private static (Texture2D Texture, Vector2 Offset) BuildPositionedOamTextureUncached(
         Image source,
@@ -1027,7 +1093,8 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         int tileBase,
         int basePalette,
         Color[]? paletteOverride,
-        bool sourceGrayscaleInverted)
+        bool sourceGrayscaleInverted,
+        int sourceOffset)
     {
         string[] blocks = encodedOam.Split(';', StringSplitOptions.RemoveEmptyEntries);
         int minX = int.MaxValue;
@@ -1049,7 +1116,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         if (minX == int.MaxValue)
             return (BuildOamTextureUncached(
                 source, encodedOam, tileBase, basePalette, paletteOverride,
-                paletteOverrides: null, sourceGrayscaleInverted),
+                paletteOverrides: null, sourceGrayscaleInverted, sourceOffset),
                 new Vector2(-16, -16));
 
         Image output = Image.CreateEmpty(maxX - minX, maxY - minY, false, Image.Format.Rgba8);
@@ -1063,7 +1130,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
             int oamX = ToSignedByte(int.Parse(fields[1]));
             int tile = int.Parse(fields[2]);
             int flags = int.Parse(fields[3]);
-            int cell = ((tileBase + tile) & 0xfe) / 2;
+            int cell = SourceCell(sourceOffset, tileBase, tile);
             int cellsPerRow = Math.Max(1, source.GetWidth() / 8);
             int sourceX = cell % cellsPerRow * 8;
             int sourceY = cell / cellsPerRow * 16;
@@ -1092,6 +1159,17 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         // system while allowing large actors such as the Maku Tree to extend
         // above and to either side of the interaction origin.
         return (ImageTexture.CreateFromImage(output), new Vector2(minX - 16, minY - 16));
+    }
+
+    private static int SourceCell(int sourceOffset, int tileBase, int tile)
+    {
+        if (sourceOffset < 0 || (sourceOffset & 0x0f) != 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(sourceOffset),
+                "Object graphics source offsets must be non-negative and 8x8-tile aligned.");
+        }
+        return sourceOffset / 32 + ((tileBase + tile) & 0xfe) / 2;
     }
 
     private static int ToSignedByte(int value) => value >= 0x80 ? value - 0x100 : value;

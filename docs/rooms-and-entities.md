@@ -727,7 +727,10 @@ The same treasure entity supports source spawn mode `$02`: after its imported
 delay, `objectGetZAboveScreen` derives Z from the current gameplay-screen Y
 rather than a fixed room coordinate, then shared 8.8 gravity and bounce
 metadata drive it to the floor. This is used by both event-created rewards and
-room `5:ed`'s Graveyard Key.
+room `5:ed`'s Graveyard Key. A script-granted treasure may also carry the
+active textbox flags in its spawn record; `InteractionController` applies
+those flags when it opens the imported reward text, as required by room
+`3:ae`'s alternate-palette Tune of Echoes award.
 
 `RoomEntityManager` owns the room-local `wActiveTriggers` equivalent and clears
 all eight bits before every ordinary room parse or destination preload.

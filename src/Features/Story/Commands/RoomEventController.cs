@@ -28,6 +28,7 @@ public sealed class RoomEventController
     private readonly MakuSproutRescueEvent _makuSproutRescue;
     private readonly LynnaShopEvent _lynnaShop;
     private readonly VasuShopEvent _vasuShop;
+    private readonly HarpOfAgesEvent _harpOfAges;
     private readonly SpiritsGraveEssenceEvent _spiritsGraveEssence;
     private readonly RemoteMakuFirstEssenceEvent _remoteMakuFirstEssence;
     private readonly FairiesWoodsEvent _fairiesWoods;
@@ -86,6 +87,7 @@ public sealed class RoomEventController
         _makuSproutRescue = new MakuSproutRescueEvent(_context);
         _lynnaShop = new LynnaShopEvent(_context);
         _vasuShop = new VasuShopEvent(_context);
+        _harpOfAges = new HarpOfAgesEvent(_context);
         _spiritsGraveEssence = new SpiritsGraveEssenceEvent(_context);
         _remoteMakuFirstEssence = new RemoteMakuFirstEssenceEvent(_context);
         _fairiesWoods = new FairiesWoodsEvent(_context);
@@ -94,6 +96,7 @@ public sealed class RoomEventController
             () => _remoteMakuFirstEssence.StartWingDungeonWarning());
         _eventsByPriority =
         [
+            _harpOfAges,
             _spiritsGraveEssence,
             _remoteMakuFirstEssence,
             _fairiesWoods,
@@ -163,6 +166,7 @@ public sealed class RoomEventController
     internal MakuSproutRescueEvent MakuSproutRescue => _makuSproutRescue;
     internal LynnaShopEvent LynnaShop => _lynnaShop;
     internal VasuShopEvent VasuShop => _vasuShop;
+    internal HarpOfAgesEvent HarpOfAges => _harpOfAges;
     internal SpiritsGraveEssenceEvent SpiritsGraveEssence => _spiritsGraveEssence;
     internal RemoteMakuFirstEssenceEvent RemoteMakuFirstEssence =>
         _remoteMakuFirstEssence;
