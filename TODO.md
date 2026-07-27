@@ -29,18 +29,16 @@ snapshot is maintained in
 
 ### Fidelity and generated-data boundaries
 
-- [ ] Import the common tile-interaction fallback data instead of maintaining
+- [x] Import the common tile-interaction fallback data instead of maintaining
   dialogue and treasure literals in `InteractionController`.
-  - Export TX `$510d`, TX `$510e`, and TX `$0901` with their source identities.
-    The current no-match sign branch labels its literal as TX `$0901` but shows
-    clone-only "Nothing is written here" text; the Ages TX `$0901` body is the
-    Eternal Spirit message used by `nextToSignTile`.
-  - Construct `getChestData`'s explicit missing-row default `$2800` from
-    `TREASURE_OBJECT_RUPEES_00`. The current hand-built fallback selects visual
-    graphic `$2b`, while the imported treasure object uses graphic `$28`, and
-    it loses the source text controls.
-  - Validate wrong-side sign/chest reads, an unmatched sign-table lookup, and
-    the missing-chest-row default independently of the ordinary chest table.
+  `tile_interaction_fallbacks.tsv` now retains TX `$510d`, TX `$510e`, and the
+  real Eternal Spirit TX `$0901` with their handler identities, plus
+  `getChestData@chestNotFound`'s `$2800` result resolved through
+  `TREASURE_OBJECT_RUPEES_00`. The typed runtime record cross-checks that
+  treasure's `$28:$00` fields, source graphic `$28`, text controls, and
+  one-Rupee amount. Wrong-side sign/chest reads, an unmatched sign-table
+  lookup, and a missing chest row are regressed independently of ordinary
+  sign/chest records.
 
 - [x] Give every generated `NpcRecord` an explicit implementation
   classification: ordinary generic NPC, specialized native interaction,

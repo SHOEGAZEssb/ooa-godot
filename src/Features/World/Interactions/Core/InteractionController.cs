@@ -12,6 +12,7 @@ public sealed class InteractionController
     private readonly SignDatabase _signs;
     private readonly ChestDatabase _chests;
     private readonly TreasureDatabase _treasures;
+    private readonly TileInteractionFallbackDatabase _tileFallbacks;
     private readonly DialogueBox _dialogue;
     private readonly Node _worldRoot;
     private readonly RoomView _roomView;
@@ -97,6 +98,7 @@ public sealed class InteractionController
         _signs = signs;
         _chests = chests;
         _treasures = treasures;
+        _tileFallbacks = new TileInteractionFallbackDatabase(treasures);
         _dialogue = dialogue;
         _worldRoot = worldRoot;
         _roomView = roomView;
@@ -291,10 +293,10 @@ public sealed class InteractionController
 
         string message;
         if (player.FacingVector != Vector2I.Up)
-            message = "You can't read\nit from here!"; // TX_510e
+            message = _tileFallbacks.SignWrongSide.Message;
         else if (!_signs.TryGetMessage(
             _rooms.ActiveGroup, room.Id, room.GetPackedPosition(tilePoint), out message!))
-            message = "Nothing is written\nhere."; // TX_0901 fallback
+            message = _tileFallbacks.SignNoMatch.Message;
 
         _dialogue.ShowGameplayMessage(message, _worldToScreen(player.Position).Y);
         return true;
@@ -863,7 +865,8 @@ public sealed class InteractionController
         if (player.FacingVector != Vector2I.Up)
         {
             _dialogue.ShowGameplayMessage(
-                "It won't open\nfrom this side!", _worldToScreen(player.Position).Y); // TX_510d
+                _tileFallbacks.ChestWrongSide.Message,
+                _worldToScreen(player.Position).Y);
             return true;
         }
 
@@ -873,11 +876,10 @@ public sealed class InteractionController
                 out ChestRecord chest) &&
             !_chests.TryGet(_rooms.ActiveGroup, room.Id, position, out chest))
         {
-            chest = new ChestRecord(
-                _rooms.ActiveGroup, room.Id, position,
-                "TREASURE_OBJECT_RUPEES_00", TreasureDatabase.TreasureRupees, 0x00,
-                0x01, 0x01, 0x2b, 1,
-                "You got 1 Rupee!\n...");
+            chest = _tileFallbacks.ChestNoMatch.At(
+                _rooms.ActiveGroup,
+                room.Id,
+                position);
         }
         if (!room.ReplaceMetatile(tilePoint, 0xf1, 0xf0, _animationTick()))
             return true;

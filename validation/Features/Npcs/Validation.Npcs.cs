@@ -10,6 +10,46 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSigns()
     {
+        var fallbacks = new TileInteractionFallbackDatabase(_treasures);
+        if (fallbacks.ChestWrongSide is not
+                {
+                    TextId: 0x510d,
+                    Message: "It won't open\nfrom this side!"
+                } ||
+            fallbacks.SignWrongSide is not
+                {
+                    TextId: 0x510e,
+                    Message: "You can't read\nit from here!"
+                } ||
+            fallbacks.SignNoMatch is not
+                {
+                    TextId: 0x0901,
+                    Message: "Eternal Spirit\nIt speaks across\ntime to the\nheart!"
+                } ||
+            fallbacks.ChestNoMatch is not
+                {
+                    TreasureObject: "TREASURE_OBJECT_RUPEES_00",
+                    TreasureId: 0x28,
+                    SubId: 0x00,
+                    Parameter: 0x01,
+                    TextId: 0x0001,
+                    Graphic: 0x28,
+                    Amount: 1
+                } ||
+            !fallbacks.ChestWrongSide.Source.Contains(
+                "nextToChestTile", StringComparison.Ordinal) ||
+            !fallbacks.SignWrongSide.Source.Contains(
+                "nextToSignTile", StringComparison.Ordinal) ||
+            !fallbacks.SignNoMatch.Source.Contains(
+                "nextToSignTile@noMatch", StringComparison.Ordinal) ||
+            !fallbacks.ChestNoMatch.Source.Contains(
+                "getChestData@chestNotFound", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "The imported common sign/chest fallback records or source " +
+                "identities changed.");
+        }
+
         LoadSignValidationRoom();
         if (_dialogue.MessageSpeed != _saveData.TextSpeed)
             throw new InvalidOperationException(
@@ -38,6 +78,48 @@ public sealed partial class ValidationRoot
             throw new InvalidOperationException(
                 "The final two-line sign message incorrectly displayed a continuation prompt.");
         }
+        _dialogue.Close();
+
+        _player.WarpTo(new Vector2(88, 42), recordSafe: false);
+        _player.Face(Vector2I.Down);
+        if (!TryInteract(_player) ||
+            _dialogue.CurrentMessage != fallbacks.SignWrongSide.Message)
+        {
+            throw new InvalidOperationException(
+                "The room 0:2a sign did not use imported TX_510e when read " +
+                "from the wrong side.");
+        }
+        _dialogue.Close();
+
+        const int unmatchedSignPosition = 0x11;
+        var signs = new SignDatabase();
+        if (signs.TryGetMessage(
+                0, 0x2a, unmatchedSignPosition, out _))
+        {
+            throw new InvalidOperationException(
+                "The unmatched-sign fixture unexpectedly exists in signText.s.");
+        }
+        Vector2 unmatchedSignPoint = new(24, 24);
+        _currentRoom.SetPositionTileAndCollision(
+            unmatchedSignPoint,
+            0xf2,
+            collision: null,
+            (long)_animationTicks);
+        _player.WarpTo(
+            unmatchedSignPoint + Vector2.Down * 12.0f,
+            recordSafe: false);
+        _player.Face(Vector2I.Up);
+        if (!TryInteract(_player) ||
+            _dialogue.CurrentMessage != fallbacks.SignNoMatch.Message ||
+            _dialogue.CurrentMessage.Contains(
+                "Nothing is written", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "An unmatched sign-table lookup did not use Ages TX_0901.");
+        }
+        _dialogue.Close();
+        _player.WarpTo(new Vector2(88, 70), recordSafe: false);
+        _player.Face(Vector2I.Up);
 
         _dialogue.ShowMessage("First.\nSecond.\nThird.", _player.Position.Y);
         _dialogue.RevealCurrentPageForValidation();
@@ -211,7 +293,7 @@ public sealed partial class ValidationRoot
             "text, four-update SND_TEXT/inline voice cues, SND_TEXT_2 continuation, " +
             "choice sounds, colored and symbol-font glyphs, gfx_hud tile $03 continuation " +
             "marker, one-line tile-row scrolling, continuation-only 32-update blink, " +
-            "and final-message input consumption.");
+            "imported TX_510e/TX_0901 sign fallbacks, and final-message input consumption.");
     }
 
     private static void ValidateNpcImplementationManifest()

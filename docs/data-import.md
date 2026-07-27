@@ -234,6 +234,16 @@ changes. A normal breakable row can persist directly through standard
 substitution; room `0:48` instead uses its watcher at `$68` to set flag `$02`,
 whose single-tile row restores `$3a` on later entries.
 
+The map/item stage emits `objects/tile_interaction_fallbacks.tsv` separately
+from the 42 room-specific sign rows and 133 chest rows. It traces
+`nextToChestTile` and `nextToSignTile` to retain wrong-side TX `$510d` and
+`$510e`, plus the unmatched-sign TX `$0901` and their source handler
+identities. It also verifies `getChestData@chestNotFound`'s raw `$2800`,
+resolves that value through `TREASURE_OBJECT_RUPEES_00`, and exports its exact
+treasure ID/subid, parameter, TX `$0001`, source graphic `$28`, one-Rupee
+amount, and controlled message. Runtime must not reconstruct these fallbacks
+from room tables or dialogue literals.
+
 The map/item stage also emits the complete ledge-jump closure from
 `checkLinkJumpingOffCliff`, `cliffTilesTable`,
 `landableTileFromCliffExceptions`, and `LINK_STATE_JUMPING_DOWN_LEDGE`.

@@ -40,7 +40,10 @@ claim that the entire surrounding game is complete.
   two-digit HUD/inventory ammo display. The
   shared chest path renders all reward objects from imported
   `INTERAC_TREASURE $60` graphics/OAM (including room `4:08`'s small key) and
-  preserves the open/collection/get-item sound boundaries. Push blocks request their move
+  preserves the open/collection/get-item sound boundaries. Wrong-side
+  sign/chest reads use imported TX `$510e`/`$510d`; unmatched signs use the
+  actual Eternal Spirit TX `$0901`, and missing chest rows resolve the source
+  `$2800` default to the one-Rupee graphic-`$28` object. Push blocks request their move
   cue only on accepted movement and distinguish the imported falling-hole
   animation/sound from splash effects. The
   Shovel uses the original 23-update Link/item animation, update-4 tile probe,

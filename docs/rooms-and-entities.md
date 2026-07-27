@@ -432,6 +432,15 @@ A. A failed Bracelet pull against an unbreakable wall holds
 `LINK_ANIM_MODE_LIFT_3`'s terminal strain frame while retrying the tile probe;
 it does not restart the 11-update pull animation.
 
+Common sign/chest outcomes that do not come from a room lookup are owned by
+`TileInteractionFallbackDatabase`. Wrong-side reads use imported TX `$510e`
+for signs and TX `$510d` for chests. A sign metatile absent from `signText.s`
+uses Ages TX `$0901` (the Eternal Spirit description), while a closed chest
+absent from `chestData.s` uses `getChestData`'s `$2800`
+`TREASURE_OBJECT_RUPEES_00` result, including graphic `$28`, TX `$0001`, and
+one Rupee. These branches must remain independent of ordinary sign/chest
+records and debug chest overrides.
+
 ## Dungeon-specific native objects
 
 Keep a dungeon's native handlers in a typed generated stream when its ordinary

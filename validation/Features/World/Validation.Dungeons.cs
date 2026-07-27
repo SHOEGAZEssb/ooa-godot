@@ -1971,9 +1971,56 @@ public sealed partial class ValidationRoot
         if (_currentRoom.GetMetatile(chestPoint) != 0xf0 || TryInteract(_player))
             throw new InvalidOperationException("The opened chest room flag did not persist for the session.");
 
+        OracleRandomState randomBeforeMissingChest =
+            _random.CaptureState();
+        LoadValidationRoom(4, 0xce);
+        const int missingChestPosition = 0x67;
+        var chests = new ChestDatabase();
+        if (chests.TryGet(
+                4, 0xce, missingChestPosition, out _))
+        {
+            throw new InvalidOperationException(
+                "The missing-chest fixture unexpectedly exists in chestData.s.");
+        }
+        _interactions.ResetChestForTesting(
+            4, 0xce, missingChestPosition);
+        Vector2 missingChestPoint = new(
+            7 * OracleRoomData.MetatileSize + 8,
+            6 * OracleRoomData.MetatileSize + 8);
+        _player.WarpTo(
+            missingChestPoint + Vector2.Down * 12.0f,
+            recordSafe: false);
+        _player.Face(Vector2I.Up);
+        int missingRupeesBefore = _player.Rupees;
+        int missingOpenSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenChest);
+        if (!TryInteract(_player) ||
+            _interactions.ChestReward is not { VisualGraphic: 0x28 } ||
+            _currentRoom.GetMetatile(missingChestPoint) != 0xf0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenChest) !=
+                missingOpenSounds + 1)
+        {
+            throw new InvalidOperationException(
+                "getChestData's missing-row `$2800 default did not open as " +
+                "TREASURE_OBJECT_RUPEES_00 with source graphic `$28.");
+        }
+        _interactions.Update(32.0 / 60.0, _player);
+        if (_player.Rupees != missingRupeesBefore + 1 ||
+            !_dialogue.IsOpen ||
+            _dialogue.CurrentMessage != "You got 1 Rupee!\n...")
+        {
+            throw new InvalidOperationException(
+                "The missing chest row did not grant `$28:$00's one Rupee " +
+                "and TX_0001 message.");
+        }
+        _dialogue.Close();
+        _interactions.Update(0.0, _player);
+        _random.RestoreState(randomBeforeMissingChest);
+
         GD.Print("Validated 0:49/$51 red chest palette, direction, 32-frame reward rise, " +
             "source graphic $2b, SND_OPENCHEST/SND_GETITEM, reward visibility through " +
-            "TX_0005, 30 rupees, and opened state.");
+            "TX_0005, 30 rupees, opened state, imported wrong-side TX_510d, and " +
+            "getChestData's missing-row `$2800/TREASURE_OBJECT_RUPEES_00 fallback.");
     }
 
     private void ValidateBraceletChestAndPushGate()

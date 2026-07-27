@@ -1338,6 +1338,118 @@ foreach ($match in [regex]::Matches(
     }
 }
 
+# Common tile interactions have three dialogue fallbacks and one missing-chest
+# data fallback outside the room-specific sign/chest tables. Preserve the
+# handler identities and resolve getChestData's raw $2800 return through the
+# corresponding generated TREASURE_OBJECT_RUPEES_00 record.
+$interactableTileSource = Read-ImportText (
+    Join-Path $Disassembly 'code\interactableTiles.s')
+$chestWrongSide = [regex]::Match(
+    $interactableTileSource,
+    '(?ms)^nextToChestTile:.*?call checkFacingBottomOfTileAndPressedA\s+jr z,\+\+.*?ld bc,TX_(?<text>[0-9a-f]{4})')
+$signBlock = [regex]::Match(
+    $interactableTileSource,
+    '(?ms)^nextToSignTile:(?<body>.*?)(?=^;;)')
+$signWrongSide = [regex]::Match(
+    $signBlock.Groups['body'].Value,
+    'ld bc,TX_(?<text>[0-9a-f]{4})\s+jr nz,@showText')
+$signNoMatch = [regex]::Match(
+    $signBlock.Groups['body'].Value,
+    '(?m)^@noMatch:\s*\r?\n\s*ld bc,TX_(?<text>[0-9a-f]{4})')
+$chestLookupSource = Read-ImportText (
+    Join-Path $Disassembly 'code\bank0.s')
+$missingChest = [regex]::Match(
+    $chestLookupSource,
+    '(?ms)^getChestData:.*?^@chestNotFound:\s*\r?\n\s*ld bc,\$(?<contents>[0-9a-f]{4})')
+if (-not $chestWrongSide.Success -or
+    -not $signBlock.Success -or
+    -not $signWrongSide.Success -or
+    -not $signNoMatch.Success -or
+    -not $missingChest.Success -or
+    $chestWrongSide.Groups['text'].Value -ne '510d' -or
+    $signWrongSide.Groups['text'].Value -ne '510e' -or
+    $signNoMatch.Groups['text'].Value -ne '0901' -or
+    $missingChest.Groups['contents'].Value -ne '2800') {
+    throw 'Common chest/sign fallback handlers no longer select TX_510d, TX_510e, TX_0901, and chest contents $2800.'
+}
+
+$tileInteractionFallbackRows = [Collections.Generic.List[string]]::new()
+$tileInteractionFallbackRows.Add(
+    "# kind`ttext-id`ttreasure-object`ttreasure-id`tsubid`tparameter`tgraphic`tamount`tmessage-base64`tsource")
+foreach ($fallback in @(
+    @{
+        Kind = 'chest-wrong-side'
+        Text = $chestWrongSide.Groups['text'].Value
+        Source = 'code/interactableTiles.s:nextToChestTile/TX_510d'
+    },
+    @{
+        Kind = 'sign-wrong-side'
+        Text = $signWrongSide.Groups['text'].Value
+        Source = 'code/interactableTiles.s:nextToSignTile/TX_510e'
+    },
+    @{
+        Kind = 'sign-no-match'
+        Text = $signNoMatch.Groups['text'].Value
+        Source = 'code/interactableTiles.s:nextToSignTile@noMatch/TX_0901'
+    }
+)) {
+    $textId = [Convert]::ToInt32($fallback.Text, 16)
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve common tile-interaction text TX_$($fallback.Text)."
+    }
+    $encoded = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
+    $tileInteractionFallbackRows.Add([string]::Join(
+        "`t",
+        @(
+            $fallback.Kind,
+            $fallback.Text,
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            $encoded,
+            $fallback.Source)))
+}
+
+$missingChestObject = 'TREASURE_OBJECT_RUPEES_00'
+if (-not $treasureObjectRecords.ContainsKey($missingChestObject)) {
+    throw "Could not resolve getChestData's default $missingChestObject."
+}
+$missingChestRecord = $treasureObjectRecords[$missingChestObject]
+$missingChestContents = [Convert]::ToInt32(
+    $missingChest.Groups['contents'].Value, 16)
+if ((($missingChestRecord.Treasure -shl 8) -bor
+        $missingChestRecord.Subid) -ne $missingChestContents -or
+    $missingChestRecord.Parameter -ge $rupeeValues.Count) {
+    throw "$missingChestObject no longer resolves getChestData's `$2800 default."
+}
+$missingChestAmount = $rupeeValues[$missingChestRecord.Parameter]
+$missingChestMessage = [Convert]::ToBase64String(
+    [Text.Encoding]::UTF8.GetBytes($missingChestRecord.Message))
+$tileInteractionFallbackRows.Add([string]::Join(
+    "`t",
+    @(
+        'chest-no-match',
+        $missingChestRecord.TextId.ToString('x4'),
+        $missingChestObject,
+        $missingChestRecord.Treasure.ToString('x2'),
+        $missingChestRecord.Subid.ToString('x2'),
+        $missingChestRecord.Parameter.ToString('x2'),
+        $missingChestRecord.Graphic.ToString('x2'),
+        $missingChestAmount,
+        $missingChestMessage,
+        'code/bank0.s:getChestData@chestNotFound+data/ages/treasureObjectData.s:TREASURE_OBJECT_RUPEES_00')))
+if ($tileInteractionFallbackRows.Count -ne 5) {
+    throw "Expected four common tile-interaction fallback rows, got $($tileInteractionFallbackRows.Count - 1)."
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\tile_interaction_fallbacks.tsv'),
+    $tileInteractionFallbackRows,
+    [Text.UTF8Encoding]::new($false))
+
 $chestRows = [Collections.Generic.List[string]]::new()
 $chestRows.Add("# group`troom`tposition`ttreasure-object`ttreasure-id`tsubid`tparameter`ttext-id`tgraphic`tamount`tutf8-base64")
 $currentChestGroup = -1
