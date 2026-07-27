@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace oracleofages;
@@ -15,13 +16,19 @@ public sealed partial class ValidationRoot
         var predicateSave = OracleSaveData.CreateStandardGame();
         NpcRecord ghini = npcs.GetRoomNpcs(0, 0x5d).Single(npc =>
             npc.Id == 0xcb && npc.SubId == 0x00);
+        List<RoomObjectRecord> crowPlacements =
+            EnemyPlacements(enemies, 0x41, 0x00);
+        CrowRecord room05dCrow = ResolveCrow(
+            enemies,
+            RoomEnemyPlacements(enemies, 0, 0x5d, 0x41, 0x00).Single());
 
-        if (enemies.CrowRecordCount != 3 || enemies.CrowInstanceCount != 3 ||
-            enemies.GetRoomCrows(0, 0x5d).Single() is not
+        if (crowPlacements.Count != 3 ||
+            crowPlacements.Sum(source => source.Count) != 3 ||
+            room05dCrow is not
                 { Y: 0x78, X: 0x78, SpeedRaw: 0x32, Health: 1,
                   CollisionRadiusY: 6, CollisionRadiusX: 6, DamageQuarters: 2 } ||
-            enemies.GetRoomCrows(0, 0x6d).Count != 2 ||
-            enemies.GetRoomCrows(0, 0x7d).Count != 0 ||
+            RoomEnemyPlacements(enemies, 0, 0x6d, 0x41, 0x00).Count != 2 ||
+            RoomEnemyPlacements(enemies, 0, 0x7d, 0x41, 0x00).Count != 0 ||
             ghini is not { Y: 0x68, X: 0x88, TextId: 0x4d05, Palette: 2 } ||
             visibility.ShouldShow(ghini, predicateSave, runtime))
         {

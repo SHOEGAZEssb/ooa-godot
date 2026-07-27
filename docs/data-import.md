@@ -330,14 +330,21 @@ asserting the native two-phase gate helper. Keeping the reusable keyhole
 predicate separate from the room-specific consequence avoids encoding a
 one-room key test or pretending that the other five locks already work.
 
-Enemy species records remain separate from the ordered room-object stream.
-`Import-EnemyData.ps1` resolves ordinary `ENEMY_STALFOS $31:$00` subid data,
-walk/jump animation pointers, aliased OAM pointers, graphics header `$9b`, and
-all random/fixed placements into `stalfos.tsv`; the runtime joins those typed
-definitions back to `enemy_object_stream.tsv` in source order. Subids whose
-additional state machines are not implemented are intentionally absent from
-the typed species table while their ordered source records remain available as
-unsupported reservations/completion evidence.
+`enemy_object_stream.tsv` is the sole generated placement authority for
+ordinary enemies. The Keese, Octorok, Stalfos, Zol, Gel, and Crow tables contain
+one definition per supported ID/subid and no group, room, opcode, flags, count,
+or coordinate columns. For example, `Import-EnemyData.ps1` resolves ordinary
+`ENEMY_STALFOS $31:$00` subid data, walk/jump animation pointers, aliased OAM
+pointers, and graphics header `$9b` into one `stalfos.tsv` definition; runtime
+joins it to each matching ordered record in source order. During import, the
+former species-placement parsers remain as in-memory migration projections and
+must match all duplicated ordered-stream fields for 185 rows / 328 instances
+before any result is accepted. Condition masks are intentionally excluded from
+that comparison because the old tables never represented them; the ordered
+stream preserves and owns those masks. Subids whose additional state machines
+are not implemented are absent from the typed definition tables while their
+ordered source records remain available as unsupported
+reservations/completion evidence.
 
 `enemy_handler_registry.tsv` is the unique ID/subid implementation manifest for
 that ordered stream. The importer resolves enemy names back to
@@ -454,8 +461,9 @@ exporters apply their distinct state and linked-game rules.
 
 The same stages emit narrow records for Graveyard rooms `0:5d`-`0:7d` and the
 linked Temple Secret giver in room `0:83`.
-`objects/crows.tsv` resolves the fixed `$41:$00` placements together with their
-source enemy attributes and four parameterized animation/OAM streams.
+`objects/crows.tsv` resolves the unique `$41:$00` definition with its source
+enemy attributes and four parameterized animation/OAM streams; its three fixed
+placements remain exclusively in `enemy_object_stream.tsv`.
 `objects/linked_game_npcs.tsv` retains the Ghini's and Great Fairy's exact room
 keys, five text IDs and decoded messages, extra-confirmation bit, secret index,
 short-secret index, began flag, and traced source graph. The ordinary

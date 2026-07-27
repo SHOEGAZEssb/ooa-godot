@@ -8,6 +8,75 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private static List<RoomObjectRecord> EnemyPlacements(
+        EnemyDatabase database,
+        int id,
+        params int[] subids)
+    {
+        var placements = new List<RoomObjectRecord>();
+        for (int group = 0; group < 6; group++)
+        for (int room = 0; room < 0x100; room++)
+        {
+            placements.AddRange(
+                RoomEnemyPlacements(database, group, room, id, subids));
+        }
+        return placements;
+    }
+
+    private static List<RoomObjectRecord> RoomEnemyPlacements(
+        EnemyDatabase database,
+        int group,
+        int room,
+        int id,
+        params int[] subids) =>
+        database.GetRoomObjects(group, room)
+            .Where(source =>
+                source.Kind is RoomObjectKind.RandomEnemy or
+                    RoomObjectKind.FixedEnemy &&
+                source.Id == id &&
+                subids.Contains(source.SubId))
+            .ToList();
+
+    private static EnemyDatabaseEnemyRecord ResolveKeese(
+        EnemyDatabase database,
+        RoomObjectRecord source) =>
+        database.TryGetKeeseDefinition(source, out EnemyDatabaseEnemyRecord record)
+            ? record
+            : throw new InvalidOperationException(
+                $"{source.Source} has no typed Keese definition.");
+
+    private static OctorokRecord ResolveOctorok(
+        EnemyDatabase database,
+        RoomObjectRecord source) =>
+        database.TryGetOctorokDefinition(source, out OctorokRecord record)
+            ? record
+            : throw new InvalidOperationException(
+                $"{source.Source} has no typed Octorok definition.");
+
+    private static StalfosRecord ResolveStalfos(
+        EnemyDatabase database,
+        RoomObjectRecord source) =>
+        database.TryGetStalfosDefinition(source, out StalfosRecord record)
+            ? record
+            : throw new InvalidOperationException(
+                $"{source.Source} has no typed Stalfos definition.");
+
+    private static ZolRecord ResolveZol(
+        EnemyDatabase database,
+        RoomObjectRecord source) =>
+        database.TryGetZolDefinition(source, out ZolRecord record)
+            ? record
+            : throw new InvalidOperationException(
+                $"{source.Source} has no typed Zol definition.");
+
+    private static CrowRecord ResolveCrow(
+        EnemyDatabase database,
+        RoomObjectRecord source) =>
+        database.TryGetCrowDefinition(source, out CrowRecord record)
+            ? record
+            : throw new InvalidOperationException(
+                $"{source.Source} has no typed Crow definition.");
+
     private void ValidateEnemyPlacementRules()
     {
         var spawnTiles = new EnemySpawnTileDatabase();
@@ -376,10 +445,14 @@ public sealed partial class ValidationRoot
     private void ValidateKeese()
     {
         var database = new EnemyDatabase();
-        if (database.KeeseRecordCount != 53 || database.KeeseInstanceCount != 158)
+        List<RoomObjectRecord> keesePlacements =
+            EnemyPlacements(database, 0x32, 0x00, 0x01);
+        if (keesePlacements.Count != 53 ||
+            keesePlacements.Sum(source => source.Count) != 158)
             throw new InvalidOperationException(
                 $"Expected 53 ENEMY_KEESE room records / 158 instances, got " +
-                $"{database.KeeseRecordCount} / {database.KeeseInstanceCount}.");
+                $"{keesePlacements.Count} / " +
+                $"{keesePlacements.Sum(source => source.Count)}.");
 
         EnemyAdjacentWallResolver adjacentWalls =
             EnemyAdjacentWallResolver.Shared;
@@ -488,7 +561,9 @@ public sealed partial class ValidationRoot
                 "Normal Keese did not choose its original random `$c0-`$ff flight counter and angle.");
 
         EnemyDatabaseEnemyRecord boundaryRecord =
-            database.GetRoomKeese(4, 0xcb)[0];
+            ResolveKeese(
+                database,
+                RoomEnemyPlacements(database, 4, 0xcb, 0x32, 0x00)[0]);
         OracleRoomData boundaryRoom = _world.LoadRoom(4, 0xcb);
         (string Axis, int SkippedCalls, int InitialAngle,
             Vector2 Position, int ReflectedAngle)[] keeseBoundaryCases =
@@ -783,11 +858,15 @@ public sealed partial class ValidationRoot
     private void ValidateOctoroks()
     {
         var database = new EnemyDatabase();
-        if (database.OctorokRecordCount != 33 || database.OctorokInstanceCount != 48)
+        List<RoomObjectRecord> octorokPlacements =
+            EnemyPlacements(database, 0x09, 0x00, 0x01, 0x02);
+        if (octorokPlacements.Count != 33 ||
+            octorokPlacements.Sum(source => source.Count) != 48)
         {
             throw new InvalidOperationException(
                 $"Expected 33 ENEMY_OCTOROK room records / 48 instances, got " +
-                $"{database.OctorokRecordCount} / {database.OctorokInstanceCount}.");
+                $"{octorokPlacements.Count} / " +
+                $"{octorokPlacements.Sum(source => source.Count)}.");
         }
         OctorokProjectileRecord projectile = database.OctorokProjectile;
         if (projectile.TileBase != 0x0c || projectile.Palette != 3 ||
@@ -1495,7 +1574,9 @@ public sealed partial class ValidationRoot
     private void ValidateEnemyHazards()
     {
         var database = new EnemyDatabase();
-        OctorokRecord record = database.GetRoomOctoroks(0, 0x74)[0];
+        OctorokRecord record = ResolveOctorok(
+            database,
+            RoomEnemyPlacements(database, 0, 0x74, 0x09, 0x00)[0]);
 
         const int waterGroup = 0;
         const int waterRoomId = 0xb8;
@@ -1696,7 +1777,9 @@ public sealed partial class ValidationRoot
     private void ValidateEnemyDamageBlink()
     {
         var database = new EnemyDatabase();
-        OctorokRecord record = database.GetRoomOctoroks(0, 0x74)[0];
+        OctorokRecord record = ResolveOctorok(
+            database,
+            RoomEnemyPlacements(database, 0, 0x74, 0x09, 0x00)[0]);
         var enemy = new OctorokCharacter();
         enemy.Initialize(
             record,
@@ -1751,9 +1834,14 @@ public sealed partial class ValidationRoot
     private void ValidateStalfos()
     {
         var database = new EnemyDatabase();
-        IReadOnlyList<StalfosRecord> room406 =
-            database.GetRoomStalfos(4, 0x06);
-        if (database.StalfosRecordCount != 34 || database.StalfosInstanceCount != 37 ||
+        List<RoomObjectRecord> stalfosPlacements =
+            EnemyPlacements(database, 0x31, 0x00);
+        List<StalfosRecord> room406 =
+            RoomEnemyPlacements(database, 4, 0x06, 0x31, 0x00)
+                .Select(source => ResolveStalfos(database, source))
+                .ToList();
+        if (stalfosPlacements.Count != 34 ||
+            stalfosPlacements.Sum(source => source.Count) != 37 ||
             room406 is not
             [
                 { SubId: 0x00, Y: 0x68, X: 0x68 },
@@ -1821,8 +1909,10 @@ public sealed partial class ValidationRoot
                 "The Stalfos did not move at SPEED_80 while advancing its four-update walk animation.");
         }
 
-        IReadOnlyList<StalfosRecord> room41f =
-            database.GetRoomStalfos(4, 0x1f);
+        List<StalfosRecord> room41f =
+            RoomEnemyPlacements(database, 4, 0x1f, 0x31, 0x00)
+                .Select(source => ResolveStalfos(database, source))
+                .ToList();
         OracleRoomData potRoom = _world.LoadRoom(4, 0x1f);
         if (room41f.Count != 4 ||
             potRoom.GetMetatile(new Vector2(136, 96)) != 0x10 ||
@@ -1931,15 +2021,24 @@ public sealed partial class ValidationRoot
     private void ValidateZolsAndGels()
     {
         var database = new EnemyDatabase();
-        if (database.ZolRecordCount != 61 || database.ZolInstanceCount != 79 ||
-            database.GelRecordCount != 1 || database.GelInstanceCount != 3)
+        List<RoomObjectRecord> zolPlacements =
+            EnemyPlacements(database, 0x34, 0x00, 0x01);
+        List<RoomObjectRecord> gelPlacements =
+            EnemyPlacements(database, 0x43, 0x00);
+        if (zolPlacements.Count != 61 ||
+            zolPlacements.Sum(source => source.Count) != 79 ||
+            gelPlacements.Count != 1 ||
+            gelPlacements.Sum(source => source.Count) != 3)
         {
             throw new InvalidOperationException(
                 $"Expected 61 ENEMY_ZOL records / 79 instances and one ENEMY_GEL record / " +
-                $"3 instances, got {database.ZolRecordCount} / {database.ZolInstanceCount} " +
-                $"and {database.GelRecordCount} / {database.GelInstanceCount}.");
+                $"3 instances, got {zolPlacements.Count} / " +
+                $"{zolPlacements.Sum(source => source.Count)} and " +
+                $"{gelPlacements.Count} / " +
+                $"{gelPlacements.Sum(source => source.Count)}.");
         }
-        if (database.Gel.Id != 0x43 || database.Gel.TileBase != 0 ||
+        if (database.Gel is not { Id: 0x43, SubId: 0x00 } ||
+            database.Gel.TileBase != 0 ||
             database.Gel.Palette != 2 || database.Gel.CollisionRadiusY != 2 ||
             database.Gel.CollisionRadiusX != 2 || database.Gel.DamageQuarters != 2 ||
             database.Gel.Health != 1)
@@ -1981,15 +2080,9 @@ public sealed partial class ValidationRoot
                 "Zol/Gel transition ownership and offsets were not normalized after scrolling.");
         }
 
-        ZolRecord greenRecord = default;
-        foreach (ZolRecord record in database.GetRoomZols(4, 0xcc))
-        {
-            if (record.SubId == 0)
-            {
-                greenRecord = record;
-                break;
-            }
-        }
+        ZolRecord greenRecord = ResolveZol(
+            database,
+            RoomEnemyPlacements(database, 4, 0xcc, 0x34, 0x00)[0]);
         if (greenRecord.Id != 0x34 || greenRecord.Health != 2 ||
             greenRecord.DamageQuarters != 2 || greenRecord.Palette != 0)
         {

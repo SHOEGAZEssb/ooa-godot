@@ -6,33 +6,15 @@ namespace oracleofages;
 
 public sealed class EnemyDatabase
 {
-    private readonly Dictionary<int, List<EnemyDatabaseEnemyRecord>> _keeseByRoom = new();
-    private readonly Dictionary<int, List<OctorokRecord>> _octoroksByRoom = new();
-    private readonly Dictionary<int, List<StalfosRecord>> _stalfosByRoom = new();
-    private readonly Dictionary<int, List<ZolRecord>> _zolsByRoom = new();
-    private readonly Dictionary<int, List<GelRecord>> _gelsByRoom = new();
-    private readonly Dictionary<int, List<CrowRecord>> _crowsByRoom = new();
     private readonly Dictionary<int, List<RoomObjectRecord>> _roomObjectsByRoom = new();
-    private readonly Dictionary<int, EnemyDatabaseEnemyRecord> _keeseDefinitions = new();
-    private readonly Dictionary<int, OctorokRecord> _octorokDefinitions = new();
-    private readonly Dictionary<int, StalfosRecord> _stalfosDefinitions = new();
-    private readonly Dictionary<int, ZolRecord> _zolDefinitions = new();
-    private readonly Dictionary<int, CrowRecord> _crowDefinitions = new();
+    private readonly Dictionary<int, KeeseDefinition> _keeseDefinitions = new();
+    private readonly Dictionary<int, OctorokDefinition> _octorokDefinitions = new();
+    private readonly Dictionary<int, StalfosDefinition> _stalfosDefinitions = new();
+    private readonly Dictionary<int, ZolDefinition> _zolDefinitions = new();
+    private readonly Dictionary<int, CrowDefinition> _crowDefinitions = new();
     private readonly Dictionary<(int Id, int SubId), ImportedEnemyDefinition>
         _importedDefinitions = new();
 
-    public int KeeseRecordCount { get; }
-    public int KeeseInstanceCount { get; }
-    public int OctorokRecordCount { get; }
-    public int OctorokInstanceCount { get; }
-    public int StalfosRecordCount { get; }
-    public int StalfosInstanceCount { get; }
-    public int ZolRecordCount { get; }
-    public int ZolInstanceCount { get; }
-    public int GelRecordCount { get; }
-    public int GelInstanceCount { get; }
-    public int CrowRecordCount { get; }
-    public int CrowInstanceCount { get; }
     public int RoomObjectRecordCount { get; }
     public OctorokProjectileRecord OctorokProjectile { get; }
     public MaskedMoblinRecord MaskedMoblin { get; }
@@ -126,317 +108,234 @@ public sealed class EnemyDatabase
         table = GeneratedTable.Load(
             "res://assets/oracle/objects/keese.tsv",
             new GeneratedTableSchema(
-                "Keese room records",
-                GeneratedTableKeySemantics.Grouped,
+                "Keese definitions",
+                GeneratedTableKeySemantics.Unique,
                 [
-                    "group", "room", "id", "subid", "flags", "count", "sprite",
-                    "tile-base", "palette", "radius-y", "radius-x", "damage-quarters",
-                    "health", "idle-animation", "fly-animation"
+                    "id", "subid", "sprite", "tile-base", "palette", "radius-y",
+                    "radius-x", "damage-quarters", "health", "idle-animation",
+                    "fly-animation"
                 ],
-                ["group", "room"],
+                ["id", "subid"],
                 headerRequired: true));
-        int records = 0;
-        int instances = 0;
         foreach (GeneratedTableRow row in table.Rows)
         {
-            EnemyDatabaseEnemyRecord record = new EnemyDatabaseEnemyRecord(
-                row.Decimal(0, 0, 7),
+            KeeseDefinition definition = new KeeseDefinition(
+                row.HexByte(0),
                 row.HexByte(1),
-                row.HexByte(2),
-                row.HexByte(3),
-                row.HexByte(4),
+                row.RequiredString(2),
+                row.UnsignedDecimal(3),
+                row.UnsignedDecimal(4),
                 row.UnsignedDecimal(5),
-                row.RequiredString(6),
+                row.UnsignedDecimal(6),
                 row.UnsignedDecimal(7),
                 row.UnsignedDecimal(8),
-                row.UnsignedDecimal(9),
-                row.UnsignedDecimal(10),
-                row.UnsignedDecimal(11),
-                row.UnsignedDecimal(12),
-                row.RequiredString(13),
-                row.RequiredString(14));
-
-            int key = MakeKey(record.Group, record.Room);
-            if (!_keeseByRoom.TryGetValue(key, out List<EnemyDatabaseEnemyRecord>? roomRecords))
+                row.RequiredString(9),
+                row.RequiredString(10));
+            if (definition.Id != 0x32 ||
+                !_keeseDefinitions.TryAdd(definition.SubId, definition))
             {
-                roomRecords = new List<EnemyDatabaseEnemyRecord>();
-                _keeseByRoom.Add(key, roomRecords);
+                throw row.Invalid(0, "unique ENEMY_KEESE $32 definition");
             }
-            roomRecords.Add(record);
-            _keeseDefinitions.TryAdd(record.SubId, record);
-            records++;
-            instances += record.Count;
         }
-
-        KeeseRecordCount = records;
-        KeeseInstanceCount = instances;
+        if (_keeseDefinitions.Count != 2)
+            throw new InvalidOperationException(
+                $"Expected two Keese definitions, got {_keeseDefinitions.Count}.");
 
         table = GeneratedTable.Load(
             "res://assets/oracle/objects/crows.tsv",
             new GeneratedTableSchema(
-                "Crow room records",
-                GeneratedTableKeySemantics.Grouped,
+                "Crow definitions",
+                GeneratedTableKeySemantics.Unique,
                 [
-                    "group", "room", "id", "subid", "flags", "count",
-                    "position-mode", "y", "x", "sprite", "tile-base", "palette",
-                    "radius-y", "radius-x", "damage-quarters", "health", "speed-raw",
+                    "id", "subid", "sprite", "tile-base", "palette", "radius-y",
+                    "radius-x", "damage-quarters", "health", "speed-raw",
                     "perched-right", "perched-left", "flight-right", "flight-left"
                 ],
-                ["group", "room"],
+                ["id", "subid"],
                 headerRequired: true));
-        records = 0;
-        instances = 0;
         foreach (GeneratedTableRow row in table.Rows)
         {
-            CrowRecord record = new CrowRecord(
-                row.Decimal(0, 0, 7),
+            CrowDefinition definition = new CrowDefinition(
+                row.HexByte(0),
                 row.HexByte(1),
-                row.HexByte(2),
-                row.HexByte(3),
-                row.HexByte(4),
+                row.RequiredString(2),
+                row.UnsignedDecimal(3),
+                row.UnsignedDecimal(4),
                 row.UnsignedDecimal(5),
-                FixedPosition(row, 6),
-                row.HexByteOrSentinel(7, "-1", -1),
-                row.HexByteOrSentinel(8, "-1", -1),
-                row.RequiredString(9),
-                row.UnsignedDecimal(10),
-                row.UnsignedDecimal(11),
-                row.UnsignedDecimal(12),
-                row.UnsignedDecimal(13),
-                row.UnsignedDecimal(14),
-                row.UnsignedDecimal(15),
-                row.UnsignedDecimal(16),
-                row.RequiredString(17),
-                row.RequiredString(18),
-                row.RequiredString(19),
-                row.RequiredString(20));
-            int key = MakeKey(record.Group, record.Room);
-            if (!_crowsByRoom.TryGetValue(key, out List<CrowRecord>? roomRecords))
+                row.UnsignedDecimal(6),
+                row.UnsignedDecimal(7),
+                row.UnsignedDecimal(8),
+                row.UnsignedDecimal(9),
+                row.RequiredString(10),
+                row.RequiredString(11),
+                row.RequiredString(12),
+                row.RequiredString(13));
+            if (definition.Id != 0x41 ||
+                !_crowDefinitions.TryAdd(definition.SubId, definition))
             {
-                roomRecords = new List<CrowRecord>();
-                _crowsByRoom.Add(key, roomRecords);
+                throw row.Invalid(0, "unique ENEMY_CROW $41 definition");
             }
-            roomRecords.Add(record);
-            _crowDefinitions.TryAdd(record.SubId, record);
-            records++;
-            instances += record.Count;
         }
-        CrowRecordCount = records;
-        CrowInstanceCount = instances;
+        if (_crowDefinitions.Count != 1 ||
+            !_crowDefinitions.ContainsKey(0))
+        {
+            throw new InvalidOperationException(
+                "Expected the ENEMY_CROW $41:$00 definition.");
+        }
 
         table = GeneratedTable.Load(
             "res://assets/oracle/objects/octoroks.tsv",
             new GeneratedTableSchema(
-                "Octorok room records",
-                GeneratedTableKeySemantics.Grouped,
+                "Octorok definitions",
+                GeneratedTableKeySemantics.Unique,
                 [
-                    "group", "room", "id", "subid", "flags", "count", "position-mode",
-                    "y", "x", "sprite", "tile-base", "palette", "radius-y", "radius-x",
-                    "damage-quarters", "health", "speed-raw", "counter-mask", "up-animation",
-                    "right-animation", "down-animation", "left-animation"
+                    "id", "subid", "sprite", "tile-base", "palette", "radius-y",
+                    "radius-x", "damage-quarters", "health", "speed-raw",
+                    "counter-mask", "up-animation", "right-animation",
+                    "down-animation", "left-animation"
                 ],
-                ["group", "room"],
+                ["id", "subid"],
                 headerRequired: true));
-        records = 0;
-        instances = 0;
         foreach (GeneratedTableRow row in table.Rows)
         {
-            OctorokRecord record = new OctorokRecord(
-                row.Decimal(0, 0, 7),
+            OctorokDefinition definition = new OctorokDefinition(
+                row.HexByte(0),
                 row.HexByte(1),
-                row.HexByte(2),
-                row.HexByte(3),
-                row.HexByte(4),
+                row.RequiredString(2),
+                row.UnsignedDecimal(3),
+                row.UnsignedDecimal(4),
                 row.UnsignedDecimal(5),
-                FixedPosition(row, 6),
-                row.HexByteOrSentinel(7, "-1", -1),
-                row.HexByteOrSentinel(8, "-1", -1),
-                row.RequiredString(9),
+                row.UnsignedDecimal(6),
+                row.UnsignedDecimal(7),
+                row.UnsignedDecimal(8),
+                row.UnsignedDecimal(9),
                 row.UnsignedDecimal(10),
-                row.UnsignedDecimal(11),
-                row.UnsignedDecimal(12),
-                row.UnsignedDecimal(13),
-                row.UnsignedDecimal(14),
-                row.UnsignedDecimal(15),
-                row.UnsignedDecimal(16),
-                row.UnsignedDecimal(17),
-                row.RequiredString(18),
-                row.RequiredString(19),
-                row.RequiredString(20),
-                row.RequiredString(21));
-
-            int key = MakeKey(record.Group, record.Room);
-            if (!_octoroksByRoom.TryGetValue(key, out List<OctorokRecord>? roomRecords))
+                row.RequiredString(11),
+                row.RequiredString(12),
+                row.RequiredString(13),
+                row.RequiredString(14));
+            if (definition.Id != 0x09 ||
+                !_octorokDefinitions.TryAdd(definition.SubId, definition))
             {
-                roomRecords = new List<OctorokRecord>();
-                _octoroksByRoom.Add(key, roomRecords);
+                throw row.Invalid(0, "unique ENEMY_OCTOROK $09 definition");
             }
-            roomRecords.Add(record);
-            _octorokDefinitions.TryAdd(record.SubId, record);
-            records++;
-            instances += record.Count;
         }
-        OctorokRecordCount = records;
-        OctorokInstanceCount = instances;
+        if (_octorokDefinitions.Count != 3)
+            throw new InvalidOperationException(
+                $"Expected three Octorok definitions, got {_octorokDefinitions.Count}.");
 
         table = GeneratedTable.Load(
             "res://assets/oracle/objects/stalfos.tsv",
             new GeneratedTableSchema(
-                "Stalfos room records",
-                GeneratedTableKeySemantics.Grouped,
+                "Stalfos definitions",
+                GeneratedTableKeySemantics.Unique,
                 [
-                    "group", "room", "id", "subid", "flags", "count", "position-mode",
-                    "y", "x", "sprite", "tile-base", "palette", "radius-y", "radius-x",
-                    "damage-quarters", "health", "speed-raw", "walk-animation", "jump-animation"
+                    "id", "subid", "sprite", "tile-base", "palette", "radius-y",
+                    "radius-x", "damage-quarters", "health", "speed-raw",
+                    "walk-animation", "jump-animation"
                 ],
-                ["group", "room"],
+                ["id", "subid"],
                 headerRequired: true));
-        records = 0;
-        instances = 0;
         foreach (GeneratedTableRow row in table.Rows)
         {
-            StalfosRecord record = new StalfosRecord(
-                row.Decimal(0, 0, 7),
+            StalfosDefinition definition = new StalfosDefinition(
+                row.HexByte(0),
                 row.HexByte(1),
-                row.HexByte(2),
-                row.HexByte(3),
-                row.HexByte(4),
+                row.RequiredString(2),
+                row.UnsignedDecimal(3),
+                row.UnsignedDecimal(4),
                 row.UnsignedDecimal(5),
-                FixedPosition(row, 6),
-                row.HexByteOrSentinel(7, "-1", -1),
-                row.HexByteOrSentinel(8, "-1", -1),
-                row.RequiredString(9),
-                row.UnsignedDecimal(10),
-                row.UnsignedDecimal(11),
-                row.UnsignedDecimal(12),
-                row.UnsignedDecimal(13),
-                row.UnsignedDecimal(14),
-                row.UnsignedDecimal(15),
-                row.UnsignedDecimal(16),
-                row.RequiredString(17),
-                row.RequiredString(18));
-            int key = MakeKey(record.Group, record.Room);
-            if (!_stalfosByRoom.TryGetValue(key, out List<StalfosRecord>? roomRecords))
+                row.UnsignedDecimal(6),
+                row.UnsignedDecimal(7),
+                row.UnsignedDecimal(8),
+                row.UnsignedDecimal(9),
+                row.RequiredString(10),
+                row.RequiredString(11));
+            if (definition.Id != 0x31 ||
+                !_stalfosDefinitions.TryAdd(definition.SubId, definition))
             {
-                roomRecords = new List<StalfosRecord>();
-                _stalfosByRoom.Add(key, roomRecords);
+                throw row.Invalid(0, "unique ENEMY_STALFOS $31 definition");
             }
-            roomRecords.Add(record);
-            _stalfosDefinitions.TryAdd(record.SubId, record);
-            records++;
-            instances += record.Count;
         }
-        StalfosRecordCount = records;
-        StalfosInstanceCount = instances;
+        if (_stalfosDefinitions.Count != 1 ||
+            !_stalfosDefinitions.ContainsKey(0))
+        {
+            throw new InvalidOperationException(
+                "Expected the ENEMY_STALFOS $31:$00 definition.");
+        }
 
         table = GeneratedTable.Load(
             "res://assets/oracle/objects/zols.tsv",
             new GeneratedTableSchema(
-                "Zol room records",
-                GeneratedTableKeySemantics.Grouped,
+                "Zol definitions",
+                GeneratedTableKeySemantics.Unique,
                 [
-                    "group", "room", "id", "subid", "flags", "count", "position-mode",
-                    "y", "x", "sprite", "tile-base", "palette", "radius-y", "radius-x",
-                    "damage-quarters", "health", "animation-0", "animation-1", "animation-2",
-                    "animation-3", "animation-4", "animation-5"
+                    "id", "subid", "sprite", "tile-base", "palette", "radius-y",
+                    "radius-x", "damage-quarters", "health", "animation-0",
+                    "animation-1", "animation-2", "animation-3", "animation-4",
+                    "animation-5"
                 ],
-                ["group", "room"],
+                ["id", "subid"],
                 headerRequired: true));
-        records = 0;
-        instances = 0;
         foreach (GeneratedTableRow row in table.Rows)
         {
-            ZolRecord record = new ZolRecord(
-                row.Decimal(0, 0, 7),
+            ZolDefinition definition = new ZolDefinition(
+                row.HexByte(0),
                 row.HexByte(1),
-                row.HexByte(2),
-                row.HexByte(3),
-                row.HexByte(4),
+                row.RequiredString(2),
+                row.UnsignedDecimal(3),
+                row.UnsignedDecimal(4),
                 row.UnsignedDecimal(5),
-                FixedPosition(row, 6),
-                row.HexByteOrSentinel(7, "-1", -1),
-                row.HexByteOrSentinel(8, "-1", -1),
+                row.UnsignedDecimal(6),
+                row.UnsignedDecimal(7),
+                row.UnsignedDecimal(8),
                 row.RequiredString(9),
-                row.UnsignedDecimal(10),
-                row.UnsignedDecimal(11),
-                row.UnsignedDecimal(12),
-                row.UnsignedDecimal(13),
-                row.UnsignedDecimal(14),
-                row.UnsignedDecimal(15),
-                row.RequiredString(16),
-                row.RequiredString(17),
-                row.RequiredString(18),
-                row.RequiredString(19),
-                row.RequiredString(20),
-                row.RequiredString(21));
-            int key = MakeKey(record.Group, record.Room);
-            if (!_zolsByRoom.TryGetValue(key, out List<ZolRecord>? roomRecords))
+                row.RequiredString(10),
+                row.RequiredString(11),
+                row.RequiredString(12),
+                row.RequiredString(13),
+                row.RequiredString(14));
+            if (definition.Id != 0x34 ||
+                !_zolDefinitions.TryAdd(definition.SubId, definition))
             {
-                roomRecords = new List<ZolRecord>();
-                _zolsByRoom.Add(key, roomRecords);
+                throw row.Invalid(0, "unique ENEMY_ZOL $34 definition");
             }
-            roomRecords.Add(record);
-            _zolDefinitions.TryAdd(record.SubId, record);
-            records++;
-            instances += record.Count;
         }
-        ZolRecordCount = records;
-        ZolInstanceCount = instances;
+        if (_zolDefinitions.Count != 2)
+            throw new InvalidOperationException(
+                $"Expected two Zol definitions, got {_zolDefinitions.Count}.");
 
         table = GeneratedTable.Load(
             "res://assets/oracle/objects/gels.tsv",
             new GeneratedTableSchema(
-                "Gel room records",
-                GeneratedTableKeySemantics.Grouped,
+                "Gel definitions",
+                GeneratedTableKeySemantics.Unique,
                 [
-                    "group", "room", "id", "subid", "flags", "count", "position-mode",
-                    "y", "x", "sprite", "tile-base", "palette", "radius-y", "radius-x",
-                    "damage-quarters", "health", "animation-0", "animation-1", "animation-2"
+                    "id", "subid", "sprite", "tile-base", "palette", "radius-y",
+                    "radius-x", "damage-quarters", "health", "animation-0",
+                    "animation-1", "animation-2"
                 ],
-                ["group", "room"],
+                ["id", "subid"],
                 headerRequired: true));
-        records = 0;
-        instances = 0;
-        GelDefinition? gelDefinition = null;
-        foreach (GeneratedTableRow row in table.Rows)
-        {
-            GelDefinition definition = new GelDefinition(
-                row.HexByte(2),
-                row.RequiredString(9),
-                row.UnsignedDecimal(10),
-                row.UnsignedDecimal(11),
-                row.UnsignedDecimal(12),
-                row.UnsignedDecimal(13),
-                row.UnsignedDecimal(14),
-                row.UnsignedDecimal(15),
-                row.RequiredString(16),
-                row.RequiredString(17),
-                row.RequiredString(18));
-            gelDefinition ??= definition;
-            if (gelDefinition.Value != definition)
-                throw new InvalidOperationException("Room Gel records disagree on their shared definition.");
-
-            GelRecord record = new GelRecord(
-                row.Decimal(0, 0, 7),
-                row.HexByte(1),
-                row.HexByte(4),
-                row.UnsignedDecimal(5),
-                FixedPosition(row, 6),
-                row.HexByteOrSentinel(7, "-1", -1),
-                row.HexByteOrSentinel(8, "-1", -1));
-            int key = MakeKey(record.Group, record.Room);
-            if (!_gelsByRoom.TryGetValue(key, out List<GelRecord>? roomRecords))
-            {
-                roomRecords = new List<GelRecord>();
-                _gelsByRoom.Add(key, roomRecords);
-            }
-            roomRecords.Add(record);
-            records++;
-            instances += record.Count;
-        }
-        Gel = gelDefinition ?? throw new InvalidOperationException("Gel data is empty.");
-        GelRecordCount = records;
-        GelInstanceCount = instances;
+        if (table.Rows.Count != 1)
+            throw new InvalidOperationException(
+                $"Expected one Gel definition, got {table.Rows.Count}.");
+        GeneratedTableRow gel = table.Rows[0];
+        Gel = new GelDefinition(
+            gel.HexByte(0),
+            gel.HexByte(1),
+            gel.RequiredString(2),
+            gel.UnsignedDecimal(3),
+            gel.UnsignedDecimal(4),
+            gel.UnsignedDecimal(5),
+            gel.UnsignedDecimal(6),
+            gel.UnsignedDecimal(7),
+            gel.UnsignedDecimal(8),
+            gel.RequiredString(9),
+            gel.RequiredString(10),
+            gel.RequiredString(11));
+        if (Gel is not { Id: 0x43, SubId: 0x00 })
+            throw gel.Invalid(0, "ENEMY_GEL $43:$00 definition");
 
         table = GeneratedTable.Load(
             "res://assets/oracle/objects/enemy_object_stream.tsv",
@@ -449,7 +348,7 @@ public sealed class EnemyDatabase
                 ],
                 ["group", "room"],
                 headerRequired: true));
-        records = 0;
+        int records = 0;
         foreach (GeneratedTableRow row in table.Rows)
         {
             RoomObjectRecord record = new RoomObjectRecord(
@@ -558,51 +457,6 @@ public sealed class EnemyDatabase
         ValidateEnemyHandlerDefinitions();
     }
 
-    public IReadOnlyList<EnemyDatabaseEnemyRecord> GetRoomKeese(int group, int room)
-    {
-        return _keeseByRoom.TryGetValue(MakeKey(group, room), out List<EnemyDatabaseEnemyRecord>? records)
-            ? records
-            : Array.Empty<EnemyDatabaseEnemyRecord>();
-    }
-
-    public IReadOnlyList<OctorokRecord> GetRoomOctoroks(int group, int room)
-    {
-        return _octoroksByRoom.TryGetValue(
-            MakeKey(group, room), out List<OctorokRecord>? records)
-            ? records
-            : Array.Empty<OctorokRecord>();
-    }
-
-    public IReadOnlyList<ZolRecord> GetRoomZols(int group, int room)
-    {
-        return _zolsByRoom.TryGetValue(MakeKey(group, room), out List<ZolRecord>? records)
-            ? records
-            : Array.Empty<ZolRecord>();
-    }
-
-    public IReadOnlyList<StalfosRecord> GetRoomStalfos(int group, int room)
-    {
-        return _stalfosByRoom.TryGetValue(
-            MakeKey(group, room), out List<StalfosRecord>? records)
-            ? records
-            : Array.Empty<StalfosRecord>();
-    }
-
-    public IReadOnlyList<GelRecord> GetRoomGels(int group, int room)
-    {
-        return _gelsByRoom.TryGetValue(MakeKey(group, room), out List<GelRecord>? records)
-            ? records
-            : Array.Empty<GelRecord>();
-    }
-
-    public IReadOnlyList<CrowRecord> GetRoomCrows(int group, int room)
-    {
-        return _crowsByRoom.TryGetValue(
-            MakeKey(group, room), out List<CrowRecord>? records)
-            ? records
-            : Array.Empty<CrowRecord>();
-    }
-
     public IReadOnlyList<RoomObjectRecord> GetRoomObjects(int group, int room)
     {
         return _roomObjectsByRoom.TryGetValue(
@@ -613,98 +467,160 @@ public sealed class EnemyDatabase
 
     public bool TryGetKeeseDefinition(RoomObjectRecord source, out EnemyDatabaseEnemyRecord record)
     {
-        if (!_keeseDefinitions.TryGetValue(source.SubId, out EnemyDatabaseEnemyRecord template))
+        if (source.Id != 0x32 ||
+            !_keeseDefinitions.TryGetValue(source.SubId, out KeeseDefinition definition))
         {
             record = default;
             return false;
         }
-        record = template with
-        {
-            Group = source.Group,
-            Room = source.Room,
-            Flags = source.Flags,
-            Count = source.Count
-        };
+        record = new EnemyDatabaseEnemyRecord(
+            source.Group,
+            source.Room,
+            definition.Id,
+            definition.SubId,
+            source.Flags,
+            source.Count,
+            definition.SpriteName,
+            definition.TileBase,
+            definition.Palette,
+            definition.CollisionRadiusY,
+            definition.CollisionRadiusX,
+            definition.DamageQuarters,
+            definition.Health,
+            definition.IdleAnimation,
+            definition.FlyAnimation);
         return true;
     }
 
     public bool TryGetOctorokDefinition(RoomObjectRecord source, out OctorokRecord record)
     {
-        if (!_octorokDefinitions.TryGetValue(source.SubId, out OctorokRecord template))
+        if (source.Id != 0x09 ||
+            !_octorokDefinitions.TryGetValue(source.SubId, out OctorokDefinition definition))
         {
             record = default;
             return false;
         }
-        record = template with
-        {
-            Group = source.Group,
-            Room = source.Room,
-            Flags = source.Flags,
-            Count = source.Count,
-            FixedPosition = source.Kind == RoomObjectKind.FixedEnemy,
-            Y = source.Y,
-            X = source.X
-        };
+        record = new OctorokRecord(
+            source.Group,
+            source.Room,
+            definition.Id,
+            definition.SubId,
+            source.Flags,
+            source.Count,
+            source.Kind == RoomObjectKind.FixedEnemy,
+            source.Y,
+            source.X,
+            definition.SpriteName,
+            definition.TileBase,
+            definition.Palette,
+            definition.CollisionRadiusY,
+            definition.CollisionRadiusX,
+            definition.DamageQuarters,
+            definition.Health,
+            definition.SpeedRaw,
+            definition.CounterMask,
+            definition.UpAnimation,
+            definition.RightAnimation,
+            definition.DownAnimation,
+            definition.LeftAnimation);
         return true;
     }
 
     public bool TryGetZolDefinition(RoomObjectRecord source, out ZolRecord record)
     {
-        if (!_zolDefinitions.TryGetValue(source.SubId, out ZolRecord template))
+        if (source.Id != 0x34 ||
+            !_zolDefinitions.TryGetValue(source.SubId, out ZolDefinition definition))
         {
             record = default;
             return false;
         }
-        record = template with
-        {
-            Group = source.Group,
-            Room = source.Room,
-            Flags = source.Flags,
-            Count = source.Count,
-            FixedPosition = source.Kind == RoomObjectKind.FixedEnemy,
-            Y = source.Y,
-            X = source.X
-        };
+        record = new ZolRecord(
+            source.Group,
+            source.Room,
+            definition.Id,
+            definition.SubId,
+            source.Flags,
+            source.Count,
+            source.Kind == RoomObjectKind.FixedEnemy,
+            source.Y,
+            source.X,
+            definition.SpriteName,
+            definition.TileBase,
+            definition.Palette,
+            definition.CollisionRadiusY,
+            definition.CollisionRadiusX,
+            definition.DamageQuarters,
+            definition.Health,
+            definition.EmergeAnimation,
+            definition.WaitAnimation,
+            definition.HopAnimation,
+            definition.DisappearAnimation,
+            definition.RedIdleAnimation,
+            definition.RedShakeAnimation);
         return true;
     }
 
     public bool TryGetStalfosDefinition(RoomObjectRecord source, out StalfosRecord record)
     {
-        if (!_stalfosDefinitions.TryGetValue(source.SubId, out StalfosRecord template))
+        if (source.Id != 0x31 ||
+            !_stalfosDefinitions.TryGetValue(source.SubId, out StalfosDefinition definition))
         {
             record = default;
             return false;
         }
-        record = template with
-        {
-            Group = source.Group,
-            Room = source.Room,
-            Flags = source.Flags,
-            Count = source.Count,
-            FixedPosition = source.Kind == RoomObjectKind.FixedEnemy,
-            Y = source.Y,
-            X = source.X
-        };
+        record = new StalfosRecord(
+            source.Group,
+            source.Room,
+            definition.Id,
+            definition.SubId,
+            source.Flags,
+            source.Count,
+            source.Kind == RoomObjectKind.FixedEnemy,
+            source.Y,
+            source.X,
+            definition.SpriteName,
+            definition.TileBase,
+            definition.Palette,
+            definition.CollisionRadiusY,
+            definition.CollisionRadiusX,
+            definition.DamageQuarters,
+            definition.Health,
+            definition.SpeedRaw,
+            definition.WalkAnimation,
+            definition.JumpAnimation);
         return true;
     }
 
     public bool TryGetCrowDefinition(RoomObjectRecord source, out CrowRecord record)
     {
-        if (!_crowDefinitions.TryGetValue(source.SubId, out CrowRecord template))
+        if (source.Id != 0x41 ||
+            !_crowDefinitions.TryGetValue(source.SubId, out CrowDefinition definition))
         {
             record = default;
             return false;
         }
-        record = template with
-        {
-            Group = source.Group,
-            Room = source.Room,
-            Flags = source.Flags,
-            Count = source.Count,
-            FixedPosition = source.Kind == RoomObjectKind.FixedEnemy,
-            Y = source.Y,
-            X = source.X
-        };
+        record = new CrowRecord(
+            source.Group,
+            source.Room,
+            definition.Id,
+            definition.SubId,
+            source.Flags,
+            source.Count,
+            source.Kind == RoomObjectKind.FixedEnemy,
+            source.Y,
+            source.X,
+            definition.SpriteName,
+            definition.TileBase,
+            definition.Palette,
+            definition.CollisionRadiusY,
+            definition.CollisionRadiusX,
+            definition.DamageQuarters,
+            definition.Health,
+            definition.SpeedRaw,
+            definition.PerchedRightAnimation,
+            definition.PerchedLeftAnimation,
+            definition.FlightRightAnimation,
+            definition.FlightLeftAnimation);
         return true;
     }
 
@@ -804,14 +720,6 @@ public sealed class EnemyDatabase
 
     private static int MakeKey(int group, int room) => (group << 8) | room;
 
-    private static bool FixedPosition(GeneratedTableRow row, int column) =>
-        row.RequiredString(column) switch
-        {
-            "F" => true,
-            "R" => false,
-            _ => throw row.Invalid(column, "position mode F or R")
-        };
-
     private static string[] SplitRequired(
         GeneratedTableRow row,
         int column,
@@ -855,13 +763,21 @@ public readonly record struct EnemyArrowRecord(string SpriteName, int TileBase, 
 
 public readonly record struct EnemyDatabaseEnemyRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string IdleAnimation, string FlyAnimation);
 
+internal readonly record struct KeeseDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string IdleAnimation, string FlyAnimation);
+
 internal readonly record struct ImportedEnemyDefinition(int Id, int SubId, string[] Sprites, int TileBase, int Palette, bool SourceGrayscaleInverted, int RadiusY, int RadiusX, int DamageQuarters, int Health, string[] Animations);
 
 internal readonly record struct EnemyProjectileVisualRecord(string[] Sprites, int TileBase, int Palette, bool SourceGrayscaleInverted, string[] Animations);
 
-public readonly record struct GelRecord(int Group, int Room, int Flags, int Count, bool FixedPosition, int Y, int X);
+internal readonly record struct CrowDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string PerchedRightAnimation, string PerchedLeftAnimation, string FlightRightAnimation, string FlightLeftAnimation);
 
-public readonly record struct GelDefinition(int Id, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string NormalAnimation, string AttachedAnimation, string ShakeAnimation);
+internal readonly record struct OctorokDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, int CounterMask, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation);
+
+internal readonly record struct StalfosDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string WalkAnimation, string JumpAnimation);
+
+internal readonly record struct ZolDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string EmergeAnimation, string WaitAnimation, string HopAnimation, string DisappearAnimation, string RedIdleAnimation, string RedShakeAnimation);
+
+public readonly record struct GelDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string NormalAnimation, string AttachedAnimation, string ShakeAnimation);
 
 public readonly record struct MaskedMoblinRecord(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, int MoveCounterBase, int MoveCounterMask, int TurnWait, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation);
 

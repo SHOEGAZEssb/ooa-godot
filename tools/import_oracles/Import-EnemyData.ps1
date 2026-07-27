@@ -500,13 +500,19 @@ $keeseSourceSprite = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
     Select-Object -First 1
 if ($null -eq $keeseSourceSprite) { throw "Keese sprite not found in disassembly: $keeseSpriteName.png" }
 Copy-Item -LiteralPath $keeseSourceSprite.FullName -Destination (Join-Path $destination "gfx\$keeseSpriteName.png") -Force
+$keeseDefinitionRows = [Collections.Generic.List[string]]::new()
+$keeseDefinitionRows.Add(
+    "# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tidle-animation`tfly-animation")
+foreach ($subid in @('00', '01')) {
+    $keeseDefinitionRows.Add(
+        "32`t$subid`t$keeseSpriteName`t$(($keeseGraphicFlags -band 0x0f) * 2)`t$(($keeseGraphicFlags -shr 4) -band 7)`t$keeseRadiusY`t$keeseRadiusX`t$keeseDamageQuarters`t$keeseHealth`t$keeseIdleAnimation`t$keeseFlyAnimation")
+}
 $keesePath = Join-Path $destination "objects\keese.tsv"
-[IO.File]::WriteAllLines($keesePath, $keeseRows, [Text.UTF8Encoding]::new($false))
 
 # Octoroks (`$09) use both random-position and fixed-position enemy opcodes.
 # Ages room data instantiates subids `$00, `$01, and `$02: normal red, fast
-# red, and blue. Export resolved per-subid attributes and all four cardinal
-# animations alongside the original room-object order.
+# red, and blue. Export one definition per supported subid with its resolved
+# attributes and all four cardinal animations.
 $octorokDataMatch = [regex]::Match(
     $enemyDataSource,
     '(?m)^\s*/\* 0x09 \*/ m_EnemyData \$(?<gfx>[0-9a-f]{2}) \$(?<collision>[0-9a-f]{2}) enemy09SubidData'
@@ -670,8 +676,15 @@ $octorokSourceSprite = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
     Select-Object -First 1
 if ($null -eq $octorokSourceSprite) { throw "Octorok sprite not found: $octorokSpriteName.png" }
 Copy-Item -LiteralPath $octorokSourceSprite.FullName -Destination (Join-Path $destination "gfx\$octorokSpriteName.png") -Force
+$octorokDefinitionRows = [Collections.Generic.List[string]]::new()
+$octorokDefinitionRows.Add(
+    "# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tspeed-raw`tcounter-mask`tup-animation`tright-animation`tdown-animation`tleft-animation")
+foreach ($subid in 0..2) {
+    $definition = $octorokDefinitions[$subid]
+    $octorokDefinitionRows.Add(
+        "09`t$($subid.ToString('x2'))`t$octorokSpriteName`t$($definition.TileBase)`t$($definition.Palette)`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.DamageQuarters)`t$($definition.Health)`t$($definition.SpeedRaw)`t$($definition.CounterMask)`t$($octorokAnimations -join "`t")")
+}
 $octorokPath = Join-Path $destination 'objects\octoroks.tsv'
-[IO.File]::WriteAllLines($octorokPath, $octorokRows, [Text.UTF8Encoding]::new($false))
 
 # ENEMY_STALFOS (`$31) subid `$00 is the ordinary walking Stalfos used by
 # room 4:06 and 33 other source records. Other subids add weapon-evasion,
@@ -820,8 +833,12 @@ $stalfosSourceSprite = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
     Select-Object -First 1
 if ($null -eq $stalfosSourceSprite) { throw "Stalfos sprite not found: $stalfosSpriteName.png" }
 Copy-Item -LiteralPath $stalfosSourceSprite.FullName -Destination (Join-Path $destination "gfx\$stalfosSpriteName.png") -Force
+$stalfosDefinitionRows = [Collections.Generic.List[string]]::new()
+$stalfosDefinitionRows.Add(
+    "# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tspeed-raw`twalk-animation`tjump-animation")
+$stalfosDefinitionRows.Add(
+    "31`t00`t$stalfosSpriteName`t$($stalfosDefinition.TileBase)`t$($stalfosDefinition.Palette)`t$($stalfosDefinition.RadiusY)`t$($stalfosDefinition.RadiusX)`t$($stalfosDefinition.DamageQuarters)`t$($stalfosDefinition.Health)`t$($stalfosDefinition.SpeedRaw)`t$($stalfosAnimations -join "`t")")
 $stalfosPath = Join-Path $destination 'objects\stalfos.tsv'
-[IO.File]::WriteAllLines($stalfosPath, $stalfosRows, [Text.UTF8Encoding]::new($false))
 
 # Zols (`$34) are instantiated with both random and fixed-position enemy
 # opcodes. Red Zols split into ENEMY_GEL (`$43), which also has one direct
@@ -1049,10 +1066,19 @@ $zolSourceSprite = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
     Select-Object -First 1
 if ($null -eq $zolSourceSprite) { throw "Zol/Gel sprite not found: $zolSpriteName.png" }
 Copy-Item -LiteralPath $zolSourceSprite.FullName -Destination (Join-Path $destination "gfx\$zolSpriteName.png") -Force
-[IO.File]::WriteAllLines(
-    (Join-Path $destination 'objects\zols.tsv'), $zolRows, [Text.UTF8Encoding]::new($false))
-[IO.File]::WriteAllLines(
-    (Join-Path $destination 'objects\gels.tsv'), $gelRows, [Text.UTF8Encoding]::new($false))
+$zolDefinitionRows = [Collections.Generic.List[string]]::new()
+$zolDefinitionRows.Add(
+    "# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tanimation-0`tanimation-1`tanimation-2`tanimation-3`tanimation-4`tanimation-5")
+foreach ($subid in 0..1) {
+    $definition = $zolDefinitions[$subid]
+    $zolDefinitionRows.Add(
+        "34`t$($subid.ToString('x2'))`t$zolSpriteName`t$($definition.TileBase)`t$($definition.Palette)`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.DamageQuarters)`t$($definition.Health)`t$($zolAnimations -join "`t")")
+}
+$gelDefinitionRows = [Collections.Generic.List[string]]::new()
+$gelDefinitionRows.Add(
+    "# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tanimation-0`tanimation-1`tanimation-2")
+$gelDefinitionRows.Add(
+    "43`t00`t$zolSpriteName`t$($gelDefinition.TileBase)`t$($gelDefinition.Palette)`t$($gelDefinition.RadiusY)`t$($gelDefinition.RadiusX)`t$($gelDefinition.DamageQuarters)`t$($gelDefinition.Health)`t$($gelAnimations -join "`t")")
 
 # Perched Crows (`$41:$00) are fixed-position enemies. Their shared graphics
 # header, standard attributes, and four directional/flight animations are
@@ -1146,8 +1172,11 @@ $crowSourceSprite = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
     Select-Object -First 1
 if ($null -eq $crowSourceSprite) { throw "Crow sprite not found: $crowSpriteName.png" }
 Copy-Item -LiteralPath $crowSourceSprite.FullName -Destination (Join-Path $destination "gfx\$crowSpriteName.png") -Force
-[IO.File]::WriteAllLines(
-    (Join-Path $destination 'objects\crows.tsv'), $crowRows, [Text.UTF8Encoding]::new($false))
+$crowDefinitionRows = [Collections.Generic.List[string]]::new()
+$crowDefinitionRows.Add(
+    "# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tspeed-raw`tperched-right`tperched-left`tflight-right`tflight-left")
+$crowDefinitionRows.Add(
+    "41`t00`t$crowSpriteName`t0`t3`t$crowRadiusY`t$crowRadiusX`t$crowDamageQuarters`t$crowHealth`t50`t$($crowAnimations -join "`t")")
 
 # Preserve parseObjectData order independently of the currently implemented
 # enemy species. Random/fixed enemies, reserving parts, and item-drop producers
@@ -1321,6 +1350,86 @@ if (-not ($orderedObjectRows | Where-Object { $_ -match '^5\tb0\t0\tF\t1b\t01\t0
     -not ($orderedObjectRows | Where-Object { $_ -match '^5\t01\t0\tP\t23\t01\t00\t1\t-1\t-1\t08\tff$' })) {
     throw 'Canonical ordered enemy/fixed-enemy/item-drop/part placement records were not extracted.'
 }
+
+# The former per-species room tables are retained only as an importer-local
+# migration oracle. Generated runtime species tables contain definitions only,
+# so every supported placement must have an exact ordered-stream row.
+function Assert-SpeciesPlacementMigration(
+    [string]$name,
+    [object]$legacyRows,
+    [string]$id,
+    [string[]]$subids,
+    [bool]$hasPosition
+) {
+    $legacyProjection = @($legacyRows | Select-Object -Skip 1 | ForEach-Object {
+        $columns = $_ -split "`t"
+        if ($hasPosition) {
+            $kind = $columns[6]
+            $y = $columns[7]
+            $x = $columns[8]
+            $packed = if ($kind -eq 'F') {
+                $value = ([Convert]::ToInt32($y, 16) -band 0xf0) -bor
+                    (([Convert]::ToInt32($x, 16) -shr 4) -band 0x0f)
+                $value.ToString('x2')
+            } else {
+                '-1'
+            }
+        } else {
+            $kind = 'R'
+            $y = '-1'
+            $x = '-1'
+            $packed = '-1'
+        }
+        "$($columns[0])`t$($columns[1])`t$kind`t$($columns[2])`t$($columns[3])`t$($columns[4])`t$($columns[5])`t$y`t$x`t$packed"
+    } | Sort-Object)
+
+    $subidSet = @{}
+    foreach ($subid in $subids) { $subidSet[$subid] = $true }
+    $orderedProjection = @($orderedObjectRows | Select-Object -Skip 1 |
+        ForEach-Object {
+            $columns = $_ -split "`t"
+            if ($columns[4] -eq $id -and $subidSet.ContainsKey($columns[5])) {
+                "$($columns[0])`t$($columns[1])`t$($columns[3])`t$($columns[4])`t$($columns[5])`t$($columns[6])`t$($columns[7])`t$($columns[8])`t$($columns[9])`t$($columns[10])"
+            }
+        } | Sort-Object)
+
+    if ($legacyProjection.Count -ne $orderedProjection.Count -or
+        -not [string]::Equals(
+            ($legacyProjection -join "`n"),
+            ($orderedProjection -join "`n"),
+            [StringComparison]::Ordinal)) {
+        $difference = Compare-Object $legacyProjection $orderedProjection |
+            Select-Object -First 4 |
+            Out-String
+        throw "$name placement migration mismatch: legacy=$($legacyProjection.Count), ordered=$($orderedProjection.Count). $difference"
+    }
+}
+
+Assert-SpeciesPlacementMigration 'Keese' $keeseRows '32' @('00', '01') $false
+Assert-SpeciesPlacementMigration 'Octorok' $octorokRows '09' @('00', '01', '02') $true
+Assert-SpeciesPlacementMigration 'Stalfos' $stalfosRows '31' @('00') $true
+Assert-SpeciesPlacementMigration 'Zol' $zolRows '34' @('00', '01') $true
+Assert-SpeciesPlacementMigration 'Gel' $gelRows '43' @('00') $true
+Assert-SpeciesPlacementMigration 'Crow' $crowRows '41' @('00') $true
+
+[IO.File]::WriteAllLines(
+    $keesePath, $keeseDefinitionRows, [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllLines(
+    $octorokPath, $octorokDefinitionRows, [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllLines(
+    $stalfosPath, $stalfosDefinitionRows, [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\zols.tsv'),
+    $zolDefinitionRows,
+    [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\gels.tsv'),
+    $gelDefinitionRows,
+    [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\crows.tsv'),
+    $crowDefinitionRows,
+    [Text.UTF8Encoding]::new($false))
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\enemy_object_stream.tsv'),
     $orderedObjectRows,

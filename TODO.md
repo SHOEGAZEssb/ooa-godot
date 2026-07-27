@@ -205,14 +205,18 @@ and RNG consumption while addressing these items.
 
 ### Ownership and consolidation
 
-- [ ] Remove the six parallel species placement stores from `EnemyDatabase`.
+- [x] Remove the six parallel species placement stores from `EnemyDatabase`.
   Keese, Octorok, Stalfos, Zol, Gel, and Crow room records duplicate placement
   data already present in `enemy_object_stream.tsv`; production then obtains a
   definition template from one of those room records while validation still
   exercises the legacy per-species getters. Generate unique ID/subid
   definitions separately, make the ordered object stream the sole placement
   authority, and add a deterministic migration cross-check before deleting the
-  duplicate getters and TSV fields.
+  duplicate getters and TSV fields. The six generated tables now contain 10
+  unique definitions only; importer-local projections prove all 185 former
+  placement rows and 328 instances match the ordered stream before generation.
+  Runtime and validation both join those definitions to ordered records, and
+  the duplicate stores, counters, getters, record type, and TSV fields are gone.
 
 - [ ] Centralize ordinary enemy combat, death, drop, and room-count policy in a
   typed descriptor consumed by `CombatEnemyRoomEntityAdapter`.

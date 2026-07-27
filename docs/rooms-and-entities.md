@@ -333,6 +333,14 @@ suppresses the initial hazard test until the enemy lands. The same path runs
 after accepted sword recoil, so hazard disposal never creates a normal enemy
 death puff or item drop.
 
+`EnemyDatabase` keeps one ordered room-object collection as the placement
+authority. Keese, Octorok, Stalfos, Zol, Gel, and Crow graphics, attributes, and
+animations are unique ID/subid definitions; the factory joins a definition to
+the ordered record that supplies group, room, source order, opcode, flags,
+count, condition, and coordinates. Validation performs the same join and
+derives species totals from the ordered records rather than maintaining
+parallel room indexes.
+
 Ordinary enemy species are not owned by the first room or dungeon that makes
 them playable. Boomerang Moblin, Arrow Moblin, Rope, Ghini, and Wallmaster live
 with the other species and resolve their subid-0 definitions through
