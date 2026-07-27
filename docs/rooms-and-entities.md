@@ -121,6 +121,17 @@ Enemy placement executes one importer-generated ordered room-object stream. Do
 not group records by species before creation. The original order determines
 which fixed objects reserve positions before later random enemies.
 
+Every random, fixed, and parameter-enemy record resolves its ID/subid through
+the generated enemy handler registry before applying its placement opcode.
+That typed resolution owns the implemented, dynamic/special, or deliberately
+unsupported classification and is the sole construction-capability test used
+by both ordinary room creation and dungeon enemy-shutter completeness. The
+placement opcode still owns slot and reservation behavior: unsupported and
+event-owned dynamic/special rows must consume the same slots, fixed positions,
+random-placement RNG, and reservation entries as an implemented row even
+though the ordered factory does not create a node for them. Do not restore a
+second supported-ID switch or treat a missing handler key as unsupported.
+
 Use one occupied-position set for the complete stream:
 
 - Every applicable fixed enemy or part reserves its packed tile before later

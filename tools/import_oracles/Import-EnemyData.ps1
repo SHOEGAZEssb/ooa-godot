@@ -1326,6 +1326,173 @@ if (-not ($orderedObjectRows | Where-Object { $_ -match '^5\tb0\t0\tF\t1b\t01\t0
     $orderedObjectRows,
     [Text.UTF8Encoding]::new($false))
 
+# Keep ordered enemy construction capability separate from species data and
+# from the placement opcode. The registry is keyed only by the original enemy
+# ID/subid; each room-object row still owns its source order, count, flags, and
+# fixed/random/parameter placement semantics.
+$orderedEnemyImplementationHandlers = [ordered]@{
+    '09:00' = 'octorok'
+    '09:01' = 'octorok'
+    '09:02' = 'octorok'
+    '0a:00' = 'boomerang-moblin'
+    '0c:00' = 'arrow-moblin'
+    '10:00' = 'rope'
+    '17:00' = 'ghini'
+    '28:00' = 'wallmaster'
+    '31:00' = 'stalfos'
+    '32:00' = 'keese'
+    '32:01' = 'keese'
+    '34:00' = 'zol'
+    '34:01' = 'zol'
+    '41:00' = 'crow'
+    '43:00' = 'gel'
+}
+$dynamicEnemyImplementationHandlers = [ordered]@{
+    # The Maku Sprout event owns this script-created enemy. Ordinary $20:$00
+    # room placements retain their source slots/reservations but do not route
+    # through that event-only construction path.
+    '20:00' = 'maku-sprout-masked-moblin'
+}
+if ($orderedEnemyImplementationHandlers.Count -ne 15 -or
+    $dynamicEnemyImplementationHandlers.Count -ne 1) {
+    throw 'Enemy implementation registry key counts changed.'
+}
+
+$enemyConstantDefinitions = @{}
+foreach ($constantSpec in @(
+    @{
+        Path = 'constants\common\enemies.s'
+        Source = 'constants/common/enemies.s'
+    },
+    @{
+        Path = 'constants\ages\enemies.s'
+        Source = 'constants/ages/enemies.s'
+    }
+)) {
+    $constantSource = Read-ImportText (
+        Join-Path $Disassembly ([string]$constantSpec.Path))
+    foreach ($match in [regex]::Matches(
+        $constantSource,
+        '(?m)^\.define\s+(?<name>ENEMY_[A-Z0-9_]+)\s+\$(?<id>[0-9a-f]{2})\s*$')) {
+        $id = [Convert]::ToInt32($match.Groups['id'].Value, 16)
+        if ($enemyConstantDefinitions.ContainsKey($id)) {
+            throw "Enemy ID `$$($id.ToString('x2')) has more than one constant definition."
+        }
+        $enemyConstantDefinitions[$id] = @{
+            Name = $match.Groups['name'].Value
+            Source = "$($constantSpec.Source):$($match.Groups['name'].Value)"
+        }
+    }
+}
+
+$enemyHandlerKeys = @{}
+$enemyClassificationCounts = @{
+    'ordered-implemented' = 0
+    'dynamic-special' = 0
+    'deliberately-unsupported' = 0
+}
+$enemyParameterRows = 0
+foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
+    $columns = $row -split "`t"
+    $kind = $columns[3]
+    if ($kind -notin @('R', 'F', 'B')) {
+        continue
+    }
+    $id = [Convert]::ToInt32($columns[4], 16)
+    $subid = [Convert]::ToInt32($columns[5], 16)
+    $key = "$($id.ToString('x2'))`:$($subid.ToString('x2'))"
+    if (-not $enemyHandlerKeys.ContainsKey($key)) {
+        $enemyHandlerKeys[$key] = @{
+            Id = $id
+            SubId = $subid
+        }
+    }
+    if ($kind -eq 'B') {
+        $enemyParameterRows++
+        continue
+    }
+    $classification = if (
+        $orderedEnemyImplementationHandlers.Contains($key)) {
+        'ordered-implemented'
+    } elseif ($dynamicEnemyImplementationHandlers.Contains($key)) {
+        'dynamic-special'
+    } else {
+        'deliberately-unsupported'
+    }
+    $enemyClassificationCounts[$classification]++
+}
+
+if ($enemyHandlerKeys.Count -ne 118 -or
+    $enemyParameterRows -ne 12 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 233 -or
+    $enemyClassificationCounts['dynamic-special'] -ne 6 -or
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 577) {
+    throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
+        "parameter=$enemyParameterRows, classifications=" +
+        "$($enemyClassificationCounts | Out-String)"
+}
+foreach ($key in @(
+    $orderedEnemyImplementationHandlers.Keys +
+    $dynamicEnemyImplementationHandlers.Keys
+)) {
+    if (-not $enemyHandlerKeys.ContainsKey($key)) {
+        throw "Enemy implementation key $key has no ordered source placement."
+    }
+}
+
+$enemyHandlerRows = [Collections.Generic.List[string]]::new()
+$enemyHandlerRows.Add(
+    "# id`tsubid`tclassification`thandler`tenemy-name`tsource")
+foreach ($record in $enemyHandlerKeys.Values |
+    Sort-Object @{ Expression = { [int]$_.Id } },
+        @{ Expression = { [int]$_.SubId } }) {
+    $key = "$(([int]$record.Id).ToString('x2'))`:" +
+        "$(([int]$record.SubId).ToString('x2'))"
+    $classification = 'deliberately-unsupported'
+    $handler = '-'
+    if ($orderedEnemyImplementationHandlers.Contains($key)) {
+        $classification = 'ordered-implemented'
+        $handler = [string]$orderedEnemyImplementationHandlers[$key]
+    } elseif ($dynamicEnemyImplementationHandlers.Contains($key)) {
+        $classification = 'dynamic-special'
+        $handler = [string]$dynamicEnemyImplementationHandlers[$key]
+    }
+    $definition = $enemyConstantDefinitions[[int]$record.Id]
+    if ($null -eq $definition) {
+        throw "Enemy handler key $key has no source constant."
+    }
+    $source = if ($classification -eq 'dynamic-special') {
+        'scripts/ages/scriptHelper.s:moblin_spawnEnemyHere'
+    } else {
+        [string]$definition.Source
+    }
+    $enemyHandlerRows.Add(
+        "$(([int]$record.Id).ToString('x2'))`t" +
+        "$(([int]$record.SubId).ToString('x2'))`t" +
+        "$classification`t$handler`t$($definition.Name)`t$source")
+}
+if ($enemyHandlerRows.Count -ne 119 -or
+    -not $enemyHandlerRows.Contains((
+        "09`t00`tordered-implemented`toctorok`tENEMY_OCTOROK`t" +
+        'constants/common/enemies.s:ENEMY_OCTOROK')) -or
+    -not $enemyHandlerRows.Contains((
+        "20`t00`tdynamic-special`tmaku-sprout-masked-moblin`t" +
+        "ENEMY_MASKED_MOBLIN`tscripts/ages/scriptHelper.s:moblin_spawnEnemyHere")) -or
+    -not $enemyHandlerRows.Contains((
+        "1b`t01`tdeliberately-unsupported`t-`tENEMY_SPINY_BEETLE`t" +
+        'constants/common/enemies.s:ENEMY_SPINY_BEETLE'))) {
+    $representativeRows = @($enemyHandlerRows | Where-Object {
+        $_ -match 'ENEMY_(OCTOROK|MASKED_MOBLIN|SPINY_BEETLE)'
+    })
+    throw "Enemy handler registry lost its expected source classifications " +
+        "(rows=$($enemyHandlerRows.Count)):`n" +
+        ($representativeRows -join "`n")
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\enemy_handler_registry.tsv'),
+    $enemyHandlerRows,
+    [Text.UTF8Encoding]::new($false))
+
 # PART_ENEMY_DESTROYED (`$02) is the common enemy death puff. Export both
 # animations: animation 0 is the ordinary 20-update puff, while animation 1
 # inserts the 8-update high-knockback burst selected by bit 7 of the defeated

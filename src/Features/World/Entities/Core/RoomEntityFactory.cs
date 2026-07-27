@@ -420,9 +420,13 @@ internal sealed class RoomEntityFactory(
             if (!RoomObjectConditionMet(source, group, room))
                 continue;
 
-            switch (source.Kind)
+            EnemyObjectHandlerResolution resolution =
+                enemies.EnemyHandlers.Resolve(source);
+            switch (resolution.SlotPolicy)
             {
-                case RoomObjectKind.RandomEnemy:
+                case EnemyObjectSlotPolicy.RandomEnemy:
+                    EnemyHandlerDescriptor randomHandler =
+                        resolution.RequireEnemyHandler(source);
                     for (int instance = 0; instance < source.Count; instance++)
                     {
                         int killableEnemyIndex = NextKillableEnemyIndex(
@@ -439,13 +443,16 @@ internal sealed class RoomEntityFactory(
                             continue;
                         }
                         IRoomEntity? entity = CreateOrderedEnemy(
-                            source, room, position, instance, killableEnemyIndex);
+                            randomHandler, source, room, position, instance,
+                            killableEnemyIndex);
                         if (entity is not null)
                             yield return entity;
                     }
                     break;
 
-                case RoomObjectKind.FixedEnemy:
+                case EnemyObjectSlotPolicy.FixedEnemy:
+                    EnemyHandlerDescriptor fixedHandler =
+                        resolution.RequireEnemyHandler(source);
                     int fixedKillableEnemyIndex = NextKillableEnemyIndex(
                         source.Flags, ref killableEnemies);
                     if (enemyWasKilled(fixedKillableEnemyIndex))
@@ -455,18 +462,20 @@ internal sealed class RoomEntityFactory(
                     enemySlots++;
                     reservations.Add(source.PackedPosition);
                     IRoomEntity? fixedEntity = CreateOrderedEnemy(
-                        source, room, new Vector2(source.X, source.Y), 0,
+                        fixedHandler, source, room,
+                        new Vector2(source.X, source.Y), 0,
                         fixedKillableEnemyIndex);
                     if (fixedEntity is not null)
                         yield return fixedEntity;
                     break;
 
-                case RoomObjectKind.ParameterEnemy:
+                case EnemyObjectSlotPolicy.ParameterEnemy:
+                    _ = resolution.RequireEnemyHandler(source);
                     if (enemySlots < 16)
                         enemySlots++;
                     break;
 
-                case RoomObjectKind.ItemDrop:
+                case EnemyObjectSlotPolicy.ItemDrop:
                     int itemKillableEnemyIndex = NextKillableEnemyIndex(
                         source.Flags, ref killableEnemies);
                     if (enemyWasKilled(itemKillableEnemyIndex))
@@ -492,14 +501,14 @@ internal sealed class RoomEntityFactory(
                     }
                     break;
 
-                case RoomObjectKind.ReservingPart:
+                case EnemyObjectSlotPolicy.ReservingPart:
                     if (partSlots >= 16)
                         break;
                     partSlots++;
                     reservations.Add(source.PackedPosition);
                     break;
 
-                case RoomObjectKind.ParameterPart:
+                case EnemyObjectSlotPolicy.ParameterPart:
                     if (partSlots < 16)
                         partSlots++;
                     break;
@@ -734,150 +743,187 @@ internal sealed class RoomEntityFactory(
     }
 
     private IRoomEntity? CreateOrderedEnemy(
+        EnemyHandlerDescriptor handler,
         RoomObjectRecord source,
         OracleRoomData room,
         Vector2 position,
         int instance,
         int killableEnemyIndex)
     {
-        if (source.Id == 0x32 && enemies.TryGetKeeseDefinition(source, out EnemyDatabaseEnemyRecord keeseRecord))
-        {
-            var keese = new KeeseCharacter
-            {
-                Name = $"Keese_{source.SubId:x2}_{source.Order}_{instance}",
-                ZIndex = 10
-            };
-            keese.Initialize(keeseRecord, room, position, random);
-            return new KeeseRoomEntity(keese, killableEnemyIndex);
-        }
+        if (!handler.SupportsOrderedConstruction)
+            return null;
 
-        if (source.Id == 0x41 &&
-            enemies.TryGetCrowDefinition(source, out CrowRecord crowRecord))
+        switch (handler.Handler)
         {
-            var crow = new CrowCharacter
-            {
-                Name = $"Crow_{source.SubId:x2}_{source.Order}_{instance}",
-                ZIndex = 10
-            };
-            crow.Initialize(crowRecord, room, position, random);
-            return new CrowRoomEntity(crow, killableEnemyIndex);
-        }
+            case EnemyHandlerKind.Keese:
+                if (!enemies.TryGetKeeseDefinition(
+                    source, out EnemyDatabaseEnemyRecord keeseRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var keese = new KeeseCharacter
+                {
+                    Name = $"Keese_{source.SubId:x2}_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                keese.Initialize(keeseRecord, room, position, random);
+                return new KeeseRoomEntity(keese, killableEnemyIndex);
 
-        if (source.Id == 0x09 &&
-            enemies.TryGetOctorokDefinition(source, out OctorokRecord octorokRecord))
-        {
-            var octorok = new OctorokCharacter
-            {
-                Name = $"Octorok_{source.SubId:x2}_{source.Order}_{instance}",
-                ZIndex = 10
-            };
-            octorok.Initialize(octorokRecord, room, position, random);
-            return new OctorokRoomEntity(octorok, killableEnemyIndex);
-        }
+            case EnemyHandlerKind.Crow:
+                if (!enemies.TryGetCrowDefinition(
+                    source, out CrowRecord crowRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var crow = new CrowCharacter
+                {
+                    Name = $"Crow_{source.SubId:x2}_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                crow.Initialize(crowRecord, room, position, random);
+                return new CrowRoomEntity(crow, killableEnemyIndex);
 
-        if (source.Id == 0x31 &&
-            enemies.TryGetStalfosDefinition(source, out StalfosRecord stalfosRecord))
-        {
-            var stalfos = new StalfosCharacter
-            {
-                Name = $"Stalfos_{source.SubId:x2}_{source.Order}_{instance}",
-                ZIndex = 10
-            };
-            stalfos.Initialize(stalfosRecord, room, position, random);
-            return new StalfosRoomEntity(stalfos, killableEnemyIndex);
-        }
+            case EnemyHandlerKind.Octorok:
+                if (!enemies.TryGetOctorokDefinition(
+                    source, out OctorokRecord octorokRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var octorok = new OctorokCharacter
+                {
+                    Name = $"Octorok_{source.SubId:x2}_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                octorok.Initialize(octorokRecord, room, position, random);
+                return new OctorokRoomEntity(octorok, killableEnemyIndex);
 
-        if (source.Id == 0x34 &&
-            enemies.TryGetZolDefinition(source, out ZolRecord zolRecord))
-        {
-            var zol = new ZolCharacter
-            {
-                Name = $"Zol_{source.SubId:x2}_{source.Order}_{instance}",
-                ZIndex = 10
-            };
-            zol.Initialize(zolRecord, room, position, random);
-            return new ZolRoomEntity(zol, killableEnemyIndex);
-        }
+            case EnemyHandlerKind.Stalfos:
+                if (!enemies.TryGetStalfosDefinition(
+                    source, out StalfosRecord stalfosRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var stalfos = new StalfosCharacter
+                {
+                    Name = $"Stalfos_{source.SubId:x2}_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                stalfos.Initialize(stalfosRecord, room, position, random);
+                return new StalfosRoomEntity(stalfos, killableEnemyIndex);
 
-        if (source.Id == 0x0a &&
-            enemies.TryGetImportedEnemyDefinition(
-                source, out ImportedEnemyDefinition moblinRecord))
-        {
-            var moblin = new BoomerangMoblinCharacter
-            {
-                Name = $"BoomerangMoblin_{source.Order}_{instance}",
-                ZIndex = 10
-            };
-            moblin.Initialize(moblinRecord, room, position, random);
-            return new BoomerangMoblinRoomEntity(moblin, killableEnemyIndex);
-        }
+            case EnemyHandlerKind.Zol:
+                if (!enemies.TryGetZolDefinition(
+                    source, out ZolRecord zolRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var zol = new ZolCharacter
+                {
+                    Name = $"Zol_{source.SubId:x2}_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                zol.Initialize(zolRecord, room, position, random);
+                return new ZolRoomEntity(zol, killableEnemyIndex);
 
-        if (source.Id == 0x0c &&
-            enemies.TryGetImportedEnemyDefinition(
-                source, out ImportedEnemyDefinition arrowMoblinRecord))
-        {
-            var moblin = new ArrowMoblinCharacter
-            {
-                Name = $"ArrowMoblin_{source.Order}_{instance}",
-                ZIndex = 10
-            };
-            moblin.Initialize(arrowMoblinRecord, room, position, random);
-            return new ArrowMoblinRoomEntity(moblin, killableEnemyIndex);
-        }
+            case EnemyHandlerKind.BoomerangMoblin:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition moblinRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var moblin = new BoomerangMoblinCharacter
+                {
+                    Name = $"BoomerangMoblin_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                moblin.Initialize(moblinRecord, room, position, random);
+                return new BoomerangMoblinRoomEntity(
+                    moblin, killableEnemyIndex);
 
-        if (source.Id == 0x10 &&
-            enemies.TryGetImportedEnemyDefinition(
-                source, out ImportedEnemyDefinition ropeRecord))
-        {
-            var rope = new RopeCharacter
-            {
-                Name = $"Rope_{source.Order}_{instance}",
-                ZIndex = 10
-            };
-            rope.Initialize(ropeRecord, room, position, random);
-            return new RopeRoomEntity(rope, killableEnemyIndex);
-        }
+            case EnemyHandlerKind.ArrowMoblin:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition arrowMoblinRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var arrowMoblin = new ArrowMoblinCharacter
+                {
+                    Name = $"ArrowMoblin_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                arrowMoblin.Initialize(
+                    arrowMoblinRecord, room, position, random);
+                return new ArrowMoblinRoomEntity(
+                    arrowMoblin, killableEnemyIndex);
 
-        if (source.Id == 0x17 &&
-            enemies.TryGetImportedEnemyDefinition(
-                source, out ImportedEnemyDefinition ghiniRecord))
-        {
-            var ghini = new GhiniCharacter
-            {
-                Name = $"Ghini_{source.Order}_{instance}",
-                ZIndex = 10
-            };
-            ghini.Initialize(ghiniRecord, room, position, random);
-            return new GhiniRoomEntity(
-                ghini, killableEnemyIndex, soundRequested);
-        }
+            case EnemyHandlerKind.Rope:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition ropeRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var rope = new RopeCharacter
+                {
+                    Name = $"Rope_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                rope.Initialize(ropeRecord, room, position, random);
+                return new RopeRoomEntity(rope, killableEnemyIndex);
 
-        if (source.Id == 0x28 &&
-            enemies.TryGetImportedEnemyDefinition(
-                source, out ImportedEnemyDefinition wallmasterRecord))
-        {
-            var wallmaster = new WallmasterCharacter
-            {
-                Name = $"Wallmaster_{source.Order}_{instance}",
-                ZIndex = 10
-            };
-            wallmaster.Initialize(
-                wallmasterRecord, room, position);
-            (int destinationGroup, int destinationRoom) =
-                ResolveWallmasterDestination(source);
-            return new WallmasterRoomEntity(
-                wallmaster, soundRequested, roomWarpRequested,
-                source.Group, source.Room,
-                destinationGroup, destinationRoom,
-                killableEnemyIndex);
-        }
+            case EnemyHandlerKind.Ghini:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition ghiniRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var ghini = new GhiniCharacter
+                {
+                    Name = $"Ghini_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                ghini.Initialize(ghiniRecord, room, position, random);
+                return new GhiniRoomEntity(
+                    ghini, killableEnemyIndex, soundRequested);
 
-        return source.Id == 0x43 && source.SubId == 0
-            ? CreateGel(
-                new GelSpawn(position, $"RoomGel_{source.Order}_{instance}"),
-                room, (source.Flags & 0x02) == 0, killableEnemyIndex)
-            : null;
+            case EnemyHandlerKind.Wallmaster:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition wallmasterRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var wallmaster = new WallmasterCharacter
+                {
+                    Name = $"Wallmaster_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                wallmaster.Initialize(wallmasterRecord, room, position);
+                (int destinationGroup, int destinationRoom) =
+                    ResolveWallmasterDestination(source);
+                return new WallmasterRoomEntity(
+                    wallmaster, soundRequested, roomWarpRequested,
+                    source.Group, source.Room,
+                    destinationGroup, destinationRoom,
+                    killableEnemyIndex);
+
+            case EnemyHandlerKind.Gel:
+                return CreateGel(
+                    new GelSpawn(
+                        position, $"RoomGel_{source.Order}_{instance}"),
+                    room, (source.Flags & 0x02) == 0, killableEnemyIndex);
+
+            default:
+                throw new InvalidOperationException(
+                    $"{handler.Source} classified {handler.EnemyName} " +
+                    $"${handler.Id:x2}:${handler.SubId:x2} as an ordered " +
+                    $"handler, but '{handler.Handler}' has no factory path.");
+        }
     }
+
+    private static InvalidOperationException MissingEnemyDefinition(
+        EnemyHandlerDescriptor handler,
+        RoomObjectRecord source) => new(
+            $"{source.Source} resolves through {handler.Source} to " +
+            $"'{handler.Handler}', but its typed definition is unavailable.");
 
     public IRoomEntity Create(RoomEntitySpawn spawn, OracleRoomData room) => spawn switch
     {
@@ -1926,27 +1972,21 @@ internal sealed class RoomEntityFactory(
             // cannot make the shutter's live count incomplete.
             if ((source.Flags & 0x02) != 0)
                 continue;
-            switch (source.Kind)
+            EnemyObjectHandlerResolution resolution =
+                enemies.EnemyHandlers.Resolve(source);
+            switch (resolution.SlotPolicy)
             {
-                case RoomObjectKind.RandomEnemy:
-                case RoomObjectKind.FixedEnemy:
-                    bool supported = source.Id switch
+                case EnemyObjectSlotPolicy.RandomEnemy:
+                case EnemyObjectSlotPolicy.FixedEnemy:
+                    if (!resolution
+                        .RequireEnemyHandler(source)
+                        .CompletesDungeonEnemyCount)
                     {
-                        0x09 => enemies.TryGetOctorokDefinition(source, out _),
-                        0x0a or 0x0c or 0x10 or 0x17 or 0x28 =>
-                            enemies.TryGetImportedEnemyDefinition(source, out _),
-                        0x31 => enemies.TryGetStalfosDefinition(source, out _),
-                        0x32 => enemies.TryGetKeeseDefinition(source, out _),
-                        0x34 => enemies.TryGetZolDefinition(source, out _),
-                        0x41 => enemies.TryGetCrowDefinition(source, out _),
-                        0x43 => source.SubId == 0,
-                        _ => false
-                    };
-                    if (!supported)
                         return false;
+                    }
                     break;
 
-                case RoomObjectKind.ParameterEnemy:
+                case EnemyObjectSlotPolicy.ParameterEnemy:
                     return false;
             }
         }

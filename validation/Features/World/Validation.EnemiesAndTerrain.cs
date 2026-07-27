@@ -160,6 +160,138 @@ public sealed partial class ValidationRoot
                 "unsupported enemies, item drops, or reserving parts.");
         }
 
+        var classificationCounts =
+            new Dictionary<EnemyHandlerClassification, int>();
+        var classificationInstances =
+            new Dictionary<EnemyHandlerClassification, int>();
+        var classifiedKeys =
+            new HashSet<(int Id, int SubId, EnemyHandlerClassification Classification)>();
+        int ordinaryEnemyPlacements = 0;
+        int parameterEnemyPlacements = 0;
+        for (int group = 0; group < 6; group++)
+        for (int room = 0; room < 0x100; room++)
+        {
+            foreach (RoomObjectRecord source in
+                database.GetRoomObjects(group, room))
+            {
+                EnemyObjectHandlerResolution resolution =
+                    database.EnemyHandlers.Resolve(source);
+                if (source.Kind is RoomObjectKind.RandomEnemy or
+                    RoomObjectKind.FixedEnemy)
+                {
+                    ordinaryEnemyPlacements++;
+                    EnemyHandlerDescriptor handler =
+                        resolution.RequireEnemyHandler(source);
+                    classificationCounts[handler.Classification] =
+                        classificationCounts.GetValueOrDefault(
+                            handler.Classification) + 1;
+                    classificationInstances[handler.Classification] =
+                        classificationInstances.GetValueOrDefault(
+                            handler.Classification) + source.Count;
+                    classifiedKeys.Add(
+                        (handler.Id, handler.SubId, handler.Classification));
+                }
+                else if (source.Kind == RoomObjectKind.ParameterEnemy)
+                {
+                    parameterEnemyPlacements++;
+                    EnemyHandlerDescriptor handler =
+                        resolution.RequireEnemyHandler(source);
+                    classifiedKeys.Add(
+                        (handler.Id, handler.SubId, handler.Classification));
+                    if (resolution.SlotPolicy !=
+                            EnemyObjectSlotPolicy.ParameterEnemy ||
+                        handler.Classification !=
+                            EnemyHandlerClassification.DeliberatelyUnsupported)
+                    {
+                        throw new InvalidOperationException(
+                            $"{source.Source} lost its classified parameter-enemy " +
+                            "slot policy.");
+                    }
+                }
+            }
+        }
+
+        EnemyHandlerDescriptor implementedHandler =
+            database.EnemyHandlers.ResolveHandler(room5b0[2]);
+        EnemyHandlerDescriptor unsupportedHandler =
+            database.EnemyHandlers.ResolveHandler(room5b0[0]);
+        RoomObjectRecord dynamicSource = database.GetRoomObjects(0, 0x62)
+            .Single(record => record is
+            {
+                Kind: RoomObjectKind.FixedEnemy,
+                Id: 0x20,
+                SubId: 0x00
+            });
+        EnemyHandlerDescriptor dynamicHandler =
+            database.EnemyHandlers.ResolveHandler(dynamicSource);
+        if (ordinaryEnemyPlacements != 816 ||
+            parameterEnemyPlacements != 12 ||
+            classificationCounts.GetValueOrDefault(
+                EnemyHandlerClassification.OrderedImplemented) != 233 ||
+            classificationCounts.GetValueOrDefault(
+                EnemyHandlerClassification.DynamicSpecial) != 6 ||
+            classificationCounts.GetValueOrDefault(
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 577 ||
+            classificationInstances.GetValueOrDefault(
+                EnemyHandlerClassification.OrderedImplemented) != 394 ||
+            classificationInstances.GetValueOrDefault(
+                EnemyHandlerClassification.DynamicSpecial) != 9 ||
+            classificationInstances.GetValueOrDefault(
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 753 ||
+            classifiedKeys.Count != 118 ||
+            classifiedKeys.Count(key =>
+                key.Classification ==
+                    EnemyHandlerClassification.OrderedImplemented) != 15 ||
+            classifiedKeys.Count(key =>
+                key.Classification ==
+                    EnemyHandlerClassification.DynamicSpecial) != 1 ||
+            classifiedKeys.Count(key =>
+                key.Classification ==
+                    EnemyHandlerClassification.DeliberatelyUnsupported) != 102 ||
+            implementedHandler is not
+            {
+                Id: 0x32,
+                SubId: 0x00,
+                Classification:
+                    EnemyHandlerClassification.OrderedImplemented,
+                Handler: EnemyHandlerKind.Keese,
+                EnemyName: "ENEMY_KEESE",
+                Source: "constants/common/enemies.s:ENEMY_KEESE",
+                CompletesDungeonEnemyCount: true
+            } ||
+            dynamicHandler is not
+            {
+                Id: 0x20,
+                SubId: 0x00,
+                Classification:
+                    EnemyHandlerClassification.DynamicSpecial,
+                Handler: EnemyHandlerKind.MakuSproutMaskedMoblin,
+                EnemyName: "ENEMY_MASKED_MOBLIN",
+                Source:
+                    "scripts/ages/scriptHelper.s:moblin_spawnEnemyHere",
+                CompletesDungeonEnemyCount: false
+            } ||
+            unsupportedHandler is not
+            {
+                Id: 0x1b,
+                SubId: 0x01,
+                Classification:
+                    EnemyHandlerClassification.DeliberatelyUnsupported,
+                Handler: EnemyHandlerKind.None,
+                EnemyName: "ENEMY_SPINY_BEETLE",
+                Source: "constants/common/enemies.s:ENEMY_SPINY_BEETLE",
+                CompletesDungeonEnemyCount: false
+            } ||
+            room5b0[0].Source !=
+                "objects/ages/enemyData.s:" +
+                "group5Mapb0EnemyObjectData[0]")
+        {
+            throw new InvalidOperationException(
+                "The enemy handler registry lost its 816-row implementation " +
+                "classification, typed construction dispatch, source identity, " +
+                "or dungeon-count completeness contract.");
+        }
+
         var wrappedReservations = new EnemyPlacementReservations();
         for (int position = 0; position < 15; position++)
             wrappedReservations.Add(position);
@@ -235,8 +367,10 @@ public sealed partial class ValidationRoot
         RemoveChild(validationRoot);
         validationRoot.Free();
         GD.Print("Validated 1,141 ordered room placement records, mid-stream aliases, " +
-            "condition masks, 16-entry reservation wrapping, and fixed/unsupported/item " +
-            "reservations before random Keese in rooms 4:9a, 5:b0, and 5:db.");
+            "all 816 fixed/random enemy handler classifications, 12 parameter slots, " +
+            "source-aware construction/shutter capability, condition masks, 16-entry " +
+            "reservation wrapping, and fixed/unsupported/item reservations before " +
+            "random Keese in rooms 4:9a, 5:b0, and 5:db.");
     }
 
     private void ValidateKeese()

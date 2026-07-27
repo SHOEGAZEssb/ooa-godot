@@ -39,6 +39,7 @@ public sealed class EnemyDatabase
     public EnemyArrowRecord EnemyArrow { get; }
     internal EnemyProjectileVisualRecord MoblinBoomerang { get; }
     public GelDefinition Gel { get; }
+    internal EnemyHandlerRegistry EnemyHandlers { get; }
 
     public EnemyDatabase()
     {
@@ -552,6 +553,9 @@ public sealed class EnemyDatabase
             arrow.UnsignedDecimal(3), arrow.UnsignedDecimal(4),
             arrow.RequiredString(5), arrow.RequiredString(6), arrow.RequiredString(7),
             arrow.RequiredString(8), arrow.RequiredString(9));
+
+        EnemyHandlers = new EnemyHandlerRegistry(_roomObjectsByRoom.Values);
+        ValidateEnemyHandlerDefinitions();
     }
 
     public IReadOnlyList<EnemyDatabaseEnemyRecord> GetRoomKeese(int group, int room)
@@ -715,6 +719,89 @@ public sealed class EnemyDatabase
         out ImportedEnemyDefinition record) =>
         _importedDefinitions.TryGetValue((source.Id, source.SubId), out record);
 
+    private void ValidateEnemyHandlerDefinitions()
+    {
+        var validated = new HashSet<(int Id, int SubId)>();
+        foreach (List<RoomObjectRecord> roomObjects in _roomObjectsByRoom.Values)
+        {
+            foreach (RoomObjectRecord source in roomObjects)
+            {
+                if (source.Kind is not (
+                    RoomObjectKind.RandomEnemy or
+                    RoomObjectKind.FixedEnemy or
+                    RoomObjectKind.ParameterEnemy))
+                {
+                    continue;
+                }
+                EnemyHandlerDescriptor descriptor =
+                    EnemyHandlers.ResolveHandler(source);
+                if (!validated.Add((descriptor.Id, descriptor.SubId)))
+                    continue;
+
+                bool valid = descriptor.Classification switch
+                {
+                    EnemyHandlerClassification.OrderedImplemented =>
+                        HasOrderedHandlerDefinition(descriptor),
+                    EnemyHandlerClassification.DynamicSpecial =>
+                        descriptor.Handler ==
+                            EnemyHandlerKind.MakuSproutMaskedMoblin &&
+                        descriptor.Id == MaskedMoblin.Id &&
+                        descriptor.SubId == MaskedMoblin.SubId,
+                    EnemyHandlerClassification.DeliberatelyUnsupported =>
+                        descriptor.Handler == EnemyHandlerKind.None,
+                    _ => false
+                };
+                if (!valid)
+                {
+                    throw new InvalidOperationException(
+                        $"{descriptor.Source} classifies {descriptor.EnemyName} " +
+                        $"${descriptor.Id:x2}:${descriptor.SubId:x2} as " +
+                        $"{descriptor.Classification}/{descriptor.Handler}, but " +
+                        "its typed runtime definition is unavailable.");
+                }
+            }
+        }
+    }
+
+    private bool HasOrderedHandlerDefinition(
+        EnemyHandlerDescriptor descriptor) => descriptor.Handler switch
+    {
+        EnemyHandlerKind.Octorok =>
+            descriptor.Id == 0x09 &&
+            _octorokDefinitions.ContainsKey(descriptor.SubId),
+        EnemyHandlerKind.BoomerangMoblin =>
+            HasImportedDefinition(descriptor, 0x0a),
+        EnemyHandlerKind.ArrowMoblin =>
+            HasImportedDefinition(descriptor, 0x0c),
+        EnemyHandlerKind.Rope =>
+            HasImportedDefinition(descriptor, 0x10),
+        EnemyHandlerKind.Ghini =>
+            HasImportedDefinition(descriptor, 0x17),
+        EnemyHandlerKind.Wallmaster =>
+            HasImportedDefinition(descriptor, 0x28),
+        EnemyHandlerKind.Stalfos =>
+            descriptor.Id == 0x31 &&
+            _stalfosDefinitions.ContainsKey(descriptor.SubId),
+        EnemyHandlerKind.Keese =>
+            descriptor.Id == 0x32 &&
+            _keeseDefinitions.ContainsKey(descriptor.SubId),
+        EnemyHandlerKind.Zol =>
+            descriptor.Id == 0x34 &&
+            _zolDefinitions.ContainsKey(descriptor.SubId),
+        EnemyHandlerKind.Crow =>
+            descriptor.Id == 0x41 &&
+            _crowDefinitions.ContainsKey(descriptor.SubId),
+        EnemyHandlerKind.Gel =>
+            descriptor.Id == Gel.Id && descriptor.SubId == 0,
+        _ => false
+    };
+
+    private bool HasImportedDefinition(
+        EnemyHandlerDescriptor descriptor,
+        int expectedId) =>
+        descriptor.Id == expectedId &&
+        _importedDefinitions.ContainsKey((descriptor.Id, descriptor.SubId));
+
     private static int MakeKey(int group, int room) => (group << 8) | room;
 
     private static bool FixedPosition(GeneratedTableRow row, int column) =>
@@ -784,7 +871,24 @@ public readonly record struct ZolRecord(int Group, int Room, int Id, int SubId, 
 
 public readonly record struct StalfosRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string WalkAnimation, string JumpAnimation);
 
-public readonly record struct RoomObjectRecord(int Group, int Room, int Order, RoomObjectKind Kind, int Id, int SubId, int Flags, int Count, int Y, int X, int PackedPosition, int ConditionMask);
+public readonly record struct RoomObjectRecord(
+    int Group,
+    int Room,
+    int Order,
+    RoomObjectKind Kind,
+    int Id,
+    int SubId,
+    int Flags,
+    int Count,
+    int Y,
+    int X,
+    int PackedPosition,
+    int ConditionMask)
+{
+    public string Source =>
+        $"objects/ages/enemyData.s:" +
+        $"group{Group:x1}Map{Room:x2}EnemyObjectData[{Order}]";
+}
 
 public enum RoomObjectKind
 {

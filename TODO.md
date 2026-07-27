@@ -191,16 +191,17 @@ and RNG consumption while addressing these items.
     combined event. Regress that red Zol replacement itself and an escaped Crow
     emit no death event, while the two spawned Gels still die independently.
 
-- [ ] Replace implicit enemy support tests with one source-aware handler
+- [x] Replace implicit enemy support tests with one source-aware handler
   registry keyed by ID/subid.
-  - Use the registry for `RoomEntityFactory` construction, slot/reservation
-    policy, and dungeon shutter completeness. The current factory returns
-    `null` for unmatched enemy rows while `DungeonEnemyCountIsComplete`
-    independently duplicates the supported-ID switch.
-  - Classify every imported placement as implemented, dynamic/special, or
-    deliberately unsupported, and validate that all 816 source rows resolve
-    exactly once without changing unsupported-row reservations or placement
-    RNG.
+  `enemy_handler_registry.tsv` now classifies all 118 ID/subid keys referenced
+  by the ordered stream. Its 816 fixed/random source rows resolve exactly once
+  as 233 ordered-implemented, six `$20:$00` rows whose only implemented lane is
+  the event-owned dynamic Masked Moblin handler, or 577 deliberately
+  unsupported rows; the 12 parameter-enemy rows are typed separately.
+  `RoomEntityFactory` uses the same resolution for source slot/reservation
+  policy, construction dispatch, and dungeon shutter completeness. Headless
+  validation pins the 394/9/753 instance totals, handler/source identities,
+  parameter slots, and existing unsupported-row reservation/RNG scenarios.
 
 ### Ownership and consolidation
 

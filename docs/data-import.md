@@ -339,6 +339,19 @@ additional state machines are not implemented are intentionally absent from
 the typed species table while their ordered source records remain available as
 unsupported reservations/completion evidence.
 
+`enemy_handler_registry.tsv` is the unique ID/subid implementation manifest for
+that ordered stream. The importer resolves enemy names back to
+`constants/common/enemies.s` or `constants/ages/enemies.s`, assigns one of
+`ordered-implemented`, `dynamic-special`, or `deliberately-unsupported`, and
+names the exact runtime handler when one exists. The Maku Sprout event's
+script-created Masked Moblin retains
+`scripts/ages/scriptHelper.s:moblin_spawnEnemyHere` as its distinct handler
+source; ordinary `$20:$00` placement rows keep their slots and reservations but
+cannot enter that event-owned construction path. The manifest covers all 118
+keys used by 816 fixed/random and 12 parameter-enemy records. Adding a handler
+requires changing this registry input and its typed runtime dispatch together;
+an unmatched row is an import/runtime error rather than an implicit `null`.
+
 The stage also emits `enemy_adjacent_wall_offsets.tsv` and
 `enemy_bounce_angles.tsv` from `object_code/common/enemies/commonCode.s`.
 The first retains all eight angle octants and four signed Y/X pairs per
