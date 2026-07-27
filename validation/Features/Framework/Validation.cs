@@ -181,6 +181,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateGameOverRestart();
         ValidateSaveAndQuitToTitle();
         ValidateRoom083Interactions();
+        ValidateDebugSavestates();
 
         GD.Print("Validated all gameplay and world-data scenarios.");
     }

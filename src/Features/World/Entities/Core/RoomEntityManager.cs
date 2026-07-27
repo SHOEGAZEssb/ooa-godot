@@ -103,6 +103,31 @@ public sealed class RoomEntityManager : IDisposable
         }
     }
     internal byte NextRandomValue() => _random.Next().Value;
+
+    internal RoomEntityManagerState CaptureDebugState() => new(
+        _activeTriggers,
+        _enemyFrameAccumulator,
+        _enemyFrameCounter,
+        _recentEnemyDefeats.CaptureState());
+
+    internal void RestoreDebugStateBeforeRoomParse(
+        RoomEntityManagerState state) =>
+        _recentEnemyDefeats.RestoreState(state.RecentEnemyDefeats);
+
+    internal void RestoreDebugStateAfterRoomParse(RoomEntityManagerState state)
+    {
+        if (!double.IsFinite(state.FrameAccumulator) ||
+            state.FrameAccumulator is < 0.0 or >= 1.0 ||
+            state.FrameCounter is < 0 or > 0xff)
+        {
+            throw new ArgumentOutOfRangeException(nameof(state));
+        }
+
+        _activeTriggers = state.ActiveTriggers;
+        _enemyFrameAccumulator = state.FrameAccumulator;
+        _enemyFrameCounter = state.FrameCounter;
+    }
+
     public bool PlayerSwordDisabled
     {
         get
@@ -1065,6 +1090,12 @@ public sealed class RoomEntityManager : IDisposable
         Input.IsActionJustPressed("move_down") ||
         Input.IsActionJustPressed("move_left");
 }
+
+internal readonly record struct RoomEntityManagerState(
+    byte ActiveTriggers,
+    double FrameAccumulator,
+    int FrameCounter,
+    RecentEnemyDefeatsState RecentEnemyDefeats);
 
 internal readonly record struct RoomEntityFrame(
     Player Player,

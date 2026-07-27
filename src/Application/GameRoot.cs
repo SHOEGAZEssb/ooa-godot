@@ -49,6 +49,7 @@ public partial class GameRoot : Node2D
     internal InventoryState _inventory = null!;
     internal StatusBarController _statusBar = null!;
     internal OracleSaveData _saveData = null!;
+    internal OracleRuntimeState _runtimeState = null!;
     internal OracleRandom _random = null!;
     internal DeathRespawnPointController _deathRespawnPoints = null!;
     private bool _persistSaveData;
@@ -61,6 +62,8 @@ public partial class GameRoot : Node2D
     internal int _newGameArrivalLastFrame;
     private int _deferredIntroMusicGroup = -1;
     private int _deferredIntroMusicRoom = -1;
+    private string _debugSavestateStatus = string.Empty;
+    private double _debugSavestateStatusFrames;
 
     internal double _animationTicks;
 
@@ -134,6 +137,64 @@ public partial class GameRoot : Node2D
         InitializeGameplay(save);
     }
 
+    public override void _Input(InputEvent @event)
+    {
+        if (_transitions is null ||
+            _mainMenu is not null ||
+            _newGameIntro is not null ||
+            !DebugSavestateController.TryDecodeInput(@event, out var command))
+        {
+            return;
+        }
+
+        GetViewport().SetInputAsHandled();
+        if (command.Kind == DebugSavestateCommandKind.Save)
+        {
+            if (!CanCaptureDebugSavestate())
+            {
+                SetDebugSavestateStatus($"S{command.Slot} BUSY");
+                return;
+            }
+
+            SaveResult result = DebugSavestateStore.SaveSlot(
+                command.Slot,
+                CaptureDebugSavestate());
+            if (result.Success)
+            {
+                GD.Print($"Saved debug state slot {command.Slot}.");
+                SetDebugSavestateStatus($"S{command.Slot} SAVED");
+            }
+            else
+            {
+                GD.PushWarning(
+                    $"Could not save debug state slot {command.Slot}: " +
+                    result.ErrorMessage);
+                SetDebugSavestateStatus($"S{command.Slot} SAVE ERR");
+            }
+            return;
+        }
+
+        DebugSavestateLoadResult loaded =
+            DebugSavestateStore.LoadSlot(command.Slot);
+        if (loaded.Success)
+        {
+            RestoreDebugSavestate(loaded.State!);
+            GD.Print($"Loaded debug state slot {command.Slot}.");
+            SetDebugSavestateStatus($"S{command.Slot} LOADED");
+        }
+        else if (!loaded.Found)
+        {
+            SetDebugSavestateStatus($"S{command.Slot} EMPTY");
+        }
+        else
+        {
+            GD.PushWarning(
+                $"Could not load debug state slot {command.Slot}: " +
+                loaded.ErrorMessage);
+            SetDebugSavestateStatus($"S{command.Slot} LOAD ERR");
+        }
+    }
+
     private void StartSelectedFile(int slot, OracleSaveData save)
     {
         _activeSaveSlot = slot;
@@ -194,28 +255,39 @@ public partial class GameRoot : Node2D
 
     private void InitializeGameplay(
         OracleSaveData save,
-        bool forceDeathRespawn = false)
+        bool forceDeathRespawn = false,
+        DebugSavestateData? debugSavestate = null)
     {
         // initializeGame restores depleted saved/live health before Link is
         // constructed. Save and Continue deliberately leaves the disk image
         // at zero health until the next explicit save.
-        save.ResetHealthIfDepleted();
-        _saveData = save;
+        _saveData = debugSavestate?.CreateSaveData() ?? save;
+        if (debugSavestate is null)
+            _saveData.ResetHealthIfDepleted();
+        else
+            _animationTicks = debugSavestate.AnimationTicks;
         _random = new OracleRandom();
+        _runtimeState = new OracleRuntimeState();
         _treasures = new TreasureDatabase();
-        bool useSavedSpawn = forceDeathRespawn ||
-            (!_launchOptions.HasWorldOverride && _persistSaveData);
-        int startingGroup = useSavedSpawn
+        bool useDebugSavestate = debugSavestate is not null;
+        bool useSavedSpawn = !useDebugSavestate && (forceDeathRespawn ||
+            (!_launchOptions.HasWorldOverride && _persistSaveData));
+        int startingGroup = useDebugSavestate
+            ? debugSavestate!.Group
+            : useSavedSpawn
             ? _saveData.RespawnGroup
             : _launchOptions.StartingGroup;
-        int startingRoom = useSavedSpawn
+        int startingRoom = useDebugSavestate
+            ? debugSavestate!.Room
+            : useSavedSpawn
             ? _saveData.RespawnRoom
             : _launchOptions.StartingRoom;
         _rooms = new RoomSession(
             startingGroup, startingRoom,
             () => (long)_animationTicks,
             () => _animationTicks = 0.0,
-            _saveData);
+            _saveData,
+            countAsRoomEntry: !useDebugSavestate);
         _inventory = new InventoryState(
             _treasures, _saveData, () => _rooms.CurrentDungeonIndex);
         _rooms.RoomChanged += ApplyRoomMusic;
@@ -242,18 +314,30 @@ public partial class GameRoot : Node2D
             _saveData, new GlobalFlagDatabase(), _treasures, _inventory);
         CreateControllers();
 
-        Vector2 spawn = new(_saveData.RespawnX, _saveData.RespawnY);
+        Vector2 spawn = useDebugSavestate
+            ? debugSavestate!.PlayerPosition
+            : new Vector2(_saveData.RespawnX, _saveData.RespawnY);
+        debugSavestate?.RestoreRoomParseState(_entities);
         EnemyPlacementContext placementContext = useSavedSpawn
             ? EnemyPlacementContext.Warp(_rooms.CurrentRoom.GetPackedPosition(spawn))
             : EnemyPlacementContext.Unrestricted;
         _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom, placementContext);
         _transitions.CheckDisplayEraInfoAfterFullRoomLoad();
+        debugSavestate?.RestoreLiveState(
+            _saveData,
+            _runtimeState,
+            _random,
+            _entities);
         _roomView.SetRoom(_rooms.CurrentRoom.Texture);
-        if (!useSavedSpawn)
+        if (!useSavedSpawn && !useDebugSavestate)
             spawn = FindSpawn();
         _player.Initialize(_playerWorld, _inventory, spawn, _random);
         _player.GameOverRequested += BeginGameOver;
-        if (useSavedSpawn)
+        if (useDebugSavestate)
+        {
+            _player.Face(debugSavestate!.PlayerFacing);
+        }
+        else if (useSavedSpawn)
         {
             _player.Face(_saveData.RespawnFacing switch
             {
@@ -290,6 +374,7 @@ public partial class GameRoot : Node2D
         }
         if (_transitions is null)
             return;
+        AdvanceDebugSavestateStatus(delta);
         if (UpdateNewGameArrival(delta))
             return;
 
@@ -416,6 +501,7 @@ public partial class GameRoot : Node2D
         _entities = new RoomEntityManager(
             _scene.WorldRoot, new NpcDatabase(), new EnemyDatabase(),
             new ItemDropDatabase(), timePortals, _random, _saveData,
+            runtimeState: _runtimeState,
             inventory: _inventory,
             animationTick: () => (long)_animationTicks,
             treasures: _treasures,
@@ -592,8 +678,75 @@ public partial class GameRoot : Node2D
         string roomText = $"{_rooms.ActiveGroup:x1}:{_rooms.CurrentRoom.Id:x2}";
         if (_debugCollision.CollisionsDisabled)
             roomText += " NOCLIP";
+        if (_debugSavestateStatusFrames > 0.0 &&
+            !string.IsNullOrEmpty(_debugSavestateStatus))
+        {
+            roomText += $"  {_debugSavestateStatus}";
+        }
         if (_roomDebug.Text != roomText)
             _roomDebug.Text = roomText;
+    }
+
+    private void AdvanceDebugSavestateStatus(double delta)
+    {
+        if (_debugSavestateStatusFrames <= 0.0)
+            return;
+
+        _debugSavestateStatusFrames = Math.Max(
+            0.0,
+            _debugSavestateStatusFrames + delta * -60.0);
+        if (_debugSavestateStatusFrames == 0.0)
+            _debugSavestateStatus = string.Empty;
+    }
+
+    private void SetDebugSavestateStatus(string status)
+    {
+        _debugSavestateStatus = status;
+        _debugSavestateStatusFrames = 120.0;
+        UpdateRoomDebugLabel();
+    }
+
+    internal void ClearDebugSavestateStatusForValidation()
+    {
+        _debugSavestateStatus = string.Empty;
+        _debugSavestateStatusFrames = 0.0;
+        UpdateRoomDebugLabel();
+    }
+
+    private bool CanCaptureDebugSavestate() =>
+        _newGameArrivalFadeFrames <= 0 &&
+        _newGameArrivalFrames <= 0 &&
+        !IsTransitioning &&
+        !DialogueOpen &&
+        !MapMenuOpen &&
+        !InventoryMenuOpen &&
+        !RingMenuOpen &&
+        !DebugFlagMenuOpen &&
+        !_interactions.GameplayMenuActive &&
+        !_gameplayPause.IsLeased &&
+        !_player.IsDying &&
+        !_player.IsUsingHarp &&
+        !_roomEvents.Active &&
+        !_entities.PlayerMenusDisabled;
+
+    internal DebugSavestateData CaptureDebugSavestate() =>
+        DebugSavestateData.Capture(
+            _rooms,
+            _player,
+            _saveData,
+            _runtimeState,
+            _random,
+            _entities,
+            _animationTicks);
+
+    internal void RestoreDebugSavestate(DebugSavestateData debugSavestate)
+    {
+        ArgumentNullException.ThrowIfNull(debugSavestate);
+        ReleaseGameplayScene();
+        _sound.RestartSound();
+        InitializeGameplay(
+            debugSavestate.CreateSaveData(),
+            debugSavestate: debugSavestate);
     }
 
     internal void SyncHudToInventory()

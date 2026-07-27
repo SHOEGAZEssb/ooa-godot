@@ -56,6 +56,32 @@ internal sealed class RecentEnemyDefeats
         _activeRoom = -1;
     }
 
+    internal RecentEnemyDefeatsState CaptureState() => new(
+        (byte[])_rooms.Clone(),
+        (byte[])_killedEnemies.Clone(),
+        _tail,
+        _activeRoom);
+
+    internal void RestoreState(RecentEnemyDefeatsState state)
+    {
+        ArgumentNullException.ThrowIfNull(state.Rooms);
+        ArgumentNullException.ThrowIfNull(state.KilledEnemies);
+        if (state.Rooms.Length != RoomCount ||
+            state.KilledEnemies.Length != RoomCount ||
+            state.Tail is < 0 or >= RoomCount ||
+            state.ActiveRoom is < -1 or > 0xff)
+        {
+            throw new ArgumentException(
+                "The recent-enemy-defeat snapshot does not match wEnemiesKilledList.",
+                nameof(state));
+        }
+
+        state.Rooms.CopyTo(_rooms, 0);
+        state.KilledEnemies.CopyTo(_killedEnemies, 0);
+        _tail = state.Tail;
+        _activeRoom = state.ActiveRoom;
+    }
+
     private int FindRoom(int room)
     {
         if (room < 0)
@@ -74,3 +100,9 @@ internal sealed class RecentEnemyDefeats
             throw new ArgumentOutOfRangeException(nameof(enemyIndex));
     }
 }
+
+internal readonly record struct RecentEnemyDefeatsState(
+    byte[] Rooms,
+    byte[] KilledEnemies,
+    int Tail,
+    int ActiveRoom);

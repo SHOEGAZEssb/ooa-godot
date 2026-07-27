@@ -75,6 +75,15 @@ Development controls are intentionally separate from game behavior:
 | F2 | Toggle Link collision; `NOCLIP` appears beside the room ID while disabled |
 | F3 | Start a Maple encounter; uses the current eligible room or moves to an imported location in the current era |
 | V | Warp to the configurable debug room; defaults to the D1 Essence room `4:11` |
+| Shift + 0-9 | Save the matching debug savestate slot |
+| 0-9 | Load the matching debug savestate slot |
+
+Debug savestates are independent of the three retail-compatible file slots.
+Saving is accepted only during stable gameplay, outside transitions, menus,
+dialogue, item songs, death, and active room events. Loading is accepted from
+any active gameplay screen and reconstructs the saved room. The room-ID display
+briefly reports whether the state was saved, loaded, unavailable, empty, or
+could not be read or written.
 
 F3 reloads an eligible current room in place. From any other room, it moves
 Link to the first imported past location when currently in group 1, or to the

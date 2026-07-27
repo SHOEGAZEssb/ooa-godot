@@ -73,6 +73,27 @@ public sealed class OracleRuntimeState
             SeedTreeRefillRoomsPerLocation);
     }
 
+    internal OracleRuntimeStateSnapshot CaptureState() => new(
+        (byte[])_wram.Clone(),
+        (byte[])_seedTreeRefillRooms.Clone());
+
+    internal void RestoreState(OracleRuntimeStateSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot.Wram);
+        ArgumentNullException.ThrowIfNull(snapshot.SeedTreeRefillRooms);
+        if (snapshot.Wram.Length != _wram.Length ||
+            snapshot.SeedTreeRefillRooms.Length != _seedTreeRefillRooms.Length)
+        {
+            throw new ArgumentException(
+                "The runtime-state snapshot does not match the Ages WRAM layout.",
+                nameof(snapshot));
+        }
+
+        snapshot.Wram.CopyTo(_wram, 0);
+        snapshot.SeedTreeRefillRooms.CopyTo(_seedTreeRefillRooms, 0);
+        Changed?.Invoke();
+    }
+
     private static void ValidateAddress(int address)
     {
         if (address is < WramStart or > WramEnd)
@@ -87,3 +108,7 @@ public sealed class OracleRuntimeState
             throw new ArgumentOutOfRangeException(nameof(slot));
     }
 }
+
+internal readonly record struct OracleRuntimeStateSnapshot(
+    byte[] Wram,
+    byte[] SeedTreeRefillRooms);

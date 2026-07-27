@@ -30,7 +30,8 @@ public sealed class RoomSession
         int startingRoom,
         Func<long> animationTick,
         Action resetAnimationTick,
-        OracleSaveData saveData)
+        OracleSaveData saveData,
+        bool countAsRoomEntry = true)
     {
         _animationTick = animationTick;
         _resetAnimationTick = resetAnimationTick;
@@ -43,9 +44,11 @@ public sealed class RoomSession
         _gashaSpots = new GashaSpotDatabase();
         DungeonMaps = new DungeonMapDatabase();
         ActiveGroup = startingGroup;
-        _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
+        if (countAsRoomEntry)
+            _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         CurrentRoom = GetRoom(startingGroup, startingRoom);
-        MarkRoomVisited(startingGroup, startingRoom);
+        if (countAsRoomEntry)
+            MarkRoomVisited(startingGroup, startingRoom);
         CurrentRoom.UpdateAnimation(_animationTick());
     }
 

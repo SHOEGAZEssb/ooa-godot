@@ -441,6 +441,13 @@ public sealed class OracleSaveData
         return true;
     }
 
+    internal void RestoreFrom(OracleSaveData source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        source._data.CopyTo(_data, 0);
+        PublishChange();
+    }
+
     internal byte ReadWramByte(int address) => _data[OffsetForWram(address)];
 
     internal void ReadWramBytes(int address, Span<byte> destination) =>

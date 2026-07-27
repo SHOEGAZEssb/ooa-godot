@@ -547,6 +547,188 @@ public sealed partial class ValidationRoot
             "normal threshold reset, in-place eligible-room reload, and duplicate prevention.");
     }
 
+    private void ValidateDebugSavestates()
+    {
+        static DebugSavestateCommand Decode(InputEventKey key)
+        {
+            if (!DebugSavestateController.TryDecodeInput(key, out var command))
+                throw new InvalidOperationException(
+                    "A valid debug-savestate number key was not decoded.");
+            return command;
+        }
+
+        DebugSavestateCommand saveCommand = Decode(new InputEventKey
+        {
+            Pressed = true,
+            PhysicalKeycode = Key.Key3,
+            ShiftPressed = true
+        });
+        DebugSavestateCommand loadCommand = Decode(new InputEventKey
+        {
+            Pressed = true,
+            PhysicalKeycode = Key.Key3
+        });
+        if (saveCommand != new DebugSavestateCommand(
+                3, DebugSavestateCommandKind.Save) ||
+            loadCommand != new DebugSavestateCommand(
+                3, DebugSavestateCommandKind.Load) ||
+            DebugSavestateController.TryDecodeInput(
+                new InputEventKey
+                {
+                    Pressed = true,
+                    Echo = true,
+                    PhysicalKeycode = Key.Key3
+                },
+                out _) ||
+            DebugSavestateController.TryDecodeInput(
+                new InputEventKey
+                {
+                    Pressed = true,
+                    CtrlPressed = true,
+                    PhysicalKeycode = Key.Key3
+                },
+                out _) ||
+            DebugSavestateController.TryDecodeInput(
+                new InputEventKey
+                {
+                    Pressed = false,
+                    PhysicalKeycode = Key.Key3
+                },
+                out _) ||
+            DebugSavestateController.TryDecodeInput(
+                new InputEventKey
+                {
+                    Pressed = true,
+                    PhysicalKeycode = Key.F4
+                },
+                out _))
+        {
+            throw new InvalidOperationException(
+                "Debug-savestate input did not reserve Shift+number for save " +
+                "and an unmodified number for load.");
+        }
+
+        if (DebugSavestateStore.PathForSlot(0) !=
+                "user://oracle_of_ages_debug_state_0.state" ||
+            DebugSavestateStore.PathForSlot(9) !=
+                "user://oracle_of_ages_debug_state_9.state")
+        {
+            throw new InvalidOperationException(
+                "Debug-savestate slots do not have stable independent paths.");
+        }
+
+        LoadValidationRoom(4, 0x09);
+        Vector2 savedPosition = new(0x58, 0x68);
+        _player.WarpTo(savedPosition);
+        _player.Face(Vector2I.Left);
+        _animationTicks = 1234.5;
+        const int runtimeAddress = 0xc123;
+        _runtimeState.SetWramByte(runtimeAddress, 0xab);
+        _random.Next();
+        _random.Next();
+        bool savedFlag =
+            _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        DebugSavestateData captured = CaptureDebugSavestate();
+        byte[] expectedSaveImage = captured.CreateSaveData().Serialize();
+        OracleRandomState expectedRandom = _random.CaptureState();
+        RoomEntityManagerState expectedEntities = _entities.CaptureDebugState();
+
+        byte[] serialized = captured.Serialize();
+        if (!DebugSavestateData.TryDeserialize(
+                serialized,
+                out DebugSavestateData? decoded))
+        {
+            throw new InvalidOperationException(
+                "A freshly serialized debug state did not validate.");
+        }
+        serialized[^1] ^= 0xff;
+        if (DebugSavestateData.TryDeserialize(serialized, out _))
+        {
+            throw new InvalidOperationException(
+                "A corrupt debug-state hash was accepted.");
+        }
+
+        string temporaryPath = Path.Combine(
+            Path.GetTempPath(),
+            $"ooa_debug_state_validation_{Guid.NewGuid():N}.state");
+        try
+        {
+            SaveResult saveResult =
+                DebugSavestateStore.Save(decoded!, temporaryPath);
+            DebugSavestateLoadResult loaded =
+                DebugSavestateStore.Load(temporaryPath);
+            if (!saveResult.Success || !loaded.Success ||
+                DebugSavestateStore.Load(temporaryPath + ".missing").Found)
+            {
+                throw new InvalidOperationException(
+                    "Debug-state atomic storage or missing-slot detection failed.");
+            }
+
+            _saveData.SetGlobalFlag(
+                OracleSaveData.GlobalFlagSavedNayru,
+                !savedFlag);
+            _runtimeState.SetWramByte(runtimeAddress, 0x11);
+            _random.Next();
+            _animationTicks = 42.0;
+            LoadValidationRoom(0, 0x11);
+            _player.WarpTo(new Vector2(24, 24));
+            _player.Face(Vector2I.Up);
+
+            RestoreDebugSavestate(loaded.State!);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+                File.Delete(temporaryPath);
+            if (File.Exists(temporaryPath + ".tmp"))
+                File.Delete(temporaryPath + ".tmp");
+        }
+
+        OracleRandomState restoredRandom = _random.CaptureState();
+        RoomEntityManagerState restoredEntities = _entities.CaptureDebugState();
+        if (_rooms.ActiveGroup != 4 ||
+            _rooms.CurrentRoom.Id != 0x09 ||
+            _player.PrecisePosition != savedPosition ||
+            _player.FacingVector != Vector2I.Left ||
+            _animationTicks != 1234.5 ||
+            _saveData.HasGlobalFlag(
+                OracleSaveData.GlobalFlagSavedNayru) != savedFlag ||
+            !_saveData.Serialize().AsSpan().SequenceEqual(expectedSaveImage) ||
+            _runtimeState.ReadWramByte(runtimeAddress) != 0xab ||
+            restoredRandom.Rng1 != expectedRandom.Rng1 ||
+            restoredRandom.Rng2 != expectedRandom.Rng2 ||
+            restoredRandom.PlacementIndex != expectedRandom.PlacementIndex ||
+            restoredRandom.PlacementBufferReady !=
+                expectedRandom.PlacementBufferReady ||
+            restoredRandom.Calls != expectedRandom.Calls ||
+            restoredRandom.LastResult != expectedRandom.LastResult ||
+            !restoredRandom.PlacementBuffer.AsSpan().SequenceEqual(
+                expectedRandom.PlacementBuffer) ||
+            restoredEntities.ActiveTriggers != expectedEntities.ActiveTriggers ||
+            restoredEntities.FrameAccumulator != expectedEntities.FrameAccumulator ||
+            restoredEntities.FrameCounter != expectedEntities.FrameCounter ||
+            restoredEntities.RecentEnemyDefeats.Tail !=
+                expectedEntities.RecentEnemyDefeats.Tail ||
+            restoredEntities.RecentEnemyDefeats.ActiveRoom !=
+                expectedEntities.RecentEnemyDefeats.ActiveRoom ||
+            !restoredEntities.RecentEnemyDefeats.Rooms.AsSpan().SequenceEqual(
+                expectedEntities.RecentEnemyDefeats.Rooms) ||
+            !restoredEntities.RecentEnemyDefeats.KilledEnemies.AsSpan().SequenceEqual(
+                expectedEntities.RecentEnemyDefeats.KilledEnemies))
+        {
+            throw new InvalidOperationException(
+                "Loading a debug state did not restore the exact save image, " +
+                "live WRAM, RNG, entity frame/recent-kill state, room, Link " +
+                "transform, or animation clock.");
+        }
+
+        ClearDebugSavestateStatusForValidation();
+        GD.Print("Validated Shift+0-9 debug-state saves, plain 0-9 loads, " +
+            "versioned/hash-checked atomic storage, missing/corrupt rejection, " +
+            "and reconstruction of save image, live WRAM, RNG, entity phase, " +
+            "recent kills, room, Link, and animation state.");
+    }
+
     private void ValidateMapScreen()
     {
         if (!Mathf.IsEqualApprox(MapMenuController.FastFadeFrames, 11.0f))

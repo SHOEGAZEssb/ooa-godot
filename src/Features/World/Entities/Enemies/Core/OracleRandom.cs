@@ -1,3 +1,5 @@
+using System;
+
 namespace oracleofages;
 
 // getRandomNumber and generateRandomBuffer from bank 0 / bank 2. Enemy RNG
@@ -55,10 +57,49 @@ internal sealed class OracleRandom
         _placementBufferReady = true;
     }
 
+    internal OracleRandomState CaptureState() => new(
+        _rng1,
+        _rng2,
+        (byte[])_placementBuffer.Clone(),
+        _placementIndex,
+        _placementBufferReady,
+        Calls,
+        LastResult);
+
+    internal void RestoreState(OracleRandomState state)
+    {
+        ArgumentNullException.ThrowIfNull(state.PlacementBuffer);
+        if (state.PlacementBuffer.Length != _placementBuffer.Length)
+        {
+            throw new ArgumentException(
+                "The RNG snapshot does not contain the 256-byte placement buffer.",
+                nameof(state));
+        }
+        if (state.Calls < 0)
+            throw new ArgumentOutOfRangeException(nameof(state));
+
+        _rng1 = state.Rng1;
+        _rng2 = state.Rng2;
+        state.PlacementBuffer.CopyTo(_placementBuffer, 0);
+        _placementIndex = state.PlacementIndex;
+        _placementBufferReady = state.PlacementBufferReady;
+        Calls = state.Calls;
+        LastResult = state.LastResult;
+    }
+
     private static void Swap(byte[] values, int first, int second)
     {
         (values[first], values[second]) = (values[second], values[first]);
     }
 }
+
+internal readonly record struct OracleRandomState(
+    byte Rng1,
+    byte Rng2,
+    byte[] PlacementBuffer,
+    byte PlacementIndex,
+    bool PlacementBufferReady,
+    int Calls,
+    OracleRandomResult LastResult);
 
 internal readonly record struct OracleRandomResult(byte Value, byte High, byte Low);

@@ -22,6 +22,36 @@ A corrupt primary must never overwrite a known-good backup. I/O and permission
 failures are surfaced as a `SaveResult` so gameplay can remain on the save screen
 and offer a retry.
 
+## Debug savestates
+
+The ten development savestate slots are clone-side files separate from the
+original SRAM images:
+
+```text
+user://oracle_of_ages_debug_state_0.state
+...
+user://oracle_of_ages_debug_state_9.state
+```
+
+Shift plus a number saves that slot, and the unmodified number loads it. A debug
+state captures the complete 0x550-byte live file image, original WRAM outside
+that image, seed-tree refill history, the shared RNG and placement buffer, the
+room entity frame phase, trigger bits and eight-room recently-defeated-enemy
+ring, the active group and room, Link's precise position and facing, and the
+tileset animation clock. The versioned format carries a SHA-256 integrity hash
+and is written through a validated, flushed temporary file before replacement.
+
+Savestates are accepted only at stable gameplay boundaries. Loading disposes
+the active gameplay scope and rebuilds the captured room without counting a new
+room entry, then restores the captured save, runtime, and RNG bytes after room
+objects have been parsed. Transient actors and controller call stacks are
+therefore reconstructed from room data rather than serialized mid-update.
+Loading can be used to escape an active menu, dialogue, transition, or room
+event, but those transient presentations do not resume.
+
+Debug-state writes never change the active retail file, its backup, the
+explicit-save write count, or the maintained death checkpoint.
+
 ## Live state is not autosaved
 
 Room flags, inventory, health, rupees, story flags, minimap position, and other
