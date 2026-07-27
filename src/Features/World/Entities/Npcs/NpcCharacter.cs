@@ -41,7 +41,9 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     private bool _scriptButtonSensitive;
     private int? _fixedDrawPriority;
     private int _textPosition;
+    private NpcRecord _baseRecord;
 
+    public NpcRecord BaseRecord => _baseRecord;
     public NpcRecord Record { get; private set; }
     public bool Active => _active && _flagVisible;
     public string Message => Record.Message;
@@ -141,6 +143,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
             (_collisionRadiusY + LinkCollisionRadius) * 2.0f));
     public void Initialize(NpcRecord record)
     {
+        _baseRecord = record;
         Record = record;
         _sourceImage = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{record.SpriteName}.png");

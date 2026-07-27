@@ -5,8 +5,14 @@ Consolidation is valuable only when it makes imported original behavior easier t
 validate without obscuring table order, aliases, identifiers, or game-specific
 semantics.
 
-# Small Stuff
+## Small Stuff
 - [ ] During the first post-essence maku cutscene the hud fades faster to black than the rest of the screen
+- [ ] When starting a new game, the era indicator is shown when link spawns. disable the era info during the intro.
+- [ ] Fairies (for example when dropped by a miniboss) have the same "drop" physics as a normal item drop, they should not have that
+- [ ] Boomerang moblins not making the damage sound when they are hit
+      - [ ] Wallmasters too
+- [ ] When getting hit while carrying something, the carried object floats in the air shortly before dropping down. Should drop down instantly.
+- [ ] Dungeon eyes (entry room) and portal not visible during screen transition, pop into existence once transition is complete.
 
 ## NPC and interaction continuity audit
 
@@ -47,14 +53,14 @@ snapshot is maintained in
     classification and that specialized/event-owned keys cannot fall through
     to the ordinary path.
 
-- [ ] Preserve an immutable base NPC state and make live dialogue refresh
+- [x] Preserve an immutable base NPC state and make live dialogue refresh
   reversible, matching the existing reversible visibility and position paths.
-  `NpcCharacter.SetDialogue` currently overwrites `Record`; when a
-  `NpcDialogueRuleDatabase` condition stops matching, `RoomEntityManager`
-  leaves the previously selected text and facing mode in place. Resolve every
-  refresh to either one imported rule or the original base text/facing, report
-  ambiguous rule sources, and validate flag/progress changes in both
-  directions.
+  `NpcCharacter` now retains its imported `BaseRecord` separately from mutable
+  presentation state, and every ordinary save-state refresh resolves
+  visibility, dialogue, and position from that base. A dialogue table with no
+  currently matching row restores the base text/facing, while ambiguous rows
+  report every matching source. Canonical room `1:86` flag `$80` and room
+  `0:68` progress regressions cover changes in both directions.
 
 - [ ] Move the remaining copied source tables and native constants used by
   implemented NPC interactions across the generated-data boundary.

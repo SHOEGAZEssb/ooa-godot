@@ -3442,6 +3442,86 @@ public sealed partial class ValidationRoot
                 "Expected 337 NPC visibility, 116 NPC dialogue, and two NPC " +
                 "position state predicates.");
 
+        manager.LoadRoom(1, _world.LoadRoom(1, 0x86));
+        NpcCharacter towerEntranceGuard = manager.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x58, SubId: 0x02 });
+        NpcRecord towerEntranceBase = towerEntranceGuard.BaseRecord;
+        if (towerEntranceBase is not
+            {
+                Group: 1,
+                Room: 0x86,
+                Var03: 0x00,
+                TextId: 0x1003,
+                CanFace: true
+            } ||
+            towerEntranceGuard.TextId != towerEntranceBase.TextId ||
+            towerEntranceGuard.Message != towerEntranceBase.Message)
+        {
+            throw new InvalidOperationException(
+                "Room 1:86 hardhat worker $58:$02 did not retain base TX_1003 " +
+                "and its original facing mode.");
+        }
+
+        towerEntranceGuard.SetDialogue(
+            0x7fff, "transient validation dialogue", canFace: false);
+        if (towerEntranceGuard.BaseRecord != towerEntranceBase)
+            throw new InvalidOperationException(
+                "A live NPC dialogue override mutated hardhat worker $58:$02's base record.");
+
+        save.SetRoomFlag(1, 0x86, OracleSaveData.RoomFlag80);
+        if (towerEntranceGuard.TextId != 0x1004 ||
+            towerEntranceGuard.Message == towerEntranceBase.Message ||
+            !towerEntranceGuard.Record.CanFace ||
+            towerEntranceGuard.BaseRecord != towerEntranceBase)
+        {
+            throw new InvalidOperationException(
+                "Room 1:86 flag $80 did not select hardhat worker $58:$02 TX_1004 " +
+                "from the immutable base facing state.");
+        }
+
+        string ambiguousDialogueError = string.Empty;
+        try
+        {
+            NpcDialogueRuleDatabase.ResolveApplicable(
+                towerEntranceBase,
+                save,
+                [
+                    new NpcDialogueRuleDatabaseRule(
+                        -1, NpcStoryStateKind.CurrentRoomFlag,
+                        OracleSaveData.RoomFlag80, -1, 0x1004,
+                        "wildcard", "hardhatWorkerSubid02Script:@alreadySawCutscene"),
+                    new NpcDialogueRuleDatabaseRule(
+                        0x00, NpcStoryStateKind.CurrentRoomFlag,
+                        OracleSaveData.RoomFlag80, -1, 0x1004,
+                        "specific", "validation:overlapping-specific-rule")
+                ]);
+        }
+        catch (InvalidOperationException exception)
+        {
+            ambiguousDialogueError = exception.Message;
+        }
+        if (!ambiguousDialogueError.Contains(
+                "hardhatWorkerSubid02Script:@alreadySawCutscene",
+                StringComparison.Ordinal) ||
+            !ambiguousDialogueError.Contains(
+                "validation:overlapping-specific-rule",
+                StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Ambiguous NPC dialogue diagnostics did not report every matching source.");
+        }
+
+        save.SetRoomFlag(1, 0x86, OracleSaveData.RoomFlag80, value: false);
+        if (towerEntranceGuard.TextId != towerEntranceBase.TextId ||
+            towerEntranceGuard.Message != towerEntranceBase.Message ||
+            towerEntranceGuard.Record.CanFace != towerEntranceBase.CanFace ||
+            towerEntranceGuard.BaseRecord != towerEntranceBase)
+        {
+            throw new InvalidOperationException(
+                "Clearing room 1:86 flag $80 did not restore hardhat worker " +
+                "$58:$02 base TX_1003 and facing mode.");
+        }
+
         manager.LoadRoom(0, _world.LoadRoom(0, 0x5a));
         List<NpcCharacter> introMonkeys = manager.Entities<NpcCharacter>().Where(npc =>
             npc.Record.Id == 0x39 && npc.Record.SubId is 0x02 or 0x03).ToList();
@@ -3892,6 +3972,14 @@ public sealed partial class ValidationRoot
         save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru, value: false);
         if (save.WriteWramByte(0xc6bf, 0))
             save.CommitInventoryChange();
+        if (!earlyLynnaMan.Active || earlyLynnaMan.TextId != 0x1610 ||
+            lateLynnaWoman.Active || makuSeedVillager.Active ||
+            seedSatchelBoy.Active)
+        {
+            throw new InvalidOperationException(
+                "Reversing room 0:68 from finished-game progress to state $00 " +
+                "did not restore TX_1610 and the original state-$00 cast.");
+        }
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x78));
         NpcCharacter? clockSecretLady = manager.Entities<NpcCharacter>().Find(npc =>

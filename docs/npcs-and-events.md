@@ -152,6 +152,12 @@ to swap live without reparsing room data. Event-owned deactivation remains a
 separate active-state decision. Ordinary position refresh likewise resolves
 from the original object-data coordinates every time, so leaving an override
 state restores the source position instead of retaining stale coordinates.
+`NpcCharacter.BaseRecord` is the same immutable authority for all three paths;
+live dialogue or animation changes mutate only `Record`. If an actor has an
+applicable dialogue table but no row matches the current save state, refresh
+restores the base text and facing mode. More than one matching row is rejected
+with every imported source label so wildcard/specific or cross-state overlaps
+cannot be hidden by table order.
 
 Use the original state domain. Current visibility inputs include global,
 current-room, specific-room, treasure, linked-game, essence, save-WRAM,

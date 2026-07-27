@@ -76,33 +76,60 @@ public sealed class NpcDialogueRuleDatabase
     }
 
     public bool TryResolve(
-        NpcRecord npc,
+        NpcRecord baseNpc,
         OracleSaveData save,
         out NpcDialogueRuleDatabaseDialogue dialogue)
     {
         dialogue = default;
         if (!_byInteraction.TryGetValue(
-            NpcStoryState.InteractionKey(npc.Id, npc.SubId), out List<NpcDialogueRuleDatabaseRule>? rules))
+            NpcStoryState.InteractionKey(baseNpc.Id, baseNpc.SubId),
+            out List<NpcDialogueRuleDatabaseRule>? rules))
+        {
+            return false;
+        }
+
+        List<NpcDialogueRuleDatabaseRule> applicable = rules.Where(rule =>
+            rule.Var03 < 0 || rule.Var03 == baseNpc.Var03).ToList();
+        if (applicable.Count == 0)
             return false;
 
-        List<NpcDialogueRuleDatabaseRule> matches = rules.Where(rule =>
-            (rule.Var03 < 0 || rule.Var03 == npc.Var03) &&
+        dialogue = ResolveApplicable(baseNpc, save, applicable);
+        return true;
+    }
+
+    internal static NpcDialogueRuleDatabaseDialogue ResolveApplicable(
+        NpcRecord baseNpc,
+        OracleSaveData save,
+        IReadOnlyList<NpcDialogueRuleDatabaseRule> applicable)
+    {
+        List<NpcDialogueRuleDatabaseRule> matches = applicable.Where(rule =>
             (rule.Linked < 0 || rule.Linked == (save.IsLinkedGame ? 1 : 0)) &&
-            NpcStoryState.GetState(rule.Kind, rule.Value, npc, save) == rule.Value).ToList();
+            NpcStoryState.GetState(
+                rule.Kind, rule.Value, baseNpc, save) == rule.Value).ToList();
         if (matches.Count > 1)
         {
+            string sources = string.Join(", ", matches.Select(rule => rule.Source));
             throw new InvalidOperationException(
-                $"Multiple NPC dialogue rules matched ${npc.Id:x2}:${npc.SubId:x2}.");
+                $"Multiple NPC dialogue rules matched " +
+                $"${baseNpc.Id:x2}:${baseNpc.SubId:x2} " +
+                $"var03=${baseNpc.Var03:x2} in room " +
+                $"{baseNpc.Group:x}:{baseNpc.Room:x2}: {sources}.");
         }
         if (matches.Count == 0)
-            return false;
+        {
+            return new NpcDialogueRuleDatabaseDialogue(
+                baseNpc.TextId, baseNpc.Message, baseNpc.CanFace);
+        }
 
-        dialogue = new NpcDialogueRuleDatabaseDialogue(matches[0].TextId, matches[0].Message);
-        return true;
+        return new NpcDialogueRuleDatabaseDialogue(
+            matches[0].TextId, matches[0].Message, baseNpc.CanFace);
     }
 
 }
 
 internal readonly record struct NpcDialogueRuleDatabaseRule(int Var03, NpcStoryStateKind Kind, int Value, int Linked, int TextId, string Message, string Source);
 
-public readonly record struct NpcDialogueRuleDatabaseDialogue(int TextId, string Message);
+public readonly record struct NpcDialogueRuleDatabaseDialogue(
+    int TextId,
+    string Message,
+    bool CanFace);

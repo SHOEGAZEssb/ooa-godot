@@ -845,11 +845,16 @@ public sealed class RoomEntityManager : IDisposable
             {
                 NpcCharacter npc = ordinary.Npc;
                 npc.SetFlagVisible(_npcVisibility.ShouldShow(
-                    npc.Record, _saveData, _runtimeState));
-                if (_npcDialogue.TryResolve(npc.Record, _saveData, out NpcDialogueRuleDatabaseDialogue dialogue))
-                    npc.SetDialogue(dialogue.TextId, dialogue.Message, npc.Record.CanFace);
+                    npc.BaseRecord, _saveData, _runtimeState));
+                if (_npcDialogue.TryResolve(
+                    npc.BaseRecord, _saveData,
+                    out NpcDialogueRuleDatabaseDialogue dialogue))
+                {
+                    npc.SetDialogue(
+                        dialogue.TextId, dialogue.Message, dialogue.CanFace);
+                }
                 if (_npcPositions.TryResolve(
-                    npc.Record, _saveData, out Vector2 position))
+                    npc.BaseRecord, _saveData, out Vector2 position))
                 {
                     npc.SetStatePosition(position);
                 }
