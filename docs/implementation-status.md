@@ -586,6 +586,12 @@ remains the single runtime policy table.
   TX `$05b0/$05c0` plus map-text `$b0/$c0`, full-screen white return,
   room-music restoration, `wMakuTreeState` increment, and persistent re-entry
   suppression.
+- Room `0:3a`'s matching remote Maku Tree sequence after obtaining the Harp of
+  Ages. Its placed `$8a:$00` `var03=$02` interaction requires
+  `TREASURE_HARP $11` and clear room bit `$40`, selects imported standard/linked
+  TX `$05b2/$05c2` and map-text `$b2/$c2`, and shares the source present-day
+  confetti, HUD/palette cadence, music restoration, Maku-state increment, and
+  persistent re-entry suppression.
 - Room `1:75`'s complete linked and unlinked pre-Black Tower sequences,
   including Ralph's departure, the heritage scene, coordinated Impa/Nayru/Zelda
   lanes, Link movement, spawned effects, and persistent completion state.

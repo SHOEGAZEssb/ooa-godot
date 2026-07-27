@@ -3553,10 +3553,12 @@ $wingEventRows = @(
     (Join-Path $destination 'cutscenes\wing_dungeon_collapse_event.tsv'),
     $wingEventRows, [Text.UTF8Encoding]::new($false))
 
-# Room 0:8d owns INTERAC_REMOTE_MAKU_CUTSCENE $8a:$00. After the first
-# Essence, it preserves sprite palette 0 while the background fades to black,
-# runs the present-day $62 confetti emitter, reports the next Essence through
-# TX_05b0 (TX_05c0 in a linked game), then updates the Maku map/state bytes.
+# Present-day INTERAC_REMOTE_MAKU_CUTSCENE $8a:$00 preserves sprite palette 0
+# while the background fades to black, runs the $62 confetti emitter, reports
+# the next objective through TX_05b0-$05bb (TX_05c0-$05cb in a linked game),
+# then updates the Maku map/state bytes. Import the supported room 0:8d first-
+# Essence, room 0:83 Wing Dungeon, and room 0:3a post-Harp lanes from the
+# shared script while retaining each native var03 predicate.
 $remoteMakuScriptPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
 $remoteMakuScriptSource = Read-ImportText $remoteMakuScriptPath
 $remoteMakuHelperPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
@@ -3571,11 +3573,13 @@ $remoteMakuObjectSource = Read-ImportText (
     Join-Path $Disassembly 'objects\ages\mainData.s')
 
 if ($remoteMakuObjectSource -notmatch '(?ms)^group0Map8dObjectData:\s+obj_Interaction \$8a \$00 \$00 \$00 \$00\s+obj_End' -or
+    $remoteMakuObjectSource -notmatch '(?ms)^group0Map3aObjectData:.*?obj_Interaction \$8a \$00 \$00 \$00 \$02.*?obj_End' -or
     $remoteMakuInteractionSource -notmatch '(?ms)^@state0:.*?returnIfScrollMode01Unset.*?^@checkConditionsAndSetText:.*?^@val00:\s+xor a\s+call @checkEssenceObtained\s+jp z,@deleteSelfAndReturn\s+ldbc \$00, <TX_05b0.*?^@checkEssenceObtained:\s+ld hl,wEssencesObtained\s+jp checkFlag' -or
+    $remoteMakuInteractionSource -notmatch '(?ms)^@val02:\s+ld a,TREASURE_HARP\s+call checkTreasureObtained\s+jp nc,@deleteSelfAndReturn\s+ldbc \$00, <TX_05b2\s+jp @setTextForScript' -or
     $remoteMakuInteractionSource -notmatch '(?ms)^@state0:.*?getThisRoomFlags\s+and \$40\s+jp nz,interactionDelete.*?^@scriptTable:\s+\.dw mainScripts\.remoteMakuCutsceneScript' -or
     $remoteMakuHelperSource -notmatch '(?ms)^remoteMakuCutscene_fadeoutToBlackWithDelay:.*?fadeoutToBlackWithDelay.*?ld a,\$ff\s+ld \(wDirtyFadeBgPalettes\),a\s+ld \(wFadeBgPaletteSources\),a\s+ld a,\$01\s+ld \(wDirtyFadeSprPalettes\),a\s+ld a,\$fe\s+ld \(wFadeSprPaletteSources\),a' -or
     $remoteMakuHelperSource -notmatch '(?ms)^makuTree_modifyTextIndexForLinked:.*?checkIsLinkedGame.*?^@getLinkedTextOffset:.*?INTERAC_REMOTE_MAKU_CUTSCENE.*?dec a.*?INTERAC_MAKU_TREE.*?^makuTree_textOffsetsForLinked:\s+\.db \$20, \$20, \$10') {
-    throw 'Room 0:8d remote-Maku placement, predicate, palette mask, or linked-text offset changed.'
+    throw 'Remote-Maku placement, predicate, palette mask, or linked-text offset changed.'
 }
 
 $remoteMakuParserSource = $remoteMakuScriptSource -replace (
@@ -3679,8 +3683,10 @@ if ($null -eq $confettiGraphic -or $confettiGraphic.Gfx -ne 0x6c -or
 if (-not $allTexts.ContainsKey(0x05b0) -or
     -not $allTexts.ContainsKey(0x05c0) -or
     -not $allTexts.ContainsKey(0x05b1) -or
-    -not $allTexts.ContainsKey(0x05c1)) {
-    throw 'Remote Maku text TX_05b0/TX_05c0/TX_05b1/TX_05c1 was not imported.'
+    -not $allTexts.ContainsKey(0x05c1) -or
+    -not $allTexts.ContainsKey(0x05b2) -or
+    -not $allTexts.ContainsKey(0x05c2)) {
+    throw 'Remote Maku text TX_05b0-TX_05b2/TX_05c0-TX_05c2 was not imported.'
 }
 
 $positionPayload = @($confettiPositions | ForEach-Object {
@@ -3692,19 +3698,26 @@ $positionPayload = @($confettiPositions | ForEach-Object {
     "$y`:$x`:$ay`:$ax"
 }) -join ','
 $remoteMakuEventRows = @(
-    "# group`troom`tid`tsubid`tvar03`tessence-mask`troom-flag`tstandard-text-id`tlinked-text-id`tstandard-map-text`tlinked-map-text`tmusic`thud-lock-byte`tfade-delay`tfade-frames`tinitial-wait`tconfetti-hold1`tconfetti-hold2`tpost-text-wait`tconfetti-pieces`tspawn-delays`tpositions-and-accelerations`ty-offset-fixed`tsparkle-initial-delay`tsparkle-repeat-delay`tsound-counter`tsound`ty-speed-limit`tx-speed-limit`tdelete-y"
-    "0`t8d`t8a`t00`t00`t01`t40`t05b0`t05c0`tb0`tc0`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136"
+    "# group`troom`tid`tsubid`tvar03`tessence-mask`trequired-treasure`troom-flag`tstandard-text-id`tlinked-text-id`tstandard-map-text`tlinked-map-text`tmusic`thud-lock-byte`tfade-delay`tfade-frames`tinitial-wait`tconfetti-hold1`tconfetti-hold2`tpost-text-wait`tconfetti-pieces`tspawn-delays`tpositions-and-accelerations`ty-offset-fixed`tsparkle-initial-delay`tsparkle-repeat-delay`tsound-counter`tsound`ty-speed-limit`tx-speed-limit`tdelete-y"
+    "0`t8d`t8a`t00`t00`t01`tff`t40`t05b0`t05c0`tb0`tc0`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136"
 )
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'cutscenes\remote_maku_first_essence_event.tsv'),
     $remoteMakuEventRows, [Text.UTF8Encoding]::new($false))
 $remoteMakuWingEventRows = @(
     $remoteMakuEventRows[0]
-    "0`t83`t8a`t00`t01`t00`t40`t05b1`t05c1`tb1`tc1`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136"
+    "0`t83`t8a`t00`t01`t00`tff`t40`t05b1`t05c1`tb1`tc1`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136"
 )
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'cutscenes\remote_maku_wing_dungeon_event.tsv'),
     $remoteMakuWingEventRows, [Text.UTF8Encoding]::new($false))
+$remoteMakuHarpEventRows = @(
+    $remoteMakuEventRows[0]
+    "0`t3a`t8a`t00`t02`t00`t$($treasureIds['TREASURE_HARP'].ToString('x2'))`t40`t05b2`t05c2`tb2`tc2`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136"
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\remote_maku_harp_event.tsv'),
+    $remoteMakuHarpEventRows, [Text.UTF8Encoding]::new($false))
 
 $remoteMakuVisualRows = @(
     "# key`tsprite`ttile-base`tpalette`tanimation"
@@ -3781,6 +3794,28 @@ for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'cutscenes\remote_maku_wing_dungeon_commands.tsv'),
     $remoteMakuWingCommandRows, [Text.UTF8Encoding]::new($false))
+$remoteMakuHarpCommandRows = [Collections.Generic.List[string]]::new()
+$remoteMakuHarpCommandRows.Add($remoteMakuCommandRows[0])
+for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
+    $spec = $remoteMakuCommandSpecs[$index]
+    $sourceCommand = $spec[0]
+    $opcode = $spec[1]
+    $actor = $spec[2]
+    $arg0 = $spec[3]
+    $arg1 = $spec[4]
+    $payload = $spec[5]
+    if ($index -eq 10) {
+        $arg0 = '05b2'
+        $arg1 = '05c2'
+        $payload = "$($allTexts[0x05b2])`0$($allTexts[0x05c2])"
+    }
+    $remoteMakuHarpCommandRows.Add((New-CutsceneCommandRow `
+        'remoteMakuCutsceneScript' $index $sourceCommand.Label `
+        $sourceCommand.Line $opcode $actor $arg0 $arg1 $payload))
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'cutscenes\remote_maku_harp_commands.tsv'),
+    $remoteMakuHarpCommandRows, [Text.UTF8Encoding]::new($false))
 
 # Room 3:ae contains INTERAC_HARP_OF_AGES_SPAWNER $b3:$00. It creates the
 # static Harp treasure and its attached $84:$0c sparkle, then hands the

@@ -1331,6 +1331,11 @@ palette thread deliberately affects backgrounds and sprites differently:
   animation reversal, 180-update sound counter, `$18`-update `$84:$02`
   sparkle creation, and slot-order update behavior. The effect may outlive the
   script owner only until all native children have deleted themselves.
+- Other `$8a:$00` placements remain independent event and database owners.
+  Room `0:3a`'s `var03=$02` post-Harp interaction and room `0:83`'s
+  callback-allocated `var03=$01` warning do not route through the room `0:8d`
+  first-Essence event. They share only the neutral remote-Maku command host,
+  palette/HUD implementation, and native present-confetti behavior.
 
 ## Validation pattern
 

@@ -32,6 +32,8 @@ public sealed class RoomEventController
     private readonly HarpOfAgesEvent _harpOfAges;
     private readonly SpiritsGraveEssenceEvent _spiritsGraveEssence;
     private readonly RemoteMakuFirstEssenceEvent _remoteMakuFirstEssence;
+    private readonly RemoteMakuHarpEvent _remoteMakuHarp;
+    private readonly RemoteMakuWingDungeonEvent _remoteMakuWingDungeon;
     private readonly FairiesWoodsEvent _fairiesWoods;
     private readonly WingDungeonCollapseEvent _wingDungeonCollapse;
     private readonly IRoomEvent[] _eventsByPriority;
@@ -92,15 +94,19 @@ public sealed class RoomEventController
         _harpOfAges = new HarpOfAgesEvent(_context);
         _spiritsGraveEssence = new SpiritsGraveEssenceEvent(_context);
         _remoteMakuFirstEssence = new RemoteMakuFirstEssenceEvent(_context);
+        _remoteMakuHarp = new RemoteMakuHarpEvent(_context);
+        _remoteMakuWingDungeon = new RemoteMakuWingDungeonEvent(_context);
         _fairiesWoods = new FairiesWoodsEvent(_context);
         _wingDungeonCollapse = new WingDungeonCollapseEvent(
             _context,
-            () => _remoteMakuFirstEssence.StartWingDungeonWarning());
+            () => _remoteMakuWingDungeon.StartWarning());
         _eventsByPriority =
         [
             _harpOfAges,
             _spiritsGraveEssence,
             _remoteMakuFirstEssence,
+            _remoteMakuHarp,
+            _remoteMakuWingDungeon,
             _fairiesWoods,
             _wingDungeonCollapse,
             _nayru,
@@ -174,6 +180,9 @@ public sealed class RoomEventController
     internal SpiritsGraveEssenceEvent SpiritsGraveEssence => _spiritsGraveEssence;
     internal RemoteMakuFirstEssenceEvent RemoteMakuFirstEssence =>
         _remoteMakuFirstEssence;
+    internal RemoteMakuHarpEvent RemoteMakuHarp => _remoteMakuHarp;
+    internal RemoteMakuWingDungeonEvent RemoteMakuWingDungeon =>
+        _remoteMakuWingDungeon;
     internal FairiesWoodsEvent FairiesWoods => _fairiesWoods;
     internal WingDungeonCollapseEvent WingDungeonCollapse =>
         _wingDungeonCollapse;

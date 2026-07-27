@@ -13,8 +13,8 @@ internal sealed partial class RemoteMakuConfettiEffect : Node2D
 {
     private readonly List<ConfettiPiece> _pieces = new();
     private readonly List<Sparkle> _sparkles = new();
-    private RemoteMakuFirstEssenceRecord _record;
-    private RemoteMakuFirstEssenceDatabase _database = null!;
+    private RemoteMakuEventRecord _record;
+    private RemoteMakuEventDatabase _database = null!;
     private OracleSoundEngine _sound = null!;
     private Vector2 _cameraOrigin;
     private int _frame;
@@ -40,7 +40,7 @@ internal sealed partial class RemoteMakuConfettiEffect : Node2D
     }
 
     internal void Initialize(
-        RemoteMakuFirstEssenceDatabase database,
+        RemoteMakuEventDatabase database,
         OracleSoundEngine sound,
         Vector2 cameraOrigin)
     {

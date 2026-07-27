@@ -333,8 +333,8 @@ public sealed partial class ValidationRoot
         bool linkedBefore = _saveData.IsLinkedGame;
         WingDungeonCollapseEvent collapse =
             _roomEvents.WingDungeonCollapse;
-        RemoteMakuFirstEssenceEvent remoteMaku =
-            _roomEvents.RemoteMakuFirstEssence;
+        RemoteMakuWingDungeonEvent remoteMaku =
+            _roomEvents.RemoteMakuWingDungeon;
         BraceletDatabaseRecord braceletData = new BraceletDatabase().Data;
         Vector2 rock = new(0x38, 0x48);
 
@@ -573,10 +573,9 @@ public sealed partial class ValidationRoot
             if (collapse.Stage != WingDungeonCollapseStage.Completed ||
                 _player.CutsceneControlled ||
                 _sound.ActiveMusic != _sound.Data.RoomMusic(0, 0x83) ||
-                remoteMaku.Stage !=
-                    RemoteMakuFirstEssenceEventStage.Running ||
-                remoteMaku.ActiveRecord.Var03 != 1 ||
-                remoteMaku.ActiveRecord.StandardTextId != 0x05b1)
+                remoteMaku.Stage != RemoteMakuEventStage.Running ||
+                remoteMaku.Record.Var03 != 1 ||
+                remoteMaku.Record.StandardTextId != 0x05b1)
             {
                 throw new InvalidOperationException(
                     "Wing Dungeon collapse did not restore Link/room music " +

@@ -489,6 +489,12 @@ The cutscene's final `objectData7e69` allocation is preserved by
 remote-Maku presentation constants while selecting `var03=$01`, standard/linked
 TX `$05b1/$05c1`, and map-text bytes `$b1/$c1`; these values must not be
 borrowed from the first-Essence `$05b0/$05c0` record.
+Room `0:3a` is emitted independently as `remote_maku_harp_event.tsv` and
+`remote_maku_harp_commands.tsv`. That record retains the placed
+`INTERAC_REMOTE_MAKU_CUTSCENE $8a:$00/v$02`, `TREASURE_HARP $11` predicate,
+room bit `$40`, TX `$05b2/$05c2`, and map-text bytes `$b2/$c2`. All three
+placements consume the shared present-confetti visual table, but their runtime
+databases and event lifecycles remain separate.
 
 For concurrent native interaction scenes, `Import-CutsceneData.ps1` emits the
 native parameters and dialogue rather than inventing a linear command stream.

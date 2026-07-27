@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
         const int room = 0x8d;
         RemoteMakuFirstEssenceEvent cutscene =
             _roomEvents.RemoteMakuFirstEssence;
-        RemoteMakuFirstEssenceRecord record = cutscene.Database.Record;
+        RemoteMakuEventRecord record = cutscene.Database.Record;
         byte originalEssences = _saveData.ReadWramByte(0xc6bf);
         int originalMakuState = _saveData.MakuTreeState;
         int originalMapText = _saveData.MakuMapTextPresent;
@@ -142,7 +142,7 @@ public sealed partial class ValidationRoot
             var trace = new ValidationCutsceneTrace();
             _roomEvents.CommandTraceSink = trace;
             LoadValidationRoom(group, room);
-            if (cutscene.Stage != RemoteMakuFirstEssenceEventStage.Running ||
+            if (cutscene.Stage != RemoteMakuEventStage.Running ||
                 _player.CutsceneControlled)
             {
                 throw new InvalidOperationException(
@@ -326,5 +326,165 @@ public sealed partial class ValidationRoot
             "strip, PALH_0d dialogue colors, HUD timing, five-piece present " +
             "confetti/sparkles, TX_05b0/TX_05c0 map offsets, full-screen white fade, " +
             "music restore, room flag $40, and Maku-state increment.");
+    }
+
+    private void ValidateRemoteMakuHarpCutscene()
+    {
+        const int group = 0;
+        const int room = 0x3a;
+        RemoteMakuHarpEvent cutscene = _roomEvents.RemoteMakuHarp;
+        RemoteMakuEventRecord record = cutscene.Database.Record;
+        var text = (CutsceneShowTextVariantsCommand)
+            cutscene.Database.Commands[10];
+        bool originalHarp = _saveData.HasTreasure(record.RequiredTreasure);
+        int originalMakuState = _saveData.MakuTreeState;
+        int originalMapText = _saveData.MakuMapTextPresent;
+        bool originalLinked = _saveData.IsLinkedGame;
+        bool originalRoomFlag = _saveData.HasRoomFlag(
+            group, room, (byte)record.RoomFlag);
+
+        void SetRoomFlag(bool value) => _saveData.SetRoomFlag(
+            group, room, (byte)record.RoomFlag, value);
+
+        void StepUntilDialogue()
+        {
+            for (int frame = 0; frame < 700 && !_dialogue.IsOpen; frame++)
+                StepRoomEventFrames(1);
+            if (!_dialogue.IsOpen)
+            {
+                throw new InvalidOperationException(
+                    "Room 0:3a post-Harp remote Maku dialogue did not open " +
+                    "within its imported fade/confetti waits.");
+            }
+        }
+
+        void FinishDialogue(int initialState, int expectedMapText)
+        {
+            _dialogue.Close();
+            for (int frame = 0; frame < 100 && cutscene.HasState; frame++)
+                StepRoomEventFrames(1);
+            if (cutscene.HasState ||
+                _roomEvents.Active ||
+                _player.CutsceneControlled ||
+                !_saveData.HasRoomFlag(
+                    group, room, (byte)record.RoomFlag) ||
+                _saveData.MakuTreeState != initialState + 1 ||
+                _saveData.MakuMapTextPresent != expectedMapText ||
+                _sound.ActiveMusic != _sound.Data.RoomMusic(group, room))
+            {
+                throw new InvalidOperationException(
+                    "Room 0:3a post-Harp remote Maku completion did not " +
+                    "restore input/music, set room flag $40, update the map " +
+                    "text, and increment wMakuTreeState.");
+            }
+        }
+
+        try
+        {
+            if (_dialogue.IsOpen)
+                _dialogue.Close();
+            SetRoomFlag(false);
+            SetTreasure(_saveData, record.RequiredTreasure, value: false);
+            LoadValidationRoom(group, room);
+            if (cutscene.HasState || _roomEvents.Active)
+            {
+                throw new InvalidOperationException(
+                    "Room 0:3a remote Maku event ignored its TREASURE_HARP " +
+                    "predicate.");
+            }
+
+            SetTreasure(_saveData, record.RequiredTreasure);
+            SetRoomFlag(true);
+            LoadValidationRoom(group, room);
+            if (cutscene.HasState || _roomEvents.Active)
+            {
+                throw new InvalidOperationException(
+                    "Room 0:3a remote Maku event replayed with room flag $40 set.");
+            }
+
+            SetRoomFlag(false);
+            _saveData.SetLinkedGame(false);
+            _saveData.SetMakuTreeState(5);
+            _saveData.SetMakuMapTextPresent(0);
+            LoadValidationRoom(group, room);
+            if (cutscene.Stage != RemoteMakuEventStage.Running ||
+                cutscene.Record.Room != record.Room ||
+                cutscene.Record.Var03 != 0x02 ||
+                cutscene.Record.RequiredTreasure !=
+                    TreasureDatabase.TreasureHarp)
+            {
+                throw new InvalidOperationException(
+                    "Room 0:3a did not select its imported $8a:$00/v$02 " +
+                    "post-Harp lane.");
+            }
+
+            StepRoomEventFrames(1);
+            if (!_player.CutsceneControlled ||
+                cutscene.CommandInstruction != 3 ||
+                _sound.ActiveMusic != OracleSoundEngine.MusMakuTree)
+            {
+                throw new InvalidOperationException(
+                    "Room 0:3a post-Harp lane lost the shared first-update " +
+                    "input lock, script order, or Maku Tree music.");
+            }
+            StepUntilDialogue();
+            if (_dialogue.CurrentMessage !=
+                    DialogueBox.PlainText(text.StandardMessage) ||
+                _saveData.MakuMapTextPresent != record.StandardMapText ||
+                cutscene.Confetti is not { Finished: true } ||
+                !_hud.StatusBarHidden)
+            {
+                throw new InvalidOperationException(
+                    "Room 0:3a did not show standard TX_05b2, write map byte " +
+                    "$b2, and finish the present-day confetti under the hidden HUD " +
+                    $"(text={_dialogue.CurrentMessage ==
+                        DialogueBox.PlainText(text.StandardMessage)}, " +
+                    $"map=${_saveData.MakuMapTextPresent:x2}, " +
+                    $"confetti={cutscene.Confetti?.Finished}, " +
+                    $"hudHidden={_hud.StatusBarHidden}).");
+            }
+            FinishDialogue(initialState: 5, record.StandardMapText);
+
+            LoadValidationRoom(group, room);
+            if (cutscene.HasState || _roomEvents.Active)
+            {
+                throw new InvalidOperationException(
+                    "Completed room 0:3a post-Harp remote Maku event replayed " +
+                    "on re-entry.");
+            }
+
+            SetRoomFlag(false);
+            _saveData.SetLinkedGame(true);
+            _saveData.SetMakuTreeState(9);
+            _saveData.SetMakuMapTextPresent(0);
+            LoadValidationRoom(group, room);
+            StepUntilDialogue();
+            if (_dialogue.CurrentMessage !=
+                    DialogueBox.PlainText(text.LinkedMessage) ||
+                _saveData.MakuMapTextPresent != record.LinkedMapText)
+            {
+                throw new InvalidOperationException(
+                    "Linked room 0:3a remote Maku guidance did not apply the " +
+                    "source $10 offset from TX_05b2/$b2 to TX_05c2/$c2.");
+            }
+            FinishDialogue(initialState: 9, record.LinkedMapText);
+        }
+        finally
+        {
+            if (_dialogue.IsOpen)
+                _dialogue.Close();
+            SetTreasure(_saveData, record.RequiredTreasure, originalHarp);
+            _saveData.SetMakuTreeState(originalMakuState);
+            _saveData.SetMakuMapTextPresent(originalMapText);
+            _saveData.SetLinkedGame(originalLinked);
+            SetRoomFlag(originalRoomFlag);
+            LoadValidationRoom(0, 0x11);
+        }
+
+        GD.Print(
+            "Validated room 0:3a post-Harp remote Maku TREASURE_HARP and " +
+            "room-$40 predicates, imported $8a:$00/v$02 lane, present confetti, " +
+            "TX_05b2/TX_05c2 map offsets, music/input restore, Maku-state " +
+            "increment, and re-entry suppression.");
     }
 }

@@ -4,28 +4,28 @@ namespace oracleofages;
 
 /// <summary>
 /// Room-entry owner for present-day INTERAC_REMOTE_MAKU_CUTSCENE
-/// $8a:$00/v$00 in room 0:8d after the first Essence.
+/// $8a:$00/v$02 in room 0:3a after obtaining the Harp of Ages.
 /// </summary>
-internal sealed class RemoteMakuFirstEssenceEvent :
+internal sealed class RemoteMakuHarpEvent :
     RemoteMakuEvent,
     IRoomEntryEvent
 {
-    private readonly RemoteMakuFirstEssenceDatabase _database;
+    private readonly RemoteMakuHarpDatabase _database;
 
-    internal RemoteMakuFirstEssenceEvent(RoomEventContext context)
-        : this(context, new RemoteMakuFirstEssenceDatabase())
+    internal RemoteMakuHarpEvent(RoomEventContext context)
+        : this(context, new RemoteMakuHarpDatabase())
     {
     }
 
-    private RemoteMakuFirstEssenceEvent(
+    private RemoteMakuHarpEvent(
         RoomEventContext context,
-        RemoteMakuFirstEssenceDatabase database)
+        RemoteMakuHarpDatabase database)
         : base(context, database)
     {
         _database = database;
     }
 
-    internal RemoteMakuFirstEssenceDatabase Database => _database;
+    internal RemoteMakuHarpDatabase Database => _database;
 
     public bool Matches(int group, OracleRoomData room)
     {
@@ -33,7 +33,7 @@ internal sealed class RemoteMakuFirstEssenceEvent :
         OracleSaveData save = Context.Rooms.SaveData;
         return group == record.Group &&
             room.Id == record.Room &&
-            (save.ReadWramByte(0xc6bf) & record.EssenceMask) != 0 &&
+            save.HasTreasure(record.RequiredTreasure) &&
             !save.HasRoomFlag(
                 record.Group,
                 record.Room,
@@ -46,7 +46,7 @@ internal sealed class RemoteMakuFirstEssenceEvent :
         {
             throw new InvalidOperationException(
                 $"Room {Context.Rooms.ActiveGroup:x}:{room.Id:x2} cannot " +
-                "start the first-Essence remote Maku event.");
+                "start the post-Harp remote Maku event.");
         }
         Begin();
     }
