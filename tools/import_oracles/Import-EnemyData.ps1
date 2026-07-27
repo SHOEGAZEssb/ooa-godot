@@ -51,6 +51,86 @@ function Get-AssemblyLabelBody([string]$source, [string]$label) {
     return $match.Groups['body'].Value
 }
 
+# Preserve the common side-view terrain-probe stream used by ordinary enemy
+# movement, screen-boundary reflection, and every common knockback path. Each
+# signed Y/X pair is cumulative: ecom_getAdjacentWallsBitset updates b/c after
+# every probe rather than applying four absolute offsets from the enemy.
+$enemyCommonCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\commonCode.s')
+$sideviewOffsetBody = Get-AssemblyLabelBody `
+    $enemyCommonCodeSource 'ecom_sideviewAdjacentWallOffsetTable'
+$sideviewOffsetMatches = @([regex]::Matches(
+    $sideviewOffsetBody,
+    '(?m)^\s*\.db\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})'))
+if ($sideviewOffsetMatches.Count -ne 32 -or
+    $enemyCommonCodeSource -notmatch
+        '(?ms)^ecom_getAdjacentWallsBitset:.*?^@checkCollisionAt:\s*\r?\n\s*ld a,\(de\)\s*\r?\n\s*inc de\s*\r?\n\s*add b\s*\r?\n\s*ld b,a\s*\r?\n\s*ld a,\(de\)\s*\r?\n\s*inc de\s*\r?\n\s*add c\s*\r?\n\s*ld c,a') {
+    throw 'ecom_sideviewAdjacentWallOffsetTable or its cumulative probe loop changed.'
+}
+$sideviewOffsetRows = [Collections.Generic.List[string]]::new()
+$sideviewOffsetRows.Add(
+    "# octant`tprobe`ty-delta`tx-delta`tsource")
+for ($index = 0; $index -lt $sideviewOffsetMatches.Count; $index++) {
+    $rawY = [Convert]::ToInt32(
+        $sideviewOffsetMatches[$index].Groups['y'].Value, 16)
+    $rawX = [Convert]::ToInt32(
+        $sideviewOffsetMatches[$index].Groups['x'].Value, 16)
+    $y = if ($rawY -ge 0x80) { $rawY - 0x100 } else { $rawY }
+    $x = if ($rawX -ge 0x80) { $rawX - 0x100 } else { $rawX }
+    $octant = [int][Math]::Floor($index / 4)
+    $probe = $index % 4
+    $sourceOffset = $index * 2
+    $sideviewOffsetRows.Add(
+        "$octant`t$probe`t$y`t$x`t" +
+        "object_code/common/enemies/commonCode.s:" +
+        "ecom_sideviewAdjacentWallOffsetTable+$($sourceOffset.ToString('x2'))")
+}
+$expectedFirstSideviewOffset =
+    "0`t0`t-4`t-5`tobject_code/common/enemies/commonCode.s:" +
+    "ecom_sideviewAdjacentWallOffsetTable+00"
+$expectedLastSideviewOffset =
+    "7`t3`t6`t0`tobject_code/common/enemies/commonCode.s:" +
+    "ecom_sideviewAdjacentWallOffsetTable+3e"
+if ($sideviewOffsetRows[1] -ne $expectedFirstSideviewOffset -or
+    $sideviewOffsetRows[32] -ne $expectedLastSideviewOffset) {
+    throw 'Side-view adjacent-wall offset ordering or signed decoding changed.'
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'metadata\enemy_adjacent_wall_offsets.tsv'),
+    $sideviewOffsetRows,
+    [Text.UTF8Encoding]::new($false))
+
+$bounceAngleBlock = [regex]::Match(
+    $enemyCommonCodeSource,
+    '(?ms)^ecom_bounceOffScreenBoundary:.*?^@angleTable:\s*\r?\n(?<body>.*?)(?=^;;)')
+$bounceAngleMatches = @([regex]::Matches(
+    $bounceAngleBlock.Groups['body'].Value,
+    '\$(?<angle>[0-9a-f]{2})'))
+if (-not $bounceAngleBlock.Success -or
+    $bounceAngleMatches.Count -ne 48) {
+    throw 'ecom_bounceOffScreenBoundary@angleTable no longer contains 48 angles.'
+}
+$bounceAngleRows = [Collections.Generic.List[string]]::new()
+$bounceAngleRows.Add("# index`tangle`tsource")
+for ($index = 0; $index -lt $bounceAngleMatches.Count; $index++) {
+    $angle = [Convert]::ToInt32(
+        $bounceAngleMatches[$index].Groups['angle'].Value, 16)
+    $bounceAngleRows.Add(
+        "$index`t$($angle.ToString('x2'))`t" +
+        "object_code/common/enemies/commonCode.s:" +
+        "ecom_bounceOffScreenBoundary@angleTable+$($index.ToString('x2'))")
+}
+if ($bounceAngleRows[1] -notmatch "^0`t10`t" -or
+    $bounceAngleRows[17] -notmatch "^16`t00`t" -or
+    $bounceAngleRows[39] -notmatch "^38`t09`t" -or
+    $bounceAngleRows[48] -notmatch "^47`t01`t") {
+    throw 'Enemy bounce-angle table ordering changed.'
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'metadata\enemy_bounce_angles.tsv'),
+    $bounceAngleRows,
+    [Text.UTF8Encoding]::new($false))
+
 function Resolve-Oam([string]$source, [string]$label) {
     $body = Get-AssemblyLabelBody $source $label
     $countMatch = [regex]::Match($body, '(?m)^\s*\.db\s+\$(?<count>[0-9a-f]{2})')

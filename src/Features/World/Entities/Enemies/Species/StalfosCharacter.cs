@@ -10,31 +10,6 @@ namespace oracleofages;
 public partial class StalfosCharacter : EnemyCharacter
 {
 
-    // ecom_sideviewAdjacentWallOffsetTable stores every signed pair as Y, X.
-    // Vector2I uses X, Y; keep the source's cumulative probe deltas while
-    // transposing each pair into room-coordinate order.
-    private static readonly Vector2I[,] SideviewCollisionOffsets =
-    {
-        { new(-5, -4), new(9, 0), new(-4, 4), new(0, 0) },
-        { new(-5, -4), new(9, 0), new(2, 3), new(0, 6) },
-        { new(0, 0), new(0, 0), new(6, -1), new(0, 6) },
-        { new(-5, 7), new(9, 0), new(2, -8), new(0, 6) },
-        { new(-5, 7), new(9, 0), new(-4, -7), new(0, 0) },
-        { new(-5, 7), new(9, 0), new(-11, -8), new(0, 6) },
-        { new(0, 0), new(0, 0), new(-7, -1), new(0, 6) },
-        { new(-5, -4), new(9, 0), new(-11, 3), new(0, 6) }
-    };
-
-    private static readonly int[] BounceAngles =
-    {
-        0x10, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x09,
-        0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
-        0x00, 0x1f, 0x1e, 0x1d, 0x1c, 0x1b, 0x1a, 0x19,
-        0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
-        0x10, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x09, 0x08,
-        0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01
-    };
-
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private StalfosState _state;
@@ -140,31 +115,10 @@ public partial class StalfosCharacter : EnemyCharacter
 
     private void BounceOffWallsAndHoles()
     {
-        int doubledAngle = _angle * 2;
-        int tableOffset = (doubledAngle & 0x0f) == 0
-            ? doubledAngle
-            : (doubledAngle & 0xf0) + 8;
-        int octant = tableOffset / 8;
-        Vector2I point = new(
-            Mathf.FloorToInt(Position.X), Mathf.FloorToInt(Position.Y));
-        bool hitVertical = false;
-        bool hitHorizontal = false;
-        for (int probe = 0; probe < 4; probe++)
-        {
-            point += SideviewCollisionOffsets[octant, probe];
-            bool collision = IsWallOrHole(point);
-            if (probe < 2)
-                hitVertical |= collision;
-            else
-                hitHorizontal |= collision;
-        }
-
-        if (hitHorizontal && hitVertical)
-            _angle = (_angle + 0x10) & 0x1f;
-        else if (hitHorizontal)
-            _angle = BounceAngles[0x10 + _angle];
-        else if (hitVertical)
-            _angle = BounceAngles[_angle];
+        _angle = EnemyAdjacentWallResolver.Shared.BounceAngle(
+            Position,
+            _angle,
+            IsWallOrHole);
     }
 
     private bool IsWallOrHole(Vector2I point)

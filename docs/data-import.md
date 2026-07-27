@@ -33,7 +33,7 @@ and then runs these stages in dependency order:
 | `Import-NpcData.ps1` | NPC definitions, exact implementation classifications, visibility, dialogue, and animation inputs |
 | `Import-GashaData.ps1` | Gasha spots, growth/reward tables, native timing, text, OAM, and disappearance graphics |
 | `Import-CutsceneData.ps1` | Typed script commands and cutscene-specific records |
-| `Import-EnemyData.ps1` | Ordered room objects, enemies, spawn restrictions, and drops |
+| `Import-EnemyData.ps1` | Ordered room objects, enemies, common collision probes, spawn restrictions, and drops |
 | `Import-SeedTreeData.ps1` | Seed-tree controllers/parts, seed-type visuals/text, and the sixteen refill histories |
 | `Import-MapleData.ps1` | Maple locations, paths, item distributions, dialogue, OAM, and Touching Book assets |
 | `Import-WorldNavigation.ps1` | Warps, dungeon layouts, neighbors, and room navigation |
@@ -328,6 +328,16 @@ definitions back to `enemy_object_stream.tsv` in source order. Subids whose
 additional state machines are not implemented are intentionally absent from
 the typed species table while their ordered source records remain available as
 unsupported reservations/completion evidence.
+
+The stage also emits `enemy_adjacent_wall_offsets.tsv` and
+`enemy_bounce_angles.tsv` from `object_code/common/enemies/commonCode.s`.
+The first retains all eight angle octants and four signed Y/X pairs per
+octant, including each source-table byte offset. Import verifies the
+`ecom_getAdjacentWallsBitset` instruction sequence that cumulatively updates
+the probe coordinate; treating the rows as four independent offsets is not a
+compatible interpretation. The second retains all 48 entries of
+`ecom_bounceOffScreenBoundary@angleTable` in source order. Runtime consumers
+must use the typed shared resolver rather than copying either table.
 
 The same shared stage emits `common_enemies.tsv` for the implemented
 `ENEMY_BOOMERANG_MOBLIN $0a:$00`, `ENEMY_ARROW_MOBLIN $0c:$00`,

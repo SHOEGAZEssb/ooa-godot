@@ -12,37 +12,6 @@ namespace oracleofages;
 /// </summary>
 public abstract partial class EnemyCharacter : TransitionOffsetNode2D
 {
-    // ecom_sideviewAdjacentWallOffsetTable is a stream of cumulative Y/X
-    // deltas. Knockback always uses this smaller four-probe table, including
-    // for top-down enemies such as Octoroks.
-    private static readonly Vector2I[,] KnockbackProbeDeltas =
-    {
-        {
-            new(-5, -4), new(9, 0), new(-4, 4), new(0, 0)
-        },
-        {
-            new(-5, -4), new(9, 0), new(2, 3), new(0, 6)
-        },
-        {
-            new(0, 0), new(0, 0), new(6, -1), new(0, 6)
-        },
-        {
-            new(-5, 7), new(9, 0), new(2, -8), new(0, 6)
-        },
-        {
-            new(-5, 7), new(9, 0), new(-4, -7), new(0, 0)
-        },
-        {
-            new(-5, 7), new(9, 0), new(-11, -8), new(0, 6)
-        },
-        {
-            new(0, 0), new(0, 0), new(-7, -1), new(0, 6)
-        },
-        {
-            new(-5, -4), new(9, 0), new(-11, 3), new(0, 6)
-        }
-    };
-
     private EnemyAnimationPlayer _animation = null!;
     private int _animationCount;
     private int _collisionRadiusX;
@@ -486,25 +455,11 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     private bool MoveKnockback()
     {
         Vector2 position = CurrentKnockbackPosition;
-        Vector2I probe = new(
-            Mathf.FloorToInt(position.X),
-            Mathf.FloorToInt(position.Y));
-        int doubledAngle = KnockbackAngle * 2;
-        int tableOffset = (doubledAngle & 0x0f) == 0
-            ? doubledAngle
-            : (doubledAngle & 0xf0) + 8;
-        int octant = tableOffset / 8;
-        bool verticalBlocked = false;
-        bool horizontalBlocked = false;
-        for (int index = 0; index < 4; index++)
-        {
-            probe += KnockbackProbeDeltas[octant, index];
-            bool collision = IsKnockbackCollision(probe);
-            if (index < 2)
-                verticalBlocked |= collision;
-            else
-                horizontalBlocked |= collision;
-        }
+        EnemyAdjacentWallProbe walls =
+            EnemyAdjacentWallResolver.Shared.Probe(
+                position,
+                KnockbackAngle,
+                IsKnockbackCollision);
 
         // bank3.objectSpeedTable truncates each SPEED_200 component to signed
         // 8.8 precision. At this speed every nonzero component is at least
@@ -514,9 +469,9 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         Vector2 movement = new(
             (int)(unit.X * 0x200) / 256.0f,
             (int)(unit.Y * 0x200) / 256.0f);
-        if (verticalBlocked)
+        if (walls.YBlocked)
             movement.Y = 0;
-        if (horizontalBlocked)
+        if (walls.XBlocked)
             movement.X = 0;
         if (movement == Vector2.Zero)
             return false;

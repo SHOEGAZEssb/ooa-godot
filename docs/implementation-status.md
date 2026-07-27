@@ -390,7 +390,10 @@ remains the single runtime policy table.
   ordinary Stalfos `$31:$00`, Zols, and Gels using
   ordered room-object placement, original spawn restrictions, shared RNG,
   combat, common/split kill sounds, common hazard effects, and source-ordered
-  drop paths with live Bomb/seed ownership predicates. All 34
+  drop paths with live Bomb/seed ownership predicates. Keese, ordinary
+  Stalfos, and common knockback share the imported four-probe cumulative
+  adjacent-wall stream and bounce-angle table, including exact horizontal,
+  vertical, and corner behavior. All 34
   ordinary-Stalfos records (37 instances) use their source SPEED_80 walk,
   two-call direction/counter decision, wall/hole bounce, animation, damage,
   health, and drop path. Evasive, bone-throwing, and stomping Stalfos subids

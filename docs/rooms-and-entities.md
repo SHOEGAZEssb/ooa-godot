@@ -272,6 +272,15 @@ that distinction. Drawable room nodes ultimately inherit
 `TransitionOffsetNode2D`; it owns only the presentation offset applied during
 scrolling and never changes logical room/world coordinates.
 
+`EnemyAdjacentWallResolver` owns the generated
+`ecom_sideviewAdjacentWallOffsetTable` and
+`ecom_bounceOffScreenBoundary@angleTable`. It rounds a 32-step angle to the
+source octant, floors the object's room position once, then applies all four
+signed Y/X pairs cumulatively. Collision results from the first two probes
+block Y movement (`$0c`); the last two block X movement (`$03`). Keese screen
+reflection, ordinary Stalfos wall/hole reflection, and common enemy knockback
+share this resolver and supply only their collision predicate.
+
 Sword recoil is selected by the original item-collision and enemy-collision
 tables, not by damage. Level-1 swings, the held sword, and Fist Ring punches
 use the low profile; level-2/3 swings and sword beams use normal; Spin Attacks
@@ -280,9 +289,9 @@ to `COLLISIONEFFECT_SWORD_*_KNOCKBACK`, the accepted hit writes
 invincibility/knockback counters `$10/$08`, `$15/$0b`, or `$1a/$0f`, aims from
 the attack source away through the enemy, and runs `SPEED_200` movement after
 the counter's pre-handler decrement. Movement uses the signed 8.8
-`bank3.objectSpeedTable` components and the cumulative
-`ecom_sideviewAdjacentWallOffsetTable` probes even for top-down enemies. A
-blocked movement clears the remaining counter. Species whose handler calls the
+`bank3.objectSpeedTable` components and the shared cumulative adjacent-wall
+probes even for top-down enemies. A blocked movement clears the remaining
+counter. Species whose handler calls the
 solid form use terrain collision and perform their usual post-movement hazard
 check; Ghini, Keese, Crow, and Giant Ghini children use the
 screen-boundary-only form. A health-zero hit disables collision immediately

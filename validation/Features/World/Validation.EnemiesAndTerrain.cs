@@ -247,6 +247,56 @@ public sealed partial class ValidationRoot
                 $"Expected 53 ENEMY_KEESE room records / 158 instances, got " +
                 $"{database.KeeseRecordCount} / {database.KeeseInstanceCount}.");
 
+        EnemyAdjacentWallResolver adjacentWalls =
+            EnemyAdjacentWallResolver.Shared;
+        EnemyAdjacentWallOffsetRecord diagonalFirst =
+            adjacentWalls.Offset(octant: 1, probe: 0);
+        EnemyAdjacentWallOffsetRecord diagonalSecond =
+            adjacentWalls.Offset(octant: 1, probe: 1);
+        if (diagonalFirst.YDelta != -4 || diagonalFirst.XDelta != -5 ||
+            diagonalSecond.YDelta != 0 || diagonalSecond.XDelta != 9 ||
+            !diagonalFirst.Source.Contains(
+                "object_code/common/enemies/commonCode.s",
+                StringComparison.Ordinal) ||
+            adjacentWalls.BounceAngleRecord(0).Angle != 0x10 ||
+            adjacentWalls.BounceAngleRecord(0x18).Angle != 0x18 ||
+            EnemyAdjacentWallResolver.OctantForAngle(0x00) != 0 ||
+            EnemyAdjacentWallResolver.OctantForAngle(0x04) != 1 ||
+            EnemyAdjacentWallResolver.OctantForAngle(0x08) != 2 ||
+            EnemyAdjacentWallResolver.OctantForAngle(0x1f) != 7)
+        {
+            throw new InvalidOperationException(
+                "The imported ecom adjacent-wall offsets, bounce angles, " +
+                "source identity, or rounded-octant lookup changed.");
+        }
+
+        var diagonalPoints = new List<Vector2I>();
+        EnemyAdjacentWallProbe diagonalProbe = adjacentWalls.Probe(
+            new Vector2(154, 3),
+            0x04,
+            point =>
+            {
+                diagonalPoints.Add(point);
+                return point.X < 0 || point.X >= 160 ||
+                    point.Y < 0 || point.Y >= 128;
+            });
+        Vector2I[] expectedDiagonalPoints =
+        [
+            new(149, -1),
+            new(158, -1),
+            new(160, 2),
+            new(160, 8)
+        ];
+        if (!diagonalPoints.SequenceEqual(expectedDiagonalPoints) ||
+            diagonalProbe.Bitset != 0x0f ||
+            !diagonalProbe.YBlocked || !diagonalProbe.XBlocked ||
+            adjacentWalls.BounceAngle(0x04, diagonalProbe) != 0x14)
+        {
+            throw new InvalidOperationException(
+                "ecom_getAdjacentWallsBitset no longer applies its four " +
+                "signed Y/X pairs cumulatively at a diagonal corner.");
+        }
+
         LoadValidationRoom(4, 0x39);
         if (_entities.Entities<KeeseCharacter>().Count != 2 || _entities.Entities<KeeseCharacter>().Exists(keese => keese.Record.SubId != 1))
             throw new InvalidOperationException(
@@ -302,6 +352,50 @@ public sealed partial class ValidationRoot
             normalKeese.Counter1 is < 0xc0 or > 0xff)
             throw new InvalidOperationException(
                 "Normal Keese did not choose its original random `$c0-`$ff flight counter and angle.");
+
+        EnemyDatabaseEnemyRecord boundaryRecord =
+            database.GetRoomKeese(4, 0xcb)[0];
+        OracleRoomData boundaryRoom = _world.LoadRoom(4, 0xcb);
+        (string Axis, int SkippedCalls, int InitialAngle,
+            Vector2 Position, int ReflectedAngle)[] keeseBoundaryCases =
+        [
+            ("vertical", 21, 0x00, new Vector2(80, 3), 0x10),
+            ("horizontal", 23, 0x08,
+                new Vector2(boundaryRoom.Width - 6, 64), 0x18),
+            ("corner", 2, 0x04,
+                new Vector2(boundaryRoom.Width - 6, 3), 0x14)
+        ];
+        foreach ((string axis, int skippedCalls, int initialAngle,
+            Vector2 position, int reflectedAngle) in keeseBoundaryCases)
+        {
+            var boundaryRandom = new OracleRandom();
+            for (int call = 0; call < skippedCalls; call++)
+                boundaryRandom.Next();
+            var boundaryKeese = new KeeseCharacter();
+            boundaryKeese.Initialize(
+                boundaryRecord,
+                boundaryRoom,
+                new Vector2(80, 64),
+                boundaryRandom);
+            for (int frame = 0; frame < 0x20; frame++)
+                boundaryKeese.UpdateFrame(Vector2.Zero, frame);
+            if (boundaryKeese.State != KeeseState.Moving ||
+                boundaryKeese.Angle != initialAngle)
+            {
+                throw new InvalidOperationException(
+                    $"The {axis} Keese boundary fixture did not select " +
+                    $"source angle `${initialAngle:x2}.");
+            }
+            boundaryKeese.Position = position;
+            boundaryKeese.UpdateFrame(Vector2.Zero, 0x20);
+            if (boundaryKeese.Angle != reflectedAngle)
+            {
+                throw new InvalidOperationException(
+                    $"Keese did not reflect its {axis} boundary contact from " +
+                    $"`${initialAngle:x2} to `${reflectedAngle:x2}.");
+            }
+            boundaryKeese.Free();
+        }
 
         _player.RefillHealth();
         _player.WarpTo(normalKeese.Position, recordSafe: false);
@@ -1089,10 +1183,44 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(4, 0x1e);
         GhiniCharacter ghini =
             _entities.Entities<GhiniCharacter>().Single();
+        (string Axis, Vector2 Position, Vector2 Source, int Angle)[]
+            knockbackBoundaryCases =
+            [
+                ("vertical", new Vector2(80, 3),
+                    new Vector2(80, 19), 0x00),
+                ("horizontal", new Vector2(_currentRoom.Width - 6, 64),
+                    new Vector2(_currentRoom.Width - 22, 64), 0x08),
+                ("corner", new Vector2(_currentRoom.Width - 6, 3),
+                    new Vector2(_currentRoom.Width - 22, 19), 0x04)
+            ];
+        foreach ((string axis, Vector2 position, Vector2 source, int angle)
+            in knockbackBoundaryCases)
+        {
+            ghini.Position = position;
+            ghini.InvincibilityCounter = 0;
+            ghini.ApplySwordKnockback(
+                source,
+                EnemyKnockbackStrength.Low);
+            if (ghini.KnockbackAngle != angle)
+            {
+                throw new InvalidOperationException(
+                    $"The {axis} knockback fixture did not select source " +
+                    $"angle `${angle:x2}.");
+            }
+            ghini.UpdateFrame();
+            if (ghini.Position != position || ghini.KnockbackCounter != 0)
+            {
+                throw new InvalidOperationException(
+                    $"Shared knockback did not stop its {axis} movement at " +
+                    "the screen boundary.");
+            }
+        }
+
         Vector2 ghiniOrigin = new(80, 80);
         Vector2 ghiniSource = new(64, 96);
         ghini.Position = ghiniOrigin;
         ghini.Health = 0x40;
+        ghini.InvincibilityCounter = 0;
         if (!_entities.ApplySwordHit(
                 ghini.CollisionBounds.Grow(1),
                 ghiniSource,
@@ -1617,11 +1745,53 @@ public sealed partial class ValidationRoot
         }
         cornerStalfos.Free();
 
+        (string Axis, int SkippedCalls, int InitialAngle,
+            Vector2 Position, int ReflectedAngle)[] stalfosBoundaryCases =
+        [
+            ("vertical", 20, 0x00, new Vector2(80, 3), 0x10),
+            ("horizontal", 41, 0x08,
+                new Vector2(potRoom.Width - 6, 64), 0x18),
+            ("corner", 1, 0x04,
+                new Vector2(potRoom.Width - 6, 3), 0x14)
+        ];
+        foreach ((string axis, int skippedCalls, int initialAngle,
+            Vector2 position, int reflectedAngle) in stalfosBoundaryCases)
+        {
+            var boundaryRandom = new OracleRandom();
+            for (int call = 0; call < skippedCalls; call++)
+                boundaryRandom.Next();
+            var boundaryStalfos = new StalfosCharacter();
+            boundaryStalfos.Initialize(
+                room41f[2],
+                potRoom,
+                new Vector2(80, 64),
+                boundaryRandom);
+            boundaryStalfos.UpdateFrame(Vector2.Zero);
+            boundaryStalfos.UpdateFrame(Vector2.Zero);
+            if (boundaryStalfos.State != StalfosState.Walking ||
+                boundaryStalfos.Angle != initialAngle)
+            {
+                throw new InvalidOperationException(
+                    $"The {axis} Stalfos boundary fixture did not select " +
+                    $"source angle `${initialAngle:x2}.");
+            }
+            boundaryStalfos.Position = position;
+            boundaryStalfos.UpdateFrame(Vector2.Zero);
+            if (boundaryStalfos.Angle != reflectedAngle)
+            {
+                throw new InvalidOperationException(
+                    $"Stalfos did not reflect its {axis} boundary contact " +
+                    $"from `${initialAngle:x2} to `${reflectedAngle:x2}.");
+            }
+            boundaryStalfos.Free();
+        }
+
         _entities.ClearRecentEnemyDefeats();
         GD.Print("Validated 34 imported ordinary ENEMY_STALFOS records / 37 instances, " +
             "room 4:06 fixed placement, two-call shared-RNG walk selection, " +
             "32/48/64/80-update counters, SPEED_80 wall/hole-aware movement, " +
-            "room 4:1f dungeon-pot edge/corner bounces, and animation.");
+            "horizontal/vertical/corner cumulative probes, room 4:1f " +
+            "dungeon-pot edge/corner bounces, and animation.");
     }
 
     private void ValidateZolsAndGels()

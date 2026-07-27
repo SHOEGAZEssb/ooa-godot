@@ -155,17 +155,16 @@ and RNG consumption while addressing these items.
     graphics, radii, damage, health, and animations to retain source collision
     modes/flags, item-collision responses, speeds, counters, gravity, bounds,
     projectile offsets, and per-state lookup tables.
-  - Remove duplicate runtime copies of `@angleTable`,
-    `ecom_sideviewAdjacentWallOffsetTable`, and species-specific timing tables.
-    Retain source labels/addresses and validate exact ordering and aliases
-    rather than merely asserting copied constants during import.
+  - Remove remaining species-specific timing tables. The common
+    `ecom_bounceOffScreenBoundary@angleTable` and
+    `ecom_sideviewAdjacentWallOffsetTable` copies are now imported once with
+    source identities, exact ordering checks, and one typed runtime owner.
 
-- [ ] Correct and consolidate adjacent-wall probing before adding more enemy
-  handlers. `ecom_getAdjacentWallsBitset` applies each of its four offset pairs
-  cumulatively; `EnemyCharacter` and Stalfos do so, while Keese treats every
-  row as an absolute offset from its position. Use one source-table-backed
-  cumulative probe/bounce helper and add horizontal, vertical, and corner
-  regressions for Keese, Stalfos, and knockback.
+- [x] Correct and consolidate adjacent-wall probing before adding more enemy
+  handlers. The importer now preserves the common four-pair offset stream,
+  bounce-angle table, and source identities. One typed resolver applies the
+  probes cumulatively for Keese, Stalfos, and common knockback, with
+  horizontal, vertical, and corner regressions for every consumer.
 
 - [x] Restore inventory-dependent enemy drops through one availability path.
   `DecideDrop`, deterministic `ChooseDrop`, breakable drops, placed producers,
