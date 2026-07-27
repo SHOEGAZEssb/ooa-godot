@@ -91,23 +91,6 @@ internal sealed class MakuSproutRescueEvent : IRoomEntryEvent, ICutsceneCommandH
         UpdateFrame();
     }
 
-    internal void RestoreCompletedSprout(int group, OracleRoomData room)
-    {
-        if (group != _record.Group || room.Id != _record.Room)
-            return;
-        OracleSaveData save = _context.Rooms.SaveData;
-        if (save.MakuTreeState < _record.StateMin ||
-            save.MakuTreeState > _record.StateMax ||
-            !save.HasGlobalFlag(_record.SavedFlag))
-        {
-            return;
-        }
-        NpcCharacter sprout = _context.RequireNpc(
-            group, room.Id, _record.SproutId, _record.SproutSubId,
-            "saved INTERAC_MAKU_SPROUT");
-        ConfigureSavedSprout(sprout);
-    }
-
     internal bool TryInteractNpc(NpcCharacter npc)
     {
         if (!_buttonSensitive || _sprout is null || !ReferenceEquals(npc, _sprout))

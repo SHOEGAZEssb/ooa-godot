@@ -63,6 +63,12 @@ The implementation manifest therefore contains 60 ordinary, 39 specialized,
 rows. Including the family table, the typed runtime database contains 460
 classified records and 111 specialized rows.
 
+Room `1:38`'s implemented `$88:$00` row covers the rescue, saved re-entry, and
+all state `$00/$03-$10` advice branches, including linked text selection and
+first/repeat behavior. Its conditional postgame `$6b:$15` Link statue is also
+implemented, but remains outside this table because the source object is not
+represented as an `NpcRecord`.
+
 ### Important partial and deferred boundaries
 
 - Room `0:38` implements the Maku Tree disappearance and

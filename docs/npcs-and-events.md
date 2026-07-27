@@ -1052,6 +1052,32 @@ through the bottom must preload an already-active portal at `$48/$58`; do not
 drop subtype `$02` merely because later, Satchel-owning visits require the Tune
 of Echoes.
 
+The rescue is only the state `$01/$02` unsaved branch of placed
+`INTERAC_MAKU_SPROUT $88:$00`. Once the rescue is saved, those states resume
+the TX `$05d5` NPC loop. State `$00` and states `$03-$10` instead use the
+source `var3e`/`var3f` advice table. Preserve its three script modes:
+
+- mode `$00` holds distressed animation `$02` and changes from base text to
+  base+1 after the first talk in that room instance;
+- mode `$01` uses animation `$00` at rest, animation `$01` during the text,
+  and restores `$00` after the source's one-update wait; and
+- mode `$02` stays in animation `$00` while changing from base to base+1
+  after the first talk.
+
+Every selected low text byte is written to `wMakuMapTextPast`. Linked games
+add `$20` for interaction `$88`; state `$10` is exceptional because linked
+games choose mode `$00` with base TX `$058a` (therefore TX `$05aa/$05ab`),
+while unlinked games choose mode `$01` with TX `$058c`. The handler carries
+the original always-update bit, so its animation alone continues during room
+scrolling.
+
+`group1Map38ObjectData` then places `INTERAC_MISCELLANEOUS_1 $6b:$15` after
+the sprout. It deletes itself unless `GLOBALFLAG_FINISHEDGAME` is set. When
+present, it writes collision `$0f` at packed position `$48`, uses `$080a`
+collision radii, loads the past PALH `$c7` Link-statue palette, and selects
+animation `$05` only when its underlying metatile is `$f9`; otherwise it uses
+animation `$04`. It is solid and silent, not an ordinary talk target.
+
 Present room `0:38` is the reference for a talk-triggered event that keeps an
 infinite original NPC script active without blocking ordinary gameplay:
 
@@ -1319,6 +1345,9 @@ production behavior; it must not drive it.
 - `src/cutscenes/BlackTowerExplanationScreen.cs`
 - `src/cutscenes/MakuSproutRescueEvent.cs`
 - `src/cutscenes/MakuSproutRescueDatabase.cs`
+- `src/Features/World/Interactions/MakuSprout/MakuSproutRoomDatabase.cs`
+- `src/Features/World/Interactions/MakuSprout/MakuSproutRoomEntity.cs`
+- `src/Features/World/Interactions/MakuSprout/MakuLinkStatueRoomEntity.cs`
 - `validation/Validation.Npcs.cs`
 
 See [Rooms and entities](rooms-and-entities.md) for room lifetime and capability

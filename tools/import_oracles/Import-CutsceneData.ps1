@@ -2994,7 +2994,7 @@ $makuObjectSource = Read-ImportText (
     Join-Path $Disassembly 'objects\ages\mainData.s')
 $makuPlacement = [regex]::Match(
     $makuObjectSource,
-    '(?ms)^group1Map38ObjectData:\s*obj_Interaction \$88 \$00 \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2})\s*obj_Interaction \$6b \$15')
+    '(?ms)^group1Map38ObjectData:\s*obj_Interaction \$88 \$00 \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2})\s*obj_Interaction \$6b \$15 \$(?<statuey>[0-9a-f]{2}) \$(?<statuex>[0-9a-f]{2})')
 $makuObjectDataSource = Read-ImportText (
     Join-Path $Disassembly 'objects\ages\extraData3.s')
 $makuMoblins = [regex]::Match(
@@ -3009,6 +3009,8 @@ if (-not $makuMoblins.Success) {
 if (-not $makuPlacement.Success -or -not $makuMoblins.Success -or
     $makuPlacement.Groups['y'].Value -ne '28' -or
     $makuPlacement.Groups['x'].Value -ne '50' -or
+    $makuPlacement.Groups['statuey'].Value -ne '40' -or
+    $makuPlacement.Groups['statuex'].Value -ne '84' -or
     $makuMoblins.Groups['y'].Value -ne '30' -or
     $makuMoblins.Groups['leftx'].Value -ne '68' -or
     $makuMoblins.Groups['rightx'].Value -ne '38') {
@@ -3023,10 +3025,33 @@ $makuInteractionSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\makuSprout.s')
 $makuGateSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\makuGateOpening.s')
+$makuMiscellaneousSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous1.s')
 if ($makuScriptsSource -notmatch '(?ms)^makuSprout_subid01Script:.*?GLOBALFLAG_MAKU_TREE_SAVED.*?INTERAC_MISCELLANEOUS_1, \$04, \$40, \$50.*?TX_05d5' -or
     $makuScriptsSource -notmatch '(?ms)^moblin_subid00Script:.*?moblin_spawnEnemyHere.*?^moblin_subid01Script:' -or
     $makuHelperSource -notmatch '(?ms)^interaction6b_subid04Script:.*?wDisableScreenTransitions, \$01.*?INTERAC_MAKU_GATE_OPENING.*?GLOBALFLAG_MAKU_TREE_SAVED.*?wDisableScreenTransitions, \$00') {
     throw 'Room 1:38 rescue script ownership or completion predicates changed.'
+}
+if ($makuInteractionSource -notmatch '(?ms)^@initSubid0:.*?\.dw @state00.*?\.dw @state10' -or
+    $makuInteractionSource -notmatch '(?ms)^@state03:\s*@state04:\s*@state05:\s*ldbc \$01, <TX_0570' -or
+    $makuInteractionSource -notmatch '(?ms)^@state06:\s*ldbc \$00, <TX_0576.*?^@state07:\s*ldbc \$00, <TX_0578.*?^@state08:\s*ldbc \$02, <TX_057a' -or
+    $makuInteractionSource -notmatch '(?ms)^@state09:\s*ldbc \$01, <TX_057c.*?^@state0a:\s*ldbc \$01, <TX_057e.*?^@state0b:\s*ldbc \$00, <TX_0580' -or
+    $makuInteractionSource -notmatch '(?ms)^@state0c:\s*ldbc \$00, <TX_0582.*?^@state0d:\s*ldbc \$01, <TX_0584.*?^@state0e:\s*ldbc \$01, <TX_0586' -or
+    $makuInteractionSource -notmatch '(?ms)^@state0f:\s*ldbc \$02, <TX_0588.*?^@state10:.*?checkIsLinkedGame.*?ldbc \$00, <TX_058a.*?ldbc \$01, <TX_058c' -or
+    $makuInteractionSource -notmatch '(?ms)^@initializeMakuSprout:.*?interactionSetAlwaysUpdateBit' -or
+    $makuInteractionSource -notmatch '(?ms)^@loadScriptAndInitGraphics:.*?>TX_0500') {
+    throw 'INTERAC_MAKU_SPROUT state, text, or always-update behavior changed.'
+}
+if ($makuHelperSource -notmatch '(?ms)^makuSprout_subid00Script_body:.*?@mode00_showDifferentTextFirstTime_distressedAnim:.*?makuSprout_setAnimation, \$02.*?makuTree_showTextWithOffsetAndUpdateMapText, \$00.*?makuTree_showTextWithOffsetAndUpdateMapText, \$01' -or
+    $makuHelperSource -notmatch '(?ms)^@mode01_happyAnimationWhileTalking:.*?makuSprout_setAnimation, \$00.*?makuSprout_setAnimation, \$01.*?makuTree_showTextWithOffsetAndUpdateMapText, \$00.*?wait 1.*?makuSprout_setAnimation, \$00' -or
+    $makuHelperSource -notmatch '(?ms)^@mode02_showDifferentTextFirstTime:.*?makuSprout_setAnimation, \$00.*?makuTree_showTextWithOffsetAndUpdateMapText, \$00.*?makuTree_showTextWithOffsetAndUpdateMapText, \$01' -or
+    $makuHelperSource -notmatch '(?ms)^makuTree_checkLinkedAndUpdateMapText:.*?wMakuMapTextPresent.*?ld \(hl\),c' -or
+    $makuHelperSource -notmatch '(?ms)^makuTree_textOffsetsForLinked:\s*\.db \$20, \$20, \$10') {
+    throw 'Maku Sprout advice script modes or linked/map-text helper changed.'
+}
+if ($makuMiscellaneousSource -notmatch '(?ms)^interaction6b_subid15:.*?GLOBALFLAG_FINISHEDGAME.*?wRoomCollisions.*?\$0f.*?interaction6b_subid0e@state0' -or
+    $makuMiscellaneousSource -notmatch '(?ms)^interaction6b_subid0e:.*?TILESETFLAG_PAST.*?PALH_c7.*?ld bc,\$080a.*?cp \$f9.*?ld a,\$04.*?interactionAnimateAsNpc') {
+    throw 'Room 1:38 postgame Link-statue behavior changed.'
 }
 
 $makuSproutGraphic = $interactionGraphics['136:0']
@@ -3041,10 +3066,132 @@ $makuSproutAnimations = @(0..2 | ForEach-Object {
 $makuMoblinAnimations = @(0..3 | ForEach-Object {
     Resolve-NpcAnimation 0x96 $_
 })
+$makuStatueGraphic = $interactionGraphics['107:21']
+if ($null -eq $makuStatueGraphic -or
+    $makuStatueGraphic.Gfx -ne 0x6d -or
+    $gfxNames[0x6d] -ne 'spr_linkstatue' -or
+    $makuStatueGraphic.TileBase -ne 0 -or
+    $makuStatueGraphic.Palette -ne 6 -or
+    $makuStatueGraphic.DefaultAnimation -ne 4) {
+    throw 'INTERAC_MISCELLANEOUS_1 $6b:$15 graphics changed.'
+}
+$makuStatueAnimations = @(4..5 | ForEach-Object {
+    Resolve-NpcAnimation 0x6b $_
+})
+$makuStatueProperties = Read-ImportText (
+    Join-Path $Disassembly 'gfx_compressible\ages\spr_linkstatue.properties')
+if ($makuStatueProperties -notmatch '(?m)^invert:\s*false\s*$') {
+    throw 'spr_linkstatue.properties no longer selects non-inverted grayscale.'
+}
+if (-not $globalFlagValues.ContainsKey('GLOBALFLAG_FINISHEDGAME') -or
+    $globalFlagValues['GLOBALFLAG_FINISHEDGAME'] -ne 0x14 -or
+    $paletteHeaderSource -notmatch '(?ms)m_PaletteHeaderStart \$c7, PALH_c7\s*m_PaletteHeaderSpr 6, 1, paletteData44f0') {
+    throw 'Room 1:38 finished-game flag or past Link-statue palette changed.'
+}
 if (-not $allTextPositions.ContainsKey(0x05d4) -or
     $allTextPositions[0x05d4] -ne 2) {
     throw 'TX_05d4 no longer explicitly selects textbox position 2.'
 }
+
+$makuAdviceDefinitions = @(
+    [pscustomobject]@{ State=0x00; StandardMode=0; StandardBase=0x0500; LinkedMode=0; LinkedBase=0x0520 },
+    [pscustomobject]@{ State=0x03; StandardMode=1; StandardBase=0x0570; LinkedMode=1; LinkedBase=0x0590 },
+    [pscustomobject]@{ State=0x04; StandardMode=1; StandardBase=0x0570; LinkedMode=1; LinkedBase=0x0590 },
+    [pscustomobject]@{ State=0x05; StandardMode=1; StandardBase=0x0570; LinkedMode=1; LinkedBase=0x0590 },
+    [pscustomobject]@{ State=0x06; StandardMode=0; StandardBase=0x0576; LinkedMode=0; LinkedBase=0x0596 },
+    [pscustomobject]@{ State=0x07; StandardMode=0; StandardBase=0x0578; LinkedMode=0; LinkedBase=0x0598 },
+    [pscustomobject]@{ State=0x08; StandardMode=2; StandardBase=0x057a; LinkedMode=2; LinkedBase=0x059a },
+    [pscustomobject]@{ State=0x09; StandardMode=1; StandardBase=0x057c; LinkedMode=1; LinkedBase=0x059c },
+    [pscustomobject]@{ State=0x0a; StandardMode=1; StandardBase=0x057e; LinkedMode=1; LinkedBase=0x059e },
+    [pscustomobject]@{ State=0x0b; StandardMode=0; StandardBase=0x0580; LinkedMode=0; LinkedBase=0x05a0 },
+    [pscustomobject]@{ State=0x0c; StandardMode=0; StandardBase=0x0582; LinkedMode=0; LinkedBase=0x05a2 },
+    [pscustomobject]@{ State=0x0d; StandardMode=1; StandardBase=0x0584; LinkedMode=1; LinkedBase=0x05a4 },
+    [pscustomobject]@{ State=0x0e; StandardMode=1; StandardBase=0x0586; LinkedMode=1; LinkedBase=0x05a6 },
+    [pscustomobject]@{ State=0x0f; StandardMode=2; StandardBase=0x0588; LinkedMode=2; LinkedBase=0x05a8 },
+    [pscustomobject]@{ State=0x10; StandardMode=1; StandardBase=0x058c; LinkedMode=0; LinkedBase=0x05aa }
+)
+function Get-MakuAdviceRepeatId([int]$mode, [int]$base) {
+    if ($mode -eq 1) { return $base }
+    return $base + 1
+}
+function Get-MakuAdvicePosition([int]$textId) {
+    if (-not $allTextPositions.ContainsKey($textId) -or
+        $allTextPositions[$textId] -ne 2) {
+        throw "Maku Sprout advice TX_$($textId.ToString('x4')) no longer selects textbox position 2."
+    }
+    return $allTextPositions[$textId]
+}
+$makuAdviceRows = [Collections.Generic.List[string]]::new()
+$makuAdviceRows.Add(
+    "# state`tstandard-mode`tlinked-mode`tstandard-first-text-id`tstandard-first-position`tstandard-first-text-base64`tstandard-repeat-text-id`tstandard-repeat-position`tstandard-repeat-text-base64`tlinked-first-text-id`tlinked-first-position`tlinked-first-text-base64`tlinked-repeat-text-id`tlinked-repeat-position`tlinked-repeat-text-base64")
+foreach ($definition in $makuAdviceDefinitions) {
+    $standardFirst = [int]$definition.StandardBase
+    $standardRepeat = Get-MakuAdviceRepeatId $definition.StandardMode $standardFirst
+    $linkedFirst = [int]$definition.LinkedBase
+    $linkedRepeat = Get-MakuAdviceRepeatId $definition.LinkedMode $linkedFirst
+    foreach ($textId in @($standardFirst, $standardRepeat, $linkedFirst, $linkedRepeat)) {
+        if (-not $allTexts.ContainsKey($textId)) {
+            throw "Missing Maku Sprout advice text TX_$($textId.ToString('x4'))."
+        }
+    }
+    $makuAdviceRows.Add((@(
+        $definition.State.ToString('x2'),
+        $definition.StandardMode.ToString(),
+        $definition.LinkedMode.ToString(),
+        $standardFirst.ToString('x4'),
+        (Get-MakuAdvicePosition $standardFirst).ToString(),
+        (ConvertTo-CutsceneCommandPayload $allTexts[$standardFirst]),
+        $standardRepeat.ToString('x4'),
+        (Get-MakuAdvicePosition $standardRepeat).ToString(),
+        (ConvertTo-CutsceneCommandPayload $allTexts[$standardRepeat]),
+        $linkedFirst.ToString('x4'),
+        (Get-MakuAdvicePosition $linkedFirst).ToString(),
+        (ConvertTo-CutsceneCommandPayload $allTexts[$linkedFirst]),
+        $linkedRepeat.ToString('x4'),
+        (Get-MakuAdvicePosition $linkedRepeat).ToString(),
+        (ConvertTo-CutsceneCommandPayload $allTexts[$linkedRepeat])
+    ) -join "`t"))
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\maku_sprout_advice.tsv'),
+    $makuAdviceRows, [Text.UTF8Encoding]::new($false))
+
+$makuRoomRows = @(
+    "# group`troom`tsprout-id`tsprout-subid`tsprout-y`tsprout-x`tsprout-sprite`tsprout-tile-base`tsprout-palette`tsprout-animation-0`tsprout-animation-1`tsprout-animation-2`tsprout-radius-y`tsprout-radius-x`tsaved-flag`tsaved-text-id`tsaved-text-position`tsaved-text-base64`tfinished-flag`tstatue-id`tstatue-subid`tstatue-y`tstatue-x`tstatue-packed-position`tstatue-collision`tstatue-radius-y`tstatue-radius-x`tstatue-appearance-tile`tstatue-normal-animation`tstatue-alternate-animation`tstatue-sprite`tstatue-tile-base`tstatue-palette`tstatue-source-inverted`tsource",
+    (@(
+        '1','38','88','00',
+        $makuPlacement.Groups['y'].Value,
+        $makuPlacement.Groups['x'].Value,
+        $gfxNames[$makuSproutGraphic.Gfx],
+        $makuSproutGraphic.TileBase.ToString(),
+        $makuSproutGraphic.Palette.ToString(),
+        $makuSproutAnimations[0],
+        $makuSproutAnimations[1],
+        $makuSproutAnimations[2],
+        '08','08','12','05d5','0',
+        (ConvertTo-CutsceneCommandPayload $allTexts[0x05d5]),
+        $globalFlagValues['GLOBALFLAG_FINISHEDGAME'].ToString('x2'),
+        '6b','15',
+        $makuPlacement.Groups['statuey'].Value,
+        $makuPlacement.Groups['statuex'].Value,
+        '48','0f','08','0a','f9',
+        $makuStatueAnimations[0],
+        $makuStatueAnimations[1],
+        $gfxNames[$makuStatueGraphic.Gfx],
+        $makuStatueGraphic.TileBase.ToString(),
+        $makuStatueGraphic.Palette.ToString(),
+        '0',
+        'mainData.s:group1Map38ObjectData; makuSprout.s:interactionCode88; miscellaneous1.s:interaction6b_subid15'
+    ) -join "`t")
+)
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\maku_sprout_room.tsv'),
+    $makuRoomRows, [Text.UTF8Encoding]::new($false))
+Copy-GeneratedFile `
+    'gfx_compressible\ages\spr_linkstatue.png' `
+    'gfx\spr_linkstatue.png'
+Export-PaletteBlock `
+    'paletteData44f0' 4 'objects\maku_sprout_statue_palette.bin'
 
 $makuActorRows = @(
     "# actor`tid`tsubid`ty`tx`tsprite`ttile-base`tpalette`tup-animation`tright-animation`tdown-animation`tleft-animation",

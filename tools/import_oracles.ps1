@@ -103,7 +103,7 @@ $stageContracts = @(
             'npcAnimationLoopStarts', 'npcAnimationTables', 'npcOamBlocks')
     New-ImportStageContract 'cutscenes' 'Import-CutsceneData.ps1' `
         -inputs @(
-            'allTextPositions', 'allTexts', 'gfxNames',
+            'allTextPositions', 'allTexts', 'gfxNames', 'globalFlagValues',
             'interactionAnimationSource', 'interactionGraphics',
             'mainObjectLines', 'mainObjectSource', 'nayruCutsceneSource',
             'nayruScriptSource', 'npcAnimationTables', 'npcRows',

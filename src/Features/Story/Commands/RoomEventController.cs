@@ -266,7 +266,6 @@ public sealed class RoomEventController
         _fairiesWoods.OnRoomLoaded(group, room);
         _graveyardGate.RetireCompletedControllerOnRoomLoad();
         _nayru.RestoreCompletedPortal(group, room);
-        _makuSproutRescue.RestoreCompletedSprout(group, room);
         if (_fairiesWoods.HasState &&
             _context.Entities.ScreenTransitionActive)
         {

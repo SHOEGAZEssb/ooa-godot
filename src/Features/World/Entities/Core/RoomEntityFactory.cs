@@ -47,6 +47,7 @@ internal sealed class RoomEntityFactory(
 {
     private readonly Room148PickaxeDatabase _room148 = new();
     private readonly Room149FamilyDatabase _room149 = new();
+    private readonly MakuSproutRoomDatabase _makuSproutRoom = new();
     private readonly Room20eNpcDatabase _room20e = new();
     private readonly NayruHouseDatabase _nayruHouse = new();
     private readonly VasuShopDatabase _vasuShop = new();
@@ -263,6 +264,14 @@ internal sealed class RoomEntityFactory(
         {
             foreach (IRoomEntity entity in CreateBlackTowerNpcs(
                 room, roomNpcs, placementContext))
+            {
+                yield return entity;
+            }
+        }
+        else if (_makuSproutRoom.MatchesRoom(group, room.Id))
+        {
+            foreach (IRoomEntity entity in
+                CreateMakuSproutRoomEntities(room, roomNpcs))
             {
                 yield return entity;
             }
@@ -1304,6 +1313,40 @@ internal sealed class RoomEntityFactory(
     private static string NpcSource(NpcRecord record) =>
         $"NPC {record.Group}:{record.Room:x2} " +
         $"${record.Id:x2}:${record.SubId:x2} var03=${record.Var03:x2}";
+
+    private IEnumerable<IRoomEntity> CreateMakuSproutRoomEntities(
+        OracleRoomData room,
+        IReadOnlyList<NpcRecord> records)
+    {
+        if (saveData is null)
+        {
+            throw new InvalidOperationException(
+                "Room 1:38 Maku Sprout interactions require save data.");
+        }
+        if (records.Count != 1 ||
+            !_makuSproutRoom.MatchesSprout(records[0]))
+        {
+            throw new InvalidOperationException(
+                "Room 1:38 requires exactly one imported placed " +
+                "INTERAC_MAKU_SPROUT $88:$00 before its conditional statue.");
+        }
+
+        // Preserve group1Map38ObjectData order: the sprout is first, then the
+        // conditional $6b:$15 Link statue.
+        yield return new MakuSproutRoomEntity(
+            CreateNpcCharacter(records[0]),
+            _makuSproutRoom,
+            saveData);
+        if (!saveData.HasGlobalFlag(_makuSproutRoom.Record.FinishedFlag))
+            yield break;
+
+        yield return new MakuLinkStatueRoomEntity(
+            CreateNpcCharacter(
+                _makuSproutRoom.Record.CreateStatueNpcRecord()),
+            _makuSproutRoom,
+            room,
+            animationTick);
+    }
 
     private IEnumerable<IRoomEntity> CreateRoom148Npcs(
         IReadOnlyList<NpcRecord> records)

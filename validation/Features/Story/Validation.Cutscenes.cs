@@ -2742,8 +2742,13 @@ public sealed partial class ValidationRoot
         MakuSproutRescueEvent rescue = _roomEvents.MakuSproutRescue;
         MakuSproutRescueDatabase database = rescue.Database;
         MakuSproutRescueDatabaseEventRecord record = database.Record;
+        var roomDatabase = new MakuSproutRoomDatabase();
+        MakuSproutRoomRecord roomRecord = roomDatabase.Record;
         int originalState = _saveData.MakuTreeState;
         int originalMapText = _saveData.MakuMapTextPast;
+        bool originalLinked = _saveData.IsLinkedGame;
+        bool originalFinished =
+            _saveData.HasGlobalFlag(roomRecord.FinishedFlag);
         bool originalSaved = _saveData.HasGlobalFlag(record.SavedFlag);
         bool originalAdvice = _saveData.HasGlobalFlag(record.AdviceFlag);
         bool originalRoom80 = _saveData.HasRoomFlag(group, roomId, (byte)record.RoomFlag);
@@ -3000,8 +3005,222 @@ public sealed partial class ValidationRoot
                 "PART_ENEMY_ARROW did not delete on bounce counter zero.");
         deflectedArrow.Free();
 
+        NpcCharacter LoadAdviceSprout(int state, bool linked)
+        {
+            if (_dialogue.IsOpen)
+                _dialogue.Close();
+            _interactions.Update(0.0, _player);
+            _saveData.SetMakuTreeState(state);
+            _saveData.SetLinkedGame(linked);
+            _saveData.SetGlobalFlag(roomRecord.FinishedFlag, false);
+            LoadValidationRoom(group, roomId);
+            _player.WarpTo(new Vector2(
+                roomRecord.SproutX,
+                roomRecord.SproutY + 0x10));
+            _player.Face(Vector2I.Up);
+            return _entities.Entities<NpcCharacter>().Single(npc =>
+                npc.Record.Id == roomRecord.SproutId &&
+                npc.Record.SubId == roomRecord.SproutSubId);
+        }
+
+        void CheckOpenAdvice(
+            NpcCharacter sprout,
+            MakuSproutDialogue expected,
+            string scenario)
+        {
+            if (!_interactions.TryInteract(_player) ||
+                !_dialogue.IsOpen ||
+                sprout.TextId != expected.TextId ||
+                DialogueBox.PlainText(_dialogue.CurrentMessage) !=
+                    DialogueBox.PlainText(expected.Message) ||
+                _dialogue.Position.Y != 96 ||
+                _saveData.MakuMapTextPast != (expected.TextId & 0xff))
+            {
+                throw new InvalidOperationException(
+                    $"Room 1:38 Maku advice {scenario} did not use " +
+                    $"TX_{expected.TextId:x4}, textbox position 2, and its " +
+                    "past map-text byte.");
+            }
+        }
+
+        // This is the reported post-first-Essence state. It is mode $01:
+        // animation $00 at rest, animation $01 while speaking, then the
+        // source's one-update wait before returning to animation $00.
+        MakuSproutAdviceRecord state3Advice = roomDatabase.GetAdvice(0x03);
+        NpcCharacter adviceSprout = LoadAdviceSprout(0x03, linked: false);
+        if (adviceSprout.CurrentScriptAnimationSource !=
+            roomRecord.SproutAnimation0)
+        {
+            throw new InvalidOperationException(
+                "Room 1:38 state $03 Maku Sprout did not begin in animation $00.");
+        }
+        CheckOpenAdvice(
+            adviceSprout,
+            state3Advice.StandardFirst,
+            "state $03 first talk");
+        if (adviceSprout.CurrentScriptAnimationSource !=
+            roomRecord.SproutAnimation1)
+        {
+            throw new InvalidOperationException(
+                "Room 1:38 state $03 Maku Sprout did not use happy " +
+                "animation $01 while speaking.");
+        }
+        _dialogue.Close();
+        _interactions.Update(0.0, _player);
+        if (adviceSprout.CurrentScriptAnimationSource !=
+            roomRecord.SproutAnimation1)
+        {
+            throw new InvalidOperationException(
+                "Room 1:38 state $03 Maku Sprout skipped its one-update " +
+                "post-text happy-animation wait.");
+        }
+        _entities.Update(1.0 / 60.0, _player);
+        if (adviceSprout.CurrentScriptAnimationSource !=
+            roomRecord.SproutAnimation0)
+        {
+            throw new InvalidOperationException(
+                "Room 1:38 state $03 Maku Sprout did not restore animation $00.");
+        }
+
+        // Mode $00 keeps the distressed pose and changes to base+1 after the
+        // first talk in this room instance.
+        MakuSproutAdviceRecord state6Advice = roomDatabase.GetAdvice(0x06);
+        adviceSprout = LoadAdviceSprout(0x06, linked: false);
+        if (adviceSprout.CurrentScriptAnimationSource !=
+            roomRecord.SproutAnimation2)
+        {
+            throw new InvalidOperationException(
+                "Room 1:38 state $06 Maku Sprout did not begin in " +
+                "distressed animation $02.");
+        }
+        CheckOpenAdvice(
+            adviceSprout,
+            state6Advice.StandardFirst,
+            "state $06 first talk");
+        _dialogue.Close();
+        _interactions.Update(0.0, _player);
+        CheckOpenAdvice(
+            adviceSprout,
+            state6Advice.StandardRepeat,
+            "state $06 repeat talk");
+        _dialogue.Close();
+        _interactions.Update(0.0, _player);
+        if (adviceSprout.CurrentScriptAnimationSource !=
+            roomRecord.SproutAnimation2)
+        {
+            throw new InvalidOperationException(
+                "Room 1:38 state $06 Maku Sprout lost its distressed pose.");
+        }
+
+        // Mode $02 also changes to base+1 after the first talk, but remains in
+        // ordinary animation $00.
+        MakuSproutAdviceRecord state8Advice = roomDatabase.GetAdvice(0x08);
+        adviceSprout = LoadAdviceSprout(0x08, linked: false);
+        CheckOpenAdvice(
+            adviceSprout,
+            state8Advice.StandardFirst,
+            "state $08 first talk");
+        _dialogue.Close();
+        _interactions.Update(0.0, _player);
+        CheckOpenAdvice(
+            adviceSprout,
+            state8Advice.StandardRepeat,
+            "state $08 repeat talk");
+        _dialogue.Close();
+        _interactions.Update(0.0, _player);
+        if (adviceSprout.CurrentScriptAnimationSource !=
+            roomRecord.SproutAnimation0)
+        {
+            throw new InvalidOperationException(
+                "Room 1:38 state $08 Maku Sprout did not retain animation $00.");
+        }
+
+        // State $10 has a unique branch: linked games use mode $00 and add
+        // $20 to TX_058a, producing TX_05aa/TX_05ab.
+        MakuSproutAdviceRecord state10Advice = roomDatabase.GetAdvice(0x10);
+        adviceSprout = LoadAdviceSprout(0x10, linked: true);
+        if (adviceSprout.CurrentScriptAnimationSource !=
+            roomRecord.SproutAnimation2)
+        {
+            throw new InvalidOperationException(
+                "Room 1:38 linked state $10 did not select mode $00.");
+        }
+        CheckOpenAdvice(
+            adviceSprout,
+            state10Advice.LinkedFirst,
+            "linked state $10 first talk");
+        _dialogue.Close();
+        _interactions.Update(0.0, _player);
+        CheckOpenAdvice(
+            adviceSprout,
+            state10Advice.LinkedRepeat,
+            "linked state $10 repeat talk");
+        _dialogue.Close();
+        _interactions.Update(0.0, _player);
+
+        // The room's second source object is a silent Link statue which
+        // deletes itself unless GLOBALFLAG_FINISHEDGAME is set.
+        _saveData.SetLinkedGame(false);
+        _saveData.SetMakuTreeState(0x03);
+        _saveData.SetGlobalFlag(roomRecord.FinishedFlag, false);
+        LoadValidationRoom(group, roomId);
+        if (_entities.Entities<NpcCharacter>().Any(npc =>
+            npc.Record.Id == roomRecord.StatueId &&
+            npc.Record.SubId == roomRecord.StatueSubId))
+        {
+            throw new InvalidOperationException(
+                "Room 1:38 created $6b:$15 before GLOBALFLAG_FINISHEDGAME.");
+        }
+
+        _saveData.SetGlobalFlag(roomRecord.FinishedFlag);
+        LoadValidationRoom(group, roomId);
+        List<NpcCharacter> placedInteractions = _entities.Entities<NpcCharacter>()
+            .Where(npc =>
+                npc.Record.Id == roomRecord.SproutId ||
+                npc.Record.Id == roomRecord.StatueId)
+            .ToList();
+        NpcCharacter? statue = placedInteractions.SingleOrDefault(npc =>
+            npc.Record.Id == roomRecord.StatueId &&
+            npc.Record.SubId == roomRecord.StatueSubId);
+        Vector2 statuePosition = new(
+            roomRecord.StatueX, roomRecord.StatueY);
+        Vector2[] statueQuadrants =
+        [
+            statuePosition + new Vector2(-4, -4),
+            statuePosition + new Vector2(4, -4),
+            statuePosition + new Vector2(-4, 4),
+            statuePosition + new Vector2(4, 4)
+        ];
+        if (placedInteractions.Count != 2 ||
+            placedInteractions[0].Record.Id != roomRecord.SproutId ||
+            placedInteractions[1].Record.Id != roomRecord.StatueId ||
+            statue is null ||
+            statue.Position != statuePosition ||
+            statue.CurrentScriptAnimationSource !=
+                roomRecord.StatueNormalAnimation ||
+            statue.BodyBounds.Size != new Vector2(20, 16) ||
+            !statue.CurrentAnimationUsesColor(roomDatabase.StatuePalette[1]) ||
+            statueQuadrants.Any(point => !_currentRoom.IsSolid(point)))
+        {
+            throw new InvalidOperationException(
+                "Room 1:38 postgame $6b:$15 lost source order, position, " +
+                "animation $04, $080a radii, PALH_c7, or collision $0f.");
+        }
+        _player.WarpTo(statuePosition + new Vector2(0, 0x10));
+        _player.Face(Vector2I.Up);
+        if (_entities.FindTalkTarget(_player) is not null)
+        {
+            throw new InvalidOperationException(
+                "Room 1:38 postgame $6b:$15 incorrectly became talkable.");
+        }
+
+        if (_dialogue.IsOpen)
+            _dialogue.Close();
+        _interactions.Update(0.0, _player);
         _saveData.SetMakuTreeState(originalState);
         _saveData.SetMakuMapTextPast(originalMapText);
+        _saveData.SetLinkedGame(originalLinked);
+        _saveData.SetGlobalFlag(roomRecord.FinishedFlag, originalFinished);
         _saveData.SetGlobalFlag(record.SavedFlag, originalSaved);
         _saveData.SetGlobalFlag(record.AdviceFlag, originalAdvice);
         _saveData.SetRoomFlag(group, roomId, (byte)record.RoomFlag, originalRoom80);
@@ -3011,13 +3230,14 @@ public sealed partial class ValidationRoot
             1, 0x48, OracleSaveData.RoomFlagLayoutSwap, originalPastSwap);
         _roomEvents.CommandTraceSink = null;
 
-        GD.Print("Validated room 1:38 Maku Sprout rescue: exact state/flag predicate, " +
+        GD.Print("Validated room 1:38 Maku Sprout interactions: exact state/flag predicate, " +
             "pre-display state-0 actor initialization, four typed script owners, " +
             "synchronized jumping Moblins, dynamic masked-Moblin " +
             "combat and one-enemy branch, Link approach/reposition, four interleaved gate " +
             "bursts with shake/sounds, advice/saved/map-text/layout persistence, room music " +
             "restore, final DIR_UP waypoint, lower TX_05d4, screen-edge transition lock, " +
-            "bottom exit to the active 1:48 $e1:$02 portal, TX_05d5, and completed re-entry.");
+            "bottom exit to the active 1:48 $e1:$02 portal, TX_05d5, all advice modes and " +
+            "linked offsets, one-update talk animation, plus the postgame $6b:$15 statue.");
     }
 
     private void ValidateMakuTreeSavedCutscene()

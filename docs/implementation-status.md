@@ -520,7 +520,8 @@ remains the single runtime policy table.
   shaking, music stop/restore, solve cue, input lock, and completed re-entry
   layout. The unrelated `$71:$05` east-boundary interaction applies only while
   riding a companion and remains dormant until mounted companion actors exist.
-- Room `1:38`'s complete Maku Sprout rescue, including the exact
+- Room `1:38`'s complete placed interaction set. The Maku Sprout rescue
+  includes the exact
   `wMakuTreeState`/saved-flag predicate, synchronized jumping interaction
   Moblins, replacement by two ordinary masked-Moblin enemies, live enemy-count
   dialogue branches, Link approach and post-fight repositioning, four-phase
@@ -529,7 +530,13 @@ remains the single runtime policy table.
   both Moblins, the final zero-distance DIR_UP waypoint, TX `$05d4`'s explicit
   lower textbox, advice/saved/map-text/layout writes, the active `$e1:$02` time
   portal on the bottom exit to room `1:48`, and completed TX `$05d5` re-entry
-  state.
+  state. Outside the rescue, placed `$88:$00` supports state `$00` and every
+  state `$03-$10`, all three advice modes, first/repeat text selection,
+  linked-game `$20` text offsets, exact talk animations, past map-text writes,
+  and transition-time animation updates. The room's second source object,
+  `$6b:$15`, appears only after `GLOBALFLAG_FINISHEDGAME` and uses its original
+  Link-statue sprite, PALH `$c7`, animation `$04/$05` tile branch, `$080a`
+  radii, and collision byte `$0f`.
 - Room `0:38`'s immediate post-rescue adult Maku Tree event, selected by
   `wMakuTreeState=$02`: the complete 68-command dialogue/NPC loop, all five
   expressions, bottom text, Yes-to-repeat/No-to-continue choice, present-map
