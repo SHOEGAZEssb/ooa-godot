@@ -8,25 +8,18 @@ internal sealed class ArrowMoblinRoomEntity
 {
     internal ArrowMoblinRoomEntity(
         ArrowMoblinCharacter moblin,
-        int killableEnemyIndex)
+        EnemyCombatSourceDescriptor combatSource)
         : base(
             moblin,
             moblin.SetTransitionDrawOffset,
-            EnemyCombatComponent.WithContactDamage(
-                () => moblin.IsDead,
-                () => moblin.CollisionBounds,
+            EnemyCombatDescriptor.WithContactDamage(
+                combatSource,
+                moblin,
+                moblin.Record.DamageQuarters,
                 moblin.TakeSwordHit,
                 moblin.TakeBurnHit,
-                moblin.OverlapsLink,
-                () => moblin.Position,
-                moblin.Record.DamageQuarters,
-                () => moblin.IsDead && !moblin.DiedInHazard
-                    ? new EnemyDeathPuffSpawn(
-                        moblin.Position, EnemyId: moblin.Record.Id)
-                    : null,
-                moblin.ApplySwordKnockback),
-            countsAsEnemy: true,
-            killableEnemyIndex)
+                moblin.ApplySwordKnockback,
+                EnemySwordResponse.Knockback))
     { }
 
     public void UpdateFrame(

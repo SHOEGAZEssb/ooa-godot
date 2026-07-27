@@ -9,10 +9,18 @@ internal sealed class OctorokRoomEntity
 {
     public OctorokRoomEntity(
         OctorokCharacter octorok,
-        int killableEnemyIndex = 0)
+        EnemyCombatSourceDescriptor combatSource)
         : base(
-            octorok, octorok.SetTransitionDrawOffset, CreateCombat(octorok),
-            (octorok.Record.Flags & 0x02) == 0, killableEnemyIndex)
+            octorok,
+            octorok.SetTransitionDrawOffset,
+            EnemyCombatDescriptor.WithContactDamage(
+                combatSource,
+                octorok,
+                octorok.Record.DamageQuarters,
+                octorok.TakeSwordHit,
+                octorok.TakeBurnHit,
+                octorok.ApplySwordKnockback,
+                EnemySwordResponse.Knockback))
     { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
@@ -21,20 +29,6 @@ internal sealed class OctorokRoomEntity
             spawns.Add(new OctorokRockSpawn(Entity.Position, Entity.Angle));
     }
 
-    private static EnemyCombatComponent CreateCombat(OctorokCharacter octorok) =>
-        EnemyCombatComponent.WithContactDamage(
-            () => octorok.IsDead,
-            () => octorok.CollisionBounds,
-            octorok.TakeSwordHit,
-            octorok.TakeBurnHit,
-            octorok.OverlapsLink,
-            () => octorok.Position,
-            octorok.Record.DamageQuarters,
-            () => octorok.IsDead && !octorok.DiedInHazard
-                ? new EnemyDeathPuffSpawn(
-                    octorok.Position, EnemyId: octorok.Record.Id)
-                : null,
-            octorok.ApplySwordKnockback);
 }
 
 internal sealed record OctorokRockSpawn(Vector2 Position, int Angle)

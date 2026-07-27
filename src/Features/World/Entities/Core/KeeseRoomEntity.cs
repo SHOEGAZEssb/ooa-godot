@@ -7,28 +7,24 @@ namespace oracleofages;
 internal sealed class KeeseRoomEntity
     : CombatEnemyRoomEntityAdapter<KeeseCharacter>, IFixedRoomEntity
 {
-    public KeeseRoomEntity(KeeseCharacter keese, int killableEnemyIndex = 0)
+    public KeeseRoomEntity(
+        KeeseCharacter keese,
+        EnemyCombatSourceDescriptor combatSource)
         : base(
-            keese, keese.SetTransitionDrawOffset, CreateCombat(keese),
-            (keese.Record.Flags & 0x02) == 0, killableEnemyIndex)
+            keese,
+            keese.SetTransitionDrawOffset,
+            EnemyCombatDescriptor.WithContactDamage(
+                combatSource,
+                keese,
+                keese.Record.DamageQuarters,
+                (_, damage) => keese.TakeSwordHit(damage),
+                keese.TakeSwordHit,
+                keese.ApplySwordKnockback,
+                EnemySwordResponse.Knockback,
+                deathPuffPosition: () =>
+                    keese.Position + Vector2.Down * keese.SpriteHeight))
     { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Player.Position, frame.Counter);
-
-    private static EnemyCombatComponent CreateCombat(KeeseCharacter keese) =>
-        EnemyCombatComponent.WithContactDamage(
-            () => keese.IsDead,
-            () => keese.CollisionBounds,
-            (_, damage) => keese.TakeSwordHit(damage),
-            keese.TakeSwordHit,
-            keese.OverlapsLink,
-            () => keese.Position,
-            keese.Record.DamageQuarters,
-            () => keese.IsDead
-                ? new EnemyDeathPuffSpawn(
-                    keese.Position + Vector2.Down * keese.SpriteHeight,
-                    EnemyId: keese.Record.Id)
-                : null,
-            keese.ApplySwordKnockback);
 }

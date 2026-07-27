@@ -7,10 +7,7 @@ namespace oracleofages;
 internal abstract class CombatEnemyRoomEntityAdapter<T>(
     T entity,
     Action<Vector2> setTransitionDrawOffset,
-    EnemyCombatComponent combat,
-    bool countsAsEnemy,
-    int killableEnemyIndex,
-    Func<RoomEnemyOutcome>? completedOutcome = null,
+    EnemyCombatDescriptor combatDescriptor,
     Action? finished = null,
     Func<int>? collisionZ = null)
     : RoomEntityAdapter<T>(entity, setTransitionDrawOffset),
@@ -23,16 +20,20 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     private bool _seedBurning;
     private bool _completedOutcomeTaken;
 
-    public bool Finished => combat.Finished;
-    public bool CountsAsEnemy => countsAsEnemy && !combat.Finished;
+    public bool Finished => combatDescriptor.Combat.Finished;
+    public bool CountsAsEnemy =>
+        combatDescriptor.CountsAsEnemy &&
+        !combatDescriptor.Combat.Finished;
     public bool IsSeedBurning => _seedBurning;
     public Vector2 SeedBurnPosition => Entity.Position;
-    protected int KillableEnemyIndex => killableEnemyIndex;
+    protected EnemyCombatDescriptor CombatDescriptor => combatDescriptor;
+    protected int KillableEnemyIndex =>
+        combatDescriptor.KillableEnemyIndex;
     public int CollisionZ => collisionZ?.Invoke() ?? 0;
     public void HandleLinkContact(Player player)
     {
         if (!_seedBurning)
-            combat.HandleLinkContact(player);
+            combatDescriptor.Combat.HandleLinkContact(player);
     }
     public bool ApplySwordHit(
         Rect2 hitbox,
@@ -40,13 +41,14 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         int damage,
         EnemyKnockbackStrength knockbackStrength,
         ICollection<RoomEntitySpawn> spawns) =>
-        !_seedBurning && combat.ApplySwordHit(
+        !_seedBurning && combatDescriptor.Combat.ApplySwordHit(
             hitbox,
             sourcePosition,
             damage,
             knockbackStrength,
             spawns,
-            deathPuffDecrementsRoomCount: countsAsEnemy);
+            deathPuffDecrementsRoomCount:
+                combatDescriptor.CountsAsEnemy);
     public SeedHitResult ApplySeedHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
@@ -56,7 +58,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     private SeedHitResult ApplySeedHit(Rect2 hitbox)
     {
         if (_seedBurning || !Entity.CollisionEnabled ||
-            !combat.Intersects(hitbox))
+            !combatDescriptor.Combat.Intersects(hitbox))
         {
             return SeedHitResult.None;
         }
@@ -68,36 +70,35 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         if (!_seedBurning)
             return;
         _seedBurning = false;
-        combat.ApplyBurnHit(
+        combatDescriptor.Combat.ApplyBurnHit(
             2,
             spawns,
-            deathPuffDecrementsRoomCount: countsAsEnemy);
+            deathPuffDecrementsRoomCount:
+                combatDescriptor.CountsAsEnemy);
     }
 
     public virtual bool TryTakeEnemyOutcome(out RoomEnemyOutcome outcome)
     {
-        if (!combat.Finished || _completedOutcomeTaken)
+        if (!combatDescriptor.Combat.Finished || _completedOutcomeTaken)
         {
             outcome = default;
             return false;
         }
 
         _completedOutcomeTaken = true;
-        outcome = completedOutcome?.Invoke() ??
-            (Entity.DiedInHazard
-                ? RoomEnemyOutcome.HazardDeletion(countsAsEnemy)
-                : RoomEnemyOutcome.EnemyDie(killableEnemyIndex));
+        outcome = combatDescriptor.CompletedOutcome(Entity);
         return true;
     }
 
     public void OnFinished(ICollection<RoomEntitySpawn> spawns)
     {
         if (Entity.TakeCompletedKnockbackDeath() &&
-            combat.CreateDeathPuff() is { } deathPuff)
+            combatDescriptor.Combat.CreateDeathPuff() is { } deathPuff)
         {
             spawns.Add(deathPuff with
             {
-                DecrementsRoomCount = countsAsEnemy
+                DecrementsRoomCount =
+                    combatDescriptor.CountsAsEnemy
             });
         }
         if (Entity.TakeHazardEffect() is { } hazardEffect)

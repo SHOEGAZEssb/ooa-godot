@@ -7,14 +7,28 @@ namespace oracleofages;
 internal sealed class CrowRoomEntity
     : CombatEnemyRoomEntityAdapter<CrowCharacter>, IFixedRoomEntity
 {
-    public CrowRoomEntity(CrowCharacter crow, int killableEnemyIndex = 0)
+    public CrowRoomEntity(
+        CrowCharacter crow,
+        EnemyCombatSourceDescriptor combatSource)
         : base(
-            crow, crow.SetTransitionDrawOffset, CreateCombat(crow),
-            (crow.Record.Flags & 0x02) == 0, killableEnemyIndex,
-            () => crow.DeletedOutOfBounds
-                ? RoomEnemyOutcome.SilentDeletion(
-                    decrementsRoomCount: false)
-                : RoomEnemyOutcome.EnemyDie(killableEnemyIndex),
+            crow,
+            crow.SetTransitionDrawOffset,
+            EnemyCombatDescriptor.WithContactDamage(
+                combatSource,
+                crow,
+                crow.Record.DamageQuarters,
+                (_, damage) => crow.TakeSwordHit(damage),
+                damage => crow.TakeSwordHit(damage),
+                crow.ApplySwordKnockback,
+                EnemySwordResponse.Knockback,
+                deathPuffPosition: () =>
+                    crow.Position + Vector2.Down * crow.Z,
+                deathPuffAllowed: () => !crow.DeletedOutOfBounds,
+                completedOutcome: () => crow.DeletedOutOfBounds
+                    ? RoomEnemyOutcome.SilentDeletion(
+                        decrementsRoomCount: false)
+                    : RoomEnemyOutcome.EnemyDie(
+                        combatSource.KillableEnemyIndex)),
             collisionZ: () => crow.Z)
     { }
 
@@ -23,19 +37,4 @@ internal sealed class CrowRoomEntity
         ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Player.Position);
 
-    private static EnemyCombatComponent CreateCombat(CrowCharacter crow) =>
-        EnemyCombatComponent.WithContactDamage(
-            () => crow.IsDead,
-            () => crow.CollisionBounds,
-            (_, damage) => crow.TakeSwordHit(damage),
-            damage => crow.TakeSwordHit(damage),
-            crow.OverlapsLink,
-            () => crow.Position,
-            crow.Record.DamageQuarters,
-            () => crow.IsDead && !crow.DeletedOutOfBounds
-                ? new EnemyDeathPuffSpawn(
-                    crow.Position + Vector2.Down * crow.Z,
-                    EnemyId: crow.Record.Id)
-                : null,
-            crow.ApplySwordKnockback);
 }

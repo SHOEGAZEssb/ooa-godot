@@ -216,16 +216,16 @@ and RNG consumption while addressing these items.
   Runtime and validation both join those definitions to ordered records, and
   the duplicate stores, counters, getters, record type, and TSV fields are gone.
 
-- [ ] Centralize ordinary enemy combat, death, drop, and room-count policy in a
+- [x] Centralize ordinary enemy combat, death, drop, and room-count policy in a
   typed descriptor consumed by `CombatEnemyRoomEntityAdapter`.
-  - The species adapters repeatedly construct the same contact-damage,
-    sword/burn, death-puff, and transition plumbing, while common IDs `$0a`,
-    `$0c`, `$10`, `$17`, and `$28` hard-code `countsAsEnemy: true` instead of
-    deriving the source flag as the other ordinary species do.
-  - Keep explicit overrides for genuinely different behavior such as Gel
-    attachment, red Zol splitting, Wallmaster capture, Giant Ghini audio, and
-    multipart bosses; validate the descriptor against every implemented
-    source flag and collision mode.
+  `EnemyCombatDescriptor` now owns the shared contact-damage, sword/burn,
+  death-puff/drop, completion-outcome, kill-index, and room-count plumbing.
+  Its typed source descriptor combines the registry's imported raw collision
+  mode with each ordered object's flags, deriving count exemption rather than
+  hard-coding it. Validation covers all 233 implemented ordered records, 15
+  handlers, and 46 distinct ID/subid/flag combinations. Gel attachment, red
+  Zol splitting, Wallmaster capture, Giant Ghini audio, and multipart-boss
+  behavior remain explicit compositions or special descriptors.
 
 - [ ] Factor the shared hostile-projectile lifecycle used by Moblin arrows and
   Octorok rocks into a data-driven component. Their adapters and most of their

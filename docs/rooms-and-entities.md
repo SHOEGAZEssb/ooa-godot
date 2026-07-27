@@ -126,11 +126,15 @@ the generated enemy handler registry before applying its placement opcode.
 That typed resolution owns the implemented, dynamic/special, or deliberately
 unsupported classification and is the sole construction-capability test used
 by both ordinary room creation and dungeon enemy-shutter completeness. The
-placement opcode still owns slot and reservation behavior: unsupported and
-event-owned dynamic/special rows must consume the same slots, fixed positions,
-random-placement RNG, and reservation entries as an implemented row even
-though the ordered factory does not create a node for them. Do not restore a
-second supported-ID switch or treat a missing handler key as unsupported.
+registry also retains the raw source collision-mode byte. For an implemented
+row, the factory combines that byte with the placement flags, handler, source
+location, and transient killable-enemy index in one typed combat source
+descriptor. The placement opcode still owns slot and reservation behavior:
+unsupported and event-owned dynamic/special rows must consume the same slots,
+fixed positions, random-placement RNG, and reservation entries as an
+implemented row even though the ordered factory does not create a node for
+them. Do not restore a second supported-ID switch or treat a missing handler
+key as unsupported.
 
 Use one occupied-position set for the complete stream:
 
@@ -279,6 +283,17 @@ consumption. Each outcome states independently whether it removes a
 advances the shared Slayer/Maple/Gasha kill counters. The manager drains
 pending outcomes every update before lifetime cleanup because an owner such as
 Wallmaster may emit hand-death outcomes while its spawner remains alive.
+
+`EnemyCombatDescriptor` owns the ordinary adapter contract for contact damage,
+sword and burn routing, death-puff/drop identity, room-count participation,
+killable-enemy index, and completion outcome. Its
+`EnemyCombatSourceDescriptor` preserves the source ID/subid, raw collision
+mode, placement flags, handler, and diagnostic location; room-count exemption
+comes from object flag `$02`, and each species' sword response must agree with
+the imported collision mode. Species with unusual lifecycles compose a custom
+combat component or completion outcome from the same source descriptor.
+`Special` descriptors are reserved for genuinely non-ordinary entities such as
+bosses and their child parts, where source placement policy does not apply.
 
 Shared combat, terrain movement, vertical motion, and animation components may
 remove mechanical duplication. Single-body enemies inherit the record-neutral

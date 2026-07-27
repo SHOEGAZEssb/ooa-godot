@@ -753,6 +753,9 @@ internal sealed class RoomEntityFactory(
         if (!handler.SupportsOrderedConstruction)
             return null;
 
+        EnemyCombatSourceDescriptor combatSource =
+            handler.CombatSource(source, killableEnemyIndex);
+
         switch (handler.Handler)
         {
             case EnemyHandlerKind.Keese:
@@ -767,7 +770,7 @@ internal sealed class RoomEntityFactory(
                     ZIndex = 10
                 };
                 keese.Initialize(keeseRecord, room, position, random);
-                return new KeeseRoomEntity(keese, killableEnemyIndex);
+                return new KeeseRoomEntity(keese, combatSource);
 
             case EnemyHandlerKind.Crow:
                 if (!enemies.TryGetCrowDefinition(
@@ -781,7 +784,7 @@ internal sealed class RoomEntityFactory(
                     ZIndex = 10
                 };
                 crow.Initialize(crowRecord, room, position, random);
-                return new CrowRoomEntity(crow, killableEnemyIndex);
+                return new CrowRoomEntity(crow, combatSource);
 
             case EnemyHandlerKind.Octorok:
                 if (!enemies.TryGetOctorokDefinition(
@@ -795,7 +798,7 @@ internal sealed class RoomEntityFactory(
                     ZIndex = 10
                 };
                 octorok.Initialize(octorokRecord, room, position, random);
-                return new OctorokRoomEntity(octorok, killableEnemyIndex);
+                return new OctorokRoomEntity(octorok, combatSource);
 
             case EnemyHandlerKind.Stalfos:
                 if (!enemies.TryGetStalfosDefinition(
@@ -809,7 +812,7 @@ internal sealed class RoomEntityFactory(
                     ZIndex = 10
                 };
                 stalfos.Initialize(stalfosRecord, room, position, random);
-                return new StalfosRoomEntity(stalfos, killableEnemyIndex);
+                return new StalfosRoomEntity(stalfos, combatSource);
 
             case EnemyHandlerKind.Zol:
                 if (!enemies.TryGetZolDefinition(
@@ -823,7 +826,7 @@ internal sealed class RoomEntityFactory(
                     ZIndex = 10
                 };
                 zol.Initialize(zolRecord, room, position, random);
-                return new ZolRoomEntity(zol, killableEnemyIndex);
+                return new ZolRoomEntity(zol, combatSource);
 
             case EnemyHandlerKind.BoomerangMoblin:
                 if (!enemies.TryGetImportedEnemyDefinition(
@@ -838,7 +841,7 @@ internal sealed class RoomEntityFactory(
                 };
                 moblin.Initialize(moblinRecord, room, position, random);
                 return new BoomerangMoblinRoomEntity(
-                    moblin, killableEnemyIndex);
+                    moblin, combatSource);
 
             case EnemyHandlerKind.ArrowMoblin:
                 if (!enemies.TryGetImportedEnemyDefinition(
@@ -854,7 +857,7 @@ internal sealed class RoomEntityFactory(
                 arrowMoblin.Initialize(
                     arrowMoblinRecord, room, position, random);
                 return new ArrowMoblinRoomEntity(
-                    arrowMoblin, killableEnemyIndex);
+                    arrowMoblin, combatSource);
 
             case EnemyHandlerKind.Rope:
                 if (!enemies.TryGetImportedEnemyDefinition(
@@ -868,7 +871,7 @@ internal sealed class RoomEntityFactory(
                     ZIndex = 10
                 };
                 rope.Initialize(ropeRecord, room, position, random);
-                return new RopeRoomEntity(rope, killableEnemyIndex);
+                return new RopeRoomEntity(rope, combatSource);
 
             case EnemyHandlerKind.Ghini:
                 if (!enemies.TryGetImportedEnemyDefinition(
@@ -883,7 +886,7 @@ internal sealed class RoomEntityFactory(
                 };
                 ghini.Initialize(ghiniRecord, room, position, random);
                 return new GhiniRoomEntity(
-                    ghini, killableEnemyIndex, soundRequested);
+                    ghini, combatSource, soundRequested);
 
             case EnemyHandlerKind.Wallmaster:
                 if (!enemies.TryGetImportedEnemyDefinition(
@@ -903,13 +906,13 @@ internal sealed class RoomEntityFactory(
                     wallmaster, soundRequested, roomWarpRequested,
                     source.Group, source.Room,
                     destinationGroup, destinationRoom,
-                    killableEnemyIndex);
+                    combatSource);
 
             case EnemyHandlerKind.Gel:
                 return CreateGel(
                     new GelSpawn(
                         position, $"RoomGel_{source.Order}_{instance}"),
-                    room, (source.Flags & 0x02) == 0, killableEnemyIndex);
+                    room, combatSource);
 
             default:
                 throw new InvalidOperationException(
@@ -1556,7 +1559,17 @@ internal sealed class RoomEntityFactory(
             ZIndex = 10
         };
         moblin.Initialize(enemies.MaskedMoblin, room, spawn.Position, random);
-        return new MaskedMoblinRoomEntity(moblin);
+        EnemyHandlerDescriptor handler = enemies.EnemyHandlers.ResolveHandler(
+            enemies.MaskedMoblin.Id,
+            enemies.MaskedMoblin.SubId,
+            "scripts/ages/scriptHelper.s:moblin_spawnEnemyHere");
+        return new MaskedMoblinRoomEntity(
+            moblin,
+            handler.CombatSource(
+                objectFlags: 0,
+                killableEnemyIndex: 0,
+                source:
+                    "scripts/ages/scriptHelper.s:moblin_spawnEnemyHere"));
     }
 
     private IRoomEntity CreateEnemyArrow(EnemyArrowSpawn spawn, OracleRoomData room)
@@ -1569,14 +1582,21 @@ internal sealed class RoomEntityFactory(
     private IRoomEntity CreateGel(
         GelSpawn spawn,
         OracleRoomData room,
-        bool countsAsEnemy = true,
-        int? killableEnemyIndex = null)
+        EnemyCombatSourceDescriptor? combatSource = null)
     {
         var gel = new GelCharacter { Name = spawn.Name, ZIndex = 10 };
         gel.Initialize(enemies.Gel, room, spawn.Position, random);
+        EnemyCombatSourceDescriptor source = combatSource ??
+            enemies.EnemyHandlers.ResolveHandler(
+                enemies.Gel.Id,
+                enemies.Gel.SubId,
+                $"dynamic {spawn.Name} ENEMY_GEL")
+            .CombatSource(
+                objectFlags: 0,
+                killableEnemyIndex: spawn.KillableEnemyIndex,
+                source: $"dynamic {spawn.Name} ENEMY_GEL");
         return new GelRoomEntity(
-            gel, countsAsEnemy,
-            killableEnemyIndex ?? spawn.KillableEnemyIndex);
+            gel, source);
     }
 
     private static int NextKillableEnemyIndex(int flags, ref int count)

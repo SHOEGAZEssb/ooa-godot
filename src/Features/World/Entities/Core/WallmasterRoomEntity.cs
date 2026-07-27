@@ -22,26 +22,28 @@ internal sealed class WallmasterRoomEntity
         int room,
         int destinationGroup,
         int destinationRoom,
-        int killableEnemyIndex)
+        EnemyCombatSourceDescriptor combatSource)
         : base(
             wallmaster, wallmaster.SetTransitionDrawOffset,
-            new EnemyCombatComponent(
-                () => wallmaster.IsDead,
-                () => wallmaster.CollisionBounds,
-                wallmaster.TakeSwordHit,
-                wallmaster.TakeBurnHit,
-                player =>
-                {
-                    if (wallmaster.HandleLinkContact(player))
-                        soundRequested(OracleSoundEngine.SndBossDead);
-                },
-                wallmaster.TakeDeathPuff,
-                wallmaster.ApplySwordKnockback),
-            countsAsEnemy: true,
-            killableEnemyIndex,
-            completedOutcome: () =>
-                RoomEnemyOutcome.WallmasterSpawnerCompletion(
-                    killableEnemyIndex),
+            EnemyCombatDescriptor.FromSource(
+                combatSource,
+                new EnemyCombatComponent(
+                    () => wallmaster.IsDead,
+                    () => wallmaster.CollisionBounds,
+                    wallmaster.TakeSwordHit,
+                    wallmaster.TakeBurnHit,
+                    player =>
+                    {
+                        if (wallmaster.HandleLinkContact(player))
+                            soundRequested(OracleSoundEngine.SndBossDead);
+                    },
+                    wallmaster.TakeDeathPuff,
+                    wallmaster.ApplySwordKnockback),
+                EnemySwordResponse.Knockback,
+                completedOutcome: () =>
+                    RoomEnemyOutcome.WallmasterSpawnerCompletion(
+                        combatSource.KillableEnemyIndex,
+                        combatSource.CountsAsEnemy)),
             collisionZ: () => wallmaster.ZFixed >> 8)
     {
         _soundRequested = soundRequested;

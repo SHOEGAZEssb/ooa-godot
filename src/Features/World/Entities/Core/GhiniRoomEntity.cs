@@ -9,28 +9,22 @@ internal sealed class GhiniRoomEntity
 {
     public GhiniRoomEntity(
         GhiniCharacter ghini,
-        int killableEnemyIndex,
+        EnemyCombatSourceDescriptor combatSource,
         Action<int> soundRequested)
         : base(
             ghini, ghini.SetTransitionDrawOffset,
-            EnemyCombatComponent.WithContactDamage(
-                () => ghini.IsDead,
-                () => ghini.CollisionBounds,
+            EnemyCombatDescriptor.WithContactDamage(
+                combatSource,
+                ghini,
+                ghini.Record.DamageQuarters,
                 ghini.TakeSwordHit,
                 ghini.TakeBurnHit,
-                ghini.OverlapsLink,
-                () => ghini.Position,
-                ghini.Record.DamageQuarters,
-                () => ghini.IsDead
-                    ? new EnemyDeathPuffSpawn(ghini.Position, EnemyId: ghini.Record.Id)
-                    : null,
                 (sourcePosition, strength) =>
                 {
                     ghini.ApplySwordKnockback(sourcePosition, strength);
                     soundRequested(OracleSoundEngine.SndDamageEnemy);
-                }),
-            countsAsEnemy: true,
-            killableEnemyIndex)
+                },
+                EnemySwordResponse.Knockback))
     { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>

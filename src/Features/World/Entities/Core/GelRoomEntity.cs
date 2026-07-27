@@ -9,11 +9,14 @@ internal sealed class GelRoomEntity
 {
     public GelRoomEntity(
         GelCharacter gel,
-        bool countsAsEnemy = true,
-        int killableEnemyIndex = 0)
+        EnemyCombatSourceDescriptor combatSource)
         : base(
-            gel, gel.SetTransitionDrawOffset, CreateCombat(gel),
-            countsAsEnemy, killableEnemyIndex,
+            gel,
+            gel.SetTransitionDrawOffset,
+            EnemyCombatDescriptor.FromSource(
+                combatSource,
+                CreateCombat(gel),
+                EnemySwordResponse.NoKnockback),
             collisionZ: () => gel.ZFixed >> 8)
     { }
 

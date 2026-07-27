@@ -90,3 +90,132 @@ internal sealed class EnemyCombatComponent(
 
     public EnemyDeathPuffSpawn? CreateDeathPuff() => createDeathPuff();
 }
+
+internal sealed class EnemyCombatDescriptor
+{
+    private readonly Func<RoomEnemyOutcome>? _completedOutcome;
+
+    private EnemyCombatDescriptor(
+        EnemyCombatComponent combat,
+        bool countsAsEnemy,
+        int killableEnemyIndex,
+        Func<RoomEnemyOutcome>? completedOutcome,
+        EnemyCombatSourceDescriptor? source)
+    {
+        Combat = combat;
+        CountsAsEnemy = countsAsEnemy;
+        KillableEnemyIndex = killableEnemyIndex;
+        _completedOutcome = completedOutcome;
+        Source = source;
+    }
+
+    internal EnemyCombatComponent Combat { get; }
+    internal bool CountsAsEnemy { get; }
+    internal int KillableEnemyIndex { get; }
+    internal EnemyCombatSourceDescriptor? Source { get; }
+
+    internal static EnemyCombatDescriptor WithContactDamage(
+        EnemyCombatSourceDescriptor source,
+        EnemyCharacter enemy,
+        int damageQuarters,
+        Func<Vector2, int, bool> takeSwordHit,
+        Func<int, bool> takeBurnHit,
+        Action<Vector2, EnemyKnockbackStrength> acceptedSwordHit,
+        EnemySwordResponse swordResponse,
+        Func<Vector2>? deathPuffPosition = null,
+        Func<bool>? deathPuffAllowed = null,
+        Func<RoomEnemyOutcome>? completedOutcome = null)
+    {
+        var combat = EnemyCombatComponent.WithContactDamage(
+            () => enemy.IsDead,
+            () => enemy.CollisionBounds,
+            takeSwordHit,
+            takeBurnHit,
+            enemy.OverlapsLink,
+            () => enemy.Position,
+            damageQuarters,
+            () =>
+                enemy.IsDead &&
+                !enemy.DiedInHazard &&
+                (deathPuffAllowed?.Invoke() ?? true)
+                    ? new EnemyDeathPuffSpawn(
+                        deathPuffPosition?.Invoke() ?? enemy.Position,
+                        EnemyId: source.Id)
+                    : null,
+            acceptedSwordHit);
+        return FromSource(
+            source, combat, swordResponse, completedOutcome);
+    }
+
+    internal static EnemyCombatDescriptor FromSource(
+        EnemyCombatSourceDescriptor source,
+        EnemyCombatComponent combat,
+        EnemySwordResponse swordResponse,
+        Func<RoomEnemyOutcome>? completedOutcome = null)
+    {
+        source.ValidateSwordResponse(swordResponse);
+        return new EnemyCombatDescriptor(
+            combat,
+            source.CountsAsEnemy,
+            source.KillableEnemyIndex,
+            completedOutcome,
+            source);
+    }
+
+    internal static EnemyCombatDescriptor Special(
+        EnemyCombatComponent combat,
+        bool countsAsEnemy,
+        int killableEnemyIndex,
+        Func<RoomEnemyOutcome>? completedOutcome = null) =>
+        new(
+            combat,
+            countsAsEnemy,
+            killableEnemyIndex,
+            completedOutcome,
+            source: null);
+
+    internal RoomEnemyOutcome CompletedOutcome(EnemyCharacter enemy) =>
+        _completedOutcome?.Invoke() ??
+        (enemy.DiedInHazard
+            ? RoomEnemyOutcome.HazardDeletion(CountsAsEnemy)
+            : RoomEnemyOutcome.EnemyDie(KillableEnemyIndex));
+}
+
+internal readonly record struct EnemyCombatSourceDescriptor(
+    int Id,
+    int SubId,
+    int CollisionMode,
+    int ObjectFlags,
+    int KillableEnemyIndex,
+    EnemyHandlerKind Handler,
+    string Source)
+{
+    internal bool CountsAsEnemy => (ObjectFlags & 0x02) == 0;
+    internal bool CollisionInitiallyEnabled => (CollisionMode & 0x80) != 0;
+
+    internal void ValidateSwordResponse(EnemySwordResponse response)
+    {
+        EnemySwordResponse expected = (CollisionMode & 0x7f) switch
+        {
+            0x10 or 0x11 or 0x14 or 0x1a or 0x1f or 0x25 or 0x31 or 0x7d =>
+                EnemySwordResponse.Knockback,
+            0x29 or 0x33 => EnemySwordResponse.NoKnockback,
+            _ => throw new InvalidOperationException(
+                $"{Source} resolves {Handler} ${Id:x2}:${SubId:x2} to " +
+                $"unsupported enemy collision mode ${CollisionMode:x2}.")
+        };
+        if (response != expected)
+        {
+            throw new InvalidOperationException(
+                $"{Source} resolves {Handler} ${Id:x2}:${SubId:x2} through " +
+                $"enemy collision mode ${CollisionMode:x2}, which requires " +
+                $"{expected} instead of {response}.");
+        }
+    }
+}
+
+internal enum EnemySwordResponse
+{
+    Knockback,
+    NoKnockback
+}

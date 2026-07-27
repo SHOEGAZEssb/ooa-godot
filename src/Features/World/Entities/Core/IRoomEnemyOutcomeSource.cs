@@ -66,10 +66,11 @@ internal readonly record struct RoomEnemyOutcome(
             KillableEnemyIndex: 0);
 
     internal static RoomEnemyOutcome WallmasterSpawnerCompletion(
-        int killableEnemyIndex) =>
+        int killableEnemyIndex,
+        bool decrementsRoomCount) =>
         new(
             RoomEnemyOutcomeKind.WallmasterSpawnerCompletion,
-            DecrementsRoomCount: true,
+            decrementsRoomCount,
             MarksRecentDefeat: true,
             AdvancesKillCounters: false,
             killableEnemyIndex);

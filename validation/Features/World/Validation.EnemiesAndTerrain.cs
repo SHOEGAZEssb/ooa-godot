@@ -235,6 +235,28 @@ public sealed partial class ValidationRoot
             new Dictionary<EnemyHandlerClassification, int>();
         var classifiedKeys =
             new HashSet<(int Id, int SubId, EnemyHandlerClassification Classification)>();
+        var expectedCombat = new Dictionary<
+            (int Id, int SubId),
+            (int CollisionMode, EnemySwordResponse SwordResponse)>
+        {
+            [(0x09, 0x00)] = (0x90, EnemySwordResponse.Knockback),
+            [(0x09, 0x01)] = (0x90, EnemySwordResponse.Knockback),
+            [(0x09, 0x02)] = (0x90, EnemySwordResponse.Knockback),
+            [(0x0a, 0x00)] = (0x91, EnemySwordResponse.Knockback),
+            [(0x0c, 0x00)] = (0x91, EnemySwordResponse.Knockback),
+            [(0x10, 0x00)] = (0x14, EnemySwordResponse.Knockback),
+            [(0x17, 0x00)] = (0x9a, EnemySwordResponse.Knockback),
+            [(0x28, 0x00)] = (0x25, EnemySwordResponse.Knockback),
+            [(0x31, 0x00)] = (0xfd, EnemySwordResponse.Knockback),
+            [(0x32, 0x00)] = (0x9f, EnemySwordResponse.Knockback),
+            [(0x32, 0x01)] = (0x9f, EnemySwordResponse.Knockback),
+            [(0x34, 0x00)] = (0x29, EnemySwordResponse.NoKnockback),
+            [(0x34, 0x01)] = (0x29, EnemySwordResponse.NoKnockback),
+            [(0x41, 0x00)] = (0x31, EnemySwordResponse.Knockback),
+            [(0x43, 0x00)] = (0xb3, EnemySwordResponse.NoKnockback)
+        };
+        var combatSourceFlags = new HashSet<(int Id, int SubId, int Flags)>();
+        int combatSourceRows = 0;
         int ordinaryEnemyPlacements = 0;
         int parameterEnemyPlacements = 0;
         for (int group = 0; group < 6; group++)
@@ -259,6 +281,34 @@ public sealed partial class ValidationRoot
                             handler.Classification) + source.Count;
                     classifiedKeys.Add(
                         (handler.Id, handler.SubId, handler.Classification));
+                    if (handler.Classification ==
+                        EnemyHandlerClassification.OrderedImplemented)
+                    {
+                        int testKillableIndex = source.Order % 7 + 1;
+                        EnemyCombatSourceDescriptor combat =
+                            handler.CombatSource(source, testKillableIndex);
+                        if (!expectedCombat.TryGetValue(
+                                (handler.Id, handler.SubId),
+                                out var expected) ||
+                            combat.CollisionMode != expected.CollisionMode ||
+                            combat.ObjectFlags != source.Flags ||
+                            combat.CountsAsEnemy !=
+                                ((source.Flags & 0x02) == 0) ||
+                            combat.CollisionInitiallyEnabled !=
+                                ((expected.CollisionMode & 0x80) != 0) ||
+                            combat.KillableEnemyIndex != testKillableIndex ||
+                            combat.Source != source.Source)
+                        {
+                            throw new InvalidOperationException(
+                                $"{source.Source} did not retain its typed " +
+                                $"combat flags/collision descriptor.");
+                        }
+                        combat.ValidateSwordResponse(
+                            expected.SwordResponse);
+                        combatSourceFlags.Add(
+                            (handler.Id, handler.SubId, source.Flags));
+                        combatSourceRows++;
+                    }
                 }
                 else if (source.Kind == RoomObjectKind.ParameterEnemy)
                 {
@@ -293,6 +343,14 @@ public sealed partial class ValidationRoot
             });
         EnemyHandlerDescriptor dynamicHandler =
             database.EnemyHandlers.ResolveHandler(dynamicSource);
+        EnemyCombatSourceDescriptor dynamicCombat =
+            dynamicHandler.CombatSource(
+                objectFlags: 0,
+                killableEnemyIndex: 0,
+                source:
+                    "scripts/ages/scriptHelper.s:moblin_spawnEnemyHere");
+        dynamicCombat.ValidateSwordResponse(
+            EnemySwordResponse.Knockback);
         if (ordinaryEnemyPlacements != 816 ||
             parameterEnemyPlacements != 12 ||
             classificationCounts.GetValueOrDefault(
@@ -317,10 +375,14 @@ public sealed partial class ValidationRoot
             classifiedKeys.Count(key =>
                 key.Classification ==
                     EnemyHandlerClassification.DeliberatelyUnsupported) != 102 ||
+            combatSourceRows != 233 ||
+            combatSourceFlags.Count != 46 ||
+            expectedCombat.Count != 15 ||
             implementedHandler is not
             {
                 Id: 0x32,
                 SubId: 0x00,
+                CollisionMode: 0x9f,
                 Classification:
                     EnemyHandlerClassification.OrderedImplemented,
                 Handler: EnemyHandlerKind.Keese,
@@ -332,6 +394,7 @@ public sealed partial class ValidationRoot
             {
                 Id: 0x20,
                 SubId: 0x00,
+                CollisionMode: 0x91,
                 Classification:
                     EnemyHandlerClassification.DynamicSpecial,
                 Handler: EnemyHandlerKind.MakuSproutMaskedMoblin,
@@ -344,6 +407,7 @@ public sealed partial class ValidationRoot
             {
                 Id: 0x1b,
                 SubId: 0x01,
+                CollisionMode: 0x90,
                 Classification:
                     EnemyHandlerClassification.DeliberatelyUnsupported,
                 Handler: EnemyHandlerKind.None,
@@ -351,14 +415,25 @@ public sealed partial class ValidationRoot
                 Source: "constants/common/enemies.s:ENEMY_SPINY_BEETLE",
                 CompletesDungeonEnemyCount: false
             } ||
+            dynamicCombat is not
+            {
+                Id: 0x20,
+                SubId: 0x00,
+                CollisionMode: 0x91,
+                ObjectFlags: 0,
+                CountsAsEnemy: true,
+                CollisionInitiallyEnabled: true,
+                Handler: EnemyHandlerKind.MakuSproutMaskedMoblin
+            } ||
             room5b0[0].Source !=
                 "objects/ages/enemyData.s:" +
                 "group5Mapb0EnemyObjectData[0]")
         {
             throw new InvalidOperationException(
                 "The enemy handler registry lost its 816-row implementation " +
-                "classification, typed construction dispatch, source identity, " +
-                "or dungeon-count completeness contract.");
+                "classification, 233-row/46-flag typed combat descriptors, " +
+                "source collision modes, construction dispatch, source " +
+                "identity, or dungeon-count completeness contract.");
         }
 
         var wrappedReservations = new EnemyPlacementReservations();
@@ -437,9 +512,11 @@ public sealed partial class ValidationRoot
         validationRoot.Free();
         GD.Print("Validated 1,141 ordered room placement records, mid-stream aliases, " +
             "all 816 fixed/random enemy handler classifications, 12 parameter slots, " +
-            "source-aware construction/shutter capability, condition masks, 16-entry " +
-            "reservation wrapping, and fixed/unsupported/item reservations before " +
-            "random Keese in rooms 4:9a, 5:b0, and 5:db.");
+            "233 typed combat descriptors across 15 handlers / 46 source-flag " +
+            "combinations, source collision modes and sword responses, source-aware " +
+            "construction/shutter capability, condition masks, 16-entry reservation " +
+            "wrapping, and fixed/unsupported/item reservations before random Keese " +
+            "in rooms 4:9a, 5:b0, and 5:db.");
     }
 
     private void ValidateKeese()
@@ -1574,9 +1651,12 @@ public sealed partial class ValidationRoot
     private void ValidateEnemyHazards()
     {
         var database = new EnemyDatabase();
-        OctorokRecord record = ResolveOctorok(
-            database,
-            RoomEnemyPlacements(database, 0, 0x74, 0x09, 0x00)[0]);
+        RoomObjectRecord octorokSource =
+            RoomEnemyPlacements(database, 0, 0x74, 0x09, 0x00)[0];
+        OctorokRecord record = ResolveOctorok(database, octorokSource);
+        EnemyCombatSourceDescriptor octorokCombat =
+            database.EnemyHandlers.ResolveHandler(octorokSource)
+                .CombatSource(octorokSource, killableEnemyIndex: 0);
 
         const int waterGroup = 0;
         const int waterRoomId = 0xb8;
@@ -1595,7 +1675,8 @@ public sealed partial class ValidationRoot
             record, waterRoom, waterCenter, new OracleRandom());
         waterEnemy.SetStateForValidation(
             OctorokState.Standing, counter1: 1000);
-        var waterAdapter = new OctorokRoomEntity(waterEnemy);
+        var waterAdapter = new OctorokRoomEntity(
+            waterEnemy, octorokCombat);
         waterEnemy.UpdateFrame(_player.Position);
         if (!waterEnemy.IsDead || !waterEnemy.DiedInHazard ||
             waterEnemy.DeathHazard != HazardType.Water ||
@@ -1661,7 +1742,8 @@ public sealed partial class ValidationRoot
             record, holeRoom, holeEntry, new OracleRandom());
         holeEnemy.SetStateForValidation(
             OctorokState.Standing, counter1: 1000);
-        var holeAdapter = new OctorokRoomEntity(holeEnemy);
+        var holeAdapter = new OctorokRoomEntity(
+            holeEnemy, octorokCombat);
         int initialAnimationFrame = holeEnemy.CurrentAnimationFrame;
         int fallSounds =
             _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole);

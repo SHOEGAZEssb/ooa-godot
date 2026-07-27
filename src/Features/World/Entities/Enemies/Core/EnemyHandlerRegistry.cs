@@ -22,8 +22,8 @@ internal sealed class EnemyHandlerRegistry
                 "enemy handler registry",
                 GeneratedTableKeySemantics.Unique,
                 [
-                    "id", "subid", "classification", "handler",
-                    "enemy-name", "source"
+                    "id", "subid", "collision-mode", "classification",
+                    "handler", "enemy-name", "source"
                 ],
                 ["id", "subid"],
                 headerRequired: true));
@@ -32,10 +32,11 @@ internal sealed class EnemyHandlerRegistry
             var descriptor = new EnemyHandlerDescriptor(
                 row.HexByte(0),
                 row.HexByte(1),
-                ParseClassification(row, 2),
-                ParseHandler(row, 3),
-                row.RequiredString(4),
-                row.RequiredString(5));
+                row.HexByte(2),
+                ParseClassification(row, 3),
+                ParseHandler(row, 4),
+                row.RequiredString(5),
+                row.RequiredString(6));
             ValidateDescriptor(row, descriptor);
             if (!_handlers.TryAdd(
                 (descriptor.Id, descriptor.SubId), descriptor))
@@ -112,6 +113,21 @@ internal sealed class EnemyHandlerRegistry
         return descriptor;
     }
 
+    internal EnemyHandlerDescriptor ResolveHandler(
+        int id,
+        int subId,
+        string source)
+    {
+        if (!_handlers.TryGetValue(
+            (id, subId), out EnemyHandlerDescriptor? descriptor))
+        {
+            throw new InvalidOperationException(
+                $"{source} has no handler classification for " +
+                $"${id:x2}:${subId:x2}.");
+        }
+        return descriptor;
+    }
+
     private static bool IsEnemyPlacement(RoomObjectKind kind) =>
         kind is RoomObjectKind.RandomEnemy or
             RoomObjectKind.FixedEnemy or
@@ -172,7 +188,7 @@ internal sealed class EnemyHandlerRegistry
         if (!valid)
         {
             throw row.Invalid(
-                3,
+                4,
                 $"a handler compatible with {descriptor.Classification}");
         }
     }
@@ -181,6 +197,7 @@ internal sealed class EnemyHandlerRegistry
 internal sealed record EnemyHandlerDescriptor(
     int Id,
     int SubId,
+    int CollisionMode,
     EnemyHandlerClassification Classification,
     EnemyHandlerKind Handler,
     string EnemyName,
@@ -190,6 +207,47 @@ internal sealed record EnemyHandlerDescriptor(
         Classification == EnemyHandlerClassification.OrderedImplemented;
 
     internal bool CompletesDungeonEnemyCount => SupportsOrderedConstruction;
+
+    internal EnemyCombatSourceDescriptor CombatSource(
+        RoomObjectRecord source,
+        int killableEnemyIndex)
+    {
+        if (source.Id != Id || source.SubId != SubId)
+        {
+            throw new InvalidOperationException(
+                $"{source.Source} is ${source.Id:x2}:${source.SubId:x2}, " +
+                $"not the registered ${Id:x2}:${SubId:x2} combat source.");
+        }
+        return CombatSource(
+            source.Flags, killableEnemyIndex, source.Source);
+    }
+
+    internal EnemyCombatSourceDescriptor CombatSource(
+        int objectFlags,
+        int killableEnemyIndex,
+        string source)
+    {
+        if (Classification ==
+            EnemyHandlerClassification.DeliberatelyUnsupported)
+        {
+            throw new InvalidOperationException(
+                $"{source} cannot construct deliberately unsupported " +
+                $"{EnemyName} ${Id:x2}:${SubId:x2} combat.");
+        }
+        if (objectFlags is < 0 or > 0xff)
+            throw new ArgumentOutOfRangeException(nameof(objectFlags));
+        if (killableEnemyIndex is < 0 or > 7)
+            throw new ArgumentOutOfRangeException(nameof(killableEnemyIndex));
+
+        return new EnemyCombatSourceDescriptor(
+            Id,
+            SubId,
+            CollisionMode,
+            objectFlags,
+            killableEnemyIndex,
+            Handler,
+            source);
+    }
 }
 
 internal readonly record struct EnemyObjectHandlerResolution(

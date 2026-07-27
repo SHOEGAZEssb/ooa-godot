@@ -14,19 +14,21 @@ internal sealed class GiantGhiniBossRoomEntity
     public GiantGhiniBossRoomEntity(GiantGhiniBoss boss, Vector2I entryDirection)
         : base(
             boss, boss.SetTransitionDrawOffset,
-            EnemyCombatComponent.WithContactDamage(
-                () => boss.IsDead,
-                () => boss.CollisionBounds,
-                boss.TakeSwordHit,
-                boss.TakeBurnHit,
-                boss.OverlapsLink,
-                () => boss.Position,
-                boss.Record.DamageQuarters,
-                () => null),
-            countsAsEnemy: true,
-            killableEnemyIndex: 0,
-            completedOutcome: () =>
-                RoomEnemyOutcome.BossTeardown(killableEnemyIndex: 0))
+            EnemyCombatDescriptor.Special(
+                EnemyCombatComponent.WithContactDamage(
+                    () => boss.IsDead,
+                    () => boss.CollisionBounds,
+                    boss.TakeSwordHit,
+                    boss.TakeBurnHit,
+                    boss.OverlapsLink,
+                    () => boss.Position,
+                    boss.Record.DamageQuarters,
+                    () => null),
+                countsAsEnemy: true,
+                killableEnemyIndex: 0,
+                completedOutcome: () =>
+                    RoomEnemyOutcome.BossTeardown(
+                        killableEnemyIndex: 0)))
     {
         _entryMovement = new BossEntryMovement(entryDirection);
     }

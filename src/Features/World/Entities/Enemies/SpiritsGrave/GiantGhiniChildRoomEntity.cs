@@ -11,23 +11,27 @@ internal sealed class GiantGhiniChildRoomEntity
     public GiantGhiniChildRoomEntity(GiantGhiniChild child)
         : base(
             child, child.SetTransitionDrawOffset,
-            new EnemyCombatComponent(
-                () => child.IsDead,
-                () => child.CollisionBounds,
-                child.TakeSwordHit,
-                child.TakeBurnHit,
-                child.HandleLinkContact,
-                () => child.IsDead
-                    ? new EnemyDeathPuffSpawn(child.Position, EnemyId: child.Record.Id)
-                    : null,
-                child.ApplySwordKnockback),
-            countsAsEnemy: true,
-            killableEnemyIndex: 0,
-            completedOutcome: () =>
-                child.State == ChildState.Fading
-                    ? RoomEnemyOutcome.SilentDeletion(
-                        decrementsRoomCount: true)
-                    : RoomEnemyOutcome.EnemyDie(killableEnemyIndex: 0))
+            EnemyCombatDescriptor.Special(
+                new EnemyCombatComponent(
+                    () => child.IsDead,
+                    () => child.CollisionBounds,
+                    child.TakeSwordHit,
+                    child.TakeBurnHit,
+                    child.HandleLinkContact,
+                    () => child.IsDead
+                        ? new EnemyDeathPuffSpawn(
+                            child.Position,
+                            EnemyId: child.Record.Id)
+                        : null,
+                    child.ApplySwordKnockback),
+                countsAsEnemy: true,
+                killableEnemyIndex: 0,
+                completedOutcome: () =>
+                    child.State == ChildState.Fading
+                        ? RoomEnemyOutcome.SilentDeletion(
+                            decrementsRoomCount: true)
+                        : RoomEnemyOutcome.EnemyDie(
+                            killableEnemyIndex: 0)))
     { }
 
     public bool DisablesSword => false;

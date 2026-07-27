@@ -1549,9 +1549,24 @@ foreach ($key in @(
     }
 }
 
+$enemyCollisionModes = @{}
+foreach ($match in [regex]::Matches(
+    $enemyDataSource,
+    '(?m)^\s*/\* 0x(?<id>[0-9a-f]{2}) \*/ m_EnemyData \$[0-9a-f]{2} \$(?<collision>[0-9a-f]{2})(?:\s|$)')) {
+    $id = [Convert]::ToInt32($match.Groups['id'].Value, 16)
+    if ($enemyCollisionModes.ContainsKey($id)) {
+        throw "Enemy `$$($id.ToString('x2')) has duplicate enemyData rows."
+    }
+    $enemyCollisionModes[$id] =
+        [Convert]::ToInt32($match.Groups['collision'].Value, 16)
+}
+if ($enemyCollisionModes.Count -ne 128) {
+    throw "Expected 128 source enemy collision modes, got $($enemyCollisionModes.Count)."
+}
+
 $enemyHandlerRows = [Collections.Generic.List[string]]::new()
 $enemyHandlerRows.Add(
-    "# id`tsubid`tclassification`thandler`tenemy-name`tsource")
+    "# id`tsubid`tcollision-mode`tclassification`thandler`tenemy-name`tsource")
 foreach ($record in $enemyHandlerKeys.Values |
     Sort-Object @{ Expression = { [int]$_.Id } },
         @{ Expression = { [int]$_.SubId } }) {
@@ -1578,17 +1593,18 @@ foreach ($record in $enemyHandlerKeys.Values |
     $enemyHandlerRows.Add(
         "$(([int]$record.Id).ToString('x2'))`t" +
         "$(([int]$record.SubId).ToString('x2'))`t" +
+        "$(([int]$enemyCollisionModes[[int]$record.Id]).ToString('x2'))`t" +
         "$classification`t$handler`t$($definition.Name)`t$source")
 }
 if ($enemyHandlerRows.Count -ne 119 -or
     -not $enemyHandlerRows.Contains((
-        "09`t00`tordered-implemented`toctorok`tENEMY_OCTOROK`t" +
+        "09`t00`t90`tordered-implemented`toctorok`tENEMY_OCTOROK`t" +
         'constants/common/enemies.s:ENEMY_OCTOROK')) -or
     -not $enemyHandlerRows.Contains((
-        "20`t00`tdynamic-special`tmaku-sprout-masked-moblin`t" +
+        "20`t00`t91`tdynamic-special`tmaku-sprout-masked-moblin`t" +
         "ENEMY_MASKED_MOBLIN`tscripts/ages/scriptHelper.s:moblin_spawnEnemyHere")) -or
     -not $enemyHandlerRows.Contains((
-        "1b`t01`tdeliberately-unsupported`t-`tENEMY_SPINY_BEETLE`t" +
+        "1b`t01`t90`tdeliberately-unsupported`t-`tENEMY_SPINY_BEETLE`t" +
         'constants/common/enemies.s:ENEMY_SPINY_BEETLE'))) {
     $representativeRows = @($enemyHandlerRows | Where-Object {
         $_ -match 'ENEMY_(OCTOROK|MASKED_MOBLIN|SPINY_BEETLE)'

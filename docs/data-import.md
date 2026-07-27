@@ -350,7 +350,10 @@ reservations/completion evidence.
 that ordered stream. The importer resolves enemy names back to
 `constants/common/enemies.s` or `constants/ages/enemies.s`, assigns one of
 `ordered-implemented`, `dynamic-special`, or `deliberately-unsupported`, and
-names the exact runtime handler when one exists. The Maku Sprout event's
+names the exact runtime handler when one exists. It also parses and retains the
+raw collision-mode byte for all 128 entries in `data/ages/enemyData.s`; the
+typed runtime registry supplies that source value to combat descriptors rather
+than maintaining per-adapter collision policy copies. The Maku Sprout event's
 script-created Masked Moblin retains
 `scripts/ages/scriptHelper.s:moblin_spawnEnemyHere` as its distinct handler
 source; ordinary `$20:$00` placement rows keep their slots and reservations but

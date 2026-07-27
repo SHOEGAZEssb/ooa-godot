@@ -7,23 +7,19 @@ namespace oracleofages;
 internal sealed class RopeRoomEntity
     : CombatEnemyRoomEntityAdapter<RopeCharacter>, IFixedRoomEntity
 {
-    public RopeRoomEntity(RopeCharacter rope, int killableEnemyIndex)
+    public RopeRoomEntity(
+        RopeCharacter rope,
+        EnemyCombatSourceDescriptor combatSource)
         : base(
             rope, rope.SetTransitionDrawOffset,
-            EnemyCombatComponent.WithContactDamage(
-                () => rope.IsDead,
-                () => rope.CollisionBounds,
+            EnemyCombatDescriptor.WithContactDamage(
+                combatSource,
+                rope,
+                rope.Record.DamageQuarters,
                 rope.TakeSwordHit,
                 rope.TakeBurnHit,
-                rope.OverlapsLink,
-                () => rope.Position,
-                rope.Record.DamageQuarters,
-                () => rope.IsDead
-                    ? new EnemyDeathPuffSpawn(rope.Position, EnemyId: rope.Record.Id)
-                    : null,
-                rope.ApplySwordKnockback),
-            countsAsEnemy: true,
-            killableEnemyIndex)
+                rope.ApplySwordKnockback,
+                EnemySwordResponse.Knockback))
     { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>

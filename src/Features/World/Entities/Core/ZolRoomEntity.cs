@@ -9,17 +9,26 @@ internal sealed class ZolRoomEntity
 {
     public ZolRoomEntity(
         ZolCharacter zol,
-        int killableEnemyIndex = 0)
+        EnemyCombatSourceDescriptor combatSource)
         : base(
-            zol, zol.SetTransitionDrawOffset, CreateCombat(zol),
-            (zol.Record.Flags & 0x02) == 0, killableEnemyIndex,
-            () => zol.DiedInHazard
-                ? RoomEnemyOutcome.HazardDeletion(
-                    (zol.Record.Flags & 0x02) == 0)
-                : zol.Record.SubId == 1
-                    ? RoomEnemyOutcome.ReplacementDeletion(
-                        (zol.Record.Flags & 0x02) == 0)
-                    : RoomEnemyOutcome.EnemyDie(killableEnemyIndex),
+            zol,
+            zol.SetTransitionDrawOffset,
+            EnemyCombatDescriptor.WithContactDamage(
+                combatSource,
+                zol,
+                zol.Record.DamageQuarters,
+                (_, damage) => zol.TakeSwordHit(damage),
+                zol.TakeBurnHit,
+                zol.ApplySwordNoKnockback,
+                EnemySwordResponse.NoKnockback,
+                completedOutcome: () => zol.DiedInHazard
+                    ? RoomEnemyOutcome.HazardDeletion(
+                        combatSource.CountsAsEnemy)
+                    : zol.Record.SubId == 1
+                        ? RoomEnemyOutcome.ReplacementDeletion(
+                            combatSource.CountsAsEnemy)
+                        : RoomEnemyOutcome.EnemyDie(
+                            combatSource.KillableEnemyIndex)),
             collisionZ: () => zol.ZFixed >> 8)
     { }
 
@@ -41,19 +50,6 @@ internal sealed class ZolRoomEntity
         }
     }
 
-    private static EnemyCombatComponent CreateCombat(ZolCharacter zol) =>
-        EnemyCombatComponent.WithContactDamage(
-            () => zol.IsDead,
-            () => zol.CollisionBounds,
-            (_, damage) => zol.TakeSwordHit(damage),
-            zol.TakeBurnHit,
-            zol.OverlapsLink,
-            () => zol.Position,
-            zol.Record.DamageQuarters,
-            () => zol.IsDead && !zol.DiedInHazard
-                ? new EnemyDeathPuffSpawn(zol.Position, EnemyId: zol.Record.Id)
-                : null,
-            zol.ApplySwordNoKnockback);
 }
 
 internal sealed record KillEnemyPuffSpawn(Vector2 Position) : RoomEntitySpawn;

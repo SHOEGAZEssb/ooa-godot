@@ -8,10 +8,19 @@ internal sealed class MaskedMoblinRoomEntity
     : CombatEnemyRoomEntityAdapter<MaskedMoblinCharacter>, IFixedRoomEntity
 {
     public MaskedMoblinRoomEntity(
-        MaskedMoblinCharacter moblin)
+        MaskedMoblinCharacter moblin,
+        EnemyCombatSourceDescriptor combatSource)
         : base(
-            moblin, moblin.SetTransitionDrawOffset, CreateCombat(moblin),
-            countsAsEnemy: true, killableEnemyIndex: 0)
+            moblin,
+            moblin.SetTransitionDrawOffset,
+            EnemyCombatDescriptor.WithContactDamage(
+                combatSource,
+                moblin,
+                moblin.Record.DamageQuarters,
+                moblin.TakeSwordHit,
+                damage => moblin.TakeSwordHit(Vector2.Zero, damage),
+                moblin.ApplySwordKnockback,
+                EnemySwordResponse.Knockback))
     { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
@@ -20,21 +29,6 @@ internal sealed class MaskedMoblinRoomEntity
         if (arrowAngle >= 0)
             spawns.Add(new EnemyArrowSpawn(Entity.Position, arrowAngle));
     }
-
-    private static EnemyCombatComponent CreateCombat(MaskedMoblinCharacter moblin) =>
-        EnemyCombatComponent.WithContactDamage(
-            () => moblin.IsDead,
-            () => moblin.CollisionBounds,
-            moblin.TakeSwordHit,
-            damage => moblin.TakeSwordHit(Vector2.Zero, damage),
-            moblin.OverlapsLink,
-            () => moblin.Position,
-            moblin.Record.DamageQuarters,
-            () => moblin.IsDead && !moblin.DiedInHazard
-                ? new EnemyDeathPuffSpawn(
-                    moblin.Position, EnemyId: moblin.Record.Id)
-                : null,
-            moblin.ApplySwordKnockback);
 }
 
 internal sealed record EnemyArrowSpawn(Vector2 Position, int Angle)
