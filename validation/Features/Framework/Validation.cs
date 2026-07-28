@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 
@@ -49,6 +50,14 @@ public sealed partial class ValidationRoot : GameRoot
             GD.PushError($"Validation failed.\n{exception}");
             GetTree().Quit(1);
         }
+    }
+
+    private static void FailIf(
+        [DoesNotReturnIf(true)] bool condition,
+        string message)
+    {
+        if (condition)
+            throw new InvalidOperationException(message);
     }
 
     private static void ResetValidationInput()

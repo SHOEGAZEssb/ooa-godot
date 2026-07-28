@@ -69,6 +69,11 @@ Every fixed bug or new gameplay system gets a focused headless regression. A
 useful regression asserts the original cause and the visible/runtime result,
 rather than only checking a clone implementation detail.
 
+Use `FailIf(condition, message)` when a failed check only needs to throw a
+validation error. Keep state-changing setup, values needed after the check,
+cleanup, and expected-exception control flow explicit so evaluation order and
+C# flow analysis remain clear.
+
 Include as applicable:
 
 - exact original-update boundaries, including first and final counter updates;

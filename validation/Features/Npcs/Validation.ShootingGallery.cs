@@ -15,7 +15,8 @@ public sealed partial class ValidationRoot
 
         var database = new ShootingGalleryEventDatabase();
         ShootingGalleryEventRecord record = database.Record;
-        if (record is not
+        FailIf(
+            record is not
             {
                 Group: group,
                 Room: roomId,
@@ -41,11 +42,8 @@ public sealed partial class ValidationRoot
                     0x1d, 0x1d, 0x1d, 0x1d,
                     0x1f, 0x1f, 0x1f, 0x1f, 0x1f,
                     0x2a, 0x2a, 0x2a, 0x2a, 0x2a, 0x2a
-                }))
-        {
-            throw new InvalidOperationException(
-                "Room 2:e9 did not retain its imported script/table closure.");
-        }
+                }),
+            "Room 2:e9 did not retain its imported script/table closure.");
 
         var inventorySnapshot = new byte[0x39];
         _saveData.ReadWramBytes(0xc688, inventorySnapshot);
@@ -70,17 +68,15 @@ public sealed partial class ValidationRoot
             ShootingGalleryEvent gallery = _roomEvents.ShootingGallery;
             ShootingGalleryCharacter keeper =
                 _entities.Entities<ShootingGalleryCharacter>().Single();
-            if (!gallery.HasState ||
+            FailIf(
+                !gallery.HasState ||
                 gallery.BlocksGameplay ||
                 gallery.MenusDisabled ||
                 keeper.Record is not { Id: 0x30, SubId: 0x00 } ||
                 keeper.Position != new Vector2(0x88, 0x68) ||
-                gallery.CurrentCommandIndex != 1)
-            {
-                throw new InvalidOperationException(
-                    "Room 2:e9 did not instantiate its specialized $30:$00 " +
-                    "attendant and source-entry script update.");
-            }
+                gallery.CurrentCommandIndex != 1,
+                "Room 2:e9 did not instantiate its specialized $30:$00 " +
+                "attendant and source-entry script update.");
 
             StepRoomEventFrames(1);
             // The human attendant is reached from the player side of the
@@ -90,24 +86,20 @@ public sealed partial class ValidationRoot
             // X radius rather than the generic $06 NPC radius.
             _player.WarpTo(keeper.Position + Vector2.Left * 28.0f);
             _player.Face(Vector2I.Right);
-            if (!_interactions.TryInteract(_player))
-            {
-                throw new InvalidOperationException(
-                    "The room 2:e9 attendant was not reachable across the " +
-                    "counter through the script's $06,$16 A-button geometry.");
-            }
+            FailIf(
+                !_interactions.TryInteract(_player),
+                "The room 2:e9 attendant was not reachable across the " +
+                "counter through the script's $06,$16 A-button geometry.");
             StepRoomEventFrames(1);
             ExpectGalleryDialogue(
                 "Need some target",
                 choice: true,
                 "initial 10-Rupee prompt");
-            if (!gallery.BlocksGameplay ||
+            FailIf(
+                !gallery.BlocksGameplay ||
                 !gallery.MenusDisabled ||
-                !_player.CutsceneControlled)
-            {
-                throw new InvalidOperationException(
-                    "The initial gallery prompt did not disable Link and menus.");
-            }
+                !_player.CutsceneControlled,
+                "The initial gallery prompt did not disable Link and menus.");
 
             _dialogue.SubmitChoiceForValidation(0);
             StepRoomEventFrames(31);
@@ -115,9 +107,7 @@ public sealed partial class ValidationRoot
                 "Do you need an",
                 choice: true,
                 "explanation prompt");
-            if (_inventory.Rupees < 0)
-                throw new InvalidOperationException(
-                    "Shooting-gallery rupee debit underflowed.");
+            FailIf(_inventory.Rupees < 0, "Shooting-gallery rupee debit underflowed.");
 
             _dialogue.SubmitChoiceForValidation(0);
             StepRoomEventFrames(31);
@@ -135,7 +125,8 @@ public sealed partial class ValidationRoot
             ShootingGalleryGameController controller = gallery.Controller ??
                 throw new InvalidOperationException(
                     "The gallery event lost its native controller.");
-            if (gallery.BlocksGameplay ||
+            FailIf(
+                gallery.BlocksGameplay ||
                 !gallery.MenusDisabled ||
                 _player.CutsceneControlled ||
                 _player.Position != new Vector2(0x50, 0x60) ||
@@ -145,12 +136,9 @@ public sealed partial class ValidationRoot
                 TileAt(0x74) != record.EntranceClosedTile0 ||
                 TileAt(0x75) != record.EntranceClosedTile1 ||
                 controller.State != 1 ||
-                controller.Counter != record.InitialDelay - 1)
-            {
-                throw new InvalidOperationException(
-                    "The gallery setup did not preserve its fade, sword equip, " +
-                    "Link placement, entrance closure, and input/menu split.");
-            }
+                controller.Counter != record.InitialDelay - 1,
+                "The gallery setup did not preserve its fade, sword equip, " +
+                "Link placement, entrance closure, and input/menu split.");
 
             Vector2 signReadingPosition =
                 PointFor(0x52) + Vector2.Down * 15.0f;
@@ -159,12 +147,10 @@ public sealed partial class ValidationRoot
             int pausedInitialCounter = controller.Counter;
             int pausedCommand = gallery.CurrentCommandIndex;
             int pausedKeeperAnimation = keeper.CurrentAnimationFrame;
-            if (!_interactions.TryInteract(_player))
-            {
-                throw new InvalidOperationException(
-                    "The room 2:e9 prize sign was not readable while " +
-                    "wMenuDisabled remained set for the active pitch.");
-            }
+            FailIf(
+                !_interactions.TryInteract(_player),
+                "The room 2:e9 prize sign was not readable while " +
+                "wMenuDisabled remained set for the active pitch.");
             ExpectGalleryDialogue(
                 "Hit targets",
                 choice: false,
@@ -172,14 +158,12 @@ public sealed partial class ValidationRoot
             RoomEntityManagerState initialPauseClock =
                 _entities.CaptureDebugState();
             StepRoomEventFrames(8);
-            if (controller.Counter != pausedInitialCounter ||
+            FailIf(
+                controller.Counter != pausedInitialCounter ||
                 gallery.CurrentCommandIndex != pausedCommand ||
-                keeper.CurrentAnimationFrame != pausedKeeperAnimation)
-            {
-                throw new InvalidOperationException(
-                    "The prize-sign textbox did not freeze the gallery's " +
-                    "$30 interaction state and NPC animation.");
-            }
+                keeper.CurrentAnimationFrame != pausedKeeperAnimation,
+                "The prize-sign textbox did not freeze the gallery's " +
+                "$30 interaction state and NPC animation.");
             _entities.RestoreDebugStateAfterRoomParse(initialPauseClock);
             _dialogue.Close();
 
@@ -195,18 +179,14 @@ public sealed partial class ValidationRoot
             {
                 session.Score = threshold - 1;
                 galleryHost.RunNativeHandler(handler);
-                if (galleryHost.MemoryEquals("Condition", 1))
-                {
-                    throw new InvalidOperationException(
-                        $"{handler} accepted score {threshold - 1}.");
-                }
+                FailIf(
+                    galleryHost.MemoryEquals("Condition", 1),
+                    $"{handler} accepted score {threshold - 1}.");
                 session.Score = threshold;
                 galleryHost.RunNativeHandler(handler);
-                if (!galleryHost.MemoryEquals("Condition", 1))
-                {
-                    throw new InvalidOperationException(
-                        $"{handler} rejected its exact {threshold}-point boundary.");
-                }
+                FailIf(
+                    !galleryHost.MemoryEquals("Condition", 1),
+                    $"{handler} rejected its exact {threshold}-point boundary.");
             }
             session.Score = 0;
 
@@ -225,102 +205,82 @@ public sealed partial class ValidationRoot
             var strikeSpawns = new List<RoomEntitySpawn>();
             strikeBall.UpdateFrame(strikeSpawns);
             strikeBall.UpdateFrame(strikeSpawns);
-            if (!strikeBall.Finished ||
+            FailIf(
+                !strikeBall.Finished ||
                 !strikeSession.IsStrike ||
-                strikeSound != record.StrikeSound)
-            {
-                throw new InvalidOperationException(
-                    "Incoming PART_BALL $38 did not detect the current closed " +
-                    "entrance tile as a strike before applying speed.");
-            }
+                strikeSound != record.StrikeSound,
+                "Incoming PART_BALL $38 did not detect the current closed " +
+                "entrance tile as a strike before applying speed.");
             strikeBall.Free();
 
             int randomCallsBeforeLayout = _entities.RandomCalls;
             StepRoomEventFrames(record.InitialDelay - 2);
-            if (controller.State != 1 || controller.Counter != 1)
-            {
-                throw new InvalidOperationException(
-                    "$30:$03 initial delay did not retain its 120-update boundary.");
-            }
+            FailIf(
+                controller.State != 1 || controller.Counter != 1,
+                "$30:$03 initial delay did not retain its 120-update boundary.");
             StepRoomEventFrames(1);
-            if (controller.State != 2 ||
-                controller.Counter != record.PitchDelay)
-            {
-                throw new InvalidOperationException(
-                    "$30:$03 did not enter its 40-update pitch warning.");
-            }
+            FailIf(
+                controller.State != 2 ||
+                controller.Counter != record.PitchDelay,
+                "$30:$03 did not enter its 40-update pitch warning.");
             StepRoomEventFrames(record.PitchDelay);
-            if (controller.State != 3 ||
+            FailIf(
+                controller.State != 3 ||
                 controller.Counter != record.PuffDelay ||
-                _entities.Entities<PuzzlePuffEffect>().Count != 10)
-            {
-                throw new InvalidOperationException(
-                    "The pitch warning did not spawn all ten source-order puffs.");
-            }
+                _entities.Entities<PuzzlePuffEffect>().Count != 10,
+                "The pitch warning did not spawn all ten source-order puffs.");
             StepRoomEventFrames(record.PuffDelay);
-            if (controller.State != 4 ||
+            FailIf(
+                controller.State != 4 ||
                 controller.Counter != record.LayoutDelay ||
                 controller.RemainingLayouts != 9 ||
-                _entities.RandomCalls != randomCallsBeforeLayout + 1)
-            {
-                throw new InvalidOperationException(
-                    "The first target layout did not consume one shared RNG " +
-                    "call and deplete exactly one of ten layouts.");
-            }
+                _entities.RandomCalls != randomCallsBeforeLayout + 1,
+                "The first target layout did not consume one shared RNG " +
+                "call and deplete exactly one of ten layouts.");
             StepRoomEventFrames(record.LayoutDelay);
             ShootingGalleryBall ball =
                 _entities.Entities<ShootingGalleryBall>().Single();
-            if (session.Round != 1 ||
+            FailIf(
+                session.Round != 1 ||
                 controller.State != 5 ||
                 ball.State != ShootingGalleryBallState.Incoming ||
                 ball.Speed is not (0x64 or 0x3c) ||
-                _entities.RandomCalls != randomCallsBeforeLayout + 2)
-            {
-                throw new InvalidOperationException(
-                    "The first pitch did not spawn PART_BALL $38 with one " +
-                    "additional shared-RNG speed decision.");
-            }
+                _entities.RandomCalls != randomCallsBeforeLayout + 2,
+                "The first pitch did not spawn PART_BALL $38 with one " +
+                "additional shared-RNG speed decision.");
 
             Vector2 launcherPosition = ball.Position;
             TerrainInfo launcherTerrain =
                 _rooms.CurrentRoom.GetTerrainInfo(launcherPosition);
-            if (launcherTerrain.Collision != 0x0a ||
-                !_rooms.CurrentRoom.IsSolid(launcherPosition))
-            {
-                throw new InvalidOperationException(
-                    "PART_BALL $38 did not begin in the launcher's source " +
-                    "partial-collision $0a quarter.");
-            }
+            FailIf(
+                launcherTerrain.Collision != 0x0a ||
+                !_rooms.CurrentRoom.IsSolid(launcherPosition),
+                "PART_BALL $38 did not begin in the launcher's source " +
+                "partial-collision $0a quarter.");
             StepRoomEventFrames(1);
-            if (ball.Finished ||
+            FailIf(
+                ball.Finished ||
                 session.BallFinished ||
-                ball.Position.Y <= launcherPosition.Y)
-            {
-                throw new InvalidOperationException(
-                    "PART_BALL $38 treated the launcher's partial collision " +
-                    "$0a as a strike instead of exiting the hole.");
-            }
+                ball.Position.Y <= launcherPosition.Y,
+                "PART_BALL $38 treated the launcher's partial collision " +
+                "$0a as a strike instead of exiting the hole.");
 
             _player.WarpTo(signReadingPosition);
             _player.Face(Vector2I.Up);
             Vector2 pausedBallPosition = ball.Position;
             int pausedBallUpdates = ball.ElapsedUpdates;
-            if (!_interactions.TryInteract(_player))
-            {
-                throw new InvalidOperationException(
-                    "The room 2:e9 prize sign stopped accepting A after " +
-                    "PART_BALL $38 spawned.");
-            }
+            FailIf(
+                !_interactions.TryInteract(_player),
+                "The room 2:e9 prize sign stopped accepting A after " +
+                "PART_BALL $38 spawned.");
             RoomEntityManagerState ballPauseClock =
                 _entities.CaptureDebugState();
             StepRoomEventFrames(8);
-            if (ball.Position != pausedBallPosition ||
-                ball.ElapsedUpdates != pausedBallUpdates)
-            {
-                throw new InvalidOperationException(
-                    "PART_BALL $38 continued moving behind the prize-sign " +
-                    "textbox instead of following wTextIsActive.");
-            }
+            FailIf(
+                ball.Position != pausedBallPosition ||
+                ball.ElapsedUpdates != pausedBallUpdates,
+                "PART_BALL $38 continued moving behind the prize-sign " +
+                "textbox instead of following wTextIsActive.");
             _entities.RestoreDebugStateAfterRoomParse(ballPauseClock);
             _dialogue.Close();
 
@@ -335,15 +295,14 @@ public sealed partial class ValidationRoot
             ball.Position = negativePoint;
             Vector2 deflectionSource =
                 negativePoint + new Vector2(-8.0f, 8.0f);
-            if (!ball.Deflect(
-                    new Rect2(negativePoint - Vector2.One * 4, Vector2.One * 8),
-                    deflectionSource))
-            {
-                throw new InvalidOperationException(
-                    "PART_BALL $38 rejected an overlapping sword deflection.");
-            }
+            FailIf(
+                !ball.Deflect(
+                new Rect2(negativePoint - Vector2.One * 4, Vector2.One * 8),
+                deflectionSource),
+                "PART_BALL $38 rejected an overlapping sword deflection.");
             StepRoomEventFrames(2);
-            if (ball.State != ShootingGalleryBallState.Reflected ||
+            FailIf(
+                ball.State != ShootingGalleryBallState.Reflected ||
                 ball.Angle != 0x04 ||
                 ball.Position.X <= negativePoint.X ||
                 ball.Position.Y >= negativePoint.Y ||
@@ -355,35 +314,28 @@ public sealed partial class ValidationRoot
                 _entities.Entities<ShootingGalleryTargetDebris>().Any(
                     debris =>
                         debris.Counter != database.Debris.Lifetime ||
-                        debris.Palette != database.Debris.RedPalette))
-            {
-                throw new InvalidOperationException(
-                    "Reflected PART_BALL $38 did not retain its diagonal " +
-                    "32-step knockback, replace its red/imp target, record " +
-                    "the hit, install the 3-update cooldown, and emit four " +
-                    "$92:$05 debris objects.");
-            }
+                        debris.Palette != database.Debris.RedPalette),
+                "Reflected PART_BALL $38 did not retain its diagonal " +
+                "32-step knockback, replace its red/imp target, record " +
+                "the hit, install the 3-update cooldown, and emit four " +
+                "$92:$05 debris objects.");
 
             Vector2 reflectedPausePosition = ball.Position;
             int reflectedPauseUpdates = ball.ElapsedUpdates;
             _player.WarpTo(signReadingPosition);
             _player.Face(Vector2I.Up);
-            if (!_interactions.TryInteract(_player))
-            {
-                throw new InvalidOperationException(
-                    "The room 2:e9 prize sign stopped accepting A after a " +
-                    "target hit.");
-            }
+            FailIf(
+                !_interactions.TryInteract(_player),
+                "The room 2:e9 prize sign stopped accepting A after a " +
+                "target hit.");
             StepRoomEventFrames(2);
-            if (ball.Position != reflectedPausePosition ||
+            FailIf(
+                ball.Position != reflectedPausePosition ||
                 ball.ElapsedUpdates != reflectedPauseUpdates ||
                 _entities.Entities<ShootingGalleryTargetDebris>().Any(
-                    debris => debris.Counter != database.Debris.Lifetime - 2))
-            {
-                throw new InvalidOperationException(
-                    "The textbox dispatcher did not freeze PART_BALL while " +
-                    "continuing enabled-bit-7 INTERAC_FALLING_ROCK debris.");
-            }
+                    debris => debris.Counter != database.Debris.Lifetime - 2),
+                "The textbox dispatcher did not freeze PART_BALL while " +
+                "continuing enabled-bit-7 INTERAC_FALLING_ROCK debris.");
             _dialogue.Close();
 
             // Finish the remaining pitch travel outside the screen. This
@@ -421,28 +373,24 @@ public sealed partial class ValidationRoot
                         break;
                 }
 
-                if (round < record.Rounds &&
+                FailIf(
+                    round < record.Rounds &&
                     (controller.State != 1 ||
                         controller.Counter != record.BetweenRoundDelay ||
                         session.Score != 0 ||
-                        session.PendingResult != -1))
-                {
-                    throw new InvalidOperationException(
-                        $"Gallery miss result {round} did not return to the " +
-                        "exact 20-update between-round delay.");
-                }
+                        session.PendingResult != -1),
+                    $"Gallery miss result {round} did not return to the " +
+                    "exact 20-update between-round delay.");
             }
 
-            if (session.Round != record.Rounds ||
+            FailIf(
+                session.Round != record.Rounds ||
                 session.Score != 0 ||
                 !controller.Finished ||
                 gallery.ScriptKind != ShootingGalleryScriptKind.Cleanup ||
                 !gallery.BlocksGameplay ||
-                !gallery.MenusDisabled)
-            {
-                throw new InvalidOperationException(
-                    "The tenth pitch did not select the final-total and cleanup scripts.");
-            }
+                !gallery.MenusDisabled,
+                "The tenth pitch did not select the final-total and cleanup scripts.");
 
             for (int frame = 0;
                 frame < 500 &&
@@ -458,7 +406,8 @@ public sealed partial class ValidationRoot
                 "Try again",
                 choice: true,
                 "retry prompt");
-            if (_player.Position != new Vector2(0x68, 0x68) ||
+            FailIf(
+                _player.Position != new Vector2(0x68, 0x68) ||
                 _player.FacingVector != Vector2I.Right ||
                 _inventory.EquippedB != originalB ||
                 _inventory.EquippedA != originalA ||
@@ -467,12 +416,9 @@ public sealed partial class ValidationRoot
                 Enumerable.Range(0, database.TargetCount).Any(
                     index => TileAt(
                         database.Target(index).PackedPosition) !=
-                        record.FloorTile))
-            {
-                throw new InvalidOperationException(
-                    "Gallery cleanup did not restore Link, equips, entrance, " +
-                    "and all ten target tiles before retry.");
-            }
+                        record.FloorTile),
+                "Gallery cleanup did not restore Link, equips, entrance, " +
+                "and all ten target tiles before retry.");
 
             _dialogue.SubmitChoiceForValidation(1);
             StepRoomEventFrames(31);
@@ -483,38 +429,32 @@ public sealed partial class ValidationRoot
             _dialogue.Close();
             StepRoomEventFrames(31);
             StepRoomEventFrames(1);
-            if (gallery.BlocksGameplay ||
+            FailIf(
+                gallery.BlocksGameplay ||
                 gallery.MenusDisabled ||
                 _player.CutsceneControlled ||
-                gallery.CurrentCommandIndex != 2)
-            {
-                throw new InvalidOperationException(
-                    "Rejecting retry did not restore normal input and the " +
-                    "attendant's persistent A-button loop " +
-                    $"(blocks={gallery.BlocksGameplay}, " +
-                    $"menus={gallery.MenusDisabled}, " +
-                    $"controlled={_player.CutsceneControlled}, " +
-                    $"command={gallery.CurrentCommandIndex}).");
-            }
+                gallery.CurrentCommandIndex != 2,
+                "Rejecting retry did not restore normal input and the " +
+                "attendant's persistent A-button loop " +
+                $"(blocks={gallery.BlocksGameplay}, " +
+                $"menus={gallery.MenusDisabled}, " +
+                $"controlled={_player.CutsceneControlled}, " +
+                $"command={gallery.CurrentCommandIndex}).");
 
             _inventory.SetScriptedEquippedItems(
                 InventoryState.ItemShield,
                 TreasureDatabase.TreasureSword);
             galleryHost.RunNativeHandler("EquipSword");
-            if (_inventory.EquippedB != InventoryState.ItemNone ||
-                _inventory.EquippedA != TreasureDatabase.TreasureSword)
-            {
-                throw new InvalidOperationException(
-                    "The gallery did not clear B while retaining a Sword " +
-                    "already equipped on A.");
-            }
+            FailIf(
+                _inventory.EquippedB != InventoryState.ItemNone ||
+                _inventory.EquippedA != TreasureDatabase.TreasureSword,
+                "The gallery did not clear B while retaining a Sword " +
+                "already equipped on A.");
             galleryHost.RunNativeHandler("RestoreEquips");
-            if (_inventory.EquippedB != InventoryState.ItemShield ||
-                _inventory.EquippedA != TreasureDatabase.TreasureSword)
-            {
-                throw new InvalidOperationException(
-                    "The gallery did not restore its alternate A-Sword loadout.");
-            }
+            FailIf(
+                _inventory.EquippedB != InventoryState.ItemShield ||
+                _inventory.EquippedA != TreasureDatabase.TreasureSword,
+                "The gallery did not restore its alternate A-Sword loadout.");
 
             GD.Print(
                 "Validated room 2:e9 INTERAC_SHOOTING_GALLERY $30:$00, " +
@@ -554,13 +494,11 @@ public sealed partial class ValidationRoot
         bool choice,
         string phase)
     {
-        if (!_dialogue.IsOpen ||
+        FailIf(
+            !_dialogue.IsOpen ||
             !_dialogue.CurrentMessage.StartsWith(prefix, StringComparison.Ordinal) ||
-            _dialogue.ChoiceActive != choice)
-        {
-            throw new InvalidOperationException(
-                $"Room 2:e9 {phase} did not preserve its imported textbox.");
-        }
+            _dialogue.ChoiceActive != choice,
+            $"Room 2:e9 {phase} did not preserve its imported textbox.");
     }
 
     private void CloseGalleryDialogueIfOpen()

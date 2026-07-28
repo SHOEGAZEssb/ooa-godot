@@ -24,7 +24,8 @@ public sealed partial class ValidationRoot
             enemies,
             RoomEnemyPlacements(enemies, 0, 0x5d, 0x41, 0x00).Single());
 
-        if (crowPlacements.Count != 3 ||
+        FailIf(
+            crowPlacements.Count != 3 ||
             crowPlacements.Sum(source => source.Count) != 3 ||
             room05dCrow is not
                 { Y: 0x78, X: 0x78, SpeedRaw: 0x32, Health: 1,
@@ -32,23 +33,20 @@ public sealed partial class ValidationRoot
             RoomEnemyPlacements(enemies, 0, 0x6d, 0x41, 0x00).Count != 2 ||
             RoomEnemyPlacements(enemies, 0, 0x7d, 0x41, 0x00).Count != 0 ||
             ghini is not { Y: 0x68, X: 0x88, TextId: 0x4d05, Palette: 2 } ||
-            visibility.ShouldShow(ghini, predicateSave, runtime))
-        {
-            throw new InvalidOperationException(
-                "Rooms 0:5d/0:6d/0:7d lost their imported Crow/Ghini roster or initial predicate.");
-        }
+            visibility.ShouldShow(ghini, predicateSave, runtime),
+            "Rooms 0:5d/0:6d/0:7d lost their imported Crow/Ghini roster or initial predicate.");
         predicateSave.SetLinkedGame(true);
-        if (visibility.ShouldShow(ghini, predicateSave, runtime))
-            throw new InvalidOperationException(
-                "The room 0:5d Ghini appeared in a linked file before D1 was obtained.");
+        FailIf(
+            visibility.ShouldShow(ghini, predicateSave, runtime),
+            "The room 0:5d Ghini appeared in a linked file before D1 was obtained.");
         predicateSave.WriteWramByte(0xc6bf, 0x01);
-        if (!visibility.ShouldShow(ghini, predicateSave, runtime))
-            throw new InvalidOperationException(
-                "The room 0:5d Ghini did not appear for linked + D1.");
+        FailIf(
+            !visibility.ShouldShow(ghini, predicateSave, runtime),
+            "The room 0:5d Ghini did not appear for linked + D1.");
         predicateSave.SetLinkedGame(false);
-        if (visibility.ShouldShow(ghini, predicateSave, runtime))
-            throw new InvalidOperationException(
-                "The room 0:5d Ghini ignored the linked-file predicate.");
+        FailIf(
+            visibility.ShouldShow(ghini, predicateSave, runtime),
+            "The room 0:5d Ghini ignored the linked-file predicate.");
 
         var root = new Node { Name = "GraveyardCrowAndDropValidation" };
         AddChild(root);
@@ -76,60 +74,52 @@ public sealed partial class ValidationRoot
         manager.LoadRoom(0, room05d);
         CrowCharacter crow = manager.Entities<CrowCharacter>().Single();
         ItemDropProducer bombProducer = manager.Entities<ItemDropProducer>().Single();
-        if (crow.Position != new Vector2(0x78, 0x78) ||
+        FailIf(
+            crow.Position != new Vector2(0x78, 0x78) ||
             crow.State != CrowState.Perched || crow.CollisionEnabled ||
-            bombProducer.Position != new Vector2(0x88, 0x38))
-        {
-            throw new InvalidOperationException(
-                "Room 0:5d did not create the fixed perched Crow and hidden Bomb producer.");
-        }
+            bombProducer.Position != new Vector2(0x88, 0x38),
+            "Room 0:5d did not create the fixed perched Crow and hidden Bomb producer.");
 
         _player.WarpTo(new Vector2(0x20, 0x20), recordSafe: false);
         manager.Update(1.0 / 60.0, _player);
-        if (!bombProducer.Initialized || crow.State != CrowState.Perched)
-            throw new InvalidOperationException(
-                "Crow/drop-producer state 0 did not capture the source initial state.");
+        FailIf(
+            !bombProducer.Initialized || crow.State != CrowState.Perched,
+            "Crow/drop-producer state 0 did not capture the source initial state.");
 
         _player.WarpTo(crow.Position + Vector2.Down * 0x30, recordSafe: false);
         manager.Update(1.0 / 60.0, _player);
-        if (crow.State != CrowState.Rising || crow.Counter1 != 25)
-            throw new InvalidOperationException(
-                "The perched Crow lost its inclusive $30/$18 approach rectangle.");
+        FailIf(
+            crow.State != CrowState.Rising || crow.Counter1 != 25,
+            "The perched Crow lost its inclusive $30/$18 approach rectangle.");
         for (int frame = 0; frame < 25; frame++)
             manager.Update(1.0 / 60.0, _player);
         int aimDelta = (crow.Angle - 0x10) & 0x1f;
         if (aimDelta > 0x10)
             aimDelta -= 0x20;
-        if (crow.State != CrowState.Charging || crow.Z != -6 ||
+        FailIf(
+            crow.State != CrowState.Charging || crow.Z != -6 ||
             !crow.CollisionEnabled || crow.Counter2 != 90 ||
-            Math.Abs(aimDelta) != 4)
-        {
-            throw new InvalidOperationException(
-                "The Crow did not rise six pixels for 25 updates and begin its randomized charge.");
-        }
+            Math.Abs(aimDelta) != 4,
+            "The Crow did not rise six pixels for 25 updates and begin its randomized charge.");
         Vector2 chargeStart = crow.PrecisePosition;
         manager.Update(1.0 / 60.0, _player);
-        if (crow.Counter2 != 89 ||
+        FailIf(
+            crow.Counter2 != 89 ||
             !Mathf.IsEqualApprox(
-                crow.PrecisePosition.DistanceTo(chargeStart), 1.25f, 0.01f))
-        {
-            throw new InvalidOperationException(
-                "The Crow charge lost SPEED_140 high-byte movement or counter timing.");
-        }
+                crow.PrecisePosition.DistanceTo(chargeStart), 1.25f, 0.01f),
+            "The Crow charge lost SPEED_140 high-byte movement or counter timing.");
 
         byte bombTile = room05d.GetMetatile(bombProducer.Position);
         room05d.SetPositionTileAndCollision(
             bombProducer.Position, (byte)(bombTile ^ 1), null, 0);
         manager.Update(1.0 / 60.0, _player);
         ItemDropEffect bombDrop = manager.Entities<ItemDropEffect>().Single();
-        if (manager.Entities<ItemDropProducer>().Count != 0 ||
+        FailIf(
+            manager.Entities<ItemDropProducer>().Count != 0 ||
             bombDrop.SubId != ItemDropDatabase.Bombs ||
             bombDrop.State != DropState.Bouncing ||
-            bombDrop.ElapsedFrames != 1)
-        {
-            throw new InvalidOperationException(
-                "Room 0:5d's tile change did not replace the producer with an immediately updated Bomb drop.");
-        }
+            bombDrop.ElapsedFrames != 1,
+            "Room 0:5d's tile change did not replace the producer with an immediately updated Bomb drop.");
 
         _player.WarpTo(new Vector2(0x00, 0x100), recordSafe: false);
         for (int frame = 0;
@@ -138,22 +128,20 @@ public sealed partial class ValidationRoot
         {
             manager.Update(1.0 / 60.0, _player);
         }
-        if (!crow.DeletedOutOfBounds ||
+        FailIf(
+            !crow.DeletedOutOfBounds ||
             manager.Entities<CrowCharacter>().Count != 0 ||
             manager.Entities<EnemyDeathPuffEffect>().Count != 0 ||
-            crowDeathEvents != 0)
-        {
-            throw new InvalidOperationException(
-                "A charging Crow did not use silent enemyDelete without a " +
-                "Slayer/Maple/Gasha event at the source screen bounds.");
-        }
+            crowDeathEvents != 0,
+            "A charging Crow did not use silent enemyDelete without a " +
+            "Slayer/Maple/Gasha event at the source screen bounds.");
         manager.EnemyDefeated -= RecordCrowDeath;
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x5d));
-        if (manager.Entities<ItemDropProducer>().Count != 0 ||
-            manager.Entities<CrowCharacter>().Count != 1)
-            throw new InvalidOperationException(
-                "Room 0:5d's producer recent-defeat mark suppressed the wrong object on re-entry.");
+        FailIf(
+            manager.Entities<ItemDropProducer>().Count != 0 ||
+            manager.Entities<CrowCharacter>().Count != 1,
+            "Room 0:5d's producer recent-defeat mark suppressed the wrong object on re-entry.");
 
         OracleRoomData room06d = _world.LoadRoom(0, 0x6d);
         manager.LoadRoom(0, room06d);
@@ -164,26 +152,22 @@ public sealed partial class ValidationRoot
         CrowCharacter[] crows = manager.Entities<CrowCharacter>()
             .OrderBy(enemy => enemy.Position.X)
             .ToArray();
-        if (emberProducers.Length != 2 || crows.Length != 2 ||
+        FailIf(
+            emberProducers.Length != 2 || crows.Length != 2 ||
             emberProducers[0].Position != new Vector2(0x88, 0x18) ||
             emberProducers[1].Position != new Vector2(0x78, 0x28) ||
             crows[0].Position != new Vector2(0x18, 0x38) ||
-            crows[1].Position != new Vector2(0x88, 0x38))
-        {
-            throw new InvalidOperationException(
-                "Room 0:6d lost its ordered two-producer/two-Crow fixed placements.");
-        }
+            crows[1].Position != new Vector2(0x88, 0x38),
+            "Room 0:6d lost its ordered two-producer/two-Crow fixed placements.");
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x7d));
-        if (manager.Entities<CrowCharacter>().Count != 0 ||
+        FailIf(
+            manager.Entities<CrowCharacter>().Count != 0 ||
             manager.Entities<ItemDropProducer>().Count != 0 ||
             manager.Entities<NpcCharacter>().Count != 0 ||
             enemies.GetRoomObjects(0, 0x7d).Count != 0 ||
-            npcs.GetRoomNpcs(0, 0x7d).Count != 0)
-        {
-            throw new InvalidOperationException(
-                "Room 0:7d should retain its intentionally empty object/NPC stream.");
-        }
+            npcs.GetRoomNpcs(0, 0x7d).Count != 0,
+            "Room 0:7d should retain its intentionally empty object/NPC stream.");
 
         manager.Clear();
         RemoveChild(root);
@@ -196,15 +180,13 @@ public sealed partial class ValidationRoot
             Encoding.UTF8.GetBytes(
                 string.Join("\0", linkedNpcData.SecretSymbols))))
             .ToLowerInvariant();
-        if (cipherHash !=
+        FailIf(
+            cipherHash !=
                 "25a4c33b3ee77c7da156d739f4e1894ad2b238731cd5d531415938aef67b2813" ||
             symbolHash !=
-                "f0f882cb0f40041890af6e204f595d34003291b6aba787226d64462820563628")
-        {
-            throw new InvalidOperationException(
-                "The generated linked-secret XOR/symbol tables lost their " +
-                "complete bank3.s/bank0.s source order.");
-        }
+                "f0f882cb0f40041890af6e204f595d34003291b6aba787226d64462820563628",
+            "The generated linked-secret XOR/symbol tables lost their " +
+            "complete bank3.s/bank0.s source order.");
         LinkedGameNpcDatabaseRecord ghiniData =
             linkedNpcData.Get(0, 0x5d, 0xcb, 0x00);
         var secretSave = OracleSaveData.CreateStandardGame();
@@ -212,12 +194,10 @@ public sealed partial class ValidationRoot
         secretSave.WriteWramByte(0xc601, 0x12);
         byte[] secret =
             linkedNpcData.GenerateSecretValues(ghiniData, secretSave);
-        if (!secret.SequenceEqual(new byte[] { 0x0b, 0x29, 0x13, 0x18, 0x2f }) ||
-            secretSave.ReadWramByte(0xc6fb) != 0x21)
-        {
-            throw new InvalidOperationException(
-                "The five-character Graveyard secret lost its source bit packing, checksum, or XOR cipher.");
-        }
+        FailIf(
+            !secret.SequenceEqual(new byte[] { 0x0b, 0x29, 0x13, 0x18, 0x2f }) ||
+            secretSave.ReadWramByte(0xc6fb) != 0x21,
+            "The five-character Graveyard secret lost its source bit packing, checksum, or XOR cipher.");
 
         bool linkedBefore = _saveData.IsLinkedGame;
         byte essencesBefore = _saveData.ReadWramByte(0xc6bf);
@@ -235,69 +215,54 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(0, 0x5d);
         NpcCharacter liveGhini = _entities.Entities<NpcCharacter>().Single(npc =>
             npc.Record.Id == 0xcb && npc.Record.SubId == 0x00);
-        if (!liveGhini.Visible)
-            throw new InvalidOperationException(
-                "The linked+D1 Ghini predicate did not survive actual room loading.");
+        FailIf(!liveGhini.Visible, "The linked+D1 Ghini predicate did not survive actual room loading.");
         _player.WarpTo(liveGhini.Position + Vector2.Down * 12.0f, recordSafe: false);
         _player.Face(Vector2I.Up);
-        if (!_interactions.TryInteract(_player) || !_dialogue.ChoiceActive ||
-            !_dialogue.CurrentMessage.Contains("Do you?", StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException(
-                "The room 0:5d Ghini did not open TX_4d05's Yes/No offer.");
-        }
+        FailIf(
+            !_interactions.TryInteract(_player) || !_dialogue.ChoiceActive ||
+            !_dialogue.CurrentMessage.Contains("Do you?", StringComparison.Ordinal),
+            "The room 0:5d Ghini did not open TX_4d05's Yes/No offer.");
         _dialogue.SubmitChoiceForValidation(1);
         _interactions.Update(0.0, _player);
-        if (_dialogue.ChoiceActive ||
-            !_dialogue.CurrentMessage.Contains("Suit yourself", StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException(
-                "Choosing No did not follow linkedGameNpcScript to TX_4d06.");
-        }
+        FailIf(
+            _dialogue.ChoiceActive ||
+            !_dialogue.CurrentMessage.Contains("Suit yourself", StringComparison.Ordinal),
+            "Choosing No did not follow linkedGameNpcScript to TX_4d06.");
         _dialogue.Close();
         _interactions.Update(0.0, _player);
 
-        if (!_interactions.TryInteract(_player))
-            throw new InvalidOperationException("The Ghini offer loop could not be restarted.");
+        FailIf(!_interactions.TryInteract(_player), "The Ghini offer loop could not be restarted.");
         _dialogue.SubmitChoiceForValidation(0);
         _interactions.Update(0.0, _player);
-        if (!_dialogue.ChoiceActive ||
-            !_dialogue.CurrentMessage.Contains("Holodrum", StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException(
-                "Choosing Yes did not open TX_4d07's extra confirmation box.");
-        }
+        FailIf(
+            !_dialogue.ChoiceActive ||
+            !_dialogue.CurrentMessage.Contains("Holodrum", StringComparison.Ordinal),
+            "Choosing Yes did not open TX_4d07's extra confirmation box.");
         _dialogue.SubmitChoiceForValidation(1);
         _interactions.Update(0.0, _player);
-        if (!_dialogue.ChoiceActive || _dialogue.SelectedChoice != 1 ||
-            !_dialogue.CurrentMessage.Contains("Holodrum", StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException(
-                "Choosing No did not repeat the Ghini's extra confirmation.");
-        }
+        FailIf(
+            !_dialogue.ChoiceActive || _dialogue.SelectedChoice != 1 ||
+            !_dialogue.CurrentMessage.Contains("Holodrum", StringComparison.Ordinal),
+            "Choosing No did not repeat the Ghini's extra confirmation.");
         _dialogue.SubmitChoiceForValidation(0);
         _interactions.Update(0.0, _player);
-        if (!_dialogue.ChoiceActive ||
+        FailIf(
+            !_dialogue.ChoiceActive ||
             _dialogue.CurrentMessage.Contains("\\secret1", StringComparison.Ordinal) ||
             !_saveData.HasGlobalFlag(ghiniData.BeganFlag) ||
-            _saveData.ReadWramByte(0xc6fb) != 0x21)
-        {
-            throw new InvalidOperationException(
-                "The Ghini did not generate/substitute the Graveyard secret and set its began flag.");
-        }
+            _saveData.ReadWramByte(0xc6fb) != 0x21,
+            "The Ghini did not generate/substitute the Graveyard secret and set its began flag.");
         _dialogue.SubmitChoiceForValidation(1);
         _interactions.Update(0.0, _player);
-        if (!_dialogue.ChoiceActive || _dialogue.SelectedChoice != 1)
-            throw new InvalidOperationException(
-                "Choosing No did not repeat TX_4d08's generated secret.");
+        FailIf(
+            !_dialogue.ChoiceActive || _dialogue.SelectedChoice != 1,
+            "Choosing No did not repeat TX_4d08's generated secret.");
         _dialogue.SubmitChoiceForValidation(0);
         _interactions.Update(0.0, _player);
-        if (_dialogue.ChoiceActive ||
-            !_dialogue.CurrentMessage.Contains("Good luck", StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException(
-                "Confirming the Graveyard secret did not show TX_4d09.");
-        }
+        FailIf(
+            _dialogue.ChoiceActive ||
+            !_dialogue.CurrentMessage.Contains("Good luck", StringComparison.Ordinal),
+            "Confirming the Graveyard secret did not show TX_4d09.");
         _dialogue.Close();
         _interactions.Update(0.0, _player);
 

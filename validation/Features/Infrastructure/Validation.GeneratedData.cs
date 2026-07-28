@@ -13,14 +13,12 @@ public sealed partial class ValidationRoot
         lookup.Add("second", 2);
         lookup.Add("first", 1);
         lookup.Add("second", 3);
-        if (lookup.KeyCount != 2 || lookup.Count != 2 ||
+        FailIf(
+            lookup.KeyCount != 2 || lookup.Count != 2 ||
             lookup.Keys[0] != "second" || lookup.Keys[1] != "first" ||
             lookup["second"].Count != 2 ||
-            lookup["second"][0] != 2 || lookup["second"][1] != 3)
-        {
-            throw new InvalidOperationException(
-                "Lookup did not preserve first-key and per-key insertion order.");
-        }
+            lookup["second"][0] != 2 || lookup["second"][1] != 3,
+            "Lookup did not preserve first-key and per-key insertion order.");
 
         var schema = new GeneratedTableSchema(
             "validation records",
@@ -37,7 +35,8 @@ public sealed partial class ValidationRoot
             "first\tA\tff\t-2\t1\t1.5\tSGk=\t\r\n" +
             "second\tB\t00\t4\t0\t-0.25\tV29ybGQ=\ttail\r\n";
         GeneratedTable table = GeneratedTable.ParseForValidation(path, source, schema);
-        if (table.Rows.Count != 2 ||
+        FailIf(
+            table.Rows.Count != 2 ||
             table.Rows[0].LineNumber != 2 || table.Rows[1].LineNumber != 3 ||
             table.Rows[0].RequiredString(0) != "first" ||
             table.Rows[1].RequiredString(0) != "second" ||
@@ -47,11 +46,8 @@ public sealed partial class ValidationRoot
             !Mathf.IsEqualApprox(table.Rows[0].FiniteFloat(5), 1.5f) ||
             table.Rows[0].Base64Utf8(6) != "Hi" ||
             table.Rows[0].String(7) != string.Empty ||
-            table.Rows[1].Base64Utf8(6) != "World")
-        {
-            throw new InvalidOperationException(
-                "The shared generated-table reader did not preserve rows, empty fields, or typed values.");
-        }
+            table.Rows[1].Base64Utf8(6) != "World",
+            "The shared generated-table reader did not preserve rows, empty fields, or typed values.");
 
         ExpectGeneratedTableFailure(
             () => GeneratedTable.ParseForValidation(
@@ -109,13 +105,11 @@ public sealed partial class ValidationRoot
                 path,
                 "# key\tvalue\nsame\tfirst\nsame\tsecond\n",
                 repeatedSchema);
-            if (repeated.Rows.Count != 2 ||
+            FailIf(
+                repeated.Rows.Count != 2 ||
                 repeated.Rows[0].RequiredString(1) != "first" ||
-                repeated.Rows[1].RequiredString(1) != "second")
-            {
-                throw new InvalidOperationException(
-                    $"Generated-table {semantics} semantics did not preserve repeated row order.");
-            }
+                repeated.Rows[1].RequiredString(1) != "second",
+                $"Generated-table {semantics} semantics did not preserve repeated row order.");
         }
 
         byte[] manifestPayload = Encoding.UTF8.GetBytes("one\ntwo\n");
@@ -139,8 +133,7 @@ public sealed partial class ValidationRoot
             "expects 2");
 
         int manifestEntries = GeneratedTableManifest.EntryCount;
-        if (manifestEntries <= 0)
-            throw new InvalidOperationException("The generated-table manifest is empty.");
+        FailIf(manifestEntries <= 0, "The generated-table manifest is empty.");
         GD.Print($"Validated shared generated-table schemas, named diagnostics, unique/grouped/" +
             $"aliased/repeated ordering, and {manifestEntries} manifest versions/counts/SHA-256 hashes.");
     }

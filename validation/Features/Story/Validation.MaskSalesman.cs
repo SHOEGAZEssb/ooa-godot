@@ -29,11 +29,7 @@ public sealed partial class ValidationRoot
         MethodInfo? reloadInventory = typeof(InventoryState).GetMethod(
             "LoadFromSaveData",
             BindingFlags.Instance | BindingFlags.NonPublic);
-        if (reloadInventory is null)
-        {
-            throw new InvalidOperationException(
-                "Could not reload Mask Salesman validation inventory.");
-        }
+        FailIf(reloadInventory is null, "Could not reload Mask Salesman validation inventory.");
 
         void SetTradeItem(int tradeItem, bool obtained)
         {
@@ -54,12 +50,10 @@ public sealed partial class ValidationRoot
         void ExpectDialogue(int textId, string phase)
         {
             CutsceneShowTextCommand text = Text(textId);
-            if (!_dialogue.IsOpen ||
-                _dialogue.CurrentMessage != DialogueBox.PlainText(text.Message))
-            {
-                throw new InvalidOperationException(
-                    $"Room 2:e6 {phase} did not show TX_{textId:x4}.");
-            }
+            FailIf(
+                !_dialogue.IsOpen ||
+                _dialogue.CurrentMessage != DialogueBox.PlainText(text.Message),
+                $"Room 2:e6 {phase} did not show TX_{textId:x4}.");
         }
 
         MaskSalesmanCharacter Salesman() =>
@@ -74,18 +68,14 @@ public sealed partial class ValidationRoot
         void BeginPreamble()
         {
             PositionForTalk();
-            if (!_interactions.TryInteract(_player))
-            {
-                throw new InvalidOperationException(
-                    "Room 2:e6 Mask Salesman was not reachable through the normal A-button path.");
-            }
+            FailIf(
+                !_interactions.TryInteract(_player),
+                "Room 2:e6 Mask Salesman was not reachable through the normal A-button path.");
             StepRoomEventFrames(2);
             ExpectDialogue(0x0b0d, "hunger preamble");
-            if (Salesman().CurrentScriptAnimationSource != record.Animation0)
-            {
-                throw new InvalidOperationException(
-                    "TX_0b0d did not select Mask Salesman animation $00.");
-            }
+            FailIf(
+                Salesman().CurrentScriptAnimationSource != record.Animation0,
+                "TX_0b0d did not select Mask Salesman animation $00.");
         }
 
         void FinishHungerPreamble(bool expectTradePrompt)
@@ -93,45 +83,37 @@ public sealed partial class ValidationRoot
             _dialogue.Close();
             StepRoomEventFrames(17);
             ExpectDialogue(0x0b0e, "first hunger outburst");
-            if (Salesman().CurrentScriptAnimationSource != record.Animation1)
-            {
-                throw new InvalidOperationException(
-                    "The first TX_0b0e did not select Mask Salesman animation $01.");
-            }
+            FailIf(
+                Salesman().CurrentScriptAnimationSource != record.Animation1,
+                "The first TX_0b0e did not select Mask Salesman animation $01.");
 
             _dialogue.Close();
             StepRoomEventFrames(17);
             ExpectDialogue(0x0b0f, "apology");
-            if (Salesman().CurrentScriptAnimationSource != record.Animation0)
-            {
-                throw new InvalidOperationException(
-                    "TX_0b0f did not restore Mask Salesman animation $00.");
-            }
+            FailIf(
+                Salesman().CurrentScriptAnimationSource != record.Animation0,
+                "TX_0b0f did not restore Mask Salesman animation $00.");
 
             _dialogue.Close();
             StepRoomEventFrames(17);
             ExpectDialogue(0x0b0e, "second hunger outburst");
-            if (Salesman().CurrentScriptAnimationSource != record.Animation1)
-            {
-                throw new InvalidOperationException(
-                    "The second TX_0b0e did not select Mask Salesman animation $01.");
-            }
+            FailIf(
+                Salesman().CurrentScriptAnimationSource != record.Animation1,
+                "The second TX_0b0e did not select Mask Salesman animation $01.");
 
             _dialogue.Close();
             StepRoomEventFrames(31);
             if (expectTradePrompt)
             {
                 ExpectDialogue(0x0b10, "Tasty Meat prompt");
-                if (!_dialogue.ChoiceActive)
-                {
-                    throw new InvalidOperationException(
-                        "TX_0b10 did not expose its Yes/No options.");
-                }
+                FailIf(!_dialogue.ChoiceActive, "TX_0b10 did not expose its Yes/No options.");
             }
-            else if (_dialogue.IsOpen || maskEvent.BlocksGameplay ||
-                _player.CutsceneControlled || maskEvent.CurrentCommandIndex != 2)
+            else
             {
-                throw new InvalidOperationException(
+                FailIf(
+                    _dialogue.IsOpen || maskEvent.BlocksGameplay ||
+                    _player.CutsceneControlled ||
+                    maskEvent.CurrentCommandIndex != 2,
                     "Missing Tasty Meat did not restore input after the exact 30-update wait.");
             }
         }
@@ -144,7 +126,8 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(group, room);
 
         MaskSalesmanCharacter salesman = Salesman();
-        if (salesman.Record is not { Id: 0x5c, SubId: 0x00 } ||
+        FailIf(
+            salesman.Record is not { Id: 0x5c, SubId: 0x00 } ||
             salesman.Position != new Vector2(0x70, 0x38) ||
             salesman.Record.SpriteName != "spr_masksalesman_rafton" ||
             !maskEvent.HasState || maskEvent.BlocksGameplay ||
@@ -154,46 +137,33 @@ public sealed partial class ValidationRoot
             salesman.CurrentAnimationTextureSize != new Vector2I(16, 32) ||
             salesman.CurrentAnimationOffset != new Vector2(-8, -32) ||
             salesman.AnimationRate != 0.0f ||
-            salesman.CurrentAnimationOpaquePixels == 0)
-        {
-            throw new InvalidOperationException(
-                "Room 2:e6 did not preserve INTERAC_MASK_SALESMAN's placement, " +
-                "complete signed-OAM animation-$00 visual, or one-update state-0 " +
-                "script initialization.");
-        }
+            salesman.CurrentAnimationOpaquePixels == 0,
+            "Room 2:e6 did not preserve INTERAC_MASK_SALESMAN's placement, " +
+            "complete signed-OAM animation-$00 visual, or one-update state-0 " +
+            "script initialization.");
 
         PositionForTalk();
-        if (_entities.FindTalkTarget(_player) is not null)
-        {
-            throw new InvalidOperationException(
-                "INTERAC_MASK_SALESMAN became A-sensitive before makeabuttonsensitive.");
-        }
+        FailIf(
+            _entities.FindTalkTarget(_player) is not null,
+            "INTERAC_MASK_SALESMAN became A-sensitive before makeabuttonsensitive.");
         StepRoomEventFrames(1);
-        if (!maskEvent.ButtonSensitive || maskEvent.CurrentCommandIndex != 2 ||
-            _entities.FindTalkTarget(_player) != salesman)
-        {
-            throw new InvalidOperationException(
-                "maskSalesmanScript did not reach checkabutton on its second script update.");
-        }
+        FailIf(
+            !maskEvent.ButtonSensitive || maskEvent.CurrentCommandIndex != 2 ||
+            _entities.FindTalkTarget(_player) != salesman,
+            "maskSalesmanScript did not reach checkabutton on its second script update.");
         _player.WarpTo(new Vector2(0x70, 0x46));
-        if (_entities.FindTalkTarget(_player) is not null)
-        {
-            throw new InvalidOperationException(
-                "Mask Salesman talk targeting ignored strict collision radius Y=$04.");
-        }
+        FailIf(
+            _entities.FindTalkTarget(_player) is not null,
+            "Mask Salesman talk targeting ignored strict collision radius Y=$04.");
         _player.WarpTo(new Vector2(0x70, 0x45));
-        if (_entities.FindTalkTarget(_player) != salesman)
-        {
-            throw new InvalidOperationException(
-                "Mask Salesman talk targeting rejected the final point inside radius Y=$04.");
-        }
+        FailIf(
+            _entities.FindTalkTarget(_player) != salesman,
+            "Mask Salesman talk targeting rejected the final point inside radius Y=$04.");
 
         BeginPreamble();
-        if (!maskEvent.BlocksGameplay || !_player.CutsceneControlled)
-        {
-            throw new InvalidOperationException(
-                "maskSalesmanScript did not disable input before TX_0b0d.");
-        }
+        FailIf(
+            !maskEvent.BlocksGameplay || !_player.CutsceneControlled,
+            "maskSalesmanScript did not disable input before TX_0b0d.");
         FinishHungerPreamble(expectTradePrompt: false);
 
         _inventory.GiveTreasure(
@@ -205,22 +175,18 @@ public sealed partial class ValidationRoot
         _dialogue.SubmitChoiceForValidation(1);
         StepRoomEventFrames(31);
         ExpectDialogue(0x0b14, "declined Tasty Meat trade");
-        if (_dialogue.Position.Y != 96 ||
+        FailIf(
+            _dialogue.Position.Y != 96 ||
             _inventory.TradeItem != record.RequiredTradeItem ||
-            _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagItem))
-        {
-            throw new InvalidOperationException(
-                "Declining the Tasty Meat trade changed inventory/room bit $20 " +
-                "or ignored TX_0b14's lower textbox.");
-        }
+            _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagItem),
+            "Declining the Tasty Meat trade changed inventory/room bit $20 " +
+            "or ignored TX_0b14's lower textbox.");
         _dialogue.Close();
         StepRoomEventFrames(1);
-        if (maskEvent.BlocksGameplay || _player.CutsceneControlled ||
-            maskEvent.CurrentCommandIndex != 2)
-        {
-            throw new InvalidOperationException(
-                "The declined Mask Salesman trade did not restore input on the next update.");
-        }
+        FailIf(
+            maskEvent.BlocksGameplay || _player.CutsceneControlled ||
+            maskEvent.CurrentCommandIndex != 2,
+            "The declined Mask Salesman trade did not restore input on the next update.");
 
         BeginPreamble();
         FinishHungerPreamble(expectTradePrompt: true);
@@ -231,36 +197,28 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         StepRoomEventFrames(17);
         ExpectDialogue(0x0b11, "Tasty Meat consumption");
-        if (_dialogue.Position.Y != 96 ||
-            Salesman().CurrentScriptAnimationSource != record.Animation0)
-        {
-            throw new InvalidOperationException(
-                "TX_0b11 did not use its lower textbox and animation $00.");
-        }
+        FailIf(
+            _dialogue.Position.Y != 96 ||
+            Salesman().CurrentScriptAnimationSource != record.Animation0,
+            "TX_0b11 did not use its lower textbox and animation $00.");
         _dialogue.Close();
         StepRoomEventFrames(17);
         ExpectDialogue(0x0b12, "greedy response");
-        if (Salesman().CurrentScriptAnimationSource != record.Animation1)
-        {
-            throw new InvalidOperationException(
-                "TX_0b12 did not select Mask Salesman animation $01.");
-        }
+        FailIf(
+            Salesman().CurrentScriptAnimationSource != record.Animation1,
+            "TX_0b12 did not select Mask Salesman animation $01.");
         _dialogue.Close();
         StepRoomEventFrames(17);
         ExpectDialogue(0x0b13, "reward offer");
-        if (Salesman().CurrentScriptAnimationSource != record.Animation0)
-        {
-            throw new InvalidOperationException(
-                "TX_0b13 did not restore Mask Salesman animation $00.");
-        }
+        FailIf(
+            Salesman().CurrentScriptAnimationSource != record.Animation0,
+            "TX_0b13 did not restore Mask Salesman animation $00.");
         _dialogue.Close();
         StepRoomEventFrames(17);
         ExpectDialogue(0x0b45, "final meat outburst");
-        if (Salesman().CurrentScriptAnimationSource != record.Animation1)
-        {
-            throw new InvalidOperationException(
-                "The final TX_0b45 did not select Mask Salesman animation $01.");
-        }
+        FailIf(
+            Salesman().CurrentScriptAnimationSource != record.Animation1,
+            "The final TX_0b45 did not select Mask Salesman animation $01.");
 
         _sound.ClearPlayRequestAudit();
         _dialogue.Close();
@@ -269,7 +227,8 @@ public sealed partial class ValidationRoot
             _entities.Entities<GroundTreasurePickup>().Single();
         TreasureObjectRecord rewardObject =
             _treasures.GetObject(record.RewardObject);
-        if (reward.Record.TreasureObject != record.RewardObject ||
+        FailIf(
+            reward.Record.TreasureObject != record.RewardObject ||
             reward.Record.SpawnMode != 0 || reward.Record.GrabMode != 2 ||
             !reward.Held || !_player.IsHoldingItemTwoHands ||
             reward.Position != _player.Position + new Vector2(0, -14) ||
@@ -277,56 +236,43 @@ public sealed partial class ValidationRoot
             !_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagItem) ||
             !_dialogue.IsOpen ||
             _dialogue.CurrentMessage != DialogueBox.PlainText(rewardObject.Message) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2)
-        {
-            throw new InvalidOperationException(
-                "maskSalesmanScript giveitem did not grant the Doggie Mask through " +
-                "grab mode $02 with text, sounds, inventory, and room bit $20.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2,
+            "maskSalesmanScript giveitem did not grant the Doggie Mask through " +
+            "grab mode $02 with text, sounds, inventory, and room bit $20.");
 
         _dialogue.Close();
         _interactions.Update(1.0 / 60.0, _player);
         _entities.Update(1.0 / 60.0, _player);
-        if (_player.IsHoldingItemTwoHands ||
-            _entities.Entities<GroundTreasurePickup>().Count != 0)
-        {
-            throw new InvalidOperationException(
-                "Closing the Doggie Mask text did not release Link and delete the reward.");
-        }
+        FailIf(
+            _player.IsHoldingItemTwoHands ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0,
+            "Closing the Doggie Mask text did not release Link and delete the reward.");
         StepRoomEventFrames(2);
-        if (maskEvent.BlocksGameplay || _player.CutsceneControlled ||
+        FailIf(
+            maskEvent.BlocksGameplay || _player.CutsceneControlled ||
             maskEvent.CurrentCommandIndex != 2 ||
-            Salesman().CurrentScriptAnimationSource != record.Animation0)
-        {
-            throw new InvalidOperationException(
-                "maskSalesmanScript did not restore animation $00 and input after its reward.");
-        }
+            Salesman().CurrentScriptAnimationSource != record.Animation0,
+            "maskSalesmanScript did not restore animation $00 and input after its reward.");
 
         LoadValidationRoom(exteriorGroup, exteriorRoom);
         LoadValidationRoom(group, room);
         StepRoomEventFrames(1);
         PositionForTalk();
-        if (!_interactions.TryInteract(_player))
-        {
-            throw new InvalidOperationException(
-                "Completed room 2:e6 did not retain the Mask Salesman talk target.");
-        }
+        FailIf(
+            !_interactions.TryInteract(_player),
+            "Completed room 2:e6 did not retain the Mask Salesman talk target.");
         StepRoomEventFrames(1);
         ExpectDialogue(0x0b15, "completed-trade branch");
-        if (_dialogue.Position.Y != 96 ||
-            _entities.Entities<GroundTreasurePickup>().Count != 0)
-        {
-            throw new InvalidOperationException(
-                "Room bit $20 did not select lower TX_0b15 or suppress another reward.");
-        }
+        FailIf(
+            _dialogue.Position.Y != 96 ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0,
+            "Room bit $20 did not select lower TX_0b15 or suppress another reward.");
         _dialogue.Close();
         StepRoomEventFrames(1);
-        if (maskEvent.BlocksGameplay || _player.CutsceneControlled ||
-            maskEvent.CurrentCommandIndex != 2)
-        {
-            throw new InvalidOperationException(
-                "Completed Mask Salesman dialogue did not restore input immediately.");
-        }
+        FailIf(
+            maskEvent.BlocksGameplay || _player.CutsceneControlled ||
+            maskEvent.CurrentCommandIndex != 2,
+            "Completed Mask Salesman dialogue did not restore input immediately.");
 
         var warps = new WarpDatabase();
         OracleRoomData exterior = _world.LoadRoom(exteriorGroup, exteriorRoom);
@@ -349,7 +295,8 @@ public sealed partial class ValidationRoot
             group, room, Vector2I.Down,
             new Vector2(0x70, interior.Height + 2),
             new Vector2(interior.Width, interior.Height), out Warp exit);
-        if (!entryPositions.SequenceEqual(new[] { 0x51, 0x52 }) ||
+        FailIf(
+            !entryPositions.SequenceEqual(new[] { 0x51, 0x52 }) ||
             exterior.GetMetatile(PackedPosition(0x51)) != 0xee ||
             exterior.GetMetatile(PackedPosition(0x52)) != 0xef ||
             !hasEntry ||
@@ -367,63 +314,46 @@ public sealed partial class ValidationRoot
                 DestinationGroup: 0, DestinationRoom: 0x53,
                 DestinationPosition: 0x52, DestinationParameter: 0,
                 DestinationTransition: 14
-            })
-        {
-            throw new InvalidOperationException(
-                "Rooms 0:53/2:e6 did not retain Rafton's two-tile tree entry " +
-                $"and right-half bottom exit (positions=" +
-                $"{string.Join(',', entryPositions.Select(value => value.ToString("x2")))}, " +
-                $"tiles=${exterior.GetMetatile(PackedPosition(0x51)):x2}/" +
-                $"${exterior.GetMetatile(PackedPosition(0x52)):x2}, " +
-                $"entry={entry}, exit={exit}).");
-        }
+            },
+            "Rooms 0:53/2:e6 did not retain Rafton's two-tile tree entry " +
+            $"and right-half bottom exit (positions=" +
+            $"{string.Join(',', entryPositions.Select(value => value.ToString("x2")))}, " +
+            $"tiles=${exterior.GetMetatile(PackedPosition(0x51)):x2}/" +
+            $"${exterior.GetMetatile(PackedPosition(0x52)):x2}, " +
+            $"entry={entry}, exit={exit}).");
 
         LoadValidationRoom(exteriorGroup, exteriorRoom);
         _player.WarpTo(PackedPosition(0x52));
-        if (!CheckTileWarp(_player) ||
+        FailIf(
+            !CheckTileWarp(_player) ||
             _activeGroup != group || _currentRoom.Id != room ||
             !IsTransitioning ||
-            _player.Position != new Vector2(0x70, interior.Height))
-        {
-            throw new InvalidOperationException(
-                "Room 0:53/$52 did not begin the source transition-4 entry into 2:e6.");
-        }
+            _player.Position != new Vector2(0x70, interior.Height),
+            "Room 0:53/$52 did not begin the source transition-4 entry into 2:e6.");
         UpdateRoomWarpTransition(WarpEnterFrames / 60.0);
-        if (!IsTransitioning ||
-            _player.Position != new Vector2(0x70, interior.Height - WarpEnterFrames))
-        {
-            throw new InvalidOperationException(
-                "Room 2:e6 entry did not complete its 28-update upward walk.");
-        }
+        FailIf(
+            !IsTransitioning ||
+            _player.Position != new Vector2(0x70, interior.Height - WarpEnterFrames),
+            "Room 2:e6 entry did not complete its 28-update upward walk.");
         UpdateRoomWarpTransition((WarpFadeFrames - WarpEnterFrames) / 60.0);
-        if (IsTransitioning)
-        {
-            throw new InvalidOperationException(
-                "Room 2:e6 entry fade did not finish on update 32.");
-        }
+        FailIf(IsTransitioning, "Room 2:e6 entry fade did not finish on update 32.");
 
         _player.WarpTo(new Vector2(0x70, interior.Height + 2));
         _player.Face(Vector2I.Down);
         CheckRoomExit(_player);
-        if (!IsTransitioning || _activeGroup != group || _currentRoom.Id != room)
-        {
-            throw new InvalidOperationException(
-                "Room 2:e6's right-half bottom edge did not begin source transition 3.");
-        }
+        FailIf(
+            !IsTransitioning || _activeGroup != group || _currentRoom.Id != room,
+            "Room 2:e6's right-half bottom edge did not begin source transition 3.");
         UpdateRoomWarpTransition(WarpLeaveFrames / 60.0);
-        if (_activeGroup != exteriorGroup ||
-            _currentRoom.Id != exteriorRoom || !IsTransitioning)
-        {
-            throw new InvalidOperationException(
-                "Room 2:e6 did not load exterior 0:53 after its 16-update exit walk.");
-        }
+        FailIf(
+            _activeGroup != exteriorGroup ||
+            _currentRoom.Id != exteriorRoom || !IsTransitioning,
+            "Room 2:e6 did not load exterior 0:53 after its 16-update exit walk.");
         UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
-        if (IsTransitioning ||
-            _currentRoom.GetPackedPosition(_player.Position) != 0x62)
-        {
-            throw new InvalidOperationException(
-                "Room 2:e6's transition-$0e exit did not step below exterior 0:53/$52.");
-        }
+        FailIf(
+            IsTransitioning ||
+            _currentRoom.GetPackedPosition(_player.Position) != 0x62,
+            "Room 2:e6's transition-$0e exit did not step below exterior 0:53/$52.");
 
         CutsceneCommandTraceEntry[] commandStarts = trace.Entries.Where(entry =>
             entry.Phase == CutsceneCommandTracePhase.Started &&
@@ -434,13 +364,11 @@ public sealed partial class ValidationRoot
             "jumpifroomflagset", "jumpiftradeitemeq",
             "jumpiftextoptioneq", "giveitem"
         ];
-        if (commandStarts.Any(entry => entry.Source.SourceLine <= 0) ||
+        FailIf(
+            commandStarts.Any(entry => entry.Source.SourceLine <= 0) ||
             requiredOpcodes.Any(opcode =>
-                !commandStarts.Any(entry => entry.Source.Opcode == opcode)))
-        {
-            throw new InvalidOperationException(
-                "Mask Salesman typed trace lost source lines or a required script opcode.");
-        }
+                !commandStarts.Any(entry => entry.Source.Opcode == opcode)),
+            "Mask Salesman typed trace lost source lines or a required script opcode.");
 
         _saveData.WriteWramBytes(0xc688, inventorySnapshot);
         _saveData.CommitInventoryChange();

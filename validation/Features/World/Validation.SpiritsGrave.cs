@@ -99,7 +99,8 @@ public sealed partial class ValidationRoot
         ];
         int nativeCount = dungeonRooms.Sum(
             room => data.GetRoomRecords(4, room).Count);
-        if (nativeCount != 17 ||
+        FailIf(
+            nativeCount != 17 ||
             data.GetRoomRecords(4, 0x20).Count != 7 ||
             enemyData.ImportedEnemy(0x0a) is not { Health: 3, DamageQuarters: 2 } ||
             enemyData.ImportedEnemy(0x0c) is not { Health: 3, DamageQuarters: 2 } ||
@@ -155,11 +156,8 @@ public sealed partial class ValidationRoot
             !IsGbcColor(data.CubePalettes[6][2], 0x03, 0x10, 0x1f) ||
             !IsGbcColor(data.CubePalettes[7][1], 0x03, 0x10, 0x1f) ||
             !IsGbcColor(data.CubePalettes[7][2], 0x1f, 0x16, 0x06) ||
-            !data.EssenceMessage.Contains("Eternal Spirit", StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException(
-                "Spirit's Grave native object/enemy/visual contract is incomplete.");
-        }
+            !data.EssenceMessage.Contains("Eternal Spirit", StringComparison.Ordinal),
+            "Spirit's Grave native object/enemy/visual contract is incomplete.");
 
         var chests = new ChestDatabase();
         (int Room, int Position, string Treasure)[] expectedChests =
@@ -175,12 +173,10 @@ public sealed partial class ValidationRoot
         };
         foreach ((int room, int position, string treasure) in expectedChests)
         {
-            if (!chests.TryGet(4, room, position, out ChestRecord chest) ||
-                chest.TreasureObject != treasure)
-            {
-                throw new InvalidOperationException(
-                    $"Spirit's Grave chest 4:{room:x2}/${position:x2} is not {treasure}.");
-            }
+            FailIf(
+                !chests.TryGet(4, room, position, out ChestRecord chest) ||
+                chest.TreasureObject != treasure,
+                $"Spirit's Grave chest 4:{room:x2}/${position:x2} is not {treasure}.");
         }
 
         // Tile $69 uses breakable-room action $8c: set the left flag in 4:1d
@@ -189,28 +185,24 @@ public sealed partial class ValidationRoot
         // the Ember child deletes itself, otherwise the exception repeats from
         // flame counter zero forever and re-entry restores the solid wall.
         var breakables = new BreakableTileDatabase();
-        if (!breakables.TryGet(
+        FailIf(
+            !breakables.TryGet(
                 2, 0x69,
                 out BreakableTileRecord burnableWall) ||
             burnableWall.RoomFlagAction != 0x8c ||
             burnableWall.Replacement != 0x37 ||
             burnableWall.Effect != 0xdf ||
-            burnableWall.GashaMaturity != 50)
-        {
-            throw new InvalidOperationException(
-                "Spirit's Grave burnable wall $69 did not retain its imported " +
-                "$8c linked-room flag, $37 replacement, $df effect, and 50 maturity.");
-        }
+            burnableWall.GashaMaturity != 50,
+            "Spirit's Grave burnable wall $69 did not retain its imported " +
+            "$8c linked-room flag, $37 replacement, $df effect, and 50 maturity.");
         _saveData.SetRoomFlag(4, 0x1d, 0x08, false);
         _saveData.SetRoomFlag(4, 0x1c, 0x02, false);
         PrepareRoom(0x1d);
         Vector2 burnableWallCenter = new(0x08, 0x58);
-        if (_currentRoom.GetMetatile(burnableWallCenter) != 0x69 ||
-            !_currentRoom.IsSolid(burnableWallCenter))
-        {
-            throw new InvalidOperationException(
-                "Room 4:1d did not begin with the solid left burnable wall $69.");
-        }
+        FailIf(
+            _currentRoom.GetMetatile(burnableWallCenter) != 0x69 ||
+            !_currentRoom.IsSolid(burnableWallCenter),
+            "Room 4:1d did not begin with the solid left burnable wall $69.");
         int maturityBeforeWall = _saveData.GashaMaturity;
         _sound.ClearPlayRequestAudit();
         EmberSeedEffect wallSeed = _entities.Spawn<EmberSeedEffect>(
@@ -218,59 +210,49 @@ public sealed partial class ValidationRoot
                 burnableWallCenter + new Vector2(0, 10),
                 Vector2I.Up, new SeedSatchelDatabase().Ember, 4));
         StepEntities(67);
-        if (!wallSeed.Finished ||
+        FailIf(
+            !wallSeed.Finished ||
             _entities.Entities<EmberSeedEffect>().Count != 0 ||
             _currentRoom.GetMetatile(burnableWallCenter) != 0x37 ||
             _currentRoom.IsSolid(burnableWallCenter) ||
             !_saveData.HasRoomFlag(4, 0x1d, 0x08) ||
             !_saveData.HasRoomFlag(4, 0x1c, 0x02) ||
             _saveData.GashaMaturity != maturityBeforeWall + 50 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1)
-        {
-            throw new InvalidOperationException(
-                "Burning room 4:1d's left exit did not terminate the Ember flame, " +
-                "play SND_SOLVEPUZZLE, open tile $69->$37, and set both linked flags.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1,
+            "Burning room 4:1d's left exit did not terminate the Ember flame, " +
+            "play SND_SOLVEPUZZLE, open tile $69->$37, and set both linked flags.");
         PrepareRoom(0x1c);
         PrepareRoom(0x1d);
-        if (_currentRoom.GetMetatile(burnableWallCenter) != 0x37 ||
-            _currentRoom.IsSolid(burnableWallCenter))
-        {
-            throw new InvalidOperationException(
-                "Room 4:1d re-entry from the left did not apply flag $08's " +
-                "persistent $69->$37 wall substitution.");
-        }
+        FailIf(
+            _currentRoom.GetMetatile(burnableWallCenter) != 0x37 ||
+            _currentRoom.IsSolid(burnableWallCenter),
+            "Room 4:1d re-entry from the left did not apply flag $08's " +
+            "persistent $69->$37 wall substitution.");
 
         // Room 4:1d's right shutter is layout tile $79 without a placed door
         // controller. replaceShutterForLinkEntering still changes the crossed
         // tile to $a0 during the destination preload, before object parsing.
         Vector2 layoutShutterCenter = new(0xe8, 0x58);
-        if (_currentRoom.GetMetatile(layoutShutterCenter) != 0x79 ||
-            !_currentRoom.IsSolid(layoutShutterCenter))
-        {
-            throw new InvalidOperationException(
-                "A direct room 4:1d load did not restore solid layout shutter $79.");
-        }
+        FailIf(
+            _currentRoom.GetMetatile(layoutShutterCenter) != 0x79 ||
+            !_currentRoom.IsSolid(layoutShutterCenter),
+            "A direct room 4:1d load did not restore solid layout shutter $79.");
         PrepareRoom(0x1e);
         _player.WarpTo(new Vector2(0x06, 0x58));
         _transitions.BeginScroll(_player, Vector2I.Left, 0x1d);
-        if (!_transitions.ScrollActive ||
+        FailIf(
+            !_transitions.ScrollActive ||
             _currentRoom.Id != 0x1d ||
             _currentRoom.GetMetatile(layoutShutterCenter) != 0xa0 ||
-            _currentRoom.IsSolid(layoutShutterCenter))
-        {
-            throw new InvalidOperationException(
-                "Scrolling from room 4:1e into 4:1d did not preload the crossed " +
-                "right layout shutter $79 as non-solid floor $a0.");
-        }
+            _currentRoom.IsSolid(layoutShutterCenter),
+            "Scrolling from room 4:1e into 4:1d did not preload the crossed " +
+            "right layout shutter $79 as non-solid floor $a0.");
         _transitions.UpdateScroll(1.0);
-        if (_transitions.ScrollActive ||
+        FailIf(
+            _transitions.ScrollActive ||
             _currentRoom.GetPackedPosition(_player.Position) != 0x5e ||
-            _currentRoom.IsSolid(_player.Position))
-        {
-            throw new InvalidOperationException(
-                "Room 4:1d's right-entry scroll left Link stuck in shutter $79.");
-        }
+            _currentRoom.IsSolid(_player.Position),
+            "Room 4:1d's right-entry scroll left Link stuck in shutter $79.");
         _saveData.WriteWramByte(0xc65f, (byte)maturityBeforeWall);
         _saveData.WriteWramByte(0xc660, (byte)(maturityBeforeWall >> 8));
 
@@ -280,16 +262,15 @@ public sealed partial class ValidationRoot
             PrepareRoom(room);
 
         PrepareRoom(0x17);
-        if (_entities.Entities<BoomerangMoblinCharacter>().Count != 2)
-            throw new InvalidOperationException("Room 4:17 did not create both boomerang Moblins.");
+        FailIf(
+            _entities.Entities<BoomerangMoblinCharacter>().Count != 2,
+            "Room 4:17 did not create both boomerang Moblins.");
         int moblinRandomCalls = _entities.RandomCalls;
         StepEntities();
-        if (_entities.RandomCalls != moblinRandomCalls + 4)
-        {
-            throw new InvalidOperationException(
-                "Each Boomerang Moblin did not consume separate duration and " +
-                "cardinal-angle RNG values on its first object update.");
-        }
+        FailIf(
+            _entities.RandomCalls != moblinRandomCalls + 4,
+            "Each Boomerang Moblin did not consume separate duration and " +
+            "cardinal-angle RNG values on its first object update.");
         _player.WarpTo(new Vector2(0x78, 0x78));
         for (int frame = 0;
              frame < 480 && _entities.Entities<MoblinBoomerangProjectile>().Count == 0;
@@ -297,13 +278,11 @@ public sealed partial class ValidationRoot
         {
             StepEntities();
         }
-        if (_entities.Entities<MoblinBoomerangProjectile>() is not
-            [{ Finished: false, Counter: 0x2d, Speed: 2.0f }])
-        {
-            throw new InvalidOperationException(
-                "Room 4:17's Moblins did not create the imported rotating boomerang " +
-                "with its state-0 $2d/SPEED_200 initialization.");
-        }
+        FailIf(
+            _entities.Entities<MoblinBoomerangProjectile>() is not
+            [{ Finished: false, Counter: 0x2d, Speed: 2.0f }],
+            "Room 4:17's Moblins did not create the imported rotating boomerang " +
+            "with its state-0 $2d/SPEED_200 initialization.");
         MoblinBoomerangProjectile moblinBoomerang =
             _entities.Entities<MoblinBoomerangProjectile>().Single();
         moblinBoomerang.Position = (
@@ -314,41 +293,34 @@ public sealed partial class ValidationRoot
                   center.DistanceTo(_player.Position) >= 16.0f
             select center).First();
         StepEntities();
-        if (moblinBoomerang.Counter != 0x2c || moblinBoomerang.Speed != 2.0f ||
+        FailIf(
+            moblinBoomerang.Counter != 0x2c || moblinBoomerang.Speed != 2.0f ||
             moblinBoomerang.Returning ||
-            moblinBoomerang.CollisionBounds.Size != new Vector2(4, 4))
-        {
-            throw new InvalidOperationException(
-                "The Moblin boomerang did not begin its source 6-update " +
-                $"gradual slowdown (counter=${moblinBoomerang.Counter:x2}, " +
-                $"speed={moblinBoomerang.Speed}, returning=" +
-                $"{moblinBoomerang.Returning}, bounds=" +
-                $"{moblinBoomerang.CollisionBounds.Size}).");
-        }
+            moblinBoomerang.CollisionBounds.Size != new Vector2(4, 4),
+            "The Moblin boomerang did not begin its source 6-update " +
+            $"gradual slowdown (counter=${moblinBoomerang.Counter:x2}, " +
+            $"speed={moblinBoomerang.Speed}, returning=" +
+            $"{moblinBoomerang.Returning}, bounds=" +
+            $"{moblinBoomerang.CollisionBounds.Size}).");
 
         PrepareRoom(0x1c);
-        if (_entities.Entities<RopeCharacter>().Count != 2)
-            throw new InvalidOperationException("Room 4:1c did not create both Ropes.");
+        FailIf(_entities.Entities<RopeCharacter>().Count != 2, "Room 4:1c did not create both Ropes.");
         int ropeRandomCalls = _entities.RandomCalls;
         StepEntities();
-        if (_entities.RandomCalls != ropeRandomCalls ||
-            _entities.Entities<RopeCharacter>().Any(rope => rope.Counter != 0))
-        {
-            throw new InvalidOperationException(
-                "D1 Ropes consumed RNG while source state 0 was only installing SPEED_80.");
-        }
+        FailIf(
+            _entities.RandomCalls != ropeRandomCalls ||
+            _entities.Entities<RopeCharacter>().Any(rope => rope.Counter != 0),
+            "D1 Ropes consumed RNG while source state 0 was only installing SPEED_80.");
         _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
         List<RopeCharacter> ropes = _entities.Entities<RopeCharacter>();
         Vector2[] ropeStarts = ropes.Select(rope => rope.Position).ToArray();
         StepEntities();
-        if (_entities.RandomCalls != ropeRandomCalls ||
+        FailIf(
+            _entities.RandomCalls != ropeRandomCalls ||
             ropes.Any(rope => rope.Speed != 0.5f) ||
             ropes.Where((rope, index) =>
-                !Mathf.IsEqualApprox(rope.Position.DistanceTo(ropeStarts[index]), 0.5f)).Any())
-        {
-            throw new InvalidOperationException(
-                "D1 Ropes did not retain source SPEED_80 before their first charge ends.");
-        }
+                !Mathf.IsEqualApprox(rope.Position.DistanceTo(ropeStarts[index]), 0.5f)).Any(),
+            "D1 Ropes did not retain source SPEED_80 before their first charge ends.");
 
         // rope_state_chargeLink keeps its cardinal lock until the shared
         // side-view movement helper reports a wall. That collision immediately
@@ -361,15 +333,13 @@ public sealed partial class ValidationRoot
         _player.WarpTo(new Vector2(0x00, 0x42), recordSafe: false);
         Vector2 chargeStart = chargingRope.Position;
         chargingRope.UpdateFrame(_player.Position);
-        if (chargingRope.State != RopeState.Charging ||
+        FailIf(
+            chargingRope.State != RopeState.Charging ||
             chargingRope.Angle != 0x18 ||
             chargingRope.Speed != 1.25f ||
-            chargingRope.Position != chargeStart)
-        {
-            throw new InvalidOperationException(
-                "A room 4:1c Rope did not acquire Link to the left without moving " +
-                "on the source lock-on update.");
-        }
+            chargingRope.Position != chargeStart,
+            "A room 4:1c Rope did not acquire Link to the left without moving " +
+            "on the source lock-on update.");
 
         _player.WarpTo(new Vector2(0xc8, 0x78), recordSafe: false);
         int chargeRandomCalls = _entities.RandomCalls;
@@ -379,28 +349,24 @@ public sealed partial class ValidationRoot
         {
             chargingRope.UpdateFrame(_player.Position);
             chargeUpdates++;
-            if (chargingRope.State == RopeState.Charging &&
-                chargingRope.Angle != 0x18)
-            {
-                throw new InvalidOperationException(
-                    "A charging Rope retargeted after its source cardinal lock.");
-            }
+            FailIf(
+                chargingRope.State == RopeState.Charging &&
+                chargingRope.Angle != 0x18,
+                "A charging Rope retargeted after its source cardinal lock.");
         }
-        if (chargingRope.State != RopeState.Wandering ||
+        FailIf(
+            chargingRope.State != RopeState.Wandering ||
             chargingRope.Cooldown != 0x40 ||
             chargingRope.Speed != 0.375f ||
             chargingRope.Counter is < 0x70 or > 0xe0 ||
             (chargingRope.Counter & 0x0f) != 0 ||
-            _entities.RandomCalls != chargeRandomCalls + 1)
-        {
-            throw new InvalidOperationException(
-                "Room 4:1c's Rope did not leave its charge on wall collision, " +
-                "restore SPEED_60/counter2 $40, and run rope_changeDirection once " +
-                $"(state={chargingRope.State}, cooldown=${chargingRope.Cooldown:x2}, " +
-                $"speed={chargingRope.Speed}, counter=${chargingRope.Counter:x2}, " +
-                $"rng={_entities.RandomCalls - chargeRandomCalls}, " +
-                $"updates={chargeUpdates}, position={chargingRope.Position}).");
-        }
+            _entities.RandomCalls != chargeRandomCalls + 1,
+            "Room 4:1c's Rope did not leave its charge on wall collision, " +
+            "restore SPEED_60/counter2 $40, and run rope_changeDirection once " +
+            $"(state={chargingRope.State}, cooldown=${chargingRope.Cooldown:x2}, " +
+            $"speed={chargingRope.Speed}, counter=${chargingRope.Counter:x2}, " +
+            $"rng={_entities.RandomCalls - chargeRandomCalls}, " +
+            $"updates={chargeUpdates}, position={chargingRope.Position}).");
 
         // Dungeon metatile $16 uses breakable mode $28, whose effect byte
         // creates INTERAC_ROCKDEBRIS $06 at the broken tile center. Its state
@@ -408,92 +374,74 @@ public sealed partial class ValidationRoot
         Vector2 rockCenter = new(0x78, 0x38);
         _player.WarpTo(new Vector2(0x78, 0x46), recordSafe: false);
         _sound.ClearPlayRequestAudit();
-        if (_currentRoom.GetMetatile(rockCenter) != 0x16 ||
-            !_combat.ApplySwordTileHit(
-                _player, direction: 0, swordPoke: false) ||
-            _currentRoom.GetMetatile(rockCenter) != 0xa0 ||
-            _entities.Entities<RockDebrisEffect>() is not
-                [{ Position: var debrisPosition }])
-        {
-            throw new InvalidOperationException(
-                "Room 4:1c's metatile $16 did not break to $a0 and create " +
-                "INTERAC_ROCKDEBRIS $06.");
-        }
+        bool wasRock = _currentRoom.GetMetatile(rockCenter) == 0x16;
+        bool brokeRock = _combat.ApplySwordTileHit(
+            _player, direction: 0, swordPoke: false);
         RockDebrisEffect rockDebris =
-            _entities.Entities<RockDebrisEffect>().Single();
+            _entities.Entities<RockDebrisEffect>().SingleOrDefault()!;
+        FailIf(
+            !wasRock || !brokeRock ||
+            _currentRoom.GetMetatile(rockCenter) != 0xa0 ||
+            rockDebris is null,
+            "Room 4:1c's metatile $16 did not break to $a0 and create " +
+            "INTERAC_ROCKDEBRIS $06.");
         using (Image firstRockDebrisFrame = rockDebris.CurrentTexture.GetImage())
         {
             ulong firstRockDebrisHash =
                 OracleGraphicsCache.PixelHash(firstRockDebrisFrame);
-            if (debrisPosition != rockCenter ||
-                firstRockDebrisHash != 0x12f5a6fa793c2798UL)
-            {
-                throw new InvalidOperationException(
-                    "INTERAC_ROCKDEBRIS $06 did not use its tile-centered " +
-                    "first four-chip OAM frame " +
-                    $"(position={debrisPosition}, hash={firstRockDebrisHash:x16}).");
-            }
+            FailIf(
+                rockDebris.Position != rockCenter ||
+                firstRockDebrisHash != 0x12f5a6fa793c2798UL,
+                "INTERAC_ROCKDEBRIS $06 did not use its tile-centered " +
+                "first four-chip OAM frame " +
+                $"(position={rockDebris.Position}, hash={firstRockDebrisHash:x16}).");
         }
         StepEntities();
-        if (rockDebris.ElapsedUpdates != 1 ||
+        FailIf(
+            rockDebris.ElapsedUpdates != 1 ||
             rockDebris.AnimationFrame != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBreakRock) != 1)
-        {
-            throw new InvalidOperationException(
-                "INTERAC_ROCKDEBRIS state 0 did not request SND_BREAK_ROCK " +
-                "without advancing animation 0.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBreakRock) != 1,
+            "INTERAC_ROCKDEBRIS state 0 did not request SND_BREAK_ROCK " +
+            "without advancing animation 0.");
         for (int frame = 1; frame <= 4; frame++)
         {
             StepEntities(4);
-            if (rockDebris.AnimationFrame != frame || rockDebris.Finished)
-            {
-                throw new InvalidOperationException(
-                    $"INTERAC_ROCKDEBRIS did not enter animation frame {frame} " +
-                    $"after {frame * 4} state-1 updates.");
-            }
+            FailIf(
+                rockDebris.AnimationFrame != frame || rockDebris.Finished,
+                $"INTERAC_ROCKDEBRIS did not enter animation frame {frame} " +
+                $"after {frame * 4} state-1 updates.");
         }
-        if ((rockDebris.CurrentParameter & 0x80) == 0 ||
-            rockDebris.ElapsedUpdates != 17)
-        {
-            throw new InvalidOperationException(
-                "INTERAC_ROCKDEBRIS did not expose terminal parameter $ff " +
-                "after its four 4-update frames.");
-        }
+        FailIf(
+            (rockDebris.CurrentParameter & 0x80) == 0 ||
+            rockDebris.ElapsedUpdates != 17,
+            "INTERAC_ROCKDEBRIS did not expose terminal parameter $ff " +
+            "after its four 4-update frames.");
         StepEntities();
-        if (!rockDebris.Finished ||
+        FailIf(
+            !rockDebris.Finished ||
             rockDebris.ElapsedUpdates != 18 ||
             _entities.Entities<RockDebrisEffect>().Count != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBreakRock) != 1)
-        {
-            throw new InvalidOperationException(
-                "INTERAC_ROCKDEBRIS did not delete one update after its " +
-                "terminal frame without replaying SND_BREAK_ROCK.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBreakRock) != 1,
+            "INTERAC_ROCKDEBRIS did not delete one update after its " +
+            "terminal frame without replaying SND_BREAK_ROCK.");
 
         PrepareRoom(0x1e);
-        if (_entities.Entities<GhiniCharacter>().Count != 1 ||
-            _entities.Entities<SpiritsGraveRewardController>().Count != 1)
-        {
-            throw new InvalidOperationException(
-                "Room 4:1e did not create its Ghini and native falling-key reward.");
-        }
+        FailIf(
+            _entities.Entities<GhiniCharacter>().Count != 1 ||
+            _entities.Entities<SpiritsGraveRewardController>().Count != 1,
+            "Room 4:1e did not create its Ghini and native falling-key reward.");
         GhiniCharacter ghini = _entities.Entities<GhiniCharacter>().Single();
         int ghiniRandomCalls = _entities.RandomCalls;
         StepEntities();
-        if (_entities.RandomCalls != ghiniRandomCalls ||
-            ghini.State != GhiniState.Choosing)
-        {
-            throw new InvalidOperationException(
-                "The room 4:1e Ghini consumed its route RNG during source state 0.");
-        }
+        FailIf(
+            _entities.RandomCalls != ghiniRandomCalls ||
+            ghini.State != GhiniState.Choosing,
+            "The room 4:1e Ghini consumed its route RNG during source state 0.");
         StepEntities();
-        if (_entities.RandomCalls != ghiniRandomCalls + 1 ||
-            ghini.State != GhiniState.Moving)
-        {
-            throw new InvalidOperationException(
-                "The room 4:1e Ghini did not choose its route in state 8 on the next update.");
-        }
+        FailIf(
+            _entities.RandomCalls != ghiniRandomCalls + 1 ||
+            ghini.State != GhiniState.Moving,
+            "The room 4:1e Ghini did not choose its route in state 8 on the next update.");
         int ghiniAngleBeforeBounce = ghini.Angle;
         ghini.Position = ghiniAngleBeforeBounce switch
         {
@@ -510,44 +458,36 @@ public sealed partial class ValidationRoot
             0x10 => 0x00,
             _ => 0x08
         };
-        if (ghini.Angle != expectedGhiniBounceAngle ||
-            ghini.AnimationIndex != (expectedGhiniBounceAngle < 0x10 ? 1 : 0))
-        {
-            throw new InvalidOperationException(
-                "The D1 Ghini did not update its facing animation after the source " +
-                "screen-boundary bounce.");
-        }
+        FailIf(
+            ghini.Angle != expectedGhiniBounceAngle ||
+            ghini.AnimationIndex != (expectedGhiniBounceAngle < 0x10 ? 1 : 0),
+            "The D1 Ghini did not update its facing animation after the source " +
+            "screen-boundary bounce.");
         _sound.ClearPlayRequestAudit();
-        if (!_entities.ApplySwordHit(
+        FailIf(
+            !_entities.ApplySwordHit(
                 new Rect2(Vector2.Zero, new Vector2(240, 176)), damage: 2) ||
             ghini.Health != 8 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) != 1)
-        {
-            throw new InvalidOperationException(
-                "The room 4:1e Ghini did not request SND_DAMAGE_ENEMY for an " +
-                "accepted ordinary sword hit.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) != 1,
+            "The room 4:1e Ghini did not request SND_DAMAGE_ENEMY for an " +
+            "accepted ordinary sword hit.");
         StepEntities(21);
-        if (!_entities.ApplySwordHit(
+        FailIf(
+            !_entities.ApplySwordHit(
                 new Rect2(Vector2.Zero, new Vector2(240, 176)), damage: 20) ||
             !ghini.PendingKnockbackDeath ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) != 2)
-        {
-            throw new InvalidOperationException(
-                "The room 4:1e Ghini did not retain its collision-effect sound " +
-                "and begin recoil on the lethal sword hit.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) != 2,
+            "The room 4:1e Ghini did not retain its collision-effect sound " +
+            "and begin recoil on the lethal sword hit.");
         while (ghini.KnockbackCounter > 0)
             ghini.UpdateFrame();
         ghini.UpdateFrame();
         StepEntities();
-        if (_entities.Entities<GroundTreasurePickup>() is not
-            [{ Record.TreasureObject: "TREASURE_OBJECT_SMALL_KEY_01" }])
-        {
-            throw new InvalidOperationException(
-                "Room 4:1e did not spawn its above-screen two-bounce small " +
-                "key after the Ghini's lethal recoil.");
-        }
+        FailIf(
+            _entities.Entities<GroundTreasurePickup>() is not
+            [{ Record.TreasureObject: "TREASURE_OBJECT_SMALL_KEY_01" }],
+            "Room 4:1e did not spawn its above-screen two-bounce small " +
+            "key after the Ghini's lethal recoil.");
         GroundTreasurePickup fallingKey =
             _entities.Entities<GroundTreasurePickup>().Single();
         _player.WarpTo(new Vector2(0xd8, 0x98), recordSafe: false);
@@ -557,31 +497,25 @@ public sealed partial class ValidationRoot
         {
             StepEntities();
         }
-        if (fallingKey.State != PickupState.Waiting)
-        {
-            throw new InvalidOperationException(
-                "Room 4:1e's small key did not finish its source two-bounce fall.");
-        }
+        FailIf(
+            fallingKey.State != PickupState.Waiting,
+            "Room 4:1e's small key did not finish its source two-bounce fall.");
         int keysBeforePickup = _inventory.GetDungeonSmallKeys(1);
         _sound.ClearPlayRequestAudit();
         _player.WarpTo(fallingKey.Position, recordSafe: false);
         StepEntities();
-        if (_inventory.GetDungeonSmallKeys(1) != keysBeforePickup + 1 ||
+        FailIf(
+            _inventory.GetDungeonSmallKeys(1) != keysBeforePickup + 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 0)
-        {
-            throw new InvalidOperationException(
-                "Room 4:1e's touched key did not request its SND_GETSEED " +
-                "collection behavior before the held-item sound.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 0,
+            "Room 4:1e's touched key did not request its SND_GETSEED " +
+            "collection behavior before the held-item sound.");
         StepEntities();
-        if (!fallingKey.Held ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 1)
-        {
-            throw new InvalidOperationException(
-                "Room 4:1e's key did not enter its held pose with SND_GETITEM " +
-                "on the following interaction update.");
-        }
+        FailIf(
+            !fallingKey.Held ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 1,
+            "Room 4:1e's key did not enter its held pose with SND_GETITEM " +
+            "on the following interaction update.");
 
         _saveData.SetRoomFlag(4, 0x1b, OracleSaveData.RoomFlag80, false);
         PrepareRoom(0x1b);
@@ -593,44 +527,39 @@ public sealed partial class ValidationRoot
             Vector2 center = new(
                 (packed & 0x0f) * 16 + 8,
                 (packed >> 4) * 16 + 8);
-            if (torch.ApplySeedHit(
+            FailIf(
+                torch.ApplySeedHit(
                 new Rect2(center - new Vector2(4, 4), new Vector2(8, 8)),
                 center,
-                directSpawns) != SeedHitResult.Consume)
-            {
-                throw new InvalidOperationException(
-                    $"Room 4:1b torch ${packed:x2} rejected an Ember collision.");
-            }
+                directSpawns) != SeedHitResult.Consume,
+                $"Room 4:1b torch ${packed:x2} rejected an Ember collision.");
             torch.UpdateFrame(
                 new RoomEntityFrame(_player, _entities.FrameCounter, false),
                 directSpawns);
         }
-        if (!torch.Finished || torch.LitCount != 2 ||
+        FailIf(
+            !torch.Finished || torch.LitCount != 2 ||
             !_saveData.HasRoomFlag(4, 0x1b, OracleSaveData.RoomFlag80) ||
             _currentRoom.GetMetatile(new Vector2(0xb8, 0x28)) != 0x45 ||
-            directSpawns.OfType<PuzzlePuffSpawn>().Count() != 1)
-        {
-            throw new InvalidOperationException(
-                "Room 4:1b did not light two torches and reveal its persistent staircase.");
-        }
+            directSpawns.OfType<PuzzlePuffSpawn>().Count() != 1,
+            "Room 4:1b did not light two torches and reveal its persistent staircase.");
 
         var warps = new WarpDatabase();
         _saveData.SetRoomFlag(4, 0x10, OracleSaveData.RoomFlagItem, false);
         _player.WarpTo(new Vector2(0xb8, 0x28), recordSafe: false);
-        if (!warps.TryGetTileWarp(
+        FailIf(
+            !warps.TryGetTileWarp(
                 4, 0x1b, 0x2b, 0x45, out Warp braceletStairs) ||
             braceletStairs is not
                 { DestinationGroup: 6, DestinationRoom: 0x10,
                   DestinationPosition: 0x02, DestinationTransition: 3 } ||
             !_world.HasRoom(6, 0x10) ||
-            !_transitions.CheckTileWarp(_player))
-        {
-            throw new InvalidOperationException(
-                "Room 4:1b's revealed `$45 staircase did not start its source warp to 6:10.");
-        }
+            !_transitions.CheckTileWarp(_player),
+            "Room 4:1b's revealed `$45 staircase did not start its source warp to 6:10.");
         for (int frame = 0; frame < 120 && _transitions.IsTransitioning; frame++)
             _transitions.Update(update);
-        if (_transitions.IsTransitioning ||
+        FailIf(
+            _transitions.IsTransitioning ||
             _rooms.ActiveGroup != 6 || _currentRoom.Id != 0x10 ||
             _currentRoom.Group != 6 || _currentRoom.TilesetId != 0x4c ||
             (_currentRoom.TilesetFlags & 0x20) == 0 ||
@@ -642,14 +571,12 @@ public sealed partial class ValidationRoot
                 out Warp braceletReturn) ||
             braceletReturn is not
                 { DestinationGroup: 4, DestinationRoom: 0x1b,
-                  DestinationPosition: 0x2b })
-        {
-            throw new InvalidOperationException(
-                "The 4:1b staircase did not load side-scrolling D1 room 6:10 " +
-                "with its bracelet object and return warp.");
-        }
+                  DestinationPosition: 0x2b },
+            "The 4:1b staircase did not load side-scrolling D1 room 6:10 " +
+            "with its bracelet object and return warp.");
         StepEntities(3);
-        if (_entities.Entities<GroundTreasurePickup>() is not
+        FailIf(
+            _entities.Entities<GroundTreasurePickup>() is not
             [{
                 State: PickupState.Waiting,
                 Position: { X: 0x58, Y: 0x58 },
@@ -659,18 +586,16 @@ public sealed partial class ValidationRoot
                     Room: 0x10,
                     TreasureObject: "TREASURE_OBJECT_BRACELET_00"
                 }
-            }])
-        {
-            throw new InvalidOperationException(
-                "Side-scrolling room 6:10 did not create the source-positioned " +
-                "collectible TREASURE_OBJECT_BRACELET_00 reward.");
-        }
+            }],
+            "Side-scrolling room 6:10 did not create the source-positioned " +
+            "collectible TREASURE_OBJECT_BRACELET_00 reward.");
 
         var sideScroll = new SideScrollPlayerDatabase();
         SideScrollPlayerParameters sideParameters = sideScroll.Parameters;
         SideScrollTerrainState entranceTerrain =
             _terrain.GetSideScrollTerrain(new Vector2(0x28, 0x08));
-        if (sideScroll.TileType(0x18) != SideScrollTileType.Ladder ||
+        FailIf(
+            sideScroll.TileType(0x18) != SideScrollTileType.Ladder ||
             sideScroll.TileType(0x19) !=
                 (SideScrollTileType.Ladder | SideScrollTileType.LadderTop) ||
             sideScroll.TileType(0x1a) !=
@@ -696,12 +621,9 @@ public sealed partial class ValidationRoot
             entranceTerrain.ActiveTile != 0x18 ||
             entranceTerrain.BelowTile != 0x18 ||
             entranceTerrain.ActiveType != SideScrollTileType.Ladder ||
-            entranceTerrain.BelowType != SideScrollTileType.Ladder)
-        {
-            throw new InvalidOperationException(
-                "Imported side-scrolling tile flags, active/below sampling, " +
-                "8.8 gravity, collision masks, or jump/landing constants diverged.");
-        }
+            entranceTerrain.BelowType != SideScrollTileType.Ladder,
+            "Imported side-scrolling tile flags, active/below sampling, " +
+            "8.8 gravity, collision masks, or jump/landing constants diverged.");
 
         // The left entrance ladder must retain full vertical input instead of
         // the ordinary side-view horizontal-only angle adjustment.
@@ -709,15 +631,13 @@ public sealed partial class ValidationRoot
         _sound.ClearPlayRequestAudit();
         for (int frame = 0; frame < 32; frame++)
             _player.AdvanceSideScrollUpdateForValidation(Vector2.Down);
-        if (_player.PrecisePosition != new Vector2(0x28, 0x28) ||
+        FailIf(
+            _player.PrecisePosition != new Vector2(0x28, 0x28) ||
             _player.SideScrollAirborne || !_player.SideScrollClimbing ||
             _player.SideScrollSpeedZ != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 0)
-        {
-            throw new InvalidOperationException(
-                "D1's left side-view ladder did not move Link down exactly one " +
-                "pixel per update without starting gravity.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 0,
+            "D1's left side-view ladder did not move Link down exactly one " +
+            "pixel per update without starting gravity.");
 
         // Stepping into empty side-view space initializes speedZ at zero,
         // applies $24 gravity in 8.8 coordinates, ignores vertical input while
@@ -726,26 +646,22 @@ public sealed partial class ValidationRoot
         _sound.ClearPlayRequestAudit();
         for (int frame = 0; frame < 16; frame++)
             _player.AdvanceSideScrollUpdateForValidation(Vector2.Up);
-        if (!_player.SideScrollAirborne ||
+        FailIf(
+            !_player.SideScrollAirborne ||
             _player.SideScrollSpeedZ != 0x0240 ||
             _player.SideScrollYFixed != 0x58e0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 0)
-        {
-            throw new InvalidOperationException(
-                "Side-view falling did not preserve the source zero-speed " +
-                "initial update, vertical-input lock, or $24 gravity sequence.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 0,
+            "Side-view falling did not preserve the source zero-speed " +
+            "initial update, vertical-input lock, or $24 gravity sequence.");
         _player.AdvanceSideScrollUpdateForValidation(Vector2.Up);
-        if (_player.SideScrollAirborne ||
+        FailIf(
+            _player.SideScrollAirborne ||
             _player.SideScrollSpeedZ != 0 ||
             _player.SideScrollYFixed != 0x5920 ||
             _player.PrecisePosition.Y != 0x59 + 0x20 / 256.0f ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 1)
-        {
-            throw new InvalidOperationException(
-                "Side-view falling did not land on update 17 at Y $59.20 with " +
-                "one SND_LAND request and a cleared speedZ.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 1,
+            "Side-view falling did not land on update 17 at Y $59.20 with " +
+            "one SND_LAND request and a cleared speedZ.");
 
         // ITEM_FEATHER uses the side-view-only -$0230 launch. Its first update
         // applies that displacement before adding gravity and permits one
@@ -754,18 +670,16 @@ public sealed partial class ValidationRoot
         _sound.ClearPlayRequestAudit();
         _player.AdvanceSideScrollUpdateForValidation(
             Vector2.Right, startJump: true);
-        if (!_player.SideScrollAirborne ||
+        FailIf(
+            !_player.SideScrollAirborne ||
             _player.SideScrollSpeedZ != -0x020c ||
             _player.SideScrollYFixed != 0x56d0 ||
             _player.PrecisePosition.X != 0x59 ||
             _player.SideScrollAnimationPhase != 0 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 0)
-        {
-            throw new InvalidOperationException(
-                "The side-view Feather launch did not use -$0230 speedZ, $24 " +
-                "gravity, horizontal air control, jump animation, and SND_JUMP.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 0,
+            "The side-view Feather launch did not use -$0230 speedZ, $24 " +
+            "gravity, horizontal air control, jump animation, and SND_JUMP.");
 
         // Exercise the complete dry route: descend the left ladder, cross the
         // lower corridor, climb the right ladder through its top tile, and
@@ -773,32 +687,26 @@ public sealed partial class ValidationRoot
         _player.WarpTo(new Vector2(0x28, 0x08), recordSafe: false);
         for (int frame = 0; frame < 160; frame++)
             _player.AdvanceSideScrollUpdateForValidation(Vector2.Down);
-        if (_player.PrecisePosition.Y != 0x89)
-            throw new InvalidOperationException(
-                $"D1's entrance ladder did not stop on the lower floor at Y $89 (actual={_player.PrecisePosition.Y}).");
+        FailIf(
+            _player.PrecisePosition.Y != 0x89,
+            $"D1's entrance ladder did not stop on the lower floor at Y $89 (actual={_player.PrecisePosition.Y}).");
         for (int frame = 0; frame < 200; frame++)
             _player.AdvanceSideScrollUpdateForValidation(Vector2.Right);
         float rightLadderX = _player.PrecisePosition.X;
-        if (rightLadderX is < 0xc8 or > 0xcc)
-        {
-            throw new InvalidOperationException(
-                $"D1's lower corridor did not stop Link on the right ladder (X={rightLadderX}).");
-        }
+        FailIf(
+            rightLadderX is < 0xc8 or > 0xcc,
+            $"D1's lower corridor did not stop Link on the right ladder (X={rightLadderX}).");
         for (int frame = 0; frame < 80; frame++)
             _player.AdvanceSideScrollUpdateForValidation(Vector2.Up);
-        if (_player.PrecisePosition.Y != 0x59)
-        {
-            throw new InvalidOperationException(
-                $"D1's right ladder/top clamp did not place Link at upper-floor Y $59 (actual={_player.PrecisePosition.Y}).");
-        }
+        FailIf(
+            _player.PrecisePosition.Y != 0x59,
+            $"D1's right ladder/top clamp did not place Link at upper-floor Y $59 (actual={_player.PrecisePosition.Y}).");
         for (int frame = 0; frame < 160; frame++)
             _player.AdvanceSideScrollUpdateForValidation(Vector2.Left);
-        if (_player.PrecisePosition != new Vector2(0x54, 0x59))
-        {
-            throw new InvalidOperationException(
-                "D1's dry side-scrolling route did not stop beside the Bracelet " +
-                $"at $54,$59 (actual={_player.PrecisePosition}).");
-        }
+        FailIf(
+            _player.PrecisePosition != new Vector2(0x54, 0x59),
+            "D1's dry side-scrolling route did not stop beside the Bracelet " +
+            $"at $54,$59 (actual={_player.PrecisePosition}).");
 
         // Side groups never resolve an uncovered edge through the aliased D1
         // dungeon layout. Only the source edge-warp bit for the left top exit
@@ -806,29 +714,23 @@ public sealed partial class ValidationRoot
         _player.WarpTo(new Vector2(0xc8, 0x05), recordSafe: false);
         _player.Face(Vector2I.Up);
         _transitions.CheckRoomExit(_player);
-        if (_transitions.IsTransitioning ||
-            _rooms.ActiveGroup != 6 || _currentRoom.Id != 0x10)
-        {
-            throw new InvalidOperationException(
-                "Side room 6:10 treated its uncovered upper-right edge as a " +
-                "top-down D1 neighbor.");
-        }
+        FailIf(
+            _transitions.IsTransitioning ||
+            _rooms.ActiveGroup != 6 || _currentRoom.Id != 0x10,
+            "Side room 6:10 treated its uncovered upper-right edge as a " +
+            "top-down D1 neighbor.");
         _player.WarpTo(new Vector2(0x28, 0x05), recordSafe: false);
         _player.Face(Vector2I.Up);
         _transitions.CheckRoomExit(_player);
-        if (!_transitions.IsTransitioning)
-        {
-            throw new InvalidOperationException(
-                "Side room 6:10 did not accept its imported upper-left return warp.");
-        }
+        FailIf(
+            !_transitions.IsTransitioning,
+            "Side room 6:10 did not accept its imported upper-left return warp.");
         for (int frame = 0; frame < 120 && _transitions.IsTransitioning; frame++)
             _transitions.Update(update);
-        if (_transitions.IsTransitioning ||
-            _rooms.ActiveGroup != 4 || _currentRoom.Id != 0x1b)
-        {
-            throw new InvalidOperationException(
-                "D1's side passage did not complete its edge-only return to room 4:1b.");
-        }
+        FailIf(
+            _transitions.IsTransitioning ||
+            _rooms.ActiveGroup != 4 || _currentRoom.Id != 0x1b,
+            "D1's side passage did not complete its edge-only return to room 4:1b.");
 
         PrepareRoom(0x20);
         SpiritsGraveColoredCube cube =
@@ -846,22 +748,20 @@ public sealed partial class ValidationRoot
             cubeHasBlue |= IsGbcColor(pixel, 0x03, 0x10, 0x1f);
             cubeHasYellow |= IsGbcColor(pixel, 0x1f, 0x16, 0x06);
         }
-        if (cube.Orientation != 5 || cube.Position != new Vector2(0xa8, 0x78) ||
+        FailIf(
+            cube.Orientation != 5 || cube.Position != new Vector2(0xa8, 0x78) ||
             _entities.Entities<SpiritsGraveCubeFlame>().Count != 4 ||
             _entities.Entities<SpiritsGraveCubeSensor>().Count != 2 ||
             !cubeHasBlue || !cubeHasYellow ||
             cubeImage.GetPixel(8, 8).A > 0.1f ||
             cubeImage.GetPixel(11, 8).A <= 0.1f ||
-            _currentRoom.GetTerrainInfo(cube.Position).Collision != 0x0f)
-        {
-            throw new InvalidOperationException(
-                "Room 4:20 did not create its source-ordered cube/flame/sensor set " +
-                "with PALH_89's initial blue/yellow cube sprite " +
-                $"(orientation={cube.Orientation}, position={cube.Position}, " +
-                $"flames={_entities.Entities<SpiritsGraveCubeFlame>().Count}, " +
-                $"sensors={_entities.Entities<SpiritsGraveCubeSensor>().Count}, " +
-                $"colors={string.Join(',', cubeColors.Select(color => $"{color:x8}"))}).");
-        }
+            _currentRoom.GetTerrainInfo(cube.Position).Collision != 0x0f,
+            "Room 4:20 did not create its source-ordered cube/flame/sensor set " +
+            "with PALH_89's initial blue/yellow cube sprite " +
+            $"(orientation={cube.Orientation}, position={cube.Position}, " +
+            $"flames={_entities.Entities<SpiritsGraveCubeFlame>().Count}, " +
+            $"sensors={_entities.Entities<SpiritsGraveCubeSensor>().Count}, " +
+            $"colors={string.Join(',', cubeColors.Select(color => $"{color:x8}"))}).");
         _sound.ClearPlayRequestAudit();
         for (int push = 0; push < 3; push++)
         {
@@ -878,49 +778,39 @@ public sealed partial class ValidationRoot
             _player.WarpTo(approachPosition);
             _player.Face(Vector2I.Up);
             _player.UpdatePushingState(Vector2.Up);
-            if (_player.Position != oldPosition + Vector2.Down * 10 ||
-                !_player.IsPushing)
-            {
-                throw new InvalidOperationException(
-                    "Room 4:20 normal movement did not stop Link at the source " +
-                    "cube-collision boundary and select his wall-push animation " +
-                    $"(position={_player.Position}, cube={oldPosition}, " +
-                    $"pushing={_player.IsPushing}, " +
-                    $"top-left-solid={_currentRoom.IsSolid(_player.Position + new Vector2(-3, -3))}, " +
-                    $"top-right-solid={_currentRoom.IsSolid(_player.Position + new Vector2(2, -3))}, " +
-                    $"entity-blocked={_entities.BlocksLink(_player.Position)}).");
-            }
+            FailIf(
+                _player.Position != oldPosition + Vector2.Down * 10 ||
+                !_player.IsPushing,
+                "Room 4:20 normal movement did not stop Link at the source " +
+                "cube-collision boundary and select his wall-push animation " +
+                $"(position={_player.Position}, cube={oldPosition}, " +
+                $"pushing={_player.IsPushing}, " +
+                $"top-left-solid={_currentRoom.IsSolid(_player.Position + new Vector2(-3, -3))}, " +
+                $"top-right-solid={_currentRoom.IsSolid(_player.Position + new Vector2(2, -3))}, " +
+                $"entity-blocked={_entities.BlocksLink(_player.Position)}).");
             StepEntities(20);
-            if (_currentRoom.GetTerrainInfo(oldPosition).Collision != 0x00)
-            {
-                throw new InvalidOperationException(
-                    "Room 4:20 cube did not clear its old collision cell while rolling.");
-            }
+            FailIf(
+                _currentRoom.GetTerrainInfo(oldPosition).Collision != 0x00,
+                "Room 4:20 cube did not clear its old collision cell while rolling.");
             for (int frame = 0; frame < 100 && cube.Moving; frame++)
                 StepEntities();
-            if (cube.Moving || cube.Position != oldPosition + Vector2.Up * 16)
-            {
-                throw new InvalidOperationException(
-                    $"Room 4:20 cube did not complete upward roll {push + 1}.");
-            }
-            if (_currentRoom.GetTerrainInfo(cube.Position).Collision != 0x0f)
-            {
-                throw new InvalidOperationException(
-                    "Room 4:20 cube did not restore collision at its centered endpoint.");
-            }
+            FailIf(
+                cube.Moving || cube.Position != oldPosition + Vector2.Up * 16,
+                $"Room 4:20 cube did not complete upward roll {push + 1}.");
+            FailIf(
+                _currentRoom.GetTerrainInfo(cube.Position).Collision != 0x0f,
+                "Room 4:20 cube did not restore collision at its centered endpoint.");
         }
         _player.UpdatePushingState(Vector2.Zero);
         StepEntities();
-        if (cube.Position != new Vector2(0xa8, 0x48) || cube.Orientation != 4 ||
+        FailIf(
+            cube.Position != new Vector2(0xa8, 0x48) || cube.Orientation != 4 ||
             _entities.ActiveTriggers != 0x01 ||
             _entities.Entities<SpiritsGraveCubeFlame>().Any(flame => !flame.Visible) ||
             _entities.Entities<SpiritsGraveCubeFlame>().Any(flame => flame.Palette != 2) ||
             _sound.PlayRequestsFor(0x7f) != 3 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLightTorch) != 1)
-        {
-            throw new InvalidOperationException(
-                "Room 4:20 cube did not solve at $4a with color $82 and four matching flames.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLightTorch) != 1,
+            "Room 4:20 cube did not solve at $4a with color $82 and four matching flames.");
 
         // Leaving clears wRotatingCubeColor with the room session. The new
         // flame objects must observe the reinitialized cube before their first
@@ -929,12 +819,10 @@ public sealed partial class ValidationRoot
         PrepareRoom(0x20);
         SpiritsGraveColoredCube reenteredCube =
             _entities.Entities<SpiritsGraveColoredCube>().Single();
-        if (reenteredCube.Position != new Vector2(0xa8, 0x78) ||
-            _entities.Entities<SpiritsGraveCubeFlame>().Any(flame => flame.Visible))
-        {
-            throw new InvalidOperationException(
-                "Room 4:20 re-entry exposed solved colored flames before the first entity update.");
-        }
+        FailIf(
+            reenteredCube.Position != new Vector2(0xa8, 0x78) ||
+            _entities.Entities<SpiritsGraveCubeFlame>().Any(flame => flame.Visible),
+            "Room 4:20 re-entry exposed solved colored flames before the first entity update.");
 
         PrepareRoom(0x16);
         _player.WarpTo(new Vector2(0xc8, 0x28));
@@ -958,89 +846,71 @@ public sealed partial class ValidationRoot
             horizontalPlatform.Position + new Vector2(7, -5),
             recordSafe: false);
         StepEntities();
-        if (horizontalRadii != new Vector2(8, 16) ||
+        FailIf(
+            horizontalRadii != new Vector2(8, 16) ||
             !horizontalPlatform.LinkRiding ||
             !_entities.PlayerRidingObject ||
             _terrain.GetActiveTerrain(_player.Position).Terrain.Hazard !=
-                HazardType.Hole)
-        {
-            throw new InvalidOperationException(
-                "Room 4:16's subid-$09 platform did not claim Link inside its " +
-                "strict $08-by-$10 collision radii over the hole.");
-        }
+                HazardType.Hole,
+            "Room 4:16's subid-$09 platform did not claim Link inside its " +
+            "strict $08-by-$10 collision radii over the hole.");
         _player._PhysicsProcess(update);
-        if (_player.IsPullingIntoHole || _player.IsFallingInHole)
-        {
-            throw new InvalidOperationException(
-                "Room 4:16 applied its underlying hole while Link was the " +
-                "active moving-platform rider.");
-        }
+        FailIf(
+            _player.IsPullingIntoHole || _player.IsFallingInHole,
+            "Room 4:16 applied its underlying hole while Link was the " +
+            "active moving-platform rider.");
         _player.WarpTo(
             horizontalPlatform.Position + new Vector2(8, -5),
             recordSafe: false);
         StepEntities();
-        if (horizontalPlatform.LinkRiding || _entities.PlayerRidingObject)
-        {
-            throw new InvalidOperationException(
-                "Room 4:16's moving platform included the strict X=$08 " +
-                "collision-radius boundary.");
-        }
+        FailIf(
+            horizontalPlatform.LinkRiding || _entities.PlayerRidingObject,
+            "Room 4:16's moving platform included the strict X=$08 " +
+            "collision-radius boundary.");
 
         PrepareRoom(0x15);
         SpiritsGraveMovingPlatform verticalPlatform =
             _entities.Entities<SpiritsGraveMovingPlatform>().Single();
         Vector2 platformStart = verticalPlatform.Position;
         _player.WarpTo(platformStart + new Vector2(0, -5), recordSafe: false);
-        if (verticalPlatform.CollisionRadii != new Vector2(16, 16) ||
+        FailIf(
+            verticalPlatform.CollisionRadii != new Vector2(16, 16) ||
             _terrain.GetActiveTerrain(_player.Position).Terrain.Hazard !=
-                HazardType.Hole)
-        {
-            throw new InvalidOperationException(
-                "Room 4:15's subid-$05 platform did not retain its imported " +
-                "$10-by-$10 collision radii over hole tile $f6.");
-        }
+                HazardType.Hole,
+            "Room 4:15's subid-$05 platform did not retain its imported " +
+            "$10-by-$10 collision radii over hole tile $f6.");
         // Physics can sample the hole before this frame's interaction pass.
         // The next platform update must claim Link, and the following Link
         // update must cancel that partial pull just as wLinkRidingObject does.
         _player._PhysicsProcess(update);
-        if (!_player.IsPullingIntoHole)
-        {
-            throw new InvalidOperationException(
-                "Room 4:15's uncovered $f6 tile did not begin the ordinary " +
-                "hole-pull path before the platform claimed Link.");
-        }
+        FailIf(
+            !_player.IsPullingIntoHole,
+            "Room 4:15's uncovered $f6 tile did not begin the ordinary " +
+            "hole-pull path before the platform claimed Link.");
         StepEntities();
-        if (!verticalPlatform.LinkRiding || !_entities.PlayerRidingObject)
-        {
-            throw new InvalidOperationException(
-                "Room 4:15's moving platform did not claim centered Link.");
-        }
+        FailIf(
+            !verticalPlatform.LinkRiding || !_entities.PlayerRidingObject,
+            "Room 4:15's moving platform did not claim centered Link.");
         _player._PhysicsProcess(update);
-        if (_player.IsPullingIntoHole || _player.IsFallingInHole)
-        {
-            throw new InvalidOperationException(
-                "wLinkRidingObject-style support did not cancel room 4:15's " +
-                "partial hole pull.");
-        }
+        FailIf(
+            _player.IsPullingIntoHole || _player.IsFallingInHole,
+            "wLinkRidingObject-style support did not cancel room 4:15's " +
+            "partial hole pull.");
         Vector2 linkPreciseStart = _player.PrecisePosition;
         StepEntities(9);
-        if (verticalPlatform.Script != 0 ||
+        FailIf(
+            verticalPlatform.Script != 0 ||
             verticalPlatform.PrecisePosition !=
                 platformStart + Vector2.Up * 0.5f ||
             verticalPlatform.Position != platformStart + Vector2.Up ||
-            _player.PrecisePosition != linkPreciseStart + Vector2.Up * 0.5f)
-        {
-            throw new InvalidOperationException(
-                "Room 4:15 moving platform did not honor wait-8/SPEED_80 " +
-                "vertical script 0 with Link's 8.8 riding displacement.");
-        }
+            _player.PrecisePosition != linkPreciseStart + Vector2.Up * 0.5f,
+            "Room 4:15 moving platform did not honor wait-8/SPEED_80 " +
+            "vertical script 0 with Link's 8.8 riding displacement.");
         _player._PhysicsProcess(update);
-        if (_player.IsPullingIntoHole || _player.IsFallingInHole)
-        {
-            throw new InvalidOperationException(
-                "Room 4:15 applied a hole after moving Link by its half-pixel " +
-                "platform velocity.");
-        }
+        FailIf(
+            _player.IsPullingIntoHole || _player.IsFallingInHole,
+            "Room 4:15 applied a hole after moving Link by its half-pixel " +
+            "platform velocity.");
 
         // enemyBoss_initializeRoom arms LINK_STATE_FORCE_MOVEMENT after the
         // enemy's first update. Link initializes that state on the following
@@ -1054,34 +924,24 @@ public sealed partial class ValidationRoot
         _transitions.UpdateScroll(1.0);
         Vector2 minibossEntry = _player.Position;
         StepEntities();
-        if (_player.Position != minibossEntry)
-        {
-            throw new InvalidOperationException(
-                "Room 4:18 moved Link on the boss initialization update.");
-        }
+        FailIf(_player.Position != minibossEntry, "Room 4:18 moved Link on the boss initialization update.");
         StepEntities();
-        if (_player.Position != minibossEntry || !_player.Walking)
-        {
-            throw new InvalidOperationException(
-                "Room 4:18 did not initialize LINK_STATE_FORCE_MOVEMENT one " +
-                "update after the miniboss initialized.");
-        }
+        FailIf(
+            _player.Position != minibossEntry || !_player.Walking,
+            "Room 4:18 did not initialize LINK_STATE_FORCE_MOVEMENT one " +
+            "update after the miniboss initialized.");
         StepEntities(21);
-        if (_player.Position != minibossEntry + Vector2.Right * 21.0f)
-        {
-            throw new InvalidOperationException(
-                $"Room 4:18 forced Link to {_player.Position} instead of 21 " +
-                $"pixels inward from {minibossEntry}.");
-        }
+        FailIf(
+            _player.Position != minibossEntry + Vector2.Right * 21.0f,
+            $"Room 4:18 forced Link to {_player.Position} instead of 21 " +
+            $"pixels inward from {minibossEntry}.");
         StepEntities();
         Vector2 leftShutter = new(0x08, 0x58);
-        if (_player.Position != minibossEntry + Vector2.Right * 21.0f ||
-            _player.Walking || !scrollingMinibossRoom.IsSolid(leftShutter))
-        {
-            throw new InvalidOperationException(
-                "Room 4:18 did not finish the $16 forced-entry counter after " +
-                "Link cleared and closed the left miniboss shutter.");
-        }
+        FailIf(
+            _player.Position != minibossEntry + Vector2.Right * 21.0f ||
+            _player.Walking || !scrollingMinibossRoom.IsSolid(leftShutter),
+            "Room 4:18 did not finish the $16 forced-entry counter after " +
+            "Link cleared and closed the left miniboss shutter.");
 
         _saveData.SetRoomFlag(4, 0x18, OracleSaveData.RoomFlag80, false);
         _sound.ClearPlayRequestAudit();
@@ -1093,23 +953,20 @@ public sealed partial class ValidationRoot
         ulong childVisualHash = OracleGraphicsCache.PixelHash(
             _entities.Entities<GiantGhiniChild>().First()
                 .CurrentAnimationTexture.GetImage());
-        if (giantVisualHash != 0xc57b0cfc29363e48UL ||
-            childVisualHash != 0x70071fba065d4d57UL)
-        {
-            throw new InvalidOperationException(
-                "Giant Ghini or its children did not compose the imported " +
-                "black-on-white sprite chain with white color-0 transparency.");
-        }
-        if (giant.ChildrenAlive != 3 ||
-            _entities.Entities<GiantGhiniChild>().Count != 3)
-        {
-            throw new InvalidOperationException(
-                "Room 4:18 did not spawn Giant Ghini's three linked children.");
-        }
+        FailIf(
+            giantVisualHash != 0xc57b0cfc29363e48UL ||
+            childVisualHash != 0x70071fba065d4d57UL,
+            "Giant Ghini or its children did not compose the imported " +
+            "black-on-white sprite chain with white color-0 transparency.");
+        FailIf(
+            giant.ChildrenAlive != 3 ||
+            _entities.Entities<GiantGhiniChild>().Count != 3,
+            "Room 4:18 did not spawn Giant Ghini's three linked children.");
         StepEntities(181);
         BossShadowEffect giantShadow =
             _entities.Entities<BossShadowEffect>().Single();
-        if (_sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1 ||
+        FailIf(
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.MusMiniboss) != 1 ||
             giantShadow.Size != 1 || giantShadow.YOffset != 12 ||
             giantShadow.Position != giant.Position + Vector2.Down * 12 ||
@@ -1125,13 +982,10 @@ public sealed partial class ValidationRoot
             BossShadowEffect.AnimationIndexFor(2, -1) != 3 ||
             BossShadowEffect.AnimationIndexFor(2, -33) != 2 ||
             BossShadowEffect.AnimationIndexFor(2, -65) != 1 ||
-            BossShadowEffect.AnimationIndexFor(2, -97) != 0)
-        {
-            throw new InvalidOperationException(
-                "Giant Ghini did not stop dungeon music for its intro and begin " +
-                "miniboss music with its source PART_SHADOW after state 0, " +
-                "shutter completion, and the 120/60-update entrance.");
-        }
+            BossShadowEffect.AnimationIndexFor(2, -97) != 0,
+            "Giant Ghini did not stop dungeon music for its intro and begin " +
+            "miniboss music with its source PART_SHADOW after state 0, " +
+            "shutter completion, and the 120/60-update entrance.");
         var respawnPuffSpawns = new List<RoomEntitySpawn>();
         var respawnedChild = new GiantGhiniChild();
         respawnedChild.Initialize(
@@ -1142,52 +996,42 @@ public sealed partial class ValidationRoot
         respawnedChild.UpdateFrame(
             _player, anyButtonJustPressed: false, frameCounter: 0,
             respawnPuffSpawns);
-        if (respawnPuffSpawns is not
-            [PuzzlePuffSpawn { Sound: OracleSoundEngine.SndPoof }])
-        {
-            throw new InvalidOperationException(
-                "A respawned Giant Ghini child did not create the source " +
-                "INTERAC_PUFF/SND_POOF appearance effect.");
-        }
+        FailIf(
+            respawnPuffSpawns is not
+            [PuzzlePuffSpawn { Sound: OracleSoundEngine.SndPoof }],
+            "A respawned Giant Ghini child did not create the source " +
+            "INTERAC_PUFF/SND_POOF appearance effect.");
         respawnedChild.Free();
         giant.ChildAttached(_player);
         StepEntities(7);
         ulong chargingVisualHash = OracleGraphicsCache.PixelHash(
             giant.CurrentAnimationTexture.GetImage());
         giant.ChildDetached();
-        if (chargingVisualHash != 0x170a29eaf8025ffcUL)
-        {
-            throw new InvalidOperationException(
-                "Giant Ghini's charge animation did not reach the corrected " +
-                "second block of its imported black-on-white sprite chain.");
-        }
+        FailIf(
+            chargingVisualHash != 0x170a29eaf8025ffcUL,
+            "Giant Ghini's charge animation did not reach the corrected " +
+            "second block of its imported black-on-white sprite chain.");
         int giantHealth = giant.Health;
         _sound.ClearPlayRequestAudit();
         _player.WarpTo(giant.Position + Vector2.Down * 12.0f);
         _player.Face(Vector2I.Up);
         _player.StartSwordAttackForValidation(Vector2.Up);
         _player.AdvanceSwordForValidation(17, buttonHeld: false);
-        if (giant.Health >= giantHealth ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage) != 1)
-        {
-            throw new InvalidOperationException(
-                "Giant Ghini did not accept Link's real upward sword swing with " +
-                "the source boss-damage response.");
-        }
+        FailIf(
+            giant.Health >= giantHealth ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage) != 1,
+            "Giant Ghini did not accept Link's real upward sword swing with " +
+            "the source boss-damage response.");
         int giantHealthAfterHit = giant.Health;
-        if (giant.TakeSwordHit(giant.Position, damage: 20) ||
-            giant.Health != giantHealthAfterHit)
-        {
-            throw new InvalidOperationException(
-                "Giant Ghini accepted a second hit during boss invincibility.");
-        }
+        FailIf(
+            giant.TakeSwordHit(giant.Position, damage: 20) ||
+            giant.Health != giantHealthAfterHit,
+            "Giant Ghini accepted a second hit during boss invincibility.");
         StepEntities(31);
-        if (giant.TakeSwordHit(giant.Position, damage: 20) ||
-            giant.Health != giantHealthAfterHit)
-        {
-            throw new InvalidOperationException(
-                "Giant Ghini's source 32-update invincibility ended early.");
-        }
+        FailIf(
+            giant.TakeSwordHit(giant.Position, damage: 20) ||
+            giant.Health != giantHealthAfterHit,
+            "Giant Ghini's source 32-update invincibility ended early.");
         StepEntities();
         _sound.ClearPlayRequestAudit();
         int childrenAtBossDeath =
@@ -1196,38 +1040,35 @@ public sealed partial class ValidationRoot
         void RecordGiantDeath() => giantDeathEvents++;
         _entities.EnemyDefeated += RecordGiantDeath;
         giant.TakeSwordHit(giant.Position, damage: 20);
-        if (!giant.Defeated ||
+        FailIf(
+            !giant.Defeated ||
             !giant.DrawEnabled ||
             !_entities.LinkCollisionsAndMenuDisabled ||
             !_entities.PlayerMenusDisabled ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDead) != 1)
-        {
-            throw new InvalidOperationException(
-                "Giant Ghini did not enter the common 120-update boss death phase.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDead) != 1,
+            "Giant Ghini did not enter the common 120-update boss death phase.");
         StepEntities();
-        if (_entities.Entities<EnemyDeathPuffEffect>().Count != childrenAtBossDeath ||
+        FailIf(
+            _entities.Entities<EnemyDeathPuffEffect>().Count != childrenAtBossDeath ||
             _entities.Entities<PuzzlePuffEffect>().Count != 0 ||
             _entities.Entities<KillEnemyPuffEffect>().Count != 0 ||
             giantDeathEvents != childrenAtBossDeath ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
-                childrenAtBossDeath)
-        {
-            throw new InvalidOperationException(
-                "Giant Ghini's parent-death cleanup did not route every live " +
-                "child through the ordinary enemy death puff " +
-                $"(before={childrenAtBossDeath}, " +
-                $"children={_entities.Entities<GiantGhiniChild>().Count}, " +
-                $"death={_entities.Entities<EnemyDeathPuffEffect>().Count}, " +
-                $"puzzle={_entities.Entities<PuzzlePuffEffect>().Count}, " +
-                $"kill={_entities.Entities<KillEnemyPuffEffect>().Count}, " +
-                $"sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy)}).");
-        }
+                childrenAtBossDeath,
+            "Giant Ghini's parent-death cleanup did not route every live " +
+            "child through the ordinary enemy death puff " +
+            $"(before={childrenAtBossDeath}, " +
+            $"children={_entities.Entities<GiantGhiniChild>().Count}, " +
+            $"death={_entities.Entities<EnemyDeathPuffEffect>().Count}, " +
+            $"puzzle={_entities.Entities<PuzzlePuffEffect>().Count}, " +
+            $"kill={_entities.Entities<KillEnemyPuffEffect>().Count}, " +
+            $"sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy)}).");
         StepEntities(119);
         BossDeathExplosionEffect giantExplosion =
             _entities.Entities<BossDeathExplosionEffect>().Single();
-        if (_entities.Entities<GiantGhiniBoss>().Count != 0 ||
+        FailIf(
+            _entities.Entities<GiantGhiniBoss>().Count != 0 ||
             _entities.Entities<GiantGhiniChild>().Count != 0 ||
             _entities.Entities<BossShadowEffect>().Count != 0 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
@@ -1240,94 +1081,75 @@ public sealed partial class ValidationRoot
             !_entities.LinkCollisionsAndMenuDisabled ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndBigExplosion) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.MusSpiritsGrave) != 1 ||
-            _sound.ActiveMusic != OracleSoundEngine.MusSpiritsGrave)
-        {
-            throw new InvalidOperationException(
-                "Giant Ghini did not enter the source 78-update, enemy-counting " +
-                "boss explosion without a boss kill-counter event and with the " +
-                "complete 48x48 source OAM before its reward wait.");
-        }
+            _sound.ActiveMusic != OracleSoundEngine.MusSpiritsGrave,
+            "Giant Ghini did not enter the source 78-update, enemy-counting " +
+            "boss explosion without a boss kill-counter event and with the " +
+            "complete 48x48 source OAM before its reward wait.");
         _entities.EnemyDefeated -= RecordGiantDeath;
         StepEntities(78);
-        if (_entities.Entities<BossDeathExplosionEffect>().Count != 1 ||
-            _saveData.HasRoomFlag(4, 0x18, OracleSaveData.RoomFlag80))
-        {
-            throw new InvalidOperationException(
-                "Giant Ghini's terminal boss-explosion frame did not retain the " +
-                "enemy count for its complete source duration.");
-        }
+        FailIf(
+            _entities.Entities<BossDeathExplosionEffect>().Count != 1 ||
+            _saveData.HasRoomFlag(4, 0x18, OracleSaveData.RoomFlag80),
+            "Giant Ghini's terminal boss-explosion frame did not retain the " +
+            "enemy count for its complete source duration.");
         int giantDropRandomCalls = _entities.RandomCalls;
         StepEntities();
-        if (_entities.Entities<BossDeathExplosionEffect>().Count != 0 ||
+        FailIf(
+            _entities.Entities<BossDeathExplosionEffect>().Count != 0 ||
             _saveData.HasRoomFlag(4, 0x18, OracleSaveData.RoomFlag80) ||
             _entities.Entities<ItemDropEffect>() is not
                 [{ SubId: ItemDropDatabase.Fairy, ElapsedFrames: 0 }] ||
-            _entities.RandomCalls != giantDropRandomCalls + 2)
-        {
-            throw new InvalidOperationException(
-                "Giant Ghini's boss explosion did not release its enemy count on " +
-                "the update after the terminal frame and resolve enemy record `$70 " +
-                "to its guaranteed ITEM_DROP_FAIRY.");
-        }
+            _entities.RandomCalls != giantDropRandomCalls + 2,
+            "Giant Ghini's boss explosion did not release its enemy count on " +
+            "the update after the terminal frame and resolve enemy record `$70 " +
+            "to its guaranteed ITEM_DROP_FAIRY.");
         StepEntities();
-        if (!_saveData.HasRoomFlag(4, 0x18, OracleSaveData.RoomFlag80) ||
+        FailIf(
+            !_saveData.HasRoomFlag(4, 0x18, OracleSaveData.RoomFlag80) ||
             _entities.Entities<MinibossPortal>().Count != 0 ||
             _entities.Entities<ItemDropEffect>() is not
                 [{ SubId: ItemDropDatabase.Fairy, ElapsedFrames: 1,
                     State: DropState.Bouncing }] ||
-            _entities.RandomCalls != giantDropRandomCalls + 5)
-        {
-            throw new InvalidOperationException(
-                "Room 4:18 did not begin its reward wait while the spawned fairy " +
-                "initialized from three shared global RNG values.");
-        }
+            _entities.RandomCalls != giantDropRandomCalls + 5,
+            "Room 4:18 did not begin its reward wait while the spawned fairy " +
+            "initialized from three shared global RNG values.");
         StepEntities(19);
-        if (_entities.Entities<MinibossPortal>().Count != 0)
-        {
-            throw new InvalidOperationException(
-                "Room 4:18 created its portal before the native 20-update reward wait.");
-        }
+        FailIf(
+            _entities.Entities<MinibossPortal>().Count != 0,
+            "Room 4:18 created its portal before the native 20-update reward wait.");
         StepEntities();
-        if (_entities.Entities<MinibossPortal>().Count != 1 ||
+        FailIf(
+            _entities.Entities<MinibossPortal>().Count != 1 ||
             _entities.LinkCollisionsAndMenuDisabled ||
-            _entities.PlayerMenusDisabled)
-        {
-            throw new InvalidOperationException(
-                "Room 4:18 did not create its portal after the native 20-update reward wait.");
-        }
+            _entities.PlayerMenusDisabled,
+            "Room 4:18 did not create its portal after the native 20-update reward wait.");
 
         _sound.ClearPlayRequestAudit();
         PrepareRoom(0x18);
         Vector2 upperMinibossShutter = new(0x78, 0x08);
-        if (_entities.Entities<GiantGhiniBoss>().Count != 0 ||
+        FailIf(
+            _entities.Entities<GiantGhiniBoss>().Count != 0 ||
             _entities.Entities<GiantGhiniChild>().Count != 0 ||
             !_currentRoom.IsSolid(upperMinibossShutter) ||
-            !_currentRoom.IsSolid(leftShutter))
-        {
-            throw new InvalidOperationException(
-                "Completed room 4:18 did not begin re-entry with its source " +
-                "boss stream suppressed and both layout shutters closed.");
-        }
+            !_currentRoom.IsSolid(leftShutter),
+            "Completed room 4:18 did not begin re-entry with its source " +
+            "boss stream suppressed and both layout shutters closed.");
         StepEntities();
         StepEntities();
         StepEntities(5);
-        if (!_currentRoom.IsSolid(upperMinibossShutter) ||
-            !_currentRoom.IsSolid(leftShutter))
-        {
-            throw new InvalidOperationException(
-                "Completed room 4:18 opened its shutters before the source " +
-                "six-update interleaved animation elapsed.");
-        }
+        FailIf(
+            !_currentRoom.IsSolid(upperMinibossShutter) ||
+            !_currentRoom.IsSolid(leftShutter),
+            "Completed room 4:18 opened its shutters before the source " +
+            "six-update interleaved animation elapsed.");
         StepEntities();
-        if (_currentRoom.IsSolid(upperMinibossShutter) ||
-            _currentRoom.IsSolid(leftShutter))
-        {
-            throw new InvalidOperationException(
-                "Completed room 4:18 did not reopen both zero-enemy shutters " +
-                "with the source interleaved animation " +
-                $"(upSolid={_currentRoom.IsSolid(upperMinibossShutter)}, " +
-                $"leftSolid={_currentRoom.IsSolid(leftShutter)}).");
-        }
+        FailIf(
+            _currentRoom.IsSolid(upperMinibossShutter) ||
+            _currentRoom.IsSolid(leftShutter),
+            "Completed room 4:18 did not reopen both zero-enemy shutters " +
+            "with the source interleaved animation " +
+            $"(upSolid={_currentRoom.IsSolid(upperMinibossShutter)}, " +
+            $"leftSolid={_currentRoom.IsSolid(leftShutter)}).");
 
         _saveData.SetRoomFlag(4, 0x13, OracleSaveData.RoomFlag80, false);
         _saveData.SetRoomFlag(4, 0x13, OracleSaveData.RoomFlagItem, false);
@@ -1342,18 +1164,17 @@ public sealed partial class ValidationRoot
             if (!observedInitialPumpkinShake && _entities.ScreenShakeCounter > 0)
             {
                 observedInitialPumpkinShake = true;
-                if (_entities.ScreenShakeCounter != 29 ||
-                    _entities.RandomCalls != pumpkinImpactRandomCalls + 2)
-                {
-                    throw new InvalidOperationException(
-                        "Pumpkin Head's first landing did not begin the source " +
-                        "30-update shake with Y/X RNG consumption on its impact update.");
-                }
+                FailIf(
+                    _entities.ScreenShakeCounter != 29 ||
+                    _entities.RandomCalls != pumpkinImpactRandomCalls + 2,
+                    "Pumpkin Head's first landing did not begin the source " +
+                    "30-update shake with Y/X RNG consumption on its impact update.");
             }
         }
         BossShadowEffect pumpkinShadow =
             _entities.Entities<BossShadowEffect>().Single();
-        if (pumpkin.IntroActive ||
+        FailIf(
+            pumpkin.IntroActive ||
             !observedInitialPumpkinShake ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 1 ||
@@ -1363,12 +1184,9 @@ public sealed partial class ValidationRoot
             pumpkin.HeadPalette != 3 ||
             pumpkinShadow.Size != 1 || pumpkinShadow.YOffset != 6 ||
             pumpkinShadow.Position != pumpkin.Position + Vector2.Down * 6 ||
-            pumpkinShadow.Visible)
-        {
-            throw new InvalidOperationException(
-                "Pumpkin Head did not complete its three-height ceiling fall, " +
-                "impact delay, source body/ghost/head palettes, and boss-music handoff.");
-        }
+            pumpkinShadow.Visible,
+            "Pumpkin Head did not complete its three-height ceiling fall, " +
+            "impact delay, source body/ghost/head palettes, and boss-music handoff.");
         for (int frame = 0; frame < 2400 &&
              _entities.Entities<PumpkinHeadProjectile>().Count == 0;
              frame++)
@@ -1394,104 +1212,84 @@ public sealed partial class ValidationRoot
             pumpkin.Angle,
             (pumpkin.Angle + 2) & 0x1f
         };
-        if (pumpkinShots.Count != 3 ||
+        FailIf(
+            pumpkinShots.Count != 3 ||
             pumpkinShots.Any(shot => shot.Position != expectedShotPosition || shot.Delay != 8) ||
             pumpkinShots.Any(shot => shot.CollisionBounds.Size != new Vector2(4, 8)) ||
-            !expectedShotAngles.SetEquals(pumpkinShots.Select(shot => shot.Angle)))
-        {
-            throw new InvalidOperationException(
-                "Pumpkin Head did not create its delayed three-way projectile spread " +
-                "from the source cardinal mouth offset " +
-                $"(boss angle=${pumpkin.Angle:x2}, expected={expectedShotPosition}, " +
-                $"shots={string.Join("; ", pumpkinShots.Select(shot =>
-                    $"{shot.Position}/${shot.Angle:x2}/d{shot.Delay}"))}).");
-        }
+            !expectedShotAngles.SetEquals(pumpkinShots.Select(shot => shot.Angle)),
+            "Pumpkin Head did not create its delayed three-way projectile spread " +
+            "from the source cardinal mouth offset " +
+            $"(boss angle=${pumpkin.Angle:x2}, expected={expectedShotPosition}, " +
+            $"shots={string.Join("; ", pumpkinShots.Select(shot =>
+                $"{shot.Position}/${shot.Angle:x2}/d{shot.Delay}"))}).");
         int pumpkinHealth = pumpkin.BodyHealth;
         _sound.ClearPlayRequestAudit();
         _player.WarpTo(pumpkin.Position + Vector2.Down * 12.0f);
         _player.Face(Vector2I.Up);
         _player.StartSwordAttackForValidation(Vector2.Up);
         _player.AdvanceSwordForValidation(17, buttonHeld: false);
-        if (pumpkin.BodyHealth >= pumpkinHealth ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage) != 1)
-        {
-            throw new InvalidOperationException(
-                "Pumpkin Head's body did not accept Link's real upward sword swing " +
-                "with the source boss-damage response.");
-        }
+        FailIf(
+            pumpkin.BodyHealth >= pumpkinHealth ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage) != 1,
+            "Pumpkin Head's body did not accept Link's real upward sword swing " +
+            "with the source boss-damage response.");
         int pumpkinHealthAfterHit = pumpkin.BodyHealth;
-        if (pumpkin.ApplySwordHit(
+        FailIf(
+            pumpkin.ApplySwordHit(
                 pumpkin.CollisionBounds, pumpkin.Position, damage: 20) ||
-            pumpkin.BodyHealth != pumpkinHealthAfterHit)
-        {
-            throw new InvalidOperationException(
-                "Pumpkin Head accepted a second hit during boss invincibility.");
-        }
+            pumpkin.BodyHealth != pumpkinHealthAfterHit,
+            "Pumpkin Head accepted a second hit during boss invincibility.");
         StepEntities(31);
-        if (pumpkin.ApplySwordHit(
+        FailIf(
+            pumpkin.ApplySwordHit(
                 pumpkin.CollisionBounds, pumpkin.Position, damage: 20) ||
-            pumpkin.BodyHealth != pumpkinHealthAfterHit)
-        {
-            throw new InvalidOperationException(
-                "Pumpkin Head's source 32-update invincibility ended early.");
-        }
+            pumpkin.BodyHealth != pumpkinHealthAfterHit,
+            "Pumpkin Head's source 32-update invincibility ended early.");
         StepEntities();
         var bodyDestructionSpawns = new List<RoomEntitySpawn>();
         pumpkin.ApplySwordHit(
             pumpkin.CollisionBounds, pumpkin.Position, damage: 20,
             bodyDestructionSpawns);
-        if (pumpkin.State != BossState.HeadExposed ||
+        FailIf(
+            pumpkin.State != BossState.HeadExposed ||
             bodyDestructionSpawns is not
-                [PuzzlePuffSpawn { Sound: OracleSoundEngine.SndPoof }])
-        {
-            throw new InvalidOperationException(
-                "Pumpkin Head's body did not expose its grabbable head with " +
-                "the source INTERAC_PUFF/SND_POOF disappearance effect.");
-        }
+                [PuzzlePuffSpawn { Sound: OracleSoundEngine.SndPoof }],
+            "Pumpkin Head's body did not expose its grabbable head with " +
+            "the source INTERAC_PUFF/SND_POOF disappearance effect.");
         // The head and ghost first launch with speed -$120 and separate
         // gravities. The head only joins the grabbable buffer after landing.
         for (int frame = 0; frame < 60 && pumpkin.HeadZ < 0; frame++)
             StepEntities();
-        if (pumpkin.HeadZ != 0)
-        {
-            throw new InvalidOperationException(
-                "Pumpkin Head's severed head did not finish its source airborne arc.");
-        }
+        FailIf(pumpkin.HeadZ != 0, "Pumpkin Head's severed head did not finish its source airborne arc.");
         // $0d keeps the lifted head on the ghost's source six-pixel-radius
         // collision path once the straight-up throw reaches matching Z.
         _player.WarpTo(pumpkin.Position + Vector2.Down * 13);
         _player.Face(Vector2I.Up);
         _sound.ClearPlayRequestAudit();
-        if (!_playerWorld.TryUseBracelet(_player, primaryButton: false) ||
+        FailIf(
+            !_playerWorld.TryUseBracelet(_player, primaryButton: false) ||
             !pumpkin.HeadHeld ||
-            _bracelet.State != BraceletState.LiftingEntity)
-        {
-            throw new InvalidOperationException(
-                "Pumpkin Head's exposed head did not enter the shared Bracelet lift parent.");
-        }
+            _bracelet.State != BraceletState.LiftingEntity,
+            "Pumpkin Head's exposed head did not enter the shared Bracelet lift parent.");
         for (int frame = 0; frame < 12; frame++)
         {
-            if (!_playerWorld.UpdateBracelet(
-                    _player, Vector2.Zero,
-                    primaryHeld: false, secondaryHeld: false,
-                    itemButtonJustPressed: false))
-            {
-                throw new InvalidOperationException(
-                    "Pumpkin Head's shared Bracelet lift released Link before its 13-update boundary.");
-            }
+            FailIf(
+                !_playerWorld.UpdateBracelet(
+                _player, Vector2.Zero,
+                primaryHeld: false, secondaryHeld: false,
+                itemButtonJustPressed: false),
+                "Pumpkin Head's shared Bracelet lift released Link before its 13-update boundary.");
             StepEntities();
         }
-        if (_playerWorld.UpdateBracelet(
+        FailIf(
+            _playerWorld.UpdateBracelet(
                 _player, Vector2.Zero,
                 primaryHeld: false, secondaryHeld: false,
                 itemButtonJustPressed: false) ||
             _bracelet.State != BraceletState.Idle ||
             !_player.IsCarryingObject ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndPickup) != 1)
-        {
-            throw new InvalidOperationException(
-                "Pumpkin Head's shared Bracelet lift did not finish with its carried pose and SND_PICKUP.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndPickup) != 1,
+            "Pumpkin Head's shared Bracelet lift did not finish with its carried pose and SND_PICKUP.");
         StepEntities();
 
         // Send the first head across the room. The exposed ghost's $5e
@@ -1503,17 +1301,15 @@ public sealed partial class ValidationRoot
 
         // State 3 accepts either newly pressed item button. The native entity
         // owns its body flight while the shared parent retains Link's throw.
-        if (!_playerWorld.UpdateBracelet(
+        FailIf(
+            !_playerWorld.UpdateBracelet(
                 _player, Vector2.Zero,
                 primaryHeld: true, secondaryHeld: false,
                 itemButtonJustPressed: true) ||
             pumpkin.HeadHeld ||
             _bracelet.State != BraceletState.Throwing ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndThrow) != 1)
-        {
-            throw new InvalidOperationException(
-                "Pumpkin Head's held head did not use the shared either-button Bracelet throw.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndThrow) != 1,
+            "Pumpkin Head's held head did not use the shared either-button Bracelet throw.");
         StepEntities();
         for (int frame = 0; frame < 120 && pumpkin.HeadThrown; frame++)
         {
@@ -1526,17 +1322,15 @@ public sealed partial class ValidationRoot
             }
             StepEntities();
         }
-        if (pumpkin.HeadThrown ||
+        FailIf(
+            pumpkin.HeadThrown ||
             _bracelet.State != BraceletState.Idle ||
-            pumpkin.GhostHealth != 8)
-        {
-            throw new InvalidOperationException(
-                "Pumpkin Head's source weight-zero Bracelet throw did not land " +
-                "clear of the fleeing ghost " +
-                $"(head={pumpkin.HeadPosition}, z={pumpkin.HeadZ}, " +
-                $"thrown={pumpkin.HeadThrown}, ghost={pumpkin.GhostPosition}, " +
-                $"ghostHealth={pumpkin.GhostHealth}, state={pumpkin.State}).");
-        }
+            pumpkin.GhostHealth != 8,
+            "Pumpkin Head's source weight-zero Bracelet throw did not land " +
+            "clear of the fleeing ghost " +
+            $"(head={pumpkin.HeadPosition}, z={pumpkin.HeadZ}, " +
+            $"thrown={pumpkin.HeadThrown}, ghost={pumpkin.GhostPosition}, " +
+            $"ghostHealth={pumpkin.GhostHealth}, state={pumpkin.State}).");
 
         Vector2 firstHeadLandingPosition = pumpkin.HeadPosition;
         _sound.ClearPlayRequestAudit();
@@ -1544,23 +1338,19 @@ public sealed partial class ValidationRoot
         _player.Face(Vector2I.Up);
         _player.StartSwordAttackForValidation(Vector2.Up);
         _player.AdvanceSwordForValidation(17, buttonHeld: false);
-        if (pumpkin.GhostHealth != 6 ||
+        FailIf(
+            pumpkin.GhostHealth != 6 ||
             pumpkin.State != BossState.HeadExposed ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage) != 1)
-        {
-            throw new InvalidOperationException(
-                "Pumpkin Head's exposed $5e ghost did not accept Link's normal " +
-                "level-one sword damage with its source hit response " +
-                $"(health={pumpkin.GhostHealth}, state={pumpkin.State}).");
-        }
-        if (pumpkin.ApplySwordHit(
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage) != 1,
+            "Pumpkin Head's exposed $5e ghost did not accept Link's normal " +
+            "level-one sword damage with its source hit response " +
+            $"(health={pumpkin.GhostHealth}, state={pumpkin.State}).");
+        FailIf(
+            pumpkin.ApplySwordHit(
                 pumpkin.CollisionBounds, pumpkin.GhostPosition, damage: 2) ||
-            pumpkin.GhostHealth != 6)
-        {
-            throw new InvalidOperationException(
-                "Pumpkin Head's exposed ghost accepted another hit during its " +
-                "source 32-update invincibility.");
-        }
+            pumpkin.GhostHealth != 6,
+            "Pumpkin Head's exposed ghost accepted another hit during its " +
+            "source 32-update invincibility.");
 
         for (int frame = 0; frame < 360 &&
              pumpkin.State != BossState.Active;
@@ -1568,50 +1358,42 @@ public sealed partial class ValidationRoot
         {
             StepEntities();
         }
-        if (pumpkin.State != BossState.Active ||
+        FailIf(
+            pumpkin.State != BossState.Active ||
             pumpkin.Position != firstHeadLandingPosition ||
             pumpkin.GhostHealth != 6 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndPoof) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 0)
-        {
-            throw new InvalidOperationException(
-                "Pumpkin Head did not regenerate its full body at the landed " +
-                "head's copied position with INTERAC_PUFF/SND_POOF while " +
-                "preserving ghost health " +
-                $"(body={pumpkin.Position}, head={firstHeadLandingPosition}, " +
-                $"ghostHealth={pumpkin.GhostHealth}, state={pumpkin.State}).");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 0,
+            "Pumpkin Head did not regenerate its full body at the landed " +
+            "head's copied position with INTERAC_PUFF/SND_POOF while " +
+            "preserving ghost health " +
+            $"(body={pumpkin.Position}, head={firstHeadLandingPosition}, " +
+            $"ghostHealth={pumpkin.GhostHealth}, state={pumpkin.State}).");
 
         // The ghost owns eight persistent health points. A thrown weight-zero
         // head uses ITEM_BRACELET's three damage, so two more exposure cycles
         // are required after the level-one sword hit above.
         for (int expectedHealth = 3; expectedHealth >= 0; expectedHealth -= 3)
         {
-            if (!pumpkin.ApplySwordHit(
+            FailIf(
+                !pumpkin.ApplySwordHit(
                     pumpkin.CollisionBounds, pumpkin.Position, damage: 20) ||
-                pumpkin.State != BossState.HeadExposed)
-            {
-                throw new InvalidOperationException(
-                    "Pumpkin Head's regenerated body did not enter another " +
-                    "head-exposure cycle.");
-            }
+                pumpkin.State != BossState.HeadExposed,
+                "Pumpkin Head's regenerated body did not enter another " +
+                "head-exposure cycle.");
             for (int frame = 0; frame < 60 && pumpkin.HeadZ < 0; frame++)
                 StepEntities();
-            if (pumpkin.HeadZ != 0)
-            {
-                throw new InvalidOperationException(
-                    "Pumpkin Head's head did not become grabbable on a later " +
-                    "exposure cycle.");
-            }
+            FailIf(
+                pumpkin.HeadZ != 0,
+                "Pumpkin Head's head did not become grabbable on a later " +
+                "exposure cycle.");
 
             _player.WarpTo(pumpkin.Position + Vector2.Down * 13);
             _player.Face(Vector2I.Up);
-            if (!_playerWorld.TryUseBracelet(_player, primaryButton: false))
-            {
-                throw new InvalidOperationException(
-                    "Pumpkin Head's head could not be lifted on a later " +
-                    "exposure cycle.");
-            }
+            FailIf(
+                !_playerWorld.TryUseBracelet(_player, primaryButton: false),
+                "Pumpkin Head's head could not be lifted on a later " +
+                "exposure cycle.");
             for (int frame = 0; frame < 13; frame++)
             {
                 _playerWorld.UpdateBracelet(
@@ -1621,15 +1403,13 @@ public sealed partial class ValidationRoot
                 StepEntities();
             }
             StepEntities();
-            if (!_playerWorld.UpdateBracelet(
-                    _player, Vector2.Zero,
-                    primaryHeld: true, secondaryHeld: false,
-                    itemButtonJustPressed: true))
-            {
-                throw new InvalidOperationException(
-                    "Pumpkin Head's head could not be thrown on a later " +
-                    "exposure cycle.");
-            }
+            FailIf(
+                !_playerWorld.UpdateBracelet(
+                _player, Vector2.Zero,
+                primaryHeld: true, secondaryHeld: false,
+                itemButtonJustPressed: true),
+                "Pumpkin Head's head could not be thrown on a later " +
+                "exposure cycle.");
 
             for (int frame = 0; frame < 240 &&
                  pumpkin.GhostHealth > expectedHealth &&
@@ -1645,14 +1425,12 @@ public sealed partial class ValidationRoot
                 }
                 StepEntities();
             }
-            if (pumpkin.GhostHealth != expectedHealth)
-            {
-                throw new InvalidOperationException(
-                    "Pumpkin Head's thrown head did not apply ITEM_BRACELET's " +
-                    "source three damage to the exposed ghost " +
-                    $"(expected={expectedHealth}, actual={pumpkin.GhostHealth}, " +
-                    $"head={pumpkin.HeadPosition}, ghost={pumpkin.GhostPosition}).");
-            }
+            FailIf(
+                pumpkin.GhostHealth != expectedHealth,
+                "Pumpkin Head's thrown head did not apply ITEM_BRACELET's " +
+                "source three damage to the exposed ghost " +
+                $"(expected={expectedHealth}, actual={pumpkin.GhostHealth}, " +
+                $"head={pumpkin.HeadPosition}, ghost={pumpkin.GhostPosition}).");
             if (expectedHealth > 0)
             {
                 for (int frame = 0; frame < 360 &&
@@ -1668,34 +1446,29 @@ public sealed partial class ValidationRoot
                     }
                     StepEntities();
                 }
-                if (pumpkin.State != BossState.Active)
-                {
-                    throw new InvalidOperationException(
-                        "Pumpkin Head did not regenerate after a nonlethal " +
-                        "thrown-head hit.");
-                }
+                FailIf(
+                    pumpkin.State != BossState.Active,
+                    "Pumpkin Head did not regenerate after a nonlethal " +
+                    "thrown-head hit.");
             }
         }
-        if (pumpkin.State != BossState.Dying)
-        {
-            throw new InvalidOperationException(
-                "Pumpkin Head did not begin its death sequence when the " +
-                "persistent ghost health reached zero.");
-        }
-        if (!_entities.LinkCollisionsAndMenuDisabled ||
-            !_entities.PlayerMenusDisabled)
-        {
-            throw new InvalidOperationException(
-                "Pumpkin Head's common boss-death path did not disable Link " +
-                "collisions and menus.");
-        }
+        FailIf(
+            pumpkin.State != BossState.Dying,
+            "Pumpkin Head did not begin its death sequence when the " +
+            "persistent ghost health reached zero.");
+        FailIf(
+            !_entities.LinkCollisionsAndMenuDisabled ||
+            !_entities.PlayerMenusDisabled,
+            "Pumpkin Head's common boss-death path did not disable Link " +
+            "collisions and menus.");
         int pumpkinDeathEvents = 0;
         void RecordPumpkinDeath() => pumpkinDeathEvents++;
         _entities.EnemyDefeated += RecordPumpkinDeath;
         StepEntities(120);
         BossDeathExplosionEffect pumpkinExplosion =
             _entities.Entities<BossDeathExplosionEffect>().Single();
-        if (_entities.Entities<PumpkinHeadBoss>().Count != 0 ||
+        FailIf(
+            _entities.Entities<PumpkinHeadBoss>().Count != 0 ||
             pumpkinExplosion.BossId != 0x78 || pumpkinExplosion.AnimationDuration != 78 ||
             pumpkinExplosion.CurrentTextureSize != new Vector2(48, 48) ||
             pumpkinExplosion.CurrentDrawOffset != new Vector2(-24, -24) ||
@@ -1706,43 +1479,36 @@ public sealed partial class ValidationRoot
             !_entities.LinkCollisionsAndMenuDisabled ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndBigExplosion) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.MusSpiritsGrave) != 1 ||
-            _sound.ActiveMusic != OracleSoundEngine.MusSpiritsGrave)
-        {
-            throw new InvalidOperationException(
-                "Pumpkin Head did not enter the source 78-update, enemy-counting " +
-                "boss explosion before its Heart Container reward " +
-                $"(bosses={_entities.Entities<PumpkinHeadBoss>().Count}, " +
-                $"bossId=${pumpkinExplosion.BossId:x2}, " +
-                $"duration={pumpkinExplosion.AnimationDuration}, " +
-                $"flag={_saveData.HasRoomFlag(4, 0x13, OracleSaveData.RoomFlag80)}, " +
-                $"treasures={_entities.Entities<GroundTreasurePickup>().Count}, " +
-                $"sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndBigExplosion)}).");
-        }
+            _sound.ActiveMusic != OracleSoundEngine.MusSpiritsGrave,
+            "Pumpkin Head did not enter the source 78-update, enemy-counting " +
+            "boss explosion before its Heart Container reward " +
+            $"(bosses={_entities.Entities<PumpkinHeadBoss>().Count}, " +
+            $"bossId=${pumpkinExplosion.BossId:x2}, " +
+            $"duration={pumpkinExplosion.AnimationDuration}, " +
+            $"flag={_saveData.HasRoomFlag(4, 0x13, OracleSaveData.RoomFlag80)}, " +
+            $"treasures={_entities.Entities<GroundTreasurePickup>().Count}, " +
+            $"sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndBigExplosion)}).");
         _entities.EnemyDefeated -= RecordPumpkinDeath;
         StepEntities(78);
-        if (_entities.Entities<BossDeathExplosionEffect>().Count != 1 ||
-            _saveData.HasRoomFlag(4, 0x13, OracleSaveData.RoomFlag80))
-        {
-            throw new InvalidOperationException(
-                "Pumpkin Head's terminal boss-explosion frame did not retain the " +
-                "enemy count for its complete source duration.");
-        }
+        FailIf(
+            _entities.Entities<BossDeathExplosionEffect>().Count != 1 ||
+            _saveData.HasRoomFlag(4, 0x13, OracleSaveData.RoomFlag80),
+            "Pumpkin Head's terminal boss-explosion frame did not retain the " +
+            "enemy count for its complete source duration.");
         int pumpkinDropRandomCalls = _entities.RandomCalls;
         StepEntities(2);
-        if (_entities.Entities<BossDeathExplosionEffect>().Count != 0 ||
+        FailIf(
+            _entities.Entities<BossDeathExplosionEffect>().Count != 0 ||
             !_saveData.HasRoomFlag(4, 0x13, OracleSaveData.RoomFlag80) ||
             _entities.Entities<GroundTreasurePickup>() is not
                 [{ Record.TreasureObject: "TREASURE_OBJECT_HEART_CONTAINER_00" }] ||
             _entities.Entities<ItemDropEffect>().Count != 0 ||
             _entities.RandomCalls != pumpkinDropRandomCalls ||
             _entities.LinkCollisionsAndMenuDisabled ||
-            _entities.PlayerMenusDisabled)
-        {
-            throw new InvalidOperationException(
-                "Pumpkin Head's boss explosion did not release its enemy count and " +
-                "create the Heart Container without an item drop or RNG consumption " +
-                "from its source `$ff no-drop record.");
-        }
+            _entities.PlayerMenusDisabled,
+            "Pumpkin Head's boss explosion did not release its enemy count and " +
+            "create the Heart Container without an item drop or RNG consumption " +
+            "from its source `$ff no-drop record.");
 
         // The room-$12 subid-$00 object owns one room count and creates five
         // subid-$01 hands. Each hand calls enemyDie_uncounted; only the
@@ -1777,11 +1543,9 @@ public sealed partial class ValidationRoot
             {
                 StepEntities();
             }
-            if (defeatedWallmaster.State != WallmasterState.Falling)
-            {
-                throw new InvalidOperationException(
-                    $"Wallmaster hand {hand} did not begin its delayed fall.");
-            }
+            FailIf(
+                defeatedWallmaster.State != WallmasterState.Falling,
+                $"Wallmaster hand {hand} did not begin its delayed fall.");
 
             _player.WarpTo(wallmasterSafeTile);
             for (int frame = 0;
@@ -1792,15 +1556,13 @@ public sealed partial class ValidationRoot
                 StepEntities();
             }
             int remainingBeforeHit = defeatedWallmaster.Remaining;
-            if (defeatedWallmaster.State != WallmasterState.Grounded ||
+            FailIf(
+                defeatedWallmaster.State != WallmasterState.Grounded ||
                 !_entities.ApplySwordHit(
                     defeatedWallmaster.CollisionBounds.Grow(1.0f),
                     defeatedWallmaster.Position + Vector2.Right * 16.0f,
-                    damage: 20))
-            {
-                throw new InvalidOperationException(
-                    $"Wallmaster hand {hand} was not hittable after landing.");
-            }
+                    damage: 20),
+                $"Wallmaster hand {hand} was not hittable after landing.");
             for (int frame = 0;
                  frame < 60 &&
                  defeatedWallmaster.Remaining == remainingBeforeHit;
@@ -1809,50 +1571,42 @@ public sealed partial class ValidationRoot
                 StepEntities();
             }
 
-            if (defeatedWallmaster.Remaining != 5 - hand ||
-                wallmasterDeathEvents != hand)
-            {
-                throw new InvalidOperationException(
-                    $"Wallmaster hand {hand} did not emit one " +
-                    $"enemyDie_uncounted event (remaining=" +
-                    $"{defeatedWallmaster.Remaining}, events=" +
-                    $"{wallmasterDeathEvents}).");
-            }
+            FailIf(
+                defeatedWallmaster.Remaining != 5 - hand ||
+                wallmasterDeathEvents != hand,
+                $"Wallmaster hand {hand} did not emit one " +
+                $"enemyDie_uncounted event (remaining=" +
+                $"{defeatedWallmaster.Remaining}, events=" +
+                $"{wallmasterDeathEvents}).");
 
             RecentEnemyDefeatsState handRecent =
                 _entities.CaptureDebugState().RecentEnemyDefeats;
-            if (hand < 5 &&
+            FailIf(
+                hand < 5 &&
                 (_entities.RoomEnemyCount != wallmasterRoomEnemyCount ||
                  !handRecent.KilledEnemies.AsSpan().SequenceEqual(
-                     wallmasterRecentBefore.KilledEnemies)))
-            {
-                throw new InvalidOperationException(
-                    $"Wallmaster hand {hand} changed the spawner room count " +
-                    "or recent-defeat bit before all five hands were gone.");
-            }
+                     wallmasterRecentBefore.KilledEnemies)),
+                $"Wallmaster hand {hand} changed the spawner room count " +
+                "or recent-defeat bit before all five hands were gone.");
         }
 
         RecentEnemyDefeatsState wallmasterRecentAfter =
             _entities.CaptureDebugState().RecentEnemyDefeats;
-        if (_entities.Entities<WallmasterCharacter>().Count != 0 ||
+        FailIf(
+            _entities.Entities<WallmasterCharacter>().Count != 0 ||
             _entities.RoomEnemyCount != wallmasterRoomEnemyCount - 1 ||
             wallmasterDeathEvents != 5 ||
             wallmasterRecentAfter.KilledEnemies.AsSpan().SequenceEqual(
-                wallmasterRecentBefore.KilledEnemies))
-        {
-            throw new InvalidOperationException(
-                "The exhausted Wallmaster spawner did not independently " +
-                "decrement the room count and mark its recent-defeat bit " +
-                "after five counter events.");
-        }
+                wallmasterRecentBefore.KilledEnemies),
+            "The exhausted Wallmaster spawner did not independently " +
+            "decrement the room count and mark its recent-defeat bit " +
+            "after five counter events.");
         _entities.EnemyDefeated -= RecordWallmasterDeath;
         _entities.LoadRoom(4, _world.LoadRoom(4, 0x12));
-        if (_entities.Entities<WallmasterCharacter>().Count != 0)
-        {
-            throw new InvalidOperationException(
-                "The Wallmaster spawner recent-defeat mark did not suppress " +
-                "room 4:12 on immediate re-entry.");
-        }
+        FailIf(
+            _entities.Entities<WallmasterCharacter>().Count != 0,
+            "The Wallmaster spawner recent-defeat mark did not suppress " +
+            "room 4:12 on immediate re-entry.");
 
         // Reload without the transient mark and verify delayed drop, Link
         // capture, lift, and dungeon-entry warp.
@@ -1868,23 +1622,19 @@ public sealed partial class ValidationRoot
         _player.WarpTo(blockedSpawn);
         _sound.ClearPlayRequestAudit();
         StepEntities(181);
-        if (wallmaster.State != WallmasterState.Waiting ||
+        FailIf(
+            wallmaster.State != WallmasterState.Waiting ||
             wallmaster.Counter != 120 || wallmaster.Visible ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 0)
-        {
-            throw new InvalidOperationException(
-                "Room 4:12 Wallmaster spawner did not reject Link's solid tile " +
-                "and reload its 120-update delay.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 0,
+            "Room 4:12 Wallmaster spawner did not reject Link's solid tile " +
+            "and reload its 120-update delay.");
         _player.WarpTo(new Vector2(0x78, 0x78));
         StepEntities(120);
-        if (_player.CutsceneControlled ||
+        FailIf(
+            _player.CutsceneControlled ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndBossDead) != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 1)
-        {
-            throw new InvalidOperationException(
-                "Room 4:12 Wallmaster collided with Link while still $60 pixels overhead.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 1,
+            "Room 4:12 Wallmaster collided with Link while still $60 pixels overhead.");
         for (int frame = 0; frame < 180 &&
              wallmaster.State != WallmasterState.Grounded;
              frame++)
@@ -1892,31 +1642,28 @@ public sealed partial class ValidationRoot
             StepEntities();
         }
         StepEntities(12);
-        if (!_player.CutsceneControlled || _player.Visible ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDead) != 1)
-        {
-            throw new InvalidOperationException(
-                "Room 4:12 Wallmaster did not capture and hide Link with the " +
-                "original immediate capture sound after landing.");
-        }
+        FailIf(
+            !_player.CutsceneControlled || _player.Visible ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDead) != 1,
+            "Room 4:12 Wallmaster did not capture and hide Link with the " +
+            "original immediate capture sound after landing.");
         for (int frame = 0; frame < 120 && _rooms.CurrentRoom.Id == 0x12; frame++)
             StepEntities();
-        if (_rooms.ActiveGroup != 4 || _rooms.CurrentRoom.Id != 0x24 ||
+        FailIf(
+            _rooms.ActiveGroup != 4 || _rooms.CurrentRoom.Id != 0x24 ||
             !_transitions.IsTransitioning ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDead) != 1)
-        {
-            throw new InvalidOperationException(
-                "Room 4:12 Wallmaster did not request its $24/$87 fall destination " +
-                $"(group={_rooms.ActiveGroup:x}, room=${_rooms.CurrentRoom.Id:x2}, " +
-                $"transitioning={_transitions.IsTransitioning}, state={wallmaster.State}, " +
-                $"counter={wallmaster.Counter}, z=${wallmaster.ZFixed:x}, " +
-                $"warp={wallmaster.WarpRequested}, sound=" +
-                $"{_sound.PlayRequestsFor(OracleSoundEngine.SndBossDead)}).");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDead) != 1,
+            "Room 4:12 Wallmaster did not request its $24/$87 fall destination " +
+            $"(group={_rooms.ActiveGroup:x}, room=${_rooms.CurrentRoom.Id:x2}, " +
+            $"transitioning={_transitions.IsTransitioning}, state={wallmaster.State}, " +
+            $"counter={wallmaster.Counter}, z=${wallmaster.ZFixed:x}, " +
+            $"warp={wallmaster.WarpRequested}, sound=" +
+            $"{_sound.PlayRequestsFor(OracleSoundEngine.SndBossDead)}).");
         for (int frame = 0; frame < 40 && _transitions.IsTransitioning; frame++)
             _transitions.Update(update);
-        if (_transitions.IsTransitioning || !_player.Visible)
-            throw new InvalidOperationException("Wallmaster destination transition did not finish.");
+        FailIf(
+            _transitions.IsTransitioning || !_player.Visible,
+            "Wallmaster destination transition did not finish.");
 
         // Exercise the complete INTERAC_ESSENCE sequence last because it
         // intentionally mutates the live validation inventory's essence bit.
@@ -1925,13 +1672,11 @@ public sealed partial class ValidationRoot
         SpiritsGraveEssence essence =
             _entities.Entities<SpiritsGraveEssence>().Single();
         using Image liveEnergyBeadImage = essence.EnergyBeadTexture(0).GetImage();
-        if (!liveEnergyBeadImage.GetData().AsSpan().SequenceEqual(
-                energyBeadFirstImage.GetData()))
-        {
-            throw new InvalidOperationException(
-                "The live Eternal Spirit energy-bead compositor ignored " +
-                "spr_circlebeads' white-background source polarity.");
-        }
+        FailIf(
+            !liveEnergyBeadImage.GetData().AsSpan().SequenceEqual(
+            energyBeadFirstImage.GetData()),
+            "The live Eternal Spirit energy-bead compositor ignored " +
+            "spr_circlebeads' white-background source polarity.");
         bool observedHiddenGlow = false;
         bool observedVisibleGlowAfterToggle = false;
         for (int frame = 0; frame < 8; frame++)
@@ -1945,12 +1690,10 @@ public sealed partial class ValidationRoot
                 observedVisibleGlowAfterToggle = true;
             }
         }
-        if (!observedHiddenGlow || !observedVisibleGlowAfterToggle)
-        {
-            throw new InvalidOperationException(
-                "The Eternal Spirit glow did not use animation 3's two-update " +
-                "eight-cell frames and parameter-driven visibility toggles.");
-        }
+        FailIf(
+            !observedHiddenGlow || !observedVisibleGlowAfterToggle,
+            "The Eternal Spirit glow did not use animation 3's two-update " +
+            "eight-cell frames and parameter-driven visibility toggles.");
         _player.WarpTo(new Vector2(0x78, 0x3a));
         _player.Face(Vector2I.Up);
         _sound.ClearPlayRequestAudit();
@@ -1959,17 +1702,15 @@ public sealed partial class ValidationRoot
             StepEntities();
             _roomEvents.Update(update);
         }
-        if (!_dialogue.IsOpen || !essence.ReadyForDialogue ||
+        FailIf(
+            !_dialogue.IsOpen || !essence.ReadyForDialogue ||
             !_player.IsHoldingItemTwoHands ||
             !_saveData.HasRoomFlag(4, 0x11, OracleSaveData.RoomFlagItem) ||
             (_inventory.Essences & 0x01) == 0 ||
             _sound.PlayRequestsFor(OracleSoundEngine.MusGetEssence) != 1 ||
-            _sound.ActiveMusic != OracleSoundEngine.MusGetEssence)
-        {
-            throw new InvalidOperationException(
-                "The Eternal Spirit did not fall, enter the two-hand pose, show " +
-                "TX_000e, set D1's item bit, and start MUS_GET_ESSENCE.");
-        }
+            _sound.ActiveMusic != OracleSoundEngine.MusGetEssence,
+            "The Eternal Spirit did not fall, enter the two-hand pose, show " +
+            "TX_000e, set D1's item bit, and start MUS_GET_ESSENCE.");
         _dialogue.Close();
         bool[] observedEnergyBead = new bool[8];
         bool[] observedEnergyBeadRestart = new bool[8];
@@ -1985,20 +1726,19 @@ public sealed partial class ValidationRoot
                     observedEnergyBeadRestart[index] = true;
             }
         }
-        if (!essence.SwirlActive ||
+        FailIf(
+            !essence.SwirlActive ||
             observedEnergyBead.Any(observed => !observed) ||
-            observedEnergyBeadRestart.Any(observed => !observed))
-        {
-            throw new InvalidOperationException(
-                "The Eternal Spirit's eight inward energy beads did not consume " +
-                "their terminal $ff frames, disappear, and restart from the perimeter.");
-        }
+            observedEnergyBeadRestart.Any(observed => !observed),
+            "The Eternal Spirit's eight inward energy beads did not consume " +
+            "their terminal $ff frames, disappear, and restart from the perimeter.");
         for (int frame = 0; frame < 520 && !_transitions.IsTransitioning; frame++)
         {
             StepEntities();
             _roomEvents.Update(update);
         }
-        if (!_transitions.IsTransitioning || essence.SwirlActive ||
+        FailIf(
+            !_transitions.IsTransitioning || essence.SwirlActive ||
             _roomEvents.SpiritsGraveEssence.TracksEssence ||
             !_player.IsHoldingItemTwoHands ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDropEssence) != 1 ||
@@ -2007,62 +1747,49 @@ public sealed partial class ValidationRoot
             _sound.PlayRequestsFor(OracleSoundEngine.MusEssence) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndEnergyThing) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndFadeOut) != 4 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1)
-        {
-            throw new InvalidOperationException(
-                "The Eternal Spirit's 360/20/20/40/30 sequence, held pose, or " +
-                "sound cadence diverged, or its completed event retained the " +
-                "source interaction.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1,
+            "The Eternal Spirit's 360/20/20/40/30 sequence, held pose, or " +
+            "sound cadence diverged, or its completed event retained the " +
+            "source interaction.");
         _transitions.Update(update);
-        if (!_player.IsHoldingItemTwoHands)
-        {
-            throw new InvalidOperationException(
-                "Link released the Eternal Spirit pose during the source-room white fade.");
-        }
+        FailIf(
+            !_player.IsHoldingItemTwoHands,
+            "Link released the Eternal Spirit pose during the source-room white fade.");
         for (int frame = 0; frame < 170 && _transitions.IsTransitioning; frame++)
             _transitions.Update(update);
-        if (_transitions.IsTransitioning || _rooms.ActiveGroup != 0 ||
+        FailIf(
+            _transitions.IsTransitioning || _rooms.ActiveGroup != 0 ||
             _rooms.CurrentRoom.Id != 0x8d ||
             _currentRoom.Id != 0x8d ||
             _roomView.BackgroundFadeAlpha != 0.0f ||
-            _player.IsHoldingItemTwoHands)
-        {
-            throw new InvalidOperationException(
-                "D1's Essence did not finish the delayed white warp to 0:8d/$26 cleanly.");
-        }
+            _player.IsHoldingItemTwoHands,
+            "D1's Essence did not finish the delayed white warp to 0:8d/$26 cleanly.");
 
         PrepareRoom(0x11);
         SpiritsGraveEssence collectedEssence =
             _entities.Entities<SpiritsGraveEssence>().Single();
-        if (!collectedEssence.Collected ||
+        FailIf(
+            !collectedEssence.Collected ||
             _currentRoom.GetTerrainInfo(new Vector2(0x78, 0x28)).Collision != 0x0f ||
-            !collectedEssence.BlocksLink(new Vector2(0x78, 0x28)))
-        {
-            throw new InvalidOperationException(
-                "Collected D1 Essence re-entry did not retain subid-$01's pedestal " +
-                "and packed-position $0f collision while deleting only the essence/glow.");
-        }
+            !collectedEssence.BlocksLink(new Vector2(0x78, 0x28)),
+            "Collected D1 Essence re-entry did not retain subid-$01's pedestal " +
+            "and packed-position $0f collision while deleting only the essence/glow.");
 
         // Common subid-$00 species are not owned by D1. Room 4:ed is outside
         // the old 4:10-$25 factory gate and contains six fixed Ropes.
         PrepareRoom(0xed);
-        if (_entities.Entities<RopeCharacter>().Count != 6)
-        {
-            throw new InvalidOperationException(
-                "Common ENEMY_ROPE $10:$00 did not instantiate outside " +
-                "Spirit's Grave in room 4:ed.");
-        }
+        FailIf(
+            _entities.Entities<RopeCharacter>().Count != 6,
+            "Common ENEMY_ROPE $10:$00 did not instantiate outside " +
+            "Spirit's Grave in room 4:ed.");
 
         // Dungeon $0b's room 4:c5 uses the same common Wallmaster handler but
         // dungeonData0b sends Link to $ce, not Spirit's Grave entrance $24.
-        if (_rooms.DungeonMaps.GetDungeon(1).WallmasterDestinationRoom != 0x24 ||
-            _rooms.DungeonMaps.GetDungeon(0x0b).WallmasterDestinationRoom != 0xce)
-        {
-            throw new InvalidOperationException(
-                "Imported dungeon Wallmaster destinations lost dungeon01=$24 " +
-                "or dungeon0b=$ce.");
-        }
+        FailIf(
+            _rooms.DungeonMaps.GetDungeon(1).WallmasterDestinationRoom != 0x24 ||
+            _rooms.DungeonMaps.GetDungeon(0x0b).WallmasterDestinationRoom != 0xce,
+            "Imported dungeon Wallmaster destinations lost dungeon01=$24 " +
+            "or dungeon0b=$ce.");
         PrepareRoom(0xc5);
         WallmasterCharacter laterWallmaster =
             _entities.Entities<WallmasterCharacter>().Single();
@@ -2087,21 +1814,17 @@ public sealed partial class ValidationRoot
         {
             StepEntities();
         }
-        if (_rooms.ActiveGroup != 4 || _rooms.CurrentRoom.Id != 0xce ||
-            !_transitions.IsTransitioning)
-        {
-            throw new InvalidOperationException(
-                "Common Wallmaster in dungeon $0b room 4:c5 did not request " +
-                $"its imported $ce destination (group={_rooms.ActiveGroup:x1}, " +
-                $"room=${_rooms.CurrentRoom.Id:x2}).");
-        }
+        FailIf(
+            _rooms.ActiveGroup != 4 || _rooms.CurrentRoom.Id != 0xce ||
+            !_transitions.IsTransitioning,
+            "Common Wallmaster in dungeon $0b room 4:c5 did not request " +
+            $"its imported $ce destination (group={_rooms.ActiveGroup:x1}, " +
+            $"room=${_rooms.CurrentRoom.Id:x2}).");
         for (int frame = 0; frame < 40 && _transitions.IsTransitioning; frame++)
             _transitions.Update(update);
-        if (_transitions.IsTransitioning || !_player.Visible)
-        {
-            throw new InvalidOperationException(
-                "Dungeon $0b Wallmaster destination transition did not finish.");
-        }
+        FailIf(
+            _transitions.IsTransitioning || !_player.Visible,
+            "Dungeon $0b Wallmaster destination transition did not finish.");
 
         RestoreFlags();
         _player.EndCutsceneControl();

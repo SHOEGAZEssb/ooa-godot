@@ -95,17 +95,15 @@ public sealed partial class ValidationRoot
         var sidescrollHoleIndex = new TerrainInfo(
             0xf3, 0x00, TerrainType.Normal,
             HazardType.None);
-        if (spawnTiles.RecordCount != 63 ||
+        FailIf(
+            spawnTiles.RecordCount != 63 ||
             !spawnTiles.IsValid(0, normal) ||
             spawnTiles.IsValid(0, collision10Water) ||
             spawnTiles.IsValid(0, overworldWhirlpool) ||
             spawnTiles.IsValid(2, dungeonException) ||
-            !spawnTiles.IsValid(3, sidescrollHoleIndex))
-        {
-            throw new InvalidOperationException(
-                "checkTileValidForEnemySpawn did not require collision `$00 or " +
-                "select the original exception list by wActiveCollisions.");
-        }
+            !spawnTiles.IsValid(3, sidescrollHoleIndex),
+            "checkTileValidForEnemySpawn did not require collision `$00 or " +
+            "select the original exception list by wActiveCollisions.");
 
         OracleRoomData room1db = _world.LoadRoom(1, 0xdb);
         int validCells = 0;
@@ -123,21 +121,17 @@ public sealed partial class ValidationRoot
                 validCells++;
             if (terrain is { Tile: 0xfc, Collision: 0x10 })
             {
-                if (valid)
-                    throw new InvalidOperationException(
-                        "Room 1:db deep water remained valid for random enemies.");
+                FailIf(valid, "Room 1:db deep water remained valid for random enemies.");
                 rejectedWaterCells++;
             }
             if (!room1db.IsSolid(center) && !valid)
                 centerOpenButRejected++;
         }
-        if (validCells != 32 || rejectedWaterCells != 18 ||
-            centerOpenButRejected != 19)
-        {
-            throw new InvalidOperationException(
-                $"Room 1:db enemy-placement pool mismatch: valid={validCells}, " +
-                $"water={rejectedWaterCells}, center-open rejected={centerOpenButRejected}.");
-        }
+        FailIf(
+            validCells != 32 || rejectedWaterCells != 18 ||
+            centerOpenButRejected != 19,
+            $"Room 1:db enemy-placement pool mismatch: valid={validCells}, " +
+            $"water={rejectedWaterCells}, center-open rejected={centerOpenButRejected}.");
 
         EnemyPlacementContext warp = EnemyPlacementContext.Warp(0x33);
         EnemyPlacementContext scrollUp = EnemyPlacementContext.Scrolling(Vector2I.Up);
@@ -145,18 +139,16 @@ public sealed partial class ValidationRoot
         EnemyPlacementContext scrollDown = EnemyPlacementContext.Scrolling(Vector2I.Down);
         EnemyPlacementContext scrollLeft = EnemyPlacementContext.Scrolling(Vector2I.Left);
         OracleRoomData largeRoom = _world.LoadRoom(4, 0x39);
-        if (warp.Allows(room1db, 0x11) || !warp.Allows(room1db, 0x03) ||
+        FailIf(
+            warp.Allows(room1db, 0x11) || !warp.Allows(room1db, 0x03) ||
             scrollUp.Allows(room1db, 0x59) || !scrollUp.Allows(room1db, 0x49) ||
             scrollRight.Allows(room1db, 0x42) || !scrollRight.Allows(room1db, 0x43) ||
             scrollDown.Allows(room1db, 0x29) || !scrollDown.Allows(room1db, 0x39) ||
             scrollLeft.Allows(room1db, 0x47) || !scrollLeft.Allows(room1db, 0x46) ||
             scrollLeft.Allows(largeRoom, 0x5b) || !scrollLeft.Allows(largeRoom, 0x5a) ||
-            EnemyPlacementContext.FromWarpDestination(0xf5).Allows(room1db, 0x59))
-        {
-            throw new InvalidOperationException(
-                "checkPositionValidForEnemySpawn lost its warp square, incoming " +
-                "three-tile edge, or large-room DIR_LEFT `$0b boundary.");
-        }
+            EnemyPlacementContext.FromWarpDestination(0xf5).Allows(room1db, 0x59),
+            "checkPositionValidForEnemySpawn lost its warp square, incoming " +
+            "three-tile edge, or large-room DIR_LEFT `$0b boundary.");
 
         var validationRoot = new Node { Name = "EnemySpawnTerrainValidation" };
         AddChild(validationRoot);
@@ -171,15 +163,13 @@ public sealed partial class ValidationRoot
             RoomEntityManager manager = fixture.Manager;
             manager.LoadRoom(1, room1db);
             List<OctorokCharacter> octoroks = manager.Entities<OctorokCharacter>();
-            if (octoroks.Count != 2 || octoroks.Any(octorok =>
+            FailIf(
+                octoroks.Count != 2 || octoroks.Any(octorok =>
                 !spawnTiles.IsValid(
                     room1db.ActiveCollisions,
-                    room1db.GetTerrainInfo(octorok.Position))))
-            {
-                throw new InvalidOperationException(
-                    $"Room 1:db placed a blue Octorok on ROM-invalid terrain " +
-                    $"after {rngAdvance} pre-parse RNG calls.");
-            }
+                    room1db.GetTerrainInfo(octorok.Position))),
+                $"Room 1:db placed a blue Octorok on ROM-invalid terrain " +
+                $"after {rngAdvance} pre-parse RNG calls.");
             manager.Clear();
         }
         RemoveChild(validationRoot);
@@ -203,7 +193,8 @@ public sealed partial class ValidationRoot
             database.GetRoomObjects(0, 0x36);
         IReadOnlyList<RoomObjectRecord> room006 =
             database.GetRoomObjects(0, 0x06);
-        if (database.RoomObjectRecordCount != 1141 ||
+        FailIf(
+            database.RoomObjectRecordCount != 1141 ||
             room5b0.Count != 3 ||
             room5b0[0] is not { Order: 0, Kind: RoomObjectKind.FixedEnemy,
                 Id: 0x1b, PackedPosition: 0x63 } ||
@@ -222,12 +213,9 @@ public sealed partial class ValidationRoot
             room501[2].Kind != RoomObjectKind.RandomEnemy ||
             room036.Count != 2 || room036[0].ConditionMask != 0x01 ||
             room036[1].ConditionMask != 0xff ||
-            room006.Count != 1 || room006[0].Order != 0)
-        {
-            throw new InvalidOperationException(
-                "The ordered room-object stream lost source order, aliases, conditions, " +
-                "unsupported enemies, item drops, or reserving parts.");
-        }
+            room006.Count != 1 || room006[0].Order != 0,
+            "The ordered room-object stream lost source order, aliases, conditions, " +
+            "unsupported enemies, item drops, or reserving parts.");
 
         var classificationCounts =
             new Dictionary<EnemyHandlerClassification, int>();
@@ -287,7 +275,8 @@ public sealed partial class ValidationRoot
                         int testKillableIndex = source.Order % 7 + 1;
                         EnemyCombatSourceDescriptor combat =
                             handler.CombatSource(source, testKillableIndex);
-                        if (!expectedCombat.TryGetValue(
+                        FailIf(
+                            !expectedCombat.TryGetValue(
                                 (handler.Id, handler.SubId),
                                 out var expected) ||
                             combat.CollisionMode != expected.CollisionMode ||
@@ -297,12 +286,9 @@ public sealed partial class ValidationRoot
                             combat.CollisionInitiallyEnabled !=
                                 ((expected.CollisionMode & 0x80) != 0) ||
                             combat.KillableEnemyIndex != testKillableIndex ||
-                            combat.Source != source.Source)
-                        {
-                            throw new InvalidOperationException(
-                                $"{source.Source} did not retain its typed " +
-                                $"combat flags/collision descriptor.");
-                        }
+                            combat.Source != source.Source,
+                            $"{source.Source} did not retain its typed " +
+                            $"combat flags/collision descriptor.");
                         combat.ValidateSwordResponse(
                             expected.SwordResponse);
                         combatSourceFlags.Add(
@@ -317,15 +303,13 @@ public sealed partial class ValidationRoot
                         resolution.RequireEnemyHandler(source);
                     classifiedKeys.Add(
                         (handler.Id, handler.SubId, handler.Classification));
-                    if (resolution.SlotPolicy !=
+                    FailIf(
+                        resolution.SlotPolicy !=
                             EnemyObjectSlotPolicy.ParameterEnemy ||
                         handler.Classification !=
-                            EnemyHandlerClassification.DeliberatelyUnsupported)
-                    {
-                        throw new InvalidOperationException(
-                            $"{source.Source} lost its classified parameter-enemy " +
-                            "slot policy.");
-                    }
+                            EnemyHandlerClassification.DeliberatelyUnsupported,
+                        $"{source.Source} lost its classified parameter-enemy " +
+                        "slot policy.");
                 }
             }
         }
@@ -351,7 +335,8 @@ public sealed partial class ValidationRoot
                     "scripts/ages/scriptHelper.s:moblin_spawnEnemyHere");
         dynamicCombat.ValidateSwordResponse(
             EnemySwordResponse.Knockback);
-        if (ordinaryEnemyPlacements != 816 ||
+        FailIf(
+            ordinaryEnemyPlacements != 816 ||
             parameterEnemyPlacements != 12 ||
             classificationCounts.GetValueOrDefault(
                 EnemyHandlerClassification.OrderedImplemented) != 233 ||
@@ -427,38 +412,29 @@ public sealed partial class ValidationRoot
             } ||
             room5b0[0].Source !=
                 "objects/ages/enemyData.s:" +
-                "group5Mapb0EnemyObjectData[0]")
-        {
-            throw new InvalidOperationException(
-                "The enemy handler registry lost its 816-row implementation " +
-                "classification, 233-row/46-flag typed combat descriptors, " +
-                "source collision modes, construction dispatch, source " +
-                "identity, or dungeon-count completeness contract.");
-        }
+                "group5Mapb0EnemyObjectData[0]",
+            "The enemy handler registry lost its 816-row implementation " +
+            "classification, 233-row/46-flag typed combat descriptors, " +
+            "source collision modes, construction dispatch, source " +
+            "identity, or dungeon-count completeness contract.");
 
         var wrappedReservations = new EnemyPlacementReservations();
         for (int position = 0; position < 15; position++)
             wrappedReservations.Add(position);
-        if (wrappedReservations.Count != 15 || !wrappedReservations.Contains(0x00) ||
-            !wrappedReservations.Contains(0x0e))
-        {
-            throw new InvalidOperationException(
-                "wPlacedEnemyPositions did not retain its first 15 packed positions.");
-        }
+        FailIf(
+            wrappedReservations.Count != 15 || !wrappedReservations.Contains(0x00) ||
+            !wrappedReservations.Contains(0x0e),
+            "wPlacedEnemyPositions did not retain its first 15 packed positions.");
         wrappedReservations.Add(0x0f);
-        if (wrappedReservations.Count != 0 || wrappedReservations.Contains(0x00) ||
-            wrappedReservations.Contains(0x0f))
-        {
-            throw new InvalidOperationException(
-                "wEnemyPlacement.numEnemies did not wrap after its 16th reservation.");
-        }
+        FailIf(
+            wrappedReservations.Count != 0 || wrappedReservations.Contains(0x00) ||
+            wrappedReservations.Contains(0x0f),
+            "wEnemyPlacement.numEnemies did not wrap after its 16th reservation.");
         wrappedReservations.Add(0xaa);
-        if (wrappedReservations.Count != 1 || !wrappedReservations.Contains(0xaa) ||
-            wrappedReservations.Contains(0x01))
-        {
-            throw new InvalidOperationException(
-                "The wrapped placement table did not restart from entry zero.");
-        }
+        FailIf(
+            wrappedReservations.Count != 1 || !wrappedReservations.Contains(0xaa) ||
+            wrappedReservations.Contains(0x01),
+            "The wrapped placement table did not restart from entry zero.");
 
         var validationRoot = new Node { Name = "EnemyPlacementOrderValidation" };
         AddChild(validationRoot);
@@ -498,15 +474,13 @@ public sealed partial class ValidationRoot
                 .Concat(zols.Select(enemy => Pack(enemy.Position)))
                 .ToArray();
             HashSet<int> reserved = reservedPositions.ToHashSet();
-            if (keese.Count != expectedKeese || zols.Count != expectedZols ||
+            FailIf(
+                keese.Count != expectedKeese || zols.Count != expectedZols ||
                 allPacked.Distinct().Count() != allPacked.Length ||
-                keese.Any(enemy => reserved.Contains(Pack(enemy.Position))))
-            {
-                throw new InvalidOperationException(
-                    $"Room {group:x1}:{roomId:x2} lost ordered placement reservations " +
-                    $"(Keese={string.Join(',', keese.Select(enemy => $"${Pack(enemy.Position):x2}"))}, " +
-                    $"Zols={string.Join(',', zols.Select(enemy => $"${Pack(enemy.Position):x2}"))}).");
-            }
+                keese.Any(enemy => reserved.Contains(Pack(enemy.Position))),
+                $"Room {group:x1}:{roomId:x2} lost ordered placement reservations " +
+                $"(Keese={string.Join(',', keese.Select(enemy => $"${Pack(enemy.Position):x2}"))}, " +
+                $"Zols={string.Join(',', zols.Select(enemy => $"${Pack(enemy.Position):x2}"))}).");
             manager.Clear();
         }
 
@@ -532,12 +506,12 @@ public sealed partial class ValidationRoot
         var database = new EnemyDatabase();
         List<RoomObjectRecord> keesePlacements =
             EnemyPlacements(database, 0x32, 0x00, 0x01);
-        if (keesePlacements.Count != 53 ||
-            keesePlacements.Sum(source => source.Count) != 158)
-            throw new InvalidOperationException(
-                $"Expected 53 ENEMY_KEESE room records / 158 instances, got " +
-                $"{keesePlacements.Count} / " +
-                $"{keesePlacements.Sum(source => source.Count)}.");
+        FailIf(
+            keesePlacements.Count != 53 ||
+            keesePlacements.Sum(source => source.Count) != 158,
+            $"Expected 53 ENEMY_KEESE room records / 158 instances, got " +
+            $"{keesePlacements.Count} / " +
+            $"{keesePlacements.Sum(source => source.Count)}.");
 
         EnemyAdjacentWallResolver adjacentWalls =
             EnemyAdjacentWallResolver.Shared;
@@ -545,7 +519,8 @@ public sealed partial class ValidationRoot
             adjacentWalls.Offset(octant: 1, probe: 0);
         EnemyAdjacentWallOffsetRecord diagonalSecond =
             adjacentWalls.Offset(octant: 1, probe: 1);
-        if (diagonalFirst.YDelta != -4 || diagonalFirst.XDelta != -5 ||
+        FailIf(
+            diagonalFirst.YDelta != -4 || diagonalFirst.XDelta != -5 ||
             diagonalSecond.YDelta != 0 || diagonalSecond.XDelta != 9 ||
             !diagonalFirst.Source.Contains(
                 "object_code/common/enemies/commonCode.s",
@@ -555,12 +530,9 @@ public sealed partial class ValidationRoot
             EnemyAdjacentWallResolver.OctantForAngle(0x00) != 0 ||
             EnemyAdjacentWallResolver.OctantForAngle(0x04) != 1 ||
             EnemyAdjacentWallResolver.OctantForAngle(0x08) != 2 ||
-            EnemyAdjacentWallResolver.OctantForAngle(0x1f) != 7)
-        {
-            throw new InvalidOperationException(
-                "The imported ecom adjacent-wall offsets, bounce angles, " +
-                "source identity, or rounded-octant lookup changed.");
-        }
+            EnemyAdjacentWallResolver.OctantForAngle(0x1f) != 7,
+            "The imported ecom adjacent-wall offsets, bounce angles, " +
+            "source identity, or rounded-octant lookup changed.");
 
         var diagonalPoints = new List<Vector2I>();
         EnemyAdjacentWallProbe diagonalProbe = adjacentWalls.Probe(
@@ -579,50 +551,49 @@ public sealed partial class ValidationRoot
             new(160, 2),
             new(160, 8)
         ];
-        if (!diagonalPoints.SequenceEqual(expectedDiagonalPoints) ||
+        FailIf(
+            !diagonalPoints.SequenceEqual(expectedDiagonalPoints) ||
             diagonalProbe.Bitset != 0x0f ||
             !diagonalProbe.YBlocked || !diagonalProbe.XBlocked ||
-            adjacentWalls.BounceAngle(0x04, diagonalProbe) != 0x14)
-        {
-            throw new InvalidOperationException(
-                "ecom_getAdjacentWallsBitset no longer applies its four " +
-                "signed Y/X pairs cumulatively at a diagonal corner.");
-        }
+            adjacentWalls.BounceAngle(0x04, diagonalProbe) != 0x14,
+            "ecom_getAdjacentWallsBitset no longer applies its four " +
+            "signed Y/X pairs cumulatively at a diagonal corner.");
 
         LoadValidationRoom(4, 0x39);
-        if (_entities.Entities<KeeseCharacter>().Count != 2 || _entities.Entities<KeeseCharacter>().Exists(keese => keese.Record.SubId != 1))
-            throw new InvalidOperationException(
-                $"Room 4:39 should contain two random-position ENEMY_KEESE subid `$01 objects, " +
-                $"got {_entities.Entities<KeeseCharacter>().Count}.");
+        FailIf(
+            _entities.Entities<KeeseCharacter>().Count != 2 || _entities.Entities<KeeseCharacter>().Exists(keese => keese.Record.SubId != 1),
+            $"Room 4:39 should contain two random-position ENEMY_KEESE subid `$01 objects, " +
+            $"got {_entities.Entities<KeeseCharacter>().Count}.");
 
         KeeseCharacter approachKeese = _entities.Entities<KeeseCharacter>()[0];
-        if (approachKeese.SpriteHeight != -1)
-            throw new InvalidOperationException("Keese subid `$01 did not preserve its original z-height `$ff.");
+        FailIf(
+            approachKeese.SpriteHeight != -1,
+            "Keese subid `$01 did not preserve its original z-height `$ff.");
         approachKeese.Position = new Vector2(80, 80);
         _player.WarpTo(new Vector2(128, 80));
         _entities.Update(1.0 / 60.0, _player);
-        if (approachKeese.State != KeeseState.Moving ||
+        FailIf(
+            approachKeese.State != KeeseState.Moving ||
             approachKeese.Counter1 != 12 || approachKeese.Counter2 != 12 ||
-            !approachKeese.Flying)
-            throw new InvalidOperationException(
-                "Keese subid `$01 did not wake inside strict Manhattan distance `$31 with 12x12 counters.");
+            !approachKeese.Flying,
+            "Keese subid `$01 did not wake inside strict Manhattan distance `$31 with 12x12 counters.");
 
         for (int frame = 0; frame < 4; frame++)
             _entities.Update(1.0 / 60.0, _player);
-        if (approachKeese.CurrentAnimationFrame != 1)
-            throw new InvalidOperationException(
-                "Flying Keese did not switch OAM frames after the original 4 animation calls.");
+        FailIf(
+            approachKeese.CurrentAnimationFrame != 1,
+            "Flying Keese did not switch OAM frames after the original 4 animation calls.");
         for (int frame = 4; frame < 144; frame++)
             _entities.Update(1.0 / 60.0, _player);
-        if (approachKeese.State != KeeseState.Resting || approachKeese.Flying)
-            throw new InvalidOperationException(
-                "Keese subid `$01 did not return to rest after 12 turning intervals of 12 updates.");
+        FailIf(
+            approachKeese.State != KeeseState.Resting || approachKeese.Flying,
+            "Keese subid `$01 did not return to rest after 12 turning intervals of 12 updates.");
 
         LoadValidationRoom(4, 0xcb);
-        if (_entities.Entities<KeeseCharacter>().Count != 4 || _entities.Entities<KeeseCharacter>().Exists(keese => keese.Record.SubId != 0))
-            throw new InvalidOperationException(
-                $"Room 4:cb should contain four random-position ENEMY_KEESE subid `$00 objects, " +
-                $"got {_entities.Entities<KeeseCharacter>().Count}.");
+        FailIf(
+            _entities.Entities<KeeseCharacter>().Count != 4 || _entities.Entities<KeeseCharacter>().Exists(keese => keese.Record.SubId != 0),
+            $"Room 4:cb should contain four random-position ENEMY_KEESE subid `$00 objects, " +
+            $"got {_entities.Entities<KeeseCharacter>().Count}.");
 
         KeeseCharacter normalKeese = _entities.Entities<KeeseCharacter>()[0];
         // Keep the target hitbox independent of the room-wide RNG stream.
@@ -636,14 +607,14 @@ public sealed partial class ValidationRoot
         normalKeese.Position = new Vector2(48, 48);
         _player.WarpTo(new Vector2(160, 120));
         _entities.Update(31.0 / 60.0, _player);
-        if (normalKeese.State != KeeseState.Resting || normalKeese.Counter1 != 1)
-            throw new InvalidOperationException(
-                "Normal Keese did not preserve its original 32-update initial rest counter.");
+        FailIf(
+            normalKeese.State != KeeseState.Resting || normalKeese.Counter1 != 1,
+            "Normal Keese did not preserve its original 32-update initial rest counter.");
         _entities.Update(1.0 / 60.0, _player);
-        if (normalKeese.State != KeeseState.Moving || !normalKeese.Flying ||
-            normalKeese.Counter1 is < 0xc0 or > 0xff)
-            throw new InvalidOperationException(
-                "Normal Keese did not choose its original random `$c0-`$ff flight counter and angle.");
+        FailIf(
+            normalKeese.State != KeeseState.Moving || !normalKeese.Flying ||
+            normalKeese.Counter1 is < 0xc0 or > 0xff,
+            "Normal Keese did not choose its original random `$c0-`$ff flight counter and angle.");
 
         EnemyDatabaseEnemyRecord boundaryRecord =
             ResolveKeese(
@@ -673,21 +644,17 @@ public sealed partial class ValidationRoot
                 boundaryRandom);
             for (int frame = 0; frame < 0x20; frame++)
                 boundaryKeese.UpdateFrame(Vector2.Zero, frame);
-            if (boundaryKeese.State != KeeseState.Moving ||
-                boundaryKeese.Angle != initialAngle)
-            {
-                throw new InvalidOperationException(
-                    $"The {axis} Keese boundary fixture did not select " +
-                    $"source angle `${initialAngle:x2}.");
-            }
+            FailIf(
+                boundaryKeese.State != KeeseState.Moving ||
+                boundaryKeese.Angle != initialAngle,
+                $"The {axis} Keese boundary fixture did not select " +
+                $"source angle `${initialAngle:x2}.");
             boundaryKeese.Position = position;
             boundaryKeese.UpdateFrame(Vector2.Zero, 0x20);
-            if (boundaryKeese.Angle != reflectedAngle)
-            {
-                throw new InvalidOperationException(
-                    $"Keese did not reflect its {axis} boundary contact from " +
-                    $"`${initialAngle:x2} to `${reflectedAngle:x2}.");
-            }
+            FailIf(
+                boundaryKeese.Angle != reflectedAngle,
+                $"Keese did not reflect its {axis} boundary contact from " +
+                $"`${initialAngle:x2} to `${reflectedAngle:x2}.");
             boundaryKeese.Free();
         }
 
@@ -696,21 +663,19 @@ public sealed partial class ValidationRoot
         int healthBeforeContact = _player.HealthQuarters;
         int damageSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink);
         _entities.Update(0.0, _player);
-        if (_player.HealthQuarters != healthBeforeContact - 2 ||
+        FailIf(
+            _player.HealthQuarters != healthBeforeContact - 2 ||
             !Mathf.IsEqualApprox(_player.InvincibilityFrames, 0x22) ||
             !Mathf.IsEqualApprox(_player.KnockbackFrames, 0x0f) ||
             _sound.LastPlayRequest != OracleSoundEngine.SndDamageLink ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1)
-            throw new InvalidOperationException(
-                "Keese contact did not apply half-heart damage, 34 invincibility updates, " +
-                "15 knockback updates, and SND_DAMAGE_LINK $5f.");
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1,
+            "Keese contact did not apply half-heart damage, 34 invincibility updates, " +
+            "15 knockback updates, and SND_DAMAGE_LINK $5f.");
         _entities.Update(0.0, _player);
-        if (_player.HealthQuarters != healthBeforeContact - 2 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1)
-        {
-            throw new InvalidOperationException(
-                "Keese contact bypassed Link's invincibility counter or replayed SND_DAMAGE_LINK $5f.");
-        }
+        FailIf(
+            _player.HealthQuarters != healthBeforeContact - 2 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1,
+            "Keese contact bypassed Link's invincibility counter or replayed SND_DAMAGE_LINK $5f.");
 
         _player.WarpTo(normalKeese.Position + Vector2.Down * 16.0f);
         Vector2 expectedPuffPosition = normalKeese.Position +
@@ -719,70 +684,65 @@ public sealed partial class ValidationRoot
         int countBeforeSword = _entities.Entities<KeeseCharacter>().Count;
         int killSoundsBeforeSword =
             _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy);
-        if (!_entities.ApplySwordHit(
+        FailIf(
+            !_entities.ApplySwordHit(
                 normalKeese.CollisionBounds.Grow(1.0f),
                 normalKeese.Position + Vector2.Left * 16.0f) ||
             !normalKeese.PendingKnockbackDeath ||
             normalKeese.CollisionEnabled ||
             _entities.Entities<KeeseCharacter>().Count != countBeforeSword ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
-                killSoundsBeforeSword)
-            throw new InvalidOperationException(
-                "The lethal level-1 sword hit did not retain ENEMY_KEESE for " +
-                "its collision-disabled recoil.");
+                killSoundsBeforeSword,
+            "The lethal level-1 sword hit did not retain ENEMY_KEESE for " +
+            "its collision-disabled recoil.");
         for (int frame = 0; frame < 0x08; frame++)
             normalKeese.UpdateFrame(_player.Position, frame);
-        if (_entities.Entities<KeeseCharacter>().Count != countBeforeSword ||
+        FailIf(
+            _entities.Entities<KeeseCharacter>().Count != countBeforeSword ||
             normalKeese.KnockbackCounter != 0 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
-                killSoundsBeforeSword)
-        {
-            throw new InvalidOperationException(
-                "Lethal ENEMY_KEESE recoil did not complete before the death update.");
-        }
+                killSoundsBeforeSword,
+            "Lethal ENEMY_KEESE recoil did not complete before the death update.");
         normalKeese.UpdateFrame(_player.Position, 0x08);
         _entities.Update(0.0, _player);
-        if (_entities.Entities<KeeseCharacter>().Count != countBeforeSword - 1 ||
+        FailIf(
+            _entities.Entities<KeeseCharacter>().Count != countBeforeSword - 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
-                killSoundsBeforeSword + 1)
-        {
-            throw new InvalidOperationException(
-                "ENEMY_KEESE did not die with one SND_KILLENEMY request on " +
-                "the update after recoil.");
-        }
-        if (_entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
+                killSoundsBeforeSword + 1,
+            "ENEMY_KEESE did not die with one SND_KILLENEMY request on " +
+            "the update after recoil.");
+        FailIf(
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
             _entities.Entities<EnemyDeathPuffEffect>()[0].Position != expectedPuffPosition ||
             _entities.Entities<EnemyDeathPuffEffect>()[0].HighKnockback ||
             _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x32 ||
             _entities.Entities<EnemyDeathPuffEffect>()[0].DurationFrames != 20 ||
-            _entities.Entities<EnemyDeathPuffEffect>()[0].CurrentPalette != 2)
-        {
-            throw new InvalidOperationException(
-                "Defeating Keese did not create the ordinary 20-update PART_ENEMY_DESTROYED puff at its visual position.");
-        }
+            _entities.Entities<EnemyDeathPuffEffect>()[0].CurrentPalette != 2,
+            "Defeating Keese did not create the ordinary 20-update PART_ENEMY_DESTROYED puff at its visual position.");
 
         KeeseCharacter transitionKeese = _entities.Entities<KeeseCharacter>()[0];
         int transitionCounter = transitionKeese.Counter1;
         OracleRoomData incomingRoom = _world.LoadRoom(4, 0x39);
         _entities.BeginScreenTransition(4, incomingRoom, Vector2.Left * incomingRoom.Width);
         _entities.Update(1.0, _player);
-        if (_entities.OutgoingEntities<KeeseCharacter>().Count != 3 || _entities.Entities<KeeseCharacter>().Count != 2 ||
+        FailIf(
+            _entities.OutgoingEntities<KeeseCharacter>().Count != 3 || _entities.Entities<KeeseCharacter>().Count != 2 ||
             _entities.OutgoingEntities<EnemyDeathPuffEffect>().Count != 1 ||
             _entities.OutgoingEntities<EnemyDeathPuffEffect>()[0].ElapsedFrames != 0 ||
             transitionKeese.Counter1 != transitionCounter ||
-            !_entities.Entities<KeeseCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Left * incomingRoom.Width))
-            throw new InvalidOperationException(
-                "Scrolling did not retain/freeze outgoing Keese/death puffs and preload/freeze destination Keese.");
+            !_entities.Entities<KeeseCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Left * incomingRoom.Width),
+            "Scrolling did not retain/freeze outgoing Keese/death puffs and preload/freeze destination Keese.");
         _entities.SetScreenTransitionOffsets(
             Vector2.Right * 4.0f,
             Vector2.Left * (incomingRoom.Width - 4.0f));
-        if (!_entities.OutgoingEntities<EnemyDeathPuffEffect>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Right * 4.0f))
-            throw new InvalidOperationException("The death puff did not move with its outgoing room during scrolling.");
+        FailIf(
+            !_entities.OutgoingEntities<EnemyDeathPuffEffect>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Right * 4.0f),
+            "The death puff did not move with its outgoing room during scrolling.");
         _entities.FinishScreenTransition();
-        if (_entities.OutgoingEntities<KeeseCharacter>().Count != 0 || _entities.OutgoingEntities<EnemyDeathPuffEffect>().Count != 0 ||
-            !_entities.Entities<KeeseCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Zero))
-            throw new InvalidOperationException(
-                "Keese/death-puff transition ownership and offsets were not normalized after scrolling.");
+        FailIf(
+            _entities.OutgoingEntities<KeeseCharacter>().Count != 0 || _entities.OutgoingEntities<EnemyDeathPuffEffect>().Count != 0 ||
+            !_entities.Entities<KeeseCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Zero),
+            "Keese/death-puff transition ownership and offsets were not normalized after scrolling.");
 
         KeeseCharacter burningKeese = _entities.Entities<KeeseCharacter>()[0];
         burningKeese.Position = new Vector2(64, 64);
@@ -797,48 +757,40 @@ public sealed partial class ValidationRoot
                 burningKeese.Position - emberRecord.RightOffset,
                 Vector2I.Right, emberRecord, 4));
         _entities.Update(1.0 / 60.0, _player);
-        if (!burningKeese.IsVisibleInTree() ||
+        FailIf(
+            !burningKeese.IsVisibleInTree() ||
             attachedFlame.State != EmberState.Burning ||
             attachedFlame.FlameCounter != 59 ||
             attachedFlame.Position != burningKeese.Position ||
             _entities.Entities<KeeseCharacter>().Count != keeseBeforeBurn ||
-            _entities.Entities<EnemyDeathPuffEffect>().Count != 0)
-        {
-            throw new InvalidOperationException(
-                "COLLISIONEFFECT_BURN did not attach PART_BURNING_ENEMY to the live Keese before damage resolution.");
-        }
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 0,
+            "COLLISIONEFFECT_BURN did not attach PART_BURNING_ENEMY to the live Keese before damage resolution.");
         KeeseState burningState = burningKeese.State;
         int burningCounter1 = burningKeese.Counter1;
         int burningCounter2 = burningKeese.Counter2;
 
         burningKeese.Position += new Vector2(3, 2);
         _entities.Update(1.0 / 60.0, _player);
-        if (attachedFlame.Position != burningKeese.Position ||
-            attachedFlame.FlameCounter != 58)
-        {
-            throw new InvalidOperationException(
-                "PART_BURNING_ENEMY did not follow its related enemy on the first burn update.");
-        }
+        FailIf(
+            attachedFlame.Position != burningKeese.Position ||
+            attachedFlame.FlameCounter != 58,
+            "PART_BURNING_ENEMY did not follow its related enemy on the first burn update.");
         for (int update = 1; update < 58; update++)
             _entities.Update(1.0 / 60.0, _player);
-        if (attachedFlame.FlameCounter != 1 || burningKeese.State != burningState ||
+        FailIf(
+            attachedFlame.FlameCounter != 1 || burningKeese.State != burningState ||
             burningKeese.Counter1 != burningCounter1 ||
             burningKeese.Counter2 != burningCounter2 ||
-            _entities.Entities<KeeseCharacter>().Count != keeseBeforeBurn)
-        {
-            throw new InvalidOperationException(
-                "PART_BURNING_ENEMY did not stun Keese through counter1 value 1 without killing it.");
-        }
+            _entities.Entities<KeeseCharacter>().Count != keeseBeforeBurn,
+            "PART_BURNING_ENEMY did not stun Keese through counter1 value 1 without killing it.");
         _entities.Update(1.0 / 60.0, _player);
-        if (_entities.Entities<EmberSeedEffect>().Count != 0 ||
+        FailIf(
+            _entities.Entities<EmberSeedEffect>().Count != 0 ||
             _entities.Entities<KeeseCharacter>().Count != keeseBeforeBurn - 1 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
-                killSoundsBeforeBurn + 1)
-        {
-            throw new InvalidOperationException(
-                "PART_BURNING_ENEMY did not resolve Ember damage and enemy death on update 59.");
-        }
+                killSoundsBeforeBurn + 1,
+            "PART_BURNING_ENEMY did not resolve Ember damage and enemy death on update 59.");
 
         // Reproduce the edge case where the moving seed narrowly misses but
         // its already-landed flame overlaps the enemy on a later collision pass.
@@ -850,13 +802,11 @@ public sealed partial class ValidationRoot
                 new Vector2(80, 80), Vector2I.Up, emberRecord, 4));
         for (int update = 0; update < 9; update++)
             _entities.Update(1.0 / 60.0, _player);
-        if (landedFlame.State != EmberState.Burning ||
+        FailIf(
+            landedFlame.State != EmberState.Burning ||
             landedFlame.FlameCounter != 0x3a ||
-            !landedFlame.CollisionEnabled)
-        {
-            throw new InvalidOperationException(
-                "The edge-hit regression could not establish an active landed Ember flame.");
-        }
+            !landedFlame.CollisionEnabled,
+            "The edge-hit regression could not establish an active landed Ember flame.");
 
         float edgeOverlap = emberRecord.CollisionRadiusX +
             edgeKeese.Record.CollisionRadiusX - 1.0f;
@@ -867,54 +817,46 @@ public sealed partial class ValidationRoot
         KeeseState edgeState = edgeKeese.State;
         int edgeCounter1 = edgeKeese.Counter1;
         int edgeCounter2 = edgeKeese.Counter2;
-        if (landedFlame.FlameCounter != 59 ||
-            landedFlame.Position != edgeKeese.Position)
-        {
-            throw new InvalidOperationException(
-                "A landed Ember flame touching the edge of ENEMY_KEESE did not adopt its burn target.");
-        }
+        FailIf(
+            landedFlame.FlameCounter != 59 ||
+            landedFlame.Position != edgeKeese.Position,
+            "A landed Ember flame touching the edge of ENEMY_KEESE did not adopt its burn target.");
         for (int update = 1; update < 59; update++)
             _entities.Update(1.0 / 60.0, _player);
-        if (landedFlame.FlameCounter != 1 || edgeKeese.State != edgeState ||
+        FailIf(
+            landedFlame.FlameCounter != 1 || edgeKeese.State != edgeState ||
             edgeKeese.Counter1 != edgeCounter1 ||
-            edgeKeese.Counter2 != edgeCounter2)
-        {
-            throw new InvalidOperationException(
-                "The edge-contact Ember flame did not retain its enemy through burn counter 1.");
-        }
+            edgeKeese.Counter2 != edgeCounter2,
+            "The edge-contact Ember flame did not retain its enemy through burn counter 1.");
         _entities.Update(1.0 / 60.0, _player);
-        if (_entities.Entities<EmberSeedEffect>().Count != 0 ||
+        FailIf(
+            _entities.Entities<EmberSeedEffect>().Count != 0 ||
             _entities.Entities<KeeseCharacter>().Count != 0 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
-                edgeKillSounds + 1)
-        {
-            throw new InvalidOperationException(
-                "An edge-contact Ember burn left ENEMY_KEESE inactive instead of resolving its death.");
-        }
+                edgeKillSounds + 1,
+            "An edge-contact Ember burn left ENEMY_KEESE inactive instead of resolving its death.");
 
         var normalPuff = new EnemyDeathPuffEffect();
         normalPuff.Initialize(Vector2.Zero);
         for (int frame = 1; frame <= 20; frame++)
         {
             normalPuff.UpdateFrame(frame);
-            if (frame == 1 &&
-                (normalPuff.AnimationFrame != 0 || normalPuff.CurrentPalette != 2))
-            {
-                throw new InvalidOperationException(
-                    "PART_ENEMY_DESTROYED changed frame/palette before its first 2-update record elapsed.");
-            }
-            if (frame == 2 &&
-                (normalPuff.AnimationFrame != 1 || normalPuff.CurrentPalette != 3))
-            {
-                throw new InvalidOperationException(
-                    "PART_ENEMY_DESTROYED did not advance after 2 updates and toggle OAM flags `$0a -> `$0b.");
-            }
-            if (frame < 20 && normalPuff.Finished)
-                throw new InvalidOperationException("The ordinary enemy death puff ended before 20 updates.");
+            FailIf(
+                frame == 1 &&
+                (normalPuff.AnimationFrame != 0 || normalPuff.CurrentPalette != 2),
+                "PART_ENEMY_DESTROYED changed frame/palette before its first 2-update record elapsed.");
+            FailIf(
+                frame == 2 &&
+                (normalPuff.AnimationFrame != 1 || normalPuff.CurrentPalette != 3),
+                "PART_ENEMY_DESTROYED did not advance after 2 updates and toggle OAM flags `$0a -> `$0b.");
+            FailIf(
+                frame < 20 && normalPuff.Finished,
+                "The ordinary enemy death puff ended before 20 updates.");
         }
-        if (!normalPuff.Finished || normalPuff.ElapsedFrames != 20)
-            throw new InvalidOperationException("The ordinary enemy death puff did not end after 20 updates.");
+        FailIf(
+            !normalPuff.Finished || normalPuff.ElapsedFrames != 20,
+            "The ordinary enemy death puff did not end after 20 updates.");
         normalPuff.Free();
 
         var highKnockbackPuff = new EnemyDeathPuffEffect();
@@ -922,14 +864,16 @@ public sealed partial class ValidationRoot
         for (int frame = 1; frame <= 28; frame++)
         {
             highKnockbackPuff.UpdateFrame(frame);
-            if (frame == 6 && highKnockbackPuff.AnimationFrame != 3)
-                throw new InvalidOperationException(
-                    "The high-knockback death puff did not enter its extra 8-update burst frame.");
-            if (frame < 28 && highKnockbackPuff.Finished)
-                throw new InvalidOperationException("The high-knockback enemy death puff ended before 28 updates.");
+            FailIf(
+                frame == 6 && highKnockbackPuff.AnimationFrame != 3,
+                "The high-knockback death puff did not enter its extra 8-update burst frame.");
+            FailIf(
+                frame < 28 && highKnockbackPuff.Finished,
+                "The high-knockback enemy death puff ended before 28 updates.");
         }
-        if (!highKnockbackPuff.Finished || highKnockbackPuff.DurationFrames != 28)
-            throw new InvalidOperationException("The high-knockback enemy death puff did not end after 28 updates.");
+        FailIf(
+            !highKnockbackPuff.Finished || highKnockbackPuff.DurationFrames != 28,
+            "The high-knockback enemy death puff did not end after 28 updates.");
         highKnockbackPuff.Free();
         _player.RefillHealth();
 
@@ -945,78 +889,68 @@ public sealed partial class ValidationRoot
         var database = new EnemyDatabase();
         List<RoomObjectRecord> octorokPlacements =
             EnemyPlacements(database, 0x09, 0x00, 0x01, 0x02);
-        if (octorokPlacements.Count != 33 ||
-            octorokPlacements.Sum(source => source.Count) != 48)
-        {
-            throw new InvalidOperationException(
-                $"Expected 33 ENEMY_OCTOROK room records / 48 instances, got " +
-                $"{octorokPlacements.Count} / " +
-                $"{octorokPlacements.Sum(source => source.Count)}.");
-        }
+        FailIf(
+            octorokPlacements.Count != 33 ||
+            octorokPlacements.Sum(source => source.Count) != 48,
+            $"Expected 33 ENEMY_OCTOROK room records / 48 instances, got " +
+            $"{octorokPlacements.Count} / " +
+            $"{octorokPlacements.Sum(source => source.Count)}.");
         OctorokProjectileRecord projectile = database.OctorokProjectile;
-        if (projectile.TileBase != 0x0c || projectile.Palette != 3 ||
+        FailIf(
+            projectile.TileBase != 0x0c || projectile.Palette != 3 ||
             projectile.CollisionRadiusY != 2 || projectile.CollisionRadiusX != 2 ||
-            projectile.DamageQuarters != 2 || projectile.SpeedRaw != 0x50)
-        {
-            throw new InvalidOperationException(
-                "PART_OCTOROK_PROJECTILE did not retain tile `$0c, palette 3, radius 2x2, " +
-                "half-heart damage, and SPEED_200 (`$50)." );
-        }
+            projectile.DamageQuarters != 2 || projectile.SpeedRaw != 0x50,
+            "PART_OCTOROK_PROJECTILE did not retain tile `$0c, palette 3, radius 2x2, " +
+            "half-heart damage, and SPEED_200 (`$50).");
 
         LoadValidationRoom(0, 0x74);
-        if (_entities.Entities<OctorokCharacter>().Count != 2 ||
-            _entities.Entities<OctorokCharacter>().Find(octorok => octorok.Record.SubId == 0) is not OctorokCharacter red ||
-            _entities.Entities<OctorokCharacter>().Find(octorok => octorok.Record.SubId == 1) is not OctorokCharacter fastRed ||
+        List<OctorokCharacter> octoroks =
+            _entities.Entities<OctorokCharacter>();
+        OctorokCharacter red =
+            octoroks.Find(octorok => octorok.Record.SubId == 0)!;
+        OctorokCharacter fastRed =
+            octoroks.Find(octorok => octorok.Record.SubId == 1)!;
+        FailIf(
+            octoroks.Count != 2 || red is null || fastRed is null ||
             red.Record.SpeedRaw != 0x14 || fastRed.Record.SpeedRaw != 0x1e ||
-            red.Record.Health != 2 || red.Record.DamageQuarters != 1)
-        {
-            throw new InvalidOperationException(
-                "Room 0:74 did not load one random red and one fast-red Octorok with " +
-                "SPEED_80/SPEED_c0, two health, and quarter-heart contact damage.");
-        }
+            red.Record.Health != 2 || red.Record.DamageQuarters != 1,
+            "Room 0:74 did not load one random red and one fast-red Octorok with " +
+            "SPEED_80/SPEED_c0, two health, and quarter-heart contact damage.");
 
         int redCount = _entities.Entities<OctorokCharacter>().Count;
-        if (!_entities.ApplySwordHit(red.CollisionBounds.Grow(1.0f), red.Position + Vector2.Down * 16.0f) ||
+        FailIf(
+            !_entities.ApplySwordHit(red.CollisionBounds.Grow(1.0f), red.Position + Vector2.Down * 16.0f) ||
             !red.PendingKnockbackDeath ||
             _entities.Entities<OctorokCharacter>().Count != redCount ||
-            _entities.Entities<EnemyDeathPuffEffect>().Count != 0)
-        {
-            throw new InvalidOperationException(
-                "A lethal level-1 sword hit did not retain the two-health red " +
-                "Octorok for recoil.");
-        }
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 0,
+            "A lethal level-1 sword hit did not retain the two-health red " +
+            "Octorok for recoil.");
         while (red.KnockbackCounter > 0)
             red.UpdateFrame(_player.Position);
         red.UpdateFrame(_player.Position);
         _entities.Update(0.0, _player);
-        if (_entities.Entities<OctorokCharacter>().Count != redCount - 1 ||
+        FailIf(
+            _entities.Entities<OctorokCharacter>().Count != redCount - 1 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
-            _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x09)
-        {
-            throw new InvalidOperationException(
-                "The red Octorok did not create its ordinary ENEMY_OCTOROK " +
-                "`$09 death puff after lethal recoil.");
-        }
+            _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x09,
+            "The red Octorok did not create its ordinary ENEMY_OCTOROK " +
+            "`$09 death puff after lethal recoil.");
 
         LoadValidationRoom(1, 0xbc);
-        if (_entities.Entities<OctorokCharacter>().Count != 2 ||
+        FailIf(
+            _entities.Entities<OctorokCharacter>().Count != 2 ||
             _entities.Entities<OctorokCharacter>().Exists(octorok => octorok.Record.SubId != 2) ||
             !_entities.Entities<OctorokCharacter>().Exists(octorok => octorok.Position == new Vector2(0x48, 0x48)) ||
-            !_entities.Entities<OctorokCharacter>().Exists(octorok => octorok.Position == new Vector2(0x58, 0x48)))
-        {
-            throw new InvalidOperationException(
-                "Room 1:bc did not preserve its fixed blue Octoroks at `$48,`$48 and `$58,`$48.");
-        }
+            !_entities.Entities<OctorokCharacter>().Exists(octorok => octorok.Position == new Vector2(0x58, 0x48)),
+            "Room 1:bc did not preserve its fixed blue Octoroks at `$48,`$48 and `$58,`$48.");
 
         OctorokCharacter blue = _entities.Entities<OctorokCharacter>()[0];
         OctorokCharacter otherBlue = _entities.Entities<OctorokCharacter>()[1];
-        if (blue.Record.Health != 3 || blue.Record.DamageQuarters != 2 ||
-            blue.Record.CounterMask != 3)
-        {
-            throw new InvalidOperationException(
-                "Blue Octorok subid `$02 did not retain three health, half-heart contact damage, " +
-                "and decision mask `$03.");
-        }
+        FailIf(
+            blue.Record.Health != 3 || blue.Record.DamageQuarters != 2 ||
+            blue.Record.CounterMask != 3,
+            "Blue Octorok subid `$02 did not retain three health, half-heart contact damage, " +
+            "and decision mask `$03.");
 
         _player.WarpTo(new Vector2(144, 120), recordSafe: false);
         otherBlue.SetStateForValidation(OctorokState.Standing, counter1: 1000);
@@ -1024,45 +958,42 @@ public sealed partial class ValidationRoot
             OctorokState.Shooting, counter1: 0x10, angle: 0x18);
         for (int frame = 1; frame < 0x10; frame++)
             _entities.Update(1.0 / 60.0, _player);
-        if (_entities.Entities<OctorokRockProjectile>().Count != 0 || blue.Counter1 != 1)
-        {
-            throw new InvalidOperationException(
-                "ENEMY_OCTOROK fired before completing its original `$10-update windup.");
-        }
+        FailIf(
+            _entities.Entities<OctorokRockProjectile>().Count != 0 || blue.Counter1 != 1,
+            "ENEMY_OCTOROK fired before completing its original `$10-update windup.");
         Vector2 projectileOrigin = blue.Position;
         _entities.Update(1.0 / 60.0, _player);
-        if (_entities.Entities<OctorokRockProjectile>().Count != 1 ||
+        FailIf(
+            _entities.Entities<OctorokRockProjectile>().Count != 1 ||
             _entities.Entities<OctorokRockProjectile>()[0].State !=
                 HostileProjectileState.Flying ||
             _entities.Entities<OctorokRockProjectile>()[0].ElapsedFrames != 1 ||
             _entities.Entities<OctorokRockProjectile>()[0].Position != projectileOrigin ||
-            blue.State != OctorokState.Standing || blue.Counter1 != 0x20)
-        {
-            throw new InvalidOperationException(
-                "ENEMY_OCTOROK did not spawn PART_OCTOROK_PROJECTILE after 16 updates and " +
-                "enter its 32-update post-shot stand.");
-        }
+            blue.State != OctorokState.Standing || blue.Counter1 != 0x20,
+            "ENEMY_OCTOROK did not spawn PART_OCTOROK_PROJECTILE after 16 updates and " +
+            "enter its 32-update post-shot stand.");
 
         OctorokRockProjectile rock = _entities.Entities<OctorokRockProjectile>()[0];
         _entities.Update(1.0 / 60.0, _player);
-        if (rock.Position != projectileOrigin + Vector2.Left * 2.0f)
-            throw new InvalidOperationException("The Octorok rock did not move at SPEED_200 (2 pixels/update).");
+        FailIf(
+            rock.Position != projectileOrigin + Vector2.Left * 2.0f,
+            "The Octorok rock did not move at SPEED_200 (2 pixels/update).");
         for (int frame = 0; frame < 4; frame++)
             _entities.Update(1.0 / 60.0, _player);
-        if (!_entities.ApplySwordHit(rock.CollisionBounds.Grow(1.0f), _player.Position) ||
+        FailIf(
+            !_entities.ApplySwordHit(rock.CollisionBounds.Grow(1.0f), _player.Position) ||
             rock.State != HostileProjectileState.Bouncing ||
-            rock.Angle != 0x08 || rock.Counter != 0x20)
-        {
-            throw new InvalidOperationException(
-                "The level-1 sword did not reverse an Octorok rock and start its `$20-update bounce.");
-        }
+            rock.Angle != 0x08 || rock.Counter != 0x20,
+            "The level-1 sword did not reverse an Octorok rock and start its `$20-update bounce.");
         for (int frame = 1; frame < 0x20; frame++)
             _entities.Update(1.0 / 60.0, _player);
-        if (rock.Finished || _entities.Entities<OctorokRockProjectile>().Count != 1 || rock.Counter != 1)
-            throw new InvalidOperationException("The deflected Octorok rock ended before bounce update `$20.");
+        FailIf(
+            rock.Finished || _entities.Entities<OctorokRockProjectile>().Count != 1 || rock.Counter != 1,
+            "The deflected Octorok rock ended before bounce update `$20.");
         _entities.Update(1.0 / 60.0, _player);
-        if (_entities.Entities<OctorokRockProjectile>().Count != 0)
-            throw new InvalidOperationException("The deflected Octorok rock survived bounce update `$20.");
+        FailIf(
+            _entities.Entities<OctorokRockProjectile>().Count != 0,
+            "The deflected Octorok rock survived bounce update `$20.");
 
         Vector2 terrainCollisionOrigin = Vector2.Zero;
         bool foundTerrainCollision = false;
@@ -1081,68 +1012,58 @@ public sealed partial class ValidationRoot
                 }
             }
         }
-        if (!foundTerrainCollision)
-            throw new InvalidOperationException("Room 1:bc has no usable Octorok-rock collision edge.");
+        FailIf(!foundTerrainCollision, "Room 1:bc has no usable Octorok-rock collision edge.");
         var terrainRock = new OctorokRockProjectile();
         terrainRock.Initialize(projectile, _currentRoom, terrainCollisionOrigin, angle: 0x08);
         terrainRock.UpdateFrame(_player);
         terrainRock.UpdateFrame(_player);
-        if (terrainRock.State != HostileProjectileState.CollisionPending ||
-            terrainRock.Position != terrainCollisionOrigin + Vector2.Right * 2.0f)
-        {
-            throw new InvalidOperationException(
-                "A terrain-striking Octorok rock did not enter state 2 after applying its final flying step.");
-        }
+        FailIf(
+            terrainRock.State != HostileProjectileState.CollisionPending ||
+            terrainRock.Position != terrainCollisionOrigin + Vector2.Right * 2.0f,
+            "A terrain-striking Octorok rock did not enter state 2 after applying its final flying step.");
         terrainRock.UpdateFrame(_player);
-        if (terrainRock.State != HostileProjectileState.Bouncing ||
-            terrainRock.Counter != 0x20 || terrainRock.Angle != 0x18)
-        {
-            throw new InvalidOperationException(
-                "Octorok-rock terrain collision state 2 did not initialize the reversed bounce on the next update.");
-        }
+        FailIf(
+            terrainRock.State != HostileProjectileState.Bouncing ||
+            terrainRock.Counter != 0x20 || terrainRock.Angle != 0x18,
+            "Octorok-rock terrain collision state 2 did not initialize the reversed bounce on the next update.");
         terrainRock.Free();
 
         blue = _entities.Entities<OctorokCharacter>()[0];
         otherBlue.SetStateForValidation(OctorokState.Standing, counter1: 1000);
         int blueCount = _entities.Entities<OctorokCharacter>().Count;
-        if (!_entities.ApplySwordHit(
+        FailIf(
+            !_entities.ApplySwordHit(
                 blue.CollisionBounds.Grow(1.0f), blue.Position + Vector2.Left * 16.0f) ||
             blue.Health != 1 || blue.InvincibilityCounter != 0x10 ||
-            blue.KnockbackCounter != 0x08 || _entities.Entities<OctorokCharacter>().Count != blueCount)
-        {
-            throw new InvalidOperationException(
-                "A blue Octorok did not survive its first level-1 sword hit with one health, " +
-                "16 invincibility updates, and 8 SPEED_200 knockback updates. Got " +
-                $"health {blue.Health}, invincibility {blue.InvincibilityCounter}, " +
-                $"knockback {blue.KnockbackCounter}, count {_entities.Entities<OctorokCharacter>().Count}/{blueCount}.");
-        }
-        if (_entities.ApplySwordHit(blue.CollisionBounds.Grow(1.0f), _player.Position))
-            throw new InvalidOperationException("Blue Octorok invincibility accepted a second immediate sword hit.");
+            blue.KnockbackCounter != 0x08 || _entities.Entities<OctorokCharacter>().Count != blueCount,
+            "A blue Octorok did not survive its first level-1 sword hit with one health, " +
+            "16 invincibility updates, and 8 SPEED_200 knockback updates. Got " +
+            $"health {blue.Health}, invincibility {blue.InvincibilityCounter}, " +
+            $"knockback {blue.KnockbackCounter}, count {_entities.Entities<OctorokCharacter>().Count}/{blueCount}.");
+        FailIf(
+            _entities.ApplySwordHit(blue.CollisionBounds.Grow(1.0f), _player.Position),
+            "Blue Octorok invincibility accepted a second immediate sword hit.");
         for (int frame = 0; frame < 0x10; frame++)
             blue.UpdateFrame(_player.Position);
-        if (blue.InvincibilityCounter != 0 || blue.KnockbackCounter != 0 ||
+        FailIf(
+            blue.InvincibilityCounter != 0 || blue.KnockbackCounter != 0 ||
             !_entities.ApplySwordHit(
                 blue.CollisionBounds.Grow(1.0f),
                 blue.Position + Vector2.Left * 16.0f) ||
             !blue.PendingKnockbackDeath ||
             _entities.Entities<OctorokCharacter>().Count != blueCount ||
-            _entities.Entities<EnemyDeathPuffEffect>().Count != 0)
-        {
-            throw new InvalidOperationException(
-                "A blue Octorok did not become vulnerable after 16 updates " +
-                "and begin lethal recoil on the second sword hit.");
-        }
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 0,
+            "A blue Octorok did not become vulnerable after 16 updates " +
+            "and begin lethal recoil on the second sword hit.");
         while (blue.KnockbackCounter > 0)
             blue.UpdateFrame(_player.Position);
         blue.UpdateFrame(_player.Position);
         _entities.Update(0.0, _player);
-        if (_entities.Entities<OctorokCharacter>().Count != blueCount - 1 ||
+        FailIf(
+            _entities.Entities<OctorokCharacter>().Count != blueCount - 1 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
-            _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x09)
-        {
-            throw new InvalidOperationException(
-                "The blue Octorok did not die after its lethal recoil.");
-        }
+            _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x09,
+            "The blue Octorok did not die after its lethal recoil.");
 
         OctorokCharacter transitionOctorok = _entities.Entities<OctorokCharacter>()[0];
         transitionOctorok.SetStateForValidation(
@@ -1154,21 +1075,17 @@ public sealed partial class ValidationRoot
         int frozenCounter = transitionOctorok.Counter1;
         int frozenRockFrames = transitionRock.ElapsedFrames;
         _entities.Update(1.0, _player);
-        if (_entities.OutgoingEntities<OctorokCharacter>().Count != 1 || _entities.OutgoingEntities<OctorokRockProjectile>().Count != 1 ||
+        FailIf(
+            _entities.OutgoingEntities<OctorokCharacter>().Count != 1 || _entities.OutgoingEntities<OctorokRockProjectile>().Count != 1 ||
             _entities.Entities<OctorokCharacter>().Count != 2 || transitionOctorok.Counter1 != frozenCounter ||
             transitionRock.ElapsedFrames != frozenRockFrames ||
-            !_entities.Entities<OctorokCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Left * incomingRoom.Width))
-        {
-            throw new InvalidOperationException(
-                "Scrolling did not retain/freeze outgoing Octoroks and rocks while preloading destination Octoroks.");
-        }
+            !_entities.Entities<OctorokCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Left * incomingRoom.Width),
+            "Scrolling did not retain/freeze outgoing Octoroks and rocks while preloading destination Octoroks.");
         _entities.FinishScreenTransition();
-        if (_entities.OutgoingEntities<OctorokCharacter>().Count != 0 || _entities.OutgoingEntities<OctorokRockProjectile>().Count != 0 ||
-            !_entities.Entities<OctorokCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Zero))
-        {
-            throw new InvalidOperationException(
-                "Octorok/rock transition ownership and offsets were not normalized after scrolling.");
-        }
+        FailIf(
+            _entities.OutgoingEntities<OctorokCharacter>().Count != 0 || _entities.OutgoingEntities<OctorokRockProjectile>().Count != 0 ||
+            !_entities.Entities<OctorokCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Zero),
+            "Octorok/rock transition ownership and offsets were not normalized after scrolling.");
 
         var drops = new ItemDropDatabase();
         int octorokProbabilityRolls = 0;
@@ -1177,13 +1094,11 @@ public sealed partial class ValidationRoot
             if (drops.ProbabilityAllows(4, roll))
                 octorokProbabilityRolls++;
         }
-        if (drops.EnemyTableRecord(0x09) != 0x8e || octorokProbabilityRolls != 24 ||
-            drops.ChooseDrop(0x09, 0, 0) != ItemDropDatabase.Heart)
-        {
-            throw new InvalidOperationException(
-                "ENEMY_OCTOROK `$09 did not preserve drop record `$8e, its 24-of-64 " +
-                "probability `$04, and supported heart/rupee set `$0e.");
-        }
+        FailIf(
+            drops.EnemyTableRecord(0x09) != 0x8e || octorokProbabilityRolls != 24 ||
+            drops.ChooseDrop(0x09, 0, 0) != ItemDropDatabase.Heart,
+            "ENEMY_OCTOROK `$09 did not preserve drop record `$8e, its 24-of-64 " +
+            "probability `$04, and supported heart/rupee set `$0e.");
 
         _player.RefillHealth();
         GD.Print("Validated 33 imported ENEMY_OCTOROK room records / 48 instances, random and fixed " +
@@ -1197,7 +1112,8 @@ public sealed partial class ValidationRoot
         ImportedEnemyDefinition definition = database.ImportedEnemy(0x0c);
         IReadOnlyList<RoomObjectRecord> roomRecords =
             database.GetRoomObjects(0, 0x84);
-        if (definition is not
+        FailIf(
+            definition is not
             {
                 Id: 0x0c,
                 SubId: 0x00,
@@ -1219,12 +1135,9 @@ public sealed partial class ValidationRoot
                 SubId: 0x00,
                 Flags: 0x20,
                 Count: 1
-            })
-        {
-            throw new InvalidOperationException(
-                "Room 0:84 did not retain its one imported random-position " +
-                "ENEMY_ARROW_MOBLIN $0c:$00 record and red-Moblin definition.");
-        }
+            },
+            "Room 0:84 did not retain its one imported random-position " +
+            "ENEMY_ARROW_MOBLIN $0c:$00 record and red-Moblin definition.");
 
         OracleRoomData room = _world.LoadRoom(0, 0x84);
         var random = new OracleRandom();
@@ -1246,28 +1159,24 @@ public sealed partial class ValidationRoot
 
         List<ArrowMoblinCharacter> moblins =
             manager.Entities<ArrowMoblinCharacter>();
-        if (moblins.Count != 1 || manager.RoomEnemyCount != 1 ||
+        FailIf(
+            moblins.Count != 1 || manager.RoomEnemyCount != 1 ||
             moblins[0].State != ArrowMoblinState.Uninitialized ||
-            manager.RandomCalls != 256)
-        {
-            throw new InvalidOperationException(
-                "Room 0:84 did not instantiate exactly one counted " +
-                "ENEMY_ARROW_MOBLIN after the original 256-call placement shuffle.");
-        }
+            manager.RandomCalls != 256,
+            "Room 0:84 did not instantiate exactly one counted " +
+            "ENEMY_ARROW_MOBLIN after the original 256-call placement shuffle.");
 
         Vector2 originalPlayerPosition = _player.Position;
         _player.WarpTo(new Vector2(-0x100, -0x100), recordSafe: false);
         manager.Update(1.0 / 60.0, _player);
         ArrowMoblinCharacter moblin = moblins[0];
-        if (moblin.State != ArrowMoblinState.Moving ||
+        FailIf(
+            moblin.State != ArrowMoblinState.Moving ||
             moblin.Angle != expectedInitialAngle ||
             moblin.Counter != expectedInitialCounter ||
-            manager.RandomCalls != 258)
-        {
-            throw new InvalidOperationException(
-                "ENEMY_ARROW_MOBLIN state 0 did not consume direction then duration " +
-                "RNG and enter its imported cardinal SPEED_80 route.");
-        }
+            manager.RandomCalls != 258,
+            "ENEMY_ARROW_MOBLIN state 0 did not consume direction then duration " +
+            "RNG and enter its imported cardinal SPEED_80 route.");
 
         for (int update = 0;
              update < 0x80 && moblin.State == ArrowMoblinState.Moving;
@@ -1275,28 +1184,24 @@ public sealed partial class ValidationRoot
         {
             manager.Update(1.0 / 60.0, _player);
         }
-        if (moblin.State != ArrowMoblinState.Turning ||
+        FailIf(
+            moblin.State != ArrowMoblinState.Turning ||
             moblin.Counter != 0x08 ||
-            manager.Entities<EnemyArrowProjectile>().Count != 0)
-        {
-            throw new InvalidOperationException(
-                "ENEMY_ARROW_MOBLIN did not enter its eight-update stand without " +
-                "firing at the end of the initial route.");
-        }
+            manager.Entities<EnemyArrowProjectile>().Count != 0,
+            "ENEMY_ARROW_MOBLIN did not enter its eight-update stand without " +
+            "firing at the end of the initial route.");
 
         int expectedFirstShotAngle = predictor.Next().Value & 0x18;
         int expectedFirstShotCounter =
             0x30 + (predictor.Next().Value & 0x3f);
         for (int update = 0; update < 7; update++)
             manager.Update(1.0 / 60.0, _player);
-        if (moblin.State != ArrowMoblinState.Turning ||
+        FailIf(
+            moblin.State != ArrowMoblinState.Turning ||
             moblin.Counter != 1 ||
             manager.Entities<EnemyArrowProjectile>().Count != 0 ||
-            manager.RandomCalls != 258)
-        {
-            throw new InvalidOperationException(
-                "ENEMY_ARROW_MOBLIN consumed RNG or fired before the eighth standing update.");
-        }
+            manager.RandomCalls != 258,
+            "ENEMY_ARROW_MOBLIN consumed RNG or fired before the eighth standing update.");
 
         Vector2 firstShotOrigin = moblin.Position;
         _player.WarpTo(
@@ -1315,7 +1220,8 @@ public sealed partial class ValidationRoot
         };
         List<EnemyArrowProjectile> arrows =
             manager.Entities<EnemyArrowProjectile>();
-        if (moblin.State != ArrowMoblinState.Moving ||
+        FailIf(
+            moblin.State != ArrowMoblinState.Moving ||
             moblin.Angle != expectedFirstShotAngle ||
             moblin.Counter != expectedFirstShotCounter ||
             moblin.MoveCycles != 1 ||
@@ -1323,12 +1229,9 @@ public sealed partial class ValidationRoot
             arrows.Count != 1 ||
             arrows[0].State != HostileProjectileState.Flying ||
             arrows[0].ElapsedFrames != 1 ||
-            arrows[0].Position != firstShotOrigin + expectedArrowOffset)
-        {
-            throw new InvalidOperationException(
-                "ENEMY_ARROW_MOBLIN did not fire PART_ENEMY_ARROW on its first " +
-                "eligible facing route, or the child moved during its state-0 update.");
-        }
+            arrows[0].Position != firstShotOrigin + expectedArrowOffset,
+            "ENEMY_ARROW_MOBLIN did not fire PART_ENEMY_ARROW on its first " +
+            "eligible facing route, or the child moved during its state-0 update.");
 
         _player.WarpTo(new Vector2(-0x100, -0x100), recordSafe: false);
         for (int update = 0;
@@ -1337,12 +1240,10 @@ public sealed partial class ValidationRoot
         {
             manager.Update(1.0 / 60.0, _player);
         }
-        if (moblin.State != ArrowMoblinState.Turning ||
-            moblin.Counter != 0x08)
-        {
-            throw new InvalidOperationException(
-                "ENEMY_ARROW_MOBLIN did not finish its second route.");
-        }
+        FailIf(
+            moblin.State != ArrowMoblinState.Turning ||
+            moblin.Counter != 0x08,
+            "ENEMY_ARROW_MOBLIN did not finish its second route.");
 
         int expectedSecondAngle = predictor.Next().Value & 0x18;
         int expectedSecondCounter =
@@ -1358,18 +1259,16 @@ public sealed partial class ValidationRoot
         manager.Update(1.0 / 60.0, _player);
         List<EnemyArrowProjectile> arrowsAfterEvenCycle =
             manager.Entities<EnemyArrowProjectile>();
-        if (moblin.State != ArrowMoblinState.Moving ||
+        FailIf(
+            moblin.State != ArrowMoblinState.Moving ||
             moblin.Angle != expectedSecondAngle ||
             moblin.Counter != expectedSecondCounter ||
             moblin.MoveCycles != 2 ||
             manager.RandomCalls != 262 ||
             arrowsAfterEvenCycle.Any(arrow =>
-                !arrowsBeforeEvenCycle.Contains(arrow)))
-        {
-            throw new InvalidOperationException(
-                "ENEMY_ARROW_MOBLIN did not suppress PART_ENEMY_ARROW on its " +
-                "second, even-numbered route change.");
-        }
+                !arrowsBeforeEvenCycle.Contains(arrow)),
+            "ENEMY_ARROW_MOBLIN did not suppress PART_ENEMY_ARROW on its " +
+            "second, even-numbered route change.");
 
         _player.WarpTo(originalPlayerPosition, recordSafe: false);
         manager.Clear();
@@ -1404,12 +1303,10 @@ public sealed partial class ValidationRoot
                 break;
             }
         }
-        if (!foundTerrainEdge)
-        {
-            throw new InvalidOperationException(
-                "Room 1:bc has no edge for the hostile-projectile " +
-                "source-order regression.");
-        }
+        FailIf(
+            !foundTerrainEdge,
+            "Room 1:bc has no edge for the hostile-projectile " +
+            "source-order regression.");
 
         Vector2 collisionPosition =
             rockOrigin + Vector2.Right * 2.0f;
@@ -1431,72 +1328,60 @@ public sealed partial class ValidationRoot
         arrow.UpdateFrame(_player);
         rock.UpdateFrame(_player);
         arrow.UpdateFrame(_player);
-        if (rock.State != HostileProjectileState.CollisionPending ||
+        FailIf(
+            rock.State != HostileProjectileState.CollisionPending ||
             rock.Position != collisionPosition ||
             arrow.State != HostileProjectileState.Bouncing ||
             arrow.Position != collisionPosition ||
             arrow.Counter != 0x20 ||
-            arrow.Angle != 0x18)
-        {
-            throw new InvalidOperationException(
-                "PART_OCTOROK_PROJECTILE and PART_ENEMY_ARROW lost their " +
-                "distinct destination-pending versus current-tile-immediate " +
-                "collision order.");
-        }
-        if (rock.DeflectWithSword())
-        {
-            throw new InvalidOperationException(
-                "PART_OCTOROK_PROJECTILE accepted a sword collision after " +
-                "entering its collision-pending state.");
-        }
+            arrow.Angle != 0x18,
+            "PART_OCTOROK_PROJECTILE and PART_ENEMY_ARROW lost their " +
+            "distinct destination-pending versus current-tile-immediate " +
+            "collision order.");
+        FailIf(
+            rock.DeflectWithSword(),
+            "PART_OCTOROK_PROJECTILE accepted a sword collision after " +
+            "entering its collision-pending state.");
 
         rock.UpdateFrame(_player);
-        if (rock.State != HostileProjectileState.Bouncing ||
+        FailIf(
+            rock.State != HostileProjectileState.Bouncing ||
             rock.Counter != 0x20 ||
             rock.Angle != 0x18 ||
             rock.CollisionBounds.Size != new Vector2(4, 4) ||
-            arrow.CollisionBounds.Size != Vector2.Zero)
-        {
-            throw new InvalidOperationException(
-                "The shared hostile-projectile bounce did not preserve the " +
-                "rock/arrow collision-window distinction.");
-        }
+            arrow.CollisionBounds.Size != Vector2.Zero,
+            "The shared hostile-projectile bounce did not preserve the " +
+            "rock/arrow collision-window distinction.");
 
         rock.UpdateFrame(_player);
         arrow.UpdateFrame(_player);
         Vector2 firstBouncePosition =
             collisionPosition + Vector2.Left * 0.25f;
-        if (rock.Position != firstBouncePosition ||
+        FailIf(
+            rock.Position != firstBouncePosition ||
             arrow.Position != firstBouncePosition ||
             rock.Counter != 0x1f ||
             arrow.Counter != 0x1f ||
             rock.ZFixed != -0xe0 ||
-            arrow.ZFixed != -0xe0)
-        {
-            throw new InvalidOperationException(
-                "The shared partCommon bounce did not independently retain " +
-                "SPEED_40, speedZ -$00e0, gravity $0e, and the first counter " +
-                "decrement.");
-        }
+            arrow.ZFixed != -0xe0,
+            "The shared partCommon bounce did not independently retain " +
+            "SPEED_40, speedZ -$00e0, gravity $0e, and the first counter " +
+            "decrement.");
 
         for (int update = 0; update < 30; update++)
         {
             rock.UpdateFrame(_player);
             arrow.UpdateFrame(_player);
         }
-        if (rock.Finished || arrow.Finished ||
-            rock.Counter != 1 || arrow.Counter != 1)
-        {
-            throw new InvalidOperationException(
-                "The shared hostile-projectile bounce ended before update $20.");
-        }
+        FailIf(
+            rock.Finished || arrow.Finished ||
+            rock.Counter != 1 || arrow.Counter != 1,
+            "The shared hostile-projectile bounce ended before update $20.");
         rock.UpdateFrame(_player);
         arrow.UpdateFrame(_player);
-        if (!rock.Finished || !arrow.Finished)
-        {
-            throw new InvalidOperationException(
-                "The shared hostile-projectile bounce survived counter zero.");
-        }
+        FailIf(
+            !rock.Finished || !arrow.Finished,
+            "The shared hostile-projectile bounce survived counter zero.");
 
         rock.Free();
         arrow.Free();
@@ -1550,11 +1435,7 @@ public sealed partial class ValidationRoot
                 }
             }
         }
-        if (!foundBlockedOrigin)
-        {
-            throw new InvalidOperationException(
-                "Room 1:bc has no usable enemy knockback collision edge.");
-        }
+        FailIf(!foundBlockedOrigin, "Room 1:bc has no usable enemy knockback collision edge.");
 
         (EnemyKnockbackStrength Strength, int Invincibility, int Counter)[]
             profiles =
@@ -1572,7 +1453,8 @@ public sealed partial class ValidationRoot
             blocked.SetStateForValidation(
                 OctorokState.Standing,
                 counter1: 1000);
-            if (!_entities.ApplySwordHit(
+            FailIf(
+                !_entities.ApplySwordHit(
                     blocked.CollisionBounds.Grow(1),
                     blockedOrigin + Vector2.Left * 16.0f,
                     damage: 1,
@@ -1580,24 +1462,19 @@ public sealed partial class ValidationRoot
                 blocked.Health != 0x3f ||
                 blocked.InvincibilityCounter != invincibility ||
                 blocked.KnockbackCounter != counter ||
-                blocked.KnockbackAngle != 0x08)
-            {
-                throw new InvalidOperationException(
-                    $"{strength} sword response did not produce " +
-                    $"{invincibility}/{counter} invincibility/knockback " +
-                    "counters and an away-from-source angle.");
-            }
+                blocked.KnockbackAngle != 0x08,
+                $"{strength} sword response did not produce " +
+                $"{invincibility}/{counter} invincibility/knockback " +
+                "counters and an away-from-source angle.");
 
             blocked.UpdateFrame(_player.Position);
-            if (blocked.Position != blockedOrigin ||
+            FailIf(
+                blocked.Position != blockedOrigin ||
                 blocked.KnockbackCounter != 0 ||
                 blocked.InvincibilityCounter != invincibility - 1 ||
-                blocked.Counter1 != 1000)
-            {
-                throw new InvalidOperationException(
-                    $"{strength} sword knockback did not stop immediately " +
-                    "at solid terrain while pausing the enemy handler.");
-            }
+                blocked.Counter1 != 1000,
+                $"{strength} sword knockback did not stop immediately " +
+                "at solid terrain while pausing the enemy handler.");
         }
 
         LoadValidationRoom(4, 0x1e);
@@ -1621,19 +1498,15 @@ public sealed partial class ValidationRoot
             ghini.ApplySwordKnockback(
                 source,
                 EnemyKnockbackStrength.Low);
-            if (ghini.KnockbackAngle != angle)
-            {
-                throw new InvalidOperationException(
-                    $"The {axis} knockback fixture did not select source " +
-                    $"angle `${angle:x2}.");
-            }
+            FailIf(
+                ghini.KnockbackAngle != angle,
+                $"The {axis} knockback fixture did not select source " +
+                $"angle `${angle:x2}.");
             ghini.UpdateFrame();
-            if (ghini.Position != position || ghini.KnockbackCounter != 0)
-            {
-                throw new InvalidOperationException(
-                    $"Shared knockback did not stop its {axis} movement at " +
-                    "the screen boundary.");
-            }
+            FailIf(
+                ghini.Position != position || ghini.KnockbackCounter != 0,
+                $"Shared knockback did not stop its {axis} movement at " +
+                "the screen boundary.");
         }
 
         Vector2 ghiniOrigin = new(80, 80);
@@ -1641,52 +1514,45 @@ public sealed partial class ValidationRoot
         ghini.Position = ghiniOrigin;
         ghini.Health = 0x40;
         ghini.InvincibilityCounter = 0;
-        if (!_entities.ApplySwordHit(
+        FailIf(
+            !_entities.ApplySwordHit(
                 ghini.CollisionBounds.Grow(1),
                 ghiniSource,
                 damage: 1,
                 knockbackStrength: EnemyKnockbackStrength.Low) ||
             ghini.KnockbackAngle != 0x04 ||
-            ghini.KnockbackCounter != 0x08)
-        {
-            throw new InvalidOperationException(
-                "The Ghini did not begin low sword knockback on the " +
-                "source-to-enemy angle.");
-        }
+            ghini.KnockbackCounter != 0x08,
+            "The Ghini did not begin low sword knockback on the " +
+            "source-to-enemy angle.");
         for (int frame = 1; frame < 0x08; frame++)
             ghini.UpdateFrame();
-        if (ghini.KnockbackCounter != 1 ||
-            ghini.State != GhiniState.Uninitialized)
-        {
-            throw new InvalidOperationException(
-                "Low sword knockback did not retain its final counter update " +
-                "or fully pause the Ghini handler.");
-        }
+        FailIf(
+            ghini.KnockbackCounter != 1 ||
+            ghini.State != GhiniState.Uninitialized,
+            "Low sword knockback did not retain its final counter update " +
+            "or fully pause the Ghini handler.");
         ghini.UpdateFrame();
         Vector2 expectedGhiniPosition = ghiniOrigin +
             new Vector2(0x16a, -0x16a) / 256.0f * 0x08;
-        if (ghini.KnockbackCounter != 0 ||
+        FailIf(
+            ghini.KnockbackCounter != 0 ||
             !ghini.Position.IsEqualApprox(expectedGhiniPosition) ||
-            ghini.State != GhiniState.Uninitialized)
-        {
-            throw new InvalidOperationException(
-                "Low sword knockback did not move for exactly eight " +
-                "SPEED_200 updates.");
-        }
+            ghini.State != GhiniState.Uninitialized,
+            "Low sword knockback did not move for exactly eight " +
+            "SPEED_200 updates.");
         ghini.UpdateFrame();
-        if (ghini.State != GhiniState.Choosing)
-        {
-            throw new InvalidOperationException(
-                "The Ghini handler did not resume on the update after " +
-                "knockback counter zero.");
-        }
+        FailIf(
+            ghini.State != GhiniState.Choosing,
+            "The Ghini handler did not resume on the update after " +
+            "knockback counter zero.");
 
         ghini.Position = ghiniOrigin;
         ghini.Health = 1;
         ghini.InvincibilityCounter = 0;
         int ghiniCount = _entities.Entities<GhiniCharacter>().Count;
         int puffCount = _entities.Entities<EnemyDeathPuffEffect>().Count;
-        if (!_entities.ApplySwordHit(
+        FailIf(
+            !_entities.ApplySwordHit(
                 ghini.CollisionBounds.Grow(1),
                 ghiniOrigin + Vector2.Left * 16.0f,
                 damage: 1,
@@ -1697,37 +1563,30 @@ public sealed partial class ValidationRoot
             !ghini.Visible ||
             ghini.KnockbackCounter != 0x0b ||
             _entities.Entities<GhiniCharacter>().Count != ghiniCount ||
-            _entities.Entities<EnemyDeathPuffEffect>().Count != puffCount)
-        {
-            throw new InvalidOperationException(
-                "A lethal sword hit did not disable Ghini collision while " +
-                "retaining its visible object for normal knockback.");
-        }
+            _entities.Entities<EnemyDeathPuffEffect>().Count != puffCount,
+            "A lethal sword hit did not disable Ghini collision while " +
+            "retaining its visible object for normal knockback.");
         for (int frame = 0; frame < 0x0b; frame++)
             ghini.UpdateFrame();
         Vector2 lethalKnockbackPosition =
             ghiniOrigin + Vector2.Right * 2.0f * 0x0b;
-        if (!ghini.PendingKnockbackDeath ||
+        FailIf(
+            !ghini.PendingKnockbackDeath ||
             ghini.KnockbackCounter != 0 ||
             !ghini.Position.IsEqualApprox(lethalKnockbackPosition) ||
             _entities.Entities<GhiniCharacter>().Count != ghiniCount ||
-            _entities.Entities<EnemyDeathPuffEffect>().Count != puffCount)
-        {
-            throw new InvalidOperationException(
-                "A lethal sword hit did not complete all 11 normal " +
-                "knockback updates before death.");
-        }
+            _entities.Entities<EnemyDeathPuffEffect>().Count != puffCount,
+            "A lethal sword hit did not complete all 11 normal " +
+            "knockback updates before death.");
         ghini.UpdateFrame();
         _entities.Update(0.0, _player);
-        if (_entities.Entities<GhiniCharacter>().Count != ghiniCount - 1 ||
+        FailIf(
+            _entities.Entities<GhiniCharacter>().Count != ghiniCount - 1 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != puffCount + 1 ||
             !_entities.Entities<EnemyDeathPuffEffect>()[^1].Position
-                .IsEqualApprox(lethalKnockbackPosition))
-        {
-            throw new InvalidOperationException(
-                "The lethal Ghini death handler did not run on the update " +
-                "after knockback and create its puff at the final position.");
-        }
+                .IsEqualApprox(lethalKnockbackPosition),
+            "The lethal Ghini death handler did not run on the update " +
+            "after knockback and create its puff at the final position.");
 
         LoadValidationRoom(4, 0xcc);
         ZolCharacter zol = _entities.Entities<ZolCharacter>()
@@ -1738,38 +1597,32 @@ public sealed partial class ValidationRoot
             animation: 1);
         zol.Health = 3;
         Vector2 zolOrigin = zol.Position;
-        if (!_entities.ApplySwordHit(
+        FailIf(
+            !_entities.ApplySwordHit(
                 zol.CollisionBounds.Grow(1),
                 zol.Position + Vector2.Left * 16.0f,
                 damage: 1,
                 knockbackStrength: EnemyKnockbackStrength.High) ||
             zol.Health != 2 ||
             zol.InvincibilityCounter != 0x20 ||
-            zol.KnockbackCounter != 0)
-        {
-            throw new InvalidOperationException(
-                "ENEMYCOLLISION_ZOL did not apply its sword-no-knockback " +
-                "$20 invincibility response.");
-        }
-        if (_entities.ApplySwordHit(
-                zol.CollisionBounds.Grow(1),
-                zol.Position,
-                damage: 1,
-                knockbackStrength: EnemyKnockbackStrength.Low))
-        {
-            throw new InvalidOperationException(
-                "The Zol no-knockback invincibility window accepted an " +
-                "immediate second sword hit.");
-        }
+            zol.KnockbackCounter != 0,
+            "ENEMYCOLLISION_ZOL did not apply its sword-no-knockback " +
+            "$20 invincibility response.");
+        FailIf(
+            _entities.ApplySwordHit(
+            zol.CollisionBounds.Grow(1),
+            zol.Position,
+            damage: 1,
+            knockbackStrength: EnemyKnockbackStrength.Low),
+            "The Zol no-knockback invincibility window accepted an " +
+            "immediate second sword hit.");
         zol.UpdateFrame(_player.Position);
-        if (zol.Position != zolOrigin ||
+        FailIf(
+            zol.Position != zolOrigin ||
             zol.InvincibilityCounter != 0x1f ||
             zol.KnockbackCounter != 0 ||
-            zol.Counter1 != 999)
-        {
-            throw new InvalidOperationException(
-                "A sword-hit Zol recoiled or paused despite collision effect $0b.");
-        }
+            zol.Counter1 != 999,
+            "A sword-hit Zol recoiled or paused despite collision effect $0b.");
 
         GD.Print("Validated collisionEffects.s low/normal/high sword responses " +
             "($10/$15/$1a invincibility, $08/$0b/$0f knockback), " +
@@ -1793,12 +1646,10 @@ public sealed partial class ValidationRoot
         var waterCenter = new Vector2(8, 8);
         OracleRoomData waterRoom = _world.LoadRoom(
             waterGroup, waterRoomId);
-        if (waterRoom.GetTerrainInfo(
-                waterCenter + new Vector2(-1, 5)).Hazard != HazardType.Water)
-        {
-            throw new InvalidOperationException(
-                "Canonical room 0:b8 position `$00 is not water for enemy hazard validation.");
-        }
+        FailIf(
+            waterRoom.GetTerrainInfo(
+            waterCenter + new Vector2(-1, 5)).Hazard != HazardType.Water,
+            "Canonical room 0:b8 position `$00 is not water for enemy hazard validation.");
 
         var waterEnemy = new OctorokCharacter();
         waterEnemy.Initialize(
@@ -1808,64 +1659,52 @@ public sealed partial class ValidationRoot
         var waterAdapter = new OctorokRoomEntity(
             waterEnemy, octorokCombat);
         waterEnemy.UpdateFrame(_player.Position);
-        if (!waterEnemy.IsDead || !waterEnemy.DiedInHazard ||
+        FailIf(
+            !waterEnemy.IsDead || !waterEnemy.DiedInHazard ||
             waterEnemy.DeathHazard != HazardType.Water ||
             waterEnemy.Visible || waterEnemy.CollisionEnabled ||
-            waterEnemy.Position != waterCenter + Vector2.Left)
-        {
-            throw new InvalidOperationException(
-                "ENEMY_OCTOROK did not use ecom_checkHazards' left-first " +
-                "y+$05 probe, one-pixel nudge, and immediate water deletion.");
-        }
+            waterEnemy.Position != waterCenter + Vector2.Left,
+            "ENEMY_OCTOROK did not use ecom_checkHazards' left-first " +
+            "y+$05 probe, one-pixel nudge, and immediate water deletion.");
 
         var waterSpawns = new List<RoomEntitySpawn>();
         waterAdapter.OnFinished(waterSpawns);
-        if (waterSpawns is not
-            [
-                EnemySplashSpawn
-                {
-                    Hazard: HazardType.Water
-                } waterSplash
-            ] ||
-            waterSplash.Position != waterEnemy.Position)
-        {
-            throw new InvalidOperationException(
-                "A water-deleted enemy did not request INTERAC_SPLASH at its final position.");
-        }
+        EnemySplashSpawn waterSplash =
+            (waterSpawns.Count == 1
+                ? waterSpawns[0] as EnemySplashSpawn
+                : null)!;
+        FailIf(
+            waterSplash is not { Hazard: HazardType.Water } ||
+            waterSplash.Position != waterEnemy.Position,
+            "A water-deleted enemy did not request INTERAC_SPLASH at its final position.");
         int splashSounds =
             _sound.PlayRequestsFor(OracleSoundEngine.SndSplash);
         SplashEffect splash = _entities.Spawn<SplashEffect>(waterSplash);
-        if (splash.IsLava || splash.Position != waterEnemy.Position ||
+        FailIf(
+            splash.IsLava || splash.Position != waterEnemy.Position ||
             splash.DurationFrames != 12 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) !=
-                splashSounds + 1)
-        {
-            throw new InvalidOperationException(
-                "Enemy water deletion did not create the 12-update " +
-                "INTERAC_SPLASH with one SND_SPLASH `$87 request.");
-        }
+                splashSounds + 1,
+            "Enemy water deletion did not create the 12-update " +
+            "INTERAC_SPLASH with one SND_SPLASH `$87 request.");
         waterEnemy.Free();
 
-        if (!TryFindTerrainSample(
+        FailIf(
+            !TryFindTerrainSample(
             HazardType.Hole,
             out int holeGroup,
             out int holeRoomId,
             out Vector2 holeCenter,
-            out _))
-        {
-            throw new InvalidOperationException(
-                "Could not find a canonical hole for enemy hazard validation.");
-        }
+            out _),
+            "Could not find a canonical hole for enemy hazard validation.");
         OracleRoomData holeRoom = _world.LoadRoom(
             holeGroup, holeRoomId);
         Vector2 holeEntry = holeCenter + new Vector2(7, -8);
-        if (holeRoom.GetTerrainInfo(
-                holeEntry + new Vector2(-1, 5)).Hazard != HazardType.Hole)
-        {
-            throw new InvalidOperationException(
-                $"Canonical room {holeGroup:x1}:{holeRoomId:x2} hole entry " +
-                "does not satisfy ecom_checkHazards' first probe.");
-        }
+        FailIf(
+            holeRoom.GetTerrainInfo(
+            holeEntry + new Vector2(-1, 5)).Hazard != HazardType.Hole,
+            $"Canonical room {holeGroup:x1}:{holeRoomId:x2} hole entry " +
+            "does not satisfy ecom_checkHazards' first probe.");
 
         var holeEnemy = new OctorokCharacter();
         holeEnemy.Initialize(
@@ -1880,33 +1719,27 @@ public sealed partial class ValidationRoot
 
         holeEnemy.UpdateFrame(_player.Position);
         Vector2 pullOrigin = holeEntry + Vector2.Left;
-        if (holeEnemy.IsDead || !holeEnemy.IsFallingIntoHole ||
+        FailIf(
+            holeEnemy.IsDead || !holeEnemy.IsFallingIntoHole ||
             !holeEnemy.DiedInHazard ||
             holeEnemy.DeathHazard != HazardType.Hole ||
             !holeEnemy.Visible || holeEnemy.CollisionEnabled ||
             holeEnemy.Position != pullOrigin ||
             holeEnemy.TakeSwordHit(Vector2.Zero) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) !=
-                fallSounds)
-        {
-            throw new InvalidOperationException(
-                "A hole-touching enemy did not remain visible, disable collision, " +
-                "clear combat, and defer SND_FALLINHOLE `$59 during its pull.");
-        }
+                fallSounds,
+            "A hole-touching enemy did not remain visible, disable collision, " +
+            "clear combat, and defer SND_FALLINHOLE `$59 during its pull.");
 
         holeEnemy.UpdateFrame(_player.Position);
-        if (holeEnemy.Position != pullOrigin)
-        {
-            throw new InvalidOperationException(
-                "Enemy hole pull moved before counter1 reached an eight-update boundary.");
-        }
+        FailIf(
+            holeEnemy.Position != pullOrigin,
+            "Enemy hole pull moved before counter1 reached an eight-update boundary.");
         holeEnemy.UpdateFrame(_player.Position);
-        if (holeEnemy.CurrentAnimationFrame == initialAnimationFrame)
-        {
-            throw new InvalidOperationException(
-                "The animated ecom_fallingInHole variant did not subtract three " +
-                "from animCounter on every pull update.");
-        }
+        FailIf(
+            holeEnemy.CurrentAnimationFrame == initialAnimationFrame,
+            "The animated ecom_fallingInHole variant did not subtract three " +
+            "from animCounter on every pull update.");
         holeEnemy.UpdateFrame(_player.Position);
         Vector2 pullUnit = OracleObjectMath.VectorFromAngle32(
             OracleObjectMath.AngleToward(
@@ -1915,50 +1748,44 @@ public sealed partial class ValidationRoot
         var expectedFirstPull = pullOrigin + new Vector2(
             (int)(pullUnit.X * 0x80) / 256.0f,
             (int)(pullUnit.Y * 0x80) / 256.0f);
-        if (holeEnemy.Position != expectedFirstPull)
-        {
-            throw new InvalidOperationException(
-                "Enemy hole pull did not apply one signed-8.8 SPEED_80 step " +
-                "when counter1 reached `$38.");
-        }
+        FailIf(
+            holeEnemy.Position != expectedFirstPull,
+            "Enemy hole pull did not apply one signed-8.8 SPEED_80 step " +
+            "when counter1 reached `$38.");
 
         for (int update = 5; update <= 59; update++)
             holeEnemy.UpdateFrame(_player.Position);
-        if (holeEnemy.IsDead || !holeEnemy.IsFallingIntoHole ||
+        FailIf(
+            holeEnemy.IsDead || !holeEnemy.IsFallingIntoHole ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) !=
-                fallSounds)
-        {
-            throw new InvalidOperationException(
-                "Enemy hole pull ended or played SND_FALLINHOLE before update 60.");
-        }
+                fallSounds,
+            "Enemy hole pull ended or played SND_FALLINHOLE before update 60.");
         holeEnemy.UpdateFrame(_player.Position);
-        if (!holeEnemy.IsDead || holeEnemy.Visible ||
-            holeEnemy.IsFallingIntoHole)
-        {
-            throw new InvalidOperationException(
-                "Enemy hole pull did not finish on counter1 update 60.");
-        }
+        FailIf(
+            !holeEnemy.IsDead || holeEnemy.Visible ||
+            holeEnemy.IsFallingIntoHole,
+            "Enemy hole pull did not finish on counter1 update 60.");
 
         var holeSpawns = new List<RoomEntitySpawn>();
         holeAdapter.OnFinished(holeSpawns);
-        if (holeSpawns is not [FallingDownHoleSpawn falling] ||
-            falling.Position != holeEnemy.Position)
-        {
-            throw new InvalidOperationException(
-                "Completed enemy hole pull did not request " +
-                "INTERAC_FALLDOWNHOLE `$0f:$00 at its final position.");
-        }
+        FallingDownHoleSpawn falling =
+            (holeSpawns.Count == 1
+                ? holeSpawns[0] as FallingDownHoleSpawn
+                : null)!;
+        FailIf(
+            falling is null ||
+            falling.Position != holeEnemy.Position,
+            "Completed enemy hole pull did not request " +
+            "INTERAC_FALLDOWNHOLE `$0f:$00 at its final position.");
         FallingDownHoleEffect fallingEffect =
             _entities.Spawn<FallingDownHoleEffect>(falling);
-        if (fallingEffect.Position !=
+        FailIf(
+            fallingEffect.Position !=
                 OracleObjectMath.ToPixelPosition(holeEnemy.Position) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) !=
-                fallSounds + 1)
-        {
-            throw new InvalidOperationException(
-                "Completed enemy hole pull did not begin its imported falling " +
-                "animation and request SND_FALLINHOLE `$59 exactly once.");
-        }
+                fallSounds + 1,
+            "Completed enemy hole pull did not begin its imported falling " +
+            "animation and request SND_FALLINHOLE `$59 exactly once.");
 
         var gel = new GelCharacter();
         gel.Initialize(
@@ -1970,12 +1797,10 @@ public sealed partial class ValidationRoot
         int gelFrame = gel.CurrentAnimationFrame;
         for (int update = 0; update < 4; update++)
             gel.UpdateFrame(_player.Position, Vector2I.Down, false);
-        if (!gel.IsFallingIntoHole ||
-            gel.CurrentAnimationFrame != gelFrame)
-        {
-            throw new InvalidOperationException(
-                "ENEMY_GEL did not use the no-animation falling-hole variant.");
-        }
+        FailIf(
+            !gel.IsFallingIntoHole ||
+            gel.CurrentAnimationFrame != gelFrame,
+            "ENEMY_GEL did not use the no-animation falling-hole variant.");
 
         gel.Free();
         holeEnemy.Free();
@@ -2004,14 +1829,12 @@ public sealed partial class ValidationRoot
 
         Texture2D normal = enemy.CurrentAnimationTexture;
         Texture2D damage = enemy.Animation.DamageTexture;
-        if (ReferenceEquals(normal, damage) ||
+        FailIf(
+            ReferenceEquals(normal, damage) ||
             normal.GetImage().GetData().SequenceEqual(
-                damage.GetImage().GetData()))
-        {
-            throw new InvalidOperationException(
-                "Typed-sprite ENEMY_OCTOROK did not build a visibly distinct " +
-                "OBJ-palette-5 damage texture.");
-        }
+                damage.GetImage().GetData()),
+            "Typed-sprite ENEMY_OCTOROK did not build a visibly distinct " +
+            "OBJ-palette-5 damage texture.");
 
         enemy.InvincibilityCounter = 9;
         for (int frame = 0; frame <= 8; frame++)
@@ -2020,22 +1843,18 @@ public sealed partial class ValidationRoot
             bool expectedDamagePalette = (frame & 4) == 0;
             bool usesDamagePalette =
                 ReferenceEquals(enemy.CurrentDrawTexture, damage);
-            if (usesDamagePalette != expectedDamagePalette)
-            {
-                throw new InvalidOperationException(
-                    $"Enemy damage blink global update {frame} used " +
-                    $"{(usesDamagePalette ? "damage" : "normal")} palette; " +
-                    $"expected {(expectedDamagePalette ? "damage" : "normal")}.");
-            }
+            FailIf(
+                usesDamagePalette != expectedDamagePalette,
+                $"Enemy damage blink global update {frame} used " +
+                $"{(usesDamagePalette ? "damage" : "normal")} palette; " +
+                $"expected {(expectedDamagePalette ? "damage" : "normal")}.");
         }
 
         enemy.InvincibilityCounter = 0;
-        if (!ReferenceEquals(enemy.CurrentDrawTexture, normal))
-        {
-            throw new InvalidOperationException(
-                "Enemy damage blink did not restore its normal OBJ palette " +
-                "when invincibilityCounter reached zero.");
-        }
+        FailIf(
+            !ReferenceEquals(enemy.CurrentDrawTexture, normal),
+            "Enemy damage blink did not restore its normal OBJ palette " +
+            "when invincibilityCounter reached zero.");
         enemy.Free();
 
         GD.Print(
@@ -2052,7 +1871,8 @@ public sealed partial class ValidationRoot
             RoomEnemyPlacements(database, 4, 0x06, 0x31, 0x00)
                 .Select(source => ResolveStalfos(database, source))
                 .ToList();
-        if (stalfosPlacements.Count != 34 ||
+        FailIf(
+            stalfosPlacements.Count != 34 ||
             stalfosPlacements.Sum(source => source.Count) != 37 ||
             room406 is not
             [
@@ -2063,78 +1883,65 @@ public sealed partial class ValidationRoot
                 record.TileBase != 4 || record.Palette != 1 ||
                 record.CollisionRadiusY != 6 || record.CollisionRadiusX != 6 ||
                 record.DamageQuarters != 2 || record.Health != 2 ||
-                record.SpeedRaw != 0x14))
-        {
-            throw new InvalidOperationException(
-                "Expected 34 ordinary ENEMY_STALFOS subid `$00 room records / 37 instances, " +
-                "including room 4:06's two fixed SPEED_80, two-health, half-heart Stalfos.");
-        }
+                record.SpeedRaw != 0x14),
+            "Expected 34 ordinary ENEMY_STALFOS subid `$00 room records / 37 instances, " +
+            "including room 4:06's two fixed SPEED_80, two-health, half-heart Stalfos.");
 
         _entities.ClearRecentEnemyDefeats();
         LoadValidationRoom(4, 0x06);
         _player.WarpTo(new Vector2(0x28, 0x28), recordSafe: false);
         List<StalfosCharacter> stalfos = _entities.Entities<StalfosCharacter>();
-        if (stalfos.Count != 2 ||
+        FailIf(
+            stalfos.Count != 2 ||
             stalfos[0].Position != new Vector2(0x68, 0x68) ||
             stalfos[1].Position != new Vector2(0x98, 0x68) ||
             stalfos.Any(enemy =>
                 enemy.State != StalfosState.Uninitialized ||
-                enemy.Health != 2 || enemy.AnimationIndex != 0))
-        {
-            throw new InvalidOperationException(
-                "Room 4:06 did not instantiate its two ordinary Stalfos in source order.");
-        }
+                enemy.Health != 2 || enemy.AnimationIndex != 0),
+            "Room 4:06 did not instantiate its two ordinary Stalfos in source order.");
 
         int randomCalls = _entities.RandomCalls;
         Vector2[] initialPositions = stalfos.Select(enemy => enemy.Position).ToArray();
         _entities.Update(1.0 / 60.0, _player);
-        if (_entities.RandomCalls != randomCalls ||
+        FailIf(
+            _entities.RandomCalls != randomCalls ||
             stalfos.Any(enemy =>
-                enemy.State != StalfosState.Deciding))
-        {
-            throw new InvalidOperationException(
-                "ENEMY_STALFOS state `$00 did not initialize state `$08 without consuming RNG.");
-        }
+                enemy.State != StalfosState.Deciding),
+            "ENEMY_STALFOS state `$00 did not initialize state `$08 without consuming RNG.");
         _entities.Update(1.0 / 60.0, _player);
-        if (_entities.RandomCalls != randomCalls + 4 ||
+        FailIf(
+            _entities.RandomCalls != randomCalls + 4 ||
             stalfos.Any(enemy =>
                 enemy.State != StalfosState.Walking ||
                 enemy.Counter1 is not (0x20 or 0x30 or 0x40 or 0x50) ||
                 enemy.Angle is < 0 or > 0x1f) ||
-            stalfos.Where((enemy, index) => enemy.Position != initialPositions[index]).Any())
-        {
-            throw new InvalidOperationException(
-                "ENEMY_STALFOS state `$08 did not consume two shared RNG calls per enemy " +
-                "and choose a 32/48/64/80-update walk without moving immediately.");
-        }
+            stalfos.Where((enemy, index) => enemy.Position != initialPositions[index]).Any(),
+            "ENEMY_STALFOS state `$08 did not consume two shared RNG calls per enemy " +
+            "and choose a 32/48/64/80-update walk without moving immediately.");
 
         for (int frame = 0; frame < 3; frame++)
             _entities.Update(1.0 / 60.0, _player);
-        if (stalfos.Any(enemy => enemy.CurrentAnimationFrame != 0))
-            throw new InvalidOperationException(
-                "The Stalfos walk animation advanced before four walking updates.");
+        FailIf(
+            stalfos.Any(enemy => enemy.CurrentAnimationFrame != 0),
+            "The Stalfos walk animation advanced before four walking updates.");
         _entities.Update(1.0 / 60.0, _player);
-        if (stalfos.Any(enemy => enemy.CurrentAnimationFrame != 1) ||
-            stalfos.Where((enemy, index) => enemy.Position == initialPositions[index]).Any())
-        {
-            throw new InvalidOperationException(
-                "The Stalfos did not move at SPEED_80 while advancing its four-update walk animation.");
-        }
+        FailIf(
+            stalfos.Any(enemy => enemy.CurrentAnimationFrame != 1) ||
+            stalfos.Where((enemy, index) => enemy.Position == initialPositions[index]).Any(),
+            "The Stalfos did not move at SPEED_80 while advancing its four-update walk animation.");
 
         List<StalfosRecord> room41f =
             RoomEnemyPlacements(database, 4, 0x1f, 0x31, 0x00)
                 .Select(source => ResolveStalfos(database, source))
                 .ToList();
         OracleRoomData potRoom = _world.LoadRoom(4, 0x1f);
-        if (room41f.Count != 4 ||
+        FailIf(
+            room41f.Count != 4 ||
             potRoom.GetMetatile(new Vector2(136, 96)) != 0x10 ||
             !potRoom.IsSolid(new Vector2(131, 96)) ||
-            !potRoom.IsSolid(new Vector2(140, 96)))
-        {
-            throw new InvalidOperationException(
-                "Room 4:1f did not retain the canonical dungeon-pot `$10 " +
-                "collision used by the Stalfos bounce regression.");
-        }
+            !potRoom.IsSolid(new Vector2(140, 96)),
+            "Room 4:1f did not retain the canonical dungeon-pot `$10 " +
+            "collision used by the Stalfos bounce regression.");
 
         var potStalfos = new StalfosCharacter();
         potStalfos.Initialize(
@@ -2148,14 +1955,12 @@ public sealed partial class ValidationRoot
         Vector2 expectedPotBounce = potApproach +
             OracleObjectMath.VectorFromAngle32(0x1a) *
             (room41f[2].SpeedRaw / 40.0f);
-        if (potStalfos.Angle != 0x1a ||
-            !potStalfos.Position.IsEqualApprox(expectedPotBounce))
-        {
-            throw new InvalidOperationException(
-                $"Room 4:1f ENEMY_STALFOS did not reflect angle `$16 to " +
-                $"`$1a before entering dungeon pot `$10 (angle=" +
-                $"${potStalfos.Angle:x2}, position={potStalfos.Position}).");
-        }
+        FailIf(
+            potStalfos.Angle != 0x1a ||
+            !potStalfos.Position.IsEqualApprox(expectedPotBounce),
+            $"Room 4:1f ENEMY_STALFOS did not reflect angle `$16 to " +
+            $"`$1a before entering dungeon pot `$10 (angle=" +
+            $"${potStalfos.Angle:x2}, position={potStalfos.Position}).");
         potStalfos.Free();
 
         var cornerRandom = new OracleRandom();
@@ -2171,14 +1976,12 @@ public sealed partial class ValidationRoot
         Vector2 expectedCornerBounce = cornerApproach +
             OracleObjectMath.VectorFromAngle32(0x14) *
             (room41f[2].SpeedRaw / 40.0f);
-        if (cornerStalfos.Angle != 0x14 ||
-            !cornerStalfos.Position.IsEqualApprox(expectedCornerBounce))
-        {
-            throw new InvalidOperationException(
-                $"Room 4:1f ENEMY_STALFOS did not reverse angle `$04 to " +
-                $"`$14 at the dungeon-pot L-corner (angle=" +
-                $"${cornerStalfos.Angle:x2}, position={cornerStalfos.Position}).");
-        }
+        FailIf(
+            cornerStalfos.Angle != 0x14 ||
+            !cornerStalfos.Position.IsEqualApprox(expectedCornerBounce),
+            $"Room 4:1f ENEMY_STALFOS did not reverse angle `$04 to " +
+            $"`$14 at the dungeon-pot L-corner (angle=" +
+            $"${cornerStalfos.Angle:x2}, position={cornerStalfos.Position}).");
         cornerStalfos.Free();
 
         (string Axis, int SkippedCalls, int InitialAngle,
@@ -2204,21 +2007,17 @@ public sealed partial class ValidationRoot
                 boundaryRandom);
             boundaryStalfos.UpdateFrame(Vector2.Zero);
             boundaryStalfos.UpdateFrame(Vector2.Zero);
-            if (boundaryStalfos.State != StalfosState.Walking ||
-                boundaryStalfos.Angle != initialAngle)
-            {
-                throw new InvalidOperationException(
-                    $"The {axis} Stalfos boundary fixture did not select " +
-                    $"source angle `${initialAngle:x2}.");
-            }
+            FailIf(
+                boundaryStalfos.State != StalfosState.Walking ||
+                boundaryStalfos.Angle != initialAngle,
+                $"The {axis} Stalfos boundary fixture did not select " +
+                $"source angle `${initialAngle:x2}.");
             boundaryStalfos.Position = position;
             boundaryStalfos.UpdateFrame(Vector2.Zero);
-            if (boundaryStalfos.Angle != reflectedAngle)
-            {
-                throw new InvalidOperationException(
-                    $"Stalfos did not reflect its {axis} boundary contact " +
-                    $"from `${initialAngle:x2} to `${reflectedAngle:x2}.");
-            }
+            FailIf(
+                boundaryStalfos.Angle != reflectedAngle,
+                $"Stalfos did not reflect its {axis} boundary contact " +
+                $"from `${initialAngle:x2} to `${reflectedAngle:x2}.");
             boundaryStalfos.Free();
         }
 
@@ -2237,114 +2036,99 @@ public sealed partial class ValidationRoot
             EnemyPlacements(database, 0x34, 0x00, 0x01);
         List<RoomObjectRecord> gelPlacements =
             EnemyPlacements(database, 0x43, 0x00);
-        if (zolPlacements.Count != 61 ||
+        FailIf(
+            zolPlacements.Count != 61 ||
             zolPlacements.Sum(source => source.Count) != 79 ||
             gelPlacements.Count != 1 ||
-            gelPlacements.Sum(source => source.Count) != 3)
-        {
-            throw new InvalidOperationException(
-                $"Expected 61 ENEMY_ZOL records / 79 instances and one ENEMY_GEL record / " +
-                $"3 instances, got {zolPlacements.Count} / " +
-                $"{zolPlacements.Sum(source => source.Count)} and " +
-                $"{gelPlacements.Count} / " +
-                $"{gelPlacements.Sum(source => source.Count)}.");
-        }
-        if (database.Gel is not { Id: 0x43, SubId: 0x00 } ||
+            gelPlacements.Sum(source => source.Count) != 3,
+            $"Expected 61 ENEMY_ZOL records / 79 instances and one ENEMY_GEL record / " +
+            $"3 instances, got {zolPlacements.Count} / " +
+            $"{zolPlacements.Sum(source => source.Count)} and " +
+            $"{gelPlacements.Count} / " +
+            $"{gelPlacements.Sum(source => source.Count)}.");
+        FailIf(
+            database.Gel is not { Id: 0x43, SubId: 0x00 } ||
             database.Gel.TileBase != 0 ||
             database.Gel.Palette != 2 || database.Gel.CollisionRadiusY != 2 ||
             database.Gel.CollisionRadiusX != 2 || database.Gel.DamageQuarters != 2 ||
-            database.Gel.Health != 1)
-        {
-            throw new InvalidOperationException(
-                "ENEMY_GEL did not retain id `$43, tile base 0, palette 2, radius 2x2, " +
-                "half-heart damage, and one health.");
-        }
+            database.Gel.Health != 1,
+            "ENEMY_GEL did not retain id `$43, tile base 0, palette 2, radius 2x2, " +
+            "half-heart damage, and one health.");
 
         LoadValidationRoom(4, 0xcc);
-        if (_entities.Entities<ZolCharacter>().Count != 6 ||
+        FailIf(
+            _entities.Entities<ZolCharacter>().Count != 6 ||
             _entities.Entities<ZolCharacter>().FindAll(zol => zol.Record.SubId == 0).Count != 3 ||
             _entities.Entities<ZolCharacter>().FindAll(zol => zol.Record.SubId == 1).Count != 3 ||
             !_entities.Entities<ZolCharacter>().Exists(zol => zol.Position == new Vector2(0x58, 0x78)) ||
-            !_entities.Entities<ZolCharacter>().Exists(zol => zol.Position == new Vector2(0x48, 0x98)))
-        {
-            throw new InvalidOperationException(
-                "Room 4:cc did not preserve its three fixed green and three fixed red Zols.");
-        }
+            !_entities.Entities<ZolCharacter>().Exists(zol => zol.Position == new Vector2(0x48, 0x98)),
+            "Room 4:cc did not preserve its three fixed green and three fixed red Zols.");
 
         ZolCharacter transitionZol = _entities.Entities<ZolCharacter>()[0];
         int frozenCounter = transitionZol.Counter1;
         OracleRoomData incomingRoom = _world.LoadRoom(4, 0x0b);
         _entities.BeginScreenTransition(4, incomingRoom, Vector2.Left * incomingRoom.Width);
         _entities.Update(1.0, _player);
-        if (_entities.OutgoingEntities<ZolCharacter>().Count != 6 || _entities.Entities<ZolCharacter>().Count != 0 ||
+        FailIf(
+            _entities.OutgoingEntities<ZolCharacter>().Count != 6 || _entities.Entities<ZolCharacter>().Count != 0 ||
             _entities.Entities<GelCharacter>().Count != 3 || transitionZol.Counter1 != frozenCounter ||
-            !_entities.Entities<GelCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Left * incomingRoom.Width))
-        {
-            throw new InvalidOperationException(
-                "Scrolling did not retain/freeze six outgoing Zols and preload/freeze " +
-                "the three direct room 4:0b Gels.");
-        }
+            !_entities.Entities<GelCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Left * incomingRoom.Width),
+            "Scrolling did not retain/freeze six outgoing Zols and preload/freeze " +
+            "the three direct room 4:0b Gels.");
         _entities.FinishScreenTransition();
-        if (_entities.OutgoingEntities<ZolCharacter>().Count != 0 ||
-            !_entities.Entities<GelCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Zero))
-        {
-            throw new InvalidOperationException(
-                "Zol/Gel transition ownership and offsets were not normalized after scrolling.");
-        }
+        FailIf(
+            _entities.OutgoingEntities<ZolCharacter>().Count != 0 ||
+            !_entities.Entities<GelCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Zero),
+            "Zol/Gel transition ownership and offsets were not normalized after scrolling.");
 
         ZolRecord greenRecord = ResolveZol(
             database,
             RoomEnemyPlacements(database, 4, 0xcc, 0x34, 0x00)[0]);
-        if (greenRecord.Id != 0x34 || greenRecord.Health != 2 ||
-            greenRecord.DamageQuarters != 2 || greenRecord.Palette != 0)
-        {
-            throw new InvalidOperationException(
-                "Green ENEMY_ZOL `$34/`$00 attributes were not imported correctly.");
-        }
+        FailIf(
+            greenRecord.Id != 0x34 || greenRecord.Health != 2 ||
+            greenRecord.DamageQuarters != 2 || greenRecord.Palette != 0,
+            "Green ENEMY_ZOL `$34/`$00 attributes were not imported correctly.");
 
         var timingZol = new ZolCharacter();
         var timingRandom = new OracleRandom();
         timingZol.Initialize(greenRecord, _world.LoadRoom(4, 0xcc), new Vector2(80, 80), timingRandom);
         timingZol.UpdateFrame(new Vector2(120, 80));
-        if (timingZol.State != ZolState.GreenHidden)
-            throw new InvalidOperationException("Green Zol woke at the excluded Manhattan distance `$28.");
+        FailIf(
+            timingZol.State != ZolState.GreenHidden,
+            "Green Zol woke at the excluded Manhattan distance `$28.");
         timingZol.UpdateFrame(new Vector2(119, 80));
-        if (timingZol.State != ZolState.GreenEmerging ||
-            timingZol.Counter2 != 4 || !timingZol.Visible)
-        {
-            throw new InvalidOperationException(
-                "Green Zol did not wake inside Manhattan distance `$28 with four hops queued.");
-        }
+        FailIf(
+            timingZol.State != ZolState.GreenEmerging ||
+            timingZol.Counter2 != 4 || !timingZol.Visible,
+            "Green Zol did not wake inside Manhattan distance `$28 with four hops queued.");
         for (int frame = 0; frame < 32; frame++)
             timingZol.UpdateFrame(new Vector2(119, 80));
-        if (timingZol.State != ZolState.GreenEmerging ||
-            timingZol.AnimationParameter != 1 || timingZol.ZFixed != 0)
-        {
-            throw new InvalidOperationException(
-                "Green Zol emergence did not reach its terminal animation parameter after 32 updates.");
-        }
+        FailIf(
+            timingZol.State != ZolState.GreenEmerging ||
+            timingZol.AnimationParameter != 1 || timingZol.ZFixed != 0,
+            "Green Zol emergence did not reach its terminal animation parameter after 32 updates.");
         for (int frame = 0; frame < 26; frame++)
             timingZol.UpdateFrame(new Vector2(119, 80));
-        if (timingZol.ZFixed >= 0 || timingZol.State != ZolState.GreenEmerging)
-            throw new InvalidOperationException("Green Zol landed before its 27th gravity update.");
+        FailIf(
+            timingZol.ZFixed >= 0 || timingZol.State != ZolState.GreenEmerging,
+            "Green Zol landed before its 27th gravity update.");
         timingZol.UpdateFrame(new Vector2(119, 80));
-        if (timingZol.State != ZolState.GreenWaiting ||
-            timingZol.Counter1 != 0x30 || !timingZol.CollisionEnabled)
-        {
-            throw new InvalidOperationException(
-                "Green Zol did not land on gravity update 27 and begin its 48-update wait.");
-        }
+        FailIf(
+            timingZol.State != ZolState.GreenWaiting ||
+            timingZol.Counter1 != 0x30 || !timingZol.CollisionEnabled,
+            "Green Zol did not land on gravity update 27 and begin its 48-update wait.");
         for (int frame = 0; frame < 47; frame++)
             timingZol.UpdateFrame(new Vector2(119, 80));
-        if (timingZol.Counter1 != 1 || timingZol.State != ZolState.GreenWaiting)
-            throw new InvalidOperationException("Green Zol ended its 48-update wait early.");
+        FailIf(
+            timingZol.Counter1 != 1 || timingZol.State != ZolState.GreenWaiting,
+            "Green Zol ended its 48-update wait early.");
         timingZol.UpdateFrame(new Vector2(119, 80));
-        if (timingZol.State != ZolState.GreenHopping)
-            throw new InvalidOperationException("Green Zol did not begin its first pursuit hop.");
+        FailIf(timingZol.State != ZolState.GreenHopping, "Green Zol did not begin its first pursuit hop.");
         for (int frame = 0; frame < 27; frame++)
             timingZol.UpdateFrame(new Vector2(119, 80));
-        if (timingZol.Counter2 != 3 || timingZol.State != ZolState.GreenWaiting)
-            throw new InvalidOperationException("Green Zol did not consume exactly one of four hops.");
+        FailIf(
+            timingZol.Counter2 != 3 || timingZol.State != ZolState.GreenWaiting,
+            "Green Zol did not consume exactly one of four hops.");
         for (int hop = 0; hop < 3; hop++)
         {
             for (int frame = 0; frame < 48; frame++)
@@ -2352,28 +2136,26 @@ public sealed partial class ValidationRoot
             for (int frame = 0; frame < 27; frame++)
                 timingZol.UpdateFrame(new Vector2(119, 80));
         }
-        if (timingZol.State != ZolState.GreenDisappearing ||
-            timingZol.Counter2 != 0 || timingZol.CollisionEnabled)
-        {
-            throw new InvalidOperationException(
-                "Green Zol did not disable collision and disappear after exactly four hops.");
-        }
+        FailIf(
+            timingZol.State != ZolState.GreenDisappearing ||
+            timingZol.Counter2 != 0 || timingZol.CollisionEnabled,
+            "Green Zol did not disable collision and disappear after exactly four hops.");
         for (int frame = 0; frame < 40; frame++)
             timingZol.UpdateFrame(new Vector2(119, 80));
-        if (timingZol.AnimationParameter != 1 ||
-            timingZol.State != ZolState.GreenDisappearing)
-        {
-            throw new InvalidOperationException(
-                "Green Zol disappearance did not reach its terminal parameter after 40 updates.");
-        }
+        FailIf(
+            timingZol.AnimationParameter != 1 ||
+            timingZol.State != ZolState.GreenDisappearing,
+            "Green Zol disappearance did not reach its terminal parameter after 40 updates.");
         timingZol.UpdateFrame(new Vector2(119, 80));
         for (int frame = 0; frame < 39; frame++)
             timingZol.UpdateFrame(new Vector2(119, 80));
-        if (timingZol.State != ZolState.GreenGone || timingZol.Counter1 != 1)
-            throw new InvalidOperationException("Green Zol ended its 40-update underground wait early.");
+        FailIf(
+            timingZol.State != ZolState.GreenGone || timingZol.Counter1 != 1,
+            "Green Zol ended its 40-update underground wait early.");
         timingZol.UpdateFrame(new Vector2(119, 80));
-        if (timingZol.State != ZolState.GreenHidden)
-            throw new InvalidOperationException("Green Zol did not return to its hidden proximity state.");
+        FailIf(
+            timingZol.State != ZolState.GreenHidden,
+            "Green Zol did not return to its hidden proximity state.");
         timingZol.Free();
 
         LoadValidationRoom(4, 0xcc);
@@ -2383,15 +2165,13 @@ public sealed partial class ValidationRoot
             counter1: 1000,
             animation: 1);
         int greenCount = _entities.Entities<ZolCharacter>().Count;
-        if (!_entities.ApplySwordHit(green.CollisionBounds.Grow(1.0f)) ||
+        FailIf(
+            !_entities.ApplySwordHit(green.CollisionBounds.Grow(1.0f)) ||
             _entities.Entities<ZolCharacter>().Count != greenCount - 1 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
-            _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x34)
-        {
-            throw new InvalidOperationException(
-                "The level-1 sword did not defeat a surfaced green Zol and " +
-                "create its normal `$34 death puff.");
-        }
+            _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x34,
+            "The level-1 sword did not defeat a surfaced green Zol and " +
+            "create its normal `$34 death puff.");
 
         LoadValidationRoom(4, 0xcc);
         _player.WarpTo(new Vector2(220, 160), recordSafe: false);
@@ -2404,100 +2184,87 @@ public sealed partial class ValidationRoot
         RecentEnemyDefeatsState splitRecentDefeats =
             _entities.CaptureDebugState().RecentEnemyDefeats;
         _sound.ClearPlayRequestAudit();
-        if (!_entities.ApplySwordHit(red.CollisionBounds.Grow(1.0f)) ||
+        FailIf(
+            !_entities.ApplySwordHit(red.CollisionBounds.Grow(1.0f)) ||
             red.State != ZolState.RedSplitting ||
             _entities.Entities<ZolCharacter>().Count != redRoomCount ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 0)
-        {
-            throw new InvalidOperationException(
-                "A sword-hit red Zol did not enter its special split state without a normal death puff.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 0,
+            "A sword-hit red Zol did not enter its special split state without a normal death puff.");
         _entities.Update(1.0 / 60.0, _player);
-        if (red.State != ZolState.RedSplitDelay || red.Counter2 != 18 ||
+        FailIf(
+            red.State != ZolState.RedSplitDelay || red.Counter2 != 18 ||
             red.Visible || red.CollisionEnabled || _entities.Entities<KillEnemyPuffEffect>().Count != 1 ||
             _entities.Entities<KillEnemyPuffEffect>()[0].DurationFrames != 20 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 1)
-        {
-            throw new InvalidOperationException(
-                "Red Zol did not create the 20-update INTERAC_KILLENEMYPUFF and begin its 18-update delay.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 1,
+            "Red Zol did not create the 20-update INTERAC_KILLENEMYPUFF and begin its 18-update delay.");
         for (int frame = 0; frame < 17; frame++)
             _entities.Update(1.0 / 60.0, _player);
-        if (_entities.Entities<GelCharacter>().Count != 0 || red.Counter2 != 1)
-            throw new InvalidOperationException("Red Zol spawned Gels before split delay update 18.");
+        FailIf(
+            _entities.Entities<GelCharacter>().Count != 0 || red.Counter2 != 1,
+            "Red Zol spawned Gels before split delay update 18.");
         _entities.Update(1.0 / 60.0, _player);
         RecentEnemyDefeatsState afterSplitDefeats =
             _entities.CaptureDebugState().RecentEnemyDefeats;
-        if (_entities.Entities<ZolCharacter>().Count != redRoomCount - 1 ||
+        FailIf(
+            _entities.Entities<ZolCharacter>().Count != redRoomCount - 1 ||
             _entities.Entities<GelCharacter>().Count != 2 ||
             !_entities.Entities<GelCharacter>().Exists(gel => gel.Position == splitPosition + Vector2.Right * 4.0f) ||
             !_entities.Entities<GelCharacter>().Exists(gel => gel.Position == splitPosition + Vector2.Left * 4.0f) ||
             redDeathEvents != 0 ||
             !afterSplitDefeats.KilledEnemies.AsSpan().SequenceEqual(
-                splitRecentDefeats.KilledEnemies))
-        {
-            throw new InvalidOperationException(
-                "Red Zol replacement did not preserve silent deletion, recent-" +
-                "defeat state, and two +/-4 X Gels.");
-        }
+                splitRecentDefeats.KilledEnemies),
+            "Red Zol replacement did not preserve silent deletion, recent-" +
+            "defeat state, and two +/-4 X Gels.");
         _entities.Update(2.0 / 60.0, _player);
-        if (_entities.Entities<KillEnemyPuffEffect>().Count != 0 || _entities.Entities<ItemDropEffect>().Count != 0)
-            throw new InvalidOperationException(
-                "INTERAC_KILLENEMYPUFF did not end after 20 updates or incorrectly resolved an item drop.");
+        FailIf(
+            _entities.Entities<KillEnemyPuffEffect>().Count != 0 || _entities.Entities<ItemDropEffect>().Count != 0,
+            "INTERAC_KILLENEMYPUFF did not end after 20 updates or incorrectly resolved an item drop.");
 
         GelCharacter defeatedGel = _entities.Entities<GelCharacter>()[0];
         int gelCount = _entities.Entities<GelCharacter>().Count;
         int splitGelRoomEnemyCount = _entities.RoomEnemyCount;
-        if (!_entities.ApplySwordHit(defeatedGel.CollisionBounds.Grow(1.0f)) ||
+        FailIf(
+            !_entities.ApplySwordHit(defeatedGel.CollisionBounds.Grow(1.0f)) ||
             _entities.Entities<GelCharacter>().Count != gelCount - 1 || _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
             _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x43 ||
             _entities.RoomEnemyCount != splitGelRoomEnemyCount ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 2 ||
-            redDeathEvents != 1)
-        {
-            throw new InvalidOperationException(
-                "The one-health ENEMY_GEL did not die to one level-1 sword " +
-                $"hit with a counted `$43 death puff (gels=" +
-                $"{_entities.Entities<GelCharacter>().Count}, puffs=" +
-                $"{_entities.Entities<EnemyDeathPuffEffect>().Count}, " +
-                $"puffId={_entities.Entities<EnemyDeathPuffEffect>().FirstOrDefault()?.EnemyId}, " +
-                "roomCount=" +
-                $"{_entities.RoomEnemyCount}/{splitGelRoomEnemyCount}, " +
-                $"sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy)}, " +
-                $"events={redDeathEvents}).");
-        }
+            redDeathEvents != 1,
+            "The one-health ENEMY_GEL did not die to one level-1 sword " +
+            $"hit with a counted `$43 death puff (gels=" +
+            $"{_entities.Entities<GelCharacter>().Count}, puffs=" +
+            $"{_entities.Entities<EnemyDeathPuffEffect>().Count}, " +
+            $"puffId={_entities.Entities<EnemyDeathPuffEffect>().FirstOrDefault()?.EnemyId}, " +
+            "roomCount=" +
+            $"{_entities.RoomEnemyCount}/{splitGelRoomEnemyCount}, " +
+            $"sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy)}, " +
+            $"events={redDeathEvents}).");
 
         GelCharacter secondDefeatedGel =
             _entities.Entities<GelCharacter>().Single();
-        if (!_entities.ApplySwordHit(
+        FailIf(
+            !_entities.ApplySwordHit(
                 secondDefeatedGel.CollisionBounds.Grow(1.0f)) ||
             _entities.Entities<GelCharacter>().Count != 0 ||
             _entities.RoomEnemyCount != splitGelRoomEnemyCount ||
-            redDeathEvents != 2)
-        {
-            throw new InvalidOperationException(
-                "The two Gels spawned by a red Zol did not emit two " +
-                "independent enemyDie counter events.");
-        }
+            redDeathEvents != 2,
+            "The two Gels spawned by a red Zol did not emit two " +
+            "independent enemyDie counter events.");
         _entities.EnemyDefeated -= RecordRedZolDeath;
         for (int update = 0; update < 19; update++)
             _entities.Update(1.0 / 60.0, _player);
-        if (_entities.Entities<EnemyDeathPuffEffect>().Count != 2 ||
-            _entities.RoomEnemyCount != splitGelRoomEnemyCount)
-        {
-            throw new InvalidOperationException(
-                "Counted Gel death puffs released the room enemy count " +
-                "before their terminal animation update.");
-        }
+        FailIf(
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 2 ||
+            _entities.RoomEnemyCount != splitGelRoomEnemyCount,
+            "Counted Gel death puffs released the room enemy count " +
+            "before their terminal animation update.");
         _entities.Update(1.0 / 60.0, _player);
-        if (_entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
-            _entities.RoomEnemyCount != splitGelRoomEnemyCount - 2)
-        {
-            throw new InvalidOperationException(
-                "The two counted Gel death puffs did not independently " +
-                "decrement the room enemy count on their terminal update.");
-        }
+        FailIf(
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
+            _entities.RoomEnemyCount != splitGelRoomEnemyCount - 2,
+            "The two counted Gel death puffs did not independently " +
+            "decrement the room enemy count on their terminal update.");
 
         Vector2 latchPosition = new(180, 140);
         GelCharacter latchGel = _entities.Spawn<GelCharacter>(
@@ -2506,71 +2273,63 @@ public sealed partial class ValidationRoot
         _player.RefillHealth();
         int healthBeforeLatch = _player.HealthQuarters;
         _entities.Update(0.0, _player);
-        if (!latchGel.IsAttached || latchGel.Counter2 != 120 ||
+        FailIf(
+            !latchGel.IsAttached || latchGel.Counter2 != 120 ||
             _player.HealthQuarters != healthBeforeLatch ||
-            !_entities.PlayerSwordDisabled)
-        {
-            throw new InvalidOperationException(
-                "Gel contact damaged Link or failed to latch for 120 updates and disable the sword.");
-        }
+            !_entities.PlayerSwordDisabled,
+            "Gel contact damaged Link or failed to latch for 120 updates and disable the sword.");
         bool movementPhase = _entities.PlayerMovementDisabled;
         _entities.Update(1.0 / 60.0, _player);
-        if (_entities.PlayerMovementDisabled == movementPhase)
-            throw new InvalidOperationException("Attached Gel did not immobilize Link on alternating updates.");
+        FailIf(
+            _entities.PlayerMovementDisabled == movementPhase,
+            "Attached Gel did not immobilize Link on alternating updates.");
         for (int frame = 0; frame < 118; frame++)
             _entities.Update(1.0 / 60.0, _player);
-        if (!latchGel.IsAttached || latchGel.Counter2 != 1)
-            throw new InvalidOperationException(
-                "Gel did not remain attached through latch update 119: " +
-                $"state={latchGel.State}, counter2={latchGel.Counter2}, " +
-                $"entityFrame={_entities.FrameCounter}.");
+        FailIf(
+            !latchGel.IsAttached || latchGel.Counter2 != 1,
+            "Gel did not remain attached through latch update 119: " +
+            $"state={latchGel.State}, counter2={latchGel.Counter2}, " +
+            $"entityFrame={_entities.FrameCounter}.");
         _entities.Update(1.0 / 60.0, _player);
-        if (latchGel.IsAttached || latchGel.State != GelState.Hopping ||
+        FailIf(
+            latchGel.IsAttached || latchGel.State != GelState.Hopping ||
             latchGel.Angle != 0x00 || latchGel.CollisionEnabled ||
-            _entities.PlayerSwordDisabled)
-        {
-            throw new InvalidOperationException(
-                "Gel did not automatically release after 120 updates with hop collision disabled.");
-        }
+            _entities.PlayerSwordDisabled,
+            "Gel did not automatically release after 120 updates with hop collision disabled.");
         _entities.Update(1.0 / 60.0, _player);
-        if (latchGel.IsAttached || _entities.PlayerSwordDisabled)
-            throw new InvalidOperationException(
-                "A naturally released Gel immediately relatched before completing its hop.");
+        FailIf(
+            latchGel.IsAttached || _entities.PlayerSwordDisabled,
+            "A naturally released Gel immediately relatched before completing its hop.");
 
         Vector2 buttonLatchPosition = new(120, 140);
         GelCharacter buttonGel = _entities.Spawn<GelCharacter>(
             new GelSpawn(buttonLatchPosition, "ButtonReleaseGel"));
         _player.WarpTo(buttonLatchPosition, recordSafe: false);
         _entities.Update(0.0, _player);
-        if (!buttonGel.IsAttached || buttonGel.Counter2 != 120)
-            throw new InvalidOperationException("Button-release test Gel did not latch.");
+        FailIf(!buttonGel.IsAttached || buttonGel.Counter2 != 120, "Button-release test Gel did not latch.");
         for (int press = 0; press < 30; press++)
             buttonGel.UpdateFrame(_player.Position, Vector2I.Down, anyButtonJustPressed: true);
-        if (!buttonGel.IsAttached || buttonGel.Counter2 != 1)
-            throw new InvalidOperationException(
-                "Thirty button presses did not reduce the Gel latch counter to one.");
+        FailIf(
+            !buttonGel.IsAttached || buttonGel.Counter2 != 1,
+            "Thirty button presses did not reduce the Gel latch counter to one.");
         buttonGel.UpdateFrame(_player.Position, Vector2I.Down, anyButtonJustPressed: false);
-        if (buttonGel.IsAttached || buttonGel.State != GelState.Hopping ||
+        FailIf(
+            buttonGel.IsAttached || buttonGel.State != GelState.Hopping ||
             buttonGel.Angle != 0x00 || buttonGel.CollisionEnabled ||
-            _entities.PlayerSwordDisabled)
-        {
-            throw new InvalidOperationException(
-                "Button presses did not release the Gel with collision disabled and hop it away from Link.");
-        }
+            _entities.PlayerSwordDisabled,
+            "Button presses did not release the Gel with collision disabled and hop it away from Link.");
         _entities.Update(1.0 / 60.0, _player);
-        if (buttonGel.IsAttached || _entities.PlayerSwordDisabled)
-            throw new InvalidOperationException(
-                "A button-released Gel immediately relatched before completing its hop.");
+        FailIf(
+            buttonGel.IsAttached || _entities.PlayerSwordDisabled,
+            "A button-released Gel immediately relatched before completing its hop.");
 
         _entities.ClearRecentEnemyDefeats();
         LoadValidationRoom(4, 0x08);
         Vector2 holeCenter = new(0x0a * 16 + 8, 0x04 * 16 + 8);
-        if (_currentRoom.GetTerrainInfo(holeCenter).Hazard !=
-            HazardType.Hole)
-        {
-            throw new InvalidOperationException(
-                "Room 4:08/$4a was not the expected hole for enemy hazard audio validation.");
-        }
+        FailIf(
+            _currentRoom.GetTerrainInfo(holeCenter).Hazard !=
+            HazardType.Hole,
+            "Room 4:08/$4a was not the expected hole for enemy hazard audio validation.");
         _player.WarpTo(new Vector2(0x48, 0x78), recordSafe: false);
         int hazardDeathEvents = 0;
         void RecordHazardDeath() => hazardDeathEvents++;
@@ -2583,39 +2342,33 @@ public sealed partial class ValidationRoot
                 holeCenter,
                 "HoleSoundGel",
                 KillableEnemyIndex: 1));
-        if (_entities.RoomEnemyCount != hazardRoomEnemyCount + 1)
-        {
-            throw new InvalidOperationException(
-                "The counted hazard-validation Gel did not increment the live " +
-                "room enemy count.");
-        }
+        FailIf(
+            _entities.RoomEnemyCount != hazardRoomEnemyCount + 1,
+            "The counted hazard-validation Gel did not increment the live " +
+            "room enemy count.");
         _sound.ClearPlayRequestAudit();
         _entities.Update(1.0 / 60.0, _player);
-        if (!_entities.Entities<GelCharacter>().Contains(holeGel) ||
+        FailIf(
+            !_entities.Entities<GelCharacter>().Contains(holeGel) ||
             !holeGel.IsFallingIntoHole || !holeGel.Visible ||
             holeGel.CollisionEnabled ||
             _entities.Entities<FallingDownHoleEffect>().Count != 0 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 0)
-        {
-            throw new InvalidOperationException(
-                "A Gel entering a hole did not remain visible/collisionless " +
-                "and defer its fall interaction and sound during pull update 1.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 0,
+            "A Gel entering a hole did not remain visible/collisionless " +
+            "and defer its fall interaction and sound during pull update 1.");
         for (int update = 2; update < 20; update++)
             holeGel.UpdateFrame(
                 _player.Position,
                 _player.FacingVector,
                 anyButtonJustPressed: false);
-        if (!_entities.Entities<GelCharacter>().Contains(holeGel) ||
+        FailIf(
+            !_entities.Entities<GelCharacter>().Contains(holeGel) ||
             _entities.Entities<FallingDownHoleEffect>().Count != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 0)
-        {
-            throw new InvalidOperationException(
-                "The centered Gel completed its eight-update SPEED_80 hole " +
-                "pull before the update-20 center check.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 0,
+            "The centered Gel completed its eight-update SPEED_80 hole " +
+            "pull before the update-20 center check.");
         holeGel.UpdateFrame(
             _player.Position,
             _player.FacingVector,
@@ -2623,7 +2376,8 @@ public sealed partial class ValidationRoot
         _entities.Update(0.0, _player);
         RecentEnemyDefeatsState afterHazardDefeats =
             _entities.CaptureDebugState().RecentEnemyDefeats;
-        if (_entities.Entities<GelCharacter>().Contains(holeGel) ||
+        FailIf(
+            _entities.Entities<GelCharacter>().Contains(holeGel) ||
             _entities.Entities<FallingDownHoleEffect>().Count != 1 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
             _entities.RoomEnemyCount != hazardRoomEnemyCount ||
@@ -2631,12 +2385,9 @@ public sealed partial class ValidationRoot
             !afterHazardDefeats.KilledEnemies.AsSpan().SequenceEqual(
                 hazardRecentDefeats.KilledEnemies) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 0)
-        {
-            throw new InvalidOperationException(
-                "ecom_decNumEnemiesAndDelete did not remove the centered Gel " +
-                "without a recent-defeat mark or Slayer/Maple/Gasha event.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 0,
+            "ecom_decNumEnemiesAndDelete did not remove the centered Gel " +
+            "without a recent-defeat mark or Slayer/Maple/Gasha event.");
         _entities.EnemyDefeated -= RecordHazardDeath;
 
         _player.RefillHealth();
@@ -2653,21 +2404,17 @@ public sealed partial class ValidationRoot
     private void ValidateItemDrops()
     {
         var database = new ItemDropDatabase();
-        if (ItemDropDatabase.SelectionDataSize != 720 ||
-            database.EnemyTableRecord(0x32) != 0xae)
-        {
-            throw new InvalidOperationException(
-                "ENEMY_KEESE `$32 did not retain item-drop record `$ae in the 720-byte selection data.");
-        }
-        if (database.EnemyTableRecord(0x70) != 0xef ||
+        FailIf(
+            ItemDropDatabase.SelectionDataSize != 720 ||
+            database.EnemyTableRecord(0x32) != 0xae,
+            "ENEMY_KEESE `$32 did not retain item-drop record `$ae in the 720-byte selection data.");
+        FailIf(
+            database.EnemyTableRecord(0x70) != 0xef ||
             database.ChooseDrop(0x70, 0, 0) != ItemDropDatabase.Fairy ||
             database.ChooseDrop(0x70, 0x3f, 0x1f) != ItemDropDatabase.Fairy ||
-            database.EnemyTableRecord(0x78) != 0xff)
-        {
-            throw new InvalidOperationException(
-                "Boss drop records no longer preserve Giant Ghini `$70 -> `$ef " +
-                "(guaranteed fairy) and Pumpkin Head `$78 -> `$ff (no drop).");
-        }
+            database.EnemyTableRecord(0x78) != 0xff,
+            "Boss drop records no longer preserve Giant Ghini `$70 -> `$ef " +
+            "(guaranteed fairy) and Pumpkin Head `$78 -> `$ff (no drop).");
 
         int allowedProbabilityRolls = 0;
         int allowedRoll = -1;
@@ -2685,13 +2432,11 @@ public sealed partial class ValidationRoot
                 deniedRoll = roll;
             }
         }
-        if (allowedProbabilityRolls != 32 || allowedRoll < 0 || deniedRoll < 0 ||
+        FailIf(
+            allowedProbabilityRolls != 32 || allowedRoll < 0 || deniedRoll < 0 ||
             database.ChooseDrop(0x32, (byte)deniedRoll, 0).HasValue ||
-            database.ChooseDrop(0x32, (byte)allowedRoll, 0) != ItemDropDatabase.Heart)
-        {
-            throw new InvalidOperationException(
-                "Keese probability set 5 did not preserve its original 32-of-64 drop chance.");
-        }
+            database.ChooseDrop(0x32, (byte)allowedRoll, 0) != ItemDropDatabase.Heart,
+            "Keese probability set 5 did not preserve its original 32-of-64 drop chance.");
 
         int hearts = 0;
         int oneRupees = 0;
@@ -2705,12 +2450,10 @@ public sealed partial class ValidationRoot
                 case ItemDropDatabase.FiveRupees: fiveRupees++; break;
             }
         }
-        if (hearts != 16 || oneRupees != 12 || fiveRupees != 4)
-        {
-            throw new InvalidOperationException(
-                $"Keese drop set `$0e should contain 16 hearts, 12 single rupees, and 4 five-rupee drops; " +
-                $"got {hearts}, {oneRupees}, and {fiveRupees}.");
-        }
+        FailIf(
+            hearts != 16 || oneRupees != 12 || fiveRupees != 4,
+            $"Keese drop set `$0e should contain 16 hearts, 12 single rupees, and 4 five-rupee drops; " +
+            $"got {hearts}, {oneRupees}, and {fiveRupees}.");
 
         ValidateInventoryDependentEnemyDrops(database);
 
@@ -2720,24 +2463,20 @@ public sealed partial class ValidationRoot
         ItemDropDatabaseVisualRecord fiveRupeeVisual = database.GetVisual(ItemDropDatabase.FiveRupees);
         ItemDropDatabaseVisualRecord hundredRupeeVisual =
             database.GetVisual(ItemDropDatabase.OneHundredRupeesOrEnemy);
-        if (fairyVisual.TileBase != 0 || fairyVisual.Palette != 2 ||
+        FailIf(
+            fairyVisual.TileBase != 0 || fairyVisual.Palette != 2 ||
             heartVisual.TileBase != 2 || heartVisual.Palette != 5 ||
             oneRupeeVisual.TileBase != 4 || oneRupeeVisual.Palette != 0 ||
             fiveRupeeVisual.TileBase != 6 || fiveRupeeVisual.Palette != 5 ||
-            hundredRupeeVisual.TileBase != 8 || hundredRupeeVisual.Palette != 4)
-        {
-            throw new InvalidOperationException(
-                "Fairy/heart/rupee PART_ITEM_DROP visuals do not match spriteData tile bases " +
-                "`$00/`$02/`$04/`$06/`$08.");
-        }
-        if (database.GetFairyVelocity(0x0a, 0x18) is not
+            hundredRupeeVisual.TileBase != 8 || hundredRupeeVisual.Palette != 4,
+            "Fairy/heart/rupee PART_ITEM_DROP visuals do not match spriteData tile bases " +
+            "`$00/`$02/`$04/`$06/`$08.");
+        FailIf(
+            database.GetFairyVelocity(0x0a, 0x18) is not
                 { YFixed: 0, XFixed: -64 } ||
             database.GetFairyVelocity(0x28, 0x04) is not
-                { YFixed: -181, XFixed: 181 })
-        {
-            throw new InvalidOperationException(
-                "ITEM_DROP_FAIRY velocities diverged from bank3.objectSpeedTable.");
-        }
+                { YFixed: -181, XFixed: 181 },
+            "ITEM_DROP_FAIRY velocities diverged from bank3.objectSpeedTable.");
 
         var lifecycleRoot = new Node { Name = "ItemDropLifecycleValidation" };
         AddChild(lifecycleRoot);
@@ -2752,19 +2491,15 @@ public sealed partial class ValidationRoot
                 new EnemyDeathPuffSpawn(new Vector2(24, 24), EnemyId: 0x32));
             for (int frame = 0; frame < 20; frame++)
                 lifecycleManager.Update(1.0 / 60.0, _player);
-            if (lifecycleManager.Entities<EnemyDeathPuffEffect>().Count != 0)
-            {
-                throw new InvalidOperationException(
-                    "A finished Keese death puff was not replaced/deleted by item-drop resolution.");
-            }
+            FailIf(
+                lifecycleManager.Entities<EnemyDeathPuffEffect>().Count != 0,
+                "A finished Keese death puff was not replaced/deleted by item-drop resolution.");
         }
-        if (lifecycleManager.Entities<ItemDropEffect>().Count != 1 ||
+        FailIf(
+            lifecycleManager.Entities<ItemDropEffect>().Count != 1 ||
             lifecycleManager.Entities<ItemDropEffect>()[0].SubId != ItemDropDatabase.FiveRupees ||
-            lifecycleManager.Entities<ItemDropEffect>()[0].ElapsedFrames != 0)
-        {
-            throw new InvalidOperationException(
-                "The deterministic fifth Keese death did not replace its completed puff with ITEM_DROP_5_RUPEES.");
-        }
+            lifecycleManager.Entities<ItemDropEffect>()[0].ElapsedFrames != 0,
+            "The deterministic fifth Keese death did not replace its completed puff with ITEM_DROP_5_RUPEES.");
         lifecycleManager.Clear();
         RemoveChild(lifecycleRoot);
         lifecycleRoot.Free();
@@ -2786,23 +2521,19 @@ public sealed partial class ValidationRoot
                 ItemDropDatabase.OneRupee, dropPosition, _currentRoom,
                 oneRupeeVisual, shovelAngles[index], dugUp: true);
             dugUpDrop.UpdateFrame(_player, 1);
-            if (dugUpDrop.State != DropState.Bouncing ||
+            FailIf(
+                dugUpDrop.State != DropState.Bouncing ||
                 dugUpDrop.Speed != 0x19 || dugUpDrop.Angle != shovelAngles[index] ||
-                dugUpDrop.PrecisePosition != dropPosition)
-            {
-                throw new InvalidOperationException(
-                    $"Shovel item drop angle ${shovelAngles[index]:x2} did not initialize " +
-                    "SPEED_a0 without moving during state 0.");
-            }
+                dugUpDrop.PrecisePosition != dropPosition,
+                $"Shovel item drop angle ${shovelAngles[index]:x2} did not initialize " +
+                "SPEED_a0 without moving during state 0.");
             dugUpDrop.UpdateFrame(_player, 2);
             Vector2 expectedPosition = dropPosition + shovelDirections[index] * 0.625f;
-            if (dugUpDrop.PrecisePosition != expectedPosition ||
-                dugUpDrop.Position != OracleObjectMath.ToPixelPosition(expectedPosition))
-            {
-                throw new InvalidOperationException(
-                    $"Shovel item drop angle ${shovelAngles[index]:x2} did not apply its " +
-                    "exact SPEED_a0 8.8 displacement on the first bounce update.");
-            }
+            FailIf(
+                dugUpDrop.PrecisePosition != expectedPosition ||
+                dugUpDrop.Position != OracleObjectMath.ToPixelPosition(expectedPosition),
+                $"Shovel item drop angle ${shovelAngles[index]:x2} did not apply its " +
+                "exact SPEED_a0 8.8 displacement on the first bounce update.");
             dugUpDrop.Free();
         }
 
@@ -2811,11 +2542,9 @@ public sealed partial class ValidationRoot
             ItemDropDatabase.OneRupee, dropPosition, _currentRoom, oneRupeeVisual);
         stationaryDrop.UpdateFrame(_player, 1);
         stationaryDrop.UpdateFrame(_player, 2);
-        if (stationaryDrop.Speed != 0 || stationaryDrop.PrecisePosition != dropPosition)
-        {
-            throw new InvalidOperationException(
-                "An ordinary enemy item drop incorrectly inherited shovel launch velocity.");
-        }
+        FailIf(
+            stationaryDrop.Speed != 0 || stationaryDrop.PrecisePosition != dropPosition,
+            "An ordinary enemy item drop incorrectly inherited shovel launch velocity.");
         stationaryDrop.Free();
 
         Vector2 fairyPosition = FindOpenFairyDropPosition(_currentRoom);
@@ -2826,15 +2555,13 @@ public sealed partial class ValidationRoot
             ItemDropDatabase.Fairy, fairyPosition, _currentRoom, fairyVisual,
             itemDrops: database, random: fairyRandom);
         fairyDrop.UpdateFrame(_player, 1);
-        if (fairyRandom.Calls != 3 || fairyDrop.State != DropState.Bouncing ||
+        FailIf(
+            fairyRandom.Calls != 3 || fairyDrop.State != DropState.Bouncing ||
             fairyDrop.FairyMovementCounter != 38 || fairyDrop.Speed != 0x0a ||
             fairyDrop.Angle != 0x18 || fairyDrop.FlipX ||
-            fairyDrop.PrecisePosition != fairyPosition)
-        {
-            throw new InvalidOperationException(
-                "ITEM_DROP_FAIRY did not consume three global RNG values and select " +
-                "the source counter/SPEED_40/left-angle route during state 0.");
-        }
+            fairyDrop.PrecisePosition != fairyPosition,
+            "ITEM_DROP_FAIRY did not consume three global RNG values and select " +
+            "the source counter/SPEED_40/left-angle route during state 0.");
         var rightFacingRandom = new OracleRandom();
         rightFacingRandom.Next();
         var rightFacingFairy = new ItemDropEffect();
@@ -2853,81 +2580,67 @@ public sealed partial class ValidationRoot
         using (Image expectedRightFacingImage =
             expectedRightFacingTexture.GetImage())
         {
-            if (!rightFacingFairy.FlipX ||
+            FailIf(
+                !rightFacingFairy.FlipX ||
                 rightFacingFairy.Angle != 0x04 ||
                 rightFacingFairy.Position != fairyPosition ||
                 !actualRightFacingImage.GetData().SequenceEqual(
-                    expectedRightFacingImage.GetData()))
-            {
-                throw new InvalidOperationException(
-                    "ITEM_DROP_FAIRY horizontal facing did not XOR OAM flag `$20 " +
-                    "inside the source `$08,$04 cell without shifting its object position.");
-            }
+                    expectedRightFacingImage.GetData()),
+                "ITEM_DROP_FAIRY horizontal facing did not XOR OAM flag `$20 " +
+                "inside the source `$08,$04 cell without shifting its object position.");
         }
         rightFacingFairy.Free();
         fairyDrop.UpdateFrame(_player, 2);
-        if (fairyDrop.PrecisePosition != fairyPosition + Vector2.Left * 0.25f)
-        {
-            throw new InvalidOperationException(
-                "ITEM_DROP_FAIRY did not apply its exact SPEED_40 leftward velocity " +
-                "on the first bounce update.");
-        }
+        FailIf(
+            fairyDrop.PrecisePosition != fairyPosition + Vector2.Left * 0.25f,
+            "ITEM_DROP_FAIRY did not apply its exact SPEED_40 leftward velocity " +
+            "on the first bounce update.");
         for (int frame = 3; frame < 32; frame++)
         {
             fairyDrop.UpdateFrame(_player, frame);
-            if (fairyDrop.State == DropState.Grounded)
-            {
-                throw new InvalidOperationException(
-                    "ITEM_DROP_FAIRY finished bouncing before update 32.");
-            }
+            FailIf(
+                fairyDrop.State == DropState.Grounded,
+                "ITEM_DROP_FAIRY finished bouncing before update 32.");
         }
         fairyDrop.UpdateFrame(_player, 32);
-        if (fairyDrop.State != DropState.Grounded ||
+        FailIf(
+            fairyDrop.State != DropState.Grounded ||
             fairyDrop.ZFixed != 0 || fairyDrop.SpeedZ != 0 ||
             fairyDrop.Counter != 240 || fairyDrop.CollisionEnabled ||
             fairyDrop.FairyCollisionDelayCounter != 5 ||
             fairyDrop.FairyMovementCounter != 38 ||
-            fairyDrop.PrecisePosition != fairyPosition + Vector2.Left * 7.75f)
-        {
-            throw new InvalidOperationException(
-                "ITEM_DROP_FAIRY did not clamp to z=-6 while airborne, finish its " +
-                "shortened bounce on update 32, and retain the five-tick collision delay.");
-        }
+            fairyDrop.PrecisePosition != fairyPosition + Vector2.Left * 7.75f,
+            "ITEM_DROP_FAIRY did not clamp to z=-6 while airborne, finish its " +
+            "shortened bounce on update 32, and retain the five-tick collision delay.");
         for (int frame = 33; frame <= 40; frame++)
             fairyDrop.UpdateFrame(_player, frame);
-        if (fairyDrop.CollisionEnabled ||
+        FailIf(
+            fairyDrop.CollisionEnabled ||
             fairyDrop.FairyCollisionDelayCounter != 1 ||
-            fairyDrop.Counter != 240)
-        {
-            throw new InvalidOperationException(
-                "ITEM_DROP_FAIRY enabled collection or lifetime countdown before " +
-                "four alternating collision-delay ticks elapsed.");
-        }
+            fairyDrop.Counter != 240,
+            "ITEM_DROP_FAIRY enabled collection or lifetime countdown before " +
+            "four alternating collision-delay ticks elapsed.");
         fairyDrop.UpdateFrame(_player, 41);
-        if (!fairyDrop.CollisionEnabled ||
+        FailIf(
+            !fairyDrop.CollisionEnabled ||
             fairyDrop.FairyCollisionDelayCounter != 0 ||
             fairyDrop.Counter != 239 ||
             fairyDrop.FairyMovementCounter != 29 ||
             fairyDrop.PrecisePosition != fairyPosition + Vector2.Left * 10.0f ||
-            fairyRandom.Calls != 3)
-        {
-            throw new InvalidOperationException(
-                "ITEM_DROP_FAIRY did not enable collision, begin its lifetime, and " +
-                "continue the same random route on the fifth alternating delay tick.");
-        }
+            fairyRandom.Calls != 3,
+            "ITEM_DROP_FAIRY did not enable collision, begin its lifetime, and " +
+            "continue the same random route on the fifth alternating delay tick.");
         _player.RefillHealth();
         _player.ApplyDamage(Mathf.Min(8, _player.MaxHealthQuarters - 1));
         int expectedFairyHealth =
             Mathf.Min(_player.MaxHealthQuarters, _player.HealthQuarters + 24);
         _player.WarpTo(fairyDrop.Position, recordSafe: false);
         fairyDrop.UpdateFrame(_player, 42);
-        if (!fairyDrop.Collected || !fairyDrop.Finished ||
-            _player.HealthQuarters != expectedFairyHealth)
-        {
-            throw new InvalidOperationException(
-                "ITEM_DROP_FAIRY was not collectible on the update after collision " +
-                "enabled or did not grant its `$18-quarter heart refill.");
-        }
+        FailIf(
+            !fairyDrop.Collected || !fairyDrop.Finished ||
+            _player.HealthQuarters != expectedFairyHealth,
+            "ITEM_DROP_FAIRY was not collectible on the update after collision " +
+            "enabled or did not grant its `$18-quarter heart refill.");
         fairyDrop.Free();
         _player.WarpTo(farPosition, recordSafe: false);
 
@@ -2935,26 +2648,23 @@ public sealed partial class ValidationRoot
         bounceDrop.Initialize(
             ItemDropDatabase.Heart, dropPosition, _currentRoom, heartVisual);
         bounceDrop.UpdateFrame(_player, 1);
-        if (bounceDrop.State != DropState.Bouncing ||
-            bounceDrop.ZFixed != 0 || bounceDrop.SpeedZ != -0x160)
-        {
-            throw new InvalidOperationException(
-                "PART_ITEM_DROP did not spend its first update initializing speedZ to -`$160.");
-        }
+        FailIf(
+            bounceDrop.State != DropState.Bouncing ||
+            bounceDrop.ZFixed != 0 || bounceDrop.SpeedZ != -0x160,
+            "PART_ITEM_DROP did not spend its first update initializing speedZ to -`$160.");
         for (int frame = 2; frame < 36; frame++)
         {
             bounceDrop.UpdateFrame(_player, frame);
-            if (bounceDrop.State == DropState.Grounded)
-                throw new InvalidOperationException("PART_ITEM_DROP finished bouncing before update 36.");
+            FailIf(
+                bounceDrop.State == DropState.Grounded,
+                "PART_ITEM_DROP finished bouncing before update 36.");
         }
         bounceDrop.UpdateFrame(_player, 36);
-        if (bounceDrop.State != DropState.Grounded ||
+        FailIf(
+            bounceDrop.State != DropState.Grounded ||
             bounceDrop.ZFixed != 0 || bounceDrop.SpeedZ != 0 ||
-            bounceDrop.Counter != 240 || !bounceDrop.CollisionEnabled)
-        {
-            throw new InvalidOperationException(
-                "PART_ITEM_DROP did not complete its original fixed-point bounce and start counter `$f0 on update 36.");
-        }
+            bounceDrop.Counter != 240 || !bounceDrop.CollisionEnabled,
+            "PART_ITEM_DROP did not complete its original fixed-point bounce and start counter `$f0 on update 36.");
         bounceDrop.Free();
 
         int swordRupeesBefore = _player.Rupees;
@@ -2967,30 +2677,24 @@ public sealed partial class ValidationRoot
             recordSafe: false);
         _player.StartSwordAttackForValidation(Vector2.Up);
         Rect2 swordHitbox = _player.GetSwordHitbox();
-        if (!swordHitbox.Intersects(swordDrop.CollisionBounds) ||
+        FailIf(
+            !swordHitbox.Intersects(swordDrop.CollisionBounds) ||
             swordDrop.Collected ||
-            swordDrop.State != DropState.Grounded)
-        {
-            throw new InvalidOperationException(
-                "Could not place Link's initial up-sword arc over a grounded item drop.");
-        }
+            swordDrop.State != DropState.Grounded,
+            "Could not place Link's initial up-sword arc over a grounded item drop.");
         bool swordReportedEnemyContact = _entities.ApplySwordHit(
             swordHitbox, _player.Position);
-        if (swordDrop.Collected || swordDrop.Finished)
-        {
-            // COLLISIONEFFECT_23 is observed by partCode01 on its next update.
-            throw new InvalidOperationException(
-                "The sword granted PART_ITEM_DROP before the part's next update.");
-        }
+        // COLLISIONEFFECT_23 is observed by partCode01 on its next update.
+        FailIf(
+            swordDrop.Collected || swordDrop.Finished,
+            "The sword granted PART_ITEM_DROP before the part's next update.");
         _entities.Update(1.0 / 60.0, _player);
-        if (!swordDrop.Collected || !swordDrop.Finished ||
+        FailIf(
+            !swordDrop.Collected || !swordDrop.Finished ||
             _player.Rupees != swordRupeesBefore + 1 ||
-            swordReportedEnemyContact)
-        {
-            throw new InvalidOperationException(
-                "Sword collision types $04-$0b did not collect PART_ITEM_DROP " +
-                "through COLLISIONEFFECT_23 without reporting enemy contact.");
-        }
+            swordReportedEnemyContact,
+            "Sword collision types $04-$0b did not collect PART_ITEM_DROP " +
+            "through COLLISIONEFFECT_23 without reporting enemy contact.");
         _player.WarpTo(farPosition, recordSafe: false);
 
         _player.RefillHealth();
@@ -3005,15 +2709,13 @@ public sealed partial class ValidationRoot
             heartDrop.UpdateFrame(_player, frame);
         _player.WarpTo(dropPosition, recordSafe: false);
         heartDrop.UpdateFrame(_player, 37);
-        if (!heartDrop.Collected || !heartDrop.Finished ||
+        FailIf(
+            !heartDrop.Collected || !heartDrop.Finished ||
             _player.HealthQuarters != _player.MaxHealthQuarters ||
             _hud.HealthQuarters != displayedHealthBefore ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGainHeart) != heartSoundRequests)
-        {
-            throw new InvalidOperationException(
-                "Collecting ITEM_DROP_HEART did not restore live health immediately while " +
-                "leaving wDisplayedHearts and SND_GAINHEART pending.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGainHeart) != heartSoundRequests,
+            "Collecting ITEM_DROP_HEART did not restore live health immediately while " +
+            "leaving wDisplayedHearts and SND_GAINHEART pending.");
         heartDrop.Free();
 
         var healthDisplayUpdates = new List<int>();
@@ -3027,16 +2729,14 @@ public sealed partial class ValidationRoot
                 previousDisplayedHealth = _hud.HealthQuarters;
             }
         }
-        if (_hud.HealthQuarters != _player.HealthQuarters ||
+        FailIf(
+            _hud.HealthQuarters != _player.HealthQuarters ||
             healthDisplayUpdates.Count != 4 ||
             healthDisplayUpdates.Skip(1).Zip(healthDisplayUpdates, (next, prior) => next - prior)
                 .Any(interval => interval != 4) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGainHeart) != heartSoundRequests + 1)
-        {
-            throw new InvalidOperationException(
-                "ITEM_DROP_HEART did not fill one displayed quarter every four updates and " +
-                "request SND_GAINHEART `$57 on the completed-heart boundary.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGainHeart) != heartSoundRequests + 1,
+            "ITEM_DROP_HEART did not fill one displayed quarter every four updates and " +
+            "request SND_GAINHEART `$57 on the completed-heart boundary.");
 
         _statusBar.SynchronizeHealth();
         heartSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndGainHeart);
@@ -3048,12 +2748,10 @@ public sealed partial class ValidationRoot
             fullHealthDrop.UpdateFrame(_player, frame);
         _player.WarpTo(dropPosition, recordSafe: false);
         fullHealthDrop.UpdateFrame(_player, 37);
-        if (!fullHealthDrop.Collected || _player.HealthQuarters != _player.MaxHealthQuarters ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGainHeart) != heartSoundRequests + 1)
-        {
-            throw new InvalidOperationException(
-                "ITEM_DROP_HEART collected at full health did not request SND_GAINHEART `$57 immediately.");
-        }
+        FailIf(
+            !fullHealthDrop.Collected || _player.HealthQuarters != _player.MaxHealthQuarters ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGainHeart) != heartSoundRequests + 1,
+            "ITEM_DROP_HEART collected at full health did not request SND_GAINHEART `$57 immediately.");
         fullHealthDrop.Free();
 
         ValidateRupeeItemDrop(oneRupeeVisual, ItemDropDatabase.OneRupee, 1, dropPosition);
@@ -3070,27 +2768,26 @@ public sealed partial class ValidationRoot
             ItemDropDatabase.OneRupee, dropPosition, _currentRoom, oneRupeeVisual);
         for (int frame = 1; frame <= 395; frame++)
             expiryDrop.UpdateFrame(_player, frame);
-        if (expiryDrop.Counter != 60 || !expiryDrop.Visible || expiryDrop.Finished)
-        {
-            throw new InvalidOperationException(
-                "PART_ITEM_DROP did not retain visibility through countdown value 60.");
-        }
+        FailIf(
+            expiryDrop.Counter != 60 || !expiryDrop.Visible || expiryDrop.Finished,
+            "PART_ITEM_DROP did not retain visibility through countdown value 60.");
         expiryDrop.UpdateFrame(_player, 396);
         expiryDrop.UpdateFrame(_player, 397);
-        if (expiryDrop.Counter != 59 || expiryDrop.Visible)
-            throw new InvalidOperationException("PART_ITEM_DROP did not begin flickering below counter 60.");
+        FailIf(
+            expiryDrop.Counter != 59 || expiryDrop.Visible,
+            "PART_ITEM_DROP did not begin flickering below counter 60.");
         expiryDrop.UpdateFrame(_player, 398);
         expiryDrop.UpdateFrame(_player, 399);
-        if (!expiryDrop.Visible)
-            throw new InvalidOperationException("PART_ITEM_DROP did not alternate visibility while flickering.");
+        FailIf(!expiryDrop.Visible, "PART_ITEM_DROP did not alternate visibility while flickering.");
         for (int frame = 400; frame <= 514; frame++)
             expiryDrop.UpdateFrame(_player, frame);
-        if (expiryDrop.Finished || expiryDrop.Counter != 1)
-            throw new InvalidOperationException("PART_ITEM_DROP expired before its 240th countdown tick.");
+        FailIf(
+            expiryDrop.Finished || expiryDrop.Counter != 1,
+            "PART_ITEM_DROP expired before its 240th countdown tick.");
         expiryDrop.UpdateFrame(_player, 515);
-        if (!expiryDrop.Finished || expiryDrop.Collected)
-            throw new InvalidOperationException(
-                "PART_ITEM_DROP did not expire after 240 alternating-frame ticks (480 update span).");
+        FailIf(
+            !expiryDrop.Finished || expiryDrop.Collected,
+            "PART_ITEM_DROP did not expire after 240 alternating-frame ticks (480 update span).");
         expiryDrop.Free();
 
         ItemDropEffect transitionDrop = _entities.Spawn<ItemDropEffect>(
@@ -3098,21 +2795,21 @@ public sealed partial class ValidationRoot
         OracleRoomData incomingRoom = _world.LoadRoom(4, 0x39);
         _entities.BeginScreenTransition(4, incomingRoom, Vector2.Left * incomingRoom.Width);
         _entities.Update(1.0, _player);
-        if (_entities.OutgoingEntities<ItemDropEffect>().Count != 1 ||
+        FailIf(
+            _entities.OutgoingEntities<ItemDropEffect>().Count != 1 ||
             _entities.OutgoingEntities<ItemDropEffect>()[0] != transitionDrop ||
-            transitionDrop.ElapsedFrames != 0)
-        {
-            throw new InvalidOperationException(
-                "Scrolling did not retain and freeze the outgoing PART_ITEM_DROP object.");
-        }
+            transitionDrop.ElapsedFrames != 0,
+            "Scrolling did not retain and freeze the outgoing PART_ITEM_DROP object.");
         _entities.SetScreenTransitionOffsets(
             Vector2.Right * 4.0f,
             Vector2.Left * (incomingRoom.Width - 4.0f));
-        if (!transitionDrop.TransitionDrawOffset.IsEqualApprox(Vector2.Right * 4.0f))
-            throw new InvalidOperationException("The item drop did not move with its outgoing room.");
+        FailIf(
+            !transitionDrop.TransitionDrawOffset.IsEqualApprox(Vector2.Right * 4.0f),
+            "The item drop did not move with its outgoing room.");
         _entities.FinishScreenTransition();
-        if (_entities.OutgoingEntities<ItemDropEffect>().Count != 0)
-            throw new InvalidOperationException("The outgoing item drop survived completed scrolling.");
+        FailIf(
+            _entities.OutgoingEntities<ItemDropEffect>().Count != 0,
+            "The outgoing item drop survived completed scrolling.");
 
         ValidateItemDropWaterSplash(oneRupeeVisual);
 
@@ -3144,15 +2841,13 @@ public sealed partial class ValidationRoot
                 TreasureDatabase.TreasureEmberSeeds + seed, 0);
         }
 
-        if (database.EnemyTableRecord(0x0a) != 0x86 ||
+        FailIf(
+            database.EnemyTableRecord(0x0a) != 0x86 ||
             database.EnemyTableRecord(0x0c) != 0xac ||
             database.EnemyTableRecord(0x10) != 0x81 ||
-            database.EnemyTableRecord(0x41) != 0x6d)
-        {
-            throw new InvalidOperationException(
-                "Inventory-dependent source records changed: Boomerang Moblin `$0a/`$86, " +
-                "Arrow Moblin `$0c/`$ac, Rope `$10/`$81, or Crow `$41/`$6d.");
-        }
+            database.EnemyTableRecord(0x41) != 0x6d,
+            "Inventory-dependent source records changed: Boomerang Moblin `$0a/`$86, " +
+            "Arrow Moblin `$0c/`$ac, Rope `$10/`$81, or Crow `$41/`$6d.");
 
         (int Enemy, byte ProbabilityRoll, byte ItemRoll, int Expected)[] selections =
         [
@@ -3167,27 +2862,23 @@ public sealed partial class ValidationRoot
         ];
         foreach ((int enemy, byte probabilityRoll, byte itemRoll, int expected) in selections)
         {
-            if (database.ChooseDrop(
+            FailIf(
+                database.ChooseDrop(
                     enemy, probabilityRoll, itemRoll, unowned).HasValue ||
                 database.ChooseDrop(
-                    enemy, probabilityRoll, itemRoll, owned) != expected)
-            {
-                throw new InvalidOperationException(
-                    $"Enemy ${enemy:x2} item roll ${itemRoll:x2} did not suppress " +
-                    $"unowned PART_ITEM_DROP ${expected:x2} and retain it once owned.");
-            }
+                    enemy, probabilityRoll, itemRoll, owned) != expected,
+                $"Enemy ${enemy:x2} item roll ${itemRoll:x2} did not suppress " +
+                $"unowned PART_ITEM_DROP ${expected:x2} and retain it once owned.");
         }
 
         var saveOnly = OracleSaveData.CreateStandardGame();
         var saveOnlyInventory = new InventoryState(treasures, saveOnly);
         saveOnlyInventory.GiveTreasure(TreasureDatabase.TreasureBombs, 0);
-        if (!ItemDropDatabase.IsAvailable(
-                ItemDropDatabase.Bombs, inventory: null, saveData: saveOnly))
-        {
-            throw new InvalidOperationException(
-                "The shared item-drop availability path lost its save-backed " +
-                "TREASURE_BOMBS fallback for placed producers.");
-        }
+        FailIf(
+            !ItemDropDatabase.IsAvailable(
+            ItemDropDatabase.Bombs, inventory: null, saveData: saveOnly),
+            "The shared item-drop availability path lost its save-backed " +
+            "TREASURE_BOMBS fallback for placed producers.");
 
         var unavailableRandom = new OracleRandom();
         var availableRandom = new OracleRandom();
@@ -3198,16 +2889,14 @@ public sealed partial class ValidationRoot
         }
         int unavailableCalls = unavailableRandom.Calls;
         int availableCalls = availableRandom.Calls;
-        if (database.DecideDrop(0x0a, unavailableRandom, unowned).HasValue ||
+        FailIf(
+            database.DecideDrop(0x0a, unavailableRandom, unowned).HasValue ||
             unavailableRandom.Calls != unavailableCalls + 2 ||
             database.DecideDrop(0x0a, availableRandom, owned) !=
                 ItemDropDatabase.Bombs ||
-            availableRandom.Calls != availableCalls + 2)
-        {
-            throw new InvalidOperationException(
-                "Boomerang Moblin `$0a/set `$06 did not consume probability and " +
-                "selection RNG before applying the Bomb obtained-bit predicate.");
-        }
+            availableRandom.Calls != availableCalls + 2,
+            "Boomerang Moblin `$0a/set `$06 did not consume probability and " +
+            "selection RNG before applying the Bomb obtained-bit predicate.");
 
         ValidateDeathPuffInventoryDrop(database, treasures);
         ValidateInventoryDropQuantities(database, treasures);
@@ -3246,13 +2935,11 @@ public sealed partial class ValidationRoot
             new EnemyDeathPuffSpawn(new Vector2(24, 24), EnemyId: 0x0a));
         for (int update = 0; update < 20; update++)
             manager.Update(1.0 / 60.0, _player);
-        if (manager.Entities<ItemDropEffect>().Count != 0 ||
-            random.Calls != 12)
-        {
-            throw new InvalidOperationException(
-                "The common death puff did not suppress Boomerang Moblin `$0a's " +
-                "selected Bomb after exactly two RNG calls while TREASURE_BOMBS was unowned.");
-        }
+        FailIf(
+            manager.Entities<ItemDropEffect>().Count != 0 ||
+            random.Calls != 12,
+            "The common death puff did not suppress Boomerang Moblin `$0a's " +
+            "selected Bomb after exactly two RNG calls while TREASURE_BOMBS was unowned.");
 
         inventory.GiveTreasure(TreasureDatabase.TreasureBombs, 0);
         random.RestoreState(targetState);
@@ -3260,14 +2947,12 @@ public sealed partial class ValidationRoot
             new EnemyDeathPuffSpawn(new Vector2(24, 24), EnemyId: 0x0a));
         for (int update = 0; update < 20; update++)
             manager.Update(1.0 / 60.0, _player);
-        if (manager.Entities<ItemDropEffect>().SingleOrDefault() is not
+        FailIf(
+            manager.Entities<ItemDropEffect>().SingleOrDefault() is not
                 { SubId: ItemDropDatabase.Bombs, ElapsedFrames: 0 } ||
-            random.Calls != 12)
-        {
-            throw new InvalidOperationException(
-                "The common death puff did not create Boomerang Moblin `$0a's " +
-                "Bomb after exactly two RNG calls once TREASURE_BOMBS was owned.");
-        }
+            random.Calls != 12,
+            "The common death puff did not create Boomerang Moblin `$0a's " +
+            "Bomb after exactly two RNG calls once TREASURE_BOMBS was owned.");
 
         manager.Clear();
         RemoveChild(root);
@@ -3298,11 +2983,10 @@ public sealed partial class ValidationRoot
                 save.WriteWramByte(0xc6c6, (byte)ring.Value);
             }
             var inventory = new InventoryState(treasures, save);
-            if (ring.HasValue && !inventory.EquipRingAt(0))
-            {
-                throw new InvalidOperationException(
-                    $"Could not equip Joy Ring ${(int)ring.Value:x2} for item-drop validation.");
-            }
+            FailIf(
+                ring.HasValue && !inventory.EquipRingAt(0),
+                $"Could not equip Joy Ring " +
+                $"${(int)ring.GetValueOrDefault():x2} for item-drop validation.");
             return inventory;
         }
 
@@ -3318,11 +3002,9 @@ public sealed partial class ValidationRoot
                 drop.UpdateFrame(player, update);
             player.WarpTo(position, recordSafe: false);
             drop.UpdateFrame(player, 37);
-            if (!drop.Collected)
-            {
-                throw new InvalidOperationException(
-                    $"PART_ITEM_DROP ${subId:x2} was not collectible for inventory quantity validation.");
-            }
+            FailIf(
+                !drop.Collected,
+                $"PART_ITEM_DROP ${subId:x2} was not collectible for inventory quantity validation.");
             drop.Free();
             player.Free();
         }
@@ -3336,13 +3018,11 @@ public sealed partial class ValidationRoot
         InventoryState fullBombs = CreateInventory();
         fullBombs.GiveTreasure(TreasureDatabase.TreasureBombs, 0x10);
         Collect(fullBombs, ItemDropDatabase.Bombs);
-        if (bombs.Bombs != 0x04 || goldBombs.Bombs != 0x08 ||
-            fullBombs.Bombs != fullBombs.MaxBombs)
-        {
-            throw new InvalidOperationException(
-                "ITEM_DROP_BOMBS did not grant 4/Gold-Joy 8 Bombs or retain " +
-                "the source capacity cap while remaining collectible.");
-        }
+        FailIf(
+            bombs.Bombs != 0x04 || goldBombs.Bombs != 0x08 ||
+            fullBombs.Bombs != fullBombs.MaxBombs,
+            "ITEM_DROP_BOMBS did not grant 4/Gold-Joy 8 Bombs or retain " +
+            "the source capacity cap while remaining collectible.");
 
         int mysteryTreasure = TreasureDatabase.TreasureEmberSeeds + 4;
         InventoryState seeds = CreateInventory();
@@ -3354,25 +3034,21 @@ public sealed partial class ValidationRoot
         InventoryState fullSeeds = CreateInventory();
         fullSeeds.GiveTreasure(mysteryTreasure, 0x20);
         Collect(fullSeeds, ItemDropDatabase.MysterySeeds);
-        if (seeds.MysterySeeds != 0x05 || goldSeeds.MysterySeeds != 0x10 ||
-            fullSeeds.MysterySeeds != 0x20)
-        {
-            throw new InvalidOperationException(
-                "ITEM_DROP_MYSTERY_SEEDS did not grant 5/Gold-Joy 10 seeds or " +
-                "retain the level-0 `$20 capacity while remaining collectible.");
-        }
+        FailIf(
+            seeds.MysterySeeds != 0x05 || goldSeeds.MysterySeeds != 0x10 ||
+            fullSeeds.MysterySeeds != 0x20,
+            "ITEM_DROP_MYSTERY_SEEDS did not grant 5/Gold-Joy 10 seeds or " +
+            "retain the level-0 `$20 capacity while remaining collectible.");
 
         InventoryState redJoy = CreateInventory(RingId.RedJoy);
         Collect(redJoy, ItemDropDatabase.FiveRupees);
         InventoryState blueJoy = CreateInventory(
             RingId.BlueJoy, health: 0x04, maxHealth: 0x0c);
         Collect(blueJoy, ItemDropDatabase.Heart);
-        if (redJoy.Rupees != 10 || blueJoy.HealthQuarters != 0x0c)
-        {
-            throw new InvalidOperationException(
-                "Red Joy did not double a five-Rupee drop to 10 or Blue Joy " +
-                "did not double a one-heart drop from 4 to 8 health quarters.");
-        }
+        FailIf(
+            redJoy.Rupees != 10 || blueJoy.HealthQuarters != 0x0c,
+            "Red Joy did not double a five-Rupee drop to 10 or Blue Joy " +
+            "did not double a one-heart drop from 4 to 8 health quarters.");
     }
 
     private void ValidateRupeeItemDrop(
@@ -3394,24 +3070,20 @@ public sealed partial class ValidationRoot
             drop.UpdateFrame(_player, frame);
         _player.WarpTo(position, recordSafe: false);
         drop.UpdateFrame(_player, 37);
-        if (!drop.Collected || _player.Rupees != Mathf.Min(999, rupeesBefore + amount) ||
+        FailIf(
+            !drop.Collected || _player.Rupees != Mathf.Min(999, rupeesBefore + amount) ||
             _hud.Rupees != displayedBefore ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndRupee) != soundRequests)
-        {
-            throw new InvalidOperationException(
-                $"Collecting PART_ITEM_DROP ${subId:x2} did not update the wallet immediately " +
-                "while leaving wDisplayedRupees and SND_RUPEE pending for updateStatusBar_body.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndRupee) != soundRequests,
+            $"Collecting PART_ITEM_DROP ${subId:x2} did not update the wallet immediately " +
+            "while leaving wDisplayedRupees and SND_RUPEE pending for updateStatusBar_body.");
         for (int update = 1; update <= amount; update++)
         {
             _statusBar.Update(1.0 / 60.0);
-            if (_hud.Rupees != displayedBefore + update ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndRupee) != soundRequests + update)
-            {
-                throw new InvalidOperationException(
-                    $"PART_ITEM_DROP ${subId:x2} rupee display update {update}/{amount} did not " +
-                    "advance by one and request SND_RUPEE `$61 exactly once.");
-            }
+            FailIf(
+                _hud.Rupees != displayedBefore + update ||
+                _sound.PlayRequestsFor(OracleSoundEngine.SndRupee) != soundRequests + update,
+                $"PART_ITEM_DROP ${subId:x2} rupee display update {update}/{amount} did not " +
+                "advance by one and request SND_RUPEE `$61 exactly once.");
         }
         drop.Free();
     }
@@ -3425,13 +3097,11 @@ public sealed partial class ValidationRoot
         for (int update = 1; update <= 3; update++)
         {
             _statusBar.Update(1.0 / 60.0);
-            if (_hud.Rupees != displayedBefore - update ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndRupee) != soundRequests + update)
-            {
-                throw new InvalidOperationException(
-                    $"Rupee display countdown update {update}/3 did not subtract one and " +
-                    "request SND_RUPEE `$61 exactly once.");
-            }
+            FailIf(
+                _hud.Rupees != displayedBefore - update ||
+                _sound.PlayRequestsFor(OracleSoundEngine.SndRupee) != soundRequests + update,
+                $"Rupee display countdown update {update}/3 did not subtract one and " +
+                "request SND_RUPEE `$61 exactly once.");
         }
         _inventory.AddRupees(3);
         _statusBar.SynchronizeRupees();
@@ -3454,15 +3124,13 @@ public sealed partial class ValidationRoot
         _player.WarpTo(position, recordSafe: false);
         drop.UpdateFrame(_player, 37);
         _statusBar.Update(1.0 / 60.0);
-        if (!drop.Collected || _player.Rupees != 999 || _hud.Rupees != 999 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndRupee) != soundRequests + 1)
-        {
-            throw new InvalidOperationException(
-                "A PART_ITEM_DROP rupee collected at the `$0999 cap did not retain the cap " +
-                "and request the mode `$0e overflow SND_RUPEE `$61 exactly once; got " +
-                $"collected={drop.Collected}, wallet={_player.Rupees}, displayed={_hud.Rupees}, " +
-                $"sound requests={_sound.PlayRequestsFor(OracleSoundEngine.SndRupee) - soundRequests}.");
-        }
+        FailIf(
+            !drop.Collected || _player.Rupees != 999 || _hud.Rupees != 999 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndRupee) != soundRequests + 1,
+            "A PART_ITEM_DROP rupee collected at the `$0999 cap did not retain the cap " +
+            "and request the mode `$0e overflow SND_RUPEE `$61 exactly once; got " +
+            $"collected={drop.Collected}, wallet={_player.Rupees}, displayed={_hud.Rupees}, " +
+            $"sound requests={_sound.PlayRequestsFor(OracleSoundEngine.SndRupee) - soundRequests}.");
         drop.Free();
 
         _inventory.AddRupees(restoreRupees - _player.Rupees);
@@ -3476,12 +3144,10 @@ public sealed partial class ValidationRoot
         Vector2 waterCenter = new(8, 8);
         Vector2 safePosition = new(40, 8);
         LoadValidationRoom(group, room);
-        if (_currentRoom.GetTerrainInfo(waterCenter + new Vector2(0, 5)).Hazard !=
-            HazardType.Water)
-        {
-            throw new InvalidOperationException(
-                "Canonical room 0:b8 position `$00 is not water for PART_ITEM_DROP validation.");
-        }
+        FailIf(
+            _currentRoom.GetTerrainInfo(waterCenter + new Vector2(0, 5)).Hazard !=
+            HazardType.Water,
+            "Canonical room 0:b8 position `$00 is not water for PART_ITEM_DROP validation.");
 
         _player.WarpTo(safePosition, recordSafe: false);
         int splashSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSplash);
@@ -3492,24 +3158,20 @@ public sealed partial class ValidationRoot
         for (int update = 1; update <= 23; update++)
         {
             _entities.Update(1.0 / 60.0, _player);
-            if (drop.Finished || _terrain.ActiveSplash != priorSplash)
-            {
-                throw new InvalidOperationException(
-                    $"PART_ITEM_DROP created its water splash while still airborne on update {update}.");
-            }
+            FailIf(
+                drop.Finished || _terrain.ActiveSplash != priorSplash,
+                $"PART_ITEM_DROP created its water splash while still airborne on update {update}.");
         }
         _entities.Update(1.0 / 60.0, _player);
         SplashEffect? splash = _terrain.ActiveSplash;
-        if (!drop.Finished || drop.FinishedHazard != HazardType.Water ||
+        FailIf(
+            !drop.Finished || drop.FinishedHazard != HazardType.Water ||
             _entities.Entities<ItemDropEffect>().Count != 0 || splash is null ||
             ReferenceEquals(splash, priorSplash) || splash.IsLava ||
             splash.Position != waterCenter || splash.DurationFrames != 12 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) != splashSoundRequests + 1)
-        {
-            throw new InvalidOperationException(
-                $"PART_ITEM_DROP did not become INTERAC_SPLASH with SND_SPLASH `$87 on " +
-                $"ground-height update 24 in room {group:x1}:{room:x2}.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) != splashSoundRequests + 1,
+            $"PART_ITEM_DROP did not become INTERAC_SPLASH with SND_SPLASH `$87 on " +
+            $"ground-height update 24 in room {group:x1}:{room:x2}.");
     }
 
     private static Vector2 FindOpenItemDropPosition(OracleRoomData room)
@@ -3570,8 +3232,9 @@ public sealed partial class ValidationRoot
         Vector2 waterSafe = new(40, 8);
         _player.WarpTo(waterSafe);
         _player.WarpTo(new Vector2(8, 8), recordSafe: false);
-        if (GetTerrainInfo(_player.Position).Hazard != HazardType.Water)
-            throw new InvalidOperationException("Expected room b8/$00 to be water terrain.");
+        FailIf(
+            GetTerrainInfo(_player.Position).Hazard != HazardType.Water,
+            "Expected room b8/$00 to be water terrain.");
         ValidateDrowningSequence(waterSafe, HazardType.Water);
 
         _currentRoom = _world.LoadRoom(_activeGroup, 0x03);
@@ -3579,19 +3242,19 @@ public sealed partial class ValidationRoot
         Vector2 lavaSafe = new(56, 8);
         _player.WarpTo(lavaSafe);
         _player.WarpTo(new Vector2(8, 24), recordSafe: false);
-        if (GetTerrainInfo(_player.Position).Hazard != HazardType.Lava)
-            throw new InvalidOperationException("Expected room 03/$10 to be lava terrain.");
+        FailIf(
+            GetTerrainInfo(_player.Position).Hazard != HazardType.Lava,
+            "Expected room 03/$10 to be lava terrain.");
         ValidateDrowningSequence(lavaSafe, HazardType.Lava);
 
-        if (!TryFindTerrainSample(
+        FailIf(
+            !TryFindTerrainSample(
             HazardType.Hole,
             out int holeGroup,
             out int holeRoom,
             out Vector2 holeCenter,
-            out Vector2 holeSafe))
-        {
-            throw new InvalidOperationException("Could not find a testable hole terrain tile.");
-        }
+            out Vector2 holeSafe),
+            "Could not find a testable hole terrain tile.");
 
         _player.RefillHealth();
         _activeGroup = holeGroup;
@@ -3605,28 +3268,31 @@ public sealed partial class ValidationRoot
         _player.WarpTo(offCenterHoleEntry, recordSafe: false);
         Vector2 expectedHoleCenter = GetActiveTerrain(_player.Position).TileCenter;
         _player._PhysicsProcess(1.0 / 60.0);
-        if (!_player.IsPullingIntoHole && !_player.IsFallingInHole)
-            throw new InvalidOperationException(
-                $"Room {holeGroup:x1}:{holeRoom:x2} hole terrain did not start Link's pull-in state.");
-        if (_player.HealthQuarters != beforeHoleHealth)
-            throw new InvalidOperationException("Hole damage was applied before the pull/fall animation finished.");
-        if (_sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall) != fallSoundRequests)
-            throw new InvalidOperationException("Hole pull-in played SND_LINK_FALL $65 before the fall began.");
+        FailIf(
+            !_player.IsPullingIntoHole && !_player.IsFallingInHole,
+            $"Room {holeGroup:x1}:{holeRoom:x2} hole terrain did not start Link's pull-in state.");
+        FailIf(
+            _player.HealthQuarters != beforeHoleHealth,
+            "Hole damage was applied before the pull/fall animation finished.");
+        FailIf(
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall) != fallSoundRequests,
+            "Hole pull-in played SND_LINK_FALL $65 before the fall began.");
 
         AdvanceHolePullUntilFall(expectedHoleCenter);
-        if (_sound.LastPlayRequest != OracleSoundEngine.SndLinkFall ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall) != fallSoundRequests + 1)
-        {
-            throw new InvalidOperationException(
-                "The fall-in-hole animation did not start exactly one SND_LINK_FALL $65 request.");
-        }
+        FailIf(
+            _sound.LastPlayRequest != OracleSoundEngine.SndLinkFall ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall) != fallSoundRequests + 1,
+            "The fall-in-hole animation did not start exactly one SND_LINK_FALL $65 request.");
         AdvanceHoleFallUntilRespawn(holeSafe);
-        if (!_player.Visible || _player.Position.DistanceSquaredTo(holeSafe) > 1.0f)
-            throw new InvalidOperationException("Hole terrain did not return Link to the last safe tile.");
-        if (_player.HealthQuarters != beforeHoleHealth - 2)
-            throw new InvalidOperationException("Hole terrain did not apply half-heart damage after respawn.");
-        if (_sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall) != fallSoundRequests + 1)
-            throw new InvalidOperationException("Hole respawn replayed SND_LINK_FALL $65.");
+        FailIf(
+            !_player.Visible || _player.Position.DistanceSquaredTo(holeSafe) > 1.0f,
+            "Hole terrain did not return Link to the last safe tile.");
+        FailIf(
+            _player.HealthQuarters != beforeHoleHealth - 2,
+            "Hole terrain did not apply half-heart damage after respawn.");
+        FailIf(
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall) != fallSoundRequests + 1,
+            "Hole respawn replayed SND_LINK_FALL $65.");
 
         ValidateRoom01HoleBoundaryCase();
         ValidateLedgeJumping();
@@ -3649,91 +3315,80 @@ public sealed partial class ValidationRoot
 
         _player._PhysicsProcess(1.0 / 60.0);
         SplashEffect? splash = _terrain.ActiveSplash;
-        if (_scene.WorldRoot.GetChildCount() != worldChildCount + 1 || splash is null ||
+        FailIf(
+            _scene.WorldRoot.GetChildCount() != worldChildCount + 1 || splash is null ||
             splash.Position != hazardPosition ||
-            splash.IsLava != (hazard == HazardType.Lava))
-        {
-            throw new InvalidOperationException(
-                $"{terrainName} drowning did not create its original splash interaction at Link's position.");
-        }
+            splash.IsLava != (hazard == HazardType.Lava),
+            $"{terrainName} drowning did not create its original splash interaction at Link's position.");
         int splashFrameDuration = splash.IsLava ? 2 : 4;
         int splashFrameCount = splash.IsLava ? 10 : 3;
-        if (splash.DurationFrames != splashFrameDuration * splashFrameCount ||
-            splash.AnimationFrame != 0)
-        {
-            throw new InvalidOperationException(
-                $"{terrainName} splash did not start with the original interaction timing.");
-        }
+        FailIf(
+            splash.DurationFrames != splashFrameDuration * splashFrameCount ||
+            splash.AnimationFrame != 0,
+            $"{terrainName} splash did not start with the original interaction timing.");
         splash.Advance((splashFrameDuration - 1.0) / 60.0);
-        if (splash.AnimationFrame != 0)
-            throw new InvalidOperationException(
-                $"{terrainName} splash did not hold its first OAM record for {splashFrameDuration} updates.");
+        FailIf(
+            splash.AnimationFrame != 0,
+            $"{terrainName} splash did not hold its first OAM record for {splashFrameDuration} updates.");
         splash.Advance(1.0 / 60.0);
-        if (splash.AnimationFrame != 1)
-            throw new InvalidOperationException(
-                $"{terrainName} splash did not advance to its second OAM record.");
+        FailIf(splash.AnimationFrame != 1, $"{terrainName} splash did not advance to its second OAM record.");
         splash.Advance((splash.DurationFrames - splashFrameDuration - 1.0) / 60.0);
-        if (splash.AnimationFrame != splashFrameCount - 1 || splash.IsQueuedForDeletion())
-            throw new InvalidOperationException(
-                $"{terrainName} splash did not reach and hold its final OAM record.");
+        FailIf(
+            splash.AnimationFrame != splashFrameCount - 1 || splash.IsQueuedForDeletion(),
+            $"{terrainName} splash did not reach and hold its final OAM record.");
         splash.Advance(1.0 / 60.0);
-        if (!splash.IsQueuedForDeletion())
-            throw new InvalidOperationException(
-                $"{terrainName} splash did not delete after {splash.DurationFrames} updates.");
-        if (!_player.IsDrowning || !_player.Visible || _player.DrownAnimationFrame != 0)
-            throw new InvalidOperationException(
-                $"{terrainName} terrain did not begin visible LINK_ANIM_MODE_DROWN frame $d4.");
-        if (_sound.LastPlayRequest != OracleSoundEngine.SndSplash ||
+        FailIf(
+            !splash.IsQueuedForDeletion(),
+            $"{terrainName} splash did not delete after {splash.DurationFrames} updates.");
+        FailIf(
+            !_player.IsDrowning || !_player.Visible || _player.DrownAnimationFrame != 0,
+            $"{terrainName} terrain did not begin visible LINK_ANIM_MODE_DROWN frame $d4.");
+        FailIf(
+            _sound.LastPlayRequest != OracleSoundEngine.SndSplash ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) != splashSoundRequests + 1)
-        {
-            throw new InvalidOperationException(
-                $"{terrainName} drowning did not request SND_DAMAGE_LINK `$5f followed by " +
-                "the splash interaction's SND_SPLASH `$87 exactly once.");
-        }
-        if (_player.HealthQuarters != healthBeforeDrowning)
-            throw new InvalidOperationException(
-                $"{terrainName} damage was applied before the drowning animation finished.");
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) != splashSoundRequests + 1,
+            $"{terrainName} drowning did not request SND_DAMAGE_LINK `$5f followed by " +
+            "the splash interaction's SND_SPLASH `$87 exactly once.");
+        FailIf(
+            _player.HealthQuarters != healthBeforeDrowning,
+            $"{terrainName} damage was applied before the drowning animation finished.");
 
         _player._PhysicsProcess(5.0 / 60.0);
-        if (!_player.Visible || _player.DrownAnimationFrame != 0)
-            throw new InvalidOperationException(
-                $"{terrainName} did not hold directional drowning frame $d4 for six updates.");
+        FailIf(
+            !_player.Visible || _player.DrownAnimationFrame != 0,
+            $"{terrainName} did not hold directional drowning frame $d4 for six updates.");
         _player._PhysicsProcess(1.0 / 60.0);
-        if (!_player.Visible || _player.DrownAnimationFrame != 1)
-            throw new InvalidOperationException(
-                $"{terrainName} did not advance to drowning frame $0b after six updates.");
+        FailIf(
+            !_player.Visible || _player.DrownAnimationFrame != 1,
+            $"{terrainName} did not advance to drowning frame $0b after six updates.");
 
         _player._PhysicsProcess(15.0 / 60.0);
-        if (!_player.Visible || _player.Position != hazardPosition)
-            throw new InvalidOperationException(
-                $"{terrainName} moved or hid Link before the 22-update drowning animation finished.");
+        FailIf(
+            !_player.Visible || _player.Position != hazardPosition,
+            $"{terrainName} moved or hid Link before the 22-update drowning animation finished.");
         _player._PhysicsProcess(1.0 / 60.0);
-        if (_player.Visible || !_player.IsDrowning)
-            throw new InvalidOperationException(
-                $"{terrainName} did not hide Link after the 22-update drowning animation.");
-        if (_player.HealthQuarters != healthBeforeDrowning)
-            throw new InvalidOperationException(
-                $"{terrainName} damage was applied before the two-update respawn delay.");
+        FailIf(
+            _player.Visible || !_player.IsDrowning,
+            $"{terrainName} did not hide Link after the 22-update drowning animation.");
+        FailIf(
+            _player.HealthQuarters != healthBeforeDrowning,
+            $"{terrainName} damage was applied before the two-update respawn delay.");
 
         _player._PhysicsProcess(1.0 / 60.0);
-        if (_player.Visible)
-            throw new InvalidOperationException(
-                $"{terrainName} did not preserve the first invisible respawn update.");
+        FailIf(_player.Visible, $"{terrainName} did not preserve the first invisible respawn update.");
         _player._PhysicsProcess(1.0 / 60.0);
-        if (_player.IsDrowning || !_player.Visible ||
-            _player.Position.DistanceSquaredTo(safePosition) > 1.0f)
-        {
-            throw new InvalidOperationException(
-                $"{terrainName} did not return Link to the last safe tile after drowning.");
-        }
-        if (_player.HealthQuarters != healthBeforeDrowning - 2 ||
-            _player.InvincibilityFrames != 0x3c)
-            throw new InvalidOperationException(
-                $"{terrainName} did not apply one half-heart and the source " +
-                "$3c damage-blink counter after Link reappeared.");
-        if (_sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1)
-            throw new InvalidOperationException($"{terrainName} respawn replayed SND_DAMAGE_LINK $5f.");
+        FailIf(
+            _player.IsDrowning || !_player.Visible ||
+            _player.Position.DistanceSquaredTo(safePosition) > 1.0f,
+            $"{terrainName} did not return Link to the last safe tile after drowning.");
+        FailIf(
+            _player.HealthQuarters != healthBeforeDrowning - 2 ||
+            _player.InvincibilityFrames != 0x3c,
+            $"{terrainName} did not apply one half-heart and the source " +
+            "$3c damage-blink counter after Link reappeared.");
+        FailIf(
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1,
+            $"{terrainName} respawn replayed SND_DAMAGE_LINK $5f.");
     }
 
     private void ValidateLedgeJumping()
@@ -3745,7 +3400,8 @@ public sealed partial class ValidationRoot
         LedgeJumpDirectionRecord right = ledges.Direction(Vector2I.Right);
         LedgeJumpDirectionRecord down = ledges.Direction(Vector2I.Down);
         LedgeJumpDirectionRecord left = ledges.Direction(Vector2I.Left);
-        if (up != new LedgeJumpDirectionRecord(
+        FailIf(
+            up != new LedgeJumpDirectionRecord(
                 0, 0x00, 0xc0, new Vector2I(-3, -4), new Vector2I(2, -4)) ||
             right != new LedgeJumpDirectionRecord(
                 1, 0x08, 0x03, new Vector2I(4, 0), new Vector2I(4, 5)) ||
@@ -3768,35 +3424,31 @@ public sealed partial class ValidationRoot
             ledges.Gravity != 0x20 ||
             ledges.JumpSound != OracleSoundEngine.SndJump ||
             ledges.LandSound != OracleSoundEngine.SndLand ||
-            !ledges.AnimationPhaseDurations.AsSpan().SequenceEqual([9, 9, 6]))
-        {
-            throw new InvalidOperationException(
-                "Imported ledge collision, probe, speed, physics, sound, or animation data changed.");
-        }
+            !ledges.AnimationPhaseDurations.AsSpan().SequenceEqual([9, 9, 6]),
+            "Imported ledge collision, probe, speed, physics, sound, or animation data changed.");
 
         LoadValidationRoom(0, 0x11);
         Vector2 ledgeStart = new(24, 56);
         _player.WarpTo(ledgeStart);
         _player.Face(Vector2I.Right);
-        if (TryStartLedgeHop(_player, _player.Position, Vector2.Down))
-            throw new InvalidOperationException(
-                "A ledge jump ignored the source movement-angle/facing equality check.");
+        FailIf(
+            TryStartLedgeHop(_player, _player.Position, Vector2.Down),
+            "A ledge jump ignored the source movement-angle/facing equality check.");
         _player.Face(Vector2I.Down);
-        if (TryStartLedgeHop(
-                _player,
-                _player.Position,
-                new Vector2(1, 1)))
-        {
-            throw new InvalidOperationException(
-                "A diagonal movement attempt incorrectly started a ledge jump.");
-        }
+        FailIf(
+            TryStartLedgeHop(
+            _player,
+            _player.Position,
+            new Vector2(1, 1)),
+            "A diagonal movement attempt incorrectly started a ledge jump.");
 
         int jumpSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndJump);
         int landSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndLand);
-        if (!TryStartLedgeHop(_player, _player.Position, Vector2.Down))
-            throw new InvalidOperationException(
-                "Room 0:11's two $64 south-cliff probes did not start a ledge jump.");
-        if (_player.LedgeJumpPhase != LedgeJumpState.Airborne ||
+        FailIf(
+            !TryStartLedgeHop(_player, _player.Position, Vector2.Down),
+            "Room 0:11's two $64 south-cliff probes did not start a ledge jump.");
+        FailIf(
+            _player.LedgeJumpPhase != LedgeJumpState.Airborne ||
             _player.LedgeCliffLength != 3 ||
             _player.LedgeSpeedRaw != 0x23 ||
             _player.LedgeSpeedZ != -0x1c0 ||
@@ -3805,87 +3457,74 @@ public sealed partial class ValidationRoot
             _player.IsGroundedForFloorButton ||
             _player.AcceptsRoomEntityContact ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != jumpSounds + 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds)
-        {
-            throw new InvalidOperationException(
-                "Room 0:11 did not initialize LINK_STATE_JUMPING_DOWN_LEDGE exactly.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds,
+            "Room 0:11 did not initialize LINK_STATE_JUMPING_DOWN_LEDGE exactly.");
 
         int healthBeforeContact = _player.HealthQuarters;
-        if (_player.ApplyEnemyContactDamage(
+        FailIf(
+            _player.ApplyEnemyContactDamage(
                 ledgeStart,
                 2,
                 RingDamageSource.Generic) ||
-            _player.HealthQuarters != healthBeforeContact)
-        {
-            throw new InvalidOperationException(
-                "wLinkInAir bit 7 semantics did not suppress room-entity contact.");
-        }
+            _player.HealthQuarters != healthBeforeContact,
+            "wLinkInAir bit 7 semantics did not suppress room-entity contact.");
 
         _player._PhysicsProcess(1.0 / 60.0);
-        if (!_player.PrecisePosition.IsEqualApprox(new Vector2(24, 56.875f)) ||
+        FailIf(
+            !_player.PrecisePosition.IsEqualApprox(new Vector2(24, 56.875f)) ||
             _player.Position != new Vector2(24, 56) ||
             _player.LedgeZ != -2 ||
             _player.LedgeSpeedZ != -0x1a0 ||
             _player.LedgeAnimationPhase != 0 ||
             _player.LedgeShadowDrawn !=
-                ((_entities.FrameCounter & 1) != 0))
-        {
-            throw new InvalidOperationException(
-                "The first ledge update lost SPEED_0e0, 8.8 position, Z, or animation timing.");
-        }
+                ((_entities.FrameCounter & 1) != 0),
+            "The first ledge update lost SPEED_0e0, 8.8 position, Z, or animation timing.");
 
         _player._PhysicsProcess(7.0 / 60.0);
-        if (_player.LedgeAnimationPhase != 0)
-            throw new InvalidOperationException(
-                "LINK_ANIM_MODE_JUMP did not hold graphics $e4-$e7 for nine updates.");
+        FailIf(
+            _player.LedgeAnimationPhase != 0,
+            "LINK_ANIM_MODE_JUMP did not hold graphics $e4-$e7 for nine updates.");
         _player._PhysicsProcess(1.0 / 60.0);
-        if (_player.LedgeAnimationPhase != 1)
-            throw new InvalidOperationException(
-                "LINK_ANIM_MODE_JUMP did not select graphics $e8-$eb on update 9.");
+        FailIf(
+            _player.LedgeAnimationPhase != 1,
+            "LINK_ANIM_MODE_JUMP did not select graphics $e8-$eb on update 9.");
         _player._PhysicsProcess(9.0 / 60.0);
-        if (_player.LedgeAnimationPhase != 2)
-            throw new InvalidOperationException(
-                "LINK_ANIM_MODE_JUMP did not select graphics $ec-$ef on update 18.");
+        FailIf(
+            _player.LedgeAnimationPhase != 2,
+            "LINK_ANIM_MODE_JUMP did not select graphics $ec-$ef on update 18.");
         _player._PhysicsProcess(6.0 / 60.0);
-        if (_player.LedgeAnimationPhase != 3)
-            throw new InvalidOperationException(
-                "LINK_ANIM_MODE_JUMP did not select terminal graphics $80-$83 on update 24.");
+        FailIf(
+            _player.LedgeAnimationPhase != 3,
+            "LINK_ANIM_MODE_JUMP did not select terminal graphics $80-$83 on update 24.");
         _player._PhysicsProcess(4.0 / 60.0);
-        if (_player.LedgeJumpPhase != LedgeJumpState.Airborne ||
+        FailIf(
+            _player.LedgeJumpPhase != LedgeJumpState.Airborne ||
             !_player.PrecisePosition.IsEqualApprox(new Vector2(24, 80.5f)) ||
             _player.Position != new Vector2(24, 80) ||
             _player.LedgeZ != -2 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds)
-        {
-            throw new InvalidOperationException(
-                "The ledge jump landed before the original 29th airborne update.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds,
+            "The ledge jump landed before the original 29th airborne update.");
         _player._PhysicsProcess(1.0 / 60.0);
         Vector2 ordinaryLanding = new(24, 81.375f);
-        if (_player.LedgeJumpPhase != LedgeJumpState.None ||
+        FailIf(
+            _player.LedgeJumpPhase != LedgeJumpState.None ||
             !_player.PrecisePosition.IsEqualApprox(ordinaryLanding) ||
             _player.Position != new Vector2(24, 81) ||
             _player.LocalRespawnPosition != ledgeStart ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds + 1 ||
-            _sound.LastPlayRequest != OracleSoundEngine.SndLand)
-        {
-            throw new InvalidOperationException(
-                "The in-room ledge jump did not land on update 29 with SND_LAND $a3.");
-        }
+            _sound.LastPlayRequest != OracleSoundEngine.SndLand,
+            "The in-room ledge jump did not land on update 29 with SND_LAND $a3.");
 
         _player.WarpTo(ledgeStart);
         _player.Face(Vector2I.Down);
-        if (!TryStartLedgeHop(_player, _player.Position, Vector2.Down))
-            throw new InvalidOperationException(
-                "The deterministic long-frame ledge replay did not start.");
+        FailIf(
+            !TryStartLedgeHop(_player, _player.Position, Vector2.Down),
+            "The deterministic long-frame ledge replay did not start.");
         _player._PhysicsProcess(29.0 / 60.0);
-        if (_player.LedgeJumpPhase != LedgeJumpState.None ||
-            !_player.PrecisePosition.IsEqualApprox(ordinaryLanding))
-        {
-            throw new InvalidOperationException(
-                "A long rendered update changed the ledge jump's 60-update boundaries.");
-        }
+        FailIf(
+            _player.LedgeJumpPhase != LedgeJumpState.None ||
+            !_player.PrecisePosition.IsEqualApprox(ordinaryLanding),
+            "A long rendered update changed the ledge jump's 60-update boundaries.");
 
         Vector2 breakableLandingCenter = new(24, 88);
         byte originalLandingTile =
@@ -3899,20 +3538,16 @@ public sealed partial class ValidationRoot
             _entities.Entities<RockDebrisEffect>().Count;
         _player.WarpTo(ledgeStart);
         _player.Face(Vector2I.Down);
-        if (!TryStartLedgeHop(_player, _player.Position, Vector2.Down) ||
-            _player.LedgeCliffLength != 3)
-        {
-            throw new InvalidOperationException(
-                "Source $05 breakable tile $c3 was not accepted as a ledge landing.");
-        }
+        FailIf(
+            !TryStartLedgeHop(_player, _player.Position, Vector2.Down) ||
+            _player.LedgeCliffLength != 3,
+            "Source $05 breakable tile $c3 was not accepted as a ledge landing.");
         _player._PhysicsProcess(29.0 / 60.0);
-        if (_currentRoom.GetMetatile(breakableLandingCenter) != 0x3a ||
+        FailIf(
+            _currentRoom.GetMetatile(breakableLandingCenter) != 0x3a ||
             _entities.Entities<RockDebrisEffect>().Count !=
-                rockDebrisBefore + 1)
-        {
-            throw new InvalidOperationException(
-                "Landing did not break tile $c3 through BREAKABLETILESOURCE_LANDED $05.");
-        }
+                rockDebrisBefore + 1,
+            "Landing did not break tile $c3 through BREAKABLETILESOURCE_LANDED $05.");
         _currentRoom.SetPositionTileAndCollision(
             breakableLandingCenter,
             originalLandingTile,
@@ -3925,7 +3560,8 @@ public sealed partial class ValidationRoot
         _player.Face(Vector2I.Down);
         jumpSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndJump);
         landSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndLand);
-        if (!TryStartLedgeHop(_player, _player.Position, Vector2.Down) ||
+        FailIf(
+            !TryStartLedgeHop(_player, _player.Position, Vector2.Down) ||
             _player.LedgeJumpPhase != LedgeJumpState.AirborneBeforeScroll ||
             _player.LedgeCliffLength != 0 ||
             _player.LedgeSpeedRaw != 0 ||
@@ -3933,54 +3569,44 @@ public sealed partial class ValidationRoot
             _player.LedgeZ != -1 ||
             _player.PrecisePosition != new Vector2(80, 121) ||
             _player.LedgeShadowDrawn ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != jumpSounds + 1)
-        {
-            throw new InvalidOperationException(
-                "Room 0:00 did not initialize the source's down-cliff screen-transition branch.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != jumpSounds + 1,
+            "Room 0:00 did not initialize the source's down-cliff screen-transition branch.");
 
         _player._PhysicsProcess(17.0 / 60.0);
-        if (_player.LedgeJumpPhase != LedgeJumpState.AirborneBeforeScroll ||
+        FailIf(
+            _player.LedgeJumpPhase != LedgeJumpState.AirborneBeforeScroll ||
             _player.LedgeZ != -1 ||
             _player.LedgeSpeedZ != 0x120 ||
-            _scrollTransitionActive)
-        {
-            throw new InvalidOperationException(
-                "The transition ledge did not preserve its 18-update pre-scroll fall.");
-        }
+            _scrollTransitionActive,
+            "The transition ledge did not preserve its 18-update pre-scroll fall.");
         _player._PhysicsProcess(1.0 / 60.0);
-        if (_player.LedgeJumpPhase != LedgeJumpState.WaitingForScroll ||
+        FailIf(
+            _player.LedgeJumpPhase != LedgeJumpState.WaitingForScroll ||
             !_scrollTransitionActive ||
             _scrollTransitionDirection != Vector2I.Down ||
             _scrollTransitionFrames != 32 ||
             _currentRoom.Group != 0 ||
-            _currentRoom.Id != 0x10)
-        {
-            throw new InvalidOperationException(
-                "The ledge landing did not force source transition $82 into room 0:10.");
-        }
+            _currentRoom.Id != 0x10,
+            "The ledge landing did not force source transition $82 into room 0:10.");
 
         Vector2 waitingPosition = _player.PrecisePosition;
         int waitingAnimation = _player.LedgeAnimationPhase;
         _player._PhysicsProcess(10.0 / 60.0);
-        if (_player.PrecisePosition != waitingPosition ||
+        FailIf(
+            _player.PrecisePosition != waitingPosition ||
             _player.LedgeAnimationPhase != waitingAnimation ||
-            _player.LedgeJumpPhase != LedgeJumpState.WaitingForScroll)
-        {
-            throw new InvalidOperationException(
-                "Link's ledge state advanced while wScrollMode froze destination gameplay.");
-        }
+            _player.LedgeJumpPhase != LedgeJumpState.WaitingForScroll,
+            "Link's ledge state advanced while wScrollMode froze destination gameplay.");
 
         for (int frame = 0; frame < 31; frame++)
             UpdateScrollingTransition(1.0 / 60.0);
-        if (!_scrollTransitionActive ||
-            _player.LedgeJumpPhase != LedgeJumpState.WaitingForScroll)
-        {
-            throw new InvalidOperationException(
-                "The ledge scroll ended before the original 32 transition updates.");
-        }
+        FailIf(
+            !_scrollTransitionActive ||
+            _player.LedgeJumpPhase != LedgeJumpState.WaitingForScroll,
+            "The ledge scroll ended before the original 32 transition updates.");
         UpdateScrollingTransition(1.0 / 60.0);
-        if (_scrollTransitionActive ||
+        FailIf(
+            _scrollTransitionActive ||
             _player.LedgeJumpPhase != LedgeJumpState.AirborneAfterScroll ||
             _player.PrecisePosition != new Vector2(80, 22) ||
             _player.LedgeZ != -13 ||
@@ -3991,34 +3617,27 @@ public sealed partial class ValidationRoot
             _player.LocalRespawnPosition != transitionStart ||
             _player.AcceptsRoomEntityContact ||
             _player.LedgeShadowDrawn !=
-                ((_entities.FrameCounter & 1) != 0))
-        {
-            throw new InvalidOperationException(
-                "The destination room did not resume the retained Z, speed, animation, and landing scan.");
-        }
+                ((_entities.FrameCounter & 1) != 0),
+            "The destination room did not resume the retained Z, speed, animation, and landing scan.");
 
         _player._PhysicsProcess(8.0 / 60.0);
-        if (_player.LedgeJumpPhase != LedgeJumpState.AirborneAfterScroll ||
+        FailIf(
+            _player.LedgeJumpPhase != LedgeJumpState.AirborneAfterScroll ||
             _player.PrecisePosition != new Vector2(80, 22) ||
             _player.LedgeZ != -1 ||
             _player.LedgeSpeedZ != 0x220 ||
             _player.LedgeAnimationPhase != 3 ||
             _player.LocalRespawnPosition != transitionStart ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds)
-        {
-            throw new InvalidOperationException(
-                "The post-scroll ledge fall landed before its ninth retained-speed update.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds,
+            "The post-scroll ledge fall landed before its ninth retained-speed update.");
         _player._PhysicsProcess(1.0 / 60.0);
-        if (_player.LedgeJumpPhase != LedgeJumpState.None ||
+        FailIf(
+            _player.LedgeJumpPhase != LedgeJumpState.None ||
             _player.PrecisePosition != new Vector2(80, 22) ||
             _player.LocalRespawnPosition != new Vector2(80, 22) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds + 1 ||
-            _sound.LastPlayRequest != OracleSoundEngine.SndLand)
-        {
-            throw new InvalidOperationException(
-                "The post-scroll ledge fall did not land, update local respawn, and play SND_LAND.");
-        }
+            _sound.LastPlayRequest != OracleSoundEngine.SndLand,
+            "The post-scroll ledge fall did not land, update local respawn, and play SND_LAND.");
         RestoreOracleRandomForValidation(randomSnapshot);
     }
 
@@ -4095,19 +3714,15 @@ public sealed partial class ValidationRoot
         // rail correctly blocks another upward step, while the original yh
         // coordinate (and therefore the rendered sprite) remains row 70.
         Vector2 fractionalStop = new(56, 70.5f);
-        if (_collision.ResolveMovement(
-                fractionalStop, Vector2.Up, allowWallSlide: true) != Vector2.Zero)
-        {
-            throw new InvalidOperationException(
-                "Room 0:56's upper bridge rail did not block the fractional direct approach.");
-        }
+        FailIf(
+            _collision.ResolveMovement(
+            fractionalStop, Vector2.Up, allowWallSlide: true) != Vector2.Zero,
+            "Room 0:56's upper bridge rail did not block the fractional direct approach.");
 
         _player.WarpTo(fractionalStop, recordSafe: false);
-        if (_player.Position != new Vector2(56, 70))
-        {
-            throw new InvalidOperationException(
-                "Link's fixed-point bridge position was rounded instead of rendered from yh/xh.");
-        }
+        FailIf(
+            _player.Position != new Vector2(56, 70),
+            "Link's fixed-point bridge position was rounded instead of rendered from yh/xh.");
     }
 
     private void ValidateBridgeSlidePath(Vector2 start, bool expectUp)
@@ -4118,19 +3733,17 @@ public sealed partial class ValidationRoot
         {
             Vector2 resolved = _collision.ResolveMovement(
                 position, Vector2.Right, allowWallSlide: true);
-            if (resolved == Vector2.Zero)
-                throw new InvalidOperationException(
-                    $"Room 0:56 bridge slide became stuck at {position}.");
+            FailIf(resolved == Vector2.Zero, $"Room 0:56 bridge slide became stuck at {position}.");
             deflected |= expectUp ? resolved.Y < 0.0f : resolved.Y > 0.0f;
             position += resolved;
         }
 
         Vector2 expected = start + new Vector2(12.0f, expectUp ? -4.0f : 4.0f);
-        if (!deflected || position.DistanceSquaredTo(expected) > 0.01f)
-            throw new InvalidOperationException(
-                $"Room 0:56 bridge did not apply the symmetric four-frame " +
-                $"{(expectUp ? "upward" : "downward")} deflection; " +
-                $"start={start}, expected={expected}, end={position}.");
+        FailIf(
+            !deflected || position.DistanceSquaredTo(expected) > 0.01f,
+            $"Room 0:56 bridge did not apply the symmetric four-frame " +
+            $"{(expectUp ? "upward" : "downward")} deflection; " +
+            $"start={start}, expected={expected}, end={position}.");
     }
 
     private void ValidateRoom01HoleBoundaryCase()
@@ -4140,8 +3753,9 @@ public sealed partial class ValidationRoot
         _currentRoom = _world.LoadRoom(_activeGroup, 0x01);
         _roomView.SetRoom(_currentRoom.Texture);
 
-        if (!TryFindHoleWithSafeNeighbor(_currentRoom, out Vector2 holeCenter, out Vector2 safePosition))
-            throw new InvalidOperationException("Room 0:01 did not have a testable hole with a safe neighbor.");
+        FailIf(
+            !TryFindHoleWithSafeNeighbor(_currentRoom, out Vector2 holeCenter, out Vector2 safePosition),
+            "Room 0:01 did not have a testable hole with a safe neighbor.");
 
         _player.RefillHealth();
         _player.WarpTo(safePosition);
@@ -4152,22 +3766,24 @@ public sealed partial class ValidationRoot
         Vector2 boundaryEntry = new(holeCenter.X, tileTop - 5.0f + 0.6f);
         _player.WarpTo(boundaryEntry, recordSafe: false);
         Vector2 expectedCenter = GetActiveTerrain(_player.Position).TileCenter;
-        if (expectedCenter.DistanceSquaredTo(holeCenter) > 1.0f)
-            throw new InvalidOperationException("Room 0:01 boundary setup did not sample the hole tile.");
+        FailIf(
+            expectedCenter.DistanceSquaredTo(holeCenter) > 1.0f,
+            "Room 0:01 boundary setup did not sample the hole tile.");
 
         _player._PhysicsProcess(1.0 / 60.0);
-        if (!_player.IsPullingIntoHole && !_player.IsFallingInHole)
-            throw new InvalidOperationException(
-                "Room 0:01 boundary hole entry did not start the pull-in state.");
+        FailIf(
+            !_player.IsPullingIntoHole && !_player.IsFallingInHole,
+            "Room 0:01 boundary hole entry did not start the pull-in state.");
 
         AdvanceHolePullUntilFall(holeCenter);
         AdvanceHoleFallUntilRespawn(safePosition);
-        if (_player.IsFallingInHole)
-            throw new InvalidOperationException("Room 0:01 boundary hole fall did not complete.");
-        if (_player.Position.DistanceSquaredTo(safePosition) > 1.0f)
-            throw new InvalidOperationException("Room 0:01 hole respawn did not return to the room entry anchor.");
-        if (_player.HealthQuarters != beforeHealth - 2)
-            throw new InvalidOperationException("Room 0:01 hole fall did not apply half-heart damage.");
+        FailIf(_player.IsFallingInHole, "Room 0:01 boundary hole fall did not complete.");
+        FailIf(
+            _player.Position.DistanceSquaredTo(safePosition) > 1.0f,
+            "Room 0:01 hole respawn did not return to the room entry anchor.");
+        FailIf(
+            _player.HealthQuarters != beforeHealth - 2,
+            "Room 0:01 hole fall did not apply half-heart damage.");
     }
 
     private void AdvanceHolePullUntilFall(Vector2 expectedCenter)
@@ -4175,10 +3791,10 @@ public sealed partial class ValidationRoot
         for (int i = 0; i < 120 && !_player.IsFallingInHole; i++)
             _player._PhysicsProcess(1.0 / 60.0);
 
-        if (!_player.IsFallingInHole)
-            throw new InvalidOperationException("Hole pull-in did not transition to the fall animation.");
-        if (_player.Position.DistanceSquaredTo(expectedCenter) > 1.0f)
-            throw new InvalidOperationException("Hole pull-in did not center Link on the sampled hole tile.");
+        FailIf(!_player.IsFallingInHole, "Hole pull-in did not transition to the fall animation.");
+        FailIf(
+            _player.Position.DistanceSquaredTo(expectedCenter) > 1.0f,
+            "Hole pull-in did not center Link on the sampled hole tile.");
     }
 
     private void AdvanceHoleFallUntilRespawn(Vector2 expectedRespawn)
@@ -4186,10 +3802,10 @@ public sealed partial class ValidationRoot
         for (int i = 0; i < 80 && _player.IsFallingInHole; i++)
             _player._PhysicsProcess(1.0 / 60.0);
 
-        if (_player.IsFallingInHole)
-            throw new InvalidOperationException("The falling-in-hole animation did not finish.");
-        if (_player.Position.DistanceSquaredTo(expectedRespawn) > 1.0f)
-            throw new InvalidOperationException("Hole terrain did not return Link to the stored respawn anchor.");
+        FailIf(_player.IsFallingInHole, "The falling-in-hole animation did not finish.");
+        FailIf(
+            _player.Position.DistanceSquaredTo(expectedRespawn) > 1.0f,
+            "Hole terrain did not return Link to the stored respawn anchor.");
     }
 
     private static bool TryFindHoleWithSafeNeighbor(

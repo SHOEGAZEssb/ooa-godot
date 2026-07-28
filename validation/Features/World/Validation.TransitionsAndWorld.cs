@@ -58,7 +58,8 @@ public sealed partial class ValidationRoot
     {
         LoadHouseValidationRoom();
         OracleRoomData exteriorRoom = _currentRoom;
-        if (exteriorRoom.GetMetatile(new Vector2(0x58, 0x28)) != 0xde ||
+        FailIf(
+            exteriorRoom.GetMetatile(new Vector2(0x58, 0x28)) != 0xde ||
             exteriorRoom.GetTerrainInfo(new Vector2(0x58, 0x28)).Collision != 0x0c ||
             !RoomTransitionController.LinkWithinTileWarpBounds(
                 exteriorRoom, 0, 0x25, new Vector2(0x50, 0x22)) ||
@@ -67,12 +68,9 @@ public sealed partial class ValidationRoot
             RoomTransitionController.LinkWithinTileWarpBounds(
                 exteriorRoom, 0, 0x25, new Vector2(0x58, 0x21)) ||
             RoomTransitionController.LinkWithinTileWarpBounds(
-                exteriorRoom, 0, 0x25, new Vector2(0x58, 0x2c)))
-        {
-            throw new InvalidOperationException(
-                "Exterior door 0:47/$25 did not retain collision-$0c's " +
-                "X-unbounded, Y=$22-$2b warp activation window.");
-        }
+                exteriorRoom, 0, 0x25, new Vector2(0x58, 0x2c)),
+            "Exterior door 0:47/$25 did not retain collision-$0c's " +
+            "X-unbounded, Y=$22-$2b warp activation window.");
 
         OracleRoomData multiDoorRoom = _world.LoadRoom(1, 0x0e);
         var warps = new WarpDatabase();
@@ -93,149 +91,138 @@ public sealed partial class ValidationRoot
         bool multiOutsideBound =
             RoomTransitionController.LinkWithinTileWarpBounds(
                 multiDoorRoom, 1, 0x33, new Vector2(0x38, 0x3a));
-        if (multiLeftTile != 0xef ||
+        FailIf(
+            multiLeftTile != 0xef ||
             multiRightTile != 0xef ||
             multiCollision != 0 ||
             !multiWarp ||
             !multiLowerBound ||
             !multiUpperBound ||
-            multiOutsideBound)
-        {
-            throw new InvalidOperationException(
-                "Room 1:0e's adjacent walkable `$ef warp tiles did not retain " +
-                "their X-unbounded, Y=$30-$39 activation window " +
-                $"(tiles=${multiLeftTile:x2}/${multiRightTile:x2}, " +
-                $"collision=${multiCollision:x2}, warp={multiWarp}, " +
-                $"bounds={multiLowerBound}/{multiUpperBound}/{multiOutsideBound}).");
-        }
+            multiOutsideBound,
+            "Room 1:0e's adjacent walkable `$ef warp tiles did not retain " +
+            "their X-unbounded, Y=$30-$39 activation window " +
+            $"(tiles=${multiLeftTile:x2}/${multiRightTile:x2}, " +
+            $"collision=${multiCollision:x2}, warp={multiWarp}, " +
+            $"bounds={multiLowerBound}/{multiUpperBound}/{multiOutsideBound}).");
 
         for (float y = 54; y >= 43; y--)
         {
-            if (Collides(new Vector2(88, y)))
-                throw new InvalidOperationException($"The path into exterior door $25 is blocked at y={y}.");
+            FailIf(Collides(new Vector2(88, y)), $"The path into exterior door $25 is blocked at y={y}.");
         }
         _player.WarpTo(new Vector2(88, 43));
-        if (!CheckTileWarp(_player) || _activeGroup != 2 || _currentRoom.Id != 0xea)
-            throw new InvalidOperationException(
-                $"Expected exterior 0:47/$25 to enter house 2:ea, got {_activeGroup}:{_currentRoom.Id:x2}.");
-        if (!IsTransitioning || !Mathf.IsEqualApprox(_player.Position.Y, _currentRoom.Height))
-            throw new InvalidOperationException("House entry did not begin at the bottom edge of the interior.");
+        FailIf(
+            !CheckTileWarp(_player) || _activeGroup != 2 || _currentRoom.Id != 0xea,
+            $"Expected exterior 0:47/$25 to enter house 2:ea, got {_activeGroup}:{_currentRoom.Id:x2}.");
+        FailIf(
+            !IsTransitioning || !Mathf.IsEqualApprox(_player.Position.Y, _currentRoom.Height),
+            "House entry did not begin at the bottom edge of the interior.");
         UpdateRoomWarpTransition(WarpEnterFrames / 60.0);
-        if (!IsTransitioning || !Mathf.IsEqualApprox(_player.Position.Y, _currentRoom.Height - WarpEnterFrames))
-            throw new InvalidOperationException("Link did not perform the 28-frame interior entry walk.");
+        FailIf(
+            !IsTransitioning || !Mathf.IsEqualApprox(_player.Position.Y, _currentRoom.Height - WarpEnterFrames),
+            "Link did not perform the 28-frame interior entry walk.");
         UpdateRoomWarpTransition((WarpFadeFrames - WarpEnterFrames) / 60.0);
-        if (IsTransitioning)
-            throw new InvalidOperationException("The 32-frame room fade did not finish after entering the house.");
-        if (_saveData.RespawnGroup != 2 || _saveData.RespawnRoom != 0xea ||
+        FailIf(IsTransitioning, "The 32-frame room fade did not finish after entering the house.");
+        FailIf(
+            _saveData.RespawnGroup != 2 || _saveData.RespawnRoom != 0xea ||
             _saveData.RespawnFacing != 0 || _saveData.RespawnY != 0x64 ||
-            _saveData.RespawnX != 0x50)
-        {
-            throw new InvalidOperationException(
-                "TRANSITION_DEST_ENTERSCREEN did not record house 2:ea's final entry checkpoint.");
-        }
+            _saveData.RespawnX != 0x50,
+            "TRANSITION_DEST_ENTERSCREEN did not record house 2:ea's final entry checkpoint.");
 
         for (float y = _player.Position.Y; y <= _currentRoom.Height + 2; y++)
         {
-            if (Collides(new Vector2(_currentRoom.Width / 2.0f, y)))
-                throw new InvalidOperationException($"The house's bottom exit is blocked at y={y}.");
+            FailIf(
+                Collides(new Vector2(_currentRoom.Width / 2.0f, y)),
+                $"The house's bottom exit is blocked at y={y}.");
         }
         _player.WarpTo(new Vector2(_currentRoom.Width / 2.0f, _currentRoom.Height + 2));
         CheckRoomExit(_player);
-        if (!IsTransitioning || _activeGroup != 2 || _currentRoom.Id != 0xea)
-            throw new InvalidOperationException("The house exit did not begin with its scripted walk offscreen.");
+        FailIf(
+            !IsTransitioning || _activeGroup != 2 || _currentRoom.Id != 0xea,
+            "The house exit did not begin with its scripted walk offscreen.");
         UpdateRoomWarpTransition(WarpLeaveFrames / 60.0);
-        if (_activeGroup != 0 || _currentRoom.Id != 0x47 || !IsTransitioning)
-            throw new InvalidOperationException("The exterior was not loaded after the 16-frame exit walk.");
+        FailIf(
+            _activeGroup != 0 || _currentRoom.Id != 0x47 || !IsTransitioning,
+            "The exterior was not loaded after the 16-frame exit walk.");
         EraInfoDisplay eraInfo =
             _entities.Entities<EraInfoDisplay>().SingleOrDefault() ??
             throw new InvalidOperationException(
                 "House 2:ea's exit did not create INTERAC_ERA_OR_SEASON_INFO $e0.");
-        if (eraInfo.SubId != 0 ||
+        FailIf(
+            eraInfo.SubId != 0 ||
             eraInfo.Stage != EraInfoStage.Initializing ||
             eraInfo.Visible ||
             eraInfo.ZIndex != NpcCharacter.InFrontOfLinkZIndex ||
             eraInfo.TextureSize != new Vector2I(32, 16) ||
             eraInfo.TextureOffset != new Vector2(-16, -8) ||
-            eraInfo.PixelHash == 0)
-        {
-            throw new InvalidOperationException(
-                "The present-era display did not initialize from its imported four-cell OAM.");
-        }
+            eraInfo.PixelHash == 0,
+            "The present-era display did not initialize from its imported four-cell OAM.");
 
         _entities.Update(1.0 / 60.0, _player);
-        if (eraInfo.Stage != EraInfoStage.Entering ||
+        FailIf(
+            eraInfo.Stage != EraInfoStage.Entering ||
             !eraInfo.Visible ||
             eraInfo.Position != new Vector2(0xb0, 0x0a) ||
             WorldToScreen(eraInfo.Position) + eraInfo.TextureOffset !=
-                new Vector2(160, 18))
-        {
-            throw new InvalidOperationException(
-                "INTERAC_ERA_OR_SEASON_INFO state 0 did not begin just off the right edge.");
-        }
+                new Vector2(160, 18),
+            "INTERAC_ERA_OR_SEASON_INFO state 0 did not begin just off the right edge.");
 
         for (int update = 0; update < WarpFadeFrames; update++)
         {
             UpdateRoomWarpTransition(1.0 / 60.0);
             _entities.Update(1.0 / 60.0, _player);
         }
-        if (_activeGroup != 0 || _currentRoom.Id != 0x47 ||
-            _currentRoom.GetPackedPosition(_player.Position) != 0x35)
-            throw new InvalidOperationException(
-                $"Expected house 2:ea bottom exit to step out below 0:47/$25, got " +
-                $"{_activeGroup}:{_currentRoom.Id:x2}/${_currentRoom.GetPackedPosition(_player.Position):x2}.");
-        if (IsTransitioning ||
+        FailIf(
+            _activeGroup != 0 || _currentRoom.Id != 0x47 ||
+            _currentRoom.GetPackedPosition(_player.Position) != 0x35,
+            $"Expected house 2:ea bottom exit to step out below 0:47/$25, got " +
+            $"{_activeGroup}:{_currentRoom.Id:x2}/${_currentRoom.GetPackedPosition(_player.Position):x2}.");
+        FailIf(
+            IsTransitioning ||
             eraInfo.Stage != EraInfoStage.Entering ||
-            eraInfo.Position != new Vector2(0x30, 0x0a))
-        {
-            throw new InvalidOperationException(
-                "The era display did not advance on all 32 destination fade-in updates.");
-        }
-        if (Collides(_player.Position + Vector2.Down))
-            throw new InvalidOperationException("The exterior landing spot below 0:47/$25 is blocked.");
-        if (_saveData.RespawnGroup != 0 || _saveData.RespawnRoom != 0x47 ||
+            eraInfo.Position != new Vector2(0x30, 0x0a),
+            "The era display did not advance on all 32 destination fade-in updates.");
+        FailIf(
+            Collides(_player.Position + Vector2.Down),
+            "The exterior landing spot below 0:47/$25 is blocked.");
+        FailIf(
+            _saveData.RespawnGroup != 0 || _saveData.RespawnRoom != 0x47 ||
             _saveData.RespawnFacing != 2 || _saveData.RespawnY != 0x38 ||
             _saveData.RespawnX != 0x58 ||
             !OracleSaveData.TryDeserialize(_saveData.Serialize(), out OracleSaveData? exteriorSave) ||
             exteriorSave!.RespawnGroup != 0 || exteriorSave.RespawnRoom != 0x47 ||
-            exteriorSave.RespawnY != 0x38 || exteriorSave.RespawnX != 0x58)
-        {
-            throw new InvalidOperationException(
-                "TRANSITION_DEST_SET_RESPAWN did not persist exterior 0:47's stepped-out checkpoint.");
-        }
+            exteriorSave.RespawnY != 0x38 || exteriorSave.RespawnX != 0x58,
+            "TRANSITION_DEST_SET_RESPAWN did not persist exterior 0:47's stepped-out checkpoint.");
 
         for (int update = 0; update < 8; update++)
             _entities.Update(1.0 / 60.0, _player);
-        if (eraInfo.Stage != EraInfoStage.Holding ||
+        FailIf(
+            eraInfo.Stage != EraInfoStage.Holding ||
             eraInfo.Counter != 40 ||
             eraInfo.Position != new Vector2(0x10, 0x0a) ||
             WorldToScreen(eraInfo.Position) + eraInfo.TextureOffset !=
-                new Vector2(0, 18))
-        {
-            throw new InvalidOperationException(
-                "The era display did not finish its 40-update, four-pixel fly-in at x=$10.");
-        }
+                new Vector2(0, 18),
+            "The era display did not finish its 40-update, four-pixel fly-in at x=$10.");
         for (int update = 0; update < 39; update++)
             _entities.Update(1.0 / 60.0, _player);
-        if (eraInfo.Stage != EraInfoStage.Holding || eraInfo.Counter != 1)
-            throw new InvalidOperationException("The era display ended its 40-update hold early.");
+        FailIf(
+            eraInfo.Stage != EraInfoStage.Holding || eraInfo.Counter != 1,
+            "The era display ended its 40-update hold early.");
         _entities.Update(1.0 / 60.0, _player);
-        if (eraInfo.Stage != EraInfoStage.Exiting || eraInfo.Counter != 6)
-            throw new InvalidOperationException("The era display did not arm its six-update exit.");
+        FailIf(
+            eraInfo.Stage != EraInfoStage.Exiting || eraInfo.Counter != 6,
+            "The era display did not arm its six-update exit.");
         for (int update = 0; update < 5; update++)
             _entities.Update(1.0 / 60.0, _player);
-        if (eraInfo.Stage != EraInfoStage.Exiting ||
+        FailIf(
+            eraInfo.Stage != EraInfoStage.Exiting ||
             eraInfo.Counter != 1 ||
-            eraInfo.Position != new Vector2(-14, 0x0a))
-        {
-            throw new InvalidOperationException("The era display finished its six-pixel exit early.");
-        }
+            eraInfo.Position != new Vector2(-14, 0x0a),
+            "The era display finished its six-pixel exit early.");
         _entities.Update(1.0 / 60.0, _player);
-        if (_entities.Entities<EraInfoDisplay>().Count != 0 ||
-            eraInfo.Position != new Vector2(-20, 0x0a))
-        {
-            throw new InvalidOperationException(
-                "The era display did not delete on the sixth fly-out update.");
-        }
+        FailIf(
+            _entities.Entities<EraInfoDisplay>().Count != 0 ||
+            eraInfo.Position != new Vector2(-20, 0x0a),
+            "The era display did not delete on the sixth fly-out update.");
         ulong presentEraHash = eraInfo.PixelHash;
 
         int checkpointGroup = _saveData.RespawnGroup;
@@ -249,21 +236,19 @@ public sealed partial class ValidationRoot
         _roomView.SetRoom(_currentRoom.Texture);
         _player.WarpTo(new Vector2(-2, _currentRoom.Height / 2.0f));
         CheckRoomExit(_player);
-        if (_activeGroup != 2 || _currentRoom.Id != 0xea)
-            throw new InvalidOperationException(
-                $"Expected room 2:eb left edge to scroll to 2:ea, got {_activeGroup}:{_currentRoom.Id:x2}.");
+        FailIf(
+            _activeGroup != 2 || _currentRoom.Id != 0xea,
+            $"Expected room 2:eb left edge to scroll to 2:ea, got {_activeGroup}:{_currentRoom.Id:x2}.");
         ValidateLinkScrollsForOneTransitionFrame();
         FinishActiveScrollingTransitionForValidation();
-        if (_currentRoom.GetPackedPosition(_player.Position) != 0x49)
-            throw new InvalidOperationException(
-                $"Expected Link to finish 2:eb -> 2:ea near the right edge, got " +
-                $"${_currentRoom.GetPackedPosition(_player.Position):x2}.");
-        if (_saveData.RespawnGroup != checkpointGroup || _saveData.RespawnRoom != checkpointRoom ||
-            _saveData.RespawnY != checkpointY || _saveData.RespawnX != checkpointX)
-        {
-            throw new InvalidOperationException(
-                "An ordinary scrolling transition incorrectly replaced the death checkpoint.");
-        }
+        FailIf(
+            _currentRoom.GetPackedPosition(_player.Position) != 0x49,
+            $"Expected Link to finish 2:eb -> 2:ea near the right edge, got " +
+            $"${_currentRoom.GetPackedPosition(_player.Position):x2}.");
+        FailIf(
+            _saveData.RespawnGroup != checkpointGroup || _saveData.RespawnRoom != checkpointRoom ||
+            _saveData.RespawnY != checkpointY || _saveData.RespawnX != checkpointX,
+            "An ordinary scrolling transition incorrectly replaced the death checkpoint.");
 
         ValidateEraInfoDisplayPredicates(presentEraHash);
 
@@ -275,69 +260,57 @@ public sealed partial class ValidationRoot
     private void ValidateEraInfoDisplayPredicates(ulong presentEraHash)
     {
         LoadDebugRoom(1, 0x48);
-        if ((_currentRoom.TilesetFlags & 0x81) != 0x81 ||
-            !_transitions.CheckDisplayEraInfoAfterFullRoomLoad())
-        {
-            throw new InvalidOperationException(
-                "A full load of past overworld room 1:48 did not request its era display.");
-        }
+        FailIf(
+            (_currentRoom.TilesetFlags & 0x81) != 0x81 ||
+            !_transitions.CheckDisplayEraInfoAfterFullRoomLoad(),
+            "A full load of past overworld room 1:48 did not request its era display.");
         EraInfoDisplay past =
             _entities.Entities<EraInfoDisplay>().SingleOrDefault() ??
             throw new InvalidOperationException("The past-era display was not created.");
-        if (past.SubId != 1 ||
+        FailIf(
+            past.SubId != 1 ||
             past.PixelHash == 0 ||
-            past.PixelHash == presentEraHash)
-        {
-            throw new InvalidOperationException(
-                "wTilesetFlags bit 7 did not select the distinct past-era OAM and palette.");
-        }
+            past.PixelHash == presentEraHash,
+            "wTilesetFlags bit 7 did not select the distinct past-era OAM and palette.");
 
-        if (!_rooms.TryGetNeighbor(Vector2I.Right, out int scrollTarget))
-            throw new InvalidOperationException("Past overworld room 1:48 has no right neighbor.");
+        FailIf(
+            !_rooms.TryGetNeighbor(Vector2I.Right, out int scrollTarget),
+            "Past overworld room 1:48 has no right neighbor.");
         _transitions.BeginScroll(_player, Vector2I.Right, scrollTarget);
         _transitions.UpdateScroll(1.0 / 60.0);
         _entities.Update(1.0 / 60.0, _player);
-        if (past.Stage != EraInfoStage.Entering ||
+        FailIf(
+            past.Stage != EraInfoStage.Entering ||
             past.Position != new Vector2(0xb0, 0x0a) ||
-            _entities.OutgoingEntities<EraInfoDisplay>().SingleOrDefault() != past)
-        {
-            throw new InvalidOperationException(
-                "The era display's native always-update bit did not advance during scrolling.");
-        }
+            _entities.OutgoingEntities<EraInfoDisplay>().SingleOrDefault() != past,
+            "The era display's native always-update bit did not advance during scrolling.");
         for (int update = 1; update < 40; update++)
         {
             _transitions.UpdateScroll(1.0 / 60.0);
             _entities.Update(1.0 / 60.0, _player);
         }
-        if (_transitions.ScrollActive)
-            throw new InvalidOperationException("The era always-update scroll did not finish.");
+        FailIf(_transitions.ScrollActive, "The era always-update scroll did not finish.");
 
         LoadDebugRoom(2, 0xea);
-        if (_transitions.CheckDisplayEraInfoAfterFullRoomLoad() ||
-            _entities.Entities<EraInfoDisplay>().Count != 0)
-        {
-            throw new InvalidOperationException(
-                "An indoor full room load incorrectly created the outdoor era display.");
-        }
+        FailIf(
+            _transitions.CheckDisplayEraInfoAfterFullRoomLoad() ||
+            _entities.Entities<EraInfoDisplay>().Count != 0,
+            "An indoor full room load incorrectly created the outdoor era display.");
 
         _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagSuppressEraInfoOnce);
-        if (_transitions.CheckDisplayEraInfoAfterFullRoomLoad() ||
-            _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagSuppressEraInfoOnce))
-        {
-            throw new InvalidOperationException(
-                "GLOBALFLAG_16 did not suppress and clear one era-display check before tileset tests.");
-        }
+        FailIf(
+            _transitions.CheckDisplayEraInfoAfterFullRoomLoad() ||
+            _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagSuppressEraInfoOnce),
+            "GLOBALFLAG_16 did not suppress and clear one era-display check before tileset tests.");
 
         LoadDebugRoom(0, 0x47);
         _entities.RuntimeState.SetWramByte(
             OracleRuntimeState.SentBackByStrangeForceAddress,
             1);
-        if (_transitions.CheckDisplayEraInfoAfterFullRoomLoad() ||
-            _entities.Entities<EraInfoDisplay>().Count != 0)
-        {
-            throw new InvalidOperationException(
-                "wSentBackByStrangeForce=$01 did not suppress the era display.");
-        }
+        FailIf(
+            _transitions.CheckDisplayEraInfoAfterFullRoomLoad() ||
+            _entities.Entities<EraInfoDisplay>().Count != 0,
+            "wSentBackByStrangeForce=$01 did not suppress the era display.");
         _entities.RuntimeState.SetWramByte(
             OracleRuntimeState.SentBackByStrangeForceAddress,
             0);
@@ -362,32 +335,29 @@ public sealed partial class ValidationRoot
         _player.Face(Vector2I.Down);
 
         var warps = new WarpDatabase();
-        if (!warps.TryGetEdgeWarp(
-                group,
-                sourceRoom,
-                Vector2I.Down,
-                _player.Position,
-                new Vector2(_currentRoom.Width, _currentRoom.Height),
-                out Warp warp))
-        {
-            throw new InvalidOperationException(
-                "Room 0:38 is missing its imported south edge warp.");
-        }
+        FailIf(
+            !warps.TryGetEdgeWarp(
+            group,
+            sourceRoom,
+            Vector2I.Down,
+            _player.Position,
+            new Vector2(_currentRoom.Width, _currentRoom.Height),
+            out Warp warp),
+            "Room 0:38 is missing its imported south edge warp.");
 
         _transitions.ApplyWarp(_player, warp);
-        if (!IsTransitioning ||
+        FailIf(
+            !IsTransitioning ||
             !_transitions.RoomLoadColumnRevealActive ||
             _roomView.RoomLoadColumnRevealActive ||
             _scene.RoomLoadReveal.Active ||
             _scene.RoomLoadReveal.Visible ||
-            _warpFade.Color.A != 0.0f)
-        {
-            throw new InvalidOperationException(
-                "Room 0:38's south edge warp did not select the full-load column reveal.");
-        }
+            _warpFade.Color.A != 0.0f,
+            "Room 0:38's south edge warp did not select the full-load column reveal.");
 
         UpdateRoomWarpTransition(WarpLeaveFrames / 60.0);
-        if (_activeGroup != group ||
+        FailIf(
+            _activeGroup != group ||
             _currentRoom.Id != destinationRoom ||
             !_transitions.RoomLoadColumnRevealActive ||
             !_roomView.RoomLoadColumnRevealActive ||
@@ -404,112 +374,91 @@ public sealed partial class ValidationRoot
                 _currentRoom.ClearedTilemapTexture) ||
             _scene.RoomLoadReveal.GetParent() != _scene.InterfaceLayer ||
             _warpFade.Color.A != 0.0f ||
-            _player.Position != new Vector2(0x50, -0x10))
-        {
-            throw new InvalidOperationException(
-                "Room 0:38's south exit did not load 0:48 behind the cleared VRAM map.");
-        }
+            _player.Position != new Vector2(0x50, -0x10),
+            "Room 0:38's south exit did not load 0:48 behind the cleared VRAM map.");
 
         Image clearedTilemap = _currentRoom.ClearedTilemapTexture.GetImage();
         Color clearedColor = Color.Color8(255, 214, 140);
-        if (clearedTilemap.GetPixel(0, 0) != clearedColor ||
+        FailIf(
+            clearedTilemap.GetPixel(0, 0) != clearedColor ||
             clearedTilemap.GetPixel(7, 7) != clearedColor ||
             clearedTilemap.GetPixel(8, 0) != clearedColor ||
-            clearedTilemap.GetPixel(159, 127) != clearedColor)
-        {
-            throw new InvalidOperationException(
-                "initializeVramMaps tile $00/attribute $80 did not repeat " +
-                "GFXH_HUD tile 0's solid shade 2 through PALH_0f BG palette 0.");
-        }
+            clearedTilemap.GetPixel(159, 127) != clearedColor,
+            "initializeVramMaps tile $00/attribute $80 did not repeat " +
+            "GFXH_HUD tile 0's solid shade 2 through PALH_0f BG palette 0.");
 
         UpdateRoomWarpTransition(
             RoomTransitionController.RoomLoadRevealInitializationFrames / 60.0);
-        if (_transitions.RoomLoadRevealLoadedColumns != 0 ||
+        FailIf(
+            _transitions.RoomLoadRevealLoadedColumns != 0 ||
             _roomView.RoomLoadRevealLoadedColumns != 0 ||
             _scene.RoomLoadReveal.LoadedColumns != 0 ||
             _warpFade.Color.A != 0.0f ||
-            _player.Position != new Vector2(0x50, -0x10))
-        {
-            throw new InvalidOperationException(
-                "The room-load transition did not preserve its three blank initialization updates.");
-        }
+            _player.Position != new Vector2(0x50, -0x10),
+            "The room-load transition did not preserve its three blank initialization updates.");
 
         UpdateRoomWarpTransition(1.0 / 60.0);
-        if (_transitions.RoomLoadRevealLoadedColumns != 1 ||
+        FailIf(
+            _transitions.RoomLoadRevealLoadedColumns != 1 ||
             _roomView.RoomLoadRevealLoadedColumns != 1 ||
             _scene.RoomLoadReveal.LoadedColumns != 1 ||
             !RoomTransitionController.RoomLoadRevealIsClearedAtPixel(71, 1) ||
             RoomTransitionController.RoomLoadRevealIsClearedAtPixel(72, 1) ||
             RoomTransitionController.RoomLoadRevealIsClearedAtPixel(79, 1) ||
-            !RoomTransitionController.RoomLoadRevealIsClearedAtPixel(80, 1))
-        {
-            throw new InvalidOperationException(
-                "The first room-load update did not draw only 8-pixel column 9.");
-        }
+            !RoomTransitionController.RoomLoadRevealIsClearedAtPixel(80, 1),
+            "The first room-load update did not draw only 8-pixel column 9.");
 
         UpdateRoomWarpTransition(1.0 / 60.0);
-        if (_transitions.RoomLoadRevealLoadedColumns != 2 ||
+        FailIf(
+            _transitions.RoomLoadRevealLoadedColumns != 2 ||
             _roomView.RoomLoadRevealLoadedColumns != 2 ||
             _scene.RoomLoadReveal.LoadedColumns != 2 ||
             RoomTransitionController.RoomLoadRevealIsClearedAtPixel(80, 2) ||
             RoomTransitionController.RoomLoadRevealIsClearedAtPixel(87, 2) ||
-            !RoomTransitionController.RoomLoadRevealIsClearedAtPixel(88, 2))
-        {
-            throw new InvalidOperationException(
-                "The second room-load update did not draw 8-pixel column 10.");
-        }
+            !RoomTransitionController.RoomLoadRevealIsClearedAtPixel(88, 2),
+            "The second room-load update did not draw 8-pixel column 10.");
 
         UpdateRoomWarpTransition(18.0 / 60.0);
-        if (_transitions.RoomLoadRevealLoadedColumns != 20 ||
+        FailIf(
+            _transitions.RoomLoadRevealLoadedColumns != 20 ||
             _roomView.RoomLoadRevealLoadedColumns != 20 ||
             _scene.RoomLoadReveal.LoadedColumns != 20 ||
             RoomTransitionController.RoomLoadRevealIsClearedAtPixel(0, 20) ||
             RoomTransitionController.RoomLoadRevealIsClearedAtPixel(159, 20) ||
-            _player.Position != new Vector2(0x50, -0x10))
-        {
-            throw new InvalidOperationException(
-                "The first 20 alternating column updates did not fill the visible 160-pixel room.");
-        }
+            _player.Position != new Vector2(0x50, -0x10),
+            "The first 20 alternating column updates did not fill the visible 160-pixel room.");
 
         UpdateRoomWarpTransition(12.0 / 60.0);
-        if (_transitions.RoomLoadRevealLoadedColumns !=
+        FailIf(
+            _transitions.RoomLoadRevealLoadedColumns !=
                 RoomTransitionController.RoomLoadRevealColumnUpdates ||
             !IsTransitioning ||
-            _player.Position != new Vector2(0x50, -0x10))
-        {
-            throw new InvalidOperationException(
-                "The room-load transition did not finish all 32 VRAM-map column updates.");
-        }
+            _player.Position != new Vector2(0x50, -0x10),
+            "The room-load transition did not finish all 32 VRAM-map column updates.");
 
         UpdateRoomWarpTransition(1.0 / 60.0);
-        if (!IsTransitioning ||
+        FailIf(
+            !IsTransitioning ||
             _transitions.RoomLoadColumnRevealActive ||
             _roomView.RoomLoadColumnRevealActive ||
             _scene.RoomLoadReveal.Active ||
             _scene.RoomLoadReveal.Visible ||
             _warpFade.Color.A != 0.0f ||
             _transitions.TimeWarpPhaseName != "EnterScreen" ||
-            _player.Position != new Vector2(0x50, -0x10))
-        {
-            throw new InvalidOperationException(
-                "The completed column load did not release destination transition $03.");
-        }
+            _player.Position != new Vector2(0x50, -0x10),
+            "The completed column load did not release destination transition $03.");
 
         UpdateRoomWarpTransition((WarpEnterFrames - 1.0f) / 60.0);
-        if (!IsTransitioning ||
-            _player.Position != new Vector2(0x50, 0x0b))
-        {
-            throw new InvalidOperationException(
-                "Link did not begin his 28-update destination walk after the column load.");
-        }
+        FailIf(
+            !IsTransitioning ||
+            _player.Position != new Vector2(0x50, 0x0b),
+            "Link did not begin his 28-update destination walk after the column load.");
 
         UpdateRoomWarpTransition(1.0 / 60.0);
-        if (IsTransitioning ||
-            _player.Position != new Vector2(0x50, 0x0c))
-        {
-            throw new InvalidOperationException(
-                "Room 0:38's destination transition did not finish after Link's 28th walk update.");
-        }
+        FailIf(
+            IsTransitioning ||
+            _player.Position != new Vector2(0x50, 0x0c),
+            "Room 0:38's destination transition did not finish after Link's 28th walk update.");
 
         LoadValidationRoom(0, 0x11);
         GD.Print(
@@ -528,20 +477,21 @@ public sealed partial class ValidationRoot
                 break;
             }
         }
-        if (exitX < 0.0f)
-            throw new InvalidOperationException("Could not find 4:04's open northern dungeon exit.");
+        FailIf(exitX < 0.0f, "Could not find 4:04's open northern dungeon exit.");
 
         _player.WarpTo(new Vector2(exitX, -2.0f));
         CheckRoomExit(_player);
-        if (_activeGroup != 4 || _currentRoom.Id != 0x03 || !_scrollTransitionActive)
-            throw new InvalidOperationException(
-                $"Expected dungeon00 room 4:04 north to lead to 4:03, got {_activeGroup}:{_currentRoom.Id:x2}.");
-        if (_scrollTransitionFrames != 32 || !Mathf.IsEqualApprox(_scrollTransitionDistance, 128.0f))
-            throw new InvalidOperationException("Large-room vertical scrolling did not use the 128px playfield distance.");
+        FailIf(
+            _activeGroup != 4 || _currentRoom.Id != 0x03 || !_scrollTransitionActive,
+            $"Expected dungeon00 room 4:04 north to lead to 4:03, got {_activeGroup}:{_currentRoom.Id:x2}.");
+        FailIf(
+            _scrollTransitionFrames != 32 || !Mathf.IsEqualApprox(_scrollTransitionDistance, 128.0f),
+            "Large-room vertical scrolling did not use the 128px playfield distance.");
 
         FinishActiveScrollingTransitionForValidation();
-        if (Mathf.Abs(WorldToScreen(_player.Position).Y - 134.0f) > 0.01f)
-            throw new InvalidOperationException("Link did not finish 4:04 -> 4:03 at the lower playfield edge.");
+        FailIf(
+            Mathf.Abs(WorldToScreen(_player.Position).Y - 134.0f) > 0.01f,
+            "Link did not finish 4:04 -> 4:03 at the lower playfield edge.");
     }
 
     private void ValidateLargeRoomCaveWarp(int sourcePosition, int destinationRoom)
@@ -552,95 +502,87 @@ public sealed partial class ValidationRoot
         _player.WarpTo(new Vector2(
             tileX * OracleRoomData.MetatileSize + 8,
             tileY * OracleRoomData.MetatileSize + 8));
-        if (!CheckTileWarp(_player) || _activeGroup != 4 || _currentRoom.Id != destinationRoom)
-            throw new InvalidOperationException(
-                $"Expected 0:48/${sourcePosition:x2} to enter 4:{destinationRoom:x2}, got " +
-                $"{_activeGroup}:{_currentRoom.Id:x2}.");
+        FailIf(
+            !CheckTileWarp(_player) || _activeGroup != 4 || _currentRoom.Id != destinationRoom,
+            $"Expected 0:48/${sourcePosition:x2} to enter 4:{destinationRoom:x2}, got " +
+            $"{_activeGroup}:{_currentRoom.Id:x2}.");
         int expectedWidth = OracleRoomData.LargeRoomWidthInTiles * OracleRoomData.MetatileSize;
         int expectedHeight = OracleRoomData.LargeRoomHeightInTiles * OracleRoomData.MetatileSize;
-        if (_currentRoom.Width != expectedWidth || _currentRoom.Height != expectedHeight ||
+        FailIf(
+            _currentRoom.Width != expectedWidth || _currentRoom.Height != expectedHeight ||
             _currentRoom.Texture.GetWidth() != expectedWidth ||
-            _currentRoom.Texture.GetHeight() != expectedHeight)
-            throw new InvalidOperationException(
-                $"Expected 4:{destinationRoom:x2} to use the original 240x176 playable large-room dimensions.");
-        if (_player.Position != new Vector2(0x78, 0xb0))
-            throw new InvalidOperationException(
-                $"Expected the original large-room entry coordinate $b0/$78, got {_player.Position}.");
+            _currentRoom.Texture.GetHeight() != expectedHeight,
+            $"Expected 4:{destinationRoom:x2} to use the original 240x176 playable large-room dimensions.");
+        FailIf(
+            _player.Position != new Vector2(0x78, 0xb0),
+            $"Expected the original large-room entry coordinate $b0/$78, got {_player.Position}.");
 
         UpdateRoomCamera();
-        if (WorldToScreen(_player.Position).DistanceSquaredTo(new Vector2(80, 144)) > 0.01f)
-            throw new InvalidOperationException(
-                $"Link did not begin the 4:{destinationRoom:x2} cave entry at screen position (80,144).");
+        FailIf(
+            WorldToScreen(_player.Position).DistanceSquaredTo(new Vector2(80, 144)) > 0.01f,
+            $"Link did not begin the 4:{destinationRoom:x2} cave entry at screen position (80,144).");
         UpdateRoomWarpTransition(WarpEnterFrames / 60.0);
         UpdateRoomCamera();
-        if (WorldToScreen(_player.Position).DistanceSquaredTo(new Vector2(80, 116)) > 0.01f)
-            throw new InvalidOperationException(
-                $"Link did not finish the 28-frame 4:{destinationRoom:x2} cave entry at screen position (80,116).");
+        FailIf(
+            WorldToScreen(_player.Position).DistanceSquaredTo(new Vector2(80, 116)) > 0.01f,
+            $"Link did not finish the 28-frame 4:{destinationRoom:x2} cave entry at screen position (80,116).");
         UpdateRoomWarpTransition((WarpFadeFrames - WarpEnterFrames) / 60.0);
-        if (IsTransitioning)
-            throw new InvalidOperationException($"The 4:{destinationRoom:x2} cave fade did not finish.");
+        FailIf(IsTransitioning, $"The 4:{destinationRoom:x2} cave fade did not finish.");
 
         _player.WarpTo(new Vector2(_currentRoom.Width - 1, _currentRoom.Height / 2.0f));
         UpdateRoomCamera();
-        if (Mathf.Abs(WorldToScreen(new Vector2(_currentRoom.Width, 0)).X -
-            OracleRoomData.ViewportWidth) > 0.01f)
-        {
-            throw new InvalidOperationException(
-                $"The 4:{destinationRoom:x2} camera exposed the padded 16th large-room column.");
-        }
-        if (!_collision.Collides(new Vector2(
+        FailIf(
+            Mathf.Abs(WorldToScreen(new Vector2(_currentRoom.Width, 0)).X -
+            OracleRoomData.ViewportWidth) > 0.01f,
+            $"The 4:{destinationRoom:x2} camera exposed the padded 16th large-room column.");
+        FailIf(
+            !_collision.Collides(new Vector2(
             OracleRoomData.LargeRoomWidthInTiles * OracleRoomData.MetatileSize + 5,
-            _currentRoom.Height / 2.0f)))
-        {
-            throw new InvalidOperationException(
-                $"The 4:{destinationRoom:x2} padded 16th large-room column allowed Link out of bounds.");
-        }
+            _currentRoom.Height / 2.0f)),
+            $"The 4:{destinationRoom:x2} padded 16th large-room column allowed Link out of bounds.");
     }
 
     private void ValidateStartupTransition()
     {
-        if (_currentRoom.Id != 0x11)
-            throw new InvalidOperationException("The transition validation expects startup room 11.");
+        FailIf(_currentRoom.Id != 0x11, "The transition validation expects startup room 11.");
 
         // Room 11's top staircase is metatile $d0 at column 4. This position
         // crosses the same collision samples and room-exit code as player input.
         Vector2 exitPosition = new(4 * OracleRoomData.MetatileSize + 8, -2);
         for (float y = _player.Position.Y; y >= exitPosition.Y; y -= 2)
         {
-            if (Collides(new Vector2(exitPosition.X, y)))
-                throw new InvalidOperationException(
-                    $"Room 11's path to the top staircase is blocked at y={y}.");
+            FailIf(
+                Collides(new Vector2(exitPosition.X, y)),
+                $"Room 11's path to the top staircase is blocked at y={y}.");
         }
 
         _player.WarpTo(exitPosition);
         CheckRoomExit(_player);
-        if (_currentRoom.Id != 0x01)
-            throw new InvalidOperationException(
-                $"Expected room 01 after the startup transition, got {_currentRoom.Id:x2}.");
+        FailIf(
+            _currentRoom.Id != 0x01,
+            $"Expected room 01 after the startup transition, got {_currentRoom.Id:x2}.");
         ValidateLinkScrollsForOneTransitionFrame();
         FinishActiveScrollingTransitionForValidation();
-        if (_currentRoom.GetPackedPosition(_player.Position) != 0x74)
-            throw new InvalidOperationException(
-                $"Expected Link to finish the 11 -> 01 transition near $74, got " +
-                $"${_currentRoom.GetPackedPosition(_player.Position):x2}.");
+        FailIf(
+            _currentRoom.GetPackedPosition(_player.Position) != 0x74,
+            $"Expected Link to finish the 11 -> 01 transition near $74, got " +
+            $"${_currentRoom.GetPackedPosition(_player.Position):x2}.");
         GD.Print("Validated original-style transition 11 -> 01 through staircase collision $18.");
     }
 
     private void ValidateSymmetryTransition()
     {
-        if (_currentRoom.Id != 0x22)
-            throw new InvalidOperationException("The Symmetry transition validation expects room 22.");
+        FailIf(_currentRoom.Id != 0x22, "The Symmetry transition validation expects room 22.");
 
         int oldTileset = _currentRoom.TilesetId;
         Vector2 exitPosition = new(3 * OracleRoomData.MetatileSize + 8, -2);
-        if (Collides(exitPosition))
-            throw new InvalidOperationException("Room 22's north staircase is blocked.");
+        FailIf(Collides(exitPosition), "Room 22's north staircase is blocked.");
 
         _player.WarpTo(exitPosition);
         CheckRoomExit(_player);
-        if (_currentRoom.Id != 0x12 || _currentRoom.TilesetId == oldTileset)
-            throw new InvalidOperationException(
-                $"Expected room 12 / a new tileset, got {_currentRoom.Id:x2} / {_currentRoom.TilesetId:x2}.");
+        FailIf(
+            _currentRoom.Id != 0x12 || _currentRoom.TilesetId == oldTileset,
+            $"Expected room 12 / a new tileset, got {_currentRoom.Id:x2} / {_currentRoom.TilesetId:x2}.");
         ValidateLinkScrollsForOneTransitionFrame();
         FinishActiveScrollingTransitionForValidation();
         GD.Print($"Validated cross-tileset transition 22 ({oldTileset:x2}) -> " +
@@ -654,23 +596,22 @@ public sealed partial class ValidationRoot
 
         double animationTickBefore = _animationTicks;
         UpdateAnimatedTiles(1.0 / 60.0);
-        if (!Mathf.IsEqualApprox((float)_animationTicks, (float)animationTickBefore))
-            throw new InvalidOperationException("Animated tiles advanced during a room transition.");
+        FailIf(
+            !Mathf.IsEqualApprox((float)_animationTicks, (float)animationTickBefore),
+            "Animated tiles advanced during a room transition.");
 
         Vector2 position = _player.Position;
         UpdateScrollingTransition(1.0 / 60.0);
         Vector2 moved = _player.Position - position;
         Vector2 scrollDirection = -(Vector2)_scrollTransitionDirection;
-        if (moved.Dot(scrollDirection) <= 0.0f)
-            throw new InvalidOperationException("Link did not scroll with the screen transition.");
+        FailIf(moved.Dot(scrollDirection) <= 0.0f, "Link did not scroll with the screen transition.");
     }
 
     private void FinishActiveScrollingTransitionForValidation()
     {
         for (int i = 0; i < 80 && IsTransitioning; i++)
             UpdateScrollingTransition(1.0 / 60.0);
-        if (IsTransitioning)
-            throw new InvalidOperationException("Scrolling transition did not finish within 80 frames.");
+        FailIf(IsTransitioning, "Scrolling transition did not finish within 80 frames.");
     }
 
     private int FinishActiveScrollingTransitionWithRoomEventsForValidation()
@@ -682,8 +623,7 @@ public sealed partial class ValidationRoot
             _entities.Update(1.0 / 60.0, _player);
             _roomEvents.Update(1.0 / 60.0);
         }
-        if (IsTransitioning)
-            throw new InvalidOperationException("Scrolling transition did not finish within 80 frames.");
+        FailIf(IsTransitioning, "Scrolling transition did not finish within 80 frames.");
         return frames;
     }
 }

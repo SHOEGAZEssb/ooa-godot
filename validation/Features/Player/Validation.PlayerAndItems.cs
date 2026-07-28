@@ -16,15 +16,13 @@ public sealed partial class ValidationRoot
             _world.LoadRoom(0, 0x06).GetTerrainInfo(grassPosition);
         TerrainInfo puddleTerrain =
             _world.LoadRoom(0, 0x38).GetTerrainInfo(puddlePosition);
-        if (grassTerrain.Tile != 0xf8 ||
+        FailIf(
+            grassTerrain.Tile != 0xf8 ||
             grassTerrain.Type != TerrainType.Grass ||
             puddleTerrain.Tile != 0xf9 ||
-            puddleTerrain.Type != TerrainType.Puddle)
-        {
-            throw new InvalidOperationException(
-                "Canonical rooms 0:06 `$73 and 0:38 `$43 no longer expose " +
-                "Ages grass `$f8 and shallow water `$f9.");
-        }
+            puddleTerrain.Type != TerrainType.Puddle,
+            "Canonical rooms 0:06 `$73 and 0:38 `$43 no longer expose " +
+            "Ages grass `$f8 and shallow water `$f9.");
 
         OracleSaveData save = OracleSaveData.CreateStandardGame();
         var inventory = new InventoryState(_treasures, save);
@@ -40,17 +38,16 @@ public sealed partial class ValidationRoot
 
         ReadOnlySpan<PlayerGroundDrawPass> groundDrawPasses =
             Player.GroundDrawPasses;
-        if (groundDrawPasses.Length != 2 ||
+        FailIf(
+            groundDrawPasses.Length != 2 ||
             groundDrawPasses[0] != PlayerGroundDrawPass.Body ||
-            groundDrawPasses[1] != PlayerGroundDrawPass.TerrainEffect)
-        {
-            throw new InvalidOperationException(
-                "Link's grass/puddle OAM no longer has foreground priority " +
-                "over his body.");
-        }
+            groundDrawPasses[1] != PlayerGroundDrawPass.TerrainEffect,
+            "Link's grass/puddle OAM no longer has foreground priority " +
+            "over his body.");
 
         LinkTerrainEffectFrame? grass = player.CurrentTerrainEffect;
-        if (grass is null ||
+        FailIf(
+            grass is null ||
             grass.Kind != LinkTerrainEffectKind.Grass ||
             grass.Tile != 0xf8 || grass.Frame != 0 || grass.Duration != 0 ||
             grass.Sound != 0 || grass.SoundStart != 0 ||
@@ -59,24 +56,20 @@ public sealed partial class ValidationRoot
             grass.Texture.GetSize() != new Vector2(14, 16) ||
             !grass.Source.Contains(
                 "greenGrassAnimationFrame0",
-                StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException(
-                "Link did not select green grass terrain-effect OAM frame 0 " +
-                "at its source `(-7,+1)` anchor in room 0:06.");
-        }
+                StringComparison.Ordinal),
+            "Link did not select green grass terrain-effect OAM frame 0 " +
+            "at its source `(-7,+1)` anchor in room 0:06.");
         ulong grassFrame0Hash =
             OracleGraphicsCache.PixelHash(grass.Texture.GetImage());
-        if (grassFrame0Hash != 0x75dc0350c7f62b4aUL)
-        {
-            throw new InvalidOperationException(
-                "Link grass terrain-effect frame 0 pixel hash changed: " +
-                $"{grassFrame0Hash:x16}.");
-        }
+        FailIf(
+            grassFrame0Hash != 0x75dc0350c7f62b4aUL,
+            "Link grass terrain-effect frame 0 pixel hash changed: " +
+            $"{grassFrame0Hash:x16}.");
 
         player.SetScriptedPosition(new Vector2(60, 120));
         LinkTerrainEffectFrame? grassFrame1 = player.CurrentTerrainEffect;
-        if (grassFrame1 is null ||
+        FailIf(
+            grassFrame1 is null ||
             grassFrame1.Kind != LinkTerrainEffectKind.Grass ||
             grassFrame1.Frame != 1 || grassFrame1.Duration != 0 ||
             grassFrame1.Sound != 0 ||
@@ -84,20 +77,15 @@ public sealed partial class ValidationRoot
             grassFrame1.Texture.GetSize() != new Vector2(14, 16) ||
             !grassFrame1.Source.Contains(
                 "greenGrassAnimationFrame1",
-                StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException(
-                "Link's `(xh XOR yh) bit 2 did not select green grass " +
-                "terrain-effect OAM frame 1 within room 0:06 tile `$73.");
-        }
+                StringComparison.Ordinal),
+            "Link's `(xh XOR yh) bit 2 did not select green grass " +
+            "terrain-effect OAM frame 1 within room 0:06 tile `$73.");
         ulong grassFrame1Hash =
             OracleGraphicsCache.PixelHash(grassFrame1.Texture.GetImage());
-        if (grassFrame1Hash != 0xe204832ae00b118aUL)
-        {
-            throw new InvalidOperationException(
-                "Link grass terrain-effect frame 1 pixel hash changed: " +
-                $"{grassFrame1Hash:x16}.");
-        }
+        FailIf(
+            grassFrame1Hash != 0xe204832ae00b118aUL,
+            "Link grass terrain-effect frame 1 pixel hash changed: " +
+            $"{grassFrame1Hash:x16}.");
         player.SetScriptedPosition(puddlePosition);
 
         world.ActiveTerrain = new ActiveTerrainInfo(
@@ -130,7 +118,8 @@ public sealed partial class ValidationRoot
             world.FrameCounter = counters[index];
             LinkTerrainEffectFrame? puddle = player.CurrentTerrainEffect;
             int expectedFrame = expectedFrames[index];
-            if (puddle is null ||
+            FailIf(
+                puddle is null ||
                 puddle.Kind != LinkTerrainEffectKind.Puddle ||
                 puddle.Tile != 0xf9 ||
                 puddle.Frame != expectedFrame ||
@@ -143,21 +132,16 @@ public sealed partial class ValidationRoot
                 puddle.Texture.GetSize() != expectedSizes[expectedFrame] ||
                 !puddle.Source.Contains(
                     $"puddleAnimationFrame{expectedFrame}",
-                    StringComparison.Ordinal))
-            {
-                throw new InvalidOperationException(
-                    $"Link shallow-water terrain effect selected the wrong " +
-                    $"OAM frame at global update ${counters[index]:x2}; " +
-                    $"expected frame {expectedFrame}.");
-            }
+                    StringComparison.Ordinal),
+                $"Link shallow-water terrain effect selected the wrong " +
+                $"OAM frame at global update ${counters[index]:x2}; " +
+                $"expected frame {expectedFrame}.");
             ulong puddleHash =
                 OracleGraphicsCache.PixelHash(puddle.Texture.GetImage());
-            if (puddleHash != expectedPuddleHashes[expectedFrame])
-            {
-                throw new InvalidOperationException(
-                    $"Link shallow-water terrain-effect frame {expectedFrame} " +
-                    $"pixel hash changed: {puddleHash:x16}.");
-            }
+            FailIf(
+                puddleHash != expectedPuddleHashes[expectedFrame],
+                $"Link shallow-water terrain-effect frame {expectedFrame} " +
+                $"pixel hash changed: {puddleHash:x16}.");
         }
 
         world.Sounds.Clear();
@@ -169,14 +153,12 @@ public sealed partial class ValidationRoot
             player.ApplyTerrainWalkSoundParameter();
             bool expectedSplash =
                 Array.IndexOf(expectedSplashUpdates, update) >= 0;
-            if ((world.Sounds.Count != soundsBefore) != expectedSplash ||
+            FailIf(
+                (world.Sounds.Count != soundsBefore) != expectedSplash ||
                 (expectedSplash &&
-                    world.Sounds[^1] != OracleSoundEngine.SndSplash))
-            {
-                throw new InvalidOperationException(
-                    $"Link's puddle walk animation selected the wrong sound " +
-                    $"cadence at update {update}; expected splash={expectedSplash}.");
-            }
+                    world.Sounds[^1] != OracleSoundEngine.SndSplash),
+                $"Link's puddle walk animation selected the wrong sound " +
+                $"cadence at update {update}; expected splash={expectedSplash}.");
             player.AdvanceTerrainWalkAnimation(walking: true);
         }
 
@@ -198,13 +180,11 @@ public sealed partial class ValidationRoot
         player.ApplyTerrainWalkSoundParameter();
         player.AdvanceTerrainWalkAnimation(walking: true);
         player.ApplyTerrainWalkSoundParameter();
-        if (world.Sounds.Count != 1 ||
-            world.Sounds[0] != OracleSoundEngine.SndSplash)
-        {
-            throw new InvalidOperationException(
-                "Link's unconsumed walk-animation sound parameter did not " +
-                "survive until he entered shallow water, or played twice.");
-        }
+        FailIf(
+            world.Sounds.Count != 1 ||
+            world.Sounds[0] != OracleSoundEngine.SndSplash,
+            "Link's unconsumed walk-animation sound parameter did not " +
+            "survive until he entered shallow water, or played twice.");
 
         player.AdvanceTerrainWalkAnimation(walking: false);
         world.Sounds.Clear();
@@ -216,54 +196,42 @@ public sealed partial class ValidationRoot
         player.ApplyTerrainWalkSoundParameter();
         world.MovementDisabled = false;
         player.ApplyTerrainWalkSoundParameter();
-        if (world.Sounds.Count != 0)
-        {
-            throw new InvalidOperationException(
-                "wLinkImmobilized did not consume and suppress the pending " +
-                "shallow-water step sound.");
-        }
+        FailIf(
+            world.Sounds.Count != 0,
+            "wLinkImmobilized did not consume and suppress the pending " +
+            "shallow-water step sound.");
         player.AdvanceTerrainWalkAnimation(walking: false);
 
         player.BeginForcedRoomEntryMovement(Vector2I.Right);
-        if (!player.Walking || player.CurrentTerrainEffect is null)
-        {
-            throw new InvalidOperationException(
-                "Walking Link lost the shallow-water terrain effect.");
-        }
+        FailIf(
+            !player.Walking || player.CurrentTerrainEffect is null,
+            "Walking Link lost the shallow-water terrain effect.");
         player.EndForcedRoomEntryMovement();
 
         world.ScreenScrolling = true;
-        if (player.CurrentTerrainEffect is not null)
-        {
-            throw new InvalidOperationException(
-                "wScrollMode `$08 did not suppress Link's grounded terrain effect.");
-        }
+        FailIf(
+            player.CurrentTerrainEffect is not null,
+            "wScrollMode `$08 did not suppress Link's grounded terrain effect.");
         world.ScreenScrolling = false;
         world.SideScrolling = true;
-        if (player.CurrentTerrainEffect is not null)
-        {
-            throw new InvalidOperationException(
-                "TILESETFLAG_SIDESCROLL did not suppress Link's grounded terrain effect.");
-        }
+        FailIf(
+            player.CurrentTerrainEffect is not null,
+            "TILESETFLAG_SIDESCROLL did not suppress Link's grounded terrain effect.");
         world.SideScrolling = false;
         world.RidingObject = true;
-        if (player.CurrentTerrainEffect is null)
-        {
-            throw new InvalidOperationException(
-                "wLinkRidingObject incorrectly suppressed Link's grounded " +
-                "terrain effect without a source visible-bit-6 clear.");
-        }
+        FailIf(
+            player.CurrentTerrainEffect is null,
+            "wLinkRidingObject incorrectly suppressed Link's grounded " +
+            "terrain effect without a source visible-bit-6 clear.");
         world.RidingObject = false;
         world.ActiveTerrain = new ActiveTerrainInfo(
             new TerrainInfo(0x00, 0x00, TerrainType.Normal, HazardType.None),
             Vector2.Zero,
             Vector2.Zero,
             0);
-        if (player.CurrentTerrainEffect is not null)
-        {
-            throw new InvalidOperationException(
-                "Ordinary terrain incorrectly selected a Link grass/puddle effect.");
-        }
+        FailIf(
+            player.CurrentTerrainEffect is not null,
+            "Ordinary terrain incorrectly selected a Link grass/puddle effect.");
 
         player.Free();
         GD.Print(
@@ -280,13 +248,11 @@ public sealed partial class ValidationRoot
         var inventory = new InventoryState(_treasures, save);
         inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SHIELD_00"));
         inventory.EquipA(InventoryState.ItemShield);
-        if (inventory.ShieldLevel != 1 ||
+        FailIf(
+            inventory.ShieldLevel != 1 ||
             inventory.EquippedA != InventoryState.ItemShield ||
-            save.ReadWramByte(0xc6af) != 1)
-        {
-            throw new InvalidOperationException(
-                "TREASURE_SHIELD mode $08 did not persist/equip its level-1 item.");
-        }
+            save.ReadWramByte(0xc6af) != 1,
+            "TREASURE_SHIELD mode $08 did not persist/equip its level-1 item.");
         ValidateShieldDisplay(inventory, level: 1, sprite: 0x93,
             palette: 0x00, textLow: 0x20);
 
@@ -294,12 +260,10 @@ public sealed partial class ValidationRoot
         var player = new Player { Name = "ShieldValidationPlayer" };
         AddChild(player);
         player.Initialize(world, inventory, new Vector2(80, 80), new OracleRandom());
-        if (!player.IsShieldEquipped || player.IsUsingShield ||
-            player.ShieldAtlasPixelHash == 0)
-        {
-            throw new InvalidOperationException(
-                "An equipped Wooden Shield did not select the source Link pose atlas.");
-        }
+        FailIf(
+            !player.IsShieldEquipped || player.IsUsingShield ||
+            player.ShieldAtlasPixelHash == 0,
+            "An equipped Wooden Shield did not select the source Link pose atlas.");
 
         Vector2I[] directions =
             { Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left };
@@ -311,41 +275,33 @@ public sealed partial class ValidationRoot
         {
             player.Face(directions[direction]);
             Rect2 bounds = player.ShieldCollisionBounds;
-            if (bounds.GetCenter() != centers[direction] ||
+            FailIf(
+                bounds.GetCenter() != centers[direction] ||
                 bounds.Size / 2.0f != radii[direction] ||
-                player.ShieldGraphicsIndex != 0x68 + direction)
-            {
-                throw new InvalidOperationException(
-                    $"ITEM_SHIELD direction {direction} lost its source center, radius, or equipped graphics.");
-            }
+                player.ShieldGraphicsIndex != 0x68 + direction,
+                $"ITEM_SHIELD direction {direction} lost its source center, radius, or equipped graphics.");
         }
 
         player.Face(Vector2I.Up);
         player.UpdateShieldForValidation(attackHeld: true, itemHeld: false);
-        if (!player.IsUsingShield || player.ShieldGraphicsIndex != 0x70 ||
-            world.Sounds.Count(sound => sound == OracleSoundEngine.SndShield) != 1)
-        {
-            throw new InvalidOperationException(
-                "Holding the equipped A-button shield did not select wUsingShield level 1 or SND_SHIELD.");
-        }
+        FailIf(
+            !player.IsUsingShield || player.ShieldGraphicsIndex != 0x70 ||
+            world.Sounds.Count(sound => sound == OracleSoundEngine.SndShield) != 1,
+            "Holding the equipped A-button shield did not select wUsingShield level 1 or SND_SHIELD.");
         player.UpdateShieldForValidation(attackHeld: true, itemHeld: false);
-        if (world.Sounds.Count(sound => sound == OracleSoundEngine.SndShield) != 1)
-        {
-            throw new InvalidOperationException(
-                "ITEM_SHIELD replayed SND_SHIELD while its parent item remained held.");
-        }
+        FailIf(
+            world.Sounds.Count(sound => sound == OracleSoundEngine.SndShield) != 1,
+            "ITEM_SHIELD replayed SND_SHIELD while its parent item remained held.");
         player.BeginScrollingTransition(player.Position, Vector2I.Right);
-        if (player.IsUsingShield || player.ShieldGraphicsIndex != 0x69)
-            throw new InvalidOperationException(
-                "wScrollMode $08 did not lower the shield while retaining its parent item.");
+        FailIf(
+            player.IsUsingShield || player.ShieldGraphicsIndex != 0x69,
+            "wScrollMode $08 did not lower the shield while retaining its parent item.");
         player.FinishScrollingTransition(player.Position);
         player.UpdateShieldForValidation(attackHeld: true, itemHeld: false);
-        if (!player.IsUsingShield || player.ShieldGraphicsIndex != 0x71 ||
-            world.Sounds.Count(sound => sound == OracleSoundEngine.SndShield) != 1)
-        {
-            throw new InvalidOperationException(
-                "The retained shield parent did not resume silently after scrolling.");
-        }
+        FailIf(
+            !player.IsUsingShield || player.ShieldGraphicsIndex != 0x71 ||
+            world.Sounds.Count(sound => sound == OracleSoundEngine.SndShield) != 1,
+            "The retained shield parent did not resume silently after scrolling.");
 
         LoadBushValidationRoom();
         player.Face(Vector2I.Up);
@@ -357,70 +313,62 @@ public sealed partial class ValidationRoot
         rock.UpdateFrame(player); // State 0 setup-only update.
         int healthBeforeBlock = player.HealthQuarters;
         rock.UpdateFrame(player);
-        if (rock.State != HostileProjectileState.Bouncing ||
+        FailIf(
+            rock.State != HostileProjectileState.Bouncing ||
             rock.Angle != 0x10 || rock.Counter != 0x20 || rock.ZFixed != 0 ||
             player.HealthQuarters != healthBeforeBlock ||
-            world.Sounds.Count(sound => sound == OracleSoundEngine.SndClink2) != 1)
-        {
-            throw new InvalidOperationException(
-                "A raised shield did not send PART_OCTOROK_PROJECTILE through ENEMYDMG_$34/LINKDMG_$20.");
-        }
+            world.Sounds.Count(sound => sound == OracleSoundEngine.SndClink2) != 1,
+            "A raised shield did not send PART_OCTOROK_PROJECTILE through ENEMYDMG_$34/LINKDMG_$20.");
 
         var arrow = new EnemyArrowProjectile();
         arrow.Initialize(enemies.EnemyArrow, _currentRoom, Vector2.Zero, angle: 0);
         arrow.Position = shieldCenter;
         arrow.UpdateFrame(player); // State 0 setup-only update.
         arrow.UpdateFrame(player);
-        if (arrow.State != HostileProjectileState.Bouncing ||
+        FailIf(
+            arrow.State != HostileProjectileState.Bouncing ||
             arrow.Counter != 0x20 || player.HealthQuarters != healthBeforeBlock ||
-            world.Sounds.Count(sound => sound == OracleSoundEngine.SndClink2) != 2)
-        {
-            throw new InvalidOperationException(
-                "A raised shield did not deflect PART_ENEMY_ARROW with the shared bounce path.");
-        }
+            world.Sounds.Count(sound => sound == OracleSoundEngine.SndClink2) != 2,
+            "A raised shield did not deflect PART_ENEMY_ARROW with the shared bounce path.");
 
         player.UpdateShieldForValidation(attackHeld: false, itemHeld: false);
-        if (player.IsUsingShield || player.ShieldGraphicsIndex != 0x68)
-            throw new InvalidOperationException(
-                "Releasing ITEM_SHIELD did not restore the equipped-but-lowered pose.");
+        FailIf(
+            player.IsUsingShield || player.ShieldGraphicsIndex != 0x68,
+            "Releasing ITEM_SHIELD did not restore the equipped-but-lowered pose.");
 
         var unblockedRock = new OctorokRockProjectile();
         unblockedRock.Initialize(
             enemies.OctorokProjectile, _currentRoom, player.Position, angle: 0);
         unblockedRock.UpdateFrame(player);
         unblockedRock.UpdateFrame(player);
-        if (!unblockedRock.Finished || player.HealthQuarters >= healthBeforeBlock ||
-            world.Sounds.Count(sound => sound == OracleSoundEngine.SndDamageLink) != 1)
-        {
-            throw new InvalidOperationException(
-                "An equipped but lowered shield incorrectly blocked an Octorok projectile.");
-        }
+        FailIf(
+            !unblockedRock.Finished || player.HealthQuarters >= healthBeforeBlock ||
+            world.Sounds.Count(sound => sound == OracleSoundEngine.SndDamageLink) != 1,
+            "An equipped but lowered shield incorrectly blocked an Octorok projectile.");
 
         inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SHIELD_01"));
-        if (inventory.ShieldLevel != 2 || player.ShieldGraphicsIndex != 0x6c)
-            throw new InvalidOperationException(
-                "The Iron Shield upgrade did not select the level-2 equipped pose.");
+        FailIf(
+            inventory.ShieldLevel != 2 || player.ShieldGraphicsIndex != 0x6c,
+            "The Iron Shield upgrade did not select the level-2 equipped pose.");
         ValidateShieldDisplay(inventory, level: 2, sprite: 0x94,
             palette: 0x05, textLow: 0x21);
         player.UpdateShieldForValidation(attackHeld: true, itemHeld: false);
-        if (!player.IsUsingShield || player.ShieldGraphicsIndex != 0x74)
-            throw new InvalidOperationException(
-                "The raised Iron Shield did not select the shared level-2/3 pose.");
+        FailIf(
+            !player.IsUsingShield || player.ShieldGraphicsIndex != 0x74,
+            "The raised Iron Shield did not select the shared level-2/3 pose.");
         player.UpdateShieldForValidation(attackHeld: false, itemHeld: false);
         inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SHIELD_02"));
         ValidateShieldDisplay(inventory, level: 3, sprite: 0x95,
             palette: 0x04, textLow: 0x22);
         inventory.EquipB(InventoryState.ItemShield);
         player.UpdateShieldForValidation(attackHeld: false, itemHeld: true);
-        if (inventory.ShieldLevel != 3 ||
+        FailIf(
+            inventory.ShieldLevel != 3 ||
             inventory.EquippedB != InventoryState.ItemShield ||
             inventory.EquippedA == InventoryState.ItemShield ||
             !player.IsUsingShield || player.ShieldGraphicsIndex != 0x74 ||
-            world.Sounds.Count(sound => sound == OracleSoundEngine.SndShield) != 3)
-        {
-            throw new InvalidOperationException(
-                "The Mirror Shield upgrade/B-button parent did not preserve the level-3 shared pose and activation.");
-        }
+            world.Sounds.Count(sound => sound == OracleSoundEngine.SndShield) != 3,
+            "The Mirror Shield upgrade/B-button parent did not preserve the level-3 shared pose and activation.");
 
         rock.Free();
         arrow.Free();
@@ -444,7 +392,8 @@ public sealed partial class ValidationRoot
         DisplayRecord parameterDisplay =
             _treasures.GetTreasureDisplay(
                 TreasureDatabase.TreasureShield, level, inventory);
-        if (display != parameterDisplay ||
+        FailIf(
+            display != parameterDisplay ||
             display.TreasureId != TreasureDatabase.TreasureShield ||
             display.LeftSprite != sprite || display.LeftPalette != palette ||
             display.RightSprite != 0 || display.RightPalette != 0 ||
@@ -452,11 +401,8 @@ public sealed partial class ValidationRoot
             inventory.LevelForInventoryDisplay(
                 TreasureDatabase.TreasureShield) != level ||
             ItemIconAtlas.EquippedLeftPalette(
-                display.LeftSprite, display.LeftPalette) != palette)
-        {
-            throw new InvalidOperationException(
-                $"Shield level {level} did not select its exact inventory/equipped display row.");
-        }
+                display.LeftSprite, display.LeftPalette) != palette,
+            $"Shield level {level} did not select its exact inventory/equipped display row.");
 
         Image icons1 = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_item_icons_1_spr.png");
@@ -464,15 +410,13 @@ public sealed partial class ValidationRoot
             "res://assets/oracle/gfx/spr_item_icons_2.png");
         Image icons3 = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_item_icons_3.png");
-        if (!ItemIconAtlas.Select(
+        FailIf(
+            !ItemIconAtlas.Select(
                 display.LeftSprite, icons1, icons2, icons3,
                 out Image source, out int cell) ||
             source != icons2 || cell != sprite - 0x90 ||
-            ItemIconAtlas.DecodedCellHash(source, cell) == 0)
-        {
-            throw new InvalidOperationException(
-                $"Shield level {level} did not resolve to its source item-icons-2 cell.");
-        }
+            ItemIconAtlas.DecodedCellHash(source, cell) == 0,
+            $"Shield level {level} did not resolve to its source item-icons-2 cell.");
     }
 
     private void ValidateShovel()
@@ -489,80 +433,68 @@ public sealed partial class ValidationRoot
         int debrisBefore = _entities.Entities<ShovelDebrisEffect>().Count;
 
         _player.StartShovelActionForValidation(Vector2.Up);
-        if (!_player.IsUsingShovel || _player.ShovelFrame != 0 ||
+        FailIf(
+            !_player.IsUsingShovel || _player.ShovelFrame != 0 ||
             _player.ShovelChildActive ||
-            _player.ShovelChildOffset != new Vector2(0, -8))
-        {
-            throw new InvalidOperationException(
-                "ITEM_SHOVEL did not initialize LINK_ANIM_MODE_DIG_2 at its up-facing offset.");
-        }
+            _player.ShovelChildOffset != new Vector2(0, -8),
+            "ITEM_SHOVEL did not initialize LINK_ANIM_MODE_DIG_2 at its up-facing offset.");
 
         _player.AdvanceShovelForValidation(3);
-        if (_player.ShovelFrame != 3 || _currentRoom.GetMetatile(tileCenter) != 0x01 ||
+        FailIf(
+            _player.ShovelFrame != 3 || _currentRoom.GetMetatile(tileCenter) != 0x01 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDig) != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 0)
-        {
-            throw new InvalidOperationException(
-                "ITEM_SHOVEL attempted its tile collision before animation update 4.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 0,
+            "ITEM_SHOVEL attempted its tile collision before animation update 4.");
 
         _player.AdvanceShovelForValidation(1);
         List<ShovelDebrisEffect> debris = _entities.Entities<ShovelDebrisEffect>();
-        if (_player.ShovelFrame != 4 || !_player.ShovelChildActive ||
+        FailIf(
+            _player.ShovelFrame != 4 || !_player.ShovelChildActive ||
             _currentRoom.GetMetatile(tileCenter) != 0x1c ||
             _saveData.GashaMaturity != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDig) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 0 ||
-            debris.Count != debrisBefore + 1)
-        {
-            throw new InvalidOperationException(
-                "The update-4 shovel child did not replace dirt, mature gasha state, " +
-                "play SND_DIG, and spawn INTERAC_SHOVELDEBRIS exactly once.");
-        }
+            debris.Count != debrisBefore + 1,
+            "The update-4 shovel child did not replace dirt, mature gasha state, " +
+            "play SND_DIG, and spawn INTERAC_SHOVELDEBRIS exactly once.");
 
         ShovelDebrisEffect chip = debris[^1];
         Vector2 debrisStart = chip.PrecisePosition;
         chip.UpdateFrame();
-        if (chip.ElapsedFrames != 1 || chip.PrecisePosition != debrisStart + Vector2.Up * 0.5f ||
-            chip.SpeedZ != -0x1e0 || chip.ZFixed != -0x240)
-        {
-            throw new InvalidOperationException(
-                "INTERAC_SHOVELDEBRIS did not apply SPEED_80 and its original 8.8 Z integration.");
-        }
+        FailIf(
+            chip.ElapsedFrames != 1 || chip.PrecisePosition != debrisStart + Vector2.Up * 0.5f ||
+            chip.SpeedZ != -0x1e0 || chip.ZFixed != -0x240,
+            "INTERAC_SHOVELDEBRIS did not apply SPEED_80 and its original 8.8 Z integration.");
         for (int frame = 1; frame < 14; frame++)
             chip.UpdateFrame();
-        if (!chip.Finished || chip.ElapsedFrames != 14)
-            throw new InvalidOperationException(
-                "INTERAC_SHOVELDEBRIS did not end with its 14-update animation.");
+        FailIf(
+            !chip.Finished || chip.ElapsedFrames != 14,
+            "INTERAC_SHOVELDEBRIS did not end with its 14-update animation.");
 
         _player.AdvanceShovelForValidation(3);
-        if (_player.ShovelFrame != 7 || !_player.ShovelChildActive)
-            throw new InvalidOperationException(
-                "ITEM_SHOVEL's four-update collision child ended before update 8.");
+        FailIf(
+            _player.ShovelFrame != 7 || !_player.ShovelChildActive,
+            "ITEM_SHOVEL's four-update collision child ended before update 8.");
         _player.AdvanceShovelForValidation(1);
-        if (_player.ShovelFrame != 8 || _player.ShovelChildActive)
-            throw new InvalidOperationException(
-                "ITEM_SHOVEL did not enter graphics $fc and remove its collision child on update 8.");
+        FailIf(
+            _player.ShovelFrame != 8 || _player.ShovelChildActive,
+            "ITEM_SHOVEL did not enter graphics $fc and remove its collision child on update 8.");
         _player.AdvanceShovelForValidation(14);
-        if (!_player.IsUsingShovel || _player.ShovelFrame != 22)
-            throw new InvalidOperationException(
-                "LINK_ANIM_MODE_DIG_2 ended before update 23.");
+        FailIf(
+            !_player.IsUsingShovel || _player.ShovelFrame != 22,
+            "LINK_ANIM_MODE_DIG_2 ended before update 23.");
         _player.AdvanceShovelForValidation(1);
-        if (_player.IsUsingShovel)
-            throw new InvalidOperationException(
-                "LINK_ANIM_MODE_DIG_2 did not end on update 23.");
+        FailIf(_player.IsUsingShovel, "LINK_ANIM_MODE_DIG_2 did not end on update 23.");
 
         _sound.ClearPlayRequestAudit();
         _player.StartShovelAction();
         _player.AdvanceShovelForValidation(4);
-        if (_currentRoom.GetMetatile(tileCenter) != 0x1c ||
+        FailIf(
+            _currentRoom.GetMetatile(tileCenter) != 0x1c ||
             _saveData.GashaMaturity != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDig) != 0)
-        {
-            throw new InvalidOperationException(
-                "Shoveling a non-breakable tile did not preserve state and play SND_CLINK once.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDig) != 0,
+            "Shoveling a non-breakable tile did not preserve state and play SND_CLINK once.");
         _player.WarpTo(_player.Position);
 
         // Tile $cb sets effect bits 7/6. Its break tables add 50 maturity and
@@ -575,16 +507,14 @@ public sealed partial class ValidationRoot
         _sound.ClearPlayRequestAudit();
         _player.StartShovelAction();
         _player.AdvanceShovelForValidation(4);
-        if (_currentRoom.GetMetatile(tileCenter) != 0xd2 ||
+        FailIf(
+            _currentRoom.GetMetatile(tileCenter) != 0xd2 ||
             _saveData.GashaMaturity != 51 ||
             !_saveData.HasRoomFlag(_activeGroup, _currentRoom.Id, OracleSaveData.RoomFlag80) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDig) != 1)
-        {
-            throw new InvalidOperationException(
-                "Shovel tile $cb did not apply its room flag, +50/+1 maturity, " +
-                "SND_SOLVEPUZZLE, and SND_DIG table effects.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDig) != 1,
+            "Shovel tile $cb did not apply its room flag, +50/+1 maturity, " +
+            "SND_SOLVEPUZZLE, and SND_DIG table effects.");
         _player.WarpTo(_player.Position);
 
         Vector2[] expectedOffsets =
@@ -598,9 +528,9 @@ public sealed partial class ValidationRoot
         for (int index = 0; index < directions.Length; index++)
         {
             _player.Face(directions[index]);
-            if (_player.ShovelChildOffset != expectedOffsets[index])
-                throw new InvalidOperationException(
-                    $"ITEM_SHOVEL direction {index} lost its signed Y/X child offset.");
+            FailIf(
+                _player.ShovelChildOffset != expectedOffsets[index],
+                $"ITEM_SHOVEL direction {index} lost its signed Y/X child offset.");
         }
 
         GD.Print("Validated ITEM_SHOVEL timing, invisible child offsets, tile effects, " +
@@ -611,7 +541,8 @@ public sealed partial class ValidationRoot
     {
         var database = new SeedSatchelDatabase();
         SeedRecord record = database.Ember;
-        if (record.ParentItem != 0x19 || record.SeedItem != 0x20 ||
+        FailIf(
+            record.ParentItem != 0x19 || record.SeedItem != 0x20 ||
             record.TreasureId != 0x20 || record.Sprite != "spr_common_items" ||
             record.TileBase != 0x12 || record.Palette != 2 ||
             record.Collision != 0x9b || record.CollisionRadiusY != 4 ||
@@ -621,11 +552,8 @@ public sealed partial class ValidationRoot
             record.LinkFrames != 8 || record.FlameSprite != "spr_common_sprites" ||
             record.FlameTileBase != 0x06 || record.FlameOamFlags != 0x0a ||
             record.FlamePalette != 2 || record.FlameCounter != 0x3a ||
-            record.LandingSound != 0x52 || record.FlameSound != 0x72)
-        {
-            throw new InvalidOperationException(
-                "The imported ITEM_SEED_SATCHEL/ITEM_EMBER_SEED record diverged from its source tables.");
-        }
+            record.LandingSound != 0x52 || record.FlameSound != 0x72,
+            "The imported ITEM_SEED_SATCHEL/ITEM_EMBER_SEED record diverged from its source tables.");
 
         Vector2I[] directions =
             { Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left };
@@ -633,9 +561,9 @@ public sealed partial class ValidationRoot
             { new(0, -4), new(4, 1), new(0, 5), new(-5, 1) };
         for (int index = 0; index < directions.Length; index++)
         {
-            if (record.Offset(directions[index]) != offsets[index])
-                throw new InvalidOperationException(
-                    $"Satchel direction {index} lost its signed Y/X child offset.");
+            FailIf(
+                record.Offset(directions[index]) != offsets[index],
+                $"Satchel direction {index} lost its signed Y/X child offset.");
         }
 
         OracleSaveData save = OracleSaveData.CreateStandardGame();
@@ -646,12 +574,10 @@ public sealed partial class ValidationRoot
         save.Changed += () => grantSaveChanges++;
         inventory.GiveTreasure(new TreasureObjectRecord(
             "VALIDATION_SATCHEL", 0x19, 0, 1, 0xff, 0, string.Empty));
-        if (inventory.EmberSeeds != 0x20 || grantInventoryChanges != 1 ||
-            grantSaveChanges != 1)
-        {
-            throw new InvalidOperationException(
-                "The Seed Satchel did not expose its initial BCD 20 Ember Seeds in the grant transaction.");
-        }
+        FailIf(
+            inventory.EmberSeeds != 0x20 || grantInventoryChanges != 1 ||
+            grantSaveChanges != 1,
+            "The Seed Satchel did not expose its initial BCD 20 Ember Seeds in the grant transaction.");
         AnimationDefinition emberAnimation =
             OracleGraphicsCache.GetAnimationDefinition(record.Animation);
         string[] expectedOam =
@@ -662,30 +588,26 @@ public sealed partial class ValidationRoot
             "8,0,4,7;8,8,4,39",
             "8,0,4,0;8,8,4,32"
         };
-        if (emberAnimation.LoopStart != 2 || emberAnimation.Frames.Length != 5 ||
+        FailIf(
+            emberAnimation.LoopStart != 2 || emberAnimation.Frames.Length != 5 ||
             !emberAnimation.Frames.Select(frame => frame.EncodedOam)
-                .SequenceEqual(expectedOam))
-        {
-            throw new InvalidOperationException(
-                "itemAnimation1e818 did not resolve its item20OamDataPointers compositions.");
-        }
+                .SequenceEqual(expectedOam),
+            "itemAnimation1e818 did not resolve its item20OamDataPointers compositions.");
         int inventoryChanges = 0;
         int saveChanges = 0;
         inventory.Changed += () => inventoryChanges++;
         save.Changed += () => saveChanges++;
-        if (!inventory.TryConsumeSelectedSatchelSeed(out int seedItem) ||
+        FailIf(
+            !inventory.TryConsumeSelectedSatchelSeed(out int seedItem) ||
             seedItem != 0x20 || inventory.EmberSeeds != 0x19 ||
             save.ReadWramByte(0xc6b9) != 0x19 ||
-            inventoryChanges != 1 || saveChanges != 1)
-        {
-            throw new InvalidOperationException(
-                "decNumActiveSeeds did not decrement/persist the selected Satchel count as packed BCD once.");
-        }
+            inventoryChanges != 1 || saveChanges != 1,
+            "decNumActiveSeeds did not decrement/persist the selected Satchel count as packed BCD once.");
         for (int count = 0; count < 19; count++)
             inventory.TryConsumeSelectedSatchelSeed(out _);
-        if (inventory.EmberSeeds != 0 || inventory.TryConsumeSelectedSatchelSeed(out _))
-            throw new InvalidOperationException(
-                "The Satchel consumed a seed at zero or failed to reach BCD $00 from $20.");
+        FailIf(
+            inventory.EmberSeeds != 0 || inventory.TryConsumeSelectedSatchelSeed(out _),
+            "The Satchel consumed a seed at zero or failed to reach BCD $00 from $20.");
 
         LoadBushValidationRoom();
         Vector2 linkPosition = new(80, 80);
@@ -712,58 +634,46 @@ public sealed partial class ValidationRoot
         ulong expectedFlameHash = OracleGraphicsCache.PixelHash(
             expectedFlameTexture.GetImage());
         expectedFlameTexture.Dispose();
-        if (ember.FlameTextureHashForValidation(2) != expectedFlameHash)
-        {
-            throw new InvalidOperationException(
-                "ITEM_EMBER_SEED ignition did not switch OAM flag `$0a to " +
-                "GFXH_COMMON_SPRITES bank-1 flame tiles `$06/`$08/`$0a.");
-        }
+        FailIf(
+            ember.FlameTextureHashForValidation(2) != expectedFlameHash,
+            "ITEM_EMBER_SEED ignition did not switch OAM flag `$0a to " +
+            "GFXH_COMMON_SPRITES bank-1 flame tiles `$06/`$08/`$0a.");
         ember.UpdateFrame(emberSpawns);
-        if (ember.State != EmberState.Flying ||
+        FailIf(
+            ember.State != EmberState.Flying ||
             ember.ElapsedFrames != 1 || ember.ZFixed != -0x200 ||
-            ember.PrecisePosition != linkPosition + (Vector2)record.UpOffset)
-        {
-            throw new InvalidOperationException(
-                "ITEM_EMBER_SEED state 0 did not preserve the setup-only update and initial Z/offset.");
-        }
+            ember.PrecisePosition != linkPosition + (Vector2)record.UpOffset,
+            "ITEM_EMBER_SEED state 0 did not preserve the setup-only update and initial Z/offset.");
         for (int frame = 0; frame < 7; frame++)
             ember.UpdateFrame(emberSpawns);
-        if (ember.State != EmberState.Flying ||
-            ember.ZFixed != -0x94 || ember.SpeedZ != 0xa4)
-        {
-            throw new InvalidOperationException(
-                "ITEM_EMBER_SEED did not retain its SPEED_c0/$1c 8.8 flight arc before landing.");
-        }
+        FailIf(
+            ember.State != EmberState.Flying ||
+            ember.ZFixed != -0x94 || ember.SpeedZ != 0xa4,
+            "ITEM_EMBER_SEED did not retain its SPEED_c0/$1c 8.8 flight arc before landing.");
         ember.UpdateFrame(emberSpawns);
-        if (ember.State != EmberState.Burning ||
+        FailIf(
+            ember.State != EmberState.Burning ||
             ember.ElapsedFrames != 9 || ember.ZFixed != 0 ||
             ember.PrecisePosition != flamePoint || ember.FlameCounter != 0x3a ||
             ember.AnimationFrame != 1 ||
-            !sounds.SequenceEqual(new[] { 0x52, 0x72 }) || hazards.Count != 0)
-        {
-            throw new InvalidOperationException(
-                "The Satchel Ember Seed did not land on update 9 and initialize its flame/sounds exactly.");
-        }
+            !sounds.SequenceEqual(new[] { 0x52, 0x72 }) || hazards.Count != 0,
+            "The Satchel Ember Seed did not land on update 9 and initialize its flame/sounds exactly.");
         ember.UpdateFrame(emberSpawns);
-        if (ember.FlameCounter != 0x39 || ember.AnimationFrame != 1)
-            throw new InvalidOperationException(
-                "emberSeedBurn did not decrement before advancing itemAnimation1e818.");
+        FailIf(
+            ember.FlameCounter != 0x39 || ember.AnimationFrame != 1,
+            "emberSeedBurn did not decrement before advancing itemAnimation1e818.");
         for (int frame = 1; frame < 58; frame++)
             ember.UpdateFrame(emberSpawns);
-        if (!ember.Finished || ember.ElapsedFrames != 67 ||
-            _currentRoom.GetMetatile(flamePoint) != 0x3a || tileChanges != 1)
-        {
-            throw new InvalidOperationException(
-                "The Ember flame did not apply BREAKABLETILESOURCE_EMBER_SEED on counter $3a expiry.");
-        }
+        FailIf(
+            !ember.Finished || ember.ElapsedFrames != 67 ||
+            _currentRoom.GetMetatile(flamePoint) != 0x3a || tileChanges != 1,
+            "The Ember flame did not apply BREAKABLETILESOURCE_EMBER_SEED on counter $3a expiry.");
         ember.Free();
 
         var standardSubstitutions = new StandardTileSubstitutionDatabase();
-        if (standardSubstitutions.RecordCount != 50)
-        {
-            throw new InvalidOperationException(
-                "The imported standard tile-substitution table did not retain all 50 Ages rows.");
-        }
+        FailIf(
+            standardSubstitutions.RecordCount != 50,
+            "The imported standard tile-substitution table did not retain all 50 Ages rows.");
 
         OracleSaveData watchedTreeSave = OracleSaveData.CreateStandardGame();
         var watchedTreeRooms = new RoomSession(
@@ -773,14 +683,12 @@ public sealed partial class ValidationRoot
         var watcherDatabase = new RoomTileChangeWatcherDatabase();
         RoomTileChangeWatcherDatabaseRecord[] watcherRecords = watcherDatabase
             .GetRoomRecords(0, 0x48).ToArray();
-        if (watcherDatabase.RecordCount != 8 || watcherRecords is not
+        FailIf(
+            watcherDatabase.RecordCount != 8 || watcherRecords is not
             [{ Position: 0x68, RoomFlag: 0x02, Order: 1 }] ||
             watchedTreeRoom.GetPackedPosition(watchedTreePoint) != 0x68 ||
-            watchedTreeRoom.GetMetatile(watchedTreePoint) != 0xce)
-        {
-            throw new InvalidOperationException(
-                "Room 0:48 did not retain its imported $dc:$08 watcher and burnable tree $68/$ce.");
-        }
+            watchedTreeRoom.GetMetatile(watchedTreePoint) != 0xce,
+            "Room 0:48 did not retain its imported $dc:$08 watcher and burnable tree $68/$ce.");
 
         var watcherRoot = new Node();
         AddChild(watcherRoot);
@@ -788,17 +696,15 @@ public sealed partial class ValidationRoot
             watcherRoot, new() { SaveData = watchedTreeSave });
         RoomEntityManager watcherManager = watcherManagerFixture.Manager;
         watcherManager.LoadRoom(0, watchedTreeRoom);
-        if (!watcherManager.Entities<Node2D>().Any(
-                node => node.Name == "TileChangeWatcher_1"))
-        {
-            throw new InvalidOperationException(
-                "RoomEntityFactory did not instantiate room 0:48's imported $dc:$08 watcher.");
-        }
+        FailIf(
+            !watcherManager.Entities<Node2D>().Any(
+            node => node.Name == "TileChangeWatcher_1"),
+            "RoomEntityFactory did not instantiate room 0:48's imported $dc:$08 watcher.");
         var watchedTreeSpawns = new List<RoomEntitySpawn>();
         watcherManager.Update(1.0 / 60.0, _player);
-        if (watchedTreeSave.HasRoomFlag(0, 0x48, 0x02))
-            throw new InvalidOperationException(
-                "Room 0:48's $dc:$08 watcher set flag $02 during its snapshot state.");
+        FailIf(
+            watchedTreeSave.HasRoomFlag(0, 0x48, 0x02),
+            "Room 0:48's $dc:$08 watcher set flag $02 during its snapshot state.");
 
         var watchedTreeSeed = new EmberSeedEffect();
         watchedTreeSeed.Initialize(
@@ -808,37 +714,31 @@ public sealed partial class ValidationRoot
             _ => null, watchedTreeSave, 0);
         for (int frame = 0; frame < 67; frame++)
             watchedTreeSeed.UpdateFrame(watchedTreeSpawns);
-        if (!watchedTreeSeed.Finished ||
+        FailIf(
+            !watchedTreeSeed.Finished ||
             watchedTreeRoom.GetMetatile(watchedTreePoint) != 0x3a ||
-            watchedTreeSave.HasRoomFlag(0, 0x48, 0x02))
-        {
-            throw new InvalidOperationException(
-                "Room 0:48's tree did not burn to $3a before its watcher update.");
-        }
+            watchedTreeSave.HasRoomFlag(0, 0x48, 0x02),
+            "Room 0:48's tree did not burn to $3a before its watcher update.");
         watcherManager.Update(1.0 / 60.0, _player);
-        if (!watchedTreeSave.HasRoomFlag(0, 0x48, 0x02) ||
+        FailIf(
+            !watchedTreeSave.HasRoomFlag(0, 0x48, 0x02) ||
             watcherManager.Entities<Node2D>().Any(
-                node => node.Name == "TileChangeWatcher_1"))
-        {
-            throw new InvalidOperationException(
-                "Room 0:48's $dc:$08 watcher did not set room flag $02 after tile $68 changed.");
-        }
+                node => node.Name == "TileChangeWatcher_1"),
+            "Room 0:48's $dc:$08 watcher did not set room flag $02 after tile $68 changed.");
         watchedTreeSeed.Free();
         watcherManager.Clear();
         RemoveChild(watcherRoot);
         watcherRoot.Free();
         watchedTreeRooms.Load(0, 0x47);
-        if (watchedTreeRooms.Load(0, 0x48).GetMetatile(watchedTreePoint) != 0x3a)
-            throw new InvalidOperationException(
-                "Room 0:48's single-tile change did not preserve burnt tree $68/$3a on re-entry.");
-        if (!OracleSaveData.TryDeserialize(
+        FailIf(
+            watchedTreeRooms.Load(0, 0x48).GetMetatile(watchedTreePoint) != 0x3a,
+            "Room 0:48's single-tile change did not preserve burnt tree $68/$3a on re-entry.");
+        FailIf(
+            !OracleSaveData.TryDeserialize(
                 watchedTreeSave.Serialize(), out OracleSaveData? reloadedTreeSave) ||
             new RoomSession(0, 0x48, () => 0, () => { }, reloadedTreeSave!)
-                .CurrentRoom.GetMetatile(watchedTreePoint) != 0x3a)
-        {
-            throw new InvalidOperationException(
-                "Room 0:48's burnt tree did not remain removed after save serialization and reload.");
-        }
+                .CurrentRoom.GetMetatile(watchedTreePoint) != 0x3a,
+            "Room 0:48's burnt tree did not remain removed after save serialization and reload.");
 
         OracleSaveData persistentSave = OracleSaveData.CreateStandardGame();
         var persistentRooms = new RoomSession(
@@ -868,8 +768,7 @@ public sealed partial class ValidationRoot
                 break;
             }
         }
-        if (burnRoomId < 0)
-            throw new InvalidOperationException("Could not find an overworld burnable tree tile $cf.");
+        FailIf(burnRoomId < 0, "Could not find an overworld burnable tree tile $cf.");
 
         OracleRoomData burnRoom = persistentRooms.Load(burnGroup, burnRoomId);
         int maturityBeforeBurn = persistentSave.GashaMaturity;
@@ -883,40 +782,32 @@ public sealed partial class ValidationRoot
             _ => null, persistentSave, burnGroup);
         for (int frame = 0; frame < 67; frame++)
             burningTreeSeed.UpdateFrame(burnSpawns);
-        if (!burningTreeSeed.Finished || burnRoom.GetMetatile(burnPoint) != 0xdc ||
+        FailIf(
+            !burningTreeSeed.Finished || burnRoom.GetMetatile(burnPoint) != 0xdc ||
             !persistentSave.HasRoomFlag(burnGroup, burnRoomId, OracleSaveData.RoomFlag80) ||
             persistentSave.GashaMaturity != maturityBeforeBurn + 30 ||
-            burnSounds.Count(sound => sound == OracleSoundEngine.SndSolvePuzzle) != 1)
-        {
-            throw new InvalidOperationException(
-                "Burning overworld tree $cf did not set room flag $80, add 30 maturity, " +
-                "play SND_SOLVEPUZZLE, and become $dc.");
-        }
+            burnSounds.Count(sound => sound == OracleSoundEngine.SndSolvePuzzle) != 1,
+            "Burning overworld tree $cf did not set room flag $80, add 30 maturity, " +
+            "play SND_SOLVEPUZZLE, and become $dc.");
         burningTreeSeed.Free();
 
         int otherRoomId = Enumerable.Range(0, 0x100).First(roomId =>
             roomId != burnRoomId && persistentRooms.World.HasRoom(burnGroup, roomId));
         persistentRooms.Load(burnGroup, otherRoomId);
         OracleRoomData sameSessionReload = persistentRooms.Load(burnGroup, burnRoomId);
-        if (sameSessionReload.GetMetatile(burnPoint) != 0xdc)
-        {
-            throw new InvalidOperationException(
-                "ROOMFLAG $80 did not retain standard substitution $cf->$dc after live re-entry.");
-        }
+        FailIf(
+            sameSessionReload.GetMetatile(burnPoint) != 0xdc,
+            "ROOMFLAG $80 did not retain standard substitution $cf->$dc after live re-entry.");
 
-        if (!OracleSaveData.TryDeserialize(
-                persistentSave.Serialize(), out OracleSaveData? restoredPersistentSave))
-        {
-            throw new InvalidOperationException(
-                "The burnable-tree room flag did not survive save-image serialization.");
-        }
+        FailIf(
+            !OracleSaveData.TryDeserialize(
+            persistentSave.Serialize(), out OracleSaveData? restoredPersistentSave),
+            "The burnable-tree room flag did not survive save-image serialization.");
         var reloadedRooms = new RoomSession(
             burnGroup, burnRoomId, () => 0, () => { }, restoredPersistentSave!);
-        if (reloadedRooms.CurrentRoom.GetMetatile(burnPoint) != 0xdc)
-        {
-            throw new InvalidOperationException(
-                "ROOMFLAG $80 did not reapply standard substitution $cf->$dc after saved re-entry.");
-        }
+        FailIf(
+            reloadedRooms.CurrentRoom.GetMetatile(burnPoint) != 0xdc,
+            "ROOMFLAG $80 did not reapply standard substitution $cf->$dc after saved re-entry.");
 
         if (_inventory.EmberSeeds == 0)
         {
@@ -930,14 +821,12 @@ public sealed partial class ValidationRoot
         _player.StartSeedSatchelActionForValidation(Vector2.Right);
         int expectedAmount = ((beforeAmount >> 4) * 10 + (beforeAmount & 0x0f)) - 1;
         expectedAmount = ((expectedAmount / 10) << 4) | expectedAmount % 10;
-        if (!_player.IsUsingSeedSatchel || _player.SeedSatchelFrame != 0 ||
+        FailIf(
+            !_player.IsUsingSeedSatchel || _player.SeedSatchelFrame != 0 ||
             _player.FacingVector != Vector2I.Right ||
             _inventory.EmberSeeds != expectedAmount ||
-            _entities.Entities<EmberSeedEffect>().Count != beforeEntities + 1)
-        {
-            throw new InvalidOperationException(
-                "ITEM_SEED_SATCHEL did not allocate its child, decrement BCD ammo, and lock Link.");
-        }
+            _entities.Entities<EmberSeedEffect>().Count != beforeEntities + 1,
+            "ITEM_SEED_SATCHEL did not allocate its child, decrement BCD ammo, and lock Link.");
 
         var hudQuantity = _hud.QuantityOverlayForValidation(
             InventoryState.ItemSeedSatchel, isA: false);
@@ -945,34 +834,28 @@ public sealed partial class ValidationRoot
             InventoryState.ItemSeedSatchel);
         int expectedTens = 0x10 + ((expectedAmount >> 4) & 0x0f);
         int expectedOnes = 0x10 + (expectedAmount & 0x0f);
-        if (hudQuantity is not { } hud || hud.TensTile != expectedTens ||
+        FailIf(
+            hudQuantity is not { } hud || hud.TensTile != expectedTens ||
             hud.OnesTile != expectedOnes || hud.Position != new Vector2(16, 8) ||
             inventoryQuantity is not { } menu || menu.TensTile != expectedTens ||
-            menu.OnesTile != expectedOnes || menu.Attributes != 0x07)
-        {
-            throw new InvalidOperationException(
-                "drawTreasureExtraTiles mode $01 did not expose both selected-seed BCD digits.");
-        }
+            menu.OnesTile != expectedOnes || menu.Attributes != 0x07,
+            "drawTreasureExtraTiles mode $01 did not expose both selected-seed BCD digits.");
 
         _player.AdvanceSeedSatchelForValidation(7);
-        if (!_player.IsUsingSeedSatchel || _player.SeedSatchelFrame != 7)
-            throw new InvalidOperationException(
-                "LINK_ANIM_MODE_21 ended before its eighth update.");
+        FailIf(
+            !_player.IsUsingSeedSatchel || _player.SeedSatchelFrame != 7,
+            "LINK_ANIM_MODE_21 ended before its eighth update.");
         _player.AdvanceSeedSatchelForValidation(1);
-        if (_player.IsUsingSeedSatchel)
-            throw new InvalidOperationException(
-                "LINK_ANIM_MODE_21 did not end on update 8.");
+        FailIf(_player.IsUsingSeedSatchel, "LINK_ANIM_MODE_21 did not end on update 8.");
 
         int activeSeedAmount = _inventory.EmberSeeds;
         int activeSeedCount = _entities.Entities<EmberSeedEffect>().Count;
         _player.StartSeedSatchelActionForValidation(Vector2.Left);
-        if (_player.IsUsingSeedSatchel ||
+        FailIf(
+            _player.IsUsingSeedSatchel ||
             _inventory.EmberSeeds != activeSeedAmount ||
-            _entities.Entities<EmberSeedEffect>().Count != activeSeedCount)
-        {
-            throw new InvalidOperationException(
-                "ITEM_SEED_SATCHEL allocated or consumed ammo while its first seed was still active.");
-        }
+            _entities.Entities<EmberSeedEffect>().Count != activeSeedCount,
+            "ITEM_SEED_SATCHEL allocated or consumed ammo while its first seed was still active.");
 
         GD.Print("Validated ITEM_SEED_SATCHEL immediate BCD-20 grant/persistence, quantity overlays, " +
             "distinct inventory/equipped icon sheets and equipped palette transform, " +
@@ -1006,8 +889,7 @@ public sealed partial class ValidationRoot
 
         LoadBushValidationRoom();
         Vector2 bushPoint = new(24, 56);
-        if (_currentRoom.GetMetatile(bushPoint) != 0xc5)
-            throw new InvalidOperationException("Expected overworld bush $c5 in room 69 at $31.");
+        FailIf(_currentRoom.GetMetatile(bushPoint) != 0xc5, "Expected overworld bush $c5 in room 69 at $31.");
         Vector2 objectPosition = _player.Position;
         _sound.ClearPlayRequestAudit();
         int randomCalls = _random.Calls;
@@ -1016,49 +898,43 @@ public sealed partial class ValidationRoot
         int slashRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSlash) +
             _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5) +
             _sound.PlayRequestsFor(OracleSoundEngine.SndBoomerang);
-        if (slashRequests != 1 || _player.SwordState != SwordActionState.Swing ||
+        FailIf(
+            slashRequests != 1 || _player.SwordState != SwordActionState.Swing ||
             _player.SwordStateFrame != 0 || _player.SwordArcIndex != 0 ||
             _player.SwordKnockbackStrength != EnemyKnockbackStrength.Low ||
             _random.Calls != randomCalls + 1 || _random.LastResult != expectedRandom ||
-            _sound.PlayRequestsFor(SoundFor(expectedRandom)) != 1)
-        {
-            throw new InvalidOperationException(
-                "Starting ITEM_SWORD did not select one entry from the original 8-sound table " +
-                "from shared RNG and initialize LINK_ANIM_MODE_22 at sword arc $00.");
-        }
+            _sound.PlayRequestsFor(SoundFor(expectedRandom)) != 1,
+            "Starting ITEM_SWORD did not select one entry from the original 8-sound table " +
+            "from shared RNG and initialize LINK_ANIM_MODE_22 at sword arc $00.");
         _player.AdvanceSwordForValidation(2, buttonHeld: false);
         _sound.ClearPlayRequestAudit();
         randomCalls = _random.Calls;
         _player.StartSwordAttack();
-        if (_player.SwordCanRestart || _player.SwordStateFrame != 2 ||
+        FailIf(
+            _player.SwordCanRestart || _player.SwordStateFrame != 2 ||
             _random.Calls != randomCalls ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSlash) +
             _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5) +
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBoomerang) != 0)
-        {
-            throw new InvalidOperationException(
-                "The protected first three sword updates accepted an equal-priority restart.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBoomerang) != 0,
+            "The protected first three sword updates accepted an equal-priority restart.");
         _player.AdvanceSwordForValidation(1, buttonHeld: false);
-        if (!_player.SwordCanRestart)
-            throw new InvalidOperationException(
-                "The sword did not become restartable when animation parameter `$02 cleared enabled bit 7.");
+        FailIf(
+            !_player.SwordCanRestart,
+            "The sword did not become restartable when animation parameter `$02 cleared enabled bit 7.");
         randomCalls = _random.Calls;
         expectedRandom = ExpectedNextRandom();
         _player.StartSwordAttackForValidation(Vector2.Right);
         slashRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSlash) +
             _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5) +
             _sound.PlayRequestsFor(OracleSoundEngine.SndBoomerang);
-        if (slashRequests != 1 || _player.SwordStateFrame != 0 ||
+        FailIf(
+            slashRequests != 1 || _player.SwordStateFrame != 0 ||
             _player.SwordArcIndex != 1 || _player.FacingVector != Vector2I.Right ||
             _player.SwordCanRestart || _random.Calls != randomCalls + 1 ||
             _random.LastResult != expectedRandom ||
-            _sound.PlayRequestsFor(SoundFor(expectedRandom)) != 1)
-        {
-            throw new InvalidOperationException(
-                "An equal-priority sword press did not consume shared RNG, restart, and " +
-                "retarget the single swing after update 3.");
-        }
+            _sound.PlayRequestsFor(SoundFor(expectedRandom)) != 1,
+            "An equal-priority sword press did not consume shared RNG, restart, and " +
+            "retarget the single swing after update 3.");
         _player.AdvanceSwordForValidation(3, buttonHeld: false);
         _sound.ClearPlayRequestAudit();
         randomCalls = _random.Calls;
@@ -1067,55 +943,47 @@ public sealed partial class ValidationRoot
         slashRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSlash) +
             _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5) +
             _sound.PlayRequestsFor(OracleSoundEngine.SndBoomerang);
-        if (slashRequests != 1 || _player.SwordStateFrame != 0 ||
+        FailIf(
+            slashRequests != 1 || _player.SwordStateFrame != 0 ||
             _player.SwordArcIndex != 0 || _player.FacingVector != Vector2I.Up ||
             _player.SwordCanRestart || _random.Calls != randomCalls + 1 ||
             _random.LastResult != expectedRandom ||
-            _sound.PlayRequestsFor(SoundFor(expectedRandom)) != 1)
-        {
-            throw new InvalidOperationException(
-                "Spammed sword input did not consume shared RNG and retarget a subsequent swing upward.");
-        }
-        if (_player.AttackSpriteOrigin != new Vector2(-8, -8))
-            throw new InvalidOperationException(
-                $"Sword frame $ac displaced Link from the standard OAM origin: {_player.AttackSpriteOrigin}.");
-        if (_player.SwordSpritePosition != new Vector2(16, -4))
-            throw new InvalidOperationException(
-                $"Sword arc phase $00 did not include the child item's -2 Z draw offset: {_player.SwordSpritePosition}.");
+            _sound.PlayRequestsFor(SoundFor(expectedRandom)) != 1,
+            "Spammed sword input did not consume shared RNG and retarget a subsequent swing upward.");
+        FailIf(
+            _player.AttackSpriteOrigin != new Vector2(-8, -8),
+            $"Sword frame $ac displaced Link from the standard OAM origin: {_player.AttackSpriteOrigin}.");
+        FailIf(
+            _player.SwordSpritePosition != new Vector2(16, -4),
+            $"Sword arc phase $00 did not include the child item's -2 Z draw offset: {_player.SwordSpritePosition}.");
         _player._Process(7.0 / 60.0);
-        if (_player.Position != objectPosition)
-            throw new InvalidOperationException("Swinging the sword changed Link's object position.");
-        if (_player.AttackSpriteOrigin != new Vector2(-8, -11))
-            throw new InvalidOperationException(
-                $"Sword frame $b4 did not apply only its original OAM $08 pose offset: {_player.AttackSpriteOrigin}.");
-        if (_player.SwordSpritePosition != new Vector2(-4, -19))
-            throw new InvalidOperationException(
-                $"Sword arc phase $08 did not include the child item's -2 Z draw offset: {_player.SwordSpritePosition}.");
-        if (_currentRoom.GetMetatile(bushPoint) != 0x3a)
-            throw new InvalidOperationException("The level-1 sword did not replace bush $c5 with ground $3a.");
-        if (_currentRoom.IsSolid(bushPoint))
-            throw new InvalidOperationException("The cut bush's replacement tile remained solid.");
-        if (_entities.Entities<GrassDebrisEffect>() is not
-            [{ Position: var debrisPosition }])
-        {
-            throw new InvalidOperationException(
-                "Cutting overworld bush $c5 did not create one " +
-                "INTERAC_GRASSDEBRIS $00.");
-        }
+        FailIf(_player.Position != objectPosition, "Swinging the sword changed Link's object position.");
+        FailIf(
+            _player.AttackSpriteOrigin != new Vector2(-8, -11),
+            $"Sword frame $b4 did not apply only its original OAM $08 pose offset: {_player.AttackSpriteOrigin}.");
+        FailIf(
+            _player.SwordSpritePosition != new Vector2(-4, -19),
+            $"Sword arc phase $08 did not include the child item's -2 Z draw offset: {_player.SwordSpritePosition}.");
+        FailIf(
+            _currentRoom.GetMetatile(bushPoint) != 0x3a,
+            "The level-1 sword did not replace bush $c5 with ground $3a.");
+        FailIf(_currentRoom.IsSolid(bushPoint), "The cut bush's replacement tile remained solid.");
         GrassDebrisEffect bushDebris =
-            _entities.Entities<GrassDebrisEffect>().Single();
+            _entities.Entities<GrassDebrisEffect>().SingleOrDefault()!;
+        FailIf(
+            bushDebris is null,
+            "Cutting overworld bush $c5 did not create one " +
+            "INTERAC_GRASSDEBRIS $00.");
         using (Image firstGrassDebrisFrame = bushDebris.CurrentTexture.GetImage())
         {
             ulong firstGrassDebrisHash =
                 OracleGraphicsCache.PixelHash(firstGrassDebrisFrame);
-            if (debrisPosition != bushPoint ||
-                firstGrassDebrisHash != 0xb2317fc7033b5eb0UL)
-            {
-                throw new InvalidOperationException(
-                    "INTERAC_GRASSDEBRIS $00 did not use its tile-centered " +
-                    "first four-piece OAM frame " +
-                    $"(position={debrisPosition}, hash={firstGrassDebrisHash:x16}).");
-            }
+            FailIf(
+                bushDebris.Position != bushPoint ||
+                firstGrassDebrisHash != 0xb2317fc7033b5eb0UL,
+                "INTERAC_GRASSDEBRIS $00 did not use its tile-centered " +
+                "first four-piece OAM frame " +
+                $"(position={bushDebris.Position}, hash={firstGrassDebrisHash:x16}).");
         }
         var underwaterDebris = new GrassDebrisEffect();
         underwaterDebris.Initialize(bushPoint, underwater: true);
@@ -1124,129 +992,107 @@ public sealed partial class ValidationRoot
         {
             ulong underwaterGrassDebrisHash =
                 OracleGraphicsCache.PixelHash(underwaterGrassDebrisFrame);
-            if (underwaterGrassDebrisHash != 0x00748b1a794afda4UL)
-            {
-                throw new InvalidOperationException(
-                    "Underwater INTERAC_GRASSDEBRIS $00 did not apply " +
-                    "its specialized OBJ palette 6 " +
-                    $"(hash={underwaterGrassDebrisHash:x16}).");
-            }
+            FailIf(
+                underwaterGrassDebrisHash != 0x00748b1a794afda4UL,
+                "Underwater INTERAC_GRASSDEBRIS $00 did not apply " +
+                "its specialized OBJ palette 6 " +
+                $"(hash={underwaterGrassDebrisHash:x16}).");
         }
         underwaterDebris.Free();
-        if (bushDebris.Flickers ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass) != 0)
-        {
-            throw new InvalidOperationException(
-                "The bush's non-flickering debris updated before its " +
-                "interaction state-0 update.");
-        }
+        FailIf(
+            bushDebris.Flickers ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass) != 0,
+            "The bush's non-flickering debris updated before its " +
+            "interaction state-0 update.");
         StepEntities();
-        if (bushDebris.ElapsedUpdates != 1 ||
+        FailIf(
+            bushDebris.ElapsedUpdates != 1 ||
             bushDebris.AnimationFrame != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass) != 1)
-        {
-            throw new InvalidOperationException(
-                "INTERAC_GRASSDEBRIS state 0 did not request SND_CUTGRASS " +
-                "without advancing animation 0.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass) != 1,
+            "INTERAC_GRASSDEBRIS state 0 did not request SND_CUTGRASS " +
+            "without advancing animation 0.");
         for (int frame = 1; frame <= 8; frame++)
         {
             StepEntities(4);
-            if (bushDebris.AnimationFrame != frame || bushDebris.Finished)
-            {
-                throw new InvalidOperationException(
-                    $"INTERAC_GRASSDEBRIS did not enter animation frame " +
-                    $"{frame} after {frame * 4} state-1 updates.");
-            }
+            FailIf(
+                bushDebris.AnimationFrame != frame || bushDebris.Finished,
+                $"INTERAC_GRASSDEBRIS did not enter animation frame " +
+                $"{frame} after {frame * 4} state-1 updates.");
         }
-        if ((bushDebris.CurrentParameter & 0x80) == 0 ||
-            bushDebris.ElapsedUpdates != 33)
-        {
-            throw new InvalidOperationException(
-                "INTERAC_GRASSDEBRIS did not expose terminal parameter $ff " +
-                "after its eight 4-update frames.");
-        }
+        FailIf(
+            (bushDebris.CurrentParameter & 0x80) == 0 ||
+            bushDebris.ElapsedUpdates != 33,
+            "INTERAC_GRASSDEBRIS did not expose terminal parameter $ff " +
+            "after its eight 4-update frames.");
         StepEntities();
-        if (!bushDebris.Finished ||
+        FailIf(
+            !bushDebris.Finished ||
             bushDebris.ElapsedUpdates != 34 ||
             _entities.Entities<GrassDebrisEffect>().Count != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass) != 1)
-        {
-            throw new InvalidOperationException(
-                "INTERAC_GRASSDEBRIS did not delete one update after its " +
-                "terminal frame without replaying SND_CUTGRASS.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass) != 1,
+            "INTERAC_GRASSDEBRIS did not delete one update after its " +
+            "terminal frame without replaying SND_CUTGRASS.");
 
         // Breakable mode $00 is cuttable grass $f8. Effect bit 4 becomes
         // subid bit 0 on INTERAC_GRASSDEBRIS and flickers every update.
         _currentRoom.SetPositionTileAndCollision(
             bushPoint, 0xf8, null, (long)_animationTicks);
         _sound.ClearPlayRequestAudit();
-        if (!_combat.ApplySwordTileHit(
+        FailIf(
+            !_combat.ApplySwordTileHit(
                 _player, direction: 0, swordPoke: false) ||
             _currentRoom.GetMetatile(bushPoint) != 0x3a ||
             _entities.Entities<GrassDebrisEffect>() is not
-                [{ Flickers: true }])
-        {
-            throw new InvalidOperationException(
-                "Cutting grass $f8 did not apply effect $10 as flickering " +
-                "INTERAC_GRASSDEBRIS $00.");
-        }
+                [{ Flickers: true }],
+            "Cutting grass $f8 did not apply effect $10 as flickering " +
+            "INTERAC_GRASSDEBRIS $00.");
         GrassDebrisEffect grassDebris =
             _entities.Entities<GrassDebrisEffect>().Single();
         StepEntities();
-        if (_sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass) != 1 ||
-            grassDebris.ElapsedUpdates != 1)
-        {
-            throw new InvalidOperationException(
-                "Flickering grass debris did not retain the state-0 " +
-                "SND_CUTGRASS boundary.");
-        }
+        FailIf(
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass) != 1 ||
+            grassDebris.ElapsedUpdates != 1,
+            "Flickering grass debris did not retain the state-0 " +
+            "SND_CUTGRASS boundary.");
         StepEntities();
         bool firstFlickerVisibility = grassDebris.Visible;
         StepEntities();
-        if (grassDebris.Visible == firstFlickerVisibility ||
-            grassDebris.AnimationFrame != 0)
-        {
-            throw new InvalidOperationException(
-                "INTERAC_GRASSDEBRIS subid $01 did not toggle visibility " +
-                "on consecutive original updates.");
-        }
+        FailIf(
+            grassDebris.Visible == firstFlickerVisibility ||
+            grassDebris.AnimationFrame != 0,
+            "INTERAC_GRASSDEBRIS subid $01 did not toggle visibility " +
+            "on consecutive original updates.");
         StepEntities(30);
-        if ((grassDebris.CurrentParameter & 0x80) == 0 ||
-            grassDebris.ElapsedUpdates != 33)
-        {
-            throw new InvalidOperationException(
-                "Flickering grass debris changed the shared 32-update " +
-                "animation boundary.");
-        }
+        FailIf(
+            (grassDebris.CurrentParameter & 0x80) == 0 ||
+            grassDebris.ElapsedUpdates != 33,
+            "Flickering grass debris changed the shared 32-update " +
+            "animation boundary.");
         StepEntities();
-        if (_entities.Entities<GrassDebrisEffect>().Count != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass) != 1)
-        {
-            throw new InvalidOperationException(
-                "Flickering grass debris did not delete silently after its " +
-                "terminal update.");
-        }
+        FailIf(
+            _entities.Entities<GrassDebrisEffect>().Count != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass) != 1,
+            "Flickering grass debris did not delete silently after its " +
+            "terminal update.");
 
         // Complete LINK_ANIM_MODE_22 while preserving the initiating button.
         // State 6 must re-enable movement but keep turning disabled and expose
         // the fourth normal swordArcData row continuously while charging.
         _player.AdvanceSwordForValidation(9, buttonHeld: true);
-        if (_player.SwordState != SwordActionState.Swing ||
-            _player.SwordStateFrame != 16)
-            throw new InvalidOperationException("The sword swing ended before its 17th update.");
+        FailIf(
+            _player.SwordState != SwordActionState.Swing ||
+            _player.SwordStateFrame != 16,
+            "The sword swing ended before its 17th update.");
         _player.AdvanceSwordForValidation(1, buttonHeld: true);
-        if (_player.SwordState != SwordActionState.Held ||
+        FailIf(
+            _player.SwordState != SwordActionState.Held ||
             !_player.SwordAllowsMovement || !_player.SwordCanRestart || _player.SwordArcIndex != 12 ||
             _player.SwordKnockbackStrength != EnemyKnockbackStrength.Low ||
-            _player.SwordSpritePosition != new Vector2(-4, -12))
-        {
-            throw new InvalidOperationException(
-                "Holding the sword button did not enter the movable ITEMCOLLISION_SWORD_HELD state " +
-                "with the original up-facing arc $0c.");
-        }
-        if (Player.GetHeldSwordBodyAnimationFrameForValidation(
+            _player.SwordSpritePosition != new Vector2(-4, -12),
+            "Holding the sword button did not enter the movable ITEMCOLLISION_SWORD_HELD state " +
+            "with the original up-facing arc $0c.");
+        FailIf(
+            Player.GetHeldSwordBodyAnimationFrameForValidation(
                 SwordActionState.Held, walking: true, walkTime: 0.0f) != 0 ||
             Player.GetHeldSwordBodyAnimationFrameForValidation(
                 SwordActionState.Held, walking: true, walkTime: 0.10f) != 1 ||
@@ -1255,61 +1101,57 @@ public sealed partial class ValidationRoot
             Player.GetHeldSwordBodyAnimationFrameForValidation(
                 SwordActionState.Held, walking: false, walkTime: 0.10f) != 0 ||
             Player.GetHeldSwordBodyAnimationFrameForValidation(
-                SwordActionState.Swing, walking: true, walkTime: 0.10f) != -1)
-        {
-            throw new InvalidOperationException(
-                "Held/charged sword state did not select Link's ordinary standing/walking body.");
-        }
-        if (Player.GetSwordSpritePositionForValidation(13) != new Vector2(12, 0) ||
-            Player.GetSwordSpritePositionForValidation(15) != new Vector2(-12, 0))
-        {
-            throw new InvalidOperationException(
-                "Held horizontal sword sprites did not apply the child item's -2 Z draw offset.");
-        }
+                SwordActionState.Swing, walking: true, walkTime: 0.10f) != -1,
+            "Held/charged sword state did not select Link's ordinary standing/walking body.");
+        FailIf(
+            Player.GetSwordSpritePositionForValidation(13) != new Vector2(12, 0) ||
+            Player.GetSwordSpritePositionForValidation(15) != new Vector2(-12, 0),
+            "Held horizontal sword sprites did not apply the child item's -2 Z draw offset.");
 
         _player.AdvanceSwordForValidation(40, buttonHeld: true);
-        if (_player.SwordState != SwordActionState.Held ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndChargeSword) != 0)
-            throw new InvalidOperationException("Sword counter `$28 charged without the original underflow update.");
+        FailIf(
+            _player.SwordState != SwordActionState.Held ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndChargeSword) != 0,
+            "Sword counter `$28 charged without the original underflow update.");
         _player.AdvanceSwordForValidation(1, buttonHeld: true);
-        if (_player.SwordState != SwordActionState.Charged ||
+        FailIf(
+            _player.SwordState != SwordActionState.Charged ||
             _player.SwordCanRestart || _player.SwordUsesChargedPalette ||
             _player.SwordKnockbackStrength != EnemyKnockbackStrength.Low ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndChargeSword) != 1)
-            throw new InvalidOperationException("The 41st held update did not enter the charged state with SND_CHARGE_SWORD.");
+            _sound.PlayRequestsFor(OracleSoundEngine.SndChargeSword) != 1,
+            "The 41st held update did not enter the charged state with SND_CHARGE_SWORD.");
         _player.AdvanceSwordForValidation(3, buttonHeld: true);
-        if (_player.SwordUsesChargedPalette)
-            throw new InvalidOperationException("The charged sword selected palette 5 before counter bit 2 was set.");
+        FailIf(
+            _player.SwordUsesChargedPalette,
+            "The charged sword selected palette 5 before counter bit 2 was set.");
         _player.AdvanceSwordForValidation(1, buttonHeld: true);
-        if (!_player.SwordUsesChargedPalette)
-            throw new InvalidOperationException("The charged sword did not select palette 5 when counter bit 2 became set.");
+        FailIf(
+            !_player.SwordUsesChargedPalette,
+            "The charged sword did not select palette 5 when counter bit 2 became set.");
 
         _player.AdvanceSwordForValidation(1, buttonHeld: false);
-        if (_player.SwordState != SwordActionState.Spin ||
+        FailIf(
+            _player.SwordState != SwordActionState.Spin ||
             _player.SwordStateFrame != 0 || _player.SwordAllowsMovement ||
             _player.SwordArcIndex != 16 ||
             _player.SwordKnockbackStrength != EnemyKnockbackStrength.High ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSpin) != 1)
-        {
-            throw new InvalidOperationException(
-                "Releasing a charged up-facing sword did not begin the immobilized arc `$10 spin with SND_SWORDSPIN.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSpin) != 1,
+            "Releasing a charged up-facing sword did not begin the immobilized arc `$10 spin with SND_SWORDSPIN.");
         _player.AdvanceSwordForValidation(2, buttonHeld: false);
-        if (_player.SwordArcIndex != 16)
-            throw new InvalidOperationException("Swordspin arc `$10 did not retain its original 3-update duration.");
+        FailIf(
+            _player.SwordArcIndex != 16,
+            "Swordspin arc `$10 did not retain its original 3-update duration.");
         _player.AdvanceSwordForValidation(1, buttonHeld: false);
-        if (_player.SwordArcIndex != 17)
-            throw new InvalidOperationException("Swordspin did not enter diagonal arc `$11 on update 3.");
+        FailIf(_player.SwordArcIndex != 17, "Swordspin did not enter diagonal arc `$11 on update 3.");
         _player.AdvanceSwordForValidation(2, buttonHeld: false);
-        if (_player.SwordArcIndex != 18)
-            throw new InvalidOperationException("Swordspin did not enter right-facing arc `$12 on update 5.");
+        FailIf(_player.SwordArcIndex != 18, "Swordspin did not enter right-facing arc `$12 on update 5.");
         _player.AdvanceSwordForValidation(17, buttonHeld: false);
-        if (_player.SwordState != SwordActionState.Spin ||
-            _player.SwordStateFrame != 22 || _player.SwordArcIndex != 16)
-            throw new InvalidOperationException("Swordspin did not retain its wrapped arc through update 22.");
+        FailIf(
+            _player.SwordState != SwordActionState.Spin ||
+            _player.SwordStateFrame != 22 || _player.SwordArcIndex != 16,
+            "Swordspin did not retain its wrapped arc through update 22.");
         _player.AdvanceSwordForValidation(1, buttonHeld: false);
-        if (_player.IsAttacking)
-            throw new InvalidOperationException("Swordspin did not end on its original 23rd update.");
+        FailIf(_player.IsAttacking, "Swordspin did not end on its original 23rd update.");
 
         // A held sword pressed into a full wall switches to LINK_ANIM_MODE_1f,
         // clears weapon collision for 12 updates, and emits the ordinary clink.
@@ -1322,42 +1164,41 @@ public sealed partial class ValidationRoot
         _sound.ClearPlayRequestAudit();
         _combat.ClearClinkEffectAudit();
         _player.AdvanceSwordForValidation(1, buttonHeld: true, movementInput: Vector2.Up);
-        if (_player.SwordState != SwordActionState.Poke ||
+        FailIf(
+            _player.SwordState != SwordActionState.Poke ||
             !_player.SwordCanRestart || _player.GetSwordHitbox().Size != Vector2.Zero ||
             _player.AttackSpriteOrigin != new Vector2(-8, -11) ||
             _player.SwordSpritePosition != new Vector2(-4, -19) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1)
-        {
-            throw new InvalidOperationException(
-                "Held-sword wall pressure did not enter the collision-disabled 12-update poke and play SND_CLINK.");
-        }
+            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1,
+            "Held-sword wall pressure did not enter the collision-disabled 12-update poke and play SND_CLINK.");
         ClinkEffect? ordinaryClink = _combat.LastClinkEffect;
         Vector2 expectedClinkPosition = _player.Position + new Vector2(0, -14);
-        if (_combat.ClinkEffectsSpawned != 1 || ordinaryClink is null ||
+        FailIf(
+            _combat.ClinkEffectsSpawned != 1 || ordinaryClink is null ||
             ordinaryClink.Position != expectedClinkPosition || !ordinaryClink.Flickers ||
             ordinaryClink.DurationFrames != 8 || ordinaryClink.AnimationFrame != 0 ||
-            !ordinaryClink.EffectVisible)
-        {
-            throw new InvalidOperationException(
-                "Ordinary wall pressure did not spawn flickering INTERAC_CLINK at the up-facing `$f2/$00 probe.");
-        }
+            !ordinaryClink.EffectVisible,
+            "Ordinary wall pressure did not spawn flickering INTERAC_CLINK at the up-facing `$f2/$00 probe.");
         ordinaryClink.AdvanceForValidation(1.0 / 60.0);
-        if (ordinaryClink.EffectVisible || ordinaryClink.AnimationFrame != 0)
-            throw new InvalidOperationException("INTERAC_CLINK did not flicker during its first 4-update frame.");
+        FailIf(
+            ordinaryClink.EffectVisible || ordinaryClink.AnimationFrame != 0,
+            "INTERAC_CLINK did not flicker during its first 4-update frame.");
         ordinaryClink.AdvanceForValidation(3.0 / 60.0);
-        if (!ordinaryClink.EffectVisible || ordinaryClink.AnimationFrame != 1)
-            throw new InvalidOperationException("INTERAC_CLINK did not enter its second OAM frame after 4 updates.");
+        FailIf(
+            !ordinaryClink.EffectVisible || ordinaryClink.AnimationFrame != 1,
+            "INTERAC_CLINK did not enter its second OAM frame after 4 updates.");
         _player.AdvanceSwordForValidation(11, buttonHeld: true);
-        if (_player.SwordState != SwordActionState.Poke ||
-            _player.SwordStateFrame != 11)
-            throw new InvalidOperationException("LINK_ANIM_MODE_1f ended before update 12.");
+        FailIf(
+            _player.SwordState != SwordActionState.Poke ||
+            _player.SwordStateFrame != 11,
+            "LINK_ANIM_MODE_1f ended before update 12.");
         _player.AdvanceSwordForValidation(1, buttonHeld: true);
-        if (_player.SwordState != SwordActionState.Held ||
-            _player.SwordArcIndex != 12)
-            throw new InvalidOperationException("A wall poke did not reinitialize the held sword after update 12.");
+        FailIf(
+            _player.SwordState != SwordActionState.Held ||
+            _player.SwordArcIndex != 12,
+            "A wall poke did not reinitialize the held sword after update 12.");
         _player.AdvanceSwordForValidation(1, buttonHeld: false);
-        if (_player.IsAttacking)
-            throw new InvalidOperationException("Releasing an uncharged held sword did not clear the parent item.");
+        FailIf(_player.IsAttacking, "Releasing an uncharged held sword did not clear the parent item.");
 
         // Bombable wall tiles bypass the poke-only ordinary clink condition.
         _currentRoom.SetPositionTileAndCollision(
@@ -1367,14 +1208,12 @@ public sealed partial class ValidationRoot
         _player.StartSwordAttack();
         _player.AdvanceSwordForValidation(6, buttonHeld: false);
         ClinkEffect? bombableClink = _combat.LastClinkEffect;
-        if (_sound.PlayRequestsFor(OracleSoundEngine.SndClink2) != 1 ||
+        FailIf(
+            _sound.PlayRequestsFor(OracleSoundEngine.SndClink2) != 1 ||
             _combat.ClinkEffectsSpawned != 1 || bombableClink is null ||
             bombableClink.Position != expectedClinkPosition || bombableClink.Flickers ||
-            !bombableClink.EffectVisible)
-        {
-            throw new InvalidOperationException(
-                "Bombable overworld tile `$c1 did not play SND_CLINK2 and spawn non-flickering INTERAC_CLINK.");
-        }
+            !bombableClink.EffectVisible,
+            "Bombable overworld tile `$c1 did not play SND_CLINK2 and spawn non-flickering INTERAC_CLINK.");
         _player.AdvanceSwordForValidation(11, buttonHeld: false);
         _currentRoom.SetPositionTileAndCollision(
             bushPoint, 0x3a, null, (long)_animationTicks);
@@ -1398,9 +1237,9 @@ public sealed partial class ValidationRoot
                     arc.OffsetY - arc.RadiusY),
                 new Vector2(arc.RadiusX * 2, arc.RadiusY * 2));
             Rect2 actual = Player.GetSwordHitboxForValidation(auditPosition, index);
-            if (actual != expected)
-                throw new InvalidOperationException(
-                    $"swordArcData row `${index:x2} mismatch: expected {expected}, got {actual}.");
+            FailIf(
+                actual != expected,
+                $"swordArcData row `${index:x2} mismatch: expected {expected}, got {actual}.");
         }
 
         // wScrollMode $08 freezes initialized item objects. The held sword
@@ -1410,28 +1249,22 @@ public sealed partial class ValidationRoot
         _player.StartSwordAttack();
         _player.AdvanceSwordForValidation(17, buttonHeld: true);
         _transitions.BeginScroll(_player, Vector2I.Right, 0x6a);
-        if (!_transitions.ScrollActive ||
+        FailIf(
+            !_transitions.ScrollActive ||
             _player.SwordState != SwordActionState.Held ||
-            _player.FacingVector != Vector2I.Up || _player.SwordArcIndex != 12)
-        {
-            throw new InvalidOperationException(
-                "Scrolling right did not preserve the up-facing held sword parent item.");
-        }
+            _player.FacingVector != Vector2I.Up || _player.SwordArcIndex != 12,
+            "Scrolling right did not preserve the up-facing held sword parent item.");
         _player._Process(1.0);
-        if (_player.SwordState != SwordActionState.Held ||
-            _player.SwordStateFrame != 0 || _player.FacingVector != Vector2I.Up)
-        {
-            throw new InvalidOperationException(
-                "wScrollMode $08 did not freeze the held sword for the scrolling transition.");
-        }
-        _transitions.UpdateScroll(1.0);
-        if (_transitions.ScrollActive ||
+        FailIf(
             _player.SwordState != SwordActionState.Held ||
-            _player.FacingVector != Vector2I.Up || _player.SwordArcIndex != 12)
-        {
-            throw new InvalidOperationException(
-                "Finishing the scrolling transition cleared or redirected the held sword.");
-        }
+            _player.SwordStateFrame != 0 || _player.FacingVector != Vector2I.Up,
+            "wScrollMode $08 did not freeze the held sword for the scrolling transition.");
+        _transitions.UpdateScroll(1.0);
+        FailIf(
+            _transitions.ScrollActive ||
+            _player.SwordState != SwordActionState.Held ||
+            _player.FacingVector != Vector2I.Up || _player.SwordArcIndex != 12,
+            "Finishing the scrolling transition cleared or redirected the held sword.");
         _player.AdvanceSwordForValidation(1, buttonHeld: false);
 
         GD.Print(
@@ -1450,24 +1283,25 @@ public sealed partial class ValidationRoot
         _player.RefillHealth();
         _statusBar.SynchronizeHealth();
 
-        if (_player.HealthQuarters != 12 || _hud.HealthQuarters != 12 ||
-            _hud.MaxHealthQuarters != _player.MaxHealthQuarters)
-            throw new InvalidOperationException("Expected Link and the HUD to start with three full hearts.");
+        FailIf(
+            _player.HealthQuarters != 12 || _hud.HealthQuarters != 12 ||
+            _hud.MaxHealthQuarters != _player.MaxHealthQuarters,
+            "Expected Link and the HUD to start with three full hearts.");
 
         _player.ApplyDamage(1);
-        if (_player.HealthQuarters != 11 || _hud.HealthQuarters != 12)
-            throw new InvalidOperationException("Direct quarter-heart damage changed the HUD before its update.");
+        FailIf(
+            _player.HealthQuarters != 11 || _hud.HealthQuarters != 12,
+            "Direct quarter-heart damage changed the HUD before its update.");
         _statusBar.Update(1.0 / 60.0);
-        if (_hud.HealthQuarters != 11)
-            throw new InvalidOperationException("Displayed damage did not subtract one quarter per update.");
+        FailIf(_hud.HealthQuarters != 11, "Displayed damage did not subtract one quarter per update.");
 
         _player.Heal(1);
-        if (_player.HealthQuarters != 12 || _hud.HealthQuarters != 11)
-            throw new InvalidOperationException("Direct healing changed the HUD before its divisor-4 update.");
+        FailIf(
+            _player.HealthQuarters != 12 || _hud.HealthQuarters != 11,
+            "Direct healing changed the HUD before its divisor-4 update.");
         for (int update = 0; update < 4 && _hud.HealthQuarters != 12; update++)
             _statusBar.Update(1.0 / 60.0);
-        if (_hud.HealthQuarters != 12)
-            throw new InvalidOperationException("Displayed healing did not add a quarter on a divisor-4 update.");
+        FailIf(_hud.HealthQuarters != 12, "Displayed healing did not add a quarter on a divisor-4 update.");
 
         _activeGroup = 0;
         ClearDeactivatedWarp();
@@ -1478,13 +1312,13 @@ public sealed partial class ValidationRoot
         _player.WarpTo(new Vector2(8, 24), recordSafe: false);
 
         ValidateDrowningSequence(safe, HazardType.Lava);
-        if (_player.HealthQuarters != 10 || _hud.HealthQuarters != 12)
-            throw new InvalidOperationException(
-                "Lava hazard changed displayed health before updateStatusBar_body.");
+        FailIf(
+            _player.HealthQuarters != 10 || _hud.HealthQuarters != 12,
+            "Lava hazard changed displayed health before updateStatusBar_body.");
         _statusBar.Update(2.0 / 60.0);
-        if (_hud.HealthQuarters != 10)
-            throw new InvalidOperationException(
-                "Lava hazard did not synchronize its delayed half-heart damage to the HUD.");
+        FailIf(
+            _hud.HealthQuarters != 10,
+            "Lava hazard did not synchronize its delayed half-heart damage to the HUD.");
 
         GD.Print("Validated quarter-heart health, divisor-4 healing display/SND_GAINHEART cadence, " +
             "per-update damage display, and delayed half-heart terrain damage.");
@@ -1504,7 +1338,8 @@ public sealed partial class ValidationRoot
             new OracleRandom());
 
         int healthBefore = damagePlayer.HealthQuarters;
-        if (!damagePlayer.ApplyEnemyContactDamage(
+        FailIf(
+            !damagePlayer.ApplyEnemyContactDamage(
                 new Vector2(64, 80), quarters: 1) ||
             damagePlayer.HealthQuarters != healthBefore - 1 ||
             !damagePlayer.DamagePaletteActive ||
@@ -1514,22 +1349,17 @@ public sealed partial class ValidationRoot
                 damagePalette: true) !=
                 new Color(0x1f / 31.0f, 0x16 / 31.0f, 0x06 / 31.0f) ||
             damageWorld.Sounds.Count(
-                sound => sound == OracleSoundEngine.SndDamageLink) != 1)
-        {
-            throw new InvalidOperationException(
-                "Accepted Link damage did not select standard sprite palette 5 " +
-                "or request SND_DAMAGE_LINK $5f.");
-        }
+                sound => sound == OracleSoundEngine.SndDamageLink) != 1,
+            "Accepted Link damage did not select standard sprite palette 5 " +
+            "or request SND_DAMAGE_LINK $5f.");
         damageWorld.FrameCounter = 4;
-        if (damagePlayer.DamagePaletteActive ||
+        FailIf(
+            damagePlayer.DamagePaletteActive ||
             damagePlayer.ApplyEnemyContactDamage(
                 new Vector2(64, 80), quarters: 1) ||
             damageWorld.Sounds.Count(
-                sound => sound == OracleSoundEngine.SndDamageLink) != 1)
-        {
-            throw new InvalidOperationException(
-                "Link's source bit-2 damage flash or contact invincibility regressed.");
-        }
+                sound => sound == OracleSoundEngine.SndDamageLink) != 1,
+            "Link's source bit-2 damage flash or contact invincibility regressed.");
         damagePlayer.Free();
 
         OracleSaveData potionSave = OracleSaveData.CreateStandardGame();
@@ -1543,15 +1373,13 @@ public sealed partial class ValidationRoot
             potionInventory,
             new Vector2(80, 80),
             new OracleRandom());
-        if (!potionPlayer.ApplyDamage(potionPlayer.MaxHealthQuarters) ||
+        FailIf(
+            !potionPlayer.ApplyDamage(potionPlayer.MaxHealthQuarters) ||
             potionPlayer.IsDying ||
             potionPlayer.HealthQuarters != potionPlayer.MaxHealthQuarters ||
-            potionInventory.HasTreasure(TreasureDatabase.TreasurePotion))
-        {
-            throw new InvalidOperationException(
-                "TREASURE_POTION $2f did not refill Link and clear itself " +
-                "before wLinkDeathTrigger.");
-        }
+            potionInventory.HasTreasure(TreasureDatabase.TreasurePotion),
+            "TREASURE_POTION $2f did not refill Link and clear itself " +
+            "before wLinkDeathTrigger.");
         potionPlayer.Free();
 
         OracleSaveData deathSave = OracleSaveData.CreateStandardGame();
@@ -1566,43 +1394,37 @@ public sealed partial class ValidationRoot
             new OracleRandom());
         int gameOverRequests = 0;
         deathPlayer.GameOverRequested += () => gameOverRequests++;
-        if (!deathPlayer.ApplyEnemyContactDamage(
+        FailIf(
+            !deathPlayer.ApplyEnemyContactDamage(
                 new Vector2(64, 80),
                 deathPlayer.MaxHealthQuarters) ||
             !deathPlayer.IsDying ||
-            deathPlayer.DeathAnimationActive)
-        {
-            throw new InvalidOperationException(
-                "Lethal accepted contact did not arm LINK_STATE_DYING.");
-        }
+            deathPlayer.DeathAnimationActive,
+            "Lethal accepted contact did not arm LINK_STATE_DYING.");
 
         for (int update = 0; update < 15; update++)
             deathPlayer._PhysicsProcess(1.0 / 60.0);
-        if (deathPlayer.DeathAnimationActive ||
+        FailIf(
+            deathPlayer.DeathAnimationActive ||
             deathPlayer.KnockbackFrames != 0 ||
             deathWorld.Sounds.Count(
                 sound => sound == OracleSoundEngine.SndCtrlSlowFadeOut) != 1 ||
             deathWorld.Sounds.Count(
-                sound => sound == OracleSoundEngine.SndLinkDead) != 0)
-        {
-            throw new InvalidOperationException(
-                "LINK_STATE_DYING did not wait through all 15 knockback updates " +
-                "after starting SNDCTRL_SLOW_FADEOUT.");
-        }
+                sound => sound == OracleSoundEngine.SndLinkDead) != 0,
+            "LINK_STATE_DYING did not wait through all 15 knockback updates " +
+            "after starting SNDCTRL_SLOW_FADEOUT.");
 
         deathPlayer._PhysicsProcess(1.0 / 60.0);
-        if (!deathPlayer.DeathAnimationActive ||
+        FailIf(
+            !deathPlayer.DeathAnimationActive ||
             deathPlayer.DeathAnimationFrame != 2 ||
             deathPlayer.DeathAnimationCounter != 8 ||
             deathPlayer.DeathSpinLoopsRemaining != 4 ||
             deathPlayer.DeathAtlasPixelHash == 0 ||
             deathWorld.Sounds.Count(
-                sound => sound == OracleSoundEngine.SndLinkDead) != 1)
-        {
-            throw new InvalidOperationException(
-                "Link's death spin did not initialize graphics $02 for eight " +
-                "updates with SND_LINK_DEAD $64.");
-        }
+                sound => sound == OracleSoundEngine.SndLinkDead) != 1,
+            "Link's death spin did not initialize graphics $02 for eight " +
+            "updates with SND_LINK_DEAD $64.");
 
         var displayedTwirlFrames = new List<int>
         {
@@ -1626,47 +1448,38 @@ public sealed partial class ValidationRoot
         expectedTwirlFrames.AddRange(Enumerable.Repeat(0, 8));
         expectedTwirlFrames.AddRange(Enumerable.Repeat(3, 8));
         expectedTwirlFrames.AddRange(Enumerable.Repeat(2, 7));
-        if (!displayedTwirlFrames.SequenceEqual(expectedTwirlFrames) ||
+        FailIf(
+            !displayedTwirlFrames.SequenceEqual(expectedTwirlFrames) ||
             deathPlayer.DeathAnimationFrame == 4 ||
             deathPlayer.DeathAnimationSequenceIndex != 4 ||
             deathPlayer.DeathAnimationCounter != 1 ||
             deathPlayer.DeathSpinLoopsRemaining != 1 ||
-            gameOverRequests != 0)
-        {
-            throw new InvalidOperationException(
-                "animationData19e7b did not display its initial eight-update " +
-                "$02 frame, three complete 8/8/8/(7+1) loops, and the final " +
-                "8/8/8/7 pre-marker loop.");
-        }
+            gameOverRequests != 0,
+            "animationData19e7b did not display its initial eight-update " +
+            "$02 frame, three complete 8/8/8/(7+1) loops, and the final " +
+            "8/8/8/7 pre-marker loop.");
         deathPlayer._PhysicsProcess(1.0 / 60.0);
-        if (deathPlayer.DeathAnimationFrame != 4 ||
+        FailIf(
+            deathPlayer.DeathAnimationFrame != 4 ||
             deathPlayer.DeathAnimationCounter != 0x4c ||
             deathPlayer.DeathSpinLoopsRemaining != 0 ||
-            gameOverRequests != 0)
-        {
-            throw new InvalidOperationException(
-                "The fourth Link spin marker on animation update 135 did not " +
-                "select the 76-update LINK_ANIM_MODE_COLLAPSED frame.");
-        }
+            gameOverRequests != 0,
+            "The fourth Link spin marker on animation update 135 did not " +
+            "select the 76-update LINK_ANIM_MODE_COLLAPSED frame.");
 
         for (int update = 0; update < 75; update++)
             deathPlayer._PhysicsProcess(1.0 / 60.0);
-        if (gameOverRequests != 0 ||
-            deathPlayer.DeathAnimationCounter != 1)
-        {
-            throw new InvalidOperationException(
-                "The collapsed Link pose ended before its 76th update.");
-        }
+        FailIf(
+            gameOverRequests != 0 ||
+            deathPlayer.DeathAnimationCounter != 1,
+            "The collapsed Link pose ended before its 76th update.");
         deathPlayer._PhysicsProcess(1.0 / 60.0);
-        if (gameOverRequests != 1)
-        {
-            throw new InvalidOperationException(
-                "The collapsed Link pose did not request the game-over menu " +
-                "on its terminal $ff animation parameter.");
-        }
+        FailIf(
+            gameOverRequests != 1,
+            "The collapsed Link pose did not request the game-over menu " +
+            "on its terminal $ff animation parameter.");
         deathPlayer._PhysicsProcess(1.0);
-        if (gameOverRequests != 1)
-            throw new InvalidOperationException("Link requested game over more than once.");
+        FailIf(gameOverRequests != 1, "Link requested game over more than once.");
         deathPlayer.Free();
 
         GD.Print(
@@ -1690,20 +1503,18 @@ public sealed partial class ValidationRoot
         for (int tick = 1; tick <= 60 && !lavaChanged; tick++)
             lavaChanged = lava.GetAnimationChecksum(tick) != lavaStart;
 
-        if (!waterChanged || !lavaChanged)
-            throw new InvalidOperationException(
-                $"Expected animated water and lava frames; water={waterChanged}, lava={lavaChanged}.");
+        FailIf(
+            !waterChanged || !lavaChanged,
+            $"Expected animated water and lava frames; water={waterChanged}, lava={lavaChanged}.");
 
         OracleRoomData waterfall = _world.LoadRoom(0, 0x45);
         const int settledWaterfallTick = 32;
-        if (waterfall.AnimationGroup != 0 ||
+        FailIf(
+            waterfall.AnimationGroup != 0 ||
             !waterfall.HasAnimationOverride(4, settledWaterfallTick) ||
             !waterfall.HasAnimationOverride(236, settledWaterfallTick) ||
-            !waterfall.HasAnimationOverride(238, settledWaterfallTick))
-        {
-            throw new InvalidOperationException(
-                "Waterfall animation did not preserve its three alternating VRAM destination writes.");
-        }
+            !waterfall.HasAnimationOverride(238, settledWaterfallTick),
+            "Waterfall animation did not preserve its three alternating VRAM destination writes.");
 
         // Room textures are cached independently, but the original engine has
         // one shared animated-tile VRAM state. Prime 0:56 with a stale phase,
@@ -1715,29 +1526,31 @@ public sealed partial class ValidationRoot
         _activeGroup = 0;
         _currentRoom = _world.LoadRoom(0, 0x55);
         OracleRoomData source = _currentRoom;
-        if (!Mathf.IsZeroApprox((float)_animationTicks))
-            throw new InvalidOperationException("Changing animation groups did not reset their shared clock.");
+        FailIf(
+            !Mathf.IsZeroApprox((float)_animationTicks),
+            "Changing animation groups did not reset their shared clock.");
         _animationTicks = 13.0;
         source.UpdateAnimation((long)_animationTicks);
-        if (source.CurrentAnimationSignature == staleTargetSignature)
-            throw new InvalidOperationException("Animation phase-lock validation chose indistinguishable ticks.");
+        FailIf(
+            source.CurrentAnimationSignature == staleTargetSignature,
+            "Animation phase-lock validation chose indistinguishable ticks.");
 
         _roomView.SetRoom(source.Texture);
         _entities.LoadRoom(_activeGroup, source);
         _player.WarpTo(new Vector2(source.Width + 2.0f, source.Height / 2.0f));
         CheckRoomExit(_player);
-        if (!IsTransitioning || _activeGroup != 0 || _currentRoom.Id != 0x56)
-            throw new InvalidOperationException("Room 0:55 did not begin its rightward scroll into 0:56.");
-        if (source.AnimationGroup != _currentRoom.AnimationGroup ||
-            source.CurrentAnimationSignature != _currentRoom.CurrentAnimationSignature)
-        {
-            throw new InvalidOperationException(
-                "Outgoing and incoming water/waterfall tiles began the scroll in different phases.");
-        }
+        FailIf(
+            !IsTransitioning || _activeGroup != 0 || _currentRoom.Id != 0x56,
+            "Room 0:55 did not begin its rightward scroll into 0:56.");
+        FailIf(
+            source.AnimationGroup != _currentRoom.AnimationGroup ||
+            source.CurrentAnimationSignature != _currentRoom.CurrentAnimationSignature,
+            "Outgoing and incoming water/waterfall tiles began the scroll in different phases.");
 
         ValidateLinkScrollsForOneTransitionFrame();
-        if (source.CurrentAnimationSignature != _currentRoom.CurrentAnimationSignature)
-            throw new InvalidOperationException("Animated-tile phases diverged during the frozen scroll.");
+        FailIf(
+            source.CurrentAnimationSignature != _currentRoom.CurrentAnimationSignature,
+            "Animated-tile phases diverged during the frozen scroll.");
         FinishActiveScrollingTransitionForValidation();
 
         GD.Print("Validated disassembly-driven water and lava animation plus persistent " +

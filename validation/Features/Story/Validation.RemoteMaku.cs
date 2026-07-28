@@ -30,30 +30,27 @@ public sealed partial class ValidationRoot
         {
             for (int frame = 0; frame < limit && !_dialogue.IsOpen; frame++)
                 StepRoomEventFrames(1);
-            if (!_dialogue.IsOpen)
-            {
-                throw new InvalidOperationException(
-                    "Room 0:8d remote Maku dialogue did not open within its " +
-                    "imported fade/confetti waits.");
-            }
+            FailIf(
+                !_dialogue.IsOpen,
+                "Room 0:8d remote Maku dialogue did not open within its " +
+                "imported fade/confetti waits.");
         }
 
         void FinishAfterDialogue(int initialState, int expectedMapText)
         {
             _dialogue.Close();
             StepRoomEventFrames(1);
-            if (cutscene.CommandInstruction != 11 ||
+            FailIf(
+                cutscene.CommandInstruction != 11 ||
                 cutscene.CommandCounter != 1 ||
                 !_hud.Visible ||
-                !_hud.StatusBarHidden)
-            {
-                throw new InvalidOperationException(
-                    "Remote Maku TX_05b0/TX_05c0 did not install the source " +
-                    "wait-1 command before restoring the status bar.");
-            }
+                !_hud.StatusBarHidden,
+                "Remote Maku TX_05b0/TX_05c0 did not install the source " +
+                "wait-1 command before restoring the status bar.");
 
             StepRoomEventFrames(1);
-            if (!_hud.Visible ||
+            FailIf(
+                !_hud.Visible ||
                 _hud.StatusBarHidden ||
                 _roomView.BackgroundFadeAlpha != 0.0f ||
                 cutscene.CommandInstruction != 14 ||
@@ -62,52 +59,41 @@ public sealed partial class ValidationRoot
                 _warpFade.Size != new Vector2(
                     OracleRoomData.ViewportWidth,
                     OracleRoomData.ScreenHeight) ||
-                _warpFade.ZIndex <= _hud.ZIndex)
-            {
-                throw new InvalidOperationException(
-                    "Remote Maku did not clear the black palette, show the HUD, " +
-                    "and begin a full-screen fade from white in one update.");
-            }
+                _warpFade.ZIndex <= _hud.ZIndex,
+                "Remote Maku did not clear the black palette, show the HUD, " +
+                "and begin a full-screen fade from white in one update.");
 
             StepRoomEventFrames(record.FadeFrames - 2);
-            if (cutscene.CommandInstruction != 14 ||
-                _warpFade.Color.A != 0.0f)
-            {
-                throw new InvalidOperationException(
-                    "Remote Maku fadeinFromWhiteWithDelay(2) did not reach the " +
-                    "visible palette two updates before its completion gate.");
-            }
+            FailIf(
+                cutscene.CommandInstruction != 14 ||
+                _warpFade.Color.A != 0.0f,
+                "Remote Maku fadeinFromWhiteWithDelay(2) did not reach the " +
+                "visible palette two updates before its completion gate.");
             StepRoomEventFrames(1);
-            if (cutscene.CommandInstruction != 15 ||
+            FailIf(
+                cutscene.CommandInstruction != 15 ||
                 _warpFade.Position != originalFadePosition ||
                 _warpFade.Size != originalFadeSize ||
-                _warpFade.ZIndex != originalFadeZ)
-            {
-                throw new InvalidOperationException(
-                    "Remote Maku white-fade completion did not restore the shared " +
-                    "fade rectangle before resetmusic.");
-            }
+                _warpFade.ZIndex != originalFadeZ,
+                "Remote Maku white-fade completion did not restore the shared " +
+                "fade rectangle before resetmusic.");
 
             StepRoomEventFrames(1);
-            if (!SetAndReadRoomFlag() ||
+            FailIf(
+                !SetAndReadRoomFlag() ||
                 cutscene.CommandInstruction != 17 ||
                 _saveData.MakuTreeState != initialState ||
-                _sound.ActiveMusic != _sound.Data.RoomMusic(group, room))
-            {
-                throw new InvalidOperationException(
-                    "Remote Maku resetmusic/orroomflag $40 did not yield before " +
-                    "incMakuTreeState.");
-            }
+                _sound.ActiveMusic != _sound.Data.RoomMusic(group, room),
+                "Remote Maku resetmusic/orroomflag $40 did not yield before " +
+                "incMakuTreeState.");
             StepRoomEventFrames(1);
-            if (cutscene.HasState || _roomEvents.Active ||
+            FailIf(
+                cutscene.HasState || _roomEvents.Active ||
                 _player.CutsceneControlled ||
                 _saveData.MakuTreeState != initialState + 1 ||
-                _saveData.MakuMapTextPresent != expectedMapText)
-            {
-                throw new InvalidOperationException(
-                    "Remote Maku did not increment wMakuTreeState, restore input, " +
-                    "and end after setting the correct map text.");
-            }
+                _saveData.MakuMapTextPresent != expectedMapText,
+                "Remote Maku did not increment wMakuTreeState, restore input, " +
+                "and end after setting the correct map text.");
         }
 
         bool SetAndReadRoomFlag() => _saveData.HasRoomFlag(
@@ -122,17 +108,17 @@ public sealed partial class ValidationRoot
             _saveData.WriteWramByte(
                 0xc6bf, (byte)(originalEssences & ~record.EssenceMask));
             LoadValidationRoom(group, room);
-            if (cutscene.HasState || _roomEvents.Active)
-                throw new InvalidOperationException(
-                    "Room 0:8d remote Maku event ignored its first-Essence predicate.");
+            FailIf(
+                cutscene.HasState || _roomEvents.Active,
+                "Room 0:8d remote Maku event ignored its first-Essence predicate.");
 
             _saveData.WriteWramByte(
                 0xc6bf, (byte)(originalEssences | record.EssenceMask));
             SetRoomFlag(true);
             LoadValidationRoom(group, room);
-            if (cutscene.HasState || _roomEvents.Active)
-                throw new InvalidOperationException(
-                    "Room 0:8d remote Maku event replayed with room flag $40 set.");
+            FailIf(
+                cutscene.HasState || _roomEvents.Active,
+                "Room 0:8d remote Maku event replayed with room flag $40 set.");
 
             SetRoomFlag(false);
             _saveData.SetLinkedGame(false);
@@ -142,96 +128,81 @@ public sealed partial class ValidationRoot
             var trace = new ValidationCutsceneTrace();
             _roomEvents.CommandTraceSink = trace;
             LoadValidationRoom(group, room);
-            if (cutscene.Stage != RemoteMakuEventStage.Running ||
-                _player.CutsceneControlled)
-            {
-                throw new InvalidOperationException(
-                    "Room 0:8d did not arm its imported $8a:$00 lane after loading.");
-            }
+            FailIf(
+                cutscene.Stage != RemoteMakuEventStage.Running ||
+                _player.CutsceneControlled,
+                "Room 0:8d did not arm its imported $8a:$00 lane after loading.");
 
             StepRoomEventFrames(1);
-            if (!_player.CutsceneControlled ||
+            FailIf(
+                !_player.CutsceneControlled ||
                 cutscene.TextboxFlags != 0x04 ||
                 cutscene.CommandInstruction != 3 ||
-                _sound.ActiveMusic != OracleSoundEngine.MusMakuTree)
-            {
-                throw new InvalidOperationException(
-                    "Remote Maku disableinput/textbox-palette/setmusic commands " +
-                    "lost their first script update.");
-            }
+                _sound.ActiveMusic != OracleSoundEngine.MusMakuTree,
+                "Remote Maku disableinput/textbox-palette/setmusic commands " +
+                "lost their first script update.");
             StepRoomEventFrames(1);
             StepRoomEventFrames(record.InitialWait - 1);
-            if (!_hud.Visible || _hud.StatusBarHidden ||
+            FailIf(
+                !_hud.Visible || _hud.StatusBarHidden ||
                 cutscene.CommandCounter != 1 ||
-                cutscene.CommandInstruction != 3)
-            {
-                throw new InvalidOperationException(
-                    "Remote Maku hid the HUD before its imported 40-update wait.");
-            }
+                cutscene.CommandInstruction != 3,
+                "Remote Maku hid the HUD before its imported 40-update wait.");
             StepRoomEventFrames(1);
-            if (!_hud.Visible ||
+            FailIf(
+                !_hud.Visible ||
                 !_hud.StatusBarHidden ||
                 cutscene.DontUpdateStatusBar != record.HudLockByte ||
                 cutscene.CommandInstruction != 6 ||
-                _roomView.BackgroundFadeAlpha != 0.0f)
-            {
-                throw new InvalidOperationException(
-                    "Remote Maku did not hide the HUD and start its black palette " +
-                    "thread immediately after wait 40.");
-            }
+                _roomView.BackgroundFadeAlpha != 0.0f,
+                "Remote Maku did not hide the HUD and start its black palette " +
+                "thread immediately after wait 40.");
 
             StepRoomEventFrames(record.FadeFrames - 2);
-            if (cutscene.CommandInstruction != 6 ||
+            FailIf(
+                cutscene.CommandInstruction != 6 ||
                 _roomView.BackgroundFadeAlpha != 1.0f ||
                 _hud.HiddenStatusBarColorForValidation !=
-                    _roomView.BackgroundFadeColorForValidation)
-            {
-                throw new InvalidOperationException(
-                    "Remote Maku fadeoutToBlackWithDelay(2) did not reach one " +
-                    "matching black across the room and hidden status-bar strip.");
-            }
+                    _roomView.BackgroundFadeColorForValidation,
+                "Remote Maku fadeoutToBlackWithDelay(2) did not reach one " +
+                "matching black across the room and hidden status-bar strip.");
             StepRoomEventFrames(1);
-            if (cutscene.CommandInstruction != 7)
-                throw new InvalidOperationException(
-                    "Remote Maku black-fade completion gate drifted from update 65.");
+            FailIf(
+                cutscene.CommandInstruction != 7,
+                "Remote Maku black-fade completion gate drifted from update 65.");
 
             StepRoomEventFrames(1);
-            if (cutscene.Confetti is not
+            FailIf(
+                cutscene.Confetti is not
                 { SpawnedPieces: 0, LivePieces: 0 } ||
                 cutscene.CommandInstruction != 8 ||
-                cutscene.CommandCounter != record.ConfettiHold1)
-            {
-                throw new InvalidOperationException(
-                    "Remote Maku did not initialize $62:$00 before beginning wait 240.");
-            }
+                cutscene.CommandCounter != record.ConfettiHold1,
+                "Remote Maku did not initialize $62:$00 before beginning wait 240.");
             StepRoomEventFrames(1);
-            if (cutscene.Confetti is not
+            FailIf(
+                cutscene.Confetti is not
                 { SpawnedPieces: 1, LivePieces: 1 } ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndMagicPowder) != 1)
-            {
-                throw new InvalidOperationException(
-                    "Present Maku confetti did not spawn its first $e8/$38 piece " +
-                    "and SND_MAGIC_POWDER one update after initialization.");
-            }
+                _sound.PlayRequestsFor(OracleSoundEngine.SndMagicPowder) != 1,
+                "Present Maku confetti did not spawn its first $e8/$38 piece " +
+                "and SND_MAGIC_POWDER one update after initialization.");
             Vector2 firstPosition = cutscene.Confetti.PiecePositions.Single();
-            if (firstPosition != new Vector2(0x38, -24))
-                throw new InvalidOperationException(
-                    "The first present Maku confetti piece moved during its state-0 update.");
+            FailIf(
+                firstPosition != new Vector2(0x38, -24),
+                "The first present Maku confetti piece moved during its state-0 update.");
 
             StepRoomEventFrames(49);
-            if (cutscene.Confetti.SpawnedPieces != 1)
-                throw new InvalidOperationException(
-                    "Present Maku confetti ignored its second-piece delay $32.");
+            FailIf(
+                cutscene.Confetti.SpawnedPieces != 1,
+                "Present Maku confetti ignored its second-piece delay $32.");
             StepRoomEventFrames(1);
-            if (cutscene.Confetti.SpawnedPieces != 2 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndMagicPowder) != 2)
-            {
-                throw new InvalidOperationException(
-                    "Present Maku confetti did not spawn piece two after exactly $32 updates.");
-            }
+            FailIf(
+                cutscene.Confetti.SpawnedPieces != 2 ||
+                _sound.PlayRequestsFor(OracleSoundEngine.SndMagicPowder) != 2,
+                "Present Maku confetti did not spawn piece two after exactly $32 updates.");
 
             StepUntilDialogue();
-            if (_dialogue.CurrentMessage is not string message ||
+            FailIf(
+                _dialogue.CurrentMessage is not string message ||
                 !message.Contains("Western Woods", StringComparison.Ordinal) ||
                 !message.Contains("Can you go", StringComparison.Ordinal) ||
                 _saveData.MakuMapTextPresent != record.StandardMapText ||
@@ -255,13 +226,10 @@ public sealed partial class ValidationRoot
                 _dialogue.GlyphColorForValidation(0, 4, 13) != 4 ||
                 cutscene.Confetti is not { Finished: true } ||
                 _sound.PlayRequestsFor(OracleSoundEngine.SndMagicPowder) <
-                    record.ConfettiPieces)
-            {
-                throw new InvalidOperationException(
-                    "Remote Maku standard TX_05b0, map text $b0, black palette, " +
-                    "PALH_0d dialogue colors, or complete present confetti " +
-                    "effect diverged.");
-            }
+                    record.ConfettiPieces,
+                "Remote Maku standard TX_05b0, map text $b0, black palette, " +
+                "PALH_0d dialogue colors, or complete present confetti " +
+                "effect diverged.");
             FinishAfterDialogue(initialState: 3, record.StandardMapText);
 
             CutsceneCommandTraceEntry[] starts = trace.Entries
@@ -275,23 +243,21 @@ public sealed partial class ValidationRoot
                 "native", "nativeblock", "native", "orroomflag", "native",
                 "enableinput", "scriptend"
             };
-            if (starts.Length != expectedOpcodes.Length ||
+            FailIf(
+                starts.Length != expectedOpcodes.Length ||
                 starts.Where((entry, index) =>
                     entry.Source.Script != "remoteMakuCutsceneScript" ||
                     entry.Source.CommandIndex != index ||
                     entry.Source.Opcode != expectedOpcodes[index] ||
-                    entry.Source.SourceLine <= 0).Any())
-            {
-                throw new InvalidOperationException(
-                    "The imported remote-Maku command stream lost an opcode, " +
-                    "source line, or source ordering boundary.");
-            }
+                    entry.Source.SourceLine <= 0).Any(),
+                "The imported remote-Maku command stream lost an opcode, " +
+                "source line, or source ordering boundary.");
             _roomEvents.CommandTraceSink = null;
 
             LoadValidationRoom(group, room);
-            if (cutscene.HasState || _roomEvents.Active)
-                throw new InvalidOperationException(
-                    "Completed room 0:8d remote Maku event replayed on re-entry.");
+            FailIf(
+                cutscene.HasState || _roomEvents.Active,
+                "Completed room 0:8d remote Maku event replayed on re-entry.");
 
             // The same helper adds $10 for INTERAC_REMOTE_MAKU_CUTSCENE in a
             // linked game, updating both the shown ID and wMakuMapTextPresent.
@@ -301,10 +267,10 @@ public sealed partial class ValidationRoot
             _saveData.SetMakuMapTextPresent(0);
             LoadValidationRoom(group, room);
             StepUntilDialogue();
-            if (_saveData.MakuMapTextPresent != record.LinkedMapText)
-                throw new InvalidOperationException(
-                    "Linked remote Maku text did not apply the source $10 offset " +
-                    "from TX_05b0/$b0 to TX_05c0/$c0.");
+            FailIf(
+                _saveData.MakuMapTextPresent != record.LinkedMapText,
+                "Linked remote Maku text did not apply the source $10 offset " +
+                "from TX_05b0/$b0 to TX_05c0/$c0.");
             FinishAfterDialogue(initialState: 7, record.LinkedMapText);
         }
         finally
@@ -350,12 +316,10 @@ public sealed partial class ValidationRoot
         {
             for (int frame = 0; frame < 700 && !_dialogue.IsOpen; frame++)
                 StepRoomEventFrames(1);
-            if (!_dialogue.IsOpen)
-            {
-                throw new InvalidOperationException(
-                    "Room 0:3a post-Harp remote Maku dialogue did not open " +
-                    "within its imported fade/confetti waits.");
-            }
+            FailIf(
+                !_dialogue.IsOpen,
+                "Room 0:3a post-Harp remote Maku dialogue did not open " +
+                "within its imported fade/confetti waits.");
         }
 
         void FinishDialogue(int initialState, int expectedMapText)
@@ -363,20 +327,18 @@ public sealed partial class ValidationRoot
             _dialogue.Close();
             for (int frame = 0; frame < 100 && cutscene.HasState; frame++)
                 StepRoomEventFrames(1);
-            if (cutscene.HasState ||
+            FailIf(
+                cutscene.HasState ||
                 _roomEvents.Active ||
                 _player.CutsceneControlled ||
                 !_saveData.HasRoomFlag(
                     group, room, (byte)record.RoomFlag) ||
                 _saveData.MakuTreeState != initialState + 1 ||
                 _saveData.MakuMapTextPresent != expectedMapText ||
-                _sound.ActiveMusic != _sound.Data.RoomMusic(group, room))
-            {
-                throw new InvalidOperationException(
-                    "Room 0:3a post-Harp remote Maku completion did not " +
-                    "restore input/music, set room flag $40, update the map " +
-                    "text, and increment wMakuTreeState.");
-            }
+                _sound.ActiveMusic != _sound.Data.RoomMusic(group, room),
+                "Room 0:3a post-Harp remote Maku completion did not " +
+                "restore input/music, set room flag $40, update the map " +
+                "text, and increment wMakuTreeState.");
         }
 
         try
@@ -386,72 +348,60 @@ public sealed partial class ValidationRoot
             SetRoomFlag(false);
             SetTreasure(_saveData, record.RequiredTreasure, value: false);
             LoadValidationRoom(group, room);
-            if (cutscene.HasState || _roomEvents.Active)
-            {
-                throw new InvalidOperationException(
-                    "Room 0:3a remote Maku event ignored its TREASURE_HARP " +
-                    "predicate.");
-            }
+            FailIf(
+                cutscene.HasState || _roomEvents.Active,
+                "Room 0:3a remote Maku event ignored its TREASURE_HARP " +
+                "predicate.");
 
             SetTreasure(_saveData, record.RequiredTreasure);
             SetRoomFlag(true);
             LoadValidationRoom(group, room);
-            if (cutscene.HasState || _roomEvents.Active)
-            {
-                throw new InvalidOperationException(
-                    "Room 0:3a remote Maku event replayed with room flag $40 set.");
-            }
+            FailIf(
+                cutscene.HasState || _roomEvents.Active,
+                "Room 0:3a remote Maku event replayed with room flag $40 set.");
 
             SetRoomFlag(false);
             _saveData.SetLinkedGame(false);
             _saveData.SetMakuTreeState(5);
             _saveData.SetMakuMapTextPresent(0);
             LoadValidationRoom(group, room);
-            if (cutscene.Stage != RemoteMakuEventStage.Running ||
+            FailIf(
+                cutscene.Stage != RemoteMakuEventStage.Running ||
                 cutscene.Record.Room != record.Room ||
                 cutscene.Record.Var03 != 0x02 ||
                 cutscene.Record.RequiredTreasure !=
-                    TreasureDatabase.TreasureHarp)
-            {
-                throw new InvalidOperationException(
-                    "Room 0:3a did not select its imported $8a:$00/v$02 " +
-                    "post-Harp lane.");
-            }
+                    TreasureDatabase.TreasureHarp,
+                "Room 0:3a did not select its imported $8a:$00/v$02 " +
+                "post-Harp lane.");
 
             StepRoomEventFrames(1);
-            if (!_player.CutsceneControlled ||
+            FailIf(
+                !_player.CutsceneControlled ||
                 cutscene.CommandInstruction != 3 ||
-                _sound.ActiveMusic != OracleSoundEngine.MusMakuTree)
-            {
-                throw new InvalidOperationException(
-                    "Room 0:3a post-Harp lane lost the shared first-update " +
-                    "input lock, script order, or Maku Tree music.");
-            }
+                _sound.ActiveMusic != OracleSoundEngine.MusMakuTree,
+                "Room 0:3a post-Harp lane lost the shared first-update " +
+                "input lock, script order, or Maku Tree music.");
             StepUntilDialogue();
-            if (_dialogue.CurrentMessage !=
+            FailIf(
+                _dialogue.CurrentMessage !=
                     DialogueBox.PlainText(text.StandardMessage) ||
                 _saveData.MakuMapTextPresent != record.StandardMapText ||
                 cutscene.Confetti is not { Finished: true } ||
-                !_hud.StatusBarHidden)
-            {
-                throw new InvalidOperationException(
-                    "Room 0:3a did not show standard TX_05b2, write map byte " +
-                    "$b2, and finish the present-day confetti under the hidden HUD " +
-                    $"(text={_dialogue.CurrentMessage ==
-                        DialogueBox.PlainText(text.StandardMessage)}, " +
-                    $"map=${_saveData.MakuMapTextPresent:x2}, " +
-                    $"confetti={cutscene.Confetti?.Finished}, " +
-                    $"hudHidden={_hud.StatusBarHidden}).");
-            }
+                !_hud.StatusBarHidden,
+                "Room 0:3a did not show standard TX_05b2, write map byte " +
+                "$b2, and finish the present-day confetti under the hidden HUD " +
+                $"(text={_dialogue.CurrentMessage ==
+                    DialogueBox.PlainText(text.StandardMessage)}, " +
+                $"map=${_saveData.MakuMapTextPresent:x2}, " +
+                $"confetti={cutscene.Confetti?.Finished}, " +
+                $"hudHidden={_hud.StatusBarHidden}).");
             FinishDialogue(initialState: 5, record.StandardMapText);
 
             LoadValidationRoom(group, room);
-            if (cutscene.HasState || _roomEvents.Active)
-            {
-                throw new InvalidOperationException(
-                    "Completed room 0:3a post-Harp remote Maku event replayed " +
-                    "on re-entry.");
-            }
+            FailIf(
+                cutscene.HasState || _roomEvents.Active,
+                "Completed room 0:3a post-Harp remote Maku event replayed " +
+                "on re-entry.");
 
             SetRoomFlag(false);
             _saveData.SetLinkedGame(true);
@@ -459,14 +409,12 @@ public sealed partial class ValidationRoot
             _saveData.SetMakuMapTextPresent(0);
             LoadValidationRoom(group, room);
             StepUntilDialogue();
-            if (_dialogue.CurrentMessage !=
+            FailIf(
+                _dialogue.CurrentMessage !=
                     DialogueBox.PlainText(text.LinkedMessage) ||
-                _saveData.MakuMapTextPresent != record.LinkedMapText)
-            {
-                throw new InvalidOperationException(
-                    "Linked room 0:3a remote Maku guidance did not apply the " +
-                    "source $10 offset from TX_05b2/$b2 to TX_05c2/$c2.");
-            }
+                _saveData.MakuMapTextPresent != record.LinkedMapText,
+                "Linked room 0:3a remote Maku guidance did not apply the " +
+                "source $10 offset from TX_05b2/$b2 to TX_05c2/$c2.");
             FinishDialogue(initialState: 9, record.LinkedMapText);
         }
         finally
