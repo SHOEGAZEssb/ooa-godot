@@ -40,6 +40,165 @@ function New-CutsceneCommandRow {
     ) -join "`t"
 }
 
+function Test-CutsceneSchemaFinite {
+    param([string]$value)
+
+    $parsed = [single]0
+    return [single]::TryParse(
+        $value,
+        [Globalization.NumberStyles]::Float,
+        [Globalization.CultureInfo]::InvariantCulture,
+        [ref]$parsed) -and
+        -not [single]::IsNaN($parsed) -and
+        -not [single]::IsInfinity($parsed)
+}
+
+function Test-CutsceneSchemaScalar {
+    param([string]$shape, [string]$value)
+
+    switch ($shape) {
+        'none' { return $value.Length -eq 0 }
+        'optional' { return $true }
+        'required' { return -not [string]::IsNullOrWhiteSpace($value) }
+        'hex' {
+            $parsed = 0
+            return [int]::TryParse(
+                $value,
+                [Globalization.NumberStyles]::AllowHexSpecifier,
+                [Globalization.CultureInfo]::InvariantCulture,
+                [ref]$parsed)
+        }
+        'decimal' {
+            $parsed = 0
+            return [int]::TryParse(
+                $value,
+                [Globalization.NumberStyles]::AllowLeadingSign,
+                [Globalization.CultureInfo]::InvariantCulture,
+                [ref]$parsed)
+        }
+        'positive-decimal' {
+            $parsed = 0
+            return [int]::TryParse(
+                $value,
+                [Globalization.NumberStyles]::None,
+                [Globalization.CultureInfo]::InvariantCulture,
+                [ref]$parsed) -and $parsed -gt 0
+        }
+        'text-variants' {
+            return ($value.ToCharArray() | Where-Object { $_ -eq [char]0 }).Count -eq 1
+        }
+        'memory-jump-table' {
+            $sections = $value.Split('|')
+            if ($sections.Count -ne 2 -or
+                [string]::IsNullOrWhiteSpace($sections[0])) {
+                return $false
+            }
+            $targets = $sections[1].Split(',')
+            if ($targets.Count -eq 0) {
+                return $false
+            }
+            foreach ($target in $targets) {
+                if (-not (Test-CutsceneSchemaScalar 'decimal' $target)) {
+                    return $false
+                }
+            }
+            return $true
+        }
+        'translation' {
+            $values = $value.Split(',')
+            return $values.Count -eq 3 -and
+                (Test-CutsceneSchemaFinite $values[0]) -and
+                (Test-CutsceneSchemaFinite $values[1]) -and
+                $values[2] -in @('0', '1')
+        }
+        'parallel-translation' {
+            $lanes = $value.Split('|')
+            if ($lanes.Count -ne 3 -or
+                [string]::IsNullOrWhiteSpace($lanes[1])) {
+                return $false
+            }
+            $first = $lanes[0].Split(',')
+            $second = $lanes[2].Split(',')
+            return $first.Count -eq 2 -and
+                $second.Count -eq 2 -and
+                (Test-CutsceneSchemaFinite $first[0]) -and
+                (Test-CutsceneSchemaFinite $first[1]) -and
+                (Test-CutsceneSchemaFinite $second[0]) -and
+                (Test-CutsceneSchemaFinite $second[1])
+        }
+        'native-block' {
+            return -not [string]::IsNullOrWhiteSpace($value.Split([char]0, 2)[0])
+        }
+        default { throw "Unknown cutscene command field shape '$shape'." }
+    }
+}
+
+function Test-GeneratedCutsceneCommandStreams {
+    param(
+        [string]$destination,
+        [hashtable]$schemas
+    )
+
+    $header = "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64"
+    $commandFileCount = 0
+    $commandRowCount = 0
+    $utf8 = [Text.UTF8Encoding]::new($false, $true)
+    foreach ($file in Get-ChildItem (
+        Join-Path $destination 'cutscenes') -File -Filter '*.tsv') {
+        $lines = @(Get-Content -LiteralPath $file.FullName)
+        if ($lines.Count -eq 0 -or $lines[0] -ne $header) {
+            continue
+        }
+        $commandFileCount++
+        for ($lineIndex = 1; $lineIndex -lt $lines.Count; $lineIndex++) {
+            if ([string]::IsNullOrWhiteSpace($lines[$lineIndex])) {
+                continue
+            }
+            $columns = $lines[$lineIndex].Split([char]"`t")
+            if ($columns.Count -ne 9) {
+                throw "$($file.FullName):$($lineIndex + 1): cutscene command row " +
+                    "has $($columns.Count) columns instead of 9."
+            }
+            $opcode = $columns[4]
+            if (-not $schemas.ContainsKey($opcode)) {
+                throw "$($file.FullName):$($lineIndex + 1): emitted cutscene " +
+                    "opcode '$opcode' has no command schema entry."
+            }
+            try {
+                $payload = $utf8.GetString(
+                    [Convert]::FromBase64String($columns[8]))
+            }
+            catch {
+                throw "$($file.FullName):$($lineIndex + 1): emitted cutscene " +
+                    "opcode '$opcode' has invalid UTF-8 base64 payload: $_"
+            }
+            $schema = $schemas[$opcode]
+            $fields = @(
+                @('actor', $schema.ActorShape, $columns[5]),
+                @('arg0', $schema.Arg0Shape, $columns[6]),
+                @('arg1', $schema.Arg1Shape, $columns[7]),
+                @('payload', $schema.PayloadShape, $payload)
+            )
+            foreach ($field in $fields) {
+                if (-not (Test-CutsceneSchemaScalar $field[1] $field[2])) {
+                    $shown = if ($field[2].Length -eq 0) {
+                        '<empty>'
+                    } else {
+                        $field[2].Replace(([char]0).ToString(), '\0')
+                    }
+                    throw "$($file.FullName):$($lineIndex + 1): emitted opcode " +
+                        "'$opcode' field '$($field[0])' has '$shown'; expected " +
+                        "schema shape '$($field[1])'."
+                }
+            }
+            $commandRowCount++
+        }
+    }
+    if ($commandFileCount -eq 0 -or $commandRowCount -eq 0) {
+        throw 'No generated cutscene command streams were available for schema validation.'
+    }
+}
+
 function Read-AssemblyCutsceneCommands {
     param(
         [string]$path,
@@ -2211,45 +2370,80 @@ if ($null -eq $impaFakeSpriteSource) {
 Copy-Item -LiteralPath $impaFakeSpriteSource.FullName -Destination (
     Join-Path $destination "gfx\$impaFakeSprite.png") -Force
 
-# Keep the command vocabulary used by implemented and near-term events tied to
-# the actual script macros/handlers. A no-carry handler yields for the current
-# object update; a carry handler immediately dispatches the next command.
+# This is the single normalized command contract consumed by the importer,
+# runtime decoder, runner, actor preflight, and validation. Source aliases and
+# byte shapes retain the assembly origin even when one source operation expands
+# into a controller-native runtime command.
 $cutsceneVocabularyRows = @(
-    "# opcode`tbytes`trunner-result`tdescription",
-    "scriptend`t1`tend`tEnd the interaction script.",
-    "scriptjump`t2`tcontinue`tJump and continue dispatch in the same update.",
-    "setcoords`t3`tyield`tWrite the actor Y/X bytes.",
-    "setangle`t2`tyield`tWrite Interaction.angle.",
-    "setspeed`t2`tyield`tWrite Interaction.speed.",
-    "applyspeed`t1-or-2`tblock`tWait for counter2; apply speed while nonzero.",
-    "setcollisionradii`t3`tyield`tWrite collision radius Y/X.",
-    "makeabuttonsensitive`t1`tcontinue`tRegister the actor as a talk target.",
-    "initcollisions`t1`tcontinue`tSet `$06/`$06 radii and register the actor as a talk target.",
-    "checkabutton`t1`tblock`tHold until the registered actor consumes an A press.",
-    "writeobjectbyte`t3`tyield`tWrite an Interaction byte.",
-    "setanimation`t2-or-3`tyield`tSelect a literal, angle, or object-byte animation.",
-    "writememory`t4`tcontinue`tWrite one WRAM byte and continue dispatch.",
-    "showtext`t2-or-3`tyield`tOpen text; interactionRunScript then waits globally.",
-    "showtextdifferentforlinked`t4`tyield`tSelect linked or unlinked text.",
-    "orroomflag`t2`tyield`tOR the current room flags.",
-    "disablemenu`t1`tcontinue`tDisable the menu.",
-    "disableinput`t1`tcontinue`tDisable Link and the menu.",
-    "enableinput`t1`tcontinue`tEnable Link and the menu.",
-    "callscript`t3`tyield`tStore return address and transfer on the next update.",
-    "retscript`t1`tyield`tRestore return address on the next update.",
-    "jumpifmemoryeq`t6`tcontinue`tConditionally branch and continue dispatch.",
-    "jumptable_objectbyte`t2+table`tcontinue`tIndex an inline branch table with an actor byte.",
-    "jumpifroomflagset`t4`tcontinue`tBranch when a current-room flag is set.",
-    "jumpiftradeitemeq`t4`tcontinue`tBranch when the obtained trade item matches.",
-    "jumpiftextoptioneq`t4`tcontinue`tBranch on the last selected text option.",
-    "giveitem`t3`tyield`tCreate INTERAC_TREASURE at Link for immediate collection.",
-    "checkmemoryeq`t4`tgate`tHold until the WRAM byte equals the operand.",
-    "playsound`t2`tyield`tQueue a sound effect.",
-    "setmusic`t2`tyield`tSelect the active music track.",
-    "moveup/moveright/movedown/moveleft`t2`tblock`tSet direction/animation and install counter2.",
-    "wait`t1-or-more`tblock`tPseudo-op selecting delay or setcounter1 records.",
-    "asm15`t3-or-4`tcontinue`tRun an object-code handler; carry is forced on return."
+    "# opcode`tsource-aliases`tbyte-shape`tcommand-type`tactor-shape`targ0-shape`targ1-shape`tpayload-shape`tresults`tactor-members`tcapabilities`tdescription",
+    "disableinput`tdisableinput`t1`tCutsceneDisableInputCommand`tnone`tnone`tnone`tnone`tcontinue`t-`tinput`tDisable Link and the menu.",
+    "disablemenu`tdisablemenu`t1`tCutsceneDisableMenuCommand`tnone`tnone`tnone`tnone`tcontinue`t-`tmenu`tDisable the menu.",
+    "setdisabledobjects`tdisableallobjects`t1`tCutsceneSetDisabledObjectsCommand`tnone`thex`tnone`tnone`tyield`t-`tdisabled-objects`tWrite the disabled-object mask and yield.",
+    "setdisabledobjectscontinue`tnative:wDisabledObjects`truntime`tCutsceneSetDisabledObjectsContinueCommand`tnone`thex`tnone`tnone`tcontinue`t-`tdisabled-objects`tWrite the disabled-object mask and continue.",
+    "setcounter`tsetcounter1`t2`tCutsceneSetCounterCommand`tnone`tdecimal`tnone`tnone`tcontinue`t-`tcounter`tInstall counter1 and continue.",
+    "waitpreloadedcounter`tnative:counter1`truntime`tCutsceneWaitPreloadedCounterCommand`tnone`tnone`tnone`tnone`tblock|continue`t-`tcounter`tDecrement an already installed counter1.",
+    "wait`twait`t1-or-more`tCutsceneWaitCommand`tnone`tdecimal`tnone`tnone`tblock|continue`t-`tcounter`tInstall and wait on script counter1.",
+    "waitframes`tcontroller:waitframes`truntime`tCutsceneWaitFramesCommand`tnone`tpositive-decimal`tnone`tnone`tblock|yield`t-`tcounter`tWait a controller-owned fixed-update duration.",
+    "showtext`tshowtext`t2-or-3`tCutsceneShowTextCommand`tnone`thex`tnone`toptional`tyield`t-`tdialogue`tOpen interaction-script text.",
+    "dialogue`tcontroller:dialogue`truntime`tCutsceneDialogueCommand`tnone`thex`tnone`toptional`tblock|yield`t-`tdialogue`tOpen controller text and retain its close boundary.",
+    "showtextdifferentforlinked`tshowtextdifferentforlinked`t4`tCutsceneShowTextVariantsCommand`tnone`thex`thex`ttext-variants`tyield`t-`tdialogue|linked-state`tSelect linked or unlinked text.",
+    "setanimation`tsetanimation`t2-or-3`tCutsceneSetAnimationCommand`trequired`thex`tnone`toptional`tyield`tActorId`tactor-animation`tSelect a literal or encoded actor animation.",
+    "setanimationcontinue`tasm15:setanimation`truntime`tCutsceneSetAnimationContinueCommand`trequired`thex`tnone`trequired`tcontinue`tActorId`tactor-animation`tSelect an actor animation and continue.",
+    "setcollisionradii`tsetcollisionradii`t3`tCutsceneSetCollisionRadiiCommand`trequired`thex`thex`tnone`tyield`tActorId`tactor-collision`tWrite actor collision radii.",
+    "makeabuttonsensitive`tmakeabuttonsensitive`t1`tCutsceneMakeAButtonSensitiveCommand`trequired`tnone`tnone`tnone`tcontinue`tActorId`tactor-button`tRegister an actor as a talk target.",
+    "initcollisions`tinitcollisions`t1`tCutsceneInitCollisionsCommand`trequired`tnone`tnone`tnone`tcontinue`tActorId`tactor-collision|actor-button`tInstall standard radii and register a talk target.",
+    "checkabutton`tcheckabutton`t1`tCutsceneCheckAButtonCommand`trequired`tnone`tnone`tnone`tblock|continue`tActorId`tactor-button`tHold until the actor consumes an A press.",
+    "gate`tcontroller:gate`truntime`tCutsceneGateCommand`tnone`tnone`tnone`trequired`tblock|yield`t-`tgate-read`tHold on a named controller gate.",
+    "checkmemoryeq`tcheckmemoryeq`t4`tCutsceneMemoryGateCommand`tnone`thex`tnone`trequired`tblock|yield`t-`tmemory-read`tHold until a WRAM binding equals the operand.",
+    "jumpifmemoryeq`tjumpifmemoryeq`t6`tCutsceneMemoryBranchCommand`tnone`thex`tdecimal`trequired`tcontinue`t-`tmemory-read`tConditionally branch on a WRAM binding.",
+    "jumptablememory`tjumptable_objectbyte`t2+table`tCutsceneMemoryJumpTableCommand`tnone`tnone`tnone`tmemory-jump-table`tcontinue`t-`tmemory-read`tIndex a normalized branch table with a binding.",
+    "jumpifroomflagset`tjumpifroomflagset`t4`tCutsceneRoomFlagBranchCommand`tnone`thex`tdecimal`tnone`tcontinue`t-`troom-flag-read`tBranch when a room flag is set.",
+    "jumpiftradeitemeq`tjumpiftradeitemeq`t4`tCutsceneTradeItemBranchCommand`tnone`thex`tdecimal`tnone`tcontinue`t-`ttrade-item-read`tBranch when the obtained trade item matches.",
+    "jumpiftextoptioneq`tjumpiftextoptioneq`t4`tCutsceneTextOptionBranchCommand`tnone`thex`tdecimal`tnone`tcontinue`t-`ttext-option-read`tBranch on the selected text option.",
+    "scriptjump`tscriptjump`t2`tCutsceneBranchCommand`tnone`tdecimal`tnone`tnone`tcontinue`t-`t-`tJump and continue dispatch.",
+    "callscript`tcallscript`t3`tCutsceneCallCommand`tnone`tdecimal`tnone`tnone`tyield`t-`tcall-stack`tStore a return address and transfer next update.",
+    "return`tretscript`t1`tCutsceneReturnCommand`tnone`tnone`tnone`tnone`tyield`t-`tcall-stack`tRestore a return address next update.",
+    "setspeed`tsetspeed`t2`tCutsceneSetSpeedCommand`trequired`thex`tnone`tnone`tyield`tActorId`tactor-registers`tWrite the actor speed register.",
+    "setangle`tsetangle`t2`tCutsceneSetAngleCommand`trequired`thex`tnone`tnone`tyield`tActorId`tactor-registers`tWrite the actor angle register.",
+    "applyspeed`tapplyspeed`t1-or-2`tCutsceneApplySpeedCommand`trequired`thex`tnone`tnone`tblock|yield`tActorId`tactor-movement`tApply registered speed and angle while counter2 is nonzero.",
+    "move`tmoveup|moveright|movedown|moveleft`t2`tCutsceneMoveCommand`trequired`thex`thex`trequired`tblock|yield`tActorId`tactor-animation|actor-movement`tRun a cardinal actor movement command.",
+    "jump`tcallscript:jumpAndWaitUntilLanded`truntime`tCutsceneJumpCommand`trequired`tdecimal`thex`thex`tblock|yield`tActorId`tactor-z|sound`tRun the typed jump-and-land subscript.",
+    "writeobjectbyte`twriteobjectbyte`t3`tCutsceneWriteObjectByteCommand`trequired`thex`thex`tnone`tyield`tActorId`tactor-object-write`tWrite an Interaction byte.",
+    "writememory`twritememory`t4`tCutsceneWriteMemoryCommand`tnone`thex`tnone`trequired`tcontinue`t-`tmemory-write`tWrite one WRAM byte and continue.",
+    "giveitem`tgiveitem`t3`tCutsceneGiveItemCommand`tnone`thex`thex`tnone`tyield`t-`titem-give`tCreate a treasure for immediate collection.",
+    "playsound`tscriptCmd_playsound`t2`tCutscenePlaySoundCommand`tnone`thex`tnone`tnone`tyield`t-`tsound`tQueue a sound effect.",
+    "setmusic`tsetmusic`t2`tCutsceneSetMusicCommand`tnone`thex`tnone`tnone`tyield`t-`tmusic`tSelect the active music track.",
+    "flicker`tasm15:objectFlickerVisibility`truntime`tCutsceneFlickerCommand`trequired`thex`thex`tnone`tblock|continue`tActorId`tactor-visible|frame-counter`tRun the recognized visibility flicker loop.",
+    "translate`tcontroller:translate`truntime`tCutsceneTranslateCommand`trequired`tpositive-decimal`tdecimal`ttranslation`tblock|yield`tActorId`tactor-position|actor-animation`tTranslate one actor over fixed updates.",
+    "paralleltranslate`tcontroller:paralleltranslate`truntime`tCutsceneParallelTranslateCommand`trequired`tpositive-decimal`tpositive-decimal`tparallel-translation`tblock|yield`tActorId|Actor2Id`tactor-position`tTranslate two actors in stable order.",
+    "deleteactor`tcontroller:deleteactor`truntime`tCutsceneDeleteActorCommand`trequired`tnone`tnone`tnone`tend`tActorId`tactor-delete`tDelete an actor and end the stream.",
+    "setglobalflag`tcontroller:setglobalflag`truntime`tCutsceneSetGlobalFlagCommand`tnone`thex`tnone`tnone`tcontinue`t-`tglobal-flag-write`tSet a global flag and continue.",
+    "orroomflag`torroomflag`t2`tCutsceneOrRoomFlagCommand`tnone`thex`tnone`tnone`tyield`t-`troom-flag-write`tOR the room flags and yield.",
+    "orroomflagcontinue`tnative:orRoomFlags`truntime`tCutsceneOrRoomFlagContinueCommand`tnone`thex`tnone`tnone`tcontinue`t-`troom-flag-write`tOR the room flags and continue.",
+    "native`tasm15`t3-or-4`tCutsceneNativeCommand`tnone`tnone`tnone`trequired`tcontinue`t-`tnative`tRun a native handler and continue.",
+    "nativeyield`tasm15:yield`truntime`tCutsceneNativeYieldCommand`tnone`tnone`tnone`trequired`tyield`t-`tnative`tRun a native handler and yield.",
+    "nativeblock`tasm15:block`truntime`tCutsceneNativeBlockingCommand`toptional`tpositive-decimal`tnone`tnative-block`tblock|yield`tActor?`tnative-block`tUpdate an event-specific native handler until complete.",
+    "enableinput`tenableinput`t1`tCutsceneEnableInputCommand`tnone`tnone`tnone`tnone`tcontinue`t-`tinput`tEnable Link and the menu.",
+    "scriptend`tscriptend`t1`tCutsceneEndCommand`tnone`tnone`tnone`tnone`tend`t-`tscript-end`tEnd the interaction script."
 )
+$cutsceneCommandSchemas = @{}
+foreach ($row in $cutsceneVocabularyRows | Select-Object -Skip 1) {
+    $columns = $row.Split([char]"`t")
+    if ($columns.Count -ne 12) {
+        throw "Cutscene command schema row '$($columns[0])' has " +
+            "$($columns.Count) columns instead of 12."
+    }
+    $opcode = $columns[0]
+    if ($cutsceneCommandSchemas.ContainsKey($opcode)) {
+        throw "Duplicate cutscene command schema opcode '$opcode'."
+    }
+    $cutsceneCommandSchemas.Add($opcode, [pscustomobject]@{
+        ActorShape = $columns[4]
+        Arg0Shape = $columns[5]
+        Arg1Shape = $columns[6]
+        PayloadShape = $columns[7]
+    })
+}
 Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\script_command_vocabulary.tsv'),
     $cutsceneVocabularyRows)
@@ -5537,3 +5731,7 @@ for ($index = 0; $index -lt 16; $index++) {
 Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_rings.tsv'),
     $shootingGalleryRingRows)
+
+# Every normalized command row emitted above must conform to the same schema
+# that runtime startup consumes.
+Test-GeneratedCutsceneCommandStreams $destination $cutsceneCommandSchemas

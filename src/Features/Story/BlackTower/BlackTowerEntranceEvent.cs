@@ -298,17 +298,10 @@ internal sealed class BlackTowerEntranceEvent :
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value == "Guard";
 
-    void ICutsceneCommandHost.SetMenuEnabled(bool enabled) =>
-        throw Unsupported($"set menu enabled={enabled}");
-    void ICutsceneCommandHost.SetDisabledObjects(int value) =>
-        throw Unsupported($"set disabled objects=${value:x2}");
     bool ICutsceneCommandHost.GateOpen(string gate) =>
         gate == "palette-fade-done"
             ? !_context.Transitions.IsTransitioning
             : throw Unsupported($"read gate '{gate}'");
-    bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
-        throw Unsupported($"read '{binding}'=${value:x2}");
-
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {
         if (textId is not (0x1003 or 0x1006))
@@ -316,21 +309,11 @@ internal sealed class BlackTowerEntranceEvent :
         _context.ShowDialogue(message);
     }
 
-    void ICutsceneCommandHost.SetActorAnimation(
-        string actor, int animation, string encodedAnimation) =>
-        throw Unsupported($"set {actor} animation ${animation:x2}");
-
     void ICutsceneCommandHost.SetActorMovementAnimation(
         string actor, int angle, string encodedAnimation)
     {
         RequireGuard(actor).SetScriptAnimation(encodedAnimation);
     }
-
-    void ICutsceneCommandHost.SetActorCollisionRadii(
-        string actor, int radiusY, int radiusX) =>
-        throw Unsupported($"set {actor} collision radii");
-    void ICutsceneCommandHost.SetActorButtonSensitive(string actor) =>
-        throw Unsupported($"set {actor} A-button sensitivity");
 
     void ICutsceneCommandHost.MoveActorAtSpeed(string actor, int speed, int angle)
     {
@@ -340,8 +323,6 @@ internal sealed class BlackTowerEntranceEvent :
             OracleObjectMath.ToPixelPosition(_guardPrecisePosition);
     }
 
-    void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>
-        throw Unsupported($"set {actor} Z");
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
         RequireGuard(actor).Visible = visible;
 
@@ -426,14 +407,6 @@ internal sealed class BlackTowerEntranceEvent :
         }
     }
 
-    bool ICutsceneCommandHost.UpdateNativeHandler(
-        string handler,
-        CutsceneActorId? actor,
-        int commandUpdate,
-        int frames,
-        string payload) => throw Unsupported(
-            $"update native handler '{handler}'");
-
     void ICutsceneCommandHost.ScriptEnded()
     {
         if (_stage == BlackTowerEntranceEventEventStage.Aftermath)
@@ -449,8 +422,8 @@ internal sealed class BlackTowerEntranceEvent :
         return _guard;
     }
 
-    private static InvalidOperationException Unsupported(string operation) =>
-        new($"Room 1:86 hardhat script cannot {operation}.");
+    private InvalidOperationException Unsupported(string operation) =>
+        UnsupportedCommand(operation);
 }
 
 internal enum BlackTowerEntranceEventEventStage

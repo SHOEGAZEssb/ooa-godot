@@ -836,12 +836,6 @@ internal sealed class FairiesWoodsEvent :
             LockInput();
     }
 
-    void ICutsceneCommandHost.SetMenuEnabled(bool enabled) =>
-        throw Unsupported($"set menu enabled={enabled}");
-
-    void ICutsceneCommandHost.SetDisabledObjects(int value) =>
-        throw Unsupported($"write wDisabledObjects=${value:x2}");
-
     bool ICutsceneCommandHost.GateOpen(string gate) =>
         throw Unsupported($"read gate '{gate}'");
 
@@ -871,18 +865,6 @@ internal sealed class FairiesWoodsEvent :
         ShowText(textId);
     }
 
-    void ICutsceneCommandHost.SetActorAnimation(
-        string actor,
-        int animation,
-        string encodedAnimation) =>
-        throw Unsupported($"set actor '{actor}' animation ${animation:x2}");
-
-    void ICutsceneCommandHost.SetActorMovementAnimation(
-        string actor,
-        int angle,
-        string encodedAnimation) =>
-        throw Unsupported($"set actor '{actor}' movement animation ${angle:x2}");
-
     void ICutsceneCommandHost.SetActorCollisionRadii(
         string actor,
         int radiusY,
@@ -903,27 +885,12 @@ internal sealed class FairiesWoodsEvent :
             throw Unsupported($"make actor '{actor}' button sensitive");
     }
 
-    void ICutsceneCommandHost.MoveActorAtSpeed(
-        string actor,
-        int speed,
-        int angle) =>
-        throw Unsupported($"move actor '{actor}' at ${speed:x2}/${angle:x2}");
-
-    void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>
-        throw Unsupported($"set actor '{actor}' z={zFixed}");
-
-    void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
-        throw Unsupported($"set actor '{actor}' visible={visible}");
-
     void ICutsceneCommandHost.WriteMemory(string binding, int value)
     {
         if (binding != "FairySignal")
             throw Unsupported($"write '{binding}'=${value:x2}");
         Signal = (byte)value;
     }
-
-    void ICutsceneCommandHost.OrRoomFlag(int flag) =>
-        throw Unsupported($"or room flag ${flag:x2}");
 
     void ICutsceneCommandHost.RunNativeHandler(string handler)
     {
@@ -993,8 +960,8 @@ internal sealed class FairiesWoodsEvent :
             ? Signal
             : throw Unsupported($"read '{binding}'");
 
-    private static InvalidOperationException Unsupported(string operation) =>
-        new($"Fairies' Woods event cannot {operation}.");
+    private InvalidOperationException Unsupported(string operation) =>
+        UnsupportedCommand(operation);
 }
 
 internal enum FairiesWoodsStage

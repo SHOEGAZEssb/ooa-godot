@@ -107,7 +107,8 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                 }
             }
 
-            foreach (CutsceneActorId actor in Actors(commands[index]))
+            foreach (CutsceneActorId actor in CutsceneCommandSchema.Actors(
+                commands[index]))
             {
                 host.SetActiveCommandSource(commands[index].Source);
                 if (!host.HasActorBinding(actor))
@@ -163,6 +164,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                 Trace(command, CutsceneCommandTracePhase.Started);
             _nextInstruction = -1;
             CommandResult result = Execute(command);
+            CutsceneCommandSchema.ValidateResult(command, result);
             Trace(command, result == CommandResult.Block
                 ? CutsceneCommandTracePhase.Updated
                 : CutsceneCommandTracePhase.Completed);
@@ -634,35 +636,6 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
             elapsed <= frames ? delta / frames : Vector2.Zero);
         if (elapsed == frames)
             host.CompleteActorTranslation(actor);
-    }
-
-    private static IEnumerable<CutsceneActorId> Actors(CutsceneCommand command)
-    {
-        switch (command)
-        {
-            case CutsceneSetAnimationCommand value: yield return value.Actor; break;
-            case CutsceneSetAnimationContinueCommand value: yield return value.Actor; break;
-            case CutsceneSetCollisionRadiiCommand value: yield return value.Actor; break;
-            case CutsceneMakeAButtonSensitiveCommand value: yield return value.Actor; break;
-            case CutsceneInitCollisionsCommand value: yield return value.Actor; break;
-            case CutsceneCheckAButtonCommand value: yield return value.Actor; break;
-            case CutsceneSetSpeedCommand value: yield return value.Actor; break;
-            case CutsceneSetAngleCommand value: yield return value.Actor; break;
-            case CutsceneApplySpeedCommand value: yield return value.Actor; break;
-            case CutsceneMoveCommand value: yield return value.Actor; break;
-            case CutsceneJumpCommand value: yield return value.Actor; break;
-            case CutsceneWriteObjectByteCommand value: yield return value.Actor; break;
-            case CutsceneFlickerCommand value: yield return value.Actor; break;
-            case CutsceneTranslateCommand value: yield return value.Actor; break;
-            case CutsceneParallelTranslateCommand value:
-                yield return value.Actor;
-                yield return value.Actor2;
-                break;
-            case CutsceneDeleteActorCommand value: yield return value.Actor; break;
-            case CutsceneNativeBlockingCommand { Actor: { } actor }:
-                yield return actor;
-                break;
-        }
     }
 
     private void Trace(CutsceneCommand command, CutsceneCommandTracePhase phase) =>

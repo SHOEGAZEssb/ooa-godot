@@ -53,8 +53,12 @@ internal static class CutsceneCommandCatalog
         string arg0 = row.String(6);
         string arg1 = row.String(7);
         string payload = row.Base64Utf8(8);
+        CutsceneCommandSchemaEntry schema =
+            CutsceneCommandSchema.ForOpcode(opcode, source);
+        schema.ValidateNormalizedFields(
+            path, physicalLine, actor, arg0, arg1, payload);
 
-        return opcode switch
+        CutsceneCommand command = opcode switch
         {
             "disableinput" => new CutsceneDisableInputCommand(source),
             "disablemenu" => new CutsceneDisableMenuCommand(source),
@@ -198,6 +202,8 @@ internal static class CutsceneCommandCatalog
                 physicalLine,
                 $"unsupported opcode '{opcode}' at {source}")
         };
+        schema.ValidateDecoded(command);
+        return command;
     }
 
     private static CutsceneMemoryJumpTableCommand ParseMemoryJumpTable(

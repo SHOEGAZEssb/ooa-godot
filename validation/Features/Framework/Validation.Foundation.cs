@@ -316,6 +316,95 @@ public sealed partial class ValidationRoot
             "cutscene-only load exclusion.");
     }
 
+    private static void ValidateCutsceneCommandSchema()
+    {
+        IReadOnlyList<CutsceneCommandSchemaEntry> entries =
+            CutsceneCommandSchema.Entries;
+        FailIf(
+            entries.Count != 49 ||
+            entries.Select(entry => entry.CommandType)
+                .Distinct()
+                .Count() != entries.Count,
+            "The cutscene command schema no longer declares exactly one entry " +
+            "for each of the 49 typed command records.");
+
+        var source = new CutsceneCommandSource(
+            "validation/command-schema.tsv",
+            "validationCommandSchema",
+            CommandIndex: 0,
+            SourceLine: 41,
+            Opcode: "paralleltranslate");
+        CutsceneActorId[] actors = CutsceneCommandSchema.Actors(
+            new CutsceneParallelTranslateCommand(
+                source,
+                "Nayru",
+                Vector2.Zero,
+                Frames: 1,
+                "Ralph",
+                Vector2.Zero,
+                Frames2: 1)).ToArray();
+        FailIf(
+            actors.Length != 2 ||
+            actors[0] != new CutsceneActorId("Nayru") ||
+            actors[1] != new CutsceneActorId("Ralph"),
+            "Schema-owned multi-actor enumeration lost its declared order.");
+
+        CutsceneActorId[] optionalActors = CutsceneCommandSchema.Actors(
+            new CutsceneNativeBlockingCommand(
+                source with { Opcode = "nativeblock" },
+                "validationNative",
+                Actor: null,
+                Frames: 1,
+                Payload: string.Empty)).ToArray();
+        FailIf(
+            optionalActors.Length != 0,
+            "Schema-owned optional actor enumeration emitted an empty actor.");
+
+        try
+        {
+            CutsceneCommandSchema.ForOpcode(
+                "move",
+                source with { Opcode = "move" }).ValidateNormalizedFields(
+                    "validation/invalid-command.tsv",
+                    physicalLine: 12,
+                    actor: "Nayru",
+                    arg0: "08",
+                    arg1: string.Empty,
+                    payload: "walk");
+            throw new InvalidOperationException(
+                "The cutscene command schema accepted an invalid normalized operand.");
+        }
+        catch (InvalidOperationException exception) when (
+            exception.Message.Contains(
+                "validation/invalid-command.tsv:12",
+                StringComparison.Ordinal) &&
+            exception.Message.Contains("arg1", StringComparison.Ordinal) &&
+            exception.Message.Contains("hex", StringComparison.Ordinal))
+        {
+        }
+
+        try
+        {
+            CutsceneCommandSchema.ValidateResult(
+                new CutsceneEndCommand(
+                    source with { Opcode = "scriptend" }),
+                CommandResult.Continue);
+            throw new InvalidOperationException(
+                "The cutscene command schema accepted an undeclared runner result.");
+        }
+        catch (InvalidOperationException exception) when (
+            exception.Message.Contains(
+                "undeclared result 'continue'",
+                StringComparison.Ordinal) &&
+            exception.Message.Contains("scriptend", StringComparison.Ordinal))
+        {
+        }
+
+        GD.Print(
+            "Validated 49-entry cutscene command schema coverage, normalized " +
+            "field shapes, actor enumeration, and runner result contracts.");
+    }
+
     private static void ValidateCutsceneDefaultDeny()
     {
         var source = new CutsceneCommandSource(
@@ -336,9 +425,13 @@ public sealed partial class ValidationRoot
             exception.Message.Contains(source.Script, StringComparison.Ordinal) &&
             exception.Message.Contains(source.Label, StringComparison.Ordinal) &&
             exception.Message.Contains("[0]", StringComparison.Ordinal) &&
-            exception.Message.Contains("line 37", StringComparison.Ordinal))
+            exception.Message.Contains("line 37", StringComparison.Ordinal) &&
+            exception.Message.Contains(
+                "requiring [music]",
+                StringComparison.Ordinal))
         {
-            GD.Print("Validated source-aware default-deny cutscene host diagnostics.");
+            GD.Print(
+                "Validated schema-capability-aware default-deny cutscene host diagnostics.");
             return;
         }
 

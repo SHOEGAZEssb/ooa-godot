@@ -108,47 +108,8 @@ internal sealed class GraveyardGateEvent :
         _inputEnabled = true;
     }
 
-    void ICutsceneCommandHost.SetMenuEnabled(bool enabled) =>
-        throw Unsupported($"set menu enabled={enabled}");
-
-    void ICutsceneCommandHost.SetDisabledObjects(int value) =>
-        throw Unsupported($"set disabled objects ${value:x2}");
-
     bool ICutsceneCommandHost.GateOpen(string gate) =>
         throw Unsupported($"read gate '{gate}'");
-
-    bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
-        throw Unsupported($"read '{binding}'=${value:x2}");
-
-    void ICutsceneCommandHost.ShowText(int textId, string message) =>
-        throw Unsupported($"show TX_{textId:x4}");
-
-    void ICutsceneCommandHost.SetActorAnimation(
-        string actor, int animation, string encodedAnimation) =>
-        throw Unsupported($"set actor '{actor}' animation ${animation:x2}");
-
-    void ICutsceneCommandHost.SetActorMovementAnimation(
-        string actor, int angle, string encodedAnimation) =>
-        throw Unsupported($"set actor '{actor}' movement angle ${angle:x2}");
-
-    void ICutsceneCommandHost.SetActorCollisionRadii(
-        string actor, int radiusY, int radiusX) =>
-        throw Unsupported($"set actor '{actor}' collision radii");
-
-    void ICutsceneCommandHost.SetActorButtonSensitive(string actor) =>
-        throw Unsupported($"make actor '{actor}' A-button sensitive");
-
-    void ICutsceneCommandHost.MoveActorAtSpeed(string actor, int speed, int angle) =>
-        throw Unsupported($"move actor '{actor}'");
-
-    void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>
-        throw Unsupported($"set actor '{actor}' Z");
-
-    void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
-        throw Unsupported($"set actor '{actor}' visible={visible}");
-
-    void ICutsceneCommandHost.WriteMemory(string binding, int value) =>
-        throw Unsupported($"write '{binding}'=${value:x2}");
 
     void ICutsceneCommandHost.SetMusic(int music)
     {
@@ -159,9 +120,6 @@ internal sealed class GraveyardGateEvent :
         else
             throw Unsupported($"set music ${music:x2}");
     }
-
-    void ICutsceneCommandHost.OrRoomFlag(int flag) =>
-        throw Unsupported($"OR room flag ${flag:x2}");
 
     void ICutsceneCommandHost.RunNativeHandler(string handler)
     {
@@ -248,8 +206,8 @@ internal sealed class GraveyardGateEvent :
         (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
         (packed >> 4) * OracleRoomData.MetatileSize + 8);
 
-    private static InvalidOperationException Unsupported(string operation) =>
-        new($"Room 0:5c graveyard gate cannot {operation}.");
+    private InvalidOperationException Unsupported(string operation) =>
+        UnsupportedCommand(operation);
 }
 
 internal enum GraveyardGateEventEventStage

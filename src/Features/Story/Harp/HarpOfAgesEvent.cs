@@ -501,17 +501,8 @@ internal sealed class HarpOfAgesEvent :
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value == "Nayru";
 
-    void ICutsceneCommandHost.SetMenuEnabled(bool enabled) =>
-        throw Unsupported($"set menu enabled={enabled}");
-
-    void ICutsceneCommandHost.SetDisabledObjects(int value) =>
-        throw Unsupported($"set disabled objects=${value:x2}");
-
     bool ICutsceneCommandHost.GateOpen(string gate) =>
         throw Unsupported($"read gate '{gate}'");
-
-    bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
-        throw Unsupported($"read '{binding}'=${value:x2}");
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {
@@ -535,33 +526,6 @@ internal sealed class HarpOfAgesEvent :
         _nayru.SetAnimationRate(0.0f);
         _nayruLastNoteFrame = -1;
     }
-
-    void ICutsceneCommandHost.SetActorMovementAnimation(
-        string actor,
-        int angle,
-        string encodedAnimation) =>
-        throw Unsupported($"set actor '{actor}' movement angle ${angle:x2}");
-
-    void ICutsceneCommandHost.SetActorCollisionRadii(
-        string actor,
-        int radiusY,
-        int radiusX) =>
-        throw Unsupported($"set actor '{actor}' collision");
-
-    void ICutsceneCommandHost.SetActorButtonSensitive(string actor) =>
-        throw Unsupported($"set actor '{actor}' A-button sensitivity");
-
-    void ICutsceneCommandHost.MoveActorAtSpeed(
-        string actor,
-        int speed,
-        int angle) =>
-        throw Unsupported($"move actor '{actor}'");
-
-    void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>
-        throw Unsupported($"set actor '{actor}' Z");
-
-    void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
-        throw Unsupported($"set actor '{actor}' visibility={visible}");
 
     void ICutsceneCommandHost.WriteObjectByte(
         string actor,
@@ -602,12 +566,6 @@ internal sealed class HarpOfAgesEvent :
             textboxFlags: _textboxFlags);
     }
 
-    void ICutsceneCommandHost.SetMusic(int music) =>
-        throw Unsupported($"set music ${music:x2}");
-
-    void ICutsceneCommandHost.OrRoomFlag(int flag) =>
-        throw Unsupported($"set room flag ${flag:x2}");
-
     void ICutsceneCommandHost.RunNativeHandler(string handler)
     {
         if (handler != "ToggleNayruAnimation")
@@ -634,8 +592,7 @@ internal sealed class HarpOfAgesEvent :
     void ICutsceneCommandHost.ScriptEnded() => BeginFadeInTail();
 
     private InvalidOperationException Unsupported(string operation) =>
-        new($"Room {_database.Record.Group:x}:{_database.Record.Room:x2} " +
-            $"Harp of Ages event cannot {operation}.");
+        UnsupportedCommand(operation);
 }
 
 internal sealed class HarpMusicNoteState(

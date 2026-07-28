@@ -105,9 +105,18 @@ internal abstract class CutsceneCommandHost : ICutsceneCommandHost
         throw UnsupportedCommand($"update native handler '{handler}'");
     public virtual void ScriptEnded() => throw UnsupportedCommand("end the script");
 
-    protected InvalidOperationException UnsupportedCommand(string operation) =>
-        new($"{GetType().Name} cannot {operation} at " +
+    protected InvalidOperationException UnsupportedCommand(string operation)
+    {
+        CutsceneCommandSchemaEntry? schema = _activeSource is { } source
+            ? CutsceneCommandSchema.FindOpcode(source.Opcode)
+            : null;
+        string capabilities = schema is null
+            ? string.Empty
+            : $" requiring [{string.Join(", ", schema.Capabilities)}]";
+        return new InvalidOperationException(
+            $"{GetType().Name} cannot {operation}{capabilities} at " +
             (_activeSource?.ToString() ?? "an unknown cutscene command"));
+    }
 }
 
 internal abstract class InteractiveCutsceneCommandHost : CutsceneCommandHost

@@ -297,10 +297,6 @@ internal sealed class MakuSproutRescueEvent :
             _context.Player.BeginCutsceneControl();
     }
 
-    void ICutsceneCommandHost.SetMenuEnabled(bool enabled) =>
-        throw Unsupported($"set menu enabled={enabled}");
-    void ICutsceneCommandHost.SetDisabledObjects(int value) =>
-        throw Unsupported($"set disabled objects=${value:x2}");
     bool ICutsceneCommandHost.GateOpen(string gate) =>
         throw Unsupported($"read gate '{gate}'");
 
@@ -544,8 +540,8 @@ internal sealed class MakuSproutRescueEvent :
             new MaskedMoblinSpawn(position));
     }
 
-    private static InvalidOperationException Unsupported(string operation) =>
-        new($"Room 1:38 Maku rescue cannot {operation}.");
+    private InvalidOperationException Unsupported(string operation) =>
+        UnsupportedCommand(operation);
 }
 
 internal enum MakuSproutRescueEventEventStage

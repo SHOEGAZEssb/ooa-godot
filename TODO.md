@@ -380,21 +380,18 @@ NPC- and enemy-specific findings remain in their sections above.
   - Validate clean-checkout PNG loading, cache identity/build reuse, and
     cross-scene pixel/offset hashes.
 
-- [ ] Make the cutscene command vocabulary an enforced command schema.
-  `script_command_vocabulary.tsv` is generated but neither runtime nor
-  validation reads it; source macro aliases/lengths, normalized opcode
-  decoding in `CutsceneCommandCatalog`, execution/yield behavior in
-  `CutsceneCommandRunner`, actor enumeration, and host operations are separate
-  hand-maintained switches.
-  - Define source aliases, byte shape, normalized operands/payload,
-    block/yield/continue/end result, actor operands, and required host
-    capability once, then have importer and runtime generation or validation
-    consume that definition.
-  - Prove every emitted command has exactly one typed decoder and executor and
-    every executor has a declared schema entry. Replace the repeated
-    unsupported-method boilerplate across command hosts with a source-aware
-    default-deny capability adapter; keep event-specific native handlers and
-    actor registries explicit.
+- [x] Make the cutscene command vocabulary an enforced command schema.
+  `script_command_vocabulary.tsv` now declares source aliases and byte shapes,
+  normalized field shapes, concrete record types, runner results, ordered
+  actor members, and host capabilities for all 49 typed commands.
+  - The importer validates every emitted stream against this definition.
+    Runtime decoding enforces the declared record type, startup reflection
+    proves every concrete executor record has exactly one entry, and the
+    runner validates actor bindings and block/yield/continue/end outcomes from
+    the schema.
+  - Command hosts now inherit source-aware default-deny capabilities instead
+    of repeating unconditional unsupported implementations. Event-specific
+    operand checks, native handlers, and actor registries remain explicit.
 
 - [ ] Move active validation audit bookkeeping out of production classes.
   `OracleSoundEngine` maintains a 256-entry request counter and last-request

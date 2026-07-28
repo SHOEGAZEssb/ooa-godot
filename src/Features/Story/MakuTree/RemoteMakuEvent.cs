@@ -167,14 +167,8 @@ internal abstract class RemoteMakuEvent :
 
     RoomEventContext ICutsceneCommandHost.Context => Context;
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) => false;
-    void ICutsceneCommandHost.SetMenuEnabled(bool enabled) =>
-        throw Unsupported($"set menu enabled={enabled}");
-    void ICutsceneCommandHost.SetDisabledObjects(int value) =>
-        throw Unsupported($"set disabled objects=${value:x2}");
     bool ICutsceneCommandHost.GateOpen(string gate) =>
         throw Unsupported($"read gate '{gate}'");
-    bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
-        throw Unsupported($"read '{binding}'=${value:x2}");
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {
@@ -190,25 +184,6 @@ internal abstract class RemoteMakuEvent :
                 : record.StandardMapText);
         Context.ShowDialogue(message, textboxFlags: _textboxFlags);
     }
-
-    void ICutsceneCommandHost.SetActorAnimation(
-        string actor, int animation, string encodedAnimation) =>
-        throw Unsupported($"set actor '{actor}' animation ${animation:x2}");
-    void ICutsceneCommandHost.SetActorMovementAnimation(
-        string actor, int angle, string encodedAnimation) =>
-        throw Unsupported($"set actor '{actor}' movement angle ${angle:x2}");
-    void ICutsceneCommandHost.SetActorCollisionRadii(
-        string actor, int radiusY, int radiusX) =>
-        throw Unsupported($"set actor '{actor}' collision");
-    void ICutsceneCommandHost.SetActorButtonSensitive(string actor) =>
-        throw Unsupported($"set actor '{actor}' A-button sensitivity");
-    void ICutsceneCommandHost.MoveActorAtSpeed(
-        string actor, int speed, int angle) =>
-        throw Unsupported($"move actor '{actor}'");
-    void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>
-        throw Unsupported($"set actor '{actor}' Z");
-    void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
-        throw Unsupported($"set actor '{actor}' visibility={visible}");
 
     void ICutsceneCommandHost.WriteMemory(string binding, int value)
     {
@@ -295,13 +270,8 @@ internal abstract class RemoteMakuEvent :
             RemoveConfetti();
     }
 
-    private InvalidOperationException Unsupported(string operation)
-    {
-        RemoteMakuEventRecord record = _database.Record;
-        return new InvalidOperationException(
-            $"Room {record.Group:x}:{record.Room:x2} remote Maku event cannot " +
-            $"{operation}.");
-    }
+    private InvalidOperationException Unsupported(string operation) =>
+        UnsupportedCommand(operation);
 }
 
 internal enum RemoteMakuEventStage

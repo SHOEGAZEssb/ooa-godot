@@ -75,8 +75,21 @@ Every row must retain actionable source metadata. Import or startup errors
 must identify the script, label, command index, source line, and invalid
 operand or actor.
 
-The generated `script_command_vocabulary.tsv` records byte lengths and
-handler behavior for the implemented and near-term original opcodes.
+The generated `script_command_vocabulary.tsv` is the enforced normalized
+command schema. Each of its 49 rows declares:
+
+- source macro/native aliases and original byte shape;
+- the one concrete `CutsceneCommand` record type;
+- actor, `arg0`, `arg1`, and decoded payload shapes;
+- every permitted `Continue`, `Yield`, `Block`, or `End` result;
+- ordered actor-member accessors; and
+- required host capabilities.
+
+The importer rejects every emitted command row that has an undeclared opcode
+or does not match these field shapes. Runtime loading then checks that the
+normalized opcode decodes to the declared record type. Startup reflection
+requires every concrete command record to have exactly one schema entry, and
+the runner checks every returned result against that entry.
 
 ## Fixed-update semantics
 
@@ -125,7 +138,9 @@ ROM-timed movement.
 
 ## Actor bindings
 
-Commands refer to `CutsceneActorId` values. A host must implement
+Commands refer to `CutsceneActorId` values. Actor operands are enumerated from
+the schema's ordered actor-member list, including optional native-handler
+actors, instead of a second runner switch. A host must implement
 `HasActorBinding` and reject any actor that is not available to that stream.
 Bindings are validated before the first command executes.
 
@@ -136,6 +151,12 @@ generated command rows.
 The host translates the stable identifier into the current runtime actor. It
 also owns actor-specific operations such as animation selection, position,
 visibility, Z, or deletion.
+
+Command hosts derive from the source-aware default-deny capability adapter.
+They implement only capabilities the event owns; an unsupported call fails
+with the declared capability plus the script, label, command index, source
+line, and opcode. Event-specific
+native handlers and actor registries remain explicit.
 
 When translated movement finishes, the runner calls
 `CompleteActorTranslation` on the same fixed update. Player hosts must use

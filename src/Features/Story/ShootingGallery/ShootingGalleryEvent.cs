@@ -184,12 +184,6 @@ internal sealed class ShootingGalleryEvent :
             DisableLinkAndMenus();
     }
 
-    void ICutsceneCommandHost.SetMenuEnabled(bool enabled) =>
-        throw Unsupported($"set menu enabled={enabled} independently");
-
-    void ICutsceneCommandHost.SetDisabledObjects(int value) =>
-        throw Unsupported($"set wDisabledObjects=${value:x2} directly");
-
     bool ICutsceneCommandHost.GateOpen(string gate)
     {
         if (gate != PaletteFadeGate ||
@@ -257,20 +251,6 @@ internal sealed class ShootingGalleryEvent :
             _context.ShowDialogue(resolved);
     }
 
-    void ICutsceneCommandHost.SetActorAnimation(
-        string actor,
-        int animation,
-        string encodedAnimation) =>
-        throw Unsupported(
-            $"set actor '{actor}' animation ${animation:x2} ({encodedAnimation})");
-
-    void ICutsceneCommandHost.SetActorMovementAnimation(
-        string actor,
-        int angle,
-        string encodedAnimation) =>
-        throw Unsupported(
-            $"set actor '{actor}' movement animation ${angle:x2} ({encodedAnimation})");
-
     void ICutsceneCommandHost.SetActorCollisionRadii(
         string actor,
         int radiusY,
@@ -284,15 +264,6 @@ internal sealed class ShootingGalleryEvent :
         RequireKeeper(actor).SetScriptButtonSensitive(true);
         _buttonSensitive = true;
     }
-
-    void ICutsceneCommandHost.MoveActorAtSpeed(
-        string actor,
-        int speed,
-        int angle) =>
-        throw Unsupported($"move actor '{actor}' at ${speed:x2}/${angle:x2}");
-
-    void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>
-        throw Unsupported($"set actor '{actor}' Z to ${zFixed:x4}");
 
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
         RequireKeeper(actor).Visible = visible;
@@ -310,9 +281,6 @@ internal sealed class ShootingGalleryEvent :
         }
         _buttonPressed = false;
     }
-
-    void ICutsceneCommandHost.WriteMemory(string binding, int value) =>
-        throw Unsupported($"write '{binding}'=${value:x2}");
 
     void ICutsceneCommandHost.GiveItem(int treasureId, int parameter)
     {
@@ -351,9 +319,6 @@ internal sealed class ShootingGalleryEvent :
             throw Unsupported($"set music ${music:x2}");
         _context.Sound.PlayMusicIfChanged(music);
     }
-
-    void ICutsceneCommandHost.OrRoomFlag(int flag) =>
-        throw Unsupported($"OR room flag ${flag:x2}");
 
     void ICutsceneCommandHost.RunNativeHandler(string handler)
     {
@@ -650,8 +615,8 @@ internal sealed class ShootingGalleryEvent :
         _ownsFade = false;
     }
 
-    private static InvalidOperationException Unsupported(string operation) =>
-        new($"Room 2:e9 shooting-gallery script cannot {operation}.");
+    private InvalidOperationException Unsupported(string operation) =>
+        UnsupportedCommand(operation);
 }
 
 internal enum ShootingGalleryScriptKind

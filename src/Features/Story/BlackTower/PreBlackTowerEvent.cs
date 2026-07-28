@@ -524,12 +524,6 @@ internal sealed class PreBlackTowerEvent :
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value is "Ralph" or "Impa" or "Nayru" or "Zelda";
 
-    void ICutsceneCommandHost.SetMenuEnabled(bool enabled) =>
-        throw Unsupported($"set menu enabled={enabled}");
-
-    void ICutsceneCommandHost.SetDisabledObjects(int value) =>
-        throw Unsupported($"set disabled objects ${value:x2}");
-
     bool ICutsceneCommandHost.GateOpen(string gate) =>
         throw Unsupported($"read gate '{gate}'");
 
@@ -557,14 +551,6 @@ internal sealed class PreBlackTowerEvent :
         string actor,
         int angle,
         string encodedAnimation) => Actor(actor).SetScriptAnimation(encodedAnimation);
-
-    void ICutsceneCommandHost.SetActorCollisionRadii(
-        string actor,
-        int radiusY,
-        int radiusX) => throw Unsupported("set collision radii");
-
-    void ICutsceneCommandHost.SetActorButtonSensitive(string actor) =>
-        throw Unsupported("set A-button sensitivity");
 
     void ICutsceneCommandHost.MoveActorAtSpeed(string actor, int speed, int angle)
     {
@@ -606,9 +592,6 @@ internal sealed class PreBlackTowerEvent :
         _context.Rooms.SaveData.SetGlobalFlag(flag);
     }
 
-    void ICutsceneCommandHost.OrRoomFlag(int flag) =>
-        throw Unsupported($"OR room flag ${flag:x2}");
-
     void ICutsceneCommandHost.RunNativeHandler(string handler)
     {
         switch (handler)
@@ -626,13 +609,6 @@ internal sealed class PreBlackTowerEvent :
                 throw Unsupported($"run native handler '{handler}'");
         }
     }
-
-    bool ICutsceneCommandHost.UpdateNativeHandler(
-        string handler,
-        CutsceneActorId? actor,
-        int commandUpdate,
-        int frames,
-        string payload) => throw Unsupported($"block in native handler '{handler}'");
 
     void ICutsceneCommandHost.ScriptEnded()
     {
@@ -702,8 +678,8 @@ internal sealed class PreBlackTowerEvent :
             $"Unsupported pre-Black Tower Link direction ${value:x2}.")
     };
 
-    private static InvalidOperationException Unsupported(string operation) =>
-        new($"Pre-Black Tower command stream cannot {operation}.");
+    private InvalidOperationException Unsupported(string operation) =>
+        UnsupportedCommand(operation);
 
 }
 
