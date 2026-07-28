@@ -621,50 +621,55 @@ internal sealed class VasuShopEvent : IRoomEvent
     {
         TreasureObjectRecord treasure =
             _context.Treasures.GetObject(objectName);
-        _context.Inventory.GiveTreasure(treasure);
-        CreateReward(treasure, _database.RingBoxGrabMode);
+        CreateReward(
+            treasure,
+            _database.RingBoxGrabMode,
+            GroundTreasureInventoryWrite.TreasureObject);
     }
 
     private void GiveRing(int ring)
     {
         TreasureObjectRecord treasure =
             _context.Treasures.GetObject("TREASURE_OBJECT_RING_00");
-        _context.Inventory.GiveUnappraisedRing(ring);
-        CreateReward(treasure, _database.RingGrabMode);
+        CreateReward(
+            treasure,
+            _database.RingGrabMode,
+            GroundTreasureInventoryWrite.UnappraisedRing,
+            ring);
     }
 
     private void CreateReward(
         TreasureObjectRecord treasure,
-        int grabMode)
+        int grabMode,
+        GroundTreasureInventoryWrite inventoryWrite,
+        int inventoryParameter = -1)
     {
         if (_reward is not null)
             throw new InvalidOperationException("Vasu already has an active reward.");
-        TreasureObjectVisualRecord visual =
-            _context.Treasures.GetObjectVisual(treasure.Graphic);
         Vector2 position = _context.Player.Position;
-        GroundTreasureDatabaseRecord record = new GroundTreasureDatabaseRecord(
+        var request = new GroundTreasureGrantRequest(
             _database.Group,
             _database.Room,
             0,
             Mathf.FloorToInt(position.Y),
             Mathf.FloorToInt(position.X),
             treasure.Name,
-            visual.Sprite,
-            visual.TileBase,
-            visual.Palette,
-            visual.Animation,
-            treasure.TextId,
-            treasure.Message,
-            $"scriptHelper.s:{(treasure.TreasureId == TreasureDatabase.TreasureRingBox ? "vasu_giveRingBox" : "vasu_giveRingInVar3a")}",
-            SpawnMode: 0,
-            GrabMode: grabMode);
-        _reward = _context.Entities.Spawn<GroundTreasurePickup>(
-            new GroundTreasureSpawn(record));
-        int collectionSound = _context.Treasures.GetBehaviour(treasure.TreasureId).Sound;
-        if (collectionSound != 0)
-            _context.Sound.PlaySound(collectionSound);
-        _reward.BeginGranted(_context.Player);
-        _context.ShowDialogue(treasure.Message, _database.TextboxPosition);
+            $"scriptHelper.s:{(treasure.TreasureId == TreasureDatabase.TreasureRingBox ? "vasu_giveRingBox" : "vasu_giveRingInVar3a")}")
+        {
+            SpawnMode = 0,
+            GrabMode = grabMode,
+            InventoryWrite = inventoryWrite,
+            InventoryParameter = inventoryParameter,
+            RoomFlagTiming = GroundTreasureRoomFlagTiming.Never,
+            DialogueTiming = GroundTreasureDialogueTiming.AfterGrab,
+            CompletionOwner = GroundTreasureCompletionOwner.Caller,
+            TextboxPosition = _database.TextboxPosition,
+            ExpectedTreasureId = treasure.TreasureId,
+            ExpectedSubId = treasure.SubId,
+            ExpectedObjectParameter = treasure.Parameter
+        };
+        _reward = _context.Entities.GrantGroundTreasure(
+            request, _context.Player);
     }
 
     private void RemoveReward()

@@ -823,13 +823,19 @@ public sealed partial class ValidationRoot
         long bipinTick = 0;
         var bipinRooms = new RoomSession(
             3, 0xfc, () => bipinTick, () => bipinTick = 0, bipinSave);
-        using var bipinManagerFixture = RoomEntityValidationFixture.ForRoot(
-            bipinWorldRoot, new() { SaveData = bipinSave });
-        RoomEntityManager bipinManager = bipinManagerFixture.Manager;
         var bipinTreasures = new TreasureDatabase();
         var bipinInventory = new InventoryState(
             bipinTreasures, bipinSave, () => bipinRooms.CurrentDungeonIndex);
         var bipinSounds = new List<int>();
+        using var bipinManagerFixture = RoomEntityValidationFixture.ForRoot(
+            bipinWorldRoot, new()
+            {
+                SaveData = bipinSave,
+                Inventory = bipinInventory,
+                Treasures = bipinTreasures
+            });
+        RoomEntityManager bipinManager = bipinManagerFixture.Manager;
+        bipinManager.SoundRequested += bipinSounds.Add;
         var bipinInteractions = new InteractionController(
             bipinRooms, bipinManager, new SignDatabase(), new ChestDatabase(),
             bipinTreasures, bipinDialogue, bipinWorldRoot, bipinView,
@@ -870,22 +876,34 @@ public sealed partial class ValidationRoot
             !bipinSave.HasRoomFlag(
                 3, 0xfc, OracleSaveData.RoomFlagItem) ||
             heldSeed is null || !heldSeed.Held || heldSeed.PixelHash == 0 ||
+            !bipinManager.Entities<GroundTreasurePickup>().Contains(heldSeed) ||
+            heldSeed.Record is not
+            {
+                SpawnMode: 0,
+                GrabMode: 2,
+                InventoryWrite: GroundTreasureInventoryWrite.TreasureObject,
+                RoomFlagTiming: GroundTreasureRoomFlagTiming.OnActivation,
+                SoundOrder: GroundTreasureSoundOrder.BehaviourThenGrab,
+                DialogueTiming: GroundTreasureDialogueTiming.AfterGrab,
+                CompletionOwner: GroundTreasureCompletionOwner.Caller
+            } ||
             heldSeed.Position != _player.Position + Vector2.Up * 14 ||
             !_player.IsHoldingItemTwoHands ||
-            bipinSounds.Count(sound =>
-                sound == OracleSoundEngine.SndGetSeed) != 1 ||
-            bipinSounds.Count(sound =>
-                sound == OracleSoundEngine.SndGetItem) != 1 ||
+            !bipinSounds.SequenceEqual(
+                [OracleSoundEngine.SndGetSeed, OracleSoundEngine.SndGetItem]) ||
             DialogueBox.PlainText(bipinDialogue.CurrentMessage) !=
                 DialogueBox.PlainText(seed.Message),
             "bipinScript3 did not grant TREASURE_GASHA_SEED $08, set " +
-            "room flag $20, play SND_GETSEED/SND_GETITEM, and hold its " +
-            "grab-mode-$02 visual for TX_004b.");
+            "room flag $20, enter manager ownership, play ordered " +
+            "SND_GETSEED/SND_GETITEM, and hold its grab-mode-$02 visual " +
+            "for TX_004b.");
 
         bipinDialogue.Close();
         bipinInteractions.Update(frame, _player);
+        bipinManager.Update(frame, _player);
         FailIf(
             bipinInteractions.PastBipinTreasureForValidation is not null ||
+            bipinManager.Entities<GroundTreasurePickup>().Count != 0 ||
             _player.IsHoldingItemTwoHands ||
             DialogueBox.PlainText(bipinDialogue.CurrentMessage) !=
                 DialogueBox.PlainText(
@@ -2360,23 +2378,49 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         _dialogue.Close();
         StepRoomEventFrames(1);
+        GroundTreasurePickup vasuRingBox =
+            _entities.Entities<GroundTreasurePickup>()
+                .Single(treasure => !treasure.Finished);
         FailIf(
             shop.Stage != EventStage.VasuRingBoxReward ||
             _inventory.RingBoxLevel != 1 || !_player.IsHoldingItemTwoHands ||
-            _entities.Entities<GroundTreasurePickup>().Count == 0 ||
+            vasuRingBox.Record is not
+            {
+                GrabMode: 2,
+                InventoryWrite: GroundTreasureInventoryWrite.TreasureObject,
+                RoomFlagTiming: GroundTreasureRoomFlagTiming.Never,
+                SoundOrder: GroundTreasureSoundOrder.BehaviourThenGrab,
+                DialogueTiming: GroundTreasureDialogueTiming.AfterGrab,
+                CompletionOwner: GroundTreasureCompletionOwner.Caller,
+                TextboxPosition: 2
+            } ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2,
-            "vasu_giveRingBox did not grant/show the L-1 Ring Box with two-hand audio.");
+            "vasu_giveRingBox did not use the manager-owned, caller-completed " +
+            "L-1 Ring Box grant with two-hand audio.");
         _dialogue.Close();
         StepRoomEventFrames(1);
         _dialogue.Close();
         StepRoomEventFrames(1);
+        GroundTreasurePickup vasuRing =
+            _entities.Entities<GroundTreasurePickup>()
+                .Single(treasure => !treasure.Finished);
         FailIf(
             shop.Stage != EventStage.VasuFriendshipReward ||
             _inventory.UnappraisedRingCount != unappraisedBefore + 1 ||
             _inventory.UnappraisedRingAt(unappraisedBefore) != 0x40 ||
             !_player.IsHoldingItemOneHand ||
+            vasuRing.Record is not
+            {
+                GrabMode: 1,
+                InventoryWrite: GroundTreasureInventoryWrite.UnappraisedRing,
+                InventoryParameter: 0,
+                RoomFlagTiming: GroundTreasureRoomFlagTiming.Never,
+                DialogueTiming: GroundTreasureDialogueTiming.AfterGrab,
+                CompletionOwner: GroundTreasureCompletionOwner.Caller
+            } ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed) != 1,
-            "vasu_giveFriendshipRing did not grant ring $00 through one-hand TREASURE_RING.");
+            "vasu_giveFriendshipRing did not perform its concrete ring-$00 " +
+            "inventory write through one-hand TREASURE_RING.");
         _dialogue.Close();
         StepRoomEventFrames(1);
         FailIf(
@@ -3145,13 +3189,19 @@ public sealed partial class ValidationRoot
         long shovelTick = 0;
         var shovelRooms = new RoomSession(
             4, 0xe1, () => shovelTick, () => shovelTick = 0, shovelSave);
-        using var shovelManagerFixture = RoomEntityValidationFixture.ForRoot(
-            shovelWorldRoot, new() { SaveData = shovelSave });
-        RoomEntityManager shovelManager = shovelManagerFixture.Manager;
         var shovelTreasures = new TreasureDatabase();
         var shovelInventory = new InventoryState(
             shovelTreasures, shovelSave, () => shovelRooms.CurrentDungeonIndex);
         var shovelSounds = new List<int>();
+        using var shovelManagerFixture = RoomEntityValidationFixture.ForRoot(
+            shovelWorldRoot, new()
+            {
+                SaveData = shovelSave,
+                Inventory = shovelInventory,
+                Treasures = shovelTreasures
+            });
+        RoomEntityManager shovelManager = shovelManagerFixture.Manager;
+        shovelManager.SoundRequested += shovelSounds.Add;
         var shovelInteractions = new InteractionController(
             shovelRooms, shovelManager, new SignDatabase(), new ChestDatabase(),
             shovelTreasures, shovelDialogue, shovelWorldRoot, shovelView,
@@ -3178,18 +3228,42 @@ public sealed partial class ValidationRoot
         shovelInteractions.Update(frame, _player);
         GroundTreasurePickup heldShovel = shovelWorldRoot.GetChildren()
             .OfType<GroundTreasurePickup>().Single();
+        BlackTowerWorkerDatabaseVisualRecord shovelVisual =
+            data.Visual("shovel");
         FailIf(
             !shovelInventory.HasTreasure(TreasureDatabase.TreasureShovel) ||
             !shovelSave.HasRoomFlag(4, 0xe1, OracleSaveData.RoomFlagItem) ||
             !heldShovel.Held || heldShovel.PixelHash == 0 ||
+            !shovelManager.Entities<GroundTreasurePickup>().Contains(heldShovel) ||
+            heldShovel.Record is not
+            {
+                SpawnMode: 0,
+                GrabMode: 2,
+                InventoryWrite: GroundTreasureInventoryWrite.TreasureObject,
+                RoomFlagTiming: GroundTreasureRoomFlagTiming.OnActivation,
+                SoundOrder: GroundTreasureSoundOrder.BehaviourThenGrab,
+                DialogueTiming: GroundTreasureDialogueTiming.AfterGrab,
+                CompletionOwner: GroundTreasureCompletionOwner.Caller
+            } ||
+            heldShovel.Record.Sprite != shovelVisual.Sprite ||
+            heldShovel.Record.TileBase != shovelVisual.TileBase ||
+            heldShovel.Record.Palette != shovelVisual.Palette ||
+            heldShovel.Record.Animation != shovelVisual.Animation ||
             heldShovel.Position != _player.Position + Vector2.Up * 14 ||
             !_player.IsHoldingItemTwoHands ||
-            shovelSounds.Count(sound => sound == OracleSoundEngine.SndGetItem) != 2 ||
+            !shovelSounds.SequenceEqual(
+                [OracleSoundEngine.SndGetItem, OracleSoundEngine.SndGetItem]) ||
             DialogueBox.PlainText(shovelDialogue.CurrentMessage) !=
                 DialogueBox.PlainText(data.Text(0x0025)),
-            "Hardhat giveitem did not grant/set $20, play both SND_GETITEM calls, and hold the exact Shovel visual for TX_0025.");
+            "Hardhat giveitem did not grant/set $20 through manager ownership, " +
+            "play both ordered SND_GETITEM calls, and apply the exact Shovel " +
+            "visual override for TX_0025.");
         shovelDialogue.Close();
         shovelInteractions.Update(frame, _player);
+        shovelManager.Update(frame, _player);
+        FailIf(
+            shovelManager.Entities<GroundTreasurePickup>().Count != 0,
+            "Hardhat's caller-completed Shovel remained in the entity manager.");
         for (int update = 0; update < data.TalkWait - 1; update++)
             shovelInteractions.Update(frame, _player);
         FailIf(

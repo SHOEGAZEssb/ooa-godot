@@ -188,32 +188,27 @@ internal sealed class MakuTreeSavedEvent :
             throw new InvalidOperationException(
                 $"{objectName} is no longer the imported Seed Satchel graphic.");
         }
-        TreasureObjectVisualRecord visual =
-            Context.Treasures.GetObjectVisual(treasure.Graphic);
-        GroundTreasureDatabaseRecord record = new GroundTreasureDatabaseRecord(
+        var request = new GroundTreasureGrantRequest(
             _record.Group,
             _record.Room,
             0,
             y,
             x,
             objectName,
-            visual.Sprite,
-            visual.TileBase,
-            visual.Palette,
-            visual.Animation,
-            0,
-            string.Empty,
-            $"scriptHelper.s:{(spawnMode == 2 ? "makuTree_dropSeedSatchel" : "makuTree_checkSpawnSeedSatchel")}",
-            SpawnMode: spawnMode,
-            GrabMode: 1,
-            SpawnDelayFrames: spawnMode == 2 ? _record.DropDelayFrames : 0,
-            InitialZPixels: spawnMode == 2 ? _record.InitialZPixels : 0,
-            BounceCount: spawnMode == 2 ? _record.BounceCount : 0,
-            Gravity: spawnMode == 2 ? _record.Gravity : 0,
-            BounceSpeed: spawnMode == 2 ? _record.BounceSpeed : 0,
-            SpawnSound: spawnMode == 2 ? _record.SpawnSound : 0,
-            LandingSound: spawnMode == 2 ? _record.LandingSound : 0);
-        Context.Entities.Spawn<GroundTreasurePickup>(
-            new GroundTreasureSpawn(record));
+            $"scriptHelper.s:{(spawnMode == 2 ? "makuTree_dropSeedSatchel" : "makuTree_checkSpawnSeedSatchel")}")
+        {
+            SpawnMode = spawnMode,
+            GrabMode = 1,
+            SpawnDelayFrames =
+                spawnMode == 2 ? _record.DropDelayFrames : 0,
+            InitialZPixels = spawnMode == 2 ? _record.InitialZPixels : 0,
+            BounceCount = spawnMode == 2 ? _record.BounceCount : 0,
+            Gravity = spawnMode == 2 ? _record.Gravity : 0,
+            BounceSpeed = spawnMode == 2 ? _record.BounceSpeed : 0,
+            SpawnSound = spawnMode == 2 ? _record.SpawnSound : 0,
+            LandingSound = spawnMode == 2 ? _record.LandingSound : 0,
+            ExpectedTreasureId = TreasureDatabase.TreasureSeedSatchel
+        };
+        Context.Entities.SpawnGroundTreasure(request);
     }
 }

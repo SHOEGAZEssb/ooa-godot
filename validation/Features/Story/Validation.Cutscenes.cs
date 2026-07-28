@@ -2956,6 +2956,14 @@ public sealed partial class ValidationRoot
             dropped.Record.TreasureObject != record.FallingTreasureObject ||
             dropped.Position != new Vector2(record.LowerBandX, record.DropY) ||
             dropped.Record.SpawnMode != 2 || dropped.Record.GrabMode != 1 ||
+            dropped.Record.InventoryWrite !=
+                GroundTreasureInventoryWrite.TreasureObject ||
+            dropped.Record.RoomFlagTiming !=
+                GroundTreasureRoomFlagTiming.OnActivation ||
+            dropped.Record.DialogueTiming !=
+                GroundTreasureDialogueTiming.BeforeGrab ||
+            dropped.Record.CompletionOwner !=
+                GroundTreasureCompletionOwner.SharedInteraction ||
             dropped.State != PickupState.Waiting ||
             dropped.ZFixed != 0 ||
             _sound.PlayRequestsFor(record.SpawnSound) != 1 ||
@@ -2987,7 +2995,14 @@ public sealed partial class ValidationRoot
         FailIf(
             respawned.Record.TreasureObject != record.RespawnTreasureObject ||
             respawned.Position != new Vector2(record.LowerBandX, record.RespawnY) ||
-            respawned.Record.SpawnMode != 0 || respawned.Record.GrabMode != 1,
+            respawned.Record.SpawnMode != 0 ||
+            respawned.Record.GrabMode != 1 ||
+            respawned.Record.InventoryWrite !=
+                GroundTreasureInventoryWrite.TreasureObject ||
+            respawned.Record.RoomFlagTiming !=
+                GroundTreasureRoomFlagTiming.OnActivation ||
+            respawned.Record.CompletionOwner !=
+                GroundTreasureCompletionOwner.SharedInteraction,
             "The uncollected Seed Satchel did not respawn from persisted room bit $80/X data.");
         StepRoomEventFrames(2);
         FailIf(

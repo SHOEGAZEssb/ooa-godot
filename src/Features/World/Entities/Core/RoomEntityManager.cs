@@ -15,6 +15,10 @@ public sealed class RoomEntityManager : IDisposable
     internal event Action<int, string>? DungeonEntranceTriggered;
     internal event Action<Warp>? RoomWarpRequested;
     internal event Action<GroundTreasurePickup, Player>? GroundTreasureCollected;
+    internal event Action<
+        GroundTreasurePickup,
+        TreasureObjectRecord,
+        Player>? GroundTreasureDialogueRequested;
     internal event Action<GashaSpotInteraction, Player>? GashaInteractionRequested;
     internal event Action<GashaSpotInteraction, Player>? GashaNutCaught;
     internal event Action<Vector2, HazardType>? ItemDropEnteredHazard;
@@ -33,6 +37,7 @@ public sealed class RoomEntityManager : IDisposable
     private readonly ItemDropDatabase _itemDrops;
     private readonly OracleSaveData? _saveData;
     private readonly InventoryState? _inventory;
+    private readonly TreasureDatabase _treasures;
     private readonly OracleRuntimeState _runtimeState;
     private readonly Func<long> _animationTick;
     private readonly RecentEnemyDefeats _recentEnemyDefeats = new();
@@ -189,6 +194,7 @@ public sealed class RoomEntityManager : IDisposable
         _itemDrops = itemDrops;
         _saveData = saveData;
         _inventory = inventory;
+        _treasures = treasures ?? new TreasureDatabase();
         _runtimeState = runtimeState ?? new OracleRuntimeState();
         _animationTick = animationTick ?? (() => 0);
         _factory = new RoomEntityFactory(
@@ -199,7 +205,7 @@ public sealed class RoomEntityManager : IDisposable
             OnGroundTreasureCollected, OnDungeonEntranceTriggered,
             OnRoomWarpRequested,
             OnGashaInteractionRequested, OnGashaNutCaught, inventory,
-            treasures ?? new TreasureDatabase(),
+            _treasures,
             OnItemDropEnteredHazard,
             OnSoundRequested, CountRoomEnemies,
             enemyIndex => _recentEnemyDefeats.WasKilled(enemyIndex),
@@ -662,14 +668,23 @@ public sealed class RoomEntityManager : IDisposable
         return (TimePortal)entity.Node;
     }
 
+    internal GroundTreasurePickup SpawnGroundTreasure(
+        GroundTreasureGrantRequest request) =>
+        Spawn<GroundTreasurePickup>(new GroundTreasureGrantSpawn(request));
+
     internal GroundTreasurePickup GrantGroundTreasure(
-        GroundTreasureDatabaseRecord record,
+        GroundTreasureGrantRequest request,
         Player player)
     {
+        if (request.SpawnMode != 0)
+        {
+            throw new InvalidOperationException(
+                $"Immediate ground-treasure grant from {request.Source} " +
+                $"uses spawn mode ${request.SpawnMode:x2} instead of $00.");
+        }
         GroundTreasurePickup treasure =
-            Spawn<GroundTreasurePickup>(new GroundTreasureSpawn(record));
-        OnGroundTreasureCollected(treasure, player);
-        treasure.BeginGranted(player);
+            Spawn<GroundTreasurePickup>(new GroundTreasureGrantSpawn(request));
+        ActivateGroundTreasure(treasure, player, immediate: true);
         return treasure;
     }
 
@@ -1028,7 +1043,96 @@ public sealed class RoomEntityManager : IDisposable
     private void OnTimePortalEntered(TimePortal portal) => TimePortalEntered?.Invoke(portal);
     private void OnGroundTreasureCollected(
         GroundTreasurePickup treasure,
-        Player player) => GroundTreasureCollected?.Invoke(treasure, player);
+        Player player) =>
+        ActivateGroundTreasure(treasure, player, immediate: false);
+
+    private void ActivateGroundTreasure(
+        GroundTreasurePickup treasure,
+        Player player,
+        bool immediate)
+    {
+        GroundTreasureDatabaseRecord record = treasure.Record;
+        if (!immediate &&
+            (record.SoundOrder != GroundTreasureSoundOrder.BehaviourThenGrab ||
+             record.DialogueTiming != GroundTreasureDialogueTiming.BeforeGrab ||
+             record.CompletionOwner !=
+                GroundTreasureCompletionOwner.SharedInteraction))
+        {
+            throw new InvalidOperationException(
+                $"Collectible ground treasure from {record.Source} has " +
+                "immediate-grant-only policy.");
+        }
+        if (_inventory is null)
+        {
+            throw new InvalidOperationException(
+                $"Ground treasure from {record.Source} cannot write inventory " +
+                "without an InventoryState.");
+        }
+
+        TreasureObjectRecord treasureObject =
+            _treasures.GetObject(record.TreasureObject);
+        switch (record.InventoryWrite)
+        {
+            case GroundTreasureInventoryWrite.TreasureObject:
+                _inventory.GiveTreasure(treasureObject);
+                break;
+            case GroundTreasureInventoryWrite.UnappraisedRing:
+                _inventory.GiveUnappraisedRing(record.InventoryParameter);
+                break;
+            default:
+                throw new InvalidOperationException(
+                    $"Ground treasure from {record.Source} has unsupported " +
+                    $"inventory policy {record.InventoryWrite}.");
+        }
+
+        if (record.RoomFlagTiming == GroundTreasureRoomFlagTiming.OnActivation)
+        {
+            if (_saveData is null)
+            {
+                throw new InvalidOperationException(
+                    $"Ground treasure from {record.Source} cannot set " +
+                    "ROOMFLAG_ITEM without OracleSaveData.");
+            }
+            _saveData.SetRoomFlag(
+                record.Group, record.Room, OracleSaveData.RoomFlagItem);
+        }
+
+        if (record.SoundOrder == GroundTreasureSoundOrder.BehaviourThenGrab)
+            PlayGroundTreasureBehaviourSound(treasureObject);
+
+        GroundTreasureCollected?.Invoke(treasure, player);
+        if (record.DialogueTiming == GroundTreasureDialogueTiming.BeforeGrab)
+            RequestGroundTreasureDialogue(treasure, treasureObject, player);
+
+        if (!immediate)
+            return;
+
+        treasure.BeginGranted(player);
+        if (record.SoundOrder == GroundTreasureSoundOrder.GrabThenBehaviour)
+            PlayGroundTreasureBehaviourSound(treasureObject);
+        if (record.DialogueTiming == GroundTreasureDialogueTiming.AfterGrab)
+            RequestGroundTreasureDialogue(treasure, treasureObject, player);
+    }
+
+    private void PlayGroundTreasureBehaviourSound(
+        TreasureObjectRecord treasure)
+    {
+        int sound = _treasures.GetBehaviour(treasure.TreasureId).Sound;
+        if (sound != 0)
+            OnSoundRequested(sound);
+    }
+
+    private void RequestGroundTreasureDialogue(
+        GroundTreasurePickup treasure,
+        TreasureObjectRecord treasureObject,
+        Player player)
+    {
+        if (!string.IsNullOrEmpty(treasureObject.Message))
+        {
+            GroundTreasureDialogueRequested?.Invoke(
+                treasure, treasureObject, player);
+        }
+    }
     private void OnDungeonEntranceTriggered(int textId, string message) =>
         DungeonEntranceTriggered?.Invoke(textId, message);
     private void OnRoomWarpRequested(Warp warp) =>

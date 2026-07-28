@@ -148,7 +148,7 @@ internal sealed class RoomEntityFactory(
                 {
                     DarkRoomDatabaseObjectKind.Reward =>
                         new DarkRoomRewardRoomEntity(
-                            record, _darkRooms, darkRoomState, saveData, treasures),
+                            record, _darkRooms, darkRoomState, saveData),
                     DarkRoomDatabaseObjectKind.Handler =>
                         new DarkRoomHandlerRoomEntity(
                             record, room, _darkRooms, darkRoomState),
@@ -630,35 +630,27 @@ internal sealed class RoomEntityFactory(
         string treasureName,
         bool falling)
     {
-        TreasureObjectRecord treasure = treasures.GetObject(treasureName);
-        TreasureObjectVisualRecord visual =
-            treasures.GetObjectVisual(treasure.Graphic);
-        GroundTreasureDatabaseRecord ground = new GroundTreasureDatabaseRecord(
+        var request = new GroundTreasureGrantRequest(
             record.Group,
             record.Room,
             record.Order,
             record.Y,
             record.X,
-            treasure.Name,
-            visual.Sprite,
-            visual.TileBase,
-            visual.Palette,
-            visual.Animation,
-            treasure.TextId,
-            treasure.Message,
-            record.Source,
-            SpawnMode: falling ? 2 : 0,
-            GrabMode: 2,
-            SpawnDelayFrames: falling ? 40 : 0,
-            InitialZPixels: 0,
-            BounceCount: falling ? 2 : 0,
-            Gravity: falling ? 0x10 : 0,
-            BounceSpeed: falling ? -0xaa : 0,
-            SpawnSound: falling ? OracleSoundEngine.SndSolvePuzzle : 0,
-            LandingSound: falling ? OracleSoundEngine.SndDropEssence : 0,
-            InitialZAboveScreen: falling);
+            treasureName,
+            record.Source)
+        {
+            SpawnMode = falling ? 2 : 0,
+            GrabMode = 2,
+            SpawnDelayFrames = falling ? 40 : 0,
+            BounceCount = falling ? 2 : 0,
+            Gravity = falling ? 0x10 : 0,
+            BounceSpeed = falling ? -0xaa : 0,
+            SpawnSound = falling ? OracleSoundEngine.SndSolvePuzzle : 0,
+            LandingSound = falling ? OracleSoundEngine.SndDropEssence : 0,
+            InitialZAboveScreen = falling
+        };
         return new SpiritsGraveRewardController(
-            record, saveData, roomEnemyCount, ground,
+            record, saveData, roomEnemyCount, request,
             enableLinkCollisionsAndMenu);
     }
 
@@ -962,6 +954,8 @@ internal sealed class RoomEntityFactory(
         EraInfoSpawn era => CreateEraInfo(era),
         CutsceneNpcSpawn npc => CreateCutsceneNpc(npc),
         GroundTreasureSpawn treasure => CreateGroundTreasure(treasure.Record),
+        GroundTreasureGrantSpawn treasure =>
+            CreateGroundTreasure(treasure.Request.Resolve(treasures)),
         MapleDroppedItemSpawn item => CreateMapleDroppedItem(item, room),
         LightableTorchSpawn torch => CreateLightableTorch(torch, room),
         Room148DebrisSpawn debris => CreateRoom148Debris(debris),
@@ -2387,6 +2381,10 @@ internal sealed record LightableTorchSpawn(
     : RoomEntitySpawn(UpdateThisFrame: true);
 
 internal sealed record GroundTreasureSpawn(GroundTreasureDatabaseRecord Record)
+    : RoomEntitySpawn;
+
+internal sealed record GroundTreasureGrantSpawn(
+    GroundTreasureGrantRequest Request)
     : RoomEntitySpawn;
 
 internal sealed record MapleDroppedItemSpawn(

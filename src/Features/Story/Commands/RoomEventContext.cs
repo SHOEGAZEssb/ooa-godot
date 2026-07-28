@@ -143,37 +143,24 @@ internal sealed class RoomEventContext(
         int textboxFlags = 0,
         int? objectParameter = null)
     {
-        TreasureObjectRecord treasure = Treasures.GetObject(treasureObject);
-        if (treasure.TreasureId != treasureId ||
-            treasure.SubId != parameter ||
-            treasure.Parameter != (objectParameter ?? parameter))
-        {
-            throw new InvalidOperationException(
-                $"{treasureObject} no longer matches {source}'s " +
-                $"giveitem ${treasureId:x2}:${parameter:x2}.");
-        }
-
-        TreasureObjectVisualRecord visual =
-            Treasures.GetObjectVisual(treasure.Graphic);
         Vector2 position = Player.Position;
-        var record = new GroundTreasureDatabaseRecord(
+        var request = new GroundTreasureGrantRequest(
             group,
             room,
             0,
             Mathf.FloorToInt(position.Y),
             Mathf.FloorToInt(position.X),
-            treasure.Name,
-            visual.Sprite,
-            visual.TileBase,
-            visual.Palette,
-            visual.Animation,
-            treasure.TextId,
-            treasure.Message,
-            source,
-            SpawnMode: 0,
-            GrabMode: 2,
-            TextboxFlags: textboxFlags);
-        return Entities.GrantGroundTreasure(record, Player);
+            treasureObject,
+            source)
+        {
+            SpawnMode = 0,
+            GrabMode = 2,
+            TextboxFlags = textboxFlags,
+            ExpectedTreasureId = treasureId,
+            ExpectedSubId = parameter,
+            ExpectedObjectParameter = objectParameter ?? parameter
+        };
+        return Entities.GrantGroundTreasure(request, Player);
     }
 
     private static bool Matches(NpcCharacter npc, int interactionId, int subId) =>

@@ -368,7 +368,21 @@ public sealed partial class ValidationRoot
             FailIf(
                 !echoReward.Held ||
                 echoReward.Record.TreasureObject != record.EchoesObject ||
-                echoReward.Record.GrabMode != 2 ||
+                echoReward.Record is not
+                {
+                    SpawnMode: 0,
+                    GrabMode: 2,
+                    InventoryWrite:
+                        GroundTreasureInventoryWrite.TreasureObject,
+                    RoomFlagTiming:
+                        GroundTreasureRoomFlagTiming.OnActivation,
+                    SoundOrder:
+                        GroundTreasureSoundOrder.BehaviourThenGrab,
+                    DialogueTiming:
+                        GroundTreasureDialogueTiming.BeforeGrab,
+                    CompletionOwner:
+                        GroundTreasureCompletionOwner.SharedInteraction
+                } ||
                 echoReward.Position !=
                     _player.Position + new Vector2(0, -14) ||
                 !_player.IsHoldingItemTwoHands ||

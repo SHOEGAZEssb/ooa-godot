@@ -10,7 +10,7 @@ internal sealed partial class SpiritsGraveRewardController : Node2D,
     private readonly ObjectRecord _record;
     private readonly OracleSaveData? _save;
     private readonly Func<int> _enemyCount;
-    private readonly GroundTreasureDatabaseRecord? _treasure;
+    private readonly GroundTreasureGrantRequest? _treasure;
     private readonly Action _enableLinkCollisionsAndMenu;
     private int _counter = -1;
 
@@ -22,7 +22,7 @@ internal sealed partial class SpiritsGraveRewardController : Node2D,
         ObjectRecord record,
         OracleSaveData? save,
         Func<int> enemyCount,
-        GroundTreasureDatabaseRecord? treasure,
+        GroundTreasureGrantRequest? treasure,
         Action enableLinkCollisionsAndMenu)
     {
         _record = record;
@@ -74,7 +74,7 @@ internal sealed partial class SpiritsGraveRewardController : Node2D,
     private void SpawnTreasure(ICollection<RoomEntitySpawn> spawns)
     {
         if (_treasure.HasValue)
-            spawns.Add(new GroundTreasureSpawn(_treasure.Value));
+            spawns.Add(new GroundTreasureGrantSpawn(_treasure.Value));
         if (_record.Kind == ObjectKind.BossReward)
             _enableLinkCollisionsAndMenu();
         Finished = true;

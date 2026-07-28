@@ -109,7 +109,7 @@ snapshot is maintained in
   loop under an acquired input lease and pins runner, A-button, player-control,
   and actor-animation cleanup without adding room loads or consuming RNG.
 
-- [ ] Consolidate script-granted ground-treasure construction and lifetime
+- [x] Consolidate script-granted ground-treasure construction and lifetime
   through `RoomEntityManager`. `RoomEventContext`, Vasu, Maku Tree, Dark Rooms,
   Spirit's Grave, past Bipin, and the Black Tower Shovel path currently build
   overlapping `GroundTreasureDatabaseRecord` values; past Bipin and the Shovel
@@ -117,6 +117,14 @@ snapshot is maintained in
   instead of using the entity spawn path. Provide one source-addressed grant
   API with explicit spawn/grab mode, visual override, flag timing, inventory
   write, sound order, dialogue, and completion ownership.
+  `GroundTreasureGrantRequest` now resolves every listed grant path through
+  the imported treasure object and optional typed visual override. The manager
+  applies ordinary or concrete-ring inventory writes, ROOMFLAG_ITEM timing,
+  behavior/grab sound order, before/after-grab dialogue, and shared or
+  caller-owned completion. Deferred Maku, Dark Room, and Spirit's Grave
+  rewards use the same queued spawn request; Vasu, command-host grants, past
+  Bipin, and the Hardhat Shovel use the immediate grant path. Bipin and the
+  Shovel no longer attach or free nodes outside `RoomEntityManager`.
 
 - [x] Remove room-entity adapter boilerplate without erasing capabilities.
   `IRoomEntityLifetime.OnFinished` now defaults to no action; 42 empty

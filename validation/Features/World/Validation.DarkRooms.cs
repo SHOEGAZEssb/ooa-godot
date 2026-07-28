@@ -140,7 +140,13 @@ public sealed partial class ValidationRoot
                 BounceCount: 2, Gravity: 0x10, BounceSpeed: -0xaa,
                 SpawnSound: OracleSoundEngine.SndSolvePuzzle,
                 LandingSound: OracleSoundEngine.SndDropEssence,
-                InitialZAboveScreen: true
+                InitialZAboveScreen: true,
+                InventoryWrite: GroundTreasureInventoryWrite.TreasureObject,
+                RoomFlagTiming: GroundTreasureRoomFlagTiming.OnActivation,
+                SoundOrder: GroundTreasureSoundOrder.BehaviourThenGrab,
+                DialogueTiming: GroundTreasureDialogueTiming.BeforeGrab,
+                CompletionOwner:
+                    GroundTreasureCompletionOwner.SharedInteraction
             } ||
             key.Position != new Vector2(0x78, 0x48) || key.Visible ||
             !handler.State.FadeActive || handler.State.Parameter != 0,

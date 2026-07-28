@@ -31,7 +31,6 @@ public sealed class InteractionController
     private Player? _groundTreasurePlayer;
     private bool _groundTreasureCompletesHeartContainer;
     private bool _groundTreasureShowingHeartContainer;
-    private bool _groundTreasureSetsRoomFlag = true;
     private ChestRecord _pendingChest;
     private FamilyNamingState _familyNamingState;
     private string _pendingChildName = string.Empty;
@@ -113,6 +112,8 @@ public sealed class InteractionController
         _dialogue.HeartPieceSetAccepted += OnHeartPieceSetAccepted;
         _rooms.RoomChanged += OnRoomChanged;
         _entities.GroundTreasureCollected += OnGroundTreasureCollected;
+        _entities.GroundTreasureDialogueRequested +=
+            OnGroundTreasureDialogueRequested;
         _entities.GashaInteractionRequested += OnGashaInteractionRequested;
         _entities.GashaNutCaught += OnGashaNutCaught;
         _entities.MapleDialogueRequested += OnMapleDialogueRequested;
@@ -154,7 +155,6 @@ public sealed class InteractionController
             _groundTreasurePlayer = null;
             _groundTreasureCompletesHeartContainer = false;
             _groundTreasureShowingHeartContainer = false;
-            _groundTreasureSetsRoomFlag = true;
         }
 
         if (_chestTreasure is null)
@@ -533,38 +533,32 @@ public sealed class InteractionController
                 "TREASURE_OBJECT_SHOVEL_00 no longer matches giveitem in the hardhat script.");
         }
 
-        _inventory.GiveTreasure(shovel);
-        _rooms.SaveData.SetRoomFlag(
-            _rooms.ActiveGroup, _rooms.CurrentRoom.Id, OracleSaveData.RoomFlagItem);
-        // giveTreasure's behavior sound precedes grab-mode $02's own sound.
-        _playSound(OracleSoundEngine.SndGetItem);
-
         BlackTowerWorkerDatabaseVisualRecord visual = _blackTower.Visual("shovel");
         Vector2 position = _hardhatPlayer!.Position;
-        GroundTreasureDatabaseRecord record = new GroundTreasureDatabaseRecord(
+        var request = new GroundTreasureGrantRequest(
             _rooms.ActiveGroup,
             _rooms.CurrentRoom.Id,
             0,
             Mathf.FloorToInt(position.Y),
             Mathf.FloorToInt(position.X),
             shovel.Name,
-            visual.Sprite,
-            visual.TileBase,
-            visual.Palette,
-            visual.Animation,
-            0x0049,
-            string.Empty,
-            "hardhatWorkerSubid00Script:giveitem TREASURE_SHOVEL,$00");
-        _hardhatTreasure = new GroundTreasurePickup
+            "hardhatWorkerSubid00Script:giveitem TREASURE_SHOVEL,$00")
         {
-            Name = "HardhatShovel",
-            ZIndex = 12
+            SpawnMode = 0,
+            GrabMode = 2,
+            VisualOverride = new GroundTreasureVisualOverride(
+                visual.Sprite,
+                visual.TileBase,
+                visual.Palette,
+                visual.Animation),
+            DialogueTiming = GroundTreasureDialogueTiming.AfterGrab,
+            CompletionOwner = GroundTreasureCompletionOwner.Caller,
+            ExpectedTreasureId = TreasureDatabase.TreasureShovel,
+            ExpectedSubId = 0,
+            ExpectedObjectParameter = 0
         };
-        _hardhatTreasure.Initialize(record, _playSound);
-        _worldRoot.AddChild(_hardhatTreasure);
-        _hardhatTreasure.BeginGranted(_hardhatPlayer);
-        _dialogue.ShowGameplayMessage(
-            shovel.Message, _worldToScreen(_hardhatPlayer.Position).Y);
+        _hardhatTreasure = _entities.GrantGroundTreasure(
+            request, _hardhatPlayer);
     }
 
     private void RemoveHardhatTreasure()
@@ -572,9 +566,6 @@ public sealed class InteractionController
         if (_hardhatTreasure is null)
             return;
         _hardhatTreasure.Finish(_hardhatPlayer!);
-        if (_hardhatTreasure.GetParent() == _worldRoot)
-            _worldRoot.RemoveChild(_hardhatTreasure);
-        _hardhatTreasure.QueueFree();
         _hardhatTreasure = null;
     }
 
@@ -661,43 +652,26 @@ public sealed class InteractionController
                 "bipinScript3's giveitem command.");
         }
 
-        _inventory.GiveTreasure(seed);
-        _rooms.SaveData.SetRoomFlag(
-            _rooms.ActiveGroup,
-            _rooms.CurrentRoom.Id,
-            OracleSaveData.RoomFlagItem);
-        int collectionSound = _treasures.GetBehaviour(seed.TreasureId).Sound;
-        if (collectionSound != 0)
-            _playSound(collectionSound);
-
-        TreasureObjectVisualRecord visual =
-            _treasures.GetObjectVisual(seed.Graphic);
         Vector2 position = _pastBipinPlayer!.Position;
-        var record = new GroundTreasureDatabaseRecord(
+        var request = new GroundTreasureGrantRequest(
             _rooms.ActiveGroup,
             _rooms.CurrentRoom.Id,
             0,
             Mathf.FloorToInt(position.Y),
             Mathf.FloorToInt(position.X),
             seed.Name,
-            visual.Sprite,
-            visual.TileBase,
-            visual.Palette,
-            visual.Animation,
-            seed.TextId,
-            seed.Message,
-            "bipinScript3:giveitem TREASURE_GASHA_SEED,$08");
-        _pastBipinTreasure = new GroundTreasurePickup
+            "bipinScript3:giveitem TREASURE_GASHA_SEED,$08")
         {
-            Name = "PastBipinGashaSeed",
-            ZIndex = 12
+            SpawnMode = 0,
+            GrabMode = 2,
+            DialogueTiming = GroundTreasureDialogueTiming.AfterGrab,
+            CompletionOwner = GroundTreasureCompletionOwner.Caller,
+            ExpectedTreasureId = TreasureDatabase.TreasureGashaSeed,
+            ExpectedSubId = 0x08,
+            ExpectedObjectParameter = 0x01
         };
-        _pastBipinTreasure.Initialize(record, _playSound);
-        _worldRoot.AddChild(_pastBipinTreasure);
-        _pastBipinTreasure.BeginGranted(_pastBipinPlayer);
-        _dialogue.ShowGameplayMessage(
-            seed.Message,
-            _worldToScreen(_pastBipinPlayer.Position).Y);
+        _pastBipinTreasure = _entities.GrantGroundTreasure(
+            request, _pastBipinPlayer);
     }
 
     private void RemovePastBipinTreasure()
@@ -705,9 +679,6 @@ public sealed class InteractionController
         if (_pastBipinTreasure is null)
             return;
         _pastBipinTreasure.Finish(_pastBipinPlayer!);
-        if (_pastBipinTreasure.GetParent() == _worldRoot)
-            _worldRoot.RemoveChild(_pastBipinTreasure);
-        _pastBipinTreasure.QueueFree();
         _pastBipinTreasure = null;
     }
 
@@ -920,43 +891,49 @@ public sealed class InteractionController
         GroundTreasurePickup treasure,
         Player player)
     {
+        if (treasure.Record.CompletionOwner ==
+            GroundTreasureCompletionOwner.Caller)
+        {
+            return;
+        }
         if (_groundTreasure is not null || _chestTreasure is not null)
             throw new InvalidOperationException(
                 "A ground treasure was collected while another reward was active.");
 
         TreasureObjectRecord treasureObject =
             _treasures.GetObject(treasure.Record.TreasureObject);
-        _inventory.GiveTreasure(treasureObject);
         _groundTreasureCompletesHeartContainer =
             treasureObject.TreasureId == 0x2b && _inventory.HeartPieces == 4;
         _groundTreasureShowingHeartContainer = false;
-        if (_groundTreasureSetsRoomFlag)
-        {
-            _rooms.SaveData.SetRoomFlag(
-                treasure.Record.Group,
-                treasure.Record.Room,
-                OracleSaveData.RoomFlagItem);
-        }
-        int collectionSound = _treasures.GetBehaviour(
-            treasureObject.TreasureId).Sound;
-        if (collectionSound != 0)
-            _playSound(collectionSound);
         _groundTreasure = treasure;
         _groundTreasurePlayer = player;
-        if (!string.IsNullOrEmpty(treasureObject.Message))
+    }
+
+    private void OnGroundTreasureDialogueRequested(
+        GroundTreasurePickup treasure,
+        TreasureObjectRecord treasureObject,
+        Player player)
+    {
+        if (treasure.Record.TextboxFlags != 0)
         {
-            if (treasure.Record.TextboxFlags != 0)
-            {
-                _dialogue.ShowGameplayMessageWithFlags(
-                    treasureObject.Message,
-                    _worldToScreen(player.Position).Y,
-                    treasure.Record.TextboxFlags);
-                return;
-            }
+            _dialogue.ShowGameplayMessageWithFlags(
+                treasureObject.Message,
+                _worldToScreen(player.Position).Y,
+                treasure.Record.TextboxFlags,
+                treasure.Record.TextboxPosition);
+            return;
+        }
+        if (treasure.Record.TextboxPosition.HasValue)
+        {
             _dialogue.ShowGameplayMessage(
                 treasureObject.Message,
-                _worldToScreen(player.Position).Y);
+                _worldToScreen(player.Position).Y,
+                treasure.Record.TextboxPosition.Value);
+            return;
         }
+        _dialogue.ShowGameplayMessage(
+            treasureObject.Message,
+            _worldToScreen(player.Position).Y);
     }
 
     private void OnRoomChanged(int group, OracleRoomData room)
@@ -971,7 +948,6 @@ public sealed class InteractionController
         _groundTreasurePlayer = null;
         _groundTreasureCompletesHeartContainer = false;
         _groundTreasureShowingHeartContainer = false;
-        _groundTreasureSetsRoomFlag = true;
         ResetGashaInteraction();
         _linkedNpcState = LinkedNpcState.None;
         _linkedNpc = null;
@@ -1063,7 +1039,6 @@ public sealed class InteractionController
         _groundTreasureCompletesHeartContainer =
             _inventory.HeartPieces == 4;
         _groundTreasureShowingHeartContainer = false;
-        _groundTreasureSetsRoomFlag = false;
         _groundTreasure = pickup;
         _groundTreasurePlayer = player;
         pickup.BeginGranted(player);

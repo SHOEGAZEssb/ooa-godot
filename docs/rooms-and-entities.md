@@ -859,10 +859,21 @@ The same treasure entity supports source spawn mode `$02`: after its imported
 delay, `objectGetZAboveScreen` derives Z from the current gameplay-screen Y
 rather than a fixed room coordinate, then shared 8.8 gravity and bounce
 metadata drive it to the floor. This is used by both event-created rewards and
-room `5:ed`'s Graveyard Key. A script-granted treasure may also carry the
-active textbox flags in its spawn record; `InteractionController` applies
-those flags when it opens the imported reward text, as required by room
-`3:ae`'s alternate-palette Tune of Echoes award.
+room `5:ed`'s Graveyard Key.
+
+Script grants and deferred event rewards enter `RoomEntityManager` through a
+source-addressed `GroundTreasureGrantRequest`. The request resolves its imported
+treasure object and visual in one place, with an explicit override only for a
+source-owned visual such as the Black Tower Shovel. It also records spawn/grab
+mode, ROOMFLAG_ITEM timing, ordinary versus concrete unappraised-ring inventory
+writes, behavior/grab sound order, dialogue timing and textbox metadata, and
+whether the shared interaction controller or the calling event owns completion.
+Deferred Maku Tree, dark-room, and Spirit's Grave rewards use the manager's
+ordered spawn queue. Immediate `giveitem` paths use the same activation policy;
+past Bipin and the Hardhat worker therefore no longer attach or free pickup
+nodes directly. A grant may carry active textbox flags, as required by room
+`3:ae`'s alternate-palette Tune of Echoes award, while Vasu's caller-owned
+grants retain their fixed textbox position and do not set a room item flag.
 
 `RoomEntityManager` owns the room-local `wActiveTriggers` equivalent and clears
 all eight bits before every ordinary room parse or destination preload.

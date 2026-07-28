@@ -485,7 +485,20 @@ public sealed partial class ValidationRoot
         StepEntities();
         FailIf(
             _entities.Entities<GroundTreasurePickup>() is not
-            [{ Record.TreasureObject: "TREASURE_OBJECT_SMALL_KEY_01" }],
+            [{
+                Record:
+                {
+                    TreasureObject: "TREASURE_OBJECT_SMALL_KEY_01",
+                    InventoryWrite:
+                        GroundTreasureInventoryWrite.TreasureObject,
+                    RoomFlagTiming:
+                        GroundTreasureRoomFlagTiming.OnActivation,
+                    DialogueTiming:
+                        GroundTreasureDialogueTiming.BeforeGrab,
+                    CompletionOwner:
+                        GroundTreasureCompletionOwner.SharedInteraction
+                }
+            }],
             "Room 4:1e did not spawn its above-screen two-bounce small " +
             "key after the Ghini's lethal recoil.");
         GroundTreasurePickup fallingKey =
@@ -584,7 +597,15 @@ public sealed partial class ValidationRoot
                 {
                     Group: 4,
                     Room: 0x10,
-                    TreasureObject: "TREASURE_OBJECT_BRACELET_00"
+                    TreasureObject: "TREASURE_OBJECT_BRACELET_00",
+                    InventoryWrite:
+                        GroundTreasureInventoryWrite.TreasureObject,
+                    RoomFlagTiming:
+                        GroundTreasureRoomFlagTiming.OnActivation,
+                    DialogueTiming:
+                        GroundTreasureDialogueTiming.BeforeGrab,
+                    CompletionOwner:
+                        GroundTreasureCompletionOwner.SharedInteraction
                 }
             }],
             "Side-scrolling room 6:10 did not create the source-positioned " +
@@ -1501,7 +1522,15 @@ public sealed partial class ValidationRoot
             _entities.Entities<BossDeathExplosionEffect>().Count != 0 ||
             !_saveData.HasRoomFlag(4, 0x13, OracleSaveData.RoomFlag80) ||
             _entities.Entities<GroundTreasurePickup>() is not
-                [{ Record.TreasureObject: "TREASURE_OBJECT_HEART_CONTAINER_00" }] ||
+                [{
+                    Record:
+                    {
+                        TreasureObject:
+                            "TREASURE_OBJECT_HEART_CONTAINER_00",
+                        CompletionOwner:
+                            GroundTreasureCompletionOwner.SharedInteraction
+                    }
+                }] ||
             _entities.Entities<ItemDropEffect>().Count != 0 ||
             _entities.RandomCalls != pumpkinDropRandomCalls ||
             _entities.LinkCollisionsAndMenuDisabled ||
