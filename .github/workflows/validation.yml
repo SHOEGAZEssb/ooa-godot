@@ -2,6 +2,14 @@ name: Validation
 
 on:
   push:
+    paths:
+      - 'src/**'
+      - 'scenes/**'
+      - 'validation/**'
+      - 'tools/**'
+      - 'project.godot'
+      - 'oracle-of-ages.csproj'
+      - 'oracle-of-ages.sln'
   workflow_dispatch:
 
 permissions:

@@ -137,15 +137,16 @@ resolution and should be tested at integer scale when inspecting pixels.
 
 ## Continuous validation
 
-[The validation workflow](../.github/workflows/validation.yml) runs on every
-push and can also be started manually from GitHub Actions. A clean runner
-rebuilds the supported US ROM from the pinned public `oracles-disasm` `master`
-revision, verifies its MD5, and switches the disassembly checkout to the pinned
-`hack-base` revision used by the importer. It runs the importer unit/boundary
-tests and two-import full-asset parity check, then downloads the
-checksum-pinned Godot 4.6 .NET build, treats C# warnings as errors, runs the
-complete headless validation suite, rejects Godot engine warnings or errors,
-and runs `git diff --check`.
+[The validation workflow](../.github/workflows/validation.yml) runs on pushes
+that change importer, runtime, Godot project, build, or validation sources, and
+can also be started manually from GitHub Actions. Documentation and other
+repository-only changes do not start it. A clean runner rebuilds the supported
+US ROM from the pinned public `oracles-disasm` `master` revision, verifies its
+MD5, and switches the disassembly checkout to the pinned `hack-base` revision
+used by the importer. It runs the importer unit/boundary tests and two-import
+full-asset parity check, then downloads the checksum-pinned Godot 4.6 .NET
+build, treats C# warnings as errors, runs the complete headless validation
+suite, rejects Godot engine warnings or errors, and runs `git diff --check`.
 
 The temporary source ROM is neither committed nor uploaded as an artifact. When
 the project deliberately adopts a newer Godot, WLA-DX, or disassembly revision,
