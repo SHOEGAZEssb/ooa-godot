@@ -76,7 +76,7 @@ must identify the script, label, command index, source line, and invalid
 operand or actor.
 
 The generated `script_command_vocabulary.tsv` is the enforced normalized
-command schema. Each of its 49 rows declares:
+command schema. Each of its 51 rows declares:
 
 - source macro/native aliases and original byte shape;
 - the one concrete `CutsceneCommand` record type;
@@ -250,6 +250,17 @@ predicates, dialogue and choice ranges, imported animation/collision checks,
 inventory rewards, and native handlers through the default-deny command host.
 Poe does not use the infinite-loop host because its selected actor, movement,
 variant lifetime, and terminal script state cross rooms.
+
+Placed NPC scripts outside the room-event priority chain use
+`NpcInteractionScriptController` and one `NpcInteractionCommandHost` per
+source lane. The linked-secret giver, past Bipin, and Shovel hardhat hosts own
+their actor binding, pending A-button, input lease, textbox/choice operations,
+and caller-completed reward handoff. `InteractionController` delegates only
+ordered talk matching and fixed-update advancement; it does not reproduce
+their command graphs. The generated streams retain `showloadedtext`,
+`checktext`, `giveitem`, and exact script waits, while secret generation,
+family text resolution, facing, and Shovel presentation remain explicit
+native host operations.
 
 Always clear runners when an event is cancelled, a room unload invalidates its
 actors, or native completion takes ownership. Do not accumulate ordinary event

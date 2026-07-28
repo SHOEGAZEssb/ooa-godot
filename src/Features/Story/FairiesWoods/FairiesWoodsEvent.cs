@@ -840,9 +840,10 @@ internal sealed class FairiesWoodsEvent :
         throw Unsupported($"read gate '{gate}'");
 
     bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
-        ReadMemory(binding) == value;
+        ReadScriptMemory(binding) == value;
 
-    int ICutsceneCommandHost.ReadMemory(string binding) => ReadMemory(binding);
+    int ICutsceneCommandHost.ReadMemory(string binding) =>
+        ReadScriptMemory(binding);
 
     bool ICutsceneCommandHost.TextOptionEquals(int value)
     {
@@ -955,7 +956,7 @@ internal sealed class FairiesWoodsEvent :
         }
     }
 
-    private int ReadMemory(string binding) =>
+    private int ReadScriptMemory(string binding) =>
         binding == "FairySignal"
             ? Signal
             : throw Unsupported($"read '{binding}'");

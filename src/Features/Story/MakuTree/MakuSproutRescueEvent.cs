@@ -52,7 +52,7 @@ internal sealed class MakuSproutRescueEvent :
     internal MakuSproutRescueEventEventStage Stage => _stage;
     internal int CutsceneState => _cutsceneState;
     internal int GatePhase => _gatePhase;
-    internal bool GateOpen => _gateOpen;
+    internal bool GateIsOpen => _gateOpen;
     internal MakuSproutRescueDatabase Database => _database;
 
     public bool Matches(int group, OracleRoomData room)

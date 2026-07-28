@@ -196,11 +196,16 @@ public sealed partial class ValidationRoot
                     "Crumbles", StringComparison.Ordinal),
                 "Room 0:83's $dc:$02 sign did not open its imported text.");
             _dialogue.Close();
-            _interactions.Update(0.0, _player);
+            _interactions.Update(1.0 / 60.0, _player);
 
             _player.WarpTo(
                 fairy.Position + Vector2.Down * 12.0f, recordSafe: false);
             _player.Face(Vector2I.Up);
+            void CompleteLinkedChoiceWait()
+            {
+                for (int update = 0; update <= 20; update++)
+                    _interactions.Update(1.0 / 60.0, _player);
+            }
             FailIf(
                 !_interactions.TryInteract(_player) ||
                 !_dialogue.ChoiceActive ||
@@ -208,18 +213,18 @@ public sealed partial class ValidationRoot
                     "Labrynna", StringComparison.Ordinal),
                 "The Great Fairy did not open TX_4d1e's Yes/No offer.");
             _dialogue.SubmitChoiceForValidation(1);
-            _interactions.Update(0.0, _player);
+            CompleteLinkedChoiceWait();
             FailIf(
                 _dialogue.ChoiceActive ||
                 !_dialogue.CurrentMessage.Contains(
                     "Come back", StringComparison.Ordinal),
                 "Choosing No did not follow linkedGameNpcScript to TX_4d1f.");
             _dialogue.Close();
-            _interactions.Update(0.0, _player);
+            _interactions.Update(1.0 / 60.0, _player);
 
             FailIf(!_interactions.TryInteract(_player), "The Great Fairy offer loop could not be restarted.");
             _dialogue.SubmitChoiceForValidation(0);
-            _interactions.Update(0.0, _player);
+            CompleteLinkedChoiceWait();
             FailIf(
                 !_dialogue.ChoiceActive ||
                 !_dialogue.CurrentMessage.Contains(
@@ -228,12 +233,12 @@ public sealed partial class ValidationRoot
                     "Temple", StringComparison.Ordinal),
                 "Choosing Yes did not open TX_4d20's confirmation.");
             _dialogue.SubmitChoiceForValidation(1);
-            _interactions.Update(0.0, _player);
+            CompleteLinkedChoiceWait();
             FailIf(
                 !_dialogue.ChoiceActive || _dialogue.SelectedChoice != 1,
                 "Choosing No did not repeat the Great Fairy confirmation.");
             _dialogue.SubmitChoiceForValidation(0);
-            _interactions.Update(0.0, _player);
+            CompleteLinkedChoiceWait();
             FailIf(
                 !_dialogue.ChoiceActive ||
                 _dialogue.CurrentMessage.Contains(
@@ -243,19 +248,19 @@ public sealed partial class ValidationRoot
                 "The Great Fairy did not generate/substitute the Temple " +
                 "secret and set GLOBALFLAG_BEGAN_TEMPLE_SECRET.");
             _dialogue.SubmitChoiceForValidation(1);
-            _interactions.Update(0.0, _player);
+            CompleteLinkedChoiceWait();
             FailIf(
                 !_dialogue.ChoiceActive || _dialogue.SelectedChoice != 1,
                 "Choosing No did not repeat TX_4d21's generated secret.");
             _dialogue.SubmitChoiceForValidation(0);
-            _interactions.Update(0.0, _player);
+            CompleteLinkedChoiceWait();
             FailIf(
                 _dialogue.ChoiceActive ||
                 !_dialogue.CurrentMessage.Contains(
                     "Thank you", StringComparison.Ordinal),
                 "Confirming the Temple secret did not show TX_4d22.");
             _dialogue.Close();
-            _interactions.Update(0.0, _player);
+            _interactions.Update(1.0 / 60.0, _player);
         }
         finally
         {

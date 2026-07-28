@@ -2385,6 +2385,8 @@ $cutsceneVocabularyRows = @(
     "wait`twait`t1-or-more`tCutsceneWaitCommand`tnone`tdecimal`tnone`tnone`tblock|continue`t-`tcounter`tInstall and wait on script counter1.",
     "waitframes`tcontroller:waitframes`truntime`tCutsceneWaitFramesCommand`tnone`tpositive-decimal`tnone`tnone`tblock|yield`t-`tcounter`tWait a controller-owned fixed-update duration.",
     "showtext`tshowtext`t2-or-3`tCutsceneShowTextCommand`tnone`thex`tnone`toptional`tyield`t-`tdialogue`tOpen interaction-script text.",
+    "showloadedtext`tshowloadedtext`t1`tCutsceneShowLoadedTextCommand`tnone`tnone`tnone`tnone`tyield`t-`tdialogue`tOpen the interaction's currently loaded text.",
+    "checktext`tchecktext`t1`tCutsceneCheckTextCommand`tnone`tnone`tnone`tnone`tblock|continue`t-`tdialogue`tHold until interaction text is inactive.",
     "dialogue`tcontroller:dialogue`truntime`tCutsceneDialogueCommand`tnone`thex`tnone`toptional`tblock|yield`t-`tdialogue`tOpen controller text and retain its close boundary.",
     "showtextdifferentforlinked`tshowtextdifferentforlinked`t4`tCutsceneShowTextVariantsCommand`tnone`thex`thex`ttext-variants`tyield`t-`tdialogue|linked-state`tSelect linked or unlinked text.",
     "setanimation`tsetanimation`t2-or-3`tCutsceneSetAnimationCommand`trequired`thex`tnone`toptional`tyield`tActorId`tactor-animation`tSelect a literal or encoded actor animation.",
@@ -4356,6 +4358,305 @@ $comedianEventRows = @(
 Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\comedian_event.tsv'),
     $comedianEventRows)
+
+# The remaining InteractionController-owned interactionRunScript loops.
+# These command streams retain their source command boundaries while their
+# native presentation, secret generation, and giveitem handoffs stay in
+# dedicated runtime hosts.
+
+# linkedGameNpcScript is shared by the linked Ghini and Great Fairy. Their
+# visibility/spawn predicates are already imported with the NPC records, so
+# this stream begins at initcollisions and retains the complete talk loop.
+$linkedNpcScriptPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
+$linkedNpcOpcodes = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @(
+    'asm15', 'jumpifmemoryset', 'initcollisions', 'checkabutton',
+    'disableinput', 'showloadedtext', 'wait', 'jumpiftextoptioneq',
+    'addobjectbyte', 'enableinput', 'scriptjump')) {
+    [void]$linkedNpcOpcodes.Add($opcode)
+}
+$linkedNpcCommands = @(Read-AssemblyCutsceneCommands `
+    $linkedNpcScriptPath 'linkedGameNpcScript' $linkedNpcOpcodes `
+    'plenSubid0Script')
+$linkedNpcExpected = @(
+    @('asm15', 'scriptHelp.linkedNpc_checkShouldSpawn'),
+    @('jumpifmemoryset', 'wcddb, $80, stubScript'),
+    @('initcollisions', ''),
+    @('asm15', 'scriptHelp.linkedNpc_initHighTextIndex'),
+    @('asm15', 'scriptHelp.linkedNpc_calcLowTextIndex, $00'),
+    @('checkabutton', ''),
+    @('disableinput', ''),
+    @('showloadedtext', ''),
+    @('wait', '20'),
+    @('jumpiftextoptioneq', '$00, @answeredYes'),
+    @('addobjectbyte', 'Interaction.textID, $01'),
+    @('showloadedtext', ''),
+    @('enableinput', ''),
+    @('scriptjump', '@offerSecret'),
+    @('asm15', 'scriptHelp.linkedNpc_checkHasExtraTextBox'),
+    @('jumpifmemoryset', 'wcddb, $80, @generateSecret'),
+    @('asm15', 'scriptHelp.linkedNpc_calcLowTextIndex, $02'),
+    @('showloadedtext', ''),
+    @('wait', '20'),
+    @('jumpiftextoptioneq', '$01, @showExtraText'),
+    @('asm15', 'scriptHelp.linkedNpc_generateSecret'),
+    @('asm15', 'scriptHelp.linkedNpc_calcLowTextIndex, $03'),
+    @('showloadedtext', ''),
+    @('wait', '20'),
+    @('jumpiftextoptioneq', '$01, @tellSecret'),
+    @('asm15', 'scriptHelp.linkedNpc_calcLowTextIndex, $04'),
+    @('showloadedtext', ''),
+    @('enableinput', ''),
+    @('asm15', 'scriptHelp.linkedNpc_checkHasExtraTextBox'),
+    @('jumpifmemoryset', 'wcddb, $80, @offerSecret'),
+    @('checkabutton', ''),
+    @('disableinput', ''),
+    @('scriptjump', '@answeredYes')
+)
+if ($linkedNpcCommands.Count -ne $linkedNpcExpected.Count) {
+    throw "linkedGameNpcScript expected 33 commands, parsed $($linkedNpcCommands.Count)."
+}
+for ($index = 0; $index -lt $linkedNpcExpected.Count; $index++) {
+    $operands = ([string]$linkedNpcCommands[$index].Operands).Trim()
+    if ($linkedNpcCommands[$index].Opcode -ne $linkedNpcExpected[$index][0] -or
+        $operands -ne $linkedNpcExpected[$index][1]) {
+        throw "linkedGameNpcScript command $index changed from " +
+            "$($linkedNpcExpected[$index] -join ' ')."
+    }
+}
+
+$linkedNpcCommandSpecs = @(
+    @($linkedNpcCommands[2],  'initcollisions', 'LinkedNpc', '', '', ''),
+    @($linkedNpcCommands[3],  'native', '', '', '', 'linkedNpc_initHighTextIndex'),
+    @($linkedNpcCommands[4],  'native', '', '', '', 'linkedNpc_selectOffer'),
+    @($linkedNpcCommands[5],  'checkabutton', 'LinkedNpc', '', '', ''),
+    @($linkedNpcCommands[6],  'disableinput', '', '', '', ''),
+    @($linkedNpcCommands[7],  'showloadedtext', '', '', '', ''),
+    @($linkedNpcCommands[8],  'wait', '', '20', '', ''),
+    @($linkedNpcCommands[9],  'jumpiftextoptioneq', '', '00', '12', ''),
+    @($linkedNpcCommands[10], 'native', '', '', '', 'linkedNpc_selectRefusal'),
+    @($linkedNpcCommands[11], 'showloadedtext', '', '', '', ''),
+    @($linkedNpcCommands[12], 'enableinput', '', '', '', ''),
+    @($linkedNpcCommands[13], 'scriptjump', '', '2', '', ''),
+    @($linkedNpcCommands[14], 'native', '', '', '', 'linkedNpc_checkHasExtraTextBox'),
+    @($linkedNpcCommands[15], 'jumpifmemoryeq', '', '00', '18', 'LinkedNpcHasExtraText'),
+    @($linkedNpcCommands[16], 'native', '', '', '', 'linkedNpc_selectExplanation'),
+    @($linkedNpcCommands[17], 'showloadedtext', '', '', '', ''),
+    @($linkedNpcCommands[18], 'wait', '', '20', '', ''),
+    @($linkedNpcCommands[19], 'jumpiftextoptioneq', '', '01', '14', ''),
+    @($linkedNpcCommands[20], 'native', '', '', '', 'linkedNpc_generateSecret'),
+    @($linkedNpcCommands[21], 'native', '', '', '', 'linkedNpc_selectSecret'),
+    @($linkedNpcCommands[22], 'showloadedtext', '', '', '', ''),
+    @($linkedNpcCommands[23], 'wait', '', '20', '', ''),
+    @($linkedNpcCommands[24], 'jumpiftextoptioneq', '', '01', '20', ''),
+    @($linkedNpcCommands[25], 'native', '', '', '', 'linkedNpc_selectFinal'),
+    @($linkedNpcCommands[26], 'showloadedtext', '', '', '', ''),
+    @($linkedNpcCommands[27], 'enableinput', '', '', '', ''),
+    @($linkedNpcCommands[28], 'native', '', '', '', 'linkedNpc_checkHasExtraTextBox'),
+    @($linkedNpcCommands[29], 'jumpifmemoryeq', '', '00', '2', 'LinkedNpcHasExtraText'),
+    @($linkedNpcCommands[30], 'checkabutton', 'LinkedNpc', '', '', ''),
+    @($linkedNpcCommands[31], 'disableinput', '', '', '', ''),
+    @($linkedNpcCommands[32], 'scriptjump', '', '12', '', '')
+)
+$linkedNpcCommandRows = [Collections.Generic.List[string]]::new()
+$linkedNpcCommandRows.Add(
+    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
+for ($index = 0; $index -lt $linkedNpcCommandSpecs.Count; $index++) {
+    $spec = $linkedNpcCommandSpecs[$index]
+    $sourceCommand = $spec[0]
+    $linkedNpcCommandRows.Add((New-CutsceneCommandRow `
+        'linkedGameNpcScript' $index $sourceCommand.Label $sourceCommand.Line `
+        $spec[1] $spec[2] $spec[3] $spec[4] $spec[5]))
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'cutscenes\linked_game_npc_commands.tsv'),
+    $linkedNpcCommandRows)
+
+# Past Bipin's script lives in scriptHelper.s and uses the ordinary Gasha Seed
+# treasure object. Preserve wait 1 followed by checktext as two distinct
+# source commands.
+$pastBipinScriptPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
+$pastBipinOpcodes = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @(
+    'initcollisions', 'enableinput', 'checkabutton', 'disableinput',
+    'jumpifroomflagset', 'showtext', 'giveitem', 'wait', 'checktext',
+    'scriptjump')) {
+    [void]$pastBipinOpcodes.Add($opcode)
+}
+$pastBipinCommands = @(Read-AssemblyCutsceneCommands `
+    $pastBipinScriptPath 'bipinScript3' $pastBipinOpcodes `
+    'setNextChildStage')
+$pastBipinExpected = @(
+    @('initcollisions', ''),
+    @('enableinput', ''),
+    @('checkabutton', ''),
+    @('disableinput', ''),
+    @('jumpifroomflagset', '$20, @alreadyGaveSeed'),
+    @('showtext', 'TX_4311'),
+    @('giveitem', 'TREASURE_GASHA_SEED, $08'),
+    @('wait', '1'),
+    @('checktext', ''),
+    @('showtext', 'TX_4312'),
+    @('scriptjump', '@loop'),
+    @('showtext', 'TX_4313'),
+    @('scriptjump', '@loop')
+)
+if ($pastBipinCommands.Count -ne $pastBipinExpected.Count) {
+    throw "bipinScript3 expected 13 commands, parsed $($pastBipinCommands.Count)."
+}
+for ($index = 0; $index -lt $pastBipinExpected.Count; $index++) {
+    $operands = ([string]$pastBipinCommands[$index].Operands).Trim()
+    if ($pastBipinCommands[$index].Opcode -ne $pastBipinExpected[$index][0] -or
+        $operands -ne $pastBipinExpected[$index][1]) {
+        throw "bipinScript3 command $index changed from " +
+            "$($pastBipinExpected[$index] -join ' ')."
+    }
+}
+foreach ($textId in 0x4311..0x4313) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve Bipin text TX_$($textId.ToString('x4'))."
+    }
+}
+$pastBipinTreasure = $treasureObjectRecords['TREASURE_OBJECT_GASHA_SEED_08']
+if ($null -eq $pastBipinTreasure -or
+    $pastBipinTreasure.Treasure -ne 0x34 -or
+    $pastBipinTreasure.SubId -ne 0x08 -or
+    $pastBipinTreasure.Parameter -ne 0x01 -or
+    $pastBipinTreasure.TextId -ne 0x004b -or
+    $pastBipinTreasure.Graphic -ne 0x0d) {
+    throw 'TREASURE_OBJECT_GASHA_SEED_08 no longer matches bipinScript3.'
+}
+$pastBipinCommandSpecs = @(
+    @($pastBipinCommands[0],  'initcollisions', 'PastBipin', '', '', ''),
+    @($pastBipinCommands[1],  'enableinput', '', '', '', ''),
+    @($pastBipinCommands[2],  'checkabutton', 'PastBipin', '', '', ''),
+    @($pastBipinCommands[3],  'disableinput', '', '', '', ''),
+    @($pastBipinCommands[4],  'jumpifroomflagset', '', '20', '11', ''),
+    @($pastBipinCommands[5],  'showtext', '', '4311', '', $allTexts[0x4311]),
+    @($pastBipinCommands[6],  'giveitem', '', '34', '08', ''),
+    @($pastBipinCommands[7],  'wait', '', '1', '', ''),
+    @($pastBipinCommands[8],  'checktext', '', '', '', ''),
+    @($pastBipinCommands[9],  'showtext', '', '4312', '', $allTexts[0x4312]),
+    @($pastBipinCommands[10], 'scriptjump', '', '1', '', ''),
+    @($pastBipinCommands[11], 'showtext', '', '4313', '', $allTexts[0x4313]),
+    @($pastBipinCommands[12], 'scriptjump', '', '1', '', '')
+)
+$pastBipinCommandRows = [Collections.Generic.List[string]]::new()
+$pastBipinCommandRows.Add(
+    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
+for ($index = 0; $index -lt $pastBipinCommandSpecs.Count; $index++) {
+    $spec = $pastBipinCommandSpecs[$index]
+    $sourceCommand = $spec[0]
+    $pastBipinCommandRows.Add((New-CutsceneCommandRow `
+        'bipinScript3' $index $sourceCommand.Label $sourceCommand.Line `
+        $spec[1] $spec[2] $spec[3] $spec[4] $spec[5]))
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'cutscenes\past_bipin_commands.tsv'),
+    $pastBipinCommandRows)
+
+# INTERAC_HARDHAT_WORKER $58:$00 selects its var03 branch through a source
+# jump table, grants the Shovel, and restores animation $04 before returning
+# to checkabutton.
+$hardhatScriptPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
+$hardhatOpcodes = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @(
+    'initcollisions', 'checkabutton', 'disableinput', 'asm15',
+    'jumptable_objectbyte', 'jumpifroomflagset', 'showtextlowindex',
+    'wait', 'giveitem', 'scriptjump', 'setanimation', 'enableinput')) {
+    [void]$hardhatOpcodes.Add($opcode)
+}
+$hardhatCommands = @(Read-AssemblyCutsceneCommands `
+    $hardhatScriptPath 'hardhatWorkerSubid00Script' $hardhatOpcodes `
+    'hardhatWorkerSubid01Script')
+$hardhatExpected = @(
+    @('initcollisions', ''),
+    @('checkabutton', ''),
+    @('disableinput', ''),
+    @('asm15', 'scriptHelp.turnToFaceLink'),
+    @('jumptable_objectbyte', 'Interaction.var03'),
+    @('jumpifroomflagset', '$20, @alreadyGaveShovel'),
+    @('showtextlowindex', '<TX_1001'),
+    @('wait', '30'),
+    @('giveitem', 'TREASURE_SHOVEL, $00'),
+    @('wait', '30'),
+    @('showtextlowindex', '<TX_1002'),
+    @('scriptjump', '@enableInput'),
+    @('showtextlowindex', '<TX_1000'),
+    @('setanimation', '$04'),
+    @('enableinput', ''),
+    @('scriptjump', '@npcLoop')
+)
+if ($hardhatCommands.Count -ne $hardhatExpected.Count) {
+    throw "hardhatWorkerSubid00Script expected 16 commands, parsed $($hardhatCommands.Count)."
+}
+for ($index = 0; $index -lt $hardhatExpected.Count; $index++) {
+    $operands = ([string]$hardhatCommands[$index].Operands).Trim()
+    if ($hardhatCommands[$index].Opcode -ne $hardhatExpected[$index][0] -or
+        $operands -ne $hardhatExpected[$index][1]) {
+        throw "hardhatWorkerSubid00Script command $index changed from " +
+            "$($hardhatExpected[$index] -join ' ')."
+    }
+}
+$hardhatJumpTargets = @(
+    Read-AssemblyDataDirectives `
+        $hardhatScriptPath 'hardhatWorkerSubid00Script' '.dw' |
+        ForEach-Object { $_.Operands[0] })
+if (($hardhatJumpTargets -join ',') -ne
+    '@givesShovel,@doesntGiveShovel') {
+    throw 'hardhatWorkerSubid00Script var03 jump table changed.'
+}
+$hardhatAnimation4 = Resolve-NpcAnimation 0x58 4
+if ([string]::IsNullOrWhiteSpace($hardhatAnimation4)) {
+    throw 'Could not resolve INTERAC_HARDHAT_WORKER animation $04.'
+}
+foreach ($textId in @(0x1000, 0x1001, 0x1002)) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve hardhat text TX_$($textId.ToString('x4'))."
+    }
+}
+$hardhatTreasure = $treasureObjectRecords['TREASURE_OBJECT_SHOVEL_00']
+if ($null -eq $hardhatTreasure -or
+    $hardhatTreasure.Treasure -ne 0x15 -or
+    $hardhatTreasure.SubId -ne 0x00 -or
+    $hardhatTreasure.Parameter -ne 0x00 -or
+    $hardhatTreasure.TextId -ne 0x0025) {
+    throw 'TREASURE_OBJECT_SHOVEL_00 no longer matches hardhatWorkerSubid00Script.'
+}
+$hardhatCommandSpecs = @(
+    @($hardhatCommands[0],  'initcollisions', 'Hardhat', '', '', ''),
+    @($hardhatCommands[1],  'checkabutton', 'Hardhat', '', '', ''),
+    @($hardhatCommands[2],  'disableinput', '', '', '', ''),
+    @($hardhatCommands[3],  'native', '', '', '', 'turnToFaceLink'),
+    @($hardhatCommands[4],  'jumptablememory', '', '', '', 'HardhatVar03|5,12'),
+    @($hardhatCommands[5],  'jumpifroomflagset', '', '20', '10', ''),
+    @($hardhatCommands[6],  'showtext', '', '1001', '', $allTexts[0x1001]),
+    @($hardhatCommands[7],  'wait', '', '30', '', ''),
+    @($hardhatCommands[8],  'giveitem', '', '15', '00', ''),
+    @($hardhatCommands[9],  'wait', '', '30', '', ''),
+    @($hardhatCommands[10], 'showtext', '', '1002', '', $allTexts[0x1002]),
+    @($hardhatCommands[11], 'scriptjump', '', '13', '', ''),
+    @($hardhatCommands[12], 'showtext', '', '1000', '', $allTexts[0x1000]),
+    @($hardhatCommands[13], 'setanimation', 'Hardhat', '04', '', $hardhatAnimation4),
+    @($hardhatCommands[14], 'enableinput', '', '', '', ''),
+    @($hardhatCommands[15], 'scriptjump', '', '1', '', '')
+)
+$hardhatCommandRows = [Collections.Generic.List[string]]::new()
+$hardhatCommandRows.Add(
+    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
+for ($index = 0; $index -lt $hardhatCommandSpecs.Count; $index++) {
+    $spec = $hardhatCommandSpecs[$index]
+    $sourceCommand = $spec[0]
+    $hardhatCommandRows.Add((New-CutsceneCommandRow `
+        'hardhatWorkerSubid00Script' $index $sourceCommand.Label $sourceCommand.Line `
+        $spec[1] $spec[2] $spec[3] $spec[4] $spec[5]))
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'cutscenes\hardhat_shovel_commands.tsv'),
+    $hardhatCommandRows)
 
 # Rooms 0:7c and 2:2e Poe encounters. All placed INTERAC_POE records use the
 # same poeScript; Interaction.var03 selects the first, tomb, or final meeting.

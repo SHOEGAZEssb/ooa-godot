@@ -88,12 +88,18 @@ snapshot is maintained in
   TX `$4301/$4409` mapping from immutable `NpcCharacter.BaseRecord` values;
   `InteractionController` no longer carries a second ID-to-text switch.
 
-- [ ] Move the remaining hand-coded `interactionRunScript` talk graphs out of
+- [x] Move the remaining hand-coded `interactionRunScript` talk graphs out of
   `InteractionController` into typed command lanes hosted by their owning
   interaction: linked Ghini `linkedGameNpcScript`, past Bipin `bipinScript3`,
   and hardhat `$58:$00`'s Shovel script are the first candidates. Keep secret
   generation, `giveitem`, textbox waits, live RNG, and native presentation as
   explicit host operations at their source boundaries.
+  `Import-CutsceneData.ps1` now emits all three source-addressed loops, adding
+  typed `showloadedtext` and `checktext` commands to the enforced vocabulary.
+  Independent NPC script hosts own actor/A-button state, input leases, exact
+  20/30/1-update counters, choice branches, linked-secret generation, family
+  text, native facing/animation, and manager-owned caller-completed rewards.
+  `InteractionController` retains only ordered delegation and scheduling.
 
 - [ ] Replace the split NPC-talk dispatch with one ordered interaction-handler
   contract. Today priority is spread across `InteractionController` record
@@ -399,7 +405,7 @@ NPC- and enemy-specific findings remain in their sections above.
 - [x] Make the cutscene command vocabulary an enforced command schema.
   `script_command_vocabulary.tsv` now declares source aliases and byte shapes,
   normalized field shapes, concrete record types, runner results, ordered
-  actor members, and host capabilities for all 49 typed commands.
+  actor members, and host capabilities for all 51 typed commands.
   - The importer validates every emitted stream against this definition.
     Runtime decoding enforces the declared record type, startup reflection
     proves every concrete executor record has exactly one entry, and the

@@ -856,6 +856,8 @@ public sealed partial class ValidationRoot
         _player.WarpTo(bipin.Position + Vector2.Down * 12);
         _player.Face(Vector2I.Up);
         bipinManager.Update(frame, _player);
+        var bipinTrace = new ValidationCutsceneTrace();
+        bipinInteractions.NpcScriptsForValidation.TraceSink = bipinTrace;
         FailIf(
             !bipinManager.BlocksLink(bipin.Position) ||
             bipin.ZIndex != NpcCharacter.BehindLinkZIndex ||
@@ -906,11 +908,16 @@ public sealed partial class ValidationRoot
             bipinInteractions.PastBipinTreasureForValidation is not null ||
             bipinManager.Entities<GroundTreasurePickup>().Count != 0 ||
             _player.IsHoldingItemTwoHands ||
+            bipinDialogue.IsOpen,
+            "bipinScript3's wait 1 did not remove the held seed and " +
+            "install counter 1 on the first update after TX_004b.");
+        bipinInteractions.Update(frame, _player);
+        FailIf(
             DialogueBox.PlainText(bipinDialogue.CurrentMessage) !=
                 DialogueBox.PlainText(
                     family.Text(0x4312, bipinSave).Message),
-            "bipinScript3's wait 1/checktext boundary did not remove the " +
-            "held seed and open TX_4312 on the first update after TX_004b.");
+            "bipinScript3's wait 1/checktext boundary did not reach zero " +
+            "and open TX_4312 on the following update.");
 
         bipinDialogue.Close();
         bipinInteractions.Update(frame, _player);
@@ -929,6 +936,31 @@ public sealed partial class ValidationRoot
             bipinInteractions.DialogueOpen,
             "Past Bipin's TX_4313 repeat branch replayed the seed grant " +
             "or failed to return to its A-button loop.");
+        CutsceneCommandTraceEntry[] bipinStarts = bipinTrace.Entries
+            .Where(entry =>
+                entry.Source.Script == "bipinScript3" &&
+                entry.Phase == CutsceneCommandTracePhase.Started)
+            .ToArray();
+        FailIf(
+            bipinStarts.Count(entry => entry.Source.CommandIndex == 4) != 2 ||
+            bipinStarts.Count(entry => entry.Source.CommandIndex == 5) != 1 ||
+            bipinStarts.Count(entry => entry.Source.CommandIndex == 6) != 1 ||
+            bipinStarts.Count(entry => entry.Source.CommandIndex == 8) != 1 ||
+            bipinStarts.Count(entry => entry.Source.CommandIndex == 9) != 1 ||
+            bipinStarts.Count(entry => entry.Source.CommandIndex == 11) != 1 ||
+            bipinTrace.Entries.Count(entry =>
+                entry.Source.Script == "bipinScript3" &&
+                entry.Source.CommandIndex == 7 &&
+                entry.Phase == CutsceneCommandTracePhase.Updated &&
+                entry.Counter == 1) != 1 ||
+            bipinTrace.Entries.Count(entry =>
+                entry.Source.Script == "bipinScript3" &&
+                entry.Source.CommandIndex == 7 &&
+                entry.Phase == CutsceneCommandTracePhase.Completed &&
+                entry.Counter == 0) != 1,
+            "bipinScript3's typed trace lost its one-time/repeat branches, " +
+            "giveitem/checktext order, or exact wait-1 counter boundary.");
+        bipinInteractions.NpcScriptsForValidation.TraceSink = null;
 
         bipinManager.Clear();
         RemoveChild(bipinRoot);
@@ -3213,6 +3245,8 @@ public sealed partial class ValidationRoot
             npc.Record is { Id: 0x58, SubId: 0x00 });
         _player.WarpTo(shovelWorker.Position + Vector2.Down * 12);
         _player.Face(Vector2I.Up);
+        var shovelTrace = new ValidationCutsceneTrace();
+        shovelInteractions.NpcScriptsForValidation.TraceSink = shovelTrace;
         FailIf(
             !shovelInteractions.TryInteract(_player) ||
             DialogueBox.PlainText(shovelDialogue.CurrentMessage) !=
@@ -3277,6 +3311,21 @@ public sealed partial class ValidationRoot
             "Hardhat shovel branch did not finish with TX_1002 after the second exact wait.");
         shovelDialogue.Close();
         shovelInteractions.Update(frame, _player);
+        HardhatShovelScriptHost hardhatHost =
+            shovelInteractions.NpcScriptsForValidation.Hardhat;
+        FailIf(
+            hardhatHost.CurrentCommandIndex != 14 ||
+            !hardhatHost.InputDisabled,
+            "Hardhat setanimation $04 did not yield for one update before " +
+            "the script's enableinput command.");
+        shovelInteractions.Update(frame, _player);
+        FailIf(
+            hardhatHost.CurrentCommandIndex != 1 ||
+            hardhatHost.InputDisabled,
+            "Hardhat typed script did not return to its enabled command-1 " +
+            "A-button loop after TX_1002 closed: command " +
+            $"{hardhatHost.CurrentCommandIndex}, counter {hardhatHost.Counter}, " +
+            $"input disabled {hardhatHost.InputDisabled}.");
         int soundsAfterGrant = shovelSounds.Count;
         FailIf(
             !shovelInteractions.TryInteract(_player) ||
@@ -3286,7 +3335,14 @@ public sealed partial class ValidationRoot
         shovelDialogue.Close();
         shovelInteractions.Update(frame, _player);
         FailIf(
-            shovelSounds.Count != soundsAfterGrant,
+            hardhatHost.CurrentCommandIndex != 14 ||
+            !hardhatHost.InputDisabled,
+            "Hardhat's already-gave branch lost the setanimation yield.");
+        shovelInteractions.Update(frame, _player);
+        FailIf(
+            shovelSounds.Count != soundsAfterGrant ||
+            hardhatHost.CurrentCommandIndex != 1 ||
+            hardhatHost.InputDisabled,
             "Hardhat worker replayed giveitem after room flag $20 was set.");
 
         shovelRooms.Load(4, 0xe2);
@@ -3303,8 +3359,42 @@ public sealed partial class ValidationRoot
         shovelDialogue.Close();
         shovelInteractions.Update(frame, _player);
         FailIf(
-            shovelSave.HasRoomFlag(4, 0xe2, OracleSaveData.RoomFlagItem),
+            shovelSave.HasRoomFlag(4, 0xe2, OracleSaveData.RoomFlagItem) ||
+            shovelInteractions.NpcScriptsForValidation.Hardhat
+                .CurrentCommandIndex != 14,
             "Hardhat var03=$01 incorrectly set the shovel room flag in 4:e2.");
+        shovelInteractions.Update(frame, _player);
+        int[] shovelJumpTargets = shovelTrace.Entries
+            .Where(entry =>
+                entry.Source.Script == "hardhatWorkerSubid00Script" &&
+                entry.Source.CommandIndex == 4 &&
+                entry.Phase == CutsceneCommandTracePhase.Completed)
+            .Select(entry => entry.NextCommandIndex)
+            .ToArray();
+        int shovelGiveStarts = shovelTrace.Entries.Count(entry =>
+            entry.Source.Script == "hardhatWorkerSubid00Script" &&
+            entry.Source.CommandIndex == 8 &&
+            entry.Phase == CutsceneCommandTracePhase.Started);
+        int shovelWaitUpdates = shovelTrace.Entries.Count(entry =>
+            entry.Source.Script == "hardhatWorkerSubid00Script" &&
+            entry.Source.CommandIndex is 7 or 9 &&
+            entry.Phase == CutsceneCommandTracePhase.Updated);
+        int shovelWaitCompletions = shovelTrace.Entries.Count(entry =>
+            entry.Source.Script == "hardhatWorkerSubid00Script" &&
+            entry.Source.CommandIndex is 7 or 9 &&
+            entry.Phase == CutsceneCommandTracePhase.Completed &&
+            entry.Counter == 0);
+        FailIf(
+            !shovelJumpTargets.SequenceEqual([5, 5, 12]) ||
+            shovelGiveStarts != 1 ||
+            shovelWaitUpdates != data.TalkWait * 2 ||
+            shovelWaitCompletions != 2,
+            "hardhatWorkerSubid00Script's typed trace lost its var03/room-" +
+            "flag branches, one giveitem, or either exact 30-update wait: " +
+            $"targets [{string.Join(",", shovelJumpTargets)}], " +
+            $"give starts {shovelGiveStarts}, wait updates " +
+            $"{shovelWaitUpdates}, completions {shovelWaitCompletions}.");
+        shovelInteractions.NpcScriptsForValidation.TraceSink = null;
         shovelManager.Clear();
         RemoveChild(shovelRoot);
         shovelRoot.QueueFree();

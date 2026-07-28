@@ -61,9 +61,10 @@ internal sealed class ComedianEvent :
     }
 
     bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
-        ReadMemory(binding) == value;
+        ReadScriptMemory(binding) == value;
 
-    int ICutsceneCommandHost.ReadMemory(string binding) => ReadMemory(binding);
+    int ICutsceneCommandHost.ReadMemory(string binding) =>
+        ReadScriptMemory(binding);
 
     bool ICutsceneCommandHost.RoomFlagSet(int flag)
     {
@@ -176,7 +177,7 @@ internal sealed class ComedianEvent :
         }
     }
 
-    private int ReadMemory(string binding)
+    private int ReadScriptMemory(string binding)
     {
         if (binding != _record.ProgressBinding)
         {

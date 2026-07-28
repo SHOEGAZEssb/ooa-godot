@@ -35,11 +35,11 @@ internal abstract class CutsceneCommandHost : ICutsceneCommandHost
         throw UnsupportedCommand($"set menu enabled={enabled}");
     public virtual void SetDisabledObjects(int value) =>
         throw UnsupportedCommand($"set disabled objects ${value:x2}");
-    bool ICutsceneCommandHost.GateOpen(string gate) =>
+    public virtual bool GateOpen(string gate) =>
         throw UnsupportedCommand($"read gate '{gate}'");
     public virtual bool MemoryEquals(string binding, int value) =>
         throw UnsupportedCommand($"compare '{binding}' with ${value:x2}");
-    int ICutsceneCommandHost.ReadMemory(string binding) =>
+    public virtual int ReadMemory(string binding) =>
         throw UnsupportedCommand($"read '{binding}'");
     public virtual bool RoomFlagSet(int flag) =>
         throw UnsupportedCommand($"read room flag ${flag:x2}");
@@ -51,6 +51,8 @@ internal abstract class CutsceneCommandHost : ICutsceneCommandHost
         throw UnsupportedCommand($"consume A for actor '{actor}'");
     public virtual void ShowText(int textId, string message) =>
         throw UnsupportedCommand($"show text ${textId:x4}");
+    public virtual void ShowLoadedText() =>
+        throw UnsupportedCommand("show the loaded text");
     public virtual void SetActorAnimation(
         string actor, int animation, string encodedAnimation) =>
         throw UnsupportedCommand($"set actor '{actor}' animation ${animation:x2}");

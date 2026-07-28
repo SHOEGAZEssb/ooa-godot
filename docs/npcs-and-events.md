@@ -231,9 +231,12 @@ through placed actors plus one shared specialized dialogue/secret owner:
 - Initialization applies OAM palette bits `$02`, marks the placed position
   solid, and leaves ordinary talk targeting active across the table between
   Link and the Ghini.
-- The `linkedGameNpcScript` TX `$4d05-$4d09` graph is a native choice loop: No
+- The imported `linkedGameNpcScript` command lane owns TX `$4d05-$4d09`: No
   rejects the offer, Yes opens an explanation confirmation, No repeats that
   confirmation, and the generated secret repeats until its Yes confirmation.
+  Its owning interaction host implements loaded-text selection, the exact
+  20-update choice waits, live secret generation, and input lease; the central
+  talk dispatcher contains no parallel choice state machine.
 - Secret index `$01` writes short-secret index `$21` and
   `GLOBALFLAG_BEGAN_GRAVEYARD_SECRET`. Preserve the original game-ID fields,
   20-byte bit insertion, checksum nibble, XOR cipher, five 6-bit symbols, and
@@ -251,9 +254,9 @@ through placed actors plus one shared specialized dialogue/secret owner:
   `MUS_FAIRY_FOUNTAIN`, becomes talkable, and applies the source signed
   `[-1,-2,-1,0,+1,+2,+1,0]` Z delta every eight global updates.
 - `LinkedGameNpcDatabase` keys the generated records by exact room and
-  interaction identity. `InteractionController` selects that record rather
-  than recognizing one hardcoded ID, while the Great Fairy's appearance remains
-  native room-entity behavior.
+  interaction identity. `NpcInteractionScriptController` selects that record
+  rather than recognizing one hardcoded ID, while the Great Fairy's appearance
+  remains native room-entity behavior.
 
 Room `0:83` also demonstrates why a room's visible NPC work does not define
 its complete interaction closure. Its second object,
@@ -311,12 +314,13 @@ previous presentation override.
 
 Past room `3:fc` uses the same narrow native-adapter pattern for
 `INTERAC_BIPIN $28:$0a`: animation `$09`, Link collision, and Link-relative
-priority remain fixed-update actor behavior. Its `bipinScript3` talk loop is
-owned by `InteractionController` because it sequences TX `$4311`, scripted
-`TREASURE_GASHA_SEED $08`, room-item flag `$20`, the two-hand TX `$004b`
-presentation, TX `$4312`, and repeat TX `$4313`. Preserve the script engine's
-`wait 1` boundary: while the reward textbox is active the delay counter cannot
-advance, then `checktext` and TX `$4312` run on the first update after it closes.
+priority remain fixed-update actor behavior. Its imported `bipinScript3`
+command lane sequences TX `$4311`, scripted `TREASURE_GASHA_SEED $08`,
+room-item flag `$20`, the two-hand TX `$004b` presentation, TX `$4312`, and
+repeat TX `$4313`. The owning host resolves family text and delegates the
+caller-completed treasure to `RoomEntityManager`. Preserve the script engine's
+`wait 1` boundary: after TX `$004b` closes, one update installs counter 1 and
+the next reaches zero, passes `checktext`, and opens TX `$4312`.
 
 A group/room branch in `RoomEntityFactory` is acceptable only when the original
 defines that exact linked composition. Prefer interaction ID/subid dispatch for
@@ -586,6 +590,9 @@ reference for several native NPC handlers sharing one room slice:
   `SND_GETITEM` calls, uses the exact interaction `$60:$1b` Shovel OAM, and
   holds it 14 pixels above Link in the two-hand pose until TX `$0025` closes.
   `var03=$01` always shows TX `$1000` and neither reads nor writes `$20`.
+  The imported `hardhatWorkerSubid00Script` lane owns both `wait` counters,
+  room-flag and `var03` branches, text order, animation `$04`, and input
+  release. Its host retains only native facing and the typed Shovel grant.
 - Villager `$3a:$02` checks the open side at saved X plus or minus `$11` with
   temporary `$05/$03` radii. On strict Link collision it disables input, moves
   16 pixels at SPEED `$28`, restores Link's saved Y high byte, waits 10, saves

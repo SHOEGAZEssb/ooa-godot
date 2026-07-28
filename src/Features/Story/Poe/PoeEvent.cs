@@ -129,9 +129,10 @@ internal sealed class PoeEvent :
         actor.Value == ActorName;
 
     bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
-        ReadMemory(binding) == value;
+        ReadScriptMemory(binding) == value;
 
-    int ICutsceneCommandHost.ReadMemory(string binding) => ReadMemory(binding);
+    int ICutsceneCommandHost.ReadMemory(string binding) =>
+        ReadScriptMemory(binding);
 
     bool ICutsceneCommandHost.TryConsumeActorButton(CutsceneActorId actor)
     {
@@ -284,7 +285,7 @@ internal sealed class PoeEvent :
         }
     }
 
-    private int ReadMemory(string binding)
+    private int ReadScriptMemory(string binding)
     {
         if (binding != VariantBinding || _poe is null)
             throw new InvalidOperationException($"poeScript cannot read '{binding}'.");

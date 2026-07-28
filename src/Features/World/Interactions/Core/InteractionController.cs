@@ -22,8 +22,7 @@ public sealed class InteractionController
     private readonly Action<int> _playSound;
     private readonly Func<bool> _gashaCountersCaughtUp;
     private readonly BipinBlossomFamilyStateResolver _familyState;
-    private readonly BlackTowerWorkerDatabase _blackTower = new();
-    private readonly LinkedGameNpcDatabase _linkedNpcs = new();
+    private readonly NpcInteractionScriptController _npcScripts;
     private readonly KidNameEntryController _kidNameEntry;
     private readonly Dictionary<int, ChestRecord> _debugChestOverrides = new();
     private ChestTreasureEffect? _chestTreasure;
@@ -37,25 +36,11 @@ public sealed class InteractionController
     private float _familyLinkScreenY;
     private double _familyWaitTicks;
     private NpcCharacter? _activeNpcTalkLifecycle;
-    private HardhatShovelState _hardhatShovelState;
-    private NpcCharacter? _hardhatNpc;
-    private Player? _hardhatPlayer;
-    private GroundTreasurePickup? _hardhatTreasure;
-    private double _hardhatWaitTicks;
-    private PastBipinState _pastBipinState;
-    private NpcCharacter? _pastBipinNpc;
-    private Player? _pastBipinPlayer;
-    private GroundTreasurePickup? _pastBipinTreasure;
     private GashaState _gashaState;
     private GashaSpotInteraction? _gashaSpot;
     private Player? _gashaPlayer;
     private bool _gashaCompletesHeartContainer;
     private bool _gashaShowingHeartContainer;
-    private LinkedNpcState _linkedNpcState;
-    private NpcCharacter? _linkedNpc;
-    private Player? _linkedNpcPlayer;
-    private LinkedGameNpcDatabaseRecord _linkedNpcData;
-    private string _linkedNpcSecret = string.Empty;
 
     public Func<NpcCharacter, bool>? NpcInteractionOverride { get; set; }
     public Func<Player, bool>? PlayerInteractionOverride { get; set; }
@@ -64,9 +49,7 @@ public sealed class InteractionController
         _chestTreasure is not null ||
         _groundTreasure is not null ||
         _gashaState != GashaState.None ||
-        _linkedNpcState != LinkedNpcState.None ||
-        _hardhatShovelState != HardhatShovelState.None ||
-        _pastBipinState != PastBipinState.None ||
+        _npcScripts.BlocksGameplay ||
         _familyNamingState != FamilyNamingState.None ||
         _kidNameEntry.Active;
     public bool GameplayMenuActive => _kidNameEntry.Active;
@@ -74,7 +57,9 @@ public sealed class InteractionController
     internal ChestTreasureEffect? ChestReward => _chestTreasure;
     internal GroundTreasurePickup? GroundTreasureForValidation => _groundTreasure;
     internal GroundTreasurePickup? PastBipinTreasureForValidation =>
-        _pastBipinTreasure;
+        _npcScripts.PastBipinTreasure;
+    internal NpcInteractionScriptController NpcScriptsForValidation =>
+        _npcScripts;
 
     public InteractionController(
         RoomSession rooms,
@@ -108,6 +93,12 @@ public sealed class InteractionController
         _playSound = playSound ?? (static _ => { });
         _gashaCountersCaughtUp = gashaCountersCaughtUp ?? (static () => true);
         _kidNameEntry = new KidNameEntryController(interfaceLayer, playSound);
+        _npcScripts = new NpcInteractionScriptController(
+            rooms,
+            entities,
+            dialogue,
+            treasures,
+            _familyState);
         _dialogue.SetHeartPieceCountProvider(() => _inventory.HeartPieces);
         _dialogue.HeartPieceSetFilled += OnHeartPieceSetFilled;
         _dialogue.HeartPieceSetAccepted += OnHeartPieceSetAccepted;
@@ -130,19 +121,15 @@ public sealed class InteractionController
 
     public void Update(double delta, Player player)
     {
-        if (_activeNpcTalkLifecycle is not null && !_dialogue.IsOpen &&
-            _hardhatShovelState == HardhatShovelState.None &&
-            _linkedNpcState == LinkedNpcState.None)
+        if (_activeNpcTalkLifecycle is not null && !_dialogue.IsOpen)
         {
             _entities.EndNpcTalk(_activeNpcTalkLifecycle);
             _activeNpcTalkLifecycle = null;
         }
         _kidNameEntry.Update();
         UpdateFamilyNaming(delta);
-        UpdateHardhatShovel(delta);
-        UpdatePastBipin();
+        _npcScripts.Update(delta);
         UpdateGasha();
-        UpdateLinkedNpc();
 
         if (_groundTreasure is not null)
         {
@@ -262,16 +249,9 @@ public sealed class InteractionController
                 return true;
             if (NpcInteractionOverride?.Invoke(npc) == true)
                 return true;
-            if (_linkedNpcs.TryGet(
-                    npc.Record, out LinkedGameNpcDatabaseRecord linkedNpc))
-            {
-                return TryStartLinkedNpc(npc, player, linkedNpc);
-            }
-            if (npc.Record is { Id: 0x28, SubId: 0x0a })
-                return TryStartPastBipin(npc, player);
+            if (_npcScripts.TryInteract(npc, player))
+                return true;
             npc.FaceToward(player.Position);
-            if (npc.Record is { Id: 0x58, SubId: 0x00 })
-                return TryStartHardhatShovel(npc, player);
             if (_entities.BeginNpcTalk(npc))
                 _activeNpcTalkLifecycle = npc;
             _dialogue.ShowGameplayMessage(
@@ -304,391 +284,6 @@ public sealed class InteractionController
 
         _dialogue.ShowGameplayMessage(message, _worldToScreen(player.Position).Y);
         return true;
-    }
-
-    private bool TryStartHardhatShovel(NpcCharacter npc, Player player)
-    {
-        if (_hardhatShovelState != HardhatShovelState.None)
-            return false;
-
-        _entities.BeginNpcTalk(npc);
-        _activeNpcTalkLifecycle = npc;
-        _hardhatNpc = npc;
-        _hardhatPlayer = player;
-
-        int textId;
-        if (npc.Record.Var03 != 0)
-        {
-            textId = 0x1000;
-            _hardhatShovelState = HardhatShovelState.AwaitSimpleClose;
-        }
-        else if (_rooms.SaveData.HasRoomFlag(
-            _rooms.ActiveGroup, _rooms.CurrentRoom.Id, OracleSaveData.RoomFlagItem))
-        {
-            textId = 0x1002;
-            _hardhatShovelState = HardhatShovelState.AwaitSimpleClose;
-        }
-        else
-        {
-            textId = 0x1001;
-            _hardhatShovelState = HardhatShovelState.AwaitOpeningClose;
-        }
-        npc.SetDialogue(textId, _blackTower.Text(textId), canFace: true);
-        _dialogue.ShowGameplayMessage(
-            npc.Message, _worldToScreen(player.Position).Y, npc.TextPosition);
-        return true;
-    }
-
-    private bool TryStartLinkedNpc(
-        NpcCharacter npc,
-        Player player,
-        LinkedGameNpcDatabaseRecord data)
-    {
-        if (_linkedNpcState != LinkedNpcState.None)
-            return false;
-        if (_entities.BeginNpcTalk(npc))
-            _activeNpcTalkLifecycle = npc;
-        _linkedNpc = npc;
-        _linkedNpcPlayer = player;
-        _linkedNpcData = data;
-        _linkedNpcState = LinkedNpcState.AwaitOfferChoice;
-        _dialogue.ShowGameplayChoiceMessage(
-            _linkedNpcData.OfferMessage,
-            _worldToScreen(player.Position).Y,
-            textPosition: npc.TextPosition);
-        return true;
-    }
-
-    private void UpdateLinkedNpc()
-    {
-        if (_linkedNpcState == LinkedNpcState.None ||
-            _linkedNpc is null || _linkedNpcPlayer is null)
-        {
-            return;
-        }
-
-        float linkY = _worldToScreen(_linkedNpcPlayer.Position).Y;
-        int textPosition = _linkedNpc.TextPosition;
-        switch (_linkedNpcState)
-        {
-            case LinkedNpcState.AwaitOfferChoice:
-                if (!_dialogue.TryTakeChoiceResult(out int offerChoice))
-                    return;
-                if (offerChoice != 0)
-                {
-                    _linkedNpcState = LinkedNpcState.AwaitRefusalClose;
-                    _dialogue.ShowGameplayMessage(
-                        _linkedNpcData.RefusalMessage, linkY, textPosition);
-                    return;
-                }
-                if (_linkedNpcData.HasExtraText)
-                {
-                    _linkedNpcState =
-                        LinkedNpcState.AwaitExplanationChoice;
-                    _dialogue.ShowGameplayChoiceMessage(
-                        _linkedNpcData.ExplanationMessage, linkY,
-                        textPosition: textPosition);
-                    return;
-                }
-                GenerateLinkedNpcSecret();
-                _linkedNpcState = LinkedNpcState.AwaitSecretChoice;
-                ShowLinkedNpcSecret(linkY, textPosition);
-                return;
-
-            case LinkedNpcState.AwaitRefusalClose:
-                if (!_dialogue.IsOpen)
-                    FinishLinkedNpc();
-                return;
-
-            case LinkedNpcState.AwaitExplanationChoice:
-                if (!_dialogue.TryTakeChoiceResult(out int explanationChoice))
-                    return;
-                if (explanationChoice != 0)
-                {
-                    _dialogue.ShowGameplayChoiceMessage(
-                        _linkedNpcData.ExplanationMessage, linkY,
-                        initialChoice: 1,
-                        textPosition: textPosition);
-                    return;
-                }
-                GenerateLinkedNpcSecret();
-                _linkedNpcState = LinkedNpcState.AwaitSecretChoice;
-                ShowLinkedNpcSecret(linkY, textPosition);
-                return;
-
-            case LinkedNpcState.AwaitSecretChoice:
-                if (!_dialogue.TryTakeChoiceResult(out int secretChoice))
-                    return;
-                if (secretChoice != 0)
-                {
-                    ShowLinkedNpcSecret(
-                        linkY, textPosition, initialChoice: 1);
-                    return;
-                }
-                _linkedNpcState = LinkedNpcState.AwaitFinalClose;
-                _dialogue.ShowGameplayMessage(
-                    _linkedNpcData.FinalMessage, linkY, textPosition);
-                return;
-
-            case LinkedNpcState.AwaitFinalClose:
-                if (!_dialogue.IsOpen)
-                    FinishLinkedNpc();
-                return;
-        }
-    }
-
-    private void GenerateLinkedNpcSecret()
-    {
-        _rooms.SaveData.SetGlobalFlag(_linkedNpcData.BeganFlag);
-        _linkedNpcSecret =
-            _linkedNpcs.GenerateSecret(_linkedNpcData, _rooms.SaveData);
-    }
-
-    private void ShowLinkedNpcSecret(
-        float linkY,
-        int textPosition,
-        int initialChoice = 0)
-    {
-        string message = _linkedNpcData.SecretMessage.Replace(
-            "\\secret1", _linkedNpcSecret,
-            StringComparison.OrdinalIgnoreCase);
-        _dialogue.ShowGameplayChoiceMessage(
-            message, linkY, initialChoice, textPosition);
-    }
-
-    private void FinishLinkedNpc()
-    {
-        if (_linkedNpc is not null &&
-            _activeNpcTalkLifecycle == _linkedNpc)
-        {
-            _entities.EndNpcTalk(_linkedNpc);
-            _activeNpcTalkLifecycle = null;
-        }
-        _linkedNpcState = LinkedNpcState.None;
-        _linkedNpc = null;
-        _linkedNpcPlayer = null;
-        _linkedNpcData = default;
-        _linkedNpcSecret = string.Empty;
-    }
-
-    private void UpdateHardhatShovel(double delta)
-    {
-        switch (_hardhatShovelState)
-        {
-            case HardhatShovelState.None:
-                return;
-
-            case HardhatShovelState.AwaitSimpleClose:
-                if (!_dialogue.IsOpen)
-                    FinishHardhatShovel();
-                return;
-
-            case HardhatShovelState.AwaitOpeningClose:
-                if (_dialogue.IsOpen)
-                    return;
-                _hardhatWaitTicks = 0.0;
-                _hardhatShovelState = HardhatShovelState.PreRewardWait;
-                return;
-
-            case HardhatShovelState.PreRewardWait:
-                _hardhatWaitTicks += delta * 60.0;
-                if (_hardhatWaitTicks < _blackTower.TalkWait)
-                    return;
-                GiveHardhatShovel();
-                _hardhatShovelState = HardhatShovelState.AwaitRewardClose;
-                return;
-
-            case HardhatShovelState.AwaitRewardClose:
-                if (_dialogue.IsOpen)
-                    return;
-                RemoveHardhatTreasure();
-                _hardhatWaitTicks = 0.0;
-                _hardhatShovelState = HardhatShovelState.PostRewardWait;
-                return;
-
-            case HardhatShovelState.PostRewardWait:
-                _hardhatWaitTicks += delta * 60.0;
-                if (_hardhatWaitTicks < _blackTower.TalkWait)
-                    return;
-                _dialogue.ShowGameplayMessage(
-                    _blackTower.Text(0x1002),
-                    _worldToScreen(_hardhatPlayer!.Position).Y);
-                _hardhatShovelState = HardhatShovelState.AwaitFinalClose;
-                return;
-
-            case HardhatShovelState.AwaitFinalClose:
-                if (!_dialogue.IsOpen)
-                    FinishHardhatShovel();
-                return;
-        }
-    }
-
-    private void GiveHardhatShovel()
-    {
-        TreasureObjectRecord shovel =
-            _treasures.GetObject("TREASURE_OBJECT_SHOVEL_00");
-        if (shovel.TreasureId != TreasureDatabase.TreasureShovel ||
-            shovel.TextId != 0x25)
-        {
-            throw new InvalidOperationException(
-                "TREASURE_OBJECT_SHOVEL_00 no longer matches giveitem in the hardhat script.");
-        }
-
-        BlackTowerWorkerDatabaseVisualRecord visual = _blackTower.Visual("shovel");
-        Vector2 position = _hardhatPlayer!.Position;
-        var request = new GroundTreasureGrantRequest(
-            _rooms.ActiveGroup,
-            _rooms.CurrentRoom.Id,
-            0,
-            Mathf.FloorToInt(position.Y),
-            Mathf.FloorToInt(position.X),
-            shovel.Name,
-            "hardhatWorkerSubid00Script:giveitem TREASURE_SHOVEL,$00")
-        {
-            SpawnMode = 0,
-            GrabMode = 2,
-            VisualOverride = new GroundTreasureVisualOverride(
-                visual.Sprite,
-                visual.TileBase,
-                visual.Palette,
-                visual.Animation),
-            DialogueTiming = GroundTreasureDialogueTiming.AfterGrab,
-            CompletionOwner = GroundTreasureCompletionOwner.Caller,
-            ExpectedTreasureId = TreasureDatabase.TreasureShovel,
-            ExpectedSubId = 0,
-            ExpectedObjectParameter = 0
-        };
-        _hardhatTreasure = _entities.GrantGroundTreasure(
-            request, _hardhatPlayer);
-    }
-
-    private void RemoveHardhatTreasure()
-    {
-        if (_hardhatTreasure is null)
-            return;
-        _hardhatTreasure.Finish(_hardhatPlayer!);
-        _hardhatTreasure = null;
-    }
-
-    private void FinishHardhatShovel()
-    {
-        RemoveHardhatTreasure();
-        if (_hardhatNpc is not null)
-            _entities.EndNpcTalk(_hardhatNpc);
-        _activeNpcTalkLifecycle = null;
-        _hardhatNpc = null;
-        _hardhatPlayer = null;
-        _hardhatWaitTicks = 0.0;
-        _hardhatShovelState = HardhatShovelState.None;
-    }
-
-    private bool TryStartPastBipin(NpcCharacter npc, Player player)
-    {
-        if (_pastBipinState != PastBipinState.None)
-            return false;
-
-        _pastBipinNpc = npc;
-        _pastBipinPlayer = player;
-        bool alreadyGaveSeed = _rooms.SaveData.HasRoomFlag(
-            _rooms.ActiveGroup,
-            _rooms.CurrentRoom.Id,
-            OracleSaveData.RoomFlagItem);
-        int textId = alreadyGaveSeed ? 0x4313 : 0x4311;
-        Dialogue dialogue = _familyState.Text(textId, _rooms.SaveData);
-        _dialogue.ShowGameplayMessage(
-            dialogue.Message,
-            _worldToScreen(player.Position).Y,
-            npc.TextPosition);
-        _pastBipinState = alreadyGaveSeed
-            ? PastBipinState.AwaitRepeatClose
-            : PastBipinState.AwaitOpeningClose;
-        return true;
-    }
-
-    private void UpdatePastBipin()
-    {
-        switch (_pastBipinState)
-        {
-            case PastBipinState.None:
-                return;
-
-            case PastBipinState.AwaitOpeningClose:
-                if (_dialogue.IsOpen)
-                    return;
-                GivePastBipinSeed();
-                _pastBipinState = PastBipinState.AwaitRewardClose;
-                return;
-
-            case PastBipinState.AwaitRewardClose:
-                if (_dialogue.IsOpen)
-                    return;
-                RemovePastBipinTreasure();
-                Dialogue final = _familyState.Text(
-                    0x4312, _rooms.SaveData);
-                _dialogue.ShowGameplayMessage(
-                    final.Message,
-                    _worldToScreen(_pastBipinPlayer!.Position).Y,
-                    _pastBipinNpc!.TextPosition);
-                _pastBipinState = PastBipinState.AwaitFinalClose;
-                return;
-
-            case PastBipinState.AwaitFinalClose:
-            case PastBipinState.AwaitRepeatClose:
-                if (!_dialogue.IsOpen)
-                    FinishPastBipin();
-                return;
-        }
-    }
-
-    private void GivePastBipinSeed()
-    {
-        TreasureObjectRecord seed =
-            _treasures.GetObject("TREASURE_OBJECT_GASHA_SEED_08");
-        if (seed.TreasureId != TreasureDatabase.TreasureGashaSeed ||
-            seed.SubId != 0x08 || seed.Parameter != 0x01 ||
-            seed.TextId != 0x4b || seed.Graphic != 0x0d)
-        {
-            throw new InvalidOperationException(
-                "TREASURE_OBJECT_GASHA_SEED_08 no longer matches " +
-                "bipinScript3's giveitem command.");
-        }
-
-        Vector2 position = _pastBipinPlayer!.Position;
-        var request = new GroundTreasureGrantRequest(
-            _rooms.ActiveGroup,
-            _rooms.CurrentRoom.Id,
-            0,
-            Mathf.FloorToInt(position.Y),
-            Mathf.FloorToInt(position.X),
-            seed.Name,
-            "bipinScript3:giveitem TREASURE_GASHA_SEED,$08")
-        {
-            SpawnMode = 0,
-            GrabMode = 2,
-            DialogueTiming = GroundTreasureDialogueTiming.AfterGrab,
-            CompletionOwner = GroundTreasureCompletionOwner.Caller,
-            ExpectedTreasureId = TreasureDatabase.TreasureGashaSeed,
-            ExpectedSubId = 0x08,
-            ExpectedObjectParameter = 0x01
-        };
-        _pastBipinTreasure = _entities.GrantGroundTreasure(
-            request, _pastBipinPlayer);
-    }
-
-    private void RemovePastBipinTreasure()
-    {
-        if (_pastBipinTreasure is null)
-            return;
-        _pastBipinTreasure.Finish(_pastBipinPlayer!);
-        _pastBipinTreasure = null;
-    }
-
-    private void FinishPastBipin()
-    {
-        RemovePastBipinTreasure();
-        _pastBipinNpc = null;
-        _pastBipinPlayer = null;
-        _pastBipinState = PastBipinState.None;
     }
 
     internal void ShowRoomInteractionMessage(string message, Player player) =>
@@ -921,10 +516,6 @@ public sealed class InteractionController
 
     private void OnRoomChanged(int group, OracleRoomData room)
     {
-        if (_hardhatShovelState != HardhatShovelState.None)
-            FinishHardhatShovel();
-        if (_pastBipinState != PastBipinState.None)
-            FinishPastBipin();
         if (_groundTreasure is not null && _groundTreasurePlayer is not null)
             _groundTreasure.Finish(_groundTreasurePlayer);
         _groundTreasure = null;
@@ -932,11 +523,6 @@ public sealed class InteractionController
         _groundTreasureCompletesHeartContainer = false;
         _groundTreasureShowingHeartContainer = false;
         ResetGashaInteraction();
-        _linkedNpcState = LinkedNpcState.None;
-        _linkedNpc = null;
-        _linkedNpcPlayer = null;
-        _linkedNpcData = default;
-        _linkedNpcSecret = string.Empty;
         ApplyOpenedChestState(group, room);
     }
 
@@ -1172,34 +758,4 @@ internal enum FamilyNamingState
     AwaitInvalidClose,
     ThanksDelay,
     AwaitThanksClose
-}
-
-internal enum HardhatShovelState
-{
-    None,
-    AwaitOpeningClose,
-    PreRewardWait,
-    AwaitRewardClose,
-    PostRewardWait,
-    AwaitFinalClose,
-    AwaitSimpleClose
-}
-
-internal enum PastBipinState
-{
-    None,
-    AwaitOpeningClose,
-    AwaitRewardClose,
-    AwaitFinalClose,
-    AwaitRepeatClose
-}
-
-internal enum LinkedNpcState
-{
-    None,
-    AwaitOfferChoice,
-    AwaitRefusalClose,
-    AwaitExplanationChoice,
-    AwaitSecretChoice,
-    AwaitFinalClose
 }

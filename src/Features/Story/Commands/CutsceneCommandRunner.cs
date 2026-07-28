@@ -258,6 +258,16 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                 Observe(command, "Dialogue", value: text.TextId);
                 return CommandResult.Yield;
 
+            case CutsceneShowLoadedTextCommand:
+                host.ShowLoadedText();
+                Observe(command, "Dialogue:Loaded");
+                return CommandResult.Yield;
+
+            case CutsceneCheckTextCommand:
+                return host.DialogueOpen
+                    ? CommandResult.Block
+                    : CommandResult.Continue;
+
             case CutsceneDialogueCommand text:
                 if (_commandUpdates == 0)
                 {

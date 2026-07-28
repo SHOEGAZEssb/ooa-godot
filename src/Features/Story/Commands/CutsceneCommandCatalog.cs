@@ -76,6 +76,8 @@ internal static class CutsceneCommandCatalog
                 source, PositiveDecimal(path, physicalLine, "arg0", arg0)),
             "showtext" => new CutsceneShowTextCommand(
                 source, Hex(path, physicalLine, "arg0", arg0), payload),
+            "showloadedtext" => new CutsceneShowLoadedTextCommand(source),
+            "checktext" => new CutsceneCheckTextCommand(source),
             "dialogue" => new CutsceneDialogueCommand(
                 source, Hex(path, physicalLine, "arg0", arg0), payload),
             "showtextdifferentforlinked" => ParseTextVariants(
@@ -758,6 +760,12 @@ internal sealed record CutsceneShowTextCommand(
     CutsceneCommandSource Source,
     int TextId,
     string Message)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneShowLoadedTextCommand(CutsceneCommandSource Source)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneCheckTextCommand(CutsceneCommandSource Source)
     : CutsceneCommand(Source);
 
 internal sealed record CutsceneTextOptionBranchCommand(

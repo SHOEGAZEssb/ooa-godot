@@ -218,34 +218,41 @@ public sealed partial class ValidationRoot
         FailIf(!liveGhini.Visible, "The linked+D1 Ghini predicate did not survive actual room loading.");
         _player.WarpTo(liveGhini.Position + Vector2.Down * 12.0f, recordSafe: false);
         _player.Face(Vector2I.Up);
+        var ghiniTrace = new ValidationCutsceneTrace();
+        _interactions.NpcScriptsForValidation.TraceSink = ghiniTrace;
+        void CompleteLinkedChoiceWait()
+        {
+            for (int update = 0; update <= 20; update++)
+                _interactions.Update(1.0 / 60.0, _player);
+        }
         FailIf(
             !_interactions.TryInteract(_player) || !_dialogue.ChoiceActive ||
             !_dialogue.CurrentMessage.Contains("Do you?", StringComparison.Ordinal),
             "The room 0:5d Ghini did not open TX_4d05's Yes/No offer.");
         _dialogue.SubmitChoiceForValidation(1);
-        _interactions.Update(0.0, _player);
+        CompleteLinkedChoiceWait();
         FailIf(
             _dialogue.ChoiceActive ||
             !_dialogue.CurrentMessage.Contains("Suit yourself", StringComparison.Ordinal),
             "Choosing No did not follow linkedGameNpcScript to TX_4d06.");
         _dialogue.Close();
-        _interactions.Update(0.0, _player);
+        _interactions.Update(1.0 / 60.0, _player);
 
         FailIf(!_interactions.TryInteract(_player), "The Ghini offer loop could not be restarted.");
         _dialogue.SubmitChoiceForValidation(0);
-        _interactions.Update(0.0, _player);
+        CompleteLinkedChoiceWait();
         FailIf(
             !_dialogue.ChoiceActive ||
             !_dialogue.CurrentMessage.Contains("Holodrum", StringComparison.Ordinal),
             "Choosing Yes did not open TX_4d07's extra confirmation box.");
         _dialogue.SubmitChoiceForValidation(1);
-        _interactions.Update(0.0, _player);
+        CompleteLinkedChoiceWait();
         FailIf(
             !_dialogue.ChoiceActive || _dialogue.SelectedChoice != 1 ||
             !_dialogue.CurrentMessage.Contains("Holodrum", StringComparison.Ordinal),
             "Choosing No did not repeat the Ghini's extra confirmation.");
         _dialogue.SubmitChoiceForValidation(0);
-        _interactions.Update(0.0, _player);
+        CompleteLinkedChoiceWait();
         FailIf(
             !_dialogue.ChoiceActive ||
             _dialogue.CurrentMessage.Contains("\\secret1", StringComparison.Ordinal) ||
@@ -253,18 +260,48 @@ public sealed partial class ValidationRoot
             _saveData.ReadWramByte(0xc6fb) != 0x21,
             "The Ghini did not generate/substitute the Graveyard secret and set its began flag.");
         _dialogue.SubmitChoiceForValidation(1);
-        _interactions.Update(0.0, _player);
+        CompleteLinkedChoiceWait();
         FailIf(
             !_dialogue.ChoiceActive || _dialogue.SelectedChoice != 1,
             "Choosing No did not repeat TX_4d08's generated secret.");
         _dialogue.SubmitChoiceForValidation(0);
-        _interactions.Update(0.0, _player);
+        CompleteLinkedChoiceWait();
         FailIf(
             _dialogue.ChoiceActive ||
             !_dialogue.CurrentMessage.Contains("Good luck", StringComparison.Ordinal),
             "Confirming the Graveyard secret did not show TX_4d09.");
         _dialogue.Close();
-        _interactions.Update(0.0, _player);
+        _interactions.Update(1.0 / 60.0, _player);
+
+        CutsceneCommandTraceEntry[] ghiniStarts = ghiniTrace.Entries
+            .Where(entry =>
+                entry.Source.Script == "linkedGameNpcScript" &&
+                entry.Phase == CutsceneCommandTracePhase.Started)
+            .ToArray();
+        FailIf(
+            ghiniStarts.Count(entry =>
+                entry.Source.Opcode == "showloadedtext") != 8 ||
+            ghiniStarts.Count(entry =>
+                entry.Source.CommandIndex == 7) != 2 ||
+            ghiniStarts.Count(entry =>
+                entry.Source.CommandIndex == 17) != 2 ||
+            ghiniStarts.Count(entry =>
+                entry.Source.CommandIndex == 22) != 2 ||
+            ghiniStarts.Count(entry =>
+                entry.Source.CommandIndex == 18) != 1 ||
+            ghiniTrace.Entries.Count(entry =>
+                entry.Source.Script == "linkedGameNpcScript" &&
+                entry.Source.CommandIndex is 6 or 16 or 21 &&
+                entry.Phase == CutsceneCommandTracePhase.Updated) != 120 ||
+            ghiniTrace.Entries.Count(entry =>
+                entry.Source.Script == "linkedGameNpcScript" &&
+                entry.Source.CommandIndex is 6 or 16 or 21 &&
+                entry.Phase == CutsceneCommandTracePhase.Completed &&
+                entry.Counter == 0) != 6,
+            "linkedGameNpcScript's typed trace lost a refusal/repeat/accept " +
+            "branch, loaded-text boundary, secret generation, or exact " +
+            "20-update wait.");
+        _interactions.NpcScriptsForValidation.TraceSink = null;
 
         _saveData.SetLinkedGame(linkedBefore);
         _saveData.WriteWramByte(0xc6bf, essencesBefore);

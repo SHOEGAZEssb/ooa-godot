@@ -215,10 +215,10 @@ internal sealed class ShootingGalleryEvent :
     }
 
     bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
-        ReadMemory(binding) == value;
+        ReadScriptMemory(binding) == value;
 
     int ICutsceneCommandHost.ReadMemory(string binding) =>
-        ReadMemory(binding);
+        ReadScriptMemory(binding);
 
     bool ICutsceneCommandHost.TextOptionEquals(int value)
     {
@@ -436,7 +436,7 @@ internal sealed class ShootingGalleryEvent :
         }
     }
 
-    private int ReadMemory(string binding) => binding switch
+    private int ReadScriptMemory(string binding) => binding switch
     {
         "Condition" => _condition,
         "HasFlute" => _context.Inventory.HasTreasure(TreasureFlute) ? 1 : 0,

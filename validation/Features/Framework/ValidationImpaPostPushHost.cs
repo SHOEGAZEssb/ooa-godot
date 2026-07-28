@@ -28,7 +28,8 @@ internal sealed class ValidationImpaPostPushHost(int linkAngle) :
     public override void SetInputEnabled(bool enabled) => throw Unsupported(nameof(SetInputEnabled));
     public override void SetMenuEnabled(bool enabled) => throw Unsupported(nameof(SetMenuEnabled));
     public override void SetDisabledObjects(int value) => throw Unsupported(nameof(SetDisabledObjects));
-    public bool GateOpen(string gate) => throw Unsupported(nameof(GateOpen));
+    public override bool GateOpen(string gate) =>
+        throw Unsupported(nameof(GateOpen));
     public override bool MemoryEquals(string binding, int value) => binding == "w1Link.angle" && linkAngle == value;
     public override void ShowText(int textId, string message)
     {

@@ -321,12 +321,16 @@ public sealed partial class ValidationRoot
         IReadOnlyList<CutsceneCommandSchemaEntry> entries =
             CutsceneCommandSchema.Entries;
         FailIf(
-            entries.Count != 49 ||
+            entries.Count != 51 ||
             entries.Select(entry => entry.CommandType)
                 .Distinct()
-                .Count() != entries.Count,
+                .Count() != entries.Count ||
+            entries.Count(entry =>
+                entry.CommandType == typeof(CutsceneShowLoadedTextCommand)) != 1 ||
+            entries.Count(entry =>
+                entry.CommandType == typeof(CutsceneCheckTextCommand)) != 1,
             "The cutscene command schema no longer declares exactly one entry " +
-            "for each of the 49 typed command records.");
+            "for each of the 51 typed command records.");
 
         var source = new CutsceneCommandSource(
             "validation/command-schema.tsv",
@@ -401,7 +405,7 @@ public sealed partial class ValidationRoot
         }
 
         GD.Print(
-            "Validated 49-entry cutscene command schema coverage, normalized " +
+            "Validated 51-entry cutscene command schema coverage, normalized " +
             "field shapes, actor enumeration, and runner result contracts.");
     }
 
