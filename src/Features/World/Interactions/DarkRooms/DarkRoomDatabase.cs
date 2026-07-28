@@ -11,7 +11,7 @@ namespace oracleofages;
 internal sealed class DarkRoomDatabase
 {
 
-    private readonly Dictionary<int, List<DarkRoomDatabaseRecord>> _recordsByRoom = new();
+    private readonly Lookup<int, DarkRoomDatabaseRecord> _recordsByRoom = new();
     private readonly Dictionary<string, int> _constants = new();
 
     internal int RecordCount { get; }
@@ -88,12 +88,9 @@ internal sealed class DarkRoomDatabase
                 throw new InvalidOperationException(
                     $"Invalid dark-room interaction at {row.Path}:{row.LineNumber}.");
 
-            int key = MakeKey(record.Group, record.Room);
-            if (!_recordsByRoom.TryGetValue(key, out List<DarkRoomDatabaseRecord>? records))
-            {
-                records = new List<DarkRoomDatabaseRecord>();
-                _recordsByRoom.Add(key, records);
-            }
+            List<DarkRoomDatabaseRecord> records =
+                _recordsByRoom.GetOrAdd(
+                    MakeKey(record.Group, record.Room));
             if (records.Count > 0 && records[^1].Order >= record.Order)
             {
                 throw new InvalidOperationException(
@@ -144,9 +141,7 @@ internal sealed class DarkRoomDatabase
     }
 
     internal IReadOnlyList<DarkRoomDatabaseRecord> GetRoomRecords(int group, int room) =>
-        _recordsByRoom.TryGetValue(MakeKey(group, room), out List<DarkRoomDatabaseRecord>? records)
-            ? records
-            : Array.Empty<DarkRoomDatabaseRecord>();
+        _recordsByRoom.ValuesOrEmpty(MakeKey(group, room));
 
     private int Constant(string key) => _constants.TryGetValue(key, out int value)
         ? value

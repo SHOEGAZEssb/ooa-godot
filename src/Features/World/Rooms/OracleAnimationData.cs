@@ -136,16 +136,12 @@ public sealed class OracleAnimationData
                 ["group", "track", "frames(duration:gfx-index)"],
                 ["group"],
                 headerRequired: true));
-        var tracksByGroup = new Dictionary<int, List<Frame[]>>();
+        var tracksByGroup = new Lookup<int, Frame[]>();
         foreach (GeneratedTableRow row in table.Rows)
         {
             int group = row.UnsignedDecimal(0);
             int track = row.UnsignedDecimal(1);
-            if (!tracksByGroup.TryGetValue(group, out List<Frame[]>? tracks))
-            {
-                tracks = new List<Frame[]>();
-                tracksByGroup.Add(group, tracks);
-            }
+            List<Frame[]> tracks = tracksByGroup.GetOrAdd(group);
             if (track != tracks.Count)
                 throw new InvalidOperationException($"Animation group {group:x2} has nonsequential tracks.");
 
@@ -166,8 +162,8 @@ public sealed class OracleAnimationData
             tracks.Add(frames);
         }
 
-        foreach ((int group, List<Frame[]> tracks) in tracksByGroup)
-            _groups[group] = tracks.ToArray();
+        foreach ((int group, IReadOnlyList<Frame[]> tracks) in tracksByGroup)
+            _groups[group] = [.. tracks];
         if (_groups.Count != 22)
             throw new InvalidOperationException($"Expected 22 animation groups, loaded {_groups.Count}.");
     }

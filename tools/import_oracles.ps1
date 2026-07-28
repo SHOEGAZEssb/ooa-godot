@@ -150,7 +150,9 @@ $stageContracts = @(
 $commonStageInputs = @('destination', 'Disassembly', 'romBytes')
 $commonStageFunctionInputs = @(
     'Copy-GeneratedFile', 'Read-AssemblyLabelBlock',
-    'Read-ImportLines', 'Read-ImportText', 'Resolve-AssemblySourceTextPath')
+    'Read-AssemblyDwTables', 'Read-ImportLines', 'Read-ImportText',
+    'Resolve-AssemblySourceTextPath', 'Write-GeneratedBytes',
+    'Write-GeneratedTable')
 $automaticStageVariables = @(
     'args', 'error', 'executioncontext', 'false', 'foreach', 'host', 'input',
     'lastexitcode', 'matches', 'myinvocation', 'nestedpromptlevel', 'null',

@@ -3,14 +3,13 @@
 # contains the driver tables and channel descriptors; banks $3a-$3e contain
 # the channel bytecode selected by each sound pointer's relative bank byte.
 $soundDestination = Join-Path $destination 'audio'
-New-Item -ItemType Directory -Force -Path $soundDestination | Out-Null
 $soundBaseBank = 0x39
 $soundBankCount = 6
 $soundBankSize = 0x4000
 $soundRomOffset = $soundBaseBank * $soundBankSize
 $soundBytes = [byte[]]::new($soundBankCount * $soundBankSize)
 [Array]::Copy($romBytes, $soundRomOffset, $soundBytes, 0, $soundBytes.Length)
-[IO.File]::WriteAllBytes((Join-Path $soundDestination 'sound_data.bin'), $soundBytes)
+Write-GeneratedBytes((Join-Path $soundDestination 'sound_data.bin'), $soundBytes)
 
 # Room music is one byte per room in each of the six gameplay groups. Groups
 # 6 and 7 alias groups 4 and 5 in musicAssignmentGroupTable and are normalized
@@ -24,7 +23,7 @@ for ($group = 0; $group -lt 6; $group++) {
     }
     [Array]::Copy($groupMusic, 0, $roomMusic, $group * 256, 256)
 }
-[IO.File]::WriteAllBytes((Join-Path $soundDestination 'room_music.bin'), $roomMusic)
+Write-GeneratedBytes((Join-Path $soundDestination 'room_music.bin'), $roomMusic)
 
 # Expand the source waveform table by its explicit indices. The table's source
 # order is intentionally unrelated to the waveform IDs used by duty commands.
@@ -48,7 +47,7 @@ foreach ($waveform in $waveformMatches) {
 if ($waveformIds.Count -ne 0x2e) {
     throw "Expected 46 indexed sound waveforms, parsed $($waveformIds.Count)."
 }
-[IO.File]::WriteAllBytes((Join-Path $soundDestination 'waveforms.bin'), $waveforms)
+Write-GeneratedBytes((Join-Path $soundDestination 'waveforms.bin'), $waveforms)
 
 $noiseSource = Read-ImportText (Join-Path $Disassembly 'audio\common\noise.s')
 $noiseRows = [regex]::Matches(
@@ -63,7 +62,7 @@ for ($row = 0; $row -lt $noiseRows.Count; $row++) {
 if ($noiseRows.Count -ne 13) {
     throw "Expected 13 noise-frequency records, parsed $($noiseRows.Count)."
 }
-[IO.File]::WriteAllBytes((Join-Path $soundDestination 'noise_frequencies.bin'), $noiseData)
+Write-GeneratedBytes((Join-Path $soundDestination 'noise_frequencies.bin'), $noiseData)
 
 $audioDriverSource = Read-ImportText (Join-Path $Disassembly 'code\audio.s')
 $envelopeDelayBlock = [regex]::Match(
@@ -79,7 +78,7 @@ for ($delay = 0; $delay -lt $envelopeDelayValues.Count; $delay++) {
     $envelopeDelays[$delay] =
         [Convert]::ToByte($envelopeDelayValues[$delay].Groups['value'].Value, 16)
 }
-[IO.File]::WriteAllBytes((Join-Path $soundDestination 'envelope_delays.bin'), $envelopeDelays)
+Write-GeneratedBytes((Join-Path $soundDestination 'envelope_delays.bin'), $envelopeDelays)
 
 $frequencyBlock = [regex]::Match(
     $audioDriverSource,
@@ -94,5 +93,4 @@ for ($frequency = 0; $frequency -lt $frequencies.Count; $frequency++) {
     $frequencyData[$frequency * 2] = [byte]($value -band 0xff)
     $frequencyData[$frequency * 2 + 1] = [byte](($value -shr 8) -band 0xff)
 }
-[IO.File]::WriteAllBytes((Join-Path $soundDestination 'frequencies.bin'), $frequencyData)
-
+Write-GeneratedBytes((Join-Path $soundDestination 'frequencies.bin'), $frequencyData)

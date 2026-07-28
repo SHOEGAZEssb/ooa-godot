@@ -7,7 +7,7 @@ namespace oracleofages;
 public sealed class TimePortalDatabase
 {
 
-    private readonly Dictionary<int, List<PortalRecord>> _byRoom = new();
+    private readonly Lookup<int, PortalRecord> _byRoom = new();
     public TemporaryPortalVisualRecord TemporaryVisual { get; }
     internal IReadOnlyDictionary<byte, byte> EntryTileReplacements { get; }
     internal IReadOnlyDictionary<byte, byte> ReturnTileReplacements { get; }
@@ -39,13 +39,7 @@ public sealed class TimePortalDatabase
                 row.UnsignedDecimal(7),
                 row.UnsignedDecimal(8),
                 row.RequiredString(9));
-            int key = MakeKey(record.Group, record.Room);
-            if (!_byRoom.TryGetValue(key, out List<PortalRecord>? records))
-            {
-                records = new List<PortalRecord>();
-                _byRoom.Add(key, records);
-            }
-            records.Add(record);
+            _byRoom.Add(MakeKey(record.Group, record.Room), record);
             count++;
         }
 
@@ -97,9 +91,7 @@ public sealed class TimePortalDatabase
     }
 
     public IReadOnlyList<PortalRecord> GetRoomPortals(int group, int room) =>
-        _byRoom.TryGetValue(MakeKey(group, room), out List<PortalRecord>? records)
-            ? records
-            : Array.Empty<PortalRecord>();
+        _byRoom.ValuesOrEmpty(MakeKey(group, room));
 
     internal bool ApplyEntryTileReplacement(
         OracleRoomData room,

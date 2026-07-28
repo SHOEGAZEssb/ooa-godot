@@ -249,12 +249,9 @@ $introRows = @(
     '# initial-wait`tvoice-wait`tpost-vanish-wait`tsummon-frames`tlink-x`tlink-y`tlink-summoned-flag`tpregame-done-flag`ttextbox-position`ttext-id`tspin-duration`tspin-graphics`tvanish-durations`tvanish-graphics`tdescend-oscillation`thover-oscillation`ttext-base64',
     ($introColumns -join "`t")
 )
-New-Item -ItemType Directory -Force -Path (
-    Join-Path $destination 'cutscenes') | Out-Null
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\new_game_intro.tsv'),
-    $introRows,
-    [Text.UTF8Encoding]::new($false))
+    $introRows)
 
 # Resolve every OAM part used by Link and both INTERAC_SPARKLE objects in the
 # pregame intro. Object coordinates and OAM offsets retain their original
@@ -446,7 +443,6 @@ Add-SparkleIntroSpriteRows 'orb-vanish' 0x06
 if ($introSpriteRows.Count -ne 52) {
     throw "Expected 51 shared Link/intro sprite frames, exported $($introSpriteRows.Count - 1)."
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\new_game_intro_sprites.tsv'),
-    $introSpriteRows,
-    [Text.UTF8Encoding]::new($false))
+    $introSpriteRows)

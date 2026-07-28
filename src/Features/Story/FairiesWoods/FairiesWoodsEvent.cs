@@ -10,6 +10,7 @@ namespace oracleofages;
 /// ordinary forest room changes and is reset only by room $0:$93 or quitting.
 /// </summary>
 internal sealed class FairiesWoodsEvent :
+    CutsceneCommandHost,
     IRoomEntryEvent,
     ICutsceneCommandHost,
     IUpdatesDuringDialogueRoomEvent

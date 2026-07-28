@@ -8,7 +8,8 @@ namespace oracleofages;
 /// Runs Ralph's pre-Black Tower departure and the linked/unlinked heritage
 /// scenes in past room $75. Actor lanes retain original placement order.
 /// </summary>
-internal sealed class PreBlackTowerEvent : IRoomEntryEvent, ICutsceneCommandHost
+internal sealed class PreBlackTowerEvent :
+    CutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
 {
 
     private readonly RoomEventContext _context;

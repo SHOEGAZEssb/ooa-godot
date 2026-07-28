@@ -5,7 +5,8 @@ namespace oracleofages;
 /// <summary>
 /// INTERAC_COMEDIAN $65:$00 and comedianScript in present room $0:$56.
 /// </summary>
-internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
+internal sealed class ComedianEvent :
+    InteractiveCutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
 {
     private const string ActorName = "Comedian";
     private readonly RoomEventContext _context;
@@ -16,7 +17,6 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
     private int _progress;
     private bool _buttonSensitive;
     private bool _buttonPressed;
-    private bool _inputDisabled;
 
     public ComedianEvent(RoomEventContext context)
     {
@@ -26,7 +26,8 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
     }
 
     public bool HasState => _runner.Active;
-    public bool BlocksGameplay => _inputDisabled;
+    public bool BlocksGameplay => InputLeaseHeld;
+    protected override RoomEventContext InputContext => _context;
     internal int CurrentCommandIndex =>
         _runner.CurrentCommand?.Source.CommandIndex ?? -1;
     internal int Counter => _runner.Counter;
@@ -52,7 +53,7 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
                 "Room 0:56 instantiated INTERAC_COMEDIAN without its native actor.");
         _buttonSensitive = false;
         _buttonPressed = false;
-        _inputDisabled = false;
+        ReleaseInputControl();
         _progress = 0;
         _runner.Start(_database.Commands);
 
@@ -71,7 +72,7 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
 
     public bool TryInteractNpc(NpcCharacter npc)
     {
-        if (!_runner.Active || !_buttonSensitive || _inputDisabled ||
+        if (!_runner.Active || !_buttonSensitive || InputLeaseHeld ||
             !ReferenceEquals(npc, _comedian))
         {
             return false;
@@ -82,8 +83,7 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
 
     public void Cancel()
     {
-        if (_inputDisabled)
-            _context.Player.EndCutsceneControl();
+        ReleaseInputControl();
         if (_comedian is not null)
         {
             _comedian.SetScriptButtonSensitive(false);
@@ -93,41 +93,12 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
         _progress = 0;
         _buttonSensitive = false;
         _buttonPressed = false;
-        _inputDisabled = false;
         _runner.Clear();
     }
 
     RoomEventContext ICutsceneCommandHost.Context => _context;
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value == ActorName;
-
-    void ICutsceneCommandHost.SetInputEnabled(bool enabled)
-    {
-        if (enabled)
-        {
-            if (_inputDisabled)
-                _context.Player.EndCutsceneControl();
-            _inputDisabled = false;
-        }
-        else
-        {
-            if (!_inputDisabled)
-                _context.Player.BeginCutsceneControl();
-            _inputDisabled = true;
-        }
-    }
-
-    void ICutsceneCommandHost.SetMenuEnabled(bool enabled) =>
-        throw new InvalidOperationException(
-            $"comedianScript does not set menu enabled={enabled} independently.");
-
-    void ICutsceneCommandHost.SetDisabledObjects(int value) =>
-        throw new InvalidOperationException(
-            $"comedianScript does not write wDisabledObjects=${value:x2}.");
-
-    bool ICutsceneCommandHost.GateOpen(string gate) =>
-        throw new InvalidOperationException(
-            $"comedianScript has no gate named '{gate}'.");
 
     bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
         ReadMemory(binding) == value;
@@ -201,13 +172,6 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
         RequireComedian(actor).SetScriptAnimation(encodedAnimation);
     }
 
-    void ICutsceneCommandHost.SetActorMovementAnimation(
-        string actor,
-        int angle,
-        string encodedAnimation) =>
-        throw new InvalidOperationException(
-            $"Comedian actor '{actor}' cannot use movement animation ${angle:x2}.");
-
     void ICutsceneCommandHost.SetActorCollisionRadii(
         string actor,
         int radiusY,
@@ -229,23 +193,8 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
         _buttonSensitive = true;
     }
 
-    void ICutsceneCommandHost.MoveActorAtSpeed(
-        string actor,
-        int speed,
-        int angle) =>
-        throw new InvalidOperationException(
-            $"Comedian actor '{actor}' cannot move at ${speed:x2}/${angle:x2}.");
-
-    void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>
-        throw new InvalidOperationException(
-            $"Comedian actor '{actor}' cannot set Z to ${zFixed:x4}.");
-
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
         RequireComedian(actor).Visible = visible;
-
-    void ICutsceneCommandHost.WriteMemory(string binding, int value) =>
-        throw new InvalidOperationException(
-            $"comedianScript cannot write '{binding}'=${value:x2}.");
 
     void ICutsceneCommandHost.GiveItem(int treasureId, int parameter)
     {
@@ -266,10 +215,6 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
             "scriptHelper.s:comedianScript giveitem TREASURE_TRADEITEM,$07");
     }
 
-    void ICutsceneCommandHost.OrRoomFlag(int flag) =>
-        throw new InvalidOperationException(
-            $"comedianScript does not directly OR room flag ${flag:x2}.");
-
     void ICutsceneCommandHost.RunNativeHandler(string handler)
     {
         switch (handler)
@@ -288,10 +233,6 @@ internal sealed class ComedianEvent : IRoomEntryEvent, ICutsceneCommandHost
                     $"Unknown comedian native handler '{handler}'.");
         }
     }
-
-    void ICutsceneCommandHost.ScriptEnded() =>
-        throw new InvalidOperationException(
-            "comedianScript must remain in its NPC loop.");
 
     private int ReadMemory(string binding)
     {

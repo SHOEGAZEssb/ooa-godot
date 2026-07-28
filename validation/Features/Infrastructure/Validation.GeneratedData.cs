@@ -9,6 +9,19 @@ public sealed partial class ValidationRoot
 {
     private static void ValidateGeneratedTableReader()
     {
+        var lookup = new Lookup<string, int>(StringComparer.Ordinal);
+        lookup.Add("second", 2);
+        lookup.Add("first", 1);
+        lookup.Add("second", 3);
+        if (lookup.KeyCount != 2 || lookup.Count != 2 ||
+            lookup.Keys[0] != "second" || lookup.Keys[1] != "first" ||
+            lookup["second"].Count != 2 ||
+            lookup["second"][0] != 2 || lookup["second"][1] != 3)
+        {
+            throw new InvalidOperationException(
+                "Lookup did not preserve first-key and per-key insertion order.");
+        }
+
         var schema = new GeneratedTableSchema(
             "validation records",
             GeneratedTableKeySemantics.Unique,

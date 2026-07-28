@@ -87,10 +87,9 @@ foreach ($spec in @(
         }
     }
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\maple_locations.tsv'),
-    $mapleLocationRows,
-    [Text.UTF8Encoding]::new($false))
+    $mapleLocationRows)
 
 # Preserve the source path streams and their exact step ordering.
 $maplePaths = @(
@@ -165,10 +164,9 @@ $mapleMovementRows.Add("# slot`tpath")
 for ($slot = 0; $slot -lt $movementPatternIndices.Count; $slot++) {
     $mapleMovementRows.Add("$slot`t$($movementPatternIndices[$slot])")
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\maple_movement_selection.tsv'),
-    $mapleMovementRows,
-    [Text.UTF8Encoding]::new($false))
+    $mapleMovementRows)
 
 $maplePathRows = [Collections.Generic.List[string]]::new()
 $maplePathRows.Add(
@@ -180,10 +178,9 @@ foreach ($path in $maplePaths) {
             "$($path.Kind)`t$($path.Index)`t$($path.Y.ToString('x2'))`t$($path.X.ToString('x2'))`t$($path.Delay)`t$step`t$(([int]$entry[0]).ToString('x2'))`t$([int]$entry[1])")
     }
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\maple_paths.tsv'),
-    $maplePathRows,
-    [Text.UTF8Encoding]::new($false))
+    $maplePathRows)
 
 # Resolve all 32 special-object animations. Each graphics pointer replaces the
 # specified number of 8x8 tiles starting at Maple's first OBJ tile; the other
@@ -303,10 +300,9 @@ $mapleVisualRows = @(
     "# sprite`ttile-base`tpalette`tanimations-base64`tsource",
     "spr_maple`t0`t0`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($mapleAnimations -join "`n")))`tspecialObjectAnimationData.s:specialObject0e"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\maple_visual.tsv'),
-    $mapleVisualRows,
-    [Text.UTF8Encoding]::new($false))
+    $mapleVisualRows)
 Copy-GeneratedFile 'gfx\common\spr_maple.png' 'gfx\spr_maple.png'
 
 # PART_ITEM_FROM_MAPLE uses the first 17 entries of the shared part animation
@@ -393,10 +389,9 @@ foreach ($spec in $mapleItemSpecs) {
     $mapleItemRows.Add(
         "$index`t$($spec[1])`t$($spec[2])`t$($spec[3])`t$(Resolve-MapleItemAnimation $spec[4])`t$($mapleItemValues[$index])`t$($spec[6])`t$($spec[7])`t$($spec[8])`t$($spec[9])`t$($rareWeights[$index])`t$($standardWeights[$index])`t$($linkWeights[$index])`t$($uniqueMasks[$index])`titemFromMaple.s:@oamData/@itemDropTreasureTable")
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\maple_items.tsv'),
-    $mapleItemRows,
-    [Text.UTF8Encoding]::new($false))
+    $mapleItemRows)
 Copy-GeneratedFile `
     'gfx_compressible\common\spr_quest_items_5.png' `
     'gfx\spr_quest_items_5.png'
@@ -421,10 +416,9 @@ $mapleBookRows = @(
     "# sprite`ttile-base`tpalette`tanimation`tsource",
     "$bookSprite`t$($bookGraphic.TileBase)`t$($bookGraphic.Palette)`t$bookAnimation`tinteractionData.s:interactiona5SubidData"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\maple_book.tsv'),
-    $mapleBookRows,
-    [Text.UTF8Encoding]::new($false))
+    $mapleBookRows)
 
 $mapleTextRows = [Collections.Generic.List[string]]::new()
 $mapleTextRows.Add("# text-id`tmessage-base64")
@@ -435,10 +429,9 @@ foreach ($textId in 0x0700..0x0713) {
     $mapleTextRows.Add(
         "$($textId.ToString('x4'))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$textId])))")
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'metadata\maple_text.tsv'),
-    $mapleTextRows,
-    [Text.UTF8Encoding]::new($false))
+    $mapleTextRows)
 
 $mapleConstantRows = @(
     "# key`tvalue`tsource",
@@ -454,7 +447,6 @@ $mapleConstantRows = @(
     "departure-speed-raw`t120`tmaple.s:mapleState9",
     "horizontal-shake-updates`t15`tmaple.s:mapleCollideWithLink"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'metadata\maple_constants.tsv'),
-    $mapleConstantRows,
-    [Text.UTF8Encoding]::new($false))
+    $mapleConstantRows)

@@ -26,7 +26,6 @@ internal sealed class BlackTowerShovelWorkerRoomEntity : BlackTowerNpcRoomEntity
     }
 
     public NpcCharacter TalkNpc => Entity;
-    bool IUpdatesDuringDialogueRoomEntity.UpdatesDuringDialogue => true;
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {

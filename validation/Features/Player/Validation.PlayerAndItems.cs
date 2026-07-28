@@ -784,8 +784,9 @@ public sealed partial class ValidationRoot
 
         var watcherRoot = new Node();
         AddChild(watcherRoot);
-        var watcherManager = new RoomEntityManager(
-            watcherRoot, new NpcDatabase(), new EnemyDatabase(), watchedTreeSave);
+        using var watcherManagerFixture = RoomEntityValidationFixture.ForRoot(
+            watcherRoot, new() { SaveData = watchedTreeSave });
+        RoomEntityManager watcherManager = watcherManagerFixture.Manager;
         watcherManager.LoadRoom(0, watchedTreeRoom);
         if (!watcherManager.Entities<Node2D>().Any(
                 node => node.Name == "TileChangeWatcher_1"))

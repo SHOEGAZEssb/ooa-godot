@@ -4,7 +4,8 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-internal sealed class NayruIntroEvent : IRoomEvent, ICutsceneCommandHost
+internal sealed class NayruIntroEvent :
+    CutsceneCommandHost, IRoomEvent, ICutsceneCommandHost
 {
 
     private readonly RoomEventContext _context;

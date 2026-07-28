@@ -7,7 +7,8 @@ namespace oracleofages;
 /// <summary>
 /// INTERAC_POE $59:$00 and poeScript in present rooms $0:$7c and $2:$2e.
 /// </summary>
-internal sealed class PoeEvent : IRoomEntryEvent, ICutsceneCommandHost
+internal sealed class PoeEvent :
+    InteractiveCutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
 {
     private const string ActorName = "Poe";
     private const string VariantBinding = "PoeVariant";
@@ -19,7 +20,6 @@ internal sealed class PoeEvent : IRoomEntryEvent, ICutsceneCommandHost
     private Vector2 _precisePosition;
     private bool _buttonSensitive;
     private bool _buttonPressed;
-    private bool _inputDisabled;
 
     public PoeEvent(RoomEventContext context)
     {
@@ -29,14 +29,15 @@ internal sealed class PoeEvent : IRoomEntryEvent, ICutsceneCommandHost
     }
 
     public bool HasState => _runner.Active;
-    public bool BlocksGameplay => _inputDisabled;
+    public bool BlocksGameplay => InputLeaseHeld;
+    protected override RoomEventContext InputContext => _context;
     internal PoeCharacter? Actor => _poe;
     internal int CurrentCommandIndex =>
         _runner.CurrentCommand?.Source.CommandIndex ?? -1;
     internal int CurrentCommandUpdates => _runner.CurrentCommandUpdates;
     internal int Counter => _runner.Counter;
     internal bool ButtonSensitive => _buttonSensitive;
-    internal bool InputDisabled => _inputDisabled;
+    internal bool InputDisabled => InputLeaseHeld;
     internal PoeEventDatabase Database => _database;
 
     public bool Matches(int group, OracleRoomData room) =>
@@ -104,7 +105,7 @@ internal sealed class PoeEvent : IRoomEntryEvent, ICutsceneCommandHost
 
     public bool TryInteractNpc(NpcCharacter npc)
     {
-        if (!_runner.Active || !_buttonSensitive || _inputDisabled ||
+        if (!_runner.Active || !_buttonSensitive || InputLeaseHeld ||
             _poe?.Disappearing != false || !ReferenceEquals(npc, _poe))
         {
             return false;
@@ -115,8 +116,6 @@ internal sealed class PoeEvent : IRoomEntryEvent, ICutsceneCommandHost
 
     public void Cancel()
     {
-        if (_inputDisabled)
-            _context.Player.EndCutsceneControl();
         if (_poe is not null)
         {
             _poe.SetScriptButtonSensitive(false);
@@ -129,50 +128,10 @@ internal sealed class PoeEvent : IRoomEntryEvent, ICutsceneCommandHost
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value == ActorName;
 
-    void ICutsceneCommandHost.SetInputEnabled(bool enabled)
-    {
-        if (enabled)
-        {
-            if (_inputDisabled)
-                _context.Player.EndCutsceneControl();
-            _inputDisabled = false;
-        }
-        else
-        {
-            if (!_inputDisabled)
-                _context.Player.BeginCutsceneControl();
-            _inputDisabled = true;
-        }
-    }
-
-    void ICutsceneCommandHost.SetMenuEnabled(bool enabled) =>
-        throw new InvalidOperationException(
-            $"poeScript does not set menu enabled={enabled} independently.");
-
-    void ICutsceneCommandHost.SetDisabledObjects(int value) =>
-        throw new InvalidOperationException(
-            $"poeScript does not write wDisabledObjects=${value:x2}.");
-
-    bool ICutsceneCommandHost.GateOpen(string gate) =>
-        throw new InvalidOperationException(
-            $"poeScript has no gate named '{gate}'.");
-
     bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
         ReadMemory(binding) == value;
 
     int ICutsceneCommandHost.ReadMemory(string binding) => ReadMemory(binding);
-
-    bool ICutsceneCommandHost.RoomFlagSet(int flag) =>
-        throw new InvalidOperationException(
-            $"poeScript does not branch on room flag ${flag:x2}.");
-
-    bool ICutsceneCommandHost.TradeItemEquals(int value) =>
-        throw new InvalidOperationException(
-            $"poeScript does not compare trade item ${value:x2}.");
-
-    bool ICutsceneCommandHost.TextOptionEquals(int value) =>
-        throw new InvalidOperationException(
-            $"poeScript does not read text option ${value:x2}.");
 
     bool ICutsceneCommandHost.TryConsumeActorButton(CutsceneActorId actor)
     {
@@ -205,13 +164,6 @@ internal sealed class PoeEvent : IRoomEntryEvent, ICutsceneCommandHost
         }
         RequirePoe(actor).SetScriptAnimation(encodedAnimation);
     }
-
-    void ICutsceneCommandHost.SetActorMovementAnimation(
-        string actor,
-        int angle,
-        string encodedAnimation) =>
-        throw new InvalidOperationException(
-            $"Poe actor '{actor}' cannot use movement animation ${angle:x2}.");
 
     void ICutsceneCommandHost.SetActorCollisionRadii(
         string actor,
@@ -250,10 +202,6 @@ internal sealed class PoeEvent : IRoomEntryEvent, ICutsceneCommandHost
             OracleObjectMath.ToPixelPosition(_precisePosition);
     }
 
-    void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>
-        throw new InvalidOperationException(
-            $"Poe actor '{actor}' cannot set Z to ${zFixed:x4}.");
-
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
         RequirePoe(actor).Visible = visible;
 
@@ -277,10 +225,6 @@ internal sealed class PoeEvent : IRoomEntryEvent, ICutsceneCommandHost
         throw new InvalidOperationException(
             $"poeScript wrote unexpected object byte ${address:x2}=${value:x2}.");
     }
-
-    void ICutsceneCommandHost.WriteMemory(string binding, int value) =>
-        throw new InvalidOperationException(
-            $"poeScript cannot write '{binding}'=${value:x2}.");
 
     void ICutsceneCommandHost.GiveItem(int treasureId, int parameter)
     {
@@ -328,10 +272,6 @@ internal sealed class PoeEvent : IRoomEntryEvent, ICutsceneCommandHost
         _context.Rooms.SaveData.SetRoomFlag(
             poe.Record.Group, poe.Record.Room, (byte)flag);
     }
-
-    void ICutsceneCommandHost.RunNativeHandler(string handler) =>
-        throw new InvalidOperationException(
-            $"Unknown Poe native script handler '{handler}'.");
 
     void ICutsceneCommandHost.ScriptEnded()
     {
@@ -387,11 +327,11 @@ internal sealed class PoeEvent : IRoomEntryEvent, ICutsceneCommandHost
 
     private void ResetState()
     {
+        ReleaseInputControl();
         _poe = null;
         _precisePosition = Vector2.Zero;
         _buttonSensitive = false;
         _buttonPressed = false;
-        _inputDisabled = false;
         _runner.Clear();
     }
 }

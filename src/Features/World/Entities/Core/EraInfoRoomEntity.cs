@@ -13,7 +13,6 @@ internal sealed class EraInfoRoomEntity(EraInfoDisplay display)
         IUpdatesDuringDialogueRoomEntity
 {
     public bool Finished => Entity.Finished;
-    bool IUpdatesDuringDialogueRoomEntity.UpdatesDuringDialogue => true;
 
     public void UpdateFrame(
         RoomEntityFrame frame,

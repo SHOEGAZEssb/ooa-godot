@@ -39,8 +39,7 @@ if ($globalFlagRows.Count -ne 0x80) {
     throw "Expected 128 Ages global flags, parsed $($globalFlagRows.Count)."
 }
 $globalFlagPath = Join-Path $destination 'metadata\global_flags.tsv'
-New-Item -ItemType Directory -Force -Path (Split-Path $globalFlagPath -Parent) | Out-Null
-[IO.File]::WriteAllLines($globalFlagPath, $globalFlagRows, [Text.UTF8Encoding]::new($false))
+Write-GeneratedTable($globalFlagPath, $globalFlagRows)
 
 # applySingleTileChanges is a separate, ordered room-load pass. Most rows test
 # a room-flag mask; $f0-$f2 are the three Ages-specific linked/completion
@@ -93,10 +92,9 @@ if ($singleTileChangeRecords.Count -ne 56) {
     throw "Expected 56 Ages single-tile changes, parsed $($singleTileChangeRecords.Count)."
 }
 $singleTileChangePath = Join-Path $destination 'metadata\single_tile_changes.tsv'
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $singleTileChangePath,
-    $singleTileChangeRows,
-    [Text.UTF8Encoding]::new($false))
+    $singleTileChangeRows)
 
 # Import the save-backed subset of applyRoomSpecificTileChanges as declarative
 # conditions and layout operations. The dispatcher is parsed rather than
@@ -292,8 +290,8 @@ if ($flagTileChangeCount -ne 34 -or $supportedTileChangeLabels.Count -ne 35) {
         "found $flagTileChangeCount and $($supportedTileChangeLabels.Count)."
 }
 $roomTileChangePath = Join-Path $destination 'metadata\room_tile_changes.tsv'
-[IO.File]::WriteAllLines(
-    $roomTileChangePath, $roomTileChangeRows, [Text.UTF8Encoding]::new($false))
+Write-GeneratedTable(
+    $roomTileChangePath, $roomTileChangeRows)
 
 # roomSpecificCode index $06 calls setDeathRespawnPoint every update. Preserve
 # that table instead of embedding the two Ages rooms in runtime code.
@@ -321,8 +319,8 @@ if ($continuousRespawnRows.Count -ne 3) {
     throw "Expected 2 continuous death-respawn rooms, parsed $($continuousRespawnRows.Count - 1)."
 }
 $continuousRespawnPath = Join-Path $destination 'metadata\continuous_death_respawn_rooms.tsv'
-[IO.File]::WriteAllLines(
-    $continuousRespawnPath, $continuousRespawnRows, [Text.UTF8Encoding]::new($false))
+Write-GeneratedTable(
+    $continuousRespawnPath, $continuousRespawnRows)
 
 # Parse the 103 non-stub tileset records. The runtime needs the room-layout
 # group and resolved six-palette block; the original shared mapping index is
@@ -392,8 +390,7 @@ for ($color = 0; $color -lt 4; $color++) {
         $commonBgColors[$color].Groups['b'].Value, 16)
 }
 $commonBgPalettePath = Join-Path $destination 'metadata\commonBgPalette0.bin'
-New-Item -ItemType Directory -Force -Path (Split-Path $commonBgPalettePath -Parent) | Out-Null
-[IO.File]::WriteAllBytes($commonBgPalettePath, $commonBgPaletteBytes)
+Write-GeneratedBytes($commonBgPalettePath, $commonBgPaletteBytes)
 
 $tilesetRecordSize = 8
 $metadata = [byte[]]::new(128 * $tilesetRecordSize)
@@ -445,14 +442,13 @@ foreach ($tileset in $tilesets) {
         $paletteBytes[$color * 3 + 2] = [Convert]::ToByte($colors[$color].Groups['b'].Value, 16)
     }
     $palettePath = Join-Path $destination "metadata\palette$($id.ToString('x2')).bin"
-    New-Item -ItemType Directory -Force -Path (Split-Path $palettePath -Parent) | Out-Null
-    [IO.File]::WriteAllBytes($palettePath, $paletteBytes)
+    Write-GeneratedBytes($palettePath, $paletteBytes)
 
     Copy-GeneratedFile "gfx\ages\gfx_tileset$($id.ToString('x2')).png" "gfx\gfx_tileset$($id.ToString('x2')).png"
 }
 
 $metadataPath = Join-Path $destination "metadata\tilesets.bin"
-[IO.File]::WriteAllBytes($metadataPath, $metadata)
+Write-GeneratedBytes($metadataPath, $metadata)
 
 # Join the two original collision-mode-indexed tables used by
 # interactWithTileBeforeLink and INTERAC_PUSHBLOCK. Each generated record is
@@ -534,7 +530,7 @@ if ($joinedPushableRecords -ne 33) {
     throw "Expected 33 collision-mode pushblock records, joined $joinedPushableRecords."
 }
 $pushablePath = Join-Path $destination 'metadata\pushableTiles.bin'
-[IO.File]::WriteAllBytes($pushablePath, $pushableBytes)
+Write-GeneratedBytes($pushablePath, $pushableBytes)
 
 # Transformation rings replace Link with special objects $03-$07. Export the
 # eight source GFX/OAM combinations for each disguise instead of reconstructing
@@ -630,8 +626,8 @@ foreach ($specialObject in 3..7) {
     }
 }
 $transformedLinkPath = Join-Path $destination 'metadata\transformed_link.tsv'
-[IO.File]::WriteAllLines(
-    $transformedLinkPath, $transformedLinkRows, [Text.UTF8Encoding]::new($false))
+Write-GeneratedTable(
+    $transformedLinkPath, $transformedLinkRows)
 
 # The expanded tileset table is indexed by tileset ID, even though byte 5 in
 # tilesets.s still records the original/shared mapping index. Copy the expanded

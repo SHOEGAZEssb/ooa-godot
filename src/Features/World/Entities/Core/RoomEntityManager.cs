@@ -130,38 +130,16 @@ public sealed class RoomEntityManager : IDisposable
     }
 
     public bool PlayerSwordDisabled
-    {
-        get
-        {
-            foreach (IRoomEntity entity in _activeEntities)
-            {
-                if (entity is IPlayerRestriction { DisablesSword: true })
-                    return true;
-            }
-            return false;
-        }
-    }
+        => HasPlayerRestriction(static restriction => restriction.DisablesSword);
     public bool PlayerItemUsageDisabled
-    {
-        get
-        {
-            foreach (IRoomEntity entity in _activeEntities)
-            {
-                if (entity is IPlayerRestriction { DisablesItems: true })
-                    return true;
-            }
-            return false;
-        }
-    }
+        => HasPlayerRestriction(static restriction => restriction.DisablesItems);
     public bool PlayerMovementDisabled
     {
         get
         {
-            foreach (IRoomEntity entity in _activeEntities)
-            {
-                if (entity is IPlayerRestriction { DisablesMovement: true })
-                    return true;
-            }
+            if (HasPlayerRestriction(
+                    static restriction => restriction.DisablesMovement))
+                return true;
             return PlayerSwordDisabled && (_enemyFrameCounter & 1) != 0;
         }
     }
@@ -171,44 +149,16 @@ public sealed class RoomEntityManager : IDisposable
         {
             if (_linkCollisionsAndMenuDisabled)
                 return true;
-            foreach (IRoomEntity entity in _activeEntities)
-            {
-                if (entity is IPlayerRestriction { DisablesMenus: true })
-                    return true;
-            }
-            return false;
+            return HasPlayerRestriction(
+                static restriction => restriction.DisablesMenus);
         }
     }
     public bool PlayerRingTransformationsDisabled
-    {
-        get
-        {
-            foreach (IRoomEntity entity in _activeEntities)
-            {
-                if (entity is IPlayerRestriction
-                    { DisablesRingTransformations: true })
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-    }
+        => HasPlayerRestriction(
+            static restriction => restriction.DisablesRingTransformations);
     public bool ScreenTransitionsDisabled
-    {
-        get
-        {
-            foreach (IRoomEntity entity in _activeEntities)
-            {
-                if (entity is IPlayerRestriction
-                    { DisablesScreenTransitions: true })
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-    }
+        => HasPlayerRestriction(
+            static restriction => restriction.DisablesScreenTransitions);
 
     public RoomEntityManager(
         Node worldRoot,
@@ -974,6 +924,20 @@ public sealed class RoomEntityManager : IDisposable
         {
             UpdatesDuringDialogue: true
         };
+
+    private bool HasPlayerRestriction(
+        Func<IPlayerRestriction, bool> predicate)
+    {
+        foreach (IRoomEntity entity in _activeEntities)
+        {
+            if (entity is IPlayerRestriction restriction &&
+                predicate(restriction))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 
     private void RemoveFinishedEntities()
     {

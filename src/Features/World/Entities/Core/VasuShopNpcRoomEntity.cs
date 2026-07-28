@@ -53,7 +53,6 @@ internal sealed class VasuShopNpcRoomEntity
     }
 
     public NpcCharacter Npc => Entity;
-    bool IUpdatesDuringDialogueRoomEntity.UpdatesDuringDialogue => true;
     public bool DisablesSword => false;
     public bool DisablesItems => true;
     public bool DisablesRingTransformations => true;

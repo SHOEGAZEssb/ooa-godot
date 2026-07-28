@@ -54,6 +54,15 @@ domain resolvers intentionally share large typed tables. Their contracts make
 that sharing explicit and testable instead of depending on a variable or
 function that happens to have been created earlier.
 
+All generated text tables and binary payloads go through
+`Write-GeneratedTable` and `Write-GeneratedBytes`. These helpers create the
+destination directory and fix text output to UTF-8 without a BOM; stages own
+row construction, headers, ordering, and source diagnostics. Assembly `.dw`
+pointer tables use the shared `Read-AssemblyDwTables` source-model helper,
+while NPC and enemy stages retain their domain-specific interpretation. These
+helpers are common stage-function inputs and must remain declared in the stage
+contract surface.
+
 ## Assembly source model
 
 `tools/OracleImporter/` is the only component allowed to open an assembly

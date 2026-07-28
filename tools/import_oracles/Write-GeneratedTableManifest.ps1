@@ -25,8 +25,7 @@ foreach ($relativePath in $relativePaths) {
     $sha256 = (Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant()
     $manifestRows.Add("$relativePath`t1`t$recordCount`t$sha256")
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $manifestPath,
-    $manifestRows,
-    [Text.UTF8Encoding]::new($false))
+    $manifestRows)
 

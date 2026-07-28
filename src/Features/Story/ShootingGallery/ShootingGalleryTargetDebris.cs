@@ -103,7 +103,6 @@ internal sealed class ShootingGalleryTargetDebrisRoomEntity(
         IUpdatesDuringDialogueRoomEntity
 {
     public bool Finished => Entity.Finished;
-    bool IUpdatesDuringDialogueRoomEntity.UpdatesDuringDialogue => true;
 
     public void UpdateFrame(
         RoomEntityFrame frame,

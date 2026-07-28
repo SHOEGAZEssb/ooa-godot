@@ -65,7 +65,8 @@ public sealed class NewGameIntroDatabase
                 ["kind", "index", "duration", "source-offset", "base-palette", "oam-parts"],
                 ["kind"],
                 headerRequired: true));
-        var grouped = new Dictionary<string, List<IntroSpriteFrame>>();
+        var grouped = new Lookup<string, IntroSpriteFrame>(
+            StringComparer.Ordinal);
         foreach (GeneratedTableRow row in table.Rows)
         {
             string kind = row.RequiredString(0);
@@ -81,11 +82,7 @@ public sealed class NewGameIntroDatabase
                     Convert.ToInt32(fields[2], 16),
                     Convert.ToInt32(fields[3], 16));
             }).ToArray();
-            if (!grouped.TryGetValue(kind, out List<IntroSpriteFrame>? frames))
-            {
-                frames = new List<IntroSpriteFrame>();
-                grouped[kind] = frames;
-            }
+            List<IntroSpriteFrame> frames = grouped.GetOrAdd(kind);
             if (index != frames.Count)
                 throw new InvalidOperationException(
                     $"New-game intro sprite {kind} expected frame {frames.Count}, got {index}.");
@@ -95,7 +92,7 @@ public sealed class NewGameIntroDatabase
                 row.UnsignedDecimal(4),
                 parts));
         }
-        foreach ((string kind, List<IntroSpriteFrame> frames) in grouped)
+        foreach ((string kind, IReadOnlyList<IntroSpriteFrame> frames) in grouped)
             _spriteFrames[kind] = frames.ToArray();
     }
 

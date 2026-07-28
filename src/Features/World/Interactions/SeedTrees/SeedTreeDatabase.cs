@@ -10,7 +10,7 @@ namespace oracleofages;
 /// </summary>
 internal sealed class SeedTreeDatabase
 {
-    private readonly Dictionary<(int Group, int Room), List<SeedTreePlacementRecord>>
+    private readonly Lookup<(int Group, int Room), SeedTreePlacementRecord>
         _placements = new();
     private readonly SeedTreeTypeRecord[] _types = new SeedTreeTypeRecord[5];
     private readonly SeedTreeRefillLocation[] _refills =
@@ -45,10 +45,7 @@ internal sealed class SeedTreeDatabase
     internal IReadOnlyList<SeedTreePlacementRecord> GetRoomRecords(
         int group,
         int room) =>
-        _placements.TryGetValue(
-            (group, room), out List<SeedTreePlacementRecord>? records)
-            ? records
-            : Array.Empty<SeedTreePlacementRecord>();
+        _placements.ValuesOrEmpty((group, room));
 
     internal SeedTreeTypeRecord Type(int type)
     {
@@ -200,18 +197,11 @@ internal sealed class SeedTreeDatabase
                 row.UnsignedDecimal(5),
                 row.UnsignedDecimal(6),
                 row.RequiredString(7));
-            if (!_placements.TryGetValue(
-                (record.Group, record.Room),
-                out List<SeedTreePlacementRecord>? records))
-            {
-                records = new List<SeedTreePlacementRecord>();
-                _placements.Add((record.Group, record.Room), records);
-            }
-            records.Add(record);
+            _placements.Add((record.Group, record.Room), record);
             PlacementCount++;
         }
-        foreach (List<SeedTreePlacementRecord> records in _placements.Values)
-            records.Sort((left, right) => left.Order.CompareTo(right.Order));
+        _placements.SortValues(
+            static (left, right) => left.Order.CompareTo(right.Order));
     }
 
     private void LoadRefills()
@@ -321,8 +311,9 @@ internal sealed class SeedTreeDatabase
             TreasureParameter != 0x06 ||
             CollectionSound != OracleSoundEngine.SndGetSeed ||
             NoSatchelTextId != 0x0035 ||
-            !_placements.TryGetValue(
-                (0, 0x78), out List<SeedTreePlacementRecord>? canonical) ||
+            !_placements.TryGetValues(
+                (0, 0x78),
+                out IReadOnlyList<SeedTreePlacementRecord> canonical) ||
             canonical.Count != 1 ||
             canonical[0] is not
                 { Id: 0x5a, SubId: 0x06, SeedType: 0, RefillIndex: 6 })

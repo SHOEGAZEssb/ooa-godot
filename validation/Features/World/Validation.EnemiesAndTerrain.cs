@@ -166,9 +166,9 @@ public sealed partial class ValidationRoot
             var random = new OracleRandom();
             for (int index = 0; index < rngAdvance; index++)
                 random.Next();
-            var manager = new RoomEntityManager(
-                validationRoot, new NpcDatabase(), enemies,
-                new ItemDropDatabase(), new TimePortalDatabase(), random);
+            using var fixture = RoomEntityValidationFixture.ForRoot(
+                validationRoot, new() { Enemies = enemies, Random = random });
+            RoomEntityManager manager = fixture.Manager;
             manager.LoadRoom(1, room1db);
             List<OctorokCharacter> octoroks = manager.Entities<OctorokCharacter>();
             if (octoroks.Count != 2 || octoroks.Any(octorok =>
@@ -480,8 +480,16 @@ public sealed partial class ValidationRoot
             var random = new OracleRandom();
             for (int index = 0; index < rngAdvance; index++)
                 random.Next();
-            var manager = new RoomEntityManager(
-                validationRoot, npcs, database, itemDrops, timePortals, random);
+            using var fixture = RoomEntityValidationFixture.ForRoot(
+                validationRoot, new()
+                {
+                    Npcs = npcs,
+                    Enemies = database,
+                    ItemDrops = itemDrops,
+                    TimePortals = timePortals,
+                    Random = random
+                });
+            RoomEntityManager manager = fixture.Manager;
             manager.LoadRoom(group, _world.LoadRoom(group, roomId));
 
             List<KeeseCharacter> keese = manager.Entities<KeeseCharacter>();
@@ -1231,13 +1239,9 @@ public sealed partial class ValidationRoot
             Name = "ArrowMoblinValidation"
         };
         AddChild(validationRoot);
-        var manager = new RoomEntityManager(
-            validationRoot,
-            new NpcDatabase(),
-            database,
-            new ItemDropDatabase(),
-            new TimePortalDatabase(),
-            random);
+        using var fixture = RoomEntityValidationFixture.ForRoot(
+            validationRoot, new() { Enemies = database, Random = random });
+        RoomEntityManager manager = fixture.Manager;
         manager.LoadRoom(0, room);
 
         List<ArrowMoblinCharacter> moblins =
@@ -2737,13 +2741,9 @@ public sealed partial class ValidationRoot
 
         var lifecycleRoot = new Node { Name = "ItemDropLifecycleValidation" };
         AddChild(lifecycleRoot);
-        var lifecycleManager = new RoomEntityManager(
-            lifecycleRoot,
-            new NpcDatabase(),
-            new EnemyDatabase(),
-            database,
-            new TimePortalDatabase(),
-            new OracleRandom());
+        using var lifecycleFixture = RoomEntityValidationFixture.ForRoot(
+            lifecycleRoot, new() { ItemDrops = database });
+        RoomEntityManager lifecycleManager = lifecycleFixture.Manager;
         lifecycleManager.LoadRoom(0, _world.LoadRoom(0, 0x00));
         _player.WarpTo(new Vector2(140, 120), recordSafe: false);
         for (int defeated = 0; defeated < 5; defeated++)
@@ -3227,10 +3227,17 @@ public sealed partial class ValidationRoot
         var save = OracleSaveData.CreateStandardGame();
         var inventory = new InventoryState(treasures, save);
         var random = new OracleRandom();
-        var manager = new RoomEntityManager(
-            root, new NpcDatabase(), new EnemyDatabase(), database,
-            new TimePortalDatabase(), random, save, new OracleRuntimeState(),
-            inventory, treasures: treasures);
+        using var fixture = RoomEntityValidationFixture.ForRoot(
+            root, new()
+            {
+                ItemDrops = database,
+                Random = random,
+                SaveData = save,
+                RuntimeState = new OracleRuntimeState(),
+                Inventory = inventory,
+                Treasures = treasures
+            });
+        RoomEntityManager manager = fixture.Manager;
         manager.LoadRoom(0, _world.LoadRoom(0, 0x00));
         _player.WarpTo(new Vector2(140, 120), recordSafe: false);
 

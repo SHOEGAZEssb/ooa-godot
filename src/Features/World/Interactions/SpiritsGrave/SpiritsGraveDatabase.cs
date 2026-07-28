@@ -12,7 +12,7 @@ namespace oracleofages;
 internal sealed class SpiritsGraveDatabase
 {
 
-    private readonly Dictionary<(int Group, int Room), List<ObjectRecord>> _objects = new();
+    private readonly Lookup<(int Group, int Room), ObjectRecord> _objects = new();
     private readonly Dictionary<(int Id, int SubId), ImportedEnemyDefinition> _enemies = new();
     private readonly Dictionary<string, VisualRecord> _visuals = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _constants = new(StringComparer.Ordinal);
@@ -31,9 +31,7 @@ internal sealed class SpiritsGraveDatabase
     }
 
     internal IReadOnlyList<ObjectRecord> GetRoomRecords(int group, int room) =>
-        _objects.TryGetValue((group, room), out List<ObjectRecord>? records)
-            ? records
-            : Array.Empty<ObjectRecord>();
+        _objects.ValuesOrEmpty((group, room));
 
     internal ImportedEnemyDefinition Enemy(int id, int subId = 0) =>
         _enemies.TryGetValue((id, subId), out ImportedEnemyDefinition record)
@@ -90,16 +88,10 @@ internal sealed class SpiritsGraveDatabase
                 row.HexByte(7),
                 ParseCondition(row, 8),
                 row.RequiredString(9));
-            if (!_objects.TryGetValue(
-                (record.Group, record.Room), out List<ObjectRecord>? records))
-            {
-                records = new List<ObjectRecord>();
-                _objects.Add((record.Group, record.Room), records);
-            }
-            records.Add(record);
+            _objects.Add((record.Group, record.Room), record);
         }
-        foreach (List<ObjectRecord> records in _objects.Values)
-            records.Sort((left, right) => left.Order.CompareTo(right.Order));
+        _objects.SortValues(
+            static (left, right) => left.Order.CompareTo(right.Order));
     }
 
     private void LoadEnemies()
@@ -213,7 +205,7 @@ internal sealed class SpiritsGraveDatabase
     private void ValidateContract()
     {
         int objectCount = 0;
-        foreach (List<ObjectRecord> records in _objects.Values)
+        foreach (IReadOnlyList<ObjectRecord> records in _objects.Values)
             objectCount += records.Count;
         if (objectCount != 17 || _enemies.Count != 3 || _visuals.Count != 9 ||
             _constants.Count != 25 ||

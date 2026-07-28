@@ -13,7 +13,8 @@ namespace oracleofages;
 public sealed class NpcVisibilityRuleDatabase
 {
 
-    private readonly Dictionary<int, List<NpcVisibilityRuleDatabaseRule>> _byInteraction = new();
+    private readonly Lookup<int, NpcVisibilityRuleDatabaseRule> _byInteraction =
+        new();
 
     internal int RuleCount { get; private set; }
 
@@ -72,13 +73,9 @@ public sealed class NpcVisibilityRuleDatabase
                     $"Invalid NPC visibility rule at {row.Path}:{row.LineNumber}.");
             }
 
-            int key = NpcStoryState.InteractionKey(id, subId);
-            if (!_byInteraction.TryGetValue(key, out List<NpcVisibilityRuleDatabaseRule>? rules))
-            {
-                rules = new List<NpcVisibilityRuleDatabaseRule>();
-                _byInteraction.Add(key, rules);
-            }
-            rules.Add(new NpcVisibilityRuleDatabaseRule(
+            _byInteraction.Add(
+                NpcStoryState.InteractionKey(id, subId),
+                new NpcVisibilityRuleDatabaseRule(
                 var03, alternative, kind, group, room, value, expectedSet,
                 row.RequiredString(9)));
             RuleCount++;
@@ -90,8 +87,9 @@ public sealed class NpcVisibilityRuleDatabase
         OracleSaveData save,
         OracleRuntimeState runtimeState)
     {
-        if (!_byInteraction.TryGetValue(
-            NpcStoryState.InteractionKey(npc.Id, npc.SubId), out List<NpcVisibilityRuleDatabaseRule>? rules))
+        if (!_byInteraction.TryGetValues(
+                NpcStoryState.InteractionKey(npc.Id, npc.SubId),
+                out IReadOnlyList<NpcVisibilityRuleDatabaseRule> rules))
             return true;
 
         List<NpcVisibilityRuleDatabaseRule> applicable = rules.Where(rule =>

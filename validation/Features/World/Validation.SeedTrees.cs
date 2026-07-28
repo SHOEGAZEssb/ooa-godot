@@ -50,19 +50,17 @@ public sealed partial class ValidationRoot
         var noSatchelInventory = new InventoryState(treasures);
         var noSatchelRoot = new Node { Name = "SeedTreeNoSatchelValidation" };
         AddChild(noSatchelRoot);
-        var noSatchelManager = new RoomEntityManager(
-            noSatchelRoot,
-            new NpcDatabase(),
-            new EnemyDatabase(),
-            new ItemDropDatabase(),
-            new TimePortalDatabase(),
-            new OracleRandom(),
-            save,
-            runtime,
-            noSatchelInventory,
-            static () => 0,
-            treasures,
-            rooms);
+        using var noSatchelFixture = RoomEntityValidationFixture.ForRoot(
+            noSatchelRoot, new()
+            {
+                SaveData = save,
+                RuntimeState = runtime,
+                Inventory = noSatchelInventory,
+                AnimationTick = static () => 0,
+                Treasures = treasures,
+                Rooms = rooms
+            });
+        RoomEntityManager noSatchelManager = noSatchelFixture.Manager;
         var messages = new List<(int TextId, string Message, Vector2 Position)>();
         noSatchelManager.SeedTreeMessageRequested +=
             (textId, message, position) =>
@@ -135,19 +133,17 @@ public sealed partial class ValidationRoot
 
         var collectionRoot = new Node { Name = "SeedTreeCollectionValidation" };
         AddChild(collectionRoot);
-        var collectionManager = new RoomEntityManager(
-            collectionRoot,
-            new NpcDatabase(),
-            new EnemyDatabase(),
-            new ItemDropDatabase(),
-            new TimePortalDatabase(),
-            new OracleRandom(),
-            save,
-            collectionRuntime,
-            collectionInventory,
-            static () => 0,
-            treasures,
-            rooms);
+        using var collectionFixture = RoomEntityValidationFixture.ForRoot(
+            collectionRoot, new()
+            {
+                SaveData = save,
+                RuntimeState = collectionRuntime,
+                Inventory = collectionInventory,
+                AnimationTick = static () => 0,
+                Treasures = treasures,
+                Rooms = rooms
+            });
+        RoomEntityManager collectionManager = collectionFixture.Manager;
         var sounds = new List<int>();
         collectionManager.SoundRequested += sounds.Add;
         collectionManager.LoadRoom(0, room);

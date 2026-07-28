@@ -205,15 +205,19 @@ private void UpdateFrame() => _runner.AdvanceFrame();
 private void Cancel() => _runner.Clear();
 ```
 
-The event implements `ICutsceneCommandHost`. Host methods must validate that
-the requested operation is legal for the active script instead of silently
-ignoring unsupported behavior.
+The event derives from the default-deny `CutsceneCommandHost` and implements
+`ICutsceneCommandHost` for its supported operations. Before actor validation
+and every dispatch, the runner installs the active
+`CutsceneCommandSource`; an unsupported capability therefore reports the
+script, label, command index, source line, and opcode instead of silently
+doing nothing. Room-backed hosts expose their `RoomEventContext` once. Common
+sound, input, and global-flag forwarding remains centralized, while
+source-specific operands and state changes stay explicit.
 
-Room-backed hosts expose their `RoomEventContext` once. The interface supplies
-the identical dialogue/link/frame/trace reads plus ordinary sound, input, and
-global-flag forwarding. An event overrides those defaults whenever its source
-stream rejects an operation, validates a specific operand, or performs extra
-state changes; shared forwarding must not weaken those source-aware checks.
+Interactive NPC loops that use the standard Link input lease derive from
+`InteractiveCutsceneCommandHost`. Its idempotent acquire/release transition is
+the single owner for Comedian, Mask Salesman, Poe, and the saved Maku Tree;
+each event retains its own actor, dialogue, reward, and infinite-script state.
 
 Always clear runners when an event is cancelled, a room unload invalidates its
 actors, or native completion takes ownership. Do not accumulate ordinary event

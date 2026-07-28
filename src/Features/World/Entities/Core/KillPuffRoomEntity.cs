@@ -10,6 +10,5 @@ internal sealed class KillPuffRoomEntity(KillEnemyPuffEffect puff)
         IUpdatesDuringDialogueRoomEntity
 {
     public bool Finished => Entity.Finished;
-    bool IUpdatesDuringDialogueRoomEntity.UpdatesDuringDialogue => true;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) => Entity.UpdateFrame();
 }

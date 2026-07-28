@@ -12,7 +12,8 @@ namespace oracleofages;
 public sealed class NpcDialogueRuleDatabase
 {
 
-    private readonly Dictionary<int, List<NpcDialogueRuleDatabaseRule>> _byInteraction = new();
+    private readonly Lookup<int, NpcDialogueRuleDatabaseRule> _byInteraction =
+        new();
 
     internal int RuleCount { get; private set; }
 
@@ -63,14 +64,11 @@ public sealed class NpcDialogueRuleDatabase
                     $"Invalid NPC dialogue rule at {row.Path}:{row.LineNumber}.");
             }
 
-            int key = NpcStoryState.InteractionKey(id, subId);
-            if (!_byInteraction.TryGetValue(key, out List<NpcDialogueRuleDatabaseRule>? rules))
-            {
-                rules = new List<NpcDialogueRuleDatabaseRule>();
-                _byInteraction.Add(key, rules);
-            }
-            rules.Add(new NpcDialogueRuleDatabaseRule(
-                var03, kind, value, linked, textId, message, row.RequiredString(7)));
+            _byInteraction.Add(
+                NpcStoryState.InteractionKey(id, subId),
+                new NpcDialogueRuleDatabaseRule(
+                    var03, kind, value, linked, textId, message,
+                    row.RequiredString(7)));
             RuleCount++;
         }
     }
@@ -81,9 +79,9 @@ public sealed class NpcDialogueRuleDatabase
         out NpcDialogueRuleDatabaseDialogue dialogue)
     {
         dialogue = default;
-        if (!_byInteraction.TryGetValue(
+        if (!_byInteraction.TryGetValues(
             NpcStoryState.InteractionKey(baseNpc.Id, baseNpc.SubId),
-            out List<NpcDialogueRuleDatabaseRule>? rules))
+            out IReadOnlyList<NpcDialogueRuleDatabaseRule> rules))
         {
             return false;
         }

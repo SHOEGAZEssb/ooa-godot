@@ -12,7 +12,7 @@ internal sealed class DungeonEntranceInteractionDatabase
 
     private readonly EntryRecord[] _entries = new EntryRecord[16];
     private readonly DungeonEntranceInteractionDatabaseVisualRecord[] _eyeVisuals = new DungeonEntranceInteractionDatabaseVisualRecord[8];
-    private readonly Dictionary<int, List<PlacementRecord>> _placements = new();
+    private readonly Lookup<int, PlacementRecord> _placements = new();
     private readonly Dictionary<int, PortalPair> _portalPairs = new();
     private readonly Dictionary<string, int> _constants = new();
     private DungeonEntranceInteractionDatabaseVisualRecord _portalVisual;
@@ -94,12 +94,8 @@ internal sealed class DungeonEntranceInteractionDatabase
                 throw new InvalidOperationException(
                     $"Malformed shared dungeon interaction at {record.Source}.");
             }
-            int key = MakeKey(record.Group, record.Room);
-            if (!_placements.TryGetValue(key, out List<PlacementRecord>? roomRecords))
-            {
-                roomRecords = new List<PlacementRecord>();
-                _placements.Add(key, roomRecords);
-            }
+            List<PlacementRecord> roomRecords =
+                _placements.GetOrAdd(MakeKey(record.Group, record.Room));
             if (roomRecords.Count > 0 && roomRecords[^1].Order >= record.Order)
             {
                 throw new InvalidOperationException(
@@ -205,9 +201,7 @@ internal sealed class DungeonEntranceInteractionDatabase
                 $"Dungeon ${dungeon:x2} has no miniboss portal pair.");
 
     internal IReadOnlyList<PlacementRecord> GetRoomRecords(int group, int room) =>
-        _placements.TryGetValue(MakeKey(group, room), out List<PlacementRecord>? records)
-            ? records
-            : Array.Empty<PlacementRecord>();
+        _placements.ValuesOrEmpty(MakeKey(group, room));
 
     private int Constant(string key) => _constants.TryGetValue(key, out int value)
         ? value

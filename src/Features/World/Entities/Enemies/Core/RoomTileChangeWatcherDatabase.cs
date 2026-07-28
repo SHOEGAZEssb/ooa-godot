@@ -10,7 +10,9 @@ namespace oracleofages;
 internal sealed class RoomTileChangeWatcherDatabase
 {
 
-    private readonly Dictionary<(int Group, int Room), List<RoomTileChangeWatcherDatabaseRecord>> _byRoom = new();
+    private readonly Lookup<
+        (int Group, int Room),
+        RoomTileChangeWatcherDatabaseRecord> _byRoom = new();
 
     internal int RecordCount { get; }
 
@@ -42,12 +44,8 @@ internal sealed class RoomTileChangeWatcherDatabase
                     $"{row.Path}:{row.LineNumber}.");
             }
 
-            var key = (record.Group, record.Room);
-            if (!_byRoom.TryGetValue(key, out List<RoomTileChangeWatcherDatabaseRecord>? records))
-            {
-                records = new List<RoomTileChangeWatcherDatabaseRecord>();
-                _byRoom.Add(key, records);
-            }
+            List<RoomTileChangeWatcherDatabaseRecord> records =
+                _byRoom.GetOrAdd((record.Group, record.Room));
             foreach (RoomTileChangeWatcherDatabaseRecord existing in records)
             {
                 if (existing.Order == record.Order)
@@ -64,9 +62,7 @@ internal sealed class RoomTileChangeWatcherDatabase
     }
 
     internal IReadOnlyList<RoomTileChangeWatcherDatabaseRecord> GetRoomRecords(int group, int room) =>
-        _byRoom.TryGetValue((group, room), out List<RoomTileChangeWatcherDatabaseRecord>? records)
-            ? records
-            : Array.Empty<RoomTileChangeWatcherDatabaseRecord>();
+        _byRoom.ValuesOrEmpty((group, room));
 }
 
 internal readonly record struct RoomTileChangeWatcherDatabaseRecord(int Group, int Room, int Order, int Position, byte RoomFlag, string Source);

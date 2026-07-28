@@ -19,6 +19,7 @@ internal static class OracleGraphicsCache
     private static readonly Dictionary<string, AnimationDefinition> AnimationDefinitions =
         new(StringComparer.Ordinal);
     private static readonly Dictionary<OamKey, OamFrame> OamFrames = new();
+    private static readonly Dictionary<OamCellKey, Texture2D> OamCells = new();
 
     internal static int SourceLoadCount { get; private set; }
     internal static int SourceCacheHitCount { get; private set; }
@@ -146,6 +147,31 @@ internal static class OracleGraphicsCache
         return created;
     }
 
+    internal static Texture2D GetOrCreateOamCell(
+        Image source,
+        int tile,
+        byte flags,
+        Color[] palette,
+        bool sourceGrayscaleInverted,
+        Func<Texture2D> factory)
+    {
+        ulong sourceId = source.GetInstanceId();
+        if (!ImageHashes.TryGetValue(sourceId, out ulong sourceHash))
+        {
+            sourceHash = PixelHash(source);
+            ImageHashes.Add(sourceId, sourceHash);
+        }
+        (ulong colors01, ulong colors23) = PackPalette(palette);
+        var key = new OamCellKey(
+            sourceId, sourceHash, tile, flags, colors01, colors23,
+            sourceGrayscaleInverted);
+        if (OamCells.TryGetValue(key, out Texture2D? cached))
+            return cached;
+        Texture2D created = factory();
+        OamCells.Add(key, created);
+        return created;
+    }
+
     internal static AnimationDefinition GetAnimationDefinition(string encodedAnimation)
     {
         if (AnimationDefinitions.TryGetValue(
@@ -230,6 +256,7 @@ internal static class OracleGraphicsCache
 
     internal static void Shutdown()
     {
+        OamCells.Clear();
         OamFrames.Clear();
         AnimationDefinitions.Clear();
         CompositeImages.Clear();
@@ -294,5 +321,14 @@ internal enum CompositionMode : byte
 internal readonly record struct CompositeKey(ulong BaseImageId, ulong ExtraImageId, int ExtraOffset);
 
 internal readonly record struct OamKey(ulong SourceImageId, ulong SourceHash, string EncodedOam, int TileBase, int BasePalette, int SourceOffset, bool HasPaletteOverride, ulong PaletteColors01, ulong PaletteColors23, string PaletteOverrides, bool SourceGrayscaleInverted, CompositionMode Composition);
+
+internal readonly record struct OamCellKey(
+    ulong SourceImageId,
+    ulong SourceHash,
+    int Tile,
+    byte Flags,
+    ulong PaletteColors01,
+    ulong PaletteColors23,
+    bool SourceGrayscaleInverted);
 
 internal sealed record AnimationDefinition(AnimationFrameDefinition[] Frames, int LoopStart);

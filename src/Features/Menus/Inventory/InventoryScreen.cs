@@ -76,8 +76,8 @@ public partial class InventoryScreen : Node2D
     private Image _essenceTiles = null!;
     private Image[] _questItemTiles = null!;
     private Texture2D _fontTexture = null!;
-    private InventoryScreenVramSource[] _bank0Sources = null!;
-    private InventoryScreenVramSource[] _bank1Sources = null!;
+    private OracleVramSource[] _bank0Sources = null!;
+    private OracleVramSource[] _bank1Sources = null!;
     private byte[] _ringMap = null!;
     private Color[,] _bgPalette = null!;
     private Color[,] _spritePalette = null!;
@@ -200,7 +200,7 @@ public partial class InventoryScreen : Node2D
         _itemIcons2 = LoadPng("res://assets/oracle/gfx/spr_item_icons_2.png");
         _itemIcons3 = LoadPng("res://assets/oracle/gfx/spr_item_icons_3.png");
         _essenceTiles = LoadPng("res://assets/oracle/inventory/spr_essences.png");
-        _fontTexture = BuildFontTexture("res://assets/oracle/gfx/gfx_font.png");
+        _fontTexture = OracleTileRenderer.BuildMonochromeFontTexture("res://assets/oracle/gfx/gfx_font.png");
         _questItemTiles = new Image[4];
         for (int sheet = 0; sheet < _questItemTiles.Length; sheet++)
             _questItemTiles[sheet] = LoadPng($"res://assets/oracle/inventory/spr_quest_items_{sheet + 1}.png");
@@ -210,25 +210,25 @@ public partial class InventoryScreen : Node2D
 
         _bank0Sources = new[]
         {
-            new InventoryScreenVramSource(0x00, _inventoryHud1, false),
-            new InventoryScreenVramSource(0x30, _presentPastSymbols, true, true),
-            new InventoryScreenVramSource(0x40, _questItems5, true, true),
-            new InventoryScreenVramSource(0x60, _mapCompassItems, true, true),
-            new InventoryScreenVramSource(0x60, _saveTiles, false),
-            new InventoryScreenVramSource(0x80, _blankTiles, false),
-            new InventoryScreenVramSource(0xa0, _ringTiles, true),
-            new InventoryScreenVramSource(0xe0, _inventoryHud2, false)
+            new OracleVramSource(0x00, _inventoryHud1, false),
+            new OracleVramSource(0x30, _presentPastSymbols, true, true),
+            new OracleVramSource(0x40, _questItems5, true, true),
+            new OracleVramSource(0x60, _mapCompassItems, true, true),
+            new OracleVramSource(0x60, _saveTiles, false),
+            new OracleVramSource(0x80, _blankTiles, false),
+            new OracleVramSource(0xa0, _ringTiles, true),
+            new OracleVramSource(0xe0, _inventoryHud2, false)
         };
         _bank1Sources = new[]
         {
-            new InventoryScreenVramSource(0x00, _itemIcons1, true, true),
-            new InventoryScreenVramSource(0x20, _itemIcons2, true, true),
-            new InventoryScreenVramSource(0x40, _itemIcons3, true, true),
-            new InventoryScreenVramSource(0x60, _essenceTiles, true, true),
-            new InventoryScreenVramSource(0x80, _questItemTiles[0], true, true),
-            new InventoryScreenVramSource(0xa0, _questItemTiles[1], true, true),
-            new InventoryScreenVramSource(0xc0, _questItemTiles[2], true, true),
-            new InventoryScreenVramSource(0xe0, _questItemTiles[3], true, true)
+            new OracleVramSource(0x00, _itemIcons1, true, true),
+            new OracleVramSource(0x20, _itemIcons2, true, true),
+            new OracleVramSource(0x40, _itemIcons3, true, true),
+            new OracleVramSource(0x60, _essenceTiles, true, true),
+            new OracleVramSource(0x80, _questItemTiles[0], true, true),
+            new OracleVramSource(0xa0, _questItemTiles[1], true, true),
+            new OracleVramSource(0xc0, _questItemTiles[2], true, true),
+            new OracleVramSource(0xe0, _questItemTiles[3], true, true)
         };
     }
 
@@ -1322,50 +1322,25 @@ public partial class InventoryScreen : Node2D
 
     private bool TryGetVramPixel(int bank, int tile, int x, int y,
         out Color pixel, out bool spriteEncoding)
-    {
-        if (!TrySelectVramTile(bank, tile, out Image source, out int sourceTile,
-            out bool interleaved, out spriteEncoding))
-        {
-            pixel = Colors.Transparent;
-            return false;
-        }
-        int columns = source.GetWidth() / 8;
-        int readX;
-        int readY;
-        if (interleaved)
-        {
-            int cell = sourceTile / 2;
-            readX = cell % columns * 8 + x;
-            readY = cell / columns * 16 + (sourceTile & 1) * 8 + y;
-        }
-        else
-        {
-            readX = sourceTile % columns * 8 + x;
-            readY = sourceTile / columns * 8 + y;
-        }
-        pixel = source.GetPixel(readX, readY);
-        return true;
-    }
+        => OracleTileRenderer.TryGetVramPixel(
+            bank == 0 ? _bank0Sources : _bank1Sources,
+            tile, x, y, out pixel, out spriteEncoding);
 
     private bool TrySelectVramTile(int bank, int tile, out Image source,
         out int sourceTile, out bool interleaved, out bool spriteEncoding)
     {
-        InventoryScreenVramSource? selected = null;
-        foreach (InventoryScreenVramSource candidate in bank == 0 ? _bank0Sources : _bank1Sources)
-        {
-            if (tile >= candidate.FirstTile && tile < candidate.FirstTile + candidate.TileCount)
-                selected = candidate;
-        }
-        if (selected is not InventoryScreenVramSource result)
+        if (!OracleTileRenderer.TrySelectVramTile(
+            bank == 0 ? _bank0Sources : _bank1Sources,
+            tile,
+            out OracleVramSource result,
+            out sourceTile))
         {
             source = _inventoryHud1;
-            sourceTile = 0;
             interleaved = false;
             spriteEncoding = false;
             return false;
         }
         source = result.Image;
-        sourceTile = tile - result.FirstTile;
         interleaved = result.Interleaved;
         spriteEncoding = result.SpriteEncoding;
         return true;
@@ -1382,27 +1357,8 @@ public partial class InventoryScreen : Node2D
         }
     }
 
-    private static Texture2D BuildFontTexture(string path)
-    {
-        Image source = LoadPng(path);
-        Image output = Image.CreateEmpty(
-            source.GetWidth(), source.GetHeight(), false, Image.Format.Rgba8);
-        for (int y = 0; y < source.GetHeight(); y++)
-        for (int x = 0; x < source.GetWidth(); x++)
-        {
-            Color pixel = source.GetPixel(x, y);
-            output.SetPixel(x, y, pixel.R > 0.5f ? Colors.White : Colors.Transparent);
-        }
-        return ImageTexture.CreateFromImage(output);
-    }
-
     private static Vector2 Slot(int tileMapOffset) => new(
         (tileMapOffset & 0x1f) * 8, (tileMapOffset >> 5) * 8);
-}
-
-internal readonly record struct InventoryScreenVramSource(int FirstTile, Image Image, bool Interleaved, bool SpriteEncoding = false)
-{
-    public int TileCount => Image.GetWidth() / 8 * (Image.GetHeight() / 8);
 }
 
 public enum InventorySubscreen

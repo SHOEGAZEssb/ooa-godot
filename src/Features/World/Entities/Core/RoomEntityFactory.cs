@@ -1729,7 +1729,8 @@ internal sealed class RoomEntityFactory(
             Name = "Room148PickaxeDebris"
         };
         debris.Initialize(_room148.Record, spawn);
-        return new Room148DebrisRoomEntity(debris);
+        return new DialogueFixedEffectRoomEntityAdapter<Room148PickaxeDebris>(
+            debris);
     }
 
     private static IRoomEntity CreateShovelDebris(ShovelDebrisSpawn spawn)
@@ -1740,7 +1741,8 @@ internal sealed class RoomEntityFactory(
             ZIndex = 9
         };
         debris.Initialize(spawn.Position, spawn.Direction);
-        return new ShovelDebrisRoomEntity(debris);
+        return new DialogueFixedEffectRoomEntityAdapter<ShovelDebrisEffect>(
+            debris);
     }
 
     private IRoomEntity CreateGrassDebris(GrassDebrisSpawn spawn)
@@ -1772,7 +1774,8 @@ internal sealed class RoomEntityFactory(
         };
         debris.Initialize(
             spawn.Position, spawn.InteractionId, soundRequested);
-        return new RockDebrisRoomEntity(debris);
+        return new DialogueFixedEffectRoomEntityAdapter<RockDebrisEffect>(
+            debris);
     }
 
     private IRoomEntity CreateEmberSeed(EmberSeedSpawn spawn, OracleRoomData room)
@@ -1833,7 +1836,8 @@ internal sealed class RoomEntityFactory(
             ZIndex = 10
         };
         puff.Initialize(spawn.Position, spawn.Sound, soundRequested);
-        return new PuzzlePuffRoomEntity(puff);
+        return new DialogueFixedEffectRoomEntityAdapter<PuzzlePuffEffect>(
+            puff);
     }
 
     private IRoomEntity CreateEnemySplash(EnemySplashSpawn spawn)
@@ -1856,7 +1860,7 @@ internal sealed class RoomEntityFactory(
             autoFree: false);
         effect.SetPhysicsProcess(false);
         soundRequested(OracleSoundEngine.SndSplash);
-        return new SplashRoomEntity(effect);
+        return new DialogueFixedEffectRoomEntityAdapter<SplashEffect>(effect);
     }
 
     private IRoomEntity CreateFallingDownHole(FallingDownHoleSpawn spawn)
@@ -1868,7 +1872,8 @@ internal sealed class RoomEntityFactory(
         };
         effect.Initialize(spawn.Position);
         soundRequested(OracleSoundEngine.SndFallInHole);
-        return new FallingDownHoleRoomEntity(effect);
+        return new DialogueFixedEffectRoomEntityAdapter<FallingDownHoleEffect>(
+            effect);
     }
 
     private IRoomEntity CreateDungeonKeyUse(DungeonKeyUseSpawn spawn)
@@ -1880,7 +1885,7 @@ internal sealed class RoomEntityFactory(
         };
         effect.Initialize(spawn.Position, spawn.Visual);
         soundRequested(OracleSoundEngine.SndGetSeed);
-        return new DungeonKeyUseRoomEntity(effect);
+        return new FixedEffectRoomEntityAdapter<DungeonKeyUseEffect>(effect);
     }
 
     private static IRoomEntity CreateOverworldKeyUse(OverworldKeyUseSpawn spawn)
@@ -1891,7 +1896,8 @@ internal sealed class RoomEntityFactory(
             ZIndex = 10
         };
         effect.Initialize(spawn.Position, spawn.Visual, spawn.Constants);
-        return new OverworldKeyUseRoomEntity(effect);
+        return new DialogueFixedEffectRoomEntityAdapter<OverworldKeyUseEffect>(
+            effect);
     }
 
     private static IRoomEntity CreateEraInfo(EraInfoSpawn spawn)

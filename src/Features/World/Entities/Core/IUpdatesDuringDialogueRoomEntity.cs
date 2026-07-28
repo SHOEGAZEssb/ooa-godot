@@ -7,5 +7,5 @@ namespace oracleofages;
 /// </summary>
 internal interface IUpdatesDuringDialogueRoomEntity
 {
-    bool UpdatesDuringDialogue { get; }
+    bool UpdatesDuringDialogue => true;
 }

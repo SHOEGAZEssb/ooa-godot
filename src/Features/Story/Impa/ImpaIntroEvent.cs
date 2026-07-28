@@ -9,6 +9,7 @@ namespace oracleofages;
 /// following-Link behavior that persists across scrolling room transitions.
 /// </summary>
 internal sealed class ImpaIntroEvent :
+    CutsceneCommandHost,
     IRoomEvent,
     IUpdatesDuringDialogueRoomEvent,
     ICutsceneCommandHost

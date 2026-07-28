@@ -112,8 +112,7 @@ function Export-PaletteBlock(
 ) {
     $bytes = Read-PaletteBytes $label $colorCount
     $target = Join-Path $destination $relativeDestination
-    New-Item -ItemType Directory -Force -Path (Split-Path $target -Parent) | Out-Null
-    [IO.File]::WriteAllBytes($target, $bytes)
+    Write-GeneratedBytes($target, $bytes)
 }
 
 function Read-PaletteBytes(
@@ -157,8 +156,7 @@ $inventoryBg27 = Read-PaletteBytes 'standardSpritePaletteData' 24
 [Array]::Copy($inventoryBg01, 0, $inventoryBgPalette, 0, $inventoryBg01.Length)
 [Array]::Copy($inventoryBg27, 0, $inventoryBgPalette, $inventoryBg01.Length, $inventoryBg27.Length)
 $inventoryPalettePath = Join-Path $destination 'inventory\palette_bg.bin'
-New-Item -ItemType Directory -Force -Path (Split-Path $inventoryPalettePath -Parent) | Out-Null
-[IO.File]::WriteAllBytes($inventoryPalettePath, $inventoryBgPalette)
+Write-GeneratedBytes($inventoryPalettePath, $inventoryBgPalette)
 Export-PaletteBlock 'standardSpritePaletteData' 24 'inventory\palette_sprites.bin'
 
 # PALH_03 supplies all title palettes. PALH_05 supplies file-select BG palette
@@ -172,20 +170,20 @@ $fileMenuBg0 = Read-PaletteBytes 'paletteData48e0' 4
 $fileMenuBg26 = Read-PaletteBytes 'paletteData5878' 20
 [Array]::Copy($fileMenuBg0, 0, $fileMenuBgPalette, 0, $fileMenuBg0.Length)
 [Array]::Copy($fileMenuBg26, 0, $fileMenuBgPalette, 2 * 4 * 3, $fileMenuBg26.Length)
-[IO.File]::WriteAllBytes(
+Write-GeneratedBytes(
     (Join-Path $destination 'menu\palette_file_bg.bin'), $fileMenuBgPalette)
 $eraseMenuBgPalette = [byte[]]::new(8 * 4 * 3)
 $eraseMenuBg26 = Read-PaletteBytes 'paletteData58a0' 20
 [Array]::Copy($fileMenuBg0, 0, $eraseMenuBgPalette, 0, $fileMenuBg0.Length)
 [Array]::Copy($eraseMenuBg26, 0, $eraseMenuBgPalette, 2 * 4 * 3, $eraseMenuBg26.Length)
-[IO.File]::WriteAllBytes(
+Write-GeneratedBytes(
     (Join-Path $destination 'menu\palette_file_erase_bg.bin'), $eraseMenuBgPalette)
 $fileMenuSpritePalette = [byte[]]::new(8 * 4 * 3)
 $fileMenuSprite03 = Read-PaletteBytes 'standardSpritePaletteData' 16
 $fileMenuSprite46 = Read-PaletteBytes 'paletteData5858' 12
 [Array]::Copy($fileMenuSprite03, 0, $fileMenuSpritePalette, 0, $fileMenuSprite03.Length)
 [Array]::Copy($fileMenuSprite46, 0, $fileMenuSpritePalette, 4 * 4 * 3, $fileMenuSprite46.Length)
-[IO.File]::WriteAllBytes(
+Write-GeneratedBytes(
     (Join-Path $destination 'menu\palette_file_sprites.bin'), $fileMenuSpritePalette)
 
 # Preserve visible symbols as UTF-8 while retaining commands whose behavior is
@@ -245,5 +243,4 @@ if ($signRows.Count -ne 43) {
     throw "Expected 42 sign records, parsed $($signRows.Count - 1)."
 }
 $signPath = Join-Path $destination "objects\signs.tsv"
-New-Item -ItemType Directory -Force -Path (Split-Path $signPath -Parent) | Out-Null
-[IO.File]::WriteAllLines($signPath, $signRows, [Text.UTF8Encoding]::new($false))
+Write-GeneratedTable($signPath, $signRows)

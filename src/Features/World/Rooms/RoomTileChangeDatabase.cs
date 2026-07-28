@@ -12,10 +12,10 @@ namespace oracleofages;
 public sealed class RoomTileChangeDatabase
 {
 
-    private readonly Dictionary<(int Group, int Room), List<Rule>> _rules = new();
+    private readonly Lookup<(int Group, int Room), Rule> _rules = new();
 
     internal int RuleCount { get; }
-    internal int RoomCount => _rules.Count;
+    internal int RoomCount => _rules.KeyCount;
 
     public RoomTileChangeDatabase()
     {
@@ -36,13 +36,7 @@ public sealed class RoomTileChangeDatabase
             Operation[] operations = ParseOperations(row.RequiredString(3));
             row.RequiredString(4);
 
-            var key = (group, room);
-            if (!_rules.TryGetValue(key, out List<Rule>? roomRules))
-            {
-                roomRules = new List<Rule>();
-                _rules.Add(key, roomRules);
-            }
-            roomRules.Add(new Rule(conditions, operations));
+            _rules.Add((group, room), new Rule(conditions, operations));
             count++;
         }
         RuleCount = count;
@@ -56,7 +50,8 @@ public sealed class RoomTileChangeDatabase
         long animationTick)
     {
         var writes = new Dictionary<int, byte>();
-        if (_rules.TryGetValue((group, room.Id), out List<Rule>? rules))
+        if (_rules.TryGetValues(
+                (group, room.Id), out IReadOnlyList<Rule> rules))
         {
             foreach (Rule rule in rules)
             {

@@ -486,8 +486,9 @@ public sealed partial class ValidationRoot
         var bossTreasures = new TreasureDatabase();
         var bossInventory = new InventoryState(
             bossTreasures, bossSave, () => bossRooms.CurrentDungeonIndex);
-        var bossEntities = new RoomEntityManager(
-            bossRoot, new NpcDatabase(), new EnemyDatabase(), bossSave);
+        using var bossEntitiesFixture = RoomEntityValidationFixture.ForRoot(
+            bossRoot, new() { SaveData = bossSave });
+        RoomEntityManager bossEntities = bossEntitiesFixture.Manager;
         bossEntities.LoadRoom(4, bossRooms.CurrentRoom);
         var bossSounds = new List<int>();
         bossEntities.SoundRequested += bossSounds.Add;
@@ -593,8 +594,9 @@ public sealed partial class ValidationRoot
         AddChild(root);
         OracleSaveData save = OracleSaveData.CreateStandardGame();
         var runtime = new OracleRuntimeState();
-        var manager = new RoomEntityManager(
-            root, new NpcDatabase(), new EnemyDatabase(), save, runtime);
+        using var managerFixture = RoomEntityValidationFixture.ForRoot(
+            root, new() { SaveData = save, RuntimeState = runtime });
+        RoomEntityManager manager = managerFixture.Manager;
         OracleRoomData room = _world.LoadRoom(4, 0x24);
         _player.EndCutsceneControl();
         _player.WarpTo(new Vector2(0x48, 0x88));

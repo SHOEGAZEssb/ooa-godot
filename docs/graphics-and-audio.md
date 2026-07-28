@@ -9,12 +9,14 @@ its editor-generated `.import` sidecar; the same cache then decodes that source
 file once and retains the immutable result. Callers never decode a new image
 for every NPC or animation change.
 
-`OracleGraphicsCache` owns three immutable layers:
+`OracleGraphicsCache` owns four immutable layers:
 
 1. Source images keyed by resource path.
 2. Composite images keyed by source images and append offset.
 3. OAM frame textures keyed by source identity/pixels, encoded OAM, tile base,
    palette and overrides, grayscale interpretation, and composition mode.
+4. Individual 8-by-16 OAM cell textures keyed by source pixels, tile, flags,
+   palette, and grayscale interpretation.
 
 Callers treat returned `Image` and OAM frames as read-only. A palette or graphics
 override that changes pixels must be represented in the cache key; mutating a
@@ -25,10 +27,14 @@ during root shutdown so native Godot resources do not remain retained.
 not become a production loading path.
 
 `OracleGraphicsData` owns length-checked binary reads, GBC palette conversion,
-tilemap overlays, and common two-bit shade decoding. `OracleTileRenderer` owns
-shared linear/interleaved 8x8 background addressing and 8x16 OAM cell drawing.
-Menus supply their source-specific VRAM maps and palette attributes to these
-helpers instead of carrying private copies of the pixel loops.
+partial palette fills with the common BG fallback, tilemap overlays, and common
+two-bit shade decoding. `OracleTileRenderer` owns shared linear/interleaved 8x8
+background addressing, banked VRAM destination mapping, 32-by-18 tilemap
+composition, cached 8x16 OAM cells, source-pixel resolution, and monochrome
+font conversion. Black Tower and Nayru screens retain only their scrolling,
+priority, flash, timing, and coordinate rules. Inventory, ring, and map screens
+supply source-specific VRAM maps and palette attributes to the shared helpers
+instead of carrying private pixel or source-loading loops.
 
 ## OAM and animation composition
 

@@ -79,10 +79,14 @@ public sealed partial class ValidationRoot
         plantingRoot.AddChild(plantingDialogue);
         AddChild(plantingRoot);
         save.SetRoomFlag(0, 0x7b, OracleSaveData.RoomFlag40);
-        var plantingManager = new RoomEntityManager(
-            plantingWorld, new NpcDatabase(), new EnemyDatabase(),
-            new ItemDropDatabase(), new TimePortalDatabase(), new OracleRandom(),
-            save, inventory: inventory, animationTick: () => tick);
+        using var plantingFixture = RoomEntityValidationFixture.ForRoot(
+            plantingWorld, new()
+            {
+                SaveData = save,
+                Inventory = inventory,
+                AnimationTick = () => tick
+            });
+        RoomEntityManager plantingManager = plantingFixture.Manager;
         plantingManager.SoundRequested += sounds.Add;
         plantingManager.RoomTileChanged += () => roomRedraws++;
         var plantingInteractions = new InteractionController(

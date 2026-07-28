@@ -43,10 +43,9 @@ if ($sgEnemyRows.Count -ne 4 -or
     -not ($sgEnemyRows | Where-Object { $_ -match '^78\t00\tspr_pumpkinhead_1,spr_pumpkinhead_2,spr_pumpkinhead_3\t0\t3\t1\t6\t12\t2\t8\t' })) {
     throw "Spirit's Grave boss definitions no longer match the traced records:`n$($sgEnemyRows -join "`n")"
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\spirits_grave_enemies.tsv'),
-    $sgEnemyRows,
-    [Text.UTF8Encoding]::new($false))
+    $sgEnemyRows)
 
 # Resolve native interaction graphics used by the moving platforms, rotating
 # cube/flames, and the first essence. The cube state machine selects all 30
@@ -174,7 +173,7 @@ $cubePalette7 = Read-PaletteBytes 'paletteData5910' 4
 $cubePaletteBytes = [byte[]]::new(24)
 [Array]::Copy($cubePalette6, 0, $cubePaletteBytes, 0, 12)
 [Array]::Copy($cubePalette7, 0, $cubePaletteBytes, 12, 12)
-[IO.File]::WriteAllBytes(
+Write-GeneratedBytes(
     (Join-Path $destination 'objects\spirits_grave_cube_palettes.bin'),
     $cubePaletteBytes)
 
@@ -304,10 +303,9 @@ $pumpkinProjectileAnimationData = [Convert]::ToBase64String(
 $sgVisualRows.Add(
     "pumpkin-projectile`t$pumpkinProjectileSprite`t30`t2`t1`t$pumpkinProjectileAnimationData")
 if ($sgVisualRows.Count -ne 10) { throw "Expected nine Spirit's Grave interaction visuals." }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\spirits_grave_visuals.tsv'),
-    $sgVisualRows,
-    [Text.UTF8Encoding]::new($false))
+    $sgVisualRows)
 
 # Preserve the native object order. before-event bosses are emitted after the
 # ordinary main-room objects and are active only while ROOMFLAG_BIT_80 is clear.
@@ -353,10 +351,9 @@ $sgObjectRows = @(
     "4`t20`t7`tcube-light-sensor`t21`t03`t48`ta8`talways`tmainData.s:group4Map20ObjectData"
     "4`t20`t8`tcube-trigger-sensor`t21`t19`t00`t00`talways`tmainData.s:group4Map20ObjectData"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\spirits_grave_objects.tsv'),
-    $sgObjectRows,
-    [Text.UTF8Encoding]::new($false))
+    $sgObjectRows)
 
 $movingPlatformSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\movingPlatform.s')
@@ -420,10 +417,9 @@ if ($sgConstantsRows.Count -ne 26 -or
     -not $sgConstantsRows.Contains("platform-radius-5-x`t16")) {
     throw 'Expected all six moving-platform collision-radius pairs.'
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\spirits_grave_constants.tsv'),
-    $sgConstantsRows,
-    [Text.UTF8Encoding]::new($false))
+    $sgConstantsRows)
 
 if (-not $allTexts.ContainsKey(0x000e)) {
     throw 'Spirit''s Grave Eternal Spirit text TX_000e was not imported.'
@@ -432,7 +428,6 @@ $sgTextRows = @(
     "# text-id`tmessage-base64"
     "000e`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[0x000e])))"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\spirits_grave_text.tsv'),
-    $sgTextRows,
-    [Text.UTF8Encoding]::new($false))
+    $sgTextRows)

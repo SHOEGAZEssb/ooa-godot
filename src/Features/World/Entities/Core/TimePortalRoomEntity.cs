@@ -9,7 +9,6 @@ internal sealed class TimePortalRoomEntity(TimePortal portal, Action<TimePortal>
         IFixedRoomEntity, ILinkContactEntity,
         IUpdatesDuringDialogueRoomEntity
 {
-    bool IUpdatesDuringDialogueRoomEntity.UpdatesDuringDialogue => true;
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Counter);

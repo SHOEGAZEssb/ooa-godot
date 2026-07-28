@@ -8,7 +8,8 @@ namespace oracleofages;
 /// own the attendant, prompts, fades, rewards, and retry loop; the dynamically
 /// spawned native controller owns the ten pitches.
 /// </summary>
-internal sealed class ShootingGalleryEvent : IRoomEntryEvent, ICutsceneCommandHost
+internal sealed class ShootingGalleryEvent :
+    CutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
 {
     private const string ActorName = "GalleryKeeper";
     private const string PaletteFadeGate = "PaletteFade";

@@ -13,7 +13,8 @@ namespace oracleofages;
 public sealed class NpcPositionRuleDatabase
 {
 
-    private readonly Dictionary<int, List<NpcPositionRuleDatabaseRule>> _byInteraction = new();
+    private readonly Lookup<int, NpcPositionRuleDatabaseRule> _byInteraction =
+        new();
 
     internal int RuleCount { get; private set; }
 
@@ -54,14 +55,10 @@ public sealed class NpcPositionRuleDatabase
                     $"Invalid NPC position rule at {row.Path}:{row.LineNumber}.");
             }
 
-            int key = NpcStoryState.InteractionKey(id, subId);
-            if (!_byInteraction.TryGetValue(key, out List<NpcPositionRuleDatabaseRule>? rules))
-            {
-                rules = new List<NpcPositionRuleDatabaseRule>();
-                _byInteraction.Add(key, rules);
-            }
-            rules.Add(new NpcPositionRuleDatabaseRule(
-                var03, kind, value, y, x, row.RequiredString(7)));
+            _byInteraction.Add(
+                NpcStoryState.InteractionKey(id, subId),
+                new NpcPositionRuleDatabaseRule(
+                    var03, kind, value, y, x, row.RequiredString(7)));
             RuleCount++;
         }
     }
@@ -72,8 +69,9 @@ public sealed class NpcPositionRuleDatabase
         out Vector2 position)
     {
         position = new Vector2(npc.X, npc.Y);
-        if (!_byInteraction.TryGetValue(
-            NpcStoryState.InteractionKey(npc.Id, npc.SubId), out List<NpcPositionRuleDatabaseRule>? rules))
+        if (!_byInteraction.TryGetValues(
+                NpcStoryState.InteractionKey(npc.Id, npc.SubId),
+                out IReadOnlyList<NpcPositionRuleDatabaseRule> rules))
         {
             return false;
         }

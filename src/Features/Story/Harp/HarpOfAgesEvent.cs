@@ -10,6 +10,7 @@ namespace oracleofages;
 /// nayruScript07 runs through the typed command runner.
 /// </summary>
 internal sealed class HarpOfAgesEvent :
+    CutsceneCommandHost,
     IRoomEntryEvent,
     ICutsceneCommandHost,
     IUpdatesDuringDialogueRoomEvent

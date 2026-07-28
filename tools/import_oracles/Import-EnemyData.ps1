@@ -95,10 +95,9 @@ if ($sideviewOffsetRows[1] -ne $expectedFirstSideviewOffset -or
     $sideviewOffsetRows[32] -ne $expectedLastSideviewOffset) {
     throw 'Side-view adjacent-wall offset ordering or signed decoding changed.'
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'metadata\enemy_adjacent_wall_offsets.tsv'),
-    $sideviewOffsetRows,
-    [Text.UTF8Encoding]::new($false))
+    $sideviewOffsetRows)
 
 $bounceAngleBlock = [regex]::Match(
     $enemyCommonCodeSource,
@@ -126,10 +125,9 @@ if ($bounceAngleRows[1] -notmatch "^0`t10`t" -or
     $bounceAngleRows[48] -notmatch "^47`t01`t") {
     throw 'Enemy bounce-angle table ordering changed.'
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'metadata\enemy_bounce_angles.tsv'),
-    $bounceAngleRows,
-    [Text.UTF8Encoding]::new($false))
+    $bounceAngleRows)
 
 function Resolve-Oam([string]$source, [string]$label) {
     $body = Get-AssemblyLabelBody $source $label
@@ -152,46 +150,6 @@ function Resolve-Oam([string]$source, [string]$label) {
 
 $enemyAnimationSource = Read-ImportText (Join-Path $Disassembly "data\ages\enemyAnimations.s")
 $enemyOamSource = Read-ImportText (Join-Path $Disassembly "data\ages\enemyOamData.s")
-
-# Common enemy definitions are independent of the room or dungeon that first
-# exposes their runtime implementation. Resolve their shared data/animation/OAM
-# tables once here; dungeon-specific import stages may reuse the same helpers
-# for native bosses without owning ordinary species data.
-function Read-EnemyDwTables(
-    [string]$source,
-    [string]$labelPattern,
-    [string]$entryPattern) {
-    $tables = @{}
-    $aliases = [Collections.Generic.List[string]]::new()
-    $entries = [Collections.Generic.List[string]]::new()
-    foreach ($line in ($source -split '\r?\n')) {
-        $label = [regex]::Match($line, "^(?<label>$labelPattern):")
-        if ($label.Success) {
-            if ($entries.Count -gt 0) {
-                foreach ($alias in $aliases) { $tables[$alias] = @($entries) }
-                $aliases.Clear()
-                $entries.Clear()
-            }
-            $aliases.Add($label.Groups['label'].Value)
-            continue
-        }
-        if ($aliases.Count -eq 0) { continue }
-        $entry = [regex]::Match($line, "^\s*\.dw\s+(?<entry>$entryPattern)")
-        if ($entry.Success) {
-            $entries.Add($entry.Groups['entry'].Value)
-            continue
-        }
-        if ($entries.Count -gt 0 -and $line -match '^[A-Za-z0-9_@]+:') {
-            foreach ($alias in $aliases) { $tables[$alias] = @($entries) }
-            $aliases.Clear()
-            $entries.Clear()
-        }
-    }
-    if ($entries.Count -gt 0) {
-        foreach ($alias in $aliases) { $tables[$alias] = @($entries) }
-    }
-    return $tables
-}
 
 function Read-EnemyAnimationFrames([string]$source) {
     $script:enemyAnimResult = @{}
@@ -270,9 +228,9 @@ function Read-EnemyAnimationFrames([string]$source) {
     return $result
 }
 
-$enemyAnimationTables = Read-EnemyDwTables `
+$enemyAnimationTables = Read-AssemblyDwTables `
     $enemyAnimationSource 'enemy[0-9a-f]{2}Animations' 'enemyAnimation[0-9a-f]+'
-$enemyOamTables = Read-EnemyDwTables `
+$enemyOamTables = Read-AssemblyDwTables `
     $enemyAnimationSource 'enemy[0-9a-f]{2}OamDataPointers' 'enemyOamData[0-9a-f]+'
 $enemyAnimationFrames = Read-EnemyAnimationFrames $enemyAnimationSource
 
@@ -414,10 +372,9 @@ if ($commonEnemyRows.Count -ne 6 -or
     })) {
     throw "Common enemy definitions no longer match the traced records:`n$($commonEnemyRows -join "`n")"
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\common_enemies.tsv'),
-    $commonEnemyRows,
-    [Text.UTF8Encoding]::new($false))
+    $commonEnemyRows)
 $keeseAnimationLabels = @(
     [regex]::Matches(
         (Get-AssemblyLabelBody $enemyAnimationSource 'enemy32Animations'),
@@ -1412,28 +1369,24 @@ Assert-SpeciesPlacementMigration 'Zol' $zolRows '34' @('00', '01') $true
 Assert-SpeciesPlacementMigration 'Gel' $gelRows '43' @('00') $true
 Assert-SpeciesPlacementMigration 'Crow' $crowRows '41' @('00') $true
 
-[IO.File]::WriteAllLines(
-    $keesePath, $keeseDefinitionRows, [Text.UTF8Encoding]::new($false))
-[IO.File]::WriteAllLines(
-    $octorokPath, $octorokDefinitionRows, [Text.UTF8Encoding]::new($false))
-[IO.File]::WriteAllLines(
-    $stalfosPath, $stalfosDefinitionRows, [Text.UTF8Encoding]::new($false))
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
+    $keesePath, $keeseDefinitionRows)
+Write-GeneratedTable(
+    $octorokPath, $octorokDefinitionRows)
+Write-GeneratedTable(
+    $stalfosPath, $stalfosDefinitionRows)
+Write-GeneratedTable(
     (Join-Path $destination 'objects\zols.tsv'),
-    $zolDefinitionRows,
-    [Text.UTF8Encoding]::new($false))
-[IO.File]::WriteAllLines(
+    $zolDefinitionRows)
+Write-GeneratedTable(
     (Join-Path $destination 'objects\gels.tsv'),
-    $gelDefinitionRows,
-    [Text.UTF8Encoding]::new($false))
-[IO.File]::WriteAllLines(
+    $gelDefinitionRows)
+Write-GeneratedTable(
     (Join-Path $destination 'objects\crows.tsv'),
-    $crowDefinitionRows,
-    [Text.UTF8Encoding]::new($false))
-[IO.File]::WriteAllLines(
+    $crowDefinitionRows)
+Write-GeneratedTable(
     (Join-Path $destination 'objects\enemy_object_stream.tsv'),
-    $orderedObjectRows,
-    [Text.UTF8Encoding]::new($false))
+    $orderedObjectRows)
 
 # Keep ordered enemy construction capability separate from species data and
 # from the placement opcode. The registry is keyed only by the original enemy
@@ -1613,10 +1566,9 @@ if ($enemyHandlerRows.Count -ne 119 -or
         "(rows=$($enemyHandlerRows.Count)):`n" +
         ($representativeRows -join "`n")
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\enemy_handler_registry.tsv'),
-    $enemyHandlerRows,
-    [Text.UTF8Encoding]::new($false))
+    $enemyHandlerRows)
 
 # PART_ENEMY_DESTROYED (`$02) is the common enemy death puff. Export both
 # animations: animation 0 is the ordinary 20-update puff, while animation 1
@@ -1678,10 +1630,9 @@ $boomerangRows = @(
         '`t', "`t")
     "$boomerangSprite`t10`t4`t1`t$boomerangAnimationData"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'effects\moblin_boomerang.tsv'),
-    $boomerangRows,
-    [Text.UTF8Encoding]::new($false))
+    $boomerangRows)
 
 $deathPuffAnimationLabels = @(
     [regex]::Matches(
@@ -1734,8 +1685,7 @@ $deathPuffRows = @(
     "$deathPuffTileBase`t$($deathPuffOamFlags -band 7)`t$(($deathPuffOamFlags -bxor 1) -band 7)`t$deathPuffNormalAnimation`t$deathPuffKnockbackAnimation"
 )
 $deathPuffPath = Join-Path $destination "effects\enemy_death_puff.tsv"
-New-Item -ItemType Directory -Force -Path (Split-Path $deathPuffPath -Parent) | Out-Null
-[IO.File]::WriteAllLines($deathPuffPath, $deathPuffRows, [Text.UTF8Encoding]::new($false))
+Write-GeneratedTable($deathPuffPath, $deathPuffRows)
 
 # PART_BOSS_DEATH_EXPLOSION (`$04) keeps wNumEnemies occupied until its
 # terminal `$ff animation parameter. Boss reward scripts therefore cannot
@@ -1792,13 +1742,12 @@ if ($bossExplosionTileBase -ne 0x0c -or $bossExplosionPalette -ne 2 -or
     $bossExplosionFrames.Count -ne 13 -or $bossExplosionDuration -ne 78) {
     throw 'PART_BOSS_DEATH_EXPLOSION no longer matches tile `$0c, palette 2, or its 13-frame/78-update animation.'
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'effects\boss_death_explosion.tsv'),
     @(
         "# tile-base`tpalette`tanimation",
         "$bossExplosionTileBase`t$bossExplosionPalette`t$($bossExplosionFrames -join '|')"
-    ),
-    [Text.UTF8Encoding]::new($false))
+    ))
 
 # PART_SHADOW (`$07) is attached to both Spirit's Grave bosses. The source
 # selects one of four static OAM records from the parent's Z byte and flickers
@@ -1860,13 +1809,12 @@ if ($bossShadowGfx -ne 0xa7 -or $bossShadowSprite -ne 'spr_projectiles_3' -or
     $bossShadowFrames[3] -ne '8,248,4,0;8,0,6,0;8,8,6,32;8,16,4,32') {
     throw 'PART_SHADOW no longer matches gfx `$a7, tile/palette 0, or its small/large OAM records.'
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'effects\boss_shadow.tsv'),
     @(
         "# sprite`ttile-base`tpalette`tanimation-0`tanimation-1`tanimation-2`tanimation-3",
         "$bossShadowSprite`t$bossShadowTileBase`t$bossShadowPalette`t$($bossShadowFrames -join "`t")"
-    ),
-    [Text.UTF8Encoding]::new($false))
+    ))
 $bossShadowSpriteSource = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
     ForEach-Object {
         Get-ChildItem $_.FullName -Recurse -File -Filter "$bossShadowSprite.png"
@@ -1886,13 +1834,12 @@ $terrainShadowOam = Resolve-Oam $terrainEffectSource 'shadowAnimation'
 if ($terrainShadowOam -ne '19,4,32,8') {
     throw "The default terrain shadow no longer matches OAM `$13/`$04, tile `$20, flags `$08."
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'effects\terrain_shadow.tsv'),
     @(
         "# sprite`ttile-base`tpalette`toam`tsource",
         "spr_common_sprites`t0`t0`t$terrainShadowOam`tdata/terrainEffects.s:shadowAnimation"
-    ),
-    [Text.UTF8Encoding]::new($false))
+    ))
 
 # Grounded Link uses the same raw terrain-effect OAM path for grass and
 # puddles. Ages checks the exact metatile IDs, selects grass frame 0/1 from bit
@@ -2056,12 +2003,11 @@ for ($frame = 0; $frame -lt $puddleTerrainLabels.Count; $frame++) {
     $linkTerrainEffectRows.Add(
         "puddle`t$($puddleTile.ToString('x2'))`t$frame`t8`t$($splashSound.ToString('x2'))`t$puddleSoundStart`t$puddleSoundPeriod`t$puddleSoundDuration`tspr_common_sprites`t0`t0`t$oam`tdata/terrainEffects.s:$($puddleTerrainLabels[$frame])+object_code/common/specialObjects/commonCode.s:@tileType_puddle")
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'effects\link_terrain_effects.tsv'),
     @(
         "# kind`ttile`tframe`tduration`tsound`tsound-start`tsound-period`tsound-duration`tsprite`ttile-base`tpalette`toam`tsource"
-    ) + $linkTerrainEffectRows,
-    [Text.UTF8Encoding]::new($false))
+    ) + $linkTerrainEffectRows)
 
 # INTERAC_KILLENEMYPUFF (`$08) is the non-dropping burst used when a red Zol
 # splits. It is visually and semantically distinct from PART_ENEMY_DESTROYED.
@@ -2120,10 +2066,9 @@ $killPuffRows = @(
     "# tile-base`tpalette`tanimation",
     "$([Convert]::ToInt32($killPuffData.Groups['tile'].Value, 16))`t$([Convert]::ToInt32($killPuffData.Groups['flags'].Value, 16) -band 7)`t$killPuffAnimation"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'effects\kill_enemy_puff.tsv'),
-    $killPuffRows,
-    [Text.UTF8Encoding]::new($false))
+    $killPuffRows)
 
 # PART_OCTOROK_PROJECTILE (`$18) uses the Octorok sprite sheet with a
 # directionless flying-rock cell. On a solid-tile or sword collision it
@@ -2189,8 +2134,8 @@ $octorokProjectileRows = @(
     "$($gfxNames[0x8f])`t$octorokProjectileTileBase`t$octorokProjectilePalette`t2`t2`t2`t80`t$octorokProjectileNormal`t$octorokProjectileBounce"
 )
 $octorokProjectilePath = Join-Path $destination 'effects\octorok_projectile.tsv'
-[IO.File]::WriteAllLines(
-    $octorokProjectilePath, $octorokProjectileRows, [Text.UTF8Encoding]::new($false))
+Write-GeneratedTable(
+    $octorokProjectilePath, $octorokProjectileRows)
 
 # ENEMY_MASKED_MOBLIN (`$20:`$00) is created dynamically by the room 1:38
 # Maku Sprout rescue script. Export its shared four-direction animation table
@@ -2275,9 +2220,9 @@ $maskedMoblinRows = @(
         $maskedMoblinAnimations[2], $maskedMoblinAnimations[3]
     ) -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\masked_moblin.tsv'),
-    $maskedMoblinRows, [Text.UTF8Encoding]::new($false))
+    $maskedMoblinRows)
 
 $enemyArrowData = [regex]::Match(
     $partDataSource,
@@ -2342,9 +2287,9 @@ $enemyArrowRows = @(
         $enemyArrowAnimations[4]
     ) -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'effects\enemy_arrow.tsv'),
-    $enemyArrowRows, [Text.UTF8Encoding]::new($false))
+    $enemyArrowRows)
 
 foreach ($spriteName in @($gfxNames[0x90], $gfxNames[0x8e])) {
     $sourceSprite = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
@@ -2422,7 +2367,7 @@ if ($itemDropSelectionBytes.Count -ne 720) {
     throw "Generated item-drop selection data is $($itemDropSelectionBytes.Count) bytes; expected 720."
 }
 $itemDropSelectionPath = Join-Path $destination 'metadata\itemDrops.bin'
-[IO.File]::WriteAllBytes($itemDropSelectionPath, $itemDropSelectionBytes.ToArray())
+Write-GeneratedBytes($itemDropSelectionPath, $itemDropSelectionBytes.ToArray())
 
 # Export the PART_ITEM_DROP (`$01) visual records. Its subid selects one of the
 # sixteen sprite-data rows and one of the first sixteen part animations.
@@ -2508,8 +2453,8 @@ if ($itemDropVisualRows[2] -ne "1`t2`t5`t127@11,4,0,0" -or
     throw 'Heart and rupee PART_ITEM_DROP visual records no longer match the original data.'
 }
 $itemDropVisualPath = Join-Path $destination 'effects\item_drops.tsv'
-[IO.File]::WriteAllLines(
-    $itemDropVisualPath, $itemDropVisualRows, [Text.UTF8Encoding]::new($false))
+Write-GeneratedTable(
+    $itemDropVisualPath, $itemDropVisualRows)
 
 # ITEM_DROP_FAIRY chooses one of four speeds and any even angle. Import the
 # exact signed 8.8 velocity components used by objectApplySpeed instead of
@@ -2549,6 +2494,6 @@ foreach ($speed in $itemDropFairySpeeds) {
             "`t$y`t$x`tbank3.objectSpeedTable:$($speed.Name)"))
     }
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'effects\item_drop_fairy_velocities.tsv'),
-    $itemDropFairyVelocityRows, [Text.UTF8Encoding]::new($false))
+    $itemDropFairyVelocityRows)

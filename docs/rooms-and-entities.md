@@ -274,6 +274,15 @@ single universal entity base class:
 | `IRoomEnemyOutcomeSource` | One-shot source outcomes whose room-count, recent-defeat, and global kill-counter effects are independent |
 | `IRoomSaveStateEntity` | Refresh from changed live save state |
 
+`RoomEntityManager` evaluates each `IPlayerRestriction` capability through one
+ordered predicate query; movement retains its separate sword-disable frame
+special case. Truly identical short-lived visuals derive from
+`FixedEffectNode2D` and use `FixedEffectRoomEntityAdapter<T>` (or its
+dialogue-update variant) for fixed updates, transition offset, and lifetime.
+This adapter is not a substitute for NPC, combat, contact, or source-order
+capabilities. `IUpdatesDuringDialogueRoomEntity` defaults to updating; only
+state-dependent implementations override that decision.
+
 Do not infer an enemy outcome from Godot entity removal. `RoomEnemyOutcome`
 represents the source paths separately: counted `enemyDie`,
 `enemyDie_uncounted`, room-count decrement, hazard or replacement deletion,

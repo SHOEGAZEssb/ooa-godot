@@ -20,7 +20,6 @@ internal sealed class Room148PickaxeWorkerRoomEntity(
     private bool _talking;
 
     public NpcCharacter TalkNpc => Entity;
-    bool IUpdatesDuringDialogueRoomEntity.UpdatesDuringDialogue => true;
 
     public void UpdateFrame(
         RoomEntityFrame frame,

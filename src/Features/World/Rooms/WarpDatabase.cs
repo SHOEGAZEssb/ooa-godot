@@ -7,7 +7,7 @@ namespace oracleofages;
 public sealed class WarpDatabase
 {
 
-    private readonly Dictionary<(int Group, int Room), List<Warp>> _warps = new();
+    private readonly Lookup<(int Group, int Room), Warp> _warps = new();
 
     public WarpDatabase()
     {
@@ -32,13 +32,7 @@ public sealed class WarpDatabase
                 row.UnsignedDecimal(3), row.UnsignedDecimal(4),
                 row.Decimal(5, 0, 7), row.HexByte(6), row.HexByte(7),
                 row.UnsignedDecimal(8), row.UnsignedDecimal(9));
-            var key = (warp.SourceGroup, warp.SourceRoom);
-            if (!_warps.TryGetValue(key, out List<Warp>? roomWarps))
-            {
-                roomWarps = new List<Warp>();
-                _warps.Add(key, roomWarps);
-            }
-            roomWarps.Add(warp);
+            _warps.Add((warp.SourceGroup, warp.SourceRoom), warp);
             count++;
         }
         if (count != 529)
@@ -47,7 +41,8 @@ public sealed class WarpDatabase
 
     public bool TryGetTileWarp(int group, int room, int position, byte metatile, out Warp warp)
     {
-        if (!IsWarpTile(group, metatile) || !_warps.TryGetValue((group, room), out List<Warp>? warps))
+        if (!IsWarpTile(group, metatile) ||
+            !_warps.TryGetValues((group, room), out IReadOnlyList<Warp> warps))
         {
             warp = default;
             return false;
@@ -86,7 +81,8 @@ public sealed class WarpDatabase
         Vector2 roomSize,
         out Warp warp)
     {
-        if (!_warps.TryGetValue((group, room), out List<Warp>? warps))
+        if (!_warps.TryGetValues(
+                (group, room), out IReadOnlyList<Warp> warps))
         {
             warp = default;
             return false;

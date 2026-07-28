@@ -10,7 +10,7 @@ namespace oracleofages;
 public sealed class SingleTileChangeDatabase
 {
 
-    private readonly Dictionary<(int Group, int Room), List<Record>> _byRoom = new();
+    private readonly Lookup<(int Group, int Room), Record> _byRoom = new();
 
     internal int RecordCount { get; }
 
@@ -43,22 +43,14 @@ public sealed class SingleTileChangeDatabase
                     $"{row.Path}:{row.LineNumber}.");
             }
 
-            var key = (record.Group, record.Room);
-            if (!_byRoom.TryGetValue(key, out List<Record>? records))
-            {
-                records = new List<Record>();
-                _byRoom.Add(key, records);
-            }
-            records.Add(record);
+            _byRoom.Add((record.Group, record.Room), record);
             count++;
         }
         RecordCount = count;
     }
 
     internal IReadOnlyList<Record> GetRoomRecords(int group, int room) =>
-        _byRoom.TryGetValue((group, room), out List<Record>? records)
-            ? records
-            : Array.Empty<Record>();
+        _byRoom.ValuesOrEmpty((group, room));
 
     internal void Apply(
         int group,

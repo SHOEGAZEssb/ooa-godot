@@ -131,6 +131,88 @@ function Resolve-AssemblySourceTextPath([string]$source) {
     return $null
 }
 
+function Write-GeneratedTable([object[]]$arguments) {
+    if ($arguments.Count -lt 2) {
+        throw "Write-GeneratedTable requires a destination path and rows; got " +
+            "$($arguments.Count) argument(s) from " +
+            "$($MyInvocation.ScriptName):$($MyInvocation.ScriptLineNumber)."
+    }
+    $path = [string]$arguments[0]
+    $rows = [Collections.Generic.List[string]]::new()
+    foreach ($value in $arguments[1..($arguments.Count - 1)]) {
+        foreach ($row in $value) {
+            $rows.Add([string]$row)
+        }
+    }
+    $parent = Split-Path $path -Parent
+    if (-not [string]::IsNullOrEmpty($parent)) {
+        [IO.Directory]::CreateDirectory($parent) | Out-Null
+    }
+    [IO.File]::WriteAllLines(
+        $path,
+        $rows,
+        [Text.UTF8Encoding]::new($false))
+}
+
+function Write-GeneratedBytes([object[]]$arguments) {
+    if ($arguments.Count -lt 2) {
+        throw "Write-GeneratedBytes requires a destination path and bytes; got " +
+            "$($arguments.Count) argument(s) from " +
+            "$($MyInvocation.ScriptName):$($MyInvocation.ScriptLineNumber)."
+    }
+    $path = [string]$arguments[0]
+    $bytes = [Collections.Generic.List[byte]]::new()
+    foreach ($value in $arguments[1..($arguments.Count - 1)]) {
+        foreach ($byte in $value) {
+            $bytes.Add([byte]$byte)
+        }
+    }
+    $parent = Split-Path $path -Parent
+    if (-not [string]::IsNullOrEmpty($parent)) {
+        [IO.Directory]::CreateDirectory($parent) | Out-Null
+    }
+    [IO.File]::WriteAllBytes($path, $bytes)
+}
+
+function Read-AssemblyDwTables(
+    [string]$source,
+    [string]$tableLabelPattern,
+    [string]$entryPattern
+) {
+    $tables = @{}
+    $aliases = [Collections.Generic.List[string]]::new()
+    $entries = [Collections.Generic.List[string]]::new()
+    foreach ($line in ($source -split '\r?\n')) {
+        $label = [regex]::Match($line, "^(?<label>$tableLabelPattern):")
+        if ($label.Success) {
+            if ($entries.Count -gt 0) {
+                foreach ($alias in $aliases) { $tables[$alias] = @($entries) }
+                $aliases.Clear()
+                $entries.Clear()
+            }
+            $aliases.Add($label.Groups['label'].Value)
+            continue
+        }
+        if ($aliases.Count -eq 0) { continue }
+        $entry = [regex]::Match($line, "^\s*\.dw\s+(?<entry>$entryPattern)")
+        if ($entry.Success) {
+            $entries.Add($entry.Groups['entry'].Value)
+            continue
+        }
+        if ($line -match '^[A-Za-z0-9_@]+:') {
+            if ($entries.Count -gt 0) {
+                foreach ($alias in $aliases) { $tables[$alias] = @($entries) }
+            }
+            $aliases.Clear()
+            $entries.Clear()
+        }
+    }
+    if ($entries.Count -gt 0) {
+        foreach ($alias in $aliases) { $tables[$alias] = @($entries) }
+    }
+    return $tables
+}
+
 # Remove cutscene outputs from their former menu/object categories. They are
 # generated again below under cutscenes, which owns their runtime behavior.
 foreach ($legacyCutsceneAsset in @(

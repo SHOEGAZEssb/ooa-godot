@@ -7,7 +7,8 @@ namespace oracleofages;
 /// Full room $1:$38 Maku Sprout rescue: four synchronized interaction-script
 /// owners, dynamic masked-Moblin combat, and the four-step opening gate.
 /// </summary>
-internal sealed class MakuSproutRescueEvent : IRoomEntryEvent, ICutsceneCommandHost
+internal sealed class MakuSproutRescueEvent :
+    CutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
 {
 
     private readonly RoomEventContext _context;

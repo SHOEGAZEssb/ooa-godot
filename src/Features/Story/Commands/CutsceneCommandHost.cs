@@ -1,0 +1,133 @@
+using Godot;
+using System;
+
+namespace oracleofages;
+
+internal abstract class CutsceneCommandHost : ICutsceneCommandHost
+{
+    private CutsceneCommandSource? _activeSource;
+
+    RoomEventContext ICutsceneCommandHost.Context =>
+        throw UnsupportedCommand("provide a room-event context");
+    public virtual bool DialogueOpen =>
+        ((ICutsceneCommandHost)this).Context.DialogueOpen;
+    public virtual bool IsLinkedGame =>
+        ((ICutsceneCommandHost)this).Context.Rooms.SaveData.IsLinkedGame;
+    public virtual int FrameCounter =>
+        ((ICutsceneCommandHost)this).Context.Entities.FrameCounter;
+    public virtual ICutsceneCommandTraceSink? TraceSink =>
+        ((ICutsceneCommandHost)this).Context.CommandTraceSink;
+
+    public void SetActiveCommandSource(CutsceneCommandSource? source) =>
+        _activeSource = source;
+
+    public virtual bool HasActorBinding(CutsceneActorId actor) => false;
+    public virtual void SetInputEnabled(bool enabled)
+    {
+        Player player = ((ICutsceneCommandHost)this).Context.Player;
+        if (enabled)
+            player.EndCutsceneControl();
+        else
+            player.BeginCutsceneControl();
+    }
+    public virtual void SetMenuEnabled(bool enabled) =>
+        throw UnsupportedCommand($"set menu enabled={enabled}");
+    public virtual void SetDisabledObjects(int value) =>
+        throw UnsupportedCommand($"set disabled objects ${value:x2}");
+    bool ICutsceneCommandHost.GateOpen(string gate) =>
+        throw UnsupportedCommand($"read gate '{gate}'");
+    public virtual bool MemoryEquals(string binding, int value) =>
+        throw UnsupportedCommand($"compare '{binding}' with ${value:x2}");
+    int ICutsceneCommandHost.ReadMemory(string binding) =>
+        throw UnsupportedCommand($"read '{binding}'");
+    public virtual bool RoomFlagSet(int flag) =>
+        throw UnsupportedCommand($"read room flag ${flag:x2}");
+    public virtual bool TradeItemEquals(int value) =>
+        throw UnsupportedCommand($"compare trade item ${value:x2}");
+    public virtual bool TextOptionEquals(int value) =>
+        throw UnsupportedCommand($"read text option ${value:x2}");
+    public virtual bool TryConsumeActorButton(CutsceneActorId actor) =>
+        throw UnsupportedCommand($"consume A for actor '{actor}'");
+    public virtual void ShowText(int textId, string message) =>
+        throw UnsupportedCommand($"show text ${textId:x4}");
+    public virtual void SetActorAnimation(
+        string actor, int animation, string encodedAnimation) =>
+        throw UnsupportedCommand($"set actor '{actor}' animation ${animation:x2}");
+    public virtual void SetActorMovementAnimation(
+        string actor, int angle, string encodedAnimation) =>
+        throw UnsupportedCommand($"set actor '{actor}' movement animation ${angle:x2}");
+    public virtual void SetActorCollisionRadii(
+        string actor, int radiusY, int radiusX) =>
+        throw UnsupportedCommand($"set actor '{actor}' collision radii");
+    public virtual void SetActorButtonSensitive(string actor) =>
+        throw UnsupportedCommand($"set actor '{actor}' A-button sensitivity");
+    public virtual void MoveActorAtSpeed(string actor, int speed, int angle) =>
+        throw UnsupportedCommand($"move actor '{actor}'");
+    public virtual void SetActorZ(string actor, int zFixed) =>
+        throw UnsupportedCommand($"set actor '{actor}' Z");
+    public virtual void SetActorVisible(string actor, bool visible) =>
+        throw UnsupportedCommand($"set actor '{actor}' visible={visible}");
+    public virtual void WriteObjectByte(string actor, int address, int value) =>
+        throw UnsupportedCommand($"write actor '{actor}'.${address:x2}=${value:x2}");
+    public virtual Vector2 GetActorPosition(CutsceneActorId actor) =>
+        throw UnsupportedCommand($"read actor '{actor}' position");
+    public virtual void SetActorPosition(
+        CutsceneActorId actor,
+        Vector2 position,
+        Vector2 facingDelta,
+        Vector2 movement) =>
+        throw UnsupportedCommand($"set actor '{actor}' position");
+    public virtual void CompleteActorTranslation(CutsceneActorId actor) =>
+        throw UnsupportedCommand($"complete actor '{actor}' translation");
+    public virtual void DeleteActor(CutsceneActorId actor) =>
+        throw UnsupportedCommand($"delete actor '{actor}'");
+    public virtual void WriteMemory(string binding, int value) =>
+        throw UnsupportedCommand($"write '{binding}'=${value:x2}");
+    public virtual void GiveItem(int treasureId, int parameter) =>
+        throw UnsupportedCommand($"give treasure ${treasureId:x2}:${parameter:x2}");
+    public virtual void PlaySound(int sound) =>
+        ((ICutsceneCommandHost)this).Context.Sound.PlaySound(sound);
+    public virtual void SetMusic(int music) =>
+        throw UnsupportedCommand($"set music ${music:x2}");
+    public virtual void SetGlobalFlag(int flag) =>
+        ((ICutsceneCommandHost)this).Context.Rooms.SaveData.SetGlobalFlag(flag);
+    public virtual void OrRoomFlag(int flag) =>
+        throw UnsupportedCommand($"OR room flag ${flag:x2}");
+    public virtual void RunNativeHandler(string handler) =>
+        throw UnsupportedCommand($"run native handler '{handler}'");
+    public virtual bool UpdateNativeHandler(
+        string handler,
+        CutsceneActorId? actor,
+        int commandUpdate,
+        int frames,
+        string payload) =>
+        throw UnsupportedCommand($"update native handler '{handler}'");
+    public virtual void ScriptEnded() => throw UnsupportedCommand("end the script");
+
+    protected InvalidOperationException UnsupportedCommand(string operation) =>
+        new($"{GetType().Name} cannot {operation} at " +
+            (_activeSource?.ToString() ?? "an unknown cutscene command"));
+}
+
+internal abstract class InteractiveCutsceneCommandHost : CutsceneCommandHost
+{
+    protected abstract RoomEventContext InputContext { get; }
+    protected bool InputLeaseHeld { get; private set; }
+
+    public override void SetInputEnabled(bool enabled)
+    {
+        if (enabled == !InputLeaseHeld)
+            return;
+        InputLeaseHeld = !enabled;
+        if (enabled)
+            InputContext.Player.EndCutsceneControl();
+        else
+            InputContext.Player.BeginCutsceneControl();
+    }
+
+    protected void ReleaseInputControl()
+    {
+        if (InputLeaseHeld)
+            SetInputEnabled(enabled: true);
+    }
+}

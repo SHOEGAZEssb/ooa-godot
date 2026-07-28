@@ -4,7 +4,7 @@ using System;
 namespace oracleofages;
 
 /// <summary>Runs the one-shot Maku Tree disappearance in room $0:$38.</summary>
-internal sealed class MakuTreeDisappearanceEvent : IRoomEntryEvent,
+internal sealed class MakuTreeDisappearanceEvent : CutsceneCommandHost, IRoomEntryEvent,
     ICutsceneCommandHost, IUpdatesDuringDialogueRoomEvent
 {
     private const string MakuTreeActor = "MakuTree";

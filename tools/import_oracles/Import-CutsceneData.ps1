@@ -161,10 +161,9 @@ $harpItemRows = @(
     "# item`tharp-treasure`techoes-treasure`tcurrents-treasure`tages-treasure`tsong-frames`tempty-song-frames`tnote-interval`tprohibited-tileset-mask`tpast-mask`tportal-room-flag`tempty-sound`techoes-sound`tcurrents-sound`tages-sound`tanimation-parameters`tno-effect-text",
     "11`t$($treasureIds['TREASURE_HARP'].ToString('x2'))`t$($treasureIds['TREASURE_TUNE_OF_ECHOES'].ToString('x2'))`t$($treasureIds['TREASURE_TUNE_OF_CURRENTS'].ToString('x2'))`t$($treasureIds['TREASURE_TUNE_OF_AGES'].ToString('x2'))`t260`t261`t32`t7e`t80`t08`t$($soundIds['SND_FILLED_HEART_CONTAINER'].ToString('x2'))`t$($soundIds['SND_TUNE_OF_ECHOES'].ToString('x2'))`t$($soundIds['SND_TUNE_OF_CURRENTS'].ToString('x2'))`t$($soundIds['SND_TUNE_OF_AGES'].ToString('x2'))`t$harpAnimationParameters`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[0x5110])))"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\harpItem.tsv'),
-    $harpItemRows,
-    [Text.UTF8Encoding]::new($false))
+    $harpItemRows)
 
 # INTERAC_TIMEPORTAL_SPAWNER ($e1) is a scenery interaction rather than an
 # NPC, but it uses the same interaction graphics, animation, and OAM tables.
@@ -220,7 +219,7 @@ Copy-GeneratedFile `
     'gfx_compressible\ages\spr_makuflower_book_seedling_weirdswirl_block.png' `
     'gfx\spr_makuflower_book_seedling_weirdswirl_block.png'
 $portalPath = Join-Path $destination 'objects\timePortals.tsv'
-[IO.File]::WriteAllLines($portalPath, $portalRows, [Text.UTF8Encoding]::new($false))
+Write-GeneratedTable($portalPath, $portalRows)
 
 # Direct Tune of Currents/Ages warps create INTERAC_TIMEPORTAL ($de) at the
 # arrival position. Unlike the placed $e1 spawner, it uses common sprites,
@@ -278,10 +277,9 @@ $temporaryPortalRows = @(
     "# sprite`ttile-base`tpalette`tcontact-radius`tanimation`tentry-tile-replacements`treturn-tile-replacements",
     "spr_common_sprites`t$($temporaryPortalGraphic.TileBase)`t$($temporaryPortalGraphic.Palette)`t9`t$temporaryPortalAnimation`t$entryTileReplacements`t$returnTileReplacements"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\temporaryTimePortal.tsv'),
-    $temporaryPortalRows,
-    [Text.UTF8Encoding]::new($false))
+    $temporaryPortalRows)
 
 # CUTSCENE_TIMEWARP uses INTERAC_TIMEWARP ($dd), PART_TIMEWARP_ANIMATION
 # ($2b), and INTERAC_SPARKLE ($84:$01) after a portal spawner transfers Link
@@ -400,7 +398,7 @@ $timeWarpIndoorPalette = Read-PaletteBytes 'paletteData5930' 4
 [Array]::Copy($timeWarpOutdoorPalette, 0, $timeWarpPalette, 0, 12)
 [Array]::Copy($timeWarpIndoorPalette, 0, $timeWarpPalette, 12, 12)
 $timeWarpPalettePath = Join-Path $destination 'metadata\time_warp_palettes.bin'
-[IO.File]::WriteAllBytes($timeWarpPalettePath, $timeWarpPalette)
+Write-GeneratedBytes($timeWarpPalettePath, $timeWarpPalette)
 
 $timeWarpSprite = $gfxNames[0x6a]
 $sparkleSprite = $gfxNames[0x6b]
@@ -410,10 +408,9 @@ $timeWarpRows = @(
     "# timewarp-sprite`tcommon-sprite`tsparkle-sprite`tprimary-tile-base`tprimary-palette`tbeam-palette`ttrail-tile-base`ttrail-palette`tparticle-tile-base`tparticle-palette`tsparkle-tile-base`tsparkle-palette`tprimary-priority`tbeam-priority`ttrail-priority`tparticle-priority`tsparkle-priority`tdissolve-frames`tsource-effect-frames`tsource-trail-frames`tarrival-wait-frames`tarrival-effect-frames`tarrival-flicker-frames`texpand-animation`tcontract-animation`tbeam-intro-animation`tbeam-loop-animation`tbeam-contract-animation`ttrail-animation`tsparkle-animation`tparticles",
     "$timeWarpSprite`tspr_common_sprites`t$sparkleSprite`t$($timeWarpGraphics[0].TileBase)`t$($timeWarpGraphics[0].Palette)`t$($timeWarpBeamGraphic.Palette)`t$($timeWarpTrailGraphic.TileBase)`t$($timeWarpTrailGraphic.Palette)`t$([Convert]::ToInt32($timeWarpPart.Groups['tile'].Value, 16))`t$([Convert]::ToInt32($timeWarpPart.Groups['flags'].Value, 16) -band 7)`t$($sparkleGraphic.TileBase)`t$($sparkleGraphic.Palette)`t$($timeWarpPriorities -join "`t")`t48`t120`t60`t30`t16`t30`t$($timeWarpAnimations[0])`t$($timeWarpAnimations[1])`t$($timeWarpAnimations[2])`t$($timeWarpAnimations[3])`t$($timeWarpAnimations[4])`t$($timeWarpAnimations[5])`t$sparkleAnimation`t$($particleRows -join '|')"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\timeWarpEffects.tsv'),
-    $timeWarpRows,
-    [Text.UTF8Encoding]::new($false))
+    $timeWarpRows)
 
 # The first present Maku Tree visit is interaction $87 subid $01, selected
 # from room 0:38's $87:$00 object while wMakuTreeState and GLOBALFLAG_0c are
@@ -528,10 +525,9 @@ $makuEventRows = @(
     "# group`troom`tid`tsubid`tinitial-palette`tinput-idle`tinput-right`tinput-stop`tinput-up`tinput-tail`tintro-delay`tpost-intro`tfrown-delay`tdisappearance`tpost-ahh`tfinish-delay`tsource-transition`tdestination-group`tdestination-room`tdestination-position`tdestination-parameter`tdestination-transition`tanimation0`tanimation1`tanimation2`tanimation3`tanimation4`textra-sprite`ttextbox-position`tintro-base64`tahh-base64`thelp-base64",
     ($makuColumns -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\maku_tree_cutscene.tsv'),
-    $makuEventRows,
-    [Text.UTF8Encoding]::new($false))
+    $makuEventRows)
 
 $makuMusicSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\music.s')
@@ -599,10 +595,9 @@ $makuCommandRows = @(
     (& $newMakuCommandRow 21 (& $findMakuSourceLine '(?m)^\s*asm15\s+incMakuTreeState\s*$') 'native' '' '' '' 'incMakuTreeState'),
     (& $newMakuCommandRow 22 (& $findMakuSourceLine '(?m)^\s*scriptend\s*$') 'scriptend' '' '' '' '')
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\maku_tree_commands.tsv'),
-    $makuCommandRows,
-    [Text.UTF8Encoding]::new($false))
+    $makuCommandRows)
 
 # Immediately after the young Maku Tree is saved, wMakuTreeState=$02 selects
 # the adult-tree script in present room 0:38. Export the complete looping
@@ -779,10 +774,9 @@ foreach ($command in $makuSavedParsed) {
         $command.Script $command.Index $command.Label $command.Line `
         $opcode $actor "$arg0" "$arg1" $payload))
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\maku_tree_saved_commands.tsv'),
-    $makuSavedCommandRows,
-    [Text.UTF8Encoding]::new($false))
+    $makuSavedCommandRows)
 
 $makuHelpers = $makuScriptSource.Substring(
     $makuScriptSource.IndexOf('makuTree_dropSeedSatchel:'),
@@ -833,10 +827,9 @@ $makuSavedEventRows = @(
         $makuLandingSoundMatch.Groups['value'].Value
     ) -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\maku_tree_saved_event.tsv'),
-    $makuSavedEventRows,
-    [Text.UTF8Encoding]::new($false))
+    $makuSavedEventRows)
 
 $makuPaletteLabels = [Collections.Generic.List[string]]::new()
 foreach ($symbol in $makuPaletteSymbols) {
@@ -889,7 +882,7 @@ foreach ($label in $makuPaletteLabels) {
 if ($makuPaletteBytes.Count -ne 288) {
     throw "Expected 288 Maku Tree disappearance palette bytes, got $($makuPaletteBytes.Count)."
 }
-[IO.File]::WriteAllBytes(
+Write-GeneratedBytes(
     (Join-Path $destination 'metadata\maku_tree_disappear_palettes.bin'),
     $makuPaletteBytes.ToArray())
 
@@ -979,10 +972,9 @@ $ralphEventRows = @(
     "# group`troom`tid`tsubid`tentry-direction`tintro-delay`tpost-text`tapplyspeed-counter`tflicker-frames`tspeed`tangle`tglobal-flag`ttext-id`tmove-animation`tportal-animation`ttext-base64",
     ($ralphEventColumns -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\ralph_portal_event.tsv'),
-    $ralphEventRows,
-    [Text.UTF8Encoding]::new($false))
+    $ralphEventRows)
 
 # Emit the active path as typed command records. Command rows retain the
 # assembly script/label, normalized command index, and physical source line.
@@ -1037,10 +1029,9 @@ $ralphCommandRows = @(
     (& $newRalphCommandRow 14 '@done' (& $findRalphSourceLine '(?m)^\s*enableinput\s*$') 'enableinput' '' '' '' ''),
     (& $newRalphCommandRow 15 '@done' (& $findRalphSourceLine '(?m)^\s*scriptend\s*$') 'scriptend' '' '' '' '')
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\ralph_portal_commands.tsv'),
-    $ralphCommandRows,
-    [Text.UTF8Encoding]::new($false))
+    $ralphCommandRows)
 
 # The first arrival in the past is INTERAC_MALE_VILLAGER ($3a:$0d) in room
 # 1:39. Its leading wait advances while TRANSITION_DEST_TIMEWARP finishes, so
@@ -1167,10 +1158,9 @@ $enterPastEventRows = @(
     "# group`troom`tid`tsubid`tintro-wait`tpre-jump-wait`tpost-jump-wait`tpost-text-wait`tjump-speed-z`tjump-gravity`tfast-speed`tslow-speed`tfirst-down-counter`tright-counter`tsecond-down-counter`tslow-down-counter`tfinal-down-counter`tglobal-flag`ttext-id`tright-animation`tdown-animation`ttext-base64`tjump-sound`texpected-arrival-counter",
     ($enterPastEventColumns -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\enter_past_event.tsv'),
-    $enterPastEventRows,
-    [Text.UTF8Encoding]::new($false))
+    $enterPastEventRows)
 
 # The second shared-runner slice preserves the active path's actual command
 # boundaries. jumpAndWaitUntilLanded remains one typed composite command, but
@@ -1219,10 +1209,9 @@ $enterPastCommandRows = @(
     (& $newEnterPastCommandRow 17 (& $findEnterPastSourceLine '(?m)^\s*enableinput\s*$') 'enableinput' '' '' '' ''),
     (& $newEnterPastCommandRow 18 (& $findEnterPastSourceLine '(?m)^\s*scriptend\s*$') 'scriptend' '' '' '' '')
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\enter_past_commands.tsv'),
-    $enterPastCommandRows,
-    [Text.UTF8Encoding]::new($false))
+    $enterPastCommandRows)
 
 # The children in present room 0:7b implement the Spirit's Grave ghost scene
 # as three native interaction state machines synchronized through cfd1. Keep
@@ -1361,10 +1350,9 @@ $graveyardEventRows = @(
         '08', '01', $graveyardFleeSound.Groups['value'].Value
     ) -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\graveyard_ghost_kids_event.tsv'),
-    $graveyardEventRows,
-    [Text.UTF8Encoding]::new($false))
+    $graveyardEventRows)
 
 $graveyardTextActors = @('Green', 'Blue', 'Red', 'Red', 'Red')
 $graveyardTextRows = [Collections.Generic.List[string]]::new()
@@ -1376,10 +1364,9 @@ for ($index = 0; $index -lt $graveyardTextIds.Count; $index++) {
         [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
     ) -join "`t"))
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\graveyard_ghost_kids_text.tsv'),
-    $graveyardTextRows,
-    [Text.UTF8Encoding]::new($false))
+    $graveyardTextRows)
 
 # The first Impa encounter is INTERAC_IMPA_IN_CUTSCENE ($31:$00) in present
 # room $6a. It creates three fake Octoroks from extra object data, replaces
@@ -1519,10 +1506,9 @@ $impaEventRows = @(
     "# group`troom`tid`tsubid`troom-flag`tlink-wait`ttarget-x`tcenter-wait`tapproach-frames`tlink-speed`timpa-wait`ttext-id`tpost-text`timpa-speed`timpa-move-frames`tfollow-lag`tup-animation`tright-animation`tdown-animation`tleft-animation`ttext-base64`tlinked-text-id`tlinked-text-base64",
     ($impaEventColumns -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\impa_intro_event.tsv'),
-    $impaEventRows,
-    [Text.UTF8Encoding]::new($false))
+    $impaEventRows)
 
 $impaCommandDefinitions = @(
     @('^\s*checkmemoryeq\s+wTmpcfc0\.genericCutscene\.cfd0,\s*\$01', 'checkmemoryeq', '', '01', '', 'wTmpcfc0.genericCutscene.cfd0'),
@@ -1548,10 +1534,9 @@ for ($index = 0; $index -lt $impaCommandDefinitions.Count; $index++) {
         'impaScript0' $index 'impaScript0' $sourceLine `
         $definition[1] $definition[2] $definition[3] $definition[4] $definition[5]))
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\impa_intro_commands.tsv'),
-    $impaCommandRows,
-    [Text.UTF8Encoding]::new($false))
+    $impaCommandRows)
 
 # Room 0:59 continues the same retained INTERAC_IMPA_IN_CUTSCENE object.
 # Export the complete two-object handshake: Impa subid $00/linkCutscene2,
@@ -1915,10 +1900,9 @@ $stoneHeader = @(
     'link-target-y','link-target-x',
     'first-text-base64','sign-text-base64','request-text-base64','hesitation-text-base64','failure-text-base64',
     'thanks-text-base64','leave-text-base64','talk-text-base64','stone-source-inverted') -join "`t"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\impa_stone_event.tsv'),
-    @("# $stoneHeader", ($stoneColumns -join "`t")),
-    [Text.UTF8Encoding]::new($false))
+    @("# $stoneHeader", ($stoneColumns -join "`t")))
 
 # The approach, jumps, and linkCutscene2 positioning handshake are native
 # interaction/special-object code. The retreat after linkCutscene2 writes
@@ -1967,10 +1951,9 @@ $impaMoveAwayCommandRows = @(
     (& $newImpaMoveAwayCommandRow 16 (& $findImpaMoveAwaySourceLine '^\s*writememory\s+wTmpcfc0\.genericCutscene\.cfd0,\s*\$04\s*$') 'writememory' '' '04' '' 'wTmpcfc0.genericCutscene.cfd0'),
     (& $newImpaMoveAwayCommandRow 17 (& $findImpaMoveAwaySourceLine '^\s*scriptend\s*$') 'scriptend')
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\impa_stone_prepush_commands.tsv'),
-    $impaMoveAwayCommandRows,
-    [Text.UTF8Encoding]::new($false))
+    $impaMoveAwayCommandRows)
 
 $impaRockMovedBodyStart = $impaRockMovedBlock.Groups['body'].Index
 $impaRockMovedBodyEnd =
@@ -2021,10 +2004,9 @@ $impaRockMovedCommandRows = @(
     (& $newImpaRockMovedCommandRow 21 '++[2]' (& $findImpaRockMovedSourceLine '^\s*moveup\s+\$20\s*$') 'move' 'Impa' '00' '20' $impaFollowerAnimations[0]),
     (& $newImpaRockMovedCommandRow 22 '++[2]' (& $findImpaRockMovedSourceLine '^\s*scriptend\s*$') 'scriptend')
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\impa_stone_postpush_commands.tsv'),
-    $impaRockMovedCommandRows,
-    [Text.UTF8Encoding]::new($false))
+    $impaRockMovedCommandRows)
 
 Export-PaletteBlock 'paletteData4428' 4 'metadata\impa_stone_palette.bin'
 Copy-Item -LiteralPath $impaStoneSpriteSource.FullName -Destination (
@@ -2081,10 +2063,9 @@ $impaHelpRows = @(
             [Text.Encoding]::UTF8.GetBytes($allTexts[$impaHelpTextId]))
     ) -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\impa_help_event.tsv'),
-    $impaHelpRows,
-    [Text.UTF8Encoding]::new($false))
+    $impaHelpRows)
 
 # interaction6b_subid00 is native object code rather than interaction-script
 # bytecode. Export its linear active path through the same typed catalog while
@@ -2122,10 +2103,9 @@ $impaHelpCommandRows = @(
     (& $newImpaHelpCommandRow 7 (& $findImpaHelpSourceLine '^\s*set\s+6,\(hl\)\s*$') 'orroomflagcontinue' '40'),
     (& $newImpaHelpCommandRow 8 (& $findImpaHelpSourceLine '^\s*jp\s+interactionDelete\s*$') 'scriptend')
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\impa_help_commands.tsv'),
-    $impaHelpCommandRows,
-    [Text.UTF8Encoding]::new($false))
+    $impaHelpCommandRows)
 
 $impaFakeAnimations = [regex]::Match(
     $impaFakeSource,
@@ -2188,10 +2168,9 @@ for ($index = 0; $index -lt 3; $index++) {
         $impaSpeed300Match.Groups['value'].Value
     ) -join "`t"))
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\impa_intro_octoroks.tsv'),
-    $impaFakeRows,
-    [Text.UTF8Encoding]::new($false))
+    $impaFakeRows)
 
 $impaPaletteIndex = $paletteDataSource.IndexOf(
     'paletteData44d8:', [StringComparison]::Ordinal)
@@ -2219,7 +2198,7 @@ for ($color = 4; $color -lt 8; $color++) {
 if ($impaPaletteBytes.Count -ne 12) {
     throw "Expected 12 possessed-Impa sprite palette bytes, got $($impaPaletteBytes.Count)."
 }
-[IO.File]::WriteAllBytes(
+Write-GeneratedBytes(
     (Join-Path $destination 'metadata\impa_possessed_palette.bin'),
     $impaPaletteBytes.ToArray())
 
@@ -2271,10 +2250,9 @@ $cutsceneVocabularyRows = @(
     "wait`t1-or-more`tblock`tPseudo-op selecting delay or setcounter1 records.",
     "asm15`t3-or-4`tcontinue`tRun an object-code handler; carry is forced on return."
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\script_command_vocabulary.tsv'),
-    $cutsceneVocabularyRows,
-    [Text.UTF8Encoding]::new($false))
+    $cutsceneVocabularyRows)
 
 # Parse the active Nayru/Ralph/Ghost script lanes with one source-aware reader.
 # This is intentionally done before emitting the merged controller stream so a
@@ -2461,10 +2439,9 @@ $nayruSound = { param([string]$sound)
 if ($nayruCommandRows.Count -lt 200) {
     throw "Initial Nayru typed command stream is unexpectedly short ($($nayruCommandRows.Count - 1) records)."
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\nayru_intro_commands.tsv'),
-    $nayruCommandRows,
-    [Text.UTF8Encoding]::new($false))
+    $nayruCommandRows)
 
 # Room 1:75's pre-Black Tower sequence is seven synchronized interaction
 # lanes. Export the original per-actor scripts independently; runtime advances
@@ -2681,10 +2658,9 @@ function Export-PreBlackTowerLane {
             $script $command.Index $command.Label $command.Line `
             $runtimeOpcode $runtimeActor $arg0 $arg1 $payload))
     }
-    [IO.File]::WriteAllLines(
+    Write-GeneratedTable(
         (Join-Path $destination "cutscenes\$outputName"),
-        $rows,
-        [Text.UTF8Encoding]::new($false))
+        $rows)
 }
 
 $preBlackTowerLaneSpecs = @(
@@ -2718,10 +2694,9 @@ $preBlackTowerEventRows = @(
         $preBlackTowerExclamationAnimation
     ) -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\pre_black_tower_event.tsv'),
-    $preBlackTowerEventRows,
-    [Text.UTF8Encoding]::new($false))
+    $preBlackTowerEventRows)
 
 # Room 1:86's guard starts stage 0 of CUTSCENE_BLACK_TOWER_EXPLANATION, then
 # resumes at @cutsceneAftermath after the cutscene's same-room transition $0c.
@@ -2770,10 +2745,9 @@ for ($index = 0; $index -lt $firstSpec.Count; $index++) {
         (Get-BlackTowerGuardLine $spec[5] ([int]$spec[6])) `
         $spec[0] $spec[1] $spec[2] $spec[3] $spec[4]))
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\black_tower_guard_first.tsv'),
-    $blackTowerFirstRows,
-    [Text.UTF8Encoding]::new($false))
+    $blackTowerFirstRows)
 
 $blackTowerAfterRows = [Collections.Generic.List[string]]::new()
 $blackTowerAfterRows.Add('# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64')
@@ -2802,10 +2776,9 @@ for ($index = 0; $index -lt $afterSpec.Count; $index++) {
         (Get-BlackTowerGuardLine $spec[5] ([int]$spec[6])) `
         $spec[0] $spec[1] $spec[2] $spec[3] $spec[4]))
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\black_tower_guard_aftermath.tsv'),
-    $blackTowerAfterRows,
-    [Text.UTF8Encoding]::new($false))
+    $blackTowerAfterRows)
 
 $blackTowerCutsceneSource = Read-ImportText (
     Join-Path $Disassembly 'code\ages\cutscenes\miscCutscenes.s')
@@ -2831,10 +2804,9 @@ for ($index = 0; $index -lt $blackTowerOamEntries.Count; $index++) {
     $blackTowerOamRows.Add(
         "$index`t$($entry.Groups['y'].Value)`t$($entry.Groups['x'].Value)`t$($entry.Groups['tile'].Value)`t$($entry.Groups['flags'].Value)`tages.s:oamData_714c")
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\black_tower_stage_0_oam.tsv'),
-    $blackTowerOamRows,
-    [Text.UTF8Encoding]::new($false))
+    $blackTowerOamRows)
 
 foreach ($asset in @(
     @('map_black_tower_stage_1.bin', 'map_black_tower_stage_1.bin'),
@@ -2861,10 +2833,9 @@ $blackTowerEventRows = @(
         (ConvertTo-CutsceneCommandPayload $allTexts[0x1005])
     ) -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\black_tower_entrance_event.tsv'),
-    $blackTowerEventRows,
-    [Text.UTF8Encoding]::new($false))
+    $blackTowerEventRows)
 
 # Room $1:$76 contains INTERAC_MISCELLANEOUS_2 $dc:$10 rather than a visible
 # NPC. It opens the two entrance metatiles and arms a collision rectangle that
@@ -2980,10 +2951,9 @@ $towerDoorRows = @(
         'miscellaneous2.s:interactiondc_subid10'
     ) -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\black_tower_doorway_event.tsv'),
-    $towerDoorRows,
-    [Text.UTF8Encoding]::new($false))
+    $towerDoorRows)
 
 # Room $1:$38 is the first Maku Sprout rescue. Its placed sprout creates a
 # native controller, which in turn creates two scripted Moblin interactions;
@@ -3152,9 +3122,9 @@ foreach ($definition in $makuAdviceDefinitions) {
         (ConvertTo-CutsceneCommandPayload $allTexts[$linkedRepeat])
     ) -join "`t"))
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\maku_sprout_advice.tsv'),
-    $makuAdviceRows, [Text.UTF8Encoding]::new($false))
+    $makuAdviceRows)
 
 $makuRoomRows = @(
     "# group`troom`tsprout-id`tsprout-subid`tsprout-y`tsprout-x`tsprout-sprite`tsprout-tile-base`tsprout-palette`tsprout-animation-0`tsprout-animation-1`tsprout-animation-2`tsprout-radius-y`tsprout-radius-x`tsaved-flag`tsaved-text-id`tsaved-text-position`tsaved-text-base64`tfinished-flag`tstatue-id`tstatue-subid`tstatue-y`tstatue-x`tstatue-packed-position`tstatue-collision`tstatue-radius-y`tstatue-radius-x`tstatue-appearance-tile`tstatue-normal-animation`tstatue-alternate-animation`tstatue-sprite`tstatue-tile-base`tstatue-palette`tstatue-source-inverted`tsource",
@@ -3184,9 +3154,9 @@ $makuRoomRows = @(
         'mainData.s:group1Map38ObjectData; makuSprout.s:interactionCode88; miscellaneous1.s:interaction6b_subid15'
     ) -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\maku_sprout_room.tsv'),
-    $makuRoomRows, [Text.UTF8Encoding]::new($false))
+    $makuRoomRows)
 Copy-GeneratedFile `
     'gfx_compressible\ages\spr_linkstatue.png' `
     'gfx\spr_linkstatue.png'
@@ -3202,9 +3172,9 @@ $makuActorRows = @(
     (@('MoblinRight','96','01','30','38',$gfxNames[0x90],$makuMoblinGraphic.TileBase,$makuMoblinGraphic.Palette,
         $makuMoblinAnimations[0],$makuMoblinAnimations[1],$makuMoblinAnimations[2],$makuMoblinAnimations[3]) -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\maku_sprout_rescue_actors.tsv'),
-    $makuActorRows, [Text.UTF8Encoding]::new($false))
+    $makuActorRows)
 
 $makuEventRows = @(
     "# group`troom`tsprout-id`tsprout-subid`tcontroller-y`tcontroller-x`tmoblin-id`tmoblin-y`tleft-x`tright-x`tinitial-gate-position`tclear-tile`tgate-left`tgate-inner-left`tgate-inner-right`tgate-right`troom-flag`tadvice-flag`tsaved-flag`tstate-min`tstate-max`tmap-text-low`ttrigger-radius-y`ttrigger-radius-x`tjump-speed-z`tjump-gravity`tjump-sound`tgate-counter`tshake-counter`tfinal-text-position`tpost-text-id`tpost-text-base64",
@@ -3212,9 +3182,9 @@ $makuEventRows = @(
         $allTextPositions[0x05d4].ToString(),'05d5',
         (ConvertTo-CutsceneCommandPayload $allTexts[0x05d5])) -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\maku_sprout_rescue_event.tsv'),
-    $makuEventRows, [Text.UTF8Encoding]::new($false))
+    $makuEventRows)
 
 function Write-MakuRescueCommands {
     param(
@@ -3231,9 +3201,9 @@ function Write-MakuRescueCommands {
         $rows.Add((New-CutsceneCommandRow $script $index $label $line `
             $spec[0] $spec[1] $spec[2] $spec[3] $spec[4]))
     }
-    [IO.File]::WriteAllLines(
+    Write-GeneratedTable(
         (Join-Path $destination "cutscenes\$file"),
-        $rows, [Text.UTF8Encoding]::new($false))
+        $rows)
 }
 function Maku-Text([int]$id) { return $allTexts[$id] }
 
@@ -3419,9 +3389,9 @@ $graveyardEventRows = @(
     "# group`troom`tid`tsubid`troom-flag`tclear-tile`tshake-frames`tphase1-ordinary`tphase1-interleaved`tphase1-puffs`tphase2-ordinary`tphase2-puffs`tsource"
     "0`t5c`tdc`t01`t80`t3a`t10`t34,44`t33:3a:89:1,35:3a:89:3,43:98:ec:1,45:9a:ec:3`t48:40,48:50`t33,35,43,45`t48:30,48:60`tinteractiondcSubid01Script;scriptHelper.s:interactiondc_removeGraveyardGateTiles1/2"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\graveyard_gate_event.tsv'),
-    $graveyardEventRows, [Text.UTF8Encoding]::new($false))
+    $graveyardEventRows)
 
 $graveyardCommandRows = [Collections.Generic.List[string]]::new()
 $graveyardCommandRows.Add(
@@ -3447,9 +3417,9 @@ for ($index = 0; $index -lt $graveyardSpecs.Count; $index++) {
         'interactiondcSubid01Script' $index $sourceCommand.Label `
         $sourceCommand.Line $spec[0] $spec[1] $spec[2] $spec[3] $spec[4]))
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\graveyard_gate_commands.tsv'),
-    $graveyardCommandRows, [Text.UTF8Encoding]::new($false))
+    $graveyardCommandRows)
 
 # Present room 0:83's $dc:$02 watches the unique $c3 Bracelet rock. Once
 # Link reaches grab state $83, it runs the native Wing Dungeon collapse,
@@ -3522,9 +3492,9 @@ foreach ($spec in $wingGfxSpecs) {
         "$phase`t$($header.ToString('x2'))`t$($tileIds -join ',')`t" +
         "gfxHeaders.s:GFXH_$($header.ToString('x2'));$name.bin")
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\wing_dungeon_collapse_maps.tsv'),
-    $wingMapRows, [Text.UTF8Encoding]::new($false))
+    $wingMapRows)
 
 $wingExclamationGraphic = $interactionGraphics['159:0']
 $wingExclamationAnimation = Resolve-NpcAnimation 0x9f 0
@@ -3549,9 +3519,9 @@ $wingEventRows = @(
         'miscellaneous2.s:interactiondc_subid02;miscCutscenes.s:CUTSCENE_D2_COLLAPSE;roomGfxChanges.s:drawCollapsedWingDungeon'
     ) -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\wing_dungeon_collapse_event.tsv'),
-    $wingEventRows, [Text.UTF8Encoding]::new($false))
+    $wingEventRows)
 
 # Present-day INTERAC_REMOTE_MAKU_CUTSCENE $8a:$00 preserves sprite palette 0
 # while the background fades to black, runs the $62 confetti emitter, reports
@@ -3701,23 +3671,23 @@ $remoteMakuEventRows = @(
     "# group`troom`tid`tsubid`tvar03`tessence-mask`trequired-treasure`troom-flag`tstandard-text-id`tlinked-text-id`tstandard-map-text`tlinked-map-text`tmusic`thud-lock-byte`tfade-delay`tfade-frames`tinitial-wait`tconfetti-hold1`tconfetti-hold2`tpost-text-wait`tconfetti-pieces`tspawn-delays`tpositions-and-accelerations`ty-offset-fixed`tsparkle-initial-delay`tsparkle-repeat-delay`tsound-counter`tsound`ty-speed-limit`tx-speed-limit`tdelete-y"
     "0`t8d`t8a`t00`t00`t01`tff`t40`t05b0`t05c0`tb0`tc0`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_first_essence_event.tsv'),
-    $remoteMakuEventRows, [Text.UTF8Encoding]::new($false))
+    $remoteMakuEventRows)
 $remoteMakuWingEventRows = @(
     $remoteMakuEventRows[0]
     "0`t83`t8a`t00`t01`t00`tff`t40`t05b1`t05c1`tb1`tc1`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_wing_dungeon_event.tsv'),
-    $remoteMakuWingEventRows, [Text.UTF8Encoding]::new($false))
+    $remoteMakuWingEventRows)
 $remoteMakuHarpEventRows = @(
     $remoteMakuEventRows[0]
     "0`t3a`t8a`t00`t02`t00`t$($treasureIds['TREASURE_HARP'].ToString('x2'))`t40`t05b2`t05c2`tb2`tc2`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_harp_event.tsv'),
-    $remoteMakuHarpEventRows, [Text.UTF8Encoding]::new($false))
+    $remoteMakuHarpEventRows)
 
 $remoteMakuVisualRows = @(
     "# key`tsprite`ttile-base`tpalette`tanimation"
@@ -3725,9 +3695,9 @@ $remoteMakuVisualRows = @(
     "confetti-right`t$($gfxNames[$confettiGraphic.Gfx])`t$($confettiGraphic.TileBase)`t$($confettiGraphic.Palette)`t$($confettiAnimations[1])"
     "sparkle`t$($gfxNames[$remoteMakuSparkleGraphic.Gfx])`t$($remoteMakuSparkleGraphic.TileBase)`t$($remoteMakuSparkleGraphic.Palette)`t$remoteMakuSparkleAnimation"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_first_essence_visuals.tsv'),
-    $remoteMakuVisualRows, [Text.UTF8Encoding]::new($false))
+    $remoteMakuVisualRows)
 Copy-GeneratedFile `
     "gfx_compressible\ages\$($gfxNames[$confettiGraphic.Gfx]).png" `
     "gfx\$($gfxNames[$confettiGraphic.Gfx]).png"
@@ -3768,9 +3738,9 @@ for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
         'remoteMakuCutsceneScript' $index $sourceCommand.Label `
         $sourceCommand.Line $spec[1] $spec[2] $spec[3] $spec[4] $spec[5]))
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_first_essence_commands.tsv'),
-    $remoteMakuCommandRows, [Text.UTF8Encoding]::new($false))
+    $remoteMakuCommandRows)
 
 $remoteMakuWingCommandRows = [Collections.Generic.List[string]]::new()
 $remoteMakuWingCommandRows.Add($remoteMakuCommandRows[0])
@@ -3791,9 +3761,9 @@ for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
         'remoteMakuCutsceneScript' $index $sourceCommand.Label `
         $sourceCommand.Line $opcode $actor $arg0 $arg1 $payload))
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_wing_dungeon_commands.tsv'),
-    $remoteMakuWingCommandRows, [Text.UTF8Encoding]::new($false))
+    $remoteMakuWingCommandRows)
 $remoteMakuHarpCommandRows = [Collections.Generic.List[string]]::new()
 $remoteMakuHarpCommandRows.Add($remoteMakuCommandRows[0])
 for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
@@ -3813,9 +3783,9 @@ for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
         'remoteMakuCutsceneScript' $index $sourceCommand.Label `
         $sourceCommand.Line $opcode $actor $arg0 $arg1 $payload))
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_harp_commands.tsv'),
-    $remoteMakuHarpCommandRows, [Text.UTF8Encoding]::new($false))
+    $remoteMakuHarpCommandRows)
 
 # Room 3:ae contains INTERAC_HARP_OF_AGES_SPAWNER $b3:$00. It creates the
 # static Harp treasure and its attached $84:$0c sparkle, then hands the
@@ -3958,18 +3928,18 @@ $harpEventRows = @(
     "# group`troom`tspawner-id`tspawner-subid`tspawner-y`tspawner-x`tharp-y`tharp-x`troom-flag`tharp-treasure`tharp-object`tsparkle-id`tsparkle-subid`tfade-delay`tfade-frames`tblack-hold`tnayru-id`tnayru-subid`tnayru-flicker`tnayru-music`ttextbox-flags`tsong-sound`tsong-initial-delay`tsong-phase-frames`tsong-phases`tsong-native-frames`tfinal-fade-delay`tfinal-fade-frames`techoes-treasure`techoes-object",
     "3`tae`tb3`t00`t28`t58`t38`t58`t20`t11`tTREASURE_OBJECT_HARP_00`t84`t0c`t2`t65`t40`t36`t07`t30`t08`t04`tad`t4`t52`t4`t214`t4`t129`t25`tTREASURE_OBJECT_TUNE_OF_ECHOES_00"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\harp_of_ages_event.tsv'),
-    $harpEventRows, [Text.UTF8Encoding]::new($false))
+    $harpEventRows)
 
 $harpVisualRows = @(
     "# key`tid`tsubid`tsprite`textra-sprite`ttile-base`tpalette`tsource-offset`tanimation-0`tanimation-2`tanimation-7",
     "Nayru`t36`t07`t$($gfxNames[$harpNayruGraphic.Gfx])`t$harpNayruExtraSprite`t$($harpNayruGraphic.TileBase)`t$($harpNayruGraphic.Palette)`t0000`t`t$harpNayruIdleAnimation`t$harpNayruSingingAnimation",
     "Sparkle`t84`t0c`t$($gfxNames[$harpSparkleGraphic.Gfx])`t`t$($harpSparkleGraphic.TileBase)`t$($harpSparkleGraphic.Palette)`t$($harpSparkleSourceOffset.ToString('x4'))`t$harpSparkleAnimation`t`t"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\harp_of_ages_visuals.tsv'),
-    $harpVisualRows, [Text.UTF8Encoding]::new($false))
+    $harpVisualRows)
 
 $harpCommandRows = [Collections.Generic.List[string]]::new()
 $harpCommandRows.Add(
@@ -4005,9 +3975,9 @@ for ($index = 0; $index -lt $harpCommandSpecs.Count; $index++) {
         'nayruScript07' $index $sourceCommand.Label $sourceCommand.Line `
         $spec[1] $spec[2] $spec[3] $spec[4] $spec[5]))
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\harp_of_ages_commands.tsv'),
-    $harpCommandRows, [Text.UTF8Encoding]::new($false))
+    $harpCommandRows)
 
 # Room 0:56 comedian trade. INTERAC_COMEDIAN is a script-owned NPC whose
 # native wrapper initializes the script twice on its first update, then turns
@@ -4229,9 +4199,9 @@ foreach ($command in $comedianCommands) {
         $command.Script $command.Index $command.Label $command.Line `
         $opcode $actor "$arg0" "$arg1" $payload))
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\comedian_commands.tsv'),
-    $comedianCommandRows, [Text.UTF8Encoding]::new($false))
+    $comedianCommandRows)
 
 $comedianEventRows = @(
     "# group`troom`tid`tsubid`tanimation0`tanimation1`tanimation4`tanimation5`tcollision-y`tcollision-x`troom-flag`tprogress-binding`trequired-trade`treward-treasure`treward-parameter`treward-object`tinitial-script-updates"
@@ -4243,9 +4213,9 @@ $comedianEventRows = @(
         'TREASURE_OBJECT_TRADEITEM_07', '2'
     ) -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\comedian_event.tsv'),
-    $comedianEventRows, [Text.UTF8Encoding]::new($false))
+    $comedianEventRows)
 
 # Rooms 0:7c and 2:2e Poe encounters. All placed INTERAC_POE records use the
 # same poeScript; Interaction.var03 selects the first, tomb, or final meeting.
@@ -4426,9 +4396,9 @@ for ($index = 0; $index -lt $poeCommandSpecs.Count; $index++) {
         'poeScript' $index $sourceCommand.Label $sourceCommand.Line `
         $spec[1] $spec[2] $spec[3] $spec[4] $spec[5]))
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\poe_commands.tsv'),
-    $poeCommandRows, [Text.UTF8Encoding]::new($false))
+    $poeCommandRows)
 
 $poeEventRows = @(
     "# group`troom`tid`tsubid`tfirst-var03`ttomb-var03`tfinal-var03`tprogress-flag`titem-flag`ttomb-group`ttomb-room`tcollision-y`tcollision-x`tdisappear-wait`tflicker-count`tflicker-address`tflicker-mask`tpoof-sound`treward-treasure`treward-parameter`treward-object`tspeed-100`tinitial-script-updates`tanimation0`tanimation1`tanimation2`tanimation3"
@@ -4440,9 +4410,9 @@ $poeEventRows = @(
         $poeAnimations[2], $poeAnimations[3]
     ) -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\poe_event.tsv'),
-    $poeEventRows, [Text.UTF8Encoding]::new($false))
+    $poeEventRows)
 
 # Room 2:e6 Mask Salesman trade. INTERAC_MASK_SALESMAN is a script-owned NPC
 # whose native wrapper runs the script once on its initialization update,
@@ -4630,9 +4600,9 @@ foreach ($command in $maskSalesmanCommands) {
         $command.Script $command.Index $command.Label $command.Line `
         $opcode $actor "$arg0" "$arg1" $payload))
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\mask_salesman_commands.tsv'),
-    $maskSalesmanCommandRows, [Text.UTF8Encoding]::new($false))
+    $maskSalesmanCommandRows)
 
 $maskSalesmanEventRows = @(
     "# group`troom`tid`tsubid`tanimation0`tanimation1`tinitial-animation`tcollision-y`tcollision-x`troom-flag`trequired-trade`treward-treasure`treward-parameter`treward-object`tinitial-script-updates`talways-update"
@@ -4643,9 +4613,9 @@ $maskSalesmanEventRows = @(
         'TREASURE_OBJECT_TRADEITEM_04', '1', '1'
     ) -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\mask_salesman_event.tsv'),
-    $maskSalesmanEventRows, [Text.UTF8Encoding]::new($false))
+    $maskSalesmanEventRows)
 
 # Fairies' Woods hide-and-seek. INTERAC_FAIRY_HIDING_MINIGAME ($6c) owns
 # three interaction scripts, while INTERAC_FOREST_FAIRY ($49) implements the
@@ -4816,9 +4786,9 @@ foreach ($textId in 0x1100..0x110c) {
     $fairyTextRows.Add(
         "$($textId.ToString('x4'))`t$(ConvertTo-CutsceneCommandPayload $allTexts[$textId])")
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_text.tsv'),
-    $fairyTextRows, [Text.UTF8Encoding]::new($false))
+    $fairyTextRows)
 
 $introBody = [regex]::Match(
     $fairyScriptSource,
@@ -4900,9 +4870,9 @@ Add-FairyCommand $fairyIntroRows 'fairyHidingMinigame_subid00Script' 15 `
 Add-FairyCommand $fairyIntroRows 'fairyHidingMinigame_subid00Script' 16 `
     'fairyHidingMinigame_subid00Script' '^\s*scriptend\s*$' `
     'scriptend' '' '' '' ''
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_intro_commands.tsv'),
-    $fairyIntroRows, [Text.UTF8Encoding]::new($false))
+    $fairyIntroRows)
 
 $fairyRevealRows = [Collections.Generic.List[string]]::new()
 $fairyRevealRows.Add(
@@ -4935,9 +4905,9 @@ for ($index = 0; $index -lt $revealPatterns.Count; $index++) {
         'fairyHidingMinigame_subid01Script' $line `
         $entry[0] $entry[1] $entry[2] $entry[3] $entry[4]))
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_reveal_commands.tsv'),
-    $fairyRevealRows, [Text.UTF8Encoding]::new($false))
+    $fairyRevealRows)
 
 $fairyExitRows = [Collections.Generic.List[string]]::new()
 $fairyExitRows.Add(
@@ -4974,9 +4944,9 @@ for ($index = 0; $index -lt $exitCommands.Count; $index++) {
         'fairyHidingMinigame_subid02Script' $index $entry[0] $line `
         $entry[1] $entry[2] $entry[3] $entry[4] $entry[5]))
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_exit_commands.tsv'),
-    $fairyExitRows, [Text.UTF8Encoding]::new($false))
+    $fairyExitRows)
 
 $fairyEventRows = @(
     "# group`tstart-room`texit-room`treset-room`tessence-treasure`tactive-address`tfound-address`tsignal-address`tcompletion-flag`tunscrambled-flag`thidden-delay`texit-y`texit-x`texit-radius-y`texit-radius-x`tmagic-sound`tpuff-sound`tmystery-sound`tnormal-fade-out`tnormal-fade-in`tfast-fade-in`tcompletion-hold`tdelayed-fade-in`tnormal-fade-speed`tfast-fade-speed`tdelayed-fade-refill`tforest-fairy-sprite`tfairy-tile-base`tanimation0`tanimation1`tsparkle-sprite`tsparkle-tile-base`tsparkle-palette`tsparkle-animation"
@@ -4993,9 +4963,9 @@ $fairyEventRows = @(
         $forestSparkleGraphic.Palette, $forestSparkleAnimation
     ) -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_event.tsv'),
-    $fairyEventRows, [Text.UTF8Encoding]::new($false))
+    $fairyEventRows)
 
 $fairyMovementOutput = [Collections.Generic.List[string]]::new()
 $fairyMovementOutput.Add(
@@ -5019,9 +4989,9 @@ for ($index = 0; $index -lt $fairyMovementRows.Count; $index++) {
         "forestFairy.s:@data+$($index.ToString('x2'))"
     ) -join "`t")
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_movement.tsv'),
-    $fairyMovementOutput, [Text.UTF8Encoding]::new($false))
+    $fairyMovementOutput)
 
 # SPEED_200 is raw speed byte $50. getPositionOffsetForVelocity swaps its
 # nibbles and indexes objectSpeedTable-$50, producing row offset $04b0. The
@@ -5053,9 +5023,9 @@ for ($angle = 0; $angle -lt 32; $angle++) {
     $fairyVelocityRows.Add(
         "$($angle.ToString('x2'))`t$y`t$x`tbank3.objectSpeedTable:SPEED_200")
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_velocity.tsv'),
-    $fairyVelocityRows, [Text.UTF8Encoding]::new($false))
+    $fairyVelocityRows)
 
 $fairyHiddenRows = @(
     "# room`tpacked-position`tfairy-index`tsource"
@@ -5063,9 +5033,9 @@ $fairyHiddenRows = @(
     "80`t54`t04`tfairyHidingMinigame.s:@table"
     "91`t32`t05`tfairyHidingMinigame.s:@table"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_hidden_spots.tsv'),
-    $fairyHiddenRows, [Text.UTF8Encoding]::new($false))
+    $fairyHiddenRows)
 
 $fairyHidingRoomRows = @(
     "# index`troom`tpreset`tsource"
@@ -5073,9 +5043,9 @@ $fairyHidingRoomRows = @(
     "1`t80`t0d`tmiscCutscenes.s:CUTSCENE_FAIRIES_HIDE"
     "2`t91`t0e`tmiscCutscenes.s:CUTSCENE_FAIRIES_HIDE"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_hiding_rooms.tsv'),
-    $fairyHidingRoomRows, [Text.UTF8Encoding]::new($false))
+    $fairyHidingRoomRows)
 
 $fairyDiscoveredRows = @(
     "# index`ty`tx`tpalette`tanimation`tsource"
@@ -5083,9 +5053,9 @@ $fairyDiscoveredRows = @(
     "1`t48`t68`t2`t$forestFairyAnimation1`tforestFairy.s:forestFairy_discoveredPositions"
     "2`t28`t50`t3`t$forestFairyAnimation1`tforestFairy.s:forestFairy_discoveredPositions"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_discovered.tsv'),
-    $fairyDiscoveredRows, [Text.UTF8Encoding]::new($false))
+    $fairyDiscoveredRows)
 
 $scramblerRooms = @(0x70, 0x71, 0x72, 0x80, 0x81, 0x82, 0x90, 0x91, 0x92)
 $scramblerValues = @(
@@ -5108,9 +5078,9 @@ for ($index = 0; $index -lt $scramblerRooms.Count; $index++) {
         (($values | ForEach-Object { $_.ToString('x2') }) -join "`t") +
         "`tbank1.s:@forestScramblerTable")
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_scrambler.tsv'),
-    $fairyScramblerRows, [Text.UTF8Encoding]::new($false))
+    $fairyScramblerRows)
 
 # Present indoor room 2:e9 is the Lynna shooting gallery. INTERAC_SHOOTING_GALLERY
 # $30:$00 owns the typed conversation and cleanup scripts; its dynamically
@@ -5411,12 +5381,12 @@ $shootingGalleryMainRows = Convert-ShootingGalleryCommandRows `
     $shootingGalleryMainCommands 'main'
 $shootingGalleryCleanupRows = Convert-ShootingGalleryCommandRows `
     $shootingGalleryCleanupCommands 'cleanup'
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_main.tsv'),
-    $shootingGalleryMainRows, [Text.UTF8Encoding]::new($false))
-[IO.File]::WriteAllLines(
+    $shootingGalleryMainRows)
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_cleanup.tsv'),
-    $shootingGalleryCleanupRows, [Text.UTF8Encoding]::new($false))
+    $shootingGalleryCleanupRows)
 
 $shootingGalleryRetryIndex = (
     $shootingGalleryMainCommands |
@@ -5462,12 +5432,12 @@ for ($layout = 0; $layout -lt 10; $layout++) {
         "$layout`t$($tiles -join "`t")`t" +
         'shootingGallery.s:shootingGallery_targetTiles_lynna')
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_targets.tsv'),
-    $shootingGalleryTargetRows, [Text.UTF8Encoding]::new($false))
-[IO.File]::WriteAllLines(
+    $shootingGalleryTargetRows)
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_layouts.tsv'),
-    $shootingGalleryLayoutRows, [Text.UTF8Encoding]::new($false))
+    $shootingGalleryLayoutRows)
 
 $shootingGalleryScoreMatch = [regex]::Match(
     $shootingGalleryNativeSource,
@@ -5530,9 +5500,9 @@ for ($index = 0; $index -lt $shootingGalleryHitLabels.Count; $index++) {
         "$(ConvertTo-CutsceneCommandPayload $allTexts[$textId])`t" +
         "scripts.s:$label")
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_results.tsv'),
-    $shootingGalleryResultRows, [Text.UTF8Encoding]::new($false))
+    $shootingGalleryResultRows)
 
 $shootingGalleryPrintBody = [regex]::Match(
     $shootingGalleryScriptSource,
@@ -5577,9 +5547,9 @@ $shootingGalleryPrintRows = @(
         (ConvertTo-CutsceneCommandPayload $allTexts[0x0814])
     ) -join "`t")
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_result_script.tsv'),
-    $shootingGalleryPrintRows, [Text.UTF8Encoding]::new($false))
+    $shootingGalleryPrintRows)
 
 $shootingGalleryGraphic = $interactionGraphics['149:0']
 $shootingGalleryBallAnimation = Resolve-NpcAnimation 0x95 0
@@ -5609,17 +5579,17 @@ $shootingGalleryDebrisRows = @(
     "# sprite`ttile-base`tblue-palette`tred-palette`tanimation`tcount`tlifetime`tspeed`tangle0`tangle1`tangle2`tangle3`tsource",
     "spr_common_sprites`t2`t1`t2`t$shootingGalleryDebrisAnimation`t4`t12`t40`t04`t0c`t14`t1c`tball.s:func_6bca;fallingRock.s:fallingRock_subid04/subid05"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_debris.tsv'),
-    $shootingGalleryDebrisRows, [Text.UTF8Encoding]::new($false))
+    $shootingGalleryDebrisRows)
 
 $shootingGalleryEventRows = @(
     "# group`troom`tid`tsubid`tcost`trounds`tretry-command`tcontroller-y`tcontroller-x`tinitial-delay`tpitch-delay`tpuff-delay`tlayout-delay`tbetween-round-delay`tentrance0`tentrance1`topen0`topen1`tclosed0`tclosed1`tfloor`ttarget-blue`ttarget-fairy`ttarget-red`ttarget-imp`tball-fast`tball-slow`tball-reflected`tball-angle`tball-radius-y`tball-radius-x`tball-sprite`tball-tile-base`tball-palette`tball-animation`tfade-frames`tminigame-music`twhistle-sound`tbaseball-sound`tthrow-sound`tslow-sound`tclink-sound`tswitch-sound`terror-sound`tstrike-sound`tpoof-sound`tcan-buy-flute-flag`tflute-score`tring-score`tgasha-score`trupee-score`theart-score`tflute-object`tflute-object-parameter`tgasha-object`tgasha-object-parameter`tsource",
     "2`te9`t30`t00`t10`t10`t$shootingGalleryRetryIndex`t2a`t50`t120`t40`t10`t90`t20`t74`t75`te0`te1`tc6`tc6`ta0`td9`td7`tdc`td8`t64`t3c`t78`t10`t02`t02`t$shootingGalleryBallSprite`t$($shootingGalleryGraphic.TileBase)`t$($shootingGalleryGraphic.Palette)`t$shootingGalleryBallAnimation`t32`t02`tcc`t99`t51`t59`t50`t7e`t5a`ta6`t98`t1d`t50`t350`t250`t150`t50`tTREASURE_OBJECT_FLUTE_00`t0b`tTREASURE_OBJECT_GASHA_SEED_00`t01`tmainData.s:group2Mape9ObjectData;shootingGallery.s;ball.s;fallingRock.s;scripts.s;scriptHelper.s"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_event.tsv'),
-    $shootingGalleryEventRows, [Text.UTF8Encoding]::new($false))
+    $shootingGalleryEventRows)
 
 $shootingGalleryRingMatch = [regex]::Match(
     $shootingGalleryHelperSource,
@@ -5652,6 +5622,6 @@ for ($index = 0; $index -lt 16; $index++) {
         "$index`t$($shootingGalleryRingValues[$name].ToString('x2'))`t" +
         'scriptHelper.s:shootingGallery_giveRandomRingToLink@ringList')
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_rings.tsv'),
-    $shootingGalleryRingRows, [Text.UTF8Encoding]::new($false))
+    $shootingGalleryRingRows)

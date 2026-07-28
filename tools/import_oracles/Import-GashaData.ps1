@@ -243,10 +243,9 @@ foreach ($table in @(
     @('metadata\gasha_disappearance.tsv',$gashaDisappearanceRows),
     @('metadata\gasha_constants.tsv',$gashaConstantsRows),
     @('metadata\treasure_gasha_maturity.tsv',$gashaMaturityRows))) {
-    [IO.File]::WriteAllLines(
+    Write-GeneratedTable(
         (Join-Path $destination $table[0]),
-        $table[1],
-        [Text.UTF8Encoding]::new($false))
+        $table[1])
 }
 
 foreach ($asset in @(

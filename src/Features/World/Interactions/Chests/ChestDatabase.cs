@@ -7,7 +7,7 @@ public sealed class ChestDatabase
 {
 
     private readonly Dictionary<int, ChestRecord> _records = new();
-    private readonly Dictionary<int, List<ChestRecord>> _roomRecords = new();
+    private readonly Lookup<int, ChestRecord> _roomRecords = new();
 
     public ChestDatabase()
     {
@@ -38,13 +38,8 @@ public sealed class ChestDatabase
                 row.Base64Utf8(10));
             _records.Add(MakeKey(record.Group, record.Room, record.Position), record);
 
-            int roomKey = MakeRoomKey(record.Group, record.Room);
-            if (!_roomRecords.TryGetValue(roomKey, out List<ChestRecord>? records))
-            {
-                records = new List<ChestRecord>();
-                _roomRecords.Add(roomKey, records);
-            }
-            records.Add(record);
+            _roomRecords.Add(
+                MakeRoomKey(record.Group, record.Room), record);
         }
 
         if (_records.Count != 133)
@@ -55,9 +50,7 @@ public sealed class ChestDatabase
         _records.TryGetValue(MakeKey(group, room, position), out record);
 
     public IReadOnlyList<ChestRecord> GetRoomRecords(int group, int room) =>
-        _roomRecords.TryGetValue(MakeRoomKey(group, room), out List<ChestRecord>? records)
-            ? records
-            : Array.Empty<ChestRecord>();
+        _roomRecords.ValuesOrEmpty(MakeRoomKey(group, room));
 
     private static int MakeKey(int group, int room, int position) =>
         (group << 16) | (room << 8) | position;

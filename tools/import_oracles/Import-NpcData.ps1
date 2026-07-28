@@ -238,43 +238,8 @@ foreach ($line in Read-ImportLines (Join-Path $Disassembly "data\ages\objectGfxH
 # frame byte 1 is a byte offset into the interaction's OAM pointer table (the
 # engine adds it directly before reading a word), not a sprite-sheet column.
 $interactionAnimationSource = Read-ImportText (Join-Path $Disassembly "data\ages\interactionAnimations.s")
-function Read-NpcDwTables([string]$source, [string]$tableLabelPattern, [string]$entryPattern) {
-    $result = @{}
-    $aliases = [Collections.Generic.List[string]]::new()
-    $entries = [Collections.Generic.List[string]]::new()
-    foreach ($line in ($source -split '\r?\n')) {
-        $labelMatch = [regex]::Match($line, "^(?<label>$tableLabelPattern):")
-        if ($labelMatch.Success) {
-            if ($entries.Count -gt 0) {
-                foreach ($alias in $aliases) { $result[$alias] = @($entries) }
-                $aliases.Clear()
-                $entries.Clear()
-            }
-            $aliases.Add($labelMatch.Groups['label'].Value)
-            continue
-        }
-        if ($aliases.Count -eq 0) { continue }
-        $entryMatch = [regex]::Match($line, "^\s*\.dw\s+(?<entry>$entryPattern)")
-        if ($entryMatch.Success) {
-            $entries.Add($entryMatch.Groups['entry'].Value)
-            continue
-        }
-        if ($line -match '^[A-Za-z0-9_@]+:') {
-            if ($entries.Count -gt 0) {
-                foreach ($alias in $aliases) { $result[$alias] = @($entries) }
-            }
-            $aliases.Clear()
-            $entries.Clear()
-        }
-    }
-    if ($entries.Count -gt 0) {
-        foreach ($alias in $aliases) { $result[$alias] = @($entries) }
-    }
-    return $result
-}
-
-$npcAnimationTables = Read-NpcDwTables $interactionAnimationSource 'interaction[0-9a-f]{2}Animations' 'interactionAnimation[0-9a-f]+'
-$npcOamPointerTables = Read-NpcDwTables $interactionAnimationSource 'interaction[0-9a-f]{2}OamDataPointers' 'interactionOamData[0-9a-f]+'
+$npcAnimationTables = Read-AssemblyDwTables $interactionAnimationSource 'interaction[0-9a-f]{2}Animations' 'interactionAnimation[0-9a-f]+'
+$npcOamPointerTables = Read-AssemblyDwTables $interactionAnimationSource 'interaction[0-9a-f]{2}OamDataPointers' 'interactionOamData[0-9a-f]+'
 $npcAnimationFrames = @{}
 $npcAnimationLoopStarts = @{}
 $npcAnimationLabels = @{}
@@ -2383,10 +2348,9 @@ foreach ($spec in $room20eStateSpecs) {
 if ($room20eStateRows.Count -ne 5) {
     throw "Expected four room 2:0e NPC state records, got $($room20eStateRows.Count - 1)."
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\room20e_npc_states.tsv'),
-    $room20eStateRows,
-    [Text.UTF8Encoding]::new($false))
+    $room20eStateRows)
 
 # Past room 1:49's three placed characters are one shared interaction: the
 # father and son play catch through wTmpcfc0.genericCutscene.cfd3 and
@@ -2758,10 +2722,9 @@ $nayruHouseRows = @(
     "# group`troom`tinteraction-id`tsubid`tstair-position`tstair-tile`tpreserve-rendered`tsource",
     "3`t9e`t4f`t00`t22`t45`t1`timpaNpc.s:impaNpc_subid00"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\nayru_house.tsv'),
-    $nayruHouseRows,
-    [Text.UTF8Encoding]::new($false))
+    $nayruHouseRows)
 
 # Ordinary NPC scripts can replace their dialogue without replacing the room
 # object. Export the complete getGameProgress_1-indexed tables used by Lynna's
@@ -2915,10 +2878,9 @@ $npcDialogueRows.Add(
 if ($npcDialogueRows.Count -ne 118) {
     throw "Expected 117 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_dialogue.tsv'),
-    $npcDialogueRows,
-    [Text.UTF8Encoding]::new($false))
+    $npcDialogueRows)
 
 # INTERAC_LINKED_GAME_GHINI `$cb and INTERAC_GREAT_FAIRY `$d5:$00 both
 # install linkedGameNpcScript. Export each complete five-text choice loop and
@@ -3060,18 +3022,15 @@ foreach ($linkedNpc in @(
         }) + @([string]$linkedNpc.Source)
     $linkedNpcRows.Add($columns -join "`t")
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\linked_game_npcs.tsv'),
-    $linkedNpcRows,
-    [Text.UTF8Encoding]::new($false))
-[IO.File]::WriteAllLines(
+    $linkedNpcRows)
+Write-GeneratedTable(
     (Join-Path $destination 'objects\linked_secret_cipher.tsv'),
-    $linkedSecretCipherRows,
-    [Text.UTF8Encoding]::new($false))
-[IO.File]::WriteAllLines(
+    $linkedSecretCipherRows)
+Write-GeneratedTable(
     (Join-Path $destination 'objects\linked_secret_symbols.tsv'),
-    $linkedSecretSymbolRows,
-    [Text.UTF8Encoding]::new($false))
+    $linkedSecretSymbolRows)
 
 # State-selected position overrides remain separate from visibility and text.
 # INTERAC_MISC_MAN_2 $44:$04 moves only in getGameProgress_2 state $06;
@@ -3081,10 +3040,9 @@ $npcPositionRows = @(
     "44`t04`t*`tgame-progress-2`t06`t58`t78`tmiscMan2.s:@subid4",
     "58`t02`t*`tcurrent-room-flag`t80`t38`t58`thardhatWorker.s:@@state0"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_positions.tsv'),
-    $npcPositionRows,
-    [Text.UTF8Encoding]::new($false))
+    $npcPositionRows)
 
 # INTERAC_MISCELLANEOUS_2 $dc:$07 is a general static Heart Piece spawner.
 # Its state-0 handler deletes itself when ROOMFLAG_ITEM is set; otherwise it
@@ -3141,10 +3099,9 @@ foreach ($line in $mainObjectLines) {
 if ($tileChangeWatcherRows.Count -ne 9) {
     throw "Expected eight tile-change watchers, got $($tileChangeWatcherRows.Count - 1)."
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\tile_change_watchers.tsv'),
-    $tileChangeWatcherRows,
-    [Text.UTF8Encoding]::new($false))
+    $tileChangeWatcherRows)
 
 if ($miscellaneous2Source -notmatch '(?ms)^interactiondc_subid07:\s+call getThisRoomFlags\s+and ROOMFLAG_ITEM\s+jp nz,interactionDelete\s+ld bc,TREASURE_OBJECT_HEART_PIECE_00\s+call createTreasure\s+call objectCopyPosition\s+jp interactionDelete' -or
     $treasureObjectSource -notmatch '(?m)^\s*m_TreasureSubid \$0a, \$01, \$17, \$3a, TREASURE_OBJECT_HEART_PIECE_00\s*$' -or
@@ -3188,10 +3145,9 @@ foreach ($line in $mainObjectLines) {
 if ($groundTreasureRows.Count -ne 9) {
     throw "Expected eight static Heart Piece spawners, got $($groundTreasureRows.Count - 1)."
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\ground_treasures.tsv'),
-    $groundTreasureRows,
-    [Text.UTF8Encoding]::new($false))
+    $groundTreasureRows)
 
 # PART_DARK_ROOM_HANDLER $08 scans the complete 16-byte-stride large-room
 # layout and creates a permanent PART_LIGHTABLE_TORCH $06 for every unlit
@@ -3272,14 +3228,12 @@ $darkRoomConstantRows = @(
     "above-screen-margin`t8"
     "above-screen-fallback`t-128"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\dark_room_interactions.tsv'),
-    $darkRoomRows,
-    [Text.UTF8Encoding]::new($false))
-[IO.File]::WriteAllLines(
+    $darkRoomRows)
+Write-GeneratedTable(
     (Join-Path $destination 'objects\dark_room_constants.tsv'),
-    $darkRoomConstantRows,
-    [Text.UTF8Encoding]::new($false))
+    $darkRoomConstantRows)
 
 # Present room 0:45 and interior 3:fb form Troy's house pair. The exterior
 # boy exists only in getGameProgress_1 state $03. Inside, Troy's first talk
@@ -3332,10 +3286,9 @@ for ($choice = 0; $choice -lt $troyAnimalTextIds.Count; $choice++) {
         "$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$troyRepeatTextId])))`t" +
         "$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$animalTextId])))")
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\troy_house.tsv'),
-    $troyHouseRows,
-    [Text.UTF8Encoding]::new($false))
+    $troyHouseRows)
 
 # Room interactions frequently delete their placed NPC during state 0 based
 # on global flags or room flags. Export those predicates separately from the
@@ -3832,10 +3785,9 @@ Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symme
 if ($npcVisibilityRows.Count -ne 342) {
     throw "Expected 341 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_visibility.tsv'),
-    $npcVisibilityRows,
-    [Text.UTF8Encoding]::new($false))
+    $npcVisibilityRows)
 
 # Initial Nayru cutscene in present room $39. The room contains the unpositioned
 # INTERAC_MISCELLANEOUS_1 $6b:$01 controller; it creates the seven actors in
@@ -3951,10 +3903,9 @@ for ($actorIndex = 0; $actorIndex -lt $nayruIntroActors.Count; $actorIndex++) {
     ) + $animations + @($initialAnimation.ToString(), $extraSprite)
     $nayruActorRows.Add($columns -join "`t")
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\nayru_intro_actors.tsv'),
-    $nayruActorRows,
-    [Text.UTF8Encoding]::new($false))
+    $nayruActorRows)
 
 # The three visions after TX_5607 are not ordinary loads of these rooms. The
 # singing handler indexes objectTable2, runs those interactions until one writes
@@ -3990,10 +3941,9 @@ $nayruVignetteRows = @(
     "1`t0`t5a`t600",
     "2`t2`t0e`t645"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\nayru_intro_vignettes.tsv'),
-    $nayruVignetteRows,
-    [Text.UTF8Encoding]::new($false))
+    $nayruVignetteRows)
 
 $nayruMonkeyRows = @(
     '# index`ty`tx`tstone-counter`tanimation',
@@ -4016,10 +3966,9 @@ if (-not $nayruMonkeyTable.Success -or
     $nayruVignetteMonkeySource -notmatch '(?ms)^monkey8Disappearance:.*?ld \(hl\),\$5a.*?ld \(hl\),\$b4.*?ld \(hl\),\$1e.*?ld \(\$cfdf\),a') {
     throw 'The ten-monkey disappearance positions, counters, or terminal timing changed.'
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\nayru_intro_vignette_monkeys.tsv'),
-    $nayruMonkeyRows,
-    [Text.UTF8Encoding]::new($false))
+    $nayruMonkeyRows)
 
 # INTERAC_FLOATING_IMAGE $a0:$01 supplies Nayru's 70-update singing notes.
 # PART_LIGHTNING $27 supplies both the portal strike and the first vignette's
@@ -4106,10 +4055,9 @@ $nayruEffectRows = @(
     "MusicNote`tspr_common_sprites`t68`t1`t70`t0.375`t3`t1`t$noteVelocityXFixed`t$noteVelocityYFixed`t$nayruMusicNoteAnimation",
     "Lightning`tspr_projectiles_2`t14`t4`t20`t0`t0`t0`t0`t0`t$($part27Frames -join '|')"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\nayru_intro_effects.tsv'),
-    $nayruEffectRows,
-    [Text.UTF8Encoding]::new($false))
+    $nayruEffectRows)
 
 $nayruTextIds = @(
     0x3214, 0x5705, 0x2510, 0x5704, 0x5702, 0x5703, 0x5706,
@@ -4148,10 +4096,9 @@ foreach ($textId in $nayruTextIds) {
         [Text.Encoding]::UTF8.GetBytes($message))
     $nayruTextRows.Add("$($textId.ToString('x4'))`t$textboxPosition`t$encoded")
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\nayru_intro_text.tsv'),
-    $nayruTextRows,
-    [Text.UTF8Encoding]::new($false))
+    $nayruTextRows)
 
 $nayruMiscSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous1.s')
@@ -4191,10 +4138,9 @@ $nayruEventRows = @(
     '# group`troom`tintro-flag`tcompletion-room-flag`tbear-room-flag`ttrigger-x`ttrigger-y`tbear-delay`tpost-bear-text`tsinging-frames`tskip-window`tsprite-scroll-period`tsprite-scroll-steps`tpossession-fade-hold`tportal-position`tportal-tile`tvignette-count`tnpc-jump-speed-z`tnpc-jump-gravity`tdark-fade-frames`twhite-fade-out-frames`twhite-fade-in-frames`tnayru-ascent-speed-z`tnayru-transfer-z`tnayru-landing-delay`tnayru-fall-speed-z`tnayru-fall-gravity',
     "0`t39`t0a`t40`t80`t96`t62`t120`t30`t600`t240`t8`t40`t60`t22`td7`t3`t-512`t48`t32`t32`t97`t-1024`t-32768`t30`t64`t32"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\nayru_intro_event.tsv'),
-    $nayruEventRows,
-    [Text.UTF8Encoding]::new($false))
+    $nayruEventRows)
 
 # The five audience interactions respond independently to controller signal
 # $10. Preserve their counters, cardinal speeds, jump Z speeds/gravity, repeat
@@ -4215,10 +4161,9 @@ $nayruFleeRows = @(
     "Boy`t0`t2`t1.5`t-384`t32`t0`t0`t0`t0`t1`t2`t0",
     "Bird`t30`t1`t1.0`t-192`t32`t1`t-256`t0`t0`t0`t2`t3"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\nayru_intro_flee.tsv'),
-    $nayruFleeRows,
-    [Text.UTF8Encoding]::new($false))
+    $nayruFleeRows)
 
 # State 4 blends BG palettes 2-7 into paletteData44a8 before PALH_99 is
 # installed. Export its six exact palettes for the 32-update runtime blend.
@@ -4261,10 +4206,9 @@ foreach ($entry in [regex]::Matches(
 if ($nayruOamRows.Count -ne 40) {
     throw "Expected 39 Nayru singing OAM entries, got $($nayruOamRows.Count - 1)."
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\nayru_singing_oam.tsv'),
-    $nayruOamRows,
-    [Text.UTF8Encoding]::new($false))
+    $nayruOamRows)
 
 # Impa switches to the separate collapsed sheet when Veran leaves her body.
 Copy-GeneratedFile 'gfx_compressible\ages\spr_impafainted.png' 'gfx\spr_impafainted.png'
@@ -4280,185 +4224,148 @@ foreach ($spriteName in $npcSpriteNames) {
     Copy-Item -LiteralPath $sourceSprite.FullName -Destination $targetSprite -Force
 }
 $npcPath = Join-Path $destination "objects\npcs.tsv"
-[IO.File]::WriteAllLines($npcPath, $npcRows, [Text.UTF8Encoding]::new($false))
+Write-GeneratedTable($npcPath, $npcRows)
 $vasuShopTextPath = Join-Path $destination "objects\vasu_shop_texts.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $vasuShopTextPath,
-    $vasuShopTextRows,
-    [Text.UTF8Encoding]::new($false))
+    $vasuShopTextRows)
 $vasuShopAnimationPath = Join-Path $destination "objects\vasu_shop_animations.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $vasuShopAnimationPath,
-    $vasuShopAnimationRows,
-    [Text.UTF8Encoding]::new($false))
+    $vasuShopAnimationRows)
 $vasuShopConstantsPath = Join-Path $destination "objects\vasu_shop_constants.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $vasuShopConstantsPath,
-    $vasuShopConstantRows,
-    [Text.UTF8Encoding]::new($false))
+    $vasuShopConstantRows)
 $lynnaShopItemPath = Join-Path $destination "objects\lynna_shop_items.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $lynnaShopItemPath,
-    $lynnaShopItemRows,
-    [Text.UTF8Encoding]::new($false))
+    $lynnaShopItemRows)
 $lynnaShopTextPath = Join-Path $destination "objects\lynna_shop_texts.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $lynnaShopTextPath,
-    $lynnaShopTextRows,
-    [Text.UTF8Encoding]::new($false))
+    $lynnaShopTextRows)
 $lynnaShopAnimationPath = Join-Path $destination "objects\lynna_shop_animations.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $lynnaShopAnimationPath,
-    $lynnaShopAnimationRows,
-    [Text.UTF8Encoding]::new($false))
+    $lynnaShopAnimationRows)
 $lynnaShopConstantsPath = Join-Path $destination "objects\lynna_shop_constants.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $lynnaShopConstantsPath,
-    $lynnaShopConstantRows,
-    [Text.UTF8Encoding]::new($false))
+    $lynnaShopConstantRows)
 $dungeonMechanicPath = Join-Path $destination "objects\dungeon_mechanics.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $dungeonMechanicPath,
-    $dungeonMechanicRows,
-    [Text.UTF8Encoding]::new($false))
+    $dungeonMechanicRows)
 $dungeonMechanicConstantsPath = Join-Path $destination "objects\dungeon_mechanic_constants.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $dungeonMechanicConstantsPath,
-    $dungeonMechanicConstantRows,
-    [Text.UTF8Encoding]::new($false))
+    $dungeonMechanicConstantRows)
 $puzzlePuffPath = Join-Path $destination "effects\puzzle_puff.tsv"
-New-Item -ItemType Directory -Force -Path (Split-Path $puzzlePuffPath -Parent) | Out-Null
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $puzzlePuffPath,
-    $puzzlePuffRows,
-    [Text.UTF8Encoding]::new($false))
+    $puzzlePuffRows)
 $grassDebrisPath = Join-Path $destination "effects\grass_debris.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $grassDebrisPath,
-    $grassDebrisRows,
-    [Text.UTF8Encoding]::new($false))
+    $grassDebrisRows)
 $rockDebrisPath = Join-Path $destination "effects\rock_debris.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $rockDebrisPath,
-    $rockDebrisRows,
-    [Text.UTF8Encoding]::new($false))
+    $rockDebrisRows)
 $fallDownHolePath = Join-Path $destination "effects\fall_down_hole.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $fallDownHolePath,
-    $fallDownHoleRows,
-    [Text.UTF8Encoding]::new($false))
+    $fallDownHoleRows)
 $eraInfoPath = Join-Path $destination "effects\era_info.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $eraInfoPath,
-    $eraInfoRows,
-    [Text.UTF8Encoding]::new($false))
+    $eraInfoRows)
 $keyDoorPath = Join-Path $destination "objects\dungeon_key_doors.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $keyDoorPath,
-    $keyDoorRows,
-    [Text.UTF8Encoding]::new($false))
+    $keyDoorRows)
 $overworldKeyholePath = Join-Path $destination "objects\overworld_keyholes.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $overworldKeyholePath,
-    $overworldKeyholeRows,
-    [Text.UTF8Encoding]::new($false))
+    $overworldKeyholeRows)
 $overworldKeyholeTilePath = Join-Path $destination "metadata\overworld_keyhole_tiles.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $overworldKeyholeTilePath,
-    $overworldKeyholeTileRows,
-    [Text.UTF8Encoding]::new($false))
+    $overworldKeyholeTileRows)
 $overworldKeyholeConstantPath = Join-Path $destination "objects\overworld_keyhole_constants.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $overworldKeyholeConstantPath,
-    $overworldKeyholeConstantRows,
-    [Text.UTF8Encoding]::new($false))
+    $overworldKeyholeConstantRows)
 $standardTilePath = Join-Path $destination "metadata\standard_tile_substitutions.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $standardTilePath,
-    $standardTileRows,
-    [Text.UTF8Encoding]::new($false))
+    $standardTileRows)
 $treasureObjectVisualPath = Join-Path $destination "metadata\treasure_object_visuals.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $treasureObjectVisualPath,
-    $treasureObjectVisualRows,
-    [Text.UTF8Encoding]::new($false))
+    $treasureObjectVisualRows)
 $familyNpcPath = Join-Path $destination "objects\bipin_blossom_family.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $familyNpcPath,
-    $familyRows,
-    [Text.UTF8Encoding]::new($false))
+    $familyRows)
 $familyTextPath = Join-Path $destination "objects\bipin_blossom_family_texts.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $familyTextPath,
-    $familyTextRows,
-    [Text.UTF8Encoding]::new($false))
+    $familyTextRows)
 $runningBipinPath = Join-Path $destination "objects\running_bipin.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $runningBipinPath,
-    $runningBipinRows,
-    [Text.UTF8Encoding]::new($false))
+    $runningBipinRows)
 $room148PickaxePath = Join-Path $destination "objects\room148_pickaxe.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $room148PickaxePath,
-    $room148PickaxeRows,
-    [Text.UTF8Encoding]::new($false))
+    $room148PickaxeRows)
 $dungeonEntryPath = Join-Path $destination "objects\dungeon_entry_data.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $dungeonEntryPath,
-    $dungeonEntryRows,
-    [Text.UTF8Encoding]::new($false))
+    $dungeonEntryRows)
 $dungeonSharedPlacementPath = Join-Path $destination "objects\dungeon_shared_placements.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $dungeonSharedPlacementPath,
-    $dungeonSharedPlacementRows,
-    [Text.UTF8Encoding]::new($false))
+    $dungeonSharedPlacementRows)
 $dungeonSharedVisualPath = Join-Path $destination "objects\dungeon_shared_visuals.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $dungeonSharedVisualPath,
-    $dungeonSharedVisualRows,
-    [Text.UTF8Encoding]::new($false))
+    $dungeonSharedVisualRows)
 $dungeonSharedConstantPath = Join-Path $destination "objects\dungeon_shared_constants.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $dungeonSharedConstantPath,
-    $dungeonSharedConstantRows,
-    [Text.UTF8Encoding]::new($false))
+    $dungeonSharedConstantRows)
 $minibossPortalPairPath = Join-Path $destination "objects\miniboss_portal_pairs.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $minibossPortalPairPath,
-    $minibossPortalPairRows,
-    [Text.UTF8Encoding]::new($false))
+    $minibossPortalPairRows)
 $blackTowerTextPath = Join-Path $destination "objects\black_tower_texts.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $blackTowerTextPath,
-    $blackTowerTextRows,
-    [Text.UTF8Encoding]::new($false))
+    $blackTowerTextRows)
 $blackTowerSelectorPath = Join-Path $destination "objects\black_tower_selectors.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $blackTowerSelectorPath,
-    $blackTowerSelectorRows,
-    [Text.UTF8Encoding]::new($false))
+    $blackTowerSelectorRows)
 $blackTowerVisualPath = Join-Path $destination "objects\black_tower_visuals.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $blackTowerVisualPath,
-    $blackTowerVisualRows,
-    [Text.UTF8Encoding]::new($false))
+    $blackTowerVisualRows)
 $blackTowerPatrolPath = Join-Path $destination "objects\black_tower_patrols.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $blackTowerPatrolPath,
-    $blackTowerPatrolRows,
-    [Text.UTF8Encoding]::new($false))
+    $blackTowerPatrolRows)
 $blackTowerConstantsPath = Join-Path $destination "objects\black_tower_constants.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $blackTowerConstantsPath,
-    $blackTowerConstantsRows,
-    [Text.UTF8Encoding]::new($false))
+    $blackTowerConstantsRows)
 $room149VisualPath = Join-Path $destination "objects\room149_family_visuals.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $room149VisualPath,
-    $room149VisualRows,
-    [Text.UTF8Encoding]::new($false))
+    $room149VisualRows)
 $room149TextPath = Join-Path $destination "objects\room149_family_texts.tsv"
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     $room149TextPath,
-    $room149TextRows,
-    [Text.UTF8Encoding]::new($false))
+    $room149TextRows)

@@ -2,7 +2,7 @@ using Godot;
 
 namespace oracleofages;
 
-public partial class SplashEffect : TransitionOffsetNode2D
+public partial class SplashEffect : FixedEffectNode2D
 {
     private const int WaterFrameDuration = 4;
     private const int LavaFrameDuration = 2;
@@ -13,7 +13,7 @@ public partial class SplashEffect : TransitionOffsetNode2D
     private bool _autoFree;
 
     public bool IsLava { get; private set; }
-    internal bool Finished { get; private set; }
+    internal override bool Finished { get; private protected set; }
     internal int AnimationFrame => Mathf.Min((int)(_frames / _frameDuration), _frameCount - 1);
     internal int DurationFrames => _frameCount * _frameDuration;
 
@@ -51,6 +51,8 @@ public partial class SplashEffect : TransitionOffsetNode2D
         }
         QueueRedraw();
     }
+
+    internal override void UpdateFrame() => Advance(1.0 / 60.0);
 
     public override void _Draw()
     {

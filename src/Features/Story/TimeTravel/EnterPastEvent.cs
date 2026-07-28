@@ -4,7 +4,8 @@ using System;
 namespace oracleofages;
 
 /// <summary>Runs the one-shot first arrival in past room $1:$39.</summary>
-internal sealed class EnterPastEvent : IRoomEntryEvent, ICutsceneCommandHost
+internal sealed class EnterPastEvent :
+    CutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
 {
 
     private const string VillagerActor = "Villager";

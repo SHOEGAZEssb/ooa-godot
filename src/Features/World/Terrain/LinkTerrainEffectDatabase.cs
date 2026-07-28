@@ -37,7 +37,8 @@ internal sealed class LinkTerrainEffectDatabase
                 $"puddle frames, got {table.Rows.Count}.");
         }
 
-        var records = new Dictionary<string, List<LinkTerrainEffectFrame>>();
+        var records = new Lookup<string, LinkTerrainEffectFrame>(
+            StringComparer.Ordinal);
         var tiles = new Dictionary<string, byte>();
         foreach (GeneratedTableRow row in table.Rows)
         {
@@ -84,12 +85,7 @@ internal sealed class LinkTerrainEffectDatabase
                     palette,
                     paletteOverride: null,
                     sourceGrayscaleInverted: true);
-            if (!records.TryGetValue(
-                    kind, out List<LinkTerrainEffectFrame>? frames))
-            {
-                frames = new List<LinkTerrainEffectFrame>();
-                records.Add(kind, frames);
-            }
+            List<LinkTerrainEffectFrame> frames = records.GetOrAdd(kind);
             if (frame != frames.Count)
             {
                 throw new InvalidOperationException(
@@ -112,11 +108,11 @@ internal sealed class LinkTerrainEffectDatabase
                 source));
         }
 
-        if (!records.TryGetValue(
-                "grass", out List<LinkTerrainEffectFrame>? grass) ||
+        if (!records.TryGetValues(
+                "grass", out IReadOnlyList<LinkTerrainEffectFrame> grass) ||
             grass.Count != 2 ||
-            !records.TryGetValue(
-                "puddle", out List<LinkTerrainEffectFrame>? puddle) ||
+            !records.TryGetValues(
+                "puddle", out IReadOnlyList<LinkTerrainEffectFrame> puddle) ||
             puddle.Count != 4 ||
             tiles["grass"] == tiles["puddle"])
         {

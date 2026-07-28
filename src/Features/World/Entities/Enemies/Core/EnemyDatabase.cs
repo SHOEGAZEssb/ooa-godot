@@ -6,7 +6,7 @@ namespace oracleofages;
 
 public sealed class EnemyDatabase
 {
-    private readonly Dictionary<int, List<RoomObjectRecord>> _roomObjectsByRoom = new();
+    private readonly Lookup<int, RoomObjectRecord> _roomObjectsByRoom = new();
     private readonly Dictionary<int, KeeseDefinition> _keeseDefinitions = new();
     private readonly Dictionary<int, OctorokDefinition> _octorokDefinitions = new();
     private readonly Dictionary<int, StalfosDefinition> _stalfosDefinitions = new();
@@ -364,12 +364,8 @@ public sealed class EnemyDatabase
                 row.HexByteOrSentinel(9, "-1", -1),
                 row.HexByteOrSentinel(10, "-1", -1),
                 row.HexByte(11));
-            int key = MakeKey(record.Group, record.Room);
-            if (!_roomObjectsByRoom.TryGetValue(key, out List<RoomObjectRecord>? roomRecords))
-            {
-                roomRecords = new List<RoomObjectRecord>();
-                _roomObjectsByRoom.Add(key, roomRecords);
-            }
+            List<RoomObjectRecord> roomRecords =
+                _roomObjectsByRoom.GetOrAdd(MakeKey(record.Group, record.Room));
             if (roomRecords.Count != record.Order)
             {
                 throw new InvalidOperationException(
@@ -459,10 +455,7 @@ public sealed class EnemyDatabase
 
     public IReadOnlyList<RoomObjectRecord> GetRoomObjects(int group, int room)
     {
-        return _roomObjectsByRoom.TryGetValue(
-            MakeKey(group, room), out List<RoomObjectRecord>? records)
-            ? records
-            : Array.Empty<RoomObjectRecord>();
+        return _roomObjectsByRoom.ValuesOrEmpty(MakeKey(group, room));
     }
 
     public bool TryGetKeeseDefinition(RoomObjectRecord source, out EnemyDatabaseEnemyRecord record)
@@ -638,7 +631,8 @@ public sealed class EnemyDatabase
     private void ValidateEnemyHandlerDefinitions()
     {
         var validated = new HashSet<(int Id, int SubId)>();
-        foreach (List<RoomObjectRecord> roomObjects in _roomObjectsByRoom.Values)
+        foreach ((_, IReadOnlyList<RoomObjectRecord> roomObjects) in
+            _roomObjectsByRoom)
         {
             foreach (RoomObjectRecord source in roomObjects)
             {

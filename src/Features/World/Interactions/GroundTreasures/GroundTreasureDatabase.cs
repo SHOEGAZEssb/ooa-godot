@@ -10,7 +10,9 @@ namespace oracleofages;
 /// </summary>
 internal sealed class GroundTreasureDatabase
 {
-    private readonly Dictionary<(int Group, int Room), List<GroundTreasureDatabaseRecord>> _byRoom = new();
+    private readonly Lookup<
+        (int Group, int Room),
+        GroundTreasureDatabaseRecord> _byRoom = new();
 
     public GroundTreasureDatabase()
     {
@@ -56,27 +58,19 @@ internal sealed class GroundTreasureDatabase
                     $"Invalid ground-treasure row at {row.Path}:{row.LineNumber}.");
             }
 
-            if (!_byRoom.TryGetValue(
-                (record.Group, record.Room), out List<GroundTreasureDatabaseRecord>? records))
-            {
-                records = new List<GroundTreasureDatabaseRecord>();
-                _byRoom.Add((record.Group, record.Room), records);
-            }
-            records.Add(record);
+            _byRoom.Add((record.Group, record.Room), record);
             count++;
         }
 
         if (count != 8)
             throw new InvalidOperationException(
                 $"Expected eight $dc:$07 ground treasures, loaded {count}.");
-        foreach (List<GroundTreasureDatabaseRecord> records in _byRoom.Values)
-            records.Sort((left, right) => left.Order.CompareTo(right.Order));
+        _byRoom.SortValues(
+            static (left, right) => left.Order.CompareTo(right.Order));
     }
 
     public IReadOnlyList<GroundTreasureDatabaseRecord> GetRoomRecords(int group, int room) =>
-        _byRoom.TryGetValue((group, room), out List<GroundTreasureDatabaseRecord>? records)
-            ? records
-            : Array.Empty<GroundTreasureDatabaseRecord>();
+        _byRoom.ValuesOrEmpty((group, room));
 }
 
 internal readonly record struct GroundTreasureDatabaseRecord(int Group, int Room, int Order, int Y, int X, string TreasureObject, string Sprite, int TileBase, int Palette, string Animation, int CompletionTextId, string CompletionMessage, string Source, int SpawnMode = 0, int GrabMode = 2, int SpawnDelayFrames = 0, int InitialZPixels = 0, int BounceCount = 0, int Gravity = 0, int BounceSpeed = 0, int SpawnSound = 0, int LandingSound = 0, bool InitialZAboveScreen = false, int AboveScreenMargin = 8, int AboveScreenFallback = -128, int TextboxFlags = 0);

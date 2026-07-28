@@ -7,7 +7,8 @@ namespace oracleofages;
 /// Adult Maku Tree conversation and Seed Satchel reward selected by
 /// wMakuTreeState=$02 in present room $0:$38.
 /// </summary>
-internal sealed class MakuTreeSavedEvent : IRoomEntryEvent, ICutsceneCommandHost,
+internal sealed class MakuTreeSavedEvent :
+    InteractiveCutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost,
     IUpdatesDuringDialogueRoomEvent
 {
     private const string MakuTreeActor = "MakuTree";
@@ -19,7 +20,6 @@ internal sealed class MakuTreeSavedEvent : IRoomEntryEvent, ICutsceneCommandHost
     private NpcCharacter? _makuTree;
     private bool _buttonSensitive;
     private bool _buttonPressed;
-    private bool _inputDisabled;
 
     public MakuTreeSavedEvent(RoomEventContext context)
     {
@@ -29,7 +29,8 @@ internal sealed class MakuTreeSavedEvent : IRoomEntryEvent, ICutsceneCommandHost
     }
 
     public bool HasState => _runner.Active;
-    public bool BlocksGameplay => _inputDisabled;
+    public bool BlocksGameplay => InputLeaseHeld;
+    protected override RoomEventContext InputContext => _context;
     internal int CurrentCommandIndex =>
         _runner.CurrentCommand?.Source.CommandIndex ?? -1;
     internal int Counter => _runner.Counter;
@@ -54,7 +55,7 @@ internal sealed class MakuTreeSavedEvent : IRoomEntryEvent, ICutsceneCommandHost
         _makuTree.SetAnimationRate(0.0f);
         _buttonSensitive = false;
         _buttonPressed = false;
-        _inputDisabled = false;
+        ReleaseInputControl();
         _runner.Start(_database.Commands);
     }
 
@@ -69,7 +70,7 @@ internal sealed class MakuTreeSavedEvent : IRoomEntryEvent, ICutsceneCommandHost
 
     public bool TryInteractNpc(NpcCharacter npc)
     {
-        if (!_runner.Active || !_buttonSensitive || _inputDisabled ||
+        if (!_runner.Active || !_buttonSensitive || InputLeaseHeld ||
             !ReferenceEquals(npc, _makuTree))
         {
             return false;
@@ -80,8 +81,7 @@ internal sealed class MakuTreeSavedEvent : IRoomEntryEvent, ICutsceneCommandHost
 
     public void Cancel()
     {
-        if (_inputDisabled)
-            _context.Player.EndCutsceneControl();
+        ReleaseInputControl();
         if (_makuTree is not null)
         {
             _makuTree.SetScriptButtonSensitive(false);
@@ -90,45 +90,12 @@ internal sealed class MakuTreeSavedEvent : IRoomEntryEvent, ICutsceneCommandHost
         _makuTree = null;
         _buttonSensitive = false;
         _buttonPressed = false;
-        _inputDisabled = false;
         _runner.Clear();
     }
 
     RoomEventContext ICutsceneCommandHost.Context => _context;
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value == MakuTreeActor;
-
-    void ICutsceneCommandHost.SetInputEnabled(bool enabled)
-    {
-        if (enabled)
-        {
-            if (_inputDisabled)
-                _context.Player.EndCutsceneControl();
-            _inputDisabled = false;
-        }
-        else
-        {
-            if (!_inputDisabled)
-                _context.Player.BeginCutsceneControl();
-            _inputDisabled = true;
-        }
-    }
-
-    void ICutsceneCommandHost.SetMenuEnabled(bool enabled) =>
-        throw new InvalidOperationException(
-            $"Saved Maku Tree script does not set menu enabled={enabled} independently.");
-
-    void ICutsceneCommandHost.SetDisabledObjects(int value) =>
-        throw new InvalidOperationException(
-            $"Saved Maku Tree script does not set wDisabledObjects=${value:x2}.");
-
-    bool ICutsceneCommandHost.GateOpen(string gate) =>
-        throw new InvalidOperationException(
-            $"Saved Maku Tree script has no gate named '{gate}'.");
-
-    bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
-        throw new InvalidOperationException(
-            $"Saved Maku Tree script cannot read '{binding}'=${value:x2}.");
 
     bool ICutsceneCommandHost.RoomFlagSet(int flag) =>
         (_context.Rooms.SaveData.GetRoomFlags(_record.Group, _record.Room) & flag) != 0;
@@ -178,13 +145,6 @@ internal sealed class MakuTreeSavedEvent : IRoomEntryEvent, ICutsceneCommandHost
         RequireMakuTree(actor).SetScriptAnimation(encodedAnimation);
     }
 
-    void ICutsceneCommandHost.SetActorMovementAnimation(
-        string actor,
-        int angle,
-        string encodedAnimation) =>
-        throw new InvalidOperationException(
-            $"Saved Maku Tree actor '{actor}' cannot use movement animation ${angle:x2}.");
-
     void ICutsceneCommandHost.SetActorCollisionRadii(
         string actor,
         int radiusY,
@@ -197,14 +157,6 @@ internal sealed class MakuTreeSavedEvent : IRoomEntryEvent, ICutsceneCommandHost
         _buttonSensitive = true;
         _makuTree!.SetScriptButtonSensitive(true);
     }
-
-    void ICutsceneCommandHost.MoveActorAtSpeed(string actor, int speed, int angle) =>
-        throw new InvalidOperationException(
-            $"Saved Maku Tree actor '{actor}' cannot move at ${speed:x2}/${angle:x2}.");
-
-    void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>
-        throw new InvalidOperationException(
-            $"Saved Maku Tree actor '{actor}' cannot set Z to ${zFixed:x4}.");
 
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
         RequireMakuTree(actor).Visible = visible;
@@ -233,10 +185,6 @@ internal sealed class MakuTreeSavedEvent : IRoomEntryEvent, ICutsceneCommandHost
         _context.Rooms.SaveData.SetGlobalFlag(flag);
     }
 
-    void ICutsceneCommandHost.OrRoomFlag(int flag) =>
-        throw new InvalidOperationException(
-            $"Saved Maku Tree typed script cannot OR room flag ${flag:x2}.");
-
     void ICutsceneCommandHost.RunNativeHandler(string handler)
     {
         switch (handler)
@@ -252,10 +200,6 @@ internal sealed class MakuTreeSavedEvent : IRoomEntryEvent, ICutsceneCommandHost
                     $"Unknown saved Maku Tree native handler '{handler}'.");
         }
     }
-
-    void ICutsceneCommandHost.ScriptEnded() =>
-        throw new InvalidOperationException(
-            "makuTree_subid02Script_body must remain in its NPC loop.");
 
     private void CheckSpawnSeedSatchel()
     {

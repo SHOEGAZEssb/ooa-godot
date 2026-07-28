@@ -7,7 +7,8 @@ namespace oracleofages;
 /// Runs hardhat worker $58:$02 and stage 0 of the Black Tower explanation in
 /// room $1:$86. Room bits $40/$80 select the return and completed phases.
 /// </summary>
-internal sealed class BlackTowerEntranceEvent : IRoomEntryEvent, ICutsceneCommandHost
+internal sealed class BlackTowerEntranceEvent :
+    CutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
 {
 
     private const int FadeFrames = 32;

@@ -802,6 +802,7 @@ public sealed partial class ValidationRoot
     private sealed class MapleValidationHarness : IDisposable
     {
         private readonly ValidationRoot _owner;
+        private readonly RoomEntityValidationFixture _entities;
 
         internal Node Scene { get; }
         internal OracleSaveData Save { get; }
@@ -823,17 +824,23 @@ public sealed partial class ValidationRoot
             int room)
         {
             _owner = owner;
-            Scene = new Node
-            {
-                Name = $"MapleValidation_{group}_{room:x2}"
-            };
-            _owner.AddChild(Scene);
             Save = OracleSaveData.CreateStandardGame();
             Treasures = new TreasureDatabase();
             Inventory = new InventoryState(Treasures, Save, () => -1);
             long tick = 0;
             Rooms = new RoomSession(
                 group, room, () => tick, () => tick = 0, Save);
+            _entities = RoomEntityValidationFixture.Attach(
+                _owner, $"MapleValidation_{group}_{room:x2}", new()
+                {
+                    SaveData = Save,
+                    RuntimeState = new OracleRuntimeState(),
+                    Inventory = Inventory,
+                    AnimationTick = () => tick,
+                    Treasures = Treasures,
+                    Rooms = Rooms
+                });
+            Scene = _entities.Root;
             PlayerWorld = new ValidationRingPlayerWorld();
             Player = new Player { Name = "MapleValidationPlayer" };
             Player.Initialize(
@@ -850,11 +857,7 @@ public sealed partial class ValidationRoot
             Scene.AddChild(interfaceLayer);
             Scene.AddChild(roomView);
             Scene.AddChild(Dialogue);
-            Manager = new RoomEntityManager(
-                Scene, new NpcDatabase(), new EnemyDatabase(),
-                new ItemDropDatabase(), new TimePortalDatabase(),
-                new OracleRandom(), Save, new OracleRuntimeState(),
-                Inventory, () => tick, Treasures, Rooms);
+            Manager = _entities.Manager;
             Manager.MapleDialogueRequested +=
                 (textId, _, _) => Dialogues.Add(textId);
             Manager.SoundRequested += Sounds.Add;
@@ -884,10 +887,7 @@ public sealed partial class ValidationRoot
 
         public void Dispose()
         {
-            Manager.Clear();
-            Manager.Dispose();
-            _owner.RemoveChild(Scene);
-            Scene.QueueFree();
+            _entities.Dispose();
         }
     }
 }

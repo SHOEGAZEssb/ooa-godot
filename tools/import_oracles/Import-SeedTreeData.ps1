@@ -192,9 +192,8 @@ foreach ($table in @(
     @('metadata\seed_tree_constants.tsv', $seedTreeConstantsRows),
     @('metadata\seed_tree_visual.tsv', $seedTreeVisualRows)
 )) {
-    [IO.File]::WriteAllLines(
+    Write-GeneratedTable(
         (Join-Path $destination $table[0]),
-        $table[1],
-        [Text.UTF8Encoding]::new($false))
+        $table[1])
 }
 Copy-EnemySprite $gfxNames[0x78]

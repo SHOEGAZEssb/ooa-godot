@@ -94,8 +94,9 @@ public sealed partial class ValidationRoot
 
         var root = new Node { Name = "Room39eInteractionValidation" };
         AddChild(root);
-        var manager = new RoomEntityManager(
-            root, npcDatabase, new EnemyDatabase(), save);
+        using var fixture = RoomEntityValidationFixture.ForRoot(
+            root, new() { Npcs = npcDatabase, SaveData = save });
+        RoomEntityManager manager = fixture.Manager;
         OracleRoomData room = _world.LoadRoom(group, roomId);
         Vector2 stair = PackedCenter(0x22);
         if (room.GetMetatile(stair) != 0xe5)

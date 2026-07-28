@@ -11,7 +11,8 @@ internal sealed class BlackTowerWorkerDatabase
 {
 
     private readonly Dictionary<int, string> _texts = new();
-    private readonly Dictionary<string, List<int>> _selectors = new();
+    private readonly Lookup<string, int> _selectors =
+        new(StringComparer.Ordinal);
     private readonly Dictionary<
         string, BlackTowerWorkerDatabaseVisualRecord> _visuals = new();
     private readonly Dictionary<int, PatrolLeg[]> _patrols = new();
@@ -58,11 +59,7 @@ internal sealed class BlackTowerWorkerDatabase
                     0,
                     "pickaxe-animation, pickaxe-text, hardhat-text, or soldier-text")
             };
-            if (!_selectors.TryGetValue(selector, out List<int>? values))
-            {
-                values = new List<int>();
-                _selectors.Add(selector, values);
-            }
+            List<int> values = _selectors.GetOrAdd(selector);
             int index = row.UnsignedDecimal(1);
             if (index != values.Count)
                 throw row.Invalid(1, $"the next contiguous index {values.Count}");
@@ -177,14 +174,16 @@ internal sealed class BlackTowerWorkerDatabase
     internal int SoldierText(int index) => Selector("soldier-text", index);
 
     private int Selector(string key, int index) =>
-        _selectors.TryGetValue(key, out List<int>? values) &&
+        _selectors.TryGetValues(key, out IReadOnlyList<int> values) &&
         index >= 0 && index < values.Count
             ? values[index]
             : throw new KeyNotFoundException(
                 $"Black Tower selector '{key}' has no index {index}.");
 
     private int SelectorCount(string key) =>
-        _selectors.TryGetValue(key, out List<int>? values) ? values.Count : 0;
+        _selectors.TryGetValues(key, out IReadOnlyList<int> values)
+            ? values.Count
+            : 0;
 
     private int Constant(string key) => _constants.TryGetValue(key, out int value)
         ? value

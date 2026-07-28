@@ -9,7 +9,7 @@ namespace oracleofages;
 /// speed reaches the apex, remains at that height for $3c updates, then
 /// disappears. Unlike the dungeon-key sprite, it requests no extra sound.
 /// </summary>
-internal partial class OverworldKeyUseEffect : TransitionOffsetNode2D
+internal partial class OverworldKeyUseEffect : FixedEffectNode2D
 {
     private Texture2D _texture = null!;
     private Vector2 _textureOffset;
@@ -21,7 +21,7 @@ internal partial class OverworldKeyUseEffect : TransitionOffsetNode2D
     private int _zFixed;
     private int _speedZ;
 
-    internal bool Finished { get; private set; }
+    internal override bool Finished { get; private protected set; }
     internal int State => _state;
     internal int Counter => _counter;
     internal int ZFixed => _zFixed;
@@ -61,7 +61,7 @@ internal partial class OverworldKeyUseEffect : TransitionOffsetNode2D
         QueueRedraw();
     }
 
-    internal void UpdateFrame()
+    internal override void UpdateFrame()
     {
         if (Finished)
             return;

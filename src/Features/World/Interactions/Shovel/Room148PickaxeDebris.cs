@@ -9,7 +9,7 @@ namespace oracleofages;
 /// integration. OAM flag bit 3 addresses fixed VRAM bank 1, so tile base $02
 /// comes from spr_common_sprites rather than the worker's dynamic sprite slot.
 /// </summary>
-internal partial class Room148PickaxeDebris : TransitionOffsetNode2D
+internal partial class Room148PickaxeDebris : FixedEffectNode2D
 {
     private Texture2D _texture = null!;
     private Vector2 _precisePosition;
@@ -17,7 +17,7 @@ internal partial class Room148PickaxeDebris : TransitionOffsetNode2D
     private int _gravity;
     private bool _stateInitialized;
 
-    internal bool Finished { get; private set; }
+    internal override bool Finished { get; private protected set; }
     internal int Palette { get; private set; }
     internal int Angle { get; private set; }
     internal int ZFixed { get; private set; }
@@ -54,7 +54,7 @@ internal partial class Room148PickaxeDebris : TransitionOffsetNode2D
         QueueRedraw();
     }
 
-    internal void UpdateFrame()
+    internal override void UpdateFrame()
     {
         if (Finished)
             return;

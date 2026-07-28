@@ -358,7 +358,7 @@ NPC- and enemy-specific findings remain in their sections above.
     selects palette 1, including Link's alternate-palette draw priority and
     the exact post-textbox palette state.
 
-- [ ] Route all source graphics through the shared cache and consolidate the
+- [x] Route all source graphics through the shared cache and consolidate the
   remaining VRAM/tile/OAM compositors.
   - `MapScreen` is the lone production screen with a private
     `Image.LoadFromFile` path and duplicates common-palette loading. Extend
@@ -409,7 +409,7 @@ the following reductions where they remove repeated policy or infrastructure;
 do not merge source-distinct enemy species, native story state machines, update
 slots, or RNG paths merely because their current implementations look similar.
 
-- [ ] Centralize deterministic importer output and the duplicated assembly
+- [x] Centralize deterministic importer output and the duplicated assembly
   table readers. The staged importer contains 203 explicit UTF-8-without-BOM
   `WriteAllLines` encoding selections plus repeated destination-directory
   setup. Add shared `Write-GeneratedTable` and `Write-GeneratedBytes` helpers
@@ -419,7 +419,7 @@ slots, or RNG paths merely because their current implementations look similar.
   in the stage contracts and require `verify_oracle_import.ps1` to prove
   byte-for-byte deterministic output.
 
-- [ ] Generalize the disposable Maple validation harness into a reusable
+- [x] Generalize the disposable Maple validation harness into a reusable
   room/entity validation fixture. Validation currently constructs
   `RoomEntityManager` 38 times and repeats temporary node creation, save/runtime
   state, database defaults, entity clearing, child removal, disposal, and
@@ -427,7 +427,7 @@ slots, or RNG paths merely because their current implementations look similar.
   instead of one constructor with every possible dependency, and keep the
   harness wholly inside the validation assembly.
 
-- [ ] Extract a source-aware default-deny base for cutscene command hosts. The
+- [x] Extract a source-aware default-deny base for cutscene command hosts. The
   17 current hosts repeat their `ICutsceneCommandHost` surface, unsupported
   operation diagnostics, actor checks, and input-control ownership; Comedian,
   Mask Salesman, Poe, and the saved Maku Tree also repeat the same input lease
@@ -436,7 +436,7 @@ slots, or RNG paths merely because their current implementations look similar.
   event state machine. Treat this as the shared infrastructure slice of the
   interactive infinite-script and command-schema work already listed above.
 
-- [ ] Complete the shared Game Boy tile/OAM compositor instead of retaining
+- [x] Complete the shared Game Boy tile/OAM compositor instead of retaining
   screen-local copies. Move the parallel Black Tower explanation and Nayru
   singing 32-by-18 background composition, VRAM destination mapping, 8-by-16
   OAM flips/palettes, and cell texture caching onto `OracleTileRenderer`.
@@ -446,7 +446,7 @@ slots, or RNG paths merely because their current implementations look similar.
   refactor with existing and new cross-scene pixel hashes. This is the
   code-size slice of the broader graphics/cache task above.
 
-- [ ] Remove the remaining simple effect room-adapter boilerplate without
+- [x] Remove the remaining simple effect room-adapter boilerplate without
   weakening capability opt-ins. Shovel debris, rock debris, puzzle puffs,
   key-use effects, splashes, and similar short-lived effects repeat
   `Finished`, fixed-update forwarding, transition offset, and dialogue-update
@@ -456,7 +456,7 @@ slots, or RNG paths merely because their current implementations look similar.
   so only the few state-dependent implementations override it. Do not fold NPC,
   combat, contact, or source-order behavior into this convenience layer.
 
-- [ ] Add small ordered-lookup and capability-query primitives for mechanical
+- [x] Add small ordered-lookup and capability-query primitives for mechanical
   runtime repetition. Generated databases contain roughly 20 repeated
   dictionary add-or-create/list lookup blocks; use one order-preserving
   `Lookup<TKey, TValue>` while keeping schema parsing and source-specific

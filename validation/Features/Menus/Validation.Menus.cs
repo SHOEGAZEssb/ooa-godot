@@ -1796,8 +1796,8 @@ public sealed partial class ValidationRoot
         beam.Free();
 
         var beamRoot = new Node();
-        var beamManager = new RoomEntityManager(
-            beamRoot, new NpcDatabase(), new EnemyDatabase());
+        using var beamFixture = RoomEntityValidationFixture.ForRoot(beamRoot);
+        RoomEntityManager beamManager = beamFixture.Manager;
         beamManager.LoadRoom(0, beamRoom);
         if (!beamManager.TrySpawnSwordBeam(beamLinkPosition, 1) ||
             beamManager.TrySpawnSwordBeam(beamLinkPosition, 1) ||

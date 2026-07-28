@@ -81,6 +81,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateOracleObjectMath();
         ValidateOracleRandom();
         ValidateRoomEventTimeline();
+        ValidateCutsceneDefaultDeny();
         ValidateSaveDataFoundation();
         ValidateSaveStore();
         ValidateTreasureInterpreter();

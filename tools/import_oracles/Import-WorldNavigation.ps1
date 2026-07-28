@@ -77,7 +77,7 @@ if ($warpRows.Count -ne 530) {
     throw "Expected 529 resolved warp records, parsed $($warpRows.Count - 1)."
 }
 $warpPath = Join-Path $destination "objects\warps.tsv"
-[IO.File]::WriteAllLines($warpPath, $warpRows, [Text.UTF8Encoding]::new($false))
+Write-GeneratedTable($warpPath, $warpRows)
 
 # Dungeon rooms occupy arbitrary cells in one or more 8x8 floor maps. Screen
 # transitions use these cells rather than the overworld's hexadecimal room
@@ -121,7 +121,7 @@ foreach ($block in $dungeonBlocks) {
     }
 }
 $dungeonPath = Join-Path $destination "objects\dungeon_adjacency.tsv"
-[IO.File]::WriteAllLines($dungeonPath, $dungeonRows, [Text.UTF8Encoding]::new($false))
+Write-GeneratedTable($dungeonPath, $dungeonRows)
 
 # The full dungeon map screen needs floor/cell positions and the original room
 # property bits, not only the neighbor pairs used by screen transitions.
@@ -171,7 +171,7 @@ foreach ($block in $dungeonBlocks) {
     }
 }
 $dungeonMapPath = Join-Path $destination 'objects\dungeon_maps.tsv'
-[IO.File]::WriteAllLines($dungeonMapPath, $dungeonMapRows, [Text.UTF8Encoding]::new($false))
+Write-GeneratedTable($dungeonMapPath, $dungeonMapRows)
 
 # Expand the animation engine's three linked tables into address-independent
 # records. Destinations are converted from VRAM addresses to the same signed
@@ -261,11 +261,10 @@ foreach ($groupId in 0..21) {
 }
 
 $animationDestination = Join-Path $destination "animations"
-New-Item -ItemType Directory -Force -Path $animationDestination | Out-Null
-[IO.File]::WriteAllLines(
-    (Join-Path $animationDestination "headers.tsv"), $animationHeaderRows, [Text.UTF8Encoding]::new($false))
-[IO.File]::WriteAllLines(
-    (Join-Path $animationDestination "tracks.tsv"), $animationTrackRows, [Text.UTF8Encoding]::new($false))
+Write-GeneratedTable(
+    (Join-Path $animationDestination "headers.tsv"), $animationHeaderRows)
+Write-GeneratedTable(
+    (Join-Path $animationDestination "tracks.tsv"), $animationTrackRows)
 
 # Room files are already expanded and address-independent. Preserve their
 # group-prefixed names so metadata can select the correct layout group.

@@ -9,7 +9,7 @@ namespace oracleofages;
 /// updates run animation 0 and delete one update after its terminal bit-$80
 /// animation parameter becomes active.
 /// </summary>
-internal partial class PuzzlePuffEffect : TransitionOffsetNode2D
+internal partial class PuzzlePuffEffect : FixedEffectNode2D
 {
 
     private static List<PuzzlePuffEffectFrameRecord>? _definition;
@@ -20,7 +20,7 @@ internal partial class PuzzlePuffEffect : TransitionOffsetNode2D
     private int _animationCounter;
     private bool _initialized;
 
-    internal bool Finished { get; private set; }
+    internal override bool Finished { get; private protected set; }
     internal int ElapsedUpdates { get; private set; }
     internal int AnimationFrame => Math.Min(_animationFrame, _animation.Count - 1);
     internal int CurrentParameter => _animation[AnimationFrame].Parameter;
@@ -36,7 +36,7 @@ internal partial class PuzzlePuffEffect : TransitionOffsetNode2D
         QueueRedraw();
     }
 
-    internal void UpdateFrame()
+    internal override void UpdateFrame()
     {
         if (Finished)
             return;

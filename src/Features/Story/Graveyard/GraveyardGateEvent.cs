@@ -8,7 +8,8 @@ namespace oracleofages;
 /// writes cfc0 bit 0. The controller stays armed without blocking gameplay
 /// until that signal arrives.
 /// </summary>
-internal sealed class GraveyardGateEvent : IRoomEntryEvent, ICutsceneCommandHost
+internal sealed class GraveyardGateEvent :
+    CutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
 {
 
     private readonly RoomEventContext _context;

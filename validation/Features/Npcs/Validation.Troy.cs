@@ -51,8 +51,9 @@ public sealed partial class ValidationRoot
         var root = new Node { Name = "TroyHouseRoomValidation" };
         AddChild(root);
         OracleSaveData save = OracleSaveData.CreateStandardGame();
-        var manager = new RoomEntityManager(
-            root, new NpcDatabase(), new EnemyDatabase(), save);
+        using var managerFixture = RoomEntityValidationFixture.ForRoot(
+            root, new() { SaveData = save });
+        RoomEntityManager manager = managerFixture.Manager;
         var referenceRandom = new OracleRandom();
 
         referenceRandom.BeginRoomParse();

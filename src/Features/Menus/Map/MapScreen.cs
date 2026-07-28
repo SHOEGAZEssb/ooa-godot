@@ -112,20 +112,31 @@ public partial class MapScreen : Node2D
 
     public override void _Ready()
     {
-        _commonTiles = LoadImage("res://assets/oracle/map/tiles_common.png");
-        _presentTiles1 = LoadImage("res://assets/oracle/map/tiles_present_1.png");
-        _presentTiles2 = LoadImage("res://assets/oracle/map/tiles_present_2.png");
-        _pastTiles1 = LoadImage("res://assets/oracle/map/tiles_past_1.png");
-        _pastTiles2 = LoadImage("res://assets/oracle/map/tiles_past_2.png");
-        _dungeonTiles = LoadImage("res://assets/oracle/map/tiles_dungeon.png");
-        _spriteTiles = LoadImage("res://assets/oracle/map/sprites.png");
-        _dungeonSpriteTiles = LoadImage(
+        _commonTiles = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/map/tiles_common.png");
+        _presentTiles1 = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/map/tiles_present_1.png");
+        _presentTiles2 = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/map/tiles_present_2.png");
+        _pastTiles1 = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/map/tiles_past_1.png");
+        _pastTiles2 = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/map/tiles_past_2.png");
+        _dungeonTiles = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/map/tiles_dungeon.png");
+        _spriteTiles = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/map/sprites.png");
+        _dungeonSpriteTiles = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/inventory/spr_map_compass_keys_bookofseals.png");
-        _presentPalette = LoadPalette("res://assets/oracle/map/palette_present.bin", 8, 0);
-        _pastPalette = LoadPalette("res://assets/oracle/map/palette_past.bin", 8, 0);
-        _dungeonPalette = LoadPalette("res://assets/oracle/map/palette_dungeon.bin", 4, 2);
-        _spritePalette = LoadPalette("res://assets/oracle/map/palette_sprites.bin", 8, 0);
-        _dungeonSpritePalette = LoadPalette(
+        _presentPalette = LoadPaletteWithCommonBackgroundFallback(
+            "res://assets/oracle/map/palette_present.bin", 8, 0);
+        _pastPalette = LoadPaletteWithCommonBackgroundFallback(
+            "res://assets/oracle/map/palette_past.bin", 8, 0);
+        _dungeonPalette = LoadPaletteWithCommonBackgroundFallback(
+            "res://assets/oracle/map/palette_dungeon.bin", 4, 2);
+        _spritePalette = LoadPaletteWithCommonBackgroundFallback(
+            "res://assets/oracle/map/palette_sprites.bin", 8, 0);
+        _dungeonSpritePalette = LoadPaletteWithCommonBackgroundFallback(
             "res://assets/oracle/inventory/palette_sprites.bin", 6, 0);
     }
 
@@ -448,7 +459,8 @@ public partial class MapScreen : Node2D
             }
         }
         _dungeonMapTiles = map;
-        Image blurb = LoadImage($"res://assets/oracle/map/blurb_{DungeonBlurbs[_dungeonIndex]}.png");
+        Image blurb = OracleGraphicsCache.LoadImage(
+            $"res://assets/oracle/map/blurb_{DungeonBlurbs[_dungeonIndex]}.png");
         _background = BuildBackground(map, flags, blurb);
     }
 
@@ -1008,42 +1020,6 @@ public partial class MapScreen : Node2D
         Color sourceColor, bool invertedGrayscale) =>
         GetSpriteShade(sourceColor, invertedGrayscale);
 
-    private static Image LoadImage(string path)
-    {
-        Image image = Image.LoadFromFile(ProjectSettings.GlobalizePath(path));
-        if (image == null || image.IsEmpty())
-            throw new InvalidOperationException($"Could not load map image {path}.");
-        return image;
-    }
-
-    private static Color[,] LoadPalette(string path, int count, int firstPalette)
-    {
-        byte[] bytes = ReadBytes(path, count * 4 * 3);
-        var result = new Color[8, 4];
-        Color[] fallback = LoadCommonPalette();
-        for (int palette = 0; palette < 8; palette++)
-        for (int shade = 0; shade < 4; shade++)
-            result[palette, shade] = fallback[shade];
-        for (int palette = 0; palette < count; palette++)
-        for (int shade = 0; shade < 4; shade++)
-        {
-            int offset = (palette * 4 + shade) * 3;
-            result[firstPalette + palette, shade] = GbcColor(
-                bytes[offset], bytes[offset + 1], bytes[offset + 2]);
-        }
-        return result;
-    }
-
-    private static Color[] LoadCommonPalette()
-    {
-        byte[] bytes = ReadBytes("res://assets/oracle/metadata/commonBgPalette0.bin", 12);
-        var result = new Color[4];
-        for (int shade = 0; shade < 4; shade++)
-            result[shade] = GbcColor(bytes[shade * 3], bytes[shade * 3 + 1], bytes[shade * 3 + 2]);
-        return result;
-    }
-
-    private static Color GbcColor(int r, int g, int b) => new(r / 31.0f, g / 31.0f, b / 31.0f);
 }
 
 internal readonly record struct MapIcon(int LeftTile, int RightTile, int Palette, bool RightFlipX = false, bool RightFlipY = false);

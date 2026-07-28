@@ -96,8 +96,9 @@ public sealed partial class ValidationRoot
             Name = "DisposedRoomEntitySubscriptionValidation"
         };
         AddChild(worldRoot);
-        var entities = new RoomEntityManager(
-            worldRoot, new NpcDatabase(), new EnemyDatabase(), save);
+        using var entitiesFixture = RoomEntityValidationFixture.ForRoot(
+            worldRoot, new() { SaveData = save });
+        RoomEntityManager entities = entitiesFixture.Manager;
         entities.LoadRoom(0, _world.LoadRoom(0, 0x66));
         if (entities.Entities<NpcCharacter>().Count == 0)
         {

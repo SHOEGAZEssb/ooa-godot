@@ -80,14 +80,9 @@ public sealed partial class ValidationRoot
         save.SetLinkedGame(true);
         save.WriteWramByte(0xc6bf, 0x02);
         var sounds = new List<int>();
-        var manager = new RoomEntityManager(
-            root,
-            npcs,
-            new EnemyDatabase(),
-            new ItemDropDatabase(),
-            new TimePortalDatabase(),
-            new OracleRandom(),
-            save);
+        using var fixture = RoomEntityValidationFixture.ForRoot(
+            root, new() { Npcs = npcs, SaveData = save });
+        RoomEntityManager manager = fixture.Manager;
         manager.SoundRequested += sounds.Add;
         manager.LoadRoom(0, _world.LoadRoom(0, 0x82));
         manager.BeginScreenTransition(

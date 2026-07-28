@@ -32,11 +32,11 @@ public partial class RingMenuScreen : Node2D
     private Texture2D _fontTexture = null!;
     private Color[,] _bgPalette = null!;
     private Color[,] _spritePalette = null!;
-    private VramSource[] _appraisalUnsignedBank0 = null!;
-    private VramSource[] _appraisalSignedBank0 = null!;
-    private VramSource[] _listUnsignedBank0 = null!;
-    private VramSource[] _listSignedBank0 = null!;
-    private VramSource[] _signedBank1 = null!;
+    private OracleVramSource[] _appraisalUnsignedBank0 = null!;
+    private OracleVramSource[] _appraisalSignedBank0 = null!;
+    private OracleVramSource[] _listUnsignedBank0 = null!;
+    private OracleVramSource[] _listSignedBank0 = null!;
+    private OracleVramSource[] _signedBank1 = null!;
     private Texture2D? _background;
     private InventoryState _inventory = null!;
     private readonly FixedUpdateAccumulator _animationUpdates = new();
@@ -83,7 +83,7 @@ public partial class RingMenuScreen : Node2D
         _ringTiles = LoadPng("res://assets/oracle/inventory/gfx_rings.png");
         _inventoryHud2 = LoadPng(
             "res://assets/oracle/inventory/gfx_inventory_hud_2.png");
-        _fontTexture = BuildFontTexture("res://assets/oracle/gfx/gfx_font.png");
+        _fontTexture = OracleTileRenderer.BuildMonochromeFontTexture("res://assets/oracle/gfx/gfx_font.png");
         _emptyTextTiles = Image.CreateEmpty(128, 16, false, Image.Format.Rgba8);
         _emptyTextTiles.Fill(Colors.Black);
         _ringMap = ReadBytes("res://assets/oracle/inventory/map_rings.bin", 68 * 8);
@@ -96,35 +96,35 @@ public partial class RingMenuScreen : Node2D
         // the independent VRAM-bank selector, not part of the destination.
         _appraisalUnsignedBank0 =
         [
-            new VramSource(0x00, _inventoryHud1, false),
-            new VramSource(0xa0, _ringTiles, true),
-            new VramSource(0xe0, _inventoryHud2, false)
+            new OracleVramSource(0x00, _inventoryHud1, false),
+            new OracleVramSource(0xa0, _ringTiles, true),
+            new OracleVramSource(0xe0, _inventoryHud2, false)
         ];
         _appraisalSignedBank0 =
         [
-            new VramSource(0x00, _hudTiles, false),
-            new VramSource(0xa0, _ringTiles, true),
-            new VramSource(0xe0, _inventoryHud2, false)
+            new OracleVramSource(0x00, _hudTiles, false),
+            new OracleVramSource(0xa0, _ringTiles, true),
+            new OracleVramSource(0xe0, _inventoryHud2, false)
         ];
         _listUnsignedBank0 =
         [
-            new VramSource(0x00, _inventoryHud1, false),
-            new VramSource(0x40, _questItems5, true, true),
-            new VramSource(0xa0, _ringTiles, true),
-            new VramSource(0xe0, _inventoryHud2, false)
+            new OracleVramSource(0x00, _inventoryHud1, false),
+            new OracleVramSource(0x40, _questItems5, true, true),
+            new OracleVramSource(0xa0, _ringTiles, true),
+            new OracleVramSource(0xe0, _inventoryHud2, false)
         ];
         _listSignedBank0 =
         [
-            new VramSource(0x00, _inventoryHud1, false),
-            new VramSource(0xa0, _ringTiles, true),
-            new VramSource(0xe0, _inventoryHud2, false)
+            new OracleVramSource(0x00, _inventoryHud1, false),
+            new OracleVramSource(0xa0, _ringTiles, true),
+            new OracleVramSource(0xe0, _inventoryHud2, false)
         ];
 
         // showItemText2 clears w7TextGfxBuffer to $ff, then UNCMP_GFXH_17
         // uploads its 32 tiles to $9201. DialogueBox supplies live glyphs in
         // this port; the backing bank-1 tiles must remain cleared, not alias
         // an unrelated graphics sheet.
-        _signedBank1 = [new VramSource(0x20, _emptyTextTiles, true)];
+        _signedBank1 = [new OracleVramSource(0x20, _emptyTextTiles, true)];
     }
 
     internal void Initialize(InventoryState inventory)
@@ -577,63 +577,41 @@ public partial class RingMenuScreen : Node2D
 
     private bool TryGetVramPixel(
         int bank, int tile, int x, int y, out Color pixel, out bool spriteEncoding)
-    {
-        if (!TrySelectVramTile(bank, tile, out Image source, out int sourceTile,
-            out bool interleaved, out spriteEncoding, signedAddressing: false))
-        {
-            pixel = Colors.Transparent;
-            return false;
-        }
-        int columns = source.GetWidth() / 8;
-        int readX;
-        int readY;
-        if (interleaved)
-        {
-            int cell = sourceTile / 2;
-            readX = cell % columns * 8 + x;
-            readY = cell / columns * 16 + (sourceTile & 1) * 8 + y;
-        }
-        else
-        {
-            readX = sourceTile % columns * 8 + x;
-            readY = sourceTile / columns * 8 + y;
-        }
-        pixel = source.GetPixel(readX, readY);
-        return true;
-    }
+        => OracleTileRenderer.TryGetVramPixel(
+            UnsignedSources(bank), tile, x, y,
+            out pixel, out spriteEncoding);
 
     private bool TrySelectVramTile(
         int bank, int tile, out Image source, out int sourceTile,
         out bool interleaved, out bool spriteEncoding, bool signedAddressing)
     {
-        VramSource[] candidates = bank == 1
+        OracleVramSource[] candidates = bank == 1
             ? (signedAddressing ? _signedBank1 : [])
             : Mode == RingMenuMode.Appraisal
                 ? (signedAddressing
                     ? _appraisalSignedBank0
                     : _appraisalUnsignedBank0)
                 : (signedAddressing ? _listSignedBank0 : _listUnsignedBank0);
-        VramSource? selected = null;
-        foreach (VramSource candidate in candidates)
-        {
-            if (tile >= candidate.FirstTile &&
-                tile < candidate.FirstTile + candidate.TileCount)
-                selected = candidate;
-        }
-        if (selected is not VramSource result)
+        if (!OracleTileRenderer.TrySelectVramTile(
+            candidates, tile, out OracleVramSource result, out sourceTile))
         {
             source = _inventoryHud1;
-            sourceTile = 0;
             interleaved = false;
             spriteEncoding = false;
             return false;
         }
         source = result.Image;
-        sourceTile = tile - result.FirstTile;
         interleaved = result.Interleaved;
         spriteEncoding = result.SpriteEncoding;
         return true;
     }
+
+    private OracleVramSource[] UnsignedSources(int bank) =>
+        bank == 1
+            ? []
+            : Mode == RingMenuMode.Appraisal
+                ? _appraisalUnsignedBank0
+                : _listUnsignedBank0;
 
     private static Vector2 ListRingPosition(int index) =>
         new(16 + (index & 7) * 16, index < 8 ? 32 : 56);
@@ -652,27 +630,7 @@ public partial class RingMenuScreen : Node2D
 
     private static Vector2 BoxRingPosition(int slot) => new(40 + slot * 24, 0);
 
-    private static Texture2D BuildFontTexture(string path)
-    {
-        Image source = LoadPng(path);
-        Image output = Image.CreateEmpty(
-            source.GetWidth(), source.GetHeight(), false, Image.Format.Rgba8);
-        for (int y = 0; y < source.GetHeight(); y++)
-        for (int x = 0; x < source.GetWidth(); x++)
-        {
-            Color pixel = source.GetPixel(x, y);
-            output.SetPixel(x, y,
-                pixel.R > 0.5f ? Colors.White : Colors.Transparent);
-        }
-        return ImageTexture.CreateFromImage(output);
-    }
-
     private void OnInventoryChanged() => QueueRedraw();
-}
-
-internal readonly record struct VramSource(int FirstTile, Image Image, bool Interleaved, bool SpriteEncoding = false)
-{
-    public int TileCount => Image.GetWidth() / 8 * (Image.GetHeight() / 8);
 }
 
 internal enum RingMenuMode

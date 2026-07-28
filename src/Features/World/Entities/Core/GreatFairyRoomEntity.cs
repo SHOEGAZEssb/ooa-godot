@@ -30,7 +30,6 @@ internal sealed class GreatFairyRoomEntity
     private int _z = InitialZ;
 
     public NpcCharacter Npc => Entity;
-    bool IUpdatesDuringDialogueRoomEntity.UpdatesDuringDialogue => true;
 
     internal GreatFairyRoomEntity(
         NpcCharacter npc,

@@ -11,7 +11,8 @@ namespace oracleofages;
 internal sealed class DungeonMechanicDatabase
 {
 
-    private readonly Dictionary<int, List<DungeonMechanicDatabaseRecord>> _recordsByRoom = new();
+    private readonly Lookup<int, DungeonMechanicDatabaseRecord> _recordsByRoom =
+        new();
     private readonly Dictionary<string, int> _constants = new();
 
     internal int RecordCount { get; }
@@ -68,12 +69,9 @@ internal sealed class DungeonMechanicDatabase
                 record.Id == 0x20 && record.SubId != 0x00 ||
                 record.Id == 0x21 && record.SubId != 0x17)
                 throw row.Invalid(3, "a supported dungeon mechanic interaction id");
-            int key = MakeKey(record.Group, record.Room);
-            if (!_recordsByRoom.TryGetValue(key, out List<DungeonMechanicDatabaseRecord>? records))
-            {
-                records = new List<DungeonMechanicDatabaseRecord>();
-                _recordsByRoom.Add(key, records);
-            }
+            List<DungeonMechanicDatabaseRecord> records =
+                _recordsByRoom.GetOrAdd(
+                    MakeKey(record.Group, record.Room));
             if (records.Count > 0 && records[^1].Order >= record.Order)
             {
                 throw new InvalidOperationException(
@@ -159,9 +157,7 @@ internal sealed class DungeonMechanicDatabase
     }
 
     internal IReadOnlyList<DungeonMechanicDatabaseRecord> GetRoomRecords(int group, int room) =>
-        _recordsByRoom.TryGetValue(MakeKey(group, room), out List<DungeonMechanicDatabaseRecord>? records)
-            ? records
-            : Array.Empty<DungeonMechanicDatabaseRecord>();
+        _recordsByRoom.ValuesOrEmpty(MakeKey(group, room));
 
     internal int ClosedTile(int subId) => subId switch
     {

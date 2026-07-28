@@ -14,7 +14,7 @@ internal sealed class EnemyHandlerRegistry
         _handlers = new();
 
     internal EnemyHandlerRegistry(
-        IEnumerable<List<RoomObjectRecord>> roomObjectGroups)
+        IEnumerable<IReadOnlyList<RoomObjectRecord>> roomObjectGroups)
     {
         GeneratedTable table = GeneratedTable.Load(
             "res://assets/oracle/objects/enemy_handler_registry.tsv",
@@ -48,7 +48,7 @@ internal sealed class EnemyHandlerRegistry
         }
 
         var usedKeys = new HashSet<(int Id, int SubId)>();
-        foreach (List<RoomObjectRecord> roomObjects in roomObjectGroups)
+        foreach (IReadOnlyList<RoomObjectRecord> roomObjects in roomObjectGroups)
         {
             foreach (RoomObjectRecord source in roomObjects)
             {

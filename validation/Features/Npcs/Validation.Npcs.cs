@@ -574,8 +574,9 @@ public sealed partial class ValidationRoot
         OracleSaveData save = OracleSaveData.CreateStandardGame();
         save.SetGlobalFlag(
             OracleSaveData.GlobalFlagSavedNayru, value: false);
-        var manager = new RoomEntityManager(
-            validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
+        using var managerFixture = RoomEntityValidationFixture.ForRoot(
+            validationRoot, new() { SaveData = save });
+        RoomEntityManager manager = managerFixture.Manager;
         var database = new Room20eNpcDatabase();
         manager.LoadRoom(2, _world.LoadRoom(2, 0x0e));
 
@@ -793,8 +794,9 @@ public sealed partial class ValidationRoot
         var pastGuyRoot = new Node { Name = "Room145PastGuyValidation" };
         AddChild(pastGuyRoot);
         OracleSaveData pastGuySave = OracleSaveData.CreateStandardGame();
-        var pastGuyManager = new RoomEntityManager(
-            pastGuyRoot, new NpcDatabase(), new EnemyDatabase(), pastGuySave);
+        using var pastGuyManagerFixture = RoomEntityValidationFixture.ForRoot(
+            pastGuyRoot, new() { SaveData = pastGuySave });
+        RoomEntityManager pastGuyManager = pastGuyManagerFixture.Manager;
         pastGuyManager.LoadRoom(1, _world.LoadRoom(1, 0x45));
 
         NpcCharacter PastGuy1() =>
@@ -908,8 +910,9 @@ public sealed partial class ValidationRoot
         long bipinTick = 0;
         var bipinRooms = new RoomSession(
             3, 0xfc, () => bipinTick, () => bipinTick = 0, bipinSave);
-        var bipinManager = new RoomEntityManager(
-            bipinWorldRoot, new NpcDatabase(), new EnemyDatabase(), bipinSave);
+        using var bipinManagerFixture = RoomEntityValidationFixture.ForRoot(
+            bipinWorldRoot, new() { SaveData = bipinSave });
+        RoomEntityManager bipinManager = bipinManagerFixture.Manager;
         var bipinTreasures = new TreasureDatabase();
         var bipinInventory = new InventoryState(
             bipinTreasures, bipinSave, () => bipinRooms.CurrentDungeonIndex);
@@ -1022,8 +1025,9 @@ public sealed partial class ValidationRoot
         var validationRoot = new Node { Name = "Room148NpcValidation" };
         AddChild(validationRoot);
         OracleSaveData save = OracleSaveData.CreateStandardGame();
-        var manager = new RoomEntityManager(
-            validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
+        using var managerFixture = RoomEntityValidationFixture.ForRoot(
+            validationRoot, new() { SaveData = save });
+        RoomEntityManager manager = managerFixture.Manager;
         var pickaxe = new Room148PickaxeDatabase();
         var sounds = new List<int>();
         manager.SoundRequested += sounds.Add;
@@ -1273,8 +1277,9 @@ public sealed partial class ValidationRoot
         if (state3Save.WriteWramByte(0xc6bf, 0x08))
             state3Save.CommitInventoryChange();
         state3Save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
-        var state3Manager = new RoomEntityManager(
-            validationRoot, new NpcDatabase(), new EnemyDatabase(), state3Save);
+        using var state3ManagerFixture = RoomEntityValidationFixture.ForRoot(
+            validationRoot, new() { SaveData = state3Save });
+        RoomEntityManager state3Manager = state3ManagerFixture.Manager;
         state3Manager.LoadRoom(1, _world.LoadRoom(1, 0x47));
         NpcCharacter state3Villager = state3Manager.Entities<NpcCharacter>().Single(
             npc => npc.Record is { Id: 0x3a, SubId: 0x07 });
@@ -1321,8 +1326,9 @@ public sealed partial class ValidationRoot
         var validationRoot = new Node { Name = "Room149FamilyValidation" };
         AddChild(validationRoot);
         OracleSaveData save = OracleSaveData.CreateStandardGame();
-        var manager = new RoomEntityManager(
-            validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
+        using var managerFixture = RoomEntityValidationFixture.ForRoot(
+            validationRoot, new() { SaveData = save });
+        RoomEntityManager manager = managerFixture.Manager;
         var database = new Room149FamilyDatabase();
         manager.LoadRoom(1, _world.LoadRoom(1, 0x49));
 
@@ -1503,8 +1509,9 @@ public sealed partial class ValidationRoot
         var validationRoot = new Node { Name = "Room157NpcValidation" };
         AddChild(validationRoot);
         OracleSaveData save = OracleSaveData.CreateStandardGame();
-        var manager = new RoomEntityManager(
-            validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
+        using var managerFixture = RoomEntityValidationFixture.ForRoot(
+            validationRoot, new() { SaveData = save });
+        RoomEntityManager manager = managerFixture.Manager;
         manager.LoadRoom(1, _world.LoadRoom(1, 0x57));
 
         List<NpcCharacter> actors = manager.Entities<NpcCharacter>();
@@ -1652,8 +1659,9 @@ public sealed partial class ValidationRoot
         var validationRoot = new Node { Name = "Room158NpcValidation" };
         AddChild(validationRoot);
         OracleSaveData save = OracleSaveData.CreateStandardGame();
-        var manager = new RoomEntityManager(
-            validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
+        using var managerFixture = RoomEntityValidationFixture.ForRoot(
+            validationRoot, new() { SaveData = save });
+        RoomEntityManager manager = managerFixture.Manager;
         manager.LoadRoom(1, _world.LoadRoom(1, 0x58));
 
         List<NpcCharacter> actors = manager.Entities<NpcCharacter>();
@@ -1845,8 +1853,9 @@ public sealed partial class ValidationRoot
         var validationRoot = new Node { Name = "Room175NpcValidation" };
         AddChild(validationRoot);
         OracleSaveData save = OracleSaveData.CreateStandardGame();
-        var manager = new RoomEntityManager(
-            validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
+        using var managerFixture = RoomEntityValidationFixture.ForRoot(
+            validationRoot, new() { SaveData = save });
+        RoomEntityManager manager = managerFixture.Manager;
 
         void SetTreasure(OracleSaveData target, int treasure, bool value)
         {
@@ -2975,8 +2984,9 @@ public sealed partial class ValidationRoot
         var validationRoot = new Node { Name = "Room186PredicateValidation" };
         AddChild(validationRoot);
         OracleSaveData isolatedSave = OracleSaveData.CreateStandardGame();
-        var isolatedManager = new RoomEntityManager(
-            validationRoot, new NpcDatabase(), new EnemyDatabase(), isolatedSave);
+        using var isolatedManagerFixture = RoomEntityValidationFixture.ForRoot(
+            validationRoot, new() { SaveData = isolatedSave });
+        RoomEntityManager isolatedManager = isolatedManagerFixture.Manager;
         OracleRoomData isolatedHeartRoom = _world.LoadRoom(group, roomId);
         isolatedManager.LoadRoom(0, _world.LoadRoom(0, 0x00));
         Vector2 isolatedHeartIncomingOffset =
@@ -3129,7 +3139,8 @@ public sealed partial class ValidationRoot
             if (roomEvent.Screen is { } screen)
             {
                 sawExplanation = true;
-                if (screen.BackgroundPixelHash == 0 || _hud.Visible ||
+                if (screen.BackgroundPixelHash != 0x353a5833802cb82dUL ||
+                    _hud.Visible ||
                     _sound.ActiveMusic != OracleSoundEngine.MusDisaster ||
                     _warpFade.Position != Vector2.Zero ||
                     _warpFade.Size != new Vector2(
@@ -3291,8 +3302,9 @@ public sealed partial class ValidationRoot
             var root = new Node { Name = $"BlackTower{expectedRoom.Room:x2}Validation" };
             AddChild(root);
             OracleSaveData save = OracleSaveData.CreateStandardGame();
-            var manager = new RoomEntityManager(
-                root, new NpcDatabase(), new EnemyDatabase(), save);
+            using var managerFixture = RoomEntityValidationFixture.ForRoot(
+                root, new() { SaveData = save });
+            RoomEntityManager manager = managerFixture.Manager;
             manager.LoadRoom(4, _world.LoadRoom(4, expectedRoom.Room));
             List<NpcCharacter> actors = manager.Entities<NpcCharacter>();
             if (actors.Count != expectedRoom.Actors.Length ||
@@ -3327,8 +3339,9 @@ public sealed partial class ValidationRoot
         var predicateRoot = new Node { Name = "BlackTowerSoldierPredicateValidation" };
         AddChild(predicateRoot);
         OracleSaveData predicateSave = OracleSaveData.CreateStandardGame();
-        var predicateManager = new RoomEntityManager(
-            predicateRoot, new NpcDatabase(), new EnemyDatabase(), predicateSave);
+        using var predicateManagerFixture = RoomEntityValidationFixture.ForRoot(
+            predicateRoot, new() { SaveData = predicateSave });
+        RoomEntityManager predicateManager = predicateManagerFixture.Manager;
         predicateManager.LoadRoom(4, _world.LoadRoom(4, 0xe1));
         NpcCharacter soldier = predicateManager.Entities<NpcCharacter>().Single(npc =>
             npc.Record is { Id: 0x40, SubId: 0x0c });
@@ -3388,9 +3401,9 @@ public sealed partial class ValidationRoot
         // SPEED_80, skips movement when the counter reaches zero, then waits 20.
         var patrolRoot = new Node { Name = "BlackTowerPatrolValidation" };
         AddChild(patrolRoot);
-        var patrolManager = new RoomEntityManager(
-            patrolRoot, new NpcDatabase(), new EnemyDatabase(),
-            OracleSaveData.CreateStandardGame());
+        using var patrolManagerFixture = RoomEntityValidationFixture.ForRoot(
+            patrolRoot, new() { SaveData = OracleSaveData.CreateStandardGame() });
+        RoomEntityManager patrolManager = patrolManagerFixture.Manager;
         patrolManager.LoadRoom(4, _world.LoadRoom(4, 0xe2));
         NpcCharacter patroller = patrolManager.Entities<NpcCharacter>().Single(npc =>
             npc.Record is { Id: 0x58, SubId: 0x03 });
@@ -3427,9 +3440,9 @@ public sealed partial class ValidationRoot
 
         var blockerRoot = new Node { Name = "BlackTowerBlockerValidation" };
         AddChild(blockerRoot);
-        var blockerManager = new RoomEntityManager(
-            blockerRoot, new NpcDatabase(), new EnemyDatabase(),
-            OracleSaveData.CreateStandardGame());
+        using var blockerManagerFixture = RoomEntityValidationFixture.ForRoot(
+            blockerRoot, new() { SaveData = OracleSaveData.CreateStandardGame() });
+        RoomEntityManager blockerManager = blockerManagerFixture.Manager;
         blockerManager.LoadRoom(4, _world.LoadRoom(4, 0xe0));
         NpcCharacter blocker = blockerManager.Entities<NpcCharacter>().Single();
         _player.WarpTo(new Vector2(0x49, 0x98));
@@ -3479,8 +3492,9 @@ public sealed partial class ValidationRoot
         long entranceTick = 0;
         var entranceRooms = new RoomSession(
             4, 0xe7, () => entranceTick, () => entranceTick = 0, entranceSave);
-        var entranceManager = new RoomEntityManager(
-            entranceRoot, new NpcDatabase(), new EnemyDatabase(), entranceSave);
+        using var entranceManagerFixture = RoomEntityValidationFixture.ForRoot(
+            entranceRoot, new() { SaveData = entranceSave });
+        RoomEntityManager entranceManager = entranceManagerFixture.Manager;
         var respawn = new DeathRespawnPointController(entranceRooms, _player);
         int entranceText = 0;
         string entranceMessage = string.Empty;
@@ -3544,8 +3558,9 @@ public sealed partial class ValidationRoot
         long shovelTick = 0;
         var shovelRooms = new RoomSession(
             4, 0xe1, () => shovelTick, () => shovelTick = 0, shovelSave);
-        var shovelManager = new RoomEntityManager(
-            shovelWorldRoot, new NpcDatabase(), new EnemyDatabase(), shovelSave);
+        using var shovelManagerFixture = RoomEntityValidationFixture.ForRoot(
+            shovelWorldRoot, new() { SaveData = shovelSave });
+        RoomEntityManager shovelManager = shovelManagerFixture.Manager;
         var shovelTreasures = new TreasureDatabase();
         var shovelInventory = new InventoryState(
             shovelTreasures, shovelSave, () => shovelRooms.CurrentDungeonIndex);
@@ -3675,8 +3690,9 @@ public sealed partial class ValidationRoot
                 "Running Bipin $28:$00 lost its imported @bipin0/@updateSpeed " +
                 "movement or animation-toggle contract.");
         }
-        var manager = new RoomEntityManager(
-            validationRoot, npcs, new EnemyDatabase(), save);
+        using var fixture = RoomEntityValidationFixture.ForRoot(
+            validationRoot, new() { Npcs = npcs, SaveData = save });
+        RoomEntityManager manager = fixture.Manager;
 
         if (new NpcVisibilityRuleDatabase().RuleCount != 341 ||
             new NpcDialogueRuleDatabase().RuleCount != 117 ||

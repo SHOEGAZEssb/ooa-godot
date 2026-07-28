@@ -314,9 +314,9 @@ public sealed partial class ValidationRoot
         AddChild(validationRoot);
 
         var directRandom = new OracleRandom();
-        var directManager = new RoomEntityManager(
-            validationRoot, new NpcDatabase(), new EnemyDatabase(),
-            new ItemDropDatabase(), new TimePortalDatabase(), directRandom);
+        using var directFixture = RoomEntityValidationFixture.ForRoot(
+            validationRoot, new() { Random = directRandom });
+        RoomEntityManager directManager = directFixture.Manager;
         directManager.LoadRoom(0, emptyRoom);
         if (directRandom.Next() != new OracleRandomResult(0xc6, 0x1a, 0x04))
         {
@@ -326,9 +326,9 @@ public sealed partial class ValidationRoot
         directManager.Clear();
 
         var preloadRandom = new OracleRandom();
-        var preloadManager = new RoomEntityManager(
-            validationRoot, new NpcDatabase(), new EnemyDatabase(),
-            new ItemDropDatabase(), new TimePortalDatabase(), preloadRandom);
+        using var preloadFixture = RoomEntityValidationFixture.ForRoot(
+            validationRoot, new() { Random = preloadRandom });
+        RoomEntityManager preloadManager = preloadFixture.Manager;
         preloadManager.LoadRoom(0, emptyRoom);
         preloadManager.BeginScreenTransition(0, emptyRoom, Vector2.Zero);
         if (preloadRandom.Next() != new OracleRandomResult(0x59, 0xd0, 0x9b))
@@ -339,9 +339,9 @@ public sealed partial class ValidationRoot
         preloadManager.Clear();
 
         var cutsceneRandom = new OracleRandom();
-        var cutsceneManager = new RoomEntityManager(
-            validationRoot, new NpcDatabase(), new EnemyDatabase(),
-            new ItemDropDatabase(), new TimePortalDatabase(), cutsceneRandom);
+        using var cutsceneFixture = RoomEntityValidationFixture.ForRoot(
+            validationRoot, new() { Random = cutsceneRandom });
+        RoomEntityManager cutsceneManager = cutsceneFixture.Manager;
         cutsceneManager.LoadCutsceneRoom(0, emptyRoom, includeTimePortals: false);
         if (cutsceneRandom.Next() != new OracleRandomResult(0x5e, 0x27, 0xa5))
         {
@@ -355,6 +355,37 @@ public sealed partial class ValidationRoot
         GD.Print("Validated shared getRandomNumber state, per-parse 256-call placement-buffer " +
             "generation, placement-index reset, direct loads, destination preloads, and " +
             "cutscene-only load exclusion.");
+    }
+
+    private static void ValidateCutsceneDefaultDeny()
+    {
+        var source = new CutsceneCommandSource(
+            "validation/source-aware.tsv",
+            "validationDefaultDeny",
+            CommandIndex: 0,
+            SourceLine: 37,
+            Opcode: "setmusic");
+        var runner = new CutsceneCommandRunner(
+            new ValidationCutsceneDefaultDenyHost());
+        runner.Start([new CutsceneSetMusicCommand(source, Music: 0x12)]);
+
+        try
+        {
+            runner.AdvanceFrame();
+        }
+        catch (InvalidOperationException exception) when (
+            exception.Message.Contains(source.Script, StringComparison.Ordinal) &&
+            exception.Message.Contains(source.Label, StringComparison.Ordinal) &&
+            exception.Message.Contains("[0]", StringComparison.Ordinal) &&
+            exception.Message.Contains("line 37", StringComparison.Ordinal))
+        {
+            GD.Print("Validated source-aware default-deny cutscene host diagnostics.");
+            return;
+        }
+
+        throw new InvalidOperationException(
+            "An unsupported cutscene host capability did not fail with its " +
+            "script, label, command index, and source line.");
     }
 
     private static void ValidateRoomTileChanges()

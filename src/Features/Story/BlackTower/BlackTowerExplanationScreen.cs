@@ -1,6 +1,5 @@
 using Godot;
 using System;
-using System.Collections.Generic;
 using static oracleofages.OracleGraphicsData;
 
 namespace oracleofages;
@@ -12,7 +11,6 @@ internal partial class BlackTowerExplanationScreen : Control
     private readonly BlackTowerEntranceEventDatabase _database;
     private readonly Texture2D _background;
     private readonly Image _sprites;
-    private readonly Dictionary<int, Texture2D> _spriteTextures = new();
     private bool _flashWhite;
 
     internal bool FlashWhite => _flashWhite;
@@ -26,7 +24,8 @@ internal partial class BlackTowerExplanationScreen : Control
         MouseFilter = MouseFilterEnum.Ignore;
         ZIndex = 14;
         _background = BuildBackground(database.BackgroundPalettes);
-        BackgroundPixelHash = Hash(_background.GetImage());
+        BackgroundPixelHash = OracleGraphicsCache.PixelHash(
+            _background.GetImage());
         _sprites = OracleGraphicsCache.LoadImage(
             Root + "spr_black_tower_scene.png");
     }
@@ -58,31 +57,9 @@ internal partial class BlackTowerExplanationScreen : Control
             DrawRect(new Rect2(Vector2.Zero, Size), Colors.White);
     }
 
-    private Texture2D SpriteTexture(OamRecord oam)
-    {
-        int key = oam.Tile | (oam.Flags << 8);
-        if (_spriteTextures.TryGetValue(key, out Texture2D? texture))
-            return texture;
-        int cell = (oam.Tile & 0xfe) / 2;
-        int columns = _sprites.GetWidth() / 8;
-        bool flipX = (oam.Flags & 0x20) != 0;
-        bool flipY = (oam.Flags & 0x40) != 0;
-        int palette = oam.Flags & 7;
-        Image output = Image.CreateEmpty(8, 16, false, Image.Format.Rgba8);
-        for (int y = 0; y < 16; y++)
-        for (int x = 0; x < 8; x++)
-        {
-            Color source = _sprites.GetPixel(
-                cell % columns * 8 + (flipX ? 7 - x : x),
-                cell / columns * 16 + (flipY ? 15 - y : y));
-            int shade = source.R < 0.1f ? 0 : source.R < 0.5f ? 1 : source.R < 0.9f ? 2 : 3;
-            if (source.A >= 0.1f && shade != 0)
-                output.SetPixel(x, y, _database.SpritePalettes[palette, shade]);
-        }
-        texture = ImageTexture.CreateFromImage(output);
-        _spriteTextures.Add(key, texture);
-        return texture;
-    }
+    private Texture2D SpriteTexture(OamRecord oam) =>
+        OracleTileRenderer.GetOamCellTexture(
+            _sprites, oam.Tile, (byte)oam.Flags, _database.SpritePalettes);
 
     private static Texture2D BuildBackground(Color[,] palettes)
     {
@@ -97,66 +74,16 @@ internal partial class BlackTowerExplanationScreen : Control
         Array.Copy(topFlags, flags, topFlags.Length);
         Array.Copy(baseFlags, 0, flags, topFlags.Length, baseFlags.Length);
 
-        var tiles = new (Image? Source, int Tile)[2, 256];
-        AddTiles(tiles, OracleGraphicsCache.LoadImage(
+        var tiles = new OracleVramTileMap();
+        tiles.Map(OracleGraphicsCache.LoadImage(
             Root + "gfx_black_tower_scene_1.png"), 0x8800, 0);
-        AddTiles(tiles, OracleGraphicsCache.LoadImage(
+        tiles.Map(OracleGraphicsCache.LoadImage(
             Root + "gfx_black_tower_scene_2.png"), 0x9000, 0);
-        AddTiles(tiles, OracleGraphicsCache.LoadImage(
+        tiles.Map(OracleGraphicsCache.LoadImage(
             Root + "gfx_black_tower_scene_3.png"), 0x8800, 1);
-        AddTiles(tiles, OracleGraphicsCache.LoadImage(
+        tiles.Map(OracleGraphicsCache.LoadImage(
             Root + "gfx_black_tower_scene_4.png"), 0x9000, 1);
-
-        Image output = Image.CreateEmpty(256, 144, false, Image.Format.Rgba8);
-        for (int row = 0; row < 18; row++)
-        for (int column = 0; column < 32; column++)
-        {
-            int offset = row * 32 + column;
-            byte attributes = flags[offset];
-            (Image? source, int tile) = tiles[(attributes >> 3) & 1, map[offset]];
-            if (source is null)
-                continue;
-            bool flipX = (attributes & 0x20) != 0;
-            bool flipY = (attributes & 0x40) != 0;
-            int palette = attributes & 7;
-            int sourceColumns = source.GetWidth() / 8;
-            for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 8; x++)
-            {
-                Color pixel = source.GetPixel(
-                    tile % sourceColumns * 8 + (flipX ? 7 - x : x),
-                    tile / sourceColumns * 8 + (flipY ? 7 - y : y));
-                int shade = Math.Clamp(
-                    Mathf.RoundToInt((1.0f - pixel.R) * 3.0f), 0, 3);
-                output.SetPixel(column * 8 + x, row * 8 + y,
-                    palettes[palette, shade]);
-            }
-        }
-        return ImageTexture.CreateFromImage(output);
-    }
-
-    private static void AddTiles(
-        (Image? Source, int Tile)[,] tiles,
-        Image source,
-        int destination,
-        int bank)
-    {
-        int firstTile = destination >= 0x9000
-            ? (destination - 0x9000) / 16
-            : 0x80 + (destination - 0x8800) / 16;
-        int count = source.GetWidth() / 8 * (source.GetHeight() / 8);
-        for (int tile = 0; tile < count; tile++)
-            tiles[bank, (firstTile + tile) & 0xff] = (source, tile);
-    }
-
-    private static ulong Hash(Image image)
-    {
-        ulong hash = 14695981039346656037UL;
-        foreach (byte value in image.GetData())
-        {
-            hash ^= value;
-            hash *= 1099511628211UL;
-        }
-        return hash;
+        return OracleTileRenderer.BuildTileMapTexture(
+            map, flags, tiles, palettes);
     }
 }

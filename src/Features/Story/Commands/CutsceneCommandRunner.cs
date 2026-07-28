@@ -109,6 +109,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
 
             foreach (CutsceneActorId actor in Actors(commands[index]))
             {
+                host.SetActiveCommandSource(commands[index].Source);
                 if (!host.HasActorBinding(actor))
                 {
                     throw new InvalidOperationException(
@@ -157,6 +158,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
             }
 
             CutsceneCommand command = _commands[_instruction];
+            host.SetActiveCommandSource(command.Source);
             if (_commandUpdates == 0)
                 Trace(command, CutsceneCommandTracePhase.Started);
             _nextInstruction = -1;
@@ -198,6 +200,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
         _startPosition2 = Vector2.Zero;
         Counter = 0;
         Active = false;
+        host.SetActiveCommandSource(null);
     }
 
     private CommandResult Execute(CutsceneCommand command)

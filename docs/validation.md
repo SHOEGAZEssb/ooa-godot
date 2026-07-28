@@ -22,6 +22,14 @@ state or provide a small internal operation that is also a truthful view of the
 runtime owner. Cutscene command tracing is attached by validation rather than
 stored permanently on each event.
 
+Room/entity scenarios construct managers through
+`RoomEntityValidationFixture`. Its defaults provide the ordinary databases,
+RNG, and runtime collaborators; `RoomEntityValidationOptions` supplies only
+the exceptional save, inventory, database, clock, treasure, or room-session
+owner required by a scenario. The fixture owns manager clearing/disposal and
+can also own a temporary root. Keep it and other scenario setup helpers in the
+validation assembly.
+
 ## Running the suite
 
 Build first, then launch Godot with the project argument after `--`:

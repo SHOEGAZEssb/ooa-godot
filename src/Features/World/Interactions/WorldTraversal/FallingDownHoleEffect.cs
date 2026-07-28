@@ -8,7 +8,7 @@ namespace oracleofages;
 /// INTERAC_FALLDOWNHOLE $0f:$00. It moves at SPEED_60 toward the metatile
 /// center while playing the imported 8/12/12-update terminal animation.
 /// </summary>
-internal partial class FallingDownHoleEffect : TransitionOffsetNode2D
+internal partial class FallingDownHoleEffect : FixedEffectNode2D
 {
 
     private static FallingDownHoleEffectDefinition? _definition;
@@ -17,7 +17,7 @@ internal partial class FallingDownHoleEffect : TransitionOffsetNode2D
     private int _animationFrame;
     private int _animationCounter;
 
-    internal bool Finished { get; private set; }
+    internal override bool Finished { get; private protected set; }
     internal int ElapsedUpdates { get; private set; }
     internal int AnimationFrame => Math.Min(
         _animationFrame, _activeDefinition.Frames.Length - 1);
@@ -35,7 +35,7 @@ internal partial class FallingDownHoleEffect : TransitionOffsetNode2D
         QueueRedraw();
     }
 
-    internal void UpdateFrame()
+    internal override void UpdateFrame()
     {
         if (Finished)
             return;

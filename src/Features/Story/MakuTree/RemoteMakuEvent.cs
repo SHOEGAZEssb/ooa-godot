@@ -10,6 +10,7 @@ namespace oracleofages;
 /// HUD, music, map-state, and native $62 confetti behavior.
 /// </summary>
 internal abstract class RemoteMakuEvent :
+    CutsceneCommandHost,
     IRoomEvent,
     ICutsceneCommandHost,
     IUpdatesDuringDialogueRoomEvent

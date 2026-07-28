@@ -4,7 +4,8 @@ using System;
 namespace oracleofages;
 
 /// <summary>Runs Ralph's one-shot portal departure in room $0:$39.</summary>
-internal sealed class RalphPortalEvent : IRoomEntryEvent, ICutsceneCommandHost
+internal sealed class RalphPortalEvent :
+    CutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
 {
     private readonly RoomEventContext _context;
     private readonly RalphPortalEventDatabase _database = new();
@@ -160,6 +161,19 @@ internal sealed class RalphPortalEvent : IRoomEntryEvent, ICutsceneCommandHost
     {
         _flickering = true;
         RequireRalph(actor).Visible = visible;
+    }
+
+    void ICutsceneCommandHost.WriteObjectByte(
+        string actor,
+        int address,
+        int value)
+    {
+        RequireRalph(actor);
+        if (address != 0x3f || value != _record.FlickerFrames)
+        {
+            throw new InvalidOperationException(
+                $"Ralph's command stream cannot write ${address:x2}=${value:x2}.");
+        }
     }
 
     void ICutsceneCommandHost.WriteMemory(string binding, int value) =>

@@ -42,6 +42,37 @@ internal static class OracleGraphicsData
         return result;
     }
 
+    public static Color[,] LoadPaletteWithCommonBackgroundFallback(
+        string path,
+        int count,
+        int firstPalette)
+    {
+        Color[] fallback = LoadCommonBackgroundPalette();
+        Color[,] result = LoadPalette(path, count, firstPalette);
+        for (int palette = 0; palette < result.GetLength(0); palette++)
+        for (int shade = 0; shade < result.GetLength(1); shade++)
+        {
+            if (palette < firstPalette || palette >= firstPalette + count)
+                result[palette, shade] = fallback[shade];
+        }
+        return result;
+    }
+
+    public static Color[] LoadCommonBackgroundPalette()
+    {
+        byte[] bytes = ReadBytes(
+            "res://assets/oracle/metadata/commonBgPalette0.bin", 12);
+        var result = new Color[4];
+        for (int shade = 0; shade < result.Length; shade++)
+        {
+            result[shade] = new Color(
+                bytes[shade * 3] / 31.0f,
+                bytes[shade * 3 + 1] / 31.0f,
+                bytes[shade * 3 + 2] / 31.0f);
+        }
+        return result;
+    }
+
     public static void Overlay(
         byte[] destination,
         byte[] source,

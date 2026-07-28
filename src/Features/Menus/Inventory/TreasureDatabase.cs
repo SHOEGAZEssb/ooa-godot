@@ -42,7 +42,8 @@ public sealed class TreasureDatabase
     private readonly Dictionary<int, TreasureObjectVisualRecord> _objectVisuals = new();
     private readonly Dictionary<int, BehaviourRecord> _behaviours = new();
     private readonly Dictionary<int, GashaMaturityRecord> _gashaMaturity = new();
-    private readonly Dictionary<string, List<DisplayRecord>> _displayRows = new();
+    private readonly Lookup<string, DisplayRecord> _displayRows =
+        new(StringComparer.Ordinal);
     private readonly Dictionary<int, InventoryTextRecord> _inventoryTexts = new();
     private readonly Dictionary<int, InventoryTextRecord> _ringTexts = new();
 
@@ -142,7 +143,8 @@ public sealed class TreasureDatabase
 
     private DisplayRecord GetDisplay(string table, int index)
     {
-        if (!_displayRows.TryGetValue(table, out List<DisplayRecord>? records) ||
+        if (!_displayRows.TryGetValues(
+                table, out IReadOnlyList<DisplayRecord> records) ||
             index < 0 || index >= records.Count)
         {
             return DisplayRecord.Empty;
@@ -400,11 +402,7 @@ public sealed class TreasureDatabase
                 row.HexByte(7),
                 row.HexByte(8));
             string tableName = row.RequiredString(0);
-            if (!_displayRows.TryGetValue(tableName, out List<DisplayRecord>? rows))
-            {
-                rows = new List<DisplayRecord>();
-                _displayRows.Add(tableName, rows);
-            }
+            List<DisplayRecord> rows = _displayRows.GetOrAdd(tableName);
 
             int index = row.UnsignedDecimal(1);
             while (rows.Count < index)

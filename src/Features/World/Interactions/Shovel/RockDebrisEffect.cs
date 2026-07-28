@@ -11,7 +11,7 @@ namespace oracleofages;
 /// chips over four 4-update frames, exposes its terminal $ff frame for one
 /// update, then deletes on the following update.
 /// </summary>
-internal partial class RockDebrisEffect : TransitionOffsetNode2D
+internal partial class RockDebrisEffect : FixedEffectNode2D
 {
 
     private static IReadOnlyDictionary<int, Definition>? _definitions;
@@ -22,7 +22,7 @@ internal partial class RockDebrisEffect : TransitionOffsetNode2D
     private bool _initialized;
     private Action<int> _playSound = null!;
 
-    internal bool Finished { get; private set; }
+    internal override bool Finished { get; private protected set; }
     internal int InteractionId => _record.InteractionId;
     internal int ElapsedUpdates { get; private set; }
     internal int AnimationFrame =>
@@ -52,7 +52,7 @@ internal partial class RockDebrisEffect : TransitionOffsetNode2D
         QueueRedraw();
     }
 
-    internal void UpdateFrame()
+    internal override void UpdateFrame()
     {
         if (Finished)
             return;

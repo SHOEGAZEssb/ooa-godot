@@ -8,7 +8,7 @@ namespace oracleofages;
 /// INTERAC_SHOVELDEBRIS ($0a): one 14-update directional frame moving at
 /// SPEED_80 with speedZ=-$240 and gravity $60.
 /// </summary>
-internal partial class ShovelDebrisEffect : TransitionOffsetNode2D
+internal partial class ShovelDebrisEffect : FixedEffectNode2D
 {
     private const int LifetimeFrames = 14;
     private const int InitialSpeedZ = -0x240;
@@ -30,7 +30,7 @@ internal partial class ShovelDebrisEffect : TransitionOffsetNode2D
     private int _speedZ;
     private int _elapsedFrames;
 
-    internal bool Finished { get; private set; }
+    internal override bool Finished { get; private protected set; }
     internal int ElapsedFrames => _elapsedFrames;
     internal int ZFixed => _zFixed;
     internal int SpeedZ => _speedZ;
@@ -50,7 +50,7 @@ internal partial class ShovelDebrisEffect : TransitionOffsetNode2D
         QueueRedraw();
     }
 
-    internal void UpdateFrame()
+    internal override void UpdateFrame()
     {
         if (Finished)
             return;

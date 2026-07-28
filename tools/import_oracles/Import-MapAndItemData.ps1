@@ -60,7 +60,7 @@ for ($y = 0; $y -lt 14; $y++) {
     }
 }
 $mapMetadataPath = Join-Path $destination 'map\overworld.tsv'
-[IO.File]::WriteAllLines($mapMetadataPath, $mapRows, [Text.UTF8Encoding]::new($false))
+Write-GeneratedTable($mapMetadataPath, $mapRows)
 
 $mapTextRows = [Collections.Generic.List[string]]::new()
 $mapTextRows.Add('# text-id`tposition`tmessage-base64')
@@ -71,7 +71,7 @@ foreach ($textId in @($allTexts.Keys | Sort-Object)) {
     $mapTextRows.Add("$($textId.ToString('x4'))`t$position`t$encoded")
 }
 $mapTextsPath = Join-Path $destination 'map\texts.tsv'
-[IO.File]::WriteAllLines($mapTextsPath, $mapTextRows, [Text.UTF8Encoding]::new($false))
+Write-GeneratedTable($mapTextsPath, $mapTextRows)
 
 $treeWarpSource = Read-ImportText (Join-Path $Disassembly 'data\ages\treeWarps.s')
 $treeWarpRows = [Collections.Generic.List[string]]::new()
@@ -98,7 +98,7 @@ $treeWarpsPath = Join-Path $destination 'map\tree_warps.tsv'
 if ($treeWarpRows.Count -ne 11) {
     throw "Expected 10 nonzero Ages tree-warp popup records, parsed $($treeWarpRows.Count - 1)."
 }
-[IO.File]::WriteAllLines($treeWarpsPath, $treeWarpRows, [Text.UTF8Encoding]::new($false))
+Write-GeneratedTable($treeWarpsPath, $treeWarpRows)
 
 $mapMenuCode = Read-ImportText (Join-Path $Disassembly 'code\bank2.s')
 $entranceBlock = [regex]::Match(
@@ -118,7 +118,7 @@ foreach ($entry in [regex]::Matches(
 }
 if ($dungeonIndex -ne 16) { throw "Expected 16 Ages dungeon entrance rows, parsed $dungeonIndex." }
 $entrancePath = Join-Path $destination 'map\dungeon_entrances.tsv'
-[IO.File]::WriteAllLines($entrancePath, $entranceRows, [Text.UTF8Encoding]::new($false))
+Write-GeneratedTable($entrancePath, $entranceRows)
 
 function Read-ConstantIds([string]$path, [string]$prefix) {
     $ids = @{}
@@ -351,10 +351,9 @@ $braceletRows.Add(
     '# item`tpickup-sound`tthrow-sound`tdamage`tradius-y`tradius-x`tcollision-z-radius`tgravity`tinitial-speed-z`tspeed-raw`ttoss-speed-raw`tpush-speed-raw`tpush-frames`tpower-glove-push-speed-raw`tpower-glove-push-frames`theavy-property-mask`tgrab-pull-frames`tlift-low-frames`tlift-mid-frames`tlift-high-frames`tthrow-frames`tsource')
 $braceletRows.Add(
     "$($itemIds['ITEM_BRACELET'].ToString('x2'))`t$($soundIds['SND_PICKUP'].ToString('x2'))`t$($soundIds['SND_THROW'].ToString('x2'))`t$braceletDamage`t6`t6`t7`t$braceletGravity`t$braceletInitialSpeedZ`t3c`t64`t14`t32`t1e`t21`t20`t11`t7`t4`t2`t8`tobject_code/common/itemParents/bombsBraceletParent.s:parentItemCode_bracelet")
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'metadata\bracelet.tsv'),
-    $braceletRows,
-    [Text.UTF8Encoding]::new($false))
+    $braceletRows)
 
 $emberData = [regex]::Match(
     $itemDataSource,
@@ -464,10 +463,9 @@ $seedRows = [Collections.Generic.List[string]]::new()
 $seedRows.Add('# parent-item`tseed-item`ttreasure-id`tsprite`ttile-base`tpalette`tcollision`tradius-y`tradius-x`tdamage`tinitial-z`tspeed-z`tgravity`tspeed-raw`tup-y`tup-x`tright-y`tright-x`tdown-y`tdown-x`tleft-y`tleft-x`tlink-frames`tflame-sprite`tflame-tile-base`tflame-oam-flags`tflame-counter`tlanding-sound`tflame-sound`tanimation`tsource')
 $seedRows.Add(
     "$($itemIds['ITEM_SEED_SATCHEL'].ToString('x2'))`t$($itemIds['ITEM_EMBER_SEED'].ToString('x2'))`t$($treasureIds['TREASURE_EMBER_SEEDS'].ToString('x2'))`tspr_common_items`t$($tileBase.ToString('x2'))`t$($palette.ToString('x2'))`t$($collision.ToString('x2'))`t$radiusY`t$radiusX`t$($damage.ToString('x2'))`t-2`t-32`t28`t1e`t-4`t0`t1`t4`t5`t0`t1`t-5`t8`tspr_common_sprites`t$($flameTileBase.ToString('x2'))`t$($flameFlags.ToString('x2'))`t$flameCounter`t$($soundIds['SND_BOMB_LAND'].ToString('x2'))`t$($soundIds['SND_LIGHTTORCH'].ToString('x2'))`t$encodedEmberAnimation`tobject_code/common/items/seeds.s:itemCode20")
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'metadata\seed_satchel.tsv'),
-    $seedRows,
-    [Text.UTF8Encoding]::new($false))
+    $seedRows)
 
 # ITEM_SWORD_BEAM ($27) is created by a level-2 sword at the source health
 # threshold and by the Energy Ring when charging completes. Preserve its four
@@ -524,10 +522,9 @@ for ($direction = 0; $direction -lt 4; $direction++) {
     $swordBeamRows.Add(
         "$direction`t$offsetY`t$offsetX`tspr_common_items`t$swordBeamTileBase`t$swordBeamPalette`t$(($swordBeamRadius -shr 4) -band 0x0f)`t$($swordBeamRadius -band 0x0f)`t$swordBeamDamage`t78`t$($soundIds['SND_SWORDBEAM'].ToString('x2'))`t$(Read-ItemOamComposition $swordBeamOamLabels[$direction])")
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'metadata\sword_beam.tsv'),
-    $swordBeamRows,
-    [Text.UTF8Encoding]::new($false))
+    $swordBeamRows)
 
 # Preserve the common giveTreasure lookup data so the runtime can update
 # inventory variables from original treasure IDs and parameters.
@@ -561,10 +558,9 @@ foreach ($line in $behaviourSource) {
 if ($behaviourRows.Count -ne 105) {
     throw "Expected 104 treasure collection behaviour rows, parsed $($behaviourRows.Count - 1)."
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination "metadata\treasure_behaviours.tsv"),
-    $behaviourRows,
-    [Text.UTF8Encoding]::new($false))
+    $behaviourRows)
 
 # Treasure objects encode the object subid found in chestData.s and the exact
 # b/c values passed to giveTreasure.
@@ -621,10 +617,9 @@ if (-not $treasureObjectRecords.ContainsKey('TREASURE_OBJECT_SWORD_00') -or
     $treasureObjectRecords['TREASURE_OBJECT_SWORD_00'].Treasure -ne $treasureIds['TREASURE_SWORD']) {
     throw "Could not resolve TREASURE_OBJECT_SWORD_00 to TREASURE_SWORD."
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination "metadata\treasure_objects.tsv"),
-    $treasureObjectRows,
-    [Text.UTF8Encoding]::new($false))
+    $treasureObjectRows)
 
 # Export the item icon rows used by loadTreasureDisplayData. Runtime code only
 # consumes a subset today, but keeping all rows makes the inventory foundation
@@ -681,10 +676,9 @@ foreach ($expectedRow in $expectedShieldDisplayRows) {
         throw "Could not export exact shield display row '$expectedRow'."
     }
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination "metadata\treasure_display.tsv"),
-    $displayRows,
-    [Text.UTF8Encoding]::new($false))
+    $displayRows)
 
 # showItemText2 reads normal inventory labels from TX_09XX. Ring slots set bit
 # 7 and substitute TX_3040+ring and TX_3080+ring into TX_30c1; export that
@@ -714,10 +708,9 @@ if (($inventoryTextRows | Where-Object { $_ -match '^item\t23\t0923\t' }).Count 
     ($inventoryTextRows | Where-Object { $_ -match '^ring\t00\t3040\t3080\t' }).Count -ne 1) {
     throw 'Could not export Wooden Sword and Friendship Ring inventory text records.'
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination "metadata\inventory_text.tsv"),
-    $inventoryTextRows,
-    [Text.UTF8Encoding]::new($false))
+    $inventoryTextRows)
 
 # Export the breakable tile tables used by tryToBreakTile. The source masks
 # retain the disassembly's left-to-right bit order from breakableTileSources.s.
@@ -836,10 +829,9 @@ if (($breakableRows | Where-Object { $_ -eq "2`t10`t1d`t00125`t2`t06`ta0`tff`t0"
     ($breakableRows | Where-Object { $_ -eq "0`tcb`t12`t00040`t0`tca`td2`t07`t50" }).Count -ne 1) {
     throw 'Could not export dungeon moving pot tile $10 as bracelet-breakable mode $1d.'
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination "metadata\breakable_tiles.tsv"),
-    $breakableRows,
-    [Text.UTF8Encoding]::new($false))
+    $breakableRows)
 
 # Export LINK_STATE_JUMPING_DOWN_LEDGE's collision-set-specific cliff and
 # landing tables together with the exact edge probes, length speeds, physics,
@@ -919,10 +911,9 @@ if ($sideTileRows.Count -ne 17 -or
     ($sideTileRows | Where-Object { $_ -eq "f4`t01`ttileTypeMappings.s:@sidescrolling" }).Count -ne 1) {
     throw 'Could not export all 16 side-scrolling tile-type rows.'
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'metadata\side_scroll_tiles.tsv'),
-    $sideTileRows,
-    [Text.UTF8Encoding]::new($false))
+    $sideTileRows)
 
 $sidePhysicsBlock = [regex]::Match(
     $linkSource,
@@ -1022,10 +1013,9 @@ $sideConstantRows = @(
 if ($sideConstantRows.Count -ne 17) {
     throw 'Side-scrolling player constants lost an expected row.'
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'metadata\side_scroll_constants.tsv'),
-    $sideConstantRows,
-    [Text.UTF8Encoding]::new($false))
+    $sideConstantRows)
 
 $ledgeCollisionModes = @{
     overworld = 0
@@ -1074,10 +1064,9 @@ if ($ledgeCliffRows.Count -ne 39 -or
     ($ledgeCliffRows | Where-Object { $_ -eq "2`tc4`t08" }).Count -ne 1) {
     throw 'Could not export all 38 collision-set-specific Ages cliff tile rows.'
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'metadata\ledge_cliff_tiles.tsv'),
-    $ledgeCliffRows,
-    [Text.UTF8Encoding]::new($false))
+    $ledgeCliffRows)
 
 $tileIndices = @{}
 foreach ($line in $tileIndexSource) {
@@ -1123,10 +1112,9 @@ if ($ledgeLandableRows.Count -ne 7 -or
     ($ledgeLandableRows | Where-Object { $_ -eq "5`t0f" }).Count -ne 1) {
     throw 'Could not export the six raisable-floor cliff landing exceptions.'
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'metadata\ledge_landable_tiles.tsv'),
-    $ledgeLandableRows,
-    [Text.UTF8Encoding]::new($false))
+    $ledgeLandableRows)
 
 $wallDirectionMatch = [regex]::Match(
     $linkSource,
@@ -1158,10 +1146,9 @@ foreach ($line in ($wallDirectionMatch.Groups['body'].Value -split "`r?`n")) {
 if ($directionIndex -ne 4) {
     throw 'Could not export all four ledge wall-direction probe rows.'
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'metadata\ledge_jump_directions.tsv'),
-    $ledgeDirectionRows,
-    [Text.UTF8Encoding]::new($false))
+    $ledgeDirectionRows)
 
 $objectSpeeds = @{}
 foreach ($line in $objectSpeedSource) {
@@ -1200,10 +1187,9 @@ for ($index = 0; $index -lt $speedNames.Count; $index++) {
     $ledgeSpeedRows.Add(
         "$($index + 1)`t$($objectSpeeds[$name].ToString('x2'))")
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'metadata\ledge_jump_speeds.tsv'),
-    $ledgeSpeedRows,
-    [Text.UTF8Encoding]::new($false))
+    $ledgeSpeedRows)
 
 function Resolve-SoundValue([string]$name) {
     foreach ($line in $soundSource) {
@@ -1248,10 +1234,9 @@ $ledgeConstantRows = @(
     "animation-phase-1`t$([Convert]::ToInt32($jumpAnimationMatch.Groups['d1'].Value, 16))",
     "animation-phase-2`t$([Convert]::ToInt32($jumpAnimationMatch.Groups['d2'].Value, 16))"
 )
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'metadata\ledge_jump_constants.tsv'),
-    $ledgeConstantRows,
-    [Text.UTF8Encoding]::new($false))
+    $ledgeConstantRows)
 
 # Preserve checkTileValidForEnemySpawn's collision-mode-specific exceptions.
 # The routine rejects every nonzero collision byte first, then consults this
@@ -1311,7 +1296,7 @@ if ($enemyUnspawnableTileCount -ne 63 -or
     $enemyUnspawnableBytes[4 * 256 + 0xfd] -ne 1) {
     throw "Expected 63 collision-mode enemy-unspawnable tile records, parsed $enemyUnspawnableTileCount."
 }
-[IO.File]::WriteAllBytes(
+Write-GeneratedBytes(
     (Join-Path $destination "metadata\enemyUnspawnableTiles.bin"),
     $enemyUnspawnableBytes)
 
@@ -1445,10 +1430,9 @@ $tileInteractionFallbackRows.Add([string]::Join(
 if ($tileInteractionFallbackRows.Count -ne 5) {
     throw "Expected four common tile-interaction fallback rows, got $($tileInteractionFallbackRows.Count - 1)."
 }
-[IO.File]::WriteAllLines(
+Write-GeneratedTable(
     (Join-Path $destination 'objects\tile_interaction_fallbacks.tsv'),
-    $tileInteractionFallbackRows,
-    [Text.UTF8Encoding]::new($false))
+    $tileInteractionFallbackRows)
 
 $chestRows = [Collections.Generic.List[string]]::new()
 $chestRows.Add("# group`troom`tposition`ttreasure-object`ttreasure-id`tsubid`tparameter`ttext-id`tgraphic`tamount`tutf8-base64")
@@ -1489,4 +1473,4 @@ if (-not $testChest) {
     throw "The canonical room 0:49/$51 chest no longer resolves to the 30-rupee TX_0005 reward."
 }
 $chestPath = Join-Path $destination "objects\chests.tsv"
-[IO.File]::WriteAllLines($chestPath, $chestRows, [Text.UTF8Encoding]::new($false))
+Write-GeneratedTable($chestPath, $chestRows)

@@ -8,7 +8,7 @@ namespace oracleofages;
 /// The key stays four pixels above the door for eight updates, then eight
 /// pixels above it for 20.
 /// </summary>
-internal partial class DungeonKeyUseEffect : TransitionOffsetNode2D
+internal partial class DungeonKeyUseEffect : FixedEffectNode2D
 {
     private Texture2D _texture = null!;
     private Vector2 _textureOffset;
@@ -16,7 +16,7 @@ internal partial class DungeonKeyUseEffect : TransitionOffsetNode2D
     private int _counter;
     private int _z;
 
-    internal bool Finished { get; private set; }
+    internal override bool Finished { get; private protected set; }
     internal int Phase => _phase;
     internal int Counter => _counter;
     internal int Z => _z;
@@ -53,7 +53,7 @@ internal partial class DungeonKeyUseEffect : TransitionOffsetNode2D
         QueueRedraw();
     }
 
-    internal void UpdateFrame()
+    internal override void UpdateFrame()
     {
         if (Finished)
             return;

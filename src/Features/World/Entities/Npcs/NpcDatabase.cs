@@ -5,8 +5,8 @@ namespace oracleofages;
 
 public sealed class NpcDatabase
 {
-    private readonly Dictionary<int, List<NpcRecord>> _byRoom = new();
-    private readonly Dictionary<int, List<FamilyNpcRecord>> _familyByRoom = new();
+    private readonly Lookup<int, NpcRecord> _byRoom = new();
+    private readonly Lookup<int, FamilyNpcRecord> _familyByRoom = new();
     private readonly List<NpcRecord> _allRecords = new();
     private readonly BipinBlossomFamilyInteractionDatabase _familyInteractions = new();
     internal IReadOnlyList<NpcRecord> AllRecords => _allRecords;
@@ -32,13 +32,7 @@ public sealed class NpcDatabase
             NpcRecord record = ParseNpcRecord(row, selectorColumns: 0);
             _allRecords.Add(record);
 
-            int key = MakeKey(record.Group, record.Room);
-            if (!_byRoom.TryGetValue(key, out List<NpcRecord>? records))
-            {
-                records = new List<NpcRecord>();
-                _byRoom.Add(key, records);
-            }
-            records.Add(record);
+            _byRoom.Add(MakeKey(record.Group, record.Room), record);
         }
 
         GeneratedTable family = GeneratedTable.Load(
@@ -62,21 +56,14 @@ public sealed class NpcDatabase
                 row.UnsignedDecimal(2),
                 row.Decimal(3),
                 record);
-            int key = MakeKey(record.Group, record.Room);
-            if (!_familyByRoom.TryGetValue(key, out List<FamilyNpcRecord>? records))
-            {
-                records = new List<FamilyNpcRecord>();
-                _familyByRoom.Add(key, records);
-            }
-            records.Add(familyRecord);
+            _familyByRoom.Add(
+                MakeKey(record.Group, record.Room), familyRecord);
         }
     }
 
     public IReadOnlyList<NpcRecord> GetRoomNpcs(int group, int room)
     {
-        return _byRoom.TryGetValue(MakeKey(group, room), out List<NpcRecord>? records)
-            ? records
-            : Array.Empty<NpcRecord>();
+        return _byRoom.ValuesOrEmpty(MakeKey(group, room));
     }
 
     internal IReadOnlyList<NpcRecord> GetRoomNpcs(
@@ -87,7 +74,8 @@ public sealed class NpcDatabase
     {
         int key = MakeKey(group, room);
         IReadOnlyList<NpcRecord> placed = GetRoomNpcs(group, room);
-        if (!_familyByRoom.TryGetValue(key, out List<FamilyNpcRecord>? family))
+        if (!_familyByRoom.TryGetValues(
+                key, out IReadOnlyList<FamilyNpcRecord> family))
             return placed;
         if (save is not null && save.HasGlobalFlag(OracleSaveData.GlobalFlagFinishedGame))
             return placed;

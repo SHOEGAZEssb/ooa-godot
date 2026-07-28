@@ -57,10 +57,17 @@ public sealed partial class ValidationRoot
         var inventory = new InventoryState(treasures, save);
         inventory.GiveTreasure(TreasureDatabase.TreasureBombs, 0x04);
         inventory.GiveTreasure(TreasureDatabase.TreasureEmberSeeds, 0x05);
-        var manager = new RoomEntityManager(
-            root, npcs, enemies, new ItemDropDatabase(),
-            new TimePortalDatabase(), new OracleRandom(), save,
-            new OracleRuntimeState(), inventory, treasures: treasures);
+        using var fixture = RoomEntityValidationFixture.ForRoot(
+            root, new()
+            {
+                Npcs = npcs,
+                Enemies = enemies,
+                SaveData = save,
+                RuntimeState = new OracleRuntimeState(),
+                Inventory = inventory,
+                Treasures = treasures
+            });
+        RoomEntityManager manager = fixture.Manager;
         int crowDeathEvents = 0;
         void RecordCrowDeath() => crowDeathEvents++;
         manager.EnemyDefeated += RecordCrowDeath;
