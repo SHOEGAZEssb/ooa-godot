@@ -2,6 +2,8 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace oracleofages;
 
@@ -181,6 +183,21 @@ public sealed partial class ValidationRoot
         root.Free();
 
         var linkedNpcData = new LinkedGameNpcDatabase();
+        string cipherHash = Convert.ToHexString(SHA256.HashData(
+            linkedNpcData.XorCipher.ToArray())).ToLowerInvariant();
+        string symbolHash = Convert.ToHexString(SHA256.HashData(
+            Encoding.UTF8.GetBytes(
+                string.Join("\0", linkedNpcData.SecretSymbols))))
+            .ToLowerInvariant();
+        if (cipherHash !=
+                "25a4c33b3ee77c7da156d739f4e1894ad2b238731cd5d531415938aef67b2813" ||
+            symbolHash !=
+                "f0f882cb0f40041890af6e204f595d34003291b6aba787226d64462820563628")
+        {
+            throw new InvalidOperationException(
+                "The generated linked-secret XOR/symbol tables lost their " +
+                "complete bank3.s/bank0.s source order.");
+        }
         LinkedGameNpcDatabaseRecord ghiniData =
             linkedNpcData.Get(0, 0x5d, 0xcb, 0x00);
         var secretSave = OracleSaveData.CreateStandardGame();

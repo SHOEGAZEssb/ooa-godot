@@ -472,6 +472,18 @@ keys, five text IDs and decoded messages, extra-confirmation bit, secret index,
 short-secret index, began flag, and traced source graph. The ordinary
 `npc_visibility.tsv` still owns their separate linked plus D1/D2 predicates;
 do not hide those conditions inside the dialogue records.
+`objects/linked_secret_cipher.tsv` and `linked_secret_symbols.tsv` separately
+retain the active non-Japanese `secretXorCipher` bytes and the complete ordered
+64-symbol display alphabet from bank 3/bank 0. The importer converts source
+glyph bytes into the same text commands consumed by `DialogueBox`; runtime
+secret generation must index these records rather than copy either table.
+
+Small native NPC tables use the same boundary. `black_tower_selectors.tsv`
+contains the four source-ordered animation/text selectors shared by lower
+Black Tower workers and soldiers. `running_bipin.tsv` joins `$28:$00`'s raw
+object speed with its initial angle, legal X interval, angle reversal,
+animation XOR, and both resolved animation streams. These inputs belong to
+the specialized databases, not constants or arrays in room-entity classes.
 
 The same room's non-character controller is imported separately.
 `cutscenes/wing_dungeon_collapse_event.tsv` pins

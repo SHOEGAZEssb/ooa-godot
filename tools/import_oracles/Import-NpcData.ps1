@@ -2116,6 +2116,53 @@ $blackTowerSoldierSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\soldier.s')
 $agesScriptHelperSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+$pickaxeAnimationSelectorMatch = [regex]::Match(
+    $agesScriptHelperSource,
+    '(?ms)^pickaxeWorker_setAnimationFromVar03:.*?^@animations:\s*\r?\n(?<table>(?:^[ \t]*\.db[^\r\n]*\r?\n)+)')
+$pickaxeTextSelectorMatch = [regex]::Match(
+    $agesScriptHelperSource,
+    '(?ms)^pickaxeWorker_chooseRandomBlackTowerText:.*?^@blackTowerText:\s*\r?\n(?<table>(?:^[ \t]*\.db[^\r\n]*\r?\n)+)')
+$hardhatTextSelectorMatch = [regex]::Match(
+    $agesScriptHelperSource,
+    '(?ms)^hardhatWorker_chooseTextForPatroller:.*?^@textIDs:\s*\r?\n(?<table>(?:^[ \t]*\.db[^\r\n]*\r?\n)+)')
+$soldierTextSelectorMatch = [regex]::Match(
+    $agesScriptHelperSource,
+    '(?ms)^soldierGetRandomVar32Val:.*?^@data:\s*\r?\n(?<table>(?:^[ \t]*\.db[^\r\n]*\r?\n)+)')
+$pickaxeAnimationSelector = @(
+    [regex]::Matches(
+        $pickaxeAnimationSelectorMatch.Groups['table'].Value,
+        '\$(?<value>[0-9a-f]{2})') |
+        ForEach-Object {
+            [Convert]::ToInt32($_.Groups['value'].Value, 16)
+        }
+)
+$pickaxeTextSelector = @(
+    [regex]::Matches(
+        $pickaxeTextSelectorMatch.Groups['table'].Value,
+        'TX_(?<value>[0-9a-f]{4})') |
+        ForEach-Object {
+            [Convert]::ToInt32($_.Groups['value'].Value, 16)
+        }
+)
+$hardhatTextSelector = @(
+    [regex]::Matches(
+        $hardhatTextSelectorMatch.Groups['table'].Value,
+        'TX_(?<value>[0-9a-f]{4})') |
+        ForEach-Object {
+            [Convert]::ToInt32($_.Groups['value'].Value, 16)
+        }
+)
+$soldierTextSelectorLowBytes = @(
+    [regex]::Matches(
+        $soldierTextSelectorMatch.Groups['table'].Value,
+        '\$(?<value>[0-9a-f]{2})') |
+        ForEach-Object {
+            [Convert]::ToInt32($_.Groups['value'].Value, 16)
+        }
+)
+$soldierTextSelector = @(
+    $soldierTextSelectorLowBytes | ForEach-Object { 0x5900 + $_ }
+)
 $blackTowerRooms = @{
     'e0' = 'obj_Interaction \$3a \$02 \$98 \$38\s+obj_End'
     'e1' = 'obj_Interaction \$58 \$00 \$98 \$48\s+obj_Interaction \$40 \$0c \$68 \$58\s+obj_Interaction \$57 \$03 \$38 \$48 \$00\s+obj_Interaction \$57 \$03 \$58 \$88 \$01\s+obj_End'
@@ -2131,17 +2178,27 @@ foreach ($entry in $blackTowerRooms.GetEnumerator()) {
 }
 if ($room148WorkerSource -notmatch '(?ms)^@subid00:\s*^@subid03:.*?SND_CLINK.*?@createDirtChips' -or
     $agesMainScriptSource -notmatch '(?ms)^pickaxeWorkerSubid03Script:.*?pickaxeWorker_setAnimationFromVar03.*?pickaxeWorker_chooseRandomBlackTowerText.*?showloadedtext' -or
-    $agesScriptHelperSource -notmatch '(?ms)^pickaxeWorker_setAnimationFromVar03:.*?@animations:\s+\.db \$00 \$01 \$00 \$01 \$00 \$01 \$01 \$01' -or
-    $agesScriptHelperSource -notmatch '(?ms)^pickaxeWorker_chooseRandomBlackTowerText:.*?getRandomNumber.*?and \$07.*?@blackTowerText:\s+\.db <TX_1b01\s+\.db <TX_1b02\s+\.db <TX_1b03\s+\.db <TX_1b04\s+\.db <TX_1b05\s+\.db <TX_1b01\s+\.db <TX_1b02\s+\.db <TX_1b03' -or
+    $agesScriptHelperSource -notmatch '(?ms)^pickaxeWorker_setAnimationFromVar03:.*?Interaction\.var03.*?rst_addAToHl.*?interactionSetAnimation' -or
+    $agesScriptHelperSource -notmatch '(?ms)^pickaxeWorker_chooseRandomBlackTowerText:.*?getRandomNumber.*?and \$07.*?rst_addAToHl.*?>TX_1b00' -or
     $blackTowerHardhatSource -notmatch '(?ms)^@subid00:.*?interactionSetAlwaysUpdateBit.*?ld a,\$04.*?interactionSetAnimation.*?^@subid03:.*?interactionAnimateBasedOnSpeed.*?interactionPushLinkAwayAndUpdateDrawPriority' -or
     $agesMainScriptSource -notmatch '(?ms)^hardhatWorkerSubid00Script:.*?jumpifroomflagset \$20.*?TX_1001.*?wait 30.*?giveitem TREASURE_SHOVEL, \$00.*?wait 30.*?TX_1002.*?TX_1000.*?setanimation \$04' -or
     $agesMainScriptSource -notmatch '(?ms)^hardhatWorkerFunc_patrol:.*?hardhatWorker_decPatrolCounter.*?objectApplySpeed.*?wait 20.*?disableinput.*?turnToFaceLink.*?showloadedtext.*?wait 30.*?hardhatWorker_updatePatrolAnimation.*?enableinput' -or
-    $agesScriptHelperSource -notmatch '(?ms)^hardhatWorker_chooseTextForPatroller:.*?cp \$04.*?getRandomNumber.*?and \$03.*?@textIDs:\s+\.db <TX_100a.*?\.db <TX_100b.*?\.db <TX_100c.*?\.db <TX_100c.*?\.db <TX_100d' -or
+    $agesScriptHelperSource -notmatch '(?ms)^hardhatWorker_chooseTextForPatroller:.*?cp \$04.*?getRandomNumber.*?and \$03.*?rst_addAToHl.*?>TX_1000' -or
     $blackTowerSoldierSource -notmatch '(?ms)^soldierSubid00:\s*^soldierSubid01:.*?GLOBALFLAG_FINISHEDGAME.*?GLOBALFLAG_0b.*?jr soldierSubid0c.*?^soldierSubid0c:.*?soldierInitGraphicsAndLoadScript.*?npcFaceLinkAndAnimate' -or
-    $agesScriptHelperSource -notmatch '(?ms)^soldierGetRandomVar32Val:.*?getRandomNumber.*?and \$03.*?@data:\s+\.db \$0d \$0e \$0f \$0d' -or
+    $agesScriptHelperSource -notmatch '(?ms)^soldierGetRandomVar32Val:.*?getRandomNumber.*?and \$03.*?rst_addAToHl.*?>TX_5900' -or
     $room148VillagerSource -notmatch '(?ms)^@runSubid02:.*?objectSetCollideRadii.*?ld b,\$11.*?ld b,\$ef.*?objectCheckCollidedWithLink_ignoreZ.*?villagerSubid02Script_part2.*?Interaction\.var39.*?Interaction\.var3d' -or
     $agesMainScriptSource -notmatch '(?ms)^villagerSubid02Script_part2:.*?disableinput.*?SPEED_100.*?moveleft \$10.*?moveright \$10.*?villager_setLinkYToVar39.*?wait 10.*?enableinput') {
     throw 'Black Tower worker, soldier, blocker, or entrance behavior changed in the disassembly.'
+}
+if (-not $pickaxeAnimationSelectorMatch.Success -or
+    -not $pickaxeTextSelectorMatch.Success -or
+    -not $hardhatTextSelectorMatch.Success -or
+    -not $soldierTextSelectorMatch.Success -or
+    $pickaxeAnimationSelector.Count -ne 8 -or
+    $pickaxeTextSelector.Count -ne 8 -or
+    $hardhatTextSelector.Count -ne 5 -or
+    $soldierTextSelector.Count -ne 4) {
+    throw 'Black Tower animation/text selector tables are incomplete in scriptHelper.s.'
 }
 
 $blackTowerTextRows = [Collections.Generic.List[string]]::new()
@@ -2157,6 +2214,25 @@ foreach ($textId in @(
     $encoded = [Convert]::ToBase64String(
         [Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
     $blackTowerTextRows.Add("$($textId.ToString('x4'))`t$encoded")
+}
+
+$blackTowerSelectorRows = [Collections.Generic.List[string]]::new()
+$blackTowerSelectorRows.Add("# selector`tindex`tvalue")
+foreach ($selector in @(
+    @{ Name = 'pickaxe-animation'; Values = $pickaxeAnimationSelector; Width = 2 },
+    @{ Name = 'pickaxe-text'; Values = $pickaxeTextSelector; Width = 4 },
+    @{ Name = 'hardhat-text'; Values = $hardhatTextSelector; Width = 4 },
+    @{ Name = 'soldier-text'; Values = $soldierTextSelector; Width = 4 }
+)) {
+    for ($index = 0; $index -lt $selector.Values.Count; $index++) {
+        $value = [int]$selector.Values[$index]
+        if ($selector.Name -ne 'pickaxe-animation' -and
+            -not $allTexts.ContainsKey($value)) {
+            throw "Black Tower selector '$($selector.Name)' references missing TX_$($value.ToString('x4'))."
+        }
+        $blackTowerSelectorRows.Add(
+            "$($selector.Name)`t$index`t$($value.ToString("x$($selector.Width)"))")
+    }
 }
 
 $blackTowerVisualRows = [Collections.Generic.List[string]]::new()
@@ -2404,6 +2480,37 @@ foreach ($constant in $familyInteractionIds.GetEnumerator()) {
         throw "$($constant.Key) no longer resolves to interaction `$$expected."
     }
 }
+$runningBipinMatch = [regex]::Match(
+    $pastBipinSource,
+    '(?ms)^@bipin0:\s+ld h,d\s+ld l,Interaction\.speed\s+ld \(hl\),(?<speed>SPEED_[0-9]+)\s+ld l,Interaction\.angle\s+ld \(hl\),\$(?<angle>[0-9a-f]{2}).*?ld l,Interaction\.var3a\s+ld a,\$(?<animation>[0-9a-f]{2}).*?^@updateSpeed:\s+call objectApplySpeed\s+ld e,Interaction\.xh\s+ld a,\(de\)\s+sub \$(?<minimum>[0-9a-f]{2})\s+cp \$(?<span>[0-9a-f]{2})\s+ret c.*?ld l,Interaction\.angle\s+ld a,\(hl\)\s+xor \$(?<angleXor>[0-9a-f]{2}).*?ld l,Interaction\.var3a\s+ld a,\(hl\)\s+xor \$(?<animationXor>[0-9a-f]{2})')
+if (-not $runningBipinMatch.Success) {
+    throw 'Could not resolve Running Bipin $28:$00 native movement inputs from bipin.s.'
+}
+$runningBipinSpeedName = $runningBipinMatch.Groups['speed'].Value
+$runningBipinSpeedMatch = [regex]::Match(
+    $objectSpeedSource,
+    "(?m)^\s*$([regex]::Escape($runningBipinSpeedName))\s+dsb\s+\d+\s*;\s*0x(?<value>[0-9a-f]{2})")
+if (-not $runningBipinSpeedMatch.Success) {
+    throw "Could not resolve Running Bipin object speed $runningBipinSpeedName."
+}
+$runningBipinInitialAnimation =
+    [Convert]::ToInt32($runningBipinMatch.Groups['animation'].Value, 16)
+$runningBipinAnimationXor =
+    [Convert]::ToInt32($runningBipinMatch.Groups['animationXor'].Value, 16)
+$runningBipinAlternateAnimation =
+    $runningBipinInitialAnimation -bxor $runningBipinAnimationXor
+$runningBipinInitialAnimationData =
+    Resolve-NpcAnimation 0x28 $runningBipinInitialAnimation
+$runningBipinAlternateAnimationData =
+    Resolve-NpcAnimation 0x28 $runningBipinAlternateAnimation
+if (-not $runningBipinInitialAnimationData -or
+    -not $runningBipinAlternateAnimationData) {
+    throw 'Could not resolve Running Bipin $28:$00 toggle animations.'
+}
+$runningBipinRows = @(
+    "# speed-raw`tinitial-angle`tminimum-x`tspan-x`treverse-angle-xor`tinitial-animation`tanimation-toggle-xor`tinitial-animation-data`talternate-animation-data`tsource",
+    "$($runningBipinSpeedMatch.Groups['value'].Value)`t$($runningBipinMatch.Groups['angle'].Value)`t$($runningBipinMatch.Groups['minimum'].Value)`t$($runningBipinMatch.Groups['span'].Value)`t$($runningBipinMatch.Groups['angleXor'].Value)`t$($runningBipinMatch.Groups['animation'].Value)`t$($runningBipinMatch.Groups['animationXor'].Value)`t$runningBipinInitialAnimationData`t$runningBipinAlternateAnimationData`tobject_code/common/interactions/bipin.s:@bipin0;@updateSpeed"
+)
 if ($mainObjectSource -notmatch
         '(?ms)^group2MapeaObjectData:.*?obj_Interaction\s+\$ac\s+\$00\s+\$58\s+\$38' -or
     $mainObjectSource -notmatch
@@ -2838,6 +2945,79 @@ if ($linkedGhiniSource -notmatch '(?ms)^interactionCodecb:.*?Interaction\.oamFla
     $musicIdSource -notmatch '(?m)^\s*SND_POOF\s+db\s+; \$98') {
     throw 'Linked-game Ghini or room 0:83 Great Fairy behavior changed in the disassembly.'
 }
+
+# linkedNpc_generateSecret indexes the active non-Japanese XOR and display
+# symbol tables directly. Decode both source tables here so production secret
+# generation has no copied bank-0/bank-3 constants.
+$secretCipherSource = Read-ImportText (
+    Join-Path $Disassembly 'code\bank3.s')
+$secretCipherMatch = [regex]::Match(
+    $secretCipherSource,
+    '(?ms)^secretXorCipher:\s*.*?^\.else\s*\r?\n(?<table>.*?)^\.endif')
+$secretCipher = @(
+    [regex]::Matches(
+        $secretCipherMatch.Groups['table'].Value,
+        '\$(?<value>[0-9a-f]{2})') |
+        ForEach-Object {
+            [Convert]::ToInt32($_.Groups['value'].Value, 16)
+        }
+)
+$secretSymbolsMatch = [regex]::Match(
+    $bank0Source,
+    '(?ms)^secretSymbols:.*?^\.ifndef REGION_JP\s*\r?\n(?<table>.*?)^[ \t]*\.db \$00[^\r\n]*\r?\n^\.endif')
+$secretSymbolControls = @{
+    0x10 = '\circle'
+    0x11 = '\club'
+    0x12 = '\diamond'
+    0x13 = '\spade'
+    0x15 = '\up'
+    0x16 = '\down'
+    0x17 = '\left'
+    0x18 = '\right'
+    0x7e = '\triangle'
+    0x7f = '\rectangle'
+    0xbd = '\heart'
+}
+$secretSymbols = [Collections.Generic.List[string]]::new()
+foreach ($line in ($secretSymbolsMatch.Groups['table'].Value -split '\r?\n')) {
+    if ($line -match '^\s*\.asc\s+"(?<text>[^"]*)"') {
+        foreach ($character in $Matches['text'].ToCharArray()) {
+            $secretSymbols.Add([string]$character)
+        }
+        continue
+    }
+    if ($line -notmatch '^\s*\.db\s+') { continue }
+    foreach ($byteMatch in [regex]::Matches(
+            $line, '\$(?<value>[0-9a-f]{2})')) {
+        $value = [Convert]::ToInt32(
+            $byteMatch.Groups['value'].Value, 16)
+        if ($secretSymbolControls.ContainsKey($value)) {
+            $secretSymbols.Add([string]$secretSymbolControls[$value])
+        } elseif ($value -ge 0x20 -and $value -le 0x7d) {
+            $secretSymbols.Add([string][char]$value)
+        } else {
+            throw "secretSymbols references unsupported source glyph `$$($value.ToString('x2'))."
+        }
+    }
+}
+if (-not $secretCipherMatch.Success -or $secretCipher.Count -ne 48 -or
+    -not $secretSymbolsMatch.Success -or $secretSymbols.Count -ne 64) {
+    throw 'Linked-secret XOR/symbol tables are incomplete in bank3.s/bank0.s.'
+}
+$linkedSecretCipherRows = [Collections.Generic.List[string]]::new()
+$linkedSecretCipherRows.Add("# index`txor")
+for ($index = 0; $index -lt $secretCipher.Count; $index++) {
+    $linkedSecretCipherRows.Add(
+        "$index`t$(([int]$secretCipher[$index]).ToString('x2'))")
+}
+$linkedSecretSymbolRows = [Collections.Generic.List[string]]::new()
+$linkedSecretSymbolRows.Add("# index`tutf8-base64")
+for ($index = 0; $index -lt $secretSymbols.Count; $index++) {
+    $encoded = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($secretSymbols[$index]))
+    $linkedSecretSymbolRows.Add("$index`t$encoded")
+}
+
 $linkedNpcRows = [Collections.Generic.List[string]]::new()
 $linkedNpcRows.Add(
     "# group`troom`tid`tsubid`tsecret-index`tshort-secret-index`tbegan-flag`thas-extra-text`toffer-text-id`trefusal-text-id`texplanation-text-id`tsecret-text-id`tfinal-text-id`toffer-utf8-base64`trefusal-utf8-base64`texplanation-utf8-base64`tsecret-utf8-base64`tfinal-utf8-base64`tsource")
@@ -2883,6 +3063,14 @@ foreach ($linkedNpc in @(
 [IO.File]::WriteAllLines(
     (Join-Path $destination 'objects\linked_game_npcs.tsv'),
     $linkedNpcRows,
+    [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\linked_secret_cipher.tsv'),
+    $linkedSecretCipherRows,
+    [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllLines(
+    (Join-Path $destination 'objects\linked_secret_symbols.tsv'),
+    $linkedSecretSymbolRows,
     [Text.UTF8Encoding]::new($false))
 
 # State-selected position overrides remain separate from visibility and text.
@@ -4204,6 +4392,11 @@ $familyTextPath = Join-Path $destination "objects\bipin_blossom_family_texts.tsv
     $familyTextPath,
     $familyTextRows,
     [Text.UTF8Encoding]::new($false))
+$runningBipinPath = Join-Path $destination "objects\running_bipin.tsv"
+[IO.File]::WriteAllLines(
+    $runningBipinPath,
+    $runningBipinRows,
+    [Text.UTF8Encoding]::new($false))
 $room148PickaxePath = Join-Path $destination "objects\room148_pickaxe.tsv"
 [IO.File]::WriteAllLines(
     $room148PickaxePath,
@@ -4238,6 +4431,11 @@ $blackTowerTextPath = Join-Path $destination "objects\black_tower_texts.tsv"
 [IO.File]::WriteAllLines(
     $blackTowerTextPath,
     $blackTowerTextRows,
+    [Text.UTF8Encoding]::new($false))
+$blackTowerSelectorPath = Join-Path $destination "objects\black_tower_selectors.tsv"
+[IO.File]::WriteAllLines(
+    $blackTowerSelectorPath,
+    $blackTowerSelectorRows,
     [Text.UTF8Encoding]::new($false))
 $blackTowerVisualPath = Join-Path $destination "objects\black_tower_visuals.tsv"
 [IO.File]::WriteAllLines(

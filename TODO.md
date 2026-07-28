@@ -59,18 +59,15 @@ snapshot is maintained in
   report every matching source. Canonical room `1:86` flag `$80` and room
   `0:68` progress regressions cover changes in both directions.
 
-- [ ] Move the remaining copied source tables and native constants used by
+- [x] Move the remaining copied source tables and native constants used by
   implemented NPC interactions across the generated-data boundary.
-  - Export the Black Tower `$57:$03` eight-entry animation/text selectors,
-    `$40:$0c` four-entry text selector, and `$58:$03` five-entry text selector;
-    the importer currently asserts them while the runtime repeats them in
-    three separate entity classes.
-  - Export the linked-secret `secretXorCipher` and 64-entry `secretSymbols`
-    table used by `$cb:$00`; the current database validates only their copied
-    lengths.
-  - Export or strictly pin the `$28:$00` Running Bipin speed, angle, bounds,
-    and animation-toggle inputs instead of leaving validation as the only
-    source contract.
+  `Import-NpcData.ps1` now parses and emits the Black Tower `$57:$03`,
+  `$40:$0c`, and `$58:$03` animation/text selectors; the non-Japanese
+  `secretXorCipher` and 64-entry `secretSymbols` sequence; and Running Bipin
+  `$28:$00`'s speed, angle, bounds, reversal, and animation-toggle record.
+  Their typed runtime databases reject incomplete/noncontiguous data, and
+  headless validation pins every selector/table plus Bipin's movement
+  boundaries without production copies.
 
 ### Ownership and consolidation
 

@@ -10,6 +10,7 @@ public sealed class NpcDatabase
     private readonly List<NpcRecord> _allRecords = new();
     private readonly BipinBlossomFamilyInteractionDatabase _familyInteractions = new();
     internal IReadOnlyList<NpcRecord> AllRecords => _allRecords;
+    internal RunningBipinRecord RunningBipin => _familyInteractions.RunningBipin;
 
     public NpcDatabase()
     {

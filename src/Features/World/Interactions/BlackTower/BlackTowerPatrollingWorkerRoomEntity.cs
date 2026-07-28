@@ -33,8 +33,7 @@ internal sealed class BlackTowerPatrollingWorkerRoomEntity : BlackTowerNpcRoomEn
             data.Visual("hardhat-2").Animation,
             data.Visual("hardhat-3").Animation);
         int textIndex = npc.Record.Var03 == 4 ? 4 : random.Next().Value & 0x03;
-        int[] texts = { 0x100a, 0x100b, 0x100c, 0x100c, 0x100d };
-        int textId = texts[textIndex];
+        int textId = data.HardhatText(textIndex);
         npc.SetDialogue(textId, data.Text(textId), canFace: true);
         StartLeg(0);
     }

@@ -3223,6 +3223,33 @@ public sealed partial class ValidationRoot
         var data = new BlackTowerWorkerDatabase();
         var dungeonEntries = new DungeonEntranceInteractionDatabase();
         var strike = new Room148PickaxeDatabase();
+        if (!Enumerable.Range(0, 8)
+                .Select(data.PickaxeAnimation)
+                .SequenceEqual(new[] { 0, 1, 0, 1, 0, 1, 1, 1 }) ||
+            !Enumerable.Range(0, 8)
+                .Select(data.PickaxeText)
+                .SequenceEqual(new[]
+                {
+                    0x1b01, 0x1b02, 0x1b03, 0x1b04,
+                    0x1b05, 0x1b01, 0x1b02, 0x1b03
+                }) ||
+            !Enumerable.Range(0, 5)
+                .Select(data.HardhatText)
+                .SequenceEqual(new[]
+                {
+                    0x100a, 0x100b, 0x100c, 0x100c, 0x100d
+                }) ||
+            !Enumerable.Range(0, 4)
+                .Select(data.SoldierText)
+                .SequenceEqual(new[]
+                {
+                    0x590d, 0x590e, 0x590f, 0x590d
+                }))
+        {
+            throw new InvalidOperationException(
+                "Black Tower generated animation/text selectors lost their " +
+                "scriptHelper.s source order.");
+        }
 
         (int Room, (int Id, int SubId, int Var03, int Y, int X)[] Actors,
             int InitialRandomCalls)[] rooms =
@@ -3313,8 +3340,8 @@ public sealed partial class ValidationRoot
 
         var referenceRandom = new OracleRandom();
         referenceRandom.BeginRoomParse();
-        int[] soldierTexts = { 0x590d, 0x590e, 0x590f, 0x590d };
-        int expectedSoldierText = soldierTexts[referenceRandom.Next().Value & 3];
+        int expectedSoldierText =
+            data.SoldierText(referenceRandom.Next().Value & 3);
         if (!predicateManager.BeginNpcTalk(soldier) ||
             soldier.TextId != expectedSoldierText ||
             predicateManager.RandomCalls != 257)
@@ -3325,12 +3352,8 @@ public sealed partial class ValidationRoot
         predicateManager.EndNpcTalk(soldier);
         NpcCharacter pickaxe = predicateManager.Entities<NpcCharacter>().First(npc =>
             npc.Record is { Id: 0x57, SubId: 0x03 });
-        int[] pickaxeTexts =
-        {
-            0x1b01, 0x1b02, 0x1b03, 0x1b04,
-            0x1b05, 0x1b01, 0x1b02, 0x1b03
-        };
-        int expectedPickaxeText = pickaxeTexts[referenceRandom.Next().Value & 7];
+        int expectedPickaxeText =
+            data.PickaxeText(referenceRandom.Next().Value & 7);
         if (!predicateManager.BeginNpcTalk(pickaxe) ||
             pickaxe.TextId != expectedPickaxeText ||
             predicateManager.RandomCalls != 258)
@@ -3631,8 +3654,29 @@ public sealed partial class ValidationRoot
         var validationRoot = new Node { Name = "NpcFlagVisibilityValidation" };
         AddChild(validationRoot);
         OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var npcs = new NpcDatabase();
+        RunningBipinRecord runningBipin = npcs.RunningBipin;
+        if (runningBipin is not
+            {
+                SpeedRaw: 0x28,
+                InitialAngle: 0x18,
+                MinimumX: 0x28,
+                SpanX: 0x30,
+                ReverseAngleXor: 0x10,
+                InitialAnimation: 0x04,
+                AnimationToggleXor: 0x01
+            } ||
+            string.IsNullOrEmpty(runningBipin.InitialAnimationData) ||
+            string.IsNullOrEmpty(runningBipin.AlternateAnimationData) ||
+            runningBipin.InitialAnimationData ==
+                runningBipin.AlternateAnimationData)
+        {
+            throw new InvalidOperationException(
+                "Running Bipin $28:$00 lost its imported @bipin0/@updateSpeed " +
+                "movement or animation-toggle contract.");
+        }
         var manager = new RoomEntityManager(
-            validationRoot, new NpcDatabase(), new EnemyDatabase(), save);
+            validationRoot, npcs, new EnemyDatabase(), save);
 
         if (new NpcVisibilityRuleDatabase().RuleCount != 341 ||
             new NpcDialogueRuleDatabase().RuleCount != 117 ||
@@ -3795,7 +3839,9 @@ public sealed partial class ValidationRoot
         string bipinRunningRight = newbornBipin.Record.RightAnimation;
         if (string.IsNullOrEmpty(bipinRunningLeft) ||
             string.IsNullOrEmpty(bipinRunningRight) ||
-            bipinRunningLeft == bipinRunningRight)
+            bipinRunningLeft == bipinRunningRight ||
+            bipinRunningLeft != runningBipin.InitialAnimationData ||
+            bipinRunningRight != runningBipin.AlternateAnimationData)
         {
             throw new InvalidOperationException(
                 "Bipin $28:$00 did not import distinct animation $04/$05 running records.");

@@ -238,6 +238,10 @@ through placed actors plus one shared specialized dialogue/secret owner:
   `GLOBALFLAG_BEGAN_GRAVEYARD_SECRET`. Preserve the original game-ID fields,
   20-byte bit insertion, checksum nibble, XOR cipher, five 6-bit symbols, and
   `\secret1` substitution; it is not a random clone-only password.
+- The 48-byte non-Japanese XOR cipher and all 64 source-ordered display
+  symbols are importer-generated records. `LinkedGameNpcDatabase` validates
+  contiguous indices and consumes them directly; production code does not
+  repeat the bank-3/bank-0 tables.
 - `INTERAC_GREAT_FAIRY $d5:$00` in room `0:83` uses the same graph with secret
   index `$06`, short-secret index `$26`, TX `$4d1e-$4d22`, and
   `GLOBALFLAG_BEGAN_TEMPLE_SECRET`. It exists only in a linked file after D2.
@@ -284,7 +288,10 @@ listens to typed notifications from the shared Bracelet parent:
 
 `RunningBipinRoomEntity` is the smaller reference: it adds the original
 fixed-update patrol and reversal behavior while continuing to use
-`NpcCharacter` for rendering, talking, and collision.
+`NpcCharacter` for rendering, talking, and collision. Its raw speed, initial
+angle, legal X interval, reversal XOR, initial animation, toggle XOR, and two
+resolved animation streams come from `running_bipin.tsv`; the entity contains
+no copied `$28/$18/$30/$10/$04/$01` behavior constants.
 
 Past room `3:fc` uses the same narrow native-adapter pattern for
 `INTERAC_BIPIN $28:$0a`: animation `$09`, Link collision, and Link-relative
@@ -539,7 +546,10 @@ reference for several native NPC handlers sharing one room slice:
   switch to a static pose: native animation continues, so a strike can still
   play `SND_CLINK` and create two `$92:$06` dirt chips while text is open. Each
   A-button talk consumes one shared `getRandomNumber` value and selects the
-  eight-entry TX `$1b01`-`$1b05` table.
+  eight-entry TX `$1b01`-`$1b05` table. Both selectors, the soldier's
+  four-entry selector, and the hardhat's five-entry selector are parsed into
+  `black_tower_selectors.tsv`; the specialized entities only supply the
+  source mask/index.
 - Soldier `$40:$0c` likewise consumes one shared RNG value per talk for TX
   `$590d/$590e/$590f/$590d` and faces Link every update. Do not reuse the
   `GLOBALFLAG_FINISHEDGAME`/`GLOBALFLAG_0b` predicates from soldier subids

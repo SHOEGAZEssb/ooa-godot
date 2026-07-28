@@ -1192,7 +1192,7 @@ internal sealed class RoomEntityFactory(
                 npc, _troyHouse, saveData, random);
         }
         if (record is { Id: 0x28, SubId: 0x00 })
-            return new RunningBipinRoomEntity(npc);
+            return new RunningBipinRoomEntity(npc, npcs.RunningBipin);
         if (record is { Id: 0x28, SubId: 0x0a })
             return new PastBipinRoomEntity(npc);
         if (record is

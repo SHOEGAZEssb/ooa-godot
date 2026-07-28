@@ -8,7 +8,6 @@ namespace oracleofages;
 internal sealed class BlackTowerSoldierRoomEntity : BlackTowerNpcRoomEntity,
     IFixedRoomEntity, INpcTalkLifecycle
 {
-    private static readonly int[] TextTable = { 0x590d, 0x590e, 0x590f, 0x590d };
     private readonly BlackTowerWorkerDatabase _data;
     private readonly OracleRandom _random;
 
@@ -42,7 +41,7 @@ internal sealed class BlackTowerSoldierRoomEntity : BlackTowerNpcRoomEntity,
 
     public void OnNpcTalkStarted()
     {
-        int textId = TextTable[_random.Next().Value & 0x03];
+        int textId = _data.SoldierText(_random.Next().Value & 0x03);
         Entity.SetDialogue(textId, _data.Text(textId), canFace: true);
     }
 

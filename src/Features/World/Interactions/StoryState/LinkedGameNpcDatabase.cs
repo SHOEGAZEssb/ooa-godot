@@ -15,37 +15,58 @@ public sealed class LinkedGameNpcDatabase
     private const int ShortSecretIndexAddress = 0xc6fb;
     private const int SecretType = 3;
 
-    private static readonly byte[] XorCipher =
-    [
-        0x15, 0x23, 0x2e, 0x04, 0x0d, 0x3f, 0x1a, 0x10,
-        0x3a, 0x2f, 0x1e, 0x20, 0x0f, 0x3e, 0x36, 0x37,
-        0x09, 0x29, 0x3b, 0x31, 0x02, 0x16, 0x3d, 0x38,
-        0x28, 0x13, 0x34, 0x32, 0x01, 0x0b, 0x0a, 0x35,
-        0x0e, 0x1b, 0x12, 0x2c, 0x21, 0x2d, 0x25, 0x30,
-        0x19, 0x2a, 0x06, 0x39, 0x3c, 0x17, 0x33, 0x18
-    ];
-
-    private static readonly string[] SecretSymbols =
-    [
-        "B", "D", "F", "G", "H", "J", "L", "M",
-        "\\spade", "\\heart", "\\diamond", "\\club", "#",
-        "N", "Q", "R", "S", "T", "W", "Y", "!",
-        "\\circle", "\\triangle", "\\rectangle", "+", "-",
-        "b", "d", "f", "g", "h", "j", "m", "$", "*", "/", ":", "~",
-        "n", "q", "r", "s", "t", "w", "y", "?", "%", "&", "<", "=", ">",
-        "2", "3", "4", "5", "6", "7", "8", "9",
-        "\\up", "\\down", "\\left", "\\right", "@"
-    ];
-
     private readonly Dictionary<
         (int Group, int Room, int InteractionId, int SubId),
         LinkedGameNpcDatabaseRecord> _records = [];
+    private readonly byte[] _xorCipher;
+    private readonly string[] _secretSymbols;
 
     public IReadOnlyCollection<LinkedGameNpcDatabaseRecord> Records =>
         _records.Values;
+    internal IReadOnlyList<byte> XorCipher => _xorCipher;
+    internal IReadOnlyList<string> SecretSymbols => _secretSymbols;
 
     public LinkedGameNpcDatabase()
     {
+        GeneratedTable cipher = GeneratedTable.Load(
+            "res://assets/oracle/objects/linked_secret_cipher.tsv",
+            new GeneratedTableSchema(
+                "linked-secret XOR cipher",
+                GeneratedTableKeySemantics.Unique,
+                ["index", "xor"],
+                ["index"],
+                headerRequired: true));
+        var cipherValues = new List<byte>();
+        foreach (GeneratedTableRow row in cipher.Rows)
+        {
+            int index = row.UnsignedDecimal(0);
+            if (index != cipherValues.Count)
+                throw row.Invalid(0, $"the next contiguous index {cipherValues.Count}");
+            cipherValues.Add((byte)row.HexByte(1));
+        }
+        _xorCipher = cipherValues.ToArray();
+
+        GeneratedTable symbols = GeneratedTable.Load(
+            "res://assets/oracle/objects/linked_secret_symbols.tsv",
+            new GeneratedTableSchema(
+                "linked-secret symbols",
+                GeneratedTableKeySemantics.Unique,
+                ["index", "utf8-base64"],
+                ["index"],
+                headerRequired: true));
+        var symbolValues = new List<string>();
+        foreach (GeneratedTableRow row in symbols.Rows)
+        {
+            int index = row.UnsignedDecimal(0);
+            if (index != symbolValues.Count)
+                throw row.Invalid(0, $"the next contiguous index {symbolValues.Count}");
+            string symbol = row.Base64Utf8(1);
+            if (symbol.Length == 0)
+                throw row.Invalid(1, "one display symbol or text command");
+            symbolValues.Add(symbol);
+        }
+        _secretSymbols = symbolValues.ToArray();
+
         GeneratedTable table = GeneratedTable.Load(
             "res://assets/oracle/objects/linked_game_npcs.tsv",
             new GeneratedTableSchema(
@@ -113,7 +134,7 @@ public sealed class LinkedGameNpcDatabase
                     $"Malformed linked-game NPC record from {record.Source}.");
             }
         }
-        if (SecretSymbols.Length != 64 || XorCipher.Length != 48)
+        if (_secretSymbols.Length != 64 || _xorCipher.Length != 48)
         {
             throw new InvalidOperationException(
                 "Linked-secret symbol/cipher tables are incomplete.");
@@ -149,7 +170,7 @@ public sealed class LinkedGameNpcDatabase
         byte[] values = GenerateSecretValues(record, save);
         var result = new System.Text.StringBuilder();
         foreach (byte value in values)
-            result.Append(SecretSymbols[value]);
+            result.Append(_secretSymbols[value]);
         return result.ToString();
     }
 
@@ -189,7 +210,7 @@ public sealed class LinkedGameNpcDatabase
         int cipherOffset = ((shortBuffer[0] & 0x38) >> 3) * 4;
         for (int index = 0; index < shortBuffer.Length; index++)
         {
-            int cipher = XorCipher[cipherOffset + index];
+            int cipher = _xorCipher[cipherOffset + index];
             if (index == 0)
                 cipher &= 0x07;
             shortBuffer[index] ^= (byte)cipher;

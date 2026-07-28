@@ -4,21 +4,24 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-// INTERAC_BIPIN $28:$00 starts at SPEED_100/angle $18 and reverses whenever
-// X leaves [$28,$58). Its var3a animation toggles between $04 and $05 at the
-// same boundary update.
+// INTERAC_BIPIN $28:$00 consumes the imported @bipin0/@updateSpeed native
+// record, including its raw speed, angle, X interval, and var3a toggle.
 internal sealed class RunningBipinRoomEntity
     : RoomEntityAdapter<NpcCharacter>, IVariableRoomEntity, IFixedRoomEntity,
         IRoomBlocker, ITalkTarget
 {
+    private readonly RunningBipinRecord _data;
     private Vector2 _precisePosition;
-    private int _angle = 0x18;
-    private bool _alternateAnimation;
+    private int _angle;
+    private int _animation;
 
-    public RunningBipinRoomEntity(NpcCharacter npc)
+    public RunningBipinRoomEntity(NpcCharacter npc, RunningBipinRecord data)
         : base(npc, npc.SetTransitionDrawOffset)
     {
+        _data = data;
         _precisePosition = npc.Position;
+        _angle = data.InitialAngle;
+        _animation = data.InitialAnimation;
     }
 
     internal int Angle => _angle;
@@ -32,16 +35,18 @@ internal sealed class RunningBipinRoomEntity
         if (!Entity.Active)
             return;
 
-        _precisePosition += OracleObjectMath.VectorFromAngle32(_angle);
+        _precisePosition += OracleObjectMath.VectorFromAngle32(_angle) *
+            (_data.SpeedRaw / 40.0f);
         Entity.Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-        float relativeX = Entity.Position.X - 0x28;
-        if (relativeX < 0 || relativeX >= 0x30)
+        float relativeX = Entity.Position.X - _data.MinimumX;
+        if (relativeX < 0 || relativeX >= _data.SpanX)
         {
-            _angle ^= 0x10;
-            _alternateAnimation = !_alternateAnimation;
-            Entity.SetScriptAnimation(_alternateAnimation
-                ? Entity.Record.RightAnimation
-                : Entity.Record.DownAnimation);
+            _angle ^= _data.ReverseAngleXor;
+            _animation ^= _data.AnimationToggleXor;
+            Entity.SetScriptAnimation(
+                _animation == _data.InitialAnimation
+                    ? _data.InitialAnimationData
+                    : _data.AlternateAnimationData);
         }
 
         // bipin.s calls objectPreventLinkFromPassing after objectApplySpeed,
