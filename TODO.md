@@ -71,7 +71,7 @@ snapshot is maintained in
 
 ### Ownership and consolidation
 
-- [ ] Separate Bipin/Blossom family progression from `NpcDatabase` and use one
+- [x] Separate Bipin/Blossom family progression from `NpcDatabase` and use one
   family-state resolver for room construction and live dialogue refresh.
   `GetRoomNpcs` currently mutates child stage/personality and the seed-tree
   refill byte while also selecting records, and the post-name `$28:$00` /
@@ -79,6 +79,14 @@ snapshot is maintained in
   `InteractionController`. Preserve the family spawner's original update slot,
   essence gate, save writes, and child-name substitution while making the
   generated database read-only.
+  `NpcDatabase` now exposes only the imported base and family rows.
+  `BipinBlossomFamilyStateResolver`, owned once by `RoomEntityManager`, runs
+  `$ac` at its room-object slot, applies the Essence gates and personality
+  tables, emits the selected records in source order, clears Ages refill bit
+  1, and publishes one compound save change when stage state changes. The same
+  resolver refreshes `\Child` substitution and the reversible post-name
+  TX `$4301/$4409` mapping from immutable `NpcCharacter.BaseRecord` values;
+  `InteractionController` no longer carries a second ID-to-text switch.
 
 - [ ] Move the remaining hand-coded `interactionRunScript` talk graphs out of
   `InteractionController` into typed command lanes hosted by their owning

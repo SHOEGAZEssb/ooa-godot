@@ -293,6 +293,22 @@ angle, legal X interval, reversal XOR, initial animation, toggle XOR, and two
 resolved animation streams come from `running_bipin.tsv`; the entity contains
 no copied `$28/$18/$30/$10/$04/$01` behavior constants.
 
+Rooms `2:ea` and `2:eb` place only
+`INTERAC_BIPIN_BLOSSOM_FAMILY_SPAWNER $ac:$00/$01`.
+`NpcDatabase` is the read-only generated-record owner for all 72 family
+variants; it does not inspect or mutate save/runtime state.
+`RoomEntityManager` owns one `BipinBlossomFamilyStateResolver` shared by room
+construction and live NPC refresh. At the spawner's object slot, the resolver
+counts Essences, conditionally copies `wNextChildStage` to `wChildStage`,
+applies the source initial/final personality table, selects the room/stage/
+personality actor list in generated order, then clears Ages
+`wSeedTreeRefilledBitset` bit 1. A stage/personality change is published as one
+compound save notification. The manager later uses the same resolver to apply
+`\Child` substitution and stage-0 post-name TX `$4301/$4409`, while preserving
+each actor's imported `NpcCharacter.BaseRecord`; both directions of a live
+child-named-bit change therefore resolve from the generated row instead of a
+previous presentation override.
+
 Past room `3:fc` uses the same narrow native-adapter pattern for
 `INTERAC_BIPIN $28:$0a`: animation `$09`, Link collision, and Link-relative
 priority remain fixed-update actor behavior. Its `bipinScript3` talk loop is

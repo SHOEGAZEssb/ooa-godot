@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class RoomEntityFactory(
-    NpcDatabase npcs,
+    BipinBlossomFamilyStateResolver familyState,
     EnemyDatabase enemies,
     ItemDropDatabase itemDrops,
     TimePortalDatabase timePortals,
@@ -259,8 +259,12 @@ internal sealed class RoomEntityFactory(
             }
         }
 
+        // Rooms 2:ea/2:eb place only the $ac family spawner at this point in
+        // their source object streams. Execute its state writes and expansion
+        // here, before any of the spawned actors receive their first update.
         IReadOnlyList<NpcRecord> roomNpcs =
-            npcs.GetRoomNpcs(group, room.Id, saveData, runtimeState);
+            familyState.ResolveRoomNpcs(
+                group, room.Id, saveData, runtimeState);
         if (group == 4 && room.Id is 0xe0 or 0xe1 or 0xe2 or 0xe7 or 0xe8)
         {
             foreach (IRoomEntity entity in CreateBlackTowerNpcs(
@@ -1186,7 +1190,8 @@ internal sealed class RoomEntityFactory(
                 npc, _troyHouse, saveData, random);
         }
         if (record is { Id: 0x28, SubId: 0x00 })
-            return new RunningBipinRoomEntity(npc, npcs.RunningBipin);
+            return new RunningBipinRoomEntity(
+                npc, familyState.RunningBipin);
         if (record is { Id: 0x28, SubId: 0x0a })
             return new PastBipinRoomEntity(npc);
         if (record is

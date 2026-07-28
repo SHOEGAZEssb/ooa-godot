@@ -40,6 +40,7 @@ public sealed class RoomEntityManager : IDisposable
     private readonly TreasureDatabase _treasures;
     private readonly OracleRuntimeState _runtimeState;
     private readonly Func<long> _animationTick;
+    private readonly BipinBlossomFamilyStateResolver _familyState;
     private readonly RecentEnemyDefeats _recentEnemyDefeats = new();
     private byte _activeTriggers;
     private readonly NpcVisibilityRuleDatabase _npcVisibility = new();
@@ -72,6 +73,8 @@ public sealed class RoomEntityManager : IDisposable
 
     public bool ScreenTransitionActive => _screenTransitionActive;
     public OracleRuntimeState RuntimeState => _runtimeState;
+    internal BipinBlossomFamilyStateResolver FamilyStateResolver =>
+        _familyState;
     internal int ActiveTriggers => _activeTriggers;
     internal int FrameCounter => _enemyFrameCounter;
     internal int RandomCalls => _random.Calls;
@@ -197,8 +200,9 @@ public sealed class RoomEntityManager : IDisposable
         _treasures = treasures ?? new TreasureDatabase();
         _runtimeState = runtimeState ?? new OracleRuntimeState();
         _animationTick = animationTick ?? (() => 0);
+        _familyState = new BipinBlossomFamilyStateResolver(npcs);
         _factory = new RoomEntityFactory(
-            npcs, enemies, itemDrops, timePortals, random,
+            _familyState, enemies, itemDrops, timePortals, random,
             _saveData, _runtimeState, OnTimePortalEntered,
             () => PlayingInstrumentSource(),
             () => GroundTreasureCollectionAllowed(),
@@ -888,7 +892,15 @@ public sealed class RoomEntityManager : IDisposable
                 NpcCharacter npc = ordinary.Npc;
                 npc.SetFlagVisible(_npcVisibility.ShouldShow(
                     npc.BaseRecord, _saveData, _runtimeState));
-                if (_npcDialogue.TryResolve(
+                if (_familyState.TryResolveDialogue(
+                    npc.BaseRecord, _saveData, out Dialogue familyDialogue))
+                {
+                    npc.SetDialogue(
+                        familyDialogue.TextId,
+                        familyDialogue.Message,
+                        npc.BaseRecord.CanFace);
+                }
+                else if (_npcDialogue.TryResolve(
                     npc.BaseRecord, _saveData,
                     out NpcDialogueRuleDatabaseDialogue dialogue))
                 {

@@ -841,7 +841,8 @@ public sealed partial class ValidationRoot
             bipinTreasures, bipinDialogue, bipinWorldRoot, bipinView,
             static position => position, () => bipinTick, bipinInventory,
             bipinInterface, bipinSounds.Add);
-        var family = new BipinBlossomFamilyInteractionDatabase();
+        BipinBlossomFamilyStateResolver family =
+            bipinManager.FamilyStateResolver;
         bipinManager.LoadRoom(3, bipinRooms.CurrentRoom);
         NpcCharacter bipin = bipinManager.Entities<NpcCharacter>().Single();
         FailIf(
@@ -3319,7 +3320,11 @@ public sealed partial class ValidationRoot
         AddChild(validationRoot);
         OracleSaveData save = OracleSaveData.CreateStandardGame();
         var npcs = new NpcDatabase();
-        RunningBipinRecord runningBipin = npcs.RunningBipin;
+        using var fixture = RoomEntityValidationFixture.ForRoot(
+            validationRoot, new() { Npcs = npcs, SaveData = save });
+        RoomEntityManager manager = fixture.Manager;
+        RunningBipinRecord runningBipin =
+            manager.FamilyStateResolver.RunningBipin;
         FailIf(
             runningBipin is not
             {
@@ -3337,9 +3342,6 @@ public sealed partial class ValidationRoot
                 runningBipin.AlternateAnimationData,
             "Running Bipin $28:$00 lost its imported @bipin0/@updateSpeed " +
             "movement or animation-toggle contract.");
-        using var fixture = RoomEntityValidationFixture.ForRoot(
-            validationRoot, new() { Npcs = npcs, SaveData = save });
-        RoomEntityManager manager = fixture.Manager;
 
         FailIf(
             new NpcVisibilityRuleDatabase().RuleCount != 341 ||
@@ -3555,9 +3557,52 @@ public sealed partial class ValidationRoot
             OracleSaveData.ChildPersonalityAddress, 0x02);
         familySaveChanged |= save.WriteWramByte(
             OracleSaveData.ChildStatusAddress, 0x0e);
-        familySaveChanged |= save.WriteWramByte(0xc6bf, 0x03);
+        familySaveChanged |= save.WriteWramByte(0xc6bf, 0x01);
         if (familySaveChanged)
             save.CommitInventoryChange();
+        manager.RuntimeState.SetWramByte(
+            OracleRuntimeState.SeedTreeRefilledBitsetAddress, 0x02);
+
+        IReadOnlyList<NpcRecord> rawPlaced =
+            npcs.GetRoomNpcs(2, 0xeb);
+        bool foundRawFamily = npcs.TryGetFamilyRoomNpcs(
+            2, 0xeb, out IReadOnlyList<FamilyNpcRecord> rawFamily);
+        FailIf(
+            rawPlaced.Count != 0 ||
+            !foundRawFamily ||
+            rawFamily.Count != 34 ||
+            save.ReadWramByte(OracleSaveData.ChildStageAddress) != 0x06 ||
+            save.ReadWramByte(OracleSaveData.ChildPersonalityAddress) != 0x02 ||
+            manager.RuntimeState.ReadWramByte(
+                OracleRuntimeState.SeedTreeRefilledBitsetAddress) != 0x02,
+            "Reading NpcDatabase for room 2:eb mutated family stage, " +
+            "personality, or seed-tree refill state instead of returning its " +
+            "34 generated rows unchanged.");
+
+        int familySaveNotifications = 0;
+        void CountFamilySaveNotification() => familySaveNotifications++;
+        save.Changed += CountFamilySaveNotification;
+        manager.LoadRoom(2, _world.LoadRoom(2, 0xeb));
+        List<NpcCharacter> gatedStage6Right =
+            manager.Entities<NpcCharacter>();
+        FailIf(
+            save.ReadWramByte(OracleSaveData.ChildStageAddress) != 0x06 ||
+            save.ReadWramByte(OracleSaveData.ChildPersonalityAddress) != 0x02 ||
+            manager.RuntimeState.ReadWramByte(
+                OracleRuntimeState.SeedTreeRefilledBitsetAddress) != 0 ||
+            familySaveNotifications != 0 ||
+            gatedStage6Right.Count != 2 ||
+            gatedStage6Right.Find(npc => npc.Record.Id == 0x2b) is not
+                { Record.SubId: 0x06, Record.Var03: 0x02 } ||
+            gatedStage6Right.Find(npc => npc.Record.Id == 0x28) is not
+                { Record.SubId: 0x06 },
+            "The family spawner did not reject stage $07 with one Essence " +
+            "while still clearing Ages seed-tree refill bit 1.");
+
+        familySaveChanged = save.WriteWramByte(0xc6bf, 0x03);
+        if (familySaveChanged)
+            save.CommitInventoryChange();
+        familySaveNotifications = 0;
         manager.RuntimeState.SetWramByte(
             OracleRuntimeState.SeedTreeRefilledBitsetAddress, 0x02);
         manager.LoadRoom(2, _world.LoadRoom(2, 0xeb));
@@ -3567,13 +3612,15 @@ public sealed partial class ValidationRoot
             save.ReadWramByte(OracleSaveData.ChildPersonalityAddress) != 0x01 ||
             manager.RuntimeState.ReadWramByte(
                 OracleRuntimeState.SeedTreeRefilledBitsetAddress) != 0 ||
+            familySaveNotifications != 1 ||
             warriorStage7Right.Count != 2 ||
             warriorStage7Right.Find(npc => npc.Record.Id == 0x2b) is not
                 { Record.SubId: 0x07, Record.Var03: 0x01, TextId: 0x4426 } ||
             warriorStage7Right.Find(npc => npc.Record.Id == 0x28) is not
                 { Record.SubId: 0x07, TextId: 0x4307 },
             "The family spawner did not advance curious stage $06 to warrior stage $07 " +
-            "after two essences and seed-tree refill bit 1.");
+            "with one save notification after two Essences and seed-tree refill bit 1.");
+        save.Changed -= CountFamilySaveNotification;
         save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
         manager.LoadRoom(2, _world.LoadRoom(2, 0xea));
         FailIf(
@@ -3833,7 +3880,8 @@ public sealed partial class ValidationRoot
         RemoveChild(validationRoot);
         validationRoot.QueueFree();
         GD.Print("Validated room 0:5a's TX_5700/TX_5701 intro monkeys, opposing $06/$07 " +
-            "$20-frame animation loops, rooms 2:ea/2:eb's 72-record family spawner, " +
+            "$20-frame animation loops, rooms 2:ea/2:eb's read-only 72-record family " +
+            "table, one-Essence gate, two-Essence stage/personality save write, refill-bit clear, " +
             "Bipin $28:$00's SPEED_100 X=$28/$58 patrol, $04/$05 animation reversal, " +
             "and moving objectPreventLinkFromPassing collision, " +
             "341 imported visibility, 117 dialogue, and two position predicates, " +
@@ -3928,8 +3976,33 @@ public sealed partial class ValidationRoot
         FailIf(
             bipin is not { TextId: 0x4301 } || blossom.TextId != 0x4409 ||
             !bipin.Message.Contains("Pip", StringComparison.Ordinal) ||
-            !blossom.Message.Contains("Pip", StringComparison.Ordinal),
+            !blossom.Message.Contains("Pip", StringComparison.Ordinal) ||
+            bipin.BaseRecord.TextId != 0x4300 ||
+            blossom.BaseRecord.TextId != 0x4400,
             "Naming the child did not live-switch Bipin/Blossom to TX_4301/TX_4409 with \\Child expanded.");
+
+        changed = _saveData.WriteWramByte(
+            OracleSaveData.ChildFlagsAddress, 0x00);
+        if (changed)
+            _saveData.CommitInventoryChange();
+        FailIf(
+            bipin.TextId != 0x4300 ||
+            blossom.TextId != 0x4400 ||
+            bipin.BaseRecord.TextId != 0x4300 ||
+            blossom.BaseRecord.TextId != 0x4400,
+            "Clearing the child-named bit did not restore imported TX_4300/" +
+            "TX_4400 through the shared family-state refresh.");
+        changed = _saveData.WriteWramByte(
+            OracleSaveData.ChildFlagsAddress, 0x01);
+        if (changed)
+            _saveData.CommitInventoryChange();
+        FailIf(
+            bipin.TextId != 0x4301 ||
+            blossom.TextId != 0x4409 ||
+            !bipin.Message.Contains("Pip", StringComparison.Ordinal) ||
+            !blossom.Message.Contains("Pip", StringComparison.Ordinal),
+            "Restoring the child-named bit did not reapply TX_4301/TX_4409 " +
+            "through the shared family-state refresh.");
 
         for (int frame = 0; frame < 29; frame++)
             _interactions.UpdateFamilyNamingForValidation(1.0 / 60.0);
@@ -3967,6 +4040,7 @@ public sealed partial class ValidationRoot
 
         GD.Print("Validated Bipin/Blossom stage-$00 movement and MENU_KIDNAME $07: empty-name " +
             "handling, No/re-edit, Yes confirmation, original child-status/state writes, " +
-            "30-update TX_4408 delay, and persistent TX_4301/TX_4409 \\Child dialogue.");
+            "30-update TX_4408 delay, immutable base records, reversible live refresh, " +
+            "and persistent TX_4301/TX_4409 \\Child dialogue.");
     }
 }

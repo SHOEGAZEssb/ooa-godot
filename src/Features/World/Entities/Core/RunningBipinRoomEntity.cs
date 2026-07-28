@@ -8,7 +8,7 @@ namespace oracleofages;
 // record, including its raw speed, angle, X interval, and var3a toggle.
 internal sealed class RunningBipinRoomEntity
     : RoomEntityAdapter<NpcCharacter>, IVariableRoomEntity, IFixedRoomEntity,
-        IRoomBlocker, ITalkTarget
+        IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity
 {
     private readonly RunningBipinRecord _data;
     private Vector2 _precisePosition;
@@ -26,6 +26,7 @@ internal sealed class RunningBipinRoomEntity
 
     internal int Angle => _angle;
     internal Vector2 PrecisePosition => _precisePosition;
+    public NpcCharacter Npc => Entity;
 
     public void Update(double delta, Player player) =>
         Entity.UpdateNpc(delta, player.Position);

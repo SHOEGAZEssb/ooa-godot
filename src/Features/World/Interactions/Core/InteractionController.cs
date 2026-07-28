@@ -21,7 +21,7 @@ public sealed class InteractionController
     private readonly InventoryState _inventory;
     private readonly Action<int> _playSound;
     private readonly Func<bool> _gashaCountersCaughtUp;
-    private readonly BipinBlossomFamilyInteractionDatabase _familyInteractions = new();
+    private readonly BipinBlossomFamilyStateResolver _familyState;
     private readonly BlackTowerWorkerDatabase _blackTower = new();
     private readonly LinkedGameNpcDatabase _linkedNpcs = new();
     private readonly KidNameEntryController _kidNameEntry;
@@ -94,6 +94,7 @@ public sealed class InteractionController
     {
         _rooms = rooms;
         _entities = entities;
+        _familyState = entities.FamilyStateResolver;
         _signs = signs;
         _chests = chests;
         _treasures = treasures;
@@ -593,7 +594,7 @@ public sealed class InteractionController
             _rooms.CurrentRoom.Id,
             OracleSaveData.RoomFlagItem);
         int textId = alreadyGaveSeed ? 0x4313 : 0x4311;
-        Dialogue dialogue = _familyInteractions.Text(textId, _rooms.SaveData);
+        Dialogue dialogue = _familyState.Text(textId, _rooms.SaveData);
         _dialogue.ShowGameplayMessage(
             dialogue.Message,
             _worldToScreen(player.Position).Y,
@@ -622,7 +623,7 @@ public sealed class InteractionController
                 if (_dialogue.IsOpen)
                     return;
                 RemovePastBipinTreasure();
-                Dialogue final = _familyInteractions.Text(
+                Dialogue final = _familyState.Text(
                     0x4312, _rooms.SaveData);
                 _dialogue.ShowGameplayMessage(
                     final.Message,
@@ -728,13 +729,13 @@ public sealed class InteractionController
                     return;
                 if (string.IsNullOrEmpty(name))
                 {
-                    Dialogue invalid = _familyInteractions.Text(0x440a, _rooms.SaveData);
+                    Dialogue invalid = _familyState.Text(0x440a, _rooms.SaveData);
                     _dialogue.ShowGameplayMessage(invalid.Message, _familyLinkScreenY);
                     _familyNamingState = FamilyNamingState.AwaitInvalidClose;
                     return;
                 }
                 _pendingChildName = name;
-                Dialogue confirmation = _familyInteractions.Text(
+                Dialogue confirmation = _familyState.Text(
                     0x4407, _rooms.SaveData, _pendingChildName);
                 _dialogue.ShowGameplayChoiceMessage(
                     confirmation.Message, _familyLinkScreenY);
@@ -751,7 +752,6 @@ public sealed class InteractionController
                     return;
                 }
                 _rooms.SaveData.NameChild(_pendingChildName);
-                RefreshNamedFamilyDialogue();
                 _familyWaitTicks = 0.0;
                 _familyNamingState = FamilyNamingState.ThanksDelay;
                 return;
@@ -765,7 +765,7 @@ public sealed class InteractionController
                 _familyWaitTicks += delta * 60.0;
                 if (_familyWaitTicks < 30.0)
                     return;
-                Dialogue thanks = _familyInteractions.Text(0x4408, _rooms.SaveData);
+                Dialogue thanks = _familyState.Text(0x4408, _rooms.SaveData);
                 _dialogue.ShowGameplayMessage(thanks.Message, _familyLinkScreenY);
                 _familyNamingState = FamilyNamingState.AwaitThanksClose;
                 return;
@@ -774,23 +774,6 @@ public sealed class InteractionController
                 if (!_dialogue.IsOpen)
                     _familyNamingState = FamilyNamingState.None;
                 return;
-        }
-    }
-
-    private void RefreshNamedFamilyDialogue()
-    {
-        foreach (NpcCharacter npc in _entities.Entities<NpcCharacter>())
-        {
-            int textId = npc.Record switch
-            {
-                { Id: 0x28, SubId: 0x00 } => 0x4301,
-                { Id: 0x2b, SubId: 0x00 } => 0x4409,
-                _ => 0
-            };
-            if (textId == 0)
-                continue;
-            Dialogue dialogue = _familyInteractions.Text(textId, _rooms.SaveData);
-            npc.SetDialogue(dialogue.TextId, dialogue.Message, canFace: false);
         }
     }
 
