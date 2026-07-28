@@ -13,6 +13,7 @@ $gashaRingSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\rings.s')
 $gashaTileSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\tileIndices.s')
+$gashaTilePath = Join-Path $Disassembly 'constants\common\tileIndices.s'
 $gashaMusicSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\music.s')
 $gashaBank1Source = Read-ImportText (
@@ -26,18 +27,17 @@ if ($gashaSource -notmatch '(?ms)^interactionCodeb6:.*?wGashaSpotsPlantedBitset.
     throw 'Gasha spot planting, growth, harvest, room-load maturity, or disappearance behavior changed.'
 }
 
-function Get-GashaConstant([string]$source, [string]$name) {
-    $match = [regex]::Match(
-        $source,
-        ('(?m)^\s*\.define\s+{0}\s+\$(?<value>[0-9a-f]+)' -f
-            [regex]::Escape($name)))
-    if (-not $match.Success) { throw "Could not resolve Gasha constant $name." }
-    return [Convert]::ToInt32($match.Groups['value'].Value, 16)
+function Get-GashaConstant([string]$name) {
+    $constant = @(Read-AssemblyConstants $gashaTilePath '' $name)
+    if ($constant.Count -ne 1) {
+        throw "Could not resolve unique Gasha constant $name."
+    }
+    return Convert-AssemblyInteger $constant[0].OperandText
 }
 
-$softSoil = Get-GashaConstant $gashaTileSource 'TILEINDEX_SOFT_SOIL'
-$plantedSoil = Get-GashaConstant $gashaTileSource 'TILEINDEX_SOFT_SOIL_PLANTED'
-$treeTopLeft = Get-GashaConstant $gashaTileSource 'TILEINDEX_GASHA_TREE_TL'
+$softSoil = Get-GashaConstant 'TILEINDEX_SOFT_SOIL'
+$plantedSoil = Get-GashaConstant 'TILEINDEX_SOFT_SOIL_PLANTED'
+$treeTopLeft = Get-GashaConstant 'TILEINDEX_GASHA_TREE_TL'
 if ($gashaMusicSource -notmatch '(?m)^\s*SND_GETSEED\s+db\s+; \$5e' -or
     $gashaMusicSource -notmatch '(?m)^\s*SND_FAIRYCUTSCENE\s+db\s+; \$91' -or
     $gashaMusicSource -notmatch '(?m)^\s*SND_COMPASS\s+db\s+; \$a2') {
@@ -138,7 +138,8 @@ function Resolve-GashaAnimation([int]$animationIndex) {
     if ($animationIndex -lt 0 -or $animationIndex -ge $animations.Count) { return '' }
     $label = $animations[$animationIndex]
     $resolved = [Collections.Generic.List[string]]::new()
-    foreach ($frame in $npcAnimationFrames[$label]) {
+    $definition = $npcAnimationDefinitions[$label]
+    foreach ($frame in $definition.Frames) {
         $pointerIndex = [int]($frame.PointerOffset / 2)
         if ($pointerIndex -lt 0 -or $pointerIndex -ge $gashaOamPointers.Count) { continue }
         $oamLabel = $gashaOamPointers[$pointerIndex]
@@ -147,7 +148,7 @@ function Resolve-GashaAnimation([int]$animationIndex) {
         $resolved.Add("$metadata@$oam")
     }
     $encoded = $resolved -join '|'
-    $loopStart = $npcAnimationLoopStarts[$label]
+    $loopStart = $definition.LoopStart
     if ($loopStart -gt 0) { $encoded += "~$loopStart" }
     return $encoded
 }

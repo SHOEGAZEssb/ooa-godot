@@ -107,11 +107,13 @@ foreach ($match in [regex]::Matches(
 # duplicating those disassembly values in the runtime controller.
 $introLinkSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\specialObjects\linkInCutscene.s')
+$introLinkPath = Join-Path `
+    $Disassembly 'object_code\ages\specialObjects\linkInCutscene.s'
 $introCutsceneSource = Read-ImportText (
     Join-Path $Disassembly 'code\ages\cutscenes\miscCutscenes.s')
 $introGameSource = Read-ImportText (Join-Path $Disassembly 'code\bank1.s')
-$introAnimationSource = Read-ImportText (
-    Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
+$introAnimationPath =
+    Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s'
 
 $introLinkBlock = [regex]::Match(
     $introLinkSource,
@@ -150,60 +152,43 @@ if (-not $introSummonBlock.Success -or
 # units per update: 64 updates per half, or 128 updates total.
 $introSummonFrames = 128
 
-$introSpinAnimation = [regex]::Match(
-    $introAnimationSource,
-    '(?ms)^animationData19e8f:\s*(?<body>.*?)(?=^animationData19ea9:)')
-$introSpinFrames = @([regex]::Matches(
-    $introSpinAnimation.Groups['body'].Value,
-    '\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<graphic>[0-9a-f]{2})\s+\$00'))
-if (-not $introSpinAnimation.Success -or $introSpinFrames.Count -ne 8 -or
-    ($introSpinFrames | Where-Object { $_.Groups['duration'].Value -ne '04' }).Count -ne 0) {
+function Read-IntroAnimation([string]$label) {
+    return @(Read-AssemblyDataDirectives $introAnimationPath $label '.db' |
+        Where-Object { $_.Operands.Count -ge 3 } | ForEach-Object {
+            [pscustomobject]@{
+                Duration = $_.Operands[0].TrimStart('$')
+                Graphic = $_.Operands[1].TrimStart('$')
+                Parameter = $_.Operands[2].TrimStart('$')
+            }
+        })
+}
+$introSpinFrames = @(Read-IntroAnimation 'animationData19e8f')
+if ($introSpinFrames.Count -ne 8 -or
+    ($introSpinFrames | Where-Object Duration -ne '04').Count -ne 0) {
     throw 'Unexpected CUTSCENE_PREGAME_INTRO spin animation $08.'
 }
-$introArrivalAnimation = [regex]::Match(
-    $introAnimationSource,
-    '(?ms)^animationData19ea9:\s*(?<body>.*?)(?=^animationData19eb4:)')
-$introArrivalFrames = @([regex]::Matches(
-    $introArrivalAnimation.Groups['body'].Value,
-    '\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<graphic>[0-9a-f]{2})\s+\$00'))
-if (-not $introArrivalAnimation.Success -or $introArrivalFrames.Count -ne 3 -or
-    ($introArrivalFrames | Where-Object { $_.Groups['duration'].Value -ne '04' }).Count -ne 0 -or
-    (($introArrivalFrames | ForEach-Object { $_.Groups['graphic'].Value }) -join ',') -ne
+$introArrivalFrames = @(Read-IntroAnimation 'animationData19ea9')
+if ($introArrivalFrames.Count -ne 3 -or
+    ($introArrivalFrames | Where-Object Duration -ne '04').Count -ne 0 -or
+    (($introArrivalFrames | ForEach-Object Graphic) -join ',') -ne
         'e4,e8,ec') {
     throw 'Unexpected LINK_ANIM_MODE_FALL animation used by warp transition $0b.'
 }
-$introVanishAnimation = [regex]::Match(
-    $introAnimationSource,
-    '(?ms)^animationData19d84:\s*(?<body>.*?)(?=^animationData19d90:)')
-$introVanishFrames = @([regex]::Matches(
-    $introVanishAnimation.Groups['body'].Value,
-    '\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<graphic>[0-9a-f]{2})\s+\$(?:00|ff)'))
-if (-not $introVanishAnimation.Success -or $introVanishFrames.Count -ne 4) {
+$introVanishFrames = @(Read-IntroAnimation 'animationData19d84')
+if ($introVanishFrames.Count -ne 4) {
     throw 'Unexpected CUTSCENE_PREGAME_INTRO vanish animation $05.'
 }
-$harpAnimation = [regex]::Match(
-    $introAnimationSource,
-    '(?ms)^animationData19faa:\s*(?<body>.*?)(?=^animationData19fdd:)')
-$harpFrames = @([regex]::Matches(
-    $harpAnimation.Groups['body'].Value,
-    '\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<graphic>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})'))
-if (-not $harpAnimation.Success -or $harpFrames.Count -ne 17 -or
-    (($harpFrames | Select-Object -First 13 | ForEach-Object {
-        $_.Groups['duration'].Value
-    }) -join ',') -ne '14,14,0c,14,14,0c,14,14,0c,14,14,0c,14' -or
-    (($harpFrames | Select-Object -First 13 | ForEach-Object {
-        $_.Groups['graphic'].Value
-    }) -join ',') -ne '34,35,34,36,37,36,34,35,34,36,37,36,36') {
+$harpFrames = @(Read-IntroAnimation 'animationData19faa')
+if ($harpFrames.Count -ne 17 -or
+    (($harpFrames | Select-Object -First 13 | ForEach-Object Duration) -join ',') -ne
+        '14,14,0c,14,14,0c,14,14,0c,14,14,0c,14' -or
+    (($harpFrames | Select-Object -First 13 | ForEach-Object Graphic) -join ',') -ne
+        '34,35,34,36,37,36,34,35,34,36,37,36,36') {
     throw 'Unexpected LINK_ANIM_MODE_HARP_2 response animation $1e.'
 }
 function Read-IntroOscillation([string]$label) {
-    $pattern = '(?m)^' + [regex]::Escape($label) +
-        ':\s*\r?\n\s*\.db\s+(?<values>(?:\$[0-9a-f]{2}\s*){8})'
-    $match = [regex]::Match($introLinkSource, $pattern)
-    if (-not $match.Success) { throw "Could not parse $label." }
-    return @([regex]::Matches(
-        $match.Groups['values'].Value, '\$(?<value>[0-9a-f]{2})') |
-        ForEach-Object { $_.Groups['value'].Value })
+    return @(Read-AssemblyLiteralValues $introLinkPath $label |
+        ForEach-Object { $_.ToString('x2') })
 }
 $introHoverOscillationValues = Read-IntroOscillation 'linkCutscene_zOscillation1'
 $introDescendOscillationValues = Read-IntroOscillation 'linkCutscene_zOscillation2'
@@ -216,20 +201,18 @@ if (-not $allTexts.ContainsKey($introTextId) -or
 $introInitialWait =
     ([Convert]::ToInt32($introLinkInit.Groups['waitHi'].Value, 16) -shl 8) -bor
     [Convert]::ToInt32($introLinkInit.Groups['waitLo'].Value, 16)
-$introSpinGraphics = $introSpinFrames | ForEach-Object { $_.Groups['graphic'].Value }
-$introArrivalDurations = $introArrivalFrames | ForEach-Object {
-    $_.Groups['duration'].Value
-}
+$introSpinGraphics = $introSpinFrames | ForEach-Object Graphic
+$introArrivalDurations = $introArrivalFrames | ForEach-Object Duration
 # Transition $0b runs on normal SPECIALOBJECT_LINK ($00), not
 # SPECIALOBJECT_LINK_CUTSCENE ($08). Link faces DIR_DOWN, and the normal Link
 # graphics loader adds that direction to graphic indices beginning at $54.
 $introArrivalGraphics = $introArrivalFrames | ForEach-Object {
-    $graphic = [Convert]::ToInt32($_.Groups['graphic'].Value, 16)
+    $graphic = [Convert]::ToInt32($_.Graphic, 16)
     if ($graphic -ge 0x54) { $graphic += 2 }
     $graphic.ToString('x2')
 }
-$introVanishDurations = $introVanishFrames | ForEach-Object { $_.Groups['duration'].Value }
-$introVanishGraphics = $introVanishFrames | ForEach-Object { $_.Groups['graphic'].Value }
+$introVanishDurations = $introVanishFrames | ForEach-Object Duration
+$introVanishGraphics = $introVanishFrames | ForEach-Object Graphic
 $introColumns = @(
     $introInitialWait.ToString(),
     [Convert]::ToInt32($introVoiceWait.Groups['frames'].Value, 16).ToString(),
@@ -257,52 +240,33 @@ Write-GeneratedTable(
 # pregame intro. Object coordinates and OAM offsets retain their original
 # unsigned bytes; the runtime applies the GBC's byte wrapping and hardware
 # sprite origin biases when drawing them.
-$specialOamSource = Read-ImportText (
-    Join-Path $Disassembly 'data\ages\specialObjectOamData.s')
-$interactionDataSource = Read-ImportText (
-    Join-Path $Disassembly 'data\ages\interactionData.s')
-$interactionAnimationSource = Read-ImportText (
-    Join-Path $Disassembly 'data\ages\interactionAnimations.s')
-$interactionOamSource = Read-ImportText (
-    Join-Path $Disassembly 'data\ages\interactionOamData.s')
-$objectGfxHeaderSource = Read-ImportText (
-    Join-Path $Disassembly 'data\ages\objectGfxHeaders.s')
+$specialOamPath = Join-Path $Disassembly 'data\ages\specialObjectOamData.s'
+$interactionDataPath = Join-Path $Disassembly 'data\ages\interactionData.s'
+$interactionAnimationPath =
+    Join-Path $Disassembly 'data\ages\interactionAnimations.s'
+$interactionOamPath = Join-Path $Disassembly 'data\ages\interactionOamData.s'
+$objectGfxHeaderPath = Join-Path $Disassembly 'data\ages\objectGfxHeaders.s'
+$objectGfxHeaderSource = Read-ImportText $objectGfxHeaderPath
 
-function Read-IntroOamParts([string]$source, [string]$label) {
-    $pattern = '(?ms)^' + [regex]::Escape($label) +
-        ':\s*\.db\s+\$(?<count>[0-9a-f]{2})(?<body>.*?)(?=^[A-Za-z0-9_]+:|\z)'
-    $match = [regex]::Match(
-        $source,
-        $pattern)
-    if (-not $match.Success) { throw "Could not parse intro OAM record $label." }
-    $count = [Convert]::ToInt32($match.Groups['count'].Value, 16)
-    $parts = @([regex]::Matches(
-        $match.Groups['body'].Value,
-        '(?m)^\s*\.db\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})\s+\$(?<tile>[0-9a-f]{2})\s+\$(?<flags>[0-9a-f]{2})') |
-        Select-Object -First $count)
+function Read-IntroOamParts([string]$path, [string]$label) {
+    $rows = @(Read-AssemblyDataDirectives $path $label '.db')
+    if ($rows.Count -eq 0) { throw "Could not parse intro OAM record $label." }
+    $count = Convert-AssemblyInteger $rows[0].Operands[0]
+    $parts = @($rows | Select-Object -Skip 1 -First $count)
     if ($parts.Count -ne $count) {
         throw "Intro OAM record $label declares $count parts but contains $($parts.Count)."
     }
     return ($parts | ForEach-Object {
-        "$($_.Groups['y'].Value),$($_.Groups['x'].Value),$($_.Groups['tile'].Value),$($_.Groups['flags'].Value)"
+        (($_.Operands | Select-Object -First 4) -replace '^\$', '') -join ','
     }) -join ';'
 }
 
-$specialGfxBlock = [regex]::Match(
-    $introAnimationSource,
-    '(?ms)^specialObject08GfxPointers:(?<body>.*?)(?=^specialObject02GfxPointers:)')
-$specialGfxRows = @([regex]::Matches(
-    $specialGfxBlock.Groups['body'].Value,
-    'm_SpecialObjectGfxPointer\s+\$(?<oam>[0-9a-f]{2})\s+spr_link\s+\$(?<source>[0-9a-f]{4})\s+\$(?<size>[0-9a-f]{2})'))
-$specialOamPointerBlock = [regex]::Match(
-    $introAnimationSource,
-    '(?ms)^specialObject08OamDataPointers:\s*(?:^specialObject09OamDataPointers:\s*)?(?<body>.*?)(?=^specialObject0aOamDataPointers:)')
-$specialOamLabels = @([regex]::Matches(
-    $specialOamPointerBlock.Groups['body'].Value,
-    '(?m)^\s*\.dw\s+(?<label>[A-Za-z0-9_]+)') |
-    ForEach-Object { $_.Groups['label'].Value })
-if (-not $specialGfxBlock.Success -or $specialGfxRows.Count -lt 0xef -or
-    -not $specialOamPointerBlock.Success -or $specialOamLabels.Count -lt 0x15) {
+$specialGfxRows = @(Read-AssemblyMacroInvocations `
+    $introAnimationPath 'specialObject08GfxPointers' 'm_SpecialObjectGfxPointer')
+$specialOamLabels = @(Read-AssemblyDataDirectives `
+    $introAnimationPath 'specialObject09OamDataPointers' '.dw' |
+    ForEach-Object { $_.Operands[0] })
+if ($specialGfxRows.Count -lt 0xef -or $specialOamLabels.Count -lt 0x15) {
     throw 'Could not resolve SPECIALOBJECT_LINK_CUTSCENE graphics and OAM tables.'
 }
 
@@ -320,13 +284,12 @@ function Add-LinkIntroSpriteRows(
     for ($frame = 0; $frame -lt $graphics.Count; $frame++) {
         $graphic = [Convert]::ToInt32($graphics[$frame], 16)
         $gfx = $specialGfxRows[$graphic]
-        $oamIndex = [Convert]::ToInt32($gfx.Groups['oam'].Value, 16)
-        $parts = Read-IntroOamParts $specialOamSource $specialOamLabels[$oamIndex]
-        $sourceOffset = $gfx.Groups['source'].Value
+        $oamIndex = Convert-AssemblyInteger $gfx.Operands[0]
+        $parts = Read-IntroOamParts $specialOamPath $specialOamLabels[$oamIndex]
+        $sourceOffset = $gfx.Operands[2].TrimStart('$')
         if ($retainPartialGraphics) {
             $sourceTile = [Convert]::ToInt32($sourceOffset, 16) / 16
-            $loadedTileCount = [Convert]::ToInt32(
-                $gfx.Groups['size'].Value, 16)
+            $loadedTileCount = Convert-AssemblyInteger $gfx.Operands[3]
             for ($tile = 0; $tile -lt $loadedTileCount; $tile++) {
                 $vramTiles[$tile] = $sourceTile + $tile
             }
@@ -356,84 +319,57 @@ Add-LinkIntroSpriteRows 'link-spin' $spinDurations $introSpinGraphics
 Add-LinkIntroSpriteRows 'link-vanish' $introVanishDurations $introVanishGraphics
 Add-LinkIntroSpriteRows 'link-arrival' $introArrivalDurations $introArrivalGraphics
 $harpDurations = @($harpFrames | Select-Object -First 13 |
-    ForEach-Object { $_.Groups['duration'].Value })
+    ForEach-Object Duration)
 $harpGraphics = @($harpFrames | Select-Object -First 13 |
-    ForEach-Object { $_.Groups['graphic'].Value })
+    ForEach-Object Graphic)
 Add-LinkIntroSpriteRows 'link-harp' $harpDurations $harpGraphics $true
 $playableHarpDurations = @($harpFrames | Select-Object -First 17 |
-    ForEach-Object { $_.Groups['duration'].Value })
+    ForEach-Object Duration)
 $playableHarpGraphics = @($harpFrames | Select-Object -First 17 |
-    ForEach-Object { $_.Groups['graphic'].Value })
+    ForEach-Object Graphic)
 Add-LinkIntroSpriteRows `
     'link-harp-item' $playableHarpDurations $playableHarpGraphics $true
 
-$sparkleSubids = [regex]::Match(
-    $interactionDataSource,
-    '(?ms)^interaction84SubidData:(?<body>.*?)(?=^interaction92SubidData:)')
-$sparkleRows = @([regex]::Matches(
-    $sparkleSubids.Groups['body'].Value,
-    'm_InteractionSubidData\s+\$(?<gfx>[0-9a-f]{2})\s+\$(?<tile>[0-9a-f]{2})\s+\$(?<flags>[0-9a-f]{2})'))
-if (-not $sparkleSubids.Success -or $sparkleRows.Count -ne 16 -or
-    $sparkleRows[0x0d].Groups['gfx'].Value -ne '3a' -or
-    $sparkleRows[0x06].Groups['gfx'].Value -ne '3a') {
+$sparkleRows = @(Read-AssemblyMacroInvocations `
+    $interactionDataPath 'interaction84SubidData' 'm_InteractionSubidData')
+if ($sparkleRows.Count -ne 16 -or
+    (Convert-AssemblyInteger $sparkleRows[0x0d].Operands[0]) -ne 0x3a -or
+    (Convert-AssemblyInteger $sparkleRows[0x06].Operands[0]) -ne 0x3a) {
     throw 'Could not resolve INTERAC_SPARKLE subids $0d and $06.'
 }
-$sparkleGfx = [regex]::Match(
-    $objectGfxHeaderSource,
-    '(?m)^\s*/\* \$3a \*/ m_ObjectGfxHeader spr_link, \$(?<tile>[0-9a-f]{2}), \$(?<source>[0-9a-f]{4})')
-if (-not $sparkleGfx.Success -or $sparkleGfx.Groups['source'].Value -ne '1c00') {
+$sparkleGfx = @(Read-AssemblyMacroInvocations `
+    $objectGfxHeaderPath '' 'm_ObjectGfxHeader' |
+    Where-Object Comment -eq '$3a')
+if ($sparkleGfx.Count -ne 1 -or $sparkleGfx[0].Operands[2] -ine '$1c00') {
     throw 'INTERAC_SPARKLE intro graphics no longer resolve through object header $3a.'
 }
-$interaction84Animations = [regex]::Match(
-    $interactionAnimationSource,
-    '(?ms)^interaction84Animations:(?<body>.*?)(?=^interaction86Animations:)')
-$interaction84AnimationLabels = @([regex]::Matches(
-    $interaction84Animations.Groups['body'].Value,
-    '(?m)^\s*\.dw\s+(?<label>[A-Za-z0-9_]+)') |
-    ForEach-Object { $_.Groups['label'].Value })
-$interaction84OamPointers = [regex]::Match(
-    $interactionAnimationSource,
-    '(?ms)^interaction84OamDataPointers:[^\r\n]*\r?\n(?<body>.*?)(?=^interaction86OamDataPointers:)')
-$interaction84OamLabels = @([regex]::Matches(
-    $interaction84OamPointers.Groups['body'].Value,
-    '(?m)^\s*\.dw\s+(?<label>[A-Za-z0-9_]+)') |
-    ForEach-Object { $_.Groups['label'].Value })
+$interaction84AnimationLabels = @(Read-AssemblyDataDirectives `
+    $interactionAnimationPath 'interactiondeAnimations' '.dw' |
+    ForEach-Object { $_.Operands[0] })
+$interaction84OamLabels = @(Read-AssemblyDataDirectives `
+    $interactionAnimationPath 'interaction84OamDataPointers' '.dw' |
+    ForEach-Object { $_.Operands[0] })
 if ($interaction84AnimationLabels.Count -ne 5 -or $interaction84OamLabels.Count -ne 11) {
     throw 'Could not resolve INTERAC_SPARKLE animation and OAM pointer tables.'
 }
+$interactionAnimationDefinitions = Read-AssemblyAnimationDefinitions `
+    $interactionAnimationPath 'interactionAnimation[0-9a-f]+(?:Loop)?'
 function Add-SparkleIntroSpriteRows([string]$kind, [int]$subid) {
-    $flags = [Convert]::ToInt32($sparkleRows[$subid].Groups['flags'].Value, 16)
-    $tileBase = [Convert]::ToInt32(
-        $sparkleRows[$subid].Groups['tile'].Value, 16) -band 0x7f
+    $flags = Convert-AssemblyInteger $sparkleRows[$subid].Operands[2]
+    $tileBase =
+        (Convert-AssemblyInteger $sparkleRows[$subid].Operands[1]) -band 0x7f
     $animationIndex = $flags -band 0x0f
     $basePalette = ($flags -shr 4) -band 0x0f
-    $effectiveSource = [Convert]::ToInt32(
-        $sparkleGfx.Groups['source'].Value, 16) + $tileBase * 16
+    $effectiveSource =
+        (Convert-AssemblyInteger $sparkleGfx[0].Operands[2]) + $tileBase * 16
     $label = $interaction84AnimationLabels[$animationIndex]
-    $animationStart = $interactionAnimationSource.IndexOf(
-        "${label}:", [StringComparison]::Ordinal)
-    $nextLabelIndex = -1
-    foreach ($candidate in [regex]::Matches(
-        $interactionAnimationSource.Substring($animationStart + $label.Length + 1),
-        '(?m)^interactionAnimation(?<suffix>[A-Za-z0-9_]+):')) {
-        $candidateLabel = "interactionAnimation$($candidate.Groups['suffix'].Value)"
-        if ($candidateLabel -ne "${label}Loop") {
-            $nextLabelIndex = $animationStart + $label.Length + 1 + $candidate.Index
-            break
-        }
-    }
-    if ($nextLabelIndex -lt 0) { $nextLabelIndex = $interactionAnimationSource.Length }
-    $animationBody = $interactionAnimationSource.Substring(
-        $animationStart,
-        $nextLabelIndex - $animationStart)
-    $frames = @([regex]::Matches(
-        $animationBody,
-        '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<oam>[0-9a-f]{2})\s+\$[0-9a-f]{2}'))
+    $frames = @($interactionAnimationDefinitions[$label].Frames)
     if ($frames.Count -lt 2) { throw "Could not parse $kind animation $label." }
     for ($frame = 0; $frame -lt $frames.Count; $frame++) {
-        $oamIndex = [Convert]::ToInt32($frames[$frame].Groups['oam'].Value, 16) / 2
-        $parts = Read-IntroOamParts $interactionOamSource $interaction84OamLabels[$oamIndex]
-        $duration = [Convert]::ToInt32($frames[$frame].Groups['duration'].Value, 16)
+        $oamIndex = $frames[$frame].PointerOffset / 2
+        $parts = Read-IntroOamParts `
+            $interactionOamPath $interaction84OamLabels[$oamIndex]
+        $duration = $frames[$frame].Duration
         $introSpriteRows.Add(
             "$kind`t$frame`t$duration`t$($effectiveSource.ToString('x4'))`t$basePalette`t$parts")
     }

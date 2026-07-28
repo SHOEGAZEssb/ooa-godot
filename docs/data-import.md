@@ -88,12 +88,20 @@ when a resolver needs that syntax, it must either interpret it explicitly or
 fail with the node's source span.
 
 Windows PowerShell 5.1 cannot load the .NET 8 tool assembly directly, so the
-entry script starts the built tool once as a private redirected process.
-`Read-ImportText`, `Read-ImportLines`, and `Read-AssemblyLabelBlock` expose that
-single session to PowerShell. The latter resolves label bodies from the label
-index and is used by the shared OAM/animation resolvers. Direct `Get-Content`
-or `File.ReadAllText`/`ReadAllLines` calls for `.s` files are forbidden in
-stages and covered by the importer tests.
+entry script starts the built tool once as a private redirected process. Its
+versioned protocol exposes `NODES`, `LABEL_NODES`, `LABELS`,
+`DATA_DIRECTIVES`, `MACRO_INVOCATIONS`, `INSTRUCTIONS`, and `CONSTANTS`
+queries. Results are ordered typed JSON rows containing parsed operands,
+active-branch state, enclosing labels, and source spans. PowerShell stages use
+the query wrappers and shared literal, pointer-table, animation, and OAM
+resolvers instead of rediscovering labels or splitting assembly operands with
+regular expressions.
+
+`Read-ImportText`, `Read-ImportLines`, and `Read-AssemblyLabelBlock` remain for
+semantic assertions whose instruction sequences are intentionally checked as
+source text. Direct `Get-Content` or
+`File.ReadAllText`/`ReadAllLines` calls for `.s` files are forbidden in stages
+and covered by the importer tests.
 
 Domain interpretation remains with the owning stage: rooms, ordered objects,
 scripts, animations, OAM, palettes, sounds, and other source formats retain

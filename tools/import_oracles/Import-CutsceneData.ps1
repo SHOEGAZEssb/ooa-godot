@@ -6,22 +6,16 @@ function Find-CutsceneCommandSourceLine {
         [string]$pattern,
         [string]$script,
         [int]$occurrence = 0)
-    $regex = [regex]::new(
-        $pattern, [Text.RegularExpressions.RegexOptions]::Multiline,
-        [TimeSpan]::FromSeconds(1))
-    $matches = @($regex.Matches($source, $bodyStart) |
-        Where-Object { $_.Index -ge $bodyStart -and $_.Index -lt $bodyEnd })
+    $path = Resolve-AssemblySourceTextPath $source
+    if ($null -eq $path) { throw "$script uses untracked assembly source." }
+    $matches = @(Read-AssemblyNodes $path | Where-Object {
+        $_.Offset -ge $bodyStart -and $_.Offset -lt $bodyEnd -and
+        $_.Code -match $pattern
+    })
     if ($occurrence -lt 0 -or $occurrence -ge $matches.Count) {
         throw "Could not locate $script command source occurrence $occurrence matching: $pattern"
     }
-    $match = $matches[$occurrence]
-    $firstToken = [regex]::Match($match.Value, '\S')
-    if (-not $firstToken.Success) {
-        throw "$script command match contains no opcode token: $pattern"
-    }
-    $sourceIndex = $match.Index + $firstToken.Index
-    return [regex]::Matches(
-        $source.Substring(0, $sourceIndex), "`n").Count + 1
+    return $matches[$occurrence].Line
 }
 function ConvertTo-CutsceneCommandPayload {
     param([string]$value)
@@ -49,55 +43,69 @@ function New-CutsceneCommandRow {
 function Read-AssemblyCutsceneCommands {
     param(
         [string]$path,
-        [string]$source,
         [string]$script,
-        [int]$bodyStart,
-        [int]$bodyLength,
-        [Collections.Generic.HashSet[string]]$supportedOpcodes)
+        [Collections.Generic.HashSet[string]]$supportedOpcodes,
+        [string]$endLabel = '')
 
-    $body = $source.Substring($bodyStart, $bodyLength)
-    $firstLine = [regex]::Matches($source.Substring(0, $bodyStart), "`n").Count + 1
     $label = $script
     $commands = [Collections.Generic.List[object]]::new()
-    $lines = $body -split "`r?`n"
-    for ($offset = 0; $offset -lt $lines.Count; $offset++) {
-        $lineNumber = $firstLine + $offset
-        $line = ($lines[$offset] -replace ';.*$', '').Trim()
-        if ([string]::IsNullOrWhiteSpace($line)) { continue }
-        if ($line -match '^(?<label>@?[A-Za-z_][A-Za-z0-9_@]*):$') {
-            $label = $Matches['label']
+    $nodes = if ([string]::IsNullOrEmpty($endLabel)) {
+        @(Read-AssemblyLabelNodes $path $script)
+    } else {
+        $start = @(Read-AssemblyLabels $path $script)
+        $end = @(Read-AssemblyLabels $path $endLabel)
+        if ($start.Count -ne 1 -or $end.Count -ne 1 -or
+            $end[0].Offset -le $start[0].Offset) {
+            throw "$path`: invalid $script -> $endLabel command range."
+        }
+        @(Read-AssemblyNodes $path | Where-Object {
+            $_.Offset -gt $start[0].Offset -and
+            $_.Offset -lt $end[0].Offset
+        })
+    }
+    foreach ($node in $nodes) {
+        if ($node.Kind -eq 'Label') {
+            $label = $node.Name
             continue
         }
-        if ($line.StartsWith('.')) { continue }
-        if ($line -notmatch '^(?<opcode>[a-zA-Z0-9_]+)(?:\s+(?<operands>.*))?$') {
-            throw "$path`:$lineNumber`: malformed $script assembly command '$line'."
+        if ($node.Kind -in @(
+            'Blank', 'Comment', 'Constant', 'Data', 'Directive')) {
+            continue
         }
-        $opcode = $Matches['opcode'].ToLowerInvariant()
+        if ($node.Kind -notin @('MacroInvocation', 'Instruction')) {
+            throw "$($node.Path):$($node.Line):$($node.Column): " +
+                "malformed $script assembly node '$($node.Code)'."
+        }
+        $opcode = $node.Name.ToLowerInvariant()
         if (-not $supportedOpcodes.Contains($opcode)) {
-            throw "$path`:$lineNumber`: unsupported $script opcode '$opcode' at label '$label'."
+            throw "$($node.Path):$($node.Line):$($node.Column): " +
+                "unsupported $script opcode '$opcode' at label '$label'."
         }
         $commands.Add([pscustomobject]@{
             Script = $script
             Label = $label
             Index = $commands.Count
-            Line = $lineNumber
+            Line = $node.Line
             Opcode = $opcode
-            Operands = $Matches['operands']
+            Operands = $node.OperandText
         })
     }
     if ($commands.Count -eq 0) {
-        throw "$path`:$firstLine`: $script contains no commands."
+        throw "$path`: $script contains no commands."
     }
     return $commands
 }
 
 function Get-AssemblySourceLine {
     param([string]$source, [string]$pattern, [string]$description)
-    $match = [regex]::Match(
-        $source, $pattern, [Text.RegularExpressions.RegexOptions]::Multiline,
-        [TimeSpan]::FromSeconds(1))
-    if (-not $match.Success) { throw "Could not locate $description source label." }
-    return [regex]::Matches($source.Substring(0, $match.Index), "`n").Count + 1
+    $path = Resolve-AssemblySourceTextPath $source
+    $node = @(Read-AssemblyNodes $path | Where-Object {
+        $_.Code -match $pattern
+    } | Select-Object -First 1)
+    if ($node.Count -eq 0) {
+        throw "Could not locate $description source label."
+    }
+    return $node[0].Line
 }
 
 # ITEM_HARP ($11) uses the complete LINK_ANIM_MODE_HARP_2 sequence. Export
@@ -603,12 +611,6 @@ Write-GeneratedTable(
 # the adult-tree script in present room 0:38. Export the complete looping
 # script, including its choice branch and the persistent falling Seed Satchel,
 # rather than reducing the event to a one-shot dialogue/reward.
-$makuSavedScriptMatch = [regex]::Match(
-    $makuScriptSource,
-    '(?ms)^makuTree_subid02Script_body:(?<body>.*?)(?=^makuTree_subid06Script_part1_body:)')
-if (-not $makuSavedScriptMatch.Success) {
-    throw 'Could not parse makuTree_subid02Script_body.'
-}
 $makuSavedTextIds = @(0x0542..0x0550) + @(0x0561)
 foreach ($textId in $makuSavedTextIds) {
     if (-not $allTexts.ContainsKey($textId)) {
@@ -634,9 +636,7 @@ foreach ($opcode in @(
 }
 $makuSavedParsed = @(Read-AssemblyCutsceneCommands `
     (Join-Path $Disassembly 'scripts\ages\scriptHelper.s') `
-    $makuScriptSource 'makuTree_subid02Script_body' `
-    $makuSavedScriptMatch.Groups['body'].Index `
-    $makuSavedScriptMatch.Groups['body'].Length $makuSavedOpcodes)
+    'makuTree_subid02Script_body' $makuSavedOpcodes)
 if ($makuSavedParsed.Count -ne 68) {
     throw "Expected 68 saved Maku Tree commands, parsed $($makuSavedParsed.Count)."
 }
@@ -2269,22 +2269,16 @@ foreach ($opcode in @(
 }
 $nayruScriptPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
 $nayruLaneSpecs = @(
-    @('nayruScript00_part1', '(?ms)^nayruScript00_part1:(?<body>.*?)(?=^nayruScript00_part2:)'),
-    @('nayruScript00_part2', '(?ms)^nayruScript00_part2:(?<body>.*?)(?=^nayruScript01:)'),
-    @('ralphSubid00Script', '(?ms)^ralphSubid00Script:(?<body>.*?)(?=^ralphSubid02Script:)'),
-    @('ghostVeranSubid1Script_part2', '(?ms)^ghostVeranSubid1Script_part2:(?<body>.*?)(?=^ghostVeranSubid1Script:)')
+    'nayruScript00_part1',
+    'nayruScript00_part2',
+    'ralphSubid00Script',
+    'ghostVeranSubid1Script_part2'
 )
-foreach ($laneSpec in $nayruLaneSpecs) {
-    $laneMatch = [regex]::Match($nayruScriptSource, $laneSpec[1])
-    if (-not $laneMatch.Success) {
-        throw "$nayruScriptPath`: could not locate $($laneSpec[0]) for typed parsing."
-    }
+foreach ($lane in $nayruLaneSpecs) {
     $parsedLane = @(Read-AssemblyCutsceneCommands `
-        $nayruScriptPath $nayruScriptSource $laneSpec[0] `
-        $laneMatch.Groups['body'].Index $laneMatch.Groups['body'].Length `
-        $supportedNayruOpcodes)
+        $nayruScriptPath $lane $supportedNayruOpcodes)
     if ($parsedLane[-1].Opcode -ne 'scriptend') {
-        throw "$nayruScriptPath`:$($parsedLane[-1].Line): $($laneSpec[0]) does not terminate in scriptend."
+        throw "$nayruScriptPath`:$($parsedLane[-1].Line): $lane does not terminate in scriptend."
     }
 }
 
@@ -2448,8 +2442,6 @@ Write-GeneratedTable(
 # them in placement order and preserves their cfc0/cfd0 gates.
 $preBlackTowerMainScriptPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
 $preBlackTowerHelperScriptPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
-$preBlackTowerMainScriptSource = Read-ImportText $preBlackTowerMainScriptPath
-$preBlackTowerHelperScriptSource = Read-ImportText $preBlackTowerHelperScriptPath
 $preBlackTowerOpcodes = [Collections.Generic.HashSet[string]]::new(
     [StringComparer]::OrdinalIgnoreCase)
 foreach ($opcode in @(
@@ -2493,24 +2485,11 @@ function Export-PreBlackTowerLane {
         [string]$script,
         [string]$actor,
         [string]$path,
-        [string]$source,
         [string]$nextLabel,
         [string]$outputName)
 
-    $endPattern = if ([string]::IsNullOrEmpty($nextLabel)) {
-        '\z'
-    } else {
-        "^$([regex]::Escape($nextLabel)):"
-    }
-    $match = [regex]::Match(
-        $source,
-        "(?ms)^$([regex]::Escape($script)):(?<body>.*?)(?=$endPattern)")
-    if (-not $match.Success) {
-        throw "$path`: could not locate typed pre-Black Tower lane $script."
-    }
     $parsed = @(Read-AssemblyCutsceneCommands `
-        $path $source $script $match.Groups['body'].Index `
-        $match.Groups['body'].Length $preBlackTowerOpcodes)
+        $path $script $preBlackTowerOpcodes $nextLabel)
     if ($parsed[-1].Opcode -ne 'scriptend') {
         throw "$path`:$($parsed[-1].Line): $script does not terminate in scriptend."
     }
@@ -2664,13 +2643,13 @@ function Export-PreBlackTowerLane {
 }
 
 $preBlackTowerLaneSpecs = @(
-    @('ralphSubid0aScript_unlinked', 'Ralph', $preBlackTowerMainScriptPath, $preBlackTowerMainScriptSource, 'ralphSubid0aScript_linked', 'pre_black_tower_ralph_unlinked.tsv'),
-    @('ralphSubid0aScript_linked', 'Ralph', $preBlackTowerMainScriptPath, $preBlackTowerMainScriptSource, 'ralphSubid0bScript', 'pre_black_tower_ralph_linked.tsv'),
-    @('impaScript4', 'Impa', $preBlackTowerHelperScriptPath, $preBlackTowerHelperScriptSource, 'impaScript5', 'pre_black_tower_impa_unlinked.tsv'),
-    @('impaScript5', 'Impa', $preBlackTowerHelperScriptPath, $preBlackTowerHelperScriptSource, 'impaScript7', 'pre_black_tower_impa_linked.tsv'),
-    @('nayruScript09', 'Nayru', $preBlackTowerMainScriptPath, $preBlackTowerMainScriptSource, 'nayruScript0a', 'pre_black_tower_nayru_unlinked.tsv'),
-    @('nayruScript0a', 'Nayru', $preBlackTowerMainScriptPath, $preBlackTowerMainScriptSource, 'nayruScript10', 'pre_black_tower_nayru_linked.tsv'),
-    @('zeldaSubid04Script', 'Zelda', $preBlackTowerMainScriptPath, $preBlackTowerMainScriptSource, 'zeldaSubid05Script', 'pre_black_tower_zelda_linked.tsv')
+    @('ralphSubid0aScript_unlinked', 'Ralph', $preBlackTowerMainScriptPath, 'ralphSubid0aScript_linked', 'pre_black_tower_ralph_unlinked.tsv'),
+    @('ralphSubid0aScript_linked', 'Ralph', $preBlackTowerMainScriptPath, 'ralphSubid0bScript', 'pre_black_tower_ralph_linked.tsv'),
+    @('impaScript4', 'Impa', $preBlackTowerHelperScriptPath, 'impaScript5', 'pre_black_tower_impa_unlinked.tsv'),
+    @('impaScript5', 'Impa', $preBlackTowerHelperScriptPath, 'impaScript7', 'pre_black_tower_impa_linked.tsv'),
+    @('nayruScript09', 'Nayru', $preBlackTowerMainScriptPath, 'nayruScript0a', 'pre_black_tower_nayru_unlinked.tsv'),
+    @('nayruScript0a', 'Nayru', $preBlackTowerMainScriptPath, 'nayruScript10', 'pre_black_tower_nayru_linked.tsv'),
+    @('zeldaSubid04Script', 'Zelda', $preBlackTowerMainScriptPath, 'zeldaSubid05Script', 'pre_black_tower_zelda_linked.tsv')
 )
 foreach ($lane in $preBlackTowerLaneSpecs) {
     Export-PreBlackTowerLane @lane
@@ -3339,12 +3318,6 @@ if ($graveyardControllerSource -notmatch '(?ms)^interactiondc_subid01:.*?checkIn
     throw 'Room 0:5c graveyard-gate controller, object order, tile phases, or puff helper changed.'
 }
 
-$graveyardScriptMatch = [regex]::Match(
-    $graveyardScriptSource,
-    '(?ms)^interactiondcSubid01Script:\s*(?<body>.*?)(?=^; =|^\S[^:\r\n]*:)')
-if (-not $graveyardScriptMatch.Success) {
-    throw 'Could not isolate interactiondcSubid01Script.'
-}
 $graveyardSupportedOpcodes = [Collections.Generic.HashSet[string]]::new(
     [StringComparer]::OrdinalIgnoreCase)
 foreach ($opcode in @(
@@ -3353,10 +3326,7 @@ foreach ($opcode in @(
     [void]$graveyardSupportedOpcodes.Add($opcode)
 }
 $graveyardParsed = @(Read-AssemblyCutsceneCommands `
-    $graveyardScriptPath $graveyardScriptSource 'interactiondcSubid01Script' `
-    $graveyardScriptMatch.Groups['body'].Index `
-    $graveyardScriptMatch.Groups['body'].Length `
-    $graveyardSupportedOpcodes)
+    $graveyardScriptPath 'interactiondcSubid01Script' $graveyardSupportedOpcodes)
 $graveyardExpected = @(
     @('checkcfc0bit', '0'),
     @('setmusic', 'SNDCTRL_STOPMUSIC'),
@@ -3552,14 +3522,6 @@ if ($remoteMakuObjectSource -notmatch '(?ms)^group0Map8dObjectData:\s+obj_Intera
     throw 'Remote-Maku placement, predicate, palette mask, or linked-text offset changed.'
 }
 
-$remoteMakuParserSource = $remoteMakuScriptSource -replace (
-    '(?m)^\+\+\s*$'), 'remoteMakuJoin:'
-$remoteMakuScriptMatch = [regex]::Match(
-    $remoteMakuParserSource,
-    '(?ms)^remoteMakuCutsceneScript:\s*(?<body>.*?)(?=^; =)')
-if (-not $remoteMakuScriptMatch.Success) {
-    throw 'Could not isolate remoteMakuCutsceneScript.'
-}
 $remoteMakuSupportedOpcodes = [Collections.Generic.HashSet[string]]::new(
     [StringComparer]::OrdinalIgnoreCase)
 foreach ($opcode in @(
@@ -3569,10 +3531,7 @@ foreach ($opcode in @(
     [void]$remoteMakuSupportedOpcodes.Add($opcode)
 }
 $remoteMakuParsed = @(Read-AssemblyCutsceneCommands `
-    $remoteMakuScriptPath $remoteMakuParserSource 'remoteMakuCutsceneScript' `
-    $remoteMakuScriptMatch.Groups['body'].Index `
-    $remoteMakuScriptMatch.Groups['body'].Length `
-    $remoteMakuSupportedOpcodes)
+    $remoteMakuScriptPath 'remoteMakuCutsceneScript' $remoteMakuSupportedOpcodes)
 $remoteMakuExpected = @(
     @('disableinput', ''),
     @('writememory', 'wTextboxFlags, TEXTBOXFLAG_ALTPALETTE1'),
@@ -3821,12 +3780,6 @@ if ($mainObjectSource -notmatch
     throw 'Room 3:ae Harp spawner, sparkle, Nayru wrapper, or response-song state machine changed.'
 }
 
-$harpScriptMatch = [regex]::Match(
-    $harpScriptSource,
-    '(?ms)^nayruScript07:\s*(?<body>.*?)(?=^; Subid \$10:)')
-if (-not $harpScriptMatch.Success) {
-    throw 'Could not isolate nayruScript07.'
-}
 $harpOpcodes = [Collections.Generic.HashSet[string]]::new(
     [StringComparer]::OrdinalIgnoreCase)
 foreach ($opcode in @(
@@ -3836,10 +3789,7 @@ foreach ($opcode in @(
     [void]$harpOpcodes.Add($opcode)
 }
 $harpParsed = @(Read-AssemblyCutsceneCommands `
-    $harpScriptPath $harpScriptSource 'nayruScript07' `
-    $harpScriptMatch.Groups['body'].Index `
-    $harpScriptMatch.Groups['body'].Length `
-    $harpOpcodes)
+    $harpScriptPath 'nayruScript07' $harpOpcodes)
 $harpExpected = @(
     @('wait', '12'),
     @('writememory', 'wTextboxFlags, TEXTBOXFLAG_ALTPALETTE1'),
@@ -3984,12 +3934,6 @@ Write-GeneratedTable(
 # horizontally toward Link and animates after every later script update.
 $comedianScriptPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
 $comedianScriptSource = Read-ImportText $comedianScriptPath
-$comedianBody = [regex]::Match(
-    $comedianScriptSource,
-    '(?ms)^comedianScript:(?<body>.*?)(?=^; =+\r?\n; INTERAC_GORON)')
-if (-not $comedianBody.Success) {
-    throw 'Could not locate comedianScript in scriptHelper.s.'
-}
 $comedianOpcodes = [Collections.Generic.HashSet[string]]::new(
     [StringComparer]::OrdinalIgnoreCase)
 foreach ($opcode in @(
@@ -4000,9 +3944,7 @@ foreach ($opcode in @(
     [void]$comedianOpcodes.Add($opcode)
 }
 $comedianCommands = Read-AssemblyCutsceneCommands `
-    $comedianScriptPath $comedianScriptSource 'comedianScript' `
-    $comedianBody.Groups['body'].Index $comedianBody.Groups['body'].Length `
-    $comedianOpcodes
+    $comedianScriptPath 'comedianScript' $comedianOpcodes
 if ($comedianCommands.Count -ne 34) {
     throw "comedianScript expected 34 commands, parsed $($comedianCommands.Count)."
 }
@@ -4032,8 +3974,12 @@ foreach ($entry in $expectedComedianTargets.GetEnumerator()) {
         throw "comedianScript label $($entry.Key) moved from command $($entry.Value)."
     }
 }
-if ($comedianBody.Groups['body'].Value -notmatch
-    '(?ms)jumptable_objectbyte Interaction\.var3f\s+\.dw @beforeBeatD2\s+\.dw @afterBeatD2\s+\.dw @afterBeatMoonlitGrotto') {
+$comedianProgressTargets = @(
+    Read-AssemblyDataDirectives `
+        $comedianScriptPath 'comedianScript' '.dw' |
+        ForEach-Object { $_.Operands[0] })
+if (($comedianProgressTargets -join ',') -ne
+    '@beforeBeatD2,@afterBeatD2,@afterBeatMoonlitGrotto') {
     throw 'comedianScript progress jump table changed.'
 }
 
@@ -4224,12 +4170,6 @@ Write-GeneratedTable(
 # and must not be refreshed when poeScript sets the room's $40 flag.
 $poeScriptPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
 $poeScriptSource = Read-ImportText $poeScriptPath
-$poeBody = [regex]::Match(
-    $poeScriptSource,
-    '(?ms)^poeScript:(?<body>.*?)(?=^; =+\r?\n; INTERAC_OLD_ZORA)')
-if (-not $poeBody.Success) {
-    throw 'Could not locate poeScript in scriptHelper.s.'
-}
 $poeOpcodes = [Collections.Generic.HashSet[string]]::new(
     [StringComparer]::OrdinalIgnoreCase)
 foreach ($opcode in @(
@@ -4241,9 +4181,7 @@ foreach ($opcode in @(
     [void]$poeOpcodes.Add($opcode)
 }
 $poeCommands = @(Read-AssemblyCutsceneCommands `
-    $poeScriptPath $poeScriptSource 'poeScript' `
-    $poeBody.Groups['body'].Index $poeBody.Groups['body'].Length `
-    $poeOpcodes)
+    $poeScriptPath 'poeScript' $poeOpcodes)
 $poeExpectedCommands = @(
     @('initcollisions', ''),
     @('checkabutton', ''),
@@ -4418,13 +4356,6 @@ Write-GeneratedTable(
 # whose native wrapper runs the script once on its initialization update,
 # enables always-update behavior, then animates after every later script update.
 $maskSalesmanScriptPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
-$maskSalesmanScriptSource = Read-ImportText $maskSalesmanScriptPath
-$maskSalesmanBody = [regex]::Match(
-    $maskSalesmanScriptSource,
-    '(?ms)^maskSalesmanScript:(?<body>.*?)(?=^; =+\r?\n; INTERAC_COMEDIAN)')
-if (-not $maskSalesmanBody.Success) {
-    throw 'Could not locate maskSalesmanScript in scriptHelper.s.'
-}
 $maskSalesmanOpcodes = [Collections.Generic.HashSet[string]]::new(
     [StringComparer]::OrdinalIgnoreCase)
 foreach ($opcode in @(
@@ -4435,9 +4366,7 @@ foreach ($opcode in @(
     [void]$maskSalesmanOpcodes.Add($opcode)
 }
 $maskSalesmanCommands = Read-AssemblyCutsceneCommands `
-    $maskSalesmanScriptPath $maskSalesmanScriptSource 'maskSalesmanScript' `
-    $maskSalesmanBody.Groups['body'].Index `
-    $maskSalesmanBody.Groups['body'].Length $maskSalesmanOpcodes
+    $maskSalesmanScriptPath 'maskSalesmanScript' $maskSalesmanOpcodes
 if ($maskSalesmanCommands.Count -ne 44) {
     throw "maskSalesmanScript expected 44 commands, parsed $($maskSalesmanCommands.Count)."
 }
@@ -5124,17 +5053,6 @@ if ($mainObjectSource -notmatch
     throw 'Room 2:e9 shooting-gallery actor, controller, ball, or setup behavior changed.'
 }
 
-$shootingGalleryMainBody = [regex]::Match(
-    $shootingGalleryScriptSource,
-    '(?ms)^shootingGalleryScript_humanNpc:(?<body>.*?)(?=^shootingGalleryScript_goronNpc:)')
-$shootingGalleryCleanupBody = [regex]::Match(
-    $shootingGalleryHelperSource,
-    '(?ms)^shootingGalleryScript_humanNpc_gameDone:(?<body>.*?)(?=^shootingGalleryScript_goronNpc_gameDone:)')
-if (-not $shootingGalleryMainBody.Success -or
-    -not $shootingGalleryCleanupBody.Success) {
-    throw 'Could not locate the Lynna shooting-gallery script bodies.'
-}
-
 $shootingGalleryMainOpcodes = [Collections.Generic.HashSet[string]]::new(
     [StringComparer]::OrdinalIgnoreCase)
 foreach ($opcode in @(
@@ -5156,16 +5074,10 @@ foreach ($opcode in @(
     [void]$shootingGalleryCleanupOpcodes.Add($opcode)
 }
 $shootingGalleryMainCommands = Read-AssemblyCutsceneCommands `
-    $shootingGalleryScriptPath $shootingGalleryScriptSource `
-    'shootingGalleryScript_humanNpc' `
-    $shootingGalleryMainBody.Groups['body'].Index `
-    $shootingGalleryMainBody.Groups['body'].Length `
-    $shootingGalleryMainOpcodes
+    $shootingGalleryScriptPath 'shootingGalleryScript_humanNpc' `
+    $shootingGalleryMainOpcodes 'shootingGalleryScript_goronNpc'
 $shootingGalleryCleanupCommands = Read-AssemblyCutsceneCommands `
-    $shootingGalleryHelperPath $shootingGalleryHelperSource `
-    'shootingGalleryScript_humanNpc_gameDone' `
-    $shootingGalleryCleanupBody.Groups['body'].Index `
-    $shootingGalleryCleanupBody.Groups['body'].Length `
+    $shootingGalleryHelperPath 'shootingGalleryScript_humanNpc_gameDone' `
     $shootingGalleryCleanupOpcodes
 if ($shootingGalleryMainCommands.Count -ne 48 -or
     $shootingGalleryCleanupCommands.Count -ne 55) {

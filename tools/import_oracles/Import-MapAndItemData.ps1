@@ -2,48 +2,33 @@
 # tree icons, and every text bank the map resolver can select. Conditional
 # popup behavior remains a runtime concern because it reads live room/global
 # flags, but the table bytes and TX strings come directly from the disassembly.
-$mapDataSource = Read-ImportText (Join-Path $Disassembly 'data\ages\mapTextAndPopups.s')
-$mapDataSource = [regex]::Replace(
-    $mapDataSource,
-    '(?ms)\.ifdef REGION_JP\s*.*?\.else\s*(?<us>.*?)\.endif',
-    '${us}')
+$mapDataPath = Join-Path $Disassembly 'data\ages\mapTextAndPopups.s'
 
-function Read-MapByteArray([string]$label, [string]$nextLabel) {
-    $match = [regex]::Match(
-        $mapDataSource,
-        "(?ms)^${label}:\s*(?<body>.*?)(?=^${nextLabel}:)")
-    if (-not $match.Success) { throw "Could not find map data array $label." }
-    return @([regex]::Matches($match.Groups['body'].Value, '\$(?<value>[0-9a-f]{2})') |
-        ForEach-Object { [Convert]::ToInt32($_.Groups['value'].Value, 16) })
-}
-
-function Read-MinimapPopups([string]$label, [string]$nextLabel) {
-    $match = [regex]::Match(
-        $mapDataSource,
-        "(?ms)^${label}:\s*(?<body>.*?)(?=^${nextLabel}:|\z)")
-    if (-not $match.Success) { throw "Could not find minimap popup array $label." }
+function Read-MinimapPopups([string]$label) {
     $result = @{}
-    foreach ($entry in [regex]::Matches(
-        $match.Groups['body'].Value,
-        '(?m)^\s*\.db\s+\$(?<room>[0-9a-f]{2})\s+\$(?<popup>[0-9a-f]{2})')) {
-        $room = [Convert]::ToInt32($entry.Groups['room'].Value, 16)
+    foreach ($node in Read-AssemblyDataDirectives `
+        $mapDataPath $label '.db') {
+        if ($node.Operands.Count -lt 2) { continue }
+        $room = Convert-AssemblyInteger $node.Operands[0]
         if ($room -eq 0xff) { continue }
         # mapMenu_loadPopupData stops at the first matching room. A few source
         # tables intentionally repeat room IDs, so retain the first record.
         if (-not $result.ContainsKey($room)) {
-            $result[$room] = [Convert]::ToInt32($entry.Groups['popup'].Value, 16)
+            $result[$room] = Convert-AssemblyInteger $node.Operands[1]
         }
     }
     return $result
 }
 
-$presentMapTexts = Read-MapByteArray 'presentMapTextIndices' 'pastMapTextIndices'
-$pastMapTexts = Read-MapByteArray 'pastMapTextIndices' 'presentMinimapPopups'
+$presentMapTexts = @(Read-AssemblyLiteralValues `
+    $mapDataPath 'presentMapTextIndices')
+$pastMapTexts = @(Read-AssemblyLiteralValues `
+    $mapDataPath 'pastMapTextIndices')
 if ($presentMapTexts.Count -ne 196 -or $pastMapTexts.Count -ne 196) {
     throw "Expected 196 present and past map text indices, got $($presentMapTexts.Count) and $($pastMapTexts.Count)."
 }
-$presentMapPopups = Read-MinimapPopups 'presentMinimapPopups' 'pastMinimapPopups'
-$pastMapPopups = Read-MinimapPopups 'pastMinimapPopups' '__end_of_file__'
+$presentMapPopups = Read-MinimapPopups 'presentMinimapPopups'
+$pastMapPopups = Read-MinimapPopups 'pastMinimapPopups'
 if ($presentMapPopups.Count -ne 44 -or $pastMapPopups.Count -ne 38) {
     throw "Expected 44 present and 38 past popup rooms, got $($presentMapPopups.Count) and $($pastMapPopups.Count)."
 }
@@ -73,25 +58,20 @@ foreach ($textId in @($allTexts.Keys | Sort-Object)) {
 $mapTextsPath = Join-Path $destination 'map\texts.tsv'
 Write-GeneratedTable($mapTextsPath, $mapTextRows)
 
-$treeWarpSource = Read-ImportText (Join-Path $Disassembly 'data\ages\treeWarps.s')
+$treeWarpPath = Join-Path $Disassembly 'data\ages\treeWarps.s'
 $treeWarpRows = [Collections.Generic.List[string]]::new()
 $treeWarpRows.Add('# group`troom`tpopup')
 foreach ($treeGroup in @(
-    @{ Label = 'presentTreeWarps'; Group = 0; Next = 'pastTreeWarps' },
-    @{ Label = 'pastTreeWarps'; Group = 1; Next = '__end_of_file__' })) {
-    $pattern = if ($treeGroup.Next -eq '__end_of_file__') {
-        "(?ms)^$($treeGroup.Label):\s*(?<body>.*)"
-    } else {
-        "(?ms)^$($treeGroup.Label):\s*(?<body>.*?)(?=^$($treeGroup.Next):)"
-    }
-    $block = [regex]::Match($treeWarpSource, $pattern)
-    if (-not $block.Success) { throw "Could not find $($treeGroup.Label)." }
-    foreach ($entry in [regex]::Matches(
-        $block.Groups['body'].Value,
-        '(?m)^\s*\.db\s+\$(?<room>[0-9a-f]{2})\s+\$[0-9a-f]{2}\s+\$(?<popup>[0-9a-f]{2})')) {
-        $room = [Convert]::ToInt32($entry.Groups['room'].Value, 16)
+    @{ Label = 'presentTreeWarps'; Group = 0 },
+    @{ Label = 'pastTreeWarps'; Group = 1 })) {
+    foreach ($node in Read-AssemblyDataDirectives `
+        $treeWarpPath $treeGroup.Label '.db') {
+        if ($node.Operands.Count -lt 3) { continue }
+        $room = Convert-AssemblyInteger $node.Operands[0]
         if ($room -eq 0) { continue }
-        $treeWarpRows.Add("$($treeGroup.Group)`t$($room.ToString('x2'))`t$($entry.Groups['popup'].Value)")
+        $popup = Convert-AssemblyInteger $node.Operands[2]
+        $treeWarpRows.Add(
+            "$($treeGroup.Group)`t$($room.ToString('x2'))`t$($popup.ToString('x2'))")
     }
 }
 $treeWarpsPath = Join-Path $destination 'map\tree_warps.tsv'
@@ -100,20 +80,21 @@ if ($treeWarpRows.Count -ne 11) {
 }
 Write-GeneratedTable($treeWarpsPath, $treeWarpRows)
 
-$mapMenuCode = Read-ImportText (Join-Path $Disassembly 'code\bank2.s')
-$entranceBlock = [regex]::Match(
-    $mapMenuCode,
-    '(?ms)^mapMenu_dungeonEntranceText:\s*\r?\n\s*\.ifdef ROM_AGES\s*(?<body>.*?)\s*\.else; ROM_SEASONS')
-if (-not $entranceBlock.Success) { throw 'Could not find the Ages dungeon entrance text table.' }
+$mapMenuPath = Join-Path $Disassembly 'code\bank2.s'
 $entranceRows = [Collections.Generic.List[string]]::new()
 $entranceRows.Add('# dungeon`tgroup`troom`tfallback-text')
 $dungeonIndex = 0
-foreach ($entry in [regex]::Matches(
-    $entranceBlock.Groups['body'].Value,
-    '(?m)^\s*\.db\s+\$(?<room>[0-9a-f]{2}),\s*(?<group>\$80\|)?\(<TX_03(?<text>[0-9a-f]{2})\)')) {
-    $group = if ($entry.Groups['group'].Success) { 4 } else { 5 }
+foreach ($node in Read-AssemblyDataDirectives `
+    $mapMenuPath 'mapMenu_dungeonEntranceText' '.db') {
+    if ($node.Operands.Count -ne 2 -or
+        $node.Operands[1] -notmatch
+            '^(?<group>\$80\|)?\(<TX_03(?<text>[0-9a-f]{2})\)$') {
+        continue
+    }
+    $group = if ($Matches['group']) { 4 } else { 5 }
+    $room = Convert-AssemblyInteger $node.Operands[0]
     $entranceRows.Add(
-        "$dungeonIndex`t$group`t$($entry.Groups['room'].Value)`t$($entry.Groups['text'].Value)")
+        "$dungeonIndex`t$group`t$($room.ToString('x2'))`t$($Matches['text'])")
     $dungeonIndex++
 }
 if ($dungeonIndex -ne 16) { throw "Expected 16 Ages dungeon entrance rows, parsed $dungeonIndex." }
@@ -122,9 +103,12 @@ Write-GeneratedTable($entrancePath, $entranceRows)
 
 function Read-ConstantIds([string]$path, [string]$prefix) {
     $ids = @{}
-    foreach ($line in Read-ImportLines $path) {
-        if ($line -match "^\s*(?<name>${prefix}[A-Z0-9_]+)\s+(?:\.?db|db)\s*;\s*(?:0x|\$)(?<id>[0-9a-f]{2})") {
-            $ids[$Matches['name']] = [Convert]::ToInt32($Matches['id'], 16)
+    foreach ($node in Read-AssemblyMacroInvocations $path) {
+        if ($node.Name -match "^${prefix}[A-Z0-9_]+$" -and
+            $node.Operands.Count -eq 1 -and
+            $node.Operands[0] -ieq 'db' -and
+            $node.Comment -match '^\s*(?:0x|\$)(?<id>[0-9a-f]{2})') {
+            $ids[$node.Name] = [Convert]::ToInt32($Matches['id'], 16)
         }
     }
     return $ids

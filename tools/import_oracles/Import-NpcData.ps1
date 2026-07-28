@@ -6,9 +6,17 @@ $scriptSources = @(
 )
 $scriptBodies = @{}
 foreach ($scriptSourcePath in $scriptSources) {
-    $scriptSource = Read-ImportText $scriptSourcePath
-    foreach ($labelMatch in [regex]::Matches($scriptSource, '(?ms)^(?<label>[A-Za-z0-9_@]+):\r?\n(?<body>.*?)(?=^[A-Za-z0-9_@]+:|\z)')) {
-        $scriptBodies[$labelMatch.Groups['label'].Value] = $labelMatch.Groups['body'].Value
+    $fileBodies = @{}
+    foreach ($node in Read-AssemblyNodes $scriptSourcePath) {
+        $label = [string]$node.EnclosingGlobalLabel
+        if ([string]::IsNullOrEmpty($label)) { continue }
+        if (-not $fileBodies.ContainsKey($label)) {
+            $fileBodies[$label] = [Collections.Generic.List[object]]::new()
+        }
+        $fileBodies[$label].Add($node)
+    }
+    foreach ($label in $fileBodies.Keys) {
+        $scriptBodies[$label] = @($fileBodies[$label])
     }
 }
 $scriptTextCache = @{}
@@ -16,16 +24,26 @@ function Resolve-ScriptTextId([string]$label, [Collections.Generic.HashSet[strin
     if ($scriptTextCache.ContainsKey($label)) { return $scriptTextCache[$label] }
     if ($visited.Contains($label) -or -not $scriptBodies.ContainsKey($label)) { return -1 }
     [void]$visited.Add($label)
-    $body = $scriptBodies[$label]
-    $textMatch = [regex]::Match($body, '(?:rungenericnpc|rungenericnpclowindex|showtext|showtextlowindex|settextid)\s+(?:<)?TX_(?<id>[0-9a-f]{4})')
-    if ($textMatch.Success) {
-        $value = [Convert]::ToInt32($textMatch.Groups['id'].Value, 16)
+    $textCommand = @($scriptBodies[$label] | Where-Object {
+        $_.Name -in @(
+            'rungenericnpc', 'rungenericnpclowindex', 'showtext',
+            'showtextlowindex', 'settextid') -and
+        $_.OperandText -match '^(?:<)?TX_(?<id>[0-9a-f]{4})'
+    } | Select-Object -First 1)
+    if ($textCommand.Count -ne 0) {
+        [void]($textCommand[0].OperandText -match
+            '^(?:<)?TX_(?<id>[0-9a-f]{4})')
+        $value = [Convert]::ToInt32($Matches['id'], 16)
         $scriptTextCache[$label] = $value
         return $value
     }
-    $jumpMatch = [regex]::Match($body, 'scriptjump\s+(?:mainScripts\.)?(?<label>[A-Za-z0-9_@]+)')
-    if ($jumpMatch.Success) {
-        $value = Resolve-ScriptTextId $jumpMatch.Groups['label'].Value $visited
+    $jump = @($scriptBodies[$label] | Where-Object {
+        $_.Name -eq 'scriptjump'
+    } | Select-Object -First 1)
+    if ($jump.Count -ne 0 -and
+        $jump[0].OperandText -match
+            '^(?:mainScripts\.)?(?<label>[A-Za-z0-9_@]+)') {
+        $value = Resolve-ScriptTextId $Matches['label'] $visited
         $scriptTextCache[$label] = $value
         return $value
     }
@@ -42,29 +60,47 @@ $npcInteractionSourcePaths = @()
 $npcInteractionSourcePaths += Get-ChildItem (Join-Path $Disassembly "object_code\ages\interactions") -File -Filter '*.s'
 $npcInteractionSourcePaths += Get-ChildItem (Join-Path $Disassembly "object_code\common\interactions") -File -Filter '*.s'
 foreach ($interactionSourcePath in $npcInteractionSourcePaths) {
-    $interactionSource = Read-ImportText $interactionSourcePath.FullName
+    $interactionNodes = @(Read-AssemblyNodes $interactionSourcePath.FullName)
     # A few large interactions keep only a jpab trampoline in their primary
     # file and put the implementation in interactionCodeXX_body (for example,
     # monkeyMain.s). Treat that body as the same interaction so its exact
     # subid script references can resolve dialogue too.
-    $codeMatch = [regex]::Match(
-        $interactionSource,
-        '(?m)^interactionCode(?<id>[0-9a-f]{2})(?:_body)?:')
-    if (-not $codeMatch.Success) { continue }
-    $interactionId = [Convert]::ToInt32($codeMatch.Groups['id'].Value, 16)
+    $codeLabel = @($interactionNodes | Where-Object {
+        $_.Kind -eq 'Label' -and
+        $_.Name -match '^interactionCode(?<id>[0-9a-f]{2})(?:_body)?$'
+    } | Select-Object -First 1)
+    if ($codeLabel.Count -eq 0) { continue }
+    [void]($codeLabel[0].Name -match
+        '^interactionCode(?<id>[0-9a-f]{2})(?:_body)?$')
+    $interactionId = [Convert]::ToInt32($Matches['id'], 16)
     if (-not $npcInteractionIds.Contains($interactionId)) { continue }
-    if ($interactionSource -match 'npcFaceLinkAndAnimate') { [void]$npcFacingIds.Add($interactionId) }
+    if ($interactionNodes | Where-Object {
+        $_.Name -eq 'npcFaceLinkAndAnimate' -or
+        $_.Operands -contains 'npcFaceLinkAndAnimate'
+    } | Select-Object -First 1) {
+        [void]$npcFacingIds.Add($interactionId)
+    }
     $tableName = ''
     $tableIndex = 0
-    foreach ($line in ($interactionSource -split '\r?\n')) {
-        if ($line -match '^@(?<table>[A-Za-z0-9_]+ScriptTable):') {
+    foreach ($node in $interactionNodes) {
+        if ($node.Kind -eq 'Label' -and
+            $node.Name -match '^@(?<table>[A-Za-z0-9_]+ScriptTable)$') {
             $tableName = $Matches['table']
             $tableIndex = 0
             continue
         }
         if (-not $tableName) { continue }
-        if ($line -match '^[^\t ;@].*:') { $tableName = ''; continue }
-        if ($line -notmatch '^\s*\.dw\s+mainScripts\.(?<label>[A-Za-z0-9_@]+)') { continue }
+        if ($node.Kind -eq 'Label' -and
+            -not $node.Name.StartsWith('@')) {
+            $tableName = ''
+            continue
+        }
+        if ($node.Kind -ne 'Data' -or $node.Name -ine '.dw' -or
+            $node.Operands.Count -eq 0 -or
+            $node.Operands[0] -notmatch
+                '^mainScripts\.(?<label>[A-Za-z0-9_@]+)$') {
+            continue
+        }
         $textId = Resolve-ScriptTextId $Matches['label'] ([Collections.Generic.HashSet[string]]::new())
         if ($textId -ge 0) {
             $subids = @()
@@ -85,21 +121,30 @@ foreach ($interactionSourcePath in $npcInteractionSourcePaths) {
     # Some interactions select scripts in assembly rather than through a .dw
     # table. Only accept references whose labels identify their subid; never
     # assign an unrelated "first text" to every instance of the interaction.
-    foreach ($scriptReference in [regex]::Matches($interactionSource, 'mainScripts\.(?<label>[A-Za-z0-9_@]+)')) {
-        $label = $scriptReference.Groups['label'].Value
-        $textId = Resolve-ScriptTextId $label ([Collections.Generic.HashSet[string]]::new())
-        if ($textId -lt 0) { continue }
-        $subids = @()
-        if ($label -match '(?i)Subid(?<a>[0-9a-f])And(?<b>[0-9a-f])') {
-            $subids = @([Convert]::ToInt32($Matches['a'], 16), [Convert]::ToInt32($Matches['b'], 16))
-        } elseif ($label -match '(?i)Subid(?<subid>[0-9a-f]{1,2})Script') {
-            $subids = @([Convert]::ToInt32($Matches['subid'], 16))
-        } elseif ($label -match '(?i)Script(?<subid>[0-9a-f]{2})(?:_|$)') {
-            $subids = @([Convert]::ToInt32($Matches['subid'], 16))
-        }
-        foreach ($subid in $subids) {
-            $key = "$interactionId`:$subid"
-            if (-not $npcTextBySubid.ContainsKey($key)) { $npcTextBySubid[$key] = $textId }
+    foreach ($node in $interactionNodes) {
+        foreach ($operand in $node.Operands) {
+            if ($operand -notmatch
+                'mainScripts\.(?<label>[A-Za-z0-9_@]+)') {
+                continue
+            }
+            $label = $Matches['label']
+            $textId = Resolve-ScriptTextId `
+                $label ([Collections.Generic.HashSet[string]]::new())
+            if ($textId -lt 0) { continue }
+            $subids = @()
+            if ($label -match '(?i)Subid(?<a>[0-9a-f])And(?<b>[0-9a-f])') {
+                $subids = @([Convert]::ToInt32($Matches['a'], 16), [Convert]::ToInt32($Matches['b'], 16))
+            } elseif ($label -match '(?i)Subid(?<subid>[0-9a-f]{1,2})Script') {
+                $subids = @([Convert]::ToInt32($Matches['subid'], 16))
+            } elseif ($label -match '(?i)Script(?<subid>[0-9a-f]{2})(?:_|$)') {
+                $subids = @([Convert]::ToInt32($Matches['subid'], 16))
+            }
+            foreach ($subid in $subids) {
+                $key = "$interactionId`:$subid"
+                if (-not $npcTextBySubid.ContainsKey($key)) {
+                    $npcTextBySubid[$key] = $textId
+                }
+            }
         }
     }
 }
@@ -129,103 +174,82 @@ foreach ($linkedSecretNpc in @(
 }
 
 # Parse the interaction graphics table, including pointer-backed subid data.
-$interactionDataSource = Read-ImportText (Join-Path $Disassembly "data\ages\interactionData.s")
+$interactionDataPath = Join-Path $Disassembly "data\ages\interactionData.s"
 $interactionGraphics = @{}
 $interactionPointers = @{}
-foreach ($match in [regex]::Matches($interactionDataSource, '(?m)^\s*/\* \$(?<id>[0-9a-f]{2}) \*/ m_InteractionData\s+(?<gfx>\$[0-9a-f]{2}|[A-Za-z0-9_]+)(?:\s+(?<base>\$[0-9a-f]{2})\s+(?<flags>\$[0-9a-f]{2}))?')) {
-    $id = [Convert]::ToInt32($match.Groups['id'].Value, 16)
-    if ($match.Groups['gfx'].Value.StartsWith('$')) {
-        $interactionGraphics["$id`:0"] = @{
-            Gfx = [Convert]::ToInt32($match.Groups['gfx'].Value.Substring(1), 16)
-            TileBase = [Convert]::ToInt32($match.Groups['base'].Value.Substring(1), 16)
-            Flags = [Convert]::ToInt32($match.Groups['flags'].Value.Substring(1), 16)
-            Palette = ([Convert]::ToInt32($match.Groups['flags'].Value.Substring(1), 16) -shr 4) -band 7
-            DefaultAnimation = [Convert]::ToInt32($match.Groups['flags'].Value.Substring(1), 16) -band 15
+$interactionDataNodes = @(Read-AssemblyNodes $interactionDataPath)
+foreach ($node in Read-AssemblyMacroInvocations `
+    $interactionDataPath '' 'm_InteractionData') {
+    if ($node.Comment -notmatch '^\$(?<id>[0-9a-f]{2})') {
+        throw "$($node.Path):$($node.Line): interaction-data row has no ID comment."
+    }
+    $id = [Convert]::ToInt32($Matches['id'], 16)
+    if ($node.Operands[0].StartsWith('$')) {
+        if ($node.Operands.Count -ne 3) {
+            throw "$($node.Path):$($node.Line): malformed direct interaction-data row."
         }
-    } else { $interactionPointers[$id] = $match.Groups['gfx'].Value }
-}
-foreach ($block in [regex]::Matches($interactionDataSource, '(?ms)^interaction(?<id>[0-9a-f]{2})SubidData:\r?\n(?<body>.*?)(?=^interaction[0-9a-f]{2}SubidData:|\z)')) {
-    $id = [Convert]::ToInt32($block.Groups['id'].Value, 16)
-    $subid = 0
-    foreach ($entry in [regex]::Matches($block.Groups['body'].Value, 'm_InteractionSubidData\s+\$(?<gfx>[0-9a-f]{2})\s+\$(?<base>[0-9a-f]{2})\s+\$(?<flags>[0-9a-f]{2})')) {
-        $flags = [Convert]::ToInt32($entry.Groups['flags'].Value, 16)
-        $interactionGraphics["$id`:$subid"] = @{
-            Gfx = [Convert]::ToInt32($entry.Groups['gfx'].Value, 16)
-            TileBase = [Convert]::ToInt32($entry.Groups['base'].Value, 16)
+        $flags = [Convert]::ToInt32($node.Operands[2].Substring(1), 16)
+        $interactionGraphics["$id`:0"] = @{
+            Gfx = [Convert]::ToInt32($node.Operands[0].Substring(1), 16)
+            TileBase = [Convert]::ToInt32($node.Operands[1].Substring(1), 16)
             Flags = $flags
             Palette = ($flags -shr 4) -band 7
             DefaultAnimation = $flags -band 15
         }
-        $subid++
+    } else {
+        $interactionPointers[$id] = $node.Operands[0]
     }
 }
-# Repeat the subid pass with alias awareness. The source intentionally stacks
-# labels such as interaction6dSubidData / interaction6eSubidData over one
-# shared sequence; treating each label as an independent regex block drops the
-# first interaction entirely.
-$subidAliases = [Collections.Generic.List[int]]::new()
+
+# Each subid label begins a view at its current entry. This preserves stacked
+# aliases and aliases embedded partway through a larger table.
+$subidAliases = [Collections.Generic.List[object]]::new()
 $subidEntries = [Collections.Generic.List[object]]::new()
-function Complete-InteractionSubidAliases {
-    if ($script:subidEntries.Count -eq 0) { return }
-    foreach ($aliasId in $script:subidAliases) {
-        for ($index = 0; $index -lt $script:subidEntries.Count; $index++) {
-            $entry = $script:subidEntries[$index]
-            $script:interactionGraphics["$aliasId`:$index"] = $entry
-        }
-    }
-    $script:subidAliases.Clear()
-    $script:subidEntries.Clear()
-}
-foreach ($line in ($interactionDataSource -split '\r?\n')) {
-    if ($line -match '^interaction(?<id>[0-9a-f]{2})SubidData:') {
-        if ($subidEntries.Count -gt 0) { Complete-InteractionSubidAliases }
-        $subidAliases.Add([Convert]::ToInt32($Matches['id'], 16))
+$interactionSubidCounts = @{}
+foreach ($node in $interactionDataNodes) {
+    if ($node.Kind -eq 'Label' -and
+        $node.Name -match '^interaction(?<id>[0-9a-f]{2})SubidData$') {
+        $subidAliases.Add([pscustomobject]@{
+            Id = [Convert]::ToInt32($Matches['id'], 16)
+            Start = $subidEntries.Count
+        })
         continue
     }
-    if ($subidAliases.Count -eq 0) { continue }
-    if ($line -match 'm_InteractionSubidData\s+\$(?<gfx>[0-9a-f]{2})\s+\$(?<base>[0-9a-f]{2})\s+\$(?<flags>[0-9a-f]{2})') {
-        $flags = [Convert]::ToInt32($Matches['flags'], 16)
+    if ($node.Kind -eq 'MacroInvocation' -and
+        $node.Name -eq 'm_InteractionSubidData') {
+        if ($node.Operands.Count -ne 3) {
+            throw "$($node.Path):$($node.Line): malformed interaction subid row."
+        }
+        $flags = [Convert]::ToInt32($node.Operands[2].Substring(1), 16)
         $subidEntries.Add(@{
-            Gfx = [Convert]::ToInt32($Matches['gfx'], 16)
-            TileBase = [Convert]::ToInt32($Matches['base'], 16)
+            Gfx = [Convert]::ToInt32($node.Operands[0].Substring(1), 16)
+            TileBase = [Convert]::ToInt32($node.Operands[1].Substring(1), 16)
             Flags = $flags
             Palette = ($flags -shr 4) -band 7
             DefaultAnimation = $flags -band 15
         })
         continue
     }
-    if ($line -match '^[A-Za-z0-9_@]+:') {
-        Complete-InteractionSubidAliases
+    if ($node.Kind -eq 'MacroInvocation' -and
+        $node.Name -eq 'm_InteractionSubidDataEnd') {
+        foreach ($alias in $subidAliases) {
+            $count = $subidEntries.Count - $alias.Start
+            $interactionSubidCounts[$alias.Id] = $count
+            for ($index = 0; $index -lt $count; $index++) {
+                $interactionGraphics["$($alias.Id)`:$index"] =
+                    $subidEntries[$alias.Start + $index]
+            }
+        }
         $subidAliases.Clear()
+        $subidEntries.Clear()
     }
 }
-Complete-InteractionSubidAliases
-
-# INTERAC_TREASURE's subid table also has alias labels embedded in its byte
-# range. They do not terminate the table in ROM: the graphic byte may index
-# straight through them up to the explicit m_InteractionSubidDataEnd.
-$treasureSubidBlock = [regex]::Match(
-    $interactionDataSource,
-    '(?ms)^interaction60SubidData:\r?\n(?<body>.*?m_InteractionSubidDataEnd)')
-if (-not $treasureSubidBlock.Success) {
-    throw 'Could not resolve the complete INTERAC_TREASURE subid table.'
+if ($subidAliases.Count -ne 0 -or $subidEntries.Count -ne 0) {
+    throw 'Interaction subid data ended without m_InteractionSubidDataEnd.'
 }
-$treasureGraphicIndex = 0
-foreach ($entry in [regex]::Matches(
-    $treasureSubidBlock.Groups['body'].Value,
-    'm_InteractionSubidData\s+\$(?<gfx>[0-9a-f]{2})\s+\$(?<base>[0-9a-f]{2})\s+\$(?<flags>[0-9a-f]{2})')) {
-    $flags = [Convert]::ToInt32($entry.Groups['flags'].Value, 16)
-    $interactionGraphics["96`:$treasureGraphicIndex"] = @{
-        Gfx = [Convert]::ToInt32($entry.Groups['gfx'].Value, 16)
-        TileBase = [Convert]::ToInt32($entry.Groups['base'].Value, 16)
-        Flags = $flags
-        Palette = ($flags -shr 4) -band 7
-        DefaultAnimation = $flags -band 15
-    }
-    $treasureGraphicIndex++
-}
-if ($treasureGraphicIndex -ne 0x83) {
-    throw "Expected 131 INTERAC_TREASURE subid graphics, parsed $treasureGraphicIndex."
+if ($interactionSubidCounts[0x60] -ne 0x83) {
+    throw "Expected 131 INTERAC_TREASURE subid graphics, parsed " +
+        "$($interactionSubidCounts[0x60])."
 }
 $gfxNames = @{}
 foreach ($line in Read-ImportLines (Join-Path $Disassembly "data\ages\objectGfxHeaders.s")) {
@@ -237,97 +261,42 @@ foreach ($line in Read-ImportLines (Join-Path $Disassembly "data\ages\objectGfxH
 # Resolve animation indices through the original pointer tables. Animation
 # frame byte 1 is a byte offset into the interaction's OAM pointer table (the
 # engine adds it directly before reading a word), not a sprite-sheet column.
-$interactionAnimationSource = Read-ImportText (Join-Path $Disassembly "data\ages\interactionAnimations.s")
-$npcAnimationTables = Read-AssemblyDwTables $interactionAnimationSource 'interaction[0-9a-f]{2}Animations' 'interactionAnimation[0-9a-f]+'
-$npcOamPointerTables = Read-AssemblyDwTables $interactionAnimationSource 'interaction[0-9a-f]{2}OamDataPointers' 'interactionOamData[0-9a-f]+'
-$npcAnimationFrames = @{}
-$npcAnimationLoopStarts = @{}
-$npcAnimationLabels = @{}
-$npcAnimationLabelMatches = @([regex]::Matches(
-    $interactionAnimationSource,
-    '(?m)^(?<label>interactionAnimation[0-9a-f]+(?:Loop)?):'))
-foreach ($labelMatch in $npcAnimationLabelMatches) {
-    $npcAnimationLabels[$labelMatch.Groups['label'].Value] =
-        $labelMatch.Index + $labelMatch.Length
-}
-$npcFramePattern = '\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<frame>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})'
-function Read-NpcAnimationFrameRange([int]$start, [int]$length) {
-    $frames = [Collections.Generic.List[object]]::new()
-    foreach ($frame in [regex]::Matches(
-        $interactionAnimationSource.Substring($start, $length),
-        $npcFramePattern)) {
-        $frames.Add(@{
-            Duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
-            PointerOffset = [Convert]::ToInt32($frame.Groups['frame'].Value, 16)
-            Parameter = [Convert]::ToInt32($frame.Groups['parameter'].Value, 16)
-        })
-    }
-    return @($frames)
-}
-for ($labelIndex = 0; $labelIndex -lt $npcAnimationLabelMatches.Count; $labelIndex++) {
-    $labelMatch = $npcAnimationLabelMatches[$labelIndex]
-    $label = $labelMatch.Groups['label'].Value
-    $start = $labelMatch.Index + $labelMatch.Length
-    $tail = $interactionAnimationSource.Substring($start)
-    $loopMatch = [regex]::Match(
-        $tail,
-        'm_AnimationLoop\s+(?<target>interactionAnimation[0-9a-f]+(?:Loop)?)')
-    $terminalMatch = [regex]::Match(
-        $tail,
-        '\.db\s+\$[0-9a-f]{2}\s+\$[0-9a-f]{2}\s+\$ff')
-    $usesLoop = $loopMatch.Success -and
-        (-not $terminalMatch.Success -or $loopMatch.Index -lt $terminalMatch.Index)
-    $endOffset = if ($usesLoop) {
-        $loopMatch.Index
-    } elseif ($terminalMatch.Success) {
-        $terminalMatch.Index + $terminalMatch.Length
-    } elseif ($labelIndex + 1 -lt $npcAnimationLabelMatches.Count) {
-        $npcAnimationLabelMatches[$labelIndex + 1].Index - $start
-    } else {
-        $tail.Length
-    }
-    $frames = [Collections.Generic.List[object]]::new()
-    $frames.AddRange([object[]](Read-NpcAnimationFrameRange $start $endOffset))
-    if ($frames.Count -eq 0) { continue }
-
-    $loopStart = 0
-    if ($usesLoop) {
-        $target = $loopMatch.Groups['target'].Value
-        if (-not $npcAnimationLabels.ContainsKey($target)) {
-            throw "$label loops to missing animation label $target."
-        }
-        $targetStart = [int]$npcAnimationLabels[$target]
-        if ($targetStart -ge $start -and $targetStart -le $start + $endOffset) {
-            $loopStart = (Read-NpcAnimationFrameRange $start ($targetStart - $start)).Count
-        } elseif ($targetStart -lt $start) {
-            # A table pointer can enter halfway through a shared animation
-            # ($5a849 falls back to $5a846). Keep its initial suffix, then
-            # append the full cycle and loop over that appended copy.
-            $loopStart = $frames.Count
-            $frames.AddRange([object[]](Read-NpcAnimationFrameRange $targetStart (($start + $endOffset) - $targetStart)))
-        }
-    }
-    $npcAnimationFrames[$label] = @($frames)
-    $npcAnimationLoopStarts[$label] = $loopStart
-}
+$interactionAnimationPath =
+    Join-Path $Disassembly "data\ages\interactionAnimations.s"
+$interactionAnimationSource = Read-ImportText $interactionAnimationPath
+$npcAnimationTables = Read-AssemblyDwTables $interactionAnimationPath 'interaction[0-9a-f]{2}Animations' 'interactionAnimation[0-9a-f]+'
+$npcOamPointerTables = Read-AssemblyDwTables $interactionAnimationPath 'interaction[0-9a-f]{2}OamDataPointers' 'interactionOamData[0-9a-f]+'
+$interactionAnimationNodes = @(Read-AssemblyNodes $interactionAnimationPath)
+$npcAnimationDefinitions = Read-AssemblyAnimationDefinitions `
+    $interactionAnimationPath 'interactionAnimation[0-9a-f]+(?:Loop)?'
 
 $npcOamBlocks = @{}
-$interactionOamSource = Read-ImportText (Join-Path $Disassembly "data\ages\interactionOamData.s")
-foreach ($oam in [regex]::Matches($interactionOamSource, '(?ms)^(?<label>interactionOamData[0-9a-f]+):[^\r\n]*\r?\n(?<body>.*?)(?=^interactionOamData[0-9a-f]+:|\z)')) {
-    $dataLines = [regex]::Matches($oam.Groups['body'].Value, '(?m)^\s*\.db\s+(?<bytes>[^;\r\n]+)')
+$interactionOamPath =
+    Join-Path $Disassembly "data\ages\interactionOamData.s"
+$interactionOamNodes = @(Read-AssemblyNodes $interactionOamPath)
+$oamDataByLabel = @{}
+foreach ($node in $interactionOamNodes) {
+    $label = $node.EnclosingGlobalLabel
+    if ($node.Kind -ne 'Data' -or $node.Name -ine '.db' -or
+        $label -notmatch '^interactionOamData[0-9a-f]+$') { continue }
+    if (-not $oamDataByLabel.ContainsKey($label)) {
+        $oamDataByLabel[$label] = [Collections.Generic.List[object]]::new()
+    }
+    $oamDataByLabel[$label].Add($node)
+}
+foreach ($label in $oamDataByLabel.Keys) {
+    $dataLines = $oamDataByLabel[$label]
     if ($dataLines.Count -eq 0) { continue }
-    $countMatch = [regex]::Match($dataLines[0].Groups['bytes'].Value, '\$(?<count>[0-9a-f]{2})')
-    if (-not $countMatch.Success) { continue }
-    $count = [Convert]::ToInt32($countMatch.Groups['count'].Value, 16)
+    $count = Convert-AssemblyInteger $dataLines[0].Operands[0]
     $blocks = [Collections.Generic.List[string]]::new()
     for ($index = 1; $index -le $count -and $index -lt $dataLines.Count; $index++) {
-        $values = [regex]::Matches($dataLines[$index].Groups['bytes'].Value, '\$(?<value>[0-9a-f]{2})')
-        if ($values.Count -lt 4) { continue }
-        $blocks.Add(($values | Select-Object -First 4 | ForEach-Object {
-            [Convert]::ToInt32($_.Groups['value'].Value, 16)
+        if ($dataLines[$index].Operands.Count -lt 4) { continue }
+        $blocks.Add(($dataLines[$index].Operands |
+            Select-Object -First 4 | ForEach-Object {
+            Convert-AssemblyInteger $_
         }) -join ',')
     }
-    $npcOamBlocks[$oam.Groups['label'].Value] = $blocks -join ';'
+    $npcOamBlocks[$label] = $blocks -join ';'
 }
 
 function Resolve-NpcAnimation([int]$interactionId, [int]$animationIndex) {
@@ -338,10 +307,11 @@ function Resolve-NpcAnimation([int]$interactionId, [int]$animationIndex) {
     $animations = $npcAnimationTables[$animationKey]
     if ($animationIndex -lt 0 -or $animationIndex -ge $animations.Count) { return '' }
     $animationLabel = $animations[$animationIndex]
-    if (-not $npcAnimationFrames.ContainsKey($animationLabel)) { return '' }
+    if (-not $npcAnimationDefinitions.ContainsKey($animationLabel)) { return '' }
+    $definition = $npcAnimationDefinitions[$animationLabel]
     $pointers = $npcOamPointerTables[$pointerKey]
     $resolvedFrames = [Collections.Generic.List[string]]::new()
-    foreach ($frame in $npcAnimationFrames[$animationLabel]) {
+    foreach ($frame in $definition.Frames) {
         $pointerIndex = [int]($frame.PointerOffset / 2)
         if ($pointerIndex -lt 0 -or $pointerIndex -ge $pointers.Count) { continue }
         $oamLabel = $pointers[$pointerIndex]
@@ -354,7 +324,7 @@ function Resolve-NpcAnimation([int]$interactionId, [int]$animationIndex) {
         $resolvedFrames.Add("$metadata@$oam")
     }
     $encoded = $resolvedFrames -join '|'
-    $loopStart = $npcAnimationLoopStarts[$animationLabel]
+    $loopStart = $definition.LoopStart
     if ($loopStart -gt 0) {
         $encoded += "~$loopStart"
     }
@@ -364,25 +334,26 @@ function Resolve-NpcAnimation([int]$interactionId, [int]$animationIndex) {
 # The shared INTERAC_TREASURE OAM pointer base intentionally indexes through
 # the following labeled pointer tables for several common animation frames.
 # Preserve that contiguous ROM layout instead of truncating at the next label.
-$treasureOamPointerBase = [regex]::Match(
-    $interactionAnimationSource,
-    '(?m)^interaction60OamDataPointers:[^\r\n]*\r?\n')
-if (-not $treasureOamPointerBase.Success) {
+$treasureOamPointerBase = @($interactionAnimationNodes | Where-Object {
+    $_.Kind -eq 'Label' -and $_.Name -eq 'interaction60OamDataPointers'
+})
+if ($treasureOamPointerBase.Count -ne 1) {
     throw 'Could not resolve the INTERAC_TREASURE OAM pointer base.'
 }
-$treasureOamPointers = @(
-    [regex]::Matches(
-        $interactionAnimationSource.Substring(
-            $treasureOamPointerBase.Index + $treasureOamPointerBase.Length),
-        '(?m)^\s*\.dw\s+(?<entry>interactionOamData[0-9a-f]+)') |
-        ForEach-Object { $_.Groups['entry'].Value })
+$treasureOamPointers = @($interactionAnimationNodes | Where-Object {
+    $_.Kind -eq 'Data' -and $_.Name -ieq '.dw' -and
+    $_.Offset -gt $treasureOamPointerBase[0].Offset -and
+    $_.Operands.Count -gt 0 -and
+    $_.Operands[0] -match '^interactionOamData[0-9a-f]+$'
+} | ForEach-Object { $_.Operands[0] })
 function Resolve-TreasureAnimation([int]$animationIndex) {
     $animations = $npcAnimationTables['interaction60Animations']
     if ($animationIndex -lt 0 -or $animationIndex -ge $animations.Count) { return '' }
     $animationLabel = $animations[$animationIndex]
-    if (-not $npcAnimationFrames.ContainsKey($animationLabel)) { return '' }
+    if (-not $npcAnimationDefinitions.ContainsKey($animationLabel)) { return '' }
+    $definition = $npcAnimationDefinitions[$animationLabel]
     $resolvedFrames = [Collections.Generic.List[string]]::new()
-    foreach ($frame in $npcAnimationFrames[$animationLabel]) {
+    foreach ($frame in $definition.Frames) {
         $pointerIndex = [int]($frame.PointerOffset / 2)
         if ($pointerIndex -lt 0 -or $pointerIndex -ge $treasureOamPointers.Count) {
             continue
@@ -401,7 +372,7 @@ function Resolve-TreasureAnimation([int]$animationIndex) {
         $resolvedFrames.Add("$metadata@$oam")
     }
     $encoded = $resolvedFrames -join '|'
-    $loopStart = $npcAnimationLoopStarts[$animationLabel]
+    $loopStart = $definition.LoopStart
     if ($loopStart -gt 0) { $encoded += "~$loopStart" }
     return $encoded
 }

@@ -7,6 +7,7 @@ $mapleItemSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\parts\itemFromMaple.s')
 $mapleLocationSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\mapleLocations.s')
+$mapleLocationPath = Join-Path $Disassembly 'data\ages\mapleLocations.s'
 
 if ($mapleSource -notmatch '(?ms)^mapleSpawnItemDrops:.*?^mapleShadowPathsTable:' -or
     $mapleItemSource -notmatch '(?ms)^partCode14:.*?^@obtainedValue:' -or
@@ -16,20 +17,18 @@ if ($mapleSource -notmatch '(?ms)^mapleSpawnItemDrops:.*?^mapleShadowPathsTable:
 
 # dbrev reverses each source bit-string before emission. A zero bit allows
 # Maple in the room corresponding to that byte/bit position.
-function Get-MapleLocationBytes([string]$label, [string]$nextLabel) {
-    $start = $mapleLocationSource.IndexOf(
-        "${label}:", [StringComparison]::Ordinal)
-    $end = $mapleLocationSource.IndexOf(
-        "${nextLabel}:", [StringComparison]::Ordinal)
-    if ($start -lt 0 -or $end -le $start) {
-        throw "Could not isolate Maple location table $label."
-    }
+function Get-MapleLocationBytes([string]$label) {
     $values = [Collections.Generic.List[int]]::new()
-    foreach ($match in [regex]::Matches(
-        $mapleLocationSource.Substring($start, $end - $start),
-        'dbrev\s+%(?<a>[01]{8})\s+%(?<b>[01]{8})')) {
-        foreach ($name in @('a', 'b')) {
-            $bits = $match.Groups[$name].Value
+    foreach ($node in Read-AssemblyMacroInvocations `
+        $mapleLocationPath $label 'dbrev') {
+        if ($node.Operands.Count -ne 2) {
+            throw "$($node.Path):$($node.Line): malformed Maple dbrev row."
+        }
+        foreach ($operand in $node.Operands) {
+            if ($operand -notmatch '^%(?<bits>[01]{8})$') {
+                throw "$($node.Path):$($node.Line): invalid dbrev byte '$operand'."
+            }
+            $bits = $Matches['bits']
             $reversed = -join $bits.ToCharArray()[($bits.Length - 1)..0]
             $values.Add([Convert]::ToInt32($reversed, 2))
         }
@@ -40,31 +39,10 @@ function Get-MapleLocationBytes([string]$label, [string]$nextLabel) {
     return @($values)
 }
 
-$presentRicky = Get-MapleLocationBytes `
-    'maplePresentLocationsRickyCompanion' `
-    'maplePresentLocationsDimitriCompanion'
-$presentDimitri = Get-MapleLocationBytes `
-    'maplePresentLocationsDimitriCompanion' `
-    'maplePresentLocationsMooshCompanion'
-$presentMoosh = Get-MapleLocationBytes `
-    'maplePresentLocationsMooshCompanion' `
-    'maplePastLocations'
-$pastStart = $mapleLocationSource.IndexOf(
-    'maplePastLocations:', [StringComparison]::Ordinal)
-if ($pastStart -lt 0) { throw 'Could not isolate maplePastLocations.' }
-$pastTail = $mapleLocationSource.Substring($pastStart)
-$pastValues = [Collections.Generic.List[int]]::new()
-foreach ($match in [regex]::Matches(
-    $pastTail, 'dbrev\s+%(?<a>[01]{8})\s+%(?<b>[01]{8})')) {
-    foreach ($name in @('a', 'b')) {
-        $bits = $match.Groups[$name].Value
-        $reversed = -join $bits.ToCharArray()[($bits.Length - 1)..0]
-        $pastValues.Add([Convert]::ToInt32($reversed, 2))
-    }
-}
-if ($pastValues.Count -ne 32) {
-    throw "maplePastLocations should emit 32 bytes, parsed $($pastValues.Count)."
-}
+$presentRicky = Get-MapleLocationBytes 'maplePresentLocationsRickyCompanion'
+$presentDimitri = Get-MapleLocationBytes 'maplePresentLocationsDimitriCompanion'
+$presentMoosh = Get-MapleLocationBytes 'maplePresentLocationsMooshCompanion'
+$pastValues = Get-MapleLocationBytes 'maplePastLocations'
 if (($presentRicky -join ',') -ne ($presentDimitri -join ',') -or
     ($presentRicky -join ',') -ne ($presentMoosh -join ',')) {
     throw 'The three Ages present Maple location tables are no longer identical.'
@@ -115,18 +93,11 @@ $maplePaths = @(
        Steps = @(@(0x0c,0x19),@(0x1b,0x11),@(0x0c,0x08),@(0x0a,0x02),@(0x10,0x01),@(0x1b,0x0f),@(0x0c,0x1e)) }
 )
 function Get-MapleHexBytes([string]$source, [string]$label) {
-    $body = Get-AssemblyLabelBody $source $label
-    $values = [Collections.Generic.List[int]]::new()
-    foreach ($row in [regex]::Matches(
-        $body, '(?m)^\s*\.db\s+(?<values>[^;\r\n]+)')) {
-        foreach ($value in [regex]::Matches(
-            $row.Groups['values'].Value,
-            '\$(?<value>[0-9a-f]{2})(?![0-9a-f])')) {
-            $values.Add([Convert]::ToInt32(
-                $value.Groups['value'].Value, 16))
-        }
+    $path = Resolve-AssemblySourceTextPath $source
+    if ($null -eq $path) {
+        throw "Maple table $label uses untracked assembly source text."
     }
-    return @($values)
+    return @(Read-AssemblyLiteralValues $path $label)
 }
 $pathLabels = @(
     '@rareItemDrops', '@standardItemDrops',

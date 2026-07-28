@@ -56,8 +56,9 @@ internal static partial class AssemblySourceParser
             string raw = lines[lineIndex];
             int offset = starts[lineIndex];
             (string code, string comment) = SplitComment(raw);
+            (code, comment, int firstColumn) =
+                StripLeadingBlockComments(code, comment);
             string trimmed = code.Trim();
-            int firstColumn = FirstNonWhitespaceColumn(raw);
             var span = new SourceSpan(
                 new SourcePosition(relativePath, offset + firstColumn, lineIndex + 1, firstColumn + 1),
                 Math.Max(0, raw.Length - firstColumn));
@@ -96,6 +97,28 @@ internal static partial class AssemblySourceParser
                     nodeActive, globalLabel);
                 nodes.Add(conditionalNode);
                 Add(directives, firstToken, conditionalNode);
+                continue;
+            }
+
+            if (trimmed is "+" or "++" or "-" or "--")
+            {
+                var anonymousLabel = new AssemblyNode(
+                    AssemblyNodeKind.Label,
+                    span,
+                    raw,
+                    code,
+                    comment,
+                    trimmed,
+                    Array.Empty<string>(),
+                    active,
+                    globalLabel);
+                nodes.Add(anonymousLabel);
+                Add(labels, trimmed, new AssemblyLabel(
+                    trimmed,
+                    span,
+                    nodes.Count - 1,
+                    IsLocal: true,
+                    active));
                 continue;
             }
 
@@ -367,11 +390,37 @@ internal static partial class AssemblySourceParser
         return (line, string.Empty);
     }
 
+    private static (string Code, string Comment, int FirstColumn)
+        StripLeadingBlockComments(string code, string comment)
+    {
+        int firstColumn = FirstNonWhitespaceColumn(code);
+        var comments = new List<string>();
+        while (firstColumn + 1 < code.Length &&
+            code[firstColumn] == '/' &&
+            code[firstColumn + 1] == '*')
+        {
+            int end = code.IndexOf("*/", firstColumn + 2, StringComparison.Ordinal);
+            if (end < 0)
+                break;
+            comments.Add(code[(firstColumn + 2)..end].Trim());
+            firstColumn = end + 2;
+            while (firstColumn < code.Length && char.IsWhiteSpace(code[firstColumn]))
+                firstColumn++;
+        }
+        if (comment.Length != 0)
+            comments.Add(comment);
+        return (
+            firstColumn < code.Length ? code[firstColumn..] : string.Empty,
+            string.Join(" | ", comments),
+            firstColumn);
+    }
+
     private static IReadOnlyList<string> SplitOperands(string text)
     {
         if (string.IsNullOrWhiteSpace(text))
             return Array.Empty<string>();
 
+        bool splitOnCommas = HasTopLevelComma(text);
         var result = new List<string>();
         int start = 0;
         int nesting = 0;
@@ -401,14 +450,55 @@ internal static partial class AssemblySourceParser
                 nesting++;
             else if (character is ')' or ']' or '}')
                 nesting = Math.Max(0, nesting - 1);
-            else if (character == ',' && nesting == 0)
+            else if (nesting == 0 &&
+                (splitOnCommas
+                    ? character == ','
+                    : char.IsWhiteSpace(character)))
             {
-                result.Add(text[start..index].Trim());
+                string operand = text[start..index].Trim();
+                if (operand.Length != 0)
+                    result.Add(operand);
                 start = index + 1;
             }
         }
-        result.Add(text[start..].Trim());
+        string finalOperand = text[start..].Trim();
+        if (finalOperand.Length != 0)
+            result.Add(finalOperand);
         return result;
+    }
+
+    private static bool HasTopLevelComma(string text)
+    {
+        int nesting = 0;
+        bool quoted = false;
+        bool escaped = false;
+        foreach (char character in text)
+        {
+            if (escaped)
+            {
+                escaped = false;
+                continue;
+            }
+            if (character == '\\' && quoted)
+            {
+                escaped = true;
+                continue;
+            }
+            if (character == '"')
+            {
+                quoted = !quoted;
+                continue;
+            }
+            if (quoted)
+                continue;
+            if (character is '(' or '[' or '{')
+                nesting++;
+            else if (character is ')' or ']' or '}')
+                nesting = Math.Max(0, nesting - 1);
+            else if (character == ',' && nesting == 0)
+                return true;
+        }
+        return false;
     }
 
     private static string FirstToken(string text)

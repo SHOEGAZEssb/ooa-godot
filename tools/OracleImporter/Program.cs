@@ -41,10 +41,11 @@ internal static class Program
             .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var repository = new AssemblySourceRepository(root, symbols);
         int labelQueryCount = 0;
+        int nodeQueryCount = 0;
         var utf8 = new UTF8Encoding(false, true);
         Console.InputEncoding = new UTF8Encoding(false);
         Console.OutputEncoding = new UTF8Encoding(false);
-        Console.WriteLine("READY\t1");
+        Console.WriteLine("READY\t2");
         Console.Out.Flush();
 
         while (Console.ReadLine() is { } request)
@@ -72,17 +73,44 @@ internal static class Program
                         WriteSuccess(file.GetLabelBlockText(payload[(delimiter + 1)..]), utf8);
                         break;
                     }
+                    case "NODES":
+                    case "LABEL_NODES":
+                    case "LABELS":
+                    case "DATA_DIRECTIVES":
+                    case "MACRO_INVOCATIONS":
+                    case "INSTRUCTIONS":
+                    case "CONSTANTS":
+                    {
+                        nodeQueryCount++;
+                        string[] fields = payload.Split('\0');
+                        if (fields.Length == 0 || string.IsNullOrWhiteSpace(fields[0]))
+                        {
+                            throw new InvalidDataException(
+                                $"{command} requires an assembly source path.");
+                        }
+                        AssemblySourceFile file = repository.Open(fields[0]);
+                        string? label = fields.Length > 1 && fields[1].Length != 0
+                            ? fields[1]
+                            : null;
+                        string? name = fields.Length > 2 && fields[2].Length != 0
+                            ? fields[2]
+                            : null;
+                        WriteSuccess(
+                            AssemblySourceQuery.Serialize(file, command, label, name),
+                            utf8);
+                        break;
+                    }
                     case "STATS":
                         WriteSuccess(
                             $"{repository.LoadedFiles.Count}\t{repository.PhysicalReadCount}" +
-                            $"\t{labelQueryCount}",
+                            $"\t{labelQueryCount}\t{nodeQueryCount}",
                             utf8);
                         break;
                     case "ASSERT":
                         repository.AssertReadOnce();
                         WriteSuccess(
                             $"{repository.LoadedFiles.Count}\t{repository.PhysicalReadCount}" +
-                            $"\t{labelQueryCount}",
+                            $"\t{labelQueryCount}\t{nodeQueryCount}",
                             utf8);
                         break;
                     case "QUIT":

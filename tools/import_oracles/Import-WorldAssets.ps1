@@ -459,22 +459,18 @@ function Read-LocalHexByteTable([string]$path, [string]$tableLabel, [string]$poi
     $bytes = [Collections.Generic.List[byte]]::new()
     $labels = @{}
     $pointers = [Collections.Generic.List[string]]::new()
-    $reading = $false
-    foreach ($line in Read-ImportLines $path) {
-        if (-not $reading) {
-            if ($line -match "^$([regex]::Escape($tableLabel))\s*:") { $reading = $true }
+    foreach ($node in Read-AssemblyLabelNodes $path $tableLabel) {
+        if ($node.Kind -eq 'Label' -and $node.Name.StartsWith('@')) {
+            $labels[$node.Name] = $bytes.Count
+        }
+        if ($node.Name -ieq $pointerDirective -and
+            $node.Operands.Count -gt 0) {
+            $pointers.Add($node.Operands[0])
             continue
         }
-        if ($line -match '^\s*(?<label>@[A-Za-z0-9_]+):') {
-            $labels[$Matches['label']] = $bytes.Count
-        }
-        if ($line -match "^\s*$pointerDirective\s+(?<label>@[A-Za-z0-9_]+)") {
-            $pointers.Add($Matches['label'])
-            continue
-        }
-        if ($line -match '^\s*\.db\s+(?<values>[^;]+)') {
-            foreach ($value in [regex]::Matches($Matches['values'], '\$(?<value>[0-9a-fA-F]{2})')) {
-                $bytes.Add([Convert]::ToByte($value.Groups['value'].Value, 16))
+        if ($node.Kind -eq 'Data' -and $node.Name -ieq '.db') {
+            foreach ($operand in $node.Operands) {
+                $bytes.Add([byte](Convert-AssemblyInteger $operand))
             }
         }
     }
@@ -486,7 +482,7 @@ function Read-LocalHexByteTable([string]$path, [string]$tableLabel, [string]$poi
 
 $interactableTable = Read-LocalHexByteTable `
     (Join-Path $Disassembly 'data\ages\tile_properties\interactableTiles.s') `
-    'interactableTilesTable' '\.dw'
+    'interactableTilesTable' '.dw'
 $pushableTable = Read-LocalHexByteTable `
     (Join-Path $Disassembly 'data\ages\tile_properties\pushableTiles.s') `
     'pushableTilePropertiesTable' 'dbrel'

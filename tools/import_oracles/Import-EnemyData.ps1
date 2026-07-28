@@ -2,53 +2,26 @@
 # enemy opcodes, while their attributes, animations, OAM, and graphics are in
 # the shared enemy tables. Export the resolved values so runtime code never
 # reparses assembly source.
-$enemyDataSource = Read-ImportText (Join-Path $Disassembly "data\ages\enemyData.s")
-$keeseDataMatch = [regex]::Match(
-    $enemyDataSource,
-    '(?m)^\s*/\* 0x32 \*/ m_EnemyData \$(?<gfx>[0-9a-f]{2}) \$(?<collision>[0-9a-f]{2}) \$(?<extra>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
-)
-if (-not $keeseDataMatch.Success) { throw "Could not resolve ENEMY_KEESE (`$32) data." }
-$keeseGfx = [Convert]::ToInt32($keeseDataMatch.Groups['gfx'].Value, 16)
-$keeseExtraIndex = [Convert]::ToInt32($keeseDataMatch.Groups['extra'].Value, 16) -band 0x7f
-$keeseGraphicFlags = [Convert]::ToInt32($keeseDataMatch.Groups['flags'].Value, 16)
-if ($keeseGfx -ne 0x9d -or
-    ([Convert]::ToInt32($keeseDataMatch.Groups['collision'].Value, 16) -band 0x7f) -ne 0x1f -or
-    $keeseExtraIndex -ne 0x07) {
-    throw "ENEMY_KEESE no longer resolves to gfx `$9d, collision mode `$1f, extra data `$07."
-}
-
-$extraEnemyBody = [regex]::Match(
-    $enemyDataSource,
-    '(?ms)^extraEnemyData:\r?\n(?<body>.*)'
-).Groups['body'].Value
-$extraEnemyRows = [regex]::Matches(
-    $extraEnemyBody,
-    '(?m)^\s*\.db \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<damage>[0-9a-f]{2}) \$(?<health>[0-9a-f]{2})'
-)
-if ($extraEnemyRows.Count -le $keeseExtraIndex) { throw "Keese extra-enemy record `$07 is missing." }
-$keeseExtra = $extraEnemyRows[$keeseExtraIndex]
-$keeseRadiusY = [Convert]::ToInt32($keeseExtra.Groups['y'].Value, 16)
-$keeseRadiusX = [Convert]::ToInt32($keeseExtra.Groups['x'].Value, 16)
-$keeseDamageByte = [Convert]::ToInt32($keeseExtra.Groups['damage'].Value, 16)
-$keeseDamageQuarters = (0x100 - $keeseDamageByte) / 2
-$keeseHealth = [Convert]::ToInt32($keeseExtra.Groups['health'].Value, 16)
-if ($keeseRadiusY -ne 4 -or $keeseRadiusX -ne 6 -or
-    $keeseDamageQuarters -ne 2 -or $keeseHealth -ne 1) {
-    throw "ENEMY_KEESE extra data no longer matches radii 4x6, half-heart damage, and 1 health."
-}
-
-function Get-AssemblyLabelBody([string]$source, [string]$label) {
-    $sourcePath = Resolve-AssemblySourceTextPath $source
-    if ($null -ne $sourcePath) {
-        return Read-AssemblyLabelBlock $sourcePath $label
+$enemyDataPath = Join-Path $Disassembly "data\ages\enemyData.s"
+$enemyDataSource = Read-ImportText $enemyDataPath
+$enemyDataRows = @{}
+foreach ($node in Read-AssemblyMacroInvocations $enemyDataPath '' 'm_EnemyData') {
+    if ($node.Comment -match '^0x(?<id>[0-9a-f]{2})$') {
+        $enemyDataRows[[Convert]::ToInt32($Matches['id'], 16)] = $node
     }
-    $escaped = [regex]::Escape($label)
-    $match = [regex]::Match(
-        $source,
-        "(?ms)^${escaped}:[^\r\n]*\r?\n(?<body>.*?)(?=^[A-Za-z0-9_@]+:|\z)"
-    )
-    if (-not $match.Success) { throw "Assembly label not found: $label" }
-    return $match.Groups['body'].Value
+}
+$extraEnemyRows = @(Read-AssemblyDataDirectives `
+    $enemyDataPath 'extraEnemyData' '.db' | ForEach-Object {
+        if ($_.Operands.Count -lt 4) { throw 'Malformed extra-enemy data row.' }
+        [pscustomobject]@{
+            RadiusY = Convert-AssemblyInteger $_.Operands[0]
+            RadiusX = Convert-AssemblyInteger $_.Operands[1]
+            Damage = Convert-AssemblyInteger $_.Operands[2]
+            Health = Convert-AssemblyInteger $_.Operands[3]
+        }
+    })
+if ($enemyDataRows.Count -ne 0x80 -or $extraEnemyRows.Count -eq 0) {
+    throw 'Enemy data tables are incomplete.'
 }
 
 # Preserve the common side-view terrain-probe stream used by ordinary enemy
@@ -130,111 +103,41 @@ Write-GeneratedTable(
     $bounceAngleRows)
 
 function Resolve-Oam([string]$source, [string]$label) {
-    $body = Get-AssemblyLabelBody $source $label
-    $countMatch = [regex]::Match($body, '(?m)^\s*\.db\s+\$(?<count>[0-9a-f]{2})')
-    if (-not $countMatch.Success) { throw "OAM count missing for $label." }
-    $count = [Convert]::ToInt32($countMatch.Groups['count'].Value, 16)
-    $parts = @(
-        [regex]::Matches(
-            $body,
-            '(?m)^\s*\.db\s+\$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
-        ) | ForEach-Object {
-            "$([Convert]::ToInt32($_.Groups['y'].Value, 16)),$([Convert]::ToInt32($_.Groups['x'].Value, 16)),$([Convert]::ToInt32($_.Groups['tile'].Value, 16)),$([Convert]::ToInt32($_.Groups['flags'].Value, 16))"
-        }
-    )
+    $path = Resolve-AssemblySourceTextPath $source
+    if ($null -eq $path) { throw "OAM source for $label is untracked." }
+    $rows = @(Read-AssemblyDataDirectives $path $label '.db')
+    if ($rows.Count -eq 0 -or $rows[0].Operands.Count -eq 0) {
+        throw "OAM count missing for $label."
+    }
+    $count = Convert-AssemblyInteger $rows[0].Operands[0]
+    $parts = @($rows | Select-Object -Skip 1 | Where-Object {
+        $_.Operands.Count -ge 4
+    } | ForEach-Object {
+        (($_.Operands | Select-Object -First 4 | ForEach-Object {
+            Convert-AssemblyInteger $_
+        }) -join ',')
+    })
     if ($parts.Count -ne $count) {
         throw "$label declares $count OAM parts but contains $($parts.Count)."
     }
     return $parts -join ';'
 }
 
-$enemyAnimationSource = Read-ImportText (Join-Path $Disassembly "data\ages\enemyAnimations.s")
+$enemyAnimationPath = Join-Path $Disassembly "data\ages\enemyAnimations.s"
+$enemyAnimationSource = Read-ImportText $enemyAnimationPath
 $enemyOamSource = Read-ImportText (Join-Path $Disassembly "data\ages\enemyOamData.s")
 
-function Read-EnemyAnimationFrames([string]$source) {
-    $script:enemyAnimResult = @{}
-    $script:enemyAnimAliases = [Collections.Generic.List[string]]::new()
-    $script:enemyAnimFrames = [Collections.Generic.List[object]]::new()
-    $script:enemyAnimFrameOffsets = @{}
-    $script:enemyAnimLoopStart = 0
-
-    function Complete-EnemyAnimation {
-        if ($script:enemyAnimAliases.Count -eq 0 -or
-            $script:enemyAnimFrames.Count -eq 0) {
-            return
-        }
-        $record = @{
-            Frames = @($script:enemyAnimFrames)
-            LoopStart = $script:enemyAnimLoopStart
-        }
-        foreach ($alias in $script:enemyAnimAliases) {
-            $script:enemyAnimResult[$alias] = $record
-        }
-        $script:enemyAnimAliases.Clear()
-        $script:enemyAnimFrames.Clear()
-        $script:enemyAnimFrameOffsets.Clear()
-        $script:enemyAnimLoopStart = 0
-    }
-
-    foreach ($line in ($source -split '\r?\n')) {
-        $label = [regex]::Match(
-            $line, '^(?<label>enemyAnimation[0-9a-f]+(?:Loop)?):')
-        if ($label.Success) {
-            $name = $label.Groups['label'].Value
-            if ($name.EndsWith('Loop') -and $script:enemyAnimAliases.Count -gt 0) {
-                $script:enemyAnimFrameOffsets[$name] =
-                    $script:enemyAnimFrames.Count
-            } else {
-                if ($script:enemyAnimFrames.Count -gt 0) {
-                    Complete-EnemyAnimation
-                }
-                $script:enemyAnimAliases.Add($name)
-                $script:enemyAnimFrameOffsets[$name] = 0
-            }
-            continue
-        }
-        if ($script:enemyAnimAliases.Count -eq 0) { continue }
-        $frame = [regex]::Match(
-            $line,
-            '^\s*\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<offset>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})')
-        if ($frame.Success) {
-            $script:enemyAnimFrames.Add(@{
-                Duration = [Convert]::ToInt32(
-                    $frame.Groups['duration'].Value, 16)
-                PointerOffset = [Convert]::ToInt32(
-                    $frame.Groups['offset'].Value, 16)
-                Parameter = [Convert]::ToInt32(
-                    $frame.Groups['parameter'].Value, 16)
-            })
-            continue
-        }
-        $loop = [regex]::Match(
-            $line,
-            '^\s*m_AnimationLoop\s+(?<target>enemyAnimation[0-9a-f]+(?:Loop)?)')
-        if ($loop.Success) {
-            $target = $loop.Groups['target'].Value
-            if (-not $script:enemyAnimFrameOffsets.ContainsKey($target)) {
-                throw "Enemy animation loop target not found: $target"
-            }
-            $script:enemyAnimLoopStart =
-                $script:enemyAnimFrameOffsets[$target]
-            Complete-EnemyAnimation
-        }
-    }
-    Complete-EnemyAnimation
-    $result = $script:enemyAnimResult
-    Remove-Variable enemyAnimResult,enemyAnimAliases,enemyAnimFrames,enemyAnimFrameOffsets,enemyAnimLoopStart `
-        -Scope Script
-    return $result
-}
-
 $enemyAnimationTables = Read-AssemblyDwTables `
-    $enemyAnimationSource 'enemy[0-9a-f]{2}Animations' 'enemyAnimation[0-9a-f]+'
+    $enemyAnimationPath 'enemy[0-9a-f]{2}Animations' 'enemyAnimation[0-9a-f]+'
 $enemyOamTables = Read-AssemblyDwTables `
-    $enemyAnimationSource 'enemy[0-9a-f]{2}OamDataPointers' 'enemyOamData[0-9a-f]+'
-$enemyAnimationFrames = Read-EnemyAnimationFrames $enemyAnimationSource
+    $enemyAnimationPath 'enemy[0-9a-f]{2}OamDataPointers' 'enemyOamData[0-9a-f]+'
+$enemyAnimationFrames = Read-AssemblyAnimationDefinitions `
+    $enemyAnimationPath 'enemyAnimation[0-9a-f]+(?:Loop)?' $true
 
-function Resolve-EnemyAnimations([int]$id) {
+function Resolve-EnemyAnimations(
+    [int]$id,
+    [bool]$includeZeroParameters = $false
+) {
     $hex = $id.ToString('x2')
     $animationKey = "enemy${hex}Animations"
     $oamKey = "enemy${hex}OamDataPointers"
@@ -260,10 +163,10 @@ function Resolve-EnemyAnimations([int]$id) {
                 $valid = $false
                 break
             }
-            $metadata = if ($frame.Parameter -eq 0) {
-                "$($frame.Duration)"
-            } else {
+            $metadata = if ($includeZeroParameters -or $frame.Parameter -ne 0) {
                 "$($frame.Duration),$($frame.Parameter)"
+            } else {
+                "$($frame.Duration)"
             }
             $frames.Add(
                 "$metadata@$(Resolve-Oam $enemyOamSource $pointers[$pointerIndex])")
@@ -280,44 +183,58 @@ function Resolve-EnemyAnimations([int]$id) {
 
 function Get-EnemyDefinition([int]$id, [int]$subid = 0) {
     $hex = $id.ToString('x2')
-    $line = [regex]::Match(
-        $enemyDataSource,
-        ('(?m)^\s*/\* 0x{0} \*/ m_EnemyData \$(?<gfx>[0-9a-f]{{2}}) \$(?<collision>[0-9a-f]{{2}}) (?:(?:\$(?<extra>[0-9a-f]{{2}}) \$(?<flags>[0-9a-f]{{2}}))|(?<subids>enemy[0-9a-f]{{2}}SubidData))' -f $hex))
-    if (-not $line.Success) { throw "Enemy data row `$$hex is missing." }
-    if ($line.Groups['subids'].Success) {
-        $rows = @([regex]::Matches(
-            (Get-AssemblyLabelBody $enemyDataSource $line.Groups['subids'].Value),
-            '(?m)^\s*m_EnemySubidData \$(?<extra>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'))
+    if (-not $enemyDataRows.ContainsKey($id)) {
+        throw "Enemy data row `$$hex is missing."
+    }
+    $row = $enemyDataRows[$id]
+    if ($row.Operands.Count -lt 4) {
+        $subidTable = $row.Operands[2]
+        $rows = @(Read-AssemblyMacroInvocations `
+            $enemyDataPath $subidTable 'm_EnemySubidData')
         if ($subid -ge $rows.Count) {
             throw "Enemy `$$hex subid `$$($subid.ToString('x2')) has no data row."
         }
-        $extra = [Convert]::ToInt32(
-            $rows[$subid].Groups['extra'].Value, 16) -band 0x7f
-        $flags = [Convert]::ToInt32(
-            $rows[$subid].Groups['flags'].Value, 16)
+        $extra = (Convert-AssemblyInteger $rows[$subid].Operands[0]) -band 0x7f
+        $flags = Convert-AssemblyInteger $rows[$subid].Operands[1]
     } else {
-        $extra = [Convert]::ToInt32(
-            $line.Groups['extra'].Value, 16) -band 0x7f
-        $flags = [Convert]::ToInt32(
-            $line.Groups['flags'].Value, 16)
+        $extra = (Convert-AssemblyInteger $row.Operands[2]) -band 0x7f
+        $flags = Convert-AssemblyInteger $row.Operands[3]
     }
     if ($extra -ge $extraEnemyRows.Count) {
         throw "Enemy `$$hex extra-data index is out of range."
     }
     $extraRow = $extraEnemyRows[$extra]
-    $damageByte = [Convert]::ToInt32(
-        $extraRow.Groups['damage'].Value, 16)
+    $damage = (0x100 - $extraRow.Damage) / 2
     return @{
         Id = $id
-        Gfx = [Convert]::ToInt32($line.Groups['gfx'].Value, 16)
+        Gfx = Convert-AssemblyInteger $row.Operands[0]
+        Collision = Convert-AssemblyInteger $row.Operands[1]
+        ExtraIndex = $extra
+        GraphicFlags = $flags
         TileBase = ($flags -band 0x0f) * 2
         Palette = ($flags -shr 4) -band 7
-        RadiusY = [Convert]::ToInt32($extraRow.Groups['y'].Value, 16)
-        RadiusX = [Convert]::ToInt32($extraRow.Groups['x'].Value, 16)
-        Damage = (0x100 - $damageByte) / 2
-        Health = [Convert]::ToInt32($extraRow.Groups['health'].Value, 16)
+        RadiusY = $extraRow.RadiusY
+        RadiusX = $extraRow.RadiusX
+        Damage = $damage
+        DamageQuarters = $damage
+        Health = $extraRow.Health
         Animations = Resolve-EnemyAnimations $id
     }
+}
+
+$keeseDefinition = Get-EnemyDefinition 0x32
+$keeseGfx = $keeseDefinition.Gfx
+$keeseGraphicFlags = $keeseDefinition.GraphicFlags
+$keeseRadiusY = $keeseDefinition.RadiusY
+$keeseRadiusX = $keeseDefinition.RadiusX
+$keeseDamageQuarters = $keeseDefinition.Damage
+$keeseHealth = $keeseDefinition.Health
+if ($keeseGfx -ne 0x9d -or
+    ($keeseDefinition.Collision -band 0x7f) -ne 0x1f -or
+    $keeseDefinition.ExtraIndex -ne 0x07 -or
+    $keeseRadiusY -ne 4 -or $keeseRadiusX -ne 6 -or
+    $keeseDamageQuarters -ne 2 -or $keeseHealth -ne 1) {
+    throw 'ENEMY_KEESE data no longer matches its traced definition.'
 }
 
 function Copy-EnemySprite([string]$name) {
@@ -375,40 +292,11 @@ if ($commonEnemyRows.Count -ne 6 -or
 Write-GeneratedTable(
     (Join-Path $destination 'objects\common_enemies.tsv'),
     $commonEnemyRows)
-$keeseAnimationLabels = @(
-    [regex]::Matches(
-        (Get-AssemblyLabelBody $enemyAnimationSource 'enemy32Animations'),
-        '(?m)^\s*\.dw\s+(?<label>enemyAnimation[0-9a-f]+)'
-    ) | ForEach-Object { $_.Groups['label'].Value }
-)
-$keeseOamLabels = @(
-    [regex]::Matches(
-        (Get-AssemblyLabelBody $enemyAnimationSource 'enemy32OamDataPointers'),
-        '(?m)^\s*\.dw\s+(?<label>enemyOamData[0-9a-f]+)'
-    ) | ForEach-Object { $_.Groups['label'].Value }
-)
-if ($keeseAnimationLabels.Count -ne 2 -or $keeseOamLabels.Count -ne 2) {
-    throw "Expected two Keese animations and two Keese OAM pointers."
+$keeseAnimations = @($keeseDefinition.Animations)
+if ($keeseAnimations.Count -ne 2) {
+    throw "Expected two Keese animations, resolved $($keeseAnimations.Count)."
 }
-
-function Resolve-KeeseAnimation([string]$label) {
-    $frames = [Collections.Generic.List[string]]::new()
-    foreach ($frame in [regex]::Matches(
-        (Get-AssemblyLabelBody $script:enemyAnimationSource $label),
-        '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})'
-    )) {
-        $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
-        $pointerIndex = [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2
-        if ($pointerIndex -ge $script:keeseOamLabels.Count) {
-            throw "$label references missing OAM pointer byte offset $($frame.Groups['offset'].Value)."
-        }
-        $frames.Add("$duration@$(Resolve-Oam $script:enemyOamSource $script:keeseOamLabels[$pointerIndex])")
-    }
-    return $frames -join '|'
-}
-
-$keeseIdleAnimation = Resolve-KeeseAnimation $keeseAnimationLabels[0]
-$keeseFlyAnimation = Resolve-KeeseAnimation $keeseAnimationLabels[1]
+$keeseIdleAnimation, $keeseFlyAnimation = $keeseAnimations
 if ($keeseIdleAnimation -ne '127@8,4,2,0' -or
     $keeseFlyAnimation -ne '4@8,0,0,0;8,8,0,32|4@8,4,2,0') {
     throw "ENEMY_KEESE animation/OAM data no longer matches the folded/flying records."
@@ -470,66 +358,16 @@ $keesePath = Join-Path $destination "objects\keese.tsv"
 # Ages room data instantiates subids `$00, `$01, and `$02: normal red, fast
 # red, and blue. Export one definition per supported subid with its resolved
 # attributes and all four cardinal animations.
-$octorokDataMatch = [regex]::Match(
-    $enemyDataSource,
-    '(?m)^\s*/\* 0x09 \*/ m_EnemyData \$(?<gfx>[0-9a-f]{2}) \$(?<collision>[0-9a-f]{2}) enemy09SubidData'
-)
-if (-not $octorokDataMatch.Success -or
-    [Convert]::ToInt32($octorokDataMatch.Groups['gfx'].Value, 16) -ne 0x8f -or
-    [Convert]::ToInt32($octorokDataMatch.Groups['collision'].Value, 16) -ne 0x90) {
+$octorokBase = Get-EnemyDefinition 0x09 0
+if ($octorokBase.Gfx -ne 0x8f -or $octorokBase.Collision -ne 0x90) {
     throw 'ENEMY_OCTOROK no longer resolves to gfx `$8f / standard collision mode `$10.'
 }
-$octorokGfx = [Convert]::ToInt32($octorokDataMatch.Groups['gfx'].Value, 16)
-$octorokSubidRows = @(
-    [regex]::Matches(
-        (Get-AssemblyLabelBody $enemyDataSource 'enemy09SubidData'),
-        '(?m)^\s*m_EnemySubidData \$(?<extra>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
-    )
-)
-if ($octorokSubidRows.Count -ne 5) {
-    throw "Expected five ENEMY_OCTOROK subid records, got $($octorokSubidRows.Count)."
-}
+$octorokGfx = $octorokBase.Gfx
 
-$enemy09AnimationStart = $enemyAnimationSource.IndexOf('enemy09Animations:', [StringComparison]::Ordinal)
-$enemy0aAnimationStart = $enemyAnimationSource.IndexOf('enemy0aAnimations:', [StringComparison]::Ordinal)
-$octorokAnimationLabels = @(
-    [regex]::Matches(
-        $enemyAnimationSource.Substring(
-            $enemy09AnimationStart, $enemy0aAnimationStart - $enemy09AnimationStart),
-        '(?m)^\s*\.dw\s+(?<label>enemyAnimation[0-9a-f]+)'
-    ) | ForEach-Object { $_.Groups['label'].Value }
-)
-$enemy09OamStart = $enemyAnimationSource.IndexOf('enemy09OamDataPointers:', [StringComparison]::Ordinal)
-$enemy0aOamStart = $enemyAnimationSource.IndexOf('enemy0aOamDataPointers:', [StringComparison]::Ordinal)
-$octorokOamLabels = @(
-    [regex]::Matches(
-        $enemyAnimationSource.Substring($enemy09OamStart, $enemy0aOamStart - $enemy09OamStart),
-        '(?m)^\s*\.dw\s+(?<label>enemyOamData[0-9a-f]+)'
-    ) | ForEach-Object { $_.Groups['label'].Value }
-)
-if ($octorokAnimationLabels.Count -ne 4 -or $octorokOamLabels.Count -ne 8) {
-    throw 'Expected four Octorok animations and eight Octorok OAM pointers.'
+$octorokAnimations = @(Resolve-EnemyAnimations 0x09)
+if ($octorokAnimations.Count -ne 4) {
+    throw 'Expected four Octorok animations.'
 }
-
-function Resolve-OctorokAnimation([string]$label) {
-    $frames = [Collections.Generic.List[string]]::new()
-    foreach ($frame in [regex]::Matches(
-        (Get-AssemblyLabelBody $script:enemyAnimationSource $label),
-        '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})'
-    )) {
-        $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
-        $pointerIndex = [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2
-        if ($pointerIndex -ge $script:octorokOamLabels.Count) {
-            throw "$label references missing Octorok OAM pointer $pointerIndex."
-        }
-        $frames.Add("$duration@$(Resolve-Oam $script:enemyOamSource $script:octorokOamLabels[$pointerIndex])")
-    }
-    return $frames -join '|'
-}
-
-$octorokAnimations = @($octorokAnimationLabels | ForEach-Object {
-    Resolve-OctorokAnimation $_
-})
 if ($octorokAnimations[0] -ne '8@8,0,0,64;8,8,0,96|8@8,0,2,64;8,8,2,96' -or
     $octorokAnimations[1] -ne '8@8,0,6,32;8,8,4,32|8@8,0,10,32;8,8,8,32' -or
     $octorokAnimations[2] -ne '8@8,0,0,0;8,8,0,32|8@8,0,2,0;8,8,2,32' -or
@@ -539,21 +377,11 @@ if ($octorokAnimations[0] -ne '8@8,0,0,64;8,8,0,96|8@8,0,2,64;8,8,2,96' -or
 
 $octorokDefinitions = @{}
 foreach ($subid in 0..2) {
-    $subidRow = $octorokSubidRows[$subid]
-    $extraIndex = [Convert]::ToInt32($subidRow.Groups['extra'].Value, 16)
-    $graphicFlags = [Convert]::ToInt32($subidRow.Groups['flags'].Value, 16)
-    $extra = $extraEnemyRows[$extraIndex]
-    $damageByte = [Convert]::ToInt32($extra.Groups['damage'].Value, 16)
-    $octorokDefinitions[$subid] = @{
-        TileBase = ($graphicFlags -band 0x0f) * 2
-        Palette = ($graphicFlags -shr 4) -band 7
-        RadiusY = [Convert]::ToInt32($extra.Groups['y'].Value, 16)
-        RadiusX = [Convert]::ToInt32($extra.Groups['x'].Value, 16)
-        DamageQuarters = (0x100 - $damageByte) / 2
-        Health = [Convert]::ToInt32($extra.Groups['health'].Value, 16)
-        SpeedRaw = if (($subid -band 1) -ne 0) { 0x1e } else { 0x14 }
-        CounterMask = if ($subid -lt 2) { 7 } else { 3 }
-    }
+    $definition = Get-EnemyDefinition 0x09 $subid
+    $definition['SpeedRaw'] =
+        if (($subid -band 1) -ne 0) { 0x1e } else { 0x14 }
+    $definition['CounterMask'] = if ($subid -lt 2) { 7 } else { 3 }
+    $octorokDefinitions[$subid] = $definition
 }
 if ($octorokDefinitions[0].Health -ne 2 -or
     $octorokDefinitions[0].DamageQuarters -ne 1 -or
@@ -646,85 +474,23 @@ $octorokPath = Join-Path $destination 'objects\octoroks.tsv'
 # ENEMY_STALFOS (`$31) subid `$00 is the ordinary walking Stalfos used by
 # room 4:06 and 33 other source records. Other subids add weapon-evasion,
 # bone projectiles, or stomp states and remain explicit unsupported variants.
-$stalfosDataMatch = [regex]::Match(
-    $enemyDataSource,
-    '(?m)^\s*/\* 0x31 \*/ m_EnemyData \$(?<gfx>[0-9a-f]{2}) \$(?<collision>[0-9a-f]{2}) enemy31SubidData'
-)
-if (-not $stalfosDataMatch.Success -or
-    [Convert]::ToInt32($stalfosDataMatch.Groups['gfx'].Value, 16) -ne 0x9b -or
-    ([Convert]::ToInt32($stalfosDataMatch.Groups['collision'].Value, 16) -band 0x7f) -ne 0x7d) {
+$stalfosDefinition = Get-EnemyDefinition 0x31 0
+if ($stalfosDefinition.Gfx -ne 0x9b -or
+    ($stalfosDefinition.Collision -band 0x7f) -ne 0x7d) {
     throw 'ENEMY_STALFOS no longer resolves to gfx `$9b / undead collision mode `$7d.'
 }
-$stalfosGfx = [Convert]::ToInt32($stalfosDataMatch.Groups['gfx'].Value, 16)
-$stalfosSubidRows = @(
-    [regex]::Matches(
-        (Get-AssemblyLabelBody $enemyDataSource 'enemy31SubidData'),
-        '(?m)^\s*m_EnemySubidData \$(?<extra>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
-    )
-)
-if ($stalfosSubidRows.Count -ne 4) {
-    throw "Expected four ENEMY_STALFOS subid records, got $($stalfosSubidRows.Count)."
-}
+$stalfosGfx = $stalfosDefinition.Gfx
 
-$enemy31AnimationStart = $enemyAnimationSource.IndexOf('enemy31Animations:', [StringComparison]::Ordinal)
-$enemy32AnimationStart = $enemyAnimationSource.IndexOf('enemy32Animations:', [StringComparison]::Ordinal)
-$stalfosAnimationLabels = @(
-    [regex]::Matches(
-        $enemyAnimationSource.Substring(
-            $enemy31AnimationStart, $enemy32AnimationStart - $enemy31AnimationStart),
-        '(?m)^\s*\.dw\s+(?<label>enemyAnimation[0-9a-f]+)'
-    ) | ForEach-Object { $_.Groups['label'].Value }
-)
-$enemy31OamStart = $enemyAnimationSource.IndexOf('enemy31OamDataPointers:', [StringComparison]::Ordinal)
-$enemy10OamStart = $enemyAnimationSource.IndexOf('enemy10OamDataPointers:', [StringComparison]::Ordinal)
-$stalfosOamLabels = @(
-    [regex]::Matches(
-        $enemyAnimationSource.Substring($enemy31OamStart, $enemy10OamStart - $enemy31OamStart),
-        '(?m)^\s*\.dw\s+(?<label>enemyOamData[0-9a-f]+)'
-    ) | ForEach-Object { $_.Groups['label'].Value }
-)
-if ($stalfosAnimationLabels.Count -ne 2 -or $stalfosOamLabels.Count -ne 3) {
-    throw 'Expected two Stalfos animations and three Stalfos OAM pointers.'
+$stalfosAnimations = @(Resolve-EnemyAnimations 0x31)
+if ($stalfosAnimations.Count -ne 2) {
+    throw 'Expected two Stalfos animations.'
 }
-
-function Resolve-StalfosAnimation([string]$label) {
-    $frames = [Collections.Generic.List[string]]::new()
-    foreach ($frame in [regex]::Matches(
-        (Get-AssemblyLabelBody $script:enemyAnimationSource $label),
-        '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})'
-    )) {
-        $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
-        $pointerIndex = [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2
-        if ($pointerIndex -ge $script:stalfosOamLabels.Count) {
-            throw "$label references missing Stalfos OAM pointer $pointerIndex."
-        }
-        $frames.Add("$duration@$(Resolve-Oam $script:enemyOamSource $script:stalfosOamLabels[$pointerIndex])")
-    }
-    return $frames -join '|'
-}
-
-$stalfosAnimations = @($stalfosAnimationLabels | ForEach-Object {
-    Resolve-StalfosAnimation $_
-})
 if ($stalfosAnimations[0] -ne '4@8,0,0,0;8,8,2,0|4@8,0,2,32;8,8,0,32' -or
     $stalfosAnimations[1] -ne '127@8,0,4,0;8,8,4,32') {
     throw 'ENEMY_STALFOS walk/jump animation OAM no longer matches the original records.'
 }
 
-$stalfosSubid0 = $stalfosSubidRows[0]
-$stalfosExtraIndex = [Convert]::ToInt32($stalfosSubid0.Groups['extra'].Value, 16)
-$stalfosGraphicFlags = [Convert]::ToInt32($stalfosSubid0.Groups['flags'].Value, 16)
-$stalfosExtra = $extraEnemyRows[$stalfosExtraIndex]
-$stalfosDamageByte = [Convert]::ToInt32($stalfosExtra.Groups['damage'].Value, 16)
-$stalfosDefinition = @{
-    TileBase = ($stalfosGraphicFlags -band 0x0f) * 2
-    Palette = ($stalfosGraphicFlags -shr 4) -band 7
-    RadiusY = [Convert]::ToInt32($stalfosExtra.Groups['y'].Value, 16)
-    RadiusX = [Convert]::ToInt32($stalfosExtra.Groups['x'].Value, 16)
-    DamageQuarters = (0x100 - $stalfosDamageByte) / 2
-    Health = [Convert]::ToInt32($stalfosExtra.Groups['health'].Value, 16)
-    SpeedRaw = 0x14
-}
+$stalfosDefinition['SpeedRaw'] = 0x14
 if ($stalfosDefinition.TileBase -ne 4 -or $stalfosDefinition.Palette -ne 1 -or
     $stalfosDefinition.RadiusY -ne 6 -or $stalfosDefinition.RadiusX -ne 6 -or
     $stalfosDefinition.DamageQuarters -ne 2 -or $stalfosDefinition.Health -ne 2) {
@@ -802,93 +568,23 @@ $stalfosPath = Join-Path $destination 'objects\stalfos.tsv'
 # random-position room record. Export both definitions with animation
 # parameters intact: the terminal parameters on Zol animations 0 and 3 drive
 # the emerge/disappear state changes.
-$zolDataMatch = [regex]::Match(
-    $enemyDataSource,
-    '(?m)^\s*/\* 0x34 \*/ m_EnemyData \$(?<gfx>[0-9a-f]{2}) \$(?<collision>[0-9a-f]{2}) enemy34SubidData'
-)
-if (-not $zolDataMatch.Success -or
-    [Convert]::ToInt32($zolDataMatch.Groups['gfx'].Value, 16) -ne 0x97 -or
-    [Convert]::ToInt32($zolDataMatch.Groups['collision'].Value, 16) -ne 0x29) {
+$zolBase = Get-EnemyDefinition 0x34 0
+if ($zolBase.Gfx -ne 0x97 -or $zolBase.Collision -ne 0x29) {
     throw 'ENEMY_ZOL no longer resolves to gfx `$97 / collision mode `$29.'
 }
-$zolGfx = [Convert]::ToInt32($zolDataMatch.Groups['gfx'].Value, 16)
-$zolSubidRows = @(
-    [regex]::Matches(
-        (Get-AssemblyLabelBody $enemyDataSource 'enemy34SubidData'),
-        '(?m)^\s*m_EnemySubidData \$(?<extra>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
-    ) | Select-Object -First 2
-)
-if ($zolSubidRows.Count -ne 2) {
-    throw "Expected two ENEMY_ZOL subid records, got $($zolSubidRows.Count)."
-}
-
-$gelDataMatch = [regex]::Match(
-    $enemyDataSource,
-    '(?m)^\s*/\* 0x43 \*/ m_EnemyData \$(?<gfx>[0-9a-f]{2}) \$(?<collision>[0-9a-f]{2}) \$(?<extra>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
-)
-if (-not $gelDataMatch.Success -or
-    [Convert]::ToInt32($gelDataMatch.Groups['gfx'].Value, 16) -ne 0x97 -or
-    [Convert]::ToInt32($gelDataMatch.Groups['collision'].Value, 16) -ne 0xb3 -or
-    [Convert]::ToInt32($gelDataMatch.Groups['extra'].Value, 16) -ne 0x06 -or
-    [Convert]::ToInt32($gelDataMatch.Groups['flags'].Value, 16) -ne 0x20) {
+$zolGfx = $zolBase.Gfx
+$gelDefinition = Get-EnemyDefinition 0x43 0
+if ($gelDefinition.Gfx -ne 0x97 -or $gelDefinition.Collision -ne 0xb3 -or
+    $gelDefinition.ExtraIndex -ne 0x06 -or
+    $gelDefinition.GraphicFlags -ne 0x20) {
     throw 'ENEMY_GEL no longer resolves to gfx `$97 / collision `$b3 / extra `$06 / flags `$20.'
 }
 
-$zolAnimationLabels = @(
-    [regex]::Matches(
-        (Get-AssemblyLabelBody $enemyAnimationSource 'enemy34Animations'),
-        '(?m)^\s*\.dw\s+(?<label>enemyAnimation[0-9a-f]+)'
-    ) | ForEach-Object { $_.Groups['label'].Value }
-)
-$zolOamLabels = @(
-    [regex]::Matches(
-        (Get-AssemblyLabelBody $enemyAnimationSource 'enemy34OamDataPointers'),
-        '(?m)^\s*\.dw\s+(?<label>enemyOamData[0-9a-f]+)'
-    ) | ForEach-Object { $_.Groups['label'].Value }
-)
-$gelAnimationLabels = @(
-    [regex]::Matches(
-        (Get-AssemblyLabelBody $enemyAnimationSource 'enemy43Animations'),
-        '(?m)^\s*\.dw\s+(?<label>enemyAnimation[0-9a-f]+)'
-    ) | ForEach-Object { $_.Groups['label'].Value }
-)
-$gelOamLabels = @(
-    [regex]::Matches(
-        (Get-AssemblyLabelBody $enemyAnimationSource 'enemy43OamDataPointers'),
-        '(?m)^\s*\.dw\s+(?<label>enemyOamData[0-9a-f]+)'
-    ) | ForEach-Object { $_.Groups['label'].Value }
-)
-if ($zolAnimationLabels.Count -ne 6 -or $zolOamLabels.Count -ne 5 -or
-    $gelAnimationLabels.Count -ne 3 -or $gelOamLabels.Count -ne 7) {
-    throw 'Expected 6/5 Zol and 3/7 Gel animation/OAM records.'
+$zolAnimations = @(Resolve-EnemyAnimations 0x34 $true)
+$gelAnimations = @(Resolve-EnemyAnimations 0x43 $true)
+if ($zolAnimations.Count -ne 6 -or $gelAnimations.Count -ne 3) {
+    throw 'Expected six Zol and three Gel animations.'
 }
-
-function Resolve-ParameterizedEnemyAnimation(
-    [string]$label,
-    [string[]]$oamLabels
-) {
-    $frames = [Collections.Generic.List[string]]::new()
-    foreach ($frame in [regex]::Matches(
-        (Get-AssemblyLabelBody $script:enemyAnimationSource $label),
-        '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})'
-    )) {
-        $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
-        $parameter = [Convert]::ToInt32($frame.Groups['parameter'].Value, 16)
-        $pointerIndex = [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2
-        if ($pointerIndex -ge $oamLabels.Count) {
-            throw "$label references missing enemy OAM pointer $pointerIndex."
-        }
-        $frames.Add("$duration,$parameter@$(Resolve-Oam $script:enemyOamSource $oamLabels[$pointerIndex])")
-    }
-    return $frames -join '|'
-}
-
-$zolAnimations = @($zolAnimationLabels | ForEach-Object {
-    Resolve-ParameterizedEnemyAnimation $_ $zolOamLabels
-})
-$gelAnimations = @($gelAnimationLabels | ForEach-Object {
-    Resolve-ParameterizedEnemyAnimation $_ $gelOamLabels
-})
 if ($zolAnimations[0] -ne '16,0@12,4,0,0|16,0@8,0,4,0;8,8,4,32|127,1@8,0,2,0;8,8,2,32' -or
     $zolAnimations[3] -ne '8,0@8,0,2,0;8,8,2,32|16,0@8,0,4,0;8,8,4,32|16,0@12,4,0,0|127,1@12,4,0,0' -or
     $gelAnimations[1] -ne '4,0@6,2,0,0|4,0@10,6,0,0|4,0@6,6,0,0|4,0@10,2,0,0') {
@@ -897,19 +593,7 @@ if ($zolAnimations[0] -ne '16,0@12,4,0,0|16,0@8,0,4,0;8,8,4,32|127,1@8,0,2,0;8,8
 
 $zolDefinitions = @{}
 foreach ($subid in 0..1) {
-    $subidRow = $zolSubidRows[$subid]
-    $extraIndex = [Convert]::ToInt32($subidRow.Groups['extra'].Value, 16)
-    $graphicFlags = [Convert]::ToInt32($subidRow.Groups['flags'].Value, 16)
-    $extra = $extraEnemyRows[$extraIndex]
-    $damageByte = [Convert]::ToInt32($extra.Groups['damage'].Value, 16)
-    $zolDefinitions[$subid] = @{
-        TileBase = ($graphicFlags -band 0x0f) * 2
-        Palette = ($graphicFlags -shr 4) -band 7
-        RadiusY = [Convert]::ToInt32($extra.Groups['y'].Value, 16)
-        RadiusX = [Convert]::ToInt32($extra.Groups['x'].Value, 16)
-        DamageQuarters = (0x100 - $damageByte) / 2
-        Health = [Convert]::ToInt32($extra.Groups['health'].Value, 16)
-    }
+    $zolDefinitions[$subid] = Get-EnemyDefinition 0x34 $subid
 }
 if ($zolDefinitions[0].Health -ne 2 -or $zolDefinitions[0].Palette -ne 0 -or
     $zolDefinitions[1].Health -ne 3 -or $zolDefinitions[1].Palette -ne 2 -or
@@ -918,18 +602,6 @@ if ($zolDefinitions[0].Health -ne 2 -or $zolDefinitions[0].Palette -ne 0 -or
     throw 'ENEMY_ZOL subid attributes no longer match green/red behavior.'
 }
 
-$gelExtraIndex = [Convert]::ToInt32($gelDataMatch.Groups['extra'].Value, 16)
-$gelGraphicFlags = [Convert]::ToInt32($gelDataMatch.Groups['flags'].Value, 16)
-$gelExtra = $extraEnemyRows[$gelExtraIndex]
-$gelDamageByte = [Convert]::ToInt32($gelExtra.Groups['damage'].Value, 16)
-$gelDefinition = @{
-    TileBase = ($gelGraphicFlags -band 0x0f) * 2
-    Palette = ($gelGraphicFlags -shr 4) -band 7
-    RadiusY = [Convert]::ToInt32($gelExtra.Groups['y'].Value, 16)
-    RadiusX = [Convert]::ToInt32($gelExtra.Groups['x'].Value, 16)
-    DamageQuarters = (0x100 - $gelDamageByte) / 2
-    Health = [Convert]::ToInt32($gelExtra.Groups['health'].Value, 16)
-}
 if ($gelDefinition.TileBase -ne 0 -or $gelDefinition.Palette -ne 2 -or
     $gelDefinition.RadiusY -ne 2 -or $gelDefinition.RadiusX -ne 2 -or
     $gelDefinition.DamageQuarters -ne 2 -or $gelDefinition.Health -ne 1) {
@@ -1040,46 +712,25 @@ $gelDefinitionRows.Add(
 # Perched Crows (`$41:$00) are fixed-position enemies. Their shared graphics
 # header, standard attributes, and four directional/flight animations are
 # resolved here; the off-screen flock subid `$01 remains outside this slice.
-$crowDataMatch = [regex]::Match(
-    $enemyDataSource,
-    '(?m)^\s*/\* 0x41 \*/ m_EnemyData \$(?<gfx>[0-9a-f]{2}) \$(?<collision>[0-9a-f]{2}) \$(?<extra>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})'
-)
-if (-not $crowDataMatch.Success -or
-    [Convert]::ToInt32($crowDataMatch.Groups['gfx'].Value, 16) -ne 0x93 -or
-    [Convert]::ToInt32($crowDataMatch.Groups['collision'].Value, 16) -ne 0x31 -or
-    [Convert]::ToInt32($crowDataMatch.Groups['extra'].Value, 16) -ne 0x3d -or
-    [Convert]::ToInt32($crowDataMatch.Groups['flags'].Value, 16) -ne 0x30) {
+$crowDefinition = Get-EnemyDefinition 0x41 0
+if ($crowDefinition.Gfx -ne 0x93 -or $crowDefinition.Collision -ne 0x31 -or
+    $crowDefinition.ExtraIndex -ne 0x3d -or
+    $crowDefinition.GraphicFlags -ne 0x30) {
     throw 'ENEMY_CROW no longer resolves to gfx `$93 / collision `$31 / extra `$3d / flags `$30.'
 }
-$crowGfx = [Convert]::ToInt32($crowDataMatch.Groups['gfx'].Value, 16)
-$crowExtra = $extraEnemyRows[0x3d]
-$crowDamageByte = [Convert]::ToInt32($crowExtra.Groups['damage'].Value, 16)
-$crowRadiusY = [Convert]::ToInt32($crowExtra.Groups['y'].Value, 16)
-$crowRadiusX = [Convert]::ToInt32($crowExtra.Groups['x'].Value, 16)
-$crowDamageQuarters = (0x100 - $crowDamageByte) / 2
-$crowHealth = [Convert]::ToInt32($crowExtra.Groups['health'].Value, 16)
+$crowGfx = $crowDefinition.Gfx
+$crowRadiusY = $crowDefinition.RadiusY
+$crowRadiusX = $crowDefinition.RadiusX
+$crowDamageQuarters = $crowDefinition.Damage
+$crowHealth = $crowDefinition.Health
 if ($crowRadiusY -ne 6 -or $crowRadiusX -ne 6 -or
     $crowDamageQuarters -ne 2 -or $crowHealth -ne 1) {
     throw 'ENEMY_CROW attributes no longer match radius 6x6, half-heart damage, and one health.'
 }
-$crowAnimationLabels = @(
-    [regex]::Matches(
-        (Get-AssemblyLabelBody $enemyAnimationSource 'enemy4cAnimations'),
-        '(?m)^\s*\.dw\s+(?<label>enemyAnimation[0-9a-f]+)'
-    ) | ForEach-Object { $_.Groups['label'].Value }
-)
-$crowOamLabels = @(
-    [regex]::Matches(
-        (Get-AssemblyLabelBody $enemyAnimationSource 'enemy4cOamDataPointers'),
-        '(?m)^\s*\.dw\s+(?<label>enemyOamData[0-9a-f]+)'
-    ) | ForEach-Object { $_.Groups['label'].Value }
-)
-if ($crowAnimationLabels.Count -ne 4 -or $crowOamLabels.Count -ne 4) {
-    throw 'Expected four ENEMY_CROW animations and OAM pointers.'
+$crowAnimations = @(Resolve-EnemyAnimations 0x41 $true)
+if ($crowAnimations.Count -ne 4) {
+    throw 'Expected four ENEMY_CROW animations.'
 }
-$crowAnimations = @($crowAnimationLabels | ForEach-Object {
-    Resolve-ParameterizedEnemyAnimation $_ $crowOamLabels
-})
 if ($crowAnimations[0] -ne '127,0@8,0,0,0;8,8,2,0' -or
     $crowAnimations[1] -ne '127,0@8,0,2,32;8,8,0,32' -or
     $crowAnimations[2] -ne '16,0@8,0,0,0;8,8,2,0|16,1@8,0,4,0;8,8,6,0' -or
@@ -2198,17 +1849,13 @@ function Resolve-MaskedMoblinAnimation([string]$label) {
 }
 $maskedMoblinAnimations = @($maskedMoblinAnimationLabels[0..3] |
     ForEach-Object { Resolve-MaskedMoblinAnimation $_ })
-$maskedMoblinDamageByte = [Convert]::ToInt32(
-    $maskedMoblinExtra.Groups['damage'].Value, 16)
+$maskedMoblinDamageByte = $maskedMoblinExtra.Damage
 $maskedMoblinTileBase = ($maskedMoblinFlags -band 0x0f) * 2
 $maskedMoblinPalette = ($maskedMoblinFlags -shr 4) -band 7
-$maskedMoblinRadiusY = [Convert]::ToInt32(
-    $maskedMoblinExtra.Groups['y'].Value, 16)
-$maskedMoblinRadiusX = [Convert]::ToInt32(
-    $maskedMoblinExtra.Groups['x'].Value, 16)
+$maskedMoblinRadiusY = $maskedMoblinExtra.RadiusY
+$maskedMoblinRadiusX = $maskedMoblinExtra.RadiusX
 $maskedMoblinDamage = (0x100 - $maskedMoblinDamageByte) / 2
-$maskedMoblinHealth = [Convert]::ToInt32(
-    $maskedMoblinExtra.Groups['health'].Value, 16)
+$maskedMoblinHealth = $maskedMoblinExtra.Health
 $maskedMoblinRows = @(
     "# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tspeed-raw`tmove-base`tmove-mask`tturn-wait`tup-animation`tright-animation`tdown-animation`tleft-animation",
     (@(
@@ -2303,24 +1950,10 @@ foreach ($spriteName in @($gfxNames[0x90], $gfxNames[0x8e])) {
 # Preserve the complete Ages enemy item-drop selection data used by
 # decideItemDrop. The fixed binary layout is 144 enemy records, eight 8-byte
 # probability masks, and sixteen 32-byte item sets (720 bytes total).
-$treasureDropSource = Read-ImportText (Join-Path $Disassembly 'code\treasureAndDrops.s')
-function Get-HexBytes([string]$body) {
-    $result = [Collections.Generic.List[byte]]::new()
-    foreach ($dataLine in [regex]::Matches($body, '(?m)^\s*\.db\s+(?<values>[^;\r\n]+)')) {
-        foreach ($value in [regex]::Matches(
-            $dataLine.Groups['values'].Value, '\$(?<value>[0-9a-fA-F]{2})')) {
-            $result.Add([Convert]::ToByte($value.Groups['value'].Value, 16))
-        }
-    }
-    return $result.ToArray()
-}
-
-$itemDropTableMatch = [regex]::Match(
-    $treasureDropSource,
-    '(?ms)^itemDropTables:\r?\n\.ifdef ROM_AGES\r?\n(?<body>.*?)(?=^\.else)'
-)
-if (-not $itemDropTableMatch.Success) { throw 'Ages itemDropTables block was not found.' }
-$itemDropEnemyTable = @(Get-HexBytes $itemDropTableMatch.Groups['body'].Value)
+$treasureDropPath = Join-Path $Disassembly 'code\treasureAndDrops.s'
+$treasureDropSource = Read-ImportText $treasureDropPath
+$itemDropEnemyTable = @(Read-AssemblyLiteralValues `
+    $treasureDropPath 'itemDropTables')
 if ($itemDropEnemyTable.Count -ne 144 -or
     $itemDropEnemyTable[0x09] -ne 0x8e -or
     $itemDropEnemyTable[0x32] -ne 0xae) {
@@ -2328,23 +1961,36 @@ if ($itemDropEnemyTable.Count -ne 144 -or
 }
 
 $itemDropProbabilityBytes = [Collections.Generic.List[byte]]::new()
-foreach ($probability in 0..7) {
-    # Probability 0 deliberately aliases probability 1 in the original table.
-    $sourceProbability = if ($probability -eq 0) { 1 } else { $probability }
-    $label = "@probability${sourceProbability}:"
-    $start = $treasureDropSource.IndexOf($label, [StringComparison]::Ordinal)
-    if ($start -lt 0) { throw "Item-drop probability label not found: $label" }
-    $endLabel = if ($sourceProbability -lt 7) {
-        "@probability$($sourceProbability + 1):"
-    } else {
-        '.ifdef ROM_SEASONS'
+$probabilityTables = @{}
+$probabilityAliases = [Collections.Generic.List[int]]::new()
+$probabilityValues = [Collections.Generic.List[byte]]::new()
+foreach ($node in Read-AssemblyLabelNodes $treasureDropPath 'itemDropProbabilityTable') {
+    if ($node.Kind -eq 'Label' -and
+        $node.Name -match '^@probability(?<index>[0-7])$') {
+        if ($probabilityValues.Count -gt 0) {
+            foreach ($alias in $probabilityAliases) {
+                $probabilityTables[$alias] = $probabilityValues.ToArray()
+            }
+            $probabilityAliases.Clear()
+            $probabilityValues.Clear()
+        }
+        $probabilityAliases.Add([int]$Matches['index'])
+        continue
     }
-    $end = $treasureDropSource.IndexOf(
-        $endLabel, $start + $label.Length, [StringComparison]::Ordinal)
-    if ($end -lt 0) { throw "End of item-drop probability $sourceProbability was not found." }
-    $bytes = @(Get-HexBytes $treasureDropSource.Substring($start, $end - $start))
+    if ($probabilityAliases.Count -gt 0 -and
+        $node.Kind -eq 'Data' -and $node.Name -ieq '.db') {
+        foreach ($operand in $node.Operands) {
+            $probabilityValues.Add([byte](Convert-AssemblyInteger $operand))
+        }
+    }
+}
+foreach ($alias in $probabilityAliases) {
+    $probabilityTables[$alias] = $probabilityValues.ToArray()
+}
+foreach ($probability in 0..7) {
+    $bytes = @($probabilityTables[$probability])
     if ($bytes.Count -ne 8) {
-        throw "Item-drop probability $sourceProbability contains $($bytes.Count) bytes; expected 8."
+        throw "Item-drop probability $probability contains $($bytes.Count) bytes; expected 8."
     }
     foreach ($value in $bytes) { $itemDropProbabilityBytes.Add($value) }
 }
@@ -2352,7 +1998,7 @@ foreach ($probability in 0..7) {
 $itemDropSetBytes = [Collections.Generic.List[byte]]::new()
 foreach ($setIndex in 0..15) {
     $setLabel = "itemDropSet$($setIndex.ToString('X'))"
-    $bytes = @(Get-HexBytes (Get-AssemblyLabelBody $treasureDropSource $setLabel))
+    $bytes = @(Read-AssemblyLiteralValues $treasureDropPath $setLabel)
     if ($bytes.Count -ne 32) {
         throw "$setLabel contains $($bytes.Count) bytes; expected 32."
     }

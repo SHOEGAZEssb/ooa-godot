@@ -38,7 +38,7 @@ function Start-AssemblySourceHost {
         throw 'Could not start the importer source host.'
     }
     $ready = $process.StandardOutput.ReadLine()
-    if ($ready -ne "READY`t1") {
+    if ($ready -ne "READY`t2") {
         $errorText = $process.StandardError.ReadToEnd()
         $process.Dispose()
         throw "Importer source host did not start: '$ready' $errorText"
@@ -80,6 +80,8 @@ function Invoke-AssemblySourceHost(
 
 $assemblySourceHost = Start-AssemblySourceHost
 $assemblyTextCache = @{}
+$assemblyNodeCache = @{}
+$assemblyAnimationCache = @{}
 
 function Resolve-ImportReadPath([string]$path) {
     if ([IO.Path]::IsPathRooted($path)) {
@@ -122,6 +124,70 @@ function Read-AssemblyLabelBlock([string]$path, [string]$label) {
         $assemblySourceHost 'LABEL' "$fullPath`0$label"
 }
 
+function Read-AssemblyNodeQuery(
+    [string]$path,
+    [string]$command,
+    [string]$label = '',
+    [string]$name = ''
+) {
+    $fullPath = Resolve-ImportReadPath $path
+    if ([IO.Path]::GetExtension($fullPath) -ine '.s') {
+        throw "Assembly node queries require an .s source: $fullPath"
+    }
+    $key = "$command`0$fullPath`0$label`0$name"
+    if (-not $assemblyNodeCache.ContainsKey($key)) {
+        $json = Invoke-AssemblySourceHost `
+            $assemblySourceHost $command "$fullPath`0$label`0$name"
+        $parsed = $json | ConvertFrom-Json
+        $assemblyNodeCache[$key] = [object[]]$parsed
+    }
+    return @(@($assemblyNodeCache[$key]) | Where-Object IsActive)
+}
+
+function Read-AssemblyNodes([string]$path) {
+    return Read-AssemblyNodeQuery $path 'NODES'
+}
+
+function Read-AssemblyLabelNodes([string]$path, [string]$label) {
+    return Read-AssemblyNodeQuery $path 'LABEL_NODES' $label
+}
+
+function Read-AssemblyLabels([string]$path, [string]$name = '') {
+    return Read-AssemblyNodeQuery $path 'LABELS' '' $name
+}
+
+function Read-AssemblyDataDirectives(
+    [string]$path,
+    [string]$label = '',
+    [string]$name = ''
+) {
+    return Read-AssemblyNodeQuery $path 'DATA_DIRECTIVES' $label $name
+}
+
+function Read-AssemblyMacroInvocations(
+    [string]$path,
+    [string]$label = '',
+    [string]$name = ''
+) {
+    return Read-AssemblyNodeQuery $path 'MACRO_INVOCATIONS' $label $name
+}
+
+function Read-AssemblyInstructions(
+    [string]$path,
+    [string]$label = '',
+    [string]$name = ''
+) {
+    return Read-AssemblyNodeQuery $path 'INSTRUCTIONS' $label $name
+}
+
+function Read-AssemblyConstants(
+    [string]$path,
+    [string]$label = '',
+    [string]$name = ''
+) {
+    return Read-AssemblyNodeQuery $path 'CONSTANTS' $label $name
+}
+
 function Resolve-AssemblySourceTextPath([string]$source) {
     foreach ($entry in $assemblyTextCache.GetEnumerator()) {
         if ([object]::ReferenceEquals($entry.Value, $source)) {
@@ -129,6 +195,155 @@ function Resolve-AssemblySourceTextPath([string]$source) {
         }
     }
     return $null
+}
+
+function Get-AssemblyLabelBody([string]$source, [string]$label) {
+    $sourcePath = Resolve-AssemblySourceTextPath $source
+    if ($null -eq $sourcePath) {
+        throw "Assembly label '$label' was requested from untracked source text."
+    }
+    return Read-AssemblyLabelBlock $sourcePath $label
+}
+
+function Convert-AssemblyInteger([string]$value) {
+    $trimmed = $value.Trim()
+    if ($trimmed -match '^(?<sign>-?)\$(?<value>[0-9a-f]+)$') {
+        $number = [Convert]::ToInt32($Matches['value'], 16)
+        return $(if ($Matches['sign']) { -$number } else { $number })
+    }
+    if ($trimmed -match '^%(?<value>[01]+)$') {
+        return [Convert]::ToInt32($Matches['value'], 2)
+    }
+    if ($trimmed -match '^-?[0-9]+$') {
+        return [Convert]::ToInt32($trimmed, 10)
+    }
+    throw "Assembly operand is not an integer literal: '$value'."
+}
+
+function Read-AssemblyLiteralValues(
+    [string]$path,
+    [string]$label,
+    [string]$directive = '.db'
+) {
+    $values = [Collections.Generic.List[int]]::new()
+    foreach ($node in Read-AssemblyDataDirectives $path $label $directive) {
+        foreach ($operand in $node.Operands) {
+            $values.Add((Convert-AssemblyInteger $operand))
+        }
+    }
+    return @($values)
+}
+
+function Convert-AssemblyAnimationFrame($node) {
+    return @{
+        Duration = Convert-AssemblyInteger $node.Operands[0]
+        PointerOffset = Convert-AssemblyInteger $node.Operands[1]
+        Parameter = Convert-AssemblyInteger $node.Operands[2]
+    }
+}
+
+function Read-AssemblyAnimationDefinitions(
+    [string]$path,
+    [string]$labelPattern,
+    [bool]$stopAtNextAnimation = $false
+) {
+    $cacheKey =
+        "$(Resolve-ImportReadPath $path)`0$labelPattern`0$stopAtNextAnimation"
+    if ($assemblyAnimationCache.ContainsKey($cacheKey)) {
+        return $assemblyAnimationCache[$cacheKey]
+    }
+    $nodes = @(Read-AssemblyNodes $path)
+    $labels = @($nodes | Where-Object {
+        $_.Kind -eq 'Label' -and $_.Name -match "^$labelPattern`$"
+    })
+    $frameNodes = @($nodes | Where-Object {
+        $_.Kind -eq 'Data' -and $_.Name -ieq '.db' -and
+        $_.Operands.Count -ge 3
+    })
+    $loopNodes = @($nodes | Where-Object {
+        $_.Kind -eq 'MacroInvocation' -and $_.Name -eq 'm_AnimationLoop'
+    })
+    $terminalNodes = @($frameNodes | Where-Object { $_.Operands[2] -ieq '$ff' })
+    $labelsByName = @{}
+    $frameIndexByLabel = @{}
+    $frameIndex = 0
+    foreach ($label in $labels) {
+        $labelsByName[$label.Name] = $label
+        while ($frameIndex -lt $frameNodes.Count -and
+            $frameNodes[$frameIndex].Offset -le $label.Offset) {
+            $frameIndex++
+        }
+        $frameIndexByLabel[$label.Name] = $frameIndex
+    }
+    $result = @{}
+    $loopIndex = 0
+    $terminalIndex = 0
+    for ($labelIndex = 0; $labelIndex -lt $labels.Count; $labelIndex++) {
+        $label = $labels[$labelIndex]
+        while ($loopIndex -lt $loopNodes.Count -and
+            $loopNodes[$loopIndex].Offset -le $label.Offset) { $loopIndex++ }
+        while ($terminalIndex -lt $terminalNodes.Count -and
+            $terminalNodes[$terminalIndex].Offset -le $label.Offset) {
+            $terminalIndex++
+        }
+        $loop = if ($loopIndex -lt $loopNodes.Count) {
+            $loopNodes[$loopIndex]
+        } else { $null }
+        $terminal = if ($terminalIndex -lt $terminalNodes.Count) {
+            $terminalNodes[$terminalIndex]
+        } else { $null }
+        $nextLabelIndex = $labelIndex + 1
+        while ($nextLabelIndex -lt $labels.Count -and
+            $labels[$nextLabelIndex].Name.EndsWith('Loop')) {
+            $nextLabelIndex++
+        }
+        $nextLabelOffset = if ($nextLabelIndex -lt $labels.Count) {
+            $labels[$nextLabelIndex].Offset
+        } else { [int]::MaxValue }
+        if ($stopAtNextAnimation) {
+            $usesLoop = $null -ne $loop -and $loop.Offset -lt $nextLabelOffset
+            $end = if ($usesLoop) { $loop.Offset } else { $nextLabelOffset }
+        } else {
+            $usesLoop = $null -ne $loop -and
+                ($null -eq $terminal -or $loop.Offset -lt $terminal.Offset)
+            $end = if ($usesLoop) {
+                $loop.Offset
+            } elseif ($null -ne $terminal) {
+                $terminal.Offset + $terminal.Length
+            } else {
+                $nextLabelOffset
+            }
+        }
+        $startFrame = $frameIndexByLabel[$label.Name]
+        $endFrame = $startFrame
+        while ($endFrame -lt $frameNodes.Count -and
+            $frameNodes[$endFrame].Offset -lt $end) { $endFrame++ }
+        $frames = [Collections.Generic.List[object]]::new()
+        for ($index = $startFrame; $index -lt $endFrame; $index++) {
+            $frames.Add((Convert-AssemblyAnimationFrame $frameNodes[$index]))
+        }
+        if ($frames.Count -eq 0) { continue }
+        $loopStart = 0
+        if ($usesLoop) {
+            $target = $loop.Operands[0]
+            if (-not $labelsByName.ContainsKey($target)) {
+                throw "$($label.Name) loops to missing animation label $target."
+            }
+            $targetStart = $labelsByName[$target].Offset
+            if ($targetStart -ge $label.Offset -and $targetStart -le $end) {
+                $loopStart = $frameIndexByLabel[$target] - $startFrame
+            } elseif ($targetStart -lt $label.Offset) {
+                $loopStart = $frames.Count
+                for ($index = $frameIndexByLabel[$target];
+                    $index -lt $endFrame; $index++) {
+                    $frames.Add((Convert-AssemblyAnimationFrame $frameNodes[$index]))
+                }
+            }
+        }
+        $result[$label.Name] = @{ Frames = @($frames); LoopStart = $loopStart }
+    }
+    $assemblyAnimationCache[$cacheKey] = $result
+    return $result
 }
 
 function Write-GeneratedTable([object[]]$arguments) {
@@ -175,40 +390,36 @@ function Write-GeneratedBytes([object[]]$arguments) {
 }
 
 function Read-AssemblyDwTables(
-    [string]$source,
+    [string]$path,
     [string]$tableLabelPattern,
     [string]$entryPattern
 ) {
     $tables = @{}
     $aliases = [Collections.Generic.List[string]]::new()
-    $entries = [Collections.Generic.List[string]]::new()
-    foreach ($line in ($source -split '\r?\n')) {
-        $label = [regex]::Match($line, "^(?<label>$tableLabelPattern):")
-        if ($label.Success) {
-            if ($entries.Count -gt 0) {
-                foreach ($alias in $aliases) { $tables[$alias] = @($entries) }
+    foreach ($node in Read-AssemblyNodes $path) {
+        if ($node.Kind -eq 'Label') {
+            if ($node.Name -match "^$tableLabelPattern`$") {
+                if ($aliases.Count -gt 0 -and
+                    $tables.ContainsKey($aliases[0])) {
+                    $aliases.Clear()
+                }
+                $aliases.Add($node.Name)
+            } else {
                 $aliases.Clear()
-                $entries.Clear()
             }
-            $aliases.Add($label.Groups['label'].Value)
             continue
         }
-        if ($aliases.Count -eq 0) { continue }
-        $entry = [regex]::Match($line, "^\s*\.dw\s+(?<entry>$entryPattern)")
-        if ($entry.Success) {
-            $entries.Add($entry.Groups['entry'].Value)
-            continue
-        }
-        if ($line -match '^[A-Za-z0-9_@]+:') {
-            if ($entries.Count -gt 0) {
-                foreach ($alias in $aliases) { $tables[$alias] = @($entries) }
+        if ($aliases.Count -gt 0 -and $node.Kind -eq 'Data' -and
+            $node.Name -ieq '.dw' -and
+            $node.Operands.Count -gt 0 -and
+            $node.Operands[0] -match "^$entryPattern") {
+            foreach ($alias in $aliases) {
+                if (-not $tables.ContainsKey($alias)) {
+                    $tables[$alias] = [Collections.Generic.List[string]]::new()
+                }
+                $tables[$alias].Add($Matches[0])
             }
-            $aliases.Clear()
-            $entries.Clear()
         }
-    }
-    if ($entries.Count -gt 0) {
-        foreach ($alias in $aliases) { $tables[$alias] = @($entries) }
     }
     return $tables
 }

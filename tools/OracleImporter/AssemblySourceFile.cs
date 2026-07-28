@@ -153,7 +153,9 @@ public sealed class AssemblySourceFile
     }
 
     internal static bool IsLocalLabel(string name) =>
-        name.StartsWith('@') || name.StartsWith('.');
+        name.StartsWith('@') ||
+        name.StartsWith('.') ||
+        name.All(character => character is '+' or '-');
 }
 
 public sealed class AssemblySourceException : Exception

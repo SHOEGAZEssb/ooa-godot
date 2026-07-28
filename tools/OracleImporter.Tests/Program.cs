@@ -28,9 +28,11 @@ static void RunSourceModelTests(string root)
         ".define ROM_AGES 1\r\n" +
         "rootLabel: ; root\r\n" +
         "  .db $01, \"semi;colon\" ; values\r\n" +
+        "  /* $02 */ objectData $03 $04 ($05 + 1)\r\n" +
         "@local:\r\n" +
         "  ld a,$02\r\n" +
         "  objectData $03, ($04 + 1)\r\n" +
+        "++\r\n" +
         ".ifdef REGION_JP\r\n" +
         "jpOnly: .db $ff\r\n" +
         ".else\r\n" +
@@ -47,7 +49,7 @@ static void RunSourceModelTests(string root)
     AssemblySourceFile file = repository.Open("fixture.s");
     Assert(ReferenceEquals(file, repository.Open(sourcePath)), "repository did not cache source");
     Assert(repository.PhysicalReadCount == 1, "source was physically read more than once");
-    Assert(file.Lines.Count == 15, "CRLF line split changed");
+    Assert(file.Lines.Count == 17, "CRLF line split changed");
     Assert(file.RequireUniqueLabel("rootLabel").Span.Start.Line == 2, "label span changed");
     Assert(file.GetLabels("@duplicate").Count == 2, "duplicate labels were discarded");
     Assert(file.GetDataDirectives("rootLabel").Count == 1, "global label block lost data");
@@ -60,13 +62,41 @@ static void RunSourceModelTests(string root)
     AssemblyNode db = file.GetDataDirectives("rootLabel")[0];
     Assert(db.Operands.Count == 2 && db.Operands[1] == "\"semi;colon\"",
         "quoted semicolon or operands were parsed incorrectly");
+    AssemblyNode prefixedMacro = file.Nodes.Single(node =>
+        node.Kind == AssemblyNodeKind.MacroInvocation &&
+        node.Name == "objectData" &&
+        node.Comment == "$02");
+    Assert(
+        prefixedMacro.Operands.SequenceEqual(
+            new[] { "$03", "$04", "($05 + 1)" }),
+        "comment-prefixed whitespace macro operands were not parsed");
+    IReadOnlyList<AssemblyNodeQueryResult> macroQuery =
+        AssemblySourceQuery.Select(
+            file,
+            "MACRO_INVOCATIONS",
+            "rootLabel",
+            "objectData");
+    Assert(
+        macroQuery.Count == 2 &&
+        macroQuery[0].Path == "fixture.s" &&
+        macroQuery[0].Line == 4 &&
+        macroQuery[1].Operands.Count == 2,
+        "structured macro query lost order, operands, or source spans");
+    Assert(
+        AssemblySourceQuery.Select(file, "LABELS")
+            .Any(node => node.Name == "usOnly" && node.IsActive),
+        "structured label query lost active-branch state");
+    Assert(
+        AssemblySourceQuery.Select(file, "LABELS")
+            .Any(node => node.Name == "++"),
+        "anonymous forward label was not represented as a label node");
     Assert(file.RequireUniqueLabel("jpOnly").IsActive == false,
         "configured JP branch should be inactive");
     Assert(file.RequireUniqueLabel("usOnly").IsActive,
         "configured US branch should be active");
     Assert(file.GetConstants("ALIAS").Single().Expression == "rootLabel",
         "constant alias was not retained");
-    Assert(file.PositionAt(source.IndexOf("ld a", StringComparison.Ordinal)).Line == 5,
+    Assert(file.PositionAt(source.IndexOf("ld a", StringComparison.Ordinal)).Line == 6,
         "line-start offsets changed");
     repository.AssertReadOnce();
 

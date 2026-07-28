@@ -91,16 +91,16 @@ $stageContracts = @(
             'dungeonMechanicRows', 'dungeonSharedPlacementRows', 'gfxNames',
             'interactionAnimationSource', 'interactionGraphics',
             'mainObjectLines', 'mainObjectSource', 'nayruCutsceneSource',
-            'nayruScriptSource', 'npcAnimationFrames', 'npcAnimationLoopStarts',
-            'npcAnimationTables', 'npcOamBlocks', 'npcOamPointerTables',
-            'npcRows', 'treasureObjectSource') `
+            'nayruScriptSource', 'npcAnimationDefinitions', 'npcAnimationTables',
+            'npcOamBlocks', 'npcOamPointerTables', 'npcRows',
+            'treasureObjectSource') `
         -functionInputs @('Export-PaletteBlock') `
         -functionOutputs @('Resolve-NpcAnimation')
     New-ImportStageContract 'gasha' 'Import-GashaData.ps1' `
         -inputs @(
             'allTexts', 'gfxNames', 'interactionAnimationSource',
-            'interactionGraphics', 'mainObjectSource', 'npcAnimationFrames',
-            'npcAnimationLoopStarts', 'npcAnimationTables', 'npcOamBlocks')
+            'interactionGraphics', 'mainObjectSource',
+            'npcAnimationDefinitions', 'npcAnimationTables', 'npcOamBlocks')
     New-ImportStageContract 'cutscenes' 'Import-CutsceneData.ps1' `
         -inputs @(
             'allTextPositions', 'allTexts', 'gfxNames', 'globalFlagValues',
@@ -119,8 +119,7 @@ $stageContracts = @(
             'partDataSource', 'partOamSource', 'stalfosInstanceCount',
             'zolInstanceCount') `
         -functionOutputs @(
-            'Copy-EnemySprite', 'Get-AssemblyLabelBody',
-            'Get-EnemyDefinition', 'Resolve-Oam')
+            'Copy-EnemySprite', 'Get-EnemyDefinition', 'Resolve-Oam')
     New-ImportStageContract 'seed-trees' 'Import-SeedTreeData.ps1' `
         -inputs @(
             'allTexts', 'gfxNames', 'mainObjectLines', 'partAnimationSource',
@@ -149,8 +148,14 @@ $stageContracts = @(
 
 $commonStageInputs = @('destination', 'Disassembly', 'romBytes')
 $commonStageFunctionInputs = @(
-    'Copy-GeneratedFile', 'Read-AssemblyLabelBlock',
-    'Read-AssemblyDwTables', 'Read-ImportLines', 'Read-ImportText',
+    'Convert-AssemblyInteger', 'Copy-GeneratedFile', 'Get-AssemblyLabelBody',
+    'Read-AssemblyAnimationDefinitions', 'Read-AssemblyConstants',
+    'Read-AssemblyDataDirectives',
+    'Read-AssemblyDwTables', 'Read-AssemblyLabelBlock',
+    'Read-AssemblyLabelNodes', 'Read-AssemblyLabels',
+    'Read-AssemblyMacroInvocations', 'Read-AssemblyNodes',
+    'Read-AssemblyInstructions', 'Read-AssemblyLiteralValues',
+    'Read-ImportLines', 'Read-ImportText',
     'Resolve-AssemblySourceTextPath', 'Write-GeneratedBytes',
     'Write-GeneratedTable')
 $automaticStageVariables = @(
@@ -355,5 +360,6 @@ $assemblySourceParts = $assemblySourceStats.Split("`t")
 Write-Host (
     "Parsed $($assemblySourceParts[0]) assembly sources with " +
     "$($assemblySourceParts[1]) physical reads and " +
-    "$($assemblySourceParts[2]) indexed label-block queries.")
+    "$($assemblySourceParts[2]) indexed label-block / " +
+    "$($assemblySourceParts[3]) structured-node queries.")
 Write-Host "Imported $($tilesets.Count) tilesets, 1536 rooms, 42 signs, $($npcRows.Count - 1) NPCs, $($dungeonMechanicRows.Count - 1) dungeon button/trigger/chest/shutter placements, $($dungeonSharedPlacementRows.Count - 1) shared dungeon-entry placements, $keeseInstanceCount Keese, $($crowRows.Count - 1) fixed Crows, $octorokInstanceCount Octoroks, $stalfosInstanceCount ordinary Stalfos, $zolInstanceCount Zols, $gelInstanceCount direct Gels, $($orderedObjectRows.Count - 1) ordered placement records, $enemyUnspawnableTileCount enemy-unspawnable tile records, 133 chests, 529 warps, 22 animation groups, and 223 sound IDs into $destination"

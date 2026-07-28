@@ -466,3 +466,10 @@ slots, or RNG paths merely because their current implementations look similar.
   Do not replace the 78 typed database classes with reflection or a universal
   record binder, because their schemas and source contracts are intentionally
   explicit.
+
+- [x] Let the structured importer parser own assembly syntax. Version the
+  process protocol and expose ordered label, data-directive, macro,
+  instruction, and constant node queries with operands, active-branch state,
+  and source spans. Migrate stage-local label scanners, operand splitters,
+  pointer-table readers, animation/OAM readers, and source-line recovery to
+  those typed rows while leaving domain interpretation in the owning stage.
