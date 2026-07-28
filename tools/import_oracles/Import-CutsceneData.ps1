@@ -40,6 +40,32 @@ function New-CutsceneCommandRow {
     ) -join "`t"
 }
 
+$cutsceneCommandHeader =
+    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64"
+$generatedCutsceneCommandStreams = [Collections.Generic.List[object]]::new()
+
+function Write-CutsceneGeneratedTable([object[]]$arguments) {
+    if ($arguments.Count -lt 2) {
+        throw "Write-CutsceneGeneratedTable requires a destination path and rows; got " +
+            "$($arguments.Count) argument(s) from " +
+            "$($MyInvocation.ScriptName):$($MyInvocation.ScriptLineNumber)."
+    }
+    $path = [string]$arguments[0]
+    $rows = [Collections.Generic.List[string]]::new()
+    foreach ($value in $arguments[1..($arguments.Count - 1)]) {
+        foreach ($row in $value) {
+            $rows.Add([string]$row)
+        }
+    }
+    if ($rows.Count -gt 0 -and $rows[0] -eq $cutsceneCommandHeader) {
+        $generatedCutsceneCommandStreams.Add([pscustomobject]@{
+            Path = $path
+            Rows = @($rows)
+        })
+    }
+    Write-GeneratedTable($path, $rows)
+}
+
 function Test-CutsceneSchemaFinite {
     param([string]$value)
 
@@ -135,33 +161,33 @@ function Test-CutsceneSchemaScalar {
 
 function Test-GeneratedCutsceneCommandStreams {
     param(
-        [string]$destination,
+        [object[]]$tables,
         [hashtable]$schemas
     )
 
-    $header = "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64"
-    $commandFileCount = 0
+    $commandStreamCount = 0
     $commandRowCount = 0
     $utf8 = [Text.UTF8Encoding]::new($false, $true)
-    foreach ($file in Get-ChildItem (
-        Join-Path $destination 'cutscenes') -File -Filter '*.tsv') {
-        $lines = @(Get-Content -LiteralPath $file.FullName)
-        if ($lines.Count -eq 0 -or $lines[0] -ne $header) {
-            continue
+    foreach ($table in $tables) {
+        $path = [string]$table.Path
+        $lines = @($table.Rows)
+        if ($lines.Count -eq 0 -or $lines[0] -ne $cutsceneCommandHeader) {
+            throw "$path was registered as a cutscene command stream without " +
+                'the normalized command header.'
         }
-        $commandFileCount++
+        $commandStreamCount++
         for ($lineIndex = 1; $lineIndex -lt $lines.Count; $lineIndex++) {
             if ([string]::IsNullOrWhiteSpace($lines[$lineIndex])) {
                 continue
             }
             $columns = $lines[$lineIndex].Split([char]"`t")
             if ($columns.Count -ne 9) {
-                throw "$($file.FullName):$($lineIndex + 1): cutscene command row " +
+                throw "$($path):$($lineIndex + 1): cutscene command row " +
                     "has $($columns.Count) columns instead of 9."
             }
             $opcode = $columns[4]
             if (-not $schemas.ContainsKey($opcode)) {
-                throw "$($file.FullName):$($lineIndex + 1): emitted cutscene " +
+                throw "$($path):$($lineIndex + 1): emitted cutscene " +
                     "opcode '$opcode' has no command schema entry."
             }
             try {
@@ -169,7 +195,7 @@ function Test-GeneratedCutsceneCommandStreams {
                     [Convert]::FromBase64String($columns[8]))
             }
             catch {
-                throw "$($file.FullName):$($lineIndex + 1): emitted cutscene " +
+                throw "$($path):$($lineIndex + 1): emitted cutscene " +
                     "opcode '$opcode' has invalid UTF-8 base64 payload: $_"
             }
             $schema = $schemas[$opcode]
@@ -186,7 +212,7 @@ function Test-GeneratedCutsceneCommandStreams {
                     } else {
                         $field[2].Replace(([char]0).ToString(), '\0')
                     }
-                    throw "$($file.FullName):$($lineIndex + 1): emitted opcode " +
+                    throw "$($path):$($lineIndex + 1): emitted opcode " +
                         "'$opcode' field '$($field[0])' has '$shown'; expected " +
                         "schema shape '$($field[1])'."
                 }
@@ -194,8 +220,8 @@ function Test-GeneratedCutsceneCommandStreams {
             $commandRowCount++
         }
     }
-    if ($commandFileCount -eq 0 -or $commandRowCount -eq 0) {
-        throw 'No generated cutscene command streams were available for schema validation.'
+    if ($commandStreamCount -eq 0 -or $commandRowCount -eq 0) {
+        throw 'No in-memory cutscene command streams were available for schema validation.'
     }
 }
 
@@ -328,7 +354,7 @@ $harpItemRows = @(
     "# item`tharp-treasure`techoes-treasure`tcurrents-treasure`tages-treasure`tsong-frames`tempty-song-frames`tnote-interval`tprohibited-tileset-mask`tpast-mask`tportal-room-flag`tempty-sound`techoes-sound`tcurrents-sound`tages-sound`tanimation-parameters`tno-effect-text",
     "11`t$($treasureIds['TREASURE_HARP'].ToString('x2'))`t$($treasureIds['TREASURE_TUNE_OF_ECHOES'].ToString('x2'))`t$($treasureIds['TREASURE_TUNE_OF_CURRENTS'].ToString('x2'))`t$($treasureIds['TREASURE_TUNE_OF_AGES'].ToString('x2'))`t260`t261`t32`t7e`t80`t08`t$($soundIds['SND_FILLED_HEART_CONTAINER'].ToString('x2'))`t$($soundIds['SND_TUNE_OF_ECHOES'].ToString('x2'))`t$($soundIds['SND_TUNE_OF_CURRENTS'].ToString('x2'))`t$($soundIds['SND_TUNE_OF_AGES'].ToString('x2'))`t$harpAnimationParameters`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[0x5110])))"
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'objects\harpItem.tsv'),
     $harpItemRows)
 
@@ -386,7 +412,7 @@ Copy-GeneratedFile `
     'gfx_compressible\ages\spr_makuflower_book_seedling_weirdswirl_block.png' `
     'gfx\spr_makuflower_book_seedling_weirdswirl_block.png'
 $portalPath = Join-Path $destination 'objects\timePortals.tsv'
-Write-GeneratedTable($portalPath, $portalRows)
+Write-CutsceneGeneratedTable($portalPath, $portalRows)
 
 # Direct Tune of Currents/Ages warps create INTERAC_TIMEPORTAL ($de) at the
 # arrival position. Unlike the placed $e1 spawner, it uses common sprites,
@@ -444,7 +470,7 @@ $temporaryPortalRows = @(
     "# sprite`ttile-base`tpalette`tcontact-radius`tanimation`tentry-tile-replacements`treturn-tile-replacements",
     "spr_common_sprites`t$($temporaryPortalGraphic.TileBase)`t$($temporaryPortalGraphic.Palette)`t9`t$temporaryPortalAnimation`t$entryTileReplacements`t$returnTileReplacements"
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'objects\temporaryTimePortal.tsv'),
     $temporaryPortalRows)
 
@@ -575,7 +601,7 @@ $timeWarpRows = @(
     "# timewarp-sprite`tcommon-sprite`tsparkle-sprite`tprimary-tile-base`tprimary-palette`tbeam-palette`ttrail-tile-base`ttrail-palette`tparticle-tile-base`tparticle-palette`tsparkle-tile-base`tsparkle-palette`tprimary-priority`tbeam-priority`ttrail-priority`tparticle-priority`tsparkle-priority`tdissolve-frames`tsource-effect-frames`tsource-trail-frames`tarrival-wait-frames`tarrival-effect-frames`tarrival-flicker-frames`texpand-animation`tcontract-animation`tbeam-intro-animation`tbeam-loop-animation`tbeam-contract-animation`ttrail-animation`tsparkle-animation`tparticles",
     "$timeWarpSprite`tspr_common_sprites`t$sparkleSprite`t$($timeWarpGraphics[0].TileBase)`t$($timeWarpGraphics[0].Palette)`t$($timeWarpBeamGraphic.Palette)`t$($timeWarpTrailGraphic.TileBase)`t$($timeWarpTrailGraphic.Palette)`t$([Convert]::ToInt32($timeWarpPart.Groups['tile'].Value, 16))`t$([Convert]::ToInt32($timeWarpPart.Groups['flags'].Value, 16) -band 7)`t$($sparkleGraphic.TileBase)`t$($sparkleGraphic.Palette)`t$($timeWarpPriorities -join "`t")`t48`t120`t60`t30`t16`t30`t$($timeWarpAnimations[0])`t$($timeWarpAnimations[1])`t$($timeWarpAnimations[2])`t$($timeWarpAnimations[3])`t$($timeWarpAnimations[4])`t$($timeWarpAnimations[5])`t$sparkleAnimation`t$($particleRows -join '|')"
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'objects\timeWarpEffects.tsv'),
     $timeWarpRows)
 
@@ -692,7 +718,7 @@ $makuEventRows = @(
     "# group`troom`tid`tsubid`tinitial-palette`tinput-idle`tinput-right`tinput-stop`tinput-up`tinput-tail`tintro-delay`tpost-intro`tfrown-delay`tdisappearance`tpost-ahh`tfinish-delay`tsource-transition`tdestination-group`tdestination-room`tdestination-position`tdestination-parameter`tdestination-transition`tanimation0`tanimation1`tanimation2`tanimation3`tanimation4`textra-sprite`ttextbox-position`tintro-base64`tahh-base64`thelp-base64",
     ($makuColumns -join "`t")
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\maku_tree_cutscene.tsv'),
     $makuEventRows)
 
@@ -762,7 +788,7 @@ $makuCommandRows = @(
     (& $newMakuCommandRow 21 (& $findMakuSourceLine '(?m)^\s*asm15\s+incMakuTreeState\s*$') 'native' '' '' '' 'incMakuTreeState'),
     (& $newMakuCommandRow 22 (& $findMakuSourceLine '(?m)^\s*scriptend\s*$') 'scriptend' '' '' '' '')
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\maku_tree_commands.tsv'),
     $makuCommandRows)
 
@@ -933,7 +959,7 @@ foreach ($command in $makuSavedParsed) {
         $command.Script $command.Index $command.Label $command.Line `
         $opcode $actor "$arg0" "$arg1" $payload))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\maku_tree_saved_commands.tsv'),
     $makuSavedCommandRows)
 
@@ -986,7 +1012,7 @@ $makuSavedEventRows = @(
         $makuLandingSoundMatch.Groups['value'].Value
     ) -join "`t")
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\maku_tree_saved_event.tsv'),
     $makuSavedEventRows)
 
@@ -1131,7 +1157,7 @@ $ralphEventRows = @(
     "# group`troom`tid`tsubid`tentry-direction`tintro-delay`tpost-text`tapplyspeed-counter`tflicker-frames`tspeed`tangle`tglobal-flag`ttext-id`tmove-animation`tportal-animation`ttext-base64",
     ($ralphEventColumns -join "`t")
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\ralph_portal_event.tsv'),
     $ralphEventRows)
 
@@ -1188,7 +1214,7 @@ $ralphCommandRows = @(
     (& $newRalphCommandRow 14 '@done' (& $findRalphSourceLine '(?m)^\s*enableinput\s*$') 'enableinput' '' '' '' ''),
     (& $newRalphCommandRow 15 '@done' (& $findRalphSourceLine '(?m)^\s*scriptend\s*$') 'scriptend' '' '' '' '')
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\ralph_portal_commands.tsv'),
     $ralphCommandRows)
 
@@ -1317,7 +1343,7 @@ $enterPastEventRows = @(
     "# group`troom`tid`tsubid`tintro-wait`tpre-jump-wait`tpost-jump-wait`tpost-text-wait`tjump-speed-z`tjump-gravity`tfast-speed`tslow-speed`tfirst-down-counter`tright-counter`tsecond-down-counter`tslow-down-counter`tfinal-down-counter`tglobal-flag`ttext-id`tright-animation`tdown-animation`ttext-base64`tjump-sound`texpected-arrival-counter",
     ($enterPastEventColumns -join "`t")
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\enter_past_event.tsv'),
     $enterPastEventRows)
 
@@ -1368,7 +1394,7 @@ $enterPastCommandRows = @(
     (& $newEnterPastCommandRow 17 (& $findEnterPastSourceLine '(?m)^\s*enableinput\s*$') 'enableinput' '' '' '' ''),
     (& $newEnterPastCommandRow 18 (& $findEnterPastSourceLine '(?m)^\s*scriptend\s*$') 'scriptend' '' '' '' '')
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\enter_past_commands.tsv'),
     $enterPastCommandRows)
 
@@ -1509,7 +1535,7 @@ $graveyardEventRows = @(
         '08', '01', $graveyardFleeSound.Groups['value'].Value
     ) -join "`t")
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\graveyard_ghost_kids_event.tsv'),
     $graveyardEventRows)
 
@@ -1523,7 +1549,7 @@ for ($index = 0; $index -lt $graveyardTextIds.Count; $index++) {
         [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
     ) -join "`t"))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\graveyard_ghost_kids_text.tsv'),
     $graveyardTextRows)
 
@@ -1665,7 +1691,7 @@ $impaEventRows = @(
     "# group`troom`tid`tsubid`troom-flag`tlink-wait`ttarget-x`tcenter-wait`tapproach-frames`tlink-speed`timpa-wait`ttext-id`tpost-text`timpa-speed`timpa-move-frames`tfollow-lag`tup-animation`tright-animation`tdown-animation`tleft-animation`ttext-base64`tlinked-text-id`tlinked-text-base64",
     ($impaEventColumns -join "`t")
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\impa_intro_event.tsv'),
     $impaEventRows)
 
@@ -1693,7 +1719,7 @@ for ($index = 0; $index -lt $impaCommandDefinitions.Count; $index++) {
         'impaScript0' $index 'impaScript0' $sourceLine `
         $definition[1] $definition[2] $definition[3] $definition[4] $definition[5]))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\impa_intro_commands.tsv'),
     $impaCommandRows)
 
@@ -2059,7 +2085,7 @@ $stoneHeader = @(
     'link-target-y','link-target-x',
     'first-text-base64','sign-text-base64','request-text-base64','hesitation-text-base64','failure-text-base64',
     'thanks-text-base64','leave-text-base64','talk-text-base64','stone-source-inverted') -join "`t"
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\impa_stone_event.tsv'),
     @("# $stoneHeader", ($stoneColumns -join "`t")))
 
@@ -2110,7 +2136,7 @@ $impaMoveAwayCommandRows = @(
     (& $newImpaMoveAwayCommandRow 16 (& $findImpaMoveAwaySourceLine '^\s*writememory\s+wTmpcfc0\.genericCutscene\.cfd0,\s*\$04\s*$') 'writememory' '' '04' '' 'wTmpcfc0.genericCutscene.cfd0'),
     (& $newImpaMoveAwayCommandRow 17 (& $findImpaMoveAwaySourceLine '^\s*scriptend\s*$') 'scriptend')
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\impa_stone_prepush_commands.tsv'),
     $impaMoveAwayCommandRows)
 
@@ -2163,7 +2189,7 @@ $impaRockMovedCommandRows = @(
     (& $newImpaRockMovedCommandRow 21 '++[2]' (& $findImpaRockMovedSourceLine '^\s*moveup\s+\$20\s*$') 'move' 'Impa' '00' '20' $impaFollowerAnimations[0]),
     (& $newImpaRockMovedCommandRow 22 '++[2]' (& $findImpaRockMovedSourceLine '^\s*scriptend\s*$') 'scriptend')
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\impa_stone_postpush_commands.tsv'),
     $impaRockMovedCommandRows)
 
@@ -2222,7 +2248,7 @@ $impaHelpRows = @(
             [Text.Encoding]::UTF8.GetBytes($allTexts[$impaHelpTextId]))
     ) -join "`t")
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\impa_help_event.tsv'),
     $impaHelpRows)
 
@@ -2262,7 +2288,7 @@ $impaHelpCommandRows = @(
     (& $newImpaHelpCommandRow 7 (& $findImpaHelpSourceLine '^\s*set\s+6,\(hl\)\s*$') 'orroomflagcontinue' '40'),
     (& $newImpaHelpCommandRow 8 (& $findImpaHelpSourceLine '^\s*jp\s+interactionDelete\s*$') 'scriptend')
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\impa_help_commands.tsv'),
     $impaHelpCommandRows)
 
@@ -2327,7 +2353,7 @@ for ($index = 0; $index -lt 3; $index++) {
         $impaSpeed300Match.Groups['value'].Value
     ) -join "`t"))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\impa_intro_octoroks.tsv'),
     $impaFakeRows)
 
@@ -2446,7 +2472,7 @@ foreach ($row in $cutsceneVocabularyRows | Select-Object -Skip 1) {
         PayloadShape = $columns[7]
     })
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\script_command_vocabulary.tsv'),
     $cutsceneVocabularyRows)
 
@@ -2629,7 +2655,7 @@ $nayruSound = { param([string]$sound)
 if ($nayruCommandRows.Count -lt 200) {
     throw "Initial Nayru typed command stream is unexpectedly short ($($nayruCommandRows.Count - 1) records)."
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\nayru_intro_commands.tsv'),
     $nayruCommandRows)
 
@@ -2833,7 +2859,7 @@ function Export-PreBlackTowerLane {
             $script $command.Index $command.Label $command.Line `
             $runtimeOpcode $runtimeActor $arg0 $arg1 $payload))
     }
-    Write-GeneratedTable(
+    Write-CutsceneGeneratedTable(
         (Join-Path $destination "cutscenes\$outputName"),
         $rows)
 }
@@ -2869,7 +2895,7 @@ $preBlackTowerEventRows = @(
         $preBlackTowerExclamationAnimation
     ) -join "`t")
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\pre_black_tower_event.tsv'),
     $preBlackTowerEventRows)
 
@@ -2920,7 +2946,7 @@ for ($index = 0; $index -lt $firstSpec.Count; $index++) {
         (Get-BlackTowerGuardLine $spec[5] ([int]$spec[6])) `
         $spec[0] $spec[1] $spec[2] $spec[3] $spec[4]))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\black_tower_guard_first.tsv'),
     $blackTowerFirstRows)
 
@@ -2951,7 +2977,7 @@ for ($index = 0; $index -lt $afterSpec.Count; $index++) {
         (Get-BlackTowerGuardLine $spec[5] ([int]$spec[6])) `
         $spec[0] $spec[1] $spec[2] $spec[3] $spec[4]))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\black_tower_guard_aftermath.tsv'),
     $blackTowerAfterRows)
 
@@ -2979,7 +3005,7 @@ for ($index = 0; $index -lt $blackTowerOamEntries.Count; $index++) {
     $blackTowerOamRows.Add(
         "$index`t$($entry.Groups['y'].Value)`t$($entry.Groups['x'].Value)`t$($entry.Groups['tile'].Value)`t$($entry.Groups['flags'].Value)`tages.s:oamData_714c")
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\black_tower_stage_0_oam.tsv'),
     $blackTowerOamRows)
 
@@ -3008,7 +3034,7 @@ $blackTowerEventRows = @(
         (ConvertTo-CutsceneCommandPayload $allTexts[0x1005])
     ) -join "`t")
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\black_tower_entrance_event.tsv'),
     $blackTowerEventRows)
 
@@ -3126,7 +3152,7 @@ $towerDoorRows = @(
         'miscellaneous2.s:interactiondc_subid10'
     ) -join "`t")
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\black_tower_doorway_event.tsv'),
     $towerDoorRows)
 
@@ -3297,7 +3323,7 @@ foreach ($definition in $makuAdviceDefinitions) {
         (ConvertTo-CutsceneCommandPayload $allTexts[$linkedRepeat])
     ) -join "`t"))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'objects\maku_sprout_advice.tsv'),
     $makuAdviceRows)
 
@@ -3329,7 +3355,7 @@ $makuRoomRows = @(
         'mainData.s:group1Map38ObjectData; makuSprout.s:interactionCode88; miscellaneous1.s:interaction6b_subid15'
     ) -join "`t")
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'objects\maku_sprout_room.tsv'),
     $makuRoomRows)
 Copy-GeneratedFile `
@@ -3347,7 +3373,7 @@ $makuActorRows = @(
     (@('MoblinRight','96','01','30','38',$gfxNames[0x90],$makuMoblinGraphic.TileBase,$makuMoblinGraphic.Palette,
         $makuMoblinAnimations[0],$makuMoblinAnimations[1],$makuMoblinAnimations[2],$makuMoblinAnimations[3]) -join "`t")
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\maku_sprout_rescue_actors.tsv'),
     $makuActorRows)
 
@@ -3357,7 +3383,7 @@ $makuEventRows = @(
         $allTextPositions[0x05d4].ToString(),'05d5',
         (ConvertTo-CutsceneCommandPayload $allTexts[0x05d5])) -join "`t")
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\maku_sprout_rescue_event.tsv'),
     $makuEventRows)
 
@@ -3376,7 +3402,7 @@ function Write-MakuRescueCommands {
         $rows.Add((New-CutsceneCommandRow $script $index $label $line `
             $spec[0] $spec[1] $spec[2] $spec[3] $spec[4]))
     }
-    Write-GeneratedTable(
+    Write-CutsceneGeneratedTable(
         (Join-Path $destination "cutscenes\$file"),
         $rows)
 }
@@ -3555,7 +3581,7 @@ $graveyardEventRows = @(
     "# group`troom`tid`tsubid`troom-flag`tclear-tile`tshake-frames`tphase1-ordinary`tphase1-interleaved`tphase1-puffs`tphase2-ordinary`tphase2-puffs`tsource"
     "0`t5c`tdc`t01`t80`t3a`t10`t34,44`t33:3a:89:1,35:3a:89:3,43:98:ec:1,45:9a:ec:3`t48:40,48:50`t33,35,43,45`t48:30,48:60`tinteractiondcSubid01Script;scriptHelper.s:interactiondc_removeGraveyardGateTiles1/2"
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\graveyard_gate_event.tsv'),
     $graveyardEventRows)
 
@@ -3583,7 +3609,7 @@ for ($index = 0; $index -lt $graveyardSpecs.Count; $index++) {
         'interactiondcSubid01Script' $index $sourceCommand.Label `
         $sourceCommand.Line $spec[0] $spec[1] $spec[2] $spec[3] $spec[4]))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\graveyard_gate_commands.tsv'),
     $graveyardCommandRows)
 
@@ -3658,7 +3684,7 @@ foreach ($spec in $wingGfxSpecs) {
         "$phase`t$($header.ToString('x2'))`t$($tileIds -join ',')`t" +
         "gfxHeaders.s:GFXH_$($header.ToString('x2'));$name.bin")
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\wing_dungeon_collapse_maps.tsv'),
     $wingMapRows)
 
@@ -3685,7 +3711,7 @@ $wingEventRows = @(
         'miscellaneous2.s:interactiondc_subid02;miscCutscenes.s:CUTSCENE_D2_COLLAPSE;roomGfxChanges.s:drawCollapsedWingDungeon'
     ) -join "`t")
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\wing_dungeon_collapse_event.tsv'),
     $wingEventRows)
 
@@ -3826,21 +3852,21 @@ $remoteMakuEventRows = @(
     "# group`troom`tid`tsubid`tvar03`tessence-mask`trequired-treasure`troom-flag`tstandard-text-id`tlinked-text-id`tstandard-map-text`tlinked-map-text`tmusic`thud-lock-byte`tfade-delay`tfade-frames`tinitial-wait`tconfetti-hold1`tconfetti-hold2`tpost-text-wait`tconfetti-pieces`tspawn-delays`tpositions-and-accelerations`ty-offset-fixed`tsparkle-initial-delay`tsparkle-repeat-delay`tsound-counter`tsound`ty-speed-limit`tx-speed-limit`tdelete-y"
     "0`t8d`t8a`t00`t00`t01`tff`t40`t05b0`t05c0`tb0`tc0`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136"
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_first_essence_event.tsv'),
     $remoteMakuEventRows)
 $remoteMakuWingEventRows = @(
     $remoteMakuEventRows[0]
     "0`t83`t8a`t00`t01`t00`tff`t40`t05b1`t05c1`tb1`tc1`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136"
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_wing_dungeon_event.tsv'),
     $remoteMakuWingEventRows)
 $remoteMakuHarpEventRows = @(
     $remoteMakuEventRows[0]
     "0`t3a`t8a`t00`t02`t00`t$($treasureIds['TREASURE_HARP'].ToString('x2'))`t40`t05b2`t05c2`tb2`tc2`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136"
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_harp_event.tsv'),
     $remoteMakuHarpEventRows)
 
@@ -3850,7 +3876,7 @@ $remoteMakuVisualRows = @(
     "confetti-right`t$($gfxNames[$confettiGraphic.Gfx])`t$($confettiGraphic.TileBase)`t$($confettiGraphic.Palette)`t$($confettiAnimations[1])"
     "sparkle`t$($gfxNames[$remoteMakuSparkleGraphic.Gfx])`t$($remoteMakuSparkleGraphic.TileBase)`t$($remoteMakuSparkleGraphic.Palette)`t$remoteMakuSparkleAnimation"
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_first_essence_visuals.tsv'),
     $remoteMakuVisualRows)
 Copy-GeneratedFile `
@@ -3893,7 +3919,7 @@ for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
         'remoteMakuCutsceneScript' $index $sourceCommand.Label `
         $sourceCommand.Line $spec[1] $spec[2] $spec[3] $spec[4] $spec[5]))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_first_essence_commands.tsv'),
     $remoteMakuCommandRows)
 
@@ -3916,7 +3942,7 @@ for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
         'remoteMakuCutsceneScript' $index $sourceCommand.Label `
         $sourceCommand.Line $opcode $actor $arg0 $arg1 $payload))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_wing_dungeon_commands.tsv'),
     $remoteMakuWingCommandRows)
 $remoteMakuHarpCommandRows = [Collections.Generic.List[string]]::new()
@@ -3938,7 +3964,7 @@ for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
         'remoteMakuCutsceneScript' $index $sourceCommand.Label `
         $sourceCommand.Line $opcode $actor $arg0 $arg1 $payload))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_harp_commands.tsv'),
     $remoteMakuHarpCommandRows)
 
@@ -4074,7 +4100,7 @@ $harpEventRows = @(
     "# group`troom`tspawner-id`tspawner-subid`tspawner-y`tspawner-x`tharp-y`tharp-x`troom-flag`tharp-treasure`tharp-object`tsparkle-id`tsparkle-subid`tfade-delay`tfade-frames`tblack-hold`tnayru-id`tnayru-subid`tnayru-flicker`tnayru-music`ttextbox-flags`tsong-sound`tsong-initial-delay`tsong-phase-frames`tsong-phases`tsong-native-frames`tfinal-fade-delay`tfinal-fade-frames`techoes-treasure`techoes-object",
     "3`tae`tb3`t00`t28`t58`t38`t58`t20`t11`tTREASURE_OBJECT_HARP_00`t84`t0c`t2`t65`t40`t36`t07`t30`t08`t04`tad`t4`t52`t4`t214`t4`t129`t25`tTREASURE_OBJECT_TUNE_OF_ECHOES_00"
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\harp_of_ages_event.tsv'),
     $harpEventRows)
 
@@ -4083,7 +4109,7 @@ $harpVisualRows = @(
     "Nayru`t36`t07`t$($gfxNames[$harpNayruGraphic.Gfx])`t$harpNayruExtraSprite`t$($harpNayruGraphic.TileBase)`t$($harpNayruGraphic.Palette)`t0000`t`t$harpNayruIdleAnimation`t$harpNayruSingingAnimation",
     "Sparkle`t84`t0c`t$($gfxNames[$harpSparkleGraphic.Gfx])`t`t$($harpSparkleGraphic.TileBase)`t$($harpSparkleGraphic.Palette)`t$($harpSparkleSourceOffset.ToString('x4'))`t$harpSparkleAnimation`t`t"
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\harp_of_ages_visuals.tsv'),
     $harpVisualRows)
 
@@ -4121,7 +4147,7 @@ for ($index = 0; $index -lt $harpCommandSpecs.Count; $index++) {
         'nayruScript07' $index $sourceCommand.Label $sourceCommand.Line `
         $spec[1] $spec[2] $spec[3] $spec[4] $spec[5]))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\harp_of_ages_commands.tsv'),
     $harpCommandRows)
 
@@ -4341,7 +4367,7 @@ foreach ($command in $comedianCommands) {
         $command.Script $command.Index $command.Label $command.Line `
         $opcode $actor "$arg0" "$arg1" $payload))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\comedian_commands.tsv'),
     $comedianCommandRows)
 
@@ -4355,7 +4381,7 @@ $comedianEventRows = @(
         'TREASURE_OBJECT_TRADEITEM_07', '2'
     ) -join "`t")
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\comedian_event.tsv'),
     $comedianEventRows)
 
@@ -4469,7 +4495,7 @@ for ($index = 0; $index -lt $linkedNpcCommandSpecs.Count; $index++) {
         'linkedGameNpcScript' $index $sourceCommand.Label $sourceCommand.Line `
         $spec[1] $spec[2] $spec[3] $spec[4] $spec[5]))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\linked_game_npc_commands.tsv'),
     $linkedNpcCommandRows)
 
@@ -4553,7 +4579,7 @@ for ($index = 0; $index -lt $pastBipinCommandSpecs.Count; $index++) {
         'bipinScript3' $index $sourceCommand.Label $sourceCommand.Line `
         $spec[1] $spec[2] $spec[3] $spec[4] $spec[5]))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\past_bipin_commands.tsv'),
     $pastBipinCommandRows)
 
@@ -4654,7 +4680,7 @@ for ($index = 0; $index -lt $hardhatCommandSpecs.Count; $index++) {
         'hardhatWorkerSubid00Script' $index $sourceCommand.Label $sourceCommand.Line `
         $spec[1] $spec[2] $spec[3] $spec[4] $spec[5]))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\hardhat_shovel_commands.tsv'),
     $hardhatCommandRows)
 
@@ -4829,7 +4855,7 @@ for ($index = 0; $index -lt $poeCommandSpecs.Count; $index++) {
         'poeScript' $index $sourceCommand.Label $sourceCommand.Line `
         $spec[1] $spec[2] $spec[3] $spec[4] $spec[5]))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\poe_commands.tsv'),
     $poeCommandRows)
 
@@ -4843,7 +4869,7 @@ $poeEventRows = @(
         $poeAnimations[2], $poeAnimations[3]
     ) -join "`t")
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\poe_event.tsv'),
     $poeEventRows)
 
@@ -5024,7 +5050,7 @@ foreach ($command in $maskSalesmanCommands) {
         $command.Script $command.Index $command.Label $command.Line `
         $opcode $actor "$arg0" "$arg1" $payload))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\mask_salesman_commands.tsv'),
     $maskSalesmanCommandRows)
 
@@ -5037,7 +5063,7 @@ $maskSalesmanEventRows = @(
         'TREASURE_OBJECT_TRADEITEM_04', '1', '1'
     ) -join "`t")
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\mask_salesman_event.tsv'),
     $maskSalesmanEventRows)
 
@@ -5210,7 +5236,7 @@ foreach ($textId in 0x1100..0x110c) {
     $fairyTextRows.Add(
         "$($textId.ToString('x4'))`t$(ConvertTo-CutsceneCommandPayload $allTexts[$textId])")
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_text.tsv'),
     $fairyTextRows)
 
@@ -5294,7 +5320,7 @@ Add-FairyCommand $fairyIntroRows 'fairyHidingMinigame_subid00Script' 15 `
 Add-FairyCommand $fairyIntroRows 'fairyHidingMinigame_subid00Script' 16 `
     'fairyHidingMinigame_subid00Script' '^\s*scriptend\s*$' `
     'scriptend' '' '' '' ''
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_intro_commands.tsv'),
     $fairyIntroRows)
 
@@ -5329,7 +5355,7 @@ for ($index = 0; $index -lt $revealPatterns.Count; $index++) {
         'fairyHidingMinigame_subid01Script' $line `
         $entry[0] $entry[1] $entry[2] $entry[3] $entry[4]))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_reveal_commands.tsv'),
     $fairyRevealRows)
 
@@ -5368,7 +5394,7 @@ for ($index = 0; $index -lt $exitCommands.Count; $index++) {
         'fairyHidingMinigame_subid02Script' $index $entry[0] $line `
         $entry[1] $entry[2] $entry[3] $entry[4] $entry[5]))
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_exit_commands.tsv'),
     $fairyExitRows)
 
@@ -5387,7 +5413,7 @@ $fairyEventRows = @(
         $forestSparkleGraphic.Palette, $forestSparkleAnimation
     ) -join "`t")
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_event.tsv'),
     $fairyEventRows)
 
@@ -5413,7 +5439,7 @@ for ($index = 0; $index -lt $fairyMovementRows.Count; $index++) {
         "forestFairy.s:@data+$($index.ToString('x2'))"
     ) -join "`t")
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_movement.tsv'),
     $fairyMovementOutput)
 
@@ -5447,7 +5473,7 @@ for ($angle = 0; $angle -lt 32; $angle++) {
     $fairyVelocityRows.Add(
         "$($angle.ToString('x2'))`t$y`t$x`tbank3.objectSpeedTable:SPEED_200")
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_velocity.tsv'),
     $fairyVelocityRows)
 
@@ -5457,7 +5483,7 @@ $fairyHiddenRows = @(
     "80`t54`t04`tfairyHidingMinigame.s:@table"
     "91`t32`t05`tfairyHidingMinigame.s:@table"
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_hidden_spots.tsv'),
     $fairyHiddenRows)
 
@@ -5467,7 +5493,7 @@ $fairyHidingRoomRows = @(
     "1`t80`t0d`tmiscCutscenes.s:CUTSCENE_FAIRIES_HIDE"
     "2`t91`t0e`tmiscCutscenes.s:CUTSCENE_FAIRIES_HIDE"
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_hiding_rooms.tsv'),
     $fairyHidingRoomRows)
 
@@ -5477,7 +5503,7 @@ $fairyDiscoveredRows = @(
     "1`t48`t68`t2`t$forestFairyAnimation1`tforestFairy.s:forestFairy_discoveredPositions"
     "2`t28`t50`t3`t$forestFairyAnimation1`tforestFairy.s:forestFairy_discoveredPositions"
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_discovered.tsv'),
     $fairyDiscoveredRows)
 
@@ -5502,7 +5528,7 @@ for ($index = 0; $index -lt $scramblerRooms.Count; $index++) {
         (($values | ForEach-Object { $_.ToString('x2') }) -join "`t") +
         "`tbank1.s:@forestScramblerTable")
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_scrambler.tsv'),
     $fairyScramblerRows)
 
@@ -5788,10 +5814,10 @@ $shootingGalleryMainRows = Convert-ShootingGalleryCommandRows `
     $shootingGalleryMainCommands 'main'
 $shootingGalleryCleanupRows = Convert-ShootingGalleryCommandRows `
     $shootingGalleryCleanupCommands 'cleanup'
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_main.tsv'),
     $shootingGalleryMainRows)
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_cleanup.tsv'),
     $shootingGalleryCleanupRows)
 
@@ -5839,10 +5865,10 @@ for ($layout = 0; $layout -lt 10; $layout++) {
         "$layout`t$($tiles -join "`t")`t" +
         'shootingGallery.s:shootingGallery_targetTiles_lynna')
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_targets.tsv'),
     $shootingGalleryTargetRows)
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_layouts.tsv'),
     $shootingGalleryLayoutRows)
 
@@ -5907,7 +5933,7 @@ for ($index = 0; $index -lt $shootingGalleryHitLabels.Count; $index++) {
         "$(ConvertTo-CutsceneCommandPayload $allTexts[$textId])`t" +
         "scripts.s:$label")
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_results.tsv'),
     $shootingGalleryResultRows)
 
@@ -5954,7 +5980,7 @@ $shootingGalleryPrintRows = @(
         (ConvertTo-CutsceneCommandPayload $allTexts[0x0814])
     ) -join "`t")
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_result_script.tsv'),
     $shootingGalleryPrintRows)
 
@@ -5986,7 +6012,7 @@ $shootingGalleryDebrisRows = @(
     "# sprite`ttile-base`tblue-palette`tred-palette`tanimation`tcount`tlifetime`tspeed`tangle0`tangle1`tangle2`tangle3`tsource",
     "spr_common_sprites`t2`t1`t2`t$shootingGalleryDebrisAnimation`t4`t12`t40`t04`t0c`t14`t1c`tball.s:func_6bca;fallingRock.s:fallingRock_subid04/subid05"
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_debris.tsv'),
     $shootingGalleryDebrisRows)
 
@@ -5994,7 +6020,7 @@ $shootingGalleryEventRows = @(
     "# group`troom`tid`tsubid`tcost`trounds`tretry-command`tcontroller-y`tcontroller-x`tinitial-delay`tpitch-delay`tpuff-delay`tlayout-delay`tbetween-round-delay`tentrance0`tentrance1`topen0`topen1`tclosed0`tclosed1`tfloor`ttarget-blue`ttarget-fairy`ttarget-red`ttarget-imp`tball-fast`tball-slow`tball-reflected`tball-angle`tball-radius-y`tball-radius-x`tball-sprite`tball-tile-base`tball-palette`tball-animation`tfade-frames`tminigame-music`twhistle-sound`tbaseball-sound`tthrow-sound`tslow-sound`tclink-sound`tswitch-sound`terror-sound`tstrike-sound`tpoof-sound`tcan-buy-flute-flag`tflute-score`tring-score`tgasha-score`trupee-score`theart-score`tflute-object`tflute-object-parameter`tgasha-object`tgasha-object-parameter`tsource",
     "2`te9`t30`t00`t10`t10`t$shootingGalleryRetryIndex`t2a`t50`t120`t40`t10`t90`t20`t74`t75`te0`te1`tc6`tc6`ta0`td9`td7`tdc`td8`t64`t3c`t78`t10`t02`t02`t$shootingGalleryBallSprite`t$($shootingGalleryGraphic.TileBase)`t$($shootingGalleryGraphic.Palette)`t$shootingGalleryBallAnimation`t32`t02`tcc`t99`t51`t59`t50`t7e`t5a`ta6`t98`t1d`t50`t350`t250`t150`t50`tTREASURE_OBJECT_FLUTE_00`t0b`tTREASURE_OBJECT_GASHA_SEED_00`t01`tmainData.s:group2Mape9ObjectData;shootingGallery.s;ball.s;fallingRock.s;scripts.s;scriptHelper.s"
 )
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_event.tsv'),
     $shootingGalleryEventRows)
 
@@ -6029,10 +6055,12 @@ for ($index = 0; $index -lt 16; $index++) {
         "$index`t$($shootingGalleryRingValues[$name].ToString('x2'))`t" +
         'scriptHelper.s:shootingGallery_giveRandomRingToLink@ringList')
 }
-Write-GeneratedTable(
+Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_rings.tsv'),
     $shootingGalleryRingRows)
 
 # Every normalized command row emitted above must conform to the same schema
 # that runtime startup consumes.
-Test-GeneratedCutsceneCommandStreams $destination $cutsceneCommandSchemas
+Test-GeneratedCutsceneCommandStreams `
+    $generatedCutsceneCommandStreams `
+    $cutsceneCommandSchemas
