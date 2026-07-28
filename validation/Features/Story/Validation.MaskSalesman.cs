@@ -273,6 +273,10 @@ public sealed partial class ValidationRoot
             maskEvent.BlocksGameplay || _player.CutsceneControlled ||
             maskEvent.CurrentCommandIndex != 2,
             "Completed Mask Salesman dialogue did not restore input immediately.");
+        ValidateInteractiveInfiniteScriptCancellation(
+            maskEvent,
+            Salesman(),
+            "Mask Salesman");
 
         var warps = new WarpDatabase();
         OracleRoomData exterior = _world.LoadRoom(exteriorGroup, exteriorRoom);
@@ -384,6 +388,7 @@ public sealed partial class ValidationRoot
             "script initialization, strict $04/$06 talk geometry, alternating " +
             "TX_0b0d-$0b15/$0b45 hunger sequence, exact 15/30-update waits, " +
             "missing/No/Yes Tasty Meat paths, two-hand Doggie Mask reward, room " +
-            "bit $20 re-entry, and the bidirectional 0:53 tree warp.");
+            "bit $20 re-entry, shared infinite-script cancellation, and the " +
+            "bidirectional 0:53 tree warp.");
     }
 }

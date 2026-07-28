@@ -3028,6 +3028,13 @@ public sealed partial class ValidationRoot
             _entities.Entities<GroundTreasurePickup>().Count != 0 ||
             savedEvent.CurrentCommandIndex != 60 || _dialogue.IsOpen,
             "Collected room-$20 Satchel respawned or retriggered the first conversation.");
+        tree = _entities.Entities<NpcCharacter>().Single(npc =>
+            npc.Record.Id == record.InteractionId &&
+            npc.Record.SubId == record.SubId);
+        ValidateInteractiveInfiniteScriptCancellation(
+            savedEvent,
+            tree,
+            "Saved Maku Tree");
 
         CutsceneCommandTraceEntry[] commandStarts = trace.Entries.Where(entry =>
             entry.Phase == CutsceneCommandTracePhase.Started &&
@@ -3067,7 +3074,8 @@ public sealed partial class ValidationRoot
             "68-command typed NPC loop, fixed-bottom TX_0542-$0550/$0561 sequence, " +
             "Yes repeat/No continuation, five face animations, present-map advice state, " +
             "Link-relative Satchel X, persistent $80/X respawn, 40-update falling bounce, " +
-            "SND_SOLVEPUZZLE/two SND_DROPESSENCE cues, room-$20 suppression, and one-hand collection.");
+            "SND_SOLVEPUZZLE/two SND_DROPESSENCE cues, room-$20 suppression, one-hand " +
+            "collection, and shared infinite-script cancellation.");
     }
 
     private void ValidateRoom056Comedian()
@@ -3168,6 +3176,9 @@ public sealed partial class ValidationRoot
             comedian.CurrentScriptAnimationSource != record.Animation1,
             "Room 0:56 did not preserve its ordered sidekick/comedian composition " +
             "or two-update INTERAC_COMEDIAN initialization.");
+        FailIf(
+            comedianEvent.TryInteractNpc(actors[0]),
+            "The comedian infinite-script host accepted the unrelated sidekick actor.");
 
         _player.WarpTo(new Vector2(0x60, 0x48));
         StepRoomEventFrames(1);
@@ -3275,6 +3286,10 @@ public sealed partial class ValidationRoot
         BeginTalk();
         ExpectDialogue(0x0b32, "completed-trade branch");
         FinishSimpleTalk();
+        ValidateInteractiveInfiniteScriptCancellation(
+            comedianEvent,
+            comedian,
+            "Comedian");
 
         CutsceneCommandTraceEntry[] commandStarts = trace.Entries.Where(entry =>
             entry.Phase == CutsceneCommandTracePhase.Started &&
@@ -3307,7 +3322,30 @@ public sealed partial class ValidationRoot
             "typed script initialization, horizontal $00/$01 and moustache $04/$05 " +
             "facing, essence-progress TX_0b2c-$0b2e branches, missing/No/Yes trade " +
             "paths, exact 30-update waits, two-hand Funny Joke reward, room flag $20, " +
-            "and completed re-entry TX_0b32.");
+            "completed re-entry TX_0b32, exact actor matching, and shared " +
+            "infinite-script cancellation.");
+    }
+
+    private void ValidateInteractiveInfiniteScriptCancellation<TActor>(
+        InteractiveInfiniteScriptHost<TActor> script,
+        TActor actor,
+        string label)
+        where TActor : NpcCharacter
+    {
+        ((ICutsceneCommandHost)script).SetInputEnabled(enabled: false);
+        FailIf(
+            !script.BlocksGameplay || !_player.CutsceneControlled,
+            $"{label} shared infinite-script host did not acquire its input lease.");
+
+        script.Cancel();
+        FailIf(
+            script.HasState ||
+            script.ButtonSensitive ||
+            script.BlocksGameplay ||
+            _player.CutsceneControlled ||
+            actor.AnimationRate != 1.0f,
+            $"{label} shared infinite-script cancellation did not clear its " +
+            "runner, A-button state, input lease, and actor animation rate.");
     }
 
     private void ValidateNayruIntroCutscene()

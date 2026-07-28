@@ -214,10 +214,21 @@ doing nothing. Room-backed hosts expose their `RoomEventContext` once. Common
 sound, input, and global-flag forwarding remains centralized, while
 source-specific operands and state changes stay explicit.
 
-Interactive NPC loops that use the standard Link input lease derive from
+Interactive NPC scripts that use the standard Link input lease derive from
 `InteractiveCutsceneCommandHost`. Its idempotent acquire/release transition is
-the single owner for Comedian, Mask Salesman, Poe, and the saved Maku Tree;
-each event retains its own actor, dialogue, reward, and infinite-script state.
+the common lower-level owner for these scripts, including Poe's finite
+multi-room sequence.
+
+Single-actor `interactionRunScript` loops that permanently return to
+`checkabutton` derive from `InteractiveInfiniteScriptHost<TActor>`. The shared
+host owns the room context, runner start/advance/clear lifecycle, imported
+initial script updates, exact actor binding, pending A-button state, input
+lease, and cancellation cleanup. The saved Maku Tree, Comedian, and Mask
+Salesman use this boundary. Each event still implements its own room
+predicates, dialogue and choice ranges, imported animation/collision checks,
+inventory rewards, and native handlers through the default-deny command host.
+Poe does not use the infinite-loop host because its selected actor, movement,
+variant lifetime, and terminal script state cross rooms.
 
 Always clear runners when an event is cancelled, a room unload invalidates its
 actors, or native completion takes ownership. Do not accumulate ordinary event

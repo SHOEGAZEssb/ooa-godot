@@ -95,12 +95,19 @@ snapshot is maintained in
   A-sensitive geometry, and make begin/end/cancel behavior uniform without
   merging the handlers' state machines.
 
-- [ ] Extract the common interactive infinite-script host used by the saved
+- [x] Extract the common interactive infinite-script host used by the saved
   Maku Tree, Comedian, and Mask Salesman events. Their runner lifecycle,
   `_buttonSensitive`/`_buttonPressed`/`_inputDisabled` state, input leases,
   actor matching, cancellation, and much of `ICutsceneCommandHost` are
   duplicated; retain typed per-script operations and source-aware unsupported
   diagnostics in the individual events.
+  `InteractiveInfiniteScriptHost<TActor>` now owns the single-actor runner,
+  room context, initial script updates, A-button queue, exact actor binding,
+  idempotent input lease, and cancellation cleanup for all three events.
+  Their room predicates, dialogue, metadata checks, rewards, and native
+  handlers remain explicit. Headless validation cancels each active infinite
+  loop under an acquired input lease and pins runner, A-button, player-control,
+  and actor-animation cleanup without adding room loads or consuming RNG.
 
 - [ ] Consolidate script-granted ground-treasure construction and lifetime
   through `RoomEntityManager`. `RoomEventContext`, Vasu, Maku Tree, Dark Rooms,

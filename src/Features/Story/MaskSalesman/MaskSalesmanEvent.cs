@@ -6,32 +6,20 @@ namespace oracleofages;
 /// INTERAC_MASK_SALESMAN $5c:$00 and maskSalesmanScript in room $2:$e6.
 /// </summary>
 internal sealed class MaskSalesmanEvent :
-    InteractiveCutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost,
+    InteractiveInfiniteScriptHost<MaskSalesmanCharacter>,
+    IRoomEntryEvent, ICutsceneCommandHost,
     IUpdatesDuringDialogueRoomEvent
 {
     private const string ActorName = "MaskSalesman";
-    private readonly RoomEventContext _context;
     private readonly MaskSalesmanEventDatabase _database = new();
     private readonly MaskSalesmanEventRecord _record;
-    private readonly CutsceneCommandRunner _runner;
-    private MaskSalesmanCharacter? _salesman;
-    private bool _buttonSensitive;
-    private bool _buttonPressed;
 
-    public MaskSalesmanEvent(RoomEventContext context)
+    public MaskSalesmanEvent(RoomEventContext context) :
+        base(context, ActorName)
     {
-        _context = context;
         _record = _database.Record;
-        _runner = new CutsceneCommandRunner(this);
     }
 
-    public bool HasState => _runner.Active;
-    public bool BlocksGameplay => InputLeaseHeld;
-    protected override RoomEventContext InputContext => _context;
-    internal int CurrentCommandIndex =>
-        _runner.CurrentCommand?.Source.CommandIndex ?? -1;
-    internal int Counter => _runner.Counter;
-    internal bool ButtonSensitive => _buttonSensitive;
     internal MaskSalesmanEventDatabase Database => _database;
 
     public bool Matches(int group, OracleRoomData room) =>
@@ -40,65 +28,33 @@ internal sealed class MaskSalesmanEvent :
     public void Start(OracleRoomData room)
     {
         _ = room;
-        _runner.Clear();
-        NpcCharacter actor = _context.RequireNpc(
+        NpcCharacter actor = Context.RequireNpc(
             _record.Group,
             _record.Room,
             _record.InteractionId,
             _record.SubId,
             "INTERAC_MASK_SALESMAN");
-        _salesman = actor as MaskSalesmanCharacter ??
+        MaskSalesmanCharacter salesman = actor as MaskSalesmanCharacter ??
             throw new InvalidOperationException(
                 "Room 2:e6 instantiated INTERAC_MASK_SALESMAN without its native actor.");
-        _buttonSensitive = false;
-        _buttonPressed = false;
-        ReleaseInputControl();
-        _runner.Start(_database.Commands);
+        StartInfiniteScript(
+            salesman,
+            _database.Commands,
+            _record.InitialScriptUpdates);
 
         // interactionCode5c state 0 falls through to state 1 and runs the
         // newly installed script once before interactionAnimateAsNpc.
-        for (int update = 0; update < _record.InitialScriptUpdates; update++)
-            _runner.AdvanceFrame();
-        _salesman.AdvanceMaskSalesman(_context.Player);
+        salesman.AdvanceMaskSalesman(Context.Player);
     }
 
-    public void UpdateFrame()
+    public override void UpdateFrame()
     {
-        _runner.AdvanceFrame();
-        _salesman?.AdvanceMaskSalesman(_context.Player);
+        AdvanceInfiniteScript();
+        ScriptActor?.AdvanceMaskSalesman(Context.Player);
     }
 
     public void UpdateDuringDialogueFrame() =>
-        _salesman?.AdvanceMaskSalesman(_context.Player);
-
-    public bool TryInteractNpc(NpcCharacter npc)
-    {
-        if (!_runner.Active || !_buttonSensitive || InputLeaseHeld ||
-            !ReferenceEquals(npc, _salesman))
-        {
-            return false;
-        }
-        _buttonPressed = true;
-        return true;
-    }
-
-    public void Cancel()
-    {
-        ReleaseInputControl();
-        if (_salesman is not null)
-        {
-            _salesman.SetScriptButtonSensitive(false);
-            _salesman.SetAnimationRate(1.0f);
-        }
-        _salesman = null;
-        _buttonSensitive = false;
-        _buttonPressed = false;
-        _runner.Clear();
-    }
-
-    RoomEventContext ICutsceneCommandHost.Context => _context;
-    bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
-        actor.Value == ActorName;
+        ScriptActor?.AdvanceMaskSalesman(Context.Player);
 
     bool ICutsceneCommandHost.RoomFlagSet(int flag)
     {
@@ -107,7 +63,7 @@ internal sealed class MaskSalesmanEvent :
             throw new InvalidOperationException(
                 $"maskSalesmanScript cannot read room flag ${flag:x2}.");
         }
-        return _context.Rooms.SaveData.HasRoomFlag(
+        return Context.Rooms.SaveData.HasRoomFlag(
             _record.Group, _record.Room, (byte)flag);
     }
 
@@ -118,27 +74,18 @@ internal sealed class MaskSalesmanEvent :
             throw new InvalidOperationException(
                 $"maskSalesmanScript cannot compare trade item ${value:x2}.");
         }
-        return _context.Inventory.HasTreasure(TreasureDatabase.TreasureTradeItem) &&
-            _context.Inventory.TradeItem == value;
+        return Context.Inventory.HasTreasure(TreasureDatabase.TreasureTradeItem) &&
+            Context.Inventory.TradeItem == value;
     }
 
     bool ICutsceneCommandHost.TextOptionEquals(int value)
     {
-        if (!_context.TryTakeDialogueChoice(out int choice))
+        if (!Context.TryTakeDialogueChoice(out int choice))
         {
             throw new InvalidOperationException(
                 "maskSalesmanScript text-option branch has no completed choice result.");
         }
         return choice == value;
-    }
-
-    bool ICutsceneCommandHost.TryConsumeActorButton(CutsceneActorId actor)
-    {
-        _ = RequireSalesman(actor.Value);
-        if (!_buttonPressed)
-            return false;
-        _buttonPressed = false;
-        return true;
     }
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
@@ -149,9 +96,9 @@ internal sealed class MaskSalesmanEvent :
                 $"maskSalesmanScript requested unknown TX_{textId:x4}.");
         }
         if (textId == 0x0b10)
-            _context.ShowChoiceDialogue(message);
+            Context.ShowChoiceDialogue(message);
         else
-            _context.ShowDialogue(message);
+            Context.ShowDialogue(message);
     }
 
     void ICutsceneCommandHost.SetActorAnimation(
@@ -164,7 +111,7 @@ internal sealed class MaskSalesmanEvent :
             throw new InvalidOperationException(
                 $"Mask Salesman animation ${animation:x2} payload diverged from metadata.");
         }
-        RequireSalesman(actor).SetScriptAnimation(encodedAnimation);
+        RequireScriptActor(actor).SetScriptAnimation(encodedAnimation);
     }
 
     void ICutsceneCommandHost.SetActorCollisionRadii(
@@ -179,17 +126,8 @@ internal sealed class MaskSalesmanEvent :
                 $"maskSalesmanScript initialized unexpected collision radii " +
                 $"${radiusY:x2}/${radiusX:x2}.");
         }
-        RequireSalesman(actor).SetCollisionRadii(radiusY, radiusX);
+        RequireScriptActor(actor).SetCollisionRadii(radiusY, radiusX);
     }
-
-    void ICutsceneCommandHost.SetActorButtonSensitive(string actor)
-    {
-        RequireSalesman(actor).SetScriptButtonSensitive(true);
-        _buttonSensitive = true;
-    }
-
-    void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
-        RequireSalesman(actor).Visible = visible;
 
     void ICutsceneCommandHost.GiveItem(int treasureId, int parameter)
     {
@@ -201,7 +139,7 @@ internal sealed class MaskSalesmanEvent :
                 $"${treasureId:x2}:${parameter:x2}.");
         }
 
-        _context.GrantScriptTreasure(
+        Context.GrantScriptTreasure(
             _record.Group,
             _record.Room,
             treasureId,
@@ -210,13 +148,4 @@ internal sealed class MaskSalesmanEvent :
             "scriptHelper.s:maskSalesmanScript giveitem TREASURE_TRADEITEM,$04");
     }
 
-    private MaskSalesmanCharacter RequireSalesman(string actor)
-    {
-        if (actor != ActorName || _salesman is null)
-        {
-            throw new InvalidOperationException(
-                $"Unknown Mask Salesman command actor '{actor}'.");
-        }
-        return _salesman;
-    }
 }
