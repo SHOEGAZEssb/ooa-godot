@@ -127,7 +127,8 @@ public sealed partial class ValidationRoot
         FailIf(
             intro.CurrentStage != Stage.Vanishing ||
             intro.StageFrame != 0 ||
-            _sound.LastPlayRequest != OracleSoundEngine.SndFairyCutscene ||
+            _sound.LastPlayRequestForValidation() !=
+                OracleSoundEngine.SndFairyCutscene ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndFairyCutscene) !=
                 fairySoundRequests + 1 ||
             !_sound.Channel(fairySoundChannel.Channel).Active ||
@@ -1208,7 +1209,7 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(
             _player.Position != new Vector2(0x48, 0x48) ||
-            _sound.LastPlayRequest != OracleSoundEngine.SndClink ||
+            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndClink ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1,
             "Link did not finish exactly 46 pixels above his entry point and play SND_CLINK.");
 
@@ -1238,7 +1239,7 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(
             octoroks[1].Position != fakeStarts[1] ||
-            _sound.LastPlayRequest != OracleSoundEngine.SndThrow ||
+            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndThrow ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndThrow) != 1,
             "Fake Octorok var03=$01 did not play SND_THROW on its stationary substate update.");
         StepRoomEventFrames(1);
@@ -2191,7 +2192,8 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         StepRoomEventFrames(61);
         FailIf(
-            _sound.LastPlayRequest != OracleSoundEngine.SndCtrlStopMusic ||
+            _sound.LastPlayRequestForValidation() !=
+                OracleSoundEngine.SndCtrlStopMusic ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1,
             "The Maku Tree did not stop its music after the 60-update post-text wait.");
         StepRoomEventFrames(1);
@@ -2205,7 +2207,8 @@ public sealed partial class ValidationRoot
             "INTERAC_MAKU_TREE animation 4 did not use its original four-update first frame.");
         StepRoomEventFrames(57);
         FailIf(
-            _sound.LastPlayRequest != OracleSoundEngine.SndMakuDisappear ||
+            _sound.LastPlayRequestForValidation() !=
+                OracleSoundEngine.SndMakuDisappear ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMakuDisappear) != 1,
             "The first SND_MAKUDISAPPEAR did not start with the palette-cycling disappearance.");
 
@@ -2223,7 +2226,8 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         StepRoomEventFrames(1);
         FailIf(
-            _sound.LastPlayRequest != OracleSoundEngine.SndMakuDisappear ||
+            _sound.LastPlayRequestForValidation() !=
+                OracleSoundEngine.SndMakuDisappear ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMakuDisappear) != 2,
             "TX_0540 did not replay SND_MAKUDISAPPEAR when its textbox closed.");
         StepRoomEventFrames(211);
@@ -2235,7 +2239,8 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         StepRoomEventFrames(1);
         FailIf(
-            _sound.LastPlayRequest != OracleSoundEngine.SndMakuDisappear ||
+            _sound.LastPlayRequestForValidation() !=
+                OracleSoundEngine.SndMakuDisappear ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMakuDisappear) != 3,
             "TX_0541 did not replay SND_MAKUDISAPPEAR when its textbox closed.");
         StepRoomEventFrames(151);
@@ -2251,7 +2256,7 @@ public sealed partial class ValidationRoot
             !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared) ||
             !_saveData.HasRoomFlag(0, 0x38, OracleSaveData.RoomFlagLayoutSwap) ||
             _saveData.MakuTreeState != 1 ||
-            _sound.LastPlayRequest != OracleSoundEngine.SndFadeOut ||
+            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndFadeOut ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndFadeOut) != 1,
             "The Maku Tree event did not persist GLOBALFLAG_0c, wMakuTreeState, room bit 0, " +
             "and initiate its hardcoded same-room warp after 150 updates.");
@@ -3411,7 +3416,7 @@ public sealed partial class ValidationRoot
                 Input.ActionRelease(action);
         }
         FailIf(
-            _sound.LastPlayRequest != OracleSoundEngine.SndError ||
+            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndError ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndError) != errorRequests + 3 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != openMenuRequests ||
             _inventoryMenu.IsActive || _mapMenu.IsActive ||
@@ -4109,7 +4114,8 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(2);
         FailIf(
             ralphEvent.Counter != 45 || ralphEvent.Flickering ||
-            _sound.LastPlayRequest != OracleSoundEngine.SndMysterySeed ||
+            _sound.LastPlayRequestForValidation() !=
+                OracleSoundEngine.SndMysterySeed ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMysterySeed) != 1,
             "Ralph's var3f=$2d and SND_MYSTERY_SEED commands lost their script updates.");
         StepRoomEventFrames(1);

@@ -393,17 +393,17 @@ NPC- and enemy-specific findings remain in their sections above.
     of repeating unconditional unsupported implementations. Event-specific
     operand checks, native handlers, and actor registries remain explicit.
 
-- [ ] Move active validation audit bookkeeping out of production classes.
-  `OracleSoundEngine` maintains a 256-entry request counter and last-request
-  value, `OracleGraphicsCache` maintains load/build/hit audit counters, and
-  `CombatController` retains the last clink plus a spawn count solely for
-  headless assertions.
-  - Attach validation-owned sound, cache, and effect observers/sinks instead,
-    preserving request order and cache-operation detail needed by the current
-    scenarios without changing production behavior or resource lifetime.
-  - Retain narrow truthful views of real state such as active channels and
-    current cache contents, but remove resettable counters and trace history
-    that the shipped runtime would not otherwise maintain.
+- [x] Move active validation audit bookkeeping out of production classes.
+  `OracleSoundEngine`, `OracleGraphicsCache`, and `CombatController` now expose
+  narrow internal observation hooks without storing request history, audit
+  counters, last effects, or resettable validation state.
+  - Validation-owned observers retain ordered sound requests and per-ID
+    counts, structured cache build/hit operations with key detail, and spawned
+    clink references. Existing timing, cache-identity, sound-order, and effect
+    assertions consume those observers.
+  - Production retains truthful sequencer/channel state, active music, current
+    cache contents, and world-owned effect nodes. Shutdown still releases audio
+    and graphics resources without retaining validation observers.
 
 ## Codebase size reduction audit
 

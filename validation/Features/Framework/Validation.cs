@@ -11,10 +11,14 @@ public sealed partial class ValidationRoot : GameRoot
 {
     private int _neutralInputFrames;
     private ValidationCutsceneTrace? _enterPastCommandTrace;
+    private ValidationCombatEffectAudit _combatEffectAudit = null!;
 
     public override void _Ready()
     {
         base._Ready();
+        _sound.AttachPlayRequestAudit();
+        _combatEffectAudit = new ValidationCombatEffectAudit();
+        _combat.SetEffectObserver(_combatEffectAudit);
         ResetValidationInput();
         _scene.ProcessMode = ProcessModeEnum.Disabled;
     }

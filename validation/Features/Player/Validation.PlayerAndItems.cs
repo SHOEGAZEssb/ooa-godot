@@ -1162,7 +1162,7 @@ public sealed partial class ValidationRoot
         _player.StartSwordAttack();
         _player.AdvanceSwordForValidation(17, buttonHeld: true);
         _sound.ClearPlayRequestAudit();
-        _combat.ClearClinkEffectAudit();
+        _combatEffectAudit.Clear();
         _player.AdvanceSwordForValidation(1, buttonHeld: true, movementInput: Vector2.Up);
         FailIf(
             _player.SwordState != SwordActionState.Poke ||
@@ -1171,10 +1171,10 @@ public sealed partial class ValidationRoot
             _player.SwordSpritePosition != new Vector2(-4, -19) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1,
             "Held-sword wall pressure did not enter the collision-disabled 12-update poke and play SND_CLINK.");
-        ClinkEffect? ordinaryClink = _combat.LastClinkEffect;
+        ClinkEffect? ordinaryClink = _combatEffectAudit.LastClinkEffect;
         Vector2 expectedClinkPosition = _player.Position + new Vector2(0, -14);
         FailIf(
-            _combat.ClinkEffectsSpawned != 1 || ordinaryClink is null ||
+            _combatEffectAudit.ClinkEffectsSpawned != 1 || ordinaryClink is null ||
             ordinaryClink.Position != expectedClinkPosition || !ordinaryClink.Flickers ||
             ordinaryClink.DurationFrames != 8 || ordinaryClink.AnimationFrame != 0 ||
             !ordinaryClink.EffectVisible,
@@ -1204,13 +1204,13 @@ public sealed partial class ValidationRoot
         _currentRoom.SetPositionTileAndCollision(
             bushPoint, 0xc1, null, (long)_animationTicks);
         _sound.ClearPlayRequestAudit();
-        _combat.ClearClinkEffectAudit();
+        _combatEffectAudit.Clear();
         _player.StartSwordAttack();
         _player.AdvanceSwordForValidation(6, buttonHeld: false);
-        ClinkEffect? bombableClink = _combat.LastClinkEffect;
+        ClinkEffect? bombableClink = _combatEffectAudit.LastClinkEffect;
         FailIf(
             _sound.PlayRequestsFor(OracleSoundEngine.SndClink2) != 1 ||
-            _combat.ClinkEffectsSpawned != 1 || bombableClink is null ||
+            _combatEffectAudit.ClinkEffectsSpawned != 1 || bombableClink is null ||
             bombableClink.Position != expectedClinkPosition || bombableClink.Flickers ||
             !bombableClink.EffectVisible,
             "Bombable overworld tile `$c1 did not play SND_CLINK2 and spawn non-flickering INTERAC_CLINK.");

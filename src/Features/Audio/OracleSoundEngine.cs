@@ -121,9 +121,9 @@ public partial class OracleSoundEngine : Node
 
     private readonly OracleSoundData _data;
     private readonly ChannelState[] _channels = new ChannelState[8];
-    private readonly int[] _playRequestCounts = new int[0x100];
     private readonly bool _enableOutput;
     private readonly bool _allowHeadlessOutput;
+    private IOracleSoundRequestObserver? _requestObserver;
     private AudioStreamPlayer? _player;
     private AudioStreamGeneratorPlayback? _playback;
     private double _updateTicks;
@@ -139,8 +139,6 @@ public partial class OracleSoundEngine : Node
     public int MusicVolume => _musicVolume;
     internal OracleSoundData Data => _data;
     internal ChannelState Channel(int channel) => _channels[channel];
-    internal int LastPlayRequest { get; private set; }
-    internal int PlayRequestsFor(int soundId) => _playRequestCounts[soundId & 0xff];
     internal bool OutputResourcesActiveForValidation => _player is not null || _playback is not null;
 
     public OracleSoundEngine() : this(new OracleSoundData(), true) { }
@@ -188,6 +186,7 @@ public partial class OracleSoundEngine : Node
         if (_player is not null)
             _player.Stream = null;
         _player = null;
+        _requestObserver = null;
     }
 
     public override void _Process(double delta)
@@ -228,8 +227,7 @@ public partial class OracleSoundEngine : Node
     {
         if (soundId == 0)
             return;
-        LastPlayRequest = soundId;
-        _playRequestCounts[soundId & 0xff]++;
+        _requestObserver?.OnSoundRequested(soundId);
         bool stoppingMusic = soundId == SndCtrlStopMusic;
         switch (soundId)
         {
@@ -271,11 +269,8 @@ public partial class OracleSoundEngine : Node
         _masterVolume = 7;
     }
 
-    internal void ClearPlayRequestAudit()
-    {
-        Array.Clear(_playRequestCounts);
-        LastPlayRequest = 0;
-    }
+    internal void SetRequestObserver(IOracleSoundRequestObserver? observer) =>
+        _requestObserver = observer;
 
     internal void Tick()
     {

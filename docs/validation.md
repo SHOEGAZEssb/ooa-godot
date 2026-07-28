@@ -22,6 +22,13 @@ state or provide a small internal operation that is also a truthful view of the
 runtime owner. Cutscene command tracing is attached by validation rather than
 stored permanently on each event.
 
+Operation history follows the same rule. Validation attaches narrow internal
+observers to `OracleSoundEngine`, `OracleGraphicsCache`, and
+`CombatController`; the validation assembly owns sound-request counts/order,
+cache-operation traces, and spawned-clink references. Production retains only
+real sequencer state, current cache contents, and spawned world nodes. Resetting
+an audit resets the validation observer, never the runtime owner.
+
 Room/entity scenarios construct managers through
 `RoomEntityValidationFixture`. Its defaults provide the ordinary databases,
 RNG, and runtime collaborators; `RoomEntityValidationOptions` supplies only

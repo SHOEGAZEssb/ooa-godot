@@ -834,6 +834,8 @@ public sealed partial class ValidationRoot
             "GBC pulse/wave/noise clocks or CGB high-pass coefficient diverged.");
 
         var sound = new OracleSoundEngine(data, enableOutput: false);
+        ValidationSoundRequestAudit soundAudit =
+            sound.AttachPlayRequestAudit();
         sound.PlaySound(OracleSoundEngine.MusTitlescreen);
         sound.Tick();
         ChannelState square1 = sound.Channel(0);
@@ -972,6 +974,11 @@ public sealed partial class ValidationRoot
             sound.ActiveMusic != OracleSoundEngine.MusOverworld ||
             sound.PlayRequestsFor(OracleSoundEngine.MusOverworld) != overworldRequests + 1,
             "A cancelled SNDCTRL_MEDIUM_FADEOUT later stopped the replacement room music.");
+        FailIf(
+            soundAudit.Requests.Count < 3 ||
+            soundAudit.Requests[^2] != OracleSoundEngine.SndCtrlMediumFadeOut ||
+            soundAudit.Requests[^1] != OracleSoundEngine.MusOverworld,
+            "Validation-owned sound observation lost request order.");
 
         var outputSound = new OracleSoundEngine(
             data, enableOutput: true, allowHeadlessOutput: true);
@@ -1006,6 +1013,8 @@ public sealed partial class ValidationRoot
 
     private static void ValidateGraphicsCache()
     {
+        ValidationGraphicsCacheAudit cacheAudit =
+            ValidationGraphicsCacheAudit.Attach();
         string[] pngPaths = EnumeratePngPaths("res://assets/oracle")
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToArray();
@@ -1026,15 +1035,29 @@ public sealed partial class ValidationRoot
         }
 
         const string sourcePath = "res://assets/oracle/gfx/spr_impa.png";
-        int loadsBefore = OracleGraphicsCache.SourceLoadCount;
+        int loadsBefore = cacheAudit.Count(
+            OracleGraphicsCacheOperation.SourceLoad);
+        int sourceObservationStart = cacheAudit.Observations.Count;
         Image source = OracleGraphicsCache.LoadImage(sourcePath);
-        int loadsAfterFirst = OracleGraphicsCache.SourceLoadCount;
+        int loadsAfterFirst = cacheAudit.Count(
+            OracleGraphicsCacheOperation.SourceLoad);
         Image sameSource = OracleGraphicsCache.LoadImage(sourcePath);
         FailIf(
             !ReferenceEquals(source, sameSource) ||
-            OracleGraphicsCache.SourceLoadCount != loadsAfterFirst ||
+            cacheAudit.Count(OracleGraphicsCacheOperation.SourceLoad) !=
+                loadsAfterFirst ||
             loadsAfterFirst - loadsBefore is < 0 or > 1,
             "Repeated graphics access did not return one cached CPU source image.");
+        OracleGraphicsCacheObservation[] sourceObservations =
+            cacheAudit.Observations
+                .Skip(sourceObservationStart)
+                .Where(observation => observation.Key == sourcePath)
+                .ToArray();
+        FailIf(
+            sourceObservations.Length != 2 ||
+            sourceObservations[^1].Operation !=
+                OracleGraphicsCacheOperation.SourceHit,
+            "Validation-owned graphics observation lost source cache-operation detail.");
 
         const string extraPath = "res://assets/oracle/gfx/spr_common_sprites.png";
         Image composite = OracleGraphicsCache.AppendGraphics(source, extraPath);
@@ -1060,15 +1083,20 @@ public sealed partial class ValidationRoot
             animation.Frames.Any(frame => frame.EncodedOam != encodedOam),
             "Encoded animation definitions were not parsed and cached immutably.");
 
-        int buildsBefore = OracleGraphicsCache.OamBuildCount;
+        int buildsBefore = cacheAudit.Count(
+            OracleGraphicsCacheOperation.OamFrameBuild);
         Texture2D cached = NpcCharacter.BuildOamTexture(source, encodedOam, 0, 1);
-        int buildsAfterFirst = OracleGraphicsCache.OamBuildCount;
-        int hitsAfterFirst = OracleGraphicsCache.OamCacheHitCount;
+        int buildsAfterFirst = cacheAudit.Count(
+            OracleGraphicsCacheOperation.OamFrameBuild);
+        int hitsAfterFirst = cacheAudit.Count(
+            OracleGraphicsCacheOperation.OamFrameHit);
         Texture2D sameCached = NpcCharacter.BuildOamTexture(source, encodedOam, 0, 1);
         FailIf(
             !ReferenceEquals(cached, sameCached) ||
-            OracleGraphicsCache.OamBuildCount != buildsAfterFirst ||
-            OracleGraphicsCache.OamCacheHitCount != hitsAfterFirst + 1 ||
+            cacheAudit.Count(OracleGraphicsCacheOperation.OamFrameBuild) !=
+                buildsAfterFirst ||
+            cacheAudit.Count(OracleGraphicsCacheOperation.OamFrameHit) !=
+                hitsAfterFirst + 1 ||
             buildsAfterFirst - buildsBefore is < 0 or > 1,
             "An identical OAM frame was rebuilt instead of reused.");
 
@@ -1128,17 +1156,21 @@ public sealed partial class ValidationRoot
         try
         {
             firstNpc.Initialize(npcRecord);
-            int buildsAfterFirstNpc = OracleGraphicsCache.OamBuildCount;
+            int buildsAfterFirstNpc = cacheAudit.Count(
+                OracleGraphicsCacheOperation.OamFrameBuild);
             secondNpc.Initialize(npcRecord);
             FailIf(
-                OracleGraphicsCache.OamBuildCount != buildsAfterFirstNpc,
+                cacheAudit.Count(OracleGraphicsCacheOperation.OamFrameBuild) !=
+                    buildsAfterFirstNpc,
                 "A second NPC instance rebuilt shared facing OAM frames.");
 
             firstNpc.SetScriptAnimation(npcRecord.DownAnimation);
-            int buildsAfterFirstScriptSelection = OracleGraphicsCache.OamBuildCount;
+            int buildsAfterFirstScriptSelection = cacheAudit.Count(
+                OracleGraphicsCacheOperation.OamFrameBuild);
             firstNpc.SetScriptAnimation(npcRecord.DownAnimation);
             FailIf(
-                OracleGraphicsCache.OamBuildCount != buildsAfterFirstScriptSelection,
+                cacheAudit.Count(OracleGraphicsCacheOperation.OamFrameBuild) !=
+                    buildsAfterFirstScriptSelection,
                 "Re-selecting a scripted NPC animation rebuilt its OAM textures.");
         }
         finally
@@ -1147,6 +1179,7 @@ public sealed partial class ValidationRoot
             secondNpc.Free();
         }
 
+        OracleGraphicsCache.SetObserver(null);
         GD.Print($"Validated ResourceLoader pixel parity for {pngPaths.Length} generated PNGs, " +
             "immutable source/composite reuse, `$20-tile chain alignment, complete OAM cache keys, " +
             "cross-instance/scripted-animation reuse, and byte-identical fixed/positioned composition.");

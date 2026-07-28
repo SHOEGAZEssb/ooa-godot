@@ -13,9 +13,7 @@ public sealed class CombatController
     private readonly OracleSaveData _saveData;
     private readonly OracleSoundEngine _sound;
     private readonly Func<long> _animationTick;
-
-    internal int ClinkEffectsSpawned { get; private set; }
-    internal ClinkEffect? LastClinkEffect { get; private set; }
+    private ICombatEffectObserver? _effectObserver;
 
     private static readonly Vector2[] SwordTileOffsets =
     {
@@ -172,11 +170,8 @@ public sealed class CombatController
         return true;
     }
 
-    internal void ClearClinkEffectAudit()
-    {
-        ClinkEffectsSpawned = 0;
-        LastClinkEffect = null;
-    }
+    internal void SetEffectObserver(ICombatEffectObserver? observer) =>
+        _effectObserver = observer;
 
     private void SpawnClinkEffect(Vector2 position, bool flickers)
     {
@@ -187,8 +182,7 @@ public sealed class CombatController
         };
         effect.Initialize(position, flickers);
         _worldRoot.AddChild(effect);
-        LastClinkEffect = effect;
-        ClinkEffectsSpawned++;
+        _effectObserver?.OnClinkEffectSpawned(effect);
     }
 
     internal void SpawnBreakEffect(Vector2 point, int effect)

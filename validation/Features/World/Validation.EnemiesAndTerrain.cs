@@ -667,7 +667,8 @@ public sealed partial class ValidationRoot
             _player.HealthQuarters != healthBeforeContact - 2 ||
             !Mathf.IsEqualApprox(_player.InvincibilityFrames, 0x22) ||
             !Mathf.IsEqualApprox(_player.KnockbackFrames, 0x0f) ||
-            _sound.LastPlayRequest != OracleSoundEngine.SndDamageLink ||
+            _sound.LastPlayRequestForValidation() !=
+                OracleSoundEngine.SndDamageLink ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1,
             "Keese contact did not apply half-heart damage, 34 invincibility updates, " +
             "15 knockback updates, and SND_DAMAGE_LINK $5f.");
@@ -3280,7 +3281,7 @@ public sealed partial class ValidationRoot
 
         AdvanceHolePullUntilFall(expectedHoleCenter);
         FailIf(
-            _sound.LastPlayRequest != OracleSoundEngine.SndLinkFall ||
+            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndLinkFall ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall) != fallSoundRequests + 1,
             "The fall-in-hole animation did not start exactly one SND_LINK_FALL $65 request.");
         AdvanceHoleFallUntilRespawn(holeSafe);
@@ -3344,7 +3345,7 @@ public sealed partial class ValidationRoot
             !_player.IsDrowning || !_player.Visible || _player.DrownAnimationFrame != 0,
             $"{terrainName} terrain did not begin visible LINK_ANIM_MODE_DROWN frame $d4.");
         FailIf(
-            _sound.LastPlayRequest != OracleSoundEngine.SndSplash ||
+            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndSplash ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) != splashSoundRequests + 1,
             $"{terrainName} drowning did not request SND_DAMAGE_LINK `$5f followed by " +
@@ -3512,7 +3513,7 @@ public sealed partial class ValidationRoot
             _player.Position != new Vector2(24, 81) ||
             _player.LocalRespawnPosition != ledgeStart ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds + 1 ||
-            _sound.LastPlayRequest != OracleSoundEngine.SndLand,
+            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndLand,
             "The in-room ledge jump did not land on update 29 with SND_LAND $a3.");
 
         _player.WarpTo(ledgeStart);
@@ -3636,7 +3637,7 @@ public sealed partial class ValidationRoot
             _player.PrecisePosition != new Vector2(80, 22) ||
             _player.LocalRespawnPosition != new Vector2(80, 22) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds + 1 ||
-            _sound.LastPlayRequest != OracleSoundEngine.SndLand,
+            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndLand,
             "The post-scroll ledge fall did not land, update local respawn, and play SND_LAND.");
         RestoreOracleRandomForValidation(randomSnapshot);
     }

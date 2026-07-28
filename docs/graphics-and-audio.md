@@ -23,6 +23,11 @@ override that changes pixels must be represented in the cache key; mutating a
 shared image corrupts every user and invalidates cache identity. Clear the cache
 during root shutdown so native Godot resources do not remain retained.
 
+The cache retains truthful current-content counts, but no load/build/hit audit
+counters or history. Headless validation temporarily attaches an operation
+observer that receives ordered source, composite, OAM-frame, OAM-cell, and
+animation build/hit records with cache-key detail.
+
 `LoadRawPngForValidation` is for independent validation decoding only. It must
 not become a production loading path.
 
@@ -275,6 +280,10 @@ Gameplay code requests original sound IDs at the original update. If the source
 chooses a variation with the global game RNG (for example sword sounds), consume
 `OracleRandom`; never use a separate nondeterministic RNG because it changes
 later enemies and drops.
+
+The production sequencer retains channel and active-music state, not a request
+counter or last-request field. Validation attaches a request observer before
+the suite starts and owns the ordered request list plus per-ID counts.
 
 Collecting an Essence applies `TREASURE_ESSENCE`'s collection behavior in the
 same update that its get text opens, so `MUS_GET_ESSENCE $10` plays throughout

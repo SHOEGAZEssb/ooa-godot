@@ -777,7 +777,8 @@ public sealed partial class ValidationRoot
         }
         _mapMenu.Update(1.0 / 60.0);
         FailIf(
-            !_mapScreen.Visible || _sound.LastPlayRequest != OracleSoundEngine.SndOpenMenu ||
+            !_mapScreen.Visible ||
+            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndOpenMenu ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != openMenuRequests + 1,
             "MENU_MAP did not request SND_OPENMENU $54 at the full-white screen swap.");
         for (int frame = 0; frame < MapMenuController.FastFadeFrames; frame++)
@@ -795,7 +796,7 @@ public sealed partial class ValidationRoot
             !_mapMenu.NavigateForValidation(Vector2I.Left) ||
             !_mapMenu.NavigateForValidation(Vector2I.Left) ||
             _mapScreen.CursorRoom != 0x1d ||
-            _sound.LastPlayRequest != OracleSoundEngine.SndMenuMove ||
+            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndMenuMove ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != mapMoveRequests + 2,
             $"The overworld cursor did not wrap 11 -> 10 -> 1d with two " +
             $"SND_MENU_MOVE $84 requests; got {_mapScreen.CursorRoom:x2}.");
@@ -1030,7 +1031,7 @@ public sealed partial class ValidationRoot
         _inventoryMenu.Update(1.0 / 60.0);
         FailIf(
             !_inventoryScreen.Visible || !Mathf.IsEqualApprox(_scene.MenuFade.Color.A, 1.0f) ||
-            _sound.LastPlayRequest != OracleSoundEngine.SndOpenMenu ||
+            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndOpenMenu ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != openMenuRequests + 1,
             "The inventory screen did not swap in with SND_OPENMENU $54 at full white.");
         for (int frame = 0; frame < InventoryMenuController.FastFadeFrames; frame++)
@@ -1086,7 +1087,8 @@ public sealed partial class ValidationRoot
         int inventoryMoveRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
         FailIf(
             !_inventoryMenu.EquipToAForValidation() ||
-            _sound.LastPlayRequest != OracleSoundEngine.SndSelectItem ||
+            _sound.LastPlayRequestForValidation() !=
+                OracleSoundEngine.SndSelectItem ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectItemRequests + 1 ||
             _inventory.EquippedA != InventoryState.ItemNone ||
             _inventory.StorageItemAt(0) != InventoryState.ItemSword ||
@@ -1114,12 +1116,13 @@ public sealed partial class ValidationRoot
 
         FailIf(
             !_inventoryMenu.EquipToBForValidation() ||
-            _sound.LastPlayRequest != OracleSoundEngine.SndSelectItem ||
+            _sound.LastPlayRequestForValidation() !=
+                OracleSoundEngine.SndSelectItem ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectItemRequests + 2 ||
             _inventory.EquippedB != InventoryState.ItemSword ||
             _inventory.StorageItemAt(0) != InventoryState.ItemHarp,
             "Pressing B on storage slot 0 did not equip the sword to " +
-            $"wInventoryB (lastSound=${_sound.LastPlayRequest:x2}, " +
+            $"wInventoryB (lastSound=${_sound.LastPlayRequestForValidation():x2}, " +
             $"selectRequests={_sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem)}, " +
             $"expected={selectItemRequests + 2}, " +
             $"equippedB=${_inventory.EquippedB:x2}, " +
@@ -1128,7 +1131,7 @@ public sealed partial class ValidationRoot
 
         FailIf(
             !_inventoryMenu.MoveCursorForValidation(Vector2I.Left) ||
-            _sound.LastPlayRequest != OracleSoundEngine.SndMenuMove ||
+            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndMenuMove ||
             _inventoryScreen.Cursor != 15,
             "Inventory cursor did not wrap left with the original & $0f rule.");
         FailIf(
@@ -1145,7 +1148,8 @@ public sealed partial class ValidationRoot
             _inventoryScreen.Cursor != 1 ||
             !_inventoryMenu.EquipToBForValidation() ||
             !_inventoryMenu.EquipToAForValidation() ||
-            _sound.LastPlayRequest != OracleSoundEngine.SndSelectItem ||
+            _sound.LastPlayRequestForValidation() !=
+                OracleSoundEngine.SndSelectItem ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectItemRequests + 4 ||
             _inventory.EquippedA != InventoryState.ItemSword ||
             _inventory.EquippedB != InventoryState.ItemNone ||
@@ -1156,7 +1160,7 @@ public sealed partial class ValidationRoot
         int tabSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu);
         FailIf(
             !_inventoryMenu.BeginNextSubscreenForValidation() ||
-            _sound.LastPlayRequest != OracleSoundEngine.SndOpenMenu ||
+            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndOpenMenu ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != tabSoundRequests + 1,
             "The first inventory tab switch did not request SND_OPENMENU $54.");
         FailIf(
@@ -1211,7 +1215,7 @@ public sealed partial class ValidationRoot
             !_inventoryMenu.MoveCursorForValidation(Vector2I.Right) ||
             !_inventoryMenu.MoveCursorForValidation(Vector2I.Down) ||
             !_inventoryMenu.MoveCursorForValidation(Vector2I.Down) ||
-            _sound.LastPlayRequest != OracleSoundEngine.SndMenuMove ||
+            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndMenuMove ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != inventoryMoveRequests + 8 ||
             !_inventoryScreen.SaveAndQuitSelected || _inventoryScreen.ActiveCursor != 0x82 ||
             _inventoryScreen.ActiveTextKey != 0x60 ||

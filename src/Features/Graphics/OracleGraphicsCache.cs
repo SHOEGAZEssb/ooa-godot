@@ -20,22 +20,20 @@ internal static class OracleGraphicsCache
         new(StringComparer.Ordinal);
     private static readonly Dictionary<OamKey, OamFrame> OamFrames = new();
     private static readonly Dictionary<OamCellKey, Texture2D> OamCells = new();
+    private static IOracleGraphicsCacheObserver? _observer;
 
-    internal static int SourceLoadCount { get; private set; }
-    internal static int SourceCacheHitCount { get; private set; }
-    internal static int CompositeBuildCount { get; private set; }
-    internal static int CompositeCacheHitCount { get; private set; }
-    internal static int OamBuildCount { get; private set; }
-    internal static int OamCacheHitCount { get; private set; }
     internal static int SourceImageCount => SourceImages.Count;
     internal static int AnimationDefinitionCount => AnimationDefinitions.Count;
     internal static int OamFrameCount => OamFrames.Count;
+
+    internal static void SetObserver(IOracleGraphicsCacheObserver? observer) =>
+        _observer = observer;
 
     internal static Image LoadImage(string path)
     {
         if (SourceImages.TryGetValue(path, out Image? cached))
         {
-            SourceCacheHitCount++;
+            Observe(OracleGraphicsCacheOperation.SourceHit, path);
             return cached;
         }
 
@@ -63,7 +61,7 @@ internal static class OracleGraphicsCache
 
         SourceImages.Add(path, image);
         ImageHashes.Add(image.GetInstanceId(), PixelHash(image));
-        SourceLoadCount++;
+        Observe(OracleGraphicsCacheOperation.SourceLoad, path);
         return image;
     }
 
@@ -75,7 +73,12 @@ internal static class OracleGraphicsCache
             source.GetInstanceId(), extra.GetInstanceId(), extraOffset);
         if (CompositeImages.TryGetValue(key, out Image? cached))
         {
-            CompositeCacheHitCount++;
+            if (_observer is not null)
+            {
+                Observe(
+                    OracleGraphicsCacheOperation.CompositeHit,
+                    $"{source.GetInstanceId():x16}+{extraPath}");
+            }
             return cached;
         }
 
@@ -95,7 +98,12 @@ internal static class OracleGraphicsCache
 
         CompositeImages.Add(key, combined);
         ImageHashes.Add(combined.GetInstanceId(), PixelHash(combined));
-        CompositeBuildCount++;
+        if (_observer is not null)
+        {
+            Observe(
+                OracleGraphicsCacheOperation.CompositeBuild,
+                $"{source.GetInstanceId():x16}+{extraPath}");
+        }
         return combined;
     }
 
@@ -137,13 +145,25 @@ internal static class OracleGraphicsCache
             composition);
         if (OamFrames.TryGetValue(key, out OamFrame cached))
         {
-            OamCacheHitCount++;
+            if (_observer is not null)
+            {
+                Observe(
+                    OracleGraphicsCacheOperation.OamFrameHit,
+                    $"{sourceId:x16}:{tileBase:x2}:{basePalette:x2}:" +
+                    $"{sourceOffset:x}:{composition}:{encodedOam}");
+            }
             return cached;
         }
 
         OamFrame created = factory();
         OamFrames.Add(key, created);
-        OamBuildCount++;
+        if (_observer is not null)
+        {
+            Observe(
+                OracleGraphicsCacheOperation.OamFrameBuild,
+                $"{sourceId:x16}:{tileBase:x2}:{basePalette:x2}:" +
+                $"{sourceOffset:x}:{composition}:{encodedOam}");
+        }
         return created;
     }
 
@@ -166,9 +186,25 @@ internal static class OracleGraphicsCache
             sourceId, sourceHash, tile, flags, colors01, colors23,
             sourceGrayscaleInverted);
         if (OamCells.TryGetValue(key, out Texture2D? cached))
+        {
+            if (_observer is not null)
+            {
+                Observe(
+                    OracleGraphicsCacheOperation.OamCellHit,
+                    $"{sourceId:x16}:{tile:x2}:{flags:x2}:" +
+                    $"{sourceGrayscaleInverted}");
+            }
             return cached;
+        }
         Texture2D created = factory();
         OamCells.Add(key, created);
+        if (_observer is not null)
+        {
+            Observe(
+                OracleGraphicsCacheOperation.OamCellBuild,
+                $"{sourceId:x16}:{tile:x2}:{flags:x2}:" +
+                $"{sourceGrayscaleInverted}");
+        }
         return created;
     }
 
@@ -177,6 +213,9 @@ internal static class OracleGraphicsCache
         if (AnimationDefinitions.TryGetValue(
             encodedAnimation, out AnimationDefinition? cached))
         {
+            Observe(
+                OracleGraphicsCacheOperation.AnimationHit,
+                encodedAnimation);
             return cached;
         }
 
@@ -216,6 +255,9 @@ internal static class OracleGraphicsCache
 
         AnimationDefinition definition = new AnimationDefinition(frames.ToArray(), loopStart);
         AnimationDefinitions.Add(encodedAnimation, definition);
+        Observe(
+            OracleGraphicsCacheOperation.AnimationBuild,
+            encodedAnimation);
         return definition;
     }
 
@@ -244,16 +286,6 @@ internal static class OracleGraphicsCache
         return hash;
     }
 
-    internal static void ResetAudit()
-    {
-        SourceLoadCount = 0;
-        SourceCacheHitCount = 0;
-        CompositeBuildCount = 0;
-        CompositeCacheHitCount = 0;
-        OamBuildCount = 0;
-        OamCacheHitCount = 0;
-    }
-
     internal static void Shutdown()
     {
         OamCells.Clear();
@@ -262,8 +294,14 @@ internal static class OracleGraphicsCache
         CompositeImages.Clear();
         SourceImages.Clear();
         ImageHashes.Clear();
-        ResetAudit();
+        _observer = null;
     }
+
+    private static void Observe(
+        OracleGraphicsCacheOperation operation,
+        string key) =>
+        _observer?.OnGraphicsCacheOperation(
+            new OracleGraphicsCacheObservation(operation, key));
 
     private static (ulong Colors01, ulong Colors23) PackPalette(Color[]? palette)
     {
