@@ -93,6 +93,13 @@ Include as applicable:
 - graphics pixel hashes/offsets, audio channel state, and resource lifetime;
 - every supported script branch and cancellation path.
 
+Original object-movement regressions keep their expected angle and signed 8.8
+vectors independent of `OracleObjectMovement`. Cover integer ratio decisions
+on both sides of a band boundary, byte-coordinate wrap, low-byte carry, word
+wrap, and a sufficiently long non-cardinal path to expose cumulative drift.
+When a collision writes the opposite angle, assert the source-order lookup and
+XOR separately rather than deriving the expectation from the runtime helper.
+
 Use canonical rooms that exercise the real imported data. Failure messages
 should include hexadecimal group/room/object IDs and expected/actual values so
 the mismatch can be traced without reproducing it interactively first.

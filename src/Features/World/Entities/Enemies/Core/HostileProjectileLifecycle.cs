@@ -97,7 +97,7 @@ internal sealed class HostileProjectileLifecycle
         }
 
         Vector2 movement =
-            OracleObjectSpeedTable.Shared.Delta(_profile.SpeedRaw, Angle);
+            OracleObjectMovement.Shared.Delta(_profile.SpeedRaw, Angle);
         Vector2 destination = _entity.Position + movement;
         switch (_profile.TileProbe)
         {
@@ -175,7 +175,7 @@ internal sealed class HostileProjectileLifecycle
             ref zFixed, ref _speedZ, BounceGravity);
         ZFixed = zFixed;
         _entity.Position +=
-            OracleObjectSpeedTable.Shared.Delta(BounceSpeedRaw, Angle);
+            OracleObjectMovement.Shared.Delta(BounceSpeedRaw, Angle);
         _entity.QueueRedraw();
     }
 

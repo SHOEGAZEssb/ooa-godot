@@ -136,10 +136,10 @@ internal sealed partial class SpiritsGraveEssence : TransitionOffsetNode2D,
 
             case MotionState.Approaching:
             {
-                int angle = OracleObjectMath.AngleToward(
+                int angle = OracleObjectMovement.Shared.RelativeAngle(
                     _precisePosition, frame.Player.Position);
-                _precisePosition += OracleObjectMath.VectorFromAngle32(angle) * 0.5f;
-                Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+                Position = OracleObjectMovement.Shared.ApplySpeed(
+                    ref _precisePosition, 0x14, angle);
                 if ((Position - frame.Player.Position).LengthSquared() <= 16.0f)
                 {
                     _state = MotionState.Falling;
@@ -281,13 +281,13 @@ internal sealed partial class SpiritsGraveEssence : TransitionOffsetNode2D,
 
                 _beadVisible[index] = true;
                 _beadPosition[index] =
-                    OracleObjectMath.VectorFromAngle32(index * 4) * 56.0f;
+                    OracleObjectMovement.Shared.Direction(index * 4) * 56.0f;
                 _beads[index].SetAnimation(index);
                 continue;
             }
 
-            _beadPosition[index] += OracleObjectMath.VectorFromAngle32(
-                (index * 4) ^ 0x10) * 3.0f;
+            _beadPosition[index] += OracleObjectMovement.Shared.Delta(
+                0x78, (index * 4) ^ 0x10);
             _beads[index].Advance();
             if (_beads[index].CurrentParameter == 0xff)
             {

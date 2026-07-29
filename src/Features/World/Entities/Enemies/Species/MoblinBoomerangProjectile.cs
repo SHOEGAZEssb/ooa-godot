@@ -38,7 +38,6 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
 
     internal bool Finished { get; private set; }
     internal int Counter => _counter;
-    internal float Speed => _speed / 40.0f;
     internal int SpeedRaw => _speed;
     internal bool Returning => _returning;
     internal Rect2 CollisionBounds => new(Position - new Vector2(2, 2), new Vector2(4, 4));
@@ -78,7 +77,7 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
                     _speedCounter = 6;
                     _speed = Math.Max(0, _speed - 0x05);
                 }
-                Position += OracleObjectSpeedTable.Shared.Delta(_speed, _angle);
+                Position += OracleObjectMovement.Shared.Delta(_speed, _angle);
             }
         }
         else
@@ -86,13 +85,14 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
             if ((frameCounter & 3) == 0)
                 _speed = Math.Min(0x4b, _speed + 0x05);
             Vector2 delta = _owner.Position - Position;
-            _angle = OracleObjectMath.AngleToward(Position, _owner.Position);
+            _angle = OracleObjectMovement.Shared.RelativeAngle(
+                Position, _owner.Position);
             if (Mathf.Abs(delta.X) <= 4 && Mathf.Abs(delta.Y) <= 4)
             {
                 Finish(returned: true);
                 return;
             }
-            Position += OracleObjectSpeedTable.Shared.Delta(_speed, _angle);
+            Position += OracleObjectMovement.Shared.Delta(_speed, _angle);
         }
         if (Mathf.Abs(player.Position.X - Position.X) < 8 &&
             Mathf.Abs(player.Position.Y - Position.Y) < 8)

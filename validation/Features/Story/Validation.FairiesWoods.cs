@@ -145,29 +145,6 @@ public sealed partial class ValidationRoot
                 $"Forest fairy movement preset ${index:x2} diverged.");
         }
 
-        (int Y, int X)[] expectedVelocities =
-        [
-            (-512, 0), (-502, 99), (-473, 195), (-425, 284),
-            (-362, 362), (-284, 425), (-195, 473), (-99, 502),
-            (0, 512), (99, 502), (195, 473), (284, 425),
-            (362, 362), (425, 284), (473, 195), (502, 99),
-            (512, 0), (502, -99), (473, -195), (425, -284),
-            (362, -362), (284, -425), (195, -473), (99, -502),
-            (0, -512), (-99, -502), (-195, -473), (-284, -425),
-            (-362, -362), (-425, -284), (-473, -195), (-502, -99)
-        ];
-        FailIf(
-            database.Velocities.Count != expectedVelocities.Length,
-            "SPEED_200 velocity row count changed.");
-        for (int angle = 0; angle < expectedVelocities.Length; angle++)
-        {
-            FairiesWoodsVelocityRecord actual = database.Velocities[angle];
-            FailIf(
-                actual.Angle != angle ||
-                (actual.YFixed, actual.XFixed) != expectedVelocities[angle],
-                $"SPEED_200 velocity angle ${angle:x2} diverged.");
-        }
-
         (int Room, int Packed, int Fairy)[] expectedSpots =
             [(0x81, 0x25, 3), (0x80, 0x54, 4), (0x91, 0x32, 5)];
         foreach (var expected in expectedSpots)
@@ -259,8 +236,11 @@ public sealed partial class ValidationRoot
         ];
         foreach (var test in cases)
         {
-            int actual = ForestFairyFlight.RelativeAngle(
-                y, x, test.TargetY, test.TargetX);
+            int actual = OracleObjectMovement.Shared.RelativeAngle(
+                (byte)y,
+                (byte)x,
+                (byte)test.TargetY,
+                (byte)test.TargetX);
             FailIf(
                 actual != test.Angle,
                 $"objectGetRelativeAngleWithTempVars expected ${test.Angle:x2}, " +

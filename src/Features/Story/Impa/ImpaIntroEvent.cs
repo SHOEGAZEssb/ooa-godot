@@ -648,11 +648,11 @@ internal sealed class ImpaIntroEvent :
     private void AdvanceImpaTowardStone()
     {
         ImpaStoneActorRecord stone = _stoneRecord.Actor;
-        float speed = SpeedPerFrame(_stoneRecord.Timing.ApproachSpeed);
         Vector2 target = new(stone.TargetX, stone.TargetY);
-        int angle = OracleObjectMath.AngleToward(_precisePosition, target);
-        _precisePosition += OracleObjectMath.VectorFromAngle32(angle) * speed;
-        Actor!.Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        int angle = OracleObjectMovement.Shared.RelativeAngle(
+            _precisePosition, target);
+        Actor!.Position = OracleObjectMovement.Shared.ApplySpeed(
+            ref _precisePosition, _stoneRecord.Timing.ApproachSpeed, angle);
 
         if (Mathf.Abs(Actor.Position.X - target.X) > stone.CloseRadius ||
             Mathf.Abs(Actor.Position.Y - target.Y) > stone.CloseRadius)
@@ -677,15 +677,20 @@ internal sealed class ImpaIntroEvent :
         if (Mathf.IsEqualApprox(coordinate, target))
             return true;
 
-        float movement = SpeedPerFrame(_stoneRecord.Timing.LinkSpeed) *
-            Math.Sign(target - coordinate);
+        int direction = Math.Sign(target - coordinate);
+        int angle = horizontal
+            ? direction > 0 ? 0x08 : 0x18
+            : direction > 0 ? 0x10 : 0x00;
+        Vector2 objectDelta = OracleObjectMovement.Shared.Delta(
+            _stoneRecord.Timing.LinkSpeed, angle);
+        float movement = horizontal ? objectDelta.X : objectDelta.Y;
         if (Mathf.Abs(target - coordinate) < Mathf.Abs(movement))
             movement = target - coordinate;
         Vector2 delta = horizontal ? new Vector2(movement, 0) : new Vector2(0, movement);
         _context.Player.AdvanceCutsceneMovement(delta,
-            horizontal
-                ? movement > 0 ? Vector2I.Right : Vector2I.Left
-                : movement > 0 ? Vector2I.Down : Vector2I.Up);
+            new Vector2I(
+                Mathf.RoundToInt(OracleObjectMath.StrictCardinalVector(angle).X),
+                Mathf.RoundToInt(OracleObjectMath.StrictCardinalVector(angle).Y)));
         return false;
     }
 
@@ -814,14 +819,15 @@ internal sealed class ImpaIntroEvent :
     {
         if (_stoneMoveCounter <= 0)
             return;
-        Vector2 direction = _pushedRight ? Vector2.Right : Vector2.Left;
+        int angle = _pushedRight ? 0x08 : 0x18;
 
         // updateAllObjects runs Link's special object before interactions.
         // linkCutscene6 falls through from initialization to substate 0, so it
         // applies SPEED_80 on its first update. The stone then clamps Link by
         // collision high bytes before decrementing and applying SPEED_40.
         _context.Player.AdvanceCutsceneMovement(
-            direction * SpeedPerFrame(_stoneRecord.Timing.LinkPushSpeed),
+            OracleObjectMovement.Shared.Delta(
+                _stoneRecord.Timing.LinkPushSpeed, angle),
             _pushedRight ? Vector2I.Right : Vector2I.Left);
         _context.Player.SetCutscenePushing(true);
         PreventLinkFromPassing(
@@ -832,9 +838,10 @@ internal sealed class ImpaIntroEvent :
         _stoneMoveCounter--;
         if (_stoneMoveCounter > 0)
         {
-            _stonePrecisePosition += direction *
-                SpeedPerFrame(_stoneRecord.Timing.StoneSpeed);
-            StoneActor!.Position = OracleObjectMath.ToPixelPosition(_stonePrecisePosition);
+            StoneActor!.Position = OracleObjectMovement.Shared.ApplySpeed(
+                ref _stonePrecisePosition,
+                _stoneRecord.Timing.StoneSpeed,
+                angle);
         }
 
         if (_stoneMoveCounter == 0)
@@ -888,11 +895,10 @@ internal sealed class ImpaIntroEvent :
         _context.RoomView.QueueRedraw();
     }
 
-    private static float SpeedPerFrame(int speed) => speed / 40.0f;
-
     private static Vector2I DirectionToward(Vector2 origin, Vector2 target)
     {
-        int angle = (OracleObjectMath.AngleToward(origin, target) + 4) & 0x18;
+        int angle = (OracleObjectMovement.Shared.RelativeAngle(
+            origin, target) + 4) & 0x18;
         Vector2 direction = OracleObjectMath.CardinalVector(angle);
         return new Vector2I(Mathf.RoundToInt(direction.X), Mathf.RoundToInt(direction.Y));
     }
@@ -972,8 +978,9 @@ internal sealed class ImpaIntroEvent :
                         break;
                     }
                     EnsureObjectSpeed(state.Record.Speed, 0x78, "fake Octorok escape");
-                    state.Actor.Position +=
-                        OracleObjectMath.StrictCardinalVector(state.Record.Angle) * 3.0f;
+                    state.Position = OracleObjectMovement.Shared.ApplySpeed(
+                        state.Position, state.Record.Speed, state.Record.Angle);
+                    state.Actor.Position = state.Position.PixelPosition;
                     break;
             }
         }
@@ -1138,10 +1145,9 @@ internal sealed class ImpaIntroEvent :
                 : "Impa's room 0:6a movement";
             EnsureObjectSpeed(speed, expectedSpeed, context);
         }
-        _precisePosition += OracleObjectMath.StrictCardinalVector(angle) *
-            SpeedPerFrame(speed);
         RequireImpaCommandActor(actor).Position =
-            OracleObjectMath.ToPixelPosition(_precisePosition);
+            OracleObjectMovement.Shared.ApplySpeed(
+                ref _precisePosition, speed, angle);
     }
 
     void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>

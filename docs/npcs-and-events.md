@@ -1046,11 +1046,12 @@ survives ordinary room loads and temporarily replaces neighbor resolution:
   facing only after `0:82` has been loaded behind the final white fade. Preserve
   the original 32-update fade-out/33-update fade-in boundaries.
 - `INTERAC_FOREST_FAIRY $49:$00` remains a native flight controller.
-  Import all 22 four-byte presets and the 32 signed `SPEED_200` 8.8 velocity
-  rows. Preserve unsigned high-byte target and off-screen tests,
-  `objectGetRelativeAngleWithTempVars`, one-step angle nudging, counter
-  halving, low-three-bit sparkle cadence, global-frame sound cadence, and the
-  exact 8.8 fractions. `CUTSCENE_FAIRIES_HIDE` allocates the three vignette
+  Import all 22 four-byte presets and consume the game-wide generated
+  `SPEED_200` vectors and `objectGetRelativeAngleWithTempVars` decisions through
+  `OracleObjectMovement`. Preserve unsigned high-byte target and off-screen
+  tests, one-step angle nudging, counter halving, low-three-bit sparkle cadence,
+  global-frame sound cadence, and the exact 8.8 fractions.
+  `CUTSCENE_FAIRIES_HIDE` allocates the three vignette
   actors without writing their subid, so they remain `$49:$00` with presets
   `$0c-$0e`; do not route them through the separate `$49:$03` variant. On
   arrival, snap only the target coordinate high bytes, preserve both fractional

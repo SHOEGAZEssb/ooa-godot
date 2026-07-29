@@ -1279,6 +1279,19 @@ public sealed partial class ValidationRoot
 
     private void ValidateArrowMoblins()
     {
+        static Vector2 OnScreenTarget(Vector2 origin, int angle) =>
+            angle switch
+            {
+                0x00 => new Vector2(origin.X, 0),
+                0x08 => new Vector2(
+                    OracleRoomData.ViewportWidth - 1, origin.Y),
+                0x10 => new Vector2(
+                    origin.X, OracleRoomData.ViewportHeight - 1),
+                0x18 => new Vector2(0, origin.Y),
+                _ => throw new InvalidOperationException(
+                    $"Invalid cardinal Arrow Moblin angle ${angle:x2}.")
+            };
+
         var database = new EnemyDatabase();
         ImportedEnemyDefinition definition = database.ImportedEnemy(0x0c);
         IReadOnlyList<RoomObjectRecord> roomRecords =
@@ -1376,8 +1389,7 @@ public sealed partial class ValidationRoot
 
         Vector2 firstShotOrigin = moblin.Position;
         _player.WarpTo(
-            firstShotOrigin +
-            OracleObjectMath.CardinalVector(expectedFirstShotAngle) * 64.0f,
+            OnScreenTarget(firstShotOrigin, expectedFirstShotAngle),
             recordSafe: false);
         manager.Update(1.0 / 60.0, _player);
         Vector2 expectedArrowOffset = expectedFirstShotAngle switch
@@ -1424,8 +1436,7 @@ public sealed partial class ValidationRoot
         HashSet<EnemyArrowProjectile> arrowsBeforeEvenCycle =
             manager.Entities<EnemyArrowProjectile>().ToHashSet();
         _player.WarpTo(
-            moblin.Position +
-            OracleObjectMath.CardinalVector(expectedSecondAngle) * 64.0f,
+            OnScreenTarget(moblin.Position, expectedSecondAngle),
             recordSafe: false);
         manager.Update(1.0 / 60.0, _player);
         List<EnemyArrowProjectile> arrowsAfterEvenCycle =
@@ -1659,7 +1670,7 @@ public sealed partial class ValidationRoot
                 ("horizontal", new Vector2(_currentRoom.Width - 6, 64),
                     new Vector2(_currentRoom.Width - 22, 64), 0x08),
                 ("corner", new Vector2(_currentRoom.Width - 6, 3),
-                    new Vector2(_currentRoom.Width - 22, 19), 0x04)
+                    new Vector2(_currentRoom.Width - 22, 19), 0x05)
             ];
         foreach ((string axis, Vector2 position, Vector2 source, int angle)
             in knockbackBoundaryCases)
@@ -1691,7 +1702,7 @@ public sealed partial class ValidationRoot
                 ghiniSource,
                 damage: 1,
                 knockbackStrength: EnemyKnockbackStrength.Low) ||
-            ghini.KnockbackAngle != 0x04 ||
+            ghini.KnockbackAngle != 0x05 ||
             ghini.KnockbackCounter != 0x08,
             "The Ghini did not begin low sword knockback on the " +
             "source-to-enemy angle.");
@@ -1704,7 +1715,7 @@ public sealed partial class ValidationRoot
             "or fully pause the Ghini handler.");
         ghini.UpdateFrame();
         Vector2 expectedGhiniPosition = ghiniOrigin +
-            new Vector2(0x16a, -0x16a) / 256.0f * 0x08;
+            new Vector2(0x1a9, -0x11c) / 256.0f * 0x08;
         FailIf(
             ghini.KnockbackCounter != 0 ||
             !ghini.Position.IsEqualApprox(expectedGhiniPosition) ||
@@ -1913,7 +1924,7 @@ public sealed partial class ValidationRoot
             "from animCounter on every pull update.");
         holeEnemy.UpdateFrame(_player.Position);
         var expectedFirstPull =
-            pullOrigin + new Vector2(-71, 106) / 256.0f;
+            pullOrigin + new Vector2(-48, 118) / 256.0f;
         FailIf(
             holeEnemy.Position != expectedFirstPull,
             "Enemy hole pull did not apply one signed-8.8 SPEED_80 step " +
@@ -2636,9 +2647,9 @@ public sealed partial class ValidationRoot
             "Fairy/heart/rupee PART_ITEM_DROP visuals do not match spriteData tile bases " +
             "`$00/`$02/`$04/`$06/`$08.");
         FailIf(
-            database.GetFairyVelocity(0x0a, 0x18) is not
+            OracleObjectMovement.Shared.Velocity(0x0a, 0x18) is not
                 { YFixed: 0, XFixed: -64 } ||
-            database.GetFairyVelocity(0x28, 0x04) is not
+            OracleObjectMovement.Shared.Velocity(0x28, 0x04) is not
                 { YFixed: -181, XFixed: 181 },
             "ITEM_DROP_FAIRY velocities diverged from bank3.objectSpeedTable.");
 

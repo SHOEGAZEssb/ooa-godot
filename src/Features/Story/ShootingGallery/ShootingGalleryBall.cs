@@ -18,6 +18,7 @@ internal sealed partial class ShootingGalleryBall : TransitionOffsetNode2D
     private Action<int> _playSound = null!;
     private Func<long> _animationTick = null!;
     private Texture2D _texture = null!;
+    private Vector2 _precisePosition;
     private ShootingGalleryBallState _state;
     private int _angle;
     private int _speed;
@@ -49,7 +50,8 @@ internal sealed partial class ShootingGalleryBall : TransitionOffsetNode2D
         _random = random;
         _playSound = playSound;
         _animationTick = animationTick;
-        Position = position;
+        _precisePosition = position;
+        Position = OracleObjectMath.ToPixelPosition(position);
         _angle = _record.BallAngle;
 
         Image source = OracleGraphicsCache.LoadImage(
@@ -123,8 +125,13 @@ internal sealed partial class ShootingGalleryBall : TransitionOffsetNode2D
             return false;
         }
 
+        // The collision pass reads the object's current high bytes before
+        // writing Object.knockbackAngle. Preserve those bytes as the new
+        // objectApplySpeed origin if another system repositioned the part.
+        _precisePosition = Position;
         _state = ShootingGalleryBallState.DeflectionPending;
-        _angle = OracleObjectMath.AngleToward(sourcePosition, Position);
+        _angle = OracleObjectMovement.Shared.RelativeAngle(
+            sourcePosition, Position);
         return true;
     }
 
@@ -158,8 +165,8 @@ internal sealed partial class ShootingGalleryBall : TransitionOffsetNode2D
             return;
         }
 
-        Position += OracleObjectMath.CardinalVector(_angle) *
-            (_speed / 40.0f);
+        Position = OracleObjectMovement.Shared.ApplySpeed(
+            ref _precisePosition, _speed, _angle);
         QueueRedraw();
     }
 
@@ -176,16 +183,21 @@ internal sealed partial class ShootingGalleryBall : TransitionOffsetNode2D
         if (hit)
             _collisionCounter = 3;
 
-        Vector2 destination = Position +
-            OracleObjectMath.VectorFromAngle32(_angle) * (_speed / 40.0f);
+        OracleObjectPosition next = OracleObjectMovement.Shared.ApplySpeed(
+            OracleObjectMovement.Shared.PositionFromPixels(_precisePosition),
+            _speed,
+            _angle);
+        Vector2 destination = next.PixelPosition;
         if (!WithinScreen(destination) ||
             (WithinRoom(destination) && _room.IsSolid(destination)))
         {
+            _precisePosition = next.PrecisePosition;
             Position = destination;
             QueueRedraw();
             return;
         }
 
+        _precisePosition = next.PrecisePosition;
         Position = destination;
         QueueRedraw();
     }

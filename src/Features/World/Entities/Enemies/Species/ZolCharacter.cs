@@ -127,7 +127,8 @@ public partial class ZolCharacter : EnemyCharacter
                     return UpdateEvent.None;
                 _state = ZolState.GreenHopping;
                 _verticalMotion.SpeedZ = InitialSpeedZ;
-                _angle = OracleObjectMath.AngleToward(Position, linkPosition);
+                _angle = OracleObjectMovement.Shared.RelativeAngle(
+                    Position, linkPosition);
                 RestartAnimation(2);
                 return UpdateEvent.None;
 
@@ -182,7 +183,8 @@ public partial class ZolCharacter : EnemyCharacter
                 {
                     _state = ZolState.RedSliding;
                     _counter1 = 0x10;
-                    _angle = OracleObjectMath.AngleToward(Position, linkPosition);
+                    _angle = OracleObjectMovement.Shared.RelativeAngle(
+                        Position, linkPosition);
                 }
                 return UpdateEvent.None;
 
@@ -202,7 +204,8 @@ public partial class ZolCharacter : EnemyCharacter
                     return UpdateEvent.None;
                 _state = ZolState.RedHopping;
                 _verticalMotion.SpeedZ = InitialSpeedZ;
-                _angle = OracleObjectMath.AngleToward(Position, linkPosition);
+                _angle = OracleObjectMovement.Shared.RelativeAngle(
+                    Position, linkPosition);
                 RestartAnimation(2);
                 return UpdateEvent.None;
 

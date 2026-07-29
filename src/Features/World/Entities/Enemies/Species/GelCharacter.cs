@@ -116,7 +116,8 @@ public partial class GelCharacter : EnemyCharacter
                 {
                     _state = GelState.Inching;
                     _counter1 = 0x08;
-                    _angle = OracleObjectMath.AngleToward(Position, linkPosition);
+                    _angle = OracleObjectMovement.Shared.RelativeAngle(
+                        Position, linkPosition);
                 }
                 return;
 
@@ -133,7 +134,8 @@ public partial class GelCharacter : EnemyCharacter
                 AdvanceAnimation();
                 if (--_counter1 > 0)
                     return;
-                BeginHop(OracleObjectMath.AngleToward(Position, linkPosition));
+                BeginHop(OracleObjectMovement.Shared.RelativeAngle(
+                    Position, linkPosition));
                 return;
 
             case GelState.Hopping:

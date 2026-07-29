@@ -20,7 +20,6 @@ internal partial class RopeCharacter : EnemyCharacter
     internal int Counter => _counter;
     internal int Cooldown => _cooldown;
     internal int Angle => _angle;
-    internal float Speed => _speed / 40.0f;
     internal int SpeedRaw => _speed;
 
     internal void Initialize(
@@ -60,7 +59,7 @@ internal partial class RopeCharacter : EnemyCharacter
         if (_state == RopeState.Wandering && _cooldown == 0 &&
             IsCenteredWithLink(linkPosition))
         {
-            _angle = (OracleObjectMath.AngleToward(
+            _angle = (OracleObjectMovement.Shared.RelativeAngle(
                 OracleObjectMath.ToPixelPosition(Position),
                 OracleObjectMath.ToPixelPosition(linkPosition)) + 4) & 0x18;
             _speed = 0x32;

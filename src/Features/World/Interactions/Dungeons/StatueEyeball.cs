@@ -53,7 +53,8 @@ internal sealed partial class StatueEyeball : TransitionOffsetNode2D
                 OracleRoomData.MetatileSize + 8,
             Mathf.Floor(Position.Y / OracleRoomData.MetatileSize) *
                 OracleRoomData.MetatileSize + 8);
-        int angle = OracleObjectMath.AngleToward(tileCenter, player.Position);
+        int angle = OracleObjectMovement.Shared.RelativeAngle(
+            tileCenter, player.Position);
         int low = angle & 0x07;
         if (low is not (0 or 1 or 7))
             angle = (angle & 0xfc) | 0x04;

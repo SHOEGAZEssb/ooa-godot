@@ -59,7 +59,7 @@ public sealed class ItemDropDatabase
         if (_visuals.Count != 16)
             throw new InvalidOperationException($"Expected 16 item-drop visual records, got {_visuals.Count}.");
 
-        _ = OracleObjectSpeedTable.Shared;
+        _ = OracleObjectMovement.Shared;
     }
 
     public int EnemyTableRecord(int enemyId) =>
@@ -68,9 +68,6 @@ public sealed class ItemDropDatabase
     public ItemDropDatabaseVisualRecord GetVisual(int subId) => _visuals.TryGetValue(subId, out ItemDropDatabaseVisualRecord record)
         ? record
         : throw new KeyNotFoundException($"PART_ITEM_DROP subid ${subId:x2} has no visual record.");
-
-    internal OracleObjectVelocity GetFairyVelocity(int speed, int angle) =>
-        OracleObjectSpeedTable.Shared.Get(speed, angle);
 
     internal static bool IsRuntimeSupported(int subId) =>
         subId is >= Fairy and <= MysterySeeds or OneHundredRupeesOrEnemy;

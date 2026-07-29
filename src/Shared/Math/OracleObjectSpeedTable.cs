@@ -1,4 +1,3 @@
-using Godot;
 using System;
 
 namespace oracleofages;
@@ -97,14 +96,6 @@ internal sealed class OracleObjectSpeedTable
                 "Original object speed must be zero or a multiple of five from $05-$78.");
         }
         return _velocities[((speed / 5) - 1) * AngleCount + angle];
-    }
-
-    internal Vector2 Delta(int speed, int angle)
-    {
-        OracleObjectVelocity velocity = Get(speed, angle);
-        return new Vector2(
-            velocity.XFixed / 256.0f,
-            velocity.YFixed / 256.0f);
     }
 
     private void EnsureCardinal(

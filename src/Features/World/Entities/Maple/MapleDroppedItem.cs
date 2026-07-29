@@ -233,10 +233,10 @@ public partial class MapleDroppedItem : TransitionOffsetNode2D
         Vector2 current = OracleObjectMath.ToPixelPosition(_precisePosition);
         if (current != target)
         {
-            int angle = OracleObjectMath.AngleToward(current, target);
-            _precisePosition +=
-                OracleObjectMath.VectorFromAngle32(angle) *
-                (_speedRaw / 40.0f);
+            int angle = OracleObjectMovement.Shared.RelativeAngle(
+                current, target);
+            OracleObjectMovement.Shared.ApplySpeed(
+                ref _precisePosition, _speedRaw, angle);
             Vector2 next = OracleObjectMath.ToPixelPosition(_precisePosition);
             if (Mathf.Abs(target.X - next.X) <= 1 &&
                 Mathf.Abs(target.Y - next.Y) <= 1)
@@ -255,9 +255,8 @@ public partial class MapleDroppedItem : TransitionOffsetNode2D
 
     private void ApplyHorizontalSpeed()
     {
-        _precisePosition += OracleObjectMath.VectorFromAngle32(_angle) *
-            (_speedRaw / 40.0f);
-        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        Position = OracleObjectMovement.Shared.ApplySpeed(
+            ref _precisePosition, _speedRaw, _angle);
     }
 
     private void ClampPosition()

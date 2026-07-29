@@ -15,7 +15,6 @@ internal sealed class FairiesWoodsDatabase
 
     internal FairiesWoodsEventRecord Event { get; }
     internal IReadOnlyList<FairiesWoodsMovementRecord> Movements { get; }
-    internal IReadOnlyList<FairiesWoodsVelocityRecord> Velocities { get; }
     internal IReadOnlyList<FairiesWoodsHidingRoomRecord> HidingRooms { get; }
     internal IReadOnlyList<FairiesWoodsDiscoveredRecord> DiscoveredFairies { get; }
     internal IReadOnlyList<CutsceneCommand> IntroCommands { get; }
@@ -26,7 +25,6 @@ internal sealed class FairiesWoodsDatabase
     {
         Event = LoadEvent();
         Movements = LoadMovements();
-        Velocities = LoadVelocities();
         HidingRooms = LoadHidingRooms();
         DiscoveredFairies = LoadDiscoveredFairies();
         LoadTexts();
@@ -140,31 +138,6 @@ internal sealed class FairiesWoodsDatabase
                 row.Boolean01(7) ? 1 : 0,
                 row.UnsignedDecimal(8),
                 row.RequiredString(9)));
-        }
-        return result.AsReadOnly();
-    }
-
-    private static IReadOnlyList<FairiesWoodsVelocityRecord> LoadVelocities()
-    {
-        GeneratedTable table = GeneratedTable.Load(
-            Root + "fairies_woods_velocity.tsv",
-            new GeneratedTableSchema(
-                "SPEED_200 object velocities",
-                GeneratedTableKeySemantics.Unique,
-                ["angle", "y-fixed", "x-fixed", "source"],
-                ["angle"],
-                headerRequired: true));
-        var result = new List<FairiesWoodsVelocityRecord>();
-        foreach (GeneratedTableRow row in table.Rows)
-        {
-            int angle = row.HexByte(0);
-            if (angle != result.Count)
-                throw row.Invalid(0, $"sequential angle ${result.Count:x2}");
-            result.Add(new FairiesWoodsVelocityRecord(
-                angle,
-                row.Decimal(1, short.MinValue, short.MaxValue),
-                row.Decimal(2, short.MinValue, short.MaxValue),
-                row.RequiredString(3)));
         }
         return result.AsReadOnly();
     }
@@ -293,11 +266,6 @@ internal sealed class FairiesWoodsDatabase
                 DelayedFadeRefill: 8
             } ||
             Movements.Count != 22 ||
-            Velocities.Count != 32 ||
-            Velocities[0] is not { YFixed: -512, XFixed: 0 } ||
-            Velocities[8] is not { YFixed: 0, XFixed: 512 } ||
-            Velocities[16] is not { YFixed: 512, XFixed: 0 } ||
-            Velocities[24] is not { YFixed: 0, XFixed: -512 } ||
             HidingRooms.Count != 3 ||
             HidingRooms[0] is not { Room: 0x81, Preset: 0x0c } ||
             HidingRooms[1] is not { Room: 0x80, Preset: 0x0d } ||
@@ -375,12 +343,6 @@ internal readonly record struct FairiesWoodsMovementRecord(
     int TargetX,
     int Direction,
     int Palette,
-    string Source);
-
-internal readonly record struct FairiesWoodsVelocityRecord(
-    int Angle,
-    int YFixed,
-    int XFixed,
     string Source);
 
 internal readonly record struct FairiesWoodsHidingRoomRecord(

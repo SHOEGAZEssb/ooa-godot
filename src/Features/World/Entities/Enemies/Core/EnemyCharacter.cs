@@ -183,9 +183,11 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
 
         Vector2 source = OracleObjectMath.ToPixelPosition(sourcePosition);
         Vector2 target = OracleObjectMath.ToPixelPosition(CurrentKnockbackPosition);
-        KnockbackAngle = source == target
-            ? 0x08
-            : OracleObjectMath.AngleToward(source, target);
+        // The collision pass aims from the struck object toward the item or
+        // Link, then writes the opposite angle to Object.knockbackAngle.
+        // Even coincident positions follow this path: $18 xor $10 = $08.
+        KnockbackAngle =
+            OracleObjectMovement.Shared.RelativeAngle(target, source) ^ 0x10;
         QueueRedraw();
     }
 
@@ -429,8 +431,8 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
                 return;
             }
 
-            int angle = OracleObjectMath.AngleToward(pixels, target);
-            Position += OracleObjectSpeedTable.Shared.Delta(0x14, angle);
+            int angle = OracleObjectMovement.Shared.RelativeAngle(pixels, target);
+            Position += OracleObjectMovement.Shared.Delta(0x14, angle);
         }
 
         // The source subtracts three from animCounter (clamped at zero) and
@@ -462,7 +464,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         // ecom_applyGivenVelocityGivenAdjacentWalls counts as movement even
         // when the high byte does not change.
         Vector2 movement =
-            OracleObjectSpeedTable.Shared.Delta(0x50, KnockbackAngle);
+            OracleObjectMovement.Shared.Delta(0x50, KnockbackAngle);
         if (walls.YBlocked)
             movement.Y = 0;
         if (walls.XBlocked)

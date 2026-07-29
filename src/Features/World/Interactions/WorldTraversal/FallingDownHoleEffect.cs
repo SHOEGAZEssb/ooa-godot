@@ -80,10 +80,10 @@ internal partial class FallingDownHoleEffect : FixedEffectNode2D
             ((Mathf.FloorToInt(pixels.Y) + 5) & 0xf0) + 8);
         if (pixels.IsEqualApprox(target))
             return;
-        int angle = OracleObjectMath.AngleToward(_precisePosition, target);
-        _precisePosition += OracleObjectMath.VectorFromAngle32(angle) *
-            _activeDefinition.Speed;
-        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        int angle = OracleObjectMovement.Shared.RelativeAngle(
+            _precisePosition, target);
+        Position = OracleObjectMovement.Shared.ApplySpeed(
+            ref _precisePosition, _activeDefinition.SpeedRaw, angle);
     }
 
     private static FallingDownHoleEffectDefinition LoadDefinition()
@@ -136,10 +136,12 @@ internal partial class FallingDownHoleEffect : FixedEffectNode2D
             throw new InvalidOperationException(
                 "INTERAC_FALLDOWNHOLE animation 0 no longer has its 8/12/12 terminal sequence.");
         }
-        return new FallingDownHoleEffectDefinition(frames.ToArray(), speedRaw / 40.0f);
+        return new FallingDownHoleEffectDefinition(frames.ToArray(), speedRaw);
     }
 }
 
 internal sealed record FallingDownHoleEffectFrameRecord(Texture2D Texture, Vector2 TextureOffset, int Duration, int Parameter);
 
-internal sealed record FallingDownHoleEffectDefinition(FallingDownHoleEffectFrameRecord[] Frames, float Speed);
+internal sealed record FallingDownHoleEffectDefinition(
+    FallingDownHoleEffectFrameRecord[] Frames,
+    int SpeedRaw);

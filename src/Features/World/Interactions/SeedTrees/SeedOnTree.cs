@@ -97,10 +97,8 @@ internal partial class SeedOnTree : TransitionOffsetNode2D
                     return;
                 }
 
-                _precisePosition +=
-                    OracleObjectMath.VectorFromAngle32(_angle) *
-                    (_database.SpeedRaw / 40.0f);
-                Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+                Position = OracleObjectMovement.Shared.ApplySpeed(
+                    ref _precisePosition, _database.SpeedRaw, _angle);
                 if (OracleObjectMath.UpdateSpeedZ(
                     ref _zFixed, ref _speedZ, _database.Gravity))
                 {
@@ -151,7 +149,7 @@ internal partial class SeedOnTree : TransitionOffsetNode2D
 
         _zFixed = 0;
         _speedZ = _database.InitialSpeedZ;
-        _angle = OracleObjectMath.AngleToward(
+        _angle = OracleObjectMovement.Shared.RelativeAngle(
             Position, _lastLinkPosition);
         _collisionDelay = _database.CollisionDelay;
         State = SeedOnTreeState.Fallen;

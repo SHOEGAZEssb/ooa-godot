@@ -15,19 +15,6 @@ internal static class OracleObjectMath
         Mathf.Floor(position.X),
         Mathf.Floor(position.Y));
 
-    public static Vector2 VectorFromAngle32(int angle)
-    {
-        float radians = angle * Mathf.Pi / 16.0f;
-        return new Vector2(Mathf.Sin(radians), -Mathf.Cos(radians));
-    }
-
-    public static int AngleToward(Vector2 origin, Vector2 target)
-    {
-        Vector2 difference = target - origin;
-        float radians = Mathf.Atan2(difference.X, -difference.Y);
-        return Mathf.PosMod(Mathf.RoundToInt(radians * 32.0f / Mathf.Tau), 32);
-    }
-
     /// <summary>
     /// Mirrors objectUpdateSpeedZ_paramC: integrates an object's 8.8 Z
     /// position, applies gravity only while airborne, and clamps Z to zero on

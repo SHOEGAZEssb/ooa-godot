@@ -398,11 +398,13 @@ internal sealed class GraveyardGhostKidsEvent : IRoomEntryEvent
         lane.Counter--;
         if (lane.Counter > 0)
         {
-            lane.PrecisePosition +=
-                OracleObjectMath.StrictCardinalVector(_record.FleeAngle) *
-                (_record.FleeSpeed / 40.0f);
+            Vector2 precise = lane.PrecisePosition;
             lane.Actor.SetStatePosition(
-                OracleObjectMath.ToPixelPosition(lane.PrecisePosition));
+                OracleObjectMovement.Shared.ApplySpeed(
+                    ref precise,
+                    _record.FleeSpeed,
+                    _record.FleeAngle));
+            lane.PrecisePosition = precise;
             Animate(lane, 3);
             return;
         }

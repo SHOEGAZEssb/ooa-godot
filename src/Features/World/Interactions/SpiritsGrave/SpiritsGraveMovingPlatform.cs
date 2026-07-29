@@ -69,9 +69,12 @@ internal sealed partial class SpiritsGraveMovingPlatform : SpiritsGraveVisualEnt
         }
         else if (_moveRemaining > 0)
         {
-            displacement = _moveDirection * 0.5f;
-            _precisePosition += displacement;
-            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+            Vector2 previous = _precisePosition;
+            Position = OracleObjectMovement.Shared.ApplySpeed(
+                ref _precisePosition,
+                0x14,
+                DirectionAngle(_moveDirection));
+            displacement = _precisePosition - previous;
             _moveRemaining--;
             if (_moveRemaining == 0)
                 BeginWait();
@@ -119,4 +122,12 @@ internal sealed partial class SpiritsGraveMovingPlatform : SpiritsGraveVisualEnt
             _moveRemaining = 0x80;
         }
     }
+
+    private static int DirectionAngle(Vector2 direction) =>
+        direction == Vector2.Up ? 0x00 :
+        direction == Vector2.Right ? 0x08 :
+        direction == Vector2.Down ? 0x10 :
+        direction == Vector2.Left ? 0x18 :
+        throw new InvalidOperationException(
+            $"Unsupported moving-platform direction {direction}.");
 }

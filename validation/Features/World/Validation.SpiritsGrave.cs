@@ -280,7 +280,7 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             _entities.Entities<MoblinBoomerangProjectile>() is not
-            [{ Finished: false, Counter: 0x2d, Speed: 2.0f }],
+            [{ Finished: false, Counter: 0x2d, SpeedRaw: 0x50 }],
             "Room 4:17's Moblins did not create the imported rotating boomerang " +
             "with its state-0 $2d/SPEED_200 initialization.");
         MoblinBoomerangProjectile moblinBoomerang =
@@ -294,12 +294,12 @@ public sealed partial class ValidationRoot
             select center).First();
         StepEntities();
         FailIf(
-            moblinBoomerang.Counter != 0x2c || moblinBoomerang.Speed != 2.0f ||
+            moblinBoomerang.Counter != 0x2c || moblinBoomerang.SpeedRaw != 0x50 ||
             moblinBoomerang.Returning ||
             moblinBoomerang.CollisionBounds.Size != new Vector2(4, 4),
             "The Moblin boomerang did not begin its source 6-update " +
             $"gradual slowdown (counter=${moblinBoomerang.Counter:x2}, " +
-            $"speed={moblinBoomerang.Speed}, returning=" +
+            $"speed=${moblinBoomerang.SpeedRaw:x2}, returning=" +
             $"{moblinBoomerang.Returning}, bounds=" +
             $"{moblinBoomerang.CollisionBounds.Size}).");
 
@@ -317,7 +317,7 @@ public sealed partial class ValidationRoot
         StepEntities();
         FailIf(
             _entities.RandomCalls != ropeRandomCalls ||
-            ropes.Any(rope => rope.Speed != 0.5f) ||
+            ropes.Any(rope => rope.SpeedRaw != 0x14) ||
             ropes.Where((rope, index) =>
                 !Mathf.IsEqualApprox(rope.Position.DistanceTo(ropeStarts[index]), 0.5f)).Any(),
             "D1 Ropes did not retain source SPEED_80 before their first charge ends.");
@@ -336,7 +336,7 @@ public sealed partial class ValidationRoot
         FailIf(
             chargingRope.State != RopeState.Charging ||
             chargingRope.Angle != 0x18 ||
-            chargingRope.Speed != 1.25f ||
+            chargingRope.SpeedRaw != 0x32 ||
             chargingRope.Position != chargeStart,
             "A room 4:1c Rope did not acquire Link to the left without moving " +
             "on the source lock-on update.");
@@ -357,14 +357,14 @@ public sealed partial class ValidationRoot
         FailIf(
             chargingRope.State != RopeState.Wandering ||
             chargingRope.Cooldown != 0x40 ||
-            chargingRope.Speed != 0.375f ||
+            chargingRope.SpeedRaw != 0x0f ||
             chargingRope.Counter is < 0x70 or > 0xe0 ||
             (chargingRope.Counter & 0x0f) != 0 ||
             _entities.RandomCalls != chargeRandomCalls + 1,
             "Room 4:1c's Rope did not leave its charge on wall collision, " +
             "restore SPEED_60/counter2 $40, and run rope_changeDirection once " +
             $"(state={chargingRope.State}, cooldown=${chargingRope.Cooldown:x2}, " +
-            $"speed={chargingRope.Speed}, counter=${chargingRope.Counter:x2}, " +
+            $"speed=${chargingRope.SpeedRaw:x2}, counter=${chargingRope.Counter:x2}, " +
             $"rng={_entities.RandomCalls - chargeRandomCalls}, " +
             $"updates={chargeUpdates}, position={chargingRope.Position}).");
 
@@ -1213,7 +1213,8 @@ public sealed partial class ValidationRoot
              frame++)
         {
             _player.WarpTo(
-                pumpkin.Position + OracleObjectMath.VectorFromAngle32(pumpkin.Angle) * 32.0f);
+                pumpkin.Position +
+                OracleObjectMovement.Shared.Direction(pumpkin.Angle) * 32.0f);
             StepEntities();
         }
         List<PumpkinHeadProjectile> pumpkinShots =

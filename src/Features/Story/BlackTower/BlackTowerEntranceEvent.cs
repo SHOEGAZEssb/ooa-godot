@@ -279,7 +279,8 @@ internal sealed class BlackTowerEntranceEvent :
 
     private static Vector2I CardinalDirection(Vector2 origin, Vector2 target)
     {
-        int angle = (OracleObjectMath.AngleToward(origin, target) + 4) & 0x18;
+        int angle = (OracleObjectMovement.Shared.RelativeAngle(
+            origin, target) + 4) & 0x18;
         return angle switch
         {
             0x00 => Vector2I.Up,
@@ -317,10 +318,9 @@ internal sealed class BlackTowerEntranceEvent :
 
     void ICutsceneCommandHost.MoveActorAtSpeed(string actor, int speed, int angle)
     {
-        _guardPrecisePosition += OracleObjectMath.StrictCardinalVector(angle) *
-            (speed / 40.0f);
         RequireGuard(actor).Position =
-            OracleObjectMath.ToPixelPosition(_guardPrecisePosition);
+            OracleObjectMovement.Shared.ApplySpeed(
+                ref _guardPrecisePosition, speed, angle);
     }
 
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>

@@ -198,7 +198,10 @@ public partial class PushBlockController : Node2D
         int speedRaw = usePowerGloveSpeed
             ? _bracelet.PowerGlovePushSpeedRaw
             : _bracelet.PushSpeedRaw;
-        _activeMoveSpeedPerFrame = speedRaw / 40.0f;
+        Vector2 objectDelta = OracleObjectMovement.Shared.Delta(
+            speedRaw, InteractableTilePushGeometry.DirectionIndex(direction) * 8);
+        _activeMoveSpeedPerFrame = Math.Abs(
+            direction.X != 0 ? objectDelta.X : objectDelta.Y);
         _destinationBackground = room.GetMetatile(_destinationTopLeft + Vector2.One * 8.0f);
         _moveFrame = 0.0f;
         _active = true;

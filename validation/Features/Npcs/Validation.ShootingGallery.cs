@@ -303,7 +303,7 @@ public sealed partial class ValidationRoot
             StepRoomEventFrames(2);
             FailIf(
                 ball.State != ShootingGalleryBallState.Reflected ||
-                ball.Angle != 0x04 ||
+                ball.Angle != 0x05 ||
                 ball.Position.X <= negativePoint.X ||
                 ball.Position.Y >= negativePoint.Y ||
                 session.HitCount != 1 ||

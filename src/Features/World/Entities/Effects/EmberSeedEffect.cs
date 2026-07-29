@@ -131,8 +131,10 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             return;
         }
 
-        _precisePosition += (Vector2)_direction * (_record.SpeedRaw / 40.0f);
-        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        Position = OracleObjectMovement.Shared.ApplySpeed(
+            ref _precisePosition,
+            _record.SpeedRaw,
+            DirectionAngle(_direction));
         bool landed = OracleObjectMath.UpdateSpeedZ(
             ref _zFixed, ref _speedZ, _record.Gravity);
         if (!landed)

@@ -740,9 +740,16 @@ public partial class Player : Node2D
             _inventory, EnemyKnockbackFrames);
         _enemyKnockbackDirection = Position - sourcePosition;
         if (_enemyKnockbackDirection.LengthSquared() < 0.01f)
+        {
             _enemyKnockbackDirection = -(Vector2)FacingVector;
-        int angle = OracleObjectMath.AngleToward(Vector2.Zero, _enemyKnockbackDirection);
-        _enemyKnockbackDirection = OracleObjectMath.VectorFromAngle32(angle);
+        }
+        else
+        {
+            int angle = OracleObjectMovement.Shared.RelativeAngle(
+                sourcePosition, Position);
+            _enemyKnockbackDirection =
+                OracleObjectMovement.Shared.Direction(angle);
+        }
         _walking = false;
         _pushing = false;
         _world.InterruptBracelet(this, discard: false);
@@ -763,9 +770,10 @@ public partial class Player : Node2D
             return false;
 
         int angle = sourcePosition == Position
-            ? ((OracleObjectMath.AngleToward(
+            ? ((OracleObjectMovement.Shared.RelativeAngle(
                 Vector2.Zero, -(Vector2)FacingVector)) & 0x18)
-            : (OracleObjectMath.AngleToward(sourcePosition, Position) & 0x18);
+            : (OracleObjectMovement.Shared.RelativeAngle(
+                sourcePosition, Position) & 0x18);
         _enemyKnockbackFrames = 0x18;
         _enemyKnockbackDirection = OracleObjectMath.StrictCardinalVector(angle);
         _walking = false;

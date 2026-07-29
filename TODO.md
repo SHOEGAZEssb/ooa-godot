@@ -317,13 +317,14 @@ NPC- and enemy-specific findings remain in their sections above.
     state through a portal start, child spawn/death, room warp, menu boundary,
     and held-versus-pressed input.
 
-- [ ] Make original object movement math one game-wide service rather than an
+- [x] Make original object movement math one game-wide service rather than an
   enemy-only repair.
   - Build the game-wide movement owner around the complete generated signed
     8.8 `bank3.objectSpeedTable` already consumed by enemy/item-drop paths.
-    Port `objectGetRelativeAngle`'s integer decision path as well;
-    `OracleObjectMath.VectorFromAngle32` and `AngleToward` remain in non-enemy
-    object paths with trigonometry and rounded floating-point coordinates.
+    Port `objectGetRelativeAngle`'s integer decision path as well. Before this
+    migration, `OracleObjectMath.VectorFromAngle32` and `AngleToward` remained
+    in non-enemy object paths with trigonometry and rounded floating-point
+    coordinates.
   - Use the service for Maple and her dropped items, scripted Impa/Nayru
     actors, Gasha nuts, tree seeds, essence beads, Running Bipin, item and
     shovel debris, cutscene command movement, and all enemy paths named above.
@@ -332,6 +333,13 @@ NPC- and enemy-specific findings remain in their sections above.
   - Validate angle-boundary decisions and long non-cardinal paths against
     independent ROM vectors, including byte wrap and cumulative subpixel
     remainders; expectations must not call the runtime helper under test.
+  - Completed with `OracleObjectMovement` as the sole speed-vector and
+    relative-angle owner. The importer emits all 64 ordered
+    `pushDirectionData` decisions beside the 768 speed vectors; gameplay paths
+    retain wrapping 8.8 words and render their high bytes. Independent
+    validation pins integer ratio boundaries, the `$f8` coordinate boundary,
+    source-order knockback reversal, and a 300-update non-cardinal path through
+    low-byte carry and word wrap.
 
 - [x] Move the remaining Link, item, and sword-tile tables across the
   generated-data boundary.

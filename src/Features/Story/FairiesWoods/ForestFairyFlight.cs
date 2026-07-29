@@ -9,18 +9,6 @@ namespace oracleofages;
 /// </summary>
 internal sealed class ForestFairyFlight
 {
-    private static readonly byte[,] PushDirectionData =
-    {
-        { 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x00, 0x00, 0x00 },
-        { 0x00, 0x1f, 0x1e, 0x1d, 0x1c, 0x00, 0x00, 0x00 },
-        { 0x08, 0x07, 0x06, 0x05, 0x04, 0x00, 0x00, 0x00 },
-        { 0x00, 0x01, 0x02, 0x03, 0x04, 0x00, 0x00, 0x00 },
-        { 0x18, 0x17, 0x16, 0x15, 0x14, 0x00, 0x00, 0x00 },
-        { 0x10, 0x11, 0x12, 0x13, 0x14, 0x00, 0x00, 0x00 },
-        { 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x00, 0x00, 0x00 },
-        { 0x10, 0x0f, 0x0e, 0x0d, 0x0c, 0x00, 0x00, 0x00 }
-    };
-
     private readonly FairiesWoodsDatabase _database;
     private readonly FairiesWoodsEventRecord _event;
     private readonly OracleRuntimeState _runtime;
@@ -153,8 +141,11 @@ internal sealed class ForestFairyFlight
         if (_counter1 == 0)
         {
             _counter1 = _counter2;
-            int target = RelativeAngle(
-                PositionY, PositionX, _targetY, _targetX);
+            int target = OracleObjectMovement.Shared.RelativeAngle(
+                (byte)PositionY,
+                (byte)PositionX,
+                (byte)_targetY,
+                (byte)_targetX);
             int difference = (_angle - target) & 0x1f;
             if (difference != 0)
             {
@@ -199,9 +190,14 @@ internal sealed class ForestFairyFlight
 
     private void ApplySpeed()
     {
-        FairiesWoodsVelocityRecord velocity = _database.Velocities[_angle];
-        _yFixed = unchecked((ushort)(_yFixed + velocity.YFixed));
-        _xFixed = unchecked((ushort)(_xFixed + velocity.XFixed));
+        OracleObjectPosition position = OracleObjectMovement.Shared.ApplySpeed(
+            new OracleObjectPosition(
+                unchecked((ushort)_yFixed),
+                unchecked((ushort)_xFixed)),
+            0x50,
+            _angle);
+        _yFixed = position.YFixed;
+        _xFixed = position.XFixed;
         UpdateActorPosition();
     }
 
@@ -243,46 +239,6 @@ internal sealed class ForestFairyFlight
     private static bool WithinFour(int current, int target) =>
         unchecked((byte)(current - target + 4)) < 9;
 
-    internal static int RelativeAngle(
-        int currentY,
-        int currentX,
-        int targetY,
-        int targetX)
-    {
-        int adjustedTargetY = (byte)(targetY + 8);
-        int adjustedTargetX = (byte)(targetX + 8);
-        int deltaY = (byte)(currentY + 8) - adjustedTargetY;
-        int quadrant = 0;
-        if (deltaY < 0)
-        {
-            deltaY = -deltaY;
-            quadrant = 4;
-        }
-        int deltaX = (byte)(currentX + 8) - adjustedTargetX;
-        if (deltaX < 0)
-        {
-            deltaX = -deltaX;
-            quadrant += 2;
-        }
-        int larger = deltaX;
-        int smaller = deltaY;
-        if (deltaX < deltaY)
-        {
-            quadrant++;
-            larger = deltaY;
-            smaller = deltaX;
-        }
-
-        int step = (larger >> 3) * 2;
-        int bucket = 0;
-        int accumulation = step;
-        while (bucket < 4 && accumulation < smaller)
-        {
-            bucket++;
-            accumulation += step;
-        }
-        return PushDirectionData[quadrant, bucket];
-    }
 }
 
 internal enum FairyFlightStage

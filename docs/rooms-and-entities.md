@@ -336,16 +336,27 @@ that distinction. Drawable room nodes ultimately inherit
 `TransitionOffsetNode2D`; it owns only the presentation offset applied during
 scrolling and never changes logical room/world coordinates.
 
-`OracleObjectSpeedTable` owns the complete generated
-`bank3.objectSpeedTable`: all 24 source speeds and 32 angles retain signed 8.8
-Y/X components and exact cardinal zeroes. Implemented enemy walking, flying,
-terrain sliding, recoil, hole pull, bosses, returning boomerangs, and hostile
-projectiles add those binary-exact 1/256-pixel components while retaining the
-fractional position between updates; rendering and collision code floor only
-at the source boundary that reads a high byte. Species state machines still
-own speed/angle selection and counter order. `objectGetRelativeAngle` remains
-part of the broader game-wide object-math migration and must not be inferred
-from the speed table.
+`OracleObjectMovement` is the game-wide owner of original object movement. It
+combines the complete generated `bank3.objectSpeedTable`—all 24 source speeds
+and 32 angles as signed 8.8 Y/X components—with the 64 generated
+`bank0.pushDirectionData` results used by `objectGetRelativeAngle`. The angle
+path uses byte high positions, the source's integer ratio bands, and its
+add-eight unsigned subtraction; the latter deliberately places the coordinate
+wrap boundary at `$f8`. Collision knockback first aims from the struck object
+toward Link or the item and then XORs `$10`, matching the source write rather
+than reversing a host-computed vector.
+
+Objects that call `objectApplySpeed` retain unsigned wrapping 8.8 Y/X words
+between updates. Signed table components add with low-byte carry and whole-word
+wrap; logical rendering and source collision probes read the high bytes.
+Maple and her drops, scripted Impa/Nayru actors, Fairies' Woods flights,
+Graveyard ghost children, Black Tower workers, Gasha nuts, tree seeds, essence
+beads, Running Bipin, moving platforms, push blocks, item/shovel debris,
+cutscene command motion, enemy walking/flying/recoil/hole pull, bosses,
+boomerangs, and hostile projectiles all use this owner. Their state machines
+still select source speeds/angles and preserve counter and RNG order; no
+gameplay path reconstructs 32-step vectors or relative angles with host
+trigonometry.
 
 `EnemyAdjacentWallResolver` owns the generated
 `ecom_sideviewAdjacentWallOffsetTable` and

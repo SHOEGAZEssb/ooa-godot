@@ -4095,6 +4095,7 @@ if ($nayruMiscSource -notmatch '(?ms)^interaction6b_subid01:.*?GLOBALFLAG_INTRO_
     $nayruObjectsSource -notmatch '(?ms)^nayruAndAnimalsInIntro:.*?obj_Interaction \$36 \$00 \$18 \$78.*?obj_Interaction \$4c \$00 \$2c \$48.*?obj_End' -or
     $nayruBearSource -notmatch '(?ms)cp \$60.*?cp \$3e.*?mainScripts\.bearSubid00Script_part2' -or
     $nayruCutsceneSource -notmatch '(?ms)^nayruSingingCutsceneHandler:.*?ld \(hl\),\$58\s+inc hl\s+ld \(hl\),\$02.*?paletteData44a8.*?ld \(hl\),\$3c\s+jp fadeoutToWhite.*?ld a,\$15.*?ld a,\$03\s+jp fadeinFromWhiteWithDelay' -or
+    $nayruScriptSource -notmatch '(?ms)^bearSubid00Script_part1:.*?@moveDown:.*?setangle \$00\s+setspeed SPEED_080\s+applyspeed \$20' -or
     $nayruScriptSource -notmatch '(?ms)^ralphSubid00Script:.*?callscript jumpAndWaitUntilLanded.*?showtext TX_2a00.*?callscript jumpAndWaitUntilLanded.*?showtext TX_2a22.*?ralph_createLinkedSwordAnimation.*?setanimation \$04' -or
     $nayruScriptSource -notmatch '(?ms)^nayruScript00_part1:.*?wait 120.*?cfd0, \$16.*?wait 30.*?applyspeed \$81.*?wait 210.*?setanimation \$05.*?wait 60.*?cfd0, \$17' -or
     $nayruScriptSource -notmatch '(?ms)^ralphSubid00Script:.*?@faceUp:.*?wait 220.*?applyspeed \$81.*?cfd0, \$17.*?wait 120' -or
@@ -4106,8 +4107,8 @@ if ($nayruMiscSource -notmatch '(?ms)^interaction6b_subid01:.*?GLOBALFLAG_INTRO_
     throw 'Initial Nayru cutscene controller, actor list, trigger boundary, or cutscene counters changed.'
 }
 $nayruEventRows = @(
-    '# group`troom`tintro-flag`tcompletion-room-flag`tbear-room-flag`ttrigger-x`ttrigger-y`tbear-delay`tpost-bear-text`tsinging-frames`tskip-window`tsprite-scroll-period`tsprite-scroll-steps`tpossession-fade-hold`tportal-position`tportal-tile`tvignette-count`tnpc-jump-speed-z`tnpc-jump-gravity`tdark-fade-frames`twhite-fade-out-frames`twhite-fade-in-frames`tnayru-ascent-speed-z`tnayru-transfer-z`tnayru-landing-delay`tnayru-fall-speed-z`tnayru-fall-gravity',
-    "0`t39`t0a`t40`t80`t96`t62`t120`t30`t600`t240`t8`t40`t60`t22`td7`t3`t-512`t48`t32`t32`t97`t-1024`t-32768`t30`t64`t32"
+    '# group`troom`tintro-flag`tcompletion-room-flag`tbear-room-flag`ttrigger-x`ttrigger-y`tbear-delay`tbear-move-speed`tpost-bear-text`tsinging-frames`tskip-window`tsprite-scroll-period`tsprite-scroll-steps`tpossession-fade-hold`tportal-position`tportal-tile`tvignette-count`tnpc-jump-speed-z`tnpc-jump-gravity`tdark-fade-frames`twhite-fade-out-frames`twhite-fade-in-frames`tnayru-ascent-speed-z`tnayru-transfer-z`tnayru-landing-delay`tnayru-fall-speed-z`tnayru-fall-gravity',
+    "0`t39`t0a`t40`t80`t96`t62`t120`t14`t30`t600`t240`t8`t40`t60`t22`td7`t3`t-512`t48`t32`t32`t97`t-1024`t-32768`t30`t64`t32"
 )
 Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\nayru_intro_event.tsv'),
@@ -4125,12 +4126,12 @@ if ($nayruBearSource -notmatch '(?ms)cp \$10.*?ld \(hl\),40.*?ld \(hl\),\$02.*?S
     throw 'An initial Nayru audience escape counter, speed, jump, or animation changed.'
 }
 $nayruFleeRows = @(
-    '# actor`tdelay`tangle`tspeed`twait-jump-speed-z`twait-gravity`trepeat-wait-jump`tescape-jump-speed-z`tescape-gravity`trepeat-escape-jump`twait-for-landing`twait-animation`tescape-animation',
-    "Bear`t40`t2`t1.0`t0`t0`t0`t0`t0`t0`t0`t2`t1",
-    "Monkey`t50`t2`t1.5`t-288`t32`t1`t-256`t32`t1`t0`t3`t4",
-    "Rabbit`t40`t6`t1.5`t0`t0`t0`t-512`t32`t1`t0`t2`t4",
-    "Boy`t0`t2`t1.5`t-384`t32`t0`t0`t0`t0`t1`t2`t0",
-    "Bird`t30`t1`t1.0`t-192`t32`t1`t-256`t0`t0`t0`t2`t3"
+    '# actor`tdelay`tangle`tspeed-raw`twait-jump-speed-z`twait-gravity`trepeat-wait-jump`tescape-jump-speed-z`tescape-gravity`trepeat-escape-jump`twait-for-landing`twait-animation`tescape-animation',
+    "Bear`t40`t2`t28`t0`t0`t0`t0`t0`t0`t0`t2`t1",
+    "Monkey`t50`t2`t3c`t-288`t32`t1`t-256`t32`t1`t0`t3`t4",
+    "Rabbit`t40`t6`t3c`t0`t0`t0`t-512`t32`t1`t0`t2`t4",
+    "Boy`t0`t2`t3c`t-384`t32`t0`t0`t0`t0`t1`t2`t0",
+    "Bird`t30`t1`t28`t-192`t32`t1`t-256`t0`t0`t0`t2`t3"
 )
 Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\nayru_intro_flee.tsv'),

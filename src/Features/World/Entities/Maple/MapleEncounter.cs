@@ -316,7 +316,8 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         _screenTransitionsDisabled = true;
         _menusDisabled = true;
         int towardLink =
-            OracleObjectMath.AngleToward(_precisePosition, player.Position) & 0x18;
+            OracleObjectMovement.Shared.RelativeAngle(
+                _precisePosition, player.Position) & 0x18;
         player.ApplyMapleKnockback(_precisePosition);
         _angle = towardLink ^ 0x10;
         _speedRaw = _vehicle switch { 0 => 0x28, 1 => 0x32, _ => 0x3c };
@@ -587,7 +588,7 @@ public partial class MapleEncounter : TransitionOffsetNode2D
                 if (!_bookLanded)
                     return;
                 _substate = 1;
-                _targetAngle = OracleObjectMath.AngleToward(
+                _targetAngle = OracleObjectMovement.Shared.RelativeAngle(
                     _precisePosition, _bookPrecisePosition);
                 break;
 
@@ -701,7 +702,7 @@ public partial class MapleEncounter : TransitionOffsetNode2D
             _bookPrecisePosition = _precisePosition;
             _bookZFixed = _zFixed;
             _bookSpeedZ = -0x100;
-            _bookAngle = OracleObjectMath.AngleToward(
+            _bookAngle = OracleObjectMovement.Shared.RelativeAngle(
                 _bookPrecisePosition, new Vector2(0x50, 0x38)) & 0x1c;
             _bookVisible = player.Visible;
             _soundRequested(OracleSoundEngine.SndGainHeart);
@@ -713,8 +714,8 @@ public partial class MapleEncounter : TransitionOffsetNode2D
             _bookZFixed = 0;
             return;
         }
-        _bookPrecisePosition +=
-            OracleObjectMath.VectorFromAngle32(_bookAngle);
+        OracleObjectMovement.Shared.ApplySpeed(
+            ref _bookPrecisePosition, 0x28, _bookAngle);
     }
 
     private void GenerateDropsOrBook(
@@ -866,7 +867,7 @@ public partial class MapleEncounter : TransitionOffsetNode2D
             return false;
         }
         _targetItem = target;
-        _targetAngle = OracleObjectMath.AngleToward(
+        _targetAngle = OracleObjectMovement.Shared.RelativeAngle(
             _precisePosition, target.Position);
         return true;
     }
@@ -929,7 +930,7 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     private void FaceToward(Vector2 target)
     {
         int next = DirectionFromAngle(
-            OracleObjectMath.AngleToward(_precisePosition, target));
+            OracleObjectMovement.Shared.RelativeAngle(_precisePosition, target));
         SetAnimation(_vehicle * 4 + 4 + next);
     }
 
@@ -939,7 +940,7 @@ public partial class MapleEncounter : TransitionOffsetNode2D
             _bookPrecisePosition);
         if (Position == target)
             return true;
-        _targetAngle = OracleObjectMath.AngleToward(
+        _targetAngle = OracleObjectMovement.Shared.RelativeAngle(
             _precisePosition, _bookPrecisePosition);
         _angle = _targetAngle;
         DecideFlightAnimation();
@@ -956,7 +957,7 @@ public partial class MapleEncounter : TransitionOffsetNode2D
 
     private int FacingAnimation(Vector2 target) =>
         _vehicle * 4 + 4 + DirectionFromAngle(
-            OracleObjectMath.AngleToward(_precisePosition, target));
+            OracleObjectMovement.Shared.RelativeAngle(_precisePosition, target));
 
     private void DecideFlightAnimation()
     {
@@ -986,17 +987,10 @@ public partial class MapleEncounter : TransitionOffsetNode2D
 
     private void ApplySpeed()
     {
-        Vector2 next =
-            _precisePosition +
-            OracleObjectMath.VectorFromAngle32(_angle) *
-            (_speedRaw / 40.0f);
-        // Object.y/Object.x are unsigned 8.8 coordinates. Several imported
-        // flight paths intentionally begin at $f0 and cross $ff->$00 to enter
-        // from the opposite screen edge.
-        _precisePosition = new Vector2(
-            Mathf.PosMod(next.X, 0x100),
-            Mathf.PosMod(next.Y, 0x100));
-        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        // objectApplySpeed performs wrapping 16-bit adds. Several imported
+        // flight paths intentionally begin at $f0 and cross $ff->$00.
+        Position = OracleObjectMovement.Shared.ApplySpeed(
+            ref _precisePosition, _speedRaw, _angle);
     }
 
     private void KeepInBounds()

@@ -391,9 +391,16 @@ or 768 ordered signed 8.8 Y/X records. It asserts the `SPEED_20` through
 `SPEED_300` enum order, the five trigonometric assembler directives that form
 each source row, and the clean-ROM table signature. `OracleObjectSpeedTable`
 rejects missing/reordered rows, invalid source identities, and changed
-cardinal zero components. This table is the single runtime source for
-implemented enemy motion and `ITEM_DROP_FAIRY`; do not restore the former
-four-speed Fairy-only table or calculate enemy vectors with host trigonometry.
+cardinal zero components.
+
+That stage also emits `metadata/object_relative_angles.tsv`: the 64 ordered
+octant/band results from `bank0.pushDirectionData`. Import verifies both the
+bytes and the integer shape of `objectGetRelativeAngleWithTempVars`, including
+its four repeated comparisons. `OracleObjectMovement` strictly consumes both
+tables and is the single runtime owner for original object speed application
+and relative-angle selection. Do not restore the former Fairy-only speed
+subset, calculate vectors with host trigonometry, or approximate the angle
+bands with floating-point functions.
 
 `enemy_handler_registry.tsv` is the unique ID/subid implementation manifest for
 that ordered stream. The importer resolves enemy names back to

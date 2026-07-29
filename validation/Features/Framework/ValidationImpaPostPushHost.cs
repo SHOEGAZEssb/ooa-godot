@@ -49,7 +49,8 @@ internal sealed class ValidationImpaPostPushHost(int linkAngle) :
 
     public override void SetActorCollisionRadii(string actor, int radiusY, int radiusX) => throw Unsupported(nameof(SetActorCollisionRadii));
     public override void SetActorButtonSensitive(string actor) => throw Unsupported(nameof(SetActorButtonSensitive));
-    public override void MoveActorAtSpeed(string actor, int speed, int angle) => Position += OracleObjectMath.StrictCardinalVector(angle) * (speed / 40.0f);
+    public override void MoveActorAtSpeed(string actor, int speed, int angle) =>
+        Position += OracleObjectMovement.Shared.Delta(speed, angle);
     public override void SetActorZ(string actor, int zFixed) => throw Unsupported(nameof(SetActorZ));
     public override void SetActorVisible(string actor, bool visible) => throw Unsupported(nameof(SetActorVisible));
     public override void WriteMemory(string binding, int value)

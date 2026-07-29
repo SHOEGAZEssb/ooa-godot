@@ -554,11 +554,11 @@ internal sealed class PreBlackTowerEvent :
 
     void ICutsceneCommandHost.MoveActorAtSpeed(string actor, int speed, int angle)
     {
-        Vector2 precise = _precisePositions[actor] +
-            OracleObjectMath.StrictCardinalVector(angle) * (speed / 40.0f);
-        precise = new Vector2(Wrap(precise.X), Wrap(precise.Y));
+        Vector2 precise = _precisePositions[actor];
+        Vector2 pixels = OracleObjectMovement.Shared.ApplySpeed(
+            ref precise, speed, angle);
         _precisePositions[actor] = precise;
-        Actor(actor).Position = OracleObjectMath.ToPixelPosition(precise);
+        Actor(actor).Position = pixels;
     }
 
     void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>
@@ -659,13 +659,6 @@ internal sealed class PreBlackTowerEvent :
         _impaZFixed = 0;
         _impaSpeedZ = -0x180;
         _impaAirborne = true;
-    }
-
-    private static float Wrap(float value)
-    {
-        float whole = Mathf.Floor(value);
-        float fraction = value - whole;
-        return Mathf.PosMod((int)whole, 0x100) + fraction;
     }
 
     private static Vector2I Direction(int value) => value switch

@@ -60,15 +60,10 @@ public partial class SwordBeamEffect : TransitionOffsetNode2D
             return;
         }
 
-        Vector2 direction = _record.Direction switch
-        {
-            0 => Vector2.Up,
-            1 => Vector2.Right,
-            2 => Vector2.Down,
-            _ => Vector2.Left
-        };
-        _precisePosition += direction * (_record.SpeedRaw / 40.0f);
-        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        Position = OracleObjectMovement.Shared.ApplySpeed(
+            ref _precisePosition,
+            _record.SpeedRaw,
+            _record.Direction * 8);
 
         if (_room.IsSolid(Position))
         {

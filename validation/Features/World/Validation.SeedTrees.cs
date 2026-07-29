@@ -144,7 +144,7 @@ public sealed partial class ValidationRoot
         FailIf(
             falling.State != SeedOnTreeState.Fallen ||
             falling.SpeedZ != database.InitialSpeedZ ||
-            falling.Angle != OracleObjectMath.AngleToward(
+            falling.Angle != OracleObjectMovement.Shared.RelativeAngle(
                 falling.Position, _player.Position),
             "A satchel-owned seed did not begin its traced knock-off motion.");
 

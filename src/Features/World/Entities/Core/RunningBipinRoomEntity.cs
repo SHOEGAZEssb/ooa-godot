@@ -36,9 +36,8 @@ internal sealed class RunningBipinRoomEntity
         if (!Entity.Active)
             return;
 
-        _precisePosition += OracleObjectMath.VectorFromAngle32(_angle) *
-            (_data.SpeedRaw / 40.0f);
-        Entity.Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        Entity.Position = OracleObjectMovement.Shared.ApplySpeed(
+            ref _precisePosition, _data.SpeedRaw, _angle);
         float relativeX = Entity.Position.X - _data.MinimumX;
         if (relativeX < 0 || relativeX >= _data.SpanX)
         {

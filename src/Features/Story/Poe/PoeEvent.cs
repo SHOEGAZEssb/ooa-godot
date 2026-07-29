@@ -197,10 +197,9 @@ internal sealed class PoeEvent :
             throw new InvalidOperationException(
                 $"poeScript requested unexpected movement speed ${speed:x2}.");
         }
-        _precisePosition +=
-            OracleObjectMath.StrictCardinalVector(angle) * (speed / 40.0f);
         RequirePoe(actor).Position =
-            OracleObjectMath.ToPixelPosition(_precisePosition);
+            OracleObjectMovement.Shared.ApplySpeed(
+                ref _precisePosition, speed, angle);
     }
 
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>

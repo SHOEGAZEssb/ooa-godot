@@ -151,7 +151,11 @@ internal sealed class RalphPortalEvent :
             throw new InvalidOperationException(
                 $"Unsupported Ralph object speed ${speed:x2}; expected SPEED_100 ($28).");
         }
-        RequireRalph(actor).Position += OracleObjectMath.StrictCardinalVector(angle);
+        NpcCharacter ralph = RequireRalph(actor);
+        ralph.Position = OracleObjectMovement.Shared.ApplySpeed(
+            OracleObjectMovement.Shared.PositionFromPixels(ralph.Position),
+            speed,
+            angle).PixelPosition;
     }
 
     void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>

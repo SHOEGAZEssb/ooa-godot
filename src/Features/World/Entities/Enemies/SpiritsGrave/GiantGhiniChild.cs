@@ -96,7 +96,8 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
                 {
                     _state = ChildState.Charging;
                     _counter = 5;
-                    _angle = OracleObjectMath.AngleToward(Position, player.Position);
+                    _angle = OracleObjectMovement.Shared.RelativeAngle(
+                        Position, player.Position);
                     Visible = true;
                 }
                 break;
@@ -105,16 +106,18 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
                 {
                     _state = ChildState.Charging;
                     _counter = 5;
-                    _angle = OracleObjectMath.AngleToward(Position, player.Position);
+                    _angle = OracleObjectMovement.Shared.RelativeAngle(
+                        Position, player.Position);
                 }
                 break;
             case ChildState.Charging:
-                Position += OracleObjectSpeedTable.Shared.Delta(0x1e, _angle);
+                Position += OracleObjectMovement.Shared.Delta(0x1e, _angle);
                 if (--_counter == 0)
                 {
                     _counter = 5;
                     _angle = NudgeAngle(
-                        _angle, OracleObjectMath.AngleToward(Position, player.Position));
+                        _angle, OracleObjectMovement.Shared.RelativeAngle(
+                            Position, player.Position));
                 }
                 break;
             case ChildState.Attached:

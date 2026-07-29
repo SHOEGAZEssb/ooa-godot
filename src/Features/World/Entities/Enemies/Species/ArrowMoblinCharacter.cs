@@ -104,7 +104,8 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
                 BeginMoving();
                 _moveCycles++;
                 int towardLink =
-                    (OracleObjectMath.AngleToward(Position, linkPosition) + 4) &
+                    (OracleObjectMovement.Shared.RelativeAngle(
+                        Position, linkPosition) + 4) &
                     0x18;
                 return (_moveCycles & 1) != 0 && _angle == towardLink
                     ? _angle

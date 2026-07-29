@@ -13,7 +13,7 @@ internal partial class ShovelDebrisEffect : FixedEffectNode2D
     private const int LifetimeFrames = 14;
     private const int InitialSpeedZ = -0x240;
     private const int Gravity = 0x60;
-    private const float Speed = 0.5f;
+    private const int Speed = 0x14;
 
     private static readonly string[] DirectionalOam =
     {
@@ -63,8 +63,8 @@ internal partial class ShovelDebrisEffect : FixedEffectNode2D
         }
 
         OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, Gravity);
-        _precisePosition += (Vector2)_direction * Speed;
-        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        Position = OracleObjectMovement.Shared.ApplySpeed(
+            ref _precisePosition, Speed, DirectionIndex(_direction) * 8);
         QueueRedraw();
     }
 

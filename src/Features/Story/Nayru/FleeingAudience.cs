@@ -1,13 +1,12 @@
-using Godot;
-using System;
-using System.Collections.Generic;
-
 namespace oracleofages;
-internal sealed class FleeingAudience(NpcCharacter actor, FleeRecord record, Vector2 velocity)
+internal sealed class FleeingAudience(
+    NpcCharacter actor,
+    FleeRecord record,
+    OracleObjectPosition position)
 {
     public NpcCharacter Actor { get; } = actor;
     public FleeRecord Record { get; } = record;
-    public Vector2 Velocity { get; } = velocity;
+    public OracleObjectPosition Position { get; set; } = position;
     public int Delay { get; set; } = record.Delay;
 
     public int ZFixed;

@@ -38,13 +38,13 @@ public sealed class NayruIntroEventDatabase
                 GeneratedTableKeySemantics.Ordered,
                 [
                     "group", "room", "intro-flag", "completion-room-flag", "bear-room-flag",
-                    "trigger-x", "trigger-y", "bear-delay", "post-bear-text", "singing-frames",
-                    "skip-window", "sprite-scroll-period", "sprite-scroll-steps",
-                    "possession-fade-hold", "portal-position", "portal-tile", "vignette-count",
-                    "npc-jump-speed-z", "npc-jump-gravity", "dark-fade-frames",
-                    "white-fade-out-frames", "white-fade-in-frames", "nayru-ascent-speed-z",
-                    "nayru-transfer-z", "nayru-landing-delay", "nayru-fall-speed-z",
-                    "nayru-fall-gravity"
+                    "trigger-x", "trigger-y", "bear-delay", "bear-move-speed",
+                    "post-bear-text", "singing-frames", "skip-window",
+                    "sprite-scroll-period", "sprite-scroll-steps", "possession-fade-hold",
+                    "portal-position", "portal-tile", "vignette-count", "npc-jump-speed-z",
+                    "npc-jump-gravity", "dark-fade-frames", "white-fade-out-frames",
+                    "white-fade-in-frames", "nayru-ascent-speed-z", "nayru-transfer-z",
+                    "nayru-landing-delay", "nayru-fall-speed-z", "nayru-fall-gravity"
                 ],
                 headerRequired: true)).SingleRow();
         Event = new NayruIntroEventDatabaseEventRecord(
@@ -56,25 +56,26 @@ public sealed class NayruIntroEventDatabase
             eventRow.Decimal(5),
             eventRow.Decimal(6),
             eventRow.UnsignedDecimal(7),
-            eventRow.UnsignedDecimal(8),
+            eventRow.HexByte(8),
             eventRow.UnsignedDecimal(9),
             eventRow.UnsignedDecimal(10),
             eventRow.UnsignedDecimal(11),
             eventRow.UnsignedDecimal(12),
             eventRow.UnsignedDecimal(13),
-            eventRow.HexByte(14),
+            eventRow.UnsignedDecimal(14),
             eventRow.HexByte(15),
-            eventRow.UnsignedDecimal(16),
-            eventRow.Decimal(17),
+            eventRow.HexByte(16),
+            eventRow.UnsignedDecimal(17),
             eventRow.Decimal(18),
-            eventRow.UnsignedDecimal(19),
+            eventRow.Decimal(19),
             eventRow.UnsignedDecimal(20),
             eventRow.UnsignedDecimal(21),
-            eventRow.Decimal(22),
+            eventRow.UnsignedDecimal(22),
             eventRow.Decimal(23),
-            eventRow.UnsignedDecimal(24),
-            eventRow.Decimal(25),
-            eventRow.Decimal(26));
+            eventRow.Decimal(24),
+            eventRow.UnsignedDecimal(25),
+            eventRow.Decimal(26),
+            eventRow.Decimal(27));
         Commands = CutsceneCommandCatalog.Load(
             "res://assets/oracle/cutscenes/nayru_intro_commands.tsv");
         if (Commands.Count != 235 || Commands[^1] is not CutsceneEndCommand)
@@ -172,9 +173,10 @@ public sealed class NayruIntroEventDatabase
                 "initial Nayru audience escape",
                 GeneratedTableKeySemantics.Unique,
                 [
-                    "actor", "delay", "angle", "speed", "wait-jump-speed-z", "wait-gravity",
-                    "repeat-wait-jump", "escape-jump-speed-z", "escape-gravity",
-                    "repeat-escape-jump", "wait-for-landing", "wait-animation", "escape-animation"
+                    "actor", "delay", "angle", "speed-raw", "wait-jump-speed-z",
+                    "wait-gravity", "repeat-wait-jump", "escape-jump-speed-z",
+                    "escape-gravity", "repeat-escape-jump", "wait-for-landing",
+                    "wait-animation", "escape-animation"
                 ],
                 ["actor"],
                 headerRequired: true));
@@ -182,7 +184,7 @@ public sealed class NayruIntroEventDatabase
         {
             FleeRecord record = new FleeRecord(
                 row.RequiredString(0), row.UnsignedDecimal(1), row.Decimal(2),
-                row.FiniteFloat(3), row.Decimal(4), row.Decimal(5), row.Boolean01(6),
+                row.HexByte(3), row.Decimal(4), row.Decimal(5), row.Boolean01(6),
                 row.Decimal(7), row.Decimal(8), row.Boolean01(9),
                 row.Boolean01(10), row.UnsignedDecimal(11), row.UnsignedDecimal(12));
             _flee.Add(record.Actor, record);
@@ -346,9 +348,9 @@ public readonly record struct TextRecord(int Id, int TextboxPosition, string Mes
 
 public readonly record struct SingingOamRecord(int Y, int X, int Tile, int Flags);
 
-public readonly record struct NayruIntroEventDatabaseEventRecord(int Group, int Room, int IntroFlag, int CompletionRoomFlag, int BearRoomFlag, int TriggerX, int TriggerY, int BearDelayFrames, int PostBearTextFrames, int SingingFrames, int SingingSkipWindow, int SingingScrollPeriod, int SingingScrollSteps, int PossessionFadeHoldFrames, int PortalPosition, int PortalTile, int VignetteCount, int NpcJumpSpeedZ, int NpcJumpGravity, int DarkFadeFrames, int WhiteFadeOutFrames, int WhiteFadeInFrames, int NayruAscentSpeedZ, int NayruTransferZ, int NayruLandingDelay, int NayruFallSpeedZ, int NayruFallGravity);
+public readonly record struct NayruIntroEventDatabaseEventRecord(int Group, int Room, int IntroFlag, int CompletionRoomFlag, int BearRoomFlag, int TriggerX, int TriggerY, int BearDelayFrames, int BearMoveSpeed, int PostBearTextFrames, int SingingFrames, int SingingSkipWindow, int SingingScrollPeriod, int SingingScrollSteps, int PossessionFadeHoldFrames, int PortalPosition, int PortalTile, int VignetteCount, int NpcJumpSpeedZ, int NpcJumpGravity, int DarkFadeFrames, int WhiteFadeOutFrames, int WhiteFadeInFrames, int NayruAscentSpeedZ, int NayruTransferZ, int NayruLandingDelay, int NayruFallSpeedZ, int NayruFallGravity);
 
-public readonly record struct FleeRecord(string Actor, int Delay, int Angle, float Speed, int WaitJumpSpeedZ, int WaitGravity, bool RepeatWaitJump, int EscapeJumpSpeedZ, int EscapeGravity, bool RepeatEscapeJump, bool WaitForLanding, int WaitAnimation, int EscapeAnimation);
+public readonly record struct FleeRecord(string Actor, int Delay, int Angle, int SpeedRaw, int WaitJumpSpeedZ, int WaitGravity, bool RepeatWaitJump, int EscapeJumpSpeedZ, int EscapeGravity, bool RepeatEscapeJump, bool WaitForLanding, int WaitAnimation, int EscapeAnimation);
 
 public readonly record struct EffectRecord(string Name, string SpriteName, int TileBase, int Palette, int Duration, float Speed, int Angle, bool Sway, int VelocityXFixed, int VelocityYFixed, string Animation)
 {

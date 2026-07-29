@@ -14,7 +14,7 @@ internal sealed class EnemyTerrainMovement(Node2D entity, OracleRoomData room)
 
     public bool MoveAtAngle(int angle, int speed, bool allowHoles)
     {
-        Vector2 movement = OracleObjectSpeedTable.Shared.Delta(speed, angle);
+        Vector2 movement = OracleObjectMovement.Shared.Delta(speed, angle);
         if (movement == Vector2.Zero)
             return false;
 

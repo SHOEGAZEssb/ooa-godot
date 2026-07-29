@@ -157,7 +157,8 @@ public partial class KeeseCharacter : EnemyCharacter
             if (Mathf.Abs(difference.X) + Mathf.Abs(difference.Y) >= ApproachDistance)
                 return;
 
-            _angle = (OracleObjectMath.AngleToward(Position, linkPosition) +
+            _angle = (OracleObjectMovement.Shared.RelativeAngle(
+                Position, linkPosition) +
                 _turnAmount) & 0x1f;
             _counter1 = TurningInterval;
             _counter2 = TurningIntervals;
@@ -189,7 +190,7 @@ public partial class KeeseCharacter : EnemyCharacter
 
     private void ApplySpeed(int speed)
     {
-        Position += OracleObjectSpeedTable.Shared.Delta(speed, _angle);
+        Position += OracleObjectMovement.Shared.Delta(speed, _angle);
     }
 
     private void BounceOffScreenBoundary()

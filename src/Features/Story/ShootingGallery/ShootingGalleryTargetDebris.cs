@@ -78,9 +78,8 @@ internal sealed partial class ShootingGalleryTargetDebris
             return;
         }
 
-        _precisePosition += OracleObjectMath.VectorFromAngle32(_angle) *
-            (_speed / 40.0f);
-        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        Position = OracleObjectMovement.Shared.ApplySpeed(
+            ref _precisePosition, _speed, _angle);
         QueueRedraw();
     }
 

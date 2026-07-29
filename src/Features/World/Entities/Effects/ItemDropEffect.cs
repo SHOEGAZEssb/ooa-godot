@@ -40,7 +40,6 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
     private OracleRoomData _room = null!;
     private Texture2D _texture = null!;
     private Texture2D _flippedTexture = null!;
-    private ItemDropDatabase? _itemDrops;
     private OracleRandom? _random;
     private DropState _state;
     private int _zFixed;
@@ -50,8 +49,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
     private Vector2 _precisePosition;
     private int _angle;
     private int _speed;
-    private int _fairyXFixed;
-    private int _fairyYFixed;
+    private OracleObjectPosition _fairyPosition;
     private int _fairyMovementCounter;
     private int _fairyCollisionDelay;
     private bool _flipX;
@@ -104,12 +102,11 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
         _room = room;
-        _itemDrops = itemDrops;
         _random = random;
         _angle = angle;
         _speed = dugUp && subId != 0 ? DugUpSpeed : 0;
-        _fairyXFixed = Mathf.FloorToInt(position.X * 256.0f);
-        _fairyYFixed = Mathf.FloorToInt(position.Y * 256.0f);
+        _fairyPosition =
+            OracleObjectMovement.Shared.PositionFromPixels(position);
         _soundRequested = soundRequested ?? (static _ => { });
         _collectionSound = collectionSound;
         _speedZ = InitialSpeedZ;
@@ -261,8 +258,8 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
             return;
         }
 
-        _precisePosition += direction * (_speed / 40.0f);
-        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        Position = OracleObjectMovement.Shared.ApplySpeed(
+            ref _precisePosition, _speed, _angle);
     }
 
     private void UpdateFairyBounceMovement()
@@ -307,14 +304,10 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
 
     private void ApplyFairyVelocity()
     {
-        OracleObjectVelocity velocity =
-            _itemDrops!.GetFairyVelocity(_speed, _angle);
-        _fairyYFixed += velocity.YFixed;
-        _fairyXFixed += velocity.XFixed;
-        _precisePosition = new Vector2(
-            _fairyXFixed / 256.0f,
-            _fairyYFixed / 256.0f);
-        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        _fairyPosition = OracleObjectMovement.Shared.ApplySpeed(
+            _fairyPosition, _speed, _angle);
+        _precisePosition = _fairyPosition.PrecisePosition;
+        Position = _fairyPosition.PixelPosition;
     }
 
     private Vector2 FairyFrontOffset()

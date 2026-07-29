@@ -165,10 +165,9 @@ internal sealed class EnterPastEvent :
 
     void ICutsceneCommandHost.MoveActorAtSpeed(string actor, int speed, int angle)
     {
-        Vector2 direction = OracleObjectMath.StrictCardinalVector(angle);
-        _precisePosition += direction * (speed / 40.0f);
         RequireVillager(actor).Position =
-            OracleObjectMath.ToPixelPosition(_precisePosition);
+            OracleObjectMovement.Shared.ApplySpeed(
+                ref _precisePosition, speed, angle);
     }
 
     void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>

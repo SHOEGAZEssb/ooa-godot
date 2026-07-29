@@ -67,7 +67,8 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
 
             case BoomerangMoblinCharacterMoblinState.Deciding:
                 ChooseDirection();
-                int target = (OracleObjectMath.AngleToward(Position, linkPosition) + 4) & 0x18;
+                int target = (OracleObjectMovement.Shared.RelativeAngle(
+                    Position, linkPosition) + 4) & 0x18;
                 if (target == _angle)
                 {
                     _state = BoomerangMoblinCharacterMoblinState.WaitingForBoomerang;

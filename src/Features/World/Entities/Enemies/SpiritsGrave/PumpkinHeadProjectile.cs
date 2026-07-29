@@ -57,7 +57,7 @@ internal sealed partial class PumpkinHeadProjectile : TransitionOffsetNode2D
             }
         }
 
-        Position += OracleObjectSpeedTable.Shared.Delta(0x3c, _angle);
+        Position += OracleObjectMovement.Shared.Delta(0x3c, _angle);
         if (!OracleObjectMath.IsInsideOriginalScreenBoundary(Position) ||
             _room.IsSolid(Position))
         {

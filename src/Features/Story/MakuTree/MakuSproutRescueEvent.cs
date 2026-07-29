@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -18,6 +19,8 @@ internal sealed class MakuSproutRescueEvent :
     private readonly CutsceneCommandRunner _controllerRunner;
     private readonly CutsceneCommandRunner _leftRunner;
     private readonly CutsceneCommandRunner _rightRunner;
+    private readonly Dictionary<string, OracleObjectPosition> _objectPositions =
+        new(StringComparer.Ordinal);
     private NpcCharacter? _sprout;
     private NpcCharacter? _leftMoblin;
     private NpcCharacter? _rightMoblin;
@@ -70,6 +73,8 @@ internal sealed class MakuSproutRescueEvent :
         _sprout = _context.RequireNpc(
             _record.Group, _record.Room, _record.SproutId, _record.SproutSubId,
             "INTERAC_MAKU_SPROUT");
+        _objectPositions["Sprout"] =
+            OracleObjectMovement.Shared.PositionFromPixels(_sprout.Position);
         _stage = MakuSproutRescueEventEventStage.Running;
         _inputEnabled = true;
         _sproutRunner.Start(_database.Sprout);
@@ -142,6 +147,7 @@ internal sealed class MakuSproutRescueEvent :
         _sprout = null;
         _leftMoblin = null;
         _rightMoblin = null;
+        _objectPositions.Clear();
         _stage = MakuSproutRescueEventEventStage.Inactive;
         _cutsceneState = 0;
         _moblinSync = 0;
@@ -168,9 +174,13 @@ internal sealed class MakuSproutRescueEvent :
     private NpcCharacter SpawnActor(string actorName)
     {
         MakuSproutRescueDatabaseActorRecord actor = _database.Actors[actorName];
-        return _context.Entities.Spawn<NpcCharacter>(new CutsceneNpcSpawn(
-            actor.ToNpcRecord(_record.Group, _record.Room), actorName,
-            Talkable: false, Solid: true));
+        NpcCharacter spawned =
+            _context.Entities.Spawn<NpcCharacter>(new CutsceneNpcSpawn(
+                actor.ToNpcRecord(_record.Group, _record.Room), actorName,
+                Talkable: false, Solid: true));
+        _objectPositions[actorName] =
+            OracleObjectMovement.Shared.PositionFromPixels(spawned.Position);
+        return spawned;
     }
 
     private static Vector2 PackedCenter(int packed) => new(
@@ -274,7 +284,8 @@ internal sealed class MakuSproutRescueEvent :
 
     private static Vector2I DirectionToward(Vector2 origin, Vector2 target)
     {
-        int angle = (OracleObjectMath.AngleToward(origin, target) + 4) & 0x18;
+        int angle = (OracleObjectMovement.Shared.RelativeAngle(
+            origin, target) + 4) & 0x18;
         return angle switch
         {
             0 => Vector2I.Up,
@@ -336,9 +347,14 @@ internal sealed class MakuSproutRescueEvent :
         ConfigureSavedSprout(Actor(actor));
     }
 
-    void ICutsceneCommandHost.MoveActorAtSpeed(string actor, int speed, int angle) =>
-        Actor(actor).SetStatePosition(Actor(actor).Position +
-            OracleObjectMath.StrictCardinalVector(angle) * (speed / 40.0f));
+    void ICutsceneCommandHost.MoveActorAtSpeed(string actor, int speed, int angle)
+    {
+        OracleObjectPosition position = _objectPositions[actor];
+        position = OracleObjectMovement.Shared.ApplySpeed(
+            position, speed, angle);
+        _objectPositions[actor] = position;
+        Actor(actor).SetStatePosition(position.PixelPosition);
+    }
 
     void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>
         Actor(actor).SetScriptDrawOffset(new Vector2(0, zFixed >> 8));
@@ -358,8 +374,15 @@ internal sealed class MakuSproutRescueEvent :
         Actor(actor.Value).Position;
 
     void ICutsceneCommandHost.SetActorPosition(
-        CutsceneActorId actor, Vector2 position, Vector2 facingDelta, Vector2 movement) =>
+        CutsceneActorId actor,
+        Vector2 position,
+        Vector2 facingDelta,
+        Vector2 movement)
+    {
+        _objectPositions[actor.Value] =
+            OracleObjectMovement.Shared.PositionFromPixels(position);
         Actor(actor.Value).SetStatePosition(position);
+    }
 
     void ICutsceneCommandHost.WriteMemory(string binding, int value)
     {

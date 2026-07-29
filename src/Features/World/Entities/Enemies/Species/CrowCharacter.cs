@@ -129,13 +129,14 @@ public partial class CrowCharacter : EnemyCharacter
                     _counter2--;
                     if (_counter2 != 0 && (_counter2 & 0x07) == 0)
                     {
-                        int target = OracleObjectMath.AngleToward(Position, linkPosition);
+                        int target = OracleObjectMovement.Shared.RelativeAngle(
+                            Position, linkPosition);
                         NudgeAngleToward(target);
                         SetDirectionalAnimation(flight: true);
                     }
                 }
                 _precisePosition +=
-                    OracleObjectSpeedTable.Shared.Delta(Record.SpeedRaw, _angle);
+                    OracleObjectMovement.Shared.Delta(Record.SpeedRaw, _angle);
                 Position = OracleObjectMath.ToPixelPosition(_precisePosition);
                 AdvanceAnimation();
                 return;
@@ -164,7 +165,8 @@ public partial class CrowCharacter : EnemyCharacter
         _state = CrowState.Charging;
         _counter2 = ChargeCounter;
         _collisionEnabled = true;
-        _angle = OracleObjectMath.AngleToward(Position, linkPosition);
+        _angle = OracleObjectMovement.Shared.RelativeAngle(
+            Position, linkPosition);
         int offset = (_random.Next().Value & 0x04) == 0 ? -4 : 4;
         _angle = (_angle + offset) & 0x1f;
         SetDirectionalAnimation(flight: true);
@@ -172,7 +174,7 @@ public partial class CrowCharacter : EnemyCharacter
 
     private void FaceTarget(Vector2 target, bool flight)
     {
-        _angle = OracleObjectMath.AngleToward(Position, target);
+        _angle = OracleObjectMovement.Shared.RelativeAngle(Position, target);
         SetDirectionalAnimation(flight);
     }
 

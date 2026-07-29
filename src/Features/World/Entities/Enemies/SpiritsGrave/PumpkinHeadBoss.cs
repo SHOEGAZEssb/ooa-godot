@@ -230,7 +230,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
                     break;
                 }
                 _precisePosition +=
-                    OracleObjectSpeedTable.Shared.Delta(0x14, _angle);
+                    OracleObjectMovement.Shared.Delta(0x14, _angle);
                 _precisePosition = new Vector2(
                     Mathf.Clamp(_precisePosition.X, 20, _room.Width - 20),
                     Mathf.Clamp(_precisePosition.Y, 24, _room.Height - 20));
@@ -259,7 +259,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
                 break;
             case BossState.Stomping:
                 _precisePosition +=
-                    OracleObjectSpeedTable.Shared.Delta(0x28, _angle);
+                    OracleObjectMovement.Shared.Delta(0x28, _angle);
                 _precisePosition = new Vector2(
                     Mathf.Clamp(_precisePosition.X, 20, _room.Width - 20),
                     Mathf.Clamp(_precisePosition.Y, 24, _room.Height - 20));
@@ -652,7 +652,8 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
                         BeginRegeneration();
                     return;
                 }
-                int angle = OracleObjectMath.AngleToward(_ghostPosition, _ghostTarget);
+                int angle = OracleObjectMovement.Shared.RelativeAngle(
+                    _ghostPosition, _ghostTarget);
                 MoveGhost(angle);
                 return;
         }
@@ -661,7 +662,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
     private void MoveGhost(int angle)
     {
         Vector2 next = _ghostPosition +
-            OracleObjectSpeedTable.Shared.Delta(0x32, angle);
+            OracleObjectMovement.Shared.Delta(0x32, angle);
         if (!_room.IsSolid(next))
             _ghostPosition = next;
         ClampGhost();
@@ -872,7 +873,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
     }
 
     private int CardinalAngleToward(Vector2 target) =>
-        (OracleObjectMath.AngleToward(Position, target) + 4) & 0x18;
+        (OracleObjectMovement.Shared.RelativeAngle(Position, target) + 4) & 0x18;
 
     private Vector2 ProjectileOriginOffset(int angle) =>
         _behavior.PumpkinHeadProjectileOriginOffsets[

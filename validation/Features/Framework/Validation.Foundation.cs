@@ -193,6 +193,7 @@ public sealed partial class ValidationRoot
 
     private static void ValidateOracleObjectMath()
     {
+        OracleObjectMovement movement = OracleObjectMovement.Shared;
         bool rejectedNonCardinal = false;
         try
         {
@@ -212,15 +213,58 @@ public sealed partial class ValidationRoot
         bool landed = OracleObjectMath.UpdateSpeedZ(
             ref landingZ, ref landingSpeedZ, 0x20);
 
+        (Vector2 Origin, Vector2 Target, int Angle)[] sourceAngleCases =
+        [
+            (new(100, 100), new(101, 100), 0x08),
+            (new(100, 100), new(100, 99), 0x00),
+            (new(100, 100), new(99, 100), 0x18),
+            (new(100, 100), new(100, 101), 0x10),
+            (new(100, 100), new(116, 84), 0x05),
+            (new(100, 100), new(116, 116), 0x0b),
+            (new(100, 100), new(84, 116), 0x15),
+            (new(100, 100), new(84, 84), 0x1b),
+            // For a maximum delta of 64, the source's four integer
+            // thresholds are exactly 16, 32, 48, and 64.
+            (new(100, 100), new(164, 84), 0x08),
+            (new(100, 100), new(164, 83), 0x07),
+            (new(100, 100), new(164, 68), 0x07),
+            (new(100, 100), new(164, 67), 0x06),
+            (new(100, 100), new(164, 52), 0x06),
+            (new(100, 100), new(164, 51), 0x05),
+            (new(100, 100), new(164, 36), 0x05),
+            // A maximum of nine reaches band 4 after the fourth comparison;
+            // eleven misses all four and takes that same fallback band.
+            (new(100, 100), new(109, 91), 0x04),
+            (new(100, 100), new(111, 89), 0x04),
+            // A maximum below eight makes the integer threshold zero. All
+            // four comparisons miss, selecting the fifth table entry.
+            (new(100, 100), new(107, 94), 0x04),
+            // The source adds eight before unsigned subtraction, moving
+            // the coordinate wrap boundary from $00 to $f8.
+            (new(247, 50), new(248, 50), 0x18),
+            (new(248, 50), new(249, 50), 0x08),
+            (Vector2.Zero, Vector2.Zero, 0x18)
+        ];
+        foreach ((Vector2 origin, Vector2 target, int expected) in sourceAngleCases)
+        {
+            FailIf(
+                movement.RelativeAngle(origin, target) != expected,
+                $"objectGetRelativeAngle ({origin.Y},{origin.X})->" +
+                $"({target.Y},{target.X}) did not produce ${expected:x2}.");
+        }
+
+        Vector2 precise = new(0xff80 / 256.0f, 0x01f0 / 256.0f);
+        Vector2 pixels = default;
+        for (int update = 0; update < 300; update++)
+            pixels = movement.ApplySpeed(ref precise, 0x05, 0x03);
+
         FailIf(
             OracleObjectMath.ToPixelPosition(new Vector2(1.75f, -0.25f)) !=
                 new Vector2(1, -1) ||
-            !OracleObjectMath.VectorFromAngle32(0x00).IsEqualApprox(Vector2.Up) ||
-            !OracleObjectMath.VectorFromAngle32(0x08).IsEqualApprox(Vector2.Right) ||
-            OracleObjectMath.AngleToward(Vector2.Zero, Vector2.Up) != 0x00 ||
-            OracleObjectMath.AngleToward(Vector2.Zero, Vector2.Right) != 0x08 ||
-            OracleObjectMath.AngleToward(Vector2.Zero, Vector2.Down) != 0x10 ||
-            OracleObjectMath.AngleToward(Vector2.Zero, Vector2.Left) != 0x18 ||
+            movement.Direction(0x00) != Vector2.Up ||
+            movement.Direction(0x08) != Vector2.Right ||
+            precise != new Vector2(0x136c / 256.0f, 0xe378 / 256.0f) ||
+            pixels != new Vector2(0x13, 0xe3) ||
             OracleObjectMath.CardinalVector(0x0f) != Vector2.Right ||
             OracleObjectMath.StrictCardinalVector(0x18) != Vector2.Left ||
             airborneLanded || airborneZ != -0x100 || airborneSpeedZ != -0xe0 ||
@@ -231,8 +275,9 @@ public sealed partial class ValidationRoot
             OracleObjectMath.IsInsideOriginalScreenBoundary(new Vector2(0, 136)),
             "Shared original-object coordinate, angle, Z integration, or " +
             "screen-boundary math regressed.");
-        GD.Print("Validated shared 8.8 object-pixel flooring and Z integration, 32-step " +
-            "angles, strict/masked cardinal decoding, and original screen boundaries.");
+        GD.Print("Validated imported object motion, integer relative-angle thresholds, " +
+            "the $f8 byte-wrap boundary, 300-update signed 8.8 carry/wrap, high-byte " +
+            "rendering, Z integration, cardinal decoding, and screen boundaries.");
     }
 
     private void ValidateOracleRandom()

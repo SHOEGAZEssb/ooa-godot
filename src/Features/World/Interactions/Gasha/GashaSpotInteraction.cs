@@ -139,7 +139,8 @@ internal partial class GashaSpotInteraction : TransitionOffsetNode2D
         State = InteractionState.NutAirborne;
         _zFixed = 0;
         _speedZ = _database.NutSpeedZ;
-        _angle = OracleObjectMath.AngleToward(Position, sourcePosition);
+        _angle = OracleObjectMovement.Shared.RelativeAngle(
+            Position, sourcePosition);
         Visible = true;
         return true;
     }
@@ -183,9 +184,8 @@ internal partial class GashaSpotInteraction : TransitionOffsetNode2D
                     _nutCaught(this, player);
                     return;
                 }
-                _precisePosition += OracleObjectMath.VectorFromAngle32(_angle) *
-                    (_database.NutSpeedRaw / 40.0f);
-                Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+                Position = OracleObjectMovement.Shared.ApplySpeed(
+                    ref _precisePosition, _database.NutSpeedRaw, _angle);
                 OracleObjectMath.UpdateSpeedZ(
                     ref _zFixed, ref _speedZ, _database.NutGravity);
                 QueueRedraw();

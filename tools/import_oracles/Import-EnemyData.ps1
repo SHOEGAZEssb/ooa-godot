@@ -2164,6 +2164,63 @@ Write-GeneratedTable(
     (Join-Path $destination 'metadata\object_speed_vectors.tsv'),
     $objectSpeedRows)
 
+# objectGetRelativeAngle reduces the wrapped unsigned byte deltas to one of
+# five bands in one of eight octants, then indexes pushDirectionData. Preserve
+# that final source table beside objectSpeedTable so the game-wide runtime
+# movement owner does not reconstruct angles with host trigonometry.
+$bank0Path = Join-Path $Disassembly 'code\bank0.s'
+$bank0Source = Read-ImportText $bank0Path
+$relativeAngleRoutine = [regex]::Match(
+    $bank0Source,
+    '(?ms)^objectGetRelativeAngleWithTempVars:.*?(?=^pushDirectionData:)').Value
+$relativeAngleBandPath =
+    '(?ms)\s+ld c,e\s+ld b,\$00\s+srl a\s+srl a\s+srl a\s+add a\s+' +
+    'ld l,a\s+cp h\s+jr nc,\+\+\s+' +
+    'inc b\s+add l\s+cp h\s+jr nc,\+\+\s+' +
+    'inc b\s+add l\s+cp h\s+jr nc,\+\+\s+' +
+    'inc b\s+add l\s+cp h\s+jr nc,\+\+\s+inc b\s+\+\+\s+' +
+    'ld a,c\s+add a\s+add a\s+add a\s+add b'
+if ([string]::IsNullOrEmpty($relativeAngleRoutine) -or
+    $relativeAngleRoutine -notmatch
+        '(?ms)^objectGetRelativeAngleWithTempVars:\s*\r?\n\s*ld e,\$08.*?\s+ld hl,pushDirectionData\s*\r?\n\s*add hl,bc\s*\r?\n\s*ld a,\(hl\)\s*\r?\n\s*ret' -or
+    $relativeAngleRoutine -notmatch $relativeAngleBandPath) {
+    throw 'bank0.objectGetRelativeAngle integer decision path changed.'
+}
+$pushDirectionRows = @(Read-AssemblyDataDirectives `
+    $bank0Path 'pushDirectionData' '.db')
+$pushDirectionAngles = @($pushDirectionRows | ForEach-Object {
+    $_.Operands | ForEach-Object { Convert-AssemblyInteger $_ }
+})
+if ($pushDirectionAngles.Count -ne 64) {
+    throw "bank0.pushDirectionData has $($pushDirectionAngles.Count) bytes; expected 64."
+}
+$expectedPushDirections = @(
+    0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x00, 0x00, 0x00,
+    0x00, 0x1f, 0x1e, 0x1d, 0x1c, 0x00, 0x00, 0x00,
+    0x08, 0x07, 0x06, 0x05, 0x04, 0x00, 0x00, 0x00,
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x00, 0x00, 0x00,
+    0x18, 0x17, 0x16, 0x15, 0x14, 0x00, 0x00, 0x00,
+    0x10, 0x11, 0x12, 0x13, 0x14, 0x00, 0x00, 0x00,
+    0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x00, 0x00, 0x00,
+    0x10, 0x0f, 0x0e, 0x0d, 0x0c, 0x00, 0x00, 0x00)
+for ($index = 0; $index -lt $pushDirectionAngles.Count; $index++) {
+    if ($pushDirectionAngles[$index] -ne $expectedPushDirections[$index]) {
+        throw "bank0.pushDirectionData byte $index changed."
+    }
+}
+$relativeAngleRows = [Collections.Generic.List[string]]::new()
+$relativeAngleRows.Add("# octant`tband`tangle`tsource")
+for ($index = 0; $index -lt $pushDirectionAngles.Count; $index++) {
+    $octant = [int][Math]::Floor($index / 8)
+    $band = $index % 8
+    $relativeAngleRows.Add(
+        "$octant`t$band`t$($pushDirectionAngles[$index].ToString('x2'))`t" +
+        "bank0.pushDirectionData+$($index.ToString('x2'))")
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'metadata\object_relative_angles.tsv'),
+    $relativeAngleRows)
+
 # Retain the remaining lookup tables used by implemented enemy handlers in one
 # ordered, source-addressed boundary. These tables are indexed directly by
 # state/RNG/direction values in the original code; runtime code must not carry

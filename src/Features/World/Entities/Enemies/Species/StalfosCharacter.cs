@@ -85,7 +85,7 @@ public partial class StalfosCharacter : EnemyCharacter
                     _state = StalfosState.Deciding;
                 BounceOffWallsAndHoles();
                 Position +=
-                    OracleObjectSpeedTable.Shared.Delta(Record.SpeedRaw, _angle);
+                    OracleObjectMovement.Shared.Delta(Record.SpeedRaw, _angle);
                 QueueRedraw();
                 AdvanceAnimation();
                 return;
@@ -107,7 +107,7 @@ public partial class StalfosCharacter : EnemyCharacter
         OracleRandomResult result = _random.Next();
         _counter1 = 0x20 + (result.Value & 0x30);
         _angle = (result.Low & 0x0f) == 1
-            ? OracleObjectMath.AngleToward(Position, linkPosition)
+            ? OracleObjectMovement.Shared.RelativeAngle(Position, linkPosition)
             : result.High & 0x1f;
         _state = StalfosState.Walking;
         RestartAnimation(0);

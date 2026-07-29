@@ -160,7 +160,8 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
                 if (_childRequestsCharge)
                     UpdateChargeTarget(player.Position);
                 Vector2 target = PackedPositionCenter(_targetPacked);
-                _angle = OracleObjectMath.AngleToward(Position, target);
+                _angle = OracleObjectMovement.Shared.RelativeAngle(
+                    Position, target);
                 if (_room.GetPackedPosition(Position) == _targetPacked)
                 {
                     _state = GiantGhiniBossBossState.Moving;
@@ -243,7 +244,8 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
     private void UpdateChargeTarget(Vector2 linkPosition)
     {
         _targetPacked = _room.GetPackedPosition(linkPosition);
-        _angle = OracleObjectMath.AngleToward(Position, linkPosition);
+        _angle = OracleObjectMovement.Shared.RelativeAngle(
+            Position, linkPosition);
     }
 
     private void ChooseTargetAngle(Vector2 linkPosition) =>
@@ -257,15 +259,16 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
         if (_targetScreenY != targetScreenY)
         {
             _targetScreenY = targetScreenY;
-            _angle = OracleObjectMath.AngleToward(Position, linkPosition) ^ 0x10;
+            _angle = OracleObjectMovement.Shared.RelativeAngle(
+                Position, linkPosition) ^ 0x10;
             _nudgeCounter = 10;
         }
-        return OracleObjectMath.AngleToward(
+        return OracleObjectMovement.Shared.RelativeAngle(
             Position, camera + new Vector2(80, targetScreenY));
     }
 
     private void Move(int angle, int speed) =>
-        Position += OracleObjectSpeedTable.Shared.Delta(speed, angle);
+        Position += OracleObjectMovement.Shared.Delta(speed, angle);
 
     private Vector2 CameraOrigin(Vector2 linkPosition) => new(
         Mathf.Clamp(

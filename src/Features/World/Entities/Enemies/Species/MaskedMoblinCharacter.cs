@@ -85,7 +85,7 @@ public partial class MaskedMoblinCharacter : EnemyCharacter
                 _angle = _random.Next().Value & 0x18;
                 BeginMoving();
                 _moveCycles++;
-                int towardLink = (OracleObjectMath.AngleToward(
+                int towardLink = (OracleObjectMovement.Shared.RelativeAngle(
                     Position, linkPosition) + 4) & 0x18;
                 return (_moveCycles & 1) != 0 && _angle == towardLink
                     ? _angle

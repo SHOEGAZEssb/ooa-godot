@@ -66,6 +66,7 @@ internal sealed class NayruIntroEvent :
     private int _nativePhase;
     private int _nativeCounter;
     private float _nativeStartAlpha;
+    private OracleObjectPosition _bearObjectPosition;
 
     private ImpaIntroEventDatabase _impaDatabase => _impaEvent.Database;
     private NpcCharacter? _impa
@@ -175,6 +176,8 @@ internal sealed class NayruIntroEvent :
         if (!_rooms.SaveData.HasRoomFlag(
             _nayruRecord.Group, _nayruRecord.Room, (byte)_nayruRecord.BearRoomFlag))
             bear.Position += Vector2.Down * 16.0f;
+        _bearObjectPosition =
+            OracleObjectMovement.Shared.PositionFromPixels(bear.Position);
         _nayruActors.SpawnAudience(
             "Monkey", 0x5704, _nayruRecord.Group, _nayruRecord.Room);
         _nayruActors.SpawnAudience(
@@ -314,7 +317,9 @@ internal sealed class NayruIntroEvent :
                 }
                 break;
             case NayruStage.BearMove:
-                _nayruActors["Bear"].Position += Vector2.Up * 0.5f;
+                _bearObjectPosition = OracleObjectMovement.Shared.ApplySpeed(
+                    _bearObjectPosition, _nayruRecord.BearMoveSpeed, 0x00);
+                _nayruActors["Bear"].Position = _bearObjectPosition.PixelPosition;
                 if (--_counter == 0)
                 {
                     _counter = 50;
@@ -657,7 +662,8 @@ internal sealed class NayruIntroEvent :
         _nayruActors.SetAnimation(actor, record.WaitAnimation);
         _nayruFleeingAudience.Add(new FleeingAudience(
             _nayruActors[actor], record,
-            OracleObjectMath.VectorFromAngle32(record.Angle) * record.Speed));
+            OracleObjectMovement.Shared.PositionFromPixels(
+                _nayruActors[actor].Position)));
     }
 
     private void UpdateNayruFleeingAudience()
@@ -687,7 +693,9 @@ internal sealed class NayruIntroEvent :
                 BeginAudienceEscape(fleeing);
                 continue;
             }
-            fleeing.Actor.Position += fleeing.Velocity;
+            fleeing.Position = OracleObjectMovement.Shared.ApplySpeed(
+                fleeing.Position, fleeing.Record.SpeedRaw, fleeing.Record.Angle);
+            fleeing.Actor.Position = fleeing.Position.PixelPosition;
             UpdateAudienceJump(
                 fleeing,
                 fleeing.Record.EscapeJumpSpeedZ,
@@ -1967,7 +1975,7 @@ internal sealed class NayruIntroEvent :
         int angle,
         string encodedAnimation) =>
         _nayruActors.SetAnimation(actor, AnimationForFacing(
-            FacingForDelta(OracleObjectMath.VectorFromAngle32(angle))));
+            FacingForDelta(OracleObjectMovement.Shared.Direction(angle))));
 
     void ICutsceneCommandHost.SetActorCollisionRadii(
         string actor,

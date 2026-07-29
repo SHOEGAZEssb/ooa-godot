@@ -78,9 +78,8 @@ internal partial class Room148PickaxeDebris : FixedEffectNode2D
 
         ZFixed = z;
         SpeedZ = speedZ;
-        _precisePosition += OracleObjectMath.VectorFromAngle32(Angle) *
-            (_speed / 40.0f);
-        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        Position = OracleObjectMovement.Shared.ApplySpeed(
+            ref _precisePosition, _speed, Angle);
         QueueRedraw();
     }
 

@@ -5102,6 +5102,8 @@ if ($fairyMinigameSource -notmatch
     $forestFairySource -notmatch
         '(?ms)^forestFairy_subid00State1:.*?sub c\s+add \$04\s+cp \$09.*?sub b\s+add \$04\s+cp \$09.*?Interaction\.var3a.*?\$5a.*?INTERAC_SPARKLE, \$02.*?objectGetRelativeAngleWithTempVars\s+call objectNudgeAngleTowards.*?objectApplySpeed.*?SND_MAGIC_POWDER' -or
     $forestFairySource -notmatch
+        '(?ms)^forestFairy_subid00State0:.*?Interaction\.speed\s+ld \(hl\),SPEED_200' -or
+    $forestFairySource -notmatch
         '(?ms)^forestFairy_subid00State1:.*?ld e,Interaction\.subid\s+ld a,\(de\)\s+cp \$03\s+jr nc,@label_09_160\s+ld \(hl\),c\s+ld l,Interaction\.yh\s+ld \(hl\),b\s+ld l,Interaction\.state\s+inc \(hl\).*?^forestFairy_subid00State2:\s+ld a,\(wTmpcfc0\.fairyHideAndSeek\.cfd2\)\s+or a\s+jr nz,forestFairy_animate\s+ld e,Interaction\.var03\s+ld a,\(de\)\s+cp \$06\s+jr nc,@createPuffAndDelete.*?^@createPuffAndDelete:\s+call objectCreatePuff\s+jr forestFairy_deleteSelf' -or
     $miscCutsceneSource -notmatch
         '(?ms)^@spawnForestFairy:\s+call getFreeInteractionSlot\s+ret nz\s+ld \(hl\),INTERAC_FOREST_FAIRY\s+ld l,Interaction\.var03\s+ld \(hl\),b\s+jp fairyCutscene_incState' -or
@@ -5443,39 +5445,11 @@ Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_movement.tsv'),
     $fairyMovementOutput)
 
-# SPEED_200 is raw speed byte $50. getPositionOffsetForVelocity swaps its
-# nibbles and indexes objectSpeedTable-$50, producing row offset $04b0. The
-# clean US ROM places bank3.objectSpeedTable at file offset $00c09b; assert its
-# first eight signed sine words before consuming it.
-$speedTableRomOffset = 0x00c09b
-$speedTableSignature = @(
-    0xe0, 0xff, 0xe1, 0xff, 0xe3, 0xff, 0xe6, 0xff,
-    0xea, 0xff, 0xef, 0xff, 0xf4, 0xff, 0xfa, 0xff)
-for ($index = 0; $index -lt $speedTableSignature.Count; $index++) {
-    if ($romBytes[$speedTableRomOffset + $index] -ne
-        $speedTableSignature[$index]) {
-        throw 'Clean-ROM bank3.objectSpeedTable signature changed.'
-    }
+$retiredFairyVelocityPath =
+    Join-Path $destination 'cutscenes\fairies_woods_velocity.tsv'
+if (Test-Path -LiteralPath $retiredFairyVelocityPath) {
+    Remove-Item -LiteralPath $retiredFairyVelocityPath -Force
 }
-$speed200Offset = $speedTableRomOffset + 0x04b0
-if ($forestFairySource -notmatch
-        '(?ms)^forestFairy_subid00State0:.*?Interaction\.speed\s+ld \(hl\),SPEED_200' -or
-    $forestTransitionSource.Length -eq 0 -or
-    $romBytes.Length -le $speed200Offset + 0x4e) {
-    throw 'Could not verify SPEED_200 forest-fairy velocity source.'
-}
-$fairyVelocityRows = [Collections.Generic.List[string]]::new()
-$fairyVelocityRows.Add("# angle`ty-fixed`tx-fixed`tsource")
-for ($angle = 0; $angle -lt 32; $angle++) {
-    $offset = $speed200Offset + $angle * 2
-    $y = [BitConverter]::ToInt16($romBytes, $offset)
-    $x = [BitConverter]::ToInt16($romBytes, $offset + 0x10)
-    $fairyVelocityRows.Add(
-        "$($angle.ToString('x2'))`t$y`t$x`tbank3.objectSpeedTable:SPEED_200")
-}
-Write-CutsceneGeneratedTable(
-    (Join-Path $destination 'cutscenes\fairies_woods_velocity.tsv'),
-    $fairyVelocityRows)
 
 $fairyHiddenRows = @(
     "# room`tpacked-position`tfairy-index`tsource"

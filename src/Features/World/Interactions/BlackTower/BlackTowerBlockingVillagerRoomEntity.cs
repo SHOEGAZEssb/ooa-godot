@@ -86,10 +86,14 @@ internal sealed class BlackTowerBlockingVillagerRoomEntity : BlackTowerNpcRoomEn
             // movement script. This keeps Link outside the worker's current
             // collision box as the worker closes the passage.
             Entity.PreventPlayerPassing(frame.Player);
-            float step = _data.Speed100 / 40.0f;
-            _savedX += _movingRight ? step : -step;
+            var precise = new Vector2(_savedX, Entity.Position.Y);
+            Vector2 pixels = OracleObjectMovement.Shared.ApplySpeed(
+                ref precise,
+                _data.Speed100,
+                _movingRight ? 0x08 : 0x18);
+            _savedX = precise.X;
             _movementUpdates++;
-            Entity.SetStatePosition(new Vector2(_savedX, Entity.Position.Y));
+            Entity.SetStatePosition(pixels);
             frame.Player.SetScriptedCoordinateHigh(horizontal: false, _savedLinkY);
             if (_movementUpdates >= _data.BlockerDistance)
             {

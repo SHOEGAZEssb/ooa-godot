@@ -568,7 +568,8 @@ public sealed partial class ValidationRoot
         for (int direction = 0; direction < 8; direction++)
         {
             _player.WarpTo(
-                firstEyeTileCenter + OracleObjectMath.VectorFromAngle32(direction * 4) * 32);
+                firstEyeTileCenter +
+                OracleObjectMovement.Shared.Direction(direction * 4) * 32);
             manager.Update(update, _player);
             DungeonEntranceInteractionDatabaseVisualRecord visual =
                 data.EyeVisuals[direction];

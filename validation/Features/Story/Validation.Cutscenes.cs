@@ -3458,6 +3458,7 @@ public sealed partial class ValidationRoot
         var nayruDatabase = new NayruIntroEventDatabase();
         NayruIntroEventDatabaseEventRecord nayruEvent = nayruDatabase.Event;
         FailIf(
+            nayruEvent.BearMoveSpeed != 0x14 ||
             nayruEvent.NpcJumpSpeedZ != -0x200 || nayruEvent.NpcJumpGravity != 0x30 ||
             nayruEvent.DarkFadeFrames != 0x20 || nayruEvent.WhiteFadeOutFrames != 0x20 ||
             nayruEvent.PossessionFadeHoldFrames != 0x3c ||
@@ -3466,6 +3467,8 @@ public sealed partial class ValidationRoot
             nayruEvent.NayruFallSpeedZ != 0x40 || nayruEvent.NayruFallGravity != 0x20 ||
             nayruDatabase.DarkBackgroundPalettes.GetLength(0) != 6 ||
             nayruDatabase.Actor("RalphSword").Id != 0x5e ||
+            nayruDatabase.Flee("Bear").SpeedRaw != 0x28 ||
+            nayruDatabase.Flee("Monkey").SpeedRaw != 0x3c ||
             nayruDatabase.Flee("Monkey").WaitJumpSpeedZ != -0x120 ||
             nayruDatabase.Flee("Rabbit").EscapeJumpSpeedZ != -0x200 ||
             !nayruDatabase.Flee("Boy").WaitForLanding ||
@@ -3488,8 +3491,8 @@ public sealed partial class ValidationRoot
                 new Color(17.0f / 31.0f, 17.0f / 31.0f, 25.0f / 31.0f, 1.0f)) ||
             !nayruDatabase.PossessedSpritePalette[2].IsEqualApprox(
                 new Color(3.0f / 31.0f, 13.0f / 31.0f, 27.0f / 31.0f, 1.0f)),
-            "The imported Ralph jump, PALH $99, audience escape, linked sword, white flash, " +
-            "or Nayru portal-flight records changed.");
+            "The imported bear SPEED_080, Ralph jump, PALH $99, audience escape, " +
+            "linked sword, white flash, or Nayru portal-flight records changed.");
         foreach ((string name, Vector2 position) in expectedActors)
         {
             ActorRecord record = nayruDatabase.Actor(name);

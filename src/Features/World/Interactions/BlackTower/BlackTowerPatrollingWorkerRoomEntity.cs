@@ -88,9 +88,11 @@ internal sealed class BlackTowerPatrollingWorkerRoomEntity : BlackTowerNpcRoomEn
             FinishNpcUpdate(frame.Player);
             return;
         }
-        _precisePosition += (Vector2)DirectionVector(_direction) *
-            (_data.Speed80 / 40.0f);
-        Entity.SetStatePosition(OracleObjectMath.ToPixelPosition(_precisePosition));
+        Entity.SetStatePosition(
+            OracleObjectMovement.Shared.ApplySpeed(
+                ref _precisePosition,
+                _data.Speed80,
+                _direction * 8));
         FinishNpcUpdate(frame.Player);
     }
 

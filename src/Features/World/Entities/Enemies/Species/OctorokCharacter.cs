@@ -192,7 +192,7 @@ public partial class OctorokCharacter : EnemyCharacter
     private bool MoveAtAngle(int angle, int speed, bool allowHazards)
     {
         Vector2 destination =
-            Position + OracleObjectSpeedTable.Shared.Delta(speed, angle & 0x18);
+            Position + OracleObjectMovement.Shared.Delta(speed, angle & 0x18);
         if (!CanOccupy(destination, allowHazards))
             return false;
         Position = destination;
