@@ -9,7 +9,8 @@ internal sealed class MaskedMoblinRoomEntity
 {
     public MaskedMoblinRoomEntity(
         MaskedMoblinCharacter moblin,
-        EnemyCombatSourceDescriptor combatSource)
+        EnemyCombatSourceDescriptor combatSource,
+        Action<int> soundRequested)
         : base(
             moblin,
             moblin.SetTransitionDrawOffset,
@@ -20,6 +21,7 @@ internal sealed class MaskedMoblinRoomEntity
                 moblin.TakeSwordHit,
                 damage => moblin.TakeSwordHit(Vector2.Zero, damage),
                 moblin.ApplySwordKnockback,
+                soundRequested,
                 EnemySwordResponse.Knockback))
     { }
 

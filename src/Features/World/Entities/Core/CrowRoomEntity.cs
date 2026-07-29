@@ -9,7 +9,8 @@ internal sealed class CrowRoomEntity
 {
     public CrowRoomEntity(
         CrowCharacter crow,
-        EnemyCombatSourceDescriptor combatSource)
+        EnemyCombatSourceDescriptor combatSource,
+        Action<int> soundRequested)
         : base(
             crow,
             crow.SetTransitionDrawOffset,
@@ -20,6 +21,7 @@ internal sealed class CrowRoomEntity
                 (_, damage) => crow.TakeSwordHit(damage),
                 damage => crow.TakeSwordHit(damage),
                 crow.ApplySwordKnockback,
+                soundRequested,
                 EnemySwordResponse.Knockback,
                 deathPuffPosition: () =>
                     crow.Position + Vector2.Down * crow.Z,

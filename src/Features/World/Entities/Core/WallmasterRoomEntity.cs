@@ -38,7 +38,13 @@ internal sealed class WallmasterRoomEntity
                             soundRequested(OracleSoundEngine.SndBossDead);
                     },
                     wallmaster.TakeDeathPuff,
-                    wallmaster.ApplySwordKnockback),
+                    (sourcePosition, strength) =>
+                    {
+                        wallmaster.ApplySwordKnockback(
+                            sourcePosition, strength);
+                        soundRequested(
+                            OracleSoundEngine.SndDamageEnemy);
+                    }),
                 EnemySwordResponse.Knockback,
                 completedOutcome: () =>
                     RoomEnemyOutcome.WallmasterSpawnerCompletion(

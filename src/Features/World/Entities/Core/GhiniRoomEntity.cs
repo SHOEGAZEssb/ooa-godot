@@ -19,11 +19,8 @@ internal sealed class GhiniRoomEntity
                 ghini.Record.DamageQuarters,
                 ghini.TakeSwordHit,
                 ghini.TakeBurnHit,
-                (sourcePosition, strength) =>
-                {
-                    ghini.ApplySwordKnockback(sourcePosition, strength);
-                    soundRequested(OracleSoundEngine.SndDamageEnemy);
-                },
+                ghini.ApplySwordKnockback,
+                soundRequested,
                 EnemySwordResponse.Knockback))
     { }
 

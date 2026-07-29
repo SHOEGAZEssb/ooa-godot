@@ -8,7 +8,9 @@ internal sealed class GiantGhiniChildRoomEntity
     : CombatEnemyRoomEntityAdapter<GiantGhiniChild>, IFixedRoomEntity,
         IPlayerRestriction
 {
-    public GiantGhiniChildRoomEntity(GiantGhiniChild child)
+    public GiantGhiniChildRoomEntity(
+        GiantGhiniChild child,
+        Action<int> soundRequested)
         : base(
             child, child.SetTransitionDrawOffset,
             EnemyCombatDescriptor.Special(
@@ -23,7 +25,11 @@ internal sealed class GiantGhiniChildRoomEntity
                             child.Position,
                             EnemyId: child.Record.Id)
                         : null,
-                    child.ApplySwordKnockback),
+                    (sourcePosition, strength) =>
+                    {
+                        child.ApplySwordKnockback(sourcePosition, strength);
+                        soundRequested(OracleSoundEngine.SndDamageEnemy);
+                    }),
                 countsAsEnemy: true,
                 killableEnemyIndex: 0,
                 completedOutcome: () =>

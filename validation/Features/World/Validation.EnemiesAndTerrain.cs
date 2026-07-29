@@ -1815,6 +1815,8 @@ public sealed partial class ValidationRoot
                 (EnemyKnockbackStrength.Normal, 0x15, 0x0b),
                 (EnemyKnockbackStrength.High, 0x1a, 0x0f)
             ];
+        _sound.ClearPlayRequestAudit();
+        int acceptedOctorokHits = 0;
         foreach ((EnemyKnockbackStrength strength, int invincibility, int counter)
             in profiles)
         {
@@ -1837,6 +1839,13 @@ public sealed partial class ValidationRoot
                 $"{strength} sword response did not produce " +
                 $"{invincibility}/{counter} invincibility/knockback " +
                 "counters and an away-from-source angle.");
+            acceptedOctorokHits++;
+            FailIf(
+                _sound.PlayRequestsFor(
+                    OracleSoundEngine.SndDamageEnemy) != acceptedOctorokHits,
+                $"ENEMY_OCTOROK's accepted {strength} sword hit did not " +
+                "request exactly one SND_DAMAGE_ENEMY through the common " +
+                "collision effect.");
 
             blocked.UpdateFrame(_player.Position);
             FailIf(
@@ -1968,6 +1977,7 @@ public sealed partial class ValidationRoot
             animation: 1);
         zol.Health = 3;
         Vector2 zolOrigin = zol.Position;
+        _sound.ClearPlayRequestAudit();
         FailIf(
             !_entities.ApplySwordHit(
                 zol.CollisionBounds.Grow(1),
@@ -1976,17 +1986,21 @@ public sealed partial class ValidationRoot
                 knockbackStrength: EnemyKnockbackStrength.High) ||
             zol.Health != 2 ||
             zol.InvincibilityCounter != 0x20 ||
-            zol.KnockbackCounter != 0,
+            zol.KnockbackCounter != 0 ||
+            _sound.PlayRequestsFor(
+                OracleSoundEngine.SndDamageEnemy) != 1,
             "ENEMYCOLLISION_ZOL did not apply its sword-no-knockback " +
-            "$20 invincibility response.");
+            "$20 invincibility response with one SND_DAMAGE_ENEMY request.");
         FailIf(
             _entities.ApplySwordHit(
             zol.CollisionBounds.Grow(1),
             zol.Position,
             damage: 1,
-            knockbackStrength: EnemyKnockbackStrength.Low),
+            knockbackStrength: EnemyKnockbackStrength.Low) ||
+            _sound.PlayRequestsFor(
+                OracleSoundEngine.SndDamageEnemy) != 1,
             "The Zol no-knockback invincibility window accepted an " +
-            "immediate second sword hit.");
+            "immediate second sword hit or replayed its damage sound.");
         zol.UpdateFrame(_player.Position);
         FailIf(
             zol.Position != zolOrigin ||
@@ -1998,8 +2012,9 @@ public sealed partial class ValidationRoot
         GD.Print("Validated collisionEffects.s low/normal/high sword responses " +
             "($10/$15/$1a invincibility, $08/$0b/$0f knockback), " +
             "away-from-source angles, exact SPEED_200 duration, blocked-terrain " +
-            "cancellation, handler pause/resume, lethal-hit ordering, and Zol " +
-            "no-knockback effect $0b.");
+            "cancellation, one SND_DAMAGE_ENEMY per accepted ordinary hit, " +
+            "handler pause/resume, lethal-hit ordering, and Zol no-knockback " +
+            "effect $0b.");
     }
 
     private void ValidateEnemyHazards()
@@ -2028,7 +2043,7 @@ public sealed partial class ValidationRoot
         waterEnemy.SetStateForValidation(
             OctorokState.Standing, counter1: 1000);
         var waterAdapter = new OctorokRoomEntity(
-            waterEnemy, octorokCombat);
+            waterEnemy, octorokCombat, _sound.PlaySound);
         waterEnemy.UpdateFrame(_player.Position);
         FailIf(
             !waterEnemy.IsDead || !waterEnemy.DiedInHazard ||
@@ -2083,7 +2098,7 @@ public sealed partial class ValidationRoot
         holeEnemy.SetStateForValidation(
             OctorokState.Standing, counter1: 1000);
         var holeAdapter = new OctorokRoomEntity(
-            holeEnemy, octorokCombat);
+            holeEnemy, octorokCombat, _sound.PlaySound);
         int initialAnimationFrame = holeEnemy.CurrentAnimationFrame;
         int fallSounds =
             _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole);

@@ -9,7 +9,8 @@ internal sealed class OctorokRoomEntity
 {
     public OctorokRoomEntity(
         OctorokCharacter octorok,
-        EnemyCombatSourceDescriptor combatSource)
+        EnemyCombatSourceDescriptor combatSource,
+        Action<int> soundRequested)
         : base(
             octorok,
             octorok.SetTransitionDrawOffset,
@@ -20,6 +21,7 @@ internal sealed class OctorokRoomEntity
                 octorok.TakeSwordHit,
                 octorok.TakeBurnHit,
                 octorok.ApplySwordKnockback,
+                soundRequested,
                 EnemySwordResponse.Knockback))
     { }
 

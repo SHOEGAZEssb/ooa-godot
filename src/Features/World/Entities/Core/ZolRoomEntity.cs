@@ -9,7 +9,8 @@ internal sealed class ZolRoomEntity
 {
     public ZolRoomEntity(
         ZolCharacter zol,
-        EnemyCombatSourceDescriptor combatSource)
+        EnemyCombatSourceDescriptor combatSource,
+        Action<int> soundRequested)
         : base(
             zol,
             zol.SetTransitionDrawOffset,
@@ -20,6 +21,7 @@ internal sealed class ZolRoomEntity
                 (_, damage) => zol.TakeSwordHit(damage),
                 zol.TakeBurnHit,
                 zol.ApplySwordNoKnockback,
+                soundRequested,
                 EnemySwordResponse.NoKnockback,
                 completedOutcome: () => zol.DiedInHazard
                     ? RoomEnemyOutcome.HazardDeletion(

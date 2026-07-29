@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 
 namespace oracleofages;
@@ -8,7 +9,8 @@ internal sealed class ArrowMoblinRoomEntity
 {
     internal ArrowMoblinRoomEntity(
         ArrowMoblinCharacter moblin,
-        EnemyCombatSourceDescriptor combatSource)
+        EnemyCombatSourceDescriptor combatSource,
+        Action<int> soundRequested)
         : base(
             moblin,
             moblin.SetTransitionDrawOffset,
@@ -19,6 +21,7 @@ internal sealed class ArrowMoblinRoomEntity
                 moblin.TakeSwordHit,
                 moblin.TakeBurnHit,
                 moblin.ApplySwordKnockback,
+                soundRequested,
                 EnemySwordResponse.Knockback))
     { }
 

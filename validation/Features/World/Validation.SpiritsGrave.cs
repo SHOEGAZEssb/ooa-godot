@@ -302,6 +302,30 @@ public sealed partial class ValidationRoot
             $"speed=${moblinBoomerang.SpeedRaw:x2}, returning=" +
             $"{moblinBoomerang.Returning}, bounds=" +
             $"{moblinBoomerang.CollisionBounds.Size}).");
+        BoomerangMoblinCharacter struckMoblin =
+            _entities.Entities<BoomerangMoblinCharacter>()[0];
+        Rect2 moblinHitbox = struckMoblin.CollisionBounds.Grow(1.0f);
+        int moblinHealthBeforeHit = struckMoblin.Health;
+        _sound.ClearPlayRequestAudit();
+        FailIf(
+            !_entities.ApplySwordHit(
+                moblinHitbox,
+                struckMoblin.Position + Vector2.Left * 16.0f,
+                damage: 1) ||
+            struckMoblin.Health != moblinHealthBeforeHit - 1 ||
+            _sound.PlayRequestsFor(
+                OracleSoundEngine.SndDamageEnemy) != 1,
+            "Room 4:17's ENEMY_BOOMERANG_MOBLIN did not request exactly " +
+            "one SND_DAMAGE_ENEMY for an accepted ordinary sword hit.");
+        FailIf(
+            _entities.ApplySwordHit(
+                moblinHitbox,
+                struckMoblin.Position + Vector2.Left * 16.0f,
+                damage: 1) ||
+            _sound.PlayRequestsFor(
+                OracleSoundEngine.SndDamageEnemy) != 1,
+            "Room 4:17's invincible Boomerang Moblin accepted an immediate " +
+            "second hit or replayed SND_DAMAGE_ENEMY.");
 
         PrepareRoom(0x1c);
         FailIf(_entities.Entities<RopeCharacter>().Count != 2, "Room 4:1c did not create both Ropes.");
@@ -1564,6 +1588,7 @@ public sealed partial class ValidationRoot
         int wallmasterDeathEvents = 0;
         void RecordWallmasterDeath() => wallmasterDeathEvents++;
         _entities.EnemyDefeated += RecordWallmasterDeath;
+        _sound.ClearPlayRequestAudit();
 
         for (int hand = 1; hand <= 5; hand++)
         {
@@ -1593,8 +1618,11 @@ public sealed partial class ValidationRoot
                 !_entities.ApplySwordHit(
                     defeatedWallmaster.CollisionBounds.Grow(1.0f),
                     defeatedWallmaster.Position + Vector2.Right * 16.0f,
-                    damage: 20),
-                $"Wallmaster hand {hand} was not hittable after landing.");
+                    damage: 20) ||
+                _sound.PlayRequestsFor(
+                    OracleSoundEngine.SndDamageEnemy) != hand,
+                $"Wallmaster hand {hand} was not hittable after landing " +
+                "or did not request exactly one SND_DAMAGE_ENEMY.");
             for (int frame = 0;
                  frame < 60 &&
                  defeatedWallmaster.Remaining == remainingBeforeHit;
@@ -1869,7 +1897,8 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(0, 0x00);
 
         GD.Print("Validated complete Spirit's Grave dungeon01 coverage: all 22 rooms, " +
-            "eight chests, small/boss doors, Moblins/Ropes/Ghini/Wallmasters, " +
+            "eight chests, small/boss doors, Moblins/Ropes/Ghini/Wallmasters " +
+            "with ordinary accepted-hit damage sounds, " +
             "platforms, torch/dry side-passage traversal/cube puzzles, linked burnable wall, layout-only entry " +
             "shutter, falling rewards, " +
             "Giant Ghini, Pumpkin Head, Heart Container, Eternal Spirit sequence, " +

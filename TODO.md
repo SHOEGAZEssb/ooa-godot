@@ -15,8 +15,7 @@ semantics.
 - [x] Fairies no longer complete ordinary item-drop physics. Their state-1
   rise now clamps at `zh=$fa` and immediately enters the roaming state, as in
   `itemDrop_checkHitGround`, instead of falling back down and bouncing.
-- [ ] Boomerang moblins not making the damage sound when they are hit
-      - [ ] Wallmasters too
+- [x] Certain enemies not making the damage sound when they are hit
 - [x] When getting hit while carrying something, the carried object floats in the air shortly before dropping down. Should drop down instantly.
 - [x] Dungeon eyes (entry room) and portal not visible during screen transition, pop into existence once transition is complete.
 

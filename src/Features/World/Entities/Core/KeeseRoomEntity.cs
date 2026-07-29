@@ -9,7 +9,8 @@ internal sealed class KeeseRoomEntity
 {
     public KeeseRoomEntity(
         KeeseCharacter keese,
-        EnemyCombatSourceDescriptor combatSource)
+        EnemyCombatSourceDescriptor combatSource,
+        Action<int> soundRequested)
         : base(
             keese,
             keese.SetTransitionDrawOffset,
@@ -20,6 +21,7 @@ internal sealed class KeeseRoomEntity
                 (_, damage) => keese.TakeSwordHit(damage),
                 keese.TakeSwordHit,
                 keese.ApplySwordKnockback,
+                soundRequested,
                 EnemySwordResponse.Knockback,
                 deathPuffPosition: () =>
                     keese.Position + Vector2.Down * keese.SpriteHeight))

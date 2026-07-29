@@ -9,7 +9,8 @@ internal sealed class StalfosRoomEntity
 {
     public StalfosRoomEntity(
         StalfosCharacter stalfos,
-        EnemyCombatSourceDescriptor combatSource)
+        EnemyCombatSourceDescriptor combatSource,
+        Action<int> soundRequested)
         : base(
             stalfos,
             stalfos.SetTransitionDrawOffset,
@@ -20,6 +21,7 @@ internal sealed class StalfosRoomEntity
                 stalfos.TakeSwordHit,
                 damage => stalfos.TakeSwordHit(Vector2.Zero, damage),
                 stalfos.ApplySwordKnockback,
+                soundRequested,
                 EnemySwordResponse.Knockback))
     { }
 

@@ -9,7 +9,8 @@ internal sealed class BoomerangMoblinRoomEntity
 {
     public BoomerangMoblinRoomEntity(
         BoomerangMoblinCharacter moblin,
-        EnemyCombatSourceDescriptor combatSource)
+        EnemyCombatSourceDescriptor combatSource,
+        Action<int> soundRequested)
         : base(
             moblin, moblin.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(
@@ -19,6 +20,7 @@ internal sealed class BoomerangMoblinRoomEntity
                 moblin.TakeSwordHit,
                 moblin.TakeBurnHit,
                 moblin.ApplySwordKnockback,
+                soundRequested,
                 EnemySwordResponse.Knockback))
     { }
 

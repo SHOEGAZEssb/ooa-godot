@@ -9,13 +9,14 @@ internal sealed class GelRoomEntity
 {
     public GelRoomEntity(
         GelCharacter gel,
-        EnemyCombatSourceDescriptor combatSource)
+        EnemyCombatSourceDescriptor combatSource,
+        Action<int> soundRequested)
         : base(
             gel,
             gel.SetTransitionDrawOffset,
             EnemyCombatDescriptor.FromSource(
                 combatSource,
-                CreateCombat(gel),
+                CreateCombat(gel, soundRequested),
                 EnemySwordResponse.NoKnockback),
             collisionZ: () => gel.ZFixed >> 8)
     { }
@@ -24,7 +25,9 @@ internal sealed class GelRoomEntity
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Player.Position, frame.Player.FacingVector, frame.AnyButtonJustPressed);
 
-    private static EnemyCombatComponent CreateCombat(GelCharacter gel) =>
+    private static EnemyCombatComponent CreateCombat(
+        GelCharacter gel,
+        Action<int> soundRequested) =>
         new(
             () => gel.IsDead,
             () => gel.CollisionBounds,
@@ -38,5 +41,9 @@ internal sealed class GelRoomEntity
             () => gel.IsDead && !gel.DiedInHazard
                 ? new EnemyDeathPuffSpawn(gel.Position, EnemyId: gel.Definition.Id)
                 : null,
-            gel.ApplySwordNoKnockback);
+            (sourcePosition, strength) =>
+            {
+                gel.ApplySwordNoKnockback(sourcePosition, strength);
+                soundRequested(OracleSoundEngine.SndDamageEnemy);
+            });
 }

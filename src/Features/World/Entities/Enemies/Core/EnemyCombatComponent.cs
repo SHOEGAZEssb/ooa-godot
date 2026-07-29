@@ -121,6 +121,7 @@ internal sealed class EnemyCombatDescriptor
         Func<Vector2, int, bool> takeSwordHit,
         Func<int, bool> takeBurnHit,
         Action<Vector2, EnemyKnockbackStrength> acceptedSwordHit,
+        Action<int> soundRequested,
         EnemySwordResponse swordResponse,
         Func<Vector2>? deathPuffPosition = null,
         Func<bool>? deathPuffAllowed = null,
@@ -142,7 +143,11 @@ internal sealed class EnemyCombatDescriptor
                         deathPuffPosition?.Invoke() ?? enemy.Position,
                         EnemyId: source.Id)
                     : null,
-            acceptedSwordHit);
+            (sourcePosition, strength) =>
+            {
+                acceptedSwordHit(sourcePosition, strength);
+                soundRequested(OracleSoundEngine.SndDamageEnemy);
+            });
         return FromSource(
             source, combat, swordResponse, completedOutcome);
     }

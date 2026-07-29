@@ -1018,6 +1018,13 @@ all other shutters remain closed, and no solve state or cue is synthesized from
 the incomplete count. Standalone `$13:$01` records paired with incomplete enemy
 streams remain inactive for the same reason.
 
+Every accepted ordinary sword collision requests `SND_DAMAGE_ENEMY` from the
+shared combat descriptor, after the species accepts damage and before any
+deferred knockback death completes. Low, normal, high, and no-knockback sword
+effects share that sound; a rejected hit during invincibility requests none.
+Special combat adapters that bypass the ordinary descriptor must explicitly
+retain the same accepted-hit sound policy or their source-specific boss sound.
+
 Common combat death creates `PART_ENEMY_DESTROYED`; the factory requests
 `SND_KILLENEMY` when that puff is allocated so every supported species shares
 one ownership point. Red Zols instead request it with their special

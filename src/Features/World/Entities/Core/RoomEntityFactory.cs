@@ -776,7 +776,8 @@ internal sealed class RoomEntityFactory(
                     ZIndex = 10
                 };
                 keese.Initialize(keeseRecord, room, position, random);
-                return new KeeseRoomEntity(keese, combatSource);
+                return new KeeseRoomEntity(
+                    keese, combatSource, soundRequested);
 
             case EnemyHandlerKind.Crow:
                 if (!enemies.TryGetCrowDefinition(
@@ -790,7 +791,8 @@ internal sealed class RoomEntityFactory(
                     ZIndex = 10
                 };
                 crow.Initialize(crowRecord, room, position, random);
-                return new CrowRoomEntity(crow, combatSource);
+                return new CrowRoomEntity(
+                    crow, combatSource, soundRequested);
 
             case EnemyHandlerKind.Octorok:
                 if (!enemies.TryGetOctorokDefinition(
@@ -804,7 +806,8 @@ internal sealed class RoomEntityFactory(
                     ZIndex = 10
                 };
                 octorok.Initialize(octorokRecord, room, position, random);
-                return new OctorokRoomEntity(octorok, combatSource);
+                return new OctorokRoomEntity(
+                    octorok, combatSource, soundRequested);
 
             case EnemyHandlerKind.Stalfos:
                 if (!enemies.TryGetStalfosDefinition(
@@ -818,7 +821,8 @@ internal sealed class RoomEntityFactory(
                     ZIndex = 10
                 };
                 stalfos.Initialize(stalfosRecord, room, position, random);
-                return new StalfosRoomEntity(stalfos, combatSource);
+                return new StalfosRoomEntity(
+                    stalfos, combatSource, soundRequested);
 
             case EnemyHandlerKind.Zol:
                 if (!enemies.TryGetZolDefinition(
@@ -832,7 +836,8 @@ internal sealed class RoomEntityFactory(
                     ZIndex = 10
                 };
                 zol.Initialize(zolRecord, room, position, random);
-                return new ZolRoomEntity(zol, combatSource);
+                return new ZolRoomEntity(
+                    zol, combatSource, soundRequested);
 
             case EnemyHandlerKind.BoomerangMoblin:
                 if (!enemies.TryGetImportedEnemyDefinition(
@@ -847,7 +852,7 @@ internal sealed class RoomEntityFactory(
                 };
                 moblin.Initialize(moblinRecord, room, position, random);
                 return new BoomerangMoblinRoomEntity(
-                    moblin, combatSource);
+                    moblin, combatSource, soundRequested);
 
             case EnemyHandlerKind.ArrowMoblin:
                 if (!enemies.TryGetImportedEnemyDefinition(
@@ -863,7 +868,7 @@ internal sealed class RoomEntityFactory(
                 arrowMoblin.Initialize(
                     arrowMoblinRecord, room, position, random);
                 return new ArrowMoblinRoomEntity(
-                    arrowMoblin, combatSource);
+                    arrowMoblin, combatSource, soundRequested);
 
             case EnemyHandlerKind.Rope:
                 if (!enemies.TryGetImportedEnemyDefinition(
@@ -877,7 +882,8 @@ internal sealed class RoomEntityFactory(
                     ZIndex = 10
                 };
                 rope.Initialize(ropeRecord, room, position, random);
-                return new RopeRoomEntity(rope, combatSource);
+                return new RopeRoomEntity(
+                    rope, combatSource, soundRequested);
 
             case EnemyHandlerKind.Ghini:
                 if (!enemies.TryGetImportedEnemyDefinition(
@@ -1053,7 +1059,8 @@ internal sealed class RoomEntityFactory(
         };
         child.Initialize(
             _spiritsGrave.Enemy(0x3f), spawn.Owner, room, spawn.Index);
-        return new GiantGhiniChildRoomEntity(child);
+        return new GiantGhiniChildRoomEntity(
+            child, soundRequested);
     }
 
     private IRoomEntity CreatePumpkinHeadProjectile(
@@ -1682,7 +1689,8 @@ internal sealed class RoomEntityFactory(
                 objectFlags: 0,
                 killableEnemyIndex: 0,
                 source:
-                    "scripts/ages/scriptHelper.s:moblin_spawnEnemyHere"));
+                    "scripts/ages/scriptHelper.s:moblin_spawnEnemyHere"),
+            soundRequested);
     }
 
     private IRoomEntity CreateEnemyArrow(EnemyArrowSpawn spawn, OracleRoomData room)
@@ -1709,7 +1717,7 @@ internal sealed class RoomEntityFactory(
                 killableEnemyIndex: spawn.KillableEnemyIndex,
                 source: $"dynamic {spawn.Name} ENEMY_GEL");
         return new GelRoomEntity(
-            gel, source);
+            gel, source, soundRequested);
     }
 
     private static int NextKillableEnemyIndex(int flags, ref int count)

@@ -9,7 +9,8 @@ internal sealed class RopeRoomEntity
 {
     public RopeRoomEntity(
         RopeCharacter rope,
-        EnemyCombatSourceDescriptor combatSource)
+        EnemyCombatSourceDescriptor combatSource,
+        Action<int> soundRequested)
         : base(
             rope, rope.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(
@@ -19,6 +20,7 @@ internal sealed class RopeRoomEntity
                 rope.TakeSwordHit,
                 rope.TakeBurnHit,
                 rope.ApplySwordKnockback,
+                soundRequested,
                 EnemySwordResponse.Knockback))
     { }
 
