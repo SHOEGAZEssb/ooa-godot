@@ -301,10 +301,9 @@ public partial class GameRoot : Node2D
         _scene = gameplayScene.Instantiate<GameSceneGraph>();
         AddChild(_scene);
         _dialogue.SetSoundPlayer(_sound.PlaySound);
-        _dialogue.SetBackgroundPaletteProvider(
-            (palette, shade) =>
-                _rooms.CurrentRoom.ResolveBackgroundPaletteColor(
-                    palette, shade));
+        _dialogue.SetBackgroundPaletteState(_rooms.World.BackgroundPalettes);
+        _dialogue.SetAlternatePalettePriorityHandler(
+            _player.SetAlternateTextboxPalettePriority);
         _dialogue.MessageSpeed = _saveData.TextSpeed;
         _hud.Initialize(_treasures, _inventory);
         _rooms.RoomChanged += SyncHudToRoom;

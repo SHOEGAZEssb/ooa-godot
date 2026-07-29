@@ -41,6 +41,22 @@ priority, flash, timing, and coordinate rules. Inventory, ring, and map screens
 supply source-specific VRAM maps and palette attributes to the shared helpers
 instead of carrying private pixel or source-loading loops.
 
+`OracleWorldData` owns one `BackgroundPaletteState` for the eight live gameplay
+BG slots. PALH `$0f` initializes slot 0, each room tileset load replaces slots
+2-7, and the importer stores PALH `$0e`, `$0d`, and `$bd` so `initTextbox` can
+replace slot 1 for ordinary, `TEXTBOXFLAG_ALTPALETTE1`, and
+`TEXTBOXFLAG_ALTPALETTE2` text. Dialogue glyphs and room attributes resolve
+through that same state. Closing text clears the textbox flags but deliberately
+does not restore slot 1; the next palette-header write replaces it, matching the
+hardware buffer. Palette writes rerender the current room and a transition
+destination without rebuilding every cached room.
+
+`TEXTBOXFLAG_ALTPALETTE1` also queues Link after the other world objects in the
+source. While that textbox is open, the runtime raises Link above the ordinary
+world-object Z range and restores normal Z on close. This is distinct from the
+textbox BG attribute's priority bit and does not change ordinary Link/NPC
+relative-Y priority.
+
 ## OAM and animation composition
 
 A generated sprite sheet may represent interleaved 8x16 OBJ cells, not a simple

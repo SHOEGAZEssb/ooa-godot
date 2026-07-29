@@ -358,39 +358,64 @@ foreach ($block in $paletteBlocks) {
 
 $paletteDataSource = Read-ImportText (Join-Path $Disassembly "data\ages\paletteData.s")
 
+function Read-WorldPaletteBytes(
+    [string]$label,
+    [int]$colorCount
+) {
+    $labelIndex = $paletteDataSource.IndexOf(
+        "${label}:", [StringComparison]::Ordinal)
+    if ($labelIndex -lt 0) {
+        throw "Gameplay palette data label not found: $label"
+    }
+    $nextLabel = $paletteDataSource.IndexOf(
+        'paletteData', $labelIndex + $label.Length,
+        [StringComparison]::Ordinal)
+    if ($nextLabel -lt 0) { $nextLabel = $paletteDataSource.Length }
+    $block = $paletteDataSource.Substring(
+        $labelIndex, $nextLabel - $labelIndex)
+    $colors = [regex]::Matches(
+        $block,
+        'm_RGB16\s+\$(?<r>[0-9a-f]{2})\s+\$(?<g>[0-9a-f]{2})\s+\$(?<b>[0-9a-f]{2})')
+    if ($colors.Count -lt $colorCount) {
+        throw "$label contains $($colors.Count) colors; expected $colorCount."
+    }
+
+    $bytes = [byte[]]::new($colorCount * 3)
+    for ($color = 0; $color -lt $colorCount; $color++) {
+        $bytes[$color * 3] = [Convert]::ToByte(
+            $colors[$color].Groups['r'].Value, 16)
+        $bytes[$color * 3 + 1] = [Convert]::ToByte(
+            $colors[$color].Groups['g'].Value, 16)
+        $bytes[$color * 3 + 2] = [Convert]::ToByte(
+            $colors[$color].Groups['b'].Value, 16)
+    }
+    return $bytes
+}
+
 # initializeGame loads PALH_0f before every gameplay room. Besides the standard
 # sprite palettes, that header installs paletteData48e0 as background palette
 # 0. Special metatiles such as the closed/open chest ($f1/$f0) select that
 # palette directly instead of one of the tileset-specific palettes 2-7.
 $commonBgPaletteLabel = 'paletteData48e0'
-$commonBgPaletteIndex = $paletteDataSource.IndexOf(
-    "${commonBgPaletteLabel}:", [StringComparison]::Ordinal)
-if ($commonBgPaletteIndex -lt 0) {
-    throw "Common gameplay background palette not found: $commonBgPaletteLabel"
-}
-$commonBgPaletteEnd = $paletteDataSource.IndexOf(
-    'paletteData', $commonBgPaletteIndex + $commonBgPaletteLabel.Length,
-    [StringComparison]::Ordinal)
-if ($commonBgPaletteEnd -lt 0) { $commonBgPaletteEnd = $paletteDataSource.Length }
-$commonBgPaletteBlock = $paletteDataSource.Substring(
-    $commonBgPaletteIndex, $commonBgPaletteEnd - $commonBgPaletteIndex)
-$commonBgColors = [regex]::Matches(
-    $commonBgPaletteBlock,
-    'm_RGB16\s+\$(?<r>[0-9a-f]{2})\s+\$(?<g>[0-9a-f]{2})\s+\$(?<b>[0-9a-f]{2})')
-if ($commonBgColors.Count -lt 4) {
-    throw "$commonBgPaletteLabel contains $($commonBgColors.Count) colors; expected at least 4."
-}
-$commonBgPaletteBytes = [byte[]]::new(4 * 3)
-for ($color = 0; $color -lt 4; $color++) {
-    $commonBgPaletteBytes[$color * 3] = [Convert]::ToByte(
-        $commonBgColors[$color].Groups['r'].Value, 16)
-    $commonBgPaletteBytes[$color * 3 + 1] = [Convert]::ToByte(
-        $commonBgColors[$color].Groups['g'].Value, 16)
-    $commonBgPaletteBytes[$color * 3 + 2] = [Convert]::ToByte(
-        $commonBgColors[$color].Groups['b'].Value, 16)
-}
+$commonBgPaletteBytes = Read-WorldPaletteBytes $commonBgPaletteLabel 4
 $commonBgPalettePath = Join-Path $destination 'metadata\commonBgPalette0.bin'
 Write-GeneratedBytes($commonBgPalettePath, $commonBgPaletteBytes)
+
+# initTextbox loads one of PALH_0e, PALH_0d, or PALH_bd into live BG slot 1.
+# Keep the three source palettes in ordinary, ALTPALETTE1, ALTPALETTE2 order.
+$textboxBgPaletteBytes = [Collections.Generic.List[byte]]::new()
+foreach ($textboxPaletteLabel in @(
+    'paletteData4920',
+    'paletteData4928',
+    'paletteData4930'
+)) {
+    foreach ($component in (Read-WorldPaletteBytes $textboxPaletteLabel 4)) {
+        $textboxBgPaletteBytes.Add([byte]$component)
+    }
+}
+Write-GeneratedBytes(
+    (Join-Path $destination 'metadata\textboxBgPalette1.bin'),
+    $textboxBgPaletteBytes.ToArray())
 
 $tilesetRecordSize = 8
 $metadata = [byte[]]::new(128 * $tilesetRecordSize)

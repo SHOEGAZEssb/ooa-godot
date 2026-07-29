@@ -66,7 +66,9 @@ public partial class DialogueBox : Node2D
     private int _visiblePanelHeight = PanelHeight;
     private int _selectedChoice;
     private int? _choiceResult;
+    private BackgroundPaletteState? _backgroundPaletteState;
     private Action<int> _playSound = static _ => { };
+    private Action<bool> _alternatePalettePriorityChanged = static _ => { };
     private Func<int> _heartPieceCount = static () => 0;
     private Func<int, int, Color> _backgroundPaletteColor =
         static (_, shade) =>
@@ -152,6 +154,21 @@ public partial class DialogueBox : Node2D
         _backgroundPaletteColor = backgroundPaletteColor;
     }
 
+    internal void SetBackgroundPaletteState(
+        BackgroundPaletteState backgroundPaletteState)
+    {
+        ArgumentNullException.ThrowIfNull(backgroundPaletteState);
+        _backgroundPaletteState = backgroundPaletteState;
+        _backgroundPaletteColor = backgroundPaletteState.Resolve;
+    }
+
+    internal void SetAlternatePalettePriorityHandler(
+        Action<bool> alternatePalettePriorityChanged)
+    {
+        ArgumentNullException.ThrowIfNull(alternatePalettePriorityChanged);
+        _alternatePalettePriorityChanged = alternatePalettePriorityChanged;
+    }
+
     public void ShowMessage(string message, float linkY)
     {
         ShowMessage(message, linkY, 0);
@@ -212,6 +229,8 @@ public partial class DialogueBox : Node2D
         _choiceActive = false;
         _passive = false;
         _textboxFlags = textboxFlags;
+        _backgroundPaletteState?.LoadTextboxPalette(textboxFlags);
+        _alternatePalettePriorityChanged(UsesAlternatePalette1);
         // Textbox position $04 starts at w4TileMap row 11. The ring-list LCD
         // interrupt replaces its fifth screen row with source row 1, keeping
         // the menu's bottom border visible; only four rows of the textbox are
@@ -312,6 +331,7 @@ public partial class DialogueBox : Node2D
         _choiceActive = false;
         _passive = false;
         _textboxFlags = 0;
+        _alternatePalettePriorityChanged(false);
         ResetHeartPieceDisplay();
         Visible = false;
     }
@@ -914,7 +934,23 @@ public partial class DialogueBox : Node2D
             ? Colors.White
             : ColorFor(glyph.ColorIndex);
 
-    private Color ColorFor(int colorIndex) => colorIndex switch
+    private Color ColorFor(int colorIndex)
+    {
+        if (_backgroundPaletteState is null)
+            return LegacyColorFor(colorIndex);
+
+        return colorIndex switch
+        {
+            1 => _backgroundPaletteColor(0, 1),
+            2 => _backgroundPaletteColor(1, 0),
+            3 => _backgroundPaletteColor(1, 1),
+            4 => _backgroundPaletteColor(1, 2),
+            _ when UsesAlternatePalette1 => _backgroundPaletteColor(1, 2),
+            _ => _backgroundPaletteColor(0, 2)
+        };
+    }
+
+    private Color LegacyColorFor(int colorIndex) => colorIndex switch
     {
         1 => RedTextColor,
         2 when UsesAlternatePalette1 => RedTextColor,

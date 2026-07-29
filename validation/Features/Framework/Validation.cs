@@ -107,6 +107,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateNewGameIntro();
         ValidateSoundEngine();
         ValidateGraphicsCache();
+        ValidateBackgroundPaletteState();
         ValidateDebugFlagMenu();
         ValidateDebugCollision();
         ValidateDebugRoomWarp();

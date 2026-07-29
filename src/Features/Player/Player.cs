@@ -5,7 +5,8 @@ namespace oracleofages;
 
 public partial class Player : Node2D
 {
-
+    internal const int NormalZIndex = 10;
+    internal const int AlternateTextboxPaletteZIndex = 13;
     private const float Speed = 60.0f;
     private static readonly Vector2 NormalSpriteOrigin = new(-8, -8);
     private const int SwordSwingFrames = 17;
@@ -378,6 +379,17 @@ public partial class Player : Node2D
         // exposed for one render before the first physics update.
         RefreshTransformationState();
         QueueRedraw();
+    }
+
+    internal void SetAlternateTextboxPalettePriority(bool active)
+    {
+        // drawAllSpritesUnconditionally queues Link again after every other
+        // object for TEXTBOXFLAG_ALTPALETTE1. The higher world Z reproduces
+        // that one textbox-mode priority without changing ordinary relative
+        // Y priority.
+        ZIndex = active
+            ? AlternateTextboxPaletteZIndex
+            : NormalZIndex;
     }
 
     public void WarpTo(

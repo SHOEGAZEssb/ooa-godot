@@ -47,6 +47,7 @@ public sealed class RoomSession
         if (countAsRoomEntry)
             _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         CurrentRoom = GetRoom(startingGroup, startingRoom);
+        World.SetCurrentPaletteRoom(CurrentRoom);
         if (countAsRoomEntry)
             MarkRoomVisited(startingGroup, startingRoom);
         CurrentRoom.UpdateAnimation(_animationTick());
@@ -58,6 +59,7 @@ public sealed class RoomSession
         _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         ActiveGroup = group;
         CurrentRoom = GetRoom(group, room);
+        World.SetCurrentPaletteRoom(CurrentRoom);
         MarkRoomVisited(group, room);
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
         RoomChanged?.Invoke(ActiveGroup, CurrentRoom);
@@ -74,6 +76,7 @@ public sealed class RoomSession
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
         ActiveGroup = group;
         CurrentRoom = GetRoom(group, room);
+        World.SetCurrentPaletteRoom(CurrentRoom);
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
         return CurrentRoom;
     }
@@ -84,6 +87,7 @@ public sealed class RoomSession
         _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         ActiveGroup = group;
         CurrentRoom = room;
+        World.SetCurrentPaletteRoom(CurrentRoom);
         MarkRoomVisited(group, room.Id);
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
         RoomChanged?.Invoke(ActiveGroup, CurrentRoom);

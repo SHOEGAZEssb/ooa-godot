@@ -34,13 +34,11 @@ public sealed class OracleRoomData
     private readonly Image _hudGraphics;
     private readonly byte[] _originalLayout;
     private readonly byte[] _mappings;
-    private readonly Color[,] _palette;
-    private Color[,,]? _temporaryBackgroundPalettes;
-    private int _temporaryBackgroundPaletteHeader;
-    private Color[,]? _temporaryFullBackgroundPalette;
+    private readonly Color[,] _tilesetPalette;
+    private readonly BackgroundPaletteState _backgroundPalettes;
+    private bool _temporaryBackgroundPaletteActive;
     private float _temporaryFullBackgroundPaletteBlend;
     private int? _temporaryBackgroundPaletteOffset;
-    private readonly Color[] _commonBgPalette0;
     private readonly OracleAnimationData _animations;
     private readonly int _layoutStride;
     private readonly Dictionary<int, byte> _positionCollisionOverrides = new();
@@ -67,7 +65,7 @@ public sealed class OracleRoomData
         Image hudGraphics,
         byte[] mappings,
         Color[,] palette,
-        Color[] commonBgPalette0,
+        BackgroundPaletteState backgroundPalettes,
         OracleAnimationData animations)
     {
         Group = group;
@@ -82,8 +80,8 @@ public sealed class OracleRoomData
         _source = source;
         _hudGraphics = hudGraphics;
         _mappings = mappings;
-        _palette = palette;
-        _commonBgPalette0 = commonBgPalette0;
+        _tilesetPalette = palette;
+        _backgroundPalettes = backgroundPalettes;
         _animations = animations;
 
         (WidthInTiles, HeightInTiles, _layoutStride) = layout.Length switch
@@ -119,15 +117,8 @@ public sealed class OracleRoomData
 
     internal void SetTemporaryBackgroundPalette(Color[,,] palettes, int header)
     {
-        if (palettes.GetLength(0) != 4 || palettes.GetLength(1) != 6 ||
-            palettes.GetLength(2) != 4 || header < 0 || header >= palettes.GetLength(0))
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(palettes), "The Maku Tree effect requires four headers of six 4-color palettes.");
-        }
-        _temporaryBackgroundPalettes = palettes;
-        _temporaryBackgroundPaletteHeader = header;
-        ((ImageTexture)Texture).Update(RenderRoom(_activeAnimationHeaders));
+        _temporaryBackgroundPaletteActive = true;
+        _backgroundPalettes.LoadPaletteHeader(palettes, header);
     }
 
     internal void SetTemporaryBackgroundPalette(Color[,] palette, float blend)
@@ -137,24 +128,30 @@ public sealed class OracleRoomData
             throw new ArgumentOutOfRangeException(
                 nameof(palette), "A full room override requires six 4-color BG palettes (2-7).");
         }
-        _temporaryFullBackgroundPalette = palette;
+        _temporaryBackgroundPaletteActive = true;
         _temporaryFullBackgroundPaletteBlend = Mathf.Clamp(blend, 0.0f, 1.0f);
-        ((ImageTexture)Texture).Update(RenderRoom(_activeAnimationHeaders));
+        _backgroundPalettes.BlendTileset(
+            _tilesetPalette, palette, _temporaryFullBackgroundPaletteBlend);
     }
 
     internal void ClearTemporaryBackgroundPalette(long tick)
     {
-        if (_temporaryBackgroundPalettes is null)
-        {
-            if (_temporaryFullBackgroundPalette is null)
-                return;
-        }
-        _temporaryBackgroundPalettes = null;
-        _temporaryFullBackgroundPalette = null;
+        if (!_temporaryBackgroundPaletteActive)
+            return;
+        _temporaryBackgroundPaletteActive = false;
         _temporaryFullBackgroundPaletteBlend = 0.0f;
         _activeAnimationHeaders = _animations.GetActiveHeaders(AnimationGroup, tick);
         _animationSignature = GetAnimationSignature(_activeAnimationHeaders);
-        ((ImageTexture)Texture).Update(RenderRoom(_activeAnimationHeaders));
+        if (_temporaryBackgroundPaletteOffset.HasValue)
+        {
+            _backgroundPalettes.OffsetTileset(
+                _tilesetPalette, _temporaryBackgroundPaletteOffset.Value);
+        }
+        else
+        {
+            _backgroundPalettes.LoadTileset(_tilesetPalette);
+        }
+        RedrawForPaletteChange();
     }
 
     /// <summary>
@@ -169,7 +166,8 @@ public sealed class OracleRoomData
         if (_temporaryBackgroundPaletteOffset == offset)
             return;
         _temporaryBackgroundPaletteOffset = offset;
-        ((ImageTexture)Texture).Update(RenderRoom(_activeAnimationHeaders));
+        if (!_temporaryBackgroundPaletteActive)
+            _backgroundPalettes.OffsetTileset(_tilesetPalette, offset);
     }
 
     /// <summary>
@@ -179,35 +177,7 @@ public sealed class OracleRoomData
     /// </summary>
     internal Color ResolveBackgroundPaletteColor(int rawPalette, int shade)
     {
-        if (rawPalette is < 0 or > 7 || shade is < 0 or > 3)
-            throw new ArgumentOutOfRangeException(nameof(rawPalette));
-        if (rawPalette == 0)
-            return _commonBgPalette0[shade];
-
-        int paletteIndex = Mathf.Clamp(rawPalette - 2, 0, 5);
-        if (_temporaryFullBackgroundPalette is not null &&
-            rawPalette is >= 2 and <= 7)
-        {
-            return _palette[paletteIndex, shade].Lerp(
-                _temporaryFullBackgroundPalette[paletteIndex, shade],
-                _temporaryFullBackgroundPaletteBlend);
-        }
-        if (_temporaryBackgroundPalettes is not null &&
-            rawPalette is >= 2 and <= 7)
-        {
-            return _temporaryBackgroundPalettes[
-                _temporaryBackgroundPaletteHeader,
-                rawPalette - 2,
-                shade];
-        }
-        if (_temporaryBackgroundPaletteOffset.HasValue &&
-            rawPalette is >= 2 and <= 7)
-        {
-            return OffsetGbcColor(
-                _palette[paletteIndex, shade],
-                _temporaryBackgroundPaletteOffset.Value);
-        }
-        return _palette[paletteIndex, shade];
+        return _backgroundPalettes.Resolve(rawPalette, shade);
     }
 
     /// <summary>
@@ -228,17 +198,14 @@ public sealed class OracleRoomData
             throw new ArgumentOutOfRangeException(nameof(tile));
 
         Image output = Image.CreateEmpty(8, 8, false, Image.Format.Rgba8);
-        int paletteIndex = Mathf.Clamp(rawPalette - 2, 0, 5);
         for (int y = 0; y < 8; y++)
         for (int x = 0; x < 8; x++)
         {
             Color sourceColor = source.GetPixel(sourceX + x, sourceY + y);
             int shade = Mathf.Clamp(
                 Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f), 0, 3);
-            Color color = rawPalette == 0
-                ? _commonBgPalette0[shade]
-                : _palette[paletteIndex, shade];
-            output.SetPixel(x, y, color);
+            output.SetPixel(
+                x, y, _backgroundPalettes.Resolve(rawPalette, shade));
         }
         return ImageTexture.CreateFromImage(output);
     }
@@ -296,7 +263,6 @@ public sealed class OracleRoomData
             bool flipX = (attributes & 0x20) != 0;
             bool flipY = (attributes & 0x40) != 0;
             int rawPalette = attributes & 0x07;
-            int paletteIndex = Mathf.Clamp(rawPalette - 2, 0, 5);
             int quarterX = quarter % 2;
             int quarterY = quarter / 2;
 
@@ -313,35 +279,9 @@ public sealed class OracleRoomData
                 {
                     color = Colors.Transparent;
                 }
-                else if (rawPalette == 0)
-                {
-                    color = _commonBgPalette0[shade];
-                }
-                else if (_temporaryFullBackgroundPalette is not null &&
-                         rawPalette is >= 2 and <= 7)
-                {
-                    color = _palette[paletteIndex, shade].Lerp(
-                        _temporaryFullBackgroundPalette[paletteIndex, shade],
-                        _temporaryFullBackgroundPaletteBlend);
-                }
-                else if (_temporaryBackgroundPalettes is not null &&
-                         rawPalette is >= 2 and <= 7)
-                {
-                    color = _temporaryBackgroundPalettes[
-                        _temporaryBackgroundPaletteHeader,
-                        rawPalette - 2,
-                        shade];
-                }
-                else if (_temporaryBackgroundPaletteOffset.HasValue &&
-                         rawPalette is >= 2 and <= 7)
-                {
-                    color = OffsetGbcColor(
-                        _palette[paletteIndex, shade],
-                        _temporaryBackgroundPaletteOffset.Value);
-                }
                 else
                 {
-                    color = _palette[paletteIndex, shade];
+                    color = _backgroundPalettes.Resolve(rawPalette, shade);
                 }
 
                 output.SetPixel(
@@ -1039,7 +979,6 @@ public sealed class OracleRoomData
                 bool flipX = (attributes & 0x20) != 0;
                 bool flipY = (attributes & 0x40) != 0;
                 int rawPalette = attributes & 0x07;
-                int tilesetPaletteIndex = Mathf.Clamp(rawPalette - 2, 0, 5);
                 int quarterX = quarter % 2;
                 int quarterY = quarter / 2;
 
@@ -1052,38 +991,10 @@ public sealed class OracleRoomData
                     int shade = Mathf.Clamp(Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f), 0, 3);
                     int writeX = roomX * 16 + quarterX * 8 + pixelX;
                     int writeY = roomY * 16 + quarterY * 8 + pixelY;
-                    // initializeGame loads PALH_0f before the tileset palette.
-                    // Chest metatiles $f0/$f1 use its red background palette 0.
-                    // Palette 1 is transient (for example, textbox colors), so
-                    // preserve the existing tileset fallback until that state is
-                    // modeled independently.
-                    Color color;
-                    if (rawPalette == 0)
-                    {
-                        color = _commonBgPalette0[shade];
-                    }
-                    else if (_temporaryFullBackgroundPalette is not null && rawPalette is >= 2 and <= 7)
-                    {
-                        color = _palette[tilesetPaletteIndex, shade].Lerp(
-                            _temporaryFullBackgroundPalette[tilesetPaletteIndex, shade],
-                            _temporaryFullBackgroundPaletteBlend);
-                    }
-                    else if (_temporaryBackgroundPalettes is not null && rawPalette is >= 2 and <= 7)
-                    {
-                        color = _temporaryBackgroundPalettes[
-                            _temporaryBackgroundPaletteHeader, rawPalette - 2, shade];
-                    }
-                    else if (_temporaryBackgroundPaletteOffset.HasValue && rawPalette is >= 2 and <= 7)
-                    {
-                        color = OffsetGbcColor(
-                            _palette[tilesetPaletteIndex, shade],
-                            _temporaryBackgroundPaletteOffset.Value);
-                    }
-                    else
-                    {
-                        color = _palette[tilesetPaletteIndex, shade];
-                    }
-                    output.SetPixel(writeX, writeY, color);
+                    output.SetPixel(
+                        writeX,
+                        writeY,
+                        _backgroundPalettes.Resolve(rawPalette, shade));
                 }
             }
         }
@@ -1112,18 +1023,25 @@ public sealed class OracleRoomData
                 Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f),
                 0,
                 3);
-            output.SetPixel(x, y, _commonBgPalette0[shade]);
+            output.SetPixel(x, y, _backgroundPalettes.Resolve(0, shade));
         }
 
         return output;
     }
 
-    private static Color OffsetGbcColor(Color color, int offset)
+    internal void LoadTilesetPalette()
     {
-        int red = Mathf.Clamp(Mathf.RoundToInt(color.R * 31.0f) + offset, 0, 31);
-        int green = Mathf.Clamp(Mathf.RoundToInt(color.G * 31.0f) + offset, 0, 31);
-        int blue = Mathf.Clamp(Mathf.RoundToInt(color.B * 31.0f) + offset, 0, 31);
-        return new Color(red / 31.0f, green / 31.0f, blue / 31.0f, color.A);
+        _temporaryBackgroundPaletteActive = false;
+        _temporaryFullBackgroundPaletteBlend = 0.0f;
+        _temporaryBackgroundPaletteOffset = null;
+        _backgroundPalettes.LoadTileset(_tilesetPalette);
+        RedrawForPaletteChange();
+    }
+
+    internal void RedrawForPaletteChange()
+    {
+        ((ImageTexture)Texture).Update(RenderRoom(_activeAnimationHeaders));
+        ((ImageTexture)ClearedTilemapTexture).Update(RenderClearedTilemap());
     }
 
     private byte GetRenderedMetatile(int layoutIndex) =>

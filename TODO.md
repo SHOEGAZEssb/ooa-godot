@@ -383,7 +383,7 @@ NPC- and enemy-specific findings remain in their sections above.
 
 ### Graphics, commands, and validation ownership
 
-- [ ] Model all eight live BG palette slots instead of aliasing palette 1 to a
+- [x] Model all eight live BG palette slots instead of aliasing palette 1 to a
   tileset fallback.
   - `OracleRoomData.RenderRoom` handles raw palette 0 specially, handles 2-7
     through the tileset palette, but clamps raw palette 1 to tileset palette
@@ -396,6 +396,14 @@ NPC- and enemy-specific findings remain in their sections above.
   - Regress ordinary and alternate textbox palettes over a room tile that
     selects palette 1, including Link's alternate-palette draw priority and
     the exact post-textbox palette state.
+  `BackgroundPaletteState` now owns all eight live gameplay BG slots.
+  Room/transition tileset loads and implemented palette effects write slots
+  2-7 through that owner, while `DialogueBox` loads the imported PALH
+  `$0e/$0d/$bd` colors into slot 1 and leaves the final write intact on close.
+  Current and incoming room textures rerender from the shared slots, Link uses
+  the source's alternate-textbox top-object priority only while flag `$04` is
+  active, and room `5:0b` validation pins ordinary/alternate tile colors,
+  slots-2-7-only darkening, Link priority, and both retained close states.
 
 - [x] Route all source graphics through the shared cache and consolidate the
   remaining VRAM/tile/OAM compositors.

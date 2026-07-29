@@ -20,17 +20,24 @@ public sealed class OracleWorldData
     private readonly Dictionary<int, byte[]> _mappings = new();
     private readonly Dictionary<int, byte[]> _collisions = new();
     private readonly Dictionary<int, Color[,]> _palettes = new();
-    private readonly Color[] _commonBgPalette0;
     private readonly Image _hudGraphics;
     private readonly OracleAnimationData _animations;
+    private OracleRoomData? _currentPaletteRoom;
+    private OracleRoomData? _loadingPaletteRoom;
 
     public int CachedRoomCount => _rooms.Count;
+    internal BackgroundPaletteState BackgroundPalettes { get; }
 
     public OracleWorldData()
     {
         _tilesetMetadata = ReadBytes("res://assets/oracle/metadata/tilesets.bin", 128 * TilesetRecordSize);
-        _commonBgPalette0 = LoadFourColorPalette(
+        Color[] commonBgPalette0 = LoadFourColorPalette(
             "res://assets/oracle/metadata/commonBgPalette0.bin");
+        Color[,] textboxBgPalette1 = LoadPaletteSet(
+            "res://assets/oracle/metadata/textboxBgPalette1.bin", 3);
+        BackgroundPalettes = new BackgroundPaletteState(
+            commonBgPalette0, textboxBgPalette1);
+        BackgroundPalettes.Changed += RedrawLivePaletteRooms;
         _hudGraphics = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/gfx_hud.png");
         _animations = new OracleAnimationData();
@@ -64,7 +71,11 @@ public sealed class OracleWorldData
         if (_rooms.TryGetValue(key, out OracleRoomData? cached))
         {
             if (cached.TilesetId == tileset)
+            {
+                _loadingPaletteRoom = cached;
+                cached.LoadTilesetPalette();
                 return cached;
+            }
             _rooms.Remove(key);
         }
 
@@ -104,8 +115,11 @@ public sealed class OracleWorldData
         var result = new OracleRoomData(
             group, room, tileset, animationGroup, activeCollisions, tilesetFlags,
             layout, collisions,
-            graphics, _hudGraphics, mappings, palette, _commonBgPalette0, _animations);
+            graphics, _hudGraphics, mappings, palette, BackgroundPalettes,
+            _animations);
         _rooms.Add(key, result);
+        _loadingPaletteRoom = result;
+        result.LoadTilesetPalette();
         return result;
     }
 
@@ -117,6 +131,14 @@ public sealed class OracleWorldData
             _groupTilesets.Add(group, roomTilesets);
         }
         return roomTilesets[room] & 0x7f;
+    }
+
+    internal void SetCurrentPaletteRoom(OracleRoomData room)
+    {
+        ArgumentNullException.ThrowIfNull(room);
+        _currentPaletteRoom = room;
+        _loadingPaletteRoom = null;
+        room.RedrawForPaletteChange();
     }
 
     public int GetDungeonIndex(int group, int room)
@@ -151,8 +173,10 @@ public sealed class OracleWorldData
         {
             int offset = (palette * 4 + shade) * 3;
             byte r = (byte)Mathf.RoundToInt(values[offset] * 255.0f / 31.0f);
-            byte g = (byte)Mathf.RoundToInt(values[offset + 1] * 255.0f / 31.0f);
-            byte b = (byte)Mathf.RoundToInt(values[offset + 2] * 255.0f / 31.0f);
+            byte g = (byte)Mathf.RoundToInt(
+                values[offset + 1] * 255.0f / 31.0f);
+            byte b = (byte)Mathf.RoundToInt(
+                values[offset + 2] * 255.0f / 31.0f);
             result[palette, shade] = Color.Color8(r, g, b);
         }
         return result;
@@ -166,11 +190,44 @@ public sealed class OracleWorldData
         {
             int offset = shade * 3;
             byte r = (byte)Mathf.RoundToInt(values[offset] * 255.0f / 31.0f);
-            byte g = (byte)Mathf.RoundToInt(values[offset + 1] * 255.0f / 31.0f);
-            byte b = (byte)Mathf.RoundToInt(values[offset + 2] * 255.0f / 31.0f);
+            byte g = (byte)Mathf.RoundToInt(
+                values[offset + 1] * 255.0f / 31.0f);
+            byte b = (byte)Mathf.RoundToInt(
+                values[offset + 2] * 255.0f / 31.0f);
             result[shade] = Color.Color8(r, g, b);
         }
         return result;
+    }
+
+    private static Color[,] LoadPaletteSet(string path, int paletteCount)
+    {
+        byte[] values = ReadBytes(
+            path, paletteCount * BackgroundPaletteState.ColorsPerPalette * 3);
+        var result = new Color[
+            paletteCount, BackgroundPaletteState.ColorsPerPalette];
+        for (int palette = 0; palette < paletteCount; palette++)
+        for (int shade = 0;
+             shade < BackgroundPaletteState.ColorsPerPalette;
+             shade++)
+        {
+            int offset =
+                (palette * BackgroundPaletteState.ColorsPerPalette + shade) * 3;
+            result[palette, shade] = new Color(
+                values[offset] / 31.0f,
+                values[offset + 1] / 31.0f,
+                values[offset + 2] / 31.0f);
+        }
+        return result;
+    }
+
+    private void RedrawLivePaletteRooms()
+    {
+        _currentPaletteRoom?.RedrawForPaletteChange();
+        if (_loadingPaletteRoom is not null &&
+            _loadingPaletteRoom != _currentPaletteRoom)
+        {
+            _loadingPaletteRoom.RedrawForPaletteChange();
+        }
     }
 
     private static string GetRoomPath(int layoutGroup, int room)

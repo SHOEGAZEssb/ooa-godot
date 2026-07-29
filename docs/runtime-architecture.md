@@ -70,6 +70,7 @@ folder moves do not change runtime identity or Godot script bindings.
 | --- | --- |
 | `GameRoot` | Composition, top-level update order, menu/intro handoff, and HUD synchronization |
 | `RoomSession` | Active group/room, room data, layout state, and neighbor resolution |
+| `OracleWorldData` and `BackgroundPaletteState` | Cached room assets and the eight live gameplay BG palette slots shared by rooms, dialogue, and palette effects |
 | `RoomTransitionController` | Scrolling, warps, destination placement, fades, camera, and time portals |
 | `RoomEntityManager` | Room object creation, active/outgoing lifetimes, fixed updates, contacts, and spawned effects |
 | `InteractionController` | Ordered A-button routing, signs, chests, dialogue, and gameplay-owned submenus |
