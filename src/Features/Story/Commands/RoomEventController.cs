@@ -17,6 +17,7 @@ public sealed class RoomEventController
     private readonly ShootingGalleryEvent _shootingGallery;
     private readonly ComedianEvent _comedian;
     private readonly MaskSalesmanEvent _maskSalesman;
+    private readonly ToiletHandEvent _toiletHand;
     private readonly PoeEvent _poe;
     private readonly RalphPortalEvent _ralph;
     private readonly PreBlackTowerEvent _preBlackTower;
@@ -80,6 +81,7 @@ public sealed class RoomEventController
         _shootingGallery = new ShootingGalleryEvent(_context);
         _comedian = new ComedianEvent(_context);
         _maskSalesman = new MaskSalesmanEvent(_context);
+        _toiletHand = new ToiletHandEvent(_context);
         _poe = new PoeEvent(_context);
         _ralph = new RalphPortalEvent(_context);
         _preBlackTower = new PreBlackTowerEvent(_context);
@@ -119,6 +121,7 @@ public sealed class RoomEventController
             _shootingGallery,
             _comedian,
             _maskSalesman,
+            _toiletHand,
             _poe,
             _makuTreeSaved,
             _makuTree,
@@ -160,6 +163,9 @@ public sealed class RoomEventController
                 "maskSalesman.s:maskSalesmanScript",
                 (target, _) => _maskSalesman.TryInteractNpc(target.Npc)),
             NpcInteractionHandler.ForNpc(
+                "toiletHand.s:toiletHandScript",
+                (target, _) => _toiletHand.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
                 "poe.s:poeScript",
                 (target, _) => _poe.TryInteractNpc(target.Npc)),
             NpcInteractionHandler.ForNpc(
@@ -170,6 +176,7 @@ public sealed class RoomEventController
                 _lynnaShop.TryInteractPlayer)
         ];
         entities.RoomEntitiesLoaded += OnRoomEntitiesLoaded;
+        entities.ObjectFellInHole += NotifyObjectFellInHole;
         entities.SpiritsGraveEssenceTriggered += _spiritsGraveEssence.Begin;
     }
 
@@ -204,6 +211,7 @@ public sealed class RoomEventController
     internal ShootingGalleryEvent ShootingGallery => _shootingGallery;
     internal ComedianEvent Comedian => _comedian;
     internal MaskSalesmanEvent MaskSalesman => _maskSalesman;
+    internal ToiletHandEvent ToiletHand => _toiletHand;
     internal PoeEvent Poe => _poe;
     internal RalphPortalEvent Ralph => _ralph;
     internal PreBlackTowerEvent PreBlackTower => _preBlackTower;
@@ -237,6 +245,8 @@ public sealed class RoomEventController
         _wingDungeonCollapse.OnTileLifted(lifted);
     internal void NotifyBraceletTileLiftCompleted(BraceletTileLifted lifted) =>
         _wingDungeonCollapse.OnTileLiftCompleted(lifted);
+    internal void NotifyObjectFellInHole(ObjectFellInHoleKind kind) =>
+        _toiletHand.OnObjectFellInHole(kind);
     internal void SetRingMenuOpener(Func<RingMenuMode, Action, bool> opener) =>
         _vasuShop.SetRingMenuOpener(opener);
     internal bool SupportsOverworldKeyhole(int group, int room) =>

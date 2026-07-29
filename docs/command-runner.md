@@ -76,7 +76,7 @@ must identify the script, label, command index, source line, and invalid
 operand or actor.
 
 The generated `script_command_vocabulary.tsv` is the enforced normalized
-command schema. Each of its 51 rows declares:
+command schema. Each of its 52 rows declares:
 
 - source macro/native aliases and original byte shape;
 - the one concrete `CutsceneCommand` record type;
@@ -102,6 +102,11 @@ must explicitly preserve the original handler result:
 | Yield | Save the next command and stop until the next update |
 | Block | Keep updating the current command |
 | End | Finish and deactivate the stream |
+
+`jumpifmemoryset` has an asymmetric source carry contract: a taken branch
+continues dispatch in the same update, while a missed branch advances past the
+command and yields. Import it as `jumpifmemoryeqyieldonmiss`; the ordinary
+`jumpifmemoryeq` normalized opcode continues on both outcomes.
 
 For real interaction opcodes, determine this from the assembly handler and
 `interactionRunScript`, not from intuition. In the original dispatcher, a set

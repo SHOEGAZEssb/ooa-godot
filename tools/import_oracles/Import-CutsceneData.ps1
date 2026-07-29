@@ -2424,6 +2424,7 @@ $cutsceneVocabularyRows = @(
     "gate`tcontroller:gate`truntime`tCutsceneGateCommand`tnone`tnone`tnone`trequired`tblock|yield`t-`tgate-read`tHold on a named controller gate.",
     "checkmemoryeq`tcheckmemoryeq`t4`tCutsceneMemoryGateCommand`tnone`thex`tnone`trequired`tblock|yield`t-`tmemory-read`tHold until a WRAM binding equals the operand.",
     "jumpifmemoryeq`tjumpifmemoryeq`t6`tCutsceneMemoryBranchCommand`tnone`thex`tdecimal`trequired`tcontinue`t-`tmemory-read`tConditionally branch on a WRAM binding.",
+    "jumpifmemoryeqyieldonmiss`tjumpifmemoryset`t6`tCutsceneMemoryBranchYieldOnMissCommand`tnone`thex`tdecimal`trequired`tcontinue|yield`t-`tmemory-read`tBranch and continue on a normalized match; otherwise advance and yield.",
     "jumptablememory`tjumptable_objectbyte`t2+table`tCutsceneMemoryJumpTableCommand`tnone`tnone`tnone`tmemory-jump-table`tcontinue`t-`tmemory-read`tIndex a normalized branch table with a binding.",
     "jumpifroomflagset`tjumpifroomflagset`t4`tCutsceneRoomFlagBranchCommand`tnone`thex`tdecimal`tnone`tcontinue`t-`troom-flag-read`tBranch when a room flag is set.",
     "jumpiftradeitemeq`tjumpiftradeitemeq`t4`tCutsceneTradeItemBranchCommand`tnone`thex`tdecimal`tnone`tcontinue`t-`ttrade-item-read`tBranch when the obtained trade item matches.",
@@ -4466,7 +4467,7 @@ $linkedNpcCommandSpecs = @(
     @($linkedNpcCommands[12], 'enableinput', '', '', '', ''),
     @($linkedNpcCommands[13], 'scriptjump', '', '2', '', ''),
     @($linkedNpcCommands[14], 'native', '', '', '', 'linkedNpc_checkHasExtraTextBox'),
-    @($linkedNpcCommands[15], 'jumpifmemoryeq', '', '00', '18', 'LinkedNpcHasExtraText'),
+    @($linkedNpcCommands[15], 'jumpifmemoryeqyieldonmiss', '', '00', '18', 'LinkedNpcHasExtraText'),
     @($linkedNpcCommands[16], 'native', '', '', '', 'linkedNpc_selectExplanation'),
     @($linkedNpcCommands[17], 'showloadedtext', '', '', '', ''),
     @($linkedNpcCommands[18], 'wait', '', '20', '', ''),
@@ -4480,7 +4481,7 @@ $linkedNpcCommandSpecs = @(
     @($linkedNpcCommands[26], 'showloadedtext', '', '', '', ''),
     @($linkedNpcCommands[27], 'enableinput', '', '', '', ''),
     @($linkedNpcCommands[28], 'native', '', '', '', 'linkedNpc_checkHasExtraTextBox'),
-    @($linkedNpcCommands[29], 'jumpifmemoryeq', '', '00', '2', 'LinkedNpcHasExtraText'),
+    @($linkedNpcCommands[29], 'jumpifmemoryeqyieldonmiss', '', '00', '2', 'LinkedNpcHasExtraText'),
     @($linkedNpcCommands[30], 'checkabutton', 'LinkedNpc', '', '', ''),
     @($linkedNpcCommands[31], 'disableinput', '', '', '', ''),
     @($linkedNpcCommands[32], 'scriptjump', '', '12', '', '')
@@ -4851,6 +4852,353 @@ for ($index = 0; $index -lt $postmanCommandSpecs.Count; $index++) {
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\postman_commands.tsv'),
     $postmanCommandRows)
+
+# Room 2:3e's INTERAC_TOILET_HAND $5b:$00 starts hidden and runs an
+# autonomous proximity script. Preserve the three packed Link approach
+# positions, terminal animation-parameter waits, Stationery trade, Stink Bag
+# reward, and the native object-fallen-in-hole reaction stream.
+$toiletHandScriptPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
+$toiletHandOpcodes = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @(
+    'asm15', 'initcollisions', 'writeobjectbyte', 'wait',
+    'jumpifmemoryset', 'callscript', 'jumpifobjectbyteeq', 'scriptjump',
+    'disableinput', 'jumpifroomflagset', 'showtextlowindex',
+    'jumpiftradeitemeq', 'enableinput', 'jumpiftextoptioneq', 'giveitem',
+    'checkobjectbyteeq', 'retscript')) {
+    [void]$toiletHandOpcodes.Add($opcode)
+}
+$toiletHandCommands = @(Read-AssemblyCutsceneCommands `
+    $toiletHandScriptPath 'toiletHandScript' $toiletHandOpcodes `
+    'toiletHandScript_reactToObjectInHole')
+$toiletHandExpected = @(
+    @('asm15', 'objectSetInvisible'),
+    @('initcollisions', ''),
+    @('writeobjectbyte', 'Interaction.pressedAButton, $00'),
+    @('wait', '1'),
+    @('asm15', 'scriptHelp.toiletHand_checkLinkIsClose'),
+    @('jumpifmemoryset', 'wcddb, $10, @waitForLinkToApproach'),
+    @('callscript', '@retreatAndReturnFromToilet'),
+    @('jumpifobjectbyteeq', 'Interaction.pressedAButton, $01, @pressedA'),
+    @('asm15', 'scriptHelp.toiletHand_checkLinkIsClose'),
+    @('jumpifmemoryset', 'wcddb, $10, @linkRetreated'),
+    @('scriptjump', '@waitForLinkToRetreat'),
+    @('callscript', '@retreatIntoToilet'),
+    @('scriptjump', '@npcLoop'),
+    @('asm15', 'scriptHelp.toiletHand_checkLinkIsClose'),
+    @('jumpifmemoryset', 'wcddb, $10, ++'),
+    @('scriptjump', '@waitForLinkToReapproach'),
+    @('scriptjump', '@npcLoop'),
+    @('disableinput', ''),
+    @('writeobjectbyte', 'Interaction.pressedAButton, $00'),
+    @('jumpifroomflagset', '$20, @alreadyGaveStinkBag'),
+    @('showtextlowindex', '<TX_0b07'),
+    @('jumpiftradeitemeq', 'TRADEITEM_STATIONERY, @promptForTrade'),
+    @('callscript', '@retreatIntoToiletAfterDelay'),
+    @('enableinput', ''),
+    @('scriptjump', '@waitForLinkToReapproach'),
+    @('wait', '30'),
+    @('showtextlowindex', '<TX_0b08'),
+    @('wait', '30'),
+    @('jumpiftextoptioneq', '$00, @acceptedTrade'),
+    @('showtextlowindex', '<TX_0b0a'),
+    @('callscript', '@retreatIntoToiletAfterDelay'),
+    @('enableinput', ''),
+    @('scriptjump', '@waitForLinkToReapproach'),
+    @('showtextlowindex', '<TX_0b09'),
+    @('callscript', '@retreatIntoToiletAfterDelay'),
+    @('wait', '30'),
+    @('showtextlowindex', '<TX_0b0b'),
+    @('callscript', '@retreatAndReturnFromToiletAfterDelay'),
+    @('wait', '30'),
+    @('showtextlowindex', '<TX_0b0c'),
+    @('wait', '30'),
+    @('giveitem', 'TREASURE_TRADEITEM, $02'),
+    @('callscript', '@retreatIntoToiletAfterDelay'),
+    @('enableinput', ''),
+    @('scriptjump', '@waitForLinkToReapproach'),
+    @('showtextlowindex', '<TX_0b09'),
+    @('callscript', '@retreatIntoToiletAfterDelay'),
+    @('enableinput', ''),
+    @('scriptjump', '@waitForLinkToReapproach'),
+    @('wait', '30'),
+    @('writeobjectbyte', 'Interaction.pressedAButton, $00'),
+    @('asm15', 'objectSetVisible'),
+    @('asm15', 'scriptHelp.toiletHand_disappear'),
+    @('checkobjectbyteeq', 'Interaction.animParameter, $ff'),
+    @('asm15', 'scriptHelp.toiletHand_comeOutOfToilet'),
+    @('retscript', ''),
+    @('wait', '30'),
+    @('asm15', 'scriptHelp.toiletHand_retreatIntoToilet'),
+    @('checkobjectbyteeq', 'Interaction.animParameter, $ff'),
+    @('asm15', 'objectSetInvisible'),
+    @('retscript', '')
+)
+if ($toiletHandCommands.Count -ne $toiletHandExpected.Count) {
+    throw "toiletHandScript expected 61 commands, parsed $($toiletHandCommands.Count)."
+}
+for ($index = 0; $index -lt $toiletHandExpected.Count; $index++) {
+    $operands = if ($null -eq $toiletHandCommands[$index].Operands) {
+        ''
+    } else {
+        ([string]$toiletHandCommands[$index].Operands).Trim()
+    }
+    if ($toiletHandCommands[$index].Opcode -ne
+            $toiletHandExpected[$index][0] -or
+        $operands -ne $toiletHandExpected[$index][1]) {
+        throw "toiletHandScript command $index changed from " +
+            "$($toiletHandExpected[$index] -join ' ')."
+    }
+}
+
+$toiletHandReactionOpcodes =
+    [Collections.Generic.HashSet[string]]::new(
+        [StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @(
+    'asm15', 'jumpifmemoryset', 'wait', 'scriptjump', 'callscript',
+    'jumptable_objectbyte', 'showtextlowindex', 'scriptend',
+    'checkobjectbyteeq', 'retscript')) {
+    [void]$toiletHandReactionOpcodes.Add($opcode)
+}
+$toiletHandReactionCommands = @(Read-AssemblyCutsceneCommands `
+    $toiletHandScriptPath 'toiletHandScript_reactToObjectInHole' `
+    $toiletHandReactionOpcodes 'maskSalesmanScript')
+$toiletHandReactionExpected = @(
+    @('asm15', 'scriptHelp.toiletHand_checkVisibility'),
+    @('jumpifmemoryset', 'wcddb, $07, @retreatIntoToilet'),
+    @('wait', '90'),
+    @('scriptjump', '@react'),
+    @('asm15', 'scriptHelp.toiletHand_retreatIntoToiletIfNotAlready'),
+    @('callscript', 'toiletHandScriptFunc_waitUntilFullyRetreated'),
+    @('wait', '45'),
+    @('jumptable_objectbyte', 'Interaction.var38'),
+    @('showtextlowindex', '<TX_0b26'),
+    @('wait', '30'),
+    @('asm15', 'setScreenShakeCounter, 60'),
+    @('asm15', 'playSound, SND_EXPLOSION'),
+    @('wait', '60'),
+    @('showtextlowindex', '<TX_0b25'),
+    @('scriptend', ''),
+    @('showtextlowindex', '<TX_0b27'),
+    @('scriptend', ''),
+    @('showtextlowindex', '<TX_0b28'),
+    @('scriptend', ''),
+    @('showtextlowindex', '<TX_0b29'),
+    @('scriptend', ''),
+    @('showtextlowindex', '<TX_0b2a'),
+    @('scriptend', ''),
+    @('showtextlowindex', '<TX_0b2b'),
+    @('scriptend', ''),
+    @('showtextlowindex', '<TX_0b0a'),
+    @('scriptend', '')
+)
+if ($toiletHandReactionCommands.Count -ne
+        $toiletHandReactionExpected.Count) {
+    throw "toiletHandScript_reactToObjectInHole expected 27 commands, " +
+        "parsed $($toiletHandReactionCommands.Count)."
+}
+for ($index = 0; $index -lt $toiletHandReactionExpected.Count; $index++) {
+    $operands = if ($null -eq
+        $toiletHandReactionCommands[$index].Operands) {
+        ''
+    } else {
+        ([string]$toiletHandReactionCommands[$index].Operands).Trim()
+    }
+    if ($toiletHandReactionCommands[$index].Opcode -ne
+            $toiletHandReactionExpected[$index][0] -or
+        $operands -ne $toiletHandReactionExpected[$index][1]) {
+        throw "toiletHandScript_reactToObjectInHole command $index changed " +
+            "from $($toiletHandReactionExpected[$index] -join ' ')."
+    }
+}
+
+$toiletHandNativeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\toiletHand.s')
+$toiletHandHelperSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+$toiletHandInteractionDataSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\interactionData.s')
+if ($toiletHandNativeSource -notmatch
+        '(?ms)^interactionCode5b:.*?^@state0:.*?interactionSetAlwaysUpdateBit.*?clearFallDownHoleEventBuffer.*?^@state1:.*?@respondToObjectInHole.*?interactionRunScript.*?Interaction\.visible.*?interactionAnimateAsNpc.*?^@state2:.*?wTextIsActive.*?interactionRunScript.*?interactionAnimateAsNpc.*?interactionAnimate.*?^@scriptTable:\s+\.dw mainScripts\.toiletHandScript' -or
+    $toiletHandNativeSource -notmatch
+        '(?ms)^@objectTypeTable:.*?Item\.id,\s+\$00.*?Interaction\.id,\s+\$01.*?^@items:.*?ITEM_BOMB,\s+\$00.*?ITEM_BOMBCHUS,\s+\$01.*?ITEM_18,\s+\$02.*?ITEM_EMBER_SEED,\s+\$03.*?ITEM_SCENT_SEED,\s+\$04.*?ITEM_GALE_SEED,\s+\$05.*?ITEM_MYSTERY_SEED,\s+\$06.*?ITEM_BRACELET,\s+\$07.*?^@interactions:\s+\.db INTERAC_PUSHBLOCK,\s+\$07' -or
+    $toiletHandHelperSource -notmatch
+        '(?ms)^toiletHand_checkLinkIsClose:.*?^@data:.*?\.db \$57 \$68 \$67 \$00.*?^toiletHand_retreatIntoToiletIfNotAlready:.*?Interaction\.direction.*?cp \$02.*?^toiletHand_retreatIntoToilet:.*?ld a,\$02.*?^toiletHand_comeOutOfToilet:.*?ld a,\$01.*?^toiletHand_disappear:.*?ld a,\$00.*?interactionSetAnimation' -or
+    $toiletHandInteractionDataSource -notmatch
+        '(?ms)^; Data format:.*?b0: object gfx index.*?b1: Value for oamTileIndexBase.*?b2:.*?default animation index' -or
+    $toiletHandInteractionDataSource -notmatch
+        '(?m)^\s*/\* \$5b \*/ m_InteractionData \$4b \$10 \$10\s*$' -or
+    $mainObjectSource -notmatch
+        '(?ms)^group2Map3eObjectData:\s+obj_Interaction \$5b \$00 \$54 \$88\s+obj_End') {
+    throw 'Room 2:3e INTERAC_TOILET_HAND native state, helper tables, ' +
+        'interaction data, or placement changed.'
+}
+$toiletHandAnimations = @{
+    0 = Resolve-NpcAnimation 0x5b 0
+    1 = Resolve-NpcAnimation 0x5b 1
+    2 = Resolve-NpcAnimation 0x5b 2
+}
+foreach ($animation in 0..2) {
+    if ([string]::IsNullOrWhiteSpace($toiletHandAnimations[$animation])) {
+        throw "Could not resolve INTERAC_TOILET_HAND animation " +
+            "`$$($animation.ToString('x2'))."
+    }
+}
+foreach ($textId in @(0x0b07, 0x0b08, 0x0b09, 0x0b0a, 0x0b0b, 0x0b0c,
+    0x0b25, 0x0b26, 0x0b27, 0x0b28, 0x0b29, 0x0b2a, 0x0b2b)) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve Toilet Hand text TX_$($textId.ToString('x4'))."
+    }
+}
+$toiletHandTreasure =
+    $treasureObjectRecords['TREASURE_OBJECT_TRADEITEM_02']
+if ($null -eq $toiletHandTreasure -or
+    $toiletHandTreasure.Treasure -ne 0x41 -or
+    $toiletHandTreasure.SubId -ne 0x02 -or
+    $toiletHandTreasure.Parameter -ne 0x02 -or
+    $toiletHandTreasure.TextId -ne 0x005c -or
+    $toiletHandTreasure.Graphic -ne 0x72 -or
+    $roomFlagSource -notmatch '\.define ROOMFLAG_ITEM\s+\$20' -or
+    $tradeItemSource -notmatch 'TRADEITEM_STATIONERY\s+db ; \$01' -or
+    $tradeItemSource -notmatch 'TRADEITEM_STINK_BAG\s+db ; \$02') {
+    throw 'Toilet Hand room flag, Stationery requirement, or Stink Bag reward changed.'
+}
+
+$toiletHandCommandSpecs = @(
+    @($toiletHandCommands[0],  'native', '', '', '', 'toiletHand_setInvisible'),
+    @($toiletHandCommands[1],  'initcollisions', 'ToiletHand', '', '', ''),
+    @($toiletHandCommands[2],  'native', '', '', '', 'toiletHand_clearPressedAButton'),
+    @($toiletHandCommands[3],  'wait', '', '1', '', ''),
+    @($toiletHandCommands[4],  'native', '', '', '', 'toiletHand_checkLinkIsClose'),
+    @($toiletHandCommands[5],  'jumpifmemoryeqyieldonmiss', '', '00', '3', 'ToiletHandClose'),
+    @($toiletHandCommands[6],  'callscript', '', '50', '', ''),
+    @($toiletHandCommands[7],  'jumpifmemoryeq', '', '01', '17', 'ToiletHandPressedA'),
+    @($toiletHandCommands[8],  'native', '', '', '', 'toiletHand_checkLinkIsClose'),
+    @($toiletHandCommands[9],  'jumpifmemoryeqyieldonmiss', '', '00', '11', 'ToiletHandClose'),
+    @($toiletHandCommands[10], 'scriptjump', '', '7', '', ''),
+    @($toiletHandCommands[11], 'callscript', '', '57', '', ''),
+    @($toiletHandCommands[12], 'scriptjump', '', '2', '', ''),
+    @($toiletHandCommands[13], 'native', '', '', '', 'toiletHand_checkLinkIsClose'),
+    @($toiletHandCommands[14], 'jumpifmemoryeqyieldonmiss', '', '00', '16', 'ToiletHandClose'),
+    @($toiletHandCommands[15], 'scriptjump', '', '13', '', ''),
+    @($toiletHandCommands[16], 'scriptjump', '', '2', '', ''),
+    @($toiletHandCommands[17], 'disableinput', '', '', '', ''),
+    @($toiletHandCommands[18], 'native', '', '', '', 'toiletHand_clearPressedAButton'),
+    @($toiletHandCommands[19], 'jumpifroomflagset', '', '20', '45', ''),
+    @($toiletHandCommands[20], 'showtext', '', '0b07', '', $allTexts[0x0b07]),
+    @($toiletHandCommands[21], 'jumpiftradeitemeq', '', '01', '25', ''),
+    @($toiletHandCommands[22], 'callscript', '', '56', '', ''),
+    @($toiletHandCommands[23], 'enableinput', '', '', '', ''),
+    @($toiletHandCommands[24], 'scriptjump', '', '13', '', ''),
+    @($toiletHandCommands[25], 'wait', '', '30', '', ''),
+    @($toiletHandCommands[26], 'showtext', '', '0b08', '', $allTexts[0x0b08]),
+    @($toiletHandCommands[27], 'wait', '', '30', '', ''),
+    @($toiletHandCommands[28], 'jumpiftextoptioneq', '', '00', '33', ''),
+    @($toiletHandCommands[29], 'showtext', '', '0b0a', '', $allTexts[0x0b0a]),
+    @($toiletHandCommands[30], 'callscript', '', '56', '', ''),
+    @($toiletHandCommands[31], 'enableinput', '', '', '', ''),
+    @($toiletHandCommands[32], 'scriptjump', '', '13', '', ''),
+    @($toiletHandCommands[33], 'showtext', '', '0b09', '', $allTexts[0x0b09]),
+    @($toiletHandCommands[34], 'callscript', '', '56', '', ''),
+    @($toiletHandCommands[35], 'wait', '', '30', '', ''),
+    @($toiletHandCommands[36], 'showtext', '', '0b0b', '', $allTexts[0x0b0b]),
+    @($toiletHandCommands[37], 'callscript', '', '49', '', ''),
+    @($toiletHandCommands[38], 'wait', '', '30', '', ''),
+    @($toiletHandCommands[39], 'showtext', '', '0b0c', '', $allTexts[0x0b0c]),
+    @($toiletHandCommands[40], 'wait', '', '30', '', ''),
+    @($toiletHandCommands[41], 'giveitem', '', '41', '02', ''),
+    @($toiletHandCommands[42], 'callscript', '', '56', '', ''),
+    @($toiletHandCommands[43], 'enableinput', '', '', '', ''),
+    @($toiletHandCommands[44], 'scriptjump', '', '13', '', ''),
+    @($toiletHandCommands[45], 'showtext', '', '0b09', '', $allTexts[0x0b09]),
+    @($toiletHandCommands[46], 'callscript', '', '56', '', ''),
+    @($toiletHandCommands[47], 'enableinput', '', '', '', ''),
+    @($toiletHandCommands[48], 'scriptjump', '', '13', '', ''),
+    @($toiletHandCommands[49], 'wait', '', '30', '', ''),
+    @($toiletHandCommands[50], 'native', '', '', '', 'toiletHand_clearPressedAButton'),
+    @($toiletHandCommands[51], 'native', '', '', '', 'toiletHand_setVisible'),
+    @($toiletHandCommands[52], 'setanimationcontinue', 'ToiletHand', '00', '', $toiletHandAnimations[0]),
+    @($toiletHandCommands[53], 'checkmemoryeq', '', 'ff', '', 'ToiletHandAnimParameter'),
+    @($toiletHandCommands[54], 'setanimationcontinue', 'ToiletHand', '01', '', $toiletHandAnimations[1]),
+    @($toiletHandCommands[55], 'return', '', '', '', ''),
+    @($toiletHandCommands[56], 'wait', '', '30', '', ''),
+    @($toiletHandCommands[57], 'setanimationcontinue', 'ToiletHand', '02', '', $toiletHandAnimations[2]),
+    @($toiletHandCommands[58], 'checkmemoryeq', '', 'ff', '', 'ToiletHandAnimParameter'),
+    @($toiletHandCommands[59], 'native', '', '', '', 'toiletHand_setInvisible'),
+    @($toiletHandCommands[60], 'return', '', '', '', '')
+)
+$toiletHandCommandRows = [Collections.Generic.List[string]]::new()
+$toiletHandCommandRows.Add($cutsceneCommandHeader)
+for ($index = 0; $index -lt $toiletHandCommandSpecs.Count; $index++) {
+    $spec = $toiletHandCommandSpecs[$index]
+    $sourceCommand = $spec[0]
+    $toiletHandCommandRows.Add((New-CutsceneCommandRow `
+        'toiletHandScript' $index $sourceCommand.Label $sourceCommand.Line `
+        $spec[1] $spec[2] $spec[3] $spec[4] $spec[5]))
+}
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\toilet_hand_commands.tsv'),
+    $toiletHandCommandRows)
+
+$toiletHandReactionSpecs = @(
+    @($toiletHandReactionCommands[0],  'native', '', '', '', 'toiletHand_checkVisibility'),
+    @($toiletHandReactionCommands[1],  'jumpifmemoryeqyieldonmiss', '', '01', '4', 'ToiletHandPriority'),
+    @($toiletHandReactionCommands[2],  'wait', '', '90', '', ''),
+    @($toiletHandReactionCommands[3],  'scriptjump', '', '7', '', ''),
+    @($toiletHandReactionCommands[4],  'native', '', '', '', 'toiletHand_retreatIntoToiletIfNotAlready'),
+    @($toiletHandReactionCommands[5],  'callscript', '', '27', '', ''),
+    @($toiletHandReactionCommands[6],  'wait', '', '45', '', ''),
+    @($toiletHandReactionCommands[7],  'jumptablememory', '', '', '', 'ToiletHandHoleReaction|10,8,15,17,19,21,23,25'),
+    @($toiletHandReactionCommands[8],  'showtext', '', '0b26', '', $allTexts[0x0b26]),
+    @($toiletHandReactionCommands[9],  'wait', '', '30', '', ''),
+    @($toiletHandReactionCommands[10], 'native', '', '', '', 'toiletHand_setScreenShake60'),
+    @($toiletHandReactionCommands[11], 'native', '', '', '', 'toiletHand_playExplosion'),
+    @($toiletHandReactionCommands[12], 'wait', '', '60', '', ''),
+    @($toiletHandReactionCommands[13], 'showtext', '', '0b25', '', $allTexts[0x0b25]),
+    @($toiletHandReactionCommands[14], 'scriptend', '', '', '', ''),
+    @($toiletHandReactionCommands[15], 'showtext', '', '0b27', '', $allTexts[0x0b27]),
+    @($toiletHandReactionCommands[16], 'scriptend', '', '', '', ''),
+    @($toiletHandReactionCommands[17], 'showtext', '', '0b28', '', $allTexts[0x0b28]),
+    @($toiletHandReactionCommands[18], 'scriptend', '', '', '', ''),
+    @($toiletHandReactionCommands[19], 'showtext', '', '0b29', '', $allTexts[0x0b29]),
+    @($toiletHandReactionCommands[20], 'scriptend', '', '', '', ''),
+    @($toiletHandReactionCommands[21], 'showtext', '', '0b2a', '', $allTexts[0x0b2a]),
+    @($toiletHandReactionCommands[22], 'scriptend', '', '', '', ''),
+    @($toiletHandReactionCommands[23], 'showtext', '', '0b2b', '', $allTexts[0x0b2b]),
+    @($toiletHandReactionCommands[24], 'scriptend', '', '', '', ''),
+    @($toiletHandReactionCommands[25], 'showtext', '', '0b0a', '', $allTexts[0x0b0a]),
+    @($toiletHandReactionCommands[26], 'scriptend', '', '', '', ''),
+    @($toiletHandCommands[58], 'checkmemoryeq', '', 'ff', '', 'ToiletHandAnimParameter'),
+    @($toiletHandCommands[59], 'native', '', '', '', 'toiletHand_setInvisible'),
+    @($toiletHandCommands[60], 'return', '', '', '', '')
+)
+$toiletHandReactionRows = [Collections.Generic.List[string]]::new()
+$toiletHandReactionRows.Add($cutsceneCommandHeader)
+for ($index = 0; $index -lt $toiletHandReactionSpecs.Count; $index++) {
+    $spec = $toiletHandReactionSpecs[$index]
+    $sourceCommand = $spec[0]
+    $toiletHandReactionRows.Add((New-CutsceneCommandRow `
+        'toiletHandScript_reactToObjectInHole' $index `
+        $sourceCommand.Label $sourceCommand.Line `
+        $spec[1] $spec[2] $spec[3] $spec[4] $spec[5]))
+}
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\toilet_hand_reaction_commands.tsv'),
+    $toiletHandReactionRows)
+
+$toiletHandEventRows = @(
+    "# group`troom`tid`tsubid`tanimation0`tanimation1`tanimation2`tcollision-y`tcollision-x`troom-flag`trequired-trade`treward-treasure`treward-parameter`treward-object`tclose-packed`tinitial-script-updates`talways-update"
+    (@(
+        '2', '3e', '5b', '00',
+        $toiletHandAnimations[0], $toiletHandAnimations[1],
+        $toiletHandAnimations[2],
+        '06', '06', '20', '01', '41', '02',
+        'TREASURE_OBJECT_TRADEITEM_02', '57,68,67', '1', '1'
+    ) -join "`t")
+)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\toilet_hand_event.tsv'),
+    $toiletHandEventRows)
 
 # Rooms 0:7c and 2:2e Poe encounters. All placed INTERAC_POE records use the
 # same poeScript; Interaction.var03 selects the first, tomb, or final meeting.
@@ -5827,7 +6175,7 @@ function Convert-ShootingGalleryCommandRows(
                     -not $targets.ContainsKey($Matches['target'])) {
                     throw "Malformed shooting-gallery flags branch at line $($command.Line)."
                 }
-                $opcode = 'jumpifmemoryeq'
+                $opcode = 'jumpifmemoryeqyieldonmiss'
                 $arg0 = '01'
                 $arg1 = $targets[$Matches['target']].ToString()
                 $payload = 'Condition'

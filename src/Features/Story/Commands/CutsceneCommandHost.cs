@@ -174,6 +174,7 @@ internal abstract class InteractiveInfiniteScriptHost<TActor> :
     public RoomEventContext Context => _context;
     protected override RoomEventContext InputContext => _context;
     protected TActor? ScriptActor => _actor;
+    protected bool PendingActorButton => _buttonPressed;
     internal int CurrentCommandIndex =>
         _runner.CurrentCommand?.Source.CommandIndex ?? -1;
     internal int Counter => _runner.Counter;
@@ -248,6 +249,8 @@ internal abstract class InteractiveInfiniteScriptHost<TActor> :
     }
 
     protected void AdvanceInfiniteScript() => _runner.AdvanceFrame();
+
+    protected void ClearPendingActorButton() => _buttonPressed = false;
 
     protected TActor RequireScriptActor(string actor)
     {

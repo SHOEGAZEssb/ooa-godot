@@ -114,6 +114,12 @@ internal static class CutsceneCommandCatalog
                 Required(path, physicalLine, "payload", payload),
                 Hex(path, physicalLine, "arg0", arg0),
                 Decimal(path, physicalLine, "arg1", arg1)),
+            "jumpifmemoryeqyieldonmiss" =>
+                new CutsceneMemoryBranchYieldOnMissCommand(
+                    source,
+                    Required(path, physicalLine, "payload", payload),
+                    Hex(path, physicalLine, "arg0", arg0),
+                    Decimal(path, physicalLine, "arg1", arg1)),
             "jumptablememory" => ParseMemoryJumpTable(
                 path, physicalLine, source, payload),
             "jumpifroomflagset" => new CutsceneRoomFlagBranchCommand(
@@ -465,6 +471,13 @@ internal sealed record CutsceneApplySpeedCommand(
 }
 
 internal sealed record CutsceneMemoryBranchCommand(
+    CutsceneCommandSource Source,
+    string Binding,
+    int Value,
+    int TargetCommand)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneMemoryBranchYieldOnMissCommand(
     CutsceneCommandSource Source,
     string Binding,
     int Value,

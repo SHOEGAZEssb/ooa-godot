@@ -688,8 +688,12 @@ public partial class GameRoot : Node2D
             if (hazard is HazardType.Water or HazardType.Lava)
                 _terrain.SpawnSplash(position, hazard);
             else if (hazard == HazardType.Hole)
+            {
+                _roomEvents.NotifyObjectFellInHole(
+                    ObjectFellInHoleKind.PushBlock);
                 _entities.Spawn<FallingDownHoleEffect>(
                     new FallingDownHoleSpawn(position));
+            }
         };
         _debugCollision = new DebugCollisionController();
         _playerWorld = new PlayerWorld(

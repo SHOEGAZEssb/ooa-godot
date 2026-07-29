@@ -76,6 +76,8 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
             int target = commands[index] switch
             {
                 CutsceneMemoryBranchCommand branch => branch.TargetCommand,
+                CutsceneMemoryBranchYieldOnMissCommand branch =>
+                    branch.TargetCommand,
                 CutsceneRoomFlagBranchCommand branch => branch.TargetCommand,
                 CutsceneTradeItemBranchCommand branch => branch.TargetCommand,
                 CutsceneTextOptionBranchCommand branch => branch.TargetCommand,
@@ -84,6 +86,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                 _ => -1
             };
             if (commands[index] is CutsceneMemoryBranchCommand or
+                    CutsceneMemoryBranchYieldOnMissCommand or
                     CutsceneRoomFlagBranchCommand or
                     CutsceneTradeItemBranchCommand or
                     CutsceneTextOptionBranchCommand or
@@ -297,6 +300,14 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                 if (host.MemoryEquals(branch.Binding, branch.Value))
                     _nextInstruction = branch.TargetCommand;
                 return CommandResult.Continue;
+
+            case CutsceneMemoryBranchYieldOnMissCommand branch:
+                if (host.MemoryEquals(branch.Binding, branch.Value))
+                {
+                    _nextInstruction = branch.TargetCommand;
+                    return CommandResult.Continue;
+                }
+                return CommandResult.Yield;
 
             case CutsceneMemoryJumpTableCommand jumpTable:
                 int jumpIndex = host.ReadMemory(jumpTable.Binding);
@@ -656,6 +667,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
             Counter,
             phase == CutsceneCommandTracePhase.Completed &&
                 command is CutsceneMemoryBranchCommand or
+                    CutsceneMemoryBranchYieldOnMissCommand or
                     CutsceneMemoryJumpTableCommand or
                     CutsceneTradeItemBranchCommand or CutsceneBranchCommand or
                     CutsceneCallCommand or CutsceneReturnCommand

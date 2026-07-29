@@ -337,6 +337,29 @@ two-hand treasure path. Its room-item bit `$20` is set on grant and suppresses
 the Postman on re-entry; a clear flag with no Poe Clock or a declined choice
 returns to the A-button loop without consuming the item.
 
+Present room `2:3e` uses a specialized fixed-update owner for
+`INTERAC_TOILET_HAND $5b:$00`. The hand starts hidden at `$88,$54` with the
+interaction-data `$10/$10` hitbox. Its native proximity helper packs Link's
+high-byte position and recognizes only `$57,$68,$67`; approach plays terminal
+animation `$00`, animation `$01` is the exposed loop, and retreat plays
+terminal animation `$02` before hiding. The normal native tail performs one
+animation/collision/priority update while visible, while the object-in-hole
+reaction tail performs two and remains paused during text.
+
+The imported `toiletHandScript` owns TX `$0b07-$0b0c`, exact 30-update waits,
+the Stationery `$01` predicate and Yes/No branch, and the two-hand
+`TREASURE_TRADEITEM $02` Stink Bag grant. Granting sets room-item bit `$20`;
+on re-entry the same proximity actor remains available but selects the
+completed TX `$0b09` branch and cannot grant another item. The separate typed
+reaction stream preserves the bomb, Bombchu, Somaria block, four seed, and
+bracelet/pushblock lookup order plus TX `$0b25-$0b2b`. Preserve its source bug:
+`toiletHand_checkVisibility` copies the full visible byte but the script tests
+priority bits `$07`, so a first hidden drop waits 90 updates while any drop
+after the hand has gained nonzero draw priority takes the retreat-and-wait-45
+path. `RoomEntityManager.ObjectFellInHole` currently feeds that buffer from
+thrown bracelet objects, and the pushblock hazard path sends the same typed
+notification.
+
 A group/room branch in `RoomEntityFactory` is acceptable only when the original
 defines that exact linked composition. Prefer interaction ID/subid dispatch for
 behavior shared across placements, and import a general selector table when the

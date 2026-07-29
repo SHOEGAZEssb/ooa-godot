@@ -46,9 +46,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 71 | Traced and covered by the current named NPC/event scenarios. |
+| **I** | 72 | Traced and covered by the current named NPC/event scenarios. |
 | **P** | 44 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
-| **D** | 273 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 272 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **388** | **211 rooms and 294 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -58,10 +58,10 @@ family remains **P** until its progression ownership and all per-variant
 behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
-The implementation manifest therefore contains 51 ordinary, 52 specialized,
-14 event-owned, and 271 deliberately unsupported positioned/state-derived
+The implementation manifest therefore contains 51 ordinary, 53 specialized,
+14 event-owned, and 270 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 460
-classified records and 124 specialized rows.
+classified records and 125 specialized rows.
 
 ### Important partial and deferred boundaries
 
@@ -86,8 +86,8 @@ classified records and 124 specialized rows.
 - Soldier `$40` and the surrounding palace, ending, and linked-game cast
   outside the implemented pre-Black-Tower and lower-Tower slices.
 - Symmetry City `$bf`, carpenter `$9a`, Mamamu Yan/dog `$53/$54`, Tingle
-  `$c8`, Bomb Upgrade Fairy `$83`, Rafton/Cheval `$69/$6a`, Toilet Hand `$5b`,
-  Syrup `$5f`, and the remaining shopkeeper variants `$46`.
+  `$c8`, Bomb Upgrade Fairy `$83`, Rafton/Cheval `$69/$6a`, Syrup `$5f`, and
+  the remaining shopkeeper variants `$46`.
 - Old-lady linked-secret records `$3d:$04/$05`: their complete linked-secret
   interaction graphs are not implemented like the Graveyard Ghini `$cb:$00`,
   so their placements are deliberately suppressed.
@@ -212,7 +212,7 @@ well as record selection. The ownership/consolidation work in
 | `2:1f` | [D] `$69:$01/v$00` rafton |
 | `2:2e` | [I] `$59:$00/v$01` poe |
 | `2:2f` | [I] `$55:$00/v$00` postman |
-| `2:3e` | [D] `$5b:$00/v$00` toiletHand |
+| `2:3e` | [I] `$5b:$00/v$00` toiletHand |
 | `2:3f` | [D] `$48:$05/v$00` tokay |
 | `2:4e` | [D] `$2e:$01/v$00` oldManWithRupees |
 | `2:5e` | [I] `$46:$00/v$00` shopkeeper |

@@ -40,7 +40,8 @@ internal sealed class NpcInteractionScriptDatabase
             LinkedGameNpc[5] is not CutsceneShowLoadedTextCommand ||
             LinkedGameNpc[7] is not CutsceneTextOptionBranchCommand
                 { Value: 0, TargetCommand: 12 } ||
-            LinkedGameNpc[13] is not CutsceneMemoryBranchCommand
+            LinkedGameNpc[13] is not
+                CutsceneMemoryBranchYieldOnMissCommand
                 {
                     Binding: "LinkedNpcHasExtraText",
                     Value: 0,

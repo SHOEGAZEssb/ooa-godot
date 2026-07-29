@@ -283,9 +283,9 @@ public sealed partial class ValidationRoot
             new Dictionary<NpcImplementationClassification, int>
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 51,
-                [NpcImplementationClassification.SpecializedNative] = 124,
+                [NpcImplementationClassification.SpecializedNative] = 125,
                 [NpcImplementationClassification.EventOwned] = 14,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 271
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 270
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -542,6 +542,7 @@ public sealed partial class ValidationRoot
             "makuSprout.s:interactionCode88",
             "makuTree.s:interactionCode87Subid02",
             "maskSalesman.s:maskSalesmanScript",
+            "toiletHand.s:toiletHandScript",
             "poe.s:poeScript",
             "comedian.s:comedianScript",
             "linkedGameNpcScript",

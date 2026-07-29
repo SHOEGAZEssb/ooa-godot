@@ -225,6 +225,7 @@ public sealed partial class ValidationRoot
             FailIf(!_interactions.TryInteract(_player), "The Great Fairy offer loop could not be restarted.");
             _dialogue.SubmitChoiceForValidation(0);
             CompleteLinkedChoiceWait();
+            _interactions.Update(1.0 / 60.0, _player);
             FailIf(
                 !_dialogue.ChoiceActive ||
                 !_dialogue.CurrentMessage.Contains(

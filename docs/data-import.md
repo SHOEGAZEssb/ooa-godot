@@ -357,6 +357,18 @@ Meat predicate, room-item bit `$20`, and `TREASURE_OBJECT_TRADEITEM_04`.
 Runtime therefore executes the imported infinite dialogue loop and grants the
 Doggie Mask without parsing interaction or script source.
 
+Present room `2:3e`'s Toilet Hand is another strict typed-script closure.
+`Import-CutsceneData.ps1` emits `toilet_hand_commands.tsv`,
+`toilet_hand_reaction_commands.tsv`, and `toilet_hand_event.tsv` only after
+verifying the `$5b:$00` placement, interaction-data graphics/OAM/animation
+values, `initcollisions` `$06/$06` hitbox,
+all 61 normal commands and 27 direct reaction commands, the three animation
+streams, `$57/$68/$67` proximity table, object-type/reaction tables, TX
+`$0b07-$0b0c/$0b25-$0b2b`, Stationery predicate, room-item bit `$20`, and
+`TREASURE_OBJECT_TRADEITEM_02`. The reaction asset appends the shared
+three-command retreat helper with its original source lines, so runtime does
+not parse script labels or synthesize the call target.
+
 Overworld named-key locks are also imported as a reusable source closure.
 `Import-NpcData.ps1` emits all six keyhole locations, their treasure IDs and
 per-key `$18` object visuals, the three collision-set/tile mappings, and the

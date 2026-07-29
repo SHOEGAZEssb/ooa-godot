@@ -22,6 +22,7 @@ public sealed class RoomEntityManager : IDisposable
     internal event Action<GashaSpotInteraction, Player>? GashaInteractionRequested;
     internal event Action<GashaSpotInteraction, Player>? GashaNutCaught;
     internal event Action<Vector2, HazardType>? ItemDropEnteredHazard;
+    internal event Action<ObjectFellInHoleKind>? ObjectFellInHole;
     internal event Action<SpiritsGraveEssence, Player>? SpiritsGraveEssenceTriggered;
     internal event Action<int, string, Player>? MapleDialogueRequested;
     internal event Action<MapleItemRecord, Player>? MapleItemCollected;
@@ -717,7 +718,8 @@ public sealed class RoomEntityManager : IDisposable
 
     internal void SpawnItemHazardEffect(
         Vector2 position,
-        HazardType hazard)
+        HazardType hazard,
+        ObjectFellInHoleKind? objectKind = null)
     {
         if (hazard is HazardType.Water or
             HazardType.Lava)
@@ -726,6 +728,8 @@ public sealed class RoomEntityManager : IDisposable
         }
         else if (hazard == HazardType.Hole)
         {
+            if (objectKind.HasValue)
+                ObjectFellInHole?.Invoke(objectKind.Value);
             Spawn<FallingDownHoleEffect>(
                 new FallingDownHoleSpawn(position));
         }
@@ -1275,6 +1279,19 @@ internal sealed record ItemDropSpawn(
     bool UpdateThisFrame = false) : RoomEntitySpawn(UpdateThisFrame);
 
 internal sealed record FallingDownHoleSpawn(Vector2 Position) : RoomEntitySpawn;
+
+internal enum ObjectFellInHoleKind
+{
+    Bomb = 0,
+    Bombchu = 1,
+    CaneOfSomariaBlock = 2,
+    EmberSeed = 3,
+    ScentSeed = 4,
+    GaleSeed = 5,
+    MysterySeed = 6,
+    BraceletObject = 7,
+    PushBlock = 8
+}
 
 internal sealed record EnemySplashSpawn(
     Vector2 Position,

@@ -515,7 +515,10 @@ public sealed class BraceletController
             _rooms.CurrentRoom.GetTerrainInfo(position).Hazard;
         if (hazard != HazardType.None)
         {
-            _entities.SpawnItemHazardEffect(position, hazard);
+            _entities.SpawnItemHazardEffect(
+                position,
+                hazard,
+                ObjectFellInHoleKind.BraceletObject);
             DeleteObject();
             FinishProjectileState();
             return;

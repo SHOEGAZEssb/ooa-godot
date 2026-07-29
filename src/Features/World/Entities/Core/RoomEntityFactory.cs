@@ -56,6 +56,7 @@ internal sealed class RoomEntityFactory(
     private readonly ShootingGalleryEventDatabase _shootingGallery = new();
     private readonly ComedianEventDatabase _comedian = new();
     private readonly MaskSalesmanEventDatabase _maskSalesman = new();
+    private readonly ToiletHandEventDatabase _toiletHand = new();
     private readonly PoeEventDatabase _poe = new();
     private readonly TroyHouseDatabase _troyHouse = new();
     private readonly DungeonEntranceInteractionDatabase _dungeonEntrances = new();
@@ -1195,6 +1196,24 @@ internal sealed class RoomEntityFactory(
             };
             postman.InitializePostman(record);
             return new PostmanRoomEntity(postman);
+        }
+        if (record is
+            {
+                Group: 2,
+                Room: 0x3e,
+                Id: 0x5b,
+                SubId: 0x00,
+                Var03: 0x00
+            })
+        {
+            var toiletHand = new ToiletHandCharacter
+            {
+                Name = "Npc_5b_00",
+                ZIndex = NpcCharacter.BehindLinkZIndex
+            };
+            toiletHand.InitializeToiletHand(
+                record, _toiletHand.Record);
+            return new ToiletHandRoomEntity(toiletHand);
         }
 
         NpcCharacter npc = CreateNpcCharacter(record);

@@ -128,6 +128,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateNpcImplementationManifest();
         ValidateNpcs();
         ValidateRoom22fPostman();
+        ValidateRoom23eToiletHand();
         ValidateRoom2e9ShootingGallery();
         ValidateRoom39eInteractions();
         ValidateRoom3aeInteractions();

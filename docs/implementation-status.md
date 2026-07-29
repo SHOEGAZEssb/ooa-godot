@@ -374,6 +374,12 @@ remains the single runtime policy table.
   exact 30-update waits, `$1d` right plus `$39` down departure to `$50,$88`,
   two-hand Stationery reward, room-item bit `$20`, and completed re-entry
   suppression.
+- Present room `2:3e`'s Toilet Hand `$5b:$00`: exact `$57/$68/$67` proximity
+  cells, hidden/emerge/idle/retreat animation cadence, `$06/$06` collision,
+  TX `$0b07-$0b0c`, missing/No/Yes Stationery paths, two-hand Stink Bag reward,
+  room-item-bit `$20` completed dialogue, and the source-ordered object-in-hole
+  reactions including the original low-priority-bit visibility-check bug,
+  bomb shake/sound, and 90/45/60-update waits.
 - Present room `2:e6`'s Mask Salesman, including its single-update native
   initialization, `$04/$06` talk geometry, alternating animation and TX
   `$0b0d-$0b15/$0b45` hunger sequence, exact 15/30-update waits, missing-item
