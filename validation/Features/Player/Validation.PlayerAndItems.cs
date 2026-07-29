@@ -242,6 +242,256 @@ public sealed partial class ValidationRoot
             "and walking.");
     }
 
+    private void ValidateLinkItemGeneratedData()
+    {
+        LinkItemDatabase database = LinkItemDatabase.Shared;
+        LinkItemConstants constants = database.Constants;
+        FailIf(
+            constants.SwordSwingFrames != 17 ||
+            constants.SwordTileHitFrame != 6 ||
+            constants.SwordRestartFrame != 3 ||
+            constants.SwordChargeCounter != 0x28 ||
+            constants.SwordPokeFrames != 12 ||
+            constants.SwordSpinFrames != 23 ||
+            constants.ShovelActionFrames != 23 ||
+            constants.ShovelDigFrame != 4 ||
+            constants.ShovelSecondPoseFrame != 8 ||
+            constants.ShieldSound != OracleSoundEngine.SndShield ||
+            constants.ShieldCollisionEffect != 0x1f ||
+            constants.ShieldLinkResponse != 0x20 ||
+            constants.ShieldProjectileResponse != 0x34 ||
+            constants.ProjectileCollisionMode != 0x06 ||
+            constants.RingProjectileCollisionMode != 0x07 ||
+            !constants.SwingPhaseStarts.SequenceEqual([0, 3, 6, 14]) ||
+            !constants.SpinPhaseStarts.SequenceEqual(
+                [0, 3, 5, 8, 10, 13, 15, 18, 20]),
+            "Imported Link/item action constants lost their exact source boundaries.");
+
+        int[] expectedSwingPhases =
+            [0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3];
+        for (int frame = 0; frame < expectedSwingPhases.Length; frame++)
+        {
+            FailIf(
+                database.SwingPhase(frame) != expectedSwingPhases[frame],
+                $"Imported sword swing selected the wrong phase at update {frame}.");
+        }
+        int[] expectedSpinPhases =
+            [0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4, 5, 5, 6, 6, 6, 7, 7, 0];
+        for (int frame = 0; frame < expectedSpinPhases.Length; frame++)
+        {
+            FailIf(
+                database.SpinPhase(frame) != expectedSpinPhases[frame],
+                $"Imported swordspin selected the wrong phase at update {frame}.");
+        }
+
+        Vector2[] attackPoseOffsets =
+            [new(0, -3), new(3, 0), new(0, 3), new(-3, 0)];
+        Vector2[] shovelOffsets =
+            [new(0, -8), new(6, 4), new(0, 7), new(-7, 4)];
+        Vector2[] shieldCenters =
+            [new(1, -7), new(6, 0), new(-1, 6), new(-7, 0)];
+        Vector2[] shieldRadii =
+            [new(6, 1), new(1, 7), new(6, 1), new(1, 7)];
+        Vector2[] swordTileOffsets =
+        [
+            new(0, -14), new(13, -14), new(13, 0), new(13, 13),
+            new(0, 13), new(-14, 13), new(-14, 0), new(-14, -14),
+            Vector2.Zero
+        ];
+        Vector2I[,] braceletOffsets =
+        {
+            { new(0, -8), new(7, 0), new(0, 6), new(-8, 0) },
+            { new(0, -6), new(3, -8), new(0, 4), new(-4, -8) },
+            { new(0, -13), new(0, -14), new(0, -13), new(0, -14) },
+            { new(0, -13), new(0, -13), new(0, -13), new(0, -13) }
+        };
+        for (int direction = 0; direction < 4; direction++)
+        {
+            FailIf(
+                database.AttackPoseOffset(direction) !=
+                    attackPoseOffsets[direction] ||
+                database.ShovelOffset(direction) != shovelOffsets[direction] ||
+                database.ShieldCenterOffset(direction) !=
+                    shieldCenters[direction] ||
+                database.ShieldCollisionRadius(direction) !=
+                    shieldRadii[direction],
+                $"Imported directional Link/item geometry row {direction} changed.");
+            for (int frame = 0; frame < 4; frame++)
+            {
+                FailIf(
+                    database.BraceletLiftOffset(frame, direction) !=
+                        braceletOffsets[frame, direction],
+                    $"Imported Bracelet weight-0 offset {frame}/{direction} changed.");
+            }
+        }
+        for (int direction = 0; direction < swordTileOffsets.Length; direction++)
+        {
+            FailIf(
+                database.SwordTileOffset(direction) !=
+                    swordTileOffsets[direction],
+                $"Imported sword-tile probe offset {direction} changed.");
+        }
+
+        int[,] expectedAnimations =
+        {
+            { 2, 1, 0, 0 },
+            { 0, 1, 2, 2 },
+            { 6, 5, 4, 4 },
+            { 0, 7, 6, 6 }
+        };
+        for (int direction = 0; direction < 4; direction++)
+        for (int phase = 0; phase < 4; phase++)
+        {
+            FailIf(
+                database.SwordAnimation(direction, phase) !=
+                    expectedAnimations[direction, phase],
+                $"Imported sword animation row {direction}/{phase} changed.");
+        }
+
+        int[] expectedSounds =
+        [
+            OracleSoundEngine.SndSwordSlash,
+            OracleSoundEngine.SndUnknown5,
+            OracleSoundEngine.SndBoomerang,
+            OracleSoundEngine.SndSwordSlash,
+            OracleSoundEngine.SndSwordSlash,
+            OracleSoundEngine.SndUnknown5,
+            OracleSoundEngine.SndSwordSlash,
+            OracleSoundEngine.SndSwordSlash
+        ];
+        for (int index = 0; index < expectedSounds.Length; index++)
+        {
+            FailIf(
+                database.SwordSlashSound(index) != expectedSounds[index],
+                $"Imported sword slash-sound row {index} changed.");
+        }
+
+        SwordPart[][] expectedOam =
+        [
+            [new SwordPart(8, 4, 4)],
+            [new SwordPart(8, 0, 8, true), new SwordPart(8, 8, 6, true)],
+            [new SwordPart(8, 0, 2, true), new SwordPart(8, 8, 0, true)],
+            [
+                new SwordPart(8, 0, 8, true, true),
+                new SwordPart(8, 8, 6, true, true)
+            ],
+            [new SwordPart(8, 4, 4, false, true)],
+            [
+                new SwordPart(8, 0, 6, false, true),
+                new SwordPart(8, 8, 8, false, true)
+            ],
+            [new SwordPart(8, 0, 0), new SwordPart(8, 8, 2)],
+            [new SwordPart(8, 0, 6), new SwordPart(8, 8, 8)]
+        ];
+        for (int animation = 0; animation < expectedOam.Length; animation++)
+        {
+            FailIf(
+                !database.SwordOam(animation).SequenceEqual(
+                    expectedOam[animation]),
+                $"Imported ITEM_SWORD OAM composition {animation} changed.");
+        }
+        SwordArc[] punchArcs =
+        [
+            new(5, 5, -12, -3), new(5, 5, 0, 12),
+            new(5, 5, 12, 3), new(5, 5, 0, -12)
+        ];
+        FailIf(
+            database.SwordArcs.Count != 28 ||
+            !database.SwordArcs.Skip(24).SequenceEqual(punchArcs),
+            "Imported punch aliases at swordArcData rows $18-$1b changed.");
+
+        int[] attackBases = [0xac, 0xb0, 0xb4];
+        for (int phase = 0; phase < attackBases.Length; phase++)
+        for (int direction = 0; direction < 4; direction++)
+        {
+            LinkGraphicRecord record =
+                database.Graphic("attack", 0, phase, direction);
+            FailIf(
+                record.GraphicsIndex != attackBases[phase] + direction ||
+                string.IsNullOrEmpty(record.Oam),
+                $"Imported attack graphic {phase}/{direction} changed.");
+        }
+        int[] shovelBases = [0xf8, 0xfc];
+        for (int phase = 0; phase < shovelBases.Length; phase++)
+        for (int direction = 0; direction < 4; direction++)
+        {
+            FailIf(
+                database.Graphic("shovel", 0, phase, direction).GraphicsIndex !=
+                    shovelBases[phase] + direction,
+                $"Imported shovel graphic {phase}/{direction} changed.");
+        }
+        int[] braceletBases = [0xdc, 0xe0, 0xb0];
+        for (int pose = 0; pose < braceletBases.Length; pose++)
+        for (int direction = 0; direction < 4; direction++)
+        {
+            FailIf(
+                database.Graphic("bracelet", pose, 0, direction).GraphicsIndex !=
+                    braceletBases[pose] + direction,
+                $"Imported Bracelet Link graphic {pose}/{direction} changed.");
+        }
+        for (int variant = 0; variant < 4; variant++)
+        for (int phase = 0; phase < 2; phase++)
+        for (int direction = 0; direction < 4; direction++)
+        {
+            int expectedGraphics =
+                0x68 + variant * 4 + phase * 0x2c + direction;
+            FailIf(
+                database.Graphic(
+                    "shield", variant, phase, direction).GraphicsIndex !=
+                    expectedGraphics,
+                $"Imported shield graphic {variant}/{phase}/{direction} changed.");
+        }
+
+        ClinkTileRecord[] clinkRows = database.ClinkRows.ToArray();
+        FailIf(
+            clinkRows.Length != 68 ||
+            clinkRows.Count(record => record.Terminal) != 12 ||
+            clinkRows.Any(record =>
+                record.Terminal && (record.Tile != 0 || record.Order < 0)) ||
+            !database.IsBombableClinkTile(0, 0xc1) ||
+            !database.IsBombableClinkTile(4, 0xcf) ||
+            !database.IsBombableClinkTile(1, 0x69) ||
+            !database.IsBombableClinkTile(2, 0x30) ||
+            !database.IsBombableClinkTile(3, 0x12) ||
+            !database.IsBombableClinkTile(5, 0x38) ||
+            !database.IsSilentClinkTile(0, 0xfd) ||
+            !database.IsSilentClinkTile(4, 0xff) ||
+            !database.IsSilentClinkTile(1, 0x0a) ||
+            !database.IsSilentClinkTile(2, 0x0b) ||
+            database.IsSilentClinkTile(3, 0x0a) ||
+            !database.IsSilentClinkTile(5, 0x0b),
+            "Imported aliased clinkSoundTable rows or terminal zeroes changed.");
+
+        ulong[] braceletHashes = new ulong[12];
+        for (int pose = 0; pose < 3; pose++)
+        for (int direction = 0; direction < 4; direction++)
+        {
+            braceletHashes[pose * 4 + direction] =
+                _player.BraceletActionPixelHash(pose, direction);
+        }
+        ulong[] expectedBraceletHashes =
+        [
+            0x130b4ac9d7502459UL, 0xf1012272bded617eUL,
+            0xa3ab9759565b4828UL, 0x69a466130e99f61eUL,
+            0x440f60ecb7d47160UL, 0xa71e2d9d3d2bc769UL,
+            0x2c3be5cae23b9510UL, 0xef69b079d1a96f19UL,
+            0x997ee6d2d76d2925UL, 0x0030bdac653b5e39UL,
+            0xfdd494921f9b713dUL, 0x3a8738decc4cd051UL
+        ];
+        FailIf(
+            _player.AttackAtlasPixelHash != 0xd97fede215433c60UL ||
+            _player.ShovelAtlasPixelHash != 0x5d009ee6640952eeUL ||
+            _player.SwordAtlasPixelHash != 0x61e9abb0e1173ec7UL ||
+            _player.ShieldAtlasPixelHash != 0xe4598edf4d896e5cUL ||
+            !braceletHashes.SequenceEqual(expectedBraceletHashes),
+            $"Imported Link/item OAM pixels changed " +
+            $"(shield={_player.ShieldAtlasPixelHash:x16}).");
+
+        GD.Print(
+            "Validated generated Link/item/sword data: ordered action, graphics, " +
+            "offset, arc, OAM, sound, aliased clink, and terminal-zero records.");
+    }
+
     private void ValidateShield()
     {
         OracleSaveData save = OracleSaveData.CreateStandardGame();

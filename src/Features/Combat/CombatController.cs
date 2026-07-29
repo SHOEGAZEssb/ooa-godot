@@ -13,34 +13,8 @@ public sealed class CombatController
     private readonly OracleSaveData _saveData;
     private readonly OracleSoundEngine _sound;
     private readonly Func<long> _animationTick;
+    private readonly LinkItemDatabase _linkItems;
     private ICombatEffectObserver? _effectObserver;
-
-    private static readonly Vector2[] SwordTileOffsets =
-    {
-        new(0, -14), new(13, -14), new(13, 0), new(13, 13),
-        new(0, 13), new(-14, 13), new(-14, 0), new(-14, -14),
-        Vector2.Zero
-    };
-
-    private static readonly byte[][] BombableWallClinkTiles =
-    {
-        new byte[] { 0xc1, 0xc2, 0xc4, 0xd1, 0xcf },
-        new byte[] { 0x1f, 0x30, 0x31, 0x32, 0x33, 0x38, 0x39, 0x3a, 0x3b, 0x68, 0x69 },
-        new byte[] { 0x1f, 0x30, 0x31, 0x32, 0x33, 0x38, 0x39, 0x3a, 0x3b, 0x68, 0x69 },
-        new byte[] { 0x12 },
-        new byte[] { 0xc1, 0xc2, 0xc4, 0xd1, 0xcf },
-        new byte[] { 0x1f, 0x30, 0x31, 0x32, 0x33, 0x38, 0x39, 0x3a, 0x3b, 0x68, 0x69 }
-    };
-
-    private static readonly byte[][] SilentSwordClinkTiles =
-    {
-        new byte[] { 0xfd, 0xfe, 0xff },
-        new byte[] { 0x0a, 0x0b },
-        new byte[] { 0x0a, 0x0b },
-        Array.Empty<byte>(),
-        new byte[] { 0xfd, 0xfe, 0xff },
-        new byte[] { 0x0a, 0x0b }
-    };
 
     public CombatController(
         Node worldRoot,
@@ -60,6 +34,7 @@ public sealed class CombatController
         _saveData = saveData;
         _sound = sound;
         _animationTick = animationTick;
+        _linkItems = LinkItemDatabase.Shared;
     }
 
     public bool ApplySwordHit(Player player, Rect2 hitbox)
@@ -133,11 +108,9 @@ public sealed class CombatController
     private bool ApplyTileHit(
         Player player, int direction, int breakableSource, bool swordPoke)
     {
-        if ((uint)direction >= SwordTileOffsets.Length)
-            throw new ArgumentOutOfRangeException(nameof(direction));
-
         OracleRoomData room = _rooms.CurrentRoom;
-        Vector2 point = player.Position + SwordTileOffsets[direction];
+        Vector2 point =
+            player.Position + _linkItems.SwordTileOffset(direction);
         byte tile = room.GetMetatile(point);
         if (_breakables.TryGet(room.ActiveCollisions, tile, out BreakableTileRecord record) &&
             record.AllowsSource(breakableSource))
@@ -152,14 +125,15 @@ public sealed class CombatController
             return true;
         }
 
-        int collisionSet = Math.Clamp(room.ActiveCollisions, 0, BombableWallClinkTiles.Length - 1);
-        if (Array.IndexOf(BombableWallClinkTiles[collisionSet], tile) >= 0)
+        int collisionSet = Math.Clamp(room.ActiveCollisions, 0, 5);
+        if (_linkItems.IsBombableClinkTile(collisionSet, tile))
         {
             SpawnClinkEffect(point, flickers: false);
             _sound.PlaySound(OracleSoundEngine.SndClink2);
             return true;
         }
-        if (!swordPoke || Array.IndexOf(SilentSwordClinkTiles[collisionSet], tile) >= 0 ||
+        if (!swordPoke ||
+            _linkItems.IsSilentClinkTile(collisionSet, tile) ||
             room.GetTerrainInfo(point).Collision != 0x0f)
         {
             return false;

@@ -9,13 +9,6 @@ public partial class Player : Node2D
     internal const int AlternateTextboxPaletteZIndex = 13;
     private const float Speed = 60.0f;
     private static readonly Vector2 NormalSpriteOrigin = new(-8, -8);
-    private const int SwordSwingFrames = 17;
-    private const int SwordChargeCounter = 0x28;
-    private const int SwordPokeFrames = 12;
-    private const int SwordSpinFrames = 23;
-    private const int ShovelActionFrames = 23;
-    private const int ShovelDigFrame = 4;
-    private const int ShovelSecondPoseFrame = 8;
     private const int PunchCollisionFrames = 4;
     private const int FistPunchFrames = 8;
     private const int ExpertPunchFrames = 14;
@@ -62,6 +55,7 @@ public partial class Player : Node2D
     private Texture2D _damageLedgeJumpTexture = null!;
     private Texture2D _terrainShadowTexture = null!;
     private Vector2 _terrainShadowOffset;
+    private LinkItemDatabase _linkItems = null!;
     private LinkTerrainEffectDatabase _terrainEffects = null!;
     private int _terrainWalkUpdates;
     private bool _terrainWalkSoundParameter;
@@ -229,7 +223,8 @@ public partial class Player : Node2D
         _swordState is SwordActionState.Held or SwordActionState.Charged;
     internal bool SwordCanRestart => _swordState switch
     {
-        SwordActionState.Swing => _swordStateFrame >= 3,
+        SwordActionState.Swing =>
+            _swordStateFrame >= _linkItems.Constants.SwordRestartFrame,
         SwordActionState.Held or SwordActionState.Poke => true,
         _ => false
     };
@@ -294,8 +289,11 @@ public partial class Player : Node2D
     internal Vector2I? BraceletEntityOffset { get; private set; }
     internal int ShovelFrame => _shovelFrame;
     internal bool ShovelChildActive =>
-        IsUsingShovel && _shovelFrame is >= ShovelDigFrame and < ShovelSecondPoseFrame;
-    internal Vector2 ShovelChildOffset => ShovelOffsets[(int)_facing];
+        IsUsingShovel &&
+        _shovelFrame >= _linkItems.Constants.ShovelDigFrame &&
+        _shovelFrame < _linkItems.Constants.ShovelSecondPoseFrame;
+    internal Vector2 ShovelChildOffset =>
+        _linkItems.ShovelOffset((int)_facing);
     internal int ActiveTransformation => _activeTransformation;
     internal int TransformationFrame => _transformationFrame;
     internal int PunchFrame => _punchFrame;
@@ -310,8 +308,11 @@ public partial class Player : Node2D
                 return -1;
             int variant = (_usingShield ? 2 : 0) +
                 (_inventory.ShieldLevel >= 2 ? 1 : 0);
-            int phaseBase = GetWalkAnimationFrame() == 0 ? 0x68 : 0x94;
-            return phaseBase + variant * 4 + (int)_facing;
+            return _linkItems.Graphic(
+                "shield",
+                variant,
+                GetWalkAnimationFrame(),
+                (int)_facing).GraphicsIndex;
         }
     }
     internal Rect2 ShieldCollisionBounds
@@ -319,13 +320,29 @@ public partial class Player : Node2D
         get
         {
             Vector2 center = OracleObjectMath.ToPixelPosition(Position) +
-                ShieldCenterOffsets[(int)_facing];
-            Vector2 radius = ShieldCollisionRadii[(int)_facing];
+                _linkItems.ShieldCenterOffset((int)_facing);
+            Vector2 radius =
+                _linkItems.ShieldCollisionRadius((int)_facing);
             return new Rect2(center - radius, radius * 2.0f);
         }
     }
     internal ulong ShieldAtlasPixelHash =>
         OracleGraphicsCache.PixelHash(_shieldLinkTexture.GetImage());
+    internal ulong AttackAtlasPixelHash =>
+        OracleGraphicsCache.PixelHash(_attackTexture.GetImage());
+    internal ulong ShovelAtlasPixelHash =>
+        OracleGraphicsCache.PixelHash(_shovelLinkTexture.GetImage());
+    internal ulong SwordAtlasPixelHash =>
+        OracleGraphicsCache.PixelHash(_swordTexture.GetImage());
+    internal ulong BraceletActionPixelHash(int pose, int direction)
+    {
+        if (pose is < 0 or >= 3)
+            throw new ArgumentOutOfRangeException(nameof(pose));
+        if (direction is < 0 or >= 4)
+            throw new ArgumentOutOfRangeException(nameof(direction));
+        return OracleGraphicsCache.PixelHash(
+            _braceletActionTextures[pose, direction].GetImage());
+    }
 
     public event Action? GameOverRequested;
 
@@ -338,6 +355,7 @@ public partial class Player : Node2D
         _world = world;
         _inventory = inventory;
         _random = random;
+        _linkItems = LinkItemDatabase.Shared;
         _texture = BuildLinkTexture(damagePalette: false);
         _damageTexture = BuildLinkTexture(damagePalette: true);
         _getItemOneHandTexture = BuildGetItemOneHandTexture(damagePalette: false);
@@ -1734,7 +1752,7 @@ public partial class Player : Node2D
         else if (IsUsingPunch)
         {
             Vector2 offset = _expertPunch && _punchFrame is >= 3 and < 11
-                ? AttackPoseOffsets[(int)_facing]
+                ? _linkItems.AttackPoseOffset((int)_facing)
                 : Vector2.Zero;
             DrawTextureRectRegion(
                 DamagePaletteActive ? _damageAttackTexture : _attackTexture,
@@ -1767,7 +1785,8 @@ public partial class Player : Node2D
         }
         else if (IsUsingShovel)
         {
-            int phase = _shovelFrame < ShovelSecondPoseFrame ? 0 : 1;
+            int phase = _shovelFrame <
+                _linkItems.Constants.ShovelSecondPoseFrame ? 0 : 1;
             DrawTextureRectRegion(
                 DamagePaletteActive
                     ? _damageShovelLinkTexture
@@ -2312,7 +2331,7 @@ public partial class Player : Node2D
         if (next && !_shieldParentInitialized)
         {
             _shieldParentInitialized = true;
-            _world.PlaySound(OracleSoundEngine.SndShield);
+            _world.PlaySound(_linkItems.Constants.ShieldSound);
         }
         if (_usingShield == next)
             return;
@@ -2773,9 +2792,7 @@ public partial class Player : Node2D
 
     private static Rect2 GetSwordHitbox(Vector2 position, int arcIndex)
     {
-        if ((uint)arcIndex >= SwordArcs.Length)
-            throw new ArgumentOutOfRangeException(nameof(arcIndex));
-        SwordArc arc = SwordArcs[arcIndex];
+        SwordArc arc = LinkItemDatabase.Shared.SwordArc(arcIndex);
         Vector2 center = position + new Vector2(arc.OffsetX, arc.OffsetY);
         return new Rect2(
             center - new Vector2(arc.RadiusX, arc.RadiusY),
@@ -2797,11 +2814,12 @@ public partial class Player : Node2D
             UpdateFacing(facingInput);
         _swordState = SwordActionState.Swing;
         _swordStateFrame = 0;
-        _swordChargeCounter = SwordChargeCounter;
+        _swordChargeCounter = _linkItems.Constants.SwordChargeCounter;
         _swordFrameAccumulator = 0.0;
         _swordButtonAction = buttonAction;
         _walking = false;
-        int sound = SwordSlashSounds[_random.Next().Value & 0x07];
+        int sound = _linkItems.SwordSlashSound(
+            _random.Next().Value & 0x07);
         _world.PlaySound(sound);
         byte whimsicalRoll = 0xff;
         if (_inventory.IsRingActive(RingId.Whimsical))
@@ -3049,13 +3067,13 @@ public partial class Player : Node2D
     private void AdvanceShovelFrame()
     {
         _shovelFrame++;
-        if (_shovelFrame == ShovelDigFrame)
+        if (_shovelFrame == _linkItems.Constants.ShovelDigFrame)
         {
             _world.DigWithShovel(
                 Position + ShovelChildOffset,
                 FacingVector);
         }
-        if (_shovelFrame >= ShovelActionFrames)
+        if (_shovelFrame >= _linkItems.Constants.ShovelActionFrames)
         {
             CancelShovelAction();
             return;
@@ -3083,12 +3101,14 @@ public partial class Player : Node2D
         {
             case SwordActionState.Swing:
                 _swordStateFrame++;
-                if (_swordStateFrame == 6)
+                if (_swordStateFrame ==
+                    _linkItems.Constants.SwordTileHitFrame)
                 {
                     _world.ApplySwordTileHit(this, (int)_facing * 2, swordPoke: false);
                     TryCreateSwordBeamFromSwing();
                 }
-                if (_swordStateFrame >= SwordSwingFrames)
+                if (_swordStateFrame >=
+                    _linkItems.Constants.SwordSwingFrames)
                 {
                     if (!buttonHeld)
                     {
@@ -3136,7 +3156,8 @@ public partial class Player : Node2D
 
             case SwordActionState.Poke:
                 _swordStateFrame++;
-                if (_swordStateFrame < SwordPokeFrames)
+                if (_swordStateFrame <
+                    _linkItems.Constants.SwordPokeFrames)
                     break;
                 if (buttonHeld)
                     EnterSwordHeldState();
@@ -3148,7 +3169,7 @@ public partial class Player : Node2D
                 int previousPhase = GetSpinArcPhase();
                 _swordStateFrame++;
                 if (_swordStateFrame >= RingEffects.SwordSpinFrames(
-                    _inventory, SwordSpinFrames))
+                    _inventory, _linkItems.Constants.SwordSpinFrames))
                 {
                     _world.ApplySwordTileHit(this, 8, swordPoke: false);
                     CancelSwordAttack();
@@ -3168,7 +3189,7 @@ public partial class Player : Node2D
     {
         _swordState = SwordActionState.Held;
         _swordStateFrame = 0;
-        _swordChargeCounter = SwordChargeCounter;
+        _swordChargeCounter = _linkItems.Constants.SwordChargeCounter;
     }
 
     private bool CheckSwordPoke(Vector2 movementInput)
@@ -3305,7 +3326,9 @@ public partial class Player : Node2D
     {
         int animation = _swordState == SwordActionState.Spin
             ? GetSwordArcIndex() - 16
-            : SwordAnimationIndices[(int)_facing, GetSwordPosePhase()];
+            : _linkItems.SwordAnimation(
+                (int)_facing,
+                GetSwordPosePhase());
         DrawTextureRectRegion(
             SwordUsesChargedPalette ? _chargedSwordTexture : _swordTexture,
             new Rect2(SwordSpritePosition - new Vector2(16, 16), new Vector2(32, 32)),
@@ -3319,7 +3342,7 @@ public partial class Player : Node2D
             Facing poseFacing = GetSwordPoseFacing();
             int phase = GetSwordPosePhase();
             Vector2 poseOffset = _swordState == SwordActionState.Spin || phase == 2
-                ? AttackPoseOffsets[(int)poseFacing]
+                ? _linkItems.AttackPoseOffset((int)poseFacing)
                 : Vector2.Zero;
             return NormalSpriteOrigin + poseOffset;
         }
@@ -3335,9 +3358,7 @@ public partial class Player : Node2D
 
     private static Vector2 GetSwordSpritePosition(int arcIndex)
     {
-        if ((uint)arcIndex >= SwordArcs.Length)
-            throw new ArgumentOutOfRangeException(nameof(arcIndex));
-        SwordArc arc = SwordArcs[arcIndex];
+        SwordArc arc = LinkItemDatabase.Shared.SwordArc(arcIndex);
         // itemInitializeFromLinkPosition uses the table offset for yh, then
         // gives the child sword zh = Link.zh - 2. Apply that visual height
         // separately; its collision center remains at the table's raw Y/X.
@@ -3348,11 +3369,13 @@ public partial class Player : Node2D
     {
         return _swordState switch
         {
-            SwordActionState.Swing => _swordStateFrame < 3 ? 0
-                : _swordStateFrame < 6 ? 1
-                : _swordStateFrame < 14 ? 2
-                : 3,
-            SwordActionState.Poke => _swordStateFrame < 6 ? 2 : 3,
+            SwordActionState.Swing =>
+                _linkItems.SwingPhase(_swordStateFrame),
+            SwordActionState.Poke =>
+                _swordStateFrame <
+                    _linkItems.Constants.SwordTileHitFrame
+                    ? 2
+                    : 3,
             _ => 3
         };
     }
@@ -3370,16 +3393,8 @@ public partial class Player : Node2D
 
     private int GetSpinArcPhase()
     {
-        int frame = _swordStateFrame;
-        return frame < 3 ? 0
-            : frame < 5 ? 1
-            : frame < 8 ? 2
-            : frame < 10 ? 3
-            : frame < 13 ? 4
-            : frame < 15 ? 5
-            : frame < 18 ? 6
-            : frame < 20 ? 7
-            : 0;
+        int phase = _linkItems.SpinPhase(_swordStateFrame);
+        return phase == 8 ? 0 : phase;
     }
 
     private static Texture2D BuildLinkTexture(bool damagePalette)
@@ -3451,66 +3466,30 @@ public partial class Player : Node2D
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D[,] BuildBraceletActionTextures(bool damagePalette)
+    private Texture2D[,] BuildBraceletActionTextures(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_link.png");
         var result = new Texture2D[3, 4];
-        int[,] offsets =
-        {
-            { 0x0a40, 0x0b80, 0x0ac0, 0x0b80 },
-            { 0x0a80, 0x0bc0, 0x0ae0, 0x0bc0 },
-            { 0x1040, 0x02c0, 0x10c0, 0x02c0 }
-        };
-        string[,] oam =
-        {
-            {
-                "8,0,0,0;8,8,2,0",
-                "8,0,2,32;8,8,0,32",
-                "8,0,0,0;8,8,0,32",
-                "8,0,0,0;8,8,2,0"
-            },
-            {
-                "10,0,0,0;10,8,0,32",
-                "8,252,2,32;8,4,0,32",
-                "7,0,0,0;7,8,0,32",
-                "8,4,0,0;8,12,2,0"
-            },
-            {
-                "8,0,0,0;8,8,2,0",
-                "8,0,2,32;8,8,0,32",
-                "8,0,0,0;8,8,2,0",
-                "8,0,0,0;8,8,2,0"
-            }
-        };
         for (int pose = 0; pose < result.GetLength(0); pose++)
         for (int direction = 0; direction < result.GetLength(1); direction++)
         {
+            LinkGraphicRecord record =
+                _linkItems.Graphic("bracelet", pose, 0, direction);
             result[pose, direction] = NpcCharacter.BuildOamTexture(
                 source,
-                oam[pose, direction],
-                offsets[pose, direction] / 16,
+                record.Oam,
+                record.ByteOffset / 16,
                 basePalette: damagePalette ? 5 : 0);
         }
         return result;
     }
 
-    private static Texture2D BuildShieldLinkTexture(bool damagePalette)
+    private Texture2D BuildShieldLinkTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_link.png");
         Image output = Image.CreateEmpty(128, 64, false, Image.Format.Rgba8);
-        int[,,] offsets =
-        {
-            { { 0x0400, 0x0440 }, { 0x0500, 0x0540 },
-              { 0x0480, 0x04c0 }, { 0x0080, 0x00c0 } },
-            { { 0x0400, 0x0440 }, { 0x0580, 0x05c0 },
-              { 0x0480, 0x04c0 }, { 0x0080, 0x00c0 } },
-            { { 0x0600, 0x0640 }, { 0x0780, 0x07c0 },
-              { 0x0680, 0x06c0 }, { 0x0700, 0x0740 } },
-            { { 0x0600, 0x0640 }, { 0x0780, 0x07c0 },
-              { 0x0880, 0x08c0 }, { 0x0700, 0x0740 } }
-        };
 
         // func_4553 selects variants $05/$06 while the shield is merely
         // equipped and $07/$08 while wUsingShield is nonzero. Added to walk
@@ -3520,10 +3499,12 @@ public partial class Player : Node2D
         for (int facing = 0; facing < 4; facing++)
         for (int phase = 0; phase < 2; phase++)
         {
+            LinkGraphicRecord record =
+                _linkItems.Graphic("shield", variant, phase, facing);
             WriteLinkFrame(
                 output, source,
                 variant * 32 + phase * 16, facing * 16,
-                offsets[variant, facing, phase], false, damagePalette);
+                record.ByteOffset, false, damagePalette);
         }
         return ImageTexture.CreateFromImage(output);
     }
@@ -3549,30 +3530,24 @@ public partial class Player : Node2D
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildAttackLinkTexture(bool damagePalette)
+    private Texture2D BuildAttackLinkTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_link.png");
         Image output = Image.CreateEmpty(48, 64, false, Image.Format.Rgba8);
-        int[,] offsets =
-        {
-            { 0x1000, 0x1040, 0x1040 },
-            { 0x1100, 0x02c0, 0x02c0 },
-            { 0x1080, 0x10c0, 0x10c0 },
-            { 0x1100, 0x02c0, 0x02c0 }
-        };
-        bool[] mirrored = { false, true, false, false };
         for (int facing = 0; facing < 4; facing++)
         for (int phase = 0; phase < 3; phase++)
         {
+            LinkGraphicRecord record =
+                _linkItems.Graphic("attack", 0, phase, facing);
             WriteLinkFrame(
                 output, source, phase * 16, facing * 16,
-                offsets[facing, phase], mirrored[facing], damagePalette);
+                record.ByteOffset, record.MirrorX, damagePalette);
         }
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildShovelLinkTexture(bool damagePalette)
+    private Texture2D BuildShovelLinkTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_link.png");
@@ -3580,32 +3555,26 @@ public partial class Player : Node2D
 
         // LINK_ANIM_MODE_DIG_2 ($1a) selects $f8-$ff. The first and second
         // columns are the $f8-$fb and $fc-$ff phases respectively.
-        int[,] offsets =
-        {
-            { 0x1400, 0x1440 },
-            { 0x1500, 0x1540 },
-            { 0x1480, 0x14c0 },
-            { 0x1500, 0x1540 }
-        };
-        bool[] mirrored = { false, true, false, false };
         for (int facing = 0; facing < 4; facing++)
         for (int phase = 0; phase < 2; phase++)
         {
+            LinkGraphicRecord record =
+                _linkItems.Graphic("shovel", 0, phase, facing);
             WriteLinkFrame(
                 output, source, phase * 16, facing * 16,
-                offsets[facing, phase], mirrored[facing], damagePalette);
+                record.ByteOffset, record.MirrorX, damagePalette);
         }
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildSwordTexture(bool chargedPalette)
+    private Texture2D BuildSwordTexture(bool chargedPalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_swords.png");
         Image output = Image.CreateEmpty(8 * 32, 32, false, Image.Format.Rgba8);
 
-        for (int animation = 0; animation < SwordOam.Length; animation++)
-        foreach (SwordPart part in SwordOam[animation])
+        for (int animation = 0; animation < 8; animation++)
+        foreach (SwordPart part in _linkItems.SwordOam(animation))
         {
             int sourceX = (part.Tile / 2) * 8;
             int destinationX = animation * 32 + part.X + 8;
@@ -3892,76 +3861,6 @@ public partial class Player : Node2D
             : Color.Color8(255, 214, 140);
     }
 
-    private static readonly Vector2[] AttackPoseOffsets =
-    {
-        // Frames $b4-$b7 use OAM records $08-$0b. Their part coordinates
-        // move the rendered pose three pixels through the swing while Link's
-        // object position remains fixed.
-        new(0, -3), new(3, 0), new(0, 3), new(-3, 0)
-    };
-
-    private static readonly Vector2[] ShovelOffsets =
-    {
-        // shovelParent.itemOffsets, stored as signed Y/X pairs.
-        new(0, -8), new(6, 4), new(0, 7), new(-7, 4)
-    };
-
-    private static readonly Vector2[] ShieldCenterOffsets =
-    {
-        // checkEnemyAndPartCollisions.@shieldPositionOffsets, converted from
-        // signed Y/X to Godot X/Y coordinates.
-        new(1, -7), new(6, 0), new(-1, 6), new(-7, 0)
-    };
-
-    private static readonly Vector2[] ShieldCollisionRadii =
-    {
-        new(6, 1), new(1, 7), new(6, 1), new(1, 7)
-    };
-
-    private static readonly int[,] SwordAnimationIndices =
-    {
-        { 2, 1, 0, 0 },
-        { 0, 1, 2, 2 },
-        { 6, 5, 4, 4 },
-        { 0, 7, 6, 6 }
-    };
-
-    private static readonly int[] SwordSlashSounds =
-    {
-        OracleSoundEngine.SndSwordSlash,
-        OracleSoundEngine.SndUnknown5,
-        OracleSoundEngine.SndBoomerang,
-        OracleSoundEngine.SndSwordSlash,
-        OracleSoundEngine.SndSwordSlash,
-        OracleSoundEngine.SndUnknown5,
-        OracleSoundEngine.SndSwordSlash,
-        OracleSoundEngine.SndSwordSlash
-    };
-
-    private static readonly SwordArc[] SwordArcs =
-    {
-        new(9, 6, -2, 16), new(6, 9, -14, 0), new(9, 6, 0, -15), new(6, 9, -14, 0),
-        new(7, 7, -11, 13), new(7, 7, -11, 13), new(7, 7, 17, -13), new(7, 7, -11, -13),
-        new(9, 6, -17, -4), new(6, 9, 2, 19), new(9, 6, 21, 3), new(6, 9, 2, -19),
-        new(9, 6, -10, -4), new(4, 9, 2, 12), new(9, 6, 16, 3), new(6, 9, 2, -12),
-        new(9, 9, -17, -4), new(9, 9, -14, 16), new(9, 9, 2, 19), new(9, 9, 18, 16),
-        new(9, 9, 21, 3), new(9, 9, 17, -13), new(9, 9, 2, -19), new(9, 9, -11, -13),
-        // itemCode02Post selects swordArcData direction+$18 for punches.
-        new(5, 5, -12, -3), new(5, 5, 0, 12),
-        new(5, 5, 12, 3), new(5, 5, 0, -12)
-    };
-
-    private static readonly SwordPart[][] SwordOam =
-    {
-        new[] { new SwordPart(8, 4, 4) },
-        new[] { new SwordPart(8, 0, 8, true), new SwordPart(8, 8, 6, true) },
-        new[] { new SwordPart(8, 0, 2, true), new SwordPart(8, 8, 0, true) },
-        new[] { new SwordPart(8, 0, 8, true, true), new SwordPart(8, 8, 6, true, true) },
-        new[] { new SwordPart(8, 4, 4, false, true) },
-        new[] { new SwordPart(8, 0, 6, false, true), new SwordPart(8, 8, 8, false, true) },
-        new[] { new SwordPart(8, 0, 0), new SwordPart(8, 8, 2) },
-        new[] { new SwordPart(8, 0, 6), new SwordPart(8, 8, 8) }
-    };
 }
 
 internal readonly record struct SwordPart(int Y, int X, int Tile, bool FlipX = false, bool FlipY = false);

@@ -163,6 +163,20 @@ $swordBeamSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\items\swordBeam.s')
 $shieldParentSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\itemParents\shieldParent.s')
+$shovelParentSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\itemParents\shovelParent.s')
+$swordParentSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\itemParents\swordParent.s')
+$swordItemSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\items\sword.s')
+$itemPostUpdateSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\items\postUpdate.s')
+$itemCommonCode2Source = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\items\commonCode2.s')
+$clinkSoundSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\tile_properties\clinkSounds.s')
+$specialObjectOamDataSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\specialObjectOamData.s')
 $braceletParentSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\itemParents\bombsBraceletParent.s')
 $braceletItemSource = Read-ImportText (
@@ -450,6 +464,350 @@ $seedRows.Add(
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\seed_satchel.tsv'),
     $seedRows)
+
+# Link-facing item presentation and sword-tile probes are runtime data, not
+# state-machine policy. Preserve the source tables as typed rows so Player,
+# BraceletController, and CombatController do not maintain parallel copies.
+function Convert-SignedLinkItemByte([int]$value) {
+    if ($value -ge 0x80) { return $value - 0x100 }
+    return $value
+}
+
+function Read-HexBytes([string]$text) {
+    return @([regex]::Matches($text, '\$(?<value>[0-9a-f]{2})') |
+        ForEach-Object {
+            [Convert]::ToInt32($_.Groups['value'].Value, 16)
+        })
+}
+
+$specialObjectOamPointers = [regex]::Match(
+    $specialObjectAnimationsSource,
+    '(?ms)^specialObject00OamDataPointers:.*?\r?\n(?<body>.*?)(?=^specialObject02GfxPointers:)')
+$specialObjectOamLabels = if ($specialObjectOamPointers.Success) {
+    @([regex]::Matches(
+        $specialObjectOamPointers.Groups['body'].Value,
+        '(?m)^\s*\.dw\s+(?<label>oamData[0-9a-f]+)') |
+        ForEach-Object { $_.Groups['label'].Value })
+} else { @() }
+if ($specialObjectOamLabels.Count -ne 48) {
+    throw "Expected 48 Link OAM pointers, parsed $($specialObjectOamLabels.Count)."
+}
+
+function Read-SpecialObjectOamComposition([int]$index) {
+    if ($index -lt 0 -or $index -ge $specialObjectOamLabels.Count) {
+        throw "Link graphics referenced invalid OAM index `$$($index.ToString('x2'))."
+    }
+    $label = $specialObjectOamLabels[$index]
+    $block = [regex]::Match(
+        $specialObjectOamDataSource,
+        "(?ms)^${label}:\s*(?<body>.*?)(?=^oamData[0-9a-f]+:|\z)")
+    if (-not $block.Success) { throw "Could not resolve Link OAM label $label." }
+    $bytes = @(Read-HexBytes $block.Groups['body'].Value)
+    if ($bytes.Count -lt 1 -or $bytes.Count -ne 1 + $bytes[0] * 4) {
+        throw "Malformed Link OAM composition $label."
+    }
+    $parts = [Collections.Generic.List[string]]::new()
+    for ($part = 0; $part -lt $bytes[0]; $part++) {
+        $offset = 1 + $part * 4
+        $parts.Add(
+            "$($bytes[$offset]),$($bytes[$offset + 1]),$($bytes[$offset + 2]),$($bytes[$offset + 3])")
+    }
+    return $parts -join ';'
+}
+
+function Add-LinkGraphicRow(
+    [Collections.Generic.List[string]]$rows,
+    [string]$kind,
+    [int]$variant,
+    [int]$phase,
+    [int]$direction,
+    [int]$graphicsIndex) {
+    if ($graphicsIndex -lt 0 -or $graphicsIndex -ge $linkGfxEntries.Count) {
+        throw "$kind referenced invalid Link graphics index `$$($graphicsIndex.ToString('x2'))."
+    }
+    $entry = $linkGfxEntries[$graphicsIndex]
+    $oamIndex = [Convert]::ToInt32($entry.Groups['oam'].Value, 16)
+    $byteOffset = [Convert]::ToInt32($entry.Groups['offset'].Value, 16)
+    $rows.Add(
+        "$kind`t$variant`t$phase`t$direction`t$($graphicsIndex.ToString('x2'))`t$($oamIndex.ToString('x2'))`t$($byteOffset.ToString('x4'))`t$(Read-SpecialObjectOamComposition $oamIndex)`tdata/ages/specialObjectAnimationData.s:specialObject00GfxPointers")
+}
+
+$linkItemSourceValid =
+    $swordParentSource -match
+        '(?ms)^parentItemCode_sword:.*?ld \(hl\),\$28.*?^@label_4c8b:.*?ld a,\$05.*?ld a,\$09.*?ld \(hl\),\$0f.*?^@triggerSwordPoke:.*?ld \(hl\),\$08' -and
+    $swordItemSource -match
+        '(?ms)^@swordSounds:\s*\.db SND_SWORDSLASH\s*\.db SND_UNKNOWN5\s*\.db SND_BOOMERANG\s*\.db SND_SWORDSLASH\s*\.db SND_SWORDSLASH\s*\.db SND_UNKNOWN5\s*\.db SND_SWORDSLASH\s*\.db SND_SWORDSLASH' -and
+    $itemPostUpdateSource -match
+        '(?ms)^@data:\s*\.db \$02 \$41 \$80 \$c0 \$10 \$51 \$92 \$d2\s*\.db \$26 \$65 \$a4 \$e4 \$30 \$77 \$b6 \$f6\s*\.db \$00 \$11 \$22 \$33 \$44 \$55 \$66 \$77' -and
+    $specialObjectAnimationsSource -match
+        '(?ms)^animationData19fe9:\s*\.db \$08 \$b0 \$06\s*\.db \$7f \$b0 \$86' -and
+    $specialObjectAnimationsSource -match
+        '(?ms)^animationData19faa:.*?\.db \$01 \$36 \$81\s*\.db \$7f \$1c \$ff' -and
+    $specialObjectAnimationsSource -match
+        '(?ms)^animationData1a025:\s*\.db \$0c \$c8 \$00\s*\.db \$04 \$cc \$02\s*\.db \$04 \$cc \$04\s*\.db \$04 \$d0 \$06\s*\.db \$08 \$d0 \$08\s*\.db \$7f \$d0 \$88' -and
+    $specialObjectAnimationsSource -match
+        '(?ms)^animationData19ffe:\s*\.db \$0c \$ac \$40\s*\.db \$04 \$b0 \$42\s*\.db \$04 \$b0 \$44\s*\.db \$04 \$b8 \$46\s*\.db \$08 \$b8 \$48\s*\.db \$7f \$b8 \$88'
+if (-not $linkItemSourceValid) {
+    throw 'Sword/shovel Link timing, animation, or sound tables changed in the disassembly.'
+}
+
+$linkItemConstantRows = [Collections.Generic.List[string]]::new()
+$linkItemConstantRows.Add(
+    '# sword-swing-frames`tsword-tile-hit-frame`tsword-restart-frame`tsword-charge-counter`tsword-poke-frames`tsword-spin-frames`tshovel-action-frames`tshovel-dig-frame`tshovel-second-pose-frame`tswing-phase-starts`tspin-phase-starts`tshield-sound`tshield-collision-effect`tshield-link-response`tshield-projectile-response`tprojectile-collision-mode`tring-projectile-collision-mode`tsource')
+$linkItemConstantRows.Add(
+    "17`t6`t3`t40`t12`t23`t23`t4`t8`t0,3,6,14`t0,3,5,8,10,13,15,18,20`t$($soundIds['SND_SHIELD'].ToString('x2'))`t1f`t20`t34`t06`t07`tcode/collisionEffects.s:collisionEffect1f")
+Write-GeneratedTable(
+    (Join-Path $destination 'metadata\link_item_constants.tsv'),
+    $linkItemConstantRows)
+
+$linkGraphicRows = [Collections.Generic.List[string]]::new()
+$linkGraphicRows.Add(
+    '# kind`tvariant`tphase`tdirection`tgraphics-index`toam-index`tbyte-offset`toam`tsource')
+for ($phase = 0; $phase -lt 3; $phase++) {
+    $phaseBase = @(0xac, 0xb0, 0xb4)[$phase]
+    for ($direction = 0; $direction -lt 4; $direction++) {
+        Add-LinkGraphicRow $linkGraphicRows 'attack' 0 $phase $direction (
+            $phaseBase + $direction)
+    }
+}
+for ($phase = 0; $phase -lt 2; $phase++) {
+    $phaseBase = @(0xf8, 0xfc)[$phase]
+    for ($direction = 0; $direction -lt 4; $direction++) {
+        Add-LinkGraphicRow $linkGraphicRows 'shovel' 0 $phase $direction (
+            $phaseBase + $direction)
+    }
+}
+for ($pose = 0; $pose -lt 3; $pose++) {
+    # BraceletActionPose Pull, PullStrain, Throw.
+    $poseBase = @(0xdc, 0xe0, 0xb0)[$pose]
+    for ($direction = 0; $direction -lt 4; $direction++) {
+        Add-LinkGraphicRow $linkGraphicRows 'bracelet' $pose 0 $direction (
+            $poseBase + $direction)
+    }
+}
+for ($variant = 0; $variant -lt 4; $variant++) {
+    for ($phase = 0; $phase -lt 2; $phase++) {
+        for ($direction = 0; $direction -lt 4; $direction++) {
+            $graphicsIndex =
+                0x68 + $variant * 4 + $direction + $phase * 0x2c
+            Add-LinkGraphicRow $linkGraphicRows 'shield' $variant $phase (
+                $direction) $graphicsIndex
+        }
+    }
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'metadata\link_item_graphics.tsv'),
+    $linkGraphicRows)
+
+$linkOffsetRows = [Collections.Generic.List[string]]::new()
+$linkOffsetRows.Add(
+    '# kind`tindex`tsubindex`toffset-y`toffset-x`tradius-y`tradius-x`tsource')
+for ($direction = 0; $direction -lt 4; $direction++) {
+    $oamIndex = 0x08 + $direction
+    $firstPart = (Read-SpecialObjectOamComposition $oamIndex).Split(';')[0].Split(',')
+    $offsetY = (Convert-SignedLinkItemByte ([int]$firstPart[0])) - 8
+    $offsetX = Convert-SignedLinkItemByte ([int]$firstPart[1])
+    $linkOffsetRows.Add(
+        "attack-pose`t$direction`t0`t$offsetY`t$offsetX`t0`t0`tdata/ages/specialObjectOamData.s:$($specialObjectOamLabels[$oamIndex])")
+}
+$shovelOffsetBlock = [regex]::Match(
+    $shovelParentSource,
+    '(?ms)^@offsets:(?<body>(?:\s*\.db \$[0-9a-f]{2} \$[0-9a-f]{2}[^\r\n]*\r?\n){4})')
+$shovelOffsetBytes = if ($shovelOffsetBlock.Success) {
+    @(Read-HexBytes $shovelOffsetBlock.Groups['body'].Value)
+} else { @() }
+if ($shovelOffsetBytes.Count -ne 8) {
+    throw "Expected eight ITEM_SHOVEL offset bytes, parsed $($shovelOffsetBytes.Count)."
+}
+for ($direction = 0; $direction -lt 4; $direction++) {
+    $y = Convert-SignedLinkItemByte $shovelOffsetBytes[$direction * 2]
+    $x = Convert-SignedLinkItemByte $shovelOffsetBytes[$direction * 2 + 1]
+    $linkOffsetRows.Add(
+        "shovel-child`t$direction`t0`t$y`t$x`t0`t0`tobject_code/common/itemParents/shovelParent.s:@offsets")
+}
+$shieldOffsetBlock = [regex]::Match(
+    $collisionEffectsSource,
+    '(?ms)^@shieldPositionOffsets:(?<body>(?:\s*\.db \$[0-9a-f]{2} \$[0-9a-f]{2} \$[0-9a-f]{2} \$[0-9a-f]{2}[^\r\n]*\r?\n){4})')
+$shieldOffsetBytes = if ($shieldOffsetBlock.Success) {
+    @(Read-HexBytes $shieldOffsetBlock.Groups['body'].Value)
+} else { @() }
+if ($shieldOffsetBytes.Count -ne 16) {
+    throw "Expected 16 ITEM_SHIELD collision bytes, parsed $($shieldOffsetBytes.Count)."
+}
+for ($direction = 0; $direction -lt 4; $direction++) {
+    $offset = $direction * 4
+    $y = Convert-SignedLinkItemByte $shieldOffsetBytes[$offset]
+    $x = Convert-SignedLinkItemByte $shieldOffsetBytes[$offset + 1]
+    $radiusY = $shieldOffsetBytes[$offset + 2]
+    $radiusX = $shieldOffsetBytes[$offset + 3]
+    $linkOffsetRows.Add(
+        "shield-collision`t$direction`t0`t$y`t$x`t$radiusY`t$radiusX`tcode/collisionEffects.s:@shieldPositionOffsets")
+}
+$liftOffsetBlock = [regex]::Match(
+    $parentItemCommonSource,
+    '(?ms)^@liftedObjectPositions:\s*;\s*Weight 0(?<body>.*?)(?=\s*;\s*Weight 1)')
+$liftOffsetBytes = if ($liftOffsetBlock.Success) {
+    @(Read-HexBytes $liftOffsetBlock.Groups['body'].Value)
+} else { @() }
+if ($liftOffsetBytes.Count -ne 32) {
+    throw "Expected 32 weight-0 lifted-object offset bytes, parsed $($liftOffsetBytes.Count)."
+}
+for ($frame = 0; $frame -lt 4; $frame++) {
+    for ($direction = 0; $direction -lt 4; $direction++) {
+        $offset = $frame * 8 + $direction * 2
+        $z = Convert-SignedLinkItemByte $liftOffsetBytes[$offset]
+        $x = Convert-SignedLinkItemByte $liftOffsetBytes[$offset + 1]
+        $linkOffsetRows.Add(
+            "bracelet-lift`t$frame`t$direction`t$z`t$x`t0`t0`tobject_code/common/itemParents/commonCode.s:@liftedObjectPositions")
+    }
+}
+$swordTileOffsetBlock = [regex]::Match(
+    $itemCommonCode2Source,
+    '(?ms)^@linkOffsets:(?<body>(?:\s*\.db \$[0-9a-f]{2} \$[0-9a-f]{2}[^\r\n]*\r?\n){9})')
+$swordTileOffsetBytes = if ($swordTileOffsetBlock.Success) {
+    @(Read-HexBytes $swordTileOffsetBlock.Groups['body'].Value)
+} else { @() }
+if ($swordTileOffsetBytes.Count -ne 18) {
+    throw "Expected 18 sword-tile Link offset bytes, parsed $($swordTileOffsetBytes.Count)."
+}
+for ($direction = 0; $direction -lt 9; $direction++) {
+    $y = Convert-SignedLinkItemByte $swordTileOffsetBytes[$direction * 2]
+    $x = Convert-SignedLinkItemByte $swordTileOffsetBytes[$direction * 2 + 1]
+    $linkOffsetRows.Add(
+        "sword-tile`t$direction`t0`t$y`t$x`t0`t0`tobject_code/common/items/commonCode2.s:@linkOffsets")
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'metadata\link_item_offsets.tsv'),
+    $linkOffsetRows)
+
+$swordPresentationRows = [Collections.Generic.List[string]]::new()
+$swordPresentationRows.Add(
+    '# kind`tindex`tsubindex`tvalue-a`tvalue-b`tvalue-c`tvalue-d`tsource')
+$swordAnimationIndices = @{
+    0 = @(2, 1, 0, 0); 1 = @(0, 1, 2, 2)
+    2 = @(6, 5, 4, 4); 3 = @(0, 7, 6, 6)
+}
+for ($direction = 0; $direction -lt 4; $direction++) {
+    for ($phase = 0; $phase -lt 4; $phase++) {
+        $swordPresentationRows.Add(
+            "animation`t$direction`t$phase`t$($swordAnimationIndices[$direction][$phase])`t0`t0`t0`tobject_code/common/items/postUpdate.s:updateSwingableItemAnimation.@data")
+    }
+}
+$swordArcBlock = [regex]::Match(
+    $itemPostUpdateSource,
+    '(?ms)^swordArcData:(?<body>.*?)(?=^biggoronSwordArcData:)')
+$swordArcRows = if ($swordArcBlock.Success) {
+    @([regex]::Matches(
+        $swordArcBlock.Groups['body'].Value,
+        '(?m)^\s*\.db\s+\$(?<ry>[0-9a-f]{2})\s+\$(?<rx>[0-9a-f]{2})\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})'))
+} else { @() }
+if ($swordArcRows.Count -ne 28) {
+    throw "Expected 28 swordArcData rows, parsed $($swordArcRows.Count)."
+}
+for ($index = 0; $index -lt $swordArcRows.Count; $index++) {
+    $arc = $swordArcRows[$index]
+    $radiusY = [Convert]::ToInt32($arc.Groups['ry'].Value, 16)
+    $radiusX = [Convert]::ToInt32($arc.Groups['rx'].Value, 16)
+    $y = Convert-SignedLinkItemByte (
+        [Convert]::ToInt32($arc.Groups['y'].Value, 16))
+    $x = Convert-SignedLinkItemByte (
+        [Convert]::ToInt32($arc.Groups['x'].Value, 16))
+    $swordPresentationRows.Add(
+        "arc`t$index`t0`t$radiusY`t$radiusX`t$y`t$x`tobject_code/common/items/postUpdate.s:swordArcData")
+}
+$swordSoundBlock = [regex]::Match(
+    $swordItemSource,
+    '(?ms)^@swordSounds:(?<body>.*?)(?=^@state0:)')
+$swordSoundNames = if ($swordSoundBlock.Success) {
+    @([regex]::Matches(
+        $swordSoundBlock.Groups['body'].Value,
+        '(?m)^\s*\.db\s+(?<sound>SND_[A-Z0-9_]+)') |
+        ForEach-Object { $_.Groups['sound'].Value })
+} else { @() }
+if ($swordSoundNames.Count -ne 8) {
+    throw "Expected eight ITEM_SWORD slash sounds, parsed $($swordSoundNames.Count)."
+}
+for ($index = 0; $index -lt $swordSoundNames.Count; $index++) {
+    $name = $swordSoundNames[$index]
+    if (-not $soundIds.ContainsKey($name)) {
+        throw "Could not resolve ITEM_SWORD sound $name."
+    }
+    $swordPresentationRows.Add(
+        "sound`t$index`t0`t$($soundIds[$name].ToString('x2'))`t0`t0`t0`tobject_code/common/items/sword.s:@swordSounds")
+}
+$swordOamPointerBlock = [regex]::Match(
+    $itemAnimationsSource,
+    '(?ms)^item05OamDataPointers:.*?(?<body>(?:\s*\.dw\s+itemOamData[0-9a-f]+\s*\r?\n){8})')
+$swordOamLabels = if ($swordOamPointerBlock.Success) {
+    @([regex]::Matches(
+        $swordOamPointerBlock.Groups['body'].Value,
+        '(?m)^\s*\.dw\s+(?<label>itemOamData[0-9a-f]+)') |
+        ForEach-Object { $_.Groups['label'].Value })
+} else { @() }
+if ($swordOamLabels.Count -ne 8) {
+    throw "Expected eight ITEM_SWORD OAM pointers, parsed $($swordOamLabels.Count)."
+}
+for ($animation = 0; $animation -lt $swordOamLabels.Count; $animation++) {
+    $label = $swordOamLabels[$animation]
+    $block = [regex]::Match(
+        $itemOamDataSource,
+        "(?ms)^${label}:\s*(?<body>.*?)(?=^itemOamData[0-9a-f]+:|\z)")
+    if (-not $block.Success) { throw "Could not resolve sword OAM label $label." }
+    $bytes = @(Read-HexBytes $block.Groups['body'].Value)
+    if ($bytes.Count -lt 1 -or $bytes.Count -ne 1 + $bytes[0] * 4) {
+        throw "Malformed sword OAM composition $label."
+    }
+    for ($part = 0; $part -lt $bytes[0]; $part++) {
+        $offset = 1 + $part * 4
+        $flags = $bytes[$offset + 3]
+        $swordPresentationRows.Add(
+            "oam`t$animation`t$part`t$(Convert-SignedLinkItemByte $bytes[$offset])`t$(Convert-SignedLinkItemByte $bytes[$offset + 1])`t$($bytes[$offset + 2])`t$($flags.ToString('x2'))`tdata/itemOamData.s:$label")
+    }
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'metadata\sword_presentation.tsv'),
+    $swordPresentationRows)
+
+if ($clinkSoundSource -notmatch
+    '(?ms)^clinkSoundTable:\s*\.dw @overworld\s*\.dw @indoors\s*\.dw @dungeons\s*\.dw @sidescrolling\s*\.dw @underwater\s*\.dw @five\s*^@overworld:\s*^@underwater:\s*\.db \$c1 \$c2 \$c4 \$d1 \$cf\s*\.db \$00\s*\.db \$fd \$fe \$ff\s*\.db \$00\s*\.db \$00\s*^@indoors:\s*^@dungeons:\s*^@five:\s*\.db \$1f \$30 \$31 \$32 \$33 \$38 \$39 \$3a \$3b \$68 \$69\s*\.db \$00\s*\.db \$0a \$0b\s*\.db \$00\s*^@sidescrolling:\s*\.db \$12\s*\.db \$00\s*\.db \$00') {
+    throw 'Aliased or zero-terminated Ages clinkSoundTable changed.'
+}
+$clinkListIds = @(
+    'overworld', 'indoors', 'indoors',
+    'sidescrolling', 'overworld', 'indoors')
+$bombableClinkLists = @{
+    0 = @(0xc1, 0xc2, 0xc4, 0xd1, 0xcf)
+    1 = @(0x1f, 0x30, 0x31, 0x32, 0x33, 0x38, 0x39, 0x3a, 0x3b, 0x68, 0x69)
+    2 = @(0x1f, 0x30, 0x31, 0x32, 0x33, 0x38, 0x39, 0x3a, 0x3b, 0x68, 0x69)
+    3 = @(0x12)
+    4 = @(0xc1, 0xc2, 0xc4, 0xd1, 0xcf)
+    5 = @(0x1f, 0x30, 0x31, 0x32, 0x33, 0x38, 0x39, 0x3a, 0x3b, 0x68, 0x69)
+}
+$silentClinkLists = @{
+    0 = @(0xfd, 0xfe, 0xff); 1 = @(0x0a, 0x0b); 2 = @(0x0a, 0x0b)
+    3 = @(); 4 = @(0xfd, 0xfe, 0xff); 5 = @(0x0a, 0x0b)
+}
+$clinkRows = [Collections.Generic.List[string]]::new()
+$clinkRows.Add(
+    '# collision-set`tkind`tlist-id`torder`ttile`tterminal`tsource')
+for ($collisionSet = 0; $collisionSet -lt 6; $collisionSet++) {
+    foreach ($kind in @('bombable', 'silent')) {
+        $tiles = if ($kind -eq 'bombable') {
+            $bombableClinkLists[$collisionSet]
+        } else {
+            $silentClinkLists[$collisionSet]
+        }
+        for ($order = 0; $order -le $tiles.Count; $order++) {
+            $terminal = if ($order -eq $tiles.Count) { 1 } else { 0 }
+            $tile = if ($terminal) { 0 } else { $tiles[$order] }
+            $clinkRows.Add(
+                "$collisionSet`t$kind`t$($clinkListIds[$collisionSet])`t$order`t$($tile.ToString('x2'))`t$terminal`tdata/ages/tile_properties/clinkSounds.s:clinkSoundTable")
+        }
+    }
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'metadata\sword_clink_tiles.tsv'),
+    $clinkRows)
 
 # ITEM_SWORD_BEAM ($27) is created by a level-2 sword at the source health
 # threshold and by the Energy Ring when charging completes. Preserve its four

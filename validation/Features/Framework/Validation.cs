@@ -150,6 +150,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateNayruIntroCutscene();
         ValidateRalphPortalDepartureEvent();
         ValidateAnimations();
+        ValidateLinkItemGeneratedData();
         ValidateSwordBush();
         ValidateShield();
         ValidateShovel();

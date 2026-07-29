@@ -18,24 +18,6 @@ public sealed class BraceletController
         new(0, -5), new(7, 0), new(0, 7), new(-8, 0)
     ];
 
-    // updateGrabbedObjectPosition's ITEM_BRACELET weight-0 rows. Each entry
-    // is X followed by the rendered Z offset relative to Link.
-    private static readonly Vector2I[,] LiftedObjectOffsets =
-    {
-        {
-            new(0, -8), new(7, 0), new(0, 6), new(-8, 0)
-        },
-        {
-            new(0, -6), new(3, -8), new(0, 4), new(-4, -8)
-        },
-        {
-            new(0, -13), new(0, -14), new(0, -13), new(0, -14)
-        },
-        {
-            new(0, -13), new(0, -13), new(0, -13), new(0, -13)
-        }
-    };
-
     private readonly Node _worldRoot;
     private readonly RoomSession _rooms;
     private readonly BreakableTileDatabase _breakables;
@@ -47,6 +29,7 @@ public sealed class BraceletController
     private readonly Func<long> _animationTick;
     private readonly Func<Vector2, Vector2I, bool> _hasFullWall;
     private readonly BraceletDatabaseRecord _record;
+    private readonly LinkItemDatabase _linkItems;
 
     private BraceletState _state;
     private bool _primaryButton;
@@ -85,6 +68,7 @@ public sealed class BraceletController
         _animationTick = animationTick;
         _hasFullWall = hasFullWall;
         _record = new BraceletDatabase().Data;
+        _linkItems = LinkItemDatabase.Shared;
     }
 
     /// <summary>
@@ -585,10 +569,12 @@ public sealed class BraceletController
         return player.Position + WallOffsets[direction];
     }
 
-    private static Vector2I GetLiftOffset(Player player, int frame) =>
-        LiftedObjectOffsets[frame, DirectionIndex(player.FacingVector)];
+    private Vector2I GetLiftOffset(Player player, int frame) =>
+        _linkItems.BraceletLiftOffset(
+            frame,
+            DirectionIndex(player.FacingVector));
 
-    private static Vector2I GetHeldOffset(Player player)
+    private Vector2I GetHeldOffset(Player player)
     {
         int frame = player.CarriedObjectAnimationFrame == 0 ? 2 : 3;
         return GetLiftOffset(player, frame);

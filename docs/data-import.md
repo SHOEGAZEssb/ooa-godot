@@ -186,6 +186,20 @@ reuse `effects/rock_debris.tsv`; that table contains both source interactions
 `$06` and `$0c` because liftable metatiles can retain either tile
 base/palette combination for their eventual impact.
 
+The same item stage owns the remaining Link/item and sword-tile boundary:
+`metadata/link_item_constants.tsv`, `link_item_graphics.tsv`,
+`link_item_offsets.tsv`, `sword_presentation.tsv`, and
+`sword_clink_tiles.tsv`. These tables retain sword/shovel update boundaries,
+the shield sound and `$1f`/`$20`/`$34` response IDs, Link graphics and native
+OAM compositions, signed pose/child/lift/probe offsets, shield radii, all 28
+shared sword/punch arcs, sword animation/OAM/sound order, and every collision
+mode's two zero-terminated clink lists. The clink output records its source
+list identity as well as expanded collision-mode rows: overworld and
+underwater remain aliases, as do indoors, dungeons, and mode five. Runtime
+loaders reject reordered rows, missing terminal zeroes, or changed aliases;
+`Player`, `CombatController`, and `BraceletController` consume the typed
+records while continuing to own separate state machines.
+
 `Import-NpcData.ps1` similarly emits `effects/grass_debris.tsv` by resolving
 interaction IDs `$00` and `$01` through their graphics, animation, OAM,
 normal/underwater palette, and sound records. The runtime decodes a

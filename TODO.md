@@ -324,7 +324,7 @@ NPC- and enemy-specific findings remain in their sections above.
     independent ROM vectors, including byte wrap and cumulative subpixel
     remainders; expectations must not call the runtime helper under test.
 
-- [ ] Move the remaining Link, item, and sword-tile tables across the
+- [x] Move the remaining Link, item, and sword-tile tables across the
   generated-data boundary.
   - Turn `Import-MapAndItemData.ps1`'s assertion-only shield/Link graphics and
     collision checks into typed output. Export the sword action timing,
@@ -339,6 +339,10 @@ NPC- and enemy-specific findings remain in their sections above.
     controllers without merging their state machines. Validate exact row
     order, collision-mode aliases, terminal zeroes, frame boundaries, OAM
     pixels, and shield/projectile response IDs.
+  - Completed with five typed metadata tables and one shared strict loader.
+    `Player`, `CombatController`, and `BraceletController` now consume the
+    imported records; validation pins all 236 rows, source aliases,
+    terminators, action boundaries, and rendered OAM hashes.
 
 ### State and generated-data boundaries
 
