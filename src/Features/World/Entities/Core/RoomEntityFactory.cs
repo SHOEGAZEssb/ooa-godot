@@ -49,6 +49,8 @@ internal sealed class RoomEntityFactory(
     private readonly Room149FamilyDatabase _room149 = new();
     private readonly MakuSproutRoomDatabase _makuSproutRoom = new();
     private readonly Room20eNpcDatabase _room20e = new();
+    private readonly StoneRabbitDatabase _stoneRabbit = new();
+    private readonly BusinessScrubDatabase _businessScrub = new();
     private readonly NayruHouseDatabase _nayruHouse = new();
     private readonly VasuShopDatabase _vasuShop = new();
     private readonly LynnaShopDatabase _lynnaShop = new();
@@ -322,7 +324,7 @@ internal sealed class RoomEntityFactory(
                             CreateNpcCharacter(record));
                         break;
                     case NpcImplementationClassification.SpecializedNative:
-                        yield return CreateSpecializedNpc(record);
+                        yield return CreateSpecializedNpc(record, room);
                         break;
                     case NpcImplementationClassification.EventOwned:
                         yield return new EventOwnedNpcRoomEntity(
@@ -1114,7 +1116,9 @@ internal sealed class RoomEntityFactory(
         return new MoblinBoomerangRoomEntity(boomerang);
     }
 
-    private IRoomEntity CreateSpecializedNpc(NpcRecord record)
+    private IRoomEntity CreateSpecializedNpc(
+        NpcRecord record,
+        OracleRoomData room)
     {
         RequireNpcImplementation(
             record, NpcImplementationClassification.SpecializedNative);
@@ -1217,6 +1221,19 @@ internal sealed class RoomEntityFactory(
         }
 
         NpcCharacter npc = CreateNpcCharacter(record);
+        if (_stoneRabbit.Matches(record))
+        {
+            return new StoneRabbitRoomEntity(npc, _stoneRabbit);
+        }
+        if (_businessScrub.Matches(record))
+        {
+            return new BusinessScrubRoomEntity(
+                npc,
+                _businessScrub,
+                room,
+                animationTick(),
+                roomTileChanged);
+        }
         if (_room20e.Matches(record))
         {
             return new Room20eNpcRoomEntity(

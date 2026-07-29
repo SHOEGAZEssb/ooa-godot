@@ -535,6 +535,18 @@ $npcTextBySubid['54:11'] = 0x1d14
 $npcTextBySubid['173:7'] = 0x0605
 $npcTextBySubid['203:0'] = 0x4d05
 $npcTextBySubid['213:0'] = 0x4d1e
+$mustacheManBaseText = Resolve-ScriptTextId `
+    'mustacheManScript' ([Collections.Generic.HashSet[string]]::new())
+if ($mustacheManBaseText -ne 0x0f00) {
+    throw 'Could not resolve mustacheManScript base text TX_0f00.'
+}
+$npcTextBySubid['66:0'] = $mustacheManBaseText
+$pastHobo2BaseText = Resolve-ScriptTextId `
+    'pastHobo2Script' ([Collections.Generic.HashSet[string]]::new())
+if ($pastHobo2BaseText -ne 0x1620) {
+    throw 'Could not resolve pastHobo2Script base text TX_1620.'
+}
+$npcTextBySubid['68:0'] = $pastHobo2BaseText
 $npcTextByVariant = @{
     '88:1:0' = 0x1007
     '88:1:1' = 0x1008
@@ -590,9 +602,11 @@ foreach ($key in @(
     '1:73:40:00:01',
     '1:74:45:00:00',
     '1:77:45:01:00',
+    '1:82:44:00:00',
     '1:82:3f:00:00',
     '1:84:40:01:00',
     '1:92:43:00:00',
+    '1:93:42:00:00',
     '1:93:40:01:01',
     '1:94:43:00:01',
     '2:fd:68:01:00',
@@ -624,6 +638,8 @@ foreach ($key in @(
     '1:49:3c:0e:00',
     '1:49:3a:0c:00',
     '1:49:43:06:00',
+    '1:81:ce:03:00',
+    '1:84:4b:06:00',
     '2:0e:3c:0d:00',
     '2:0e:3d:00:00',
     '2:2e:59:00:01',
@@ -697,8 +713,8 @@ foreach ($key in @(
     }
 }
 
-if ($ordinaryNpcImplementationKeys.Count -ne 50 -or
-    $specializedNpcImplementationKeys.Count -ne 53 -or
+if ($ordinaryNpcImplementationKeys.Count -ne 52 -or
+    $specializedNpcImplementationKeys.Count -ne 55 -or
     $eventOwnedNpcImplementationKeys.Count -ne 14) {
     throw 'NPC implementation registry key counts changed.'
 }
@@ -818,6 +834,8 @@ $npcRows = [Collections.Generic.List[string]]::new()
 $npcRows.Add("# group`troom`tid`tsubid`ty`tx`tvar03`ttext-id`tsprite`ttile-base`tpalette`tdefault-animation`tcan-face`tup-animation`tright-animation`tdown-animation`tleft-animation`tutf8-base64`timplementation")
 $mainObjectLines = Read-ImportLines (Join-Path $Disassembly "objects\ages\mainData.s")
 $mainObjectSource = $mainObjectLines -join "`n"
+$enemyObjectSource = Read-ImportText (
+    Join-Path $Disassembly "objects\ages\enemyData.s")
 if ($mainObjectSource -notmatch '(?ms)^group1Map45ObjectData:\s+obj_Interaction \$43 \$01 \$68 \$18\s+obj_End') {
     throw 'Room 1:45 no longer contains past guy $43:$01 at $68,$18.'
 }
@@ -830,6 +848,37 @@ if ($mainObjectSource -notmatch '(?ms)^group1Map57ObjectData:\s+obj_Interaction 
 if ($mainObjectSource -notmatch '(?ms)^group1Map58ObjectData:\s+obj_Interaction \$44 \$04 \$48 \$48\s+obj_Interaction \$4f \$02 \$48 \$48\s+obj_Interaction \$36 \$0d \$48 \$38\s+obj_End') {
     throw 'Room 1:58 no longer contains ordered hobo $44:$04, Impa $4f:$02, and Nayru $36:$0d placements.'
 }
+if ($mainObjectSource -notmatch '(?ms)^group1Map72ObjectData:\s+obj_Interaction \$40 \$00 \$58 \$28 \$00\s+obj_End') {
+    throw 'Room 1:72 no longer contains soldier $40:$00 var03 $00 at $58,$28.'
+}
+if ($mainObjectSource -notmatch '(?ms)^group1Map71ObjectData:\s+obj_Pointer group1Map71EnemyObjectData\s+obj_End' -or
+    $enemyObjectSource -notmatch '(?ms)^group1Map71EnemyObjectData:\s+obj_ItemDrop \$00 \$05 \$11\s+obj_ItemDrop\s+\$01 \$12\s+obj_ItemDrop\s+\$05 \$13\s+obj_RandomEnemy \$40 \$0c \$00\s+obj_EndPointer') {
+    throw 'Room 1:71 item-drop producers and random Arrow Moblins changed.'
+}
+if ($mainObjectSource -notmatch '(?ms)^group1Map81ObjectData:\s+obj_Interaction \$ce \$03 \$38 \$18\s+obj_End') {
+    throw 'Room 1:81 no longer contains Business Scrub $ce:$03 at $38,$18.'
+}
+if ($mainObjectSource -notmatch '(?ms)^group1Map73ObjectData:\s+obj_Interaction \$40 \$00 \$18 \$18 \$01\s+obj_End') {
+    throw 'Room 1:73 no longer contains soldier $40:$00 var03 $01 at $18,$18.'
+}
+if ($mainObjectSource -notmatch '(?ms)^group1Map74ObjectData:\s+obj_Interaction \$45 \$00 \$58 \$38\s+obj_End') {
+    throw 'Room 1:74 no longer contains past old lady $45:$00 at $58,$38.'
+}
+if ($mainObjectSource -notmatch '(?ms)^group1Map82ObjectData:\s+obj_Interaction \$44 \$00 \$38 \$58\s+obj_Interaction \$3f \$00 \$48 \$38\s+obj_End') {
+    throw 'Room 1:82 no longer contains ordered misc man 2 $44:$00 and boy 2 $3f:$00.'
+}
+if ($mainObjectSource -notmatch '(?ms)^group1Map84ObjectData:\s+obj_Interaction \$4b \$06 \$28 \$58\s+obj_Interaction \$4b \$06 \$40 \$48\s+obj_Interaction \$4b \$06 \$50 \$68\s+obj_Interaction \$40 \$01 \$48 \$78 \$00\s+obj_End') {
+    throw 'Room 1:84 no longer contains three ordered stone rabbits followed by soldier $40:$01.'
+}
+if ($mainObjectSource -notmatch '(?ms)^group1Map92ObjectData:\s+obj_Interaction \$43 \$00 \$28 \$58 \$00\s+obj_End') {
+    throw 'Room 1:92 no longer contains past guy $43:$00 var03 $00 at $28,$58.'
+}
+if ($mainObjectSource -notmatch '(?ms)^group1Map93ObjectData:\s+obj_Interaction \$42 \$00 \$38 \$58\s+obj_Interaction \$40 \$01 \$38 \$38 \$01\s+obj_End') {
+    throw 'Room 1:93 no longer contains ordered mustache man $42:$00 and soldier $40:$01 var03 $01.'
+}
+if ($mainObjectSource -notmatch '(?ms)^group1Map94ObjectData:\s+obj_Interaction \$43 \$00 \$28 \$68 \$01\s+obj_End') {
+    throw 'Room 1:94 no longer contains past guy $43:$00 var03 $01 at $28,$68.'
+}
 if ($mainObjectSource -notmatch '(?ms)^group1Map75ObjectData:\s+obj_Interaction \$37 \$0a \$58 \$60\s+obj_Interaction \$31 \$04 \$f8 \$58\s+obj_Interaction \$31 \$05 \$58 \$60\s+obj_Interaction \$36 \$0a \$58 \$40\s+obj_Interaction \$ad \$04 \$48 \$50\s+obj_Interaction \$58 \$01 \$58 \$48 \$00\s+obj_Interaction \$58 \$01 \$58 \$28 \$01\s+obj_End') {
     throw 'Room 1:75 pre-Black Tower ensemble and hardhat worker order changed.'
 }
@@ -838,6 +887,134 @@ if ($mainObjectSource -notmatch '(?ms)^group1Map86ObjectData:\s+obj_Interaction 
 }
 if ($mainObjectSource -notmatch '(?ms)^group3Map9eObjectData:\s+obj_Interaction \$4f \$00\s+obj_Interaction \$36 \$0b \$28 \$58\s+obj_Interaction \$ad \$07 \$38 \$78\s+obj_Interaction \$dc \$08 \$32 \$80\s+obj_End') {
     throw 'Room 3:9e no longer contains ordered Impa, Nayru, Zelda, and tile-change watcher placements.'
+}
+$pastOldLadySource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\pastOldLady.s')
+$pastOldLadyScriptSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scripts.s')
+if ($pastOldLadySource -notmatch '(?ms)^@subid0:\s+call checkInteractionState\s+jr nz,@@initialized\s+ld a,GLOBALFLAG_FINISHEDGAME\s+call checkGlobalFlag\s+jp nz,interactionDelete\s+call @initGraphicsTextAndScript\s+^@@initialized:\s+call interactionRunScript\s+jp interactionAnimateAsNpc\s+^@subid1:' -or
+    $pastOldLadySource -notmatch '(?ms)^@initGraphicsTextAndScript:\s+call interactionInitGraphics\s+call objectMarkSolidPosition\s+ld a,>TX_1800\s+call interactionSetHighTextIndex.*?ld hl,@scriptTable.*?call interactionSetScript\s+jp interactionIncState\s+^@scriptTable:\s+\.dw mainScripts\.pastOldLadySubid0Script\s+\.dw mainScripts\.stubScript' -or
+    $pastOldLadyScriptSource -notmatch '(?ms)^pastOldLadySubid0Script:\s+rungenericnpclowindex <TX_180a') {
+    throw 'Room 1:74 past old lady initialization, dialogue, or native update path changed.'
+}
+
+$stoneRabbitSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\rabbitMain.s')
+if ($stoneRabbitSource -notmatch '(?ms)^@initSubid6:\s+; Delete if veran defeated\s+ld hl,wGroup4RoomFlags\+\$fc\s+bit 7,\(hl\)\s+jp nz,interactionDelete\s+; Delete if haven''t beaten Jabu\s+ld a,\(wEssencesObtained\)\s+bit 6,a\s+jp z,interactionDelete\s+callab agesInteractionsBank08\.loadStoneNpcPalette\s+ld a,\$06\s+call objectSetCollideRadius\s+^@initSubid3:.*?^@setStonePaletteAndAnimation:\s+ld a,\$06\s+ld e,Interaction\.oamFlags\s+ld \(de\),a\s+jp interactionSetAnimation' -or
+    $stoneRabbitSource -notmatch '(?ms)^@state1:.*?\.dw interactionPushLinkAwayAndUpdateDrawPriority\s+\.dw rabbitSubid7') {
+    throw 'Stone rabbit $4b:$06 visibility, palette, collision, animation, or update behavior changed.'
+}
+$stoneRabbitAnimation = Resolve-NpcAnimation 0x4b 0x06
+if (-not $stoneRabbitAnimation) {
+    throw 'Could not resolve stone rabbit $4b:$06 animation $06.'
+}
+$stoneRabbitRows = @(
+    "# group`troom`tid`tsubid`tpalette`tanimation-index`tcollision-radius`tanimation`tsource",
+    "1`t84`t4b`t06`t06`t06`t06`t$stoneRabbitAnimation`tmainData.s:group1Map84ObjectData;rabbitMain.s:@initSubid6;rabbitMain.s:@state1"
+)
+Write-GeneratedTable(
+    (Join-Path $destination 'objects\stone_rabbit.tsv'),
+    $stoneRabbitRows)
+
+$businessScrubSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\interactions\businessScrub.s')
+$businessScrubTileIndexSource = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\tileIndices.s')
+$businessScrubSpriteProperties = Read-ImportText (
+    Join-Path $Disassembly (
+        'gfx_compressible\common\spr_hostilescrub.properties'))
+$businessScrubGraphic = $interactionGraphics['206:0']
+if ($null -eq $businessScrubGraphic -or
+    $businessScrubGraphic.Gfx -ne 0x8d -or
+    $businessScrubGraphic.TileBase -ne 0x00 -or
+    $businessScrubGraphic.Flags -ne 0x50 -or
+    $gfxNames[$businessScrubGraphic.Gfx] -ne 'spr_hostilescrub') {
+    throw 'Business Scrub $ce no longer uses spr_hostilescrub header $8d, tile base $00, palette $05, animation $00.'
+}
+if ($businessScrubSpriteProperties -notmatch
+    '(?m)^invert:\s*false\s*$') {
+    throw 'spr_hostilescrub.properties no longer declares its white-background source as invert: false.'
+}
+if ($businessScrubSource -notmatch '(?ms)^interactionCodece:.*?^@state0:.*?interactionSetAlwaysUpdateBit.*?^@sellingShield:.*?wShieldLevel.*?dec a.*?add c.*?@itemPrices.*?wTextNumberSubstitution' -or
+    $businessScrubSource -notmatch '(?ms)ld e,Interaction\.collisionRadiusY\s+ld a,\$06.*?interactionInitGraphics\s+call objectMakeTileSolid\s+ld h,>wRoomLayout\s+ld \(hl\),\$00.*?objectAddToAButtonSensitiveObjectList.*?INTERAC_BUSINESS_SCRUB\s+ldi \(hl\),a\s+ld a,\$80' -or
+    $businessScrubSource -notmatch '(?ms)^@state1:.*?wScrollMode.*?SCROLLMODE_08 \| SCROLLMODE_04 \| SCROLLMODE_02.*?interactionAnimate\s+ld c,\$20\s+call objectCheckLinkWithinDistance.*?ld a,\$03\s+jp interactionSetAnimation.*?ld a,\$01\s+jp interactionSetAnimation.*?interactionIncState\s+ld a,\$02\s+call interactionSetAnimation.*?TX_4500\s+jp showTextNonExitable' -or
+    $businessScrubSource -notmatch '(?ms)^@mimicBush:.*?TILEINDEX_OVERWORLD_BUSH_1.*?objectMimicBgTile.*?ld a,\$05\s+call interactionSetAnimation.*?^@subid80State1:.*?Interaction\.visible.*?Interaction\.yh.*?Interaction\.animParameter.*?@bushYOffsets' -or
+    $businessScrubSource -notmatch '(?ms)^@state2:.*?interactionAnimate.*?wTextIsActive.*?wSelectedTextOption.*?ld a,\$04\s+jp interactionSetAnimation.*?TX_4506.*?^@agreedToBuy:.*?cpRupeeValue.*?TX_4507.*?^@giveShield:\s+call checkTreasureObtained.*?TX_4508.*?^@giveTreasure:.*?call giveTreasure.*?removeRupeeValue.*?SND_GETSEED.*?TX_4505' -or
+    $businessScrubSource -notmatch '(?ms)^@bushYOffsets:\s+\.db \$00.*?\.db \$f8.*?\.db \$f5' -or
+    $businessScrubSource -notmatch '(?ms)^@rupeeValues:.*?\.ifdef ROM_AGES\s+\.db RUPEEVAL_50\s+\.db RUPEEVAL_100\s+\.db RUPEEVAL_150\s+\.db RUPEEVAL_30\s+\.db RUPEEVAL_50\s+\.db RUPEEVAL_80\s+\.db RUPEEVAL_10\s+\.db RUPEEVAL_20\s+\.db RUPEEVAL_40' -or
+    $businessScrubSource -notmatch '(?ms)^@treasuresToSell:\s+\.db TREASURE_SHIELD\s+\$01\s+\.db TREASURE_SHIELD\s+\$02\s+\.db TREASURE_SHIELD\s+\$03\s+\.db TREASURE_SHIELD\s+\$01\s+\.db TREASURE_SHIELD\s+\$02\s+\.db TREASURE_SHIELD\s+\$03' -or
+    $businessScrubSource -notmatch '(?ms)^@itemPrices:.*?\.ifdef ROM_AGES\s+\.dw \$0050\s+\.dw \$0100\s+\.dw \$0150\s+\.dw \$0030\s+\.dw \$0050\s+\.dw \$0080\s+\.dw \$0010\s+\.dw \$0020\s+\.dw \$0040' -or
+    $businessScrubTileIndexSource -notmatch '(?ms)^\.ifdef ROM_AGES\s+\.define TILEINDEX_OVERWORLD_BUSH_1\s+\$c5\b') {
+    throw 'Business Scrub $ce shield sale, presentation, proximity, or purchase behavior changed.'
+}
+
+$businessScrubOfferRows = @(
+    "# shield-level`teffective-subid`tprice`ttreasure`tparameter`tsource",
+    "0`t03`t30`t01`t01`tbusinessScrub.s:@sellingShield;businessScrub.s:@rupeeValues;businessScrub.s:@treasuresToSell;businessScrub.s:@itemPrices",
+    "1`t03`t30`t01`t01`tbusinessScrub.s:@sellingShield;businessScrub.s:@rupeeValues;businessScrub.s:@treasuresToSell;businessScrub.s:@itemPrices",
+    "2`t04`t50`t01`t02`tbusinessScrub.s:@sellingShield;businessScrub.s:@rupeeValues;businessScrub.s:@treasuresToSell;businessScrub.s:@itemPrices",
+    "3`t05`t80`t01`t03`tbusinessScrub.s:@sellingShield;businessScrub.s:@rupeeValues;businessScrub.s:@treasuresToSell;businessScrub.s:@itemPrices"
+)
+$businessScrubConstantRows = @(
+    "# key`tvalue",
+    "group`t1",
+    "room`t129",
+    "interaction-id`t206",
+    "placed-subid`t3",
+    "collision-radius`t6",
+    "proximity-radius`t32",
+    "a-button-point-offset`t10",
+    "floor-tile`t0",
+    "floor-collision`t15",
+    "bush-tile`t197",
+    "source-grayscale-inverted`t0",
+    "bush-normal-offset`t0",
+    "bush-near-offset`t-8",
+    "bush-talk-offset`t-11",
+    "prompt-text`t17673",
+    "success-text`t17669",
+    "decline-text`t17670",
+    "insufficient-text`t17671",
+    "already-owned-text`t17672"
+)
+$businessScrubAnimationRows =
+    [Collections.Generic.List[string]]::new()
+$businessScrubAnimationRows.Add(
+    "# animation`tencoded-animation")
+foreach ($animationIndex in 0..4) {
+    $animation = Resolve-NpcAnimation 0xce $animationIndex
+    if ([string]::IsNullOrWhiteSpace($animation)) {
+        throw "Could not resolve Business Scrub animation `$$($animationIndex.ToString('x2'))."
+    }
+    $businessScrubAnimationRows.Add(
+        "$($animationIndex.ToString('x2'))`t$animation")
+}
+$businessScrubTextRows = [Collections.Generic.List[string]]::new()
+$businessScrubTextRows.Add("# text-id`tutf8-base64")
+foreach ($textId in @(0x4505, 0x4506, 0x4507, 0x4508, 0x4509)) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve Business Scrub text TX_$($textId.ToString('x4'))."
+    }
+    $encoded = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
+    $businessScrubTextRows.Add(
+        "$($textId.ToString('x4'))`t$encoded")
+}
+
+$mustacheManSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\mustacheMan.s')
+$pastGuySource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\pastGuy.s')
+$miscMan2Source = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscMan2.s')
+$boy2Source = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\boy2.s')
+if ($miscMan2Source -notmatch '(?ms)^@subid0:\s+call checkInteractionState\s+jr nz,@@initialized\s+ld a,GLOBALFLAG_FINISHEDGAME\s+call checkGlobalFlag\s+jp nz,interactionDelete\s+call @initGraphicsIncStateAndLoadScript\s+^@@initialized:\s+call interactionRunScript\s+jp c,interactionDelete\s+jp interactionAnimateAsNpc' -or
+    $boy2Source -notmatch '(?ms)^@subid0:\s+call checkInteractionState\s+jr nz,@@state1\s+^@@state0:\s+ld a,GLOBALFLAG_FINISHEDGAME\s+call checkGlobalFlag\s+jp nz,interactionDelete\s+ld a,GLOBALFLAG_0b\s+call checkGlobalFlag\s+jp nz,interactionDelete\s+call @initializeGraphicsAndScript\s+^@@state1:\s+call interactionRunScript\s+jp npcFaceLinkAndAnimate' -or
+    $mustacheManSource -notmatch '(?ms)^@subid0:\s+call checkInteractionState\s+jr nz,@@initialized\s+ld a,GLOBALFLAG_FINISHEDGAME\s+call checkGlobalFlag\s+jp nz,interactionDelete\s+call @initGraphicsAndScript\s+^@@initialized:\s+call interactionRunScript\s+jp interactionAnimateAsNpc' -or
+    $mustacheManSource -notmatch '(?ms)^@initGraphicsAndScript:\s+call interactionInitGraphics\s+call objectMarkSolidPosition\s+ld a,>TX_0f00\s+call interactionSetHighTextIndex.*?\.dw mainScripts\.mustacheManScript' -or
+    $pastGuySource -notmatch '(?ms)^@subid0:\s+ld a,GLOBALFLAG_FINISHEDGAME\s+call checkGlobalFlag\s+jp nz,interactionDelete\s+ld a,GLOBALFLAG_0b\s+call checkGlobalFlag\s+ld e,Interaction\.var03\s+ld a,\(de\).*?call @initGraphicsIncStateAndLoadScript.*?call interactionRunScript\s+jp interactionAnimateAsNpc') {
+    throw 'Rooms 1:82/1:92/1:93/1:94 ordinary NPC native behavior changed.'
 }
 
 # PART_BUTTON $09, its trigger-chest consumers $20:$00/$21:$17, the
@@ -2689,10 +2866,10 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
     $npcImplementationCounts[$implementation] =
         1 + [int]$npcImplementationCounts[$implementation]
 }
-if ($npcImplementationCounts['ordinary-generic'] -ne 51 -or
-    $npcImplementationCounts['specialized-native'] -ne 53 -or
+if ($npcImplementationCounts['ordinary-generic'] -ne 53 -or
+    $npcImplementationCounts['specialized-native'] -ne 57 -or
     $npcImplementationCounts['event-owned'] -ne 14 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 270 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 264 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -2844,6 +3021,47 @@ Add-NpcGameProgress2DialogueTable 0x3b @(0x05) -1 'femaleVillager.s' '@subid5Scr
 Add-NpcGameProgress2DialogueTable 0x44 @(0x04) -1 'miscMan2.s' 'pastHoboScriptTable'
 Add-NpcGameProgress2DialogueTable 0x43 @(0x01, 0x02) -1 'pastGuy.s' '@subid1And2ScriptTable'
 
+# Soldier subids $00/$01 both select TX_5901 once GLOBALFLAG_0b is set.
+# Their initial TX_5900/TX_5902 remains in each base NPC row.
+if ($agesMainScriptSource -notmatch '(?ms)^soldierSubid00Script:\s+jumpifglobalflagset \$0b, script5df5\s+rungenericnpc TX_5900\s+^script5df5:\s+rungenericnpc TX_5901\s+^soldierSubid01Script:\s+jumpifglobalflagset \$0b, script5dff\s+rungenericnpc TX_5902\s+^script5dff:\s+rungenericnpc TX_5901') {
+    throw 'Soldier $40:$00/$01 GLOBALFLAG_0b dialogue selection changed in scripts.s.'
+}
+$soldierPostFlagText = 0x5901
+if (-not $allTexts.ContainsKey($soldierPostFlagText)) {
+    throw 'Could not resolve soldier post-GLOBALFLAG_0b text TX_5901.'
+}
+$soldierPostFlagEncoded = [Convert]::ToBase64String(
+    [Text.Encoding]::UTF8.GetBytes($allTexts[$soldierPostFlagText]))
+foreach ($soldierSubid in @(0x00, 0x01)) {
+    $npcDialogueRows.Add(
+        "40`t$($soldierSubid.ToString('x2'))`t*`tglobal-flag`t0b`t*`t5901`tscripts.s:soldierSubid$($soldierSubid.ToString('x2'))Script`t$soldierPostFlagEncoded")
+}
+
+# These scripts switch text, but not behavior, when GLOBALFLAG_0b is set.
+# Their first texts remain immutable base-row data.
+if ($agesMainScriptSource -notmatch '(?ms)^pastHobo2Script:\s+jumpifglobalflagset GLOBALFLAG_0b, \+\s+rungenericnpc TX_1620\s+^\+\s+rungenericnpc TX_1621' -or
+    $agesMainScriptSource -notmatch '(?ms)^mustacheManScript:\s+jumpifglobalflagset GLOBALFLAG_0b, \+\+\s+rungenericnpclowindex <TX_0f00\s+^\+\+\s+rungenericnpclowindex <TX_0f01' -or
+    $agesMainScriptSource -notmatch '(?ms)^pastGuySubid0Script:\s+jumpifglobalflagset GLOBALFLAG_0b, \+\s+rungenericnpclowindex <TX_1710\s+^\+\s+rungenericnpclowindex <TX_1711') {
+    throw 'Room 1:82/1:92/1:93/1:94 GLOBALFLAG_0b dialogue selection changed in scripts.s.'
+}
+foreach ($dialogueRule in @(
+    @(0x44, 0x00, 0x1621, 'pastHobo2Script'),
+    @(0x42, 0x00, 0x0f01, 'mustacheManScript'),
+    @(0x43, 0x00, 0x1711, 'pastGuySubid0Script')
+)) {
+    $id = [int]$dialogueRule[0]
+    $subid = [int]$dialogueRule[1]
+    $textId = [int]$dialogueRule[2]
+    $source = [string]$dialogueRule[3]
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve $source text TX_$($textId.ToString('x4'))."
+    }
+    $encoded = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
+    $npcDialogueRows.Add(
+        "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t*`tglobal-flag`t0b`t*`t$($textId.ToString('x4'))`tscripts.s:$source`t$encoded")
+}
+
 # Zelda remains in Nayru's house across the rescue flag transition, changing
 # only from TX_0605 to TX_0606.
 $savedNayruFlag = $globalFlagValues['GLOBALFLAG_SAVED_NAYRU']
@@ -2865,8 +3083,8 @@ $hardhatCompletedEncoded = [Convert]::ToBase64String(
 $npcDialogueRows.Add(
     "58`t02`t*`tcurrent-room-flag`t80`t*`t1004`thardhatWorkerSubid02Script:@alreadySawCutscene`t$hardhatCompletedEncoded")
 
-if ($npcDialogueRows.Count -ne 118) {
-    throw "Expected 117 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
+if ($npcDialogueRows.Count -ne 123) {
+    throw "Expected 122 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_dialogue.tsv'),
@@ -3750,6 +3968,11 @@ Add-NpcGlobalVisibility 0x37 0x11 -1 0 'GLOBALFLAG_FINISHEDGAME' $true 'ralph.s:
 Add-NpcLinkedVisibility 0x37 0x12 -1 0 $true 'ralph.s:@initSubid12'
 Add-NpcSpecificRoomVisibility 0x37 0x12 -1 0 4 0xfc 0x80 $true 'ralph.s:@initSubid12' 'wGroup4RoomFlags + (<ROOM_AGES_4fc)'
 
+# Stone rabbits exist only after D7/Jabu and before room 4:fc records Veran's
+# defeat. Their native state is static push/priority behavior with no script.
+Add-NpcEssenceVisibility 0x4b 0x06 -1 0 0x40 $true 'rabbitMain.s:@initSubid6' 'wEssencesObtained'
+Add-NpcSpecificRoomVisibility 0x4b 0x06 -1 0 4 0xfc 0x80 $false 'rabbitMain.s:@initSubid6' 'wGroup4RoomFlags+$fc'
+
 # Soldier $00/$01 variants swap on GLOBALFLAG_0b; all disappear post-game.
 foreach ($soldierSubid in @(0x00, 0x01)) {
     Add-NpcGlobalVisibility 0x40 $soldierSubid 0 0 'GLOBALFLAG_FINISHEDGAME' $false 'soldier.s:soldierSubid00'
@@ -3778,8 +4001,8 @@ Add-NpcCurrentRoomVisibility 0xab 0x12 -1 0 0x40 $false 'zora.s:@deleteIfFlagSet
 
 Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symmetryNpc.s:@subid0cInit'
 
-if ($npcVisibilityRows.Count -ne 343) {
-    throw "Expected 342 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 345) {
+    throw "Expected 344 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_visibility.tsv'),
@@ -4250,6 +4473,22 @@ $lynnaShopConstantsPath = Join-Path $destination "objects\lynna_shop_constants.t
 Write-GeneratedTable(
     $lynnaShopConstantsPath,
     $lynnaShopConstantRows)
+$businessScrubOfferPath = Join-Path $destination "objects\business_scrub.tsv"
+Write-GeneratedTable(
+    $businessScrubOfferPath,
+    $businessScrubOfferRows)
+$businessScrubConstantsPath = Join-Path $destination "objects\business_scrub_constants.tsv"
+Write-GeneratedTable(
+    $businessScrubConstantsPath,
+    $businessScrubConstantRows)
+$businessScrubAnimationPath = Join-Path $destination "objects\business_scrub_animations.tsv"
+Write-GeneratedTable(
+    $businessScrubAnimationPath,
+    $businessScrubAnimationRows)
+$businessScrubTextPath = Join-Path $destination "objects\business_scrub_texts.tsv"
+Write-GeneratedTable(
+    $businessScrubTextPath,
+    $businessScrubTextRows)
 $dungeonMechanicPath = Join-Path $destination "objects\dungeon_mechanics.tsv"
 Write-GeneratedTable(
     $dungeonMechanicPath,

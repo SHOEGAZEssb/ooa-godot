@@ -328,6 +328,43 @@ remains the single runtime policy table.
   `1:75` includes both mutually exclusive Black Tower hardhat phases with
   exact `getBlackTowerProgress` predicates and text. Room `1:86` includes its
   entrance guard's essence/room-flag phases, dialogue, facing, and movement.
+- Past rooms `1:72` and `1:73` include the paired soldier `$40:$00`
+  placements: exact `var03=$00/$01` `GLOBALFLAG_0b` exchange, TX
+  `$5900/$5901` selection, palette and initial animation, solidity,
+  `npcFaceLinkAndAnimate`, live flag refresh, and finished-game suppression.
+- Past room `1:81` includes Business Scrub `$ce:$03`: exact bush mimic,
+  logical tile `$00`/collision `$0f` replacement without redrawing the
+  underlying ground, transition-aligned bush presentation, original
+  bush-over-scrub OAM priority, white-background `spr_hostilescrub` shade
+  interpretation, strict `$20` emergence/retreat, always-update animations,
+  shield-level `30/30/50/80` pricing, all four purchase responses, rupee
+  deduction, shield grant, and `SND_GETSEED`.
+  Room `1:71` has no NPC interaction; its three ordered item-drop producers
+  and two random Arrow Moblins remain covered by the room regression.
+- Past room `1:74` includes old lady `$45:$00` at `$58,$38`: TX `$180a`,
+  palette `$03`, fixed two-pose animation `$04`, solidity and talkability,
+  gameplay-text freeze, and finished-game suppression.
+- Past room `1:82` preserves source-ordered misc man 2 `$44:$00` and boy 2
+  `$3f:$00`. The fixed-facing man switches TX `$1620` to `$1621` at
+  `GLOBALFLAG_0b`; the Link-facing boy uses TX `$2910` and disappears at that
+  flag. Both retain ordinary collision, talkability, animation cadence, live
+  refresh, RNG neutrality, and finished-game suppression.
+- Past room `1:84` preserves three source-ordered stone rabbits `$4b:$06`
+  followed by soldier `$40:$01`. D7 essence bit `$40` restores the rabbits
+  until room `4:fc` flag `$80` records Veran's defeat; they use animation
+  `$06`, `PALH_a2`, radius `$06`, static push/priority behavior, and no
+  dialogue or RNG. The soldier retains TX `$5902`, ordinary facing/collision,
+  and its `GLOBALFLAG_0b`/finished-game deletion predicates.
+- Past room `1:92` includes fixed-facing past guy `$43:$00` var03 `$00` at
+  `$28,$58` with TX `$1710`, ordinary collision and talkability, live
+  pre-`GLOBALFLAG_0b` visibility, RNG neutrality, and finished-game
+  suppression.
+- Past rooms `1:93` and `1:94` include mustache man `$42:$00`, late soldier
+  `$40:$01` var03 `$01`, and late past guy `$43:$00` var03 `$01`.
+  `GLOBALFLAG_0b` selects TX `$0f01/$5901/$1711` and the two late actors'
+  visibility; the mustache man falls back to TX `$0f00` before that flag.
+  All retain source visuals, collision, fixed or facing animation behavior,
+  live refresh, RNG neutrality, and finished-game suppression.
 - Nayru's house `3:9e` includes all nine visible Impa story variants, Nayru,
   Zelda, Zelda's saved-Nayru dialogue change, Impa's immediate and
   passage-conversation-only facing modes, the concealed logical `$45`

@@ -787,6 +787,110 @@ dialogue table. Its initializer's final `oamFlags = $01` palette replaces the
 graphics-header default in the base NPC row; a constant visual override does
 not require a specialized runtime owner.
 
+Past room `1:71` has no NPC or character-interaction record. Its enemy pointer
+retains three source-ordered `ENEMY_ITEM_DROP_PRODUCER $57` records at packed
+positions `$11/$12/$13`, followed by two random Arrow Moblins `$0c:$00`; the
+named room regression covers that existing ordered-object path.
+
+Past room `1:81` contains `INTERAC_BUSINESS_SCRUB $ce:$03` at `$38,$18`:
+
+- State 0 creates the `$ce:$80` child by mimicking the fixed Ages overworld
+  bush metatile `$c5`, replaces the logical room-layout byte with tile `$00`,
+  installs collision `$0f`, and registers a strict `$06/$06` A-button radius.
+  The source writes WRAM directly, so the already-rendered ground metatile is
+  preserved instead of being redrawn as tile `$00`. The actor does not add a
+  second object-push blocker.
+- The scrub begins on empty animation `$00`. Strict Manhattan distance below
+  `$20` selects emergence animation `$01`; leaving selects retreat animation
+  `$03`. The bush follows animation parameter offsets `0/-8/-11`, including
+  the always-update text pass and the scrub's transition presentation offset,
+  so it remains aligned with the scrolling room. The `$ce:$80` child's fixed
+  visible priority keeps the mimicked bush above the scrub where they overlap.
+  That sheet's `invert: false` property is retained so its
+  white color-0 background remains transparent and its other three shades map
+  to palette `$05`. Animations `$02/$04` cover talking and returning from
+  dialogue.
+- Placed subid `$03` adds `max(wShieldLevel-1, 0)` before indexing the imported
+  sale tables. Shield levels `0/1/2/3` therefore offer parameters `1/1/2/3`
+  for `30/30/50/80` Rupees. TX `$4509` receives the imported price
+  substitution; decline, insufficient funds, already-owned shield, and
+  success use TX `$4506/$4507/$4508/$4505`. Success grants the selected shield,
+  deducts the exact price, and requests `SND_GETSEED`.
+
+Past rooms `1:72` and `1:73` are a paired ordinary soldier reference:
+
+- Both placements use `INTERAC_SOLDIER $40:$00`; `var03=$00` at `$58,$28`
+  exists only while `GLOBALFLAG_0b` is clear, and `var03=$01` at `$18,$18`
+  exists only while it is set.
+- `GLOBALFLAG_FINISHEDGAME` deletes either variant before graphics or script
+  initialization. The surviving actor is solid, uses palette `$01`, begins
+  with animation `$02`, and runs `npcFaceLinkAndAnimate`.
+- `soldierSubid00Script` selects TX `$5900` before `GLOBALFLAG_0b` and TX
+  `$5901` afterward. The flag-selected text is a generated dialogue rule;
+  changing save state live never mutates the immutable base placement record.
+
+Past room `1:74` contains the fixed-facing `INTERAC_PAST_OLD_LADY $45:$00`
+whose husband was sent to the Black Tower. Its initializer checks only
+`GLOBALFLAG_FINISHEDGAME`, marks the `$58,$38` placement solid, loads TX
+`$180a`, and enters the generic A-button loop. The native tail is
+`interactionAnimateAsNpc`: palette `$03` animation `$04` alternates its two
+poses every 16 updates without facing Link, uses the ordinary `$06/$06`
+collision, and freezes while gameplay text is active.
+
+Past room `1:82` is a two-actor ordinary-NPC reference:
+
+- Preserve object order: `INTERAC_MISC_MAN_2 $44:$00` at `$38,$58`, then
+  `INTERAC_BOY_2 $3f:$00` at `$48,$38`.
+- The misc man survives `GLOBALFLAG_0b` and switches from TX `$1620` to
+  `$1621`; only `GLOBALFLAG_FINISHEDGAME` deletes him. He uses palette `$00`
+  and fixed animation `$04` with the 16-update two-pose cadence.
+- The boy uses TX `$2910`, palette `$00`, initial animation `$02`, and
+  `npcFaceLinkAndAnimate`. `GLOBALFLAG_0b` or
+  `GLOBALFLAG_FINISHEDGAME` deletes him.
+- Both actors use ordinary `$06/$06` solidity, A-button talk routing, gameplay
+  textbox freeze, and no per-update RNG.
+
+Past room `1:84` contains three `INTERAC_RABBIT $4b:$06` placements followed
+by `INTERAC_SOLDIER $40:$01`:
+
+- The rabbits retain object-stream positions `$28,$58`, `$40,$48`, and
+  `$50,$68`. Each initializer deletes itself until `wEssencesObtained` bit 6
+  is set, then deletes itself again once `wGroup4RoomFlags+$fc` bit 7 is set.
+- A living rabbit loads the imported `PALH_a2` OBJ palette into slot `$06`,
+  selects the fixed one-frame animation `$06`, and applies symmetric collision
+  radius `$06`. Its state-1 tail is exactly
+  `interactionPushLinkAwayAndUpdateDrawPriority`: no animation call, script,
+  A-button registration, dialogue, or RNG.
+- Soldier `$40:$01` var03 `$00` remains an ordinary NPC at `$48,$78`. It uses
+  TX `$5902`, palette `$01`, animation `$02`, solidity, and
+  `npcFaceLinkAndAnimate`; `GLOBALFLAG_0b` or `GLOBALFLAG_FINISHEDGAME`
+  deletes this variant.
+
+Past room `1:92` places `INTERAC_PAST_GUY $43:$00` var03 `$00` at
+`$28,$58`. It exists only while `GLOBALFLAG_0b` is clear, uses immutable base
+TX `$1710`, palette `$02`, and fixed animation `$04`, and deletes at
+`GLOBALFLAG_FINISHEDGAME`. The shared `$43:$00` dialogue rule still preserves
+the script's TX `$1711` post-flag selection, although this var03 `$00` actor is
+already suppressed in that phase. Its living phase uses ordinary `$06/$06`
+solidity, A-button talk routing, gameplay textbox freeze, and no runtime RNG.
+
+Past rooms `1:93` and `1:94` complete the corresponding late Ambi-era NPC
+phase:
+
+- Room `1:93` places `INTERAC_MUSTACHE_MAN $42:$00` at `$38,$58`, followed by
+  `INTERAC_SOLDIER $40:$01` var03 `$01` at `$38,$38`. The mustache man is
+  present before and after `GLOBALFLAG_0b`, switching from TX `$0f00` to
+  `$0f01`; the soldier exists only after the flag and therefore exposes
+  TX `$5901` rather than its immutable base TX `$5902`.
+- Room `1:94` places `INTERAC_PAST_GUY $43:$00` var03 `$01` at `$28,$68`.
+  It exists only while `GLOBALFLAG_0b` is set and selects TX `$1711` over its
+  immutable pre-flag TX `$1710`.
+- The mustache man and past guy remain fixed-facing ordinary actors with
+  animation `$04`'s 16-update two-pose cadence. The soldier retains
+  `npcFaceLinkAndAnimate`; all three use ordinary `$06/$06` solidity, are
+  A-button talkable, consume no runtime RNG, freeze under gameplay text, and
+  delete when `GLOBALFLAG_FINISHEDGAME` is set.
+
 Room `1:58` is the reference for story-selected ordinary NPC state without a
 specialized runtime owner:
 

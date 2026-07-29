@@ -230,6 +230,20 @@ public sealed class OracleRoomData
         byte[]? mappingOverride = _positionMappingOverrides.TryGetValue(
             layoutIndex, out byte[]? value) ? value : null;
         int mappingOffset = GetRenderedMetatile(layoutIndex) * 8;
+        return BuildMimickedMetatileTexture(mappingOffset, mappingOverride);
+    }
+
+    /// <summary>
+    /// Mirrors objectMimicBgTile when the source passes an explicit metatile
+    /// index rather than reading the room-layout position.
+    /// </summary>
+    internal Texture2D BuildMimickedMetatileTexture(byte metatile) =>
+        BuildMimickedMetatileTexture(metatile * 8, mappingOverride: null);
+
+    private Texture2D BuildMimickedMetatileTexture(
+        int mappingOffset,
+        byte[]? mappingOverride)
+    {
         Image output = Image.CreateEmpty(16, 16, false, Image.Format.Rgba8);
 
         for (int quarter = 0; quarter < 4; quarter++)

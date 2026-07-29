@@ -29,6 +29,7 @@ public sealed class RoomEventController
     private readonly ImpaIntroEvent _impa;
     private readonly NayruIntroEvent _nayru;
     private readonly MakuSproutRescueEvent _makuSproutRescue;
+    private readonly BusinessScrubEvent _businessScrub;
     private readonly LynnaShopEvent _lynnaShop;
     private readonly VasuShopEvent _vasuShop;
     private readonly HarpOfAgesEvent _harpOfAges;
@@ -93,6 +94,7 @@ public sealed class RoomEventController
         _impa = new ImpaIntroEvent(_context);
         _nayru = new NayruIntroEvent(_context, _impa);
         _makuSproutRescue = new MakuSproutRescueEvent(_context);
+        _businessScrub = new BusinessScrubEvent(_context);
         _lynnaShop = new LynnaShopEvent(_context);
         _vasuShop = new VasuShopEvent(_context);
         _harpOfAges = new HarpOfAgesEvent(_context);
@@ -116,6 +118,7 @@ public sealed class RoomEventController
             _nayru,
             _graveyardGate,
             _makuSproutRescue,
+            _businessScrub,
             _lynnaShop,
             _vasuShop,
             _shootingGallery,
@@ -141,6 +144,9 @@ public sealed class RoomEventController
             NpcInteractionHandler.ForNpc(
                 "shopkeeper.s:lynnaShop:npc",
                 (target, _) => _lynnaShop.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
+                "businessScrub.s:interactionCodece",
+                (target, _) => _businessScrub.TryInteractNpc(target.Npc)),
             NpcInteractionHandler.ForNpc(
                 "vasu.s+ringHelpBook.s:room2eeActors",
                 (target, _) => _vasuShop.TryInteractNpc(target.Npc)),
@@ -223,6 +229,7 @@ public sealed class RoomEventController
     internal ImpaIntroEvent Impa => _impa;
     internal NayruIntroEvent Nayru => _nayru;
     internal MakuSproutRescueEvent MakuSproutRescue => _makuSproutRescue;
+    internal BusinessScrubEvent BusinessScrub => _businessScrub;
     internal LynnaShopEvent LynnaShop => _lynnaShop;
     internal VasuShopEvent VasuShop => _vasuShop;
     internal HarpOfAgesEvent HarpOfAges => _harpOfAges;

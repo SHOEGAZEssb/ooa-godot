@@ -282,10 +282,10 @@ public sealed partial class ValidationRoot
         var expectedCounts =
             new Dictionary<NpcImplementationClassification, int>
             {
-                [NpcImplementationClassification.OrdinaryGeneric] = 51,
-                [NpcImplementationClassification.SpecializedNative] = 125,
+                [NpcImplementationClassification.OrdinaryGeneric] = 53,
+                [NpcImplementationClassification.SpecializedNative] = 129,
                 [NpcImplementationClassification.EventOwned] = 14,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 270
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 264
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -298,7 +298,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "51 ordinary, 124 specialized, 14 event-owned, and 271 " +
+            "53 ordinary, 129 specialized, 14 event-owned, and 264 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -535,6 +535,7 @@ public sealed partial class ValidationRoot
             "blossom.s:MENU_KIDNAME",
             "forestFairy.s:forestFairy_discovered",
             "shopkeeper.s:lynnaShop:npc",
+            "businessScrub.s:interactionCodece",
             "vasu.s+ringHelpBook.s:room2eeActors",
             "shootingGallery.s:shootingGalleryScript",
             "miscCutscenes.s:CUTSCENE_NAYRU_SINGING",
@@ -3525,10 +3526,10 @@ public sealed partial class ValidationRoot
             "movement or animation-toggle contract.");
 
         FailIf(
-            new NpcVisibilityRuleDatabase().RuleCount != 342 ||
-            new NpcDialogueRuleDatabase().RuleCount != 117 ||
+            new NpcVisibilityRuleDatabase().RuleCount != 344 ||
+            new NpcDialogueRuleDatabase().RuleCount != 122 ||
             new NpcPositionRuleDatabase().RuleCount != 2,
-            "Expected 342 NPC visibility, 117 NPC dialogue, and two NPC " +
+            "Expected 344 NPC visibility, 122 NPC dialogue, and two NPC " +
             "position state predicates.");
 
         manager.LoadRoom(1, _world.LoadRoom(1, 0x86));
@@ -4065,7 +4066,7 @@ public sealed partial class ValidationRoot
             "table, one-Essence gate, two-Essence stage/personality save write, refill-bit clear, " +
             "Bipin $28:$00's SPEED_100 X=$28/$58 patrol, $04/$05 animation reversal, " +
             "and moving objectPreventLinkFromPassing collision, " +
-            "342 imported visibility, 117 dialogue, and two position predicates, " +
+            "344 imported visibility, 122 dialogue, and two position predicates, " +
             "room 0:68's phased talkable cast, lifecycle-safe event hiding, and deliberate " +
             "suppression of unsupported native handlers.");
     }

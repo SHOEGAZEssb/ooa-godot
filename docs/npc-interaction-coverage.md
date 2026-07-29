@@ -46,9 +46,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 72 | Traced and covered by the current named NPC/event scenarios. |
-| **P** | 44 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
-| **D** | 272 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **I** | 86 | Traced and covered by the current named NPC/event scenarios. |
+| **P** | 36 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
+| **D** | 266 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **388** | **211 rooms and 294 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -58,10 +58,10 @@ family remains **P** until its progression ownership and all per-variant
 behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
-The implementation manifest therefore contains 51 ordinary, 53 specialized,
-14 event-owned, and 270 deliberately unsupported positioned/state-derived
+The implementation manifest therefore contains 53 ordinary, 57 specialized,
+14 event-owned, and 264 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 460
-classified records and 125 specialized rows.
+classified records and 129 specialized rows.
 
 ### Important partial and deferred boundaries
 
@@ -178,21 +178,21 @@ well as record selection. The ownership/consolidation work in
 | `1:66` | [P] `$3a:$08/v$00` villager |
 | `1:68` | [P] `$3b:$03/v$00` femaleVillager<br>[I] `$43:$02/v$00` pastGuy<br>[D] `$4e:$00/v$00` subrosian<br>[D] `$36:$0c/v$00` nayru |
 | `1:70` | [D] `$ce:$06/v$00` businessScrub |
-| `1:72` | [P] `$40:$00/v$00` soldier |
-| `1:73` | [P] `$40:$00/v$01` soldier |
-| `1:74` | [P] `$45:$00/v$00` pastOldLady |
+| `1:72` | [I] `$40:$00/v$00` soldier |
+| `1:73` | [I] `$40:$00/v$01` soldier |
+| `1:74` | [I] `$45:$00/v$00` pastOldLady |
 | `1:75` | [I] `$37:$0a/v$00` ralph<br>[I] `$31:$04/v$00` impaInCutscene<br>[I] `$31:$05/v$00` impaInCutscene<br>[I] `$36:$0a/v$00` nayru<br>[I] `$ad:$04/v$00` zelda<br>[I] `$58:$01/v$00` hardhatWorker<br>[I] `$58:$01/v$01` hardhatWorker |
 | `1:77` | [P] `$45:$01/v$00` pastOldLady |
 | `1:79` | [D] `$37:$10/v$00` ralph |
-| `1:81` | [D] `$ce:$03/v$00` businessScrub |
-| `1:82` | [D] `$44:$00/v$00` miscMan2<br>[P] `$3f:$00/v$00` boy2 |
+| `1:81` | [I] `$ce:$03/v$00` businessScrub |
+| `1:82` | [I] `$44:$00/v$00` miscMan2<br>[I] `$3f:$00/v$00` boy2 |
 | `1:83` | [D] `$41:$00/v$00` miscMan |
-| `1:84` | [D] `$4b:$06/v$00` rabbit<br>[D] `$4b:$06/v$00` rabbit<br>[D] `$4b:$06/v$00` rabbit<br>[P] `$40:$01/v$00` soldier |
+| `1:84` | [I] `$4b:$06/v$00` rabbit<br>[I] `$4b:$06/v$00` rabbit<br>[I] `$4b:$06/v$00` rabbit<br>[I] `$40:$01/v$00` soldier |
 | `1:86` | [I] `$58:$02/v$00` hardhatWorker |
 | `1:90` | [D] `$d6:$00/v$00` dekuScrub<br>[D] `$ce:$00/v$00` businessScrub |
-| `1:92` | [P] `$43:$00/v$00` pastGuy |
-| `1:93` | [D] `$42:$00/v$00` mustacheMan<br>[P] `$40:$01/v$01` soldier |
-| `1:94` | [P] `$43:$00/v$01` pastGuy |
+| `1:92` | [I] `$43:$00/v$00` pastGuy |
+| `1:93` | [I] `$42:$00/v$00` mustacheMan<br>[I] `$40:$01/v$01` soldier |
+| `1:94` | [I] `$43:$00/v$01` pastGuy |
 | `1:96` | [D] `$3b:$06/v$00` femaleVillager |
 | `1:97` | [D] `$37:$03/v$00` ralph |
 | `1:aa` | [D] `$48:$00/v$00` tokay<br>[D] `$48:$01/v$00` tokay<br>[D] `$48:$02/v$00` tokay<br>[D] `$48:$03/v$00` tokay<br>[D] `$48:$04/v$00` tokay<br>[D] `$48:$1f/v$00` tokay |
