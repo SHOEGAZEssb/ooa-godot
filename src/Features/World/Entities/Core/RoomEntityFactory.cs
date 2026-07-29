@@ -905,7 +905,8 @@ internal sealed class RoomEntityFactory(
                     Name = $"Wallmaster_{source.Order}_{instance}",
                     ZIndex = 10
                 };
-                wallmaster.Initialize(wallmasterRecord, room, position);
+                wallmaster.Initialize(
+                    wallmasterRecord, room, position, source.Y);
                 (int destinationGroup, int destinationRoom) =
                     ResolveWallmasterDestination(source);
                 return new WallmasterRoomEntity(

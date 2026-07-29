@@ -310,17 +310,19 @@ public sealed partial class ValidationRoot
         FailIf(
             _entities.RandomCalls != ropeRandomCalls ||
             _entities.Entities<RopeCharacter>().Any(rope => rope.Counter != 0),
-            "D1 Ropes consumed RNG while source state 0 was only installing SPEED_80.");
+            "D1 Ropes consumed RNG while source state 0 was only installing SPEED_60.");
         _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
         List<RopeCharacter> ropes = _entities.Entities<RopeCharacter>();
         Vector2[] ropeStarts = ropes.Select(rope => rope.Position).ToArray();
         StepEntities();
         FailIf(
             _entities.RandomCalls != ropeRandomCalls ||
-            ropes.Any(rope => rope.SpeedRaw != 0x14) ||
+            ropes.Any(rope => rope.SpeedRaw != 0x0f) ||
             ropes.Where((rope, index) =>
-                !Mathf.IsEqualApprox(rope.Position.DistanceTo(ropeStarts[index]), 0.5f)).Any(),
-            "D1 Ropes did not retain source SPEED_80 before their first charge ends.");
+                !Mathf.IsEqualApprox(
+                    rope.Position.DistanceTo(ropeStarts[index]),
+                    0.375f)).Any(),
+            "D1 Ropes did not retain source SPEED_60 before their first charge ends.");
 
         // rope_state_chargeLink keeps its cardinal lock until the shared
         // side-view movement helper reports a wall. That collision immediately
@@ -1823,6 +1825,10 @@ public sealed partial class ValidationRoot
         PrepareRoom(0xc5);
         WallmasterCharacter laterWallmaster =
             _entities.Entities<WallmasterCharacter>().Single();
+        FailIf(
+            laterWallmaster.Remaining != 2,
+            "Room 4:c5 did not preserve the Wallmaster spawner's source " +
+            $"count 2 (got {laterWallmaster.Remaining}).");
         Vector2 laterOpenTile = (
             from y in Enumerable.Range(0, _currentRoom.HeightInTiles)
             from x in Enumerable.Range(0, _currentRoom.WidthInTiles)

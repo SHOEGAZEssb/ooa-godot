@@ -10,15 +10,8 @@ namespace oracleofages;
 /// </summary>
 public partial class CrowCharacter : EnemyCharacter
 {
-
-    private const int ApproachRadiusY = 0x30;
-    private const int ApproachRadiusX = 0x18;
-    private const int RisingFrames = 25;
-    private const int ChargeCounter = 90;
-    private const int AirborneZ = -6;
-    private const int ScreenBottom = 0x88;
-    private const int ScreenRight = 0xa8;
-
+    private readonly CrowBehaviorProfile _behavior =
+        EnemyBehaviorTables.Shared.Crow;
     private OracleRandom _random = null!;
     private Vector2 _precisePosition;
     private CrowState _state;
@@ -99,7 +92,7 @@ public partial class CrowCharacter : EnemyCharacter
                 if (!WithinUnsignedApproachRange(linkPosition))
                     return;
                 _state = CrowState.Rising;
-                _counter1 = RisingFrames;
+                _counter1 = _behavior.RisingFrames;
                 return;
 
             case CrowState.Rising:
@@ -156,14 +149,16 @@ public partial class CrowCharacter : EnemyCharacter
         int crowX = (int)Position.X & 0xff;
         int targetY = (int)target.Y & 0xff;
         int targetX = (int)target.X & 0xff;
-        return ((targetY - crowY + ApproachRadiusY) & 0xff) < 0x61 &&
-            ((targetX - crowX + ApproachRadiusX) & 0xff) < 0x31;
+        return ((targetY - crowY + _behavior.ApproachRadiusY) & 0xff) <
+                _behavior.ApproachRadiusY * 2 + 1 &&
+            ((targetX - crowX + _behavior.ApproachRadiusX) & 0xff) <
+                _behavior.ApproachRadiusX * 2 + 1;
     }
 
     private void BeginCharge(Vector2 linkPosition)
     {
         _state = CrowState.Charging;
-        _counter2 = ChargeCounter;
+        _counter2 = _behavior.ChargeFrames;
         _collisionEnabled = true;
         _angle = OracleObjectMovement.Shared.RelativeAngle(
             Position, linkPosition);
@@ -203,7 +198,8 @@ public partial class CrowCharacter : EnemyCharacter
     {
         int y = (int)Mathf.Floor(_precisePosition.Y);
         int x = (int)Mathf.Floor(_precisePosition.X);
-        return y is >= 0 and < ScreenBottom && x is >= 0 and < ScreenRight;
+        return y >= 0 && y < _behavior.ScreenBottom &&
+            x >= 0 && x < _behavior.ScreenRight;
     }
 
     private void SetKnockbackPosition(Vector2 position)

@@ -200,6 +200,12 @@ public sealed partial class ValidationRoot
             IReadOnlyList<EnemyBehaviorPair> records) =>
             records.Select(
                 static record => (record.First, record.Second)).ToArray();
+        static bool ProfileMatches(
+            IReadOnlyList<EnemyBehaviorValue> records,
+            int[] typed,
+            int[] expected) =>
+            Values(records).SequenceEqual(expected) &&
+            typed.SequenceEqual(expected);
 
         FailIf(
             !Values(tables.KeeseDecelerationSpeeds).SequenceEqual(
@@ -229,6 +235,183 @@ public sealed partial class ValidationRoot
                 [0, -2, 2]) ||
             !Pairs(tables.PumpkinHeadProjectileOriginOffsets).SequenceEqual(
                 [(-4, 0), (2, 4), (4, 0), (2, -4)]) ||
+            !Pairs(tables.EnemySwordDamageProfiles).SequenceEqual(
+                [(16, 8), (21, 11), (26, 15), (32, 0)]) ||
+            !ProfileMatches(
+                tables.EnemyKnockback.Sources,
+                [
+                    tables.EnemyKnockback.NormalSpeedRaw,
+                    tables.EnemyKnockback.HighSpeedRaw
+                ],
+                [80, 120]) ||
+            !ProfileMatches(
+                tables.EnemyHazards.Sources,
+                [
+                    tables.EnemyHazards.ProbeY,
+                    tables.EnemyHazards.FirstProbeX,
+                    tables.EnemyHazards.SecondProbeX,
+                    tables.EnemyHazards.FallFrames,
+                    tables.EnemyHazards.PullIntervalMask,
+                    tables.EnemyHazards.PullSpeedRaw,
+                    tables.EnemyHazards.AnimationDecrement
+                ],
+                [5, -1, 1, 60, 7, 20, 3]) ||
+            !ProfileMatches(
+                tables.ProjectileBounce.Sources,
+                [
+                    tables.ProjectileBounce.Frames,
+                    tables.ProjectileBounce.Gravity,
+                    tables.ProjectileBounce.SpeedRaw,
+                    tables.ProjectileBounce.InitialSpeedZ
+                ],
+                [32, 14, 10, -224]) ||
+            !ProfileMatches(
+                tables.KeeseState.Sources,
+                [
+                    tables.KeeseState.NormalSpeedRaw,
+                    tables.KeeseState.ApproachSpeedRaw,
+                    tables.KeeseState.InitialRestFrames,
+                    tables.KeeseState.ApproachDistance,
+                    tables.KeeseState.TurningInterval,
+                    tables.KeeseState.TurningIntervals,
+                    tables.KeeseState.MovementCounterBase,
+                    tables.KeeseState.MovementCounterMask,
+                    tables.KeeseState.DecelerationMoveLimit,
+                    tables.KeeseState.DecelerationEnd,
+                    tables.KeeseState.RestCounterBase,
+                    tables.KeeseState.RestCounterMask
+                ],
+                [30, 40, 32, 49, 12, 12, 192, 63, 104, 127, 32, 127]) ||
+            !ProfileMatches(
+                tables.ArrowMoblin.Sources,
+                [
+                    tables.ArrowMoblin.SpeedRaw,
+                    tables.ArrowMoblin.MoveCounterBase,
+                    tables.ArrowMoblin.MoveCounterMask,
+                    tables.ArrowMoblin.TurnWait
+                ],
+                [20, 48, 63, 8]) ||
+            !ProfileMatches(
+                tables.Crow.Sources,
+                [
+                    tables.Crow.ApproachRadiusY,
+                    tables.Crow.ApproachRadiusX,
+                    tables.Crow.RisingFrames,
+                    tables.Crow.ChargeFrames,
+                    tables.Crow.ScreenBottom,
+                    tables.Crow.ScreenRight
+                ],
+                [48, 24, 25, 90, 136, 168]) ||
+            !ProfileMatches(
+                tables.Gel.Sources,
+                [
+                    tables.Gel.InitialWaitFrames,
+                    tables.Gel.PrepareHopFrames,
+                    tables.Gel.InchFrames,
+                    tables.Gel.InchSpeedRaw,
+                    tables.Gel.HopSpeedRaw,
+                    tables.Gel.InitialSpeedZ,
+                    tables.Gel.Gravity,
+                    tables.Gel.AttachedFrames
+                ],
+                [16, 48, 8, 10, 40, -512, 40, 120]) ||
+            !ProfileMatches(
+                tables.Zol.Sources,
+                [
+                    tables.Zol.WakeDistance,
+                    tables.Zol.InitialSpeedZ,
+                    tables.Zol.Gravity,
+                    tables.Zol.RedInitialWaitFrames,
+                    tables.Zol.GreenHopCount,
+                    tables.Zol.GreenWaitFrames,
+                    tables.Zol.GreenHopSpeedRaw,
+                    tables.Zol.HiddenWaitFrames,
+                    tables.Zol.RedSlideFrames,
+                    tables.Zol.RedSlideSpeedRaw,
+                    tables.Zol.RedShakeFrames,
+                    tables.Zol.RedHopSpeedRaw,
+                    tables.Zol.RedWaitFrames,
+                    tables.Zol.SplitDelayFrames
+                ],
+                [40, -512, 40, 24, 4, 48, 30, 40,
+                 16, 20, 32, 40, 24, 18]) ||
+            !ProfileMatches(
+                tables.Octorok.Sources,
+                [
+                    tables.Octorok.ShootDelayFrames,
+                    tables.Octorok.PostShotWaitFrames
+                ],
+                [16, 32]) ||
+            !ProfileMatches(
+                tables.BoomerangMoblin.Sources,
+                [tables.BoomerangMoblin.SpeedRaw],
+                [20]) ||
+            !ProfileMatches(
+                tables.Rope.Sources,
+                [
+                    tables.Rope.WanderSpeedRaw,
+                    tables.Rope.ChargeSpeedRaw,
+                    tables.Rope.CooldownSpeedRaw,
+                    tables.Rope.CooldownFrames,
+                    tables.Rope.ApproachAxisRadius,
+                    tables.Rope.WanderCounterBase,
+                    tables.Rope.WanderCounterMask
+                ],
+                [15, 50, 15, 64, 10, 112, 112]) ||
+            !ProfileMatches(
+                tables.Ghini.Sources,
+                [
+                    tables.Ghini.SpeedRaw,
+                    tables.Ghini.MoveCounterBase,
+                    tables.Ghini.MoveCounterMask
+                ],
+                [20, 48, 127]) ||
+            !ProfileMatches(
+                tables.Stalfos.Sources,
+                [
+                    tables.Stalfos.MoveCounterBase,
+                    tables.Stalfos.MoveCounterMask
+                ],
+                [32, 48]) ||
+            !ProfileMatches(
+                tables.Wallmaster.Sources,
+                [
+                    tables.Wallmaster.InitialDelayFrames,
+                    tables.Wallmaster.RetryDelayFrames,
+                    tables.Wallmaster.SpawnZ,
+                    tables.Wallmaster.Gravity,
+                    tables.Wallmaster.GroundFrames,
+                    tables.Wallmaster.CloseHandCounter,
+                    tables.Wallmaster.RisePixelsPerFrame,
+                    tables.Wallmaster.ResetDelayFrames,
+                    tables.Wallmaster.FlickerBelowZ,
+                    tables.Wallmaster.VisibleBelowZ
+                ],
+                [180, 120, -96, 14, 30, 20, 2, 120, -72, -68]) ||
+            !ProfileMatches(
+                tables.MoblinBoomerang.Sources,
+                [
+                    tables.MoblinBoomerang.OutboundFrames,
+                    tables.MoblinBoomerang.DecelerationInterval,
+                    tables.MoblinBoomerang.InitialSpeedRaw,
+                    tables.MoblinBoomerang.SpeedStepRaw,
+                    tables.MoblinBoomerang.ReturnMaximumSpeedRaw,
+                    tables.MoblinBoomerang.ReturnAccelerationMask,
+                    tables.MoblinBoomerang.CollisionRadius,
+                    tables.MoblinBoomerang.CatchRadius,
+                    tables.MoblinBoomerang.DamageQuarters
+                ],
+                [45, 6, 80, 5, 75, 3, 2, 4, 2]) ||
+            !ProfileMatches(
+                tables.PumpkinProjectile.Sources,
+                [
+                    tables.PumpkinProjectile.DelayFrames,
+                    tables.PumpkinProjectile.SpeedRaw,
+                    tables.PumpkinProjectile.CollisionRadiusY,
+                    tables.PumpkinProjectile.CollisionRadiusX,
+                    tables.PumpkinProjectile.DamageQuarters
+                ],
+                [8, 60, 4, 2, 2]) ||
             !tables.KeeseDecelerationSpeeds[0].Source.Contains(
                 "keese_updateDeceleration@speeds",
                 StringComparison.Ordinal) ||
@@ -237,14 +420,20 @@ public sealed partial class ValidationRoot
                 StringComparison.Ordinal) ||
             !tables.PumpkinHeadStompTimers[0].Source.Contains(
                 "chooseRandomStompTimerAndCount@counter2Vals",
+                StringComparison.Ordinal) ||
+            !tables.EnemySwordDamageProfiles[0].Source.Contains(
+                "collisionEffects.s",
+                StringComparison.Ordinal) ||
+            !tables.Wallmaster.Sources[0].Source.Contains(
+                "wallmaster.s",
                 StringComparison.Ordinal),
-            "The 77 imported enemy behavior lookup rows lost a source value, " +
+            "The 177 imported enemy behavior rows lost a source value, " +
             "signed component, runtime index order, or source identity.");
 
         GD.Print(
-            "Validated 77 imported enemy behavior lookup rows across Keese, " +
-            "Octorok, Boomerang Moblin, enemy arrows, Giant Ghini children, " +
-            "and Pumpkin Head.");
+            "Validated 177 imported enemy behavior rows: source lookup " +
+            "streams plus typed collision, recoil, hazard, bounce, speed, " +
+            "counter, gravity, bounds, and projectile profiles.");
     }
 
     private void ValidateEnemyPlacementRules()

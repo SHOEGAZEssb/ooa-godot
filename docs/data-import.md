@@ -428,17 +428,20 @@ compatible interpretation. The second retains all 48 entries of
 `ecom_bounceOffScreenBoundary@angleTable` in source order. Runtime consumers
 must use the typed shared resolver rather than copying either table.
 
-`metadata/enemy_behavior_tables.tsv` owns the remaining implemented
-species/state lookup streams: Keese deceleration speeds and animation masks,
-Octorok wait/walk counters, Boomerang Moblin route counters, enemy-arrow
-directional offsets and radii, Giant Ghini child spawn offsets, and Pumpkin
-Head walk, stomp, head-follow, and projectile geometry. The 77 rows preserve
-signed Y/X values and the runtime index order actually produced by source
-allocation loops; this is significant where Giant Ghini allocates child
-subids `3,2,1` and Pumpkin Head creates projectile subids `0,2,1`.
+`metadata/enemy_behavior_tables.tsv` owns 177 implemented behavior rows. The
+original 77 lookup-stream rows cover Keese deceleration, Octorok wait/walk
+counters, Boomerang Moblin route counters, enemy-arrow directional geometry,
+Giant Ghini child offsets, and Pumpkin Head timing/follower/projectile tables.
+The additional 100 rows retain state-entry operands: common sword
+invincibility/recoil profiles, knockback and hazard motion, hostile-projectile
+bounce, and the speeds, counters, gravity, bounds, collision radii, and damage
+used by every implemented common enemy/projectile state machine. Signed Y/X
+values and runtime index order stay exact, including Giant Ghini's `3,2,1`
+child allocation and Pumpkin Head's `0,2,1` projectile creation.
 `EnemyBehaviorTables` rejects noncontiguous rows, unexpected secondary values,
-unclaimed tables, or changed row counts. Species state machines consume its
-typed values while retaining their independent update logic.
+unclaimed tables, or changed row counts, then exposes semantic typed profiles.
+Species classes retain native state transitions and branch instructions but do
+not keep private copies of state-entry data.
 
 The same shared stage emits `common_enemies.tsv` for the implemented
 `ENEMY_BOOMERANG_MOBLIN $0a:$00`, `ENEMY_ARROW_MOBLIN $0c:$00`,
@@ -466,7 +469,10 @@ source order and store only room bytes, as the original banked WRAM does.
 Wallmaster destination in `dungeon_maps.tsv`. `DungeonMapDatabase` exposes that
 per-dungeon value, so a common Wallmaster capture returns Link to `$24` in
 dungeon `$01`, `$ce` in dungeon `$0b`, and the corresponding imported room for
-every other dungeon instead of using a first-dungeon constant.
+every other dungeon instead of using a first-dungeon constant. The Wallmaster
+spawner's remaining-hand count comes from the ordered placement's source Y
+operand (`5` in room `4:12`, `2` in room `4:c5`) rather than a species-wide
+constant.
 
 ## Generated-data rules
 

@@ -5,14 +5,6 @@ namespace oracleofages;
 
 public partial class KeeseCharacter : EnemyCharacter
 {
-
-    private const int SpeedC0 = 0x1e;
-    private const int Speed100 = 0x28;
-    private const int InitialRestFrames = 0x20;
-    private const int ApproachDistance = 0x31;
-    private const int TurningInterval = 12;
-    private const int TurningIntervals = 12;
-
     private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
@@ -44,7 +36,9 @@ public partial class KeeseCharacter : EnemyCharacter
         Record = record;
         _room = room;
         _random = random;
-        _counter1 = record.SubId == 0 ? InitialRestFrames : 0;
+        _counter1 = record.SubId == 0
+            ? _behavior.KeeseState.InitialRestFrames
+            : 0;
         _turnAmount = record.SubId == 1 ? 2 : 0;
 
         InitializeEnemy(
@@ -95,8 +89,10 @@ public partial class KeeseCharacter : EnemyCharacter
                     return;
                 OracleRandomResult startRandom = _random.Next();
                 _angle = startRandom.High & 0x1f;
-                _counter1 = 0xc0 + (startRandom.Low & 0x3f);
-                _speed = SpeedC0;
+                _counter1 = _behavior.KeeseState.MovementCounterBase +
+                    (startRandom.Low &
+                        _behavior.KeeseState.MovementCounterMask);
+                _speed = _behavior.KeeseState.NormalSpeedRaw;
                 _state = KeeseState.Moving;
                 SetFlying(true);
                 AdvanceAnimation();
@@ -124,7 +120,7 @@ public partial class KeeseCharacter : EnemyCharacter
                 return;
 
             case KeeseState.Decelerating:
-                if (_counter1 < 0x68)
+                if (_counter1 < _behavior.KeeseState.DecelerationMoveLimit)
                 {
                     ApplySpeed(_speed);
                     BounceOffScreenBoundary();
@@ -139,11 +135,13 @@ public partial class KeeseCharacter : EnemyCharacter
                 if ((frameCounter & mask) == 0)
                     AdvanceAnimation();
                 _counter1++;
-                if (_counter1 != 0x7f)
+                if (_counter1 != _behavior.KeeseState.DecelerationEnd)
                     return;
 
                 _state = KeeseState.Resting;
-                _counter1 = 0x20 + (_random.Next().Value & 0x7f);
+                _counter1 = _behavior.KeeseState.RestCounterBase +
+                    (_random.Next().Value &
+                        _behavior.KeeseState.RestCounterMask);
                 SetFlying(false);
                 return;
         }
@@ -154,15 +152,16 @@ public partial class KeeseCharacter : EnemyCharacter
         if (_state == KeeseState.Resting)
         {
             Vector2 difference = linkPosition - Position;
-            if (Mathf.Abs(difference.X) + Mathf.Abs(difference.Y) >= ApproachDistance)
+            if (Mathf.Abs(difference.X) + Mathf.Abs(difference.Y) >=
+                _behavior.KeeseState.ApproachDistance)
                 return;
 
             _angle = (OracleObjectMovement.Shared.RelativeAngle(
                 Position, linkPosition) +
                 _turnAmount) & 0x1f;
-            _counter1 = TurningInterval;
-            _counter2 = TurningIntervals;
-            _speed = Speed100;
+            _counter1 = _behavior.KeeseState.TurningInterval;
+            _counter2 = _behavior.KeeseState.TurningIntervals;
+            _speed = _behavior.KeeseState.ApproachSpeedRaw;
             _state = KeeseState.Moving;
             SetFlying(true);
             return;
@@ -173,7 +172,7 @@ public partial class KeeseCharacter : EnemyCharacter
         _counter1--;
         if (_counter1 == 0)
         {
-            _counter1 = TurningInterval;
+            _counter1 = _behavior.KeeseState.TurningInterval;
             _angle = (_angle + _turnAmount) & 0x1f;
             _counter2--;
             if (_counter2 == 0)

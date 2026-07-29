@@ -10,11 +10,8 @@ namespace oracleofages;
 /// </summary>
 internal partial class ArrowMoblinCharacter : EnemyCharacter
 {
-    private const int Speed = 0x14;
-    private const int MoveCounterBase = 0x30;
-    private const int MoveCounterMask = 0x3f;
-    private const int TurnWait = 0x08;
-
+    private readonly ArrowMoblinBehaviorProfile _behavior =
+        EnemyBehaviorTables.Shared.ArrowMoblin;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
     private ArrowMoblinState _state;
@@ -83,11 +80,12 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
             case ArrowMoblinState.Moving:
                 _counter--;
                 bool moved = _counter != 0 &&
-                    _movement.MoveAtAngle(_angle, Speed, allowHoles: false);
+                    _movement.MoveAtAngle(
+                        _angle, _behavior.SpeedRaw, allowHoles: false);
                 if (_counter == 0 || !moved)
                 {
                     _state = ArrowMoblinState.Turning;
-                    _counter = TurnWait;
+                    _counter = _behavior.TurnWait;
                 }
                 AdvanceAnimation();
                 return -1;
@@ -119,7 +117,8 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
 
     private void BeginMoving()
     {
-        _counter = MoveCounterBase + (_random.Next().Value & MoveCounterMask);
+        _counter = _behavior.MoveCounterBase +
+            (_random.Next().Value & _behavior.MoveCounterMask);
         _state = ArrowMoblinState.Moving;
         RestartAnimation((_angle & 0x18) >> 3);
     }

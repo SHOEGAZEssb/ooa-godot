@@ -7,13 +7,13 @@ namespace oracleofages;
 /// <summary>PART_PUMPKIN_HEAD_PROJECTILE $42.</summary>
 internal sealed partial class PumpkinHeadProjectile : TransitionOffsetNode2D
 {
-    private const int CollisionRadiusY = 4;
-    private const int CollisionRadiusX = 2;
     private const int LinkCollisionRadius = 6;
+    private readonly PumpkinProjectileBehaviorProfile _behavior =
+        EnemyBehaviorTables.Shared.PumpkinProjectile;
     private readonly EnemyAnimationPlayer _animation;
     private readonly OracleRoomData _room;
     private readonly int _angle;
-    private int _delay = 8;
+    private int _delay;
 
     internal PumpkinHeadProjectile(
         VisualRecord visual,
@@ -23,6 +23,7 @@ internal sealed partial class PumpkinHeadProjectile : TransitionOffsetNode2D
     {
         _room = room;
         _angle = angle & 0x1f;
+        _delay = _behavior.DelayFrames;
         Position = position;
         Name = "PumpkinHeadProjectile";
         ZIndex = 11;
@@ -39,8 +40,12 @@ internal sealed partial class PumpkinHeadProjectile : TransitionOffsetNode2D
     internal int Delay => _delay;
     internal int Angle => _angle;
     internal Rect2 CollisionBounds => new(
-        Position - new Vector2(CollisionRadiusX, CollisionRadiusY),
-        new Vector2(CollisionRadiusX * 2, CollisionRadiusY * 2));
+        Position - new Vector2(
+            _behavior.CollisionRadiusX,
+            _behavior.CollisionRadiusY),
+        new Vector2(
+            _behavior.CollisionRadiusX * 2,
+            _behavior.CollisionRadiusY * 2));
 
     internal void UpdateFrame(Player player)
     {
@@ -57,7 +62,8 @@ internal sealed partial class PumpkinHeadProjectile : TransitionOffsetNode2D
             }
         }
 
-        Position += OracleObjectMovement.Shared.Delta(0x3c, _angle);
+        Position += OracleObjectMovement.Shared.Delta(
+            _behavior.SpeedRaw, _angle);
         if (!OracleObjectMath.IsInsideOriginalScreenBoundary(Position) ||
             _room.IsSolid(Position))
         {
@@ -66,11 +72,12 @@ internal sealed partial class PumpkinHeadProjectile : TransitionOffsetNode2D
             return;
         }
         if (Mathf.Abs(player.Position.X - Position.X) <
-                CollisionRadiusX + LinkCollisionRadius &&
+                _behavior.CollisionRadiusX + LinkCollisionRadius &&
             Mathf.Abs(player.Position.Y - Position.Y) <
-                CollisionRadiusY + LinkCollisionRadius)
+                _behavior.CollisionRadiusY + LinkCollisionRadius)
         {
-            player.ApplyEnemyContactDamage(Position, 2);
+            player.ApplyEnemyContactDamage(
+                Position, _behavior.DamageQuarters);
         }
         QueueRedraw();
     }

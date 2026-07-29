@@ -5,7 +5,8 @@ namespace oracleofages;
 
 internal partial class RopeCharacter : EnemyCharacter
 {
-
+    private readonly RopeBehaviorProfile _behavior =
+        EnemyBehaviorTables.Shared.Rope;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
     private RopeState _state;
@@ -38,7 +39,7 @@ internal partial class RopeCharacter : EnemyCharacter
             room,
             EnemyKnockbackMotion.Terrain,
             checksHazards: true);
-        _speed = 0x14;
+        _speed = _behavior.WanderSpeedRaw;
     }
 
     internal void UpdateFrame(Vector2 linkPosition)
@@ -62,7 +63,7 @@ internal partial class RopeCharacter : EnemyCharacter
             _angle = (OracleObjectMovement.Shared.RelativeAngle(
                 OracleObjectMath.ToPixelPosition(Position),
                 OracleObjectMath.ToPixelPosition(linkPosition)) + 4) & 0x18;
-            _speed = 0x32;
+            _speed = _behavior.ChargeSpeedRaw;
             _state = RopeState.Charging;
             SetAnimationFromAngle();
             return;
@@ -77,8 +78,8 @@ internal partial class RopeCharacter : EnemyCharacter
         {
             if (_state == RopeState.Charging)
             {
-                _cooldown = 0x40;
-                _speed = 0x0f;
+                _cooldown = _behavior.CooldownFrames;
+                _speed = _behavior.CooldownSpeedRaw;
             }
             ChangeDirection();
             return;
@@ -90,7 +91,8 @@ internal partial class RopeCharacter : EnemyCharacter
     {
         OracleRandomResult result = _random.Next();
         _angle = result.High & 0x18;
-        _counter = 0x70 + (result.Low & 0x70);
+        _counter = _behavior.WanderCounterBase +
+            (result.Low & _behavior.WanderCounterMask);
         _state = RopeState.Wandering;
         SetAnimationFromAngle();
     }
@@ -101,8 +103,8 @@ internal partial class RopeCharacter : EnemyCharacter
         Vector2 link = OracleObjectMath.ToPixelPosition(linkPosition);
         // objectCheckCenteredWithLink uses a 2*b+1 unsigned range, so b=$0a
         // accepts the inclusive high-byte interval [-10, 10] on either axis.
-        return Mathf.Abs(link.X - rope.X) <= 0x0a ||
-            Mathf.Abs(link.Y - rope.Y) <= 0x0a;
+        return Mathf.Abs(link.X - rope.X) <= _behavior.ApproachAxisRadius ||
+            Mathf.Abs(link.Y - rope.Y) <= _behavior.ApproachAxisRadius;
     }
 
     private void SetAnimationFromAngle() =>

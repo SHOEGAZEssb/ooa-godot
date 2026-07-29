@@ -187,20 +187,26 @@ and RNG consumption while addressing these items.
     the former Fairy-only subset was removed. Validation pins independent
     non-cardinal vectors and a cumulative 64-update enemy path.
 
-- [ ] Move the remaining copied enemy behavior and collision data across the
+- [x] Move the remaining copied enemy behavior and collision data across the
   importer boundary.
   - Extend `ImportedEnemyDefinition`, or adjacent typed records, beyond
     graphics, radii, damage, health, and animations to retain source collision
     modes/flags, item-collision responses, speeds, counters, gravity, bounds,
     projectile offsets, and per-state lookup tables.
-  - The remaining 77 species/state lookup rows are now imported once with
-    source identities, signed components, exact runtime ordering, and one typed
-    owner: Keese deceleration, Octorok and Boomerang Moblin counters,
-    enemy-arrow offsets/radii, Giant Ghini child offsets, and Pumpkin Head
-    walk/stomp/head/projectile tables. The earlier common
+  - Completed with 177 source-addressed rows under one strict typed owner. The
+    original 77 lookup rows cover Keese deceleration, Octorok and Boomerang
+    Moblin counters, enemy-arrow offsets/radii, Giant Ghini child offsets, and
+    Pumpkin Head walk/stomp/head/projectile tables. Another 100 rows now own
+    common sword/recoil/hazard/bounce behavior and implemented enemy/projectile
+    state-entry speeds, counters, gravity, bounds, radii, and damage. Collision
+    modes and initial flags remain sourced through the generated handler
+    registry, while native state machines retain only transition and branch
+    logic. The earlier common
     `ecom_bounceOffScreenBoundary@angleTable` and
     `ecom_sideviewAdjacentWallOffsetTable` copies remain imported through their
-    dedicated typed resolver.
+    dedicated typed resolver. Wallmaster hand counts now also come from each
+    ordered placement (`5` in `4:12`, `2` in `4:c5`) instead of a copied
+    Spirit's Grave constant.
 
 - [x] Correct and consolidate adjacent-wall probing before adding more enemy
   handlers. The importer now preserves the common four-pair offset stream,

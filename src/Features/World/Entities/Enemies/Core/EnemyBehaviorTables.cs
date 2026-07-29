@@ -32,6 +32,23 @@ internal sealed class EnemyBehaviorTables
         PumpkinHeadProjectileAngleOffsets { get; }
     internal IReadOnlyList<EnemyBehaviorPair>
         PumpkinHeadProjectileOriginOffsets { get; }
+    internal IReadOnlyList<EnemyBehaviorPair> EnemySwordDamageProfiles { get; }
+    internal EnemyKnockbackBehaviorProfile EnemyKnockback { get; }
+    internal EnemyHazardBehaviorProfile EnemyHazards { get; }
+    internal ProjectileBounceBehaviorProfile ProjectileBounce { get; }
+    internal KeeseStateBehaviorProfile KeeseState { get; }
+    internal ArrowMoblinBehaviorProfile ArrowMoblin { get; }
+    internal CrowBehaviorProfile Crow { get; }
+    internal GelBehaviorProfile Gel { get; }
+    internal ZolBehaviorProfile Zol { get; }
+    internal OctorokBehaviorProfile Octorok { get; }
+    internal BoomerangMoblinBehaviorProfile BoomerangMoblin { get; }
+    internal RopeBehaviorProfile Rope { get; }
+    internal GhiniBehaviorProfile Ghini { get; }
+    internal StalfosBehaviorProfile Stalfos { get; }
+    internal WallmasterBehaviorProfile Wallmaster { get; }
+    internal MoblinBoomerangBehaviorProfile MoblinBoomerang { get; }
+    internal PumpkinProjectileBehaviorProfile PumpkinProjectile { get; }
 
     private EnemyBehaviorTables()
     {
@@ -52,19 +69,19 @@ internal sealed class EnemyBehaviorTables
             string owner = row.RequiredString(0);
             string tableName = row.RequiredString(1);
             if (!groups.TryGetValue(
-                (owner, tableName), out List<EnemyBehaviorPair>? values))
+                (owner, tableName), out List<EnemyBehaviorPair>? groupValues))
             {
-                values = new List<EnemyBehaviorPair>();
-                groups.Add((owner, tableName), values);
+                groupValues = new List<EnemyBehaviorPair>();
+                groups.Add((owner, tableName), groupValues);
             }
             int index = row.UnsignedDecimal(2);
-            if (index != values.Count)
+            if (index != groupValues.Count)
             {
                 throw row.Invalid(
                     2,
-                    $"contiguous {owner}/{tableName} index {values.Count}");
+                    $"contiguous {owner}/{tableName} index {groupValues.Count}");
             }
-            values.Add(new EnemyBehaviorPair(
+            groupValues.Add(new EnemyBehaviorPair(
                 row.Decimal(3),
                 row.Decimal(4),
                 row.RequiredString(5)));
@@ -97,10 +114,169 @@ internal sealed class EnemyBehaviorTables
         PumpkinHeadProjectileOriginOffsets = TakePairs(
             groups, "pumpkin-head", "projectile-origin-offsets", 4);
 
-        if (table.Rows.Count != 77 || groups.Count != 0)
+        EnemySwordDamageProfiles = TakePairs(
+            groups, "common-enemy", "sword-damage-profiles", 4);
+
+        EnemyBehaviorValue[] values = TakeValues(
+            groups, "common-enemy", "knockback-speeds", 2);
+        EnemyKnockback = new(
+            values[0].Value,
+            values[1].Value,
+            values);
+
+        values = TakeValues(groups, "common-enemy", "hazard-profile", 7);
+        EnemyHazards = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            values[6].Value,
+            values);
+
+        values = TakeValues(
+            groups, "common-projectile", "bounce-profile", 4);
+        ProjectileBounce = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values);
+
+        values = TakeValues(groups, "keese", "state-profile", 12);
+        KeeseState = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            values[6].Value,
+            values[7].Value,
+            values[8].Value,
+            values[9].Value,
+            values[10].Value,
+            values[11].Value,
+            values);
+
+        values = TakeValues(groups, "arrow-moblin", "state-profile", 4);
+        ArrowMoblin = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values);
+
+        values = TakeValues(groups, "crow", "state-profile", 6);
+        Crow = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            values);
+
+        values = TakeValues(groups, "gel", "state-profile", 8);
+        Gel = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            values[6].Value,
+            values[7].Value,
+            values);
+
+        values = TakeValues(groups, "zol", "state-profile", 14);
+        Zol = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            values[6].Value,
+            values[7].Value,
+            values[8].Value,
+            values[9].Value,
+            values[10].Value,
+            values[11].Value,
+            values[12].Value,
+            values[13].Value,
+            values);
+
+        values = TakeValues(groups, "octorok", "state-profile", 2);
+        Octorok = new(values[0].Value, values[1].Value, values);
+
+        values = TakeValues(groups, "boomerang-moblin", "state-profile", 1);
+        BoomerangMoblin = new(values[0].Value, values);
+
+        values = TakeValues(groups, "rope", "state-profile", 7);
+        Rope = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            values[6].Value,
+            values);
+
+        values = TakeValues(groups, "ghini", "state-profile", 3);
+        Ghini = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values);
+
+        values = TakeValues(groups, "stalfos", "state-profile", 2);
+        Stalfos = new(values[0].Value, values[1].Value, values);
+
+        values = TakeValues(groups, "wallmaster", "state-profile", 10);
+        Wallmaster = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            values[6].Value,
+            values[7].Value,
+            values[8].Value,
+            values[9].Value,
+            values);
+
+        values = TakeValues(
+            groups, "moblin-boomerang-projectile", "state-profile", 9);
+        MoblinBoomerang = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            values[6].Value,
+            values[7].Value,
+            values[8].Value,
+            values);
+
+        values = TakeValues(
+            groups, "pumpkin-head-projectile", "state-profile", 5);
+        PumpkinProjectile = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values);
+
+        if (table.Rows.Count != 177 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 77 rows and no " +
+                $"Enemy behavior table contract expected 177 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }
@@ -163,3 +339,147 @@ internal readonly record struct EnemyBehaviorPair(
 {
     internal Vector2 Vector => new(Second, First);
 }
+
+internal readonly record struct EnemyKnockbackBehaviorProfile(
+    int NormalSpeedRaw,
+    int HighSpeedRaw,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct EnemyHazardBehaviorProfile(
+    int ProbeY,
+    int FirstProbeX,
+    int SecondProbeX,
+    int FallFrames,
+    int PullIntervalMask,
+    int PullSpeedRaw,
+    int AnimationDecrement,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct ProjectileBounceBehaviorProfile(
+    int Frames,
+    int Gravity,
+    int SpeedRaw,
+    int InitialSpeedZ,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct KeeseStateBehaviorProfile(
+    int NormalSpeedRaw,
+    int ApproachSpeedRaw,
+    int InitialRestFrames,
+    int ApproachDistance,
+    int TurningInterval,
+    int TurningIntervals,
+    int MovementCounterBase,
+    int MovementCounterMask,
+    int DecelerationMoveLimit,
+    int DecelerationEnd,
+    int RestCounterBase,
+    int RestCounterMask,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct ArrowMoblinBehaviorProfile(
+    int SpeedRaw,
+    int MoveCounterBase,
+    int MoveCounterMask,
+    int TurnWait,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct CrowBehaviorProfile(
+    int ApproachRadiusY,
+    int ApproachRadiusX,
+    int RisingFrames,
+    int ChargeFrames,
+    int ScreenBottom,
+    int ScreenRight,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct GelBehaviorProfile(
+    int InitialWaitFrames,
+    int PrepareHopFrames,
+    int InchFrames,
+    int InchSpeedRaw,
+    int HopSpeedRaw,
+    int InitialSpeedZ,
+    int Gravity,
+    int AttachedFrames,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct ZolBehaviorProfile(
+    int WakeDistance,
+    int InitialSpeedZ,
+    int Gravity,
+    int RedInitialWaitFrames,
+    int GreenHopCount,
+    int GreenWaitFrames,
+    int GreenHopSpeedRaw,
+    int HiddenWaitFrames,
+    int RedSlideFrames,
+    int RedSlideSpeedRaw,
+    int RedShakeFrames,
+    int RedHopSpeedRaw,
+    int RedWaitFrames,
+    int SplitDelayFrames,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct OctorokBehaviorProfile(
+    int ShootDelayFrames,
+    int PostShotWaitFrames,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct BoomerangMoblinBehaviorProfile(
+    int SpeedRaw,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct RopeBehaviorProfile(
+    int WanderSpeedRaw,
+    int ChargeSpeedRaw,
+    int CooldownSpeedRaw,
+    int CooldownFrames,
+    int ApproachAxisRadius,
+    int WanderCounterBase,
+    int WanderCounterMask,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct GhiniBehaviorProfile(
+    int SpeedRaw,
+    int MoveCounterBase,
+    int MoveCounterMask,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct StalfosBehaviorProfile(
+    int MoveCounterBase,
+    int MoveCounterMask,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct WallmasterBehaviorProfile(
+    int InitialDelayFrames,
+    int RetryDelayFrames,
+    int SpawnZ,
+    int Gravity,
+    int GroundFrames,
+    int CloseHandCounter,
+    int RisePixelsPerFrame,
+    int ResetDelayFrames,
+    int FlickerBelowZ,
+    int VisibleBelowZ,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct MoblinBoomerangBehaviorProfile(
+    int OutboundFrames,
+    int DecelerationInterval,
+    int InitialSpeedRaw,
+    int SpeedStepRaw,
+    int ReturnMaximumSpeedRaw,
+    int ReturnAccelerationMask,
+    int CollisionRadius,
+    int CatchRadius,
+    int DamageQuarters,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct PumpkinProjectileBehaviorProfile(
+    int DelayFrames,
+    int SpeedRaw,
+    int CollisionRadiusY,
+    int CollisionRadiusX,
+    int DamageQuarters,
+    IReadOnlyList<EnemyBehaviorValue> Sources);

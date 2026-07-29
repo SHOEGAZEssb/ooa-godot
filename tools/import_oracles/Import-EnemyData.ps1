@@ -2297,6 +2297,14 @@ function Add-EnemyBehaviorPairTable(
     }
 }
 
+function Add-EnemyBehaviorProfile(
+    [string]$owner,
+    [string]$table,
+    [int[]]$values,
+    [string]$source) {
+    Add-EnemyBehaviorValueTable $owner $table $values $source
+}
+
 $keeseCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\keese.s')
 $keeseDeceleration = [regex]::Match(
@@ -2509,8 +2517,292 @@ for ($direction = 0; $direction -lt 4; $direction++) {
 Add-EnemyBehaviorPairTable 'pumpkin-head' 'projectile-origin-offsets' `
     $pumpkinProjectileOriginPairs $pumpkinProjectileOriginSources
 
-if ($enemyBehaviorRows.Count -ne 78) {
-    throw "Expected 77 enemy behavior-table rows, got " +
+# State-entry operands are data too: handlers write these speeds, counters,
+# gravity values, bounds, and radii into object fields, while collisionEffects
+# supplies the common sword response counters. Keep them beside the lookup
+# streams so C# state machines retain control flow without private data copies.
+$collisionEffectsSource = Read-ImportText (
+    Join-Path $Disassembly 'code\collisionEffects.s')
+$enemySwordDamageBlock = [regex]::Match(
+    $collisionEffectsSource,
+    '(?ms)^applyDamageToEnemyOrPart:.*?^@damageTypeTable:\s*' +
+    '(?<body>.*?)(?=^@soundEffects:)')
+$enemySwordDamageValues = @(
+    Read-EnemyBehaviorValues $enemySwordDamageBlock.Groups['body'].Value)
+if (-not $enemySwordDamageBlock.Success -or
+    $enemySwordDamageValues.Count -lt 16 -or
+    ($enemySwordDamageValues[0..15] -join ',') -ne
+        '241,16,8,0,241,21,11,0,241,26,15,0,241,32,0,0') {
+    throw 'collisionEffects enemy sword damage profiles changed.'
+}
+$enemySwordDamagePairs = @()
+$enemySwordDamageSources = @()
+for ($index = 0; $index -lt 4; $index++) {
+    $base = $index * 4
+    $enemySwordDamagePairs += ,@(
+        $enemySwordDamageValues[$base + 1],
+        $enemySwordDamageValues[$base + 2])
+    $enemySwordDamageSources +=
+        "code/collisionEffects.s:applyDamageToEnemyOrPart@" +
+        "damageTypeTable+$($base.ToString('x2'))"
+}
+Add-EnemyBehaviorPairTable 'common-enemy' 'sword-damage-profiles' `
+    $enemySwordDamagePairs $enemySwordDamageSources
+
+if ($enemyCommonCodeSource -notmatch
+        '(?ms)^ecom_updateKnockback_common:.*?' +
+        'ld b,SPEED_200.*?ld b,SPEED_300' -or
+    $enemyCommonCodeSource -notmatch
+        '(?ms)^ecom_checkHazardsCommon:.*?' +
+        'ld bc,\$05ff.*?ld bc,\$0501.*?' +
+        'ld \(hl\),60.*?^ecom_fallingInHole:.*?' +
+        'and \$07.*?ld b,SPEED_80.*?sub \$03') {
+    throw 'Common enemy knockback or hazard profile changed.'
+}
+Add-EnemyBehaviorProfile 'common-enemy' 'knockback-speeds' `
+    @(0x50, 0x78) `
+    'object_code/common/enemies/commonCode.s:ecom_updateKnockback_common'
+Add-EnemyBehaviorProfile 'common-enemy' 'hazard-profile' `
+    @(5, -1, 1, 60, 7, 0x14, 3) `
+    'object_code/common/enemies/commonCode.s:ecom_checkHazardsCommon'
+
+if ($partCommonCodeSource -notmatch
+        '(?ms)^partCommon_bounceWhenCollisionsEnabled:.*?' +
+        'ld bc,-\$e0.*?ld \(hl\),\$20.*?' +
+        'ld \(hl\),SPEED_40.*?^partCommon_updateSpeedAndDeleteWhenCounter1Is0:.*?' +
+        'ld c,\$0e') {
+    throw 'Common hostile-projectile bounce profile changed.'
+}
+Add-EnemyBehaviorProfile 'common-projectile' 'bounce-profile' `
+    @(0x20, 0x0e, 0x0a, -0xe0) `
+    'object_code/common/parts/commonCode.s:partCommon_bounceWhenCollisionsEnabled'
+
+if ($keeseCodeSource -notmatch
+        '(?ms)^keese_subid00_state8:.*?' +
+        'ld \(hl\),SPEED_c0.*?ld a,\$c0.*?' +
+        '^keese_subid00_stateA:.*?cp \$68.*?ld a,\$7f.*?' +
+        'and \$7f.*?add \$20' -or
+    $keeseCodeSource -notmatch
+        '(?ms)^keese_subid01_state8:.*?ld c,\$31.*?' +
+        'ld \(hl\),SPEED_100.*?ld \(hl\),12.*?ld \(hl\),12' -or
+    $keeseCodeSource -notmatch
+        '(?ms)^keese_initializeSubid:.*?ld \(hl\),\$20') {
+    throw 'Keese state-entry behavior profile changed.'
+}
+Add-EnemyBehaviorProfile 'keese' 'state-profile' `
+    @(0x1e, 0x28, 0x20, 0x31, 12, 12, 0xc0, 0x3f,
+      0x68, 0x7f, 0x20, 0x7f) `
+    'object_code/common/enemies/keese.s:state-entry-operands'
+
+$arrowDarknutCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\arrowDarknut.s')
+$moblinSharedCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\moblinsAndShroudedStalfos.s')
+if ($arrowDarknutCodeSource -notmatch
+        '(?ms)^arrowDarknut_state_uninitialized:.*?ld a,SPEED_80' -or
+    $arrowDarknutCodeSource -notmatch
+        '(?ms)^arrowDarknut_setState8WithRandomAngleAndCounter:.*?' +
+        'and \$3f\s+add \$30' -or
+    $moblinSharedCodeSource -notmatch
+        '(?ms)^moblin_state_8:.*?ld \(hl\),\$08') {
+    throw 'Arrow Moblin state-entry behavior profile changed.'
+}
+Add-EnemyBehaviorProfile 'arrow-moblin' 'state-profile' `
+    @(0x14, 0x30, 0x3f, 0x08) `
+    'object_code/common/enemies/arrowDarknut.s:state-entry-operands'
+
+$crowCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\crows.s')
+if ($crowCodeSource -notmatch
+        '(?ms)^crow_subid0_state8:.*?add \$30\s+cp \$61.*?' +
+        'add \$18\s+cp \$31.*?ld \(hl\),25' -or
+    $crowCodeSource -notmatch
+        '(?ms)^crow_subid0_state9:.*?ld \(hl\),90' -or
+    $crowCodeSource -notmatch
+        '(?ms)^crow_subid0_checkWithinScreenBounds:.*?' +
+        'cp \(SMALL_ROOM_HEIGHT<<4\) \+ 8.*?' +
+        'cp \(SMALL_ROOM_WIDTH<<4\) \+ 8') {
+    throw 'Crow approach, timing, or boundary profile changed.'
+}
+Add-EnemyBehaviorProfile 'crow' 'state-profile' `
+    @(0x30, 0x18, 25, 90, 0x88, 0xa8) `
+    'object_code/common/enemies/crows.s:crow_subid0'
+
+$gelCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\gel.s')
+if ($gelCodeSource -notmatch
+        '(?ms)^gel_state_uninitialized:.*?ld a,\$10' -or
+    $gelCodeSource -notmatch
+        '(?ms)^gel_state8:.*?ld \(hl\),\$30.*?' +
+        'ld \(hl\),\$08.*?ld \(hl\),SPEED_40' -or
+    $gelCodeSource -notmatch
+        '(?ms)^gel_stateB:.*?ld c,\$28' -or
+    $gelCodeSource -notmatch
+        '(?ms)^gel_stateC:.*?ld \(hl\),120' -or
+    $gelCodeSource -notmatch
+        '(?ms)^gel_beginHop:.*?ld bc,-\$200.*?' +
+        'ld \(hl\),SPEED_100') {
+    throw 'Gel state-entry behavior profile changed.'
+}
+Add-EnemyBehaviorProfile 'gel' 'state-profile' `
+    @(0x10, 0x30, 0x08, 0x0a, 0x28, -0x200, 0x28, 120) `
+    'object_code/common/enemies/gel.s:state-entry-operands'
+
+$zolCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\zol.s')
+if ($zolCodeSource -notmatch
+        '(?ms)^zol_state_uninitialized:.*?ld a,SPEED_c0.*?' +
+        'ld \(hl\),\$18' -or
+    $zolCodeSource -notmatch
+        '(?ms)^zol_subid00_state8:.*?ld c,\$28.*?' +
+        'ld bc,-\$200.*?ld \(hl\),\$04' -or
+    $zolCodeSource -notmatch
+        '(?ms)^zol_subid00_state9:.*?ld c,\$28.*?ld \(hl\),\$30' -or
+    $zolCodeSource -notmatch
+        '(?ms)^zol_subid00_stateB:.*?ld c,\$28.*?ld \(hl\),\$30' -or
+    $zolCodeSource -notmatch
+        '(?ms)^zol_subid00_stateC:.*?ld \(hl\),40' -or
+    $zolCodeSource -notmatch
+        '(?ms)^zol_subid01_state8:.*?ld \(hl\),\$10.*?' +
+        'ld \(hl\),SPEED_80.*?ld \(hl\),\$20' -or
+    $zolCodeSource -notmatch
+        '(?ms)^zol_subid01_stateA:.*?ld \(hl\),<\(-\$200\).*?' +
+        'ld \(hl\),SPEED_100' -or
+    $zolCodeSource -notmatch
+        '(?ms)^zol_subid01_stateB:.*?ld \(hl\),\$18' -or
+    $zolCodeSource -notmatch
+        '(?ms)^zol_subid01_stateC:.*?ld \(hl\),18') {
+    throw 'Zol state-entry behavior profile changed.'
+}
+Add-EnemyBehaviorProfile 'zol' 'state-profile' `
+    @(0x28, -0x200, 0x28, 0x18, 4, 0x30, 0x1e, 40,
+      0x10, 0x14, 0x20, 0x28, 0x18, 18) `
+    'object_code/common/enemies/zol.s:state-entry-operands'
+
+if ($octorokCodeSource -notmatch
+        '(?ms)^octorok_state_08:.*?ld \(hl\),\$10' -or
+    $octorokCodeSource -notmatch
+        '(?ms)^octorok_state_0b:.*?ld \(hl\),\$20') {
+    throw 'Octorok shooting-counter profile changed.'
+}
+Add-EnemyBehaviorProfile 'octorok' 'state-profile' `
+    @(0x10, 0x20) `
+    'object_code/common/enemies/octorok.s:shooting-state-operands'
+
+if ($boomerangMoblinCodeSource -notmatch
+        '(?ms)^@state_uninitialized:.*?ld a,SPEED_80') {
+    throw 'Boomerang Moblin movement-speed profile changed.'
+}
+Add-EnemyBehaviorProfile 'boomerang-moblin' 'state-profile' `
+    @(0x14) `
+    'object_code/common/enemies/boomerangMoblin.s:@state_uninitialized'
+
+$ropeCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\rope.s')
+if ($ropeCodeSource -notmatch
+        '(?ms)^@state_uninitialized:.*?ld a,SPEED_60.*?' +
+        'ecom_setSpeedAndState8AndVisible' -or
+    $ropeCodeSource -notmatch
+        '(?ms)^rope_state_moveAround:.*?ld b,\$0a.*?' +
+        'ld \(hl\),SPEED_140' -or
+    $ropeCodeSource -notmatch
+        '(?ms)^rope_state_chargeLink:.*?ld \(hl\),SPEED_60.*?' +
+        'ld \(hl\),\$40' -or
+    $ropeCodeSource -notmatch
+        '(?ms)^rope_changeDirection:.*?ldbc \$18,\$70.*?add \$70') {
+    throw 'Rope state-entry behavior profile changed.'
+}
+Add-EnemyBehaviorProfile 'rope' 'state-profile' `
+    @(0x0f, 0x32, 0x0f, 0x40, 0x0a, 0x70, 0x70) `
+    'object_code/common/enemies/rope.s:subid00-state-operands'
+
+$ghiniCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\ghini.s')
+if ($ghiniCodeSource -notmatch
+        '(?ms)^@state_uninitialized:.*?ld a,SPEED_80' -or
+    $ghiniCodeSource -notmatch
+        '(?ms)^ghini_subid00:.*?^@state8:.*?' +
+        'ldbc \$18,\$7f.*?ld a,\$30') {
+    throw 'Ghini state-entry behavior profile changed.'
+}
+Add-EnemyBehaviorProfile 'ghini' 'state-profile' `
+    @(0x14, 0x30, 0x7f) `
+    'object_code/common/enemies/ghini.s:ghini_subid00'
+
+$stalfosCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\stalfos.s')
+if ($stalfosCodeSource -notmatch
+        '(?ms)^stalfos_moveInRandomAngle:.*?ld e,\$30.*?' +
+        'ld bc,\$1f0f.*?ld a,\$20') {
+    throw 'Stalfos random-walk counter profile changed.'
+}
+Add-EnemyBehaviorProfile 'stalfos' 'state-profile' `
+    @(0x20, 0x30) `
+    'object_code/common/enemies/stalfos.s:stalfos_moveInRandomAngle'
+
+$wallmasterCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\wallmaster.s')
+if ($wallmasterCodeSource -notmatch
+        '(?ms)^wallmaster_state_uninitialized:.*?ld \(hl\),180' -or
+    $wallmasterCodeSource -notmatch
+        '(?ms)^wallmaster_state1:.*?ld \(hl\),120' -or
+    $wallmasterCodeSource -notmatch
+        '(?ms)^wallmaster_state8:.*?ld \(hl\),\$a0' -or
+    $wallmasterCodeSource -notmatch
+        '(?ms)^wallmaster_state9:.*?ld c,\$0e.*?ld \(hl\),30' -or
+    $wallmasterCodeSource -notmatch
+        '(?ms)^wallmaster_stateA:.*?cp 20' -or
+    $wallmasterCodeSource -notmatch
+        '(?ms)^wallmaster_stateB:.*?dec \(hl\)\s+dec \(hl\).*?' +
+        'cp \$a0.*?ld \(hl\),120' -or
+    $wallmasterCodeSource -notmatch
+        '(?ms)^wallmaster_flickerVisibilityIfHighUp:.*?' +
+        'cp \$b8.*?cp \$bc') {
+    throw 'Wallmaster timing, motion, or visibility profile changed.'
+}
+Add-EnemyBehaviorProfile 'wallmaster' 'state-profile' `
+    @(180, 120, -0x60, 0x0e, 30, 20, 2, 120, -0x48, -0x44) `
+    'object_code/common/enemies/wallmaster.s:state-entry-operands'
+
+$moblinBoomerangPartCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\parts\moblinBoomerang.s')
+$moblinBoomerangPartData = [regex]::Match(
+    $partDataSource,
+    '(?m)^\s*\.db \$8e \$86 \$(?<radius>[0-9a-f]{2}) ' +
+    '\$(?<damage>[0-9a-f]{2}) \$40 \$0a \$04 \$00\s*; \$21')
+if ($moblinBoomerangPartCodeSource -notmatch
+        '(?ms)^@state0:.*?ld \(hl\),\$2d.*?' +
+        'ld \(hl\),\$06.*?ld \(hl\),\$50' -or
+    $moblinBoomerangPartCodeSource -notmatch
+        '(?ms)^func_541a:.*?and \$03.*?add \$05.*?cp \$50' -or
+    $moblinBoomerangPartCodeSource -notmatch
+        '(?ms)^func_53f5:.*?add \$04\s+cp \$09' -or
+    -not $moblinBoomerangPartData.Success -or
+    $moblinBoomerangPartData.Groups['radius'].Value -ne '22' -or
+    $moblinBoomerangPartData.Groups['damage'].Value -ne 'fc') {
+    throw 'Moblin boomerang state or collision profile changed.'
+}
+Add-EnemyBehaviorProfile 'moblin-boomerang-projectile' 'state-profile' `
+    @(0x2d, 6, 0x50, 5, 0x4b, 3, 2, 4, 2) `
+    'object_code/common/parts/moblinBoomerang.s:state-operands'
+
+$pumpkinProjectilePartData = [regex]::Match(
+    $partDataSource,
+    '(?m)^\s*\.db \$a6 \$86 \$(?<radius>[0-9a-f]{2}) ' +
+    '\$(?<damage>[0-9a-f]{2}) \$40 \$1e \$02 \$00\s*; \$42')
+if ($pumpkinProjectileCodeSource -notmatch
+        '(?ms)^@state0:.*?ld \(hl\),\$08.*?ld \(hl\),\$3c' -or
+    -not $pumpkinProjectilePartData.Success -or
+    $pumpkinProjectilePartData.Groups['radius'].Value -ne '42' -or
+    $pumpkinProjectilePartData.Groups['damage'].Value -ne 'fc') {
+    throw 'Pumpkin Head projectile state or collision profile changed.'
+}
+Add-EnemyBehaviorProfile 'pumpkin-head-projectile' 'state-profile' `
+    @(8, 0x3c, 4, 2, 2) `
+    'object_code/ages/parts/pumpkinHeadProjectile.s:state0'
+
+if ($enemyBehaviorRows.Count -ne 178) {
+    throw "Expected 177 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

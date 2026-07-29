@@ -12,6 +12,7 @@ namespace oracleofages;
 /// </summary>
 public abstract partial class EnemyCharacter : TransitionOffsetNode2D
 {
+    private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
     private EnemyAnimationPlayer _animation = null!;
     private int _animationCount;
     private int _collisionRadiusX;
@@ -161,14 +162,17 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
                 $"{GetType().Name} accepted sword knockback without a movement policy.");
         }
 
-        (InvincibilityCounter, KnockbackCounter) = strength switch
+        int profileIndex = (int)strength - (int)EnemyKnockbackStrength.Low;
+        if (profileIndex < 0 ||
+            profileIndex >= _behavior.EnemySwordDamageProfiles.Count - 1)
         {
-            EnemyKnockbackStrength.Low => (0x10, 0x08),
-            EnemyKnockbackStrength.Normal => (0x15, 0x0b),
-            EnemyKnockbackStrength.High => (0x1a, 0x0f),
-            _ => throw new ArgumentOutOfRangeException(
-                nameof(strength), strength, "Unknown enemy knockback strength.")
-        };
+            throw new ArgumentOutOfRangeException(
+                nameof(strength), strength, "Unknown enemy knockback strength.");
+        }
+        EnemyBehaviorPair profile =
+            _behavior.EnemySwordDamageProfiles[profileIndex];
+        InvincibilityCounter = profile.First;
+        KnockbackCounter = profile.Second;
 
         // enemyStandardUpdate prioritizes ENEMYSTATUS_KNOCKBACK over
         // ENEMYSTATUS_DEAD. A health-zero hit disables collision immediately,
@@ -201,7 +205,8 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
 
         // COLLISIONEFFECT_SWORD_NO_KNOCKBACK uses ENEMYDMG_0c: the hit still
         // grants $20 invincibility updates, but never writes knockbackCounter.
-        InvincibilityCounter = 0x20;
+        InvincibilityCounter =
+            _behavior.EnemySwordDamageProfiles[3].First;
         KnockbackCounter = 0;
         QueueRedraw();
     }
@@ -249,7 +254,8 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         return UpdateKnockback();
     }
 
-    protected virtual int SwordInvincibilityFrames => 0x15;
+    protected virtual int SwordInvincibilityFrames =>
+        _behavior.EnemySwordDamageProfiles[1].First;
 
     protected void SetAnimation(int index)
     {
@@ -278,13 +284,17 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
 
         Vector2 pixels = OracleObjectMath.ToPixelPosition(Position);
         HazardType hazard = _hazardRoom.GetTerrainInfo(
-            pixels + new Vector2(-1, 5)).Hazard;
-        int xNudge = -1;
+            pixels + new Vector2(
+                _behavior.EnemyHazards.FirstProbeX,
+                _behavior.EnemyHazards.ProbeY)).Hazard;
+        int xNudge = _behavior.EnemyHazards.FirstProbeX;
         if (hazard == HazardType.None)
         {
             hazard = _hazardRoom.GetTerrainInfo(
-                pixels + new Vector2(1, 5)).Hazard;
-            xNudge = 1;
+                pixels + new Vector2(
+                    _behavior.EnemyHazards.SecondProbeX,
+                    _behavior.EnemyHazards.ProbeY)).Hazard;
+            xNudge = _behavior.EnemyHazards.SecondProbeX;
         }
         if (hazard == HazardType.None)
             return false;
@@ -397,7 +407,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         _pendingKnockbackDeath = false;
         _completedKnockbackDeath = false;
         _hazardActive = true;
-        _hazardCounter = 60;
+        _hazardCounter = _behavior.EnemyHazards.FallFrames;
         Position += new Vector2(xNudge, 0);
     }
 
@@ -419,12 +429,13 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
             return;
         }
 
-        if ((_hazardCounter & 0x07) == 0)
+        if ((_hazardCounter & _behavior.EnemyHazards.PullIntervalMask) == 0)
         {
             Vector2 pixels = OracleObjectMath.ToPixelPosition(Position);
             var target = new Vector2(
                 (Mathf.FloorToInt(pixels.X) & 0xf0) + 8,
-                ((Mathf.FloorToInt(pixels.Y) + 5) & 0xf0) + 8);
+                ((Mathf.FloorToInt(pixels.Y) +
+                    _behavior.EnemyHazards.ProbeY) & 0xf0) + 8);
             if (pixels == target)
             {
                 CompleteHazard();
@@ -432,14 +443,15 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
             }
 
             int angle = OracleObjectMovement.Shared.RelativeAngle(pixels, target);
-            Position += OracleObjectMovement.Shared.Delta(0x14, angle);
+            Position += OracleObjectMovement.Shared.Delta(
+                _behavior.EnemyHazards.PullSpeedRaw, angle);
         }
 
         // The source subtracts three from animCounter (clamped at zero) and
         // then calls enemyAnimate. Zol and Gel deliberately use the variant
         // that leaves their current frame untouched.
         if (_animateWhileFallingInHole)
-            AdvanceAnimation(3);
+            AdvanceAnimation(_behavior.EnemyHazards.AnimationDecrement);
     }
 
     private void CompleteHazard()
@@ -464,7 +476,9 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         // ecom_applyGivenVelocityGivenAdjacentWalls counts as movement even
         // when the high byte does not change.
         Vector2 movement =
-            OracleObjectMovement.Shared.Delta(0x50, KnockbackAngle);
+            OracleObjectMovement.Shared.Delta(
+                _behavior.EnemyKnockback.NormalSpeedRaw,
+                KnockbackAngle);
         if (walls.YBlocked)
             movement.Y = 0;
         if (walls.XBlocked)

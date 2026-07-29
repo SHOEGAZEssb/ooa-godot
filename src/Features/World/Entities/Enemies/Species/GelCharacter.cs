@@ -5,11 +5,8 @@ namespace oracleofages;
 
 public partial class GelCharacter : EnemyCharacter
 {
-
-    private const int InitialSpeedZ = -0x200;
-    private const int Gravity = 0x28;
-    private const int AttachedFrames = 120;
-
+    private readonly GelBehaviorProfile _behavior =
+        EnemyBehaviorTables.Shared.Gel;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
     private EnemyVerticalMotion _verticalMotion = null!;
@@ -42,9 +39,9 @@ public partial class GelCharacter : EnemyCharacter
         Definition = definition;
         _random = random;
         _movement = new EnemyTerrainMovement(this, room);
-        _verticalMotion = new EnemyVerticalMotion(this, Gravity);
+        _verticalMotion = new EnemyVerticalMotion(this, _behavior.Gravity);
         _state = GelState.Waiting;
-        _counter1 = 0x10;
+        _counter1 = _behavior.InitialWaitFrames;
         _collisionEnabled = true;
 
         string[] encodedAnimations =
@@ -109,25 +106,26 @@ public partial class GelCharacter : EnemyCharacter
                 if ((_random.Next().Value & 0x07) == 0)
                 {
                     _state = GelState.Shaking;
-                    _counter1 = 0x30;
+                    _counter1 = _behavior.PrepareHopFrames;
                     RestartAnimation(2);
                 }
                 else
                 {
                     _state = GelState.Inching;
-                    _counter1 = 0x08;
+                    _counter1 = _behavior.InchFrames;
                     _angle = OracleObjectMovement.Shared.RelativeAngle(
                         Position, linkPosition);
                 }
                 return;
 
             case GelState.Inching:
-                _movement.MoveAtAngle(_angle, 0x0a, allowHoles: false);
+                _movement.MoveAtAngle(
+                    _angle, _behavior.InchSpeedRaw, allowHoles: false);
                 AdvanceAnimation();
                 if (--_counter1 > 0)
                     return;
                 _state = GelState.Waiting;
-                _counter1 = 0x10;
+                _counter1 = _behavior.InitialWaitFrames;
                 return;
 
             case GelState.Shaking:
@@ -139,11 +137,12 @@ public partial class GelCharacter : EnemyCharacter
                 return;
 
             case GelState.Hopping:
-                _movement.MoveAtAngle(_angle, 0x28, allowHoles: true);
+                _movement.MoveAtAngle(
+                    _angle, _behavior.HopSpeedRaw, allowHoles: true);
                 if (!_verticalMotion.Update())
                     return;
                 _state = GelState.Waiting;
-                _counter1 = 0x10;
+                _counter1 = _behavior.InitialWaitFrames;
                 _collisionEnabled = true;
                 RestartAnimation(0);
                 return;
@@ -156,7 +155,7 @@ public partial class GelCharacter : EnemyCharacter
             return;
         Position = linkPosition;
         _state = GelState.Attached;
-        _counter2 = AttachedFrames;
+        _counter2 = _behavior.AttachedFrames;
         _verticalMotion.Reset();
         _collisionEnabled = false;
         RestartAnimation(1);
@@ -189,7 +188,7 @@ public partial class GelCharacter : EnemyCharacter
     private void BeginHop(int angle)
     {
         _state = GelState.Hopping;
-        _verticalMotion.SpeedZ = InitialSpeedZ;
+        _verticalMotion.SpeedZ = _behavior.InitialSpeedZ;
         _angle = angle & 0x1f;
         // gel_beginHop does not alter collisionType. A Gel hopping normally
         // therefore stays enabled, while a Gel whose Link collision disabled

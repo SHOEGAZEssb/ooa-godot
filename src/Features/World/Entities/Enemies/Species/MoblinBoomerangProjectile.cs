@@ -5,6 +5,8 @@ namespace oracleofages;
 
 internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
 {
+    private readonly MoblinBoomerangBehaviorProfile _behavior =
+        EnemyBehaviorTables.Shared.MoblinBoomerang;
     private readonly BoomerangMoblinCharacter _owner;
     private readonly OracleRoomData _room;
     private readonly EnemyAnimationPlayer _animation;
@@ -40,7 +42,9 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
     internal int Counter => _counter;
     internal int SpeedRaw => _speed;
     internal bool Returning => _returning;
-    internal Rect2 CollisionBounds => new(Position - new Vector2(2, 2), new Vector2(4, 4));
+    internal Rect2 CollisionBounds => new(
+        Position - Vector2.One * _behavior.CollisionRadius,
+        Vector2.One * (_behavior.CollisionRadius * 2));
 
     internal void UpdateFrame(Player player, int frameCounter)
     {
@@ -55,9 +59,9 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
         {
             // partCode21 state 0 initializes but does not move.
             _initialized = true;
-            _counter = 0x2d;
-            _speedCounter = 6;
-            _speed = 0x50;
+            _counter = _behavior.OutboundFrames;
+            _speedCounter = _behavior.DecelerationInterval;
+            _speed = _behavior.InitialSpeedRaw;
             _animation.Advance();
             QueueRedraw();
             return;
@@ -74,20 +78,26 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
             {
                 if (--_speedCounter == 0)
                 {
-                    _speedCounter = 6;
-                    _speed = Math.Max(0, _speed - 0x05);
+                    _speedCounter = _behavior.DecelerationInterval;
+                    _speed = Math.Max(
+                        0, _speed - _behavior.SpeedStepRaw);
                 }
                 Position += OracleObjectMovement.Shared.Delta(_speed, _angle);
             }
         }
         else
         {
-            if ((frameCounter & 3) == 0)
-                _speed = Math.Min(0x4b, _speed + 0x05);
+            if ((frameCounter & _behavior.ReturnAccelerationMask) == 0)
+            {
+                _speed = Math.Min(
+                    _behavior.ReturnMaximumSpeedRaw,
+                    _speed + _behavior.SpeedStepRaw);
+            }
             Vector2 delta = _owner.Position - Position;
             _angle = OracleObjectMovement.Shared.RelativeAngle(
                 Position, _owner.Position);
-            if (Mathf.Abs(delta.X) <= 4 && Mathf.Abs(delta.Y) <= 4)
+            if (Mathf.Abs(delta.X) <= _behavior.CatchRadius &&
+                Mathf.Abs(delta.Y) <= _behavior.CatchRadius)
             {
                 Finish(returned: true);
                 return;
@@ -97,7 +107,8 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
         if (Mathf.Abs(player.Position.X - Position.X) < 8 &&
             Mathf.Abs(player.Position.Y - Position.Y) < 8)
         {
-            player.ApplyEnemyContactDamage(Position, 2);
+            player.ApplyEnemyContactDamage(
+                Position, _behavior.DamageQuarters);
             BeginReturn();
         }
         _animation.Advance();

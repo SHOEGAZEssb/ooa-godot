@@ -132,7 +132,7 @@ public partial class OctorokCharacter : EnemyCharacter
         if (decision == 0)
         {
             _state = OctorokState.Shooting;
-            _counter1 = 0x10;
+            _counter1 = _behavior.Octorok.ShootDelayFrames;
             if (Record.SubId >= 2)
             {
                 _angle = GetCardinalAngleToward(linkPosition);
@@ -184,7 +184,7 @@ public partial class OctorokCharacter : EnemyCharacter
         if (_counter1 > 0)
             return false;
 
-        _counter1 = 0x20;
+        _counter1 = _behavior.Octorok.PostShotWaitFrames;
         _state = OctorokState.Standing;
         return true;
     }

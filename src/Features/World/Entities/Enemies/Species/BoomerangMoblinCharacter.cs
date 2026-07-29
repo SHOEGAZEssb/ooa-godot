@@ -59,7 +59,9 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
             case BoomerangMoblinCharacterMoblinState.Moving:
                 _counter--;
                 if (_counter == 0 || !_movement.MoveAtAngle(
-                    _angle, 0x14, allowHoles: false))
+                    _angle,
+                    _behavior.BoomerangMoblin.SpeedRaw,
+                    allowHoles: false))
                 {
                     _state = BoomerangMoblinCharacterMoblinState.Deciding;
                 }

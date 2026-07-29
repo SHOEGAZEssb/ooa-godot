@@ -5,12 +5,13 @@ namespace oracleofages;
 
 internal partial class WallmasterCharacter : EnemyCharacter
 {
-
+    private readonly WallmasterBehaviorProfile _behavior =
+        EnemyBehaviorTables.Shared.Wallmaster;
     private WallmasterState _state;
-    private int _counter = 180;
+    private int _counter;
     private int _zFixed;
     private int _speedZ;
-    private int _remaining = 5;
+    private int _remaining;
     private OracleRoomData _room = null!;
     private bool _active;
     private Player? _grabbedPlayer;
@@ -32,13 +33,21 @@ internal partial class WallmasterCharacter : EnemyCharacter
     internal void Initialize(
         ImportedEnemyDefinition record,
         OracleRoomData room,
-        Vector2 position)
+        Vector2 position,
+        int remaining)
     {
+        if (remaining <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(remaining), remaining,
+                "A Wallmaster spawner requires a positive source count.");
+        }
         Record = record;
         InitializeEnemy(
             position,
             EnemyCharacterConfiguration.FromImported(record));
         _room = room;
+        _remaining = remaining;
         ConfigureSwordKnockback(
             room,
             EnemyKnockbackMotion.Terrain);
@@ -56,7 +65,7 @@ internal partial class WallmasterCharacter : EnemyCharacter
             // The subid-$00 spawner installs its 180-update counter in state
             // 0, then begins decrementing it on the next object update.
             _initialized = true;
-            _counter = 180;
+            _counter = _behavior.InitialDelayFrames;
             return;
         }
         switch (_state)
@@ -68,11 +77,11 @@ internal partial class WallmasterCharacter : EnemyCharacter
                 // The subid-$00 spawner always reloads its 120-update delay
                 // before testing Link's tile. A blocked spawn therefore waits
                 // for the full interval before trying again.
-                _counter = 120;
+                _counter = _behavior.RetryDelayFrames;
                 if (_room.IsSolid(player.Position))
                     return;
                 Position = player.Position;
-                _zFixed = -(0x60 << 8);
+                _zFixed = _behavior.SpawnZ << 8;
                 _speedZ = 0;
                 _active = true;
                 Visible = true;
@@ -82,20 +91,22 @@ internal partial class WallmasterCharacter : EnemyCharacter
 
             case WallmasterState.Falling:
                 FollowGrabbedPlayer();
-                if (!OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, 0x0e))
+                if (!OracleObjectMath.UpdateSpeedZ(
+                    ref _zFixed, ref _speedZ, _behavior.Gravity))
                 {
                     UpdateHighVisibility();
                     break;
                 }
-                _counter = 30;
+                _counter = _behavior.GroundFrames;
                 _state = WallmasterState.Grounded;
                 break;
 
             case WallmasterState.Grounded:
                 _counter--;
-                if (_counter == 20)
+                if (_counter == _behavior.CloseHandCounter)
                     SetAnimation(1);
-                if (_grabbedPlayer is not null && _counter < 20)
+                if (_grabbedPlayer is not null &&
+                    _counter < _behavior.CloseHandCounter)
                     _grabbedPlayer.Visible = false;
                 if (_counter == 0)
                     _state = WallmasterState.Rising;
@@ -103,15 +114,15 @@ internal partial class WallmasterCharacter : EnemyCharacter
 
             case WallmasterState.Rising:
                 UpdateHighVisibility();
-                _zFixed -= 2 << 8;
-                if (_zFixed > -(0x60 << 8))
+                _zFixed -= _behavior.RisePixelsPerFrame << 8;
+                if (_zFixed > _behavior.SpawnZ << 8)
                     break;
                 if (_grabbedPlayer is not null)
                 {
                     _warpRequested = true;
                     return;
                 }
-                HideAndReset(120);
+                HideAndReset(_behavior.ResetDelayFrames);
                 break;
         }
         AdvanceAnimation();
@@ -132,7 +143,7 @@ internal partial class WallmasterCharacter : EnemyCharacter
             return;
         }
         Revive(Record.Health);
-        HideAndReset(120);
+        HideAndReset(_behavior.ResetDelayFrames);
     }
 
     internal bool HandleLinkContact(Player player)
@@ -205,9 +216,9 @@ internal partial class WallmasterCharacter : EnemyCharacter
     private void UpdateHighVisibility()
     {
         int z = _zFixed >> 8;
-        if (z < -0x48)
+        if (z < _behavior.FlickerBelowZ)
             Visible = !Visible;
-        else if (z < -0x44)
+        else if (z < _behavior.VisibleBelowZ)
             Visible = true;
     }
 }

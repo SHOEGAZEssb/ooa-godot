@@ -416,13 +416,16 @@ count, condition, and coordinates. Validation performs the same join and
 derives species totals from the ordered records rather than maintaining
 parallel room indexes.
 
-State-machine lookup order is also generated data. `EnemyBehaviorTables`
-provides one strict runtime owner for the 77 imported Keese/Octorok/Boomerang
-Moblin counters, enemy-arrow directional geometry, Giant Ghini child offsets,
-and Pumpkin Head timing/follower/projectile rows. Consumers index those records
-at the same RNG/state/direction boundary as the source; they do not reorder the
-Giant Ghini `3,2,1` child allocation or Pumpkin Head's `0,2,1` projectile
-creation into disassembly table order.
+State-machine lookup and state-entry operands are generated data.
+`EnemyBehaviorTables` provides one strict runtime owner for 177 rows: 77
+Keese/Octorok/Boomerang Moblin lookup counters, enemy-arrow directional
+geometry, Giant Ghini child offsets, and Pumpkin Head
+timing/follower/projectile records, plus 100 typed sword, recoil, hazard,
+bounce, speed, counter, gravity, bounds, and projectile profiles. Consumers
+index lookup records at the same RNG/state/direction boundary as the source;
+they do not reorder the Giant Ghini `3,2,1` child allocation or Pumpkin Head's
+`0,2,1` projectile creation. Native state machines still own transitions and
+branching, but state-entry fields come from the typed generated profiles.
 
 Ordinary enemy species are not owned by the first room or dungeon that makes
 them playable. Boomerang Moblin, Arrow Moblin, Rope, Ghini, and Wallmaster live
@@ -432,7 +435,8 @@ Arrow Moblin, Rope, and Ghini subids remain explicit reservations rather than
 silently receiving the wrong state machine. Wallmaster capture resolves the
 active dungeon's imported
 `wDungeonWallmasterDestRoom`; it does not encode Spirit's Grave room `4:24` in
-the entity adapter.
+the entity adapter. Its source placement also owns the spawner count: room
+`4:12` supplies five hands and dungeon `$0b` room `4:c5` supplies two.
 
 `ENEMY_ARROW_MOBLIN $0c:$00` selects a cardinal direction and then a
 `$30+(RNG&$3f)` movement duration on its first update. It moves at `SPEED_80`
@@ -463,10 +467,11 @@ Side-view terrain movement must preserve the source velocity table's exact zero
 components for cardinal angles. A blocked cardinal move returns zero; it must
 not test the unchanged perpendicular coordinate and report success. Rope
 `$10:$00` depends on that return value: `objectCheckCenteredWithLink` accepts an
-inclusive ten-pixel match on either axis, the Rope takes one fixed cardinal
-`SPEED_140` lock, and only a wall/hole collision ends the charge. That collision
-restores `SPEED_60`, sets `counter2` to `$40`, and calls
-`rope_changeDirection`; the charge does not continuously retarget Link.
+inclusive ten-pixel match on either axis. Its initialization and ordinary
+wander both use `SPEED_60`; the Rope takes one fixed cardinal `SPEED_140` lock,
+and only a wall/hole collision ends the charge. That collision restores
+`SPEED_60`, sets `counter2` to `$40`, and calls `rope_changeDirection`; the
+charge does not continuously retarget Link.
 
 ## Ledge-jump ownership
 

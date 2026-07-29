@@ -10,11 +10,8 @@ namespace oracleofages;
 /// </summary>
 internal sealed class HostileProjectileLifecycle
 {
-    private const int BounceFrames = 0x20;
-    private const int BounceGravity = 0x0e;
-    private const int BounceSpeedRaw = 0x0a;
-    private const int BounceSpeedZ = -0xe0;
-
+    private readonly ProjectileBounceBehaviorProfile _bounce =
+        EnemyBehaviorTables.Shared.ProjectileBounce;
     private readonly Node2D _entity;
     private readonly OracleRoomData _room;
     private readonly HostileProjectileProfile _profile;
@@ -155,8 +152,8 @@ internal sealed class HostileProjectileLifecycle
             _collisionRadii = Vector2.Zero;
         if (_profile.ResetZOnBounce)
             ZFixed = 0;
-        Counter = BounceFrames;
-        _speedZ = BounceSpeedZ;
+        Counter = _bounce.Frames;
+        _speedZ = _bounce.InitialSpeedZ;
         Angle ^= 0x10;
         _entity.QueueRedraw();
     }
@@ -172,10 +169,10 @@ internal sealed class HostileProjectileLifecycle
 
         int zFixed = ZFixed;
         OracleObjectMath.UpdateSpeedZ(
-            ref zFixed, ref _speedZ, BounceGravity);
+            ref zFixed, ref _speedZ, _bounce.Gravity);
         ZFixed = zFixed;
         _entity.Position +=
-            OracleObjectMovement.Shared.Delta(BounceSpeedRaw, Angle);
+            OracleObjectMovement.Shared.Delta(_bounce.SpeedRaw, Angle);
         _entity.QueueRedraw();
     }
 

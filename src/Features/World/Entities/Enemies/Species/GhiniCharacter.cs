@@ -5,6 +5,8 @@ namespace oracleofages;
 
 internal partial class GhiniCharacter : EnemyCharacter
 {
+    private readonly GhiniBehaviorProfile _behavior =
+        EnemyBehaviorTables.Shared.Ghini;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
     private int _counter;
@@ -50,12 +52,17 @@ internal partial class GhiniCharacter : EnemyCharacter
             _state = GhiniState.Moving;
             return;
         }
-        Position += OracleObjectMovement.Shared.Delta(0x14, _angle);
-        bool horizontal = Position.X < 6 || Position.X >= _room.Width - 6;
-        bool vertical = Position.Y < 6 || Position.Y >= _room.Height - 6;
+        Position += OracleObjectMovement.Shared.Delta(
+            _behavior.SpeedRaw, _angle);
+        bool horizontal = Position.X < Record.RadiusX ||
+            Position.X >= _room.Width - Record.RadiusX;
+        bool vertical = Position.Y < Record.RadiusY ||
+            Position.Y >= _room.Height - Record.RadiusY;
         Position = new Vector2(
-            Mathf.Clamp(Position.X, 6, _room.Width - 7),
-            Mathf.Clamp(Position.Y, 6, _room.Height - 7));
+            Mathf.Clamp(
+                Position.X, Record.RadiusX, _room.Width - Record.RadiusX - 1),
+            Mathf.Clamp(
+                Position.Y, Record.RadiusY, _room.Height - Record.RadiusY - 1));
         if (horizontal)
             _angle = (0x20 - _angle) & 0x1f;
         if (vertical)
@@ -81,7 +88,8 @@ internal partial class GhiniCharacter : EnemyCharacter
     private void ChooseDirection()
     {
         OracleRandomResult result = _random.Next();
-        _counter = 0x30 + (result.Low & 0x7f);
+        _counter = _behavior.MoveCounterBase +
+            (result.Low & _behavior.MoveCounterMask);
         _angle = result.High & 0x18;
         SetAnimation(_angle < 0x10 ? 1 : 0);
     }

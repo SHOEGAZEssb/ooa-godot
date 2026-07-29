@@ -9,7 +9,8 @@ namespace oracleofages;
 /// </summary>
 public partial class StalfosCharacter : EnemyCharacter
 {
-
+    private readonly StalfosBehaviorProfile _behavior =
+        EnemyBehaviorTables.Shared.Stalfos;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private StalfosState _state;
@@ -105,7 +106,8 @@ public partial class StalfosCharacter : EnemyCharacter
     private void BeginRandomWalk(Vector2 linkPosition)
     {
         OracleRandomResult result = _random.Next();
-        _counter1 = 0x20 + (result.Value & 0x30);
+        _counter1 = _behavior.MoveCounterBase +
+            (result.Value & _behavior.MoveCounterMask);
         _angle = (result.Low & 0x0f) == 1
             ? OracleObjectMovement.Shared.RelativeAngle(Position, linkPosition)
             : result.High & 0x1f;

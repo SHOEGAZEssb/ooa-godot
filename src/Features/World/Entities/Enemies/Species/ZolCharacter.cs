@@ -5,11 +5,8 @@ namespace oracleofages;
 
 public partial class ZolCharacter : EnemyCharacter
 {
-
-    private const int InitialSpeedZ = -0x200;
-    private const int Gravity = 0x28;
-    private const int WakeDistance = 0x28;
-
+    private readonly ZolBehaviorProfile _behavior =
+        EnemyBehaviorTables.Shared.Zol;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
@@ -43,7 +40,7 @@ public partial class ZolCharacter : EnemyCharacter
         _room = room;
         _random = random;
         _movement = new EnemyTerrainMovement(this, room);
-        _verticalMotion = new EnemyVerticalMotion(this, Gravity);
+        _verticalMotion = new EnemyVerticalMotion(this, _behavior.Gravity);
 
         string[] encodedAnimations =
         {
@@ -79,7 +76,7 @@ public partial class ZolCharacter : EnemyCharacter
         else
         {
             _state = ZolState.RedWaiting;
-            _counter1 = 0x18;
+            _counter1 = _behavior.RedInitialWaitFrames;
             _collisionEnabled = true;
             Visible = true;
             RestartAnimation(4);
@@ -99,10 +96,11 @@ public partial class ZolCharacter : EnemyCharacter
         switch (_state)
         {
             case ZolState.GreenHidden:
-                if (ManhattanDistance(Position, linkPosition) >= WakeDistance)
+                if (ManhattanDistance(Position, linkPosition) >=
+                    _behavior.WakeDistance)
                     return UpdateEvent.None;
-                _verticalMotion.SpeedZ = InitialSpeedZ;
-                _counter2 = 4;
+                _verticalMotion.SpeedZ = _behavior.InitialSpeedZ;
+                _counter2 = _behavior.GreenHopCount;
                 _state = ZolState.GreenEmerging;
                 Visible = true;
                 RestartAnimation(0);
@@ -117,7 +115,7 @@ public partial class ZolCharacter : EnemyCharacter
                 if (!_verticalMotion.Update())
                     return UpdateEvent.None;
                 _state = ZolState.GreenWaiting;
-                _counter1 = 0x30;
+                _counter1 = _behavior.GreenWaitFrames;
                 _collisionEnabled = true;
                 RestartAnimation(1);
                 return UpdateEvent.None;
@@ -126,17 +124,18 @@ public partial class ZolCharacter : EnemyCharacter
                 if (--_counter1 > 0)
                     return UpdateEvent.None;
                 _state = ZolState.GreenHopping;
-                _verticalMotion.SpeedZ = InitialSpeedZ;
+                _verticalMotion.SpeedZ = _behavior.InitialSpeedZ;
                 _angle = OracleObjectMovement.Shared.RelativeAngle(
                     Position, linkPosition);
                 RestartAnimation(2);
                 return UpdateEvent.None;
 
             case ZolState.GreenHopping:
-                _movement.MoveAtAngle(_angle, 0x1e, allowHoles: true);
+                _movement.MoveAtAngle(
+                    _angle, _behavior.GreenHopSpeedRaw, allowHoles: true);
                 if (!_verticalMotion.Update())
                     return UpdateEvent.None;
-                _counter1 = 0x30;
+                _counter1 = _behavior.GreenWaitFrames;
                 _counter2--;
                 if (_counter2 > 0)
                 {
@@ -158,7 +157,7 @@ public partial class ZolCharacter : EnemyCharacter
                     return UpdateEvent.None;
                 }
                 _state = ZolState.GreenGone;
-                _counter1 = 40;
+                _counter1 = _behavior.HiddenWaitFrames;
                 Visible = false;
                 RestartAnimation(0);
                 return UpdateEvent.None;
@@ -176,26 +175,27 @@ public partial class ZolCharacter : EnemyCharacter
                 if ((_random.Next().Value & 0x07) == 0)
                 {
                     _state = ZolState.RedShaking;
-                    _counter1 = 0x20;
+                    _counter1 = _behavior.RedShakeFrames;
                     RestartAnimation(5);
                 }
                 else
                 {
                     _state = ZolState.RedSliding;
-                    _counter1 = 0x10;
+                    _counter1 = _behavior.RedSlideFrames;
                     _angle = OracleObjectMovement.Shared.RelativeAngle(
                         Position, linkPosition);
                 }
                 return UpdateEvent.None;
 
             case ZolState.RedSliding:
-                _movement.MoveAtAngle(_angle, 0x14, allowHoles: false);
+                _movement.MoveAtAngle(
+                    _angle, _behavior.RedSlideSpeedRaw, allowHoles: false);
                 BounceOffScreenBoundary();
                 AdvanceAnimation();
                 if (--_counter1 > 0)
                     return UpdateEvent.None;
                 _state = ZolState.RedWaiting;
-                _counter1 = 0x18;
+                _counter1 = _behavior.RedWaitFrames;
                 return UpdateEvent.None;
 
             case ZolState.RedShaking:
@@ -203,24 +203,25 @@ public partial class ZolCharacter : EnemyCharacter
                 if (--_counter1 > 0)
                     return UpdateEvent.None;
                 _state = ZolState.RedHopping;
-                _verticalMotion.SpeedZ = InitialSpeedZ;
+                _verticalMotion.SpeedZ = _behavior.InitialSpeedZ;
                 _angle = OracleObjectMovement.Shared.RelativeAngle(
                     Position, linkPosition);
                 RestartAnimation(2);
                 return UpdateEvent.None;
 
             case ZolState.RedHopping:
-                _movement.MoveAtAngle(_angle, 0x28, allowHoles: true);
+                _movement.MoveAtAngle(
+                    _angle, _behavior.RedHopSpeedRaw, allowHoles: true);
                 if (!_verticalMotion.Update())
                     return UpdateEvent.None;
                 _state = ZolState.RedWaiting;
-                _counter1 = 0x18;
+                _counter1 = _behavior.RedWaitFrames;
                 RestartAnimation(4);
                 return UpdateEvent.None;
 
             case ZolState.RedSplitting:
                 _state = ZolState.RedSplitDelay;
-                _counter2 = 18;
+                _counter2 = _behavior.SplitDelayFrames;
                 _collisionEnabled = false;
                 Visible = false;
                 return UpdateEvent.BeginSplit;
