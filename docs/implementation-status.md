@@ -369,6 +369,11 @@ remains the single runtime policy table.
   through `$68/$50` to `$68/$88`, nonblocking var3f movement, 30-update
   frame-mask flicker, two-hand Poe Clock reward, and item-bit `$20` re-entry
   suppression.
+- Present room `2:2f`'s Postman `$55:$00`: native Link-facing and SPEED `$50`
+  animation cadence, TX `$0b03-$0b06`, missing/No/Yes Poe Clock branches, four
+  exact 30-update waits, `$1d` right plus `$39` down departure to `$50,$88`,
+  two-hand Stationery reward, room-item bit `$20`, and completed re-entry
+  suppression.
 - Present room `2:e6`'s Mask Salesman, including its single-update native
   initialization, `$04/$06` talk geometry, alternating animation and TX
   `$0b0d-$0b15/$0b45` hunger sequence, exact 15/30-update waits, missing-item

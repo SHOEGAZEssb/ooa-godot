@@ -253,13 +253,14 @@ variant lifetime, and terminal script state cross rooms.
 
 Placed NPC scripts outside the room-event priority chain use
 `NpcInteractionScriptController` and one `NpcInteractionCommandHost` per
-source lane. The linked-secret giver, past Bipin, and Shovel hardhat hosts own
-their actor binding, pending A-button, input lease, textbox/choice operations,
-and caller-completed reward handoff. `InteractionController` delegates only
-ordered talk matching and fixed-update advancement; it does not reproduce
-their command graphs. The generated streams retain `showloadedtext`,
-`checktext`, `giveitem`, and exact script waits, while secret generation,
-family text resolution, facing, and Shovel presentation remain explicit
+source lane. The linked-secret giver, past Bipin, Shovel hardhat, and Postman
+hosts own their actor binding, pending A-button, input lease, textbox/choice
+operations, and caller-completed reward handoff. `InteractionController`
+delegates only ordered talk matching and fixed-update advancement; it does not
+reproduce their command graphs. The generated streams retain
+`showloadedtext`, `checktext`, trade-item/choice branches, movement,
+`giveitem`, and exact script waits, while secret generation, family text
+resolution, facing, and source-specific reward presentation remain explicit
 native host operations.
 
 Always clear runners when an event is cancelled, a room unload invalidates its

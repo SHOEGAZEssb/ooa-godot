@@ -413,6 +413,23 @@ if ($pastBipinSource -notmatch '(?ms)^@bipin3:.*?ld a,\$09\s+call interactionSet
 $npcInitialAnimationBySubid['40:10'] = 9
 $npcTextBySubid['40:10'] = 0x4311
 
+# Room 2:2f's INTERAC_POSTMAN $55:$00 installs postmanScript, whose first
+# A-button branch opens TX_0b03. The native tail uses npcFaceLinkAndAnimate
+# until the accepted trade changes Interaction.var3f, so retain all four
+# facing animations in the placed NPC record.
+$postmanSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\postman.s')
+$postmanScriptSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+if ($postmanSource -notmatch
+        '(?ms)^interactionCode55:.*?interactionRunScript.*?Interaction\.var3f.*?npcFaceLinkAndAnimate.*?interactionAnimateBasedOnSpeed.*?objectSetPriorityRelativeToLink_withTerrainEffects' -or
+    $postmanScriptSource -notmatch
+        '(?ms)^postmanScript:.*?showtextlowindex <TX_0b03.*?jumpiftradeitemeq TRADEITEM_POE_CLOCK.*?showtextlowindex <TX_0b04.*?showtextlowindex <TX_0b05.*?giveitem TREASURE_TRADEITEM, \$01' -or
+    -not $allTexts.ContainsKey(0x0b03)) {
+    throw 'Room 2:2f INTERAC_POSTMAN $55:$00 native update or script entry changed.'
+}
+$npcTextBySubid['85:0'] = 0x0b03
+
 # Room 1:75 contains the pre-Black Tower ensemble and two var03-selected
 # hardhat workers. Pin the initial animation writes performed by the linked
 # Impa/Nayru initializers; their script lanes use all four facing animations.
@@ -610,6 +627,7 @@ foreach ($key in @(
     '2:0e:3c:0d:00',
     '2:0e:3d:00:00',
     '2:2e:59:00:01',
+    '2:2f:55:00:00',
     '2:5e:46:00:00',
     '2:e6:5c:00:00',
     '2:ee:89:00:00',
@@ -679,7 +697,7 @@ foreach ($key in @(
 }
 
 if ($ordinaryNpcImplementationKeys.Count -ne 50 -or
-    $specializedNpcImplementationKeys.Count -ne 51 -or
+    $specializedNpcImplementationKeys.Count -ne 52 -or
     $eventOwnedNpcImplementationKeys.Count -ne 14) {
     throw 'NPC implementation registry key counts changed.'
 }
@@ -2671,9 +2689,9 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
         1 + [int]$npcImplementationCounts[$implementation]
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 51 -or
-    $npcImplementationCounts['specialized-native'] -ne 51 -or
+    $npcImplementationCounts['specialized-native'] -ne 52 -or
     $npcImplementationCounts['event-owned'] -ne 14 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 272 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 271 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -3301,9 +3319,10 @@ function Add-NpcGlobalVisibility(
 }
 function Add-NpcCurrentRoomVisibility(
     [int]$id, [int]$subid, [int]$var03, [int]$alternative,
-    [int]$mask, [bool]$expectedSet, [string]$source
+    [int]$mask, [bool]$expectedSet, [string]$source,
+    [string]$sourceToken = 'getThisRoomFlags'
 ) {
-    Confirm-NpcVisibilitySource $source 'getThisRoomFlags'
+    Confirm-NpcVisibilitySource $source $sourceToken
     $variant = if ($var03 -lt 0) { '*' } else { $var03.ToString('x2') }
     $npcVisibilityRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$variant`t$alternative`tcurrent-room`t-`t-`t$($mask.ToString('x2'))`t$([int]$expectedSet)`t$source")
@@ -3708,6 +3727,11 @@ Add-NpcCurrentRoomVisibility 0x59 0x00 2 0 0x20 $false 'poe.s:@initSubid02'
 Add-NpcCurrentRoomVisibility 0x59 0x00 2 0 0x40 $true 'poe.s:@initSubid02'
 Add-NpcSpecificRoomVisibility 0x59 0x00 2 0 0 0x2e 0x40 $true 'poe.s:@initSubid02' 'wPresentRoomFlags+$2e'
 
+# postmanScript jumps to stubScript before initializing collisions when the
+# Stationery room-item flag is already set.
+Add-NpcCurrentRoomVisibility 0x55 0x00 -1 0 0x20 $false `
+    'scriptHelper.s:postmanScript' 'jumpifroomflagset $20'
+
 Add-NpcGlobalVisibility 0x6d 0x00 -1 0 'GLOBALFLAG_BEAT_POSSESSED_NAYRU' $false 'possessedNayru.s:@state0'
 Add-NpcCurrentRoomVisibility 0x69 0x00 -1 0 0x80 $false 'rafton.s:@state0'
 Add-NpcGlobalVisibility 0x69 0x00 -1 0 'GLOBALFLAG_RAFTON_CHANGED_ROOMS' $false 'rafton.s:@initSubid00'
@@ -3753,8 +3777,8 @@ Add-NpcCurrentRoomVisibility 0xab 0x12 -1 0 0x40 $false 'zora.s:@deleteIfFlagSet
 
 Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symmetryNpc.s:@subid0cInit'
 
-if ($npcVisibilityRows.Count -ne 342) {
-    throw "Expected 341 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 343) {
+    throw "Expected 342 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_visibility.tsv'),

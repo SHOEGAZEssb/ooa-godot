@@ -283,9 +283,9 @@ public sealed partial class ValidationRoot
             new Dictionary<NpcImplementationClassification, int>
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 51,
-                [NpcImplementationClassification.SpecializedNative] = 123,
+                [NpcImplementationClassification.SpecializedNative] = 124,
                 [NpcImplementationClassification.EventOwned] = 14,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 272
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 271
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -298,7 +298,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "51 ordinary, 123 specialized, 14 event-owned, and 272 " +
+            "51 ordinary, 124 specialized, 14 event-owned, and 271 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -547,6 +547,7 @@ public sealed partial class ValidationRoot
             "linkedGameNpcScript",
             "bipinScript3",
             "hardhatWorkerSubid00Script",
+            "postmanScript",
             "linkInteractWithAButtonSensitiveObjects:ordinaryNpcDialogue",
             "shopkeeper.s:lynnaShop:player"
         ];
@@ -605,7 +606,7 @@ public sealed partial class ValidationRoot
             "the first claiming player handler.");
 
         GD.Print(
-            "Validated one 17-route NPC interaction registry, source/gameplay " +
+            "Validated one 18-route NPC interaction registry, source/gameplay " +
             "priority, first-claim dispatch, NPC/player target gating, and " +
             "single-resolution begin/end/cancel lifecycle ownership.");
     }
@@ -3523,10 +3524,10 @@ public sealed partial class ValidationRoot
             "movement or animation-toggle contract.");
 
         FailIf(
-            new NpcVisibilityRuleDatabase().RuleCount != 341 ||
+            new NpcVisibilityRuleDatabase().RuleCount != 342 ||
             new NpcDialogueRuleDatabase().RuleCount != 117 ||
             new NpcPositionRuleDatabase().RuleCount != 2,
-            "Expected 341 NPC visibility, 117 NPC dialogue, and two NPC " +
+            "Expected 342 NPC visibility, 117 NPC dialogue, and two NPC " +
             "position state predicates.");
 
         manager.LoadRoom(1, _world.LoadRoom(1, 0x86));
@@ -4063,7 +4064,7 @@ public sealed partial class ValidationRoot
             "table, one-Essence gate, two-Essence stage/personality save write, refill-bit clear, " +
             "Bipin $28:$00's SPEED_100 X=$28/$58 patrol, $04/$05 animation reversal, " +
             "and moving objectPreventLinkFromPassing collision, " +
-            "341 imported visibility, 117 dialogue, and two position predicates, " +
+            "342 imported visibility, 117 dialogue, and two position predicates, " +
             "room 0:68's phased talkable cast, lifecycle-safe event hiding, and deliberate " +
             "suppression of unsupported native handlers.");
     }

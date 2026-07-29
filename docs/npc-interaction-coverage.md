@@ -1,7 +1,7 @@
 # NPC and character interaction coverage
 
 This is the room-by-room coverage snapshot for imported visible character
-interactions as of July 27, 2026. It is an implementation inventory, not a
+interactions as of July 29, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
@@ -46,9 +46,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 70 | Traced and covered by the current named NPC/event scenarios. |
+| **I** | 71 | Traced and covered by the current named NPC/event scenarios. |
 | **P** | 44 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
-| **D** | 274 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 273 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **388** | **211 rooms and 294 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -58,10 +58,10 @@ family remains **P** until its progression ownership and all per-variant
 behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
-The implementation manifest therefore contains 51 ordinary, 51 specialized,
-14 event-owned, and 272 deliberately unsupported positioned/state-derived
+The implementation manifest therefore contains 51 ordinary, 52 specialized,
+14 event-owned, and 271 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 460
-classified records and 123 specialized rows.
+classified records and 124 specialized rows.
 
 ### Important partial and deferred boundaries
 
@@ -87,7 +87,7 @@ classified records and 123 specialized rows.
   outside the implemented pre-Black-Tower and lower-Tower slices.
 - Symmetry City `$bf`, carpenter `$9a`, Mamamu Yan/dog `$53/$54`, Tingle
   `$c8`, Bomb Upgrade Fairy `$83`, Rafton/Cheval `$69/$6a`, Toilet Hand `$5b`,
-  Postman `$55`, Syrup `$5f`, and the remaining shopkeeper variants `$46`.
+  Syrup `$5f`, and the remaining shopkeeper variants `$46`.
 - Old-lady linked-secret records `$3d:$04/$05`: their complete linked-secret
   interaction graphs are not implemented like the Graveyard Ghini `$cb:$00`,
   so their placements are deliberately suppressed.
@@ -211,7 +211,7 @@ well as record selection. The ownership/consolidation work in
 | `2:1e` | [D] `$69:$00/v$00` rafton |
 | `2:1f` | [D] `$69:$01/v$00` rafton |
 | `2:2e` | [I] `$59:$00/v$01` poe |
-| `2:2f` | [D] `$55:$00/v$00` postman |
+| `2:2f` | [I] `$55:$00/v$00` postman |
 | `2:3e` | [D] `$5b:$00/v$00` toiletHand |
 | `2:3f` | [D] `$48:$05/v$00` tokay |
 | `2:4e` | [D] `$2e:$01/v$00` oldManWithRupees |

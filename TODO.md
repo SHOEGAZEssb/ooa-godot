@@ -94,10 +94,10 @@ snapshot is maintained in
 - [x] Move the remaining hand-coded `interactionRunScript` talk graphs out of
   `InteractionController` into typed command lanes hosted by their owning
   interaction: linked Ghini `linkedGameNpcScript`, past Bipin `bipinScript3`,
-  and hardhat `$58:$00`'s Shovel script are the first candidates. Keep secret
+  hardhat `$58:$00`'s Shovel script, and room `2:2f`'s Postman. Keep secret
   generation, `giveitem`, textbox waits, live RNG, and native presentation as
   explicit host operations at their source boundaries.
-  `Import-CutsceneData.ps1` now emits all three source-addressed loops, adding
+  `Import-CutsceneData.ps1` now emits all four source-addressed loops, adding
   typed `showloadedtext` and `checktext` commands to the enforced vocabulary.
   Independent NPC script hosts own actor/A-button state, input leases, exact
   20/30/1-update counters, choice branches, linked-secret generation, family
@@ -111,8 +111,8 @@ snapshot is maintained in
   Register handlers in explicit source/gameplay priority, retain exact
   A-sensitive geometry, and make begin/end/cancel behavior uniform without
   merging the handlers' state machines.
-  `NpcInteractionRouter` now owns one 17-route registry: family naming, the
-  event-owned actors in their prior gameplay order, the three typed
+  `NpcInteractionRouter` now owns one 18-route registry: family naming, the
+  event-owned actors in their prior gameplay order, the four typed
   `interactionRunScript` hosts, ordinary dialogue, and the no-NPC Lynna-shop
   player route. `RoomEntityManager` resolves the first strict A-button target
   and its optional `INpcTalkLifecycle` owner together; the resulting target
@@ -149,8 +149,9 @@ snapshot is maintained in
   behavior/grab sound order, before/after-grab dialogue, and shared or
   caller-owned completion. Deferred Maku, Dark Room, and Spirit's Grave
   rewards use the same queued spawn request; Vasu, command-host grants, past
-  Bipin, and the Hardhat Shovel use the immediate grant path. Bipin and the
-  Shovel no longer attach or free nodes outside `RoomEntityManager`.
+  Bipin, the Hardhat Shovel, and Postman Stationery use the immediate grant
+  path. These NPC hosts no longer attach or free nodes outside
+  `RoomEntityManager`.
 
 - [x] Remove room-entity adapter boilerplate without erasing capabilities.
   `IRoomEntityLifetime.OnFinished` now defaults to no action; 42 empty

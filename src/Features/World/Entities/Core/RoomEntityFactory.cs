@@ -1179,6 +1179,23 @@ internal sealed class RoomEntityFactory(
             poe.InitializePoe(record, _poe.Record);
             return new PoeRoomEntity(poe);
         }
+        if (record is
+            {
+                Group: 2,
+                Room: 0x2f,
+                Id: 0x55,
+                SubId: 0x00,
+                Var03: 0x00
+            })
+        {
+            var postman = new PostmanCharacter
+            {
+                Name = "Npc_55_00",
+                ZIndex = NpcCharacter.BehindLinkZIndex
+            };
+            postman.InitializePostman(record);
+            return new PostmanRoomEntity(postman);
+        }
 
         NpcCharacter npc = CreateNpcCharacter(record);
         if (_room20e.Matches(record))

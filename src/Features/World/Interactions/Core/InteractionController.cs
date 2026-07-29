@@ -56,6 +56,8 @@ public sealed class InteractionController
     internal GroundTreasurePickup? GroundTreasureForValidation => _groundTreasure;
     internal GroundTreasurePickup? PastBipinTreasureForValidation =>
         _npcScripts.PastBipinTreasure;
+    internal GroundTreasurePickup? PostmanTreasureForValidation =>
+        _npcScripts.PostmanTreasure;
     internal NpcInteractionScriptController NpcScriptsForValidation =>
         _npcScripts;
 
@@ -97,7 +99,8 @@ public sealed class InteractionController
             entities,
             dialogue,
             treasures,
-            _familyState);
+            _familyState,
+            inventory);
         var interactionHandlers = new List<NpcInteractionHandler>
         {
             NpcInteractionHandler.ForNpc(

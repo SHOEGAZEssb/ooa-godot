@@ -322,6 +322,21 @@ caller-completed treasure to `RoomEntityManager`. Preserve the script engine's
 `wait 1` boundary: after TX `$004b` closes, one update installs counter 1 and
 the next reaches zero, passes `checktext`, and opens TX `$4312`.
 
+Present room `2:2f` uses a specialized fixed-update owner for
+`INTERAC_POSTMAN $55:$00`. Before `Interaction.var3f` changes, its native tail
+runs `npcFaceLinkAndAnimate`; afterward it uses
+`interactionAnimateBasedOnSpeed` and Link-relative terrain priority. Preserve
+the three animation calls while the SPEED `$50` movement counter is nonzero
+and the single call after it reaches zero.
+
+The imported `postmanScript` lane owns TX `$0b03-$0b06`, the Poe Clock `$00`
+test, Yes/No branch, and all four 30-update waits. Accepting writes var3f,
+moves right for counter `$1d` and down for `$39`, reaching `$50,$88`, then
+grants `TREASURE_TRADEITEM $01` (Stationery) through the caller-completed
+two-hand treasure path. Its room-item bit `$20` is set on grant and suppresses
+the Postman on re-entry; a clear flag with no Poe Clock or a declined choice
+returns to the A-button loop without consuming the item.
+
 A group/room branch in `RoomEntityFactory` is acceptable only when the original
 defines that exact linked composition. Prefer interaction ID/subid dispatch for
 behavior shared across placements, and import a general selector table when the

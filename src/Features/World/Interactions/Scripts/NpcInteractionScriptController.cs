@@ -4,9 +4,9 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Schedules the independent linked-NPC, past-Bipin, and hardhat script lanes.
-/// InteractionController delegates matching and fixed-update advancement here
-/// without retaining their talk graphs.
+/// Schedules the independent linked-NPC, past-Bipin, hardhat, and Postman
+/// script lanes. InteractionController delegates matching and fixed-update
+/// advancement here without retaining their talk graphs.
 /// </summary>
 internal sealed class NpcInteractionScriptController
 {
@@ -15,6 +15,7 @@ internal sealed class NpcInteractionScriptController
     private readonly LinkedGameNpcScriptHost _linked;
     private readonly PastBipinScriptHost _pastBipin;
     private readonly HardhatShovelScriptHost _hardhat;
+    private readonly PostmanScriptHost _postman;
     private double _frameAccumulator;
 
     public NpcInteractionScriptController(
@@ -22,7 +23,8 @@ internal sealed class NpcInteractionScriptController
         RoomEntityManager entities,
         DialogueBox dialogue,
         TreasureDatabase treasures,
-        BipinBlossomFamilyStateResolver family)
+        BipinBlossomFamilyStateResolver family,
+        InventoryState inventory)
     {
         var scripts = new NpcInteractionScriptDatabase();
         _linked = new LinkedGameNpcScriptHost(
@@ -45,7 +47,14 @@ internal sealed class NpcInteractionScriptController
             scripts.HardhatShovel,
             treasures,
             new BlackTowerWorkerDatabase());
-        _hosts = [_linked, _pastBipin, _hardhat];
+        _postman = new PostmanScriptHost(
+            rooms,
+            entities,
+            dialogue,
+            scripts.Postman,
+            treasures,
+            inventory);
+        _hosts = [_linked, _pastBipin, _hardhat, _postman];
         _handlers =
         [
             NpcInteractionHandler.ForNpc(
@@ -56,7 +65,10 @@ internal sealed class NpcInteractionScriptController
                 _pastBipin.TryInteract),
             NpcInteractionHandler.ForNpc(
                 "hardhatWorkerSubid00Script",
-                _hardhat.TryInteract)
+                _hardhat.TryInteract),
+            NpcInteractionHandler.ForNpc(
+                "postmanScript",
+                _postman.TryInteract)
         ];
         rooms.RoomChanged += OnRoomChanged;
     }
@@ -76,9 +88,12 @@ internal sealed class NpcInteractionScriptController
 
     internal GroundTreasurePickup? PastBipinTreasure =>
         _pastBipin.Treasure;
+    internal GroundTreasurePickup? PostmanTreasure =>
+        _postman.Treasure;
     internal LinkedGameNpcScriptHost Linked => _linked;
     internal PastBipinScriptHost PastBipin => _pastBipin;
     internal HardhatShovelScriptHost Hardhat => _hardhat;
+    internal PostmanScriptHost Postman => _postman;
     internal IReadOnlyList<NpcInteractionHandler> Handlers => _handlers;
     internal ICutsceneCommandTraceSink? TraceSink
     {

@@ -4684,6 +4684,174 @@ Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\hardhat_shovel_commands.tsv'),
     $hardhatCommandRows)
 
+# Room 2:2f's INTERAC_POSTMAN $55:$00 runs postmanScript. Preserve its
+# no-clock, declined-trade, and accepted-trade branches, including the
+# Interaction.var3f animation-mode write and cardinal SPEED_200 exit.
+$postmanScriptPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
+$postmanOpcodes = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @(
+    'jumpifroomflagset', 'initcollisions', 'checkabutton', 'disableinput',
+    'showtextlowindex', 'wait', 'jumpiftradeitemeq', 'scriptjump',
+    'jumpiftextoptioneq', 'writeobjectbyte', 'setspeed', 'moveright',
+    'movedown', 'giveitem', 'enableinput', 'scriptend')) {
+    [void]$postmanOpcodes.Add($opcode)
+}
+$postmanCommands = @(Read-AssemblyCutsceneCommands `
+    $postmanScriptPath 'postmanScript' $postmanOpcodes)
+$postmanExpected = @(
+    @('jumpifroomflagset', '$20, mainScripts.stubScript'),
+    @('initcollisions', ''),
+    @('checkabutton', ''),
+    @('disableinput', ''),
+    @('showtextlowindex', '<TX_0b03'),
+    @('wait', '30'),
+    @('jumpiftradeitemeq', 'TRADEITEM_POE_CLOCK, @promptForTrade'),
+    @('scriptjump', '@enableInput'),
+    @('showtextlowindex', '<TX_0b04'),
+    @('wait', '30'),
+    @('jumpiftextoptioneq', '$00, @acceptedTrade'),
+    @('showtextlowindex', '<TX_0b06'),
+    @('enableinput', ''),
+    @('scriptjump', '@npcLoop'),
+    @('showtextlowindex', '<TX_0b05'),
+    @('wait', '30'),
+    @('writeobjectbyte', 'Interaction.var3f, $01'),
+    @('setspeed', 'SPEED_200'),
+    @('moveright', '$1d'),
+    @('movedown', '$39'),
+    @('wait', '30'),
+    @('giveitem', 'TREASURE_TRADEITEM, $01'),
+    @('enableinput', ''),
+    @('scriptend', '')
+)
+if ($postmanCommands.Count -ne $postmanExpected.Count) {
+    throw "postmanScript expected 24 commands, parsed $($postmanCommands.Count)."
+}
+for ($index = 0; $index -lt $postmanExpected.Count; $index++) {
+    $operands = if ($null -eq $postmanCommands[$index].Operands) {
+        ''
+    } else {
+        ([string]$postmanCommands[$index].Operands).Trim()
+    }
+    if ($postmanCommands[$index].Opcode -ne $postmanExpected[$index][0] -or
+        $operands -ne $postmanExpected[$index][1]) {
+        throw "postmanScript command $index changed from " +
+            "$($postmanExpected[$index] -join ' ')."
+    }
+}
+$postmanTargets = @{}
+foreach ($command in $postmanCommands) {
+    if (-not $postmanTargets.ContainsKey($command.Label)) {
+        $postmanTargets[$command.Label] = $command.Index
+    }
+}
+foreach ($entry in @{
+    '@npcLoop' = 2
+    '@promptForTrade' = 8
+    '@enableInput' = 12
+    '@acceptedTrade' = 14
+}.GetEnumerator()) {
+    if (-not $postmanTargets.ContainsKey($entry.Key) -or
+        $postmanTargets[$entry.Key] -ne $entry.Value) {
+        throw "postmanScript label $($entry.Key) moved from command $($entry.Value)."
+    }
+}
+
+$postmanNativeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\postman.s')
+$postmanWrapperSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scripts.s')
+$postmanInteractionDataSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\interactionData.s')
+if ($postmanNativeSource -notmatch
+        '(?ms)^interactionCode55:.*?^@state0:\s+call @loadScriptAndInitGraphics\s+^@state1:\s+call interactionRunScript\s+jp c,interactionDelete.*?Interaction\.var3f.*?jp z,npcFaceLinkAndAnimate\s+call interactionAnimateBasedOnSpeed\s+jp objectSetPriorityRelativeToLink_withTerrainEffects' -or
+    $postmanNativeSource -notmatch
+        '(?ms)^@loadScriptAndInitGraphics:.*?interactionInitGraphics.*?>TX_0b00.*?interactionSetScript.*?interactionIncState.*?^@scriptTable:\s+\.dw mainScripts\.postmanScript' -or
+    $postmanWrapperSource -notmatch
+        '(?ms)^postmanScript:\s+loadscript scriptHelp\.postmanScript' -or
+    $postmanInteractionDataSource -notmatch
+        '(?m)^\s*/\* \$55 \*/ m_InteractionData \$41 \$00 \$22\s*$' -or
+    $mainObjectSource -notmatch
+        '(?ms)^group2Map2fObjectData:\s+obj_Interaction \$55 \$00 \$18 \$18\s+obj_End') {
+    throw 'Room 2:2f INTERAC_POSTMAN native initialization, object stream, or update tail changed.'
+}
+$postmanAnimations = @{
+    1 = Resolve-NpcAnimation 0x55 1
+    2 = Resolve-NpcAnimation 0x55 2
+}
+if ([string]::IsNullOrWhiteSpace($postmanAnimations[1]) -or
+    [string]::IsNullOrWhiteSpace($postmanAnimations[2])) {
+    throw 'Could not resolve INTERAC_POSTMAN right/down movement animations $01/$02.'
+}
+foreach ($textId in 0x0b03..0x0b06) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve Postman text TX_$($textId.ToString('x4'))."
+    }
+}
+$postmanTreasure = $treasureObjectRecords['TREASURE_OBJECT_TRADEITEM_01']
+if ($null -eq $postmanTreasure -or
+    $postmanTreasure.Treasure -ne 0x41 -or
+    $postmanTreasure.SubId -ne 0x01 -or
+    $postmanTreasure.Parameter -ne 0x01 -or
+    $postmanTreasure.TextId -ne 0x005b -or
+    $postmanTreasure.Graphic -ne 0x71 -or
+    $roomFlagSource -notmatch '\.define ROOMFLAG_ITEM\s+\$20' -or
+    $tradeItemSource -notmatch 'TRADEITEM_POE_CLOCK\s+db ; \$00' -or
+    $tradeItemSource -notmatch 'TRADEITEM_STATIONERY\s+db ; \$01') {
+    throw 'Postman room flag, Poe Clock requirement, or Stationery reward changed.'
+}
+$postmanStubPath = Join-Path $Disassembly 'scripts\common\commonScripts.s'
+$postmanStubOpcodes = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+[void]$postmanStubOpcodes.Add('scriptend')
+$postmanStubCommands = @(Read-AssemblyCutsceneCommands `
+    $postmanStubPath 'stubScript' $postmanStubOpcodes 'genericNpcScript')
+if ($postmanStubCommands.Count -ne 1 -or
+    $postmanStubCommands[0].Opcode -ne 'scriptend') {
+    throw 'mainScripts.stubScript no longer contains one scriptend command.'
+}
+
+$postmanCommandSpecs = @(
+    @($postmanCommands[0],  'jumpifroomflagset', '', '20', '24', ''),
+    @($postmanCommands[1],  'initcollisions', 'Postman', '', '', ''),
+    @($postmanCommands[2],  'checkabutton', 'Postman', '', '', ''),
+    @($postmanCommands[3],  'disableinput', '', '', '', ''),
+    @($postmanCommands[4],  'showtext', '', '0b03', '', $allTexts[0x0b03]),
+    @($postmanCommands[5],  'wait', '', '30', '', ''),
+    @($postmanCommands[6],  'jumpiftradeitemeq', '', '00', '8', ''),
+    @($postmanCommands[7],  'scriptjump', '', '12', '', ''),
+    @($postmanCommands[8],  'showtext', '', '0b04', '', $allTexts[0x0b04]),
+    @($postmanCommands[9],  'wait', '', '30', '', ''),
+    @($postmanCommands[10], 'jumpiftextoptioneq', '', '00', '14', ''),
+    @($postmanCommands[11], 'showtext', '', '0b06', '', $allTexts[0x0b06]),
+    @($postmanCommands[12], 'enableinput', '', '', '', ''),
+    @($postmanCommands[13], 'scriptjump', '', '2', '', ''),
+    @($postmanCommands[14], 'showtext', '', '0b05', '', $allTexts[0x0b05]),
+    @($postmanCommands[15], 'wait', '', '30', '', ''),
+    @($postmanCommands[16], 'writeobjectbyte', 'Postman', '3f', '01', ''),
+    @($postmanCommands[17], 'setspeed', 'Postman', '50', '', ''),
+    @($postmanCommands[18], 'move', 'Postman', '08', '1d', $postmanAnimations[1]),
+    @($postmanCommands[19], 'move', 'Postman', '10', '39', $postmanAnimations[2]),
+    @($postmanCommands[20], 'wait', '', '30', '', ''),
+    @($postmanCommands[21], 'giveitem', '', '41', '01', ''),
+    @($postmanCommands[22], 'enableinput', '', '', '', ''),
+    @($postmanCommands[23], 'scriptend', '', '', '', ''),
+    @($postmanStubCommands[0], 'scriptend', '', '', '', '')
+)
+$postmanCommandRows = [Collections.Generic.List[string]]::new()
+$postmanCommandRows.Add($cutsceneCommandHeader)
+for ($index = 0; $index -lt $postmanCommandSpecs.Count; $index++) {
+    $spec = $postmanCommandSpecs[$index]
+    $sourceCommand = $spec[0]
+    $postmanCommandRows.Add((New-CutsceneCommandRow `
+        'postmanScript' $index $sourceCommand.Label $sourceCommand.Line `
+        $spec[1] $spec[2] $spec[3] $spec[4] $spec[5]))
+}
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\postman_commands.tsv'),
+    $postmanCommandRows)
+
 # Rooms 0:7c and 2:2e Poe encounters. All placed INTERAC_POE records use the
 # same poeScript; Interaction.var03 selects the first, tomb, or final meeting.
 # The native state-0 visibility predicates are imported with ordinary NPC
