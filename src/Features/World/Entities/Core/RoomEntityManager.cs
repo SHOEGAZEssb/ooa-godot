@@ -314,6 +314,7 @@ public sealed class RoomEntityManager : IDisposable
         _screenTransitionFrameAccumulator = 0.0;
         _roomForActiveEntities = room;
         AddRoomEntities(group, room, placementContext);
+        PrepareIncomingEntitiesForScreenTransition();
         SetScreenTransitionOffsets(Vector2.Zero, incomingOffset);
     }
 
@@ -934,6 +935,44 @@ public sealed class RoomEntityManager : IDisposable
             {
                 SynchronizeEnemyFrameCounter(entity, frame.Value.Counter);
                 fixedEntity.UpdateFrame(frame.Value, _pendingSpawns);
+            }
+        }
+    }
+
+    private void PrepareIncomingEntitiesForScreenTransition()
+    {
+        // parseObjectData and the destination's source state-0 creation work
+        // make presentation children drawable before scrolling exposes their
+        // part of the room. Ordinary state updates remain frozen afterward.
+        // The list may grow while a preloader creates source-ordered children,
+        // so walk by index until the complete transitive set is prepared.
+        for (int index = 0; index < _activeEntities.Count; index++)
+        {
+            if (_activeEntities[index] is not
+                IScreenTransitionPreloadRoomEntity preloader)
+            {
+                continue;
+            }
+            preloader.PrepareForScreenTransition(_pendingSpawns);
+            ProcessScreenTransitionPreloadSpawns();
+        }
+    }
+
+    private void ProcessScreenTransitionPreloadSpawns()
+    {
+        while (_pendingSpawns.Count > 0)
+        {
+            RoomEntitySpawn spawn = _pendingSpawns[0];
+            _pendingSpawns.RemoveAt(0);
+            IRoomEntity entity =
+                AddEntity(_factory.Create(spawn, _roomForActiveEntities));
+            if (spawn.UpdateThisFrame &&
+                entity is not IScreenTransitionPreloadRoomEntity)
+            {
+                throw new InvalidOperationException(
+                    $"Screen-transition preload spawn {spawn.GetType().Name} " +
+                    $"created {entity.GetType().Name} with UpdateThisFrame but " +
+                    $"without {nameof(IScreenTransitionPreloadRoomEntity)}.");
             }
         }
     }

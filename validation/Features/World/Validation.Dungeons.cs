@@ -533,6 +533,48 @@ public sealed partial class ValidationRoot
         _player.EndCutsceneControl();
         _player.WarpTo(new Vector2(0x48, 0x88));
 
+        // Destination preloading must complete only declared source state-0
+        // presentation work before freezing the incoming entity set. The eye
+        // spawner recursively creates six UpdateThisFrame children, while the
+        // enabled portal resolves its visibility predicate without beginning
+        // contact or animation behavior.
+        save.SetRoomFlag(
+            4, 0x18, OracleSaveData.RoomFlag80);
+        OracleRoomData transitionSource = _world.LoadRoom(4, 0x14);
+        manager.LoadRoom(4, transitionSource);
+        Vector2 incomingOffset = Vector2.Down * room.Height;
+        manager.BeginScreenTransition(4, room, incomingOffset);
+        List<StatueEyeball> preloadedEyes =
+            manager.Entities<StatueEyeball>();
+        MinibossPortal preloadedPortal =
+            manager.Entities<MinibossPortal>().SingleOrDefault() ??
+            throw new InvalidOperationException(
+                "Room 4:24 did not preload its enabled miniboss portal.");
+        FailIf(
+            preloadedEyes.Count != 6 ||
+            preloadedEyes.Any(eye =>
+                !eye.Visible || !eye.Initialized ||
+                eye.TransitionDrawOffset != incomingOffset) ||
+            !preloadedPortal.Visible ||
+            preloadedPortal.TransitionDrawOffset != incomingOffset,
+            "Room 4:24 did not recursively complete its declared eye/portal " +
+            "presentation preload before the incoming scroll became visible.");
+        Vector2[] frozenEyePositions =
+            preloadedEyes.Select(eye => eye.Position).ToArray();
+        int frozenPortalFrame = preloadedPortal.AnimationFrame;
+        manager.Update(1.0, _player);
+        FailIf(
+            !preloadedEyes.Select(eye => eye.Position)
+                .SequenceEqual(frozenEyePositions) ||
+            preloadedPortal.AnimationFrame != frozenPortalFrame ||
+            !preloadedPortal.Visible,
+            "Room 4:24 advanced preloaded eye tracking or portal animation " +
+            "while ordinary destination entities were frozen.");
+        manager.FinishScreenTransition();
+        manager.Clear();
+        save.SetRoomFlag(
+            4, 0x18, OracleSaveData.RoomFlag80, value: false);
+
         // A direct/debug room load retains all three source slots until their
         // first updates. Dungeon-stuff then rejects the non-whiteout entry,
         // the eye spawner creates children in descending packed-position
@@ -660,7 +702,8 @@ public sealed partial class ValidationRoot
         root.QueueFree();
         GD.Print("Validated room 4:24 dungeon-entry TX_0201/session state, six " +
             "source-ordered eyes with fixed animation-$04 OAM and all eight position " +
-            "offsets, miniboss-room flag gate, destination-overlap guard, teleport " +
+            "offsets, recursive transition-presentation preload plus ordinary-state " +
+            "freeze, miniboss-room flag gate, destination-overlap guard, teleport " +
             "sound, $30 Link spin, and bidirectional portal metadata.");
     }
 

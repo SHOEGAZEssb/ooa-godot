@@ -55,6 +55,16 @@ finishes. Outgoing ordinary entities are likewise frozen while retained for
 drawing. This prevents destination AI, cutscenes, drops, and counters from
 fast-forwarding during the 32-update scroll.
 
+Before that freeze begins, `RoomEntityManager` completes the explicit
+`IScreenTransitionPreloadRoomEntity` creation phase. This capability is only
+for source state-0 presentation work needed to draw the incoming room:
+initializing graphics, resolving visibility/deletion predicates, and creating
+presentation children. Children marked `UpdateThisFrame` must declare the same
+capability and are prepared recursively in source order. Missing declarations
+fail with the spawn and entity types instead of leaving an object invisible
+until the transition ends. This phase must not advance ordinary movement,
+animation, counters, RNG, collision, or scripts.
+
 When a room event releases dynamic actors during the destination-load callback,
 it must drop its bookkeeping without deactivating nodes that
 `RoomEntityManager` has already transferred to the outgoing set. Those nodes

@@ -6,7 +6,8 @@ namespace oracleofages;
 
 /// <summary>One-update INTERAC_STATUE_EYEBALL $e2:$01 room-layout scanner.</summary>
 internal sealed class StatueEyeballSpawnerRoomEntity : RoomEntityAdapter<Node2D>,
-    IFixedRoomEntity, IRoomEntityLifetime
+    IFixedRoomEntity, IRoomEntityLifetime,
+    IScreenTransitionPreloadRoomEntity
 {
     private readonly OracleRoomData _room;
     private readonly DungeonEntranceInteractionDatabase _data;
@@ -23,6 +24,17 @@ internal sealed class StatueEyeballSpawnerRoomEntity : RoomEntityAdapter<Node2D>
     public bool Finished { get; private set; }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
+    {
+        SpawnChildren(spawns);
+    }
+
+    public void PrepareForScreenTransition(
+        ICollection<RoomEntitySpawn> spawns)
+    {
+        SpawnChildren(spawns);
+    }
+
+    private void SpawnChildren(ICollection<RoomEntitySpawn> spawns)
     {
         if (Finished)
             return;

@@ -6,7 +6,8 @@ namespace oracleofages;
 
 /// <summary>INTERAC_MINIBOSS_PORTAL $7e:$00.</summary>
 internal sealed class MinibossPortalRoomEntity :
-    RoomEntityAdapter<MinibossPortal>, IFixedRoomEntity, IRoomEntityLifetime
+    RoomEntityAdapter<MinibossPortal>, IFixedRoomEntity, IRoomEntityLifetime,
+    IScreenTransitionPreloadRoomEntity
 {
 
     private readonly PlacementRecord _placement;
@@ -44,16 +45,8 @@ internal sealed class MinibossPortalRoomEntity :
 
         if (_state == PortalState.Initialize)
         {
-            PortalPair pair =
-                _data.PortalPairFor(_placement.Dungeon);
-            if (_save?.HasRoomFlag(
-                    _placement.Group, pair.MinibossRoom,
-                    OracleSaveData.RoomFlag80) != true)
-            {
-                Finished = true;
+            if (!PreparePresentation())
                 return;
-            }
-            Entity.Visible = true;
             _state = Touching(frame.Player.Position)
                 ? PortalState.WaitForLinkToLeave
                 : PortalState.Ready;
@@ -99,6 +92,27 @@ internal sealed class MinibossPortalRoomEntity :
             _data.PortalPosition,
             _data.PortalDestinationParameter,
             _data.PortalDestinationTransition));
+    }
+
+    public void PrepareForScreenTransition(
+        ICollection<RoomEntitySpawn> spawns) =>
+        PreparePresentation();
+
+    private bool PreparePresentation()
+    {
+        if (Finished)
+            return false;
+        PortalPair pair = _data.PortalPairFor(_placement.Dungeon);
+        if (_save?.HasRoomFlag(
+                _placement.Group, pair.MinibossRoom,
+                OracleSaveData.RoomFlag80) != true)
+        {
+            Finished = true;
+            return false;
+        }
+        Entity.Visible = true;
+        Entity.QueueRedraw();
+        return true;
     }
 
 

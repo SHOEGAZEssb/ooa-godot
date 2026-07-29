@@ -43,8 +43,7 @@ internal sealed partial class StatueEyeball : TransitionOffsetNode2D
     {
         if (!_initialized)
         {
-            _initialized = true;
-            Visible = true;
+            PrepareForScreenTransition();
             return;
         }
 
@@ -70,6 +69,15 @@ internal sealed partial class StatueEyeball : TransitionOffsetNode2D
         // Direction is represented solely by moving that fixed eye around
         // the tile; selecting animations $00-$07 double-applies the OAM
         // offset and is only correct for subid $00.
+    }
+
+    internal void PrepareForScreenTransition()
+    {
+        if (_initialized)
+            return;
+        _initialized = true;
+        Visible = true;
+        QueueRedraw();
     }
 
     public override void _Draw()

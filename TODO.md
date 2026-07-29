@@ -18,7 +18,7 @@ semantics.
 - [ ] Boomerang moblins not making the damage sound when they are hit
       - [ ] Wallmasters too
 - [x] When getting hit while carrying something, the carried object floats in the air shortly before dropping down. Should drop down instantly.
-- [ ] Dungeon eyes (entry room) and portal not visible during screen transition, pop into existence once transition is complete.
+- [x] Dungeon eyes (entry room) and portal not visible during screen transition, pop into existence once transition is complete.
 
 ## NPC and interaction continuity audit
 
