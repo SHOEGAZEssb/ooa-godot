@@ -25,23 +25,26 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         combatDescriptor.CountsAsEnemy &&
         !combatDescriptor.Combat.Finished;
     public bool IsSeedBurning => _seedBurning;
+    public virtual bool FreezesDuringSeedBurn => true;
     public Vector2 SeedBurnPosition => Entity.Position;
     protected EnemyCombatDescriptor CombatDescriptor => combatDescriptor;
+    protected bool SeedBurning => _seedBurning;
     protected int KillableEnemyIndex =>
         combatDescriptor.KillableEnemyIndex;
     public int CollisionZ => collisionZ?.Invoke() ?? 0;
-    public void HandleLinkContact(Player player)
+    public virtual void HandleLinkContact(Player player)
     {
-        if (!_seedBurning)
+        if (!_seedBurning || !FreezesDuringSeedBurn)
             combatDescriptor.Combat.HandleLinkContact(player);
     }
-    public bool ApplySwordHit(
+    public virtual bool ApplySwordHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
         int damage,
         EnemyKnockbackStrength knockbackStrength,
         ICollection<RoomEntitySpawn> spawns) =>
-        !_seedBurning && combatDescriptor.Combat.ApplySwordHit(
+        (!_seedBurning || !FreezesDuringSeedBurn) &&
+        combatDescriptor.Combat.ApplySwordHit(
             hitbox,
             sourcePosition,
             damage,
@@ -49,7 +52,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
             spawns,
             deathPuffDecrementsRoomCount:
                 combatDescriptor.CountsAsEnemy);
-    public SeedHitResult ApplySeedHit(
+    public virtual SeedHitResult ApplySeedHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
         ICollection<RoomEntitySpawn> spawns) =>
@@ -65,7 +68,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         _seedBurning = true;
         return SeedHitResult.Ignite;
     }
-    public void CompleteSeedBurn(ICollection<RoomEntitySpawn> spawns)
+    public virtual void CompleteSeedBurn(ICollection<RoomEntitySpawn> spawns)
     {
         if (!_seedBurning)
             return;
@@ -76,6 +79,9 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
             deathPuffDecrementsRoomCount:
                 combatDescriptor.CountsAsEnemy);
     }
+
+    protected void CancelSeedBurn() =>
+        _seedBurning = false;
 
     public virtual bool TryTakeEnemyOutcome(out RoomEnemyOutcome outcome)
     {

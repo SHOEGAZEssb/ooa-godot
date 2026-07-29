@@ -46,6 +46,8 @@ internal sealed class EnemyBehaviorTables
     internal RopeBehaviorProfile Rope { get; }
     internal GhiniBehaviorProfile Ghini { get; }
     internal StalfosBehaviorProfile Stalfos { get; }
+    internal HardhatBeetleBehaviorProfile HardhatBeetle { get; }
+    internal SpinyBeetleBehaviorProfile SpinyBeetle { get; }
     internal WallmasterBehaviorProfile Wallmaster { get; }
     internal MoblinBoomerangBehaviorProfile MoblinBoomerang { get; }
     internal PumpkinProjectileBehaviorProfile PumpkinProjectile { get; }
@@ -235,6 +237,25 @@ internal sealed class EnemyBehaviorTables
         values = TakeValues(groups, "stalfos", "state-profile", 2);
         Stalfos = new(values[0].Value, values[1].Value, values);
 
+        values = TakeValues(
+            groups, "hardhat-beetle", "state-profile", 1);
+        HardhatBeetle = new(values[0].Value, values);
+
+        values = TakeValues(
+            groups, "spiny-beetle", "state-profile", 10);
+        SpinyBeetle = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            values[6].Value,
+            values[7].Value,
+            values[8].Value,
+            values[9].Value,
+            values);
+
         values = TakeValues(groups, "wallmaster", "state-profile", 10);
         Wallmaster = new(
             values[0].Value,
@@ -273,10 +294,10 @@ internal sealed class EnemyBehaviorTables
             values[4].Value,
             values);
 
-        if (table.Rows.Count != 177 || groups.Count != 0)
+        if (table.Rows.Count != 188 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 177 rows and no " +
+                $"Enemy behavior table contract expected 188 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }
@@ -449,6 +470,23 @@ internal readonly record struct GhiniBehaviorProfile(
 internal readonly record struct StalfosBehaviorProfile(
     int MoveCounterBase,
     int MoveCounterMask,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct HardhatBeetleBehaviorProfile(
+    int SpeedRaw,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct SpinyBeetleBehaviorProfile(
+    int SpeedRaw,
+    int CoveredCollisionRadius,
+    int ApproachAxisRadius,
+    int ChargeFrames,
+    int RestFrames,
+    int RevealFrames,
+    int ExposedCollisionRadius,
+    int WanderCounter,
+    int DungeonBushTile,
+    int ChargeCoverZ,
     IReadOnlyList<EnemyBehaviorValue> Sources);
 
 internal readonly record struct WallmasterBehaviorProfile(

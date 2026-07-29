@@ -72,6 +72,49 @@ Write-GeneratedTable(
     (Join-Path $destination 'metadata\enemy_adjacent_wall_offsets.tsv'),
     $sideviewOffsetRows)
 
+# Spiny Beetles use the stricter top-down probe table for their covered charge.
+# Keep it separate from the side-view table so existing common knockback callers
+# cannot silently select the wrong geometry.
+$topDownOffsetBody = Get-AssemblyLabelBody `
+    $enemyCommonCodeSource 'ecom_topDownAdjacentWallOffsetTable'
+$topDownOffsetMatches = @([regex]::Matches(
+    $topDownOffsetBody,
+    '(?m)^\s*\.db\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})'))
+if ($topDownOffsetMatches.Count -ne 32) {
+    throw 'ecom_topDownAdjacentWallOffsetTable changed.'
+}
+$topDownOffsetRows = [Collections.Generic.List[string]]::new()
+$topDownOffsetRows.Add(
+    "# octant`tprobe`ty-delta`tx-delta`tsource")
+for ($index = 0; $index -lt $topDownOffsetMatches.Count; $index++) {
+    $rawY = [Convert]::ToInt32(
+        $topDownOffsetMatches[$index].Groups['y'].Value, 16)
+    $rawX = [Convert]::ToInt32(
+        $topDownOffsetMatches[$index].Groups['x'].Value, 16)
+    $y = if ($rawY -ge 0x80) { $rawY - 0x100 } else { $rawY }
+    $x = if ($rawX -ge 0x80) { $rawX - 0x100 } else { $rawX }
+    $octant = [int][Math]::Floor($index / 4)
+    $probe = $index % 4
+    $sourceOffset = $index * 2
+    $topDownOffsetRows.Add(
+        "$octant`t$probe`t$y`t$x`t" +
+        "object_code/common/enemies/commonCode.s:" +
+        "ecom_topDownAdjacentWallOffsetTable+$($sourceOffset.ToString('x2'))")
+}
+$expectedFirstTopDownOffset =
+    "0`t0`t-9`t-6`tobject_code/common/enemies/commonCode.s:" +
+    "ecom_topDownAdjacentWallOffsetTable+00"
+$expectedLastTopDownOffset =
+    "7`t3`t10`t0`tobject_code/common/enemies/commonCode.s:" +
+    "ecom_topDownAdjacentWallOffsetTable+3e"
+if ($topDownOffsetRows[1] -ne $expectedFirstTopDownOffset -or
+    $topDownOffsetRows[32] -ne $expectedLastTopDownOffset) {
+    throw 'Top-down adjacent-wall offset ordering or signed decoding changed.'
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'metadata\enemy_topdown_adjacent_wall_offsets.tsv'),
+    $topDownOffsetRows)
+
 $bounceAngleBlock = [regex]::Match(
     $enemyCommonCodeSource,
     '(?ms)^ecom_bounceOffScreenBoundary:.*?^@angleTable:\s*\r?\n(?<body>.*?)(?=^;;)')
@@ -255,23 +298,26 @@ $commonEnemySprites = @{
     0x0c = @($gfxNames[0x91])
     0x10 = @($gfxNames[0x9b])
     0x17 = @($gfxNames[0x90])
+    0x1b = @($gfxNames[0x94])
     0x28 = @($gfxNames[0xa0])
+    0x4d = @($gfxNames[0x8c])
 }
 $commonEnemyRows = [Collections.Generic.List[string]]::new()
 $commonEnemyRows.Add(
     '# id`tsubid`tsprites`ttile-base`tpalette`tsource-grayscale-inverted`tradius-y`tradius-x`tdamage-quarters`thealth`tanimations-base64'.Replace(
         '`t', "`t"))
-foreach ($id in @(0x0a, 0x0c, 0x10, 0x17, 0x28)) {
-    $definition = Get-EnemyDefinition $id 0
+foreach ($id in @(0x0a, 0x0c, 0x10, 0x17, 0x1b, 0x28, 0x4d)) {
+    $subid = if ($id -eq 0x1b) { 1 } else { 0 }
+    $definition = Get-EnemyDefinition $id $subid
     $sprites = $commonEnemySprites[$id]
     foreach ($sprite in $sprites) { Copy-EnemySprite $sprite }
     $animations = [Convert]::ToBase64String(
         [Text.Encoding]::UTF8.GetBytes(
             $definition.Animations -join "`n"))
     $commonEnemyRows.Add(
-        "$($id.ToString('x2'))`t00`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t1`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
+        "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t1`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($commonEnemyRows.Count -ne 6 -or
+if ($commonEnemyRows.Count -ne 8 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
     }) -or
@@ -285,7 +331,13 @@ if ($commonEnemyRows.Count -ne 6 -or
         $_ -match '^17\t00\tspr_moblin_ghini\t22\t2\t1\t6\t6\t2\t10\t'
     }) -or
     -not ($commonEnemyRows | Where-Object {
+        $_ -match '^1b\t01\tspr_crab_fish_goponga_beetle\t24\t2\t1\t6\t6\t2\t2\t'
+    }) -or
+    -not ($commonEnemyRows | Where-Object {
         $_ -match '^28\t00\tspr_ironmask\t24\t2\t1\t6\t6\t2\t5\t'
+    }) -or
+    -not ($commonEnemyRows | Where-Object {
+        $_ -match '^4d\t00\tspr_polsvoice_hardhatbeetle_spikedbeetle_beamon\t4\t3\t1\t6\t6\t2\t4\t'
     })) {
     throw "Common enemy definitions no longer match the traced records:`n$($commonEnemyRows -join "`n")"
 }
@@ -1051,6 +1103,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '0c:00' = 'arrow-moblin'
     '10:00' = 'rope'
     '17:00' = 'ghini'
+    '1b:01' = 'spiny-beetle'
     '28:00' = 'wallmaster'
     '31:00' = 'stalfos'
     '32:00' = 'keese'
@@ -1059,6 +1112,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '34:01' = 'zol'
     '41:00' = 'crow'
     '43:00' = 'gel'
+    '4d:00' = 'hardhat-beetle'
 }
 $dynamicEnemyImplementationHandlers = [ordered]@{
     # The Maku Sprout event owns this script-created enemy. Ordinary $20:$00
@@ -1066,7 +1120,7 @@ $dynamicEnemyImplementationHandlers = [ordered]@{
     # through that event-only construction path.
     '20:00' = 'maku-sprout-masked-moblin'
 }
-if ($orderedEnemyImplementationHandlers.Count -ne 15 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 17 -or
     $dynamicEnemyImplementationHandlers.Count -ne 1) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1137,9 +1191,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 118 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 233 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 256 -or
     $enemyClassificationCounts['dynamic-special'] -ne 6 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 577) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 554) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -1208,7 +1262,7 @@ if ($enemyHandlerRows.Count -ne 119 -or
         "20`t00`t91`tdynamic-special`tmaku-sprout-masked-moblin`t" +
         "ENEMY_MASKED_MOBLIN`tscripts/ages/scriptHelper.s:moblin_spawnEnemyHere")) -or
     -not $enemyHandlerRows.Contains((
-        "1b`t01`t90`tdeliberately-unsupported`t-`tENEMY_SPINY_BEETLE`t" +
+        "1b`t01`t90`tordered-implemented`tspiny-beetle`tENEMY_SPINY_BEETLE`t" +
         'constants/common/enemies.s:ENEMY_SPINY_BEETLE'))) {
     $representativeRows = @($enemyHandlerRows | Where-Object {
         $_ -match 'ENEMY_(OCTOROK|MASKED_MOBLIN|SPINY_BEETLE)'
@@ -2740,6 +2794,51 @@ Add-EnemyBehaviorProfile 'stalfos' 'state-profile' `
     @(0x20, 0x30) `
     'object_code/common/enemies/stalfos.s:stalfos_moveInRandomAngle'
 
+$hardhatBeetleCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\hardhatBeetle.s')
+if ($hardhatBeetleCodeSource -notmatch
+        '(?ms)^@state_uninitialized:.*?ld a,SPEED_60.*?' +
+        'ecom_setSpeedAndState8AndVisible' -or
+    $hardhatBeetleCodeSource -notmatch
+        '(?ms)^@state8:.*?ecom_updateAngleTowardTarget.*?' +
+        'ecom_applyVelocityForSideviewEnemyNoHoles.*?enemyAnimate') {
+    throw 'Hardhat Beetle speed, tracking, or movement path changed.'
+}
+Add-EnemyBehaviorProfile 'hardhat-beetle' 'state-profile' `
+    @(0x0f) `
+    'object_code/common/enemies/hardhatBeetle.s:state-entry-operands'
+
+$spinyBeetleCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\spinyBeetle.s')
+$bushOrRockCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\bushOrRock.s')
+if ($spinyBeetleCodeSource -notmatch
+        '(?ms)^@state_uninitialized:.*?ld a,SPEED_e0.*?' +
+        'ld a,\$03.*?ld \(hl\),\$80' -or
+    $spinyBeetleCodeSource -notmatch
+        '(?ms)^@state8:.*?ld b,\$0c.*?or a\s+ret z.*?' +
+        'ld a,\$01.*?ecom_getTopDownAdjacentWallsBitset' -or
+    $spinyBeetleCodeSource -notmatch
+        '(?ms)^@chargeAtLink:.*?ld \(hl\),\$38.*?' +
+        'ld \(hl\),\$81' -or
+    $spinyBeetleCodeSource -notmatch
+        '(?ms)^@state9:.*?ld \(hl\),30.*?ld \(hl\),\$80' -or
+    $spinyBeetleCodeSource -notmatch
+        '(?ms)^@checkBushOrRockGone:.*?ld \(hl\),60.*?' +
+        'ld a,\$06' -or
+    $spinyBeetleCodeSource -notmatch
+        '(?ms)^@stateB:.*?ld \(hl\),40.*?and \$1c' -or
+    $bushOrRockCodeSource -notmatch
+        '(?ms)^@collisionAndTileData:.*?' +
+        'ENEMYCOLLISION_BUSH, TILEINDEX_DUNGEON_BUSH' -or
+    $bushOrRockCodeSource -notmatch
+        '(?ms)^@zVals:.*?\.db \$00 \$fc \$f8 \$f4') {
+    throw 'Spiny Beetle cover, charge, reveal, or wander path changed.'
+}
+Add-EnemyBehaviorProfile 'spiny-beetle' 'state-profile' `
+    @(0x23, 3, 0x0c, 0x38, 30, 60, 6, 40, 0x20, -4) `
+    'object_code/common/enemies/spinyBeetle.s:state-entry-operands'
+
 $wallmasterCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\wallmaster.s')
 if ($wallmasterCodeSource -notmatch
@@ -2801,8 +2900,8 @@ Add-EnemyBehaviorProfile 'pumpkin-head-projectile' 'state-profile' `
     @(8, 0x3c, 4, 2, 2) `
     'object_code/ages/parts/pumpkinHeadProjectile.s:state0'
 
-if ($enemyBehaviorRows.Count -ne 178) {
-    throw "Expected 177 enemy behavior-table rows, got " +
+if ($enemyBehaviorRows.Count -ne 189) {
+    throw "Expected 188 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

@@ -211,9 +211,45 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         QueueRedraw();
     }
 
+    internal void ApplySwordBump(
+        Vector2 sourcePosition,
+        EnemyKnockbackStrength strength)
+    {
+        if (strength == EnemyKnockbackStrength.None)
+            return;
+        if (_knockbackMotion == EnemyKnockbackMotion.None ||
+            _knockbackRoom is null)
+        {
+            throw new InvalidOperationException(
+                $"{GetType().Name} accepted sword bump without a movement policy.");
+        }
+
+        // ENEMYCOLLISION_HARDHAT_BEETLE maps every ordinary sword response
+        // to ENEMYDMG_14 and only the high-recoil attacks to ENEMYDMG_18.
+        EnemyKnockbackStrength bumpStrength =
+            strength == EnemyKnockbackStrength.High
+                ? EnemyKnockbackStrength.High
+                : EnemyKnockbackStrength.Normal;
+        int profileIndex =
+            (int)bumpStrength - (int)EnemyKnockbackStrength.Low;
+        EnemyBehaviorPair profile =
+            _behavior.EnemySwordDamageProfiles[profileIndex];
+
+        // The source writes $eb/$e6. Its common post-update path increments
+        // negative counters to zero and deliberately does not damage-blink.
+        InvincibilityCounter = -profile.First;
+        KnockbackCounter = profile.Second;
+        Vector2 source = OracleObjectMath.ToPixelPosition(sourcePosition);
+        Vector2 target =
+            OracleObjectMath.ToPixelPosition(CurrentKnockbackPosition);
+        KnockbackAngle =
+            OracleObjectMovement.Shared.RelativeAngle(target, source) ^ 0x10;
+        QueueRedraw();
+    }
+
     internal virtual bool TakeSwordHit(Vector2 sourcePosition, int damage)
     {
-        if (IsDead || !CollisionEnabled || InvincibilityCounter > 0)
+        if (IsDead || !CollisionEnabled || InvincibilityCounter != 0)
             return false;
         return ApplyDamage(damage, SwordInvincibilityFrames);
     }
@@ -238,9 +274,9 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
             QueueRedraw();
             return true;
         }
-        if (InvincibilityCounter > 0)
+        if (InvincibilityCounter != 0)
         {
-            InvincibilityCounter--;
+            InvincibilityCounter += InvincibilityCounter > 0 ? -1 : 1;
             QueueRedraw();
         }
         if (_pendingKnockbackDeath && KnockbackCounter == 0)
@@ -319,6 +355,16 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         InvincibilityCounter = 0;
         KnockbackCounter = 0;
         Visible = true;
+    }
+
+    protected void SetCollisionRadii(int radiusX, int radiusY)
+    {
+        if (radiusX <= 0)
+            throw new ArgumentOutOfRangeException(nameof(radiusX));
+        if (radiusY <= 0)
+            throw new ArgumentOutOfRangeException(nameof(radiusY));
+        _collisionRadiusX = radiusX;
+        _collisionRadiusY = radiusY;
     }
 
     protected void Finish()

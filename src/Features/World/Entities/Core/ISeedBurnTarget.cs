@@ -7,6 +7,7 @@ namespace oracleofages;
 internal interface ISeedBurnTarget
 {
     bool IsSeedBurning { get; }
+    bool FreezesDuringSeedBurn { get; }
     Vector2 SeedBurnPosition { get; }
     void CompleteSeedBurn(ICollection<RoomEntitySpawn> spawns);
 }

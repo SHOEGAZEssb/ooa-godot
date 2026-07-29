@@ -24,6 +24,7 @@ internal sealed class RoomEntityFactory(
     TreasureDatabase treasures,
     Action<Vector2, HazardType> itemDropEnteredHazard,
     Action<int> soundRequested,
+    Action<Rect2, int, int, int> applyThrownObjectHit,
     Func<int> roomEnemyCount,
     Func<int, bool> enemyWasKilled,
     Func<int, bool> triggerActive,
@@ -903,6 +904,27 @@ internal sealed class RoomEntityFactory(
                 return new GhiniRoomEntity(
                     ghini, combatSource, soundRequested);
 
+            case EnemyHandlerKind.SpinyBeetle:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition spinyBeetleRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var spinyBeetle = new SpinyBeetleCharacter
+                {
+                    Name =
+                        $"SpinyBeetle_{source.SubId:x2}_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                spinyBeetle.Initialize(
+                    spinyBeetleRecord,
+                    room,
+                    position,
+                    random,
+                    applyThrownObjectHit);
+                return new SpinyBeetleRoomEntity(
+                    spinyBeetle, combatSource, soundRequested);
+
             case EnemyHandlerKind.Wallmaster:
                 if (!enemies.TryGetImportedEnemyDefinition(
                     source, out ImportedEnemyDefinition wallmasterRecord))
@@ -923,6 +945,23 @@ internal sealed class RoomEntityFactory(
                     source.Group, source.Room,
                     destinationGroup, destinationRoom,
                     combatSource);
+
+            case EnemyHandlerKind.HardhatBeetle:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition hardhatBeetleRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var hardhatBeetle = new HardhatBeetleCharacter
+                {
+                    Name =
+                        $"HardhatBeetle_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                hardhatBeetle.Initialize(
+                    hardhatBeetleRecord, room, position);
+                return new HardhatBeetleRoomEntity(
+                    hardhatBeetle, combatSource, soundRequested);
 
             case EnemyHandlerKind.Gel:
                 return CreateGel(

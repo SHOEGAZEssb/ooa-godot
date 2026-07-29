@@ -384,12 +384,16 @@ trigonometry.
 
 `EnemyAdjacentWallResolver` owns the generated
 `ecom_sideviewAdjacentWallOffsetTable` and
+`ecom_topDownAdjacentWallOffsetTable` plus
 `ecom_bounceOffScreenBoundary@angleTable`. It rounds a 32-step angle to the
 source octant, floors the object's room position once, then applies all four
 signed Y/X pairs cumulatively. Collision results from the first two probes
 block Y movement (`$0c`); the last two block X movement (`$03`). Keese screen
 reflection, ordinary Stalfos wall/hole reflection, and common enemy knockback
-share this resolver and supply only their collision predicate.
+share the side-view stream and supply only their collision predicate. Spiny
+Beetle's covered charge uses the separate top-down stream. Common walking
+movement preserves the source `$0060` wall-slide displacement after a blocked
+axis rather than substituting host collision response.
 
 Sword recoil is selected by the original item-collision and enemy-collision
 tables, not by damage. Level-1 swings, the held sword, and Fist Ring punches
@@ -415,6 +419,11 @@ enemies select OBJ palette `$05` whenever global `wFrameCounter` bit 2 is
 clear, restoring their source palette when it is set or the counter reaches
 zero. An enemy whose source palette is already `$05` flashes with palette
 `$02`, matching the common post-update palette path.
+Hardhat Beetle collision mode `$b8` instead maps non-high sword rows to
+21 invincibility / 11 recoil updates and high rows to 26 / 15 without health
+damage or accepted-hit audio. Its negative internal invincibility countdown
+preserves the source no-damage, no-blink interval while still rejecting a
+second hit.
 
 Enemy hazard handling follows `ecom_checkHazards` rather than sampling only
 the object's center. Grounded supported species test `yh+$05,xh-$01` first and
@@ -433,18 +442,18 @@ after accepted sword recoil, so hazard disposal never creates a normal enemy
 death puff or item drop.
 
 `EnemyDatabase` keeps one ordered room-object collection as the placement
-authority. Keese, Octorok, Stalfos, Zol, Gel, and Crow graphics, attributes, and
-animations are unique ID/subid definitions; the factory joins a definition to
-the ordered record that supplies group, room, source order, opcode, flags,
-count, condition, and coordinates. Validation performs the same join and
-derives species totals from the ordered records rather than maintaining
-parallel room indexes.
+authority. Keese, Octorok, Stalfos, Zol, Gel, Crow, Hardhat Beetle, and Spiny
+Beetle graphics, attributes, and animations are unique ID/subid definitions;
+the factory joins a definition to the ordered record that supplies group,
+room, source order, opcode, flags, count, condition, and coordinates.
+Validation performs the same join and derives species totals from the ordered
+records rather than maintaining parallel room indexes.
 
 State-machine lookup and state-entry operands are generated data.
-`EnemyBehaviorTables` provides one strict runtime owner for 177 rows: 77
+`EnemyBehaviorTables` provides one strict runtime owner for 188 rows: 77
 Keese/Octorok/Boomerang Moblin lookup counters, enemy-arrow directional
 geometry, Giant Ghini child offsets, and Pumpkin Head
-timing/follower/projectile records, plus 100 typed sword, recoil, hazard,
+timing/follower/projectile records, plus 111 typed sword, recoil, hazard,
 bounce, speed, counter, gravity, bounds, and projectile profiles. Consumers
 index lookup records at the same RNG/state/direction boundary as the source;
 they do not reorder the Giant Ghini `3,2,1` child allocation or Pumpkin Head's
@@ -452,15 +461,27 @@ they do not reorder the Giant Ghini `3,2,1` child allocation or Pumpkin Head's
 branching, but state-entry fields come from the typed generated profiles.
 
 Ordinary enemy species are not owned by the first room or dungeon that makes
-them playable. Boomerang Moblin, Arrow Moblin, Rope, Ghini, and Wallmaster live
-with the other species and resolve their subid-0 definitions through
-`EnemyDatabase` for every matching ordered room record. Unsupported
-Arrow Moblin, Rope, and Ghini subids remain explicit reservations rather than
-silently receiving the wrong state machine. Wallmaster capture resolves the
-active dungeon's imported
+them playable. Boomerang Moblin, Arrow Moblin, Rope, Ghini, Wallmaster,
+Hardhat Beetle, and Spiny Beetle live with the other species and resolve their
+implemented definitions through `EnemyDatabase` for every matching ordered
+room record. Unsupported Arrow Moblin, Rope, and Ghini subids remain explicit
+reservations rather than silently receiving the wrong state machine.
+Wallmaster capture resolves the active dungeon's imported
 `wDungeonWallmasterDestRoom`; it does not encode Spirit's Grave room `4:24` in
 the entity adapter. Its source placement also owns the spawner count: room
 `4:12` supplies five hands and dungeon `$0b` room `4:c5` supplies two.
+
+`ENEMY_HARDHAT_BEETLE $4d:$00` has 12 ordered records / 15 instances. Its
+single state tracks Link's exact relative angle every update, moves at
+`SPEED_60` through side-view no-hole probes, and uses collision mode `$b8`'s
+sword-bump response. `ENEMY_SPINY_BEETLE $1b:$01` has 11 records. Its
+uncounted `ENEMY_BUSH_OR_ROCK` child mimics dungeon metatile `$20` in front of
+the hidden radius-3 parent. Axis alignment within 12 pixels selects a cardinal
+56-update `SPEED_e0` charge except upward proximity charges; contact may select
+any cardinal direction. The cover rises to Z `-4`, returns for a 30-update
+rest, and can independently be cut, Ember-burned, or carried/thrown with the
+Power Bracelet. Losing it reveals the radius-6 parent for 60 updates before
+40-update shared-RNG cardinal wanders.
 
 `ENEMY_ARROW_MOBLIN $0c:$00` selects a cardinal direction and then a
 `$30+(RNG&$3f)` movement duration on its first update. It moves at `SPEED_80`

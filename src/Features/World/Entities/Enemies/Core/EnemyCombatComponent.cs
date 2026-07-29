@@ -125,7 +125,8 @@ internal sealed class EnemyCombatDescriptor
         EnemySwordResponse swordResponse,
         Func<Vector2>? deathPuffPosition = null,
         Func<bool>? deathPuffAllowed = null,
-        Func<RoomEnemyOutcome>? completedOutcome = null)
+        Func<RoomEnemyOutcome>? completedOutcome = null,
+        int acceptedHitSound = OracleSoundEngine.SndDamageEnemy)
     {
         var combat = EnemyCombatComponent.WithContactDamage(
             () => enemy.IsDead,
@@ -146,7 +147,8 @@ internal sealed class EnemyCombatDescriptor
             (sourcePosition, strength) =>
             {
                 acceptedSwordHit(sourcePosition, strength);
-                soundRequested(OracleSoundEngine.SndDamageEnemy);
+                if (acceptedHitSound != 0)
+                    soundRequested(acceptedHitSound);
             });
         return FromSource(
             source, combat, swordResponse, completedOutcome);
@@ -205,6 +207,7 @@ internal readonly record struct EnemyCombatSourceDescriptor(
             0x10 or 0x11 or 0x14 or 0x1a or 0x1f or 0x25 or 0x31 or 0x7d =>
                 EnemySwordResponse.Knockback,
             0x29 or 0x33 => EnemySwordResponse.NoKnockback,
+            0x38 => EnemySwordResponse.Bump,
             _ => throw new InvalidOperationException(
                 $"{Source} resolves {Handler} ${Id:x2}:${SubId:x2} to " +
                 $"unsupported enemy collision mode ${CollisionMode:x2}.")
@@ -222,5 +225,6 @@ internal readonly record struct EnemyCombatSourceDescriptor(
 internal enum EnemySwordResponse
 {
     Knockback,
-    NoKnockback
+    NoKnockback,
+    Bump
 }

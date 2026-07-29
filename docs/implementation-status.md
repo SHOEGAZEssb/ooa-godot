@@ -288,12 +288,21 @@ remains the single runtime policy table.
   release, `$40` cooldown, and source random wander reset. Its breakable rock
   metatiles use the imported four-stage `INTERAC_ROCKDEBRIS` chip animation,
   terminal-frame lifetime, and `SND_BREAK_ROCK`.
-- Boomerang Moblin `$0a:$00`, Rope `$10:$00`, Ghini `$17:$00`, and
-  Wallmaster `$28:$00` are shared species rather than D1-only adapters.
+- Boomerang Moblin `$0a:$00`, Rope `$10:$00`, Ghini `$17:$00`,
+  Wallmaster `$28:$00`, covered Spiny Beetle `$1b:$01`, and Hardhat Beetle
+  `$4d:$00` are shared species rather than room-specific adapters.
   Matching source placements instantiate outside rooms `4:10-$25` (including
   room `4:ed`'s six Ropes and room `4:c5`'s Wallmaster), while unsupported
   Rope/Ghini subids remain deferred. Wallmaster captures use each dungeon's
   imported destination (`$24` for dungeon `$01`, `$ce` for dungeon `$0b`).
+- Wing Dungeon rooms `5:b4` and `5:b5` contain their complete ordinary enemy
+  rosters: two fixed Hardhat Beetles plus two random Keese in `5:b4`, and one
+  fixed dungeon-bush-covered Spiny Beetle, one red Zol, and three random Keese
+  in `5:b5`. Hardhats track Link at `SPEED_60` and convert sword collisions
+  into source recoil without losing health. The Spiny Beetle's child mimics
+  dungeon metatile `$20`, rises four pixels over a 56-update `SPEED_e0`
+  cardinal charge, can be cut, burned, lifted, or thrown, and reveals the
+  parent into its 60-update wait and shared-RNG 40-update wander.
 - Giant Ghini and its three linked children implement the room `4:18`
   miniboss encounter, including the source `$16` forced Link entry before its
   crossed shutter closes, guaranteed record-`$ef` fairy drop, and persistent
@@ -457,14 +466,15 @@ remains the single runtime policy table.
   `$08` and `wObtainedRingBox` bit `$01` are committed only after the source
   menu handoffs complete.
 - Keese, Octoroks/projectiles, masked Moblins `$20:$00` and their arrows,
-  ordinary Stalfos `$31:$00`, Zols, and Gels using
+  ordinary Stalfos `$31:$00`, Zols, Gels, Hardhat Beetles, and covered Spiny
+  Beetles use
   ordered room-object placement, original spawn restrictions, shared RNG,
   combat, common/split kill sounds, common hazard effects, and source-ordered
   drop paths with live Bomb/seed ownership predicates. All 816 fixed/random
   placements carry a generated ID/subid implementation classification:
-  233 rows create 394 ordinary instances, six `$20:$00` rows identify that
+  256 rows create 420 ordinary instances, six `$20:$00` rows identify that
   their only implemented lane is the event-owned dynamic Masked Moblin handler
-  while retaining ordered-placement effects, and 577 rows are deliberately
+  while retaining ordered-placement effects, and 554 rows are deliberately
   unsupported. One typed registry now controls construction and dungeon
   enemy-count completeness without changing source slots, reservations, or
   RNG. Keese, ordinary Stalfos, and common knockback share the imported

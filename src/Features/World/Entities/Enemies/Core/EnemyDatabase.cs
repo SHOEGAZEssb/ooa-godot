@@ -57,14 +57,18 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 5 ||
+        if (_importedDefinitions.Count != 7 ||
             ImportedEnemy(0x0a) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x0c) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x10) is not { Health: 2, DamageQuarters: 2 } ||
             ImportedEnemy(0x17) is not { Health: 10, DamageQuarters: 2 } ||
-            ImportedEnemy(0x28) is not { Health: 5, DamageQuarters: 2 })
+            ImportedEnemy(0x1b, 0x01) is not
+                { Health: 2, DamageQuarters: 2, Animations.Length: 1 } ||
+            ImportedEnemy(0x28) is not { Health: 5, DamageQuarters: 2 } ||
+            ImportedEnemy(0x4d) is not
+                { Health: 4, DamageQuarters: 2, Animations.Length: 1 })
         {
             throw new InvalidOperationException(
                 "Imported common-enemy contract is incomplete.");
@@ -687,6 +691,8 @@ public sealed class EnemyDatabase
             HasImportedDefinition(descriptor, 0x10),
         EnemyHandlerKind.Ghini =>
             HasImportedDefinition(descriptor, 0x17),
+        EnemyHandlerKind.SpinyBeetle =>
+            HasImportedDefinition(descriptor, 0x1b),
         EnemyHandlerKind.Wallmaster =>
             HasImportedDefinition(descriptor, 0x28),
         EnemyHandlerKind.Stalfos =>
@@ -703,6 +709,8 @@ public sealed class EnemyDatabase
             _crowDefinitions.ContainsKey(descriptor.SubId),
         EnemyHandlerKind.Gel =>
             descriptor.Id == Gel.Id && descriptor.SubId == 0,
+        EnemyHandlerKind.HardhatBeetle =>
+            HasImportedDefinition(descriptor, 0x4d),
         _ => false
     };
 

@@ -374,6 +374,25 @@ public sealed partial class ValidationRoot
                 ],
                 [32, 48]) ||
             !ProfileMatches(
+                tables.HardhatBeetle.Sources,
+                [tables.HardhatBeetle.SpeedRaw],
+                [15]) ||
+            !ProfileMatches(
+                tables.SpinyBeetle.Sources,
+                [
+                    tables.SpinyBeetle.SpeedRaw,
+                    tables.SpinyBeetle.CoveredCollisionRadius,
+                    tables.SpinyBeetle.ApproachAxisRadius,
+                    tables.SpinyBeetle.ChargeFrames,
+                    tables.SpinyBeetle.RestFrames,
+                    tables.SpinyBeetle.RevealFrames,
+                    tables.SpinyBeetle.ExposedCollisionRadius,
+                    tables.SpinyBeetle.WanderCounter,
+                    tables.SpinyBeetle.DungeonBushTile,
+                    tables.SpinyBeetle.ChargeCoverZ
+                ],
+                [35, 3, 12, 56, 30, 60, 6, 40, 32, -4]) ||
+            !ProfileMatches(
                 tables.Wallmaster.Sources,
                 [
                     tables.Wallmaster.InitialDelayFrames,
@@ -427,11 +446,11 @@ public sealed partial class ValidationRoot
             !tables.Wallmaster.Sources[0].Source.Contains(
                 "wallmaster.s",
                 StringComparison.Ordinal),
-            "The 177 imported enemy behavior rows lost a source value, " +
+            "The 188 imported enemy behavior rows lost a source value, " +
             "signed component, runtime index order, or source identity.");
 
         GD.Print(
-            "Validated 177 imported enemy behavior rows: source lookup " +
+            "Validated 188 imported enemy behavior rows: source lookup " +
             "streams plus typed collision, recoil, hazard, bounce, speed, " +
             "counter, gravity, bounds, and projectile profiles.");
     }
@@ -593,6 +612,7 @@ public sealed partial class ValidationRoot
             [(0x0c, 0x00)] = (0x91, EnemySwordResponse.Knockback),
             [(0x10, 0x00)] = (0x14, EnemySwordResponse.Knockback),
             [(0x17, 0x00)] = (0x9a, EnemySwordResponse.Knockback),
+            [(0x1b, 0x01)] = (0x90, EnemySwordResponse.Knockback),
             [(0x28, 0x00)] = (0x25, EnemySwordResponse.Knockback),
             [(0x31, 0x00)] = (0xfd, EnemySwordResponse.Knockback),
             [(0x32, 0x00)] = (0x9f, EnemySwordResponse.Knockback),
@@ -600,7 +620,8 @@ public sealed partial class ValidationRoot
             [(0x34, 0x00)] = (0x29, EnemySwordResponse.NoKnockback),
             [(0x34, 0x01)] = (0x29, EnemySwordResponse.NoKnockback),
             [(0x41, 0x00)] = (0x31, EnemySwordResponse.Knockback),
-            [(0x43, 0x00)] = (0xb3, EnemySwordResponse.NoKnockback)
+            [(0x43, 0x00)] = (0xb3, EnemySwordResponse.NoKnockback),
+            [(0x4d, 0x00)] = (0xb8, EnemySwordResponse.Bump)
         };
         var combatSourceFlags = new HashSet<(int Id, int SubId, int Flags)>();
         int combatSourceRows = 0;
@@ -675,7 +696,7 @@ public sealed partial class ValidationRoot
 
         EnemyHandlerDescriptor implementedHandler =
             database.EnemyHandlers.ResolveHandler(room5b0[2]);
-        EnemyHandlerDescriptor unsupportedHandler =
+        EnemyHandlerDescriptor spinyHandler =
             database.EnemyHandlers.ResolveHandler(room5b0[0]);
         RoomObjectRecord dynamicSource = database.GetRoomObjects(0, 0x62)
             .Single(record => record is
@@ -698,30 +719,30 @@ public sealed partial class ValidationRoot
             ordinaryEnemyPlacements != 816 ||
             parameterEnemyPlacements != 12 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 233 ||
+                EnemyHandlerClassification.OrderedImplemented) != 256 ||
             classificationCounts.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 6 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 577 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 554 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 394 ||
+                EnemyHandlerClassification.OrderedImplemented) != 420 ||
             classificationInstances.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 9 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 753 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 727 ||
             classifiedKeys.Count != 118 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.OrderedImplemented) != 15 ||
+                    EnemyHandlerClassification.OrderedImplemented) != 17 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
                     EnemyHandlerClassification.DynamicSpecial) != 1 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.DeliberatelyUnsupported) != 102 ||
-            combatSourceRows != 233 ||
-            combatSourceFlags.Count != 46 ||
-            expectedCombat.Count != 15 ||
+                    EnemyHandlerClassification.DeliberatelyUnsupported) != 100 ||
+            combatSourceRows != 256 ||
+            combatSourceFlags.Count != 50 ||
+            expectedCombat.Count != 17 ||
             implementedHandler is not
             {
                 Id: 0x32,
@@ -747,17 +768,17 @@ public sealed partial class ValidationRoot
                     "scripts/ages/scriptHelper.s:moblin_spawnEnemyHere",
                 CompletesDungeonEnemyCount: false
             } ||
-            unsupportedHandler is not
+            spinyHandler is not
             {
                 Id: 0x1b,
                 SubId: 0x01,
                 CollisionMode: 0x90,
                 Classification:
-                    EnemyHandlerClassification.DeliberatelyUnsupported,
-                Handler: EnemyHandlerKind.None,
+                    EnemyHandlerClassification.OrderedImplemented,
+                Handler: EnemyHandlerKind.SpinyBeetle,
                 EnemyName: "ENEMY_SPINY_BEETLE",
                 Source: "constants/common/enemies.s:ENEMY_SPINY_BEETLE",
-                CompletesDungeonEnemyCount: false
+                CompletesDungeonEnemyCount: true
             } ||
             dynamicCombat is not
             {
@@ -773,7 +794,7 @@ public sealed partial class ValidationRoot
                 "objects/ages/enemyData.s:" +
                 "group5Mapb0EnemyObjectData[0]",
             "The enemy handler registry lost its 816-row implementation " +
-            "classification, 233-row/46-flag typed combat descriptors, " +
+            "classification, 256-row/50-flag typed combat descriptors, " +
             "source collision modes, construction dispatch, source " +
             "identity, or dungeon-count completeness contract.");
 
@@ -853,11 +874,360 @@ public sealed partial class ValidationRoot
         validationRoot.Free();
         GD.Print("Validated 1,141 ordered room placement records, mid-stream aliases, " +
             "all 816 fixed/random enemy handler classifications, 12 parameter slots, " +
-            "233 typed combat descriptors across 15 handlers / 46 source-flag " +
+            "256 typed combat descriptors across 17 handlers / 50 source-flag " +
             "combinations, source collision modes and sword responses, source-aware " +
             "construction/shutter capability, condition masks, 16-entry reservation " +
             "wrapping, and fixed/unsupported/item reservations before random Keese " +
             "in rooms 4:9a, 5:b0, and 5:db.");
+    }
+
+    private void ValidateHardhatAndSpinyBeetles()
+    {
+        const double update = 1.0 / 60.0;
+        var database = new EnemyDatabase();
+        List<RoomObjectRecord> hardhatPlacements =
+            EnemyPlacements(database, 0x4d, 0x00);
+        List<RoomObjectRecord> spinyPlacements =
+            EnemyPlacements(database, 0x1b, 0x01);
+        ImportedEnemyDefinition hardhatDefinition =
+            database.ImportedEnemy(0x4d);
+        ImportedEnemyDefinition spinyDefinition =
+            database.ImportedEnemy(0x1b, 0x01);
+        FailIf(
+            hardhatPlacements.Count != 12 ||
+            hardhatPlacements.Sum(source => source.Count) != 15 ||
+            spinyPlacements.Count != 11 ||
+            spinyPlacements.Sum(source => source.Count) != 11 ||
+            hardhatDefinition is not
+            {
+                TileBase: 4,
+                Palette: 3,
+                RadiusY: 6,
+                RadiusX: 6,
+                DamageQuarters: 2,
+                Health: 4,
+                Animations.Length: 1
+            } ||
+            spinyDefinition is not
+            {
+                TileBase: 24,
+                Palette: 2,
+                RadiusY: 6,
+                RadiusX: 6,
+                DamageQuarters: 2,
+                Health: 2,
+                Animations.Length: 1
+            },
+            "The shared Hardhat/Spiny placement counts or imported visual, " +
+            "collision, damage, health, and animation definitions changed.");
+
+        static bool Blocks(OracleRoomData room, Vector2I point)
+        {
+            Vector2 position = point;
+            return position.X < 0 || position.X >= room.Width ||
+                position.Y < 0 || position.Y >= room.Height ||
+                room.IsSolid(position) ||
+                room.GetTerrainInfo(position).Hazard == HazardType.Hole;
+        }
+
+        static Vector2 FindOpenRightPath(
+            OracleRoomData room,
+            bool topDown)
+        {
+            for (int y = 16; y < room.Height - 16; y += 8)
+            for (int x = 16; x < room.Width - 24; x += 8)
+            {
+                Vector2 position = new(x, y);
+                if (room.IsSolid(position) ||
+                    room.GetTerrainInfo(position).Hazard != HazardType.None)
+                {
+                    continue;
+                }
+                EnemyAdjacentWallProbe walls = topDown
+                    ? EnemyAdjacentWallResolver.Shared.ProbeTopDown(
+                        position, 0x08, point => Blocks(room, point))
+                    : EnemyAdjacentWallResolver.Shared.Probe(
+                        position, 0x08, point => Blocks(room, point));
+                if (walls.Bitset == 0)
+                    return position;
+            }
+            throw new InvalidOperationException(
+                "Could not find an open right-facing enemy movement path.");
+        }
+
+        LoadValidationRoom(5, 0xb4);
+        List<HardhatBeetleCharacter> hardhats =
+            _entities.Entities<HardhatBeetleCharacter>();
+        HashSet<Vector2> hardhatPositions =
+            hardhats.Select(enemy => enemy.Position).ToHashSet();
+        FailIf(
+            hardhats.Count != 2 ||
+            _entities.Entities<KeeseCharacter>().Count != 2 ||
+            _entities.RoomEnemyCount != 4 ||
+            !hardhatPositions.SetEquals(
+                [new Vector2(0x68, 0x38), new Vector2(0x78, 0x18)]),
+            "Room 5:b4 did not construct its source roster of two fixed " +
+            "Hardhat Beetles at `$38,$68 / `$18,$78 and two random Keese.");
+
+        OracleRoomData hardhatRoom = _currentRoom;
+        HardhatBeetleCharacter hardhat = hardhats[0];
+        hardhat.Position = FindOpenRightPath(hardhatRoom, topDown: false);
+        hardhats[1].Position =
+            new Vector2(hardhatRoom.Width - 16, hardhatRoom.Height - 16);
+        for (int index = 0;
+            index < _entities.Entities<KeeseCharacter>().Count;
+            index++)
+        {
+            _entities.Entities<KeeseCharacter>()[index].Position =
+                new Vector2(hardhatRoom.Width - 24 - index * 8, 24);
+        }
+        _player.WarpTo(
+            hardhat.Position + Vector2.Right * 32,
+            recordSafe: false);
+        Vector2 hardhatStart = hardhat.Position;
+        _entities.Update(update, _player);
+        FailIf(
+            !hardhat.Initialized || hardhat.Position != hardhatStart,
+            "ENEMY_HARDHAT_BEETLE did not retain its source initialization " +
+            "update before movement.");
+        _entities.Update(update, _player);
+        FailIf(
+            hardhat.Angle != 0x08 ||
+            !Mathf.IsEqualApprox(
+                hardhat.Position.X, hardhatStart.X + 0.375f) ||
+            !Mathf.IsEqualApprox(hardhat.Position.Y, hardhatStart.Y),
+            "ENEMY_HARDHAT_BEETLE did not track Link and move right at " +
+            "SPEED_60 through the common no-hole wall resolver.");
+
+        int hardhatHealth = hardhat.Health;
+        int hardhatDamageSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy);
+        FailIf(
+            !_entities.ApplySwordHit(
+                hardhat.CollisionBounds.Grow(0.25f),
+                hardhat.Position + Vector2.Left * 16) ||
+            hardhat.Health != hardhatHealth ||
+            hardhat.InvincibilityCounter != -21 ||
+            hardhat.KnockbackCounter != 11 ||
+            _entities.RoomEnemyCount != 4 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) !=
+                hardhatDamageSounds,
+            "The Hardhat Beetle's ordinary sword collision did not preserve " +
+            "health, apply 21-update invincibility / 11-update recoil, and " +
+            "suppress generic enemy-hit audio.");
+
+        LoadValidationRoom(5, 0xb5);
+        SpinyBeetleCharacter spiny =
+            _entities.Entities<SpinyBeetleCharacter>().Single();
+        FailIf(
+            _entities.Entities<ZolCharacter>().Count != 1 ||
+            _entities.Entities<KeeseCharacter>().Count != 3 ||
+            _entities.RoomEnemyCount != 5 ||
+            spiny.Position != new Vector2(0xd8, 0x98) ||
+            spiny.State != SpinyBeetleState.Uninitialized ||
+            spiny.ParentVisible ||
+            !spiny.CoverProtects ||
+            !spiny.CoverVisualActive ||
+            spiny.CoverTextureHash != OracleGraphicsCache.PixelHash(
+                _currentRoom.BuildMimickedMetatileTexture(0x20).GetImage()),
+            "Room 5:b5 did not construct its hidden Spiny Beetle under an " +
+            "exact mimicked dungeon-bush `$20, red Zol, and three Keese.");
+
+        _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
+        _entities.Update(update, _player);
+        FailIf(
+            spiny.State != SpinyBeetleState.CoveredWaiting ||
+            spiny.ParentVisible || !spiny.CoverProtects,
+            "The covered Spiny Beetle did not enter hidden wait state 8.");
+
+        spiny.Position = FindOpenRightPath(_currentRoom, topDown: true);
+        _player.WarpTo(
+            spiny.Position + Vector2.Right * 32,
+            recordSafe: false);
+        _entities.Update(update, _player);
+        FailIf(
+            spiny.State != SpinyBeetleState.CoveredCharging ||
+            spiny.Counter1 != 56 ||
+            spiny.Angle != 0x08 ||
+            !spiny.ParentVisible ||
+            spiny.CoverDrawOffset != new Vector2(0, -4),
+            "The covered Spiny Beetle did not begin its source-aligned " +
+            "56-update cardinal charge with the bush four pixels high.");
+        Vector2 spinyChargeStart = spiny.Position;
+        _entities.Update(update, _player);
+        FailIf(
+            spiny.Counter1 != 55 ||
+            !Mathf.IsEqualApprox(
+                spiny.Position.X, spinyChargeStart.X + 0.875f) ||
+            !Mathf.IsEqualApprox(spiny.Position.Y, spinyChargeStart.Y),
+            "The covered Spiny Beetle charge did not pre-decrement its " +
+            "counter and move at SPEED_e0.");
+
+        LoadValidationRoom(5, 0xb5);
+        spiny = _entities.Entities<SpinyBeetleCharacter>().Single();
+        foreach (KeeseCharacter keese in
+            _entities.Entities<KeeseCharacter>())
+        {
+            keese.Position = new Vector2(24, 24);
+        }
+        _entities.Entities<ZolCharacter>().Single().Position =
+            new Vector2(48, 24);
+        _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
+        _entities.Update(update, _player);
+        int spinyHealth = spiny.Health;
+        int spinyDamageSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy);
+        int spinyCutSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass);
+        FailIf(
+            !_entities.ApplySwordHit(
+                spiny.CollisionBounds.Grow(0.25f),
+                spiny.Position + Vector2.Left * 16) ||
+            spiny.Health != spinyHealth ||
+            spiny.CoverProtects ||
+            spiny.CoverVisualActive ||
+            !spiny.ParentVisible ||
+            spiny.KnockbackCounter != 0 ||
+            _entities.Entities<GrassDebrisEffect>().Count != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) !=
+                spinyDamageSounds,
+            "Cutting the Spiny Beetle's protective bush damaged/recoiled the " +
+            "parent, omitted grass debris, or requested enemy-hit audio.");
+
+        _entities.Update(update, _player);
+        FailIf(
+            spiny.State != SpinyBeetleState.ExposedWaiting ||
+            spiny.Counter1 != 60 ||
+            spiny.CollisionBounds.Size != new Vector2(12, 12) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass) !=
+                spinyCutSounds + 1,
+            "The uncovered Spiny Beetle did not enter its visible " +
+            "60-update reveal wait with radius 6 and one cut-grass sound.");
+
+        var directSpawns = new List<RoomEntitySpawn>();
+        for (int frame = 0; frame < 60; frame++)
+            spiny.UpdateFrame(_player, directSpawns);
+        FailIf(
+            spiny.State != SpinyBeetleState.ExposedWandering ||
+            spiny.Counter1 != 1,
+            "The exposed Spiny Beetle did not retain all 60 reveal updates " +
+            "before entering state B with counter 1.");
+        int randomCalls = _entities.RandomCalls;
+        spiny.UpdateFrame(_player, directSpawns);
+        FailIf(
+            spiny.State != SpinyBeetleState.ExposedWandering ||
+            spiny.Counter1 != 40 ||
+            (spiny.Angle & 0x03) != 0 ||
+            _entities.RandomCalls != randomCalls + 1,
+            "The exposed Spiny Beetle did not select one shared-RNG " +
+            "cardinal angle and a 40-update wander counter.");
+
+        LoadValidationRoom(5, 0xb5);
+        spiny = _entities.Entities<SpinyBeetleCharacter>().Single();
+        spiny.Position = FindOpenRightPath(_currentRoom, topDown: true);
+        foreach (KeeseCharacter keese in
+            _entities.Entities<KeeseCharacter>())
+        {
+            keese.Position = new Vector2(24, 24);
+        }
+        _entities.Entities<ZolCharacter>().Single().Position =
+            new Vector2(48, 24);
+        _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
+        _entities.Update(update, _player);
+        SeedRecord emberRecord = new SeedSatchelDatabase().Ember;
+        EmberSeedEffect bushFlame = _entities.Spawn<EmberSeedEffect>(
+            new EmberSeedSpawn(
+                spiny.Position - emberRecord.RightOffset,
+                Vector2I.Right,
+                emberRecord,
+                4));
+        _entities.Update(update, _player);
+        FailIf(
+            bushFlame.State != EmberState.Burning ||
+            bushFlame.FlameCounter != 59 ||
+            !spiny.CoverProtects ||
+            spiny.State != SpinyBeetleState.CoveredWaiting,
+            "An Ember Seed did not attach its 59-update burning part to " +
+            "the Spiny Beetle's protective bush.");
+        _player.WarpTo(
+            spiny.Position + Vector2.Right * 32,
+            recordSafe: false);
+        _entities.Update(update, _player);
+        FailIf(
+            bushFlame.FlameCounter != 58 ||
+            spiny.State != SpinyBeetleState.CoveredCharging ||
+            !spiny.CoverProtects,
+            "Burning the child bush incorrectly froze the Spiny Beetle parent.");
+        _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
+        for (int frame = 0; frame < 57; frame++)
+            _entities.Update(update, _player);
+        FailIf(
+            bushFlame.FlameCounter != 1 || !spiny.CoverProtects,
+            "The burning dungeon bush ended before source counter 1.");
+        int emberHealth = spiny.Health;
+        _entities.Update(update, _player);
+        FailIf(
+            _entities.Entities<EmberSeedEffect>().Count != 0 ||
+            spiny.CoverProtects || spiny.CoverVisualActive ||
+            spiny.Health != emberHealth ||
+            _entities.Entities<GrassDebrisEffect>().Count != 1,
+            "The completed Ember burn did not remove only the protective " +
+            "bush and create grass debris.");
+        _entities.Update(update, _player);
+        FailIf(
+            spiny.State != SpinyBeetleState.ExposedWaiting ||
+            spiny.Counter1 != 60,
+            "The Ember-revealed Spiny Beetle did not enter its 60-update wait.");
+
+        LoadValidationRoom(5, 0xb5);
+        spiny = _entities.Entities<SpinyBeetleCharacter>().Single();
+        spiny.Position = FindOpenRightPath(_currentRoom, topDown: true);
+        foreach (KeeseCharacter keese in
+            _entities.Entities<KeeseCharacter>())
+        {
+            keese.Position = new Vector2(24, 24);
+        }
+        _entities.Entities<ZolCharacter>().Single().Position =
+            new Vector2(48, 24);
+        _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
+        _entities.Update(update, _player);
+        _player.WarpTo(
+            spiny.Position - Vector2.Right * 6,
+            recordSafe: false);
+        _player.Face(Vector2I.Right);
+        FailIf(
+            !_entities.TryUseBracelet(_player) ||
+            !spiny.CoverHeld || spiny.CoverProtects ||
+            !spiny.ParentVisible || !_player.IsCarryingObject,
+            "The Power Bracelet did not detach and hold the Spiny Beetle's " +
+            "dungeon-bush child.");
+        _entities.Update(update, _player);
+        FailIf(
+            spiny.State != SpinyBeetleState.ExposedWaiting ||
+            spiny.Counter1 != 60 ||
+            !_entities.TryUseBracelet(_player) ||
+            spiny.CoverHeld || !spiny.CoverThrown ||
+            _player.IsCarryingObject,
+            "The lifted Spiny cover did not reveal the parent or enter its " +
+            "weight-0 thrown state.");
+        _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
+        int thrownUpdates = 0;
+        while (spiny.CoverThrown && thrownUpdates++ < 120)
+            _entities.Update(update, _player);
+        FailIf(
+            spiny.CoverThrown || spiny.CoverVisualActive ||
+            thrownUpdates > 120 ||
+            _entities.Entities<GrassDebrisEffect>().Count != 1,
+            "The thrown Spiny cover did not follow its imported weight-0 " +
+            "arc and break into grass debris on landing.");
+
+        _player.RefillHealth();
+        GD.Print(
+            "Validated 12 ENEMY_HARDHAT_BEETLE records / 15 instances, " +
+            "11 covered ENEMY_SPINY_BEETLE records, exact room 5:b4 and " +
+            "5:b5 rosters, imported visuals, SPEED_60/e0 movement, Hardhat " +
+            "sword bump, dungeon-bush sword/Ember/Bracelet paths, 56-update " +
+            "charge, 60-update reveal, and shared-RNG 40-update exposed wander.");
     }
 
     private void ValidateKeese()
@@ -878,9 +1248,18 @@ public sealed partial class ValidationRoot
             adjacentWalls.Offset(octant: 1, probe: 0);
         EnemyAdjacentWallOffsetRecord diagonalSecond =
             adjacentWalls.Offset(octant: 1, probe: 1);
+        EnemyAdjacentWallOffsetRecord topDownFirst =
+            adjacentWalls.TopDownOffset(octant: 1, probe: 0);
+        EnemyAdjacentWallOffsetRecord topDownLast =
+            adjacentWalls.TopDownOffset(octant: 1, probe: 3);
         FailIf(
             diagonalFirst.YDelta != -4 || diagonalFirst.XDelta != -5 ||
             diagonalSecond.YDelta != 0 || diagonalSecond.XDelta != 9 ||
+            topDownFirst.YDelta != -9 || topDownFirst.XDelta != -4 ||
+            topDownLast.YDelta != 10 || topDownLast.XDelta != 0 ||
+            !topDownFirst.Source.Contains(
+                "ecom_topDownAdjacentWallOffsetTable",
+                StringComparison.Ordinal) ||
             !diagonalFirst.Source.Contains(
                 "object_code/common/enemies/commonCode.s",
                 StringComparison.Ordinal) ||

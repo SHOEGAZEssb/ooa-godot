@@ -382,9 +382,11 @@ predicate separate from the room-specific consequence avoids encoding a
 one-room key test or pretending that the other five locks already work.
 
 `enemy_object_stream.tsv` is the sole generated placement authority for
-ordinary enemies. The Keese, Octorok, Stalfos, Zol, Gel, and Crow tables contain
-one definition per supported ID/subid and no group, room, opcode, flags, count,
-or coordinate columns. For example, `Import-EnemyData.ps1` resolves ordinary
+ordinary enemies. The Keese, Octorok, Stalfos, Zol, Gel, Crow, and shared
+common-enemy tables contain one definition per supported ID/subid and no group,
+room, opcode, flags, count, or coordinate columns. The common table includes
+Hardhat Beetle `$4d:$00` and covered Spiny Beetle `$1b:$01`. For example,
+`Import-EnemyData.ps1` resolves ordinary
 `ENEMY_STALFOS $31:$00` subid data, walk/jump animation pointers, aliased OAM
 pointers, and graphics header `$9b` into one `stalfos.tsv` definition; runtime
 joins it to each matching ordered record in source order. During import, the
@@ -430,26 +432,28 @@ keys used by 816 fixed/random and 12 parameter-enemy records. Adding a handler
 requires changing this registry input and its typed runtime dispatch together;
 an unmatched row is an import/runtime error rather than an implicit `null`.
 
-The stage also emits `enemy_adjacent_wall_offsets.tsv` and
-`enemy_bounce_angles.tsv` from `object_code/common/enemies/commonCode.s`.
-The first retains all eight angle octants and four signed Y/X pairs per
-octant, including each source-table byte offset. Import verifies the
+The stage also emits `enemy_adjacent_wall_offsets.tsv`,
+`enemy_topdown_adjacent_wall_offsets.tsv`, and `enemy_bounce_angles.tsv` from
+`object_code/common/enemies/commonCode.s`. The first two retain all eight angle
+octants and four signed Y/X pairs per octant from the side-view and top-down
+source tables, including each source-table byte offset. Import verifies the
 `ecom_getAdjacentWallsBitset` instruction sequence that cumulatively updates
 the probe coordinate; treating the rows as four independent offsets is not a
-compatible interpretation. The second retains all 48 entries of
+compatible interpretation. The third retains all 48 entries of
 `ecom_bounceOffScreenBoundary@angleTable` in source order. Runtime consumers
-must use the typed shared resolver rather than copying either table.
+must use the typed shared resolver rather than copying these tables.
 
-`metadata/enemy_behavior_tables.tsv` owns 177 implemented behavior rows. The
+`metadata/enemy_behavior_tables.tsv` owns 188 implemented behavior rows. The
 original 77 lookup-stream rows cover Keese deceleration, Octorok wait/walk
 counters, Boomerang Moblin route counters, enemy-arrow directional geometry,
 Giant Ghini child offsets, and Pumpkin Head timing/follower/projectile tables.
-The additional 100 rows retain state-entry operands: common sword
+The additional 111 rows retain state-entry operands: common sword
 invincibility/recoil profiles, knockback and hazard motion, hostile-projectile
 bounce, and the speeds, counters, gravity, bounds, collision radii, and damage
-used by every implemented common enemy/projectile state machine. Signed Y/X
-values and runtime index order stay exact, including Giant Ghini's `3,2,1`
-child allocation and Pumpkin Head's `0,2,1` projectile creation.
+used by every implemented common enemy/projectile state machine, including
+Hardhat Beetle and covered/exposed Spiny Beetle profiles. Signed Y/X values and
+runtime index order stay exact, including Giant Ghini's `3,2,1` child
+allocation and Pumpkin Head's `0,2,1` projectile creation.
 `EnemyBehaviorTables` rejects noncontiguous rows, unexpected secondary values,
 unclaimed tables, or changed row counts, then exposes semantic typed profiles.
 Species classes retain native state transitions and branch instructions but do

@@ -214,7 +214,7 @@ public sealed class RoomEntityManager : IDisposable
             OnGashaInteractionRequested, OnGashaNutCaught, inventory,
             _treasures,
             OnItemDropEnteredHazard,
-            OnSoundRequested, CountRoomEnemies,
+            OnSoundRequested, ApplyThrownObjectHit, CountRoomEnemies,
             enemyIndex => _recentEnemyDefeats.WasKilled(enemyIndex),
             TriggerIsActive, () => _activeTriggers, SetTrigger,
             OnRoomTileChanged,
@@ -386,7 +386,11 @@ public sealed class RoomEntityManager : IDisposable
             {
                 if (textActive && !UpdatesDuringDialogue(entity))
                     continue;
-                if (entity is ISeedBurnTarget { IsSeedBurning: true })
+                if (entity is ISeedBurnTarget
+                    {
+                        IsSeedBurning: true,
+                        FreezesDuringSeedBurn: true
+                    })
                     continue;
                 if (entity is IFixedRoomEntity fixedEntity)
                 {

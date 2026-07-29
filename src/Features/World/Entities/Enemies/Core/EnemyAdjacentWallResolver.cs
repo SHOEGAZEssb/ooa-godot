@@ -18,6 +18,8 @@ internal sealed class EnemyAdjacentWallResolver
 
     private readonly EnemyAdjacentWallOffsetRecord[,] _offsets =
         new EnemyAdjacentWallOffsetRecord[OctantCount, ProbesPerOctant];
+    private readonly EnemyAdjacentWallOffsetRecord[,] _topDownOffsets =
+        new EnemyAdjacentWallOffsetRecord[OctantCount, ProbesPerOctant];
     private readonly EnemyBounceAngleRecord[] _bounceAngles =
         new EnemyBounceAngleRecord[BounceAngleCount];
 
@@ -53,6 +55,39 @@ internal sealed class EnemyAdjacentWallResolver
                 $"Expected 32 enemy adjacent-wall offsets, got {offsets.Rows.Count}.");
         }
 
+        GeneratedTable topDownOffsets = GeneratedTable.Load(
+            "res://assets/oracle/metadata/enemy_topdown_adjacent_wall_offsets.tsv",
+            new GeneratedTableSchema(
+                "top-down enemy adjacent-wall offsets",
+                GeneratedTableKeySemantics.Unique,
+                ["octant", "probe", "y-delta", "x-delta", "source"],
+                ["octant", "probe"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in topDownOffsets.Rows)
+        {
+            int octant = row.UnsignedDecimal(0);
+            int probe = row.UnsignedDecimal(1);
+            if (octant >= OctantCount || probe >= ProbesPerOctant)
+            {
+                throw new InvalidOperationException(
+                    $"Top-down enemy adjacent-wall offset index " +
+                    $"{octant}:{probe} is out of range.");
+            }
+            _topDownOffsets[octant, probe] =
+                new EnemyAdjacentWallOffsetRecord(
+                    octant,
+                    probe,
+                    row.Decimal(2),
+                    row.Decimal(3),
+                    row.RequiredString(4));
+        }
+        if (topDownOffsets.Rows.Count != OctantCount * ProbesPerOctant)
+        {
+            throw new InvalidOperationException(
+                $"Expected 32 top-down enemy adjacent-wall offsets, got " +
+                $"{topDownOffsets.Rows.Count}.");
+        }
+
         GeneratedTable angles = GeneratedTable.Load(
             "res://assets/oracle/metadata/enemy_bounce_angles.tsv",
             new GeneratedTableSchema(
@@ -84,6 +119,19 @@ internal sealed class EnemyAdjacentWallResolver
     internal EnemyAdjacentWallProbe Probe(
         Vector2 position,
         int angle,
+        Func<Vector2I, bool> collides) =>
+        Probe(_offsets, position, angle, collides);
+
+    internal EnemyAdjacentWallProbe ProbeTopDown(
+        Vector2 position,
+        int angle,
+        Func<Vector2I, bool> collides) =>
+        Probe(_topDownOffsets, position, angle, collides);
+
+    private static EnemyAdjacentWallProbe Probe(
+        EnemyAdjacentWallOffsetRecord[,] offsets,
+        Vector2 position,
+        int angle,
         Func<Vector2I, bool> collides)
     {
         ArgumentNullException.ThrowIfNull(collides);
@@ -94,7 +142,7 @@ internal sealed class EnemyAdjacentWallResolver
         int bitset = 0;
         for (int probe = 0; probe < ProbesPerOctant; probe++)
         {
-            EnemyAdjacentWallOffsetRecord offset = _offsets[octant, probe];
+            EnemyAdjacentWallOffsetRecord offset = offsets[octant, probe];
             point += new Vector2I(offset.XDelta, offset.YDelta);
             bitset <<= 1;
             if (collides(point))
@@ -131,6 +179,17 @@ internal sealed class EnemyAdjacentWallResolver
         if (probe is < 0 or >= ProbesPerOctant)
             throw new ArgumentOutOfRangeException(nameof(probe));
         return _offsets[octant, probe];
+    }
+
+    internal EnemyAdjacentWallOffsetRecord TopDownOffset(
+        int octant,
+        int probe)
+    {
+        if (octant is < 0 or >= OctantCount)
+            throw new ArgumentOutOfRangeException(nameof(octant));
+        if (probe is < 0 or >= ProbesPerOctant)
+            throw new ArgumentOutOfRangeException(nameof(probe));
+        return _topDownOffsets[octant, probe];
     }
 
     internal EnemyBounceAngleRecord BounceAngleRecord(int index)

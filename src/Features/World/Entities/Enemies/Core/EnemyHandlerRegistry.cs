@@ -158,12 +158,14 @@ internal sealed class EnemyHandlerRegistry
         "arrow-moblin" => EnemyHandlerKind.ArrowMoblin,
         "rope" => EnemyHandlerKind.Rope,
         "ghini" => EnemyHandlerKind.Ghini,
+        "spiny-beetle" => EnemyHandlerKind.SpinyBeetle,
         "wallmaster" => EnemyHandlerKind.Wallmaster,
         "stalfos" => EnemyHandlerKind.Stalfos,
         "keese" => EnemyHandlerKind.Keese,
         "zol" => EnemyHandlerKind.Zol,
         "crow" => EnemyHandlerKind.Crow,
         "gel" => EnemyHandlerKind.Gel,
+        "hardhat-beetle" => EnemyHandlerKind.HardhatBeetle,
         "maku-sprout-masked-moblin" =>
             EnemyHandlerKind.MakuSproutMaskedMoblin,
         _ => throw row.Invalid(column, "a registered enemy handler")
@@ -275,12 +277,14 @@ internal enum EnemyHandlerKind
     ArrowMoblin,
     Rope,
     Ghini,
+    SpinyBeetle,
     Wallmaster,
     Stalfos,
     Keese,
     Zol,
     Crow,
     Gel,
+    HardhatBeetle,
     MakuSproutMaskedMoblin
 }
 
