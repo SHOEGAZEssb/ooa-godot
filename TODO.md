@@ -12,7 +12,9 @@ semantics.
 - [x] When starting a new game, the era indicator is shown when Link spawns.
   The summon arrival now retains the original `linkSummonedCutscene` room-load
   boundary, which does not call the ordinary era-info predicate.
-- [ ] Fairies (for example when dropped by a miniboss) have the same "drop" physics as a normal item drop, they should not have that
+- [x] Fairies no longer complete ordinary item-drop physics. Their state-1
+  rise now clamps at `zh=$fa` and immediately enters the roaming state, as in
+  `itemDrop_checkHitGround`, instead of falling back down and bouncing.
 - [ ] Boomerang moblins not making the damage sound when they are hit
       - [ ] Wallmasters too
 - [ ] When getting hit while carrying something, the carried object floats in the air shortly before dropping down. Should drop down instantly.

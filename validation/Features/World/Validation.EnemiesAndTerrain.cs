@@ -2956,41 +2956,45 @@ public sealed partial class ValidationRoot
         rightFacingFairy.Free();
         fairyDrop.UpdateFrame(_player, 2);
         FailIf(
-            fairyDrop.PrecisePosition != fairyPosition + Vector2.Left * 0.25f,
+            fairyDrop.PrecisePosition != fairyPosition + Vector2.Left * 0.25f ||
+            fairyDrop.ZFixed != -0x160 ||
+            fairyDrop.SpeedZ != -0x140,
             "ITEM_DROP_FAIRY did not apply its exact SPEED_40 leftward velocity " +
-            "on the first bounce update.");
-        for (int frame = 3; frame < 32; frame++)
+            "and initial speedZ/gravity update on state-1 update 1.");
+        for (int frame = 3; frame < 7; frame++)
         {
             fairyDrop.UpdateFrame(_player, frame);
             FailIf(
                 fairyDrop.State == DropState.Grounded,
-                "ITEM_DROP_FAIRY finished bouncing before update 32.");
+                "ITEM_DROP_FAIRY entered state 2 before zh crossed `$fa.");
         }
-        fairyDrop.UpdateFrame(_player, 32);
+        fairyDrop.UpdateFrame(_player, 7);
         FailIf(
             fairyDrop.State != DropState.Grounded ||
-            fairyDrop.ZFixed != 0 || fairyDrop.SpeedZ != 0 ||
+            fairyDrop.ZFixed != -0x560 || fairyDrop.SpeedZ != -0xa0 ||
             fairyDrop.Counter != 240 || fairyDrop.CollisionEnabled ||
             fairyDrop.FairyCollisionDelayCounter != 5 ||
             fairyDrop.FairyMovementCounter != 38 ||
-            fairyDrop.PrecisePosition != fairyPosition + Vector2.Left * 7.75f,
-            "ITEM_DROP_FAIRY did not clamp to z=-6 while airborne, finish its " +
-            "shortened bounce on update 32, and retain the five-tick collision delay.");
-        for (int frame = 33; frame <= 40; frame++)
+            fairyDrop.PrecisePosition != fairyPosition + Vector2.Left * 1.5f,
+            "ITEM_DROP_FAIRY did not preserve the low Z byte, clamp zh to `$fa, " +
+            "and enter state 2 without the ordinary fall-and-bounce path on update 7.");
+        for (int frame = 8; frame <= 16; frame++)
             fairyDrop.UpdateFrame(_player, frame);
         FailIf(
             fairyDrop.CollisionEnabled ||
             fairyDrop.FairyCollisionDelayCounter != 1 ||
-            fairyDrop.Counter != 240,
+            fairyDrop.Counter != 240 ||
+            fairyDrop.FairyMovementCounter != 29 ||
+            fairyDrop.PrecisePosition != fairyPosition + Vector2.Left * 3.75f,
             "ITEM_DROP_FAIRY enabled collection or lifetime countdown before " +
             "four alternating collision-delay ticks elapsed.");
-        fairyDrop.UpdateFrame(_player, 41);
+        fairyDrop.UpdateFrame(_player, 17);
         FailIf(
             !fairyDrop.CollisionEnabled ||
             fairyDrop.FairyCollisionDelayCounter != 0 ||
             fairyDrop.Counter != 239 ||
-            fairyDrop.FairyMovementCounter != 29 ||
-            fairyDrop.PrecisePosition != fairyPosition + Vector2.Left * 10.0f ||
+            fairyDrop.FairyMovementCounter != 28 ||
+            fairyDrop.PrecisePosition != fairyPosition + Vector2.Left * 4.0f ||
             fairyRandom.Calls != 3,
             "ITEM_DROP_FAIRY did not enable collision, begin its lifetime, and " +
             "continue the same random route on the fifth alternating delay tick.");
@@ -2999,7 +3003,7 @@ public sealed partial class ValidationRoot
         int expectedFairyHealth =
             Mathf.Min(_player.MaxHealthQuarters, _player.HealthQuarters + 24);
         _player.WarpTo(fairyDrop.Position, recordSafe: false);
-        fairyDrop.UpdateFrame(_player, 42);
+        fairyDrop.UpdateFrame(_player, 18);
         FailIf(
             !fairyDrop.Collected || !fairyDrop.Finished ||
             _player.HealthQuarters != expectedFairyHealth,

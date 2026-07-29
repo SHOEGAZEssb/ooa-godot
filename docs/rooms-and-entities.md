@@ -861,11 +861,14 @@ an 8-70-update route counter. Movement uses the imported signed 8.8 components
 from `bank3.objectSpeedTable`, retains the source front-probe boundary behavior,
 and rerolls through the same three-call sequence when the route expires. Its
 left/right facing XORs OAM flag `$20` within the fixed source cell; do not mirror
-the larger composed texture around the object origin. While bouncing, the fairy
-clamps its Z high byte to `$fa`; after landing it waits five alternating
-countdown ticks before enabling collision, while continuing to move every
-update. Collection grants `TREASURE_HEART_REFILL` amount `$18`, doubled to
-`$30` by the Gold or Blue Joy Ring.
+the larger composed texture around the object origin. The fairy begins with the
+common `-$0160` speedZ, but its state-1 path is not an ordinary item bounce:
+when its rising Z high byte crosses `$fa`, `itemDrop_checkHitGround` clamps it
+to `$fa`, preserves the comparison carry, and immediately enters state 2.
+It therefore never falls back to the ground. State 2 waits five alternating
+countdown ticks before enabling collision while continuing horizontal movement
+every update. Collection grants `TREASURE_HEART_REFILL` amount `$18`, doubled
+to `$30` by the Gold or Blue Joy Ring.
 
 Grounded/low airborne drops retain part collision mode `$01`. Link's sword
 collision types `$04-$0b` select `COLLISIONEFFECT_23`, zeroing the part's health

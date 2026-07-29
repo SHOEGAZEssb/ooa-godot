@@ -7,8 +7,9 @@ namespace oracleofages;
 /// PART_ITEM_DROP ($01). Drops use vertical 8.8 fixed-point motion; shovel
 /// drops additionally copy Link's angle and SPEED_a0 until they finish
 /// bouncing. ITEM_DROP_FAIRY uses the global RNG and imported velocity table
-/// while airborne and grounded. Grounded drops wait for 240 alternating-frame
-/// countdown ticks.
+/// while rising and roaming; it enters state 2 as soon as zh crosses $fa
+/// instead of falling back to the ground. Active drops wait for 240
+/// alternating-frame countdown ticks.
 /// </summary>
 public partial class ItemDropEffect : TransitionOffsetNode2D
 {
@@ -218,6 +219,14 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
                 {
                     _zFixed = FairyMinimumZHigh * 0x100 | (_zFixed & 0xff);
                     _fairyCollisionDelay = FairyCollisionDelay;
+                    // itemDrop_checkHitGround preserves the carry from
+                    // cp $fa. Crossing that height therefore takes the fairy
+                    // straight to state 2 without completing the ordinary
+                    // fall-and-bounce path. speedZ is retained but no longer
+                    // updated in state 2.
+                    _state = DropState.Grounded;
+                    _counter = LifetimeTicks;
+                    _collisionEnabled = false;
                 }
             }
             else if (_speedZ >= 0)
