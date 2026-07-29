@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -10,6 +11,7 @@ namespace oracleofages;
 internal sealed class NpcInteractionScriptController
 {
     private readonly NpcInteractionCommandHost[] _hosts;
+    private readonly NpcInteractionHandler[] _handlers;
     private readonly LinkedGameNpcScriptHost _linked;
     private readonly PastBipinScriptHost _pastBipin;
     private readonly HardhatShovelScriptHost _hardhat;
@@ -44,6 +46,18 @@ internal sealed class NpcInteractionScriptController
             treasures,
             new BlackTowerWorkerDatabase());
         _hosts = [_linked, _pastBipin, _hardhat];
+        _handlers =
+        [
+            NpcInteractionHandler.ForNpc(
+                "linkedGameNpcScript",
+                _linked.TryInteract),
+            NpcInteractionHandler.ForNpc(
+                "bipinScript3",
+                _pastBipin.TryInteract),
+            NpcInteractionHandler.ForNpc(
+                "hardhatWorkerSubid00Script",
+                _hardhat.TryInteract)
+        ];
         rooms.RoomChanged += OnRoomChanged;
     }
 
@@ -65,6 +79,7 @@ internal sealed class NpcInteractionScriptController
     internal LinkedGameNpcScriptHost Linked => _linked;
     internal PastBipinScriptHost PastBipin => _pastBipin;
     internal HardhatShovelScriptHost Hardhat => _hardhat;
+    internal IReadOnlyList<NpcInteractionHandler> Handlers => _handlers;
     internal ICutsceneCommandTraceSink? TraceSink
     {
         set
@@ -72,16 +87,6 @@ internal sealed class NpcInteractionScriptController
             foreach (NpcInteractionCommandHost host in _hosts)
                 host.SetTraceSink(value);
         }
-    }
-
-    public bool TryInteract(NpcCharacter npc, Player player)
-    {
-        foreach (NpcInteractionCommandHost host in _hosts)
-        {
-            if (host.TryInteract(npc, player))
-                return true;
-        }
-        return false;
     }
 
     public void Update(double delta)

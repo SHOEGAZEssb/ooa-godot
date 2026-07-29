@@ -701,7 +701,7 @@ public sealed partial class ValidationRoot
             discovered.Count != expectedCount,
             $"Room $0:$82 did not restore {expectedCount} discovered fairies.");
         FailIf(
-            !_roomEvents.TryInteractNpc(discovered[0]) ||
+            !_roomEvents.FairiesWoods.TryInteractNpc(discovered[0]) ||
             !_dialogue.IsOpen ||
             _dialogue.CurrentMessage != DialogueBox.PlainText(
                 fairies.Database.Text(textId).Message),

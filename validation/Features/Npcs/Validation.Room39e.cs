@@ -190,11 +190,13 @@ public sealed partial class ValidationRoot
             "Passage-state Impa did not retain her initial up-facing " +
             "animation outside conversation.");
         passageImpa.FaceToward(_player.Position);
+        NpcInteractionTarget passageTalk =
+            manager.ResolveNpcInteractionTarget(passageImpa);
+        passageTalk.Begin();
         FailIf(
-            passageImpa.FacingVector != Vector2I.Right ||
-            !manager.BeginNpcTalk(passageImpa),
+            passageImpa.FacingVector != Vector2I.Right,
             "Passage-state Impa did not enter her native talk lifecycle.");
-        manager.EndNpcTalk(passageImpa);
+        passageTalk.End();
         FailIf(
             passageImpa.FacingVector != Vector2I.Up,
             "Passage-state Impa did not restore animation $00 after talk.");

@@ -91,26 +91,33 @@ public sealed partial class ValidationRoot
             "Room 3:fb did not initialize Troy $ca:$01 as a solid script-sensitive NPC.");
 
         int firstChoice = referenceRandom.Next().Value & record.RandomMask;
+        NpcInteractionTarget firstTalk =
+            manager.ResolveNpcInteractionTarget(troy);
+        firstTalk.Begin();
+        firstTalk.Begin();
         FailIf(
-            !manager.BeginNpcTalk(troy) ||
             troy.TextId != record.FirstTextId ||
             troy.Message != database.ComposeMessage(firstTalk: true, firstChoice) ||
             manager.RandomCalls != 513 ||
             save.HasRoomFlag(3, 0xfb, OracleSaveData.RoomFlag40),
             "Troy's first talk did not consume one shared RNG value and defer room flag $40.");
-        manager.EndNpcTalk(troy);
+        firstTalk.End();
+        firstTalk.End();
         FailIf(
             !save.HasRoomFlag(3, 0xfb, OracleSaveData.RoomFlag40),
             "Closing Troy's first TX_2c11 dialogue did not set room 3:fb flag $40.");
 
         int repeatChoice = referenceRandom.Next().Value & record.RandomMask;
+        NpcInteractionTarget repeatTalk =
+            manager.ResolveNpcInteractionTarget(troy);
+        repeatTalk.Begin();
         FailIf(
-            !manager.BeginNpcTalk(troy) ||
             troy.TextId != record.RepeatTextId ||
             troy.Message != database.ComposeMessage(firstTalk: false, repeatChoice) ||
             manager.RandomCalls != 514,
             "Troy's repeat talk did not use TX_2c12 and the next shared RNG substitution.");
-        manager.EndNpcTalk(troy);
+        repeatTalk.Cancel();
+        repeatTalk.Cancel();
         save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
         FailIf(troy.Active, "GLOBALFLAG_FINISHEDGAME did not delete Troy $ca:$01 from room 3:fb.");
 

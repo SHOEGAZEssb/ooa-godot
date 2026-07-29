@@ -252,6 +252,25 @@ departure. The vacuum's live-Bomb suction/stun entry remains dependent on the
 deferred active Bomb item actor; its internal stun states must stay source
 timed when that actor is connected.
 
+## NPC A-button routing
+
+`linkInteractWithAButtonSensitiveObjects` probes ten pixels in Link's facing
+direction, walks `wAButtonSensitiveObjectList` in insertion order, and stops at
+the first object whose strict high-byte collision radii contain that point.
+`RoomEntityManager.FindNpcInteractionTarget` preserves the same active entity
+order and resolves the matching `INpcTalkLifecycle` owner at the same time.
+The returned `NpcInteractionTarget` is the only begin/end/cancel token for that
+talk; do not restore a second lifecycle scan after the room collection may have
+changed.
+
+After target selection, `NpcInteractionRouter` applies one source-labelled
+first-claim sequence: family naming, event-owned actor handlers, typed
+`interactionRunScript` hosts, and ordinary dialogue. Player-only shop handling
+runs only when no NPC target exists. Chest/sign/tile probing remains later,
+matching Link's source handler. Registrations define priority only; Fairies'
+Woods, shops, story actors, and typed scripts retain their own update and
+room-change cancellation state machines.
+
 ## Entity contracts
 
 `RoomEntityManager` composes behavior through small capabilities rather than a

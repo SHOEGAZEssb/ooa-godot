@@ -379,6 +379,7 @@ public sealed partial class ValidationRoot
             villager is null || _npcNodes.Count != 1,
             "Room 0:48 did not retain its ordinary villager while " +
             $"suppressing the unsupported dog (NPCs={_npcNodes.Count}).");
+        ValidateNpcInteractionRouting(villager);
         FailIf(
             villager.TextId != 0x1420,
             $"Expected room 0:48 villager to resolve TX_1420, got TX_{villager.TextId:x4}.");
@@ -525,6 +526,88 @@ public sealed partial class ValidationRoot
             "TX_1420 dialogue, exact room 0:48 sign/NPC A-button geometry, " +
             "retained/preloaded NPC screen scrolling, room 0:66 Link-relative draw " +
             "priority, and Link sprite palette 0.");
+    }
+
+    private void ValidateNpcInteractionRouting(NpcCharacter villager)
+    {
+        string[] expectedSources =
+        [
+            "blossom.s:MENU_KIDNAME",
+            "forestFairy.s:forestFairy_discovered",
+            "shopkeeper.s:lynnaShop:npc",
+            "vasu.s+ringHelpBook.s:room2eeActors",
+            "shootingGallery.s:shootingGalleryScript",
+            "miscCutscenes.s:CUTSCENE_NAYRU_SINGING",
+            "hardhatWorker.s:blackTowerEntrance",
+            "makuSprout.s:interactionCode88",
+            "makuTree.s:interactionCode87Subid02",
+            "maskSalesman.s:maskSalesmanScript",
+            "poe.s:poeScript",
+            "comedian.s:comedianScript",
+            "linkedGameNpcScript",
+            "bipinScript3",
+            "hardhatWorkerSubid00Script",
+            "linkInteractWithAButtonSensitiveObjects:ordinaryNpcDialogue",
+            "shopkeeper.s:lynnaShop:player"
+        ];
+        FailIf(
+            !_interactions.NpcInteractionHandlerSources.SequenceEqual(
+                expectedSources),
+            "The registered NPC interaction priority no longer preserves " +
+            "family, event, typed-script, ordinary-dialogue, and shop-player " +
+            "source order.");
+
+        var calls = new List<string>();
+        var router = new NpcInteractionRouter(
+        [
+            NpcInteractionHandler.ForPlayer(
+                "test:player",
+                _ =>
+                {
+                    calls.Add("player");
+                    return true;
+                }),
+            NpcInteractionHandler.ForNpc(
+                "test:npc-first",
+                (_, _) =>
+                {
+                    calls.Add("npc-first");
+                    return false;
+                }),
+            NpcInteractionHandler.ForNpc(
+                "test:npc-second",
+                (_, _) =>
+                {
+                    calls.Add("npc-second");
+                    return true;
+                }),
+            NpcInteractionHandler.ForNpc(
+                "test:npc-late",
+                (_, _) =>
+                {
+                    calls.Add("npc-late");
+                    return true;
+                })
+        ]);
+        NpcInteractionTarget target =
+            _entities.ResolveNpcInteractionTarget(villager);
+        FailIf(
+            !router.TryBegin(target, _player) ||
+            !calls.SequenceEqual(["npc-first", "npc-second"]),
+            "NPC interaction routing did not skip player-only handlers or " +
+            "stop at the first claiming NPC handler.");
+
+        calls.Clear();
+        FailIf(
+            !router.TryBegin(target: null, _player) ||
+            !calls.SequenceEqual(["player"]),
+            "The no-NPC interaction path did not route exclusively through " +
+            "the first claiming player handler.");
+
+        GD.Print(
+            "Validated one 17-route NPC interaction registry, source/gameplay " +
+            "priority, first-claim dispatch, NPC/player target gating, and " +
+            "single-resolution begin/end/cancel lifecycle ownership.");
     }
 
     private void ValidateRoom20eNpcInteractions()
@@ -1108,8 +1191,10 @@ public sealed partial class ValidationRoot
         manager.LoadRoom(1, room148);
         sounds.Clear();
         worker = Worker();
+        NpcInteractionTarget workerTalk =
+            manager.ResolveNpcInteractionTarget(worker);
+        workerTalk.Begin();
         FailIf(
-            !manager.BeginNpcTalk(worker) ||
             worker.CurrentScriptAnimationSource != pickaxe.Record.TalkAnimation,
             "Talking to worker $57:$00 did not select static animation $03.");
         for (int update = 0; update < 100; update++)
@@ -1118,7 +1203,7 @@ public sealed partial class ValidationRoot
             sounds.Count != 0 ||
             manager.Entities<Room148PickaxeDebris>().Count != 0,
             "Worker $57:$00 continued striking while TX_1b00 was active.");
-        manager.EndNpcTalk(worker);
+        workerTalk.End();
         FailIf(
             worker.CurrentScriptAnimationSource != pickaxe.Record.WorkAnimation ||
             worker.CurrentAnimationFrame != 0 ||
@@ -3035,22 +3120,26 @@ public sealed partial class ValidationRoot
         referenceRandom.BeginRoomParse();
         int expectedSoldierText =
             data.SoldierText(referenceRandom.Next().Value & 3);
+        NpcInteractionTarget soldierTalk =
+            predicateManager.ResolveNpcInteractionTarget(soldier);
+        soldierTalk.Begin();
         FailIf(
-            !predicateManager.BeginNpcTalk(soldier) ||
             soldier.TextId != expectedSoldierText ||
             predicateManager.RandomCalls != 257,
             "Soldier $40:$0c did not consume one global RNG value and choose its per-talk text.");
-        predicateManager.EndNpcTalk(soldier);
+        soldierTalk.End();
         NpcCharacter pickaxe = predicateManager.Entities<NpcCharacter>().First(npc =>
             npc.Record is { Id: 0x57, SubId: 0x03 });
         int expectedPickaxeText =
             data.PickaxeText(referenceRandom.Next().Value & 7);
+        NpcInteractionTarget pickaxeTalk =
+            predicateManager.ResolveNpcInteractionTarget(pickaxe);
+        pickaxeTalk.Begin();
         FailIf(
-            !predicateManager.BeginNpcTalk(pickaxe) ||
             pickaxe.TextId != expectedPickaxeText ||
             predicateManager.RandomCalls != 258,
             "Pickaxe worker $57:$03 did not consume one global RNG value and choose its per-talk text.");
-        predicateManager.EndNpcTalk(pickaxe);
+        pickaxeTalk.End();
 
         var sounds = new List<int>();
         predicateManager.SoundRequested += sounds.Add;

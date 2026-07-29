@@ -23,6 +23,7 @@ public sealed class InteractionController
     private readonly Func<bool> _gashaCountersCaughtUp;
     private readonly BipinBlossomFamilyStateResolver _familyState;
     private readonly NpcInteractionScriptController _npcScripts;
+    private readonly NpcInteractionRouter _npcInteractionRouter;
     private readonly KidNameEntryController _kidNameEntry;
     private readonly Dictionary<int, ChestRecord> _debugChestOverrides = new();
     private ChestTreasureEffect? _chestTreasure;
@@ -35,15 +36,12 @@ public sealed class InteractionController
     private string _pendingChildName = string.Empty;
     private float _familyLinkScreenY;
     private double _familyWaitTicks;
-    private NpcCharacter? _activeNpcTalkLifecycle;
+    private NpcInteractionTarget? _activeNpcTalkTarget;
     private GashaState _gashaState;
     private GashaSpotInteraction? _gashaSpot;
     private Player? _gashaPlayer;
     private bool _gashaCompletesHeartContainer;
     private bool _gashaShowingHeartContainer;
-
-    public Func<NpcCharacter, bool>? NpcInteractionOverride { get; set; }
-    public Func<Player, bool>? PlayerInteractionOverride { get; set; }
 
     public bool DialogueOpen => _dialogue.BlocksPlayerInput ||
         _chestTreasure is not null ||
@@ -61,7 +59,7 @@ public sealed class InteractionController
     internal NpcInteractionScriptController NpcScriptsForValidation =>
         _npcScripts;
 
-    public InteractionController(
+    internal InteractionController(
         RoomSession rooms,
         RoomEntityManager entities,
         SignDatabase signs,
@@ -75,7 +73,8 @@ public sealed class InteractionController
         InventoryState inventory,
         Node interfaceLayer,
         Action<int>? playSound = null,
-        Func<bool>? gashaCountersCaughtUp = null)
+        Func<bool>? gashaCountersCaughtUp = null,
+        IReadOnlyList<NpcInteractionHandler>? roomInteractionHandlers = null)
     {
         _rooms = rooms;
         _entities = entities;
@@ -99,6 +98,36 @@ public sealed class InteractionController
             dialogue,
             treasures,
             _familyState);
+        var interactionHandlers = new List<NpcInteractionHandler>
+        {
+            NpcInteractionHandler.ForNpc(
+                "blossom.s:MENU_KIDNAME",
+                (target, player) =>
+                    TryStartFamilyNaming(target.Npc, player))
+        };
+        if (roomInteractionHandlers is not null)
+        {
+            foreach (NpcInteractionHandler handler in roomInteractionHandlers)
+            {
+                if (handler.TargetKind == NpcInteractionTargetKind.Npc)
+                    interactionHandlers.Add(handler);
+            }
+        }
+        foreach (NpcInteractionHandler handler in _npcScripts.Handlers)
+            interactionHandlers.Add(handler);
+        interactionHandlers.Add(NpcInteractionHandler.ForNpc(
+            "linkInteractWithAButtonSensitiveObjects:ordinaryNpcDialogue",
+            TryStartOrdinaryNpcInteraction));
+        if (roomInteractionHandlers is not null)
+        {
+            foreach (NpcInteractionHandler handler in roomInteractionHandlers)
+            {
+                if (handler.TargetKind == NpcInteractionTargetKind.Player)
+                    interactionHandlers.Add(handler);
+            }
+        }
+        _npcInteractionRouter = new NpcInteractionRouter(
+            interactionHandlers);
         _dialogue.SetHeartPieceCountProvider(() => _inventory.HeartPieces);
         _dialogue.HeartPieceSetFilled += OnHeartPieceSetFilled;
         _dialogue.HeartPieceSetAccepted += OnHeartPieceSetAccepted;
@@ -121,10 +150,10 @@ public sealed class InteractionController
 
     public void Update(double delta, Player player)
     {
-        if (_activeNpcTalkLifecycle is not null && !_dialogue.IsOpen)
+        if (_activeNpcTalkTarget is not null && !_dialogue.IsOpen)
         {
-            _entities.EndNpcTalk(_activeNpcTalkLifecycle);
-            _activeNpcTalkLifecycle = null;
+            _activeNpcTalkTarget.End();
+            _activeNpcTalkTarget = null;
         }
         _kidNameEntry.Update();
         UpdateFamilyNaming(delta);
@@ -242,26 +271,9 @@ public sealed class InteractionController
 
     public bool TryInteract(Player player)
     {
-        NpcCharacter? npc = _entities.FindTalkTarget(player);
-        if (npc != null)
-        {
-            if (TryStartFamilyNaming(npc, player))
-                return true;
-            if (NpcInteractionOverride?.Invoke(npc) == true)
-                return true;
-            if (_npcScripts.TryInteract(npc, player))
-                return true;
-            npc.FaceToward(player.Position);
-            if (_entities.BeginNpcTalk(npc))
-                _activeNpcTalkLifecycle = npc;
-            _dialogue.ShowGameplayMessage(
-                npc.Message,
-                _worldToScreen(player.Position).Y,
-                npc.TextPosition);
-            return true;
-        }
-
-        if (PlayerInteractionOverride?.Invoke(player) == true)
+        NpcInteractionTarget? target =
+            _entities.FindNpcInteractionTarget(player);
+        if (_npcInteractionRouter.TryBegin(target, player))
             return true;
 
         if (_entities.TryInteract(player))
@@ -283,6 +295,24 @@ public sealed class InteractionController
             message = _tileFallbacks.SignNoMatch.Message;
 
         _dialogue.ShowGameplayMessage(message, _worldToScreen(player.Position).Y);
+        return true;
+    }
+
+    public bool TrySecondaryInteract(Player player) =>
+        _npcInteractionRouter.TryBegin(target: null, player);
+
+    private bool TryStartOrdinaryNpcInteraction(
+        NpcInteractionTarget target,
+        Player player)
+    {
+        NpcCharacter npc = target.Npc;
+        npc.FaceToward(player.Position);
+        target.Begin();
+        _activeNpcTalkTarget = target;
+        _dialogue.ShowGameplayMessage(
+            npc.Message,
+            _worldToScreen(player.Position).Y,
+            npc.TextPosition);
         return true;
     }
 
@@ -374,6 +404,8 @@ public sealed class InteractionController
 
     internal bool FamilyNamingActive =>
         _familyNamingState != FamilyNamingState.None || _kidNameEntry.Active;
+    internal IReadOnlyList<string> NpcInteractionHandlerSources =>
+        _npcInteractionRouter.Sources;
     internal MainMenuScreen? KidNameScreenForValidation =>
         _kidNameEntry.ScreenForValidation;
     internal void CommitKidNameForValidation(string name) =>
@@ -516,6 +548,12 @@ public sealed class InteractionController
 
     private void OnRoomChanged(int group, OracleRoomData room)
     {
+        _activeNpcTalkTarget?.Cancel();
+        _activeNpcTalkTarget = null;
+        _kidNameEntry.Cancel();
+        _familyNamingState = FamilyNamingState.None;
+        _pendingChildName = string.Empty;
+        _familyWaitTicks = 0.0;
         if (_groundTreasure is not null && _groundTreasurePlayer is not null)
             _groundTreasure.Finish(_groundTreasurePlayer);
         _groundTreasure = null;

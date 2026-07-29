@@ -101,13 +101,22 @@ snapshot is maintained in
   text, native facing/animation, and manager-owned caller-completed rewards.
   `InteractionController` retains only ordered delegation and scheduling.
 
-- [ ] Replace the split NPC-talk dispatch with one ordered interaction-handler
+- [x] Replace the split NPC-talk dispatch with one ordered interaction-handler
   contract. Today priority is spread across `InteractionController` record
   special cases, `INpcTalkLifecycle` scans, an override delegate, and
   `RoomEventController`'s separate nine-event `TryInteractNpc` OR-chain.
   Register handlers in explicit source/gameplay priority, retain exact
   A-sensitive geometry, and make begin/end/cancel behavior uniform without
   merging the handlers' state machines.
+  `NpcInteractionRouter` now owns one 17-route registry: family naming, the
+  event-owned actors in their prior gameplay order, the three typed
+  `interactionRunScript` hosts, ordinary dialogue, and the no-NPC Lynna-shop
+  player route. `RoomEntityManager` resolves the first strict A-button target
+  and its optional `INpcTalkLifecycle` owner together; the resulting target
+  token provides idempotent begin/end/cancel without later entity scans.
+  Room events and script hosts retain their independent state machines and
+  room-change cancellation. Headless validation pins every registered source,
+  first-claim behavior, NPC/player gating, and native lifecycle cleanup.
 
 - [x] Extract the common interactive infinite-script host used by the saved
   Maku Tree, Comedian, and Mask Salesman events. Their runner lifecycle,

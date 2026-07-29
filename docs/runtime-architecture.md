@@ -72,8 +72,8 @@ folder moves do not change runtime identity or Godot script bindings.
 | `RoomSession` | Active group/room, room data, layout state, and neighbor resolution |
 | `RoomTransitionController` | Scrolling, warps, destination placement, fades, camera, and time portals |
 | `RoomEntityManager` | Room object creation, active/outgoing lifetimes, fixed updates, contacts, and spawned effects |
-| `InteractionController` | Signs, chests, NPC interaction, dialogue, and gameplay-owned submenus |
-| `RoomEventController` | Multi-system room-entry and story events |
+| `InteractionController` | Ordered A-button routing, signs, chests, dialogue, and gameplay-owned submenus |
+| `RoomEventController` | Multi-system room-entry/story events and their typed interaction registrations |
 | `RoomCollision`, `TerrainController`, `PushBlockController`, `CombatController` | World collision, terrain, movable blocks, and combat effects |
 | `OracleSaveData`, `InventoryState`, `DeathRespawnPointController` | WRAM-style state, typed item behavior, and saved checkpoints |
 | `OracleMenuLifecycle` and menu controllers | Exclusive modal ownership, fixed-update fades, and input suspension |
@@ -83,6 +83,15 @@ Keep APIs narrow: the owner of a state transition performs it, while callers
 request behavior through explicit operations. Do not recreate parallel copies
 of save flags, current room identity, inventory bytes, RNG state, or transition
 state inside feature controllers.
+
+NPC A-button dispatch is one `NpcInteractionRouter` registry assembled by
+`InteractionController`. Its durable priority is family naming, event-owned
+actors in explicit gameplay order, typed NPC script hosts, ordinary dialogue,
+then player-only shop handling when no NPC target exists. `RoomEventController`
+publishes registrations instead of an override OR-chain; it still owns and
+updates each event state machine. The selected `NpcInteractionTarget` retains
+the matching entity lifecycle owner so natural end and room-change cancellation
+do not rescan a changed entity collection.
 
 ## Update order
 

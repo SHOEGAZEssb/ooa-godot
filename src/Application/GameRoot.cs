@@ -564,13 +564,19 @@ public partial class GameRoot : Node2D
         _entities.ScreenShakeChanged += offset => _roomCamera.Offset = offset;
         _entities.EnemyDefeated += _inventory.RecordEnemyKill;
         _entities.RoomTileChanged += _roomView.QueueRedraw;
+        _roomEvents = new RoomEventController(
+            _rooms, _entities, _transitions, _dialogue, _player, _roomView,
+            _transitions.WorldToGameplayScreen, () => (long)_animationTicks,
+            _scene.InterfaceLayer, _warpFade, _hud, _inventory, _treasures,
+            _sound, _roomCamera);
         _interactions = new InteractionController(
             _rooms, _entities, new SignDatabase(), new ChestDatabase(), _treasures, _dialogue,
             _scene.WorldRoot, _roomView, _transitions.WorldToGameplayScreen,
             () => (long)_animationTicks,
             _inventory, _scene.InterfaceLayer, _sound.PlaySound,
             () => _statusBar.DisplayedRupees == _inventory.Rupees &&
-                _statusBar.DisplayedHealth == _inventory.HealthQuarters);
+                _statusBar.DisplayedHealth == _inventory.HealthQuarters,
+            _roomEvents.InteractionHandlers);
         _keyDoors.MessageRequested += message =>
             _interactions.ShowRoomInteractionMessage(message, _player);
         _keyholes.MessageRequested += message =>
@@ -580,19 +586,12 @@ public partial class GameRoot : Node2D
             _interactions.ShowRoomInteractionMessage(message, _player);
             _deathRespawnPoints.RecordCurrentPoint();
         };
-        _roomEvents = new RoomEventController(
-            _rooms, _entities, _transitions, _dialogue, _player, _roomView,
-            _transitions.WorldToGameplayScreen, () => (long)_animationTicks,
-            _scene.InterfaceLayer, _warpFade, _hud, _inventory, _treasures,
-            _sound, _roomCamera);
         _transitions.ScreenTransitionsDisabledSource = () =>
             _roomEvents.ScreenTransitionsDisabled ||
             _entities.ScreenTransitionsDisabled;
         _keyholes.SetEventHandler(
             _roomEvents.SupportsOverworldKeyhole,
             _roomEvents.TriggerOverworldKeyhole);
-        _interactions.NpcInteractionOverride = _roomEvents.TryInteractNpc;
-        _interactions.PlayerInteractionOverride = _roomEvents.TryInteractPlayer;
         _combat = new CombatController(
             _scene.WorldRoot, _rooms, _roomView, _entities,
             new BreakableTileDatabase(), _saveData, _sound,

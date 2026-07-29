@@ -14,11 +14,11 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
     private readonly string _actorName;
     private readonly CutsceneCommandRunner _runner;
     private NpcCharacter? _actor;
+    private NpcInteractionTarget? _interactionTarget;
     private Player? _player;
     private bool _buttonSensitive;
     private bool _buttonPressed;
     private bool _inputLeaseHeld;
-    private bool _talkLifecycleStarted;
     private ICutsceneCommandTraceSink? _traceSink;
 
     protected NpcInteractionCommandHost(
@@ -62,15 +62,18 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
     internal void SetTraceSink(ICutsceneCommandTraceSink? traceSink) =>
         _traceSink = traceSink;
 
-    public bool TryInteract(NpcCharacter npc, Player player)
+    public bool TryInteract(
+        NpcInteractionTarget target,
+        Player player)
     {
+        NpcCharacter npc = target.Npc;
         if (!MatchesAndPrepare(npc))
             return false;
 
         if (_runner.Active && !ReferenceEquals(_actor, npc))
             Cancel();
         if (!_runner.Active)
-            Start(npc);
+            Start(target);
         if (!_buttonSensitive || _inputLeaseHeld ||
             !ReferenceEquals(_actor, npc))
         {
@@ -99,10 +102,11 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
         ResetHostState();
         if (_inputLeaseHeld && _player is not null)
             _player.EndCutsceneControl();
-        EndTalkLifecycle();
+        _interactionTarget?.Cancel();
         if (_actor is not null)
             _actor.SetScriptButtonSensitive(false);
         _actor = null;
+        _interactionTarget = null;
         _player = null;
         _buttonSensitive = false;
         _buttonPressed = false;
@@ -210,14 +214,16 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
         }
     }
 
-    private void Start(NpcCharacter npc)
+    private void Start(NpcInteractionTarget target)
     {
+        NpcCharacter npc = target.Npc;
         _actor = npc;
+        _interactionTarget = target;
         _player = null;
         _buttonSensitive = false;
         _buttonPressed = false;
         _inputLeaseHeld = false;
-        _talkLifecycleStarted = Entities.BeginNpcTalk(npc);
+        target.Begin();
         _runner.Start(Commands);
         // Run initialization through the first checkabutton exactly once.
         _runner.AdvanceFrame();
@@ -225,9 +231,6 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
 
     private void EndTalkLifecycle()
     {
-        if (!_talkLifecycleStarted || _actor is null)
-            return;
-        Entities.EndNpcTalk(_actor);
-        _talkLifecycleStarted = false;
+        _interactionTarget?.End();
     }
 }

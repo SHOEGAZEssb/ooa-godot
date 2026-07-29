@@ -89,7 +89,7 @@ public sealed class PlayerWorld : IPlayerWorld
     public void PlaySound(int soundId) => _sound.PlaySound(soundId);
     public bool TryInteract(Player player) => _interactions.TryInteract(player);
     public bool TrySecondaryInteract(Player player) =>
-        _roomEvents.TryInteractPlayer(player);
+        _interactions.TrySecondaryInteract(player);
     public bool TryUseBracelet(Player player, bool primaryButton) =>
         _bracelet.TryUse(player, primaryButton);
     public bool UpdateBracelet(

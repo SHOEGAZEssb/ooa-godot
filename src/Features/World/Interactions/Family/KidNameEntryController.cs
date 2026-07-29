@@ -72,6 +72,12 @@ internal sealed class KidNameEntryController(
         return true;
     }
 
+    public void Cancel()
+    {
+        _result = null;
+        CloseScreen();
+    }
+
     internal MainMenuScreen? ScreenForValidation => _screen;
 
     internal void CommitForValidation(string name)

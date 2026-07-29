@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -37,6 +38,7 @@ public sealed class RoomEventController
     private readonly FairiesWoodsEvent _fairiesWoods;
     private readonly WingDungeonCollapseEvent _wingDungeonCollapse;
     private readonly IRoomEvent[] _eventsByPriority;
+    private readonly NpcInteractionHandler[] _interactionHandlers;
     private double _frameAccumulator;
     private double _transitionFrameAccumulator;
 
@@ -128,6 +130,45 @@ public sealed class RoomEventController
             _graveyardGhostKids,
             _impa,
         ];
+        _interactionHandlers =
+        [
+            NpcInteractionHandler.ForNpc(
+                "forestFairy.s:forestFairy_discovered",
+                (target, _) => _fairiesWoods.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
+                "shopkeeper.s:lynnaShop:npc",
+                (target, _) => _lynnaShop.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
+                "vasu.s+ringHelpBook.s:room2eeActors",
+                (target, _) => _vasuShop.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
+                "shootingGallery.s:shootingGalleryScript",
+                (target, _) => _shootingGallery.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
+                "miscCutscenes.s:CUTSCENE_NAYRU_SINGING",
+                (target, _) => _nayru.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
+                "hardhatWorker.s:blackTowerEntrance",
+                (target, _) => _blackTowerEntrance.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
+                "makuSprout.s:interactionCode88",
+                (target, _) => _makuSproutRescue.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
+                "makuTree.s:interactionCode87Subid02",
+                (target, _) => _makuTreeSaved.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
+                "maskSalesman.s:maskSalesmanScript",
+                (target, _) => _maskSalesman.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
+                "poe.s:poeScript",
+                (target, _) => _poe.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
+                "comedian.s:comedianScript",
+                (target, _) => _comedian.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForPlayer(
+                "shopkeeper.s:lynnaShop:player",
+                _lynnaShop.TryInteractPlayer)
+        ];
         entities.RoomEntitiesLoaded += OnRoomEntitiesLoaded;
         entities.SpiritsGraveEssenceTriggered += _spiritsGraveEssence.Begin;
     }
@@ -186,6 +227,8 @@ public sealed class RoomEventController
     internal FairiesWoodsEvent FairiesWoods => _fairiesWoods;
     internal WingDungeonCollapseEvent WingDungeonCollapse =>
         _wingDungeonCollapse;
+    internal IReadOnlyList<NpcInteractionHandler> InteractionHandlers =>
+        _interactionHandlers;
     internal void SetBraceletActions(
         Action<bool> interrupter,
         Action advance) =>
@@ -241,22 +284,6 @@ public sealed class RoomEventController
             UpdatePrimaryEventFrame();
         }
     }
-
-    public bool TryInteractNpc(NpcCharacter npc) =>
-        _fairiesWoods.TryInteractNpc(npc) ||
-        _lynnaShop.TryInteractNpc(npc) ||
-        _vasuShop.TryInteractNpc(npc) ||
-        _shootingGallery.TryInteractNpc(npc) ||
-        _nayru.TryInteractNpc(npc) ||
-        _blackTowerEntrance.TryInteractNpc(npc) ||
-        _makuSproutRescue.TryInteractNpc(npc) ||
-        _makuTreeSaved.TryInteractNpc(npc) ||
-        _maskSalesman.TryInteractNpc(npc) ||
-        _poe.TryInteractNpc(npc) ||
-        _comedian.TryInteractNpc(npc);
-
-    public bool TryInteractPlayer(Player player) =>
-        _lynnaShop.TryInteractPlayer(player);
 
     /// <summary>
     /// Destination interactions continue updating during TRANSITION_DEST_TIMEWARP.

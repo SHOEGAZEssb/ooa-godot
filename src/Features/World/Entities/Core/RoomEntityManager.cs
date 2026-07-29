@@ -49,6 +49,8 @@ public sealed class RoomEntityManager : IDisposable
     private readonly List<IRoomEntity> _activeEntities = new();
     private readonly List<IRoomEntity> _outgoingEntities = new();
     private readonly List<RoomEntitySpawn> _pendingSpawns = new();
+    private readonly Dictionary<NpcCharacter, INpcTalkLifecycle>
+        _npcTalkLifecycles = new(ReferenceEqualityComparer.Instance);
     private Warp? _pendingRoomWarp;
     private OracleRoomData _roomForActiveEntities = null!;
     private bool _screenTransitionActive;
@@ -443,14 +445,31 @@ public sealed class RoomEntityManager : IDisposable
         return false;
     }
 
-    public NpcCharacter? FindTalkTarget(Player player)
+    public NpcCharacter? FindTalkTarget(Player player) =>
+        FindNpcInteractionTarget(player)?.Npc;
+
+    internal NpcInteractionTarget? FindNpcInteractionTarget(Player player)
     {
         foreach (IRoomEntity entity in _activeEntities)
         {
-            if (entity is ITalkTarget talkTarget && talkTarget.FindTalkTarget(player) is { } target)
-                return target;
+            if (entity is not ITalkTarget talkTarget ||
+                talkTarget.FindTalkTarget(player) is not { } npc)
+            {
+                continue;
+            }
+            _npcTalkLifecycles.TryGetValue(
+                npc, out INpcTalkLifecycle? lifecycle);
+            return new NpcInteractionTarget(npc, lifecycle);
         }
         return null;
+    }
+
+    internal NpcInteractionTarget ResolveNpcInteractionTarget(
+        NpcCharacter npc)
+    {
+        _npcTalkLifecycles.TryGetValue(
+            npc, out INpcTalkLifecycle? lifecycle);
+        return new NpcInteractionTarget(npc, lifecycle);
     }
 
     internal bool TryInteract(Player player)
@@ -477,33 +496,6 @@ public sealed class RoomEntityManager : IDisposable
             }
         }
         return false;
-    }
-
-    internal bool BeginNpcTalk(NpcCharacter npc)
-    {
-        foreach (IRoomEntity entity in _activeEntities)
-        {
-            if (entity is INpcTalkLifecycle lifecycle &&
-                ReferenceEquals(lifecycle.TalkNpc, npc))
-            {
-                lifecycle.OnNpcTalkStarted();
-                return true;
-            }
-        }
-        return false;
-    }
-
-    internal void EndNpcTalk(NpcCharacter npc)
-    {
-        foreach (IRoomEntity entity in _activeEntities)
-        {
-            if (entity is INpcTalkLifecycle lifecycle &&
-                ReferenceEquals(lifecycle.TalkNpc, npc))
-            {
-                lifecycle.OnNpcTalkEnded();
-                return;
-            }
-        }
     }
 
     public bool ApplySwordHit(
@@ -918,6 +910,14 @@ public sealed class RoomEntityManager : IDisposable
 
     private IRoomEntity AddEntity(IRoomEntity entity)
     {
+        if (entity is INpcTalkLifecycle lifecycle &&
+            !_npcTalkLifecycles.TryAdd(lifecycle.TalkNpc, lifecycle))
+        {
+            throw new InvalidOperationException(
+                $"{entity.GetType().Name} registered duplicate talk " +
+                $"lifecycle ownership for NPC ${lifecycle.TalkNpc.Record.Id:x2}:" +
+                $"${lifecycle.TalkNpc.Record.SubId:x2}.");
+        }
         _activeEntities.Add(entity);
         _worldRoot.AddChild(entity.Node);
         return entity;
@@ -1047,6 +1047,13 @@ public sealed class RoomEntityManager : IDisposable
 
     private void FreeEntity(IRoomEntity entity)
     {
+        if (entity is INpcTalkLifecycle lifecycle &&
+            _npcTalkLifecycles.TryGetValue(
+                lifecycle.TalkNpc, out INpcTalkLifecycle? registered) &&
+            ReferenceEquals(registered, lifecycle))
+        {
+            _npcTalkLifecycles.Remove(lifecycle.TalkNpc);
+        }
         if (entity.Node.GetParent() == _worldRoot)
             _worldRoot.RemoveChild(entity.Node);
         entity.Node.QueueFree();
