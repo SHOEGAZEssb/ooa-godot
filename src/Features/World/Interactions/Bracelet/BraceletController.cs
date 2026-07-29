@@ -462,7 +462,7 @@ public sealed class BraceletController
             speedRaw);
     }
 
-    private void AdvanceProjectile()
+    internal void AdvanceProjectile()
     {
         if (_object is null || !_object.Thrown)
             return;

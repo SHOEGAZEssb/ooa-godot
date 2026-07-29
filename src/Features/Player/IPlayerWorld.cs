@@ -29,6 +29,7 @@ public interface IPlayerWorld
         bool primaryHeld,
         bool secondaryHeld,
         bool itemButtonJustPressed);
+    void AdvanceBraceletProjectile();
     void InterruptBracelet(Player player, bool discard);
     int TryUseSeedSatchel(Player player);
     int BeginHarp(Player player) => 0;

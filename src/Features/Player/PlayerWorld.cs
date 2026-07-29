@@ -104,6 +104,8 @@ public sealed class PlayerWorld : IPlayerWorld
             primaryHeld,
             secondaryHeld,
             itemButtonJustPressed);
+    public void AdvanceBraceletProjectile() =>
+        _bracelet.AdvanceProjectile();
     public void InterruptBracelet(Player player, bool discard) =>
         _bracelet.Interrupt(player, discard);
     public int TryUseSeedSatchel(Player player) => _seedSatchel.TryUse(player);

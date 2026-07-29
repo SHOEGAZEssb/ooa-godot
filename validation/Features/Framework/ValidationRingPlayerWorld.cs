@@ -51,6 +51,9 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     public bool TrySecondaryInteract(Player player) => false;
     public bool TryUseBracelet(Player player, bool primaryButton) => false;
     public bool UpdateBracelet(Player player, Vector2 movementInput, bool primaryHeld, bool secondaryHeld, bool itemButtonJustPressed) => false;
+    public void AdvanceBraceletProjectile()
+    {
+    }
     public void InterruptBracelet(Player player, bool discard)
     {
     }

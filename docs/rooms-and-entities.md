@@ -539,6 +539,13 @@ offsets, either-button throw, weight-0 8.8 flight, and interruption cleanup.
 set accepts `BREAKABLETILESOURCE_BRACELET`, the replacement tile, drop,
 persistent flags, and stored impact interaction.
 
+Damage interruption mirrors `dropLinkHeldItem`: the held child is released at
+its current height with motionless angle `$ff`, zero lateral speed, and zero
+initial Z speed. It then retains its independent item update while Link's
+knockback or death state owns the player update, so weight gravity begins on
+the next original update instead of waiting for Link to accept item input
+again.
+
 Build the lifted graphic before replacing the room metatile. It is a live
 `itemMimicBgTile` snapshot, so it must retain position mapping overrides,
 animated/dynamic BG tile sources, X/Y flips, and the active room palette while

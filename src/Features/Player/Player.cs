@@ -912,6 +912,10 @@ public partial class Player : Node2D
         }
         if (IsDying)
         {
+            // updateAllObjects continues from Link to ITEM_BRACELET after
+            // linkCancelAllItemUsage/dropLinkHeldItem. Keep the released
+            // child falling while LINK_STATE_DYING owns Link's update.
+            _world.AdvanceBraceletProjectile();
             UpdateDeath(delta);
             return;
         }
@@ -957,6 +961,11 @@ public partial class Player : Node2D
 
         if (_enemyKnockbackFrames > 0.0f)
         {
+            // Damage suppresses Link's ordinary item-input path, but the
+            // released Bracelet item still receives its independent object
+            // update. Angle $ff clears lateral and Z speed; gravity starts on
+            // this update rather than after knockback expires.
+            _world.AdvanceBraceletProjectile();
             ClearShieldParent();
             float frameDelta = (float)delta * 60.0f;
             Vector2 movement = _enemyKnockbackDirection * EnemyKnockbackSpeed * frameDelta;

@@ -2071,6 +2071,77 @@ public sealed partial class ValidationRoot
             "Thrown Bracelet tile's INTERAC_ROCKDEBRIS did not request SND_BREAK_ROCK.");
 
         FailIf(
+            !_currentRoom.ReplaceMetatile(
+                liftPoint, 0xa0, 0x10, (long)_animationTicks),
+            "Could not restore the Bracelet tile for damage-drop validation.");
+        _player.WarpTo(new Vector2(liftPoint.X, liftPoint.Y + 10));
+        _player.Face(Vector2I.Up);
+        FailIf(
+            !_playerWorld.TryUseBracelet(_player, primaryButton: false),
+            "ITEM_BRACELET could not begin the damage-drop validation lift.");
+        for (int frame = 0; frame < 11; frame++)
+        {
+            _playerWorld.UpdateBracelet(
+                _player, Vector2.Down,
+                primaryHeld: false, secondaryHeld: true,
+                itemButtonJustPressed: false);
+        }
+        for (int frame = 0; frame < 13; frame++)
+        {
+            _playerWorld.UpdateBracelet(
+                _player, Vector2.Zero,
+                primaryHeld: false, secondaryHeld: false,
+                itemButtonJustPressed: false);
+        }
+        FailIf(
+            _bracelet.State != BraceletState.Holding ||
+            _bracelet.LiftedObject is null ||
+            !_player.IsCarryingObject,
+            "ITEM_BRACELET did not reach its held state for damage-drop validation.");
+
+        int healthBeforeDamageDrop = _player.HealthQuarters;
+        bool acceptedDamageDrop = _player.ApplyEnemyContactDamage(
+            _player.Position + Vector2.Left * 16, quarters: 1);
+        BraceletLiftedObject? releasedDamageObject = _bracelet.LiftedObject;
+        FailIf(
+            !acceptedDamageDrop ||
+            _player.HealthQuarters != healthBeforeDamageDrop - 1 ||
+            _bracelet.State != BraceletState.Projectile ||
+            releasedDamageObject is not
+                { Thrown: true, SpeedRaw: 0, SpeedZ: 0 } ||
+            releasedDamageObject?.ThrowDirection != Vector2I.Zero ||
+            _player.IsCarryingObject,
+            "Accepted damage did not run dropLinkHeldItem's motionless " +
+            "angle-$ff Bracelet release.");
+        BraceletLiftedObject damageDropped = releasedDamageObject ??
+            throw new InvalidOperationException(
+                "Damage-drop validation lost the released Bracelet tile.");
+        int releasedZ = damageDropped.ZFixed;
+        _player._PhysicsProcess(1.0 / 60.0);
+        FailIf(
+            damageDropped.ZFixed != releasedZ ||
+            damageDropped.SpeedZ != braceletData.Gravity ||
+            _bracelet.State != BraceletState.Projectile,
+            "The damage-released Bracelet tile did not receive its first " +
+            "gravity update while Link's knockback path owned the frame.");
+        _player._PhysicsProcess(1.0 / 60.0);
+        FailIf(
+            damageDropped.ZFixed != releasedZ + braceletData.Gravity ||
+            damageDropped.SpeedZ != braceletData.Gravity * 2,
+            "The damage-released Bracelet tile hovered instead of falling " +
+            "during Link's knockback.");
+        for (int frame = 0;
+             frame < 80 && _bracelet.State != BraceletState.Idle;
+             frame++)
+        {
+            _player._PhysicsProcess(1.0 / 60.0);
+        }
+        FailIf(
+            _bracelet.State != BraceletState.Idle ||
+            _bracelet.LiftedObject is not null,
+            "The damage-released Bracelet tile did not finish falling and break.");
+
+        FailIf(
             RoomEntityManager.ObjectCollisionZOverlaps(
                 targetZ: 0,
                 itemZ: -braceletData.CollisionZRadius,
@@ -2140,6 +2211,7 @@ public sealed partial class ValidationRoot
             "A-button chest priority, terminal unbreakable-wall strain, 11-update pull, " +
             "metatile-mimic lift, 13-update carry pose, weight-0 throw/debris, ground-space " +
             "Y/X plus strict seven-pixel Z enemy collision, " +
+            "damage-release angle $ff with knockback-independent gravity, " +
             "SND_PICKUP/SND_THROW, level-1 SPEED_80/$20 and level-2 " +
             "SPEED_c0/$15 push movement, original Power Glove upgrade, " +
             "and bracelet-required pushblock tile $10.");
