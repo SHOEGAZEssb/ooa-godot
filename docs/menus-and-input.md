@@ -189,6 +189,9 @@ forcing them through the map/inventory sequence.
 - Input begins after the opening fade has completed. A long rendered frame that
   consumes several fixed updates must not also leak an action into the newly
   opened screen.
+- `ApplicationInputBuffer` samples held state for each application-owned update
+  and assigns a just-pressed edge to one update only. Every controller in that
+  update reads the same immutable sample.
 - Start/Select chords are evaluated deliberately so the individual button
   actions do not also fire.
 - Before `GLOBALFLAG_INTRO_DONE` `$0a`, a newly pressed Start, Select, or

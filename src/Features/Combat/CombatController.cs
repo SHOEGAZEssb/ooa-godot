@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -14,6 +15,7 @@ public sealed class CombatController
     private readonly OracleSoundEngine _sound;
     private readonly Func<long> _animationTick;
     private readonly LinkItemDatabase _linkItems;
+    private readonly List<ClinkEffect> _clinkEffects = new();
     private ICombatEffectObserver? _effectObserver;
 
     public CombatController(
@@ -147,6 +149,17 @@ public sealed class CombatController
     internal void SetEffectObserver(ICombatEffectObserver? observer) =>
         _effectObserver = observer;
 
+    internal void AdvanceApplicationUpdate()
+    {
+        for (int index = _clinkEffects.Count - 1; index >= 0; index--)
+        {
+            ClinkEffect effect = _clinkEffects[index];
+            effect.AdvanceApplicationUpdate();
+            if (effect.Finished)
+                _clinkEffects.RemoveAt(index);
+        }
+    }
+
     private void SpawnClinkEffect(Vector2 position, bool flickers)
     {
         var effect = new ClinkEffect
@@ -156,6 +169,8 @@ public sealed class CombatController
         };
         effect.Initialize(position, flickers);
         _worldRoot.AddChild(effect);
+        effect.SetPhysicsProcess(false);
+        _clinkEffects.Add(effect);
         _effectObserver?.OnClinkEffectSpawned(effect);
     }
 

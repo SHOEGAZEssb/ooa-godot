@@ -5,7 +5,10 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class NayruIntroEvent :
-    CutsceneCommandHost, IRoomEvent, ICutsceneCommandHost
+    CutsceneCommandHost,
+    IRoomEvent,
+    IUpdatesDuringDialogueRoomEvent,
+    ICutsceneCommandHost
 {
 
     private readonly RoomEventContext _context;
@@ -374,6 +377,42 @@ internal sealed class NayruIntroEvent :
             case NayruStage.Script:
                 UpdateNayruTimeline();
                 break;
+        }
+    }
+
+    public void UpdateDuringDialogueFrame()
+    {
+        if (_nayruStage == NayruStage.Script)
+        {
+            // @beginFollowingLink set enabled bit 7 on Impa. The later
+            // clearFollowingLinkObject at substate $0d clears only the global
+            // follower slot, so impaAnimateAndRunScript continues its
+            // interactionAnimateBasedOnSpeed call under the intro textboxes.
+            if (_impa is { Active: true } impa)
+                impa.AdvanceAnimationUpdates(1);
+
+            // INTERAC_GHOST_VERAN $3e:$00 sets enabled bit 7 in @subid0Init.
+            // runVeranGhostSubid0 therefore continues its leading
+            // interactionAnimate call while the coordinated script is stopped
+            // by wTextIsActive.
+            if (_nayruActors.TryGetActive("GhostVeran", out NpcCharacter ghost))
+                ghost.AdvanceAnimationUpdates(1);
+        }
+
+        // birdScript_listeningToNayruGameStart sets enabled bit 7 immediately
+        // before TX_3214. While that textbox is active, bird_runSubid0 still
+        // calls interactionAnimateAsNpc and updates the var37-gated hop. The
+        // script unsets bit 7 only after the textbox and ten-update wait.
+        foreach (NayruAudienceTalkState state in _nayruAudienceTalkStates)
+        {
+            if (!state.WaitingForText || !state.Hopping ||
+                !_nayruActors.TryGetActive(state.Actor, out NpcCharacter bird))
+            {
+                continue;
+            }
+
+            bird.AnimateAsNpcOneUpdate(_player);
+            UpdateNayruTalkingBirdHop(state, bird);
         }
     }
 

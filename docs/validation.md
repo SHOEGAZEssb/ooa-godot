@@ -107,3 +107,9 @@ the mismatch can be traced without reproducing it interactively first.
 A validation must remain deterministic under a long rendered frame that causes
 several fixed updates. Avoid tests that pass only because they call private
 steps in an order the game never uses.
+
+The application-scheduler regression compares N calls at `1/60` with one call
+at `N/60`. Its validation-only pipeline must cross modal ownership, portal
+activation, same-pass child creation and removal, pending room-warp dispatch,
+HUD/animation/sequencer order, and held-versus-just-pressed input. Keep its
+audit trace in the validation assembly.

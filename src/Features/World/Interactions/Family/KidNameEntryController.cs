@@ -29,12 +29,12 @@ internal sealed class KidNameEntryController(
         };
         interfaceLayer.AddChild(_screen);
         _screen.ShowNameEntry(0, initialName);
-        _openedFrame = Engine.GetProcessFrames();
+        _openedFrame = Input.TimingFrame;
     }
 
     public void Update()
     {
-        if (_screen is null || Engine.GetProcessFrames() == _openedFrame)
+        if (_screen is null || Input.TimingFrame == _openedFrame)
             return;
 
         Vector2I movement = Vector2I.Zero;

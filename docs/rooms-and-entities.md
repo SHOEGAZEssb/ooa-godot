@@ -65,7 +65,10 @@ retires them. Fairies' Woods room `$0:$82` uses this path for discovered
 An object may update during a transition only when the original explicitly does
 so. The retained Impa follower is one such behavior: it receives a separate
 transition update path instead of allowing accumulated ordinary event time to
-drain after the scroll.
+drain after the scroll. Her room `$0:$59` stone reaction clears both the global
+following slot and the interaction's always-update bit, so dialogue in that
+sequence must not replay the stale follower path; both are restored only when
+the post-stone script returns to following.
 
 The transition controller supplies draw offsets and updates the room camera.
 Logical room coordinates stay in their original space. At completion, rebuild
@@ -270,6 +273,17 @@ runs only when no NPC target exists. Chest/sign/tile probing remains later,
 matching Link's source handler. Registrations define priority only; Fairies'
 Woods, shops, story actors, and typed scripts retain their own update and
 room-change cancellation state machines.
+
+Event-owned native interactions may toggle their textbox-update bit from a
+script rather than carrying it for their whole lifetime. Room `$0:$39`'s
+`INTERAC_BIRD` sets bit 7 only after Link talks to it, so its
+`interactionAnimateAsNpc` frames and repeating hop continue during TX `$3214`;
+the other audience interactions remain frozen during their textboxes. In the
+later possession sequence, follower Impa retains the bit after
+`clearFollowingLinkObject` clears only the global follower slot, and
+`INTERAC_GHOST_VERAN $3e:$00` sets it during initialization. Their animation
+handlers therefore continue under the intro textboxes. Nayru, Ralph, Human
+Veran, and the aftermath actors do not opt in and remain frozen.
 
 ## Entity contracts
 

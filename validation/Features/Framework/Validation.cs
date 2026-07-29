@@ -19,6 +19,10 @@ public sealed partial class ValidationRoot : GameRoot
         _sound.AttachPlayRequestAudit();
         _combatEffectAudit = new ValidationCombatEffectAudit();
         _combat.SetEffectObserver(_combatEffectAudit);
+        // Validation advances component entry points synchronously rather than
+        // through GameRoot's live application scheduler.
+        _player.ApplicationUpdateOwned = false;
+        _dialogue.ApplicationUpdateOwned = false;
         ResetValidationInput();
         _scene.ProcessMode = ProcessModeEnum.Disabled;
     }
@@ -88,6 +92,7 @@ public sealed partial class ValidationRoot : GameRoot
     private void ValidateAll()
     {
         ValidateGameplaySceneGraph();
+        ValidateApplicationFixedUpdateScheduler();
         ValidateGeneratedTableReader();
         ValidateMenuLifecycleFoundation();
         _world.ValidateRepresentativeRooms();

@@ -133,6 +133,7 @@ public partial class OracleSoundEngine : Node
     private int _masterVolume = 7;
     private int _musicVolume = 3;
     private double _highPassCapacitor;
+    internal bool ApplicationUpdateOwned { get; set; }
 
     public int ActiveMusic { get; private set; }
     public bool Disabled { get; private set; }
@@ -191,14 +192,19 @@ public partial class OracleSoundEngine : Node
 
     public override void _Process(double delta)
     {
-        _updateTicks += delta * UpdatesPerSecond;
-        while (_updateTicks >= 1.0)
+        if (!ApplicationUpdateOwned)
         {
-            Tick();
-            _updateTicks -= 1.0;
+            _updateTicks += delta * UpdatesPerSecond;
+            while (_updateTicks >= 1.0)
+            {
+                Tick();
+                _updateTicks -= 1.0;
+            }
         }
         FillAudioBuffer();
     }
+
+    internal void AdvanceApplicationUpdate() => Tick();
 
     public void PlayRoomMusic(int group, int room)
     {

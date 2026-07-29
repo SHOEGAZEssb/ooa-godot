@@ -81,6 +81,7 @@ public partial class DialogueBox : Node2D
     internal event Action? HeartPieceSetAccepted;
 
     public bool IsOpen => _open;
+    internal bool ApplicationUpdateOwned { get; set; }
     public bool BlocksPlayerInput => _open || _consumeClosingInput;
     public int MessageSpeed
     {
@@ -222,7 +223,7 @@ public partial class DialogueBox : Node2D
         _segmentIndex = 0;
         _firstLineIndex = 0;
         _visibleGlyphs = 0;
-        _openedFrame = Engine.GetProcessFrames();
+        _openedFrame = Input.TimingFrame;
         _open = true;
         _consumeClosingInput = false;
         _scrollingText = false;
@@ -338,6 +339,15 @@ public partial class DialogueBox : Node2D
 
     public override void _Process(double delta)
     {
+        if (!ApplicationUpdateOwned)
+            Advance(delta);
+    }
+
+    internal void AdvanceApplicationUpdate() =>
+        Advance(ApplicationFixedUpdateScheduler.UpdateDelta);
+
+    private void Advance(double delta)
+    {
         if (_consumeClosingInput &&
             !Input.IsActionPressed("attack") && !Input.IsActionPressed("item"))
         {
@@ -372,7 +382,7 @@ public partial class DialogueBox : Node2D
         QueueRedraw();
         if (_passive)
             return;
-        if (Engine.GetProcessFrames() == _openedFrame ||
+        if (Input.TimingFrame == _openedFrame ||
             (!Input.IsActionJustPressed("attack") && !Input.IsActionJustPressed("item") &&
              !Input.IsActionJustPressed("move_left") && !Input.IsActionJustPressed("move_right") &&
              !Input.IsActionJustPressed("move_up") && !Input.IsActionJustPressed("move_down")))

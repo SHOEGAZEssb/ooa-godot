@@ -32,6 +32,8 @@ public partial class ClinkEffect : Node2D
 
     internal void AdvanceForValidation(double delta) => Advance(delta);
     internal void AdvanceFrameForEntityManager() => Advance(1.0 / 60.0, false);
+    internal void AdvanceApplicationUpdate() =>
+        Advance(ApplicationFixedUpdateScheduler.UpdateDelta);
 
     private void Advance(double delta, bool queueFree = true)
     {

@@ -345,6 +345,7 @@ public partial class Player : Node2D
     }
 
     public event Action? GameOverRequested;
+    internal bool ApplicationUpdateOwned { get; set; }
 
     internal void Initialize(
         IPlayerWorld world,
@@ -880,6 +881,20 @@ public partial class Player : Node2D
     }
 
     public override void _PhysicsProcess(double delta)
+    {
+        if (!ApplicationUpdateOwned)
+            AdvancePhysics(delta);
+    }
+
+    internal void AdvanceApplicationUpdate()
+    {
+        if (IsPhysicsProcessing())
+            AdvancePhysics(ApplicationFixedUpdateScheduler.UpdateDelta);
+        if (IsProcessing())
+            AdvanceItems(ApplicationFixedUpdateScheduler.UpdateDelta);
+    }
+
+    private void AdvancePhysics(double delta)
     {
         _pushing = false;
         if (_floorDoorRespawnCounter != 0)
@@ -1527,6 +1542,12 @@ public partial class Player : Node2D
     }
 
     public override void _Process(double delta)
+    {
+        if (!ApplicationUpdateOwned)
+            AdvanceItems(delta);
+    }
+
+    private void AdvanceItems(double delta)
     {
         if (_enemyInvincibilityFrames > 0.0f)
         {

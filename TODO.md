@@ -304,7 +304,7 @@ NPC- and enemy-specific findings remain in their sections above.
 
 ### Update order and original arithmetic
 
-- [ ] Replace the independent subsystem catch-up loops with one
+- [x] Replace the independent subsystem catch-up loops with one
   application-owned 60-update scheduler.
   - `GameRoot._Process` currently updates transitions, entities, room events,
     interactions, the HUD, and animated tiles in subsystem-sized batches, and
@@ -322,6 +322,15 @@ NPC- and enemy-specific findings remain in their sections above.
     proving that `N` calls at `1/60` and one call at `N/60` produce identical
     state through a portal start, child spawn/death, room warp, menu boundary,
     and held-versus-pressed input.
+  - Completed with `ApplicationFixedUpdateScheduler` as the sole live delta
+    consumer. `GameRoot` now replays Link movement/items, transitions, room
+    object lifetimes and warp dispatch, events/interactions, HUD/dialogue/tile
+    animation, and one audio sequencer tick before starting the next update.
+    `ApplicationInputBuffer` gives all readers one immutable sample and clears
+    pressed edges after their owning update. The validation-only integration
+    trace proves split and batched host calls remain identical across the
+    listed portal, child, warp, modal, presentation, audio, and input
+    boundaries.
 
 - [x] Make original object movement math one game-wide service rather than an
   enemy-only repair.

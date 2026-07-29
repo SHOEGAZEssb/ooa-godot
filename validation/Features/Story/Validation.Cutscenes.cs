@@ -1577,6 +1577,7 @@ public sealed partial class ValidationRoot
             "SPEED_080 movedown $20, MUS_FAIRY_FOUNTAIN volume 3, room flag $40, " +
             "animations $00-$03, single-copy " +
             "always-update scroll following, transition-end 16-entry follower-path rebuild, " +
+            "stone-trigger following-slot detachment during TX_0104-$0109 dialogue, " +
             "room 0:39's seven-actor intro gathering during follow, clean leave/re-entry " +
             "recreation, and placed-Impa suppression when the follower returns.");
     }
@@ -1950,6 +1951,12 @@ public sealed partial class ValidationRoot
             _player.FacingVector != Vector2I.Down || _player.IsPushing,
             "Impa's right-push 4+65+120 response, SPEED_100 move, " +
             "cfd0=$07 Link pose reset, or TX_0109 timing stalled.");
+        Vector2 thanksPosition = follower.Position;
+        impaEvent.UpdateDuringDialogueFrame();
+        FailIf(
+            follower.Position != thanksPosition,
+            "TX_0109 replayed the detached following-Link path and teleported Impa " +
+            $"from {thanksPosition} to {follower.Position} while dialogue was open.");
         _dialogue.Close();
         int finishUpdates = 0;
         bool sawUpFacingFinalMove = false;
@@ -3565,10 +3572,27 @@ public sealed partial class ValidationRoot
             bird.CurrentScriptAnimationSource != nayruDatabase.Actor("Bird").Animation(2),
             "The intro bird did not route TX_3214 through normal NPC interaction or select " +
             "its cplinkx+$02 left-facing talk animation.");
+        int birdTalkAnimationFrame = bird.CurrentAnimationFrame;
+        Vector2 birdInitialHopOffset = bird.ScriptDrawOffset;
+        Dictionary<string, int> frozenBirdListenerFrames = actors
+            .Where(pair => pair.Key != "Bird")
+            .ToDictionary(pair => pair.Key, pair => pair.Value.CurrentAnimationFrame);
+        for (int update = 0; update < 9; update++)
+            nayruIntro.UpdateDuringDialogueFrame();
+        FailIf(
+            bird.CurrentAnimationFrame != birdTalkAnimationFrame ||
+            bird.ScriptDrawOffset == birdInitialHopOffset,
+            "The intro bird did not retain animation $02's first $0a-update frame " +
+            "while its always-update talk hop continued under TX_3214.");
         StepRoomEventFrames(1);
         FailIf(
-            bird.ScriptDrawOffset.Y >= 0,
-            "The intro bird did not begin its repeating -$00c0/$0020 talk hop.");
+            bird.CurrentAnimationFrame == birdTalkAnimationFrame ||
+            bird.ScriptDrawOffset.Y >= 0 ||
+            frozenBirdListenerFrames.Any(pair =>
+                actors[pair.Key].CurrentAnimationFrame != pair.Value),
+            "The intro bird did not advance animation $02 after $0a textbox updates " +
+            "while continuing its repeating -$00c0/$0020 talk hop, or another room " +
+            "actor advanced without a source always-update bit.");
         _dialogue.Close();
         StepRoomEventFrames(1);
         FailIf(
@@ -3711,11 +3735,15 @@ public sealed partial class ValidationRoot
         bool sawVignetteRestartSilence = false;
         bool sawDisasterMusic = false;
         bool sawSadnessMusic = false;
+        bool checkedImpaTextboxAnimation = false;
+        bool checkedGhostTextboxAnimation = false;
         string swordMessage = DialogueBox.PlainText(nayruDatabase.Text(0x001c).Message);
         string nayruGreeting = DialogueBox.PlainText(nayruDatabase.Text(0x1d00).Message);
         string nayruSecondGreeting = DialogueBox.PlainText(nayruDatabase.Text(0x1d22).Message);
         string ralphIntroduction = DialogueBox.PlainText(nayruDatabase.Text(0x2a00).Message);
         string ralphReply = DialogueBox.PlainText(nayruDatabase.Text(0x2a22).Message);
+        string impaRevealSpeech = DialogueBox.PlainText(nayruDatabase.Text(0x5600).Message);
+        string ghostThreat = DialogueBox.PlainText(nayruDatabase.Text(0x5602).Message);
         string veranAgeSpeech = DialogueBox.PlainText(nayruDatabase.Text(0x5605).Message);
         string nayruDownAnimation = nayruDatabase.Actor("Nayru").Animation(2);
         string impaRevealAnimation = nayruDatabase.Actor("AftermathImpa").Animation(4);
@@ -3758,6 +3786,59 @@ public sealed partial class ValidationRoot
                 listeningNayru.CurrentScriptAnimationSource == nayruDownAnimation)
             {
                 sawNayruStopSingingForRalph = true;
+            }
+            if (!checkedImpaTextboxAnimation &&
+                _dialogue.IsOpen &&
+                _dialogue.CurrentMessage == impaRevealSpeech &&
+                currentActors.TryGetValue("Impa", out NpcCharacter? textboxImpa))
+            {
+                int impaFrame = textboxImpa.CurrentAnimationFrame;
+                bool impaAdvanced = false;
+                Dictionary<string, int> frozenFrames = new();
+                foreach (string name in new[]
+                         {
+                             "Nayru", "Ralph", "Bear", "Monkey", "Rabbit", "Boy", "Bird"
+                         })
+                {
+                    if (currentActors.TryGetValue(name, out NpcCharacter? actor) &&
+                        actor.Active)
+                    {
+                        frozenFrames.Add(name, actor.CurrentAnimationFrame);
+                    }
+                }
+                for (int update = 0; update < 60; update++)
+                {
+                    nayruIntro.UpdateDuringDialogueFrame();
+                    impaAdvanced |= textboxImpa.CurrentAnimationFrame != impaFrame;
+                }
+                FailIf(
+                    !impaAdvanced ||
+                    frozenFrames.Any(pair =>
+                        currentActors[pair.Key].CurrentAnimationFrame != pair.Value),
+                    "Follower Impa did not retain enabled bit 7 and animate under TX_5600, " +
+                    "or a Nayru/audience actor without that bit advanced with the textbox.");
+                checkedImpaTextboxAnimation = true;
+            }
+            if (!checkedGhostTextboxAnimation &&
+                _dialogue.IsOpen &&
+                _dialogue.CurrentMessage == ghostThreat &&
+                currentActors.TryGetValue("GhostVeran", out NpcCharacter? textboxGhost))
+            {
+                int ghostFrame = textboxGhost.CurrentAnimationFrame;
+                int nayruFrame = currentActors["Nayru"].CurrentAnimationFrame;
+                int ralphFrame = currentActors["Ralph"].CurrentAnimationFrame;
+                bool ghostAdvanced = false;
+                nayruIntro.UpdateDuringDialogueFrame();
+                ghostAdvanced |= textboxGhost.CurrentAnimationFrame != ghostFrame;
+                nayruIntro.UpdateDuringDialogueFrame();
+                ghostAdvanced |= textboxGhost.CurrentAnimationFrame != ghostFrame;
+                FailIf(
+                    !ghostAdvanced ||
+                    currentActors["Nayru"].CurrentAnimationFrame != nayruFrame ||
+                    currentActors["Ralph"].CurrentAnimationFrame != ralphFrame,
+                    "INTERAC_GHOST_VERAN $3e:$00 did not animate through TX_5602's " +
+                    "textbox updates, or Nayru/Ralph advanced without enabled bit 7.");
+                checkedGhostTextboxAnimation = true;
             }
             if (currentActors.TryGetValue("Impa", out NpcCharacter? revealingImpa) &&
                 revealingImpa.Active &&
@@ -3931,6 +4012,7 @@ public sealed partial class ValidationRoot
             !sawStaticFallenRalph || !sawLinkFaceNayru || !sawLinkFaceNayruSecond ||
             !sawLinkFaceRalph || !sawLinkFaceImpaAfterReveal ||
             !sawNeutralLinkDuringVeranSpeech ||
+            !checkedImpaTextboxAnimation || !checkedGhostTextboxAnimation ||
             !sawNayruStopSingingForRalph ||
             !sawRalphAirborne || nayruTrace.Count("RalphJump") != 2 ||
             !sawDarkPalette || !nayruTrace.Saw("DarkPalette") ||
@@ -3969,6 +4051,8 @@ public sealed partial class ValidationRoot
             $"faces={sawLinkFaceNayru}/{sawLinkFaceNayruSecond}/" +
             $"{sawLinkFaceRalph}/{sawLinkFaceImpaAfterReveal}, " +
             $"neutralLink={sawNeutralLinkDuringVeranSpeech}, " +
+            $"textboxActors={checkedImpaTextboxAnimation}/" +
+            $"{checkedGhostTextboxAnimation}, " +
             $"boy={sawBoyShockDoubleCadence}/{sawBoyEscapeNormalCadence}/" +
             $"{nayruTrace.Saw("BoyEscapeStarted")}/{nayruTrace.Saw("BoyEscaped")}" +
             $", track={ghostTrackingPhases:x2}:" +
@@ -4020,7 +4104,8 @@ public sealed partial class ValidationRoot
         _roomEvents.CommandTraceSink = null;
         GD.Print("Validated room 0:39's pre-GLOBALFLAG_INTRO_DONE $6b:$01 audience, " +
             "$01/$02/$04/$08/$10 talk mask, cplinkx/turnToFaceLink talk facings, bird " +
-            "$02/$03 hop and exact pose resets, bear room flag $80 movement, $60/$3e trigger, " +
+            "$02/$03 hop, bit-7 textbox animation, and exact pose resets, " +
+            "bear room flag $80 movement, $60/$3e trigger, " +
             "solid dynamic actors and outgoing scrolling, visible singing notes, 120/30/600 " +
             "timing, imported singing OAM and 40-pixel scroll, opposing SPEED_60 notes, all " +
             "Link/Nayru/Ralph/Impa dialogue, neutral Link holds after translated movement, " +

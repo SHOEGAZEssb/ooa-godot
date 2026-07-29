@@ -68,7 +68,7 @@ folder moves do not change runtime identity or Godot script bindings.
 
 | Owner | Responsibility |
 | --- | --- |
-| `GameRoot` | Composition, top-level update order, menu/intro handoff, and HUD synchronization |
+| `GameRoot` | Composition, the application-owned 60 Hz scheduler and input snapshot, menu/intro handoff, and HUD synchronization |
 | `RoomSession` | Active group/room, room data, layout state, and neighbor resolution |
 | `OracleWorldData` and `BackgroundPaletteState` | Cached room assets and the eight live gameplay BG palette slots shared by rooms, dialogue, and palette effects |
 | `RoomTransitionController` | Scrolling, warps, destination placement, fades, camera, and time portals |
@@ -96,25 +96,43 @@ do not rescan a changed entity collection.
 
 ## Update order
 
-`GameRoot._Process` establishes observable ordering:
+`GameRoot._Process` feeds host time and one buffered input sample to
+`ApplicationFixedUpdateScheduler`. Each consumed update replays the complete
+observable order before another update can begin:
 
 1. Title/file-select or new-game intro, when active.
 2. New-game arrival presentation.
 3. Debug flag menu, inventory, map, or a gameplay-owned modal menu.
-4. Room transition state.
-5. Death checkpoints and room entities, unless the time-warp mode freezes them.
-6. Room events, or the time-warp-safe room-event subset.
-7. Ordinary interactions.
-8. Animated room tiles and development displays.
+4. Link's special-object movement/hazard pass and item-parent pass.
+5. Moving blocks/key doors, followed by room transition state.
+6. Death checkpoints and room entities, including contacts, same-update child
+   spawns, removals, and pending warp dispatch, unless time-warp freezes them.
+7. Scheduler-owned combat/terrain effects, room events or their time-warp-safe
+   subset, then ordinary interactions.
+8. Harp children, HUD counters, animated room tiles, development displays, and
+   dialogue.
+9. One persistent music/SFX sequencer tick.
 
 Changing this order is a gameplay change. Contacts can start transitions,
 scripts can observe entity state, and the original disable masks take effect at
 specific handler boundaries. Document and validate any intentional change.
 
-Gameplay systems consume rendered delta through fixed-update accumulators at 60
-updates per second when the original advances once per frame. A long host frame
-may execute multiple original updates, but each update retains deterministic
-ordering. Presentation-only interpolation must not advance gameplay counters.
+Only the application scheduler consumes rendered delta for live gameplay. A
+long host frame may execute multiple original updates, but it completes the
+entire order above for update N before starting update N+1. Component delta
+entry points remain for focused validation and always receive one fixed update
+from production. Godot callbacks on Link, dialogue, movable blocks, key doors,
+terrain/combat effects, and the sequencer are disabled or presentation-only
+while application ownership is active.
+
+`ApplicationInputBuffer` retains a host edge until an original update consumes
+it. Every reader in that update sees the same immutable held/pressed sample;
+later catch-up updates retain held state but cannot see the consumed
+just-pressed edge. Opening-frame suppression uses the original-update serial,
+not the rendered-frame counter. The buffer samples only actions currently
+registered in `InputMap`: gameplay-scoped debug controllers install F1-F3
+actions when gameplay is created, so title and file-select frames treat those
+not-yet-registered actions as inactive without querying Godot for them.
 
 ## Coordinate and presentation boundaries
 

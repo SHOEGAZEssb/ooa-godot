@@ -6,6 +6,9 @@ namespace oracleofages;
 
 public partial class GameRoot : Node2D
 {
+    private readonly ApplicationFixedUpdateScheduler _applicationUpdates = new();
+    private readonly ApplicationInputBuffer _applicationInput = new();
+
     // Internal aliases and state form the narrow host surface used by the
     // friend validation assembly. Production transition state remains owned
     // by RoomTransitionController.
@@ -120,6 +123,7 @@ public partial class GameRoot : Node2D
             GetNodeOrNull<OracleSoundEngine>("SoundEngine") ??
             throw new InvalidOperationException(
                 "The game scene is missing its required SoundEngine node.");
+        _sound.ApplicationUpdateOwned = true;
 
         if (_launchOptions.ShowMainMenu)
         {
@@ -216,6 +220,7 @@ public partial class GameRoot : Node2D
                 ZIndex = 200
             };
             AddChild(_newGameIntroScreen);
+            _newGameIntroScreen.Dialogue.ApplicationUpdateOwned = true;
             _newGameIntroScreen.Dialogue.MessageSpeed = save.TextSpeed;
             _newGameIntro = new NewGameIntroController(
                 _newGameIntroScreen,
@@ -300,6 +305,8 @@ public partial class GameRoot : Node2D
                 $"Could not load gameplay scene {GameSceneGraph.ScenePath}.");
         _scene = gameplayScene.Instantiate<GameSceneGraph>();
         AddChild(_scene);
+        _dialogue.ApplicationUpdateOwned = true;
+        _player.ApplicationUpdateOwned = true;
         _dialogue.SetSoundPlayer(_sound.PlaySound);
         _dialogue.SetBackgroundPaletteState(_rooms.World.BackgroundPalettes);
         _dialogue.SetAlternatePalettePriorityHandler(
@@ -379,6 +386,27 @@ public partial class GameRoot : Node2D
 
     public override void _Process(double delta)
     {
+        _applicationInput.CaptureHostFrame();
+        _applicationUpdates.Advance(delta, AdvanceApplicationUpdate);
+    }
+
+    private void AdvanceApplicationUpdate()
+    {
+        Input.BeginOriginalUpdate(_applicationInput.ConsumeOriginalUpdate());
+        try
+        {
+            AdvanceApplicationState();
+            _sound.AdvanceApplicationUpdate();
+        }
+        finally
+        {
+            Input.EndOriginalUpdate();
+        }
+    }
+
+    private void AdvanceApplicationState()
+    {
+        const double delta = ApplicationFixedUpdateScheduler.UpdateDelta;
         if (_mainMenu is not null)
         {
             _mainMenu.Update(delta);
@@ -387,10 +415,26 @@ public partial class GameRoot : Node2D
         if (_newGameIntro is not null)
         {
             _newGameIntro.Update(delta);
+            _newGameIntroScreen?.Dialogue.AdvanceApplicationUpdate();
             return;
         }
         if (_transitions is null)
             return;
+
+        DialogueBox dialogue = _dialogue;
+        try
+        {
+            AdvanceGameplayState(delta);
+        }
+        finally
+        {
+            if (GodotObject.IsInstanceValid(dialogue))
+                dialogue.AdvanceApplicationUpdate();
+        }
+    }
+
+    private void AdvanceGameplayState(double delta)
+    {
         AdvanceDebugSavestateStatus(delta);
         if (UpdateNewGameArrival(delta))
             return;
@@ -422,6 +466,16 @@ public partial class GameRoot : Node2D
             _interactions.Update(delta, _player);
             return;
         }
+
+        // updateAllObjects begins with updateSpecialObjects (Link), followed by
+        // item parents. Link's former physics/process split is therefore
+        // replayed here before enemies, parts, and interactions.
+        _player.AdvanceApplicationUpdate();
+        if (!IsTransitioning)
+        {
+            _pushBlocks.Advance(delta);
+            _keyDoors.Advance(delta);
+        }
         _transitions.Update(delta);
         if (!_transitions.TimeWarpActive)
         {
@@ -430,6 +484,11 @@ public partial class GameRoot : Node2D
                 _entities.UpdateDuringHarp(delta, _player);
             else
                 _entities.Update(delta, _player);
+            if (!IsTransitioning)
+            {
+                _combat.AdvanceApplicationUpdate();
+                _terrain.AdvanceApplicationUpdate();
+            }
         }
         // A portal can begin the time warp from the contact pass above. The
         // original DISABLE_ALL_BUT_INTERACTIONS|DISABLE_LINK state freezes
@@ -530,6 +589,7 @@ public partial class GameRoot : Node2D
             Name = "PushBlock"
         };
         _scene.WorldRoot.AddChild(_pushBlocks);
+        _pushBlocks.SetPhysicsProcess(false);
         _keyDoors = new DungeonKeyDoorController(
             _rooms, _inventory, _entities, _treasures,
             () => (long)_animationTicks, _sound.PlaySound)
@@ -537,6 +597,7 @@ public partial class GameRoot : Node2D
             Name = "DungeonKeyDoors"
         };
         _scene.WorldRoot.AddChild(_keyDoors);
+        _keyDoors.SetPhysicsProcess(false);
         _keyholes = new OverworldKeyholeController(
             _rooms, _inventory, _entities, new OverworldKeyholeDatabase(),
             _sound.PlaySound)

@@ -44,6 +44,7 @@ internal sealed class ImpaIntroEvent :
     private bool _linkMovesXFirst;
     private bool _pushedRight;
     private bool _waitingNpcInitialized;
+    private bool _followingLinkObjectActive;
     private Vector2I _followerScrollDirection;
 
     public ImpaIntroEvent(RoomEventContext context)
@@ -69,9 +70,14 @@ internal sealed class ImpaIntroEvent :
     internal bool Following => _stage == ImpaIntroEventStage.Following;
     internal bool HelpWaitingAtEdge => _helpStage == HelpStage.WaitingAtEdge;
     internal bool UpdatesDuringTransition =>
-        Following && _context.Transitions.ScrollActive && _resetFollowerAfterScroll;
+        _followingLinkObjectActive &&
+        _context.Transitions.ScrollActive &&
+        _resetFollowerAfterScroll;
     internal bool CanTransferFollowing =>
-        Following && _context.Transitions.ScrollActive && _followRoom is not null && Actor is not null;
+        _followingLinkObjectActive &&
+        _context.Transitions.ScrollActive &&
+        _followRoom is not null &&
+        Actor is not null;
     internal int Counter => _stage == ImpaIntroEventStage.WaitingForScript
         ? _encounterRunner.Counter
         : _helpRunner.Active ? _helpRunner.Counter
@@ -220,15 +226,19 @@ internal sealed class ImpaIntroEvent :
             UpdateHelpFrame(Input.IsActionPressed("move_up"));
     }
 
-    public void UpdateFollower() => UpdateFollowingActor(_context.Player.Position);
+    public void UpdateFollower()
+    {
+        if (_followingLinkObjectActive)
+            UpdateFollowingActor(_context.Player.Position);
+    }
 
     public void UpdateDuringDialogueFrame()
     {
-        // interactionSetAlwaysUpdateBit is reached only when Impa begins
-        // following Link. Her earlier encounter and stone scripts therefore
-        // remain in the ordinary wTextIsActive-suppressed dispatcher.
-        if (Following)
-            UpdateFollower();
+        // interactionSetAlwaysUpdateBit applies only while Impa owns the
+        // global following-Link slot. Approaching the Triforce stone clears
+        // both before its scripted dialogue; @beginFollowingLink restores
+        // them only after impaScript_rockJustMoved ends.
+        UpdateFollower();
     }
 
     public void UpdateDuringTransition() =>
@@ -290,6 +300,7 @@ internal sealed class ImpaIntroEvent :
     {
         if (_stage == ImpaIntroEventStage.Following)
             _stage = ImpaIntroEventStage.None;
+        _followingLinkObjectActive = false;
         _stonePrePushRunner.Clear();
         _stonePostPushRunner.Clear();
         _stoneSignal = 0;
@@ -305,6 +316,7 @@ internal sealed class ImpaIntroEvent :
         StoneActor = null;
         _followRoom = null;
         _resetFollowerAfterScroll = false;
+        _followingLinkObjectActive = false;
         _encounterRunner.Clear();
         _helpRunner.Clear();
         _stonePrePushRunner.Clear();
@@ -614,6 +626,10 @@ internal sealed class ImpaIntroEvent :
     {
         ImpaStoneActorRecord stone = _stoneRecord.Actor;
         ImpaStoneTimingRecord timing = _stoneRecord.Timing;
+        // impaSubid0 substate 1 clears wFollowingLinkObject and enabled bit 7
+        // when the stone reaction begins. The high-level event remains in its
+        // retained Following stage so the same Impa actor can resume later.
+        _followingLinkObjectActive = false;
         _context.Player.BeginCutsceneControl();
         _context.Player.Face(DirectionToward(_context.Player.Position,
             new Vector2(stone.TargetX, stone.TargetY)));
@@ -1300,6 +1316,7 @@ internal sealed class ImpaIntroEvent :
         _linkPathIndex = 0;
         _followRoom = _context.Rooms.CurrentRoom;
         _stage = ImpaIntroEventStage.Following;
+        _followingLinkObjectActive = true;
     }
 
     private void UpdateFollowingActor(Vector2 linkPosition)

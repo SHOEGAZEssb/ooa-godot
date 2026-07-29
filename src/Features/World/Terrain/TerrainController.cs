@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -14,9 +15,10 @@ public sealed class TerrainController
     private readonly SideScrollPlayerDatabase _sideScroll;
     private readonly Func<Vector2, int> _adjacentWallsBitset;
     private readonly Action<int> _playSound;
-    private SplashEffect? _activeSplash;
+    private readonly List<SplashEffect> _splashes = new();
 
-    internal SplashEffect? ActiveSplash => _activeSplash;
+    internal SplashEffect? ActiveSplash =>
+        _splashes.Count == 0 ? null : _splashes[^1];
     internal byte CurrentTilesetFlags => _rooms.CurrentRoom.TilesetFlags;
     internal SideScrollPlayerParameters SideScrollParameters =>
         _sideScroll.Parameters;
@@ -158,10 +160,23 @@ public sealed class TerrainController
     {
         if (hazard is not (HazardType.Water or HazardType.Lava))
             throw new ArgumentOutOfRangeException(nameof(hazard));
-        _activeSplash = new SplashEffect { ZIndex = 11 };
-        _activeSplash.Initialize(position, hazard);
-        _worldRoot.AddChild(_activeSplash);
+        var splash = new SplashEffect { ZIndex = 11 };
+        splash.Initialize(position, hazard);
+        _worldRoot.AddChild(splash);
+        splash.SetPhysicsProcess(false);
+        _splashes.Add(splash);
         _playSound(OracleSoundEngine.SndSplash);
+    }
+
+    internal void AdvanceApplicationUpdate()
+    {
+        for (int index = _splashes.Count - 1; index >= 0; index--)
+        {
+            SplashEffect splash = _splashes[index];
+            splash.UpdateFrame();
+            if (splash.Finished)
+                _splashes.RemoveAt(index);
+        }
     }
 
     private bool IsCliffProbe(

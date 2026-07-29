@@ -172,11 +172,13 @@ public partial class TimeWarpEffect : Node2D
         QueueEffectRedraw();
     }
 
-    internal void ContinueAfterTransition(int globalFrame)
+    internal void ContinueAfterTransition(
+        int globalFrame,
+        bool applicationUpdateOwned = false)
     {
         _globalFrame = globalFrame;
         _autoAdvance = true;
-        SetProcess(true);
+        SetProcess(!applicationUpdateOwned);
     }
 
     internal void StopImmediately()
@@ -202,6 +204,23 @@ public partial class TimeWarpEffect : Node2D
             _autoAdvance = false;
             QueueFree();
         }
+    }
+
+    internal bool AdvanceApplicationUpdate()
+    {
+        if (!_autoAdvance)
+            return false;
+        AdvanceFrame(++_globalFrame);
+        if (_primary is not null || _beam is not null ||
+            _particles.Count != 0 || _trailAnimator is not null ||
+            _trailMoving || _sparkles.Count != 0)
+        {
+            return true;
+        }
+
+        _autoAdvance = false;
+        QueueFree();
+        return false;
     }
 
     public override void _ExitTree()

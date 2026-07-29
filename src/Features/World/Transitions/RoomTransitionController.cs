@@ -83,6 +83,7 @@ public sealed class RoomTransitionController
     private bool _timeWarpUsesIndoorBeamPalette;
     private bool _createTimePortalAtDestination;
     private TimeWarpEffect? _timeWarpEffect;
+    private readonly List<TimeWarpEffect> _continuingTimeWarpEffects = new();
     private readonly Dictionary<CanvasItem, Material?> _dissolvedItems = new();
     private ShaderMaterial? _dissolveMaterial;
 
@@ -161,6 +162,7 @@ public sealed class RoomTransitionController
     {
         UpdateWarp(delta);
         UpdateScroll(delta);
+        UpdateContinuingTimeWarpEffects();
         UpdateCamera();
     }
 
@@ -961,7 +963,13 @@ public sealed class RoomTransitionController
         _deathRespawnPoints.RecordWarpDestination(_pendingWarp.DestinationTransition);
         if (finishedTimeWarp)
         {
-            _timeWarpEffect?.ContinueAfterTransition(_timeWarpGlobalFrame);
+            if (_timeWarpEffect is not null)
+            {
+                _timeWarpEffect.ContinueAfterTransition(
+                    _timeWarpGlobalFrame,
+                    applicationUpdateOwned: true);
+                _continuingTimeWarpEffects.Add(_timeWarpEffect);
+            }
             _timeWarpEffect = null;
             EndTimeWarpDissolve();
             _roomView.ClearBackgroundFade();
@@ -1001,6 +1009,17 @@ public sealed class RoomTransitionController
             Name = source ? "TimeWarpSourceEffect" : "TimeWarpArrivalEffect"
         };
         _player.GetParent().AddChild(_timeWarpEffect);
+    }
+
+    private void UpdateContinuingTimeWarpEffects()
+    {
+        for (int index = _continuingTimeWarpEffects.Count - 1;
+            index >= 0;
+            index--)
+        {
+            if (!_continuingTimeWarpEffects[index].AdvanceApplicationUpdate())
+                _continuingTimeWarpEffects.RemoveAt(index);
+        }
     }
 
     private void BeginTimeWarpDissolve()
