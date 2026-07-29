@@ -13,6 +13,7 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
     private int _angle;
     private bool _initialized;
     private bool _boomerangReturned;
+    private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal BoomerangMoblinCharacterMoblinState State => _state;
@@ -92,7 +93,8 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
     {
         // @gotoState8WithRandomAngleAndCounter calls getRandomNumber for the
         // duration, then ecom_setRandomCardinalAngle consumes a second value.
-        _counter = 0x30 + (_random.Next().Value & 0x03) * 0x10;
+        _counter = _behavior.BoomerangMoblinRouteCounters[
+            _random.Next().Value & 0x03].Value;
         _angle = _random.Next().Value & 0x18;
         _state = BoomerangMoblinCharacterMoblinState.Moving;
         SetAnimation(_angle >> 3);

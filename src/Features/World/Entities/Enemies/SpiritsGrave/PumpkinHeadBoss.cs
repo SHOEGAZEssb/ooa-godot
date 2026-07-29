@@ -83,6 +83,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
     private int _stompHeadSpeedZ;
     private int _stompGhostZFixed;
     private int _stompGhostSpeedZ;
+    private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
 
     internal BossState State => _state;
     internal bool IsDead => _state == BossState.Dead;
@@ -296,12 +297,12 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
                     _projectileFired = true;
                     Vector2 origin = _headPosition + new Vector2(0, _headZ) +
                         ProjectileOriginOffset(_angle);
-                    int[] offsets = { 0, -2, 2 };
-                    foreach (int offset in offsets)
+                    foreach (EnemyBehaviorValue offset in
+                        _behavior.PumpkinHeadProjectileAngleOffsets)
                     {
                         spawns.Add(new PumpkinHeadProjectileSpawn(
                             origin,
-                            (_angle + offset) & 0x1f));
+                            (_angle + offset.Value) & 0x1f));
                     }
                     _head.SetAnimation((_angle >> 2) & 6);
                     _playSound(OracleSoundEngine.SndVeranFairyAttack);
@@ -738,9 +739,8 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
     private void ChooseWalk()
     {
         byte durationRandom = _random.Next().Value;
-        int[] durations = { 30, 30, 60, 60, 60, 60, 60, 90,
-            90, 90, 90, 90, 90, 120, 120, 120 };
-        _walkCounter = durations[durationRandom & 0x0f];
+        _walkCounter = _behavior.PumpkinHeadWalkDurations[
+            durationRandom & 0x0f].Value;
         _angle = _random.Next().Value & 0x18;
         UpdateFacingAnimations();
     }
@@ -762,8 +762,8 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
     private void ChooseStompSchedule()
     {
         OracleRandomResult result = _random.Next();
-        int[] timers = { 90, 120, 120, 120, 150, 150, 150, 180 };
-        _stompTimer = timers[result.High & 0x07];
+        _stompTimer =
+            _behavior.PumpkinHeadStompTimers[result.High & 0x07].Value;
         _stompsRemaining = 2 + (result.Low & 0x01);
     }
 
@@ -865,22 +865,18 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
     private void FollowBodyHead()
     {
         int parameter = Mathf.Clamp(_body.CurrentParameter, 0, 2);
-        int[] yOffsets = { 0, 1, 0 };
-        int[] zOffsets = { -16, -16, -17 };
-        _headPosition = Position + Vector2.Down * yOffsets[parameter];
-        _headZ = zOffsets[parameter];
+        EnemyBehaviorPair offset =
+            _behavior.PumpkinHeadFollowOffsets[parameter];
+        _headPosition = Position + Vector2.Down * offset.First;
+        _headZ = offset.Second;
     }
 
     private int CardinalAngleToward(Vector2 target) =>
         (OracleObjectMath.AngleToward(Position, target) + 4) & 0x18;
 
-    private static Vector2 ProjectileOriginOffset(int angle) => angle switch
-    {
-        0x00 => new Vector2(0, -4),
-        0x08 => new Vector2(4, 2),
-        0x10 => new Vector2(0, 4),
-        _ => new Vector2(-4, 2)
-    };
+    private Vector2 ProjectileOriginOffset(int angle) =>
+        _behavior.PumpkinHeadProjectileOriginOffsets[
+            (angle & 0x18) >> 3].Vector;
 
     private static bool UpdateIntroHeight(
         ref int zFixed,

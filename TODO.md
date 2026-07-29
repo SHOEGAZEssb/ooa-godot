@@ -193,10 +193,14 @@ and RNG consumption while addressing these items.
     graphics, radii, damage, health, and animations to retain source collision
     modes/flags, item-collision responses, speeds, counters, gravity, bounds,
     projectile offsets, and per-state lookup tables.
-  - Remove remaining species-specific timing tables. The common
+  - The remaining 77 species/state lookup rows are now imported once with
+    source identities, signed components, exact runtime ordering, and one typed
+    owner: Keese deceleration, Octorok and Boomerang Moblin counters,
+    enemy-arrow offsets/radii, Giant Ghini child offsets, and Pumpkin Head
+    walk/stomp/head/projectile tables. The earlier common
     `ecom_bounceOffScreenBoundary@angleTable` and
-    `ecom_sideviewAdjacentWallOffsetTable` copies are now imported once with
-    source identities, exact ordering checks, and one typed runtime owner.
+    `ecom_sideviewAdjacentWallOffsetTable` copies remain imported through their
+    dedicated typed resolver.
 
 - [x] Correct and consolidate adjacent-wall probing before adding more enemy
   handlers. The importer now preserves the common four-pair offset stream,

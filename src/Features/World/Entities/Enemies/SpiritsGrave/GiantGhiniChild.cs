@@ -15,6 +15,7 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
     private bool _spawnPuffPending;
     private bool _slowsLink;
     private const float Z = -4.0f;
+    private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal ChildState State => _state;
@@ -31,11 +32,10 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
         OracleRoomData room,
         int index)
     {
-        Vector2[] offsets = { Vector2.Right * 24, Vector2.Up * 24, Vector2.Left * 24 };
         _owner = owner;
         Record = record;
         InitializeEnemy(
-            owner.Position + offsets[index],
+            owner.Position + _behavior.GiantGhiniChildSpawnOffsets[index].Vector,
             EnemyCharacterConfiguration.FromImported(record));
         ConfigureSwordKnockback(
             room,

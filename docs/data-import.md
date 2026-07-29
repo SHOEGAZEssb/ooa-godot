@@ -421,6 +421,18 @@ compatible interpretation. The second retains all 48 entries of
 `ecom_bounceOffScreenBoundary@angleTable` in source order. Runtime consumers
 must use the typed shared resolver rather than copying either table.
 
+`metadata/enemy_behavior_tables.tsv` owns the remaining implemented
+species/state lookup streams: Keese deceleration speeds and animation masks,
+Octorok wait/walk counters, Boomerang Moblin route counters, enemy-arrow
+directional offsets and radii, Giant Ghini child spawn offsets, and Pumpkin
+Head walk, stomp, head-follow, and projectile geometry. The 77 rows preserve
+signed Y/X values and the runtime index order actually produced by source
+allocation loops; this is significant where Giant Ghini allocates child
+subids `3,2,1` and Pumpkin Head creates projectile subids `0,2,1`.
+`EnemyBehaviorTables` rejects noncontiguous rows, unexpected secondary values,
+unclaimed tables, or changed row counts. Species state machines consume its
+typed values while retaining their independent update logic.
+
 The same shared stage emits `common_enemies.tsv` for the implemented
 `ENEMY_BOOMERANG_MOBLIN $0a:$00`, `ENEMY_ARROW_MOBLIN $0c:$00`,
 `ENEMY_ROPE $10:$00`, `ENEMY_GHINI $17:$00`, and

@@ -160,6 +160,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateGashaSpots();
         ValidateMapleEvents();
         ValidateObjectSpeedTable();
+        ValidateEnemyBehaviorTables();
         ValidateEnemyPlacementRules();
         ValidateEnemyObjectPlacementOrder();
         ValidateKeese();

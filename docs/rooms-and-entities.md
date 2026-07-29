@@ -405,6 +405,14 @@ count, condition, and coordinates. Validation performs the same join and
 derives species totals from the ordered records rather than maintaining
 parallel room indexes.
 
+State-machine lookup order is also generated data. `EnemyBehaviorTables`
+provides one strict runtime owner for the 77 imported Keese/Octorok/Boomerang
+Moblin counters, enemy-arrow directional geometry, Giant Ghini child offsets,
+and Pumpkin Head timing/follower/projectile rows. Consumers index those records
+at the same RNG/state/direction boundary as the source; they do not reorder the
+Giant Ghini `3,2,1` child allocation or Pumpkin Head's `0,2,1` projectile
+creation into disassembly table order.
+
 Ordinary enemy species are not owned by the first room or dungeon that makes
 them playable. Boomerang Moblin, Arrow Moblin, Rope, Ghini, and Wallmaster live
 with the other species and resolve their subid-0 definitions through

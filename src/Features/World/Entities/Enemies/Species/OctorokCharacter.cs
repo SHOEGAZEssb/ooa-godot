@@ -6,9 +6,7 @@ namespace oracleofages;
 public partial class OctorokCharacter : EnemyCharacter
 {
 
-    private static readonly int[] Counter1Values = { 30, 45, 60, 75, 45, 60, 75, 90 };
-    private static readonly int[] WalkCounterValues = { 0x19, 0x21, 0x29, 0x31 };
-
+    private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
     private OctorokState _state;
@@ -56,9 +54,11 @@ public partial class OctorokCharacter : EnemyCharacter
             checksHazards: true);
 
         OracleRandomResult initial = _random.Next();
-        _counter1 = Counter1Values[initial.Value & record.CounterMask];
+        _counter1 = _behavior.OctorokCounterValues[
+            initial.Value & record.CounterMask].Value;
         _angle = initial.High & 0x18;
-        _walkCounter = WalkCounterValues[initial.Low & 0x03];
+        _walkCounter =
+            _behavior.OctorokWalkCounterValues[initial.Low & 0x03].Value;
         _state = OctorokState.Walking;
         SetAnimationFromAngle();
         QueueRedraw();
@@ -142,7 +142,7 @@ public partial class OctorokCharacter : EnemyCharacter
         }
 
         _state = OctorokState.Standing;
-        _counter1 = Counter1Values[decision];
+        _counter1 = _behavior.OctorokCounterValues[decision].Value;
     }
 
     private void UpdateStanding(Vector2 linkPosition)
@@ -153,7 +153,8 @@ public partial class OctorokCharacter : EnemyCharacter
 
         _state = OctorokState.Walking;
         OracleRandomResult result = _random.Next();
-        _walkCounter = WalkCounterValues[result.Value & 0x03];
+        _walkCounter =
+            _behavior.OctorokWalkCounterValues[result.Value & 0x03].Value;
         _angle = result.Low & 0x18;
         if ((result.High & 0x03) == 0)
             _angle = GetCardinalAngleToward(linkPosition);

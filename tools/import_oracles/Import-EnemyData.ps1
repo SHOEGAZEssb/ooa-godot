@@ -2164,6 +2164,302 @@ Write-GeneratedTable(
     (Join-Path $destination 'metadata\object_speed_vectors.tsv'),
     $objectSpeedRows)
 
+# Retain the remaining lookup tables used by implemented enemy handlers in one
+# ordered, source-addressed boundary. These tables are indexed directly by
+# state/RNG/direction values in the original code; runtime code must not carry
+# private copies whose order can drift from the disassembly.
+$enemyBehaviorRows = [Collections.Generic.List[string]]::new()
+$enemyBehaviorRows.Add(
+    "# owner`ttable`tindex`tvalue-a`tvalue-b`tsource")
+
+$enemySpeedCodes = @{}
+for ($speedIndex = 0; $speedIndex -lt $objectSpeedNames.Count; $speedIndex++) {
+    $enemySpeedCodes["SPEED_$($objectSpeedNames[$speedIndex])"] =
+        ($speedIndex + 1) * 5
+}
+
+function Convert-EnemyBehaviorToken(
+    [string]$token,
+    [bool]$signedByte = $false) {
+    if ($script:enemySpeedCodes.ContainsKey($token)) {
+        return [int]$script:enemySpeedCodes[$token]
+    }
+    if ($token -match '^-\$(?<hex>[0-9a-f]+)$') {
+        return -[Convert]::ToInt32($Matches['hex'], 16)
+    }
+    if ($token -match '^\$(?<hex>[0-9a-f]+)$') {
+        $value = [Convert]::ToInt32($Matches['hex'], 16)
+        if ($signedByte -and $value -ge 0x80) { return $value - 0x100 }
+        return $value
+    }
+    return [int]$token
+}
+
+function Read-EnemyBehaviorValues(
+    [string]$body,
+    [bool]$signedByte = $false) {
+    $values = [Collections.Generic.List[int]]::new()
+    foreach ($directive in [regex]::Matches(
+        $body,
+        '(?m)^\s*\.db\s+(?<values>[^;\r\n]+)')) {
+        foreach ($token in [regex]::Matches(
+            $directive.Groups['values'].Value,
+            'SPEED_[0-9a-z]+|-\$[0-9a-f]+|\$[0-9a-f]+|(?<![A-Za-z0-9_])-?\d+')) {
+            $values.Add(
+                (Convert-EnemyBehaviorToken $token.Value $signedByte))
+        }
+    }
+    return @($values)
+}
+
+function Add-EnemyBehaviorValueTable(
+    [string]$owner,
+    [string]$table,
+    [int[]]$values,
+    [string]$source) {
+    for ($index = 0; $index -lt $values.Count; $index++) {
+        $script:enemyBehaviorRows.Add(
+            "$owner`t$table`t$index`t$($values[$index])`t0`t" +
+            "$source+$($index.ToString('x2'))")
+    }
+}
+
+function Add-EnemyBehaviorPairTable(
+    [string]$owner,
+    [string]$table,
+    [object[]]$pairs,
+    [string[]]$sources) {
+    if ($pairs.Count -ne $sources.Count) {
+        throw "$owner/$table behavior pair source count changed."
+    }
+    for ($index = 0; $index -lt $pairs.Count; $index++) {
+        $pair = $pairs[$index]
+        $script:enemyBehaviorRows.Add(
+            "$owner`t$table`t$index`t$($pair[0])`t$($pair[1])`t" +
+            $sources[$index])
+    }
+}
+
+$keeseCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\keese.s')
+$keeseDeceleration = [regex]::Match(
+    $keeseCodeSource,
+    '(?ms)^keese_updateDeceleration:.*?^@speeds:\s*(?<speeds>.*?)(?=^@bits:)' +
+    '^@bits:\s*(?<bits>.*?)(?=^;;)')
+$keeseSpeeds = @(
+    Read-EnemyBehaviorValues $keeseDeceleration.Groups['speeds'].Value)
+$keeseBits = @(
+    Read-EnemyBehaviorValues $keeseDeceleration.Groups['bits'].Value)
+if (-not $keeseDeceleration.Success -or
+    ($keeseSpeeds -join ',') -ne '30,20,10,10,5,5,5,5' -or
+    ($keeseBits -join ',') -ne '0,0,1,1,3,3,7,0') {
+    throw 'Keese deceleration speed/animation lookup tables changed.'
+}
+Add-EnemyBehaviorValueTable 'keese' 'deceleration-speeds' $keeseSpeeds `
+    'object_code/common/enemies/keese.s:keese_updateDeceleration@speeds'
+Add-EnemyBehaviorValueTable 'keese' 'deceleration-animation-masks' $keeseBits `
+    'object_code/common/enemies/keese.s:keese_updateDeceleration@bits'
+
+$octorokCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\octorok.s')
+$octorokCounterValues = @(
+    Read-EnemyBehaviorValues (
+        Get-AssemblyLabelBody $octorokCodeSource 'octorok_counter1Values'))
+$octorokWalkValues = @(
+    Read-EnemyBehaviorValues (
+        Get-AssemblyLabelBody $octorokCodeSource 'octorok_walkCounterValues'))
+if (($octorokCounterValues -join ',') -ne '30,45,60,75,45,60,75,90' -or
+    ($octorokWalkValues -join ',') -ne '25,33,41,49') {
+    throw 'Octorok counter lookup tables changed.'
+}
+Add-EnemyBehaviorValueTable 'octorok' 'counter-values' $octorokCounterValues `
+    'object_code/common/enemies/octorok.s:octorok_counter1Values'
+Add-EnemyBehaviorValueTable 'octorok' 'walk-counter-values' $octorokWalkValues `
+    'object_code/common/enemies/octorok.s:octorok_walkCounterValues'
+
+$boomerangMoblinCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\boomerangMoblin.s')
+$boomerangMoblinCounterBlock = [regex]::Match(
+    $boomerangMoblinCodeSource,
+    '(?ms)^@counterVals:\s*(?<body>.*?)(?=\z|^[A-Za-z0-9_]+:)')
+$boomerangMoblinCounters = @(
+    Read-EnemyBehaviorValues $boomerangMoblinCounterBlock.Groups['body'].Value)
+if (-not $boomerangMoblinCounterBlock.Success -or
+    ($boomerangMoblinCounters -join ',') -ne '48,64,80,96') {
+    throw 'Boomerang Moblin route-counter lookup table changed.'
+}
+Add-EnemyBehaviorValueTable 'boomerang-moblin' 'route-counters' `
+    $boomerangMoblinCounters `
+    'object_code/common/enemies/boomerangMoblin.s:@counterVals'
+
+$partCommonCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\parts\commonCode.s')
+$enemyArrowDirectionBlock = [regex]::Match(
+    $partCommonCodeSource,
+    '(?ms)^partCommon_setPositionOffsetAndRadiusFromAngle:.*?^@data:\s*' +
+    '(?<body>.*?)(?=^;;)')
+$enemyArrowDirectionValues = @(
+    Read-EnemyBehaviorValues `
+        $enemyArrowDirectionBlock.Groups['body'].Value $true)
+if (-not $enemyArrowDirectionBlock.Success -or
+    ($enemyArrowDirectionValues -join ',') -ne
+        '-8,-5,6,3,2,8,3,6,8,5,6,3,2,-8,3,6') {
+    throw 'Enemy-arrow directional offset/radius table changed.'
+}
+$enemyArrowOffsetPairs = @()
+$enemyArrowRadiusPairs = @()
+$enemyArrowOffsetSources = @()
+$enemyArrowRadiusSources = @()
+for ($direction = 0; $direction -lt 4; $direction++) {
+    $base = $direction * 4
+    $enemyArrowOffsetPairs += ,@(
+        $enemyArrowDirectionValues[$base],
+        $enemyArrowDirectionValues[$base + 1])
+    $enemyArrowRadiusPairs += ,@(
+        $enemyArrowDirectionValues[$base + 2],
+        $enemyArrowDirectionValues[$base + 3])
+    $enemyArrowOffsetSources +=
+        "object_code/common/parts/commonCode.s:" +
+        "partCommon_setPositionOffsetAndRadiusFromAngle@data+" +
+        ($base.ToString('x2'))
+    $enemyArrowRadiusSources +=
+        "object_code/common/parts/commonCode.s:" +
+        "partCommon_setPositionOffsetAndRadiusFromAngle@data+" +
+        (($base + 2).ToString('x2'))
+}
+Add-EnemyBehaviorPairTable 'enemy-arrow' 'spawn-offsets' `
+    $enemyArrowOffsetPairs $enemyArrowOffsetSources
+Add-EnemyBehaviorPairTable 'enemy-arrow' 'collision-radii' `
+    $enemyArrowRadiusPairs $enemyArrowRadiusSources
+
+$giantGhiniChildCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\enemies\giantGhiniChild.s')
+$giantGhiniChildOffsets = @(
+    Read-EnemyBehaviorValues (
+        Get-AssemblyLabelBody `
+            $giantGhiniChildCodeSource 'giantGhiniChild_spawnOffsets') $true)
+if (($giantGhiniChildOffsets -join ',') -ne '0,-24,-24,0,0,24') {
+    throw 'Giant Ghini child spawn-offset table changed.'
+}
+# The parent allocates subids 3, 2, 1, so runtime spawn index 0 reads the
+# source table's final pair, then the middle and first pairs.
+$giantGhiniChildPairs = @(
+    ,@($giantGhiniChildOffsets[4], $giantGhiniChildOffsets[5])
+    ,@($giantGhiniChildOffsets[2], $giantGhiniChildOffsets[3])
+    ,@($giantGhiniChildOffsets[0], $giantGhiniChildOffsets[1])
+)
+$giantGhiniChildSources = @(
+    'object_code/ages/enemies/giantGhiniChild.s:giantGhiniChild_spawnOffsets+04',
+    'object_code/ages/enemies/giantGhiniChild.s:giantGhiniChild_spawnOffsets+02',
+    'object_code/ages/enemies/giantGhiniChild.s:giantGhiniChild_spawnOffsets+00'
+)
+Add-EnemyBehaviorPairTable 'giant-ghini-child' 'spawn-offsets' `
+    $giantGhiniChildPairs $giantGhiniChildSources
+
+$pumpkinHeadCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\enemies\pumpkinHead.s')
+$pumpkinWalkDurations = @(
+    Read-EnemyBehaviorValues (
+        Get-AssemblyLabelBody `
+            $pumpkinHeadCodeSource 'pumpkinHead_body_walkDurations'))
+$pumpkinStompBlock = [regex]::Match(
+    $pumpkinHeadCodeSource,
+    '(?ms)^pumpkinHead_body_chooseRandomStompTimerAndCount:.*?' +
+    '^@counter2Vals:\s*(?<body>.*?)(?=^;;)')
+$pumpkinStompTimers = @(
+    Read-EnemyBehaviorValues $pumpkinStompBlock.Groups['body'].Value)
+$pumpkinHeadOffsetsBlock = [regex]::Match(
+    $pumpkinHeadCodeSource,
+    '(?ms)^pumpkinHead_head_state0a:.*?^@headZOffsets:\s*' +
+    '(?<body>.*?)(?=^;;)')
+$pumpkinHeadOffsetValues = @(
+    Read-EnemyBehaviorValues `
+        $pumpkinHeadOffsetsBlock.Groups['body'].Value $true)
+if (($pumpkinWalkDurations -join ',') -ne
+        '30,30,60,60,60,60,60,90,90,90,90,90,90,120,120,120' -or
+    -not $pumpkinStompBlock.Success -or
+    ($pumpkinStompTimers -join ',') -ne
+        '90,120,120,120,150,150,150,180' -or
+    -not $pumpkinHeadOffsetsBlock.Success -or
+    ($pumpkinHeadOffsetValues -join ',') -ne '0,-16,1,-16,0,-17') {
+    throw 'Pumpkin Head walk, stomp, or head-follow lookup table changed.'
+}
+Add-EnemyBehaviorValueTable 'pumpkin-head' 'walk-durations' `
+    $pumpkinWalkDurations `
+    'object_code/ages/enemies/pumpkinHead.s:pumpkinHead_body_walkDurations'
+Add-EnemyBehaviorValueTable 'pumpkin-head' 'stomp-timers' `
+    $pumpkinStompTimers `
+    'object_code/ages/enemies/pumpkinHead.s:pumpkinHead_body_chooseRandomStompTimerAndCount@counter2Vals'
+$pumpkinHeadOffsetPairs = @(
+    ,@($pumpkinHeadOffsetValues[0], $pumpkinHeadOffsetValues[1])
+    ,@($pumpkinHeadOffsetValues[2], $pumpkinHeadOffsetValues[3])
+    ,@($pumpkinHeadOffsetValues[4], $pumpkinHeadOffsetValues[5])
+)
+$pumpkinHeadOffsetSources = @(
+    'object_code/ages/enemies/pumpkinHead.s:pumpkinHead_head_state0a@headZOffsets+00',
+    'object_code/ages/enemies/pumpkinHead.s:pumpkinHead_head_state0a@headZOffsets+02',
+    'object_code/ages/enemies/pumpkinHead.s:pumpkinHead_head_state0a@headZOffsets+04'
+)
+Add-EnemyBehaviorPairTable 'pumpkin-head' 'head-offsets' `
+    $pumpkinHeadOffsetPairs $pumpkinHeadOffsetSources
+
+$pumpkinProjectileCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\parts\pumpkinHeadProjectile.s')
+$pumpkinProjectileAngleBlock = [regex]::Match(
+    $pumpkinProjectileCodeSource,
+    '(?ms)^@table_7421:\s*(?<body>.*?)(?=^@table_7424:)')
+$pumpkinProjectileAngles = @(
+    Read-EnemyBehaviorValues `
+        $pumpkinProjectileAngleBlock.Groups['body'].Value $true)
+$pumpkinProjectileOriginBlock = [regex]::Match(
+    $pumpkinProjectileCodeSource,
+    '(?ms)^@table_7424:\s*(?<body>.*?)(?=^@state1:)')
+$pumpkinProjectileOrigins = @(
+    Read-EnemyBehaviorValues `
+        $pumpkinProjectileOriginBlock.Groups['body'].Value $true)
+if (-not $pumpkinProjectileAngleBlock.Success -or
+    ($pumpkinProjectileAngles -join ',') -ne '0,2,-2' -or
+    -not $pumpkinProjectileOriginBlock.Success -or
+    ($pumpkinProjectileOrigins -join ',') -ne '-4,0,2,4,4,0,2,-4') {
+    throw 'Pumpkin Head projectile angle/origin lookup tables changed.'
+}
+# The source creates the base projectile first, then subids 2 and 1.
+$pumpkinProjectileSpawnAngles = @(
+    $pumpkinProjectileAngles[0],
+    $pumpkinProjectileAngles[2],
+    $pumpkinProjectileAngles[1])
+$pumpkinProjectileSpawnAngleSources = @(
+    'object_code/ages/parts/pumpkinHeadProjectile.s:@table_7421+00',
+    'object_code/ages/parts/pumpkinHeadProjectile.s:@table_7421+02',
+    'object_code/ages/parts/pumpkinHeadProjectile.s:@table_7421+01')
+for ($index = 0; $index -lt 3; $index++) {
+    $enemyBehaviorRows.Add(
+        "pumpkin-head`tprojectile-angle-offsets`t$index`t" +
+        "$($pumpkinProjectileSpawnAngles[$index])`t0`t" +
+        $pumpkinProjectileSpawnAngleSources[$index])
+}
+$pumpkinProjectileOriginPairs = @()
+$pumpkinProjectileOriginSources = @()
+for ($direction = 0; $direction -lt 4; $direction++) {
+    $base = $direction * 2
+    $pumpkinProjectileOriginPairs += ,@(
+        $pumpkinProjectileOrigins[$base],
+        $pumpkinProjectileOrigins[$base + 1])
+    $pumpkinProjectileOriginSources +=
+        "object_code/ages/parts/pumpkinHeadProjectile.s:@table_7424+" +
+        ($base.ToString('x2'))
+}
+Add-EnemyBehaviorPairTable 'pumpkin-head' 'projectile-origin-offsets' `
+    $pumpkinProjectileOriginPairs $pumpkinProjectileOriginSources
+
+if ($enemyBehaviorRows.Count -ne 78) {
+    throw "Expected 77 enemy behavior-table rows, got " +
+        "$($enemyBehaviorRows.Count - 1)."
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'metadata\enemy_behavior_tables.tsv'),
+    $enemyBehaviorRows)
+
 $legacyFairyVelocityPath =
     Join-Path $destination 'effects\item_drop_fairy_velocities.tsv'
 if (Test-Path -LiteralPath $legacyFairyVelocityPath) {

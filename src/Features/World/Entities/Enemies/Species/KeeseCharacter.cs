@@ -13,15 +13,7 @@ public partial class KeeseCharacter : EnemyCharacter
     private const int TurningInterval = 12;
     private const int TurningIntervals = 12;
 
-    private static readonly int[] DecelerationSpeeds =
-    {
-        0x1e, 0x14, 0x0a, 0x0a, 0x05, 0x05, 0x05, 0x05
-    };
-    private static readonly int[] DecelerationAnimationMasks =
-    {
-        0x00, 0x00, 0x01, 0x01, 0x03, 0x03, 0x07, 0x00
-    };
-
+    private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
     private KeeseState _state = KeeseState.Resting;
@@ -138,8 +130,12 @@ public partial class KeeseCharacter : EnemyCharacter
                     BounceOffScreenBoundary();
                 }
                 if ((_counter1 & 0x0f) == 0)
-                    _speed = DecelerationSpeeds[Math.Min(_counter1 >> 4, 7)];
-                int mask = DecelerationAnimationMasks[Math.Min(_counter1 >> 4, 7)];
+                {
+                    _speed = _behavior.KeeseDecelerationSpeeds[
+                        Math.Min(_counter1 >> 4, 7)].Value;
+                }
+                int mask = _behavior.KeeseDecelerationAnimationMasks[
+                    Math.Min(_counter1 >> 4, 7)].Value;
                 if ((frameCounter & mask) == 0)
                     AdvanceAnimation();
                 _counter1++;

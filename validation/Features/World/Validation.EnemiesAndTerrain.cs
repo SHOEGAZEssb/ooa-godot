@@ -190,6 +190,63 @@ public sealed partial class ValidationRoot
             "non-cardinal source vectors, and a 64-update cumulative enemy path.");
     }
 
+    private void ValidateEnemyBehaviorTables()
+    {
+        EnemyBehaviorTables tables = EnemyBehaviorTables.Shared;
+
+        static int[] Values(IReadOnlyList<EnemyBehaviorValue> records) =>
+            records.Select(static record => record.Value).ToArray();
+        static (int A, int B)[] Pairs(
+            IReadOnlyList<EnemyBehaviorPair> records) =>
+            records.Select(
+                static record => (record.First, record.Second)).ToArray();
+
+        FailIf(
+            !Values(tables.KeeseDecelerationSpeeds).SequenceEqual(
+                [30, 20, 10, 10, 5, 5, 5, 5]) ||
+            !Values(tables.KeeseDecelerationAnimationMasks).SequenceEqual(
+                [0, 0, 1, 1, 3, 3, 7, 0]) ||
+            !Values(tables.OctorokCounterValues).SequenceEqual(
+                [30, 45, 60, 75, 45, 60, 75, 90]) ||
+            !Values(tables.OctorokWalkCounterValues).SequenceEqual(
+                [25, 33, 41, 49]) ||
+            !Values(tables.BoomerangMoblinRouteCounters).SequenceEqual(
+                [48, 64, 80, 96]) ||
+            !Pairs(tables.EnemyArrowSpawnOffsets).SequenceEqual(
+                [(-8, -5), (2, 8), (8, 5), (2, -8)]) ||
+            !Pairs(tables.EnemyArrowCollisionRadii).SequenceEqual(
+                [(6, 3), (3, 6), (6, 3), (3, 6)]) ||
+            !Pairs(tables.GiantGhiniChildSpawnOffsets).SequenceEqual(
+                [(0, 24), (-24, 0), (0, -24)]) ||
+            !Values(tables.PumpkinHeadWalkDurations).SequenceEqual(
+                [30, 30, 60, 60, 60, 60, 60, 90,
+                 90, 90, 90, 90, 90, 120, 120, 120]) ||
+            !Values(tables.PumpkinHeadStompTimers).SequenceEqual(
+                [90, 120, 120, 120, 150, 150, 150, 180]) ||
+            !Pairs(tables.PumpkinHeadFollowOffsets).SequenceEqual(
+                [(0, -16), (1, -16), (0, -17)]) ||
+            !Values(tables.PumpkinHeadProjectileAngleOffsets).SequenceEqual(
+                [0, -2, 2]) ||
+            !Pairs(tables.PumpkinHeadProjectileOriginOffsets).SequenceEqual(
+                [(-4, 0), (2, 4), (4, 0), (2, -4)]) ||
+            !tables.KeeseDecelerationSpeeds[0].Source.Contains(
+                "keese_updateDeceleration@speeds",
+                StringComparison.Ordinal) ||
+            !tables.EnemyArrowSpawnOffsets[0].Source.Contains(
+                "partCommon_setPositionOffsetAndRadiusFromAngle@data",
+                StringComparison.Ordinal) ||
+            !tables.PumpkinHeadStompTimers[0].Source.Contains(
+                "chooseRandomStompTimerAndCount@counter2Vals",
+                StringComparison.Ordinal),
+            "The 77 imported enemy behavior lookup rows lost a source value, " +
+            "signed component, runtime index order, or source identity.");
+
+        GD.Print(
+            "Validated 77 imported enemy behavior lookup rows across Keese, " +
+            "Octorok, Boomerang Moblin, enemy arrows, Giant Ghini children, " +
+            "and Pumpkin Head.");
+    }
+
     private void ValidateEnemyPlacementRules()
     {
         var spawnTiles = new EnemySpawnTileDatabase();

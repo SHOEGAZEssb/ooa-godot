@@ -6,15 +6,7 @@ namespace oracleofages;
 public partial class EnemyArrowProjectile
     : TransitionOffsetNode2D, IHostileProjectile
 {
-    private static readonly Vector2[] SpawnOffsets =
-    [
-        new(-5, -8), new(8, 2), new(5, 8), new(-8, 2)
-    ];
-    private static readonly Vector2[] CollisionRadii =
-    [
-        new(3, 6), new(6, 3), new(3, 6), new(6, 3)
-    ];
-
+    private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
     private Texture2D _texture = null!;
     private Texture2D _bounceTexture = null!;
     private HostileProjectileLifecycle _lifecycle = null!;
@@ -35,7 +27,8 @@ public partial class EnemyArrowProjectile
     {
         int cardinalAngle = angle & 0x18;
         int direction = cardinalAngle / 8;
-        Position = position + SpawnOffsets[direction];
+        Position =
+            position + _behavior.EnemyArrowSpawnOffsets[direction].Vector;
         _lifecycle = new HostileProjectileLifecycle(
             this,
             room,
@@ -44,7 +37,7 @@ public partial class EnemyArrowProjectile
                 record.DamageQuarters,
                 record.SpeedRaw,
                 RingDamageSource.Generic,
-                CollisionRadii[direction],
+                _behavior.EnemyArrowCollisionRadii[direction].Vector,
                 HostileProjectileTileProbe.CurrentPosition,
                 HostileProjectileSwordWindow.AnyActiveState,
                 ClearCollisionOnBounce: true,
