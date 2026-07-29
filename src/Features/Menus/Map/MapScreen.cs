@@ -28,41 +28,10 @@ public partial class MapScreen : Node2D
     private const int PopupFullyOpenSize = 4;
     internal const byte LocationArrowAttributes = 0x47;
 
-    // mapIconOamTable (Ages). Each entry is the two 8x16 sprites drawn inside
-    // the expanding popup border.
-    private static readonly MapIcon[] MapIcons =
-    {
-        default,
-        new(0x22, 0x22, 5, true), new(0x34, 0x34, 3, true),
-        new(0x32, 0x32, 3, true), new(0x28, 0x2a, 3),
-        new(0x36, 0x36, 1, true), new(0x44, 0x46, 2),
-        new(0x2c, 0x2e, 3), new(0x20, 0x20, 3, true),
-        new(0x26, 0x26, 4, true), new(0x30, 0x30, 3, true, true),
-        new(0x38, 0x38, 3, true), new(0x24, 0x24, 3, true),
-        new(0x40, 0x42, 0), new(0x54, 0x56, 6),
-        new(0x4c, 0x4e, 1), new(0x50, 0x52, 1),
-        new(0x3a, 0x3a, 1, true), new(0x3c, 0x3c, 1, true),
-        new(0x3e, 0x3e, 1, true), default,
-        new(0x58, 0x5a, 4), new(0x5c, 0x5e, 4),
-        new(0x60, 0x62, 4), new(0x64, 0x66, 4), new(0x68, 0x6a, 4)
-    };
-
-    private static readonly string[] DungeonBlurbs =
-    {
-        "makupath", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8",
-        "blacktowerturret", "roomofrites", "heroscave", "d6", "makupath",
-        "makupath", "makupath"
-    };
-
-    private static readonly byte[] FloorListOffsets =
-    {
-        0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
-        0x60, 0x40, 0x60, 0x60, 0x60, 0x80, 0x80
-    };
-
     private RoomSession _rooms = null!;
     private InventoryState _inventory = null!;
     private MapDataDatabase _mapData = null!;
+    private MenuPresentationDatabase _layouts = null!;
     private MapPresentationState _presentation = null!;
     private readonly GashaSpotDatabase _gashaSpots = new();
     private Texture2D _background = null!;
@@ -106,6 +75,28 @@ public partial class MapScreen : Node2D
     public bool LocationArrowVisible => (((int)_frameCounter >> 5) & 1) == 0;
     internal int PopupSize => _popupSize;
     internal int PopupPrimary => _popup1;
+    internal ulong PopupIconPixelHashForValidation(int iconIndex)
+    {
+        if (iconIndex < 0 || iconIndex >= _layouts.MapIcons.Count)
+            throw new ArgumentOutOfRangeException(nameof(iconIndex));
+        Image output = Image.CreateEmpty(32, 32, false, Image.Format.Rgba8);
+        output.Fill(Colors.Transparent);
+        MapIconLayout icon = _layouts.MapIcons[iconIndex];
+        BlitMapIconPart(output, icon.Left);
+        BlitMapIconPart(output, icon.Right);
+        return OracleGraphicsCache.PixelHash(output);
+    }
+    internal ulong BackgroundRegionPixelHashForValidation(Rect2I region)
+    {
+        Image background = _background.GetImage();
+        if (region.Position.X < 0 || region.Position.Y < 0 ||
+            region.End.X > background.GetWidth() ||
+            region.End.Y > background.GetHeight())
+        {
+            throw new ArgumentOutOfRangeException(nameof(region));
+        }
+        return OracleGraphicsCache.PixelHash(background.GetRegion(region));
+    }
     internal Vector2 DungeonLinkIconPosition => new(
         10 * 8 + _dungeonLinkCell.X * 8,
         5 * 8 + _dungeonLinkCell.Y * 8 - 8);
@@ -145,6 +136,7 @@ public partial class MapScreen : Node2D
         _rooms = rooms;
         _inventory = inventory;
         _mapData = new MapDataDatabase();
+        _layouts = MenuPresentationDatabase.Shared;
         _presentation = new MapPresentationState(rooms.SaveData, inventory);
     }
 
@@ -459,14 +451,15 @@ public partial class MapScreen : Node2D
             }
         }
         _dungeonMapTiles = map;
+        DungeonBlurbLayout blurbLayout = _layouts.DungeonBlurb(_dungeonIndex);
         Image blurb = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/map/blurb_{DungeonBlurbs[_dungeonIndex]}.png");
+            $"res://assets/oracle/map/blurb_{blurbLayout.Asset}.png");
         _background = BuildBackground(map, flags, blurb);
     }
 
     private void DrawFloorList(byte[] map, byte[] flags, DungeonInfo info)
     {
-        int listOffset = info.Index < FloorListOffsets.Length ? FloorListOffsets[info.Index] : 0x80;
+        int listOffset = _layouts.DungeonFloorListOffset(info.Index);
         int offset = 0xa0 + listOffset;
         for (int floor = info.FloorCount - 1; floor >= 0; floor--)
         {
@@ -917,13 +910,46 @@ public partial class MapScreen : Node2D
         if (_popupSize == PopupFullyOpenSize)
         {
             int iconIndex = _popupAlternate == 0 ? _popup1 : _popup2;
-            if (iconIndex > 0 && iconIndex < MapIcons.Length)
+            if (iconIndex > 0 && iconIndex < _layouts.MapIcons.Count)
             {
-                MapIcon icon = MapIcons[iconIndex];
-                DrawMapSprite(icon.LeftTile, icon.Palette, _popupPosition + new Vector2(8, 8));
-                DrawMapSprite(icon.RightTile, icon.Palette, _popupPosition + new Vector2(16, 8),
-                    icon.RightFlipX, icon.RightFlipY);
+                MapIconLayout icon = _layouts.MapIcons[iconIndex];
+                DrawMapIconPart(icon.Left);
+                DrawMapIconPart(icon.Right);
             }
+        }
+    }
+
+    private void DrawMapIconPart(MenuOamPart part)
+    {
+        DrawMapSprite(
+            part.Tile,
+            part.Attributes & 0x07,
+            _popupPosition + new Vector2(part.X + 8, part.Y),
+            (part.Attributes & 0x20) != 0,
+            (part.Attributes & 0x40) != 0);
+    }
+
+    private void BlitMapIconPart(Image output, MenuOamPart part)
+    {
+        bool flipX = (part.Attributes & 0x20) != 0;
+        bool flipY = (part.Attributes & 0x40) != 0;
+        int palette = part.Attributes & 0x07;
+        int sourceTile = part.Tile;
+        int columns = _spriteTiles.GetWidth() / 8;
+        int cell = (sourceTile & 0xfe) / 2;
+        for (int y = 0; y < 16; y++)
+        for (int x = 0; x < 8; x++)
+        {
+            Color sourceColor = _spriteTiles.GetPixel(
+                cell % columns * 8 + (flipX ? 7 - x : x),
+                cell / columns * 16 + (flipY ? 15 - y : y));
+            int shade = GetSpriteShade(sourceColor, invertedGrayscale: false);
+            if (shade == 0)
+                continue;
+            output.SetPixel(
+                part.X + 8 + x,
+                part.Y + y,
+                _spritePalette[palette, shade]);
         }
     }
 
@@ -1021,8 +1047,6 @@ public partial class MapScreen : Node2D
         GetSpriteShade(sourceColor, invertedGrayscale);
 
 }
-
-internal readonly record struct MapIcon(int LeftTile, int RightTile, int Palette, bool RightFlipX = false, bool RightFlipY = false);
 
 public enum MapMode
 {

@@ -122,10 +122,20 @@ public partial class SaveQuitScreen : Node2D
             this, _fileSprites, _spritePalette);
         if (!SaveErrorVisible && (DelayCounter & 0x04) == 0)
         {
+            MenuOamPart acorn =
+                MenuPresentationDatabase.Shared.FileOam("save-quit-acorn")[0];
             OracleTileRenderer.DrawOamTile(
-                this, _fileSprites, 0x20, 0x28, 4,
-                new Vector2(33, 56 + Cursor * 24),
-                false, false, _spritePalette, inverted: false);
+                this,
+                _fileSprites,
+                0x20,
+                acorn.Tile,
+                acorn.Attributes & 0x07,
+                FileMenuPresentation.OamScreenPosition(
+                    acorn, yOffset: Cursor * 24),
+                (acorn.Attributes & 0x20) != 0,
+                (acorn.Attributes & 0x40) != 0,
+                _spritePalette,
+                inverted: false);
         }
     }
 

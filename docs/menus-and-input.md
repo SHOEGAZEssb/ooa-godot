@@ -35,6 +35,16 @@ switches request that same sound when their 13-update scroll begins. Accepted
 overworld cursor moves and dungeon-floor changes request `SND_MENU_MOVE`
 (`$84`); a blocked dungeon-floor direction remains silent.
 
+## Presentation data boundary
+
+`MenuPresentationDatabase` owns the imported, source-ordered layout records
+used by map icons, dungeon floor lists and blurbs, inventory slots and passive
+treasures, secondary/Essence cursors, and file, save/quit, and ring-menu OAM.
+The records retain their assembly labels and aliases, and runtime screens apply
+the Game Boy's byte-wrapped OAM offsets and hardware X/Y biases. Controllers
+still own input, cursor transitions, modal state, and update timing; those
+procedural behaviors are not encoded as presentation rows.
+
 On the dungeon map, the selected-room cursor and Link icon alternate on the
 32-update flicker boundary. The cursor surrounds the room's 8-by-8 map cell.
 Link's 8-by-16 icon starts eight pixels above that cell, matching
@@ -114,7 +124,10 @@ The list's centered ring-name line uses the cleared bank-1 `$9200-$93ff`
 `showItemText2` graphics buffer above the separate description box; it must not
 resolve those tile numbers through a static inventory sheet. Ring-menu sprite
 coordinates are converted from stored OAM coordinates by the hardware X/Y
-biases, including the `$3e/$56` list-cursor rows.
+biases, including the `$3e/$56` list-cursor rows. Textbox position `$04`
+starts at screen y=104, but its fifth source row is hidden by the ring-list LCD
+interrupt that restores source row 1 at screen y=136-143. The dialogue
+background must therefore stop at y=136 so the bottom border remains visible.
 Select starts the adjacent page, requests `SND_OPENMENU` on its initialization
 update, then moves both pages eight pixels on each of 19 original updates. The
 list cursor flickers while choosing a ring; the Ring Box cursor remains visible

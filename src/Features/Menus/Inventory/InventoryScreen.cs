@@ -23,41 +23,6 @@ public partial class InventoryScreen : Node2D
     private const int InventoryTextInitialPauseUpdates = 40;
     private const int InventoryTextScrollIntervalUpdates = 8;
 
-    private static readonly Vector2[] SlotPositions =
-    {
-        Slot(0x063), Slot(0x067), Slot(0x06b), Slot(0x06f),
-        Slot(0x0c3), Slot(0x0c7), Slot(0x0cb), Slot(0x0cf),
-        Slot(0x123), Slot(0x127), Slot(0x12b), Slot(0x12f),
-        Slot(0x183), Slot(0x187), Slot(0x18b), Slot(0x18f)
-    };
-
-    private static readonly PassiveTreasure[] PassiveTreasures =
-    {
-        new(0x2e, 0x01, 0), new(0x4a, 0x01, 0), new(0x2f, 0x04, 1),
-        new(0x41, 0x07, 2), new(0x50, 0x0a, 3), new(0x51, 0x0a, 3),
-        new(0x4e, 0x0a, 3), new(0x4f, 0x0a, 3), new(0x36, 0x0a, 3),
-        new(0x34, 0x0d, 4), new(0x42, 0x31, 5), new(0x52, 0x34, 6),
-        new(0x48, 0x34, 6), new(0x54, 0x34, 6), new(0x53, 0x34, 6),
-        new(0x4d, 0x37, 7), new(0x4c, 0x37, 7), new(0x49, 0x27, 7),
-        new(0x58, 0x47, 7), new(0x43, 0x37, 7), new(0x5b, 0x3a, 8),
-        new(0x4b, 0x3d, 9), new(0x5a, 0x61, 10), new(0x59, 0x61, 10),
-        new(0x44, 0x61, 10), new(0x5e, 0x64, 11), new(0x5c, 0x64, 11),
-        new(0x5d, 0x64, 11), new(0x45, 0x64, 11), new(0x46, 0x67, 12),
-        new(0x55, 0x6a, 13), new(0x2d, 0x6d, 14)
-    };
-
-    private static readonly int[] EssenceTileOffsets =
-        { 0x084, 0x087, 0x0c9, 0x129, 0x167, 0x164, 0x122, 0x0c2 };
-    private static readonly byte[] SecondaryCursorData =
-        { 0x52, 0x55, 0x58, 0x5b, 0x5e, 0x82, 0x85, 0x88, 0x8b, 0x8e,
-          0xb2, 0xb5, 0xb8, 0xbb, 0xbe, 0xe0, 0xe3, 0xe6, 0xe9, 0xec, 0xef };
-    private static readonly Vector2I[] EssenceCursorOffsets =
-    {
-        new(0x30, 0x20), new(0x30, 0x38), new(0x40, 0x48), new(0x58, 0x48),
-        new(0x68, 0x38), new(0x68, 0x20), new(0x58, 0x10), new(0x40, 0x10),
-        new(0x28, 0x70), new(0x58, 0x70), new(0x70, 0x70)
-    };
-
     private Texture2D[] _backgrounds = null!;
     private Image _hudTiles = null!;
     private Image _partialHearts = null!;
@@ -82,6 +47,7 @@ public partial class InventoryScreen : Node2D
     private Color[,] _bgPalette = null!;
     private Color[,] _spritePalette = null!;
     private TreasureDatabase _treasures = null!;
+    private MenuPresentationDatabase _layouts = null!;
     private InventoryState _inventory = null!;
     private Func<bool> _isPast = null!;
     private int _itemCursor;
@@ -168,6 +134,62 @@ public partial class InventoryScreen : Node2D
         }
         return ItemIconAtlas.DecodedCellHash(source, cell);
     }
+    internal ulong SecondaryCursorPixelHashForValidation(int index)
+    {
+        if (index < 0 || index >= _layouts.SecondaryCursors.Count)
+            throw new ArgumentOutOfRangeException(nameof(index));
+        Image output = Image.CreateEmpty(
+            OracleRoomData.ViewportWidth,
+            OracleRoomData.ScreenHeight,
+            false,
+            Image.Format.Rgba8);
+        output.Fill(Colors.Transparent);
+        int packed = _layouts.SecondaryCursors[index].Packed;
+        int rawY = (packed >> 4) * 8;
+        int rawX = (packed & 0x0f) * 8;
+        int leftOffset = index == 15 ? 12 : 8;
+        int rightOffset = index is 4 or 9 or 14 ? 40
+            : index == 15 ? 36 : 32;
+        BlitRawOamTile(
+            output,
+            0,
+            0x0c,
+            2,
+            new Vector2I(rawX + leftOffset - 8, rawY - 16),
+            flipX: true);
+        BlitRawOamTile(
+            output,
+            0,
+            0x0c,
+            2,
+            new Vector2I(rawX + rightOffset - 8, rawY - 16),
+            flipX: false);
+        return OracleGraphicsCache.PixelHash(output);
+    }
+    internal ulong PassiveTreasurePixelHashForValidation(int treasureId)
+    {
+        DisplayRecord display =
+            _treasures.GetButtonDisplay(treasureId, _inventory);
+        Image output = Image.CreateEmpty(16, 16, false, Image.Format.Rgba8);
+        output.Fill(Colors.Transparent);
+        if (display.HasIcon)
+        {
+            BlitLogicalBackgroundSprite(
+                output,
+                display.LeftSprite,
+                TreasureBackgroundAttributes(display.LeftPalette),
+                Vector2I.Zero);
+            if (display.RightSprite != 0)
+            {
+                BlitLogicalBackgroundSprite(
+                    output,
+                    display.RightSprite,
+                    TreasureBackgroundAttributes(display.RightPalette),
+                    new Vector2I(8, 0));
+            }
+        }
+        return OracleGraphicsCache.PixelHash(output);
+    }
     internal Color EquippedLevelSymbolBackgroundColorForValidation =>
         HudBackgroundTileColor(0x1a, 0, 0);
     internal (int NormalAttributes, int FlippedAttributes, Color Shade2, Color Shade3)
@@ -237,6 +259,7 @@ public partial class InventoryScreen : Node2D
         if (_inventory is not null)
             _inventory.Changed -= OnInventoryChanged;
         _treasures = treasures;
+        _layouts = MenuPresentationDatabase.Shared;
         _inventory = inventory;
         _isPast = isPast ?? (() => false);
         _inventory.Changed += OnInventoryChanged;
@@ -405,14 +428,14 @@ public partial class InventoryScreen : Node2D
                 {
                     int item = _inventory.StorageItemAt(index);
                     DrawTreasure(_treasures.GetButtonDisplay(_inventory.StorageItemAt(index), _inventory),
-                        SlotPositions[index] + drawOffset, spritePalette: false);
+                        ItemSlotPosition(index) + drawOffset, spritePalette: false);
                     if (item == InventoryState.ItemHarp)
                         harpSlot = index;
                 }
                 if (harpSlot >= 0)
-                    DrawStoredHarpSprite(SlotPositions[harpSlot] + drawOffset);
+                    DrawStoredHarpSprite(ItemSlotPosition(harpSlot) + drawOffset);
                 if (drawCursor)
-                    DrawItemCursor(SlotPositions[_itemCursor]);
+                    DrawItemCursor(ItemSlotPosition(_itemCursor));
                 break;
             case InventorySubscreen.SecondaryItems:
                 DrawPassiveTreasures(drawOffset);
@@ -431,12 +454,14 @@ public partial class InventoryScreen : Node2D
 
     private void DrawPassiveTreasures(Vector2 drawOffset)
     {
-        PassiveTreasure?[] selected = SelectPassiveTreasures();
-        foreach (PassiveTreasure? treasure in selected)
+        PassiveTreasureLayout?[] selected = SelectPassiveTreasures();
+        foreach (PassiveTreasureLayout? treasure in selected)
         {
-            if (treasure is not PassiveTreasure value || value.Id == 0x36)
+            if (treasure is not PassiveTreasureLayout value ||
+                value.TreasureId == 0x36)
                 continue;
-            DrawTreasure(_treasures.GetButtonDisplay(value.Id, _inventory),
+            DrawTreasure(_treasures.GetButtonDisplay(
+                    value.TreasureId, _inventory),
                 Slot(0x62 + (value.Position >> 4) * 0x20 + (value.Position & 0x0f)) + drawOffset,
                 spritePalette: false);
         }
@@ -619,9 +644,11 @@ public partial class InventoryScreen : Node2D
         if (_secondaryCursor == 15)
             return _inventory.RingBoxLevel == 0 ? 0 : 0x1c + _inventory.RingBoxLevel;
 
-        PassiveTreasure? treasure = SelectPassiveTreasures()[_secondaryCursor];
-        return treasure is PassiveTreasure value
-            ? _treasures.GetButtonDisplay(value.Id, _inventory).TextLow
+        PassiveTreasureLayout? treasure =
+            SelectPassiveTreasures()[_secondaryCursor];
+        return treasure is PassiveTreasureLayout value
+            ? _treasures.GetButtonDisplay(
+                value.TreasureId, _inventory).TextLow
             : 0;
     }
 
@@ -643,12 +670,12 @@ public partial class InventoryScreen : Node2D
         };
     }
 
-    private PassiveTreasure?[] SelectPassiveTreasures()
+    private PassiveTreasureLayout?[] SelectPassiveTreasures()
     {
-        var selected = new PassiveTreasure?[15];
-        foreach (PassiveTreasure treasure in PassiveTreasures)
+        var selected = new PassiveTreasureLayout?[15];
+        foreach (PassiveTreasureLayout treasure in _layouts.PassiveTreasures)
         {
-            if (_inventory.HasTreasure(treasure.Id))
+            if (_inventory.HasTreasure(treasure.TreasureId))
                 selected[treasure.Slot] = treasure;
         }
         return selected;
@@ -939,7 +966,8 @@ public partial class InventoryScreen : Node2D
 
     private void DrawSecondaryCursor()
     {
-        byte packed = SecondaryCursorData[Math.Min(_secondaryCursor, SecondaryCursorData.Length - 1)];
+        int packed = _layouts.SecondaryCursors[
+            Math.Min(_secondaryCursor, _layouts.SecondaryCursors.Count - 1)].Packed;
         float rawY = (packed >> 4) * 8;
         float rawX = (packed & 0x0f) * 8;
         int leftOffset = _secondaryCursor == 15 ? 12 : 8;
@@ -952,10 +980,12 @@ public partial class InventoryScreen : Node2D
     private void DrawEssenceCursor()
     {
         int index = _rightSide ? 8 + _rightCursor : _essenceCursor;
-        Vector2I raw = EssenceCursorOffsets[index];
+        EssenceCursorLayout raw = _layouts.EssenceCursors[index];
         int rightOffset = _rightSide ? 40 : 24;
-        DrawRawOamTile(0, 0x0c, 2, new Vector2(raw.Y - 8, raw.X - 16), flipX: true);
-        DrawRawOamTile(0, 0x0c, 2, new Vector2(raw.Y + rightOffset - 8, raw.X - 16));
+        DrawRawOamTile(0, 0x0c, 2,
+            new Vector2(raw.RawX - 8, raw.RawY - 16), flipX: true);
+        DrawRawOamTile(0, 0x0c, 2,
+            new Vector2(raw.RawX + rightOffset - 8, raw.RawY - 16));
     }
 
     private Texture2D BuildBackgroundTexture(int page)
@@ -980,10 +1010,18 @@ public partial class InventoryScreen : Node2D
             case 2:
                 Overlay(map, ReadBytes("res://assets/oracle/inventory/map_inventory_screen_3.bin", 416), 0x040);
                 Overlay(flags, ReadBytes("res://assets/oracle/inventory/flg_inventory_screen_3.bin", 416), 0x040);
-                for (int essence = 0; essence < EssenceTileOffsets.Length; essence++)
+                for (int essence = 0;
+                    essence < _layouts.EssenceTiles.Count;
+                    essence++)
                 {
                     if ((_inventory.Essences & (1 << essence)) == 0)
-                        FillRectangle(map, flags, EssenceTileOffsets[essence], 2, 2, 0x00, 0x07);
+                    {
+                        FillRectangle(
+                            map,
+                            flags,
+                            _layouts.EssenceTiles[essence].TilemapOffset,
+                            2, 2, 0x00, 0x07);
+                    }
                 }
                 break;
         }
@@ -1218,6 +1256,38 @@ public partial class InventoryScreen : Node2D
         }
     }
 
+    private void BlitLogicalBackgroundSprite(
+        Image output,
+        int sprite,
+        int flags,
+        Vector2I position)
+    {
+        bool flipX = (flags & 0x20) != 0;
+        bool flipY = (flags & 0x40) != 0;
+        int bank = sprite >= 0x80 ? 1 : 0;
+        int firstTile = sprite * 2 & 0xff;
+        int palette = flags & 7;
+        for (int y = 0; y < 16; y++)
+        for (int x = 0; x < 8; x++)
+        {
+            int sx = flipX ? 7 - x : x;
+            int sy = flipY ? 15 - y : y;
+            if (TryGetVramPixel(
+                bank,
+                (firstTile + sy / 8) & 0xff,
+                sx,
+                sy & 7,
+                out Color pixel,
+                out bool spriteEncoding))
+            {
+                output.SetPixel(
+                    position.X + x,
+                    position.Y + y,
+                    _bgPalette[palette, PaletteShade(pixel, spriteEncoding)]);
+            }
+        }
+    }
+
     private void DrawTreasureBackgroundSprite(
         int sprite,
         int sourceAttributes,
@@ -1265,6 +1335,40 @@ public partial class InventoryScreen : Node2D
             if (shade != 0 && palette < _spritePalette.GetLength(0))
                 DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
                     _spritePalette[palette, shade]);
+        }
+    }
+
+    private void BlitRawOamTile(
+        Image output,
+        int bank,
+        int tile,
+        int palette,
+        Vector2I position,
+        bool flipX)
+    {
+        for (int y = 0; y < 16; y++)
+        for (int x = 0; x < 8; x++)
+        {
+            int sx = flipX ? 7 - x : x;
+            if (!TryGetVramPixel(
+                    bank,
+                    (tile & 0xfe) + y / 8,
+                    sx,
+                    y & 7,
+                    out Color pixel,
+                    out _) ||
+                palette >= _spritePalette.GetLength(0))
+            {
+                continue;
+            }
+            int shade = TwoBitShade(pixel);
+            if (shade != 0)
+            {
+                output.SetPixel(
+                    position.X + x,
+                    position.Y + y,
+                    _spritePalette[palette, shade]);
+            }
         }
     }
 
@@ -1359,6 +1463,9 @@ public partial class InventoryScreen : Node2D
 
     private static Vector2 Slot(int tileMapOffset) => new(
         (tileMapOffset & 0x1f) * 8, (tileMapOffset >> 5) * 8);
+
+    private Vector2 ItemSlotPosition(int index) =>
+        Slot(_layouts.InventoryItemSlots[index].TilemapOffset);
 }
 
 public enum InventorySubscreen
@@ -1367,8 +1474,6 @@ public enum InventorySubscreen
     SecondaryItems,
     EssencesAndSave
 }
-
-internal readonly record struct PassiveTreasure(int Id, int Position, int Slot);
 
 internal enum InventoryTextPhase
 {

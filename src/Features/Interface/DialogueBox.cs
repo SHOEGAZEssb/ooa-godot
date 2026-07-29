@@ -63,6 +63,7 @@ public partial class DialogueBox : Node2D
     private bool _choiceActive;
     private bool _passive;
     private int _textboxFlags;
+    private int _visiblePanelHeight = PanelHeight;
     private int _selectedChoice;
     private int? _choiceResult;
     private Action<int> _playSound = static _ => { };
@@ -104,6 +105,7 @@ public partial class DialogueBox : Node2D
     internal bool ChoiceActive => _choiceActive;
     internal bool PassiveMessage => _passive;
     internal int TextboxFlagsForValidation => _textboxFlags;
+    internal int VisiblePanelHeight => _visiblePanelHeight;
     internal int SelectedChoice => _selectedChoice;
     internal bool HeartPieceDisplayActive => _heartPieceLine >= 0;
     internal int HeartPieceDisplayCount => _heartPieceDisplayCount;
@@ -210,6 +212,12 @@ public partial class DialogueBox : Node2D
         _choiceActive = false;
         _passive = false;
         _textboxFlags = textboxFlags;
+        // Textbox position $04 starts at w4TileMap row 11. The ring-list LCD
+        // interrupt replaces its fifth screen row with source row 1, keeping
+        // the menu's bottom border visible; only four rows of the textbox are
+        // therefore visible on hardware.
+        _visiblePanelHeight =
+            textPosition == 4 ? TextAreaHeight : PanelHeight;
         _selectedChoice = 0;
         _choiceResult = null;
         _arrowFrameCounter = 0.0;
@@ -439,7 +447,9 @@ public partial class DialogueBox : Node2D
         if (!_open)
             return;
 
-        DrawRect(new Rect2(PanelX, 0, PanelWidth, PanelHeight), BackgroundColor);
+        DrawRect(
+            new Rect2(PanelX, 0, PanelWidth, _visiblePanelHeight),
+            BackgroundColor);
 
         if (_scrollingText)
         {

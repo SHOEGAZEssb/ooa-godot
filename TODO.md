@@ -368,17 +368,18 @@ NPC- and enemy-specific findings remain in their sections above.
   - Validated portal absence (`$ff`), both eras, all three companion regions,
     and live Maku advice changes without reconstructing addresses in the test.
 
-- [ ] Export the remaining table-shaped menu presentation data.
-  - Replace `MapScreen`'s copied `mapIconOamTable`,
-    `dungeonMapFloorListStartPositions`, and dungeon-blurb selector array with
-    ordered typed records retaining source labels and aliases.
-  - Do the same for `InventoryScreen`'s item slots, passive-treasure placement,
-    secondary-item cursor bytes, essence positions, and for the remaining
-    file/ring-menu OAM layout tables. Leave genuinely procedural cursor and
-    modal state transitions in their owning controllers.
-  - Add exact count/order checks plus representative cursor, popup, floor-list,
-    and passive-item pixel hashes so generated layout data and renderer
-    behavior are tested independently.
+- [x] Export the remaining table-shaped menu presentation data.
+  - `Import-MenuPresentationData.ps1` now emits ordered typed records for
+    `mapIconOamTable`, `dungeonMapFloorListStartPositions`, dungeon-blurb
+    selectors, inventory slots/passive treasures/secondary cursors/Essence
+    positions, and the remaining file, save/quit, and ring-menu OAM layouts.
+    Source labels, ordering, and repeated-graphic aliases are retained.
+  - `MenuPresentationDatabase` validates exact schemas and counts before the
+    map, inventory, file, save/quit, and ring screens consume those records.
+    Procedural cursor and modal state transitions remain in their controllers.
+  - Validation independently checks exact count/order/alias contracts and
+    representative popup, cursor, dungeon floor-list, and passive-treasure
+    pixel hashes.
 
 ### Graphics, commands, and validation ownership
 

@@ -318,7 +318,9 @@ public partial class MainMenuScreen : Node2D
         }
     }
     internal static Vector2 TextSpeedCursorPositionForValidation(int speed) =>
-        new(41 + Math.Clamp(speed, 0, 4) * 16, 128);
+        FileMenuPresentation.OamScreenPosition(
+            MenuPresentationDatabase.Shared.FileOam("text-speed-cursor")[0],
+            xOffset: Math.Clamp(speed, 0, 4) * 16);
     internal static int InterleavedSourceTileForValidation(int tile, int columns) =>
         SourceTileIndex(tile, columns, interleaved: true);
     internal Color TitleLogoSpritePixelForValidation(int x, int y) =>
@@ -432,32 +434,38 @@ public partial class MainMenuScreen : Node2D
             if (TryGetSelectedNameCharacter(out char selectedCharacter) &&
                 selectedCharacter != ' ')
             {
+                var cursorParts = MenuPresentationDatabase.Shared.FileOam(
+                    "name-character-cursor");
                 // Tile $2a is a solid sprite-palette-1 color-2 block with its
                 // OBJ-priority bit set. The GBC hides it behind the keyboard's
                 // nonzero black pixels, exposing blue only through the color-0
                 // letter. Drawing that glyph in the sprite color reproduces
                 // the hardware mask without covering the black background.
-                DrawText(selectedCharacter.ToString(), new Vector2(24, 40) + offset,
+                DrawText(
+                    selectedCharacter.ToString(),
+                    FileMenuPresentation.OamScreenPosition(cursorParts[1]) +
+                        offset,
                     _nameKeyboardGlyphFont);
             }
-            DrawOamTile(_fileSprites, 0x20, 0x2c, 2,
-                new Vector2(24, 42) + offset, false, false,
-                _fileSpritePalette, inverted: false);
+            DrawFileOamPart(
+                MenuPresentationDatabase.Shared.FileOam(
+                    "name-character-cursor")[0],
+                offset);
         }
         else
         {
             int xOffset = new[] { 24, 48, 120 }[_nameLowerChoice];
-            DrawOamTile(_fileSprites, 0x20, 0x2c, 1,
-                new Vector2(xOffset, 122), false, false,
-                _fileSpritePalette, inverted: false);
-            DrawOamTile(_fileSprites, 0x20, 0x2c, 1,
-                new Vector2(xOffset + 8, 122), false, false,
-                _fileSpritePalette, inverted: false);
+            foreach (MenuOamPart part in
+                MenuPresentationDatabase.Shared.FileOam(
+                    "name-lower-option-cursor"))
+            {
+                DrawFileOamPart(part, new Vector2(xOffset, 0));
+            }
         }
 
-        DrawOamTile(_fileSprites, 0x20, 0x2c, 2,
-            new Vector2(80 + _nameEntryPosition * 8, 10), false, false,
-            _fileSpritePalette, inverted: false);
+        DrawFileOamPart(
+            MenuPresentationDatabase.Shared.FileOam("name-entry-cursor")[0],
+            new Vector2(_nameEntryPosition * 8, 0));
     }
 
     private void DrawTextSpeed()
@@ -470,9 +478,9 @@ public partial class MainMenuScreen : Node2D
         // bank2.s uses OAM tile $2e, palette 1 at ($31,$90), with a
         // 16-pixel X offset for each wTextSpeed value. The tile is the final
         // 8x16 cell in spr_fileselect_decorations loaded for this menu.
-        DrawOamTile(_fileSprites, 0x20, 0x2e, 1,
-            TextSpeedCursorPositionForValidation(TextSpeed), false, false,
-            _fileSpritePalette, inverted: false);
+        DrawFileOamPart(
+            MenuPresentationDatabase.Shared.FileOam("text-speed-cursor")[0],
+            new Vector2(Math.Clamp(TextSpeed, 0, 4) * 16, 0));
     }
 
     private void DrawConfirm()
@@ -556,8 +564,23 @@ public partial class MainMenuScreen : Node2D
             _titleSprites, 0x38, _titleSpritePalette, PressStartSprites);
 
     private void DrawAcorn(Vector2 position) =>
-        DrawOamTile(_fileSprites, 0x20, 0x28, 4, position, false, false,
-            _fileSpritePalette, inverted: false);
+        DrawFileOamPart(
+            MenuPresentationDatabase.Shared.FileOam("acorn-cursor")[0],
+            position);
+
+    private void DrawFileOamPart(MenuOamPart part, Vector2 offset)
+    {
+        DrawOamTile(
+            _fileSprites,
+            0x20,
+            part.Tile,
+            part.Attributes & 0x07,
+            FileMenuPresentation.OamScreenPosition(part) + offset,
+            (part.Attributes & 0x20) != 0,
+            (part.Attributes & 0x40) != 0,
+            _fileSpritePalette,
+            inverted: false);
+    }
 
     private void DrawOamList(Image source, int tileBase, Color[,] palette, int[,] sprites,
         bool inverted = true)

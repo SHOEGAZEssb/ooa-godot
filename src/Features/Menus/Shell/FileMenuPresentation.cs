@@ -5,16 +5,6 @@ namespace oracleofages;
 /// <summary>Shared file-menu layout assembly and decorative OAM list.</summary>
 internal static class FileMenuPresentation
 {
-    private static readonly int[,] DecorationSprites =
-    {
-        {0x23,0x0a,0x20,5},{0x23,0x12,0x22,5},{0x33,0x06,0x20,5},
-        {0x33,0x0e,0x22,5},{0x0f,0x07,0x26,5},{0x3b,0x16,0x20,0x25},
-        {0x3b,0x0e,0x22,0x25},{0x17,0x0a,0x24,0x25},{0x21,0x96,0x20,5},
-        {0x21,0x9e,0x22,5},{0x17,0x9b,0x26,0x65},{0x14,0x9d,0x24,5},
-        {0x31,0xa2,0x20,0x25},{0x31,0x9a,0x22,0x25},{0x39,0x92,0x20,5},
-        {0x39,0x9a,0x22,5}
-    };
-
     public static (byte[] Map, byte[] Flags) BuildLayout(
         string middleMap,
         string middleFlags,
@@ -46,22 +36,28 @@ internal static class FileMenuPresentation
         Image source,
         Color[,] palette)
     {
-        for (int index = 0; index < DecorationSprites.GetLength(0); index++)
+        foreach (MenuOamPart part in
+            MenuPresentationDatabase.Shared.FileOam("decorations"))
         {
-            int attributes = DecorationSprites[index, 3];
             OracleTileRenderer.DrawOamTile(
                 canvas,
                 source,
                 0x20,
-                DecorationSprites[index, 2],
-                attributes & 7,
-                new Vector2(
-                    DecorationSprites[index, 1] - 8,
-                    DecorationSprites[index, 0] - 16),
-                (attributes & 0x20) != 0,
-                (attributes & 0x40) != 0,
+                part.Tile,
+                part.Attributes & 7,
+                OamScreenPosition(part),
+                (part.Attributes & 0x20) != 0,
+                (part.Attributes & 0x40) != 0,
                 palette,
                 inverted: false);
         }
     }
+
+    public static Vector2 OamScreenPosition(
+        MenuOamPart part,
+        int yOffset = 0,
+        int xOffset = 0) =>
+        new(
+            ((part.X + xOffset) & 0xff) - 8,
+            ((part.Y + yOffset) & 0xff) - 16);
 }

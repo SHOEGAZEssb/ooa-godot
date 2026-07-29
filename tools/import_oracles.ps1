@@ -70,6 +70,8 @@ $stageContracts = @(
         -outputs @('textYaml') `
         -functionOutputs @(
             'Export-PaletteBlock', 'Read-PaletteBytes', 'Normalize-DialogueText')
+    New-ImportStageContract `
+        'menu-presentation' 'Import-MenuPresentationData.ps1'
     New-ImportStageContract 'dialogue' 'Import-DialogueAndIntro.ps1' `
         -inputs @('textYaml') `
         -outputs @(

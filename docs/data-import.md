@@ -28,6 +28,7 @@ and then runs these stages in dependency order:
 | `Initialize-Import.ps1` | Paths, ROM validation, shared helpers, and output setup |
 | `Import-WorldAssets.ps1` | Rooms, tilesets, metatiles, palettes, attributes, and collision data |
 | `Import-MenuAssets.ps1` | Title, HUD, inventory, map, and menu graphics/tilemaps |
+| `Import-MenuPresentationData.ps1` | Source-ordered map, inventory, file, save/quit, and ring-menu layout/OAM records |
 | `Import-DialogueAndIntro.ps1` | Fonts, text, and new-game introduction records |
 | `Import-MapAndItemData.ps1` | Map metadata, treasure data, flags, and item tables |
 | `Import-NpcData.ps1` | NPC definitions, exact implementation classifications, visibility, dialogue, and animation inputs |
@@ -134,6 +135,13 @@ inventory marquee.
 
 `Import-MenuAssets.ps1` also copies the original appraised and unappraised ring
 list maps/flags plus their ring, quest-item, inventory-HUD, and palette inputs.
+`Import-MenuPresentationData.ps1` exports the corresponding table-shaped
+presentation data: map icon OAM, dungeon floor-list and blurb selectors,
+inventory item/passive-treasure/cursor/Essence positions, and file, save/quit,
+and ring-menu OAM. Records preserve source order, labels, and repeated-graphic
+aliases. `MenuPresentationDatabase` validates their exact schemas and counts;
+menu controllers continue to own procedural cursor movement, modal state, and
+transition timing.
 `Import-NpcData.ps1` emits Vasu's complete TX `$3000-$30c1` text closure and
 source constants for appraisal prices, duplicate refunds, fixed waits, ring
 storage addresses, and completion flags. Runtime code must consume these

@@ -8,6 +8,138 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateMenuPresentationData()
+    {
+        MenuPresentationDatabase layouts = MenuPresentationDatabase.Shared;
+
+        string[] expectedMapLabels = Enumerable.Range(0, 26)
+            .Select(index => $"@mapIcon{index:X2}")
+            .ToArray();
+        int[] expectedFloorOffsets =
+        [
+            0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+            0x60, 0x40, 0x60, 0x60, 0x60, 0x80, 0x80
+        ];
+        string[] expectedBlurbs =
+        [
+            "makupath", "d1", "d2", "d3", "d4", "d5", "d6", "d7",
+            "d8", "blacktowerturret", "roomofrites", "heroscave", "d6",
+            "makupath", "makupath", "makupath"
+        ];
+        int[] expectedItemSlots =
+        [
+            0x063, 0x067, 0x06b, 0x06f,
+            0x0c3, 0x0c7, 0x0cb, 0x0cf,
+            0x123, 0x127, 0x12b, 0x12f,
+            0x183, 0x187, 0x18b, 0x18f
+        ];
+        int[] expectedPassiveIds =
+        [
+            0x2e, 0x4a, 0x2f, 0x41, 0x50, 0x51, 0x4e, 0x4f,
+            0x36, 0x34, 0x42, 0x52, 0x48, 0x54, 0x53, 0x4d,
+            0x4c, 0x49, 0x58, 0x43, 0x5b, 0x4b, 0x5a, 0x59,
+            0x44, 0x5e, 0x5c, 0x5d, 0x45, 0x46, 0x55, 0x2d
+        ];
+        int[] expectedPassivePositions =
+        [
+            0x01, 0x01, 0x04, 0x07, 0x0a, 0x0a, 0x0a, 0x0a,
+            0x0a, 0x0d, 0x31, 0x34, 0x34, 0x34, 0x34, 0x37,
+            0x37, 0x27, 0x47, 0x37, 0x3a, 0x3d, 0x61, 0x61,
+            0x61, 0x64, 0x64, 0x64, 0x64, 0x67, 0x6a, 0x6d
+        ];
+        int[] expectedPassiveSlots =
+        [
+            0, 0, 1, 2, 3, 3, 3, 3, 3, 4, 5, 6, 6, 6, 6, 7,
+            7, 7, 7, 7, 8, 9, 10, 10, 10, 11, 11, 11, 11, 12, 13, 14
+        ];
+        int[] expectedSecondaryCursors =
+        [
+            0x52, 0x55, 0x58, 0x5b, 0x5e,
+            0x82, 0x85, 0x88, 0x8b, 0x8e,
+            0xb2, 0xb5, 0xb8, 0xbb, 0xbe,
+            0xe0, 0xe3, 0xe6, 0xe9, 0xec, 0xef
+        ];
+        int[] expectedEssenceTiles =
+            [0x084, 0x087, 0x0c9, 0x129, 0x167, 0x164, 0x122, 0x0c2];
+        (int Y, int X)[] expectedEssenceCursors =
+        [
+            (0x30, 0x20), (0x30, 0x38), (0x40, 0x48), (0x58, 0x48),
+            (0x68, 0x38), (0x68, 0x20), (0x58, 0x10), (0x40, 0x10),
+            (0x28, 0x70), (0x58, 0x70), (0x70, 0x70)
+        ];
+
+        FailIf(
+            !layouts.MapIcons.Select(icon => icon.Label)
+                .SequenceEqual(expectedMapLabels) ||
+            layouts.MapIcons[0].SpriteCount != 0 ||
+            layouts.MapIcons[20].SpriteCount != 0 ||
+            layouts.MapIcons[20].AliasOf != "@mapIcon00" ||
+            layouts.MapIcons[10].Right.Attributes != 0x63,
+            "Imported mapIconOamTable count, label order, empty alias, or " +
+            "time-portal Y-flip changed.");
+        FailIf(
+            !layouts.DungeonFloorLists.Select(row => row.Offset)
+                .SequenceEqual(expectedFloorOffsets) ||
+            !layouts.DungeonBlurbs.Select(row => row.Asset)
+                .SequenceEqual(expectedBlurbs) ||
+            layouts.DungeonBlurbs[12].AliasOf !=
+                "GFXH_DUNGEON_6_BLURB" ||
+            layouts.DungeonBlurbs[15].AliasOf !=
+                "GFXH_DUNGEON_0_BLURB",
+            "Imported dungeon floor-list order or GFX header blurb aliases changed.");
+        FailIf(
+            !layouts.InventoryItemSlots.Select(row => row.TilemapOffset)
+                .SequenceEqual(expectedItemSlots) ||
+            !layouts.PassiveTreasures.Select(row => row.TreasureId)
+                .SequenceEqual(expectedPassiveIds) ||
+            !layouts.PassiveTreasures.Select(row => row.Position)
+                .SequenceEqual(expectedPassivePositions) ||
+            !layouts.PassiveTreasures.Select(row => row.Slot)
+                .SequenceEqual(expectedPassiveSlots) ||
+            !layouts.SecondaryCursors.Select(row => row.Packed)
+                .SequenceEqual(expectedSecondaryCursors) ||
+            !layouts.EssenceTiles.Select(row => row.TilemapOffset)
+                .SequenceEqual(expectedEssenceTiles) ||
+            !layouts.EssenceCursors.Select(row => (row.RawY, row.RawX))
+                .SequenceEqual(expectedEssenceCursors),
+            "Imported inventory slot, passive-treasure, secondary cursor, or " +
+            "essence layout order changed.");
+
+        IReadOnlyList<MenuOamPart> fileDecorations =
+            layouts.FileOam("decorations");
+        IReadOnlyList<MenuOamPart> ringArrows =
+            layouts.RingOam("page-arrows");
+        FailIf(
+            fileDecorations.Count != 16 ||
+            fileDecorations[0] is not
+                { Y: 0x23, X: 0x0a, Tile: 0x20, Attributes: 0x05 } ||
+            fileDecorations[15] is not
+                { Y: 0x39, X: 0x9a, Tile: 0x22, Attributes: 0x05 } ||
+            layouts.FileOam("name-character-cursor").Count != 2 ||
+            layouts.FileOam("save-quit-acorn")[0] is not
+                { Y: 0x48, X: 0x29, Tile: 0x28, Attributes: 0x04 } ||
+            ringArrows.Count != 2 ||
+            ringArrows[1].Attributes != 0x24 ||
+            !layouts.RingBoxOffsets.Select(row => row.XOffset)
+                .SequenceEqual([0x38, 0x50, 0x68, 0x80, 0x98]),
+            "Imported file/save or ring OAM layout count/order changed.");
+
+        ulong popupHash = _mapScreen.PopupIconPixelHashForValidation(1);
+        ulong cursorHash =
+            _inventoryScreen.SecondaryCursorPixelHashForValidation(0);
+        ulong passiveHash =
+            _inventoryScreen.PassiveTreasurePixelHashForValidation(0x2e);
+        FailIf(
+            popupHash != 0xe2e0ca9e95ac1fecUL ||
+            cursorHash != 0x2845fdf38557ae90UL ||
+            passiveHash != 0x7556905e79409bceUL,
+            $"Imported menu OAM rendering changed: popup={popupHash:x16}, " +
+            $"cursor={cursorHash:x16}, passive={passiveHash:x16}.");
+        GD.Print("Validated imported map/inventory/file/ring presentation " +
+            "table counts, source order, aliases, and representative popup, " +
+            "cursor, and passive-treasure pixel hashes.");
+    }
+
     private void ValidateMainMenu()
     {
         var stored = new OracleSaveData?[OracleSaveStore.SlotCount];
@@ -845,6 +977,12 @@ public sealed partial class ValidationRoot
             "Dungeon 0d room 09 did not open on floor 0 with Link's 8x16 " +
             $"map icon at source position (96,48); got " +
             $"{_mapScreen.DungeonLinkIconPosition}.");
+        ulong floorListHash = _mapScreen.BackgroundRegionPixelHashForValidation(
+            new Rect2I(0, 72, 40, 48));
+        FailIf(
+            floorListHash != 0x7d999edd39262a04UL,
+            $"Dungeon 0d's imported floor-list rendering changed " +
+            $"({floorListHash:x16}).");
         _mapMenu.CloseImmediatelyForValidation();
 
         byte oldCompasses = _saveData.ReadWramByte(0xc684);
@@ -1633,7 +1771,7 @@ public sealed partial class ValidationRoot
         _ringMenuScreen.SetSelectingList(true);
         FailIf(
             _ringMenuScreen.BackgroundHashForValidation == 0 ||
-            _ringMenuScreen.ListCursorPositionForValidation != new Vector2(20, 42),
+            _ringMenuScreen.ListCursorPositionForValidation != new Vector2(20, 46),
             $"GFXH_APPRAISED_RING_LIST failed to build or used the wrong " +
             $"upper cursor OAM position " +
             $"(hash {_ringMenuScreen.BackgroundHashForValidation:x16}, " +
@@ -1641,7 +1779,7 @@ public sealed partial class ValidationRoot
         _ringMenuScreen.SetPageAndCursor(0, 8);
         _ringMenuScreen.SetRingName("Power Ring L-1");
         FailIf(
-            _ringMenuScreen.ListCursorPositionForValidation != new Vector2(20, 66) ||
+            _ringMenuScreen.ListCursorPositionForValidation != new Vector2(20, 70) ||
             _ringMenuScreen.DisplayedRingNameForValidation != "Power Ring L-1" ||
             _ringMenuScreen.RingNamePositionForValidation != new Vector2(24, 88),
             "The lower ring-list cursor or centered showItemText2 name line regressed.");
@@ -1649,8 +1787,10 @@ public sealed partial class ValidationRoot
         var ringDescriptionDialogue = new DialogueBox();
         ringDescriptionDialogue.ShowPassiveMessage("Ring description", 0, 4);
         FailIf(
-            ringDescriptionDialogue.Position != new Vector2(0, 104),
-            "Ring-list text position 4 did not begin immediately below the y=88 name line.");
+            ringDescriptionDialogue.Position != new Vector2(0, 104) ||
+            ringDescriptionDialogue.VisiblePanelHeight != 32,
+            "Ring-list text position 4 did not begin immediately below the " +
+            "y=88 name line or stop above the LCD-split bottom border.");
         ringDescriptionDialogue.Free();
         _ringMenuScreen.SetPageAndCursor(0, 0);
         FailIf(
@@ -2001,7 +2141,8 @@ public sealed partial class ValidationRoot
             "Slayer/Rupee awards or Maple/Gasha enemy counters regressed.");
 
         GD.Print("Validated all 64 ring IDs, appraisal/list/box/equip persistence, " +
-            "L-1/L-2/L-3 slot substitutions, LCD-split selection/name rows, " +
+            "L-1/L-2/L-3 slot substitutions, LCD-split selection/name/" +
+            "bottom-border rows, " +
             "cleared name-buffer tiles, centered name text, source OAM cursor rows, " +
             "damage arithmetic, protections, native punches/transformations/sword beams, " +
             "movement/item/drop policies, and Vasu/Maple/Gasha award counters.");

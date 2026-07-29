@@ -102,6 +102,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateDungeonCollectibles();
         ValidateRoomTileChanges();
         ValidateExplicitSavePersistence();
+        ValidateMenuPresentationData();
         ValidateMainMenu();
         ValidateNewGameIntro();
         ValidateSoundEngine();

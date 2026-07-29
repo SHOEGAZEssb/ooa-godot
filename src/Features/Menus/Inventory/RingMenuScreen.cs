@@ -39,6 +39,7 @@ public partial class RingMenuScreen : Node2D
     private OracleVramSource[] _signedBank1 = null!;
     private Texture2D? _background;
     private InventoryState _inventory = null!;
+    private MenuPresentationDatabase _layouts = null!;
     private readonly FixedUpdateAccumulator _animationUpdates = new();
     private int _listCursorFlickerCounter;
     private int _boxCursorFlickerCounter;
@@ -131,6 +132,7 @@ public partial class RingMenuScreen : Node2D
     {
         if (_inventory is not null)
             _inventory.Changed -= OnInventoryChanged;
+        _layouts = MenuPresentationDatabase.Shared;
         _inventory = inventory;
         _inventory.Changed += OnInventoryChanged;
     }
@@ -377,8 +379,16 @@ public partial class RingMenuScreen : Node2D
             if (ring < first || ring >= first + 16)
                 continue;
             int index = ring - first;
-            DrawRawOamTile(0, 0xef, 5,
-                new Vector2(24 + (index & 7) * 16, index < 8 ? 32 : 56));
+            MenuOamPart marker = _layouts.RingOam("list-box-marker")[0];
+            DrawRawOamTile(
+                0,
+                marker.Tile,
+                marker.Attributes & 0x07,
+                FileMenuPresentation.OamScreenPosition(
+                    marker,
+                    yOffset: index < 8 ? 0x30 : 0x48,
+                    xOffset: (index & 7) * 16),
+                flipX: (marker.Attributes & 0x20) != 0);
         }
     }
 
@@ -390,7 +400,15 @@ public partial class RingMenuScreen : Node2D
         {
             if (_inventory.RingAt(slot) != _inventory.ActiveRing)
                 continue;
-            DrawRawOamTile(0, 0xec, 4, new Vector2(48 + slot * 24, 0));
+            MenuOamPart marker = _layouts.RingOam("equipped-marker")[0];
+            DrawRawOamTile(
+                0,
+                marker.Tile,
+                marker.Attributes & 0x07,
+                FileMenuPresentation.OamScreenPosition(
+                    marker,
+                    xOffset: _layouts.RingBoxOffsets[slot].XOffset),
+                flipX: (marker.Attributes & 0x20) != 0);
             break;
         }
     }
@@ -400,21 +418,40 @@ public partial class RingMenuScreen : Node2D
         if (Mode != RingMenuMode.List ||
             (!SelectingList && (_boxCursorFlickerCounter & 0x08) != 0))
             return;
-        DrawRawOamTile(0, 0x0e, 3,
-            new Vector2(44 + BoxCursor * 24, 14));
+        MenuOamPart cursor = _layouts.RingOam("box-cursor")[0];
+        DrawRawOamTile(
+            0,
+            cursor.Tile,
+            cursor.Attributes & 0x07,
+            FileMenuPresentation.OamScreenPosition(
+                cursor,
+                xOffset: _layouts.RingBoxOffsets[BoxCursor].XOffset),
+            flipX: (cursor.Attributes & 0x20) != 0);
     }
 
     private void DrawListCursorAndArrows()
     {
         if ((_listCursorFlickerCounter & 0x08) == 0)
         {
-            DrawRawOamTile(0, 0x0e, 2,
-                ListCursorPosition(ListCursor));
+            MenuOamPart cursor = _layouts.RingOam("list-cursor")[0];
+            DrawRawOamTile(
+                0,
+                cursor.Tile,
+                cursor.Attributes & 0x07,
+                ListCursorPosition(ListCursor),
+                flipX: (cursor.Attributes & 0x20) != 0);
         }
         if (PageCount <= 1)
             return;
-        DrawRawOamTile(0, 0x08, 4, new Vector2(4, 44));
-        DrawRawOamTile(0, 0x08, 4, new Vector2(148, 44), flipX: true);
+        foreach (MenuOamPart arrow in _layouts.RingOam("page-arrows"))
+        {
+            DrawRawOamTile(
+                0,
+                arrow.Tile,
+                arrow.Attributes & 0x07,
+                FileMenuPresentation.OamScreenPosition(arrow),
+                flipX: (arrow.Attributes & 0x20) != 0);
+        }
     }
 
     private void BuildBackground()
@@ -616,10 +653,17 @@ public partial class RingMenuScreen : Node2D
     private static Vector2 ListRingPosition(int index) =>
         new(16 + (index & 7) * 16, index < 8 ? 32 : 56);
 
-    // ringMenu_drawSprites adds @cursorSprite's -4 Y to $3e/$56, then the
-    // Game Boy OAM renderer subtracts its 16-pixel hardware Y bias.
-    private static Vector2 ListCursorPosition(int index) =>
-        new(20 + (index & 7) * 16, index < 8 ? 42 : 66);
+    // ringMenu_drawSprites adds its BC row/column offset to the imported
+    // @cursorSprite bytes before the hardware OAM X/Y bias is applied.
+    private static Vector2 ListCursorPosition(int index)
+    {
+        MenuOamPart cursor =
+            MenuPresentationDatabase.Shared.RingOam("list-cursor")[0];
+        return FileMenuPresentation.OamScreenPosition(
+            cursor,
+            yOffset: index < 8 ? 0x3e : 0x56,
+            xOffset: 0x20 + (index & 7) * 16);
+    }
 
     private static Vector2 RingNamePosition(int length) =>
         new(16 + Math.Max(0, (RingNameColumns - length) / 2) * 8, RingNameY);
