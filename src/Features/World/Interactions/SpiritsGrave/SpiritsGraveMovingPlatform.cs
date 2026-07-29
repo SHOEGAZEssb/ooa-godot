@@ -20,7 +20,6 @@ internal sealed partial class SpiritsGraveMovingPlatform : SpiritsGraveVisualEnt
     public Node2D Node => this;
     internal int Script => _script;
     internal int Counter => _counter;
-    internal int MoveRemaining => _moveRemaining;
     internal bool LinkRiding => _linkRiding;
     internal Vector2 CollisionRadii => _collisionRadii;
     internal Vector2 PrecisePosition => _precisePosition;

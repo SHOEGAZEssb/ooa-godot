@@ -46,11 +46,6 @@ internal sealed class CutsceneCommandLaneScheduler(ICutsceneCommandHost host)
         return runner;
     }
 
-    public CutsceneCommandRunner GetLane(string name) =>
-        _byName.TryGetValue(name, out Lane? lane)
-            ? lane.Runner
-            : throw new InvalidOperationException($"Unknown cutscene lane '{name}'.");
-
     public void AdvanceFrame()
     {
         // Object order is observable in the ROM. Never compact or reorder this

@@ -11,7 +11,6 @@ public sealed class TreasureDatabase
     public const int TreasureSword = 0x05;
     public const int TreasureBoomerang = 0x06;
     public const int TreasureSwitchHook = 0x0a;
-    public const int TreasureBiggoronSword = 0x0c;
     public const int TreasureShooter = 0x0f;
     public const int TreasureHarp = 0x11;
     public const int TreasureSlingshot = 0x13;

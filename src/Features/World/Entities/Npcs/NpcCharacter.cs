@@ -54,7 +54,6 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     public const float CollisionRadius = 6.0f;
     public const float LinkCollisionRadius = 6.0f;
     internal const int AButtonPointOffset = 10;
-    public const float LinkBlockingRadius = CollisionRadius + LinkCollisionRadius;
     public Rect2 SpriteBounds => new(Position + new Vector2(-8, -8), new Vector2(16, 16));
     public int CurrentFrameColumn => GetFrameColumn();
     public int CurrentAnimationFrame => _animationFrame;

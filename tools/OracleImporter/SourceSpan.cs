@@ -11,7 +11,5 @@ public readonly record struct SourcePosition(
 
 public readonly record struct SourceSpan(SourcePosition Start, int Length)
 {
-    public int EndOffset => checked(Start.Offset + Length);
-
     public override string ToString() => $"{Start} (+{Length})";
 }

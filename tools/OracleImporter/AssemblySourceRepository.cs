@@ -28,8 +28,6 @@ public sealed class AssemblySourceRepository
 
     public string Root => _root;
 
-    public IReadOnlySet<string> ConfiguredSymbols => _symbols;
-
     public IReadOnlyCollection<AssemblySourceFile> LoadedFiles =>
         new ReadOnlyCollection<AssemblySourceFile>(
             _files.Values.OrderBy(file => file.RelativePath, StringComparer.Ordinal).ToArray());
@@ -51,15 +49,6 @@ public sealed class AssemblySourceRepository
     }
 
     public string GetText(string relativeOrFullPath) => Open(relativeOrFullPath).Text;
-
-    public string[] GetLines(string relativeOrFullPath) =>
-        Open(relativeOrFullPath).Lines.ToArray();
-
-    public int GetPhysicalReadCount(string relativeOrFullPath)
-    {
-        string fullPath = ResolvePath(relativeOrFullPath);
-        return _readCounts.TryGetValue(fullPath, out int count) ? count : 0;
-    }
 
     public void AssertReadOnce()
     {

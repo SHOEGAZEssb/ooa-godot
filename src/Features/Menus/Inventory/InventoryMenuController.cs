@@ -108,7 +108,6 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     internal void BeginOpeningForValidation() => BeginOpening(openSaveMenu: false);
     internal void BeginSaveOpeningForValidation() => BeginOpening(openSaveMenu: true);
     internal void BeginGameOverForValidation() => BeginGameOver();
-    internal void BeginClosingForValidation() => BeginClosing();
     internal void OpenSaveMenuFromInventoryForValidation() => OpenSaveMenuFromInventory();
     internal void SelectSaveOptionForValidation() => SelectSaveOption();
     internal bool CancelSaveMenuForValidation() => CancelSaveMenu();

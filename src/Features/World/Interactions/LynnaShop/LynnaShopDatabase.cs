@@ -40,7 +40,6 @@ internal sealed class LynnaShopDatabase
     public int BombchuOwnedMask => Constant("bombchu-owned-mask");
     public int BombchuMissingMask => Constant("bombchu-missing-mask");
     public int SpecialObjectDimitri => Constant("specialobject-dimitri");
-    public IReadOnlyList<ItemRecord> Placements => _placements;
 
     public LynnaShopDatabase()
     {

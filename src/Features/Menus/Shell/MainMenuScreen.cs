@@ -505,13 +505,6 @@ public partial class MainMenuScreen : Node2D
         DrawText("A/B: BACK", new Vector2(44, 88));
     }
 
-    private void DrawPanel(string heading, string detail)
-    {
-        DrawRect(new Rect2(16, 28, 128, 92), _fileBgPalette[2, 3]);
-        DrawText(heading, new Vector2(28, 34));
-        DrawText(detail, new Vector2(48, 54));
-    }
-
     private void DrawText(string text, Vector2 position, Texture2D? font = null)
     {
         font ??= _font;

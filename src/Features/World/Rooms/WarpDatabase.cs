@@ -68,11 +68,6 @@ public sealed class WarpDatabase
         return false;
     }
 
-    public bool HasEdgeWarp(int group, int room, Vector2I direction)
-    {
-        return TryGetEdgeWarp(group, room, direction, Vector2.Zero, new Vector2(160, 128), out _);
-    }
-
     public bool TryGetEdgeWarp(
         int group,
         int room,

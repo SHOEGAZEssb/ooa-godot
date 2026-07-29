@@ -13,7 +13,6 @@ internal sealed class TroyHouseDatabase
     private readonly TroyHouseAnimalText[] _animalTexts;
 
     public TroyHouseRecord Record { get; }
-    public IReadOnlyList<TroyHouseAnimalText> AnimalTexts => _animalTexts;
 
     public TroyHouseDatabase()
     {

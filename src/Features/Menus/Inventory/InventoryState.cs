@@ -81,7 +81,6 @@ public sealed class InventoryState
 
     public int EquippedB { get; private set; }
     public int EquippedA { get; private set; }
-    public ReadOnlySpan<byte> InventoryStorage => _inventoryStorage;
     public int HealthQuarters { get; private set; }
     public int MaxHealthQuarters { get; private set; }
     public int Rupees { get; private set; }

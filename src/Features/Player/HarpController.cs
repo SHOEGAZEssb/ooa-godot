@@ -26,7 +26,6 @@ public sealed class HarpController
     internal int PlayingSong { get; private set; }
     internal bool IsPlaying => PlayingSong != 0 || _emptySongPlaying;
     internal HarpItemDatabase Database => _database;
-    internal int ActiveNoteCount => _notes.Count;
     internal int NoteSpawnCount => _noteSerial;
     private bool _emptySongPlaying;
 

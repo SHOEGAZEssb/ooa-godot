@@ -39,7 +39,6 @@ public partial class PushBlockController : Node2D
     public bool Active => _active;
     internal bool LinkMovementDisabled => _active && _linkMovementDisabled;
     internal int RemainingPushFrames => _pushCounter;
-    internal float MoveFrame => _moveFrame;
     internal int ActiveMoveFrames => _activeMoveFrames;
     internal float ActiveMoveSpeedPerFrame => _activeMoveSpeedPerFrame;
     internal Vector2 BlockTopLeft => _sourceTopLeft + (Vector2)_moveDirection *

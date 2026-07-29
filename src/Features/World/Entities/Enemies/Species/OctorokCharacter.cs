@@ -17,7 +17,6 @@ public partial class OctorokCharacter : EnemyCharacter
     public OctorokRecord Record { get; private set; }
     internal OctorokState State => _state;
     internal int Counter1 => _counter1;
-    internal int WalkCounter => _walkCounter;
     internal int Angle => _angle;
     internal int CurrentAnimationFrame => AnimationFrame;
 

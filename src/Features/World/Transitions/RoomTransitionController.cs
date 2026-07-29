@@ -111,7 +111,6 @@ public sealed class RoomTransitionController
     internal TimeWarpEffect? ActiveTimeWarpEffect => _timeWarpEffect;
     internal bool RoomLoadColumnRevealActive => _roomLoadColumnReveal;
     internal int RoomLoadRevealLoadedColumns => _roomLoadRevealLoadedColumns;
-    internal EraInfoDatabase EraInfo => _eraInfo;
     internal static (int Even, int Odd) TimeWarpDissolveMaskForValidation(int step) =>
         TimeWarpDissolveMasks[step];
 

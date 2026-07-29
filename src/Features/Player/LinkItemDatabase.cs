@@ -34,7 +34,6 @@ internal sealed class LinkItemDatabase
 
     internal LinkItemConstants Constants { get; }
     internal IReadOnlyList<SwordArc> SwordArcs => _swordArcs;
-    internal IReadOnlyList<int> SwordSlashSounds => _swordSlashSounds;
     internal IReadOnlyList<ClinkTileRecord> ClinkRows { get; private set; } = [];
 
     private LinkItemDatabase(

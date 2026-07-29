@@ -37,10 +37,8 @@ public partial class DebugFlagScreen : Control
     private int _ringCursor;
 
     public FlagPage Page { get; private set; }
-    public int GlobalCursor => _globalCursor;
     public int SelectedRoomGroup => RoomTableGroups[_roomTable];
     public int SelectedRoom => _room;
-    public int RoomCursor => _roomCursor;
     internal string RenderedText => _text?.Text ?? string.Empty;
 
     public override void _Ready()

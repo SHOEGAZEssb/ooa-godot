@@ -25,7 +25,6 @@ public sealed class OracleWorldData
     private OracleRoomData? _currentPaletteRoom;
     private OracleRoomData? _loadingPaletteRoom;
 
-    public int CachedRoomCount => _rooms.Count;
     internal BackgroundPaletteState BackgroundPalettes { get; }
 
     public OracleWorldData()

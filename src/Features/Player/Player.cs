@@ -250,8 +250,6 @@ public partial class Player : Node2D
     internal bool IsGroundedForFloorButton =>
         _ledgeJumpState == LedgeJumpState.None && !_newGameSlowFalling &&
         !_sideScrollAirborne && !_drowning && !_fallingInHole;
-    internal bool IsJumpingDownLedge =>
-        _ledgeJumpState != LedgeJumpState.None;
     internal bool AcceptsRoomEntityContact =>
         _ledgeJumpState == LedgeJumpState.None && !IsUsingHarp;
     internal int LedgeZ => _ledgeZFixed >> 8;

@@ -44,8 +44,6 @@ internal sealed class BlackTowerEntranceEvent :
     public bool BlocksGameplay => HasState;
     internal BlackTowerEntranceEventEventStage Stage => _stage;
     internal BlackTowerExplanationScreen? Screen => _screen;
-    internal int PhaseCounter => _phaseCounter;
-    internal int FlashCounter => _flashCounter;
     internal BlackTowerEntranceEventDatabase Database => _database;
 
     public bool Matches(int group, OracleRoomData room) =>

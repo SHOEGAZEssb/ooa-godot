@@ -22,9 +22,6 @@ internal static class OracleGraphicsCache
     private static readonly Dictionary<OamCellKey, Texture2D> OamCells = new();
     private static IOracleGraphicsCacheObserver? _observer;
 
-    internal static int SourceImageCount => SourceImages.Count;
-    internal static int AnimationDefinitionCount => AnimationDefinitions.Count;
-    internal static int OamFrameCount => OamFrames.Count;
 
     internal static void SetObserver(IOracleGraphicsCacheObserver? observer) =>
         _observer = observer;

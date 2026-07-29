@@ -30,9 +30,6 @@ internal sealed class BlackTowerBlockingVillagerRoomEntity : BlackTowerNpcRoomEn
         npc.SetDialogue(0x1441, npc.Message, canFace: true);
     }
 
-    internal bool MovingRight => _movingRight;
-    internal int MovementUpdates => _movementUpdates;
-    internal int SavedLinkY => _savedLinkY;
     public NpcCharacter TalkNpc => Entity;
     public bool DisablesSword => _state != BlockState.Watching;
     public bool DisablesMovement => DisablesSword;

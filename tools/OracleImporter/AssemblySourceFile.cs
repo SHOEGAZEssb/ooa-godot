@@ -53,8 +53,6 @@ public sealed class AssemblySourceFile
 
     public IReadOnlyDictionary<string, IReadOnlyList<AssemblyNode>> Directives => _directives;
 
-    public IReadOnlyDictionary<string, IReadOnlyList<AssemblyNode>> MacroInvocations => _macros;
-
     public IReadOnlyDictionary<string, IReadOnlyList<AssemblyNode>> Instructions => _instructions;
 
     public SourcePosition PositionAt(int offset)

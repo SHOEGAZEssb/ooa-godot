@@ -93,7 +93,6 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
     internal Vector2 HeadPosition => _headPosition;
     internal Vector2 GhostPosition => _ghostPosition;
     internal int HeadZ => _headZ;
-    internal int GhostZ => _ghostZ;
     internal int BodyZ => _bodyZFixed >> 8;
     internal bool ShadowOwnerExists =>
         _state is not (BossState.Dying or BossState.Dead);

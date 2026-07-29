@@ -56,7 +56,6 @@ public partial class RingMenuScreen : Node2D
     internal int BoxCursor { get; private set; }
     internal bool SelectingList { get; private set; }
     internal bool PageTransitionActive => _transitionDirection != 0;
-    internal int PageTransitionFrame => _transitionFrame;
     internal ulong BackgroundHashForValidation { get; private set; }
     internal Vector2I BackgroundSizeForValidation => _background is null
         ? Vector2I.Zero

@@ -13,7 +13,6 @@ internal partial class BlackTowerExplanationScreen : Control
     private readonly Image _sprites;
     private bool _flashWhite;
 
-    internal bool FlashWhite => _flashWhite;
     internal ulong BackgroundPixelHash { get; }
 
     public BlackTowerExplanationScreen(BlackTowerEntranceEventDatabase database)

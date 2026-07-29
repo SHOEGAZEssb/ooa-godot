@@ -507,7 +507,6 @@ public partial class MapScreen : Node2D
     internal byte DungeonTileAt(int x, int y) =>
         _dungeonMapTiles[(5 + y) * TilemapStride + 10 + x];
 
-    internal bool SelectDungeonFloorForValidation(int floor) => TrySelectDungeonFloor(floor);
 
     private Texture2D BuildBackground(byte[] map, byte[] flags, Image? blurb = null)
     {

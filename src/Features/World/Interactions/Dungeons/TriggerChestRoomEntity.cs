@@ -30,7 +30,6 @@ internal sealed partial class TriggerChestRoomEntity : DungeonMechanicRoomEntity
     internal int TriggerParameter => _record.Parameter;
     internal TriggerPredicate Predicate => _record.Predicate;
     internal int Counter => _counter;
-    internal byte OriginalTile => _originalTile;
     public bool Finished { get; private set; }
 
     internal TriggerChestRoomEntity(

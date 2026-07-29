@@ -1002,8 +1002,6 @@ public partial class GameRoot : Node2D
 
     internal void ClearDeactivatedWarp() => _transitions.ClearDeactivatedWarp();
     internal void RefreshRoomObjects() => _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom);
-    private void ClearRoomObjects() => _entities.Clear();
-    private bool TryGetNeighborId(Vector2I direction, out int id) => _rooms.TryGetNeighbor(direction, out id);
     internal void UpdateRoomCamera() => _transitions.UpdateCamera();
     internal Vector2 WorldToScreen(Vector2 position) => _transitions.WorldToScreen(position);
     internal void UpdateRoomWarpTransition(double delta)

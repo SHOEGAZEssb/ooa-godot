@@ -35,7 +35,6 @@ public sealed class OracleSaveData
     public const int GlobalFlagMakuGivesAdviceFromPastMap = 0x3f;
     public const int GlobalFlagSawTwinrovaBeforeEndgame = 0x13;
     public const int GlobalFlagFinishedGame = 0x14;
-    public const int GlobalFlagSymmetryBridgeBuilt = 0x25;
     public const int GlobalFlagForestUnscrambled = 0x2b;
     public const int GlobalFlagPreBlackTowerCutsceneDone = 0x33;
     public const int GlobalFlagGotRingFromZelda = 0x38;

@@ -10,7 +10,6 @@ internal sealed class EnemyTerrainMovement(Node2D entity, OracleRoomData room)
 {
     public HazardType Hazard =>
         room.GetTerrainInfo(entity.Position).Hazard;
-    public bool IsOnHazard => Hazard != HazardType.None;
 
     public bool MoveAtAngle(int angle, int speed, bool allowHoles)
     {

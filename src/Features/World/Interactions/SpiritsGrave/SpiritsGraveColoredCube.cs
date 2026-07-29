@@ -34,7 +34,6 @@ internal sealed partial class SpiritsGraveColoredCube : SpiritsGraveVisualEntity
     public bool Finished { get; private set; }
     internal int Orientation => _orientation;
     internal int PushCounter => _pushCounter;
-    internal int HoleCounter => _holeCounter;
     internal bool Moving => _moving;
 
     internal SpiritsGraveColoredCube(

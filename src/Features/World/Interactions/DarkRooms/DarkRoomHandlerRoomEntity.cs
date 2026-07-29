@@ -20,7 +20,6 @@ internal sealed partial class DarkRoomHandlerRoomEntity : Node2D,
 
     public Node2D Node => this;
     internal bool Initialized => _initialized;
-    internal int LastLitCount => _lastLitCount;
     internal DarkRoomState State => _state;
 
     internal DarkRoomHandlerRoomEntity(

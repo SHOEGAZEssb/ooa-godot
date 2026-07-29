@@ -53,11 +53,9 @@ public partial class TimeWarpEffect : Node2D
     internal bool PrimaryVisible => _primary is not null;
     internal bool BeamVisible => _beam is not null;
     internal bool TrailVisible => _trailAnimator is not null || _trailMoving;
-    internal int ActiveParticleCount => _particles.Count;
     internal int ActiveSparkleCount => _sparkles.Count;
     internal bool BeamContracting => _beamContracting;
     internal int SourceCounter => _sourceCounter;
-    internal int PrimaryFrameIndex => _primary?.Index ?? -1;
     internal int BeamFrameIndex => _beam?.Index ?? -1;
     internal int BackgroundZIndex => _backgroundLayer.ZIndex;
     internal int ForegroundZIndex => _foregroundLayer.ZIndex;

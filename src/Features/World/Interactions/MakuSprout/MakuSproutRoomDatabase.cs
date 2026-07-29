@@ -15,7 +15,6 @@ internal sealed class MakuSproutRoomDatabase
     private readonly Dictionary<int, MakuSproutAdviceRecord> _advice = [];
 
     public MakuSproutRoomRecord Record { get; }
-    public IReadOnlyDictionary<int, MakuSproutAdviceRecord> Advice => _advice;
     public Color[] StatuePalette { get; }
 
     public MakuSproutRoomDatabase()

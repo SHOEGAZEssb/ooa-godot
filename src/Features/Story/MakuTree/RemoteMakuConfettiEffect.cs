@@ -25,7 +25,6 @@ internal sealed partial class RemoteMakuConfettiEffect : Node2D
 
     internal int SpawnedPieces => _spawnedPieces;
     internal int LivePieces => _pieces.Count;
-    internal int LiveSparkles => _sparkles.Count;
     internal bool Finished =>
         !_spawnerActive && _pieces.Count == 0 && _sparkles.Count == 0;
     internal IReadOnlyList<Vector2> PiecePositions

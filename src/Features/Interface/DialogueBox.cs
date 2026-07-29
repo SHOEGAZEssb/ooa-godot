@@ -106,7 +106,6 @@ public partial class DialogueBox : Node2D
     internal float TextScrollOffset => _textScrollOffset;
     internal string CurrentMessage => _currentMessage;
     internal bool ChoiceActive => _choiceActive;
-    internal bool PassiveMessage => _passive;
     internal int TextboxFlagsForValidation => _textboxFlags;
     internal int VisiblePanelHeight => _visiblePanelHeight;
     internal int SelectedChoice => _selectedChoice;
