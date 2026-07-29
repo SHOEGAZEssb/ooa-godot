@@ -6,7 +6,9 @@ validate without obscuring table order, aliases, identifiers, or game-specific
 semantics.
 
 ## Small Stuff
-- [ ] During the first post-essence maku cutscene the hud fades faster to black than the rest of the screen
+- [x] During the first post-Essence Maku cutscene, the HUD no longer reaches
+  black before the room. The cleared status strip now renders blank tile
+  `$00`'s palette-0 color 2 and follows the same 32-step delayed palette fade.
 - [x] When starting a new game, the era indicator is shown when Link spawns.
   The summon arrival now retains the original `linkSummonedCutscene` room-load
   boundary, which does not call the ordinary era-info predicate.

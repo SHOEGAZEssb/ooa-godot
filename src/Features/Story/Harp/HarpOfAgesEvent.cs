@@ -279,9 +279,11 @@ internal sealed class HarpOfAgesEvent :
         int steps = Math.Min(
             32,
             (_stageCounter + 1) / record.FadeDelay);
+        float progress = steps / 32.0f;
         _context.RoomView.SetBackgroundFade(
             Colors.Black,
-            steps / 32.0f);
+            progress);
+        _context.Hud.SetHiddenStatusBarFade(Colors.Black, progress);
         _stageCounter++;
         if (_stageCounter < record.FadeFrames)
             return;

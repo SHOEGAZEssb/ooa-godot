@@ -23,6 +23,7 @@ public partial class Hud : Node2D
     private TreasureDatabase? _treasures;
     private InventoryState? _inventory;
     private bool _statusBarHidden;
+    private Color _hiddenStatusBarFade = new(0, 0, 0, 0);
 
     public int Rupees { get; set; }
     public int HealthQuarters { get; set; } = 12;
@@ -54,13 +55,14 @@ public partial class Hud : Node2D
     {
         if (_statusBarHidden)
         {
-            DrawRect(
-                new Rect2(
-                    Vector2.Zero,
-                    new Vector2(
-                        OracleRoomData.ViewportWidth,
-                        OracleRoomData.GameplayScreenTop)),
-                HudPalette[3]);
+            var bounds = new Rect2(
+                Vector2.Zero,
+                new Vector2(
+                    OracleRoomData.ViewportWidth,
+                    OracleRoomData.GameplayScreenTop));
+            DrawRect(bounds, HudPalette[2]);
+            if (_hiddenStatusBarFade.A > 0.0f)
+                DrawRect(bounds, _hiddenStatusBarFade);
             return;
         }
 
@@ -96,18 +98,35 @@ public partial class Hud : Node2D
     /// <summary>
     /// Mirrors hideStatusBar_body after wDontUpdateStatusBar has been set to
     /// $77: the 20-by-2 status tilemap and attributes are cleared, leaving
-    /// palette-0 color 3 across the complete status-bar strip.
+    /// blank tile $00's palette-0 color 2 across the complete status-bar
+    /// strip.
     /// </summary>
     public void HideStatusBar()
     {
         _statusBarHidden = true;
+        _hiddenStatusBarFade = new Color(0, 0, 0, 0);
         Visible = true;
         QueueRedraw();
+    }
+
+    /// <summary>
+    /// Applies the owning palette thread to the cleared status-bar strip.
+    /// </summary>
+    public void SetHiddenStatusBarFade(Color color, float alpha)
+    {
+        _hiddenStatusBarFade = new Color(
+            color.R,
+            color.G,
+            color.B,
+            Mathf.Clamp(alpha, 0.0f, 1.0f));
+        if (_statusBarHidden)
+            QueueRedraw();
     }
 
     public void ShowStatusBar()
     {
         _statusBarHidden = false;
+        _hiddenStatusBarFade = new Color(0, 0, 0, 0);
         Visible = true;
         QueueRedraw();
     }
@@ -324,7 +343,16 @@ public partial class Hud : Node2D
     internal bool DungeonKeyDisplayActive =>
         DungeonIndex is >= 0 and < 16 && (TilesetFlags & 0x10) == 0;
     internal bool StatusBarHidden => _statusBarHidden;
-    internal Color HiddenStatusBarColorForValidation => HudPalette[3];
+    internal float HiddenStatusBarFadeAlphaForValidation =>
+        _hiddenStatusBarFade.A;
+    internal Color HiddenStatusBarBaseColorForValidation => HudPalette[2];
+    internal Color HiddenStatusBarColorForValidation => HudPalette[2].Lerp(
+        new Color(
+            _hiddenStatusBarFade.R,
+            _hiddenStatusBarFade.G,
+            _hiddenStatusBarFade.B,
+            1.0f),
+        _hiddenStatusBarFade.A);
 
     internal byte StatusMapTileForValidation(int offset)
     {

@@ -154,14 +154,31 @@ public sealed partial class ValidationRoot
                 !_hud.StatusBarHidden ||
                 cutscene.DontUpdateStatusBar != record.HudLockByte ||
                 cutscene.CommandInstruction != 6 ||
-                _roomView.BackgroundFadeAlpha != 0.0f,
+                _roomView.BackgroundFadeAlpha != 0.0f ||
+                _hud.HiddenStatusBarFadeAlphaForValidation != 0.0f ||
+                _hud.HiddenStatusBarColorForValidation !=
+                    _hud.HiddenStatusBarBaseColorForValidation,
                 "Remote Maku did not hide the HUD and start its black palette " +
                 "thread immediately after wait 40.");
 
-            StepRoomEventFrames(record.FadeFrames - 2);
+            const int midpointFrames = 32;
+            StepRoomEventFrames(midpointFrames);
+            FailIf(
+                cutscene.CommandInstruction != 6 ||
+                _roomView.BackgroundFadeAlpha != 0.5f ||
+                _hud.HiddenStatusBarFadeAlphaForValidation !=
+                    _roomView.BackgroundFadeAlpha ||
+                _hud.HiddenStatusBarColorForValidation ==
+                    _hud.HiddenStatusBarBaseColorForValidation ||
+                _hud.HiddenStatusBarColorForValidation == Colors.Black,
+                "Remote Maku background palette 0 did not share the room's " +
+                "delay-2 black-fade midpoint.");
+
+            StepRoomEventFrames(record.FadeFrames - 2 - midpointFrames);
             FailIf(
                 cutscene.CommandInstruction != 6 ||
                 _roomView.BackgroundFadeAlpha != 1.0f ||
+                _hud.HiddenStatusBarFadeAlphaForValidation != 1.0f ||
                 _hud.HiddenStatusBarColorForValidation !=
                     _roomView.BackgroundFadeColorForValidation,
                 "Remote Maku fadeoutToBlackWithDelay(2) did not reach one " +
@@ -288,8 +305,8 @@ public sealed partial class ValidationRoot
 
         GD.Print(
             "Validated room 0:8d first-Essence remote Maku predicates, imported " +
-            "script cadence, palette-0-preserving black fade, matching black status " +
-            "strip, PALH_0d dialogue colors, HUD timing, five-piece present " +
+            "script cadence, palette-0-preserving black fade, synchronized hidden " +
+            "status strip, PALH_0d dialogue colors, HUD timing, five-piece present " +
             "confetti/sparkles, TX_05b0/TX_05c0 map offsets, full-screen white fade, " +
             "music restore, room flag $40, and Maku-state increment.");
     }

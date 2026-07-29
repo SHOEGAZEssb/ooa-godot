@@ -166,6 +166,9 @@ public sealed partial class ValidationRoot
                 _player.IsHoldingItemTwoHands ||
                 _entities.Entities<GroundTreasurePickup>().Count != 0 ||
                 !_hud.StatusBarHidden ||
+                _hud.HiddenStatusBarFadeAlphaForValidation != 0.0f ||
+                _hud.HiddenStatusBarColorForValidation !=
+                    _hud.HiddenStatusBarBaseColorForValidation ||
                 !Mathf.IsEqualApprox(
                     _roomView.BackgroundFadeAlpha, 0.0f),
                 "Closing TX_0071 did not clear cfc0 bit 0, delete the held " +
@@ -176,9 +179,13 @@ public sealed partial class ValidationRoot
                 harpEvent.Stage != HarpOfAgesEventStage.FadeOut ||
                 harpEvent.StageCounter != record.FadeFrames - 1 ||
                 !Mathf.IsEqualApprox(
-                    _roomView.BackgroundFadeAlpha, 1.0f),
+                    _roomView.BackgroundFadeAlpha, 1.0f) ||
+                !Mathf.IsEqualApprox(
+                    _hud.HiddenStatusBarFadeAlphaForValidation,
+                    _roomView.BackgroundFadeAlpha),
                 "Room 3:ae fadeoutToBlackWithDelay(2) did not reach black " +
-                "one update before its 65-update completion gate.");
+                "across the room and hidden status bar one update before its " +
+                "65-update completion gate.");
             StepRoomEventFrames(1);
             FailIf(
                 harpEvent.Stage != HarpOfAgesEventStage.BlackHold ||

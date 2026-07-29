@@ -149,6 +149,7 @@ internal abstract class RemoteMakuEvent :
         {
             case "FadeOutBlack":
                 Context.RoomView.SetBackgroundFade(Colors.Black, progress);
+                Context.Hud.SetHiddenStatusBarFade(Colors.Black, progress);
                 break;
             case "FadeInWhite":
                 OwnFullScreenFade();

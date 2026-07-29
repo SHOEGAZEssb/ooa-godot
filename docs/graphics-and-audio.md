@@ -208,6 +208,13 @@ which overlaps the icon's lower-right cell. Godot composition must therefore
 draw equipped OAM before these digit tiles. This is separate from mode `$00`'s
 `L-` plus level overlay.
 
+`hideStatusBar_body` clears the status tilemap and its attributes after
+`wDontUpdateStatusBar=$77`; blank HUD tile `$00` is palette-0 color 2, not
+black. Palette-thread cutscenes keep that cleared strip under their declared
+background-palette fade. In particular, the remote Maku and Harp
+`fadeoutToBlackWithDelay(2)` paths advance the strip and room through the same
+32 steps and reach black together.
+
 The thrown Ember Seed uses object GFX header `$78`
 (`spr_common_items`), tile base `$12`, palette 2, and the imported five-frame
 item animation. Ignition writes OAM flags `$0a`, whose bank bit switches the
