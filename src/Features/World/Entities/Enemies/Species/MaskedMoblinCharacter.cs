@@ -71,7 +71,7 @@ public partial class MaskedMoblinCharacter : EnemyCharacter
             case MoblinState.Moving:
                 _counter--;
                 bool moved = _movement.MoveAtAngle(
-                    _angle, _record.SpeedRaw / 40.0f, allowHoles: false);
+                    _angle, _record.SpeedRaw, allowHoles: false);
                 AdvanceAnimation();
                 if (_counter == 0 || !moved)
                 {

@@ -169,7 +169,7 @@ public partial class OctorokCharacter : EnemyCharacter
             return;
         }
 
-        if (!MoveAtAngle(_angle, Record.SpeedRaw / 40.0f, allowHazards: false))
+        if (!MoveAtAngle(_angle, Record.SpeedRaw, allowHazards: false))
         {
             _angle = _random.Next().Value & 0x18;
             SetAnimationFromAngle();
@@ -188,10 +188,10 @@ public partial class OctorokCharacter : EnemyCharacter
         return true;
     }
 
-    private bool MoveAtAngle(int angle, float speed, bool allowHazards)
+    private bool MoveAtAngle(int angle, int speed, bool allowHazards)
     {
-        Vector2 direction = OracleObjectMath.CardinalVector(angle);
-        Vector2 destination = Position + direction * speed;
+        Vector2 destination =
+            Position + OracleObjectSpeedTable.Shared.Delta(speed, angle & 0x18);
         if (!CanOccupy(destination, allowHazards))
             return false;
         Position = destination;

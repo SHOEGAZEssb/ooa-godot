@@ -121,7 +121,7 @@ public partial class GelCharacter : EnemyCharacter
                 return;
 
             case GelState.Inching:
-                _movement.MoveAtAngle(_angle, 0.25f, allowHoles: false);
+                _movement.MoveAtAngle(_angle, 0x0a, allowHoles: false);
                 AdvanceAnimation();
                 if (--_counter1 > 0)
                     return;
@@ -137,7 +137,7 @@ public partial class GelCharacter : EnemyCharacter
                 return;
 
             case GelState.Hopping:
-                _movement.MoveAtAngle(_angle, 1.0f, allowHoles: true);
+                _movement.MoveAtAngle(_angle, 0x28, allowHoles: true);
                 if (!_verticalMotion.Update())
                     return;
                 _state = GelState.Waiting;

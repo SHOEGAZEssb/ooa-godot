@@ -172,7 +172,7 @@ and RNG consumption while addressing these items.
 
 ### Fidelity and generated-data boundaries
 
-- [ ] Make the ROM's signed 8.8 `bank3.objectSpeedTable` the canonical enemy
+- [x] Make the ROM's signed 8.8 `bank3.objectSpeedTable` the canonical enemy
   motion primitive.
   - Replace the remaining `VectorFromAngle32` trigonometry and floating-point
     accumulation in enemy walking, flying, knockback, hole pull, bosses, and
@@ -181,6 +181,11 @@ and RNG consumption while addressing these items.
   - Validate multi-update non-cardinal paths against independent source
     vectors. Current scenarios often calculate their expectations with the
     same runtime helper, so they cannot detect cumulative rounding drift.
+  - Completed with one ordered 768-record table covering all 24 speeds and 32
+    angles. Implemented enemy walking, flying, recoil, hole pull, bosses,
+    boomerangs, and hostile projectiles consume its exact signed components;
+    the former Fairy-only subset was removed. Validation pins independent
+    non-cardinal vectors and a cumulative 64-update enemy path.
 
 - [ ] Move the remaining copied enemy behavior and collision data across the
   importer boundary.
@@ -310,11 +315,11 @@ NPC- and enemy-specific findings remain in their sections above.
 
 - [ ] Make original object movement math one game-wide service rather than an
   enemy-only repair.
-  - Import the complete signed 8.8 `bank3.objectSpeedTable` by speed and angle,
-    generalizing the exact `$SPEED_200` vectors already emitted only for
-    Fairies' Woods. Port `objectGetRelativeAngle`'s integer decision path as
-    well; `OracleObjectMath.VectorFromAngle32` and `AngleToward` currently use
-    trigonometry and rounded floating-point coordinates.
+  - Build the game-wide movement owner around the complete generated signed
+    8.8 `bank3.objectSpeedTable` already consumed by enemy/item-drop paths.
+    Port `objectGetRelativeAngle`'s integer decision path as well;
+    `OracleObjectMath.VectorFromAngle32` and `AngleToward` remain in non-enemy
+    object paths with trigonometry and rounded floating-point coordinates.
   - Use the service for Maple and her dropped items, scripted Impa/Nayru
     actors, Gasha nuts, tree seeds, essence beads, Running Bipin, item and
     shovel debris, cutscene command movement, and all enemy paths named above.

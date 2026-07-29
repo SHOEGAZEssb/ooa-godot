@@ -6,16 +6,16 @@ namespace oracleofages;
 public partial class KeeseCharacter : EnemyCharacter
 {
 
-    private const float SpeedC0 = 0.75f;
-    private const float Speed100 = 1.0f;
+    private const int SpeedC0 = 0x1e;
+    private const int Speed100 = 0x28;
     private const int InitialRestFrames = 0x20;
     private const int ApproachDistance = 0x31;
     private const int TurningInterval = 12;
     private const int TurningIntervals = 12;
 
-    private static readonly float[] DecelerationSpeeds =
+    private static readonly int[] DecelerationSpeeds =
     {
-        0.75f, 0.5f, 0.25f, 0.25f, 0.125f, 0.125f, 0.125f, 0.125f
+        0x1e, 0x14, 0x0a, 0x0a, 0x05, 0x05, 0x05, 0x05
     };
     private static readonly int[] DecelerationAnimationMasks =
     {
@@ -29,7 +29,7 @@ public partial class KeeseCharacter : EnemyCharacter
     private int _counter2;
     private int _angle;
     private int _turnAmount;
-    private float _speed;
+    private int _speed;
     private bool _flying;
 
     public EnemyDatabaseEnemyRecord Record { get; private set; }
@@ -191,9 +191,9 @@ public partial class KeeseCharacter : EnemyCharacter
         AdvanceAnimation();
     }
 
-    private void ApplySpeed(float speed)
+    private void ApplySpeed(int speed)
     {
-        Position += OracleObjectMath.VectorFromAngle32(_angle) * speed;
+        Position += OracleObjectSpeedTable.Shared.Delta(speed, _angle);
     }
 
     private void BounceOffScreenBoundary()

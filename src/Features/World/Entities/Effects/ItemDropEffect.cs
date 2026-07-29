@@ -307,7 +307,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
 
     private void ApplyFairyVelocity()
     {
-        ItemDropFairyVelocityRecord velocity =
+        OracleObjectVelocity velocity =
             _itemDrops!.GetFairyVelocity(_speed, _angle);
         _fairyYFixed += velocity.YFixed;
         _fairyXFixed += velocity.XFixed;

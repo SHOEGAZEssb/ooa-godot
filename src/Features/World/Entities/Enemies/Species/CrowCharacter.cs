@@ -134,8 +134,8 @@ public partial class CrowCharacter : EnemyCharacter
                         SetDirectionalAnimation(flight: true);
                     }
                 }
-                _precisePosition += OracleObjectMath.VectorFromAngle32(_angle) *
-                    (Record.SpeedRaw / 40.0f);
+                _precisePosition +=
+                    OracleObjectSpeedTable.Shared.Delta(Record.SpeedRaw, _angle);
                 Position = OracleObjectMath.ToPixelPosition(_precisePosition);
                 AdvanceAnimation();
                 return;

@@ -385,6 +385,16 @@ are not implemented are absent from the typed definition tables while their
 ordered source records remain available as unsupported
 reservations/completion evidence.
 
+The same enemy stage emits `metadata/object_speed_vectors.tsv` as the complete
+typed form of `bank3.objectSpeedTable`: 24 source speed bytes by all 32 angles,
+or 768 ordered signed 8.8 Y/X records. It asserts the `SPEED_20` through
+`SPEED_300` enum order, the five trigonometric assembler directives that form
+each source row, and the clean-ROM table signature. `OracleObjectSpeedTable`
+rejects missing/reordered rows, invalid source identities, and changed
+cardinal zero components. This table is the single runtime source for
+implemented enemy motion and `ITEM_DROP_FAIRY`; do not restore the former
+four-speed Fairy-only table or calculate enemy vectors with host trigonometry.
+
 `enemy_handler_registry.tsv` is the unique ID/subid implementation manifest for
 that ordered stream. The importer resolves enemy names back to
 `constants/common/enemies.s` or `constants/ages/enemies.s`, assigns one of

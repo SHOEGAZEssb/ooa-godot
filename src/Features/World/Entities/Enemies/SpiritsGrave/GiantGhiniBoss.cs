@@ -13,7 +13,7 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
     private int _counter = 120;
     private int _angle;
     private int _targetPacked;
-    private float _speed = 0.75f;
+    private int _speed = 0x1e;
     private int _nudgeCounter = 2;
     private int _floatCounter = 16;
     private float _z = -8;
@@ -155,7 +155,7 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
             case GiantGhiniBossBossState.Charging:
                 _counter = (_counter - 1) & 0xff;
                 if ((_counter & 3) == 0)
-                    _speed = Math.Min(3.0f, _speed + 0.125f);
+                    _speed = Math.Min(0x78, _speed + 0x05);
                 Move(_angle, _speed);
                 if (_childRequestsCharge)
                     UpdateChargeTarget(player.Position);
@@ -164,7 +164,7 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
                 if (_room.GetPackedPosition(Position) == _targetPacked)
                 {
                     _state = GiantGhiniBossBossState.Moving;
-                    _speed = 0.75f;
+                    _speed = 0x1e;
                     _childRequestsCharge = false;
                     SetAnimation(0);
                     ChooseTargetAngle(player.Position);
@@ -235,7 +235,7 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
     {
         _state = GiantGhiniBossBossState.Charging;
         _counter = 150;
-        _speed = 0.125f;
+        _speed = 0x05;
         SetAnimation(1);
         UpdateChargeTarget(linkPosition);
     }
@@ -264,8 +264,8 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
             Position, camera + new Vector2(80, targetScreenY));
     }
 
-    private void Move(int angle, float speed) =>
-        Position += OracleObjectMath.VectorFromAngle32(angle) * speed;
+    private void Move(int angle, int speed) =>
+        Position += OracleObjectSpeedTable.Shared.Delta(speed, angle);
 
     private Vector2 CameraOrigin(Vector2 linkPosition) => new(
         Mathf.Clamp(

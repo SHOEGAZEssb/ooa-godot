@@ -77,6 +77,119 @@ public sealed partial class ValidationRoot
             : throw new InvalidOperationException(
                 $"{source.Source} has no typed Crow definition.");
 
+    private void ValidateObjectSpeedTable()
+    {
+        OracleObjectSpeedTable speeds = OracleObjectSpeedTable.Shared;
+        (int Speed, int Fixed, int Angle, int Y, int X)[] sourceSamples =
+        [
+            (0x05, 0x020, 0x03, -26, 17),
+            (0x14, 0x080, 0x1a, -48, -118),
+            (0x1e, 0x0c0, 0x07, -37, 188),
+            (0x28, 0x100, 0x04, -181, 181),
+            (0x32, 0x140, 0x13, 266, -177),
+            (0x50, 0x200, 0x04, -362, 362),
+            (0x78, 0x300, 0x1f, -753, -149)
+        ];
+        foreach ((int speed, int fixedMagnitude, int angle, int y, int x)
+            in sourceSamples)
+        {
+            OracleObjectVelocity velocity = speeds.Get(speed, angle);
+            FailIf(
+                velocity.Speed != speed ||
+                velocity.SpeedFixed != fixedMagnitude ||
+                velocity.Angle != angle ||
+                velocity.YFixed != y ||
+                velocity.XFixed != x,
+                $"bank3.objectSpeedTable speed ${speed:x2}, angle " +
+                $"${angle:x2} did not retain independent signed 8.8 source " +
+                $"vector ({y},{x}).");
+        }
+
+        for (int speedIndex = 1; speedIndex <=
+            OracleObjectSpeedTable.SpeedCount; speedIndex++)
+        {
+            int speed = speedIndex * 5;
+            int fixedMagnitude = speedIndex * 0x20;
+            OracleObjectVelocity up = speeds.Get(speed, 0x00);
+            OracleObjectVelocity right = speeds.Get(speed, 0x08);
+            OracleObjectVelocity down = speeds.Get(speed, 0x10);
+            OracleObjectVelocity left = speeds.Get(speed, 0x18);
+            FailIf(
+                up.YFixed != -fixedMagnitude || up.XFixed != 0 ||
+                right.YFixed != 0 || right.XFixed != fixedMagnitude ||
+                down.YFixed != fixedMagnitude || down.XFixed != 0 ||
+                left.YFixed != 0 || left.XFixed != -fixedMagnitude,
+                $"bank3.objectSpeedTable speed ${speed:x2} lost a cardinal " +
+                "zero component or signed magnitude.");
+        }
+
+        const int pathUpdates = 64;
+        const int pathYFixed = -26;
+        const int pathXFixed = 17;
+        OracleRoomData room = _world.LoadRoom(0, 0x00);
+        Vector2? routeOrigin = null;
+        for (int y = 16; y < room.Height - 16 && routeOrigin is null; y++)
+        for (int x = 16; x < room.Width - 16; x++)
+        {
+            var candidate = new Vector2(x, y);
+            bool routeOpen = true;
+            for (int update = 1; update <= pathUpdates; update++)
+            {
+                Vector2 center = candidate + new Vector2(
+                    pathXFixed * update / 256.0f,
+                    pathYFixed * update / 256.0f);
+                Vector2[] samples =
+                [
+                    center + new Vector2(-5, -4),
+                    center + new Vector2(5, -4),
+                    center + new Vector2(-5, 6),
+                    center + new Vector2(5, 6)
+                ];
+                if (samples.Any(sample =>
+                    sample.X < 0 || sample.X >= room.Width ||
+                    sample.Y < 0 || sample.Y >= room.Height ||
+                    room.IsSolid(sample)))
+                {
+                    routeOpen = false;
+                    break;
+                }
+            }
+            if (routeOpen)
+            {
+                routeOrigin = candidate;
+                break;
+            }
+        }
+        FailIf(
+            routeOrigin is null,
+            "Room 0:00 has no open 64-update SPEED_20 angle `$03 route.");
+
+        var mover = new Node2D { Position = routeOrigin!.Value };
+        var movement = new EnemyTerrainMovement(mover, room);
+        for (int update = 0; update < pathUpdates; update++)
+        {
+            FailIf(
+                !movement.MoveAtAngle(0x03, 0x05, allowHoles: true),
+                $"The source-vector route stopped on update {update + 1}.");
+        }
+        Vector2 expected = routeOrigin.Value + new Vector2(
+            pathXFixed * pathUpdates / 256.0f,
+            pathYFixed * pathUpdates / 256.0f);
+        FailIf(
+            mover.Position != expected ||
+            (mover.Position.X * 256.0f) % 1.0f != 0 ||
+            (mover.Position.Y * 256.0f) % 1.0f != 0,
+            $"A 64-update non-cardinal enemy path accumulated to " +
+            $"{mover.Position}; expected independent signed-8.8 position " +
+            $"{expected}.");
+        mover.Free();
+
+        GD.Print(
+            "Validated all 768 bank3.objectSpeedTable records, 24 signed " +
+            "cardinal magnitudes/zero components, seven independent " +
+            "non-cardinal source vectors, and a 64-update cumulative enemy path.");
+    }
+
     private void ValidateEnemyPlacementRules()
     {
         var spawnTiles = new EnemySpawnTileDatabase();
@@ -1742,13 +1855,8 @@ public sealed partial class ValidationRoot
             "The animated ecom_fallingInHole variant did not subtract three " +
             "from animCounter on every pull update.");
         holeEnemy.UpdateFrame(_player.Position);
-        Vector2 pullUnit = OracleObjectMath.VectorFromAngle32(
-            OracleObjectMath.AngleToward(
-                OracleObjectMath.ToPixelPosition(pullOrigin),
-                holeCenter));
-        var expectedFirstPull = pullOrigin + new Vector2(
-            (int)(pullUnit.X * 0x80) / 256.0f,
-            (int)(pullUnit.Y * 0x80) / 256.0f);
+        var expectedFirstPull =
+            pullOrigin + new Vector2(-71, 106) / 256.0f;
         FailIf(
             holeEnemy.Position != expectedFirstPull,
             "Enemy hole pull did not apply one signed-8.8 SPEED_80 step " +
@@ -1953,9 +2061,8 @@ public sealed partial class ValidationRoot
         var potApproach = new Vector2(136, 89);
         potStalfos.Position = potApproach;
         potStalfos.UpdateFrame(Vector2.Zero);
-        Vector2 expectedPotBounce = potApproach +
-            OracleObjectMath.VectorFromAngle32(0x1a) *
-            (room41f[2].SpeedRaw / 40.0f);
+        Vector2 expectedPotBounce =
+            potApproach + new Vector2(-118, -48) / 256.0f;
         FailIf(
             potStalfos.Angle != 0x1a ||
             !potStalfos.Position.IsEqualApprox(expectedPotBounce),
@@ -1974,9 +2081,8 @@ public sealed partial class ValidationRoot
         var cornerApproach = new Vector2(122, 115);
         cornerStalfos.Position = cornerApproach;
         cornerStalfos.UpdateFrame(Vector2.Zero);
-        Vector2 expectedCornerBounce = cornerApproach +
-            OracleObjectMath.VectorFromAngle32(0x14) *
-            (room41f[2].SpeedRaw / 40.0f);
+        Vector2 expectedCornerBounce =
+            cornerApproach + new Vector2(-90, 90) / 256.0f;
         FailIf(
             cornerStalfos.Angle != 0x14 ||
             !cornerStalfos.Position.IsEqualApprox(expectedCornerBounce),

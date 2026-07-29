@@ -430,10 +430,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
             }
 
             int angle = OracleObjectMath.AngleToward(pixels, target);
-            Vector2 unit = OracleObjectMath.VectorFromAngle32(angle);
-            Position += new Vector2(
-                (int)(unit.X * 0x80) / 256.0f,
-                (int)(unit.Y * 0x80) / 256.0f);
+            Position += OracleObjectSpeedTable.Shared.Delta(0x14, angle);
         }
 
         // The source subtracts three from animCounter (clamped at zero) and
@@ -461,14 +458,11 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
                 KnockbackAngle,
                 IsKnockbackCollision);
 
-        // bank3.objectSpeedTable truncates each SPEED_200 component to signed
-        // 8.8 precision. At this speed every nonzero component is at least
-        // $63, which ecom_applyGivenVelocityGivenAdjacentWalls counts as
-        // movement even when the high byte does not change.
-        Vector2 unit = OracleObjectMath.VectorFromAngle32(KnockbackAngle);
-        Vector2 movement = new(
-            (int)(unit.X * 0x200) / 256.0f,
-            (int)(unit.Y * 0x200) / 256.0f);
+        // At SPEED_200 every nonzero source component is at least $63, which
+        // ecom_applyGivenVelocityGivenAdjacentWalls counts as movement even
+        // when the high byte does not change.
+        Vector2 movement =
+            OracleObjectSpeedTable.Shared.Delta(0x50, KnockbackAngle);
         if (walls.YBlocked)
             movement.Y = 0;
         if (walls.XBlocked)

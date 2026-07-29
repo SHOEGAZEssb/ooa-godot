@@ -336,6 +336,17 @@ that distinction. Drawable room nodes ultimately inherit
 `TransitionOffsetNode2D`; it owns only the presentation offset applied during
 scrolling and never changes logical room/world coordinates.
 
+`OracleObjectSpeedTable` owns the complete generated
+`bank3.objectSpeedTable`: all 24 source speeds and 32 angles retain signed 8.8
+Y/X components and exact cardinal zeroes. Implemented enemy walking, flying,
+terrain sliding, recoil, hole pull, bosses, returning boomerangs, and hostile
+projectiles add those binary-exact 1/256-pixel components while retaining the
+fractional position between updates; rendering and collision code floor only
+at the source boundary that reads a high byte. Species state machines still
+own speed/angle selection and counter order. `objectGetRelativeAngle` remains
+part of the broader game-wide object-math migration and must not be inferred
+from the speed table.
+
 `EnemyAdjacentWallResolver` owns the generated
 `ecom_sideviewAdjacentWallOffsetTable` and
 `ecom_bounceOffScreenBoundary@angleTable`. It rounds a 32-step angle to the

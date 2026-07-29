@@ -28,8 +28,6 @@ public sealed class ItemDropDatabase
 
     private readonly byte[] _selectionData;
     private readonly Dictionary<int, ItemDropDatabaseVisualRecord> _visuals = new();
-    private readonly Dictionary<(int Speed, int Angle), ItemDropFairyVelocityRecord>
-        _fairyVelocities = new();
 
     public ItemDropDatabase()
     {
@@ -61,29 +59,7 @@ public sealed class ItemDropDatabase
         if (_visuals.Count != 16)
             throw new InvalidOperationException($"Expected 16 item-drop visual records, got {_visuals.Count}.");
 
-        GeneratedTable velocityTable = GeneratedTable.Load(
-            "res://assets/oracle/effects/item_drop_fairy_velocities.tsv",
-            new GeneratedTableSchema(
-                "item-drop fairy velocities",
-                GeneratedTableKeySemantics.Unique,
-                ["speed-code", "angle", "y-fixed", "x-fixed", "source"],
-                ["speed-code", "angle"],
-                headerRequired: true));
-        foreach (GeneratedTableRow row in velocityTable.Rows)
-        {
-            int speed = row.HexByte(0);
-            int angle = row.HexByte(1);
-            _fairyVelocities.Add(
-                (speed, angle),
-                new ItemDropFairyVelocityRecord(
-                    speed, angle, row.Decimal(2), row.Decimal(3)));
-        }
-
-        if (_fairyVelocities.Count != 4 * 32)
-        {
-            throw new InvalidOperationException(
-                $"Expected 128 item-drop fairy velocity records, got {_fairyVelocities.Count}.");
-        }
+        _ = OracleObjectSpeedTable.Shared;
     }
 
     public int EnemyTableRecord(int enemyId) =>
@@ -93,11 +69,8 @@ public sealed class ItemDropDatabase
         ? record
         : throw new KeyNotFoundException($"PART_ITEM_DROP subid ${subId:x2} has no visual record.");
 
-    internal ItemDropFairyVelocityRecord GetFairyVelocity(int speed, int angle) =>
-        _fairyVelocities.TryGetValue((speed, angle), out ItemDropFairyVelocityRecord record)
-            ? record
-            : throw new KeyNotFoundException(
-                $"ITEM_DROP_FAIRY has no velocity for speed ${speed:x2}, angle ${angle:x2}.");
+    internal OracleObjectVelocity GetFairyVelocity(int speed, int angle) =>
+        OracleObjectSpeedTable.Shared.Get(speed, angle);
 
     internal static bool IsRuntimeSupported(int subId) =>
         subId is >= Fairy and <= MysterySeeds or OneHundredRupeesOrEnemy;
@@ -197,6 +170,3 @@ public sealed class ItemDropDatabase
 }
 
 public readonly record struct ItemDropDatabaseVisualRecord(int SubId, int TileBase, int Palette, string Animation);
-
-internal readonly record struct ItemDropFairyVelocityRecord(
-    int Speed, int Angle, int YFixed, int XFixed);

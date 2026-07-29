@@ -2102,13 +2102,36 @@ $itemDropVisualPath = Join-Path $destination 'effects\item_drops.tsv'
 Write-GeneratedTable(
     $itemDropVisualPath, $itemDropVisualRows)
 
-# ITEM_DROP_FAIRY chooses one of four speeds and any even angle. Import the
-# exact signed 8.8 velocity components used by objectApplySpeed instead of
-# reconstructing them with host floating-point trigonometry. The clean US ROM
-# places bank3.objectSpeedTable at file offset $00c09b.
+# Every object speed is one of 24 multiples of SPEED_20, and every movement
+# angle indexes bank3.objectSpeedTable's signed 8.8 Y/X components. Import the
+# complete table once so enemy movement and ITEM_DROP_FAIRY do not reconstruct
+# any row with host floating-point trigonometry. The clean US ROM places the
+# table at file offset $00c09b.
 if ($itemDropCodeSource -notmatch
         '(?ms)^itemDrop_chooseRandomFairyMovement:.*?@speedTable:\s*\r?\n\s*\.db SPEED_40, SPEED_80, SPEED_c0, SPEED_100') {
     throw 'ITEM_DROP_FAIRY no longer selects the expected four-speed source table.'
+}
+$objectSpeedSource = Read-ImportText(
+    (Join-Path $Disassembly 'code\bank3.s'))
+if ($objectSpeedSource -notmatch
+        '(?ms)^objectSpeedTable:\s*\r?\n\s*\.define TMP_SPEED \$20\s*\r?\n\s*\r?\n\s*\.rept 24\s*\r?\n.*?\.dwsin 090 7 11\.25 \(-TMP_SPEED\) 0.*?\.dwcos 090 7 11\.25 \(-TMP_SPEED\) 0.*?\.dwsin 270 7 11\.25 \(-TMP_SPEED\) 0.*?\.dwcos 270 7 11\.25 \(-TMP_SPEED\) 0.*?\.dwsin 090 7 11\.25 \(-TMP_SPEED\) 0.*?\.redefine TMP_SPEED TMP_SPEED\+\$20\s*\r?\n\s*\.endr') {
+    throw 'bank3.objectSpeedTable no longer has the expected 24 signed 8.8 rows.'
+}
+$objectSpeedConstantSource = Read-ImportText(
+    (Join-Path $Disassembly 'constants\common\objectSpeeds.s'))
+$objectSpeedNames = @(
+    '20', '40', '60', '80', 'a0', 'c0', 'e0', '100',
+    '120', '140', '160', '180', '1a0', '1c0', '1e0', '200',
+    '220', '240', '260', '280', '2a0', '2c0', '2e0', '300')
+for ($speedIndex = 0; $speedIndex -lt $objectSpeedNames.Count; $speedIndex++) {
+    $speedCode = ($speedIndex + 1) * 5
+    $sourcePattern = '(?m)^\s*SPEED_' +
+        [regex]::Escape($objectSpeedNames[$speedIndex]) +
+        '\s+dsb 5\s*;\s*0x' + $speedCode.ToString('x2') + '\s*$'
+    if ($objectSpeedConstantSource -notmatch $sourcePattern) {
+        throw "Object speed SPEED_$($objectSpeedNames[$speedIndex]) no longer has code " +
+            "`$$($speedCode.ToString('x2'))."
+    }
 }
 $speedTableRomOffset = 0x00c09b
 $speedTableSignature = @(
@@ -2120,26 +2143,29 @@ for ($index = 0; $index -lt $speedTableSignature.Count; $index++) {
         throw 'Clean-ROM bank3.objectSpeedTable signature changed.'
     }
 }
-$itemDropFairySpeeds = @(
-    [pscustomobject]@{ Code = 0x0a; Fixed = 0x040; Name = 'SPEED_40' }
-    [pscustomobject]@{ Code = 0x14; Fixed = 0x080; Name = 'SPEED_80' }
-    [pscustomobject]@{ Code = 0x1e; Fixed = 0x0c0; Name = 'SPEED_c0' }
-    [pscustomobject]@{ Code = 0x28; Fixed = 0x100; Name = 'SPEED_100' }
-)
-$itemDropFairyVelocityRows = [Collections.Generic.List[string]]::new()
-$itemDropFairyVelocityRows.Add(
-    "# speed-code`tangle`ty-fixed`tx-fixed`tsource")
-foreach ($speed in $itemDropFairySpeeds) {
-    $rowOffset = ($speed.Fixed / 0x20 - 1) * 0x50
+$objectSpeedRows = [Collections.Generic.List[string]]::new()
+$objectSpeedRows.Add(
+    "# speed-code`tspeed-fixed`tangle`ty-fixed`tx-fixed`tsource")
+for ($speedIndex = 0; $speedIndex -lt $objectSpeedNames.Count; $speedIndex++) {
+    $speedCode = ($speedIndex + 1) * 5
+    $speedFixed = ($speedIndex + 1) * 0x20
+    $rowOffset = $speedIndex * 0x50
     foreach ($angle in 0..31) {
         $offset = $speedTableRomOffset + $rowOffset + $angle * 2
         $y = [BitConverter]::ToInt16($romBytes, $offset)
         $x = [BitConverter]::ToInt16($romBytes, $offset + 0x10)
-        $itemDropFairyVelocityRows.Add((
-            "$($speed.Code.ToString('x2'))`t$($angle.ToString('x2'))" +
-            "`t$y`t$x`tbank3.objectSpeedTable:$($speed.Name)"))
+        $objectSpeedRows.Add((
+            "$($speedCode.ToString('x2'))`t$speedFixed" +
+            "`t$($angle.ToString('x2'))`t$y`t$x" +
+            "`tbank3.objectSpeedTable:SPEED_$($objectSpeedNames[$speedIndex])"))
     }
 }
 Write-GeneratedTable(
-    (Join-Path $destination 'effects\item_drop_fairy_velocities.tsv'),
-    $itemDropFairyVelocityRows)
+    (Join-Path $destination 'metadata\object_speed_vectors.tsv'),
+    $objectSpeedRows)
+
+$legacyFairyVelocityPath =
+    Join-Path $destination 'effects\item_drop_fairy_velocities.tsv'
+if (Test-Path -LiteralPath $legacyFairyVelocityPath) {
+    Remove-Item -LiteralPath $legacyFairyVelocityPath -Force
+}

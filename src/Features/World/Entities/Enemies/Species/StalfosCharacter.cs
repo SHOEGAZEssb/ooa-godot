@@ -84,8 +84,8 @@ public partial class StalfosCharacter : EnemyCharacter
                 if (_counter1 == 0)
                     _state = StalfosState.Deciding;
                 BounceOffWallsAndHoles();
-                Position += OracleObjectMath.VectorFromAngle32(_angle) *
-                    (Record.SpeedRaw / 40.0f);
+                Position +=
+                    OracleObjectSpeedTable.Shared.Delta(Record.SpeedRaw, _angle);
                 QueueRedraw();
                 AdvanceAnimation();
                 return;

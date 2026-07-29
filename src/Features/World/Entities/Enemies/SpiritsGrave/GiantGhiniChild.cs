@@ -109,7 +109,7 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
                 }
                 break;
             case ChildState.Charging:
-                Position += OracleObjectMath.VectorFromAngle32(_angle) * 0.75f;
+                Position += OracleObjectSpeedTable.Shared.Delta(0x1e, _angle);
                 if (--_counter == 0)
                 {
                     _counter = 5;

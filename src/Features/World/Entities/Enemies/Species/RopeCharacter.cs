@@ -12,7 +12,7 @@ internal partial class RopeCharacter : EnemyCharacter
     private int _counter;
     private int _cooldown;
     private int _angle;
-    private float _speed;
+    private int _speed;
     private bool _initialized;
 
     internal ImportedEnemyDefinition Record { get; private set; }
@@ -20,7 +20,8 @@ internal partial class RopeCharacter : EnemyCharacter
     internal int Counter => _counter;
     internal int Cooldown => _cooldown;
     internal int Angle => _angle;
-    internal float Speed => _speed;
+    internal float Speed => _speed / 40.0f;
+    internal int SpeedRaw => _speed;
 
     internal void Initialize(
         ImportedEnemyDefinition record,
@@ -38,7 +39,7 @@ internal partial class RopeCharacter : EnemyCharacter
             room,
             EnemyKnockbackMotion.Terrain,
             checksHazards: true);
-        _speed = 0.5f;
+        _speed = 0x14;
     }
 
     internal void UpdateFrame(Vector2 linkPosition)
@@ -62,7 +63,7 @@ internal partial class RopeCharacter : EnemyCharacter
             _angle = (OracleObjectMath.AngleToward(
                 OracleObjectMath.ToPixelPosition(Position),
                 OracleObjectMath.ToPixelPosition(linkPosition)) + 4) & 0x18;
-            _speed = 1.25f;
+            _speed = 0x32;
             _state = RopeState.Charging;
             SetAnimationFromAngle();
             return;
@@ -78,7 +79,7 @@ internal partial class RopeCharacter : EnemyCharacter
             if (_state == RopeState.Charging)
             {
                 _cooldown = 0x40;
-                _speed = 0.375f;
+                _speed = 0x0f;
             }
             ChangeDirection();
             return;

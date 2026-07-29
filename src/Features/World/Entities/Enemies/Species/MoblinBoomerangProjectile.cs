@@ -11,7 +11,7 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
     private int _angle;
     private int _counter;
     private int _speedCounter;
-    private float _speed;
+    private int _speed;
     private bool _initialized;
     private bool _returning;
 
@@ -38,7 +38,8 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
 
     internal bool Finished { get; private set; }
     internal int Counter => _counter;
-    internal float Speed => _speed;
+    internal float Speed => _speed / 40.0f;
+    internal int SpeedRaw => _speed;
     internal bool Returning => _returning;
     internal Rect2 CollisionBounds => new(Position - new Vector2(2, 2), new Vector2(4, 4));
 
@@ -57,7 +58,7 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
             _initialized = true;
             _counter = 0x2d;
             _speedCounter = 6;
-            _speed = 2.0f;
+            _speed = 0x50;
             _animation.Advance();
             QueueRedraw();
             return;
@@ -75,15 +76,15 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
                 if (--_speedCounter == 0)
                 {
                     _speedCounter = 6;
-                    _speed = Math.Max(0.0f, _speed - 0.125f);
+                    _speed = Math.Max(0, _speed - 0x05);
                 }
-                Position += OracleObjectMath.CardinalVector(_angle) * _speed;
+                Position += OracleObjectSpeedTable.Shared.Delta(_speed, _angle);
             }
         }
         else
         {
             if ((frameCounter & 3) == 0)
-                _speed = Math.Min(1.875f, _speed + 0.125f);
+                _speed = Math.Min(0x4b, _speed + 0x05);
             Vector2 delta = _owner.Position - Position;
             _angle = OracleObjectMath.AngleToward(Position, _owner.Position);
             if (Mathf.Abs(delta.X) <= 4 && Mathf.Abs(delta.Y) <= 4)
@@ -91,7 +92,7 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
                 Finish(returned: true);
                 return;
             }
-            Position += OracleObjectMath.VectorFromAngle32(_angle) * _speed;
+            Position += OracleObjectSpeedTable.Shared.Delta(_speed, _angle);
         }
         if (Mathf.Abs(player.Position.X - Position.X) < 8 &&
             Mathf.Abs(player.Position.Y - Position.Y) < 8)

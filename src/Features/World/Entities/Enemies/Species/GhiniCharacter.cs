@@ -50,7 +50,7 @@ internal partial class GhiniCharacter : EnemyCharacter
             _state = GhiniState.Moving;
             return;
         }
-        Position += OracleObjectMath.VectorFromAngle32(_angle) * 0.5f;
+        Position += OracleObjectSpeedTable.Shared.Delta(0x14, _angle);
         bool horizontal = Position.X < 6 || Position.X >= _room.Width - 6;
         bool vertical = Position.Y < 6 || Position.Y >= _room.Height - 6;
         Position = new Vector2(

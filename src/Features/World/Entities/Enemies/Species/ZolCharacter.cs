@@ -132,7 +132,7 @@ public partial class ZolCharacter : EnemyCharacter
                 return UpdateEvent.None;
 
             case ZolState.GreenHopping:
-                _movement.MoveAtAngle(_angle, 0.75f, allowHoles: true);
+                _movement.MoveAtAngle(_angle, 0x1e, allowHoles: true);
                 if (!_verticalMotion.Update())
                     return UpdateEvent.None;
                 _counter1 = 0x30;
@@ -187,7 +187,7 @@ public partial class ZolCharacter : EnemyCharacter
                 return UpdateEvent.None;
 
             case ZolState.RedSliding:
-                _movement.MoveAtAngle(_angle, 0.5f, allowHoles: false);
+                _movement.MoveAtAngle(_angle, 0x14, allowHoles: false);
                 BounceOffScreenBoundary();
                 AdvanceAnimation();
                 if (--_counter1 > 0)
@@ -207,7 +207,7 @@ public partial class ZolCharacter : EnemyCharacter
                 return UpdateEvent.None;
 
             case ZolState.RedHopping:
-                _movement.MoveAtAngle(_angle, 1.0f, allowHoles: true);
+                _movement.MoveAtAngle(_angle, 0x28, allowHoles: true);
                 if (!_verticalMotion.Update())
                     return UpdateEvent.None;
                 _state = ZolState.RedWaiting;

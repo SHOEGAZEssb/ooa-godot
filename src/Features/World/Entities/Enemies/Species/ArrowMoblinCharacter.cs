@@ -10,7 +10,7 @@ namespace oracleofages;
 /// </summary>
 internal partial class ArrowMoblinCharacter : EnemyCharacter
 {
-    private const float Speed = 0.5f;
+    private const int Speed = 0x14;
     private const int MoveCounterBase = 0x30;
     private const int MoveCounterMask = 0x3f;
     private const int TurnWait = 0x08;
