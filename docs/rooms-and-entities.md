@@ -53,7 +53,12 @@ The destination room and its entities may be created before the scroll starts,
 but ordinary destination entities and room events do not update until scrolling
 finishes. Outgoing ordinary entities are likewise frozen while retained for
 drawing. This prevents destination AI, cutscenes, drops, and counters from
-fast-forwarding during the 32-update scroll.
+fast-forwarding during the 32-update scroll. The boundary clamp and transition
+motion preserve Link's 8.8 fractional bytes. Destination state-0 code may
+overwrite the orthogonal high coordinate before the scroll begins; retain that
+write because the original transition updater changes only the scrolling axis.
+Once the final transition update marks scrolling complete, ordinary destination
+logic may resume later in that same application update.
 
 Before that freeze begins, `RoomEntityManager` completes the explicit
 `IScreenTransitionPreloadRoomEntity` creation phase. This capability is only
@@ -797,8 +802,17 @@ and `PART_BURNING_ENEMY $12`: contact during either flight or the landed flame
 adopts the related enemy, follows it, suppresses its updates and contact, and
 resolves the two-damage hit after the part's 59-update counter. A lightable torch
 instead consumes the Ember Seed immediately without creating that flame
-animation, then lights on its following object update. Keep later Scent,
-Pegasus, Gale, and Mystery state machines distinct when they are implemented.
+animation, then lights on its following object update.
+
+`ITEM_MYSTERY_SEED $24` shares that Satchel child allocation, setup-only
+update, signed offset, flight, and landing path. Its state-0 setup consumes one
+global RNG byte and retains the source `& $03` random-effect choice. Activation
+switches to the imported tile-base `$18`, palette `$00`, `SND_MYSTERY_SEED`,
+and terminal animation while disabling further collision. The wider
+random-effect transformations against ordinary enemies remain separate from
+the Owl Statue activation slice; do not reinterpret Mystery as Ember damage.
+Keep Scent, Pegasus, and Gale state machines distinct when they are
+implemented.
 
 Mystical Seed Trees use a separate common room-object path.
 `SeedTreeDatabase` consumes all ten imported `ENEMY_SEEDS_ON_TREE $5a`
@@ -830,6 +844,24 @@ group/room sets the bit only when all eight bytes are nonzero, then clears the
 history even when it was incomplete. Keep the dummy and non-tree refill
 locations active because the source shares this mechanism with child/event
 progression.
+
+`PART_OWL_STATUE $13` remains in the ordered enemy-pointer stream as a
+reserving part. State 0 replaces its packed layout cell with tile `$00`, writes
+collision `$0f`, and draws the imported two-cell idle OAM at fixed visible
+priority `$83` from `spr_roller_owl_barrier_orb`. Its `var3f` bit-5 collision
+guard makes `func_07_47b7` replace the random effect collision with the
+canonical Mystery Seed collision `$9a`; only that collision starts it.
+The part pre-decrements counter `$32`; values `$30,$28,$20,$18,$10,$08`
+allocate `INTERAC_SPARKLE $84:$00` at the six source offsets in reverse table
+order. At zero it loads counter `$1e` and the three-cell speaking pose, then
+shows `TX_39xx` selected by the part subid when the counter reaches `$16`.
+The text freezes the part at `$16` until it closes; counter zero afterward
+restores the idle pose. The sparkle children retain their
+setup-only first update, terminal `$ff` animation parameter, transition draw
+offset, visible priority `$82`, and always-update behavior during dialogue.
+Room `1:80` is the
+canonical outdoor case: `$13:$06` at packed position `$33` shows `TX_3906`
+beside its `$5a:$4d` Mystery Seed Tree.
 
 `INTERAC_GASHA_SPOT $b6` is split between room initialization and one native
 interaction entity. `GashaSpotDatabase` applies the planted `$f5` sprout below

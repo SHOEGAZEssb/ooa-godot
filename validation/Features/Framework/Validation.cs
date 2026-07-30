@@ -128,6 +128,8 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateNpcImplementationManifest();
         ValidateNpcs();
         ValidateRooms171And181();
+        ValidateDekuForestSoldierCutscene();
+        ValidateDekuForestPalaceCutscene();
         ValidateRoom173SoldierPair();
         ValidateRoom174PastOldLady();
         ValidateRooms182And192NpcInteractions();
@@ -170,6 +172,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateSeedSatchel();
         ValidateHarp();
         ValidateSeedTrees();
+        ValidateRoom180OwlStatue();
         ValidateGashaSpots();
         ValidateMapleEvents();
         ValidateObjectSpeedTable();

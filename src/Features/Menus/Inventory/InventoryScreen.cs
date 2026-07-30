@@ -12,6 +12,14 @@ namespace oracleofages;
 /// </summary>
 public partial class InventoryScreen : Node2D
 {
+    private enum ItemSubmenuKind
+    {
+        None,
+        SatchelSeeds,
+        ShooterSeeds,
+        SlingshotSeeds,
+        HarpSongs
+    }
 
     public const int PageScrollUpdates = 13;
     private const int TilemapStride = 32;
@@ -71,7 +79,8 @@ public partial class InventoryScreen : Node2D
     private bool _itemSubmenuActive;
     private bool _itemSubmenuReady;
     private bool _itemSubmenuEquipToA;
-    private int[] _itemSubmenuSongs = Array.Empty<int>();
+    private ItemSubmenuKind _itemSubmenuKind;
+    private int[] _itemSubmenuOptions = Array.Empty<int>();
     private int _itemSubmenuIndex;
     private int _itemSubmenuWidth;
     private int _itemSubmenuHeight;
@@ -91,6 +100,10 @@ public partial class InventoryScreen : Node2D
     internal int ItemSubmenuIndex => _itemSubmenuIndex;
     internal int ItemSubmenuWidth => _itemSubmenuWidth;
     internal int ItemSubmenuHeight => _itemSubmenuHeight;
+    internal int ItemSubmenuOptionForValidation =>
+        _itemSubmenuOptions.Length == 0
+            ? -1
+            : _itemSubmenuOptions[_itemSubmenuIndex];
     public bool SaveAndQuitSelected =>
         _subscreen == InventorySubscreen.EssencesAndSave && _rightSide && _rightCursor == 2;
     internal int ActiveTextKey => _inventoryTextKey;
@@ -354,7 +367,7 @@ public partial class InventoryScreen : Node2D
     {
         if (_subscreen != InventorySubscreen.Items)
             return false;
-        if (TryBeginHarpSubmenu(isA: true))
+        if (TryBeginItemSubmenu(isA: true))
             return false;
         _inventory.SwapStorageSlotWithButton(_itemCursor, isA: true);
         RefreshSelectedText();
@@ -366,7 +379,7 @@ public partial class InventoryScreen : Node2D
     {
         if (_subscreen != InventorySubscreen.Items)
             return false;
-        if (TryBeginHarpSubmenu(isA: false))
+        if (TryBeginItemSubmenu(isA: false))
             return false;
         _inventory.SwapStorageSlotWithButton(_itemCursor, isA: false);
         RefreshSelectedText();
@@ -402,7 +415,7 @@ public partial class InventoryScreen : Node2D
             Vector2.Zero,
             drawCursor: !ItemSubmenuActive);
         if (ItemSubmenuActive)
-            DrawHarpSubmenu();
+            DrawItemSubmenu();
     }
 
     private void DrawSubscreen(InventorySubscreen page, Vector2 drawOffset, bool drawCursor)
@@ -484,12 +497,23 @@ public partial class InventoryScreen : Node2D
         if (ItemSubmenuActive)
         {
             int submenuKey = 0;
-            if (ItemSubmenuReady && _itemSubmenuSongs.Length != 0)
+            if (ItemSubmenuReady && _itemSubmenuOptions.Length != 0)
             {
-                int treasure = TreasureDatabase.TreasureTuneOfEchoes +
-                    _itemSubmenuSongs[_itemSubmenuIndex] - 1;
-                submenuKey =
-                    _treasures.GetButtonDisplay(treasure, _inventory).TextLow;
+                int option = _itemSubmenuOptions[_itemSubmenuIndex];
+                int treasure = _itemSubmenuKind == ItemSubmenuKind.HarpSongs
+                    ? TreasureDatabase.TreasureTuneOfEchoes + option - 1
+                    : TreasureDatabase.TreasureEmberSeeds + option;
+                submenuKey = _treasures
+                    .GetButtonDisplay(treasure, _inventory)
+                    .TextLow;
+                if (_itemSubmenuKind is
+                    ItemSubmenuKind.ShooterSeeds or
+                    ItemSubmenuKind.SlingshotSeeds)
+                {
+                    // inventoryMenuState2 adds five to the seed text index for
+                    // the Shooter and Slingshot displays.
+                    submenuKey += 5;
+                }
             }
             return SetInventoryText(submenuKey);
         }
@@ -509,7 +533,9 @@ public partial class InventoryScreen : Node2D
         if (!ItemSubmenuActive || ItemSubmenuReady)
             return;
         int updates = _itemSubmenuUpdates.Consume(delta);
-        int maxWidth = _itemSubmenuSongs.Length == 2 ? 8 : 10;
+        int maxWidth = _layouts
+            .InventoryItemSubmenu(_itemSubmenuOptions.Length)
+            .MaxWidth;
         for (int update = 0; update < updates; update++)
         {
             _itemSubmenuOpenUpdate++;
@@ -535,8 +561,8 @@ public partial class InventoryScreen : Node2D
         if (!ItemSubmenuReady || direction is not (-1 or 1))
             return false;
         _itemSubmenuIndex =
-            (_itemSubmenuIndex + direction + _itemSubmenuSongs.Length) %
-            _itemSubmenuSongs.Length;
+            (_itemSubmenuIndex + direction + _itemSubmenuOptions.Length) %
+            _itemSubmenuOptions.Length;
         RefreshSelectedText();
         QueueRedraw();
         return true;
@@ -544,10 +570,27 @@ public partial class InventoryScreen : Node2D
 
     public bool ConfirmItemSubmenu()
     {
-        if (!ItemSubmenuReady || _itemSubmenuSongs.Length == 0)
+        if (!ItemSubmenuReady || _itemSubmenuOptions.Length == 0)
             return false;
-        int song = _itemSubmenuSongs[_itemSubmenuIndex];
-        _inventory.SelectHarpSong(song);
+        int option = _itemSubmenuOptions[_itemSubmenuIndex];
+        switch (_itemSubmenuKind)
+        {
+            case ItemSubmenuKind.SatchelSeeds:
+                _inventory.SelectSatchelSeeds(option);
+                break;
+            case ItemSubmenuKind.ShooterSeeds:
+                _inventory.SelectShooterSeeds(option);
+                break;
+            case ItemSubmenuKind.SlingshotSeeds:
+                _inventory.SelectSlingshotSeeds(option);
+                break;
+            case ItemSubmenuKind.HarpSongs:
+                _inventory.SelectHarpSong(option);
+                break;
+            default:
+                throw new InvalidOperationException(
+                    "Active inventory item submenu has no selection kind.");
+        }
         _inventory.SwapStorageSlotWithButton(
             _itemCursor, _itemSubmenuEquipToA);
         ResetItemSubmenu();
@@ -556,20 +599,46 @@ public partial class InventoryScreen : Node2D
         return true;
     }
 
-    private bool TryBeginHarpSubmenu(bool isA)
+    private bool TryBeginItemSubmenu(bool isA)
     {
-        if (_inventory.StorageItemAt(_itemCursor) != InventoryState.ItemHarp)
-            return false;
-        int[] songs = _inventory.ObtainedHarpSongs();
-        if (songs.Length < 2)
+        int selected;
+        int item = _inventory.StorageItemAt(_itemCursor);
+        int[] options;
+        ItemSubmenuKind kind;
+        switch (item)
+        {
+            case InventoryState.ItemSeedSatchel:
+                kind = ItemSubmenuKind.SatchelSeeds;
+                options = _inventory.ObtainedSeedTypes();
+                selected = _inventory.SatchelSelectedSeeds;
+                break;
+            case TreasureDatabase.TreasureShooter:
+                kind = ItemSubmenuKind.ShooterSeeds;
+                options = _inventory.ObtainedSeedTypes();
+                selected = _inventory.ShooterSelectedSeeds;
+                break;
+            case TreasureDatabase.TreasureSlingshot:
+                kind = ItemSubmenuKind.SlingshotSeeds;
+                options = _inventory.ObtainedSeedTypes();
+                selected = _inventory.SlingshotSelectedSeeds;
+                break;
+            case InventoryState.ItemHarp:
+                kind = ItemSubmenuKind.HarpSongs;
+                options = _inventory.ObtainedHarpSongs();
+                selected = _inventory.SelectedHarpSong;
+                break;
+            default:
+                return false;
+        }
+        if (options.Length < 2)
             return false;
 
         _itemSubmenuActive = true;
         _itemSubmenuReady = false;
         _itemSubmenuEquipToA = isA;
-        _itemSubmenuSongs = songs;
-        _itemSubmenuIndex = Array.IndexOf(
-            songs, _inventory.SelectedHarpSong);
+        _itemSubmenuKind = kind;
+        _itemSubmenuOptions = options;
+        _itemSubmenuIndex = Array.IndexOf(options, selected);
         if (_itemSubmenuIndex < 0)
             _itemSubmenuIndex = 0;
         // The equip input only selects inventoryMenuState2. Its first update
@@ -588,7 +657,8 @@ public partial class InventoryScreen : Node2D
         _itemSubmenuActive = false;
         _itemSubmenuReady = false;
         _itemSubmenuEquipToA = false;
-        _itemSubmenuSongs = Array.Empty<int>();
+        _itemSubmenuKind = ItemSubmenuKind.None;
+        _itemSubmenuOptions = Array.Empty<int>();
         _itemSubmenuIndex = 0;
         _itemSubmenuWidth = 0;
         _itemSubmenuHeight = 0;
@@ -596,7 +666,7 @@ public partial class InventoryScreen : Node2D
         _itemSubmenuUpdates.Reset();
     }
 
-    private void DrawHarpSubmenu()
+    private void DrawItemSubmenu()
     {
         bool above = _itemCursor >= 8;
         float targetY = above ? 32 : 72;
@@ -615,23 +685,48 @@ public partial class InventoryScreen : Node2D
         if (!ItemSubmenuReady)
             return;
 
-        int[] xPositions = _itemSubmenuSongs.Length == 2
-            ? [56, 88]
-            : [48, 72, 96];
-        float iconY = above ? 36 : 76;
-        for (int index = 0; index < _itemSubmenuSongs.Length; index++)
+        InventoryItemSubmenuLayout layout =
+            _layouts.InventoryItemSubmenu(_itemSubmenuOptions.Length);
+        for (int index = 0; index < _itemSubmenuOptions.Length; index++)
         {
-            DrawTreasure(
-                _treasures.GetHarpSongDisplay(_itemSubmenuSongs[index]),
-                new Vector2(xPositions[index], iconY),
-                spritePalette: true,
-                drawEquippedExtra: false);
+            int baseX = layout.Positions[index].RawX * 8;
+            int option = _itemSubmenuOptions[index];
+            if (_itemSubmenuKind == ItemSubmenuKind.HarpSongs)
+            {
+                DrawTreasure(
+                    _treasures.GetHarpSongDisplay(option),
+                    new Vector2(baseX, targetY + 4),
+                    spritePalette: true,
+                    drawEquippedExtra: false);
+                continue;
+            }
+
+            InventorySeedSubmenuSprite seed =
+                _layouts.InventorySeedSubmenuSprites[option];
+            DrawRawOamTile(
+                seed.VramBank,
+                seed.Tile,
+                seed.Attributes & 7,
+                new Vector2(
+                    baseX + seed.X - 8,
+                    targetY + seed.Y - 16));
+            int amount = _inventory.BcdAmountForInventoryDisplay(
+                TreasureDatabase.TreasureEmberSeeds + option);
+            DrawVramBackgroundTile(
+                0x20 + ((amount >> 4) & 0x0f),
+                0x01,
+                new Vector2(baseX, targetY + 16));
+            DrawVramBackgroundTile(
+                0x20 + (amount & 0x0f),
+                0x01,
+                new Vector2(baseX + 8, targetY + 16));
         }
+        int cursorX = layout.Positions[_itemSubmenuIndex].RawX * 8;
         DrawRawOamTile(
             0,
             0x0e,
             3,
-            new Vector2(xPositions[_itemSubmenuIndex] + 4, iconY + 20));
+            new Vector2(cursorX + 4, targetY + 24));
     }
 
     private int SecondaryTextKey()

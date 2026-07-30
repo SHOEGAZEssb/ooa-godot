@@ -851,8 +851,36 @@ $orderedActiveCondition = 'ff'
 $orderedActiveOpcode = ''
 $orderedSpecificFlags = '00'
 $orderedItemFlags = '00'
+$orderedIncludeLine = $true
+$orderedRegionConditional = ''
 
 foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
+    if ($line -match '^\.ifdef\s+(?<symbol>[A-Za-z0-9_]+)\s*$') {
+        if ($orderedRegionConditional -ne '' -or
+            $Matches['symbol'] -ne 'REGION_JP') {
+            throw "Unsupported ordered object conditional: $line"
+        }
+        $orderedRegionConditional = $Matches['symbol']
+        $orderedIncludeLine = $false
+        continue
+    }
+    if ($line -match '^\.else\s*$') {
+        if ($orderedRegionConditional -ne 'REGION_JP') {
+            throw "Unexpected ordered object .else: $line"
+        }
+        $orderedIncludeLine = $true
+        continue
+    }
+    if ($line -match '^\.endif\s*$') {
+        if ($orderedRegionConditional -ne 'REGION_JP') {
+            throw "Unexpected ordered object .endif: $line"
+        }
+        $orderedRegionConditional = ''
+        $orderedIncludeLine = $true
+        continue
+    }
+    if (-not $orderedIncludeLine) { continue }
+
     if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})EnemyObjectData:') {
         if ($orderedAliases.Count -eq 0) {
             $orderedPendingCondition = 'ff'
@@ -1000,14 +1028,19 @@ foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyDa
     }
 }
 
-if ($orderedObjectRows.Count -ne 1142) {
-    throw "Expected 1141 ordered placement records, parsed $($orderedObjectRows.Count - 1)."
+if ($orderedRegionConditional -ne '') {
+    throw "Ordered object conditional $orderedRegionConditional was not closed."
+}
+if ($orderedObjectRows.Count -ne 1141) {
+    throw "Expected 1140 clean-US ordered placement records, parsed $($orderedObjectRows.Count - 1)."
 }
 if (-not ($orderedObjectRows | Where-Object { $_ -match '^5\tb0\t0\tF\t1b\t01\t00\t1\t68\t38\t63\tff$' }) -or
     -not ($orderedObjectRows | Where-Object { $_ -match '^5\tb0\t1\tF\t34\t00\t00\t1\t78\t58\t75\tff$' }) -or
     -not ($orderedObjectRows | Where-Object { $_ -match '^5\tb0\t2\tR\t32\t00\t40\t2\t-1\t-1\t-1\tff$' }) -or
     -not ($orderedObjectRows | Where-Object { $_ -match '^5\tdb\t0\tI\t57\t01\t00\t1\t-1\t-1\t1d\tff$' }) -or
-    -not ($orderedObjectRows | Where-Object { $_ -match '^5\t01\t0\tP\t23\t01\t00\t1\t-1\t-1\t08\tff$' })) {
+    -not ($orderedObjectRows | Where-Object { $_ -match '^5\t01\t0\tP\t23\t01\t00\t1\t-1\t-1\t08\tff$' }) -or
+    -not ($orderedObjectRows | Where-Object { $_ -match '^1\t0e\t0\tP\t13\t13\t00\t1\t-1\t-1\t23\tff$' }) -or
+    ($orderedObjectRows | Where-Object { $_ -match '^1\t0e\t\d+\tP\t13\t09\t' })) {
     throw 'Canonical ordered enemy/fixed-enemy/item-drop/part placement records were not extracted.'
 }
 
@@ -1731,6 +1764,174 @@ $interactionAnimationSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\interactionAnimations.s')
 $interactionOamSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\interactionOamData.s')
+
+# PART_OWL_STATUE (`$13) is a reserving enemy-pointer part. Mystery Seeds set
+# its collision status to `$9a`; the part then emits six ordinary
+# INTERAC_SPARKLE (`$84:$00) children, changes pose, and shows TX_39xx selected
+# by its subid. Export one typed row per valid text subid so every source
+# placement uses the same runtime state machine.
+$owlPartData = [regex]::Match(
+    $partDataSource,
+    '(?m)^\s*\.db \$(?<gfx>[0-9a-f]{2}) \$(?<collision>[0-9a-f]{2}) \$(?<radius>[0-9a-f]{2}) \$(?<damage>[0-9a-f]{2}) \$(?<health>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2}) \$00\s*; \$13')
+$owlCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\parts\owlStatue.s')
+$bank0SourceForOwl = Read-ImportText (
+    Join-Path $Disassembly 'code\bank0.s')
+$collisionEffectsSourceForOwl = Read-ImportText (
+    Join-Path $Disassembly 'code\collisionEffects.s')
+if (-not $owlPartData.Success -or
+    [Convert]::ToInt32($owlPartData.Groups['gfx'].Value, 16) -ne 0x74 -or
+    [Convert]::ToInt32($owlPartData.Groups['collision'].Value, 16) -ne 0x82 -or
+    [Convert]::ToInt32($owlPartData.Groups['radius'].Value, 16) -ne 0x77 -or
+    [Convert]::ToInt32($owlPartData.Groups['damage'].Value, 16) -ne 0 -or
+    [Convert]::ToInt32($owlPartData.Groups['health'].Value, 16) -ne 0x40 -or
+    $owlCodeSource -notmatch
+        '(?ms)^partCode13:.*?cp \$9a.*?cp \$02.*?ld \(hl\),\$32.*?set 5,\(hl\).*?call objectMakeTileSolid.*?ld \(hl\),\$00.*?ld \(hl\),\$1e.*?cp \$16.*?ld b,\$39\s*jp showText' -or
+    $bank0SourceForOwl -notmatch
+        '(?ms)^objectMakeTileSolid:.*?ld \(hl\),\$0f' -or
+    $collisionEffectsSourceForOwl -notmatch
+        '(?ms)^func_07_47b7:.*?cp ITEM_MYSTERY_SEED.*?add Object\.var3f.*?cpl\s*bit 5,a\s*ret nz.*?ld l,Item\.var2a\s*ld \(hl\),\$40.*?ld l,Item\.collisionType\s*res 7,\(hl\).*?add Object\.var2a.*?ld a,\$80\|ITEMCOLLISION_MYSTERY_SEED\s*ld \(de\),a') {
+    throw 'PART_OWL_STATUE data, collision, counters, floor replacement, or TX_39 dispatch changed.'
+}
+$owlAnimationLabels = @([regex]::Matches(
+    (Get-AssemblyLabelBody $partAnimationSource 'part13Animations'),
+    '(?m)^\s*\.dw\s+(?<label>partAnimation[0-9a-f]+)') |
+    ForEach-Object { $_.Groups['label'].Value })
+$owlOamLabels = @([regex]::Matches(
+    (Get-AssemblyLabelBody $partAnimationSource 'part13OamDataPointers'),
+    '(?m)^\s*\.dw\s+(?<label>partOamData[0-9a-f]+)') |
+    ForEach-Object { $_.Groups['label'].Value })
+if ($owlAnimationLabels.Count -ne 2 -or $owlOamLabels.Count -ne 2) {
+    throw "Expected two PART_OWL_STATUE animations / OAM pointers, parsed $($owlAnimationLabels.Count) / $($owlOamLabels.Count)."
+}
+$owlAnimations = [Collections.Generic.List[string]]::new()
+for ($animationIndex = 0;
+     $animationIndex -lt $owlAnimationLabels.Count;
+     $animationIndex++) {
+    $owlAnimationBody = Get-AssemblyLabelBody `
+        $partAnimationSource $owlAnimationLabels[$animationIndex]
+    $frame = [regex]::Match(
+        $owlAnimationBody,
+        '(?m)^\s*\.db \$(?<duration>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})')
+    if (-not $frame.Success) {
+        throw "Could not parse PART_OWL_STATUE animation $animationIndex."
+    }
+    $pointerIndex = [Convert]::ToInt32(
+        $frame.Groups['offset'].Value, 16) / 2
+    if ($pointerIndex -ne $animationIndex) {
+        throw "PART_OWL_STATUE animation $animationIndex changed its OAM pointer."
+    }
+    $duration = [Convert]::ToInt32(
+        $frame.Groups['duration'].Value, 16)
+    $parameter = [Convert]::ToInt32(
+        $frame.Groups['parameter'].Value, 16)
+    $owlAnimations.Add(
+        "$duration,$parameter@$(Resolve-Oam $partOamSource $owlOamLabels[$pointerIndex])~0")
+}
+
+$owlSparkleData = [regex]::Match(
+    (Get-AssemblyLabelBody $interactionDataSource 'interaction84SubidData'),
+    '(?m)^\s*m_InteractionSubidData \$(?<gfx>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})')
+$owlSparkleAnimationAliases = [regex]::Match(
+    $interactionAnimationSource,
+    '(?ms)^interaction11Animations:\s*^interaction84Animations:\s*^interactiondeAnimations:\s*(?<body>(?:\s*\.dw\s+interactionAnimation[0-9a-f]+\s*\r?\n){5})')
+$owlSparkleOamAliases = [regex]::Match(
+    $interactionAnimationSource,
+    '(?ms)^interaction11OamDataPointers:[^\r\n]*\r?\ninteraction84OamDataPointers:[^\r\n]*\r?\n(?<body>(?:\s*\.dw\s+interactionOamData[0-9a-f]+\s*\r?\n){11})')
+if (-not $owlSparkleData.Success -or
+    -not $owlSparkleAnimationAliases.Success -or
+    -not $owlSparkleOamAliases.Success -or
+    [Convert]::ToInt32($owlSparkleData.Groups['gfx'].Value, 16) -ne 0x6b -or
+    [Convert]::ToInt32($owlSparkleData.Groups['tile'].Value, 16) -ne 0x0a -or
+    [Convert]::ToInt32($owlSparkleData.Groups['flags'].Value, 16) -ne 0x01) {
+    throw 'INTERAC_SPARKLE `$84:$00 data or pointer aliases changed.'
+}
+$owlSparkleAnimationLabels = @([regex]::Matches(
+    $owlSparkleAnimationAliases.Groups['body'].Value,
+    '(?m)^\s*\.dw\s+(?<label>interactionAnimation[0-9a-f]+)') |
+    ForEach-Object { $_.Groups['label'].Value })
+$owlSparkleOamLabels = @([regex]::Matches(
+    $owlSparkleOamAliases.Groups['body'].Value,
+    '(?m)^\s*\.dw\s+(?<label>interactionOamData[0-9a-f]+)') |
+    ForEach-Object { $_.Groups['label'].Value })
+$owlSparkleAnimationIndex =
+    [Convert]::ToInt32($owlSparkleData.Groups['flags'].Value, 16) -band 0x0f
+$owlSparkleFrames = [Collections.Generic.List[string]]::new()
+$owlSparkleAnimationBody = Get-AssemblyLabelBody `
+    $interactionAnimationSource `
+    $owlSparkleAnimationLabels[$owlSparkleAnimationIndex]
+$owlSparkleLoopLabel =
+    $owlSparkleAnimationLabels[$owlSparkleAnimationIndex] + 'Loop'
+if ($interactionAnimationSource -match
+    "(?m)^$([regex]::Escape($owlSparkleLoopLabel)):$") {
+    $owlSparkleAnimationBody += "`n" + (
+        Get-AssemblyLabelBody `
+            $interactionAnimationSource `
+            $owlSparkleLoopLabel)
+}
+foreach ($frame in [regex]::Matches(
+    $owlSparkleAnimationBody,
+    '(?m)^\s*\.db \$(?<duration>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})')) {
+    $pointerOffset = [Convert]::ToInt32(
+        $frame.Groups['offset'].Value, 16)
+    if (($pointerOffset -band 1) -ne 0 -or
+        ($pointerOffset / 2) -ge $owlSparkleOamLabels.Count) {
+        throw "INTERAC_SPARKLE `$84:$00 references invalid OAM offset `$$($pointerOffset.ToString('x2'))."
+    }
+    $duration = [Convert]::ToInt32(
+        $frame.Groups['duration'].Value, 16)
+    $parameter = [Convert]::ToInt32(
+        $frame.Groups['parameter'].Value, 16)
+    $owlSparkleFrames.Add(
+        "$duration,$parameter@$(Resolve-Oam $interactionOamSource $owlSparkleOamLabels[$pointerOffset / 2])")
+}
+if ($owlSparkleFrames.Count -ne 5 -or
+    $owlSparkleFrames[$owlSparkleFrames.Count - 1] -notmatch '^1,255@') {
+    throw 'INTERAC_SPARKLE `$84:$00 terminal animation changed.'
+}
+$owlSparkleAnimation = ($owlSparkleFrames -join '|') + '~4'
+
+$owlOffsetMatches = @([regex]::Matches(
+    (Get-AssemblyLabelBody $owlCodeSource '@owlStatueSparkleOffset'),
+    '(?m)^\s*\.db \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2})'))
+if ($owlOffsetMatches.Count -ne 6) {
+    throw "Expected six PART_OWL_STATUE sparkle offsets, parsed $($owlOffsetMatches.Count)."
+}
+$owlSparkleOffsets = @($owlOffsetMatches | ForEach-Object {
+    $rawY = [Convert]::ToInt32($_.Groups['y'].Value, 16)
+    $rawX = [Convert]::ToInt32($_.Groups['x'].Value, 16)
+    $y = if ($rawY -ge 0x80) { $rawY - 0x100 } else { $rawY }
+    $x = if ($rawX -ge 0x80) { $rawX - 0x100 } else { $rawX }
+    "$x,$y"
+}) -join ';'
+$owlSprite = $gfxNames[
+    [Convert]::ToInt32($owlPartData.Groups['gfx'].Value, 16)]
+$owlSparkleSprite = $gfxNames[
+    [Convert]::ToInt32($owlSparkleData.Groups['gfx'].Value, 16)]
+if ([string]::IsNullOrWhiteSpace($owlSprite) -or
+    [string]::IsNullOrWhiteSpace($owlSparkleSprite)) {
+    throw 'PART_OWL_STATUE or INTERAC_SPARKLE object GFX header was not resolved.'
+}
+Copy-EnemySprite $owlSprite
+Copy-EnemySprite $owlSparkleSprite
+
+$owlRows = [Collections.Generic.List[string]]::new()
+$owlRows.Add(
+    '# subid`ttext-id`tutf8-base64`tsprite`ttile-base`tpalette`tcollision-mode`tradius-y`tradius-x`tdamage`thealth`tidle-animation`tspeaking-animation`tfloor-tile`tfloor-collision`tmystery-collision`tactivation-counter`tspeaking-counter`ttext-counter`tsparkle-offsets`tsparkle-sprite`tsparkle-tile-base`tsparkle-palette`tsparkle-animation`tsource')
+for ($subid = 0; $subid -lt 0x14; $subid++) {
+    $textId = 0x3900 + $subid
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Missing PART_OWL_STATUE text TX_$($textId.ToString('x4'))."
+    }
+    $message = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
+    $owlRows.Add(
+        "$($subid.ToString('x2'))`t$($textId.ToString('x4'))`t$message`t$owlSprite`t$($owlPartData.Groups['tile'].Value)`t$([Convert]::ToInt32($owlPartData.Groups['flags'].Value, 16) -band 7)`t$($owlPartData.Groups['collision'].Value)`t7`t7`t$($owlPartData.Groups['damage'].Value)`t$($owlPartData.Groups['health'].Value)`t$($owlAnimations[0])`t$($owlAnimations[1])`t00`t0f`t9a`t50`t30`t22`t$owlSparkleOffsets`t$owlSparkleSprite`t$($owlSparkleData.Groups['tile'].Value)`t$([Convert]::ToInt32($owlSparkleData.Groups['flags'].Value, 16) -shr 4 -band 7)`t$owlSparkleAnimation`tobject_code/common/parts/owlStatue.s:partCode13+TX_$($textId.ToString('x4'))")
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'objects\owl_statues.tsv'),
+    $owlRows)
+
 $killPuffAnimationLabel = @(
     [regex]::Matches(
         (Get-AssemblyLabelBody $interactionAnimationSource 'interaction08Animations'),

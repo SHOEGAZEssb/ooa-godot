@@ -5,9 +5,9 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// ITEM_EMBER_SEED ($20), subid $00: the Satchel-thrown child item. State and
-/// animation advances happen on original 60 Hz updates, including the state-0
-/// setup update and the 58-update flame counter.
+/// Shared Satchel-thrown seed child for ITEM_EMBER_SEED ($20) and
+/// ITEM_MYSTERY_SEED ($24), subid $00. State and animation advances happen on
+/// original 60 Hz updates, including the setup-only first update.
 /// </summary>
 public partial class EmberSeedEffect : TransitionOffsetNode2D
 {
@@ -35,6 +35,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     private int _frameIndex;
     private int _frameCounter;
     private int _loopStart;
+    private int _mysteryEffect;
     private bool _collisionEnabled;
     private ISeedBurnTarget? _burnTarget;
 
@@ -47,6 +48,8 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     internal int AnimationFrame => _frameIndex;
     internal Vector2 PrecisePosition => _precisePosition;
     internal bool CollisionEnabled => _collisionEnabled && !Finished;
+    internal int SeedItem => _record.SeedItem;
+    internal int MysteryEffect => _mysteryEffect;
     internal ulong FlameTextureHashForValidation(int frame) =>
         OracleGraphicsCache.PixelHash(_flameTextures[frame].GetImage());
     internal Rect2 CollisionBounds => new(
@@ -66,7 +69,8 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         Func<int, int?> decideBreakableDrop,
         OracleSaveData? saveData,
         int group,
-        Func<Vector2I, int?>? linkedRoomNeighbor = null)
+        Func<Vector2I, int?>? linkedRoomNeighbor = null,
+        int mysteryEffect = 0)
     {
         _record = record;
         _room = room;
@@ -79,6 +83,9 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         _linkedRoomNeighbor = linkedRoomNeighbor;
         _saveData = saveData;
         _group = group;
+        if (record.SeedItem == 0x24 && mysteryEffect is < 0 or > 3)
+            throw new ArgumentOutOfRangeException(nameof(mysteryEffect));
+        _mysteryEffect = record.SeedItem == 0x24 ? mysteryEffect : -1;
         _direction = direction;
         _precisePosition = linkPosition + record.Offset(direction);
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
@@ -124,6 +131,11 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             UpdateBurning(spawns);
             return;
         }
+        if (_state == EmberState.Mystery)
+        {
+            UpdateMystery();
+            return;
+        }
 
         if (!WithinRoomBoundary(_precisePosition))
         {
@@ -154,7 +166,10 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
 
         _playSound(_record.LandingSound);
         AdvanceAnimation();
-        BeginBurning();
+        if (_record.SeedItem == 0x24)
+            BeginMystery();
+        else
+            BeginBurning();
     }
 
     internal void OnCollision(
@@ -167,6 +182,13 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         if (result == SeedHitResult.Consume)
         {
             Finish();
+            return;
+        }
+        if (_record.SeedItem == 0x24)
+        {
+            if (_state == EmberState.Flying)
+                AdvanceAnimation();
+            BeginMystery();
             return;
         }
         if (burnTarget is not null)
@@ -199,7 +221,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     {
         if (Finished || !Visible)
             return;
-        Texture2D texture = _state == EmberState.Burning
+        Texture2D texture = _state is EmberState.Burning or EmberState.Mystery
             ? _flameTextures[_frameIndex]
             : _flyingTextures[_frameIndex];
         DrawTexture(texture,
@@ -211,6 +233,25 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         _state = EmberState.Burning;
         _flameCounter = _record.FlameCounter;
         _playSound(_record.FlameSound);
+        QueueRedraw();
+    }
+
+    private void BeginMystery()
+    {
+        _state = EmberState.Mystery;
+        _collisionEnabled = false;
+        _playSound(_record.FlameSound);
+        QueueRedraw();
+    }
+
+    private void UpdateMystery()
+    {
+        AdvanceAnimation();
+        if ((_frames[_frameIndex].Parameter & 0x80) != 0)
+        {
+            Finish();
+            return;
+        }
         QueueRedraw();
     }
 
@@ -352,5 +393,6 @@ internal enum EmberState
     Initializing,
     Flying,
     Burning,
+    Mystery,
     Finished
 }

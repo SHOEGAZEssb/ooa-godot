@@ -51,9 +51,10 @@ internal sealed partial class SpiritsGraveTorchStairs : Node2D,
     public SeedHitResult ApplySeedHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
+        int seedItem,
         ICollection<RoomEntitySpawn> spawns)
     {
-        if (_pending >= 0 || Finished)
+        if (seedItem != 0x20 || _pending >= 0 || Finished)
             return SeedHitResult.None;
         foreach (int packed in _unlit)
         {

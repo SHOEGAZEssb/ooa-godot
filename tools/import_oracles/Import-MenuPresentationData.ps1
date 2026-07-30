@@ -277,6 +277,121 @@ Write-GeneratedTable(
     (Join-Path $destination 'menu\inventory_item_slots.tsv'),
     $itemSlotRows)
 
+# inventoryMenuState2 shares these widths and source-ordered X positions
+# between the Satchel/seed weapons and the Harp. table_5ae5 deliberately
+# overlaps its @data2-@data5 byte sequences, so resolve its pointer labels
+# against one flattened byte stream instead of treating each local label as an
+# independent block.
+$itemSubmenuWidths = [Collections.Generic.List[int]]::new()
+foreach ($node in Get-MenuLocalData `
+    $menuBank2Path 'inventoryMenuState2' '@itemSubmenuWidths' '.db') {
+    foreach ($operand in $node.Operands) {
+        $itemSubmenuWidths.Add((Convert-AssemblyInteger $operand))
+    }
+}
+if ($itemSubmenuWidths.Count -ne 4) {
+    throw "Expected four inventoryMenuState2 submenu widths, got " +
+        "$($itemSubmenuWidths.Count)."
+}
+
+$itemSubmenuPositionNodes = @(
+    Read-AssemblyLabelNodes $menuBank2Path 'table_5ae5')
+$itemSubmenuPositionPointers = [Collections.Generic.List[string]]::new()
+$itemSubmenuPositionBytes = [Collections.Generic.List[int]]::new()
+$itemSubmenuPositionOffsets =
+    [Collections.Generic.Dictionary[string, int]]::new(
+        [StringComparer]::Ordinal)
+foreach ($node in $itemSubmenuPositionNodes) {
+    if ($node.Kind -eq 'Label') {
+        $itemSubmenuPositionOffsets[$node.Name] =
+            $itemSubmenuPositionBytes.Count
+        continue
+    }
+    if ($node.Kind -ne 'Data') { continue }
+    if ($node.Name -ieq '.dw') {
+        foreach ($operand in $node.Operands) {
+            $itemSubmenuPositionPointers.Add($operand)
+        }
+        continue
+    }
+    if ($node.Name -ieq '.db') {
+        foreach ($operand in $node.Operands) {
+            $itemSubmenuPositionBytes.Add(
+                (Convert-AssemblyInteger $operand))
+        }
+    }
+}
+if ($itemSubmenuPositionPointers.Count -ne 4) {
+    throw "Expected four table_5ae5 submenu-position pointers, got " +
+        "$($itemSubmenuPositionPointers.Count)."
+}
+
+$itemSubmenuLayoutRows = [Collections.Generic.List[string]]::new()
+$itemSubmenuLayoutRows.Add(
+    '# option-count`tindex`tmax-width`tx-nibble`tsource-label`tsource')
+for ($optionCount = 2; $optionCount -le 5; $optionCount++) {
+    $pointer = $itemSubmenuPositionPointers[$optionCount - 2]
+    if (-not $itemSubmenuPositionOffsets.ContainsKey($pointer)) {
+        throw "table_5ae5 pointer '$pointer' does not resolve to a local label."
+    }
+    $start = $itemSubmenuPositionOffsets[$pointer]
+    if ($start + $optionCount -gt $itemSubmenuPositionBytes.Count) {
+        throw "table_5ae5 pointer '$pointer' does not contain $optionCount " +
+            'position bytes.'
+    }
+    $width = $itemSubmenuWidths[$optionCount - 2]
+    for ($index = 0; $index -lt $optionCount; $index++) {
+        $itemSubmenuLayoutRows.Add([string]::Join(
+            "`t",
+            @(
+                $optionCount,
+                $index,
+                $width.ToString('x2'),
+                $itemSubmenuPositionBytes[$start + $index].ToString('x2'),
+                "table_5ae5$pointer",
+                "code/bank2.s:table_5ae5/$pointer+$($index.ToString('x2'))")))
+    }
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'menu\inventory_item_submenu_layout.tsv'),
+    $itemSubmenuLayoutRows)
+
+$seedSubmenuPointers = @(Read-AssemblyLabelNodes `
+    $menuBank2Path 'seedAndHarpSpriteTable' |
+    Where-Object {
+        $_.Kind -eq 'MacroInvocation' -and $_.Name -ieq 'dbrel'
+    })
+if ($seedSubmenuPointers.Count -ne 8) {
+    throw "Expected eight seedAndHarpSpriteTable pointers, got " +
+        "$($seedSubmenuPointers.Count)."
+}
+$seedSubmenuRows = [Collections.Generic.List[string]]::new()
+$seedSubmenuRows.Add(
+    '# seed-type`ty-offset`tx-offset`ttile`tattributes`tsource-label`tsource')
+for ($seedType = 0; $seedType -lt 5; $seedType++) {
+    $label = $seedSubmenuPointers[$seedType].Operands[0]
+    $parts = @(Read-MenuOamParts `
+        $menuBank2Path 'seedAndHarpSpriteTable' $label)
+    if ($parts.Count -ne 1) {
+        throw "seedAndHarpSpriteTable $label has $($parts.Count) OAM parts; " +
+            'expected one for a seed.'
+    }
+    $part = $parts[0]
+    $seedSubmenuRows.Add([string]::Join(
+        "`t",
+        @(
+            $seedType,
+            $part.Y.ToString('x2'),
+            $part.X.ToString('x2'),
+            $part.Tile.ToString('x2'),
+            $part.Attributes.ToString('x2'),
+            "seedAndHarpSpriteTable$label",
+            "code/bank2.s:seedAndHarpSpriteTable/$label")))
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'menu\inventory_seed_submenu_oam.tsv'),
+    $seedSubmenuRows)
+
 $menuTreasureIds = Get-MenuTreasureIds
 $passiveRows = [Collections.Generic.List[string]]::new()
 $passiveRows.Add(

@@ -72,9 +72,11 @@ internal sealed partial class LightableTorchRoomEntity : Node2D,
     public SeedHitResult ApplySeedHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
+        int seedItem,
         ICollection<RoomEntitySpawn> spawns)
     {
-        if (!_initialized || _hit || Finished || !hitbox.Intersects(CollisionBounds))
+        if (seedItem != 0x20 || !_initialized || _hit || Finished ||
+            !hitbox.Intersects(CollisionBounds))
             return SeedHitResult.None;
         _hit = true;
         return SeedHitResult.Consume;

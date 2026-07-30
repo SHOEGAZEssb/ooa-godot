@@ -572,7 +572,7 @@ public sealed partial class ValidationRoot
         IReadOnlyList<RoomObjectRecord> room006 =
             database.GetRoomObjects(0, 0x06);
         FailIf(
-            database.RoomObjectRecordCount != 1141 ||
+            database.RoomObjectRecordCount != 1140 ||
             room5b0.Count != 3 ||
             room5b0[0] is not { Order: 0, Kind: RoomObjectKind.FixedEnemy,
                 Id: 0x1b, PackedPosition: 0x63 } ||
@@ -872,7 +872,7 @@ public sealed partial class ValidationRoot
 
         RemoveChild(validationRoot);
         validationRoot.Free();
-        GD.Print("Validated 1,141 ordered room placement records, mid-stream aliases, " +
+        GD.Print("Validated 1,140 clean-US ordered room placement records, mid-stream aliases, " +
             "all 816 fixed/random enemy handler classifications, 12 parameter slots, " +
             "256 typed combat descriptors across 17 handlers / 50 source-flag " +
             "combinations, source collision modes and sword responses, source-aware " +

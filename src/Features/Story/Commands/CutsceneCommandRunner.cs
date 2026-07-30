@@ -257,7 +257,10 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                 return Counter == 0 ? CommandResult.Yield : CommandResult.Block;
 
             case CutsceneShowTextCommand text:
-                host.ShowText(text.TextId, text.Message);
+                host.ShowText(
+                    text.TextId,
+                    text.Message,
+                    text.TextboxPosition);
                 Observe(command, "Dialogue", value: text.TextId);
                 return CommandResult.Yield;
 

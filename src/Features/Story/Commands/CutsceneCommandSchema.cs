@@ -246,7 +246,7 @@ internal sealed class CutsceneCommandSchemaEntry
         new HashSet<string>(["none", "required", "optional"], StringComparer.Ordinal);
     private static readonly IReadOnlySet<string> ArgumentShapes =
         new HashSet<string>(
-            ["none", "hex", "decimal", "positive-decimal"],
+            ["none", "hex", "decimal", "optional-decimal", "positive-decimal"],
             StringComparer.Ordinal);
     private static readonly IReadOnlySet<string> PayloadShapes =
         new HashSet<string>(
@@ -389,6 +389,11 @@ internal sealed class CutsceneCommandSchemaEntry
                 CultureInfo.InvariantCulture,
                 out _),
             "decimal" => int.TryParse(
+                value,
+                NumberStyles.AllowLeadingSign,
+                CultureInfo.InvariantCulture,
+                out _),
+            "optional-decimal" => value.Length == 0 || int.TryParse(
                 value,
                 NumberStyles.AllowLeadingSign,
                 CultureInfo.InvariantCulture,

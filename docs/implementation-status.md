@@ -28,8 +28,12 @@ claim that the entire surrounding game is complete.
   exact imported `$f8` grass overlap and four-frame `$f9`
   shallow-water ripple OAM/step sound, grass/bush cut debris OAM, timing, sound,
   underwater palette, and grass subid flicker, the active Shovel, and the
-  first Seed Satchel's active Ember Seed path. The Satchel uses its selected
-  packed-BCD counter, grants and immediately displays the original initial 20
+  Seed Satchel's active Ember Seed path plus Mystery Seed flight/Owl Statue
+  activation. The source `inventoryMenuState2` seed panel compresses all owned
+  types from Ember through Mystery, preserves its imported widths, positions,
+  seed OAM, live packed-BCD counts, wraparound, sounds, and
+  `wSatchelSelectedSeeds`. The Satchel uses that selected packed-BCD counter,
+  grants and immediately displays the original initial 20
   Ember Seeds, uses the distinct storage/equipped inventory icon sheets, exact
   four directional child offsets, eight-update Link pose,
   `SPEED_c0`/speedZ/gravity flight, hazard disposal, enemy contact, 58-update
@@ -37,7 +41,10 @@ claim that the entire surrounding game is complete.
   ignition, persistent room-flag substitutions, all eight `$dc:$08` tile-change
   watchers, all 56 single-tile reload changes (including room `0:48`'s
   permanent tree removal), landing/flame sounds, and
-  two-digit HUD/inventory ammo display. The
+  two-digit HUD/inventory ammo display. Mystery Seeds consume their source
+  RNG choice, use the imported terminal effect OAM/sound, and activate every
+  ordered `PART_OWL_STATUE $13` placement with its solid floor cell, six
+  sparkles, two poses, exact counters, and `TX_39xx` text. The
   shared chest path renders all reward objects from imported
   `INTERAC_TREASURE $60` graphics/OAM (including room `4:08`'s small key) and
   preserves the open/collection/get-item sound boundaries. Wrong-side
@@ -347,7 +354,28 @@ remains the single runtime policy table.
   bush-over-scrub OAM priority, white-background `spr_hostilescrub` shade
   interpretation, strict `$20` emergence/retreat, always-update animations,
   shield-level `30/30/50/80` pricing, all four purchase responses, rupee
-  deduction, shield grant, and `SND_GETSEED`.
+  deduction, shield grant, and `SND_GETSEED`. After Mystery Seeds ownership,
+  room-specific code also creates the hidden red soldier `$40:$0a`: exact
+  Link-Y trigger, palette `$02`, wrapped `SPEED_0c0` entrance, imported
+  `30/6/20/60/30/30` waits, 40-update exclamation and `SND_CLINK`,
+  `SPEED_180` upward movement/animation cadence, TX `$590b` textbox freeze,
+  room bit `$40`, and hardcoded transition to `1:46` position `$34`. The
+  sequence continues through the complete palace audience: the left entrance
+  guard uses exact terrain-aware simulated input through scrolling rooms
+  `1:36` and `1:26`; all three 32-update north handoffs preserve Link's 8.8
+  fractions and destination-authored X correction. All corridor guards retain
+  their source movement and independent stair speeds, and room `1:16`
+  schedules the reward guard, escort guard, Ambi, and possessed Nayru in
+  source object order through their shared `$cfd1` handoffs. Ambi removes the
+  Mystery Seed count while preserving ownership, grants
+  `TREASURE_OBJECT_BOMBS_02`, and Nayru interrupts with animation `$06`,
+  `PALH_97`, and the delayed black fade. Imported `showtext` commands preserve
+  their per-line `\pos` changes: top `$00`, bottom `$02`, then middle `$01`
+  for post-fade TX `$1d03` with alternate textbox palette `$04`. The native
+  tail directly reloads
+  room `1:46`, restores Link at `$38,$50`, music, minimap, input, and menus,
+  creates soldiers `$40:$07/$02` at `$28,$48/$58`, then runs TX
+  `$5908/$5909`.
   Room `1:71` has no NPC interaction; its three ordered item-drop producers
   and two random Arrow Moblins remain covered by the room regression.
 - Past room `1:74` includes old lady `$45:$00` at `$58,$38`: TX `$180a`,
@@ -703,10 +731,11 @@ remains the single runtime policy table.
 - Aquatic, lava, and ice side-view Link handlers plus moving, conveyor,
   circular, and disappearing side-scroll platforms remain deferred. Dry
   passage gravity, ladders, Feather launch, and edge warps are implemented.
-- Satchel selection and the active Scent, Pegasus, Gale, and Mystery Seed
-  state machines remain deferred; the first acquired Satchel's Ember path is
-  implemented and unsupported selected child IDs report a source-aware error
-  without consuming ammo.
+- Active Scent, Pegasus, and Gale Seed state machines remain deferred.
+  Mystery Seed flight, landing/terminal presentation, RNG consumption, and
+  Owl Statue activation are implemented; its random transformed effects
+  against ordinary enemies remain deferred. Unsupported selected child IDs
+  report a source-aware error without consuming ammo.
 - Shovel drop `$0f` consumes its third RNG value and supports the 100-Rupee
   branch; its rope/beetle branches remain suppressed until those enemies are
   implemented.

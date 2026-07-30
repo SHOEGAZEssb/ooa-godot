@@ -29,6 +29,8 @@ public sealed class RoomEventController
     private readonly ImpaIntroEvent _impa;
     private readonly NayruIntroEvent _nayru;
     private readonly MakuSproutRescueEvent _makuSproutRescue;
+    private readonly DekuForestSoldierEvent _dekuForestSoldier;
+    private readonly DekuForestPalaceEvent _dekuForestPalace;
     private readonly BusinessScrubEvent _businessScrub;
     private readonly LynnaShopEvent _lynnaShop;
     private readonly VasuShopEvent _vasuShop;
@@ -94,6 +96,8 @@ public sealed class RoomEventController
         _impa = new ImpaIntroEvent(_context);
         _nayru = new NayruIntroEvent(_context, _impa);
         _makuSproutRescue = new MakuSproutRescueEvent(_context);
+        _dekuForestSoldier = new DekuForestSoldierEvent(_context);
+        _dekuForestPalace = new DekuForestPalaceEvent(_context);
         _businessScrub = new BusinessScrubEvent(_context);
         _lynnaShop = new LynnaShopEvent(_context);
         _vasuShop = new VasuShopEvent(_context);
@@ -118,6 +122,8 @@ public sealed class RoomEventController
             _nayru,
             _graveyardGate,
             _makuSproutRescue,
+            _dekuForestSoldier,
+            _dekuForestPalace,
             _businessScrub,
             _lynnaShop,
             _vasuShop,
@@ -177,6 +183,9 @@ public sealed class RoomEventController
             NpcInteractionHandler.ForNpc(
                 "comedian.s:comedianScript",
                 (target, _) => _comedian.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
+                "soldier.s:soldierSubid02/07/09",
+                (target, _) => _dekuForestPalace.TryInteractNpc(target.Npc)),
             NpcInteractionHandler.ForPlayer(
                 "shopkeeper.s:lynnaShop:player",
                 _lynnaShop.TryInteractPlayer)
@@ -229,6 +238,10 @@ public sealed class RoomEventController
     internal ImpaIntroEvent Impa => _impa;
     internal NayruIntroEvent Nayru => _nayru;
     internal MakuSproutRescueEvent MakuSproutRescue => _makuSproutRescue;
+    internal DekuForestSoldierEvent DekuForestSoldier =>
+        _dekuForestSoldier;
+    internal DekuForestPalaceEvent DekuForestPalace =>
+        _dekuForestPalace;
     internal BusinessScrubEvent BusinessScrub => _businessScrub;
     internal LynnaShopEvent LynnaShop => _lynnaShop;
     internal VasuShopEvent VasuShop => _vasuShop;
@@ -263,7 +276,10 @@ public sealed class RoomEventController
     internal bool ScreenTransitionsDisabled =>
         _makuSproutRescue.ScreenTransitionsDisabled ||
         _fairiesWoods.ScreenTransitionsDisabled;
-    internal bool MenusDisabled => _shootingGallery.MenusDisabled;
+    internal bool MenusDisabled =>
+        _shootingGallery.MenusDisabled ||
+        _dekuForestSoldier.MenusDisabled ||
+        _dekuForestPalace.MenusDisabled;
     internal ICutsceneCommandTraceSink? CommandTraceSink
     {
         set => _context.CommandTraceSink = value;

@@ -570,6 +570,7 @@ public sealed partial class ValidationRoot
                 torch.ApplySeedHit(
                 new Rect2(center - new Vector2(4, 4), new Vector2(8, 8)),
                 center,
+                0x20,
                 directSpawns) != SeedHitResult.Consume,
                 $"Room 4:1b torch ${packed:x2} rejected an Ember collision.");
             torch.UpdateFrame(

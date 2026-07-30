@@ -398,6 +398,17 @@ public sealed class InventoryState
         NotifyChanged();
     }
 
+    internal int[] ObtainedSeedTypes()
+    {
+        var seeds = new List<int>(5);
+        for (int seed = 0; seed < 5; seed++)
+        {
+            if (HasTreasure(TreasureDatabase.TreasureEmberSeeds + seed))
+                seeds.Add(seed);
+        }
+        return seeds.ToArray();
+    }
+
     internal int[] ObtainedHarpSongs()
     {
         var songs = new List<int>(3);
@@ -502,6 +513,19 @@ public sealed class InventoryState
         GashaSeeds = ToBcd(count - 1);
         NotifyChanged();
         return true;
+    }
+
+    /// <summary>
+    /// Mirrors direct interaction-script writes to wNumMysterySeeds. The
+    /// obtained-treasure bit is intentionally preserved; Ambi's guard clears
+    /// only the current count before calling giveTreasure with parameter $00.
+    /// </summary>
+    internal void SetMysterySeedsFromScript(int value)
+    {
+        if (value is < 0 or > byte.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(value));
+        MysterySeeds = value;
+        NotifyChanged();
     }
 
     /// <summary>

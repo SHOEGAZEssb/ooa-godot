@@ -23,6 +23,8 @@ internal sealed class MenuPresentationDatabase
     public IReadOnlyList<DungeonFloorListLayout> DungeonFloorLists { get; }
     public IReadOnlyList<DungeonBlurbLayout> DungeonBlurbs { get; }
     public IReadOnlyList<MenuTilePosition> InventoryItemSlots { get; }
+    public IReadOnlyList<InventoryItemSubmenuLayout> InventoryItemSubmenus { get; }
+    public IReadOnlyList<InventorySeedSubmenuSprite> InventorySeedSubmenuSprites { get; }
     public IReadOnlyList<PassiveTreasureLayout> PassiveTreasures { get; }
     public IReadOnlyList<SecondaryCursorLayout> SecondaryCursors { get; }
     public IReadOnlyList<MenuTilePosition> EssenceTiles { get; }
@@ -37,6 +39,8 @@ internal sealed class MenuPresentationDatabase
         InventoryItemSlots = LoadTilePositions(
             "res://assets/oracle/menu/inventory_item_slots.tsv",
             "inventory item slots", 16);
+        InventoryItemSubmenus = LoadInventoryItemSubmenus();
+        InventorySeedSubmenuSprites = LoadInventorySeedSubmenuSprites();
         PassiveTreasures = LoadPassiveTreasures();
         SecondaryCursors = LoadSecondaryCursors();
         EssenceTiles = LoadTilePositions(
@@ -81,6 +85,11 @@ internal sealed class MenuPresentationDatabase
             ? parts
             : throw new InvalidOperationException(
                 $"Imported ring OAM layout '{layout}' does not exist.");
+
+    public InventoryItemSubmenuLayout InventoryItemSubmenu(int optionCount) =>
+        optionCount is >= 2 and <= 5
+            ? InventoryItemSubmenus[optionCount - 2]
+            : throw new ArgumentOutOfRangeException(nameof(optionCount));
 
     public int DungeonFloorListOffset(int dungeon) =>
         dungeon >= 0 && dungeon < DungeonFloorLists.Count
@@ -260,6 +269,82 @@ internal sealed class MenuPresentationDatabase
                 row.RequiredString(6)));
         }
         RequireCount(table, result.Count, 32);
+        return result.AsReadOnly();
+    }
+
+    private static IReadOnlyList<InventoryItemSubmenuLayout>
+        LoadInventoryItemSubmenus()
+    {
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/menu/inventory_item_submenu_layout.tsv",
+            new GeneratedTableSchema(
+                "inventory item submenu layouts",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "option-count", "index", "max-width", "x-nibble",
+                    "source-label", "source"
+                ],
+                ["option-count", "index"],
+                headerRequired: true));
+        var result = new List<InventoryItemSubmenuLayout>(4);
+        int rowIndex = 0;
+        for (int optionCount = 2; optionCount <= 5; optionCount++)
+        {
+            var positions = new List<InventoryItemSubmenuPosition>(optionCount);
+            int maxWidth = -1;
+            for (int index = 0; index < optionCount; index++)
+            {
+                if (rowIndex >= table.Rows.Count)
+                {
+                    throw new InvalidOperationException(
+                        $"{table.Path}: missing option {index} for " +
+                        $"{optionCount}-option inventory submenu.");
+                }
+                GeneratedTableRow row = table.Rows[rowIndex++];
+                if (row.Decimal(0, 2, 5) != optionCount)
+                    throw row.Invalid(0, $"ordered option count {optionCount}");
+                RequireNextIndex(row, row.UnsignedDecimal(1), index);
+                int rowWidth = row.HexByte(2);
+                if (maxWidth < 0)
+                    maxWidth = rowWidth;
+                else if (rowWidth != maxWidth)
+                    throw row.Invalid(2, $"shared width ${maxWidth:x2}");
+                positions.Add(new InventoryItemSubmenuPosition(
+                    index, row.HexByte(3), row.RequiredString(4),
+                    row.RequiredString(5)));
+            }
+            result.Add(new InventoryItemSubmenuLayout(
+                optionCount, maxWidth, positions.AsReadOnly()));
+        }
+        RequireCount(table, rowIndex, 14);
+        return result.AsReadOnly();
+    }
+
+    private static IReadOnlyList<InventorySeedSubmenuSprite>
+        LoadInventorySeedSubmenuSprites()
+    {
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/menu/inventory_seed_submenu_oam.tsv",
+            new GeneratedTableSchema(
+                "inventory seed submenu OAM",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "seed-type", "y-offset", "x-offset", "tile",
+                    "attributes", "source-label", "source"
+                ],
+                ["seed-type"],
+                headerRequired: true));
+        var result = new List<InventorySeedSubmenuSprite>(table.Rows.Count);
+        foreach (GeneratedTableRow row in table.Rows)
+        {
+            int seedType = row.UnsignedDecimal(0);
+            RequireNextIndex(row, seedType, result.Count);
+            result.Add(new InventorySeedSubmenuSprite(
+                seedType, row.HexByte(1), row.HexByte(2), row.HexByte(3),
+                row.HexByte(4), row.RequiredString(5),
+                row.RequiredString(6)));
+        }
+        RequireCount(table, result.Count, 5);
         return result.AsReadOnly();
     }
 
@@ -443,6 +528,29 @@ internal readonly record struct MenuTilePosition(
     int TilemapOffset,
     string SourceLabel,
     string Source);
+
+internal sealed record InventoryItemSubmenuLayout(
+    int OptionCount,
+    int MaxWidth,
+    IReadOnlyList<InventoryItemSubmenuPosition> Positions);
+
+internal readonly record struct InventoryItemSubmenuPosition(
+    int Index,
+    int RawX,
+    string SourceLabel,
+    string Source);
+
+internal readonly record struct InventorySeedSubmenuSprite(
+    int SeedType,
+    int Y,
+    int X,
+    int Tile,
+    int Attributes,
+    string SourceLabel,
+    string Source)
+{
+    public int VramBank => (Attributes >> 3) & 1;
+}
 
 internal readonly record struct PassiveTreasureLayout(
     int Index,

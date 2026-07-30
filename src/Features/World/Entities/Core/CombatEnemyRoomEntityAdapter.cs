@@ -55,16 +55,21 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     public virtual SeedHitResult ApplySeedHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
+        int seedItem,
         ICollection<RoomEntitySpawn> spawns) =>
-        ApplySeedHit(hitbox);
+        ApplySeedHit(hitbox, seedItem);
 
-    private SeedHitResult ApplySeedHit(Rect2 hitbox)
+    private SeedHitResult ApplySeedHit(Rect2 hitbox, int seedItem)
     {
         if (_seedBurning || !Entity.CollisionEnabled ||
             !combatDescriptor.Combat.Intersects(hitbox))
         {
             return SeedHitResult.None;
         }
+        if (seedItem == 0x24)
+            return SeedHitResult.Activate;
+        if (seedItem != 0x20)
+            return SeedHitResult.None;
         _seedBurning = true;
         return SeedHitResult.Ignite;
     }
@@ -128,6 +133,7 @@ internal enum SeedHitResult
 {
     None,
     Ignite,
+    Activate,
     Consume
 }
 

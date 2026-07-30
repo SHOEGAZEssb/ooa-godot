@@ -120,7 +120,7 @@ public sealed partial class ValidationRoot
             _entities.Entities<LightableTorchRoomEntity>().Single();
         FailIf(
             right.PackedPosition != 0x3b || right.ApplySeedHit(
-            right.CollisionBounds, right.Position, noSpawns) !=
+            right.CollisionBounds, right.Position, 0x20, noSpawns) !=
             SeedHitResult.Consume,
             "The second 5:ed torch rejected an Ember Seed collision.");
         _entities.Update(1.0 / 60.0, _player);

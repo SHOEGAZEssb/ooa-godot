@@ -360,11 +360,15 @@ public sealed class RoomTransitionController
         OracleRoomData target = _rooms.GetRoom(_rooms.ActiveGroup, targetId);
         UpdateCamera();
         Vector2 sourceCameraOrigin = CurrentCameraOrigin;
-        Vector2 start = player.Position;
-        if (direction == Vector2I.Up) start.Y = 6;
-        if (direction == Vector2I.Down) start.Y = source.Height - 7;
-        if (direction == Vector2I.Left) start.X = 6;
-        if (direction == Vector2I.Right) start.X = source.Width - 6;
+        Vector2 start = player.PrecisePosition;
+        if (direction == Vector2I.Up)
+            start.Y = 6 + (start.Y - Mathf.Floor(start.Y));
+        if (direction == Vector2I.Down)
+            start.Y = source.Height - 7 + (start.Y - Mathf.Floor(start.Y));
+        if (direction == Vector2I.Left)
+            start.X = 6 + (start.X - Mathf.Floor(start.X));
+        if (direction == Vector2I.Right)
+            start.X = source.Width - 6 + (start.X - Mathf.Floor(start.X));
 
         _scrollActive = true;
         _scrollDirection = direction;
@@ -391,6 +395,15 @@ public sealed class RoomTransitionController
         _entities.BeginScreenTransition(
             _rooms.ActiveGroup, target, _scrollIncomingStartOffset, direction,
             target.GetPackedPosition(transitionEnd));
+        // Destination interaction state 0 runs during room parsing. It may
+        // overwrite Link's orthogonal high coordinate before scrolling starts
+        // (soldierSubid05 writes w1Link.xh=$50). The transition updater changes
+        // only the scrolling axis, so retain that destination-authored write.
+        if (direction.X == 0)
+            start.X = player.PrecisePosition.X;
+        else
+            start.Y = player.PrecisePosition.Y;
+        _scrollLinkStart = start;
         player.BeginScrollingTransition(start, direction);
     }
 

@@ -27,6 +27,7 @@ public sealed class RoomEntityManager : IDisposable
     internal event Action<int, string, Player>? MapleDialogueRequested;
     internal event Action<MapleItemRecord, Player>? MapleItemCollected;
     internal event Action<int, string, Vector2>? SeedTreeMessageRequested;
+    internal event Action<int, string, Vector2>? OwlStatueMessageRequested;
     public event Action<int>? SoundRequested;
     public event Action<int, int>? RoomMusicRequested;
     public event Action? RoomTileChanged;
@@ -226,6 +227,7 @@ public sealed class RoomEntityManager : IDisposable
             OnRoomMusicRequested,
             OnMapleDialogueRequested,
             OnSeedTreeMessageRequested,
+            OnOwlStatueMessageRequested,
             () => TextActiveSource(),
             OnMapleItemCollected,
             BeginHorizontalScreenShake,
@@ -606,6 +608,7 @@ public sealed class RoomEntityManager : IDisposable
                 SeedHitResult result = hittable.ApplySeedHit(
                     seed.CollisionBounds,
                     seed.CollisionBounds.GetCenter(),
+                    seed.SeedItem,
                     _pendingSpawns);
                 if (result == SeedHitResult.None)
                 {
@@ -1227,6 +1230,12 @@ public sealed class RoomEntityManager : IDisposable
         string message,
         Vector2 position) =>
         SeedTreeMessageRequested?.Invoke(textId, message, position);
+
+    private void OnOwlStatueMessageRequested(
+        int textId,
+        string message,
+        Vector2 position) =>
+        OwlStatueMessageRequested?.Invoke(textId, message, position);
 
     private void OnRoomTileChanged() => RoomTileChanged?.Invoke();
     private void OnSoundRequested(int sound) => SoundRequested?.Invoke(sound);

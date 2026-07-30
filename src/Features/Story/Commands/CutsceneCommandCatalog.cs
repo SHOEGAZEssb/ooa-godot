@@ -75,7 +75,10 @@ internal static class CutsceneCommandCatalog
             "waitframes" => new CutsceneWaitFramesCommand(
                 source, PositiveDecimal(path, physicalLine, "arg0", arg0)),
             "showtext" => new CutsceneShowTextCommand(
-                source, Hex(path, physicalLine, "arg0", arg0), payload),
+                source,
+                Hex(path, physicalLine, "arg0", arg0),
+                payload,
+                OptionalTextboxPosition(path, physicalLine, "arg1", arg1)),
             "showloadedtext" => new CutsceneShowLoadedTextCommand(source),
             "checktext" => new CutsceneCheckTextCommand(source),
             "dialogue" => new CutsceneDialogueCommand(
@@ -374,6 +377,25 @@ internal static class CutsceneCommandCatalog
         int result = Decimal(path, physicalLine, field, value);
         if (result <= 0)
             throw Error(path, physicalLine, $"{field} must be positive, got {result}");
+        return result;
+    }
+
+    private static int? OptionalTextboxPosition(
+        string path,
+        int physicalLine,
+        string field,
+        string value)
+    {
+        if (value.Length == 0)
+            return null;
+        int result = Decimal(path, physicalLine, field, value);
+        if (result is < 0 or > 6)
+        {
+            throw Error(
+                path,
+                physicalLine,
+                $"{field} textbox position must be 0 through 6, got {result}");
+        }
         return result;
     }
 
@@ -772,7 +794,8 @@ internal sealed record CutsceneShowTextVariantsCommand(
 internal sealed record CutsceneShowTextCommand(
     CutsceneCommandSource Source,
     int TextId,
-    string Message)
+    string Message,
+    int? TextboxPosition = null)
     : CutsceneCommand(Source);
 
 internal sealed record CutsceneShowLoadedTextCommand(CutsceneCommandSource Source)

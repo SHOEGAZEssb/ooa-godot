@@ -791,6 +791,7 @@ public sealed partial class ValidationRoot
     {
         var database = new SeedSatchelDatabase();
         SeedRecord record = database.Ember;
+        SeedRecord mystery = database.Mystery;
         FailIf(
             record.ParentItem != 0x19 || record.SeedItem != 0x20 ||
             record.TreasureId != 0x20 || record.Sprite != "spr_common_items" ||
@@ -804,6 +805,23 @@ public sealed partial class ValidationRoot
             record.FlamePalette != 2 || record.FlameCounter != 0x3a ||
             record.LandingSound != 0x52 || record.FlameSound != 0x72,
             "The imported ITEM_SEED_SATCHEL/ITEM_EMBER_SEED record diverged from its source tables.");
+        FailIf(
+            mystery.ParentItem != 0x19 || mystery.SeedItem != 0x24 ||
+            mystery.TreasureId != 0x24 ||
+            mystery.Sprite != "spr_common_items" ||
+            mystery.TileBase != 0x1a || mystery.Palette != 0 ||
+            mystery.Collision != 0x9a ||
+            mystery.CollisionRadiusY != 4 ||
+            mystery.CollisionRadiusX != 4 ||
+            mystery.Damage != 0xfe ||
+            mystery.FlameSprite != "spr_common_sprites" ||
+            mystery.FlameTileBase != 0x18 ||
+            mystery.FlameOamFlags != 0x08 ||
+            mystery.FlameCounter != 0 ||
+            mystery.LandingSound != 0x52 ||
+            mystery.FlameSound != OracleSoundEngine.SndMysterySeed,
+            "The imported ITEM_MYSTERY_SEED record diverged from " +
+            "itemCode24 / itemAttributes.");
 
         Vector2I[] directions =
             { Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left };
@@ -858,6 +876,7 @@ public sealed partial class ValidationRoot
         FailIf(
             inventory.EmberSeeds != 0 || inventory.TryConsumeSelectedSatchelSeed(out _),
             "The Satchel consumed a seed at zero or failed to reach BCD $00 from $20.");
+        ValidateSeedInventorySubmenu();
 
         LoadBushValidationRoom();
         Vector2 linkPosition = new(80, 80);
@@ -1108,10 +1127,135 @@ public sealed partial class ValidationRoot
             "ITEM_SEED_SATCHEL allocated or consumed ammo while its first seed was still active.");
 
         GD.Print("Validated ITEM_SEED_SATCHEL immediate BCD-20 grant/persistence, quantity overlays, " +
-            "distinct inventory/equipped icon sheets and equipped palette transform, " +
+            "owned-seed/Mystery selection submenu, distinct inventory/equipped icon " +
+            "sheets and equipped palette transform, " +
             "four offsets, Link pose, one-active-seed cap, Ember flight/Z, " +
             "fixed-bank-1 flame OAM/sounds, break effects, direct ROOMFLAG-$80 tree ignition, " +
             "and room 0:48's watcher-backed permanent tree removal across re-entry/save reload.");
+    }
+
+    private void ValidateSeedInventorySubmenu()
+    {
+        MenuPresentationDatabase layouts = MenuPresentationDatabase.Shared;
+        InventoryItemSubmenuLayout twoOptions =
+            layouts.InventoryItemSubmenu(2);
+        InventoryItemSubmenuLayout fiveOptions =
+            layouts.InventoryItemSubmenu(5);
+        FailIf(
+            twoOptions.MaxWidth != 8 ||
+            !twoOptions.Positions.Select(position => position.RawX)
+                .SequenceEqual([0x07, 0x0b]) ||
+            fiveOptions.MaxWidth != 0x10 ||
+            !fiveOptions.Positions.Select(position => position.RawX)
+                .SequenceEqual([0x03, 0x06, 0x09, 0x0c, 0x0f]) ||
+            !layouts.InventorySeedSubmenuSprites
+                .Select(sprite => sprite.Tile)
+                .SequenceEqual([0x06, 0x08, 0x0a, 0x0c, 0x0e]) ||
+            !layouts.InventorySeedSubmenuSprites
+                .Select(sprite => sprite.Attributes)
+                .SequenceEqual([0x0a, 0x0b, 0x09, 0x09, 0x08]) ||
+            layouts.InventorySeedSubmenuSprites.Any(
+                sprite => sprite.VramBank != 1),
+            "Imported inventoryMenuState2 widths, table_5ae5 positions, or " +
+            "seedAndHarpSpriteTable seed OAM/VRAM-bank selection diverged " +
+            "from bank2.s.");
+
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var inventory = new InventoryState(_treasures, save);
+        inventory.GiveTreasure(TreasureDatabase.TreasureSeedSatchel, 0);
+        inventory.GiveTreasure(
+            TreasureDatabase.TreasureEmberSeeds + 4, 0x20);
+        // New button items occupy B first; move the Satchel into storage so
+        // the inventory cursor can exercise inventoryMenuState2.
+        inventory.SwapStorageSlotWithButton(0, isA: false);
+        FailIf(
+            inventory.StorageItemAt(0) != InventoryState.ItemSeedSatchel ||
+            !inventory.ObtainedSeedTypes().SequenceEqual([0, 4]) ||
+            inventory.MysterySeeds != 0x20,
+            "Seed Satchel/Mystery grants did not produce the source ordered " +
+            "owned-seed list [Ember, Mystery].");
+
+        var screen = new InventoryScreen
+        {
+            Name = "SeedInventorySubmenuValidation",
+            Visible = false
+        };
+        AddChild(screen);
+        screen.Initialize(_treasures, inventory);
+        screen.Open();
+        var menu = new InventoryMenuController(
+            screen,
+            _saveQuitScreen,
+            _menuLifecycle,
+            () => true,
+            () => true,
+            () => SaveResult.Succeeded,
+            () => { },
+            _sound.PlaySound);
+        int selectRequests =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem);
+        FailIf(
+            menu.EquipToAForValidation() ||
+            !screen.ItemSubmenuActive ||
+            screen.ItemSubmenuReady ||
+            screen.ItemSubmenuWidth != 0 ||
+            screen.ItemSubmenuHeight != 1 ||
+            screen.ItemSubmenuOptionForValidation != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) !=
+                selectRequests,
+            "Equipping a Satchel with two owned seed types did not enter " +
+            "inventoryMenuState2 without swapping or playing SND_SELECTITEM.");
+        for (int update = 0; update < 14; update++)
+            menu.UpdateItemSubmenuForValidation(HarpFrame);
+        FailIf(
+            screen.ItemSubmenuReady ||
+            screen.ItemSubmenuWidth != 8 ||
+            screen.ItemSubmenuHeight != 4,
+            "Two-seed Satchel submenu reached input before source update 15.");
+        menu.UpdateItemSubmenuForValidation(HarpFrame);
+        FailIf(
+            !screen.ItemSubmenuReady ||
+            screen.ActiveTextKey != _treasures
+                .GetButtonDisplay(TreasureDatabase.TreasureEmberSeeds, inventory)
+                .TextLow,
+            "Two-seed Satchel submenu was not ready with Ember text on " +
+            "source update 15.");
+
+        int moveRequests =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
+        FailIf(
+            !menu.MoveItemSubmenuForValidation(-1) ||
+            screen.ItemSubmenuIndex != 1 ||
+            screen.ItemSubmenuOptionForValidation != 4 ||
+            screen.ActiveTextKey != _treasures
+                .GetButtonDisplay(
+                    TreasureDatabase.TreasureEmberSeeds + 4, inventory)
+                .TextLow ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) !=
+                moveRequests + 1,
+            "Satchel submenu did not wrap from Ember to the non-contiguous " +
+            "owned Mystery Seed option and select its text.");
+        FailIf(
+            !menu.ConfirmItemSubmenuForValidation() ||
+            screen.ItemSubmenuActive ||
+            inventory.SatchelSelectedSeeds != 4 ||
+            inventory.EquippedA != InventoryState.ItemSeedSatchel ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) !=
+                selectRequests + 1,
+            "Satchel submenu did not select Mystery Seeds, equip to A, and " +
+            "request SND_SELECTITEM.");
+        var quantity = screen.QuantityOverlayForValidation(
+            InventoryState.ItemSeedSatchel);
+        FailIf(
+            quantity is not { } selectedQuantity ||
+            selectedQuantity.TensTile != 0x12 ||
+            selectedQuantity.OnesTile != 0x10 ||
+            !OracleSaveData.TryDeserialize(
+                save.Serialize(), out OracleSaveData? restored) ||
+            new InventoryState(_treasures, restored!).SatchelSelectedSeeds != 4,
+            "Selected Mystery Seed quantity/display or " +
+            "wSatchelSelectedSeeds persistence regressed.");
+        screen.QueueFree();
     }
 
     private void ValidateSwordBush()

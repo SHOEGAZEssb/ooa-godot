@@ -24,6 +24,7 @@ Current examples:
 | --- | --- |
 | Ralph's portal departure | Typed command runner |
 | First-past arrival | Typed command runner |
+| Deku Forest Mystery Seeds escort and palace audience | Seven imported actor streams across rooms `1:81`, `1:46`, `1:36`, `1:26`, and `1:16`, with source-ordered lane scheduling and native scrolling, palette, reward, and direct-return handlers |
 | Maku Tree disappearance | Typed command runner |
 | Adult Maku Tree post-rescue conversation | Typed command runner with native Seed Satchel create/respawn handlers |
 | Room 0:56 comedian trade | Typed command runner with native progress/facing helpers and shared treasure presentation |
@@ -74,6 +75,13 @@ Runtime command catalogs use tab-separated rows with these columns:
 Every row must retain actionable source metadata. Import or startup errors
 must identify the script, label, command index, source line, and invalid
 operand or actor.
+
+For `showtext`, `arg0` is the text ID and optional decimal `arg1` retains the
+text resource's leading `\pos(n)` directive. An empty `arg1` means the original
+automatic side selection based on Link's screen Y. The runner passes this
+nullable position through the host at each command boundary; do not cache one
+position for a whole cutscene because successive lines can deliberately switch
+between top, middle, and bottom boxes.
 
 The generated `script_command_vocabulary.tsv` is the enforced normalized
 command schema. Each of its 52 rows declares:

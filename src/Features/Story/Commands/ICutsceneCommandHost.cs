@@ -24,6 +24,8 @@ internal interface ICutsceneCommandHost
     bool TextOptionEquals(int value);
     bool TryConsumeActorButton(CutsceneActorId actor);
     void ShowText(int textId, string message);
+    void ShowText(int textId, string message, int? textboxPosition) =>
+        ShowText(textId, message);
     void ShowLoadedText();
     void SetActorAnimation(string actor, int animation, string encodedAnimation);
     void SetActorMovementAnimation(string actor, int angle, string encodedAnimation);

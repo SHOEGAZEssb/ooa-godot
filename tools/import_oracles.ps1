@@ -114,7 +114,7 @@ $stageContracts = @(
         -functionInputs @(
             'Export-PaletteBlock', 'Read-PaletteBytes', 'Resolve-NpcAnimation')
     New-ImportStageContract 'enemies' 'Import-EnemyData.ps1' `
-        -inputs @('gfxNames') `
+        -inputs @('allTexts', 'gfxNames') `
         -outputs @(
             'crowRows', 'gelInstanceCount', 'keeseInstanceCount',
             'octorokInstanceCount', 'orderedObjectRows', 'partAnimationSource',

@@ -10,6 +10,7 @@ internal sealed class EmberSeedRoomEntity(EmberSeedEffect seed)
 {
     public bool Finished => Entity.Finished;
     public bool CollisionEnabled => Entity.CollisionEnabled;
+    public int SeedItem => Entity.SeedItem;
     public Rect2 CollisionBounds => Entity.CollisionBounds;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(spawns);

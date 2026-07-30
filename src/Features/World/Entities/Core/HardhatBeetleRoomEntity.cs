@@ -35,9 +35,14 @@ internal sealed class HardhatBeetleRoomEntity
     public override SeedHitResult ApplySeedHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
+        int seedItem,
         ICollection<RoomEntitySpawn> spawns) =>
         Entity.CollisionEnabled &&
         CombatDescriptor.Combat.Intersects(hitbox)
-            ? SeedHitResult.Consume
+            ? seedItem == 0x24
+                ? SeedHitResult.Activate
+                : seedItem == 0x20
+                    ? SeedHitResult.Consume
+                    : SeedHitResult.None
             : SeedHitResult.None;
 }

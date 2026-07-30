@@ -39,6 +39,7 @@ internal sealed class RoomEntityFactory(
     Action<int, int> roomMusicRequested,
     Action<int, string, Player> mapleDialogueRequested,
     Action<int, string, Vector2> seedTreeMessageRequested,
+    Action<int, string, Vector2> owlStatueMessageRequested,
     Func<bool> dialogueOpen,
     Action<MapleItemRecord, Player> mapleItemCollected,
     Action<int> horizontalScreenShakeRequested,
@@ -74,6 +75,7 @@ internal sealed class RoomEntityFactory(
     private readonly DarkRoomDatabase _darkRooms = new();
     private readonly MapleEventDatabase _maple = new();
     private readonly SeedTreeDatabase _seedTrees = new();
+    private readonly OwlStatueDatabase _owlStatues = new();
     private readonly DungeonMapDatabase _dungeonMaps =
         rooms?.DungeonMaps ?? new DungeonMapDatabase();
 
@@ -524,6 +526,15 @@ internal sealed class RoomEntityFactory(
                         break;
                     partSlots++;
                     reservations.Add(source.PackedPosition);
+                    if (source.Id == OwlStatueDatabase.PartId)
+                    {
+                        yield return new OwlStatueRoomEntity(
+                            source,
+                            _owlStatues.Record(source.SubId),
+                            room,
+                            owlStatueMessageRequested,
+                            animationTick);
+                    }
                     break;
 
                 case EnemyObjectSlotPolicy.ParameterPart:
@@ -999,6 +1010,7 @@ internal sealed class RoomEntityFactory(
         GrassDebrisSpawn debris => CreateGrassDebris(debris),
         RockDebrisSpawn debris => CreateRockDebris(debris),
         EmberSeedSpawn seed => CreateEmberSeed(seed, room),
+        OwlStatueSparkleSpawn sparkle => CreateOwlStatueSparkle(sparkle),
         PuzzlePuffSpawn puff => CreatePuzzlePuff(puff),
         EnemySplashSpawn splash => CreateEnemySplash(splash),
         FallingDownHoleSpawn fall => CreateFallingDownHole(fall),
@@ -1882,9 +1894,15 @@ internal sealed class RoomEntityFactory(
     {
         var seed = new EmberSeedEffect
         {
-            Name = "EmberSeed",
+            Name = spawn.Record.SeedItem == OwlStatueDatabase.MysterySeedItem
+                ? "MysterySeed"
+                : "EmberSeed",
             ZIndex = 11
         };
+        int mysteryEffect =
+            spawn.Record.SeedItem == OwlStatueDatabase.MysterySeedItem
+                ? random.Next().Value & 0x03
+                : 0;
         seed.Initialize(
             spawn.Record, room, _breakables, spawn.LinkPosition, spawn.Direction,
             soundRequested, itemDropEnteredHazard, roomTileChanged, animationTick,
@@ -1896,8 +1914,22 @@ internal sealed class RoomEntityFactory(
                 : direction => rooms.TryGetNeighbor(
                     spawn.Group, room.Id, direction, out int neighbor)
                     ? neighbor
-                    : null);
+                    : null,
+            mysteryEffect);
         return new EmberSeedRoomEntity(seed);
+    }
+
+    private static IRoomEntity CreateOwlStatueSparkle(
+        OwlStatueSparkleSpawn spawn)
+    {
+        var sparkle = new OwlStatueSparkleEffect
+        {
+            Name = "OwlStatueSparkle",
+            ZIndex = NpcCharacter.InFrontOfLinkZIndex
+        };
+        sparkle.Initialize(spawn.Position, spawn.Visual);
+        return new DialogueFixedEffectRoomEntityAdapter<OwlStatueSparkleEffect>(
+            sparkle);
     }
 
     private IRoomEntity CreateSwordBeam(

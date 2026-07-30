@@ -86,7 +86,20 @@ tiles, including a leading zero. Satchel records first resolve their selected
 seed treasure, so the same rule keeps the HUD, equipped A/B icons, and stored
 inventory icon synchronized after every accepted seed use.
 
-## Harp tune submenu
+## Seed and Harp item submenus
+
+Equipping the Seed Satchel, Seed Shooter, or Slingshot directly swaps it with
+A or B while only one seed type is owned. With two or more types, the shared
+`inventoryMenuState2` panel opens instead. Owned seed types are compressed into
+their source order from Ember through Mystery; left and right wrap within that
+list, and Start, A, or B stores the highlighted type in the item's WRAM
+selection byte before performing the requested A/B swap. The option count
+selects the imported `$08/$0a/$10/$10` panel width and overlapping
+`table_5ae5` X-position row. Each option uses its imported
+`seedAndHarpSpriteTable` OAM, including attribute bit 3's VRAM-bank-1 item
+graphics selection, and displays the live packed-BCD count with Ages'
+`$20-$29` number tiles. This is the path used to select Mystery Seeds when the
+Satchel already owns Ember Seeds.
 
 Equipping the Harp directly swaps it with A or B while only one tune is owned.
 With two or three tunes, that button opens `inventoryMenuState2`'s tune

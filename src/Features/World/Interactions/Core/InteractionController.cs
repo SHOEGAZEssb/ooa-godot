@@ -143,6 +143,7 @@ public sealed class InteractionController
         _entities.MapleDialogueRequested += OnMapleDialogueRequested;
         _entities.MapleItemCollected += OnMapleItemCollected;
         _entities.SeedTreeMessageRequested += OnSeedTreeMessageRequested;
+        _entities.OwlStatueMessageRequested += OnOwlStatueMessageRequested;
         _entities.GroundTreasureCollectionAllowed = () => !DialogueOpen;
         // wTextIsActive is narrower than this controller's aggregate
         // DialogueOpen gameplay lease: held rewards and naming/menu states do
@@ -239,6 +240,19 @@ public sealed class InteractionController
         string message,
         Vector2 position)
     {
+        if (!string.IsNullOrEmpty(message))
+        {
+            _dialogue.ShowGameplayMessage(
+                message, _worldToScreen(position).Y);
+        }
+    }
+
+    private void OnOwlStatueMessageRequested(
+        int textId,
+        string message,
+        Vector2 position)
+    {
+        _ = textId;
         if (!string.IsNullOrEmpty(message))
         {
             _dialogue.ShowGameplayMessage(

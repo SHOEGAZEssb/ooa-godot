@@ -5,9 +5,9 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Imported ITEM_SEED_SATCHEL parent/seed-child data. The first acquired
-/// Satchel can select only Ember Seeds, so unsupported later seed effects are
-/// rejected before a seed is consumed.
+/// Imported ITEM_SEED_SATCHEL parent/seed-child data. Ember and Mystery are
+/// enabled through their shared thrown-seed state machine; unsupported seed
+/// children are rejected before a seed is consumed.
 /// </summary>
 public sealed class SeedSatchelDatabase
 {
@@ -47,15 +47,21 @@ public sealed class SeedSatchelDatabase
                 row.HexByte(25), row.UnsignedDecimal(26), row.HexByte(27),
                 row.HexByte(28), row.RequiredString(29), row.RequiredString(30)));
         }
-        if (_records.Count != 1 || !_records.ContainsKey(0x20))
+        if (_records.Count != 2 ||
+            !_records.ContainsKey(0x20) ||
+            !_records.ContainsKey(0x24))
+        {
             throw new InvalidOperationException(
-                "Expected the imported first-Satchel ITEM_EMBER_SEED record ($20).");
+                "Expected imported ITEM_EMBER_SEED ($20) and " +
+                "ITEM_MYSTERY_SEED ($24) records.");
+        }
     }
 
     public bool TryGet(int seedItem, out SeedRecord record) =>
         _records.TryGetValue(seedItem, out record);
 
     public SeedRecord Ember => _records[0x20];
+    public SeedRecord Mystery => _records[0x24];
 }
 
 public readonly record struct SeedRecord(int ParentItem, int SeedItem, int TreasureId, string Sprite, int TileBase, int Palette, int Collision, int CollisionRadiusY, int CollisionRadiusX, int Damage, int InitialZ, int SpeedZ, int Gravity, int SpeedRaw, Vector2I UpOffset, Vector2I RightOffset, Vector2I DownOffset, Vector2I LeftOffset, int LinkFrames, string FlameSprite, int FlameTileBase, int FlameOamFlags, int FlameCounter, int LandingSound, int FlameSound, string Animation, string Source)

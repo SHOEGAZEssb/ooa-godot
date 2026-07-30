@@ -546,6 +546,7 @@ public sealed partial class ValidationRoot
             "toiletHand.s:toiletHandScript",
             "poe.s:poeScript",
             "comedian.s:comedianScript",
+            "soldier.s:soldierSubid02/07/09",
             "linkedGameNpcScript",
             "bipinScript3",
             "hardhatWorkerSubid00Script",

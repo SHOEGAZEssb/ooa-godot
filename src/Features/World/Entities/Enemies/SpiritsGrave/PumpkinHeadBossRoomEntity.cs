@@ -55,7 +55,12 @@ internal sealed class PumpkinHeadBossRoomEntity : IRoomEntity, IFixedRoomEntity,
     public SeedHitResult ApplySeedHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
+        int seedItem,
         ICollection<RoomEntitySpawn> spawns) =>
+        seedItem == 0x24 && _boss.CollisionBounds.Intersects(hitbox)
+            ? SeedHitResult.Activate
+            :
+        seedItem == 0x20 &&
         _boss.ApplySwordHit(hitbox, sourcePosition, 2, spawns)
             ? SeedHitResult.Consume
             : SeedHitResult.None;

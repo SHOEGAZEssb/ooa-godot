@@ -816,6 +816,56 @@ Past room `1:81` contains `INTERAC_BUSINESS_SCRUB $ce:$03` at `$38,$18`:
   substitution; decline, insufficient funds, already-owned shield, and
   success use TX `$4506/$4507/$4508/$4505`. Success grants the selected shield,
   deducts the exact price, and requests `SND_GETSEED`.
+- The same room's `roomSpecificCode3` allocates dynamic red soldier
+  `$40:$0a` only when `TREASURE_MYSTERY_SEEDS` is owned and room bit `$40`
+  remains clear. He begins hidden at `$68,$f0` with palette `$02`; the typed
+  `soldierSubid0aScript` waits for Link Y `$2a`, reveals him, drops Link's held
+  item, writes `wDisabledObjects=$01`, and disables the menu. His
+  `SPEED_0c0` right entrance retains unsigned 8.8 coordinate wrapping and the
+  source counter-zero no-move update.
+- After the exact `30/6/20` waits, the soldier creates
+  `INTERAC_EXCLAMATION_MARK $9f:$00` at offset `-13,0` for 40 updates with
+  `SND_CLINK`, waits 60, then uses the doubled
+  `interactionAnimateBasedOnSpeed` cadence during his `SPEED_180` upward
+  movement. Enabled bit 7 keeps his animation updating under TX `$590b`, while
+  `interactionRunScript` itself remains paused until the textbox closes. The
+  final wait 30 sets room bit `$40`, then the native tail installs hardcoded
+  transition `$00` to room `1:46`, packed position `$34`, destination
+  transition `$03`.
+
+The destination continues as one event-owned palace sequence rather than
+ending at that first warp:
+
+- Room `1:46` preserves its ordered soldiers `$40:$02/$09/$0b`. The left
+  guard runs `soldierSubid02Script`, shows TX `$5904`, sets
+  `GLOBALFLAG_10`, and escorts Link through the north exit with the original
+  forced-input alignment. `soldierSetSimulatedInputToEscortLink` installs
+  `abs(xh-$50) * 1.5` diagonal updates; Link uses the exact `SPEED_100`
+  8.8 vector and then continues upward through the ordinary terrain-aware
+  simulated-input path.
+- Scrolling rooms `1:36` and `1:26` keep ordinary room objects frozen while
+  the `$40:$05` escort and `$40:$03` side guards execute their source movement
+  and stair-speed paths. `$40:$05` state 0 writes only `w1Link.xh=$50`; each
+  32-update north scroll preserves that high-byte correction and both Link
+  fractional bytes. Link independently slows to `SPEED_080` on stairs while
+  the soldier selects `SPEED_0a0`, matching their original spacing. The event
+  carries its actor state across both room handoffs instead of treating either
+  destination load as a new encounter.
+- Throne room `1:16` creates reward guard `$40:$04`, escort guard `$40:$06`,
+  Ambi `$4d:$00`, and possessed Nayru `$36:$01` in source order. Their
+  independently imported streams share the original `$cfd1` synchronization:
+  Ambi clears `wNumMysterySeeds` without clearing the obtained bit and awards
+  `TREASURE_OBJECT_BOMBS_02`; the reward guard performs his native jump/flight;
+  Nayru uses animation `$06`, the first `PALH_97` palette, and the 97-update
+  delayed black fade. Each `showtext` also retains its own leading `\pos`
+  directive: guard lines use top position `$00`, Ambi and the main Nayru lines
+  use bottom position `$02`, and post-fade TX `$1d03` switches to position
+  `$01` while `TEXTBOXFLAG_ALTPALETTE1` is active.
+- Nayru's native tail directly loads room `1:46` rather than running an
+  ordinary room transition. It restores Link at `$38,$50`, room music,
+  minimap, input and menu ownership, then creates soldiers `$40:$07/$02` at
+  `$28,$48/$58`. `soldierSubid07Script` delivers TX `$5908`; subsequent
+  interaction enters the ordinary TX `$5909` guard loop.
 
 Past rooms `1:72` and `1:73` are a paired ordinary soldier reference:
 

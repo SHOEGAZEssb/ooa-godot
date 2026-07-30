@@ -359,8 +359,15 @@ $emberData = [regex]::Match(
 $emberAttributes = [regex]::Match(
     $itemAttributesSource,
     '(?m)^\s*\.db\s+\$(?<collision>[0-9a-f]{2})\s+\$(?<radius>[0-9a-f]{2})\s+\$(?<damage>[0-9a-f]{2})\s+\$[0-9a-f]{2}\s*;\s*\$20:\s*ITEM_EMBER_SEED')
-if (-not $emberData.Success -or -not $emberAttributes.Success) {
-    throw 'Could not parse ITEM_EMBER_SEED item data/attributes.'
+$mysteryData = [regex]::Match(
+    $itemDataSource,
+    '(?m)^\s*\.db\s+\$(?<gfx>[0-9a-f]{2})\s+\$(?<tile>[0-9a-f]{2})\s+\$(?<palette>[0-9a-f]{2})\s*;\s*\$24:\s*ITEM_MYSTERY_SEED')
+$mysteryAttributes = [regex]::Match(
+    $itemAttributesSource,
+    '(?m)^\s*\.db\s+\$(?<collision>[0-9a-f]{2})\s+\$(?<radius>[0-9a-f]{2})\s+\$(?<damage>[0-9a-f]{2})\s+\$[0-9a-f]{2}\s*;\s*\$24:\s*ITEM_MYSTERY_SEED')
+if (-not $emberData.Success -or -not $emberAttributes.Success -or
+    -not $mysteryData.Success -or -not $mysteryAttributes.Success) {
+    throw 'Could not parse ITEM_EMBER_SEED / ITEM_MYSTERY_SEED item data/attributes.'
 }
 
 $gfxIndex = [Convert]::ToInt32($emberData.Groups['gfx'].Value, 16)
@@ -373,12 +380,23 @@ if ($gfxIndex -ne 0x78 -or
     $objectGfxHeadersSource -notmatch '(?m)^\s*/\*\s*\$78\s*\*/\s*m_ObjectGfxHeader\s+spr_common_items') {
     throw 'ITEM_EMBER_SEED no longer resolves object GFX header $78 to spr_common_items.'
 }
+$mysteryGfxIndex = [Convert]::ToInt32(
+    $mysteryData.Groups['gfx'].Value, 16)
+if ($mysteryGfxIndex -ne $gfxIndex) {
+    throw 'ITEM_MYSTERY_SEED no longer shares ITEM_EMBER_SEED object GFX header $78.'
+}
 
 $emberFlameData = [regex]::Match(
     $seedCodeSource,
     '(?m)^@data:\s*\r?\n\s*\.db\s+\$(?<flags>[0-9a-f]{2})\s+\$(?<tile>[0-9a-f]{2})\s+\$(?<counter>[0-9a-f]{2})\s+SND_LIGHTTORCH')
 if (-not $emberFlameData.Success) {
     throw 'Could not parse ITEM_EMBER_SEED ignition graphics data.'
+}
+$mysteryEffectData = [regex]::Match(
+    $seedCodeSource,
+    '(?m)^\s*\.db\s+\$(?<flags>[0-9a-f]{2})\s+\$(?<tile>[0-9a-f]{2})\s+\$(?<counter>[0-9a-f]{2})\s+SND_MYSTERY_SEED')
+if (-not $mysteryEffectData.Success) {
+    throw 'Could not parse ITEM_MYSTERY_SEED effect graphics data.'
 }
 $flameFlags = [Convert]::ToInt32($emberFlameData.Groups['flags'].Value, 16)
 $flameTileBase = [Convert]::ToInt32($emberFlameData.Groups['tile'].Value, 16)
@@ -396,7 +414,9 @@ $expectedSourceFragments = @(
     @{ Source = $seedCodeSource; Pattern = '(?ms)^\s*ld bc,\$ffe0\s*call objectSetSpeedZ.*?@satchelPositionOffsets:\s*\.db \$fc \$00 \$fe.*?\.db \$01 \$04 \$fe.*?\.db \$05 \$00 \$fe.*?\.db \$01 \$fb \$fe'; Name = 'Satchel seed Z and directional offsets' },
     @{ Source = $seedCodeSource; Pattern = '(?ms)call objectApplySpeed\s*ld c,\$1c\s*call itemUpdateThrowingVerticallyAndCheckHazards.*?ld a,SND_BOMB_LAND'; Name = 'Satchel flight and landing' },
     @{ Source = $seedCodeSource; Pattern = '(?ms)@data:\s*\.db \$0a \$06 \$3a SND_LIGHTTORCH'; Name = 'Ember flame data' },
-    @{ Source = $seedCodeSource; Pattern = '(?ms)emberSeedBurn:.*?dec \(hl\).*?ld a,BREAKABLETILESOURCE_EMBER_SEED\s*call itemTryToBreakTile'; Name = 'Ember burn counter and break source' })
+    @{ Source = $seedCodeSource; Pattern = '(?ms)emberSeedBurn:.*?dec \(hl\).*?ld a,BREAKABLETILESOURCE_EMBER_SEED\s*call itemTryToBreakTile'; Name = 'Ember burn counter and break source' },
+    @{ Source = $seedCodeSource; Pattern = '(?ms)If it''s a mystery seed, get a random effect.*?call getRandomNumber_noPreserveVars\s*and \$03.*?add \$80\|ITEMCOLLISION_EMBER_SEED'; Name = 'Mystery Seed random-effect selection' },
+    @{ Source = $seedCodeSource; Pattern = '(?ms)@mysteryStandard:.*?call objectSetVisible82.*?\.db \$08 \$18 \$00 SND_MYSTERY_SEED'; Name = 'Mystery Seed activation data' })
 foreach ($fragment in $expectedSourceFragments) {
     if ($fragment.Source -notmatch $fragment.Pattern) {
         throw "Could not verify $($fragment.Name) in the supported disassembly."
@@ -457,10 +477,62 @@ for ($index = 0; $index -lt 5; $index++) {
 $encodedEmberAnimation = ($animationParts -join '|') + '~2'
 $radiusY = ($radius -shr 4) -band 0x0f
 $radiusX = $radius -band 0x0f
+
+$mysteryAnimation = [regex]::Match(
+    $itemAnimationsSource,
+    '(?ms)^itemAnimation1e829:\s*\.db \$(?<d0>[0-9a-f]{2}) \$(?<t0>[0-9a-f]{2}) \$(?<p0>[0-9a-f]{2})\s*\.db \$(?<d1>[0-9a-f]{2}) \$(?<t1>[0-9a-f]{2}) \$(?<p1>[0-9a-f]{2})\s*\.db \$(?<d2>[0-9a-f]{2}) \$(?<t2>[0-9a-f]{2}) \$(?<p2>[0-9a-f]{2})\s*\.db \$(?<d3>[0-9a-f]{2}) \$(?<t3>[0-9a-f]{2}) \$(?<p3>[0-9a-f]{2})\s*\.db \$(?<d4>[0-9a-f]{2}) \$(?<t4>[0-9a-f]{2}) \$(?<p4>[0-9a-f]{2})')
+$mysteryOamPointers = [regex]::Match(
+    $itemAnimationsSource,
+    '(?ms)^item22OamDataPointers:(?<aliases>.*?)^item26OamDataPointers:\s*(?<body>.*?)^item23OamDataPointers:')
+if (-not $mysteryAnimation.Success -or
+    -not $mysteryOamPointers.Success -or
+    -not $mysteryOamPointers.Groups['aliases'].Value.Contains(
+        'item24OamDataPointers:')) {
+    throw 'Could not parse ITEM_MYSTERY_SEED animation 0 / shared OAM pointers.'
+}
+$mysteryOamLabels = @([regex]::Matches(
+    $mysteryOamPointers.Groups['body'].Value,
+    '(?m)^\s*\.dw\s+(?<label>itemOamData[0-9a-f]+)') |
+    ForEach-Object { $_.Groups['label'].Value })
+if ($mysteryOamLabels.Count -ne 4) {
+    throw "Expected four ITEM_MYSTERY_SEED OAM pointers, parsed $($mysteryOamLabels.Count)."
+}
+$mysteryAnimationParts = [Collections.Generic.List[string]]::new()
+for ($index = 0; $index -lt 5; $index++) {
+    $duration = [Convert]::ToInt32(
+        $mysteryAnimation.Groups["d$index"].Value, 16)
+    $oamOffset = [Convert]::ToInt32(
+        $mysteryAnimation.Groups["t$index"].Value, 16)
+    $parameter = [Convert]::ToInt32(
+        $mysteryAnimation.Groups["p$index"].Value, 16)
+    if (($oamOffset -band 1) -ne 0 -or
+        ($oamOffset / 2) -ge $mysteryOamLabels.Count) {
+        throw "ITEM_MYSTERY_SEED animation referenced invalid OAM pointer offset `$$($oamOffset.ToString('x2'))."
+    }
+    $encodedOam = Read-ItemOamComposition $mysteryOamLabels[$oamOffset / 2]
+    $mysteryAnimationParts.Add("$duration,$parameter@$encodedOam")
+}
+$encodedMysteryAnimation = ($mysteryAnimationParts -join '|') + '~4'
+$mysteryRadius = [Convert]::ToInt32(
+    $mysteryAttributes.Groups['radius'].Value, 16)
+$mysteryEffectFlags = [Convert]::ToInt32(
+    $mysteryEffectData.Groups['flags'].Value, 16)
+$mysteryEffectTile = [Convert]::ToInt32(
+    $mysteryEffectData.Groups['tile'].Value, 16)
+$mysteryEffectCounter = [Convert]::ToInt32(
+    $mysteryEffectData.Groups['counter'].Value, 16)
+if ($mysteryRadius -ne $radius -or
+    $mysteryEffectFlags -ne 0x08 -or
+    $mysteryEffectTile -ne 0x18 -or
+    $mysteryEffectCounter -ne 0) {
+    throw 'ITEM_MYSTERY_SEED radius or activation graphics changed.'
+}
 $seedRows = [Collections.Generic.List[string]]::new()
 $seedRows.Add('# parent-item`tseed-item`ttreasure-id`tsprite`ttile-base`tpalette`tcollision`tradius-y`tradius-x`tdamage`tinitial-z`tspeed-z`tgravity`tspeed-raw`tup-y`tup-x`tright-y`tright-x`tdown-y`tdown-x`tleft-y`tleft-x`tlink-frames`tflame-sprite`tflame-tile-base`tflame-oam-flags`tflame-counter`tlanding-sound`tflame-sound`tanimation`tsource')
 $seedRows.Add(
     "$($itemIds['ITEM_SEED_SATCHEL'].ToString('x2'))`t$($itemIds['ITEM_EMBER_SEED'].ToString('x2'))`t$($treasureIds['TREASURE_EMBER_SEEDS'].ToString('x2'))`tspr_common_items`t$($tileBase.ToString('x2'))`t$($palette.ToString('x2'))`t$($collision.ToString('x2'))`t$radiusY`t$radiusX`t$($damage.ToString('x2'))`t-2`t-32`t28`t1e`t-4`t0`t1`t4`t5`t0`t1`t-5`t8`tspr_common_sprites`t$($flameTileBase.ToString('x2'))`t$($flameFlags.ToString('x2'))`t$flameCounter`t$($soundIds['SND_BOMB_LAND'].ToString('x2'))`t$($soundIds['SND_LIGHTTORCH'].ToString('x2'))`t$encodedEmberAnimation`tobject_code/common/items/seeds.s:itemCode20")
+$seedRows.Add(
+    "$($itemIds['ITEM_SEED_SATCHEL'].ToString('x2'))`t$($itemIds['ITEM_MYSTERY_SEED'].ToString('x2'))`t$($treasureIds['TREASURE_MYSTERY_SEEDS'].ToString('x2'))`tspr_common_items`t$($mysteryData.Groups['tile'].Value)`t$($mysteryData.Groups['palette'].Value)`t$($mysteryAttributes.Groups['collision'].Value)`t$radiusY`t$radiusX`t$($mysteryAttributes.Groups['damage'].Value)`t-2`t-32`t28`t1e`t-4`t0`t1`t4`t5`t0`t1`t-5`t8`tspr_common_sprites`t$($mysteryEffectTile.ToString('x2'))`t$($mysteryEffectFlags.ToString('x2'))`t$mysteryEffectCounter`t$($soundIds['SND_BOMB_LAND'].ToString('x2'))`t$($soundIds['SND_MYSTERY_SEED'].ToString('x2'))`t$encodedMysteryAnimation`tobject_code/common/items/seeds.s:itemCode24")
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\seed_satchel.tsv'),
     $seedRows)

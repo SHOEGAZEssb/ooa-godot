@@ -1402,6 +1402,33 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
+    internal void AdvanceCutsceneSimulatedInput(
+        Vector2I direction,
+        int angle,
+        int normalSpeed,
+        int slowSpeed)
+    {
+        if (!_cutsceneControlled)
+            return;
+
+        _walking = direction != Vector2I.Zero;
+        if (_walking)
+        {
+            // wSimulatedInput follows Link's ordinary top-down movement path:
+            // objectApplySpeed supplies the exact 8.8 vector, while Link's
+            // terrain handler selects SPEED_c0 on grass/puddles and SPEED_080
+            // on stairs/vines.
+            int speed = GetCutsceneSimulatedInputSpeed(normalSpeed, slowSpeed);
+            Face(direction);
+            TryMove(
+                OracleObjectMovement.Shared.Delta(speed, angle),
+                allowWallSlide: true);
+            _walkTime += 1.0f / 60.0f;
+        }
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        QueueRedraw();
+    }
+
     internal void AdvanceCutsceneMovement(Vector2 movement, Vector2I direction)
     {
         if (!_cutsceneControlled)
@@ -2474,6 +2501,19 @@ public partial class Player : Node2D
             TerrainType.Grass or TerrainType.Puddle => 0.75f,
             TerrainType.Stairs or TerrainType.Vines => 0.5f,
             _ => 1.0f
+        };
+    }
+
+    private int GetCutsceneSimulatedInputSpeed(int normalSpeed, int slowSpeed)
+    {
+        if (_world.RidingObject)
+            return normalSpeed;
+        TerrainType terrain = _world.GetActiveTerrain(Position).Terrain.Type;
+        return terrain switch
+        {
+            TerrainType.Grass or TerrainType.Puddle => normalSpeed * 3 / 4,
+            TerrainType.Stairs or TerrainType.Vines => slowSpeed,
+            _ => normalSpeed
         };
     }
 

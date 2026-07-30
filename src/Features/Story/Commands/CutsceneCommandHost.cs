@@ -51,6 +51,11 @@ internal abstract class CutsceneCommandHost : ICutsceneCommandHost
         throw UnsupportedCommand($"consume A for actor '{actor}'");
     public virtual void ShowText(int textId, string message) =>
         throw UnsupportedCommand($"show text ${textId:x4}");
+    public virtual void ShowText(
+        int textId,
+        string message,
+        int? textboxPosition) =>
+        ((ICutsceneCommandHost)this).ShowText(textId, message);
     public virtual void ShowLoadedText() =>
         throw UnsupportedCommand("show the loaded text");
     public virtual void SetActorAnimation(
