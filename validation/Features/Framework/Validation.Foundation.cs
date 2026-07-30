@@ -261,6 +261,12 @@ public sealed partial class ValidationRoot
         FailIf(
             OracleObjectMath.ToPixelPosition(new Vector2(1.75f, -0.25f)) !=
                 new Vector2(1, -1) ||
+            OracleObjectMath.NormalizeSourceScreenPosition(
+                new Vector2(0xff, 0xf8)) != new Vector2(-1, -8) ||
+            OracleObjectMath.SourceOamWrapOffset(
+                new Vector2(0xff, 0xf8)) != new Vector2(-256, -256) ||
+            OracleObjectMath.SourceOamWrapOffset(
+                new Vector2(0xa8, -1)) != Vector2.Zero ||
             movement.Direction(0x00) != Vector2.Up ||
             movement.Direction(0x08) != Vector2.Right ||
             precise != new Vector2(0x136c / 256.0f, 0xe378 / 256.0f) ||

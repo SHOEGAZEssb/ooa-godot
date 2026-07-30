@@ -356,6 +356,15 @@ public sealed class RoomEventController
             // valid, before following Impa's transfer takes the early return.
             _nayru.Cancel(deactivateActors: false);
         }
+        if (_dekuForestPalace.HasState &&
+            _context.Entities.ScreenTransitionActive)
+        {
+            // The palace controller restarts for each northward room, but the
+            // outgoing interactions remain enabled-$02 objects frozen for the
+            // complete scroll. Release command ownership without hiding them;
+            // RoomEntityManager retires the outgoing set at the camera handoff.
+            _dekuForestPalace.Cancel(deactivateActors: false);
+        }
         if (_nayru.Matches(group, room) && !_nayru.IntroCompleted)
         {
             TransferFollowingImpaIfNeeded(group, room);

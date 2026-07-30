@@ -760,7 +760,9 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         if (animation.Count > 0)
         {
             NpcCharacterAnimationFrame frame = animation[_animationFrame % animation.Count];
-            DrawTexture(frame.Texture, frame.Offset + TransitionDrawOffset + _scriptDrawOffset);
+            DrawTexture(
+                frame.Texture,
+                frame.Offset + SourceOamDrawOffset + _scriptDrawOffset);
         }
     }
 

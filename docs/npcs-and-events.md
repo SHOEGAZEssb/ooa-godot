@@ -847,10 +847,19 @@ ending at that first warp:
   the `$40:$05` escort and `$40:$03` side guards execute their source movement
   and stair-speed paths. `$40:$05` state 0 writes only `w1Link.xh=$50`; each
   32-update north scroll preserves that high-byte correction and both Link
-  fractional bytes. Link independently slows to `SPEED_080` on stairs while
-  the soldier selects `SPEED_0a0`, matching their original spacing. The event
-  carries its actor state across both room handoffs instead of treating either
-  destination load as a new encounter.
+  fractional bytes. Before becoming visible, both the corridor `$40:$05` and
+  throne-room `$40:$06` soldiers execute `interactionSetAnimation $00`, so
+  their preloaded incoming-scroll pose faces up rather than using the soldier
+  graphics default `$02`. Link independently slows to `SPEED_080` on stairs
+  while the soldier selects `SPEED_0a0`, matching their original spacing.
+  Before each script update, `$40:$05` runs
+  `objectCheckWithinScreenBoundary`; camera-relative Y `$ff-$f9` renders as
+  `-1..-7`, retaining the partially visible OAM rows, and `$f8` deletes the
+  now-fully-offscreen interaction on its next update. If the actor is still
+  inside that boundary when Link starts scrolling, the controller releases
+  outgoing-room ownership without deactivating it, so the enabled-`$02`
+  soldier remains frozen and drawable until the camera handoff. The separately
+  preloaded destination soldier remains frozen at its incoming offset.
 - Throne room `1:16` creates reward guard `$40:$04`, escort guard `$40:$06`,
   Ambi `$4d:$00`, and possessed Nayru `$36:$01` in source order. Their
   independently imported streams share the original `$cfd1` synchronization:

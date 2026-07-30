@@ -377,7 +377,10 @@ than reversing a host-computed vector.
 
 Objects that call `objectApplySpeed` retain unsigned wrapping 8.8 Y/X words
 between updates. Signed table components add with low-byte carry and whole-word
-wrap; logical rendering and source collision probes read the high bytes.
+wrap; logical state and source collision probes read the high bytes. Drawable
+object presentation additionally converts camera-relative high bytes
+`$f8-$ff` to `-8..-1`, matching the partial Game Boy OAM rows and columns at
+the top and left viewport edges without changing the stored position.
 Maple and her drops, scripted Impa/Nayru actors, Fairies' Woods flights,
 Graveyard ghost children, Black Tower workers, Gasha nuts, tree seeds, essence
 beads, Running Bipin, moving platforms, push blocks, item/shovel debris,

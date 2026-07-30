@@ -930,6 +930,8 @@ public sealed class RoomEntityManager : IDisposable
                 $"lifecycle ownership for NPC ${lifecycle.TalkNpc.Record.Id:x2}:" +
                 $"${lifecycle.TalkNpc.Record.SubId:x2}.");
         }
+        if (entity.Node is TransitionOffsetNode2D drawable)
+            drawable.SetWorldToScreen(position => WorldToScreen(position));
         _activeEntities.Add(entity);
         _worldRoot.AddChild(entity.Node);
         return entity;

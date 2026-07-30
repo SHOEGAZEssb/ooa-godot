@@ -91,8 +91,10 @@ public sealed partial class ValidationRoot
         Vector2 scrollLinkStart = Vector2.Zero;
         Vector2 scrollGuardStart = Vector2.Zero;
         NpcCharacter? scrollingGuard = null;
+        NpcCharacter? outgoingScrollingGuard = null;
         bool sawNormalLinkEscortSpeed = false;
         bool sawStairsLinkEscortSpeed = false;
+        bool sawWrappedEscortEdge = false;
         int frames = 0;
         for (; frames < 9000; frames++)
         {
@@ -156,10 +158,16 @@ public sealed partial class ValidationRoot
                             Fixed(scrollLinkStart.X) ||
                         scrollingGuard is null ||
                         scrollingGuard.Position != scrollGuardStart ||
+                        outgoingScrollingGuard is not null &&
+                        (!outgoingScrollingGuard.Active ||
+                         !outgoingScrollingGuard.Visible ||
+                         !_entities.OutgoingEntities<NpcCharacter>()
+                             .Contains(outgoingScrollingGuard)) ||
                         trace.Entries.Count != scrollTraceCount,
                         "The palace scroll advanced Link's orthogonal coordinate, " +
-                        "the destination escort soldier, or an event command while " +
-                        "ordinary destination state should have remained frozen.");
+                        "hid the frozen outgoing escort, changed the destination " +
+                        "escort soldier, or advanced an event command while " +
+                        "ordinary room state should have remained frozen.");
                 }
 
                 if (!scrollStillActive)
@@ -172,6 +180,7 @@ public sealed partial class ValidationRoot
                         "$76.$84.");
                     completedScrolls++;
                     scrollingGuard = null;
+                    outgoingScrollingGuard = null;
                 }
             }
             else
@@ -214,6 +223,30 @@ public sealed partial class ValidationRoot
                     {
                         sawNormalLinkEscortSpeed = true;
                     }
+
+                    NpcCharacter corridorGuard = _entities.Entities<NpcCharacter>()
+                        .Single(npc =>
+                            npc.Record.Id == 0x40 &&
+                            npc.Record.SubId == 0x05);
+                    Vector2 guardScreen =
+                        OracleObjectMath.NormalizeSourceScreenPosition(
+                            _transitions.WorldToGameplayScreen(
+                                corridorGuard.Position));
+                    if (guardScreen.Y is >= -7 and < 0)
+                    {
+                        sawWrappedEscortEdge = true;
+                        FailIf(
+                            !corridorGuard.Active ||
+                            !corridorGuard.Visible ||
+                            corridorGuard.SourceOamWrapOffset.Y != -256,
+                            "soldierSubid05 did not retain his partially visible " +
+                            "OAM rows while yh wrapped through $ff-$f9. " +
+                            $"room={roomBefore:x2}, position=" +
+                            $"{corridorGuard.Position}, screen={guardScreen}, " +
+                            $"drawOffset={corridorGuard.SourceOamWrapOffset}, " +
+                            $"active={corridorGuard.Active}, " +
+                            $"visible={corridorGuard.Visible}.");
+                    }
                 }
 
                 if (IsTransitioning)
@@ -233,13 +266,52 @@ public sealed partial class ValidationRoot
                         Fixed(scrollLinkStart.X) != 0x507c ||
                         Fixed(scrollLinkStart.Y) != 0x0684 ||
                         scrollingGuard is null ||
-                        scrollingGuard.Position != new Vector2(0x50, 0x68),
+                        scrollingGuard.Position != new Vector2(0x50, 0x68) ||
+                        scrollingGuard.CurrentScriptAnimationSource !=
+                            database.InitialEscortAnimation,
                         "The palace scroll did not begin with the source-exact " +
                         "SPEED_100 diagonal alignment, preserved 8.8 fractions, " +
                         "destination w1Link.xh=$50 write, and frozen escort " +
-                        $"soldier. room={_rooms.CurrentRoom.Id:x2}, " +
-                        $"link={scrollLinkStart}, guard={scrollingGuard?.Position}.");
+                        "soldier state-0 animation $00. " +
+                        $"room={_rooms.CurrentRoom.Id:x2}, link={scrollLinkStart}, " +
+                        $"guard={scrollingGuard?.Position}, animation=" +
+                        $"{scrollingGuard?.CurrentScriptAnimationSource}.");
                     scrollGuardStart = scrollingGuard!.Position;
+
+                    outgoingScrollingGuard = roomBefore is
+                        var corridorRoom &&
+                        (corridorRoom == record.CorridorRoom1 ||
+                         corridorRoom == record.CorridorRoom2)
+                        ? _entities.OutgoingEntities<NpcCharacter>()
+                            .SingleOrDefault(npc =>
+                                npc.Record.Id == 0x40 &&
+                                npc.Record.SubId == 0x05)
+                        : null;
+                    Vector2 outgoingScreen = outgoingScrollingGuard is null
+                        ? Vector2.Zero
+                        : OracleObjectMath.NormalizeSourceScreenPosition(
+                            _transitions.WorldToGameplayScreen(
+                                outgoingScrollingGuard.Position));
+                    bool outgoingShouldRemain =
+                        outgoingScrollingGuard is not null &&
+                        OracleObjectMath.IsInsideOriginalScreenBoundary(
+                            outgoingScreen);
+                    FailIf(
+                        roomBefore != record.EntranceRoom &&
+                        (outgoingScrollingGuard is null ||
+                         outgoingScrollingGuard.Active != outgoingShouldRemain ||
+                         outgoingShouldRemain &&
+                         !outgoingScrollingGuard.Visible),
+                        "The palace room-event handoff did not preserve the " +
+                        "source objectCheckWithinScreenBoundary lifetime for " +
+                        "the outgoing soldierSubid05. " +
+                        $"source={roomBefore:x2}, guard=" +
+                        $"{outgoingScrollingGuard?.Position}, screen=" +
+                        $"{outgoingScreen}, active=" +
+                        $"{outgoingScrollingGuard?.Active}, visible=" +
+                        $"{outgoingScrollingGuard?.Visible}.");
+                    if (!outgoingShouldRemain)
+                        outgoingScrollingGuard = null;
                 }
             }
 
@@ -313,6 +385,7 @@ public sealed partial class ValidationRoot
             completedScrolls != 3 ||
             !sawNormalLinkEscortSpeed ||
             !sawStairsLinkEscortSpeed ||
+            !sawWrappedEscortEdge ||
             _rooms.ActiveGroup != group ||
             _rooms.CurrentRoom.Id != record.EntranceRoom ||
             _player.Position !=

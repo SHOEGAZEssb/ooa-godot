@@ -1,4 +1,5 @@
 using Godot;
+using System;
 
 namespace oracleofages;
 
@@ -8,7 +9,20 @@ namespace oracleofages;
 /// </summary>
 public abstract partial class TransitionOffsetNode2D : Node2D
 {
+    private Func<Vector2, Vector2> _worldToScreen = static position => position;
+
     public Vector2 TransitionDrawOffset { get; private set; }
+    internal Vector2 SourceOamWrapOffset =>
+        OracleObjectMath.SourceOamWrapOffset(_worldToScreen(Position));
+    protected Vector2 SourceOamDrawOffset =>
+        TransitionDrawOffset + SourceOamWrapOffset;
+
+    internal void SetWorldToScreen(Func<Vector2, Vector2> worldToScreen)
+    {
+        _worldToScreen = worldToScreen ??
+            throw new ArgumentNullException(nameof(worldToScreen));
+        QueueRedraw();
+    }
 
     internal void SetTransitionDrawOffset(Vector2 offset)
     {

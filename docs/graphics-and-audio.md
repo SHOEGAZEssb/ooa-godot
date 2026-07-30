@@ -74,6 +74,15 @@ Changing a scripted animation selects cached immutable definitions/frames; it
 does not rebuild every texture for that entity. Validate assembled frame pixels
 and offsets, not just parsed record counts.
 
+The ordinary object renderer subtracts the active camera in byte arithmetic
+before writing OAM. Camera-relative `$f8-$ff` therefore represents the signed
+edge interval `-8` through `-1`, where only the remaining rows or columns of a
+16-pixel actor are visible. `TransitionOffsetNode2D` resolves that wrap from
+the room manager's gameplay-screen transform, and `NpcCharacter` adds it only
+to presentation; logical unsigned 8.8 coordinates remain unchanged. Do not
+draw a wrapped `$ff` object at host pixel 255 or it will disappear as soon as
+its origin crosses the top or left edge.
+
 Room `2:e6`'s `INTERAC_MASK_SALESMAN $5c:$00` is a compact default-animation
 case for those positioned bounds. `interactionInitGraphics` selects animation
 `$00`, whose four OAM cells span signed Y=`-$10` through `+$0f`; the resulting

@@ -23,6 +23,7 @@ internal sealed class DekuForestPalaceEventDatabase
     internal IReadOnlyList<CutsceneCommand> AmbiCommands { get; }
     internal IReadOnlyList<CutsceneCommand> NayruCommands { get; }
     internal IReadOnlyList<CutsceneCommand> ExitGuardCommands { get; }
+    internal string InitialEscortAnimation { get; }
     internal Color[] PossessedNayruPalette { get; }
 
     internal DekuForestPalaceEventDatabase()
@@ -88,6 +89,7 @@ internal sealed class DekuForestPalaceEventDatabase
         AmbiCommands = LoadCommands("deku_forest_palace_ambi_commands.tsv");
         NayruCommands = LoadCommands("deku_forest_palace_nayru_commands.tsv");
         ExitGuardCommands = LoadCommands("deku_forest_palace_exit_guard_commands.tsv");
+        InitialEscortAnimation = ResolveInitialEscortAnimation();
         PossessedNayruPalette = ReadPalette(
             "res://assets/oracle/metadata/nayru_possessed_palette.bin");
         Validate();
@@ -133,6 +135,31 @@ internal sealed class DekuForestPalaceEventDatabase
 
     private static IReadOnlyList<CutsceneCommand> LoadCommands(string name) =>
         CutsceneCommandCatalog.Load(Root + name);
+
+    private string ResolveInitialEscortAnimation()
+    {
+        if (CorridorCommands.Count == 0 ||
+            CorridorCommands[0] is not CutsceneMoveCommand
+            {
+                Actor: "CorridorGuard",
+                Angle: 0x00,
+                EncodedAnimation: var corridorAnimation
+            } ||
+            EscortGuardCommands.Count < 2 ||
+            EscortGuardCommands[1] is not CutsceneMoveCommand
+            {
+                Actor: "EscortGuard",
+                Angle: 0x00,
+                EncodedAnimation: var throneAnimation
+            } ||
+            corridorAnimation != throneAnimation)
+        {
+            throw new InvalidOperationException(
+                "soldierSubid05/06 did not begin with the same imported " +
+                "animation-$00 moveup command.");
+        }
+        return corridorAnimation;
+    }
 
     private static Color[] ReadPalette(string path)
     {

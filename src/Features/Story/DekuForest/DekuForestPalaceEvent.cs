@@ -125,6 +125,7 @@ internal sealed class DekuForestPalaceEvent :
                 break;
 
             case DekuForestPalaceStage.Corridor:
+                UpdateCorridorGuardScreenBoundary();
                 AdvancePlayerInput();
                 UpdateSideGuards();
                 AnimateAllActors(corridor: true);
@@ -162,7 +163,9 @@ internal sealed class DekuForestPalaceEvent :
         return true;
     }
 
-    public void Cancel()
+    public void Cancel() => Cancel(deactivateActors: true);
+
+    internal void Cancel(bool deactivateActors)
     {
         bool restoreFade =
             _stage == DekuForestPalaceStage.Exit ||
@@ -178,7 +181,8 @@ internal sealed class DekuForestPalaceEvent :
                 actor.SetScriptDrawOffset(Vector2.Zero);
                 actor.SetScriptButtonSensitive(false);
                 actor.SetAnimationRate(1.0f);
-                actor.SetActive(false);
+                if (deactivateActors)
+                    actor.SetActive(false);
             }
         }
 
@@ -530,8 +534,13 @@ internal sealed class DekuForestPalaceEvent :
         _context.Player.SetScriptedCoordinateHigh(
             horizontal: true, coordinate: 0x50);
 
-        Spawn(CorridorGuard, _database.RequireActor(room, 0x40, 0x05))
-            .SetBlocksLink(false);
+        NpcCharacter corridorGuard = Spawn(
+            CorridorGuard,
+            _database.RequireActor(room, 0x40, 0x05));
+        // soldierSubid05 state 0 runs xor a; interactionSetAnimation before
+        // objectSetVisible82, so the preloaded guard is already facing up.
+        corridorGuard.SetScriptAnimation(_database.InitialEscortAnimation);
+        corridorGuard.SetBlocksLink(false);
         _corridorRunner = _singleRunner;
         _corridorRunner.Start(_database.CorridorCommands);
         _corridorRunner.SetInitialMotionRegisters(
@@ -558,8 +567,11 @@ internal sealed class DekuForestPalaceEvent :
 
         Spawn(RewardGuard, _database.RequireActor(
             _record.ThroneRoom, 0x40, 0x04));
-        Spawn(EscortGuard, _database.RequireActor(
+        NpcCharacter escortGuard = Spawn(EscortGuard, _database.RequireActor(
             _record.ThroneRoom, 0x40, 0x06));
+        // soldierSubid06 performs the same animation-$00 write before becoming
+        // visible; this pose must be present throughout the incoming scroll.
+        escortGuard.SetScriptAnimation(_database.InitialEscortAnimation);
         Spawn(Ambi, _database.RequireActor(
             _record.ThroneRoom, 0x4d, 0x00));
         NpcCharacter nayru = Spawn(Nayru, _database.RequireActor(
@@ -681,6 +693,25 @@ internal sealed class DekuForestPalaceEvent :
                 ref precise, _record.NormalSpeed, guard.Angle));
             guard.Counter--;
         }
+    }
+
+    private void UpdateCorridorGuardScreenBoundary()
+    {
+        if (!_actors.TryGetValue(CorridorGuard, out NpcCharacter? guard) ||
+            !guard.Active)
+        {
+            return;
+        }
+
+        Vector2 screenPosition = OracleObjectMath.NormalizeSourceScreenPosition(
+            _context.Transitions.WorldToGameplayScreen(guard.Position));
+        if (OracleObjectMath.IsInsideOriginalScreenBoundary(screenPosition))
+            return;
+
+        // soldierSubid05 checks objectCheckWithinScreenBoundary before
+        // interactionRunScript on every state-1 update.
+        guard.SetActive(false);
+        _corridorRunner?.Clear();
     }
 
     private void UpdateRewardGuardFlight()

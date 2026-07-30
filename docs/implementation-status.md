@@ -363,8 +363,15 @@ remains the single runtime policy table.
   sequence continues through the complete palace audience: the left entrance
   guard uses exact terrain-aware simulated input through scrolling rooms
   `1:36` and `1:26`; all three 32-update north handoffs preserve Link's 8.8
-  fractions and destination-authored X correction. All corridor guards retain
-  their source movement and independent stair speeds, and room `1:16`
+  fractions and destination-authored X correction. Corridor `$40:$05` and
+  throne `$40:$06` guards apply native state-0 animation `$00` before their
+  incoming-scroll presentation, preserving the initial upward pose. Corridor
+  guards retain their source movement, independent stair speeds, and
+  pre-script screen-boundary check: wrapped Y `$ff-$f9` keeps the remaining
+  OAM rows visible and `$f8` retires the fully offscreen actor. A guard still
+  inside that boundary at scroll start remains frozen and drawable until the
+  camera handoff rather than being hidden by the destination room-event
+  restart. Room `1:16`
   schedules the reward guard, escort guard, Ambi, and possessed Nayru in
   source object order through their shared `$cfd1` handoffs. Ambi removes the
   Mystery Seed count while preserving ownership, grants

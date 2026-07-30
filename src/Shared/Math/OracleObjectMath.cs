@@ -61,4 +61,22 @@ internal static class OracleObjectMath
     public static bool IsInsideOriginalScreenBoundary(Vector2 position) =>
         position.Y >= -7 && position.Y < 136 &&
         position.X >= -7 && position.X < 168;
+
+    /// <summary>
+    /// Converts the source renderer's byte-relative screen position to the
+    /// signed edge interval produced by Game Boy OAM wrapping. Coordinates
+    /// $f8-$ff are the partially visible -8 through -1 interval; values
+    /// already represented as negative host coordinates remain unchanged.
+    /// </summary>
+    public static Vector2 NormalizeSourceScreenPosition(Vector2 position) => new(
+        NormalizeSourceScreenCoordinate(position.X),
+        NormalizeSourceScreenCoordinate(position.Y));
+
+    public static Vector2 SourceOamWrapOffset(Vector2 screenPosition) =>
+        NormalizeSourceScreenPosition(screenPosition) - screenPosition;
+
+    private static float NormalizeSourceScreenCoordinate(float coordinate) =>
+        coordinate is >= 0xf8 and < 0x100
+            ? coordinate - 0x100
+            : coordinate;
 }
