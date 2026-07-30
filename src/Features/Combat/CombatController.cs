@@ -46,7 +46,11 @@ public sealed class CombatController
             player.Position,
             player.SwordDamage,
             player.SwordKnockbackStrength,
-            collectItemDrops: true);
+            collectItemDrops: true,
+            attackerKnockback: response =>
+                player.QueueSwordCollisionKnockback(
+                    response.SourcePosition,
+                    response.Frames));
     }
 
     public bool ApplySwordTileHit(Player player, int direction, bool swordPoke)

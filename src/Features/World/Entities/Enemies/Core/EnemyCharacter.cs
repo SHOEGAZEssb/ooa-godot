@@ -37,8 +37,8 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     public HazardType DeathHazard { get; protected set; }
     internal int Health { get; set; }
     internal int InvincibilityCounter { get; set; }
-    internal int KnockbackCounter { get; private set; }
-    internal int KnockbackAngle { get; private set; }
+    internal int KnockbackCounter { get; private protected set; }
+    internal int KnockbackAngle { get; private protected set; }
     internal bool PendingKnockbackDeath => _pendingKnockbackDeath;
     internal bool IsFallingIntoHole =>
         _hazardActive && DeathHazard == HazardType.Hole;
@@ -274,11 +274,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
             QueueRedraw();
             return true;
         }
-        if (InvincibilityCounter != 0)
-        {
-            InvincibilityCounter += InvincibilityCounter > 0 ? -1 : 1;
-            QueueRedraw();
-        }
+        AdvanceInvincibilityCounter();
         if (_pendingKnockbackDeath && KnockbackCounter == 0)
         {
             _pendingKnockbackDeath = false;
@@ -288,6 +284,44 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
             return true;
         }
         return UpdateKnockback();
+    }
+
+    /// <summary>
+    /// Advances the signed common invincibility byte without dispatching the
+    /// ordinary knockback path. Species with source-defined airborne recoil
+    /// use this before their custom status handler.
+    /// </summary>
+    private protected void AdvanceInvincibilityCounter()
+    {
+        if (InvincibilityCounter == 0)
+            return;
+        InvincibilityCounter += InvincibilityCounter > 0 ? -1 : 1;
+        QueueRedraw();
+    }
+
+    /// <summary>
+    /// Applies a collision-table bump profile without assuming it came from a
+    /// sword. The source stores negative invincibility for shield/shovel
+    /// bumps, plus an angle directed away from the colliding item.
+    /// </summary>
+    private protected void ApplyCollisionBump(
+        Vector2 sourcePosition,
+        int invincibilityFrames,
+        int knockbackFrames)
+    {
+        if (invincibilityFrames <= 0)
+            throw new ArgumentOutOfRangeException(nameof(invincibilityFrames));
+        if (knockbackFrames < 0)
+            throw new ArgumentOutOfRangeException(nameof(knockbackFrames));
+
+        InvincibilityCounter = -invincibilityFrames;
+        KnockbackCounter = knockbackFrames;
+        Vector2 source = OracleObjectMath.ToPixelPosition(sourcePosition);
+        Vector2 target =
+            OracleObjectMath.ToPixelPosition(CurrentKnockbackPosition);
+        KnockbackAngle =
+            OracleObjectMovement.Shared.RelativeAngle(target, source) ^ 0x10;
+        QueueRedraw();
     }
 
     protected virtual int SwordInvincibilityFrames =>

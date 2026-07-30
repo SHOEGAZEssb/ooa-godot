@@ -297,6 +297,7 @@ $commonEnemySprites = @{
     0x0a = @($gfxNames[0x91])
     0x0c = @($gfxNames[0x91])
     0x10 = @($gfxNames[0x9b])
+    0x14 = @($gfxNames[0x8c])
     0x17 = @($gfxNames[0x90])
     0x1b = @($gfxNames[0x94])
     0x28 = @($gfxNames[0xa0])
@@ -306,7 +307,7 @@ $commonEnemyRows = [Collections.Generic.List[string]]::new()
 $commonEnemyRows.Add(
     '# id`tsubid`tsprites`ttile-base`tpalette`tsource-grayscale-inverted`tradius-y`tradius-x`tdamage-quarters`thealth`tanimations-base64'.Replace(
         '`t', "`t"))
-foreach ($id in @(0x0a, 0x0c, 0x10, 0x17, 0x1b, 0x28, 0x4d)) {
+foreach ($id in @(0x0a, 0x0c, 0x10, 0x14, 0x17, 0x1b, 0x28, 0x4d)) {
     $subid = if ($id -eq 0x1b) { 1 } else { 0 }
     $definition = Get-EnemyDefinition $id $subid
     $sprites = $commonEnemySprites[$id]
@@ -317,7 +318,7 @@ foreach ($id in @(0x0a, 0x0c, 0x10, 0x17, 0x1b, 0x28, 0x4d)) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t1`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($commonEnemyRows.Count -ne 8 -or
+if ($commonEnemyRows.Count -ne 9 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
     }) -or
@@ -326,6 +327,9 @@ if ($commonEnemyRows.Count -ne 8 -or
     }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^10\t00\tspr_gibdo_stalfos_rope_whisp_spark_bubble_beetle\t12\t0\t1\t6\t6\t2\t2\t'
+    }) -or
+    -not ($commonEnemyRows | Where-Object {
+        $_ -match '^14\t00\tspr_polsvoice_hardhatbeetle_spikedbeetle_beamon\t8\t1\t1\t6\t6\t2\t2\t'
     }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^17\t00\tspr_moblin_ghini\t22\t2\t1\t6\t6\t2\t10\t'
@@ -1135,6 +1139,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '0a:00' = 'boomerang-moblin'
     '0c:00' = 'arrow-moblin'
     '10:00' = 'rope'
+    '14:00' = 'spiked-beetle'
     '17:00' = 'ghini'
     '1b:01' = 'spiny-beetle'
     '28:00' = 'wallmaster'
@@ -1153,7 +1158,7 @@ $dynamicEnemyImplementationHandlers = [ordered]@{
     # through that event-only construction path.
     '20:00' = 'maku-sprout-masked-moblin'
 }
-if ($orderedEnemyImplementationHandlers.Count -ne 17 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 18 -or
     $dynamicEnemyImplementationHandlers.Count -ne 1) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1224,9 +1229,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 118 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 256 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 262 -or
     $enemyClassificationCounts['dynamic-special'] -ne 6 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 554) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 548) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -1295,10 +1300,13 @@ if ($enemyHandlerRows.Count -ne 119 -or
         "20`t00`t91`tdynamic-special`tmaku-sprout-masked-moblin`t" +
         "ENEMY_MASKED_MOBLIN`tscripts/ages/scriptHelper.s:moblin_spawnEnemyHere")) -or
     -not $enemyHandlerRows.Contains((
+        "14`t00`t98`tordered-implemented`tspiked-beetle`tENEMY_SPIKED_BEETLE`t" +
+        'constants/common/enemies.s:ENEMY_SPIKED_BEETLE')) -or
+    -not $enemyHandlerRows.Contains((
         "1b`t01`t90`tordered-implemented`tspiny-beetle`tENEMY_SPINY_BEETLE`t" +
         'constants/common/enemies.s:ENEMY_SPINY_BEETLE'))) {
     $representativeRows = @($enemyHandlerRows | Where-Object {
-        $_ -match 'ENEMY_(OCTOROK|MASKED_MOBLIN|SPINY_BEETLE)'
+        $_ -match 'ENEMY_(OCTOROK|MASKED_MOBLIN|SPIKED_BEETLE|SPINY_BEETLE)'
     })
     throw "Enemy handler registry lost its expected source classifications " +
         "(rows=$($enemyHandlerRows.Count)):`n" +
@@ -3009,6 +3017,105 @@ Add-EnemyBehaviorProfile 'hardhat-beetle' 'state-profile' `
     @(0x0f) `
     'object_code/common/enemies/hardhatBeetle.s:state-entry-operands'
 
+$spikedBeetleCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\spikedBeetle.s')
+$spikedBeetleCollisionTableSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\objectCollisionTable.s')
+if ($spikedBeetleCodeSource -notmatch
+        '(?ms)^@state_uninitialized:.*?call @setRandomAngleAndCounter1.*?' +
+        'ld a,SPEED_40.*?ecom_setSpeedAndState8AndVisible' -or
+    $spikedBeetleCodeSource -notmatch
+        '(?ms)^@state8:.*?ld b,\$08.*?objectCheckCenteredWithLink.*?' +
+        'ecom_applyVelocityForSideviewEnemyNoHoles' -or
+    $spikedBeetleCodeSource -notmatch
+        '(?ms)^@state9:.*?ecom_decCounter2.*?@incSpeed.*?' +
+        'ecom_applyVelocityForSideviewEnemyNoHoles.*?ld \(hl\),30' -or
+    $spikedBeetleCodeSource -notmatch
+        '(?ms)^@stateB:.*?ld \(hl\),SPEED_c0.*?' +
+        'ENEMYCOLLISION_SPIKED_BEETLE.*?inc \(hl\).*?-\$180.*?' +
+        'cp 60.*?and \$06' -or
+    $spikedBeetleCodeSource -notmatch
+        '(?ms)^@stateC:.*?ecom_applyVelocityForSideviewEnemyNoHoles.*?' +
+        'ld c,\$18.*?objectUpdateSpeedZ_paramC.*?ld b,\$10' -or
+    $spikedBeetleCodeSource -notmatch
+        '(?ms)^@setRandomAngleAndCounter1:.*?ldbc \$18,\$30.*?' +
+        'ecom_randomBitwiseAndBCE.*?add c' -or
+    $spikedBeetleCodeSource -notmatch
+        '(?ms)^@chargeLink:.*?ld \(hl\),\$09.*?' +
+        'ld \(hl\),150.*?ld \(hl\),SPEED_40' -or
+    $spikedBeetleCodeSource -notmatch
+        '(?ms)^@incSpeed:.*?and \$03.*?cp SPEED_180.*?' +
+        'add SPEED_20' -or
+    $spikedBeetleCodeSource -notmatch
+        '(?ms)^@knockback:.*?ld c,\$18.*?' +
+        'objectUpdateSpeedZAndBounce.*?ld b,SPEED_e0' -or
+    $spikedBeetleCodeSource -notmatch
+        '(?ms)ENEMYCOLLISION_SPIKED_BEETLE_FLIPPED.*?ld \(hl\),180') {
+    throw 'Spiked Beetle movement, combat, flip, or recovery path changed.'
+}
+if ($spikedBeetleCollisionTableSource -notmatch
+        '(?ms); ENEMYCOLLISION_SPIKED_BEETLE \(0x18\).*?' +
+        '\.db \$02 \$10 \$0f \$0f \$15 \$16 \$16 \$16 \$17 \$16' -or
+    $collisionEffectsSource -notmatch
+        '(?ms)^collisionEffect15:.*?createClinkInteraction.*?' +
+        'LINKDMG_10, ENEMYDMG_34' -or
+    $collisionEffectsSource -notmatch
+        '(?ms)^collisionEffect16:.*?createClinkInteraction.*?' +
+        'LINKDMG_14, ENEMYDMG_34' -or
+    $collisionEffectsSource -notmatch
+        '(?ms)^collisionEffect17:.*?createClinkInteraction.*?' +
+        'LINKDMG_18, ENEMYDMG_34') {
+    throw 'Spiked Beetle armored sword collision effects changed.'
+}
+$spikedLinkDamageMatches = @([regex]::Matches(
+    $collisionEffectsSource,
+    '(?m)^\s*\.db \$31 \$[0-9a-f]{2} \$(?<counter>[0-9a-f]{2}) ' +
+    '\$00 ; LINKDMG_(?<label>10|14|18)\s*$'))
+$spikedLinkDamageCounters = @($spikedLinkDamageMatches | ForEach-Object {
+    [Convert]::ToInt32($_.Groups['counter'].Value, 16)
+})
+if ($spikedLinkDamageMatches.Count -ne 3 -or
+    -not [string]::Equals(
+        (($spikedLinkDamageMatches | ForEach-Object {
+            $_.Groups['label'].Value
+        }) -join ','),
+        '10,14,18',
+        [StringComparison]::Ordinal) -or
+    ($spikedLinkDamageCounters -join ',') -ne '11,19,25') {
+    throw 'Spiked Beetle LINKDMG attacker recoil counters changed.'
+}
+$spikedLinkDamagePairs = @()
+$spikedLinkDamageSources = @()
+for ($index = 0; $index -lt $spikedLinkDamageCounters.Count; $index++) {
+    $spikedLinkDamagePairs += ,@($spikedLinkDamageCounters[$index], 0)
+    $spikedLinkDamageSources +=
+        "code/collisionEffects.s:applyDamageToLink@damageTypeTable+" +
+        ((0x10 + $index * 4).ToString('x2'))
+}
+Add-EnemyBehaviorPairTable `
+    'spiked-beetle' `
+    'attacker-knockback-frames' `
+    $spikedLinkDamagePairs `
+    $spikedLinkDamageSources
+$spikedBeetleShakeOffsets = @(
+    Read-EnemyBehaviorValues (
+        Get-AssemblyLabelBody $spikedBeetleCodeSource '@xOscillationOffsets'
+    ) $true)
+if ($spikedBeetleShakeOffsets.Count -ne 4 -or
+    -not [string]::Equals(
+        ($spikedBeetleShakeOffsets -join ','),
+        '1,-1,-1,1',
+        [StringComparison]::Ordinal)) {
+    throw 'Spiked Beetle X-oscillation table changed.'
+}
+Add-EnemyBehaviorValueTable 'spiked-beetle' 'shake-x-offsets' `
+    $spikedBeetleShakeOffsets `
+    'object_code/common/enemies/spikedBeetle.s:@xOscillationOffsets'
+Add-EnemyBehaviorProfile 'spiked-beetle' 'state-profile' `
+    @(0x0a, 8, 0x0a, 3, 0x05, 0x3c, 150, 30,
+      180, 60, 0x18, -0x180, 0x23, 0x1e, 16, 28) `
+    'object_code/common/enemies/spikedBeetle.s:state-entry-operands'
+
 $spinyBeetleCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\spinyBeetle.s')
 $bushOrRockCodeSource = Read-ImportText (
@@ -3101,8 +3208,8 @@ Add-EnemyBehaviorProfile 'pumpkin-head-projectile' 'state-profile' `
     @(8, 0x3c, 4, 2, 2) `
     'object_code/ages/parts/pumpkinHeadProjectile.s:state0'
 
-if ($enemyBehaviorRows.Count -ne 189) {
-    throw "Expected 188 enemy behavior-table rows, got " +
+if ($enemyBehaviorRows.Count -ne 212) {
+    throw "Expected 211 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

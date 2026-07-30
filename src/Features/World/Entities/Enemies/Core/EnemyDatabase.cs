@@ -57,12 +57,22 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 7 ||
+        if (_importedDefinitions.Count != 8 ||
             ImportedEnemy(0x0a) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x0c) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x10) is not { Health: 2, DamageQuarters: 2 } ||
+            ImportedEnemy(0x14) is not
+                {
+                    TileBase: 8,
+                    Palette: 1,
+                    RadiusY: 6,
+                    RadiusX: 6,
+                    Health: 2,
+                    DamageQuarters: 2,
+                    Animations.Length: 2
+                } ||
             ImportedEnemy(0x17) is not { Health: 10, DamageQuarters: 2 } ||
             ImportedEnemy(0x1b, 0x01) is not
                 { Health: 2, DamageQuarters: 2, Animations.Length: 1 } ||
@@ -691,6 +701,8 @@ public sealed class EnemyDatabase
             HasImportedDefinition(descriptor, 0x10),
         EnemyHandlerKind.Ghini =>
             HasImportedDefinition(descriptor, 0x17),
+        EnemyHandlerKind.SpikedBeetle =>
+            HasImportedDefinition(descriptor, 0x14),
         EnemyHandlerKind.SpinyBeetle =>
             HasImportedDefinition(descriptor, 0x1b),
         EnemyHandlerKind.Wallmaster =>

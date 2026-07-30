@@ -916,6 +916,27 @@ internal sealed class RoomEntityFactory(
                 return new GhiniRoomEntity(
                     ghini, combatSource, soundRequested);
 
+            case EnemyHandlerKind.SpikedBeetle:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition spikedBeetleRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var spikedBeetle = new SpikedBeetleCharacter
+                {
+                    Name =
+                        $"SpikedBeetle_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                spikedBeetle.Initialize(
+                    spikedBeetleRecord,
+                    room,
+                    position,
+                    random,
+                    soundRequested);
+                return new SpikedBeetleRoomEntity(
+                    spikedBeetle, combatSource, soundRequested);
+
             case EnemyHandlerKind.SpinyBeetle:
                 if (!enemies.TryGetImportedEnemyDefinition(
                     source, out ImportedEnemyDefinition spinyBeetleRecord))
@@ -1034,6 +1055,7 @@ internal sealed class RoomEntityFactory(
             CreateShootingGalleryTargetDebris(debris),
         SwordBeamSpawn beam => CreateSwordBeam(beam, room),
         SwordBeamClinkSpawn clink => CreateSwordBeamClink(clink),
+        EnemyClinkSpawn clink => CreateEnemyClink(clink),
         StatueEyeballSpawn eye => CreateStatueEyeball(eye),
         SpiritsGraveMovingPlatformSpawn platform =>
             CreateSpiritsGraveMovingPlatform(platform),
@@ -2003,6 +2025,19 @@ internal sealed class RoomEntityFactory(
         return new SwordBeamClinkRoomEntity(clink);
     }
 
+    private IRoomEntity CreateEnemyClink(EnemyClinkSpawn spawn)
+    {
+        var clink = new ClinkEffect
+        {
+            Name = "EnemyClink",
+            ZIndex = 11
+        };
+        clink.Initialize(spawn.Position, flickers: false);
+        clink.SetPhysicsProcess(false);
+        soundRequested(OracleSoundEngine.SndClink);
+        return new SwordBeamClinkRoomEntity(clink);
+    }
+
     private IRoomEntity CreatePuzzlePuff(PuzzlePuffSpawn spawn)
     {
         var puff = new PuzzlePuffEffect
@@ -2521,6 +2556,9 @@ internal sealed record BombSpawn(
     : RoomEntitySpawn;
 
 internal sealed record SwordBeamClinkSpawn(Vector2 Position)
+    : RoomEntitySpawn;
+
+internal sealed record EnemyClinkSpawn(Vector2 Position)
     : RoomEntitySpawn;
 
 internal sealed record StatueEyeballSpawn(Vector2 Position)

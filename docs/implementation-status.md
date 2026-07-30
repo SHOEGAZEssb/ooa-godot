@@ -65,7 +65,8 @@ claim that the entire surrounding game is complete.
   Shovel uses the original 23-update Link/item animation, update-4 tile probe,
   imported breakable-tile replacements and drops, directional dirt debris,
   `SPEED_a0` cardinal drop launch, sounds, room flags, and WRAM-backed gasha
-  maturity.
+  maturity. Its independent radius-3 child collision also flips implemented
+  Spiked Beetles without replacing the tile probe.
 - Gameplay text now applies the original global object-dispatch rule:
   non-state-zero NPCs, enemies, parts, and interactions stop their handlers,
   collision callbacks, counters, facing, and animation while
@@ -307,13 +308,28 @@ remains the single runtime policy table.
   release, `$40` cooldown, and source random wander reset. Its breakable rock
   metatiles use the imported four-stage `INTERAC_ROCKDEBRIS` chip animation,
   terminal-frame lifetime, and `SND_BREAK_ROCK`.
-- Boomerang Moblin `$0a:$00`, Rope `$10:$00`, Ghini `$17:$00`,
-  Wallmaster `$28:$00`, covered Spiny Beetle `$1b:$01`, and Hardhat Beetle
-  `$4d:$00` are shared species rather than room-specific adapters.
+- Boomerang Moblin `$0a:$00`, Rope `$10:$00`, Spiked Beetle `$14:$00`,
+  Ghini `$17:$00`, Wallmaster `$28:$00`, covered Spiny Beetle `$1b:$01`, and
+  Hardhat Beetle `$4d:$00` are shared species rather than room-specific
+  adapters.
   Matching source placements instantiate outside rooms `4:10-$25` (including
   room `4:ed`'s six Ropes and room `4:c5`'s Wallmaster), while unsupported
   Rope/Ghini subids remain deferred. Wallmaster captures use each dungeon's
   imported destination (`$24` for dungeon `$01`, `$ce` for dungeon `$0b`).
+- Dungeon rooms `4:44` and `4:c6` each instantiate their three fixed Spiked
+  Beetles in source order. They use one shared RNG call for the cardinal wander
+  angle and `$30-$60` counter, accelerate cardinal charges from `SPEED_40` to
+  `SPEED_180`, and flip from the Shovel or any raised Shield. Ordinary armored
+  sword contact preserves the Beetle's health and position, allocates
+  non-flickering `INTERAC_CLINK` at the enemy/item midpoint, and transfers the
+  imported 11/19/25-update recoil from the sword item to Link without
+  cancelling the active sword animation. Flipped mode preserves the source
+  airborne half-speed bounce, `SPEED_e0` recoil,
+  vulnerable sword/Ember collision, vulnerable Bomb/sword-beam/thrown-object
+  rows, 180-update wait,
+  last-60-update X shake, and `SPEED_c0` flip-back jump. Normal mode preserves
+  those items' distinct no-damage collision-table rows instead of treating
+  them as armored sword hits.
 - Wing Dungeon rooms `5:b4` and `5:b5` contain their complete ordinary enemy
   rosters: two fixed Hardhat Beetles plus two random Keese in `5:b4`, and one
   fixed dungeon-bush-covered Spiny Beetle, one red Zol, and three random Keese
@@ -513,15 +529,15 @@ remains the single runtime policy table.
   `$08` and `wObtainedRingBox` bit `$01` are committed only after the source
   menu handoffs complete.
 - Keese, Octoroks/projectiles, masked Moblins `$20:$00` and their arrows,
-  ordinary Stalfos `$31:$00`, Zols, Gels, Hardhat Beetles, and covered Spiny
-  Beetles use
+  ordinary Stalfos `$31:$00`, Zols, Gels, Hardhat Beetles, Spiked Beetles, and
+  covered Spiny Beetles use
   ordered room-object placement, original spawn restrictions, shared RNG,
   combat, common/split kill sounds, common hazard effects, and source-ordered
   drop paths with live Bomb/seed ownership predicates. All 816 fixed/random
   placements carry a generated ID/subid implementation classification:
-  256 rows create 420 ordinary instances, six `$20:$00` rows identify that
+  262 rows create 426 ordinary instances, six `$20:$00` rows identify that
   their only implemented lane is the event-owned dynamic Masked Moblin handler
-  while retaining ordered-placement effects, and 554 rows are deliberately
+  while retaining ordered-placement effects, and 548 rows are deliberately
   unsupported. One typed registry now controls construction and dungeon
   enemy-count completeness without changing source slots, reservations, or
   RNG. Keese, ordinary Stalfos, and common knockback share the imported

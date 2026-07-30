@@ -15,6 +15,21 @@ internal interface ISwordHittableRoomEntity
 }
 
 /// <summary>
+/// Some collision effects write knockback to the attacking sword item. The
+/// item's next update transfers this response to Link.
+/// </summary>
+internal interface ISwordAttackerKnockbackRoomEntity
+{
+    bool TryGetSwordAttackerKnockback(
+        EnemyKnockbackStrength strength,
+        out SwordAttackerKnockback response);
+}
+
+internal readonly record struct SwordAttackerKnockback(
+    Vector2 SourcePosition,
+    int Frames);
+
+/// <summary>
 /// Part collision mode $01 maps Link's sword collision types $04-$0b to
 /// COLLISIONEFFECT_23. That effect kills the part so its next update grants
 /// the drop without reporting enemy contact back to the sword.

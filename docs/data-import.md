@@ -456,17 +456,20 @@ compatible interpretation. The third retains all 48 entries of
 `ecom_bounceOffScreenBoundary@angleTable` in source order. Runtime consumers
 must use the typed shared resolver rather than copying these tables.
 
-`metadata/enemy_behavior_tables.tsv` owns 188 implemented behavior rows. The
-original 77 lookup-stream rows cover Keese deceleration, Octorok wait/walk
+`metadata/enemy_behavior_tables.tsv` owns 211 implemented behavior rows. The
+81 lookup-stream rows cover Keese deceleration, Octorok wait/walk
 counters, Boomerang Moblin route counters, enemy-arrow directional geometry,
 Giant Ghini child offsets, and Pumpkin Head timing/follower/projectile tables.
-The additional 111 rows retain state-entry operands: common sword
+They also retain Spiked Beetle shake offsets. The additional 130 rows retain
+state-entry and collision operands: common sword
 invincibility/recoil profiles, knockback and hazard motion, hostile-projectile
 bounce, and the speeds, counters, gravity, bounds, collision radii, and damage
 used by every implemented common enemy/projectile state machine, including
-Hardhat Beetle and covered/exposed Spiny Beetle profiles. Signed Y/X values and
-runtime index order stay exact, including Giant Ghini's `3,2,1` child
-allocation and Pumpkin Head's `0,2,1` projectile creation.
+Hardhat Beetle, Spiked Beetle, and covered/exposed Spiny Beetle profiles. The
+Spiked Beetle collision data includes the `LINKDMG_$10/$14/$18`
+11/19/25-update attack-side recoil counters. Signed Y/X values and runtime
+index order stay exact, including Giant Ghini's `3,2,1` child allocation and
+Pumpkin Head's `0,2,1` projectile creation.
 `EnemyBehaviorTables` rejects noncontiguous rows, unexpected secondary values,
 unclaimed tables, or changed row counts, then exposes semantic typed profiles.
 Species classes retain native state transitions and branch instructions but do

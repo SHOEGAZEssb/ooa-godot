@@ -102,6 +102,9 @@ public partial class Player : Node2D
     private float _enemyInvincibilityFrames;
     private float _enemyKnockbackFrames;
     private Vector2 _enemyKnockbackDirection;
+    private int _pendingSwordKnockbackFrames;
+    private Vector2 _pendingSwordKnockbackDirection;
+    private bool _swordCollisionKnockback;
     private double _deathUpdateAccumulator;
     private bool _deathPending;
     private bool _deathAnimationActive;
@@ -425,6 +428,9 @@ public partial class Player : Node2D
             ClearLedgeHop();
         _enemyInvincibilityFrames = 0.0f;
         _enemyKnockbackFrames = 0.0f;
+        _pendingSwordKnockbackFrames = 0;
+        _pendingSwordKnockbackDirection = Vector2.Zero;
+        _swordCollisionKnockback = false;
         _holePullCounter = 0;
         _holePullPackedPosition = -1;
         _pullingIntoHole = false;
@@ -739,6 +745,7 @@ public partial class Player : Node2D
         _enemyInvincibilityFrames = EnemyInvincibilityFrames;
         _enemyKnockbackFrames = RingEffects.KnockbackFrames(
             _inventory, EnemyKnockbackFrames);
+        _swordCollisionKnockback = false;
         _enemyKnockbackDirection = Position - sourcePosition;
         if (_enemyKnockbackDirection.LengthSquared() < 0.01f)
         {
@@ -777,6 +784,7 @@ public partial class Player : Node2D
                 sourcePosition, Position) & 0x18);
         _enemyKnockbackFrames = 0x18;
         _enemyKnockbackDirection = OracleObjectMath.StrictCardinalVector(angle);
+        _swordCollisionKnockback = false;
         _walking = false;
         _pushing = false;
         InterruptCarriedItems(discard: false);
@@ -785,6 +793,46 @@ public partial class Player : Node2D
         CancelShovelAction();
         QueueRedraw();
         return true;
+    }
+
+    /// <summary>
+    /// COLLISIONEFFECT_$15-$17 writes Link recoil to ITEM_SWORD. The sword's
+    /// next item update transfers the counter and angle to Link, after Link's
+    /// physics update for that application frame has already completed.
+    /// </summary>
+    internal void QueueSwordCollisionKnockback(
+        Vector2 sourcePosition,
+        int frames)
+    {
+        if (frames <= 0)
+            return;
+
+        _pendingSwordKnockbackFrames = frames;
+        int angle = OracleObjectMovement.Shared.RelativeAngle(
+            sourcePosition,
+            Position);
+        _pendingSwordKnockbackDirection =
+            OracleObjectMovement.Shared.Direction(angle);
+    }
+
+    private void TransferSwordCollisionKnockback()
+    {
+        if (_pendingSwordKnockbackFrames == 0)
+            return;
+
+        int frames = _pendingSwordKnockbackFrames;
+        Vector2 direction = _pendingSwordKnockbackDirection;
+        _pendingSwordKnockbackFrames = 0;
+        _pendingSwordKnockbackDirection = Vector2.Zero;
+
+        // itemTransferKnockbackToLink preserves a longer live counter but
+        // always replaces Link's knockback angle.
+        if (frames >= _enemyKnockbackFrames)
+        {
+            _enemyKnockbackFrames = frames;
+            _swordCollisionKnockback = IsAttacking;
+        }
+        _enemyKnockbackDirection = direction;
     }
 
     public bool Heal(int quarters)
@@ -972,8 +1020,14 @@ public partial class Player : Node2D
             TryMove(movement, allowWallSlide: false);
             _enemyKnockbackFrames = Mathf.Max(0.0f, _enemyKnockbackFrames - frameDelta);
             _walking = false;
-            CancelSwordAttack();
+            if (!_swordCollisionKnockback || !IsAttacking)
+            {
+                _swordCollisionKnockback = false;
+                CancelSwordAttack();
+            }
             CancelShovelAction();
+            if (_enemyKnockbackFrames == 0.0f)
+                _swordCollisionKnockback = false;
             Position = OracleObjectMath.ToPixelPosition(_precisePosition);
             QueueRedraw();
             return;
@@ -1620,6 +1674,8 @@ public partial class Player : Node2D
         // warps cancel the sword synchronously in BeginRoomWarpTransition.
         if (_world.IsTransitioning)
             return;
+
+        TransferSwordCollisionKnockback();
 
         if (_world.SwordDisabled)
         {
@@ -2291,6 +2347,7 @@ public partial class Player : Node2D
 
         _enemyInvincibilityFrames = 40.0f;
         _enemyKnockbackFrames += 10.0f;
+        _swordCollisionKnockback = false;
         _enemyKnockbackDirection =
             Mathf.Abs(input.X) > 0.01f
                 ? new Vector2(-Mathf.Sign(input.X), 0)

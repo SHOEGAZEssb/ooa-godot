@@ -312,6 +312,8 @@ single universal entity base class:
 | `IFixedRoomEntity` | One original-engine update with deterministic spawn output |
 | `ILinkContactEntity` | Post-update Link contact handling |
 | `ISwordHittableRoomEntity` | Sword collision and hit response |
+| `IShovelHittableRoomEntity` | Source-defined ITEM_SHOVEL child collision, independent of the metatile dig attempt |
+| `IItemCollisionHittableRoomEntity` | Species-specific thrown-object, Bomb, and sword-beam collision-table rows |
 | `IObjectCollisionHeightRoomEntity` | Optional object `zh` for item/enemy collision; absent means ground height |
 | `ISeedHittableRoomEntity` / `ISeedProjectileRoomEntity` | Active seed hit response and one-shot projectile collision ownership |
 | `IPlayerProjectileRoomEntity` | Player-owned projectile bounds, damage, and accepted-hit completion |
@@ -451,18 +453,20 @@ after accepted sword recoil, so hazard disposal never creates a normal enemy
 death puff or item drop.
 
 `EnemyDatabase` keeps one ordered room-object collection as the placement
-authority. Keese, Octorok, Stalfos, Zol, Gel, Crow, Hardhat Beetle, and Spiny
-Beetle graphics, attributes, and animations are unique ID/subid definitions;
-the factory joins a definition to the ordered record that supplies group,
-room, source order, opcode, flags, count, condition, and coordinates.
+authority. Keese, Octorok, Stalfos, Zol, Gel, Crow, Hardhat Beetle, Spiked
+Beetle, and Spiny Beetle graphics, attributes, and animations are unique
+ID/subid definitions; the factory joins a definition to the ordered record
+that supplies group, room, source order, opcode, flags, count, condition, and
+coordinates.
 Validation performs the same join and derives species totals from the ordered
 records rather than maintaining parallel room indexes.
 
 State-machine lookup and state-entry operands are generated data.
-`EnemyBehaviorTables` provides one strict runtime owner for 188 rows: 77
+`EnemyBehaviorTables` provides one strict runtime owner for 211 rows: 81
 Keese/Octorok/Boomerang Moblin lookup counters, enemy-arrow directional
 geometry, Giant Ghini child offsets, and Pumpkin Head
-timing/follower/projectile records, plus 111 typed sword, recoil, hazard,
+timing/follower/projectile records plus Spiked Beetle shake offsets, and 130
+typed sword, recoil, hazard,
 bounce, speed, counter, gravity, bounds, and projectile profiles. Consumers
 index lookup records at the same RNG/state/direction boundary as the source;
 they do not reorder the Giant Ghini `3,2,1` child allocation or Pumpkin Head's
@@ -806,8 +810,12 @@ Active Shovel use keeps parent-item timing in `Player` and delegates the
 update-4 child probe to `ShovelController`. The controller reads
 `BreakableTileDatabase` source `$06`, normalizes the hit to the metatile center,
 applies replacement/drop/effect ordering, and spawns fixed-update
-`ShovelDebrisEffect` through `RoomEntityManager`. Do not duplicate shovel dirt
-lists or encode room-specific dig coordinates.
+`ShovelDebrisEffect` through `RoomEntityManager`. The same update submits the
+child's radius-3 body to `IShovelHittableRoomEntity` capabilities before the
+independent tile attempt; ENEMY_SPIKED_BEETLE uses that source collision to
+enter its pending flipped status even when the probed metatile is not
+breakable. Do not duplicate shovel dirt lists or encode room-specific dig
+coordinates.
 
 Sword-cut grass and bushes follow the same imported breakable-tile metadata.
 `CombatController` decodes the effect byte's low nibble as the debris
@@ -1126,12 +1134,21 @@ all other shutters remain closed, and no solve state or cue is synthesized from
 the incomplete count. Standalone `$13:$01` records paired with incomplete enemy
 streams remain inactive for the same reason.
 
-Every accepted ordinary sword collision requests `SND_DAMAGE_ENEMY` from the
-shared combat descriptor, after the species accepts damage and before any
-deferred knockback death completes. Low, normal, high, and no-knockback sword
-effects share that sound; a rejected hit during invincibility requests none.
-Special combat adapters that bypass the ordinary descriptor must explicitly
-retain the same accepted-hit sound policy or their source-specific boss sound.
+Every accepted ordinary vulnerable-sword collision requests `SND_DAMAGE_ENEMY`
+from the shared combat descriptor, after the species accepts damage and before
+any deferred knockback death completes. Low, normal, high, and no-knockback
+sword effects share that sound; a rejected hit during invincibility requests
+none. Armored collision modes remain species-owned: normal Spiked Beetles keep
+their health and position, request the `LINKDMG` collision sound, allocate
+non-flickering `INTERAC_CLINK` at the enemy/item midpoint, and queue the
+source's 11/19/25-update attack-side recoil for transfer from `ITEM_SWORD` to
+Link on the next item update. This no-damage recoil moves Link without
+cancelling the sword item's remaining animation. Room-entity clinks disable
+their Node physics callback after tree attachment so the entity manager alone
+owns their eight updates and final free. The Beetle's flipped collision mode
+uses ordinary damage and enemy recoil. Special combat adapters that bypass the
+ordinary descriptor must explicitly retain the same accepted-hit sound policy
+or their source-specific boss sound.
 
 Common combat death creates `PART_ENEMY_DESTROYED`; the factory requests
 `SND_KILLENEMY` when that puff is allocated so every supported species shares

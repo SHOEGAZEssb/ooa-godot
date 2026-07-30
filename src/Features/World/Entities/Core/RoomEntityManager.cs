@@ -526,6 +526,17 @@ public sealed class RoomEntityManager : IDisposable
         return false;
     }
 
+    internal bool ApplyShovelHit(Rect2 hitbox, Vector2 sourcePosition)
+    {
+        bool hit = false;
+        foreach (IRoomEntity entity in _activeEntities.ToArray())
+        {
+            if (entity is IShovelHittableRoomEntity shovelHittable)
+                hit |= shovelHittable.ApplyShovelHit(hitbox, sourcePosition);
+        }
+        return hit;
+    }
+
     public bool ApplySwordHit(
         Rect2 hitbox,
         Vector2? sourcePosition = null,
@@ -542,7 +553,8 @@ public sealed class RoomEntityManager : IDisposable
         Vector2? sourcePosition,
         int damage,
         EnemyKnockbackStrength knockbackStrength,
-        bool collectItemDrops = false)
+        bool collectItemDrops = false,
+        Action<SwordAttackerKnockback>? attackerKnockback = null)
     {
         bool hit = false;
         Vector2 source = sourcePosition ?? hitbox.GetCenter();
@@ -556,12 +568,24 @@ public sealed class RoomEntityManager : IDisposable
                 collectible.TryCollectWithSword(hitbox);
             }
             if (entity is ISwordHittableRoomEntity swordHittable)
-                hit |= swordHittable.ApplySwordHit(
+            {
+                bool accepted = swordHittable.ApplySwordHit(
                     hitbox,
                     source,
                     damage,
                     knockbackStrength,
                     _pendingSpawns);
+                hit |= accepted;
+                if (accepted &&
+                    attackerKnockback is not null &&
+                    entity is ISwordAttackerKnockbackRoomEntity recoilSource &&
+                    recoilSource.TryGetSwordAttackerKnockback(
+                        knockbackStrength,
+                        out SwordAttackerKnockback response))
+                {
+                    attackerKnockback(response);
+                }
+            }
             ProcessSpawns();
         }
         RemoveFinishedEntities();
@@ -577,7 +601,8 @@ public sealed class RoomEntityManager : IDisposable
         Vector2 source = hitbox.GetCenter();
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
-            if (entity is ISwordHittableRoomEntity hittable)
+            if (entity is ISwordHittableRoomEntity or
+                IItemCollisionHittableRoomEntity)
             {
                 int targetZ =
                     entity is IObjectCollisionHeightRoomEntity height
@@ -588,12 +613,24 @@ public sealed class RoomEntityManager : IDisposable
                 {
                     continue;
                 }
-                hittable.ApplySwordHit(
-                    hitbox,
-                    source,
-                    damage,
-                    EnemyKnockbackStrength.Normal,
-                    _pendingSpawns);
+                if (entity is IItemCollisionHittableRoomEntity itemHittable)
+                {
+                    itemHittable.ApplyItemCollision(
+                        RoomEntityItemCollision.ThrownObject,
+                        hitbox,
+                        source,
+                        damage,
+                        _pendingSpawns);
+                }
+                else
+                {
+                    ((ISwordHittableRoomEntity)entity).ApplySwordHit(
+                        hitbox,
+                        source,
+                        damage,
+                        EnemyKnockbackStrength.Normal,
+                        _pendingSpawns);
+                }
             }
             ProcessSpawns();
         }
@@ -651,14 +688,24 @@ public sealed class RoomEntityManager : IDisposable
             }
             foreach (IRoomEntity target in _activeEntities.ToArray())
             {
-                if (target is not ISwordHittableRoomEntity hittable)
+                if (target is not ISwordHittableRoomEntity &&
+                    target is not IItemCollisionHittableRoomEntity)
                     continue;
-                if (!hittable.ApplySwordHit(
-                    projectile.CollisionBounds,
-                    projectile.CollisionBounds.GetCenter(),
-                    projectile.Damage,
-                    EnemyKnockbackStrength.Normal,
-                    _pendingSpawns))
+                bool accepted =
+                    target is IItemCollisionHittableRoomEntity itemHittable
+                        ? itemHittable.ApplyItemCollision(
+                            RoomEntityItemCollision.SwordBeam,
+                            projectile.CollisionBounds,
+                            projectile.CollisionBounds.GetCenter(),
+                            projectile.Damage,
+                            _pendingSpawns)
+                        : ((ISwordHittableRoomEntity)target).ApplySwordHit(
+                            projectile.CollisionBounds,
+                            projectile.CollisionBounds.GetCenter(),
+                            projectile.Damage,
+                            EnemyKnockbackStrength.Normal,
+                            _pendingSpawns);
+                if (!accepted)
                 {
                     continue;
                 }
@@ -680,7 +727,8 @@ public sealed class RoomEntityManager : IDisposable
             foreach (IRoomEntity target in _activeEntities.ToArray())
             {
                 if (ReferenceEquals(entity, target) ||
-                    target is not ISwordHittableRoomEntity hittable)
+                    (target is not ISwordHittableRoomEntity &&
+                     target is not IItemCollisionHittableRoomEntity))
                 {
                     continue;
                 }
@@ -695,12 +743,24 @@ public sealed class RoomEntityManager : IDisposable
                 {
                     continue;
                 }
-                hittable.ApplySwordHit(
-                    bomb.CollisionBounds,
-                    bomb.CollisionBounds.GetCenter(),
-                    bomb.Damage,
-                    EnemyKnockbackStrength.High,
-                    _pendingSpawns);
+                if (target is IItemCollisionHittableRoomEntity itemHittable)
+                {
+                    itemHittable.ApplyItemCollision(
+                        RoomEntityItemCollision.Bomb,
+                        bomb.CollisionBounds,
+                        bomb.CollisionBounds.GetCenter(),
+                        bomb.Damage,
+                        _pendingSpawns);
+                }
+                else
+                {
+                    ((ISwordHittableRoomEntity)target).ApplySwordHit(
+                        bomb.CollisionBounds,
+                        bomb.CollisionBounds.GetCenter(),
+                        bomb.Damage,
+                        EnemyKnockbackStrength.High,
+                        _pendingSpawns);
+                }
                 ProcessSpawns();
             }
         }
@@ -1045,6 +1105,13 @@ public sealed class RoomEntityManager : IDisposable
             drawable.SetWorldToScreen(position => WorldToScreen(position));
         _activeEntities.Add(entity);
         _worldRoot.AddChild(entity.Node);
+        if (entity is IFixedRoomEntity)
+        {
+            // Entering the tree can enable an overridden _PhysicsProcess
+            // callback. Fixed room entities are advanced only by this manager
+            // and must never race that owner.
+            entity.Node.SetPhysicsProcess(false);
+        }
         return entity;
     }
 
@@ -1217,9 +1284,15 @@ public sealed class RoomEntityManager : IDisposable
         {
             _npcTalkLifecycles.Remove(lifecycle.TalkNpc);
         }
-        if (entity.Node.GetParent() == _worldRoot)
-            _worldRoot.RemoveChild(entity.Node);
-        entity.Node.QueueFree();
+        Node2D node = entity.Node;
+        if (!GodotObject.IsInstanceValid(node) ||
+            node.IsQueuedForDeletion())
+        {
+            return;
+        }
+        if (node.GetParent() == _worldRoot)
+            _worldRoot.RemoveChild(node);
+        node.QueueFree();
     }
 
     private void OnTimePortalEntered(TimePortal portal) => TimePortalEntered?.Invoke(portal);

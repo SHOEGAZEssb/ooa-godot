@@ -32,6 +32,10 @@ internal sealed class EnemyBehaviorTables
         PumpkinHeadProjectileAngleOffsets { get; }
     internal IReadOnlyList<EnemyBehaviorPair>
         PumpkinHeadProjectileOriginOffsets { get; }
+    internal IReadOnlyList<EnemyBehaviorValue>
+        SpikedBeetleShakeXOffsets { get; }
+    internal SpikedBeetleAttackerKnockbackProfile
+        SpikedBeetleAttackerKnockback { get; }
     internal IReadOnlyList<EnemyBehaviorPair> EnemySwordDamageProfiles { get; }
     internal EnemyKnockbackBehaviorProfile EnemyKnockback { get; }
     internal EnemyHazardBehaviorProfile EnemyHazards { get; }
@@ -47,6 +51,7 @@ internal sealed class EnemyBehaviorTables
     internal GhiniBehaviorProfile Ghini { get; }
     internal StalfosBehaviorProfile Stalfos { get; }
     internal HardhatBeetleBehaviorProfile HardhatBeetle { get; }
+    internal SpikedBeetleBehaviorProfile SpikedBeetle { get; }
     internal SpinyBeetleBehaviorProfile SpinyBeetle { get; }
     internal WallmasterBehaviorProfile Wallmaster { get; }
     internal MoblinBoomerangBehaviorProfile MoblinBoomerang { get; }
@@ -115,6 +120,15 @@ internal sealed class EnemyBehaviorTables
             groups, "pumpkin-head", "projectile-angle-offsets", 3);
         PumpkinHeadProjectileOriginOffsets = TakePairs(
             groups, "pumpkin-head", "projectile-origin-offsets", 4);
+        SpikedBeetleShakeXOffsets = TakeValues(
+            groups, "spiked-beetle", "shake-x-offsets", 4);
+        EnemyBehaviorValue[] spikedAttackerKnockbackValues = TakeValues(
+            groups, "spiked-beetle", "attacker-knockback-frames", 3);
+        SpikedBeetleAttackerKnockback = new(
+            spikedAttackerKnockbackValues[0].Value,
+            spikedAttackerKnockbackValues[1].Value,
+            spikedAttackerKnockbackValues[2].Value,
+            spikedAttackerKnockbackValues);
 
         EnemySwordDamageProfiles = TakePairs(
             groups, "common-enemy", "sword-damage-profiles", 4);
@@ -242,6 +256,27 @@ internal sealed class EnemyBehaviorTables
         HardhatBeetle = new(values[0].Value, values);
 
         values = TakeValues(
+            groups, "spiked-beetle", "state-profile", 16);
+        SpikedBeetle = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            values[6].Value,
+            values[7].Value,
+            values[8].Value,
+            values[9].Value,
+            values[10].Value,
+            values[11].Value,
+            values[12].Value,
+            values[13].Value,
+            values[14].Value,
+            values[15].Value,
+            values);
+
+        values = TakeValues(
             groups, "spiny-beetle", "state-profile", 10);
         SpinyBeetle = new(
             values[0].Value,
@@ -294,10 +329,10 @@ internal sealed class EnemyBehaviorTables
             values[4].Value,
             values);
 
-        if (table.Rows.Count != 188 || groups.Count != 0)
+        if (table.Rows.Count != 211 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 188 rows and no " +
+                $"Enemy behavior table contract expected 211 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }
@@ -474,6 +509,31 @@ internal readonly record struct StalfosBehaviorProfile(
 
 internal readonly record struct HardhatBeetleBehaviorProfile(
     int SpeedRaw,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct SpikedBeetleBehaviorProfile(
+    int WanderSpeedRaw,
+    int ApproachAxisRadius,
+    int ChargeInitialSpeedRaw,
+    int ChargeAccelerationMask,
+    int ChargeSpeedStepRaw,
+    int ChargeMaximumSpeedRaw,
+    int ChargeCounter,
+    int WallRestFrames,
+    int FlippedWaitFrames,
+    int ShakeThreshold,
+    int Gravity,
+    int InitialSpeedZ,
+    int FlippedRecoilSpeedRaw,
+    int FlipBackSpeedRaw,
+    int LandingApproachAxisRadius,
+    int ArmoredInvincibilityFrames,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct SpikedBeetleAttackerKnockbackProfile(
+    int LowFrames,
+    int NormalFrames,
+    int HighFrames,
     IReadOnlyList<EnemyBehaviorValue> Sources);
 
 internal readonly record struct SpinyBeetleBehaviorProfile(

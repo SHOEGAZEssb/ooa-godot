@@ -4,6 +4,10 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
+/// <summary>
+/// Fixed-update owner for INTERAC_CLINK effects allocated by sword beams and
+/// enemy collision effects.
+/// </summary>
 internal sealed class SwordBeamClinkRoomEntity(ClinkEffect clink)
     : RoomEntityAdapter<ClinkEffect>(clink, static _ => { }),
         IFixedRoomEntity, IRoomEntityLifetime,

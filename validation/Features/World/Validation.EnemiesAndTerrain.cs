@@ -235,6 +235,8 @@ public sealed partial class ValidationRoot
                 [0, -2, 2]) ||
             !Pairs(tables.PumpkinHeadProjectileOriginOffsets).SequenceEqual(
                 [(-4, 0), (2, 4), (4, 0), (2, -4)]) ||
+            !Values(tables.SpikedBeetleShakeXOffsets).SequenceEqual(
+                [1, -1, -1, 1]) ||
             !Pairs(tables.EnemySwordDamageProfiles).SequenceEqual(
                 [(16, 8), (21, 11), (26, 15), (32, 0)]) ||
             !ProfileMatches(
@@ -378,6 +380,36 @@ public sealed partial class ValidationRoot
                 [tables.HardhatBeetle.SpeedRaw],
                 [15]) ||
             !ProfileMatches(
+                tables.SpikedBeetle.Sources,
+                [
+                    tables.SpikedBeetle.WanderSpeedRaw,
+                    tables.SpikedBeetle.ApproachAxisRadius,
+                    tables.SpikedBeetle.ChargeInitialSpeedRaw,
+                    tables.SpikedBeetle.ChargeAccelerationMask,
+                    tables.SpikedBeetle.ChargeSpeedStepRaw,
+                    tables.SpikedBeetle.ChargeMaximumSpeedRaw,
+                    tables.SpikedBeetle.ChargeCounter,
+                    tables.SpikedBeetle.WallRestFrames,
+                    tables.SpikedBeetle.FlippedWaitFrames,
+                    tables.SpikedBeetle.ShakeThreshold,
+                    tables.SpikedBeetle.Gravity,
+                    tables.SpikedBeetle.InitialSpeedZ,
+                    tables.SpikedBeetle.FlippedRecoilSpeedRaw,
+                    tables.SpikedBeetle.FlipBackSpeedRaw,
+                    tables.SpikedBeetle.LandingApproachAxisRadius,
+                    tables.SpikedBeetle.ArmoredInvincibilityFrames
+                ],
+                [10, 8, 10, 3, 5, 60, 150, 30,
+                 180, 60, 24, -384, 35, 30, 16, 28]) ||
+            !ProfileMatches(
+                tables.SpikedBeetleAttackerKnockback.Sources,
+                [
+                    tables.SpikedBeetleAttackerKnockback.LowFrames,
+                    tables.SpikedBeetleAttackerKnockback.NormalFrames,
+                    tables.SpikedBeetleAttackerKnockback.HighFrames
+                ],
+                [11, 19, 25]) ||
+            !ProfileMatches(
                 tables.SpinyBeetle.Sources,
                 [
                     tables.SpinyBeetle.SpeedRaw,
@@ -446,11 +478,11 @@ public sealed partial class ValidationRoot
             !tables.Wallmaster.Sources[0].Source.Contains(
                 "wallmaster.s",
                 StringComparison.Ordinal),
-            "The 188 imported enemy behavior rows lost a source value, " +
+            "The 211 imported enemy behavior rows lost a source value, " +
             "signed component, runtime index order, or source identity.");
 
         GD.Print(
-            "Validated 188 imported enemy behavior rows: source lookup " +
+            "Validated 211 imported enemy behavior rows: source lookup " +
             "streams plus typed collision, recoil, hazard, bounce, speed, " +
             "counter, gravity, bounds, and projectile profiles.");
     }
@@ -611,6 +643,7 @@ public sealed partial class ValidationRoot
             [(0x0a, 0x00)] = (0x91, EnemySwordResponse.Knockback),
             [(0x0c, 0x00)] = (0x91, EnemySwordResponse.Knockback),
             [(0x10, 0x00)] = (0x14, EnemySwordResponse.Knockback),
+            [(0x14, 0x00)] = (0x98, EnemySwordResponse.Armored),
             [(0x17, 0x00)] = (0x9a, EnemySwordResponse.Knockback),
             [(0x1b, 0x01)] = (0x90, EnemySwordResponse.Knockback),
             [(0x28, 0x00)] = (0x25, EnemySwordResponse.Knockback),
@@ -719,30 +752,30 @@ public sealed partial class ValidationRoot
             ordinaryEnemyPlacements != 816 ||
             parameterEnemyPlacements != 12 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 256 ||
+                EnemyHandlerClassification.OrderedImplemented) != 262 ||
             classificationCounts.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 6 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 554 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 548 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 420 ||
+                EnemyHandlerClassification.OrderedImplemented) != 426 ||
             classificationInstances.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 9 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 727 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 721 ||
             classifiedKeys.Count != 118 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.OrderedImplemented) != 17 ||
+                    EnemyHandlerClassification.OrderedImplemented) != 18 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
                     EnemyHandlerClassification.DynamicSpecial) != 1 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.DeliberatelyUnsupported) != 100 ||
-            combatSourceRows != 256 ||
-            combatSourceFlags.Count != 50 ||
-            expectedCombat.Count != 17 ||
+                    EnemyHandlerClassification.DeliberatelyUnsupported) != 99 ||
+            combatSourceRows != 262 ||
+            combatSourceFlags.Count != 52 ||
+            expectedCombat.Count != 18 ||
             implementedHandler is not
             {
                 Id: 0x32,
@@ -794,7 +827,7 @@ public sealed partial class ValidationRoot
                 "objects/ages/enemyData.s:" +
                 "group5Mapb0EnemyObjectData[0]",
             "The enemy handler registry lost its 816-row implementation " +
-            "classification, 256-row/50-flag typed combat descriptors, " +
+            "classification, 262-row/52-flag typed combat descriptors, " +
             "source collision modes, construction dispatch, source " +
             "identity, or dungeon-count completeness contract.");
 
@@ -874,7 +907,7 @@ public sealed partial class ValidationRoot
         validationRoot.Free();
         GD.Print("Validated 1,140 clean-US ordered room placement records, mid-stream aliases, " +
             "all 816 fixed/random enemy handler classifications, 12 parameter slots, " +
-            "256 typed combat descriptors across 17 handlers / 50 source-flag " +
+            "262 typed combat descriptors across 18 handlers / 52 source-flag " +
             "combinations, source collision modes and sword responses, source-aware " +
             "construction/shutter capability, condition masks, 16-entry reservation " +
             "wrapping, and fixed/unsupported/item reservations before random Keese " +
@@ -1229,6 +1262,390 @@ public sealed partial class ValidationRoot
             "5:b5 rosters, imported visuals, SPEED_60/e0 movement, Hardhat " +
             "sword bump, dungeon-bush sword/Ember/Bracelet paths, 56-update " +
             "charge, 60-update reveal, and shared-RNG 40-update exposed wander.");
+    }
+
+    private void ValidateSpikedBeetles()
+    {
+        const double update = 1.0 / 60.0;
+
+        static Vector2 FindChargePath(OracleRoomData room)
+        {
+            for (int y = 16; y < room.Height - 16; y += 4)
+            for (int x = 16; x < room.Width - 40; x += 4)
+            {
+                var probe = new Node2D { Position = new Vector2(x, y) };
+                var movement = new EnemyTerrainMovement(probe, room);
+                int counter = 150;
+                int speed = 10;
+                bool open = true;
+                for (int frame = 0; frame < 38; frame++)
+                {
+                    counter = (counter - 1) & 0xff;
+                    if ((counter & 3) == 0 && speed < 60)
+                        speed += 5;
+                    Vector2 before = probe.Position;
+                    if (!movement.MoveUsingAdjacentWalls(
+                        0x08,
+                        speed,
+                        allowHoles: false,
+                        topDown: false) ||
+                        !Mathf.IsEqualApprox(probe.Position.Y, before.Y) ||
+                        probe.Position.X <= before.X)
+                    {
+                        open = false;
+                        break;
+                    }
+                }
+                probe.Free();
+                if (open)
+                    return new Vector2(x, y);
+            }
+            throw new InvalidOperationException(
+                "Room 4:44 has no open 38-update Spiked Beetle charge path.");
+        }
+
+        OracleRandomState randomSnapshot = _random.CaptureState();
+        var database = new EnemyDatabase();
+        List<RoomObjectRecord> placements =
+            EnemyPlacements(database, 0x14, 0x00);
+        ImportedEnemyDefinition definition =
+            database.ImportedEnemy(0x14, 0x00);
+        FailIf(
+            placements.Count != 6 ||
+            placements.Sum(source => source.Count) != 6 ||
+            placements.Count(source =>
+                source.Group == 4 && source.Room == 0x44 &&
+                source.Flags == 0x01) != 3 ||
+            placements.Count(source =>
+                source.Group == 4 && source.Room == 0xc6 &&
+                source.Flags == 0x00) != 3 ||
+            definition is not
+            {
+                TileBase: 8,
+                Palette: 1,
+                RadiusY: 6,
+                RadiusX: 6,
+                DamageQuarters: 2,
+                Health: 2,
+                Animations.Length: 2
+            },
+            "ENEMY_SPIKED_BEETLE lost one of its six fixed placements or " +
+            "its imported visual, collision, damage, health, or animation data.");
+
+        LoadValidationRoom(4, 0x44);
+        List<SpikedBeetleCharacter> beetles =
+            _entities.Entities<SpikedBeetleCharacter>();
+        FailIf(
+            beetles.Count != 3 ||
+            _entities.RoomEnemyCount != 3 ||
+            !beetles.Select(enemy => enemy.Position).ToHashSet().SetEquals(
+                [
+                    new Vector2(0x58, 0x38),
+                    new Vector2(0x78, 0x38),
+                    new Vector2(0x98, 0x38)
+                ]) ||
+            beetles.Any(enemy =>
+                enemy.State != SpikedBeetleState.Uninitialized ||
+                enemy.AnimationIndex != 0),
+            "Room 4:44 did not construct its three fixed Spiked Beetles at " +
+            "the source `$35/$37/$39 positions with animation 0.");
+
+        _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
+        int initializationRandomCalls = _entities.RandomCalls;
+        _entities.Update(update, _player);
+        FailIf(
+            beetles.Any(enemy =>
+                enemy.State != SpikedBeetleState.Wandering ||
+                enemy.Speed != 10 ||
+                (enemy.Angle & 0x07) != 0 ||
+                enemy.Counter1 is not (0x30 or 0x40 or 0x50 or 0x60)) ||
+            _entities.RandomCalls != initializationRandomCalls + 3,
+            "The room 4:44 Spiked Beetles did not consume one shared RNG call " +
+            "each for angle=`high&$18` and counter=`$30+(low&$30)`.");
+
+        SpikedBeetleCharacter armored = beetles[0];
+        int armoredHealth = armored.Health;
+        FailIf(
+            armored.ArmoredAttackerKnockbackFrames(
+                EnemyKnockbackStrength.Low) != 11 ||
+            armored.ArmoredAttackerKnockbackFrames(
+                EnemyKnockbackStrength.Normal) != 19 ||
+            armored.ArmoredAttackerKnockbackFrames(
+                EnemyKnockbackStrength.High) != 25,
+            "COLLISIONEFFECT_$15-$17 lost the imported LINKDMG_$10/$14/$18 " +
+            "attacker recoil mapping.");
+        _entities.ApplyThrownObjectHit(
+            armored.CollisionBounds.Grow(0.25f),
+            itemZ: 0,
+            collisionZRadius: 7,
+            damage: 4);
+        FailIf(
+            armored.Health != armoredHealth ||
+            armored.InvincibilityCounter != 0 ||
+            armored.KnockbackCounter != 0,
+            "Normal-mode ITEMCOLLISION_THROWN_OBJECT did not preserve the " +
+            "source effect `$1c` no-damage/no-recoil response.");
+
+        Vector2 recoilPath = FindChargePath(_currentRoom);
+        _player.WarpTo(
+            recoilPath + Vector2.Right * 16,
+            recordSafe: false);
+        armored.Position = recoilPath + Vector2.Right * 32;
+        _player.StartSwordAttackForValidation(Vector2.Right);
+        int expectedAttackerKnockback =
+            armored.ArmoredAttackerKnockbackFrames(
+                _player.SwordKnockbackStrength);
+        Vector2 swordItemPosition =
+            armored.Position + Vector2.Left * 4;
+        var armoredSwordHitbox = new Rect2(
+            swordItemPosition - Vector2.One,
+            Vector2.One * 2);
+        Vector2 expectedClinkPosition =
+            armored.Position + Vector2.Left * 2;
+        int clinkSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndClink);
+        int armoredBombLandSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBombLand);
+        FailIf(
+            !_combat.ApplySwordHit(_player, armoredSwordHitbox) ||
+            armored.Health != armoredHealth ||
+            armored.InvincibilityCounter != -28 ||
+            armored.KnockbackCounter != 0 ||
+            _entities.RoomEnemyCount != 3 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) !=
+                clinkSounds + 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBombLand) !=
+                armoredBombLandSounds + 1 ||
+            _player.KnockbackFrames != 0,
+            "The normal Spiked Beetle shell did not preserve health, request " +
+            "both collision sounds, queue attack-side recoil, and apply " +
+            "ENEMYDMG_$34's 28-update negative invincibility.");
+        ClinkEffect? armoredClink =
+            _entities.Entities<ClinkEffect>().SingleOrDefault();
+        FailIf(
+            armoredClink is null ||
+            armoredClink.Position != expectedClinkPosition ||
+            armoredClink.Flickers ||
+            armoredClink.DurationFrames != 8 ||
+            armoredClink.AnimationFrame != 0 ||
+            !armoredClink.EffectVisible ||
+            armoredClink.IsPhysicsProcessing(),
+            "COLLISIONEFFECT_$15-$17 did not allocate non-flickering " +
+            "INTERAC_CLINK at the enemy/sword-item midpoint under the room " +
+            "manager's sole fixed-update ownership.");
+
+        Vector2 recoilStart = _player.PrecisePosition;
+        _player.AdvanceApplicationUpdate();
+        FailIf(
+            _player.KnockbackFrames != expectedAttackerKnockback ||
+            _player.PrecisePosition != recoilStart,
+            "ITEM_SWORD did not transfer its imported LINKDMG recoil counter " +
+            "to Link one item update after armored contact.");
+        _player.AdvanceApplicationUpdate();
+        FailIf(
+            _player.KnockbackFrames != expectedAttackerKnockback - 1 ||
+            !_player.IsAttacking ||
+            !Mathf.IsEqualApprox(
+                _player.PrecisePosition.X,
+                recoilStart.X - 1.25f) ||
+            !Mathf.IsEqualApprox(
+                _player.PrecisePosition.Y,
+                recoilStart.Y),
+            "Link did not begin the source-angle armored sword recoil while " +
+            "preserving the active sword on the physics update after " +
+            "ITEM_SWORD transferred it.");
+
+        _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
+        for (int frame = 1; frame < armoredClink.DurationFrames; frame++)
+        {
+            _entities.Update(update, _player);
+            FailIf(
+                _entities.Entities<ClinkEffect>().Count != 1,
+                "Room-entity INTERAC_CLINK ended before its eighth update.");
+        }
+        _entities.Update(update, _player);
+        FailIf(
+            _entities.Entities<ClinkEffect>().Count != 0,
+            "Room-entity INTERAC_CLINK did not finish and free exactly once " +
+            "on its eighth update.");
+
+        LoadValidationRoom(4, 0x44);
+        beetles = _entities.Entities<SpikedBeetleCharacter>();
+        _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
+        _entities.Update(update, _player);
+        SpikedBeetleCharacter flipped = beetles[0];
+        Vector2 flipStart = flipped.Position;
+        int bombLandSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBombLand);
+        FailIf(
+            !_entities.ApplyShovelHit(
+                flipped.CollisionBounds.Grow(0.25f),
+                flipped.Position + Vector2.Left * 8) ||
+            flipped.State != SpikedBeetleState.Wandering ||
+            !flipped.FlipHitPending ||
+            flipped.InvincibilityCounter != -16 ||
+            flipped.KnockbackCounter != 8 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBombLand) !=
+                bombLandSounds + 1,
+            "ITEM_SHOVEL did not write the Spiked Beetle's pending just-hit " +
+            "status with ENEMYDMG_$10 and its collision sound.");
+
+        _entities.Update(update, _player);
+        FailIf(
+            flipped.State != SpikedBeetleState.Flipped ||
+            !flipped.FlippedCollision ||
+            flipped.FlipHitPending ||
+            flipped.Counter1 != 180 ||
+            flipped.Angle != 0x18 ||
+            flipped.ZFixed != 0 ||
+            flipped.SpeedZ != -384 ||
+            flipped.AnimationIndex != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBombLand) !=
+                bombLandSounds + 2,
+            "The shovel just-hit update did not enter flipped state `$0b`, " +
+            "switch collision/animation, reverse its recovery angle, and jump.");
+
+        _entities.Update(update, _player);
+        FailIf(
+            flipped.Counter1 != 180 ||
+            flipped.ZFixed != -384 ||
+            flipped.SpeedZ != -360 ||
+            flipped.KnockbackCounter != 1 ||
+            !Mathf.IsEqualApprox(
+                flipped.Position.X, flipStart.X + 0.875f) ||
+            !Mathf.IsEqualApprox(flipped.Position.Y, flipStart.Y),
+            "The first flipped recoil update did not preserve counter `$b4`, " +
+            "apply gravity `$18`, and move away at SPEED_e0.");
+
+        int bounceUpdates = 1;
+        while (flipped.KnockbackCounter != 0 && bounceUpdates++ < 120)
+            _entities.Update(update, _player);
+        FailIf(
+            flipped.KnockbackCounter != 0 ||
+            flipped.ZFixed != 0 ||
+            flipped.State != SpikedBeetleState.Flipped ||
+            flipped.Counter1 != 180 ||
+            bounceUpdates >= 120,
+            "The source half-speed bounce did not finish on the ground before " +
+            "the 180-update flipped wait began.");
+
+        _entities.Update(update, _player);
+        FailIf(
+            flipped.Counter1 != 179,
+            "Flipped wait state `$0b` did not begin after recoil completed.");
+
+        FailIf(
+            !_entities.ApplyShovelHit(
+                flipped.CollisionBounds.Grow(0.25f),
+                flipped.Position + Vector2.Left * 8) ||
+            !flipped.FlipHitPending,
+            "A grounded flipped Spiked Beetle did not accept a repeat " +
+            "ITEM_SHOVEL collision.");
+        _entities.Update(update, _player);
+        FailIf(
+            flipped.FlippedRebound ||
+            flipped.KnockbackCounter != 8 ||
+            flipped.Counter1 != 179,
+            "A grounded shield/shovel repeat hit incorrectly restarted the " +
+            "flipped bounce instead of preserving ordinary knockback.");
+        while (flipped.KnockbackCounter != 0)
+            flipped.UpdateFrame(_player.Position);
+
+        while (flipped.Counter1 > 60)
+            flipped.UpdateFrame(_player.Position);
+        float shakeStartX = flipped.Position.X;
+        flipped.UpdateFrame(_player.Position);
+        FailIf(
+            flipped.Counter1 != 59 ||
+            !Mathf.IsEqualApprox(flipped.Position.X, shakeStartX - 1.0f),
+            "The last-second Spiked Beetle warning did not index `$01,$ff," +
+            "$ff,$01` from the post-decrement counter.");
+
+        while (flipped.Counter1 > 1)
+            flipped.UpdateFrame(_player.Position);
+        float flipBackStartX = flipped.Position.X;
+        flipped.UpdateFrame(_player.Position);
+        FailIf(
+            flipped.State != SpikedBeetleState.FlippingBack ||
+            flipped.FlippedCollision ||
+            flipped.Speed != 30 ||
+            flipped.ZFixed != 0 ||
+            flipped.SpeedZ != -384 ||
+            flipped.AnimationIndex != 0 ||
+            !Mathf.IsEqualApprox(
+                flipped.Position.X, flipBackStartX + 1.0f),
+            "Counter zero did not restore normal collision, increment xh, " +
+            "select SPEED_c0, and begin the source flip-back jump.");
+
+        int flipBackUpdates = 0;
+        while (flipped.State == SpikedBeetleState.FlippingBack &&
+            flipBackUpdates++ < 120)
+        {
+            flipped.UpdateFrame(_player.Position);
+        }
+        FailIf(
+            flipped.State != SpikedBeetleState.Wandering ||
+            flipped.ZFixed != 0 ||
+            flipped.Speed != 10 ||
+            flipBackUpdates >= 120,
+            "The flip-back state did not land through gravity `$18` and " +
+            "return to ordinary SPEED_40 wandering.");
+
+        LoadValidationRoom(4, 0x44);
+        beetles = _entities.Entities<SpikedBeetleCharacter>();
+        _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
+        _entities.Update(update, _player);
+        SpikedBeetleCharacter charger = beetles[0];
+        charger.Position = FindChargePath(_currentRoom);
+        _player.WarpTo(
+            charger.Position + Vector2.Right * 32,
+            recordSafe: false);
+        _entities.Update(update, _player);
+        FailIf(
+            charger.State != SpikedBeetleState.Charging ||
+            charger.Counter2 != 150 ||
+            charger.Speed != 10 ||
+            charger.Angle != 0x08,
+            "The inclusive eight-pixel axis check did not begin the cardinal " +
+            "150-counter SPEED_40 charge.");
+        Vector2 chargeStart = charger.Position;
+        charger.UpdateFrame(_player.Position);
+        FailIf(
+            charger.Counter2 != 149 ||
+            charger.Speed != 10 ||
+            !Mathf.IsEqualApprox(
+                charger.Position.X, chargeStart.X + 0.25f),
+            "Charge update 1 did not pre-decrement counter2 and retain " +
+            $"SPEED_40 (state={charger.State}, counter={charger.Counter2}, " +
+            $"speed={charger.Speed}, start={chargeStart}, " +
+            $"position={charger.Position}).");
+        charger.UpdateFrame(_player.Position);
+        FailIf(
+            charger.Counter2 != 148 ||
+            charger.Speed != 15 ||
+            !Mathf.IsEqualApprox(
+                charger.Position.X, chargeStart.X + 0.625f),
+            "Charge counter `$94` did not add SPEED_20 before movement.");
+        for (int frame = 0; frame < 36; frame++)
+            charger.UpdateFrame(_player.Position);
+        FailIf(
+            charger.Counter2 != 112 ||
+            charger.Speed != 60 ||
+            charger.State != SpikedBeetleState.Charging,
+            "The charge did not accelerate every four updates to the " +
+            "SPEED_180 cap without treating counter2 as a timeout.");
+
+        _random.RestoreState(randomSnapshot);
+        _player.RefillHealth();
+        GD.Print(
+            "Validated six fixed ENEMY_SPIKED_BEETLE records including room " +
+            "4:44's three instances, imported dual animations, shared RNG, " +
+            "armored midpoint clink, single-owner lifetime, sword-preserving " +
+            "11/19/25-frame Link recoil, source item rows, shovel just-hit " +
+            "ordering, flipped collision, " +
+            "half-speed airborne recoil, grounded repeat bumps, 180-update " +
+            "wait/60-update shake, flip-back jump, and SPEED_40-to-180 " +
+            "cardinal charge.");
     }
 
     private void ValidateKeese()

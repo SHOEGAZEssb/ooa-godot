@@ -3,7 +3,8 @@ using Godot;
 namespace oracleofages;
 
 /// <summary>
-/// INTERAC_CLINK ($07), spawned where a sword's tile probe meets a solid wall.
+/// INTERAC_CLINK ($07), spawned for sword contact with a solid tile or an
+/// armored collision target.
 /// </summary>
 public partial class ClinkEffect : Node2D
 {

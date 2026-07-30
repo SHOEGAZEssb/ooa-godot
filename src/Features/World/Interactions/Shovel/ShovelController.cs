@@ -38,6 +38,13 @@ public sealed class ShovelController
 
     public bool TryDig(Vector2 point, Vector2I direction)
     {
+        const float shovelRadius = 3.0f;
+        _entities.ApplyShovelHit(
+            new Rect2(
+                point - Vector2.One * shovelRadius,
+                Vector2.One * shovelRadius * 2.0f),
+            point);
+
         OracleRoomData room = _rooms.CurrentRoom;
         byte tile = room.GetMetatile(point);
         if (!_breakables.TryGet(
