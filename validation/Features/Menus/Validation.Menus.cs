@@ -67,6 +67,14 @@ public sealed partial class ValidationRoot
             (0x68, 0x38), (0x68, 0x20), (0x58, 0x10), (0x40, 0x10),
             (0x28, 0x70), (0x58, 0x70), (0x70, 0x70)
         ];
+        (int Y, int X, int Tile, int Attributes)[] expectedSeedSprites =
+        [
+            (0x14, 0x0c, 0x06, 0x0a),
+            (0x14, 0x0c, 0x08, 0x0b),
+            (0x14, 0x0c, 0x0a, 0x09),
+            (0x14, 0x0c, 0x0c, 0x09),
+            (0x14, 0x0c, 0x0e, 0x08)
+        ];
 
         FailIf(
             !layouts.MapIcons.Select(icon => icon.Label)
@@ -101,9 +109,14 @@ public sealed partial class ValidationRoot
             !layouts.EssenceTiles.Select(row => row.TilemapOffset)
                 .SequenceEqual(expectedEssenceTiles) ||
             !layouts.EssenceCursors.Select(row => (row.RawY, row.RawX))
-                .SequenceEqual(expectedEssenceCursors),
+                .SequenceEqual(expectedEssenceCursors) ||
+            !layouts.InventoryItemSubmenus.Select(row => row.MaxWidth)
+                .SequenceEqual([0x08, 0x0a, 0x10, 0x10]) ||
+            !layouts.InventorySeedSubmenuSprites.Select(
+                    row => (row.Y, row.X, row.Tile, row.Attributes))
+                .SequenceEqual(expectedSeedSprites),
             "Imported inventory slot, passive-treasure, secondary cursor, or " +
-            "essence layout order changed.");
+            "item-submenu layout order changed.");
 
         IReadOnlyList<MenuOamPart> fileDecorations =
             layouts.FileOam("decorations");
@@ -129,15 +142,27 @@ public sealed partial class ValidationRoot
             _inventoryScreen.SecondaryCursorPixelHashForValidation(0);
         ulong passiveHash =
             _inventoryScreen.PassiveTreasurePixelHashForValidation(0x2e);
+        ulong[] seedHashes = Enumerable.Range(0, 5)
+            .Select(_inventoryScreen.SeedSubmenuSpritePixelHashForValidation)
+            .ToArray();
         FailIf(
             popupHash != 0xe2e0ca9e95ac1fecUL ||
             cursorHash != 0x2845fdf38557ae90UL ||
-            passiveHash != 0x7556905e79409bceUL,
+            passiveHash != 0x7556905e79409bceUL ||
+            !seedHashes.SequenceEqual(
+            [
+                0xcd8315405a37a443UL,
+                0xaf7b4c2bc9052220UL,
+                0x8da58b33fe7e1b59UL,
+                0xd29ce71f9989b031UL,
+                0x44b56e2df5a9380bUL
+            ]),
             $"Imported menu OAM rendering changed: popup={popupHash:x16}, " +
-            $"cursor={cursorHash:x16}, passive={passiveHash:x16}.");
+            $"cursor={cursorHash:x16}, passive={passiveHash:x16}, " +
+            $"seeds={string.Join(',', seedHashes.Select(hash => $"{hash:x16}"))}.");
         GD.Print("Validated imported map/inventory/file/ring presentation " +
             "table counts, source order, aliases, and representative popup, " +
-            "cursor, and passive-treasure pixel hashes.");
+            "cursor, seed, and passive-treasure pixel hashes.");
     }
 
     private void ValidateMainMenu()

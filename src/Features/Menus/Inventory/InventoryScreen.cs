@@ -179,6 +179,26 @@ public partial class InventoryScreen : Node2D
             flipX: false);
         return OracleGraphicsCache.PixelHash(output);
     }
+    internal ulong SeedSubmenuSpritePixelHashForValidation(int seedType)
+    {
+        if (seedType < 0 ||
+            seedType >= _layouts.InventorySeedSubmenuSprites.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(seedType));
+        }
+        InventorySeedSubmenuSprite seed =
+            _layouts.InventorySeedSubmenuSprites[seedType];
+        Image output = Image.CreateEmpty(8, 16, false, Image.Format.Rgba8);
+        output.Fill(Colors.Transparent);
+        BlitRawOamTile(
+            output,
+            seed.VramBank,
+            seed.Tile,
+            seed.Attributes & 7,
+            Vector2I.Zero,
+            flipX: (seed.Attributes & 0x20) != 0);
+        return OracleGraphicsCache.PixelHash(output);
+    }
     internal ulong PassiveTreasurePixelHashForValidation(int treasureId)
     {
         DisplayRecord display =
@@ -1424,9 +1444,17 @@ public partial class InventoryScreen : Node2D
         for (int x = 0; x < 8; x++)
         {
             int sx = flipX ? 7 - x : x;
-            if (!TryGetVramPixel(bank, (tile & 0xfe) + y / 8, sx, y & 7, out Color pixel, out _))
+            if (!TryGetVramPixel(
+                    bank,
+                    (tile & 0xfe) + y / 8,
+                    sx,
+                    y & 7,
+                    out Color pixel,
+                    out bool spriteEncoding))
+            {
                 continue;
-            int shade = TwoBitShade(pixel);
+            }
+            int shade = PaletteShade(pixel, spriteEncoding);
             if (shade != 0 && palette < _spritePalette.GetLength(0))
                 DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
                     _spritePalette[palette, shade]);
@@ -1451,12 +1479,12 @@ public partial class InventoryScreen : Node2D
                     sx,
                     y & 7,
                     out Color pixel,
-                    out _) ||
+                    out bool spriteEncoding) ||
                 palette >= _spritePalette.GetLength(0))
             {
                 continue;
             }
-            int shade = TwoBitShade(pixel);
+            int shade = PaletteShade(pixel, spriteEncoding);
             if (shade != 0)
             {
                 output.SetPixel(

@@ -189,6 +189,12 @@ opaque white color 3 to fill the icon cell with the HUD tan. In addition,
 `$86` and `$8a` (the Satchel, shooters, and slingshots); storage cells continue
 to use the raw display-table palette.
 
+`inventoryMenuState2` also reads its five one-cell seed sprites from the live
+bank-1 `spr_item_icons_1_spr` tiles `$06/$08/$0a/$0c/$0e`. Raw menu OAM must
+retain that source's sprite encoding: black is transparent OBJ color 0, while
+white is color 3. Decoding those cells as background graphics instead paints
+their transparent area and removes their highlights.
+
 Multi-level inventory items must select their dedicated display table before
 either renderer sees them; their rows in `treasureDisplayData_standard` are
 unused placeholders. In particular, `TREASURE_SHIELD $01` selects
