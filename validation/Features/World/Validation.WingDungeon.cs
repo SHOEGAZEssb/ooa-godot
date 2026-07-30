@@ -73,6 +73,152 @@ public sealed partial class ValidationRoot
         WingDungeonMinecartState.Reset(
             _entities.RuntimeState, data.Minecarts);
 
+        // func_5933 does not snap shallow turns directly to the input angle.
+        // It advances one angular unit only when var12 reaches the terrain's
+        // interval. Exercise both the forward and reverse close-angle rows.
+        var sidePhysicsWorld = new ValidationRingPlayerWorld
+        {
+            SideScrolling = true,
+            AdjacentWallsBitset =
+                new SideScrollPlayerDatabase().Parameters.GroundWallMask
+        };
+        var sidePhysicsPlayer = new Player
+        {
+            Name = "SideScrollPhysicsValidationPlayer"
+        };
+        AddChild(sidePhysicsPlayer);
+        sidePhysicsPlayer.Initialize(
+            sidePhysicsWorld,
+            _inventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+
+        // linkAdjustAngleInSidescrollingArea horizontalizes only the object's
+        // movement angle. updateLinkDirectionFromAngle still consumes the raw
+        // wLinkAngle, allowing Up/Down facing without vertical dry movement.
+        Vector2 dryFacingStart = sidePhysicsPlayer.PrecisePosition;
+        sidePhysicsPlayer.AdvanceSideScrollUpdateForValidation(Vector2.Up);
+        FailIf(
+            sidePhysicsPlayer.FacingVector != Vector2I.Up ||
+            sidePhysicsPlayer.PrecisePosition != dryFacingStart,
+            "Dry side-view Up input did not face Link upward while retaining " +
+            "horizontal-only movement.");
+        sidePhysicsPlayer.AdvanceSideScrollUpdateForValidation(Vector2.Down);
+        FailIf(
+            sidePhysicsPlayer.FacingVector != Vector2I.Down ||
+            sidePhysicsPlayer.PrecisePosition != dryFacingStart,
+            "Dry side-view Down input did not face Link downward while " +
+            "retaining horizontal-only movement.");
+
+        sidePhysicsPlayer.AdvanceSideScrollUpdateForValidation(Vector2.Right);
+        sidePhysicsWorld.SideScrollTerrain = new SideScrollTerrainState(
+            0x00, 0x20,
+            SideScrollTileType.None, SideScrollTileType.Ice);
+        for (int updateIndex = 0; updateIndex < 6; updateIndex++)
+        {
+            sidePhysicsPlayer.AdvanceSideScrollUpdateForValidation(
+                new Vector2(1, -1));
+        }
+        FailIf(
+            sidePhysicsPlayer.SideScrollAngle != 0x07 ||
+            sidePhysicsPlayer.SideScrollSpeedRaw != 0x28,
+            "func_5933 did not turn angle $08 one step toward shallow " +
+            "input $04 after ice interval $06.");
+
+        sidePhysicsPlayer.WarpTo(new Vector2(80, 80), recordSafe: false);
+        sidePhysicsWorld.SideScrollTerrain = default;
+        sidePhysicsPlayer.AdvanceSideScrollUpdateForValidation(Vector2.Right);
+        sidePhysicsWorld.SideScrollTerrain = new SideScrollTerrainState(
+            0x00, 0x20,
+            SideScrollTileType.None, SideScrollTileType.Ice);
+        for (int updateIndex = 0; updateIndex < 6; updateIndex++)
+        {
+            sidePhysicsPlayer.AdvanceSideScrollUpdateForValidation(
+                new Vector2(-1, 1));
+        }
+        FailIf(
+            sidePhysicsPlayer.SideScrollAngle != 0x09 ||
+            sidePhysicsPlayer.SideScrollSpeedRaw != 0x23,
+            "func_5933 did not apply the reverse close-angle $01/$fb row " +
+            "after ice interval $06.");
+
+        // wForceIcePhysics stores the literal $06 as a latch, not a
+        // countdown. It survives an airborne interval and resumes slippery
+        // convergence on the next solid ground.
+        sidePhysicsWorld.SideScrollTerrain = default;
+        sidePhysicsWorld.AdjacentWallsBitset = 0;
+        for (int updateIndex = 0; updateIndex < 8; updateIndex++)
+        {
+            sidePhysicsPlayer.AdvanceSideScrollUpdateForValidation(
+                Vector2.Zero);
+        }
+        sidePhysicsWorld.AdjacentWallsBitset =
+            sidePhysicsWorld.SideScrollParameters.GroundWallMask;
+        sidePhysicsPlayer.AdvanceSideScrollUpdateForValidation(Vector2.Zero);
+        sidePhysicsPlayer.AdvanceSideScrollUpdateForValidation(Vector2.Zero);
+        FailIf(
+            sidePhysicsPlayer.SideScrollAngle >= 0x80 ||
+            sidePhysicsPlayer.SideScrollSpeedRaw == 0,
+            "wForceIcePhysics lost its source $06 latch while Link was " +
+            "airborne.");
+
+        // Moving side platforms call updateLinkPositionGivenVelocity for
+        // right/down/left carries, so a blocked Link must not be translated
+        // through the wall before the platform's own movement.
+        sidePhysicsPlayer.WarpTo(new Vector2(80, 80), recordSafe: false);
+        sidePhysicsWorld.BlockMovement = true;
+        Vector2 blockedCarryStart = sidePhysicsPlayer.PrecisePosition;
+        sidePhysicsPlayer.ApplySideScrollMovingPlatformVelocity(0x14, 0x08);
+        FailIf(
+            sidePhysicsPlayer.PrecisePosition != blockedCarryStart,
+            "interactionCodea1 carried Link through a wall instead of using " +
+            "updateLinkPositionGivenVelocity.");
+        sidePhysicsWorld.BlockMovement = false;
+
+        // The side-view Y coordinate is a 16-bit 8.8 value. A jump above
+        // y=$00 wraps to $fe, then the source's bottom-boundary landing clamp
+        // writes high byte $f9.
+        sidePhysicsPlayer.WarpTo(new Vector2(80, 0.2f), recordSafe: false);
+        sidePhysicsWorld.SideScrollTerrain = default;
+        sidePhysicsWorld.AdjacentWallsBitset = 0;
+        sidePhysicsPlayer.AdvanceSideScrollUpdateForValidation(
+            Vector2.Zero,
+            startJump: true);
+        FailIf(
+            sidePhysicsPlayer.SideScrollAirborne ||
+            (sidePhysicsPlayer.SideScrollYFixed >> 8) != 0xf9,
+            "linkUpdateInAir_sidescroll did not retain 16-bit Y wrap and " +
+            "the $a9 bottom-boundary landing clamp.");
+
+        // TILETYPE_SS_LAVA is checked only from @positiveSpeedZ. Link may
+        // rise through it, but must drown as soon as the descending branch
+        // executes.
+        sidePhysicsPlayer.WarpTo(new Vector2(80, 80), recordSafe: false);
+        sidePhysicsWorld.SideScrollTerrain = new SideScrollTerrainState(
+            0x00, 0x00,
+            SideScrollTileType.Lava, SideScrollTileType.None);
+        sidePhysicsPlayer.AdvanceSideScrollUpdateForValidation(
+            Vector2.Zero,
+            startJump: true);
+        FailIf(
+            !sidePhysicsPlayer.SideScrollAirborne ||
+            sidePhysicsPlayer.RejectsOrdinaryScreenTransition,
+            "Ascending through side-view lava drowned Link before " +
+            "@positiveSpeedZ.");
+        for (int updateIndex = 0;
+             updateIndex < 32 &&
+             !sidePhysicsPlayer.RejectsOrdinaryScreenTransition;
+             updateIndex++)
+        {
+            sidePhysicsPlayer.AdvanceSideScrollUpdateForValidation(
+                Vector2.Zero);
+        }
+        FailIf(
+            !sidePhysicsPlayer.RejectsOrdinaryScreenTransition,
+            "Descending through side-view lava did not enter Link's drown state.");
+        RemoveChild(sidePhysicsPlayer);
+        sidePhysicsPlayer.Free();
+
         List<ObjectRecord> native = rooms
             .SelectMany(room => data.GetRoomRecords(4, room))
             .ToList();
@@ -284,8 +430,61 @@ public sealed partial class ValidationRoot
         PrepareRoom(0x29);
         Vector2 horizontalExit = new(_currentRoom.Width - 6, 0x58);
         _player.WarpTo(horizontalExit, recordSafe: false);
+        _player.AdvanceSideScrollUpdateForValidation(
+            Vector2.Right,
+            startJump: true);
+        UpdatePostObjectPlayerState();
+        FailIf(
+            _transitions.ScrollActive ||
+            _transitions.ScreenTransitionDelay != 4,
+            "An airborne side-view edge did not reload " +
+            "wScreenTransitionDelay with four updates.");
+        _player.WarpTo(horizontalExit, recordSafe: false);
+        bool observedAirborneDelay = false;
+        for (int airborneUpdate = 0; airborneUpdate < 60; airborneUpdate++)
+        {
+            _player.AdvanceSideScrollUpdateForValidation(Vector2.Right);
+            observedAirborneDelay |= _player.SideScrollAirborne;
+            UpdatePostObjectPlayerState();
+            FailIf(
+                _transitions.ScrollActive,
+                "An ordinary side-view scroll began while Link was airborne.");
+            if (observedAirborneDelay && !_player.SideScrollAirborne)
+                break;
+        }
+        FailIf(
+            !observedAirborneDelay || _player.SideScrollAirborne,
+            "The side-view transition delay scenario did not complete its " +
+            "natural fall to the corridor floor.");
+        while (_transitions.ScreenTransitionDelay != 0)
+        {
+            int previousDelay = _transitions.ScreenTransitionDelay;
+            _player.AdvanceSideScrollUpdateForValidation(Vector2.Right);
+            UpdatePostObjectPlayerState();
+            FailIf(
+                _transitions.ScrollActive ||
+                _transitions.ScreenTransitionDelay != previousDelay - 1,
+                "screenTransitionState2 did not decrement its airborne exit " +
+                $"delay from {previousDelay} to {previousDelay - 1}.");
+        }
         _player.AdvanceSideScrollUpdateForValidation(Vector2.Right);
         UpdatePostObjectPlayerState();
+        FailIf(
+            !_transitions.ScrollActive,
+            "Side room 6:29 did not scroll on the first update after its " +
+            "four-update airborne exit delay.");
+        CompleteTransition();
+
+        PrepareRoom(0x29);
+        horizontalExit = new(_currentRoom.Width - 6, 0x58);
+        _player.WarpTo(horizontalExit, recordSafe: false);
+        for (int frame = 0;
+             frame < 24 && !_transitions.ScrollActive;
+             frame++)
+        {
+            _player.AdvanceSideScrollUpdateForValidation(Vector2.Right);
+            UpdatePostObjectPlayerState();
+        }
         FailIf(
             !_transitions.ScrollActive ||
             _rooms.ActiveGroup != 6 ||
@@ -303,8 +502,13 @@ public sealed partial class ValidationRoot
             $"left edge (position={_player.Position}).");
 
         _player.WarpTo(new Vector2(6, 0x58), recordSafe: false);
-        _player.AdvanceSideScrollUpdateForValidation(Vector2.Left);
-        UpdatePostObjectPlayerState();
+        for (int frame = 0;
+             frame < 24 && !_transitions.ScrollActive;
+             frame++)
+        {
+            _player.AdvanceSideScrollUpdateForValidation(Vector2.Left);
+            UpdatePostObjectPlayerState();
+        }
         FailIf(
             !_transitions.ScrollActive ||
             _rooms.ActiveGroup != 6 ||
@@ -489,14 +693,14 @@ public sealed partial class ValidationRoot
         _player.WarpTo(new Vector2(0x18, 0x18), recordSafe: false);
         Step();
         WingDungeonSideScrollPlatform movingPlatform =
-            _entities.Entities<WingDungeonSideScrollPlatform>()[0];
+            _entities.Entities<WingDungeonSideScrollPlatform>()[1];
         FailIf(
-            movingPlatform.PrecisePosition.Y ==
-                Mathf.Floor(movingPlatform.PrecisePosition.Y),
+            movingPlatform.PrecisePosition.X ==
+                Mathf.Floor(movingPlatform.PrecisePosition.X),
             "The D2 side-platform vibration scenario did not begin on a " +
             "nonzero platform fractional byte.");
         _player.WarpTo(
-            movingPlatform.Position + Vector2.Up * 16.0f,
+            movingPlatform.Position + Vector2.Up * 15.0f,
             recordSafe: false);
         Step();
         Vector2 ridingDrawOffset =
@@ -523,6 +727,29 @@ public sealed partial class ValidationRoot
                 "platform or its post-object camera sample on update " +
                 $"{frame + 1}.");
         }
+
+        // thwomp_updateLinkRidingSelf accepts signed X offsets -$13..+$13.
+        // Preserve the inclusive positive endpoint and reject the next pixel.
+        PrepareRoom(0x2a);
+        Step();
+        ThwompCharacter ridingThwomp =
+            _entities.Entities<ThwompCharacter>().Single();
+        float thwompContactY =
+            ridingThwomp.Position.Y - ridingThwomp.Record.RadiusY - 6;
+        _player.WarpTo(
+            new Vector2(ridingThwomp.Position.X + 0x13, thwompContactY),
+            recordSafe: false);
+        bool ridesAtPositiveEndpoint =
+            ridingThwomp.IsLinkRiding(_player, out float thwompTargetY);
+        _player.WarpTo(
+            new Vector2(ridingThwomp.Position.X + 0x14, thwompContactY),
+            recordSafe: false);
+        FailIf(
+            !ridesAtPositiveEndpoint ||
+            thwompTargetY != thwompContactY - 3 ||
+            ridingThwomp.IsLinkRiding(_player, out _),
+            "thwomp_updateLinkRidingSelf did not preserve its inclusive " +
+            "-$13..+$13 X and ±$03 Y riding window.");
 
         TopDownAirParameters air = TopDownAirDatabase.Shared.Parameters;
         FailIf(

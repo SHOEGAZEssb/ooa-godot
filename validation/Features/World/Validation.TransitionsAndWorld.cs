@@ -235,6 +235,7 @@ public sealed partial class ValidationRoot
         _currentRoom = _world.LoadRoom(_activeGroup, 0xeb);
         _roomView.SetRoom(_currentRoom.Texture);
         _player.WarpTo(new Vector2(-2, _currentRoom.Height / 2.0f));
+        _player.UpdatePushingState(Vector2.Left);
         CheckRoomExit(_player);
         FailIf(
             _activeGroup != 2 || _currentRoom.Id != 0xea,
@@ -480,6 +481,7 @@ public sealed partial class ValidationRoot
         FailIf(exitX < 0.0f, "Could not find 4:04's open northern dungeon exit.");
 
         _player.WarpTo(new Vector2(exitX, -2.0f));
+        _player.UpdatePushingState(Vector2.Up);
         CheckRoomExit(_player);
         FailIf(
             _activeGroup != 4 || _currentRoom.Id != 0x03 || !_scrollTransitionActive,
@@ -557,6 +559,7 @@ public sealed partial class ValidationRoot
         }
 
         _player.WarpTo(exitPosition);
+        _player.UpdatePushingState(Vector2.Up);
         CheckRoomExit(_player);
         FailIf(
             _currentRoom.Id != 0x01,
@@ -579,6 +582,7 @@ public sealed partial class ValidationRoot
         FailIf(Collides(exitPosition), "Room 22's north staircase is blocked.");
 
         _player.WarpTo(exitPosition);
+        _player.UpdatePushingState(Vector2.Up);
         CheckRoomExit(_player);
         FailIf(
             _currentRoom.Id != 0x12 || _currentRoom.TilesetId == oldTileset,

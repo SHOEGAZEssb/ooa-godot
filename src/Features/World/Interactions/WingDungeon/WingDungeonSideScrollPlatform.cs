@@ -42,7 +42,6 @@ internal sealed partial class WingDungeonSideScrollPlatform :
                 _precisePosition);
         }
         WingDungeonPlatformCommand command = _record.Commands[_commandIndex];
-        Vector2 previous = _precisePosition;
         int angle = command.Direction switch
         {
             WingDungeonPlatformDirection.Up => 0x00,
@@ -52,59 +51,94 @@ internal sealed partial class WingDungeonSideScrollPlatform :
             _ => throw new InvalidOperationException(
                 $"Unsupported side-platform direction {command.Direction}.")
         };
-        Position = OracleObjectMovement.Shared.ApplySpeed(
-            ref _precisePosition, _record.Speed, angle);
-        if (Reached(command))
+
+        bool shouldMove = ShouldMove(command);
+        if (shouldMove)
+        {
+            // interactionCodea1 carries Link before objectApplySpeed for
+            // right/down/left. Upward platforms instead push him from
+            // sidescrollingPlatformCommon after the platform has moved.
+            if (_linkRiding &&
+                command.Direction != WingDungeonPlatformDirection.Up)
+            {
+                frame.Player.ApplySideScrollMovingPlatformVelocity(
+                    _record.Speed,
+                    angle);
+            }
+            Position = OracleObjectMovement.Shared.ApplySpeed(
+                ref _precisePosition,
+                _record.Speed,
+                angle);
+        }
+        else
         {
             if (command.Direction is WingDungeonPlatformDirection.Up or
                 WingDungeonPlatformDirection.Down)
             {
-                _precisePosition.Y = command.Endpoint;
+                SetCoordinateHigh(horizontal: false, command.Endpoint);
             }
             else
             {
-                _precisePosition.X = command.Endpoint;
+                SetCoordinateHigh(horizontal: true, command.Endpoint);
             }
             Position = OracleObjectMath.ToPixelPosition(_precisePosition);
             _commandIndex = (_commandIndex + 1) % _record.Commands.Length;
+            if (_linkRiding)
+            {
+                // sidescrollPlatformFunc_5bfc copies both low bytes after
+                // objectRunMovementScript selects the next command.
+                frame.Player.SynchronizeMovingPlatformSubpixels(
+                    _precisePosition);
+            }
         }
 
-        Vector2 displacement = _precisePosition - previous;
-        if (_linkRiding && !frame.Player.SideScrollAirborne &&
-            displacement != Vector2.Zero)
-        {
-            frame.Player.ApplyMovingPlatformDisplacement(displacement);
-        }
+        frame.Player.ResolveSideScrollPlatformContact(
+            Position,
+            _record.RadiusY,
+            _record.RadiusX,
+            angle,
+            _linkRiding);
         QueueRedraw();
     }
 
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) =>
         SetTransitionDrawOffset(offset);
 
-    private bool Reached(WingDungeonPlatformCommand command) =>
+    private bool ShouldMove(WingDungeonPlatformCommand command) =>
         command.Direction switch
         {
             WingDungeonPlatformDirection.Up =>
-                _precisePosition.Y <= command.Endpoint,
+                command.Endpoint < Mathf.FloorToInt(_precisePosition.Y),
             WingDungeonPlatformDirection.Right =>
-                _precisePosition.X >= command.Endpoint,
+                Mathf.FloorToInt(_precisePosition.X) < command.Endpoint,
             WingDungeonPlatformDirection.Down =>
-                _precisePosition.Y >= command.Endpoint,
+                Mathf.FloorToInt(_precisePosition.Y) < command.Endpoint,
             WingDungeonPlatformDirection.Left =>
-                _precisePosition.X <= command.Endpoint,
+                command.Endpoint < Mathf.FloorToInt(_precisePosition.X),
             _ => false
         };
 
+    private void SetCoordinateHigh(bool horizontal, int coordinate)
+    {
+        if (horizontal)
+        {
+            _precisePosition.X =
+                coordinate +
+                (_precisePosition.X - Mathf.Floor(_precisePosition.X));
+        }
+        else
+        {
+            _precisePosition.Y =
+                coordinate +
+                (_precisePosition.Y - Mathf.Floor(_precisePosition.Y));
+        }
+    }
+
     private void UpdateRiding(Player player)
     {
-        float xTolerance = _record.RadiusX +
-            (player.SideScrollAirborne ? 4 : 5);
-        bool closeX = Math.Abs(player.Position.X - Position.X) <= xTolerance;
-        bool aboveTop =
-            player.Position.Y < Position.Y - _record.RadiusY - 2;
-        bool colliding =
-            Math.Abs(player.Position.Y - Position.Y) <
-                _record.RadiusY + 8;
-        _linkRiding = closeX && aboveTop && colliding;
+        _linkRiding = player.CheckSideScrollPlatformRide(
+            Position,
+            _record.RadiusY,
+            _record.RadiusX);
     }
 }

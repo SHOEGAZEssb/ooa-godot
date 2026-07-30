@@ -35,6 +35,9 @@ public partial class BombEffect : TransitionOffsetNode2D
     private int _group;
     private int _zFixed;
     private int _speedZ;
+    private int _sideScrollYFixed;
+    private bool _sideScrollMerged;
+    private bool _sideScrollGroundCollisionLastUpdate;
     private int _speedRaw;
     private int _frameIndex;
     private int _frameCounter;
@@ -150,6 +153,8 @@ public partial class BombEffect : TransitionOffsetNode2D
         _throwDirection = Vector2I.Zero;
         _speedRaw = 0;
         _speedZ = 0;
+        _sideScrollMerged = false;
+        _sideScrollGroundCollisionLastUpdate = false;
         _state = BombState.Held;
         QueueRedraw();
     }
@@ -180,6 +185,8 @@ public partial class BombEffect : TransitionOffsetNode2D
         _zFixed = heldOffset.Y << 8;
         _speedZ = speedZ;
         _speedRaw = speedRaw;
+        _sideScrollMerged = false;
+        _sideScrollGroundCollisionLastUpdate = false;
         _throwDirection = direction;
         _heldBy = null;
         _heldExplosion = null;
@@ -197,6 +204,8 @@ public partial class BombEffect : TransitionOffsetNode2D
         _precisePosition =
             player.Position + new Vector2(heldOffset.X, 0);
         _zFixed = heldOffset.Y << 8;
+        if (IsSideScrolling())
+            MergeZIntoSideScrollY();
         _heldBy = null;
         _heldExplosion = null;
         SyncPosition();
@@ -353,7 +362,10 @@ public partial class BombEffect : TransitionOffsetNode2D
 
     private void UpdateThrown(ICollection<RoomEntitySpawn> spawns)
     {
-        if (!WithinRoomBoundary(_precisePosition))
+        if (IsSideScrolling())
+            MergeZIntoSideScrollY();
+
+        if (!WithinThrowBoundary(_precisePosition))
         {
             Finish();
             return;
@@ -377,8 +389,13 @@ public partial class BombEffect : TransitionOffsetNode2D
             }
         }
 
-        if (!OracleObjectMath.UpdateSpeedZ(
-                ref _zFixed, ref _speedZ, _record.Gravity))
+        bool landed = IsSideScrolling()
+            ? UpdateSideScrollThrowingVertically(spawns)
+            : OracleObjectMath.UpdateSpeedZ(
+                ref _zFixed, ref _speedZ, _record.Gravity);
+        if (Finished)
+            return;
+        if (!landed)
         {
             SyncPosition();
             AdvanceFuse();
@@ -408,15 +425,79 @@ public partial class BombEffect : TransitionOffsetNode2D
         AdvanceFuse();
     }
 
+    private void MergeZIntoSideScrollY()
+    {
+        if (_sideScrollMerged)
+            return;
+        int yFixed = Mathf.FloorToInt(_precisePosition.Y * 256.0f);
+        int yHigh = (yFixed >> 8) & 0xff;
+        int zHigh = unchecked((sbyte)((_zFixed >> 8) & 0xff));
+        yHigh = (yHigh + zHigh) & 0xff;
+        _sideScrollYFixed = (yHigh << 8) | (yFixed & 0xff);
+        _precisePosition.Y = _sideScrollYFixed / 256.0f;
+        _zFixed = 0;
+        _sideScrollMerged = true;
+        SyncPosition();
+    }
+
+    private bool UpdateSideScrollThrowingVertically(
+        ICollection<RoomEntitySpawn> spawns)
+    {
+        HazardType hazard = _room.GetTerrainInfo(Position).Hazard;
+        if (hazard is HazardType.Water or HazardType.Lava)
+        {
+            Vector2 position = Position;
+            _enteredHazard(position, hazard, ObjectFellInHoleKind.Bomb);
+            Finish();
+            return false;
+        }
+
+        bool rising = _speedZ < 0;
+        bool collision = rising
+            ? _room.IsSolid(Position)
+            : _room.IsSolid(Position + new Vector2(0, 5));
+        if (!rising && collision)
+        {
+            bool alreadyColliding =
+                _sideScrollGroundCollisionLastUpdate;
+            _sideScrollGroundCollisionLastUpdate = true;
+            return alreadyColliding;
+        }
+
+        _sideScrollGroundCollisionLastUpdate = false;
+
+        if (!collision)
+        {
+            _sideScrollYFixed =
+                unchecked((ushort)(_sideScrollYFixed + _speedZ));
+            _precisePosition.Y = _sideScrollYFixed / 256.0f;
+        }
+        _speedZ += _record.Gravity;
+        int maximum = hazard == HazardType.Water ? 0x0100 : 0x0300;
+        if (_speedZ >= maximum)
+            _speedZ = maximum;
+        return false;
+    }
+
     private void UpdateGrounded(ICollection<RoomEntitySpawn> spawns)
     {
-        if (!WithinRoomBoundary(_precisePosition))
+        if (!WithinThrowBoundary(_precisePosition))
         {
             Finish();
             return;
         }
-        if (TryEnterHazard(spawns))
+
+        if (IsSideScrolling())
+        {
+            UpdateSideScrollThrowingVertically(spawns);
+            if (Finished)
+                return;
+            SyncPosition();
+        }
+        else if (TryEnterHazard(spawns))
+        {
             return;
+        }
 
         TerrainType terrain =
             _room.GetTerrainInfo(Position + new Vector2(0, 5)).Type;
@@ -629,6 +710,17 @@ public partial class BombEffect : TransitionOffsetNode2D
     private bool WithinRoomBoundary(Vector2 point) =>
         point.X >= 0 && point.X < _room.Width &&
         point.Y >= 0 && point.Y < _room.Height;
+
+    private bool WithinThrowBoundary(Vector2 point)
+    {
+        if (!IsSideScrolling())
+            return WithinRoomBoundary(point);
+
+        int yHigh = Mathf.FloorToInt(point.Y) & 0xff;
+        if (unchecked((byte)(yHigh - 0x08)) >= 0xf0)
+            return true;
+        return WithinRoomBoundary(point);
+    }
 
     private bool IsSideScrolling() => (_room.TilesetFlags & 0x20) != 0;
 

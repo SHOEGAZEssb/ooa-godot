@@ -354,6 +354,109 @@ public sealed partial class ValidationRoot
         bombproofBomb.Free();
         bombproofPlayer.Free();
 
+        var sideRooms = new RoomSession(
+            6, 0x29, () => 0, () => { }, save);
+        OracleRoomData sideRoom = sideRooms.CurrentRoom;
+        FailIf(
+            (sideRoom.TilesetFlags & 0x20) == 0,
+            "The ITEM_BOMB side-view validation did not load source room 6:29.");
+        bool foundSideLanding = false;
+        Vector2 sideLanding = default;
+        for (int y = 8; y < sideRoom.Height - 6 && !foundSideLanding; y++)
+        for (int x = 8; x < sideRoom.Width - 8; x++)
+        {
+            Vector2 candidate = new(x, y);
+            if (!sideRoom.IsSolid(candidate) &&
+                sideRoom.IsSolid(candidate + new Vector2(0, 5)) &&
+                sideRoom.GetTerrainInfo(candidate).Hazard == HazardType.None)
+            {
+                sideLanding = candidate;
+                foundSideLanding = true;
+                break;
+            }
+        }
+        FailIf(
+            !foundSideLanding,
+            "Room 6:29 no longer contains a clear side-view Bomb landing probe.");
+
+        player.SetScriptedPosition(sideLanding);
+        var sideBombSounds = new List<int>();
+        var sideBomb = new BombEffect();
+        sideBomb.Initialize(
+            record, sideRoom, new BreakableTileDatabase(),
+            player, 6, _ => { }, sideBombSounds.Add, (_, _, _) => { },
+            () => { }, () => 0, _ => null, saveData: null,
+            linkedRoomNeighbor: null);
+        sideBomb.UpdateFrame(player, effectSpawns);
+        sideBomb.Throw(
+            player,
+            -player.FacingVector,
+            Vector2I.Zero,
+            speedZ: 0x80,
+            speedRaw: 0);
+        sideBomb.UpdateFrame(player, effectSpawns);
+        FailIf(
+            sideBomb.State != BombState.Thrown ||
+            sideBomb.SpeedZ != 0x80 ||
+            sideBombSounds.Count != 0,
+            "A side-view Bomb bounced on the first floor collision instead " +
+            "of setting Item.var3b bit 4.");
+        sideBomb.UpdateFrame(player, effectSpawns);
+        FailIf(
+            sideBomb.State != BombState.Grounded ||
+            sideBomb.SpeedZ != 0 ||
+            !sideBombSounds.SequenceEqual(
+                [OracleSoundEngine.SndBombLand]),
+            "A side-view Bomb did not stop on its second consecutive floor " +
+            "collision.");
+        sideBomb.Free();
+
+        // bombUpdateThrowingVerticallyAndCheckDelete skips the ordinary room
+        // boundary for wrapping Y high bytes $00-$07 and $f8-$ff.
+        player.SetScriptedPosition(new Vector2(80, 1));
+        var wrappingBomb = new BombEffect();
+        wrappingBomb.Initialize(
+            record, sideRoom, new BreakableTileDatabase(),
+            player, 6, _ => { }, _ => { }, (_, _, _) => { },
+            () => { }, () => 0, _ => null, saveData: null,
+            linkedRoomNeighbor: null);
+        wrappingBomb.UpdateFrame(player, effectSpawns);
+        wrappingBomb.Throw(
+            player,
+            Vector2I.Zero,
+            Vector2I.Zero,
+            speedZ: 0,
+            speedRaw: 0);
+        wrappingBomb.UpdateFrame(player, effectSpawns);
+        FailIf(
+            wrappingBomb.Finished,
+            "A side-view Bomb at wrapping Y high byte $01 was incorrectly " +
+            "deleted by the ordinary room boundary.");
+        wrappingBomb.Free();
+
+        // itemMergeZPositionIfSidescrollingArea also runs when a held Bomb
+        // starts exploding and dropLinkHeldItem releases it.
+        player.SetScriptedPosition(new Vector2(80, 80));
+        var heldSideBomb = new BombEffect();
+        heldSideBomb.Initialize(
+            record, sideRoom, new BreakableTileDatabase(),
+            player, 6,
+            bomb => bomb.ReleaseExploding(
+                player, new Vector2I(0, -8)),
+            _ => { }, (_, _, _) => { }, () => { }, () => 0,
+            _ => null, saveData: null, linkedRoomNeighbor: null);
+        heldSideBomb.SetHeldOffset(player, new Vector2I(0, -8));
+        heldSideBomb.UpdateFrame(player, effectSpawns);
+        for (int update = 0; update < 116; update++)
+            heldSideBomb.UpdateFrame(player, effectSpawns);
+        FailIf(
+            heldSideBomb.State != BombState.Exploding ||
+            heldSideBomb.ZFixed != 0 ||
+            heldSideBomb.PrecisePosition != new Vector2(80, 72),
+            "A released exploding side-view Bomb did not merge signed zh " +
+            "into yh and clear Z.");
+        heldSideBomb.Free();
+
         manager.SoundRequested -= sounds.Add;
         manager.Clear();
         root.RemoveChild(player);
@@ -2293,6 +2396,7 @@ public sealed partial class ValidationRoot
         _roomView.SetRoom(source.Texture);
         _entities.LoadRoom(_activeGroup, source);
         _player.WarpTo(new Vector2(source.Width + 2.0f, source.Height / 2.0f));
+        _player.UpdatePushingState(Vector2.Right);
         CheckRoomExit(_player);
         FailIf(
             !IsTransitioning || _activeGroup != 0 || _currentRoom.Id != 0x56,

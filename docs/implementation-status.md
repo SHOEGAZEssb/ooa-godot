@@ -236,7 +236,7 @@ remains the single runtime policy table.
 | `$12` | Toss Ring | Implemented | Raises implemented Bracelet and Bomb weight-0 throws from `SPEED_180` to `SPEED_280`. |
 | `$13` | Heart Ring L-1 | Implemented | Restores the source amount after the level-1 movement-distance threshold. |
 | `$14` | Heart Ring L-2 | Implemented | Restores the source amount after the level-2 movement-distance threshold. |
-| `$15` | Swimmer's Ring | Deferred | Fast-swim policy exists; swimming does not. |
+| `$15` | Swimmer's Ring | Deferred | Its exact faster speeds apply to implemented side-view Flippers/Mermaid Suit movement; top-down swimming remains deferred. |
 | `$16` | Charge Ring | Implemented | Advances the sword charge counter four times as fast. |
 | `$17` | Light Ring L-1 | Implemented | Extends sword-beam eligibility to two Hearts below full health. |
 | `$18` | Light Ring L-2 | Implemented | Extends sword-beam eligibility to three Hearts below full health. |
@@ -248,7 +248,7 @@ remains the single runtime policy table.
 | `$1e` | Green Holy Ring | Deferred | Electricity immunity is encoded; electricity damage has no production consumer. |
 | `$1f` | Blue Holy Ring | Deferred | Zora-fire immunity is encoded; Zora fire has no production consumer. |
 | `$20` | Red Holy Ring | Implemented | Prevents damage from implemented Octorok rock projectiles. |
-| `$21` | Snowshoe Ring | Deferred | Ice-slip immunity is encoded; ice movement does not yet slide Link. |
+| `$21` | Snowshoe Ring | Deferred | It clears the implemented side-view `wForceIcePhysics` latch; top-down ice remains deferred. |
 | `$22` | Roc's Ring | Deferred | Cracked-floor protection is encoded; crumbling floors are absent. |
 | `$23` | Quicksand Ring | Deferred | Quicksand immunity is encoded; quicksand movement is absent. |
 | `$24` | Red Joy Ring | Implemented | Doubles Rupees collected from implemented enemy/item drops and Maple's Rupee rewards. |
@@ -321,9 +321,12 @@ remains the single runtime policy table.
   switches aliased side layouts into active group `$06`, where the ordinary
   horizontal `6:29 <-> 6:2a` scroll and all four imported vertical edge-warp
   quadrants operate, including room `6:2b`'s post-platform `$a9` to `$aa`
-  lower exit. Side-platform mounting copies Link's low coordinate bytes before
-  shared 8.8 movement, and the post-object camera
-  sample keeps Link stable when platform and camera move together. Incoming
+  lower exit. Side-view physics retain the source 16-bit Y wrap,
+  descending-only lava/hole checks, water exit, Flippers/Mermaid Suit
+  movement, persistent ice latch, platform wall collision, and squish/respawn
+  states. Side-platform mounting copies Link's low coordinate bytes before
+  shared 8.8 movement, and the post-object camera sample keeps Link stable
+  when platform and camera move together. Incoming
   Sparks resolve visibility/wall angle before scrolling exposes them. Guarded
   Sword-Stalfos body hits are silent; their separate imported enemy-sword part
   owns one clink, the exact six/eight-update Link recoil windows, and the
@@ -807,10 +810,11 @@ remains the single runtime policy table.
 - Room `0:50`'s Bomb Upgrade Fairy interaction and its capacity-upgrade
   dialogue/cutscene remain deferred; this does not affect ordinary active Bomb
   use.
-- Aquatic, lava, and ice side-view Link handlers plus conveyor and disappearing
-  side-scroll platforms remain deferred. Dry passage gravity, ladders, Feather
-  launch, edge warps, ordinary dungeon-layout scrolls, and Wing Dungeon's
-  scripted linear/circular platforms are implemented.
+- Conveyor and disappearing side-scroll platforms remain deferred. Dry
+  passage gravity, ladders, Feather/Cape launch, water/Flippers/Mermaid Suit,
+  descending lava/hole hazards, ice convergence, edge warps, ordinary
+  dungeon-layout scrolls, squish, and Wing Dungeon's scripted linear/circular
+  platforms are implemented.
 - Active Scent, Pegasus, and Gale Seed state machines remain deferred.
   Mystery Seed flight, landing/terminal presentation, RNG consumption, and
   Owl Statue activation are implemented; its random transformed effects

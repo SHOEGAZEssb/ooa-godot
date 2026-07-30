@@ -164,6 +164,8 @@ public sealed class PlayerWorld : IPlayerWorld
         _terrain.GetSideScrollTerrain(position);
     public int GetAdjacentWallsBitset(Vector2 position) =>
         _collision.AdjacentWallsBitset(position);
+    public bool SideScrollTileBlocksPoint(Vector2 point) =>
+        _collision.TileBlocksPointForSidePlatform(point);
     public Vector2 GetTerrainPush(Vector2 position) =>
         RidingObject ? Vector2.Zero : _terrain.GetTerrainPush(position);
     public bool TryStartLedgeHop(Player player, Vector2 from, Vector2 movement) =>

@@ -18,6 +18,16 @@ internal sealed class SideScrollPlayerDatabase
         ReducedGravity: Constant("reduced-gravity"),
         MaximumFallSpeed: Constant("maximum-fall-speed"),
         JumpSpeedZ: Constant("jump-speed-z"),
+        WaterExitSpeedZ: Constant("water-exit-speed-z"),
+        RocsCapeSpeedZ: Constant("rocs-cape-speed-z"),
+        NormalSpeed: Constant("normal-speed"),
+        PlatformPushSpeed: Constant("platform-push-speed"),
+        KnockbackSpeed: Constant("knockback-speed"),
+        IceVelocityInterval: Constant("ice-velocity-interval"),
+        SwimSpeed: Constant("swim-speed"),
+        FastSwimSpeed: Constant("fast-swim-speed"),
+        MermaidTargetSpeed: Constant("mermaid-target-speed"),
+        FastMermaidTargetSpeed: Constant("fast-mermaid-target-speed"),
         GroundWallMask: Constant("ground-wall-mask"),
         CeilingWallMask: Constant("ceiling-wall-mask"),
         LandingHighMask: Constant("landing-high-mask"),
@@ -95,6 +105,16 @@ internal sealed class SideScrollPlayerDatabase
             parameters.ReducedGravity != 0x0e ||
             parameters.MaximumFallSpeed != 0x0300 ||
             parameters.JumpSpeedZ != -0x0230 ||
+            parameters.WaterExitSpeedZ != -0x01a0 ||
+            parameters.RocsCapeSpeedZ != -0x0080 ||
+            parameters.NormalSpeed != 0x28 ||
+            parameters.PlatformPushSpeed != 0x14 ||
+            parameters.KnockbackSpeed != 0x32 ||
+            parameters.IceVelocityInterval != 0x06 ||
+            parameters.SwimSpeed != 0x14 ||
+            parameters.FastSwimSpeed != 0x23 ||
+            parameters.MermaidTargetSpeed != 0x2d ||
+            parameters.FastMermaidTargetSpeed != 0x37 ||
             parameters.GroundWallMask != 0x30 ||
             parameters.CeilingWallMask != 0xc0 ||
             parameters.LandingHighMask != 0xf8 ||
@@ -130,6 +150,16 @@ public readonly record struct SideScrollPlayerParameters(
     int ReducedGravity,
     int MaximumFallSpeed,
     int JumpSpeedZ,
+    int WaterExitSpeedZ,
+    int RocsCapeSpeedZ,
+    int NormalSpeed,
+    int PlatformPushSpeed,
+    int KnockbackSpeed,
+    int IceVelocityInterval,
+    int SwimSpeed,
+    int FastSwimSpeed,
+    int MermaidTargetSpeed,
+    int FastMermaidTargetSpeed,
     int GroundWallMask,
     int CeilingWallMask,
     int LandingHighMask,

@@ -28,12 +28,14 @@ public sealed class TreasureDatabase
     public const int TreasureHeartPiece = 0x2b;
     public const int TreasureRingBox = 0x2c;
     public const int TreasureRing = 0x2d;
+    public const int TreasureFlippers = 0x2e;
     public const int TreasurePotion = 0x2f;
     public const int TreasureGashaSeed = 0x34;
     public const int TreasureMakuSeed = 0x36;
     public const int TreasureEssence = 0x40;
     public const int TreasureTradeItem = 0x41;
     public const int TreasureGraveyardKey = 0x42;
+    public const int TreasureMermaidSuit = 0x4a;
     public const int TreasureTuniNut = 0x4c;
 
     private readonly Dictionary<string, TreasureObjectRecord> _objects = new();

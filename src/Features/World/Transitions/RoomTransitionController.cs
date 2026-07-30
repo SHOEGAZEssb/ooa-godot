@@ -59,6 +59,7 @@ public sealed class RoomTransitionController
     private float _scrollDistance;
     private float _scrollFrame;
     private int _scrollFrames;
+    private int _screenTransitionDelay;
 
     private int _deactivatedWarpGroup = -1;
     private int _deactivatedWarpRoom = -1;
@@ -100,6 +101,7 @@ public sealed class RoomTransitionController
         _scrollLinkStart + _scrollLinkStep * _scrollFrame + _scrollFinishOffset;
     public float ScrollDistance => _scrollDistance;
     public int ScrollFrames => _scrollFrames;
+    internal int ScreenTransitionDelay => _screenTransitionDelay;
     internal Func<bool> ScreenTransitionsDisabledSource { get; set; } =
         static () => false;
     internal bool TimeWarpActive => _timeWarp && _warpActive;
@@ -249,6 +251,9 @@ public sealed class RoomTransitionController
         if (IsTransitioning)
             return;
 
+        if (player.DelaysOrdinaryScreenTransition)
+            _screenTransitionDelay = 4;
+
         OracleRoomData room = _rooms.CurrentRoom;
         Vector2 position = player.Position;
         Vector2I direction = position.Y <= 5 ? Vector2I.Up
@@ -258,6 +263,18 @@ public sealed class RoomTransitionController
             : Vector2I.Zero;
         if (direction == Vector2I.Zero)
             return;
+
+        // checkWarpsSidescrolling raises a forced transition direction. Forced
+        // transitions bypass the ordinary delay, input, knockback, hazard, and
+        // wDisableScreenTransitions checks in screenTransitionState2.
+        if (_warps.TryGetEdgeWarp(
+            _rooms.ActiveGroup, room.Id, direction, position,
+            new Vector2(room.Width, room.Height), out Warp warp))
+        {
+            _screenTransitionDelay = 0;
+            ApplyWarp(player, warp);
+            return;
+        }
 
         // screenTransitionState2 writes Link's boundary coordinate before
         // checking wDisableScreenTransitions. This prevents Link from walking
@@ -270,11 +287,24 @@ public sealed class RoomTransitionController
         if (ScreenTransitionsDisabledSource())
             return;
 
-        if (_warps.TryGetEdgeWarp(
-            _rooms.ActiveGroup, room.Id, direction, position,
-            new Vector2(room.Width, room.Height), out Warp warp))
+        if (_screenTransitionDelay != 0)
         {
-            ApplyWarp(player, warp);
+            _screenTransitionDelay--;
+            return;
+        }
+        if (player.RejectsOrdinaryScreenTransition)
+            return;
+        if (!player.IsMovingTowardScreenEdge(direction))
+        {
+            return;
+        }
+        HazardType hazard = room.GetTerrainInfo(
+            player.Position + new Vector2(0, 5)).Hazard;
+        if (hazard is HazardType.Hole or HazardType.Lava)
+            return;
+        if (hazard == HazardType.Water &&
+            !player.Inventory.HasTreasure(TreasureDatabase.TreasureFlippers))
+        {
             return;
         }
         // checkWarpsSidescrolling changes which warp sources are consulted; it
@@ -367,6 +397,7 @@ public sealed class RoomTransitionController
             start.X = source.Width - 6 + (start.X - Mathf.Floor(start.X));
 
         _scrollActive = true;
+        _screenTransitionDelay = 0;
         _scrollDirection = direction;
         _scrollLinkStart = start;
         _scrollDistance = direction.X != 0 ? OracleRoomData.ViewportWidth : OracleRoomData.ViewportHeight;

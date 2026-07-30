@@ -324,9 +324,12 @@ ladder-top and ladder-water values. `side_scroll_constants.tsv` retains
 `sidescrollUpdateActiveTile`'s eight-pixel lower sample,
 `linkUpdateInAir_sidescroll`'s `$24/$0e` gravity, `$0300` fall cap, wall masks,
 high-byte landing snap, bottom boundary, sounds and 9/9/6-update animation, and
-the side-view Feather launch speed from `parentItemCode_feather`. Runtime must
-use those generated records; side-view tile flags are not ordinary top-down
-terrain enum values and must not be reconstructed from graphics or collision.
+the side-view Feather/Cape launch speeds from `parentItemCode_feather`. It also
+retains `func_5933`'s normal/ice intervals and target speeds, the platform and
+knockback velocity aliases, and the Flippers/Mermaid Suit water-exit, swim, and
+target speeds. Runtime must use those generated records; side-view tile flags
+are not ordinary top-down terrain enum values and must not be reconstructed
+from graphics or collision.
 
 Treasure-object sprites are a different source path from those inventory BG
 displays. `Import-NpcData.ps1` follows each treasure object's graphic byte into

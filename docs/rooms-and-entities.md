@@ -21,16 +21,37 @@ neighbor and layout resolution.
 A tileset with `TILESETFLAG_SIDESCROLL` routes Link through the fixed-update
 side-view controller. It samples the metatile at Link's center and eight pixels
 below through the imported bitwise side-tile table. Ordinary dry movement is
-horizontal only. Either sample carrying the ladder bit retains full directional
-input, and a ladder-top sample applies the source ninth-pixel upward clamp.
+horizontal only, but the final direction update still reads raw input so Link
+may face Up or Down without moving vertically. Either sample carrying the
+ladder bit retains full directional input, and a ladder-top sample applies the
+source ninth-pixel upward clamp.
 
 Empty space starts an airborne state at speedZ zero. Each original update
 applies signed 8.8 Y displacement, adds gravity `$24`, caps downward speed at
 `$0300`, permits horizontal-only air control, and uses adjacent-wall masks
 `$c0/$30` for ceilings and floors. Landing preserves the Y subpixel while
 snapping the high byte with `(yh & $f8) + 1`, plays `SND_LAND`, and clears the
-air state. The side-view Feather branch launches at `-$0230`, plays `SND_JUMP`
-on its first airborne update, and uses the shared 9/9/6-update jump animation.
+air state. `func_5933` retains the source angle, speed, target-speed, and
+interval bytes for airborne control and slippery terrain rather than
+normalizing the input vector. The side-view Feather branch launches at
+`-$0230`, plays `SND_JUMP` on its first airborne update, and uses the shared
+9/9/6-update jump animation.
+
+Water entry clears the air state and creates the source splash. Flippers use
+the `$14` base speed, the A-button's eight immediate `func_5933` updates,
+`$0d/$0c` acceleration/deceleration counters, and `SND_LINK_SWIM`; the
+Swimmer's Ring selects `$23`. The Mermaid Suit uses the `$05` convergence
+interval, `$14` directional impulse counter, and `$2d` target speed, or `$37`
+with the ring. Missing Flippers enter the drowning/respawn path. Leaving water
+outside a ladder-water tile launches Link at `-$01a0` and creates another
+splash. Lava and side-view holes are tested only from the descending-air
+branch, preserving the original upward traversal and respawn boundaries.
+
+The ice handler stores `$06` in `wForceIcePhysics` as a nonzero latch, not a
+six-update countdown. While it applies, `func_5933` converges at interval
+`$06`; the latch persists across air and is cleared only by the source
+`@notOnIce` branch. The Snowshoe Ring routes directly through that clearing
+branch.
 
 Groups `$06/$07` restrict warp lookup to imported screen-edge warps, but the
 ordinary `screenTransitionState2` edge check still resolves open neighbors
@@ -39,10 +60,9 @@ through the active dungeon layout. This is what connects Wing Dungeon
 normal collision. Direct development loads of a side-scrolling `$04/$05`
 dungeon room reproduce the retail loader's switch to active group `$06/$07`
 before entities are parsed, so they retain both those edge warps and ordinary
-dungeon scrolls. Aquatic, lava, and ice Link states plus conveyor and
-disappearing platforms remain separate native systems; the dry controller
-rejects those tile modes with a source-aware diagnostic until their handlers
-are implemented.
+dungeon scrolls. Ordinary transitions retain the source four-update airborne
+delay, direction-button gate, hazard checks, and post-object boundary sample.
+Conveyor and disappearing side platforms remain separate native systems.
 
 ## Transition lifetime
 
@@ -803,10 +823,15 @@ linear or circular 8.8 displacement before side-view terrain resolution. On
 the first claimed update, `sidescrollPlatform_updateLinkSubpixels` copies both
 platform low coordinate bytes to Link. Later equal velocity therefore advances
 their floored sprite coordinates in lockstep instead of alternating a
-one-pixel relative offset. Circular platforms retain their separate high-byte
-delta path after the same mount-time synchronization; Thwomp support writes
-only Link's Y high byte. Airborne Link may land on that support; unsupported
-aliased room neighbors are still rejected. The final post-interaction
+one-pixel relative offset. Right/down/left scripted carries run through
+`updateLinkPositionGivenVelocity` before the platform moves, so adjacent walls
+can stop Link; upward and collision contacts use the shared byte-radius,
+behind-Link tile probes, `SPEED_80` pushes, and horizontal/vertical squish
+selection. That common collision path runs only for `LINK_STATE_NORMAL`.
+Circular platforms retain their separate high-byte delta path after the same
+mount-time synchronization; Thwomp support writes only Link's Y high byte.
+Airborne Link may land on that support; unsupported aliased room neighbors are
+still rejected. The final post-interaction
 `screenTransitionState2` and camera sample must observe the displaced Link
 coordinate. In particular, room `6:2b`'s bottom-right platform route carries
 Link from boundary `$a9` to `$aa` after his own air update; checking earlier

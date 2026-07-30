@@ -59,12 +59,25 @@ internal sealed partial class WingDungeonCircularSidePlatform :
             _counter = 14;
             _angle = (_angle + 1) & 0x1f;
         }
-        Vector2 previous = _precisePosition;
+        Vector2I previousHigh = new(
+            Mathf.FloorToInt(_precisePosition.X),
+            Mathf.FloorToInt(_precisePosition.Y));
         Position = OracleObjectMovement.Shared.ApplySpeed(
             ref _precisePosition, Speed, _angle);
-        Vector2 displacement = _precisePosition - previous;
-        if (_linkRiding && !frame.Player.SideScrollAirborne)
-            frame.Player.ApplyMovingPlatformDisplacement(displacement);
+        if (_linkRiding)
+        {
+            Vector2I currentHigh = new(
+                Mathf.FloorToInt(_precisePosition.X),
+                Mathf.FloorToInt(_precisePosition.Y));
+            frame.Player.ApplyMovingPlatformHighByteDisplacement(
+                currentHigh - previousHigh);
+        }
+        frame.Player.ResolveSideScrollPlatformContact(
+            Position,
+            radiusY: 8,
+            radiusX: 8,
+            platformAngle: _angle,
+            riding: _linkRiding);
         QueueRedraw();
     }
 
@@ -73,10 +86,9 @@ internal sealed partial class WingDungeonCircularSidePlatform :
 
     private void UpdateRiding(Player player)
     {
-        float xTolerance = 8 + (player.SideScrollAirborne ? 4 : 5);
-        _linkRiding =
-            Math.Abs(player.Position.X - Position.X) <= xTolerance &&
-            player.Position.Y < Position.Y - 10 &&
-            Math.Abs(player.Position.Y - Position.Y) < 16;
+        _linkRiding = player.CheckSideScrollPlatformRide(
+            Position,
+            radiusY: 8,
+            radiusX: 8);
     }
 }

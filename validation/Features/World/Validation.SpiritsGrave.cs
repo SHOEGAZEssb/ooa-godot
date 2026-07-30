@@ -655,6 +655,16 @@ public sealed partial class ValidationRoot
                 ReducedGravity: 0x0e,
                 MaximumFallSpeed: 0x0300,
                 JumpSpeedZ: -0x0230,
+                WaterExitSpeedZ: -0x01a0,
+                RocsCapeSpeedZ: -0x0080,
+                NormalSpeed: 0x28,
+                PlatformPushSpeed: 0x14,
+                KnockbackSpeed: 0x32,
+                IceVelocityInterval: 0x06,
+                SwimSpeed: 0x14,
+                FastSwimSpeed: 0x23,
+                MermaidTargetSpeed: 0x2d,
+                FastMermaidTargetSpeed: 0x37,
                 GroundWallMask: 0x30,
                 CeilingWallMask: 0xc0,
                 LandingHighMask: 0xf8,
@@ -711,23 +721,34 @@ public sealed partial class ValidationRoot
             "Side-view falling did not land on update 17 at Y $59.20 with " +
             "one SND_LAND request and a cleared speedZ.");
 
-        // ITEM_FEATHER uses the side-view-only -$0230 launch. Its first update
-        // applies that displacement before adding gravity and permits one
-        // horizontal pixel of air control.
+        // ITEM_FEATHER uses the side-view-only -$0230 launch. Ascent does not
+        // call linkUpdateVelocity: it retains Link's existing SPEED_100 angle,
+        // even after the direction button is released.
         _player.WarpTo(new Vector2(0x58, 0x59), recordSafe: false);
         _sound.ClearPlayRequestAudit();
+        _player.AdvanceSideScrollUpdateForValidation(Vector2.Right);
+        float jumpStartX = _player.PrecisePosition.X;
         _player.AdvanceSideScrollUpdateForValidation(
             Vector2.Right, startJump: true);
         FailIf(
             !_player.SideScrollAirborne ||
             _player.SideScrollSpeedZ != -0x020c ||
             _player.SideScrollYFixed != 0x56d0 ||
-            _player.PrecisePosition.X != 0x59 ||
+            _player.PrecisePosition.X != jumpStartX + 1 ||
+            _player.SideScrollAngle != 0x08 ||
+            _player.SideScrollSpeedRaw != 0x28 ||
             _player.SideScrollAnimationPhase != 0 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 0,
             "The side-view Feather launch did not use -$0230 speedZ, $24 " +
-            "gravity, horizontal air control, jump animation, and SND_JUMP.");
+            "gravity, retained SPEED_100 momentum, jump animation, and SND_JUMP.");
+        _player.AdvanceSideScrollUpdateForValidation(Vector2.Zero);
+        FailIf(
+            _player.PrecisePosition.X != jumpStartX + 2 ||
+            _player.SideScrollAngle != 0x08 ||
+            _player.SideScrollSpeedRaw != 0x28,
+            "Side-view ascent did not retain Link's prior angle and speed " +
+            "after directional input was released.");
 
         // Exercise the complete dry route: descend the left ladder, cross the
         // lower corridor, climb the right ladder through its top tile, and

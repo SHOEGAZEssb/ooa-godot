@@ -1405,6 +1405,24 @@ $sideCommonSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\specialObjects\commonCode.s')
 $featherParentSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\itemParents\featherParent.s')
+$sidePlatformSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\circularSidescrollPlatform.s')
+
+$objectSpeeds = @{}
+foreach ($line in $objectSpeedSource) {
+    if ($line -match '^\s*(?<name>SPEED_[A-Za-z0-9]+)\s+dsb\s+5\s*;\s*0x(?<value>[0-9a-f]{2})') {
+        $objectSpeeds[$Matches['name']] =
+            [Convert]::ToInt32($Matches['value'], 16)
+    }
+}
+foreach ($line in $objectSpeedSource) {
+    if ($line -match '^\s*\.define\s+(?<alias>SPEED_[A-Za-z0-9]+)\s+(?<name>SPEED_[A-Za-z0-9]+)\s*$') {
+        if (-not $objectSpeeds.ContainsKey($Matches['name'])) {
+            throw "Unknown object-speed alias target '$($Matches['name'])'."
+        }
+        $objectSpeeds[$Matches['alias']] = $objectSpeeds[$Matches['name']]
+    }
+}
 
 $sideTileTypeConstants = @{}
 foreach ($line in $tileTypeConstantSource) {
@@ -1534,12 +1552,57 @@ $spikeTileMatch = [regex]::Match(
 if (-not $spikeTileMatch.Success) {
     throw 'Could not resolve TILEINDEX_SS_SPIKE.'
 }
+
+function Resolve-SideObjectSpeed([string]$name) {
+    if (-not $objectSpeeds.ContainsKey($name)) {
+        throw "Could not resolve side-scrolling object speed $name."
+    }
+    return $objectSpeeds[$name]
+}
+
+$sideWaterExitMatch = [regex]::Match(
+    $linkSource,
+    '(?ms)Make him "hop out" of the water.*?ld bc,-\$(?<speed>[0-9a-f]{2,4})')
+$sideCapeMatch = [regex]::Match(
+    $featherParentSource,
+    '(?ms)^@state1:.*?ld \(hl\),<\(-\$(?<speed>[0-9a-f]{2,4})\)')
+$sideIceIntervalMatch = [regex]::Match(
+    $linkSource,
+    '(?ms)^@speedTable:.*?; Slippery\s+\.db SPEED_000, \$(?<interval>[0-9a-f]{2})')
+if (-not $sideWaterExitMatch.Success -or
+    -not $sideCapeMatch.Success -or
+    -not $sideIceIntervalMatch.Success -or
+    $linkSource -notmatch '(?ms)^linkSetSwimmingSpeed:.*?ld a,SPEED_e0.*?ld a,SPEED_80' -or
+    $linkSource -notmatch '(?ms)^@mermaidSuit:.*?ld a,SPEED_160' -or
+    $linkSource -notmatch '(?ms)^@speedTable:.*?; Normal\s+\.db SPEED_100, \$00, SPEED_0c0, SPEED_080, SPEED_100' -or
+    $linkSource -notmatch '(?ms); Mermaid suit movement\s+\.db SPEED_000, \$05, SPEED_120, SPEED_120, SPEED_120' -or
+    $linkSource -notmatch '(?ms)^linkUpdateKnockback:.*?ld b,SPEED_140' -or
+    $sidePlatformSource -notmatch '(?ms)^@moveLinkAtAngle:.*?ld b,SPEED_80') {
+    throw 'Could not verify the complete side-scrolling Link speed contract.'
+}
+$sideWaterExitSpeed =
+    -[Convert]::ToInt32($sideWaterExitMatch.Groups['speed'].Value, 16)
+$sideCapeSpeed =
+    -[Convert]::ToInt32($sideCapeMatch.Groups['speed'].Value, 16)
+$sideIceInterval =
+    [Convert]::ToInt32($sideIceIntervalMatch.Groups['interval'].Value, 16)
+
 $sideConstantRows = @(
     "# key`tvalue`tsource",
     "gravity`t$sideGravity`tlink.s:linkUpdateInAir_sidescroll",
     "reduced-gravity`t$sideReducedGravity`tlink.s:linkUpdateInAir_sidescroll",
     "maximum-fall-speed`t$sideMaximumSpeed`tlink.s:linkUpdateInAir_sidescroll",
     "jump-speed-z`t$jumpSpeed`tfeatherParent.s:parentItemCode_feather",
+    "water-exit-speed-z`t$sideWaterExitSpeed`tlink.s:linkState01_sidescroll",
+    "rocs-cape-speed-z`t$sideCapeSpeed`tfeatherParent.s:parentItemCode_feather",
+    "normal-speed`t$(Resolve-SideObjectSpeed 'SPEED_100')`tlink.s:updateLinkSpeed_withParam@speedTable",
+    "platform-push-speed`t$(Resolve-SideObjectSpeed 'SPEED_80')`tcircularSidescrollPlatform.s:sidescrollingPlatformCommon",
+    "knockback-speed`t$(Resolve-SideObjectSpeed 'SPEED_140')`tlink.s:linkUpdateKnockback",
+    "ice-velocity-interval`t$sideIceInterval`tlink.s:updateLinkSpeed_withParam@speedTable",
+    "swim-speed`t$(Resolve-SideObjectSpeed 'SPEED_80')`tlink.s:linkSetSwimmingSpeed",
+    "fast-swim-speed`t$(Resolve-SideObjectSpeed 'SPEED_e0')`tlink.s:linkSetSwimmingSpeed",
+    "mermaid-target-speed`t$(Resolve-SideObjectSpeed 'SPEED_120')`tlink.s:updateLinkSpeed_withParam@speedTable",
+    "fast-mermaid-target-speed`t$(Resolve-SideObjectSpeed 'SPEED_160')`tlink.s:linkUpdateVelocity@mermaidSuit",
     "ground-wall-mask`t$sideGroundMask`tlink.s:linkUpdateInAir_sidescroll",
     "ceiling-wall-mask`t$sideCeilingMask`tlink.s:linkUpdateInAir_sidescroll",
     "landing-high-mask`t$sideSnapMask`tlink.s:linkUpdateInAir_sidescroll",
@@ -1553,7 +1616,7 @@ $sideConstantRows = @(
     "animation-phase-1`t$([Convert]::ToInt32($sideJumpAnimationMatch.Groups['d1'].Value, 16))`tspecialObjectAnimationData.s:animationData19f78",
     "animation-phase-2`t$([Convert]::ToInt32($sideJumpAnimationMatch.Groups['d2'].Value, 16))`tspecialObjectAnimationData.s:animationData19f78"
 )
-if ($sideConstantRows.Count -ne 17) {
+if ($sideConstantRows.Count -ne 27) {
     throw 'Side-scrolling player constants lost an expected row.'
 }
 Write-GeneratedTable(
@@ -1754,21 +1817,6 @@ Write-GeneratedTable(
     (Join-Path $destination 'metadata\ledge_jump_directions.tsv'),
     $ledgeDirectionRows)
 
-$objectSpeeds = @{}
-foreach ($line in $objectSpeedSource) {
-    if ($line -match '^\s*(?<name>SPEED_[A-Za-z0-9]+)\s+dsb\s+5\s*;\s*0x(?<value>[0-9a-f]{2})') {
-        $objectSpeeds[$Matches['name']] =
-            [Convert]::ToInt32($Matches['value'], 16)
-    }
-}
-foreach ($line in $objectSpeedSource) {
-    if ($line -match '^\s*\.define\s+(?<alias>SPEED_[A-Za-z0-9]+)\s+(?<name>SPEED_[A-Za-z0-9]+)\s*$') {
-        if (-not $objectSpeeds.ContainsKey($Matches['name'])) {
-            throw "Unknown object-speed alias target '$($Matches['name'])'."
-        }
-        $objectSpeeds[$Matches['alias']] = $objectSpeeds[$Matches['name']]
-    }
-}
 $cliffSpeedMatch = [regex]::Match(
     $linkSource,
     '(?ms)^@cliffSpeedTable:\s*(?<body>.*?)(?=^\s*; In the process of falling down the cliff)')

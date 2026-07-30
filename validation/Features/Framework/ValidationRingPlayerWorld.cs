@@ -17,7 +17,11 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     public bool RingTransformationsAllowed { get; set; } = true;
     public bool RidingObject { get; set; }
     public bool SideScrolling { get; set; }
-    public SideScrollPlayerParameters SideScrollParameters => default;
+    public SideScrollPlayerParameters SideScrollParameters { get; set; } =
+        new SideScrollPlayerDatabase().Parameters;
+    public SideScrollTerrainState SideScrollTerrain { get; set; }
+    public int AdjacentWallsBitset { get; set; }
+    public bool BlockMovement { get; set; }
     public int SwordHitCalls { get; private set; }
     public int LastSwordDamage { get; private set; }
     public int ExpertTileHitCalls { get; private set; }
@@ -61,7 +65,11 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     public int TryUseSeedSatchel(Player player) => 0;
     public bool DigWithShovel(Vector2 point, Vector2I direction) => false;
     public bool Collides(Vector2 playerPosition) => false;
-    public Vector2 ResolveMovement(Vector2 playerPosition, Vector2 movement, bool allowWallSlide) => movement;
+    public Vector2 ResolveMovement(
+        Vector2 playerPosition,
+        Vector2 movement,
+        bool allowWallSlide) =>
+        BlockMovement ? Vector2.Zero : movement;
     public bool IsPushingAgainstWall(Vector2 playerPosition, Vector2I facing, Vector2 movementInput) => false;
     public void UpdatePushableBlocks(Vector2 playerPosition, Vector2I facing, Vector2 movementInput)
     {
@@ -71,8 +79,9 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     public ActiveTerrainInfo GetActiveTerrain(Vector2 playerPosition) =>
         ActiveTerrain;
     public SideScrollTerrainState GetSideScrollTerrain(Vector2 playerPosition) =>
-        default;
-    public int GetAdjacentWallsBitset(Vector2 playerPosition) => 0;
+        SideScrollTerrain;
+    public int GetAdjacentWallsBitset(Vector2 playerPosition) =>
+        AdjacentWallsBitset;
     public Vector2 GetTerrainPush(Vector2 playerPosition) => Vector2.Zero;
     public bool TryStartLedgeHop(Player player, Vector2 from, Vector2 attemptedMovement) => false;
     public bool ApplyLandedTileHit(Vector2 playerPosition) => false;

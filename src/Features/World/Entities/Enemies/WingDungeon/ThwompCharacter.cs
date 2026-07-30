@@ -107,12 +107,13 @@ internal partial class ThwompCharacter : EnemyCharacter
     {
         WingDungeonEnemyBehavior behavior =
             WingDungeonEnemyBehavior.Shared;
-        targetY = Position.Y -
-            Record.RadiusY - 6 -
-            behavior["thwomp-riding-slop-y"];
-        return Mathf.Abs(player.Position.X - Position.X) <
+        float contactPlane = Position.Y - Record.RadiusY - 6;
+        targetY =
+            contactPlane - behavior["thwomp-riding-slop-y"];
+        return Mathf.Abs(player.Position.X - Position.X) <=
                 behavior["thwomp-riding-radius-x"] &&
-            Mathf.Abs(player.Position.Y - targetY) < 7;
+            Mathf.Abs(player.Position.Y - contactPlane) <=
+                behavior["thwomp-riding-slop-y"];
     }
 
     internal override bool TakeSwordHit(Vector2 _, int __) => false;
