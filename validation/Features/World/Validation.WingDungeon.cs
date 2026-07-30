@@ -10,6 +10,13 @@ public sealed partial class ValidationRoot
     private void ValidateWingDungeon()
     {
         const double update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
+        static bool IsGbcColor(Color color, int red, int green, int blue)
+        {
+            const float textureTolerance = 1.5f / 255.0f;
+            return Mathf.Abs(color.R - red / 31.0f) <= textureTolerance &&
+                Mathf.Abs(color.G - green / 31.0f) <= textureTolerance &&
+                Mathf.Abs(color.B - blue / 31.0f) <= textureTolerance;
+        }
         int[] rooms = Enumerable.Range(0x27, 0x22).ToArray();
         byte[] originalFlags = rooms
             .Select(room => _saveData.GetRoomFlags(4, room))
@@ -493,6 +500,20 @@ public sealed partial class ValidationRoot
             $"6:2a (position={_player.Position}, " +
             $"precise={_player.PrecisePosition}, " +
             $"walls=${_collision.AdjacentWallsBitset(_player.Position):x2}).");
+        ThwompCharacter incomingThwomp =
+            _entities.Entities<ThwompCharacter>().Single();
+        Vector2 preloadedThwompPosition = incomingThwomp.Position;
+        int preloadedThwompAnimation = incomingThwomp.AnimationIndex;
+        Step(8);
+        FailIf(
+            !incomingThwomp.Visible ||
+            incomingThwomp.State != ThwompState.Waiting ||
+            incomingThwomp.Position != preloadedThwompPosition ||
+            incomingThwomp.AnimationIndex != preloadedThwompAnimation ||
+            preloadedThwompAnimation != 4,
+            "Room 6:2a's Thwomp did not become visible in source state $08 " +
+            "with animation $04 while remaining frozen in the incoming " +
+            "scrolling room.");
         CompleteTransition();
         FailIf(
             _rooms.ActiveGroup != 6 ||
@@ -734,6 +755,43 @@ public sealed partial class ValidationRoot
         Step();
         ThwompCharacter ridingThwomp =
             _entities.Entities<ThwompCharacter>().Single();
+        AnimationFrameDefinition ordinaryThwompFrame =
+            OracleGraphicsCache.GetAnimationDefinition(
+                ridingThwomp.Record.Animations[4]).Frames[0];
+        using Texture2D expectedOrdinaryThwomp =
+            NpcCharacter.BuildOamTextureUncachedForValidation(
+                EnemyVisualSource.LoadComposite(ridingThwomp.Record.Sprites),
+                ordinaryThwompFrame.EncodedOam,
+                ridingThwomp.Record.TileBase,
+                ridingThwomp.Record.Palette,
+                sourceGrayscaleInverted:
+                    ridingThwomp.Record.SourceGrayscaleInverted);
+        using (Image ordinaryThwompImage =
+            ridingThwomp.CurrentAnimationTexture.GetImage())
+        using (Image expectedOrdinaryThwompImage =
+            expectedOrdinaryThwomp.GetImage())
+        {
+            FailIf(
+                ridingThwomp.AnimationIndex != 4 ||
+                ridingThwomp.Record.SourceGrayscaleInverted ||
+                ridingThwomp.Animation.CurrentOffset != new Vector2(-16, -16) ||
+                ordinaryThwompImage.GetWidth() != 32 ||
+                ordinaryThwompImage.GetHeight() != 32 ||
+                OracleGraphicsCache.PixelHash(ordinaryThwompImage) !=
+                    OracleGraphicsCache.PixelHash(expectedOrdinaryThwompImage) ||
+                !IsGbcColor(
+                    ordinaryThwompImage.GetPixel(2, 1),
+                    0x00, 0x00, 0x1f) ||
+                !IsGbcColor(
+                    ordinaryThwompImage.GetPixel(16, 1),
+                    0x0e, 0x15, 0x1f) ||
+                !IsGbcColor(
+                    ordinaryThwompImage.GetPixel(16, 28),
+                    0x00, 0x00, 0x00),
+                "ENEMY_THWOMP did not retain spr_thwomps.properties' " +
+                "invert=false shade order and complete disassembly " +
+                "32-by-32 animation-$04 OAM sprite.");
+        }
         float thwompContactY =
             ridingThwomp.Position.Y - ridingThwomp.Record.RadiusY - 6;
         _player.WarpTo(
@@ -750,6 +808,65 @@ public sealed partial class ValidationRoot
             ridingThwomp.IsLinkRiding(_player, out _),
             "thwomp_updateLinkRidingSelf did not preserve its inclusive " +
             "-$13..+$13 X and ±$03 Y riding window.");
+
+        // ENEMYCOLLISION_THWOMP maps the sword rows to effects $15-$17.
+        // Those preserve health, install ENEMYDMG_$34's negative
+        // invincibility, allocate one clink, and write recoil to ITEM_SWORD.
+        Vector2 thwompSwordPosition =
+            ridingThwomp.Position + Vector2.Left * 4;
+        var thwompSwordHitbox = new Rect2(
+            thwompSwordPosition - Vector2.One,
+            Vector2.One * 2);
+        int thwompHealth = ridingThwomp.Health;
+        SwordAttackerKnockback? thwompRecoil = null;
+        _sound.ClearPlayRequestAudit();
+        FailIf(
+            ridingThwomp.ArmoredAttackerKnockbackFrames(
+                EnemyKnockbackStrength.Low) != 11 ||
+            ridingThwomp.ArmoredAttackerKnockbackFrames(
+                EnemyKnockbackStrength.Normal) != 19 ||
+            ridingThwomp.ArmoredAttackerKnockbackFrames(
+                EnemyKnockbackStrength.High) != 25 ||
+            !_entities.ApplySwordHit(
+                thwompSwordHitbox,
+                ridingThwomp.Position + Vector2.Left * 16,
+                damage: 99,
+                knockbackStrength: EnemyKnockbackStrength.Low,
+                attackerKnockback: response => thwompRecoil = response) ||
+            ridingThwomp.Health != thwompHealth ||
+            ridingThwomp.InvincibilityCounter != -28 ||
+            ridingThwomp.KnockbackCounter != 0 ||
+            thwompRecoil is not
+            {
+                SourcePosition: var thwompRecoilSource,
+                Frames: 11
+            } ||
+            thwompRecoilSource != ridingThwomp.Position ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBombLand) != 1 ||
+            _entities.Entities<ClinkEffect>() is not
+            [
+                {
+                    Position: var thwompClinkPosition,
+                    Flickers: false
+                }
+            ] ||
+            thwompClinkPosition !=
+                ridingThwomp.Position + Vector2.Left * 2,
+            "The ordinary Thwomp did not apply its source armored sword " +
+            "clink, ITEM_SWORD recoil, and ENEMYDMG_$34 repeat suppression.");
+        FailIf(
+            _entities.ApplySwordHit(
+                thwompSwordHitbox,
+                ridingThwomp.Position + Vector2.Left * 16,
+                damage: 99,
+                knockbackStrength: EnemyKnockbackStrength.Low,
+                attackerKnockback: _ => { }) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBombLand) != 1 ||
+            _entities.Entities<ClinkEffect>().Count != 1,
+            "Thwomp armor accepted a repeated sword collision before its " +
+            "negative invincibility counter expired.");
 
         TopDownAirParameters air = TopDownAirDatabase.Shared.Parameters;
         FailIf(
@@ -788,6 +905,85 @@ public sealed partial class ValidationRoot
         Step();
         HeadThwompBoss head =
             _entities.Entities<HeadThwompBoss>().Single();
+        var spiritsGrave = new SpiritsGraveDatabase();
+        AnimationFrameDefinition headFrame =
+            OracleGraphicsCache.GetAnimationDefinition(
+                head.Record.Animations[0]).Frames[0];
+        (Texture2D expectedHeadTexture, Vector2 expectedHeadOffset) =
+            NpcCharacter
+                .BuildPositionedOamTextureWithPaletteOverridesUncachedForValidation(
+                    EnemyVisualSource.LoadComposite(head.Record.Sprites),
+                    headFrame.EncodedOam,
+                    head.Record.TileBase,
+                    head.Record.Palette,
+                    spiritsGrave.HeadThwompPalettes,
+                    head.Record.SourceGrayscaleInverted);
+        using (expectedHeadTexture)
+        using (Image headImage = head.CurrentAnimationTexture.GetImage())
+        using (Image expectedHeadImage = expectedHeadTexture.GetImage())
+        {
+            FailIf(
+                head.Animation.CurrentOffset != new Vector2(-20, -27) ||
+                expectedHeadOffset != new Vector2(-20, -27) ||
+                headImage.GetWidth() != 40 ||
+                headImage.GetHeight() != 48 ||
+                OracleGraphicsCache.PixelHash(headImage) !=
+                    OracleGraphicsCache.PixelHash(expectedHeadImage),
+                "Head Thwomp's 13-cell face was clipped or displaced from " +
+                "its disassembly 40-by-48 positioned OAM bounds.");
+        }
+        FailIf(
+            spiritsGrave.HeadThwompPalettes is not { Count: 1 } ||
+            !spiritsGrave.HeadThwompPalettes.ContainsKey(6) ||
+            !IsGbcColor(
+                spiritsGrave.HeadThwompPalettes[6][0], 0x1f, 0x1f, 0x1f) ||
+            !IsGbcColor(
+                spiritsGrave.HeadThwompPalettes[6][1], 0x00, 0x00, 0x00) ||
+            !IsGbcColor(
+                spiritsGrave.HeadThwompPalettes[6][2], 0x14, 0x01, 0x1b) ||
+            !IsGbcColor(
+                spiritsGrave.HeadThwompPalettes[6][3], 0x16, 0x0f, 0x1f),
+            "Head Thwomp did not import PALH $81's paletteData4958 into " +
+            "OBJ palette 6.");
+        Vector2 headSwordPosition =
+            head.Position + Vector2.Left * 4;
+        var headSwordHitbox = new Rect2(
+            headSwordPosition - Vector2.One,
+            Vector2.One * 2);
+        int headHealthBeforeSword = head.Health;
+        _sound.ClearPlayRequestAudit();
+        FailIf(
+            !_entities.ApplySwordHit(
+                headSwordHitbox,
+                head.Position + Vector2.Left * 16,
+                damage: 99,
+                knockbackStrength: EnemyKnockbackStrength.High) ||
+            head.Health != headHealthBeforeSword ||
+            head.InvincibilityCounter != -20 ||
+            head.KnockbackCounter != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBombLand) != 0 ||
+            _entities.Entities<ClinkEffect>() is not
+            [
+                {
+                    Position: var headClinkPosition,
+                    Flickers: false
+                }
+            ] ||
+            headClinkPosition != head.Position + Vector2.Left * 2,
+            "Head Thwomp did not apply COLLISIONEFFECT_$1b's single " +
+            "midpoint clink and ENEMYDMG_$28 repeat suppression.");
+        FailIf(
+            _entities.ApplySwordHit(
+                headSwordHitbox,
+                head.Position + Vector2.Left * 16,
+                damage: 99,
+                knockbackStrength: EnemyKnockbackStrength.High) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1 ||
+            _entities.Entities<ClinkEffect>().Count != 1,
+            "Head Thwomp accepted a repeated sword collision before its " +
+            "negative invincibility counter expired.");
+        bool sawPurplePalette = false;
         for (int frame = 0;
              frame < 600 &&
              (head.State != HeadThwompState.Spinning ||
@@ -795,11 +991,30 @@ public sealed partial class ValidationRoot
              frame++)
         {
             Step();
+            if (head.Direction == 4 && head.AnimationIndex == 4)
+            {
+                using Image purpleImage =
+                    head.CurrentAnimationTexture.GetImage();
+                bool hasDarkPurple = false;
+                bool hasLightPurple = false;
+                for (int y = 0; y < purpleImage.GetHeight(); y++)
+                for (int x = 0; x < purpleImage.GetWidth(); x++)
+                {
+                    Color pixel = purpleImage.GetPixel(x, y);
+                    hasDarkPurple |=
+                        IsGbcColor(pixel, 0x14, 0x01, 0x1b);
+                    hasLightPurple |=
+                        IsGbcColor(pixel, 0x16, 0x0f, 0x1f);
+                }
+                sawPurplePalette |= hasDarkPurple && hasLightPurple;
+            }
         }
         FailIf(
             head.State != HeadThwompState.Spinning ||
-            head.Direction != 6,
-            "Head Thwomp did not rotate to its red face in source timing.");
+            head.Direction != 6 ||
+            !sawPurplePalette,
+            "Head Thwomp did not rotate through PALH $81's purple sprite " +
+            "face to its red face in source timing.");
         _player.WarpTo(new Vector2(0x77, 0x50), recordSafe: false);
         _player.Face(Vector2I.Right);
         BombEffect mouthBomb = _entities.Spawn<BombEffect>(

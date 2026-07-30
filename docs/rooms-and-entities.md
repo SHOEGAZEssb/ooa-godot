@@ -96,7 +96,10 @@ until the transition ends. This phase must not advance ordinary movement,
 animation, counters, RNG, collision, or scripts.
 `ENEMY_SPARK $13` uses the phase to resolve its initial wall angle and become
 visible; wall-following movement and animation remain frozen until scrolling
-finishes.
+finishes. `ENEMY_THWOMP $2f` likewise installs state `$08`, animation `$04`,
+and visibility during destination parsing so it is already drawn when room
+`6:2a` scrolls onscreen; proximity, facing, movement, animation, and riding
+logic remain frozen until completion.
 
 When a room event releases dynamic actors during the destination-load callback,
 it must drop its bookkeeping without deactivating nodes that
@@ -509,6 +512,12 @@ other species and resolve their implemented definitions through
 `EnemyDatabase` for every matching ordered room record. Unsupported Arrow
 Moblin, Rope, and Ghini subids remain explicit reservations rather than
 silently receiving the wrong state machine.
+Ordinary Thwomp's collision row uses armored sword effects `$15-$17`: the
+enemy remains unharmed, one midpoint clink is allocated, Link receives the
+imported 11/19/25-update sword-item recoil, and ENEMYDMG `$34` suppresses
+repeat contact for 28 updates. Head Thwomp uses effect `$1b` instead, producing
+one midpoint clink without attacker recoil and applying ENEMYDMG `$28`'s
+20-update repeat-contact suppression.
 Wallmaster capture resolves the active dungeon's imported
 `wDungeonWallmasterDestRoom`; it does not encode Spirit's Grave room `4:24` in
 the entity adapter. Its source placement also owns the spawner count: room

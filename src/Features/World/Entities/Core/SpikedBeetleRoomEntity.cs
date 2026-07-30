@@ -175,17 +175,4 @@ internal sealed class SpikedBeetleRoomEntity
         }
         return SeedHitResult.None;
     }
-
-    private static Vector2 CollisionMidpoint(
-        Vector2 enemyPosition,
-        Vector2 itemPosition)
-    {
-        int enemyY = Mathf.FloorToInt(enemyPosition.Y);
-        int enemyX = Mathf.FloorToInt(enemyPosition.X);
-        int itemY = Mathf.FloorToInt(itemPosition.Y);
-        int itemX = Mathf.FloorToInt(itemPosition.X);
-        return new Vector2(
-            enemyX + ((itemX - enemyX) >> 1),
-            enemyY + ((itemY - enemyY) >> 1));
-    }
 }

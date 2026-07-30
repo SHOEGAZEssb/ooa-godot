@@ -1070,7 +1070,40 @@ public partial class NpcCharacter : TransitionOffsetNode2D
             {
                 (Texture2D texture, Vector2 offset) = BuildPositionedOamTextureUncached(
                     source, encodedOam, tileBase, basePalette,
-                    paletteOverride, sourceGrayscaleInverted, sourceOffset);
+                    paletteOverride, paletteOverrides: null,
+                    sourceGrayscaleInverted, sourceOffset);
+                return new OamFrame(texture, offset);
+            });
+        return (frame.Texture, frame.Offset);
+    }
+
+    internal static (Texture2D Texture, Vector2 Offset)
+        BuildPositionedOamTextureWithPaletteOverrides(
+            Image source,
+            string encodedOam,
+            int tileBase,
+            int basePalette,
+            IReadOnlyDictionary<int, Color[]> paletteOverrides,
+            bool sourceGrayscaleInverted = true,
+            int sourceOffset = 0)
+    {
+        OamFrame frame = OracleGraphicsCache.GetOrCreateOamFrame(
+            source,
+            encodedOam,
+            tileBase,
+            basePalette,
+            sourceOffset,
+            paletteOverride: null,
+            paletteOverrides,
+            sourceGrayscaleInverted,
+            CompositionMode.Positioned,
+            () =>
+            {
+                (Texture2D texture, Vector2 offset) =
+                    BuildPositionedOamTextureUncached(
+                        source, encodedOam, tileBase, basePalette,
+                        paletteOverride: null, paletteOverrides,
+                        sourceGrayscaleInverted, sourceOffset);
                 return new OamFrame(texture, offset);
             });
         return (frame.Texture, frame.Offset);
@@ -1086,7 +1119,21 @@ public partial class NpcCharacter : TransitionOffsetNode2D
             bool sourceGrayscaleInverted,
             int sourceOffset = 0) => BuildPositionedOamTextureUncached(
                 source, encodedOam, tileBase, basePalette,
-                paletteOverride, sourceGrayscaleInverted, sourceOffset);
+                paletteOverride, paletteOverrides: null,
+                sourceGrayscaleInverted, sourceOffset);
+
+    internal static (Texture2D Texture, Vector2 Offset)
+        BuildPositionedOamTextureWithPaletteOverridesUncachedForValidation(
+            Image source,
+            string encodedOam,
+            int tileBase,
+            int basePalette,
+            IReadOnlyDictionary<int, Color[]> paletteOverrides,
+            bool sourceGrayscaleInverted = true,
+            int sourceOffset = 0) => BuildPositionedOamTextureUncached(
+                source, encodedOam, tileBase, basePalette,
+                paletteOverride: null, paletteOverrides,
+                sourceGrayscaleInverted, sourceOffset);
 
     private static (Texture2D Texture, Vector2 Offset) BuildPositionedOamTextureUncached(
         Image source,
@@ -1094,6 +1141,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         int tileBase,
         int basePalette,
         Color[]? paletteOverride,
+        IReadOnlyDictionary<int, Color[]>? paletteOverrides,
         bool sourceGrayscaleInverted,
         int sourceOffset)
     {
@@ -1117,7 +1165,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         if (minX == int.MaxValue)
             return (BuildOamTextureUncached(
                 source, encodedOam, tileBase, basePalette, paletteOverride,
-                paletteOverrides: null, sourceGrayscaleInverted, sourceOffset),
+                paletteOverrides, sourceGrayscaleInverted, sourceOffset),
                 new Vector2(-16, -16));
 
         Image output = Image.CreateEmpty(maxX - minX, maxY - minY, false, Image.Format.Rgba8);
@@ -1140,6 +1188,11 @@ public partial class NpcCharacter : TransitionOffsetNode2D
             bool flipX = (flags & 0x20) != 0;
             bool flipY = (flags & 0x40) != 0;
             int palette = basePalette ^ (flags & 0x07);
+            Color[]? blockPalette = paletteOverrides is not null &&
+                paletteOverrides.TryGetValue(
+                    palette, out Color[]? overridePalette)
+                    ? overridePalette
+                    : paletteOverride;
 
             for (int y = 0; y < 16; y++)
             for (int x = 0; x < 8; x++)
@@ -1149,7 +1202,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
                 if (readX < 0 || readX >= source.GetWidth() || readY < 0 || readY >= source.GetHeight())
                     continue;
                 Color pixel = RecolorSpritePixel(
-                    source.GetPixel(readX, readY), palette, paletteOverride,
+                    source.GetPixel(readX, readY), palette, blockPalette,
                     sourceGrayscaleInverted);
                 if (pixel.A > 0.1f)
                     output.SetPixel(destinationX + x, destinationY + y, pixel);

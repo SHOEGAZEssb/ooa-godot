@@ -53,6 +53,27 @@ Write-GeneratedTable(
     (Join-Path $destination 'objects\spirits_grave_enemies.tsv'),
     $sgEnemyRows)
 
+# ENEMY_HEAD_THWOMP initializes PALH_81 before becoming visible. The header
+# replaces OBJ palette 6 with paletteData4958; the boss's purple-face OAM
+# selects that slot while its other cells retain the standard OBJ palettes.
+$headThwompSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\enemies\headThwomp.s')
+$headThwompPaletteHeader = [regex]::Match(
+    $paletteHeaderSource,
+    '(?ms)^m_PaletteHeaderStart\s+\$81,\s*PALH_81(?<body>.*?)(?=^m_PaletteHeaderStart|\z)')
+if ($headThwompSource -notmatch
+        '(?ms)^headThwomp_state_uninitialized:.*?' +
+        'ld a,ENEMY_HEAD_THWOMP.*?ld b,PALH_81.*?' +
+        'call enemyBoss_initializeRoom' -or
+    -not $headThwompPaletteHeader.Success -or
+    $headThwompPaletteHeader.Groups['body'].Value -notmatch
+        'm_PaletteHeaderSpr\s+6,\s*1,\s*paletteData4958') {
+    throw 'ENEMY_HEAD_THWOMP no longer loads PALH_81/paletteData4958 into OBJ palette 6.'
+}
+Write-GeneratedBytes(
+    (Join-Path $destination 'objects\spirits_grave_head_thwomp_palette.bin'),
+    (Read-PaletteBytes 'paletteData4958' 4))
+
 # Resolve native interaction graphics used by the moving platforms, rotating
 # cube/flames, and the first essence. The cube state machine selects all 30
 # animations in its source table, so retain the complete sequence.

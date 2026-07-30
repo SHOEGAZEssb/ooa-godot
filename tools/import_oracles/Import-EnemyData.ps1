@@ -280,7 +280,7 @@ if ($keeseGfx -ne 0x9d -or
     throw 'ENEMY_KEESE data no longer matches its traced definition.'
 }
 
-function Copy-EnemySprite([string]$name) {
+function Find-EnemySpriteSource([string]$name) {
     $source = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
         ForEach-Object {
             Get-ChildItem $_.FullName -Recurse -File -Filter "$name.png"
@@ -289,8 +289,37 @@ function Copy-EnemySprite([string]$name) {
     if ($null -eq $source) {
         throw "Enemy sprite not found: $name.png"
     }
+    return $source
+}
+
+function Copy-EnemySprite([string]$name) {
+    $source = Find-EnemySpriteSource $name
     Copy-Item -LiteralPath $source.FullName `
         -Destination (Join-Path $destination "gfx\$name.png") -Force
+}
+
+function Get-EnemySpriteSourceGrayscaleInverted([string]$name) {
+    $source = Find-EnemySpriteSource $name
+    # tools/gfx/gfx.py defaults spr_* sheets to invert=true, but a sibling
+    # .properties file can deliberately reverse the four source color IDs.
+    $inverted = $source.BaseName.StartsWith(
+        'spr_', [StringComparison]::Ordinal)
+    $propertiesPath = [IO.Path]::ChangeExtension(
+        $source.FullName, '.properties')
+    if (Test-Path -LiteralPath $propertiesPath) {
+        $properties = Read-ImportText $propertiesPath
+        $invertMatch = [regex]::Match(
+            $properties,
+            '(?im)^\s*invert:\s*(?<value>\S+)\s*$')
+        if ($invertMatch.Success) {
+            $value = $invertMatch.Groups['value'].Value
+            if (-not [bool]::TryParse(
+                    $value, [ref]$inverted)) {
+                throw "Enemy sprite $name has invalid invert property: $value"
+            }
+        }
+    }
+    return $inverted
 }
 
 $commonEnemySprites = @{
@@ -323,11 +352,19 @@ foreach ($spec in $commonEnemySpecs) {
         $sprites = @($gfxNames[$definition.Gfx])
     }
     foreach ($sprite in $sprites) { Copy-EnemySprite $sprite }
+    $sourceInversions = @($sprites | ForEach-Object {
+        Get-EnemySpriteSourceGrayscaleInverted $_
+    } | Select-Object -Unique)
+    if ($sourceInversions.Count -ne 1) {
+        throw "Enemy `$$($id.ToString('x2')) combines sprite sheets with " +
+            "different grayscale inversion properties."
+    }
+    $sourceGrayscaleInverted = if ($sourceInversions[0]) { 1 } else { 0 }
     $animations = [Convert]::ToBase64String(
         [Text.Encoding]::UTF8.GetBytes(
             $definition.Animations -join "`n"))
     $commonEnemyRows.Add(
-        "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t1`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
+        "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
 if ($commonEnemyRows.Count -ne 17 -or
     -not ($commonEnemyRows | Where-Object {
@@ -350,6 +387,9 @@ if ($commonEnemyRows.Count -ne 17 -or
     }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^28\t00\tspr_ironmask\t24\t2\t1\t6\t6\t2\t5\t'
+    }) -or
+    -not ($commonEnemyRows | Where-Object {
+        $_ -match '^2f\t00\tspr_thwomps\t0\t4\t0\t15\t12\t4\t127\t'
     }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^4d\t00\tspr_polsvoice_hardhatbeetle_spikedbeetle_beamon\t4\t3\t1\t6\t6\t2\t4\t'
@@ -3114,7 +3154,7 @@ Add-EnemyBehaviorProfile 'hardhat-beetle' 'state-profile' `
 
 $spikedBeetleCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\spikedBeetle.s')
-$spikedBeetleCollisionTableSource = Read-ImportText (
+$enemyCollisionTableSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\objectCollisionTable.s')
 if ($spikedBeetleCodeSource -notmatch
         '(?ms)^@state_uninitialized:.*?call @setRandomAngleAndCounter1.*?' +
@@ -3148,9 +3188,15 @@ if ($spikedBeetleCodeSource -notmatch
         '(?ms)ENEMYCOLLISION_SPIKED_BEETLE_FLIPPED.*?ld \(hl\),180') {
     throw 'Spiked Beetle movement, combat, flip, or recovery path changed.'
 }
-if ($spikedBeetleCollisionTableSource -notmatch
+if ($enemyCollisionTableSource -notmatch
         '(?ms); ENEMYCOLLISION_SPIKED_BEETLE \(0x18\).*?' +
         '\.db \$02 \$10 \$0f \$0f \$15 \$16 \$16 \$16 \$17 \$16' -or
+    $enemyCollisionTableSource -notmatch
+        '(?ms); ENEMYCOLLISION_THWOMP \(0x28\).*?' +
+        '\.db \$02 \$07 \$06 \$06 \$15 \$16 \$16 \$16 \$17 \$15' -or
+    $enemyCollisionTableSource -notmatch
+        '(?ms); ENEMYCOLLISION_HEAD_THWOMP \(0x4a\).*?' +
+        '\.db \$02 \$00 \$00 \$00 \$1b \$1b \$1b \$1b \$1b \$1b' -or
     $collisionEffectsSource -notmatch
         '(?ms)^collisionEffect15:.*?createClinkInteraction.*?' +
         'LINKDMG_10, ENEMYDMG_34' -or
@@ -3159,39 +3205,46 @@ if ($spikedBeetleCollisionTableSource -notmatch
         'LINKDMG_14, ENEMYDMG_34' -or
     $collisionEffectsSource -notmatch
         '(?ms)^collisionEffect17:.*?createClinkInteraction.*?' +
-        'LINKDMG_18, ENEMYDMG_34') {
-    throw 'Spiked Beetle armored sword collision effects changed.'
+        'LINKDMG_18, ENEMYDMG_34' -or
+    $collisionEffectsSource -notmatch
+        '(?ms)^collisionEffect1b:.*?createClinkInteraction.*?' +
+        'LINKDMG_1c, ENEMYDMG_28' -or
+    $collisionEffectsSource -notmatch
+        '(?m)^\s*\.db \$60 \$ec \$00 \$00 ; ENEMYDMG_28\s*$' -or
+    $collisionEffectsSource -notmatch
+        '(?m)^\s*\.db \$60 \$e4 \$00 \$00 ; ENEMYDMG_34\s*$') {
+    throw 'Armored Thwomp/Spiked Beetle sword collision effects changed.'
 }
-$spikedLinkDamageMatches = @([regex]::Matches(
+$armoredLinkDamageMatches = @([regex]::Matches(
     $collisionEffectsSource,
     '(?m)^\s*\.db \$31 \$[0-9a-f]{2} \$(?<counter>[0-9a-f]{2}) ' +
     '\$00 ; LINKDMG_(?<label>10|14|18)\s*$'))
-$spikedLinkDamageCounters = @($spikedLinkDamageMatches | ForEach-Object {
+$armoredLinkDamageCounters = @($armoredLinkDamageMatches | ForEach-Object {
     [Convert]::ToInt32($_.Groups['counter'].Value, 16)
 })
-if ($spikedLinkDamageMatches.Count -ne 3 -or
+if ($armoredLinkDamageMatches.Count -ne 3 -or
     -not [string]::Equals(
-        (($spikedLinkDamageMatches | ForEach-Object {
+        (($armoredLinkDamageMatches | ForEach-Object {
             $_.Groups['label'].Value
         }) -join ','),
         '10,14,18',
         [StringComparison]::Ordinal) -or
-    ($spikedLinkDamageCounters -join ',') -ne '11,19,25') {
-    throw 'Spiked Beetle LINKDMG attacker recoil counters changed.'
+    ($armoredLinkDamageCounters -join ',') -ne '11,19,25') {
+    throw 'Armored sword LINKDMG attacker recoil counters changed.'
 }
-$spikedLinkDamagePairs = @()
-$spikedLinkDamageSources = @()
-for ($index = 0; $index -lt $spikedLinkDamageCounters.Count; $index++) {
-    $spikedLinkDamagePairs += ,@($spikedLinkDamageCounters[$index], 0)
-    $spikedLinkDamageSources +=
+$armoredLinkDamagePairs = @()
+$armoredLinkDamageSources = @()
+for ($index = 0; $index -lt $armoredLinkDamageCounters.Count; $index++) {
+    $armoredLinkDamagePairs += ,@($armoredLinkDamageCounters[$index], 0)
+    $armoredLinkDamageSources +=
         "code/collisionEffects.s:applyDamageToLink@damageTypeTable+" +
         ((0x10 + $index * 4).ToString('x2'))
 }
 Add-EnemyBehaviorPairTable `
-    'spiked-beetle' `
-    'attacker-knockback-frames' `
-    $spikedLinkDamagePairs `
-    $spikedLinkDamageSources
+    'common-enemy' `
+    'armored-sword-attacker-knockback-frames' `
+    $armoredLinkDamagePairs `
+    $armoredLinkDamageSources
 $spikedBeetleShakeOffsets = @(
     Read-EnemyBehaviorValues (
         Get-AssemblyLabelBody $spikedBeetleCodeSource '@xOscillationOffsets'

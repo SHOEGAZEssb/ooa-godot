@@ -17,6 +17,7 @@ internal sealed class SpiritsGraveDatabase
     private readonly Dictionary<string, VisualRecord> _visuals = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _constants = new(StringComparer.Ordinal);
     private readonly Dictionary<int, Color[]> _cubePalettes = new();
+    private readonly Dictionary<int, Color[]> _headThwompPalettes = new();
     private string _essenceMessage = string.Empty;
 
     internal SpiritsGraveDatabase()
@@ -25,6 +26,7 @@ internal sealed class SpiritsGraveDatabase
         LoadEnemies();
         LoadVisuals();
         LoadCubePalettes();
+        LoadHeadThwompPalettes();
         LoadConstants();
         LoadText();
         ValidateContract();
@@ -61,6 +63,8 @@ internal sealed class SpiritsGraveDatabase
 
     internal string EssenceMessage => _essenceMessage;
     internal IReadOnlyDictionary<int, Color[]> CubePalettes => _cubePalettes;
+    internal IReadOnlyDictionary<int, Color[]> HeadThwompPalettes =>
+        _headThwompPalettes;
 
     private void LoadObjects()
     {
@@ -187,6 +191,18 @@ internal sealed class SpiritsGraveDatabase
         }
     }
 
+    private void LoadHeadThwompPalettes()
+    {
+        Color[,] palettes = OracleGraphicsData.LoadPalette(
+            "res://assets/oracle/objects/spirits_grave_head_thwomp_palette.bin",
+            1,
+            6);
+        var colors = new Color[4];
+        for (int shade = 0; shade < colors.Length; shade++)
+            colors[shade] = palettes[6, shade];
+        _headThwompPalettes.Add(6, colors);
+    }
+
     private void LoadText()
     {
         GeneratedTable table = GeneratedTable.Load(
@@ -232,6 +248,7 @@ internal sealed class SpiritsGraveDatabase
             Visual("energy-bead").Animations.Length != 8 ||
             Visual("pumpkin-projectile").Animations.Length != 1 ||
             _cubePalettes.Count != 2 ||
+            _headThwompPalettes.Count != 1 ||
             string.IsNullOrWhiteSpace(_essenceMessage) ||
             Constant("cube-push-frames") != 20 ||
             Constant("move-block-sound") != 0x7f ||

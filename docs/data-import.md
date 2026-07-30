@@ -43,6 +43,12 @@ and then runs these stages in dependency order:
 | `Import-AudioData.ps1` | Sound IDs, descriptors, channel programs, and room music |
 | `Write-GeneratedTableManifest.ps1` | Deterministic TSV schema-version, record-count, and SHA-256 manifest |
 
+The Spirit's Grave stage joins Head Thwomp's native initialization with PALH
+`$81` and emits the exact `paletteData4958` OBJ-slot-6 payload beside the boss
+records. Runtime positioned-OAM composition applies that generated override
+only to effective palette 6; the other face cells continue to use their
+standard OBJ slots.
+
 Every stage has an `ImportStageContract` in `tools/import_oracles.ps1`. The
 contract names its variable inputs, variable outputs, helper-function inputs,
 and helper-function outputs. Before a stage runs, the entry script parses its

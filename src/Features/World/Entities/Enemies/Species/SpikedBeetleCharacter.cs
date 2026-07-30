@@ -12,9 +12,9 @@ internal partial class SpikedBeetleCharacter : EnemyCharacter
 {
     private readonly SpikedBeetleBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.SpikedBeetle;
-    private readonly SpikedBeetleAttackerKnockbackProfile
+    private readonly ArmoredSwordAttackerKnockbackProfile
         _attackerKnockback =
-            EnemyBehaviorTables.Shared.SpikedBeetleAttackerKnockback;
+            EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback;
     private readonly System.Collections.Generic.IReadOnlyList<EnemyBehaviorValue>
         _shakeXOffsets = EnemyBehaviorTables.Shared.SpikedBeetleShakeXOffsets;
     private OracleRandom _random = null!;
@@ -265,13 +265,8 @@ internal partial class SpikedBeetleCharacter : EnemyCharacter
         _lastSwordHitWasFlipped = _flippedCollision;
         if (_flippedCollision)
             return base.TakeSwordHit(sourcePosition, damage);
-        if (IsDead || !CollisionEnabled || InvincibilityCounter != 0)
-            return false;
-
-        InvincibilityCounter = -_behavior.ArmoredInvincibilityFrames;
-        KnockbackCounter = 0;
-        QueueRedraw();
-        return true;
+        return AcceptArmoredSwordHit(
+            _behavior.ArmoredInvincibilityFrames);
     }
 
     internal override bool TakeBurnHit(int damage) =>

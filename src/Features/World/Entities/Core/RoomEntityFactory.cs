@@ -788,6 +788,7 @@ internal sealed class RoomEntityFactory(
                     room,
                     record.Position,
                     random,
+                    _spiritsGrave.HeadThwompPalettes,
                     soundRequested,
                     screenShakeRequested,
                     disableLinkCollisionsAndMenu,

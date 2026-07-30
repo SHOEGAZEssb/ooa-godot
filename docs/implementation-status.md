@@ -327,14 +327,18 @@ remains the single runtime policy table.
   states. Side-platform mounting copies Link's low coordinate bytes before
   shared 8.8 movement, and the post-object camera sample keeps Link stable
   when platform and camera move together. Incoming
-  Sparks resolve visibility/wall angle before scrolling exposes them. Guarded
+  Sparks resolve visibility/wall angle before scrolling exposes them, and the
+  room `6:2a` Thwomp resolves its state-`$08` visibility/animation while its
+  ordinary behavior remains frozen. Guarded
   Sword-Stalfos body hits are silent; their separate imported enemy-sword part
   owns one clink, the exact six/eight-update Link recoil windows, and the
   distinct nine/eleven-update blade invincibility windows.
   Roc's Feather uses the imported top-down `-$01e0` launch, `$20` gravity,
   `$0300` terminal fall speed, 9/9/6-update jump animation, and source
-  jump/landing sounds. Head Thwomp consumes live Bomb entities through its
-  mouth and implements its face/color attacks, damage phases, projectiles,
+  jump/landing sounds. Head Thwomp uses its complete signed 40-by-48
+  positioned-OAM faces and imported PALH `$81` purple palette, consumes live
+  Bomb entities through its mouth, and implements its face/color attacks,
+  damage phases, projectiles,
   heart drops, death, and Heart Container. Swoop implements its shuttered
   intro, fall and bounce, TX `$2f00`, flight/stomp and floor-breaking phases,
   damage, death, and persistent miniboss portal. Room `4:38` completes Ancient
@@ -569,7 +573,10 @@ remains the single runtime policy table.
   drop paths with live Bomb/seed ownership predicates. All 816 fixed/random
   placements carry a generated ID/subid implementation classification:
   377 rows are implemented through 28 typed handlers and 83 source-flag
-  combinations, while 439 rows are deliberately unsupported. One typed
+  combinations, while 439 rows are deliberately unsupported. Ordinary Thwomp
+  and Head Thwomp sword armor preserve the source midpoint clink, target
+  invincibility, and ordinary-Thwomp attacker recoil without damaging either
+  target or repeating the response every overlap. One typed
   registry now controls construction and dungeon
   enemy-count completeness without changing source slots, reservations, or
   RNG. Keese, ordinary Stalfos, and common knockback share the imported

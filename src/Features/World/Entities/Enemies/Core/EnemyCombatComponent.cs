@@ -202,15 +202,19 @@ internal readonly record struct EnemyCombatSourceDescriptor(
 
     internal void ValidateSwordResponse(EnemySwordResponse response)
     {
-        EnemySwordResponse expected = (CollisionMode & 0x7f) switch
+        int collisionMode = CollisionMode & 0x7f;
+        EnemySwordResponse expected =
+            (Handler, collisionMode) switch
         {
-            0x10 or 0x11 or 0x14 or 0x1a or 0x1f or 0x25 or 0x31 or 0x7d =>
+            (EnemyHandlerKind.Thwomp, 0x28) =>
+                EnemySwordResponse.Armored,
+            (_, 0x10 or 0x11 or 0x14 or 0x1a or 0x1f or 0x25 or 0x31 or 0x7d) =>
                 EnemySwordResponse.Knockback,
-            0x18 => EnemySwordResponse.Armored,
-            0x17 or 0x1c or 0x28 or 0x29 or 0x33 or 0x58 or 0x6e =>
+            (_, 0x18) => EnemySwordResponse.Armored,
+            (_, 0x17 or 0x1c or 0x28 or 0x29 or 0x33 or 0x58 or 0x6e) =>
                 EnemySwordResponse.NoKnockback,
-            0x36 or 0x7e => EnemySwordResponse.Knockback,
-            0x38 => EnemySwordResponse.Bump,
+            (_, 0x36 or 0x7e) => EnemySwordResponse.Knockback,
+            (_, 0x38) => EnemySwordResponse.Bump,
             _ => throw new InvalidOperationException(
                 $"{Source} resolves {Handler} ${Id:x2}:${SubId:x2} to " +
                 $"unsupported enemy collision mode ${CollisionMode:x2}.")

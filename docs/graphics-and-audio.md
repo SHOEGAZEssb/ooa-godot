@@ -74,6 +74,14 @@ Changing a scripted animation selects cached immutable definitions/frames; it
 does not rebuild every texture for that entity. Validate assembled frame pixels
 and offsets, not just parsed record counts.
 
+Source grayscale polarity follows the `spr_*` default in the disassembly's
+`tools/gfx/gfx.py` plus any sibling `.properties` override; a black-looking PNG
+background alone does not establish color zero. `spr_thwomps.properties`
+explicitly sets `invert: false`, making white source pixels transparent and
+mapping its dark-gray body pixels to the deep-blue OBJ color. Treating it like
+an ordinary inverted `spr_*` sheet swaps the two blue shades and produces a
+pale, incorrect Spiked Thwomp.
+
 The ordinary object renderer subtracts the active camera in byte arithmetic
 before writing OAM. Camera-relative `$f8-$ff` therefore represents the signed
 edge interval `-8` through `-1`, where only the remaining rows or columns of a
@@ -144,6 +152,13 @@ record's OBJ palette 3, body initialization writes OAM flags `$01`, and ghost
 initialization writes `$05`. Import those explicit initialization writes and
 compose three independent cached animation sets; applying the base palette to
 the whole boss gives the rebuilt body and exposed ghost the wrong colors.
+
+Head Thwomp `$79` is a positioned-enemy case. Its 13-cell face frames span
+40-by-48 pixels around the object origin and must retain their signed OAM
+minimum instead of being clipped to the ordinary 32-by-32 enemy canvas.
+`enemyBoss_initializeRoom` also loads PALH `$81`, replacing OBJ palette 6 with
+`paletteData4958`; only OAM cells selecting effective palette 6 use that
+override, while the remaining face cells retain the standard OBJ palettes.
 
 `INTERAC_ESSENCE $7f` similarly composes three interaction objects rather than
 reusing one frame. Dungeon 1's essence overrides its base to tile `$00`, OBJ

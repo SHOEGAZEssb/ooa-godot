@@ -88,6 +88,19 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     protected void CancelSeedBurn() =>
         _seedBurning = false;
 
+    protected static Vector2 CollisionMidpoint(
+        Vector2 enemyPosition,
+        Vector2 itemPosition)
+    {
+        int enemyY = Mathf.FloorToInt(enemyPosition.Y);
+        int enemyX = Mathf.FloorToInt(enemyPosition.X);
+        int itemY = Mathf.FloorToInt(itemPosition.Y);
+        int itemX = Mathf.FloorToInt(itemPosition.X);
+        return new Vector2(
+            enemyX + ((itemX - enemyX) >> 1),
+            enemyY + ((itemY - enemyY) >> 1));
+    }
+
     public virtual bool TryTakeEnemyOutcome(out RoomEnemyOutcome outcome)
     {
         if (!combatDescriptor.Combat.Finished || _completedOutcomeTaken)

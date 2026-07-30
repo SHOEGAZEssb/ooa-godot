@@ -402,11 +402,11 @@ public sealed partial class ValidationRoot
                 [10, 8, 10, 3, 5, 60, 150, 30,
                  180, 60, 24, -384, 35, 30, 16, 28]) ||
             !ProfileMatches(
-                tables.SpikedBeetleAttackerKnockback.Sources,
+                tables.ArmoredSwordAttackerKnockback.Sources,
                 [
-                    tables.SpikedBeetleAttackerKnockback.LowFrames,
-                    tables.SpikedBeetleAttackerKnockback.NormalFrames,
-                    tables.SpikedBeetleAttackerKnockback.HighFrames
+                    tables.ArmoredSwordAttackerKnockback.LowFrames,
+                    tables.ArmoredSwordAttackerKnockback.NormalFrames,
+                    tables.ArmoredSwordAttackerKnockback.HighFrames
                 ],
                 [11, 19, 25]) ||
             !ProfileMatches(
@@ -652,7 +652,7 @@ public sealed partial class ValidationRoot
             [(0x20, 0x01)] = (0x91, EnemySwordResponse.Knockback),
             [(0x22, 0x00)] = (0xfe, EnemySwordResponse.Knockback),
             [(0x28, 0x00)] = (0x25, EnemySwordResponse.Knockback),
-            [(0x2f, 0x00)] = (0xa8, EnemySwordResponse.NoKnockback),
+            [(0x2f, 0x00)] = (0xa8, EnemySwordResponse.Armored),
             [(0x31, 0x00)] = (0xfd, EnemySwordResponse.Knockback),
             [(0x32, 0x00)] = (0x9f, EnemySwordResponse.Knockback),
             [(0x32, 0x01)] = (0x9f, EnemySwordResponse.Knockback),

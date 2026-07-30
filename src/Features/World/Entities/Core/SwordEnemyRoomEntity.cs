@@ -106,17 +106,4 @@ internal sealed class SwordEnemyRoomEntity
             frames);
         return frames != 0;
     }
-
-    private static Vector2 CollisionMidpoint(
-        Vector2 swordPosition,
-        Vector2 itemPosition)
-    {
-        int swordY = Mathf.FloorToInt(swordPosition.Y);
-        int swordX = Mathf.FloorToInt(swordPosition.X);
-        int itemY = Mathf.FloorToInt(itemPosition.Y);
-        int itemX = Mathf.FloorToInt(itemPosition.X);
-        return new Vector2(
-            swordX + ((itemX - swordX) >> 1),
-            swordY + ((itemY - swordY) >> 1));
-    }
 }

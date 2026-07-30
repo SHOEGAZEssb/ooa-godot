@@ -11,6 +11,7 @@ namespace oracleofages;
 /// </summary>
 internal sealed partial class HeadThwompBoss : EnemyCharacter
 {
+    private const int ArmoredSwordInvincibilityFrames = 20;
     private static readonly int[,] RotationSpeeds =
     {
         { 0x11, 0x07 },
@@ -53,6 +54,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         OracleRoomData room,
         Vector2 position,
         OracleRandom random,
+        IReadOnlyDictionary<int, Color[]> paletteOverrides,
         Action<int> playSound,
         Action<int> screenShake,
         Action disableLink,
@@ -69,7 +71,9 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         _animationTick = animationTick;
         InitializeEnemy(
             position,
-            EnemyCharacterConfiguration.FromImported(record));
+            EnemyCharacterConfiguration.FromImported(record),
+            paletteOverrides: paletteOverrides,
+            positionedOam: true);
         Name = "HeadThwomp";
         ZIndex = 10;
         SetSurroundingSolidity(true);
@@ -190,7 +194,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
     }
 
     internal override bool TakeSwordHit(Vector2 sourcePosition, int damage) =>
-        false;
+        AcceptArmoredSwordHit(ArmoredSwordInvincibilityFrames);
 
     internal override bool TakeBurnHit(int damage) => false;
 

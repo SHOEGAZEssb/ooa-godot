@@ -57,12 +57,14 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         new Vector2(_collisionRadiusX * 2, _collisionRadiusY * 2));
     internal EnemyAnimationPlayer Animation => _animation;
     protected virtual bool DrawsAnimation => !IsDead && Visible;
-    protected virtual Vector2 AnimationDrawOffset => new(-16, -16);
+    protected virtual Vector2 AnimationDrawOffset => _animation.CurrentOffset;
 
     internal void InitializeEnemy(
         Vector2 position,
         EnemyCharacterConfiguration configuration,
-        int initialAnimation = 0)
+        int initialAnimation = 0,
+        IReadOnlyDictionary<int, Color[]>? paletteOverrides = null,
+        bool positionedOam = false)
     {
         Position = position;
         Health = configuration.Health;
@@ -96,7 +98,9 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
             configuration.TileBase,
             configuration.Palette,
             configuration.DamagePalette,
-            sourceGrayscaleInverted: configuration.SourceGrayscaleInverted);
+            paletteOverrides,
+            configuration.SourceGrayscaleInverted,
+            positionedOam);
         SetAnimation(initialAnimation);
         QueueRedraw();
     }
@@ -252,6 +256,27 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         if (IsDead || !CollisionEnabled || InvincibilityCounter != 0)
             return false;
         return ApplyDamage(damage, SwordInvincibilityFrames);
+    }
+
+    /// <summary>
+    /// ENEMYDMG_$34/$28 leave an armored target unharmed, suppress repeated
+    /// collisions with a negative invincibility counter, and apply no target
+    /// knockback.
+    /// </summary>
+    private protected bool AcceptArmoredSwordHit(int invincibilityFrames)
+    {
+        if (invincibilityFrames <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(invincibilityFrames));
+        }
+        if (IsDead || !CollisionEnabled || InvincibilityCounter != 0)
+            return false;
+
+        InvincibilityCounter = -invincibilityFrames;
+        KnockbackCounter = 0;
+        QueueRedraw();
+        return true;
     }
 
     internal virtual bool TakeBurnHit(int damage) =>

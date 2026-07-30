@@ -55,12 +55,6 @@ internal sealed class EnemyAnimationPlayer
             throw new InvalidOperationException(
                 $"Expected {_animations.Length} enemy animations, got {encodedAnimations.Count}.");
         }
-        if (positionedOam && paletteOverrides is not null)
-        {
-            throw new InvalidOperationException(
-                "Positioned OAM does not support per-cell palette overrides.");
-        }
-
         for (int index = 0; index < encodedAnimations.Count; index++)
         {
             AnimationDefinition definition =
@@ -75,13 +69,20 @@ internal sealed class EnemyAnimationPlayer
                 Vector2 offset;
                 if (positionedOam)
                 {
-                    (texture, offset) =
-                        NpcCharacter.BuildPositionedOamTexture(
+                    (texture, offset) = paletteOverrides is null
+                        ? NpcCharacter.BuildPositionedOamTexture(
                             source,
                             frame.EncodedOam,
                             tileBase,
                             palette,
                             paletteOverride: null,
+                            sourceGrayscaleInverted)
+                        : NpcCharacter.BuildPositionedOamTextureWithPaletteOverrides(
+                            source,
+                            frame.EncodedOam,
+                            tileBase,
+                            palette,
+                            paletteOverrides,
                             sourceGrayscaleInverted);
                     if (damagePalette.HasValue)
                     {

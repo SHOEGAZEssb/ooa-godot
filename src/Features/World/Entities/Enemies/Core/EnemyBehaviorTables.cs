@@ -34,8 +34,8 @@ internal sealed class EnemyBehaviorTables
         PumpkinHeadProjectileOriginOffsets { get; }
     internal IReadOnlyList<EnemyBehaviorValue>
         SpikedBeetleShakeXOffsets { get; }
-    internal SpikedBeetleAttackerKnockbackProfile
-        SpikedBeetleAttackerKnockback { get; }
+    internal ArmoredSwordAttackerKnockbackProfile
+        ArmoredSwordAttackerKnockback { get; }
     internal IReadOnlyList<EnemyBehaviorPair> EnemySwordDamageProfiles { get; }
     internal EnemyKnockbackBehaviorProfile EnemyKnockback { get; }
     internal EnemyHazardBehaviorProfile EnemyHazards { get; }
@@ -122,13 +122,16 @@ internal sealed class EnemyBehaviorTables
             groups, "pumpkin-head", "projectile-origin-offsets", 4);
         SpikedBeetleShakeXOffsets = TakeValues(
             groups, "spiked-beetle", "shake-x-offsets", 4);
-        EnemyBehaviorValue[] spikedAttackerKnockbackValues = TakeValues(
-            groups, "spiked-beetle", "attacker-knockback-frames", 3);
-        SpikedBeetleAttackerKnockback = new(
-            spikedAttackerKnockbackValues[0].Value,
-            spikedAttackerKnockbackValues[1].Value,
-            spikedAttackerKnockbackValues[2].Value,
-            spikedAttackerKnockbackValues);
+        EnemyBehaviorValue[] armoredAttackerKnockbackValues = TakeValues(
+            groups,
+            "common-enemy",
+            "armored-sword-attacker-knockback-frames",
+            3);
+        ArmoredSwordAttackerKnockback = new(
+            armoredAttackerKnockbackValues[0].Value,
+            armoredAttackerKnockbackValues[1].Value,
+            armoredAttackerKnockbackValues[2].Value,
+            armoredAttackerKnockbackValues);
 
         EnemySwordDamageProfiles = TakePairs(
             groups, "common-enemy", "sword-damage-profiles", 4);
@@ -530,7 +533,7 @@ internal readonly record struct SpikedBeetleBehaviorProfile(
     int ArmoredInvincibilityFrames,
     IReadOnlyList<EnemyBehaviorValue> Sources);
 
-internal readonly record struct SpikedBeetleAttackerKnockbackProfile(
+internal readonly record struct ArmoredSwordAttackerKnockbackProfile(
     int LowFrames,
     int NormalFrames,
     int HighFrames,

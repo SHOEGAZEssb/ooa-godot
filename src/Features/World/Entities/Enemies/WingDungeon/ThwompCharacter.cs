@@ -4,6 +4,10 @@ namespace oracleofages;
 
 internal partial class ThwompCharacter : EnemyCharacter
 {
+    private const int ArmoredInvincibilityFrames = 28;
+    private readonly ArmoredSwordAttackerKnockbackProfile
+        _attackerKnockback =
+            EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback;
     private OracleRoomData _room = null!;
     private ThwompState _state;
     private int _counter;
@@ -15,6 +19,14 @@ internal partial class ThwompCharacter : EnemyCharacter
     internal ThwompState State => _state;
     internal int Counter => _counter;
     internal int SpeedYFixed => _speedYFixed;
+    internal int ArmoredAttackerKnockbackFrames(
+        EnemyKnockbackStrength strength) => strength switch
+        {
+            EnemyKnockbackStrength.Low => _attackerKnockback.LowFrames,
+            EnemyKnockbackStrength.Normal => _attackerKnockback.NormalFrames,
+            EnemyKnockbackStrength.High => _attackerKnockback.HighFrames,
+            _ => 0
+        };
 
     internal void Initialize(
         ImportedEnemyDefinition record,
@@ -42,8 +54,7 @@ internal partial class ThwompCharacter : EnemyCharacter
         switch (_state)
         {
             case ThwompState.Uninitialized:
-                _state = ThwompState.Waiting;
-                Visible = true;
+                PrepareForScreenTransition();
                 return;
 
             case ThwompState.Waiting:
@@ -103,6 +114,20 @@ internal partial class ThwompCharacter : EnemyCharacter
         }
     }
 
+    /// <summary>
+    /// ENEMY_THWOMP state 0 installs state $08, animation $04, and visibility
+    /// while the destination room is parsed. Its ordinary proximity, facing,
+    /// movement, animation, and riding updates remain frozen during scrolling.
+    /// </summary>
+    internal void PrepareForScreenTransition()
+    {
+        if (_state != ThwompState.Uninitialized)
+            return;
+        _state = ThwompState.Waiting;
+        Visible = true;
+        QueueRedraw();
+    }
+
     internal bool IsLinkRiding(Player player, out float targetY)
     {
         WingDungeonEnemyBehavior behavior =
@@ -116,7 +141,8 @@ internal partial class ThwompCharacter : EnemyCharacter
                 behavior["thwomp-riding-slop-y"];
     }
 
-    internal override bool TakeSwordHit(Vector2 _, int __) => false;
+    internal override bool TakeSwordHit(Vector2 _, int __) =>
+        AcceptArmoredSwordHit(ArmoredInvincibilityFrames);
     internal override bool TakeBurnHit(int _) => false;
 
     private bool TouchesGround()
