@@ -9,7 +9,7 @@ namespace oracleofages;
 /// script-selected animation instead of using ordinary generic-NPC defaults.
 /// </summary>
 internal sealed class LynnaShopkeeperRoomEntity
-    : RoomEntityAdapter<NpcCharacter>, IVariableRoomEntity, IFixedRoomEntity,
+    : NpcCharacterRoomEntityAdapter, IVariableRoomEntity, IFixedRoomEntity,
         IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity, IPlayerRestriction
 {
     private readonly LynnaShopDatabase _database;

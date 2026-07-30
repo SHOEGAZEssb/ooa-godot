@@ -1159,21 +1159,56 @@ public sealed class RoomEntityManager : IDisposable
 
     private void PrepareIncomingEntitiesForScreenTransition()
     {
-        // parseObjectData and the destination's source state-0 creation work
-        // make presentation children drawable before scrolling exposes their
-        // part of the room. Ordinary state updates remain frozen afterward.
-        // The list may grow while a preloader creates source-ordered children,
-        // so walk by index until the complete transitive set is prepared.
+        // updateEnemies/updateInteractions still dispatch source state 0 while
+        // wScrollMode is active. Complete that work before the incoming room
+        // is exposed, then freeze ordinary state-8+ updates. The list may grow
+        // while a preloader creates source-ordered children, so walk by index
+        // until the complete transitive set is prepared.
         for (int index = 0; index < _activeEntities.Count; index++)
         {
-            if (_activeEntities[index] is not
-                IScreenTransitionPreloadRoomEntity preloader)
+            IRoomEntity entity = _activeEntities[index];
+            if (entity is IScreenTransitionPreloadRoomEntity preloader)
             {
+                ScreenTransitionPresentation presentation =
+                    preloader.PrepareForScreenTransition(_pendingSpawns);
+                ProcessScreenTransitionPreloadSpawns();
+                ValidateScreenTransitionPresentation(entity, presentation);
                 continue;
             }
-            preloader.PrepareForScreenTransition(_pendingSpawns);
-            ProcessScreenTransitionPreloadSpawns();
+
+            if (!entity.Node.Visible)
+            {
+                throw new InvalidOperationException(
+                    $"Incoming room entity {entity.GetType().Name} " +
+                    $"('{entity.Node.Name}') is hidden after creation and " +
+                    $"does not implement " +
+                    $"{nameof(IScreenTransitionPreloadRoomEntity)}. Source " +
+                    $"state 0 must resolve its transition presentation " +
+                    $"explicitly so it cannot pop in after scrolling.");
+            }
         }
+    }
+
+    private static void ValidateScreenTransitionPresentation(
+        IRoomEntity entity,
+        ScreenTransitionPresentation presentation)
+    {
+        bool expectedVisible = presentation switch
+        {
+            ScreenTransitionPresentation.Visible => true,
+            ScreenTransitionPresentation.Hidden => false,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(presentation), presentation,
+                "Unknown screen-transition presentation result.")
+        };
+        if (entity.Node.Visible == expectedVisible)
+            return;
+
+        throw new InvalidOperationException(
+            $"Incoming room entity {entity.GetType().Name} " +
+            $"('{entity.Node.Name}') reported transition presentation " +
+            $"{presentation} but its root visibility is " +
+            $"{entity.Node.Visible}.");
     }
 
     private void ProcessScreenTransitionPreloadSpawns()

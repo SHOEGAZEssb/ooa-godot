@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class NayruHouseNpcRoomEntity
-    : RoomEntityAdapter<NpcCharacter>, IFixedRoomEntity, IRoomBlocker,
+    : NpcCharacterRoomEntityAdapter, IFixedRoomEntity, IRoomBlocker,
         ITalkTarget, IOrdinaryNpcEntity, INpcTalkLifecycle
 {
     private readonly NayruHouseDatabase _database;

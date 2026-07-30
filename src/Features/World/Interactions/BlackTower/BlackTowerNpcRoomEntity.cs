@@ -7,7 +7,7 @@ namespace oracleofages;
 internal abstract class BlackTowerNpcRoomEntity(
     NpcCharacter npc,
     Action<Vector2> transitionOffset)
-    : RoomEntityAdapter<NpcCharacter>(npc, transitionOffset),
+    : NpcCharacterRoomEntityAdapter(npc, transitionOffset),
         IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity
 {
     public NpcCharacter Npc => Entity;

@@ -9,7 +9,7 @@ namespace oracleofages;
 /// A-button behavior; they only push Link away and update draw priority.
 /// </summary>
 internal sealed class StoneRabbitRoomEntity
-    : RoomEntityAdapter<NpcCharacter>, IFixedRoomEntity, IRoomBlocker,
+    : NpcCharacterRoomEntityAdapter, IFixedRoomEntity, IRoomBlocker,
         IOrdinaryNpcEntity
 {
     public NpcCharacter Npc => Entity;

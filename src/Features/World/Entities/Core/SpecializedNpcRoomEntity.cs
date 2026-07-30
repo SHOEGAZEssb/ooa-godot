@@ -8,7 +8,7 @@ namespace oracleofages;
 /// Hosts a placed actor whose interaction is owned by a native controller.
 /// </summary>
 internal sealed class SpecializedNpcRoomEntity(NpcCharacter npc)
-    : RoomEntityAdapter<NpcCharacter>(
+    : NpcCharacterRoomEntityAdapter(
         RequireSpecializedNative(npc), npc.SetTransitionDrawOffset),
         IVariableRoomEntity, IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity
 {
@@ -19,7 +19,6 @@ internal sealed class SpecializedNpcRoomEntity(NpcCharacter npc)
         Entity.BlocksLinkCenter(linkCenter);
     public NpcCharacter? FindTalkTarget(Player player) =>
         Entity.CanTalkTo(player) ? Entity : null;
-
     private static NpcCharacter RequireSpecializedNative(NpcCharacter npc)
     {
         if (npc.Record.Implementation !=

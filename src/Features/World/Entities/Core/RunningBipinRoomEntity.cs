@@ -7,7 +7,7 @@ namespace oracleofages;
 // INTERAC_BIPIN $28:$00 consumes the imported @bipin0/@updateSpeed native
 // record, including its raw speed, angle, X interval, and var3a toggle.
 internal sealed class RunningBipinRoomEntity
-    : RoomEntityAdapter<NpcCharacter>, IVariableRoomEntity, IFixedRoomEntity,
+    : NpcCharacterRoomEntityAdapter, IVariableRoomEntity, IFixedRoomEntity,
         IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity
 {
     private readonly RunningBipinRecord _data;

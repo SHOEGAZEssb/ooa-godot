@@ -574,6 +574,39 @@ public sealed partial class ValidationRoot
                 .SequenceEqual(preloadedSparkPositions),
             "Room 4:36 Sparks did not begin moving after scrolling finished.");
 
+        // updateEnemies dispatches state 0 even while wScrollMode is active.
+        // Whisp state 0 consumes one RNG value per object, installs its angle,
+        // and becomes visible; state-8 bouncing/movement remains frozen.
+        PrepareRoom(0x2d);
+        OracleRoomData whispRoom = _world.LoadRoom(4, 0x2c);
+        _entities.BeginScreenTransition(
+            4, whispRoom, Vector2.Left * whispRoom.Width);
+        List<WhispCharacter> incomingWhisps =
+            _entities.Entities<WhispCharacter>();
+        Vector2[] preloadedWhispPositions =
+            incomingWhisps.Select(whisp => whisp.Position).ToArray();
+        int[] preloadedWhispAngles =
+            incomingWhisps.Select(whisp => whisp.Angle).ToArray();
+        Step(8);
+        FailIf(
+            incomingWhisps.Count != 2 ||
+            incomingWhisps.Any(whisp =>
+                !whisp.Visible ||
+                !whisp.Initialized ||
+                whisp.Angle is not (0x04 or 0x0c or 0x14 or 0x1c)) ||
+            !incomingWhisps.Select(whisp => whisp.Position)
+                .SequenceEqual(preloadedWhispPositions) ||
+            !incomingWhisps.Select(whisp => whisp.Angle)
+                .SequenceEqual(preloadedWhispAngles),
+            "Room 4:2c Whisps did not consume source state-0 initialization " +
+            "and become visible while remaining frozen in the incoming room.");
+        _entities.FinishScreenTransition();
+        Step(8);
+        FailIf(
+            incomingWhisps.Select(whisp => whisp.Position)
+                .SequenceEqual(preloadedWhispPositions),
+            "Room 4:2c Whisps did not begin moving after scrolling finished.");
+
         // PART_ENEMY_SWORD $1d, not the Stalfos body, owns blocked sword
         // contacts. Its table ignores spins, emits one clink, and writes the
         // exact LINKDMG_$38/$34 attacker recoil windows.

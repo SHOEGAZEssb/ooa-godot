@@ -86,7 +86,10 @@ internal sealed class ThwompRoomEntity
         }
     }
 
-    public void PrepareForScreenTransition(
-        ICollection<RoomEntitySpawn> spawns) =>
+    public ScreenTransitionPresentation PrepareForScreenTransition(
+        ICollection<RoomEntitySpawn> spawns)
+    {
         Entity.PrepareForScreenTransition();
+        return ScreenTransitionPresentation.Visible;
+    }
 }

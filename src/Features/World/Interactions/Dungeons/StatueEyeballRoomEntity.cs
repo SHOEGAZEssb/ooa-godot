@@ -11,7 +11,10 @@ internal sealed class StatueEyeballRoomEntity(StatueEyeball eye)
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Player);
 
-    public void PrepareForScreenTransition(
-        ICollection<RoomEntitySpawn> spawns) =>
+    public ScreenTransitionPresentation PrepareForScreenTransition(
+        ICollection<RoomEntitySpawn> spawns)
+    {
         Entity.PrepareForScreenTransition();
+        return ScreenTransitionPresentation.Visible;
+    }
 }

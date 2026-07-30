@@ -11,7 +11,7 @@ namespace oracleofages;
 /// $18 Manhattan-distance check.
 /// </summary>
 internal sealed class VasuShopNpcRoomEntity
-    : RoomEntityAdapter<NpcCharacter>, IVariableRoomEntity, IFixedRoomEntity,
+    : NpcCharacterRoomEntityAdapter, IVariableRoomEntity, IFixedRoomEntity,
         IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity, IPlayerRestriction,
         IUpdatesDuringDialogueRoomEntity
 {

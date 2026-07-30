@@ -8,7 +8,7 @@ namespace oracleofages;
 /// Retains a placed actor slot for a room event to discover and control.
 /// </summary>
 internal sealed class EventOwnedNpcRoomEntity(NpcCharacter npc)
-    : RoomEntityAdapter<NpcCharacter>(
+    : NpcCharacterRoomEntityAdapter(
         RequireEventOwned(npc), npc.SetTransitionDrawOffset),
         IVariableRoomEntity, IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity
 {

@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class NpcRoomEntity(NpcCharacter npc)
-    : RoomEntityAdapter<NpcCharacter>(
+    : NpcCharacterRoomEntityAdapter(
         RequireOrdinaryGeneric(npc), npc.SetTransitionDrawOffset),
     IVariableRoomEntity, IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity
 {
@@ -13,7 +13,6 @@ internal sealed class NpcRoomEntity(NpcCharacter npc)
     public void Update(double delta, Player player) => Entity.UpdateNpc(delta, player.Position);
     public bool BlocksLink(Vector2 linkCenter) => Entity.BlocksLinkCenter(linkCenter);
     public NpcCharacter? FindTalkTarget(Player player) => Entity.CanTalkTo(player) ? Entity : null;
-
     private static NpcCharacter RequireOrdinaryGeneric(NpcCharacter npc)
     {
         if (npc.Record.Implementation !=

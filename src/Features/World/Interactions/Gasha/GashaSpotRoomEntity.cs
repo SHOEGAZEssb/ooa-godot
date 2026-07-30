@@ -8,7 +8,8 @@ internal sealed class GashaSpotRoomEntity(GashaSpotInteraction interaction)
     : RoomEntityAdapter<GashaSpotInteraction>(
         interaction, interaction.SetTransitionDrawOffset),
         IFixedRoomEntity, ISwordHittableRoomEntity, IPlayerInteractable,
-        IPlayerRestriction, IRoomEntityLifetime
+        IPlayerRestriction, IRoomEntityLifetime,
+        IScreenTransitionPreloadRoomEntity
 {
     public bool DisablesSword => Entity.RestrictsPlayer;
     public bool DisablesItems => Entity.RestrictsPlayer;
@@ -19,6 +20,10 @@ internal sealed class GashaSpotRoomEntity(GashaSpotInteraction interaction)
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Player);
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(
+        ICollection<RoomEntitySpawn> spawns) =>
+        Entity.PrepareForScreenTransition();
 
     public bool ApplySwordHit(
         Rect2 hitbox,

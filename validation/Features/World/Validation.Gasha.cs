@@ -153,6 +153,43 @@ public sealed partial class ValidationRoot
 
         save.SetGashaSpotKillCounter(spot.SubId, 40);
         OracleRoomData nutRoom = rooms.GetRoom(spot.Group, spot.Room);
+        var transitionRoot = new Node
+        {
+            Name = "GashaTransitionValidation"
+        };
+        AddChild(transitionRoot);
+        using (var transitionFixture = RoomEntityValidationFixture.ForRoot(
+            transitionRoot, new()
+            {
+                SaveData = save,
+                Inventory = inventory,
+                AnimationTick = () => tick
+            }))
+        {
+            RoomEntityManager transitionManager = transitionFixture.Manager;
+            transitionManager.LoadRoom(
+                spot.Group, rooms.GetRoom(spot.Group, 0x7a));
+            transitionManager.BeginScreenTransition(
+                spot.Group,
+                nutRoom,
+                Vector2.Right * nutRoom.Width);
+            GashaSpotInteraction incomingNut =
+                transitionManager.Entities<GashaSpotInteraction>().Single();
+            Vector2 incomingNutPosition = incomingNut.Position;
+            for (int frame = 0; frame < 8; frame++)
+                transitionManager.Update(1.0 / 60.0, _player);
+            FailIf(
+                !incomingNut.Visible ||
+                incomingNut.State != InteractionState.NutReady ||
+                incomingNut.Position != incomingNutPosition,
+                "A mature incoming Gasha nut did not resolve visible state 0 " +
+                "while remaining frozen throughout room scrolling.");
+            transitionManager.FinishScreenTransition();
+            transitionManager.Clear();
+        }
+        RemoveChild(transitionRoot);
+        transitionRoot.QueueFree();
+
         bool nutCaught = false;
         var harvest = new GashaSpotInteraction();
         harvest.Initialize(

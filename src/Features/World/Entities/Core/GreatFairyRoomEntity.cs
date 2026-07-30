@@ -10,7 +10,7 @@ namespace oracleofages;
 /// uses the original eight-step signed Z-height cycle.
 /// </summary>
 internal sealed class GreatFairyRoomEntity
-    : RoomEntityAdapter<NpcCharacter>,
+    : NpcCharacterRoomEntityAdapter,
         IFixedRoomEntity,
         IAlwaysUpdateDuringScreenTransitionRoomEntity,
         IUpdatesDuringDialogueRoomEntity,

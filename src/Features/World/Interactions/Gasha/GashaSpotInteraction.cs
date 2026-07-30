@@ -149,17 +149,7 @@ internal partial class GashaSpotInteraction : TransitionOffsetNode2D
     {
         if (!_initialUpdateComplete)
         {
-            _initialUpdateComplete = true;
-            if (State == InteractionState.WaitingForPlant)
-            {
-                if (_inventory is not null && RingEffects.DetectsSoftSoil(_inventory))
-                    _soundRequested(OracleSoundEngine.SndCompass);
-            }
-            else if (State == InteractionState.NutReady)
-            {
-                SetVisual(_database.NutVisual);
-                Visible = true;
-            }
+            PrepareForScreenTransition();
             return;
         }
 
@@ -200,6 +190,42 @@ internal partial class GashaSpotInteraction : TransitionOffsetNode2D
                 UpdateDisappearance();
                 return;
         }
+    }
+
+    /// <summary>
+    /// INTERAC_GASHA_SPOT state 0 resolves the invisible soft-soil controller
+    /// or the visible mature nut while interactions are otherwise frozen by
+    /// scrolling.
+    /// </summary>
+    internal ScreenTransitionPresentation PrepareForScreenTransition()
+    {
+        if (_initialUpdateComplete)
+        {
+            return Visible
+                ? ScreenTransitionPresentation.Visible
+                : ScreenTransitionPresentation.Hidden;
+        }
+
+        _initialUpdateComplete = true;
+        if (State == InteractionState.WaitingForPlant)
+        {
+            if (_inventory is not null &&
+                RingEffects.DetectsSoftSoil(_inventory))
+            {
+                _soundRequested(OracleSoundEngine.SndCompass);
+            }
+            return ScreenTransitionPresentation.Hidden;
+        }
+        if (State == InteractionState.NutReady)
+        {
+            SetVisual(_database.NutVisual);
+            Visible = true;
+            return ScreenTransitionPresentation.Visible;
+        }
+
+        throw new InvalidOperationException(
+            $"Gasha spot state 0 cannot resolve transition presentation from " +
+            $"{State}.");
     }
 
     internal void BeginReward(

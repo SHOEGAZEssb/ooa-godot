@@ -8,7 +8,7 @@ namespace oracleofages;
 /// Finished-game INTERAC_MISCELLANEOUS_1 $6b:$15 in room $1:$38.
 /// </summary>
 internal sealed class MakuLinkStatueRoomEntity
-    : RoomEntityAdapter<NpcCharacter>, IFixedRoomEntity, IRoomBlocker
+    : NpcCharacterRoomEntityAdapter, IFixedRoomEntity, IRoomBlocker
 {
     public MakuLinkStatueRoomEntity(
         NpcCharacter npc,

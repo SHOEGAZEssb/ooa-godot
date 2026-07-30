@@ -13,6 +13,7 @@ internal partial class WhispCharacter : EnemyCharacter
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal int Angle => _angle;
+    internal bool Initialized => _initialized;
 
     internal void Initialize(
         ImportedEnemyDefinition record,
@@ -36,9 +37,7 @@ internal partial class WhispCharacter : EnemyCharacter
             return;
         if (!_initialized)
         {
-            _initialized = true;
-            _angle = (_random.Next().Value & 0x18) + 0x04;
-            Visible = true;
+            PrepareForScreenTransition();
             return;
         }
 
@@ -52,6 +51,21 @@ internal partial class WhispCharacter : EnemyCharacter
             WingDungeonEnemyBehavior.Shared["whisp-speed-raw"],
             allowHoles: false);
         AdvanceAnimation();
+    }
+
+    /// <summary>
+    /// ENEMY_WHISP state 0 consumes one global RNG value for its angle,
+    /// installs state $08/SPEED_c0, and becomes visible even while the enemy
+    /// dispatcher is restricted by wScrollMode.
+    /// </summary>
+    internal void PrepareForScreenTransition()
+    {
+        if (_initialized)
+            return;
+        _initialized = true;
+        _angle = (_random.Next().Value & 0x18) + 0x04;
+        Visible = true;
+        QueueRedraw();
     }
 
     internal override bool TakeSwordHit(Vector2 _, int __) => false;

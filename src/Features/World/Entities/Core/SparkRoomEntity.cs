@@ -32,7 +32,10 @@ internal sealed class SparkRoomEntity
         ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame();
 
-    public void PrepareForScreenTransition(
-        ICollection<RoomEntitySpawn> spawns) =>
+    public ScreenTransitionPresentation PrepareForScreenTransition(
+        ICollection<RoomEntitySpawn> spawns)
+    {
         Entity.PrepareForScreenTransition();
+        return ScreenTransitionPresentation.Visible;
+    }
 }

@@ -326,10 +326,14 @@ remains the single runtime policy table.
   movement, persistent ice latch, platform wall collision, and squish/respawn
   states. Side-platform mounting copies Link's low coordinate bytes before
   shared 8.8 movement, and the post-object camera sample keeps Link stable
-  when platform and camera move together. Incoming
-  Sparks resolve visibility/wall angle before scrolling exposes them, and the
-  room `6:2a` Thwomp resolves its state-`$08` visibility/animation while its
-  ordinary behavior remains frozen. Guarded
+  when platform and camera move together. Incoming Sparks resolve
+  visibility/wall angle before scrolling exposes them, Whisps consume their
+  state-0 angle RNG and become visible without moving, and the room `6:2a`
+  Thwomp resolves its state-`$08` visibility/animation while its ordinary
+  behavior remains frozen. Transition preload now rejects any unclassified
+  hidden destination entity and centrally covers every NPC adapter, preventing
+  future state-0 presentation omissions from becoming post-scroll pop-in.
+  Guarded
   Sword-Stalfos body hits are silent; their separate imported enemy-sword part
   owns one clink, the exact six/eight-update Link recoil windows, and the
   distinct nine/eleven-update blade invincibility windows.

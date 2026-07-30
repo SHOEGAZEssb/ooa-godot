@@ -13,7 +13,7 @@ internal sealed class Room148PickaxeWorkerRoomEntity(
     NpcCharacter worker,
     PickaxeRecord record,
     Action<int> playSound)
-    : RoomEntityAdapter<NpcCharacter>(worker, worker.SetTransitionDrawOffset),
+    : NpcCharacterRoomEntityAdapter(worker, worker.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomBlocker, ITalkTarget, INpcTalkLifecycle,
         IUpdatesDuringDialogueRoomEntity
 {

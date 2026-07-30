@@ -5,7 +5,8 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class WhispRoomEntity
-    : CombatEnemyRoomEntityAdapter<WhispCharacter>, IFixedRoomEntity
+    : CombatEnemyRoomEntityAdapter<WhispCharacter>, IFixedRoomEntity,
+        IScreenTransitionPreloadRoomEntity
 {
     internal WhispRoomEntity(
         WhispCharacter whisp,
@@ -30,4 +31,11 @@ internal sealed class WhispRoomEntity
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame();
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(
+        ICollection<RoomEntitySpawn> spawns)
+    {
+        Entity.PrepareForScreenTransition();
+        return ScreenTransitionPresentation.Visible;
+    }
 }

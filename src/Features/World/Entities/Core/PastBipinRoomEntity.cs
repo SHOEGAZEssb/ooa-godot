@@ -9,7 +9,7 @@ namespace oracleofages;
 /// advances animation and resolves Link collision and priority every update.
 /// </summary>
 internal sealed class PastBipinRoomEntity
-    : RoomEntityAdapter<NpcCharacter>, IFixedRoomEntity, IRoomBlocker,
+    : NpcCharacterRoomEntityAdapter, IFixedRoomEntity, IRoomBlocker,
         ITalkTarget, IOrdinaryNpcEntity
 {
     public PastBipinRoomEntity(NpcCharacter npc)

@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class Room20eNpcRoomEntity
-    : RoomEntityAdapter<NpcCharacter>, IFixedRoomEntity, IRoomBlocker,
+    : NpcCharacterRoomEntityAdapter, IFixedRoomEntity, IRoomBlocker,
         ITalkTarget, IRoomSaveStateEntity
 {
     private readonly Room20eNpcDatabase _database;

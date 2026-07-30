@@ -86,20 +86,33 @@ Once the final transition update marks scrolling complete, ordinary destination
 logic may resume later in that same application update.
 
 Before that freeze begins, `RoomEntityManager` completes the explicit
-`IScreenTransitionPreloadRoomEntity` creation phase. This capability is only
-for source state-0 presentation work needed to draw the incoming room:
-initializing graphics, resolving visibility/deletion predicates, and creating
-presentation children. Children marked `UpdateThisFrame` must declare the same
-capability and are prepared recursively in source order. Missing declarations
-fail with the spawn and entity types instead of leaving an object invisible
-until the transition ends. This phase must not advance ordinary movement,
-animation, counters, RNG, collision, or scripts.
+`IScreenTransitionPreloadRoomEntity` state-0 phase. This mirrors
+`_updateEnemiesIfStateIsZero` and `_updateInteractionsIfStateIsZero`, which
+continue dispatching uninitialized objects while `wScrollMode` blocks their
+later states. Implementations therefore preserve every traced state-0 effect,
+including graphics, visibility/deletion predicates, presentation children,
+counters, and RNG consumption, while leaving state-8+ movement, animation,
+collision, and scripts frozen. Children marked `UpdateThisFrame` must declare
+the same capability and are prepared recursively in source order.
+
+The preloader must report whether source state 0 resolved the root as visible
+or intentionally hidden, and `RoomEntityManager` verifies that result against
+the node. Any newly created hidden destination entity without this contract
+fails immediately with its adapter type and node name instead of silently
+popping in after the scroll. All `NpcCharacter` adapters share one base
+implementation so ordinary, specialized, event-owned, and script-created NPC
+types cannot omit their already-resolved imported/script visibility.
 `ENEMY_SPARK $13` uses the phase to resolve its initial wall angle and become
 visible; wall-following movement and animation remain frozen until scrolling
-finishes. `ENEMY_THWOMP $2f` likewise installs state `$08`, animation `$04`,
-and visibility during destination parsing so it is already drawn when room
-`6:2a` scrolls onscreen; proximity, facing, movement, animation, and riding
-logic remain frozen until completion.
+finishes. `ENEMY_WHISP $19` consumes its one state-0 global RNG value and
+becomes visible without beginning state-8 movement. `ENEMY_THWOMP $2f`
+likewise installs state `$08`, animation `$04`, and visibility during
+destination parsing so it is already drawn when room `6:2a` scrolls onscreen;
+proximity, facing, movement, animation, and riding logic remain frozen until
+completion. Mature `INTERAC_GASHA_SPOT $b6` nuts and active
+`INTERAC_TIMEPORTAL_SPAWNER $e1` portals resolve visible, while dormant soil
+controllers, undiscovered portal spots, invisible seed-tree controllers, and
+flag/script-suppressed NPCs report intentionally hidden.
 
 When a room event releases dynamic actors during the destination-load callback,
 it must drop its bookkeeping without deactivating nodes that

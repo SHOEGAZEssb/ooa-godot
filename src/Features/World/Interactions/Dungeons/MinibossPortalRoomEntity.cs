@@ -94,9 +94,11 @@ internal sealed class MinibossPortalRoomEntity :
             _data.PortalDestinationTransition));
     }
 
-    public void PrepareForScreenTransition(
+    public ScreenTransitionPresentation PrepareForScreenTransition(
         ICollection<RoomEntitySpawn> spawns) =>
-        PreparePresentation();
+        PreparePresentation()
+            ? ScreenTransitionPresentation.Visible
+            : ScreenTransitionPresentation.Hidden;
 
     private bool PreparePresentation()
     {

@@ -136,6 +136,24 @@ public partial class TimePortal : TransitionOffsetNode2D
         QueueRedraw();
     }
 
+    /// <summary>
+    /// INTERAC_TIMEPORTAL_SPAWNER state 0 resolves the portal tile and installs
+    /// graphics while scrolling. An already-active portal reaches state 3 and
+    /// is drawable during the incoming transition; dormant spots remain
+    /// intentionally hidden until the Tune of Echoes activation states.
+    /// </summary>
+    internal ScreenTransitionPresentation PrepareForScreenTransition()
+    {
+        if (_state == TimePortalState.AwaitPortalTile)
+            TryInitializePlaced();
+        if (_state != TimePortalState.Active)
+            return ScreenTransitionPresentation.Hidden;
+
+        Visible = true;
+        QueueRedraw();
+        return ScreenTransitionPresentation.Visible;
+    }
+
     internal bool CheckLinkContact(Vector2 linkPosition)
     {
         if (!Active || Entered)

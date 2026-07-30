@@ -6,7 +6,8 @@ namespace oracleofages;
 
 /// <summary>Invisible INTERAC_DUNGEON_STUFF $12:$00.</summary>
 internal sealed class DungeonEntranceRoomEntity : RoomEntityAdapter<Node2D>,
-    IFixedRoomEntity, IRoomEntityLifetime
+    IFixedRoomEntity, IRoomEntityLifetime,
+    IScreenTransitionPreloadRoomEntity
 {
     private readonly EntryRecord _record;
     private readonly DungeonEntranceInteractionDatabase _data;
@@ -37,6 +38,10 @@ internal sealed class DungeonEntranceRoomEntity : RoomEntityAdapter<Node2D>,
 
     public bool Finished { get; private set; }
     internal bool Initialized => _initialized;
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(
+        ICollection<RoomEntitySpawn> spawns) =>
+        ScreenTransitionPresentation.Hidden;
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {

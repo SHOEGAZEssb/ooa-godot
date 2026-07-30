@@ -8,7 +8,7 @@ internal sealed class Room149NpcRoomEntity(
     NpcCharacter npc,
     Room149FamilyInteraction family,
     Action<RoomEntityFrame> updateFrame)
-    : RoomEntityAdapter<NpcCharacter>(npc, npc.SetTransitionDrawOffset),
+    : NpcCharacterRoomEntityAdapter(npc, npc.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomBlocker, ITalkTarget, IRoomSaveStateEntity
 {
     public void UpdateFrame(

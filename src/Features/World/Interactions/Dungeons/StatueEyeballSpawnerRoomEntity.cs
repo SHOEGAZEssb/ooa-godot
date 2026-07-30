@@ -28,10 +28,11 @@ internal sealed class StatueEyeballSpawnerRoomEntity : RoomEntityAdapter<Node2D>
         SpawnChildren(spawns);
     }
 
-    public void PrepareForScreenTransition(
+    public ScreenTransitionPresentation PrepareForScreenTransition(
         ICollection<RoomEntitySpawn> spawns)
     {
         SpawnChildren(spawns);
+        return ScreenTransitionPresentation.Hidden;
     }
 
     private void SpawnChildren(ICollection<RoomEntitySpawn> spawns)

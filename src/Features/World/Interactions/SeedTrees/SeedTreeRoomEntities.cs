@@ -6,7 +6,8 @@ internal sealed class SeedTreeControllerRoomEntity(
     SeedTreeController controller)
     : RoomEntityAdapter<SeedTreeController>(
         controller, controller.SetTransitionDrawOffset),
-        IFixedRoomEntity, IRoomEntityLifetime
+        IFixedRoomEntity, IRoomEntityLifetime,
+        IScreenTransitionPreloadRoomEntity
 {
     public bool Finished => Entity.Finished;
 
@@ -15,6 +16,9 @@ internal sealed class SeedTreeControllerRoomEntity(
         ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame();
 
+    public ScreenTransitionPresentation PrepareForScreenTransition(
+        ICollection<RoomEntitySpawn> spawns) =>
+        ScreenTransitionPresentation.Hidden;
 }
 
 internal sealed class SeedOnTreeRoomEntity(SeedOnTree seed)

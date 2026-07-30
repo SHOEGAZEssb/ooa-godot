@@ -7,7 +7,7 @@ namespace oracleofages;
 /// this adapter preserves its per-talk RNG substitution and room-$40 write.
 /// </summary>
 internal sealed class TroyHouseRoomEntity
-    : RoomEntityAdapter<NpcCharacter>,
+    : NpcCharacterRoomEntityAdapter,
         IVariableRoomEntity, IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity,
         INpcTalkLifecycle
 {

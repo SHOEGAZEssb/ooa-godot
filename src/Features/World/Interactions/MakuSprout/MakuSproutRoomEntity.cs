@@ -8,7 +8,7 @@ namespace oracleofages;
 /// Placed INTERAC_MAKU_SPROUT $88:$00 outside the active rescue script.
 /// </summary>
 internal sealed class MakuSproutRoomEntity
-    : RoomEntityAdapter<NpcCharacter>, IFixedRoomEntity, IRoomBlocker,
+    : NpcCharacterRoomEntityAdapter, IFixedRoomEntity, IRoomBlocker,
         ITalkTarget, IOrdinaryNpcEntity, INpcTalkLifecycle,
         IAlwaysUpdateDuringScreenTransitionRoomEntity,
         IUpdatesDuringDialogueRoomEntity
