@@ -83,7 +83,7 @@ internal sealed class DungeonInteractionVisualDatabase
                 { TileBase: 4, Palette: 0, Animations.Length: 1 } ||
             Visual("moving-side-platform").Animations.Length != 1 ||
             Visual("circular-side-platform").Animations.Length != 1 ||
-            Visual("minecart").Animations.Length != 2 ||
+            Visual("minecart").Animations.Length != 4 ||
             Visual("head-thwomp-fireball").Animations.Length != 2 ||
             Visual("head-thwomp-circular-projectile").Animations.Length != 1 ||
             Visual("essence-pedestal") is not

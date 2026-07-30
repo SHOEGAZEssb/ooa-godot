@@ -710,7 +710,6 @@ internal sealed class RoomEntityFactory(
             room,
             _dungeonInteractions,
             runtimeState,
-            rooms,
             _dungeonVisuals.Visual("minecart"),
             soundRequested,
             roomTileChanged,

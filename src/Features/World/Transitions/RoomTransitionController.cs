@@ -60,6 +60,7 @@ public sealed class RoomTransitionController
     private float _scrollFrame;
     private int _scrollFrames;
     private int _screenTransitionDelay;
+    private IPlayerScreenTransitionRoomEntity? _scrollPlayerOwner;
 
     private int _deactivatedWarpGroup = -1;
     private int _deactivatedWarpRoom = -1;
@@ -255,7 +256,10 @@ public sealed class RoomTransitionController
             _screenTransitionDelay = 4;
 
         OracleRoomData room = _rooms.CurrentRoom;
-        Vector2 position = player.Position;
+        IPlayerScreenTransitionRoomEntity? transitionOwner =
+            _entities.PlayerScreenTransitionOwner;
+        Vector2 position =
+            transitionOwner?.ScreenTransitionPosition ?? player.Position;
         Vector2I direction = position.Y <= 5 ? Vector2I.Up
             : position.Y > room.Height - 7 ? Vector2I.Down
             : position.X <= 5 ? Vector2I.Left
@@ -283,7 +287,16 @@ public sealed class RoomTransitionController
         int boundary = direction == Vector2I.Up || direction == Vector2I.Left
             ? 6
             : horizontal ? room.Width - 6 : room.Height - 7;
-        player.SetScreenTransitionBoundaryCoordinate(horizontal, boundary);
+        if (transitionOwner is null)
+        {
+            player.SetScreenTransitionBoundaryCoordinate(
+                horizontal, boundary);
+        }
+        else
+        {
+            transitionOwner.SetScreenTransitionBoundaryCoordinate(
+                horizontal, boundary, player);
+        }
         if (ScreenTransitionsDisabledSource())
             return;
 
@@ -292,20 +305,27 @@ public sealed class RoomTransitionController
             _screenTransitionDelay--;
             return;
         }
-        if (player.RejectsOrdinaryScreenTransition)
-            return;
-        if (!player.IsMovingTowardScreenEdge(direction))
+        // SPECIALOBJECT_MINECART is checked immediately after the delay in
+        // screenTransitionState2. It bypasses Link's angle, knockback, and
+        // terrain-hazard gates because wLinkObjectIndex points at the cart.
+        if (transitionOwner is null &&
+            (player.RejectsOrdinaryScreenTransition ||
+                !player.IsMovingTowardScreenEdge(direction)))
         {
             return;
         }
-        HazardType hazard = room.GetTerrainInfo(
-            player.Position + new Vector2(0, 5)).Hazard;
-        if (hazard is HazardType.Hole or HazardType.Lava)
-            return;
-        if (hazard == HazardType.Water &&
-            !player.Inventory.HasTreasure(TreasureDatabase.TreasureFlippers))
+        if (transitionOwner is null)
         {
-            return;
+            HazardType hazard = room.GetTerrainInfo(
+                player.Position + new Vector2(0, 5)).Hazard;
+            if (hazard is HazardType.Hole or HazardType.Lava)
+                return;
+            if (hazard == HazardType.Water &&
+                !player.Inventory.HasTreasure(
+                    TreasureDatabase.TreasureFlippers))
+            {
+                return;
+            }
         }
         // checkWarpsSidescrolling changes which warp sources are consulted; it
         // does not bypass screenTransitionState2. Side-view groups $06/$07
@@ -384,9 +404,13 @@ public sealed class RoomTransitionController
     {
         OracleRoomData source = _rooms.CurrentRoom;
         OracleRoomData target = _rooms.GetRoom(_rooms.ActiveGroup, targetId);
+        IPlayerScreenTransitionRoomEntity? transitionOwner =
+            _entities.PlayerScreenTransitionOwner;
         UpdateCamera();
         Vector2 sourceCameraOrigin = CurrentCameraOrigin;
-        Vector2 start = player.PrecisePosition;
+        Vector2 start =
+            transitionOwner?.ScreenTransitionPosition ??
+            player.PrecisePosition;
         if (direction == Vector2I.Up)
             start.Y = 6 + (start.Y - Mathf.Floor(start.Y));
         if (direction == Vector2I.Down)
@@ -422,16 +446,29 @@ public sealed class RoomTransitionController
         _entities.BeginScreenTransition(
             _rooms.ActiveGroup, target, _scrollIncomingStartOffset, direction,
             target.GetPackedPosition(transitionEnd));
+        _scrollPlayerOwner = transitionOwner;
+        _scrollPlayerOwner?.BeginScreenTransition(target);
         // Destination interaction state 0 runs during room parsing. It may
         // overwrite Link's orthogonal high coordinate before scrolling starts
         // (soldierSubid05 writes w1Link.xh=$50). The transition updater changes
         // only the scrolling axis, so retain that destination-authored write.
-        if (direction.X == 0)
-            start.X = player.PrecisePosition.X;
-        else
-            start.Y = player.PrecisePosition.Y;
+        if (_scrollPlayerOwner is null)
+        {
+            if (direction.X == 0)
+                start.X = player.PrecisePosition.X;
+            else
+                start.Y = player.PrecisePosition.Y;
+        }
         _scrollLinkStart = start;
-        player.BeginScrollingTransition(start, direction);
+        if (_scrollPlayerOwner is null)
+        {
+            player.BeginScrollingTransition(start, direction);
+        }
+        else
+        {
+            _scrollPlayerOwner.SetScreenTransitionPosition(
+                start, Vector2.Zero, player);
+        }
     }
 
     public void UpdateScroll(double delta)
@@ -444,15 +481,35 @@ public sealed class RoomTransitionController
         Vector2 screenScroll = new(_scrollDirection.X * scrollPixels, _scrollDirection.Y * scrollPixels);
         _roomView.SetTransitionFrame(_scrollFrame);
         _entities.SetScreenTransitionOffsets(-screenScroll, _scrollIncomingStartOffset - screenScroll);
-        _player.SetScrollingTransitionPosition(linkPosition, screenScroll);
+        if (_scrollPlayerOwner is null)
+        {
+            _player.SetScrollingTransitionPosition(
+                linkPosition, screenScroll);
+        }
+        else
+        {
+            _scrollPlayerOwner.SetScreenTransitionPosition(
+                linkPosition, -screenScroll, _player);
+        }
         if (_scrollFrame < _scrollFrames)
             return;
 
         _scrollActive = false;
         _roomView.FinishTransition();
-        _player.FinishScrollingTransition(linkPosition + _scrollFinishOffset);
+        Vector2 destinationPosition =
+            linkPosition + _scrollFinishOffset;
+        if (_scrollPlayerOwner is null)
+        {
+            _player.FinishScrollingTransition(destinationPosition);
+        }
+        else
+        {
+            _scrollPlayerOwner.FinishScreenTransition(
+                destinationPosition, _player);
+        }
         ScrollingTransitionFinished?.Invoke(_scrollDirection);
         _entities.FinishScreenTransition();
+        _scrollPlayerOwner = null;
         UpdateCamera();
     }
 
@@ -1147,7 +1204,11 @@ void fragment() {
     {
         if (_scrollActive)
             return;
-        Vector2 origin = GetCameraOrigin(_rooms.CurrentRoom, _player.Position);
+        Vector2 focusPosition =
+            _entities.PlayerScreenTransitionOwner?.ScreenTransitionPosition ??
+            _player.Position;
+        Vector2 origin = GetCameraOrigin(
+            _rooms.CurrentRoom, focusPosition);
         _camera.Position = origin + GameplayCameraOffset;
     }
 

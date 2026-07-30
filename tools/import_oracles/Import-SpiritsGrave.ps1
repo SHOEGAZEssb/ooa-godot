@@ -150,6 +150,126 @@ function Resolve-DungeonInteractionAnimation(
     return $frames -join '|'
 }
 
+function Resolve-MinecartSpecialObjectAnimations {
+    $animationSource = Read-ImportText (
+        Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
+    $oamSource = Read-ImportText (
+        Join-Path $Disassembly 'data\ages\specialObjectOamData.s')
+
+    $gfxBlock = [regex]::Match(
+        $animationSource,
+        '(?ms)^specialObject0aGfxPointers:(?<body>.*?)(?=^specialObject0aAnimationDataPointers:)')
+    $gfxEntries = if ($gfxBlock.Success) {
+        @([regex]::Matches(
+            $gfxBlock.Groups['body'].Value,
+            'm_SpecialObjectGfxPointer \$(?<oam>[0-9a-f]{2}) spr_dungeon_sprites \$(?<offset>[0-9a-f]{4}) \$04'))
+    } else { @() }
+    if ($gfxEntries.Count -ne 4) {
+        throw "SPECIALOBJECT_MINECART must retain four GFX rows; found $($gfxEntries.Count)."
+    }
+
+    $animationPointerBlock = [regex]::Match(
+        $animationSource,
+        '(?ms)^specialObject0aAnimationDataPointers:(?<body>.*?)(?=^animationData1a1c5:)')
+    $animationLabels = if ($animationPointerBlock.Success) {
+        @([regex]::Matches(
+            $animationPointerBlock.Groups['body'].Value,
+            '(?m)^\s*\.dw\s+(?<label>animationData[0-9a-f]+)') |
+            ForEach-Object { $_.Groups['label'].Value })
+    } else { @() }
+    if ($animationLabels.Count -ne 4 -or
+        $animationLabels[0] -ne $animationLabels[2] -or
+        $animationLabels[1] -ne $animationLabels[3]) {
+        throw 'SPECIALOBJECT_MINECART must retain its vertical/horizontal animation aliases.'
+    }
+
+    $oamPointerBlock = [regex]::Match(
+        $animationSource,
+        '(?ms)^specialObject0aOamDataPointers:(?<body>.*?)(?=^specialObject13GfxPointers:)')
+    $oamLabels = if ($oamPointerBlock.Success) {
+        @([regex]::Matches(
+            $oamPointerBlock.Groups['body'].Value,
+            '(?m)^\s*\.dw\s+(?<label>oamData4c[0-9a-f]+)') |
+            ForEach-Object { $_.Groups['label'].Value })
+    } else { @() }
+    if ($oamLabels.Count -ne 3) {
+        throw "SPECIALOBJECT_MINECART must retain three OAM rows; found $($oamLabels.Count)."
+    }
+
+    function Resolve-MinecartSpecialObjectOam(
+        [int]$gfxIndex) {
+        if ($gfxIndex -lt 0 -or $gfxIndex -ge $gfxEntries.Count) {
+            throw "SPECIALOBJECT_MINECART GFX index $gfxIndex is out of range."
+        }
+        $gfx = $gfxEntries[$gfxIndex]
+        $oamIndex = [Convert]::ToInt32($gfx.Groups['oam'].Value, 16)
+        $tileOffset =
+            [Convert]::ToInt32($gfx.Groups['offset'].Value, 16) / 16
+        if ($oamIndex -lt 0 -or $oamIndex -ge $oamLabels.Count) {
+            throw "SPECIALOBJECT_MINECART OAM index $oamIndex is out of range."
+        }
+        $label = $oamLabels[$oamIndex]
+        $block = [regex]::Match(
+            $oamSource,
+            ('(?ms)^{0}:\s*\.db \$(?<count>[0-9a-f]{{2}})(?<body>.*?)(?=^oamData4c[0-9a-f]+:|\z)' -f
+                [regex]::Escape($label)))
+        if (-not $block.Success) {
+            throw "SPECIALOBJECT_MINECART OAM body is missing: $label"
+        }
+        $cells = @([regex]::Matches(
+            $block.Groups['body'].Value,
+            '(?m)^\s*\.db\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})\s+\$(?<tile>[0-9a-f]{2})\s+\$(?<flags>[0-9a-f]{2})'))
+        $count = [Convert]::ToInt32($block.Groups['count'].Value, 16)
+        if ($cells.Count -ne $count) {
+            throw "SPECIALOBJECT_MINECART OAM $label declares $count cells but contains $($cells.Count)."
+        }
+        return @($cells | ForEach-Object {
+            $y = [Convert]::ToInt32($_.Groups['y'].Value, 16)
+            $x = [Convert]::ToInt32($_.Groups['x'].Value, 16)
+            $tile =
+                [Convert]::ToInt32($_.Groups['tile'].Value, 16) +
+                $tileOffset
+            $flags = [Convert]::ToInt32($_.Groups['flags'].Value, 16)
+            "$y,$x,$tile,$flags"
+        }) -join ';'
+    }
+
+    $resolved = [Collections.Generic.List[string]]::new()
+    foreach ($label in $animationLabels[0..1]) {
+        $body = [regex]::Match(
+            $animationSource,
+            "(?ms)^$([regex]::Escape($label)):(?<body>.*?)(?=^animationData[0-9a-f]+:|^specialObject0aOamDataPointers:)")
+        if (-not $body.Success -or
+            $body.Groups['body'].Value -notmatch
+                "(?m)^\s*m_AnimationLoop\s+$([regex]::Escape($label))\s*$") {
+            throw "SPECIALOBJECT_MINECART animation body is incomplete: $label"
+        }
+        $frames = [Collections.Generic.List[string]]::new()
+        foreach ($frame in [regex]::Matches(
+            $body.Groups['body'].Value,
+            '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<gfx>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})')) {
+            $duration =
+                [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
+            $gfxIndex =
+                [Convert]::ToInt32($frame.Groups['gfx'].Value, 16)
+            $parameter =
+                [Convert]::ToInt32($frame.Groups['parameter'].Value, 16)
+            $metadata = if ($parameter -eq 0) {
+                "$duration"
+            } else {
+                "$duration,$parameter"
+            }
+            $frames.Add(
+                "$metadata@$(Resolve-MinecartSpecialObjectOam $gfxIndex)")
+        }
+        if ($frames.Count -ne 2) {
+            throw "SPECIALOBJECT_MINECART animation $label must contain two frames."
+        }
+        $resolved.Add($frames -join '|')
+    }
+    return $resolved.ToArray()
+}
+
 function Add-DungeonInteractionVisual(
     [string]$key,
     [int]$id,
@@ -157,7 +277,8 @@ function Add-DungeonInteractionVisual(
     [int[]]$animations,
     [int]$tileBaseOverride = -1,
     [int]$paletteOverride = -1,
-    [bool]$sourceGrayscaleInverted = $true) {
+    [bool]$sourceGrayscaleInverted = $true,
+    [string[]]$additionalAnimations = @()) {
     $graphic = $interactionGraphics["$id`:$subid"]
     if ($null -eq $graphic) { $graphic = $interactionGraphics["$id`:0"] }
     if ($null -eq $graphic -or -not $gfxNames.ContainsKey($graphic.Gfx)) {
@@ -165,9 +286,11 @@ function Add-DungeonInteractionVisual(
     }
     $sprite = $gfxNames[$graphic.Gfx]
     Copy-EnemySprite $sprite
-    $resolved = @($animations | ForEach-Object {
-        Resolve-DungeonInteractionAnimation $id $_
-    })
+    $resolved = @(
+        @($animations | ForEach-Object {
+            Resolve-DungeonInteractionAnimation $id $_
+        }) +
+        @($additionalAnimations))
     if ($resolved.Count -eq 0 -or ($resolved | Where-Object { -not $_ }).Count -gt 0) {
         throw "Dungeon interaction visual $key has unresolved animations."
     }
@@ -187,7 +310,8 @@ Add-DungeonInteractionVisual 'colored-cube' 0x19 5 (0..29) -sourceGrayscaleInver
 Add-DungeonInteractionVisual 'cube-flame' 0x1a 0 @(0)
 Add-DungeonInteractionVisual 'moving-side-platform' 0xa1 0 @(4)
 Add-DungeonInteractionVisual 'circular-side-platform' 0xa4 0 @(0)
-Add-DungeonInteractionVisual 'minecart' 0x16 0 @(0, 1)
+Add-DungeonInteractionVisual 'minecart' 0x16 0 @(0, 1) `
+    -additionalAnimations (Resolve-MinecartSpecialObjectAnimations)
 
 # interactionCode19 loads PALH_89, which replaces OBJ palettes 6 and 7 with
 # the two color-pair palettes used by the rotating cube. Its OAM records mix

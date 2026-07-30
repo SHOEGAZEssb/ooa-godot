@@ -362,6 +362,233 @@ public sealed partial class ValidationRoot
             }
         }
 
+        // INTERAC_MINECART waits for four centered push updates, then gives
+        // Link the source SPEED_80/-$01c0 jump. SPECIALOBJECT_MINECART owns
+        // Link's screen-transition coordinate, persists as one object across
+        // rooms, animates at 6/6 updates, and gives Link the matching exit
+        // jump before restoring the stationary blocker.
+        var dungeonVisuals = new DungeonInteractionVisualDatabase();
+        DungeonInteractionVisual minecartVisual =
+            dungeonVisuals.Visual("minecart");
+        AnimationDefinition verticalRideAnimation =
+            OracleGraphicsCache.GetAnimationDefinition(
+                minecartVisual.Animations[2]);
+        AnimationDefinition horizontalRideAnimation =
+            OracleGraphicsCache.GetAnimationDefinition(
+                minecartVisual.Animations[3]);
+        FailIf(
+            minecartVisual.Animations.Length != 4 ||
+            verticalRideAnimation.Frames is not
+            [
+                { Duration: 6, Parameter: 0 },
+                { Duration: 6, Parameter: 4 }
+            ] ||
+            horizontalRideAnimation.Frames is not
+            [
+                { Duration: 6, Parameter: 0 },
+                { Duration: 6, Parameter: 4 }
+            ],
+            "SPECIALOBJECT_MINECART lost its imported vertical/horizontal " +
+            "6/6-update animation and $00/$04 Link-offset parameters.");
+
+        PrepareRoom(0x33);
+        MinecartRoomEntity minecart =
+            _entities.Entities<MinecartRoomEntity>().Single();
+        _player.WarpTo(
+            minecart.Position + new Vector2(-8, 8),
+            recordSafe: false);
+        _player.Face(Vector2I.Right);
+        _player.UpdatePushingState(Vector2I.Right);
+        Step();
+        FailIf(
+            minecart.PushCounter != 4 || minecart.Mounting,
+            "INTERAC_MINECART accepted a diagonal push without Link being " +
+            "within the source's four-pixel X-or-Y centering threshold.");
+
+        _player.WarpTo(
+            minecart.Position + Vector2.Left * 12,
+            recordSafe: false);
+        _player.Face(Vector2I.Right);
+        _player.UpdatePushingState(Vector2I.Right);
+        _sound.ClearPlayRequestAudit();
+        Step(3);
+        FailIf(
+            minecart.Mounting ||
+            minecart.PushCounter != 1 ||
+            _player.MinecartJumpActive,
+            "INTERAC_MINECART did not retain its four-update centered push.");
+        Step();
+        FailIf(
+            !minecart.Mounting ||
+            !_player.MinecartJumpActive ||
+            _player.MinecartJumpAngle != 0x08 ||
+            _player.FacingVector != Vector2I.Right ||
+            _player.TopDownAirSpeedZ != -0x01c0,
+            "INTERAC_MINECART did not begin Link's source angle-$08 " +
+            "rightward boarding jump independently of its upward rail.");
+
+        int mountJumpUpdates = 0;
+        while (!minecart.Riding && mountJumpUpdates < 60)
+        {
+            _player.AdvanceMinecartJumpUpdateForValidation();
+            Step();
+            mountJumpUpdates++;
+        }
+        FailIf(
+            !minecart.Riding ||
+            mountJumpUpdates != 26 ||
+            _player.MinecartJumpActive ||
+            minecart.CurrentAnimationIndex != 2 + (minecart.Direction & 1) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 1,
+            "Minecart boarding lost the exact falling-Z handoff, moving " +
+            "animation selection, or jump/land sounds.");
+
+        int equippedA = _inventory.EquippedA;
+        int equippedB = _inventory.EquippedB;
+        Vector2 rideInputStart = _player.PrecisePosition;
+        int rideStartTile = _currentRoom.GetMetatile(minecart.Position);
+        int rideStartDirection = minecart.Direction;
+        _inventory.EquipA(InventoryState.ItemSword);
+        _player.Face(Vector2I.Left);
+        _player.StartSwordAttackForValidation(Vector2.Zero);
+        _player.UpdateMinecartRideDirection(Vector2.Right);
+        try
+        {
+            _player._PhysicsProcess(update);
+        }
+        finally
+        {
+            _inventory.EquipA(equippedA);
+            _inventory.EquipB(equippedB);
+        }
+        FailIf(
+            !_player.MinecartRideActive ||
+            _player.FacingVector != Vector2I.Right ||
+            !_player.IsAttacking ||
+            _player.PrecisePosition != rideInputStart ||
+            _entities.PlayerSwordDisabled ||
+            _entities.PlayerItemUsageDisabled ||
+            _entities.PlayerMenusDisabled,
+            "linkState01 did not accept direction and ITEM_SWORD input while " +
+            "SPECIALOBJECT_MINECART retained sole movement ownership " +
+            $"(ride={_player.MinecartRideActive}, " +
+            $"facing={_player.FacingVector}, attacking={_player.IsAttacking}, " +
+            $"start={rideInputStart}, position={_player.PrecisePosition}, " +
+            $"swordDisabled={_entities.PlayerSwordDisabled}, " +
+            $"itemsDisabled={_entities.PlayerItemUsageDisabled}, " +
+            $"menusDisabled={_entities.PlayerMenusDisabled}).");
+        _player.AdvanceSwordForValidation(32, buttonHeld: false);
+        _player._PhysicsProcess(update);
+
+        int firstRideFrame = minecart.CurrentAnimationFrame;
+        Step(5);
+        FailIf(
+            minecart.CurrentAnimationFrame != firstRideFrame,
+            "SPECIALOBJECT_MINECART advanced before its six-update frame boundary.");
+        Step();
+        FailIf(
+            minecart.CurrentAnimationFrame == firstRideFrame,
+            "SPECIALOBJECT_MINECART did not advance on its sixth update.");
+
+        int minecartRoomTransitions = 0;
+        int rideUpdates = 6;
+        int minecartRideRoom = _currentRoom.Id;
+        Vector2 dismountJumpStart = Vector2.Zero;
+        int dismountTravelAngle = 0xff;
+        var minecartTrackTrace = new List<string>();
+        while (!minecart.Dismounting && rideUpdates < 2400)
+        {
+            if ((Mathf.FloorToInt(minecart.Position.Y) & 0x0f) == 8 &&
+                (Mathf.FloorToInt(minecart.Position.X) & 0x0f) == 8)
+            {
+                minecartTrackTrace.Add(
+                    $"4:{minecartRideRoom:x2}@{minecart.Position}" +
+                    $"/${_currentRoom.GetMetatile(minecart.Position):x2}" +
+                    $"/d{minecart.Direction}/a${minecart.Angle:x2}");
+            }
+            _player._PhysicsProcess(update);
+            Vector2 linkPositionBeforeCartUpdate = _player.PrecisePosition;
+            int cartAngleBeforeUpdate = minecart.Angle;
+            Step();
+            UpdatePostObjectPlayerState();
+            rideUpdates++;
+            if (minecart.Dismounting)
+            {
+                dismountJumpStart =
+                    linkPositionBeforeCartUpdate + Vector2.Down * 6;
+                dismountTravelAngle = cartAngleBeforeUpdate;
+            }
+            if (!_transitions.ScrollActive)
+                continue;
+
+            int sourceRoom = minecartRideRoom;
+            CompleteTransition();
+            minecartRoomTransitions++;
+            minecartRideRoom = _currentRoom.Id;
+            FailIf(
+                _currentRoom.Id == sourceRoom ||
+                minecartRoomTransitions == 1 &&
+                    (sourceRoom != 0x33 || _currentRoom.Id != 0x2f) ||
+                minecartRoomTransitions == 2 &&
+                    (sourceRoom != 0x2f || _currentRoom.Id != 0x33) ||
+                _entities.Entities<MinecartRoomEntity>() is not
+                    [var retainedMinecart] ||
+                !ReferenceEquals(retainedMinecart, minecart) ||
+                !minecart.Riding,
+                "SPECIALOBJECT_MINECART did not persist as the single active " +
+                "cart across its dungeon room scroll " +
+                $"(source=4:{sourceRoom:x2}, destination=4:{_currentRoom.Id:x2}, " +
+                $"carts={_entities.Entities<MinecartRoomEntity>().Count}, " +
+                $"same={_entities.Entities<MinecartRoomEntity>().Contains(minecart)}, " +
+                $"riding={minecart.Riding}).");
+        }
+        FailIf(
+            !minecart.Dismounting ||
+            !_player.MinecartJumpActive ||
+            minecartRoomTransitions != 2 ||
+            _currentRoom.Id != 0x33 ||
+            _player.PrecisePosition != dismountJumpStart ||
+            _player.MinecartJumpAngle != dismountTravelAngle ||
+            _player.TopDownAirZ != -6 ||
+            _player.TopDownAirSpeedZ != -0x01c0,
+            "The Wing Dungeon minecart did not begin its source platform " +
+            "dismount jump " +
+            $"(updates={rideUpdates}, transitions={minecartRoomTransitions}, " +
+            $"room=4:{_currentRoom.Id:x2}, position={minecart.Position}, " +
+            $"riding={minecart.Riding}, dismounting={minecart.Dismounting}, " +
+            $"direction={minecart.Direction}, startTile=${rideStartTile:x2}, " +
+            $"startDirection={rideStartDirection}, " +
+            $"jump={_player.MinecartJumpActive}, " +
+            $"z={_player.TopDownAirZ}, speedZ={_player.TopDownAirSpeedZ}, " +
+            $"track={string.Join(",", minecartTrackTrace)}).");
+
+        int dismountJumpUpdates = 0;
+        while ((_player.MinecartJumpActive || minecart.Dismounting) &&
+            dismountJumpUpdates < 60)
+        {
+            _player.AdvanceMinecartJumpUpdateForValidation();
+            Step();
+            dismountJumpUpdates++;
+        }
+        Vector2 dismountDirection =
+            OracleObjectMovement.Shared.Direction(dismountTravelAngle);
+        Vector2 escapedMovement = _collision.ResolveMovement(
+            _player.PrecisePosition,
+            dismountDirection,
+            allowWallSlide: true);
+        FailIf(
+            dismountJumpUpdates != 32 ||
+            _player.MinecartJumpActive ||
+            minecart.Dismounting ||
+            minecart.Riding ||
+            escapedMovement.Dot(dismountDirection) <= 0,
+            "SPECIALOBJECT_MINECART did not finish Link's 32-update exit " +
+            "jump with movement away from the restored cart blocker.");
+
+        MinecartRuntimeState.Reset(
+            _entities.RuntimeState, data.Minecarts);
+
         // Direct development launches of D2's aliased side-view layouts must
         // enter source group $06, exactly as their retail staircase warps do.
         // Exercise every D2 edge-warp quadrant rather than only reading the

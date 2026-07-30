@@ -877,12 +877,24 @@ still rejected. The final post-interaction
 coordinate. In particular, room `6:2b`'s bottom-right platform route carries
 Link from boundary `$a9` to `$aa` after his own air update; checking earlier
 misses its edge warp. The same final camera sample keeps Link's screen-space
-coordinate stable while a platform and camera move together. Minecarts preserve the three
-`dungeon2StaticObjects` slots and one active cart in runtime WRAM-style bytes.
-Mounting locks ordinary movement, items, sword, and menus; track centers select
-the next cardinal direction, gates observe the shared switch byte, and a
-room-edge transition carries the same active cart before materializing its
-next stationary slot.
+coordinate stable while a platform and camera move together. Minecarts
+preserve the three `dungeon2StaticObjects` slots and one active cart in runtime
+WRAM-style bytes. Four push updates within the source's four-pixel X-or-Y
+centering threshold start a `SPEED_80`/`-$01c0` boarding jump at the exact
+32-angle direction from Link to the cart; the handoff occurs while Link is
+falling at Z `-$06..-$01`. The active `SPECIALOBJECT_MINECART` uses its
+imported two-frame 6/6-update animation, applies the frame-dependent Link
+offsets, and owns the position, camera focus, and input/hazard bypass used by
+`screenTransitionState2`. Link can still change facing, swing the Sword, use
+the Seed Satchel, and open menus while riding; independent movement and the
+other source-rejected items remain blocked. Scrolling carries that same cart
+entity into the destination before track processing resumes. Minecart shutter
+tiles expose their direction-specific `$5d/$5e` track replacements. A platform
+dismount recreates the stationary slot and gives Link the matching
+`SPEED_80`/`-$01c0` jump from his current position plus six Y pixels at the
+cart's exact travel angle and Z `-$06`; the cart blocker is restored only after
+Link lands. Mounting and dismounting retain exclusive control. Track centers
+select the next cardinal direction, and gates observe the shared switch byte.
 
 Head Thwomp's room resolves Bomb catches before ordinary Bomb fuse/explosion
 processing. A caught live `BombEffect` is consumed once and transferred to the

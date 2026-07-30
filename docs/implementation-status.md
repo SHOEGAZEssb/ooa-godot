@@ -317,11 +317,14 @@ remains the single runtime policy table.
   controllers, floor and colored-block pattern keys, switch-tile and minecart
   gates, enemy chests and falling keys, both colored-cube puzzle variants, all
   six source chests, four scripted side-view platforms, three circular
-  platforms, and three persistent cross-room minecarts. Direct room entry
-  switches aliased side layouts into active group `$06`, where the ordinary
-  horizontal `6:29 <-> 6:2a` scroll and all four imported vertical edge-warp
-  quadrants operate, including room `6:2b`'s post-platform `$a9` to `$aa`
-  lower exit. Side-view physics retain the source 16-bit Y wrap,
+  platforms, and three persistent cross-room minecarts. Minecarts use their
+  source-angle boarding/dismount jumps, moving two-frame animations and Link
+  offsets, retain Link's facing and Sword input while the cart owns movement,
+  and remain the position/camera owner through no-input room scrolling. Direct
+  room entry switches aliased side layouts into active group `$06`, where the
+  ordinary horizontal `6:29 <-> 6:2a` scroll and all four imported vertical
+  edge-warp quadrants operate, including room `6:2b`'s post-platform `$a9` to
+  `$aa` lower exit. Side-view physics retain the source 16-bit Y wrap,
   descending-only lava/hole checks, water exit, Flippers/Mermaid Suit
   movement, persistent ice latch, platform wall collision, and squish/respawn
   states. Side-platform mounting copies Link's low coordinate bytes before

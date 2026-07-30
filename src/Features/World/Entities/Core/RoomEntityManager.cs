@@ -101,6 +101,30 @@ public sealed class RoomEntityManager : IDisposable
             return false;
         }
     }
+    internal IPlayerScreenTransitionRoomEntity? PlayerScreenTransitionOwner
+    {
+        get
+        {
+            IPlayerScreenTransitionRoomEntity? owner = null;
+            foreach (IRoomEntity entity in _activeEntities)
+            {
+                if (entity is not IPlayerScreenTransitionRoomEntity
+                    {
+                        ControlsPlayerScreenTransition: true
+                    } candidate)
+                {
+                    continue;
+                }
+                if (owner is not null)
+                {
+                    throw new InvalidOperationException(
+                        "Multiple room entities own Link's screen-transition position.");
+                }
+                owner = candidate;
+            }
+            return owner;
+        }
+    }
     internal bool HasActiveSeedProjectile
     {
         get
@@ -351,6 +375,19 @@ public sealed class RoomEntityManager : IDisposable
     {
         if (!_screenTransitionActive)
             return;
+        for (int index = _outgoingEntities.Count - 1; index >= 0; index--)
+        {
+            IRoomEntity entity = _outgoingEntities[index];
+            if (entity is not IPlayerScreenTransitionRoomEntity
+                {
+                    ControlsPlayerScreenTransition: true
+                })
+            {
+                continue;
+            }
+            _outgoingEntities.RemoveAt(index);
+            _activeEntities.Add(entity);
+        }
         ClearEntities(_outgoingEntities);
         foreach (IRoomEntity entity in _activeEntities)
             entity.SetTransitionDrawOffset(Vector2.Zero);

@@ -5,7 +5,8 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class ZolRoomEntity
-    : CombatEnemyRoomEntityAdapter<ZolCharacter>, IFixedRoomEntity
+    : CombatEnemyRoomEntityAdapter<ZolCharacter>, IFixedRoomEntity,
+        IScreenTransitionPreloadRoomEntity
 {
     public ZolRoomEntity(
         ZolCharacter zol,
@@ -52,6 +53,14 @@ internal sealed class ZolRoomEntity
         }
     }
 
+    public ScreenTransitionPresentation PrepareForScreenTransition(
+        ICollection<RoomEntitySpawn> spawns) =>
+        // enemyCode34 state 0 is completed by ZolCharacter.Initialize.
+        // Subid $00 intentionally remains hidden in state $08 until Link is
+        // within the strict $28 Manhattan-distance wake check.
+        Entity.Visible
+            ? ScreenTransitionPresentation.Visible
+            : ScreenTransitionPresentation.Hidden;
 }
 
 internal sealed record KillEnemyPuffSpawn(Vector2 Position) : RoomEntitySpawn;

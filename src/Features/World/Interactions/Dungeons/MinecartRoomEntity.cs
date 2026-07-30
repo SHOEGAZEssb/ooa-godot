@@ -11,41 +11,50 @@ namespace oracleofages;
 /// </summary>
 internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntity,
     IRoomEntity, IFixedRoomEntity, IRoomBlocker, IRoomEntityLifetime,
-    IPlayerRestriction, IPlayerForcedMovement
+    IPlayerRestriction, IPlayerForcedMovement, IPlayerRideableRoomEntity,
+    IPlayerScreenTransitionRoomEntity
 {
     private const int SndMinecart = 0x80;
 
-    private readonly OracleRoomData _room;
+    private OracleRoomData _room;
     private readonly DungeonInteractionDatabase _data;
     private readonly OracleRuntimeState _runtime;
-    private readonly RoomSession? _rooms;
     private readonly Action<int> _playSound;
     private readonly Action _roomTileChanged;
     private readonly Func<long> _animationTick;
     private Vector2 _precisePosition;
+    private OracleRoomData? _transitionDestination;
     private int _slot;
     private int _roomId;
     private int _direction;
+    private int _angle;
     private int _pushCounter;
     private int _soundCounter;
-    private bool _riding;
+    private MinecartPhase _phase;
 
     public Node2D Node => this;
     public bool Finished { get; private set; }
-    public bool DisablesSword => _riding;
-    public bool DisablesItems => _riding;
-    public bool DisablesMovement => _riding;
-    public bool DisablesMenus => _riding;
-    internal bool Riding => _riding;
+    public bool DisablesSword => false;
+    public bool DisablesItems => false;
+    public bool DisablesMovement => _phase != MinecartPhase.Stationary;
+    public bool DisablesMenus => false;
+    public bool LinkRiding => _phase == MinecartPhase.Riding;
+    public bool ControlsPlayerScreenTransition => LinkRiding;
+    public Vector2 ScreenTransitionPosition => _precisePosition;
+    internal bool Riding => LinkRiding;
+    internal bool Mounting => _phase == MinecartPhase.Mounting;
+    internal bool Dismounting => _phase == MinecartPhase.Dismounting;
     internal int Direction => _direction;
+    internal int Angle => _angle;
     internal int PushCounter => _pushCounter;
+    internal int CurrentAnimationIndex => AnimationIndex;
+    internal int CurrentAnimationFrame => AnimationFrame;
 
     internal MinecartRoomEntity(
         ActiveMinecart cart,
         OracleRoomData room,
         DungeonInteractionDatabase data,
         OracleRuntimeState runtime,
-        RoomSession? rooms,
         DungeonInteractionVisual visual,
         Action<int> playSound,
         Action roomTileChanged,
@@ -54,7 +63,6 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
         _room = room;
         _data = data;
         _runtime = runtime;
-        _rooms = rooms;
         _playSound = playSound;
         _roomTileChanged = roomTileChanged;
         _animationTick = animationTick;
@@ -62,10 +70,13 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
         _roomId = cart.Room;
         _precisePosition = cart.Position;
         Position = cart.Position;
-        _riding = cart.Riding;
+        _phase = cart.Riding
+            ? MinecartPhase.Riding
+            : MinecartPhase.Stationary;
         _direction = cart.Riding
             ? cart.Direction
             : DirectionAwayFromPlatform();
+        _angle = _direction * 8;
         _pushCounter = _data.Constant("minecart-mount-push");
         Name = cart.Riding
             ? $"MinecartRide_{cart.Room:x2}"
@@ -74,12 +85,12 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
         InitializeVisual(
             visual,
             Position,
-            _direction & 1);
+            AnimationForCurrentState());
     }
 
     public bool BlocksLink(Vector2 linkCenter)
     {
-        if (_riding)
+        if (_phase != MinecartPhase.Stationary)
             return false;
         Vector2 delta = linkCenter - Position;
         return Math.Abs(delta.X) < 12 && Math.Abs(delta.Y) < 12;
@@ -87,16 +98,36 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
 
     public void UpdatePlayerForcedMovement(Player player)
     {
-        if (_riding)
-            player.SetScriptedPosition(Position);
+        if (LinkRiding)
+        {
+            player.SetMinecartRidePosition(
+                _precisePosition,
+                _direction,
+                AnimationParameter,
+                Vector2.Zero);
+        }
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        if (_riding)
-            UpdateRide(frame.Player);
-        else
-            UpdateStationary(frame.Player);
+        switch (_phase)
+        {
+            case MinecartPhase.Stationary:
+                UpdateStationary(frame.Player);
+                break;
+            case MinecartPhase.Mounting:
+                UpdateMount(frame.Player);
+                break;
+            case MinecartPhase.Riding:
+                UpdateRide(frame.Player);
+                break;
+            case MinecartPhase.Dismounting:
+                UpdateDismount(frame.Player);
+                break;
+            default:
+                throw new InvalidOperationException(
+                    $"Unsupported minecart phase {_phase}.");
+        }
         QueueRedraw();
     }
 
@@ -112,7 +143,7 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
             pushDirection != Vector2I.Zero &&
             player.IsAttemptingObjectPush(pushDirection) &&
             delta.Dot((Vector2)pushDirection) is >= 8 and < 20 &&
-            Math.Abs(delta.Dot(new Vector2(-pushDirection.Y, pushDirection.X))) < 7;
+            (Math.Abs(delta.X) <= 4 || Math.Abs(delta.Y) <= 4);
         if (!pushing)
         {
             _pushCounter = _data.Constant("minecart-mount-push");
@@ -121,13 +152,29 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
         if (--_pushCounter != 0)
             return;
 
-        _direction = DirectionAwayFromPlatform();
-        _riding = true;
+        int boardingAngle = OracleObjectMovement.Shared.RelativeAngle(
+            Position, player.PrecisePosition) ^ 0x10;
+        _phase = MinecartPhase.Mounting;
+        player.BeginMinecartJump(
+            player.PrecisePosition,
+            boardingAngle,
+            initialZ: 0);
+    }
+
+    private void UpdateMount(Player player)
+    {
+        if (!player.MinecartJumpReadyToRide)
+            return;
+
+        _phase = MinecartPhase.Riding;
         _soundCounter = 0;
-        SetAnimation(_direction & 1);
+        SetAnimation(AnimationForCurrentState());
         MinecartRuntimeState.BeginRide(
             _runtime, _slot, _roomId, Position, _direction);
-        player.SetScriptedPosition(Position);
+        player.FinishMinecartMount(
+            _precisePosition,
+            _direction,
+            AnimationParameter);
     }
 
     private void UpdateRide(Player player)
@@ -135,23 +182,24 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
         if (AtTileCenter() && UpdateTrackAtCenter(player))
             return;
 
-        Vector2 previous = _precisePosition;
         Position = OracleObjectMovement.Shared.ApplySpeed(
             ref _precisePosition,
             _data.Constant("minecart-speed"),
-            _direction * 8);
+            _angle);
         if (--_soundCounter < 0)
         {
             _soundCounter = 0x1a;
             _playSound(SndMinecart);
         }
 
-        if (!TryBeginNeighborRoom(previous))
-        {
-            MinecartRuntimeState.UpdateRide(
-                _runtime, _roomId, Position, _direction);
-        }
-        player.SetScriptedPosition(Position);
+        MinecartRuntimeState.UpdateRide(
+            _runtime, _roomId, Position, _direction);
+        AdvanceAnimation();
+        player.SetMinecartRidePosition(
+            _precisePosition,
+            _direction,
+            AnimationParameter,
+            Vector2.Zero);
     }
 
     private bool UpdateTrackAtCenter(Player player)
@@ -166,7 +214,8 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
                 out int[] allowed))
         {
             _direction ^= 2;
-            SetAnimation(_direction & 1);
+            _angle = _direction * 8;
+            SetAnimation(AnimationForCurrentState());
             return false;
         }
 
@@ -210,7 +259,8 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
             if (replacement != _direction)
             {
                 _direction = replacement;
-                SetAnimation(_direction & 1);
+                _angle = _direction * 8;
+                SetAnimation(AnimationForCurrentState());
             }
             return false;
         }
@@ -218,68 +268,121 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
         int firstDoor = _data.Constant("minecart-door-up");
         if (nextTile >= firstDoor && nextTile < firstDoor + 4)
         {
+            int openedTrack = ((nextTile - firstDoor) & 1) == 0
+                ? _data.Constant("track-vertical")
+                : _data.Constant("track-horizontal");
             _room.SetPositionTileAndCollision(
-                nextPoint, 0xa0, null, _animationTick());
+                nextPoint, checked((byte)openedTrack), null, _animationTick());
             _roomTileChanged();
             return false;
         }
 
         _direction ^= 2;
-        SetAnimation(_direction & 1);
+        _angle = _direction * 8;
+        SetAnimation(AnimationForCurrentState());
         return false;
     }
 
     private void Dismount(Player player)
     {
+        int rideAngle = _angle;
+        Vector2 linkJumpPosition = player.PrecisePosition + Vector2.Down * 6;
         _slot = MinecartRuntimeState.FinishRide(
             _runtime, _roomId, Position);
-        _riding = false;
+        _phase = MinecartPhase.Dismounting;
         _pushCounter = _data.Constant("minecart-mount-push");
-        player.SetScriptedPosition(Position + Vector2.Down * 6);
+        player.BeginMinecartJump(
+            linkJumpPosition,
+            rideAngle,
+            initialZ: -6);
         _direction = DirectionAwayFromPlatform();
-        SetAnimation(_direction & 1);
+        _angle = _direction * 8;
+        SetAnimation(AnimationForCurrentState());
     }
 
-    private bool TryBeginNeighborRoom(Vector2 previous)
+    private void UpdateDismount(Player player)
     {
-        Vector2I direction;
-        Vector2 stored = Position;
-        if (Position.X < 0 && previous.X >= 0)
+        if (player.MinecartJumpActive)
+            return;
+        _phase = MinecartPhase.Stationary;
+        _pushCounter = _data.Constant("minecart-mount-push");
+    }
+
+    public void SetScreenTransitionBoundaryCoordinate(
+        bool horizontal,
+        int coordinate,
+        Player player)
+    {
+        if (!ControlsPlayerScreenTransition)
+            throw new InvalidOperationException(
+                "A stationary minecart cannot own a screen boundary.");
+        if (horizontal)
         {
-            direction = Vector2I.Left;
-            stored.X = _room.Width - 1;
-        }
-        else if (Position.X >= _room.Width && previous.X < _room.Width)
-        {
-            direction = Vector2I.Right;
-            stored.X = 0;
-        }
-        else if (Position.Y < 0 && previous.Y >= 0)
-        {
-            direction = Vector2I.Up;
-            stored.Y = _room.Height - 1;
-        }
-        else if (Position.Y >= _room.Height && previous.Y < _room.Height)
-        {
-            direction = Vector2I.Down;
-            stored.Y = 0;
+            float fraction =
+                _precisePosition.X - Mathf.Floor(_precisePosition.X);
+            _precisePosition.X = coordinate + fraction;
         }
         else
         {
-            return false;
+            float fraction =
+                _precisePosition.Y - Mathf.Floor(_precisePosition.Y);
+            _precisePosition.Y = coordinate + fraction;
         }
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        MinecartRuntimeState.UpdateRide(
+            _runtime, _roomId, _precisePosition, _direction);
+        player.SetMinecartRidePosition(
+            _precisePosition,
+            _direction,
+            AnimationParameter,
+            Vector2.Zero);
+    }
 
-        if (_rooms is null ||
-            !_rooms.TryGetNeighbor(4, _roomId, direction, out int neighbor))
+    public void BeginScreenTransition(OracleRoomData destination)
+    {
+        if (!ControlsPlayerScreenTransition ||
+            _transitionDestination is not null)
         {
             throw new InvalidOperationException(
-                $"Minecart in dungeon room 4:{_roomId:x2} crossed " +
-                $"{direction} without an imported dungeon neighbor.");
+                "SPECIALOBJECT_MINECART received an invalid scrolling handoff.");
         }
-        _roomId = neighbor;
+        _transitionDestination = destination;
+    }
+
+    public void SetScreenTransitionPosition(
+        Vector2 position,
+        Vector2 screenOffset,
+        Player player)
+    {
+        if (_transitionDestination is null)
+            throw new InvalidOperationException(
+                "SPECIALOBJECT_MINECART moved without a transition destination.");
+        _precisePosition = position;
+        Position = OracleObjectMath.ToPixelPosition(position);
+        player.SetMinecartRidePosition(
+            position,
+            _direction,
+            AnimationParameter,
+            screenOffset);
+    }
+
+    public void FinishScreenTransition(Vector2 position, Player player)
+    {
+        OracleRoomData destination = _transitionDestination ??
+            throw new InvalidOperationException(
+                "SPECIALOBJECT_MINECART finished without a destination.");
+        _transitionDestination = null;
+        _room = destination;
+        _roomId = destination.Id;
+        _precisePosition = position;
+        Position = OracleObjectMath.ToPixelPosition(position);
         MinecartRuntimeState.UpdateRide(
-            _runtime, _roomId, stored, _direction);
-        return true;
+            _runtime, _roomId, position, _direction);
+        player.SetMinecartRidePosition(
+            position,
+            _direction,
+            AnimationParameter,
+            Vector2.Zero);
     }
 
     private int DirectionAwayFromPlatform()
@@ -305,6 +408,9 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
     private bool AtTileCenter() =>
         (Mathf.FloorToInt(Position.Y) & 0x0f) == 8 &&
         (Mathf.FloorToInt(Position.X) & 0x0f) == 8;
+
+    private int AnimationForCurrentState() =>
+        (_phase == MinecartPhase.Riding ? 2 : 0) + (_direction & 1);
 
     private bool TryTrackExit(
         int direction,
@@ -353,4 +459,12 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
     private static Vector2 PointFor(int packedPosition) => new(
         (packedPosition & 0x0f) * 16 + 8,
         (packedPosition >> 4) * 16 + 8);
+}
+
+internal enum MinecartPhase
+{
+    Stationary,
+    Mounting,
+    Riding,
+    Dismounting
 }

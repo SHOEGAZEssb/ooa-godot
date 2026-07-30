@@ -81,6 +81,9 @@ public partial class Player : Node2D
     private double _ledgeUpdateAccumulator;
     private double _sideScrollUpdateAccumulator;
     private double _topDownAirUpdateAccumulator;
+    private bool _minecartJumpControlled;
+    private bool _minecartRideControlled;
+    private int _minecartJumpAngle = 0xff;
     private int _ledgeGroundYFixed;
     private int _ledgeGroundXFixed;
     private int _ledgeZFixed;
@@ -322,6 +325,13 @@ public partial class Player : Node2D
     internal int TopDownAirZ => _topDownAirZFixed >> 8;
     internal int TopDownAirSpeedZ => _topDownAirSpeedZ;
     internal int TopDownAirAnimationPhase => _topDownAirAnimationPhase;
+    internal bool MinecartJumpActive => _minecartJumpControlled;
+    internal bool MinecartRideActive => _minecartRideControlled;
+    internal int MinecartJumpAngle => _minecartJumpAngle;
+    internal bool MinecartJumpReadyToRide =>
+        _minecartJumpControlled &&
+        _topDownAirSpeedZ >= 0 &&
+        TopDownAirZ >= -6;
     internal LedgeJumpState LedgeJumpPhase => _ledgeJumpState;
     internal bool LedgeShadowDrawn =>
         _ledgeZFixed < 0 &&
@@ -1164,6 +1174,12 @@ public partial class Player : Node2D
             return;
         }
 
+        if (_minecartJumpControlled)
+        {
+            AdvanceMinecartJumpUpdate();
+            return;
+        }
+
         if (_world.IsTransitioning)
             return;
 
@@ -1182,8 +1198,9 @@ public partial class Player : Node2D
         ApplyTerrainWalkSoundParameter();
 
         Vector2 movementStart = _precisePosition;
-        Vector2 input = Input.GetVector("move_left", "move_right", "move_up", "move_down");
-        if (_world.MovementDisabled)
+        Vector2 input = Input.GetVector(
+            "move_left", "move_right", "move_up", "move_down");
+        if (_world.MovementDisabled && !_minecartRideControlled)
             input = Vector2.Zero;
         _lastMovementInput = input;
 
@@ -1223,17 +1240,21 @@ public partial class Player : Node2D
                 // objects and interactWithTileBeforeLink before checkUseItems.
                 // A chest/sign/keyhole therefore wins over an equipped
                 // Bracelet when both probes accept the same press.
-                if (_world.TryInteract(this))
+                if (!_minecartRideControlled && _world.TryInteract(this))
                     return;
                 if (!_world.ItemUsageDisabled &&
+                    !_minecartRideControlled &&
                     _inventory.EquippedA == InventoryState.ItemBomb &&
                     _world.TryUseBomb(this))
                     return;
                 if (!_world.ItemUsageDisabled &&
+                    !_minecartRideControlled &&
                     _inventory.EquippedA == InventoryState.ItemBracelet &&
                     _world.TryUseBracelet(this, primaryButton: true))
                     return;
-                if (!_world.ItemUsageDisabled && RingEffects.CanPunch(
+                if (!_world.ItemUsageDisabled &&
+                    !_minecartRideControlled &&
+                    RingEffects.CanPunch(
                     _inventory,
                     _inventory.EquippedA == InventoryState.ItemNone &&
                     _inventory.EquippedB == InventoryState.ItemNone))
@@ -1249,19 +1270,24 @@ public partial class Player : Node2D
             }
             else if (_inventory.EquippedA == InventoryState.ItemSword)
                 StartSwordAttack("attack", input);
-            else if (_inventory.EquippedA == InventoryState.ItemShovel)
+            else if (!_minecartRideControlled &&
+                _inventory.EquippedA == InventoryState.ItemShovel)
                 StartShovelAction(input);
-            else if (_inventory.EquippedA == InventoryState.ItemFeather)
+            else if (!_minecartRideControlled &&
+                _inventory.EquippedA == InventoryState.ItemFeather)
                 TryStartFeatherJump("attack");
             else if (_inventory.EquippedA == InventoryState.ItemSeedSatchel)
                 StartSeedSatchelAction(input);
-            else if (_inventory.EquippedA == InventoryState.ItemHarp)
+            else if (!_minecartRideControlled &&
+                _inventory.EquippedA == InventoryState.ItemHarp)
                 StartHarpAction();
         }
         else if (_activeTransformation == 0 &&
             Input.IsActionJustPressed("item") && !_world.SwordDisabled)
         {
-            if (!IsUsingItem && _world.TrySecondaryInteract(this))
+            if (!_minecartRideControlled &&
+                !IsUsingItem &&
+                _world.TrySecondaryInteract(this))
             {
                 return;
             }
@@ -1270,19 +1296,24 @@ public partial class Player : Node2D
                 // The secondary button can still lift or return shop stock.
             }
             else if (!IsUsingItem &&
+                !_minecartRideControlled &&
                 _inventory.EquippedB == InventoryState.ItemBomb)
             {
                 if (_world.TryUseBomb(this))
                     return;
             }
-            else if (!IsUsingItem && RingEffects.CanPunch(
+            else if (!IsUsingItem &&
+                !_minecartRideControlled &&
+                RingEffects.CanPunch(
                 _inventory,
                 _inventory.EquippedA == InventoryState.ItemNone &&
                 _inventory.EquippedB == InventoryState.ItemNone))
             {
                 StartPunchAction(input);
             }
-            else if (!IsUsingItem && _inventory.EquippedB == InventoryState.ItemBracelet)
+            else if (!IsUsingItem &&
+                !_minecartRideControlled &&
+                _inventory.EquippedB == InventoryState.ItemBracelet)
             {
                 if (_world.TryUseBracelet(this, primaryButton: false))
                     return;
@@ -1291,11 +1322,13 @@ public partial class Player : Node2D
             {
                 StartSwordAttack("item", input);
             }
-            else if (_inventory.EquippedB == InventoryState.ItemShovel)
+            else if (!_minecartRideControlled &&
+                _inventory.EquippedB == InventoryState.ItemShovel)
             {
                 StartShovelAction(input);
             }
-            else if (_inventory.EquippedB == InventoryState.ItemFeather)
+            else if (!_minecartRideControlled &&
+                _inventory.EquippedB == InventoryState.ItemFeather)
             {
                 TryStartFeatherJump("item");
             }
@@ -1303,7 +1336,8 @@ public partial class Player : Node2D
             {
                 StartSeedSatchelAction(input);
             }
-            else if (_inventory.EquippedB == InventoryState.ItemHarp)
+            else if (!_minecartRideControlled &&
+                _inventory.EquippedB == InventoryState.ItemHarp)
             {
                 StartHarpAction();
             }
@@ -1312,6 +1346,21 @@ public partial class Player : Node2D
         UpdateShieldState(
             Input.IsActionPressed("attack"),
             Input.IsActionPressed("item"));
+
+        if (_minecartRideControlled)
+        {
+            // linkState01 still runs checkUseItems and @updateDirection while
+            // wLinkObjectIndex points at SPECIALOBJECT_MINECART. The companion
+            // copies its position over Link later in the update, so input
+            // changes Link's facing without moving him independently.
+            UpdateMinecartRideDirection(input);
+            _walking = false;
+            _pushing = false;
+            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+            _world.CheckRoomExit(this);
+            QueueRedraw();
+            return;
+        }
 
         bool movementAllowed = !IsUsingItem || SwordAllowsMovement;
         if (_world.SideScrolling)
@@ -2915,6 +2964,135 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
+    /// <summary>
+    /// INTERAC_MINECART and SPECIALOBJECT_MINECART set wLinkInAir=$81,
+    /// SPEED_80, and speedZ=-$01c0 for both boarding and dismounting. Bit 7
+    /// permits the fixed movement through the cart/platform collision.
+    /// </summary>
+    internal void BeginMinecartJump(
+        Vector2 position,
+        int angle,
+        int initialZ)
+    {
+        if (angle is < 0 or >= OracleObjectSpeedTable.AngleCount)
+            throw new ArgumentOutOfRangeException(nameof(angle));
+
+        InterruptCarriedItems(discard: true);
+        CancelSwordAttack();
+        CancelShovelAction();
+        ClearShieldParent();
+        ClearTopDownAirState();
+        _enemyKnockbackFrames = 0.0f;
+        _pendingSwordKnockbackFrames = 0;
+        _precisePosition = position;
+        Position = OracleObjectMath.ToPixelPosition(position);
+        TopDownAirParameters parameters =
+            TopDownAirDatabase.Shared.Parameters;
+        _topDownAirZFixed = initialZ << 8;
+        _topDownAirSpeedZ = -0x01c0;
+        _topDownAirAnimationPhase = 0;
+        _topDownAirAnimationCounter =
+            parameters.AnimationPhaseDurations[0];
+        _topDownAirborne = true;
+        _topDownJumpSoundPending = true;
+        _minecartJumpAngle = angle;
+        _minecartJumpControlled = true;
+        _minecartRideControlled = false;
+        _walking = false;
+        _pushing = false;
+        QueueRedraw();
+    }
+
+    internal void FinishMinecartMount(
+        Vector2 cartPosition,
+        int cartDirection,
+        int animationParameter)
+    {
+        ClearTopDownAirState();
+        SetMinecartRidePosition(
+            cartPosition,
+            cartDirection,
+            animationParameter,
+            Vector2.Zero);
+        _world.PlaySound(TopDownAirDatabase.Shared.Parameters.LandSound);
+    }
+
+    internal void SetMinecartRidePosition(
+        Vector2 cartPosition,
+        int cartDirection,
+        int animationParameter,
+        Vector2 screenOffset)
+    {
+        if (cartDirection is < 0 or > 3)
+            throw new ArgumentOutOfRangeException(nameof(cartDirection));
+
+        bool secondFrame = animationParameter != 0;
+        Vector2 linkOffset = !secondFrame
+            ? new Vector2(0, -9)
+            : cartDirection switch
+            {
+                0 or 2 => new Vector2(-1, -9),
+                1 or 3 => new Vector2(0, -8),
+                _ => throw new InvalidOperationException()
+            };
+        _precisePosition = cartPosition + screenOffset + linkOffset;
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        _minecartRideControlled = true;
+        _walking = false;
+        _pushing = false;
+        QueueRedraw();
+    }
+
+    internal void UpdateMinecartRideDirection(Vector2 input)
+    {
+        if (!_minecartRideControlled)
+        {
+            throw new InvalidOperationException(
+                "Minecart ride direction requires active cart ownership.");
+        }
+        if (input.LengthSquared() > 0.01f)
+            UpdateFacing(input);
+    }
+
+    internal void AdvanceMinecartJumpUpdateForValidation()
+    {
+        if (_minecartJumpControlled)
+            AdvanceMinecartJumpUpdate();
+    }
+
+    private void AdvanceMinecartJumpUpdate()
+    {
+        TopDownAirParameters parameters =
+            TopDownAirDatabase.Shared.Parameters;
+        if (_topDownJumpSoundPending)
+        {
+            _topDownJumpSoundPending = false;
+            _world.PlaySound(parameters.JumpSound);
+        }
+
+        _precisePosition += OracleObjectMovement.Shared.Delta(
+            0x14,
+            _minecartJumpAngle);
+        bool landed = OracleObjectMath.UpdateSpeedZ(
+            ref _topDownAirZFixed,
+            ref _topDownAirSpeedZ,
+            parameters.Gravity);
+        if (landed)
+        {
+            ClearTopDownAirState();
+            _world.PlaySound(parameters.LandSound);
+        }
+        else
+        {
+            if (_topDownAirSpeedZ > parameters.MaximumFallSpeed)
+                _topDownAirSpeedZ = parameters.MaximumFallSpeed;
+            AdvanceTopDownAirAnimation(parameters);
+        }
+
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        QueueRedraw();
+    }
+
     private void AdvanceTopDownAirAnimation(
         TopDownAirParameters parameters)
     {
@@ -2939,6 +3117,9 @@ public partial class Player : Node2D
         _topDownAirAnimationCounter = 0;
         _topDownAirborne = false;
         _topDownJumpSoundPending = false;
+        _minecartJumpControlled = false;
+        _minecartRideControlled = false;
+        _minecartJumpAngle = 0xff;
     }
 
     private void BeginSideScrollAirborne(
@@ -3579,6 +3760,7 @@ public partial class Player : Node2D
 
         bool shieldUsable = _activeTransformation == 0 &&
             !_world.ItemUsageDisabled && !_cutsceneControlled &&
+            !_minecartRideControlled &&
             !_drowning && !_fallingInHole &&
             _ledgeJumpState == LedgeJumpState.None &&
             !IsFloorDoorRespawning && _inventory.ShieldLevel > 0;
@@ -4423,7 +4605,10 @@ public partial class Player : Node2D
                 if (_swordStateFrame >=
                     _linkItems.Constants.SwordSwingFrames)
                 {
-                    if (!buttonHeld)
+                    // swordParent state 6 deletes the sword when Link's main
+                    // object is SPECIALOBJECT_MINECART. The swing is usable,
+                    // but cannot be held or charged during the ride.
+                    if (!buttonHeld || _minecartRideControlled)
                     {
                         CancelSwordAttack();
                         return;
