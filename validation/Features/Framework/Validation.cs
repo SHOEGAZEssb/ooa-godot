@@ -226,6 +226,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateSaveAndQuitToTitle();
         ValidateRoom083Interactions();
         ValidateDebugSavestates();
+        ValidateWingDungeon();
 
         GD.Print("Validated all gameplay and world-data scenarios.");
     }

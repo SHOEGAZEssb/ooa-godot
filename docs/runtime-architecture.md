@@ -104,14 +104,16 @@ observable order before another update can begin:
 2. New-game arrival presentation.
 3. Debug flag menu, inventory, map, or a gameplay-owned modal menu.
 4. Link's special-object movement/hazard pass and item-parent pass.
-5. Moving blocks/key doors, followed by room transition state.
+5. Moving blocks/key doors, followed by active room-transition progression.
 6. Death checkpoints and room entities, including contacts, same-update child
    spawns, removals, and pending warp dispatch, unless time-warp freezes them.
 7. Scheduler-owned combat/terrain effects, room events or their time-warp-safe
    subset, then ordinary interactions.
-8. Harp children, HUD counters, animated room tiles, development displays, and
+8. The inactive `screenTransitionState2` edge check and camera sample observe
+   Link's final post-interaction position.
+9. Harp children, HUD counters, animated room tiles, development displays, and
    dialogue.
-9. One persistent music/SFX sequencer tick.
+10. One persistent music/SFX sequencer tick.
 
 Changing this order is a gameplay change. Contacts can start transitions,
 scripts can observe entity state, and the original disable masks take effect at
@@ -147,7 +149,9 @@ the presentation offset and returns physical display coordinates.
 
 Do not apply camera offsets to persistent room positions. Transition draw
 offsets are presentation state supplied to entities while their logical room
-positions remain unchanged.
+positions remain unchanged. Sample the ordinary room camera only after
+interaction-owned movement such as moving-platform displacement; sampling it
+before that displacement makes Link's screen position lag by one update.
 
 ## Production and validation
 

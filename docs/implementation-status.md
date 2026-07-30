@@ -297,10 +297,11 @@ remains the single runtime policy table.
   room `6:10`; groups `$06/$07` retain their active identity while sharing the
   original `$04/$05` tileset and object data. Link uses imported side-tile
   flags, fixed `$24` 8.8 gravity, horizontal air control, ladder and ladder-top
-  movement, landing/jump animation and sounds, and edge-warp-only exits. The
+  movement, landing/jump animation and sounds, and its edge-warp exits. The
   complete dry route descends the left ladder, crosses the lower corridor,
   climbs into the Bracelet chamber, and returns through the upper-left warp;
-  uncovered edges cannot alias into the D1 floor layout.
+  solid room boundaries block Link before an ordinary layout neighbor can
+  start.
   The cube uses PALH `$89`'s mixed OBJ palettes and source 20-update cardinal
   push test, while the Ghini/key room retains ordinary enemy-hit audio and the
   falling key's collection-behavior/get-item sound ordering. Room `4:1c`'s
@@ -308,6 +309,34 @@ remains the single runtime policy table.
   release, `$40` cooldown, and source random wander reset. Its breakable rock
   metatiles use the imported four-stage `INTERAC_ROCKDEBRIS` chip animation,
   terminal-frame lifetime, and `SND_BREAK_ROCK`.
+- Wing Dungeon (dungeon `$02`, rooms `4:27-$48`) is playable end to end across
+  all 34 rooms. Its complete source-ordered streams include Sparks, Whisps,
+  Arrow and Sword Shrouded Stalfos, Sword Masked Stalfos, Thwomps, Peahats,
+  color-changing Gels, and the existing shared enemies. Native interactions
+  cover the Rupee and level-1 Roc's Feather rewards, five toggle-floor
+  controllers, floor and colored-block pattern keys, switch-tile and minecart
+  gates, enemy chests and falling keys, both colored-cube puzzle variants, all
+  six source chests, four scripted side-view platforms, three circular
+  platforms, and three persistent cross-room minecarts. Direct room entry
+  switches aliased side layouts into active group `$06`, where the ordinary
+  horizontal `6:29 <-> 6:2a` scroll and all four imported vertical edge-warp
+  quadrants operate, including room `6:2b`'s post-platform `$a9` to `$aa`
+  lower exit. Side-platform mounting copies Link's low coordinate bytes before
+  shared 8.8 movement, and the post-object camera
+  sample keeps Link stable when platform and camera move together. Incoming
+  Sparks resolve visibility/wall angle before scrolling exposes them. Guarded
+  Sword-Stalfos body hits are silent; their separate imported enemy-sword part
+  owns one clink, the exact six/eight-update Link recoil windows, and the
+  distinct nine/eleven-update blade invincibility windows.
+  Roc's Feather uses the imported top-down `-$01e0` launch, `$20` gravity,
+  `$0300` terminal fall speed, 9/9/6-update jump animation, and source
+  jump/landing sounds. Head Thwomp consumes live Bomb entities through its
+  mouth and implements its face/color attacks, damage phases, projectiles,
+  heart drops, death, and Heart Container. Swoop implements its shuttered
+  intro, fall and bounce, TX `$2f00`, flight/stomp and floor-breaking phases,
+  damage, death, and persistent miniboss portal. Room `4:38` completes Ancient
+  Wood's TX `$000f` collection, second-Essence state, music/fades/energy
+  sequence, and white exit warp to past Maku room `1:83`.
 - Boomerang Moblin `$0a:$00`, Rope `$10:$00`, Spiked Beetle `$14:$00`,
   Ghini `$17:$00`, Wallmaster `$28:$00`, covered Spiny Beetle `$1b:$01`, and
   Hardhat Beetle `$4d:$00` are shared species rather than room-specific
@@ -530,15 +559,15 @@ remains the single runtime policy table.
   menu handoffs complete.
 - Keese, Octoroks/projectiles, masked Moblins `$20:$00` and their arrows,
   ordinary Stalfos `$31:$00`, Zols, Gels, Hardhat Beetles, Spiked Beetles, and
-  covered Spiny Beetles use
+  covered Spiny Beetles, plus Sparks, Whisps, Arrow/Sword Shrouded Stalfos,
+  Sword Masked Stalfos, Thwomps, Peahats, and color-changing Gels use
   ordered room-object placement, original spawn restrictions, shared RNG,
   combat, common/split kill sounds, common hazard effects, and source-ordered
   drop paths with live Bomb/seed ownership predicates. All 816 fixed/random
   placements carry a generated ID/subid implementation classification:
-  262 rows create 426 ordinary instances, six `$20:$00` rows identify that
-  their only implemented lane is the event-owned dynamic Masked Moblin handler
-  while retaining ordered-placement effects, and 548 rows are deliberately
-  unsupported. One typed registry now controls construction and dungeon
+  377 rows are implemented through 28 typed handlers and 83 source-flag
+  combinations, while 439 rows are deliberately unsupported. One typed
+  registry now controls construction and dungeon
   enemy-count completeness without changing source slots, reservations, or
   RNG. Keese, ordinary Stalfos, and common knockback share the imported
   four-probe cumulative adjacent-wall stream and bounce-angle table, including
@@ -764,22 +793,24 @@ remains the single runtime policy table.
 
 - The complete story, world interactions, NPC scripts, dungeons, bosses, enemy
   roster, and progression beyond the currently ported paths.
-- Door-controller variants for bosses, switches, minecarts, room entry, and
-  torches (`$1e` subids outside `$08-$0b`) remain deferred.
+- Remaining door-controller variants outside the implemented enemy shutters,
+  Wing Dungeon switch/minecart gates, room-entry handlers, and traced native
+  dungeon paths remain deferred.
 
 ### Player and inventory
 
 - Remaining active items and grabbable object species (including companions),
   swimming/diving, terrain-specific Link states, and complete
   low-health warning behavior. The Feather's side-view level-1 launch is
-  active; its top-down behavior and level-2 Roc's Cape continuation remain
-  deferred.
+  active, as is its top-down level-1 arc; the level-2 Roc's Cape continuation
+  remains deferred.
 - Room `0:50`'s Bomb Upgrade Fairy interaction and its capacity-upgrade
   dialogue/cutscene remain deferred; this does not affect ordinary active Bomb
   use.
-- Aquatic, lava, and ice side-view Link handlers plus moving, conveyor,
-  circular, and disappearing side-scroll platforms remain deferred. Dry
-  passage gravity, ladders, Feather launch, and edge warps are implemented.
+- Aquatic, lava, and ice side-view Link handlers plus conveyor and disappearing
+  side-scroll platforms remain deferred. Dry passage gravity, ladders, Feather
+  launch, edge warps, ordinary dungeon-layout scrolls, and Wing Dungeon's
+  scripted linear/circular platforms are implemented.
 - Active Scent, Pegasus, and Gale Seed state machines remain deferred.
   Mystery Seed flight, landing/terminal presentation, RNG consumption, and
   Owl Statue activation are implemented; its random transformed effects

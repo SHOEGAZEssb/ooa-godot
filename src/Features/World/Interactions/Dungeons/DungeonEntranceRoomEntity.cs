@@ -12,6 +12,7 @@ internal sealed class DungeonEntranceRoomEntity : RoomEntityAdapter<Node2D>,
     private readonly DungeonEntranceInteractionDatabase _data;
     private readonly OracleRuntimeState _runtimeState;
     private readonly Action<int, string> _triggered;
+    private readonly Action<int> _initializeStaticObjects;
     private readonly bool _whiteoutEntry;
     private bool _initialized;
 
@@ -21,6 +22,7 @@ internal sealed class DungeonEntranceRoomEntity : RoomEntityAdapter<Node2D>,
         DungeonEntranceInteractionDatabase data,
         OracleRuntimeState runtimeState,
         bool whiteoutEntry,
+        Action<int> initializeStaticObjects,
         Action<int, string> triggered)
         : base(new Node2D { Name = "DungeonEntrance", Visible = false }, static _ => { })
     {
@@ -29,6 +31,7 @@ internal sealed class DungeonEntranceRoomEntity : RoomEntityAdapter<Node2D>,
         _data = data;
         _runtimeState = runtimeState;
         _whiteoutEntry = whiteoutEntry;
+        _initializeStaticObjects = initializeStaticObjects;
         _triggered = triggered;
     }
 
@@ -54,6 +57,7 @@ internal sealed class DungeonEntranceRoomEntity : RoomEntityAdapter<Node2D>,
             _runtimeState.SetWramByte(OracleRuntimeState.SwitchStateAddress, 0);
             _runtimeState.SetWramByte(
                 OracleRuntimeState.SpinnerStateAddress, (byte)_record.SpinnerState);
+            _initializeStaticObjects(_record.Dungeon);
         }
 
         Vector2 delta = frame.Player.Position - Entity.Position;

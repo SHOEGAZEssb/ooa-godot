@@ -57,7 +57,7 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 8 ||
+        if (_importedDefinitions.Count != 16 ||
             ImportedEnemy(0x0a) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x0c) is not
@@ -696,9 +696,28 @@ public sealed class EnemyDatabase
         EnemyHandlerKind.BoomerangMoblin =>
             HasImportedDefinition(descriptor, 0x0a),
         EnemyHandlerKind.ArrowMoblin =>
-            HasImportedDefinition(descriptor, 0x0c),
+            descriptor.Id is 0x0c or 0x22 &&
+            _importedDefinitions.ContainsKey(
+                (descriptor.Id, descriptor.SubId)),
+        EnemyHandlerKind.MaskedMoblin =>
+            descriptor.Id == MaskedMoblin.Id &&
+            descriptor.SubId is 0 or 1,
         EnemyHandlerKind.Rope =>
             HasImportedDefinition(descriptor, 0x10),
+        EnemyHandlerKind.Spark =>
+            HasImportedDefinition(descriptor, 0x13),
+        EnemyHandlerKind.Whisp =>
+            HasImportedDefinition(descriptor, 0x19),
+        EnemyHandlerKind.Thwomp =>
+            HasImportedDefinition(descriptor, 0x2f),
+        EnemyHandlerKind.Peahat =>
+            HasImportedDefinition(descriptor, 0x3e),
+        EnemyHandlerKind.ColorChangingGel =>
+            HasImportedDefinition(descriptor, 0x47),
+        EnemyHandlerKind.SwordEnemy =>
+            descriptor.Id is 0x49 or 0x4a &&
+            _importedDefinitions.ContainsKey(
+                (descriptor.Id, descriptor.SubId)),
         EnemyHandlerKind.Ghini =>
             HasImportedDefinition(descriptor, 0x17),
         EnemyHandlerKind.SpikedBeetle =>

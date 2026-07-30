@@ -207,7 +207,9 @@ internal readonly record struct EnemyCombatSourceDescriptor(
             0x10 or 0x11 or 0x14 or 0x1a or 0x1f or 0x25 or 0x31 or 0x7d =>
                 EnemySwordResponse.Knockback,
             0x18 => EnemySwordResponse.Armored,
-            0x29 or 0x33 => EnemySwordResponse.NoKnockback,
+            0x17 or 0x1c or 0x28 or 0x29 or 0x33 or 0x58 or 0x6e =>
+                EnemySwordResponse.NoKnockback,
+            0x36 or 0x7e => EnemySwordResponse.Knockback,
             0x38 => EnemySwordResponse.Bump,
             _ => throw new InvalidOperationException(
                 $"{Source} resolves {Handler} ${Id:x2}:${SubId:x2} to " +

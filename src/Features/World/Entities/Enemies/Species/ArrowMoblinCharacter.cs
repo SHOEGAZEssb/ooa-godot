@@ -31,11 +31,12 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
         Vector2 position,
         OracleRandom random)
     {
-        if (record is not { Id: 0x0c, SubId: 0x00 })
+        if (record.SubId != 0 ||
+            record.Id is not (0x0c or 0x22))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(record),
-                $"Only ENEMY_ARROW_MOBLIN $0c:$00 is implemented, got " +
+                $"Only the shared arrow Moblin/Shrouded Stalfos handler is implemented, got " +
                 $"${record.Id:x2}:${record.SubId:x2}.");
         }
 

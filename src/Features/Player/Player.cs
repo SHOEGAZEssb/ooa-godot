@@ -78,6 +78,7 @@ public partial class Player : Node2D
     private float _fallInHoleInvisibleTime;
     private double _ledgeUpdateAccumulator;
     private double _sideScrollUpdateAccumulator;
+    private double _topDownAirUpdateAccumulator;
     private int _ledgeGroundYFixed;
     private int _ledgeGroundXFixed;
     private int _ledgeZFixed;
@@ -99,6 +100,12 @@ public partial class Player : Node2D
     private bool _sideScrollAirborne;
     private bool _sideScrollJumpSoundPending;
     private bool _sideScrollClimbing;
+    private int _topDownAirZFixed;
+    private int _topDownAirSpeedZ;
+    private int _topDownAirAnimationPhase;
+    private int _topDownAirAnimationCounter;
+    private bool _topDownAirborne;
+    private bool _topDownJumpSoundPending;
     private float _enemyInvincibilityFrames;
     private float _enemyKnockbackFrames;
     private Vector2 _enemyKnockbackDirection;
@@ -246,9 +253,11 @@ public partial class Player : Node2D
     internal bool IsNewGameSlowFalling => _newGameSlowFalling;
     internal bool IsGroundedForFloorButton =>
         _ledgeJumpState == LedgeJumpState.None && !_newGameSlowFalling &&
-        !_sideScrollAirborne && !_drowning && !_fallingInHole;
+        !_sideScrollAirborne && !_topDownAirborne &&
+        !_drowning && !_fallingInHole;
     internal bool AcceptsRoomEntityContact =>
-        _ledgeJumpState == LedgeJumpState.None && !IsUsingHarp;
+        _ledgeJumpState == LedgeJumpState.None && !_topDownAirborne &&
+        !IsUsingHarp;
     internal int LedgeZ => _ledgeZFixed >> 8;
     internal int LedgeSpeedZ => _ledgeSpeedZ;
     internal int LedgeSpeedRaw => _ledgeSpeedRaw;
@@ -259,6 +268,10 @@ public partial class Player : Node2D
     internal int SideScrollSpeedZ => _sideScrollSpeedZ;
     internal int SideScrollYFixed => _sideScrollYFixed;
     internal int SideScrollAnimationPhase => _sideScrollAnimationPhase;
+    internal bool TopDownAirborne => _topDownAirborne;
+    internal int TopDownAirZ => _topDownAirZFixed >> 8;
+    internal int TopDownAirSpeedZ => _topDownAirSpeedZ;
+    internal int TopDownAirAnimationPhase => _topDownAirAnimationPhase;
     internal LedgeJumpState LedgeJumpPhase => _ledgeJumpState;
     internal bool LedgeShadowDrawn =>
         _ledgeZFixed < 0 &&
@@ -447,6 +460,7 @@ public partial class Player : Node2D
         _braceletActionPose = null;
         _braceletLiftCollisionsDisabled = false;
         ClearSideScrollState(position);
+        ClearTopDownAirState();
         if (preserveShield)
             SuspendShield();
         else
@@ -1121,7 +1135,7 @@ public partial class Player : Node2D
             else if (_inventory.EquippedA == InventoryState.ItemShovel)
                 StartShovelAction(input);
             else if (_inventory.EquippedA == InventoryState.ItemFeather)
-                TryStartSideScrollJump();
+                TryStartFeatherJump();
             else if (_inventory.EquippedA == InventoryState.ItemSeedSatchel)
                 StartSeedSatchelAction(input);
             else if (_inventory.EquippedA == InventoryState.ItemHarp)
@@ -1166,7 +1180,7 @@ public partial class Player : Node2D
             }
             else if (_inventory.EquippedB == InventoryState.ItemFeather)
             {
-                TryStartSideScrollJump();
+                TryStartFeatherJump();
             }
             else if (_inventory.EquippedB == InventoryState.ItemSeedSatchel)
             {
@@ -1199,6 +1213,13 @@ public partial class Player : Node2D
             AdvanceTransformationAnimation(_walking);
             AdvanceTerrainWalkAnimation(walking: false);
             QueueRedraw();
+            return;
+        }
+
+        if (_topDownAirborne)
+        {
+            UpdateTopDownAirMovement(
+                delta, input, movementAllowed, movementStart);
             return;
         }
 
@@ -1565,6 +1586,34 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
+    internal void SynchronizeMovingPlatformSubpixels(
+        Vector2 platformPrecisePosition)
+    {
+        // sidescrollPlatform_updateLinkSubpixels copies both low coordinate
+        // bytes when Link first mounts a side-view platform. Applying the same
+        // later velocity with matched fractions keeps their rendered high
+        // bytes in lockstep.
+        _precisePosition = new Vector2(
+            Mathf.Floor(_precisePosition.X) +
+                (platformPrecisePosition.X -
+                    Mathf.Floor(platformPrecisePosition.X)),
+            Mathf.Floor(_precisePosition.Y) +
+                (platformPrecisePosition.Y -
+                    Mathf.Floor(platformPrecisePosition.Y)));
+        _sideScrollYFixed =
+            Mathf.FloorToInt(_precisePosition.Y * 256.0f);
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        QueueRedraw();
+    }
+
+    internal void SetMovingPlatformCoordinateHigh(
+        bool horizontal,
+        int coordinate)
+    {
+        // thwomp_updateLinkRidingSelf writes only Link's high Y byte.
+        SetCoordinateHigh(horizontal, coordinate);
+    }
+
     internal void ResetEnemyInvincibility()
     {
         _enemyInvincibilityFrames = 0.0f;
@@ -1755,7 +1804,8 @@ public partial class Player : Node2D
 
     public override void _Draw()
     {
-        if (LedgeShadowDrawn)
+        if (LedgeShadowDrawn ||
+            _topDownAirborne && (_world.FrameCounter & 1) != 0)
             DrawTexture(_terrainShadowTexture, _terrainShadowOffset);
 
         foreach (PlayerGroundDrawPass pass in GroundDrawOrder)
@@ -1825,6 +1875,22 @@ public partial class Player : Node2D
                 new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(
                     _sideScrollAnimationPhase * 16,
+                    (int)_facing * 16,
+                    16,
+                    16));
+        }
+        else if (_topDownAirborne)
+        {
+            DrawTextureRectRegion(
+                DamagePaletteActive
+                    ? _damageLedgeJumpTexture
+                    : _ledgeJumpTexture,
+                new Rect2(
+                    NormalSpriteOrigin +
+                        new Vector2(0, _topDownAirZFixed >> 8),
+                    new Vector2(16, 16)),
+                new Rect2(
+                    _topDownAirAnimationPhase * 16,
                     (int)_facing * 16,
                     16,
                     16));
@@ -2197,6 +2263,11 @@ public partial class Player : Node2D
 
         if (_sideScrollSpeedZ >= 0)
         {
+            if (_world.RidingObject)
+            {
+                LandFromSideScrollAir(parameters, snapToGround: false);
+                return;
+            }
             if ((walls & parameters.GroundWallMask) != 0)
             {
                 LandFromSideScrollAir(parameters, snapToGround: true);
@@ -2274,6 +2345,13 @@ public partial class Player : Node2D
         AdvanceSideScrollAirAnimation(parameters);
     }
 
+    private bool TryStartFeatherJump()
+    {
+        return _world.SideScrolling
+            ? TryStartSideScrollJump()
+            : TryStartTopDownJump();
+    }
+
     private bool TryStartSideScrollJump()
     {
         if (!_world.SideScrolling || _sideScrollAirborne ||
@@ -2295,6 +2373,140 @@ public partial class Player : Node2D
             jumped: true,
             _world.SideScrollParameters);
         return true;
+    }
+
+    private bool TryStartTopDownJump()
+    {
+        if (_topDownAirborne || _world.RidingObject ||
+            _drowning || _fallingInHole || _pullingIntoHole ||
+            IsCarryingObject || IsHoldingItemOneHand ||
+            IsHoldingItemTwoHands || _inventory.FeatherLevel <= 0)
+        {
+            return false;
+        }
+
+        TopDownAirParameters parameters =
+            TopDownAirDatabase.Shared.Parameters;
+        _topDownAirUpdateAccumulator = 0.0;
+        _topDownAirZFixed = 0;
+        _topDownAirSpeedZ = parameters.JumpSpeedZ;
+        _topDownAirAnimationPhase = 0;
+        _topDownAirAnimationCounter =
+            parameters.AnimationPhaseDurations[0];
+        _topDownAirborne = true;
+        _topDownJumpSoundPending = true;
+        _walking = false;
+        _pushing = false;
+        return true;
+    }
+
+    private void UpdateTopDownAirMovement(
+        double delta,
+        Vector2 input,
+        bool movementAllowed,
+        Vector2 movementStart)
+    {
+        _topDownAirUpdateAccumulator += delta * 60.0;
+        while (_topDownAirUpdateAccumulator + 0.000001 >= 1.0 &&
+            _topDownAirborne)
+        {
+            _topDownAirUpdateAccumulator -= 1.0;
+            AdvanceTopDownAirUpdate();
+        }
+
+        _walking = input.LengthSquared() > 0.01f && movementAllowed;
+        if (_walking)
+        {
+            if (!IsUsingItem)
+                UpdateFacing(input);
+            Vector2 movement =
+                input * Speed * GetTerrainSpeedMultiplier() * (float)delta;
+            TryMove(movement, allowWallSlide: true);
+            _walkTime += (float)delta;
+        }
+        _pushing = false;
+        UpdateHeartRingCounter(_precisePosition - movementStart);
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+
+        _world.CheckRoomExit(this);
+        if (!_world.IsTransitioning && !_topDownAirborne)
+            ApplyTerrainAtFeet();
+        AdvanceTransformationAnimation(_walking);
+        AdvanceTerrainWalkAnimation(walking: false);
+        QueueRedraw();
+    }
+
+    private void AdvanceTopDownAirUpdate()
+    {
+        TopDownAirParameters parameters =
+            TopDownAirDatabase.Shared.Parameters;
+        if (_topDownJumpSoundPending)
+        {
+            _topDownJumpSoundPending = false;
+            _world.PlaySound(parameters.JumpSound);
+        }
+
+        if (OracleObjectMath.UpdateSpeedZ(
+            ref _topDownAirZFixed,
+            ref _topDownAirSpeedZ,
+            parameters.Gravity))
+        {
+            _topDownAirborne = false;
+            _topDownAirSpeedZ = 0;
+            _topDownAirAnimationPhase = 0;
+            _topDownAirAnimationCounter = 0;
+            _world.PlaySound(parameters.LandSound);
+            return;
+        }
+
+        if (_topDownAirSpeedZ > parameters.MaximumFallSpeed)
+            _topDownAirSpeedZ = parameters.MaximumFallSpeed;
+        AdvanceTopDownAirAnimation(parameters);
+    }
+
+    internal void AdvanceTopDownAirUpdateForValidation(
+        bool startJump = false)
+    {
+        if (_world.SideScrolling)
+        {
+            throw new InvalidOperationException(
+                "A top-down Link air update was requested in a side-scrolling room.");
+        }
+        if (startJump && !TryStartTopDownJump())
+        {
+            throw new InvalidOperationException(
+                "The validation top-down jump could not start.");
+        }
+        if (_topDownAirborne)
+            AdvanceTopDownAirUpdate();
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        QueueRedraw();
+    }
+
+    private void AdvanceTopDownAirAnimation(
+        TopDownAirParameters parameters)
+    {
+        if (_topDownAirAnimationPhase >=
+            parameters.AnimationPhaseDurations.Length - 1)
+        {
+            return;
+        }
+        if (--_topDownAirAnimationCounter > 0)
+            return;
+        _topDownAirAnimationPhase++;
+        _topDownAirAnimationCounter =
+            parameters.AnimationPhaseDurations[_topDownAirAnimationPhase];
+    }
+
+    private void ClearTopDownAirState()
+    {
+        _topDownAirUpdateAccumulator = 0.0;
+        _topDownAirZFixed = 0;
+        _topDownAirSpeedZ = 0;
+        _topDownAirAnimationPhase = 0;
+        _topDownAirAnimationCounter = 0;
+        _topDownAirborne = false;
+        _topDownJumpSoundPending = false;
     }
 
     private void BeginSideScrollAirborne(

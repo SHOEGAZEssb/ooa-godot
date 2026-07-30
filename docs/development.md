@@ -54,6 +54,12 @@ Start directly in a hexadecimal group and room for development:
 
 Project arguments belong after `--`. Direct room arguments bypass the normal
 menu/checkpoint start and must not be mistaken for retail progression behavior.
+When a direct request targets a dungeon room whose tileset is side-scrolling,
+the development loader performs the retail `$04/$05` to active `$06/$07`
+group switch automatically. This keeps that room's screen-edge warp table and
+ordinary dungeon-layout screen transitions active; callers should continue to
+name the dungeon source group and room (for example,
+`--group=4 --room=29` for Wing Dungeon).
 
 ## Controls
 

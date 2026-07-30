@@ -303,14 +303,25 @@ $commonEnemySprites = @{
     0x28 = @($gfxNames[0xa0])
     0x4d = @($gfxNames[0x8c])
 }
+$commonEnemySpecs = @(
+    @(0x0a, 0x00), @(0x0c, 0x00), @(0x10, 0x00), @(0x13, 0x00),
+    @(0x14, 0x00), @(0x17, 0x00), @(0x19, 0x00), @(0x1b, 0x01),
+    @(0x22, 0x00), @(0x28, 0x00),
+    @(0x2f, 0x00), @(0x3e, 0x00), @(0x47, 0x00), @(0x49, 0x00),
+    @(0x4a, 0x01), @(0x4d, 0x00)
+)
 $commonEnemyRows = [Collections.Generic.List[string]]::new()
 $commonEnemyRows.Add(
     '# id`tsubid`tsprites`ttile-base`tpalette`tsource-grayscale-inverted`tradius-y`tradius-x`tdamage-quarters`thealth`tanimations-base64'.Replace(
         '`t', "`t"))
-foreach ($id in @(0x0a, 0x0c, 0x10, 0x14, 0x17, 0x1b, 0x28, 0x4d)) {
-    $subid = if ($id -eq 0x1b) { 1 } else { 0 }
+foreach ($spec in $commonEnemySpecs) {
+    $id = [int]$spec[0]
+    $subid = [int]$spec[1]
     $definition = Get-EnemyDefinition $id $subid
     $sprites = $commonEnemySprites[$id]
+    if ($null -eq $sprites) {
+        $sprites = @($gfxNames[$definition.Gfx])
+    }
     foreach ($sprite in $sprites) { Copy-EnemySprite $sprite }
     $animations = [Convert]::ToBase64String(
         [Text.Encoding]::UTF8.GetBytes(
@@ -318,7 +329,7 @@ foreach ($id in @(0x0a, 0x0c, 0x10, 0x14, 0x17, 0x1b, 0x28, 0x4d)) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t1`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($commonEnemyRows.Count -ne 9 -or
+if ($commonEnemyRows.Count -ne 17 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
     }) -or
@@ -342,12 +353,91 @@ if ($commonEnemyRows.Count -ne 9 -or
     }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^4d\t00\tspr_polsvoice_hardhatbeetle_spikedbeetle_beamon\t4\t3\t1\t6\t6\t2\t4\t'
-    })) {
+    }) -or
+    ($commonEnemyRows | Where-Object {
+        $_ -match '^(13|19|22|2f|3e|47|49|4a)\t'
+    }).Count -ne 8
+    ) {
     throw "Common enemy definitions no longer match the traced records:`n$($commonEnemyRows -join "`n")"
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\common_enemies.tsv'),
     $commonEnemyRows)
+
+$wingEnemySources = @{
+    spark = Read-ImportText (
+        Join-Path $Disassembly 'object_code\common\enemies\spark.s')
+    whisp = Read-ImportText (
+        Join-Path $Disassembly 'object_code\common\enemies\whisp.s')
+    thwomp = Read-ImportText (
+        Join-Path $Disassembly 'object_code\common\enemies\thwomp.s')
+    peahat = Read-ImportText (
+        Join-Path $Disassembly 'object_code\common\enemies\peahat.s')
+    sword = Read-ImportText (
+        Join-Path $Disassembly 'object_code\common\enemies\swordEnemies.s')
+    gel = Read-ImportText (
+        Join-Path $Disassembly 'object_code\ages\enemies\colorChangingGel.s')
+}
+if ($wingEnemySources.spark -notmatch
+        '(?ms)spark_state_uninitialized:.*?ld a,SPEED_100.*?spark_state8:.*?spark_updateAngle.*?objectApplySpeed' -or
+    $wingEnemySources.whisp -notmatch
+        '(?ms)whisp_state_uninitialized:.*?and \$18\s+add \$04.*?ld a,SPEED_c0.*?whisp_state8:.*?ecom_bounceOffWalls' -or
+    $wingEnemySources.thwomp -notmatch
+        '(?ms)thwomp_state8:.*?add \$14\s+cp \$29.*?thwomp_state9:.*?ld b,\$10\s+ld a,\$30.*?ld \(hl\),60.*?thwomp_stateA:.*?sub \$80.*?ld \(hl\),\$20' -or
+    $wingEnemySources.peahat -notmatch
+        '(?ms)peahat_state8:.*?ld \(hl\),\$7f.*?SPEED_20.*?peahat_state9:.*?peahat_counter1Vals:.*?\.db 180 180 210 210 240 240 0 0' -or
+    $wingEnemySources.sword -notmatch
+        '(?ms)swordEnemy_state_uninitialized:.*?SPEED_80.*?swordEnemy_state9:.*?ld \(hl\),\$60.*?SPEED_a0.*?swordEnemy_beginChasingLink:.*?ld \(hl\),\$10.*?@counter2Vals:\s+\.db \$14 \$10 \$0c' -or
+    $wingEnemySources.gel -notmatch
+        '(?ms)colorChangingGel_state_uninitialized:.*?SPEED_140.*?ld \(hl\),150.*?colorChangingGel_state8:.*?ld \(hl\),60.*?-\$180.*?colorChangingGel_stateA:.*?ld c,\$30.*?ld \(hl\),150.*?ld \(hl\),90') {
+    throw 'Wing Dungeon ordinary-enemy handler constants changed.'
+}
+$wingEnemyConstantRows = @(
+    "# key`tvalue`tsource",
+    "spark-speed-raw`t40`tspark.s:spark_state_uninitialized",
+    "whisp-speed-raw`t30`twhisp.s:whisp_state_uninitialized",
+    "thwomp-approach-radius`t20`tthwomp.s:thwomp_state8",
+    "thwomp-gravity`t48`tthwomp.s:thwomp_state9",
+    "thwomp-rest-frames`t60`tthwomp.s:thwomp_state9",
+    "thwomp-rise-speed-fixed`t128`tthwomp.s:thwomp_stateA",
+    "thwomp-cooldown-frames`t32`tthwomp.s:thwomp_stateA",
+    "thwomp-riding-radius-x`t19`tthwomp.s:thwomp_updateLinkRidingSelf",
+    "thwomp-riding-slop-y`t3`tthwomp.s:thwomp_updateLinkRidingSelf",
+    "peahat-acceleration-frames`t127`tpeahat.s:peahat_state8",
+    "peahat-slowdown-frames`t128`tpeahat.s:peahat_stateB",
+    "peahat-initial-speed-raw`t5`tpeahat.s:peahat_state8",
+    "peahat-top-speed-raw`t30`tpeahat.s:@speedVals",
+    "peahat-flight-counter-0`t180`tpeahat.s:peahat_counter1Vals",
+    "peahat-flight-counter-1`t180`tpeahat.s:peahat_counter1Vals",
+    "peahat-flight-counter-2`t210`tpeahat.s:peahat_counter1Vals",
+    "peahat-flight-counter-3`t210`tpeahat.s:peahat_counter1Vals",
+    "peahat-flight-counter-4`t240`tpeahat.s:peahat_counter1Vals",
+    "peahat-flight-counter-5`t240`tpeahat.s:peahat_counter1Vals",
+    "peahat-flight-counter-6`t0`tpeahat.s:peahat_counter1Vals",
+    "peahat-flight-counter-7`t0`tpeahat.s:peahat_counter1Vals",
+    "sword-wander-speed-raw`t20`tswordEnemies.s:swordEnemy_state_uninitialized",
+    "sword-chase-speed-raw`t25`tswordEnemies.s:swordEnemy_state9",
+    "sword-chase-prepare-frames`t16`tswordEnemies.s:swordEnemy_beginChasingLink",
+    "sword-chase-frames`t96`tswordEnemies.s:swordEnemy_state9",
+    "sword-chase-radius`t40`tswordEnemies.s:swordEnemy_checkLinkIsClose",
+    "sword-route-base`t80`tswordEnemies.s:swordEnemy_chooseRandomAngleAndCounter1",
+    "sword-route-mask`t63`tswordEnemies.s:swordEnemy_chooseRandomAngleAndCounter1",
+    "sword-toward-mask`t7`tswordEnemies.s:swordEnemy_chooseRandomAngleAndCounter1",
+    "sword-turn-interval-mask`t3`tswordEnemies.s:swordEnemy_stateA",
+    "sword-cooldown-0`t20`tswordEnemies.s:@counter2Vals",
+    "sword-cooldown-1`t16`tswordEnemies.s:@counter2Vals",
+    "sword-cooldown-2`t12`tswordEnemies.s:@counter2Vals",
+    "color-gel-wait-frames`t150`tcolorChangingGel.s:colorChangingGel_state_uninitialized",
+    "color-gel-hop-delay`t60`tcolorChangingGel.s:colorChangingGel_state8",
+    "color-gel-speed-raw`t50`tcolorChangingGel.s:colorChangingGel_state_uninitialized",
+    "color-gel-initial-speed-z`t-384`tcolorChangingGel.s:colorChangingGel_state8",
+    "color-gel-gravity`t48`tcolorChangingGel.s:colorChangingGel_stateA",
+    "color-gel-color-delay`t90`tcolorChangingGel.s:colorChangingGel_updateColor"
+)
+Write-GeneratedTable(
+    (Join-Path $destination 'metadata\wing_dungeon_enemy_constants.tsv'),
+    $wingEnemyConstantRows)
+
 $keeseAnimations = @($keeseDefinition.Animations)
 if ($keeseAnimations.Count -ne 2) {
     throw "Expected two Keese animations, resolved $($keeseAnimations.Count)."
@@ -1139,27 +1229,32 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '0a:00' = 'boomerang-moblin'
     '0c:00' = 'arrow-moblin'
     '10:00' = 'rope'
+    '13:00' = 'spark'
     '14:00' = 'spiked-beetle'
     '17:00' = 'ghini'
+    '19:00' = 'whisp'
     '1b:01' = 'spiny-beetle'
+    '20:00' = 'masked-moblin'
+    '20:01' = 'masked-moblin'
+    '22:00' = 'arrow-moblin'
     '28:00' = 'wallmaster'
+    '2f:00' = 'thwomp'
     '31:00' = 'stalfos'
     '32:00' = 'keese'
     '32:01' = 'keese'
     '34:00' = 'zol'
     '34:01' = 'zol'
+    '3e:00' = 'peahat'
     '41:00' = 'crow'
     '43:00' = 'gel'
+    '47:00' = 'color-changing-gel'
+    '49:00' = 'sword-enemy'
+    '4a:01' = 'sword-enemy'
     '4d:00' = 'hardhat-beetle'
 }
-$dynamicEnemyImplementationHandlers = [ordered]@{
-    # The Maku Sprout event owns this script-created enemy. Ordinary $20:$00
-    # room placements retain their source slots/reservations but do not route
-    # through that event-only construction path.
-    '20:00' = 'maku-sprout-masked-moblin'
-}
-if ($orderedEnemyImplementationHandlers.Count -ne 18 -or
-    $dynamicEnemyImplementationHandlers.Count -ne 1) {
+$dynamicEnemyImplementationHandlers = [ordered]@{}
+if ($orderedEnemyImplementationHandlers.Count -ne 28 -or
+    $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
 
@@ -1229,9 +1324,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 118 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 262 -or
-    $enemyClassificationCounts['dynamic-special'] -ne 6 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 548) {
+    $enemyClassificationCounts['ordered-implemented'] -ne 377 -or
+    $enemyClassificationCounts['dynamic-special'] -ne 0 -or
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 439) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -1297,8 +1392,8 @@ if ($enemyHandlerRows.Count -ne 119 -or
         "09`t00`t90`tordered-implemented`toctorok`tENEMY_OCTOROK`t" +
         'constants/common/enemies.s:ENEMY_OCTOROK')) -or
     -not $enemyHandlerRows.Contains((
-        "20`t00`t91`tdynamic-special`tmaku-sprout-masked-moblin`t" +
-        "ENEMY_MASKED_MOBLIN`tscripts/ages/scriptHelper.s:moblin_spawnEnemyHere")) -or
+        "20`t00`t91`tordered-implemented`tmasked-moblin`t" +
+        "ENEMY_MASKED_MOBLIN`tconstants/common/enemies.s:ENEMY_MASKED_MOBLIN")) -or
     -not $enemyHandlerRows.Contains((
         "14`t00`t98`tordered-implemented`tspiked-beetle`tENEMY_SPIKED_BEETLE`t" +
         'constants/common/enemies.s:ENEMY_SPIKED_BEETLE')) -or

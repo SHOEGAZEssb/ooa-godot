@@ -215,6 +215,22 @@ public partial class BombEffect : TransitionOffsetNode2D
     internal void Discard() => Finish();
 
     /// <summary>
+    /// Head Thwomp marks a bomb as consumed when it crosses the mouth window.
+    /// The original item continues only long enough to raise the boss's
+    /// pending-bomb bit; it can no longer explode or be picked up.
+    /// </summary>
+    internal bool ConsumeByBoss()
+    {
+        if (_state is BombState.Held or BombState.MaplePulling or
+            BombState.Finished)
+        {
+            return false;
+        }
+        Finish();
+        return true;
+    }
+
+    /// <summary>
     /// SPECIALOBJECT_MAPLE's vacuum moves a grounded live Bomb one source
     /// pixel per axis, then raises it by $0040 until zh reaches $f8.
     /// </summary>

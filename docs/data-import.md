@@ -37,6 +37,8 @@ and then runs these stages in dependency order:
 | `Import-EnemyData.ps1` | Ordered room objects, enemies, common collision probes, spawn restrictions, and drops |
 | `Import-SeedTreeData.ps1` | Seed-tree controllers/parts, seed-type visuals/text, and the sixteen refill histories |
 | `Import-MapleData.ps1` | Maple locations, paths, item distributions, dialogue, OAM, and Touching Book assets |
+| `Import-SpiritsGrave.ps1` | Dungeon `$01` native objects, bosses, rewards, visuals, and constants plus shared dungeon boss visuals |
+| `Import-WingDungeon.ps1` | Dungeon `$02` native objects, puzzles, side platforms, minecarts, boss records, text, and constants |
 | `Import-WorldNavigation.ps1` | Warps, dungeon layouts, neighbors, and room navigation |
 | `Import-AudioData.ps1` | Sound IDs, descriptors, channel programs, and room music |
 | `Write-GeneratedTableManifest.ps1` | Deterministic TSV schema-version, record-count, and SHA-256 manifest |
@@ -212,6 +214,14 @@ underwater remain aliases, as do indoors, dungeons, and mode five. Runtime
 loaders reject reordered rows, missing terminal zeroes, or changed aliases;
 `Player`, `CombatController`, and `BraceletController` consume the typed
 records while continuing to own separate state machines.
+
+The item stage also emits `metadata/top_down_air_constants.tsv` from
+`linkUpdateInAir`, the Feather item handler, and Link's jump animation tables.
+It retains the signed initial Z speed, normal and reduced gravity, terminal
+fall speed, 9/9/6-update animation phases, and jump/landing sounds used by
+level-1 Roc's Feather in ordinary top-down rooms. `TopDownAirDatabase` rejects
+missing or reordered values; `Player` owns the live fixed-point Z state and
+must not infer the arc from rendered height.
 
 `Import-NpcData.ps1` similarly emits `effects/grass_debris.tsv` by resolving
 interaction IDs `$00` and `$01` through their graphics, animation, OAM,
@@ -485,6 +495,26 @@ Rope `$10:$01`, Arrow Moblin `$0c:$01/$02`, and Ghini `$17:$01/$02` remain
 absent until their distinct attributes, native state machines, or golden-enemy
 persistence behavior are implemented; they must not be routed through the
 subid-0 definition.
+
+The enemy stage also owns the shared Wing Dungeon enemy closure. It imports
+Spark `$13:$00`, Whisp `$19:$00`, Arrow Shrouded Stalfos `$22:$00`, Thwomp
+`$2f:$00`, Peahat `$3e:$00`, color-changing Gel `$47:$00`, Sword Shrouded
+Stalfos `$49:$00`, and Sword Masked Stalfos `$4a:$01`, together with their
+source constants in `metadata/wing_dungeon_enemy_constants.tsv`. These
+definitions remain global ID/subid handlers even though dungeon `$02` is their
+first fully covered route. Their ordered placements, combat descriptors, and
+implementation classifications are generated with the common enemy stream.
+
+`Import-WingDungeon.ps1` verifies every native dungeon `$02` record against
+the source blocks before emitting 40 source-ordered records in
+`objects/wing_dungeon_objects.tsv`. Its companion tables retain 73 tile,
+switch, timing, movement, boss, and reward constants; five exact floor/color
+patterns; four side-platform scripts; three static minecarts; and TX `$000f`
+and `$2f00`. Runtime `WingDungeonDatabase` validates these tables and merges
+their records with shared dungeon mechanics and ordinary enemies by imported
+order. Minecart starting rooms and positions come from
+`dungeon2StaticObjects`; they are not reconstructed from track tiles or
+hard-coded in the room factory.
 
 `Import-SeedTreeData.ps1` owns the common
 `ENEMY_SEEDS_ON_TREE $5a` / `PART_SEED_ON_TREE $10` closure. It retains all

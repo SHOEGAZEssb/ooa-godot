@@ -77,6 +77,7 @@ public partial class OracleSoundEngine : Node
     public const int SndBoomerang = 0x78;
     public const int SndBigExplosion = 0x79;
     public const int SndMysterySeed = 0x7b;
+    public const int SndStrongPound = 0x81;
     public const int SndMagicPowder = 0x83;
     public const int SndMenuMove = 0x84;
     public const int SndScentSeed = 0x85;

@@ -208,10 +208,10 @@ public partial class PushBlockController : Node2D
         _active = true;
         Visible = true;
 
-        byte original = room.GetOriginalMetatile(topLeft + Vector2.One * 8.0f);
-        byte originalCollision = room.GetCollision(original);
+        byte underlying = room.GetUnderlyingMetatile(topLeft + Vector2.One * 8.0f);
+        byte originalCollision = room.GetCollision(underlying);
         byte replacement = originalCollision == 0 || originalCollision >= 0x10
-            ? original
+            ? underlying
             : record.SourceReplacement;
         room.ReplaceMetatile(topLeft + Vector2.One * 8.0f, tile, replacement, _animationTick());
         _roomView.QueueRedraw();

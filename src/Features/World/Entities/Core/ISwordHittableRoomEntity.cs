@@ -25,6 +25,15 @@ internal interface ISwordAttackerKnockbackRoomEntity
         out SwordAttackerKnockback response);
 }
 
+/// <summary>
+/// Collision tables that distinguish the active Link sword parent state can
+/// consume this context before their ordinary sword-hit capability runs.
+/// </summary>
+internal interface ILinkSwordStateAwareRoomEntity
+{
+    void SetLinkSwordState(SwordActionState state, int swordLevel);
+}
+
 internal readonly record struct SwordAttackerKnockback(
     Vector2 SourcePosition,
     int Frames);

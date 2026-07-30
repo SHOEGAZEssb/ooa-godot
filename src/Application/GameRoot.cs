@@ -504,11 +504,29 @@ public partial class GameRoot : Node2D
             _roomEvents.Update(delta);
             _interactions.Update(delta, _player);
         }
+        UpdatePostObjectPlayerState();
         _harp.Update(delta);
         _statusBar.Update(delta);
         UpdateAnimatedTiles(delta);
         UpdateRoomDebugLabel();
         _debugWarps.Update();
+    }
+
+    internal void UpdatePostObjectPlayerState()
+    {
+        // screenTransitionState2 runs after updateAllObjects in the original.
+        // Interactions and moving platforms can move Link after his own state
+        // handler, so check the final object-authored position as well. This is
+        // required for side-view edge warps reached on a moving platform.
+        if (!IsTransitioning)
+            _transitions.CheckRoomExit(_player);
+
+        // The camera likewise observes the final post-object Link position.
+        // RoomTransitionController.Update still advances active warps and
+        // scrolls at its normal point; this inactive-only sample prevents a
+        // platform displacement from appearing one application update late.
+        if (!IsTransitioning)
+            _transitions.UpdateCamera();
     }
 
     internal bool UpdateNewGameArrival(double delta)
@@ -998,8 +1016,19 @@ public partial class GameRoot : Node2D
         _transitions.ClearDeactivatedWarp();
         _entities.ClearRecentEnemyDefeats();
         OracleRoomData loaded = _rooms.Load(group, room);
+        // Dungeon side-view layouts live in object/tileset groups $04/$05,
+        // but the retail room loader switches the active group to $06/$07 so
+        // checkWarpsSidescrolling can resolve their edge-warp tables. Direct
+        // room launches bypass that retail warp, so reproduce the group switch
+        // here when the requested dungeon room is side-scrolling.
+        if (group is 4 or 5 &&
+            (loaded.TilesetFlags & 0x20) != 0 &&
+            _world.HasRoom(group + 2, room))
+        {
+            loaded = _rooms.Load(group + 2, room);
+        }
         _roomView.SetRoom(loaded.Texture);
-        _entities.LoadRoom(group, loaded);
+        _entities.LoadRoom(_rooms.ActiveGroup, loaded);
         _hud.Refresh();
         _transitions.UpdateCamera();
     }

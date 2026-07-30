@@ -277,12 +277,10 @@ public sealed class RoomTransitionController
             ApplyWarp(player, warp);
             return;
         }
-        // checkWarpsSidescrolling consults screen-edge warps only. Group
-        // $06/$07 retains the source room ID for objects and tilesets, but it
-        // must not reinterpret that ID through the aliased dungeon layout and
-        // begin an ordinary top-down scroll.
-        if ((room.TilesetFlags & 0x20) != 0)
-            return;
+        // checkWarpsSidescrolling changes which warp sources are consulted; it
+        // does not bypass screenTransitionState2. Side-view groups $06/$07
+        // therefore still use the active dungeon layout for ordinary open
+        // edges such as Wing Dungeon $29 -> $2a.
         if (!TryGetScreenTransitionDestination(direction, out int targetId) ||
             !_rooms.World.HasRoom(_rooms.ActiveGroup, targetId))
             return;
@@ -305,8 +303,6 @@ public sealed class RoomTransitionController
             point,
             new Vector2(room.Width, room.Height),
             out _);
-        if ((room.TilesetFlags & 0x20) != 0)
-            return hasEdgeWarp;
         return hasEdgeWarp ||
             (TryGetScreenTransitionDestination(direction, out int id) &&
                 _rooms.World.HasRoom(_rooms.ActiveGroup, id));

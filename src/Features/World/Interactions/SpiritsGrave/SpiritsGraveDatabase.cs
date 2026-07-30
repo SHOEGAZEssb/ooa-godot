@@ -207,15 +207,24 @@ internal sealed class SpiritsGraveDatabase
         int objectCount = 0;
         foreach (IReadOnlyList<ObjectRecord> records in _objects.Values)
             objectCount += records.Count;
-        if (objectCount != 17 || _enemies.Count != 3 || _visuals.Count != 9 ||
+        if (objectCount != 17 || _enemies.Count != 5 || _visuals.Count != 15 ||
             _constants.Count != 25 ||
             Enemy(0x3f) is not
                 { Health: 2, DamageQuarters: 128, Sprites.Length: 2 } ||
             Enemy(0x70) is not { Health: 12, DamageQuarters: 1, Sprites.Length: 2 } ||
+            Enemy(0x71).Sprites.Length != 1 ||
             Enemy(0x78) is not { Health: 8, Sprites.Length: 3 } ||
+            Enemy(0x79).Sprites.Length != 3 ||
             Visual("colored-cube").Animations.Length != 30 ||
             Visual("eternal-spirit") is not
                 { TileBase: 0, Palette: 1, Animations.Length: 1 } ||
+            Visual("ancient-wood") is not
+                { TileBase: 4, Palette: 0, Animations.Length: 1 } ||
+            Visual("moving-side-platform").Animations.Length != 1 ||
+            Visual("circular-side-platform").Animations.Length != 1 ||
+            Visual("minecart").Animations.Length != 2 ||
+            Visual("head-thwomp-fireball").Animations.Length != 2 ||
+            Visual("head-thwomp-circular-projectile").Animations.Length != 1 ||
             Visual("essence-pedestal") is not
                 { TileBase: 0, Palette: 4, Animations.Length: 1 } ||
             Visual("essence-glow") is not
@@ -302,6 +311,8 @@ internal readonly record struct ObjectRecord(int Group, int Room, int Order, Obj
 internal enum ObjectKind
 {
     BraceletReward,
+    RupeeReward,
+    FeatherReward,
     Essence,
     BossReward,
     PumpkinHead,
@@ -314,5 +325,21 @@ internal enum ObjectKind
     ColoredCube,
     CubeFlame,
     CubeLightSensor,
-    CubeTriggerSensor
+    CubeTriggerSensor,
+    FloorPatternKey,
+    ToggleFloor,
+    SwitchTileToggler,
+    MinecartGate,
+    CubeSwitchSensor,
+    EnemyChest,
+    RedFloorTrigger,
+    FloorSwitchBit,
+    FloorColorChanger,
+    CubeColorSource,
+    ColoredBlockKey,
+    RedFlameTrigger,
+    SidePlatform,
+    CircularSidePlatform,
+    HeadThwomp,
+    Swoop
 }

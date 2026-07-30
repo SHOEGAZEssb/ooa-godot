@@ -70,6 +70,23 @@ grouped/aliased/repeated rows. It also validates the checked-in manifest's exact
 TSV inventory plus every schema version, record count, and SHA-256, alongside
 focused failure cases for stale versions, counts, and checksums.
 
+`Validation.WingDungeon.cs` is the end-to-end dungeon `$02` boundary. It loads
+every room `4:27-$48`, checks the merged native/shared/enemy/static rosters,
+all six chests, exact floor/color patterns, side platforms, circular
+platforms, and persistent minecarts. Focused live scenarios assert the
+`6:29 <-> 6:2a` ordinary horizontal scroll plus all four `$06` side-view
+edge-warp quadrants through Feather, ladder, and post-object platform
+displacement paths; incoming Spark state-0 visibility with frozen movement;
+Sword Stalfos body/blade collision ownership and the distinct
+`LINKDMG_$38/$34` recoil versus `ENEMYDMG_$4c/$48` part cooldowns; and
+screen-space camera stability after mount-time platform subpixel
+synchronization. They also cover the 31-update top-down Feather arc and sounds,
+Bomb consumption through Head
+Thwomp's mouth into a red damage phase/heart drop, and Swoop's shutter, bounce,
+TX `$2f00`, three-flap handoff, and input restoration. Keep this as one
+full-route validation so a newly unsupported record cannot hide behind a
+passing isolated mechanic.
+
 ## Regression design
 
 Every fixed bug or new gameplay system gets a focused headless regression. A

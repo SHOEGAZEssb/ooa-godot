@@ -24,6 +24,7 @@ public sealed class RoomEntityManager : IDisposable
     internal event Action<Vector2, HazardType>? ItemDropEnteredHazard;
     internal event Action<ObjectFellInHoleKind>? ObjectFellInHole;
     internal event Action<SpiritsGraveEssence, Player>? SpiritsGraveEssenceTriggered;
+    internal event Action<int, string, Vector2>? NativeBossDialogueRequested;
     internal event Action<int, string, Player>? MapleDialogueRequested;
     internal event Action<MapleItemRecord, Player>? MapleItemCollected;
     internal event Action<int, string, Vector2>? SeedTreeMessageRequested;
@@ -239,6 +240,7 @@ public sealed class RoomEntityManager : IDisposable
             DisableLinkCollisionsAndMenu,
             EnableLinkCollisionsAndMenu,
             OnRoomMusicRequested,
+            OnNativeBossDialogueRequested,
             OnMapleDialogueRequested,
             OnSeedTreeMessageRequested,
             OnOwlStatueMessageRequested,
@@ -394,6 +396,7 @@ public sealed class RoomEntityManager : IDisposable
             if (!textActive)
             {
                 ResolvePlayerProjectileCollisions();
+                ResolveBossBombCatches();
                 ResolveBombExplosionCollisions();
                 ResolveMapleBombPulling();
             }
@@ -554,7 +557,9 @@ public sealed class RoomEntityManager : IDisposable
         int damage,
         EnemyKnockbackStrength knockbackStrength,
         bool collectItemDrops = false,
-        Action<SwordAttackerKnockback>? attackerKnockback = null)
+        Action<SwordAttackerKnockback>? attackerKnockback = null,
+        SwordActionState swordState = SwordActionState.Swing,
+        int swordLevel = 1)
     {
         bool hit = false;
         Vector2 source = sourcePosition ?? hitbox.GetCenter();
@@ -569,6 +574,8 @@ public sealed class RoomEntityManager : IDisposable
             }
             if (entity is ISwordHittableRoomEntity swordHittable)
             {
+                if (entity is ILinkSwordStateAwareRoomEntity stateAware)
+                    stateAware.SetLinkSwordState(swordState, swordLevel);
                 bool accepted = swordHittable.ApplySwordHit(
                     hitbox,
                     source,
@@ -762,6 +769,26 @@ public sealed class RoomEntityManager : IDisposable
                         _pendingSpawns);
                 }
                 ProcessSpawns();
+            }
+        }
+    }
+
+    private void ResolveBossBombCatches()
+    {
+        foreach (IRoomEntity target in _activeEntities.ToArray())
+        {
+            if (target is not IBombCatchRoomEntity catcher)
+                continue;
+            foreach (IRoomEntity entity in _activeEntities.ToArray())
+            {
+                if (entity is BombRoomEntity
+                    {
+                        Finished: false
+                    } bomb &&
+                    catcher.TryCatchBomb(bomb.Bomb))
+                {
+                    return;
+                }
             }
         }
     }
@@ -1401,6 +1428,12 @@ public sealed class RoomEntityManager : IDisposable
     private void OnSpiritsGraveEssenceTriggered(
         SpiritsGraveEssence essence,
         Player player) => SpiritsGraveEssenceTriggered?.Invoke(essence, player);
+
+    private void OnNativeBossDialogueRequested(
+        int textId,
+        string message,
+        Vector2 position) =>
+        NativeBossDialogueRequested?.Invoke(textId, message, position);
 
     private void OnMapleDialogueRequested(
         int textId,

@@ -643,17 +643,27 @@ public sealed partial class ValidationRoot
             [(0x0a, 0x00)] = (0x91, EnemySwordResponse.Knockback),
             [(0x0c, 0x00)] = (0x91, EnemySwordResponse.Knockback),
             [(0x10, 0x00)] = (0x14, EnemySwordResponse.Knockback),
+            [(0x13, 0x00)] = (0x97, EnemySwordResponse.NoKnockback),
             [(0x14, 0x00)] = (0x98, EnemySwordResponse.Armored),
             [(0x17, 0x00)] = (0x9a, EnemySwordResponse.Knockback),
+            [(0x19, 0x00)] = (0x9c, EnemySwordResponse.NoKnockback),
             [(0x1b, 0x01)] = (0x90, EnemySwordResponse.Knockback),
+            [(0x20, 0x00)] = (0x91, EnemySwordResponse.Knockback),
+            [(0x20, 0x01)] = (0x91, EnemySwordResponse.Knockback),
+            [(0x22, 0x00)] = (0xfe, EnemySwordResponse.Knockback),
             [(0x28, 0x00)] = (0x25, EnemySwordResponse.Knockback),
+            [(0x2f, 0x00)] = (0xa8, EnemySwordResponse.NoKnockback),
             [(0x31, 0x00)] = (0xfd, EnemySwordResponse.Knockback),
             [(0x32, 0x00)] = (0x9f, EnemySwordResponse.Knockback),
             [(0x32, 0x01)] = (0x9f, EnemySwordResponse.Knockback),
             [(0x34, 0x00)] = (0x29, EnemySwordResponse.NoKnockback),
             [(0x34, 0x01)] = (0x29, EnemySwordResponse.NoKnockback),
+            [(0x3e, 0x00)] = (0xd8, EnemySwordResponse.NoKnockback),
             [(0x41, 0x00)] = (0x31, EnemySwordResponse.Knockback),
             [(0x43, 0x00)] = (0xb3, EnemySwordResponse.NoKnockback),
+            [(0x47, 0x00)] = (0xee, EnemySwordResponse.NoKnockback),
+            [(0x49, 0x00)] = (0xfe, EnemySwordResponse.Knockback),
+            [(0x4a, 0x01)] = (0xb6, EnemySwordResponse.Knockback),
             [(0x4d, 0x00)] = (0xb8, EnemySwordResponse.Bump)
         };
         var combatSourceFlags = new HashSet<(int Id, int SubId, int Flags)>();
@@ -752,30 +762,30 @@ public sealed partial class ValidationRoot
             ordinaryEnemyPlacements != 816 ||
             parameterEnemyPlacements != 12 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 262 ||
+                EnemyHandlerClassification.OrderedImplemented) != 377 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.DynamicSpecial) != 6 ||
+                EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 548 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 439 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 426 ||
+                EnemyHandlerClassification.OrderedImplemented) != 578 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.DynamicSpecial) != 9 ||
+                EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 721 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 578 ||
             classifiedKeys.Count != 118 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.OrderedImplemented) != 18 ||
+                    EnemyHandlerClassification.OrderedImplemented) != 28 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.DynamicSpecial) != 1 ||
+                    EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.DeliberatelyUnsupported) != 99 ||
-            combatSourceRows != 262 ||
-            combatSourceFlags.Count != 52 ||
-            expectedCombat.Count != 18 ||
+                    EnemyHandlerClassification.DeliberatelyUnsupported) != 90 ||
+            combatSourceRows != 377 ||
+            combatSourceFlags.Count != 83 ||
+            expectedCombat.Count != 28 ||
             implementedHandler is not
             {
                 Id: 0x32,
@@ -794,12 +804,11 @@ public sealed partial class ValidationRoot
                 SubId: 0x00,
                 CollisionMode: 0x91,
                 Classification:
-                    EnemyHandlerClassification.DynamicSpecial,
-                Handler: EnemyHandlerKind.MakuSproutMaskedMoblin,
+                    EnemyHandlerClassification.OrderedImplemented,
+                Handler: EnemyHandlerKind.MaskedMoblin,
                 EnemyName: "ENEMY_MASKED_MOBLIN",
-                Source:
-                    "scripts/ages/scriptHelper.s:moblin_spawnEnemyHere",
-                CompletesDungeonEnemyCount: false
+                Source: "constants/common/enemies.s:ENEMY_MASKED_MOBLIN",
+                CompletesDungeonEnemyCount: true
             } ||
             spinyHandler is not
             {
@@ -821,13 +830,13 @@ public sealed partial class ValidationRoot
                 ObjectFlags: 0,
                 CountsAsEnemy: true,
                 CollisionInitiallyEnabled: true,
-                Handler: EnemyHandlerKind.MakuSproutMaskedMoblin
+                Handler: EnemyHandlerKind.MaskedMoblin
             } ||
             room5b0[0].Source !=
                 "objects/ages/enemyData.s:" +
                 "group5Mapb0EnemyObjectData[0]",
             "The enemy handler registry lost its 816-row implementation " +
-            "classification, 262-row/52-flag typed combat descriptors, " +
+            "classification, 377-row/83-flag typed combat descriptors, " +
             "source collision modes, construction dispatch, source " +
             "identity, or dungeon-count completeness contract.");
 
@@ -907,7 +916,7 @@ public sealed partial class ValidationRoot
         validationRoot.Free();
         GD.Print("Validated 1,140 clean-US ordered room placement records, mid-stream aliases, " +
             "all 816 fixed/random enemy handler classifications, 12 parameter slots, " +
-            "262 typed combat descriptors across 18 handlers / 52 source-flag " +
+            "377 typed combat descriptors across 28 handlers / 83 source-flag " +
             "combinations, source collision modes and sword responses, source-aware " +
             "construction/shutter capability, condition masks, 16-entry reservation " +
             "wrapping, and fixed/unsupported/item reservations before random Keese " +
@@ -1953,6 +1962,11 @@ public sealed partial class ValidationRoot
         // its already-landed flame overlaps the enemy on a later collision pass.
         KeeseCharacter edgeKeese = _entities.Entities<KeeseCharacter>().Single();
         edgeKeese.Position = new Vector2(180, 120);
+        foreach (SwordEnemyCharacter swordEnemy in
+            _entities.Entities<SwordEnemyCharacter>())
+        {
+            swordEnemy.Position = new Vector2(16, 16);
+        }
         _player.WarpTo(new Vector2(220, 150), recordSafe: false);
         EmberSeedEffect landedFlame = _entities.Spawn<EmberSeedEffect>(
             new EmberSeedSpawn(

@@ -143,6 +143,8 @@ $stageContracts = @(
         -functionInputs @(
             'Copy-EnemySprite', 'Get-AssemblyLabelBody', 'Get-EnemyDefinition',
             'Read-PaletteBytes', 'Resolve-Oam')
+    New-ImportStageContract 'wing-dungeon' 'Import-WingDungeon.ps1' `
+        -inputs @('allTexts', 'mainObjectSource')
     New-ImportStageContract 'navigation' 'Import-WorldNavigation.ps1'
     New-ImportStageContract 'audio' 'Import-AudioData.ps1'
     New-ImportStageContract 'manifest' 'Write-GeneratedTableManifest.ps1'

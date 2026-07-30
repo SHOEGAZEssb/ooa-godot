@@ -1,16 +1,18 @@
 using Godot;
+using System;
 
 namespace oracleofages;
 
 /// <summary>
 /// Native INTERAC_ESSENCE $7f state 1-7 and
-/// mainScripts.essenceScript_essenceGetCutscene for dungeon 1.
+/// mainScripts.essenceScript_essenceGetCutscene for imported dungeons.
 /// </summary>
 internal sealed class SpiritsGraveEssenceEvent : IRoomEvent
 {
 
     private readonly RoomEventContext _context;
     private readonly SpiritsGraveDatabase _database = new();
+    private readonly WingDungeonDatabase _wingDungeon = new();
     private SpiritsGraveEssence? _essence;
     private SpiritsGraveEssenceEventPhase _phase;
     private int _counter;
@@ -50,10 +52,14 @@ internal sealed class SpiritsGraveEssenceEvent : IRoomEvent
             case SpiritsGraveEssenceEventPhase.AwaitingHeldPose:
                 if (_essence?.ReadyForDialogue != true)
                     return;
-                _context.ShowDialogue(_database.EssenceMessage);
+                _context.ShowDialogue(EssenceMessage());
                 _context.Rooms.SaveData.SetRoomFlag(
-                    4, 0x11, OracleSaveData.RoomFlagItem);
-                _context.Inventory.GiveTreasure(TreasureDatabase.TreasureEssence, 0);
+                    _essence.Group,
+                    _essence.Room,
+                    OracleSaveData.RoomFlagItem);
+                _context.Inventory.GiveTreasure(
+                    TreasureDatabase.TreasureEssence,
+                    _essence.EssenceIndex);
                 // TREASURE_ESSENCE's collection row requests
                 // MUS_GET_ESSENCE while TX_000e is open. The later native
                 // script deliberately replaces it with MUS_ESSENCE.
@@ -121,9 +127,7 @@ internal sealed class SpiritsGraveEssenceEvent : IRoomEvent
     {
         _context.Player.EndCutsceneControl();
         _context.Sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
-        Warp warp = new Warp(
-            4, 0x11, -1, 0, 0,
-            0, 0x8d, 0x26, 0, 1);
+        Warp warp = EssenceWarp();
         _context.Transitions.ApplyWarpWithDelayedFadeOut(_context.Player, warp);
         // The two-hand pose survives the source-room fade and Player.WarpTo
         // clears it when the destination loads. The source interaction itself
@@ -132,6 +136,28 @@ internal sealed class SpiritsGraveEssenceEvent : IRoomEvent
         _essence = null;
         _phase = SpiritsGraveEssenceEventPhase.Inactive;
     }
+
+    private string EssenceMessage() =>
+        _essence?.EssenceIndex switch
+        {
+            0 => _database.EssenceMessage,
+            1 => _wingDungeon.EssenceMessage,
+            null => throw new InvalidOperationException(
+                "The essence get event has no active essence."),
+            int index => throw new InvalidOperationException(
+                $"Essence ${index:x2} has no imported get text.")
+        };
+
+    private Warp EssenceWarp() =>
+        _essence?.EssenceIndex switch
+        {
+            0 => new Warp(4, 0x11, -1, 0, 0, 0, 0x8d, 0x26, 0, 1),
+            1 => new Warp(4, 0x38, -1, 0, 0, 1, 0x83, 0x25, 0, 1),
+            null => throw new InvalidOperationException(
+                "The essence get event has no active essence."),
+            int index => throw new InvalidOperationException(
+                $"Essence ${index:x2} has no imported exit warp.")
+        };
 }
 
 internal enum SpiritsGraveEssenceEventPhase

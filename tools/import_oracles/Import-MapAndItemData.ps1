@@ -1560,6 +1560,67 @@ Write-GeneratedTable(
     (Join-Path $destination 'metadata\side_scroll_constants.tsv'),
     $sideConstantRows)
 
+$topDownPhysicsBlock = [regex]::Match(
+    $linkSource,
+    '(?ms)^linkUpdateInAir:.*?(?=^linkUpdateInAir_sidescroll:)')
+$topDownJumpMatch = [regex]::Match(
+    $featherParentSource,
+    '(?ms)^\s*; Jump higher in sidescrolling rooms\s+ld bc,\$(?<speed>[0-9a-f]{4})\s+ld a,\(wActiveGroup\)')
+if (-not $topDownPhysicsBlock.Success -or
+    -not $topDownJumpMatch.Success -or
+    $topDownPhysicsBlock.Groups[0].Value -notmatch
+        '(?ms)bit 5,\(hl\)\s+ld c,\$(?<gravity>[0-9a-f]{2})\s+jr z,\+\s+ld c,\$(?<reduced>[0-9a-f]{2})' -or
+    $topDownPhysicsBlock.Groups[0].Value -notmatch
+        '(?ms)Return if speedZ < \$(?<maximum>[0-9a-f]{4})\s+cp \$(?<maximumHigh>[0-9a-f]{2}).*?Cap speedZ to \$\k<maximum>' -or
+    $topDownPhysicsBlock.Groups[0].Value -notmatch
+        '(?ms)ld a,\$(?<holeCounter>[0-9a-f]{2})\s+ld \(wStandingOnTileCounter\),a') {
+    throw 'Could not verify top-down linkUpdateInAir physics constants.'
+}
+$topDownPhysicsText = $topDownPhysicsBlock.Groups[0].Value
+$null = $topDownPhysicsText -match
+    '(?ms)bit 5,\(hl\)\s+ld c,\$(?<gravity>[0-9a-f]{2})\s+jr z,\+\s+ld c,\$(?<reduced>[0-9a-f]{2})'
+$topDownGravity = [Convert]::ToInt32($Matches['gravity'], 16)
+$topDownReducedGravity = [Convert]::ToInt32($Matches['reduced'], 16)
+$null = $topDownPhysicsText -match
+    '(?ms)Return if speedZ < \$(?<maximum>[0-9a-f]{4})\s+cp \$(?<maximumHigh>[0-9a-f]{2}).*?Cap speedZ to \$\k<maximum>'
+$topDownMaximumSpeed = [Convert]::ToInt32($Matches['maximum'], 16)
+if (($topDownMaximumSpeed -shr 8) -ne
+    [Convert]::ToInt32($Matches['maximumHigh'], 16)) {
+    throw 'Top-down maximum fall speed disagrees with its high-byte cap.'
+}
+$null = $topDownPhysicsText -match
+    '(?ms)ld a,\$(?<holeCounter>[0-9a-f]{2})\s+ld \(wStandingOnTileCounter\),a'
+$topDownJumpUnsigned = [Convert]::ToInt32(
+    $topDownJumpMatch.Groups['speed'].Value, 16)
+$topDownJumpSpeed = if ($topDownJumpUnsigned -ge 0x8000) {
+    $topDownJumpUnsigned - 0x10000
+} else {
+    $topDownJumpUnsigned
+}
+$topDownAirRows = @(
+    "# key`tvalue`tsource",
+    "gravity`t$topDownGravity`tlink.s:linkUpdateInAir",
+    "reduced-gravity`t$topDownReducedGravity`tlink.s:linkUpdateInAir",
+    "maximum-fall-speed`t$topDownMaximumSpeed`tlink.s:linkUpdateInAir",
+    "jump-speed-z`t$topDownJumpSpeed`tfeatherParent.s:parentItemCode_feather",
+    "hole-standing-counter`t$([Convert]::ToInt32($Matches['holeCounter'], 16))`tlink.s:linkUpdateInAir",
+    "jump-sound`t$(Resolve-SideScrollSound 'SND_JUMP')`tlink.s:linkUpdateInAir",
+    "land-sound`t$(Resolve-SideScrollSound 'SND_LAND')`tlink.s:linkUpdateInAir",
+    "animation-phase-0`t$([Convert]::ToInt32($sideJumpAnimationMatch.Groups['d0'].Value, 16))`tspecialObjectAnimationData.s:animationData19f78",
+    "animation-phase-1`t$([Convert]::ToInt32($sideJumpAnimationMatch.Groups['d1'].Value, 16))`tspecialObjectAnimationData.s:animationData19f78",
+    "animation-phase-2`t$([Convert]::ToInt32($sideJumpAnimationMatch.Groups['d2'].Value, 16))`tspecialObjectAnimationData.s:animationData19f78"
+)
+if ($topDownAirRows.Count -ne 11 -or
+    $topDownJumpSpeed -ne -0x1e0 -or
+    $topDownGravity -ne 0x20 -or
+    $topDownReducedGravity -ne 0x0a -or
+    $topDownMaximumSpeed -ne 0x0300) {
+    throw 'Top-down Link air constants lost an expected value.'
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'metadata\top_down_air_constants.tsv'),
+    $topDownAirRows)
+
 $ledgeCollisionModes = @{
     overworld = 0
     indoors = 1

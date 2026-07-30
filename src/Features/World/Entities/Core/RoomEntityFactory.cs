@@ -38,6 +38,7 @@ internal sealed class RoomEntityFactory(
     Action disableLinkCollisionsAndMenu,
     Action enableLinkCollisionsAndMenu,
     Action<int, int> roomMusicRequested,
+    Action<int, string, Vector2> nativeBossDialogueRequested,
     Action<int, string, Player> mapleDialogueRequested,
     Action<int, string, Vector2> seedTreeMessageRequested,
     Action<int, string, Vector2> owlStatueMessageRequested,
@@ -66,6 +67,7 @@ internal sealed class RoomEntityFactory(
     private readonly TroyHouseDatabase _troyHouse = new();
     private readonly DungeonEntranceInteractionDatabase _dungeonEntrances = new();
     private readonly SpiritsGraveDatabase _spiritsGrave = new();
+    private readonly WingDungeonDatabase _wingDungeon = new();
     private readonly EnemySpawnTileDatabase _enemySpawnTiles = new();
     private readonly GroundTreasureDatabase _groundTreasures = new();
     private readonly DungeonMechanicDatabase _dungeonMechanics = new();
@@ -144,6 +146,22 @@ internal sealed class RoomEntityFactory(
             7 => 5,
             _ => group
         };
+        if (group == 4 && room.Id is >= 0x27 and <= 0x48)
+        {
+            WingDungeonMinecartState.EnsureInitialized(
+                runtimeState, _wingDungeon.Minecarts);
+            foreach (WingDungeonActiveMinecart cart in
+                WingDungeonMinecartState.StationaryInRoom(
+                    runtimeState, room.Id))
+            {
+                yield return CreateWingDungeonMinecart(cart, room);
+            }
+            if (WingDungeonMinecartState.TryGetRide(
+                    runtimeState, room.Id, out WingDungeonActiveMinecart ride))
+            {
+                yield return CreateWingDungeonMinecart(ride, room);
+            }
+        }
         IReadOnlyList<DarkRoomDatabaseRecord> darkRoomRecords =
             _darkRooms.GetRoomRecords(group, room.Id);
         if (darkRoomRecords.Count > 0)
@@ -177,16 +195,25 @@ internal sealed class RoomEntityFactory(
             sharedDungeonRecords = _dungeonEntrances.GetRoomRecords(group, room.Id);
         IReadOnlyList<ObjectRecord> spiritsGraveRecords =
             _spiritsGrave.GetRoomRecords(group, room.Id);
+        IReadOnlyList<ObjectRecord> wingDungeonRecords =
+            _wingDungeon.GetRoomRecords(group, room.Id);
         SpiritsGravePuzzleState? spiritsGravePuzzle =
             group == 4 && room.Id == 0x20 ? new SpiritsGravePuzzleState() : null;
+        SpiritsGravePuzzleState? wingDungeonPuzzle =
+            wingDungeonRecords.Count > 0 &&
+            HasWingDungeonCubeState(wingDungeonRecords)
+                ? new SpiritsGravePuzzleState()
+                : null;
         bool enemyMechanicsSupported = DungeonEnemyMechanicsAreSupported(
             dungeonRecords, group, room);
         int mechanicIndex = 0;
         int sharedIndex = 0;
         int spiritsGraveIndex = 0;
+        int wingDungeonIndex = 0;
         while (mechanicIndex < dungeonRecords.Count ||
                sharedIndex < sharedDungeonRecords.Count ||
-               spiritsGraveIndex < spiritsGraveRecords.Count)
+               spiritsGraveIndex < spiritsGraveRecords.Count ||
+               wingDungeonIndex < wingDungeonRecords.Count)
         {
             int mechanicOrder = mechanicIndex < dungeonRecords.Count
                 ? dungeonRecords[mechanicIndex].Order : int.MaxValue;
@@ -194,8 +221,11 @@ internal sealed class RoomEntityFactory(
                 ? sharedDungeonRecords[sharedIndex].Order : int.MaxValue;
             int spiritsGraveOrder = spiritsGraveIndex < spiritsGraveRecords.Count
                 ? spiritsGraveRecords[spiritsGraveIndex].Order : int.MaxValue;
+            int wingDungeonOrder = wingDungeonIndex < wingDungeonRecords.Count
+                ? wingDungeonRecords[wingDungeonIndex].Order : int.MaxValue;
             bool useShared = sharedOrder < mechanicOrder &&
-                sharedOrder < spiritsGraveOrder;
+                sharedOrder < spiritsGraveOrder &&
+                sharedOrder < wingDungeonOrder;
             if (useShared)
             {
                 PlacementRecord record =
@@ -214,7 +244,8 @@ internal sealed class RoomEntityFactory(
                 continue;
             }
 
-            if (spiritsGraveOrder < mechanicOrder)
+            if (spiritsGraveOrder < mechanicOrder &&
+                spiritsGraveOrder < wingDungeonOrder)
             {
                 ObjectRecord record =
                     spiritsGraveRecords[spiritsGraveIndex++];
@@ -222,6 +253,19 @@ internal sealed class RoomEntityFactory(
                     continue;
                 IRoomEntity? entity = CreateSpiritsGraveInteraction(
                     record, room, spiritsGravePuzzle, placementContext);
+                if (entity is not null)
+                    yield return entity;
+                continue;
+            }
+
+            if (wingDungeonOrder < mechanicOrder)
+            {
+                ObjectRecord record =
+                    wingDungeonRecords[wingDungeonIndex++];
+                if (!WingDungeonConditionMet(record))
+                    continue;
+                IRoomEntity? entity = CreateWingDungeonInteraction(
+                    record, room, wingDungeonPuzzle, placementContext);
                 if (entity is not null)
                     yield return entity;
                 continue;
@@ -639,6 +683,246 @@ internal sealed class RoomEntityFactory(
         }
     }
 
+    private WingDungeonMinecart CreateWingDungeonMinecart(
+        WingDungeonActiveMinecart cart,
+        OracleRoomData room) =>
+        new(
+            cart,
+            room,
+            _wingDungeon,
+            runtimeState,
+            rooms,
+            _spiritsGrave.Visual("minecart"),
+            soundRequested,
+            roomTileChanged,
+            animationTick);
+
+    private IRoomEntity? CreateWingDungeonInteraction(
+        ObjectRecord record,
+        OracleRoomData room,
+        SpiritsGravePuzzleState? puzzle,
+        EnemyPlacementContext placementContext)
+    {
+        switch (record.Kind)
+        {
+            case ObjectKind.RupeeReward:
+                return CreateWingDungeonImmediateReward(
+                    record, "TREASURE_OBJECT_RUPEES_0c");
+            case ObjectKind.FeatherReward:
+                return CreateWingDungeonImmediateReward(
+                    record, "TREASURE_OBJECT_FEATHER_00");
+            case ObjectKind.FloorPatternKey:
+            case ObjectKind.ColoredBlockKey:
+                return new WingDungeonPatternKey(
+                    record,
+                    room,
+                    _wingDungeon,
+                    CreateFallingSmallKeyRequest(record));
+            case ObjectKind.ToggleFloor:
+                return new WingDungeonToggleFloor(
+                    room, _wingDungeon, soundRequested,
+                    roomTileChanged, animationTick);
+            case ObjectKind.ColoredCube:
+                return new SpiritsGraveColoredCube(
+                    record, _spiritsGrave.Visual("colored-cube"), room,
+                    RequireWingDungeonPuzzle(puzzle, record),
+                    _spiritsGrave.CubePalettes,
+                    soundRequested, roomTileChanged, animationTick);
+            case ObjectKind.CubeFlame:
+                return new SpiritsGraveCubeFlame(
+                    record, _spiritsGrave.Visual("cube-flame"),
+                    RequireWingDungeonPuzzle(puzzle, record));
+            case ObjectKind.CubeLightSensor:
+                return new SpiritsGraveCubeSensor(
+                    record, room, RequireWingDungeonPuzzle(puzzle, record),
+                    setTrigger, soundRequested);
+            case ObjectKind.CubeSwitchSensor:
+            case ObjectKind.RedFloorTrigger:
+            case ObjectKind.FloorSwitchBit:
+            case ObjectKind.CubeColorSource:
+            case ObjectKind.RedFlameTrigger:
+                return new WingDungeonStateController(
+                    record, room, _wingDungeon,
+                    puzzle ?? new SpiritsGravePuzzleState(),
+                    runtimeState, setTrigger);
+            case ObjectKind.SwitchTileToggler:
+                return new WingDungeonSwitchTileToggler(
+                    record, room, _wingDungeon, runtimeState,
+                    roomTileChanged, animationTick);
+            case ObjectKind.MinecartGate:
+                return new WingDungeonMinecartGate(
+                    record, room, runtimeState, soundRequested,
+                    roomTileChanged, animationTick);
+            case ObjectKind.EnemyChest:
+                return new WingDungeonEnemyChest(
+                    record, room, _wingDungeon, roomEnemyCount,
+                    soundRequested, roomTileChanged, animationTick);
+            case ObjectKind.EnemySmallKey:
+                return new SpiritsGraveRewardController(
+                    record, saveData, roomEnemyCount,
+                    CreateFallingSmallKeyRequest(record),
+                    enableLinkCollisionsAndMenu);
+            case ObjectKind.MinibossReward:
+                return new SpiritsGraveRewardController(
+                    record, saveData, roomEnemyCount, treasure: null,
+                    enableLinkCollisionsAndMenu);
+            case ObjectKind.FloorColorChanger:
+                return new WingDungeonFloorColorChanger(
+                    record, room, _wingDungeon, random,
+                    roomTileChanged, animationTick);
+            case ObjectKind.SidePlatform:
+                return new WingDungeonSideScrollPlatform(
+                    record,
+                    _wingDungeon.SidePlatform(record.SubId),
+                    _spiritsGrave.Visual("moving-side-platform"));
+            case ObjectKind.CircularSidePlatform:
+                return new WingDungeonCircularSidePlatform(
+                    record,
+                    _spiritsGrave.Visual("circular-side-platform"));
+            case ObjectKind.HeadThwomp:
+                ImportedEnemyDefinition headThwomp =
+                    _spiritsGrave.Enemy(0x79);
+                var headThwompBoss = new HeadThwompBoss();
+                headThwompBoss.Initialize(
+                    headThwomp,
+                    room,
+                    record.Position,
+                    random,
+                    soundRequested,
+                    screenShakeRequested,
+                    disableLinkCollisionsAndMenu,
+                    () => roomMusicRequested(record.Group, record.Room),
+                    animationTick);
+                return new HeadThwompBossRoomEntity(headThwompBoss);
+            case ObjectKind.Swoop:
+                ImportedEnemyDefinition swoopRecord =
+                    _spiritsGrave.Enemy(0x71);
+                var swoop = new SwoopBoss();
+                swoop.Initialize(
+                    swoopRecord,
+                    room,
+                    record.Position,
+                    random,
+                    soundRequested,
+                    bossShuttersClosed,
+                    screenShakeRequested,
+                    disableLinkCollisionsAndMenu,
+                    enableLinkCollisionsAndMenu,
+                    () => roomMusicRequested(record.Group, record.Room),
+                    nativeBossDialogueRequested,
+                    dialogueOpen,
+                    animationTick,
+                    _wingDungeon.SwoopMessage);
+                return new SwoopBossRoomEntity(
+                    swoop, BossEntryDirection(placementContext));
+            case ObjectKind.BossReward:
+                return new SpiritsGraveRewardController(
+                    record, saveData, roomEnemyCount,
+                    CreateWingDungeonBossRewardRequest(record),
+                    enableLinkCollisionsAndMenu);
+            case ObjectKind.Essence:
+                return new SpiritsGraveEssence(
+                    record,
+                    _spiritsGrave.Visual("ancient-wood"),
+                    _spiritsGrave.Visual("essence-pedestal"),
+                    _spiritsGrave.Visual("essence-glow"),
+                    _spiritsGrave.Visual("energy-bead"),
+                    room,
+                    saveData?.HasRoomFlag(
+                        record.Group,
+                        record.Room,
+                        OracleSaveData.RoomFlagItem) == true,
+                    animationTick,
+                    random,
+                    spiritsGraveEssenceTriggered,
+                    essenceIndex: 1);
+            default:
+                throw new ArgumentOutOfRangeException(
+                    nameof(record), record, "Unsupported Wing Dungeon object.");
+        }
+    }
+
+    private WingDungeonRewardController CreateWingDungeonImmediateReward(
+        ObjectRecord record,
+        string treasureName)
+    {
+        var request = new GroundTreasureGrantRequest(
+            record.Group,
+            record.Room,
+            record.Order,
+            record.Y,
+            record.X,
+            treasureName,
+            record.Source)
+        {
+            SpawnMode = 0,
+            GrabMode = 2
+        };
+        return new WingDungeonRewardController(record, request);
+    }
+
+    private GroundTreasureGrantRequest CreateFallingSmallKeyRequest(
+        ObjectRecord record) =>
+        new(
+            record.Group,
+            record.Room,
+            record.Order,
+            record.Y,
+            record.X,
+            "TREASURE_OBJECT_SMALL_KEY_01",
+            record.Source)
+        {
+            SpawnMode = 2,
+            GrabMode = 2,
+            SpawnDelayFrames =
+                _wingDungeon.Constant("falling-key-spawn-delay"),
+            BounceCount = 2,
+            Gravity = 0x10,
+            BounceSpeed = -0xaa,
+            SpawnSound = OracleSoundEngine.SndSolvePuzzle,
+            LandingSound = OracleSoundEngine.SndDropEssence,
+            InitialZAboveScreen = true
+        };
+
+    private static GroundTreasureGrantRequest CreateWingDungeonBossRewardRequest(
+        ObjectRecord record) =>
+        new(
+            record.Group,
+            record.Room,
+            record.Order,
+            record.Y,
+            record.X,
+            "TREASURE_OBJECT_HEART_CONTAINER_00",
+            record.Source)
+        {
+            SpawnMode = 0,
+            GrabMode = 2
+        };
+
+    private static SpiritsGravePuzzleState RequireWingDungeonPuzzle(
+        SpiritsGravePuzzleState? puzzle,
+        ObjectRecord record) =>
+        puzzle ?? throw new InvalidOperationException(
+            $"{record.Source} is missing its room-local Wing Dungeon cube state.");
+
+    private static bool HasWingDungeonCubeState(
+        IReadOnlyList<ObjectRecord> records)
+    {
+        foreach (ObjectRecord record in records)
+        {
+            if (record.Kind is ObjectKind.ColoredCube or
+                ObjectKind.CubeFlame or
+                ObjectKind.CubeLightSensor or
+                ObjectKind.CubeSwitchSensor or
+                ObjectKind.CubeColorSource or
+                ObjectKind.RedFlameTrigger)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static Vector2I BossEntryDirection(
         EnemyPlacementContext placementContext) =>
         placementContext.Kind == EnemyPlacementEntryKind.Scrolling
@@ -694,6 +978,20 @@ internal sealed class RoomEntityFactory(
             nameof(record), record, "Unknown Spirit's Grave predicate.")
     };
 
+    private bool WingDungeonConditionMet(
+        ObjectRecord record) => record.Predicate switch
+    {
+        SpiritsGraveDatabaseCondition.Always => true,
+        SpiritsGraveDatabaseCondition.ItemClear =>
+            saveData?.HasRoomFlag(
+                record.Group, record.Room, OracleSaveData.RoomFlagItem) != true,
+        SpiritsGraveDatabaseCondition.Flag80Clear =>
+            saveData?.HasRoomFlag(
+                record.Group, record.Room, OracleSaveData.RoomFlag80) != true,
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(record), record, "Unknown Wing Dungeon predicate.")
+    };
+
     private IRoomEntity? CreateDungeonMechanic(
         DungeonMechanicDatabaseRecord record,
         OracleRoomData room,
@@ -746,6 +1044,14 @@ internal sealed class RoomEntityFactory(
                     _dungeonEntrances,
                     runtimeState,
                     placementContext.Kind == EnemyPlacementEntryKind.ScreenWarp,
+                    dungeon =>
+                    {
+                        if (dungeon == 2)
+                        {
+                            WingDungeonMinecartState.Reset(
+                                runtimeState, _wingDungeon.Minecarts);
+                        }
+                    },
                     dungeonEntranceTriggered);
 
             case DungeonEntranceInteractionDatabaseObjectKind.EyeSpawner:
@@ -886,6 +1192,18 @@ internal sealed class RoomEntityFactory(
                 return new ArrowMoblinRoomEntity(
                     arrowMoblin, combatSource, soundRequested);
 
+            case EnemyHandlerKind.MaskedMoblin:
+                var maskedMoblin = new MaskedMoblinCharacter
+                {
+                    Name =
+                        $"MaskedMoblin_{source.SubId:x2}_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                maskedMoblin.Initialize(
+                    enemies.MaskedMoblin, room, position, random);
+                return new MaskedMoblinRoomEntity(
+                    maskedMoblin, combatSource, soundRequested);
+
             case EnemyHandlerKind.Rope:
                 if (!enemies.TryGetImportedEnemyDefinition(
                     source, out ImportedEnemyDefinition ropeRecord))
@@ -900,6 +1218,100 @@ internal sealed class RoomEntityFactory(
                 rope.Initialize(ropeRecord, room, position, random);
                 return new RopeRoomEntity(
                     rope, combatSource, soundRequested);
+
+            case EnemyHandlerKind.Spark:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition sparkRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var spark = new SparkCharacter
+                {
+                    Name = $"Spark_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                spark.Initialize(sparkRecord, room, position);
+                return new SparkRoomEntity(
+                    spark, combatSource, soundRequested);
+
+            case EnemyHandlerKind.Whisp:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition whispRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var whisp = new WhispCharacter
+                {
+                    Name = $"Whisp_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                whisp.Initialize(whispRecord, room, position, random);
+                return new WhispRoomEntity(
+                    whisp, combatSource, soundRequested);
+
+            case EnemyHandlerKind.Thwomp:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition thwompRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var thwomp = new ThwompCharacter
+                {
+                    Name = $"Thwomp_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                thwomp.Initialize(thwompRecord, room, position);
+                return new ThwompRoomEntity(
+                    thwomp, combatSource, soundRequested);
+
+            case EnemyHandlerKind.Peahat:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition peahatRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var peahat = new PeahatCharacter
+                {
+                    Name = $"Peahat_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                peahat.Initialize(peahatRecord, room, position, random);
+                return new PeahatRoomEntity(
+                    peahat, combatSource, soundRequested);
+
+            case EnemyHandlerKind.ColorChangingGel:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition colorGelRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var colorGel = new ColorChangingGelCharacter
+                {
+                    Name =
+                        $"ColorChangingGel_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                colorGel.Initialize(
+                    colorGelRecord, room, position, random);
+                return new ColorChangingGelRoomEntity(
+                    colorGel, combatSource, soundRequested);
+
+            case EnemyHandlerKind.SwordEnemy:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition swordEnemyRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var swordEnemy = new SwordEnemyCharacter
+                {
+                    Name =
+                        $"SwordEnemy_{source.Id:x2}_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                swordEnemy.Initialize(
+                    swordEnemyRecord, room, position, random);
+                return new SwordEnemyRoomEntity(
+                    swordEnemy, combatSource, soundRequested);
 
             case EnemyHandlerKind.Ghini:
                 if (!enemies.TryGetImportedEnemyDefinition(
@@ -1063,6 +1475,8 @@ internal sealed class RoomEntityFactory(
         GiantGhiniChildSpawn child => CreateGiantGhiniChild(child, room),
         PumpkinHeadProjectileSpawn projectile =>
             CreatePumpkinHeadProjectile(projectile, room),
+        WingDungeonBossProjectileSpawn projectile =>
+            CreateWingDungeonBossProjectile(projectile, room),
         _ => throw new ArgumentOutOfRangeException(nameof(spawn), spawn, "Unknown room-entity spawn request.")
     };
 
@@ -1150,6 +1564,18 @@ internal sealed class RoomEntityFactory(
                 room,
                 spawn.Position,
                 spawn.Angle));
+
+    private IRoomEntity CreateWingDungeonBossProjectile(
+        WingDungeonBossProjectileSpawn spawn,
+        OracleRoomData room)
+    {
+        VisualRecord visual = _spiritsGrave.Visual(
+            spawn.Kind == WingDungeonBossProjectileKind.Fireball
+                ? "head-thwomp-fireball"
+                : "head-thwomp-circular-projectile");
+        return new HostileProjectileRoomEntity<WingDungeonBossProjectile>(
+            new WingDungeonBossProjectile(spawn, visual, room));
+    }
 
     private IRoomEntity CreateSpiritsGraveMinibossPortal(OracleRoomData room)
     {
@@ -2363,6 +2789,15 @@ internal sealed class RoomEntityFactory(
                 break;
             }
         }
+        foreach (ObjectRecord native in
+            _wingDungeon.GetRoomRecords(group, room.Id))
+        {
+            if (native.Kind is ObjectKind.HeadThwomp or ObjectKind.Swoop)
+            {
+                hasSupportedNativeBossRecord = true;
+                break;
+            }
+        }
         bool hasSupportedDoor = false;
         foreach (DungeonMechanicDatabaseRecord record in records)
         {
@@ -2589,6 +3024,12 @@ internal sealed record PuzzlePuffSpawn(Vector2 Position, int Sound)
 
 internal sealed record PumpkinHeadProjectileSpawn(Vector2 Position, int Angle)
     : RoomEntitySpawn;
+
+internal sealed record WingDungeonBossProjectileSpawn(
+    Vector2 Position,
+    WingDungeonBossProjectileKind Kind,
+    int Angle,
+    int Speed) : RoomEntitySpawn;
 
 internal sealed record OverworldKeyUseSpawn(
     Vector2 Position,

@@ -49,6 +49,9 @@ internal sealed partial class SpiritsGraveEssence : TransitionOffsetNode2D,
     internal int Delay => _delay;
     internal bool Collected => _collected;
     internal bool GlowVisible => _glowVisible;
+    internal int Group => _record.Group;
+    internal int Room => _record.Room;
+    internal int EssenceIndex { get; }
     internal int GlowFrameIndex => _glow.FrameIndex;
     internal bool EnergyBeadVisible(int index) => _beadVisible[index];
     internal Texture2D EnergyBeadTexture(int index) =>
@@ -64,13 +67,17 @@ internal sealed partial class SpiritsGraveEssence : TransitionOffsetNode2D,
         bool collected,
         Func<long> animationTick,
         OracleRandom random,
-        Action<SpiritsGraveEssence, Player> triggered)
+        Action<SpiritsGraveEssence, Player> triggered,
+        int essenceIndex = 0)
     {
         _record = record;
         _random = random;
         _triggered = triggered;
         _collected = collected;
-        Name = "SpiritsGraveEternalSpirit";
+        EssenceIndex = essenceIndex;
+        Name = essenceIndex == 0
+            ? "SpiritsGraveEternalSpirit"
+            : $"DungeonEssence_{essenceIndex}";
         Position = record.Position;
         _precisePosition = Position;
         ZIndex = 9;

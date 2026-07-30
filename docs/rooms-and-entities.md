@@ -32,9 +32,14 @@ snapping the high byte with `(yh & $f8) + 1`, plays `SND_LAND`, and clears the
 air state. The side-view Feather branch launches at `-$0230`, plays `SND_JUMP`
 on its first airborne update, and uses the shared 9/9/6-update jump animation.
 
-Groups `$06/$07` check imported vertical edge warps only. An uncovered edge
-must not resolve through the aliased `$04/$05` dungeon layout or begin an
-ordinary room scroll. Aquatic/lava/ice Link states and side-view moving or
+Groups `$06/$07` restrict warp lookup to imported screen-edge warps, but the
+ordinary `screenTransitionState2` edge check still resolves open neighbors
+through the active dungeon layout. This is what connects Wing Dungeon
+`6:29 <-> 6:2a` horizontally; solid room edges continue to block Link through
+normal collision. Direct development loads of a side-scrolling `$04/$05`
+dungeon room reproduce the retail loader's switch to active group `$06/$07`
+before entities are parsed, so they retain both those edge warps and ordinary
+dungeon scrolls. Aquatic, lava, and ice Link states plus conveyor and
 disappearing platforms remain separate native systems; the dry controller
 rejects those tile modes with a source-aware diagnostic until their handlers
 are implemented.
@@ -69,6 +74,9 @@ capability and are prepared recursively in source order. Missing declarations
 fail with the spawn and entity types instead of leaving an object invisible
 until the transition ends. This phase must not advance ordinary movement,
 animation, counters, RNG, collision, or scripts.
+`ENEMY_SPARK $13` uses the phase to resolve its initial wall angle and become
+visible; wall-following movement and animation remain frozen until scrolling
+finishes.
 
 When a room event releases dynamic actors during the destination-load callback,
 it must drop its bookkeeping without deactivating nodes that
@@ -475,10 +483,12 @@ branching, but state-entry fields come from the typed generated profiles.
 
 Ordinary enemy species are not owned by the first room or dungeon that makes
 them playable. Boomerang Moblin, Arrow Moblin, Rope, Ghini, Wallmaster,
-Hardhat Beetle, and Spiny Beetle live with the other species and resolve their
-implemented definitions through `EnemyDatabase` for every matching ordered
-room record. Unsupported Arrow Moblin, Rope, and Ghini subids remain explicit
-reservations rather than silently receiving the wrong state machine.
+Hardhat Beetle, Spiny Beetle, Spark, Whisp, Thwomp, Peahat, color-changing
+Gel, and the three supported Shrouded/Masked Stalfos variants live with the
+other species and resolve their implemented definitions through
+`EnemyDatabase` for every matching ordered room record. Unsupported Arrow
+Moblin, Rope, and Ghini subids remain explicit reservations rather than
+silently receiving the wrong state machine.
 Wallmaster capture resolves the active dungeon's imported
 `wDungeonWallmasterDestRoom`; it does not encode Spirit's Grave room `4:24` in
 the entity adapter. Its source placement also owns the spawner count: room
@@ -771,6 +781,56 @@ warp. The entity owns the separately imported pedestal, animation-3 flickering
 glow, collectible, and bead presentation. Clear any room-local background fade
 when the transition loads the destination so a source-room effect cannot leak
 into ordinary gameplay.
+
+Wing Dungeon uses `wing_dungeon_objects.tsv` as the native portion of its room
+stream. `RoomEntityFactory` merges those 40 records with ordinary enemies,
+shared dungeon mechanics, static minecarts, entrances, and chests by imported
+order and condition. `WingDungeonDatabase` owns the exact color/pattern
+positions, switch-tile pairs, platform commands, minecart placements, TX
+`$000f/$2f00`, and native constants. Do not encode a room-number switch as a
+substitute for those generated records.
+
+The dungeon's toggle-floor, pattern-key, floor-color, colored-cube, flame,
+sensor, enemy-chest, falling-key, reward, switch-tile, and minecart-gate
+entities share WRAM-style toggle/switch state through the room manager.
+Push-block logic reads the underlying layout metatile while an active
+controller temporarily renders a replacement. This prevents a generated
+floor overlay from hiding the pushable source tile and keeps solve conditions
+in the same update order as the native objects that observe them.
+
+Side-view platforms claim Link through `RidingObject` and apply their imported
+linear or circular 8.8 displacement before side-view terrain resolution. On
+the first claimed update, `sidescrollPlatform_updateLinkSubpixels` copies both
+platform low coordinate bytes to Link. Later equal velocity therefore advances
+their floored sprite coordinates in lockstep instead of alternating a
+one-pixel relative offset. Circular platforms retain their separate high-byte
+delta path after the same mount-time synchronization; Thwomp support writes
+only Link's Y high byte. Airborne Link may land on that support; unsupported
+aliased room neighbors are still rejected. The final post-interaction
+`screenTransitionState2` and camera sample must observe the displaced Link
+coordinate. In particular, room `6:2b`'s bottom-right platform route carries
+Link from boundary `$a9` to `$aa` after his own air update; checking earlier
+misses its edge warp. The same final camera sample keeps Link's screen-space
+coordinate stable while a platform and camera move together. Minecarts preserve the three
+`dungeon2StaticObjects` slots and one active cart in runtime WRAM-style bytes.
+Mounting locks ordinary movement, items, sword, and menus; track centers select
+the next cardinal direction, gates observe the shared switch byte, and a
+room-edge transition carries the same active cart before materializing its
+next stationary slot.
+
+Head Thwomp's room resolves Bomb catches before ordinary Bomb fuse/explosion
+processing. A caught live `BombEffect` is consumed once and transferred to the
+boss's spin/deceleration and face-selection state; red-face damage therefore
+cannot also create a normal room explosion. Swoop owns its shuttered intro,
+TX `$2f00` input lease, flight/stomp/floor-break cycle, and miniboss reward.
+Both bosses use the shared boss teardown/reward contract while retaining their
+native entry and attack state machines.
+
+The Essence entity/event is parameterized by essence index and source room.
+Ancient Wood in `4:38` writes the second-Essence treasure/room state, presents
+TX `$000f`, runs the common music, bead, fade, and two-hand sequence, then
+warps to `1:83` at position `$25` with transition `$01`. It must not reuse the
+Eternal Spirit's group/room, text, treasure subid, or exit destination.
 
 ## Shared dungeon entrance interactions
 
@@ -1149,6 +1209,19 @@ owns their eight updates and final free. The Beetle's flipped collision mode
 uses ordinary damage and enemy recoil. Special combat adapters that bypass the
 ordinary descriptor must explicitly retain the same accepted-hit sound policy
 or their source-specific boss sound.
+
+Sword Moblin/Stalfos guards have two collision owners. The directional body
+mode `ENEMYCOLLISION_STALFOS_BLOCKED_WITH_SWORD` maps Link's sword rows to
+effect `$00` and therefore ignores a guarded body hit silently. Invisible
+`PART_ENEMY_SWORD $1d` follows the parent animation parameter at the imported
+eight blade offsets, uses the orientation-dependent `$05/$02` radii, and owns
+effects `$33/$32`: one non-flickering clink plus the sword item's eight- or
+six-update invincibility/recoil window. The corresponding
+`ENEMYDMG_$4c/$48` part counter lasts eleven or nine updates, three longer than
+Link's recoil; do not reuse the shorter Link counter for the blade. Spin
+collision maps to `$00`. Keep this part response separate from ordinary enemy
+invincibility and health so an overlapping held blade cannot emit a second
+clink as recoil ends, clink every update, or pin Link indefinitely.
 
 Common combat death creates `PART_ENEMY_DESTROYED`; the factory requests
 `SND_KILLENEMY` when that puff is allocated so every supported species shares

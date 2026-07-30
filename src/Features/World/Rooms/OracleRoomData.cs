@@ -33,6 +33,7 @@ public sealed class OracleRoomData
     private readonly Image _source;
     private readonly Image _hudGraphics;
     private readonly byte[] _originalLayout;
+    private readonly byte[] _underlyingLayout;
     private readonly byte[] _mappings;
     private readonly Color[,] _tilesetPalette;
     private readonly BackgroundPaletteState _backgroundPalettes;
@@ -76,6 +77,7 @@ public sealed class OracleRoomData
         TilesetFlags = tilesetFlags;
         Layout = layout;
         _originalLayout = (byte[])layout.Clone();
+        _underlyingLayout = (byte[])layout.Clone();
         Collisions = collisions;
         _source = source;
         _hudGraphics = hudGraphics;
@@ -452,6 +454,30 @@ public sealed class OracleRoomData
         if (tileX < 0 || tileX >= WidthInTiles || tileY < 0 || tileY >= HeightInTiles)
             return 0xff;
         return _originalLayout[tileY * _layoutStride + tileX];
+    }
+
+    internal byte GetUnderlyingMetatile(Vector2 localPoint)
+    {
+        int tileX = Mathf.FloorToInt(localPoint.X / MetatileSize);
+        int tileY = Mathf.FloorToInt(localPoint.Y / MetatileSize);
+        if (tileX < 0 || tileX >= WidthInTiles ||
+            tileY < 0 || tileY >= HeightInTiles)
+        {
+            return 0xff;
+        }
+        return _underlyingLayout[tileY * _layoutStride + tileX];
+    }
+
+    internal void SetUnderlyingMetatile(Vector2 localPoint, byte tile)
+    {
+        int tileX = Mathf.FloorToInt(localPoint.X / MetatileSize);
+        int tileY = Mathf.FloorToInt(localPoint.Y / MetatileSize);
+        if (tileX < 0 || tileX >= WidthInTiles ||
+            tileY < 0 || tileY >= HeightInTiles)
+        {
+            throw new ArgumentOutOfRangeException(nameof(localPoint));
+        }
+        _underlyingLayout[tileY * _layoutStride + tileX] = tile;
     }
 
     public bool ReplaceMetatile(Vector2 localPoint, byte expected, byte replacement, long animationTick)

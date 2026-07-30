@@ -50,7 +50,9 @@ public sealed class CombatController
             attackerKnockback: response =>
                 player.QueueSwordCollisionKnockback(
                     response.SourcePosition,
-                    response.Frames));
+                    response.Frames),
+            swordState: player.SwordState,
+            swordLevel: player.Inventory.SwordLevel);
     }
 
     public bool ApplySwordTileHit(Player player, int direction, bool swordPoke)

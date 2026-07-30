@@ -44,17 +44,25 @@ internal sealed class OracleRandom
 
     public void BeginRoomParse()
     {
+        byte[] permutation = GeneratePermutation();
+        permutation.CopyTo(_placementBuffer, 0);
         _placementIndex = 0;
-        for (int index = 0; index < _placementBuffer.Length; index++)
-            _placementBuffer[index] = (byte)index;
+        _placementBufferReady = true;
+    }
 
-        Swap(_placementBuffer, 0xff, Next().Value);
+    internal byte[] GeneratePermutation()
+    {
+        var permutation = new byte[256];
+        for (int index = 0; index < permutation.Length; index++)
+            permutation[index] = (byte)index;
+
+        Swap(permutation, 0xff, Next().Value);
         for (int current = 0xff; current > 0; current--)
         {
             int randomIndex = (Next().Value * current) >> 8;
-            Swap(_placementBuffer, current, randomIndex);
+            Swap(permutation, current, randomIndex);
         }
-        _placementBufferReady = true;
+        return permutation;
     }
 
     internal OracleRandomState CaptureState() => new(

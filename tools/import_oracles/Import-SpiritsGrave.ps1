@@ -12,19 +12,23 @@ $pumpkinHeadSource = Read-ImportText (
 $sgEnemySpriteSequences = @{
     0x3f = @($gfxNames[0xad], $gfxNames[0xae])
     0x70 = @($gfxNames[0xad], $gfxNames[0xae])
+    0x71 = @($gfxNames[0xaf])
     0x78 = @($gfxNames[0xbc], $gfxNames[0xbd], $gfxNames[0xbe])
+    0x79 = @($gfxNames[0xbf], $gfxNames[0xc0], $gfxNames[0xc1])
 }
 $sgEnemySourceGrayscaleInverted = @{
     # Giant Ghini's two source sheets use white as color 0, unlike the
     # ordinary black-background enemy sheets.
     0x3f = $false
     0x70 = $false
+    0x71 = $true
     0x78 = $true
+    0x79 = $true
 }
 $sgEnemyRows = [Collections.Generic.List[string]]::new()
 $sgEnemyRows.Add('# id`tsubid`tsprites`ttile-base`tpalette`tsource-grayscale-inverted`tradius-y`tradius-x`tdamage-quarters`thealth`tanimations-base64'.Replace('`t', "`t"))
 foreach ($spec in @(
-    @(0x3f, 0), @(0x70, 0), @(0x78, 0)
+    @(0x3f, 0), @(0x70, 0), @(0x71, 0), @(0x78, 0), @(0x79, 0)
 )) {
     $id = [int]$spec[0]
     $subid = [int]$spec[1]
@@ -37,10 +41,12 @@ foreach ($spec in @(
     $sgEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($sgEnemyRows.Count -ne 4 -or
+if ($sgEnemyRows.Count -ne 6 -or
     -not ($sgEnemyRows | Where-Object { $_ -match '^3f\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t2\t2\t128\t2\t' }) -or
     -not ($sgEnemyRows | Where-Object { $_ -match '^70\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t10\t10\t1\t12\t' }) -or
-    -not ($sgEnemyRows | Where-Object { $_ -match '^78\t00\tspr_pumpkinhead_1,spr_pumpkinhead_2,spr_pumpkinhead_3\t0\t3\t1\t6\t12\t2\t8\t' })) {
+    -not ($sgEnemyRows | Where-Object { $_ -match '^71\t00\tspr_swoop\t0\t2\t1\t10\t10\t2\t20\t' }) -or
+    -not ($sgEnemyRows | Where-Object { $_ -match '^78\t00\tspr_pumpkinhead_1,spr_pumpkinhead_2,spr_pumpkinhead_3\t0\t3\t1\t6\t12\t2\t8\t' }) -or
+    -not ($sgEnemyRows | Where-Object { $_ -match '^79\t00\tspr_headthwomp_1,spr_headthwomp_2,spr_headthwomp_3\t0\t0\t1\t18\t15\t2\t4\t' })) {
     throw "Spirit's Grave boss definitions no longer match the traced records:`n$($sgEnemyRows -join "`n")"
 }
 Write-GeneratedTable(
@@ -112,6 +118,12 @@ function Resolve-SpiritsGraveInteractionAnimation(
             break
         }
     }
+    if (-not $terminal -and $frames.Count -eq 1 -and
+        $bodyMatch.Groups['body'].Value -match
+            '(?m)^\s*\.db\s+\$7f\s+\$[0-9a-f]{2}\s+\$00\s*$') {
+        # Static side-platform animations end after one $7f-duration frame.
+        $terminal = $true
+    }
     if ($frames.Count -eq 0 -or -not $terminal) {
         throw "Interaction `$$hex animation $animationIndex is incomplete: $label"
     }
@@ -153,6 +165,9 @@ Add-SpiritsGraveInteractionVisual 'platform-09' 0x79 1 @(1)
 # not the cube drawing, becomes transparent during OAM composition.
 Add-SpiritsGraveInteractionVisual 'colored-cube' 0x19 5 (0..29) -sourceGrayscaleInverted $false
 Add-SpiritsGraveInteractionVisual 'cube-flame' 0x1a 0 @(0)
+Add-SpiritsGraveInteractionVisual 'moving-side-platform' 0xa1 0 @(4)
+Add-SpiritsGraveInteractionVisual 'circular-side-platform' 0xa4 0 @(0)
+Add-SpiritsGraveInteractionVisual 'minecart' 0x16 0 @(0, 1)
 
 # interactionCode19 loads PALH_89, which replaces OBJ palettes 6 and 7 with
 # the two color-pair palettes used by the rotating cube. Its OAM records mix
@@ -200,6 +215,9 @@ if ($essenceSource -notmatch
     throw 'INTERAC_ESSENCE D1/pedestal/glow graphics initialization changed.'
 }
 Add-SpiritsGraveInteractionVisual 'eternal-spirit' 0x7f 0 @(1) 0 1
+# D2's second @essenceOamData row selects the four-tile Ancient Wood layout
+# with tile base $04 and OBJ palette 0.
+Add-SpiritsGraveInteractionVisual 'ancient-wood' 0x7f 0 @(2) 4 0
 Add-SpiritsGraveInteractionVisual 'essence-pedestal' 0x7f 1 @(0)
 Add-SpiritsGraveInteractionVisual 'essence-glow' 0x7f 2 @(3)
 
@@ -302,7 +320,79 @@ $pumpkinProjectileAnimationData = [Convert]::ToBase64String(
     [Text.Encoding]::UTF8.GetBytes($pumpkinProjectileFrames -join '|'))
 $sgVisualRows.Add(
     "pumpkin-projectile`t$pumpkinProjectileSprite`t30`t2`t1`t$pumpkinProjectileAnimationData")
-if ($sgVisualRows.Count -ne 10) { throw "Expected nine Spirit's Grave interaction visuals." }
+
+# Head Thwomp's two native projectiles use the Ages PART $39/$3c tables.
+# Resolve both from their own animation and OAM pointer tables instead of
+# borrowing an ordinary enemy frame at runtime.
+function Add-SpiritsGravePartVisual(
+    [string]$key,
+    [int]$partId,
+    [int]$gfx,
+    [int]$tileBase,
+    [int]$palette,
+    [bool]$sourceGrayscaleInverted) {
+    $hex = $partId.ToString('x2')
+    # PART $3c aliases PART $42 at both consecutive table labels.
+    $tableHex = if ($partId -eq 0x3c) { '42' } else { $hex }
+    if ($partId -eq 0x3c -and
+        $partAnimationSource -notmatch
+            '(?m)^part3cAnimations:\s*\r?\npart42Animations:\s*\r?\n\s*\.dw\s+partAnimation5ba27' -or
+        $partId -eq 0x3c -and
+        $partAnimationSource -notmatch
+            '(?m)^part3cOamDataPointers:[^\r\n]*\r?\npart42OamDataPointers:[^\r\n]*\r?\n') {
+        throw 'PART_HEAD_THWOMP_CIRCULAR_PROJECTILE no longer aliases PART $42 graphics.'
+    }
+    $animationLabels = @([regex]::Matches(
+        (Get-AssemblyLabelBody $partAnimationSource "part${tableHex}Animations"),
+        '(?m)^\s*\.dw\s+(?<label>partAnimation[0-9a-f]+)') |
+        ForEach-Object { $_.Groups['label'].Value })
+    $oamLabels = @([regex]::Matches(
+        (Get-AssemblyLabelBody $partAnimationSource "part${tableHex}OamDataPointers"),
+        '(?m)^\s*\.dw\s+(?<label>partOamData[0-9a-f]+)') |
+        ForEach-Object { $_.Groups['label'].Value })
+    if ($animationLabels.Count -eq 0 -or $oamLabels.Count -eq 0) {
+        throw "PART_`$$hex animation/OAM tables are incomplete."
+    }
+    $resolvedAnimations = [Collections.Generic.List[string]]::new()
+    foreach ($label in $animationLabels) {
+        $frames = [Collections.Generic.List[string]]::new()
+        foreach ($frame in [regex]::Matches(
+            (Get-AssemblyLabelBody $partAnimationSource $label),
+            '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<offset>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})')) {
+            $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
+            $parameter = [Convert]::ToInt32($frame.Groups['parameter'].Value, 16)
+            $pointerIndex = [int]([Convert]::ToInt32(
+                $frame.Groups['offset'].Value, 16) / 2)
+            if ($pointerIndex -ge $oamLabels.Count) {
+                throw "PART_`$$hex $label OAM pointer $pointerIndex is out of range."
+            }
+            $metadata = if ($parameter -eq 0) { "$duration" } else { "$duration,$parameter" }
+            $frames.Add(
+                "$metadata@$(Resolve-Oam $partOamSource $oamLabels[$pointerIndex])")
+            if (($parameter -band 0x80) -ne 0) { break }
+        }
+        if ($frames.Count -eq 0) {
+            throw "PART_`$$hex $label has no animation frames."
+        }
+        $resolvedAnimations.Add($frames -join '|')
+    }
+    $sprite = $gfxNames[$gfx]
+    if (-not $sprite) {
+        throw "PART_`$$hex gfx `$$($gfx.ToString('x2')) is missing."
+    }
+    Copy-EnemySprite $sprite
+    $animationData = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($resolvedAnimations -join "`n"))
+    $inverted = if ($sourceGrayscaleInverted) { 1 } else { 0 }
+    $sgVisualRows.Add(
+        "$key`t$sprite`t$tileBase`t$palette`t$inverted`t$animationData")
+}
+Add-SpiritsGravePartVisual 'head-thwomp-fireball' 0x39 0xa4 0 4 $true
+Add-SpiritsGravePartVisual 'head-thwomp-circular-projectile' 0x3c 0x8e 0x14 6 $true
+
+if ($sgVisualRows.Count -ne 16) {
+    throw "Expected fifteen imported D1/D2 dungeon interaction visuals."
+}
 Write-GeneratedTable(
     (Join-Path $destination 'objects\spirits_grave_visuals.tsv'),
     $sgVisualRows)
