@@ -169,6 +169,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateSwordBush();
         ValidateShield();
         ValidateShovel();
+        ValidateBombs();
         ValidateSeedSatchel();
         ValidateHarp();
         ValidateSeedTrees();

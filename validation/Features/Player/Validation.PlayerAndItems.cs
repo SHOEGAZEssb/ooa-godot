@@ -8,6 +8,367 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateBombs()
+    {
+        BombRecord record = new BombDatabase().Data;
+        AnimationDefinition fuse =
+            OracleGraphicsCache.GetAnimationDefinition(record.FuseAnimation);
+        AnimationDefinition explosion =
+            OracleGraphicsCache.GetAnimationDefinition(
+                record.ExplosionAnimation);
+        FailIf(
+            record.Item != InventoryState.ItemBomb ||
+            record.TreasureId != TreasureDatabase.TreasureBombs ||
+            record.Sprite != "spr_common_items" ||
+            record.TileBase != 0x10 || record.Palette != 0x04 ||
+            record.Collision != 0x18 ||
+            record.RadiusY != 4 || record.RadiusX != 4 ||
+            record.BaseDamage != 4 ||
+            record.ExplosionSprite != "spr_common_sprites" ||
+            record.ExplosionTileBase != 0x0c ||
+            record.ExplosionPalette != 2 ||
+            record.PickupSound != OracleSoundEngine.SndPickup ||
+            record.ThrowSound != OracleSoundEngine.SndThrow ||
+            record.LandingSound != OracleSoundEngine.SndBombLand ||
+            record.ExplosionSound != OracleSoundEngine.SndExplosion ||
+            record.Gravity != 0x1c ||
+            record.InitialSpeedZ != -0xf0 ||
+            record.SpeedRaw != 0x3c ||
+            record.TossSpeedRaw != 0x64 ||
+            record.ConveyorSpeedRaw != 0x14 ||
+            record.LiftLowFrames != 7 ||
+            record.LiftMidFrames != 4 ||
+            record.LiftHighFrames != 2 ||
+            record.ThrowFrames != 8,
+            "The imported ITEM_BOMB record diverged from itemData, " +
+            "itemAttributes, bombsBraceletParent, or weight-0 throwing data.");
+        FailIf(
+            !record.EdgeOffsets.SequenceEqual(
+                [new Vector2I(0, -3), new Vector2I(3, 0),
+                 new Vector2I(0, 7), new Vector2I(-3, 0)]) ||
+            record.ReducedBounceSpeed(0) != 0 ||
+            record.ReducedBounceSpeed(0x3c) != 0x1e ||
+            record.ReducedBounceSpeed(0x64) != 0x32 ||
+            !record.BreakProbes.SequenceEqual(
+            [
+                new BombBreakProbe(-8, new Vector2I(-13, -13)),
+                new BombBreakProbe(-8, new Vector2I(-13, 12)),
+                new BombBreakProbe(-8, new Vector2I(12, 12)),
+                new BombBreakProbe(-8, new Vector2I(12, -13)),
+                new BombBreakProbe(-12, new Vector2I(-13, 0)),
+                new BombBreakProbe(-12, new Vector2I(0, 12)),
+                new BombBreakProbe(-12, new Vector2I(12, 0)),
+                new BombBreakProbe(-12, new Vector2I(0, -13)),
+                new BombBreakProbe(-14, Vector2I.Zero)
+            ]) ||
+            fuse.Frames.Length != 11 ||
+            fuse.Frames.Take(10).Sum(frame => frame.Duration) != 116 ||
+            fuse.Frames[^1].Parameter != 1 ||
+            explosion.Frames.Length != 7 ||
+            !explosion.Frames.Select(frame => frame.Parameter)
+                .SequenceEqual([6, 6, 6, 10, 15, 0x40, 0xff]),
+            "ITEM_BOMB edge probes, bounce mapping, 116-update fuse, or " +
+            "explosion-radius animation diverged from the imported source.");
+
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var inventory = new InventoryState(_treasures, save);
+        inventory.GiveTreasure(TreasureDatabase.TreasureBombs, 0x10);
+        var rooms = new RoomSession(
+            0, 0x06, () => 0, () => { }, save);
+        var root = new Node { Name = "BombValidationRoot" };
+        AddChild(root);
+        using var fixture = RoomEntityValidationFixture.ForRoot(
+            root,
+            new()
+            {
+                SaveData = save,
+                Inventory = inventory,
+                Treasures = _treasures,
+                Rooms = rooms
+            });
+        RoomEntityManager manager = fixture.Manager;
+        manager.LoadRoom(0, rooms.CurrentRoom);
+        var sounds = new List<int>();
+        manager.SoundRequested += sounds.Add;
+        var player = new Player { Name = "BombValidationPlayer" };
+        root.AddChild(player);
+        player.Initialize(
+            new ValidationRingPlayerWorld(),
+            inventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+        var controller = new BombController(
+            inventory,
+            manager,
+            rooms,
+            sounds.Add,
+            static () => false,
+            new BombDatabase());
+
+        int inventoryChanges = 0;
+        int saveChanges = 0;
+        inventory.Changed += () => inventoryChanges++;
+        save.Changed += () => saveChanges++;
+        FailIf(
+            !controller.TryUse(player) ||
+            controller.State != BombParentState.Lifting ||
+            controller.Bomb is not { State: BombState.Held } ||
+            manager.ActiveBombCount != 1 ||
+            inventory.Bombs != 0x09 ||
+            inventoryChanges != 1 || saveChanges != 1 ||
+            sounds.Count(sound => sound == OracleSoundEngine.SndPickup) != 1,
+            "ITEM_BOMB did not allocate before one packed-BCD decrement and " +
+            "begin the shared lift parent.");
+        BombEffect allocated = controller.Bomb ??
+            throw new InvalidOperationException(
+                "Bomb allocation validation lost its actor.");
+        manager.Update(1.0 / 60.0, player);
+        for (int update = 1; update <= 13; update++)
+        {
+            bool movementLocked =
+                controller.Update(
+                    player,
+                    Vector2.Zero,
+                    itemButtonJustPressed: false);
+            manager.Update(1.0 / 60.0, player);
+            FailIf(
+                update < 13 && !movementLocked,
+                $"ITEM_BOMB lift released movement before update {update}.");
+        }
+        FailIf(
+            controller.State != BombParentState.Holding ||
+            !player.IsCarryingObject ||
+            player.BraceletLiftCollisionsDisabled ||
+            allocated.State != BombState.Held,
+            "ITEM_BOMB did not enter its carried state after 7/4/2 lift updates.");
+
+        player.Face(Vector2I.Right);
+        FailIf(
+            !controller.Update(
+                player,
+                Vector2.Zero,
+                itemButtonJustPressed: true) ||
+            controller.State != BombParentState.Throwing ||
+            allocated.State != BombState.Thrown ||
+            allocated.ThrowDirection != Vector2I.Zero ||
+            allocated.SpeedZ != 0 ||
+            allocated.SpeedRaw != 0 ||
+            player.IsCarryingObject ||
+            sounds.Count(sound => sound == OracleSoundEngine.SndThrow) != 1,
+            "ITEM_BOMB did not preserve wLinkAngle=$ff as an in-place " +
+            "weight-0 drop when no direction was held.");
+        manager.Update(1.0 / 60.0, player);
+        for (int update = 1; update <= record.ThrowFrames; update++)
+        {
+            controller.Update(
+                player,
+                Vector2.Zero,
+                itemButtonJustPressed: false);
+        }
+        Vector2 thrownPosition = allocated.Position;
+        player.SetScriptedPosition(new Vector2(16, 16));
+        int bombsBeforeCapProbe = inventory.Bombs;
+        FailIf(
+            controller.State != BombParentState.Idle ||
+            controller.TryUse(player) ||
+            inventory.Bombs != bombsBeforeCapProbe ||
+            manager.ActiveBombCount != 1,
+            "The normal ITEM_BOMB object cap did not reject a distant second " +
+            "allocation without consuming ammo.");
+
+        player.SetScriptedPosition(thrownPosition);
+        FailIf(
+            !controller.TryUse(player) ||
+            controller.Bomb != allocated ||
+            inventory.Bombs != bombsBeforeCapProbe ||
+            manager.ActiveBombCount != 1,
+            "ITEM_BOMB did not prioritize re-picking a touching live Bomb " +
+            "without consuming another count.");
+        for (int update = 1; update <= 13; update++)
+        {
+            controller.Update(
+                player,
+                Vector2.Zero,
+                itemButtonJustPressed: false);
+            manager.Update(1.0 / 60.0, player);
+        }
+        FailIf(
+            !controller.Update(
+                player,
+                Vector2.Left,
+                itemButtonJustPressed: true) ||
+            allocated.ThrowDirection != Vector2I.Left ||
+            allocated.SpeedZ != record.InitialSpeedZ ||
+            allocated.SpeedRaw != record.SpeedRaw ||
+            player.FacingVector != Vector2I.Left,
+            "A held direction did not select Link's current input-facing " +
+            "weight-0 Bomb throw.");
+        controller.Interrupt(player, discard: true);
+        manager.Update(1.0 / 60.0, player);
+        FailIf(
+            manager.ActiveBombCount != 0,
+            "Discarded ITEM_BOMB remained allocated in the room-entity set.");
+
+        InventoryState Wearing(RingId ring)
+        {
+            OracleSaveData ringSave = OracleSaveData.CreateStandardGame();
+            ringSave.WriteWramByte(0xc6cc, 1);
+            ringSave.WriteWramByte(0xc6c6, (byte)ring);
+            var wearing = new InventoryState(_treasures, ringSave);
+            FailIf(
+                !wearing.EquipRingAt(0),
+                $"Could not equip ring ${(int)ring:x2} for Bomb validation.");
+            return wearing;
+        }
+        FailIf(
+            RingEffects.BombObjectLimit(inventory) != 1 ||
+            RingEffects.BombObjectLimit(Wearing(RingId.Bombers)) != 2,
+            "BOMBERS_RING no longer raises the active ITEM_BOMB cap from one to two.");
+
+        OracleRoomData effectRoom = rooms.CurrentRoom;
+        Vector2 explosionPoint = new(80, 80);
+        player.SetScriptedPosition(explosionPoint);
+        FailIf(
+            effectRoom.ActiveCollisions is not (0 or 4),
+            "Bomb validation room no longer uses a breakable collision set.");
+        effectRoom.SetPositionTileAndCollision(
+            explosionPoint, 0xc5, null, 0);
+        var effectSpawns = new List<RoomEntitySpawn>();
+        var effectSounds = new List<int>();
+        var effect = new BombEffect();
+        effect.Initialize(
+            record,
+            effectRoom,
+            new BreakableTileDatabase(),
+            player,
+            0,
+            bomb => bomb.ReleaseExploding(player, Vector2I.Zero),
+            effectSounds.Add,
+            (_, _, _) => { },
+            () => { },
+            () => 0,
+            _ => null,
+            save,
+            null);
+        effect.SetHeldOffset(player, Vector2I.Zero);
+        effect.UpdateFrame(player, effectSpawns);
+        for (int update = 0; update < 116; update++)
+            effect.UpdateFrame(player, effectSpawns);
+        FailIf(
+            effect.State != BombState.Exploding ||
+            effect.ElapsedFrames != 117 ||
+            effect.AnimationFrame != 0 ||
+            effect.ExplosionRadius != 6 ||
+            effect.Damage != 4 ||
+            !effectSounds.SequenceEqual([OracleSoundEngine.SndExplosion]),
+            "ITEM_BOMB did not initialize its radius-6 explosion on fuse update 116.");
+        int healthBeforeExplosion = player.HealthQuarters;
+        effect.UpdateFrame(player, effectSpawns);
+        FailIf(
+            effectRoom.GetMetatile(explosionPoint) != 0x3a ||
+            effect.BreakProbe != 7 ||
+            player.HealthQuarters != healthBeforeExplosion - 4 ||
+            !effectSpawns.Any(spawn => spawn is GrassDebrisSpawn),
+            "ITEM_BOMB's first explosion update did not damage Link and apply " +
+            "the center-first BREAKABLETILESOURCE_BOMB probe.");
+        while (!effect.Finished && effect.ElapsedFrames < 200)
+            effect.UpdateFrame(player, effectSpawns);
+        FailIf(
+            !effect.Finished || effect.ElapsedFrames != 152,
+            "ITEM_BOMB explosion did not delete on parameter $ff after 35 updates.");
+        effect.Free();
+
+        InventoryState peaceInventory = Wearing(RingId.Peace);
+        var peacePlayer = new Player { Name = "PeaceBombValidationPlayer" };
+        peacePlayer.Initialize(
+            new ValidationRingPlayerWorld(),
+            peaceInventory,
+            explosionPoint,
+            new OracleRandom());
+        var peaceBomb = new BombEffect();
+        peaceBomb.Initialize(
+            record, effectRoom, new BreakableTileDatabase(),
+            peacePlayer, 0, _ => { }, _ => { }, (_, _, _) => { },
+            () => { }, () => 0, _ => null, saveData: null,
+            linkedRoomNeighbor: null);
+        peaceBomb.UpdateFrame(peacePlayer, effectSpawns);
+        for (int update = 0; update < 200; update++)
+            peaceBomb.UpdateFrame(peacePlayer, effectSpawns);
+        FailIf(
+            peaceBomb.State != BombState.Held ||
+            peaceBomb.AnimationFrame != 0 ||
+            peaceBomb.AnimationCounter != 0x50,
+            "PEACE_RING did not reset a held Bomb's fuse to animation 0 each update.");
+        peaceBomb.Free();
+        peacePlayer.Free();
+
+        InventoryState blastInventory = Wearing(RingId.Blast);
+        var blastPlayer = new Player { Name = "BlastBombValidationPlayer" };
+        blastPlayer.Initialize(
+            new ValidationRingPlayerWorld(),
+            blastInventory,
+            explosionPoint,
+            new OracleRandom());
+        var blastBomb = new BombEffect();
+        blastBomb.Initialize(
+            record, effectRoom, new BreakableTileDatabase(),
+            blastPlayer, 0,
+            bomb => bomb.ReleaseExploding(blastPlayer, Vector2I.Zero),
+            _ => { }, (_, _, _) => { }, () => { }, () => 0,
+            _ => null, saveData: null, linkedRoomNeighbor: null);
+        int blastHealth = blastPlayer.HealthQuarters;
+        for (int update = 0; update < 118; update++)
+            blastBomb.UpdateFrame(blastPlayer, effectSpawns);
+        FailIf(
+            blastBomb.State != BombState.Exploding ||
+            blastBomb.Damage != 6 ||
+            blastPlayer.HealthQuarters != blastHealth - 6,
+            "BLAST_RING did not raise live Bomb and own-Bomb damage from 4 to 6.");
+        blastBomb.Free();
+        blastPlayer.Free();
+
+        InventoryState bombproofInventory = Wearing(RingId.Bombproof);
+        var bombproofPlayer = new Player
+        {
+            Name = "BombproofBombValidationPlayer"
+        };
+        bombproofPlayer.Initialize(
+            new ValidationRingPlayerWorld(),
+            bombproofInventory,
+            explosionPoint,
+            new OracleRandom());
+        var bombproofBomb = new BombEffect();
+        bombproofBomb.Initialize(
+            record, effectRoom, new BreakableTileDatabase(),
+            bombproofPlayer, 0,
+            bomb => bomb.ReleaseExploding(
+                bombproofPlayer, Vector2I.Zero),
+            _ => { }, (_, _, _) => { }, () => { }, () => 0,
+            _ => null, saveData: null, linkedRoomNeighbor: null);
+        for (int update = 0; update < 118; update++)
+            bombproofBomb.UpdateFrame(bombproofPlayer, effectSpawns);
+        FailIf(
+            bombproofPlayer.HealthQuarters !=
+                bombproofPlayer.MaxHealthQuarters,
+            "BOMBPROOF_RING did not suppress live own-Bomb damage.");
+        bombproofBomb.Free();
+        bombproofPlayer.Free();
+
+        manager.SoundRequested -= sounds.Add;
+        manager.Clear();
+        root.RemoveChild(player);
+        player.Free();
+        RemoveChild(root);
+        root.Free();
+
+        GD.Print(
+            "Validated ITEM_BOMB imported OAM/physics/probes, packed-BCD " +
+            "allocation, live pickup and object cap, 7/4/2 lift, eight-update " +
+            "angle-$ff in-place drop, directional throw, 116-update fuse, " +
+            "center-first bombable tile break, " +
+            "35-update expanding explosion, and Bomber/Peace/Blast/Bombproof rings.");
+    }
+
     private void ValidateLinkTerrainEffects()
     {
         Vector2 grassPosition = new(56, 120);

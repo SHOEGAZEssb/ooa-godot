@@ -64,6 +64,7 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     private int _bookAngle;
     private bool _bookLanded;
     private bool _holdingOarPose;
+    private bool _bombPullActive;
     private int _globalFrameCounter;
 
     internal MapleEncounterStage Stage { get; private set; }
@@ -90,6 +91,10 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     internal bool MenusDisabled => _menusDisabled;
     internal bool ObjectsDisabled => _encounter.ObjectsDisabled;
     internal bool Finished { get; private set; }
+    internal bool CanPullBomb =>
+        !Finished &&
+        _vehicle == 1 &&
+        (Stage == MapleEncounterStage.Collecting || _bombPullActive);
 
     internal void Initialize(
         int group,
@@ -458,6 +463,8 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     private void UpdateCollecting()
     {
         _animation.Advance();
+        if (_bombPullActive)
+            return;
         if (_targetItem is null ||
             _targetItem.Finished && !_targetItem.MapleCollectionReady)
         {
@@ -480,6 +487,31 @@ public partial class MapleEncounter : TransitionOffsetNode2D
             : MapleEncounterStage.Racing;
     }
 
+    internal bool OverlapsBomb(BombEffect bomb) =>
+        _bombPullActive ||
+        (Mathf.Abs(bomb.Position.X - Position.X) < 14 &&
+         Mathf.Abs(bomb.Position.Y - Position.Y) < 12);
+
+    internal void BeginBombPull()
+    {
+        if (_bombPullActive)
+            return;
+        _bombPullActive = true;
+        _targetItem?.ReleaseFromMaple();
+        _targetItem = null;
+    }
+
+    internal void BeginBombStun()
+    {
+        if (!_bombPullActive)
+            return;
+        _bombPullActive = false;
+        Stage = MapleEncounterStage.BombStun;
+        _substate = 0;
+        _counter = 0x20;
+        SetAnimation(0x1a);
+    }
+
     private void UpdateBroomSweep()
     {
         _animation.Advance();
@@ -490,9 +522,6 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         SetAnimation(4);
     }
 
-    // No player bomb item exists in the current runtime. The complete original
-    // stun state remains represented so a future ITEM_BOMB adapter can enter it
-    // without changing Maple's timing or score contract.
     private void UpdateBombStun()
     {
         _animation.Advance();

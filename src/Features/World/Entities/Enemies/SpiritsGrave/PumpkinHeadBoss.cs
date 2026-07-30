@@ -90,6 +90,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
     internal bool IntroActive => _state is BossState.WaitingForDoors or BossState.Falling;
     internal bool HeadHeld => _headHeld;
     internal bool HeadThrown => _headThrown;
+    internal Vector2I HeadThrowDirection => _throwDirection;
     internal Vector2 HeadPosition => _headPosition;
     internal Vector2 GhostPosition => _ghostPosition;
     internal int HeadZ => _headZ;
@@ -379,7 +380,9 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         }
     }
 
-    internal bool TryUseBracelet(Player player)
+    internal bool TryUseBracelet(
+        Player player,
+        Vector2I releaseDirection)
     {
         if (_state != BossState.HeadExposed)
             return false;
@@ -388,13 +391,15 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
             _headHeld = false;
             _headThrown = true;
             _headGrabbable = false;
-            _throwDirection = player.FacingVector;
+            _throwDirection = releaseDirection;
             _thrownHeadXFixed = Mathf.RoundToInt(_headPosition.X * 256.0f) +
-                _throwDirection.X * 256;
+                player.FacingVector.X * 256;
             _thrownHeadYFixed = Mathf.RoundToInt(_headPosition.Y * 256.0f) +
-                _throwDirection.Y * 256;
+                player.FacingVector.Y * 256;
             _thrownHeadZFixed = _headZ << 8;
-            _headSpeedZ = _bracelet.InitialSpeedZ;
+            _headSpeedZ = releaseDirection == Vector2I.Zero
+                ? 0
+                : _bracelet.InitialSpeedZ;
             _thrownHeadRadiusX = _throwDirection.X == 0 ? 8 : 6;
             SyncThrownHeadPosition();
             player.EndCarriedObjectPose();

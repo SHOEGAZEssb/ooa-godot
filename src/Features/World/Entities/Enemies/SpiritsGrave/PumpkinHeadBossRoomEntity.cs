@@ -64,7 +64,10 @@ internal sealed class PumpkinHeadBossRoomEntity : IRoomEntity, IFixedRoomEntity,
         _boss.ApplySwordHit(hitbox, sourcePosition, 2, spawns)
             ? SeedHitResult.Consume
             : SeedHitResult.None;
-    public bool TryUseBracelet(Player player) => _boss.TryUseBracelet(player);
+    public bool TryUseBracelet(
+        Player player,
+        Vector2I releaseDirection) =>
+        _boss.TryUseBracelet(player, releaseDirection);
 
     public bool TryTakeEnemyOutcome(out RoomEnemyOutcome outcome)
     {

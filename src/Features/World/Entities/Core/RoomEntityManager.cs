@@ -115,6 +115,19 @@ public sealed class RoomEntityManager : IDisposable
             return false;
         }
     }
+    internal int ActiveBombCount
+    {
+        get
+        {
+            int count = 0;
+            foreach (IRoomEntity entity in _activeEntities)
+            {
+                if (entity is BombRoomEntity { Finished: false })
+                    count++;
+            }
+            return count;
+        }
+    }
     internal byte NextRandomValue() => _random.Next().Value;
 
     internal RoomEntityManagerState CaptureDebugState() => new(
@@ -215,6 +228,7 @@ public sealed class RoomEntityManager : IDisposable
             OnGashaInteractionRequested, OnGashaNutCaught, inventory,
             _treasures,
             OnItemDropEnteredHazard,
+            OnObjectFellInHole,
             OnSoundRequested, ApplyThrownObjectHit, CountRoomEnemies,
             enemyIndex => _recentEnemyDefeats.WasKilled(enemyIndex),
             TriggerIsActive, () => _activeTriggers, SetTrigger,
@@ -378,7 +392,11 @@ public sealed class RoomEntityManager : IDisposable
                 }
             }
             if (!textActive)
+            {
                 ResolvePlayerProjectileCollisions();
+                ResolveBombExplosionCollisions();
+                ResolveMapleBombPulling();
+            }
 
             // updateInteractions/updateParts still run newly allocated state
             // 0 objects while wTextIsActive is set. UpdateThisFrame spawns
@@ -493,12 +511,14 @@ public sealed class RoomEntityManager : IDisposable
         return false;
     }
 
-    internal bool TryUseBracelet(Player player)
+    internal bool TryUseBracelet(
+        Player player,
+        Vector2I releaseDirection)
     {
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
             if (entity is IBraceletInteractableRoomEntity bracelet &&
-                bracelet.TryUseBracelet(player))
+                bracelet.TryUseBracelet(player, releaseDirection))
             {
                 return true;
             }
@@ -648,6 +668,77 @@ public sealed class RoomEntityManager : IDisposable
         }
     }
 
+    private void ResolveBombExplosionCollisions()
+    {
+        foreach (IRoomEntity entity in _activeEntities.ToArray())
+        {
+            if (entity is not IBombExplosionRoomEntity
+                { CollisionEnabled: true } bomb)
+            {
+                continue;
+            }
+            foreach (IRoomEntity target in _activeEntities.ToArray())
+            {
+                if (ReferenceEquals(entity, target) ||
+                    target is not ISwordHittableRoomEntity hittable)
+                {
+                    continue;
+                }
+                int targetZ =
+                    target is IObjectCollisionHeightRoomEntity height
+                        ? height.CollisionZ
+                        : 0;
+                if (!ObjectCollisionZOverlaps(
+                        targetZ,
+                        bomb.CollisionZ,
+                        bomb.CollisionZRadius))
+                {
+                    continue;
+                }
+                hittable.ApplySwordHit(
+                    bomb.CollisionBounds,
+                    bomb.CollisionBounds.GetCenter(),
+                    bomb.Damage,
+                    EnemyKnockbackStrength.High,
+                    _pendingSpawns);
+                ProcessSpawns();
+            }
+        }
+    }
+
+    private void ResolveMapleBombPulling()
+    {
+        MapleEncounter? maple = null;
+        foreach (IRoomEntity entity in _activeEntities)
+        {
+            if (entity is MapleEncounterRoomEntity mapleEntity &&
+                mapleEntity.Maple.CanPullBomb)
+            {
+                maple = mapleEntity.Maple;
+                break;
+            }
+        }
+        if (maple is null)
+            return;
+
+        foreach (IRoomEntity entity in _activeEntities)
+        {
+            if (entity is not BombRoomEntity
+                {
+                    Finished: false,
+                    Bomb: { CanMaplePull: true }
+                } bomb ||
+                !maple.OverlapsBomb(bomb.Bomb))
+            {
+                continue;
+            }
+            maple.BeginBombPull();
+            if (bomb.Bomb.PullTowardMaple(maple.Position))
+                maple.BeginBombStun();
+            return;
+        }
+    }
+
     internal bool TrySpawnSwordBeam(Vector2 linkPosition, int direction)
     {
         foreach (IRoomEntity entity in _activeEntities)
@@ -658,6 +749,26 @@ public sealed class RoomEntityManager : IDisposable
         _pendingSpawns.Add(new SwordBeamSpawn(linkPosition, direction));
         ProcessSpawns();
         return true;
+    }
+
+    internal bool TryPickupBomb(
+        Player player,
+        out BombEffect? bomb)
+    {
+        foreach (IRoomEntity entity in _activeEntities)
+        {
+            if (entity is BombRoomEntity
+                {
+                    Finished: false
+                } bombEntity &&
+                bombEntity.Bomb.OverlapsForPickup(player))
+            {
+                bomb = bombEntity.Bomb;
+                return true;
+            }
+        }
+        bomb = null;
+        return false;
     }
 
     internal T Spawn<T>(RoomEntitySpawn spawn) where T : Node2D
@@ -1211,6 +1322,8 @@ public sealed class RoomEntityManager : IDisposable
     private void OnItemDropEnteredHazard(
         Vector2 position,
         HazardType hazard) => ItemDropEnteredHazard?.Invoke(position, hazard);
+    private void OnObjectFellInHole(ObjectFellInHoleKind kind) =>
+        ObjectFellInHole?.Invoke(kind);
 
     private void OnSpiritsGraveEssenceTriggered(
         SpiritsGraveEssence essence,

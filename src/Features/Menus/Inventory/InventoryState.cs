@@ -10,6 +10,7 @@ public sealed class InventoryState
     public const int NumInventoryItems = 0x20;
     public const int ItemNone = 0x00;
     public const int ItemShield = 0x01;
+    public const int ItemBomb = 0x03;
     public const int ItemSword = 0x05;
     public const int ItemHarp = 0x11;
     public const int ItemShovel = 0x15;
@@ -511,6 +512,20 @@ public sealed class InventoryState
         if (count == 0)
             return false;
         GashaSeeds = ToBcd(count - 1);
+        NotifyChanged();
+        return true;
+    }
+
+    /// <summary>
+    /// Mirrors decNumBombs: the count is packed BCD and changes only after
+    /// the ITEM_BOMB child has been allocated successfully.
+    /// </summary>
+    internal bool TryConsumeBomb()
+    {
+        int count = FromBcd(Bombs);
+        if (count == 0)
+            return false;
+        Bombs = ToBcd(count - 1);
         NotifyChanged();
         return true;
     }

@@ -159,6 +159,10 @@ $seedCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\items\seeds.s')
 $seedParentSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\itemParents\seedsParent.s')
+$bombCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\items\bombs.s')
+$conveyorItemSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\tile_properties\conveyorItemTiles.s')
 $swordBeamSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\items\swordBeam.s')
 $shieldParentSource = Read-ImportText (
@@ -173,6 +177,8 @@ $itemPostUpdateSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\items\postUpdate.s')
 $itemCommonCode2Source = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\items\commonCode2.s')
+$itemCommonCode1Source = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\items\commonCode1.s')
 $clinkSoundSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\tile_properties\clinkSounds.s')
 $specialObjectOamDataSource = Read-ImportText (
@@ -315,9 +321,13 @@ if (-not $braceletAttributes.Success -or -not $braceletWeight.Success -or
     $braceletParentSource -notmatch
         '(?ms)^parentItemCode_bracelet:.*?^@state0:.*?call checkLinkOnGround.*?call @checkWallInFrontOfLink.*?^@state1:.*?@counterDirections.*?lda BREAKABLETILESOURCE_BRACELET.*?call tryToBreakTile.*?SND_PICKUP.*?^@state2:.*?^@state3:.*?SND_THROW.*?^@state4:' -or
     $braceletParentSource -notmatch
+        '(?ms)^@@throwItem:\s*ld a,\(wLinkAngle\)\s*rlca\s*jr c,\+\s*ld a,\(w1Link\.direction\)\s*swap a\s*rrca\s*\+\s*ld l,Item\.angle\s*ld \(hl\),a' -or
+    $braceletParentSource -notmatch
         '(?ms)^@checkWallInFrontOfLink:.*?w1Link\.adjacentWallsBitset.*?^@@data:\s*\.db \$c0 \$fb \$00 ; DIR_UP\s*\.db \$03 \$00 \$07 ; DIR_RIGHT\s*\.db \$30 \$07 \$00 ; DIR_DOWN\s*\.db \$0c \$00 \$f8 ; DIR_LEFT' -or
     $braceletItemSource -notmatch
         '(?ms)^itemCode16:.*?call itemMimicBgTile.*?ld a,\$06\s*ldd \(hl\),a\s*ldd \(hl\),a.*?call itemBeginThrow.*?call itemUpdateThrowingLaterally.*?call itemUpdateThrowingVertically.*?itemMakeInteractionForBreakableTile' -or
+    $braceletThrowSource -notmatch
+        '(?ms)^itemBeginThrow:.*?ld a,\(w1Link\.direction\).*?If angle is \$ff \(motionless\), skip the rest\..*?ld e,Item\.angle\s*ld a,\(de\)\s*rlca\s*jr c,@clearItemSpeed.*?^@clearItemSpeed:.*?ld l,Item\.speed\s*xor a\s*ld \(hl\),a\s*ld l,Item\.speedZ\s*ldi \(hl\),a\s*ldi \(hl\),a' -or
     $parentItemCommonSource -notmatch
         '(?ms)^@liftedObjectPositions:.*?Weight 0\s*\.db \$f8 \$00 \$00 \$07 \$06 \$00 \$00 \$f8.*?\.db \$fa \$00 \$f8 \$03 \$04 \$00 \$f8 \$fc.*?\.db \$f3 \$00 \$f2 \$00 \$f3 \$00 \$f2 \$00.*?\.db \$f3 \$00 \$f3 \$00 \$f3 \$00 \$f3 \$00' -or
     $specialObjectAnimationsSource -notmatch
@@ -463,6 +473,125 @@ function Read-ItemOamComposition([string]$label) {
     }
     return $parts -join ';'
 }
+
+# ITEM_BOMB ($03) shares Bracelet's weight-0 lift/throw parent, but remains an
+# independently updating item actor after allocation. Preserve both native
+# animations, the explosion probes, and the motion tables in one typed record.
+$bombData = [regex]::Match(
+    $itemDataSource,
+    '(?m)^\s*\.db\s+\$(?<gfx>[0-9a-f]{2})\s+\$(?<tile>[0-9a-f]{2})\s+\$(?<palette>[0-9a-f]{2})\s*;\s*\$03:\s*ITEM_BOMB')
+$bombAttributes = [regex]::Match(
+    $itemAttributesSource,
+    '(?m)^\s*\.db\s+\$(?<collision>[0-9a-f]{2})\s+\$(?<radius>[0-9a-f]{2})\s+\$(?<damage>[0-9a-f]{2})\s+\$[0-9a-f]{2}\s*;\s*\$03:\s*ITEM_BOMB')
+$bombOamPointers = [regex]::Match(
+    $itemAnimationsSource,
+    '(?ms)^item03OamDataPointers:.*?\r?\n(?<body>(?:\s*\.dw\s+itemOamData[0-9a-f]+\s*\r?\n){7})')
+$bombFuseBlock = [regex]::Match(
+    $itemAnimationsSource,
+    '(?ms)^itemAnimation1e777:\s*(?<body>.*?)(?=^itemAnimation1e798:)')
+$bombExplosionBlock = [regex]::Match(
+    $itemAnimationsSource,
+    '(?ms)^itemAnimation1e798:\s*(?<body>.*?)(?=^itemAnimation1e7ad:)')
+if (-not $bombData.Success -or -not $bombAttributes.Success -or
+    -not $bombOamPointers.Success -or -not $bombFuseBlock.Success -or
+    -not $bombExplosionBlock.Success) {
+    throw 'Could not parse ITEM_BOMB item data, attributes, animations, or OAM pointers.'
+}
+$bombOamLabels = @([regex]::Matches(
+    $bombOamPointers.Groups['body'].Value,
+    '(?m)^\s*\.dw\s+(?<label>itemOamData[0-9a-f]+)') |
+    ForEach-Object { $_.Groups['label'].Value })
+if ($bombOamLabels.Count -ne 7) {
+    throw "Expected seven ITEM_BOMB OAM pointers, parsed $($bombOamLabels.Count)."
+}
+
+function Convert-ItemAnimationBlock(
+    [string]$body,
+    [string[]]$oamLabels,
+    [string]$name) {
+    $rows = @([regex]::Matches(
+        $body,
+        '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<oam>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})'))
+    if ($rows.Count -eq 0) {
+        throw "Could not parse $name animation rows."
+    }
+    $parts = [Collections.Generic.List[string]]::new()
+    foreach ($row in $rows) {
+        $duration = [Convert]::ToInt32(
+            $row.Groups['duration'].Value, 16)
+        $oamOffset = [Convert]::ToInt32(
+            $row.Groups['oam'].Value, 16)
+        $parameter = [Convert]::ToInt32(
+            $row.Groups['parameter'].Value, 16)
+        if (($oamOffset -band 1) -ne 0 -or
+            ($oamOffset / 2) -ge $oamLabels.Count) {
+            throw "$name referenced invalid OAM pointer offset `$$($oamOffset.ToString('x2'))."
+        }
+        $parts.Add(
+            "$duration,$parameter@$(Read-ItemOamComposition $oamLabels[$oamOffset / 2])")
+    }
+    return $parts -join '|'
+}
+
+$encodedBombFuse = Convert-ItemAnimationBlock `
+    -body $bombFuseBlock.Groups['body'].Value `
+    -oamLabels $bombOamLabels `
+    -name 'ITEM_BOMB fuse'
+$encodedBombExplosion = Convert-ItemAnimationBlock `
+    -body $bombExplosionBlock.Groups['body'].Value `
+    -oamLabels $bombOamLabels `
+    -name 'ITEM_BOMB explosion'
+$bombRadius = [Convert]::ToInt32(
+    $bombAttributes.Groups['radius'].Value, 16)
+$bombDamageRaw = [Convert]::ToInt32(
+    $bombAttributes.Groups['damage'].Value, 16)
+$bombDamage = 0x100 - $bombDamageRaw
+$bombGfxIndex = [Convert]::ToInt32(
+    $bombData.Groups['gfx'].Value, 16)
+
+$bombSourceValid =
+    $itemIds['ITEM_BOMB'] -eq 0x03 -and
+    $treasureIds['TREASURE_BOMBS'] -eq 0x03 -and
+    $bombGfxIndex -eq 0x78 -and
+    $objectGfxHeadersSource -match
+        '(?m)^\s*/\*\s*\$78\s*\*/\s*m_ObjectGfxHeader\s+spr_common_items' -and
+    $bombData.Groups['tile'].Value -eq '10' -and
+    $bombData.Groups['palette'].Value -eq '04' -and
+    $bombAttributes.Groups['collision'].Value -eq '18' -and
+    $bombRadius -eq 0x44 -and
+    $bombDamageRaw -eq 0xfc -and
+    $itemUsageSource -match
+        '(?m)^\s*\.db\s+\$23,\s*<wGameKeysJustPressed\s*;\s*ITEM_BOMB' -and
+    $itemUsageSource -match
+        '(?m)^\s*\.db\s+\$30,\s*LINK_ANIM_MODE_LIFT\s*;\s*ITEM_BOMB' -and
+    $braceletParentSource -match
+        '(?ms)^parentItemCode_bomb:.*?call tryPickupBombs.*?wNumBombs.*?ld e,\$01.*?BOMBERS_RING.*?inc e.*?call itemCreateChild.*?call makeLinkPickupObjectH.*?parentItemCode_bracelet@beginPickup' -and
+    $bombCodeSource -match
+        '(?ms)^@heldState1:.*?PEACE_RING.*?bombResetAnimationAndSetVisiblec1.*?call bombUpdateAnimation.*?jp dropLinkHeldItem' -and
+    $bombCodeSource -match
+        '(?ms)^itemInitializeBombExplosion:.*?ld a,\$0a.*?ld \(hl\),\$0c.*?BLAST_RING.*?dec \(hl\).*?dec \(hl\).*?ld \(hl\),\$08.*?SND_EXPLOSION' -and
+    $bombCodeSource -match
+        '(?ms)^@data:\s*\.db \$f8 \$f3 \$f3\s*\.db \$f8 \$0c \$f3\s*\.db \$f8 \$0c \$0c\s*\.db \$f8 \$f3 \$0c\s*\.db \$f4 \$00 \$f3\s*\.db \$f4 \$0c \$00\s*\.db \$f4 \$00 \$0c\s*\.db \$f4 \$f3 \$00\s*\.db \$f2 \$00 \$00' -and
+    $itemCommonCode1Source -match
+        '(?ms)^bombEdgeOffsets:\s*\.db \$fd \$00.*?\.db \$00 \$03.*?\.db \$07 \$00.*?\.db \$00 \$fd' -and
+    $braceletThrowSource -match
+        '(?ms)^itemWeights:\s*\.db \$1c \$10 SPEED_180 SPEED_280' -and
+    $braceletThrowSource -match
+        '(?ms)^bounceSpeedReductionMapping:.*?SPEED_020 SPEED_000.*?SPEED_180 SPEED_0c0.*?SPEED_280 SPEED_140.*?\.db \$00 \$00' -and
+    $conveyorItemSource -match
+        '(?ms)^itemConveyorTilesTable:.*?@dungeons:.*?TILEINDEX_CONVEYOR_UP,\s+ANGLE_UP.*?TILEINDEX_CONVEYOR_RIGHT,\s+ANGLE_RIGHT.*?TILEINDEX_CONVEYOR_DOWN,\s+ANGLE_DOWN.*?TILEINDEX_CONVEYOR_LEFT,\s+ANGLE_LEFT'
+if (-not $bombSourceValid) {
+    throw 'ITEM_BOMB allocation, graphics, fuse, explosion, or weight-0 motion behavior changed in the supported disassembly.'
+}
+
+$bombRows = [Collections.Generic.List[string]]::new()
+$bombRows.Add(
+    '# item`ttreasure-id`tsprite`ttile-base`tpalette`tcollision`tradius-y`tradius-x`tbase-damage`texplosion-sprite`texplosion-tile-base`texplosion-oam-flags`tpickup-sound`tthrow-sound`tlanding-sound`texplosion-sound`tgravity`tinitial-speed-z`tspeed-raw`ttoss-speed-raw`tconveyor-speed-raw`tlift-low-frames`tlift-mid-frames`tlift-high-frames`tthrow-frames`tedge-offsets`tbounce-speeds`tbreak-probes`tfuse-animation`texplosion-animation`tsource')
+$bombRows.Add(
+    "$($itemIds['ITEM_BOMB'].ToString('x2'))`t$($treasureIds['TREASURE_BOMBS'].ToString('x2'))`tspr_common_items`t$($bombData.Groups['tile'].Value)`t$($bombData.Groups['palette'].Value)`t$($bombAttributes.Groups['collision'].Value)`t$(($bombRadius -shr 4) -band 0x0f)`t$($bombRadius -band 0x0f)`t$bombDamage`tspr_common_sprites`t0c`t0a`t$($soundIds['SND_PICKUP'].ToString('x2'))`t$($soundIds['SND_THROW'].ToString('x2'))`t$($soundIds['SND_BOMB_LAND'].ToString('x2'))`t$($soundIds['SND_EXPLOSION'].ToString('x2'))`t28`t-240`t3c`t64`t14`t7`t4`t2`t8`t-3,0;0,3;7,0;0,-3`t0:0;5:0;10:5;15:5;20:10;25:10;30:15;35:15;40:20;45:20;50:25;55:25;60:30;65:30;70:35;75:35;80:40;85:40;90:45;95:45;100:50;105:50;110:55;115:55;120:60`t-8,-13,-13;-8,12,-13;-8,12,12;-8,-13,12;-12,0,-13;-12,12,0;-12,0,12;-12,-13,0;-14,0,0`t$encodedBombFuse`t$encodedBombExplosion`tobject_code/common/items/bombs.s:itemCode03")
+Write-GeneratedTable(
+    (Join-Path $destination 'metadata\bomb.tsv'),
+    $bombRows)
 
 for ($index = 0; $index -lt 5; $index++) {
     $duration = [Convert]::ToInt32($emberAnimation.Groups["d$index"].Value, 16)

@@ -82,7 +82,7 @@ public sealed class BraceletController
             return false;
 
         bool wasCarrying = player.IsCarryingObject;
-        if (_entities.TryUseBracelet(player))
+        if (_entities.TryUseBracelet(player, Vector2I.Zero))
         {
             if (!wasCarrying && player.IsCarryingObject)
                 BeginEntityLift(player, primaryButton);
@@ -121,7 +121,10 @@ public sealed class BraceletController
                 // release such an object, regardless of which button started
                 // the lift.
                 if (player.IsCarryingObject && itemButtonJustPressed &&
-                    _entities.TryUseBracelet(player))
+                    _entities.TryUseBracelet(
+                        player,
+                        player.SelectCarriedObjectReleaseDirection(
+                            movementInput)))
                 {
                     player.SetBraceletEntityOffset(null);
                     player.SetBraceletActionPose(
@@ -157,7 +160,7 @@ public sealed class BraceletController
                 UpdateHeldPosition(player);
                 if (itemButtonJustPressed)
                 {
-                    Throw(player);
+                    Throw(player, movementInput);
                     AdvanceProjectile();
                     return true;
                 }
@@ -416,7 +419,7 @@ public sealed class BraceletController
         _object?.SetHeldOffset(GetHeldOffset(player));
     }
 
-    private void Throw(Player player)
+    private void Throw(Player player, Vector2 movementInput)
     {
         if (_object is null)
         {
@@ -425,15 +428,19 @@ public sealed class BraceletController
         }
 
         Vector2I heldOffset = GetHeldOffset(player);
-        Vector2I direction = player.FacingVector;
+        Vector2I direction =
+            player.SelectCarriedObjectReleaseDirection(movementInput);
+        bool dropped = direction == Vector2I.Zero;
         ReleaseObject(
             player,
             heldOffset,
             direction,
-            _record.InitialSpeedZ,
-            RingEffects.UsesStrongThrow(player.Inventory)
-                ? _record.TossSpeedRaw
-                : _record.SpeedRaw);
+            dropped ? 0 : _record.InitialSpeedZ,
+            dropped
+                ? 0
+                : RingEffects.UsesStrongThrow(player.Inventory)
+                    ? _record.TossSpeedRaw
+                    : _record.SpeedRaw);
         player.EndCarriedObjectPose();
         player.SetBraceletActionPose(BraceletActionPose.Throw);
         _playSound(_record.ThrowSound);
@@ -452,7 +459,8 @@ public sealed class BraceletController
             return;
 
         Vector2 groundPosition =
-            player.Position + new Vector2(heldOffset.X, 0) + direction;
+            player.Position + new Vector2(heldOffset.X, 0) +
+            player.FacingVector;
         _object.Release(
             _worldRoot,
             groundPosition,

@@ -231,8 +231,12 @@ same animation clock to fixed bank-1 `spr_common_sprites`, tile base `$06`, and
 palette 2. Each animation parameter selects a full OAM record; the later flame
 frames are two-cell compositions with their source palette and flip overrides,
 rather than a single tile advanced by that parameter. Satchel landing and
-ignition request
-`SND_BOMB_LAND $52` and `SND_LIGHTTORCH $72` at their native state boundaries.
+ignition request `SND_BOMB_LAND $52` and `SND_LIGHTTORCH $72` at their native
+state boundaries. `ITEM_BOMB` separately uses its imported common-item OAM
+while live and bank-1 common-sprite OAM for the explosion. Pickup, throw, every
+landing bounce, and explosion request `SND_PICKUP $9c`, `SND_THROW $51`,
+`SND_BOMB_LAND $52`, and `SND_EXPLOSION $6f` at the owning parent/child state
+boundary.
 
 Dark dungeon rooms use the Ages room-darkening palette thread, not a
 screen-space translucent overlay. The `$fc` dirty/source masks apply the signed

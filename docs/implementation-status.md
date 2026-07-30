@@ -28,7 +28,15 @@ claim that the entire surrounding game is complete.
   exact imported `$f8` grass overlap and four-frame `$f9`
   shallow-water ripple OAM/step sound, grass/bush cut debris OAM, timing, sound,
   underwater palette, and grass subid flicker, the active Shovel, and the
-  Seed Satchel's active Ember Seed path plus Mystery Seed flight/Owl Statue
+  active Bomb. Bomb use preserves touching-live-Bomb pickup before allocation,
+  packed-BCD ammo debit, the normal one-object/Bomber's Ring two-object cap,
+  7/4/2 lift and eight-update throw poses, held-direction normal/Toss Ring
+  weight-0 motion, no-direction angle-`$ff` in-place drops,
+  wall/landing bounces, conveyors and hazards, the 116-update fuse, imported
+  explosion OAM/radii, Link/enemy damage, nine ordered
+  `BREAKABLETILESOURCE_BOMB` probes, Maple vacuum suction, and Blast,
+  Bombproof, and Peace Ring behavior. The Seed Satchel's active Ember Seed
+  path plus Mystery Seed flight/Owl Statue
   activation. The source `inventoryMenuState2` seed panel compresses all owned
   types from Ember through Mystery, preserves its imported widths, positions,
   seed OAM, live packed-BCD counts, wraparound, sounds, and
@@ -105,8 +113,9 @@ claim that the entire surrounding game is complete.
   flag, room-music restoration, Joy Ring quantities, tier-ring RNG, Potion
   sound, and Maple's held Heart Piece. Ages' Touching Book branch includes its
   separate flying visual, TX `$070d-$0711`, Magic Oar presentation, persistent
-  completion bits, and departure. The vacuum's optional interaction with an
-  active live Bomb remains gated by the deferred Bomb item actor.
+  completion bits, and departure. During the vacuum collection state, a
+  touching grounded live Bomb pauses its fuse, moves into Maple, rises to
+  `zh=$f8`, disappears, and sends Maple through the source stun path.
 - The Shield is an active held-button parent item on either A or B. Wooden,
   Iron, and Mirror Shield ownership use `wShieldLevel`; equipped-but-lowered
   and raised states select the original level-aware Link frames in all four
@@ -155,8 +164,9 @@ claim that the entire surrounding game is complete.
   preserves its replacement/drop/room-flag effects, and becomes a transparent
   OBJ-palette mimic of its live BG mapping, flips, animation, and palette. The
   13-update lift, temporary Link-collision disable, held walking offsets,
-  either-button release, eight-update throw pose, weight-0 8.8 gravity and
-  `SPEED_180` motion are implemented,
+  either-button release, eight-update throw pose, held-direction weight-0 8.8
+  gravity and `SPEED_180` motion, and no-direction angle-`$ff` in-place drops
+  are implemented,
   including `SND_PICKUP`/`SND_THROW`, wall/landing/hazard results, enemy damage
   without consuming the thrown tile, and imported `$06/$0c` rock-debris
   variants. The Toss Ring selects the source `SPEED_280` path. Power Glove
@@ -214,20 +224,20 @@ remains the single runtime policy table.
 | `$09` | Green Ring | Implemented | Increases sword damage and reduces incoming damage. |
 | `$0a` | Cursed Ring | Implemented | Halves sword damage and doubles incoming damage. |
 | `$0b` | Expert's Ring | Implemented | Enables the stronger unarmed punch, including tile hits, collision, animation, and sound. |
-| `$0c` | Blast Ring | Deferred | Bomb-damage policy exists; active Bomb behavior does not. |
+| `$0c` | Blast Ring | Implemented | Raises active Bomb explosion damage from 4 to 6, including Link contact with his own Bomb. |
 | `$0d` | Rang Ring L-1 | Deferred | Level-1 boomerang-damage policy exists; active Boomerang behavior does not. |
 | `$0e` | GBA Time Ring | Correct no-op | Wearing it intentionally does nothing. Its Game Link/GBA acquisition path is unavailable. |
 | `$0f` | Maple's Ring | Implemented | Lowers the active Maple encounter threshold from 30 enemy kills to 15. |
 | `$10` | Steadfast Ring | Implemented | Halves Link's enemy-contact knockback duration. |
 | `$11` | Pegasus Ring | Deferred | Extended-duration policy exists; active Pegasus Seed behavior does not. |
-| `$12` | Toss Ring | Implemented | Raises the implemented Bracelet weight-0 throw from `SPEED_180` to `SPEED_280`. |
+| `$12` | Toss Ring | Implemented | Raises implemented Bracelet and Bomb weight-0 throws from `SPEED_180` to `SPEED_280`. |
 | `$13` | Heart Ring L-1 | Implemented | Restores the source amount after the level-1 movement-distance threshold. |
 | `$14` | Heart Ring L-2 | Implemented | Restores the source amount after the level-2 movement-distance threshold. |
 | `$15` | Swimmer's Ring | Deferred | Fast-swim policy exists; swimming does not. |
 | `$16` | Charge Ring | Implemented | Advances the sword charge counter four times as fast. |
 | `$17` | Light Ring L-1 | Implemented | Extends sword-beam eligibility to two Hearts below full health. |
 | `$18` | Light Ring L-2 | Implemented | Extends sword-beam eligibility to three Hearts below full health. |
-| `$19` | Bomber's Ring | Deferred | Two-Bomb placement policy exists; active Bomb behavior does not. |
+| `$19` | Bomber's Ring | Implemented | Raises the active Bomb-object cap from one to two; each use still allocates at most one Bomb. |
 | `$1a` | Green Luck Ring | Deferred | Half-damage policy exists; blade-trap damage has no production consumer. |
 | `$1b` | Blue Luck Ring | Deferred | Half-damage policy exists; enemy-beam damage has no production consumer. |
 | `$1c` | Gold Luck Ring | Implemented | Halves damage from the implemented hole-fall path. |
@@ -250,7 +260,7 @@ remains the single runtime policy table.
 | `$2d` | Subrosian Ring | Implemented | Uses the Subrosian Link disguise and transformed-Link restrictions. |
 | `$2e` | First Gen Ring | Implemented | Uses the first-generation Link disguise and transformed-Link restrictions. |
 | `$2f` | Spin Ring | Implemented | Extends the sword action to the source double-spin duration and collision arcs. |
-| `$30` | Bombproof Ring | Deferred | Own-Bomb immunity is encoded; active Bomb behavior does not exist. |
+| `$30` | Bombproof Ring | Implemented | Prevents damage from Link's own active Bomb explosions. |
 | `$31` | Energy Ring | Implemented | Replaces the charged Spin Attack with the implemented sword beam and poke handoff. |
 | `$32` | Dbl. Edged Ring | Implemented | Adds the source sword damage and hurts Link once after the first accepted hit. |
 | `$33` | GBA Nature Ring | Correct no-op | Wearing it intentionally does nothing. Its Game Link/GBA acquisition path is unavailable. |
@@ -261,7 +271,7 @@ remains the single runtime policy table.
 | `$38` | 100th Ring | Correct no-op | It is an achievement ring, not a modifier. The appraisal counter and award are implemented. |
 | `$39` | Whisp Ring | Deferred | Jinx immunity is encoded; jinx status behavior is absent. |
 | `$3a` | Gasha Ring | Implemented | Enemy kills grant the source double increment to all persisted Gasha-spot counters; planting, growth, and reward consumers are active. |
-| `$3b` | Peace Ring | Deferred | Held-Bomb explosion suppression is encoded; active held Bombs do not exist. |
+| `$3b` | Peace Ring | Implemented | Continuously resets a held Bomb's fuse and resumes the ordinary fuse after release. |
 | `$3c` | Zora Ring | Deferred | Unlimited-dive policy exists; swimming and diving do not. |
 | `$3d` | Fist Ring | Implemented | Enables the ordinary unarmed punch, including collision, animation, and sound. |
 | `$3e` | Whimsical Ring | Implemented | Uses the source RNG roll for usually weak and occasionally deadly sword damage and its lightning cue. |
@@ -730,11 +740,14 @@ remains the single runtime policy table.
 
 ### Player and inventory
 
-- Remaining active items and grabbable object species (including Bombs and
-  companions), swimming/diving, terrain-specific Link states, and complete
+- Remaining active items and grabbable object species (including companions),
+  swimming/diving, terrain-specific Link states, and complete
   low-health warning behavior. The Feather's side-view level-1 launch is
   active; its top-down behavior and level-2 Roc's Cape continuation remain
   deferred.
+- Room `0:50`'s Bomb Upgrade Fairy interaction and its capacity-upgrade
+  dialogue/cutscene remain deferred; this does not affect ordinary active Bomb
+  use.
 - Aquatic, lava, and ice side-view Link handlers plus moving, conveyor,
   circular, and disappearing side-scroll platforms remain deferred. Dry
   passage gravity, ladders, Feather launch, and edge warps are implemented.

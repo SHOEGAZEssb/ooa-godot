@@ -1196,7 +1196,7 @@ public sealed partial class ValidationRoot
             recordSafe: false);
         _player.Face(Vector2I.Right);
         FailIf(
-            !_entities.TryUseBracelet(_player) ||
+            !_entities.TryUseBracelet(_player, Vector2I.Zero) ||
             !spiny.CoverHeld || spiny.CoverProtects ||
             !spiny.ParentVisible || !_player.IsCarryingObject,
             "The Power Bracelet did not detach and hold the Spiny Beetle's " +
@@ -1205,11 +1205,12 @@ public sealed partial class ValidationRoot
         FailIf(
             spiny.State != SpinyBeetleState.ExposedWaiting ||
             spiny.Counter1 != 60 ||
-            !_entities.TryUseBracelet(_player) ||
+            !_entities.TryUseBracelet(_player, Vector2I.Zero) ||
             spiny.CoverHeld || !spiny.CoverThrown ||
+            spiny.CoverThrowDirection != Vector2I.Zero ||
             _player.IsCarryingObject,
             "The lifted Spiny cover did not reveal the parent or enter its " +
-            "weight-0 thrown state.");
+            "angle-$ff in-place drop state.");
         _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
         int thrownUpdates = 0;
         while (spiny.CoverThrown && thrownUpdates++ < 120)

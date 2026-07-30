@@ -138,8 +138,13 @@ internal static class RingEffects
             _ => baseDamage
         };
 
-    internal static int BombsPlacedPerUse(InventoryState inventory) =>
+    internal static int BombObjectLimit(InventoryState inventory) =>
         Active(inventory, RingId.Bombers) ? 2 : 1;
+
+    // Retained for callers compiled against the earlier policy surface. The
+    // source value is an active ITEM_BOMB allocation cap, not a spawn count.
+    internal static int BombsPlacedPerUse(InventoryState inventory) =>
+        BombObjectLimit(inventory);
 
     internal static bool BombsExplode(InventoryState inventory) =>
         !Active(inventory, RingId.Peace);

@@ -13,6 +13,7 @@ public interface IPlayerWorld
     bool MovementDisabled { get; }
     bool RingTransformationsAllowed { get; }
     bool RidingObject { get; }
+    bool BombParentActive => false;
     bool SideScrolling { get; }
     SideScrollPlayerParameters SideScrollParameters { get; }
     bool ApplySwordHit(Player player, Rect2 hitbox);
@@ -22,6 +23,12 @@ public interface IPlayerWorld
     void PlaySound(int soundId);
     bool TryInteract(Player player);
     bool TrySecondaryInteract(Player player);
+    bool TryUseBomb(Player player) => false;
+    bool UpdateBomb(
+        Player player,
+        Vector2 movementInput,
+        bool itemButtonJustPressed) => false;
+    void InterruptBomb(Player player, bool discard) { }
     bool TryUseBracelet(Player player, bool primaryButton);
     bool UpdateBracelet(
         Player player,

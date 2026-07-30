@@ -10,6 +10,7 @@ public sealed class BreakableTileDatabase
     public const int SourceSwordLevel1 = 0x01;
     public const int SourceSwordLevel2 = 0x02;
     public const int SourceExpertsRing = 0x03;
+    public const int SourceBomb = 0x04;
     public const int SourceLanded = 0x05;
     public const int SourceShovel = 0x06;
     public const int SourceEmberSeed = 0x0c;

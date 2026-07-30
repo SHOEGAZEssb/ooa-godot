@@ -180,11 +180,24 @@ behavior from the Ember row.
 special-object graphics/animation entries, lifted-object offsets, object
 collision table, and pickup/throw sounds. The importer asserts the paired
 directional wall masks, 11-update pull boundary, 7/4/2 lift phases,
-eight-update throw pose, weight-0 gravity/Z and normal/Toss Ring speeds, rather
-than deriving those values from a convenient room. Bracelet break visuals
+eight-update throw pose, `wLinkAngle` `$ff` no-direction selection, its
+one-pixel retained-facing offset and speed/`speedZ` clearing, and directional
+weight-0 gravity/Z and normal/Toss Ring speeds, rather than deriving those
+values from a convenient room. Bracelet break visuals
 reuse `effects/rock_debris.tsv`; that table contains both source interactions
 `$06` and `$0c` because liftable metatiles can retain either tile
 base/palette combination for their eventual impact.
+
+The same stage emits `metadata/bomb.tsv` for `ITEM_BOMB $03`. It joins the
+parent allocation and pickup rules, item attributes, common item and explosion
+graphics/OAM, fuse and explosion animations, Bracelet weight-0 motion,
+directional edge probes, the complete bounce-reduction table, conveyors,
+sounds, and Bomb tile-break offsets. The encoded animations retain every
+duration, parameter, and positioned OAM composition; the runtime does not
+reconstruct explosion radius or termination from frame numbers. Import
+validation also asserts the one/two-object ring cap path, Peace/Blast Ring
+branches, shared angle-`$ff` drop rule, 7/4/2 lift and eight-update throw
+boundaries, and the source's nine ordered `BREAKABLETILESOURCE_BOMB` probes.
 
 The same item stage owns the remaining Link/item and sword-tile boundary:
 `metadata/link_item_constants.tsv`, `link_item_graphics.tsv`,

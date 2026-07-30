@@ -1352,10 +1352,11 @@ public sealed partial class ValidationRoot
         // owns its body flight while the shared parent retains Link's throw.
         FailIf(
             !_playerWorld.UpdateBracelet(
-                _player, Vector2.Zero,
+                _player, Vector2.Right,
                 primaryHeld: true, secondaryHeld: false,
                 itemButtonJustPressed: true) ||
             pumpkin.HeadHeld ||
+            pumpkin.HeadThrowDirection != Vector2I.Right ||
             _bracelet.State != BraceletState.Throwing ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndThrow) != 1,
             "Pumpkin Head's held head did not use the shared either-button Bracelet throw.");
@@ -1454,9 +1455,10 @@ public sealed partial class ValidationRoot
             StepEntities();
             FailIf(
                 !_playerWorld.UpdateBracelet(
-                _player, Vector2.Zero,
-                primaryHeld: true, secondaryHeld: false,
-                itemButtonJustPressed: true),
+                    _player, Vector2.Up,
+                    primaryHeld: true, secondaryHeld: false,
+                    itemButtonJustPressed: true) ||
+                pumpkin.HeadThrowDirection != Vector2I.Up,
                 "Pumpkin Head's head could not be thrown on a later " +
                 "exposure cycle.");
 

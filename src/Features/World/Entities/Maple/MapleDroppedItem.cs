@@ -205,6 +205,24 @@ public partial class MapleDroppedItem : TransitionOffsetNode2D
             Finish();
     }
 
+    internal void ReleaseFromMaple()
+    {
+        if (Finished ||
+            _state is not
+                (MapleDroppedItemState.MaplePulling or
+                 MapleDroppedItemState.MapleRising or
+                 MapleDroppedItemState.MapleReady))
+        {
+            return;
+        }
+        _maplePosition = null;
+        _zFixed = 0;
+        _speedZ = 0;
+        _speedRaw = 0;
+        _state = MapleDroppedItemState.Grounded;
+        QueueRedraw();
+    }
+
     public override void _Draw()
     {
         if (!Finished)

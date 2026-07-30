@@ -73,9 +73,11 @@ internal sealed class SpinyBeetleRoomEntity
         SpawnCoverDebris(spawns);
     }
 
-    public bool TryUseBracelet(Player player)
+    public bool TryUseBracelet(
+        Player player,
+        Vector2I releaseDirection)
     {
-        bool used = Entity.TryUseBracelet(player);
+        bool used = Entity.TryUseBracelet(player, releaseDirection);
         if (used && Entity.CoverHeld && SeedBurning)
             CancelSeedBurn();
         return used;

@@ -1975,7 +1975,7 @@ public sealed partial class ValidationRoot
             RingEffects.BombDamage(4, Wearing(RingId.Blast)) != 6 ||
             RingEffects.BoomerangDamage(1, Wearing(RingId.RangL1)) != 2 ||
             RingEffects.BoomerangDamage(1, Wearing(RingId.RangL2)) != 3 ||
-            RingEffects.BombsPlacedPerUse(Wearing(RingId.Bombers)) != 2 ||
+            RingEffects.BombObjectLimit(Wearing(RingId.Bombers)) != 2 ||
             RingEffects.BombsExplode(Wearing(RingId.Peace)) ||
             RingEffects.MapleKillThreshold(Wearing(RingId.Maples)) != 15 ||
             RingEffects.PegasusSeedTimerDecrement(Wearing(RingId.Pegasus)) != 1 ||

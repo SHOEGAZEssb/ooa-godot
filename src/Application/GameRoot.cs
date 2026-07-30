@@ -27,6 +27,7 @@ public partial class GameRoot : Node2D
     internal OverworldKeyholeController _keyholes = null!;
     internal TerrainController _terrain = null!;
     internal CombatController _combat = null!;
+    internal BombController _bomb = null!;
     internal BraceletController _bracelet = null!;
     internal ShovelController _shovel = null!;
     internal SeedSatchelController _seedSatchel = null!;
@@ -660,6 +661,12 @@ public partial class GameRoot : Node2D
             _scene.WorldRoot, _rooms, new BreakableTileDatabase(), _roomView,
             _entities, _combat, _saveData, _sound.PlaySound,
             () => (long)_animationTicks, _collision.HasFullWall);
+        _bomb = new BombController(
+            _inventory,
+            _entities,
+            _rooms,
+            _sound.PlaySound,
+            () => (_rooms.CurrentRoom.TilesetFlags & 0x40) != 0);
         _roomEvents.SetBraceletActions(
             discard => _bracelet.Interrupt(_player, discard),
             () => _bracelet.Update(
@@ -699,7 +706,7 @@ public partial class GameRoot : Node2D
         _playerWorld = new PlayerWorld(
             _transitions, _interactions, _collision, _pushBlocks, _keyDoors, _keyholes,
             _terrain, _combat, _entities,
-            _bracelet, _shovel, _seedSatchel, _harp, _roomEvents,
+            _bomb, _bracelet, _shovel, _seedSatchel, _harp, _roomEvents,
             _inventory, _sound, () => _debugCollision.CollisionsDisabled);
         _debugWarps = new DebugWarpController(
             _player, LoadDebugRoom, FindSpawn,

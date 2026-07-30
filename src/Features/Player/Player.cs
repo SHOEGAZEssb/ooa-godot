@@ -182,13 +182,7 @@ public partial class Player : Node2D
     public bool IsDrowning => _drowning;
     public bool IsFallingInHole => _fallingInHole;
 
-    public Vector2I FacingVector => _facing switch
-    {
-        Facing.Up => Vector2I.Up,
-        Facing.Right => Vector2I.Right,
-        Facing.Down => Vector2I.Down,
-        _ => Vector2I.Left
-    };
+    public Vector2I FacingVector => FacingVectorFor(_facing);
     public bool IsAttacking => _swordState != SwordActionState.None;
     public bool IsUsingShovel => _usingShovel;
     public bool IsUsingSeedSatchel => _usingSeedSatchel;
@@ -416,7 +410,7 @@ public partial class Player : Node2D
         bool preserveShield = false,
         bool preserveLedgeJump = false)
     {
-        _world?.InterruptBracelet(this, discard: true);
+        InterruptCarriedItems(discard: true);
         if (!preserveSword)
             CancelSwordAttack();
         CancelShovelAction();
@@ -457,6 +451,14 @@ public partial class Player : Node2D
         Position = OracleObjectMath.ToPixelPosition(position);
         Visible = true;
         QueueRedraw();
+    }
+
+    private void InterruptCarriedItems(bool discard)
+    {
+        if (_world is null)
+            return;
+        _world.InterruptBomb(this, discard);
+        _world.InterruptBracelet(this, discard);
     }
 
     internal void BeginNewGameSlowFall(int initialZ)
@@ -751,7 +753,7 @@ public partial class Player : Node2D
         }
         _walking = false;
         _pushing = false;
-        _world.InterruptBracelet(this, discard: false);
+        InterruptCarriedItems(discard: false);
         ClearShieldParent();
         CancelSwordAttack();
         CancelShovelAction();
@@ -777,7 +779,7 @@ public partial class Player : Node2D
         _enemyKnockbackDirection = OracleObjectMath.StrictCardinalVector(angle);
         _walking = false;
         _pushing = false;
-        _world.InterruptBracelet(this, discard: false);
+        InterruptCarriedItems(discard: false);
         ClearShieldParent();
         CancelSwordAttack();
         CancelShovelAction();
@@ -1005,6 +1007,14 @@ public partial class Player : Node2D
         bool itemButtonJustPressed =
             Input.IsActionJustPressed("attack") ||
             Input.IsActionJustPressed("item");
+        if (_world.UpdateBomb(this, input, itemButtonJustPressed))
+        {
+            _walking = false;
+            _pushing = false;
+            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+            QueueRedraw();
+            return;
+        }
         if (_world.UpdateBracelet(
                 this,
                 input,
@@ -1029,6 +1039,10 @@ public partial class Player : Node2D
                 // A chest/sign/keyhole therefore wins over an equipped
                 // Bracelet when both probes accept the same press.
                 if (_world.TryInteract(this))
+                    return;
+                if (!_world.ItemUsageDisabled &&
+                    _inventory.EquippedA == InventoryState.ItemBomb &&
+                    _world.TryUseBomb(this))
                     return;
                 if (!_world.ItemUsageDisabled &&
                     _inventory.EquippedA == InventoryState.ItemBracelet &&
@@ -1069,6 +1083,12 @@ public partial class Player : Node2D
             if (_world.ItemUsageDisabled)
             {
                 // The secondary button can still lift or return shop stock.
+            }
+            else if (!IsUsingItem &&
+                _inventory.EquippedB == InventoryState.ItemBomb)
+            {
+                if (_world.TryUseBomb(this))
+                    return;
             }
             else if (!IsUsingItem && RingEffects.CanPunch(
                 _inventory,
@@ -1280,7 +1300,7 @@ public partial class Player : Node2D
         _enemyInvincibilityFrames = 0.0f;
         _walking = false;
         _pushing = false;
-        _world.InterruptBracelet(this, discard: true);
+        InterruptCarriedItems(discard: true);
         ClearShieldParent();
         CancelSwordAttack();
         CancelShovelAction();
@@ -1299,7 +1319,7 @@ public partial class Player : Node2D
     internal void BeginCutsceneControl(bool interruptBracelet = true)
     {
         if (interruptBracelet)
-            _world.InterruptBracelet(this, discard: true);
+            InterruptCarriedItems(discard: true);
         _cutsceneControlled = true;
         ClearShieldParent();
         _walking = false;
@@ -2390,7 +2410,10 @@ public partial class Player : Node2D
                 _shieldParentButton = 2;
         }
 
-        bool next = _shieldParentButton != 0 && !IsUsingItem;
+        bool next = _shieldParentButton != 0 &&
+            !IsUsingItem &&
+            !IsCarryingObject &&
+            !_world.BombParentActive;
         if (next && !_shieldParentInitialized)
         {
             _shieldParentInitialized = true;
@@ -2460,27 +2483,55 @@ public partial class Player : Node2D
 
     private void UpdateFacing(Vector2 input)
     {
+        _facing = FacingForInput(_facing, input);
+    }
+
+    /// <summary>
+    /// The shared Bomb/Bracelet parent stores angle $ff when no direction is
+    /// held. Otherwise it uses w1Link.direction after the current input angle
+    /// has updated Link's cardinal facing.
+    /// </summary>
+    internal Vector2I SelectCarriedObjectReleaseDirection(Vector2 input)
+    {
+        if (input.LengthSquared() <= 0.01f)
+            return Vector2I.Zero;
+
+        UpdateFacing(input);
+        return FacingVector;
+    }
+
+    private static Facing FacingForInput(Facing current, Vector2 input)
+    {
         float horizontal = Mathf.Abs(input.X);
         float vertical = Mathf.Abs(input.Y);
         if (horizontal > vertical)
-            _facing = input.X > 0 ? Facing.Right : Facing.Left;
-        else if (vertical > horizontal)
-            _facing = input.Y > 0 ? Facing.Down : Facing.Up;
-        else if (horizontal > 0.01f)
+            return input.X > 0 ? Facing.Right : Facing.Left;
+        if (vertical > horizontal)
+            return input.Y > 0 ? Facing.Down : Facing.Up;
+        if (horizontal > 0.01f)
         {
             Facing horizontalFacing = input.X > 0 ? Facing.Right : Facing.Left;
             Facing verticalFacing = input.Y > 0 ? Facing.Down : Facing.Up;
-            if (_facing == horizontalFacing || _facing == verticalFacing)
-                return;
+            if (current == horizontalFacing || current == verticalFacing)
+                return current;
 
             // updateLinkDirectionFromAngle keeps either current diagonal
             // component. With neither component current, angles $04/$0c/$14/$1c
             // round to up/right/down/left respectively.
-            _facing = input.X > 0
+            return input.X > 0
                 ? input.Y < 0 ? Facing.Up : Facing.Right
                 : input.Y > 0 ? Facing.Down : Facing.Left;
         }
+        return current;
     }
+
+    private static Vector2I FacingVectorFor(Facing facing) => facing switch
+    {
+        Facing.Up => Vector2I.Up,
+        Facing.Right => Vector2I.Right,
+        Facing.Down => Vector2I.Down,
+        _ => Vector2I.Left
+    };
 
     public void Face(Vector2I direction)
     {

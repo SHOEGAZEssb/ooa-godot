@@ -47,6 +47,7 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
     internal bool CoverVisualActive => _coverVisualActive;
     internal bool CoverHeld => _coverHeld;
     internal bool CoverThrown => _coverThrown;
+    internal Vector2I CoverThrowDirection => _coverThrowDirection;
     internal Vector2 CoverDrawOffset => _coverDrawOffset;
     internal ulong CoverTextureHash =>
         OracleGraphicsCache.PixelHash(_coverTexture.GetImage());
@@ -243,11 +244,13 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
         ApplySwordKnockback(sourcePosition, strength);
     }
 
-    internal bool TryUseBracelet(Player player)
+    internal bool TryUseBracelet(
+        Player player,
+        Vector2I releaseDirection)
     {
         if (_coverHeld)
         {
-            ThrowCover(player);
+            ThrowCover(player, releaseDirection);
             return true;
         }
         if (!_coverProtects || !_coverVisualActive || _coverThrown ||
@@ -349,7 +352,9 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
         QueueRedraw();
     }
 
-    private void ThrowCover(Player player)
+    private void ThrowCover(
+        Player player,
+        Vector2I releaseDirection)
     {
         Vector2I heldOffset = player.BraceletEntityOffset ??
             new Vector2I(
@@ -358,12 +363,14 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
                     player.FacingVector.X != 0 ? -14 : -13);
         _coverHeld = false;
         _coverThrown = true;
-        _coverThrowDirection = player.FacingVector;
+        _coverThrowDirection = releaseDirection;
         _coverGroundPrecise =
             player.Position + new Vector2(heldOffset.X, 0) +
-            _coverThrowDirection;
+            player.FacingVector;
         _coverZFixed = heldOffset.Y << 8;
-        _coverSpeedZ = _bracelet.InitialSpeedZ;
+        _coverSpeedZ = releaseDirection == Vector2I.Zero
+            ? 0
+            : _bracelet.InitialSpeedZ;
         player.EndCarriedObjectPose();
         SyncThrownCoverDrawOffset();
     }
@@ -381,18 +388,22 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
 
         Vector2 front = ground + ThrowCollisionOffset(
             _coverThrowDirection);
-        if (front.X < 0 || front.X >= _room.Width ||
-            front.Y < 0 || front.Y >= _room.Height ||
-            _room.IsSolid(front))
+        if (_coverThrowDirection != Vector2I.Zero &&
+            (front.X < 0 || front.X >= _room.Width ||
+             front.Y < 0 || front.Y >= _room.Height ||
+             _room.IsSolid(front)))
         {
             BreakThrownCover(ground, spawns);
             return;
         }
 
-        OracleObjectMovement.Shared.ApplySpeed(
-            ref _coverGroundPrecise,
-            _bracelet.SpeedRaw,
-            DirectionAngle(_coverThrowDirection));
+        if (_coverThrowDirection != Vector2I.Zero)
+        {
+            OracleObjectMovement.Shared.ApplySpeed(
+                ref _coverGroundPrecise,
+                _bracelet.SpeedRaw,
+                DirectionAngle(_coverThrowDirection));
+        }
         if (OracleObjectMath.UpdateSpeedZ(
             ref _coverZFixed,
             ref _coverSpeedZ,

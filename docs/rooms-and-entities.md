@@ -266,9 +266,10 @@ The Ages Touching Book branch replaces all scattered drops. It retains
 `wMapleState` bit 4 while active, runs TX `$070d-$0711` through the separate
 book flight/chase, grants and presents the Magic Oar, sets completion bit 5,
 then clears the temporary bit and increments the capped meeting count on
-departure. The vacuum's live-Bomb suction/stun entry remains dependent on the
-deferred active Bomb item actor; its internal stun states must stay source
-timed when that actor is connected.
+departure. While the vacuum is collecting, a touching grounded `ITEM_BOMB`
+releases Maple's current target, resets the Bomb fuse, moves one pixel per axis
+toward Maple, then raises by `$0040` until `zh=$f8`. The Bomb is removed and
+Maple enters the existing source-timed stun path.
 
 ## NPC A-button routing
 
@@ -573,7 +574,12 @@ than treating a lift as an immediate tile deletion. Its wall test consumes the
 same paired `w1Link.adjacentWallsBitset` edge used by movement collision; a
 single solid point is insufficient. The controller then owns the opposite-
 direction pull gate, Link animation modes, movement/turning lock, carried
-offsets, either-button throw, weight-0 8.8 flight, and interruption cleanup.
+offsets, either-button release, weight-0 8.8 flight, and interruption cleanup.
+At release, a held direction selects Link's current input-resolved facing. With
+no direction, the parent preserves item angle `$ff`; `itemBeginThrow` still
+applies the one-pixel retained-facing offset but clears planar speed and
+`speedZ`, so the object falls straight down from the carried height. Lifted
+metatiles and native grabbable entities use the same distinction.
 `BreakableTileDatabase` remains the authority for whether the active collision
 set accepts `BREAKABLETILESOURCE_BRACELET`, the replacement tile, drop,
 persistent flags, and stored impact interaction.
@@ -612,6 +618,40 @@ signs, and keyholes therefore retain priority when the Bracelet is equipped to
 A. A failed Bracelet pull against an unbreakable wall holds
 `LINK_ANIM_MODE_LIFT_3`'s terminal strain frame while retrying the tile probe;
 it does not restart the 11-update pull animation.
+
+## Bomb parent, child, and explosion ownership
+
+`BombController` owns `ITEM_BOMB $03`'s Link-side parent. A use first searches
+the active entity list for a touching live unexploded Bomb and lifts that actor
+without consuming ammo. Only then does it test packed-BCD Bomb inventory and
+the active-object cap: one normally or two with Bomber's Ring. A successful
+allocation creates exactly one child before decrementing ammo. The parent
+shares the imported 7/4/2 lift offsets and eight-update throw pose with the
+Bracelet; either item button throws a held Bomb, and Toss Ring selects
+`SPEED_280` instead of `SPEED_180`. A held direction supplies the throw angle;
+without one, angle `$ff` clears both speeds after the one-pixel retained-facing
+offset and the Bomb drops in place.
+
+`BombEffect` remains in the fixed room-entity order from allocation through
+deletion. It owns the imported OAM animation, 116-update fuse, held Peace Ring
+reset, signed 8.8 weight-0 gravity, direction-specific wall probes, reduced
+bounce speeds, conveyors, landing sound, and terrain-hazard removal. Damage
+interruption releases a held Bomb motionless at its current height; room
+changes and cutscene/death cleanup discard it with the other carried-object
+state.
+
+Explosion animation parameters are the collision radii and terminal flags.
+The room manager applies the current Blast Ring-adjusted damage to overlapping
+enemy collision owners, while the Bomb applies the same own-Bomb source to
+Link so Bombproof Ring can reject it. One
+`BREAKABLETILESOURCE_BOMB $04` probe runs per explosion update in the original
+reverse table order: center, cardinals, then diagonals. Replacement, drops,
+debris, solve sound, persistent flags, and linked-room effects stay owned by
+`BreakableTileDatabase`.
+
+Room `0:50`'s Bomb Upgrade Fairy trigger and capacity-upgrade cutscene are a
+separate deferred interaction; ordinary Bomb allocation must not special-case
+that room.
 
 Common sign/chest outcomes that do not come from a room lookup are owned by
 `TileInteractionFallbackDatabase`. Wrong-side reads use imported TX `$510e`

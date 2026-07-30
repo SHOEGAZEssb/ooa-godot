@@ -2078,16 +2078,18 @@ public sealed partial class ValidationRoot
                 itemButtonJustPressed: true) ||
             _bracelet.State != BraceletState.Throwing ||
             _bracelet.LiftedObject is not
-                { Thrown: true, SpeedRaw: 0x3c, SpeedZ: < 0 } ||
+                { Thrown: true, SpeedRaw: 0, SpeedZ: 0x1c } ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndThrow) != 1 ||
             _player.IsCarryingObject,
-            "Bracelet did not release the tile at weight-0 SPEED_180 with SND_THROW and Link's throw pose.");
+            "Bracelet did not preserve wLinkAngle=$ff as an in-place " +
+            "weight-0 drop with SND_THROW and Link's throw pose.");
         BraceletLiftedObject thrown = _bracelet.LiftedObject ??
             throw new InvalidOperationException(
                 "ITEM_BRACELET lost its tile immediately after throw setup.");
         Vector2 groundCenter =
             OracleObjectMath.ToPixelPosition(thrown.GroundPosition);
         FailIf(
+            thrown.ThrowDirection != Vector2I.Zero ||
             !thrown.CollisionBounds(
                 braceletData.RadiusX,
                 braceletData.RadiusY).GetCenter().IsEqualApprox(groundCenter) ||
@@ -2252,7 +2254,8 @@ public sealed partial class ValidationRoot
 
         GD.Print("Validated debug Power Bracelet chest TREASURE_OBJECT_BRACELET_00, " +
             "A-button chest priority, terminal unbreakable-wall strain, 11-update pull, " +
-            "metatile-mimic lift, 13-update carry pose, weight-0 throw/debris, ground-space " +
+            "metatile-mimic lift, 13-update carry pose, angle-$ff in-place " +
+            "drop and directional weight-0 throw/debris, ground-space " +
             "Y/X plus strict seven-pixel Z enemy collision, " +
             "damage-release angle $ff with knockback-independent gravity, " +
             "SND_PICKUP/SND_THROW, level-1 SPEED_80/$20 and level-2 " +

@@ -23,6 +23,7 @@ internal sealed class RoomEntityFactory(
     InventoryState? inventory,
     TreasureDatabase treasures,
     Action<Vector2, HazardType> itemDropEnteredHazard,
+    Action<ObjectFellInHoleKind> objectFellInHole,
     Action<int> soundRequested,
     Action<Rect2, int, int, int> applyThrownObjectHit,
     Func<int> roomEnemyCount,
@@ -1010,6 +1011,7 @@ internal sealed class RoomEntityFactory(
         GrassDebrisSpawn debris => CreateGrassDebris(debris),
         RockDebrisSpawn debris => CreateRockDebris(debris),
         EmberSeedSpawn seed => CreateEmberSeed(seed, room),
+        BombSpawn bomb => CreateBomb(bomb, room),
         OwlStatueSparkleSpawn sparkle => CreateOwlStatueSparkle(sparkle),
         PuzzlePuffSpawn puff => CreatePuzzlePuff(puff),
         EnemySplashSpawn splash => CreateEnemySplash(splash),
@@ -1919,6 +1921,47 @@ internal sealed class RoomEntityFactory(
         return new EmberSeedRoomEntity(seed);
     }
 
+    private IRoomEntity CreateBomb(BombSpawn spawn, OracleRoomData room)
+    {
+        if (inventory is null)
+        {
+            throw new InvalidOperationException(
+                "ITEM_BOMB cannot be allocated without live inventory state.");
+        }
+        var bomb = new BombEffect
+        {
+            Name = "Bomb",
+            ZIndex = 11
+        };
+        bomb.Initialize(
+            spawn.Record,
+            room,
+            _breakables,
+            spawn.Player,
+            spawn.Group,
+            spawn.HeldExplosion,
+            soundRequested,
+            (position, hazard, kind) =>
+            {
+                if (hazard is HazardType.Water or HazardType.Lava)
+                    itemDropEnteredHazard(position, hazard);
+                else if (hazard == HazardType.Hole)
+                    objectFellInHole(kind);
+            },
+            roomTileChanged,
+            animationTick,
+            drop => itemDrops.DecideBreakableDrop(
+                drop, random, inventory, saveData),
+            saveData,
+            rooms is null
+                ? null
+                : direction => rooms.TryGetNeighbor(
+                    spawn.Group, room.Id, direction, out int neighbor)
+                    ? neighbor
+                    : null);
+        return new BombRoomEntity(bomb);
+    }
+
     private static IRoomEntity CreateOwlStatueSparkle(
         OwlStatueSparkleSpawn spawn)
     {
@@ -2468,6 +2511,13 @@ internal sealed record EmberSeedSpawn(
     Vector2I Direction,
     SeedRecord Record,
     int Group)
+    : RoomEntitySpawn;
+
+internal sealed record BombSpawn(
+    Player Player,
+    BombRecord Record,
+    int Group,
+    Action<BombEffect> HeldExplosion)
     : RoomEntitySpawn;
 
 internal sealed record SwordBeamClinkSpawn(Vector2 Position)

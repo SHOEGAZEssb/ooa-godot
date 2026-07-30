@@ -6,5 +6,5 @@ namespace oracleofages;
 
 internal interface IBraceletInteractableRoomEntity
 {
-    bool TryUseBracelet(Player player);
+    bool TryUseBracelet(Player player, Vector2I releaseDirection);
 }

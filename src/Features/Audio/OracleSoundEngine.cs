@@ -40,6 +40,7 @@ public partial class OracleSoundEngine : Node
     public const int SndChargeSword = 0x4f;
     public const int SndClink = 0x50;
     public const int SndThrow = 0x51;
+    public const int SndBombLand = 0x52;
     public const int SndJump = 0x53;
     public const int SndOpenMenu = 0x54;
     public const int SndCloseMenu = 0x55;

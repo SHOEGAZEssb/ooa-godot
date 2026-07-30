@@ -7,6 +7,7 @@ internal sealed class MapleEncounterRoomEntity(MapleEncounter maple)
         maple, maple.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomEntityLifetime, IPlayerRestriction
 {
+    internal MapleEncounter Maple => Entity;
     public bool Finished => Entity.Finished;
     public bool DisablesSword => Entity.ObjectsDisabled;
     public bool DisablesItems => Entity.ObjectsDisabled;

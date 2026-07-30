@@ -14,6 +14,7 @@ public sealed class PlayerWorld : IPlayerWorld
     private readonly TerrainController _terrain;
     private readonly CombatController _combat;
     private readonly RoomEntityManager _entities;
+    private readonly BombController _bomb;
     private readonly BraceletController _bracelet;
     private readonly ShovelController _shovel;
     private readonly SeedSatchelController _seedSatchel;
@@ -32,6 +33,7 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool MovementDisabled => _roomEvents.Active ||
         _entities.PlayerMovementDisabled || _pushBlocks.LinkMovementDisabled;
     public bool RidingObject => _entities.PlayerRidingObject;
+    public bool BombParentActive => _bomb.Active;
     public bool SideScrolling =>
         (_terrain.CurrentTilesetFlags & 0x20) != 0;
     public SideScrollPlayerParameters SideScrollParameters =>
@@ -51,6 +53,7 @@ public sealed class PlayerWorld : IPlayerWorld
         TerrainController terrain,
         CombatController combat,
         RoomEntityManager entities,
+        BombController bomb,
         BraceletController bracelet,
         ShovelController shovel,
         SeedSatchelController seedSatchel,
@@ -69,6 +72,7 @@ public sealed class PlayerWorld : IPlayerWorld
         _terrain = terrain;
         _combat = combat;
         _entities = entities;
+        _bomb = bomb;
         _bracelet = bracelet;
         _shovel = shovel;
         _seedSatchel = seedSatchel;
@@ -90,6 +94,14 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool TryInteract(Player player) => _interactions.TryInteract(player);
     public bool TrySecondaryInteract(Player player) =>
         _interactions.TrySecondaryInteract(player);
+    public bool TryUseBomb(Player player) => _bomb.TryUse(player);
+    public bool UpdateBomb(
+        Player player,
+        Vector2 movementInput,
+        bool itemButtonJustPressed) =>
+        _bomb.Update(player, movementInput, itemButtonJustPressed);
+    public void InterruptBomb(Player player, bool discard) =>
+        _bomb.Interrupt(player, discard);
     public bool TryUseBracelet(Player player, bool primaryButton) =>
         _bracelet.TryUse(player, primaryButton);
     public bool UpdateBracelet(
