@@ -46,7 +46,11 @@ internal sealed partial class OwlStatueRoomEntity : TransitionOffsetNode2D,
             Position,
             (byte)record.FloorTile,
             (byte)record.FloorCollision,
-            animationTick());
+            animationTick(),
+            // State 0 writes wRoomLayout=$00 after the room BG has already
+            // been drawn. That logical/collision change must not redraw the
+            // visible ground beneath the statue.
+            preserveRenderedTile: true);
 
         Image sourceImage = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{record.Sprite}.png");

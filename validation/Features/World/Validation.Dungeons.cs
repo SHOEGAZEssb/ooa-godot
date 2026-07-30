@@ -1943,22 +1943,79 @@ public sealed partial class ValidationRoot
         _interactions.Update(0.0, _player);
         _inventory.EquipB(InventoryState.ItemBracelet);
 
-        LoadValidationRoom(4, 0x08);
+        // Exercise a canonical dungeon pot instead of installing `$10 into a
+        // tileset position that never uses its graphics. INTERAC_PUSHBLOCK
+        // reads the explicit metatile mapping before replacing the source.
+        Vector2 movingPotCenter = new(
+            6 * OracleRoomData.MetatileSize + 8,
+            2 * OracleRoomData.MetatileSize + 8);
+        Vector2 linkAboveMovingPot =
+            movingPotCenter + Vector2.Up * 10.0f;
+        FailIf(
+            _currentRoom.GetMetatile(movingPotCenter) != 0x10 ||
+            _currentRoom.GetMetatile(
+                movingPotCenter + Vector2.Down *
+                    OracleRoomData.MetatileSize) != 0xa0,
+            "The canonical 4:ce/$26 moving-pot route was not `$10 over " +
+            "open `$a0 ground.");
+        using Texture2D expectedMovingPot =
+            _currentRoom.BuildMimickedMetatileTexture(0x10);
+        using Image expectedMovingPotImage = expectedMovingPot.GetImage();
         for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
-            _playerWorld.UpdatePushableBlocks(linkBelow, Vector2I.Up, Vector2.Up);
+        {
+            _playerWorld.UpdatePushableBlocks(
+                linkAboveMovingPot, Vector2I.Down, Vector2.Down);
+        }
+        Texture2D? movingPotTexture = _pushBlocks.BlockTexture;
         FailIf(
             !_pushBlocks.Active ||
+            movingPotTexture is null ||
             _pushBlocks.ActiveMoveFrames != 0x20 ||
             !Mathf.IsEqualApprox(_pushBlocks.ActiveMoveSpeedPerFrame, 0.5f),
             "The level-1 Power Bracelet did not retain the source " +
             "SPEED_80/$20 push-block movement.");
-        _pushBlocks.Cancel();
+        using Image movingPotImage = movingPotTexture.GetImage();
+        int movingPotTransparentPixels = 0;
+        int movingPotOpaquePixels = 0;
+        for (int y = 0; y < movingPotImage.GetHeight(); y++)
+        for (int x = 0; x < movingPotImage.GetWidth(); x++)
+        {
+            float alpha = movingPotImage.GetPixel(x, y).A;
+            if (alpha < 0.01f)
+                movingPotTransparentPixels++;
+            if (alpha > 0.99f)
+                movingPotOpaquePixels++;
+        }
+        ulong movingPotPixelHash =
+            OracleGraphicsCache.PixelHash(movingPotImage);
+        ulong expectedMovingPotPixelHash =
+            OracleGraphicsCache.PixelHash(expectedMovingPotImage);
         FailIf(
-            !_currentRoom.ReplaceMetatile(
-            blockCenter, 0xa0, 0x10, (long)_animationTicks),
-            "Could not restore the level-1 Bracelet push-speed test block.");
+            movingPotTransparentPixels == 0 ||
+            movingPotOpaquePixels == 0 ||
+            movingPotPixelHash != expectedMovingPotPixelHash,
+            "INTERAC_PUSHBLOCK did not render moving pot `$10 as an " +
+            "objectMimicBgTile texture with a transparent ground border " +
+            $"(transparent={movingPotTransparentPixels}, " +
+            $"opaque={movingPotOpaquePixels}, " +
+            $"actual={movingPotPixelHash:x16}, " +
+            $"expected={expectedMovingPotPixelHash:x16}).");
+        _pushBlocks.Cancel();
 
+        // Preserve the fixture's room-session reset boundary after inspecting
+        // the canonical pot; later Bracelet scenarios must not inherit the
+        // modified 4:ce room instance or its live interaction set.
+        LoadValidationRoom(4, 0x08);
+        if (_currentRoom.GetMetatile(blockCenter) != 0x10)
+        {
+            FailIf(
+                _currentRoom.GetMetatile(blockCenter) != 0x1c ||
+                !_currentRoom.ReplaceMetatile(
+                    blockCenter, 0x1c, 0x10, (long)_animationTicks),
+                "Could not restore the no-Bracelet 4:08/$4b push probe.");
+        }
         LoadValidationRoom(4, 0xce);
+
         Vector2 fixedWallCenter = new(
             2 * OracleRoomData.MetatileSize + 8,
             OracleRoomData.MetatileSize / 2);
@@ -1994,10 +2051,40 @@ public sealed partial class ValidationRoot
             _bracelet.State != BraceletState.Idle,
             "Releasing ITEM_BRACELET did not clear the unbreakable wall grab.");
 
-        Vector2 liftPoint = new(7 * OracleRoomData.MetatileSize + 8, 2 * OracleRoomData.MetatileSize + 8);
+        // Model a moving pot after it has been pushed over the decorated
+        // non-solid `$a1 floor at 4:ce/$2c. breakableTiles.s restores the
+        // original room-layout metatile for collision-set-1/2 tile `$10
+        // instead of blindly installing the mode's generic `$a0 replacement.
+        Vector2 liftPoint = new(
+            12 * OracleRoomData.MetatileSize + 8,
+            2 * OracleRoomData.MetatileSize + 8);
+        byte liftGround = _currentRoom.GetMetatile(liftPoint);
+
+        ulong RenderedLiftTileHash()
+        {
+            using Texture2D tileTexture =
+                _currentRoom.BuildMimickedMetatileTexture(liftPoint);
+            using Image tileImage = tileTexture.GetImage();
+            return OracleGraphicsCache.PixelHash(tileImage);
+        }
+
+        ulong liftGroundPixelHash = RenderedLiftTileHash();
         FailIf(
-            _currentRoom.GetMetatile(liftPoint) != 0x10,
-            "The 4:ce bracelet-use test tile was not dungeon tile $10.");
+            liftGround != 0xa1 ||
+            _currentRoom.GetCollision(liftGround) != 0 ||
+            liftablePot.ReplacementFor(_currentRoom, liftPoint) != liftGround ||
+            !_currentRoom.ReplaceMetatile(
+                liftPoint, liftGround, 0x10, (long)_animationTicks),
+            "Could not prepare a moved dungeon pot over 4:ce/$2c's " +
+            "original non-solid `$a1 ground.");
+        ulong potPixelHash = RenderedLiftTileHash();
+        FailIf(
+            potPixelHash == liftGroundPixelHash ||
+            potPixelHash == 0,
+            "The moved dungeon pot did not visibly replace its distinct " +
+            "original `$a1 ground before the lift " +
+            $"(ground={liftGroundPixelHash:x16}, pot={potPixelHash:x16}, " +
+            $"tile=${_currentRoom.GetMetatile(liftPoint):x2}).");
         // The original parent requires both $c0 top-edge wall bits. Link's
         // collision endpoint sits ten pixels below this metatile center.
         _player.WarpTo(new Vector2(liftPoint.X, liftPoint.Y + 10));
@@ -2006,9 +2093,10 @@ public sealed partial class ValidationRoot
         FailIf(
             !_playerWorld.TryUseBracelet(_player, primaryButton: false) ||
             _bracelet.State != BraceletState.GrabbingWall ||
-            _currentRoom.GetMetatile(liftPoint) != 0x10,
+            _currentRoom.GetMetatile(liftPoint) != 0x10 ||
+            RenderedLiftTileHash() != potPixelHash,
             "Equipped Bracelet did not enter its held-button wall-grab " +
-            $"state without removing the tile (collision=" +
+            $"state without removing or redrawing the pot (collision=" +
             $"${_currentRoom.GetCollision(0x10):x2}, " +
             $"left={_currentRoom.IsSolid(_player.Position + new Vector2(-3, -3))}, " +
             $"right={_currentRoom.IsSolid(_player.Position + new Vector2(2, -3))}, " +
@@ -2020,8 +2108,10 @@ public sealed partial class ValidationRoot
                     _player, Vector2.Down,
                     primaryHeld: false, secondaryHeld: true,
                     itemButtonJustPressed: false) ||
-                _currentRoom.GetMetatile(liftPoint) != 0x10,
-                "Bracelet removed the tile before LINK_ANIM_MODE_LIFT_3 reached its 11-update pull boundary.");
+                _currentRoom.GetMetatile(liftPoint) != 0x10 ||
+                RenderedLiftTileHash() != potPixelHash,
+                "Bracelet removed or redrew the pot before " +
+                "LINK_ANIM_MODE_LIFT_3 reached its 11-update pull boundary.");
         }
         FailIf(
             !_playerWorld.UpdateBracelet(
@@ -2029,12 +2119,14 @@ public sealed partial class ValidationRoot
                 primaryHeld: false, secondaryHeld: true,
                 itemButtonJustPressed: false) ||
             _bracelet.State != BraceletState.Lifting ||
-            _currentRoom.GetMetatile(liftPoint) != 0xa0 ||
+            _currentRoom.GetMetatile(liftPoint) != liftGround ||
+            RenderedLiftTileHash() != liftGroundPixelHash ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndPickup) != 1 ||
             _bracelet.LiftedObject is null ||
             !_player.BraceletLiftCollisionsDisabled,
-            "Bracelet did not remove/mimic tile $10, request SND_PICKUP, " +
-            "and disable Link collisions at the native pull boundary.");
+            "Bracelet did not restore the moved pot's visible original `$a1 " +
+            "ground, request SND_PICKUP, and disable Link collisions at the " +
+            "native pull boundary.");
         using (Image liftedImage = _bracelet.LiftedObject.Texture.GetImage())
         {
             bool foundTransparent = false;
@@ -2047,9 +2139,11 @@ public sealed partial class ValidationRoot
                 foundOpaque |= alpha > 0.99f;
             }
             FailIf(
-                !foundTransparent || !foundOpaque,
+                !foundTransparent || !foundOpaque ||
+                OracleGraphicsCache.PixelHash(liftedImage) !=
+                    potPixelHash,
                 "Bracelet itemMimicBgTile output did not preserve opaque " +
-                "metatile pixels while making source color 0 transparent.");
+                "pot pixels while making source color 0 transparent.");
         }
         for (int frame = 0; frame < 12; frame++)
         {
@@ -2117,7 +2211,7 @@ public sealed partial class ValidationRoot
 
         FailIf(
             !_currentRoom.ReplaceMetatile(
-                liftPoint, 0xa0, 0x10, (long)_animationTicks),
+                liftPoint, liftGround, 0x10, (long)_animationTicks),
             "Could not restore the Bracelet tile for damage-drop validation.");
         _player.WarpTo(new Vector2(liftPoint.X, liftPoint.Y + 10));
         _player.Face(Vector2I.Up);
@@ -2254,12 +2348,14 @@ public sealed partial class ValidationRoot
 
         GD.Print("Validated debug Power Bracelet chest TREASURE_OBJECT_BRACELET_00, " +
             "A-button chest priority, terminal unbreakable-wall strain, 11-update pull, " +
-            "metatile-mimic lift, 13-update carry pose, angle-$ff in-place " +
+            "moving-pot original-ground retention, metatile-mimic lift, " +
+            "13-update carry pose, angle-$ff in-place " +
             "drop and directional weight-0 throw/debris, ground-space " +
             "Y/X plus strict seven-pixel Z enemy collision, " +
             "damage-release angle $ff with knockback-independent gravity, " +
             "SND_PICKUP/SND_THROW, level-1 SPEED_80/$20 and level-2 " +
-            "SPEED_c0/$15 push movement, original Power Glove upgrade, " +
+            "SPEED_c0/$15 push movement, transparent objectMimicBgTile " +
+            "pot rendering, original Power Glove upgrade, " +
             "and bracelet-required pushblock tile $10.");
     }
 }

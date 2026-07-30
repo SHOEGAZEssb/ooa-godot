@@ -51,8 +51,9 @@ claim that the entire surrounding game is complete.
   permanent tree removal), landing/flame sounds, and
   two-digit HUD/inventory ammo display. Mystery Seeds consume their source
   RNG choice, use the imported terminal effect OAM/sound, and activate every
-  ordered `PART_OWL_STATUE $13` placement with its solid floor cell, six
-  sparkles, two poses, exact counters, and `TX_39xx` text. The
+  ordered `PART_OWL_STATUE $13` placement with preserved visible ground,
+  logical solid `$00/$0f` cell, six sparkles, two poses, exact counters, and
+  `TX_39xx` text. The
   shared chest path renders all reward objects from imported
   `INTERAC_TREASURE $60` graphics/OAM (including room `4:08`'s small key) and
   preserves the open/collection/get-item sound boundaries. Wrong-side
@@ -172,8 +173,9 @@ claim that the entire surrounding game is complete.
   variants. The Toss Ring selects the source `SPEED_280` path. Power Glove
   ownership remains the level-2 upgrade of the same inventory item and
   accelerates non-heavy push blocks from `SPEED_80/$20` to
-  `SPEED_c0/$15`, while
-  grabbable native entities such as Pumpkin Head use the shared lift/throw
+  `SPEED_c0/$15`; moving pots use the source's transparent
+  `objectMimicBgTile` rendering instead of carrying an opaque ground border.
+  Grabbable native entities such as Pumpkin Head use the shared lift/throw
   parent instead of bypassing its poses and sounds.
 - Typed treasure behavior for imported collection modes and WRAM-backed
   inventory fields currently consumed by the game. Static `$dc:$07` ground

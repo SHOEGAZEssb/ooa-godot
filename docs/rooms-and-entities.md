@@ -567,6 +567,12 @@ record. The source's original-layout restoration for diamond switches and
 collision-set-1/2 moving pots applies to this path as it does to Bracelet
 breakage.
 
+`INTERAC_PUSHBLOCK $14` captures its explicit source metatile through
+`objectMimicBgTile` before restoring the ground beneath it. The moving object
+uses the copied BG palette with color 0 transparent; it must not copy the
+opaque 16-by-16 room-texture region, which would carry the vase's surrounding
+ground border across the destination.
+
 ## Bracelet tile and entity ownership
 
 `BraceletController` owns `ITEM_BRACELET $16`'s parent/child lifetime rather
@@ -595,9 +601,12 @@ Build the lifted graphic before replacing the room metatile. It is a live
 `itemMimicBgTile` snapshot, so it must retain position mapping overrides,
 animated/dynamic BG tile sources, X/Y flips, and the active room palette while
 making BG color 0 transparent in OBJ palette 7. The room layout changes at the
-successful lift boundary; the stored interaction is not created until the
-thrown tile lands or collides with a wall. Water, lava, and holes run the item
-hazard replacement first and suppress that debris.
+successful lift boundary. For moving pots (`$10`) in collision sets 1 and 2,
+that write visibly restores the original room-layout metatile when its
+collision is `$00` or at least `$10`; only a partially solid original
+background uses the imported generic replacement. The stored interaction is
+not created until the thrown tile lands or collides with a wall. Water, lava,
+and holes run the item hazard replacement first and suppress that debris.
 
 Native grabbable entities implement `IBraceletInteractableRoomEntity`, but do
 not own a second Link item state machine. The shared controller wraps their
@@ -889,11 +898,14 @@ locations active because the source shares this mechanism with child/event
 progression.
 
 `PART_OWL_STATUE $13` remains in the ordered enemy-pointer stream as a
-reserving part. State 0 replaces its packed layout cell with tile `$00`, writes
-collision `$0f`, and draws the imported two-cell idle OAM at fixed visible
-priority `$83` from `spr_roller_owl_barrier_orb`. Its `var3f` bit-5 collision
-guard makes `func_07_47b7` replace the random effect collision with the
-canonical Mystery Seed collision `$9a`; only that collision starts it.
+reserving part. State 0 replaces its logical packed layout cell with tile
+`$00`, writes collision `$0f`, and draws the imported two-cell idle OAM at
+fixed visible priority `$83` from `spr_roller_owl_barrier_orb`. The layout
+write happens after the room BG is drawn and therefore must preserve the
+original visible ground under the statue; redrawing metatile `$00` erases it.
+Its `var3f` bit-5 collision guard makes `func_07_47b7` replace the random
+effect collision with the canonical Mystery Seed collision `$9a`; only that
+collision starts it.
 The part pre-decrements counter `$32`; values `$30,$28,$20,$18,$10,$08`
 allocate `INTERAC_SPARKLE $84:$00` at the six source offsets in reverse table
 order. At zero it loads counter `$1e` and the three-cell speaking pose, then

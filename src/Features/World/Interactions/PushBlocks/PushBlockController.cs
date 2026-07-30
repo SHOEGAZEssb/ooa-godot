@@ -43,6 +43,7 @@ public partial class PushBlockController : Node2D
     internal float ActiveMoveSpeedPerFrame => _activeMoveSpeedPerFrame;
     internal Vector2 BlockTopLeft => _sourceTopLeft + (Vector2)_moveDirection *
         (_moveFrame * _activeMoveSpeedPerFrame);
+    internal Texture2D? BlockTexture => _blockTexture;
 
     public PushBlockController(
         RoomSession rooms,
@@ -176,9 +177,10 @@ public partial class PushBlockController : Node2D
         int braceletLevel)
     {
         OracleRoomData room = _rooms.CurrentRoom;
-        Image image = room.Texture.GetImage().GetRegion(
-            new Rect2I((Vector2I)topLeft, Vector2I.One * OracleRoomData.MetatileSize));
-        _blockTexture = ImageTexture.CreateFromImage(image);
+        // INTERAC_PUSHBLOCK state 0 passes the explicit source metatile to
+        // objectMimicBgTile. Color 0 must therefore be transparent; copying
+        // the opaque room region makes the ground around a pot move with it.
+        _blockTexture = room.BuildMimickedMetatileTexture(tile);
         _sourceTopLeft = topLeft;
         _destinationTopLeft = topLeft + (Vector2)direction * OracleRoomData.MetatileSize;
         _collisionCenter = topLeft + new Vector2(8, 6);

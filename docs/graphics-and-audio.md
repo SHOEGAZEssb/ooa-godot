@@ -355,6 +355,13 @@ and throw bodies use the exact `spr_link` entries `$dc-$e3`, `$5c-$5f`,
 `$88-$8b`, and `$b0-$b3`; `SND_PICKUP` `$9c` begins the lift and `SND_THROW`
 `$51` begins the release.
 
+`objectMimicBgTile` performs the corresponding explicit-metatile copy for
+`INTERAC_PUSHBLOCK`. It uses OBJ palette 6 and the interaction's two-cell OAM
+composition; property bit 2 selects the mirrored-half variant for symmetric
+tiles. Runtime push rendering must likewise make BG color 0 transparent;
+copying an opaque room-texture rectangle causes the ground-colored border
+around a vase to travel with the moving object.
+
 The live rupee wallet and `wDisplayedRupees` are distinct. The wallet changes
 immediately, while the status bar moves one rupee toward it on each original
 update and requests `SND_RUPEE` (`$61`) for every step. A grant that exceeds the

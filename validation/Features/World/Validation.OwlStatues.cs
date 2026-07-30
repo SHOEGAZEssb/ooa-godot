@@ -92,6 +92,13 @@ public sealed partial class ValidationRoot
         var rooms = new RoomSession(
             1, 0x80, static () => 0, static () => { }, save);
         OracleRoomData room = rooms.CurrentRoom;
+        Vector2 owlPosition = new(0x38, 0x38);
+        byte originalOwlTile = room.GetMetatile(owlPosition);
+        ulong originalOwlTileHash = OracleGraphicsCache.PixelHash(
+            room.BuildMimickedMetatileTexture(owlPosition).GetImage());
+        ulong logicalFloorTileHash = OracleGraphicsCache.PixelHash(
+            room.BuildMimickedMetatileTexture(
+                (byte)owlRecord.FloorTile).GetImage());
         var root = new Node { Name = "Room180OwlStatueValidation" };
         AddChild(root);
         using var fixture = RoomEntityValidationFixture.ForRoot(
@@ -125,7 +132,7 @@ public sealed partial class ValidationRoot
         OwlStatueRoomEntity owl =
             manager.Entities<OwlStatueRoomEntity>().Single();
         FailIf(
-            owl.Position != new Vector2(0x38, 0x38) ||
+            owl.Position != owlPosition ||
             owl.State != OwlStatueState.Idle ||
             owl.AnimationIndex != 0 ||
             owl.ZIndex != NpcCharacter.FixedLowPriorityZIndex ||
@@ -133,9 +140,15 @@ public sealed partial class ValidationRoot
             !owl.TransitionDrawOffset.IsEqualApprox(incomingOffset) ||
             manager.Entities<SeedOnTree>().Count != 3 ||
             room.GetMetatile(owl.Position) != 0x00 ||
-            room.GetTerrainInfo(owl.Position).Collision != 0x0f,
-            "Room 1:80 did not preload its Owl Statue, solid `$00 floor, " +
-            "or three Mystery Seeds at the destination draw offset.");
+            room.GetTerrainInfo(owl.Position).Collision != 0x0f ||
+            originalOwlTile == owlRecord.FloorTile ||
+            originalOwlTileHash == logicalFloorTileHash ||
+            OracleGraphicsCache.PixelHash(
+                room.BuildMimickedMetatileTexture(
+                    owl.Position).GetImage()) != originalOwlTileHash,
+            "Room 1:80 did not preload its Owl Statue with logical solid " +
+            "`$00/`$0f state, preserved visible ground, and three Mystery " +
+            "Seeds at the destination draw offset.");
         manager.Update(1.0, _player);
         FailIf(
             owl.ElapsedUpdates != 0 ||
@@ -261,8 +274,9 @@ public sealed partial class ValidationRoot
 
         GD.Print(
             "Validated room 1:80's Mystery Seed tree and shared " +
-            "PART_OWL_STATUE `$13:$06: clean-US placement, solid `$00/`$0f " +
-            "cell, transition freeze, Mystery-only `$9a activation, RNG, six " +
-            "sparkles, 50/30/22 counters, TX_3906, poses, and reset.");
+            "PART_OWL_STATUE `$13:$06: clean-US placement, preserved visible " +
+            "ground with logical solid `$00/`$0f state, transition freeze, " +
+            "Mystery-only `$9a activation, RNG, six sparkles, 50/30/22 " +
+            "counters, TX_3906, poses, and reset.");
     }
 }
