@@ -35,7 +35,7 @@ public sealed class RoomEventController
     private readonly LynnaShopEvent _lynnaShop;
     private readonly VasuShopEvent _vasuShop;
     private readonly HarpOfAgesEvent _harpOfAges;
-    private readonly SpiritsGraveEssenceEvent _spiritsGraveEssence;
+    private readonly DungeonEssenceEvent _dungeonEssence;
     private readonly RemoteMakuFirstEssenceEvent _remoteMakuFirstEssence;
     private readonly RemoteMakuSecondEssenceEvent _remoteMakuSecondEssence;
     private readonly RemoteMakuHarpEvent _remoteMakuHarp;
@@ -103,7 +103,7 @@ public sealed class RoomEventController
         _lynnaShop = new LynnaShopEvent(_context);
         _vasuShop = new VasuShopEvent(_context);
         _harpOfAges = new HarpOfAgesEvent(_context);
-        _spiritsGraveEssence = new SpiritsGraveEssenceEvent(_context);
+        _dungeonEssence = new DungeonEssenceEvent(_context);
         _remoteMakuFirstEssence = new RemoteMakuFirstEssenceEvent(_context);
         _remoteMakuSecondEssence = new RemoteMakuSecondEssenceEvent(_context);
         _remoteMakuHarp = new RemoteMakuHarpEvent(_context);
@@ -115,7 +115,7 @@ public sealed class RoomEventController
         _eventsByPriority =
         [
             _harpOfAges,
-            _spiritsGraveEssence,
+            _dungeonEssence,
             _remoteMakuFirstEssence,
             _remoteMakuSecondEssence,
             _remoteMakuHarp,
@@ -195,7 +195,7 @@ public sealed class RoomEventController
         ];
         entities.RoomEntitiesLoaded += OnRoomEntitiesLoaded;
         entities.ObjectFellInHole += NotifyObjectFellInHole;
-        entities.SpiritsGraveEssenceTriggered += _spiritsGraveEssence.Begin;
+        entities.DungeonEssenceTriggered += _dungeonEssence.Begin;
     }
 
     public bool Active
@@ -249,7 +249,7 @@ public sealed class RoomEventController
     internal LynnaShopEvent LynnaShop => _lynnaShop;
     internal VasuShopEvent VasuShop => _vasuShop;
     internal HarpOfAgesEvent HarpOfAges => _harpOfAges;
-    internal SpiritsGraveEssenceEvent SpiritsGraveEssence => _spiritsGraveEssence;
+    internal DungeonEssenceEvent DungeonEssence => _dungeonEssence;
     internal RemoteMakuFirstEssenceEvent RemoteMakuFirstEssence =>
         _remoteMakuFirstEssence;
     internal RemoteMakuSecondEssenceEvent RemoteMakuSecondEssence =>

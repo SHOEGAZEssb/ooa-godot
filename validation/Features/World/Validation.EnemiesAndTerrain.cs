@@ -463,6 +463,71 @@ public sealed partial class ValidationRoot
                     tables.PumpkinProjectile.DamageQuarters
                 ],
                 [8, 60, 4, 2, 2]) ||
+            !ProfileMatches(
+                tables.Spark.Sources,
+                [tables.Spark.SpeedRaw],
+                [40]) ||
+            !ProfileMatches(
+                tables.Whisp.Sources,
+                [tables.Whisp.SpeedRaw],
+                [30]) ||
+            !ProfileMatches(
+                tables.Thwomp.Sources,
+                [
+                    tables.Thwomp.ApproachRadius,
+                    tables.Thwomp.Gravity,
+                    tables.Thwomp.RestFrames,
+                    tables.Thwomp.RiseSpeedFixed,
+                    tables.Thwomp.CooldownFrames,
+                    tables.Thwomp.RidingRadiusX,
+                    tables.Thwomp.RidingSlopY
+                ],
+                [20, 48, 60, 128, 32, 19, 3]) ||
+            !ProfileMatches(
+                tables.Peahat.Sources,
+                [
+                    tables.Peahat.AccelerationFrames,
+                    tables.Peahat.SlowdownFrames,
+                    tables.Peahat.InitialSpeedRaw,
+                    tables.Peahat.TopSpeedRaw,
+                    tables.Peahat.FlightCounters[0],
+                    tables.Peahat.FlightCounters[1],
+                    tables.Peahat.FlightCounters[2],
+                    tables.Peahat.FlightCounters[3],
+                    tables.Peahat.FlightCounters[4],
+                    tables.Peahat.FlightCounters[5],
+                    tables.Peahat.FlightCounters[6],
+                    tables.Peahat.FlightCounters[7]
+                ],
+                [127, 128, 5, 30, 180, 180, 210, 210, 240, 240, 0, 0]) ||
+            !ProfileMatches(
+                tables.SwordEnemy.Sources,
+                [
+                    tables.SwordEnemy.WanderSpeedRaw,
+                    tables.SwordEnemy.ChaseSpeedRaw,
+                    tables.SwordEnemy.ChasePrepareFrames,
+                    tables.SwordEnemy.ChaseFrames,
+                    tables.SwordEnemy.ChaseRadius,
+                    tables.SwordEnemy.RouteCounterBase,
+                    tables.SwordEnemy.RouteCounterMask,
+                    tables.SwordEnemy.TowardLinkMask,
+                    tables.SwordEnemy.TurnIntervalMask,
+                    tables.SwordEnemy.CooldownFrames[0],
+                    tables.SwordEnemy.CooldownFrames[1],
+                    tables.SwordEnemy.CooldownFrames[2]
+                ],
+                [20, 25, 16, 96, 40, 80, 63, 7, 3, 20, 16, 12]) ||
+            !ProfileMatches(
+                tables.ColorChangingGel.Sources,
+                [
+                    tables.ColorChangingGel.WaitFrames,
+                    tables.ColorChangingGel.HopDelayFrames,
+                    tables.ColorChangingGel.SpeedRaw,
+                    tables.ColorChangingGel.InitialSpeedZ,
+                    tables.ColorChangingGel.Gravity,
+                    tables.ColorChangingGel.ColorDelayFrames
+                ],
+                [150, 60, 50, -384, 48, 90]) ||
             !tables.KeeseDecelerationSpeeds[0].Source.Contains(
                 "keese_updateDeceleration@speeds",
                 StringComparison.Ordinal) ||
@@ -478,11 +543,11 @@ public sealed partial class ValidationRoot
             !tables.Wallmaster.Sources[0].Source.Contains(
                 "wallmaster.s",
                 StringComparison.Ordinal),
-            "The 211 imported enemy behavior rows lost a source value, " +
+            "The 250 imported enemy behavior rows lost a source value, " +
             "signed component, runtime index order, or source identity.");
 
         GD.Print(
-            "Validated 211 imported enemy behavior rows: source lookup " +
+            "Validated 250 imported enemy behavior rows: source lookup " +
             "streams plus typed collision, recoil, hazard, bounce, speed, " +
             "counter, gravity, bounds, and projectile profiles.");
     }

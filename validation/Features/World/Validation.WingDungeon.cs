@@ -22,6 +22,7 @@ public sealed partial class ValidationRoot
             .Select(room => _saveData.GetRoomFlags(4, room))
             .ToArray();
         var data = new WingDungeonDatabase();
+        var interactions = new DungeonInteractionDatabase();
 
         void SetAllRoomFlags(bool value)
         {
@@ -77,7 +78,7 @@ public sealed partial class ValidationRoot
         }
 
         SetAllRoomFlags(value: false);
-        WingDungeonMinecartState.Reset(
+        MinecartRuntimeState.Reset(
             _entities.RuntimeState, data.Minecarts);
 
         // func_5933 does not snap shallow turns directly to the input angle.
@@ -226,7 +227,7 @@ public sealed partial class ValidationRoot
         RemoveChild(sidePhysicsPlayer);
         sidePhysicsPlayer.Free();
 
-        List<ObjectRecord> native = rooms
+        List<DungeonObjectRecord> native = rooms
             .SelectMany(room => data.GetRoomRecords(4, room))
             .ToList();
         var kindCounts = native
@@ -234,19 +235,19 @@ public sealed partial class ValidationRoot
             .ToDictionary(group => group.Key, group => group.Count());
         FailIf(
             native.Count != 40 ||
-            kindCounts.GetValueOrDefault(ObjectKind.ToggleFloor) != 5 ||
-            kindCounts.GetValueOrDefault(ObjectKind.SidePlatform) != 4 ||
-            kindCounts.GetValueOrDefault(ObjectKind.CircularSidePlatform) != 3 ||
-            kindCounts.GetValueOrDefault(ObjectKind.EnemyChest) != 3 ||
-            kindCounts.GetValueOrDefault(ObjectKind.ColoredCube) != 2 ||
-            kindCounts.GetValueOrDefault(ObjectKind.HeadThwomp) != 1 ||
-            kindCounts.GetValueOrDefault(ObjectKind.Swoop) != 1 ||
-            kindCounts.GetValueOrDefault(ObjectKind.Essence) != 1 ||
-            data.Pattern(ObjectKind.FloorPatternKey, 0)
+            kindCounts.GetValueOrDefault(DungeonObjectKind.ToggleFloor) != 5 ||
+            kindCounts.GetValueOrDefault(DungeonObjectKind.SidePlatform) != 4 ||
+            kindCounts.GetValueOrDefault(DungeonObjectKind.CircularSidePlatform) != 3 ||
+            kindCounts.GetValueOrDefault(DungeonObjectKind.EnemyChest) != 3 ||
+            kindCounts.GetValueOrDefault(DungeonObjectKind.ColoredCube) != 2 ||
+            kindCounts.GetValueOrDefault(DungeonObjectKind.HeadThwomp) != 1 ||
+            kindCounts.GetValueOrDefault(DungeonObjectKind.Swoop) != 1 ||
+            kindCounts.GetValueOrDefault(DungeonObjectKind.Essence) != 1 ||
+            data.Pattern(DungeonObjectKind.FloorPatternKey, 0)
                 .SequenceEqual(new byte[] { 0x67, 0x77 }) == false ||
-            data.Pattern(ObjectKind.ColoredBlockKey, 2)
+            data.Pattern(DungeonObjectKind.ColoredBlockKey, 2)
                 .SequenceEqual(new byte[] { 0x4a, 0x59, 0x5b, 0x6a }) == false ||
-            data.SwitchTiles(0x13) != (0x5c, 0x5a) ||
+            interactions.SwitchTiles(0x13) != (0x5c, 0x5a) ||
             data.Minecarts.Count != 3 ||
             !data.EssenceMessage.Contains(
                 "Ancient Wood", StringComparison.Ordinal) ||
@@ -285,18 +286,18 @@ public sealed partial class ValidationRoot
             {
                 case 0x29:
                     FailIf(
-                        _entities.Entities<WingDungeonSideScrollPlatform>().Count != 2,
+                        _entities.Entities<MovingSideScrollPlatformRoomEntity>().Count != 2,
                         "Room 4:29 did not create both imported side platforms.");
                     break;
                 case 0x2a:
                     FailIf(
-                        _entities.Entities<WingDungeonSideScrollPlatform>().Count != 2 ||
+                        _entities.Entities<MovingSideScrollPlatformRoomEntity>().Count != 2 ||
                         _entities.Entities<ThwompCharacter>().Count != 1,
                         "Room 4:2a did not create its two side platforms and Thwomp.");
                     break;
                 case 0x2b:
                     FailIf(
-                        _entities.Entities<WingDungeonCircularSidePlatform>().Count != 3 ||
+                        _entities.Entities<CircularSideScrollPlatformRoomEntity>().Count != 3 ||
                         _entities.Entities<HeadThwompBoss>().Count != 1,
                         "Room 4:2b did not create three circular platforms and Head Thwomp.");
                     break;
@@ -309,27 +310,27 @@ public sealed partial class ValidationRoot
                 case 0x2e:
                     FailIf(
                         _entities.Entities<PeahatCharacter>().Count != 2 ||
-                        _entities.Entities<WingDungeonPatternKey>().Count != 1 ||
-                        _entities.Entities<WingDungeonToggleFloor>().Count != 1,
+                        _entities.Entities<DungeonPatternKeyRoomEntity>().Count != 1 ||
+                        _entities.Entities<ToggleFloorRoomEntity>().Count != 1,
                         "Room 4:2e did not create its Peahats and floor-pattern key puzzle.");
                     break;
                 case 0x30:
                     FailIf(
                         _entities.Entities<SwordEnemyCharacter>().Count != 2 ||
-                        _entities.Entities<WingDungeonEnemyChest>().Count != 1,
+                        _entities.Entities<EnemyClearChestRoomEntity>().Count != 1,
                         "Room 4:30 did not create its Sword Stalfos and kill chest.");
                     break;
                 case 0x33:
                 case 0x35:
                 case 0x40:
                     FailIf(
-                        _entities.Entities<WingDungeonMinecart>().Count != 1,
+                        _entities.Entities<MinecartRoomEntity>().Count != 1,
                         $"Room 4:{room:x2} did not restore its static minecart.");
                     break;
                 case 0x34:
                     FailIf(
                         _entities.Entities<SwoopBoss>().Count != 1 ||
-                        _entities.Entities<SpiritsGraveRewardController>().Count != 1,
+                        _entities.Entities<DungeonRewardRoomEntity>().Count != 1,
                         "Room 4:34 did not create Swoop and its miniboss reward.");
                     break;
                 case 0x36:
@@ -339,23 +340,23 @@ public sealed partial class ValidationRoot
                     break;
                 case 0x38:
                     FailIf(
-                        _entities.Entities<SpiritsGraveEssence>() is not
+                        _entities.Entities<DungeonEssence>() is not
                             [{ EssenceIndex: 1 }],
                         "Room 4:38 did not create the second Essence.");
                     break;
                 case 0x3e:
                     FailIf(
                         _entities.Entities<ColorChangingGelCharacter>().Count != 7 ||
-                        _entities.Entities<WingDungeonFloorColorChanger>().Count != 1 ||
-                        _entities.Entities<WingDungeonEnemyChest>().Count != 1,
+                        _entities.Entities<FloorColorChangerRoomEntity>().Count != 1 ||
+                        _entities.Entities<EnemyClearChestRoomEntity>().Count != 1,
                         "Room 4:3e did not create seven color Gels, the exact " +
                         "floor changer, and its Boss Key chest.");
                     break;
                 case 0x43:
                     FailIf(
-                        _entities.Entities<SpiritsGraveColoredCube>().Count != 1 ||
-                        _entities.Entities<SpiritsGraveCubeFlame>().Count != 1 ||
-                        _entities.Entities<SpiritsGraveCubeSensor>().Count != 1,
+                        _entities.Entities<ColoredCubeRoomEntity>().Count != 1 ||
+                        _entities.Entities<ColoredCubeFlameRoomEntity>().Count != 1 ||
+                        _entities.Entities<ColoredCubeSensorRoomEntity>().Count != 1,
                         "Room 4:43 did not create its color-cube/flame/sensor puzzle.");
                     break;
             }
@@ -746,8 +747,8 @@ public sealed partial class ValidationRoot
         PrepareRoom(0x29);
         _player.WarpTo(new Vector2(0x18, 0x18), recordSafe: false);
         Step();
-        WingDungeonSideScrollPlatform movingPlatform =
-            _entities.Entities<WingDungeonSideScrollPlatform>()[1];
+        MovingSideScrollPlatformRoomEntity movingPlatform =
+            _entities.Entities<MovingSideScrollPlatformRoomEntity>()[1];
         FailIf(
             movingPlatform.PrecisePosition.X ==
                 Mathf.Floor(movingPlatform.PrecisePosition.X),
@@ -938,7 +939,7 @@ public sealed partial class ValidationRoot
         Step();
         HeadThwompBoss head =
             _entities.Entities<HeadThwompBoss>().Single();
-        var spiritsGrave = new SpiritsGraveDatabase();
+        var bosses = new DungeonBossDatabase();
         AnimationFrameDefinition headFrame =
             OracleGraphicsCache.GetAnimationDefinition(
                 head.Record.Animations[0]).Frames[0];
@@ -949,7 +950,7 @@ public sealed partial class ValidationRoot
                     headFrame.EncodedOam,
                     head.Record.TileBase,
                     head.Record.Palette,
-                    spiritsGrave.HeadThwompPalettes,
+                    bosses.HeadThwompPalettes,
                     head.Record.SourceGrayscaleInverted);
         using (expectedHeadTexture)
         using (Image headImage = head.CurrentAnimationTexture.GetImage())
@@ -966,16 +967,16 @@ public sealed partial class ValidationRoot
                 "its disassembly 40-by-48 positioned OAM bounds.");
         }
         FailIf(
-            spiritsGrave.HeadThwompPalettes is not { Count: 1 } ||
-            !spiritsGrave.HeadThwompPalettes.ContainsKey(6) ||
+            bosses.HeadThwompPalettes is not { Count: 1 } ||
+            !bosses.HeadThwompPalettes.ContainsKey(6) ||
             !IsGbcColor(
-                spiritsGrave.HeadThwompPalettes[6][0], 0x1f, 0x1f, 0x1f) ||
+                bosses.HeadThwompPalettes[6][0], 0x1f, 0x1f, 0x1f) ||
             !IsGbcColor(
-                spiritsGrave.HeadThwompPalettes[6][1], 0x00, 0x00, 0x00) ||
+                bosses.HeadThwompPalettes[6][1], 0x00, 0x00, 0x00) ||
             !IsGbcColor(
-                spiritsGrave.HeadThwompPalettes[6][2], 0x14, 0x01, 0x1b) ||
+                bosses.HeadThwompPalettes[6][2], 0x14, 0x01, 0x1b) ||
             !IsGbcColor(
-                spiritsGrave.HeadThwompPalettes[6][3], 0x16, 0x0f, 0x1f),
+                bosses.HeadThwompPalettes[6][3], 0x16, 0x0f, 0x1f),
             "Head Thwomp did not import PALH $81's paletteData4958 into " +
             "OBJ palette 6.");
         Vector2 headSwordPosition =

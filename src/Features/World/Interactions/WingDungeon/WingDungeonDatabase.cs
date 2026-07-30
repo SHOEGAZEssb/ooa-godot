@@ -9,54 +9,32 @@ namespace oracleofages;
 /// </summary>
 internal sealed class WingDungeonDatabase
 {
-    private readonly Lookup<(int Group, int Room), ObjectRecord> _objects = new();
-    private readonly Dictionary<string, int> _constants =
-        new(StringComparer.Ordinal);
-    private readonly Dictionary<(ObjectKind Kind, int Color), byte[]> _patterns = new();
-    private readonly Dictionary<int, WingDungeonSidePlatformRecord> _platforms = new();
-    private readonly List<WingDungeonMinecartRecord> _minecarts = new();
+    private readonly Lookup<(int Group, int Room), DungeonObjectRecord> _objects = new();
+    private readonly Dictionary<(DungeonObjectKind Kind, int Color), byte[]> _patterns = new();
+    private readonly List<MinecartStaticRecord> _minecarts = new();
     private readonly Dictionary<int, string> _texts = new();
 
     internal WingDungeonDatabase()
     {
         LoadObjects();
-        LoadConstants();
         LoadPatterns();
-        LoadPlatforms();
         LoadMinecarts();
         LoadText();
         ValidateContract();
     }
 
-    internal IReadOnlyList<ObjectRecord> GetRoomRecords(int group, int room) =>
+    internal IReadOnlyList<DungeonObjectRecord> GetRoomRecords(int group, int room) =>
         _objects.ValuesOrEmpty((group, room));
 
-    internal int Constant(string key) =>
-        _constants.TryGetValue(key, out int value)
-            ? value
-            : throw new KeyNotFoundException(
-                $"Wing Dungeon constant {key} was not imported.");
-
-    internal IReadOnlyList<byte> Pattern(ObjectKind kind, int color) =>
+    internal IReadOnlyList<byte> Pattern(DungeonObjectKind kind, int color) =>
         _patterns.TryGetValue((kind, color), out byte[]? positions)
             ? positions
-            : throw new KeyNotFoundException(
-                $"Wing Dungeon {kind} color {color} pattern was not imported.");
-
-    internal (int Off, int On) SwitchTiles(int index) => (
-        Constant($"switch-{index}-off"),
-        Constant($"switch-{index}-on"));
+            : Array.Empty<byte>();
 
     internal string EssenceMessage => Text(0x000f);
     internal string SwoopMessage => Text(0x2f00);
 
-    internal WingDungeonSidePlatformRecord SidePlatform(int subId) =>
-        _platforms.TryGetValue(subId, out WingDungeonSidePlatformRecord record)
-            ? record
-            : throw new KeyNotFoundException(
-                $"Wing Dungeon side-platform subid ${subId:x2} was not imported.");
-
-    internal IReadOnlyList<WingDungeonMinecartRecord> Minecarts => _minecarts;
+    internal IReadOnlyList<MinecartStaticRecord> Minecarts => _minecarts;
 
     private void LoadObjects()
     {
@@ -73,7 +51,7 @@ internal sealed class WingDungeonDatabase
                 headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
         {
-            ObjectRecord record = new(
+            DungeonObjectRecord record = new(
                 row.Decimal(0, 0, 7),
                 row.HexByte(1),
                 row.UnsignedDecimal(2),
@@ -82,33 +60,12 @@ internal sealed class WingDungeonDatabase
                 row.HexByte(5),
                 row.HexByte(6),
                 row.HexByte(7),
-                ParseCondition(row, 8),
+                DungeonObjectData.ParseCondition(row, 8),
                 row.RequiredString(9));
             _objects.Add((record.Group, record.Room), record);
         }
         _objects.SortValues(
             static (left, right) => left.Order.CompareTo(right.Order));
-    }
-
-    private void LoadConstants()
-    {
-        GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/wing_dungeon_constants.tsv",
-            new GeneratedTableSchema(
-                "Wing Dungeon constants",
-                GeneratedTableKeySemantics.Unique,
-                ["key", "value"],
-                ["key"],
-                headerRequired: true));
-        foreach (GeneratedTableRow row in table.Rows)
-        {
-            if (!_constants.TryAdd(
-                    row.RequiredString(0), row.UnsignedDecimal(1)))
-            {
-                throw new InvalidOperationException(
-                    $"Duplicate Wing Dungeon constant at {row.Path}:{row.LineNumber}.");
-            }
-        }
     }
 
     private void LoadPatterns()
@@ -123,10 +80,10 @@ internal sealed class WingDungeonDatabase
                 headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
         {
-            ObjectKind kind = row.RequiredString(0) switch
+            DungeonObjectKind kind = row.RequiredString(0) switch
             {
-                "floor-pattern-key" => ObjectKind.FloorPatternKey,
-                "colored-block-key" => ObjectKind.ColoredBlockKey,
+                "floor-pattern-key" => DungeonObjectKind.FloorPatternKey,
+                "colored-block-key" => DungeonObjectKind.ColoredBlockKey,
                 _ => throw row.Invalid(0, "a Wing Dungeon pattern kind")
             };
             int color = row.RequiredString(1) switch
@@ -174,57 +131,6 @@ internal sealed class WingDungeonDatabase
         }
     }
 
-    private void LoadPlatforms()
-    {
-        GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/wing_dungeon_side_platforms.tsv",
-            new GeneratedTableSchema(
-                "Wing Dungeon side platforms",
-                GeneratedTableKeySemantics.Unique,
-                ["subid", "speed", "direction", "radius-y", "radius-x", "commands"],
-                ["subid"],
-                headerRequired: true));
-        foreach (GeneratedTableRow row in table.Rows)
-        {
-            string[] encoded = row.RequiredString(5).Split(
-                ',', StringSplitOptions.RemoveEmptyEntries |
-                StringSplitOptions.TrimEntries);
-            var commands = new WingDungeonPlatformCommand[encoded.Length];
-            for (int index = 0; index < encoded.Length; index++)
-            {
-                string[] parts = encoded[index].Split(
-                    ':', StringSplitOptions.TrimEntries);
-                if (parts.Length != 2 ||
-                    !byte.TryParse(
-                        parts[1],
-                        System.Globalization.NumberStyles.AllowHexSpecifier,
-                        System.Globalization.CultureInfo.InvariantCulture,
-                        out byte endpoint))
-                {
-                    throw row.Invalid(5, "direction:hex-endpoint commands");
-                }
-                WingDungeonPlatformDirection direction = parts[0] switch
-                {
-                    "up" => WingDungeonPlatformDirection.Up,
-                    "right" => WingDungeonPlatformDirection.Right,
-                    "down" => WingDungeonPlatformDirection.Down,
-                    "left" => WingDungeonPlatformDirection.Left,
-                    _ => throw row.Invalid(5, "up, right, down, or left")
-                };
-                commands[index] = new(direction, endpoint);
-            }
-            WingDungeonSidePlatformRecord record = new(
-                row.HexByte(0),
-                row.UnsignedDecimal(1),
-                row.UnsignedDecimal(2),
-                row.UnsignedDecimal(3),
-                row.UnsignedDecimal(4),
-                commands);
-            if (!_platforms.TryAdd(record.SubId, record))
-                throw row.Invalid(0, "a unique side-platform subid");
-        }
-    }
-
     private void LoadMinecarts()
     {
         GeneratedTable table = GeneratedTable.Load(
@@ -237,7 +143,7 @@ internal sealed class WingDungeonDatabase
                 headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
         {
-            WingDungeonMinecartRecord record = new(
+            MinecartStaticRecord record = new(
                 row.UnsignedDecimal(0),
                 row.HexByte(1),
                 row.HexByte(2),
@@ -252,23 +158,14 @@ internal sealed class WingDungeonDatabase
     private void ValidateContract()
     {
         int count = 0;
-        foreach (IReadOnlyList<ObjectRecord> records in _objects.Values)
+        foreach (IReadOnlyList<DungeonObjectRecord> records in _objects.Values)
             count += records.Count;
         if (count != 40 ||
-            _constants.Count != 73 ||
             _patterns.Count != 5 ||
-            _platforms.Count != 4 ||
             _minecarts.Count != 3 ||
-            Constant("red-toggle-floor") != 0xad ||
-            Constant("blue-toggle-floor") != 0xaf ||
-            Constant("enemy-chest-wait") != 30 ||
-            Pattern(ObjectKind.FloorPatternKey, 0).Count != 2 ||
-            Pattern(ObjectKind.ColoredBlockKey, 2).Count != 4 ||
-            SwitchTiles(0x13) != (0x5c, 0x5a) ||
-            SidePlatform(0x06) is not
-                { Speed: 20, RadiusY: 9, RadiusX: 7 } ||
-            SidePlatform(0x07).Commands[1] is not
-                { Direction: WingDungeonPlatformDirection.Right, Endpoint: 0xa8 } ||
+            Pattern(DungeonObjectKind.FloorPatternKey, 0).Count != 2 ||
+            Pattern(DungeonObjectKind.FloorPatternKey, 1).Count != 0 ||
+            Pattern(DungeonObjectKind.ColoredBlockKey, 2).Count != 4 ||
             _minecarts[0] is not { Slot: 0, Room: 0x33, Y: 0x38, X: 0xc8 } ||
             _minecarts[2] is not { Slot: 2, Room: 0x40, Y: 0x58, X: 0xa8 } ||
             _texts.Count != 2 ||
@@ -286,72 +183,35 @@ internal sealed class WingDungeonDatabase
             : throw new KeyNotFoundException(
                 $"Wing Dungeon text TX_{id:x4} was not imported.");
 
-    private static ObjectKind ParseKind(GeneratedTableRow row, int column) =>
+    private static DungeonObjectKind ParseKind(GeneratedTableRow row, int column) =>
         row.RequiredString(column) switch
         {
-            "rupee-reward" => ObjectKind.RupeeReward,
-            "feather-reward" => ObjectKind.FeatherReward,
-            "floor-pattern-key" => ObjectKind.FloorPatternKey,
-            "toggle-floor" => ObjectKind.ToggleFloor,
-            "colored-cube" => ObjectKind.ColoredCube,
-            "switch-tile-toggler" => ObjectKind.SwitchTileToggler,
-            "minecart-gate" => ObjectKind.MinecartGate,
-            "cube-light-sensor" => ObjectKind.CubeLightSensor,
-            "cube-switch-sensor" => ObjectKind.CubeSwitchSensor,
-            "enemy-chest" => ObjectKind.EnemyChest,
-            "red-floor-trigger" => ObjectKind.RedFloorTrigger,
-            "miniboss-reward" => ObjectKind.MinibossReward,
-            "boss-reward" => ObjectKind.BossReward,
-            "essence" => ObjectKind.Essence,
-            "enemy-small-key" => ObjectKind.EnemySmallKey,
-            "floor-switch-bit" => ObjectKind.FloorSwitchBit,
-            "floor-color-changer" => ObjectKind.FloorColorChanger,
-            "cube-color-source" => ObjectKind.CubeColorSource,
-            "colored-block-key" => ObjectKind.ColoredBlockKey,
-            "cube-flame" => ObjectKind.CubeFlame,
-            "red-flame-trigger" => ObjectKind.RedFlameTrigger,
-            "side-platform" => ObjectKind.SidePlatform,
-            "circular-side-platform" => ObjectKind.CircularSidePlatform,
-            "head-thwomp" => ObjectKind.HeadThwomp,
-            "swoop" => ObjectKind.Swoop,
+            "rupee-reward" => DungeonObjectKind.RupeeReward,
+            "feather-reward" => DungeonObjectKind.FeatherReward,
+            "floor-pattern-key" => DungeonObjectKind.FloorPatternKey,
+            "toggle-floor" => DungeonObjectKind.ToggleFloor,
+            "colored-cube" => DungeonObjectKind.ColoredCube,
+            "switch-tile-toggler" => DungeonObjectKind.SwitchTileToggler,
+            "minecart-gate" => DungeonObjectKind.MinecartGate,
+            "cube-light-sensor" => DungeonObjectKind.CubeLightSensor,
+            "cube-switch-sensor" => DungeonObjectKind.CubeSwitchSensor,
+            "enemy-chest" => DungeonObjectKind.EnemyChest,
+            "red-floor-trigger" => DungeonObjectKind.RedFloorTrigger,
+            "miniboss-reward" => DungeonObjectKind.MinibossReward,
+            "boss-reward" => DungeonObjectKind.BossReward,
+            "essence" => DungeonObjectKind.Essence,
+            "enemy-small-key" => DungeonObjectKind.EnemySmallKey,
+            "floor-switch-bit" => DungeonObjectKind.FloorSwitchBit,
+            "floor-color-changer" => DungeonObjectKind.FloorColorChanger,
+            "cube-color-source" => DungeonObjectKind.CubeColorSource,
+            "colored-block-key" => DungeonObjectKind.ColoredBlockKey,
+            "cube-flame" => DungeonObjectKind.CubeFlame,
+            "red-flame-trigger" => DungeonObjectKind.RedFlameTrigger,
+            "side-platform" => DungeonObjectKind.SidePlatform,
+            "circular-side-platform" => DungeonObjectKind.CircularSidePlatform,
+            "head-thwomp" => DungeonObjectKind.HeadThwomp,
+            "swoop" => DungeonObjectKind.Swoop,
             _ => throw row.Invalid(column, "a supported Wing Dungeon object kind")
         };
 
-    private static SpiritsGraveDatabaseCondition ParseCondition(
-        GeneratedTableRow row,
-        int column) =>
-        row.RequiredString(column) switch
-        {
-            "always" => SpiritsGraveDatabaseCondition.Always,
-            "item-clear" => SpiritsGraveDatabaseCondition.ItemClear,
-            "flag80-clear" => SpiritsGraveDatabaseCondition.Flag80Clear,
-            _ => throw row.Invalid(column, "always, item-clear, or flag80-clear")
-        };
 }
-
-internal readonly record struct WingDungeonSidePlatformRecord(
-    int SubId,
-    int Speed,
-    int Direction,
-    int RadiusY,
-    int RadiusX,
-    WingDungeonPlatformCommand[] Commands);
-
-internal readonly record struct WingDungeonPlatformCommand(
-    WingDungeonPlatformDirection Direction,
-    int Endpoint);
-
-internal enum WingDungeonPlatformDirection
-{
-    Up,
-    Right,
-    Down,
-    Left
-}
-
-internal readonly record struct WingDungeonMinecartRecord(
-    int Slot,
-    int Room,
-    int Y,
-    int X,
-    string Source);

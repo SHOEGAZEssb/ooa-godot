@@ -61,16 +61,18 @@ public sealed partial class ValidationRoot
         }
 
         var data = new SpiritsGraveDatabase();
+        var visuals = new DungeonInteractionVisualDatabase();
+        var bosses = new DungeonBossDatabase();
         var enemyData = new EnemyDatabase();
         RoomObjectRecord fallingRope = enemyData.GetRoomObjects(4, 0x73)
             .Single(record => record.Id == 0x10);
         RoomObjectRecord linkedGhini = enemyData.GetRoomObjects(5, 0x99)
             .Single(record => record.Id == 0x17);
-        VisualRecord essenceGlow = data.Visual("essence-glow");
+        DungeonInteractionVisual essenceGlow = visuals.Visual("essence-glow");
         AnimationDefinition essenceGlowAnimation =
             OracleGraphicsCache.GetAnimationDefinition(
                 essenceGlow.Animations.Single());
-        VisualRecord energyBead = data.Visual("energy-bead");
+        DungeonInteractionVisual energyBead = visuals.Visual("energy-bead");
         AnimationDefinition[] energyBeadAnimations = energyBead.Animations
             .Select(OracleGraphicsCache.GetAnimationDefinition)
             .ToArray();
@@ -109,13 +111,13 @@ public sealed partial class ValidationRoot
             enemyData.ImportedEnemy(0x28) is not { Health: 5, DamageQuarters: 2 } ||
             enemyData.TryGetImportedEnemyDefinition(fallingRope, out _) ||
             enemyData.TryGetImportedEnemyDefinition(linkedGhini, out _) ||
-            data.Enemy(0x3f) is not
+            bosses.Enemy(0x3f) is not
                 { Health: 2, DamageQuarters: 128, SourceGrayscaleInverted: false } ||
-            data.Enemy(0x70) is not
+            bosses.Enemy(0x70) is not
                 { Health: 12, DamageQuarters: 1, SourceGrayscaleInverted: false } ||
-            data.Enemy(0x78) is not { Health: 8, DamageQuarters: 2 } ||
-            data.Visual("colored-cube").Animations.Length != 30 ||
-            data.Visual("colored-cube").SourceGrayscaleInverted ||
+            bosses.Enemy(0x78) is not { Health: 8, DamageQuarters: 2 } ||
+            visuals.Visual("colored-cube").Animations.Length != 30 ||
+            visuals.Visual("colored-cube").SourceGrayscaleInverted ||
             energyBead is not
                 {
                     Sprites: ["spr_circlebeads"],
@@ -136,7 +138,7 @@ public sealed partial class ValidationRoot
                 .Any() ||
             enemyData.MoblinBoomerang is not
                 { TileBase: 10, Palette: 4, Animations.Length: 1 } ||
-            data.Visual("pumpkin-projectile").Animations.Length != 1 ||
+            visuals.Visual("pumpkin-projectile").Animations.Length != 1 ||
             essenceGlow is not
                 {
                     Sprites: ["spr_pedestal_flame_crystal"],
@@ -152,10 +154,10 @@ public sealed partial class ValidationRoot
                 .SequenceEqual([0, 1, 0, 1]) ||
             essenceGlowAnimation.Frames.Any(
                 frame => frame.EncodedOam.Split(';').Length != 8) ||
-            !IsGbcColor(data.CubePalettes[6][1], 0x1b, 0x00, 0x00) ||
-            !IsGbcColor(data.CubePalettes[6][2], 0x03, 0x10, 0x1f) ||
-            !IsGbcColor(data.CubePalettes[7][1], 0x03, 0x10, 0x1f) ||
-            !IsGbcColor(data.CubePalettes[7][2], 0x1f, 0x16, 0x06) ||
+            !IsGbcColor(visuals.CubePalettes[6][1], 0x1b, 0x00, 0x00) ||
+            !IsGbcColor(visuals.CubePalettes[6][2], 0x03, 0x10, 0x1f) ||
+            !IsGbcColor(visuals.CubePalettes[7][1], 0x03, 0x10, 0x1f) ||
+            !IsGbcColor(visuals.CubePalettes[7][2], 0x1f, 0x16, 0x06) ||
             !data.EssenceMessage.Contains("Eternal Spirit", StringComparison.Ordinal),
             "Spirit's Grave native object/enemy/visual contract is incomplete.");
 
@@ -454,7 +456,7 @@ public sealed partial class ValidationRoot
         PrepareRoom(0x1e);
         FailIf(
             _entities.Entities<GhiniCharacter>().Count != 1 ||
-            _entities.Entities<SpiritsGraveRewardController>().Count != 1,
+            _entities.Entities<DungeonRewardRoomEntity>().Count != 1,
             "Room 4:1e did not create its Ghini and native falling-key reward.");
         GhiniCharacter ghini = _entities.Entities<GhiniCharacter>().Single();
         int ghiniRandomCalls = _entities.RandomCalls;
@@ -604,7 +606,7 @@ public sealed partial class ValidationRoot
             _currentRoom.Group != 6 || _currentRoom.TilesetId != 0x4c ||
             (_currentRoom.TilesetFlags & 0x20) == 0 ||
             _rooms.CurrentDungeonIndex != 1 ||
-            _entities.Entities<SpiritsGraveRewardController>().Count != 1 ||
+            _entities.Entities<DungeonRewardRoomEntity>().Count != 1 ||
             !warps.TryGetEdgeWarp(
                 6, 0x10, Vector2I.Up, new Vector2(0x28, 0),
                 new Vector2(_currentRoom.Width, _currentRoom.Height),
@@ -802,8 +804,8 @@ public sealed partial class ValidationRoot
             "D1's side passage did not complete its edge-only return to room 4:1b.");
 
         PrepareRoom(0x20);
-        SpiritsGraveColoredCube cube =
-            _entities.Entities<SpiritsGraveColoredCube>().Single();
+        ColoredCubeRoomEntity cube =
+            _entities.Entities<ColoredCubeRoomEntity>().Single();
         Image cubeImage = cube.CurrentTexture.GetImage();
         bool cubeHasBlue = false;
         bool cubeHasYellow = false;
@@ -819,8 +821,8 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             cube.Orientation != 5 || cube.Position != new Vector2(0xa8, 0x78) ||
-            _entities.Entities<SpiritsGraveCubeFlame>().Count != 4 ||
-            _entities.Entities<SpiritsGraveCubeSensor>().Count != 2 ||
+            _entities.Entities<ColoredCubeFlameRoomEntity>().Count != 4 ||
+            _entities.Entities<ColoredCubeSensorRoomEntity>().Count != 2 ||
             !cubeHasBlue || !cubeHasYellow ||
             cubeImage.GetPixel(8, 8).A > 0.1f ||
             cubeImage.GetPixel(11, 8).A <= 0.1f ||
@@ -828,8 +830,8 @@ public sealed partial class ValidationRoot
             "Room 4:20 did not create its source-ordered cube/flame/sensor set " +
             "with PALH_89's initial blue/yellow cube sprite " +
             $"(orientation={cube.Orientation}, position={cube.Position}, " +
-            $"flames={_entities.Entities<SpiritsGraveCubeFlame>().Count}, " +
-            $"sensors={_entities.Entities<SpiritsGraveCubeSensor>().Count}, " +
+            $"flames={_entities.Entities<ColoredCubeFlameRoomEntity>().Count}, " +
+            $"sensors={_entities.Entities<ColoredCubeSensorRoomEntity>().Count}, " +
             $"colors={string.Join(',', cubeColors.Select(color => $"{color:x8}"))}).");
         _sound.ClearPlayRequestAudit();
         for (int push = 0; push < 3; push++)
@@ -875,8 +877,8 @@ public sealed partial class ValidationRoot
         FailIf(
             cube.Position != new Vector2(0xa8, 0x48) || cube.Orientation != 4 ||
             _entities.ActiveTriggers != 0x01 ||
-            _entities.Entities<SpiritsGraveCubeFlame>().Any(flame => !flame.Visible) ||
-            _entities.Entities<SpiritsGraveCubeFlame>().Any(flame => flame.Palette != 2) ||
+            _entities.Entities<ColoredCubeFlameRoomEntity>().Any(flame => !flame.Visible) ||
+            _entities.Entities<ColoredCubeFlameRoomEntity>().Any(flame => flame.Palette != 2) ||
             _sound.PlayRequestsFor(0x7f) != 3 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndLightTorch) != 1,
             "Room 4:20 cube did not solve at $4a with color $82 and four matching flames.");
@@ -886,11 +888,11 @@ public sealed partial class ValidationRoot
         // drawable frame, not after their first fixed update.
         PrepareRoom(0x1f);
         PrepareRoom(0x20);
-        SpiritsGraveColoredCube reenteredCube =
-            _entities.Entities<SpiritsGraveColoredCube>().Single();
+        ColoredCubeRoomEntity reenteredCube =
+            _entities.Entities<ColoredCubeRoomEntity>().Single();
         FailIf(
             reenteredCube.Position != new Vector2(0xa8, 0x78) ||
-            _entities.Entities<SpiritsGraveCubeFlame>().Any(flame => flame.Visible),
+            _entities.Entities<ColoredCubeFlameRoomEntity>().Any(flame => flame.Visible),
             "Room 4:20 re-entry exposed solved colored flames before the first entity update.");
 
         PrepareRoom(0x16);
@@ -899,7 +901,7 @@ public sealed partial class ValidationRoot
         // The right button follows the native script in source order, so the
         // script observes trigger bit 1 on the next update before wait 30.
         StepEntities(31);
-        if (_entities.Entities<SpiritsGraveMovingPlatform>() is not
+        if (_entities.Entities<MovingPlatformRoomEntity>() is not
             [{ Script: 1, CollisionRadii: var horizontalRadii }])
         {
             string buttons = string.Join(", ",
@@ -909,8 +911,8 @@ public sealed partial class ValidationRoot
                 "Room 4:16 did not spawn its trigger-bit-1 horizontal moving platform " +
                 $"after 30 updates (triggers=${_entities.ActiveTriggers:x2}; {buttons}).");
         }
-        SpiritsGraveMovingPlatform horizontalPlatform =
-            _entities.Entities<SpiritsGraveMovingPlatform>().Single();
+        MovingPlatformRoomEntity horizontalPlatform =
+            _entities.Entities<MovingPlatformRoomEntity>().Single();
         _player.WarpTo(
             horizontalPlatform.Position + new Vector2(7, -5),
             recordSafe: false);
@@ -938,8 +940,8 @@ public sealed partial class ValidationRoot
             "collision-radius boundary.");
 
         PrepareRoom(0x15);
-        SpiritsGraveMovingPlatform verticalPlatform =
-            _entities.Entities<SpiritsGraveMovingPlatform>().Single();
+        MovingPlatformRoomEntity verticalPlatform =
+            _entities.Entities<MovingPlatformRoomEntity>().Single();
         Vector2 platformStart = verticalPlatform.Position;
         _player.WarpTo(platformStart + new Vector2(0, -5), recordSafe: false);
         FailIf(
@@ -1753,8 +1755,8 @@ public sealed partial class ValidationRoot
         // intentionally mutates the live validation inventory's essence bit.
         _saveData.SetRoomFlag(4, 0x11, OracleSaveData.RoomFlagItem, false);
         PrepareRoom(0x11);
-        SpiritsGraveEssence essence =
-            _entities.Entities<SpiritsGraveEssence>().Single();
+        DungeonEssence essence =
+            _entities.Entities<DungeonEssence>().Single();
         using Image liveEnergyBeadImage = essence.EnergyBeadTexture(0).GetImage();
         FailIf(
             !liveEnergyBeadImage.GetData().AsSpan().SequenceEqual(
@@ -1823,7 +1825,7 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             !_transitions.IsTransitioning || essence.SwirlActive ||
-            _roomEvents.SpiritsGraveEssence.TracksEssence ||
+            _roomEvents.DungeonEssence.TracksEssence ||
             !_player.IsHoldingItemTwoHands ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDropEssence) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlSlowFadeOut) != 1 ||
@@ -1850,8 +1852,8 @@ public sealed partial class ValidationRoot
             "D1's Essence did not finish the delayed white warp to 0:8d/$26 cleanly.");
 
         PrepareRoom(0x11);
-        SpiritsGraveEssence collectedEssence =
-            _entities.Entities<SpiritsGraveEssence>().Single();
+        DungeonEssence collectedEssence =
+            _entities.Entities<DungeonEssence>().Single();
         FailIf(
             !collectedEssence.Collected ||
             _currentRoom.GetTerrainInfo(new Vector2(0x78, 0x28)).Collision != 0x0f ||

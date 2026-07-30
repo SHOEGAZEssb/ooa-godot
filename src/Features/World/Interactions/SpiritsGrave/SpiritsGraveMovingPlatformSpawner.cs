@@ -9,6 +9,7 @@ internal sealed partial class SpiritsGraveMovingPlatformSpawner : Node2D,
 {
     private readonly Func<int, bool> _triggerActive;
     private readonly Action<int> _playSound;
+    private readonly int _spawnWait;
     private int _state;
     private int _counter;
 
@@ -19,10 +20,12 @@ internal sealed partial class SpiritsGraveMovingPlatformSpawner : Node2D,
 
     internal SpiritsGraveMovingPlatformSpawner(
         Func<int, bool> triggerActive,
-        Action<int> playSound)
+        Action<int> playSound,
+        int spawnWait)
     {
         _triggerActive = triggerActive;
         _playSound = playSound;
+        _spawnWait = spawnWait;
         Name = "SpiritsGraveMovingPlatformSpawner";
     }
 
@@ -34,13 +37,13 @@ internal sealed partial class SpiritsGraveMovingPlatformSpawner : Node2D,
                 return;
             spawns.Add(new PuzzlePuffSpawn(new Vector2(0x78, 0x48), 0));
             spawns.Add(new PuzzlePuffSpawn(new Vector2(0x78, 0x58), 0));
-            _counter = 30;
+            _counter = _spawnWait;
             _state = 1;
             return;
         }
         if (--_counter != 0)
             return;
-        spawns.Add(new SpiritsGraveMovingPlatformSpawn(
+        spawns.Add(new MovingPlatformSpawn(
             new Vector2(0x78, 0x50), 0x09));
         _playSound(OracleSoundEngine.SndSolvePuzzle);
         Finished = true;

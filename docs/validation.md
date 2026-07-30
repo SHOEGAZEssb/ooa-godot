@@ -57,11 +57,17 @@ Importer changes also require:
 
 ```powershell
 & .\tools\import_oracles.ps1
+& .\tools\verify_source_ownership.ps1
 ```
 
 Review generated diffs and, when practical, rerun to verify deterministic
 output. A change is ready only with zero build warnings/errors, a passing full
 suite, a clean `git diff --check`, and unrelated worktree changes preserved.
+`verify_oracle_import.ps1` runs the source-ownership audit automatically before
+its importer tests and two-import parity pass. The audit rejects ordinary enemy
+species stored under dungeon directories, retired first-dungeon type names,
+new dungeon-prefixed runtime types without an explicit dungeon-specific
+allowlist decision, and shared dungeon code coupled to a dungeon database.
 
 The suite exercises the shared generated-table reader with actual and escaped
 tab headers, CRLF input, comments, trailing empty cells, every supported

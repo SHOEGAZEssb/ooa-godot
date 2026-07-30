@@ -225,7 +225,7 @@ foreach ($pair in $switchPairs) {
     $wingConstantRows.Add("switch-$index-on`t$on")
 }
 Write-GeneratedTable(
-    (Join-Path $destination 'objects\wing_dungeon_constants.tsv'),
+    (Join-Path $destination 'objects\dungeon_interaction_constants.tsv'),
     $wingConstantRows)
 
 $sidePlatformSource = Read-ImportText (
@@ -254,8 +254,14 @@ $platformRows = @(
     "09`t20`t4`t9`t7`tup:48,down:98"
 )
 Write-GeneratedTable(
-    (Join-Path $destination 'objects\wing_dungeon_side_platforms.tsv'),
+    (Join-Path $destination 'objects\moving_side_scroll_platforms.tsv'),
     $platformRows)
+foreach ($obsoleteDungeonAsset in @(
+    'objects\wing_dungeon_constants.tsv',
+    'objects\wing_dungeon_side_platforms.tsv'
+)) {
+    [IO.File]::Delete((Join-Path $destination $obsoleteDungeonAsset))
+}
 
 $staticDungeonSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\staticDungeonObjects.s')

@@ -432,52 +432,6 @@ if ($wingEnemySources.spark -notmatch
         '(?ms)colorChangingGel_state_uninitialized:.*?SPEED_140.*?ld \(hl\),150.*?colorChangingGel_state8:.*?ld \(hl\),60.*?-\$180.*?colorChangingGel_stateA:.*?ld c,\$30.*?ld \(hl\),150.*?ld \(hl\),90') {
     throw 'Wing Dungeon ordinary-enemy handler constants changed.'
 }
-$wingEnemyConstantRows = @(
-    "# key`tvalue`tsource",
-    "spark-speed-raw`t40`tspark.s:spark_state_uninitialized",
-    "whisp-speed-raw`t30`twhisp.s:whisp_state_uninitialized",
-    "thwomp-approach-radius`t20`tthwomp.s:thwomp_state8",
-    "thwomp-gravity`t48`tthwomp.s:thwomp_state9",
-    "thwomp-rest-frames`t60`tthwomp.s:thwomp_state9",
-    "thwomp-rise-speed-fixed`t128`tthwomp.s:thwomp_stateA",
-    "thwomp-cooldown-frames`t32`tthwomp.s:thwomp_stateA",
-    "thwomp-riding-radius-x`t19`tthwomp.s:thwomp_updateLinkRidingSelf",
-    "thwomp-riding-slop-y`t3`tthwomp.s:thwomp_updateLinkRidingSelf",
-    "peahat-acceleration-frames`t127`tpeahat.s:peahat_state8",
-    "peahat-slowdown-frames`t128`tpeahat.s:peahat_stateB",
-    "peahat-initial-speed-raw`t5`tpeahat.s:peahat_state8",
-    "peahat-top-speed-raw`t30`tpeahat.s:@speedVals",
-    "peahat-flight-counter-0`t180`tpeahat.s:peahat_counter1Vals",
-    "peahat-flight-counter-1`t180`tpeahat.s:peahat_counter1Vals",
-    "peahat-flight-counter-2`t210`tpeahat.s:peahat_counter1Vals",
-    "peahat-flight-counter-3`t210`tpeahat.s:peahat_counter1Vals",
-    "peahat-flight-counter-4`t240`tpeahat.s:peahat_counter1Vals",
-    "peahat-flight-counter-5`t240`tpeahat.s:peahat_counter1Vals",
-    "peahat-flight-counter-6`t0`tpeahat.s:peahat_counter1Vals",
-    "peahat-flight-counter-7`t0`tpeahat.s:peahat_counter1Vals",
-    "sword-wander-speed-raw`t20`tswordEnemies.s:swordEnemy_state_uninitialized",
-    "sword-chase-speed-raw`t25`tswordEnemies.s:swordEnemy_state9",
-    "sword-chase-prepare-frames`t16`tswordEnemies.s:swordEnemy_beginChasingLink",
-    "sword-chase-frames`t96`tswordEnemies.s:swordEnemy_state9",
-    "sword-chase-radius`t40`tswordEnemies.s:swordEnemy_checkLinkIsClose",
-    "sword-route-base`t80`tswordEnemies.s:swordEnemy_chooseRandomAngleAndCounter1",
-    "sword-route-mask`t63`tswordEnemies.s:swordEnemy_chooseRandomAngleAndCounter1",
-    "sword-toward-mask`t7`tswordEnemies.s:swordEnemy_chooseRandomAngleAndCounter1",
-    "sword-turn-interval-mask`t3`tswordEnemies.s:swordEnemy_stateA",
-    "sword-cooldown-0`t20`tswordEnemies.s:@counter2Vals",
-    "sword-cooldown-1`t16`tswordEnemies.s:@counter2Vals",
-    "sword-cooldown-2`t12`tswordEnemies.s:@counter2Vals",
-    "color-gel-wait-frames`t150`tcolorChangingGel.s:colorChangingGel_state_uninitialized",
-    "color-gel-hop-delay`t60`tcolorChangingGel.s:colorChangingGel_state8",
-    "color-gel-speed-raw`t50`tcolorChangingGel.s:colorChangingGel_state_uninitialized",
-    "color-gel-initial-speed-z`t-384`tcolorChangingGel.s:colorChangingGel_state8",
-    "color-gel-gravity`t48`tcolorChangingGel.s:colorChangingGel_stateA",
-    "color-gel-color-delay`t90`tcolorChangingGel.s:colorChangingGel_updateColor"
-)
-Write-GeneratedTable(
-    (Join-Path $destination 'metadata\wing_dungeon_enemy_constants.tsv'),
-    $wingEnemyConstantRows)
-
 $keeseAnimations = @($keeseDefinition.Animations)
 if ($keeseAnimations.Count -ne 2) {
     throw "Expected two Keese animations, resolved $($keeseAnimations.Count)."
@@ -3356,13 +3310,34 @@ Add-EnemyBehaviorProfile 'pumpkin-head-projectile' 'state-profile' `
     @(8, 0x3c, 4, 2, 2) `
     'object_code/ages/parts/pumpkinHeadProjectile.s:state0'
 
-if ($enemyBehaviorRows.Count -ne 212) {
-    throw "Expected 211 enemy behavior-table rows, got " +
+Add-EnemyBehaviorProfile 'spark' 'state-profile' `
+    @(0x28) `
+    'object_code/common/enemies/spark.s:state-entry-operands'
+Add-EnemyBehaviorProfile 'whisp' 'state-profile' `
+    @(0x1e) `
+    'object_code/common/enemies/whisp.s:state-entry-operands'
+Add-EnemyBehaviorProfile 'thwomp' 'state-profile' `
+    @(0x14, 0x30, 60, 0x80, 0x20, 0x13, 3) `
+    'object_code/common/enemies/thwomp.s:state-entry-operands'
+Add-EnemyBehaviorProfile 'peahat' 'state-profile' `
+    @(0x7f, 0x80, 5, 0x1e, 180, 180, 210, 210, 240, 240, 0, 0) `
+    'object_code/common/enemies/peahat.s:state-entry-operands'
+Add-EnemyBehaviorProfile 'sword-enemy' 'state-profile' `
+    @(0x14, 0x19, 0x10, 0x60, 0x28, 0x50, 0x3f, 7, 3, 0x14, 0x10, 0x0c) `
+    'object_code/common/enemies/swordEnemies.s:state-entry-operands'
+Add-EnemyBehaviorProfile 'color-changing-gel' 'state-profile' `
+    @(150, 60, 0x32, -0x180, 0x30, 90) `
+    'object_code/ages/enemies/colorChangingGel.s:state-entry-operands'
+
+if ($enemyBehaviorRows.Count -ne 251) {
+    throw "Expected 250 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\enemy_behavior_tables.tsv'),
     $enemyBehaviorRows)
+[IO.File]::Delete(
+    (Join-Path $destination 'metadata\wing_dungeon_enemy_constants.tsv'))
 
 $legacyFairyVelocityPath =
     Join-Path $destination 'effects\item_drop_fairy_velocities.tsv'

@@ -23,7 +23,7 @@ public sealed class RoomEntityManager : IDisposable
     internal event Action<GashaSpotInteraction, Player>? GashaNutCaught;
     internal event Action<Vector2, HazardType>? ItemDropEnteredHazard;
     internal event Action<ObjectFellInHoleKind>? ObjectFellInHole;
-    internal event Action<SpiritsGraveEssence, Player>? SpiritsGraveEssenceTriggered;
+    internal event Action<DungeonEssence, Player>? DungeonEssenceTriggered;
     internal event Action<int, string, Vector2>? NativeBossDialogueRequested;
     internal event Action<int, string, Player>? MapleDialogueRequested;
     internal event Action<MapleItemRecord, Player>? MapleItemCollected;
@@ -234,7 +234,7 @@ public sealed class RoomEntityManager : IDisposable
             enemyIndex => _recentEnemyDefeats.WasKilled(enemyIndex),
             TriggerIsActive, () => _activeTriggers, SetTrigger,
             OnRoomTileChanged,
-            OnSpiritsGraveEssenceTriggered,
+            OnDungeonEssenceTriggered,
             BossShuttersClosed,
             BeginScreenShake,
             DisableLinkCollisionsAndMenu,
@@ -1460,9 +1460,9 @@ public sealed class RoomEntityManager : IDisposable
     private void OnObjectFellInHole(ObjectFellInHoleKind kind) =>
         ObjectFellInHole?.Invoke(kind);
 
-    private void OnSpiritsGraveEssenceTriggered(
-        SpiritsGraveEssence essence,
-        Player player) => SpiritsGraveEssenceTriggered?.Invoke(essence, player);
+    private void OnDungeonEssenceTriggered(
+        DungeonEssence essence,
+        Player player) => DungeonEssenceTriggered?.Invoke(essence, player);
 
     private void OnNativeBossDialogueRequested(
         int textId,

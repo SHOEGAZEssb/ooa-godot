@@ -1,22 +1,21 @@
-# Spirit's Grave is the first dungeon (dungeon index $01, group $04). Its
-# ordinary object stream is already imported globally, but several native
-# interaction handlers and the two before-event boss streams need typed data
-# of their own. Resolve graphics/OAM here while all shared importer tables are
-# still in scope; runtime code never reads assembly source.
+# Resolve the shared boss and dungeon-interaction graphics closure before the
+# Spirit's Grave placement/constants section below. The generated assets use
+# global enemy/interaction ownership even though this stage also imports D1's
+# first supported placements; runtime code never reads assembly source.
 
 $enemyObjectSource = Read-ImportText (
     Join-Path $Disassembly 'objects\ages\enemyData.s')
 $pumpkinHeadSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\enemies\pumpkinHead.s')
 
-$sgEnemySpriteSequences = @{
+$dungeonBossSpriteSequences = @{
     0x3f = @($gfxNames[0xad], $gfxNames[0xae])
     0x70 = @($gfxNames[0xad], $gfxNames[0xae])
     0x71 = @($gfxNames[0xaf])
     0x78 = @($gfxNames[0xbc], $gfxNames[0xbd], $gfxNames[0xbe])
     0x79 = @($gfxNames[0xbf], $gfxNames[0xc0], $gfxNames[0xc1])
 }
-$sgEnemySourceGrayscaleInverted = @{
+$dungeonBossSourceGrayscaleInverted = @{
     # Giant Ghini's two source sheets use white as color 0, unlike the
     # ordinary black-background enemy sheets.
     0x3f = $false
@@ -25,33 +24,33 @@ $sgEnemySourceGrayscaleInverted = @{
     0x78 = $true
     0x79 = $true
 }
-$sgEnemyRows = [Collections.Generic.List[string]]::new()
-$sgEnemyRows.Add('# id`tsubid`tsprites`ttile-base`tpalette`tsource-grayscale-inverted`tradius-y`tradius-x`tdamage-quarters`thealth`tanimations-base64'.Replace('`t', "`t"))
+$dungeonBossRows = [Collections.Generic.List[string]]::new()
+$dungeonBossRows.Add('# id`tsubid`tsprites`ttile-base`tpalette`tsource-grayscale-inverted`tradius-y`tradius-x`tdamage-quarters`thealth`tanimations-base64'.Replace('`t', "`t"))
 foreach ($spec in @(
     @(0x3f, 0), @(0x70, 0), @(0x71, 0), @(0x78, 0), @(0x79, 0)
 )) {
     $id = [int]$spec[0]
     $subid = [int]$spec[1]
     $definition = Get-EnemyDefinition $id $subid
-    $sprites = $sgEnemySpriteSequences[$id]
+    $sprites = $dungeonBossSpriteSequences[$id]
     foreach ($sprite in $sprites) { Copy-EnemySprite $sprite }
     $animations = [Convert]::ToBase64String(
         [Text.Encoding]::UTF8.GetBytes($definition.Animations -join "`n"))
-    $sourceGrayscaleInverted = if ($sgEnemySourceGrayscaleInverted[$id]) { 1 } else { 0 }
-    $sgEnemyRows.Add(
+    $sourceGrayscaleInverted = if ($dungeonBossSourceGrayscaleInverted[$id]) { 1 } else { 0 }
+    $dungeonBossRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($sgEnemyRows.Count -ne 6 -or
-    -not ($sgEnemyRows | Where-Object { $_ -match '^3f\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t2\t2\t128\t2\t' }) -or
-    -not ($sgEnemyRows | Where-Object { $_ -match '^70\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t10\t10\t1\t12\t' }) -or
-    -not ($sgEnemyRows | Where-Object { $_ -match '^71\t00\tspr_swoop\t0\t2\t1\t10\t10\t2\t20\t' }) -or
-    -not ($sgEnemyRows | Where-Object { $_ -match '^78\t00\tspr_pumpkinhead_1,spr_pumpkinhead_2,spr_pumpkinhead_3\t0\t3\t1\t6\t12\t2\t8\t' }) -or
-    -not ($sgEnemyRows | Where-Object { $_ -match '^79\t00\tspr_headthwomp_1,spr_headthwomp_2,spr_headthwomp_3\t0\t0\t1\t18\t15\t2\t4\t' })) {
-    throw "Spirit's Grave boss definitions no longer match the traced records:`n$($sgEnemyRows -join "`n")"
+if ($dungeonBossRows.Count -ne 6 -or
+    -not ($dungeonBossRows | Where-Object { $_ -match '^3f\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t2\t2\t128\t2\t' }) -or
+    -not ($dungeonBossRows | Where-Object { $_ -match '^70\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t10\t10\t1\t12\t' }) -or
+    -not ($dungeonBossRows | Where-Object { $_ -match '^71\t00\tspr_swoop\t0\t2\t1\t10\t10\t2\t20\t' }) -or
+    -not ($dungeonBossRows | Where-Object { $_ -match '^78\t00\tspr_pumpkinhead_1,spr_pumpkinhead_2,spr_pumpkinhead_3\t0\t3\t1\t6\t12\t2\t8\t' }) -or
+    -not ($dungeonBossRows | Where-Object { $_ -match '^79\t00\tspr_headthwomp_1,spr_headthwomp_2,spr_headthwomp_3\t0\t0\t1\t18\t15\t2\t4\t' })) {
+    throw "Shared dungeon boss definitions no longer match the traced records:`n$($dungeonBossRows -join "`n")"
 }
 Write-GeneratedTable(
-    (Join-Path $destination 'objects\spirits_grave_enemies.tsv'),
-    $sgEnemyRows)
+    (Join-Path $destination 'objects\dungeon_bosses.tsv'),
+    $dungeonBossRows)
 
 # ENEMY_HEAD_THWOMP initializes PALH_81 before becoming visible. The header
 # replaces OBJ palette 6 with paletteData4958; the boss's purple-face OAM
@@ -71,14 +70,14 @@ if ($headThwompSource -notmatch
     throw 'ENEMY_HEAD_THWOMP no longer loads PALH_81/paletteData4958 into OBJ palette 6.'
 }
 Write-GeneratedBytes(
-    (Join-Path $destination 'objects\spirits_grave_head_thwomp_palette.bin'),
+    (Join-Path $destination 'objects\dungeon_head_thwomp_palette.bin'),
     (Read-PaletteBytes 'paletteData4958' 4))
 
 # Resolve native interaction graphics used by the moving platforms, rotating
 # cube/flames, and the first essence. The cube state machine selects all 30
 # animations in its source table, so retain the complete sequence.
-$sgVisualRows = [Collections.Generic.List[string]]::new()
-$sgVisualRows.Add(
+$dungeonVisualRows = [Collections.Generic.List[string]]::new()
+$dungeonVisualRows.Add(
     '# key`tsprites`ttile-base`tpalette`tsource-grayscale-inverted`tanimations-base64'.Replace(
         '`t', "`t"))
 
@@ -86,7 +85,7 @@ $sgVisualRows.Add(
 # These native dungeon objects instead use self-contained records whose final
 # parameter byte has bit 7 set (or an explicit m_AnimationLoop). Read exactly
 # one such record so a cube animation can never absorb the following labels.
-function Resolve-SpiritsGraveInteractionAnimation(
+function Resolve-DungeonInteractionAnimation(
     [int]$interactionId,
     [int]$animationIndex) {
     $hex = $interactionId.ToString('x2')
@@ -151,7 +150,7 @@ function Resolve-SpiritsGraveInteractionAnimation(
     return $frames -join '|'
 }
 
-function Add-SpiritsGraveInteractionVisual(
+function Add-DungeonInteractionVisual(
     [string]$key,
     [int]$id,
     [int]$subid,
@@ -162,33 +161,33 @@ function Add-SpiritsGraveInteractionVisual(
     $graphic = $interactionGraphics["$id`:$subid"]
     if ($null -eq $graphic) { $graphic = $interactionGraphics["$id`:0"] }
     if ($null -eq $graphic -or -not $gfxNames.ContainsKey($graphic.Gfx)) {
-        throw "Spirit's Grave interaction visual $key (`$$($id.ToString('x2')):`$$($subid.ToString('x2'))) is missing."
+        throw "Dungeon interaction visual $key (`$$($id.ToString('x2')):`$$($subid.ToString('x2'))) is missing."
     }
     $sprite = $gfxNames[$graphic.Gfx]
     Copy-EnemySprite $sprite
     $resolved = @($animations | ForEach-Object {
-        Resolve-SpiritsGraveInteractionAnimation $id $_
+        Resolve-DungeonInteractionAnimation $id $_
     })
     if ($resolved.Count -eq 0 -or ($resolved | Where-Object { -not $_ }).Count -gt 0) {
-        throw "Spirit's Grave interaction visual $key has unresolved animations."
+        throw "Dungeon interaction visual $key has unresolved animations."
     }
     $animationData = [Convert]::ToBase64String(
         [Text.Encoding]::UTF8.GetBytes($resolved -join "`n"))
     $tileBase = if ($tileBaseOverride -ge 0) { $tileBaseOverride } else { $graphic.TileBase }
     $palette = if ($paletteOverride -ge 0) { $paletteOverride } else { $graphic.Palette }
     $inverted = if ($sourceGrayscaleInverted) { 1 } else { 0 }
-    $sgVisualRows.Add("$key`t$sprite`t$tileBase`t$palette`t$inverted`t$animationData")
+    $dungeonVisualRows.Add("$key`t$sprite`t$tileBase`t$palette`t$inverted`t$animationData")
 }
-Add-SpiritsGraveInteractionVisual 'platform-05' 0x79 5 @(5)
-Add-SpiritsGraveInteractionVisual 'platform-09' 0x79 1 @(1)
+Add-DungeonInteractionVisual 'platform-05' 0x79 5 @(5)
+Add-DungeonInteractionVisual 'platform-09' 0x79 1 @(1)
 # Unlike the ordinary black-background spr_* sheets, spr_colored_cube is
 # authored black-on-white. Retain that source interpretation so color zero,
 # not the cube drawing, becomes transparent during OAM composition.
-Add-SpiritsGraveInteractionVisual 'colored-cube' 0x19 5 (0..29) -sourceGrayscaleInverted $false
-Add-SpiritsGraveInteractionVisual 'cube-flame' 0x1a 0 @(0)
-Add-SpiritsGraveInteractionVisual 'moving-side-platform' 0xa1 0 @(4)
-Add-SpiritsGraveInteractionVisual 'circular-side-platform' 0xa4 0 @(0)
-Add-SpiritsGraveInteractionVisual 'minecart' 0x16 0 @(0, 1)
+Add-DungeonInteractionVisual 'colored-cube' 0x19 5 (0..29) -sourceGrayscaleInverted $false
+Add-DungeonInteractionVisual 'cube-flame' 0x1a 0 @(0)
+Add-DungeonInteractionVisual 'moving-side-platform' 0xa1 0 @(4)
+Add-DungeonInteractionVisual 'circular-side-platform' 0xa4 0 @(0)
+Add-DungeonInteractionVisual 'minecart' 0x16 0 @(0, 1)
 
 # interactionCode19 loads PALH_89, which replaces OBJ palettes 6 and 7 with
 # the two color-pair palettes used by the rotating cube. Its OAM records mix
@@ -210,7 +209,7 @@ $cubePaletteBytes = [byte[]]::new(24)
 [Array]::Copy($cubePalette6, 0, $cubePaletteBytes, 0, 12)
 [Array]::Copy($cubePalette7, 0, $cubePaletteBytes, 12, 12)
 Write-GeneratedBytes(
-    (Join-Path $destination 'objects\spirits_grave_cube_palettes.bin'),
+    (Join-Path $destination 'objects\colored_cube_palettes.bin'),
     $cubePaletteBytes)
 
 # D1's @essenceOamData row adds tile 0, palette 1, and chooses layout/animation 1.
@@ -235,12 +234,12 @@ if ($essenceSource -notmatch
     $essenceGlowGraphic.DefaultAnimation -ne 3) {
     throw 'INTERAC_ESSENCE D1/pedestal/glow graphics initialization changed.'
 }
-Add-SpiritsGraveInteractionVisual 'eternal-spirit' 0x7f 0 @(1) 0 1
+Add-DungeonInteractionVisual 'eternal-spirit' 0x7f 0 @(1) 0 1
 # D2's second @essenceOamData row selects the four-tile Ancient Wood layout
 # with tile base $04 and OBJ palette 0.
-Add-SpiritsGraveInteractionVisual 'ancient-wood' 0x7f 0 @(2) 4 0
-Add-SpiritsGraveInteractionVisual 'essence-pedestal' 0x7f 1 @(0)
-Add-SpiritsGraveInteractionVisual 'essence-glow' 0x7f 2 @(3)
+Add-DungeonInteractionVisual 'ancient-wood' 0x7f 0 @(2) 4 0
+Add-DungeonInteractionVisual 'essence-pedestal' 0x7f 1 @(0)
+Add-DungeonInteractionVisual 'essence-glow' 0x7f 2 @(3)
 
 # PART_BLUE_ENERGY_BEAD $53 supplies the eight inward-swirl variants used by
 # the common essence script. Part data $53 selects gfx $87, tile base 0,
@@ -266,7 +265,7 @@ $energyOamLabels = @([regex]::Matches(
 if ($energyAnimationLabels.Count -ne 16 -or $energyOamLabels.Count -ne 12) {
     throw 'PART_BLUE_ENERGY_BEAD animation/OAM tables changed.'
 }
-function Resolve-SpiritsGraveEnergyAnimation([string]$label) {
+function Resolve-DungeonEnergyAnimation([string]$label) {
     $frames = [Collections.Generic.List[string]]::new()
     foreach ($frame in [regex]::Matches(
         (Get-AssemblyLabelBody $script:partAnimationSource $label),
@@ -287,7 +286,7 @@ function Resolve-SpiritsGraveEnergyAnimation([string]$label) {
     return $frames -join '|'
 }
 $energyAnimations = @($energyAnimationLabels[0..7] | ForEach-Object {
-    Resolve-SpiritsGraveEnergyAnimation $_
+    Resolve-DungeonEnergyAnimation $_
 })
 $energySprite = $gfxNames[0x87]
 $energySpritePropertiesPath = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
@@ -304,7 +303,7 @@ if ($energySprite -ne 'spr_circlebeads' -or
 Copy-EnemySprite $energySprite
 $energyAnimationData = [Convert]::ToBase64String(
     [Text.Encoding]::UTF8.GetBytes($energyAnimations -join "`n"))
-$sgVisualRows.Add("energy-bead`t$energySprite`t0`t4`t0`t$energyAnimationData")
+$dungeonVisualRows.Add("energy-bead`t$energySprite`t0`t4`t0`t$energyAnimationData")
 
 # PART_PUMPKIN_HEAD_PROJECTILE $42 uses gfx $a6, tile base $1e, palette 2.
 $pumpkinProjectileAnimationLabels = @([regex]::Matches(
@@ -339,13 +338,13 @@ $pumpkinProjectileSprite = $gfxNames[0xa6]
 Copy-EnemySprite $pumpkinProjectileSprite
 $pumpkinProjectileAnimationData = [Convert]::ToBase64String(
     [Text.Encoding]::UTF8.GetBytes($pumpkinProjectileFrames -join '|'))
-$sgVisualRows.Add(
+$dungeonVisualRows.Add(
     "pumpkin-projectile`t$pumpkinProjectileSprite`t30`t2`t1`t$pumpkinProjectileAnimationData")
 
 # Head Thwomp's two native projectiles use the Ages PART $39/$3c tables.
 # Resolve both from their own animation and OAM pointer tables instead of
 # borrowing an ordinary enemy frame at runtime.
-function Add-SpiritsGravePartVisual(
+function Add-DungeonPartVisual(
     [string]$key,
     [int]$partId,
     [int]$gfx,
@@ -405,18 +404,26 @@ function Add-SpiritsGravePartVisual(
     $animationData = [Convert]::ToBase64String(
         [Text.Encoding]::UTF8.GetBytes($resolvedAnimations -join "`n"))
     $inverted = if ($sourceGrayscaleInverted) { 1 } else { 0 }
-    $sgVisualRows.Add(
+    $dungeonVisualRows.Add(
         "$key`t$sprite`t$tileBase`t$palette`t$inverted`t$animationData")
 }
-Add-SpiritsGravePartVisual 'head-thwomp-fireball' 0x39 0xa4 0 4 $true
-Add-SpiritsGravePartVisual 'head-thwomp-circular-projectile' 0x3c 0x8e 0x14 6 $true
+Add-DungeonPartVisual 'head-thwomp-fireball' 0x39 0xa4 0 4 $true
+Add-DungeonPartVisual 'head-thwomp-circular-projectile' 0x3c 0x8e 0x14 6 $true
 
-if ($sgVisualRows.Count -ne 16) {
+if ($dungeonVisualRows.Count -ne 16) {
     throw "Expected fifteen imported D1/D2 dungeon interaction visuals."
 }
 Write-GeneratedTable(
-    (Join-Path $destination 'objects\spirits_grave_visuals.tsv'),
-    $sgVisualRows)
+    (Join-Path $destination 'objects\dungeon_interaction_visuals.tsv'),
+    $dungeonVisualRows)
+foreach ($obsoleteDungeonAsset in @(
+    'objects\spirits_grave_enemies.tsv',
+    'objects\spirits_grave_head_thwomp_palette.bin',
+    'objects\spirits_grave_cube_palettes.bin',
+    'objects\spirits_grave_visuals.tsv'
+)) {
+    [IO.File]::Delete((Join-Path $destination $obsoleteDungeonAsset))
+}
 
 # Preserve the native object order. before-event bosses are emitted after the
 # ordinary main-room objects and are active only while ROOMFLAG_BIT_80 is clear.
@@ -483,8 +490,6 @@ if (-not $platformRadiusBlock.Success -or
     throw 'Moving-platform collision, Link displacement, or riding-object hole suppression changed.'
 }
 
-$sgConstantsRows = [Collections.Generic.List[string]]::new()
-$sgConstantsRows.Add("# key`tvalue")
 $pumpkinBodyPalette = [regex]::Match(
     $pumpkinHeadSource,
     '(?ms)^pumpkinHead_body_state08:.*?ld l,Enemy\.oamFlags\s+ld a,\$(?<value>[0-9a-f]{2})\s+ldd \(hl\),a\s+ld \(hl\),a')
@@ -495,39 +500,59 @@ if (-not $pumpkinBodyPalette.Success -or
     -not $pumpkinGhostPalette.Success) {
     throw 'Pumpkin Head body/ghost OAM palette overrides changed.'
 }
+$dungeonBossConstantRows = @(
+    "# key`tvalue"
+    "pumpkin-body-palette`t$([Convert]::ToInt32($pumpkinBodyPalette.Groups['value'].Value, 16) -band 7)"
+    "pumpkin-ghost-palette`t$([Convert]::ToInt32($pumpkinGhostPalette.Groups['value'].Value, 16) -band 7)"
+)
+Write-GeneratedTable(
+    (Join-Path $destination 'objects\dungeon_boss_constants.tsv'),
+    $dungeonBossConstantRows)
+
+$objectSpeedSource = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\objectSpeeds.s')
+if ($objectSpeedSource -notmatch
+        '(?m)^\s*SPEED_80\s+dsb\s+5\s*;\s*0x14\s*$') {
+    throw 'SPEED_80 no longer resolves to object-speed index $14.'
+}
+$dungeonObjectConstantRows = [Collections.Generic.List[string]]::new()
+$dungeonObjectConstantRows.Add("# key`tvalue")
 foreach ($row in @(
-    "platform-speed-raw`t80"
+    "platform-speed`t20"
     "platform-wait`t8"
     "cube-push-frames`t20"
     "cube-hole-frames`t10"
-    "moving-platform-spawn-wait`t30"
     "miniboss-reward-wait`t20"
-    "torch-count`t2"
-    "torch-tile`t45"
-    "solve-sound`t77"
     "move-block-sound`t127"
-    "light-torch-sound`t114"
-    "pumpkin-body-palette`t$([Convert]::ToInt32($pumpkinBodyPalette.Groups['value'].Value, 16) -band 7)"
-    "pumpkin-ghost-palette`t$([Convert]::ToInt32($pumpkinGhostPalette.Groups['value'].Value, 16) -band 7)"
 )) {
-    $sgConstantsRows.Add($row)
+    $dungeonObjectConstantRows.Add($row)
 }
 for ($size = 0; $size -lt $platformRadiusMatches.Count; $size++) {
     $radius = $platformRadiusMatches[$size]
-    $sgConstantsRows.Add(
+    $dungeonObjectConstantRows.Add(
         "platform-radius-$size-y`t$([Convert]::ToInt32($radius.Groups['y'].Value, 16))")
-    $sgConstantsRows.Add(
+    $dungeonObjectConstantRows.Add(
         "platform-radius-$size-x`t$([Convert]::ToInt32($radius.Groups['x'].Value, 16))")
 }
-if ($sgConstantsRows.Count -ne 26 -or
-    -not $sgConstantsRows.Contains("pumpkin-body-palette`t1") -or
-    -not $sgConstantsRows.Contains("pumpkin-ghost-palette`t5") -or
-    -not $sgConstantsRows.Contains("platform-radius-1-y`t16") -or
-    -not $sgConstantsRows.Contains("platform-radius-1-x`t8") -or
-    -not $sgConstantsRows.Contains("platform-radius-5-y`t16") -or
-    -not $sgConstantsRows.Contains("platform-radius-5-x`t16")) {
+if ($dungeonObjectConstantRows.Count -ne 19 -or
+    -not $dungeonObjectConstantRows.Contains("platform-radius-1-y`t16") -or
+    -not $dungeonObjectConstantRows.Contains("platform-radius-1-x`t8") -or
+    -not $dungeonObjectConstantRows.Contains("platform-radius-5-y`t16") -or
+    -not $dungeonObjectConstantRows.Contains("platform-radius-5-x`t16")) {
     throw 'Expected all six moving-platform collision-radius pairs.'
 }
+Write-GeneratedTable(
+    (Join-Path $destination 'objects\dungeon_object_behavior_constants.tsv'),
+    $dungeonObjectConstantRows)
+
+$sgConstantsRows = @(
+    "# key`tvalue"
+    "moving-platform-spawn-wait`t30"
+    "torch-count`t2"
+    "torch-tile`t69"
+    "solve-sound`t119"
+    "light-torch-sound`t114"
+)
 Write-GeneratedTable(
     (Join-Path $destination 'objects\spirits_grave_constants.tsv'),
     $sgConstantsRows)

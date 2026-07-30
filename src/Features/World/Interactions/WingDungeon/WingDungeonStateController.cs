@@ -11,10 +11,10 @@ namespace oracleofages;
 internal sealed partial class WingDungeonStateController : Node2D,
     IRoomEntity, IFixedRoomEntity
 {
-    private readonly ObjectRecord _record;
+    private readonly DungeonObjectRecord _record;
     private readonly OracleRoomData _room;
-    private readonly WingDungeonDatabase _data;
-    private readonly SpiritsGravePuzzleState _puzzle;
+    private readonly DungeonInteractionDatabase _data;
+    private readonly ColoredCubePuzzleState _puzzle;
     private readonly OracleRuntimeState _runtime;
     private readonly Action<int, bool> _setTrigger;
     private int _lastTile = -1;
@@ -22,10 +22,10 @@ internal sealed partial class WingDungeonStateController : Node2D,
     public Node2D Node => this;
 
     internal WingDungeonStateController(
-        ObjectRecord record,
+        DungeonObjectRecord record,
         OracleRoomData room,
-        WingDungeonDatabase data,
-        SpiritsGravePuzzleState puzzle,
+        DungeonInteractionDatabase data,
+        ColoredCubePuzzleState puzzle,
         OracleRuntimeState runtime,
         Action<int, bool> setTrigger)
     {
@@ -36,7 +36,7 @@ internal sealed partial class WingDungeonStateController : Node2D,
         _runtime = runtime;
         _setTrigger = setTrigger;
         Name = $"WingDungeonState_{record.Kind}_{record.Room:x2}";
-        if (record.Kind == ObjectKind.CubeColorSource)
+        if (record.Kind == DungeonObjectKind.CubeColorSource)
             InitializeCubeColor();
     }
 
@@ -44,19 +44,19 @@ internal sealed partial class WingDungeonStateController : Node2D,
     {
         switch (_record.Kind)
         {
-            case ObjectKind.RedFloorTrigger:
+            case DungeonObjectKind.RedFloorTrigger:
                 _setTrigger(0, TileAt(0x5a) == _data.Constant("red-toggle-floor"));
                 break;
-            case ObjectKind.RedFlameTrigger:
+            case DungeonObjectKind.RedFlameTrigger:
                 _setTrigger(0, _puzzle.CubeColor == 0x80);
                 break;
-            case ObjectKind.FloorSwitchBit:
+            case DungeonObjectKind.FloorSwitchBit:
                 UpdateFloorSwitchBit();
                 break;
-            case ObjectKind.CubeSwitchSensor:
+            case DungeonObjectKind.CubeSwitchSensor:
                 UpdateCubeSwitchBit();
                 break;
-            case ObjectKind.CubeColorSource:
+            case DungeonObjectKind.CubeColorSource:
                 UpdateCubeColor();
                 break;
             default:

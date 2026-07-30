@@ -506,12 +506,14 @@ Validation performs the same join and derives species totals from the ordered
 records rather than maintaining parallel room indexes.
 
 State-machine lookup and state-entry operands are generated data.
-`EnemyBehaviorTables` provides one strict runtime owner for 211 rows: 81
+`EnemyBehaviorTables` provides one strict runtime owner for 250 rows: 81
 Keese/Octorok/Boomerang Moblin lookup counters, enemy-arrow directional
 geometry, Giant Ghini child offsets, and Pumpkin Head
-timing/follower/projectile records plus Spiked Beetle shake offsets, and 130
+timing/follower/projectile records plus Spiked Beetle shake offsets, and 169
 typed sword, recoil, hazard,
-bounce, speed, counter, gravity, bounds, and projectile profiles. Consumers
+bounce, speed, counter, gravity, bounds, and projectile profiles, including
+the Spark, Whisp, Thwomp, Peahat, sword-enemy, and color-changing Gel state
+operands first exercised by Wing Dungeon. Consumers
 index lookup records at the same RNG/state/direction boundary as the source;
 they do not reorder the Giant Ghini `3,2,1` child allocation or Pumpkin Head's
 `0,2,1` projectile creation. Native state machines still own transitions and
@@ -729,15 +731,32 @@ records and debug chest overrides.
 
 ## Dungeon-specific native objects
 
-Keep a dungeon's native handlers in a typed generated stream when its ordinary
-object list contains script or interaction subids whose state machines are not
-shared globally. Spirit's Grave uses `spirits_grave_objects.tsv`,
-`spirits_grave_enemies.tsv` for its three native boss records,
-`spirits_grave_visuals.tsv`, and
-`spirits_grave_constants.tsv`. The importer resolves source object order,
-predicates, enemy attributes, graphics, OAM, animation loops, text, and timing
-constants; runtime code must not reconstruct those records from room IDs or
-parse disassembly text.
+Keep dungeon placement, puzzle layout, and story state in a typed
+dungeon-owned stream, but do not assign a globally dispatched interaction or
+enemy species to the first dungeon that uses it. Spirit's Grave uses
+`spirits_grave_objects.tsv` and `spirits_grave_constants.tsv` for its
+source-ordered placements and truly D1-specific scripts. Shared boss
+definitions, interaction graphics, rotating-cube palettes, and Head Thwomp's
+palette use `dungeon_bosses.tsv`, `dungeon_interaction_visuals.tsv`,
+`colored_cube_palettes.bin`, and `dungeon_head_thwomp_palette.bin`.
+Shared boss overrides and moving-platform/colored-cube/reward operands use
+`dungeon_boss_constants.tsv` and
+`dungeon_object_behavior_constants.tsv`.
+Wing Dungeon retains its object stream, exact floor/color patterns, static
+minecart placements, and text; global handler constants and moving
+side-platform scripts use `dungeon_interaction_constants.tsv` and
+`moving_side_scroll_platforms.tsv`. Runtime code must not reconstruct these
+records from room IDs or parse disassembly text.
+
+The same boundary applies to code ownership. `Interactions/Dungeons` owns
+generic handlers such as enemy-clear chests, toggle floors, switch-tile
+togglers, colored cubes, minecarts, moving side-scroll platforms, rewards, and
+essences. `Enemies/Species` owns ordinary enemies and implemented bosses by
+enemy ID/subid. Dungeon folders retain only placement databases, room-local
+state consumers, and scripts whose source dispatch is genuinely
+dungeon-specific. `tools/verify_source_ownership.ps1` rejects the retired
+first-dungeon type names, dungeon-owned enemy-species directories, and shared
+runtime code coupled back to a dungeon database.
 
 Merge these records with shared dungeon mechanics and entrance interactions by
 their imported `order`. Before-event bosses are gated by their source room flag

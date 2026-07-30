@@ -56,6 +56,12 @@ internal sealed class EnemyBehaviorTables
     internal WallmasterBehaviorProfile Wallmaster { get; }
     internal MoblinBoomerangBehaviorProfile MoblinBoomerang { get; }
     internal PumpkinProjectileBehaviorProfile PumpkinProjectile { get; }
+    internal SparkBehaviorProfile Spark { get; }
+    internal WhispBehaviorProfile Whisp { get; }
+    internal ThwompBehaviorProfile Thwomp { get; }
+    internal PeahatBehaviorProfile Peahat { get; }
+    internal SwordEnemyBehaviorProfile SwordEnemy { get; }
+    internal ColorChangingGelBehaviorProfile ColorChangingGel { get; }
 
     private EnemyBehaviorTables()
     {
@@ -332,10 +338,65 @@ internal sealed class EnemyBehaviorTables
             values[4].Value,
             values);
 
-        if (table.Rows.Count != 211 || groups.Count != 0)
+        values = TakeValues(groups, "spark", "state-profile", 1);
+        Spark = new(values[0].Value, values);
+
+        values = TakeValues(groups, "whisp", "state-profile", 1);
+        Whisp = new(values[0].Value, values);
+
+        values = TakeValues(groups, "thwomp", "state-profile", 7);
+        Thwomp = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            values[6].Value,
+            values);
+
+        values = TakeValues(groups, "peahat", "state-profile", 12);
+        Peahat = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            Array.ConvertAll(
+                values[4..],
+                static value => value.Value),
+            values);
+
+        values = TakeValues(groups, "sword-enemy", "state-profile", 12);
+        SwordEnemy = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            values[6].Value,
+            values[7].Value,
+            values[8].Value,
+            Array.ConvertAll(
+                values[9..],
+                static value => value.Value),
+            values);
+
+        values = TakeValues(
+            groups, "color-changing-gel", "state-profile", 6);
+        ColorChangingGel = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            values);
+
+        if (table.Rows.Count != 250 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 211 rows and no " +
+                $"Enemy behavior table contract expected 250 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }
@@ -583,4 +644,52 @@ internal readonly record struct PumpkinProjectileBehaviorProfile(
     int CollisionRadiusY,
     int CollisionRadiusX,
     int DamageQuarters,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct SparkBehaviorProfile(
+    int SpeedRaw,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct WhispBehaviorProfile(
+    int SpeedRaw,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct ThwompBehaviorProfile(
+    int ApproachRadius,
+    int Gravity,
+    int RestFrames,
+    int RiseSpeedFixed,
+    int CooldownFrames,
+    int RidingRadiusX,
+    int RidingSlopY,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct PeahatBehaviorProfile(
+    int AccelerationFrames,
+    int SlowdownFrames,
+    int InitialSpeedRaw,
+    int TopSpeedRaw,
+    IReadOnlyList<int> FlightCounters,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct SwordEnemyBehaviorProfile(
+    int WanderSpeedRaw,
+    int ChaseSpeedRaw,
+    int ChasePrepareFrames,
+    int ChaseFrames,
+    int ChaseRadius,
+    int RouteCounterBase,
+    int RouteCounterMask,
+    int TowardLinkMask,
+    int TurnIntervalMask,
+    IReadOnlyList<int> CooldownFrames,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct ColorChangingGelBehaviorProfile(
+    int WaitFrames,
+    int HopDelayFrames,
+    int SpeedRaw,
+    int InitialSpeedZ,
+    int Gravity,
+    int ColorDelayFrames,
     IReadOnlyList<EnemyBehaviorValue> Sources);

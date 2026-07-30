@@ -57,6 +57,15 @@ Feature folders may contain narrower mechanic folders such as `Chests`,
 its behavior; do not recreate catch-all `entities`, `interactions`, or
 `cutscenes` folders at the source root.
 
+Folder ownership follows the original dispatch boundary. A globally dispatched
+enemy ID belongs under `Enemies/Species`; a globally dispatched dungeon
+interaction belongs under `Interactions/Dungeons`. The first dungeon whose
+route exercises that ID does not own its class, behavior table, graphics, or
+runtime state. A named dungeon folder may own source-ordered placements,
+room-local puzzle/state consumers, and scripts or story events whose source
+dispatch is genuinely specific to that dungeon. Shared handlers receive typed
+configuration or shared databases and must not depend on a dungeon database.
+
 Every C# file contains at most one class or interface, and its filename matches
 that implementation type; partial validation scenario files are the deliberate
 exception. Narrow records and enums live in the main class/interface file for

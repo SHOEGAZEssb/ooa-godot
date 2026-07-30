@@ -475,16 +475,17 @@ compatible interpretation. The third retains all 48 entries of
 `ecom_bounceOffScreenBoundary@angleTable` in source order. Runtime consumers
 must use the typed shared resolver rather than copying these tables.
 
-`metadata/enemy_behavior_tables.tsv` owns 211 implemented behavior rows. The
+`metadata/enemy_behavior_tables.tsv` owns 250 implemented behavior rows. The
 81 lookup-stream rows cover Keese deceleration, Octorok wait/walk
 counters, Boomerang Moblin route counters, enemy-arrow directional geometry,
 Giant Ghini child offsets, and Pumpkin Head timing/follower/projectile tables.
-They also retain Spiked Beetle shake offsets. The additional 130 rows retain
+They also retain Spiked Beetle shake offsets. The additional 169 rows retain
 state-entry and collision operands: common sword
 invincibility/recoil profiles, knockback and hazard motion, hostile-projectile
 bounce, and the speeds, counters, gravity, bounds, collision radii, and damage
 used by every implemented common enemy/projectile state machine, including
-Hardhat Beetle, Spiked Beetle, and covered/exposed Spiny Beetle profiles. The
+Hardhat Beetle, Spiked Beetle, covered/exposed Spiny Beetle, Spark, Whisp,
+Thwomp, Peahat, sword-enemy, and color-changing Gel profiles. The
 Spiked Beetle collision data includes the `LINKDMG_$10/$14/$18`
 11/19/25-update attack-side recoil counters. Signed Y/X values and runtime
 index order stay exact, including Giant Ghini's `3,2,1` child allocation and
@@ -505,23 +506,30 @@ absent until their distinct attributes, native state machines, or golden-enemy
 persistence behavior are implemented; they must not be routed through the
 subid-0 definition.
 
-The enemy stage also owns the shared Wing Dungeon enemy closure. It imports
+The enemy stage also owns the enemy closure first exercised by Wing Dungeon. It imports
 Spark `$13:$00`, Whisp `$19:$00`, Arrow Shrouded Stalfos `$22:$00`, Thwomp
 `$2f:$00`, Peahat `$3e:$00`, color-changing Gel `$47:$00`, Sword Shrouded
 Stalfos `$49:$00`, and Sword Masked Stalfos `$4a:$01`, together with their
-source constants in `metadata/wing_dungeon_enemy_constants.tsv`. These
-definitions remain global ID/subid handlers even though dungeon `$02` is their
+typed state operands in `metadata/enemy_behavior_tables.tsv`. These definitions
+and profiles remain global ID/subid handlers even though dungeon `$02` is their
 first fully covered route. Their ordered placements, combat descriptors, and
 implementation classifications are generated with the common enemy stream.
 
 `Import-WingDungeon.ps1` verifies every native dungeon `$02` record against
 the source blocks before emitting 40 source-ordered records in
-`objects/wing_dungeon_objects.tsv`. Its companion tables retain 73 tile,
-switch, timing, movement, boss, and reward constants; five exact floor/color
-patterns; four side-platform scripts; three static minecarts; and TX `$000f`
-and `$2f00`. Runtime `WingDungeonDatabase` validates these tables and merges
-their records with shared dungeon mechanics and ordinary enemies by imported
-order. Minecart starting rooms and positions come from
+`objects/wing_dungeon_objects.tsv`. Its dungeon-owned companion tables retain
+five exact floor/color patterns, three static minecarts, and TX `$000f` and
+`$2f00`. The 73 globally dispatched tile/switch/timing/minecart constants and
+four moving-side-platform scripts are emitted separately as
+`objects/dungeon_interaction_constants.tsv` and
+`objects/moving_side_scroll_platforms.tsv`. Common moving-platform,
+colored-cube, and miniboss-reward behavior operands use
+`objects/dungeon_object_behavior_constants.tsv`; boss-only overrides use
+`objects/dungeon_boss_constants.tsv`.
+Runtime `WingDungeonDatabase` validates only the dungeon-owned tables, while
+`DungeonInteractionDatabase` owns the shared handler data; the room factory
+merges placements with shared dungeon mechanics and ordinary enemies by
+imported order. Minecart starting rooms and positions come from
 `dungeon2StaticObjects`; they are not reconstructed from track tiles or
 hard-coded in the room factory.
 

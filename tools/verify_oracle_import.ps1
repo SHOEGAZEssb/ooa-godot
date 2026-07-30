@@ -11,11 +11,14 @@ $testsProject = Join-Path $PSScriptRoot `
     'OracleImporter.Tests\OracleImporter.Tests.csproj'
 $importScript = Join-Path $PSScriptRoot 'import_oracles.ps1'
 $assetRoot = Join-Path $project 'assets\oracle'
+$ownershipAudit = Join-Path $PSScriptRoot 'verify_source_ownership.ps1'
 $temporary = Join-Path ([IO.Path]::GetTempPath()) `
     "ooa-import-parity-$([Guid]::NewGuid().ToString('N'))"
 [void][IO.Directory]::CreateDirectory($temporary)
 
 try {
+    & $ownershipAudit -Project $project
+
     & dotnet run --project $testsProject --configuration Debug
     if ($LASTEXITCODE -ne 0) {
         throw "OracleImporter unit tests exited with code $LASTEXITCODE."

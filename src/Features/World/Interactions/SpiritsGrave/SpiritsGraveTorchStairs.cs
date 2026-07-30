@@ -8,12 +8,16 @@ namespace oracleofages;
 internal sealed partial class SpiritsGraveTorchStairs : Node2D,
     IRoomEntity, IFixedRoomEntity, ISeedHittableRoomEntity, IRoomEntityLifetime
 {
-    private readonly ObjectRecord _record;
+    private readonly DungeonObjectRecord _record;
     private readonly OracleRoomData _room;
     private readonly OracleSaveData? _save;
     private readonly Action<int> _playSound;
     private readonly Action _roomTileChanged;
     private readonly Func<long> _animationTick;
+    private readonly int _torchCount;
+    private readonly int _stairsTile;
+    private readonly int _solveSound;
+    private readonly int _lightTorchSound;
     private readonly List<int> _unlit = new();
     private int _pending = -1;
 
@@ -23,12 +27,16 @@ internal sealed partial class SpiritsGraveTorchStairs : Node2D,
     internal IReadOnlyList<int> UnlitPositions => _unlit;
 
     internal SpiritsGraveTorchStairs(
-        ObjectRecord record,
+        DungeonObjectRecord record,
         OracleRoomData room,
         OracleSaveData? save,
         Action<int> playSound,
         Action roomTileChanged,
-        Func<long> animationTick)
+        Func<long> animationTick,
+        int torchCount,
+        int stairsTile,
+        int solveSound,
+        int lightTorchSound)
     {
         _record = record;
         _room = room;
@@ -36,6 +44,10 @@ internal sealed partial class SpiritsGraveTorchStairs : Node2D,
         _playSound = playSound;
         _roomTileChanged = roomTileChanged;
         _animationTick = animationTick;
+        _torchCount = torchCount;
+        _stairsTile = stairsTile;
+        _solveSound = solveSound;
+        _lightTorchSound = lightTorchSound;
         Name = "SpiritsGraveTorchStairs";
         Position = record.Position;
         for (int index = 0; index < room.Layout.Length; index++)
@@ -43,9 +55,10 @@ internal sealed partial class SpiritsGraveTorchStairs : Node2D,
             if (room.Layout[index] == 0x08)
                 _unlit.Add((index / 16 << 4) | index % 16);
         }
-        if (_unlit.Count != 2)
+        if (_unlit.Count != _torchCount)
             throw new InvalidOperationException(
-                $"{record.Source} expected two unlit torches, found {_unlit.Count}.");
+                $"{record.Source} expected {_torchCount} unlit torches, " +
+                $"found {_unlit.Count}.");
     }
 
     public SeedHitResult ApplySeedHit(
@@ -78,16 +91,16 @@ internal sealed partial class SpiritsGraveTorchStairs : Node2D,
         _room.SetPositionTileAndCollision(
             PositionFromPacked(packed), 0x09, null, _animationTick());
         _roomTileChanged();
-        _playSound(OracleSoundEngine.SndLightTorch);
+        _playSound(_lightTorchSound);
         LitCount++;
-        if (LitCount != 2)
+        if (LitCount != _torchCount)
             return;
 
         _save?.SetRoomFlag(_record.Group, _record.Room, OracleSaveData.RoomFlag80);
-        _playSound(OracleSoundEngine.SndSolvePuzzle);
+        _playSound(_solveSound);
         spawns.Add(new PuzzlePuffSpawn(_record.Position, 0));
         _room.SetPositionTileAndCollision(
-            _record.Position, 0x45, null, _animationTick());
+            _record.Position, (byte)_stairsTile, null, _animationTick());
         _roomTileChanged();
         Finished = true;
     }

@@ -131,7 +131,8 @@ to select a room and A to travel after choosing the desired group page.
 2. Trace the relevant disassembly code and data.
 3. Change importer code before generated files when source data is missing.
 4. Regenerate assets and review unexpected generated changes. For importer
-   infrastructure or parsing changes, run `tools/verify_oracle_import.ps1`.
+   infrastructure or parsing changes, run `tools/verify_oracle_import.ps1`;
+   it also runs the dungeon/source ownership audit.
 5. Implement the runtime behavior and its headless regression together.
 6. Run the checks in [Validation](validation.md).
 7. Update documentation for changed contracts or player-visible coverage.
