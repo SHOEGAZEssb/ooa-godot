@@ -22,8 +22,8 @@ concurrency:
 env:
   DOTNET_NOLOGO: 'true'
   DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
-  GODOT_VERSION: 4.6-stable
-  GODOT_ARCHIVE_SHA256: 0fb7695215317eb42f6ed6b348905e180eaf4b61369d5e8597a3cc1468cfda61
+  GODOT_VERSION: 4.7.1-stable
+  GODOT_ARCHIVE_SHA256: 764a089809fb1a6f745686ce9f6d3ca83adce8fb60fb9a4e2324b63baaebaa45
   WLA_DX_VERSION: '10.6'
   WLA_DX_ARCHIVE_SHA256: cbb3f8878f8028e6c2fb5cccd79dc9746518ee99def533c8e0b77cbd46a66091
   ORACLES_DISASM_REPOSITORY: https://github.com/stewmath/oracles-disasm.git
@@ -107,7 +107,7 @@ jobs:
           -Disassembly $env:ORACLES_DISASSEMBLY
           -Rom $env:ORACLES_ROM
 
-      - name: Install verified Godot 4.6 .NET build
+      - name: Install verified Godot 4.7.1 .NET build
         shell: pwsh
         run: |
           $archive = Join-Path $env:RUNNER_TEMP 'godot.zip'

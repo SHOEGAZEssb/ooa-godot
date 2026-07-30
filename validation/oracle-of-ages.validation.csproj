@@ -11,7 +11,7 @@
          second time; this assembly only derives from already-generated types. -->
     <ProjectReference Include="..\oracle-of-ages.csproj"
                       ReferenceOutputAssembly="false" />
-    <PackageReference Include="GodotSharp" Version="4.6.0" />
+    <PackageReference Include="GodotSharp" Version="4.7.1" />
     <Reference Include="oracle-of-ages">
       <HintPath>..\.godot\mono\temp\bin\Debug\oracle-of-ages.dll</HintPath>
       <Private>false</Private>

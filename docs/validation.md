@@ -43,7 +43,7 @@ Build first, then launch Godot with the project argument after `--`:
 
 ```powershell
 dotnet build
-$godot = 'E:\Stuff\Gamedev\Godot_v4.6-stable_mono_win64\Godot_v4.6-stable_mono_win64_console.exe'
+$godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
 & $godot --headless --path . --quit-after 10 -- --validate
 git diff --check
 git status --short

@@ -3,7 +3,7 @@
 ## Primary goal
 
 The project exists to reproduce *The Legend of Zelda: Oracle of Ages* as
-faithfully as practical in Godot 4.6/.NET. A cleaner abstraction is useful only
+faithfully as practical in Godot 4.7.1/.NET. A cleaner abstraction is useful only
 when it preserves the original game's data, order, timing, and observable
 behavior. Visual similarity by itself is not sufficient.
 

@@ -1,7 +1,7 @@
 # Oracle of Ages - Godot reconstruction
 
 This repository is a playable, in-progress reconstruction of *The Legend of
-Zelda: Oracle of Ages* in Godot 4.6/.NET.
+Zelda: Oracle of Ages* in Godot 4.7.1/.NET.
 
 The primary goal is a 1:1 clone. The supported US ROM and `oracles-disasm` are
 the source of truth for data, timing, coordinates, object order, RNG use,
@@ -20,7 +20,7 @@ summary and [TODO.md](TODO.md) for planned engineering work.
 
 Requirements:
 
-- Godot 4.6 with .NET support
+- Godot 4.7.1 with .NET support
 - .NET 8 SDK and PowerShell
 - A local `oracles-disasm` checkout
 - The clean US ROM with MD5 `C4639CC61C049E5A085526BB6CAC03BB`
@@ -43,13 +43,13 @@ the normal Godot resource graph and must not be committed.
 Launch the title and file-select flow from the repository root:
 
 ```powershell
-& 'E:\Stuff\Gamedev\Godot_v4.6-stable_mono_win64\Godot_v4.6-stable_mono_win64.exe' --path .
+& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64.exe' --path .
 ```
 
 For development, start directly in a hexadecimal group and room:
 
 ```powershell
-& 'E:\Stuff\Gamedev\Godot_v4.6-stable_mono_win64\Godot_v4.6-stable_mono_win64.exe' --path . -- --group=4 --room=04
+& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64.exe' --path . -- --group=4 --room=04
 ```
 
 Project arguments must follow `--`. Direct room launches bypass normal file and
@@ -75,7 +75,7 @@ Build before running the separate headless validation scene:
 
 ```powershell
 dotnet build
-$godot = 'E:\Stuff\Gamedev\Godot_v4.6-stable_mono_win64\Godot_v4.6-stable_mono_win64_console.exe'
+$godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
 & $godot --headless --path . --quit-after 10 -- --validate
 ```
 

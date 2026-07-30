@@ -3,7 +3,7 @@
 ## Mission and authority
 
 This repository reconstructs *The Legend of Zelda: Oracle of Ages* in Godot
-4.6/.NET. The highest priority is a 1:1 clone of the supported original game,
+4.7.1/.NET. The highest priority is a 1:1 clone of the supported original game,
 not an approximation or reinterpretation.
 
 Use this evidence order when behavior is uncertain:
@@ -24,7 +24,7 @@ Local development paths:
 Project root:       E:\Stuff\Github\ooa-godot
 Oracle disassembly: C:\msys64\home\timst\oracles-disasm
 Supported ROM:      Legend of Zelda, The - Oracle of Ages (U) [C][!].gbc
-Godot console:      E:\Stuff\Gamedev\Godot_v4.6-stable_mono_win64\Godot_v4.6-stable_mono_win64_console.exe
+Godot console:      E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe
 ```
 
 ## Documentation map
@@ -137,14 +137,14 @@ The build must complete with zero warnings and zero errors.
 Launch the normal title/file flow from the repository root:
 
 ```powershell
-& 'E:\Stuff\Gamedev\Godot_v4.6-stable_mono_win64\Godot_v4.6-stable_mono_win64.exe' --path .
+& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64.exe' --path .
 ```
 
 Launch directly in a hexadecimal group and room by placing project arguments
 after `--`:
 
 ```powershell
-& 'E:\Stuff\Gamedev\Godot_v4.6-stable_mono_win64\Godot_v4.6-stable_mono_win64.exe' --path . -- --group=4 --room=04
+& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64.exe' --path . -- --group=4 --room=04
 ```
 
 Direct room launches bypass normal menu and checkpoint progression and are a
@@ -155,7 +155,7 @@ development facility, not evidence of retail behavior.
 Use the console executable and `--quit-after` so validation runs terminate:
 
 ```powershell
-$godot = 'E:\Stuff\Gamedev\Godot_v4.6-stable_mono_win64\Godot_v4.6-stable_mono_win64_console.exe'
+$godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
 & $godot --headless --path . --quit-after 10 -- --validate
 ```
 

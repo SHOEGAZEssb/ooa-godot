@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Godot 4.6 with .NET support.
+- Godot 4.7.1 with .NET support.
 - The .NET 8 SDK and PowerShell.
 - A clean US Oracle of Ages ROM with MD5
   `C4639CC61C049E5A085526BB6CAC03BB`.
@@ -13,7 +13,7 @@ The paths used by the current development environment are:
 ```text
 Repository:     E:\Stuff\Github\ooa-godot
 Disassembly:    C:\msys64\home\timst\oracles-disasm
-Godot console:  E:\Stuff\Gamedev\Godot_v4.6-stable_mono_win64\Godot_v4.6-stable_mono_win64_console.exe
+Godot console:  E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe
 ```
 
 Pass `-Rom` or `-Disassembly` to the importer when using different source
@@ -43,13 +43,13 @@ dotnet build
 Run the normal title and file-select flow:
 
 ```powershell
-& 'E:\Stuff\Gamedev\Godot_v4.6-stable_mono_win64\Godot_v4.6-stable_mono_win64.exe' --path .
+& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64.exe' --path .
 ```
 
 Start directly in a hexadecimal group and room for development:
 
 ```powershell
-& 'E:\Stuff\Gamedev\Godot_v4.6-stable_mono_win64\Godot_v4.6-stable_mono_win64.exe' --path . -- --group=4 --room=04
+& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64.exe' --path . -- --group=4 --room=04
 ```
 
 Project arguments belong after `--`. Direct room arguments bypass the normal
@@ -97,7 +97,7 @@ The V target uses hexadecimal launch arguments and is independent of the
 initial room override:
 
 ```powershell
-& 'E:\Stuff\Gamedev\Godot_v4.6-stable_mono_win64\Godot_v4.6-stable_mono_win64.exe' --path . -- --debug-warp-group=4 --debug-warp-room=11
+& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64.exe' --path . -- --debug-warp-group=4 --debug-warp-room=11
 ```
 
 In the F1 editor, Tab cycles through global flags, room flags, linked/items,
@@ -144,7 +144,7 @@ repository-only changes do not start it. A clean runner rebuilds the supported
 US ROM from the pinned public `oracles-disasm` `master` revision, verifies its
 MD5, and switches the disassembly checkout to the pinned `hack-base` revision
 used by the importer. It runs the importer unit/boundary tests and two-import
-full-asset parity check, then downloads the checksum-pinned Godot 4.6 .NET
+full-asset parity check, then downloads the checksum-pinned Godot 4.7.1 .NET
 build, treats C# warnings as errors, runs the complete headless validation
 suite, rejects Godot engine warnings or errors, and runs `git diff --check`.
 

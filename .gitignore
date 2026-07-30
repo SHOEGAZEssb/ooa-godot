@@ -11,3 +11,4 @@
 /tools/OracleImporter.Tests/bin/
 /tools/OracleImporter.Tests/obj/
 /.vs
+*.old
