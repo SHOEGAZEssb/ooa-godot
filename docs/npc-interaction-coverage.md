@@ -1,7 +1,7 @@
 # NPC and character interaction coverage
 
 This is the room-by-room coverage snapshot for imported visible character
-interactions as of July 29, 2026. It is an implementation inventory, not a
+interactions as of July 30, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
@@ -46,9 +46,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 86 | Traced and covered by the current named NPC/event scenarios. |
+| **I** | 87 | Traced and covered by the current named NPC/event scenarios. |
 | **P** | 36 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
-| **D** | 266 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 265 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **388** | **211 rooms and 294 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -58,8 +58,8 @@ family remains **P** until its progression ownership and all per-variant
 behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
-The implementation manifest therefore contains 53 ordinary, 57 specialized,
-14 event-owned, and 264 deliberately unsupported positioned/state-derived
+The implementation manifest therefore contains 54 ordinary, 57 specialized,
+14 event-owned, and 263 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 460
 classified records and 129 specialized rows.
 
@@ -186,7 +186,7 @@ well as record selection. The ownership/consolidation work in
 | `1:79` | [D] `$37:$10/v$00` ralph |
 | `1:81` | [I] `$ce:$03/v$00` businessScrub |
 | `1:82` | [I] `$44:$00/v$00` miscMan2<br>[I] `$3f:$00/v$00` boy2 |
-| `1:83` | [D] `$41:$00/v$00` miscMan |
+| `1:83` | [I] `$41:$00/v$00` miscMan |
 | `1:84` | [I] `$4b:$06/v$00` rabbit<br>[I] `$4b:$06/v$00` rabbit<br>[I] `$4b:$06/v$00` rabbit<br>[I] `$40:$01/v$00` soldier |
 | `1:86` | [I] `$58:$02/v$00` hardhatWorker |
 | `1:90` | [D] `$d6:$00/v$00` dekuScrub<br>[D] `$ce:$00/v$00` businessScrub |

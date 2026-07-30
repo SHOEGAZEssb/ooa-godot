@@ -37,6 +37,7 @@ public sealed class RoomEventController
     private readonly HarpOfAgesEvent _harpOfAges;
     private readonly SpiritsGraveEssenceEvent _spiritsGraveEssence;
     private readonly RemoteMakuFirstEssenceEvent _remoteMakuFirstEssence;
+    private readonly RemoteMakuSecondEssenceEvent _remoteMakuSecondEssence;
     private readonly RemoteMakuHarpEvent _remoteMakuHarp;
     private readonly RemoteMakuWingDungeonEvent _remoteMakuWingDungeon;
     private readonly FairiesWoodsEvent _fairiesWoods;
@@ -104,6 +105,7 @@ public sealed class RoomEventController
         _harpOfAges = new HarpOfAgesEvent(_context);
         _spiritsGraveEssence = new SpiritsGraveEssenceEvent(_context);
         _remoteMakuFirstEssence = new RemoteMakuFirstEssenceEvent(_context);
+        _remoteMakuSecondEssence = new RemoteMakuSecondEssenceEvent(_context);
         _remoteMakuHarp = new RemoteMakuHarpEvent(_context);
         _remoteMakuWingDungeon = new RemoteMakuWingDungeonEvent(_context);
         _fairiesWoods = new FairiesWoodsEvent(_context);
@@ -115,6 +117,7 @@ public sealed class RoomEventController
             _harpOfAges,
             _spiritsGraveEssence,
             _remoteMakuFirstEssence,
+            _remoteMakuSecondEssence,
             _remoteMakuHarp,
             _remoteMakuWingDungeon,
             _fairiesWoods,
@@ -249,6 +252,8 @@ public sealed class RoomEventController
     internal SpiritsGraveEssenceEvent SpiritsGraveEssence => _spiritsGraveEssence;
     internal RemoteMakuFirstEssenceEvent RemoteMakuFirstEssence =>
         _remoteMakuFirstEssence;
+    internal RemoteMakuSecondEssenceEvent RemoteMakuSecondEssence =>
+        _remoteMakuSecondEssence;
     internal RemoteMakuHarpEvent RemoteMakuHarp => _remoteMakuHarp;
     internal RemoteMakuWingDungeonEvent RemoteMakuWingDungeon =>
         _remoteMakuWingDungeon;

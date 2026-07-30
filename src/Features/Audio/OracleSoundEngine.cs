@@ -103,6 +103,7 @@ public partial class OracleSoundEngine : Node
     public const int SndFadeOut = 0xb4;
     public const int SndRumble2 = 0xb8;
     public const int SndWhistle = 0xcc;
+    public const int SndMakuTreePast = 0xce;
     public const int SndTimewarpInitiated = 0xd1;
     public const int SndLightning = 0xd2;
     public const int SndTimewarpCompleted = 0xd4;

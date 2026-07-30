@@ -127,6 +127,12 @@ In particular, the past `1:48` layout bit exposes the `$d7` spot used by
 `INTERAC_TIMEPORTAL_SPAWNER $e1:$02`; before the Seed Satchel is obtained, that
 subtype activates immediately on the bottom exit from the rescue room.
 
+The past room `1:83` remote Maku sequence writes standard/linked low text byte
+`$b3/$c3` to that same `wMakuMapTextPast` address after the second Essence.
+Its shared command host selects the address from interaction subid `$01`;
+present remote-Maku placements continue to write `wMakuMapTextPresent`.
+Current-room bit `$40` independently suppresses re-entry after the sequence.
+
 The following present-room conversation writes low text byte `$4f` to
 `wMakuMapTextPresent` at `$c6e6` and global advice flag `$3e`. Dropping the
 Seed Satchel sets room `0:38` bit `$80` and stores the Link-relative drop X in

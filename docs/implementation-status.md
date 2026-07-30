@@ -689,6 +689,17 @@ remains the single runtime policy table.
   TX `$05b0/$05c0` plus map-text `$b0/$c0`, full-screen white return,
   room-music restoration, `wMakuTreeState` increment, and persistent re-entry
   suppression.
+- Past room `1:83`'s complete placed interaction/object slice. Misc man
+  `$41:$00` appears at `$38,$4e`, uses Link-facing animation `$02`, ordinary
+  solidity, and TX `$2606`, and is removed by `GLOBALFLAG_0b` or the finished
+  game. Four source-ordered tile-change producers yield Heart, Mystery Seeds,
+  Heart, and Bombs at packed positions `$22/$12/$18/$28`. Invisible remote
+  Maku interaction `$8a:$01` `var03=$03` requires Essence bit `$02` and clear
+  room bit `$40`, then runs the shared 20-command sequence with the native
+  `$62:$01` past branch: 12 rising leaves, exact per-leaf delays and signed
+  8.8 velocities, `SND_MAKU_TREE_PAST`, 240+60 waits, standard/linked TX
+  `$05b3/$05c3`, past map-text `$b3/$c3`, Maku-state increment, music/input
+  restoration, and persistent re-entry suppression.
 - Room `0:3a`'s matching remote Maku Tree sequence after obtaining the Harp of
   Ages. Its placed `$8a:$00` `var03=$02` interaction requires
   `TREASURE_HARP $11` and clear room bit `$40`, selects imported standard/linked

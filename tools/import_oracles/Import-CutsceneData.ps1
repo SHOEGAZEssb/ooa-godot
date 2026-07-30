@@ -4437,12 +4437,12 @@ Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\wing_dungeon_collapse_event.tsv'),
     $wingEventRows)
 
-# Present-day INTERAC_REMOTE_MAKU_CUTSCENE $8a:$00 preserves sprite palette 0
-# while the background fades to black, runs the $62 confetti emitter, reports
-# the next objective through TX_05b0-$05bb (TX_05c0-$05cb in a linked game),
-# then updates the Maku map/state bytes. Import the supported room 0:8d first-
-# Essence, room 0:83 Wing Dungeon, and room 0:3a post-Harp lanes from the
-# shared script while retaining each native var03 predicate.
+# INTERAC_REMOTE_MAKU_CUTSCENE preserves sprite palette 0 while the background
+# fades to black, runs the era-selected $62 confetti emitter, reports the next
+# objective through TX_05b0-$05bb (TX_05c0-$05cb in a linked game), then
+# updates the corresponding Maku map/state bytes. Import the supported room
+# 0:8d first-Essence, room 0:83 Wing Dungeon, room 0:3a post-Harp, and room
+# 1:83 second-Essence lanes while retaining each native var03 predicate.
 $remoteMakuScriptPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
 $remoteMakuScriptSource = Read-ImportText $remoteMakuScriptPath
 $remoteMakuHelperPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
@@ -4458,8 +4458,10 @@ $remoteMakuObjectSource = Read-ImportText (
 
 if ($remoteMakuObjectSource -notmatch '(?ms)^group0Map8dObjectData:\s+obj_Interaction \$8a \$00 \$00 \$00 \$00\s+obj_End' -or
     $remoteMakuObjectSource -notmatch '(?ms)^group0Map3aObjectData:.*?obj_Interaction \$8a \$00 \$00 \$00 \$02.*?obj_End' -or
+    $remoteMakuObjectSource -notmatch '(?ms)^group1Map83ObjectData:\s+obj_Interaction \$41 \$00 \$38 \$4e\s+obj_Interaction \$8a \$01 \$00 \$00 \$03\s+obj_Pointer group1Map83EnemyObjectData\s+obj_End' -or
     $remoteMakuInteractionSource -notmatch '(?ms)^@state0:.*?returnIfScrollMode01Unset.*?^@checkConditionsAndSetText:.*?^@val00:\s+xor a\s+call @checkEssenceObtained\s+jp z,@deleteSelfAndReturn\s+ldbc \$00, <TX_05b0.*?^@checkEssenceObtained:\s+ld hl,wEssencesObtained\s+jp checkFlag' -or
     $remoteMakuInteractionSource -notmatch '(?ms)^@val02:\s+ld a,TREASURE_HARP\s+call checkTreasureObtained\s+jp nc,@deleteSelfAndReturn\s+ldbc \$00, <TX_05b2\s+jp @setTextForScript' -or
+    $remoteMakuInteractionSource -notmatch '(?ms)^@val03:\s+ld a,\$01\s+call @checkEssenceObtained\s+jp z,@deleteSelfAndReturn\s+ldbc \$00, <TX_05b3\s+jp @setTextForScript' -or
     $remoteMakuInteractionSource -notmatch '(?ms)^@state0:.*?getThisRoomFlags\s+and \$40\s+jp nz,interactionDelete.*?^@scriptTable:\s+\.dw mainScripts\.remoteMakuCutsceneScript' -or
     $remoteMakuHelperSource -notmatch '(?ms)^remoteMakuCutscene_fadeoutToBlackWithDelay:.*?fadeoutToBlackWithDelay.*?ld a,\$ff\s+ld \(wDirtyFadeBgPalettes\),a\s+ld \(wFadeBgPaletteSources\),a\s+ld a,\$01\s+ld \(wDirtyFadeSprPalettes\),a\s+ld a,\$fe\s+ld \(wFadeSprPaletteSources\),a' -or
     $remoteMakuHelperSource -notmatch '(?ms)^makuTree_modifyTextIndexForLinked:.*?checkIsLinkedGame.*?^@getLinkedTextOffset:.*?INTERAC_REMOTE_MAKU_CUTSCENE.*?dec a.*?INTERAC_MAKU_TREE.*?^makuTree_textOffsetsForLinked:\s+\.db \$20, \$20, \$10') {
@@ -4538,13 +4540,50 @@ if (-not $confettiData.Success -or $confettiPositions.Count -ne 5 -or
     throw 'Present Maku confetti positions, counters, movement, sparkle, or deletion rules changed.'
 }
 
+$pastConfettiBlock = [regex]::Match(
+    $makuConfettiSource,
+    '(?ms)^makuConfetti_subid1:(?<body>.*?)(?=^makuConfetti_updateSpeedY:)')
+$pastConfettiPositions = @([regex]::Matches(
+    $pastConfettiBlock.Groups['body'].Value,
+    '(?m)^\s*\.db \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2})\s*;'))
+$pastConfettiDelayMatch = [regex]::Match(
+    $pastConfettiBlock.Groups['body'].Value,
+    '(?ms)^@spawnDelayValues:\s*(?<delays>(?:^[ \t]*\.db[^\r\n]*\r?\n?)+)')
+$pastConfettiDelays = @([regex]::Matches(
+    $pastConfettiDelayMatch.Groups['delays'].Value,
+    '\$(?<value>[0-9a-f]{2})') | ForEach-Object {
+        [Convert]::ToInt32($_.Groups['value'].Value, 16)
+    })
+if (-not $pastConfettiBlock.Success -or
+    $pastConfettiPositions.Count -ne 6 -or
+    -not $pastConfettiDelayMatch.Success -or
+    $pastConfettiDelays.Count -ne 12 -or
+    ($pastConfettiDelays -join ',') -ne
+        '1,50,30,15,15,15,15,15,15,15,15,20' -or
+    $pastConfettiBlock.Groups['body'].Value -notmatch
+        '(?ms)^@state0:.*?Interaction\.counter2\s+ld \(hl\),\$0a.*?ld b,\$80\s+ld c,\$fd\s+call @setSpeedComponent.*?ld b,\$00\s+ld c,\$04\s+call @setSpeedComponent.*?ld b,\$f0\s+ld c,\$ff\s+call @setSpeedComponent' -or
+    $pastConfettiBlock.Groups['body'].Value -notmatch
+        '(?ms)^@state1:.*?interactionDecCounter2.*?ld \(hl\),45\s+ld a,SND_MAKU_TREE_PAST.*?Interaction\.counter1.*?cp 12\s+jp z,interactionDelete' -or
+    $pastConfettiBlock.Groups['body'].Value -notmatch
+        '(?ms)^@state2:\s+call makuConfetti_updateSpeedXUsingSpeedZ\s+ld e,Interaction\.speedX\+1\s+ld a,\(de\)\s+bit 7,a\s+jp nz,interactionDelete\s+jp objectApplyComponentSpeed') {
+    throw 'Past Maku confetti positions, counters, movement, or deletion rules changed.'
+}
+
 $confettiGraphic = $interactionGraphics['98:0']
 $confettiAnimations = @(0..1 | ForEach-Object { Resolve-NpcAnimation 0x62 $_ })
+$pastConfettiGraphic = $interactionGraphics['98:1']
+$pastConfettiAnimation = Resolve-NpcAnimation 0x62 0
 $remoteMakuSparkleGraphic = $interactionGraphics['132:2']
 $remoteMakuSparkleAnimation = Resolve-NpcAnimation 0x84 $remoteMakuSparkleGraphic.DefaultAnimation
 if ($null -eq $confettiGraphic -or $confettiGraphic.Gfx -ne 0x6c -or
     $confettiGraphic.TileBase -ne 4 -or $confettiGraphic.Palette -ne 2 -or
     ($confettiAnimations | Where-Object { -not $_ }).Count -ne 0 -or
+    $null -eq $pastConfettiGraphic -or
+    $pastConfettiGraphic.Gfx -ne 0x6c -or
+    $pastConfettiGraphic.TileBase -ne 0 -or
+    $pastConfettiGraphic.Palette -ne 3 -or
+    $pastConfettiGraphic.DefaultAnimation -ne 0 -or
+    -not $pastConfettiAnimation -or
     $null -eq $remoteMakuSparkleGraphic -or
     $remoteMakuSparkleGraphic.Gfx -ne 0x6b -or
     $remoteMakuSparkleGraphic.TileBase -ne 0x0a -or
@@ -4558,8 +4597,10 @@ if (-not $allTexts.ContainsKey(0x05b0) -or
     -not $allTexts.ContainsKey(0x05b1) -or
     -not $allTexts.ContainsKey(0x05c1) -or
     -not $allTexts.ContainsKey(0x05b2) -or
-    -not $allTexts.ContainsKey(0x05c2)) {
-    throw 'Remote Maku text TX_05b0-TX_05b2/TX_05c0-TX_05c2 was not imported.'
+    -not $allTexts.ContainsKey(0x05c2) -or
+    -not $allTexts.ContainsKey(0x05b3) -or
+    -not $allTexts.ContainsKey(0x05c3)) {
+    throw 'Remote Maku text TX_05b0-TX_05b3/TX_05c0-TX_05c3 was not imported.'
 }
 
 $positionPayload = @($confettiPositions | ForEach-Object {
@@ -4570,32 +4611,50 @@ $positionPayload = @($confettiPositions | ForEach-Object {
     $ax = [Convert]::ToInt32($_.Groups['ax'].Value, 16)
     "$y`:$x`:$ay`:$ax"
 }) -join ','
+$pastPositionPayload = @(
+    for ($index = 0; $index -lt 12; $index++) {
+        $position = $pastConfettiPositions[$index % 6]
+        $y = [Convert]::ToInt32($position.Groups['y'].Value, 16)
+        $x = [Convert]::ToInt32($position.Groups['x'].Value, 16)
+        "$y`:$x`:0`:0"
+    }
+) -join ','
+$remoteMakuEventHeader =
+    "# group`troom`tid`tsubid`tvar03`tessence-mask`trequired-treasure`troom-flag`tstandard-text-id`tlinked-text-id`tstandard-map-text`tlinked-map-text`tmusic`thud-lock-byte`tfade-delay`tfade-frames`tinitial-wait`tconfetti-hold1`tconfetti-hold2`tpost-text-wait`tconfetti-pieces`tspawn-delays`tpositions-and-accelerations`ty-offset-fixed`tsparkle-initial-delay`tsparkle-repeat-delay`tsound-counter`tsound`ty-speed-limit`tx-speed-limit`tdelete-y`tconfetti-kind`tsound-initial-counter`tinitial-speed-y`tinitial-speed-x`tacceleration-x"
 $remoteMakuEventRows = @(
-    "# group`troom`tid`tsubid`tvar03`tessence-mask`trequired-treasure`troom-flag`tstandard-text-id`tlinked-text-id`tstandard-map-text`tlinked-map-text`tmusic`thud-lock-byte`tfade-delay`tfade-frames`tinitial-wait`tconfetti-hold1`tconfetti-hold2`tpost-text-wait`tconfetti-pieces`tspawn-delays`tpositions-and-accelerations`ty-offset-fixed`tsparkle-initial-delay`tsparkle-repeat-delay`tsound-counter`tsound`ty-speed-limit`tx-speed-limit`tdelete-y"
-    "0`t8d`t8a`t00`t00`t01`tff`t40`t05b0`t05c0`tb0`tc0`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136"
+    $remoteMakuEventHeader
+    "0`t8d`t8a`t00`t00`t01`tff`t40`t05b0`t05c0`tb0`tc0`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136`tpresent`t180`t0`t0`t0"
 )
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_first_essence_event.tsv'),
     $remoteMakuEventRows)
 $remoteMakuWingEventRows = @(
     $remoteMakuEventRows[0]
-    "0`t83`t8a`t00`t01`t00`tff`t40`t05b1`t05c1`tb1`tc1`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136"
+    "0`t83`t8a`t00`t01`t00`tff`t40`t05b1`t05c1`tb1`tc1`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136`tpresent`t180`t0`t0`t0"
 )
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_wing_dungeon_event.tsv'),
     $remoteMakuWingEventRows)
 $remoteMakuHarpEventRows = @(
     $remoteMakuEventRows[0]
-    "0`t3a`t8a`t00`t02`t00`t$($treasureIds['TREASURE_HARP'].ToString('x2'))`t40`t05b2`t05c2`tb2`tc2`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136"
+    "0`t3a`t8a`t00`t02`t00`t$($treasureIds['TREASURE_HARP'].ToString('x2'))`t40`t05b2`t05c2`tb2`tc2`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136`tpresent`t180`t0`t0`t0"
 )
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_harp_event.tsv'),
     $remoteMakuHarpEventRows)
+$remoteMakuSecondEssenceEventRows = @(
+    $remoteMakuEventHeader
+    "1`t83`t8a`t01`t03`t02`tff`t40`t05b3`t05c3`tb3`tc3`t1e`t77`t2`t65`t40`t240`t60`t1`t12`t$($pastConfettiDelays -join ',')`t$pastPositionPayload`t0`t0`t0`t45`tce`t0`t0`t0`tpast`t10`t-640`t1024`t-16"
+)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\remote_maku_second_essence_event.tsv'),
+    $remoteMakuSecondEssenceEventRows)
 
 $remoteMakuVisualRows = @(
     "# key`tsprite`ttile-base`tpalette`tanimation"
     "confetti-left`t$($gfxNames[$confettiGraphic.Gfx])`t$($confettiGraphic.TileBase)`t$($confettiGraphic.Palette)`t$($confettiAnimations[0])"
     "confetti-right`t$($gfxNames[$confettiGraphic.Gfx])`t$($confettiGraphic.TileBase)`t$($confettiGraphic.Palette)`t$($confettiAnimations[1])"
+    "confetti-past`t$($gfxNames[$pastConfettiGraphic.Gfx])`t$($pastConfettiGraphic.TileBase)`t$($pastConfettiGraphic.Palette)`t$pastConfettiAnimation"
     "sparkle`t$($gfxNames[$remoteMakuSparkleGraphic.Gfx])`t$($remoteMakuSparkleGraphic.TileBase)`t$($remoteMakuSparkleGraphic.Palette)`t$remoteMakuSparkleAnimation"
 )
 Write-CutsceneGeneratedTable(
@@ -4689,6 +4748,42 @@ for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_harp_commands.tsv'),
     $remoteMakuHarpCommandRows)
+$remoteMakuSecondEssenceCommandRows =
+    [Collections.Generic.List[string]]::new()
+$remoteMakuSecondEssenceCommandRows.Add($remoteMakuCommandRows[0])
+$remoteMakuSecondEssenceCommandSpecs = @(
+    @($remoteMakuParsed[0],  'disableinput', '', '', '', ''),
+    @($remoteMakuParsed[1],  'writememory', '', '04', '', 'TextboxFlags'),
+    @($remoteMakuParsed[2],  'setmusic', '', '1e', '', ''),
+    @($remoteMakuParsed[3],  'wait', '', '40', '', ''),
+    @($remoteMakuParsed[4],  'writememory', '', '77', '', 'DontUpdateStatusBar'),
+    @($remoteMakuParsed[5],  'native', '', '', '', 'HideHud'),
+    @($remoteMakuParsed[6],  'nativeblock', '', '65', '', "FadeOutBlack`0"),
+    @($remoteMakuParsed[13], 'native', '', '', '', 'SpawnPastConfetti'),
+    @($remoteMakuParsed[14], 'wait', '', '240', '', ''),
+    @($remoteMakuParsed[15], 'wait', '', '60', '', ''),
+    @($remoteMakuParsed[16], 'showtextdifferentforlinked', '', '05b3', '05c3',
+        "$($allTexts[0x05b3])`0$($allTexts[0x05c3])"),
+    @($remoteMakuParsed[17], 'wait', '', '1', '', ''),
+    @($remoteMakuParsed[18], 'native', '', '', '', 'ShowHud'),
+    @($remoteMakuParsed[19], 'native', '', '', '', 'ClearFadingPalettes'),
+    @($remoteMakuParsed[21], 'nativeblock', '', '65', '', "FadeInWhite`0"),
+    @($remoteMakuParsed[23], 'native', '', '', '', 'ResetMusic'),
+    @($remoteMakuParsed[24], 'orroomflag', '', '40', '', ''),
+    @($remoteMakuParsed[25], 'native', '', '', '', 'IncMakuTreeState'),
+    @($remoteMakuParsed[27], 'enableinput', '', '', '', ''),
+    @($remoteMakuParsed[28], 'scriptend', '', '', '', '')
+)
+for ($index = 0; $index -lt $remoteMakuSecondEssenceCommandSpecs.Count; $index++) {
+    $spec = $remoteMakuSecondEssenceCommandSpecs[$index]
+    $sourceCommand = $spec[0]
+    $remoteMakuSecondEssenceCommandRows.Add((New-CutsceneCommandRow `
+        'remoteMakuCutsceneScript' $index $sourceCommand.Label `
+        $sourceCommand.Line $spec[1] $spec[2] $spec[3] $spec[4] $spec[5]))
+}
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\remote_maku_second_essence_commands.tsv'),
+    $remoteMakuSecondEssenceCommandRows)
 
 # Room 3:ae contains INTERAC_HARP_OF_AGES_SPAWNER $b3:$00. It creates the
 # static Harp treasure and its attached $84:$0c sparkle, then hands the

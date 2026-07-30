@@ -5,9 +5,10 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Native INTERAC_MAKU_CONFETTI $62:$00 and the $84:$02 sparkles it leaves
-/// behind. Positions and component speeds retain the original signed 8.8
-/// arithmetic and slot-order update boundaries.
+/// Native INTERAC_MAKU_CONFETTI $62:$00/$01. Present flowers retain their
+/// $84:$02 sparkle trail; past leaves retain their separate rising component
+/// speed. Both variants preserve signed 8.8 arithmetic and slot-order update
+/// boundaries.
 /// </summary>
 internal sealed partial class RemoteMakuConfettiEffect : Node2D
 {
@@ -20,6 +21,7 @@ internal sealed partial class RemoteMakuConfettiEffect : Node2D
     private int _frame;
     private int _spawnedPieces;
     private int _spawnDelay;
+    private int _spawnerSoundCounter;
     private bool _spawnerInitialized;
     private bool _spawnerActive = true;
 
@@ -109,14 +111,22 @@ internal sealed partial class RemoteMakuConfettiEffect : Node2D
         {
             _spawnerInitialized = true;
             _spawnDelay = _record.SpawnDelays[0];
+            _spawnerSoundCounter = _record.SoundInitialCounter;
             return;
+        }
+        if (_record.ConfettiKind == RemoteMakuConfettiKind.Past &&
+            --_spawnerSoundCounter == 0)
+        {
+            _spawnerSoundCounter = _record.SoundCounter;
+            _sound.PlaySound(_record.Sound);
         }
         if (--_spawnDelay != 0)
             return;
 
         SpawnPiece(_spawnedPieces);
         _spawnedPieces++;
-        _sound.PlaySound(_record.Sound);
+        if (_record.ConfettiKind == RemoteMakuConfettiKind.Present)
+            _sound.PlaySound(_record.Sound);
         if (_spawnedPieces >= _record.ConfettiPieces)
         {
             _spawnerActive = false;
@@ -128,16 +138,22 @@ internal sealed partial class RemoteMakuConfettiEffect : Node2D
     private void SpawnPiece(int index)
     {
         RemoteMakuConfettiPieceRecord source = _record.Pieces[index];
-        RemoteMakuVisualRecord left = _database.Visual("confetti-left");
-        RemoteMakuVisualRecord right = _database.Visual("confetti-right");
-        var animation = new EnemyAnimationPlayer(this, 2);
+        bool past = _record.ConfettiKind == RemoteMakuConfettiKind.Past;
+        RemoteMakuVisualRecord first = _database.Visual(
+            past ? "confetti-past" : "confetti-left");
+        RemoteMakuVisualRecord second = past
+            ? first
+            : _database.Visual("confetti-right");
+        var animation = new EnemyAnimationPlayer(this, past ? 1 : 2);
         animation.Load(
-            EnemyVisualSource.LoadComposite([left.Sprite]),
-            [left.Animation, right.Animation],
-            left.TileBase,
-            left.Palette);
+            EnemyVisualSource.LoadComposite([first.Sprite]),
+            past
+                ? [first.Animation]
+                : [first.Animation, second.Animation],
+            first.TileBase,
+            first.Palette);
         animation.SetAnimation(0);
-        _pieces.Add(new ConfettiPiece(
+        var piece = new ConfettiPiece(
             animation,
             _frame,
             ToFixed(_cameraOrigin.Y + source.Y),
@@ -145,11 +161,20 @@ internal sealed partial class RemoteMakuConfettiEffect : Node2D
             source.AccelerationY,
             source.AccelerationX,
             _record.SoundCounter,
-            _record.SparkleInitialDelay));
+            _record.SparkleInitialDelay,
+            past)
+        {
+            SpeedY = _record.InitialSpeedY,
+            SpeedX = _record.InitialSpeedX
+        };
+        _pieces.Add(piece);
     }
 
     private bool UpdatePiece(ConfettiPiece piece)
     {
+        if (_record.ConfettiKind == RemoteMakuConfettiKind.Past)
+            return UpdatePastPiece(piece);
+
         if (--piece.SoundCounter == 0)
         {
             piece.SoundCounter = _record.SoundCounter;
@@ -186,6 +211,16 @@ internal sealed partial class RemoteMakuConfettiEffect : Node2D
         return true;
     }
 
+    private bool UpdatePastPiece(ConfettiPiece piece)
+    {
+        piece.SpeedX = AddWord(piece.SpeedX, _record.AccelerationX);
+        if (piece.SpeedX < 0)
+            return false;
+        piece.YFixed = AddWord(piece.YFixed, piece.SpeedY);
+        piece.XFixed = AddWord(piece.XFixed, piece.SpeedX);
+        return true;
+    }
+
     private void SpawnSparkle(Vector2 position)
     {
         RemoteMakuVisualRecord visual = _database.Visual("sparkle");
@@ -219,7 +254,8 @@ internal sealed partial class RemoteMakuConfettiEffect : Node2D
         int accelerationY,
         int accelerationX,
         int soundCounter,
-        int sparkleCounter)
+        int sparkleCounter,
+        bool unsignedPosition)
     {
         internal EnemyAnimationPlayer Animation { get; } = animation;
         internal int BornFrame { get; } = bornFrame;
@@ -232,9 +268,13 @@ internal sealed partial class RemoteMakuConfettiEffect : Node2D
         internal int SoundCounter { get; set; } = soundCounter;
         internal int SparkleCounter { get; set; } = sparkleCounter;
         internal int Direction { get; set; }
-        internal Vector2 Position => new(
-            unchecked((short)XFixed) >> 8,
-            unchecked((short)YFixed) >> 8);
+        internal Vector2 Position => unsignedPosition
+            ? new Vector2(
+                (byte)(XFixed >> 8),
+                (byte)(YFixed >> 8))
+            : new Vector2(
+                unchecked((short)XFixed) >> 8,
+                unchecked((short)YFixed) >> 8);
     }
 
     private sealed record Sparkle(

@@ -909,6 +909,16 @@ Past room `1:82` is a two-actor ordinary-NPC reference:
 - Both actors use ordinary `$06/$06` solidity, A-button talk routing, gameplay
   textbox freeze, and no per-update RNG.
 
+Past room `1:83` places `INTERAC_MISC_MAN $41:$00` at `$38,$4e`. The actor
+uses the hobo sheet with palette `$00`, begins in animation `$02`, runs
+`npcFaceLinkAndAnimate`, is ordinarily solid and A-button talkable, and loops
+TX `$2606`. Both `GLOBALFLAG_0b` and `GLOBALFLAG_FINISHEDGAME` delete it. The
+room's separate enemy-object pointer retains four ordered
+`ENEMY_ITEM_DROP_PRODUCER` records: Heart `$01` at packed `$22`, Mystery Seeds
+`$09` at `$12`, Heart `$01` at `$18`, and Bombs `$04` at `$28`. They remain
+invisible until their captured metatile changes and preserve ordinary
+inventory availability and recent-defeat semantics.
+
 Past room `1:84` contains three `INTERAC_RABBIT $4b:$06` placements followed
 by `INTERAC_SOLDIER $40:$01`:
 
@@ -1535,8 +1545,10 @@ trade script and its paired overworld tree warp:
   `0:53` at `$52` with parameter `$00` and destination transition `$0e`, then
   completes the exit step at `$62`.
 
-Present room `0:8d` is the reference for a room-entry script whose native
-palette thread deliberately affects backgrounds and sprites differently:
+Remote Maku room-entry interactions share one typed command host while
+retaining placement-specific predicates, map state, and era-native confetti.
+Present room `0:8d` is the reference for the shared palette thread, which
+deliberately affects backgrounds and sprites differently:
 
 - Placed `INTERAC_REMOTE_MAKU_CUTSCENE $8a:$00` survives state 0 only when
   `wEssencesObtained` bit `$01` is set and current-room bit `$40` is clear.
@@ -1566,6 +1578,17 @@ palette thread deliberately affects backgrounds and sprites differently:
   animation reversal, 180-update sound counter, `$18`-update `$84:$02`
   sparkle creation, and slot-order update behavior. The effect may outlive the
   script owner only until all native children have deleted themselves.
+- Past room `1:83` places `$8a:$01` with `var03=$03`. It requires
+  `wEssencesObtained` bit `$02` and clear current-room bit `$40`, substitutes
+  the script's `@past` branch, and uses 240+60 rather than 240+180 hold
+  updates. Native `$62:$01` creates 12 leaves from the imported position and
+  delay tables. Each leaf starts at Y speed `$fd80`, X speed `$0400`, applies
+  X acceleration `$fff0`, and deletes when that speed becomes negative.
+  Positions beginning at byte Y `$80` remain unsigned screen coordinates
+  even though velocity arithmetic is signed 8.8. The spawner starts its
+  `SND_MAKU_TREE_PAST` counter at 10 and repeats every 45 updates. Standard
+  and linked TX `$05b3/$05c3` write low bytes `$b3/$c3` to
+  `wMakuMapTextPast`, never to the present advice byte.
 - Other `$8a:$00` placements remain independent event and database owners.
   Room `0:3a`'s `var03=$02` post-Harp interaction and room `0:83`'s
   callback-allocated `var03=$01` warning do not route through the room `0:8d`

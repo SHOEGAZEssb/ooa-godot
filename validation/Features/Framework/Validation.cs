@@ -133,6 +133,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateRoom173SoldierPair();
         ValidateRoom174PastOldLady();
         ValidateRooms182And192NpcInteractions();
+        ValidateRoom183MiscManAndDrops();
         ValidateRoom184StoneRabbitsAndSoldier();
         ValidateRooms193And194NpcInteractions();
         ValidateRoom22fPostman();
@@ -217,6 +218,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateLynnaShopInteractions();
         ValidateVasuShopInteractions();
         ValidateRemoteMakuFirstEssenceCutscene();
+        ValidateRemoteMakuSecondEssenceCutscene();
         ValidateRemoteMakuHarpCutscene();
         ValidateFairiesWoodsSequence();
         ValidateGameOverRestart();

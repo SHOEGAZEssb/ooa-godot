@@ -5,10 +5,10 @@ using System.Globalization;
 namespace oracleofages;
 
 /// <summary>
-/// Shared reader for one imported INTERAC_REMOTE_MAKU_CUTSCENE $8a:$00
+/// Shared reader for one imported INTERAC_REMOTE_MAKU_CUTSCENE $8a
 /// placement. Concrete databases retain each placement's source identity and
 /// predicate while this type validates the genuinely shared script and native
-/// present-confetti contract.
+/// era-selected confetti contract.
 /// </summary>
 internal abstract class RemoteMakuEventDatabase
 {
@@ -57,7 +57,9 @@ internal abstract class RemoteMakuEventDatabase
                     "positions-and-accelerations", "y-offset-fixed",
                     "sparkle-initial-delay", "sparkle-repeat-delay",
                     "sound-counter", "sound", "y-speed-limit",
-                    "x-speed-limit", "delete-y"
+                    "x-speed-limit", "delete-y", "confetti-kind",
+                    "sound-initial-counter", "initial-speed-y",
+                    "initial-speed-x", "acceleration-x"
                 ],
                 headerRequired: true)).SingleRow();
         return new RemoteMakuEventRecord(
@@ -91,7 +93,17 @@ internal abstract class RemoteMakuEventDatabase
             row.HexByte(27),
             row.UnsignedDecimal(28),
             row.UnsignedDecimal(29),
-            row.UnsignedDecimal(30));
+            row.UnsignedDecimal(30),
+            row.RequiredString(31) switch
+            {
+                "present" => RemoteMakuConfettiKind.Present,
+                "past" => RemoteMakuConfettiKind.Past,
+                _ => throw row.Invalid(31, "'present' or 'past'")
+            },
+            row.UnsignedDecimal(32),
+            row.Decimal(33, short.MinValue, short.MaxValue),
+            row.Decimal(34, short.MinValue, short.MaxValue),
+            row.Decimal(35, short.MinValue, short.MaxValue));
     }
 
     private void LoadVisuals()
@@ -119,31 +131,76 @@ internal abstract class RemoteMakuEventDatabase
 
     private void ValidateSharedContract()
     {
-        if (Record is not
+        bool commonValid = Record is
             {
-                InteractionId: 0x8a, SubId: 0, RoomFlag: 0x40,
+                InteractionId: 0x8a, RoomFlag: 0x40,
                 Music: 0x1e, HudLockByte: 0x77, FadeDelay: 2,
                 FadeFrames: 65, InitialWait: 40,
-                ConfettiHold1: 240, ConfettiHold2: 180,
-                PostTextWait: 1, ConfettiPieces: 5,
-                YOffsetFixed: 0x00c0, SparkleInitialDelay: 0x10,
-                SparkleRepeatDelay: 0x18, SoundCounter: 180,
-                Sound: 0x83, YSpeedLimit: 0x0100,
-                XSpeedLimit: 0x0200, DeleteY: 0x88
-            } ||
-            Record.SpawnDelays.Count != 6 ||
-            Record.SpawnDelays[0] != 1 ||
-            Record.SpawnDelays[1] != 0x32 ||
-            Record.Pieces.Count != 5 ||
-            Record.Pieces[0] is not
-                { Y: -24, X: 0x38, AccelerationY: 0x18, AccelerationX: 0x18 } ||
-            _visuals.Count != 3 ||
-            Visual("confetti-left") is not
-                { TileBase: 4, Palette: 2 } ||
-            Visual("confetti-right") is not
-                { TileBase: 4, Palette: 2 } ||
-            Visual("sparkle") is not
-                { TileBase: 0x0a, Palette: 0 } ||
+                ConfettiHold1: 240, PostTextWait: 1
+            } &&
+            _visuals.Count == 4 &&
+            Visual("confetti-left") is
+                { TileBase: 4, Palette: 2 } &&
+            Visual("confetti-right") is
+                { TileBase: 4, Palette: 2 } &&
+            Visual("confetti-past") is
+                { TileBase: 0, Palette: 3 } &&
+            Visual("sparkle") is
+                { TileBase: 0x0a, Palette: 0 };
+        bool confettiValid = Record.ConfettiKind switch
+        {
+            RemoteMakuConfettiKind.Present =>
+                Record is
+                {
+                    SubId: 0, ConfettiHold2: 180, ConfettiPieces: 5,
+                    YOffsetFixed: 0x00c0, SparkleInitialDelay: 0x10,
+                    SparkleRepeatDelay: 0x18, SoundInitialCounter: 180,
+                    SoundCounter: 180, Sound: 0x83,
+                    YSpeedLimit: 0x0100, XSpeedLimit: 0x0200,
+                    DeleteY: 0x88, InitialSpeedY: 0,
+                    InitialSpeedX: 0, AccelerationX: 0
+                } &&
+                Record.SpawnDelays.Count == 6 &&
+                Record.SpawnDelays[0] == 1 &&
+                Record.SpawnDelays[1] == 0x32 &&
+                Record.Pieces.Count == 5 &&
+                Record.Pieces[0] is
+                {
+                    Y: -24, X: 0x38,
+                    AccelerationY: 0x18, AccelerationX: 0x18
+                },
+            RemoteMakuConfettiKind.Past =>
+                Record is
+                {
+                    SubId: 1, ConfettiHold2: 60, ConfettiPieces: 12,
+                    YOffsetFixed: 0, SparkleInitialDelay: 0,
+                    SparkleRepeatDelay: 0, SoundInitialCounter: 10,
+                    SoundCounter: 45,
+                    Sound: OracleSoundEngine.SndMakuTreePast,
+                    YSpeedLimit: 0, XSpeedLimit: 0, DeleteY: 0,
+                    InitialSpeedY: -0x280, InitialSpeedX: 0x400,
+                    AccelerationX: -0x10
+                } &&
+                Record.SpawnDelays.Count == 12 &&
+                Record.SpawnDelays[0] == 1 &&
+                Record.SpawnDelays[1] == 0x32 &&
+                Record.SpawnDelays[2] == 0x1e &&
+                Record.SpawnDelays[11] == 0x14 &&
+                Record.Pieces.Count == 12 &&
+                Record.Pieces[0] is
+                {
+                    Y: 0x80, X: 0x10,
+                    AccelerationY: 0, AccelerationX: 0
+                } &&
+                Record.Pieces[6] == Record.Pieces[0],
+            _ => false
+        };
+        string confettiHandler = Record.ConfettiKind ==
+            RemoteMakuConfettiKind.Past
+                ? "SpawnPastConfetti"
+                : "SpawnPresentConfetti";
+        if (!commonValid ||
+            !confettiValid ||
             Commands.Count != 20 ||
             Commands[0] is not CutsceneDisableInputCommand ||
             Commands[1] is not CutsceneWriteMemoryCommand
@@ -155,10 +212,11 @@ internal abstract class RemoteMakuEventDatabase
             Commands[5] is not CutsceneNativeCommand { Handler: "HideHud" } ||
             Commands[6] is not CutsceneNativeBlockingCommand
                 { Handler: "FadeOutBlack", Frames: 65 } ||
-            Commands[7] is not CutsceneNativeCommand
-                { Handler: "SpawnPresentConfetti" } ||
+            Commands[7] is not CutsceneNativeCommand spawn ||
+            spawn.Handler != confettiHandler ||
             Commands[8] is not CutsceneWaitCommand { Frames: 240 } ||
-            Commands[9] is not CutsceneWaitCommand { Frames: 180 } ||
+            Commands[9] is not CutsceneWaitCommand hold2 ||
+            hold2.Frames != Record.ConfettiHold2 ||
             Commands[10] is not CutsceneShowTextVariantsCommand text ||
             text.StandardTextId != Record.StandardTextId ||
             text.LinkedTextId != Record.LinkedTextId ||
@@ -269,7 +327,18 @@ internal readonly record struct RemoteMakuEventRecord(
     int Sound,
     int YSpeedLimit,
     int XSpeedLimit,
-    int DeleteY);
+    int DeleteY,
+    RemoteMakuConfettiKind ConfettiKind,
+    int SoundInitialCounter,
+    int InitialSpeedY,
+    int InitialSpeedX,
+    int AccelerationX);
+
+internal enum RemoteMakuConfettiKind
+{
+    Present,
+    Past
+}
 
 internal readonly record struct RemoteMakuConfettiPieceRecord(
     int Y,

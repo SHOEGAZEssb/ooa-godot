@@ -149,6 +149,23 @@ foreach ($interactionSourcePath in $npcInteractionSourcePaths) {
     }
 }
 
+# Room 1:83's INTERAC_MISC_MAN $41:$00 uses the first entry in
+# miscMan.s:@scriptTable, but the generic table-name heuristic does not infer
+# the subid from the non-subid-qualified manOutsideD2Script label. Pin the
+# complete native initializer and its fixed generic-NPC text explicitly.
+$room183MiscManSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscMan.s')
+if ($room183MiscManSource -notmatch
+        '(?ms)^@subid0:\s+call checkInteractionState\s+jr nz,\+\+\s+ld a,GLOBALFLAG_FINISHEDGAME\s+call checkGlobalFlag\s+jp nz,interactionDelete\s+ld a,GLOBALFLAG_0b\s+call checkGlobalFlag\s+jp nz,interactionDelete\s+call @initGraphicsIncStateAndLoadScript\s+\+\+\s+call interactionRunScript\s+jp npcFaceLinkAndAnimate' -or
+    $room183MiscManSource -notmatch
+        '(?ms)^@scriptTable:\s+\.dw mainScripts\.manOutsideD2Script' -or
+    (Resolve-ScriptTextId 'manOutsideD2Script' (
+        [Collections.Generic.HashSet[string]]::new())) -ne 0x2606 -or
+    -not $allTexts.ContainsKey(0x2606)) {
+    throw 'Room 1:83 misc-man initializer or TX_2606 script changed.'
+}
+$npcTextBySubid['65:0'] = 0x2606
+
 # linkedGameNpcScript derives its initial text as TX_4d00 + var3f*5. Resolve
 # the two old-lady secret subids from that shared formula instead of leaving
 # them with text ID $0000 merely because the script uses showloadedtext.
@@ -382,6 +399,7 @@ function Resolve-TreasureAnimation([int]$animationIndex) {
 # exact initialized index in the runtime record. Parse these overrides from
 # their implementation instead of treating the graphics default as final.
 $npcInitialAnimationBySubid = @{}
+$npcInitialAnimationBySubid['65:0'] = 2
 $monkeyMainSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\monkeyMain.s')
 $introMonkeyAnimationMatch = [regex]::Match(
@@ -604,6 +622,7 @@ foreach ($key in @(
     '1:77:45:01:00',
     '1:82:44:00:00',
     '1:82:3f:00:00',
+    '1:83:41:00:00',
     '1:84:40:01:00',
     '1:92:43:00:00',
     '1:93:42:00:00',
@@ -713,7 +732,7 @@ foreach ($key in @(
     }
 }
 
-if ($ordinaryNpcImplementationKeys.Count -ne 52 -or
+if ($ordinaryNpcImplementationKeys.Count -ne 53 -or
     $specializedNpcImplementationKeys.Count -ne 55 -or
     $eventOwnedNpcImplementationKeys.Count -ne 14) {
     throw 'NPC implementation registry key counts changed.'
@@ -866,6 +885,9 @@ if ($mainObjectSource -notmatch '(?ms)^group1Map74ObjectData:\s+obj_Interaction 
 }
 if ($mainObjectSource -notmatch '(?ms)^group1Map82ObjectData:\s+obj_Interaction \$44 \$00 \$38 \$58\s+obj_Interaction \$3f \$00 \$48 \$38\s+obj_End') {
     throw 'Room 1:82 no longer contains ordered misc man 2 $44:$00 and boy 2 $3f:$00.'
+}
+if ($mainObjectSource -notmatch '(?ms)^group1Map83ObjectData:\s+obj_Interaction \$41 \$00 \$38 \$4e\s+obj_Interaction \$8a \$01 \$00 \$00 \$03\s+obj_Pointer group1Map83EnemyObjectData\s+obj_End') {
+    throw 'Room 1:83 no longer contains misc man $41:$00 followed by remote Maku $8a:$01/v$03 and its item-drop pointer.'
 }
 if ($mainObjectSource -notmatch '(?ms)^group1Map84ObjectData:\s+obj_Interaction \$4b \$06 \$28 \$58\s+obj_Interaction \$4b \$06 \$40 \$48\s+obj_Interaction \$4b \$06 \$50 \$68\s+obj_Interaction \$40 \$01 \$48 \$78 \$00\s+obj_End') {
     throw 'Room 1:84 no longer contains three ordered stone rabbits followed by soldier $40:$01.'
@@ -2866,10 +2888,10 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
     $npcImplementationCounts[$implementation] =
         1 + [int]$npcImplementationCounts[$implementation]
 }
-if ($npcImplementationCounts['ordinary-generic'] -ne 53 -or
+if ($npcImplementationCounts['ordinary-generic'] -ne 54 -or
     $npcImplementationCounts['specialized-native'] -ne 57 -or
     $npcImplementationCounts['event-owned'] -ne 14 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 264 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 263 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }

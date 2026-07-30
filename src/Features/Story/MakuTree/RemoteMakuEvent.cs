@@ -4,10 +4,10 @@ using System;
 namespace oracleofages;
 
 /// <summary>
-/// Shared command host for one present-day INTERAC_REMOTE_MAKU_CUTSCENE
-/// $8a:$00 placement. Concrete events own their independent entry predicates
-/// and lifecycles; this type implements only the source-shared script, palette,
-/// HUD, music, map-state, and native $62 confetti behavior.
+/// Shared command host for one INTERAC_REMOTE_MAKU_CUTSCENE $8a placement.
+/// Concrete events own their independent entry predicates and lifecycles; this
+/// type implements the source-shared script, palette, HUD, music, era-selected
+/// map state, and native $62 confetti behavior.
 /// </summary>
 internal abstract class RemoteMakuEvent :
     CutsceneCommandHost,
@@ -85,8 +85,10 @@ internal abstract class RemoteMakuEvent :
         _stage = RemoteMakuEventStage.Inactive;
     }
 
-    private void SpawnPresentConfetti()
+    private void SpawnConfetti(RemoteMakuConfettiKind kind)
     {
+        if (_database.Record.ConfettiKind != kind)
+            throw Unsupported($"spawn {kind} confetti");
         RemoveConfetti();
         Vector2 cameraOrigin = Context.RoomCamera.Position - new Vector2(
             OracleRoomData.ViewportWidth / 2.0f,
@@ -94,7 +96,9 @@ internal abstract class RemoteMakuEvent :
                 OracleRoomData.GameplayScreenTop);
         _confetti = new RemoteMakuConfettiEffect
         {
-            Name = "RemoteMakuPresentConfetti"
+            Name = kind == RemoteMakuConfettiKind.Past
+                ? "RemoteMakuPastConfetti"
+                : "RemoteMakuPresentConfetti"
         };
         _confetti.Initialize(_database, Context.Sound, cameraOrigin);
         Context.Player.GetParent().AddChild(_confetti);
@@ -179,10 +183,13 @@ internal abstract class RemoteMakuEvent :
             : record.StandardTextId;
         if (textId != expectedText)
             throw Unsupported($"show text TX_{textId:x4}");
-        Context.Rooms.SaveData.SetMakuMapTextPresent(
-            Context.Rooms.SaveData.IsLinkedGame
-                ? record.LinkedMapText
-                : record.StandardMapText);
+        int mapText = Context.Rooms.SaveData.IsLinkedGame
+            ? record.LinkedMapText
+            : record.StandardMapText;
+        if (record.SubId == 1)
+            Context.Rooms.SaveData.SetMakuMapTextPast(mapText);
+        else
+            Context.Rooms.SaveData.SetMakuMapTextPresent(mapText);
         Context.ShowDialogue(message, textboxFlags: _textboxFlags);
     }
 
@@ -229,7 +236,10 @@ internal abstract class RemoteMakuEvent :
                 Context.Hud.HideStatusBar();
                 break;
             case "SpawnPresentConfetti":
-                SpawnPresentConfetti();
+                SpawnConfetti(RemoteMakuConfettiKind.Present);
+                break;
+            case "SpawnPastConfetti":
+                SpawnConfetti(RemoteMakuConfettiKind.Past);
                 break;
             case "ShowHud":
                 Context.Hud.ShowStatusBar();
