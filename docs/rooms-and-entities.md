@@ -888,8 +888,20 @@ offsets, and owns the position, camera focus, and input/hazard bypass used by
 `screenTransitionState2`. Link can still change facing, swing the Sword, use
 the Seed Satchel, and open menus while riding; independent movement and the
 other source-rejected items remain blocked. Scrolling carries that same cart
-entity into the destination before track processing resumes. Minecart shutter
-tiles expose their direction-specific `$5d/$5e` track replacements. A platform
+entity into the destination before track processing resumes. The cart is one
+complete source sprite in priority group 2 behind Link's priority group 1; the
+source Link walking selector additionally forces variant `$01`, producing
+graphics `$58-$5b/$84-$87`, and disables Link terrain effects. Those body
+graphics plus the imported frame offset create the seated appearance without
+splitting the cart into foreground and background layers. A Sword swing uses
+the ridden-object animation-mode adjustment `$22 -> $26`, keeping the Sword's
+ordinary arc but replacing Link's body with the cart-specific
+`$c8/$cc/$cc/$58` sequence at the standard origin. Minecart shutter
+tiles expose their direction-specific `$5d/$5e` track replacements. Their
+`INTERAC_DOOR_CONTROLLER` uses the ordinary two-sound, six-update interleaved
+door animation: the shutter ahead opens for the cart, and the destination
+room's temporarily substituted track closes back into `$7c-$7f` after the cart
+clears it. A platform
 dismount recreates the stationary slot and gives Link the matching
 `SPEED_80`/`-$01c0` jump from his current position plus six Y pixels at the
 cart's exact travel angle and Z `-$06`; the cart blocker is restored only after
@@ -1351,14 +1363,19 @@ crossed route instead remains open for safe backtracking without synthesizing a
 solve.
 
 `replaceShutterForLinkEntering` is a layout substitution, not a property of
-placed door-controller records. Before destination object parsing, ordinary
-layout tiles `$78-$7b` must also compare their encoded direction and packed
-position with the scrolling entry context. The matching tile becomes `$a0`;
-the corresponding source table row has bit 7 set, so no auto-close controller
+placed door-controller records. Before destination object parsing, layout
+tiles `$78-$7f` must also compare their encoded direction and packed position
+with the scrolling entry context. A matching ordinary `$78-$7b` shutter
+becomes `$a0`; its source table row has bit 7 set, so no auto-close controller
 is created. Room `4:1d`'s right tile `$79` is the canonical layout-only case:
 scrolling left from `4:1e` opens packed position `$5e`, while a direct room load
-retains the closed source tile. Minecart shutters `$7c-$7f` use different
-replacement tiles and auto-close interactions and remain a separate mechanic.
+retains the closed source tile. A matching minecart shutter `$7c-$7f` instead
+becomes its vertical `$5e` or horizontal `$5d` track while the destination is
+preloaded, allowing the cart to cross the scrolling room boundary. Its
+directional `$0c-$0f` controller is created from the original layout even when
+that substitution is active. It waits for the cart to clear, plays
+`SND_DOORCLOSE` at both ends of the six-update interleaved frame, and restores
+the destination shutter; the same controller reopens it when the cart returns.
 
 Do not infer the entry shutter from a room edge alone, because the original
 substitution also requires Link's packed row or column to match that door.

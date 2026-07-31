@@ -528,12 +528,18 @@ internal sealed class LinkItemDatabase
         for (int phase = 0; phase < 3; phase++)
         for (int direction = 0; direction < 4; direction++)
             result.Add(("attack", 0, phase, direction));
+        for (int phase = 0; phase < 4; phase++)
+        for (int direction = 0; direction < 4; direction++)
+            result.Add(("minecart-attack", 0, phase, direction));
         for (int phase = 0; phase < 2; phase++)
         for (int direction = 0; direction < 4; direction++)
             result.Add(("shovel", 0, phase, direction));
         for (int pose = 0; pose < 3; pose++)
         for (int direction = 0; direction < 4; direction++)
             result.Add(("bracelet", pose, 0, direction));
+        for (int phase = 0; phase < 2; phase++)
+        for (int direction = 0; direction < 4; direction++)
+            result.Add(("minecart", 0, phase, direction));
         for (int variant = 0; variant < 4; variant++)
         for (int phase = 0; phase < 2; phase++)
         for (int direction = 0; direction < 4; direction++)

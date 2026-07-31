@@ -227,6 +227,46 @@ $expectedShieldLinkGfx = @{
     0x9c = 0x0640; 0x9d = 0x07c0; 0x9e = 0x06c0; 0x9f = 0x0740
     0xa0 = 0x0640; 0xa1 = 0x07c0; 0xa2 = 0x08c0; 0xa3 = 0x0740
 }
+$expectedMinecartLinkGfx = @{
+    0x58 = @(0x04, 0x0800); 0x59 = @(0x01, 0x0840)
+    0x5a = @(0x04, 0x0820); 0x5b = @(0x00, 0x0840)
+    0x84 = @(0x04, 0x0800); 0x85 = @(0x01, 0x0840)
+    0x86 = @(0x04, 0x0820); 0x87 = @(0x00, 0x0840)
+}
+$expectedMinecartAttackLinkGfx = @{
+    0xc8 = @(0x00, 0x1200); 0xc9 = @(0x01, 0x1300)
+    0xca = @(0x00, 0x1280); 0xcb = @(0x00, 0x1300)
+    0xcc = @(0x00, 0x1240); 0xcd = @(0x01, 0x1340)
+    0xce = @(0x00, 0x12c0); 0xcf = @(0x00, 0x1340)
+}
+$minecartAttackLinkGfxValid = $linkGfxEntries.Count -gt 0xcf
+if ($minecartAttackLinkGfxValid) {
+    foreach ($index in $expectedMinecartAttackLinkGfx.Keys) {
+        $entry = $linkGfxEntries[$index]
+        $expected = $expectedMinecartAttackLinkGfx[$index]
+        if ([Convert]::ToInt32($entry.Groups['oam'].Value, 16) -ne
+                $expected[0] -or
+            [Convert]::ToInt32($entry.Groups['offset'].Value, 16) -ne
+                $expected[1]) {
+            $minecartAttackLinkGfxValid = $false
+            break
+        }
+    }
+}
+$minecartLinkGfxValid = $linkGfxEntries.Count -gt 0x87
+if ($minecartLinkGfxValid) {
+    foreach ($index in $expectedMinecartLinkGfx.Keys) {
+        $entry = $linkGfxEntries[$index]
+        $expected = $expectedMinecartLinkGfx[$index]
+        if ([Convert]::ToInt32($entry.Groups['oam'].Value, 16) -ne
+                $expected[0] -or
+            [Convert]::ToInt32($entry.Groups['offset'].Value, 16) -ne
+                $expected[1]) {
+            $minecartLinkGfxValid = $false
+            break
+        }
+    }
+}
 $shieldLinkGfxValid = $linkGfxEntries.Count -gt 0xa3
 if ($shieldLinkGfxValid) {
     foreach ($index in $expectedShieldLinkGfx.Keys) {
@@ -244,6 +284,8 @@ if ($itemIds['ITEM_SHIELD'] -ne 0x01 -or
     $soundIds['SND_SHIELD'] -ne 0x76 -or
     $soundIds['SND_CLINK2'] -ne 0x58 -or
     -not $shieldLinkGfxValid -or
+    -not $minecartLinkGfxValid -or
+    -not $minecartAttackLinkGfxValid -or
     $itemUsageSource -notmatch
         '(?m)^\s*\.db\s+\$05,\s*<wGameKeysPressed\s*;\s*ITEM_SHIELD' -or
     $itemUsageSource -notmatch
@@ -256,6 +298,12 @@ if ($itemIds['ITEM_SHIELD'] -ne 0x01 -or
         '(?m)^specialObject00GfxPointers:' -or
     $specialObjectAnimationLogicSource -notmatch
         '(?ms)Check if he.s holding out the shield, and what level.*?wUsingShield.*?ld c,\$07.*?cp \$02.*?inc c.*?@shieldEquipped:.*?ld c,\$05.*?wShieldLevel.*?cp \$01.*?ld c,\$06' -or
+    $specialObjectAnimationLogicSource -notmatch
+        '(?ms)Check if he.s riding a minecart.*?cp \$0a.*?inc c.*?Done if holding something or riding a minecart' -or
+    $parentItemCommonSource -notmatch
+        '(?ms)Check if Link is riding something.*?cp LINK_ANIM_MODE_20.*?cp LINK_ANIM_MODE_24.*?add \$04' -or
+    $specialObjectAnimationsSource -notmatch
+        '(?ms)^animationData1a019:\s*\.db \$03 \$c8 \$00\s*^animationData1a01c:\s*\.db \$03 \$cc \$02\s*\.db \$08 \$cc \$26\s*\.db \$7f \$58 \$86' -or
     $collisionEffectsSource -notmatch
         '(?ms)^@shieldPositionOffsets:\s*\.db \$f9 \$01 \$01 \$06 ; DIR_UP\s*\.db \$00 \$06 \$07 \$01 ; DIR_RIGHT\s*\.db \$06 \$ff \$01 \$06 ; DIR_DOWN\s*\.db \$00 \$f9 \$07 \$01 ; DIR_LEFT' -or
     $collisionEffectsSource -notmatch
@@ -270,7 +318,7 @@ if ($itemIds['ITEM_SHIELD'] -ne 0x01 -or
         '(?m)^\s*dbrev %11111111 %10000010 %00001000 %00000000 ; 0x18' -or
     $partActiveCollisionsSource -notmatch
         '(?m)^\s*dbrev %11111111 %10000010 %00001000 %00000000 ; 0x1a') {
-    throw 'ITEM_SHIELD usage, Link graphics, hitbox, sounds, or supported projectile collisions changed in the disassembly.'
+    throw 'ITEM_SHIELD or ridden Link animation data, graphics, hitbox, sounds, or supported projectile collisions changed in the disassembly.'
 }
 
 # ITEM_BRACELET ($16) is a held-input parent item. It first grabs the wall in
@@ -771,6 +819,16 @@ for ($phase = 0; $phase -lt 3; $phase++) {
             $phaseBase + $direction)
     }
 }
+for ($phase = 0; $phase -lt 4; $phase++) {
+    # parentItemLoadAnimationAndIncState changes LINK_ANIM_MODE_22 to $26
+    # while wLinkObjectIndex selects the cart. Mode $26 uses $c8, $cc,
+    # $cc, then the seated $58 frame for its four sword phases.
+    $phaseBase = @(0xc8, 0xcc, 0xcc, 0x58)[$phase]
+    for ($direction = 0; $direction -lt 4; $direction++) {
+        Add-LinkGraphicRow $linkGraphicRows 'minecart-attack' 0 $phase (
+            $direction) ($phaseBase + $direction)
+    }
+}
 for ($phase = 0; $phase -lt 2; $phase++) {
     $phaseBase = @(0xf8, 0xfc)[$phase]
     for ($direction = 0; $direction -lt 4; $direction++) {
@@ -784,6 +842,13 @@ for ($pose = 0; $pose -lt 3; $pose++) {
     for ($direction = 0; $direction -lt 4; $direction++) {
         Add-LinkGraphicRow $linkGraphicRows 'bracelet' $pose 0 $direction (
             $poseBase + $direction)
+    }
+}
+for ($phase = 0; $phase -lt 2; $phase++) {
+    $phaseBase = @(0x58, 0x84)[$phase]
+    for ($direction = 0; $direction -lt 4; $direction++) {
+        Add-LinkGraphicRow $linkGraphicRows 'minecart' 0 $phase $direction (
+            $phaseBase + $direction)
     }
 }
 for ($variant = 0; $variant -lt 4; $variant++) {

@@ -35,6 +35,10 @@ public partial class Player : Node2D
     private Texture2D _damageGetItemTwoHandTexture = null!;
     private Texture2D _carriedObjectTexture = null!;
     private Texture2D _damageCarriedObjectTexture = null!;
+    private Texture2D _minecartLinkTexture = null!;
+    private Texture2D _damageMinecartLinkTexture = null!;
+    private Texture2D _minecartAttackTexture = null!;
+    private Texture2D _damageMinecartAttackTexture = null!;
     private Texture2D[,] _braceletActionTextures = null!;
     private Texture2D[,] _damageBraceletActionTextures = null!;
     private Texture2D _shieldLinkTexture = null!;
@@ -64,6 +68,7 @@ public partial class Player : Node2D
     private Texture2D _deathTexture = null!;
     private TransformedLinkDatabase _transformedLink = null!;
     private Vector2 _precisePosition;
+    private Vector2 _minecartMainObjectPosition;
     private Vector2 _lastSafePosition;
     private HazardType _drowningHazard;
     private Facing _facing = Facing.Down;
@@ -327,6 +332,8 @@ public partial class Player : Node2D
     internal int TopDownAirAnimationPhase => _topDownAirAnimationPhase;
     internal bool MinecartJumpActive => _minecartJumpControlled;
     internal bool MinecartRideActive => _minecartRideControlled;
+    internal Vector2 MinecartMainObjectPosition =>
+        _minecartRideControlled ? _minecartMainObjectPosition : _precisePosition;
     internal int MinecartJumpAngle => _minecartJumpAngle;
     internal bool MinecartJumpReadyToRide =>
         _minecartJumpControlled &&
@@ -400,6 +407,10 @@ public partial class Player : Node2D
         OracleGraphicsCache.PixelHash(_attackTexture.GetImage());
     internal ulong ShovelAtlasPixelHash =>
         OracleGraphicsCache.PixelHash(_shovelLinkTexture.GetImage());
+    internal ulong MinecartLinkAtlasPixelHash =>
+        OracleGraphicsCache.PixelHash(_minecartLinkTexture.GetImage());
+    internal ulong MinecartAttackAtlasPixelHash =>
+        OracleGraphicsCache.PixelHash(_minecartAttackTexture.GetImage());
     internal ulong SwordAtlasPixelHash =>
         OracleGraphicsCache.PixelHash(_swordTexture.GetImage());
     internal ulong BraceletActionPixelHash(int pose, int direction)
@@ -433,6 +444,10 @@ public partial class Player : Node2D
         _damageGetItemTwoHandTexture = BuildGetItemTwoHandTexture(damagePalette: true);
         _carriedObjectTexture = BuildCarriedObjectLinkTexture(damagePalette: false);
         _damageCarriedObjectTexture = BuildCarriedObjectLinkTexture(damagePalette: true);
+        _minecartLinkTexture = BuildMinecartLinkTexture(damagePalette: false);
+        _damageMinecartLinkTexture = BuildMinecartLinkTexture(damagePalette: true);
+        _minecartAttackTexture = BuildMinecartAttackTexture(damagePalette: false);
+        _damageMinecartAttackTexture = BuildMinecartAttackTexture(damagePalette: true);
         _braceletActionTextures = BuildBraceletActionTextures(damagePalette: false);
         _damageBraceletActionTextures = BuildBraceletActionTextures(damagePalette: true);
         _shieldLinkTexture = BuildShieldLinkTexture(damagePalette: false);
@@ -2362,7 +2377,23 @@ public partial class Player : Node2D
             // Link's body masks the sword where their sprites overlap.
             DrawSword();
             int heldBodyFrame = GetHeldSwordBodyAnimationFrame();
-            if (heldBodyFrame >= 0)
+            if (_minecartRideControlled &&
+                _swordState == SwordActionState.Swing)
+            {
+                // parentItemLoadAnimationAndIncState changes the Sword's Link
+                // animation from mode $22 to $26 while the main object is the
+                // minecart. Unlike ordinary phase 2, all four cart-swing body
+                // frames retain the standard Link origin.
+                int phase = GetSwordPosePhase();
+                DrawTextureRectRegion(
+                    DamagePaletteActive
+                        ? _damageMinecartAttackTexture
+                        : _minecartAttackTexture,
+                    new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
+                    new Rect2(
+                        phase * 16, (int)_facing * 16, 16, 16));
+            }
+            else if (heldBodyFrame >= 0)
             {
                 DrawTextureRectRegion(
                     DamagePaletteActive ? _damageTexture : _texture,
@@ -2402,6 +2433,19 @@ public partial class Player : Node2D
         else if (IsUsingShield)
         {
             DrawShieldPose();
+        }
+        else if (_minecartRideControlled)
+        {
+            // func_4553 forces walking-graphics variant $01 before checking
+            // equipped shields or push state whenever wLinkObjectIndex is the
+            // SPECIALOBJECT_MINECART slot.
+            int frame = GetWalkAnimationFrame();
+            DrawTextureRectRegion(
+                DamagePaletteActive
+                    ? _damageMinecartLinkTexture
+                    : _minecartLinkTexture,
+                new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
+                new Rect2(frame * 16, (int)_facing * 16, 16, 16));
         }
         else if (_pushing)
         {
@@ -2444,7 +2488,8 @@ public partial class Player : Node2D
         // screen-scroll state, and negative Z. Ground effects otherwise remain
         // present while standing, using an item, or riding an ordinary moving
         // platform; they are not gated by the walk animation.
-        if (!Visible || _world.ScreenScrolling || _world.SideScrolling ||
+        if (!Visible || _minecartRideControlled ||
+            _world.ScreenScrolling || _world.SideScrolling ||
             !IsGroundedForFloorButton)
         {
             return null;
@@ -3036,6 +3081,7 @@ public partial class Player : Node2D
                 _ => throw new InvalidOperationException()
             };
         _precisePosition = cartPosition + screenOffset + linkOffset;
+        _minecartMainObjectPosition = cartPosition;
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         _minecartRideControlled = true;
         _walking = false;
@@ -4837,6 +4883,11 @@ public partial class Player : Node2D
     {
         get
         {
+            if (_minecartRideControlled &&
+                _swordState == SwordActionState.Swing)
+            {
+                return NormalSpriteOrigin;
+            }
             Facing poseFacing = GetSwordPoseFacing();
             int phase = GetSwordPosePhase();
             Vector2 poseOffset = _swordState == SwordActionState.Spin || phase == 2
@@ -4976,6 +5027,66 @@ public partial class Player : Node2D
         WriteLinkFrame(output, source, 16, (int)Facing.Down * 16, 0x0180, true, damagePalette);   // $8a, OAM $01
         WriteLinkFrame(output, source, 16, (int)Facing.Left * 16, 0x1140, false, damagePalette);  // $8b, OAM $00
 
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private Texture2D BuildMinecartLinkTexture(bool damagePalette)
+    {
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
+        Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
+
+        // getLinkWalkingAnimation selects variant $01 while the main object is
+        // SPECIALOBJECT_MINECART. Added to walk frames $54/$80, that resolves
+        // to $58-$5b/$84-$87. Both animation phases intentionally use the
+        // same seated pixels even though the cart and Link offset animate.
+        for (int phase = 0; phase < 2; phase++)
+        for (int facing = 0; facing < 4; facing++)
+        {
+            LinkGraphicRecord record =
+                _linkItems.Graphic("minecart", 0, phase, facing);
+            if (record.OamIndex == 0x04)
+            {
+                WriteSymmetricLinkCell(
+                    output, source, phase * 16, facing * 16,
+                    record.ByteOffset, damagePalette);
+            }
+            else
+            {
+                WriteLinkFrame(
+                    output, source, phase * 16, facing * 16,
+                    record.ByteOffset, record.MirrorX, damagePalette);
+            }
+        }
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private Texture2D BuildMinecartAttackTexture(bool damagePalette)
+    {
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
+        Image output = Image.CreateEmpty(64, 64, false, Image.Format.Rgba8);
+
+        // LINK_ANIM_MODE_26 resolves the Sword's four 3/3/8/terminal body
+        // phases to $c8-$cb, $cc-$cf, $cc-$cf, and seated $58-$5b.
+        for (int phase = 0; phase < 4; phase++)
+        for (int facing = 0; facing < 4; facing++)
+        {
+            LinkGraphicRecord record =
+                _linkItems.Graphic("minecart-attack", 0, phase, facing);
+            if (record.OamIndex == 0x04)
+            {
+                WriteSymmetricLinkCell(
+                    output, source, phase * 16, facing * 16,
+                    record.ByteOffset, damagePalette);
+            }
+            else
+            {
+                WriteLinkFrame(
+                    output, source, phase * 16, facing * 16,
+                    record.ByteOffset, record.MirrorX, damagePalette);
+            }
+        }
         return ImageTexture.CreateFromImage(output);
     }
 

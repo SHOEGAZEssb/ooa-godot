@@ -319,8 +319,13 @@ remains the single runtime policy table.
   six source chests, four scripted side-view platforms, three circular
   platforms, and three persistent cross-room minecarts. Minecarts use their
   source-angle boarding/dismount jumps, moving two-frame animations and Link
-  offsets, retain Link's facing and Sword input while the cart owns movement,
-  and remain the position/camera owner through no-input room scrolling. Direct
+  offsets, minecart-only seated Link graphics, source sprite priority behind
+  Link, and terrain-effect suppression. They retain Link's facing and Sword
+  input while the cart owns movement; Sword swings use the dedicated ridden
+  `$22 -> $26` Link-body animation. They audibly animate departure shutters,
+  open the matching destination minecart shutter during room preload, close it
+  behind the cart with the source interleaved animation, and remain the
+  position/camera owner through no-input room scrolling. Direct
   room entry switches aliased side layouts into active group `$06`, where the
   ordinary horizontal `6:29 <-> 6:2a` scroll and all four imported vertical
   edge-warp quadrants operate, including room `6:2b`'s post-platform `$a9` to

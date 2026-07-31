@@ -81,10 +81,16 @@ every room `4:27-$48`, checks the merged native/shared/enemy/static rosters,
 all six chests, exact floor/color patterns, side platforms, circular
 platforms, and persistent minecarts. Focused live scenarios assert minecart
 four-push centered boarding at Link's source angle, exact jump handoffs,
-6/6-update animation, live facing/Sword input with cart-owned movement, the
-natural `4:33 -> 4:2f -> 4:33` no-input track loop with object identity
-retained, and an exact-angle unblocked 32-update dismount. They also assert the
-`6:29 <-> 6:2a` ordinary horizontal scroll plus all four `$06` side-view
+6/6-update animation, the imported `$58-$5b/$84-$87` seated-Link pixel hash,
+Link-over-cart source priority, and live facing/Sword input with cart-owned
+movement. The Sword check also asserts ridden animation mode `$26`'s
+`$c8/$cc/$cc/$58` body pixels and standard OAM origin. The natural
+`4:33 -> 4:2f -> 4:33` no-input track loop retains object
+identity, checks each destination shutter is already open during room preload,
+observes every six-update interleaved open/close state and restored closed tile,
+requires the exact eight door-sound requests, and finishes with an exact-angle
+unblocked 32-update dismount. They also
+assert the `6:29 <-> 6:2a` ordinary horizontal scroll plus all four `$06` side-view
 edge-warp quadrants through Feather, ladder, and post-object platform
 displacement paths; incoming Spark state-0 visibility with frozen movement;
 Sword Stalfos body/blade collision ownership and the distinct

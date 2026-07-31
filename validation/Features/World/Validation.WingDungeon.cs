@@ -391,6 +391,32 @@ public sealed partial class ValidationRoot
             "SPECIALOBJECT_MINECART lost its imported vertical/horizontal " +
             "6/6-update animation and $00/$04 Link-offset parameters.");
 
+        int[] minecartLinkOam = [0x04, 0x01, 0x04, 0x00];
+        int[] minecartLinkOffsets = [0x0800, 0x0840, 0x0820, 0x0840];
+        for (int phase = 0; phase < 2; phase++)
+        for (int direction = 0; direction < 4; direction++)
+        {
+            LinkGraphicRecord graphic = LinkItemDatabase.Shared.Graphic(
+                "minecart", 0, phase, direction);
+            FailIf(
+                graphic.GraphicsIndex !=
+                    (phase == 0 ? 0x58 : 0x84) + direction ||
+                graphic.OamIndex != minecartLinkOam[direction] ||
+                graphic.ByteOffset != minecartLinkOffsets[direction],
+                "getLinkWalkingAnimation lost its minecart-only variant-$01 " +
+                $"body graphics (phase={phase}, direction={direction}, " +
+                $"gfx=${graphic.GraphicsIndex:x2}, oam=${graphic.OamIndex:x2}, " +
+                $"offset=${graphic.ByteOffset:x4}).");
+        }
+        FailIf(
+            _player.MinecartLinkAtlasPixelHash != 0xe996cad8a9bd9fd8UL,
+            "The composed minecart-only Link body pixels changed " +
+            $"(hash={_player.MinecartLinkAtlasPixelHash:x16}).");
+        FailIf(
+            _player.MinecartAttackAtlasPixelHash != 0x64a25aeb9b7db45aUL,
+            "The composed LINK_ANIM_MODE_26 minecart Sword body pixels " +
+            $"changed (hash={_player.MinecartAttackAtlasPixelHash:x16}).");
+
         PrepareRoom(0x33);
         MinecartRoomEntity minecart =
             _entities.Entities<MinecartRoomEntity>().Single();
@@ -438,11 +464,13 @@ public sealed partial class ValidationRoot
             !minecart.Riding ||
             mountJumpUpdates != 26 ||
             _player.MinecartJumpActive ||
+            minecart.ZIndex != NpcCharacter.BehindLinkZIndex ||
+            _player.ZIndex != Player.NormalZIndex ||
             minecart.CurrentAnimationIndex != 2 + (minecart.Direction & 1) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 1,
             "Minecart boarding lost the exact falling-Z handoff, moving " +
-            "animation selection, or jump/land sounds.");
+            "animation selection, priority-group ordering, or jump/land sounds.");
 
         int equippedA = _inventory.EquippedA;
         int equippedB = _inventory.EquippedB;
@@ -478,6 +506,15 @@ public sealed partial class ValidationRoot
             $"swordDisabled={_entities.PlayerSwordDisabled}, " +
             $"itemsDisabled={_entities.PlayerItemUsageDisabled}, " +
             $"menusDisabled={_entities.PlayerMenusDisabled}).");
+        _player.AdvanceSwordForValidation(6, buttonHeld: false);
+        FailIf(
+            _player.SwordState != SwordActionState.Swing ||
+            _player.SwordStateFrame != 6 ||
+            _player.AttackSpriteOrigin != new Vector2(-8, -8),
+            "Minecart LINK_ANIM_MODE_26 did not retain its standard body " +
+            "origin through the $cc phase " +
+            $"(state={_player.SwordState}, frame={_player.SwordStateFrame}, " +
+            $"origin={_player.AttackSpriteOrigin}).");
         _player.AdvanceSwordForValidation(32, buttonHeld: false);
         _player._PhysicsProcess(update);
 
@@ -491,11 +528,18 @@ public sealed partial class ValidationRoot
             minecart.CurrentAnimationFrame == firstRideFrame,
             "SPECIALOBJECT_MINECART did not advance on its sixth update.");
 
+        _sound.ClearPlayRequestAudit();
         int minecartRoomTransitions = 0;
         int rideUpdates = 6;
         int minecartRideRoom = _currentRoom.Id;
         Vector2 dismountJumpStart = Vector2.Zero;
         int dismountTravelAngle = 0xff;
+        bool sawSourceShutterOpening = false;
+        bool sawDestinationShutterClosing = false;
+        bool sawDestinationShutterClosed = false;
+        bool sawDestinationShutterReopening = false;
+        bool sawReturnShutterClosing = false;
+        bool sawReturnShutterClosed = false;
         var minecartTrackTrace = new List<string>();
         while (!minecart.Dismounting && rideUpdates < 2400)
         {
@@ -513,6 +557,46 @@ public sealed partial class ValidationRoot
             Step();
             UpdatePostObjectPlayerState();
             rideUpdates++;
+            if (!_transitions.ScrollActive)
+            {
+                List<MinecartShutterRoomEntity> shutters =
+                    _entities.Entities<MinecartShutterRoomEntity>();
+                if (_currentRoom.Id == 0x33)
+                {
+                    sawSourceShutterOpening |= minecartRoomTransitions == 0 &&
+                        shutters.Any(shutter =>
+                            shutter.PackedPosition == 0x0c &&
+                            shutter.State ==
+                                MinecartShutterState.OpeningInterleaved);
+                    sawReturnShutterClosing |= minecartRoomTransitions == 2 &&
+                        shutters.Any(shutter =>
+                            shutter.PackedPosition == 0x0c &&
+                            shutter.State ==
+                                MinecartShutterState.ClosingInterleaved);
+                    sawReturnShutterClosed |= minecartRoomTransitions == 2 &&
+                        _currentRoom.GetMetatile(new Vector2(0xc8, 0x08)) ==
+                            DungeonShutterEntry.FirstMinecartShutterTile;
+                }
+                else if (_currentRoom.Id == 0x2f)
+                {
+                    sawDestinationShutterClosing |=
+                        minecartRoomTransitions == 1 &&
+                        shutters.Any(shutter =>
+                            shutter.PackedPosition == 0xac &&
+                            shutter.State ==
+                                MinecartShutterState.ClosingInterleaved);
+                    sawDestinationShutterClosed |=
+                        minecartRoomTransitions == 1 &&
+                        _currentRoom.GetMetatile(new Vector2(0xc8, 0xa8)) ==
+                            DungeonShutterEntry.FirstMinecartShutterTile + 2;
+                    sawDestinationShutterReopening |=
+                        minecartRoomTransitions == 1 &&
+                        shutters.Any(shutter =>
+                            shutter.PackedPosition == 0xac &&
+                            shutter.State ==
+                                MinecartShutterState.OpeningInterleaved);
+                }
+            }
             if (minecart.Dismounting)
             {
                 dismountJumpStart =
@@ -523,6 +607,19 @@ public sealed partial class ValidationRoot
                 continue;
 
             int sourceRoom = minecartRideRoom;
+            int destinationGatePosition = sourceRoom == 0x33 ? 0xac : 0x0c;
+            Vector2 destinationGatePoint = new(
+                (destinationGatePosition & 0x0f) * 16 + 8,
+                (destinationGatePosition >> 4) * 16 + 8);
+            FailIf(
+                _currentRoom.GetMetatile(destinationGatePoint) !=
+                    interactions.Constant("track-vertical"),
+                "replaceShutterForLinkEntering did not open the destination " +
+                "minecart shutter to vertical track while the room was " +
+                $"preloaded for scrolling (source=4:{sourceRoom:x2}, " +
+                $"destination=4:{_currentRoom.Id:x2}, " +
+                $"position=${destinationGatePosition:x2}, " +
+                $"tile=${_currentRoom.GetMetatile(destinationGatePoint):x2}).");
             CompleteTransition();
             minecartRoomTransitions++;
             minecartRideRoom = _currentRoom.Id;
@@ -562,6 +659,23 @@ public sealed partial class ValidationRoot
             $"jump={_player.MinecartJumpActive}, " +
             $"z={_player.TopDownAirZ}, speedZ={_player.TopDownAirSpeedZ}, " +
             $"track={string.Join(",", minecartTrackTrace)}).");
+        FailIf(
+            !sawSourceShutterOpening ||
+            !sawDestinationShutterClosing ||
+            !sawDestinationShutterClosed ||
+            !sawDestinationShutterReopening ||
+            !sawReturnShutterClosing ||
+            !sawReturnShutterClosed ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 8,
+            "Minecart shutters did not perform the source two-stage audible " +
+            "open/close lifecycle around the complete room loop " +
+            $"(sourceOpen={sawSourceShutterOpening}, " +
+            $"destinationClose={sawDestinationShutterClosing}, " +
+            $"destinationClosed={sawDestinationShutterClosed}, " +
+            $"destinationOpen={sawDestinationShutterReopening}, " +
+            $"returnClose={sawReturnShutterClosing}, " +
+            $"returnClosed={sawReturnShutterClosed}, " +
+            $"sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose)}).");
 
         int dismountJumpUpdates = 0;
         while ((_player.MinecartJumpActive || minecart.Dismounting) &&

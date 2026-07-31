@@ -875,6 +875,18 @@ public sealed partial class ValidationRoot
                 string.IsNullOrEmpty(record.Oam),
                 $"Imported attack graphic {phase}/{direction} changed.");
         }
+        int[] minecartAttackBases = [0xc8, 0xcc, 0xcc, 0x58];
+        for (int phase = 0; phase < minecartAttackBases.Length; phase++)
+        for (int direction = 0; direction < 4; direction++)
+        {
+            LinkGraphicRecord record =
+                database.Graphic("minecart-attack", 0, phase, direction);
+            FailIf(
+                record.GraphicsIndex !=
+                    minecartAttackBases[phase] + direction ||
+                string.IsNullOrEmpty(record.Oam),
+                $"Imported minecart attack graphic {phase}/{direction} changed.");
+        }
         int[] shovelBases = [0xf8, 0xfc];
         for (int phase = 0; phase < shovelBases.Length; phase++)
         for (int direction = 0; direction < 4; direction++)
@@ -944,12 +956,14 @@ public sealed partial class ValidationRoot
         ];
         FailIf(
             _player.AttackAtlasPixelHash != 0xd97fede215433c60UL ||
+            _player.MinecartAttackAtlasPixelHash != 0x64a25aeb9b7db45aUL ||
             _player.ShovelAtlasPixelHash != 0x5d009ee6640952eeUL ||
             _player.SwordAtlasPixelHash != 0x61e9abb0e1173ec7UL ||
             _player.ShieldAtlasPixelHash != 0xe4598edf4d896e5cUL ||
             !braceletHashes.SequenceEqual(expectedBraceletHashes),
             $"Imported Link/item OAM pixels changed " +
-            $"(shield={_player.ShieldAtlasPixelHash:x16}).");
+            $"(shield={_player.ShieldAtlasPixelHash:x16}, " +
+            $"minecartAttack={_player.MinecartAttackAtlasPixelHash:x16}).");
 
         GD.Print(
             "Validated generated Link/item/sword data: ordered action, graphics, " +

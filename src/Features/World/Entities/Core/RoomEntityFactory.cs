@@ -86,9 +86,10 @@ internal sealed class RoomEntityFactory(
         rooms?.DungeonMaps ?? new DungeonMapDatabase();
 
     /// <summary>
-    /// Mirrors replaceShutterForLinkEntering for ordinary layout shutters
-    /// $78-$7b. Those source table rows replace only the shutter under Link
-    /// with floor $a0 and set bit 7, so no auto-close interaction is created.
+    /// Mirrors replaceShutterForLinkEntering for layout shutters $78-$7f.
+    /// The matching ordinary shutter becomes floor $a0; the matching minecart
+    /// shutter becomes direction-appropriate track $5d/$5e so a ridden cart
+    /// can enter the preloaded room during the scroll.
     /// </summary>
     internal void ApplyEntryShutterSubstitution(
         OracleRoomData room,
@@ -103,18 +104,18 @@ internal sealed class RoomEntityFactory(
         int packedPosition = placementContext.EntryPackedPosition;
         Vector2 position = PointForPackedPosition(packedPosition);
         int tile = room.GetMetatile(position);
-        if (tile is < DungeonShutterEntry.FirstNormalShutterTile or
-            > DungeonShutterEntry.LastNormalShutterTile ||
-            !DungeonShutterEntry.Matches(
+        if (!DungeonShutterEntry.TryGetReplacement(
                 placementContext,
                 packedPosition,
-                tile - DungeonShutterEntry.FirstNormalShutterTile))
+                tile,
+                _dungeonMechanics.OpenTile,
+                out int replacement))
         {
             return;
         }
 
         room.SetPositionTileAndCollision(
-            position, (byte)_dungeonMechanics.OpenTile, null, animationTick());
+            position, checked((byte)replacement), null, animationTick());
     }
 
     internal void UpdateSeedTreeRefillState(
@@ -149,6 +150,11 @@ internal sealed class RoomEntityFactory(
             7 => 5,
             _ => group
         };
+        foreach (IRoomEntity controller in
+            CreateMinecartShutterControllers(room))
+        {
+            yield return controller;
+        }
         if (group == 4 && room.Id is >= 0x27 and <= 0x48)
         {
             MinecartRuntimeState.EnsureInitialized(
@@ -711,9 +717,45 @@ internal sealed class RoomEntityFactory(
             _dungeonInteractions,
             runtimeState,
             _dungeonVisuals.Visual("minecart"),
-            soundRequested,
-            roomTileChanged,
-            animationTick);
+            soundRequested);
+
+    private IEnumerable<IRoomEntity> CreateMinecartShutterControllers(
+        OracleRoomData room)
+    {
+        // replaceShutterForLinkEntering creates these subids only when
+        // TILESETFLAG_DUNGEON is set in the Ages engine.
+        if ((room.TilesetFlags & 0x08) == 0)
+            yield break;
+
+        for (int y = 0; y < room.HeightInTiles; y++)
+        for (int x = 0; x < room.WidthInTiles; x++)
+        {
+            int packedPosition = (y << 4) | x;
+            Vector2 point = PointForPackedPosition(packedPosition);
+            int originalTile = room.GetOriginalMetatile(point);
+            if (originalTile is < DungeonShutterEntry.FirstMinecartShutterTile or
+                > DungeonShutterEntry.LastMinecartShutterTile)
+            {
+                continue;
+            }
+            yield return CreateMinecartShutter(
+                packedPosition, originalTile, oneShotOpener: false, room);
+        }
+    }
+
+    private MinecartShutterRoomEntity CreateMinecartShutter(
+        int packedPosition,
+        int closedTile,
+        bool oneShotOpener,
+        OracleRoomData room) => new(
+            packedPosition,
+            closedTile,
+            oneShotOpener,
+            room,
+            _dungeonMechanics,
+            worldToScreen,
+            animationTick,
+            soundRequested);
 
     private IRoomEntity? CreateWingDungeonInteraction(
         DungeonObjectRecord record,
@@ -1491,6 +1533,11 @@ internal sealed class RoomEntityFactory(
             CreatePumpkinHeadProjectile(projectile, room),
         HeadThwompProjectileSpawn projectile =>
             CreateHeadThwompProjectile(projectile, room),
+        MinecartShutterOpenSpawn shutter => CreateMinecartShutter(
+            shutter.PackedPosition,
+            shutter.ClosedTile,
+            oneShotOpener: true,
+            room),
         _ => throw new ArgumentOutOfRangeException(nameof(spawn), spawn, "Unknown room-entity spawn request.")
     };
 

@@ -1000,7 +1000,7 @@ public sealed class RoomEntityManager : IDisposable
         EnemyPlacementContext placementContext)
     {
         // loadTilesetAndRoomLayout runs the common tile substitutions before
-        // parseObjectData. Ordinary $78-$7b shutters can exist only in that
+        // parseObjectData. Layout shutters $78-$7f can exist only in that
         // layout and therefore must be opened before placed entities are read.
         _factory.ApplyEntryShutterSubstitution(room, placementContext);
         // wActiveTriggers is room-local scratch state cleared by room loading.

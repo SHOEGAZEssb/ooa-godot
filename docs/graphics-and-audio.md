@@ -229,6 +229,15 @@ offsets. Parent initialization requests `SND_SHIELD $76`; a supported
 projectile collision requests `SND_CLINK2 $58` once and hands the projectile to
 its native bounce animation.
 
+Parent-item initialization also changes Link animation modes `$20-$23` to
+`$24-$27` while `wLinkObjectIndex` selects a ridden object. The Sword therefore
+uses `LINK_ANIM_MODE_26`, not its ordinary mode `$22`, during a minecart swing.
+Its 3/3/8/terminal body phases select graphics `$c8-$cb`, `$cc-$cf`,
+`$cc-$cf`, and seated `$58-$5b`. All four use Link's standard sprite origin;
+the ordinary mode-$22 phase-2 `$b4-$b7` OAM displacement must not leak into the
+cart animation. The separate Sword item retains its usual `swordArcData`
+position relative to Link's cart-offset coordinates.
+
 `drawTreasureExtraTiles` mode `$01` draws a packed-BCD quantity as two HUD
 digit tiles. The selected Satchel display resolves treasure `$20-$24`, so both
 the gameplay status bar and inventory A/B/storage rendering read the selected

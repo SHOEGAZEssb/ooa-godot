@@ -20,8 +20,6 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
     private readonly DungeonInteractionDatabase _data;
     private readonly OracleRuntimeState _runtime;
     private readonly Action<int> _playSound;
-    private readonly Action _roomTileChanged;
-    private readonly Func<long> _animationTick;
     private Vector2 _precisePosition;
     private OracleRoomData? _transitionDestination;
     private int _slot;
@@ -56,16 +54,12 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
         DungeonInteractionDatabase data,
         OracleRuntimeState runtime,
         DungeonInteractionVisual visual,
-        Action<int> playSound,
-        Action roomTileChanged,
-        Func<long> animationTick)
+        Action<int> playSound)
     {
         _room = room;
         _data = data;
         _runtime = runtime;
         _playSound = playSound;
-        _roomTileChanged = roomTileChanged;
-        _animationTick = animationTick;
         _slot = cart.Slot;
         _roomId = cart.Room;
         _precisePosition = cart.Position;
@@ -81,7 +75,13 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
         Name = cart.Riding
             ? $"MinecartRide_{cart.Room:x2}"
             : $"Minecart_{cart.Room:x2}_{cart.Slot}";
-        ZIndex = 10;
+        // SPECIALOBJECT_MINECART calls objectSetVisiblec2 while Link remains
+        // in priority group 1. Lower source priority-group values draw over
+        // higher ones, so the ridden cart is one complete sprite behind Link;
+        // the imported frame offset creates the seated "inside" appearance.
+        ZIndex = cart.Riding
+            ? NpcCharacter.BehindLinkZIndex
+            : Player.NormalZIndex;
         InitializeVisual(
             visual,
             Position,
@@ -119,7 +119,7 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
                 UpdateMount(frame.Player);
                 break;
             case MinecartPhase.Riding:
-                UpdateRide(frame.Player);
+                UpdateRide(frame.Player, spawns);
                 break;
             case MinecartPhase.Dismounting:
                 UpdateDismount(frame.Player);
@@ -136,6 +136,7 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
 
     private void UpdateStationary(Player player)
     {
+        UpdateStationaryDrawPriority(player);
         Vector2I pushDirection = player.FacingVector;
         Vector2 delta = Position - player.Position;
         bool pushing =
@@ -163,10 +164,12 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
 
     private void UpdateMount(Player player)
     {
+        UpdateStationaryDrawPriority(player);
         if (!player.MinecartJumpReadyToRide)
             return;
 
         _phase = MinecartPhase.Riding;
+        ZIndex = NpcCharacter.BehindLinkZIndex;
         _soundCounter = 0;
         SetAnimation(AnimationForCurrentState());
         MinecartRuntimeState.BeginRide(
@@ -177,9 +180,11 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
             AnimationParameter);
     }
 
-    private void UpdateRide(Player player)
+    private void UpdateRide(
+        Player player,
+        ICollection<RoomEntitySpawn> spawns)
     {
-        if (AtTileCenter() && UpdateTrackAtCenter(player))
+        if (AtTileCenter() && UpdateTrackAtCenter(player, spawns))
             return;
 
         Position = OracleObjectMovement.Shared.ApplySpeed(
@@ -202,7 +207,9 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
             Vector2.Zero);
     }
 
-    private bool UpdateTrackAtCenter(Player player)
+    private bool UpdateTrackAtCenter(
+        Player player,
+        ICollection<RoomEntitySpawn> spawns)
     {
         int currentPacked = _room.GetPackedPosition(Position);
         int currentTile = _room.GetMetatile(Position);
@@ -268,12 +275,11 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
         int firstDoor = _data.Constant("minecart-door-up");
         if (nextTile >= firstDoor && nextTile < firstDoor + 4)
         {
-            int openedTrack = ((nextTile - firstDoor) & 1) == 0
-                ? _data.Constant("track-vertical")
-                : _data.Constant("track-horizontal");
-            _room.SetPositionTileAndCollision(
-                nextPoint, checked((byte)openedTrack), null, _animationTick());
-            _roomTileChanged();
+            // minecartCheckCollisions allocates INTERAC_DOOR_CONTROLLER
+            // subid $00. Its state-2 handler performs the audible six-update
+            // interleaved opening; the persistent $0c-$0f controller created
+            // from the layout later closes the track behind the cart.
+            spawns.Add(new MinecartShutterOpenSpawn(nextPacked, nextTile));
             return false;
         }
 
@@ -302,10 +308,20 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
 
     private void UpdateDismount(Player player)
     {
+        UpdateStationaryDrawPriority(player);
         if (player.MinecartJumpActive)
             return;
         _phase = MinecartPhase.Stationary;
         _pushCounter = _data.Constant("minecart-mount-push");
+    }
+
+    private void UpdateStationaryDrawPriority(Player player)
+    {
+        // INTERAC_MINECART uses objectSetPriorityRelativeToLink with the same
+        // $0b Y threshold as ordinary interactions.
+        ZIndex = Position.Y > player.Position.Y + NpcCharacter.LinkPriorityYOffset
+            ? NpcCharacter.InFrontOfLinkZIndex
+            : NpcCharacter.BehindLinkZIndex;
     }
 
     public void SetScreenTransitionBoundaryCoordinate(
