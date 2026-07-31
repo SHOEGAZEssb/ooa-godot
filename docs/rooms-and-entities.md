@@ -527,6 +527,15 @@ they do not reorder the Giant Ghini `3,2,1` child allocation or Pumpkin Head's
 `0,2,1` projectile creation. Native state machines still own transitions and
 branching, but state-entry fields come from the typed generated profiles.
 
+`ENEMY_PEAHAT $3e:$00` applies raw object speed and bounces only at the screen
+boundary; it does not collide with room metatiles, so a random placement on a
+solid tile can still take off. Its acceleration lookup leaves Z at zero for
+indices 8-6, then rises through Z `-1` to `-6`; the slowing path reverses that
+sequence. Ground height selects `ENEMYCOLLISION_PEAHAT_VULNERABLE`, while every
+nonzero Z selects `ENEMYCOLLISION_PEAHAT`, so airborne sword contact applies no
+damage or hit sound. Landing waits `$80` updates on nonsolid terrain but only
+one update on a solid tile before taking off again.
+
 Ordinary enemy species are not owned by the first room or dungeon that makes
 them playable. Boomerang Moblin, Arrow Moblin, Rope, Ghini, Wallmaster,
 Hardhat Beetle, Spiny Beetle, Spark, Whisp, Thwomp, Peahat, color-changing

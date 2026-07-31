@@ -185,6 +185,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateHardhatAndSpinyBeetles();
         ValidateSpikedBeetles();
         ValidateKeese();
+        ValidatePeahat();
         ValidateGraveyardCrowsAndDropProducers();
         ValidateOctoroks();
         ValidateArrowMoblins();

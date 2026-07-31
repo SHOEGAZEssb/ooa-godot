@@ -77,6 +77,135 @@ public sealed partial class ValidationRoot
             : throw new InvalidOperationException(
                 $"{source.Source} has no typed Crow definition.");
 
+    private void ValidatePeahat()
+    {
+        var database = new EnemyDatabase();
+        RoomObjectRecord source = RoomEnemyPlacements(
+            database, 4, 0x2e, 0x3e, 0x00).Single();
+        ImportedEnemyDefinition record = database.ImportedEnemy(0x3e);
+        EnemyCombatSourceDescriptor combatSource =
+            database.EnemyHandlers.ResolveHandler(source)
+                .CombatSource(source, killableEnemyIndex: 1);
+        OracleRoomData room = _world.LoadRoom(4, 0x2e);
+
+        Vector2? solidSpawn = null;
+        for (int y = 8; y < room.Height && solidSpawn is null; y += 16)
+        for (int x = 8; x < room.Width; x += 16)
+        {
+            var candidate = new Vector2(x, y);
+            if (room.IsSolid(candidate) &&
+                room.GetTerrainInfo(candidate).Hazard == HazardType.None)
+            {
+                solidSpawn = candidate;
+                break;
+            }
+        }
+        FailIf(
+            solidSpawn is null,
+            "Wing Dungeon room 4:2e has no non-hazard solid metatile for " +
+            "ENEMY_PEAHAT $3e:$00 takeoff validation.");
+
+        var random = new OracleRandom();
+        var peahat = new PeahatCharacter();
+        peahat.Initialize(record, room, solidSpawn.Value, random);
+        peahat.UpdateFrame();
+        peahat.UpdateFrame();
+        FailIf(
+            peahat.State != PeahatState.Accelerating ||
+            peahat.Counter != 0x7f || peahat.ZHigh != 0,
+            "ENEMY_PEAHAT $3e:$00 did not enter its source $7f-update " +
+            "acceleration state from room 4:2e.");
+
+        for (int update = 0; update < 61; update++)
+            peahat.UpdateFrame();
+        FailIf(
+            peahat.Counter != 0x42 || peahat.Position != solidSpawn.Value,
+            "ENEMY_PEAHAT $3e:$00 moved before counter $41 or escaped the " +
+            "solid-spawn fixture early.");
+
+        peahat.UpdateFrame();
+        Vector2 firstTakeoffPosition =
+            solidSpawn.Value + new Vector2(0.0f, -0.125f);
+        FailIf(
+            peahat.Counter != 0x41 || peahat.ZHigh != 0 ||
+            peahat.Position != firstTakeoffPosition,
+            $"ENEMY_PEAHAT $3e:$00 did not apply its first raw SPEED_20 " +
+            $"step through solid terrain in room 4:2e; position=" +
+            $"{peahat.Position}, expected={firstTakeoffPosition}.");
+
+        for (int update = 0; update < 16; update++)
+            peahat.UpdateFrame();
+        FailIf(
+            peahat.Counter != 0x31 || peahat.ZHigh != 0,
+            "ENEMY_PEAHAT $3e:$00 left ground height before source " +
+            "speed-table index 5.");
+        peahat.UpdateFrame();
+        FailIf(
+            peahat.Counter != 0x30 || peahat.ZHigh != -1,
+            "ENEMY_PEAHAT $3e:$00 did not begin its source Z -1 ascent at " +
+            "counter $30.");
+
+        for (int update = 0; update < 47; update++)
+            peahat.UpdateFrame();
+        FailIf(
+            peahat.Counter != 1 || peahat.ZHigh != -6,
+            "ENEMY_PEAHAT $3e:$00 did not reach source Z -6 on the final " +
+            "acceleration update.");
+        peahat.UpdateFrame();
+        FailIf(
+            peahat.State != PeahatState.Flying || peahat.ZHigh != -6 ||
+            random.Calls != 2,
+            "ENEMY_PEAHAT $3e:$00 did not enter top-speed flight at Z -6 " +
+            "with the source counter/angle RNG order.");
+
+        var soundRequests = new List<int>();
+        var airborne = new PeahatRoomEntity(
+            peahat, combatSource, soundRequests.Add);
+        var spawns = new List<RoomEntitySpawn>();
+        int airborneHealth = peahat.Health;
+        bool airborneHit = airborne.ApplySwordHit(
+            peahat.CollisionBounds.Grow(1.0f),
+            peahat.Position + Vector2.Down * 16.0f,
+            1,
+            EnemyKnockbackStrength.Low,
+            spawns);
+        FailIf(
+            airborneHit || peahat.Health != airborneHealth ||
+            peahat.InvincibilityCounter != 0 || spawns.Count != 0 ||
+            soundRequests.Count != 0,
+            "Airborne ENEMY_PEAHAT $3e:$00 accepted sword damage, " +
+            "invincibility, a death spawn, or SND_DAMAGE_ENEMY despite " +
+            "ENEMYCOLLISION_PEAHAT.");
+
+        var groundedPeahat = new PeahatCharacter();
+        groundedPeahat.Initialize(
+            record, room, solidSpawn.Value, new OracleRandom());
+        groundedPeahat.UpdateFrame();
+        var grounded = new PeahatRoomEntity(
+            groundedPeahat, combatSource, soundRequests.Add);
+        soundRequests.Clear();
+        bool groundedHit = grounded.ApplySwordHit(
+            groundedPeahat.CollisionBounds.Grow(1.0f),
+            groundedPeahat.Position + Vector2.Down * 16.0f,
+            1,
+            EnemyKnockbackStrength.Low,
+            spawns);
+        FailIf(
+            !groundedHit || groundedPeahat.Health != record.Health - 1 ||
+            groundedPeahat.InvincibilityCounter != 0x20 ||
+            soundRequests.Count != 1 ||
+            soundRequests[0] != OracleSoundEngine.SndDamageEnemy,
+            "Grounded ENEMY_PEAHAT $3e:$00 did not retain the vulnerable " +
+            "sword-no-knockback collision path.");
+
+        peahat.Free();
+        groundedPeahat.Free();
+        GD.Print(
+            "Validated ENEMY_PEAHAT $3e:$00 raw terrain-independent takeoff, " +
+            "source Z 0/-1 through -6 curve, flight RNG handoff, airborne " +
+            "sword immunity, and grounded vulnerability.");
+    }
+
     private void ValidateObjectSpeedTable()
     {
         OracleObjectSpeedTable speeds = OracleObjectSpeedTable.Shared;

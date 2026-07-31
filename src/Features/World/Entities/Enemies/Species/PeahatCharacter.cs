@@ -1,5 +1,4 @@
 using Godot;
-using System;
 
 namespace oracleofages;
 
@@ -14,7 +13,6 @@ internal partial class PeahatCharacter : EnemyCharacter
 
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
-    private EnemyTerrainMovement _movement = null!;
     private PeahatState _state;
     private int _counter;
     private int _angle;
@@ -37,7 +35,6 @@ internal partial class PeahatCharacter : EnemyCharacter
         Record = record;
         _room = room;
         _random = random;
-        _movement = new EnemyTerrainMovement(this, room);
         _state = PeahatState.Uninitialized;
         InitializeEnemy(
             position,
@@ -129,7 +126,9 @@ internal partial class PeahatCharacter : EnemyCharacter
         if (value < 0x41)
         {
             int index = (value & 0x78) >> 3;
-            _zHigh = -Math.Max(0, index - 6);
+            // peahat_updatePosition subtracts six from the speed-table index.
+            // Indices 6-8 clamp to ground height; 5-0 become Z -1 through -6.
+            _zHigh = index < 6 ? index - 6 : 0;
             _speedRaw = SpeedValues[index];
             MoveBouncing();
         }
@@ -138,8 +137,17 @@ internal partial class PeahatCharacter : EnemyCharacter
 
     private void MoveBouncing()
     {
-        if (!_movement.MoveAtAngle(_angle, _speedRaw, allowHoles: true))
-            _angle = (_angle + 0x10) & 0x1f;
+        // The source uses objectApplySpeed followed by
+        // ecom_bounceOffScreenBoundary. Peahats ignore metatile collision even
+        // while their takeoff/landing sprite is at ground height.
+        Position += OracleObjectMovement.Shared.Delta(_speedRaw, _angle);
+        _angle = EnemyAdjacentWallResolver.Shared.BounceAngle(
+            Position,
+            _angle,
+            point =>
+                point.X < 0 || point.X >= _room.Width ||
+                point.Y < 0 || point.Y >= _room.Height);
+        QueueRedraw();
     }
 }
 
