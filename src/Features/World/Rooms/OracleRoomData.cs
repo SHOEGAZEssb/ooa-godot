@@ -113,7 +113,7 @@ public sealed class OracleRoomData
 
         _animationSignature = signature;
         _activeAnimationHeaders = activeHeaders;
-        ((ImageTexture)Texture).Update(RenderRoom(activeHeaders));
+        ReplaceTextureImage(Texture, RenderRoom(activeHeaders));
         return true;
     }
 
@@ -498,7 +498,7 @@ public sealed class OracleRoomData
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
         _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
-        ((ImageTexture)Texture).Update(RenderRoom(activeHeaders));
+        ReplaceTextureImage(Texture, RenderRoom(activeHeaders));
         return true;
     }
 
@@ -540,7 +540,7 @@ public sealed class OracleRoomData
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
         _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
-        ((ImageTexture)Texture).Update(RenderRoom(activeHeaders));
+        ReplaceTextureImage(Texture, RenderRoom(activeHeaders));
     }
 
     /// <summary>
@@ -602,7 +602,7 @@ public sealed class OracleRoomData
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
         _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
-        ((ImageTexture)Texture).Update(RenderRoom(activeHeaders));
+        ReplaceTextureImage(Texture, RenderRoom(activeHeaders));
     }
 
     internal void ResetAndApplyRoomInitializationChanges(
@@ -658,7 +658,7 @@ public sealed class OracleRoomData
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
         _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
-        ((ImageTexture)Texture).Update(RenderRoom(activeHeaders));
+        ReplaceTextureImage(Texture, RenderRoom(activeHeaders));
     }
 
     internal void ApplyMetatileSubstitutions(
@@ -687,7 +687,7 @@ public sealed class OracleRoomData
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
         _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
-        ((ImageTexture)Texture).Update(RenderRoom(activeHeaders));
+        ReplaceTextureImage(Texture, RenderRoom(activeHeaders));
     }
 
     /// <summary>
@@ -898,7 +898,7 @@ public sealed class OracleRoomData
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
         _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
-        ((ImageTexture)Texture).Update(RenderRoom(activeHeaders));
+        ReplaceTextureImage(Texture, RenderRoom(activeHeaders));
     }
 
     private static readonly byte[] SpecialCollisionMasks =
@@ -1080,14 +1080,22 @@ public sealed class OracleRoomData
 
     internal void RedrawForPaletteChange()
     {
-        ((ImageTexture)Texture).Update(RenderRoom(_activeAnimationHeaders));
-        ((ImageTexture)ClearedTilemapTexture).Update(RenderClearedTilemap());
+        ReplaceTextureImage(Texture, RenderRoom(_activeAnimationHeaders));
+        ReplaceTextureImage(ClearedTilemapTexture, RenderClearedTilemap());
     }
 
     private byte GetRenderedMetatile(int layoutIndex) =>
         _positionVisualOverrides.TryGetValue(layoutIndex, out byte visualOverride)
             ? visualOverride
             : Layout[layoutIndex];
+
+    private static void ReplaceTextureImage(Texture2D texture, Image image)
+    {
+        // Every room mutation produces a complete CPU-composited image. A
+        // fresh backing upload keeps consecutive palette and animated-tile
+        // redraws from retaining stale GPU regions in the embedded renderer.
+        ((ImageTexture)texture).SetImage(image);
+    }
 
     private void CopyMappingQuarter(byte[] destination, int quarter, int sourceOffset)
     {

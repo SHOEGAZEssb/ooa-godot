@@ -177,7 +177,10 @@ source-room white fade; the full-white destination load clears it.
 
 Room backgrounds retain original GBC palette and attribute behavior. Dynamic
 palette threads, waves, and fades advance on their original fixed updates. A
-future cell renderer must preserve those effects and custom collision; the
+room redraw replaces the complete CPU-composited `ImageTexture` backing image;
+do not use an in-place upload that can retain stale animated-tile regions when
+palette and animation refreshes occur together. A future cell renderer must
+preserve those effects and custom collision; the
 tentative TileMapLayer migration is documented in [TODO.md](../TODO.md).
 
 Normal-shop price digits are dynamically loaded background graphics, not HUD

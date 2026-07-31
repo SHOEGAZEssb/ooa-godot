@@ -1295,7 +1295,10 @@ the next update. These mechanics do not depend on save/story predicates.
 Small-key doors are tile interactions, not placed `$1e` room objects.
 `DungeonKeyDoorController` probes imported tiles `$70-$73` through the same
 front-tile push geometry as blocks, centralized in
-`InteractableTilePushGeometry`. `nextToKeyDoor` initializes its shared counter
+`InteractableTilePushGeometry`. The probe is disabled for
+`TILESETFLAG_SIDESCROLL`: the source side-scrolling interactable-tile row
+contains only `$da`, and side-view layouts may reuse `$70-$77` as scenery.
+`nextToKeyDoor` initializes its shared counter
 to 20 but decrements it twice per qualifying update, so the key check occurs on
 the tenth continuous push. Success consumes exactly one key from the current
 dungeon, spawns `INTERAC_DUNGEON_KEY_SPRITE $17`, and sets the directional room

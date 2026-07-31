@@ -378,6 +378,74 @@ public sealed partial class ValidationRoot
             }
         }
 
+        _dialogue.Close();
+        _player.EndCutsceneControl();
+        _player.EndGetItemTwoHandPose();
+        _player.Visible = true;
+        _entities.ClearRecentEnemyDefeats();
+        LoadValidationRoom(6, 0x28);
+        OracleRoomData featherRoom = _rooms.CurrentRoom;
+        _animationTicks = 29;
+        featherRoom.UpdateAnimation((long)_animationTicks);
+        Step(2);
+        GroundTreasurePickup feather =
+            _entities.Entities<GroundTreasurePickup>().Single();
+        _player.WarpTo(feather.Position, recordSafe: false);
+        Step();
+        Step();
+        UpdateAnimatedTiles(1.0 / 60.0);
+        _dialogue.Close();
+        _interactions.Update(1.0 / 60.0, _player);
+        _inventoryMenu.OpenImmediatelyForValidation();
+        _inventory.EquipB(InventoryState.ItemFeather);
+        _inventoryMenu.CloseImmediatelyForValidation();
+        using (Image uploadedFeatherRoom = featherRoom.Texture.GetImage())
+        {
+            var animatedColors = new HashSet<Color>();
+            bool transparentAnimatedPixel = false;
+            for (int y = 0x80; y < 0xa0; y++)
+            for (int x = 0x30; x < 0x50; x++)
+            {
+                Color color = uploadedFeatherRoom.GetPixel(x, y);
+                animatedColors.Add(color);
+                transparentAnimatedPixel |= color.A < 0.99f;
+            }
+            FailIf(
+                _rooms.ActiveGroup != 6 ||
+                !feather.Finished ||
+                _dialogue.IsOpen ||
+                _inventory.EquippedB != InventoryState.ItemFeather ||
+                !_saveData.HasRoomFlag(
+                    4, 0x28, OracleSaveData.RoomFlagItem) ||
+                transparentAnimatedPixel ||
+                animatedColors.Count < 2,
+                "Room 6:28 did not preserve its complete animated side-view " +
+                "texture through the Roc's Feather collection, textbox, and " +
+                $"inventory equip lifecycle: group={_rooms.ActiveGroup:x1}, " +
+                $"finished={feather.Finished}, text={_dialogue.IsOpen}, " +
+                $"equippedB=${_inventory.EquippedB:x2}, " +
+                $"flag={_saveData.HasRoomFlag(4, 0x28, OracleSaveData.RoomFlagItem)}, " +
+                $"animated-colors={animatedColors.Count}, " +
+                $"transparent={transparentAnimatedPixel}.");
+        }
+
+        Vector2 decorativeTileCenter = new(0x38, 0x88);
+        Vector2 linkRightOfDecorativeTile = new(0x42, 0x88);
+        for (int frame = 0; frame < 10; frame++)
+        {
+            _keyDoors.UpdatePushAttempt(
+                linkRightOfDecorativeTile,
+                Vector2I.Left,
+                Vector2.Left);
+        }
+        FailIf(
+            featherRoom.GetMetatile(decorativeTileCenter) != 0x73 ||
+            _keyDoors.Opening ||
+            _keyDoors.RemainingPushFrames != 20 ||
+            _dialogue.IsOpen,
+            "Room 6:28 treated decorative side-view tile $73 as a left " +
+            "small-key door after ten continuous push updates.");
+
         // Room $2f's placed PART_SWITCH $05:$02 is an invisible object at
         // packed $79. Its 4-by-4 collision radius sits at Z=-$06, toggles the
         // dungeon bit without reporting ordinary sword contact, and uses the

@@ -79,7 +79,10 @@ focused failure cases for stale versions, counts, and checksums.
 `Validation.WingDungeon.cs` is the end-to-end dungeon `$02` boundary. It loads
 every room `4:27-$48`, checks the merged native/shared/enemy/static rosters,
 all six chests, exact floor/color patterns, side platforms, circular
-platforms, and persistent minecarts. Focused live scenarios assert minecart
+platforms, and persistent minecarts. It also loads side-view room `6:28` and
+checks its complete animated texture after the Feather textbox and inventory
+equip lifecycle, and rejects its decorative `$73` tile as a top-down key door.
+Focused live scenarios assert minecart
 four-push centered boarding at Link's source angle, exact jump handoffs,
 6/6-update animation, the imported `$58-$5b/$84-$87` seated-Link pixel hash,
 Link-over-cart source priority, and live facing/Sword input with cart-owned

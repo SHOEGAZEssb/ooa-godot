@@ -62,6 +62,15 @@ public partial class DungeonKeyDoorController : Node
         if (_opening)
             return;
 
+        // interactableTilesTable selects a dedicated side-scrolling row
+        // containing only tile $da. Side-view layouts are free to reuse the
+        // top-down key-door indices $70-$77 as ordinary scenery.
+        if ((_rooms.CurrentRoom.TilesetFlags & 0x20) != 0)
+        {
+            ResetPushCounter();
+            return;
+        }
+
         if (!InteractableTilePushGeometry.TryGetCardinalInput(
                 movementInput, out Vector2I direction) ||
             direction != facing ||
