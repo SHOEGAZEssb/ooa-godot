@@ -73,6 +73,14 @@ checks Y with its two-pixel offset and ignores X; horizontally adjacent warp
 tiles likewise ignore X while retaining the collision-selected Y window. Do not
 treat the complete 16-by-16 metatile as the activation area.
 
+When an Ages dungeon warp tile has no explicit warp-source row, resolve the
+source room's imported dungeon-map cell and retain its X/Y position on the
+adjacent floor. Even metatiles move one floor up and odd metatiles move one
+floor down; Link arrives at the same packed room position through destination
+transition `$00`. Wing Dungeon tiles `$45/$44` at `4:35/$23,$73` and
+`4:2d/$23,$73` are the canonical two-way fallback. They use the normal white
+staircase fade and request `SND_ENTERCAVE` once.
+
 A scrolling transition keeps an active room/entity set and an outgoing set.
 The destination room and its entities may be created before the scroll starts,
 but ordinary destination entities and room events do not update until scrolling
@@ -913,6 +921,25 @@ processing. A caught live `BombEffect` is consumed once and transferred to the
 boss's spin/deceleration and face-selection state; red-face damage therefore
 cannot also create a normal room explosion. Swoop owns its shuttered intro,
 TX `$2f00` input lease, flight/stomp/floor-break cycle, and miniboss reward.
+Its object-GFX closure chains `spr_pound` after `spr_swoop`; grounded animation
+frames use the secondary tiles `$20-$2c` for the expanding crush-impact arcs.
+The `DISABLE_LINK` lease covers only Swoop's one-time entrance through its
+first flying-up handoff. A normal stomp leaves Link controllable during the
+grounded and flying-up recovery; only ordinary contact recoil can briefly own
+Link, while the `$30` landing shake moves the camera rather than Link itself.
+Its stomp enables the imported `$0a/$0a` collision box throughout descent, but
+Link contact still requires the source's strict `$0e/$07` Z overlap before the
+ordinary `$06/$06` Link radii are applied. Link's sword and punch use the same
+strict item/enemy Z test before their planar boxes; their child `Item.zh` is
+`Link.zh - 2`, including Link's top-down airborne height.
+Swoop's broken floor metatiles `$48-$4b` retain their distinct
+`TILETYPE_WARPHOLE` behavior. After Link's ordinary pull-in and fall-in-hole
+animation, the runtime decrements the imported dungeon floor, resolves the
+same map cell on the floor below, preserves Link's packed position, and uses
+destination transition `$05`. That arrival falls from above the gameplay
+field, then reproduces Ages' missing-tile-read bug by holding the collapsed
+pose for `$1e` updates with `SND_SPLASH`; it does not damage Link or use the
+ordinary local hole respawn. Metatiles `$f3-$f7` remain normal damaging holes.
 Both bosses use the shared boss teardown/reward contract while retaining their
 native entry and attack state machines.
 

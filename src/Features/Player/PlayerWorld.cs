@@ -178,6 +178,8 @@ public sealed class PlayerWorld : IPlayerWorld
         _terrain.ResumeLedgeHopAfterScroll(player);
     public void SpawnDrowningSplash(Vector2 position, HazardType hazard) =>
         _terrain.SpawnSplash(position, hazard);
+    public void BeginFallDownHoleWarp(Player player, int packedPosition) =>
+        _transitions.ApplyDungeonHoleWarp(player, packedPosition);
     public bool CheckTileWarp(Player player) => _transitions.CheckTileWarp(player);
     public void CheckRoomExit(Player player) => _transitions.CheckRoomExit(player);
 }

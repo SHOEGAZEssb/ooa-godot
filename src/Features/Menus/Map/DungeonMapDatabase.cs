@@ -51,6 +51,67 @@ public sealed class DungeonMapDatabase
         return result;
     }
 
+    /// <summary>
+    /// Ages' warp-source fallback keeps wDungeonMapPosition and changes only
+    /// wDungeonFloor for an unlisted dungeon staircase. Resolve that same map
+    /// cell through the imported floor layouts.
+    /// </summary>
+    internal DungeonCell DungeonStairDestination(
+        int dungeon,
+        int sourceRoom,
+        int floorDelta) =>
+        DungeonFloorDestination(
+            dungeon,
+            sourceRoom,
+            floorDelta,
+            "staircase fallback");
+
+    /// <summary>
+    /// Resolves the same dungeon-map cell on an adjacent floor. The original
+    /// uses this shared floor-layout rule both for unlisted staircases and for
+    /// TILETYPE_WARPHOLE descents.
+    /// </summary>
+    internal DungeonCell DungeonHoleDestination(
+        int dungeon,
+        int sourceRoom) =>
+        DungeonFloorDestination(
+            dungeon,
+            sourceRoom,
+            floorDelta: -1,
+            "warphole descent");
+
+    private DungeonCell DungeonFloorDestination(
+        int dungeon,
+        int sourceRoom,
+        int floorDelta,
+        string transition)
+    {
+        if (floorDelta is not (-1 or 1))
+            throw new ArgumentOutOfRangeException(nameof(floorDelta));
+
+        DungeonInfo info = GetDungeon(dungeon);
+        if (!info.TryGetRoom(sourceRoom, out DungeonCell source))
+        {
+            throw new InvalidOperationException(
+                $"Dungeon ${dungeon:x2} room ${sourceRoom:x2} has no imported " +
+                $"map position for its {transition}.");
+        }
+
+        int destinationFloor = source.Floor + floorDelta;
+        if (!info.TryGetCell(
+                destinationFloor,
+                source.X,
+                source.Y,
+                out DungeonCell destination))
+        {
+            throw new InvalidOperationException(
+                $"Dungeon ${dungeon:x2} room ${sourceRoom:x2} {transition} at " +
+                $"floor {source.Floor}, map ({source.X},{source.Y}) has no " +
+                $"destination on floor {destinationFloor}.");
+        }
+        return destination;
+    }
+
     public bool TryGetDungeonForRoom(
         int group,
         int room,

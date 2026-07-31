@@ -20,7 +20,7 @@ internal sealed class SwoopBossRoomEntity
                     () => boss.CollisionBounds,
                     boss.TakeSwordHit,
                     boss.TakeBurnHit,
-                    boss.OverlapsLink,
+                    boss.OverlapsLinkAtCollisionHeight,
                     () => boss.Position,
                     boss.Record.DamageQuarters,
                     () => null),
@@ -28,16 +28,16 @@ internal sealed class SwoopBossRoomEntity
                 killableEnemyIndex: 0,
                 completedOutcome: () =>
                     RoomEnemyOutcome.BossTeardown(
-                        killableEnemyIndex: 0)))
+                        killableEnemyIndex: 0)),
+            collisionZ: () => boss.ZFixed >> 8)
     {
         _entryMovement = new BossEntryMovement(entryDirection);
     }
 
-    public bool DisablesSword => Entity.State is
-        SwoopState.WaitingForDoors or
-        SwoopState.IntroFalling or
-        SwoopState.IntroDialogue or
-        SwoopState.FlyingUp;
+    // wDisabledObjects remains set through Swoop's one-time entrance and is
+    // cleared when state 8's first flying-up handoff reaches state $0a. Later
+    // calls to swoop_beginFlyingUp do not write it again.
+    public bool DisablesSword => Entity.IntroActive;
     public bool DisablesItems => DisablesSword;
     public bool DisablesMovement => DisablesSword;
     public bool DisablesMenus => DisablesSword;

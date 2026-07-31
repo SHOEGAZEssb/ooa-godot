@@ -11,7 +11,9 @@ $pumpkinHeadSource = Read-ImportText (
 $dungeonBossSpriteSequences = @{
     0x3f = @($gfxNames[0xad], $gfxNames[0xae])
     0x70 = @($gfxNames[0xad], $gfxNames[0xae])
-    0x71 = @($gfxNames[0xaf])
+    # Swoop's $af header is followed by the chained $b0 header. Grounded OAM
+    # frames use tiles $20-$2c from spr_pound for the expanding impact arcs.
+    0x71 = @($gfxNames[0xaf], $gfxNames[0xb0])
     0x78 = @($gfxNames[0xbc], $gfxNames[0xbd], $gfxNames[0xbe])
     0x79 = @($gfxNames[0xbf], $gfxNames[0xc0], $gfxNames[0xc1])
 }
@@ -43,7 +45,7 @@ foreach ($spec in @(
 if ($dungeonBossRows.Count -ne 6 -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^3f\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t2\t2\t128\t2\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^70\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t10\t10\t1\t12\t' }) -or
-    -not ($dungeonBossRows | Where-Object { $_ -match '^71\t00\tspr_swoop\t0\t2\t1\t10\t10\t2\t20\t' }) -or
+    -not ($dungeonBossRows | Where-Object { $_ -match '^71\t00\tspr_swoop,spr_pound\t0\t2\t1\t10\t10\t2\t20\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^78\t00\tspr_pumpkinhead_1,spr_pumpkinhead_2,spr_pumpkinhead_3\t0\t3\t1\t6\t12\t2\t8\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^79\t00\tspr_headthwomp_1,spr_headthwomp_2,spr_headthwomp_3\t0\t0\t1\t18\t15\t2\t4\t' })) {
     throw "Shared dungeon boss definitions no longer match the traced records:`n$($dungeonBossRows -join "`n")"

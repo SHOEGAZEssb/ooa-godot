@@ -596,7 +596,8 @@ public sealed class RoomEntityManager : IDisposable
         bool collectItemDrops = false,
         Action<SwordAttackerKnockback>? attackerKnockback = null,
         SwordActionState swordState = SwordActionState.Swing,
-        int swordLevel = 1)
+        int swordLevel = 1,
+        int itemZ = -2)
     {
         bool hit = false;
         Vector2 source = sourcePosition ?? hitbox.GetCenter();
@@ -611,6 +612,18 @@ public sealed class RoomEntityManager : IDisposable
             }
             if (entity is ISwordHittableRoomEntity swordHittable)
             {
+                // collisionEffects.s compares Enemy.zh with Item.zh through
+                // the strict $0e/$07 window before testing the planar radii.
+                // ITEM_SWORD and ITEM_PUNCH both follow this ordinary path.
+                int targetZ =
+                    entity is IObjectCollisionHeightRoomEntity height
+                        ? height.CollisionZ
+                        : 0;
+                if (!ObjectCollisionZOverlaps(
+                        targetZ, itemZ, radius: 0x07))
+                {
+                    continue;
+                }
                 if (entity is ILinkSwordStateAwareRoomEntity stateAware)
                     stateAware.SetLinkSwordState(swordState, swordLevel);
                 bool accepted = swordHittable.ApplySwordHit(

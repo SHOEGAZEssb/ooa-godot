@@ -22,6 +22,9 @@ public partial class Player : Node2D
     private const int EnemyKnockbackFrames = 0x0f;
     private const int DeathCollapsedFrames = 0x4c;
     private const int NewGameSlowFallGravity = 0x0c;
+    private const int RoomWarpFallInitialSpeedZ = 0x0020;
+    private const int RoomWarpFallGravity = 0x20;
+    private const int RoomWarpFallCollapsedFrames = 0x1e;
     private static readonly Vector2 DrownSpriteOrigin = new(-8, -4);
     private const int TerrainHazardDamageQuarters = 2;
     private IPlayerWorld _world = null!;
@@ -154,6 +157,7 @@ public partial class Player : Node2D
     private Vector2 _holePullCenter;
     private int _holePullCounter;
     private int _holePullPackedPosition = -1;
+    private bool _fallInHoleWarpPending;
     private SwordActionState _swordState;
     private int _swordStateFrame;
     private int _swordChargeCounter;
@@ -201,6 +205,13 @@ public partial class Player : Node2D
     private int _newGameFallZFixed;
     private int _newGameFallSpeedZ;
     private bool _newGameSlowFalling;
+    private int _roomWarpFallFrame;
+    private int _roomWarpFallFrameTicks;
+    private int _roomWarpFallZFixed;
+    private int _roomWarpFallSpeedZ;
+    private int _roomWarpFallCollapsedCounter;
+    private bool _roomWarpFallActive;
+    private bool _roomWarpFallCollapsed;
     private CutsceneSpriteRenderer? _harpRenderer;
     private IntroSpriteFrame[]? _harpFrames;
     private IntroSpriteFrame[]? _cutsceneHarpFrames;
@@ -252,6 +263,10 @@ public partial class Player : Node2D
                     EnemyKnockbackStrength.Low,
                 _ => EnemyKnockbackStrength.Normal
             };
+    // itemInitializeFromLinkPosition gives ITEM_SWORD and ITEM_PUNCH the
+    // current Link.zh minus two. Ledge hops cancel the weapon parent, while
+    // Roc's Feather and minecart jumps retain their top-down object height.
+    internal int MeleeItemZ => (_topDownAirborne ? TopDownAirZ : 0) - 2;
     internal int SwordArcIndex => IsAttacking ? GetSwordArcIndex() : -1;
     internal bool SwordAllowsMovement =>
         _swordState is SwordActionState.Held or SwordActionState.Charged;
@@ -281,6 +296,9 @@ public partial class Player : Node2D
     internal ulong DamageLinkAtlasPixelHash =>
         OracleGraphicsCache.PixelHash(_damageTexture.GetImage());
     internal bool IsNewGameSlowFalling => _newGameSlowFalling;
+    internal bool IsRoomWarpFalling => _roomWarpFallActive;
+    internal bool RoomWarpFallCollapsed => _roomWarpFallCollapsed;
+    internal int RoomWarpFallZ => _roomWarpFallZFixed >> 8;
     internal bool IsGroundedForFloorButton =>
         _ledgeJumpState == LedgeJumpState.None && !_newGameSlowFalling &&
         !_sideScrollAirborne && !_topDownAirborne &&
@@ -477,6 +495,7 @@ public partial class Player : Node2D
         _deathTexture = BuildDeathTexture();
         _transformedLink = new TransformedLinkDatabase();
         EndNewGameSlowFall();
+        EndRoomWarpFall();
         _precisePosition = spawn;
         _lastSafePosition = spawn;
         Position = OracleObjectMath.ToPixelPosition(spawn);
@@ -510,6 +529,7 @@ public partial class Player : Node2D
             CancelSwordAttack();
         CancelShovelAction();
         EndNewGameSlowFall();
+        EndRoomWarpFall();
         EndHarpPose();
         _drownTime = 0.0f;
         _drownInvisibleTime = 0.0f;
@@ -525,6 +545,7 @@ public partial class Player : Node2D
         _swordCollisionKnockback = false;
         _holePullCounter = 0;
         _holePullPackedPosition = -1;
+        _fallInHoleWarpPending = false;
         _pullingIntoHole = false;
         _drowningHazard = HazardType.None;
         _drowning = false;
@@ -619,6 +640,90 @@ public partial class Player : Node2D
     }
 
     /// <summary>
+    /// Starts TRANSITION_DEST_FALL ($05). Unlike Roc's Feather, the original
+    /// gives Link speedZ=$0020, places him immediately above the gameplay
+    /// field, and owns him through the landing/collapsed sequence.
+    /// </summary>
+    internal void BeginRoomWarpFall(int initialZ)
+    {
+        _newGameFallRenderer ??= new CutsceneSpriteRenderer();
+        _newGameFallFrames ??=
+            new NewGameIntroDatabase().SpriteFrames("link-arrival");
+        if (_newGameFallFrames.Length != 3)
+            throw new InvalidOperationException(
+                "Expected three LINK_ANIM_MODE_FALL frames.");
+
+        EndNewGameSlowFall();
+        _roomWarpFallFrame = 0;
+        _roomWarpFallFrameTicks = _newGameFallFrames[0].Duration;
+        _roomWarpFallZFixed = initialZ << 8;
+        _roomWarpFallSpeedZ = RoomWarpFallInitialSpeedZ;
+        _roomWarpFallCollapsedCounter = 0;
+        _roomWarpFallActive = true;
+        _roomWarpFallCollapsed = false;
+        _facing = Facing.Down;
+        _walking = false;
+        _pushing = false;
+        Visible = true;
+        QueueRedraw();
+    }
+
+    /// <returns>True once the fall and exact 30-update collapsed hold end.</returns>
+    internal bool AdvanceRoomWarpFall()
+    {
+        if (!_roomWarpFallActive || _newGameFallFrames is null)
+            return true;
+
+        if (_roomWarpFallCollapsed)
+        {
+            _roomWarpFallCollapsedCounter--;
+            if (_roomWarpFallCollapsedCounter == 0)
+            {
+                EndRoomWarpFall();
+                return true;
+            }
+            QueueRedraw();
+            return false;
+        }
+
+        // warpTransition5_01 animates before objectUpdateSpeedZ_paramC.
+        _roomWarpFallFrameTicks--;
+        if (_roomWarpFallFrameTicks <= 0)
+        {
+            _roomWarpFallFrame =
+                (_roomWarpFallFrame + 1) % _newGameFallFrames.Length;
+            _roomWarpFallFrameTicks =
+                _newGameFallFrames[_roomWarpFallFrame].Duration;
+        }
+        if (OracleObjectMath.UpdateSpeedZ(
+                ref _roomWarpFallZFixed,
+                ref _roomWarpFallSpeedZ,
+                RoomWarpFallGravity))
+        {
+            // Ages' removed tile read leaves A=$00 after the Z update. The
+            // hazard-table lookup therefore misses and takes @linkCollapsed.
+            _roomWarpFallCollapsed = true;
+            _roomWarpFallCollapsedCounter = RoomWarpFallCollapsedFrames;
+            _world.PlaySound(OracleSoundEngine.SndSplash);
+        }
+
+        QueueRedraw();
+        return false;
+    }
+
+    internal void EndRoomWarpFall()
+    {
+        _roomWarpFallFrame = 0;
+        _roomWarpFallFrameTicks = 0;
+        _roomWarpFallZFixed = 0;
+        _roomWarpFallSpeedZ = 0;
+        _roomWarpFallCollapsedCounter = 0;
+        _roomWarpFallActive = false;
+        _roomWarpFallCollapsed = false;
+        QueueRedraw();
+    }
+
+    /// <summary>
     /// Selects LINK_ANIM_MODE_HARP_2 ($1e). The imported frames include the
     /// first frame entered after the fourth 52-update phrase, which remains
     /// visible until INTERAC_PLAY_HARP_SONG reaches state 6 on the next update.
@@ -688,6 +793,9 @@ public partial class Player : Node2D
     }
 
     internal static int NewGameSlowFallInitialZ(int screenY) =>
+        Math.Max(-0x80, -screenY - 8);
+
+    internal static int RoomWarpFallInitialZ(int screenY) =>
         Math.Max(-0x80, -screenY - 8);
 
     internal static int NewGameSlowFallZForValidation(int screenY, int updates)
@@ -2232,6 +2340,22 @@ public partial class Player : Node2D
                 _deathTexture,
                 new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(_deathAnimationFrame * 16, 0, 16, 16));
+        }
+        else if (_roomWarpFallActive && _roomWarpFallCollapsed)
+        {
+            DrawTextureRectRegion(
+                _deathTexture,
+                new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
+                new Rect2(4 * 16, 0, 16, 16));
+        }
+        else if (_roomWarpFallActive &&
+            _newGameFallRenderer is not null &&
+            _newGameFallFrames is not null)
+        {
+            _newGameFallRenderer.DrawRelativeFrame(
+                this,
+                _newGameFallFrames[_roomWarpFallFrame],
+                _roomWarpFallZFixed >> 8);
         }
         else if (_newGameSlowFalling &&
             _newGameFallRenderer is not null && _newGameFallFrames is not null)
@@ -4081,6 +4205,7 @@ public partial class Player : Node2D
         _holePullPackedPosition = -1;
         _fallingInHole = true;
         _fallInHoleRespawning = false;
+        _fallInHoleWarpPending = false;
         _fallInHoleTime = 0.0f;
         _fallInHoleInvisibleTime = FallInHoleInvisibleDuration;
         _walking = false;
@@ -4182,11 +4307,29 @@ public partial class Player : Node2D
 
     private void UpdateFallInHole(float delta)
     {
+        if (_fallInHoleWarpPending)
+            return;
+
         if (!_fallInHoleRespawning)
         {
             _fallInHoleTime += delta;
             if (_fallInHoleTime >= FallInHoleAnimationDuration)
             {
+                ActiveTerrainInfo activeTerrain =
+                    _world.GetActiveTerrain(Position);
+                if (activeTerrain.Terrain.Type == TerrainType.WarpHole)
+                {
+                    // LINK_STATE_RESPAWNING tests wActiveTileType after the
+                    // animation marker. TILETYPE_WARPHOLE starts the shared
+                    // dungeon-floor warp immediately; only ordinary holes
+                    // enter the invisible two-update respawn branch.
+                    _fallInHoleWarpPending = true;
+                    _world.BeginFallDownHoleWarp(
+                        this,
+                        activeTerrain.PackedPosition);
+                    QueueRedraw();
+                    return;
+                }
                 _fallInHoleRespawning = true;
                 _fallInHoleInvisibleTime = FallInHoleInvisibleDuration;
                 Visible = false;

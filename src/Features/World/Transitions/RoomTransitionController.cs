@@ -75,6 +75,7 @@ public sealed class RoomTransitionController
     private Vector2 _warpWalkStart;
     private Vector2 _warpWalkEnd;
     private bool _destinationWalk;
+    private bool _destinationFall;
     private bool _timeWarp;
     private int _timeWarpPhaseFrame;
     private int _timeWarpGlobalFrame;
@@ -114,6 +115,7 @@ public sealed class RoomTransitionController
     internal TimeWarpEffect? ActiveTimeWarpEffect => _timeWarpEffect;
     internal bool RoomLoadColumnRevealActive => _roomLoadColumnReveal;
     internal int RoomLoadRevealLoadedColumns => _roomLoadRevealLoadedColumns;
+    internal bool DestinationFallActive => _destinationFall;
     internal static (int Even, int Odd) TimeWarpDissolveMaskForValidation(int step) =>
         TimeWarpDissolveMasks[step];
 
@@ -182,14 +184,60 @@ public sealed class RoomTransitionController
             ClearDeactivatedWarp();
 
         byte tile = room.GetMetatile(standingPoint);
+        bool dungeonStairFallback = false;
         if (!_warps.TryGetTileWarp(
-                _rooms.ActiveGroup, room.Id, position, tile, out Warp warp) ||
-            !LinkWithinTileWarpBounds(
+                _rooms.ActiveGroup, room.Id, position, tile, out Warp warp))
+        {
+            if (!TryGetDungeonStairFallback(position, tile, out warp))
+                return false;
+            dungeonStairFallback = true;
+        }
+        if (!LinkWithinTileWarpBounds(
                 room, _rooms.ActiveGroup, position, linkPosition))
         {
             return false;
         }
+        if (dungeonStairFallback)
+            _sound.PlaySound(OracleSoundEngine.SndEnterCave);
         ApplyWarp(player, warp);
+        return true;
+    }
+
+    /// <summary>
+    /// findWarpSourceAndDest's Ages-only no-source branch treats an even
+    /// staircase metatile as one floor up and an odd metatile as one floor
+    /// down, retaining Link's packed position and using destination transition
+    /// $00 after the ordinary white fade.
+    /// </summary>
+    private bool TryGetDungeonStairFallback(
+        int packedPosition,
+        byte tile,
+        out Warp warp)
+    {
+        int dungeon = _rooms.CurrentDungeonIndex;
+        if (dungeon < 0 ||
+            !WarpDatabase.IsWarpTile(_rooms.ActiveGroup, tile))
+        {
+            warp = default;
+            return false;
+        }
+
+        int floorDelta = (tile & 0x01) == 0 ? 1 : -1;
+        DungeonCell destination = _rooms.DungeonMaps.DungeonStairDestination(
+            dungeon,
+            _rooms.CurrentRoom.Id,
+            floorDelta);
+        warp = new Warp(
+            _rooms.ActiveGroup,
+            _rooms.CurrentRoom.Id,
+            packedPosition,
+            EdgeMask: 0,
+            SourceTransition: 2,
+            DestinationGroup: _rooms.ActiveGroup,
+            DestinationRoom: destination.Room,
+            DestinationPosition: packedPosition,
+            DestinationParameter: 0,
+            DestinationTransition: 0);
         return true;
     }
 
@@ -523,6 +571,45 @@ public sealed class RoomTransitionController
         BeginWarp(player, warp, true);
     }
 
+    /// <summary>
+    /// Ports initiateFallDownHoleWarp: decrement the active dungeon floor,
+    /// retain Link's packed position, fade through cutscene $03, and arrive
+    /// with TRANSITION_DEST_FALL ($05).
+    /// </summary>
+    public void ApplyDungeonHoleWarp(Player player, int packedPosition)
+    {
+        if (_warpActive)
+        {
+            throw new InvalidOperationException(
+                "A dungeon warphole descent cannot start during another transition.");
+        }
+        int dungeon = _rooms.CurrentDungeonIndex;
+        if (dungeon < 0)
+        {
+            throw new InvalidOperationException(
+                $"TILETYPE_WARPHOLE in room {_rooms.ActiveGroup:x1}:" +
+                $"{_rooms.CurrentRoom.Id:x2} cannot resolve a dungeon floor.");
+        }
+
+        DungeonCell destination = _rooms.DungeonMaps.DungeonHoleDestination(
+            dungeon,
+            _rooms.CurrentRoom.Id);
+        BeginWarp(
+            player,
+            new Warp(
+                _rooms.ActiveGroup,
+                _rooms.CurrentRoom.Id,
+                packedPosition,
+                EdgeMask: 0,
+                SourceTransition: 2,
+                DestinationGroup: _rooms.ActiveGroup,
+                DestinationRoom: destination.Room,
+                DestinationPosition: packedPosition,
+                DestinationParameter: 0,
+                DestinationTransition: 5),
+            delayedFadeOut: false);
+    }
+
     public void ApplyTimePortalWarp(Player player, Vector2 portalPosition)
     {
         BeginTimePortalWarp(
@@ -611,6 +698,7 @@ public sealed class RoomTransitionController
         _roomLoadColumnReveal =
             !delayedFadeOut && UsesRoomLoadColumnReveal(warp);
         _destinationWalk = false;
+        _destinationFall = false;
         player.BeginRoomWarpTransition();
         if (delayedFadeOut)
         {
@@ -680,6 +768,8 @@ public sealed class RoomTransitionController
                 }
                 break;
             case WarpPhase.FadeIn:
+                bool destinationReady =
+                    !_destinationFall || _player.AdvanceRoomWarpFall();
                 if (_destinationWalk)
                 {
                     float enterFrame = Mathf.Min(_warpFrame, WarpEnterFrames);
@@ -687,7 +777,7 @@ public sealed class RoomTransitionController
                         _warpWalkStart.Lerp(_warpWalkEnd, enterFrame / WarpEnterFrames), delta);
                 }
                 SetFade(1.0f - _warpFrame / WarpFadeFrames);
-                if (_warpFrame >= WarpFadeFrames)
+                if (_warpFrame >= WarpFadeFrames && destinationReady)
                     FinishWarp();
                 break;
             case WarpPhase.RoomLoadColumnReveal:
@@ -963,6 +1053,22 @@ public sealed class RoomTransitionController
             }
             ClearDeactivatedWarp();
         }
+        else if (warp.DestinationTransition == 5)
+        {
+            int tileX = warp.DestinationPosition & 0x0f;
+            int tileY = (warp.DestinationPosition >> 4) & 0x0f;
+            Vector2 shortPosition = new(
+                tileX * OracleRoomData.MetatileSize + 8,
+                tileY * OracleRoomData.MetatileSize + 8);
+            int screenY = Mathf.FloorToInt(
+                shortPosition.Y - GetCameraOrigin(room, shortPosition).Y);
+            spawn = shortPosition + new Vector2(0, -4);
+            _destinationFall = true;
+            ClearDeactivatedWarp();
+            _player.WarpTo(spawn);
+            _player.BeginRoomWarpFall(
+                Player.RoomWarpFallInitialZ(screenY));
+        }
         else
         {
             int tileX = warp.DestinationPosition & 0x0f;
@@ -1084,6 +1190,7 @@ public sealed class RoomTransitionController
             }
         }
         _destinationWalk = false;
+        _destinationFall = false;
         _timeWarp = false;
         _createTimePortalAtDestination = false;
         _warpActive = false;

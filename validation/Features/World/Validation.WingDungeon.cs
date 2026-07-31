@@ -362,6 +362,84 @@ public sealed partial class ValidationRoot
             }
         }
 
+        // findWarpSourceAndDest deliberately has no explicit group-4 source
+        // for room $35. Its Ages-only dungeon fallback keeps map position
+        // (2,1), changes floor 1 -> 0 for odd staircase tile $45, and reaches
+        // room $2d at the same packed position. Even tile $44 reverses it.
+        DungeonCell lowerStairRoom =
+            _rooms.DungeonMaps.DungeonStairDestination(2, 0x35, -1);
+        DungeonCell upperStairRoom =
+            _rooms.DungeonMaps.DungeonStairDestination(2, 0x2d, 1);
+        FailIf(
+            lowerStairRoom is not
+                { Floor: 0, X: 2, Y: 1, Room: 0x2d } ||
+            upperStairRoom is not
+                { Floor: 1, X: 2, Y: 1, Room: 0x35 },
+            "Dungeon 02's imported floor layouts lost the shared 4:35/4:2d " +
+            "staircase map position (2,1).");
+
+        Vector2[] dungeonStairs =
+        [
+            new(0x38, 0x28), // packed $23
+            new(0x38, 0x78)  // packed $73
+        ];
+        for (int stairIndex = 0;
+             stairIndex < dungeonStairs.Length;
+             stairIndex++)
+        {
+            Vector2 stair = dungeonStairs[stairIndex];
+            int packed = stairIndex == 0 ? 0x23 : 0x73;
+            PrepareRoom(0x35);
+            FailIf(
+                _currentRoom.GetMetatile(stair) != 0x45,
+                $"Room 4:35/${packed:x2} is not source down-stair tile $45.");
+            _player.WarpTo(stair, recordSafe: false);
+            int enterCaveSounds =
+                _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave);
+            FailIf(
+                !_transitions.CheckTileWarp(_player) ||
+                !IsTransitioning ||
+                _activeGroup != 4 || _currentRoom.Id != 0x35,
+                $"Room 4:35/${packed:x2} did not start its unlisted dungeon " +
+                "staircase fade to floor 0.");
+            CompleteTransition();
+            FailIf(
+                _activeGroup != 4 || _currentRoom.Id != 0x2d ||
+                _currentRoom.GetMetatile(stair) != 0x44 ||
+                _currentRoom.GetPackedPosition(_player.Position) != packed ||
+                _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) !=
+                    enterCaveSounds + 1,
+                $"Room 4:35/${packed:x2} did not arrive on matching " +
+                $"4:2d/${packed:x2} tile $44 with one SND_ENTERCAVE.");
+
+            if (stairIndex != 0)
+                continue;
+
+            FailIf(
+                _transitions.CheckTileWarp(_player),
+                "Room 4:2d/$23 immediately bounced Link back through the " +
+                "deactivated destination staircase.");
+            _player.WarpTo(new Vector2(0x58, 0x48), recordSafe: false);
+            FailIf(
+                _transitions.CheckTileWarp(_player),
+                "Room 4:2d's ordinary floor unexpectedly activated a warp.");
+            _player.WarpTo(stair, recordSafe: false);
+            enterCaveSounds =
+                _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave);
+            FailIf(
+                !_transitions.CheckTileWarp(_player),
+                "Room 4:2d/$23 tile $44 did not reverse the dungeon-floor " +
+                "fallback to room 4:35.");
+            CompleteTransition();
+            FailIf(
+                _activeGroup != 4 || _currentRoom.Id != 0x35 ||
+                _currentRoom.GetPackedPosition(_player.Position) != 0x23 ||
+                _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) !=
+                    enterCaveSounds + 1,
+                "Room 4:2d/$23 did not return Link to matching 4:35/$23 " +
+                "with one SND_ENTERCAVE.");
+        }
+
         // INTERAC_MINECART waits for four centered push updates, then gives
         // Link the source SPEED_80/-$01c0 jump. SPECIALOBJECT_MINECART owns
         // Link's screen-transition coordinate, persists as one object across
@@ -1460,6 +1538,289 @@ public sealed partial class ValidationRoot
             "Swoop did not begin the miniboss and restore Link after its " +
             "three 48-update flaps.");
 
+        // At @beginStomp Swoop sets collisionType bit 7 while still airborne.
+        // collisionEffects.s must reject Link through the signed $0e/$07 Z
+        // window before applying the imported $0a/$0a boss radii against
+        // Link's $06/$06 radii.
+        FailIf(
+            swoop.Record is not
+                { RadiusY: 0x0a, RadiusX: 0x0a,
+                  DamageQuarters: 2 },
+            "Swoop $71 lost its imported $0a/$0a collision radii or " +
+            "half-heart contact damage.");
+        // Keep the target off the dormant miniboss portal at $57; touching
+        // that interaction deliberately transfers Link to cutscene control.
+        Vector2 swoopBreakTarget = new(0x68, 0x58);
+        FailIf(
+            _currentRoom.GetTerrainInfo(swoopBreakTarget) is not
+                { Tile: 0xa0, Collision: 0x00 },
+            "Room 4:34/$56 lost the breakable interior floor under Swoop.");
+        for (int frame = 0;
+             frame < 360 && swoop.State == SwoopState.Flying;
+             frame++)
+        {
+            _player.WarpTo(swoopBreakTarget, recordSafe: false);
+            Step();
+        }
+        FailIf(
+            swoop.State != SwoopState.Telegraph,
+            "Swoop $71 did not enter its stomp telegraph within 360 updates.");
+
+        _player.RefillHealth();
+        int swoopContactHealth = _player.HealthQuarters;
+        int swoopDamageSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink);
+        for (int frame = 0;
+             frame < 40 && swoop.State == SwoopState.Telegraph;
+             frame++)
+        {
+            _player.WarpTo(swoopBreakTarget, recordSafe: false);
+            Step();
+        }
+        int swoopAttackStartZ = swoop.ZFixed >> 8;
+        int swoopHealthBeforeHighSword = swoop.Health;
+        int swoopBossDamageSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage);
+        bool highSwordAccepted = _entities.ApplySwordHit(
+            swoop.CollisionBounds.Grow(1),
+            _player.Position,
+            damage: 2);
+        FailIf(
+            swoop.State != SwoopState.Stomping ||
+            swoopAttackStartZ > -8 ||
+            swoop.OverlapsLinkAtCollisionHeight(swoop.Position) ||
+            _player.MeleeItemZ != -2 ||
+            RoomEntityManager.ObjectCollisionZOverlaps(
+                swoopAttackStartZ, _player.MeleeItemZ, radius: 0x07) ||
+            highSwordAccepted ||
+            swoop.Health != swoopHealthBeforeHighSword ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage) !=
+                swoopBossDamageSounds ||
+            _player.HealthQuarters != swoopContactHealth ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) !=
+                swoopDamageSounds,
+            "Swoop $71 accepted Link or held-sword contact from its 2D stomp " +
+            "box before Enemy.zh entered the source $0e/$07 window " +
+            $"(zh={swoopAttackStartZ}, sword zh={_player.MeleeItemZ}).");
+
+        int firstContactZ = int.MinValue;
+        for (int frame = 0;
+             frame < 90 && swoop.State == SwoopState.Stomping &&
+             firstContactZ == int.MinValue;
+             frame++)
+        {
+            _player.WarpTo(swoop.Position, recordSafe: false);
+            Step();
+            int z = swoop.ZFixed >> 8;
+            if (_player.HealthQuarters == swoopContactHealth)
+            {
+                FailIf(
+                    z >= -7 &&
+                    swoop.OverlapsLinkAtCollisionHeight(_player.Position),
+                    "Swoop $71 failed to damage overlapping Link after " +
+                    $"entering the source Z window at zh={z}.");
+                continue;
+            }
+            firstContactZ = z;
+        }
+        FailIf(
+            firstContactZ < -7 ||
+            _player.HealthQuarters != swoopContactHealth - 2 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) !=
+                swoopDamageSounds + 1 ||
+            !swoop.OverlapsLinkAtCollisionHeight(
+                swoop.Position + new Vector2(15, 15)) ||
+            swoop.OverlapsLinkAtCollisionHeight(
+                swoop.Position + new Vector2(16, 0)) ||
+            swoop.OverlapsLinkAtCollisionHeight(
+                swoop.Position + new Vector2(0, 16)),
+            "Swoop $71 did not apply one half-heart hit inside the signed " +
+            "$07 Z window and strict combined 16-pixel X/Y boundary " +
+            $"(first contact zh={firstContactZ}).");
+
+        // The $af object-GFX header chains $b0. Animation 2 remains frozen on
+        // OAM frame $06 during descent; the first grounded animate call moves
+        // to frame $08, whose extra tile-$20 cells come from spr_pound. With
+        // the secondary sheet missing, that crush-impact frame is pixel-
+        // identical to the body-only frame even though its timing advances.
+        FailIf(
+            !swoop.Record.Sprites.SequenceEqual(
+                new[] { "spr_swoop", "spr_pound" }) ||
+            swoop.AnimationFrame != 0,
+            "Swoop $71 did not retain the chained $af/$b0 sprite closure or " +
+            "frozen animation-2 descent frame.");
+        ulong fallingBodyHash = OracleGraphicsCache.PixelHash(
+            swoop.CurrentAnimationTexture.GetImage());
+        int stompImpactSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose);
+        _player.WarpTo(new Vector2(16, 16), recordSafe: false);
+        for (int frame = 0;
+             frame < 90 && swoop.State == SwoopState.Stomping;
+             frame++)
+        {
+            Step();
+        }
+        ulong groundedBodyHash = OracleGraphicsCache.PixelHash(
+            swoop.CurrentAnimationTexture.GetImage());
+        FailIf(
+            swoop.State != SwoopState.Grounded ||
+            swoop.AnimationFrame != 0 ||
+            groundedBodyHash != fallingBodyHash ||
+            _entities.ScreenShakeCounter != 0x2f ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) !=
+                stompImpactSounds + 1,
+            "Swoop $71 did not land on its unchanged body frame with the " +
+            "source 48-update shake and one SND_DOORCLOSE.");
+        Step();
+        ulong poundImpactHash = OracleGraphicsCache.PixelHash(
+            swoop.CurrentAnimationTexture.GetImage());
+        FailIf(
+            swoop.State != SwoopState.Grounded ||
+            swoop.AnimationFrame != 1 ||
+            poundImpactHash == groundedBodyHash ||
+            _entities.ScreenShakeCounter != 0x2e,
+            "Swoop $71's first grounded update did not render the spr_pound " +
+            "crush-impact arcs while continuing the exact screen shake.");
+
+        int swoopHealthBeforeLowSword = swoop.Health;
+        bool lowSwordAccepted = _entities.ApplySwordHit(
+            swoop.CollisionBounds.Grow(1),
+            _player.Position,
+            damage: 2);
+        FailIf(
+            !RoomEntityManager.ObjectCollisionZOverlaps(
+                swoop.ZFixed >> 8, _player.MeleeItemZ, radius: 0x07) ||
+            !lowSwordAccepted ||
+            swoop.Health != swoopHealthBeforeLowSword - 2 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage) !=
+                swoopBossDamageSounds + 1,
+            "Swoop $71 did not accept the held sword after Enemy.zh entered " +
+            "the source item-height window.");
+
+        // state 8 clears wDisabledObjects only after the introductory ascent.
+        // Later grounded hits call swoop_beginFlyingUp directly from state $0b
+        // and never disable Link again. Let LINKDMG_04's independent 15-update
+        // recoil expire, then prove the Swoop-owned movement restriction stays
+        // clear while the boss is making that post-stomp ascent.
+        Step();
+        FailIf(
+            swoop.State != SwoopState.FlyingUp ||
+            swoop.IntroActive ||
+            _entities.PlayerSwordDisabled ||
+            _entities.PlayerItemUsageDisabled ||
+            _entities.PlayerMovementDisabled ||
+            _entities.PlayerMenusDisabled,
+            "Swoop $71 incorrectly reapplied its one-time intro lock during " +
+            "the post-stomp flying-up phase.");
+        for (int frame = 0; frame < 0x0f; frame++)
+            _player._PhysicsProcess(1.0 / 60.0);
+        FailIf(
+            _player.KnockbackFrames != 0 ||
+            _entities.PlayerMovementDisabled ||
+            swoop.State != SwoopState.FlyingUp,
+            "LINKDMG_04's 15-update recoil or Swoop's post-stomp ascent " +
+            "continued to restrict Link after the source counter expired " +
+            $"(knockback={_player.KnockbackFrames}, " +
+            $"movementDisabled={_entities.PlayerMovementDisabled}, " +
+            $"state={swoop.State}).");
+
+        // LINK_STATE_RESPAWNING distinguishes Swoop's tile-$48
+        // TILETYPE_WARPHOLE from an ordinary damaging hole. At the animation
+        // marker, initiateFallDownHoleWarp decrements dungeon floor 1 -> 0,
+        // keeps the same dungeon-map cell and packed Link position, and uses
+        // TRANSITION_DEST_FALL ($05). In Ages that arrival always takes the
+        // removed-tile-read bug's collapsed path for exactly 30 updates.
+        DungeonCell swoopHoleDestination =
+            _rooms.DungeonMaps.DungeonHoleDestination(2, 0x34);
+        FailIf(
+            swoopHoleDestination is not
+                { Floor: 0, X: 1, Y: 1, Room: 0x2c },
+            "Dungeon 02 lost Swoop room 4:34's same-cell floor descent to " +
+            "room 4:2c.");
+        var swoopHoles = new List<(Vector2 Center, int Packed)>();
+        for (int tileY = 0; tileY < _currentRoom.HeightInTiles; tileY++)
+        for (int tileX = 0; tileX < _currentRoom.WidthInTiles; tileX++)
+        {
+            Vector2 center = new(tileX * 16 + 8, tileY * 16 + 8);
+            if (_currentRoom.GetTerrainInfo(center).Type == TerrainType.WarpHole)
+                swoopHoles.Add((center, (tileY << 4) | tileX));
+        }
+        FailIf(
+            swoopHoles.Count == 0,
+            "Swoop's validated stomp did not leave a tile-$48 warphole.");
+
+        (Vector2 holeCenter, int holePacked) = swoopHoles[0];
+        int healthBeforeHoleDescent = _player.HealthQuarters;
+        int linkFallSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall);
+        int landingSplashSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash);
+        _player.WarpTo(holeCenter, recordSafe: false);
+        _player.EndCutsceneControl();
+        ActiveTerrainInfo activeSwoopHole =
+            _playerWorld.GetActiveTerrain(_player.Position);
+        FailIf(
+            activeSwoopHole.Terrain is not
+                { Tile: 0x48, Type: TerrainType.WarpHole,
+                  Hazard: HazardType.Hole } ||
+            activeSwoopHole.PackedPosition != holePacked,
+            $"Swoop warphole ${holePacked:x2} did not reach Link's active " +
+            "TILETYPE_WARPHOLE terrain probe.");
+        _player.TriggerHazard(activeSwoopHole);
+        for (int frame = 0;
+             frame < 120 && !_transitions.IsTransitioning;
+             frame++)
+        {
+            _player.AdvanceApplicationUpdate();
+        }
+        FailIf(
+            !_transitions.IsTransitioning ||
+            _currentRoom.Id != 0x34 ||
+            !_player.IsFallingInHole ||
+            !_player.Visible ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall) !=
+                linkFallSounds + 1,
+            $"Swoop warphole ${holePacked:x2} did not finish the source " +
+            "fall animation and begin its visible dungeon-floor fade " +
+            $"(transition={_transitions.IsTransitioning}, room=" +
+            $"{_currentRoom.Id:x2}, pulling={_player.IsPullingIntoHole}, " +
+            $"falling={_player.IsFallingInHole}, visible={_player.Visible}, " +
+            $"riding={_entities.PlayerRidingObject}, " +
+            $"cutscene={_player.CutsceneControlled}, dying={_player.IsDying}, " +
+            $"fallSounds={_sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall) - linkFallSounds}).");
+
+        bool sawDestinationFall = false;
+        bool sawNegativeFallZ = false;
+        int collapsedUpdates = 0;
+        for (int frame = 0;
+             frame < 180 && _transitions.IsTransitioning;
+             frame++)
+        {
+            _transitions.Update(update);
+            if (!_player.IsRoomWarpFalling)
+                continue;
+            sawDestinationFall = true;
+            sawNegativeFallZ |= _player.RoomWarpFallZ < 0;
+            if (_player.RoomWarpFallCollapsed)
+                collapsedUpdates++;
+        }
+        Vector2 expectedHoleLanding =
+            holeCenter + new Vector2(0, -4);
+        FailIf(
+            _transitions.IsTransitioning ||
+            _activeGroup != 4 || _currentRoom.Id != 0x2c ||
+            _currentRoom.GetPackedPosition(_player.Position) != holePacked ||
+            _player.Position != expectedHoleLanding ||
+            _player.HealthQuarters != healthBeforeHoleDescent ||
+            _player.IsFallingInHole || _player.IsRoomWarpFalling ||
+            !sawDestinationFall || !sawNegativeFallZ ||
+            collapsedUpdates != 0x1e ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) !=
+                landingSplashSounds + 1,
+            $"Swoop warphole ${holePacked:x2} did not land Link without " +
+            "damage in matching room 4:2c after TRANSITION_DEST_FALL " +
+            $"(position={_player.Position}, collapsed={collapsedUpdates}).");
+
         RestoreFlags();
         _dialogue.Close();
         _player.EndCutsceneControl();
@@ -1472,8 +1833,9 @@ public sealed partial class ValidationRoot
             "six chests, Roc's Feather top-down arc, ordered Sparks/Whisps/" +
             "Thwomps/Peahats/Shrouded Stalfos/color Gels, toggle/color/cube " +
             "puzzles, side platforms, circular platforms, persistent " +
-            "minecarts and gates, Head Thwomp, Swoop/TX_2f00, Heart Container, " +
-            "Ancient Wood, and the second-Essence exit route.");
+            "minecarts and gates, 4:35/4:2d dungeon-floor stairs, Head Thwomp, " +
+            "Swoop/TX_2f00 floor-hole descent, Heart Container, Ancient Wood, and the " +
+            "second-Essence exit route.");
 
         static float Fraction(float value) =>
             value - Mathf.Floor(value);

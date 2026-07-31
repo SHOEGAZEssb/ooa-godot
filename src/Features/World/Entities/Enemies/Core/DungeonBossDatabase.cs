@@ -115,7 +115,7 @@ internal sealed class DungeonBossDatabase
                 { Health: 2, DamageQuarters: 128, Sprites.Length: 2 } ||
             Enemy(0x70) is not
                 { Health: 12, DamageQuarters: 1, Sprites.Length: 2 } ||
-            Enemy(0x71).Sprites.Length != 1 ||
+            Enemy(0x71).Sprites is not ["spr_swoop", "spr_pound"] ||
             Enemy(0x78) is not { Health: 8, Sprites.Length: 3 } ||
             Enemy(0x79).Sprites.Length != 3 ||
             _constants.Count != 2 ||

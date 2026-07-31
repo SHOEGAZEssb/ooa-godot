@@ -1,4 +1,5 @@
 using Godot;
+using System;
 
 namespace oracleofages;
 
@@ -64,6 +65,9 @@ public interface IPlayerWorld
     void BeginLedgeScreenTransition(Player player);
     void ResumeLedgeHopAfterScroll(Player player);
     void SpawnDrowningSplash(Vector2 position, HazardType hazard);
+    void BeginFallDownHoleWarp(Player player, int packedPosition) =>
+        throw new NotSupportedException(
+            "This player world does not support dungeon warphole descents.");
     bool CheckTileWarp(Player player);
     void CheckRoomExit(Player player);
 }

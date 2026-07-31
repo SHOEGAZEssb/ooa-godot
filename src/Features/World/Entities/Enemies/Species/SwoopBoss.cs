@@ -31,6 +31,7 @@ internal sealed partial class SwoopBoss : EnemyCharacter
     private int _speedZ;
     private Vector2 _stompTarget;
     private bool _introStarted;
+    private bool _introActive = true;
     private bool _acceptedGroundHit;
     private bool _dying;
     private int _deathCounter;
@@ -39,6 +40,7 @@ internal sealed partial class SwoopBoss : EnemyCharacter
     internal SwoopState State => _state;
     internal int Counter => _counter;
     internal int ZFixed => _zFixed;
+    internal bool IntroActive => _introActive;
     internal bool Defeated => _dying || IsDead;
     protected override Vector2 AnimationDrawOffset => new(-16, -16);
     internal override bool CollisionEnabled =>
@@ -46,6 +48,19 @@ internal sealed partial class SwoopBoss : EnemyCharacter
         _state is SwoopState.Stomping or
             SwoopState.Grounded or
             SwoopState.Bouncing;
+
+    /// <summary>
+    /// collisionEffects.s compares Enemy.zh with Link.zh through the strict
+    /// $0e/$07 window before applying the ordinary X/Y radii. Swoop enables
+    /// collision for the complete stomp descent, so omitting this height test
+    /// makes the airborne shadow-sized box damage Link too early.
+    /// </summary>
+    internal bool OverlapsLinkAtCollisionHeight(Vector2 linkPosition) =>
+        RoomEntityManager.ObjectCollisionZOverlaps(
+            _zFixed >> 8,
+            itemZ: 0,
+            radius: 0x07) &&
+        OverlapsLink(linkPosition);
 
     internal void Initialize(
         ImportedEnemyDefinition record,
@@ -245,7 +260,11 @@ internal sealed partial class SwoopBoss : EnemyCharacter
         _angle = OracleObjectMovement.Shared.RelativeAngle(
             Position, player.Position);
         SetAnimation(0);
-        _enableLink();
+        if (_introActive)
+        {
+            _introActive = false;
+            _enableLink();
+        }
     }
 
     private void UpdateFlying(Player player)
