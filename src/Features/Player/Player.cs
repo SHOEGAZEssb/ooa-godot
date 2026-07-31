@@ -267,6 +267,12 @@ public partial class Player : Node2D
     // current Link.zh minus two. Ledge hops cancel the weapon parent, while
     // Roc's Feather and minecart jumps retain their top-down object height.
     internal int MeleeItemZ => (_topDownAirborne ? TopDownAirZ : 0) - 2;
+    internal bool UsesAirborneSwordPose =>
+        IsAttacking && (_sideScrollAirborne || _topDownAirborne);
+    internal Vector2 SwordDrawOffset =>
+        new(0, _topDownAirborne ? TopDownAirZ : 0);
+    internal Vector2 ActiveSwordSpritePosition =>
+        SwordSpritePosition + SwordDrawOffset;
     internal int SwordArcIndex => IsAttacking ? GetSwordArcIndex() : -1;
     internal bool SwordAllowsMovement =>
         _swordState is SwordActionState.Held or SwordActionState.Charged;
@@ -2397,6 +2403,10 @@ public partial class Player : Node2D
                     : _sideScrollSquishXTexture,
                 new Vector2(-16, -16));
         }
+        else if (UsesAirborneSwordPose)
+        {
+            DrawSwordPose();
+        }
         else if (_sideScrollAirborne)
         {
             DrawTextureRectRegion(
@@ -2497,43 +2507,7 @@ public partial class Player : Node2D
         }
         else if (IsAttacking)
         {
-            // The weapon item occupies an earlier visual layer than Link, so
-            // Link's body masks the sword where their sprites overlap.
-            DrawSword();
-            int heldBodyFrame = GetHeldSwordBodyAnimationFrame();
-            if (_minecartRideControlled &&
-                _swordState == SwordActionState.Swing)
-            {
-                // parentItemLoadAnimationAndIncState changes the Sword's Link
-                // animation from mode $22 to $26 while the main object is the
-                // minecart. Unlike ordinary phase 2, all four cart-swing body
-                // frames retain the standard Link origin.
-                int phase = GetSwordPosePhase();
-                DrawTextureRectRegion(
-                    DamagePaletteActive
-                        ? _damageMinecartAttackTexture
-                        : _minecartAttackTexture,
-                    new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
-                    new Rect2(
-                        phase * 16, (int)_facing * 16, 16, 16));
-            }
-            else if (heldBodyFrame >= 0)
-            {
-                DrawTextureRectRegion(
-                    DamagePaletteActive ? _damageTexture : _texture,
-                    new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
-                    GetFrame(_facing, heldBodyFrame));
-            }
-            else
-            {
-                Facing poseFacing = GetSwordPoseFacing();
-                int phase = GetSwordPosePhase();
-                int texturePhase = _swordState == SwordActionState.Spin || phase == 3 ? 1 : phase;
-                DrawTextureRectRegion(
-                    DamagePaletteActive ? _damageAttackTexture : _attackTexture,
-                    new Rect2(AttackSpriteOrigin, new Vector2(16, 16)),
-                    new Rect2(texturePhase * 16, (int)poseFacing * 16, 16, 16));
-            }
+            DrawSwordPose();
         }
         else if (IsUsingShovel)
         {
@@ -5009,6 +4983,62 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
+    private void DrawSwordPose()
+    {
+        Vector2 drawOffset = SwordDrawOffset;
+
+        // The weapon item occupies an earlier visual layer than Link, so
+        // Link's body masks the sword where their sprites overlap.
+        DrawSword();
+        int heldBodyFrame = GetHeldSwordBodyAnimationFrame();
+        if (_minecartRideControlled &&
+            _swordState == SwordActionState.Swing)
+        {
+            // parentItemLoadAnimationAndIncState changes the Sword's Link
+            // animation from mode $22 to $26 while the main object is the
+            // minecart. Unlike ordinary phase 2, all four cart-swing body
+            // frames retain the standard Link origin.
+            int phase = GetSwordPosePhase();
+            DrawTextureRectRegion(
+                DamagePaletteActive
+                    ? _damageMinecartAttackTexture
+                    : _minecartAttackTexture,
+                new Rect2(
+                    NormalSpriteOrigin + drawOffset,
+                    new Vector2(16, 16)),
+                new Rect2(
+                    phase * 16, (int)_facing * 16, 16, 16));
+        }
+        else if (heldBodyFrame >= 0)
+        {
+            DrawTextureRectRegion(
+                DamagePaletteActive ? _damageTexture : _texture,
+                new Rect2(
+                    NormalSpriteOrigin + drawOffset,
+                    new Vector2(16, 16)),
+                GetFrame(_facing, heldBodyFrame));
+        }
+        else
+        {
+            Facing poseFacing = GetSwordPoseFacing();
+            int phase = GetSwordPosePhase();
+            int texturePhase =
+                _swordState == SwordActionState.Spin || phase == 3
+                    ? 1
+                    : phase;
+            DrawTextureRectRegion(
+                DamagePaletteActive ? _damageAttackTexture : _attackTexture,
+                new Rect2(
+                    AttackSpriteOrigin + drawOffset,
+                    new Vector2(16, 16)),
+                new Rect2(
+                    texturePhase * 16,
+                    (int)poseFacing * 16,
+                    16,
+                    16));
+        }
+    }
+
     private void DrawSword()
     {
         int animation = _swordState == SwordActionState.Spin
@@ -5018,7 +5048,9 @@ public partial class Player : Node2D
                 GetSwordPosePhase());
         DrawTextureRectRegion(
             SwordUsesChargedPalette ? _chargedSwordTexture : _swordTexture,
-            new Rect2(SwordSpritePosition - new Vector2(16, 16), new Vector2(32, 32)),
+            new Rect2(
+                ActiveSwordSpritePosition - new Vector2(16, 16),
+                new Vector2(32, 32)),
             new Rect2(animation * 32, 0, 32, 32));
     }
 

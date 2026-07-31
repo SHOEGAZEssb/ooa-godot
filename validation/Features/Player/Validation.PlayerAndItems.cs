@@ -2149,6 +2149,66 @@ public sealed partial class ValidationRoot
             "and all 24 swordArcData hitboxes.");
     }
 
+    private void ValidateAirborneSwordRendering()
+    {
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var inventory = new InventoryState(_treasures, save);
+        inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
+        var world = new ValidationRingPlayerWorld();
+        var player = new Player { Name = "AirborneSwordValidationPlayer" };
+        AddChild(player);
+        player.Initialize(
+            world,
+            inventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+        player.Face(Vector2I.Up);
+        player.StartSwordAttack();
+        player.AdvanceSwordForValidation(17, buttonHeld: true);
+        FailIf(
+            player.SwordState != SwordActionState.Held,
+            "Airborne sword rendering setup did not reach the held state.");
+
+        player.AdvanceTopDownAirUpdateForValidation(startJump: true);
+        Vector2 topDownDrawOffset = new(0, player.TopDownAirZ);
+        FailIf(
+            !player.TopDownAirborne || player.TopDownAirZ >= 0 ||
+            !player.UsesAirborneSwordPose ||
+            player.SwordDrawOffset != topDownDrawOffset ||
+            player.ActiveSwordSpritePosition !=
+                player.SwordSpritePosition + topDownDrawOffset ||
+            player.MeleeItemZ != player.TopDownAirZ - 2,
+            "A top-down Roc's Feather jump did not preserve the held sword " +
+            "pose and apply Link's negative Z to its visible child item.");
+
+        int airborneUpdates = 1;
+        while (player.TopDownAirborne && airborneUpdates < 120)
+        {
+            player.AdvanceTopDownAirUpdateForValidation();
+            airborneUpdates++;
+        }
+        FailIf(
+            player.TopDownAirborne || player.SwordState != SwordActionState.Held,
+            "The top-down jump did not land with its sword parent intact.");
+
+        world.SideScrolling = true;
+        player.AdvanceSideScrollUpdateForValidation(
+            Vector2.Zero,
+            startJump: true);
+        FailIf(
+            !player.SideScrollAirborne || !player.UsesAirborneSwordPose ||
+            player.SwordDrawOffset != Vector2.Zero ||
+            player.ActiveSwordSpritePosition != player.SwordSpritePosition ||
+            player.SwordState != SwordActionState.Held,
+            "A side-scrolling Roc's Feather jump did not preserve the held " +
+            "sword pose at Link's already height-adjusted object position.");
+
+        player.Free();
+        GD.Print(
+            "Validated top-down and side-scrolling airborne Sword priority, " +
+            "including top-down child-item Z rendering.");
+    }
+
     private void ValidateHealth()
     {
         _dialogue.Close();

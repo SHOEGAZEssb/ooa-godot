@@ -168,6 +168,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateAnimations();
         ValidateLinkItemGeneratedData();
         ValidateSwordBush();
+        ValidateAirborneSwordRendering();
         ValidateShield();
         ValidateShovel();
         ValidateBombs();
