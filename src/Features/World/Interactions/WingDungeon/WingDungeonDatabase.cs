@@ -163,8 +163,9 @@ internal sealed class WingDungeonDatabase
         if (count != 40 ||
             _patterns.Count != 5 ||
             _minecarts.Count != 3 ||
-            Pattern(DungeonObjectKind.FloorPatternKey, 0).Count != 2 ||
-            Pattern(DungeonObjectKind.FloorPatternKey, 1).Count != 0 ||
+            Pattern(DungeonObjectKind.FloorPatternKey, 0).Count != 0 ||
+            Pattern(DungeonObjectKind.FloorPatternKey, 1) is not [0x67, 0x77] ||
+            Pattern(DungeonObjectKind.FloorPatternKey, 2) is not [0x68, 0x78] ||
             Pattern(DungeonObjectKind.ColoredBlockKey, 2).Count != 4 ||
             _minecarts[0] is not { Slot: 0, Room: 0x33, Y: 0x38, X: 0xc8 } ||
             _minecarts[2] is not { Slot: 2, Room: 0x40, Y: 0x58, X: 0xa8 } ||

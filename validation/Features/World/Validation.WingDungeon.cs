@@ -247,8 +247,10 @@ public sealed partial class ValidationRoot
             kindCounts.GetValueOrDefault(DungeonObjectKind.HeadThwomp) != 1 ||
             kindCounts.GetValueOrDefault(DungeonObjectKind.Swoop) != 1 ||
             kindCounts.GetValueOrDefault(DungeonObjectKind.Essence) != 1 ||
-            data.Pattern(DungeonObjectKind.FloorPatternKey, 0)
+            data.Pattern(DungeonObjectKind.FloorPatternKey, 1)
                 .SequenceEqual(new byte[] { 0x67, 0x77 }) == false ||
+            data.Pattern(DungeonObjectKind.FloorPatternKey, 2)
+                .SequenceEqual(new byte[] { 0x68, 0x78 }) == false ||
             data.Pattern(DungeonObjectKind.ColoredBlockKey, 2)
                 .SequenceEqual(new byte[] { 0x4a, 0x59, 0x5b, 0x6a }) == false ||
             interactions.SwitchTiles(0x13) != (0x5c, 0x5a) ||
@@ -377,6 +379,47 @@ public sealed partial class ValidationRoot
                     break;
             }
         }
+
+        // interaction21_subid01's first byte is the authoritative expected
+        // tile. Despite its stale "red" comment, $ae requires yellow at $67
+        // and $77; the initial red/blue arrangement must not drop the key.
+        PrepareRoom(0x2e);
+        OracleRoomData floorPatternRoom = _currentRoom;
+        DungeonPatternKeyRoomEntity floorPattern =
+            _entities.Entities<DungeonPatternKeyRoomEntity>().Single();
+        foreach (int position in new[] { 0x67, 0x77 })
+        {
+            floorPatternRoom.SetPositionTileAndCollision(
+                PackedPoint(position), 0xad, null, (long)_animationTicks);
+        }
+        foreach (int position in new[] { 0x68, 0x78 })
+        {
+            floorPatternRoom.SetPositionTileAndCollision(
+                PackedPoint(position), 0xaf, null, (long)_animationTicks);
+        }
+        Step();
+        FailIf(
+            floorPattern.Finished ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0,
+            "Room 4:2e incorrectly dropped its key for the unsolved red/blue pattern.");
+        floorPatternRoom.SetPositionTileAndCollision(
+            PackedPoint(0x67), 0xae, null, (long)_animationTicks);
+        Step();
+        FailIf(
+            floorPattern.Finished ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0,
+            "Room 4:2e accepted only one of its two required yellow tiles.");
+        floorPatternRoom.SetPositionTileAndCollision(
+            PackedPoint(0x77), 0xae, null, (long)_animationTicks);
+        Step();
+        FailIf(
+            !floorPattern.Finished ||
+            _entities.Entities<GroundTreasurePickup>() is not
+                [{
+                    Record.SpawnMode: 2,
+                    Record.TreasureObject: "TREASURE_OBJECT_SMALL_KEY_01"
+                }],
+            "Room 4:2e did not drop one falling Small Key for the exact yellow/blue pattern.");
 
         _dialogue.Close();
         _player.EndCutsceneControl();

@@ -290,11 +290,72 @@ Write-GeneratedTable(
 
 $patternRows = [Collections.Generic.List[string]]::new()
 $patternRows.Add("# kind`tcolor`tpositions")
-$patternRows.Add("floor-pattern-key`tred`t67,77")
-$patternRows.Add("floor-pattern-key`tblue`t68,78")
-$patternRows.Add("colored-block-key`tred`t49,4b,69,6b")
-$patternRows.Add("colored-block-key`tyellow`t5a")
-$patternRows.Add("colored-block-key`tblue`t4a,59,5b,6a")
+$dungeonEventSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\dungeonEvents.s')
+$patternColors = @{
+    TILEINDEX_RED_TOGGLE_FLOOR = 'red'
+    TILEINDEX_YELLOW_TOGGLE_FLOOR = 'yellow'
+    TILEINDEX_BLUE_TOGGLE_FLOOR = 'blue'
+    TILEINDEX_RED_PUSHABLE_BLOCK = 'red'
+    TILEINDEX_YELLOW_PUSHABLE_BLOCK = 'yellow'
+    TILEINDEX_BLUE_PUSHABLE_BLOCK = 'blue'
+}
+$patternTables = @(
+    @{
+        Kind = 'floor-pattern-key'
+        ExpectedGroups = 2
+        Pattern = (
+            '(?ms)^subid01_tileData:\s*' +
+            '(?<body>(?:[ \t]*\.db[^\r\n]*(?:\r?\n|$))+)')
+    },
+    @{
+        Kind = 'colored-block-key'
+        ExpectedGroups = 3
+        Pattern = (
+            '(?ms)^interaction21_subid05:.*?^@tileData:\s*' +
+            '(?<body>(?:[ \t]*\.db[^\r\n]*(?:\r?\n|$))+)')
+    }
+)
+foreach ($table in $patternTables) {
+    $tableMatch = [regex]::Match($dungeonEventSource, $table.Pattern)
+    if (-not $tableMatch.Success) {
+        throw "Wing Dungeon $($table.Kind) tile pattern is missing."
+    }
+    $groups = [regex]::Matches(
+        $tableMatch.Groups['body'].Value,
+        '(?m)^\s*\.db\s+(?<tile>TILEINDEX_[A-Z0-9_]+)\s+(?<values>[^;\r\n]+)')
+    if ($groups.Count -ne $table.ExpectedGroups) {
+        throw "Wing Dungeon $($table.Kind) pattern has $($groups.Count) groups; expected $($table.ExpectedGroups)."
+    }
+    for ($group = 0; $group -lt $groups.Count; $group++) {
+        $tileName = $groups[$group].Groups['tile'].Value
+        if (-not $patternColors.ContainsKey($tileName)) {
+            throw "Wing Dungeon $($table.Kind) pattern uses unknown tile $tileName."
+        }
+        $values = [regex]::Matches(
+            $groups[$group].Groups['values'].Value,
+            '\$(?<value>[0-9a-f]{2})')
+        if ($values.Count -lt 2) {
+            throw "Wing Dungeon $($table.Kind) pattern group $group has no positions."
+        }
+        $expectedTerminator = if ($group -eq $groups.Count - 1) { 0x00 } else { 0xff }
+        $terminator = [Convert]::ToInt32(
+            $values[$values.Count - 1].Groups['value'].Value, 16)
+        if ($terminator -ne $expectedTerminator) {
+            throw "Wing Dungeon $($table.Kind) pattern group $group has terminator `$$($terminator.ToString('x2')); expected `$$($expectedTerminator.ToString('x2'))."
+        }
+        $positions = [Collections.Generic.List[string]]::new()
+        for ($position = 0; $position -lt $values.Count - 1; $position++) {
+            $positions.Add(
+                $values[$position].Groups['value'].Value.ToLowerInvariant())
+        }
+        $patternRows.Add(
+            "$($table.Kind)`t$($patternColors[$tileName])`t$($positions -join ',')")
+    }
+}
+if ($patternRows.Count -ne 6) {
+    throw "Wing Dungeon pattern row count changed: $($patternRows.Count - 1)."
+}
 Write-GeneratedTable(
     (Join-Path $destination 'objects\wing_dungeon_patterns.tsv'),
     $patternRows)

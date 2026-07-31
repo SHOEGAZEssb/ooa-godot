@@ -859,6 +859,11 @@ positions, switch-tile pairs, platform commands, minecart placements, TX
 `$000f/$2f00`, and native constants. Do not encode a room-number switch as a
 substitute for those generated records.
 
+Pattern imports follow the tile constants stored in each `verifyTiles` group,
+not nearby prose comments. In room `4:2e`, interaction `$21:$01` requires
+yellow toggle-floor tile `$ae` at positions `$67/$77` and blue tile `$af` at
+`$68/$78`; the disassembly comment describing the first pair as red is stale.
+
 The dungeon's toggle-floor, pattern-key, floor-color, colored-cube, flame,
 sensor, enemy-chest, falling-key, reward, switch-tile, and minecart-gate
 entities share WRAM-style toggle/switch state through the room manager.
