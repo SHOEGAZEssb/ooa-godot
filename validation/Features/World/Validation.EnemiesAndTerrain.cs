@@ -4070,6 +4070,7 @@ public sealed partial class ValidationRoot
             _entities.OutgoingEntities<ItemDropEffect>().Count != 0,
             "The outgoing item drop survived completed scrolling.");
 
+        ValidateSideScrollItemDrops(database, oneRupeeVisual, fairyVisual);
         ValidateItemDropWaterSplash(oneRupeeVisual);
 
         _player.RefillHealth();
@@ -4081,7 +4082,8 @@ public sealed partial class ValidationRoot
             "PART_ITEM_DROP fairy/heart/1/5/100-rupee visuals, exact fairy global-RNG " +
             "movement and in-place OAM facing, z=-6 clamp, delayed collision, `$18 refill, " +
             "shovel SPEED_a0 launch, " +
-            "-`$160 fixed-point bounce, heart `$57 and rupee `$61 pickup sounds, " +
+            "-`$160 fixed-point bounce, side-view state-2 Y gravity/two-probe landing/" +
+            "`$b0 deletion and immediate fairy collision, heart `$57 and rupee `$61 pickup sounds, " +
             "sword COLLISIONEFFECT_23 collection without enemy contact, " +
             "ground-height INTERAC_SPLASH/`$87 water disposal, one-per-update rupee display and " +
             "SND_RUPEE `$61 requests including the `$0999 cap, " +
@@ -4431,6 +4433,156 @@ public sealed partial class ValidationRoot
             _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) != splashSoundRequests + 1,
             $"PART_ITEM_DROP did not become INTERAC_SPLASH with SND_SPLASH `$87 on " +
             $"ground-height update 24 in room {group:x1}:{room:x2}.");
+    }
+
+    private void ValidateSideScrollItemDrops(
+        ItemDropDatabase database,
+        ItemDropDatabaseVisualRecord oneRupeeVisual,
+        ItemDropDatabaseVisualRecord fairyVisual)
+    {
+        OracleRoomData room = _world.LoadRoom(6, 0x29);
+        FailIf(
+            (room.TilesetFlags & 0x20) == 0,
+            "Wing Dungeon room 6:29 lost TILESETFLAG_SIDESCROLL for item-drop validation.");
+
+        Vector2 spawn = FindSideScrollItemDropPosition(room);
+        Vector2 farPosition = spawn.X < room.Width / 2.0f
+            ? new Vector2(room.Width - 8, 8)
+            : new Vector2(8, 8);
+        _player.WarpTo(farPosition, recordSafe: false);
+
+        var drop = new ItemDropEffect();
+        drop.Initialize(
+            ItemDropDatabase.OneRupee, spawn, room, oneRupeeVisual);
+        drop.UpdateFrame(_player, 1);
+        FailIf(
+            !drop.SideScrolling || drop.State != DropState.Grounded ||
+            drop.ZFixed != 0 || drop.SpeedZ != -0x160 ||
+            drop.Counter != 240 || !drop.CollisionEnabled ||
+            drop.PrecisePosition != spawn,
+            "PART_ITEM_DROP in side room 6:29 did not skip state 1, retain zh=0, " +
+            "enable collision, and start counter `$f0 during state 0.");
+
+        drop.UpdateFrame(_player, 2);
+        FailIf(
+            drop.PrecisePosition != spawn + new Vector2(0, -1.375f) ||
+            drop.Position != OracleObjectMath.ToPixelPosition(drop.PrecisePosition) ||
+            drop.ZFixed != 0 || drop.SpeedZ != -0x140 || drop.Counter != 240,
+            "Side-view PART_ITEM_DROP did not apply -`$0160 to its 8.8 Y word " +
+            "and then add gravity `$20 on its first state-2 update.");
+        drop.UpdateFrame(_player, 3);
+        FailIf(
+            drop.PrecisePosition != spawn + new Vector2(0, -2.625f) ||
+            drop.SpeedZ != -0x120 || drop.Counter != 239,
+            "Side-view PART_ITEM_DROP did not retain exact signed 8.8 Y/gravity " +
+            "arithmetic while beginning the alternating lifetime countdown.");
+
+        int stableUpdates = 0;
+        for (int frame = 4; frame <= 180 && stableUpdates < 2; frame++)
+        {
+            Vector2 before = drop.PrecisePosition;
+            int speedBefore = drop.SpeedZ;
+            drop.UpdateFrame(_player, frame);
+            FailIf(
+                drop.Finished,
+                $"Side-view PART_ITEM_DROP fell through room 6:29's floor before " +
+                $"landing on update {frame}.");
+            stableUpdates = drop.PrecisePosition == before &&
+                drop.SpeedZ == speedBefore && drop.SpeedZ >= 0
+                    ? stableUpdates + 1
+                    : 0;
+        }
+        int landedY = Mathf.FloorToInt(drop.PrecisePosition.Y) + 6;
+        int landedX = Mathf.FloorToInt(drop.PrecisePosition.X);
+        FailIf(
+            stableUpdates != 2 || drop.PrecisePosition.Y <= spawn.Y ||
+            (!room.IsSolid(new Vector2(landedX - 4, landedY)) &&
+             !room.IsSolid(new Vector2(landedX + 3, landedY))) ||
+            drop.ZFixed != 0,
+            "Side-view PART_ITEM_DROP did not stop before movement on its source " +
+            "(yh+6,xh-4)/(yh+6,xh+3) allow-holes floor probes.");
+        drop.Free();
+
+        var fairyRandom = new OracleRandom();
+        var fairy = new ItemDropEffect();
+        fairy.Initialize(
+            ItemDropDatabase.Fairy, spawn, room, fairyVisual,
+            itemDrops: database, random: fairyRandom);
+        fairy.UpdateFrame(_player, 1);
+        FailIf(
+            fairy.State != DropState.Grounded || !fairy.CollisionEnabled ||
+            fairy.Counter != 240 || fairy.ZFixed != 0 ||
+            fairy.SpeedZ != -0x160 || fairyRandom.Calls != 3 ||
+            fairy.PrecisePosition != spawn,
+            "Side-view ITEM_DROP_FAIRY did not enter state 2 with immediate " +
+            "collision and its normal three-call movement selection.");
+        fairy.UpdateFrame(_player, 2);
+        FailIf(
+            fairy.PrecisePosition.Y != spawn.Y || fairy.ZFixed != 0 ||
+            fairy.SpeedZ != -0x160 || fairy.Counter != 240,
+            "Side-view ITEM_DROP_FAIRY incorrectly applied vertical drop gravity " +
+            "instead of only its selected roaming velocity.");
+        fairy.Free();
+
+        var fallingOut = new ItemDropEffect();
+        Vector2 belowRoom = new(spawn.X, 0xb2);
+        fallingOut.Initialize(
+            ItemDropDatabase.OneRupee, belowRoom, room, oneRupeeVisual);
+        fallingOut.UpdateFrame(_player, 1);
+        fallingOut.UpdateFrame(_player, 2);
+        FailIf(
+            !fallingOut.Finished || fallingOut.Collected ||
+            fallingOut.Position.Y != 0xb0,
+            "Side-view PART_ITEM_DROP was not deleted after its moving Y high byte " +
+            "reached the source `$b0 boundary.");
+        fallingOut.Free();
+    }
+
+    private static Vector2 FindSideScrollItemDropPosition(OracleRoomData room)
+    {
+        bool FloorProbe(int x, int y) =>
+            room.IsSolid(new Vector2(x - 4, y + 6)) ||
+            room.IsSolid(new Vector2(x + 3, y + 6));
+
+        for (int x = 8; x <= room.Width - 8; x += 8)
+        for (int y = 32; y <= Math.Min(0x78, room.Height - 48); y += 8)
+        {
+            bool ascentClear = true;
+            for (int sampleY = y - 12; sampleY <= y + 8; sampleY++)
+            {
+                if (FloorProbe(x, sampleY) ||
+                    room.GetTerrainInfo(new Vector2(x, sampleY + 5)).Hazard !=
+                        HazardType.None)
+                {
+                    ascentClear = false;
+                    break;
+                }
+            }
+            if (!ascentClear)
+                continue;
+
+            int firstFloor = -1;
+            int maximumY = Math.Min(y + 56, 0xaf);
+            for (int sampleY = y + 9; sampleY <= maximumY; sampleY++)
+            {
+                if (room.GetTerrainInfo(new Vector2(x, sampleY + 5)).Hazard !=
+                    HazardType.None)
+                {
+                    firstFloor = -1;
+                    break;
+                }
+                if (FloorProbe(x, sampleY))
+                {
+                    firstFloor = sampleY;
+                    break;
+                }
+            }
+            if (firstFloor > y + 8)
+                return new Vector2(x, y);
+        }
+
+        throw new InvalidOperationException(
+            "Wing Dungeon room 6:29 has no clear side-view item-drop fall route.");
     }
 
     private static Vector2 FindOpenItemDropPosition(OracleRoomData room)

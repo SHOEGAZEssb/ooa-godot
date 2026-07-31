@@ -2381,6 +2381,34 @@ if (-not $itemDropPartData.Success -or
 }
 $itemDropBaseTile = [Convert]::ToInt32($itemDropPartData.Groups['tile'].Value, 16)
 $itemDropCodeSource = Read-ImportText (Join-Path $Disassembly 'object_code\common\parts\itemDrop.s')
+$itemDropMovementSource = Read-ImportText (Join-Path $Disassembly 'code\bank0.s')
+$itemDropState0 = [regex]::Match(
+    $itemDropCodeSource,
+    '(?ms)^@state0:\s*(?<body>.*?)(?=^@state1:)'
+).Groups['body'].Value
+if (-not $itemDropState0 -or
+    $itemDropState0 -notmatch
+        '(?ms)ld l,Part\.speedZ\s+ld a,<\(-\$160\)\s+ldi \(hl\),a\s+ld \(hl\),>\(-\$160\)' -or
+    $itemDropState0 -notmatch
+        '(?ms)and TILESETFLAG_SIDESCROLL\s+jr z,@label_11_008\s+; Sidescrolling only\s+inc \(hl\)' -or
+    $itemDropState0 -notmatch
+        '(?ms)ld l,Part\.collisionType\s+set 7,\(hl\)\s+ld l,Part\.counter1\s+ld \(hl\),240' -or
+    $itemDropState0 -notmatch
+        '(?ms)call objectCheckIsOnHazard.*?; On water\s+ld e,Part\.var34\s+ld a,\$01\s+ld \(de\),a') {
+    throw 'PART_ITEM_DROP state 0 no longer selects immediate side-scrolling state 2/collision/counter/water setup.'
+}
+if ($itemDropCodeSource -notmatch
+        '(?ms)^itemDrop_checkSidescrollingConditions:.*?ret z ; Return if it''s ITEM_DROP_FAIRY.*?ld a,\$20\s+call objectUpdateSpeedZ_sidescroll\s+jr c,@checkY.*?ld b,\$01.*?ld \(hl\),b.*?ld \(hl\),\$00.*?^@checkY:.*?cp \$b0\s+ret c\s+pop hl\s+jp partDelete') {
+    throw 'PART_ITEM_DROP side-scrolling state 2 no longer uses gravity `$20, its water speed clamp, and y `$b0 deletion.'
+}
+if ($itemDropCodeSource -notmatch
+        '(?ms)^itemDrop_checkOnHazard:.*?ld e,Part\.var34.*?ld b,INTERAC_SPLASH\s+xor a\s+jr @onWaterSidescrolling.*?^@onWater:.*?and TILESETFLAG_SIDESCROLL\s+jr z,@replaceWithAnimation.*?ld a,\$01\s+^@onWaterSidescrolling:\s+ld \(de\),a') {
+    throw 'PART_ITEM_DROP no longer uses var34 for side-scrolling water entry and exit splashes.'
+}
+if ($itemDropMovementSource -notmatch
+        '(?ms)^objectUpdateSpeedZ_sidescroll:\s+ld b,\$06.*?^objectUpdateSpeedZ_sidescroll_givenYOffset:.*?bit 7,\(hl\)\s+jr nz,@notLanded.*?sub \$04.*?call checkTileCollisionAt_allowHoles\s+ret c.*?add \$07.*?call checkTileCollisionAt_allowHoles\s+ret c.*?^@notLanded:.*?call add16BitRefs.*?ldh a,\(<hFF8B\)\s+add \(hl\)') {
+    throw 'objectUpdateSpeedZ_sidescroll no longer uses y+`$06, x-`$04/x+`$03 floor probes before Y/gravity integration.'
+}
 $itemDropSpriteBlock = [regex]::Match(
     $itemDropCodeSource,
     '(?ms)^@spriteData:\r?\n(?<body>.*?)(?=^;;)'

@@ -4,15 +4,18 @@ using System;
 namespace oracleofages;
 
 /// <summary>
-/// PART_ITEM_DROP ($01). Drops use vertical 8.8 fixed-point motion; shovel
+/// PART_ITEM_DROP ($01). Top-down drops use vertical 8.8 Z motion; shovel
 /// drops additionally copy Link's angle and SPEED_a0 until they finish
-/// bouncing. ITEM_DROP_FAIRY uses the global RNG and imported velocity table
-/// while rising and roaming; it enters state 2 as soon as zh crosses $fa
-/// instead of falling back to the ground. Active drops wait for 240
-/// alternating-frame countdown ticks.
+/// bouncing. In side-scrolling rooms ordinary drops skip that bounce state
+/// and apply the same signed 8.8 speed directly to their Y coordinate.
+/// ITEM_DROP_FAIRY uses the global RNG and imported velocity table while
+/// rising and roaming; it enters state 2 as soon as zh crosses $fa instead of
+/// falling back to the ground. Active drops wait for 240 alternating-frame
+/// countdown ticks.
 /// </summary>
 public partial class ItemDropEffect : TransitionOffsetNode2D
 {
+    private const int TilesetFlagSideScroll = 0x20;
     private const int InitialSpeedZ = -0x160;
     private const int DugUpSpeed = 0x19;
     private const int Gravity = 0x20;
@@ -25,6 +28,10 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
     private const int CollisionRadius = 4;
     private const int ZCollisionRadius = 7;
     private const int SwordZ = -2;
+    private const int SideScrollGroundYOffset = 6;
+    private const int SideScrollLeftXOffset = -4;
+    private const int SideScrollRightXOffset = 3;
+    private const int SideScrollDeleteY = 0xb0;
     private static readonly int[] FairySpeeds = [0x0a, 0x14, 0x1e, 0x28];
     private static readonly Vector2[] FairyProbeOffsets =
     [
@@ -45,6 +52,9 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
     private DropState _state;
     private int _zFixed;
     private int _speedZ;
+    private ushort _sideScrollYFixed;
+    private bool _sideScrollWater;
+    private HazardType _pendingHazardEffect;
     private int _counter;
     private bool _collisionEnabled;
     private Vector2 _precisePosition;
@@ -74,6 +84,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
     internal int FairyMovementCounter => _fairyMovementCounter;
     internal int FairyCollisionDelayCounter => _fairyCollisionDelay;
     internal bool FlipX => _flipX;
+    internal bool SideScrolling => IsSideScrolling();
     internal Texture2D CurrentTexture => _flipX ? _flippedTexture : _texture;
     internal Rect2 CollisionBounds => new(
         Position - new Vector2(CollisionRadius, CollisionRadius),
@@ -102,6 +113,8 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         SubId = subId;
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
+        _sideScrollYFixed = unchecked(
+            (ushort)Mathf.FloorToInt(position.Y * 256.0f));
         _room = room;
         _random = random;
         _angle = angle;
@@ -132,7 +145,22 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         }
         if (_state == DropState.Initializing)
         {
-            _state = DropState.Bouncing;
+            if (IsSideScrolling())
+            {
+                // State 0 increments Part.state twice in a side-scrolling
+                // tileset, enables collision, and starts counter1 immediately.
+                // zh remains zero; objectUpdateSpeedZ_sidescroll will apply
+                // speedZ to the object's Y word beginning next update.
+                _state = DropState.Grounded;
+                _collisionEnabled = true;
+                _counter = LifetimeTicks;
+                _sideScrollWater = _room.GetTerrainInfo(
+                    Position + new Vector2(0, 5)).Hazard == HazardType.Water;
+            }
+            else
+            {
+                _state = DropState.Bouncing;
+            }
             if (SubId == ItemDropDatabase.Fairy)
                 ChooseRandomFairyMovement();
             return;
@@ -164,6 +192,13 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
             return;
         }
 
+        if (IsSideScrolling() && SubId != ItemDropDatabase.Fairy)
+        {
+            UpdateSideScrollVerticalMotion();
+            if (Finished)
+                return;
+        }
+
         // itemDrop_countdownToDisappear decrements only when
         // (wFrameCounter XOR the object's slot page) is odd. The managed
         // object has no WRAM page, so use the odd global-frame phase.
@@ -186,6 +221,13 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
                 if (_counter < FlickerTicks)
                     Visible = !Visible;
             }
+        }
+
+        if (IsSideScrolling() && SubId != ItemDropDatabase.Fairy)
+        {
+            UpdateSideScrollHazard();
+            if (Finished)
+                return;
         }
 
         if (SubId == ItemDropDatabase.Fairy)
@@ -246,6 +288,83 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         }
 
         _speedZ = -_speedZ / 2;
+    }
+
+    /// <summary>
+    /// Port of objectUpdateSpeedZ_sidescroll plus the item-drop-specific
+    /// water clamp and y=$b0 deletion check. Positive speed probes y+6 at
+    /// x-4 and x+3 before movement; landing leaves both Y and speedZ intact.
+    /// </summary>
+    private void UpdateSideScrollVerticalMotion()
+    {
+        short signedSpeed = unchecked((short)_speedZ);
+        if (signedSpeed >= 0 && SideScrollFloorProbeIsSolid())
+        {
+            DeleteIfBelowSideScrollRoom();
+            return;
+        }
+
+        _sideScrollYFixed = unchecked(
+            (ushort)(_sideScrollYFixed + signedSpeed));
+        _precisePosition.Y = _sideScrollYFixed / 256.0f;
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        _speedZ = unchecked((short)(signedSpeed + Gravity));
+
+        if (_sideScrollWater)
+        {
+            sbyte speedHigh = unchecked((sbyte)(_speedZ >> 8));
+            if (speedHigh >= 1)
+                _speedZ = 0x100;
+            else if (speedHigh <= -2)
+                _speedZ = -0x100;
+        }
+
+        DeleteIfBelowSideScrollRoom();
+        QueueRedraw();
+    }
+
+    private bool SideScrollFloorProbeIsSolid()
+    {
+        int y = unchecked((byte)((_sideScrollYFixed >> 8) +
+            SideScrollGroundYOffset));
+        int x = OracleObjectPosition.HighByte(_precisePosition.X);
+        return _room.IsSolid(new Vector2(
+                unchecked((byte)(x + SideScrollLeftXOffset)), y)) ||
+            _room.IsSolid(new Vector2(
+                unchecked((byte)(x + SideScrollRightXOffset)), y));
+    }
+
+    private void DeleteIfBelowSideScrollRoom()
+    {
+        if ((_sideScrollYFixed >> 8) < SideScrollDeleteY)
+            return;
+        FinishWithoutCollection();
+    }
+
+    private void UpdateSideScrollHazard()
+    {
+        HazardType hazard = _room.GetTerrainInfo(
+            Position + new Vector2(0, 5)).Hazard;
+        if (hazard == HazardType.Water)
+        {
+            if (!_sideScrollWater)
+            {
+                _sideScrollWater = true;
+                _pendingHazardEffect = HazardType.Water;
+            }
+            return;
+        }
+
+        if (hazard == HazardType.None && _sideScrollWater)
+        {
+            _sideScrollWater = false;
+            _pendingHazardEffect = HazardType.Water;
+        }
+
+        if (hazard == HazardType.None)
+            return;
+        FinishedHazard = hazard;
+        FinishWithoutCollection();
     }
 
     private void UpdateHorizontalSpeed()
@@ -362,6 +481,13 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         return true;
     }
 
+    internal HazardType TakePendingHazardEffect()
+    {
+        HazardType result = _pendingHazardEffect;
+        _pendingHazardEffect = HazardType.None;
+        return result;
+    }
+
     private void Collect(Player player)
     {
         switch (SubId)
@@ -416,6 +542,9 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         Finished = true;
         Visible = false;
     }
+
+    private bool IsSideScrolling() =>
+        (_room.TilesetFlags & TilesetFlagSideScroll) != 0;
 
     private static Texture2D BuildTexture(
         ItemDropDatabaseVisualRecord visual,

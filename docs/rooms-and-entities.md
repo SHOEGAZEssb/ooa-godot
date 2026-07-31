@@ -1155,6 +1155,18 @@ the allow-holes front/current tile probes before movement. Horizontal movement
 ends with the bounce; it must not leak into ordinary drops or grounded lifetime
 updates.
 
+`TILESETFLAG_SIDESCROLL` takes a separate common-part path. State 0 skips the
+top-down bounce state, enables collision immediately, starts counter `$f0`, and
+leaves `zh` at zero. Except for the fairy, each state-2 update applies the
+signed `-$0160` launch speed directly to the object's 8.8 Y word, adds gravity
+`$20`, and tests `(yh+6,xh-4)` followed by `(yh+6,xh+3)` with the allow-holes
+collision table before any positive-speed movement. A landed drop retains its
+Y subpixel and impact speed; a falling drop is deleted when its Y high byte
+reaches `$b0`. The fairy still chooses its three-RNG-call roaming route but does
+not receive side-view Y gravity. Water sets `var34`, clamps vertical speed to
+the source signed `$0100` range, and creates one splash on entry and one on
+exit without deleting the drop; lava and holes keep their terminal effects.
+
 The common selector consumes its probability RNG value and, when that succeeds,
 its set-selection RNG value before testing availability. Hearts, Rupees, and
 Fairies are unconditional; Bombs and each of the five seed subids require their

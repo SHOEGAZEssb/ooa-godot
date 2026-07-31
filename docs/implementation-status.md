@@ -24,7 +24,9 @@ claim that the entire surrounding game is complete.
 - Link movement, level-1 sword combat, terrain hazards, push blocks, signs,
   chests, item drops (including obtained-treasure-gated Bombs/all five seed
   types, capacity-aware collection, and the mobile `$00` fairy's imported
-  velocities, shared-RNG routes, delayed collision, and `$18` heart refill),
+  velocities, shared-RNG routes, delayed collision, and `$18` heart refill;
+  side-view drops use their immediate collision, signed 8.8 Y gravity,
+  two-probe platform landing, and `$b0` fall boundary),
   exact imported `$f8` grass overlap and four-frame `$f9`
   shallow-water ripple OAM/step sound, grass/bush cut debris OAM, timing, sound,
   underwater palette, and grass subid flicker, the active Shovel, and the
