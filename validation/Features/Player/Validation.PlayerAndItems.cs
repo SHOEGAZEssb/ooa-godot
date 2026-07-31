@@ -1964,17 +1964,9 @@ public sealed partial class ValidationRoot
             "Holding the sword button did not enter the movable ITEMCOLLISION_SWORD_HELD state " +
             "with the original up-facing arc $0c.");
         FailIf(
-            Player.GetHeldSwordBodyAnimationFrameForValidation(
-                SwordActionState.Held, walking: true, walkTime: 0.0f) != 0 ||
-            Player.GetHeldSwordBodyAnimationFrameForValidation(
-                SwordActionState.Held, walking: true, walkTime: 0.10f) != 1 ||
-            Player.GetHeldSwordBodyAnimationFrameForValidation(
-                SwordActionState.Charged, walking: true, walkTime: 0.20f) != 0 ||
-            Player.GetHeldSwordBodyAnimationFrameForValidation(
-                SwordActionState.Held, walking: false, walkTime: 0.10f) != 0 ||
-            Player.GetHeldSwordBodyAnimationFrameForValidation(
-                SwordActionState.Swing, walking: true, walkTime: 0.10f) != -1,
-            "Held/charged sword state did not select Link's ordinary standing/walking body.");
+            _player.LinkAnimationCounter != 2,
+            "Held sword state did not expose Link's reset two-update " +
+            "LINK_ANIM_MODE_WALK clock.");
         FailIf(
             Player.GetSwordSpritePositionForValidation(13) != new Vector2(12, 0) ||
             Player.GetSwordSpritePositionForValidation(15) != new Vector2(-12, 0),
@@ -2154,59 +2146,180 @@ public sealed partial class ValidationRoot
         OracleSaveData save = OracleSaveData.CreateStandardGame();
         var inventory = new InventoryState(_treasures, save);
         inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
-        var world = new ValidationRingPlayerWorld();
-        var player = new Player { Name = "AirborneSwordValidationPlayer" };
-        AddChild(player);
-        player.Initialize(
-            world,
+        var swordFirstWorld = new ValidationRingPlayerWorld();
+        var swordFirst = new Player { Name = "SwordFirstAirValidationPlayer" };
+        AddChild(swordFirst);
+        swordFirst.Initialize(
+            swordFirstWorld,
             inventory,
             new Vector2(80, 80),
             new OracleRandom());
-        player.Face(Vector2I.Up);
-        player.StartSwordAttack();
-        player.AdvanceSwordForValidation(17, buttonHeld: true);
+        swordFirst.Face(Vector2I.Up);
+        swordFirst.StartSwordAttack();
+        swordFirst.AdvanceSwordForValidation(17, buttonHeld: true);
         FailIf(
-            player.SwordState != SwordActionState.Held,
+            swordFirst.SwordState != SwordActionState.Held,
             "Airborne sword rendering setup did not reach the held state.");
 
-        player.AdvanceTopDownAirUpdateForValidation(startJump: true);
-        Vector2 topDownDrawOffset = new(0, player.TopDownAirZ);
+        // The Sword parent has already set wLinkTurningDisabled, so the
+        // Feather's @startedJump branch skips LINK_ANIM_MODE_JUMP. The WALK
+        // animation that was reset to its initial two-update $54 frame keeps
+        // advancing even though airborne movement leaves _walking false.
+        swordFirst.AdvanceTopDownAirUpdateForValidation(startJump: true);
+        Vector2 topDownDrawOffset = new(0, swordFirst.TopDownAirZ);
         FailIf(
-            !player.TopDownAirborne || player.TopDownAirZ >= 0 ||
-            !player.UsesAirborneSwordPose ||
-            player.SwordDrawOffset != topDownDrawOffset ||
-            player.ActiveSwordSpritePosition !=
-                player.SwordSpritePosition + topDownDrawOffset ||
-            player.MeleeItemZ != player.TopDownAirZ - 2,
-            "A top-down Roc's Feather jump did not preserve the held sword " +
-            "pose and apply Link's negative Z to its visible child item.");
+            !swordFirst.TopDownAirborne || swordFirst.TopDownAirZ >= 0 ||
+            !swordFirst.UsesAirborneSwordPose ||
+            swordFirst.AirborneLinkUsesJumpAnimation ||
+            swordFirst.AirborneLinkBodyFrame != 0 ||
+            swordFirst.LinkAnimationCounter != 1 ||
+            swordFirst.SwordDrawOffset != topDownDrawOffset ||
+            swordFirst.ActiveSwordSpritePosition !=
+                swordFirst.SwordSpritePosition + topDownDrawOffset ||
+            swordFirst.MeleeItemZ != swordFirst.TopDownAirZ - 2,
+            "A sword-first top-down jump installed JUMP instead of preserving " +
+            "and advancing Link's WALK clock, or lost the child item's Z.");
 
-        int airborneUpdates = 1;
-        while (player.TopDownAirborne && airborneUpdates < 120)
+        swordFirst.AdvanceTopDownAirUpdateForValidation();
+        FailIf(
+            swordFirst.AirborneLinkBodyFrame != 1 ||
+            swordFirst.LinkAnimationCounter != 6,
+            "Sword-first air did not leave WALK's two-update $54 entry for " +
+            "its first six-update $80 entry.");
+        swordFirst.AdvanceTopDownAirUpdateForValidation();
+        swordFirst.AdvanceTopDownAirUpdateForValidation();
+        swordFirst.AdvanceTopDownAirUpdateForValidation();
+        swordFirst.AdvanceTopDownAirUpdateForValidation();
+        swordFirst.AdvanceTopDownAirUpdateForValidation();
+        FailIf(
+            swordFirst.AirborneLinkBodyFrame != 1 ||
+            swordFirst.LinkAnimationCounter != 1,
+            "The airborne $80 WALK graphic did not retain its six-update duration.");
+        swordFirst.AdvanceSwordForValidation(1, buttonHeld: false);
+        FailIf(
+            swordFirst.IsAttacking || swordFirst.AirborneLinkUsesJumpAnimation ||
+            swordFirst.AirborneLinkBodyFrame != 1,
+            "Releasing a sword-first held sword replaced its preserved WALK " +
+            "animation with LINK_ANIM_MODE_JUMP.");
+        swordFirst.AdvanceTopDownAirUpdateForValidation();
+        FailIf(
+            swordFirst.AirborneLinkBodyFrame != 0 ||
+            swordFirst.LinkAnimationCounter != 6,
+            "The exposed WALK clock did not continue after midair sword release.");
+
+        var jumpFirstWorld = new ValidationRingPlayerWorld();
+        var jumpFirst = new Player { Name = "JumpFirstAirValidationPlayer" };
+        AddChild(jumpFirst);
+        jumpFirst.Initialize(
+            jumpFirstWorld,
+            inventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+        jumpFirst.Face(Vector2I.Up);
+        jumpFirst.AdvanceTopDownAirUpdateForValidation(startJump: true);
+        FailIf(
+            !jumpFirst.AirborneLinkUsesJumpAnimation ||
+            jumpFirst.AirborneLinkBodyFrame != 0 ||
+            jumpFirst.LinkAnimationCounter != 8,
+            "A jump-first Feather use did not initialize and immediately " +
+            "advance LINK_ANIM_MODE_JUMP's nine-update $e4 frame.");
+
+        jumpFirst.StartSwordAttack();
+        for (int update = 0; update < 17; update++)
         {
-            player.AdvanceTopDownAirUpdateForValidation();
-            airborneUpdates++;
+            // Link's special-object update precedes the parent-item update.
+            jumpFirst.AdvanceTopDownAirUpdateForValidation();
+            jumpFirst.AdvanceSwordForValidation(1, buttonHeld: true);
         }
         FailIf(
-            player.TopDownAirborne || player.SwordState != SwordActionState.Held,
-            "The top-down jump did not land with its sword parent intact.");
+            jumpFirst.SwordState != SwordActionState.Held ||
+            !jumpFirst.UsesAirborneSwordPose ||
+            !jumpFirst.AirborneLinkUsesJumpAnimation ||
+            jumpFirst.AirborneLinkBodyFrame != 2 ||
+            jumpFirst.LinkAnimationCounter != 6,
+            "When sword state 6 lowered Item.var3f to zero, the independently " +
+            "advanced jump animation did not reappear at its $ec frame.");
+        jumpFirst.AdvanceSwordForValidation(1, buttonHeld: false);
+        FailIf(
+            jumpFirst.IsAttacking ||
+            !jumpFirst.AirborneLinkUsesJumpAnimation ||
+            jumpFirst.AirborneLinkBodyFrame != 2,
+            "Releasing a jump-first held sword did not reveal the same JUMP clock.");
+        for (int update = 0; update < 6; update++)
+            jumpFirst.AdvanceTopDownAirUpdateForValidation();
+        FailIf(
+            jumpFirst.AirborneLinkBodyFrame != 3 ||
+            jumpFirst.LinkAnimationCounter != 0,
+            "LINK_ANIM_MODE_JUMP did not enter and hold its terminal $80 frame " +
+            "after the 9/9/6 timed entries.");
 
-        world.SideScrolling = true;
-        player.AdvanceSideScrollUpdateForValidation(
+        var sideWorld = new ValidationRingPlayerWorld { SideScrolling = true };
+        var sideSwordFirst = new Player
+        {
+            Name = "SideSwordFirstAirValidationPlayer"
+        };
+        AddChild(sideSwordFirst);
+        sideSwordFirst.Initialize(
+            sideWorld,
+            inventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+        sideSwordFirst.Face(Vector2I.Up);
+        sideSwordFirst.StartSwordAttack();
+        sideSwordFirst.AdvanceSwordForValidation(17, buttonHeld: true);
+        sideSwordFirst.AdvanceSideScrollUpdateForValidation(
             Vector2.Zero,
             startJump: true);
         FailIf(
-            !player.SideScrollAirborne || !player.UsesAirborneSwordPose ||
-            player.SwordDrawOffset != Vector2.Zero ||
-            player.ActiveSwordSpritePosition != player.SwordSpritePosition ||
-            player.SwordState != SwordActionState.Held,
-            "A side-scrolling Roc's Feather jump did not preserve the held " +
-            "sword pose at Link's already height-adjusted object position.");
+            !sideSwordFirst.SideScrollAirborne ||
+            !sideSwordFirst.UsesAirborneSwordPose ||
+            sideSwordFirst.AirborneLinkUsesJumpAnimation ||
+            sideSwordFirst.AirborneLinkBodyFrame != 0 ||
+            sideSwordFirst.LinkAnimationCounter != 1 ||
+            sideSwordFirst.SwordDrawOffset != Vector2.Zero ||
+            sideSwordFirst.ActiveSwordSpritePosition !=
+                sideSwordFirst.SwordSpritePosition ||
+            sideSwordFirst.SwordState != SwordActionState.Held,
+            "A sword-first side-view jump did not preserve WALK ownership and " +
+            "the already height-adjusted child sword position.");
 
-        player.Free();
+        var sideJumpFirst = new Player
+        {
+            Name = "SideJumpFirstAirValidationPlayer"
+        };
+        AddChild(sideJumpFirst);
+        sideJumpFirst.Initialize(
+            sideWorld,
+            inventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+        sideJumpFirst.Face(Vector2I.Up);
+        sideJumpFirst.AdvanceSideScrollUpdateForValidation(
+            Vector2.Zero,
+            startJump: true);
+        sideJumpFirst.StartSwordAttack();
+        for (int update = 0; update < 17; update++)
+        {
+            sideJumpFirst.AdvanceSideScrollUpdateForValidation(Vector2.Zero);
+            sideJumpFirst.AdvanceSwordForValidation(1, buttonHeld: true);
+        }
+        FailIf(
+            sideJumpFirst.SwordState != SwordActionState.Held ||
+            !sideJumpFirst.SideScrollAirborne ||
+            !sideJumpFirst.AirborneLinkUsesJumpAnimation ||
+            sideJumpFirst.AirborneLinkBodyFrame != 2 ||
+            sideJumpFirst.LinkAnimationCounter != 6,
+            "A jump-first side-view Sword did not reveal the independently " +
+            "advanced $ec JUMP frame when it became held.");
+
+        swordFirst.Free();
+        jumpFirst.Free();
+        sideSwordFirst.Free();
+        sideJumpFirst.Free();
         GD.Print(
-            "Validated top-down and side-scrolling airborne Sword priority, " +
-            "including top-down child-item Z rendering.");
+            "Validated sword-first and jump-first airborne animation ownership, " +
+            "WALK/JUMP clock continuation through held state and release, " +
+            "LINK_ANIM_MODE_JUMP's terminal frame, and top-down child-item Z.");
     }
 
     private void ValidateHealth()

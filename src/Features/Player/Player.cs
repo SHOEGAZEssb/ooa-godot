@@ -75,7 +75,9 @@ public partial class Player : Node2D
     private Vector2 _lastSafePosition;
     private HazardType _drowningHazard;
     private Facing _facing = Facing.Down;
-    private float _walkTime;
+    private int _linkWalkAnimationFrame;
+    private int _linkWalkAnimationCounter = 2;
+    private AirborneLinkAnimationMode _airborneLinkAnimationMode;
     private double _swordFrameAccumulator;
     private double _shovelFrameAccumulator;
     private double _seedSatchelFrameAccumulator;
@@ -269,6 +271,25 @@ public partial class Player : Node2D
     internal int MeleeItemZ => (_topDownAirborne ? TopDownAirZ : 0) - 2;
     internal bool UsesAirborneSwordPose =>
         IsAttacking && (_sideScrollAirborne || _topDownAirborne);
+    internal bool AirborneLinkUsesJumpAnimation =>
+        _airborneLinkAnimationMode == AirborneLinkAnimationMode.Jump;
+    internal int AirborneLinkBodyFrame => _airborneLinkAnimationMode switch
+    {
+        AirborneLinkAnimationMode.Walk => _linkWalkAnimationFrame,
+        AirborneLinkAnimationMode.Jump when _topDownAirborne =>
+            _topDownAirAnimationPhase,
+        AirborneLinkAnimationMode.Jump when _sideScrollAirborne =>
+            _sideScrollAnimationPhase,
+        _ => 0
+    };
+    internal int LinkAnimationCounter => _airborneLinkAnimationMode ==
+        AirborneLinkAnimationMode.Walk
+            ? _linkWalkAnimationCounter
+            : _topDownAirborne
+                ? _topDownAirAnimationCounter
+                : _sideScrollAirborne
+                    ? _sideScrollAnimationCounter
+                    : _linkWalkAnimationCounter;
     internal Vector2 SwordDrawOffset =>
         new(0, _topDownAirborne ? TopDownAirZ : 0);
     internal Vector2 ActiveSwordSpritePosition =>
@@ -504,6 +525,7 @@ public partial class Player : Node2D
         EndRoomWarpFall();
         _precisePosition = spawn;
         _lastSafePosition = spawn;
+        ResetLinkWalkAnimation();
         Position = OracleObjectMath.ToPixelPosition(spawn);
         // Room entities/events are already initialized before Link. Select a
         // saved active disguise here so the ordinary Link frame is never
@@ -871,7 +893,7 @@ public partial class Player : Node2D
         BeginRoomWarpTransition();
         _facing = Facing.Down;
         _pushing = false;
-        _walkTime = 0.0f;
+        ResetLinkWalkAnimation();
         _lastMovementInput = Vector2.Zero;
         QueueRedraw();
     }
@@ -889,7 +911,7 @@ public partial class Player : Node2D
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
         _walking = true;
-        _walkTime += (float)delta;
+        AdvanceLinkWalkAnimation();
         QueueRedraw();
     }
 
@@ -1528,7 +1550,11 @@ public partial class Player : Node2D
                 UpdateFacing(input);
             Vector2 movement = input * Speed * GetTerrainSpeedMultiplier() * (float)delta;
             TryMove(movement, allowWallSlide: true);
-            _walkTime += (float)delta;
+            AdvanceLinkWalkAnimation();
+        }
+        else
+        {
+            ResetLinkWalkAnimation();
         }
 
         UpdatePushingState(input);
@@ -1787,7 +1813,7 @@ public partial class Player : Node2D
         {
             Face(direction);
             TryMove((Vector2)direction, allowWallSlide: false);
-            _walkTime += 1.0f / 60.0f;
+            AdvanceLinkWalkAnimation();
         }
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         QueueRedraw();
@@ -1814,7 +1840,7 @@ public partial class Player : Node2D
             TryMove(
                 OracleObjectMovement.Shared.Delta(speed, angle),
                 allowWallSlide: true);
-            _walkTime += 1.0f / 60.0f;
+            AdvanceLinkWalkAnimation();
         }
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         QueueRedraw();
@@ -1829,7 +1855,7 @@ public partial class Player : Node2D
             Face(direction);
         _precisePosition += movement;
         if (_walking)
-            _walkTime += 1.0f / 60.0f;
+            AdvanceLinkWalkAnimation();
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         QueueRedraw();
     }
@@ -1857,7 +1883,7 @@ public partial class Player : Node2D
         // LINK_STATE_FORCE_MOVEMENT clears adjacentWallsBitset before each
         // standard-speed update, so this deliberately bypasses room blockers.
         _precisePosition += (Vector2)direction;
-        _walkTime += 1.0f / 60.0f;
+        AdvanceLinkWalkAnimation();
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         QueueRedraw();
     }
@@ -2409,32 +2435,11 @@ public partial class Player : Node2D
         }
         else if (_sideScrollAirborne)
         {
-            DrawTextureRectRegion(
-                DamagePaletteActive
-                    ? _damageLedgeJumpTexture
-                    : _ledgeJumpTexture,
-                new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
-                new Rect2(
-                    _sideScrollAnimationPhase * 16,
-                    (int)_facing * 16,
-                    16,
-                    16));
+            DrawAirborneLinkBody(Vector2.Zero);
         }
         else if (_topDownAirborne)
         {
-            DrawTextureRectRegion(
-                DamagePaletteActive
-                    ? _damageLedgeJumpTexture
-                    : _ledgeJumpTexture,
-                new Rect2(
-                    NormalSpriteOrigin +
-                        new Vector2(0, _topDownAirZFixed >> 8),
-                    new Vector2(16, 16)),
-                new Rect2(
-                    _topDownAirAnimationPhase * 16,
-                    (int)_facing * 16,
-                    16,
-                    16));
+            DrawAirborneLinkBody(new Vector2(0, _topDownAirZFixed >> 8));
         }
         else if (_ledgeJumpState != LedgeJumpState.None)
         {
@@ -2829,7 +2834,11 @@ public partial class Player : Node2D
                 // wLinkAngle, so Up/Down input changes Link's facing while
                 // ordinary dry movement remains horizontal.
                 UpdateFacing(input);
-            _walkTime += 1.0f / 60.0f;
+            AdvanceLinkWalkAnimation();
+        }
+        else
+        {
+            ResetLinkWalkAnimation();
         }
 
         // The ladder-top clamp writes only Link's high Y byte. It prevents an
@@ -3017,6 +3026,9 @@ public partial class Player : Node2D
         _topDownAirAnimationPhase = 0;
         _topDownAirAnimationCounter =
             parameters.AnimationPhaseDurations[0];
+        _airborneLinkAnimationMode = IsAttacking
+            ? AirborneLinkAnimationMode.Walk
+            : AirborneLinkAnimationMode.Jump;
         _topDownAirborne = true;
         _topDownJumpSoundPending = true;
         _walking = false;
@@ -3046,7 +3058,16 @@ public partial class Player : Node2D
             Vector2 movement =
                 input * Speed * GetTerrainSpeedMultiplier() * (float)delta;
             TryMove(movement, allowWallSlide: true);
-            _walkTime += (float)delta;
+        }
+        if (!_topDownAirborne)
+        {
+            // A landing calls animateLinkStanding inside linkUpdateInAir, then
+            // resumes the ordinary movement path in the same update. Held
+            // movement therefore performs the first WALK decrement immediately.
+            if (_walking)
+                AdvanceLinkWalkAnimation();
+            else
+                ResetLinkWalkAnimation();
         }
         _pushing = false;
         UpdateHeartRingCounter(_precisePosition - movementStart);
@@ -3079,6 +3100,8 @@ public partial class Player : Node2D
             _topDownAirSpeedZ = 0;
             _topDownAirAnimationPhase = 0;
             _topDownAirAnimationCounter = 0;
+            _airborneLinkAnimationMode = AirborneLinkAnimationMode.None;
+            ResetLinkWalkAnimation();
             _world.PlaySound(parameters.LandSound);
             return;
         }
@@ -3136,6 +3159,7 @@ public partial class Player : Node2D
         _topDownAirAnimationPhase = 0;
         _topDownAirAnimationCounter =
             parameters.AnimationPhaseDurations[0];
+        _airborneLinkAnimationMode = AirborneLinkAnimationMode.Jump;
         _topDownAirborne = true;
         _topDownJumpSoundPending = true;
         _minecartJumpAngle = angle;
@@ -3240,16 +3264,22 @@ public partial class Player : Node2D
     private void AdvanceTopDownAirAnimation(
         TopDownAirParameters parameters)
     {
-        if (_topDownAirAnimationPhase >=
-            parameters.AnimationPhaseDurations.Length - 1)
+        if (_airborneLinkAnimationMode == AirborneLinkAnimationMode.Walk)
         {
+            AdvanceLinkWalkAnimation();
             return;
         }
+
+        if (_topDownAirAnimationPhase >=
+            parameters.AnimationPhaseDurations.Length)
+            return;
         if (--_topDownAirAnimationCounter > 0)
             return;
         _topDownAirAnimationPhase++;
-        _topDownAirAnimationCounter =
-            parameters.AnimationPhaseDurations[_topDownAirAnimationPhase];
+        _topDownAirAnimationCounter = _topDownAirAnimationPhase <
+            parameters.AnimationPhaseDurations.Length
+                ? parameters.AnimationPhaseDurations[_topDownAirAnimationPhase]
+                : 0;
     }
 
     private void ClearTopDownAirState()
@@ -3260,6 +3290,8 @@ public partial class Player : Node2D
         _topDownAirAnimationPhase = 0;
         _topDownAirAnimationCounter = 0;
         _topDownAirborne = false;
+        _airborneLinkAnimationMode = AirborneLinkAnimationMode.None;
+        ResetLinkWalkAnimation();
         _topDownJumpSoundPending = false;
         _minecartJumpControlled = false;
         _minecartRideControlled = false;
@@ -3288,6 +3320,9 @@ public partial class Player : Node2D
         _sideScrollAnimationPhase = 0;
         _sideScrollAnimationCounter =
             parameters.AnimationPhaseDurations[0];
+        _airborneLinkAnimationMode = IsAttacking
+            ? AirborneLinkAnimationMode.Walk
+            : AirborneLinkAnimationMode.Jump;
         _walking = false;
     }
 
@@ -3311,6 +3346,8 @@ public partial class Player : Node2D
         _sideScrollClimbing = false;
         _sideScrollAnimationPhase = 0;
         _sideScrollAnimationCounter = 0;
+        _airborneLinkAnimationMode = AirborneLinkAnimationMode.None;
+        ResetLinkWalkAnimation();
         _walking = false;
         _rocsCapeButtonAction = null;
         _sideScrollReducedGravity = false;
@@ -3344,17 +3381,23 @@ public partial class Player : Node2D
     private void AdvanceSideScrollAirAnimation(
         SideScrollPlayerParameters parameters)
     {
-        if (_sideScrollAnimationPhase >=
-            parameters.AnimationPhaseDurations.Length - 1)
+        if (_airborneLinkAnimationMode == AirborneLinkAnimationMode.Walk)
         {
+            AdvanceLinkWalkAnimation();
             return;
         }
+
+        if (_sideScrollAnimationPhase >=
+            parameters.AnimationPhaseDurations.Length)
+            return;
         if (--_sideScrollAnimationCounter > 0)
             return;
 
         _sideScrollAnimationPhase++;
-        _sideScrollAnimationCounter =
-            parameters.AnimationPhaseDurations[_sideScrollAnimationPhase];
+        _sideScrollAnimationCounter = _sideScrollAnimationPhase <
+            parameters.AnimationPhaseDurations.Length
+                ? parameters.AnimationPhaseDurations[_sideScrollAnimationPhase]
+                : 0;
     }
 
     private void AdvanceSideScrollSwimming(
@@ -3363,6 +3406,8 @@ public partial class Player : Node2D
         SideScrollPlayerParameters parameters)
     {
         _sideScrollAirborne = false;
+        _airborneLinkAnimationMode = AirborneLinkAnimationMode.None;
+        ResetLinkWalkAnimation();
         _sideScrollSpeedZ = 0;
         _sideScrollReducedGravity = false;
         _rocsCapeButtonAction = null;
@@ -3833,6 +3878,7 @@ public partial class Player : Node2D
         _sideScrollAnimationPhase = 0;
         _sideScrollAnimationCounter = 0;
         _sideScrollAirborne = false;
+        _airborneLinkAnimationMode = AirborneLinkAnimationMode.None;
         _sideScrollJumpSoundPending = false;
         _sideScrollClimbing = false;
     }
@@ -3862,7 +3908,28 @@ public partial class Player : Node2D
             _lastMovementInput.Dot((Vector2)direction) > 0.01f;
     }
 
-    private int GetWalkAnimationFrame() => GetWalkAnimationFrame(_walking, _walkTime);
+    private int GetWalkAnimationFrame() =>
+        _walking ? _linkWalkAnimationFrame : 0;
+
+    private void ResetLinkWalkAnimation()
+    {
+        // animateLinkStanding forces animMode away from WALK and immediately
+        // reselects it, loading animationData19f0b's two-update $54 frame.
+        _linkWalkAnimationFrame = 0;
+        _linkWalkAnimationCounter = 2;
+    }
+
+    private void AdvanceLinkWalkAnimation()
+    {
+        if (--_linkWalkAnimationCounter > 0)
+            return;
+
+        // After WALK's initial two-update $54 frame, its graphics alternate
+        // between $80 and $54 in six-update entries. The longer source table
+        // varies only animation parameters used for footsteps and dust.
+        _linkWalkAnimationFrame ^= 1;
+        _linkWalkAnimationCounter = 6;
+    }
 
     internal bool TryBlockWithShield(Rect2 targetBounds, int minimumLevel = 1)
     {
@@ -3968,30 +4035,6 @@ public partial class Player : Node2D
             new Rect2(variant * 32 + frame * 16,
                 (int)_facing * 16, 16, 16));
     }
-
-    private int GetHeldSwordBodyAnimationFrame() =>
-        GetHeldSwordBodyAnimationFrame(_swordState, _walking, _walkTime);
-
-    internal static int GetHeldSwordBodyAnimationFrameForValidation(
-        SwordActionState state,
-        bool walking,
-        float walkTime) => GetHeldSwordBodyAnimationFrame(state, walking, walkTime);
-
-    private static int GetHeldSwordBodyAnimationFrame(
-        SwordActionState state,
-        bool walking,
-        float walkTime)
-    {
-        // Sword state 6 clears the parent item's var3f priority. func_4553 then
-        // resolves the priority-0 tie in Link's favor, exposing his ordinary
-        // standing/walking body while the child sword retains its held arc.
-        if (state is not (SwordActionState.Held or SwordActionState.Charged))
-            return -1;
-        return GetWalkAnimationFrame(walking, walkTime);
-    }
-
-    private static int GetWalkAnimationFrame(bool walking, float walkTime) =>
-        walking && ((int)(walkTime / 0.10f) & 1) == 1 ? 1 : 0;
 
     private void UpdateFacing(Vector2 input)
     {
@@ -4990,7 +5033,6 @@ public partial class Player : Node2D
         // The weapon item occupies an earlier visual layer than Link, so
         // Link's body masks the sword where their sprites overlap.
         DrawSword();
-        int heldBodyFrame = GetHeldSwordBodyAnimationFrame();
         if (_minecartRideControlled &&
             _swordState == SwordActionState.Swing)
         {
@@ -5009,14 +5051,17 @@ public partial class Player : Node2D
                 new Rect2(
                     phase * 16, (int)_facing * 16, 16, 16));
         }
-        else if (heldBodyFrame >= 0)
+        else if (_swordState is
+            SwordActionState.Held or SwordActionState.Charged)
         {
-            DrawTextureRectRegion(
-                DamagePaletteActive ? _damageTexture : _texture,
-                new Rect2(
-                    NormalSpriteOrigin + drawOffset,
-                    new Vector2(16, 16)),
-                GetFrame(_facing, heldBodyFrame));
+            // swordParent state 6 clears Item.var3f to zero. func_4553 then
+            // exposes Link's independently advancing animation: WALK when the
+            // sword already owned turning at takeoff, or JUMP when the Feather
+            // initialized first.
+            if (_sideScrollAirborne || _topDownAirborne)
+                DrawAirborneLinkBody(drawOffset);
+            else
+                DrawWalkLinkBody(GetWalkAnimationFrame(), drawOffset);
         }
         else
         {
@@ -5037,6 +5082,57 @@ public partial class Player : Node2D
                     16,
                     16));
         }
+    }
+
+    private void DrawAirborneLinkBody(Vector2 drawOffset)
+    {
+        if (_airborneLinkAnimationMode == AirborneLinkAnimationMode.Walk)
+        {
+            DrawWalkLinkBody(_linkWalkAnimationFrame, drawOffset);
+            return;
+        }
+
+        DrawTextureRectRegion(
+            DamagePaletteActive
+                ? _damageLedgeJumpTexture
+                : _ledgeJumpTexture,
+            new Rect2(
+                NormalSpriteOrigin + drawOffset,
+                new Vector2(16, 16)),
+            new Rect2(
+                AirborneLinkBodyFrame * 16,
+                (int)_facing * 16,
+                16,
+                16));
+    }
+
+    private void DrawWalkLinkBody(int frame, Vector2 drawOffset)
+    {
+        if (IsShieldEquipped)
+        {
+            int variant = (IsUsingShield ? 2 : 0) +
+                (_inventory.ShieldLevel >= 2 ? 1 : 0);
+            DrawTextureRectRegion(
+                DamagePaletteActive
+                    ? _damageShieldLinkTexture
+                    : _shieldLinkTexture,
+                new Rect2(
+                    NormalSpriteOrigin + drawOffset,
+                    new Vector2(16, 16)),
+                new Rect2(
+                    variant * 32 + frame * 16,
+                    (int)_facing * 16,
+                    16,
+                    16));
+            return;
+        }
+
+        DrawTextureRectRegion(
+            DamagePaletteActive ? _damageTexture : _texture,
+            new Rect2(
+                NormalSpriteOrigin + drawOffset,
+                new Vector2(16, 16)),
+            GetFrame(_facing, frame));
     }
 
     private void DrawSword()
@@ -5680,6 +5776,13 @@ internal enum SwordActionState
     Charged,
     Poke,
     Spin
+}
+
+internal enum AirborneLinkAnimationMode
+{
+    None,
+    Walk,
+    Jump
 }
 
 internal enum Facing

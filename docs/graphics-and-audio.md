@@ -243,11 +243,19 @@ position relative to Link's cart-offset coordinates.
 
 Roc's Feather jumps similarly preserve an active Sword parent. Both top-down
 and side-view jump startup skip `LINK_ANIM_MODE_JUMP` while the Sword keeps
-`wLinkTurningDisabled` nonzero, so the swing, held, charged, poke, or spin body
-pose and child Sword remain visible instead of being replaced by the jump
-graphic. In top-down rooms, apply Link's negative Z to both sprites and retain
-the child item's additional `zh - 2` offset. Side-view movement already changes
-Link's object position, so its Sword pose receives no additional draw offset.
+`wLinkTurningDisabled` nonzero. The Sword parent's nonzero animation priority
+therefore covers Link with swing, poke, or spin graphics, but state 6 clears
+that priority to zero for held/charged state. At that boundary `func_4553`
+exposes Link's independently advancing animation: a sword-first jump retains
+the prior `LINK_ANIM_MODE_WALK` clock, while a jump-first Sword use retains the
+`LINK_ANIM_MODE_JUMP` clock underneath the swing. Releasing the Sword in air
+continues that same underlying mode. `LINK_ANIM_MODE_WALK` starts with a
+two-update `$54` entry then alternates `$80/$54` in six-update entries;
+`LINK_ANIM_MODE_JUMP` uses `$e4/$e8/$ec` for 9/9/6 updates and then holds its
+terminal `$80` entry. In top-down rooms, apply Link's negative Z to both sprites
+and retain the child item's additional `zh - 2` offset. Side-view movement
+already changes Link's object position, so its Sword pose receives no
+additional draw offset.
 
 `drawTreasureExtraTiles` mode `$01` draws a packed-BCD quantity as two HUD
 digit tiles. The selected Satchel display resolves treasure `$20-$24`, so both
