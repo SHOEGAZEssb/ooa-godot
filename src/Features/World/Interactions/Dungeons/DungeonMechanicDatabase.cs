@@ -4,9 +4,10 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Imported placements and common constants for PART_BUTTON $09, its
-/// $20:$00/$21:$17 trigger-chest consumers, INTERAC_PUSHBLOCK_TRIGGER
-/// $13:$01, and shutter-door controller variants $1e:$04-$0b.
+/// Imported placements and common constants for PART_SWITCH $05,
+/// PART_BUTTON $09, the buttons' $20:$00/$21:$17 trigger-chest consumers,
+/// INTERAC_PUSHBLOCK_TRIGGER $13:$01, and shutter-door controller variants
+/// $1e:$04-$0b.
 /// </summary>
 internal sealed class DungeonMechanicDatabase
 {
@@ -29,6 +30,13 @@ internal sealed class DungeonMechanicDatabase
     internal int ButtonRadiusX => Constant("button-radius-x");
     internal int ButtonObjectReleaseDelay => Constant("button-object-release-delay");
     internal int ButtonSound => Constant("button-sound");
+    internal int SwitchOffTile => Constant("switch-off-tile");
+    internal int SwitchOnTile => Constant("switch-on-tile");
+    internal int SwitchRadiusY => Constant("switch-radius-y");
+    internal int SwitchRadiusX => Constant("switch-radius-x");
+    internal int SwitchCollisionZ => Constant("switch-collision-z");
+    internal int SwitchHitLockout => Constant("switch-hit-lockout");
+    internal int SwitchSound => Constant("switch-sound");
     internal int ChestTile => Constant("chest-tile");
     internal int ChestWait => Constant("chest-wait");
     internal int PuffSound => Constant("puff-sound");
@@ -65,7 +73,7 @@ internal sealed class DungeonMechanicDatabase
                     _ => throw row.Invalid(7, "one of none, bit, exact")
                 },
                 row.Boolean01(8));
-            if (record.Id is not (0x09 or 0x13 or 0x1e or 0x20 or 0x21) ||
+            if (record.Id is not (0x05 or 0x09 or 0x13 or 0x1e or 0x20 or 0x21) ||
                 record.Id == 0x20 && record.SubId != 0x00 ||
                 record.Id == 0x21 && record.SubId != 0x17)
                 throw row.Invalid(3, "a supported dungeon mechanic interaction id");
@@ -101,8 +109,9 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room08 = GetRoomRecords(4, 0x08);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room09 = GetRoomRecords(4, 0x09);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room22 = GetRoomRecords(4, 0x22);
+        IReadOnlyList<DungeonMechanicDatabaseRecord> room2f = GetRoomRecords(4, 0x2f);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room7a = GetRoomRecords(4, 0x7a);
-        if (RecordCount != 155 || _constants.Count != 20 ||
+        if (RecordCount != 162 || _constants.Count != 27 ||
             room08.Count != 2 ||
             room08[0] != new DungeonMechanicDatabaseRecord(
                 4, 0x08, 0, 0x20, 0x00, 0x57, 0x01,
@@ -127,6 +136,10 @@ internal sealed class DungeonMechanicDatabase
                 new DungeonMechanicDatabaseRecord(
                     4, 0x22, 1, 0x09, 0x80, 0x5b, 0x00,
                     TriggerPredicate.None, true) ||
+            room2f.Count != 1 || room2f[0] !=
+                new DungeonMechanicDatabaseRecord(
+                    4, 0x2f, 5, 0x05, 0x02, 0x79, 0x00,
+                    TriggerPredicate.None, true) ||
             room7a.Count != 2 || room7a[0] !=
                 new DungeonMechanicDatabaseRecord(
                     4, 0x7a, 0, 0x21, 0x17, 0x39, 0x01,
@@ -148,10 +161,14 @@ internal sealed class DungeonMechanicDatabase
             ButtonTile != 0x0c || PressedButtonTile != 0x0d ||
             ButtonRadiusY != 2 || ButtonRadiusX != 2 ||
             ButtonObjectReleaseDelay != 0x1c || ButtonSound != 0x87 ||
+            SwitchOffTile != 0x0a || SwitchOnTile != 0x0b ||
+            SwitchRadiusY != 4 || SwitchRadiusX != 4 ||
+            SwitchCollisionZ != -6 || SwitchHitLockout != 0x1c ||
+            SwitchSound != 0x7e ||
             ChestTile != 0xf1 || ChestWait != 15 || PuffSound != 0x98)
         {
             throw new InvalidOperationException(
-                "Imported dungeon button / trigger-chest / $13:$01 / " +
+                "Imported dungeon switch / button / trigger-chest / $13:$01 / " +
                 "$1e:$04-$0b contract is incomplete.");
         }
     }

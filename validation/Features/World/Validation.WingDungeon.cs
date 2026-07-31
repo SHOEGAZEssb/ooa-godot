@@ -64,6 +64,10 @@ public sealed partial class ValidationRoot
                 _entities.Update(update, _player);
         }
 
+        static Vector2 PackedPoint(int packedPosition) => new(
+            (packedPosition & 0x0f) * 16 + 8,
+            (packedPosition >> 4) * 16 + 8);
+
         void CompleteTransition()
         {
             for (int frame = 0;
@@ -314,6 +318,18 @@ public sealed partial class ValidationRoot
                         _entities.Entities<ToggleFloorRoomEntity>().Count != 1,
                         "Room 4:2e did not create its Peahats and floor-pattern key puzzle.");
                     break;
+                case 0x2f:
+                    FailIf(
+                        _entities.Entities<ColoredCubeRoomEntity>().Count != 1 ||
+                        _entities.Entities<SwitchTileTogglerRoomEntity>().Count != 1 ||
+                        _entities.Entities<MinecartGateRoomEntity>().Count != 1 ||
+                        _entities.Entities<ColoredCubeSensorRoomEntity>().Count != 1 ||
+                        _entities.Entities<WingDungeonStateController>().Count != 1 ||
+                        _entities.Entities<DungeonSwitchRoomEntity>().Count != 1 ||
+                        _entities.Entities<ZolCharacter>().Count != 2,
+                        "Room 4:2f did not create its cube, switch-tile, gate, " +
+                        "two cube sensors, PART_SWITCH $05:$02, and two Zols.");
+                    break;
                 case 0x30:
                     FailIf(
                         _entities.Entities<SwordEnemyCharacter>().Count != 2 ||
@@ -361,6 +377,220 @@ public sealed partial class ValidationRoot
                     break;
             }
         }
+
+        // Room $2f's placed PART_SWITCH $05:$02 is an invisible object at
+        // packed $79. Its 4-by-4 collision radius sits at Z=-$06, toggles the
+        // dungeon bit without reporting ordinary sword contact, and uses the
+        // source ENEMYDMG_34 28-update hit lockout. INTERAC_SWITCH_TILE_TOGGLER
+        // observes that bit at packed $6c. The separate minecart gate watches
+        // bit $10 and changes collision immediately while its 8/8/8 sprite
+        // transition runs to completion.
+        _entities.RuntimeState.SetWramByte(
+            OracleRuntimeState.SwitchStateAddress, 0x00);
+        PrepareRoom(0x2f);
+        DungeonSwitchRoomEntity dungeonSwitch =
+            _entities.Entities<DungeonSwitchRoomEntity>().Single();
+        MinecartGateRoomEntity minecartGate =
+            _entities.Entities<MinecartGateRoomEntity>().Single();
+        Vector2 switchPoint = PackedPoint(0x79);
+        Vector2 toggledTilePoint = PackedPoint(0x6c);
+        Vector2 gateTilePoint = PackedPoint(0x44);
+        Vector2 gateObjectPoint = PackedPoint(0x45);
+        Vector2 gateVisualPoint = new(0x50, 0x48);
+        ulong originalGateTileHash = OracleGraphicsCache.PixelHash(
+            _currentRoom.BuildMimickedMetatileTexture(
+                _currentRoom.GetOriginalMetatile(gateTilePoint)).GetImage());
+        ulong renderedGateTileHash = OracleGraphicsCache.PixelHash(
+            _currentRoom.BuildMimickedMetatileTexture(gateTilePoint).GetImage());
+        FailIf(
+            dungeonSwitch.PackedPosition != 0x79 ||
+            dungeonSwitch.SwitchMask != 0x02 ||
+            !dungeonSwitch.Position.IsEqualApprox(switchPoint) ||
+            dungeonSwitch.CollisionZ != -6 ||
+            !dungeonSwitch.CollisionBounds.Position.IsEqualApprox(
+                switchPoint - Vector2.One * 4) ||
+            !dungeonSwitch.CollisionBounds.Size.IsEqualApprox(Vector2.One * 8) ||
+            _currentRoom.GetMetatile(switchPoint) != 0x0a ||
+            _currentRoom.GetMetatile(toggledTilePoint) != 0x5c ||
+            !minecartGate.Position.IsEqualApprox(gateVisualPoint) ||
+            !minecartGate.Open || minecartGate.Animating ||
+            minecartGate.CurrentAnimationIndex != 0 ||
+            minecartGate.CurrentAnimationFrame != 0 ||
+            _currentRoom.GetMetatile(gateTilePoint) != 0x00 ||
+            renderedGateTileHash != originalGateTileHash ||
+            _currentRoom.GetTerrainInfo(gateTilePoint).Collision != 0x0c ||
+            _currentRoom.GetTerrainInfo(gateObjectPoint).Collision != 0x0a,
+            "Room 4:2f did not initialize the source switch, inactive target " +
+            "tile, or open direction-$00 minecart gate state " +
+            $"(packed=${dungeonSwitch.PackedPosition:x2}, " +
+            $"mask=${dungeonSwitch.SwitchMask:x2}, position={dungeonSwitch.Position}, " +
+            $"z={dungeonSwitch.CollisionZ}, bounds={dungeonSwitch.CollisionBounds}, " +
+            $"switchTile=${_currentRoom.GetMetatile(switchPoint):x2}, " +
+            $"targetTile=${_currentRoom.GetMetatile(toggledTilePoint):x2}, " +
+            $"gatePosition={minecartGate.Position}, open={minecartGate.Open}, " +
+            $"animating={minecartGate.Animating}, " +
+            $"animation={minecartGate.CurrentAnimationIndex}/" +
+            $"{minecartGate.CurrentAnimationFrame}, " +
+            $"gateTile=${_currentRoom.GetMetatile(gateTilePoint):x2}, " +
+            $"render={renderedGateTileHash:x16}/" +
+            $"{originalGateTileHash:x16}, " +
+            $"collisions=${_currentRoom.GetTerrainInfo(gateTilePoint).Collision:x2}/" +
+            $"${_currentRoom.GetTerrainInfo(gateObjectPoint).Collision:x2}).");
+
+        _sound.ClearPlayRequestAudit();
+        bool distantSwitchContact = _entities.ApplySwordHit(
+            new Rect2(new Vector2(8, 8), Vector2.One),
+            sourcePosition: new Vector2(8, 8),
+            damage: 2,
+            knockbackStrength: EnemyKnockbackStrength.Low,
+            collectItemDrops: false,
+            swordState: SwordActionState.Held,
+            swordLevel: 1,
+            itemZ: -2);
+        bool highSwitchContact = _entities.ApplySwordHit(
+            dungeonSwitch.CollisionBounds,
+            sourcePosition: dungeonSwitch.Position,
+            damage: 2,
+            knockbackStrength: EnemyKnockbackStrength.Low,
+            collectItemDrops: false,
+            swordState: SwordActionState.Held,
+            swordLevel: 1,
+            itemZ: 8);
+        bool switchReportsSwordContact = _entities.ApplySwordHit(
+            dungeonSwitch.CollisionBounds,
+            sourcePosition: dungeonSwitch.Position,
+            damage: 2,
+            knockbackStrength: EnemyKnockbackStrength.Low,
+            collectItemDrops: false,
+            swordState: SwordActionState.Held,
+            swordLevel: 1,
+            itemZ: -2);
+        FailIf(
+            distantSwitchContact || highSwitchContact ||
+            switchReportsSwordContact ||
+            _entities.RuntimeState.ReadWramByte(
+                OracleRuntimeState.SwitchStateAddress) != 0x02 ||
+            dungeonSwitch.HitLockout != 28 ||
+            _currentRoom.GetMetatile(switchPoint) != 0x0b ||
+            _sound.PlayRequestsFor(0x7e) != 1,
+            "PART_SWITCH $05:$02 did not use its exact planar/Z collision, " +
+            "LINKDMG_1c no-contact response, on tile, sound, and 28-update lockout.");
+        Step();
+        FailIf(
+            dungeonSwitch.HitLockout != 27 ||
+            _currentRoom.GetMetatile(toggledTilePoint) != 0x5a ||
+            !minecartGate.Open || minecartGate.Animating,
+            "Room 4:2f's switch-tile toggler did not observe bit $02 on the " +
+            "following interaction update, or incorrectly changed bit-$10's gate.");
+
+        _entities.ApplySwordHit(
+            dungeonSwitch.CollisionBounds,
+            dungeonSwitch.Position,
+            damage: 2);
+        Step(26);
+        _entities.ApplySwordHit(
+            dungeonSwitch.CollisionBounds,
+            dungeonSwitch.Position,
+            damage: 2);
+        FailIf(
+            dungeonSwitch.HitLockout != 1 ||
+            _entities.RuntimeState.ReadWramByte(
+                OracleRuntimeState.SwitchStateAddress) != 0x02 ||
+            _sound.PlayRequestsFor(0x7e) != 1,
+            "PART_SWITCH accepted another collision before ENEMYDMG_34's " +
+            "signed 28-update lockout reached zero.");
+        Step();
+        _entities.ApplySwordHit(
+            dungeonSwitch.CollisionBounds,
+            dungeonSwitch.Position,
+            damage: 2);
+        Step();
+        FailIf(
+            _entities.RuntimeState.ReadWramByte(
+                OracleRuntimeState.SwitchStateAddress) != 0x00 ||
+            dungeonSwitch.HitLockout != 27 ||
+            _currentRoom.GetMetatile(switchPoint) != 0x0a ||
+            _currentRoom.GetMetatile(toggledTilePoint) != 0x5c ||
+            _sound.PlayRequestsFor(0x7e) != 2,
+            "PART_SWITCH did not become hittable on update 28 and restore " +
+            "its own and INTERAC_SWITCH_TILE_TOGGLER's inactive tiles.");
+
+        var gateVisuals = new DungeonInteractionVisualDatabase();
+        DungeonInteractionVisual gateVisual = gateVisuals.Visual("minecart-gate");
+        AnimationDefinition gateClosingAnimation =
+            OracleGraphicsCache.GetAnimationDefinition(gateVisual.Animations[0]);
+        AnimationDefinition gateOpeningAnimation =
+            OracleGraphicsCache.GetAnimationDefinition(gateVisual.Animations[1]);
+        FailIf(
+            gateVisual.TileBase != 0x10 || gateVisual.Palette != 0 ||
+            gateVisual.Animations.Length != 4 ||
+            gateClosingAnimation.Frames is not
+            [
+                { Duration: 8, Parameter: 0 },
+                { Duration: 8, Parameter: 0 },
+                { Duration: 8, Parameter: 0xff }
+            ] ||
+            gateOpeningAnimation.Frames is not
+            [
+                { Duration: 8, Parameter: 0 },
+                { Duration: 8, Parameter: 0 },
+                { Duration: 8, Parameter: 0xff }
+            ],
+            "INTERAC_MINECART_GATE lost its source graphics, palette, or " +
+            "direction-$00 8/8/8 closing and reverse opening animations.");
+
+        _sound.ClearPlayRequestAudit();
+        _entities.RuntimeState.SetWramByte(
+            OracleRuntimeState.SwitchStateAddress, 0x10);
+        Step();
+        FailIf(
+            minecartGate.Open || !minecartGate.Animating ||
+            minecartGate.CurrentAnimationIndex != 0 ||
+            minecartGate.CurrentAnimationFrame != 0 ||
+            _currentRoom.GetMetatile(gateTilePoint) != 0x5e ||
+            OracleGraphicsCache.PixelHash(
+                _currentRoom.BuildMimickedMetatileTexture(
+                    gateTilePoint).GetImage()) != originalGateTileHash ||
+            _currentRoom.GetTerrainInfo(gateTilePoint).Collision != 0x00 ||
+            _currentRoom.GetTerrainInfo(gateObjectPoint).Collision != 0x0a ||
+            _sound.PlayRequestsFor(0x7d) != 1,
+            "Room 4:2f's bit-$10 gate did not close its tile/collision " +
+            "immediately and start direction-$00 animation with SND_OPENGATE.");
+        _entities.RuntimeState.SetWramByte(
+            OracleRuntimeState.SwitchStateAddress, 0x00);
+        Step(16);
+        FailIf(
+            minecartGate.Open || minecartGate.Animating ||
+            minecartGate.CurrentAnimationFrame != 2 ||
+            _currentRoom.GetMetatile(gateTilePoint) != 0x5e ||
+            _sound.PlayRequestsFor(0x7d) != 1,
+            "INTERAC_MINECART_GATE reacted to a switch change before its " +
+            "8/8 closing animation reached parameter $ff.");
+        Step();
+        FailIf(
+            !minecartGate.Open || !minecartGate.Animating ||
+            minecartGate.CurrentAnimationIndex != 1 ||
+            minecartGate.CurrentAnimationFrame != 0 ||
+            _currentRoom.GetMetatile(gateTilePoint) != 0x00 ||
+            OracleGraphicsCache.PixelHash(
+                _currentRoom.BuildMimickedMetatileTexture(
+                    gateTilePoint).GetImage()) != originalGateTileHash ||
+            _currentRoom.GetTerrainInfo(gateTilePoint).Collision != 0x0c ||
+            _sound.PlayRequestsFor(0x7d) != 2,
+            "INTERAC_MINECART_GATE did not apply the deferred opening state " +
+            "and reverse animation on the update after closing completed.");
+
+        _entities.RuntimeState.SetWramByte(
+            OracleRuntimeState.SwitchStateAddress, 0x02);
+        PrepareRoom(0x2f);
+        FailIf(
+            _currentRoom.GetMetatile(switchPoint) != 0x0b ||
+            _currentRoom.GetMetatile(toggledTilePoint) != 0x5a ||
+            !_entities.Entities<MinecartGateRoomEntity>().Single().Open,
+            "Room 4:2f re-entry did not run replaceSwitchTiles for retained " +
+            "bit $02 independently of the clear bit-$10 gate.");
+        _entities.RuntimeState.SetWramByte(
+            OracleRuntimeState.SwitchStateAddress, 0x00);
 
         // findWarpSourceAndDest deliberately has no explicit group-4 source
         // for room $35. Its Ages-only dungeon fallback keeps map position

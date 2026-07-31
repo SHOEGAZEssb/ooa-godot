@@ -35,6 +35,10 @@ internal sealed partial class SwitchTileTogglerRoomEntity : Node2D,
         _lastSwitchState = runtime.ReadWramByte(
             OracleRuntimeState.SwitchStateAddress);
         Name = $"SwitchTileToggler_{record.Group}_{record.Room:x2}_{record.Order}";
+        // replaceSwitchTiles restores only active rows before object parsing.
+        // The source layout already contains the inactive tile.
+        if ((_lastSwitchState & _record.SubId) != 0)
+            SetTile(enabled: true);
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
@@ -44,15 +48,20 @@ internal sealed partial class SwitchTileTogglerRoomEntity : Node2D,
         if (switchState == _lastSwitchState)
             return;
         _lastSwitchState = switchState;
+        SetTile((switchState & _record.SubId) != 0);
+    }
+
+    public void SetTransitionDrawOffset(Vector2 offset) { }
+
+    private void SetTile(bool enabled)
+    {
         (int off, int on) = _data.SwitchTiles(_record.X);
-        byte tile = (byte)((switchState & _record.SubId) != 0 ? on : off);
+        byte tile = (byte)(enabled ? on : off);
         Vector2 point = PointFor(_record.Y);
         _room.SetPositionTileAndCollision(
             point, tile, null, _animationTick());
         _roomTileChanged();
     }
-
-    public void SetTransitionDrawOffset(Vector2 offset) { }
 
     private static Vector2 PointFor(int packedPosition) => new(
         (packedPosition & 0x0f) * 16 + 8,

@@ -314,6 +314,9 @@ Add-DungeonInteractionVisual 'moving-side-platform' 0xa1 0 @(4)
 Add-DungeonInteractionVisual 'circular-side-platform' 0xa4 0 @(0)
 Add-DungeonInteractionVisual 'minecart' 0x16 0 @(0, 1) `
     -additionalAnimations (Resolve-MinecartSpecialObjectAnimations)
+# interactionCode1b rewrites subid to direction $00/$02 before graphics
+# initialization, then selects direction|open for the four source animations.
+Add-DungeonInteractionVisual 'minecart-gate' 0x1b 0 @(0, 1, 2, 3)
 
 # interactionCode19 loads PALH_89, which replaces OBJ palettes 6 and 7 with
 # the two color-pair palettes used by the rotating cube. Its OAM records mix
@@ -536,8 +539,8 @@ function Add-DungeonPartVisual(
 Add-DungeonPartVisual 'head-thwomp-fireball' 0x39 0xa4 0 4 $true
 Add-DungeonPartVisual 'head-thwomp-circular-projectile' 0x3c 0x8e 0x14 6 $true
 
-if ($dungeonVisualRows.Count -ne 16) {
-    throw "Expected fifteen imported D1/D2 dungeon interaction visuals."
+if ($dungeonVisualRows.Count -ne 17) {
+    throw "Expected sixteen imported D1/D2 dungeon interaction visuals."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\dungeon_interaction_visuals.tsv'),

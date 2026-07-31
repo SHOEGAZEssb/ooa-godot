@@ -711,6 +711,7 @@ public sealed partial class ValidationRoot
     {
         const double update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
         var database = new DungeonMechanicDatabase();
+        int switchRecordCount = 0;
         int buttonRecordCount = 0;
         int triggerDoorRecordCount = 0;
         int permanentTriggerChestCount = 0;
@@ -721,6 +722,7 @@ public sealed partial class ValidationRoot
             foreach (DungeonMechanicDatabaseRecord record in
                 database.GetRoomRecords(group, roomId))
             {
+                switchRecordCount += record.Id == 0x05 ? 1 : 0;
                 buttonRecordCount += record.Id == 0x09 ? 1 : 0;
                 triggerDoorRecordCount += record is
                     { Id: 0x1e, SubId: >= 0x04 and <= 0x07 } ? 1 : 0;
@@ -731,14 +733,15 @@ public sealed partial class ValidationRoot
             }
         }
         FailIf(
-            database.RecordCount != 155 || buttonRecordCount != 49 ||
+            database.RecordCount != 162 || switchRecordCount != 7 ||
+            buttonRecordCount != 49 ||
             triggerDoorRecordCount != 20 ||
             permanentTriggerChestCount != 7 ||
             retractableTriggerChestCount != 6 ||
             database.GetRoomRecords(4, 0x0c).Select(record => record.Order)
                 .ToArray() is not [0, 1],
-            "Expected 49 buttons, 20 trigger shutters, seven delayed and " +
-            "six retractable trigger chests, and 73 ordered " +
+            "Expected seven switches, 49 buttons, 20 trigger shutters, seven " +
+            "delayed and six retractable trigger chests, and 73 ordered " +
             "$13:$01/enemy-shutter dungeon placements.");
 
         void Step() => _entities.Update(update, _player);
@@ -1719,8 +1722,8 @@ public sealed partial class ValidationRoot
             $"solve={_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)}.");
         _entities.WorldToScreen = _transitions.WorldToGameplayScreen;
 
-        GD.Print("Validated all 155 imported button/trigger-chest/$13:$01/$1e:$04-$0b " +
-            "placements, 49 buttons, seven delayed and six retractable trigger chests, " +
+        GD.Print("Validated all 162 imported switch/button/trigger-chest/$13:$01/$1e:$04-$0b " +
+            "placements, seven switches, 49 buttons, seven delayed and six retractable trigger chests, " +
             "20 trigger-door records, room 4:08's exact-$01 solve/puff/15-update chest, " +
             "room 4:7a's reusable chest retraction, room 4:09's one-shot bit-0 " +
             "button and dual shutters, room 4:22's reusable strict-radius/airborne/" +

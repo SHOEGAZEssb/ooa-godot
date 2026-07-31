@@ -1039,7 +1039,8 @@ if ($miscMan2Source -notmatch '(?ms)^@subid0:\s+call checkInteractionState\s+jr 
     throw 'Rooms 1:82/1:92/1:93/1:94 ordinary NPC native behavior changed.'
 }
 
-# PART_BUTTON $09, its trigger-chest consumers $20:$00/$21:$17, the
+# PART_SWITCH $05, PART_BUTTON $09, the buttons' trigger-chest consumers
+# $20:$00/$21:$17, the
 # trigger-controlled and enemy-controlled shutter variants of
 # INTERAC_DOOR_CONTROLLER $1e:$04-$0b, and INTERAC_PUSHBLOCK_TRIGGER $13:$01
 # form reusable dungeon mechanisms around wActiveTriggers and wNumEnemies.
@@ -1050,6 +1051,8 @@ $pushblockTriggerSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\pushblockTrigger.s')
 $buttonSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\parts\button.s')
+$switchSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\parts\switch.s')
 $doorControllerSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\doorController.s')
 $dungeonScriptSource = Read-ImportText (
@@ -1091,6 +1094,12 @@ $zolEnemySource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\zol.s')
 $partDataSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\partData.s')
+$partActiveCollisionsSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\partActiveCollisions.s')
+$objectCollisionTableSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\objectCollisionTable.s')
+$collisionEffectsSource = Read-ImportText (
+    Join-Path $Disassembly 'code\collisionEffects.s')
 $tileIndexSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\tileIndices.s')
 $musicIdSource = Read-ImportText (
@@ -1098,6 +1107,7 @@ $musicIdSource = Read-ImportText (
 $objectSpeedSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\objectSpeeds.s')
 if ($pushblockTriggerSource -notmatch '(?ms)^@state0:.*?ld a,TILEINDEX_PUSHABLE_BLOCK.*?ld hl,wNumEnemies\s+inc \(hl\).*?^@state1:.*?^@state2:.*?cp \(hl\)\s+ret z.*?ld a,\$1e.*?^@state3:.*?interactionDecCounter1.*?xor a\s+ld \(wNumEnemies\),a' -or
+    $switchSource -notmatch '(?ms)^partCode05:\s+jr z,@normalStatus.*?ld a,\(wSwitchState\).*?xor \(hl\)\s+ld \(wSwitchState\),a\s+call @updateTile\s+ld a,SND_SWITCH.*?^@state0:.*?ld \(hl\),\$fa\s+call objectGetShortPosition.*?^@updateTile:.*?TILEINDEX_DUNGEON_SWITCH_OFF.*?inc a.*?jp setTile' -or
     $buttonSource -notmatch '(?ms)^partCode09:.*?call z,@state0.*?checkObjectsCollided.*?@linkTouchedButton:.*?ld a,\(w1Link\.zh\).*?rlca\s+jr nc,@delete.*?@checkButtonPushed:.*?TILEINDEX_PRESSED_BUTTON.*?@setTriggerAndPlaySound:.*?wActiveTriggers.*?setFlag.*?SND_SPLASH.*?@state0:.*?and \$07' -or
     $buttonSource -notmatch '(?ms)^@somethingOnButton:.*?bit 7,\(hl\).*?ld \(hl\),\$1c.*?setTileInRoomLayoutBuffer.*?^@updateTileBeforeDeletion:.*?TILEINDEX_PRESSED_BUTTON.*?setTileInRoomLayoutBuffer' -or
     $dungeonScriptSource -notmatch '(?ms)^@dungeon0:.*?^@dungeond:.*?makuPathScript_spawnChestWhenActiveTriggersEq01.*?^@dungeon1:.*?dungeonScript_spawnChestOnTriggerBit0.*?^@dungeon9:.*?^@dungeona:.*?^@dungeonb:.*?dungeonScript_spawnChestOnTriggerBit0' -or
@@ -1115,8 +1125,14 @@ if ($pushblockTriggerSource -notmatch '(?ms)^@state0:.*?ld a,TILEINDEX_PUSHABLE_
     $fallDownHoleSource -notmatch '(?ms)^@fallDownHole:.*?ld a,SND_FALLINHOLE\s+call nc,playSound' -or
     $bank0Source -notmatch '(?ms)^@enemyCreateDeathPuff:.*?PART_ENEMY_DESTROYED.*?ld a,SND_KILLENEMY\s+jp playSound' -or
     $zolEnemySource -notmatch '(?ms)^zol_subid01_stateC:.*?INTERAC_KILLENEMYPUFF.*?ld a,SND_KILLENEMY\s+call playSound' -or
+    $partDataSource -notmatch '(?m)^\s*\.db \$00 \$83 \$44 \$ff \$40 \$08 \$00 \$00 ; \$05' -or
     $partDataSource -notmatch '(?m)^\s*\.db \$00 \$02 \$22 \$00 \$40 \$00 \$00 \$00 ; \$09' -or
+    $partActiveCollisionsSource -notmatch '(?m)^\s*dbrev %00001111 %11110110 %00011011 %01111110 ; 0x05' -or
+    $objectCollisionTableSource -notmatch '(?ms); ENEMYCOLLISION_SWITCH \(0x03\)\s+\.db(?: \$26){16}\s+\.db \$00 \$00 \$00 \$26(?: \$26){5} \$20 \$20 \$20 \$20 \$20 \$20 \$00' -or
+    $collisionEffectsSource -notmatch '(?m)^\s*\.db \$60 \$e4 \$00 \$00 ; ENEMYDMG_34' -or
     $tileIndexSource -notmatch '(?m)^\.define TILEINDEX_PUSHABLE_BLOCK\s+\$1d' -or
+    $tileIndexSource -notmatch '(?m)^\.define TILEINDEX_DUNGEON_SWITCH_OFF\s+\$0a' -or
+    $tileIndexSource -notmatch '(?m)^\.define TILEINDEX_DUNGEON_SWITCH_ON\s+\$0b' -or
     $tileIndexSource -notmatch '(?m)^\.define TILEINDEX_BUTTON\s+\$0c' -or
     $tileIndexSource -notmatch '(?m)^\.define TILEINDEX_PRESSED_BUTTON\s+\$0d' -or
     $musicIdSource -notmatch '(?m)^\s*SND_SOLVEPUZZLE\s+db\s+; \$4d' -or
@@ -1128,9 +1144,10 @@ if ($pushblockTriggerSource -notmatch '(?ms)^@state0:.*?ld a,TILEINDEX_PUSHABLE_
     $musicIdSource -notmatch '(?m)^\s*SND_DOORCLOSE\s+db\s+; \$70' -or
     $musicIdSource -notmatch '(?m)^\s*SND_MOVEBLOCK\s+db\s+; \$71' -or
     $musicIdSource -notmatch '(?m)^\s*SND_KILLENEMY\s+db\s+; \$73' -or
+    $musicIdSource -notmatch '(?m)^\s*SND_SWITCH\s+db\s+; \$7e' -or
     $musicIdSource -notmatch '(?m)^\s*SND_SPLASH\s+db\s+; \$87' -or
     $musicIdSource -notmatch '(?m)^\s*SND_POOF\s+db\s+; \$98') {
-    throw 'Dungeon button/chest/push block and enemy death/hole trigger, timing, tile, or sound contract changed.'
+    throw 'Dungeon switch/button/chest/push block and enemy death/hole trigger, timing, tile, or sound contract changed.'
 }
 
 if ($interactableTilesSource -notmatch '(?ms)^nextToKeyDoor:.*?call decPushingAgainstTileCounter\s+jr z,\+\s+dec \(hl\)\s+ret nz.*?call checkAndDecKeyCount.*?call createKeySpriteInteraction.*?INTERAC_DOOR_CONTROLLER.*?call setRoomFlagsForUnlockedKeyDoor' -or
@@ -1449,13 +1466,13 @@ foreach ($line in $mainObjectLines) {
             if ($id -eq 0x20) { $permanentTriggerChestCount++ }
             if ($id -eq 0x21) { $retractableTriggerChestCount++ }
         }
-    } elseif ($line -match '^\s*obj_Part\s+\$09\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<position>[0-9a-f]{2})\s*$') {
+    } elseif ($line -match '^\s*obj_Part\s+\$(?<id>05|09)\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<position>[0-9a-f]{2})\s*$') {
         $dungeonMechanicRows.Add(
-            "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t09`t$($Matches['subid'])`t$($Matches['position'])`t00`tnone`t1")
+            "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t$($Matches['id'])`t$($Matches['subid'])`t$($Matches['position'])`t00`tnone`t1")
     }
     $mechanicOrder++
 }
-if ($dungeonMechanicRows.Count -ne 156 -or
+if ($dungeonMechanicRows.Count -ne 163 -or
     $permanentTriggerChestCount -ne 7 -or
     $retractableTriggerChestCount -ne 6 -or
     -not ($dungeonMechanicRows -contains "4`t08`t0`t20`t00`t57`t01`texact`t1") -or
@@ -1465,13 +1482,14 @@ if ($dungeonMechanicRows.Count -ne 156 -or
     -not ($dungeonMechanicRows -contains "4`t09`t3`t13`t01`t2a`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t09`t5`t09`t00`t14`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t22`t1`t09`t80`t5b`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t2f`t5`t05`t02`t79`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t7a`t0`t21`t17`t39`t01`texact`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0c`t0`t13`t01`t47`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0c`t1`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`tnone`t0")) {
-    throw "Expected 155 reusable dungeon button/trigger/chest/shutter placements including rooms 4:08/4:09/4:0b/4:0c/4:7a, parsed $($dungeonMechanicRows.Count - 1)."
+    throw "Expected 162 reusable dungeon switch/button/trigger/chest/shutter placements including rooms 4:08/4:09/4:0b/4:0c/4:2f/4:7a, parsed $($dungeonMechanicRows.Count - 1)."
 }
 $dungeonMechanicConstantRows = @(
     "# key`tvalue"
@@ -1492,6 +1510,13 @@ $dungeonMechanicConstantRows = @(
     "button-radius-x`t2"
     "button-object-release-delay`t28"
     "button-sound`t135"
+    "switch-off-tile`t10"
+    "switch-on-tile`t11"
+    "switch-radius-y`t4"
+    "switch-radius-x`t4"
+    "switch-collision-z`t-6"
+    "switch-hit-lockout`t28"
+    "switch-sound`t126"
     "chest-tile`t241"
     "chest-wait`t15"
     "puff-sound`t152"

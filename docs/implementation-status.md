@@ -314,11 +314,12 @@ remains the single runtime policy table.
   Arrow and Sword Shrouded Stalfos, Sword Masked Stalfos, Thwomps, Peahats,
   color-changing Gels, and the existing shared enemies. Native interactions
   cover the Rupee and level-1 Roc's Feather rewards, five toggle-floor
-  controllers, floor and colored-block pattern keys, switch-tile and minecart
-  gates, enemy chests and falling keys, both colored-cube puzzle variants, all
-  six source chests, four scripted side-view platforms, three circular
-  platforms, and three persistent cross-room minecarts. Minecarts use their
-  source-angle boarding/dismount jumps, moving two-frame animations and Link
+  controllers, floor and colored-block pattern keys, the placed
+  sword-operated floor switch, switch-tile toggler, and animated minecart
+  gate in room `4:2f`, enemy chests and falling keys, both colored-cube puzzle
+  variants, all six source chests, four scripted side-view platforms, three
+  circular platforms, and three persistent cross-room minecarts. Minecarts use
+  their source-angle boarding/dismount jumps, moving two-frame animations and Link
   offsets, minecart-only seated Link graphics, source sprite priority behind
   Link, and terrain-effect suppression. They retain Link's facing and Sword
   input while the cart owns movement; Sword swings use the dedicated ridden

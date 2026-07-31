@@ -1258,6 +1258,19 @@ grants retain their fixed textbox position and do not set a room item flag.
 
 `RoomEntityManager` owns the room-local `wActiveTriggers` equivalent and clears
 all eight bits before every ordinary room parse or destination preload.
+Direct `PART_SWITCH $05` placements instead use the retained dungeon
+`wSwitchState` equivalent. The invisible part sits at the packed source
+position with its `$04/$04` radii and Z `$fa`, accepts only the item classes in
+its imported active-collision row, XORs the subid mask, replaces its visible
+tile with `$0a/$0b`, requests `SND_SWITCH`, and rejects repeat collisions for
+the source `ENEMYDMG_34` 28-update interval. Active switch and switch-tile rows
+are restored during room construction. Room `4:2f` combines `$05:$02` with
+`INTERAC_SWITCH_TILE_TOGGLER $78:$02`; its independent bit-$10 minecart gate
+changes the `$44/$45` collision bytes immediately, draws the imported gate
+sprite, and keeps its logical `$00/$5e` layout write out of the already-drawn
+background. It ignores further state changes until its 8/8/8-update transition
+reaches parameter `$ff`.
+
 `PART_BUTTON $09` writes the bit selected by subid bits 0-2; subid bit 7 only
 chooses reusable versus one-shot pressure. Trigger-door `$1e:$04-$07` records
 read the bit selected by their source parameter. Trigger-chest `$20:$00` and

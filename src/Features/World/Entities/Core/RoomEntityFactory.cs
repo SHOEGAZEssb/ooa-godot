@@ -820,7 +820,8 @@ internal sealed class RoomEntityFactory(
                     roomTileChanged, animationTick);
             case DungeonObjectKind.MinecartGate:
                 return new MinecartGateRoomEntity(
-                    record, room, runtimeState, soundRequested,
+                    record, room, runtimeState,
+                    _dungeonVisuals.Visual("minecart-gate"), soundRequested,
                     roomTileChanged, animationTick);
             case DungeonObjectKind.EnemyChest:
                 return new EnemyClearChestRoomEntity(
@@ -1055,6 +1056,12 @@ internal sealed class RoomEntityFactory(
         bool enemyMechanicsSupported,
         EnemyPlacementContext placementContext)
     {
+        if (record.Id == 0x05)
+        {
+            return new DungeonSwitchRoomEntity(
+                record, room, _dungeonMechanics, runtimeState,
+                animationTick, roomTileChanged, soundRequested);
+        }
         if (record.Id == 0x09)
         {
             return new GroundButtonRoomEntity(
