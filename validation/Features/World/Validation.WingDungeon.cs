@@ -700,6 +700,143 @@ public sealed partial class ValidationRoot
             !_entities.Entities<MinecartGateRoomEntity>().Single().Open,
             "Room 4:2f re-entry did not run replaceSwitchTiles for retained " +
             "bit $02 independently of the clear bit-$10 gate.");
+
+        // Ordinary screen scrolling never runs loadingRoom's wSwitchState
+        // clear. Close the actual bit-$10 gate, scroll through its right-hand
+        // dungeon neighbor, and ensure destination parsing reconstructs the
+        // same closed gate when Link returns.
+        OracleRandomState gateTransitionRandom = _random.CaptureState();
+        _entities.RuntimeState.SetWramByte(
+            OracleRuntimeState.SwitchStateAddress, 0x10);
+        PrepareRoom(0x2f);
+        minecartGate = _entities.Entities<MinecartGateRoomEntity>().Single();
+        FailIf(
+            minecartGate.Open || minecartGate.Animating ||
+            minecartGate.CurrentAnimationIndex != 1 ||
+            _currentRoom.GetMetatile(gateTilePoint) != 0x5e ||
+            _currentRoom.GetTerrainInfo(gateTilePoint).Collision != 0x00,
+            "Room 4:2f did not reconstruct its closed bit-$10 minecart gate " +
+            "before the scroll-persistence check.");
+
+        _transitions.BeginScroll(_player, Vector2I.Right, 0x30);
+        CompleteTransition();
+        FailIf(
+            _currentRoom.Id != 0x30 ||
+            _entities.RuntimeState.ReadWramByte(
+                OracleRuntimeState.SwitchStateAddress) != 0x10,
+            "The 4:2f -> 4:30 screen scroll did not retain wSwitchState bit $10.");
+
+        _transitions.BeginScroll(_player, Vector2I.Left, 0x2f);
+        CompleteTransition();
+        minecartGate = _entities.Entities<MinecartGateRoomEntity>().Single();
+        FailIf(
+            _currentRoom.Id != 0x2f ||
+            _entities.RuntimeState.ReadWramByte(
+                OracleRuntimeState.SwitchStateAddress) != 0x10 ||
+            minecartGate.Open || minecartGate.Animating ||
+            minecartGate.CurrentAnimationIndex != 1 ||
+            _currentRoom.GetMetatile(gateTilePoint) != 0x5e ||
+            _currentRoom.GetTerrainInfo(gateTilePoint).Collision != 0x00 ||
+            _currentRoom.GetTerrainInfo(gateObjectPoint).Collision != 0x0a,
+            "Room 4:2f did not restore its closed minecart gate from retained " +
+            "wSwitchState bit $10 after scrolling away and back.");
+        _random.RestoreState(gateTransitionRandom);
+        _entities.RuntimeState.SetWramByte(
+            OracleRuntimeState.SwitchStateAddress, 0x00);
+
+        // Room $3b places INTERAC_DUNGEON_EVENTS $21:$07 before its
+        // bit-$20 direction-$02 minecart gate. The stateless event derives
+        // that bit from packed floor tile $79 on its first dispatch, so a
+        // red/yellow floor must clear even a stale retained bit before the
+        // following gate initializes. Exercise that source order both on a
+        // direct parse and on destination preload after leaving the room.
+        OracleRandomState derivedGateTransitionRandom = _random.CaptureState();
+        _entities.RuntimeState.SetWramByte(
+            OracleRuntimeState.SwitchStateAddress, 0x20);
+        PrepareRoom(0x3b);
+        Vector2 floorSwitchPoint = PackedPoint(0x79);
+        Vector2 derivedGateFirstPoint = PackedPoint(0x7a);
+        Vector2 derivedGatePoint = PackedPoint(0x7b);
+        minecartGate = _entities.Entities<MinecartGateRoomEntity>().Single();
+        FailIf(
+            _currentRoom.GetMetatile(floorSwitchPoint) != 0xad ||
+            (_entities.RuntimeState.ReadWramByte(
+                OracleRuntimeState.SwitchStateAddress) & 0x20) != 0 ||
+            !minecartGate.Open || minecartGate.Animating ||
+            minecartGate.CurrentAnimationIndex != 2 ||
+            _currentRoom.GetMetatile(derivedGatePoint) != 0x00 ||
+            _currentRoom.GetTerrainInfo(derivedGateFirstPoint).Collision != 0x05 ||
+            _currentRoom.GetTerrainInfo(derivedGatePoint).Collision != 0x0c,
+            "Room 4:3b did not run its ordered red-floor -> bit-$20 -> " +
+            "direction-$02 gate initialization before exposing the room.");
+
+        // Cross packed floor $79 with a real top-down Feather jump. Landing
+        // on the far side cycles red $ad -> yellow $ae through both setTile
+        // and setTileInRoomLayoutBuffer while leaving the gate open.
+        ToggleFloorRoomEntity toggleFloor =
+            _entities.Entities<ToggleFloorRoomEntity>().Single();
+        _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
+        // Link's source toggle-floor center window samples yh+$05; one pixel
+        // above the metatile center lands on its inclusive upper endpoint.
+        _player.WarpTo(
+            PackedPoint(0x78) + Vector2.Up, recordSafe: false);
+        Step();
+        _player.AdvanceTopDownAirUpdateForValidation(startJump: true);
+        Step();
+        _player.ApplyMovingPlatformDisplacement(Vector2.Right * 16.0f);
+        Step();
+        FailIf(
+            toggleFloor.PendingCount != 1 ||
+            _currentRoom.GetMetatile(floorSwitchPoint) != 0xad,
+            "Room 4:3b did not queue toggle-floor $79 while Link crossed it in air.");
+        _player.ApplyMovingPlatformDisplacement(Vector2.Right * 16.0f);
+        for (int frame = 0;
+             frame < 120 && _player.TopDownAirborne;
+             frame++)
+        {
+            _player.AdvanceTopDownAirUpdateForValidation();
+        }
+        Step();
+        FailIf(
+            _player.TopDownAirborne || toggleFloor.PendingCount != 0 ||
+            _currentRoom.GetMetatile(floorSwitchPoint) != 0xae ||
+            _currentRoom.GetUnderlyingMetatile(floorSwitchPoint) != 0xae ||
+            (_entities.RuntimeState.ReadWramByte(
+                OracleRuntimeState.SwitchStateAddress) & 0x20) != 0 ||
+            !minecartGate.Open || minecartGate.Animating,
+            "Room 4:3b did not retain its yellow $ae toggle floor and open " +
+            "bit-$20 gate after Link landed beyond packed tile $79.");
+
+        _transitions.BeginScroll(_player, Vector2I.Up, 0x35);
+        CompleteTransition();
+        FailIf(
+            _currentRoom.Id != 0x35 ||
+            (_entities.RuntimeState.ReadWramByte(
+                OracleRuntimeState.SwitchStateAddress) & 0x20) != 0,
+            "The open 4:3b minecart gate did not retain its clear bit $20 " +
+            "while scrolling north to room 4:35.");
+
+        // A shared switch byte may be stale by the time this room is parsed;
+        // $21:$07 is authoritative for its own bit and precedes the gate.
+        _entities.RuntimeState.SetWramByte(
+            OracleRuntimeState.SwitchStateAddress, 0x20);
+        _transitions.BeginScroll(_player, Vector2I.Down, 0x3b);
+        CompleteTransition();
+        minecartGate = _entities.Entities<MinecartGateRoomEntity>().Single();
+        FailIf(
+            _currentRoom.Id != 0x3b ||
+            _currentRoom.GetMetatile(floorSwitchPoint) != 0xae ||
+            _currentRoom.GetUnderlyingMetatile(floorSwitchPoint) != 0xae ||
+            (_entities.RuntimeState.ReadWramByte(
+                OracleRuntimeState.SwitchStateAddress) & 0x20) != 0 ||
+            !minecartGate.Open || minecartGate.Animating ||
+            minecartGate.CurrentAnimationIndex != 2 ||
+            _currentRoom.GetMetatile(derivedGatePoint) != 0x00 ||
+            _currentRoom.GetTerrainInfo(derivedGateFirstPoint).Collision != 0x05 ||
+            _currentRoom.GetTerrainInfo(derivedGatePoint).Collision != 0x0c,
+            "Room 4:3b reset toggle-floor $79 to red or restored its " +
+            "minecart gate closed after scrolling away and back.");
+        _random.RestoreState(derivedGateTransitionRandom);
         _entities.RuntimeState.SetWramByte(
             OracleRuntimeState.SwitchStateAddress, 0x00);
 
@@ -2174,7 +2311,8 @@ public sealed partial class ValidationRoot
             "six chests, Roc's Feather top-down arc, ordered Sparks/Whisps/" +
             "Thwomps/Peahats/Shrouded Stalfos/color Gels, toggle/color/cube " +
             "puzzles, side platforms, circular platforms, persistent " +
-            "minecarts and gates, 4:35/4:2d dungeon-floor stairs, Head Thwomp, " +
+            "minecarts and scroll-retained gate state, 4:35/4:2d " +
+            "dungeon-floor stairs, Head Thwomp, " +
             "Swoop/TX_2f00 floor-hole descent, Heart Container, Ancient Wood, and the " +
             "second-Essence exit route.");
 

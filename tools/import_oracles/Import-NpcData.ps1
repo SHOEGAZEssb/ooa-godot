@@ -1102,6 +1102,8 @@ $collisionEffectsSource = Read-ImportText (
     Join-Path $Disassembly 'code\collisionEffects.s')
 $tileIndexSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\tileIndices.s')
+$roomFlagSource = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\roomFlags.s')
 $musicIdSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\music.s')
 $objectSpeedSource = Read-ImportText (
@@ -1150,14 +1152,19 @@ if ($pushblockTriggerSource -notmatch '(?ms)^@state0:.*?ld a,TILEINDEX_PUSHABLE_
     throw 'Dungeon switch/button/chest/push block and enemy death/hole trigger, timing, tile, or sound contract changed.'
 }
 
-if ($interactableTilesSource -notmatch '(?ms)^nextToKeyDoor:.*?call decPushingAgainstTileCounter\s+jr z,\+\s+dec \(hl\)\s+ret nz.*?call checkAndDecKeyCount.*?call createKeySpriteInteraction.*?INTERAC_DOOR_CONTROLLER.*?call setRoomFlagsForUnlockedKeyDoor' -or
+if ($interactableTilesSource -notmatch '(?ms)^nextToKeyBlock:.*?specialObjectCheckPushingAgainstTile.*?call decPushingAgainstTileCounter\s+ret nz.*?call checkAndDecKeyCount.*?ld a,\$02\s+jp z,showInfoTextForTile.*?call createKeySpriteInteraction.*?TILEINDEX_STANDARD_FLOOR\s+call setTile.*?SND_OPENCHEST\s+call playSound.*?set ROOMFLAG_BIT_KEYBLOCK,\(hl\).*?INTERAC_PUFF' -or
+    $interactableTilesSource -notmatch '(?ms)^nextToKeyDoor:.*?call decPushingAgainstTileCounter\s+jr z,\+\s+dec \(hl\)\s+ret nz.*?call checkAndDecKeyCount.*?call createKeySpriteInteraction.*?INTERAC_DOOR_CONTROLLER.*?call setRoomFlagsForUnlockedKeyDoor' -or
     $interactableTilesSource -notmatch '(?ms)^resetPushingAgainstTileCounter:\s+ld a,20\s+ld \(wPushingAgainstTileCounter\),a' -or
     $doorControllerSource -notmatch '(?ms)^@state2Substate0:.*?ld a,SND_DOORCLOSE.*?call setInterleavedTile.*?ld \(hl\),\$06.*?^@state2Substate1:.*?interactionDecCounter1.*?^@shutterTiles:\s+\.db \$a0 \$70.*?\.db \$a0 \$71.*?\.db \$a0 \$72.*?\.db \$a0 \$73' -or
     $bank0Source -notmatch '(?ms)^setRoomFlagsForUnlockedKeyDoor:.*?^_adjacentRoomsData:\s+\.db \$01 \$f8 \$04 \$00.*?\.db \$02 \$01 \$08 \$00.*?\.db \$04 \$08 \$01 \$00.*?\.db \$08 \$ff \$02 \$00' -or
-    $keyDoorGraphicSource -notmatch '(?ms)^@dungeons:.*?\.db \$70 \$00.*?\.db \$71 \$00.*?\.db \$72 \$00.*?\.db \$73 \$00' -or
+    $interactableTileDataSource -notmatch '(?ms)^@dungeons:.*?\.db \$1e \$01.*?\.db \$70 \$02' -or
+    $keyDoorGraphicSource -notmatch '(?ms)^@dungeons:.*?\.db \$1e \$00.*?\.db \$70 \$00.*?\.db \$71 \$00.*?\.db \$72 \$00.*?\.db \$73 \$00' -or
+    $standardTileSubstitutionSource -notmatch '(?ms)^@bit7Dungeons:.*?\.db \$a0 \$1e' -or
+    $tileIndexSource -notmatch '(?m)^\.define TILEINDEX_STANDARD_FLOOR\s+\$a0' -or
+    $roomFlagSource -notmatch '(?m)^\.define ROOMFLAG_KEYBLOCK\s+\$80' -or
     $dungeonKeySpriteSource -notmatch '(?ms)^@state0:.*?ld \(hl\),\$fc.*?ld \(hl\),\$08.*?ld a,SND_GETSEED.*?^@state1:.*?ld \(hl\),\$14.*?ld \(hl\),\$f8.*?^@state2:' -or
     $objectSpeedSource -notmatch '(?m)^\s*SPEED_60\s+dsb 5 ; 0x0f') {
-    throw 'Small-key door push, paired flag, key-sprite, animation, or timing contract changed.'
+    throw 'Dungeon key-block/door push, flags, key-sprite, animation, or timing contract changed.'
 }
 
 # nextToOverworldKeyhole is shared by every named overworld/dungeon-entrance
@@ -1329,6 +1336,13 @@ if ($keyDoorRows.Count -ne 9 -or
     -not ($keyDoorRows -contains "75`tright`tboss`t43`ta0`t02`t08`t20`t6`t112`t94`t5101`t$($noKeyTexts.boss)")) {
     throw "Expected eight imported dungeon-key doors `$70-`$77, parsed $($keyDoorRows.Count - 1)."
 }
+
+$keyBlockText = [Convert]::ToBase64String(
+    [Text.Encoding]::UTF8.GetBytes($allTexts[0x5102]))
+$keyBlockRows = @(
+    "# closed-tile`tkey-graphic`topen-tile`troom-flag`tpush-counter`topen-sound`tkey-sound`tno-key-text-id`tno-key-utf8-base64`tpuff-sound`tsource"
+    "1e`t42`ta0`t80`t20`t$($soundIds['SND_OPENCHEST'])`t$($soundIds['SND_GETSEED'])`t5102`t$keyBlockText`t$($soundIds['SND_POOF'])`tinteractableTiles.s:nextToKeyBlock"
+)
 
 # applyStandardTileSubstitutions selects one replacement list for each set room
 # flag bit and wActiveCollisions value. Preserve the complete Ages table so
@@ -4568,6 +4582,10 @@ $keyDoorPath = Join-Path $destination "objects\dungeon_key_doors.tsv"
 Write-GeneratedTable(
     $keyDoorPath,
     $keyDoorRows)
+$keyBlockPath = Join-Path $destination "objects\dungeon_key_blocks.tsv"
+Write-GeneratedTable(
+    $keyBlockPath,
+    $keyBlockRows)
 $overworldKeyholePath = Join-Path $destination "objects\overworld_keyholes.tsv"
 Write-GeneratedTable(
     $overworldKeyholePath,

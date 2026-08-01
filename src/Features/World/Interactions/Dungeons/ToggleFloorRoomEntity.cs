@@ -34,6 +34,18 @@ internal sealed partial class ToggleFloorRoomEntity : Node2D,
         _roomTileChanged = roomTileChanged;
         _animationTick = animationTick;
         Name = "ToggleFloorRoomEntity";
+
+        // INTERAC_TOGGLE_FLOOR writes each landed color through both setTile
+        // and setTileInRoomLayoutBuffer. OracleRoomData is cached across an
+        // ordinary screen round trip, so reconstruct the visible colored
+        // floors from that underlying buffer before later source-ordered
+        // switch/gate controllers inspect them.
+        int first = _data.Constant("red-toggle-floor");
+        if (_room.RestoreUnderlyingMetatileRange(
+            (byte)first, 3, _animationTick()))
+        {
+            _roomTileChanged();
+        }
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)

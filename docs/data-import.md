@@ -349,7 +349,11 @@ Reusable dungeon mechanics are imported from their shared source tables rather
 than inferred from whichever room first exposes them. `Import-NpcData.ps1`
 combines `interactableTilesTable`, standard room-flag substitutions,
 `_adjacentRoomsData`, and door-controller timing into
-`dungeon_key_doors.tsv`. It also resolves `INTERAC_FALLDOWNHOLE $0f` to
+`dungeon_key_doors.tsv`. The same stage emits `dungeon_key_blocks.tsv` from
+`nextToKeyBlock`, the dungeon interactable/key-graphic rows, TX `$5102`, and
+the bit-7 standard substitution `$1e -> $a0`, including the exact push count,
+sounds, small-key graphic, and puff contract. It also resolves
+`INTERAC_FALLDOWNHOLE $0f` to
 `fall_down_hole.tsv`, including its common sprite header, `SPEED_60`, and
 terminal animation. `Import-WorldAssets.ps1` copies the dedicated 8x8
 `gfx_key.png` tile used when the dungeon HUD dynamically replaces tile `$04`.

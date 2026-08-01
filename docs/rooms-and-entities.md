@@ -1295,7 +1295,16 @@ are restored during room construction. Room `4:2f` combines `$05:$02` with
 changes the `$44/$45` collision bytes immediately, draws the imported gate
 sprite, and keeps its logical `$00/$5e` layout write out of the already-drawn
 background. It ignores further state changes until its 8/8/8-update transition
-reaches parameter `$ff`.
+reaches parameter `$ff`. Ordinary screen scrolling retains `wSwitchState`, so
+destination parsing reconstructs a gate from the same switch bit when Link
+scrolls away and back; full room-load/dungeon-entry initialization remains the
+source reset boundary. Room `4:3b` derives gate bit `$20` from toggle-floor
+tile `$79`. Its stateless `$21:$07` controller precedes the `$1b:$25` gate in
+the imported object stream. `INTERAC_TOGGLE_FLOOR` writes a landed color to
+both the active tile and the underlying room-layout buffer; ordinary re-entry
+restores buffered `$ad-$af` colors before `$21:$07` performs its derivation.
+The floor therefore does not reset to red, and the gate cannot initialize from
+a stale shared bit while the destination is being preloaded.
 
 `PART_BUTTON $09` writes the bit selected by subid bits 0-2; subid bit 7 only
 chooses reusable versus one-shot pressure. Trigger-door `$1e:$04-$07` records
@@ -1306,12 +1315,20 @@ separate ordered fixed-update entities: interactions observe the prior trigger
 value before parts update it, so a pressure change affects a door or chest on
 the next update. These mechanics do not depend on save/story predicates.
 
-Small-key doors are tile interactions, not placed `$1e` room objects.
-`DungeonKeyDoorController` probes imported tiles `$70-$73` through the same
-front-tile push geometry as blocks, centralized in
+Dungeon key blocks and small-key doors are tile interactions, not placed
+`$1e` room objects. `DungeonKeyDoorController` probes imported key-block tile
+`$1e` and door tiles `$70-$73` through the same front-tile push geometry as
+blocks, centralized in
 `InteractableTilePushGeometry`. The probe is disabled for
 `TILESETFLAG_SIDESCROLL`: the source side-scrolling interactable-tile row
 contains only `$da`, and side-view layouts may reuse `$70-$77` as scenery.
+`nextToKeyBlock` decrements the shared counter once, so a continuous push
+activates on update 20. Success consumes one current-dungeon small key,
+creates the graphic-`$42` `INTERAC_DUNGEON_KEY_SPRITE`, replaces `$1e` with
+standard floor `$a0`, requests `SND_OPENCHEST`, sets `ROOMFLAG_KEYBLOCK $80`,
+and creates `INTERAC_PUFF`; missing keys show TX `$5102`. Standard tile
+substitution applies the persisted `$80` replacement on room load. Wing
+Dungeon room `4:35/$27` is the canonical runtime validation.
 `nextToKeyDoor` initializes its shared counter
 to 20 but decrements it twice per qualifying update, so the key check occurs on
 the tenth continuous push. Success consumes exactly one key from the current

@@ -4,10 +4,12 @@ using System;
 namespace oracleofages;
 
 /// <summary>
-/// Implements nextToKeyDoor for imported small-key tiles $70-$73 and boss-key
-/// tiles $74-$77. A door checks the active dungeon's corresponding key,
-/// records both sides of the dungeon-layout adjacency, and uses the ordinary
-/// six-update interleaved-door frame. Only a small key is consumed.
+/// Implements nextToKeyBlock for imported dungeon tile $1e and nextToKeyDoor
+/// for small-key tiles $70-$73 and boss-key tiles $74-$77. Both paths check
+/// the active dungeon's corresponding key. Doors record both sides of the
+/// dungeon-layout adjacency and use the ordinary six-update interleaved-door
+/// frame; key blocks immediately become standard floor and set room flag $80.
+/// Only a small key is consumed.
 /// </summary>
 public partial class DungeonKeyDoorController : Node
 {
@@ -15,6 +17,7 @@ public partial class DungeonKeyDoorController : Node
     private readonly InventoryState _inventory;
     private readonly RoomEntityManager _entities;
     private readonly TreasureDatabase _treasures;
+    private readonly DungeonKeyBlockDatabase _keyBlocks = new();
     private readonly Func<long> _animationTick;
     private readonly Action<int> _playSound;
     private int _pushCounter;
@@ -50,9 +53,7 @@ public partial class DungeonKeyDoorController : Node
         _rooms.RoomChanged += (_, _) => Cancel();
     }
 
-    private int DefaultPushCounter => _door.PushCounter > 0
-        ? _door.PushCounter
-        : 20;
+    private int DefaultPushCounter => _keyBlocks.Record.PushCounter;
 
     public void UpdatePushAttempt(
         Vector2 linkPosition,
@@ -64,7 +65,7 @@ public partial class DungeonKeyDoorController : Node
 
         // interactableTilesTable selects a dedicated side-scrolling row
         // containing only tile $da. Side-view layouts are free to reuse the
-        // top-down key-door indices $70-$77 as ordinary scenery.
+        // top-down key indices $1e/$70-$77 as ordinary scenery.
         if ((_rooms.CurrentRoom.TilesetFlags & 0x20) != 0)
         {
             ResetPushCounter();
@@ -75,8 +76,33 @@ public partial class DungeonKeyDoorController : Node
                 movementInput, out Vector2I direction) ||
             direction != facing ||
             !InteractableTilePushGeometry.IsAlignedForPush(linkPosition) ||
-            !TryGetDoor(linkPosition, direction, out int position,
-                out Vector2 center, out DungeonKeyDoorDatabaseRecord door))
+            !TryGetFrontTile(
+                linkPosition, direction, out int position,
+                out Vector2 center, out byte tile))
+        {
+            ResetPushCounter();
+            return;
+        }
+
+        DungeonKeyBlockDatabaseRecord keyBlock = _keyBlocks.Record;
+        if (tile == keyBlock.ClosedTile)
+        {
+            if (_candidatePosition != position ||
+                _candidateDirection != direction)
+            {
+                _candidatePosition = position;
+                _candidateDirection = direction;
+                _pushCounter = keyBlock.PushCounter;
+            }
+
+            _pushCounter--;
+            if (_pushCounter == 0)
+                TryOpenKeyBlock(center, keyBlock);
+            return;
+        }
+
+        if (!_rooms.KeyDoors.TryGet(tile, out DungeonKeyDoorDatabaseRecord door) ||
+            door.Direction != direction)
         {
             ResetPushCounter();
             return;
@@ -134,12 +160,12 @@ public partial class DungeonKeyDoorController : Node
         ResetPushCounter();
     }
 
-    private bool TryGetDoor(
+    private bool TryGetFrontTile(
         Vector2 linkPosition,
         Vector2I direction,
         out int position,
         out Vector2 center,
-        out DungeonKeyDoorDatabaseRecord door)
+        out byte tile)
     {
         OracleRoomData room = _rooms.CurrentRoom;
         Vector2 frontPoint = linkPosition +
@@ -150,10 +176,35 @@ public partial class DungeonKeyDoorController : Node
         center = new Vector2(
             tileX * OracleRoomData.MetatileSize + 8,
             tileY * OracleRoomData.MetatileSize + 8);
-        byte tile = room.GetMetatile(frontPoint);
-        door = default;
-        return tile != 0xff && _rooms.KeyDoors.TryGet(tile, out door) &&
-            door.Direction == direction;
+        tile = room.GetMetatile(frontPoint);
+        return tile != 0xff;
+    }
+
+    private void TryOpenKeyBlock(
+        Vector2 center,
+        DungeonKeyBlockDatabaseRecord keyBlock)
+    {
+        int dungeon = _rooms.CurrentDungeonIndex;
+        if (!_inventory.TryUseDungeonSmallKey(dungeon))
+        {
+            MessageRequested?.Invoke(keyBlock.NoKeyMessage);
+            ResetPushCounter();
+            return;
+        }
+
+        _entities.Spawn<DungeonKeyUseEffect>(
+            new DungeonKeyUseSpawn(
+                center, _treasures.GetObjectVisual(keyBlock.KeyGraphic)));
+        _rooms.CurrentRoom.SetPositionTileAndCollision(
+            center, keyBlock.OpenTile, null, _animationTick());
+        _playSound(keyBlock.OpenSound);
+        _rooms.SaveData.SetRoomFlag(
+            _rooms.ActiveGroup,
+            _rooms.CurrentRoom.Id,
+            keyBlock.RoomFlag);
+        _entities.Spawn<PuzzlePuffEffect>(
+            new PuzzlePuffSpawn(center, keyBlock.PuffSound));
+        ResetPushCounter();
     }
 
     private void TryOpen(

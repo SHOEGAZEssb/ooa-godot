@@ -282,6 +282,8 @@ public sealed partial class ValidationRoot
             0x73, out DungeonKeyDoorDatabaseRecord leftDoor);
         bool hasBossRight = database.TryGet(
             0x75, out DungeonKeyDoorDatabaseRecord bossRight);
+        DungeonKeyBlockDatabaseRecord keyBlock =
+            new DungeonKeyBlockDatabase().Record;
         FailIf(
             database.Count != 8 ||
             !hasLeftDoor || !hasBossRight ||
@@ -291,6 +293,17 @@ public sealed partial class ValidationRoot
             !bossRight.UsesBossKey || bossRight.KeyGraphic != 0x43 ||
             bossRight.NoKeyTextId != 0x5101,
             "The imported $70-$77 small-key/boss-key door table is incomplete.");
+        FailIf(
+            keyBlock.ClosedTile != 0x1e || keyBlock.KeyGraphic != 0x42 ||
+            keyBlock.OpenTile != 0xa0 || keyBlock.RoomFlag != 0x80 ||
+            keyBlock.PushCounter != 20 ||
+            keyBlock.OpenSound != OracleSoundEngine.SndOpenChest ||
+            keyBlock.KeySound != OracleSoundEngine.SndGetSeed ||
+            keyBlock.NoKeyTextId != 0x5102 ||
+            keyBlock.NoKeyMessage != "Huh? This block\nhas a keyhole." ||
+            keyBlock.PuffSound != OracleSoundEngine.SndPoof ||
+            !keyBlock.Source.Contains("nextToKeyBlock", StringComparison.Ordinal),
+            "The imported dungeon key-block $1e contract is incomplete.");
 
         byte originalRoomFlags = _saveData.GetRoomFlags(group, roomId);
         byte originalNeighborFlags = _saveData.GetRoomFlags(group, neighborRoomId);
@@ -418,6 +431,139 @@ public sealed partial class ValidationRoot
             _saveData.SetRoomFlag(group, neighborRoomId, neighborDoorFlag);
         LoadValidationRoom(group, roomId);
 
+        // Wing Dungeon room $35 contains the ordinary nextToKeyBlock tile at
+        // packed position $27. Unlike key doors, it decrements the shared
+        // 20-update pushing counter only once per update and opens immediately.
+        // Keep this room load on an isolated RNG/session so the validation does
+        // not perturb later enemy behavior checks.
+        {
+            const int keyBlockRoomId = 0x35;
+            OracleSaveData blockSave = OracleSaveData.CreateStandardGame();
+            blockSave.SetRoomFlag(
+                group, keyBlockRoomId, keyBlock.RoomFlag, value: false);
+            var blockRooms = new RoomSession(
+                group, keyBlockRoomId, () => 0, () => { }, blockSave);
+            var blockTreasures = new TreasureDatabase();
+            var blockInventory = new InventoryState(
+                blockTreasures, blockSave,
+                () => blockRooms.CurrentDungeonIndex);
+            using var blockFixture = RoomEntityValidationFixture.Attach(
+                this,
+                "DungeonKeyBlockValidation",
+                new()
+                {
+                    SaveData = blockSave,
+                    Inventory = blockInventory,
+                    Treasures = blockTreasures,
+                    Rooms = blockRooms
+                });
+            RoomEntityManager blockEntities = blockFixture.Manager;
+            blockEntities.LoadRoom(group, blockRooms.CurrentRoom);
+            var blockSounds = new List<int>();
+            blockEntities.SoundRequested += blockSounds.Add;
+            var blockController = new DungeonKeyDoorController(
+                blockRooms, blockInventory, blockEntities, blockTreasures,
+                () => 0, blockSounds.Add);
+            string blockMessage = string.Empty;
+            blockController.MessageRequested +=
+                message => blockMessage = message;
+
+            OracleRoomData blockRoom = blockRooms.CurrentRoom;
+            Vector2 keyBlockCenter = new(0x78, 0x28);
+            Vector2 linkRightOfKeyBlock =
+                keyBlockCenter + Vector2.Right * 10;
+            int blockDungeon = blockRooms.CurrentDungeonIndex;
+            FailIf(
+                blockDungeon != 2 ||
+                blockRoom.GetPackedPosition(keyBlockCenter) != 0x27 ||
+                blockRoom.GetMetatile(keyBlockCenter) != keyBlock.ClosedTile ||
+                !blockRoom.IsSolid(keyBlockCenter),
+                "Wing Dungeon room 4:35 did not load its solid key block $1e at $27.");
+
+            while (blockInventory.TryUseDungeonSmallKey(blockDungeon))
+            {
+            }
+            for (int frame = 0; frame < keyBlock.PushCounter; frame++)
+            {
+                blockController.UpdatePushAttempt(
+                    linkRightOfKeyBlock, Vector2I.Left, Vector2.Left);
+            }
+            FailIf(
+                blockMessage != keyBlock.NoKeyMessage ||
+                blockRoom.GetMetatile(keyBlockCenter) != keyBlock.ClosedTile ||
+                !blockRoom.IsSolid(keyBlockCenter) ||
+                blockSave.HasRoomFlag(
+                    group, keyBlockRoomId, keyBlock.RoomFlag) ||
+                blockEntities.Entities<DungeonKeyUseEffect>().Count != 0 ||
+                blockEntities.Entities<PuzzlePuffEffect>().Count != 0 ||
+                blockSounds.Contains(OracleSoundEngine.SndGetSeed) ||
+                blockSounds.Contains(OracleSoundEngine.SndOpenChest) ||
+                blockSounds.Contains(OracleSoundEngine.SndPoof),
+                "Room 4:35 did not show TX_5102 without consuming a key or " +
+                "changing key block $1e.");
+
+            TreasureObjectRecord blockSmallKey =
+                blockTreasures.GetObject("TREASURE_OBJECT_SMALL_KEY_03");
+            blockInventory.GiveTreasure(blockSmallKey);
+            int keysBeforeKeyBlock =
+                blockInventory.GetDungeonSmallKeys(blockDungeon);
+            blockSounds.Clear();
+            for (int frame = 0; frame < keyBlock.PushCounter - 1; frame++)
+            {
+                blockController.UpdatePushAttempt(
+                    linkRightOfKeyBlock, Vector2I.Left, Vector2.Left);
+            }
+            FailIf(
+                blockController.Opening ||
+                blockController.RemainingPushFrames != 1 ||
+                blockInventory.GetDungeonSmallKeys(blockDungeon) !=
+                    keysBeforeKeyBlock ||
+                blockRoom.GetMetatile(keyBlockCenter) != keyBlock.ClosedTile ||
+                blockSave.HasRoomFlag(
+                    group, keyBlockRoomId, keyBlock.RoomFlag),
+                "Room 4:35 key block $1e opened before nextToKeyBlock's " +
+                "20th continuous push update.");
+
+            blockController.UpdatePushAttempt(
+                linkRightOfKeyBlock, Vector2I.Left, Vector2.Left);
+            FailIf(
+                blockController.Opening ||
+                blockInventory.GetDungeonSmallKeys(blockDungeon) !=
+                    keysBeforeKeyBlock - 1 ||
+                blockRoom.GetMetatile(keyBlockCenter) != keyBlock.OpenTile ||
+                blockRoom.IsSolid(keyBlockCenter) ||
+                !blockSave.HasRoomFlag(
+                    group, keyBlockRoomId, keyBlock.RoomFlag) ||
+                blockEntities.Entities<DungeonKeyUseEffect>() is not
+                    [{ Graphic: 0x42, Phase: 0, Counter: 8, Z: -4 }] ||
+                blockEntities.Entities<PuzzlePuffEffect>() is not
+                    [{ ElapsedUpdates: 0 }] ||
+                blockSounds.Count(sound =>
+                    sound == OracleSoundEngine.SndGetSeed) != 1 ||
+                blockSounds.Count(sound =>
+                    sound == OracleSoundEngine.SndOpenChest) != 1 ||
+                blockSounds.Contains(OracleSoundEngine.SndPoof),
+                "Room 4:35 did not consume one D2 key, replace $1e with floor " +
+                "$a0, set ROOMFLAG_KEYBLOCK, and create its key/puff " +
+                "interactions on update 20.");
+            PuzzlePuffEffect blockPuff =
+                blockEntities.Entities<PuzzlePuffEffect>().Single();
+            blockPuff.UpdateFrame();
+            FailIf(
+                blockPuff.ElapsedUpdates != 1 ||
+                blockSounds.Count(sound =>
+                    sound == OracleSoundEngine.SndPoof) != 1,
+                "Room 4:35's INTERAC_PUFF did not request SND_POOF on its first update.");
+
+            blockRoom = blockRooms.Load(group, keyBlockRoomId);
+            blockEntities.LoadRoom(group, blockRoom);
+            FailIf(
+                blockRoom.GetMetatile(keyBlockCenter) != keyBlock.OpenTile ||
+                blockRoom.IsSolid(keyBlockCenter),
+                "Room 4:35 did not substitute persisted ROOMFLAG_KEYBLOCK tile $1e to floor $a0 on re-entry.");
+            blockController.Free();
+        }
+
         // Spirit's Grave room $12 uses the corresponding right-facing boss
         // door. Exercise it against an isolated D1 inventory: unlike a small
         // key, the Boss Key remains owned after the paired flags are set.
@@ -497,12 +643,13 @@ public sealed partial class ValidationRoot
         RemoveChild(bossRoot);
         bossRoot.QueueFree();
 
-        GD.Print("Validated imported small-key and boss-key doors, TX_5100/TX_5101 " +
-            "no-key handling, retained Boss Key ownership, " +
-            "10-update push activation, per-dungeon key consumption and HUD " +
+        GD.Print("Validated imported dungeon key blocks, small-key and boss-key " +
+            "doors, TX_5100/TX_5101/TX_5102 no-key handling, retained Boss Key ownership, " +
+            "20/10-update push activation, per-dungeon key consumption and HUD " +
             "key/rupee coexistence, " +
-            "paired dungeon-layout flags, INTERAC_DUNGEON_KEY_SPRITE 8+20 timing, " +
-            "six-update interleaved opening, and re-entry substitution.");
+            "key-block and paired dungeon-layout flags, key-block puff/sounds, " +
+            "INTERAC_DUNGEON_KEY_SPRITE 8+20 timing, six-update interleaved " +
+            "door opening, and re-entry substitution.");
     }
 
     private void ValidateSpiritsGraveEntranceInteractions()

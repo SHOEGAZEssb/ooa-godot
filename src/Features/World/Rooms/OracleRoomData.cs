@@ -480,6 +480,34 @@ public sealed class OracleRoomData
         _underlyingLayout[tileY * _layoutStride + tileX] = tile;
     }
 
+    internal bool RestoreUnderlyingMetatileRange(
+        byte firstTile,
+        int count,
+        long animationTick)
+    {
+        if (count <= 0 || firstTile + count > 0x100)
+            throw new ArgumentOutOfRangeException(nameof(count));
+
+        var changes = new Dictionary<int, byte>();
+        for (int y = 0; y < HeightInTiles; y++)
+        for (int x = 0; x < WidthInTiles; x++)
+        {
+            int index = y * _layoutStride + x;
+            byte tile = _underlyingLayout[index];
+            if (tile < firstTile || tile >= firstTile + count ||
+                Layout[index] == tile)
+            {
+                continue;
+            }
+            changes[(y << 4) | x] = tile;
+        }
+
+        if (changes.Count == 0)
+            return false;
+        ApplyRoomInitializationChanges(changes, animationTick);
+        return true;
+    }
+
     public bool ReplaceMetatile(Vector2 localPoint, byte expected, byte replacement, long animationTick)
     {
         int tileX = Mathf.FloorToInt(localPoint.X / MetatileSize);

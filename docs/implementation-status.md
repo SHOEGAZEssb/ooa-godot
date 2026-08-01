@@ -320,12 +320,18 @@ remains the single runtime policy table.
   sword-operated floor switch, switch-tile toggler, and animated minecart
   gate in room `4:2f`, enemy chests and falling keys, both colored-cube puzzle
   variants, all six source chests, four scripted side-view platforms, three
-  circular platforms, and three persistent cross-room minecarts. Minecarts use
+  circular platforms, room `4:35`'s persistent `$1e` dungeon key block, and
+  three persistent cross-room minecarts. Minecarts use
   their source-angle boarding/dismount jumps, moving two-frame animations and Link
   offsets, minecart-only seated Link graphics, source sprite priority behind
   Link, and terrain-effect suppression. They retain Link's facing and Sword
   input while the cart owns movement; Sword swings use the dedicated ridden
-  `$22 -> $26` Link-body animation. They audibly animate departure shutters,
+  `$22 -> $26` Link-body animation. The separate switch-controlled minecart
+  gates reconstruct from scroll-retained `wSwitchState` after leaving and
+  returning to their room; room `4:3b` first derives bit `$20` from its
+  retained underlying toggle-floor color, in source order, so tile `$79`
+  does not reset to red and the gate cannot preload from stale shared state.
+  Minecarts audibly animate departure shutters,
   open the matching destination minecart shutter during room preload, close it
   behind the cart with the source interleaved animation, and remain the
   position/camera owner through no-input room scrolling. Direct

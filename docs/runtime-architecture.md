@@ -113,7 +113,8 @@ observable order before another update can begin:
 2. New-game arrival presentation.
 3. Debug flag menu, inventory, map, or a gameplay-owned modal menu.
 4. Link's special-object movement/hazard pass and item-parent pass.
-5. Moving blocks/key doors, followed by active room-transition progression.
+5. Moving blocks/dungeon key tiles, followed by active room-transition
+   progression.
 6. Death checkpoints and room entities, including contacts, same-update child
    spawns, removals, and pending warp dispatch, unless time-warp freezes them.
 7. Scheduler-owned combat/terrain effects, room events or their time-warp-safe
@@ -132,7 +133,7 @@ Only the application scheduler consumes rendered delta for live gameplay. A
 long host frame may execute multiple original updates, but it completes the
 entire order above for update N before starting update N+1. Component delta
 entry points remain for focused validation and always receive one fixed update
-from production. Godot callbacks on Link, dialogue, movable blocks, key doors,
+from production. Godot callbacks on Link, dialogue, movable blocks, key tiles,
 terrain/combat effects, and the sequencer are disabled or presentation-only
 while application ownership is active.
 

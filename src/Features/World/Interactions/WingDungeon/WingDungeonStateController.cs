@@ -36,8 +36,20 @@ internal sealed partial class WingDungeonStateController : Node2D,
         _runtime = runtime;
         _setTrigger = setTrigger;
         Name = $"WingDungeonState_{record.Kind}_{record.Room:x2}";
-        if (record.Kind == DungeonObjectKind.CubeColorSource)
-            InitializeCubeColor();
+        switch (record.Kind)
+        {
+            case DungeonObjectKind.CubeColorSource:
+                InitializeCubeColor();
+                break;
+            case DungeonObjectKind.FloorSwitchBit:
+                // interaction21_subid07 has no initialization state: it
+                // derives wSwitchState on every dispatch. Room 4:3b places
+                // it before INTERAC_MINECART_GATE, so this first dispatch
+                // must happen before that gate reads bit $20 during its
+                // state-0 construction, including destination preload.
+                UpdateFloorSwitchBit();
+                break;
+        }
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
