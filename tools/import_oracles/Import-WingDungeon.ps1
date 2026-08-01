@@ -91,6 +91,52 @@ foreach ($expected in @(
     }
 }
 
+# Dungeon $02 dispatches INTERAC_DUNGEON_SCRIPT $20:$03 to a specialized
+# boss-death script. Unlike the shared boss reward, it restores the two bottom
+# staircase cells over two createpuff boundaries and then places the Heart
+# Container at $98,$78.
+$wingDungeonScriptSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\dungeonScripts.s')
+$wingBossRewardScript = [regex]::Match(
+    $wingDungeonScriptSource,
+    '(?ms)^wingDungeonScript_bossDeath:\s*' +
+    'jumpifroomflagset \$80, @spawnHeart\s+' +
+    'checknoenemies\s+orroomflag \$80\s+' +
+    '(?:;[^\r\n]*\r?\n\s*)*' +
+    'setcoords \$(?<leftY>[0-9a-f]{2}), \$(?<leftX>[0-9a-f]{2})\s+' +
+    'createpuff\s+settilehere \$(?<leftTile>[0-9a-f]{2})\s+' +
+    'setcoords \$(?<rightY>[0-9a-f]{2}), \$(?<rightX>[0-9a-f]{2})\s+' +
+    'createpuff\s+settilehere \$(?<rightTile>[0-9a-f]{2})\s+' +
+    '@spawnHeart:\s+stopifitemflagset\s+' +
+    'setcoords \$(?<rewardY>[0-9a-f]{2}), \$(?<rewardX>[0-9a-f]{2})\s+' +
+    'scriptjump spawnHeartContainer')
+if (-not $wingBossRewardScript.Success) {
+    throw 'wingDungeonScript_bossDeath no longer matches its staircase/Heart Container sequence.'
+}
+function Get-WingBossRewardByte([string]$name) {
+    return [Convert]::ToInt32(
+        $wingBossRewardScript.Groups[$name].Value, 16)
+}
+$wingBossLeftY = Get-WingBossRewardByte 'leftY'
+$wingBossLeftX = Get-WingBossRewardByte 'leftX'
+$wingBossRightY = Get-WingBossRewardByte 'rightY'
+$wingBossRightX = Get-WingBossRewardByte 'rightX'
+$wingBossLeftTile = Get-WingBossRewardByte 'leftTile'
+$wingBossRightTile = Get-WingBossRewardByte 'rightTile'
+$wingBossRewardY = Get-WingBossRewardByte 'rewardY'
+$wingBossRewardX = Get-WingBossRewardByte 'rewardX'
+if (($wingBossLeftY -band 0x0f) -ne 0x08 -or
+    ($wingBossLeftX -band 0x0f) -ne 0x08 -or
+    ($wingBossRightY -band 0x0f) -ne 0x08 -or
+    ($wingBossRightX -band 0x0f) -ne 0x08 -or
+    $wingBossLeftTile -ne $wingBossRightTile) {
+    throw 'wingDungeonScript_bossDeath staircase coordinates/tiles are inconsistent.'
+}
+$wingBossLeftPosition =
+    ($wingBossLeftY -band 0xf0) -bor (($wingBossLeftX -shr 4) -band 0x0f)
+$wingBossRightPosition =
+    ($wingBossRightY -band 0xf0) -bor (($wingBossRightX -shr 4) -band 0x0f)
+
 $wingRows = [Collections.Generic.List[string]]::new()
 $wingRows.Add(
     '# group`troom`torder`tkind`tid`tsubid`ty`tx`tcondition`tsource'.Replace(
@@ -145,6 +191,20 @@ if ($wingRows.Count -ne 41) {
 Write-GeneratedTable(
     (Join-Path $destination 'objects\wing_dungeon_objects.tsv'),
     $wingRows)
+
+$wingBossRewardRows = @(
+    '# group`troom`treward-y`treward-x`tstair-tile`tstair-positions`tsource'.Replace(
+        '`t', "`t")
+    "4`t2b`t$($wingBossRewardY.ToString('x2'))`t" +
+        "$($wingBossRewardX.ToString('x2'))`t" +
+        "$($wingBossLeftTile.ToString('x2'))`t" +
+        "$($wingBossLeftPosition.ToString('x2'))," +
+        "$($wingBossRightPosition.ToString('x2'))`t" +
+        'scripts/ages/dungeonScripts.s:wingDungeonScript_bossDeath'
+)
+Write-GeneratedTable(
+    (Join-Path $destination 'objects\wing_dungeon_boss_reward.tsv'),
+    $wingBossRewardRows)
 
 $tileIndexSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\tileIndices.s')

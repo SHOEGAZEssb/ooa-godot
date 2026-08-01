@@ -319,8 +319,10 @@ public sealed partial class ValidationRoot
                 case 0x2b:
                     FailIf(
                         _entities.Entities<CircularSideScrollPlatformRoomEntity>().Count != 3 ||
-                        _entities.Entities<HeadThwompBoss>().Count != 1,
-                        "Room 4:2b did not create three circular platforms and Head Thwomp.");
+                        _entities.Entities<HeadThwompBoss>().Count != 1 ||
+                        _entities.Entities<HeadThwompRewardScript>().Count != 1,
+                        "Room 4:2b did not create three circular platforms, " +
+                        "Head Thwomp, and its specialized reward script.");
                     break;
                 case 0x2c:
                     FailIf(
@@ -1937,6 +1939,325 @@ public sealed partial class ValidationRoot
             "Top-down Roc's Feather flight lost its exact 31-update " +
             "-$01e0/$20 arc or jump/landing sounds.");
 
+        // PART_HEAD_THWOMP_FIREBALL $39 switches to animation 1 when its
+        // 30-update launch grace period ends over a solid tile. That state
+        // change also writes OAM flags $0b and tile base $26: fixed bank 1's
+        // spr_common_sprites with base OBJ palette 3. Reusing the flying
+        // fireball's tile 0 produces four repeated half-sprites.
+        PrepareRoom(0x2b);
+        var headThwompProjectileVisuals =
+            new DungeonInteractionVisualDatabase();
+        DungeonInteractionVisual fireballVisual =
+            headThwompProjectileVisuals.Visual("head-thwomp-fireball");
+        DungeonInteractionVisual fireballImpactVisual =
+            headThwompProjectileVisuals.Visual(
+                "head-thwomp-fireball-impact");
+        AnimationDefinition impactAnimation =
+            OracleGraphicsCache.GetAnimationDefinition(
+                fireballImpactVisual.Animations[0]);
+        AnimationFrameDefinition impactFrame = impactAnimation.Frames[0];
+        const string expectedImpactOam =
+            "6,1,0,0;5,6,0,0;11,255,0,0;10,5,0,0";
+        FailIf(
+            fireballVisual is not
+                {
+                    TileBase: 0,
+                    Palette: 2,
+                    Animations.Length: 1
+                } ||
+            !fireballVisual.Sprites.SequenceEqual(
+                ["spr_fireball_cheepcheep"]) ||
+            fireballImpactVisual is not
+                {
+                    TileBase: 0x26,
+                    Palette: 3,
+                    Animations.Length: 1
+                } ||
+            !fireballImpactVisual.Sprites.SequenceEqual(
+                ["spr_common_sprites"]) ||
+            impactAnimation.Frames.Length != 6 ||
+            impactFrame.Duration != 4 ||
+            impactFrame.Parameter != 0 ||
+            impactFrame.EncodedOam != expectedImpactOam,
+            "PART_HEAD_THWOMP_FIREBALL $39 did not retain the flying " +
+            "$a4/$00/$02 visual, the impact $83/$26/$03 visual, or " +
+            "animation 1's source four-cell impact frame.");
+
+        Vector2 impactPoint = Vector2.Zero;
+        bool foundImpactTile = false;
+        for (int tileY = 0;
+             tileY < _currentRoom.HeightInTiles && !foundImpactTile;
+             tileY++)
+        {
+            for (int tileX = 2;
+                 tileX < _currentRoom.WidthInTiles - 2;
+                 tileX++)
+            {
+                Vector2 candidate = new(
+                    tileX * OracleRoomData.MetatileSize + 8,
+                    tileY * OracleRoomData.MetatileSize + 8);
+                if (candidate.Y <= _currentRoom.Height - 72 &&
+                    _currentRoom.IsSolid(candidate))
+                {
+                    impactPoint = candidate - Vector2.Down * 6;
+                    foundImpactTile = true;
+                    break;
+                }
+            }
+        }
+        FailIf(
+            !foundImpactTile,
+            "Room 4:2b has no upper solid tile for the Head Thwomp " +
+            "fireball impact regression.");
+
+        const int fireballFlightUpdates = 30;
+        const int fireballSpeed = 0x0f;
+        const int fireballAngle = 0x08;
+        int impactZFixed = 0;
+        int impactSpeedZ = -0x3e0;
+        for (int impactUpdate = 0;
+             impactUpdate < fireballFlightUpdates;
+             impactUpdate++)
+        {
+            impactZFixed += impactSpeedZ;
+            impactSpeedZ += 0x20;
+        }
+        Vector2 fireballDelta = OracleObjectMovement.Shared.Delta(
+            fireballSpeed, fireballAngle);
+        Vector2 fireballOrigin =
+            impactPoint - fireballDelta * fireballFlightUpdates -
+            new Vector2(0, impactZFixed / 256.0f);
+        var impactSounds = new List<int>();
+        var impactProjectile = new HeadThwompProjectile(
+            new HeadThwompProjectileSpawn(
+                fireballOrigin,
+                HeadThwompProjectileKind.Fireball,
+                fireballAngle,
+                fireballSpeed),
+            fireballVisual,
+            fireballImpactVisual,
+            _currentRoom,
+            new OracleRandom(),
+            impactSounds.Add);
+        _player.WarpTo(
+            new Vector2(_currentRoom.Width - 8, _currentRoom.Height - 8),
+            recordSafe: false);
+        using Image flyingFireballImage =
+            impactProjectile.CurrentTexture.GetImage();
+        ulong flyingFireballHash =
+            OracleGraphicsCache.PixelHash(flyingFireballImage);
+        impactProjectile.UpdateFrame(_player);
+        FailIf(
+            impactProjectile.Finished || impactProjectile.Breaking ||
+            impactSounds is not [OracleSoundEngine.SndFallInHole],
+            "PART_HEAD_THWOMP_FIREBALL $39 did not spend its creation " +
+            "update becoming visible and requesting SND_FALLINHOLE.");
+        for (int impactUpdate = 0;
+             impactUpdate < fireballFlightUpdates - 1;
+             impactUpdate++)
+        {
+            impactProjectile.UpdateFrame(_player);
+        }
+        FailIf(
+            impactProjectile.Finished || impactProjectile.Breaking ||
+            impactProjectile.AnimationIndex != 0,
+            "Head Thwomp's fireball entered its impact animation before " +
+            "the source 30-update collision boundary.");
+        impactProjectile.UpdateFrame(_player);
+        using Texture2D expectedImpactTexture =
+            NpcCharacter.BuildOamTextureUncachedForValidation(
+                EnemyVisualSource.LoadComposite(
+                    fireballImpactVisual.Sprites),
+                impactFrame.EncodedOam,
+                fireballImpactVisual.TileBase,
+                fireballImpactVisual.Palette,
+                sourceGrayscaleInverted:
+                    fireballImpactVisual.SourceGrayscaleInverted);
+        using Texture2D repeatedHalvesTexture =
+            NpcCharacter.BuildOamTextureUncachedForValidation(
+                EnemyVisualSource.LoadComposite(fireballVisual.Sprites),
+                impactFrame.EncodedOam,
+                fireballVisual.TileBase,
+                fireballVisual.Palette,
+                sourceGrayscaleInverted:
+                    fireballVisual.SourceGrayscaleInverted);
+        using Image impactImage = impactProjectile.CurrentTexture.GetImage();
+        using Image expectedImpactImage = expectedImpactTexture.GetImage();
+        using Image repeatedHalvesImage = repeatedHalvesTexture.GetImage();
+        ulong impactHash = OracleGraphicsCache.PixelHash(impactImage);
+        FailIf(
+            impactProjectile.Finished || !impactProjectile.Breaking ||
+            impactProjectile.AnimationIndex != 1 ||
+            impactProjectile.AnimationFrameIndex != 0 ||
+            impactSounds.Count(sound =>
+                sound == OracleSoundEngine.SndBreakRock) != 1 ||
+            impactHash == flyingFireballHash ||
+            impactHash == OracleGraphicsCache.PixelHash(repeatedHalvesImage) ||
+            impactHash != OracleGraphicsCache.PixelHash(expectedImpactImage),
+            "Head Thwomp's fireball did not replace its flying sprite with " +
+            "the fixed-bank $26/palette-$03 impact frame on solid contact, " +
+            "or still rendered the four repeated fireball halves.");
+        impactProjectile.Free();
+
+        // wingDungeonScript_bossDeath has two createpuff yield boundaries:
+        // set flag/puff $a4, restore $a4/puff $aa, then restore $aa and spawn
+        // the Heart Container at $98,$78. Exercise it with local save/room
+        // state so this regression cannot dirty any later validation.
+        DungeonBossRewardScriptDefinition headRewardDefinition =
+            data.BossReward;
+        DungeonObjectRecord headRewardRecord = data.GetRoomRecords(4, 0x2b)
+            .Single(record => record.Kind == DungeonObjectKind.BossReward);
+        var headRewardRequest = new GroundTreasureGrantRequest(
+            headRewardRecord.Group,
+            headRewardRecord.Room,
+            headRewardRecord.Order,
+            headRewardDefinition.RewardY,
+            headRewardDefinition.RewardX,
+            "TREASURE_OBJECT_HEART_CONTAINER_00",
+            headRewardDefinition.Source)
+        {
+            SpawnMode = 0,
+            GrabMode = 2
+        };
+        var headRewardWorld = new OracleWorldData();
+        OracleRoomData headRewardRoom = headRewardWorld.LoadRoom(6, 0x2b);
+        Vector2 leftBossStair =
+            PackedPoint(headRewardDefinition.StairPositions[0]);
+        Vector2 rightBossStair =
+            PackedPoint(headRewardDefinition.StairPositions[1]);
+        FailIf(
+            headRewardDefinition is not
+                {
+                    Group: 4,
+                    Room: 0x2b,
+                    RewardY: 0x98,
+                    RewardX: 0x78,
+                    StairTile: 0x19,
+                    StairPositions: [0xa4, 0xaa]
+                } ||
+            headRewardRoom.GetMetatile(leftBossStair) != 0x19 ||
+            headRewardRoom.GetMetatile(rightBossStair) != 0x3d,
+            "wingDungeonScript_bossDeath did not import Heart Container " +
+            "$98,$78, the initial $a4 stair, and closed $aa wall.");
+
+        // headThwomp_state8 closes $a4 with $3d when the fight starts.
+        headRewardRoom.SetPositionTileAndCollision(
+            leftBossStair, 0x3d, collision: null, animationTick: 0);
+        OracleSaveData headRewardSave = OracleSaveData.CreateStandardGame();
+        int headRewardEnemies = 1;
+        int headRewardTileChanges = 0;
+        int headRewardLinkEnables = 0;
+        var headRewardSpawns = new List<RoomEntitySpawn>();
+        var headRewardScript = new HeadThwompRewardScript(
+            headRewardRecord,
+            headRewardDefinition,
+            headRewardRoom,
+            headRewardSave,
+            () => headRewardEnemies,
+            headRewardRequest,
+            () => headRewardLinkEnables++,
+            () => headRewardTileChanges++,
+            () => 0);
+        var headRewardFrame = new RoomEntityFrame(
+            _player, _entities.FrameCounter, false);
+        headRewardScript.UpdateFrame(headRewardFrame, headRewardSpawns);
+        FailIf(
+            headRewardSpawns.Count != 0 ||
+            headRewardSave.HasRoomFlag(
+                4, 0x2b, OracleSaveData.RoomFlag80),
+            "Wing Dungeon's boss reward advanced before the boss/explosion " +
+            "released wNumEnemies.");
+
+        headRewardEnemies = 0;
+        headRewardScript.UpdateFrame(headRewardFrame, headRewardSpawns);
+        FailIf(
+            !headRewardSave.HasRoomFlag(
+                4, 0x2b, OracleSaveData.RoomFlag80) ||
+            headRewardRoom.GetMetatile(leftBossStair) != 0x3d ||
+            headRewardTileChanges != 0 ||
+            headRewardSpawns is not
+                [PuzzlePuffSpawn
+                    {
+                        Position: var firstBossPuff,
+                        Sound: OracleSoundEngine.SndPoof
+                    }] ||
+            firstBossPuff != leftBossStair,
+            "Wing Dungeon's boss reward did not set ROOMFLAG $80 and yield " +
+            "after creating the $a4 staircase puff.");
+
+        headRewardScript.UpdateFrame(headRewardFrame, headRewardSpawns);
+        FailIf(
+            headRewardRoom.GetMetatile(leftBossStair) != 0x19 ||
+            headRewardTileChanges != 1 ||
+            headRewardSpawns.OfType<PuzzlePuffSpawn>().Count() != 2 ||
+            headRewardSpawns.OfType<PuzzlePuffSpawn>().Last().Position !=
+                rightBossStair ||
+            headRewardSpawns.OfType<GroundTreasureGrantSpawn>().Any(),
+            "Wing Dungeon's boss reward did not restore staircase $a4 and " +
+            "yield after creating the $aa puff.");
+
+        headRewardScript.UpdateFrame(headRewardFrame, headRewardSpawns);
+        GroundTreasureGrantSpawn? headContainerSpawn =
+            headRewardSpawns.OfType<GroundTreasureGrantSpawn>()
+                .SingleOrDefault();
+        FailIf(
+            !headRewardScript.Finished ||
+            headRewardRoom.GetMetatile(rightBossStair) != 0x19 ||
+            headRewardTileChanges != 2 ||
+            headRewardLinkEnables != 1 ||
+            headContainerSpawn is not
+                {
+                    Request:
+                    {
+                        Y: 0x98,
+                        X: 0x78,
+                        TreasureObject:
+                            "TREASURE_OBJECT_HEART_CONTAINER_00"
+                    }
+                },
+            "Wing Dungeon's boss reward did not restore staircase $aa and " +
+            "spawn the Heart Container at source coordinates $98,$78.");
+        headRewardScript.Free();
+
+        // ROOMFLAG $80 jumps straight to @spawnHeart on re-entry. It must
+        // neither wait for enemies nor replay either staircase puff.
+        OracleSaveData headRewardReentrySave =
+            OracleSaveData.CreateStandardGame();
+        headRewardReentrySave.SetRoomFlag(
+            4, 0x2b, OracleSaveData.RoomFlag80);
+        var headRewardReentryRooms = new RoomSession(
+            6, 0x2b, () => 0, () => { }, headRewardReentrySave);
+        OracleRoomData headRewardReentryRoom =
+            headRewardReentryRooms.CurrentRoom;
+        int headRewardReentryEnables = 0;
+        int headRewardReentryTileChanges = 0;
+        var headRewardReentrySpawns = new List<RoomEntitySpawn>();
+        var headRewardReentryScript = new HeadThwompRewardScript(
+            headRewardRecord,
+            headRewardDefinition,
+            headRewardReentryRoom,
+            headRewardReentrySave,
+            () => 1,
+            headRewardRequest,
+            () => headRewardReentryEnables++,
+            () => headRewardReentryTileChanges++,
+            () => 0);
+        headRewardReentryScript.UpdateFrame(
+            headRewardFrame, headRewardReentrySpawns);
+        FailIf(
+            !headRewardReentryScript.Finished ||
+            headRewardReentryEnables != 1 ||
+            headRewardReentryTileChanges != 0 ||
+            headRewardReentryRoom.GetMetatile(leftBossStair) != 0x19 ||
+            headRewardReentryRoom.GetMetatile(rightBossStair) != 0x19 ||
+            headRewardReentrySpawns.OfType<PuzzlePuffSpawn>().Any() ||
+            headRewardReentrySpawns.OfType<GroundTreasureGrantSpawn>()
+                .ToArray() is not
+                [{ Request: { Y: 0x98, X: 0x78 } }],
+            "Completed room 4:2b did not immediately restore its uncollected " +
+            "Heart Container without replaying the staircase sequence.");
+        headRewardReentryScript.Free();
+
         // PART_HEAD_THWOMP_BOMB_DROPPER $40 carries the paired Bomb drop out
         // of the face with one shared-RNG launch, then releases it when the
         // side-view floor probes land. Isolate the long random attack search
@@ -1944,6 +2265,7 @@ public sealed partial class ValidationRoot
         OracleRandomState beforeHeadThwompBombDrop = _random.CaptureState();
         PrepareRoom(0x2b);
         _player.WarpTo(new Vector2(0x18, 0x98), recordSafe: false);
+        Step();
         Step();
         HeadThwompBoss bombDroppingHead =
             _entities.Entities<HeadThwompBoss>().Single();
@@ -2173,21 +2495,23 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             head.State != HeadThwompState.Red ||
-            head.Health != 3,
-            "Head Thwomp's bomb spin did not settle on red and remove exactly " +
-            "one of four health points.");
+            head.Health != 4,
+            "Head Thwomp's bomb spin did not settle on red before running " +
+            "the newly selected face's initialization state.");
         Step();
         ItemDropEffect? droppedHeart = _entities.Entities<ItemDropEffect>()
             .SingleOrDefault(drop =>
                 drop.SubId == ItemDropDatabase.Heart);
         FailIf(
+            head.Health != 3 ||
             droppedHeart is null ||
             droppedHeart.Position != head.Position + Vector2.Down * 20 ||
             droppedHeart.State != DropState.Grounded ||
             droppedHeart.ElapsedFrames != 1 ||
             droppedHeart.SpeedZ != -0x160 ||
             !droppedHeart.CollisionEnabled,
-            "Head Thwomp's nonlethal red face did not create its ordinary " +
+            "Head Thwomp's nonlethal red face did not remove exactly one " +
+            "health point and create its ordinary " +
             "PART_ITEM_DROP $01 heart 20 pixels below the face and run " +
             "side-view state 0 in the source parts phase.");
         Step();

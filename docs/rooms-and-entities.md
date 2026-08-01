@@ -787,14 +787,39 @@ projectiles use explicit spawn records so update-this-frame behavior is not
 lost. Boss completion owns the persistent room flag, while the ordered reward
 controller owns the Heart Container or miniboss portal.
 
+Head Thwomp `$79` runs the shared boss initializer before its waiting state:
+that first enemy update stops music, installs collision cells `$46/$48` and
+`$56-$58`, makes the boss visible, and arms the Ages `$16` forced entry. Fight
+start closes `$a4`, stores local respawn Y/X `$98/$48`, and begins boss music.
+Normal rotation requests `SND_CLINK2` on odd transition heads; the post-Bomb
+rotation helper requests it on even completed heads. Green creates seven
+randomized `PART $39` fireballs, blue creates eight `PART $3c` volleys after
+one shared-RNG direction choice, and purple clears all six `$46-$48/$56-$58`
+collision cells before its pound and six source-native `PART $3b` boulders.
+Red removes one of four health points and updates each nonlethal heart in the
+same parts phase. The lethal red branch pounds first, then enters the shared
+120-update flickering boss-death handler without restarting the existing
+screen shake.
+
+Wing Dungeon's boss reward is a dungeon-specific exception to the shared
+Heart Container script. On the first room `4:2b` clear,
+`wingDungeonScript_bossDeath` sets room flag `$80`, creates puffs at packed
+positions `$a4` and `$aa` on consecutive updates, restores metatile `$19` at
+each position after its puff boundary, then creates the Heart Container at
+Y/X `$98/$78`. A completed-room re-entry jumps directly to that reward
+position when the item flag is still clear and does not replay the staircase
+sequence; `singleTileChangeGroup6Data` reapplies `$19` at `$aa`, while `$a4`
+already contains the original entrance stair.
+
 Common boss initialization arms Link's `LINK_STATE_FORCE_MOVEMENT` only after
 the boss's first enemy update. On the next update Link initializes the forced
 state; its Ages `$16` countdown then performs 21 standard-speed one-pixel
 updates before returning to the standing state. Run that Link-owned movement
 before doors and enemies and bypass adjacent-wall collision, so the incoming
-shutter observes Link fully inside before closing. Both Giant Ghini and Pumpkin
-Head consume this shared entry contract; direct-room validation loads have no
-scroll direction and therefore do not synthesize an entry walk.
+shutter observes Link fully inside before closing. Giant Ghini, Pumpkin Head,
+Head Thwomp, and Swoop consume this shared entry contract; direct-room
+validation loads have no scroll direction and therefore do not synthesize an
+entry walk.
 
 Completed boss rooms retain a complete enemy-count source even though room flag
 `$80` suppresses their before-event boss record. On re-entry, the two enemy

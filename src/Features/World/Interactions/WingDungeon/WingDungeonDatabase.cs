@@ -13,6 +13,7 @@ internal sealed class WingDungeonDatabase
     private readonly Dictionary<(DungeonObjectKind Kind, int Color), byte[]> _patterns = new();
     private readonly List<MinecartStaticRecord> _minecarts = new();
     private readonly Dictionary<int, string> _texts = new();
+    private DungeonBossRewardScriptDefinition _bossReward;
 
     internal WingDungeonDatabase()
     {
@@ -20,6 +21,7 @@ internal sealed class WingDungeonDatabase
         LoadPatterns();
         LoadMinecarts();
         LoadText();
+        LoadBossReward();
         ValidateContract();
     }
 
@@ -33,8 +35,55 @@ internal sealed class WingDungeonDatabase
 
     internal string EssenceMessage => Text(0x000f);
     internal string SwoopMessage => Text(0x2f00);
+    internal DungeonBossRewardScriptDefinition BossReward => _bossReward;
 
     internal IReadOnlyList<MinecartStaticRecord> Minecarts => _minecarts;
+
+    private void LoadBossReward()
+    {
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/wing_dungeon_boss_reward.tsv",
+            new GeneratedTableSchema(
+                "Wing Dungeon boss reward script",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "group", "room", "reward-y", "reward-x", "stair-tile",
+                    "stair-positions", "source"
+                ],
+                ["group", "room"],
+                headerRequired: true));
+        if (table.Rows.Count != 1)
+        {
+            throw new InvalidOperationException(
+                "Wing Dungeon must import one boss reward script.");
+        }
+        GeneratedTableRow row = table.Rows[0];
+        string[] encodedPositions = row.RequiredString(5).Split(
+            ',',
+            StringSplitOptions.RemoveEmptyEntries |
+            StringSplitOptions.TrimEntries);
+        var stairPositions = new byte[encodedPositions.Length];
+        for (int index = 0; index < stairPositions.Length; index++)
+        {
+            if (!byte.TryParse(
+                    encodedPositions[index],
+                    System.Globalization.NumberStyles.AllowHexSpecifier,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out stairPositions[index]))
+            {
+                throw row.Invalid(
+                    5, "comma-separated hexadecimal staircase positions");
+            }
+        }
+        _bossReward = new DungeonBossRewardScriptDefinition(
+            row.Decimal(0, 0, 7),
+            row.HexByte(1),
+            row.HexByte(2),
+            row.HexByte(3),
+            row.HexByte(4),
+            stairPositions,
+            row.RequiredString(6));
+    }
 
     private void LoadObjects()
     {
@@ -169,6 +218,15 @@ internal sealed class WingDungeonDatabase
             Pattern(DungeonObjectKind.ColoredBlockKey, 2).Count != 4 ||
             _minecarts[0] is not { Slot: 0, Room: 0x33, Y: 0x38, X: 0xc8 } ||
             _minecarts[2] is not { Slot: 2, Room: 0x40, Y: 0x58, X: 0xa8 } ||
+            _bossReward is not
+                {
+                    Group: 4,
+                    Room: 0x2b,
+                    RewardY: 0x98,
+                    RewardX: 0x78,
+                    StairTile: 0x19,
+                    StairPositions: [0xa4, 0xaa]
+                } ||
             _texts.Count != 2 ||
             string.IsNullOrWhiteSpace(EssenceMessage) ||
             string.IsNullOrWhiteSpace(SwoopMessage))
@@ -216,3 +274,12 @@ internal sealed class WingDungeonDatabase
         };
 
 }
+
+internal readonly record struct DungeonBossRewardScriptDefinition(
+    int Group,
+    int Room,
+    int RewardY,
+    int RewardX,
+    int StairTile,
+    byte[] StairPositions,
+    string Source);

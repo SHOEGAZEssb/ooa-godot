@@ -6,9 +6,14 @@ namespace oracleofages;
 
 internal sealed class HeadThwompBossRoomEntity
     : CombatEnemyRoomEntityAdapter<HeadThwompBoss>, IFixedRoomEntity,
-        IBombCatchRoomEntity
+        IBombCatchRoomEntity, IPlayerForcedMovement
 {
-    internal HeadThwompBossRoomEntity(HeadThwompBoss boss)
+    private readonly BossEntryMovement _entryMovement;
+    private bool _initialized;
+
+    internal HeadThwompBossRoomEntity(
+        HeadThwompBoss boss,
+        Vector2I entryDirection)
         : base(
             boss,
             boss.SetTransitionDrawOffset,
@@ -28,12 +33,22 @@ internal sealed class HeadThwompBossRoomEntity
                     RoomEnemyOutcome.BossTeardown(
                         killableEnemyIndex: 0)))
     {
+        _entryMovement = new BossEntryMovement(entryDirection);
     }
 
     public void UpdateFrame(
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns)
-        => Entity.UpdateFrame(frame.Player, frame.Counter, spawns);
+    {
+        Entity.UpdateFrame(frame.Player, frame.Counter, spawns);
+        if (_initialized)
+            return;
+        _initialized = true;
+        _entryMovement.Arm();
+    }
+
+    public void UpdatePlayerForcedMovement(Player player) =>
+        _entryMovement.Update(player);
 
     public override bool ApplySwordHit(
         Rect2 hitbox,

@@ -865,7 +865,9 @@ internal sealed class RoomEntityFactory(
                     disableLinkCollisionsAndMenu,
                     () => roomMusicRequested(record.Group, record.Room),
                     animationTick);
-                return new HeadThwompBossRoomEntity(headThwompBoss);
+                return new HeadThwompBossRoomEntity(
+                    headThwompBoss,
+                    BossEntryDirection(placementContext));
             case DungeonObjectKind.Swoop:
                 ImportedEnemyDefinition swoopRecord =
                     _dungeonBosses.Enemy(0x71);
@@ -888,10 +890,18 @@ internal sealed class RoomEntityFactory(
                 return new SwoopBossRoomEntity(
                     swoop, BossEntryDirection(placementContext));
             case DungeonObjectKind.BossReward:
-                return new DungeonRewardRoomEntity(
-                    record, _dungeonInteractions, saveData, roomEnemyCount,
-                    CreateDungeonBossRewardRequest(record),
-                    enableLinkCollisionsAndMenu);
+                DungeonBossRewardScriptDefinition bossReward =
+                    _wingDungeon.BossReward;
+                return new HeadThwompRewardScript(
+                    record,
+                    bossReward,
+                    room,
+                    saveData,
+                    roomEnemyCount,
+                    CreateDungeonBossRewardRequest(record, bossReward),
+                    enableLinkCollisionsAndMenu,
+                    roomTileChanged,
+                    animationTick);
             case DungeonObjectKind.Essence:
                 return new DungeonEssence(
                     record,
@@ -962,15 +972,16 @@ internal sealed class RoomEntityFactory(
         };
 
     private static GroundTreasureGrantRequest CreateDungeonBossRewardRequest(
-        DungeonObjectRecord record) =>
+        DungeonObjectRecord record,
+        DungeonBossRewardScriptDefinition definition) =>
         new(
             record.Group,
             record.Room,
             record.Order,
-            record.Y,
-            record.X,
+            definition.RewardY,
+            definition.RewardX,
             "TREASURE_OBJECT_HEART_CONTAINER_00",
-            record.Source)
+            definition.Source)
         {
             SpawnMode = 0,
             GrabMode = 2
@@ -1549,6 +1560,7 @@ internal sealed class RoomEntityFactory(
             CreatePumpkinHeadProjectile(projectile, room),
         HeadThwompProjectileSpawn projectile =>
             CreateHeadThwompProjectile(projectile, room),
+        HeadThwompBoulderSpawn => CreateHeadThwompBoulder(room),
         MinecartShutterOpenSpawn shutter => CreateMinecartShutter(
             shutter.PackedPosition,
             shutter.ClosedTile,
@@ -1651,9 +1663,23 @@ internal sealed class RoomEntityFactory(
             spawn.Kind == HeadThwompProjectileKind.Fireball
                 ? "head-thwomp-fireball"
                 : "head-thwomp-circular-projectile");
+        DungeonInteractionVisual? impactVisual =
+            spawn.Kind == HeadThwompProjectileKind.Fireball
+                ? _dungeonVisuals.Visual("head-thwomp-fireball-impact")
+                : null;
         return new HostileProjectileRoomEntity<HeadThwompProjectile>(
-            new HeadThwompProjectile(spawn, visual, room));
+            new HeadThwompProjectile(
+                spawn, visual, impactVisual, room, random, soundRequested));
     }
+
+    private IRoomEntity CreateHeadThwompBoulder(OracleRoomData room) =>
+        new HostileProjectileRoomEntity<HeadThwompBoulder>(
+            new HeadThwompBoulder(
+                room,
+                random,
+                _dungeonVisuals.Visual("head-thwomp-boulder"),
+                _dungeonVisuals.Visual("head-thwomp-boulder-impact"),
+                soundRequested));
 
     private IRoomEntity CreateMinibossPortal(OracleRoomData room)
     {
@@ -3129,7 +3155,11 @@ internal sealed record HeadThwompProjectileSpawn(
     Vector2 Position,
     HeadThwompProjectileKind Kind,
     int Angle,
-    int Speed) : RoomEntitySpawn;
+    int Speed,
+    bool RandomizeLaunch = false) : RoomEntitySpawn(UpdateThisFrame: true);
+
+internal sealed record HeadThwompBoulderSpawn()
+    : RoomEntitySpawn(UpdateThisFrame: true);
 
 internal sealed record HeadThwompBombDropSpawn(Vector2 Position)
     : RoomEntitySpawn(UpdateThisFrame: true);

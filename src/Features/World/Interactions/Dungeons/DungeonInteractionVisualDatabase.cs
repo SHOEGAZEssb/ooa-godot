@@ -75,7 +75,7 @@ internal sealed class DungeonInteractionVisualDatabase
 
     private void ValidateContract()
     {
-        if (_visuals.Count != 16 ||
+        if (_visuals.Count != 19 ||
             Visual("colored-cube").Animations.Length != 30 ||
             Visual("eternal-spirit") is not
                 { TileBase: 0, Palette: 1, Animations.Length: 1 } ||
@@ -86,8 +86,16 @@ internal sealed class DungeonInteractionVisualDatabase
             Visual("minecart").Animations.Length != 4 ||
             Visual("minecart-gate") is not
                 { TileBase: 0x10, Palette: 0, Animations.Length: 4 } ||
-            Visual("head-thwomp-fireball").Animations.Length != 2 ||
-            Visual("head-thwomp-circular-projectile").Animations.Length != 1 ||
+            Visual("head-thwomp-fireball") is not
+                { TileBase: 0, Palette: 2, Animations.Length: 1 } ||
+            Visual("head-thwomp-fireball-impact") is not
+                { TileBase: 0x26, Palette: 3, Animations.Length: 1 } ||
+            Visual("head-thwomp-circular-projectile") is not
+                { TileBase: 0x14, Palette: 2, Animations.Length: 1 } ||
+            Visual("head-thwomp-boulder") is not
+                { TileBase: 0, Palette: 5, Animations.Length: 1 } ||
+            Visual("head-thwomp-boulder-impact") is not
+                { TileBase: 2, Palette: 3, Animations.Length: 1 } ||
             Visual("essence-pedestal") is not
                 { TileBase: 0, Palette: 4, Animations.Length: 1 } ||
             Visual("essence-glow") is not

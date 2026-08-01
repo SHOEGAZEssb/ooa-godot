@@ -397,6 +397,9 @@ public partial class Player : Node2D
         _floorDoorRespawnCounter != 0 || _floorDoorRecoveryCounter != 0;
     internal int FloorDoorRespawnCounter => _floorDoorRespawnCounter;
     internal Vector2 LocalRespawnPosition => _lastSafePosition;
+
+    internal void SetLocalRespawnPosition(Vector2 position) =>
+        _lastSafePosition = position;
     internal int NewGameSlowFallFrame => _newGameFallFrame;
     internal int NewGameSlowFallZ => _newGameFallZFixed >> 8;
     internal bool HarpPoseActive => _harpPoseActive;

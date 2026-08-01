@@ -472,17 +472,47 @@ $dungeonVisualRows.Add(
 
 # Head Thwomp's two native projectiles use the Ages PART $39/$3c tables.
 # Resolve both from their own animation and OAM pointer tables instead of
-# borrowing an ordinary enemy frame at runtime.
-function Add-DungeonPartVisual(
-    [string]$key,
+# borrowing an ordinary enemy frame at runtime. PART $39 changes its graphics
+# bank, tile base, and palette when it enters animation 1, so return the source
+# animations separately and emit two self-contained runtime records below.
+function Get-DungeonPartVisual(
     [int]$partId,
-    [int]$gfx,
-    [int]$tileBase,
-    [int]$palette,
     [bool]$sourceGrayscaleInverted) {
     $hex = $partId.ToString('x2')
-    # PART $3c aliases PART $42 at both consecutive table labels.
-    $tableHex = if ($partId -eq 0x3c) { '42' } else { $hex }
+    $partDataPath = Join-Path $Disassembly 'data\ages\partData.s'
+    $partRows = @(Read-AssemblyDataDirectives `
+        $partDataPath 'partData' '.db')
+    if ($partId -ge $partRows.Count -or
+        $partRows[$partId].Operands.Count -lt 7) {
+        throw "PART_`$$hex graphics data is incomplete."
+    }
+    $partRow = $partRows[$partId]
+    $gfx = Convert-AssemblyInteger $partRow.Operands[0]
+    $tileBase = Convert-AssemblyInteger $partRow.Operands[5]
+    $oamFlags = Convert-AssemblyInteger $partRow.Operands[6]
+    $palette = $oamFlags -band 0x07
+    # PART $3b/$3c alias PART $45/$42 at consecutive table labels.
+    $animationTableHex = if ($partId -eq 0x3b) {
+        '45'
+    } elseif ($partId -eq 0x3c) {
+        '42'
+    } else {
+        $hex
+    }
+    $oamTableHex = if ($partId -eq 0x3b) {
+        '54'
+    } else {
+        $animationTableHex
+    }
+    if ($partId -eq 0x3b -and
+        ($partAnimationSource -notmatch
+            '(?m)^part3bAnimations:\s*\r?\npart45Animations:\s*\r?\n\s*\.dw\s+partAnimation5ba4f' -or
+         $partAnimationSource -notmatch
+            '(?m)^part3bOamDataPointers:[^\r\n]*\r?\n' +
+            'part45OamDataPointers:[^\r\n]*\r?\n' +
+            'part54OamDataPointers:[^\r\n]*\r?\n')) {
+        throw 'PART_3b no longer aliases PART $45 graphics.'
+    }
     if ($partId -eq 0x3c -and
         $partAnimationSource -notmatch
             '(?m)^part3cAnimations:\s*\r?\npart42Animations:\s*\r?\n\s*\.dw\s+partAnimation5ba27' -or
@@ -492,11 +522,11 @@ function Add-DungeonPartVisual(
         throw 'PART_HEAD_THWOMP_CIRCULAR_PROJECTILE no longer aliases PART $42 graphics.'
     }
     $animationLabels = @([regex]::Matches(
-        (Get-AssemblyLabelBody $partAnimationSource "part${tableHex}Animations"),
+        (Get-AssemblyLabelBody $partAnimationSource "part${animationTableHex}Animations"),
         '(?m)^\s*\.dw\s+(?<label>partAnimation[0-9a-f]+)') |
         ForEach-Object { $_.Groups['label'].Value })
     $oamLabels = @([regex]::Matches(
-        (Get-AssemblyLabelBody $partAnimationSource "part${tableHex}OamDataPointers"),
+        (Get-AssemblyLabelBody $partAnimationSource "part${oamTableHex}OamDataPointers"),
         '(?m)^\s*\.dw\s+(?<label>partOamData[0-9a-f]+)') |
         ForEach-Object { $_.Groups['label'].Value })
     if ($animationLabels.Count -eq 0 -or $oamLabels.Count -eq 0) {
@@ -530,17 +560,130 @@ function Add-DungeonPartVisual(
         throw "PART_`$$hex gfx `$$($gfx.ToString('x2')) is missing."
     }
     Copy-EnemySprite $sprite
-    $animationData = [Convert]::ToBase64String(
-        [Text.Encoding]::UTF8.GetBytes($resolvedAnimations -join "`n"))
     $inverted = if ($sourceGrayscaleInverted) { 1 } else { 0 }
-    $dungeonVisualRows.Add(
-        "$key`t$sprite`t$tileBase`t$palette`t$inverted`t$animationData")
+    return [PSCustomObject]@{
+        Sprite = $sprite
+        TileBase = $tileBase
+        Palette = $palette
+        SourceGrayscaleInverted = $inverted
+        Animations = $resolvedAnimations.ToArray()
+    }
 }
-Add-DungeonPartVisual 'head-thwomp-fireball' 0x39 0xa4 0 4 $true
-Add-DungeonPartVisual 'head-thwomp-circular-projectile' 0x3c 0x8e 0x14 6 $true
 
-if ($dungeonVisualRows.Count -ne 17) {
-    throw "Expected sixteen imported D1/D2 dungeon interaction visuals."
+function Add-DungeonPartVisualRow(
+    [string]$key,
+    [string]$sprite,
+    [int]$tileBase,
+    [int]$palette,
+    [int]$sourceGrayscaleInverted,
+    [string[]]$animations) {
+    if ($animations.Count -eq 0) {
+        throw "Dungeon part visual $key has no animations."
+    }
+    $animationData = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($animations -join "`n"))
+    $dungeonVisualRows.Add(
+        "$key`t$sprite`t$tileBase`t$palette`t$sourceGrayscaleInverted`t$animationData")
+}
+
+$headThwompFireballVisual = Get-DungeonPartVisual 0x39 $true
+$headThwompBoulderVisual = Get-DungeonPartVisual 0x3b $true
+$headThwompCircularVisual = Get-DungeonPartVisual 0x3c $true
+if ($headThwompFireballVisual.Animations.Count -ne 2 -or
+    $headThwompBoulderVisual.Animations.Count -ne 2 -or
+    $headThwompCircularVisual.Animations.Count -ne 1) {
+    throw 'Head Thwomp projectile animation counts no longer match PART $39/$3b/$3c.'
+}
+
+# headThwompFireball_state1 writes oamFlagsBackup/oamFlags/oamTileIndexBase
+# at object offsets $1b/$1c/$1d before selecting animation 1. OAM flag bit 3
+# selects fixed VRAM bank 1, whose GFXH_COMMON_SPRITES header is $83.
+$headThwompFireballPartSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\parts\headThwompFireball.s')
+$headThwompFireballImpact = [regex]::Match(
+    $headThwompFireballPartSource,
+    '(?ms)ld l,\$db\s+ld a,\$(?<flags>[0-9a-f]{2})\s+' +
+    'ldi \(hl\),a\s+ldi \(hl\),a\s+' +
+    'ld \(hl\),\$(?<tile>[0-9a-f]{2})\s+' +
+    'ld a,\$01\s+call partSetAnimation')
+if (-not $headThwompFireballImpact.Success) {
+    throw 'PART_HEAD_THWOMP_FIREBALL no longer switches OAM flags/tile base before animation 1.'
+}
+$headThwompFireballImpactFlags = [Convert]::ToInt32(
+    $headThwompFireballImpact.Groups['flags'].Value, 16)
+$headThwompFireballImpactTileBase = [Convert]::ToInt32(
+    $headThwompFireballImpact.Groups['tile'].Value, 16)
+$agesGfxHeaderSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\gfxHeaders.s')
+$headThwompFireballImpactSprite = 'spr_common_sprites'
+if (($headThwompFireballImpactFlags -band 0x08) -eq 0 -or
+    $agesGfxHeaderSource -notmatch
+        '(?ms)^m_GfxHeaderStart \$83, GFXH_COMMON_SPRITES\s+' +
+        'm_GfxHeader spr_common_sprites, \$8001\s+' +
+        'm_GfxHeaderEnd') {
+    throw 'PART_HEAD_THWOMP_FIREBALL impact no longer selects fixed-bank spr_common_sprites.'
+}
+Copy-EnemySprite $headThwompFireballImpactSprite
+
+# Purple-face PART_3b starts with object-GFX header $96, then makes the same
+# fixed-bank transition as the fireball while selecting common-sprite tile $02.
+$headThwompBoulderPartSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\parts\3b.s')
+$headThwompBoulderImpact = [regex]::Match(
+    $headThwompBoulderPartSource,
+    '(?ms)@@func_6ebd:.*?ld l,\$db\s+ld a,\$(?<flags>[0-9a-f]{2})\s+' +
+    'ldi \(hl\),a\s+ldi \(hl\),a\s+' +
+    'ld \(hl\),\$(?<tile>[0-9a-f]{2})\s+' +
+    'ld a,\$01\s+call partSetAnimation')
+if (-not $headThwompBoulderImpact.Success) {
+    throw 'PART_3b no longer switches OAM flags/tile base before animation 1.'
+}
+$headThwompBoulderImpactFlags = [Convert]::ToInt32(
+    $headThwompBoulderImpact.Groups['flags'].Value, 16)
+$headThwompBoulderImpactTileBase = [Convert]::ToInt32(
+    $headThwompBoulderImpact.Groups['tile'].Value, 16)
+if (($headThwompBoulderImpactFlags -band 0x08) -eq 0) {
+    throw 'PART_3b impact no longer selects fixed-bank spr_common_sprites.'
+}
+
+Add-DungeonPartVisualRow `
+    'head-thwomp-fireball' `
+    $headThwompFireballVisual.Sprite `
+    $headThwompFireballVisual.TileBase `
+    $headThwompFireballVisual.Palette `
+    $headThwompFireballVisual.SourceGrayscaleInverted `
+    @($headThwompFireballVisual.Animations[0])
+Add-DungeonPartVisualRow `
+    'head-thwomp-fireball-impact' `
+    $headThwompFireballImpactSprite `
+    $headThwompFireballImpactTileBase `
+    ($headThwompFireballImpactFlags -band 0x07) `
+    1 `
+    @($headThwompFireballVisual.Animations[1])
+Add-DungeonPartVisualRow `
+    'head-thwomp-circular-projectile' `
+    $headThwompCircularVisual.Sprite `
+    $headThwompCircularVisual.TileBase `
+    $headThwompCircularVisual.Palette `
+    $headThwompCircularVisual.SourceGrayscaleInverted `
+    $headThwompCircularVisual.Animations
+Add-DungeonPartVisualRow `
+    'head-thwomp-boulder' `
+    $headThwompBoulderVisual.Sprite `
+    $headThwompBoulderVisual.TileBase `
+    $headThwompBoulderVisual.Palette `
+    $headThwompBoulderVisual.SourceGrayscaleInverted `
+    @($headThwompBoulderVisual.Animations[0])
+Add-DungeonPartVisualRow `
+    'head-thwomp-boulder-impact' `
+    $headThwompFireballImpactSprite `
+    $headThwompBoulderImpactTileBase `
+    ($headThwompBoulderImpactFlags -band 0x07) `
+    1 `
+    @($headThwompBoulderVisual.Animations[1])
+
+if ($dungeonVisualRows.Count -ne 20) {
+    throw "Expected nineteen imported D1/D2 dungeon interaction visuals."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\dungeon_interaction_visuals.tsv'),

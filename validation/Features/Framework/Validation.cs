@@ -283,6 +283,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom083Interactions);
         RunIsolatedValidation(ValidateDebugSavestates);
         RunIsolatedValidation(ValidateWingDungeon);
+        RunIsolatedValidation(ValidateHeadThwompFidelity);
 
         if (_validationFilter is not null && _executedValidationCount == 0)
         {

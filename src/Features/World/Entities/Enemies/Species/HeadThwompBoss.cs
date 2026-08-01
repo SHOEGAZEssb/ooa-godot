@@ -19,8 +19,6 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         { 0x17, 0x0a },
         { 0x1a, 0x0b }
     };
-    private static readonly int[] FireballSpeeds = { 0x0f, 0x19, 0x23, 0x2d };
-
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private Action<int> _playSound = null!;
@@ -38,6 +36,8 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
     private int _phase;
     private int _verticalSpeedFixed;
     private bool _pendingBomb;
+    private bool _initialized;
+    private bool _deathPending;
     private bool _dying;
     private int _deathCounter;
 
@@ -76,7 +76,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
             positionedOam: true);
         Name = "HeadThwomp";
         ZIndex = 10;
-        SetSurroundingSolidity(true);
+        Visible = false;
     }
 
     internal void UpdateFrame(
@@ -87,9 +87,28 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         if (IsDead)
             return;
         BeginFrame();
+        if (!_initialized)
+        {
+            // enemyBoss_initializeRoom runs as state 0's only update: PALH
+            // $81 is already represented by the imported palette override,
+            // while this update stops music, installs the collision cells,
+            // and makes the enemy visible.
+            _initialized = true;
+            SetSurroundingSolidity(true);
+            Visible = true;
+            _playSound(OracleSoundEngine.SndCtrlStopMusic);
+            QueueRedraw();
+            return;
+        }
+        if (_deathPending)
+        {
+            _deathPending = false;
+            BeginDeath();
+        }
         if (_dying)
         {
-            Visible = (_deathCounter & 1) != 0;
+            // enemyBoss_dead decrements first and then XORs visible bit 7.
+            Visible = !Visible;
             if (--_deathCounter == 0)
             {
                 Finish();
@@ -104,7 +123,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         {
             case HeadThwompState.WaitingForLink:
                 if (player.Position.Y < 0x9c)
-                    BeginFight();
+                    BeginFight(player);
                 break;
 
             case HeadThwompState.Spinning:
@@ -125,14 +144,18 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
                 break;
 
             case HeadThwompState.FastSpin:
-                Rotate(animationBase: 8);
-                if (--_counter == 0)
+                if (--_counter != 0)
                 {
-                    _state = HeadThwompState.Decelerating;
-                    _spinDelay = 1;
-                    _counter = 1;
-                    _counter2 = 2;
+                    RotateBombSpin(animationBase: 8);
+                    break;
                 }
+                _state = HeadThwompState.Decelerating;
+                _spinDelay = 1;
+                _counter = 1;
+                _counter2 = 2;
+                // State $0b substate 1 falls straight through to substate 2
+                // on the update where its 60-count reaches zero.
+                UpdateDeceleratingSpin();
                 break;
 
             case HeadThwompState.Decelerating:
@@ -141,7 +164,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
 
             case HeadThwompState.FacePause:
                 if (--_counter == 0)
-                    BeginSelectedFace();
+                    SelectFaceState();
                 break;
 
             case HeadThwompState.Green:
@@ -176,10 +199,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
     internal bool TryCatchBomb(BombEffect bomb)
     {
         if (_dying ||
-            _state is not (
-                HeadThwompState.Spinning or
-                HeadThwompState.Green or
-                HeadThwompState.Blue) ||
+            !ChecksForBombsThisUpdate() ||
             Mathf.Abs(bomb.Position.Y - 0x50) > 0x0c ||
             Mathf.Abs(bomb.Position.X - 0x78) > 0x0c ||
             !bomb.ConsumeByBoss())
@@ -188,8 +208,6 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         }
 
         _pendingBomb = true;
-        if ((_direction & 1) == 0)
-            BeginBombSpin();
         return true;
     }
 
@@ -198,7 +216,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
 
     internal override bool TakeBurnHit(int damage) => false;
 
-    private void BeginFight()
+    private void BeginFight(Player player)
     {
         // headThwomp_state8 calls setTile with c=$a4 (position) and a=$3d
         // (tile), closing the bottom entrance before background drops begin.
@@ -206,6 +224,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         _room.SetPositionTileAndCollision(
             door, 0x3d, collision: null, _animationTick());
         _playSound(OracleSoundEngine.SndDoorClose);
+        player.SetLocalRespawnPosition(new Vector2(0x48, 0x98));
         _state = HeadThwompState.Spinning;
         _counter = 18;
         _projectileCounter = 0xf0;
@@ -220,8 +239,8 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         {
             if (--_counter == 0)
             {
-                Rotate(animationBase: 0);
-                _counter = 1;
+                RotateBombSpin(animationBase: 0);
+                BeginBombSpin();
             }
             return true;
         }
@@ -243,13 +262,19 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
     private void RotateNormally()
     {
         int healthIndex = Mathf.Clamp(Health - 1, 0, 3);
-        Rotate(animationBase: 0);
+        _direction = (_direction + 1) & 7;
+        SetAnimation(_direction);
+        // State $09's inline rotation plays SND_CLINK2 on transitional
+        // odd-numbered heads. The post-bomb helper below deliberately plays
+        // it on the even, fully selected heads instead.
+        if ((_direction & 1) != 0)
+            _playSound(OracleSoundEngine.SndClink2);
         _counter = RotationSpeeds[
             healthIndex,
             (_direction & 1) == 0 ? 0 : 1];
     }
 
-    private void Rotate(int animationBase)
+    private void RotateBombSpin(int animationBase)
     {
         _direction = (_direction + 1) & 7;
         SetAnimation(animationBase + _direction);
@@ -274,11 +299,14 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
                     _phase = 1;
                     _counter2 = 6;
                     _counter = 1;
+                    // Substate 2 falls through to substate 3 at this exact
+                    // boundary instead of waiting for another enemy update.
+                    UpdateDeceleratingSpin();
                     return;
                 }
             }
             _counter = _spinDelay;
-            Rotate(animationBase: 8);
+            RotateBombSpin(animationBase: 8);
             return;
         }
 
@@ -286,7 +314,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         _counter = _counter2;
         if (_direction != _targetDirection)
         {
-            Rotate(animationBase: 8);
+            RotateBombSpin(animationBase: 8);
             return;
         }
         _phase = 0;
@@ -294,52 +322,35 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         _counter = 0x10;
     }
 
-    private void BeginSelectedFace()
+    private void SelectFaceState()
     {
         _phase = 0;
         switch (_direction >> 1)
         {
             case 0:
                 _state = HeadThwompState.Green;
-                _counter = 0xf0;
-                SetMouthCollision(0x00);
                 break;
             case 1:
                 _state = HeadThwompState.Blue;
-                _counter = 8;
-                _counter2 = 8;
-                _spinDelay = (_random.Next().Value & 2) == 0 ? -2 : 2;
-                SetMouthCollision(0x00);
                 break;
             case 2:
                 _state = HeadThwompState.Purple;
-                _verticalSpeedFixed = 0;
-                SetSurroundingSolidity(false);
                 break;
             case 3:
                 _state = HeadThwompState.Red;
-                _counter = 120;
-                Health--;
-                InvincibilityCounter = 0x18;
-                SetAnimation(0x10);
-                _playSound(OracleSoundEngine.SndBossDamage);
-                if (Health == 0)
-                {
-                    SetSurroundingSolidity(false);
-                    _verticalSpeedFixed = 0;
-                }
-                else
-                {
-                    spawnsHeartPending = true;
-                }
                 break;
         }
     }
 
-    private bool spawnsHeartPending;
-
     private void UpdateGreen(ICollection<RoomEntitySpawn> spawns)
     {
+        if (_phase == 0)
+        {
+            _phase = 1;
+            _counter = 0xf0;
+            SetMouthCollision(0x00);
+            return;
+        }
         if (TryBeginPendingBomb())
             return;
         if (--_counter == 0)
@@ -355,15 +366,29 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
 
     private void UpdateBlue(ICollection<RoomEntitySpawn> spawns)
     {
-        if (TryBeginPendingBomb())
-            return;
-        AdvanceAnimation();
-        if (--_counter != 0)
-            return;
-
         if (_phase == 0)
         {
             _phase = 1;
+            _counter = 8;
+            _counter2 = 8;
+            _spinDelay = (_random.Next().Value & 2) == 0 ? -2 : 2;
+            SetMouthCollision(0x00);
+            return;
+        }
+
+        // Only substate 1 scans the dynamic item slots for a Bomb. The open
+        // mouth during substates 2/3 is not another catch window.
+        if (_phase == 1 && TryBeginPendingBomb())
+            return;
+
+        if (_phase == 1)
+        {
+            if (--_counter != 0)
+            {
+                AdvanceAnimation();
+                return;
+            }
+            _phase = 2;
             _counter = 8;
             SetMouthCollision(0x03);
             spawns.Add(new HeadThwompProjectileSpawn(
@@ -374,13 +399,20 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
             SetAnimation(_direction);
             return;
         }
-        if (_phase == 1)
+        if (_phase == 2)
         {
-            _phase = 2;
+            if (--_counter != 0)
+            {
+                AdvanceAnimation();
+                return;
+            }
             _counter = 30;
+            _phase = 3;
             return;
         }
 
+        if (--_counter != 0)
+            return;
         _counter2--;
         if (_counter2 == 0)
         {
@@ -389,9 +421,10 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
             BeginResume(0x10);
             return;
         }
-        _phase = 0;
+        _phase = 1;
         _counter = 8;
         SetMouthCollision(0x00);
+        SetAnimation(_direction + 8);
     }
 
     private void UpdatePurple(
@@ -401,36 +434,38 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         switch (_phase)
         {
             case 0:
+                _phase = 1;
+                _verticalSpeedFixed = 0x0200;
+                SetSurroundingSolidity(false);
+                return;
+            case 1:
                 Position += new Vector2(0, _verticalSpeedFixed / 256.0f);
                 _verticalSpeedFixed += 0x20;
                 if (Position.Y < 0x90)
                     return;
                 Position = new Vector2(Position.X, 0x90);
-                _phase = 1;
+                _phase = 2;
                 _counter = 120;
                 _screenShake(60);
                 _playSound(OracleSoundEngine.SndStrongPound);
                 return;
-            case 1:
-                if (_counter >= 30 && (_counter & 0x0f) == 0)
-                {
-                    spawns.Add(new RockDebrisSpawn(
-                        Position + new Vector2(
-                            ((_counter >> 4) & 1) == 0 ? -24 : 24,
-                            -48)));
-                }
-                if (--_counter != 0)
-                    return;
-                _phase = 2;
-                return;
             case 2:
+                if (--_counter == 0)
+                {
+                    _phase = 3;
+                    return;
+                }
+                if (_counter >= 30 && (_counter & 0x0f) == 0)
+                    spawns.Add(new HeadThwompBoulderSpawn());
+                return;
+            case 3:
                 Position += Vector2.Up * 0.5f;
                 if (Position.Y > 0x56)
                     return;
                 Position = new Vector2(Position.X, 0x56);
-                _phase = 3;
+                _phase = 4;
                 return;
-            case 3:
+            case 4:
                 if (Mathf.Abs(player.Position.X - Position.X) <= 16 &&
                     Mathf.Abs(player.Position.Y - Position.Y) <= 16)
                 {
@@ -444,22 +479,36 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
 
     private void UpdateRed(ICollection<RoomEntitySpawn> spawns)
     {
-        if (spawnsHeartPending)
+        if (_phase == 0)
         {
-            spawnsHeartPending = false;
-            // The source drops a heart twenty pixels below the face after
-            // every nonlethal red phase.
-            spawns.Add(new ItemDropSpawn(
-                ItemDropDatabase.Heart,
-                Position + Vector2.Down * 20,
-                UpdateThisFrame: true));
+            _phase = 1;
+            _counter = 120;
+            Health--;
+            InvincibilityCounter = 0x18;
+            if (Health == 0)
+                SetSurroundingSolidity(false);
+            else
+                spawns.Add(new ItemDropSpawn(
+                    ItemDropDatabase.Heart,
+                    Position + Vector2.Down * 20,
+                    UpdateThisFrame: true));
+            SetAnimation(0x10);
+            _playSound(OracleSoundEngine.SndBossDamage);
+            return;
         }
         if (Health == 0)
         {
             Position += new Vector2(0, _verticalSpeedFixed / 256.0f);
             _verticalSpeedFixed += 0x20;
             if (Position.Y >= 0x90)
-                BeginDeath();
+            {
+                Position = new Vector2(Position.X, 0x90);
+                _screenShake(60);
+                _playSound(OracleSoundEngine.SndStrongPound);
+                // enemyCode79 observes ENEMYSTATUS_NO_HEALTH and enters the
+                // shared boss-death handler on the following enemy update.
+                _deathPending = true;
+            }
             return;
         }
         if (--_counter == 0)
@@ -476,6 +525,14 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         _state = HeadThwompState.Resume;
         _counter = counter;
     }
+
+    private bool ChecksForBombsThisUpdate() => _state switch
+    {
+        HeadThwompState.Spinning => true,
+        HeadThwompState.Green => _phase == 1,
+        HeadThwompState.Blue => _phase == 1,
+        _ => false
+    };
 
     private void UpdateBackgroundProjectiles(
         int frameCounter,
@@ -501,30 +558,29 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
 
     private void SpawnFireball(ICollection<RoomEntitySpawn> spawns)
     {
-        int angle = (_random.Next().Value & 0x10) + 0x08;
-        int speed = FireballSpeeds[_random.Next().Value & 3];
         spawns.Add(new HeadThwompProjectileSpawn(
             Position,
             HeadThwompProjectileKind.Fireball,
-            angle,
-            speed));
+            Angle: 0,
+            Speed: 0,
+            RandomizeLaunch: true));
     }
 
     private void BeginDeath()
     {
         if (_dying)
             return;
-        Revive(1);
         _dying = true;
         _deathCounter = 120;
         _disableLink();
-        _screenShake(60);
         _playSound(OracleSoundEngine.SndBossDead);
     }
 
     private void SetSurroundingSolidity(bool solid)
     {
         SetCollision(0x46, (byte)(solid ? 0x01 : 0x00));
+        if (!solid)
+            SetMouthCollision(0x00);
         SetCollision(0x48, (byte)(solid ? 0x02 : 0x00));
         SetCollision(0x56, (byte)(solid ? 0x05 : 0x00));
         SetCollision(0x57, (byte)(solid ? 0x0f : 0x00));

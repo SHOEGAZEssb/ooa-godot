@@ -159,6 +159,21 @@ minimum instead of being clipped to the ordinary 32-by-32 enemy canvas.
 `enemyBoss_initializeRoom` also loads PALH `$81`, replacing OBJ palette 6 with
 `paletteData4958`; only OAM cells selecting effective palette 6 use that
 override, while the remaining face cells retain the standard OBJ palettes.
+Its `PART_HEAD_THWOMP_FIREBALL $39` uses the separate object-GFX header `$a4`,
+tile base `$00`, and base OAM palette `$02` from `partData.s` while flying. On
+solid contact its source writes OAM flags `$0b` and tile base `$26` before
+selecting animation 1. Flag bit 3 changes to fixed VRAM bank 1
+(`spr_common_sprites`) and the low bits select base OBJ palette 3. The five
+expanding impact frames and terminal `$ff` hold must therefore be composed from
+that common-sprite tile, not from tile 0 of the flying fireball sheet. Do not
+substitute the boss palette or infer either projectile phase from its room.
+Purple-face `PART_3b` follows the same fixed-bank impact rule, but starts from
+object-GFX header `$96` (`spr_boulder`), tile `$00`, palette 5 and switches to
+common-sprite tile `$02`, palette 3. Blue-face `PART $3c` retains its own
+`$8e/$14/$02` visual. Creation updates request `SND_FALLINHOLE` for fireballs
+and boulders and `SND_BEAM` for circular shots; solid impact requests
+`SND_BREAK_ROCK`. These requests belong to the allocated part update, so its
+RNG and sound order must not be folded into the boss update.
 
 `INTERAC_ESSENCE $7f` similarly composes three interaction objects rather than
 reusing one frame. Dungeon 1's essence overrides its base to tile `$00`, OBJ

@@ -127,6 +127,16 @@ TX `$2f00`, three-flap handoff, and input restoration. Keep this as one
 full-route validation so a newly unsupported record cannot hide behind a
 passing isolated mechanic.
 
+`Validation.HeadThwomp.cs` is the focused boss-fidelity boundary. Its direct
+projectile checks own private RNG streams and room data; its live room scenario
+captures and restores room `4:2b` flags in `finally`. It covers creation-phase
+RNG and sounds, cumulative circular-projectile curvature, one-heart beam damage
+and L2/L3-only shield blocking, fixed-bank boulder impact graphics, normal
+versus post-Bomb clink parity, every green/blue/purple
+effect count, all four red hits, and the lethal pound plus 120-update shared
+boss-death sequence. Keep those checks independent of the larger Wing Dungeon
+route so neither scenario can satisfy prerequisites by dirtying the other.
+
 ## Regression design
 
 Every fixed bug or new gameplay system gets a focused headless regression. A
