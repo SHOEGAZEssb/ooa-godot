@@ -1,230 +1,77 @@
 # Menus and input
 
-## One modal owner
+## Modal ownership
 
-`OracleMenuLifecycle` owns the common map/inventory menu lifecycle. Only one
-client may own it at a time. A client requests opening, swaps its screen at full
-white, handles menu-specific input only in the open phase, and requests closing.
-It must not independently freeze Link or animate the shared fade overlay.
-
-The lifecycle phases are:
+Only one modal client may own gameplay input and the shared menu presentation at
+a time. `OracleMenuLifecycle` owns the common map/inventory lifecycle:
 
 ```text
 Closed -> OpeningFadeOut -> OpeningFadeIn -> Open
 Open   -> ClosingFadeOut -> ClosingFadeIn -> Closed
 ```
 
-The common fast fade lasts exactly 11 original updates in each direction. The
-`MenuFade` covers the full 160 by 144 screen, including the HUD, and the screen
-swap occurs at full white. Timing-critical fade state uses the fixed-update
-controller, not a generic Tween.
+The common fast fade lasts 11 original updates in each direction. The screen
+swap occurs at full white. A menu-to-menu switch may retain ownership while
+white; it must not briefly resume gameplay between screens. Timing-critical
+fades use the fixed-update controller, not a generic tween.
 
-The ordinary room-warp fade covers only the gameplay field at screen y=16-143;
-the status bar remains above it. Ordinary room dialogue likewise converts its
-field-relative textbox positions into that display region: the source's upper
-y=8 and lower y=80 placements appear at screen y=24 and y=96. Full-screen
-menus and pregame screens use their own unshifted screen-space text layouts.
+`GameplayPauseController` provides an exclusive, owner-checked lease. It saves
+the exact processing/input state it suspends and restores that state on
+release. Never blindly enable Link when a menu closes: another owner may have
+disabled gameplay first. Failed acquisition leaves the caller unchanged.
 
-A menu-to-menu switch such as Inventory to Save & Quit can reuse ownership and
-begin the new fade-in while already white. It must not release gameplay between
-the two screens.
+Gameplay-owned submenus may use their interaction controller when that matches
+the original mechanism. Do not force every prompt through the map/inventory
+lifecycle; preserve its update masks, fade, and screen boundary.
 
-Normal inventory and map opening request `SND_OPENMENU` (`$54`) at the
-full-white screen swap, not on the initial Start/Select input. Inventory tab
-switches request that same sound when their 13-update scroll begins. Accepted
-overworld cursor moves and dungeon-floor changes request `SND_MENU_MOVE`
-(`$84`); a blocked dungeon-floor direction remains silent.
+## Screen-space boundaries
 
-## Presentation data boundary
+Full-screen menus and their fade use 160 by 144 screen space, including the
+HUD. A room-warp fade covers only the gameplay field at y=16-143. Ordinary room
+dialogue starts with field-relative positions and adds the 16-pixel display
+offset; pregame and full-screen presentations do not.
 
-`MenuPresentationDatabase` owns the imported, source-ordered layout records
-used by map icons, dungeon floor lists and blurbs, inventory slots and passive
-treasures, secondary/Essence cursors, and file, save/quit, and ring-menu OAM.
-The records retain their assembly labels and aliases, and runtime screens apply
-the Game Boy's byte-wrapped OAM offsets and hardware X/Y biases. Controllers
-still own input, cursor transitions, modal state, and update timing; those
-procedural behaviors are not encoded as presentation rows.
+Imported presentation records own source-ordered tilemaps, OAM, cursor
+locations, palette selections, and layout data. Menu controllers own input,
+cursor transitions, state changes, modal phases, and update timing. Apply Game
+Boy OAM offsets, signed byte wrap, and hardware coordinate biases at the
+rendering boundary instead of baking corrected coordinates into imported data.
 
-On the dungeon map, the selected-room cursor and Link icon alternate on the
-32-update flicker boundary. The cursor surrounds the room's 8-by-8 map cell.
-Link's 8-by-16 icon starts eight pixels above that cell, matching
-`dungeonMap_getLinkIconPosition` after the Game Boy OAM Y bias; it must not
-jump into the cell above when the flicker changes phase.
+## Input contract
 
-Every accepted directional input on each of the three inventory subscreens
-requests `SND_MENU_MOVE` (`$84`). An A/B storage-slot swap, including an
-unequip into an empty slot, requests `SND_SELECTITEM` (`$56`); successfully
-equipping or unequipping a ring requests the same sound, while pressing A on a
-non-ring secondary item remains silent.
+- The active modal exclusively consumes its controls; gameplay underneath does
+  not see the same presses.
+- Opening predicates include dialogue, transitions, story locks, room events,
+  and other modal ownership.
+- Menu input starts only after opening completes. A long host frame must not
+  leak the opening press into the newly visible screen.
+- Every controller in an original update reads the same immutable
+  `ApplicationInputBuffer` snapshot. A just-pressed edge belongs to one update.
+- Evaluate Start/Select chords before individual actions so both do not fire.
+- Accepted and rejected navigation, selection, and opening actions request
+  their original sounds at the traced update, not at an approximate visual
+  moment.
+- Presentation-only animation may use `AnimationPlayer`; original counters may
+  not.
 
-## Inventory text marquee
+Dialogue that freezes gameplay participates in the same fixed-update ownership
+rules even when it is not a full-screen modal. Preserve original object update
+masks: some state-0 or explicitly enabled objects continue while ordinary
+actors stop.
 
-The inventory's bottom text bar uses the original `showItemText2` indices.
-Ordinary items and all three subscreens resolve `TX_09XX`; ring slots combine
-the `TX_3040+ring` name with the `TX_3080+ring` description as `TX_30c1` does.
-Changing to a different text index centers its first line immediately, holds it
-for 40 original updates, and then scrolls the remaining lines as one marquee at
-one character per 8 updates. Re-selecting the same text index does not restart
-the marquee. Starting a 13-update page scroll clears the text bar, and the new
-page's selection appears on its first normal menu update after the scroll.
+## Adding or changing a menu
 
-Gameplay dialogue has three font sources. Ordinary characters use
-`gfx_font`, `\sym` uses `gfx_font_jp`, and `\item($00-$0f)` occupies one
-character cell from the imported 2bpp `gfx_font_tradeitems`. The item control
-retains its direct `$84` attribute and therefore resolves all four shades
-through the active room background palette 4; it is never printed as literal
-reference text. Maple's TX `$070e` Touching Book glyph `$09` is the canonical
-Ages case.
+1. Trace the original screen state, input order, counters, fades, OAM/tilemap
+   data, palettes, sounds, and state writes.
+2. Import presentation facts rather than copying coordinates or graphics into
+   controller code.
+3. Give one controller the screen state and use the existing modal/pause owner
+   where its lifecycle matches.
+4. Keep item, ring, map, or save mutations in their authoritative state owner.
+5. Validate opening and closing boundaries, direct screen switches, ownership
+   failure, input-edge consumption, sounds, cancellation, and restoration when
+   gameplay was already disabled.
 
-Treasure display mode `$00` uses the original inventory HUD tiles to draw
-`L-` plus the live low-nibble level beneath stored items and beside equipped
-A/B items. This applies to every imported level-mode record, including swords,
-bracelets, switch hooks, boomerangs, and feathers.
-
-Treasure display mode `$01` draws the live packed-BCD amount as two digit
-tiles, including a leading zero. Satchel records first resolve their selected
-seed treasure, so the same rule keeps the HUD, equipped A/B icons, and stored
-inventory icon synchronized after every accepted seed use.
-
-## Seed and Harp item submenus
-
-Equipping the Seed Satchel, Seed Shooter, or Slingshot directly swaps it with
-A or B while only one seed type is owned. With two or more types, the shared
-`inventoryMenuState2` panel opens instead. Owned seed types are compressed into
-their source order from Ember through Mystery; left and right wrap within that
-list, and Start, A, or B stores the highlighted type in the item's WRAM
-selection byte before performing the requested A/B swap. The option count
-selects the imported `$08/$0a/$10/$10` panel width and overlapping
-`table_5ae5` X-position row. Each option uses its imported
-`seedAndHarpSpriteTable` OAM, including attribute bit 3's VRAM-bank-1 item
-graphics selection, and displays the live packed-BCD count with Ages'
-`$20-$29` number tiles. This is the path used to select Mystery Seeds when the
-Satchel already owns Ember Seeds.
-
-Equipping the Harp directly swaps it with A or B while only one tune is owned.
-With two or three tunes, that button opens `inventoryMenuState2`'s tune
-submenu instead. The opening update draws the first two columns; odd source
-updates then expand the panel, and one final expansion tick enters input:
-8 by 4 tiles is ready for two tunes on update 15, while 10 by 4 tiles is ready
-for three tunes on update 17. Input remains locked until then.
-
-The submenu compresses the three tune IDs to the obtained-treasure order.
-Left and right wrap within that list and request `SND_MENU_MOVE`; Start, A, or
-B confirms the highlighted tune, writes `wSelectedHarpSong`, performs the
-original requested A/B storage swap, and requests `SND_SELECTITEM`. Merely
-opening the submenu does not equip the Harp or play the selection sound. Its
-two-tune positions are x=56/88 and its three-tune positions are x=48/72/96;
-the panel is placed above storage rows 8-15 and below rows 0-7.
-
-## Vasu ring menus
-
-`RingMenuController` owns `MENU_RING_APPRAISAL` and `MENU_RING_LIST` through
-the shared lifecycle; `VasuShopEvent` waits for its completion callback. The
-appraisal view retains the status bar at screen y=0-15, and graphics-register
-state `$0f` draws the 16-row appraisal map at y=16-143. Its
-textbox position `$02` consequently begins at screen y=96, between the map's
-y=88 and y=136 borders. The ring-list view hides the status bar, occupies the
-full 160 by 144 screen, and uses the special top two tile rows for the Ring Box.
-
-Both views render the imported unappraised/appraised maps, flags, ring graphics,
-inventory graphics, and original palettes. Sixteen rings occupy each page.
-The `$0f/$10` graphics-register states put the main `w4TileMap` 16 pixels below
-the screen origin: the list's Ring Box comes from the off-screen `$0200`
-segment at the top, while selection row 2 appears at screen y=32. The original
-`mapMenu_tileSubstitutionTable` entries copy the alternate off-screen layout so
-L-1, L-2, and L-3 Ring Boxes expose exactly one, three, and five slots.
-The list's centered ring-name line uses the cleared bank-1 `$9200-$93ff`
-`showItemText2` graphics buffer above the separate description box; it must not
-resolve those tile numbers through a static inventory sheet. Ring-menu sprite
-coordinates are converted from stored OAM coordinates by the hardware X/Y
-biases, including the `$3e/$56` list-cursor rows. Textbox position `$04`
-starts at screen y=104, but its fifth source row is hidden by the ring-list LCD
-interrupt that restores source row 1 at screen y=136-143. The dialogue
-background must therefore stop at y=136 so the bottom border remains visible.
-Select starts the adjacent page, requests `SND_OPENMENU` on its initialization
-update, then moves both pages eight pixels on each of 19 original updates. The
-list cursor flickers while choosing a ring; the Ring Box cursor remains visible
-during that choice and flickers only while choosing a box slot. Page arrows,
-Ring Box membership markers, the equipped `E`, page counts, ring number, and
-TX `$3040+id` name / `$3080+id` description all derive from live inventory
-state.
-
-Appraisal debits the source price before revealing a ring. A new ring is added
-to the obtained bitset after its description; a duplicate is removed and its
-refund is applied only after the result wait. Ring-list selection moves or
-removes a ring in the selected box slot without permitting duplicate slots.
-Closing the list deactivates an equipped ring that is no longer in the box.
-
-## Forced game-over save menu
-
-The terminal collapsed-Link animation enters the save/quit screen as the
-original forced game-over variant. The death sequence has already faded the
-screen, so `OracleMenuLifecycle` opens `gfx_gameover` at full white and runs
-only the 11-update fade-in half. The screen reuses the save-menu maps and
-decorative OAM. It first loads `gfx_savescreen` at `$8801`, then overwrites only
-title tiles `$80-$9f` with the shorter `gfx_gameover`; option tiles `$a0-$ff`
-must remain from the first load rather than becoming transparent. The variant
-selects `PALH_06` instead of the ordinary `PALH_05` background and begins on
-Continue.
-
-The three choices are Continue, Save and Continue, and Save and Quit. Continue
-does not write the file; the other two save immediately. Every successful
-choice requests `SND_SELECTITEM` (`$56`) and waits 30 original updates before
-resuming at the maintained death checkpoint or returning to file select.
-Accepted cursor movement requests `SND_MENU_MOVE` (`$84`). B cancellation is
-disabled in game-over mode, while the ordinary in-game save menu retains its
-closing path.
-
-## Gameplay pause lease
-
-`GameplayPauseController` provides exclusive pause/input ownership. Its lease
-captures Link's processing, physics-processing, and room-debug visibility state,
-then restores those exact values when the owning modal closes. Never blindly
-enable Link on close: another system may have disabled him before the menu
-opened.
-
-A lease is owner-checked and disposable. Failed acquisition means another modal
-already owns gameplay; the caller leaves its own state unchanged. Closing or
-switching without ownership is an error, not a silent no-op.
-
-The debug flag editor currently uses the same pause owner directly because it
-has a different presentation lifecycle. Gameplay-owned submenus such as kid
-name entry remain under their interaction controller. If they are consolidated
-later, preserve their original update masks and screen boundaries rather than
-forcing them through the map/inventory sequence.
-
-## Input rules
-
-- The active modal exclusively consumes its controls; room gameplay beneath it
-  does not also observe those presses.
-- Opening predicates include story locks, dialogue, transitions, room events,
-  and ownership by another menu.
-- Input begins after the opening fade has completed. A long rendered frame that
-  consumes several fixed updates must not also leak an action into the newly
-  opened screen.
-- `ApplicationInputBuffer` samples held state for each application-owned update
-  and assigns a just-pressed edge to one update only. Every controller in that
-  update reads the same immutable sample.
-- Start/Select chords are evaluated deliberately so the individual button
-  actions do not also fire.
-- Before `GLOBALFLAG_INTRO_DONE` `$0a`, a newly pressed Start, Select, or
-  Start+Select chord leaves the normal menus closed and requests `SND_ERROR`
-  (`$5a`) exactly once, matching the common `b2_updateMenus` gate.
-- Presentation animation may use `AnimationPlayer` when it is not authoritative
-  gameplay timing. Original counters remain fixed-update state.
-
-Validate opening, closing, cancellation, direct menu switches, ownership
-failure, a long host frame, and restoration when Link was already disabled.
-
-## File-select palettes
-
-The normal file-select, copy, and message-speed screens use imported `PALH_05`
-background colors. Entering either erase selection or erase confirmation swaps
-background palettes 2-6 to `PALH_06` (`paletteData58a0`); this includes the
-live heart and death-counter tiles. File-menu sprite palettes are unchanged.
-Returning from erase mode restores `PALH_05`.
-
-`FileMenuPresentation` assembles the shared top/middle/bottom file-menu
-tilemaps and draws the common decorative OAM list used by file select and the
-in-game save/quit screen. Page-specific maps, cursor coordinates, palette
-selection, and live file data remain owned by their screens.
+File-select and forced save/game-over screens have specialized shell ownership
+but follow the same evidence rules. Their disk writes must use the explicit
+save operations described in [Saves and state](saves-and-state.md).

@@ -1,14 +1,14 @@
-# Development workflow
+# Development
 
 ## Requirements
 
-- Godot 4.7.1 with .NET support.
-- The .NET 8 SDK and PowerShell.
+- Godot 4.7.1 with .NET support
+- .NET 8 SDK and PowerShell
 - A clean US Oracle of Ages ROM with MD5
-  `C4639CC61C049E5A085526BB6CAC03BB`.
-- A local `oracles-disasm` checkout.
+  `C4639CC61C049E5A085526BB6CAC03BB`
+- A local `oracles-disasm` checkout
 
-The paths used by the current development environment are:
+The current environment uses:
 
 ```text
 Repository:     E:\Stuff\Github\ooa-godot
@@ -16,61 +16,55 @@ Disassembly:    C:\msys64\home\timst\oracles-disasm
 Godot console:  E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe
 ```
 
-Pass `-Rom` or `-Disassembly` to the importer when using different source
-locations. Do not commit the ROM.
+Pass `-Rom` or `-Disassembly` to the importer for other locations. Never commit
+the ROM.
 
-## Build and run
+## Common commands
 
-Import or refresh generated data:
+Import or refresh generated assets:
 
 ```powershell
 & .\tools\import_oracles.ps1
 ```
 
-Test the importer and prove two consecutive imports are byte-for-byte
-deterministic:
+For importer infrastructure, parser, schema, or deterministic-output changes:
 
 ```powershell
 & .\tools\verify_oracle_import.ps1
 ```
 
-Build the production and validation projects:
+Build both production and validation assemblies:
 
 ```powershell
 dotnet build
 ```
 
-Run the normal title and file-select flow:
+Run the normal game flow:
 
 ```powershell
 & 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64.exe' --path .
 ```
 
-Start directly in a hexadecimal group and room for development:
+Start directly in a hexadecimal room for development:
 
 ```powershell
 & 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64.exe' --path . -- --group=4 --room=04
 ```
 
-Project arguments belong after `--`. Direct room arguments bypass the normal
-menu/checkpoint start and must not be mistaken for retail progression behavior.
-When a direct request targets a dungeon room whose tileset is side-scrolling,
-the development loader performs the retail `$04/$05` to active `$06/$07`
-group switch automatically. This keeps that room's screen-edge warp table and
-ordinary dungeon-layout screen transitions active; callers should continue to
-name the dungeon source group and room (for example,
-`--group=4 --room=29` for Wing Dungeon).
+Project arguments must follow `--`. Direct room starts bypass retail file and
+checkpoint progression. For a side-scrolling dungeon room, name its source
+group (`4` or `5`); the development loader performs the retail active-group
+switch to `6` or `7`.
 
-The headless suite also accepts an exact registered validation method name for
-a focused, independently initialized run:
+Run all headless validations or one exact registered method:
 
 ```powershell
 $godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
-& $godot --headless --path . --quit-after 10 -- --validate --validate-only=ValidateWingDungeon
+& $godot --headless --path . --quit-after 10 -- --validate
+& $godot --headless --path . --quit-after 10 -- --validate --validate-only=ValidateMethodName
 ```
 
-See [Validation](validation.md) for the isolation contract and complete-suite
-handoff checks.
+See [Validation](validation.md) for scenario isolation and handoff checks.
 
 ## Controls
 
@@ -81,92 +75,50 @@ handoff checks.
 | B / equipped item | X or J | B |
 | Start / inventory | I or Enter | Start |
 | Select / map | M or Tab | Back |
-| Save & Quit shortcut | Start + Select | Start + Back |
+| Save & Quit | Start + Select | Start + Back |
 
-Development controls are intentionally separate from game behavior:
+Development-only controls:
 
-| Key | Development action |
+| Key | Action |
 | --- | --- |
-| F | Fully revealed map and room fast travel; F cycles present, past, and interior groups 2-5 while open |
-| F1 | Live global/room flag, linked-game, and item grant editor |
-| F2 | Toggle Link collision; `NOCLIP` appears beside the room ID while disabled |
-| F3 | Start a Maple encounter; uses the current eligible room or moves to an imported location in the current era |
-| V | Warp to the configurable debug room; defaults to the D1 Essence room `4:11` |
-| Shift + 0-9 | Save the matching debug savestate slot |
-| 0-9 | Load the matching debug savestate slot |
+| F | Map/room fast travel; cycle group pages while open |
+| F1 | Edit live flags, linked state, items, and appraised rings |
+| F2 | Toggle Link collision |
+| F3 | Arrange a normal Maple encounter |
+| V | Warp to the configured debug room (default `4:11`) |
+| Shift + 0-9 | Save a debug savestate |
+| 0-9 | Load a debug savestate |
 
-Debug savestates are independent of the three retail-compatible file slots.
-Saving is accepted only during stable gameplay, outside transitions, menus,
-dialogue, item songs, death, and active room events. Loading is accepted from
-any active gameplay screen and reconstructs the saved room. The room-ID display
-briefly reports whether the state was saved, loaded, unavailable, empty, or
-could not be read or written.
+Override the V target with `--debug-warp-group=` and
+`--debug-warp-room=`. Debug tools mutate live state and do not bypass the
+project's explicit-save rules. Debug savestates are separate from the three
+retail-compatible file slots.
 
-F3 reloads an eligible current room in place. From any other room, it moves
-Link to the first imported past location when currently in group 1, or to the
-first imported present location otherwise. It raises the live kill counter to
-the equipped-ring threshold and lets the normal room parser spawn Maple and
-reset the counter; the encounter's meeting count, rewards, and other resulting
-state therefore follow the normal explicit-save rules. F3 is ignored while an
-encounter, transition, dialogue, menu, or room event is already active.
+## Change cycle
 
-The V target uses hexadecimal launch arguments and is independent of the
-initial room override:
+1. Inspect `git status --short` and preserve unrelated changes.
+2. Trace the relevant ROM/disassembly behavior, including callers and tables.
+3. Identify the authoritative importer and runtime owner.
+4. Extend the importer before runtime code when generated data is incomplete.
+5. Implement the behavior and focused regression together.
+6. Regenerate affected assets and review their diff.
+7. Run the appropriate import checks, `dotnet build`, the full headless suite,
+   `git diff --check`, and `git status --short`.
+8. Update a guide only if a durable rule changed; update
+   [implementation status](implementation-status.md) only for a broad coverage
+   change.
 
-```powershell
-& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64.exe' --path . -- --debug-warp-group=4 --debug-warp-room=11
-```
-
-In the F1 editor, Tab cycles through global flags, room flags, linked/items,
-and appraised rings.
-Use Up/Down to select a row, Left/Right to jump through global flags or imported
-treasure variants (and to change the selected room/table on the room page), and
-A to toggle a flag or the linked-game bit. On an item row, A grants that exact
-imported treasure variant and parameter when it is inactive, or removes the
-active treasure through the live inventory transaction. Trade item rows combine
-the shared treasure flag `$41` with `wTradeItem`, so only the current variant is
-marked active and selecting another variant switches to it;
-on the ring page, Left/Right selects one of the 64 imported names and A grants
-it to the appraised list. These changes affect the live WRAM-style state and
-follow the normal explicit save rules. Grant a Ring Box on the item page, grant
-the desired rings on the ring page, then use Vasu's list menu to place them in
-the box before equipping them from the normal Inventory screen.
-
-The F fast-travel screen uses the overworld map for present and past, then a
-16-by-16 hexadecimal room grid for each interior group. Use the movement keys
-to select a room and A to travel after choosing the desired group page.
-
-## Normal change cycle
-
-1. Inspect `git status --short` and preserve unrelated work.
-2. Trace the relevant disassembly code and data.
-3. Change importer code before generated files when source data is missing.
-4. Regenerate assets and review unexpected generated changes. For importer
-   infrastructure or parsing changes, run `tools/verify_oracle_import.ps1`;
-   it also runs the dungeon/source ownership audit.
-5. Implement the runtime behavior and its headless regression together.
-6. Run the checks in [Validation](validation.md).
-7. Update documentation for changed contracts or player-visible coverage.
-
-Use `rg` to search the repository and disassembly. Do not hand-edit files under
-`assets/oracle/`, discard unrelated dirty-worktree changes, or approximate a
-behavior that can be traced. The project renders at the GBC's 160 by 144
-resolution and should be tested at integer scale when inspecting pixels.
+Use `rg` for repository and disassembly searches. Inspect pixel-sensitive work
+at an integer scale; the internal viewport is 160 by 144.
 
 ## Continuous validation
 
-[The validation workflow](../.github/workflows/validation.yml) runs on pushes
-that change importer, runtime, Godot project, build, or validation sources, and
-can also be started manually from GitHub Actions. Documentation and other
-repository-only changes do not start it. A clean runner rebuilds the supported
-US ROM from the pinned public `oracles-disasm` `master` revision, verifies its
-MD5, and switches the disassembly checkout to the pinned `hack-base` revision
-used by the importer. It runs the importer unit/boundary tests and two-import
-full-asset parity check, then downloads the checksum-pinned Godot 4.7.1 .NET
-build, treats C# warnings as errors, runs the complete headless validation
-suite, rejects Godot engine warnings or errors, and runs `git diff --check`.
+[The validation workflow](../.github/workflows/validation.yml) rebuilds the
+supported ROM from pinned public sources, verifies its MD5, runs importer
+ownership and determinism checks, builds with warnings as errors, downloads the
+pinned Godot .NET version, runs the complete headless suite, rejects Godot
+warnings/errors, and runs `git diff --check`.
 
-The temporary source ROM is neither committed nor uploaded as an artifact. When
-the project deliberately adopts a newer Godot, WLA-DX, or disassembly revision,
-update its version, commit, and archive checksum pins in the workflow together
-and confirm the full workflow remains green.
+Version and checksum pins for Godot, WLA-DX, and the disassembly must change
+together and pass the complete workflow. The temporary ROM is never uploaded as
+an artifact.

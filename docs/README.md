@@ -1,38 +1,66 @@
-# Project documentation
+# Engineering documentation
 
-This directory records the engineering rules that should remain true as the
-Oracle of Ages reconstruction grows. The original ROM and disassembly are the
-authority; these guides explain how that evidence is carried through the
-importer, runtime, and validation suite.
+These guides explain how evidence from the original game moves through the
+importer, runtime, and validation suite. They are written for contributors and
+coding agents; each guide should be useful without becoming an inventory of
+everything already implemented.
 
-| Guide | Purpose |
+## Start here
+
+1. Read [Project principles](project-principles.md) for any gameplay change.
+2. Read [Development](development.md) for setup, commands, controls, and the
+   normal change cycle.
+3. Select one subsystem guide from the task map below.
+4. Use [Validation](validation.md) when designing the regression.
+
+Do not read every guide before a small change. The task map is the intended
+entry point.
+
+## Task map
+
+| If you are changing... | Read |
 | --- | --- |
-| [Project principles](project-principles.md) | Fidelity priorities, evidence rules, and the definition of done |
-| [Development workflow](development.md) | Setup, build, launch, controls, and the normal change workflow |
-| [Data import](data-import.md) | ROM/disassembly import stages and generated-asset rules |
-| [Runtime architecture](runtime-architecture.md) | Scene ownership, controller boundaries, and update order |
-| [Rooms and entities](rooms-and-entities.md) | Room coordinates, transitions, object ordering, enemy placement, and entity lifetime |
-| [NPCs and room events](npcs-and-events.md) | Choosing data-driven NPCs, native linked interactions, or room events and carrying them from source to validation |
-| [NPC and interaction coverage](npc-interaction-coverage.md) | Room-by-room status of imported character interactions and remaining generic fallbacks |
-| [Menus and input](menus-and-input.md) | Modal ownership, fixed-update fades, and gameplay pause leases |
-| [Saves and runtime state](saves-and-state.md) | WRAM-backed state, persistence, transactions, and checkpoints |
-| [Graphics and audio](graphics-and-audio.md) | Resource caching, OAM composition, palettes, and deterministic sound behavior |
-| [Cutscene command runner](command-runner.md) | Choosing, importing, implementing, and validating cutscene commands |
-| [Validation](validation.md) | Test assembly design, regression expectations, and commands |
-| [Implementation status](implementation-status.md) | High-level coverage and intentionally deferred systems |
+| Project fidelity, evidence, or definition of done | [Project principles](project-principles.md) |
+| Setup, commands, controls, or contributor workflow | [Development](development.md) |
+| Generated data, assembly parsing, schemas, or import stages | [Data import](data-import.md) |
+| Composition, scene ownership, fixed updates, or input ordering | [Runtime architecture](runtime-architecture.md) |
+| Rooms, transitions, terrain, entities, enemies, placement, or RNG | [Rooms and entities](rooms-and-entities.md) |
+| NPCs, native interactions, linked actors, or room events | [NPCs and events](npcs-and-events.md) |
+| Which imported NPC records are implemented, partial, or unsupported | [NPC interaction coverage](npc-interaction-coverage.md) |
+| An `interactionRunScript` stream or a new script command | [Command runner](command-runner.md) |
+| Menus, dialogue/modal input, fades, or pause ownership | [Menus and input](menus-and-input.md) |
+| WRAM fields, flags, inventory, checkpoints, or disk persistence | [Saves and state](saves-and-state.md) |
+| Imported graphics, OAM, palettes, caching, sound, or audio RNG | [Graphics and audio](graphics-and-audio.md) |
+| A regression, fixture, trace, or validation boundary | [Validation](validation.md) |
+| Broad playable coverage or major missing systems | [Implementation status](implementation-status.md) |
 
-The root [README](../README.md) is the project entry point. [TODO.md](../TODO.md)
-tracks engineering work that is planned or deliberately tentative; it should
-not be used as a substitute for the rules in these documents.
+## What belongs in documentation
 
-## Documentation maintenance
+Keep a rule here when a future contributor needs it to make the right design
+choice before reading an implementation. Good documentation covers:
 
-Update the relevant guide whenever a change alters a durable contract, file
-format, ownership boundary, or contributor workflow. Keep chronological
-implementation notes out of the README. A player-visible feature belongs in
-the implementation-status summary; a remaining engineering task belongs in
-`TODO.md`.
+- source-of-truth and evidence rules;
+- ownership and lifecycle boundaries;
+- update order, coordinate systems, persistence, and RNG contracts;
+- generated formats and failure behavior;
+- normal implementation and verification workflow.
 
-Use repository-relative links and run a link check after moving a document.
-Generated files under `assets/oracle/` are never documentation sources and
-must not be edited by hand.
+Do not copy information that is more reliably found in code or generated data:
+
+- exhaustive class or file lists;
+- room-by-room and interaction-by-interaction coverage;
+- long catalogs of constants, WRAM addresses, sounds, or validation methods;
+- chronological implementation notes;
+- planned work without an active owner.
+
+Source-specific details belong next to their implementation and in focused
+validations, with original labels and hexadecimal IDs retained. The deliberate
+exception is the navigable [NPC interaction coverage](npc-interaction-coverage.md)
+ledger. Agents must update its row, summary counts, and snapshot date whenever
+implemented NPC coverage or classification changes. The concise
+[implementation status](implementation-status.md) records only broad coverage
+and major limitations.
+
+When moving or removing a guide, update all repository-relative links and run
+`git diff --check`. Generated files under `assets/oracle/` are outputs, never
+documentation sources.

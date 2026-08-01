@@ -5,6 +5,11 @@ interactions as of July 30, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
+This ledger is maintained alongside NPC implementation work. Any change that
+implements, extends, partially supports, suppresses, or reclassifies an imported
+NPC record must update the affected room entry, snapshot counts, important
+boundaries, and date in the same change.
+
 The inventory covers:
 
 - all 388 positioned or state-derived rows in
@@ -101,8 +106,7 @@ classified records and 129 specialized rows.
 
 These are mutually selected alternatives, not 72 simultaneous actors.
 `NpcDatabase.GetRoomNpcs` currently owns family progression side effects as
-well as record selection. The ownership/consolidation work in
-[TODO](../TODO.md) remains applicable.
+well as record selection.
 
 ## Room inventory
 

@@ -1,348 +1,106 @@
-# Cutscene command runner usage
+# Command runner
 
-This guide defines when and how to use the typed cutscene command runner in
-the Oracle of Ages port. The primary goal is behavioral parity with the
-original ROM, not making every sequence use one abstraction.
-
-See [NPCs and room events](npcs-and-events.md) for the preceding decision about
-whether the owning behavior is an ordinary room entity, a linked interaction,
-or a `RoomEventController` event.
-
-## Decision rule
+## When to use it
 
 Use `CutsceneCommandRunner` when the original behavior is an
-`interactionRunScript` stream, or when an imported controller stream is a
-faithful representation of several coordinated interaction scripts.
+`interactionRunScript` stream, or when an imported controller stream faithfully
+represents several coordinated source scripts. Keep native cutscenes,
+special-object state machines, palette threads, and transition engines in
+specialized controllers.
 
-Keep a specialized native controller when the original behavior is driven by
-a game-state cutscene, special-object state machine, palette thread, room
-transition engine, or another native object-code handler.
+The owner is still an ordinary entity, linked interaction, or room event. See
+[NPCs and events](npcs-and-events.md) before choosing the runner.
 
-Current examples:
+Core files:
 
-| Cutscene | Correct architecture |
-| --- | --- |
-| Ralph's portal departure | Typed command runner |
-| First-past arrival | Typed command runner |
-| Deku Forest Mystery Seeds escort and palace audience | Seven imported actor streams across rooms `1:81`, `1:46`, `1:36`, `1:26`, and `1:16`, with source-ordered lane scheduling and native scrolling, palette, reward, and direct-return handlers |
-| Maku Tree disappearance | Typed command runner |
-| Adult Maku Tree post-rescue conversation | Typed command runner with native Seed Satchel create/respawn handlers |
-| Room 0:56 comedian trade | Typed command runner with native progress/facing helpers and shared treasure presentation |
-| Impa encounter and stone scripts | Typed runner with native follower, rock, and fake-Octorok handlers |
-| Nayru introduction and aftermath | Imported command stream with native object/effect handlers |
-| New-game intro | Specialized pregame timeline and native sprite presentation |
-| Time-warp transition | Specialized `CUTSCENE_TIMEWARP` transition state machine |
-| Nayru singing screen | Specialized presentation controlled by the surrounding event |
+- `tools/import_oracles/Import-CutsceneData.ps1`
+- `src/Features/Story/Commands/CutsceneCommandSchema.cs`
+- `src/Features/Story/Commands/CutsceneCommandCatalog.cs`
+- `src/Features/Story/Commands/CutsceneCommandRunner.cs`
+- `src/Features/Story/Commands/ICutsceneCommandHost.cs`
+- `src/Features/Story/Commands/CutsceneCommandLaneScheduler.cs`
 
-Do not migrate a native cutscene merely because it contains waits, text, or
-animation. Match the mechanism used by the disassembly.
+## Generated commands
 
-## Relevant files
+Generated rows retain a stable script ID, assembly label, command index, source
+line, normalized opcode, optional actor, typed arguments, and payload. The
+generated command vocabulary is the contract for source aliases, operand
+shapes, command record type, allowed results, actor members, and required host
+capabilities.
 
-- `src/Features/Story/Commands/CutsceneCommandCatalog.cs`: schema validation,
-  conversion from generated rows, and the typed command records it constructs.
-- `src/Features/Story/Commands/CutsceneCommandRunner.cs`: fixed-update command
-  interpreter plus its command base, source metadata, result, and trace records.
-- `src/Features/Story/Commands/ICutsceneCommandHost.cs`: host contract.
-- `src/Features/Story/Commands/CutsceneCommandLaneScheduler.cs`: stable-order
-  scheduler for independent actor scripts.
-- `tools/import_oracles/Import-CutsceneData.ps1`: disassembly parsing and
-  generated command streams.
-- `validation/Validation.Cutscenes.cs`: complete-path and branch validation.
-
-Generated files under `assets/oracle/` must never be hand-edited. Change the
-importer and regenerate them with:
-
-```powershell
-& .\tools\import_oracles.ps1
-```
-
-## Generated command format
-
-Runtime command catalogs use tab-separated rows with these columns:
-
-| Column | Meaning |
-| --- | --- |
-| `script` | Stable source script identifier |
-| `label` | Active assembly label for the command |
-| `index` | Zero-based command index in the runtime stream |
-| `source-line` | Original disassembly line number |
-| `opcode` | Typed runtime opcode |
-| `actor` | Stable actor binding, when applicable |
-| `arg0` / `arg1` | Schema-specific operands |
-| `payload-base64` | Text, binding, native handler, or structured payload |
-
-Every row must retain actionable source metadata. Import or startup errors
-must identify the script, label, command index, source line, and invalid
-operand or actor.
-
-For `showtext`, `arg0` is the text ID and optional decimal `arg1` retains the
-text resource's leading `\pos(n)` directive. An empty `arg1` means the original
-automatic side selection based on Link's screen Y. The runner passes this
-nullable position through the host at each command boundary; do not cache one
-position for a whole cutscene because successive lines can deliberately switch
-between top, middle, and bottom boxes.
-
-The generated `script_command_vocabulary.tsv` is the enforced normalized
-command schema. Each of its 52 rows declares:
-
-- source macro/native aliases and original byte shape;
-- the one concrete `CutsceneCommand` record type;
-- actor, `arg0`, `arg1`, and decoded payload shapes;
-- every permitted `Continue`, `Yield`, `Block`, or `End` result;
-- ordered actor-member accessors; and
-- required host capabilities.
-
-The importer rejects every emitted command row that has an undeclared opcode
-or does not match these field shapes. Runtime loading then checks that the
-normalized opcode decodes to the declared record type. Startup reflection
-requires every concrete command record to have exactly one schema entry, and
-the runner checks every returned result against that entry.
+The importer rejects an undeclared or malformed command. Runtime loading checks
+the schema again. Errors must identify the script, label, index, source line,
+opcode, and bad operand or actor. Do not emit scene paths or transient node
+names; actors use stable semantic IDs which the host binds to current runtime
+objects.
 
 ## Fixed-update semantics
 
-The runner advances at 60 original-engine updates per second. Each command
-must explicitly preserve the original handler result:
+Every command returns an explicit source-equivalent result:
 
-| Result | Meaning |
+| Result | Behavior |
 | --- | --- |
-| Continue | Dispatch the next command in the same update |
-| Yield | Save the next command and stop until the next update |
-| Block | Keep updating the current command |
-| End | Finish and deactivate the stream |
+| `Continue` | Dispatch the next command in the same update |
+| `Yield` | Save the next command and stop until the next update |
+| `Block` | Keep updating the current command |
+| `End` | Finish and deactivate the stream |
 
-`jumpifmemoryset` has an asymmetric source carry contract: a taken branch
-continues dispatch in the same update, while a missed branch advances past the
-command and yields. Import it as `jumpifmemoryeqyieldonmiss`; the ordinary
-`jumpifmemoryeq` normalized opcode continues on both outcomes.
+Determine this from the source command handler and carry behavior, not from the
+command's English meaning. Similar flag writes or waits may have different
+boundaries. Preserve separately:
 
-For real interaction opcodes, determine this from the assembly handler and
-`interactionRunScript`, not from intuition. In the original dispatcher, a set
-carry flag continues dispatch; a clear carry flag yields after saving the
-script address.
+- whether a counter dispatches on its zero update or the following update;
+- script waits versus preloaded native counters;
+- taken and missed branch boundaries;
+- `callscript` and `retscript` yields;
+- textbox open, close, and post-close boundaries;
+- movement completion and restoration of actor pose;
+- whether a sound, music, item, or state operation continues or yields.
 
-For example, `scriptCmd_orRoomFlags` returns with carry clear and therefore
-yields. Room 0:7a's Impa-help flag write is native object code in a linear
-same-update block, so it uses a distinct continue command. Similar-looking
-mutations are not automatically timing-equivalent.
+The runner advances at original 60 Hz updates. Tweening and rendered delta are
+never authoritative for command movement or timing.
 
-Preserve the separate counter behaviors:
+## Hosts and actor bindings
 
-- `counter1` can reach zero and dispatch the next command in that same update.
-- `counter2` reaches zero on an update that still returns before the next
-  command.
-- A script `wait`, a controller `waitframes`, and a preloaded native counter
-  do not necessarily share their first or final update boundaries.
-- `callscript` and `retscript` retain their own yielded boundaries.
-- Dialogue commands must reproduce both opening and post-close boundaries.
-- `checkabutton` blocks on the actor binding and consumes that actor's pending
-  talk press when satisfied. `jumpifroomflagset` and `jumpiftextoptioneq`
-  branch and continue in the same update; the latter consumes the completed
-  choice result from the host. `setmusic` yields after selecting the imported
-  track. Keep these distinct from generic memory gates or sound effects.
-- `initcollisions` applies the source `$06/$06` radii and arms the actor in one
-  continuing command. Indexed actor-byte tables must use a bounds-checked typed
-  jump table. `jumpiftradeitemeq` checks both trade-item ownership and its
-  current parameter, while `giveitem` yields after creating the imported
-  treasure object at Link for the normal grab-mode presentation.
+A command host translates stable actor IDs into runtime actors and implements
+only the operations owned by its event or entity. Hosts are default-deny: an
+unsupported capability fails with current command source context instead of
+doing nothing.
 
-Never use `Tween` or frame-time interpolation as the authoritative source for
-ROM-timed movement.
+Validate all required actors before execution. The host owns actor-specific
+position, animation, visibility, collision, deletion, dialogue, inventory,
+input, and native-handler operations. Common forwarding may be shared, but
+source-specific state changes remain explicit.
 
-## Actor bindings
+Always clear a runner when its owner is cancelled, its room invalidates actor
+bindings, or a native completion path takes ownership. Input leases and actor
+registrations must be released on every terminal path.
 
-Commands refer to `CutsceneActorId` values. Actor operands are enumerated from
-the schema's ordered actor-member list, including optional native-handler
-actors, instead of a second runner switch. A host must implement
-`HasActorBinding` and reject any actor that is not available to that stream.
-Bindings are validated before the first command executes.
+## Parallel scripts and native work
 
-Use stable semantic names such as `Impa`, `Ralph`, `Nayru`, or `Player`. Do not
-put scene paths, transient node names, or room-specific lookup logic into the
-generated command rows.
+Use one command with several actors only when one source operation genuinely
+owns them together. Use `CutsceneCommandLaneScheduler` when original object
+slots own independent scripts. Each lane retains its own instruction pointer,
+stack, counters, and registers, and lanes update in original object order.
 
-The host translates the stable identifier into the current runtime actor. It
-also owns actor-specific operations such as animation selection, position,
-visibility, Z, or deletion.
+Keep source-native work in named native handlers: palette progression, room
+loading, actor/part creation, portals, fixed-point physics, follower buffers,
+treasure presentation, or other object-code state. The script owns the native
+handler's command boundary and parameters. Avoid untyped generic callbacks.
 
-Command hosts derive from the source-aware default-deny capability adapter.
-They implement only capabilities the event owns; an unsupported call fails
-with the declared capability plus the script, label, command index, source
-line, and opcode. Event-specific
-native handlers and actor registries remain explicit.
+## Adding a command or stream
 
-When translated movement finishes, the runner calls
-`CompleteActorTranslation` on the same fixed update. Player hosts must use
-this boundary to leave the walking body pose while retaining the final
-position and facing. This prevents a completed movement from leaking a walking
-sprite into later waits or dialogue.
+1. Trace the macro, byte representation, handler, operands, counter behavior,
+   and carry/yield result.
+2. Extend the shared assembly model or fail with source context; never skip the
+   opcode.
+3. Add or reuse one typed command record and vocabulary entry.
+4. Implement strict import and catalog parsing for every operand.
+5. Add the exact runner behavior and only the host capability it requires.
+6. Preserve actor bindings, native handoffs, and independent lane order.
+7. Regenerate assets and prove deterministic import output.
+8. Validate command trace order, first/final update boundaries, branches,
+   cancellation, actor effects, and resulting room/save/audio state.
 
-## Parallel behavior
-
-Use `paralleltranslate` when one imported controller operation deliberately
-moves a small fixed set of actors together. Each actor keeps its own frame
-count, and the command completes after the longest movement.
-
-Use `CutsceneCommandLaneScheduler` when the original objects own independent
-scripts. Each lane receives its own runner, counters, registers, instruction
-pointer, and call stack. Add lanes in original object-update order; the
-scheduler preserves that order and must not compact or reorder active lanes.
-
-Do not merge independent actor scripts into one counter merely because their
-visible actions overlap.
-
-When one script creates another script owner in a later original object slot,
-start the new runner from the creating native command and advance it later in
-the same fixed-update pass. Room `1:38` is the reference: the placed sprout is
-updated before its `$6b:$04` controller, which is updated before the two
-`$96` Moblin lanes it creates. Each runner keeps its own command state while
-the event host exposes only the shared `wTmpcfc0`/`wccd4` bindings. A scripted
-actor that replaces itself with an enemy ends its lane after requesting the
-ordinary combat spawn; subsequent `wNumEnemies` gates must query the entity
-manager's live enemy counter, not a cutscene-local survivor count.
-
-## Native handlers
-
-Keep behavior in a native handler when it comes from object code rather than a
-supported interaction command. Typical examples include:
-
-- palette engines and palette-thread completion;
-- room loading, room swaps, and camera updates;
-- actor, part, and effect creation;
-- portal and lightning effects;
-- fixed-point Z physics owned by a special object;
-- follower path buffers and collision handshakes;
-- native flicker loops or global-frame effects;
-- treasure presentation and other multi-system handoffs.
-
-The imported stream should still own the handler's command boundary and its
-parameters. Prefer a narrowly named native handler over a generic callback.
-Blocking native handlers must expose completion through
-`UpdateNativeHandler`; one-update mutations should use an explicit yielding or
-continuing native command as required by the source.
-
-## Host lifecycle
-
-A typical event owns one runner and starts an importer-generated stream:
-
-```csharp
-private readonly CutsceneCommandRunner _runner;
-
-public ExampleEvent(RoomEventContext context)
-{
-    _context = context;
-    _runner = new CutsceneCommandRunner(this);
-}
-
-private void Begin() => _runner.Start(_database.Commands);
-private void UpdateFrame() => _runner.AdvanceFrame();
-private void Cancel() => _runner.Clear();
-```
-
-The event derives from the default-deny `CutsceneCommandHost` and implements
-`ICutsceneCommandHost` for its supported operations. Before actor validation
-and every dispatch, the runner installs the active
-`CutsceneCommandSource`; an unsupported capability therefore reports the
-script, label, command index, source line, and opcode instead of silently
-doing nothing. Room-backed hosts expose their `RoomEventContext` once. Common
-sound, input, and global-flag forwarding remains centralized, while
-source-specific operands and state changes stay explicit.
-
-Interactive NPC scripts that use the standard Link input lease derive from
-`InteractiveCutsceneCommandHost`. Its idempotent acquire/release transition is
-the common lower-level owner for these scripts, including Poe's finite
-multi-room sequence.
-
-Single-actor `interactionRunScript` loops that permanently return to
-`checkabutton` derive from `InteractiveInfiniteScriptHost<TActor>`. The shared
-host owns the room context, runner start/advance/clear lifecycle, imported
-initial script updates, exact actor binding, pending A-button state, input
-lease, and cancellation cleanup. The saved Maku Tree, Comedian, and Mask
-Salesman use this boundary. Each event still implements its own room
-predicates, dialogue and choice ranges, imported animation/collision checks,
-inventory rewards, and native handlers through the default-deny command host.
-Poe does not use the infinite-loop host because its selected actor, movement,
-variant lifetime, and terminal script state cross rooms.
-
-Placed NPC scripts outside the room-event priority chain use
-`NpcInteractionScriptController` and one `NpcInteractionCommandHost` per
-source lane. The linked-secret giver, past Bipin, Shovel hardhat, and Postman
-hosts own their actor binding, pending A-button, input lease, textbox/choice
-operations, and caller-completed reward handoff. `InteractionController`
-delegates only ordered talk matching and fixed-update advancement; it does not
-reproduce their command graphs. The generated streams retain
-`showloadedtext`, `checktext`, trade-item/choice branches, movement,
-`giveitem`, and exact script waits, while secret generation, family text
-resolution, facing, and source-specific reward presentation remain explicit
-native host operations.
-
-Always clear runners when an event is cancelled, a room unload invalidates its
-actors, or native completion takes ownership. Do not accumulate ordinary event
-updates during scrolling unless the original object is explicitly updated
-during transitions.
-
-Room events with ordinary room-match/start behavior implement
-`IRoomEntryEvent` and are registered once in `RoomEventController`'s explicit
-priority list. That list owns their entry selection, fixed updates, gameplay
-blocking, and cancellation order. Events that coordinate state across rooms or
-with another event, such as the Nayru and Impa sequence, keep their specialized
-room-load handling in the controller.
-
-## Tracing and validation
-
-Command tracing belongs in the validation assembly. Production event classes
-must not retain audit-only booleans, counters, masks, or compatibility
-accessors.
-
-Use command traces to verify:
-
-- every started, updated, and completed command boundary;
-- script, label, index, source line, and opcode order;
-- branch and call/return targets;
-- exact waits and final counter updates;
-- dialogue, sounds, animations, flags, and WRAM signals;
-- actor positions, facings, movement completion, and deletion;
-- independent lane update order;
-- native handler cadence and completion;
-- final gameplay, room, inventory, audio, and persistence state.
-
-Trace observations describe externally meaningful state. They must not change
-runtime behavior.
-
-Every regression or newly migrated cutscene requires a headless validation
-covering its successful path and every supported branch.
-
-## Adding or migrating a command
-
-1. Locate the source macro and command handler in the disassembly.
-2. Record its byte length, operands, counter use, and carry/yield behavior.
-3. Extend the shared assembly parser or reject the opcode with source
-   diagnostics. Do not silently skip it.
-4. Add or reuse a typed command record.
-5. Add strict catalog parsing for every operand.
-6. Implement the exact fixed-update behavior in the runner.
-7. Add only the host operation needed to connect it to runtime systems.
-8. Emit source labels and line numbers from the importer.
-9. Regenerate assets and confirm deterministic output.
-10. Validate all command boundaries and visible/runtime effects against the
-    disassembly.
-
-If a command cannot yet be implemented faithfully, fail during import or
-startup and include its source context. Do not replace it with an approximate
-delay, callback, or no-op.
-
-## Required verification
-
-Before handing off a command-runner change, run:
-
-```powershell
-& .\tools\import_oracles.ps1
-dotnet build
-$godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
-& $godot --headless --path . --quit-after 10 -- --validate
-git diff --check
-git status --short
-```
-
-The build must have zero warnings and errors, the complete validation suite
-must pass, and unrelated worktree changes must remain untouched.
+Command traces are attached and stored by the validation assembly. Production
+events do not retain audit-only counters or history.

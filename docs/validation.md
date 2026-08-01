@@ -2,181 +2,118 @@
 
 ## Assembly boundary
 
-Headless regression orchestration lives in the separate
-`validation/oracle-of-ages.validation.csproj` project and
-`validation/validation.tscn`. Production compilation excludes validation source.
-The validation assembly references the built game assembly and receives a narrow
-internal surface through `InternalsVisibleTo`.
+Headless regressions live in the separate
+`validation/oracle-of-ages.validation.csproj` assembly and run through
+`validation/validation.tscn`. Production compilation excludes
+`validation/**/*.cs`; the validation project references production through a
+narrow `InternalsVisibleTo` surface.
 
-`ValidationRoot` is one partial class organized by use case under
-`validation/Features/`. Keep lifecycle and the ordered `ValidateAll` entry
-point in `Features/Framework/Validation.cs`; place scenarios in the matching
-`Validation.<Category>.cs` file. Shared test doubles are separate named-type
-files beside the framework root. The validation project includes C# files
-recursively while the production project continues to exclude
-`validation/**/*.cs`.
+`ValidationRoot` is a partial class organized by use case under
+`validation/Features/`. Keep the runner and ordered registration in
+`Features/Framework/Validation.cs`; put a scenario in the matching feature
+file. Fixtures, test doubles, observers, audit history, and expected traces stay
+in the validation assembly.
 
-Do not add validation-only state machines, audit masks, trace lists, or public
-compatibility accessors to production classes. Observe externally meaningful
-state or provide a small internal operation that is also a truthful view of the
-runtime owner. Cutscene command tracing is attached by validation rather than
-stored permanently on each event.
+Production may expose a narrow internal operation or observer when it is a
+truthful view of the runtime owner. Do not add validation-only state machines,
+public compatibility properties, permanent trace lists, sound request counts,
+or cache histories to production classes.
 
-Operation history follows the same rule. Validation attaches narrow internal
-observers to `OracleSoundEngine`, `OracleGraphicsCache`, and
-`CombatController`; the validation assembly owns sound-request counts/order,
-cache-operation traces, and spawned-clink references. Production retains only
-real sequencer state, current cache contents, and spawned world nodes. Resetting
-an audit resets the validation observer, never the runtime owner.
+## Run validations
 
-Room/entity scenarios construct managers through
-`RoomEntityValidationFixture`. Its defaults provide the ordinary databases,
-RNG, and runtime collaborators; `RoomEntityValidationOptions` supplies only
-the exceptional save, inventory, database, clock, treasure, or room-session
-owner required by a scenario. The fixture owns manager clearing/disposal and
-can also own a temporary root. Keep it and other scenario setup helpers in the
-validation assembly.
-
-## Running the suite
-
-Build first, then launch Godot with the project argument after `--`:
+Build first, then pass project arguments after `--`:
 
 ```powershell
 dotnet build
 $godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
 & $godot --headless --path . --quit-after 10 -- --validate
+```
+
+Run one exact registered method while developing:
+
+```powershell
+& $godot --headless --path . --quit-after 10 -- --validate --validate-only=ValidateMethodName
+```
+
+An unknown name fails. A focused run is a development aid; run the complete
+suite before handoff.
+
+Importer/parser/schema changes also require:
+
+```powershell
+& .\tools\verify_oracle_import.ps1
+```
+
+Handoff checks:
+
+```powershell
+dotnet build
+& $godot --headless --path . --quit-after 10 -- --validate
 git diff --check
 git status --short
 ```
 
-`--validate` runs the complete world-data and gameplay suite and selects
-canonical rooms for individual scenarios. Validation save-store tests use an
-isolated temporary directory and must never touch player slots.
+The build must have zero warnings and errors. Preserve unrelated worktree
+changes and review every generated diff.
 
-Every top-level scenario starts from a newly constructed standard-game
-gameplay graph. The runner immediately disposes the preceding scene and
-recreates save and runtime WRAM, RNG, rooms, entities, story controllers,
-menus, input buffers, application counters, and validation audits. A scenario
-must arrange every flag, item, room, and actor prerequisite it asserts; it must
-never rely on the registration order or state left by another scenario.
-Application-wide immutable resource caches may retain keyed assets, but their
-validation observers are detached and reset between scenarios.
+## Scenario isolation
 
-Run one registered scenario by its exact validation method name while working
-on a focused regression:
+Each top-level scenario starts from a newly constructed standard gameplay graph.
+The runner disposes the prior graph and recreates live save/runtime state, RNG,
+rooms, entities, story controllers, menus, input buffers, application counters,
+and validation observers.
 
-```powershell
-& $godot --headless --path . --quit-after 10 -- --validate --validate-only=ValidateWingDungeon
-```
+A scenario arranges every flag, item, room, actor, and RNG prerequisite it
+asserts. It may not depend on registration order or state left by another
+scenario. Immutable resource caches may remain keyed across scenarios, but
+observers and audit state reset. Save-store checks use an isolated temporary
+directory and never touch player slots.
 
-The focused run uses the same fresh-game isolation path as the full suite. An
-unknown method name fails instead of silently running no checks.
-
-Importer changes also require:
-
-```powershell
-& .\tools\import_oracles.ps1
-& .\tools\verify_source_ownership.ps1
-```
-
-Review generated diffs and, when practical, rerun to verify deterministic
-output. A change is ready only with zero build warnings/errors, a passing full
-suite, a clean `git diff --check`, and unrelated worktree changes preserved.
-`verify_oracle_import.ps1` runs the source-ownership audit automatically before
-its importer tests and two-import parity pass. The audit rejects ordinary enemy
-species stored under dungeon directories, retired first-dungeon type names,
-new dungeon-prefixed runtime types without an explicit dungeon-specific
-allowlist decision, and shared dungeon code coupled to a dungeon database.
-
-The suite exercises the shared generated-table reader with actual and escaped
-tab headers, CRLF input, comments, trailing empty cells, every supported
-primitive/sentinel parser, malformed cells, duplicate unique keys, and ordered
-grouped/aliased/repeated rows. It also validates the checked-in manifest's exact
-TSV inventory plus every schema version, record count, and SHA-256, alongside
-focused failure cases for stale versions, counts, and checksums.
-
-`Validation.WingDungeon.cs` is the end-to-end dungeon `$02` boundary. It loads
-every room `4:27-$48`, checks the merged native/shared/enemy/static rosters,
-all six chests, exact floor/color patterns, side platforms, circular
-platforms, and persistent minecarts. It also loads side-view room `6:28` and
-checks its complete animated texture after the Feather textbox and inventory
-equip lifecycle, and rejects its decorative `$73` tile as a top-down key door.
-Focused live scenarios assert minecart
-four-push centered boarding at Link's source angle, exact jump handoffs,
-6/6-update animation, the imported `$58-$5b/$84-$87` seated-Link pixel hash,
-Link-over-cart source priority, and live facing/Sword input with cart-owned
-movement. The Sword check also asserts ridden animation mode `$26`'s
-`$c8/$cc/$cc/$58` body pixels and standard OAM origin. The natural
-`4:33 -> 4:2f -> 4:33` no-input track loop retains object
-identity, checks each destination shutter is already open during room preload,
-observes every six-update interleaved open/close state and restored closed tile,
-requires the exact eight door-sound requests, and finishes with an exact-angle
-unblocked 32-update dismount. They also
-assert the `6:29 <-> 6:2a` ordinary horizontal scroll plus all four `$06` side-view
-edge-warp quadrants through Feather, ladder, and post-object platform
-displacement paths; incoming Spark state-0 visibility with frozen movement;
-Sword Stalfos body/blade collision ownership and the distinct
-`LINKDMG_$38/$34` recoil versus `ENEMYDMG_$4c/$48` part cooldowns; and
-screen-space camera stability after mount-time platform subpixel
-synchronization. They also cover the 31-update top-down Feather arc and sounds,
-Bomb consumption through Head
-Thwomp's mouth into a red damage phase/heart drop, the boss-created Bomb's
-exact shared-RNG launch and floor release, the red face's exact heart spawn,
-ordinary side-view arc and floor landing, and Swoop's shutter, bounce,
-TX `$2f00`, three-flap handoff, and input restoration. Keep this as one
-full-route validation so a newly unsupported record cannot hide behind a
-passing isolated mechanic.
-
-`Validation.HeadThwomp.cs` is the focused boss-fidelity boundary. Its direct
-projectile checks own private RNG streams and room data; its live room scenario
-captures and restores room `4:2b` flags in `finally`. It covers creation-phase
-RNG and sounds, cumulative circular-projectile curvature, one-heart beam damage
-and L2/L3-only shield blocking, fixed-bank boulder impact graphics, normal
-versus post-Bomb clink parity, every green/blue/purple
-effect count, all four red hits, and the lethal pound plus 120-update shared
-boss-death sequence. Keep those checks independent of the larger Wing Dungeon
-route so neither scenario can satisfy prerequisites by dirtying the other.
+Use shared fixtures to construct production owners with normal dependencies.
+Options should describe only exceptional inputs needed by the scenario. The
+fixture owns cleanup and disposal.
 
 ## Regression design
 
-Every fixed bug or new gameplay system gets a focused headless regression. A
-useful regression asserts the original cause and the visible/runtime result,
-rather than only checking a clone implementation detail.
+Every fixed bug or newly supported gameplay system gets a focused regression
+that asserts the original cause and observable result, not only a clone-side
+implementation detail.
 
-Use `FailIf(condition, message)` when a failed check only needs to throw a
-validation error. Keep state-changing setup, values needed after the check,
-cleanup, and expected-exception control flow explicit so evaluation order and
-C# flow analysis remain clear.
+Cover as applicable:
 
-Include as applicable:
+- imported source rows, labels, aliases, IDs, and malformed-data failures;
+- exact first, zero, final, and following update boundaries;
+- ordering among object slots, contacts, children, scripts, transitions, HUD,
+  and audio;
+- global RNG calls and downstream state;
+- byte/fixed-point arithmetic, wrap, carry, collision boundaries, and long-path
+  drift;
+- scroll preload, warp entry, transition freeze, cancellation, and re-entry;
+- flags, inventory transactions, explicit saves, reload, and backups;
+- logical position, presentation position, OAM pixels/offsets, palettes, and
+  resource lifetime;
+- sounds, audio channel state, and input/pause ownership;
+- every supported branch of a script or native state machine.
 
-- exact original-update boundaries, including first and final counter updates;
-- update order among actors, entities, contacts, scripts, and transitions;
-- imported identifiers, source labels, and malformed-data diagnostics;
-- RNG calls and downstream state, not just the immediate random result;
-- room entry from scroll and warp contexts, transition freeze, and re-entry;
-- persistent flags, inventory, save/reload, backups, and high-index bitsets;
-- actor position, facing, neutral/walking pose, Z, visibility, and deletion;
-- graphics pixel hashes/offsets, audio channel state, and resource lifetime;
-- every supported script branch and cancellation path.
+Use canonical rooms that consume real imported data. Failure messages include
+hexadecimal group, room, object/interaction, flag, treasure, or sound IDs plus
+expected and actual values.
 
-Original object-movement regressions keep their expected angle and signed 8.8
-vectors independent of `OracleObjectMovement`. Cover integer ratio decisions
-on both sides of a band boundary, byte-coordinate wrap, low-byte carry, word
-wrap, and a sufficiently long non-cardinal path to expose cumulative drift.
-When a collision writes the opposite angle, assert the source-order lookup and
-XOR separately rather than deriving the expectation from the runtime helper.
+Keep expected arithmetic independent of the production helper being tested.
+For movement, calculate source vectors and boundary cases separately instead of
+calling the same runtime helper to produce expectations.
 
-Use canonical rooms that exercise the real imported data. Failure messages
-should include hexadecimal group/room/object IDs and expected/actual values so
-the mismatch can be traced without reproducing it interactively first.
+A regression must remain deterministic when one rendered frame causes several
+fixed updates. Compare repeated `1/60` updates with a batched host frame for
+systems that cross input edges, modal ownership, same-pass child creation,
+transition dispatch, or sequencer order.
 
-A validation must remain deterministic under a long rendered frame that causes
-several fixed updates. Avoid tests that pass only because they call private
-steps in an order the game never uses.
+## Validation scope
 
-The application-scheduler regression compares N calls at `1/60` with one call
-at `N/60`. Its validation-only pipeline must cross modal ownership, portal
-activation, same-pass child creation and removal, pending room-warp dispatch,
-HUD/animation/sequencer order, and held-versus-just-pressed input. Keep its
-audit trace in the validation assembly.
+Prefer a small focused scenario for one mechanic and a route-level scenario
+when several real rooms must prove that imported coverage composes. A large
+route does not replace focused failure localization, and a focused unit does not
+prove room/object ordering or integration.
+
+Do not document the contents of every validation method here. The registered
+methods and feature files are the current inventory; use `rg` to find them.
