@@ -1510,6 +1510,8 @@ internal sealed class RoomEntityFactory(
         BossShadowSpawn shadow => CreateBossShadow(shadow),
         KillEnemyPuffSpawn puff => CreateKillPuff(puff),
         ItemDropSpawn drop => CreateItemDrop(drop, room),
+        HeadThwompBombDropSpawn drop =>
+            CreateHeadThwompBombDrop(drop, room),
         ShovelDebrisSpawn debris => CreateShovelDebris(debris),
         GrassDebrisSpawn debris => CreateGrassDebris(debris),
         RockDebrisSpawn debris => CreateRockDebris(debris),
@@ -2667,7 +2669,29 @@ internal sealed class RoomEntityFactory(
 
     private IRoomEntity CreateItemDrop(ItemDropSpawn spawn, OracleRoomData room)
     {
-        var drop = new ItemDropEffect { Name = $"ItemDrop_{spawn.SubId:x2}", ZIndex = 10 };
+        ItemDropEffect drop = CreateItemDropEffect(spawn, room);
+        return new ItemDropRoomEntity(drop, itemDropEnteredHazard);
+    }
+
+    private IRoomEntity CreateHeadThwompBombDrop(
+        HeadThwompBombDropSpawn spawn,
+        OracleRoomData room)
+    {
+        ItemDropEffect drop = CreateItemDropEffect(
+            new ItemDropSpawn(ItemDropDatabase.Bombs, spawn.Position), room);
+        return new HeadThwompBombDropRoomEntity(
+            drop, room, random, itemDropEnteredHazard);
+    }
+
+    private ItemDropEffect CreateItemDropEffect(
+        ItemDropSpawn spawn,
+        OracleRoomData room)
+    {
+        var drop = new ItemDropEffect
+        {
+            Name = $"ItemDrop_{spawn.SubId:x2}",
+            ZIndex = 10
+        };
         int treasure = ItemDropDatabase.TreasureForDrop(spawn.SubId);
         int collectionSound = treasure == TreasureDatabase.TreasureNone
             ? 0
@@ -2676,7 +2700,7 @@ internal sealed class RoomEntityFactory(
             spawn.SubId, spawn.Position, room, itemDrops.GetVisual(spawn.SubId),
             spawn.Angle, spawn.DugUp, soundRequested, collectionSound,
             itemDrops, random);
-        return new ItemDropRoomEntity(drop, itemDropEnteredHazard);
+        return drop;
     }
 
     private static IRoomEntity CreateCutsceneNpc(CutsceneNpcSpawn spawn)
@@ -3106,6 +3130,9 @@ internal sealed record HeadThwompProjectileSpawn(
     HeadThwompProjectileKind Kind,
     int Angle,
     int Speed) : RoomEntitySpawn;
+
+internal sealed record HeadThwompBombDropSpawn(Vector2 Position)
+    : RoomEntitySpawn(UpdateThisFrame: true);
 
 internal sealed record OverworldKeyUseSpawn(
     Vector2 Position,

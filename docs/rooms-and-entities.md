@@ -934,11 +934,22 @@ cart's exact travel angle and Z `-$06`; the cart blocker is restored only after
 Link lands. Mounting and dismounting retain exclusive control. Track centers
 select the next cardinal direction, and gates observe the shared switch byte.
 
-Head Thwomp's room resolves Bomb catches before ordinary Bomb fuse/explosion
-processing. A caught live `BombEffect` is consumed once and transferred to the
+Head Thwomp's fight start closes packed entrance `$a4` with metatile `$3d`;
+those are the `setTile` position and tile operands respectively. The room
+resolves Bomb catches before ordinary Bomb fuse/explosion processing. A caught
+live `BombEffect` is consumed once and transferred to the
 boss's spin/deceleration and face-selection state; red-face damage therefore
-cannot also create a normal room explosion. Swoop owns its shuttered intro,
-TX `$2f00` input lease, flight/stomp/floor-break cycle, and miniboss reward.
+cannot also create a normal room explosion. Its background Bomb attack pairs
+`PART_ITEM_DROP $01` with `PART_HEAD_THWOMP_BOMB_DROPPER $40`. The helper
+consumes one shared RNG result for the source `$080-$0e0` horizontal speed,
+`-$0300..-$0360` Y speed, and left/right angle, copies its moving high-byte
+XYZ position into the drop after the item part updates, and releases the drop
+when the original two side-view floor probes land. A nonlethal red face instead
+creates only `PART_ITEM_DROP $01`, 20 pixels below the boss. That heart runs
+state 0 in the same parts phase, then follows the ordinary `-$0160`/`$20`
+side-view Y arc until its own floor probes land. Swoop owns its shuttered
+intro, TX `$2f00` input lease, flight/stomp/floor-break cycle, and miniboss
+reward.
 Its object-GFX closure chains `spr_pound` after `spr_swoop`; grounded animation
 frames use the secondary tiles `$20-$2c` for the expanding crush-impact arcs.
 The `DISABLE_LINK` lease covers only Swoop's one-time entrance through its

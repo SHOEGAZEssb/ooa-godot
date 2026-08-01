@@ -1937,6 +1937,96 @@ public sealed partial class ValidationRoot
             "Top-down Roc's Feather flight lost its exact 31-update " +
             "-$01e0/$20 arc or jump/landing sounds.");
 
+        // PART_HEAD_THWOMP_BOMB_DROPPER $40 carries the paired Bomb drop out
+        // of the face with one shared-RNG launch, then releases it when the
+        // side-view floor probes land. Isolate the long random attack search
+        // so it cannot change the state expected by later scenarios.
+        OracleRandomState beforeHeadThwompBombDrop = _random.CaptureState();
+        PrepareRoom(0x2b);
+        _player.WarpTo(new Vector2(0x18, 0x98), recordSafe: false);
+        Step();
+        HeadThwompBoss bombDroppingHead =
+            _entities.Entities<HeadThwompBoss>().Single();
+        FailIf(
+            _rooms.CurrentRoom.GetMetatile(PackedPoint(0xa4)) != 0x3d,
+            "Room 4:2b's Head Thwomp did not close position $a4 with " +
+            "metatile $3d when the fight began.");
+        ItemDropEffect? droppedBomb = null;
+        for (int frame = 0; frame < 4000 && droppedBomb is null; frame++)
+        {
+            Step();
+            droppedBomb = _entities.Entities<ItemDropEffect>()
+                .FirstOrDefault(drop =>
+                    drop.SubId == ItemDropDatabase.Bombs);
+        }
+        FailIf(
+            droppedBomb is null ||
+            droppedBomb.Position != bombDroppingHead.Position ||
+            droppedBomb.State != DropState.Grounded ||
+            droppedBomb.ElapsedFrames != 1,
+            "Room 4:2b's Head Thwomp did not create the paired " +
+            "PART_ITEM_DROP $01 / PART_HEAD_THWOMP_BOMB_DROPPER $40 " +
+            "at the face in source part-update order " +
+            $"(found={droppedBomb is not null}, " +
+            $"drop={droppedBomb?.Position}, head={bombDroppingHead.Position}, " +
+            $"state={droppedBomb?.State}, frames={droppedBomb?.ElapsedFrames}).");
+
+        Vector2 bombDropOrigin = droppedBomb!.Position;
+        OracleRandomResult bombDropLaunch = _random.LastResult;
+        int[] launchSpeedsFixed = [0x80, 0xa0, 0xc0, 0xe0];
+        int[] launchVerticalSpeeds = [-0x300, -0x320, -0x340, -0x360];
+        int launchXFixed = launchSpeedsFixed[bombDropLaunch.Value & 0x03];
+        if ((bombDropLaunch.High & 0x10) != 0)
+            launchXFixed = -launchXFixed;
+        ushort expectedDropYFixed = unchecked((ushort)(
+            Mathf.FloorToInt(bombDropOrigin.Y * 256.0f) +
+            launchVerticalSpeeds[(bombDropLaunch.Value & 0x60) >> 5]));
+        ushort expectedDropXFixed = unchecked((ushort)(
+            Mathf.FloorToInt(bombDropOrigin.X * 256.0f) +
+            launchXFixed));
+        Vector2 expectedFirstDropPosition = new(
+            expectedDropXFixed >> 8,
+            expectedDropYFixed >> 8);
+        Step();
+        FailIf(
+            droppedBomb.Position != expectedFirstDropPosition ||
+            droppedBomb.ZFixed != 0,
+            "PART_HEAD_THWOMP_BOMB_DROPPER $40 did not apply its " +
+            "$080-$0e0 horizontal table, -$0300..-$0360 Y launch, or " +
+            "high-byte-only XYZ copy on the first moving update.");
+
+        float minimumBombDropY = droppedBomb.Position.Y;
+        float maximumBombDropY = droppedBomb.Position.Y;
+        Vector2 previousBombDropPosition = droppedBomb.Position;
+        int stableBombDropUpdates = 0;
+        for (int frame = 0;
+             frame < 180 && stableBombDropUpdates < 3;
+             frame++)
+        {
+            Step();
+            minimumBombDropY = Math.Min(
+                minimumBombDropY, droppedBomb.Position.Y);
+            maximumBombDropY = Math.Max(
+                maximumBombDropY, droppedBomb.Position.Y);
+            stableBombDropUpdates =
+                droppedBomb.Position == previousBombDropPosition
+                    ? stableBombDropUpdates + 1
+                    : 0;
+            previousBombDropPosition = droppedBomb.Position;
+        }
+        FailIf(
+            droppedBomb.Finished ||
+            minimumBombDropY > bombDropOrigin.Y - 24 ||
+            maximumBombDropY < 0x80 ||
+            Math.Abs(droppedBomb.Position.X - bombDropOrigin.X) < 16 ||
+            stableBombDropUpdates < 3,
+            "Room 4:2b's boss-created Bomb did not clear Head Thwomp, " +
+            "descend to the arena floor, and release as an ordinary drop " +
+            $"(finished={droppedBomb.Finished}, origin={bombDropOrigin}, " +
+            $"position={droppedBomb.Position}, minY={minimumBombDropY}, " +
+            $"maxY={maximumBombDropY}, stable={stableBombDropUpdates}).");
+        _random.RestoreState(beforeHeadThwompBombDrop);
+
         // Exercise the real Bomb entity handoff into Head Thwomp's mouth and
         // run the complete deceleration into a vulnerable red face.
         PrepareRoom(0x2b);
@@ -2087,10 +2177,55 @@ public sealed partial class ValidationRoot
             "Head Thwomp's bomb spin did not settle on red and remove exactly " +
             "one of four health points.");
         Step();
+        ItemDropEffect? droppedHeart = _entities.Entities<ItemDropEffect>()
+            .SingleOrDefault(drop =>
+                drop.SubId == ItemDropDatabase.Heart);
         FailIf(
-            _entities.Entities<ItemDropEffect>().All(
-                drop => drop.SubId != ItemDropDatabase.Heart),
-            "Head Thwomp's nonlethal red face did not drop its source heart.");
+            droppedHeart is null ||
+            droppedHeart.Position != head.Position + Vector2.Down * 20 ||
+            droppedHeart.State != DropState.Grounded ||
+            droppedHeart.ElapsedFrames != 1 ||
+            droppedHeart.SpeedZ != -0x160 ||
+            !droppedHeart.CollisionEnabled,
+            "Head Thwomp's nonlethal red face did not create its ordinary " +
+            "PART_ITEM_DROP $01 heart 20 pixels below the face and run " +
+            "side-view state 0 in the source parts phase.");
+        Step();
+        FailIf(
+            droppedHeart!.Position != head.Position + new Vector2(0, 18) ||
+            droppedHeart.SpeedZ != -0x140,
+            "Head Thwomp's red-face heart did not begin its -$0160/$20 " +
+            "side-view Y arc on the first moving update.");
+
+        float minimumHeartY = droppedHeart.Position.Y;
+        float maximumHeartY = droppedHeart.Position.Y;
+        Vector2 previousHeartPosition = droppedHeart.Position;
+        int stableHeartUpdates = 0;
+        for (int frame = 0;
+             frame < 90 && stableHeartUpdates < 3;
+             frame++)
+        {
+            Step();
+            minimumHeartY = Math.Min(minimumHeartY, droppedHeart.Position.Y);
+            maximumHeartY = Math.Max(maximumHeartY, droppedHeart.Position.Y);
+            stableHeartUpdates =
+                droppedHeart.Position.Y >= 0x90 &&
+                droppedHeart.Position == previousHeartPosition
+                    ? stableHeartUpdates + 1
+                    : 0;
+            previousHeartPosition = droppedHeart.Position;
+        }
+        FailIf(
+            droppedHeart.Finished ||
+            minimumHeartY != 0x61 ||
+            maximumHeartY != 0x9b ||
+            droppedHeart.Position != new Vector2(head.Position.X, 0x9b) ||
+            stableHeartUpdates < 3,
+            "Head Thwomp's red-face heart did not rise to Y=$61 and settle " +
+            "on the room 4:2b floor at Y=$9b " +
+            $"(finished={droppedHeart.Finished}, minY={minimumHeartY}, " +
+            $"maxY={maximumHeartY}, position={droppedHeart.Position}, " +
+            $"stable={stableHeartUpdates}).");
 
         // Run Swoop through shutter closure, the imported TX_2f00 lease, its
         // bounce, and the three-flap miniboss handoff.

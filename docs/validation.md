@@ -101,7 +101,9 @@ Sword Stalfos body/blade collision ownership and the distinct
 screen-space camera stability after mount-time platform subpixel
 synchronization. They also cover the 31-update top-down Feather arc and sounds,
 Bomb consumption through Head
-Thwomp's mouth into a red damage phase/heart drop, and Swoop's shutter, bounce,
+Thwomp's mouth into a red damage phase/heart drop, the boss-created Bomb's
+exact shared-RNG launch and floor release, the red face's exact heart spawn,
+ordinary side-view arc and floor landing, and Swoop's shutter, bounce,
 TX `$2f00`, three-flap handoff, and input restoration. Keep this as one
 full-route validation so a newly unsupported record cannot hide behind a
 passing isolated mechanic.

@@ -132,6 +132,28 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         QueueRedraw();
     }
 
+    /// <summary>
+    /// Copies only the carrier's Y/X high bytes and a zero Z high byte, as
+    /// objectCopyPosition does for PART_HEAD_THWOMP_BOMB_DROPPER $40. The
+    /// item's own low coordinate bytes continue to advance independently.
+    /// </summary>
+    internal void CopyHeadThwompBombDropperPosition(
+        OracleObjectPosition carrierPosition)
+    {
+        OracleObjectPosition itemPosition =
+            OracleObjectMovement.Shared.PositionFromPixels(_precisePosition);
+        itemPosition = new OracleObjectPosition(
+            (ushort)((carrierPosition.YFixed & 0xff00) |
+                (itemPosition.YFixed & 0x00ff)),
+            (ushort)((carrierPosition.XFixed & 0xff00) |
+                (itemPosition.XFixed & 0x00ff)));
+        _precisePosition = itemPosition.PrecisePosition;
+        _sideScrollYFixed = itemPosition.YFixed;
+        Position = itemPosition.PixelPosition;
+        _zFixed = unchecked((byte)_zFixed);
+        QueueRedraw();
+    }
+
     internal void UpdateFrame(Player player, int globalFrameCounter)
     {
         if (Finished)

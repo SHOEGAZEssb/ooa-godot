@@ -200,9 +200,11 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
 
     private void BeginFight()
     {
-        Vector2 door = PointForPackedPosition(0x3d);
+        // headThwomp_state8 calls setTile with c=$a4 (position) and a=$3d
+        // (tile), closing the bottom entrance before background drops begin.
+        Vector2 door = PointForPackedPosition(0xa4);
         _room.SetPositionTileAndCollision(
-            door, 0xa4, collision: null, _animationTick());
+            door, 0x3d, collision: null, _animationTick());
         _playSound(OracleSoundEngine.SndDoorClose);
         _state = HeadThwompState.Spinning;
         _counter = 18;
@@ -449,7 +451,8 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
             // every nonlethal red phase.
             spawns.Add(new ItemDropSpawn(
                 ItemDropDatabase.Heart,
-                Position + Vector2.Down * 20));
+                Position + Vector2.Down * 20,
+                UpdateThisFrame: true));
         }
         if (Health == 0)
         {
@@ -490,7 +493,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         }
         if ((_random.Next().Value & 7) == 0)
         {
-            spawns.Add(new ItemDropSpawn(ItemDropDatabase.Bombs, Position));
+            spawns.Add(new HeadThwompBombDropSpawn(Position));
             return;
         }
         SpawnFireball(spawns);

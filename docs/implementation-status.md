@@ -360,8 +360,8 @@ remains the single runtime policy table.
   jump/landing sounds. Head Thwomp uses its complete signed 40-by-48
   positioned-OAM faces and imported PALH `$81` purple palette, consumes live
   Bomb entities through its mouth, and implements its face/color attacks,
-  damage phases, projectiles,
-  heart drops, death, and Heart Container. Swoop implements its shuttered
+  damage phases, projectiles, source-carried Bomb drops, ordinary side-view
+  heart-drop arcs, death, and Heart Container. Swoop implements its shuttered
   intro, fall and bounce, TX `$2f00`, flight/stomp and floor-breaking phases,
   damage, death, and persistent miniboss portal. Room `4:38` completes Ancient
   Wood's TX `$000f` collection, second-Essence state, music/fades/energy
