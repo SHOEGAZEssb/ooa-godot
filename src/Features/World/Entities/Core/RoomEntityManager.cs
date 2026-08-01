@@ -155,6 +155,16 @@ public sealed class RoomEntityManager : IDisposable
     }
     internal byte NextRandomValue() => _random.Next().Value;
 
+    internal bool PushBlockPermittedByColoredCube(byte tile)
+    {
+        foreach (IRoomEntity entity in _activeEntities)
+        {
+            if (entity is IColoredCubePuzzleStateSource source)
+                return source.ColoredCubePuzzleState.PermitsPushBlock(tile);
+        }
+        return true;
+    }
+
     internal RoomEntityManagerState CaptureDebugState() => new(
         _activeTriggers,
         _enemyFrameAccumulator,

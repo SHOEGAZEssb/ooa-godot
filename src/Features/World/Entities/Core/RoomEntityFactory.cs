@@ -207,11 +207,11 @@ internal sealed class RoomEntityFactory(
         IReadOnlyList<DungeonObjectRecord> wingDungeonRecords =
             _wingDungeon.GetRoomRecords(group, room.Id);
         ColoredCubePuzzleState? spiritsGravePuzzle =
-            group == 4 && room.Id == 0x20 ? new ColoredCubePuzzleState() : null;
+            group == 4 && room.Id == 0x20 ? CreateColoredCubePuzzleState() : null;
         ColoredCubePuzzleState? wingDungeonPuzzle =
             wingDungeonRecords.Count > 0 &&
             HasColoredCubeState(wingDungeonRecords)
-                ? new ColoredCubePuzzleState()
+                ? CreateColoredCubePuzzleState()
                 : null;
         bool enemyMechanicsSupported = DungeonEnemyMechanicsAreSupported(
             dungeonRecords, group, room);
@@ -812,7 +812,7 @@ internal sealed class RoomEntityFactory(
             case DungeonObjectKind.RedFlameTrigger:
                 return new WingDungeonStateController(
                     record, room, _dungeonInteractions,
-                    puzzle ?? new ColoredCubePuzzleState(),
+                    puzzle ?? CreateColoredCubePuzzleState(),
                     runtimeState, setTrigger);
             case DungeonObjectKind.SwitchTileToggler:
                 return new SwitchTileTogglerRoomEntity(
@@ -1034,6 +1034,9 @@ internal sealed class RoomEntityFactory(
         DungeonObjectRecord record) =>
         puzzle ?? throw new InvalidOperationException(
             $"{record.Source} is missing its room-local rotating-cube state.");
+
+    private ColoredCubePuzzleState CreateColoredCubePuzzleState() =>
+        new(_dungeonInteractions.Constant("red-pushable-block"));
 
     private bool DungeonObjectConditionMet(
         DungeonObjectRecord record) => record.Predicate switch

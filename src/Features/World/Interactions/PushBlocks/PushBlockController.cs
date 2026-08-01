@@ -17,6 +17,7 @@ public partial class PushBlockController : Node2D
     private readonly RoomView _roomView;
     private readonly Func<long> _animationTick;
     private readonly Action<int> _playSound;
+    private readonly Func<byte, bool> _pushBlockPermitted;
     private int _pushCounter = PushDelayFrames;
     private int _candidatePosition = -1;
     private Vector2I _candidateDirection;
@@ -50,13 +51,15 @@ public partial class PushBlockController : Node2D
         PushableTileDatabase tiles,
         RoomView roomView,
         Func<long> animationTick,
-        Action<int> playSound)
+        Action<int> playSound,
+        Func<byte, bool>? pushBlockPermitted = null)
     {
         _rooms = rooms;
         _tiles = tiles;
         _roomView = roomView;
         _animationTick = animationTick;
         _playSound = playSound;
+        _pushBlockPermitted = pushBlockPermitted ?? (_ => true);
         ZIndex = 9;
         _rooms.RoomChanged += (_, _) => Cancel();
     }
@@ -156,6 +159,7 @@ public partial class PushBlockController : Node2D
             tileY * OracleRoomData.MetatileSize);
         tile = room.GetMetatile(frontPoint);
         if (tile == 0xff || !_tiles.TryGet(room.ActiveCollisions, tile, out record) ||
+            !_pushBlockPermitted(tile) ||
             (record.RequiresBracelet && !hasBracelet) ||
             (!record.AllowsEveryDirection && record.RequiredDirection !=
                 InteractableTilePushGeometry.DirectionIndex(direction)))

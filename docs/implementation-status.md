@@ -319,7 +319,8 @@ remains the single runtime policy table.
   controllers, floor and colored-block pattern keys, the placed
   sword-operated floor switch, switch-tile toggler, and animated minecart
   gate in room `4:2f`, enemy chests and falling keys, both colored-cube puzzle
-  variants, all six source chests, four scripted side-view platforms, three
+  variants, room `4:42`'s live selected-color push-block restriction, all six
+  source chests, four scripted side-view platforms, three
   circular platforms, room `4:35`'s persistent `$1e` dungeon key block, and
   three persistent cross-room minecarts. Minecarts use
   their source-angle boarding/dismount jumps, moving two-frame animations and Link

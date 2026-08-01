@@ -1234,6 +1234,12 @@ routed through the splash effect.
 
 Common push blocks request `SND_MOVEBLOCK` only after the push delay succeeds,
 the source tile has been replaced, and the moving object becomes visible.
+In Ages, their state-0 creation also reads the shared rotating-cube position and
+color. A nonzero cube position permits only the colored block whose offset from
+`TILEINDEX_RED_PUSHABLE_BLOCK` matches the active, bit-7-set cube color; every
+other push-block interaction is deleted before replacing a tile or requesting
+sound. Wing Dungeon room `4:42` feeds this state from its color-source toggle
+floor, so the restriction follows each live room-color change.
 Their movement uses the imported Bracelet contract: level 0/1 uses
 `SPEED_80` for `$20` updates, while the level-2 Power Glove uses `SPEED_c0`
 for `$15` updates unless property bit 5 marks the block heavy.

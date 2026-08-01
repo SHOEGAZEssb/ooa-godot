@@ -6,7 +6,8 @@ namespace oracleofages;
 
 /// <summary>INTERAC_COLORED_CUBE $19:$05.</summary>
 internal sealed partial class ColoredCubeRoomEntity : DungeonInteractionVisualEntity,
-    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime
+    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
+    IColoredCubePuzzleStateSource
 {
     private static readonly int[,] RollAnimations =
     {
@@ -33,6 +34,7 @@ internal sealed partial class ColoredCubeRoomEntity : DungeonInteractionVisualEn
 
     public Node2D Node => this;
     public bool Finished { get; private set; }
+    public ColoredCubePuzzleState ColoredCubePuzzleState => _puzzle;
     internal int Orientation => _orientation;
     internal int PushCounter => _pushCounter;
     internal bool Moving => _moving;

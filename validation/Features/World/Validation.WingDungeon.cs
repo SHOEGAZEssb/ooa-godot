@@ -437,6 +437,57 @@ public sealed partial class ValidationRoot
         _random.RestoreState(colorGelRandomState);
         _player.WarpTo(colorGelPlayerPosition, recordSafe: false);
 
+        // INTERAC_PUSHBLOCK checks the room-local wRotatingCubePos/color
+        // state before it replaces the source tile or requests SND_MOVEBLOCK.
+        // Room $42 derives that state from the toggle floor at $27.
+        PrepareRoom(0x42);
+        OracleRoomData coloredBlockRoom = _currentRoom;
+        Vector2 colorSource = PackedPoint(0x27);
+        coloredBlockRoom.SetPositionTileAndCollision(
+            colorSource, 0xad, null, (long)_animationTicks);
+        Step();
+        coloredBlockRoom.SetPositionTileAndCollision(
+            colorSource, 0xaf, null, (long)_animationTicks);
+        Step();
+        FailIf(
+            _entities.Entities<ColoredCubeFlameRoomEntity>() is not
+                [{ Palette: 2 }],
+            "Room 4:42 did not select blue after its color-source floor changed.");
+
+        Vector2 redBlock = PackedPoint(0x3c);
+        Vector2 belowRedBlock = redBlock + new Vector2(0, 10);
+        Vector2 blueBlock = PackedPoint(0x7c);
+        Vector2 aboveBlueBlock = blueBlock + new Vector2(0, -10);
+        _sound.ClearPlayRequestAudit();
+        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
+        {
+            _pushBlocks.UpdatePushAttempt(
+                belowRedBlock, Vector2I.Up, Vector2.Up);
+        }
+        FailIf(
+            _pushBlocks.Active ||
+            _pushBlocks.RemainingPushFrames != PushBlockController.PushDelayFrames ||
+            coloredBlockRoom.GetMetatile(redBlock) != 0x2c ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 0,
+            "Room 4:42 allowed a red block to move while blue was selected.");
+
+        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
+        {
+            _pushBlocks.UpdatePushAttempt(
+                aboveBlueBlock, Vector2I.Down, Vector2.Down);
+        }
+        FailIf(
+            !_pushBlocks.Active ||
+            coloredBlockRoom.GetMetatile(blueBlock) != 0xa0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 1,
+            "Room 4:42 did not move a blue block while blue was selected.");
+        for (int frame = 0; frame < PushBlockController.MoveFrames; frame++)
+            _pushBlocks.Advance(update);
+        FailIf(
+            _pushBlocks.Active ||
+            coloredBlockRoom.GetMetatile(blueBlock + Vector2.Down * 16) != 0x2e,
+            "Room 4:42's selected blue block did not complete its push.");
+
         // interaction21_subid01's first byte is the authoritative expected
         // tile. Despite its stale "red" comment, $ae requires yellow at $67
         // and $77; the initial red/blue arrangement must not drop the key.

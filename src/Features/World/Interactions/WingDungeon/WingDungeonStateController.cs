@@ -9,7 +9,7 @@ namespace oracleofages;
 /// shared rotating-cube state.
 /// </summary>
 internal sealed partial class WingDungeonStateController : Node2D,
-    IRoomEntity, IFixedRoomEntity
+    IRoomEntity, IFixedRoomEntity, IColoredCubePuzzleStateSource
 {
     private readonly DungeonObjectRecord _record;
     private readonly OracleRoomData _room;
@@ -20,6 +20,7 @@ internal sealed partial class WingDungeonStateController : Node2D,
     private int _lastTile = -1;
 
     public Node2D Node => this;
+    public ColoredCubePuzzleState ColoredCubePuzzleState => _puzzle;
 
     internal WingDungeonStateController(
         DungeonObjectRecord record,

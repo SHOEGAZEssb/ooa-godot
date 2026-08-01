@@ -603,7 +603,8 @@ public partial class GameRoot : Node2D
             rooms: _rooms);
         _pushBlocks = new PushBlockController(
             _rooms, new PushableTileDatabase(), _roomView,
-            () => (long)_animationTicks, _sound.PlaySound)
+            () => (long)_animationTicks, _sound.PlaySound,
+            _entities.PushBlockPermittedByColoredCube)
         {
             Name = "PushBlock"
         };
