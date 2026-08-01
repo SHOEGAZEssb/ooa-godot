@@ -432,6 +432,25 @@ if ($wingEnemySources.spark -notmatch
         '(?ms)colorChangingGel_state_uninitialized:.*?SPEED_140.*?ld \(hl\),150.*?colorChangingGel_state8:.*?ld \(hl\),60.*?-\$180.*?colorChangingGel_stateA:.*?ld c,\$30.*?ld \(hl\),150.*?ld \(hl\),90') {
     throw 'Wing Dungeon ordinary-enemy handler constants changed.'
 }
+
+# ENEMY_COLOR_CHANGING_GEL loads PALH_bf during state 0. That header replaces
+# OBJ palette 6 with paletteData4940; red/blue keep the standard OBJ palettes
+# 2/1 while the gel writes 6 for its yellow floor color.
+$colorChangingGelPaletteHeader = [regex]::Match(
+    $paletteHeaderSource,
+    '(?ms)^m_PaletteHeaderStart\s+\$bf,\s*PALH_bf(?<body>.*?)(?=^m_PaletteHeaderStart|\z)')
+if ($wingEnemySources.gel -notmatch
+        '(?ms)^colorChangingGel_state_uninitialized:.*?' +
+        'ld a,PALH_bf\s+call loadPaletteHeader' -or
+    -not $colorChangingGelPaletteHeader.Success -or
+    $colorChangingGelPaletteHeader.Groups['body'].Value -notmatch
+        'm_PaletteHeaderSpr\s+6,\s*1,\s*paletteData4940') {
+    throw 'ENEMY_COLOR_CHANGING_GEL no longer loads PALH_bf/paletteData4940 into OBJ palette 6.'
+}
+Write-GeneratedBytes(
+    (Join-Path $destination 'objects\color_changing_gel_palette.bin'),
+    (Read-PaletteBytes 'paletteData4940' 4))
+
 $keeseAnimations = @($keeseDefinition.Animations)
 if ($keeseAnimations.Count -ne 2) {
     throw "Expected two Keese animations, resolved $($keeseAnimations.Count)."

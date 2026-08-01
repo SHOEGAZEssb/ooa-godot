@@ -46,7 +46,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     internal int AnimationFrame => _animation.FrameIndex;
     internal int AnimationParameter => _animation.CurrentParameter;
     internal Texture2D CurrentAnimationTexture => _animation.CurrentTexture;
-    internal Texture2D CurrentDrawTexture =>
+    internal virtual Texture2D CurrentDrawTexture =>
         InvincibilityCounter > 0 && (_globalFrameCounter & 4) == 0
             ? _animation.DamageTexture
             : _animation.CurrentTexture;
@@ -64,7 +64,8 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         EnemyCharacterConfiguration configuration,
         int initialAnimation = 0,
         IReadOnlyDictionary<int, Color[]>? paletteOverrides = null,
-        bool positionedOam = false)
+        bool positionedOam = false,
+        IReadOnlyList<int>? paletteVariants = null)
     {
         Position = position;
         Health = configuration.Health;
@@ -100,7 +101,8 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
             configuration.DamagePalette,
             paletteOverrides,
             configuration.SourceGrayscaleInverted,
-            positionedOam);
+            positionedOam,
+            paletteVariants);
         SetAnimation(initialAnimation);
         QueueRedraw();
     }

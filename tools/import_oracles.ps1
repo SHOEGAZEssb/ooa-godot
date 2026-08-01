@@ -114,12 +114,13 @@ $stageContracts = @(
         -functionInputs @(
             'Export-PaletteBlock', 'Read-PaletteBytes', 'Resolve-NpcAnimation')
     New-ImportStageContract 'enemies' 'Import-EnemyData.ps1' `
-        -inputs @('allTexts', 'gfxNames') `
+        -inputs @('allTexts', 'gfxNames', 'paletteHeaderSource') `
         -outputs @(
             'crowRows', 'gelInstanceCount', 'keeseInstanceCount',
             'octorokInstanceCount', 'orderedObjectRows', 'partAnimationSource',
             'partDataSource', 'partOamSource', 'stalfosInstanceCount',
             'zolInstanceCount') `
+        -functionInputs @('Read-PaletteBytes') `
         -functionOutputs @(
             'Copy-EnemySprite', 'Get-EnemyDefinition', 'Resolve-Oam')
     New-ImportStageContract 'seed-trees' 'Import-SeedTreeData.ps1' `

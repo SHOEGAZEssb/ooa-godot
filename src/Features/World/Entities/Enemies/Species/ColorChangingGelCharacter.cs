@@ -1,4 +1,5 @@
 using Godot;
+using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -31,6 +32,8 @@ internal partial class ColorChangingGelCharacter : EnemyCharacter
     internal int Color => _color;
     internal bool Immune => _immune;
     internal int ZHigh => _zFixed >> 8;
+    internal override Texture2D CurrentDrawTexture =>
+        Animation.CurrentTextureForPalette(_color);
     protected override Vector2 AnimationDrawOffset =>
         new(-16, -16 + ZHigh);
 
@@ -38,17 +41,21 @@ internal partial class ColorChangingGelCharacter : EnemyCharacter
         ImportedEnemyDefinition record,
         OracleRoomData room,
         Vector2 position,
-        OracleRandom random)
+        OracleRandom random,
+        IReadOnlyDictionary<int, Color[]> paletteOverrides)
     {
         Record = record;
         _room = room;
         _random = random;
         _movement = new EnemyTerrainMovement(this, room);
         _state = ColorChangingGelState.Uninitialized;
+        _color = 2;
         InitializeEnemy(
             position,
             EnemyCharacterConfiguration.FromImported(record),
-            initialAnimation: 3);
+            initialAnimation: 3,
+            paletteOverrides: paletteOverrides,
+            paletteVariants: [1, 6]);
         ConfigureHazards(room, zPosition: () => ZHigh);
     }
 
@@ -142,7 +149,14 @@ internal partial class ColorChangingGelCharacter : EnemyCharacter
         if (_zFixed < 0)
             return;
         if (_colorCounter > 0 && --_colorCounter == 1)
-            _color = FloorColor(_storedTile);
+        {
+            int color = FloorColor(_storedTile);
+            if (_color != color)
+            {
+                _color = color;
+                QueueRedraw();
+            }
+        }
         if (_colorCounter != 0)
         {
             UpdateImmunity();

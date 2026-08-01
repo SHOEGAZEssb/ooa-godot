@@ -14,6 +14,7 @@ public sealed class EnemyDatabase
     private readonly Dictionary<int, CrowDefinition> _crowDefinitions = new();
     private readonly Dictionary<(int Id, int SubId), ImportedEnemyDefinition>
         _importedDefinitions = new();
+    private readonly Dictionary<int, Color[]> _colorChangingGelPalettes = new();
 
     public int RoomObjectRecordCount { get; }
     public OctorokProjectileRecord OctorokProjectile { get; }
@@ -21,6 +22,8 @@ public sealed class EnemyDatabase
     public EnemyArrowRecord EnemyArrow { get; }
     internal EnemyProjectileVisualRecord MoblinBoomerang { get; }
     public GelDefinition Gel { get; }
+    internal IReadOnlyDictionary<int, Color[]> ColorChangingGelPalettes =>
+        _colorChangingGelPalettes;
     internal EnemyHandlerRegistry EnemyHandlers { get; }
 
     public EnemyDatabase()
@@ -83,6 +86,15 @@ public sealed class EnemyDatabase
             throw new InvalidOperationException(
                 "Imported common-enemy contract is incomplete.");
         }
+
+        Color[,] colorGelPalette = OracleGraphicsData.LoadPalette(
+            "res://assets/oracle/objects/color_changing_gel_palette.bin",
+            1,
+            6);
+        var colorGelPalette6 = new Color[4];
+        for (int shade = 0; shade < colorGelPalette6.Length; shade++)
+            colorGelPalette6[shade] = colorGelPalette[6, shade];
+        _colorChangingGelPalettes.Add(6, colorGelPalette6);
 
         table = GeneratedTable.Load(
             "res://assets/oracle/effects/moblin_boomerang.tsv",

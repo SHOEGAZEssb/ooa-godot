@@ -518,6 +518,9 @@ typed state operands in `metadata/enemy_behavior_tables.tsv`. These definitions
 and profiles remain global ID/subid handlers even though dungeon `$02` is their
 first fully covered route. Their ordered placements, combat descriptors, and
 implementation classifications are generated with the common enemy stream.
+The same stage verifies the Gel's state-0 `PALH_bf` load and exports
+`objects/color_changing_gel_palette.bin` from `paletteData4940`; runtime palette
+6 must use those four RGB15 colors rather than a standard-palette fallback.
 
 `Import-WingDungeon.ps1` verifies every native dungeon `$02` record against
 the source blocks before emitting 40 source-ordered records in

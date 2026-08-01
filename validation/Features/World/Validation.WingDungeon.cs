@@ -17,6 +17,21 @@ public sealed partial class ValidationRoot
                 Mathf.Abs(color.G - green / 31.0f) <= textureTolerance &&
                 Mathf.Abs(color.B - blue / 31.0f) <= textureTolerance;
         }
+        static bool TextureContainsGbcColor(
+            Texture2D texture,
+            int red,
+            int green,
+            int blue)
+        {
+            using Image image = texture.GetImage();
+            for (int y = 0; y < image.GetHeight(); y++)
+            for (int x = 0; x < image.GetWidth(); x++)
+            {
+                if (IsGbcColor(image.GetPixel(x, y), red, green, blue))
+                    return true;
+            }
+            return false;
+        }
         int[] rooms = Enumerable.Range(0x27, 0x22).ToArray();
         byte[] originalFlags = rooms
             .Select(room => _saveData.GetRoomFlags(4, room))
@@ -379,6 +394,48 @@ public sealed partial class ValidationRoot
                     break;
             }
         }
+
+        // colorChangingGel_updateColor deliberately needs two 90-update
+        // samples, but oamFlags/oamFlagsBackup must then select the new OBJ
+        // palette. Exercise the real room-wide color changer, including the
+        // PALH_bf paletteData4940 yellow loaded into OBJ slot 6.
+        OracleRandomState colorGelRandomState = _random.CaptureState();
+        Vector2 colorGelPlayerPosition = _player.Position;
+        PrepareRoom(0x3e);
+        _player.WarpTo(new Vector2(-256, -256), recordSafe: false);
+        OracleRoomData colorGelRoom = _currentRoom;
+        FloorColorChangerRoomEntity colorChanger =
+            _entities.Entities<FloorColorChangerRoomEntity>().Single();
+        ColorChangingGelCharacter[] colorGels =
+            _entities.Entities<ColorChangingGelCharacter>().ToArray();
+        FailIf(
+            colorGelRoom.GetMetatile(PackedPoint(0x57)) != 0xad ||
+            colorGels.Any(gel => gel.Color != 2) ||
+            colorGels.Any(gel => !TextureContainsGbcColor(
+                gel.CurrentDrawTexture, 0x1f, 0x01, 0x05)),
+            "Room 4:3e color Gels did not begin red on the red floor.");
+        colorGelRoom.SetPositionTileAndCollision(
+            PackedPoint(0x57), 0xae, null, (long)_animationTicks);
+        Step(424);
+        FailIf(
+            colorChanger.WorkerCount != 0 ||
+            colorGels.Any(gel => gel.Color != 6) ||
+            colorGels.Any(gel => !TextureContainsGbcColor(
+                gel.CurrentDrawTexture, 0x1f, 0x18, 0x06)),
+            "Room 4:3e color Gels did not select PALH_bf OBJ palette 6 " +
+            "after the floor finished changing to yellow and the intentional lag elapsed.");
+        colorGelRoom.SetPositionTileAndCollision(
+            PackedPoint(0x57), 0xaf, null, (long)_animationTicks);
+        Step(424);
+        FailIf(
+            colorChanger.WorkerCount != 0 ||
+            colorGels.Any(gel => gel.Color != 1) ||
+            colorGels.Any(gel => !TextureContainsGbcColor(
+                gel.CurrentDrawTexture, 0x03, 0x10, 0x1f)),
+            "Room 4:3e color Gels did not select OBJ palette 1 after the " +
+            "floor finished changing to blue and the intentional lag elapsed.");
+        _random.RestoreState(colorGelRandomState);
+        _player.WarpTo(colorGelPlayerPosition, recordSafe: false);
 
         // interaction21_subid01's first byte is the authoritative expected
         // tile. Despite its stale "red" comment, $ae requires yellow at $67

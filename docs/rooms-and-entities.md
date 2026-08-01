@@ -526,6 +526,10 @@ index lookup records at the same RNG/state/direction boundary as the source;
 they do not reorder the Giant Ghini `3,2,1` child allocation or Pumpkin Head's
 `0,2,1` projectile creation. Native state machines still own transitions and
 branching, but state-entry fields come from the typed generated profiles.
+Color-changing Gels preserve the source's two 90-grounded-update samples: the
+first stores the new floor tile and the second writes OBJ palette `$02/$06/$01`
+for red/yellow/blue. Yellow uses the imported `PALH_bf` palette-6 override, and
+the palette write changes both the rendered frame and the floor-match immunity.
 
 `ENEMY_PEAHAT $3e:$00` applies raw object speed and bounces only at the screen
 boundary; it does not collide with room metatiles, so a random placement on a
@@ -1305,6 +1309,11 @@ both the active tile and the underlying room-layout buffer; ordinary re-entry
 restores buffered `$ad-$af` colors before `$21:$07` performs its derivation.
 The floor therefore does not reset to red, and the gate cannot initialize from
 a stale shared bit while the destination is being preloaded.
+
+`INTERAC_FLOOR_COLOR_CHANGER` likewise writes its target color through the
+underlying 16-byte-stride buffer. Its source bounds deliberately include large
+rooms' column `$0f` padding, so that buffer-only write must not be rejected by
+the 15-column playable-space boundary.
 
 `PART_BUTTON $09` writes the bit selected by subid bits 0-2; subid bit 7 only
 chooses reusable versus one-shot pressure. Trigger-door `$1e:$04-$07` records

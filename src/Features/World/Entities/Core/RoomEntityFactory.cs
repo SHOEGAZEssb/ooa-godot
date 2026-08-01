@@ -1355,7 +1355,11 @@ internal sealed class RoomEntityFactory(
                     ZIndex = 10
                 };
                 colorGel.Initialize(
-                    colorGelRecord, room, position, random);
+                    colorGelRecord,
+                    room,
+                    position,
+                    random,
+                    enemies.ColorChangingGelPalettes);
                 return new ColorChangingGelRoomEntity(
                     colorGel, combatSource, soundRequested);
 

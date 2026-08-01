@@ -96,7 +96,10 @@ internal sealed partial class FloorColorChangerRoomEntity : Node2D,
                 point, worker.TargetTile, null, _animationTick());
             _roomTileChanged();
         }
-        _room.SetUnderlyingMetatile(point, worker.TargetTile);
+        // colorChangingFloor_processPosition deliberately accepts large-room
+        // column $0f. It is padding rather than playable space, but remains a
+        // real byte in the 16-byte-stride room-layout buffer.
+        _room.SetUnderlyingStorageMetatile(packedPosition, worker.TargetTile);
     }
 
     private sealed class Worker(

@@ -480,6 +480,18 @@ public sealed class OracleRoomData
         _underlyingLayout[tileY * _layoutStride + tileX] = tile;
     }
 
+    internal void SetUnderlyingStorageMetatile(int packedPosition, byte tile)
+    {
+        int tileX = packedPosition & 0x0f;
+        int tileY = packedPosition >> 4;
+        if (packedPosition < 0 || tileX >= _layoutStride ||
+            tileY < 0 || tileY >= HeightInTiles)
+        {
+            throw new ArgumentOutOfRangeException(nameof(packedPosition));
+        }
+        _underlyingLayout[tileY * _layoutStride + tileX] = tile;
+    }
+
     internal bool RestoreUnderlyingMetatileRange(
         byte firstTile,
         int count,

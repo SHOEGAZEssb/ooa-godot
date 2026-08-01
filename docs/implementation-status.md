@@ -591,7 +591,11 @@ remains the single runtime policy table.
   Sword Masked Stalfos, Thwomps, Peahats, and color-changing Gels use
   ordered room-object placement, original spawn restrictions, shared RNG,
   combat, common/split kill sounds, common hazard effects, and source-ordered
-  drop paths with live Bomb/seed ownership predicates. All 816 fixed/random
+  drop paths with live Bomb/seed ownership predicates.
+  Color-changing Gels also render the delayed red/yellow/blue palette selected
+  from their floor sample; yellow retains the enemy-loaded `PALH_bf` OBJ
+  palette 6 rather than falling back to a standard palette.
+  All 816 fixed/random
   placements carry a generated ID/subid implementation classification:
   377 rows are implemented through 28 typed handlers and 83 source-flag
   combinations, while 439 rows are deliberately unsupported. Ordinary Thwomp

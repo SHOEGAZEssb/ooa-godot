@@ -14,6 +14,7 @@ internal sealed class EnemyAnimationPlayer
     private readonly Node2D _entity;
     private readonly List<EnemyAnimationPlayerAnimationFrame>[] _animations;
     private readonly int[] _loopStarts;
+    private int _basePalette;
     private int _animationIndex;
     private int _frameIndex;
     private int _frameCounter;
@@ -48,13 +49,15 @@ internal sealed class EnemyAnimationPlayer
         int? damagePalette = null,
         IReadOnlyDictionary<int, Color[]>? paletteOverrides = null,
         bool sourceGrayscaleInverted = true,
-        bool positionedOam = false)
+        bool positionedOam = false,
+        IReadOnlyList<int>? paletteVariants = null)
     {
         if (encodedAnimations.Count != _animations.Length)
         {
             throw new InvalidOperationException(
                 $"Expected {_animations.Length} enemy animations, got {encodedAnimations.Count}.");
         }
+        _basePalette = palette;
         for (int index = 0; index < encodedAnimations.Count; index++)
         {
             AnimationDefinition definition =
@@ -66,6 +69,7 @@ internal sealed class EnemyAnimationPlayer
             {
                 Texture2D texture;
                 Texture2D? damageTexture = null;
+                Dictionary<int, Texture2D>? variantTextures = null;
                 Vector2 offset;
                 if (positionedOam)
                 {
@@ -124,14 +128,86 @@ internal sealed class EnemyAnimationPlayer
                             sourceGrayscaleInverted)
                         : null;
                 }
+                if (paletteVariants is not null)
+                {
+                    foreach (int variantPalette in paletteVariants)
+                    {
+                        if (variantPalette == palette)
+                            continue;
+                        variantTextures ??= new Dictionary<int, Texture2D>();
+                        if (variantTextures.ContainsKey(variantPalette))
+                            continue;
+
+                        Texture2D variantTexture;
+                        if (positionedOam)
+                        {
+                            Vector2 variantOffset;
+                            (variantTexture, variantOffset) =
+                                paletteOverrides is null
+                                    ? NpcCharacter.BuildPositionedOamTexture(
+                                        source,
+                                        frame.EncodedOam,
+                                        tileBase,
+                                        variantPalette,
+                                        paletteOverride: null,
+                                        sourceGrayscaleInverted)
+                                    : NpcCharacter.BuildPositionedOamTextureWithPaletteOverrides(
+                                        source,
+                                        frame.EncodedOam,
+                                        tileBase,
+                                        variantPalette,
+                                        paletteOverrides,
+                                        sourceGrayscaleInverted);
+                            if (variantOffset != offset)
+                            {
+                                throw new InvalidOperationException(
+                                    "Changing an enemy frame palette changed its positioned OAM origin.");
+                            }
+                        }
+                        else
+                        {
+                            variantTexture = paletteOverrides is null
+                                ? NpcCharacter.BuildOamTexture(
+                                    source,
+                                    frame.EncodedOam,
+                                    tileBase,
+                                    variantPalette,
+                                    sourceGrayscaleInverted:
+                                        sourceGrayscaleInverted)
+                                : NpcCharacter.BuildOamTextureWithPaletteOverrides(
+                                    source,
+                                    frame.EncodedOam,
+                                    tileBase,
+                                    variantPalette,
+                                    paletteOverrides,
+                                    sourceGrayscaleInverted);
+                        }
+                        variantTextures.Add(variantPalette, variantTexture);
+                    }
+                }
                 _animations[index].Add(new EnemyAnimationPlayerAnimationFrame(
                     texture,
                     damageTexture,
+                    variantTextures,
                     offset,
                     frame.Duration,
                     frame.Parameter));
             }
         }
+    }
+
+    public Texture2D CurrentTextureForPalette(int palette)
+    {
+        if (palette == _basePalette)
+            return CurrentFrame.Texture;
+        if (CurrentFrame.PaletteVariants is not null &&
+            CurrentFrame.PaletteVariants.TryGetValue(
+                palette, out Texture2D? texture))
+        {
+            return texture;
+        }
+        throw new InvalidOperationException(
+            $"Enemy animation palette ${palette:x2} was not loaded as a variant.");
     }
 
     public void SetAnimation(int index)
@@ -168,6 +244,7 @@ internal sealed class EnemyAnimationPlayer
 internal sealed record EnemyAnimationPlayerAnimationFrame(
     Texture2D Texture,
     Texture2D? DamageTexture,
+    IReadOnlyDictionary<int, Texture2D>? PaletteVariants,
     Vector2 Offset,
     int Duration,
     int Parameter);
