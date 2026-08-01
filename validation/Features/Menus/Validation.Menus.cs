@@ -1128,6 +1128,10 @@ public sealed partial class ValidationRoot
 
     private void ValidateInventoryFoundation()
     {
+        // Arrange the story state this validation inspects. The case must not
+        // rely on ValidateNayruIntroCutscene having awarded Impa's sword.
+        _inventory.GiveTreasure(
+            _treasures.GetObject("TREASURE_OBJECT_SWORD_00"));
         FailIf(
             !_inventory.HasTreasure(TreasureDatabase.TreasureSword) ||
             _inventory.EquippedB != InventoryState.ItemSword ||
@@ -1168,6 +1172,16 @@ public sealed partial class ValidationRoot
 
     private void ValidateInventoryMenu()
     {
+        // Recreate the inventory layout produced by the sword and Harp story
+        // rewards instead of inheriting it from earlier gameplay validations.
+        _inventory.GiveTreasure(
+            _treasures.GetObject("TREASURE_OBJECT_SWORD_00"));
+        _inventory.EquipA(InventoryState.ItemSword);
+        _inventory.GiveTreasure(TreasureDatabase.TreasureHarp, 0);
+        _inventory.GiveTreasure(TreasureDatabase.TreasureTuneOfEchoes, 0);
+        _inventory.GiveTreasure(TreasureDatabase.TreasureTuneOfCurrents, 0);
+        _inventory.GiveTreasure(TreasureDatabase.TreasureTuneOfAges, 0);
+
         ValidateItemIconShadeMapping();
         FailIf(
             !Mathf.IsEqualApprox(InventoryMenuController.FastFadeFrames, 11.0f),

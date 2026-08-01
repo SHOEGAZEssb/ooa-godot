@@ -851,6 +851,30 @@ public sealed partial class ValidationRoot
 
     private void ValidateEnterPastEvent()
     {
+        _saveData.SetGlobalFlag(
+            OracleSaveData.GlobalFlagEnterPastCutsceneDone,
+            value: false);
+        _enterPastCommandTrace = new ValidationCutsceneTrace();
+        _roomEvents.CommandTraceSink = _enterPastCommandTrace;
+        LoadValidationRoom(0, 0x39);
+        TimePortal portal = _entities.Entities<TimePortal>().Single();
+        FailIf(
+            !_currentRoom.ReplaceMetatile(
+                portal.Position, 0x3a, 0xd7, (long)_animationTicks),
+            "Could not reveal the first-past validation portal at 0:39/$22.");
+        _entities.Update(1.0 / 60.0, _player);
+        FailIf(!portal.Active, "The first-past validation portal did not activate.");
+        _player.WarpTo(portal.Position, recordSafe: false);
+        _entities.Update(1.0 / 60.0, _player);
+        int transitionFrames = 0;
+        while (IsTransitioning && transitionFrames++ < 600)
+            UpdateRoomWarpTransition(1.0 / 60.0);
+        FailIf(
+            IsTransitioning || transitionFrames >= 600 ||
+            _rooms.ActiveGroup != 1 || _rooms.CurrentRoom.Id != 0x39,
+            "The standalone first-past fixture did not complete the " +
+            $"0:39 -> 1:39 time warp in {transitionFrames} updates.");
+
         EnterPastEvent enterPast = _roomEvents.EnterPast;
         EnterPastEventRecord record = enterPast.Record;
         NpcCharacter villager = _npcNodes.Find(npc =>
@@ -4132,6 +4156,12 @@ public sealed partial class ValidationRoot
         ValidationCutsceneTrace commandTrace = new ValidationCutsceneTrace();
         _roomEvents.CommandTraceSink = commandTrace;
         _sound.ClearPlayRequestAudit();
+        // Ralph's departure is the immediate post-possession room-entry
+        // event. Declare that story fixture here instead of inheriting
+        // GLOBALFLAG_INTRO_DONE from the Nayru validation.
+        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
+        _saveData.SetGlobalFlag(
+            OracleSaveData.GlobalFlagRalphEnteredPortal, value: false);
         // @initSubid0d deletes the object on a direct room load because
         // wScreenTransitionDirection is not DIR_RIGHT ($01).
         LoadValidationRoom(0, 0x39);

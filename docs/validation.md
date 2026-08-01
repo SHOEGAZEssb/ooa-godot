@@ -53,6 +53,25 @@ git status --short
 canonical rooms for individual scenarios. Validation save-store tests use an
 isolated temporary directory and must never touch player slots.
 
+Every top-level scenario starts from a newly constructed standard-game
+gameplay graph. The runner immediately disposes the preceding scene and
+recreates save and runtime WRAM, RNG, rooms, entities, story controllers,
+menus, input buffers, application counters, and validation audits. A scenario
+must arrange every flag, item, room, and actor prerequisite it asserts; it must
+never rely on the registration order or state left by another scenario.
+Application-wide immutable resource caches may retain keyed assets, but their
+validation observers are detached and reset between scenarios.
+
+Run one registered scenario by its exact validation method name while working
+on a focused regression:
+
+```powershell
+& $godot --headless --path . --quit-after 10 -- --validate --validate-only=ValidateWingDungeon
+```
+
+The focused run uses the same fresh-game isolation path as the full suite. An
+unknown method name fails instead of silently running no checks.
+
 Importer changes also require:
 
 ```powershell

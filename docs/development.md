@@ -61,6 +61,17 @@ ordinary dungeon-layout screen transitions active; callers should continue to
 name the dungeon source group and room (for example,
 `--group=4 --room=29` for Wing Dungeon).
 
+The headless suite also accepts an exact registered validation method name for
+a focused, independently initialized run:
+
+```powershell
+$godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
+& $godot --headless --path . --quit-after 10 -- --validate --validate-only=ValidateWingDungeon
+```
+
+See [Validation](validation.md) for the isolation contract and complete-suite
+handoff checks.
+
 ## Controls
 
 | Action | Keyboard | Gamepad |

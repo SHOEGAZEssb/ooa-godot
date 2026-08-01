@@ -1759,6 +1759,14 @@ public sealed partial class ValidationRoot
                 _entities.Update(1.0 / 60.0, _player);
         }
 
+        // This case previously inherited both the sword grant and the
+        // post-intro room state. Declare them before using room 0:6a as the
+        // scrolling destination so no story event can take ownership of Link.
+        _inventory.GiveTreasure(
+            _treasures.GetObject("TREASURE_OBJECT_SWORD_00"));
+        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
+        _saveData.SetRoomFlag(
+            0, 0x6a, OracleSaveData.RoomFlag40, value: true);
         LoadBushValidationRoom();
         Vector2 bushPoint = new(24, 56);
         FailIf(_currentRoom.GetMetatile(bushPoint) != 0xc5, "Expected overworld bush $c5 in room 69 at $31.");
@@ -2117,7 +2125,12 @@ public sealed partial class ValidationRoot
             !_transitions.ScrollActive ||
             _player.SwordState != SwordActionState.Held ||
             _player.FacingVector != Vector2I.Up || _player.SwordArcIndex != 12,
-            "Scrolling right did not preserve the up-facing held sword parent item.");
+            "Scrolling right did not preserve the up-facing held sword parent " +
+            $"item. scroll={_transitions.ScrollActive}, " +
+            $"state={_player.SwordState}, facing={_player.FacingVector}, " +
+            $"arc={_player.SwordArcIndex}, room=" +
+            $"{_rooms.ActiveGroup:x}:{_rooms.CurrentRoom.Id:x2}, " +
+            $"cutscene={_player.CutsceneControlled}.");
         _player._Process(1.0);
         FailIf(
             _player.SwordState != SwordActionState.Held ||

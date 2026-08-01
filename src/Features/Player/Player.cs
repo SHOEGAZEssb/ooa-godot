@@ -1811,6 +1811,10 @@ public partial class Player : Node2D
         _walking = direction != Vector2I.Zero;
         if (_walking)
         {
+            // These callers emulate wSimulatedInput. Preserve the direction
+            // as Link's current angle so screenTransitionState2 can authorize
+            // the matching edge transition on the same update.
+            _lastMovementInput = direction;
             Face(direction);
             TryMove((Vector2)direction, allowWallSlide: false);
             AdvanceLinkWalkAnimation();
@@ -1834,8 +1838,12 @@ public partial class Player : Node2D
             // wSimulatedInput follows Link's ordinary top-down movement path:
             // objectApplySpeed supplies the exact 8.8 vector, while Link's
             // terrain handler selects SPEED_c0 on grass/puddles and SPEED_080
-            // on stairs/vines.
+            // on stairs/vines. It also writes Link's angle, which
+            // screenTransitionState2 converts back to direction buttons at a
+            // room edge; retaining an earlier live-input vector here made
+            // scripted room exits depend on whichever validation ran first.
             int speed = GetCutsceneSimulatedInputSpeed(normalSpeed, slowSpeed);
+            _lastMovementInput = OracleObjectMovement.Shared.Direction(angle);
             Face(direction);
             TryMove(
                 OracleObjectMovement.Shared.Delta(speed, angle),

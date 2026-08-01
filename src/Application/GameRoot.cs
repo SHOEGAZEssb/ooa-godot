@@ -911,7 +911,7 @@ public partial class GameRoot : Node2D
             _mainMenuScreen, StartSelectedFile, playSound: _sound.PlaySound);
     }
 
-    private void ReleaseGameplayScene()
+    private void ReleaseGameplayScene(bool immediate = false)
     {
         if (_player is not null)
             _player.GameOverRequested -= BeginGameOver;
@@ -928,7 +928,79 @@ public partial class GameRoot : Node2D
         // gameplay.tscn owns every persistent and transient gameplay node.
         // Freeing this one root leaves the application-owned sound engine in
         // place for the title screen and the next selected file.
-        _scene.QueueFree();
+        if (immediate)
+            _scene.Free();
+        else
+            _scene.QueueFree();
+    }
+
+    /// <summary>
+    /// Recreates the complete non-persistent gameplay ownership graph from a
+    /// fresh standard-game save. The validation runner uses this between
+    /// independent cases so save/runtime WRAM, RNG, entities, controllers,
+    /// menus, input buffering, and application counters cannot leak forward.
+    /// </summary>
+    internal void ReinitializeGameplayForValidation()
+    {
+        if (_persistSaveData)
+        {
+            throw new InvalidOperationException(
+                "Validation gameplay isolation is unavailable while persistent saves are enabled.");
+        }
+
+        _mainMenu = null;
+        _newGameIntro = null;
+        if (_mainMenuScreen is not null &&
+            GodotObject.IsInstanceValid(_mainMenuScreen))
+        {
+            _mainMenuScreen.Free();
+        }
+        if (_newGameIntroScreen is not null &&
+            GodotObject.IsInstanceValid(_newGameIntroScreen))
+        {
+            _newGameIntroScreen.Free();
+        }
+        _mainMenuScreen = null;
+        _newGameIntroScreen = null;
+
+        if (_scene is not null && GodotObject.IsInstanceValid(_scene))
+        {
+            if (_scene.IsQueuedForDeletion())
+                _scene.Free();
+            else
+                ReleaseGameplayScene(immediate: true);
+        }
+
+        // A synchronous validation may have queued a temporary root for the
+        // end of the rendered frame. Remove every remaining application child
+        // except the stable sound engine before constructing the next case.
+        foreach (Node child in GetChildren())
+        {
+            if (child != _sound && GodotObject.IsInstanceValid(child))
+                child.Free();
+        }
+
+        _applicationUpdates.Reset();
+        _applicationInput.Clear();
+        _saveWriteRequests = 0;
+        _newGameArrivalTicks = 0.0;
+        _newGameArrivalFadeFrames = 0;
+        _newGameArrivalFrames = 0;
+        _newGameArrivalPhase = 0;
+        _newGameArrivalLastFrame = 0;
+        _deferredIntroMusicGroup = -1;
+        _deferredIntroMusicRoom = -1;
+        _debugSavestateStatus = string.Empty;
+        _debugSavestateStatusFrames = 0.0;
+        _animationTicks = 0.0;
+
+        _sound.ApplicationUpdateOwned = true;
+        _sound.RestartSound();
+        if (_sound.Disabled)
+            _sound.PlaySound(OracleSoundEngine.SndCtrlEnable);
+        _sound.SetMusicVolume(3);
+
+        InitializeGameplay(OracleSaveData.CreateStandardGame());
     }
 
     private void ApplyRoomMusic(int group, OracleRoomData room)

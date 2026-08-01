@@ -319,6 +319,11 @@ public sealed partial class ValidationRoot
 
     private void ValidateCaveWarps()
     {
+        // In an unlinked game the $f0 single-tile change covers position $28
+        // with non-warp metatile $64. Declare the linked-game prerequisite that
+        // leaves the underlying cave exposed instead of inheriting it from
+        // another case.
+        _saveData.SetLinkedGame(true);
         ValidateLargeRoomCaveWarp(0x21, 0x04);
         ValidateLargeDungeonTopTransition();
         ValidateLargeRoomCaveWarp(0x28, 0xce);

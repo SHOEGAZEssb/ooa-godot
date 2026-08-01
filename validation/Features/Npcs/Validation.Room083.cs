@@ -305,6 +305,8 @@ public sealed partial class ValidationRoot
                 0, 0x83, OracleSaveData.RoomFlag40, value: false);
             _saveData.SetLinkedGame(false);
             _saveData.SetMakuMapTextPresent(0);
+            _inventory.GiveTreasure(
+                _treasures.GetObject("TREASURE_OBJECT_BRACELET_00"));
             _inventory.EquipB(InventoryState.ItemBracelet);
             LoadValidationRoom(0, 0x83);
             byte[] facadeAttributes = ReadRoom083FacadeAttributes();
