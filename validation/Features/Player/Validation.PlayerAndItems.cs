@@ -472,6 +472,150 @@ public sealed partial class ValidationRoot
             "35-update expanding explosion, and Bomber/Peace/Blast/Bombproof rings.");
     }
 
+    private void ValidateLinkTopDownMovement()
+    {
+        const double updateDelta = 1.0 / 60.0;
+        const float Speed100DiagonalComponent = 181.0f / 256.0f;
+        const float SpeedC0DiagonalComponent = 135.0f / 256.0f;
+
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        save.WriteWramByte(0xc701, 0x01);
+        var inventory = new InventoryState(_treasures, save);
+        var world = new ValidationRingPlayerWorld
+        {
+            ActiveTerrain = NormalMovementTerrain()
+        };
+        var player = new Player { Name = "TopDownMovementValidationPlayer" };
+        AddChild(player);
+        player.Initialize(
+            world, inventory, new Vector2(16.25f, 80.75f),
+            new OracleRandom());
+
+        try
+        {
+            Input.ActionPress("move_right");
+            for (int update = 0; update < 128; update++)
+                player._PhysicsProcess(updateDelta);
+            Input.ActionRelease("move_right");
+            FailIf(
+                player.PrecisePosition != new Vector2(144.25f, 80.75f) ||
+                player.Position != new Vector2(144, 80),
+                "Link's long SPEED_100/$28 cardinal path did not retain its " +
+                $"8.8 position; precise={player.PrecisePosition}, " +
+                $"rendered={player.Position}.");
+
+            player.SetScriptedPosition(new Vector2(16.0f, 120.0f));
+            Input.ActionPress("move_up");
+            Input.ActionPress("move_right");
+            for (int update = 0; update < 128; update++)
+                player._PhysicsProcess(updateDelta);
+            Input.ActionRelease("move_up");
+            Input.ActionRelease("move_right");
+            Vector2 expectedDiagonal = new(
+                16.0f + 128 * Speed100DiagonalComponent,
+                120.0f - 128 * Speed100DiagonalComponent);
+            FailIf(
+                player.PrecisePosition != expectedDiagonal ||
+                player.Position != new Vector2(106, 29),
+                "Link's long angle $04 SPEED_100/$28 path did not apply the " +
+                "imported (+$00b5,-$00b5) vector on every update; " +
+                $"expected={expectedDiagonal}, precise={player.PrecisePosition}, " +
+                $"rendered={player.Position}.");
+
+            world.ActiveTerrain = new ActiveTerrainInfo(
+                new TerrainInfo(
+                    0xf8, 0x00, TerrainType.Grass, HazardType.None),
+                Vector2.Zero,
+                Vector2.Zero,
+                0x00);
+            player.SetScriptedPosition(new Vector2(16.0f, 120.0f));
+            Input.ActionPress("move_up");
+            Input.ActionPress("move_right");
+            for (int update = 0; update < 128; update++)
+                player._PhysicsProcess(updateDelta);
+            Input.ActionRelease("move_up");
+            Input.ActionRelease("move_right");
+            Vector2 expectedGrassDiagonal = new(
+                16.0f + 128 * SpeedC0DiagonalComponent,
+                120.0f - 128 * SpeedC0DiagonalComponent);
+            FailIf(
+                player.PrecisePosition != expectedGrassDiagonal,
+                "Link's grass path did not select angle $04 SPEED_0c0/$1e " +
+                "(+135,-135) from updateLinkSpeed_standard; " +
+                $"expected={expectedGrassDiagonal}, " +
+                $"actual={player.PrecisePosition}.");
+
+            world.ActiveTerrain = NormalMovementTerrain();
+            world.BlockHorizontalMovement = true;
+            player.SetScriptedPosition(new Vector2(48.25f, 120.75f));
+            Input.ActionPress("move_up");
+            Input.ActionPress("move_right");
+            for (int update = 0; update < 64; update++)
+                player._PhysicsProcess(updateDelta);
+            Input.ActionRelease("move_up");
+            Vector2 expectedBlockedAxis = new(
+                48.25f,
+                120.75f - 64 * Speed100DiagonalComponent);
+            FailIf(
+                player.PrecisePosition != expectedBlockedAxis,
+                "Link's angle $04 collision path did not mask X while " +
+                "retaining the exact Y 8.8 component; " +
+                $"expected={expectedBlockedAxis}, " +
+                $"actual={player.PrecisePosition}.");
+
+            world.BlockHorizontalMovement = false;
+            for (int update = 0; update < 64; update++)
+                player._PhysicsProcess(updateDelta);
+            Input.ActionRelease("move_right");
+            Vector2 expectedAfterCollision = new(
+                112.25f,
+                expectedBlockedAxis.Y);
+            FailIf(
+                player.PrecisePosition != expectedAfterCollision,
+                "Link's long cardinal path after an axis collision lost the " +
+                "retained 8.8 remainder; " +
+                $"expected={expectedAfterCollision}, " +
+                $"actual={player.PrecisePosition}.");
+
+            player.SetScriptedPosition(new Vector2(40.0f, 96.0f));
+            player.AdvanceTopDownAirUpdateForValidation(startJump: true);
+            Vector2 airborneStart = player.PrecisePosition;
+            Input.ActionPress("move_up");
+            Input.ActionPress("move_right");
+            player._PhysicsProcess(updateDelta);
+            Input.ActionRelease("move_up");
+            Input.ActionRelease("move_right");
+            Vector2 expectedAirborne = airborneStart + new Vector2(
+                Speed100DiagonalComponent,
+                -Speed100DiagonalComponent);
+            FailIf(
+                !player.TopDownAirborne ||
+                player.PrecisePosition != expectedAirborne,
+                "Top-down airborne Link did not use the ordinary angle $04 " +
+                "SPEED_100/$28 8.8 movement path; " +
+                $"expected={expectedAirborne}, " +
+                $"actual={player.PrecisePosition}.");
+        }
+        finally
+        {
+            Input.ActionRelease("move_up");
+            Input.ActionRelease("move_right");
+            player.Free();
+        }
+
+        GD.Print(
+            "Validated ordinary top-down Link movement: retained 8.8 " +
+            "SPEED_100 cardinal/diagonal and SPEED_0c0 grass paths, " +
+            "per-axis collision masking/remainders, rendered high bytes, " +
+            "and the shared airborne caller.");
+
+        static ActiveTerrainInfo NormalMovementTerrain() => new(
+            new TerrainInfo(0x00, 0x00, TerrainType.Normal, HazardType.None),
+            Vector2.Zero,
+            Vector2.Zero,
+            0x00);
+    }
+
     private void ValidateLinkTerrainEffects()
     {
         Vector2 grassPosition = new(56, 120);

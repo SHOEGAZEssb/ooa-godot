@@ -62,6 +62,7 @@ public partial class MainMenuScreen : Node2D
     public int NameCursor { get; private set; }
     public string EnteredName => new string(_enteredName).TrimEnd(' ');
     public bool SaveErrorVisible { get; private set; }
+    internal int WhiteFadeOffset { get; private set; }
 
     public override void _Ready()
     {
@@ -167,8 +168,11 @@ public partial class MainMenuScreen : Node2D
     public void SetActorFrame(bool secondFrame) { _actorFrame = secondFrame; QueueRedraw(); }
     public void SetWhiteFade(float progress)
     {
-        float offset = Math.Min(31.0f, MathF.Floor(Math.Clamp(progress, 0.0f, 1.0f) * 32.0f));
-        _fadeMaterial.SetShaderParameter("fade_offset", offset);
+        WhiteFadeOffset = Math.Min(
+            31,
+            (int)MathF.Floor(
+                Math.Clamp(progress, 0.0f, 1.0f) * 32.0f));
+        _fadeMaterial.SetShaderParameter("fade_offset", WhiteFadeOffset);
         QueueRedraw();
     }
     public void ShowFileSelect() { CurrentPage = Page.FileSelect; Cursor = 0; Choice = 0; QueueRedraw(); }

@@ -7,7 +7,9 @@ public partial class Player : Node2D
 {
     internal const int NormalZIndex = 10;
     internal const int AlternateTextboxPaletteZIndex = 13;
-    private const float Speed = 60.0f;
+    private const int NormalTopDownSpeed = 0x28;
+    private const int GrassTopDownSpeed = 0x1e;
+    private const int StairsTopDownSpeed = 0x14;
     private static readonly Vector2 NormalSpriteOrigin = new(-8, -8);
     private const int PunchCollisionFrames = 4;
     private const int FistPunchFrames = 8;
@@ -1544,15 +1546,9 @@ public partial class Player : Node2D
             return;
         }
 
-        _walking = input.LengthSquared() > 0.01f && movementAllowed;
+        _walking = AdvanceTopDownInputMovement(input, movementAllowed);
         if (_walking)
         {
-            // parentItemLoadAnimationAndIncState disables Link's turning for
-            // the sword's full lifetime, even after state 6 re-enables movement.
-            if (!IsUsingItem)
-                UpdateFacing(input);
-            Vector2 movement = input * Speed * GetTerrainSpeedMultiplier() * (float)delta;
-            TryMove(movement, allowWallSlide: true);
             AdvanceLinkWalkAnimation();
         }
         else
@@ -3061,15 +3057,7 @@ public partial class Player : Node2D
             AdvanceTopDownAirUpdate();
         }
 
-        _walking = input.LengthSquared() > 0.01f && movementAllowed;
-        if (_walking)
-        {
-            if (!IsUsingItem)
-                UpdateFacing(input);
-            Vector2 movement =
-                input * Speed * GetTerrainSpeedMultiplier() * (float)delta;
-            TryMove(movement, allowWallSlide: true);
-        }
+        _walking = AdvanceTopDownInputMovement(input, movementAllowed);
         if (!_topDownAirborne)
         {
             // A landing calls animateLinkStanding inside linkUpdateInAir, then
@@ -4108,16 +4096,71 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
-    private float GetTerrainSpeedMultiplier()
+    /// <summary>
+    /// Mirrors linkState01's ordinary non-side-view movement path. The Game
+    /// Boy input supplies one of eight wLinkAngle values; updateLinkSpeed_standard
+    /// selects an original speed byte and specialObjectUpdatePosition applies
+    /// the imported signed 8.8 vector. Godot's normalized input magnitude must
+    /// not become authoritative position state.
+    /// </summary>
+    private bool AdvanceTopDownInputMovement(
+        Vector2 input,
+        bool movementAllowed)
+    {
+        int angle = AngleForVector(input);
+        if (!movementAllowed || angle >= 0x80)
+            return false;
+
+        // parentItemLoadAnimationAndIncState disables Link's turning for the
+        // sword's full lifetime, even after state 6 re-enables movement.
+        if (!IsUsingItem)
+            UpdateFacing(input);
+
+        ApplyTopDownObjectSpeed(
+            GetTopDownMovementSpeed(), angle,
+            allowWallSlide: true);
+        return true;
+    }
+
+    private void ApplyTopDownObjectSpeed(
+        int speed,
+        int angle,
+        bool allowWallSlide)
+    {
+        OracleObjectPosition position =
+            OracleObjectMovement.Shared.PositionFromPixels(_precisePosition);
+        _precisePosition = position.PrecisePosition;
+
+        OracleObjectVelocity velocity =
+            OracleObjectMovement.Shared.Velocity(speed, angle);
+        Vector2 movement = new(
+            velocity.XFixed / 256.0f,
+            velocity.YFixed / 256.0f);
+        Vector2 resolved = _world.ResolveMovement(
+            _precisePosition, movement, allowWallSlide);
+        if (resolved != Vector2.Zero)
+        {
+            position = position.Add(
+                Mathf.RoundToInt(resolved.Y * 256.0f),
+                Mathf.RoundToInt(resolved.X * 256.0f));
+            _precisePosition = position.PrecisePosition;
+            return;
+        }
+
+        if (!IsUsingItem)
+            _world.TryStartLedgeHop(this, _precisePosition, movement);
+    }
+
+    private int GetTopDownMovementSpeed()
     {
         if (_world.RidingObject)
-            return 1.0f;
+            return NormalTopDownSpeed;
         TerrainType terrain = _world.GetActiveTerrain(Position).Terrain.Type;
         return terrain switch
         {
-            TerrainType.Grass or TerrainType.Puddle => 0.75f,
-            TerrainType.Stairs or TerrainType.Vines => 0.5f,
-            _ => 1.0f
+            TerrainType.Grass or TerrainType.Puddle => GrassTopDownSpeed,
+            TerrainType.Stairs or TerrainType.Vines => StairsTopDownSpeed,
+            _ => NormalTopDownSpeed
         };
     }
 

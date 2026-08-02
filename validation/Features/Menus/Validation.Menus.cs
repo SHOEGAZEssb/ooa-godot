@@ -364,14 +364,18 @@ public sealed partial class ValidationRoot
         var random = new OracleRandom();
         var sounds = new List<int>();
         int restartCount = 0;
-        bool openedFileSelect = false;
+        MainMenuController? handedOffMenu = null;
         var intro = new FrontendIntroController(
             introScreen,
             titleScreen,
             random,
             () => restartCount++,
             sounds.Add,
-            () => openedFileSelect = true);
+            () => handedOffMenu = new MainMenuController(
+                titleScreen,
+                (_, _) => { },
+                load: _ => null,
+                startAtFileSelect: true));
         FrontendIntroDatabase introData = FrontendIntroDatabase.Shared;
         FrontendAnimation templeLinkWalk =
             introData.Animation("temple-link-walk");
@@ -750,12 +754,19 @@ public sealed partial class ValidationRoot
             "Title Start did not request SND_SELECTITEM then SNDCTRL_FAST_FADEOUT.");
         for (int update = 0; update < 31; update++)
             intro.AdvanceOneOriginalUpdate();
-        FailIf(openedFileSelect, "Title Start ended its fade before 32 updates.");
+        FailIf(
+            handedOffMenu is not null,
+            "Title Start ended its fade before 32 updates.");
         intro.AdvanceOneOriginalUpdate();
         FailIf(
-            !openedFileSelect || intro.IsActive || random.Calls != titleCalls + 35,
-            "Title Start did not finish after 32 fade updates while preserving one RNG " +
-            "call per title dispatch.");
+            handedOffMenu is null || intro.IsActive ||
+            random.Calls != titleCalls + 35 ||
+            handedOffMenu?.CurrentPage != Page.FileSelect ||
+            titleScreen.WhiteFadeOffset != 0,
+            "Title Start did not finish after 32 fade updates with a visible " +
+            "file-select handoff while preserving one RNG call per title " +
+            $"dispatch. page={handedOffMenu?.CurrentPage}, " +
+            $"fadeOffset={titleScreen.WhiteFadeOffset}.");
 
         var replayRandom = new OracleRandom();
         var replaySounds = new List<int>();

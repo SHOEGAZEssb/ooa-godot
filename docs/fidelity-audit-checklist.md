@@ -31,7 +31,7 @@ that ledger instead of duplicating its 211-room inventory.
   NPC, menu, save, graphics/audio, and validation guides before classifying
   findings.
 - [x] Inventoried 509 production C# files, 17 importer stages, 55 validation C#
-  files, and all 136 scenarios registered by
+  files, and all 137 scenarios registered by
   `ValidationRoot.ValidateAll`.
 - [x] Used the clean US ROM
   `Legend of Zelda, The - Oracle of Ages (U) [C][!].gbc`, MD5
@@ -45,7 +45,7 @@ that ledger instead of duplicating its 211-room inventory.
   assets with manifest SHA-256
   `9e6a0ffe67de3a5679efa562aa7a3e7fcb317745c4ad299592011485b69c6ac0`.
 - [x] Built the .NET solution with zero warnings and zero errors.
-- [x] Ran the full Godot headless suite; all 136 registered scenarios passed.
+- [x] Ran the full Godot headless suite; all 137 registered scenarios passed.
 - [x] Booted the clean ROM in PyBoy 2.7.0 with sound emulation enabled, followed
   the retail Capcom/cinematic/title/file/name/message-speed/new-game path into
   room `$0:$8a`, and loaded a checksum-valid edited save into room `$0:$48` to
@@ -69,7 +69,6 @@ that ledger instead of duplicating its 211-room inventory.
 
 | Priority | Open checklist item | Evidence and impact |
 | --- | --- | --- |
-| P1 | [ ] **CONFIRMED - use the imported 8.8 speed table for ordinary top-down Link movement.** | `link.s:linkState01` reaches `specialObjectUpdatePosition`, which uses `objectSpeedTable`. At `SPEED_100/$28`, diagonal angle `$04` is exactly Y `-$00b5`, X `+$00b5`. [Player](../src/Features/Player/Player.cs) instead multiplies Godot's normalized input vector by `60 * delta`, producing approximately `0.7071068` pixels per diagonal component rather than `181/256 = 0.70703125`, and retains host floats. Long open diagonal paths therefore drift and violate the project's fixed-point invariant; the same path is used while top-down airborne. |
 | P1 | [ ] **CONFIRMED - implement top-down swimming and diving before treating water hazards as unconditional.** | The ROM dispatches non-side-view water through `link.s:linkUpdateSwimming`, including Flippers, Mermaid Suit, dive transitions, underwater state, and surfacing. Production has side-view swim state only. `Player.ApplyTerrainAtFeet` sends top-down water directly to drowning, so owning Flippers or the Mermaid Suit does not enable the original top-down behavior. |
 | P2 | [ ] **CONFIRMED - create and render side-view swim bubbles.** | On bubble-counter underflow, `link.s:linkUpdateSwimming_sidescroll` consumes RNG and creates `INTERAC_BUBBLE $91`. `Player.AdvanceSideScrollSwimming` deliberately consumes the same shared RNG call but has no bubble entity/spawn. RNG order is retained, but the visible interaction is absent. |
 | P2 | [ ] **CONFIRMED - implement text control `\slow()`.** | `textbox.s:textControlCodeC_7` installs `w7TextSlowdownTimer=$78`; while nonzero, A/B cannot fast-forward the text. [DialogueBox](../src/Features/Interface/DialogueBox.cs) parses `slow` and discards it. Both implemented Essence messages in `spirits_grave_text.tsv` and `wing_dungeon_text.tsv` use the command, so their first 120-update no-skip interval is missing. |
@@ -90,14 +89,15 @@ that ledger instead of duplicating its 211-room inventory.
 - [x] Shared object speed, relative-angle, unsigned 8.8 position, Z/gravity,
   global RNG algorithm, and 256-byte enemy-placement permutation match the
   imported `objectSpeedTable`, `pushDirectionData`, `getRandomNumber`, and
-  `generateRandomBuffer` contracts for non-Link object users.
+  `generateRandomBuffer` contracts.
 - [x] No production use of `System.Random`, `Random.Shared`, or Godot random
   functions was found; implemented gameplay randomness routes through the
   single `OracleRandom` owner.
-- [ ] **P2 VERIFY - cover Link's ordinary top-down movement with retained 8.8
-  path regressions.** Existing object-math tests prove the shared table but do
-  not prove that the ordinary player movement caller uses it; the confirmed
-  diagonal drift above escaped the suite for that reason.
+- [x] Ordinary grounded and top-down-airborne Link movement maps digital input
+  to the original angle and terrain speed bytes before applying the imported
+  signed 8.8 vector. `ValidateLinkTopDownMovement` covers long cardinal,
+  diagonal, grass, per-axis collision, retained-fraction, and rendered-high-byte
+  paths through the actual player input caller.
 
 ## Frontend, dialogue, menus, and persistence
 
@@ -441,11 +441,11 @@ coverage.
   `ValidateRemoteMakuFirstEssenceCutscene`,
   `ValidateRemoteMakuSecondEssenceCutscene`,
   `ValidateRemoteMakuHarpCutscene`, and `ValidateFairiesWoodsSequence`.
-- [x] **Link/items/menus (19):** `ValidateAnimations`,
+- [x] **Link/items/menus (20):** `ValidateAnimations`,
   `ValidateLinkItemGeneratedData`, `ValidateSwordBush`,
   `ValidateAirborneSwordRendering`, `ValidateShield`, `ValidateShovel`,
   `ValidateBombs`, `ValidateSeedSatchel`, `ValidateHarp`,
-  `ValidateLinkTerrainEffects`, `ValidateHealth`,
+  `ValidateLinkTopDownMovement`, `ValidateLinkTerrainEffects`, `ValidateHealth`,
   `ValidatePlayerDamageAndDeath`, `ValidateInventoryFoundation`,
   `ValidateInventoryMenu`, `ValidateRingFunctionality`,
   `ValidateBraceletChestAndPushGate`, `ValidateChests`,
@@ -478,7 +478,7 @@ path.
    comparisons use an uncontested source baseline.
 2. [x] Move the shared RNG owner above the frontend/gameplay boundary and port
    every boot/title/cinematic RNG call before changing enemy traces.
-3. [ ] Route ordinary Link movement through retained 8.8 angle/speed state and
+3. [x] Route ordinary Link movement through retained 8.8 angle/speed state and
    add long cardinal/diagonal/collision path regressions.
 4. [ ] Implement top-down swimming/diving and direct side-view swim/Cape tests;
    add the missing bubble interaction without adding an extra RNG call.

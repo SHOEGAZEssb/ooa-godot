@@ -48,6 +48,11 @@ public sealed class MainMenuController
         _erase = erase ?? OracleSaveStore.EraseSlot;
         _playSound = playSound;
         ReloadSlots();
+        // FrontendIntroController transfers this shared screen at the end of
+        // the title's 32-update fade, when its palette offset is fully white.
+        // fileSelectMode initialization loads the file-select palettes at that
+        // boundary, so the new owner must clear the inherited title offset.
+        _screen.SetWhiteFade(0.0f);
         if (startAtFileSelect)
         {
             _screen.ShowFileSelect();
