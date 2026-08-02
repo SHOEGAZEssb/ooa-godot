@@ -17,6 +17,7 @@ public sealed class RoomEventController
     private readonly ShootingGalleryEvent _shootingGallery;
     private readonly ComedianEvent _comedian;
     private readonly MaskSalesmanEvent _maskSalesman;
+    private readonly DepressedBoyEvent _depressedBoy;
     private readonly ToiletHandEvent _toiletHand;
     private readonly PoeEvent _poe;
     private readonly RalphPortalEvent _ralph;
@@ -85,6 +86,7 @@ public sealed class RoomEventController
         _shootingGallery = new ShootingGalleryEvent(_context);
         _comedian = new ComedianEvent(_context);
         _maskSalesman = new MaskSalesmanEvent(_context);
+        _depressedBoy = new DepressedBoyEvent(_context);
         _toiletHand = new ToiletHandEvent(_context);
         _poe = new PoeEvent(_context);
         _ralph = new RalphPortalEvent(_context);
@@ -133,6 +135,7 @@ public sealed class RoomEventController
             _shootingGallery,
             _comedian,
             _maskSalesman,
+            _depressedBoy,
             _toiletHand,
             _poe,
             _makuTreeSaved,
@@ -177,6 +180,9 @@ public sealed class RoomEventController
             NpcInteractionHandler.ForNpc(
                 "maskSalesman.s:maskSalesmanScript",
                 (target, _) => _maskSalesman.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
+                "boy.s:boySubid07Script",
+                (target, _) => _depressedBoy.TryInteractNpc(target.Npc)),
             NpcInteractionHandler.ForNpc(
                 "toiletHand.s:toiletHandScript",
                 (target, _) => _toiletHand.TryInteractNpc(target.Npc)),
@@ -229,6 +235,7 @@ public sealed class RoomEventController
     internal ShootingGalleryEvent ShootingGallery => _shootingGallery;
     internal ComedianEvent Comedian => _comedian;
     internal MaskSalesmanEvent MaskSalesman => _maskSalesman;
+    internal DepressedBoyEvent DepressedBoy => _depressedBoy;
     internal ToiletHandEvent ToiletHand => _toiletHand;
     internal PoeEvent Poe => _poe;
     internal RalphPortalEvent Ralph => _ralph;

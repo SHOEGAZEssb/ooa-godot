@@ -62,6 +62,7 @@ internal sealed class RoomEntityFactory(
     private readonly ShootingGalleryEventDatabase _shootingGallery = new();
     private readonly ComedianEventDatabase _comedian = new();
     private readonly MaskSalesmanEventDatabase _maskSalesman = new();
+    private readonly DepressedBoyEventDatabase _depressedBoy = new();
     private readonly ToiletHandEventDatabase _toiletHand = new();
     private readonly PoeEventDatabase _poe = new();
     private readonly TroyHouseDatabase _troyHouse = new();
@@ -1766,6 +1767,19 @@ internal sealed class RoomEntityFactory(
             };
             salesman.InitializeMaskSalesman(record, _maskSalesman.Record);
             return new MaskSalesmanRoomEntity(salesman);
+        }
+        if (record.Group == _depressedBoy.Record.Group &&
+            record.Room == _depressedBoy.Record.Room &&
+            record.Id == _depressedBoy.Record.InteractionId &&
+            record.SubId == _depressedBoy.Record.SubId)
+        {
+            var boy = new DepressedBoyCharacter
+            {
+                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+                ZIndex = NpcCharacter.BehindLinkZIndex
+            };
+            boy.InitializeDepressedBoy(record);
+            return new DepressedBoyRoomEntity(boy);
         }
 
         bool isOverworldPoe =

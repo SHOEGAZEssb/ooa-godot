@@ -33,6 +33,7 @@ public partial class OracleSoundEngine : Node
     public const int MusMiniboss = 0x2d;
     public const int MusBoss = 0x2e;
     public const int MusLadxSideview = 0x2f;
+    public const int MusCrazyDance = 0x31;
     public const int MusIntro1 = 0x3f;
     public const int MusIntro2 = 0x40;
     public const int MusBlackTowerEntrance = 0x46;

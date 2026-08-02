@@ -38,6 +38,12 @@ public partial class Player : Node2D
     private Texture2D _damageGetItemOneHandTexture = null!;
     private Texture2D _getItemTwoHandTexture = null!;
     private Texture2D _damageGetItemTwoHandTexture = null!;
+    private Texture2D _funnyJokeDanceLeftTexture = null!;
+    private Texture2D _damageFunnyJokeDanceLeftTexture = null!;
+    private Texture2D _funnyJokeDanceRightTexture = null!;
+    private Texture2D _damageFunnyJokeDanceRightTexture = null!;
+    private Texture2D _getItemOneHandRightTexture = null!;
+    private Texture2D _damageGetItemOneHandRightTexture = null!;
     private Texture2D _carriedObjectTexture = null!;
     private Texture2D _damageCarriedObjectTexture = null!;
     private Texture2D _minecartLinkTexture = null!;
@@ -199,6 +205,7 @@ public partial class Player : Node2D
     private bool _cutsceneControlled;
     private bool _getItemOneHandPose;
     private bool _getItemTwoHandPose;
+    private int? _scriptedLinkAnimationMode;
     private bool _carriedObjectPose;
     private BraceletActionPose? _braceletActionPose;
     private bool _braceletLiftCollisionsDisabled;
@@ -408,6 +415,12 @@ public partial class Player : Node2D
     internal int HarpPoseFrame => _harpFrame;
     internal bool IsHoldingItemOneHand => _getItemOneHandPose;
     internal bool IsHoldingItemTwoHands => _getItemTwoHandPose;
+    internal int? ScriptedLinkAnimationMode => _scriptedLinkAnimationMode;
+    internal ulong ScriptedLinkAnimationPixelHash =>
+        _scriptedLinkAnimationMode is int mode
+            ? OracleGraphicsCache.PixelHash(
+                ScriptedLinkAnimationTexture(mode, damagePalette: false).GetImage())
+            : 0;
     internal bool IsCarryingObject => _carriedObjectPose;
     internal Vector2 PrecisePosition => _precisePosition;
     internal int CarriedObjectAnimationFrame => GetWalkAnimationFrame();
@@ -492,6 +505,18 @@ public partial class Player : Node2D
         _damageGetItemOneHandTexture = BuildGetItemOneHandTexture(damagePalette: true);
         _getItemTwoHandTexture = BuildGetItemTwoHandTexture(damagePalette: false);
         _damageGetItemTwoHandTexture = BuildGetItemTwoHandTexture(damagePalette: true);
+        _funnyJokeDanceLeftTexture = BuildFunnyJokeDanceTexture(
+            right: false, damagePalette: false);
+        _damageFunnyJokeDanceLeftTexture = BuildFunnyJokeDanceTexture(
+            right: false, damagePalette: true);
+        _funnyJokeDanceRightTexture = BuildFunnyJokeDanceTexture(
+            right: true, damagePalette: false);
+        _damageFunnyJokeDanceRightTexture = BuildFunnyJokeDanceTexture(
+            right: true, damagePalette: true);
+        _getItemOneHandRightTexture = BuildGetItemOneHandRightTexture(
+            damagePalette: false);
+        _damageGetItemOneHandRightTexture = BuildGetItemOneHandRightTexture(
+            damagePalette: true);
         _carriedObjectTexture = BuildCarriedObjectLinkTexture(damagePalette: false);
         _damageCarriedObjectTexture = BuildCarriedObjectLinkTexture(damagePalette: true);
         _minecartLinkTexture = BuildMinecartLinkTexture(damagePalette: false);
@@ -593,6 +618,7 @@ public partial class Player : Node2D
         _sideScrollSquishFlickerCounter = 0;
         _getItemOneHandPose = false;
         _getItemTwoHandPose = false;
+        _scriptedLinkAnimationMode = null;
         _carriedObjectPose = false;
         _braceletActionPose = null;
         _braceletLiftCollisionsDisabled = false;
@@ -1764,6 +1790,26 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
+    /// <summary>
+    /// Applies the static Link animation modes written by
+    /// boy_runFunnyJokeCutscene. These are direct wcc50 writes, independent
+    /// of the ordinary held-item pose flags.
+    /// </summary>
+    internal void SetScriptedLinkAnimationMode(int? mode)
+    {
+        if (mode is not null and not (0x06 or 0x07 or 0x08 or 0x09 or
+            0x0e or 0x0f or 0x1c))
+        {
+            throw new ArgumentOutOfRangeException(nameof(mode));
+        }
+        if (_scriptedLinkAnimationMode == mode)
+            return;
+        _scriptedLinkAnimationMode = mode;
+        _walking = false;
+        _pushing = false;
+        QueueRedraw();
+    }
+
     internal void BeginCarriedObjectPose()
     {
         _carriedObjectPose = true;
@@ -2412,6 +2458,10 @@ public partial class Player : Node2D
                 _harpFrames[_harpFrame],
                 z: 0);
         }
+        else if (_scriptedLinkAnimationMode.HasValue)
+        {
+            DrawScriptedLinkAnimation(_scriptedLinkAnimationMode.Value);
+        }
         else if (_drowning && !_drownRespawning)
         {
             int frame = GetDrownAnimationFrame();
@@ -2590,6 +2640,45 @@ public partial class Player : Node2D
             // later draw priority, so the equivalent composition is drawn last.
             DrawTexture(terrainEffect.Texture, terrainEffect.Offset);
         }
+    }
+
+    private void DrawScriptedLinkAnimation(int mode)
+    {
+        Texture2D texture = ScriptedLinkAnimationTexture(
+            mode, DamagePaletteActive);
+        DrawTexture(
+            texture,
+            mode is 0x06 or 0x07
+                ? new Vector2(-16, -16)
+                : NormalSpriteOrigin);
+    }
+
+    private Texture2D ScriptedLinkAnimationTexture(
+        int mode,
+        bool damagePalette)
+    {
+        return mode switch
+        {
+            0x06 => _sideScrollSquishXTexture,
+            0x07 => _sideScrollSquishYTexture,
+            0x08 => damagePalette
+                ? _damageFunnyJokeDanceLeftTexture
+                : _funnyJokeDanceLeftTexture,
+            0x09 => damagePalette
+                ? _damageFunnyJokeDanceRightTexture
+                : _funnyJokeDanceRightTexture,
+            0x0e => damagePalette
+                ? _damageGetItemOneHandTexture
+                : _getItemOneHandTexture,
+            0x0f => damagePalette
+                ? _damageGetItemTwoHandTexture
+                : _getItemTwoHandTexture,
+            0x1c => damagePalette
+                ? _damageGetItemOneHandRightTexture
+                : _getItemOneHandRightTexture,
+            _ => throw new InvalidOperationException(
+                $"Unsupported scripted Link animation mode ${mode:x2}.")
+        };
     }
 
     private LinkTerrainEffectFrame? GetCurrentTerrainEffect()
@@ -5331,6 +5420,38 @@ public partial class Player : Node2D
         // LINK_ANIM_MODE_GETITEM2HAND ($0f) is static graphics frame $06:
         // OAM $04 mirrors the single spr_link+$0de0 cell into a 16-pixel body.
         WriteSymmetricLinkCell(output, source, 0, 0, 0x0de0, damagePalette);
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private static Texture2D BuildFunnyJokeDanceTexture(
+        bool right,
+        bool damagePalette)
+    {
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
+        Image output = Image.CreateEmpty(16, 16, false, Image.Format.Rgba8);
+
+        // LINK_ANIM_MODE_DANCELEFT/RIGHT ($08/$09) are static graphics
+        // frames $1d/$1e: spr_link+$0d60 with OAM $00/$01.
+        WriteLinkFrame(
+            output, source, 0, 0, 0x0d60,
+            mirroredOam: right,
+            damagePalette: damagePalette);
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private static Texture2D BuildGetItemOneHandRightTexture(bool damagePalette)
+    {
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
+        Image output = Image.CreateEmpty(16, 16, false, Image.Format.Rgba8);
+
+        // LINK_ANIM_MODE_GETITEM1HAND_RIGHT ($1c) is static graphics frame
+        // $07: the same spr_link+$0da0 cells as $0e, mirrored by OAM $01.
+        WriteLinkFrame(
+            output, source, 0, 0, 0x0da0,
+            mirroredOam: true,
+            damagePalette: damagePalette);
         return ImageTexture.CreateFromImage(output);
     }
 

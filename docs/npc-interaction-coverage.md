@@ -1,7 +1,7 @@
 # NPC and character interaction coverage
 
 This is the room-by-room coverage snapshot for imported visible character
-interactions as of July 30, 2026. It is an implementation inventory, not a
+interactions as of August 2, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
@@ -51,9 +51,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 87 | Traced and covered by the current named NPC/event scenarios. |
+| **I** | 88 | Traced and covered by the current named NPC/event scenarios. |
 | **P** | 36 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
-| **D** | 265 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 264 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **388** | **211 rooms and 294 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -63,10 +63,10 @@ family remains **P** until its progression ownership and all per-variant
 behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
-The implementation manifest therefore contains 54 ordinary, 57 specialized,
-14 event-owned, and 263 deliberately unsupported positioned/state-derived
+The implementation manifest therefore contains 54 ordinary, 58 specialized,
+14 event-owned, and 262 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 460
-classified records and 129 specialized rows.
+classified records and 130 specialized rows.
 
 ### Important partial and deferred boundaries
 
@@ -76,6 +76,9 @@ classified records and 129 specialized rows.
 - Room `2:ee` implements Vasu, the snakes, help books, ring appraisal/list
   flows, and the original no-cable failure. Real Game Link transfer and linked
   secret input remain unavailable, so all five records remain **P**.
+- Room `2:f3` implements the complete depressed-boy Funny Joke trade:
+  light room darkening, Link's source dance modes and counters, the Touching
+  Book reward, room bit `$20`, music restoration, and completed re-entry text.
 - Placed Forest Fairy `$49:$05-$10` phases are **D** and safely suppressed.
   The implemented Fairies' Woods hide-and-seek uses event-created `$49:$00`
   actors instead.
@@ -234,7 +237,7 @@ well as record selection.
 | `2:e9` | [I] `$30:$00/v$00` shootingGallery |
 | `2:ee` | [P] `$89:$00/v$00` vasu<br>[P] `$89:$01/v$00` vasu<br>[P] `$89:$06/v$00` vasu<br>[P] `$e5:$00/v$00` ringHelpBook<br>[P] `$e5:$01/v$00` ringHelpBook |
 | `2:ef` | [D] `$66:$00/v$00` goron |
-| `2:f3` | [D] `$3c:$07/v$00` boy |
+| `2:f3` | [I] `$3c:$07/v$00` boy |
 | `2:f5` | [D] `$5a:$00/v$00` oldZora |
 | `2:f6` | [D] `$66:$0f/v$00` goron |
 | `2:f7` | [D] `$66:$07/v$00` goron |
