@@ -136,6 +136,36 @@ public sealed partial class ValidationRoot
             "Room 1:83 did not load misc man $41:$00 and its four hidden " +
             "drop producers with exact source positions, visuals, and TX_2606.");
 
+        List<ItemDropProducer> outgoingProducers = producers;
+        manager.BeginScreenTransition(
+            1,
+            rooms.CurrentRoom,
+            Vector2.Right * rooms.CurrentRoom.Width);
+        man = manager.Entities<NpcCharacter>().Single();
+        producers = manager.Entities<ItemDropProducer>();
+        FailIf(
+            !manager.ScreenTransitionActive ||
+            producers.Count != 4 ||
+            producers.Where((producer, index) =>
+                producer.Position != expectedProducerPositions[index]).Any() ||
+            producers.Any(producer =>
+                !producer.Initialized || producer.Visible) ||
+            manager.Entities<ItemDropEffect>().Count != 0 ||
+            !manager.OutgoingEntities<ItemDropProducer>()
+                .SequenceEqual(outgoingProducers) ||
+            outgoingProducers.Any(producer => producer.Initialized) ||
+            manager.RandomCalls != 512,
+            "Room 1:83 scrolling preload did not capture the four item-drop " +
+            "producer tiles invisibly in source state 0 while freezing the " +
+            "outgoing entities.");
+        manager.FinishScreenTransition();
+        FailIf(
+            manager.ScreenTransitionActive ||
+            manager.OutgoingEntities<ItemDropProducer>().Count != 0 ||
+            producers.Any(producer => !producer.Initialized || producer.Visible),
+            "Room 1:83 item-drop producers did not remain initialized and " +
+            "hidden when scrolling completed.");
+
         FailIf(
             man.ObjectCollisionBounds.Size != new Vector2(12.0f, 12.0f) ||
             man.ObjectCollisionBounds.GetCenter() != man.Position ||
@@ -170,7 +200,7 @@ public sealed partial class ValidationRoot
         FailIf(
             man.CurrentAnimationFrame != 0 ||
             man.CurrentAnimationPixelHash != initialFrameHash ||
-            manager.RandomCalls != 256,
+            manager.RandomCalls != 512,
             "Room 1:83's two-pose animation $02 did not loop after 32 " +
             "updates or consumed room RNG.");
 
@@ -282,7 +312,7 @@ public sealed partial class ValidationRoot
             man.Position != new Vector2(0x4e, 0x38) ||
             man.BaseRecord.TextId != 0x2606 ||
             manager.Entities<ItemDropProducer>().Count != 4 ||
-            manager.RandomCalls != 512,
+            manager.RandomCalls != 768,
             "Room 1:83 post-palace re-entry did not retain its suppressed " +
             "NPC record, four producers, and one room-parse RNG buffer.");
 
@@ -293,6 +323,6 @@ public sealed partial class ValidationRoot
             "Validated room 1:83 misc man $41:$00 placement, TX_2606, " +
             "Link-facing animation $02, collision/talkability, textbox " +
             "freeze, palace/endgame suppression, and four ordered tile-change " +
-            "item drops.");
+            "item drops with hidden scrolling preload.");
     }
 }

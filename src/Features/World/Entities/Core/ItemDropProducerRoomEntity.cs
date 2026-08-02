@@ -8,7 +8,8 @@ internal sealed class ItemDropProducerRoomEntity(
     ItemDropProducer producer,
     int killableEnemyIndex)
     : RoomEntityAdapter<ItemDropProducer>(producer, static _ => { }),
-        IFixedRoomEntity, IRoomEntityLifetime, IRoomEnemyOutcomeSource
+        IFixedRoomEntity, IRoomEntityLifetime, IRoomEnemyOutcomeSource,
+        IScreenTransitionPreloadRoomEntity
 {
     private bool _outcomeTaken;
 
@@ -17,6 +18,10 @@ internal sealed class ItemDropProducerRoomEntity(
     public void UpdateFrame(
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns) => Entity.UpdateFrame(spawns);
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(
+        ICollection<RoomEntitySpawn> spawns) =>
+        Entity.PrepareForScreenTransition();
 
     public bool TryTakeEnemyOutcome(out RoomEnemyOutcome outcome)
     {

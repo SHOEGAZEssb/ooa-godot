@@ -41,8 +41,7 @@ public partial class ItemDropProducer : Node2D
             return;
         if (!Initialized)
         {
-            _initialTile = _room.GetMetatile(Position);
-            Initialized = true;
+            CaptureInitialTile();
             return;
         }
         if (_room.GetMetatile(Position) == _initialTile)
@@ -55,5 +54,18 @@ public partial class ItemDropProducer : Node2D
             SpawnedDrop = true;
         }
         Finished = true;
+    }
+
+    internal ScreenTransitionPresentation PrepareForScreenTransition()
+    {
+        if (!Initialized)
+            CaptureInitialTile();
+        return ScreenTransitionPresentation.Hidden;
+    }
+
+    private void CaptureInitialTile()
+    {
+        _initialTile = _room.GetMetatile(Position);
+        Initialized = true;
     }
 }
