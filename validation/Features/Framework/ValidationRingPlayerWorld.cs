@@ -103,6 +103,9 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     {
     }
 
+    public void DeactivateWarpAtPlayerPosition(Player player)
+    {
+    }
     public bool CheckTileWarp(Player player) => false;
     public void CheckRoomExit(Player player)
     {

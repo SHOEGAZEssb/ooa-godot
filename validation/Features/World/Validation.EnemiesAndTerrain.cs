@@ -4834,13 +4834,221 @@ public sealed partial class ValidationRoot
             _sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall) != fallSoundRequests + 1,
             "Hole respawn replayed SND_LINK_FALL $65.");
 
+        ValidateLargeRoomHoleCameraRecovery();
+        ValidateRoom5b3HoleRespawnWarpDeactivation();
         ValidateRoom01HoleBoundaryCase();
         ValidateLedgeJumping();
 
         ValidateRoom56TileEdgeSlide();
 
-        GD.Print("Validated terrain hazards, hole fall/respawn, exact ledge jumps, and original tile-edge sliding.");
+        GD.Print("Validated terrain hazards, hole fall/respawn with one-pixel " +
+            "large-room camera recovery and warp-tile deactivation, exact " +
+            "ledge jumps, and original tile-edge sliding.");
     }
+
+    private void ValidateLargeRoomHoleCameraRecovery()
+    {
+        FailIf(
+            !TryFindLargeRoomHoleCameraSample(
+                out int group,
+                out int room,
+                out Vector2 holeCenter,
+                out Vector2 safePosition),
+            "No top-down large room had an ordinary hole and safe position " +
+            "with distinct camera targets.");
+
+        LoadValidationRoom(group, room);
+        OracleRoomData data = _currentRoom;
+        _player.WarpTo(safePosition);
+        _player.WarpTo(holeCenter, recordSafe: false);
+        _transitions.ResetCamera();
+
+        Vector2 holeOrigin = CameraOrigin();
+        Vector2 safeOrigin = ExpectedCameraOrigin(data, safePosition);
+        int expectedRecoveryUpdates = Mathf.Max(
+            Mathf.Abs(Mathf.RoundToInt(safeOrigin.X - holeOrigin.X)),
+            Mathf.Abs(Mathf.RoundToInt(safeOrigin.Y - holeOrigin.Y)));
+        FailIf(
+            expectedRecoveryUpdates < 2,
+            $"Large-room hole camera setup {group:x1}:{room:x2} did not " +
+            $"separate its origins (hole={holeOrigin}, safe={safeOrigin}).");
+
+        _player.TriggerHazard(GetActiveTerrain(_player.Position));
+        for (int update = 0;
+            update < 120 && !_player.IsFallingInHole;
+            update++)
+        {
+            _player._PhysicsProcess(1.0 / 60.0);
+            _transitions.UpdateCamera();
+        }
+        FailIf(
+            !_player.IsFallingInHole || CameraOrigin() != holeOrigin,
+            $"Large-room hole {group:x1}:{room:x2}/" +
+            $"${data.GetPackedPosition(holeCenter):x2} did not begin its " +
+            "fall with a stable camera origin.");
+
+        int fallUpdates = 0;
+        while (_player.Position != safePosition && fallUpdates < 80)
+        {
+            _player._PhysicsProcess(1.0 / 60.0);
+            _transitions.UpdateCamera();
+            fallUpdates++;
+        }
+
+        Vector2 firstRecoveryOrigin = CameraOrigin();
+        Vector2 expectedFirstOrigin = new(
+            holeOrigin.X + Math.Sign(safeOrigin.X - holeOrigin.X),
+            holeOrigin.Y + Math.Sign(safeOrigin.Y - holeOrigin.Y));
+        FailIf(
+            !_player.IsFallingInHole ||
+            _player.Visible ||
+            _player.Position != safePosition ||
+            firstRecoveryOrigin != expectedFirstOrigin ||
+            firstRecoveryOrigin == safeOrigin,
+            $"Large-room hole {group:x1}:{room:x2}/" +
+            $"${data.GetPackedPosition(holeCenter):x2} did not move the " +
+            "camera exactly one pixel toward invisible Link when the local " +
+            "respawn coordinates were restored " +
+            $"(hole={holeOrigin}, first={firstRecoveryOrigin}, target={safeOrigin}).");
+
+        int recoveryUpdates = 1;
+        while (_player.IsFallingInHole && recoveryUpdates < 80)
+        {
+            _player._PhysicsProcess(1.0 / 60.0);
+            _transitions.UpdateCamera();
+            recoveryUpdates++;
+        }
+        FailIf(
+            _player.IsFallingInHole || !_player.Visible,
+            $"Large-room hole {group:x1}:{room:x2}/" +
+            $"${data.GetPackedPosition(holeCenter):x2} did not finish its " +
+            "two-update invisible respawn wait.");
+
+        while (CameraOrigin() != safeOrigin &&
+            recoveryUpdates <= expectedRecoveryUpdates)
+        {
+            _transitions.UpdateCamera();
+            recoveryUpdates++;
+        }
+        FailIf(
+            CameraOrigin() != safeOrigin ||
+            recoveryUpdates != expectedRecoveryUpdates,
+            $"Large-room hole {group:x1}:{room:x2}/" +
+            $"${data.GetPackedPosition(holeCenter):x2} camera recovery took " +
+            $"{recoveryUpdates} updates; expected {expectedRecoveryUpdates}.");
+    }
+
+    private void ValidateRoom5b3HoleRespawnWarpDeactivation()
+    {
+        const int group = 5;
+        const int room = 0xb3;
+        const int stairPosition = 0x17;
+        Vector2 stair = new(
+            (stairPosition & 0x0f) * OracleRoomData.MetatileSize + 8,
+            (stairPosition >> 4) * OracleRoomData.MetatileSize + 8);
+
+        LoadValidationRoom(group, room);
+        var warps = new WarpDatabase();
+        byte stairTile = _currentRoom.GetMetatile(stair);
+        FailIf(
+            !warps.TryGetTileWarp(
+                group, room, stairPosition, stairTile, out Warp stairWarp) ||
+            stairWarp.SourcePosition != -1 ||
+            stairWarp.SourceTransition != 4 ||
+            stairWarp.DestinationGroup != 1 ||
+            stairWarp.DestinationRoom != 0x72 ||
+            stairWarp.DestinationPosition != 0x14 ||
+            stairWarp.DestinationTransition != 1,
+            $"Room 5:b3/${stairPosition:x2} did not retain its wildcard " +
+            $"stair warp to 1:72/$14 (tile=${stairTile:x2}).");
+
+        Vector2 hole = Vector2.Zero;
+        Vector2 offWarp = Vector2.Zero;
+        bool foundHole = false;
+        bool foundOffWarp = false;
+        for (int tileY = 0; tileY < _currentRoom.HeightInTiles; tileY++)
+        for (int tileX = 0; tileX < _currentRoom.WidthInTiles; tileX++)
+        {
+            Vector2 center = new(
+                tileX * OracleRoomData.MetatileSize + 8,
+                tileY * OracleRoomData.MetatileSize + 8);
+            TerrainInfo terrain = _currentRoom.GetTerrainInfo(center);
+            if (!foundHole &&
+                terrain.Type == TerrainType.Hole &&
+                terrain.Hazard == HazardType.Hole &&
+                !RoomCollides(_currentRoom, center))
+            {
+                hole = center;
+                foundHole = true;
+            }
+            if (!foundOffWarp &&
+                terrain.Hazard == HazardType.None &&
+                !RoomCollides(_currentRoom, center) &&
+                !WarpDatabase.IsWarpTile(group, _currentRoom.GetMetatile(center)))
+            {
+                offWarp = center;
+                foundOffWarp = true;
+            }
+        }
+        FailIf(
+            !foundHole || !foundOffWarp,
+            "Room 5:b3 did not contain both an ordinary hole and a safe " +
+            "non-warp tile for its local-respawn regression.");
+
+        _player.RefillHealth();
+        _player.WarpTo(stair);
+        _player.WarpTo(hole, recordSafe: false);
+        _player.TriggerHazard(GetActiveTerrain(_player.Position));
+        AdvanceHolePullUntilFall(hole);
+        AdvanceHoleFallUntilRespawn(stair);
+        FailIf(
+            _transitions.CheckTileWarp(_player) ||
+            _transitions.IsTransitioning ||
+            _activeGroup != group || _currentRoom.Id != room,
+            "Room 5:b3's hole respawn immediately reactivated the stair " +
+            "under Link instead of honoring wEnteredWarpPosition.");
+
+        _player.WarpTo(offWarp, recordSafe: false);
+        FailIf(
+            _transitions.CheckTileWarp(_player),
+            "Room 5:b3's safe non-warp tile unexpectedly activated a warp.");
+        _player.WarpTo(stair, recordSafe: false);
+        FailIf(
+            !_transitions.CheckTileWarp(_player),
+            "Room 5:b3's stair remained inactive after Link left its tile.");
+        for (int update = 0;
+            update < 180 && _transitions.IsTransitioning;
+            update++)
+        {
+            _transitions.Update(1.0 / 60.0);
+        }
+        FailIf(
+            _transitions.IsTransitioning ||
+            _activeGroup != 1 || _currentRoom.Id != 0x72,
+            "Room 5:b3's re-enabled stair did not complete its imported " +
+            "warp to room 1:72.");
+    }
+
+    private Vector2 CameraOrigin() =>
+        -_transitions.WorldToGameplayScreen(Vector2.Zero);
+
+    private static Vector2 ExpectedCameraOrigin(
+        OracleRoomData room,
+        Vector2 focusPosition) => new(
+            Mathf.Clamp(
+                Mathf.Floor(focusPosition.X) -
+                    OracleRoomData.ViewportWidth / 2.0f,
+                0.0f,
+                Mathf.Max(
+                    0.0f,
+                    room.Width - OracleRoomData.ViewportWidth)),
+            Mathf.Clamp(
+                Mathf.Floor(focusPosition.Y) -
+                    OracleRoomData.ViewportHeight / 2.0f,
+                0.0f,
+                Mathf.Max(
+                    0.0f,
+                    room.Height - OracleRoomData.ViewportHeight)));
 
     private void ValidateDrowningSequence(
         Vector2 safePosition,
@@ -4908,8 +5116,10 @@ public sealed partial class ValidationRoot
             $"{terrainName} moved or hid Link before the 22-update drowning animation finished.");
         _player._PhysicsProcess(1.0 / 60.0);
         FailIf(
-            _player.Visible || !_player.IsDrowning,
-            $"{terrainName} did not hide Link after the 22-update drowning animation.");
+            _player.Visible || !_player.IsDrowning ||
+            _player.Position.DistanceSquaredTo(safePosition) > 1.0f,
+            $"{terrainName} did not restore the local respawn coordinates " +
+            "and hide Link after the 22-update drowning animation.");
         FailIf(
             _player.HealthQuarters != healthBeforeDrowning,
             $"{terrainName} damage was applied before the two-update respawn delay.");
@@ -5440,6 +5650,74 @@ public sealed partial class ValidationRoot
         group = -1;
         room = -1;
         hazardCenter = Vector2.Zero;
+        safePosition = Vector2.Zero;
+        return false;
+    }
+
+    private bool TryFindLargeRoomHoleCameraSample(
+        out int group,
+        out int room,
+        out Vector2 holeCenter,
+        out Vector2 safePosition)
+    {
+        for (int candidateGroup = 4; candidateGroup <= 5; candidateGroup++)
+        for (int candidateRoom = 0; candidateRoom <= 0xff; candidateRoom++)
+        {
+            if (!_world.HasRoom(candidateGroup, candidateRoom))
+                continue;
+
+            OracleRoomData data =
+                _world.LoadRoom(candidateGroup, candidateRoom);
+            if ((data.TilesetFlags & 0x20) != 0)
+                continue;
+
+            var holes = new List<Vector2>();
+            var safePositions = new List<Vector2>();
+            for (int tileY = 0; tileY < data.HeightInTiles; tileY++)
+            for (int tileX = 0; tileX < data.WidthInTiles; tileX++)
+            {
+                Vector2 center = new(
+                    tileX * OracleRoomData.MetatileSize + 8,
+                    tileY * OracleRoomData.MetatileSize + 8);
+                TerrainInfo terrain = data.GetTerrainInfo(center);
+                if (terrain.Type == TerrainType.Hole &&
+                    terrain.Hazard == HazardType.Hole &&
+                    !RoomCollides(data, center))
+                {
+                    holes.Add(center);
+                }
+                else if (terrain.Hazard == HazardType.None &&
+                    !RoomCollides(data, center))
+                {
+                    safePositions.Add(center);
+                }
+            }
+
+            foreach (Vector2 candidateHole in holes)
+            foreach (Vector2 candidateSafe in safePositions)
+            {
+                Vector2 holeOrigin =
+                    ExpectedCameraOrigin(data, candidateHole);
+                Vector2 safeOrigin =
+                    ExpectedCameraOrigin(data, candidateSafe);
+                if (Mathf.Max(
+                        Mathf.Abs(safeOrigin.X - holeOrigin.X),
+                        Mathf.Abs(safeOrigin.Y - holeOrigin.Y)) < 16.0f)
+                {
+                    continue;
+                }
+
+                group = candidateGroup;
+                room = candidateRoom;
+                holeCenter = candidateHole;
+                safePosition = candidateSafe;
+                return true;
+            }
+        }
+
+        group = -1;
+        room = -1;
+        holeCenter = Vector2.Zero;
         safePosition = Vector2.Zero;
         return false;
     }

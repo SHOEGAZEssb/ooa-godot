@@ -4435,6 +4435,7 @@ public partial class Player : Node2D
             _drownTime = DrownAnimationDuration;
             _drownRespawning = true;
             _drownInvisibleTime = DrownInvisibleDuration;
+            MoveToLocalHazardRespawn();
             Visible = false;
             QueueRedraw();
         }
@@ -4492,6 +4493,7 @@ public partial class Player : Node2D
                 }
                 _fallInHoleRespawning = true;
                 _fallInHoleInvisibleTime = FallInHoleInvisibleDuration;
+                MoveToLocalHazardRespawn();
                 Visible = false;
             }
             QueueRedraw();
@@ -4512,6 +4514,16 @@ public partial class Player : Node2D
         CancelSwordAttack();
         CancelShovelAction();
         QueueRedraw();
+    }
+
+    private void MoveToLocalHazardRespawn()
+    {
+        // specialObjectSetCoordinatesToRespawnYX moves Link before substate 2's
+        // two-update invisible wait. The following wEnteredWarpPosition write
+        // suppresses any warp tile under the saved local anchor.
+        _precisePosition = _lastSafePosition;
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        _world.DeactivateWarpAtPlayerPosition(this);
     }
 
     private int GetFallInHoleFrame()

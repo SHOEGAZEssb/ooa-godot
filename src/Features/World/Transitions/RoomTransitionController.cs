@@ -166,7 +166,12 @@ public sealed class RoomTransitionController
         UpdateWarp(delta);
         UpdateScroll(delta);
         UpdateContinuingTimeWarpEffects();
-        UpdateCamera();
+        // updateAllObjects calls updateCamera once after Link and the other
+        // objects. Ordinary gameplay receives that sample from GameRoot's
+        // post-object pass; active warps do not reach that pass, so retain the
+        // same single sample here while their Link state is moving.
+        if (_warpActive)
+            UpdateCamera();
     }
 
     public bool CheckTileWarp(Player player)
@@ -175,14 +180,21 @@ public sealed class RoomTransitionController
         Vector2 linkPosition = OracleObjectMath.ToPixelPosition(player.Position);
         Vector2 standingPoint = linkPosition + new Vector2(0, 4);
         int position = room.GetPackedPosition(standingPoint);
+        byte tile = room.GetMetatile(standingPoint);
         if (_deactivatedWarpGroup == _rooms.ActiveGroup &&
-            _deactivatedWarpRoom == room.Id && _deactivatedWarpPosition == position)
-            return false;
+            _deactivatedWarpRoom == room.Id)
+        {
+            if (_deactivatedWarpPosition == position ||
+                (_deactivatedWarpPosition - 1 == position &&
+                    WarpDatabase.IsWarpTile(_rooms.ActiveGroup, tile)))
+            {
+                return false;
+            }
+        }
 
         if (_deactivatedWarpGroup >= 0)
             ClearDeactivatedWarp();
 
-        byte tile = room.GetMetatile(standingPoint);
         bool dungeonStairFallback = false;
         if (!_warps.TryGetTileWarp(
                 _rooms.ActiveGroup, room.Id, position, tile, out Warp warp))
@@ -200,6 +212,21 @@ public sealed class RoomTransitionController
             _sound.PlaySound(OracleSoundEngine.SndEnterCave);
         ApplyWarp(player, warp);
         return true;
+    }
+
+    /// <summary>
+    /// Mirrors wEnteredWarpPosition. Hazard respawns write Link's object
+    /// position before the invisible delay so a safe anchor on a stair or
+    /// doorway cannot immediately initiate another warp.
+    /// </summary>
+    public void DeactivateWarpAtPlayerPosition(Player player)
+    {
+        OracleRoomData room = _rooms.CurrentRoom;
+        Vector2 linkPosition =
+            OracleObjectMath.ToPixelPosition(player.Position);
+        _deactivatedWarpGroup = _rooms.ActiveGroup;
+        _deactivatedWarpRoom = room.Id;
+        _deactivatedWarpPosition = room.GetPackedPosition(linkPosition);
     }
 
     /// <summary>
@@ -557,7 +584,7 @@ public sealed class RoomTransitionController
         ScrollingTransitionFinished?.Invoke(_scrollDirection);
         _entities.FinishScreenTransition();
         _scrollPlayerOwner = null;
-        UpdateCamera();
+        ResetCamera();
     }
 
     public void ApplyWarp(Player player, Warp warp)
@@ -1115,7 +1142,7 @@ public sealed class RoomTransitionController
                 : WarpPhase.FadeIn;
         }
         _warpFrame = 0.0f;
-        UpdateCamera();
+        ResetCamera();
         _hud.Refresh();
     }
 
@@ -1307,9 +1334,47 @@ void fragment() {
         Vector2 focusPosition =
             _entities.PlayerScreenTransitionOwner?.ScreenTransitionPosition ??
             _player.Position;
-        Vector2 origin = GetCameraOrigin(
+        Vector2 target = GetCameraOrigin(
             _rooms.CurrentRoom, focusPosition);
+        if (_rooms.CurrentRoom.Width <= OracleRoomData.ViewportWidth &&
+            _rooms.CurrentRoom.Height <= OracleRoomData.ViewportHeight)
+        {
+            SetCameraOrigin(target);
+            return;
+        }
+        // updateCameraPosition leaves both components unchanged while a
+        // textbox is active. Camera catch-up resumes when it closes.
+        if (_dialogue.IsOpen)
+            return;
+
+        Vector2 current = CurrentCameraOrigin;
+        SetCameraOrigin(new Vector2(
+            MoveCameraComponent(current.X, target.X),
+            MoveCameraComponent(current.Y, target.Y)));
+    }
+
+    /// <summary>
+    /// Mirrors calculateCameraPosition, used only at room-load boundaries
+    /// where the original places hCameraY/X at their targets immediately.
+    /// </summary>
+    public void ResetCamera()
+    {
+        Vector2 focusPosition =
+            _entities.PlayerScreenTransitionOwner?.ScreenTransitionPosition ??
+            _player.Position;
+        SetCameraOrigin(GetCameraOrigin(_rooms.CurrentRoom, focusPosition));
+    }
+
+    private void SetCameraOrigin(Vector2 origin) =>
         _camera.Position = origin + GameplayCameraOffset;
+
+    private static float MoveCameraComponent(float current, float target)
+    {
+        int currentPixel = Mathf.FloorToInt(current);
+        int targetPixel = Mathf.FloorToInt(target);
+        return currentPixel == targetPixel
+            ? targetPixel
+            : currentPixel + Math.Sign(targetPixel - currentPixel);
     }
 
     /// <summary>Returns physical 160x144 display coordinates below the HUD.</summary>
@@ -1335,9 +1400,10 @@ void fragment() {
     {
         float maxX = Mathf.Max(0.0f, room.Width - OracleRoomData.ViewportWidth);
         float maxY = Mathf.Max(0.0f, room.Height - OracleRoomData.ViewportHeight);
+        Vector2 highBytes = OracleObjectMath.ToPixelPosition(playerPosition);
         return new Vector2(
-            Mathf.Clamp(playerPosition.X - OracleRoomData.ViewportWidth / 2.0f, 0.0f, maxX),
-            Mathf.Clamp(playerPosition.Y - OracleRoomData.ViewportHeight / 2.0f, 0.0f, maxY));
+            Mathf.Clamp(highBytes.X - OracleRoomData.ViewportWidth / 2.0f, 0.0f, maxX),
+            Mathf.Clamp(highBytes.Y - OracleRoomData.ViewportHeight / 2.0f, 0.0f, maxY));
     }
 
     private void SetFade(float alpha) =>

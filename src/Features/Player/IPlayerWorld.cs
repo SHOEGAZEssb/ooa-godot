@@ -68,6 +68,7 @@ public interface IPlayerWorld
     void BeginFallDownHoleWarp(Player player, int packedPosition) =>
         throw new NotSupportedException(
             "This player world does not support dungeon warphole descents.");
+    void DeactivateWarpAtPlayerPosition(Player player);
     bool CheckTileWarp(Player player);
     void CheckRoomExit(Player player);
 }

@@ -399,7 +399,7 @@ public partial class GameRoot : Node2D
         }
         _inventory.Changed += SyncHudToInventory;
         SyncHudToInventory();
-        _transitions.UpdateCamera();
+        _transitions.ResetCamera();
         ApplyRoomMusic(_rooms.ActiveGroup, _rooms.CurrentRoom);
     }
 
@@ -1153,7 +1153,7 @@ public partial class GameRoot : Node2D
         _roomView.SetRoom(loaded.Texture);
         _entities.LoadRoom(_rooms.ActiveGroup, loaded);
         _hud.Refresh();
-        _transitions.UpdateCamera();
+        _transitions.ResetCamera();
     }
 
     private void FastTravelFromMap(int group, int room)
@@ -1161,11 +1161,12 @@ public partial class GameRoot : Node2D
         LoadDebugRoom(group, room);
         _player.WarpTo(FindSpawn());
         _player.Face(Vector2I.Down);
+        _transitions.ResetCamera();
     }
 
     internal void ClearDeactivatedWarp() => _transitions.ClearDeactivatedWarp();
     internal void RefreshRoomObjects() => _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom);
-    internal void UpdateRoomCamera() => _transitions.UpdateCamera();
+    internal void UpdateRoomCamera() => _transitions.ResetCamera();
     internal Vector2 WorldToScreen(Vector2 position) => _transitions.WorldToScreen(position);
     internal void UpdateRoomWarpTransition(double delta)
     {

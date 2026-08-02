@@ -515,7 +515,7 @@ internal sealed class FairiesWoodsEvent :
         _context.RoomView.SetRoom(loaded.Texture);
         _context.Entities.LoadCutsceneRoom(
             _record.Group, loaded, includeTimePortals: false);
-        _context.Transitions.UpdateCamera();
+        _context.Transitions.ResetCamera();
         SetFadeAlpha(1.0f);
     }
 

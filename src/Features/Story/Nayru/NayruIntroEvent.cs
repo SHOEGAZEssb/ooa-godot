@@ -1836,7 +1836,7 @@ internal sealed class NayruIntroEvent :
         _nayruRoom = loaded;
         _roomView.SetRoom(loaded.Texture);
         _entities.LoadCutsceneRoom(group, loaded, includeTimePortals);
-        _transitions.UpdateCamera();
+        _transitions.ResetCamera();
     }
 
     private void RestoreAftermathImpa()

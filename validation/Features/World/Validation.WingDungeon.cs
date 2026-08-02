@@ -1332,7 +1332,10 @@ public sealed partial class ValidationRoot
             !sawDestinationShutterReopening ||
             !sawReturnShutterClosing ||
             !sawReturnShutterClosed ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 8,
+            // doorController calls objectCheckWithinScreenBoundary before
+            // updateAllObjects performs its one-pixel camera update. Two of
+            // this loop's interleave boundaries are therefore offscreen.
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 6,
             "Minecart shutters did not perform the source two-stage audible " +
             "open/close lifecycle around the complete room loop " +
             $"(sourceOpen={sawSourceShutterOpening}, " +
@@ -1775,9 +1778,12 @@ public sealed partial class ValidationRoot
                 Fraction(movingPlatform.PrecisePosition.Y),
             "Mounting a D2 side platform did not copy both source low " +
             "coordinate bytes to Link.");
+        // The local Step helper advances only room entities, so establish the
+        // camera state that the preceding full application updates would
+        // already have reached before auditing the post-object sample.
+        _transitions.ResetCamera();
         for (int frame = 0; frame < 12; frame++)
         {
-            _transitions.UpdateCamera();
             Vector2 screenBeforePlatformUpdate =
                 WorldToScreen(_player.Position);
             Step();

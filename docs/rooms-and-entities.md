@@ -16,6 +16,11 @@ Gameplay positions remain original room/world coordinates. Camera and
 transition offsets are presentation. Preserve byte and 8.8 fractional state
 through movement and transitions where the source does.
 
+The ordinary large-room camera moves each origin component by one high-byte
+pixel per original update toward its clamped focus target. Textboxes hold that
+position. Only traced room-load/reset paths place the camera at its target
+immediately.
+
 ## Room lifetime and transitions
 
 `RoomTransitionController` owns scrolls, warps, camera, destination placement,
@@ -43,8 +48,9 @@ rows or dungeon-layout neighbors as appropriate. Preserve the source order of
 hazard, object, and boundary checks around a transition.
 
 Ordinary warp destinations place Link at the exact center encoded by the
-imported packed position. If that position is itself a warp tile, deactivate
-that tile until Link leaves it; do not move him to an adjacent metatile.
+imported packed position. Warp arrivals and local hazard respawns record that
+position as inactive until Link leaves it, so an anchor on a stair or doorway
+cannot immediately warp him again; do not move him to an adjacent metatile.
 
 ## Ordered room objects and RNG
 

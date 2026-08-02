@@ -788,7 +788,7 @@ internal sealed class DekuForestPalaceEvent :
         _context.RoomView.SetRoom(loaded.Texture);
         _context.Entities.LoadCutsceneRoom(
             _record.Group, loaded, includeTimePortals: false);
-        _context.Transitions.UpdateCamera();
+        _context.Transitions.ResetCamera();
         RestoreFade();
         _textboxFlags = 0;
 
