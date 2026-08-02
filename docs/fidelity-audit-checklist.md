@@ -320,8 +320,8 @@ implemented, and covered.
 ## NPCs, shops, minigames, and room interactions
 
 - [x] The typed NPC database classifies all 388 positioned/state-derived rows:
-  91 implemented, 36 partial, and 261 deliberately unsupported. The manifest
-  contains 54 ordinary, 61 specialized, 14 event-owned, and 259 deliberately
+  92 implemented, 36 partial, and 260 deliberately unsupported. The manifest
+  contains 54 ordinary, 62 specialized, 14 event-owned, and 258 deliberately
   unsupported rows. The 72 conditional Bipin/Blossom family variants bring the
   typed total to 460.
 - [x] Implemented ordinary NPC routing, source positions/facing/collision/OAM,
@@ -332,12 +332,12 @@ implemented, and covered.
   Mask Salesman, depressed-boy Funny Joke trade, Troy, Shooting Gallery,
   Hardhat shovel trade, Lynna shop,
   Business Scrub, Vasu/ring shop, lower Black Tower workers/soldiers, linked
-  Graveyard Ghini, Cheval/Rafton, Maple, and representative
+  Graveyard Ghini, Cheval/post-Cheval Ralph/Rafton, Maple, and representative
   Bipin/Blossom/child states.
 - [ ] **P1 DECLARED - complete all 36 partial positioned/state-derived records
   and all 72 partial family variants.** See the exact room rows and boundaries
   in [NPC interaction coverage](npc-interaction-coverage.md).
-- [ ] **P1 DECLARED - implement the 261 deliberately unsupported positioned/
+- [ ] **P1 DECLARED - implement the 260 deliberately unsupported positioned/
   state-derived rows.** Highest-value clusters are Tokay; Gorons and Elders;
   Zora, King Zora, Old Zora, and Jabu child; remaining soldiers; Symmetry City;
   carpenters; Mamamu/dog; Tingle; Bomb Upgrade Fairy; Syrup;

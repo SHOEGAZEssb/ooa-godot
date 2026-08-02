@@ -51,9 +51,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 91 | Traced and covered by the current named NPC/event scenarios. |
+| **I** | 92 | Traced and covered by the current named NPC/event scenarios. |
 | **P** | 36 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
-| **D** | 261 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 260 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **388** | **211 rooms and 294 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -63,10 +63,10 @@ family remains **P** until its progression ownership and all per-variant
 behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
-The implementation manifest therefore contains 54 ordinary, 61 specialized,
-14 event-owned, and 259 deliberately unsupported positioned/state-derived
+The implementation manifest therefore contains 54 ordinary, 62 specialized,
+14 event-owned, and 258 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 460
-classified records and 133 specialized rows.
+classified records and 134 specialized rows.
 
 ### Important partial and deferred boundaries
 
@@ -85,6 +85,10 @@ classified records and 133 specialized rows.
 - Room `2:0f` implements Cheval's complete native loop: asymmetric `$0c/$06`
   collision, Cheval Rope-dependent `TX_270c`/`TX_270d`, source `TX_270b` call
   expansion, and the post-dialogue `GLOBALFLAG_TALKED_TO_CHEVAL` side effect.
+- Room `1:79` implements Ralph's exact post-Cheval house-exit event: flag `$43`
+  and warp-destination `$17` predicate, Link-facing helper, three source speeds,
+  substate-$01 flickering dust, `TX_2a20`, music/input restoration, and persistent
+  room flag `$40` suppression.
 - Placed Forest Fairy `$49:$05-$10` phases are **D** and safely suppressed.
   The implemented Fairies' Woods hide-and-seek uses event-created `$49:$00`
   actors instead.
@@ -196,7 +200,7 @@ well as record selection.
 | `1:74` | [I] `$45:$00/v$00` pastOldLady |
 | `1:75` | [I] `$37:$0a/v$00` ralph<br>[I] `$31:$04/v$00` impaInCutscene<br>[I] `$31:$05/v$00` impaInCutscene<br>[I] `$36:$0a/v$00` nayru<br>[I] `$ad:$04/v$00` zelda<br>[I] `$58:$01/v$00` hardhatWorker<br>[I] `$58:$01/v$01` hardhatWorker |
 | `1:77` | [P] `$45:$01/v$00` pastOldLady |
-| `1:79` | [D] `$37:$10/v$00` ralph |
+| `1:79` | [I] `$37:$10/v$00` ralph |
 | `1:81` | [I] `$ce:$03/v$00` businessScrub |
 | `1:82` | [I] `$44:$00/v$00` miscMan2<br>[I] `$3f:$00/v$00` boy2 |
 | `1:83` | [I] `$41:$00/v$00` miscMan |

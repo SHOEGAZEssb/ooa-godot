@@ -657,6 +657,7 @@ foreach ($key in @(
     '1:49:3c:0e:00',
     '1:49:3a:0c:00',
     '1:49:43:06:00',
+    '1:79:37:10:00',
     '1:81:ce:03:00',
     '1:84:4b:06:00',
     '2:0e:3c:0d:00',
@@ -737,7 +738,7 @@ foreach ($key in @(
 }
 
 if ($ordinaryNpcImplementationKeys.Count -ne 53 -or
-    $specializedNpcImplementationKeys.Count -ne 59 -or
+    $specializedNpcImplementationKeys.Count -ne 60 -or
     $eventOwnedNpcImplementationKeys.Count -ne 14) {
     throw 'NPC implementation registry key counts changed.'
 }
@@ -2932,9 +2933,9 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
         1 + [int]$npcImplementationCounts[$implementation]
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 54 -or
-    $npcImplementationCounts['specialized-native'] -ne 61 -or
+    $npcImplementationCounts['specialized-native'] -ne 62 -or
     $npcImplementationCounts['event-owned'] -ne 14 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 259 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 258 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }

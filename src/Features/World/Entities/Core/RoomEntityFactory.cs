@@ -63,6 +63,7 @@ internal sealed class RoomEntityFactory(
     private readonly ComedianEventDatabase _comedian = new();
     private readonly MaskSalesmanEventDatabase _maskSalesman = new();
     private readonly ChevalEventDatabase _cheval = new();
+    private readonly RalphAfterChevalEventDatabase _ralphAfterCheval = new();
     private readonly RaftonEventDatabase _rafton = new();
     private readonly DepressedBoyEventDatabase _depressedBoy = new();
     private readonly ToiletHandEventDatabase _toiletHand = new();
@@ -1780,6 +1781,16 @@ internal sealed class RoomEntityFactory(
             cheval.InitializeCheval(record, _cheval.Record);
             return new ChevalRoomEntity(cheval, _cheval.Record);
         }
+        if (_ralphAfterCheval.Matches(record))
+        {
+            var ralph = new RalphAfterChevalCharacter
+            {
+                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+                ZIndex = NpcCharacter.BehindLinkZIndex
+            };
+            ralph.InitializeRalph(record, _ralphAfterCheval.Record);
+            return new RalphAfterChevalRoomEntity(ralph);
+        }
         if (_rafton.Matches(record))
         {
             var rafton = new RaftonCharacter
@@ -2611,7 +2622,12 @@ internal sealed class RoomEntityFactory(
             Name = "PuzzlePuff",
             ZIndex = 10
         };
-        puff.Initialize(spawn.Position, spawn.Sound, soundRequested);
+        puff.Initialize(
+            spawn.Position,
+            spawn.Sound,
+            spawn.Flickers,
+            spawn.FlickerVisibleOnEvenUpdates,
+            soundRequested);
         return new DialogueFixedEffectRoomEntityAdapter<PuzzlePuffEffect>(
             puff);
     }
@@ -3181,7 +3197,11 @@ internal sealed record RockDebrisSpawn(
     int InteractionId = 0x06)
     : RoomEntitySpawn(UpdateThisFrame: true);
 
-internal sealed record PuzzlePuffSpawn(Vector2 Position, int Sound)
+internal sealed record PuzzlePuffSpawn(
+    Vector2 Position,
+    int Sound,
+    bool Flickers = false,
+    bool FlickerVisibleOnEvenUpdates = true)
     : RoomEntitySpawn(UpdateThisFrame: true);
 
 internal sealed record PumpkinHeadProjectileSpawn(Vector2 Position, int Angle)

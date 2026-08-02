@@ -5,9 +5,9 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// INTERAC_PUFF $05. State 0 initializes graphics and requests SND_POOF; later
-/// updates run animation 0 and delete one update after its terminal bit-$80
-/// animation parameter becomes active.
+/// INTERAC_PUFF $05. State 0 initializes graphics and conditionally requests
+/// its ID-table sound; later updates run animation 0 and delete one update
+/// after its terminal bit-$80 animation parameter becomes active.
 /// </summary>
 internal partial class PuzzlePuffEffect : FixedEffectNode2D
 {
@@ -22,14 +22,23 @@ internal partial class PuzzlePuffEffect : FixedEffectNode2D
 
     internal override bool Finished { get; private protected set; }
     internal int ElapsedUpdates { get; private set; }
+    internal bool Flickers { get; private set; }
+    internal bool FlickerVisibleOnEvenUpdates { get; private set; }
     internal int AnimationFrame => Math.Min(_animationFrame, _animation.Count - 1);
     internal int CurrentParameter => _animation[AnimationFrame].Parameter;
 
-    internal void Initialize(Vector2 position, int sound, Action<int>? playSound = null)
+    internal void Initialize(
+        Vector2 position,
+        int sound,
+        bool flickers = false,
+        bool flickerVisibleOnEvenUpdates = true,
+        Action<int>? playSound = null)
     {
         Position = position;
         _animation = _definition ??= LoadDefinition();
         _sound = sound;
+        Flickers = flickers;
+        FlickerVisibleOnEvenUpdates = flickerVisibleOnEvenUpdates;
         _playSound = playSound ?? (static _ => { });
         _animationFrame = 0;
         _animationCounter = _animation[0].Duration;
@@ -45,7 +54,8 @@ internal partial class PuzzlePuffEffect : FixedEffectNode2D
         if (!_initialized)
         {
             _initialized = true;
-            _playSound(_sound);
+            if (_sound != 0)
+                _playSound(_sound);
             return;
         }
 
@@ -55,6 +65,13 @@ internal partial class PuzzlePuffEffect : FixedEffectNode2D
             Visible = false;
             return;
         }
+
+        // Subid bit 0 uses (wFrameCounter XOR the interaction slot page) bit
+        // 0. The spawning owner supplies the slot-derived phase when it
+        // models the original interaction allocator.
+        if (Flickers)
+            Visible = ((ElapsedUpdates & 1) == 0) ==
+                FlickerVisibleOnEvenUpdates;
 
         _animationCounter--;
         if (_animationCounter == 0)

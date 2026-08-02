@@ -104,6 +104,8 @@ public sealed class RoomTransitionController
     public float ScrollDistance => _scrollDistance;
     public int ScrollFrames => _scrollFrames;
     internal int ScreenTransitionDelay => _screenTransitionDelay;
+    internal int ActiveWarpDestinationPosition =>
+        _warpActive ? _pendingWarp.DestinationPosition : -1;
     internal Func<bool> ScreenTransitionsDisabledSource { get; set; } =
         static () => false;
     internal bool TimeWarpActive => _timeWarp && _warpActive;
