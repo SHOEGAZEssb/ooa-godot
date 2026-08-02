@@ -578,21 +578,32 @@ public sealed partial class ValidationRoot
                 $"actual={player.PrecisePosition}.");
 
             player.SetScriptedPosition(new Vector2(40.0f, 96.0f));
-            player.AdvanceTopDownAirUpdateForValidation(startJump: true);
-            Vector2 airborneStart = player.PrecisePosition;
-            Input.ActionPress("move_up");
-            Input.ActionPress("move_right");
-            player._PhysicsProcess(updateDelta);
-            Input.ActionRelease("move_up");
-            Input.ActionRelease("move_right");
-            Vector2 expectedAirborne = airborneStart + new Vector2(
+            Vector2 jumpStart = player.PrecisePosition;
+            player.AdvanceTopDownAirUpdateForValidation(
+                startJump: true,
+                movementInput: new Vector2(1.0f, -1.0f));
+            Vector2 expectedAirborne = jumpStart + new Vector2(
                 Speed100DiagonalComponent,
                 -Speed100DiagonalComponent);
             FailIf(
                 !player.TopDownAirborne ||
                 player.PrecisePosition != expectedAirborne,
-                "Top-down airborne Link did not use the ordinary angle $04 " +
-                "SPEED_100/$28 8.8 movement path; " +
+                "Top-down airborne Link did not snapshot the original angle " +
+                "$04 SPEED_100/$28 8.8 movement path; " +
+                $"expected={expectedAirborne}, " +
+                $"actual={player.PrecisePosition}.");
+
+            player.StartSwordAttack();
+            player.AdvanceTopDownAirUpdateForValidation(
+                movementInput: Vector2.Left);
+            expectedAirborne += new Vector2(
+                Speed100DiagonalComponent,
+                -Speed100DiagonalComponent);
+            FailIf(
+                player.SwordState != SwordActionState.Swing ||
+                player.PrecisePosition != expectedAirborne,
+                "Starting ITEM_SWORD after a top-down jump canceled or " +
+                "redirected Link's stored angle-$04 momentum; " +
                 $"expected={expectedAirborne}, " +
                 $"actual={player.PrecisePosition}.");
         }
@@ -607,7 +618,7 @@ public sealed partial class ValidationRoot
             "Validated ordinary top-down Link movement: retained 8.8 " +
             "SPEED_100 cardinal/diagonal and SPEED_0c0 grass paths, " +
             "per-axis collision masking/remainders, rendered high bytes, " +
-            "and the shared airborne caller.");
+            "and the source-owned airborne angle through sword use.");
 
         static ActiveTerrainInfo NormalMovementTerrain() => new(
             new TerrainInfo(0x00, 0x00, TerrainType.Normal, HazardType.None),
@@ -2216,6 +2227,51 @@ public sealed partial class ValidationRoot
         _player.AdvanceSwordForValidation(1, buttonHeld: false);
         FailIf(_player.IsAttacking, "Releasing an uncharged held sword did not clear the parent item.");
 
+        // ITEMCOLLISION_SWORD_HELD writes ordinary enemy contact into the
+        // weapon child's var2a. swordParent enters LINK_ANIM_MODE_1f with
+        // subid $00, disables the hitbox, and deletes itself after update 12
+        // even if the initiating button remains held.
+        var enemyContactWorld = new ValidationRingPlayerWorld();
+        var enemyContactPlayer = new Player
+        {
+            Name = "HeldSwordEnemyContactValidationPlayer"
+        };
+        AddChild(enemyContactPlayer);
+        enemyContactPlayer.Initialize(
+            enemyContactWorld,
+            _inventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+        enemyContactPlayer.Face(Vector2I.Up);
+        enemyContactPlayer.StartSwordAttack();
+        enemyContactPlayer.AdvanceSwordForValidation(
+            17, buttonHeld: true);
+        int swordHitCallsBeforeContact = enemyContactWorld.SwordHitCalls;
+        enemyContactWorld.AcceptSwordHits = true;
+        enemyContactPlayer.AdvanceSwordForValidation(
+            1, buttonHeld: true);
+        FailIf(
+            enemyContactPlayer.SwordState != SwordActionState.Poke ||
+            enemyContactPlayer.SwordStateFrame != 0 ||
+            enemyContactPlayer.GetSwordHitbox().Size != Vector2.Zero ||
+            enemyContactWorld.SwordHitCalls !=
+                swordHitCallsBeforeContact + 1,
+            "Accepted ITEMCOLLISION_SWORD_HELD enemy contact did not enter " +
+            "the collision-disabled LINK_ANIM_MODE_1f poke.");
+        enemyContactPlayer.AdvanceSwordForValidation(
+            11, buttonHeld: true);
+        FailIf(
+            enemyContactPlayer.SwordState != SwordActionState.Poke ||
+            enemyContactPlayer.SwordStateFrame != 11,
+            "The enemy-contact sword poke ended before update 12.");
+        enemyContactPlayer.AdvanceSwordForValidation(
+            1, buttonHeld: true);
+        FailIf(
+            enemyContactPlayer.IsAttacking,
+            "The enemy-contact sword poke returned to held instead of " +
+            "deleting the sword after update 12.");
+        enemyContactPlayer.Free();
+
         // Bombable wall tiles bypass the poke-only ordinary clink condition.
         _currentRoom.SetPositionTileAndCollision(
             bushPoint, 0xc1, null, (long)_animationTicks);
@@ -2293,7 +2349,7 @@ public sealed partial class ValidationRoot
             "held collision/movement and scrolling-transition persistence, " +
             "41-update charge, " +
             "held/charged standing/walking body, child-item Z/layer rendering, charged palette cadence, " +
-            "12-update wall poke/clinks with 8-update INTERAC_CLINK sprites, 23-update swordspin, " +
+            "12-update wall/enemy pokes with enemy-contact retraction and 8-update INTERAC_CLINK sprites, 23-update swordspin, " +
             "shared-RNG slash sounds, blocked-restart RNG preservation, exact grass/bush debris, " +
             "and all 24 swordArcData hitboxes.");
     }

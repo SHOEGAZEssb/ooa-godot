@@ -25,6 +25,7 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     public bool BlockHorizontalMovement { get; set; }
     public bool BlockVerticalMovement { get; set; }
     public int SwordHitCalls { get; private set; }
+    public bool AcceptSwordHits { get; set; }
     public int LastSwordDamage { get; private set; }
     public int ExpertTileHitCalls { get; private set; }
     public int SwordBeamCalls { get; private set; }
@@ -35,7 +36,7 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     {
         SwordHitCalls++;
         LastSwordDamage = player.SwordDamage;
-        return false;
+        return AcceptSwordHits;
     }
 
     public bool ApplySwordTileHit(Player player, int direction, bool swordPoke) => false;

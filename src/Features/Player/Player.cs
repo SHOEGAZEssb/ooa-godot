@@ -153,6 +153,8 @@ public partial class Player : Node2D
     private bool _sideScrollClimbing;
     private int _topDownAirZFixed;
     private int _topDownAirSpeedZ;
+    private int _topDownAirAngle = 0xff;
+    private int _topDownAirSpeedRaw;
     private int _topDownAirAnimationPhase;
     private int _topDownAirAnimationCounter;
     private bool _topDownAirborne;
@@ -180,6 +182,7 @@ public partial class Player : Node2D
     private int _swordStateFrame;
     private int _swordChargeCounter;
     private int _currentSwordDamage;
+    private bool _swordPokeReturnsToHeld;
     private bool _doubleEdgedDamagePending;
     private int _heartRingDistanceFixed;
     private int _activeTransformation;
@@ -3182,6 +3185,11 @@ public partial class Player : Node2D
         _topDownAirUpdateAccumulator = 0.0;
         _topDownAirZFixed = 0;
         _topDownAirSpeedZ = parameters.JumpSpeedZ;
+        // linkUpdateInAir's @startedJump branch normalizes wActiveTileType,
+        // snapshots wLinkAngle at SPEED_100, and then advances that stored
+        // trajectory even if a later parent item immobilizes Link.
+        _topDownAirAngle = AngleForVector(_lastMovementInput);
+        _topDownAirSpeedRaw = NormalTopDownSpeed;
         _topDownAirAnimationPhase = 0;
         _topDownAirAnimationCounter =
             parameters.AnimationPhaseDurations[0];
@@ -3207,18 +3215,24 @@ public partial class Player : Node2D
         {
             _topDownAirUpdateAccumulator -= 1.0;
             AdvanceTopDownAirUpdate();
+            if (_topDownAirborne)
+                AdvanceTopDownAirMomentum();
         }
 
-        _walking = AdvanceTopDownInputMovement(input, movementAllowed);
         if (!_topDownAirborne)
         {
             // A landing calls animateLinkStanding inside linkUpdateInAir, then
             // resumes the ordinary movement path in the same update. Held
             // movement therefore performs the first WALK decrement immediately.
+            _walking = AdvanceTopDownInputMovement(input, movementAllowed);
             if (_walking)
                 AdvanceLinkWalkAnimation();
             else
                 ResetLinkWalkAnimation();
+        }
+        else
+        {
+            _walking = false;
         }
         _pushing = false;
         UpdateHeartRingCounter(_precisePosition - movementStart);
@@ -3249,6 +3263,8 @@ public partial class Player : Node2D
         {
             _topDownAirborne = false;
             _topDownAirSpeedZ = 0;
+            _topDownAirAngle = 0xff;
+            _topDownAirSpeedRaw = 0;
             _topDownAirAnimationPhase = 0;
             _topDownAirAnimationCounter = 0;
             _airborneLinkAnimationMode = AirborneLinkAnimationMode.None;
@@ -3263,22 +3279,39 @@ public partial class Player : Node2D
     }
 
     internal void AdvanceTopDownAirUpdateForValidation(
-        bool startJump = false)
+        bool startJump = false,
+        Vector2 movementInput = default)
     {
         if (_world.SideScrolling)
         {
             throw new InvalidOperationException(
                 "A top-down Link air update was requested in a side-scrolling room.");
         }
+        _lastMovementInput = movementInput;
         if (startJump && !TryStartTopDownJump())
         {
             throw new InvalidOperationException(
                 "The validation top-down jump could not start.");
         }
         if (_topDownAirborne)
+        {
             AdvanceTopDownAirUpdate();
+            if (_topDownAirborne)
+                AdvanceTopDownAirMomentum();
+        }
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         QueueRedraw();
+    }
+
+    private void AdvanceTopDownAirMomentum()
+    {
+        if (_topDownAirAngle >= 0x80 || _topDownAirSpeedRaw == 0)
+            return;
+        ApplyTopDownObjectSpeed(
+            _topDownAirSpeedRaw,
+            _topDownAirAngle,
+            allowWallSlide: true,
+            allowLedgeHop: false);
     }
 
     /// <summary>
@@ -3635,6 +3668,8 @@ public partial class Player : Node2D
         _topDownAirUpdateAccumulator = 0.0;
         _topDownAirZFixed = 0;
         _topDownAirSpeedZ = 0;
+        _topDownAirAngle = 0xff;
+        _topDownAirSpeedRaw = 0;
         _topDownAirAnimationPhase = 0;
         _topDownAirAnimationCounter = 0;
         _topDownAirborne = false;
@@ -4482,7 +4517,8 @@ public partial class Player : Node2D
     private void ApplyTopDownObjectSpeed(
         int speed,
         int angle,
-        bool allowWallSlide)
+        bool allowWallSlide,
+        bool allowLedgeHop = true)
     {
         OracleObjectPosition position =
             OracleObjectMovement.Shared.PositionFromPixels(_precisePosition);
@@ -4504,7 +4540,7 @@ public partial class Player : Node2D
             return;
         }
 
-        if (!IsUsingItem)
+        if (allowLedgeHop && !IsUsingItem)
             _world.TryStartLedgeHop(this, _precisePosition, movement);
     }
 
@@ -4941,6 +4977,7 @@ public partial class Player : Node2D
         _swordChargeCounter = _linkItems.Constants.SwordChargeCounter;
         _swordFrameAccumulator = 0.0;
         _swordButtonAction = buttonAction;
+        _swordPokeReturnsToHeld = false;
         _walking = false;
         int sound = _linkItems.SwordSlashSound(
             _random.Next().Value & 0x07);
@@ -4968,6 +5005,7 @@ public partial class Player : Node2D
         _swordChargeCounter = 0;
         _swordFrameAccumulator = 0.0;
         _swordButtonAction = null;
+        _swordPokeReturnsToHeld = false;
         _currentSwordDamage = 0;
         _doubleEdgedDamagePending = false;
         if (changed)
@@ -5248,7 +5286,11 @@ public partial class Player : Node2D
                 break;
 
             case SwordActionState.Held:
-                ApplySwordCollision();
+                if (ApplySwordCollision())
+                {
+                    TriggerSwordPoke(returnsToHeld: false);
+                    return;
+                }
                 if (CheckSwordPoke(movementInput))
                     return;
                 if (!buttonHeld)
@@ -5272,7 +5314,11 @@ public partial class Player : Node2D
                 break;
 
             case SwordActionState.Charged:
-                ApplySwordCollision();
+                if (ApplySwordCollision())
+                {
+                    TriggerSwordPoke(returnsToHeld: false);
+                    return;
+                }
                 if (CheckSwordPoke(movementInput))
                     return;
                 if (!buttonHeld)
@@ -5286,7 +5332,7 @@ public partial class Player : Node2D
                 if (_swordStateFrame <
                     _linkItems.Constants.SwordPokeFrames)
                     break;
-                if (buttonHeld)
+                if (_swordPokeReturnsToHeld && buttonHeld)
                     EnterSwordHeldState();
                 else
                     CancelSwordAttack();
@@ -5317,6 +5363,7 @@ public partial class Player : Node2D
         _swordState = SwordActionState.Held;
         _swordStateFrame = 0;
         _swordChargeCounter = _linkItems.Constants.SwordChargeCounter;
+        _swordPokeReturnsToHeld = false;
     }
 
     private bool CheckSwordPoke(Vector2 movementInput)
@@ -5324,9 +5371,7 @@ public partial class Player : Node2D
         if (!_world.IsPushingAgainstWall(_precisePosition, FacingVector, movementInput))
             return false;
 
-        _swordState = SwordActionState.Poke;
-        _swordStateFrame = 0;
-        _walking = false;
+        TriggerSwordPoke(returnsToHeld: true);
         _world.ApplySwordTileHit(this, (int)_facing * 2, swordPoke: true);
         return true;
     }
@@ -5336,8 +5381,14 @@ public partial class Player : Node2D
         // ENERGY_RING branches directly to @triggerSwordPoke after attempting
         // to allocate ITEM_SWORD_BEAM. It does so even when the one-beam
         // object cap prevents allocation, and does not play the charge sound.
+        TriggerSwordPoke(returnsToHeld: false);
+    }
+
+    private void TriggerSwordPoke(bool returnsToHeld)
+    {
         _swordState = SwordActionState.Poke;
         _swordStateFrame = 0;
+        _swordPokeReturnsToHeld = returnsToHeld;
         _walking = false;
     }
 
@@ -5364,17 +5415,22 @@ public partial class Player : Node2D
         ApplySwordCollision();
     }
 
-    private void ApplySwordCollision()
+    private bool ApplySwordCollision()
     {
         Rect2 hitbox = GetSwordHitbox();
-        if (hitbox.Size == Vector2.Zero || !_world.ApplySwordHit(this, hitbox) ||
-            !_doubleEdgedDamagePending)
-            return;
+        if (hitbox.Size == Vector2.Zero ||
+            !_world.ApplySwordHit(this, hitbox))
+        {
+            return false;
+        }
+        if (!_doubleEdgedDamagePending)
+            return true;
         // swordParent.s applies $f8 (four quarter-hearts) once after the first
         // accepted enemy contact, and clears var3a so later overlap frames do
         // not hurt Link again. The health >= $05 check occurs at swing start.
         ApplyUnmodifiedDamage(4);
         _doubleEdgedDamagePending = false;
+        return true;
     }
 
     private void UpdateHeartRingCounter(Vector2 movement)
